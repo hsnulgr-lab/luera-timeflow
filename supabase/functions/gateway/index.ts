@@ -25,14 +25,18 @@ async function handleInbound(req: Request): Promise<Response> {
     try {
         const body = await req.json();
 
-        // Zorunlu alanlar
-        const { customer_name, customer_phone, date, start_time, end_time, service, user_id } = body;
+        // event_type ve organization_id üst seviyeden, veri payload'dan okunuyor
+        const { event_type, organization_id, payload } = body;
+        const data_source = payload || body;
+
+        const { customer_name, customer_phone, date, start_time, end_time, service, user_id } = data_source;
 
         if (!customer_name || !customer_phone || !date || !start_time || !end_time || !service || !user_id) {
             return new Response(
                 JSON.stringify({
                     error: 'Eksik alan',
                     required: ['customer_name', 'customer_phone', 'date', 'start_time', 'end_time', 'service', 'user_id'],
+                    hint: 'Alanlar body.payload altında veya direkt body içinde olabilir',
                 }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -73,15 +77,15 @@ async function handleInbound(req: Request): Promise<Response> {
                 user_id,
                 customer_name,
                 customer_phone,
-                customer_email: body.customer_email || null,
-                customer_id: body.customer_id || null,
+                customer_email: data_source.customer_email || null,
+                customer_id: data_source.customer_id || null,
                 date,
                 start_time,
                 end_time,
                 service,
-                service_color: body.service_color || '#CCFF00',
-                status: body.status || 'pending',
-                notes: body.notes || '',
+                service_color: data_source.service_color || '#CCFF00',
+                status: data_source.status || 'pending',
+                notes: data_source.notes || '',
             })
             .select()
             .single();
@@ -95,7 +99,7 @@ async function handleInbound(req: Request): Promise<Response> {
         }
 
         return new Response(
-            JSON.stringify({ success: true, reservation: data }),
+            JSON.stringify({ success: true, event_type, organization_id, reservation: data }),
             { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     } catch (err) {
