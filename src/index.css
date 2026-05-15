@@ -1,0 +1,219 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Premium Purple-Indigo Theme - Matching LeadFlow */
+    --background: 240 20% 98%;
+    --foreground: 240 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+    --primary: 252 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 10% 96%;
+    --secondary-foreground: 240 10% 10%;
+    --muted: 240 10% 96%;
+    --muted-foreground: 240 5% 46%;
+    --accent: 172 66% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 10% 90%;
+    --input: 240 10% 90%;
+    --ring: 252 85% 60%;
+    --radius: 0.75rem;
+
+    /* Chart colors */
+    --chart-1: 252 85% 60%;
+    --chart-2: 172 66% 50%;
+    --chart-3: 340 75% 55%;
+    --chart-4: 43 90% 55%;
+    --chart-5: 200 80% 50%;
+
+    /* Gradient variables */
+    --gradient-primary: linear-gradient(135deg, hsl(252, 85%, 60%) 0%, hsl(280, 80%, 55%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(172, 66%, 50%) 0%, hsl(190, 70%, 45%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142, 70%, 45%) 0%, hsl(160, 65%, 40%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(43, 90%, 55%) 0%, hsl(30, 85%, 50%) 100%);
+    --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 252 85% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 10% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 172 66% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 10% 20%;
+    --input: 240 10% 20%;
+    --ring: 252 85% 65%;
+
+    --chart-1: 252 85% 65%;
+    --chart-2: 172 66% 55%;
+    --chart-3: 340 75% 60%;
+    --chart-4: 43 90% 60%;
+    --chart-5: 200 80% 55%;
+
+    --gradient-card: linear-gradient(145deg, rgba(30, 30, 40, 0.9) 0%, rgba(20, 20, 30, 0.8) 100%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+/* Premium Glass Card */
+.glass-card {
+  @apply bg-white/90 backdrop-blur-xl border border-white/30 shadow-lg rounded-2xl;
+  background: var(--gradient-card);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  box-shadow:
+    0 8px 12px -2px rgba(0, 0, 0, 0.08),
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  transform: translateY(-2px);
+}
+
+/* Gradient Button */
+.btn-gradient {
+  background: var(--gradient-primary);
+  @apply text-white font-medium shadow-lg;
+  box-shadow: 0 4px 14px 0 rgba(124, 58, 237, 0.39);
+  transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+  box-shadow: 0 6px 20px 0 rgba(124, 58, 237, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Animated counter */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-count {
+  animation: countUp 0.6s ease-out forwards;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--background)) 50%,
+      hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  @apply rounded-lg;
+}
+
+/* Glow effect for primary elements */
+.glow-primary {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease-out;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Calendar styles */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+/* Status colors */
+.status-pending {
+  @apply bg-amber-100 text-amber-700 border-amber-200;
+}
+
+.status-confirmed {
+  @apply bg-emerald-100 text-emerald-700 border-emerald-200;
+}
+
+.status-cancelled {
+  @apply bg-red-100 text-red-700 border-red-200;
+}
+
+.status-completed {
+  @apply bg-blue-100 text-blue-700 border-blue-200;
+}
