@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-timeflow-key',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -25,26 +25,56 @@ async function handleInbound(req: Request): Promise<Response> {
     try {
         const body = await req.json();
 
-        // event_type ve organization_id üst seviyeden, veri payload'dan okunuyor
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // API key doğrulama — Authorization header veya body.api_key'den al
+        const authHeader = req.headers.get('authorization') || req.headers.get('x-timeflow-key') || '';
+        const rawKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+        const apiKey = rawKey || body.api_key || '';
+
+        let resolvedUserId: string | null = null;
+
+        if (apiKey) {
+            const { data: conn } = await supabase
+                .from('integration_connections')
+                .select('user_id')
+                .eq('api_key', apiKey)
+                .eq('active', true)
+                .maybeSingle();
+
+            if (conn?.user_id) {
+                resolvedUserId = conn.user_id;
+                // Son kullanım zamanını güncelle
+                await supabase
+                    .from('integration_connections')
+                    .update({ last_used_at: new Date().toISOString() })
+                    .eq('api_key', apiKey);
+            }
+        }
+
         const { event_type, organization_id, payload } = body;
         const data_source = payload || body;
 
-        const { customer_name, customer_phone, date, start_time, end_time, service, user_id } = data_source;
+        const {
+            customer_name, customer_phone, date,
+            start_time, end_time, service,
+        } = data_source;
+
+        // user_id: API key'den çözüldüyse onu kullan, yoksa body'den al
+        const user_id = resolvedUserId || data_source.user_id;
 
         if (!customer_name || !customer_phone || !date || !start_time || !end_time || !service || !user_id) {
             return new Response(
                 JSON.stringify({
                     error: 'Eksik alan',
-                    required: ['customer_name', 'customer_phone', 'date', 'start_time', 'end_time', 'service', 'user_id'],
-                    hint: 'Alanlar body.payload altında veya direkt body içinde olabilir',
+                    required: ['customer_name', 'customer_phone', 'date', 'start_time', 'end_time', 'service'],
+                    hint: apiKey ? 'API key geçerli, user_id otomatik çözüldü' : 'API key yoksa user_id gerekli',
                 }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
         }
-
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         // Çakışma kontrolü
         const { data: conflicts } = await supabase
@@ -55,11 +85,11 @@ async function handleInbound(req: Request): Promise<Response> {
             .neq('status', 'cancelled');
 
         const newStart = timeToMinutes(start_time);
-        const newEnd = timeToMinutes(end_time);
+        const newEnd   = timeToMinutes(end_time);
 
         const conflict = (conflicts || []).find((r: any) => {
             const rStart = timeToMinutes(r.start_time.slice(0, 5));
-            const rEnd = timeToMinutes(r.end_time.slice(0, 5));
+            const rEnd   = timeToMinutes(r.end_time.slice(0, 5));
             return newStart < rEnd && rStart < newEnd;
         });
 
@@ -77,15 +107,15 @@ async function handleInbound(req: Request): Promise<Response> {
                 user_id,
                 customer_name,
                 customer_phone,
-                customer_email: data_source.customer_email || null,
-                customer_id: data_source.customer_id || null,
+                customer_email:  data_source.customer_email  || null,
+                customer_id:     data_source.customer_id     || null,
                 date,
                 start_time,
                 end_time,
                 service,
-                service_color: data_source.service_color || '#CCFF00',
-                status: data_source.status || 'pending',
-                notes: data_source.notes || '',
+                service_color:   data_source.service_color   || '#CCFF00',
+                status:          data_source.status          || 'pending',
+                notes:           data_source.notes           || '',
             })
             .select()
             .single();
