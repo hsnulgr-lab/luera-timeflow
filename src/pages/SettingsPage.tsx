@@ -1,12 +1,282 @@
-import { useState } from 'react';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import type { Service, WorkingHours } from '@/types';
+import {
+    getMyKey, generateMyKey, revokeMyKey,
+    getIncomingKey, saveIncomingKey, testConnection,
+    type IntegrationModule, type IntegrationConnection,
+} from '@/services/integrationApi';
+
+/* ─────────────────────────── IntegrationCard ─────────────────────────── */
+
+interface IntegrationCardProps {
+    module: IntegrationModule;
+    label: string;
+    description: string;
+    Icon: React.ElementType;
+}
+
+function IntegrationCard({ module, label, description, Icon }: IntegrationCardProps) {
+    const [myKey, setMyKey]             = useState<IntegrationConnection | null>(null);
+    const [myKeyLoading, setMyKeyLoading] = useState(true);
+    const [myKeyVisible, setMyKeyVisible] = useState(false);
+    const [myKeyCopied, setMyKeyCopied]   = useState(false);
+    const [generating, setGenerating]     = useState(false);
+    const [revoking, setRevoking]         = useState(false);
+    const [myKeyError, setMyKeyError]     = useState<string | null>(null);
+
+    const [incomingKey, setIncomingKey]   = useState('');
+    const [incomingSaved, setIncomingSaved] = useState('');
+    const [savingIncoming, setSavingIncoming] = useState(false);
+    const [testing, setTesting]           = useState(false);
+    const [testResult, setTestResult]     = useState<boolean | null>(null);
+    const [incomingError, setIncomingError] = useState<string | null>(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const [key, incoming] = await Promise.all([getMyKey(module), getIncomingKey(module)]);
+                setMyKey(key);
+                setIncomingKey(incoming ?? '');
+                setIncomingSaved(incoming ?? '');
+            } catch {
+                setMyKeyError('Bağlantı bilgileri yüklenemedi.');
+            } finally {
+                setMyKeyLoading(false);
+            }
+        })();
+    }, [module]);
+
+    const handleGenerate = async () => {
+        setGenerating(true);
+        setMyKeyError(null);
+        try {
+            const key = await generateMyKey(module);
+            setMyKey(key);
+            setMyKeyVisible(true);
+        } catch (e: any) {
+            setMyKeyError(`Key oluşturulamadı: ${e?.message ?? 'bilinmeyen hata'}`);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleRevoke = async () => {
+        if (!confirm('Bu API key\'i iptal etmek istediğinizden emin misiniz?')) return;
+        setRevoking(true);
+        try {
+            await revokeMyKey(module);
+            setMyKey(null);
+            setMyKeyVisible(false);
+        } catch {
+            setMyKeyError('Key iptal edilemedi.');
+        } finally {
+            setRevoking(false);
+        }
+    };
+
+    const handleCopy = () => {
+        if (!myKey?.api_key) return;
+        navigator.clipboard.writeText(myKey.api_key);
+        setMyKeyCopied(true);
+        setTimeout(() => setMyKeyCopied(false), 2000);
+    };
+
+    const handleSaveIncoming = async () => {
+        setSavingIncoming(true);
+        setIncomingError(null);
+        setTestResult(null);
+        try {
+            await saveIncomingKey(module, incomingKey);
+            setIncomingSaved(incomingKey);
+        } catch {
+            setIncomingError('Key kaydedilemedi.');
+        } finally {
+            setSavingIncoming(false);
+        }
+    };
+
+    const handleTest = async () => {
+        if (!incomingKey) return;
+        setTesting(true);
+        setTestResult(null);
+        const ok = await testConnection(incomingKey);
+        setTestResult(ok);
+        setTesting(false);
+    };
+
+    const isConnected = !!incomingSaved;
+    const isDirty = incomingKey !== incomingSaved;
+
+    return (
+        <div className={cn(
+            'rounded-2xl border-2 p-5 transition-all space-y-5',
+            isConnected ? 'border-[#CCFF00]/50 bg-[#CCFF00]/5' : 'border-gray-200 bg-white',
+        )}>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', isConnected ? 'bg-slate-900' : 'bg-gray-100')}>
+                        <Icon className={cn('w-5 h-5', isConnected ? 'text-[#CCFF00]' : 'text-gray-400')} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-gray-900">LUERA {label}</p>
+                        <p className="text-xs text-gray-500">{description}</p>
+                    </div>
+                </div>
+                {isConnected && (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Bağlı
+                    </span>
+                )}
+            </div>
+
+            {/* Section A: Bu modülün key'i */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Key className="w-4 h-4 text-gray-400" />
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">TimeFlow API Key</p>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                    Bu key'i {label} ayarlarına girerek bağlantıyı etkinleştir.
+                </p>
+
+                {myKeyLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    </div>
+                ) : myKey ? (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                            <code className="flex-1 text-xs font-mono text-gray-700 truncate select-all">
+                                {myKeyVisible
+                                    ? myKey.api_key
+                                    : `${myKey.api_key.slice(0, 8)}${'•'.repeat(20)}${myKey.api_key.slice(-4)}`}
+                            </code>
+                            <button
+                                onClick={() => setMyKeyVisible(v => !v)}
+                                className="text-[10px] font-bold text-gray-500 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-200 transition-colors flex-shrink-0"
+                            >
+                                {myKeyVisible ? 'Gizle' : 'Göster'}
+                            </button>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleCopy}
+                                className={cn(
+                                    'flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all',
+                                    myKeyCopied ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-[#CCFF00] hover:bg-slate-700',
+                                )}
+                            >
+                                {myKeyCopied ? <><CheckCircle2 className="w-3.5 h-3.5" /> Kopyalandı</> : <><Copy className="w-3.5 h-3.5" /> Kopyala</>}
+                            </button>
+                            <button
+                                onClick={handleGenerate}
+                                disabled={generating}
+                                title="Yeni key üret"
+                                className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw className={cn('w-3.5 h-3.5', generating && 'animate-spin')} />
+                            </button>
+                            <button
+                                onClick={handleRevoke}
+                                disabled={revoking}
+                                title="Key'i iptal et"
+                                className="px-3 py-2 rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                            Oluşturulma: {new Date(myKey.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                    </div>
+                ) : (
+                    <button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-slate-900 text-[#CCFF00] font-bold text-xs hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        {generating
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Oluşturuluyor...</>
+                            : <><Key className="w-3.5 h-3.5" /> API Key Oluştur</>}
+                    </button>
+                )}
+                {myKeyError && <p className="text-xs text-red-500 mt-2">{myKeyError}</p>}
+            </div>
+
+            {/* Section B: Diğer modülün key'i */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{label} API Key</p>
+                <p className="text-xs text-gray-500 mb-3">
+                    {label} → Ayarlar → Entegrasyonlar sayfasından kopyala.
+                </p>
+                <input
+                    type="text"
+                    value={incomingKey}
+                    onChange={e => { setIncomingKey(e.target.value); setTestResult(null); }}
+                    placeholder="API key yapıştır..."
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 font-mono text-xs focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/20 outline-none"
+                />
+                <div className="flex gap-2 mt-2">
+                    <button
+                        onClick={handleSaveIncoming}
+                        disabled={savingIncoming || !isDirty}
+                        className="flex-1 py-2 rounded-lg bg-[#CCFF00] text-slate-900 font-bold text-xs hover:bg-[#d4ff33] transition-colors disabled:opacity-40"
+                    >
+                        {savingIncoming ? 'Kaydediliyor...' : 'Kaydet'}
+                    </button>
+                    <button
+                        onClick={handleTest}
+                        disabled={testing || !incomingKey}
+                        className="px-4 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
+                    >
+                        {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Test Et'}
+                    </button>
+                </div>
+                {testResult !== null && (
+                    <p className={cn('text-xs mt-2 font-medium', testResult ? 'text-emerald-600' : 'text-red-500')}>
+                        {testResult ? '✓ Bağlantı başarılı' : '✗ Bağlantı kurulamadı — key\'i kontrol edin'}
+                    </p>
+                )}
+                {incomingError && <p className="text-xs text-red-500 mt-2">{incomingError}</p>}
+            </div>
+        </div>
+    );
+}
+
+function IntegrationsTab() {
+    return (
+        <div className="space-y-5">
+            <h3 className="text-base font-bold text-gray-900">Entegrasyonlar</h3>
+            <p className="text-xs text-gray-500">
+                Her entegrasyon için iki adım: <strong>TimeFlow API Key</strong>'ini diğer modüle gir,
+                diğer modülün key'ini buraya yapıştır.
+            </p>
+            <IntegrationCard
+                module="leadflow"
+                label="LeadFlow"
+                description="Lead bilgileri otomatik randevuya dönüşür"
+                Icon={Zap}
+            />
+            <IntegrationCard
+                module="callflow"
+                label="CallFlow"
+                description="Çağrı sonrası randevu oluşturulur"
+                Icon={Phone}
+            />
+        </div>
+    );
+}
+
+/* ─────────────────────────── SettingsPage ─────────────────────────────── */
 
 export const SettingsPage = () => {
     const { settings, updateSettings } = useReservations();
-    const [activeTab, setActiveTab] = useState<'general' | 'hours' | 'services' | 'webhooks'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'hours' | 'services' | 'webhooks' | 'integrations'>('general');
     const [businessName, setBusinessName] = useState(settings.businessName);
     const [workingHours, setWorkingHours] = useState(settings.workingHours);
     const [services, setServices] = useState(settings.services);
@@ -52,6 +322,7 @@ export const SettingsPage = () => {
         { id: 'hours' as const, label: 'Çalışma Saatleri', icon: Clock },
         { id: 'services' as const, label: 'Hizmetler', icon: Palette },
         { id: 'webhooks' as const, label: 'Webhook', icon: Globe },
+        { id: 'integrations' as const, label: 'Entegrasyonlar', icon: Puzzle },
     ];
 
     return (
@@ -227,6 +498,11 @@ export const SettingsPage = () => {
                                 ))}
                             </div>
                         </div>
+                    )}
+
+                    {/* Integrations */}
+                    {activeTab === 'integrations' && (
+                        <IntegrationsTab />
                     )}
 
                     {/* Webhooks */}
