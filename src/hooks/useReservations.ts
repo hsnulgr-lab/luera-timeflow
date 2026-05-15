@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 import type { Reservation, Settings, Service } from '@/types';
 
 const defaultServices: Service[] = [
@@ -26,204 +24,65 @@ const defaultSettings: Settings = {
     slotDuration: 30,
 };
 
-// Convert "HH:MM" to total minutes for time comparison
+const LS_RESERVATIONS = 'luera_reservations';
+const LS_SETTINGS = 'luera_settings';
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function saveToStorage<T>(key: string, value: T) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
 function timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
 }
 
-// Map DB row to frontend Reservation type
-function mapDbReservation(row: any): Reservation {
-    return {
-        id: row.id,
-        customerId: row.customer_id || '',
-        customerName: row.customer_name,
-        customerPhone: row.customer_phone,
-        customerEmail: row.customer_email || undefined,
-        date: row.date,
-        startTime: row.start_time?.slice(0, 5) || row.start_time,
-        endTime: row.end_time?.slice(0, 5) || row.end_time,
-        service: row.service,
-        serviceColor: row.service_color || '#CCFF00',
-        status: row.status,
-        notes: row.notes || '',
-        createdAt: row.created_at,
-        updatedAt: row.updated_at || undefined,
-    };
+function generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export function useReservations() {
-    const { user } = useAuth();
-    const [reservations, setReservations] = useState<Reservation[]>([]);
-    const [settings, setSettings] = useState<Settings>(defaultSettings);
-    const [isLoading, setIsLoading] = useState(true);
+    const [reservations, setReservations] = useState<Reservation[]>(() =>
+        loadFromStorage<Reservation[]>(LS_RESERVATIONS, [])
+    );
+    const [settings, setSettings] = useState<Settings>(() =>
+        loadFromStorage<Settings>(LS_SETTINGS, defaultSettings)
+    );
+    const [isLoading] = useState(false);
 
-    // Fetch reservations from Supabase
-    const fetchReservations = useCallback(async () => {
-        if (!user) return;
-        setIsLoading(true);
-        const { data, error } = await supabase
-            .from('reservations')
-            .select('*')
-            .order('date', { ascending: false })
-            .order('start_time', { ascending: true });
-
-        if (error) {
-            console.error('Error fetching reservations:', error);
-        } else {
-            setReservations((data || []).map(mapDbReservation));
-        }
-        setIsLoading(false);
-    }, [user]);
-
-    // Fetch settings + services from Supabase
-    const fetchSettings = useCallback(async () => {
-        if (!user) return;
-
-        // Fetch settings
-        const { data: settingsData } = await supabase
-            .from('settings')
-            .select('*')
-            .single();
-
-        // Fetch services
-        const { data: servicesData } = await supabase
-            .from('services')
-            .select('*')
-            .order('created_at');
-
-        const allServices: Service[] = (servicesData || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            duration: s.duration,
-            color: s.color,
-            price: s.price ? Number(s.price) : undefined,
-        }));
-
-        // Deduplicate by name (in case seeds ran multiple times)
-        const seen = new Set<string>();
-        const services = allServices.filter(s => {
-            if (seen.has(s.name)) return false;
-            seen.add(s.name);
-            return true;
-        });
-
-        if (settingsData) {
-            setSettings({
-                businessName: settingsData.business_name,
-                workingHours: settingsData.working_hours || defaultSettings.workingHours,
-                services: services.length > 0 ? services : defaultSettings.services,
-                slotDuration: settingsData.slot_duration,
-                webhookUrl: settingsData.webhook_url || undefined,
-            });
-        } else {
-            // Create default settings if none exist
-            await supabase.from('settings').insert({
-                user_id: user.id,
-                business_name: defaultSettings.businessName,
-                slot_duration: defaultSettings.slotDuration,
-                working_hours: defaultSettings.workingHours,
-            });
-
-            // Seed default services
-            if (services.length === 0) {
-                await supabase.from('services').insert(
-                    defaultServices.map(s => ({
-                        user_id: user.id,
-                        name: s.name,
-                        duration: s.duration,
-                        color: s.color,
-                    }))
-                );
-            }
-
-            setSettings({
-                ...defaultSettings,
-                services: services.length > 0 ? services : defaultSettings.services,
-            });
-        }
-    }, [user]);
-
-    // Load data when user is available
     useEffect(() => {
-        if (user) {
-            fetchReservations();
-            fetchSettings();
-        }
-    }, [user, fetchReservations, fetchSettings]);
+        saveToStorage(LS_RESERVATIONS, reservations);
+    }, [reservations]);
+
+    useEffect(() => {
+        saveToStorage(LS_SETTINGS, settings);
+    }, [settings]);
 
     const addReservation = useCallback(async (reservation: Omit<Reservation, 'id' | 'createdAt'>) => {
-        if (!user) return null;
-
-        const { data, error } = await supabase
-            .from('reservations')
-            .insert({
-                user_id: user.id,
-                customer_id: reservation.customerId || null,
-                customer_name: reservation.customerName,
-                customer_phone: reservation.customerPhone,
-                customer_email: reservation.customerEmail || null,
-                date: reservation.date,
-                start_time: reservation.startTime,
-                end_time: reservation.endTime,
-                service: reservation.service,
-                service_color: reservation.serviceColor || '#CCFF00',
-                status: reservation.status || 'pending',
-                notes: reservation.notes || '',
-            })
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error adding reservation:', error);
-            return null;
-        }
-
-        const newRes = mapDbReservation(data);
+        const newRes: Reservation = {
+            ...reservation,
+            id: generateId(),
+            createdAt: new Date().toISOString(),
+        };
         setReservations(prev => [newRes, ...prev]);
         return newRes;
-    }, [user]);
+    }, []);
 
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
-        const dbUpdates: any = { updated_at: new Date().toISOString() };
-
-        if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-        if (updates.customerPhone !== undefined) dbUpdates.customer_phone = updates.customerPhone;
-        if (updates.customerEmail !== undefined) dbUpdates.customer_email = updates.customerEmail;
-        if (updates.date !== undefined) dbUpdates.date = updates.date;
-        if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
-        if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
-        if (updates.service !== undefined) dbUpdates.service = updates.service;
-        if (updates.serviceColor !== undefined) dbUpdates.service_color = updates.serviceColor;
-        if (updates.status !== undefined) dbUpdates.status = updates.status;
-        if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-
-        const { error } = await supabase
-            .from('reservations')
-            .update(dbUpdates)
-            .eq('id', id);
-
-        if (error) {
-            console.error('Error updating reservation:', error);
-            return;
-        }
-
         setReservations(prev =>
             prev.map(r => r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r)
         );
     }, []);
 
     const deleteReservation = useCallback(async (id: string) => {
-        const { error } = await supabase
-            .from('reservations')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            console.error('Error deleting reservation:', error);
-            return;
-        }
-
         setReservations(prev => prev.filter(r => r.id !== id));
     }, []);
 
@@ -233,7 +92,8 @@ export function useReservations() {
 
     const getTodayReservations = useCallback(() => {
         const today = new Date().toISOString().split('T')[0];
-        return reservations.filter(r => r.date === today)
+        return reservations
+            .filter(r => r.date === today)
             .sort((a, b) => a.startTime.localeCompare(b.startTime));
     }, [reservations]);
 
@@ -265,57 +125,9 @@ export function useReservations() {
     }, [reservations]);
 
     const updateSettings = useCallback(async (newSettings: Settings) => {
-        if (!user) return;
+        setSettings(newSettings);
+    }, []);
 
-        // Update settings table
-        const { error: settingsError } = await supabase
-            .from('settings')
-            .upsert({
-                user_id: user.id,
-                business_name: newSettings.businessName,
-                slot_duration: newSettings.slotDuration,
-                working_hours: newSettings.workingHours,
-                webhook_url: newSettings.webhookUrl || null,
-                updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-
-        if (settingsError) {
-            console.error('Error updating settings:', settingsError);
-            return;
-        }
-
-        // Sync services: delete all and re-insert
-        await supabase.from('services').delete().eq('user_id', user.id);
-        if (newSettings.services.length > 0) {
-            await supabase.from('services').insert(
-                newSettings.services.map(s => ({
-                    user_id: user.id,
-                    name: s.name,
-                    duration: s.duration,
-                    color: s.color,
-                    price: s.price || null,
-                }))
-            );
-        }
-
-        // Re-fetch services to get new IDs
-        const { data: servicesData } = await supabase
-            .from('services')
-            .select('*')
-            .order('created_at');
-
-        const updatedServices: Service[] = (servicesData || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            duration: s.duration,
-            color: s.color,
-            price: s.price ? Number(s.price) : undefined,
-        }));
-
-        setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
-    }, [user]);
-
-    // Check for time conflicts
     const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string): Reservation | null => {
         const startMin = timeToMinutes(startTime);
         const endMin = timeToMinutes(endTime);
@@ -328,26 +140,19 @@ export function useReservations() {
             const rStart = timeToMinutes(r.startTime);
             const rEnd = timeToMinutes(r.endTime);
 
-            // Check overlap: two ranges overlap if start1 < end2 AND start2 < end1
             return startMin < rEnd && rStart < endMin;
         });
 
         return conflict || null;
     }, [reservations]);
 
-    // Send webhook notification
     const sendWebhook = useCallback(async (event: string, data: any) => {
         if (!settings.webhookUrl) return;
-
         try {
             await fetch(settings.webhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    event,
-                    timestamp: new Date().toISOString(),
-                    data,
-                }),
+                body: JSON.stringify({ event, timestamp: new Date().toISOString(), data }),
             });
         } catch (err) {
             console.error('Webhook error:', err);
@@ -368,6 +173,6 @@ export function useReservations() {
         updateSettings,
         checkConflict,
         sendWebhook,
-        refetch: fetchReservations,
+        refetch: async () => {},
     };
 }
