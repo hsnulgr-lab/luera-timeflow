@@ -11,17 +11,14 @@ Deno.serve(async (req: Request) => {
         return new Response(null, { headers: corsHeaders });
     }
 
-    const url = new URL(req.url);
-
-    // Route: POST /functions/v1/gateway/inbound
-    if (req.method === 'POST' && url.pathname.endsWith('/inbound')) {
-        return handleInbound(req);
+    if (req.method !== 'POST') {
+        return new Response(
+            JSON.stringify({ error: 'Method Not Allowed', allowed: ['POST'] }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Allow': 'POST, OPTIONS' } }
+        );
     }
 
-    return new Response(
-        JSON.stringify({ error: 'Not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return handleInbound(req);
 });
 
 async function handleInbound(req: Request): Promise<Response> {
