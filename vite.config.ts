@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/supabase': {
-        target: 'https://supabasekong-pcwc808ogsgccgkw4o8sw808.lueratech.com',
+        target: 'https://supabase.timeflow.lueratech.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/supabase/, ''),
         secure: true,
