@@ -116,7 +116,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
         setTesting(false);
     };
 
-    const isConnected = !!incomingSaved;
+    const isConnected = !!myKey || !!incomingSaved;
     const isDirty = incomingKey !== incomingSaved;
 
     return (
