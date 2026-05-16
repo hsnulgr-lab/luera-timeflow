@@ -6,6 +6,7 @@ import type { Service, WorkingHours } from '@/types';
 import {
     getMyKey, generateMyKey, revokeMyKey,
     getIncomingKey, saveIncomingKey, testConnection,
+    getCurrentUserId, buildConnectionString,
     type IntegrationModule, type IntegrationConnection,
 } from '@/services/integrationApi';
 
@@ -20,6 +21,7 @@ interface IntegrationCardProps {
 
 function IntegrationCard({ module, label, description, Icon }: IntegrationCardProps) {
     const [myKey, setMyKey]             = useState<IntegrationConnection | null>(null);
+    const [myUserId, setMyUserId]       = useState<string>('');
     const [myKeyLoading, setMyKeyLoading] = useState(true);
     const [myKeyVisible, setMyKeyVisible] = useState(false);
     const [myKeyCopied, setMyKeyCopied]   = useState(false);
@@ -37,8 +39,13 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
     useEffect(() => {
         (async () => {
             try {
-                const [key, incoming] = await Promise.all([getMyKey(module), getIncomingKey(module)]);
+                const [key, incoming, uid] = await Promise.all([
+                    getMyKey(module),
+                    getIncomingKey(module),
+                    getCurrentUserId(),
+                ]);
                 setMyKey(key);
+                setMyUserId(uid);
                 setIncomingKey(incoming ?? '');
                 setIncomingSaved(incoming ?? '');
             } catch {
@@ -53,8 +60,9 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
         setGenerating(true);
         setMyKeyError(null);
         try {
-            const key = await generateMyKey(module);
+            const [key, uid] = await Promise.all([generateMyKey(module), getCurrentUserId()]);
             setMyKey(key);
+            setMyUserId(uid);
             setMyKeyVisible(true);
         } catch (e: any) {
             setMyKeyError(`Key oluşturulamadı: ${e?.message ?? 'bilinmeyen hata'}`);
@@ -79,7 +87,8 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 
     const handleCopy = () => {
         if (!myKey?.api_key) return;
-        navigator.clipboard.writeText(myKey.api_key);
+        const connStr = buildConnectionString(myKey.api_key, myUserId);
+        navigator.clipboard.writeText(connStr);
         setMyKeyCopied(true);
         setTimeout(() => setMyKeyCopied(false), 2000);
     };
