@@ -87,7 +87,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 
     const handleCopy = () => {
         if (!myKey?.api_key) return;
-        const connStr = buildConnectionString(myKey.api_key, myUserId);
+        const connStr = buildConnectionString(myKey.api_key, myKey.user_id);
         navigator.clipboard.writeText(connStr);
         setMyKeyCopied(true);
         setTimeout(() => setMyKeyCopied(false), 2000);

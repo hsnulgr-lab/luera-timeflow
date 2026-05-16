@@ -4,6 +4,7 @@ export type IntegrationModule = 'leadflow' | 'callflow';
 
 export interface IntegrationConnection {
     id: string;
+    user_id: string;
     module: IntegrationModule;
     api_key: string;
     active: boolean;
@@ -31,7 +32,7 @@ export async function getMyKey(module: IntegrationModule): Promise<IntegrationCo
     const uid = await currentUserId();
     const { data } = await supabase
         .from('integration_connections')
-        .select('id, module, api_key, active, created_at, last_used_at')
+        .select('id, user_id, module, api_key, active, created_at, last_used_at')
         .eq('user_id', uid)
         .eq('module', module)
         .eq('active', true)
@@ -54,7 +55,7 @@ export async function generateMyKey(module: IntegrationModule): Promise<Integrat
     const { data, error } = await supabase
         .from('integration_connections')
         .insert({ user_id: uid, module })
-        .select('id, module, api_key, active, created_at, last_used_at')
+        .select('id, user_id, module, api_key, active, created_at, last_used_at')
         .single();
 
     if (error || !data) throw new Error(error?.message ?? 'Key oluşturulamadı');
