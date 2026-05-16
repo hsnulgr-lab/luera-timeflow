@@ -17,6 +17,15 @@ async function currentUserId(): Promise<string> {
     return user.id;
 }
 
+export async function getCurrentUserId(): Promise<string> {
+    return currentUserId();
+}
+
+/** Kopyalanacak bağlantı string'i: api_key|user_id */
+export function buildConnectionString(apiKey: string, userId: string): string {
+    return `${apiKey}|${userId}`;
+}
+
 /** TimeFlow'un belirtilen modül için ürettiği aktif key'i getir */
 export async function getMyKey(module: IntegrationModule): Promise<IntegrationConnection | null> {
     const uid = await currentUserId();
