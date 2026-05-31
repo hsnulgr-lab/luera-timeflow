@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# n8n workflow files (credential içeriyor)
+n8n/
+
 # Logs
 logs
 *.log
