@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone } from 'lucide-react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle } from 'lucide-react';
+import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import type { Service, WorkingHours } from '@/types';
@@ -285,7 +286,7 @@ function IntegrationsTab() {
 
 export const SettingsPage = () => {
     const { settings, updateSettings } = useReservations();
-    const [activeTab, setActiveTab] = useState<'general' | 'hours' | 'services' | 'webhooks' | 'integrations'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'hours' | 'services' | 'webhooks' | 'integrations' | 'whatsapp'>('general');
     const [businessName, setBusinessName] = useState(settings.businessName);
     const [workingHours, setWorkingHours] = useState(settings.workingHours);
     const [services, setServices] = useState(settings.services);
@@ -331,6 +332,7 @@ export const SettingsPage = () => {
         { id: 'hours' as const, label: 'Çalışma Saatleri', icon: Clock },
         { id: 'services' as const, label: 'Hizmetler', icon: Palette },
         { id: 'webhooks' as const, label: 'Webhook', icon: Globe },
+        { id: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle },
         { id: 'integrations' as const, label: 'Entegrasyonlar', icon: Puzzle },
     ];
 
@@ -507,6 +509,11 @@ export const SettingsPage = () => {
                                 ))}
                             </div>
                         </div>
+                    )}
+
+                    {/* WhatsApp */}
+                    {activeTab === 'whatsapp' && (
+                        <WhatsAppTab />
                     )}
 
                     {/* Integrations */}

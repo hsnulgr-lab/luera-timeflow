@@ -129,6 +129,7 @@ export function useReservations() {
                 services: services.length > 0 ? services : defaultSettings.services,
                 slotDuration: settingsData.slot_duration,
                 webhookUrl: settingsData.webhook_url || undefined,
+                whatsappInstance: settingsData.whatsapp_instance || undefined,
             });
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
@@ -316,6 +317,7 @@ export function useReservations() {
                 slot_duration: newSettings.slotDuration,
                 working_hours: newSettings.workingHours,
                 webhook_url: newSettings.webhookUrl || null,
+                whatsapp_instance: newSettings.whatsappInstance || null,
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
 

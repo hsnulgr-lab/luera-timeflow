@@ -48,6 +48,7 @@ export interface Settings {
     services: Service[];
     webhookUrl?: string;
     slotDuration: number;
+    whatsappInstance?: string;
 }
 
 export type CalendarView = 'month' | 'week' | 'day';
