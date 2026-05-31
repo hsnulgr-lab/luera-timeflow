@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Smartphone, Loader2, CheckCircle2, QrCode, Trash2, RefreshCw, Wifi, WifiOff, MessageCircle } from 'lucide-react';
+import { Smartphone, Loader2, CheckCircle2, QrCode, Trash2, RefreshCw, Wifi, WifiOff, MessageCircle, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
 import { useReservations } from '@/hooks/useReservations';
@@ -17,15 +17,19 @@ type Status = 'idle' | 'creating' | 'qr' | 'connected' | 'checking';
 export function WhatsAppTab() {
     const { settings, orgId, updateSettings } = useReservations();
 
-    const [status, setStatus] = useState<Status>('checking');
-    const [qrCode, setQrCode] = useState<string | null>(null);
-    const [qrExpiry, setQrExpiry] = useState<number>(60);
+    const [status, setStatus]         = useState<Status>('checking');
+    const [qrCode, setQrCode]         = useState<string | null>(null);
+    const [qrExpiry, setQrExpiry]     = useState<number>(60);
+    const [instanceInput, setInstanceInput] = useState('');
+    const [editingName, setEditingName]     = useState(false);
 
     const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
     const qrTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // TimeFlow her org için kendi instance adı: tf-{org_id ilk 8 char}
-    const instanceName = orgId ? `tf-${orgId.slice(0, 8)}` : null;
+    // Kaydedilmiş instance adı ya da önerilen ad
+    const savedInstance   = settings.whatsappInstance || '';
+    const suggestedName   = orgId ? `tf-${orgId.slice(0, 8)}` : 'tf-main';
+    const activeInstance  = savedInstance || instanceInput || suggestedName;
 
     const clearPolling = () => {
         if (pollRef.current)    clearInterval(pollRef.current);
@@ -34,44 +38,41 @@ export function WhatsAppTab() {
 
     // Mount: mevcut bağlantıyı kontrol et
     useEffect(() => {
-        if (!instanceName) return;
-
-        if (settings.whatsappInstance) {
-            getConnectionState(instanceName).then(state => {
+        if (savedInstance) {
+            getConnectionState(savedInstance).then(state => {
                 setStatus(state === 'open' ? 'connected' : 'idle');
             });
         } else {
+            setInstanceInput(suggestedName);
             setStatus('idle');
         }
-
         return clearPolling;
-    }, [instanceName]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // QR bağlantı kurulunca kaydet
-    const onConnected = useCallback(() => {
+    const onConnected = useCallback((instName: string) => {
         clearPolling();
         setStatus('connected');
         setQrCode(null);
-        updateSettings({ ...settings, whatsappInstance: instanceName! });
+        updateSettings({ ...settings, whatsappInstance: instName });
         toast.success('WhatsApp başarıyla bağlandı! 🎉');
-    }, [instanceName, settings, updateSettings]);
+    }, [settings, updateSettings]);
 
     // Bağlantı durumunu poll et
     const startPolling = useCallback((instName: string) => {
         clearPolling();
         pollRef.current = setInterval(async () => {
             const state = await getConnectionState(instName);
-            if (state === 'open') onConnected();
+            if (state === 'open') onConnected(instName);
         }, 3000);
     }, [onConnected]);
 
-    // QR geri sayımı
+    // QR geri sayımı + otomatik yenileme
     const startQrTimer = useCallback((instName: string) => {
         setQrExpiry(60);
         qrTimerRef.current = setInterval(async () => {
             setQrExpiry(prev => {
                 if (prev <= 1) {
-                    // QR süresi doldu — yenile
                     getQRCode(instName).then(qr => {
                         if (qr) { setQrCode(qr); setQrExpiry(60); }
                     });
@@ -84,53 +85,49 @@ export function WhatsAppTab() {
 
     // WhatsApp bağla
     const handleConnect = async () => {
-        if (!instanceName) return;
+        const instName = instanceInput.trim() || suggestedName;
+        if (!instName) return;
+
         setStatus('creating');
         setQrCode(null);
 
-        const created = await createInstance(instanceName);
-        if (!created) {
-            setStatus('idle');
-            toast.error('Instance oluşturulamadı');
-            return;
-        }
-
-        // Kısa bekleme — instance hazırlanıyor
+        // Instance oluştur (409 = zaten var, sorun değil)
+        await createInstance(instName);
         await new Promise(r => setTimeout(r, 1500));
 
-        const qr = await getQRCode(instanceName);
+        const qr = await getQRCode(instName);
         if (!qr) {
             setStatus('idle');
-            toast.error('QR kod alınamadı. Tekrar deneyin.');
+            toast.error('QR kod alınamadı. Instance adını kontrol edin.');
             return;
         }
 
         setQrCode(qr);
         setStatus('qr');
-        startPolling(instanceName);
-        startQrTimer(instanceName);
+        startPolling(instName);
+        startQrTimer(instName);
     };
 
     // QR manuel yenile
     const handleRefreshQR = async () => {
-        if (!instanceName) return;
-        const qr = await getQRCode(instanceName);
+        const instName = savedInstance || instanceInput || suggestedName;
+        const qr = await getQRCode(instName);
         if (qr) { setQrCode(qr); setQrExpiry(60); }
         else toast.error('QR yenilenemedi');
     };
 
     // Bağlantıyı kes
     const handleDisconnect = async () => {
-        if (!instanceName) return;
         clearPolling();
-        await deleteInstance(instanceName);
+        if (savedInstance) await deleteInstance(savedInstance);
         updateSettings({ ...settings, whatsappInstance: undefined });
         setStatus('idle');
         setQrCode(null);
+        setInstanceInput(suggestedName);
         toast.success('WhatsApp bağlantısı kesildi');
     };
 
-    // Örnek mesaj önizlemesi
+    // Önizleme mesajları
     const preview24h = build24hMessage({
         customerName: 'Ahmet Yılmaz',
         startTime: '10:00',
@@ -166,9 +163,7 @@ export function WhatsAppTab() {
             {/* ── Bağlantı Kartı ─────────────────────────────────────────── */}
             <div className={cn(
                 'rounded-2xl border-2 p-5 transition-all',
-                status === 'connected'
-                    ? 'border-emerald-200 bg-emerald-50/50'
-                    : 'border-gray-200 bg-white',
+                status === 'connected' ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-white',
             )}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-5">
@@ -184,17 +179,14 @@ export function WhatsAppTab() {
                             <p className="text-xs text-gray-500">Evolution API üzerinden</p>
                         </div>
                     </div>
-
                     {status === 'connected' && (
                         <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full">
-                            <Wifi className="w-3.5 h-3.5" />
-                            Bağlı
+                            <Wifi className="w-3.5 h-3.5" /> Bağlı
                         </span>
                     )}
                     {status === 'idle' && (
                         <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full">
-                            <WifiOff className="w-3.5 h-3.5" />
-                            Bağlı Değil
+                            <WifiOff className="w-3.5 h-3.5" /> Bağlı Değil
                         </span>
                     )}
                 </div>
@@ -206,15 +198,14 @@ export function WhatsAppTab() {
                             <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                             <div>
                                 <p className="text-sm font-semibold text-gray-900">WhatsApp aktif</p>
-                                <p className="text-xs text-gray-400">Otomatik hatırlatmalar gönderilecek</p>
+                                <p className="text-xs text-gray-400">Instance: <code className="font-mono">{savedInstance}</code></p>
                             </div>
                         </div>
                         <button
                             onClick={handleDisconnect}
                             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-100 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Bağlantıyı Kes
+                            <Trash2 className="w-3.5 h-3.5" /> Bağlantıyı Kes
                         </button>
                     </div>
                 )}
@@ -223,16 +214,13 @@ export function WhatsAppTab() {
                 {status === 'qr' && qrCode && (
                     <div className="space-y-4">
                         <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white border border-gray-200">
-                            {/* QR image */}
                             <img
                                 src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`}
                                 alt="WhatsApp QR Kod"
                                 className="w-52 h-52 rounded-lg"
                             />
-
-                            {/* Geri sayım */}
                             <div className="flex items-center gap-2">
-                                <div className="w-full bg-gray-100 rounded-full h-1.5 w-32">
+                                <div className="w-32 bg-gray-100 rounded-full h-1.5">
                                     <div
                                         className="h-1.5 rounded-full bg-[#CCFF00] transition-all duration-1000"
                                         style={{ width: `${(qrExpiry / 60) * 100}%` }}
@@ -240,18 +228,15 @@ export function WhatsAppTab() {
                                 </div>
                                 <span className="text-xs text-gray-400 tabular-nums w-6">{qrExpiry}s</span>
                             </div>
-
                             <p className="text-xs text-gray-500 text-center">
                                 WhatsApp → Bağlı Cihazlar → Cihaz Ekle → QR kodu okut
                             </p>
                         </div>
-
                         <button
                             onClick={handleRefreshQR}
                             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
                         >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            QR Yenile
+                            <RefreshCw className="w-3.5 h-3.5" /> QR Yenile
                         </button>
                     </div>
                 )}
@@ -267,15 +252,30 @@ export function WhatsAppTab() {
                 {/* ── Bağla butonu ─────────────────────────────────────────── */}
                 {status === 'idle' && (
                     <div className="space-y-3">
+                        {/* Instance adı */}
+                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Evolution API Instance Adı</p>
+                            <input
+                                type="text"
+                                value={instanceInput}
+                                onChange={e => setInstanceInput(e.target.value)}
+                                placeholder="örn: tf-main"
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 font-mono text-sm focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/20 outline-none"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">Evolution API Manager'dan oluşturduğun instance adını gir</p>
+                        </div>
+
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-gray-500 space-y-1">
                             <p className="font-semibold text-gray-700">Nasıl bağlanır?</p>
-                            <p>1. "WhatsApp Bağla" butonuna tıkla</p>
-                            <p>2. QR kodu telefonunda WhatsApp ile okut</p>
-                            <p>3. Bitti — hatırlatmalar o hattan gider</p>
+                            <p>1. Yukarıya instance adını gir (örn: tf-main)</p>
+                            <p>2. "WhatsApp Bağla" butonuna tıkla</p>
+                            <p>3. QR kodu telefonunda WhatsApp ile okut</p>
                         </div>
+
                         <button
                             onClick={handleConnect}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 text-[#CCFF00] font-bold text-sm hover:bg-slate-700 transition-colors"
+                            disabled={!instanceInput.trim()}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 text-[#CCFF00] font-bold text-sm hover:bg-slate-700 transition-colors disabled:opacity-40"
                         >
                             <Smartphone className="w-4 h-4" />
                             WhatsApp Bağla
@@ -290,31 +290,18 @@ export function WhatsAppTab() {
                     <QrCode className="w-4 h-4 text-gray-400" />
                     <h4 className="text-sm font-bold text-gray-700">Gönderilecek Mesajlar</h4>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* 24h */}
                     <div className="rounded-xl bg-[#CCFF00]/5 border border-[#CCFF00]/20 p-3">
-                        <p className="text-[10px] font-bold text-[#7a9900] uppercase tracking-wider mb-2">
-                            24 Saat Önce
-                        </p>
-                        <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">
-                            {preview24h}
-                        </p>
+                        <p className="text-[10px] font-bold text-[#7a9900] uppercase tracking-wider mb-2">24 Saat Önce</p>
+                        <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">{preview24h}</p>
                     </div>
-
-                    {/* 2h */}
                     <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
-                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">
-                            2 Saat Önce
-                        </p>
-                        <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">
-                            {preview2h}
-                        </p>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">2 Saat Önce</p>
+                        <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">{preview2h}</p>
                     </div>
                 </div>
-
                 <p className="text-[11px] text-gray-400">
-                    Mesajlar otomatik gönderilir. n8n üzerinden her 30 dakikada bir kontrol yapılır.
+                    Mesajlar n8n üzerinden her 30 dakikada bir kontrol edilerek otomatik gönderilir.
                 </p>
             </div>
         </div>
