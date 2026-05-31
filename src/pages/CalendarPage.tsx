@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, AlertTriangle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
@@ -17,7 +18,7 @@ const statusConfig: Record<string, { label: string; color: string; dot: string; 
 };
 
 export const CalendarPage = () => {
-    const { reservations, addReservation, settings, getReservationsByDate, checkConflict } = useReservations();
+    const { reservations, addReservation, settings, getReservationsByDate, checkConflict, sendWebhook } = useReservations();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -116,18 +117,18 @@ export const CalendarPage = () => {
         }
     };
 
-    const handleCreateReservation = () => {
+    const handleCreateReservation = async () => {
         if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
 
         // Check for conflicts
         const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime);
         if (conflict) {
-            alert(`Çakışma! ${conflict.customerName} - ${conflict.startTime}/${conflict.endTime} saatinde randevu var.`);
+            toast.error(`Çakışma! ${conflict.customerName} — ${conflict.startTime}/${conflict.endTime} saatinde randevu mevcut.`);
             return;
         }
 
-        addReservation({
-            customerId: undefined as any,
+        const reservation = await addReservation({
+            customerId: '',
             customerName: newRes.customerName,
             customerPhone: newRes.customerPhone,
             customerEmail: newRes.customerEmail,
@@ -140,8 +141,21 @@ export const CalendarPage = () => {
             notes: newRes.notes,
         });
 
-        setShowNewDialog(false);
-        setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '' });
+        if (reservation) {
+            // Webhook tetikle (n8n entegrasyonu)
+            sendWebhook('reservation.created', {
+                id: reservation.id,
+                customerName: reservation.customerName,
+                customerPhone: reservation.customerPhone,
+                date: reservation.date,
+                startTime: reservation.startTime,
+                endTime: reservation.endTime,
+                service: reservation.service,
+            });
+
+            setShowNewDialog(false);
+            setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '' });
+        }
     };
 
     const dayReservations = selectedDate ? getReservationsByDate(selectedDate) : [];

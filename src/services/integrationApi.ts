@@ -12,6 +12,8 @@ export interface IntegrationConnection {
     last_used_at: string | null;
 }
 
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+
 async function currentUserId(): Promise<string> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Oturum açık değil');
@@ -22,10 +24,31 @@ export async function getCurrentUserId(): Promise<string> {
     return currentUserId();
 }
 
+/**
+ * Mevcut kullanıcının organizasyon ID'sini döner.
+ * integration_connections tablosu organization_id NOT NULL olduğu için
+ * her insert'te bu gerekli.
+ */
+async function currentOrgId(): Promise<string> {
+    const uid = await currentUserId();
+    const { data } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('user_id', uid)
+        .limit(1)
+        .maybeSingle();
+    if (!data?.org_id) throw new Error('Organizasyon bulunamadı. Lütfen tekrar giriş yapın.');
+    return data.org_id;
+}
+
+// ─── Connection string ────────────────────────────────────────────────────────
+
 /** Kopyalanacak bağlantı string'i: api_key|user_id */
 export function buildConnectionString(apiKey: string, userId: string): string {
     return `${apiKey}|${userId}`;
 }
+
+// ─── Key yönetimi ─────────────────────────────────────────────────────────────
 
 /** TimeFlow'un belirtilen modül için ürettiği aktif key'i getir */
 export async function getMyKey(module: IntegrationModule): Promise<IntegrationConnection | null> {
@@ -45,6 +68,9 @@ export async function getMyKey(module: IntegrationModule): Promise<IntegrationCo
 /** Yeni key üret — eskiyi pasife al */
 export async function generateMyKey(module: IntegrationModule): Promise<IntegrationConnection> {
     const uid = await currentUserId();
+    const orgId = await currentOrgId();
+
+    // Mevcut aktif key'i pasife al
     await supabase
         .from('integration_connections')
         .update({ active: false })
@@ -52,9 +78,10 @@ export async function generateMyKey(module: IntegrationModule): Promise<Integrat
         .eq('module', module)
         .eq('active', true);
 
+    // Yeni key oluştur (organization_id dahil)
     const { data, error } = await supabase
         .from('integration_connections')
-        .insert({ user_id: uid, module })
+        .insert({ user_id: uid, module, organization_id: orgId })
         .select('id, user_id, module, api_key, active, created_at, last_used_at')
         .single();
 
@@ -72,6 +99,8 @@ export async function revokeMyKey(module: IntegrationModule): Promise<void> {
         .eq('module', module)
         .eq('active', true);
 }
+
+// ─── Karşı modül key yönetimi ─────────────────────────────────────────────────
 
 /** Diğer modülden gelen key'i settings tablosuna kaydet */
 export async function saveIncomingKey(module: IntegrationModule, key: string): Promise<void> {
@@ -95,7 +124,9 @@ export async function getIncomingKey(module: IntegrationModule): Promise<string 
     return (data as Record<string, string | null> | null)?.[col] ?? null;
 }
 
-/** Gateway üzerinden bağlantıyı test et */
+// ─── Bağlantı testi ───────────────────────────────────────────────────────────
+
+/** LUERA Gateway üzerinden bağlantıyı test et */
 export async function testConnection(key: string): Promise<boolean> {
     try {
         const res = await fetch('https://n8n.vps.lueratech.com/webhook/gateway/v1/event', {

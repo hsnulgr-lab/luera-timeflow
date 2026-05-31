@@ -29,23 +29,42 @@ async function handleInbound(req: Request): Promise<Response> {
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // API key doğrulama — Authorization header veya body.api_key'den al
+        // ── API key doğrulama ──────────────────────────────────────────────────
+        // Authorization header, x-timeflow-key header veya body.api_key'den al
         const authHeader = req.headers.get('authorization') || req.headers.get('x-timeflow-key') || '';
         const rawKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-        const apiKey = rawKey || body.api_key || '';
+
+        // Connection string formatı: "api_key|user_id" — sadece api_key kısmını al
+        const apiKeyRaw = rawKey || body.api_key || '';
+        const apiKey = apiKeyRaw.includes('|') ? apiKeyRaw.split('|')[0] : apiKeyRaw;
 
         let resolvedUserId: string | null = null;
+        let resolvedOrgId: string | null = null;
 
         if (apiKey) {
+            // API key ile user_id çöz
             const { data: conn } = await supabase
                 .from('integration_connections')
-                .select('user_id')
+                .select('user_id, organization_id')
                 .eq('api_key', apiKey)
                 .eq('active', true)
                 .maybeSingle();
 
             if (conn?.user_id) {
                 resolvedUserId = conn.user_id;
+                resolvedOrgId = conn.organization_id ?? null;
+
+                // org_id yoksa (eski kayıt) organization_members'dan çöz
+                if (!resolvedOrgId) {
+                    const { data: member } = await supabase
+                        .from('organization_members')
+                        .select('org_id')
+                        .eq('user_id', resolvedUserId)
+                        .limit(1)
+                        .maybeSingle();
+                    resolvedOrgId = member?.org_id ?? null;
+                }
+
                 // Son kullanım zamanını güncelle
                 await supabase
                     .from('integration_connections')
@@ -54,7 +73,7 @@ async function handleInbound(req: Request): Promise<Response> {
             }
         }
 
-        const { event_type, organization_id, payload } = body;
+        const { event_type, payload } = body;
         const data_source = payload || body;
 
         const {
@@ -64,6 +83,21 @@ async function handleInbound(req: Request): Promise<Response> {
 
         // user_id: API key'den çözüldüyse onu kullan, yoksa body'den al
         const user_id = resolvedUserId || data_source.user_id;
+
+        // org_id: API key'den çözüldüyse onu kullan, yoksa body'den al
+        // Connection string'den user_id parse edildiyse onu da dene
+        let organization_id = resolvedOrgId || data_source.organization_id || null;
+
+        // Hâlâ org_id yoksa body'deki user_id üzerinden çöz
+        if (!organization_id && user_id) {
+            const { data: member } = await supabase
+                .from('organization_members')
+                .select('org_id')
+                .eq('user_id', user_id)
+                .limit(1)
+                .maybeSingle();
+            organization_id = member?.org_id ?? null;
+        }
 
         if (!customer_name || !customer_phone || !date || !start_time || !end_time || !service || !user_id) {
             return new Response(
@@ -76,11 +110,18 @@ async function handleInbound(req: Request): Promise<Response> {
             );
         }
 
-        // Çakışma kontrolü
+        if (!organization_id) {
+            return new Response(
+                JSON.stringify({ error: 'Organizasyon bulunamadı', hint: 'API key geçerli bir organizasyona bağlı değil' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        // ── Çakışma kontrolü (organization_id bazlı) ──────────────────────────
         const { data: conflicts } = await supabase
             .from('reservations')
             .select('id, customer_name, start_time, end_time')
-            .eq('user_id', user_id)
+            .eq('organization_id', organization_id)
             .eq('date', date)
             .neq('status', 'cancelled');
 
@@ -100,11 +141,12 @@ async function handleInbound(req: Request): Promise<Response> {
             );
         }
 
-        // Rezervasyon oluştur
+        // ── Rezervasyon oluştur ───────────────────────────────────────────────
         const { data, error } = await supabase
             .from('reservations')
             .insert({
                 user_id,
+                organization_id,
                 customer_name,
                 customer_phone,
                 customer_email:  data_source.customer_email  || null,

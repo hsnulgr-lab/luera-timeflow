@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Reservation, Settings, Service } from '@/types';
@@ -55,7 +56,23 @@ export function useReservations() {
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
+    const [orgId, setOrgId] = useState<string | null>(null);
 
+    // ─── org_id çöz ──────────────────────────────────────────────────────────
+    const fetchOrgId = useCallback(async () => {
+        if (!user) return null;
+        const { data } = await supabase
+            .from('organization_members')
+            .select('org_id')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+        const id = data?.org_id ?? null;
+        setOrgId(id);
+        return id;
+    }, [user]);
+
+    // ─── Rezervasyonları getir ────────────────────────────────────────────────
     const fetchReservations = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
@@ -66,6 +83,7 @@ export function useReservations() {
             .order('start_time', { ascending: true });
 
         if (error) {
+            toast.error('Rezervasyonlar yüklenemedi');
             console.error('Error fetching reservations:', error);
         } else {
             setReservations((data || []).map(mapDbReservation));
@@ -73,8 +91,11 @@ export function useReservations() {
         setIsLoading(false);
     }, [user]);
 
-    const fetchSettings = useCallback(async () => {
+    // ─── Ayarları getir ──────────────────────────────────────────────────────
+    const fetchSettings = useCallback(async (currentOrgId?: string | null) => {
         if (!user) return;
+
+        const resolvedOrgId = currentOrgId ?? orgId;
 
         const { data: settingsData } = await supabase
             .from('settings')
@@ -110,22 +131,28 @@ export function useReservations() {
                 webhookUrl: settingsData.webhook_url || undefined,
             });
         } else {
-            await supabase.from('settings').insert({
-                user_id: user.id,
-                business_name: defaultSettings.businessName,
-                slot_duration: defaultSettings.slotDuration,
-                working_hours: defaultSettings.workingHours,
-            });
+            // Fallback: handle_new_user trigger bu kaydı oluşturur,
+            // ama organizasyon bulunabilirse manuel oluştur
+            if (resolvedOrgId) {
+                await supabase.from('settings').insert({
+                    user_id: user.id,
+                    organization_id: resolvedOrgId,
+                    business_name: defaultSettings.businessName,
+                    slot_duration: defaultSettings.slotDuration,
+                    working_hours: defaultSettings.workingHours,
+                });
 
-            if (services.length === 0) {
-                await supabase.from('services').insert(
-                    defaultServices.map(s => ({
-                        user_id: user.id,
-                        name: s.name,
-                        duration: s.duration,
-                        color: s.color,
-                    }))
-                );
+                if (services.length === 0) {
+                    await supabase.from('services').insert(
+                        defaultServices.map(s => ({
+                            user_id: user.id,
+                            organization_id: resolvedOrgId,
+                            name: s.name,
+                            duration: s.duration,
+                            color: s.color,
+                        }))
+                    );
+                }
             }
 
             setSettings({
@@ -133,22 +160,32 @@ export function useReservations() {
                 services: services.length > 0 ? services : defaultSettings.services,
             });
         }
-    }, [user]);
+    }, [user, orgId]);
 
+    // ─── Yükleme ─────────────────────────────────────────────────────────────
     useEffect(() => {
         if (user) {
-            fetchReservations();
-            fetchSettings();
+            fetchOrgId().then(id => {
+                fetchReservations();
+                fetchSettings(id);
+            });
         }
-    }, [user, fetchReservations, fetchSettings]);
+    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ─── Rezervasyon ekle ────────────────────────────────────────────────────
     const addReservation = useCallback(async (reservation: Omit<Reservation, 'id' | 'createdAt'>) => {
         if (!user) return null;
+
+        if (!orgId) {
+            toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
+            return null;
+        }
 
         const { data, error } = await supabase
             .from('reservations')
             .insert({
                 user_id: user.id,
+                organization_id: orgId,
                 customer_id: reservation.customerId || null,
                 customer_name: reservation.customerName,
                 customer_phone: reservation.customerPhone,
@@ -165,6 +202,7 @@ export function useReservations() {
             .single();
 
         if (error) {
+            toast.error('Rezervasyon oluşturulamadı');
             console.error('Error adding reservation:', error);
             return null;
         }
@@ -172,8 +210,9 @@ export function useReservations() {
         const newRes = mapDbReservation(data);
         setReservations(prev => [newRes, ...prev]);
         return newRes;
-    }, [user]);
+    }, [user, orgId]);
 
+    // ─── Rezervasyon güncelle ────────────────────────────────────────────────
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
         const dbUpdates: any = { updated_at: new Date().toISOString() };
 
@@ -194,6 +233,7 @@ export function useReservations() {
             .eq('id', id);
 
         if (error) {
+            toast.error('Rezervasyon güncellenemedi');
             console.error('Error updating reservation:', error);
             return;
         }
@@ -203,6 +243,7 @@ export function useReservations() {
         );
     }, []);
 
+    // ─── Rezervasyon sil ─────────────────────────────────────────────────────
     const deleteReservation = useCallback(async (id: string) => {
         const { error } = await supabase
             .from('reservations')
@@ -210,6 +251,7 @@ export function useReservations() {
             .eq('id', id);
 
         if (error) {
+            toast.error('Rezervasyon silinemedi');
             console.error('Error deleting reservation:', error);
             return;
         }
@@ -217,6 +259,7 @@ export function useReservations() {
         setReservations(prev => prev.filter(r => r.id !== id));
     }, []);
 
+    // ─── Yardımcı sorgular ───────────────────────────────────────────────────
     const getReservationsByDate = useCallback((date: string) => {
         return reservations.filter(r => r.date === date);
     }, [reservations]);
@@ -255,13 +298,20 @@ export function useReservations() {
         };
     }, [reservations]);
 
+    // ─── Ayarları güncelle ───────────────────────────────────────────────────
     const updateSettings = useCallback(async (newSettings: Settings) => {
         if (!user) return;
+
+        if (!orgId) {
+            toast.error('Organizasyon bilgisi alınamadı');
+            return;
+        }
 
         const { error: settingsError } = await supabase
             .from('settings')
             .upsert({
                 user_id: user.id,
+                organization_id: orgId,
                 business_name: newSettings.businessName,
                 slot_duration: newSettings.slotDuration,
                 working_hours: newSettings.workingHours,
@@ -270,6 +320,7 @@ export function useReservations() {
             }, { onConflict: 'user_id' });
 
         if (settingsError) {
+            toast.error('Ayarlar kaydedilemedi');
             console.error('Error updating settings:', settingsError);
             return;
         }
@@ -279,6 +330,7 @@ export function useReservations() {
             await supabase.from('services').insert(
                 newSettings.services.map(s => ({
                     user_id: user.id,
+                    organization_id: orgId,
                     name: s.name,
                     duration: s.duration,
                     color: s.color,
@@ -301,8 +353,9 @@ export function useReservations() {
         }));
 
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
-    }, [user]);
+    }, [user, orgId]);
 
+    // ─── Çakışma kontrolü ────────────────────────────────────────────────────
     const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string): Reservation | null => {
         const startMin = timeToMinutes(startTime);
         const endMin = timeToMinutes(endTime);
@@ -321,6 +374,7 @@ export function useReservations() {
         return conflict || null;
     }, [reservations]);
 
+    // ─── Webhook gönder ──────────────────────────────────────────────────────
     const sendWebhook = useCallback(async (event: string, data: any) => {
         if (!settings.webhookUrl) return;
         try {
@@ -338,6 +392,7 @@ export function useReservations() {
         reservations,
         settings,
         isLoading,
+        orgId,
         addReservation,
         updateReservation,
         deleteReservation,
