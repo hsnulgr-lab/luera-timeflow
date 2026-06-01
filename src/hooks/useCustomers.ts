@@ -47,6 +47,7 @@ export function useCustomers() {
         const { data, error } = await supabase
             .from('customers')
             .select('*')
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -109,13 +110,27 @@ export function useCustomers() {
             return null;
         }
 
+        // Telefon numarası duplicate kontrolü
+        const normalizedPhone = customer.phone.replace(/\s+/g, '').trim();
+        const { data: existing } = await supabase
+            .from('customers')
+            .select('id, name')
+            .eq('organization_id', orgId)
+            .eq('phone', normalizedPhone)
+            .maybeSingle();
+
+        if (existing) {
+            toast.error(`Bu numara zaten kayıtlı: ${existing.name}`);
+            return null;
+        }
+
         const { data, error } = await supabase
             .from('customers')
             .insert({
                 user_id: user.id,
                 organization_id: orgId,
                 name: customer.name,
-                phone: customer.phone,
+                phone: normalizedPhone,
                 email: customer.email || null,
                 notes: customer.notes || '',
             })
@@ -156,11 +171,11 @@ export function useCustomers() {
         setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     }, []);
 
-    // ─── Müşteri sil ─────────────────────────────────────────────────────────
+    // ─── Müşteri sil (soft delete) ───────────────────────────────────────────
     const deleteCustomer = useCallback(async (id: string) => {
         const { error } = await supabase
             .from('customers')
-            .delete()
+            .update({ is_active: false })
             .eq('id', id);
 
         if (error) {
@@ -170,6 +185,7 @@ export function useCustomers() {
         }
 
         setCustomers(prev => prev.filter(c => c.id !== id));
+        toast.success('Müşteri arşivlendi');
     }, []);
 
     // ─── Arama filtresi ──────────────────────────────────────────────────────

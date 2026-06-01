@@ -8,6 +8,7 @@ import { ReservationsPage } from '@/pages/ReservationsPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { StaffPage } from '@/pages/StaffPage';
 import { Toaster } from 'sonner';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -46,6 +47,7 @@ function App() {
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="staff" element={<StaffPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

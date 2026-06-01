@@ -129,6 +129,7 @@ async function handleInbound(req: Request): Promise<Response> {
         const newEnd   = timeToMinutes(end_time);
 
         const conflict = (conflicts || []).find((r: any) => {
+            if (!r.start_time || !r.end_time) return false;
             const rStart = timeToMinutes(r.start_time.slice(0, 5));
             const rEnd   = timeToMinutes(r.end_time.slice(0, 5));
             return newStart < rEnd && rStart < newEnd;
@@ -141,6 +142,43 @@ async function handleInbound(req: Request): Promise<Response> {
             );
         }
 
+        // ── Müşteri upsert (telefona göre) ───────────────────────────────────
+        let customer_id: string | null = data_source.customer_id || null;
+
+        if (!customer_id) {
+            // Aynı telefon + org'da müşteri var mı?
+            const { data: existingCustomer } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('organization_id', organization_id)
+                .eq('phone', customer_phone)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (existingCustomer?.id) {
+                customer_id = existingCustomer.id;
+                // İsim veya e-posta değiştiyse güncelle
+                await supabase
+                    .from('customers')
+                    .update({ name: customer_name, email: data_source.customer_email || null })
+                    .eq('id', customer_id);
+            } else {
+                // Yeni müşteri oluştur
+                const { data: newCustomer } = await supabase
+                    .from('customers')
+                    .insert({
+                        user_id,
+                        organization_id,
+                        name:  customer_name,
+                        phone: customer_phone,
+                        email: data_source.customer_email || null,
+                    })
+                    .select('id')
+                    .single();
+                customer_id = newCustomer?.id ?? null;
+            }
+        }
+
         // ── Rezervasyon oluştur ───────────────────────────────────────────────
         const { data, error } = await supabase
             .from('reservations')
@@ -150,7 +188,7 @@ async function handleInbound(req: Request): Promise<Response> {
                 customer_name,
                 customer_phone,
                 customer_email:  data_source.customer_email  || null,
-                customer_id:     data_source.customer_id     || null,
+                customer_id,
                 date,
                 start_time,
                 end_time,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, ClipboardList, Users, Settings, ChevronLeft, ChevronRight, LogOut, User, ChevronUp, X, BarChart3 } from 'lucide-react';
+import { Home, Calendar, ClipboardList, Users, Settings, ChevronLeft, ChevronRight, LogOut, User, ChevronUp, X, BarChart3, UserCog } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -22,6 +22,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         { id: '/calendar', label: 'Takvim', icon: Calendar },
         { id: '/reservations', label: 'Rezervasyonlar', icon: ClipboardList },
         { id: '/customers', label: 'Müşteriler', icon: Users },
+        { id: '/staff', label: 'Personel', icon: UserCog },
         { id: '/analytics', label: 'Analiz', icon: BarChart3 },
     ];
 

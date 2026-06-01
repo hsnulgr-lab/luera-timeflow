@@ -15,6 +15,9 @@ export interface Reservation {
     updatedAt?: string;
     reminder24hSent?: boolean;
     reminder2hSent?: boolean;
+    staffId?: string;
+    staffName?: string;
+    staffColor?: string;
 }
 
 export interface Customer {
@@ -51,6 +54,19 @@ export interface Settings {
     webhookUrl?: string;
     slotDuration: number;
     whatsappInstance?: string;
+}
+
+export interface Staff {
+    id: string;
+    organizationId: string;
+    name: string;
+    specialty?: string;
+    phone?: string;
+    email?: string;
+    color: string;
+    workingHours?: WorkingHours[];
+    isActive: boolean;
+    createdAt: string;
 }
 
 export type CalendarView = 'month' | 'week' | 'day';

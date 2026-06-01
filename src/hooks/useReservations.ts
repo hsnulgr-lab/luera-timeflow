@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +50,9 @@ function mapDbReservation(row: any): Reservation {
         updatedAt: row.updated_at || undefined,
         reminder24hSent: row.reminder_24h_sent ?? false,
         reminder2hSent: row.reminder_2h_sent ?? false,
+        staffId: row.staff_id || undefined,
+        staffName: row.staff?.name || undefined,
+        staffColor: row.staff?.color || undefined,
     };
 }
 
@@ -59,6 +62,30 @@ export function useReservations() {
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
     const [orgId, setOrgId] = useState<string | null>(null);
+
+    // Webhook URL'yi ref'te tut — CRUD callback'leri stale closure olmadan erişsin
+    const webhookUrlRef = useRef<string | undefined>(undefined);
+    useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
+
+    // ─── Standart webhook gönderici ──────────────────────────────────────────
+    const fireWebhook = useCallback(async (event: string, payload: object) => {
+        const url = webhookUrlRef.current;
+        if (!url) return;
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event,
+                    source: 'timeflow',
+                    timestamp: new Date().toISOString(),
+                    data: payload,
+                }),
+            });
+        } catch (err) {
+            console.error('Webhook error:', err);
+        }
+    }, []);
 
     // ─── org_id çöz ──────────────────────────────────────────────────────────
     const fetchOrgId = useCallback(async () => {
@@ -80,7 +107,7 @@ export function useReservations() {
         setIsLoading(true);
         const { data, error } = await supabase
             .from('reservations')
-            .select('*')
+            .select('*, staff(name, color)')
             .order('date', { ascending: false })
             .order('start_time', { ascending: true });
 
@@ -200,6 +227,7 @@ export function useReservations() {
                 service_color: reservation.serviceColor || '#CCFF00',
                 status: reservation.status || 'pending',
                 notes: reservation.notes || '',
+                staff_id: reservation.staffId || null,
             })
             .select()
             .single();
@@ -212,8 +240,22 @@ export function useReservations() {
 
         const newRes = mapDbReservation(data);
         setReservations(prev => [newRes, ...prev]);
+        fireWebhook('reservation.created', {
+            id: newRes.id,
+            customer_name:  newRes.customerName,
+            customer_phone: newRes.customerPhone,
+            customer_email: newRes.customerEmail ?? null,
+            date:           newRes.date,
+            start_time:     newRes.startTime,
+            end_time:       newRes.endTime,
+            service:        newRes.service,
+            status:         newRes.status,
+            notes:          newRes.notes ?? '',
+            staff_id:       newRes.staffId ?? null,
+            staff_name:     newRes.staffName ?? null,
+        });
         return newRes;
-    }, [user, orgId]);
+    }, [user, orgId, fireWebhook]);
 
     // ─── Rezervasyon güncelle ────────────────────────────────────────────────
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
@@ -241,10 +283,21 @@ export function useReservations() {
             return;
         }
 
-        setReservations(prev =>
-            prev.map(r => r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r)
-        );
-    }, []);
+        const updated = { ...reservations.find(r => r.id === id)!, ...updates, updatedAt: new Date().toISOString() };
+        setReservations(prev => prev.map(r => r.id === id ? updated : r));
+        fireWebhook('reservation.updated', {
+            id,
+            customer_name:  updated.customerName,
+            customer_phone: updated.customerPhone,
+            date:           updated.date,
+            start_time:     updated.startTime,
+            end_time:       updated.endTime,
+            service:        updated.service,
+            status:         updated.status,
+            notes:          updated.notes ?? '',
+            staff_id:       updated.staffId ?? null,
+        });
+    }, [reservations, fireWebhook]);
 
     // ─── Rezervasyon sil ─────────────────────────────────────────────────────
     const deleteReservation = useCallback(async (id: string) => {
@@ -260,7 +313,8 @@ export function useReservations() {
         }
 
         setReservations(prev => prev.filter(r => r.id !== id));
-    }, []);
+        fireWebhook('reservation.deleted', { id });
+    }, [fireWebhook]);
 
     // ─── Yardımcı sorgular ───────────────────────────────────────────────────
     const getReservationsByDate = useCallback((date: string) => {
@@ -360,7 +414,7 @@ export function useReservations() {
     }, [user, orgId]);
 
     // ─── Çakışma kontrolü ────────────────────────────────────────────────────
-    const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string): Reservation | null => {
+    const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string): Reservation | null => {
         const startMin = timeToMinutes(startTime);
         const endMin = timeToMinutes(endTime);
 
@@ -368,6 +422,8 @@ export function useReservations() {
             if (r.id === excludeId) return false;
             if (r.date !== date) return false;
             if (r.status === 'cancelled') return false;
+            // Personel seçildiyse sadece aynı personelin randevularını kontrol et
+            if (staffId && r.staffId && r.staffId !== staffId) return false;
 
             const rStart = timeToMinutes(r.startTime);
             const rEnd = timeToMinutes(r.endTime);
@@ -378,19 +434,7 @@ export function useReservations() {
         return conflict || null;
     }, [reservations]);
 
-    // ─── Webhook gönder ──────────────────────────────────────────────────────
-    const sendWebhook = useCallback(async (event: string, data: any) => {
-        if (!settings.webhookUrl) return;
-        try {
-            await fetch(settings.webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ event, timestamp: new Date().toISOString(), data }),
-            });
-        } catch (err) {
-            console.error('Webhook error:', err);
-        }
-    }, [settings.webhookUrl]);
+    const sendWebhook = fireWebhook;
 
     return {
         reservations,

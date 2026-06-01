@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, AlertTriangle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
+import { useStaff } from '@/hooks/useStaff';
 import { cn } from '@/utils/cn';
 import type { CalendarView, Reservation } from '@/types';
 
@@ -18,7 +19,9 @@ const statusConfig: Record<string, { label: string; color: string; dot: string; 
 };
 
 export const CalendarPage = () => {
-    const { reservations, addReservation, settings, getReservationsByDate, checkConflict, sendWebhook } = useReservations();
+    const { reservations, addReservation, settings, checkConflict } = useReservations();
+    const { staff } = useStaff();
+    const [staffFilter, setStaffFilter] = useState<string>('all');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -32,6 +35,7 @@ export const CalendarPage = () => {
         startTime: '09:00',
         endTime: '09:30',
         notes: '',
+        staffId: '',
     });
 
     const today = new Date().toISOString().split('T')[0];
@@ -97,8 +101,31 @@ export const CalendarPage = () => {
         });
     }, [currentDate, today]);
 
+    const filteredReservations = useMemo(() =>
+        staffFilter === 'all'
+            ? reservations
+            : reservations.filter(r => r.staffId === staffFilter),
+        [reservations, staffFilter]
+    );
+
+    const selectedStaffMember = useMemo(() =>
+        staffFilter !== 'all' ? staff.find(s => s.id === staffFilter) ?? null : null,
+        [staff, staffFilter]
+    );
+
+    // Personelin o gün o saatte çalışıp çalışmadığını kontrol et
+    const isStaffHourAvailable = useCallback((dateStr: string, hour: number): boolean => {
+        if (!selectedStaffMember?.workingHours?.length) return true;
+        const dayOfWeek = (new Date(dateStr + 'T12:00:00').getDay() + 6) % 7; // 0=Pzt … 6=Paz
+        const dayHours = selectedStaffMember.workingHours.find(wh => wh.day === dayOfWeek);
+        if (!dayHours || dayHours.isOff) return false;
+        const startH = parseInt(dayHours.start.split(':')[0]);
+        const endH   = parseInt(dayHours.end.split(':')[0]);
+        return hour >= startH && hour < endH;
+    }, [selectedStaffMember]);
+
     const getDateCount = (date: string) => {
-        return reservations.filter(r => r.date === date && r.status !== 'cancelled').length;
+        return filteredReservations.filter(r => r.date === date && r.status !== 'cancelled').length;
     };
 
     const navigate = (dir: number) => {
@@ -121,12 +148,13 @@ export const CalendarPage = () => {
         if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
 
         // Check for conflicts
-        const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime);
+        const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined);
         if (conflict) {
             toast.error(`Çakışma! ${conflict.customerName} — ${conflict.startTime}/${conflict.endTime} saatinde randevu mevcut.`);
             return;
         }
 
+        const selectedStaff = staff.find(s => s.id === newRes.staffId);
         const reservation = await addReservation({
             customerId: '',
             customerName: newRes.customerName,
@@ -139,28 +167,20 @@ export const CalendarPage = () => {
             serviceColor: settings.services.find(s => s.name === newRes.service)?.color || '#CCFF00',
             status: 'pending',
             notes: newRes.notes,
+            staffId: newRes.staffId || undefined,
+            staffName: selectedStaff?.name,
+            staffColor: selectedStaff?.color,
         });
 
         if (reservation) {
-            // Webhook tetikle (n8n entegrasyonu)
-            sendWebhook('reservation.created', {
-                id: reservation.id,
-                customerName: reservation.customerName,
-                customerPhone: reservation.customerPhone,
-                date: reservation.date,
-                startTime: reservation.startTime,
-                endTime: reservation.endTime,
-                service: reservation.service,
-            });
-
             setShowNewDialog(false);
-            setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '' });
+            setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
         }
     };
 
-    const dayReservations = selectedDate ? getReservationsByDate(selectedDate) : [];
+    const dayReservations = selectedDate ? filteredReservations.filter(r => r.date === selectedDate) : [];
 
-    const todayCount = reservations.filter(r => r.date === today && r.status !== 'cancelled').length;
+    const todayCount = filteredReservations.filter(r => r.date === today && r.status !== 'cancelled').length;
     const weekTotal = weekDays.reduce((sum, d) => sum + getDateCount(d.date), 0);
 
     return (
@@ -223,7 +243,21 @@ export const CalendarPage = () => {
                                 ))}
                             </div>
 
-                            <button
+                            {/* Personel filtresi */}
+                        {staff.length > 0 && (
+                            <select
+                                value={staffFilter}
+                                onChange={e => setStaffFilter(e.target.value)}
+                                className="px-3 py-2.5 rounded-xl border border-gray-200/70 bg-white/80 text-sm font-medium text-gray-700 focus:border-[#CCFF00] outline-none"
+                            >
+                                <option value="all">Tüm Personel</option>
+                                {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        )}
+
+                        <button
                                 onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
                                 className="relative group flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#CCFF00] via-[#d4ff33] to-[#b8e600] text-slate-900 shadow-lg shadow-[#CCFF00]/20 hover:shadow-xl hover:shadow-[#CCFF00]/30 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
                             >
@@ -303,7 +337,7 @@ export const CalendarPage = () => {
                                 const isToday = date === today;
                                 const dayOfWeek = idx % 7;
                                 const isWeekend = dayOfWeek >= 5;
-                                const dateReservations = reservations.filter(r => r.date === date && r.status !== 'cancelled');
+                                const dateReservations = filteredReservations.filter(r => r.date === date && r.status !== 'cancelled');
 
                                 return (
                                     <button
@@ -389,16 +423,19 @@ export const CalendarPage = () => {
                                     <span className="text-[11px] font-bold text-gray-300 tabular-nums">{String(hour).padStart(2, '0')}:00</span>
                                 </div>
                                 {weekDays.map((d) => {
-                                    const hourRes = reservations.filter(r =>
+                                    const hourRes = filteredReservations.filter(r =>
                                         r.date === d.date && parseInt(r.startTime.split(':')[0]) === hour && r.status !== 'cancelled'
                                     );
+                                    const available = isStaffHourAvailable(d.date, hour);
                                     return (
                                         <div key={d.date + hour}
                                             className={cn(
-                                                "border-r border-gray-50 p-1 min-h-[56px] cursor-pointer transition-all duration-200",
-                                                d.isToday ? "bg-[#CCFF00]/[0.03] hover:bg-[#CCFF00]/[0.08]" : "hover:bg-gray-50",
+                                                "border-r border-gray-50 p-1 min-h-[56px] transition-all duration-200",
+                                                !available
+                                                    ? "bg-gray-100/60 cursor-not-allowed"
+                                                    : cn("cursor-pointer", d.isToday ? "bg-[#CCFF00]/[0.03] hover:bg-[#CCFF00]/[0.08]" : "hover:bg-gray-50"),
                                             )}
-                                            onClick={() => { setSelectedDate(d.date); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
+                                            onClick={() => { if (!available) return; setSelectedDate(d.date); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
                                         >
                                             {hourRes.map((r) => (
                                                 <div key={r.id}
@@ -434,25 +471,28 @@ export const CalendarPage = () => {
                                     <span className="text-sm font-bold text-gray-800">Saat Çizelgesi</span>
                                 </div>
                                 <span className="text-xs text-gray-400 font-medium">
-                                    {reservations.filter(r => r.date === currentDate.toISOString().split('T')[0] && r.status !== 'cancelled').length} randevu
+                                    {filteredReservations.filter(r => r.date === currentDate.toISOString().split('T')[0] && r.status !== 'cancelled').length} randevu
                                 </span>
                             </div>
                             <div className="divide-y divide-gray-50">
                                 {HOURS.map((hour) => {
                                     const dateStr = currentDate.toISOString().split('T')[0];
-                                    const hourRes = reservations.filter(r =>
+                                    const hourRes = filteredReservations.filter(r =>
                                         r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour && r.status !== 'cancelled'
                                     );
                                     const now = new Date();
                                     const isCurrentHour = dateStr === today && now.getHours() === hour;
+                                    const available = isStaffHourAvailable(dateStr, hour);
 
                                     return (
                                         <div key={hour}
                                             className={cn(
-                                                "flex items-stretch min-h-[68px] transition-all duration-200 cursor-pointer group",
-                                                isCurrentHour ? "bg-[#CCFF00]/[0.06]" : "hover:bg-gray-50/70",
+                                                "flex items-stretch min-h-[68px] transition-all duration-200",
+                                                !available
+                                                    ? "bg-gray-100/60 cursor-not-allowed opacity-70"
+                                                    : cn("cursor-pointer group", isCurrentHour ? "bg-[#CCFF00]/[0.06]" : "hover:bg-gray-50/70"),
                                             )}
-                                            onClick={() => { setSelectedDate(dateStr); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
+                                            onClick={() => { if (!available) return; setSelectedDate(dateStr); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
                                         >
                                             <div className="w-20 flex-shrink-0 p-3 border-r border-gray-100 text-right relative">
                                                 {isCurrentHour && <div className="absolute top-1/2 right-0 w-2 h-2 rounded-full bg-[#CCFF00] -translate-y-1/2 translate-x-1 shadow-lg shadow-[#CCFF00]/50" />}
@@ -510,7 +550,7 @@ export const CalendarPage = () => {
 
                                 {(() => {
                                     const dateStr = currentDate.toISOString().split('T')[0];
-                                    const dayRes = reservations.filter(r => r.date === dateStr && r.status !== 'cancelled');
+                                    const dayRes = filteredReservations.filter(r => r.date === dateStr && r.status !== 'cancelled');
                                     const pending = dayRes.filter(r => r.status === 'pending').length;
                                     const confirmed = dayRes.filter(r => r.status === 'confirmed').length;
 
@@ -660,6 +700,42 @@ export const CalendarPage = () => {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Personel seçimi */}
+                                {staff.length > 0 && (
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Personel</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                onClick={() => setNewRes(p => ({ ...p, staffId: '' }))}
+                                                className={cn(
+                                                    "px-3 py-2 rounded-lg text-xs font-bold transition-all border",
+                                                    !newRes.staffId
+                                                        ? "bg-slate-900 text-white border-slate-900"
+                                                        : "border-gray-200 text-gray-400 hover:border-gray-300 bg-gray-50"
+                                                )}
+                                            >
+                                                Fark etmez
+                                            </button>
+                                            {staff.map(s => (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setNewRes(p => ({ ...p, staffId: s.id }))}
+                                                    className={cn(
+                                                        "px-3 py-2 rounded-lg text-xs font-bold transition-all border",
+                                                        newRes.staffId === s.id
+                                                            ? "text-white border-transparent shadow-md"
+                                                            : "border-gray-200 text-gray-400 hover:border-gray-300 bg-gray-50"
+                                                    )}
+                                                    style={newRes.staffId === s.id ? { backgroundColor: s.color, borderColor: s.color } : {}}
+                                                >
+                                                    {s.name}
+                                                    {s.specialty && <span className="ml-1 opacity-70 font-normal">· {s.specialty}</span>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Not (opsiyonel)</label>
