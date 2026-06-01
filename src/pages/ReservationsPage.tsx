@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Filter, CheckCircle2, XCircle, AlertCircle, Clock, Trash2, ChevronDown, Phone, Mail, MoreHorizontal, Edit2 } from 'lucide-react';
+import { Search, Filter, CheckCircle2, XCircle, AlertCircle, Clock, Trash2, ChevronDown, Phone, Mail, MoreHorizontal, Edit2, MessageCircle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
@@ -134,12 +134,29 @@ export const ReservationsPage = () => {
                                         <tr key={res.id} className="border-b border-gray-50 hover:bg-[#CCFF00]/[0.02] transition-colors group">
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
                                                         style={{ backgroundColor: res.serviceColor || '#CCFF00', color: res.serviceColor === '#CCFF00' ? '#000' : '#fff' }}>
                                                         {res.customerName.charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-semibold text-gray-900">{res.customerName}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-semibold text-gray-900">{res.customerName}</p>
+                                                            {/* WhatsApp hatırlatma göstergesi */}
+                                                            {(res.reminder24hSent || res.reminder2hSent) && (
+                                                                <span
+                                                                    title={[
+                                                                        res.reminder24hSent ? '24h hatırlatma gönderildi' : '',
+                                                                        res.reminder2hSent  ? '2h hatırlatma gönderildi'  : '',
+                                                                    ].filter(Boolean).join(' · ')}
+                                                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-600"
+                                                                >
+                                                                    <MessageCircle className="w-3 h-3" />
+                                                                    <span className="text-[10px] font-bold">
+                                                                        {res.reminder24hSent && res.reminder2hSent ? '24h+2h' : res.reminder24hSent ? '24h' : '2h'}
+                                                                    </span>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <div className="flex items-center gap-3 text-[11px] text-gray-400">
                                                             <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{res.customerPhone}</span>
                                                             {res.customerEmail && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{res.customerEmail}</span>}
@@ -186,12 +203,22 @@ export const ReservationsPage = () => {
                                 <div key={res.id} className="p-4 rounded-xl border border-gray-100 hover:border-[#CCFF00]/30 transition-all">
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                                                 style={{ backgroundColor: res.serviceColor || '#CCFF00', color: res.serviceColor === '#CCFF00' ? '#000' : '#fff' }}>
                                                 {res.customerName.charAt(0)}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">{res.customerName}</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="text-sm font-semibold text-gray-900">{res.customerName}</p>
+                                                    {(res.reminder24hSent || res.reminder2hSent) && (
+                                                        <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-emerald-50 border border-emerald-100 text-emerald-600">
+                                                            <MessageCircle className="w-2.5 h-2.5" />
+                                                            <span className="text-[9px] font-bold">
+                                                                {res.reminder24hSent && res.reminder2hSent ? '24h+2h' : res.reminder24hSent ? '24h' : '2h'}
+                                                            </span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className="text-[11px] text-gray-400">{res.customerPhone}</p>
                                             </div>
                                         </div>

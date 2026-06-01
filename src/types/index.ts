@@ -13,6 +13,8 @@ export interface Reservation {
     notes?: string;
     createdAt: string;
     updatedAt?: string;
+    reminder24hSent?: boolean;
+    reminder2hSent?: boolean;
 }
 
 export interface Customer {

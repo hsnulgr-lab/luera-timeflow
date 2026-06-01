@@ -48,6 +48,8 @@ function mapDbReservation(row: any): Reservation {
         notes: row.notes || '',
         createdAt: row.created_at,
         updatedAt: row.updated_at || undefined,
+        reminder24hSent: row.reminder_24h_sent ?? false,
+        reminder2hSent: row.reminder_2h_sent ?? false,
     };
 }
 
