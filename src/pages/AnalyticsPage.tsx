@@ -145,7 +145,8 @@ export const AnalyticsPage = () => {
     const totalServices = analytics.serviceDistribution.reduce((s, d) => s + d.count, 0) || 1;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
@@ -393,6 +394,7 @@ export const AnalyticsPage = () => {
                         ))}
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

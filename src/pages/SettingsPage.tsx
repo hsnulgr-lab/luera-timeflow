@@ -337,7 +337,8 @@ export const SettingsPage = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
@@ -562,6 +563,7 @@ export const SettingsPage = () => {
                         </div>
                     )}
                 </div>
+            </div>
             </div>
         </div>
     );

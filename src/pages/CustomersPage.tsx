@@ -19,10 +19,10 @@ export const CustomersPage = () => {
     const selected = customers.find(c => c.id === selectedCustomer);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6">
-            <div className="max-w-6xl mx-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            <div className="w-full max-w-6xl mx-auto flex-1 min-h-0 flex flex-col p-6">
                 {/* Header */}
-                <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="mb-6 flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
                             <Users className="w-5 h-5 text-[#CCFF00]" />
@@ -42,7 +42,7 @@ export const CustomersPage = () => {
                 </div>
 
                 {/* Search */}
-                <div className="relative mb-6">
+                <div className="relative mb-6 flex-shrink-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                         type="text"
@@ -53,7 +53,7 @@ export const CustomersPage = () => {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto">
                     {/* Customer List */}
                     <div className="lg:col-span-2 rounded-2xl bg-white border border-gray-200/60 shadow-sm overflow-hidden">
                         <div className="divide-y divide-gray-50">

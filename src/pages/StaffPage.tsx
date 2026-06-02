@@ -101,11 +101,11 @@ export const StaffPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6">
-            <div className="max-w-4xl mx-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col p-6">
 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center justify-between mb-8 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
                             <Users className="w-5 h-5 text-[#CCFF00]" />
@@ -122,6 +122,7 @@ export const StaffPage = () => {
                 </div>
 
                 {/* Liste */}
+                <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
                 {isLoading ? (
                     <div className="flex justify-center py-16">
                         <div className="w-8 h-8 rounded-full border-2 border-[#CCFF00]/30 border-t-[#CCFF00] animate-spin" />
@@ -202,6 +203,7 @@ export const StaffPage = () => {
                         ))}
                     </div>
                 )}
+                </div>
             </div>
 
             {/* ── Modal ──────────────────────────────────────────────────── */}

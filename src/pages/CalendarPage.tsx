@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, AlertTriangle } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, Search, Check, Users, ChevronDown } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
+import { useCustomers } from '@/hooks/useCustomers';
 import { cn } from '@/utils/cn';
 import type { CalendarView, Reservation } from '@/types';
 
@@ -21,11 +22,16 @@ const statusConfig: Record<string, { label: string; color: string; dot: string; 
 export const CalendarPage = () => {
     const { reservations, addReservation, settings, checkConflict } = useReservations();
     const { staff } = useStaff();
+    const { allCustomers } = useCustomers();
     const [staffFilter, setStaffFilter] = useState<string>('all');
+    const [staffMenuOpen, setStaffMenuOpen] = useState(false);
+    const staffMenuRef = useRef<HTMLDivElement>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
+    const [customerQuery, setCustomerQuery] = useState('');
+    const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
 
     const [newRes, setNewRes] = useState({
         customerName: '',
@@ -37,6 +43,46 @@ export const CalendarPage = () => {
         notes: '',
         staffId: '',
     });
+
+    // Akıllı müşteri arama — isim veya telefona göre eşleşme
+    const customerMatches = useMemo(() => {
+        const q = customerQuery.trim().toLowerCase();
+        if (!q || customerLocked) return [];
+        return allCustomers
+            .filter(c => c.name.toLowerCase().includes(q) || c.phone.replace(/\s+/g, '').includes(q.replace(/\s+/g, '')))
+            .slice(0, 5);
+    }, [customerQuery, customerLocked, allCustomers]);
+
+    const selectCustomer = (c: { name: string; phone: string; email?: string }) => {
+        setNewRes(p => ({ ...p, customerName: c.name, customerPhone: c.phone, customerEmail: c.email || '' }));
+        setCustomerQuery(c.name);
+        setCustomerLocked(true);
+    };
+
+    const clearCustomer = () => {
+        setNewRes(p => ({ ...p, customerName: '', customerPhone: '', customerEmail: '' }));
+        setCustomerQuery('');
+        setCustomerLocked(false);
+    };
+
+    const closeDialog = () => {
+        setShowNewDialog(false);
+        setCustomerQuery('');
+        setCustomerLocked(false);
+        setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+    };
+
+    // Personel menüsü — dışarı tıklayınca kapan
+    useEffect(() => {
+        if (!staffMenuOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (staffMenuRef.current && !staffMenuRef.current.contains(e.target as Node)) {
+                setStaffMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [staffMenuOpen]);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -173,8 +219,7 @@ export const CalendarPage = () => {
         });
 
         if (reservation) {
-            setShowNewDialog(false);
-            setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+            closeDialog();
         }
     };
 
@@ -185,132 +230,137 @@ export const CalendarPage = () => {
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Premium Header */}
-            <div className="relative overflow-hidden">
-                {/* Background effects */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/80 to-white" />
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#CCFF00]/[0.06] rounded-full blur-[150px] -translate-y-1/2 translate-x-1/4" />
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/[0.03] rounded-full blur-[120px] translate-y-1/2 -translate-x-1/4" />
+            {/* Tek Satır Araç Çubuğu */}
+            <div className="relative px-6 py-3 border-b border-gray-100 bg-white">
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Sol: Dönem navigasyonu */}
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <h1 className="text-lg font-extrabold text-gray-900 tracking-tight text-center min-w-[180px]">
+                            {view === 'day'
+                                ? currentDate.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
+                                : `${MONTHS_TR[month]} ${year}`
+                            }
+                        </h1>
+                        <button
+                            onClick={() => navigate(1)}
+                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => { setCurrentDate(new Date()); setSelectedDate(today); }}
+                            className="ml-1 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#7a9900] bg-[#CCFF00]/10 border border-[#CCFF00]/25 hover:bg-[#CCFF00]/20 transition-all active:scale-95"
+                        >
+                            Bugün
+                        </button>
+                    </div>
 
-                <div className="relative px-6 pt-4 pb-2">
-                    {/* Top Row: Branding + Actions */}
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-                        {/* Left: Icon + Title + Stats */}
-                        <div className="flex items-center gap-4">
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-[#CCFF00]/40 rounded-xl blur-lg group-hover:blur-xl transition-all duration-500 opacity-60" />
-                                <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#CCFF00] via-[#d4ff33] to-[#99cc00] flex items-center justify-center shadow-lg shadow-[#CCFF00]/25 ring-2 ring-white">
-                                    <CalendarIcon className="w-5 h-5 text-slate-900" />
-                                </div>
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Takvim</h1>
-                                <p className="text-[13px] text-gray-400 mt-0.5">Randevularınızı yönetin ve takip edin</p>
-                            </div>
+                    {/* Küçük sayaçlar */}
+                    <div className="hidden lg:flex items-center gap-2 pl-3 ml-1 border-l border-gray-200/70">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span className="w-2 h-2 rounded-full bg-[#CCFF00]" />
+                            Bugün <span className="font-bold text-gray-900 tabular-nums">{todayCount}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-gray-500 ml-1">
+                            <span className="w-2 h-2 rounded-full bg-purple-400/70" />
+                            Hafta <span className="font-bold text-gray-900 tabular-nums">{weekTotal}</span>
+                        </span>
+                    </div>
 
-                            {/* Stats badges inline */}
-                            <div className="hidden md:flex items-center gap-2.5 ml-4 pl-5 border-l border-gray-200/60">
-                                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md hover:border-[#CCFF00]/30 transition-all duration-300 group cursor-default">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-[#CCFF00] shadow-sm shadow-[#CCFF00]/50 animate-pulse" />
-                                    <span className="text-xs font-semibold text-gray-500">Bugün</span>
-                                    <span className="text-sm font-black text-gray-900 tabular-nums">{todayCount}</span>
-                                </div>
-                                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md hover:border-purple-200/50 transition-all duration-300 cursor-default">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-purple-400/60" />
-                                    <span className="text-xs font-semibold text-gray-500">Hafta</span>
-                                    <span className="text-sm font-black text-gray-900 tabular-nums">{weekTotal}</span>
-                                </div>
-                            </div>
+                    {/* Sağ: Görünüm + Filtre + Ekle */}
+                    <div className="flex items-center gap-2.5 ml-auto">
+                        {/* Görünüm anahtarı */}
+                        <div className="flex items-center bg-gray-50 border border-gray-200/70 rounded-xl p-0.5">
+                            {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
+                                <button
+                                    key={v}
+                                    onClick={() => setView(v)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                                        view === v
+                                            ? "bg-[#CCFF00] text-slate-900 shadow-sm"
+                                            : "text-gray-400 hover:text-gray-700"
+                                    )}
+                                >
+                                    {v === 'month' ? 'Ay' : v === 'week' ? 'Hafta' : 'Gün'}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Right: View Switcher + CTA */}
-                        <div className="flex items-center gap-3">
-                            {/* View Switcher */}
-                            <div className="flex items-center bg-white/80 backdrop-blur-sm border border-gray-200/70 rounded-2xl p-1 shadow-sm">
-                                {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
-                                    <button
-                                        key={v}
-                                        onClick={() => setView(v)}
-                                        className={cn(
-                                            "px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 relative",
-                                            view === v
-                                                ? "bg-gradient-to-r from-[#CCFF00] to-[#d4ff33] text-slate-900 shadow-md shadow-[#CCFF00]/25"
-                                                : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
-                                        )}
-                                    >
-                                        {v === 'month' ? 'Ay' : v === 'week' ? 'Hafta' : 'Gün'}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Personel filtresi */}
+                        {/* Personel filtresi — özel dropdown */}
                         {staff.length > 0 && (
-                            <select
-                                value={staffFilter}
-                                onChange={e => setStaffFilter(e.target.value)}
-                                className="px-3 py-2.5 rounded-xl border border-gray-200/70 bg-white/80 text-sm font-medium text-gray-700 focus:border-[#CCFF00] outline-none"
-                            >
-                                <option value="all">Tüm Personel</option>
-                                {staff.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
+                            <div className="relative" ref={staffMenuRef}>
+                                <button
+                                    onClick={() => setStaffMenuOpen(o => !o)}
+                                    className={cn(
+                                        "flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-xl border bg-white text-sm font-medium transition-all",
+                                        staffMenuOpen ? "border-[#CCFF00] ring-2 ring-[#CCFF00]/15" : "border-gray-200/70 hover:border-gray-300"
+                                    )}
+                                >
+                                    {selectedStaffMember ? (
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedStaffMember.color }} />
+                                    ) : (
+                                        <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                    )}
+                                    <span className="text-gray-700 max-w-[120px] truncate">
+                                        {selectedStaffMember ? selectedStaffMember.name : 'Tüm Personel'}
+                                    </span>
+                                    <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", staffMenuOpen && "rotate-180")} />
+                                </button>
+
+                                {staffMenuOpen && (
+                                    <div className="absolute z-30 right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150">
+                                        {/* Tüm Personel */}
+                                        <button
+                                            onClick={() => { setStaffFilter('all'); setStaffMenuOpen(false); }}
+                                            className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <Users className="w-4 h-4 text-gray-500" />
+                                            </div>
+                                            <span className="flex-1 text-sm font-medium text-gray-700">Tüm Personel</span>
+                                            {staffFilter === 'all' && <Check className="w-4 h-4 text-[#7a9900] flex-shrink-0" />}
+                                        </button>
+
+                                        <div className="h-px bg-gray-100 mx-3 my-1" />
+
+                                        {/* Personel listesi */}
+                                        {staff.map(s => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => { setStaffFilter(s.id); setStaffMenuOpen(false); }}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                            >
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white" style={{ backgroundColor: s.color }}>
+                                                    {s.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                                                    {s.specialty && <p className="text-[11px] text-gray-400 truncate">{s.specialty}</p>}
+                                                </div>
+                                                {staffFilter === s.id && <Check className="w-4 h-4 text-[#7a9900] flex-shrink-0" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         <button
-                                onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
-                                className="relative group flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#CCFF00] via-[#d4ff33] to-[#b8e600] text-slate-900 shadow-lg shadow-[#CCFF00]/20 hover:shadow-xl hover:shadow-[#CCFF00]/30 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#CCFF00] to-[#b8e600] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <Plus className="w-4 h-4 relative z-10" />
-                                <span className="relative z-10">Randevu Oluştur</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Navigation Bar */}
-                    <div className="flex items-center justify-center mt-2">
-                        <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-gray-200/60 rounded-2xl px-2 py-1.5 shadow-sm">
-                            <button
-                                onClick={() => navigate(-1)}
-                                className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all duration-200 active:scale-90"
-                            >
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
-
-                            <div className="text-center min-w-[220px] px-4">
-                                <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">
-                                    {view === 'day'
-                                        ? currentDate.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
-                                        : `${MONTHS_TR[month]} ${year}`
-                                    }
-                                </h2>
-                                {view === 'day' && (
-                                    <p className="text-[11px] text-gray-400 font-medium -mt-0.5">{year}</p>
-                                )}
-                            </div>
-
-                            <button
-                                onClick={() => navigate(1)}
-                                className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all duration-200 active:scale-90"
-                            >
-                                <ChevronRight className="w-5 h-5" />
-                            </button>
-
-                            <div className="w-px h-6 bg-gray-200/60 mx-1" />
-
-                            <button
-                                onClick={() => { setCurrentDate(new Date()); setSelectedDate(today); }}
-                                className="px-4 py-1.5 rounded-xl text-xs font-bold text-[#7a9900] bg-[#CCFF00]/10 border border-[#CCFF00]/25 hover:bg-[#CCFF00]/20 hover:border-[#CCFF00]/40 transition-all duration-200 active:scale-95"
-                            >
-                                Bugün
-                            </button>
-                        </div>
+                            onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-[#CCFF00] text-slate-900 hover:bg-[#d4ff33] shadow-sm hover:shadow-md hover:shadow-[#CCFF00]/20 transition-all active:scale-[0.98]"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Randevu Oluştur</span>
+                        </button>
                     </div>
                 </div>
-
-                {/* Bottom border gradient */}
-                <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
             </div>
 
             {/* Calendar Content */}
@@ -331,35 +381,37 @@ export const CalendarPage = () => {
                         </div>
 
                         {/* Day cells */}
-                        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: '1fr' }}>
+                        <div className="grid grid-cols-7 flex-1 min-h-0" style={{ gridAutoRows: 'minmax(0, 1fr)' }}>
                             {daysInMonth.map(({ date, day, isCurrentMonth }, idx) => {
                                 const count = getDateCount(date);
                                 const isToday = date === today;
                                 const dayOfWeek = idx % 7;
                                 const isWeekend = dayOfWeek >= 5;
-                                const dateReservations = filteredReservations.filter(r => r.date === date && r.status !== 'cancelled');
+                                const dateReservations = filteredReservations
+                                    .filter(r => r.date === date && r.status !== 'cancelled')
+                                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
                                 return (
                                     <button
                                         key={date}
                                         onClick={() => handleDateClick(date)}
                                         className={cn(
-                                            "relative p-2 border-b border-r border-gray-100/70 text-left transition-all duration-200 group overflow-hidden",
-                                            !isCurrentMonth && "opacity-30",
-                                            isToday && "bg-[#CCFF00]/[0.06]",
-                                            isWeekend && isCurrentMonth && "bg-gray-50/50",
-                                            "hover:bg-[#CCFF00]/[0.08]",
+                                            "relative flex flex-col p-1.5 border-b border-r border-gray-200 text-left transition-all duration-200 group overflow-hidden min-h-0",
+                                            !isCurrentMonth && "opacity-40 bg-gray-50/40",
+                                            isToday && "bg-[#CCFF00]/[0.07] ring-1 ring-inset ring-[#CCFF00]/40",
+                                            isWeekend && isCurrentMonth && !isToday && "bg-gray-50/60",
+                                            "hover:bg-[#CCFF00]/[0.1]",
                                         )}
                                     >
                                         {/* Today indicator line */}
                                         {isToday && <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#CCFF00] to-transparent" />}
 
-                                        <div className="flex items-start justify-between">
+                                        <div className="flex items-center justify-between flex-shrink-0">
                                             <span className={cn(
-                                                "inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-all",
+                                                "inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold transition-all",
                                                 isToday
-                                                    ? "bg-[#CCFF00] text-slate-900 font-black shadow-lg shadow-[#CCFF00]/30"
-                                                    : "text-gray-500 group-hover:text-gray-800",
+                                                    ? "bg-[#CCFF00] text-slate-900 font-black shadow-md shadow-[#CCFF00]/30"
+                                                    : isWeekend ? "text-[#7a9900] group-hover:text-[#5c7300]" : "text-gray-600 group-hover:text-gray-900",
                                             )}>
                                                 {day}
                                             </span>
@@ -371,15 +423,19 @@ export const CalendarPage = () => {
                                         </div>
 
                                         {count > 0 && (
-                                            <div className="mt-1.5 space-y-0.5">
+                                            <div className="mt-1 space-y-1 overflow-hidden min-h-0">
                                                 {dateReservations.slice(0, 2).map((r) => (
-                                                    <div key={r.id} className="flex items-center gap-1.5 px-1.5 py-[3px] rounded-md text-[10px] truncate bg-gray-50 group-hover:bg-gray-100/80 transition-colors border border-gray-100">
-                                                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.serviceColor || '#CCFF00' }} />
-                                                        <span className="truncate text-gray-500 font-medium">{r.startTime} <span className="text-gray-400">{r.customerName.split(' ')[0]}</span></span>
+                                                    <div
+                                                        key={r.id}
+                                                        className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md text-[10px] bg-gray-50 group-hover:bg-white transition-colors border border-gray-100 shadow-sm"
+                                                        style={{ borderLeftWidth: '3px', borderLeftColor: r.serviceColor || '#CCFF00' }}
+                                                    >
+                                                        <span className="font-bold text-gray-600 tabular-nums flex-shrink-0">{r.startTime}</span>
+                                                        <span className="truncate text-gray-500 font-medium">{r.customerName.split(' ')[0]}</span>
                                                     </div>
                                                 ))}
                                                 {count > 2 && (
-                                                    <span className="text-[9px] text-gray-400 pl-1 font-medium">+{count - 2} daha</span>
+                                                    <span className="block text-[10px] text-[#7a9900] pl-1 font-bold">+{count - 2} randevu daha</span>
                                                 )}
                                             </div>
                                         )}
@@ -392,8 +448,8 @@ export const CalendarPage = () => {
 
                 {/* Week View */}
                 {view === 'week' && (
-                    <div className="rounded-2xl bg-white border border-gray-200/80 shadow-xl shadow-gray-200/50 overflow-hidden flex-1 flex flex-col">
-                        <div className="grid grid-cols-8">
+                    <div className="rounded-2xl bg-white border border-gray-200/80 shadow-xl shadow-gray-200/50 overflow-hidden flex-1 flex flex-col min-h-0">
+                        <div className="grid grid-cols-8 flex-shrink-0">
                             <div className="border-r border-gray-100 p-3 flex items-end">
                                 <Clock className="w-3.5 h-3.5 text-gray-300" />
                             </div>
@@ -417,6 +473,7 @@ export const CalendarPage = () => {
                             ))}
                         </div>
 
+                        <div className="flex-1 min-h-0 overflow-y-auto">
                         {HOURS.map((hour) => (
                             <div key={hour} className="grid grid-cols-8 border-b border-gray-50">
                                 <div className="border-r border-gray-100 p-2 text-right pr-3">
@@ -457,15 +514,16 @@ export const CalendarPage = () => {
                                 })}
                             </div>
                         ))}
+                        </div>
                     </div>
                 )}
 
                 {/* Day View */}
                 {view === 'day' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
                         {/* Time slots */}
-                        <div className="lg:col-span-2 rounded-2xl bg-white border border-gray-200/80 shadow-xl shadow-gray-200/50 overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <div className="lg:col-span-2 rounded-2xl bg-white border border-gray-200/80 shadow-xl shadow-gray-200/50 overflow-hidden flex flex-col min-h-0">
+                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-[#7a9900]" />
                                     <span className="text-sm font-bold text-gray-800">Saat Çizelgesi</span>
@@ -474,7 +532,7 @@ export const CalendarPage = () => {
                                     {filteredReservations.filter(r => r.date === currentDate.toISOString().split('T')[0] && r.status !== 'cancelled').length} randevu
                                 </span>
                             </div>
-                            <div className="divide-y divide-gray-50">
+                            <div className="divide-y divide-gray-50 flex-1 min-h-0 overflow-y-auto">
                                 {HOURS.map((hour) => {
                                     const dateStr = currentDate.toISOString().split('T')[0];
                                     const hourRes = filteredReservations.filter(r =>
@@ -603,12 +661,12 @@ export const CalendarPage = () => {
             {/* New Reservation Dialog — Premium Light */}
             {showNewDialog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowNewDialog(false)} />
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeDialog} />
                     <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         {/* Dialog header gradient */}
                         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#CCFF00] via-[#CCFF00]/60 to-emerald-400/40" />
 
-                        <button onClick={() => setShowNewDialog(false)} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all z-10">
+                        <button onClick={closeDialog} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all z-10">
                             <X className="w-4 h-4" />
                         </button>
 
@@ -624,35 +682,71 @@ export const CalendarPage = () => {
                             </div>
 
                             <div className="space-y-4">
+                                {/* Akıllı Müşteri Arama */}
                                 <div>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                        <User className="w-3 h-3" /> Müşteri Adı
+                                        <User className="w-3 h-3" /> Müşteri
                                     </label>
-                                    <input
-                                        type="text" placeholder="Adı Soyadı"
-                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-300 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                        value={newRes.customerName} onChange={(e) => setNewRes(p => ({ ...p, customerName: e.target.value }))}
-                                    />
+
+                                    {customerLocked ? (
+                                        // Seçili müşteri kartı
+                                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/40">
+                                            <div className="w-9 h-9 rounded-full bg-[#CCFF00] flex items-center justify-center flex-shrink-0">
+                                                <Check className="w-4 h-4 text-slate-900" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-900 truncate">{newRes.customerName}</p>
+                                                <p className="text-xs text-gray-500 tabular-nums">{newRes.customerPhone}</p>
+                                            </div>
+                                            <button onClick={clearCustomer} className="p-1.5 rounded-lg hover:bg-white/60 text-gray-400 hover:text-gray-700 transition-all flex-shrink-0">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
+                                            <input
+                                                type="text" placeholder="İsim ile ara veya yeni müşteri yaz..."
+                                                autoFocus
+                                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-300 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
+                                                value={customerQuery}
+                                                onChange={(e) => { setCustomerQuery(e.target.value); setNewRes(p => ({ ...p, customerName: e.target.value })); }}
+                                            />
+                                            {/* Eşleşen müşteriler */}
+                                            {customerMatches.length > 0 && (
+                                                <div className="absolute z-20 left-0 right-0 mt-1.5 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+                                                    {customerMatches.map((c) => (
+                                                        <button
+                                                            key={c.id}
+                                                            onClick={() => selectCustomer(c)}
+                                                            className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-[#CCFF00]/10 transition-colors text-left border-b border-gray-50 last:border-0"
+                                                        >
+                                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-500">
+                                                                {c.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-gray-800 truncate">{c.name}</p>
+                                                                <p className="text-xs text-gray-400 tabular-nums">{c.phone}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                {/* Telefon — sadece yeni müşteride göster */}
+                                {!customerLocked && (
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Telefon</label>
                                         <input
-                                            type="tel" placeholder="0532 xxx xxxx"
+                                            type="tel" placeholder="0532 xxx xxxx" inputMode="tel"
                                             className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-300 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
                                             value={newRes.customerPhone} onChange={(e) => setNewRes(p => ({ ...p, customerPhone: e.target.value }))}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">E-posta</label>
-                                        <input
-                                            type="email" placeholder="email@örnek.com"
-                                            className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-300 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                            value={newRes.customerEmail} onChange={(e) => setNewRes(p => ({ ...p, customerEmail: e.target.value }))}
-                                        />
-                                    </div>
-                                </div>
+                                )}
 
                                 <div>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Hizmet</label>

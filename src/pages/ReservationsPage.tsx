@@ -68,10 +68,10 @@ export const ReservationsPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6">
-            <div className="max-w-6xl mx-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            <div className="w-full max-w-6xl mx-auto flex-1 min-h-0 flex flex-col p-6">
                 {/* Header */}
-                <div className="mb-6">
+                <div className="mb-6 flex-shrink-0">
                     <div className="flex items-center gap-3 mb-1">
                         <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
                             <Clock className="w-5 h-5 text-[#CCFF00]" />
@@ -84,7 +84,7 @@ export const ReservationsPage = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <div className="flex flex-col sm:flex-row gap-3 mb-6 flex-shrink-0">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -114,7 +114,7 @@ export const ReservationsPage = () => {
                 </div>
 
                 {/* Table */}
-                <div className="rounded-2xl bg-white border border-gray-200/60 shadow-sm">
+                <div className="rounded-2xl bg-white border border-gray-200/60 shadow-sm flex-1 min-h-0 overflow-y-auto">
                     {/* Desktop Table */}
                     <div className="hidden md:block">
                         <table className="w-full">
