@@ -19,7 +19,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { organization_id, customers, intent } = await req.json();
+        const { organization_id, customers, intent, context } = await req.json();
         if (!organization_id || !Array.isArray(customers) || customers.length === 0) {
             return json({ error: 'organization_id ve customers gerekli' }, 400);
         }
@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
         }));
 
         const intentText = intent === 'campaign'
-            ? 'sakin günleri doldurmak için cazip bir kampanya/davet mesajı'
+            ? `sakin geçen ${context || 'bir gününü'} doldurmak için müşteriyi o güne randevuya davet eden, içten ve cazip bir mesaj`
             : 'uzun süredir gelmeyen müşteriyi nazikçe geri kazanmak için bir "seni özledik" mesajı';
 
         const systemPrompt =
