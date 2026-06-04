@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Plus, ArrowRight, AlertCircle, BarChart3, Phone, MessageCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
+import { WinbackCard } from '@/components/winback/WinbackCard';
 import { cn } from '@/utils/cn';
 
 const statusConfig = {
@@ -21,7 +22,7 @@ function waLink(phone: string): string {
 
 export const DashboardPage = () => {
     const navigate = useNavigate();
-    const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations } = useReservations();
+    const { reservations, settings, orgId, getStats, getTodayReservations, getUpcomingReservations } = useReservations();
     const stats                = getStats();
     const todayReservations    = getTodayReservations();
     const upcomingReservations = getUpcomingReservations(5);
@@ -116,6 +117,9 @@ export const DashboardPage = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* ── AI Geri-Kazanım Kartı ────────────────────────────────────── */}
+                <WinbackCard orgId={orgId} whatsappInstance={settings.whatsappInstance} />
 
                 {/* ── Hatırlatma Güven Şeridi ──────────────────────────────────── */}
                 {remindersSent > 0 && (

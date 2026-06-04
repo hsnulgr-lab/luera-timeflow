@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
         };
 
         // ── 3) Groq'tan içgörü iste ─────────────────────────────────────────
-        const groqKey = Deno.env.get('GROQ_API_KEY');
+        const groqKey = await getGroqKey(supabase);
         if (!groqKey) return json({ error: 'GROQ_API_KEY tanımlı değil' }, 500);
 
         const systemPrompt =
@@ -154,6 +154,18 @@ function json(body: unknown, status: number): Response {
         status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+}
+
+// GROQ key'i önce env'den, yoksa app_secrets tablosundan al
+async function getGroqKey(supabase: any): Promise<string | null> {
+    const env = Deno.env.get('GROQ_API_KEY');
+    if (env) return env;
+    const { data } = await supabase
+        .from('app_secrets')
+        .select('value')
+        .eq('key', 'GROQ_API_KEY')
+        .maybeSingle();
+    return data?.value ?? null;
 }
 
 async function cache(supabase: any, orgId: string, date: string, insight: string) {
