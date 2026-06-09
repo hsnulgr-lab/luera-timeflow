@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobil: sayfalar sağa-sola kaymasın — global yatay taşma engeli */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 @layer base {
   :root {
     /* Premium Purple-Indigo Theme - Matching LeadFlow */

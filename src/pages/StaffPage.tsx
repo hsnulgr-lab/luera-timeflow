@@ -3,6 +3,7 @@ import { Plus, X, Clock, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
 import { useReservations } from '@/hooks/useReservations';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Staff, WorkingHours } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ function IBtn({ onClick, title, children }: { onClick: () => void; title?: strin
 
 // ── Component ────────────────────────────────────────────────────────────────
 export const StaffPage = () => {
+  const isMobile = useIsMobile();
   const { staff, isLoading, addStaff, updateStaff, deleteStaff } = useStaff();
   const { reservations } = useReservations();
 
@@ -174,7 +176,7 @@ export const StaffPage = () => {
       </div>
 
       {/* ── Stat bar ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginBottom:'18px' }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:'10px', marginBottom:'18px' }}>
         {statCards.map((s,i) => (
           <div key={i} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'14px 16px', display:'flex', alignItems:'center', gap:'12px', transition:'all .15s' }}
             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow=''}}>

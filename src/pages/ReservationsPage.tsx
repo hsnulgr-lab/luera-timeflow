@@ -262,7 +262,7 @@ export const ReservationsPage = () => {
       </div>
 
       {/* ── Stat cards ── */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ display: isMobile ? 'grid' : 'flex', gridTemplateColumns: isMobile ? '1fr 1fr' : undefined, gap: '10px', marginBottom: '16px' }}>
         {statCard(
           'all', 'Toplam', counts.all,
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
