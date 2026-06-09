@@ -6,11 +6,12 @@ import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { LueraButton } from '@/components/ui/LueraButton';
 
+// Durum rozetleri — Luera sıcak paleti
 const statusConfig = {
-    pending:   { label: 'Bekleyen',    color: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-500' },
-    confirmed: { label: 'Onaylı',      color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-    cancelled: { label: 'İptal',       color: 'bg-red-100 text-red-700',         dot: 'bg-red-500' },
-    completed: { label: 'Tamamlandı',  color: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500' },
+    pending:   { label: 'Bekleyen',    color: 'bg-[#FFF1E8] text-[#E8430F]',           dot: 'bg-[#FF5A1F]' },
+    confirmed: { label: 'Onaylı',      color: 'bg-[#E8F5EA] text-[#2A8A30]',           dot: 'bg-[#2A8A30]' },
+    cancelled: { label: 'İptal',       color: 'bg-[#FBECEC] text-[#C0392B]',           dot: 'bg-[#C0392B]' },
+    completed: { label: 'Tamamlandı',  color: 'bg-[#F3EDE4] text-[#0E0E0E]/[0.55]',    dot: 'bg-[#0E0E0E]/40' },
 };
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
@@ -22,6 +23,14 @@ function waLink(phone: string): string {
 }
 
 const MONO = "'JetBrains Mono', monospace";
+
+// ISO tarih ("2026-06-09") → "9 Haz 2026" (okunaklı Avrupa biçimi)
+const EU_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+function fmtDateEU(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return iso;
+    return `${d} ${EU_MONTHS[m - 1]} ${y}`;
+}
 
 // ── KPI kart yardımcıları (Luera Dashboard v2) ────────────────────────────────
 type TrendKind = 'up' | 'down' | 'neutral' | 'warn';
@@ -54,13 +63,14 @@ function compareTrend(curr: number, prev: number): { kind: TrendKind; text: stri
     return { kind: 'down', text: `↓ %${Math.abs(pct)}` };
 }
 
-// 7 çubuklu sparkline — son çubuk (bugün) vurgulu
-function Sparkline({ data, urgent }: { data: number[]; urgent?: boolean }) {
+// 7 çubuklu sparkline — vurgulu çubuk activeIndex (yoksa son çubuk)
+function Sparkline({ data, urgent, activeIndex }: { data: number[]; urgent?: boolean; activeIndex?: number }) {
     const max = Math.max(1, ...data);
+    const ai = activeIndex ?? data.length - 1;
     return (
         <div className="flex items-end gap-[2px] h-[11px] mt-[5px]">
             {data.map((v, i) => {
-                const active = i === data.length - 1;
+                const active = i === ai;
                 const h = Math.max(14, Math.round((v / max) * 100));
                 return (
                     <div
@@ -147,7 +157,8 @@ export const DashboardPage = () => {
     const todayReservations    = getTodayReservations();
     const upcomingReservations = getUpcomingReservations(5);
 
-    const now      = new Date();
+    // now bir kez hesaplanır — yoksa her render'da değişip tüm useMemo'ları boşa geçersizleştirir
+    const now      = useMemo(() => new Date(), []);
     const todayStr = now.toISOString().split('T')[0];
     const nowTime  = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
@@ -174,7 +185,8 @@ export const DashboardPage = () => {
     // Bu hafta
     const weekStats = useMemo(() => {
         const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+        // Pazartesi başlangıç — (getDay()+6)%7 Pazar dahil doğru çalışır
+        startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
 
@@ -219,6 +231,17 @@ export const DashboardPage = () => {
         const answered = weekRes.filter(r => r.status !== 'pending').length;
         const responseRate = weekRes.length > 0 ? Math.round((answered / weekRes.length) * 100) : 0;
 
+        // Bekleyen — geçen hafta vs bu hafta (elma-elma kıyas)
+        const pendingThisWeek = reservations.filter(r => r.status === 'pending' && inRange(r.date, monday, sunday)).length;
+        const pendingLastWeek = reservations.filter(r => r.status === 'pending' && inRange(r.date, lastMon, lastSun)).length;
+
+        // Bu haftanın günlük dağılımı (Pzt→Paz) — BU HAFTA kartının sparkline'ı
+        const thisWeekDaily = Array.from({ length: 7 }, (_, i) => {
+            const dt = new Date(monday); dt.setDate(monday.getDate() + i);
+            return active.filter(r => r.date === iso(dt)).length;
+        });
+        const todayIdx = (d.getDay() + 6) % 7; // bugünün hafta-içi indeksi (0=Pzt)
+
         // Bu ay / geçen ay tamamlanan
         const ym = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
         const thisYM = ym(d);
@@ -230,7 +253,9 @@ export const DashboardPage = () => {
 
         return {
             last7, lastWeekSameDay, lastWeekTotal, thisWeekTotal,
-            responseRate, completedThisMonth, completedLastMonth, goalPct,
+            responseRate, weekResCount: weekRes.length,
+            pendingThisWeek, pendingLastWeek, thisWeekDaily, todayIdx,
+            completedThisMonth, completedLastMonth, goalPct,
         };
     }, [reservations, now]);
 
@@ -347,15 +372,21 @@ export const DashboardPage = () => {
                         label="Bekliyor"
                         value={stats.pending}
                         sublabel="Onay bekliyor"
-                        compareLabel="Geçen hafta"
-                        compareValue={cardData.lastWeekTotal}
+                        compareLabel="Geçen hafta bekleyen"
+                        compareValue={cardData.pendingLastWeek}
                         trend={stats.pending > 0
                             ? { kind: 'warn', text: '↑ işlem gerekli' }
                             : { kind: 'neutral', text: '✓ temiz' }}
                         urgent
                         onClick={() => navigate('/reservations')}
                     >
-                        <ProgressBar label="Yanıt oranı" pct={cardData.responseRate} urgent />
+                        {cardData.weekResCount > 0 ? (
+                            <ProgressBar label="Yanıt oranı" pct={cardData.responseRate} urgent />
+                        ) : (
+                            <div className="mt-[5px] text-[10px]" style={{ fontFamily: MONO, color: 'rgba(14,14,14,0.45)' }}>
+                                Bu hafta yanıt bekleyen yok
+                            </div>
+                        )}
                     </StatCard>
 
                     {/* Bu hafta */}
@@ -368,7 +399,7 @@ export const DashboardPage = () => {
                         trend={compareTrend(cardData.thisWeekTotal, cardData.lastWeekTotal)}
                         onClick={() => navigate('/analytics')}
                     >
-                        <Sparkline data={cardData.last7} />
+                        <Sparkline data={cardData.thisWeekDaily} activeIndex={cardData.todayIdx} />
                     </StatCard>
 
                     {/* Tamamlandı */}
@@ -528,7 +559,7 @@ export const DashboardPage = () => {
                                                 style={{ backgroundColor: res.serviceColor || '#FF5A1F' }} />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-semibold text-[#0E0E0E] truncate">{res.customerName}</p>
-                                                <p className="text-[11px] text-[#0E0E0E]/[0.45] truncate">{res.date} · {res.service}</p>
+                                                <p className="text-[11px] text-[#0E0E0E]/[0.45] truncate">{fmtDateEU(res.date)} · {res.service}</p>
                                             </div>
                                             <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#FF5A1F]/15 text-[#E8430F] flex-shrink-0 tabular-nums">
                                                 {res.startTime}
