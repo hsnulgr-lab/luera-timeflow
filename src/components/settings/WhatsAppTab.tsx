@@ -329,7 +329,7 @@ export function WhatsAppTab() {
                 </div>
 
                 {/* 2-column templates */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', padding: '20px', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '20px', gap: '20px' }}>
 
                     {/* 24 saat */}
                     <div>

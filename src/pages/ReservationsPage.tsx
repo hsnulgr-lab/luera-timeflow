@@ -189,7 +189,7 @@ export const ReservationsPage = () => {
     let lblStyle: React.CSSProperties = { fontSize: '10.5px', fontWeight: 600, color: T.muted, marginTop: '2px' };
     let icoStyle: React.CSSProperties = { width: 32, height: 32, borderRadius: 8, display: 'grid', placeItems: 'center', flexShrink: 0, background: T.surface2 };
 
-    if (variant === 'orange' || (variant === 'orange' && isActive)) {
+    if (variant === 'orange') {
       cardStyle = { ...cardStyle, border: `1px solid ${T.orange}`, background: 'rgba(255,90,31,0.06)' };
       valStyle  = { ...valStyle,  color: T.orange };
       icoStyle  = { ...icoStyle,  background: 'rgba(255,90,31,0.10)' };

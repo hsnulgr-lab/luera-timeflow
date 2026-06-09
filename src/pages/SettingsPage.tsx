@@ -347,7 +347,7 @@ export const SettingsPage = () => {
                       onFocus={e=>{e.target.style.borderColor=T.orange}} onBlur={e=>{e.target.style.borderColor=T.border2}}/>
                     <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
                       <input type="number" value={s.duration} min={5} step={5} onChange={e=>updateService(s.id,'duration',parseInt(e.target.value))}
-                        style={{ width:70, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', fontFamily:'inherit', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
+                        style={{ width:70, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
                       <span style={{ fontSize:'11px', color:T.muted }}>dk</span>
                     </div>
                     <button onClick={()=>removeService(s.id)} style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}

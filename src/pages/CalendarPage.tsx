@@ -784,7 +784,7 @@ export const CalendarPage = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.022em', color: M.ink }}>Yeni Randevu</div>
-                                <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase', color: M.orange, marginTop: 3 }}>{modalDateLabel(selectedDate)}</div>
+                                <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase', color: M.orange, marginTop: 3 }}>{modalDateLabel(selectedDate ?? '')}</div>
                             </div>
                             <button onClick={closeDialog} title="Kapat" className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 32, height: 32, borderRadius: 7, color: M.muted }}
                                 onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; e.currentTarget.style.color = M.ink; }}
