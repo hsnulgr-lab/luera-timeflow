@@ -4,12 +4,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Reservation, Settings, Service } from '@/types';
 
+// Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
 const defaultServices: Service[] = [
-    { id: '1', name: 'Genel Randevu', duration: 30, color: '#CCFF00' },
-    { id: '2', name: 'Konsültasyon', duration: 60, color: '#8B5CF6' },
-    { id: '3', name: 'Kontrol', duration: 15, color: '#06B6D4' },
-    { id: '4', name: 'Tedavi', duration: 45, color: '#F59E0B' },
-    { id: '5', name: 'Toplantı', duration: 90, color: '#EC4899' },
+    { id: '1', name: 'Genel Randevu', duration: 30, color: '#FF5A1F' }, // turuncu
+    { id: '2', name: 'Konsültasyon', duration: 60, color: '#8E70B2' }, // erik
+    { id: '3', name: 'Kontrol', duration: 15, color: '#3F9D9A' },      // teal
+    { id: '4', name: 'Tedavi', duration: 45, color: '#E8973C' },       // amber
+    { id: '5', name: 'Toplantı', duration: 90, color: '#CB5E84' },     // gül
 ];
 
 const defaultSettings: Settings = {

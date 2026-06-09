@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { organization_id } = await req.json();
+        const { organization_id, refresh } = await req.json();
         if (!organization_id) {
             return json({ error: 'organization_id gerekli' }, 400);
         }
@@ -29,15 +29,17 @@ Deno.serve(async (req: Request) => {
         const todayStr = nowTR.toISOString().slice(0, 10);
 
         // ── 1) Bugünün içgörüsü zaten üretildiyse cache'ten dön ──────────────
-        const { data: cached } = await supabase
-            .from('daily_insights')
-            .select('insight')
-            .eq('organization_id', organization_id)
-            .eq('date', todayStr)
-            .maybeSingle();
+        if (!refresh) {
+            const { data: cached } = await supabase
+                .from('daily_insights')
+                .select('insight')
+                .eq('organization_id', organization_id)
+                .eq('date', todayStr)
+                .maybeSingle();
 
-        if (cached?.insight) {
-            return json({ insight: cached.insight, cached: true }, 200);
+            if (cached?.insight) {
+                return json({ insight: cached.insight, cached: true }, 200);
+            }
         }
 
         // ── 2) Anonim istatistikleri topla (müşteri PII'si Groq'a GİTMEZ) ───

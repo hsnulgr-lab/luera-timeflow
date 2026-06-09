@@ -62,19 +62,18 @@ export function AiAssistant() {
             <div className="relative min-w-0 flex-1">
                 <button
                     onClick={() => setOpen(o => !o)}
-                    className="group flex items-center gap-2 w-full min-w-0 pl-1.5 pr-2.5 py-1.5 rounded-full bg-gradient-to-r from-slate-900 to-slate-800 ring-1 ring-[#CCFF00]/25 shadow-sm hover:ring-[#CCFF00]/50 transition-all"
+                    className="group flex items-center gap-2.5 w-full min-w-0 pl-1 pr-2.5 py-1 rounded-full hover:bg-[#0E0E0E]/[0.04] transition-all"
                 >
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#CCFF00] flex-shrink-0 shadow-sm shadow-[#CCFF00]/30">
-                        <Sparkles className="w-3.5 h-3.5 text-slate-900" />
+                    <span className="flex items-center gap-1.5 bg-[#0E0E0E] text-[#F0EBE1] text-[9.5px] font-extrabold tracking-[0.1em] px-2.5 py-1 rounded-full flex-shrink-0">
+                        <Sparkles className="w-2.5 h-2.5 opacity-85" />
+                        AI
                     </span>
-                    <span className="text-[10px] font-extrabold text-[#CCFF00] uppercase tracking-wider flex-shrink-0">AI</span>
-                    <span className="w-px h-3.5 bg-white/15 flex-shrink-0" />
                     {insightLoading && !insight ? (
-                        <span className="h-2.5 w-32 bg-white/15 rounded-full animate-pulse" />
+                        <span className="h-2.5 w-32 bg-[#0E0E0E]/10 rounded-full animate-pulse" />
                     ) : (
-                        <span className="text-[13px] text-white/90 truncate">{insight ?? 'AI Asistan'}</span>
+                        <span className="text-[12.5px] text-[#0E0E0E]/[0.44] truncate">{insight ?? 'AI Asistan'}</span>
                     )}
-                    <ChevronDown className={cn("w-3.5 h-3.5 text-white/40 flex-shrink-0 transition-transform", open && "rotate-180")} />
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-[#0E0E0E]/30 flex-shrink-0 transition-transform", open && "rotate-180")} />
                 </button>
 
                 {open && (

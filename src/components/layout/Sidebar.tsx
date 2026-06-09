@@ -1,8 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, ClipboardList, Users, Settings, ChevronLeft, ChevronRight, LogOut, User, ChevronUp, X, BarChart3, UserCog } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
+import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
+import {
+    LDashboard,
+    LCalendar,
+    LClipboard,
+    LUsers,
+    LProfile,
+    LChart,
+    LSettings,
+    LChevronLeft,
+    LChevronRight,
+    LChevronUp,
+    LClose,
+    LLogout,
+} from '@/components/icons/LueraIcons';
 
 interface SidebarProps {
     isCollapsed: boolean;
@@ -18,12 +32,12 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     const menuItems = [
-        { id: '/', label: 'Dashboard', icon: Home },
-        { id: '/calendar', label: 'Takvim', icon: Calendar },
-        { id: '/reservations', label: 'Rezervasyonlar', icon: ClipboardList },
-        { id: '/customers', label: 'Müşteriler', icon: Users },
-        { id: '/staff', label: 'Personel', icon: UserCog },
-        { id: '/analytics', label: 'Analiz', icon: BarChart3 },
+        { id: '/', label: 'Dashboard', icon: LDashboard },
+        { id: '/calendar', label: 'Takvim', icon: LCalendar },
+        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard },
+        { id: '/customers', label: 'Müşteriler', icon: LUsers },
+        { id: '/staff', label: 'Personel', icon: LProfile },
+        { id: '/analytics', label: 'Analiz', icon: LChart },
     ];
 
     const handleNavClick = (path: string) => {
@@ -49,28 +63,33 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
             )}
 
             <aside className={cn(
-                "fixed top-0 bottom-0 bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ease-in-out",
+                "fixed top-0 bottom-0 bg-[#FAF7F3] border-r border-[#131211]/[0.06] z-50 transition-all duration-300 ease-in-out",
                 "md:translate-x-0",
                 isMobileOpen ? "translate-x-0 w-64 left-0" : "-translate-x-full left-0",
                 "md:left-0",
                 isCollapsed ? "md:w-20" : "md:w-64"
             )}>
                 {/* Logo Section */}
-                <div className="relative p-6 border-b border-gray-100 flex items-center justify-between">
+                <div className="relative p-6 border-b border-[#131211]/10 flex items-center justify-between">
                     <div className={cn(
                         "flex items-center gap-3 transition-all duration-300",
                         isCollapsed && "md:justify-center"
                     )}>
                         {(!isCollapsed || isMobileOpen) && (
-                            <div className="flex items-baseline gap-1.5">
-                                <h1 className="text-2xl font-bold text-gray-900">
-                                    LUERA
-                                </h1>
-                                <span className="text-xs text-gray-400 tracking-wide">TimeFlow</span>
-                            </div>
+                            <LueraTimeflowMark size={40} pillHeightRatio={0.5} textRatio={0.64} />
                         )}
                         {isCollapsed && !isMobileOpen && (
-                            <span className="text-2xl font-bold text-gray-900">L</span>
+                            <span
+                                style={{
+                                    fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+                                    fontWeight: 900,
+                                    fontSize: 34,
+                                    letterSpacing: '-0.045em',
+                                    color: '#0E0E0E',
+                                }}
+                            >
+                                l
+                            </span>
                         )}
                     </div>
 
@@ -79,7 +98,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                         onClick={onMobileClose}
                         className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-500"
                     >
-                        <X size={20} />
+                        <LClose size={20} />
                     </button>
 
                     {/* Desktop Collapse Toggle */}
@@ -93,7 +112,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                             "text-gray-400 hover:text-gray-600"
                         )}
                     >
-                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                        {isCollapsed ? <LChevronRight size={14} /> : <LChevronLeft size={14} />}
                     </button>
                 </div>
 
@@ -111,21 +130,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                     "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                                     isCollapsed && !isMobileOpen ? "justify-center px-3" : "",
                                     active
-                                        ? "bg-[#CCFF00]/10 text-gray-900 font-medium"
-                                        : "text-gray-500 hover:bg-gray-100/80 hover:text-gray-900"
+                                        ? "bg-[#EDEAE5] text-[#131211] font-bold"
+                                        : "text-[#8A8580] font-semibold hover:bg-[#131211]/[0.045] hover:text-[#3B3835]"
                                 )}
                             >
                                 {active && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#CCFF00] rounded-r-full" />
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[52%] bg-[#FF5A1F] rounded-r-[3px]" />
                                 )}
-                                <Icon size={20} className={cn(active && "text-gray-900")} />
+                                <Icon size={20} />
                                 {(!isCollapsed || isMobileOpen) && <span>{item.label}</span>}
                             </button>
                         );
                     })}
 
                     {/* Divider */}
-                    <div className="pt-4 mt-4 border-t border-gray-100">
+                    <div className="pt-4 mt-4 border-t border-[#131211]/10">
                         <button
                             type="button"
                             onClick={() => handleNavClick('/settings')}
@@ -133,21 +152,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                                 isCollapsed && !isMobileOpen ? "justify-center px-3" : "",
                                 isActive('/settings')
-                                    ? "bg-[#CCFF00]/10 text-gray-900 font-medium"
-                                    : "text-gray-500 hover:bg-gray-100/80 hover:text-gray-900"
+                                    ? "bg-[#EDEAE5] text-[#131211] font-bold"
+                                    : "text-[#8A8580] font-semibold hover:bg-[#131211]/[0.045] hover:text-[#3B3835]"
                             )}
                         >
                             {isActive('/settings') && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#CCFF00] rounded-r-full" />
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[52%] bg-[#FF5A1F] rounded-r-[3px]" />
                             )}
-                            <Settings size={20} />
+                            <LSettings size={20} />
                             {(!isCollapsed || isMobileOpen) && <span>Ayarlar</span>}
                         </button>
                     </div>
                 </nav>
 
                 {/* User Profile */}
-                <div className="absolute bottom-0 w-full p-4 border-t border-gray-100 bg-white/50">
+                <div className="absolute bottom-0 w-full p-4 border-t border-[#131211]/10 bg-[#FAF7F3]">
                     <div className="relative">
                         <button
                             onClick={() => (!isCollapsed || isMobileOpen) && setShowUserMenu(!showUserMenu)}
@@ -156,8 +175,8 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 isCollapsed && !isMobileOpen ? "justify-center" : ""
                             )}
                         >
-                            <div className="w-10 h-10 rounded-full bg-[#CCFF00] flex items-center justify-center shadow-md">
-                                <span className="font-bold text-gray-900 text-sm">{(user?.name || 'U').charAt(0).toUpperCase()}</span>
+                            <div className="w-10 h-10 rounded-full bg-[#0E0E0E] flex items-center justify-center shadow-md">
+                                <span className="font-bold text-[#F0EBE1] text-sm">{(user?.name || 'U').charAt(0).toUpperCase()}</span>
                             </div>
                             {(!isCollapsed || isMobileOpen) && (
                                 <>
@@ -170,7 +189,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                             {user?.role || 'User'}
                                         </p>
                                     </div>
-                                    <ChevronUp className={cn(
+                                    <LChevronUp className={cn(
                                         "w-4 h-4 text-gray-400 transition-transform",
                                         !showUserMenu && "rotate-180"
                                     )} />
@@ -185,14 +204,14 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                     onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
-                                    <User className="w-4 h-4" />
+                                    <LProfile className="w-4 h-4" />
                                     Profil
                                 </button>
                                 <button
                                     onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
-                                    <Settings className="w-4 h-4" />
+                                    <LSettings className="w-4 h-4" />
                                     Ayarlar
                                 </button>
                                 <div className="border-t border-gray-100" />
@@ -204,7 +223,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                 >
-                                    <LogOut className="w-4 h-4" />
+                                    <LLogout className="w-4 h-4" />
                                     Çıkış Yap
                                 </button>
                             </div>

@@ -11,7 +11,7 @@ export const Layout = () => {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-50/50">
+        <div className="min-h-screen bg-[#F5F0E6]">
             <Sidebar
                 isCollapsed={isCollapsed}
                 onCollapsedChange={setIsCollapsed}

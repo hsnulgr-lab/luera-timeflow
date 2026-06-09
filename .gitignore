@@ -3,6 +3,15 @@
 .env.local
 .env.*.local
 
+# Seed script — Supabase SERVICE ROLE KEY içerir, ASLA commit'leme
+seed_data.mjs
+
+# Claude Code yerel yapılandırması
+.claude/
+
+# Supabase CLI geçici dosyaları
+supabase/.temp/
+
 # n8n workflow files (credential içeriyor)
 n8n/
 
