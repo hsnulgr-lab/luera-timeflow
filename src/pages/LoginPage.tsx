@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { SplashScreen } from '@/components/SplashScreen';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 // ── Design tokens (dark theme) ────────────────────────────────────────────────
 const T = {
@@ -172,6 +173,7 @@ function GeometricArt() {
 export const LoginPage = () => {
   const { user, login, signup } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
@@ -243,14 +245,14 @@ export const LoginPage = () => {
       `}</style>
       <div style={{
         minHeight: '100vh', background: T.panel,
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
         fontFamily: 'Hanken Grotesk, sans-serif',
         overflow: 'hidden',
       }}>
-        {/* ── LEFT BRAND PANEL ── */}
+        {/* ── LEFT BRAND PANEL ── (mobilde gizli) */}
         <div style={{
           background: T.panel, position: 'relative', overflow: 'hidden',
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          display: isMobile ? 'none' : 'flex', flexDirection: 'column', justifyContent: 'space-between',
           padding: '52px 60px',
         }}>
           {/* Ambient glow top-left */}
@@ -293,7 +295,7 @@ export const LoginPage = () => {
 
           {/* Top-right "Kayıt ol" link */}
           {!isSignup && (
-            <div style={{ position: 'absolute', top: 40, right: 60, fontSize: 13.5, color: T.cream }}>
+            <div style={{ position: 'absolute', top: isMobile ? 20 : 40, right: isMobile ? 20 : 60, fontSize: 13.5, color: T.cream }}>
               <span style={{ opacity: 0.55 }}>Hesabın yok mu? </span>
               <button type="button" onClick={() => { setIsSignup(true); setError(''); setSuccessMsg(''); }}
                 style={{ color: T.cream, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', borderBottom: `1px solid ${T.orange}`, paddingBottom: 1, fontFamily: 'inherit', fontSize: 13.5 }}>
@@ -304,16 +306,23 @@ export const LoginPage = () => {
 
           {/* Form container */}
           <div className={`login-fadein${shake ? ' login-shake' : ''}`} style={{
-            width: '100%', maxWidth: 420, padding: '0 40px',
+            width: '100%', maxWidth: 420, padding: isMobile ? '0 24px' : '0 40px',
             display: 'flex', flexDirection: 'column', gap: 28,
             opacity: mounted ? 1 : 0, transition: 'opacity 0.4s',
           }}>
+            {/* Mobil logo — sol panel gizli olduğu için */}
+            {isMobile && (
+              <div style={{ marginBottom: 4 }}>
+                <LueraMark size={30}/>
+              </div>
+            )}
+
             {/* Heading */}
             <div>
               <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.orange, marginBottom: 12, opacity: 0.9 }}>
                 {isSignup ? 'Yeni hesap' : 'Hesabına dön'}
               </div>
-              <h1 style={{ fontSize: 42, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, color: T.cream }}>
+              <h1 style={{ fontSize: isMobile ? 34 : 42, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, color: T.cream }}>
                 {isSignup ? 'Aramıza katıl.' : 'Tekrar hoş geldin.'}
               </h1>
             </div>
