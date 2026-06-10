@@ -6,6 +6,7 @@ import { useStaff } from '@/hooks/useStaff';
 import { useCustomers } from '@/hooks/useCustomers';
 import { cn } from '@/utils/cn';
 import { textOn } from '@/utils/palette';
+import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -21,14 +22,6 @@ const M = {
     muted: 'rgba(14,14,14,0.45)', muted2: 'rgba(14,14,14,0.26)',
 };
 const MONO = "'JetBrains Mono', monospace";
-
-// ISO tarih ("2026-06-09") → "9 Haz 2026" (başarı kartı için kısa biçim)
-const MONTHS_SHORT_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-function shortDate(iso: string): string {
-    const [y, mo, d] = iso.split('-').map(Number);
-    if (!y || !mo || !d) return iso;
-    return `${d} ${MONTHS_SHORT_TR[mo - 1]} ${y}`;
-}
 
 // ISO tarih ("2026-06-08") → "8 HAZİRAN 2026 · PAZARTESİ" (modal alt başlığı)
 function modalDateLabel(iso: string): string {
@@ -180,7 +173,7 @@ export const CalendarPage = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [staffMenuOpen]);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayISO();
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -234,11 +227,11 @@ export const CalendarPage = () => {
             const d = new Date(start);
             d.setDate(d.getDate() + i);
             return {
-                date: d.toISOString().split('T')[0],
+                date: toISODate(d),
                 day: d.getDate(),
                 dayName: DAYS_TR[i],
                 fullName: DAYS_FULL[i],
-                isToday: d.toISOString().split('T')[0] === today,
+                isToday: toISODate(d) === today,
             };
         });
     }, [currentDate, today]);
@@ -323,7 +316,7 @@ export const CalendarPage = () => {
                 customerPhone: newRes.customerPhone,
                 service: newRes.service,
                 duration: svc?.duration ?? durationMin(newRes.startTime, newRes.endTime),
-                dateLabel: shortDate(selectedDate),
+                dateLabel: formatDateEU(selectedDate),
                 startTime: newRes.startTime,
                 endTime: newRes.endTime,
                 staffName: selectedStaff?.name || 'Fark etmez',
@@ -642,12 +635,12 @@ export const CalendarPage = () => {
                                     <span className="text-sm font-bold text-[#0E0E0E]">Saat Çizelgesi</span>
                                 </div>
                                 <span className="text-xs text-[#0E0E0E]/[0.45] font-medium">
-                                    {filteredReservations.filter(r => r.date === currentDate.toISOString().split('T')[0] && r.status !== 'cancelled').length} randevu
+                                    {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} randevu
                                 </span>
                             </div>
                             <div className="divide-y divide-[#0E0E0E]/[0.07] flex-1 min-h-0 overflow-y-auto">
                                 {HOURS.map((hour) => {
-                                    const dateStr = currentDate.toISOString().split('T')[0];
+                                    const dateStr = toISODate(currentDate);
                                     const hourRes = filteredReservations.filter(r =>
                                         r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour && r.status !== 'cancelled'
                                     );
@@ -715,7 +708,7 @@ export const CalendarPage = () => {
                                 </div>
 
                                 {(() => {
-                                    const dateStr = currentDate.toISOString().split('T')[0];
+                                    const dateStr = toISODate(currentDate);
                                     const dayRes = filteredReservations.filter(r => r.date === dateStr && r.status !== 'cancelled');
                                     const pending = dayRes.filter(r => r.status === 'pending').length;
                                     const confirmed = dayRes.filter(r => r.status === 'confirmed').length;

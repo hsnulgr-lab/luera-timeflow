@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bell, Calendar, CheckCircle2, XCircle, AlertCircle, Clock, X } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
+import { toISODate } from '@/utils/date';
 
 interface Notification {
     id: string;
@@ -25,7 +26,7 @@ export const NotificationDropdown = () => {
     const notifications = useMemo<Notification[]>(() => {
         const notifs: Notification[] = [];
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = toISODate(now);
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         // Pending reservations

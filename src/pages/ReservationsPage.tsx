@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, CheckCircle2, XCircle, Clock, Trash2, Edit2, MessageCircle, MoreHorizontal, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { formatDateEU } from '@/utils/date';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { Reservation } from '@/types';
 
@@ -32,14 +33,6 @@ type SortOption = 'date-desc' | 'date-asc' | 'name';
 
 function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-}
-
-// ISO tarihi ("2026-06-06") → okunaklı Avrupa formatı ("6 Haz 2026")
-const EU_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-function formatDateEU(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return `${d} ${EU_MONTHS[m - 1]} ${y}`;
 }
 
 // Status badge config

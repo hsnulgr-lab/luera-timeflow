@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { todayISO, toISODate } from '@/utils/date';
 import type { Reservation, Settings, Service } from '@/types';
 
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
@@ -323,7 +324,7 @@ export function useReservations() {
     }, [reservations]);
 
     const getTodayReservations = useCallback(() => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayISO();
         return reservations
             .filter(r => r.date === today)
             .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -331,7 +332,7 @@ export function useReservations() {
 
     const getUpcomingReservations = useCallback((limit = 5) => {
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = toISODate(now);
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
         return reservations
@@ -344,7 +345,7 @@ export function useReservations() {
     }, [reservations]);
 
     const getStats = useCallback(() => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayISO();
         const todayRes = reservations.filter(r => r.date === today);
         return {
             total: reservations.length,

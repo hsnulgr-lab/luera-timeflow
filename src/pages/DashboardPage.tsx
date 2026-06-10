@@ -4,6 +4,7 @@ import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle, Bell } from 'l
 import { LNotifications } from '@/components/icons/LueraIcons';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
+import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { LueraButton } from '@/components/ui/LueraButton';
 
 // Durum rozetleri — Luera sıcak paleti
@@ -23,14 +24,6 @@ function waLink(phone: string): string {
 }
 
 const MONO = "'JetBrains Mono', monospace";
-
-// ISO tarih ("2026-06-09") → "9 Haz 2026" (okunaklı Avrupa biçimi)
-const EU_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-function fmtDateEU(iso: string): string {
-    const [y, m, d] = iso.split('-').map(Number);
-    if (!y || !m || !d) return iso;
-    return `${d} ${EU_MONTHS[m - 1]} ${y}`;
-}
 
 // ── KPI kart yardımcıları (Luera Dashboard v2) ────────────────────────────────
 type TrendKind = 'up' | 'down' | 'neutral' | 'warn';
@@ -159,7 +152,7 @@ export const DashboardPage = () => {
 
     // now bir kez hesaplanır — yoksa her render'da değişip tüm useMemo'ları boşa geçersizleştirir
     const now      = useMemo(() => new Date(), []);
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = toISODate(now);
     const nowTime  = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
     // Takvim yaprağı için tarih parçaları
@@ -190,8 +183,8 @@ export const DashboardPage = () => {
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-        const weekRes = reservations.filter(r => r.date >= startOfWeek.toISOString().split('T')[0]
-            && r.date <= endOfWeek.toISOString().split('T')[0]);
+        const weekRes = reservations.filter(r => r.date >= toISODate(startOfWeek)
+            && r.date <= toISODate(endOfWeek));
         const completed = weekRes.filter(r => r.status === 'completed').length;
         const noShow    = weekRes.filter(r => r.status === 'cancelled').length;
         const total     = weekRes.filter(r => r.status !== 'cancelled').length;
@@ -203,7 +196,7 @@ export const DashboardPage = () => {
     // ── KPI kart verileri (gerçek veriden) ────────────────────────────────────
     const cardData = useMemo(() => {
         const active = reservations.filter(r => r.status !== 'cancelled');
-        const iso = (dt: Date) => dt.toISOString().split('T')[0];
+        const iso = (dt: Date) => toISODate(dt);
         const d = new Date(now);
 
         // Son 7 günün günlük adetleri (son eleman = bugün)
@@ -267,7 +260,7 @@ export const DashboardPage = () => {
         return Array.from({ length: 7 }, (_, i) => {
             const d = new Date(start);
             d.setDate(start.getDate() + i);
-            const ds = d.toISOString().split('T')[0];
+            const ds = toISODate(d);
             return {
                 label: labels[i],
                 num: d.getDate(),
@@ -559,7 +552,7 @@ export const DashboardPage = () => {
                                                 style={{ backgroundColor: res.serviceColor || '#FF5A1F' }} />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-semibold text-[#0E0E0E] truncate">{res.customerName}</p>
-                                                <p className="text-[11px] text-[#0E0E0E]/[0.45] truncate">{fmtDateEU(res.date)} · {res.service}</p>
+                                                <p className="text-[11px] text-[#0E0E0E]/[0.45] truncate">{formatDateEU(res.date)} · {res.service}</p>
                                             </div>
                                             <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#FF5A1F]/15 text-[#E8430F] flex-shrink-0 tabular-nums">
                                                 {res.startTime}
