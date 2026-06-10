@@ -105,12 +105,18 @@ function useReservationsState() {
     }, [user]);
 
     // ─── Rezervasyonları getir ────────────────────────────────────────────────
-    const fetchReservations = useCallback(async () => {
+    const fetchReservations = useCallback(async (currentOrgId?: string | null) => {
         if (!user) return;
         setIsLoading(true);
-        const { data, error } = await supabase
+
+        // Tenant izolasyonu — orgId bilindiğinde açık filtre (RLS'e ek savunma)
+        const resolvedOrgId = currentOrgId ?? orgId;
+        let query = supabase
             .from('reservations')
-            .select('*, staff(name, color)')
+            .select('*, staff(name, color)');
+        if (resolvedOrgId) query = query.eq('organization_id', resolvedOrgId);
+
+        const { data, error } = await query
             .order('date', { ascending: false })
             .order('start_time', { ascending: true });
 
@@ -121,7 +127,7 @@ function useReservationsState() {
             setReservations((data || []).map(mapDbReservation));
         }
         setIsLoading(false);
-    }, [user]);
+    }, [user, orgId]);
 
     // ─── Ayarları getir ──────────────────────────────────────────────────────
     const fetchSettings = useCallback(async (currentOrgId?: string | null) => {
@@ -129,14 +135,17 @@ function useReservationsState() {
 
         const resolvedOrgId = currentOrgId ?? orgId;
 
+        // maybeSingle: çoklu satırda .single() patlardı; yokken null döner
         const { data: settingsData } = await supabase
             .from('settings')
             .select('*')
-            .single();
+            .eq('user_id', user.id)
+            .maybeSingle();
 
         const { data: servicesData } = await supabase
             .from('services')
             .select('*')
+            .eq('user_id', user.id)
             .order('created_at');
 
         const allServices: Service[] = (servicesData || []).map((s: any) => ({
@@ -199,7 +208,7 @@ function useReservationsState() {
     useEffect(() => {
         if (user) {
             fetchOrgId().then(id => {
-                fetchReservations();
+                fetchReservations(id);
                 fetchSettings(id);
             });
         }
@@ -386,9 +395,21 @@ function useReservationsState() {
             return;
         }
 
-        await supabase.from('services').delete().eq('user_id', user.id);
+        // Hizmetleri güncelle — veri kaybına karşı snapshot + rollback
+        // (transaction yerine: insert başarısız olursa eski hizmetleri geri yükle)
+        const { data: oldServices } = await supabase
+            .from('services').select('*').eq('user_id', user.id);
+
+        const { error: delError } = await supabase
+            .from('services').delete().eq('user_id', user.id);
+        if (delError) {
+            toast.error('Hizmetler güncellenemedi');
+            console.error('Error deleting services:', delError);
+            return; // silme başarısız → eski hizmetler güvende
+        }
+
         if (newSettings.services.length > 0) {
-            await supabase.from('services').insert(
+            const { error: insError } = await supabase.from('services').insert(
                 newSettings.services.map(s => ({
                     user_id: user.id,
                     organization_id: orgId,
@@ -398,11 +419,30 @@ function useReservationsState() {
                     price: s.price || null,
                 }))
             );
+            if (insError) {
+                // ROLLBACK: yeni kayıt başarısız → eski hizmetleri geri yükle
+                if (oldServices && oldServices.length > 0) {
+                    await supabase.from('services').insert(
+                        oldServices.map((s: any) => ({
+                            user_id: s.user_id,
+                            organization_id: s.organization_id,
+                            name: s.name,
+                            duration: s.duration,
+                            color: s.color,
+                            price: s.price ?? null,
+                        }))
+                    );
+                }
+                toast.error('Hizmetler kaydedilemedi — önceki haline döndürüldü');
+                console.error('Error inserting services:', insError);
+                return;
+            }
         }
 
         const { data: servicesData } = await supabase
             .from('services')
             .select('*')
+            .eq('user_id', user.id)
             .order('created_at');
 
         const updatedServices: Service[] = (servicesData || []).map((s: any) => ({
