@@ -7,6 +7,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { cn } from '@/utils/cn';
 import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
+import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -86,13 +87,6 @@ function MLabel({ children, optional }: { children: React.ReactNode; optional?: 
         </div>
     );
 }
-
-const statusConfig: Record<string, { label: string; color: string; dot: string; bg: string }> = {
-    pending: { label: 'Bekleyen', color: 'text-amber-600', dot: 'bg-amber-500', bg: 'bg-amber-50 border-amber-200' },
-    confirmed: { label: 'Onaylı', color: 'text-emerald-600', dot: 'bg-emerald-500', bg: 'bg-emerald-50 border-emerald-200' },
-    cancelled: { label: 'İptal', color: 'text-red-600', dot: 'bg-red-500', bg: 'bg-red-50 border-red-200' },
-    completed: { label: 'Tamamlandı', color: 'text-blue-600', dot: 'bg-blue-500', bg: 'bg-blue-50 border-blue-200' },
-};
 
 export const CalendarPage = () => {
     const { reservations, addReservation, settings, checkConflict } = useReservations();
@@ -678,8 +672,8 @@ export const CalendarPage = () => {
                                                             <p className="text-sm font-bold text-[#0E0E0E] truncate">{r.customerName}</p>
                                                             <p className="text-[11px] text-[#0E0E0E]/[0.45] tabular-nums">{r.startTime} - {r.endTime} · {r.service}</p>
                                                         </div>
-                                                        <span className={cn("px-2.5 py-1 rounded-lg text-[10px] font-bold border flex-shrink-0", statusConfig[r.status]?.bg, statusConfig[r.status]?.color)}>
-                                                            {statusConfig[r.status]?.label}
+                                                        <span className={cn("px-2.5 py-1 rounded-lg text-[10px] font-bold flex-shrink-0", STATUS_BADGE[r.status])}>
+                                                            {STATUS_LABEL[r.status]}
                                                         </span>
                                                     </div>
                                                 ))}

@@ -36,39 +36,40 @@ function initials(name: string) {
 }
 
 // Status badge config
+// Durum rozetleri — evrensel konvansiyon (sarı=bekliyor, yeşil=onaylı, mavi=tamamlandı, kırmızı=iptal)
 const RSB: Record<Reservation['status'], { label: string; style: React.CSSProperties }> = {
   confirmed: {
     label: 'Onaylı',
     style: {
-      background: '#F3EDE4',
-      color: '#0E0E0E',
-      border: '1px solid rgba(14,14,14,0.08)',
+      background: '#E6F4EA',
+      color: '#2E7D43',
+      border: '1px solid rgba(46,125,67,0.18)',
     },
   },
   pending: {
     label: 'Bekleyen',
     style: {
-      background: 'rgba(255,90,31,0.10)',
-      color: '#E8430F',
-      border: '1px solid rgba(255,90,31,0.22)',
+      background: '#FCEFD6',
+      color: '#A66A0E',
+      border: '1px solid rgba(166,106,14,0.18)',
     },
   },
   completed: {
     label: 'Tamamlandı',
     style: {
-      background: '#F3EDE4',
-      color: 'rgba(14,14,14,0.45)',
-      border: '1px solid rgba(14,14,14,0.08)',
+      background: '#E8EFF9',
+      color: '#2E6FB0',
+      border: '1px solid rgba(46,111,176,0.18)',
     },
   },
   cancelled: {
     label: 'İptal',
     style: {
-      background: '#F3EDE4',
-      color: 'rgba(14,14,14,0.28)',
-      border: '1px solid rgba(14,14,14,0.08)',
+      background: '#FCEAEA',
+      color: '#C0392B',
+      border: '1px solid rgba(192,57,43,0.18)',
       textDecoration: 'line-through',
-      opacity: 0.7,
+      opacity: 0.75,
     },
   },
 };

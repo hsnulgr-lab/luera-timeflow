@@ -5,15 +5,8 @@ import { LNotifications } from '@/components/icons/LueraIcons';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
+import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import { LueraButton } from '@/components/ui/LueraButton';
-
-// Durum rozetleri — Luera sıcak paleti
-const statusConfig = {
-    pending:   { label: 'Bekleyen',    color: 'bg-[#FFF1E8] text-[#E8430F]',           dot: 'bg-[#FF5A1F]' },
-    confirmed: { label: 'Onaylı',      color: 'bg-[#E8F5EA] text-[#2A8A30]',           dot: 'bg-[#2A8A30]' },
-    cancelled: { label: 'İptal',       color: 'bg-[#FBECEC] text-[#C0392B]',           dot: 'bg-[#C0392B]' },
-    completed: { label: 'Tamamlandı',  color: 'bg-[#F3EDE4] text-[#0E0E0E]/[0.55]',    dot: 'bg-[#0E0E0E]/40' },
-};
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
 function waLink(phone: string): string {
@@ -466,7 +459,6 @@ export const DashboardPage = () => {
                             ) : (
                                 <div className="space-y-2">
                                     {selectedReservations.map((res) => {
-                                        const s = statusConfig[res.status];
                                         const isPast = selIsToday && res.endTime < nowTime;
                                         return (
                                             <div key={res.id}
@@ -511,8 +503,8 @@ export const DashboardPage = () => {
                                                             </a>
                                                         </>
                                                     )}
-                                                    <span className={cn("hidden sm:inline px-2 py-1 rounded-lg text-[10px] font-bold", s.color)}>
-                                                        {s.label}
+                                                    <span className={cn("hidden sm:inline px-2 py-1 rounded-lg text-[10px] font-bold", STATUS_BADGE[res.status])}>
+                                                        {STATUS_LABEL[res.status]}
                                                     </span>
                                                 </div>
                                             </div>
