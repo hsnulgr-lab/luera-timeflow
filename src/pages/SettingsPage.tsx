@@ -71,13 +71,24 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   const [testing, setTesting]               = useState(false);
   const [testResult, setTestResult]         = useState<boolean | null>(null);
   const [incomingError, setIncomingError]   = useState<string | null>(null);
+  // Gerçek bağlantı durumu — gateway testiyle doğrulanır (key varlığı değil)
+  const [connStatus, setConnStatus]         = useState<'idle' | 'checking' | 'connected' | 'unverified'>('idle');
+
+  // Kayıtlı karşı-key'i gateway üzerinden doğrula
+  const verifyConnection = async (key: string) => {
+    if (!key) { setConnStatus('idle'); return; }
+    setConnStatus('checking');
+    const ok = await testConnection(key);
+    setConnStatus(ok ? 'connected' : 'unverified');
+  };
 
   useEffect(() => {
     (async () => {
       try {
         const [key, incoming] = await Promise.all([getMyKey(module), getIncomingKey(module)]);
         setMyKey(key); setIncomingKey(incoming ?? ''); setIncomingSaved(incoming ?? '');
-      } catch { setMyKeyError('Bağlantı bilgileri yüklenemedi.'); }
+        await verifyConnection(incoming ?? '');
+      } catch { setMyKeyError('Bağlantı bilgileri yüklenemedi.'); setConnStatus('idle'); }
       finally  { setMyKeyLoading(false); }
     })();
   }, [module]);
@@ -102,16 +113,23 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   };
   const handleSaveIncoming = async () => {
     setSavingIncoming(true); setIncomingError(null); setTestResult(null);
-    try { await saveIncomingKey(module, incomingKey); setIncomingSaved(incomingKey); }
+    try {
+      await saveIncomingKey(module, incomingKey);
+      setIncomingSaved(incomingKey);
+      await verifyConnection(incomingKey); // kaydedince gerçek bağlantıyı doğrula
+    }
     catch { setIncomingError('Key kaydedilemedi.'); }
     finally { setSavingIncoming(false); }
   };
   const handleTest = async () => {
     if (!incomingKey) return; setTesting(true); setTestResult(null);
-    const ok = await testConnection(incomingKey); setTestResult(ok); setTesting(false);
+    const ok = await testConnection(incomingKey);
+    setTestResult(ok);
+    setConnStatus(ok ? 'connected' : 'unverified'); // rozet de güncellensin
+    setTesting(false);
   };
 
-  const isConnected = !!myKey || !!incomingSaved;
+  const isConnected = connStatus === 'connected'; // gerçek bağlantı (gateway doğrulamalı)
   const isDirty     = incomingKey !== incomingSaved;
 
   return (
@@ -127,10 +145,28 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
             <div style={{ fontSize: '11.5px', color: T.muted, marginTop: '2px' }}>{description}</div>
           </div>
         </div>
-        {isConnected && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4a9e50', background: 'rgba(93,187,99,0.10)', border: '1px solid rgba(93,187,99,0.2)', padding: '4px 10px', borderRadius: '999px' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5DBB63' }}/>
+        {/* Gerçek bağlantı durumu rozeti */}
+        {connStatus === 'connected' && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#2E7D43', background: '#E6F4EA', border: '1px solid rgba(46,125,67,0.2)', padding: '4px 10px', borderRadius: '999px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2E7D43', animation: 'pulse 2s infinite' }}/>
             Bağlı
+          </span>
+        )}
+        {connStatus === 'checking' && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: T.muted, background: T.surface2, border: `1px solid ${T.border}`, padding: '4px 10px', borderRadius: '999px' }}>
+            <Loader2 size={11} className="animate-spin"/> Kontrol ediliyor
+          </span>
+        )}
+        {connStatus === 'unverified' && (
+          <span title="Key kayıtlı ama gateway yanıt vermedi" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#A66A0E', background: '#FCEFD6', border: '1px solid rgba(166,106,14,0.2)', padding: '4px 10px', borderRadius: '999px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E0A12E' }}/>
+            Doğrulanmadı
+          </span>
+        )}
+        {connStatus === 'idle' && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: T.muted, background: T.surface2, border: `1px solid ${T.border}`, padding: '4px 10px', borderRadius: '999px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.muted2 }}/>
+            Bağlı Değil
           </span>
         )}
       </div>
