@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ReservationsProvider } from '@/contexts/ReservationsProvider';
 import { Layout } from '@/components/layout/Layout';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -40,7 +41,9 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={
             <ProtectedRoute>
-              <Layout />
+              <ReservationsProvider>
+                <Layout />
+              </ReservationsProvider>
             </ProtectedRoute>
           }>
             <Route index element={<DashboardPage />} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,7 +58,8 @@ function mapDbReservation(row: any): Reservation {
     };
 }
 
-export function useReservations() {
+// Ağır mantık — yalnızca Provider içinde BİR KEZ çalışır
+function useReservationsState() {
     const { user } = useAuth();
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -455,4 +456,23 @@ export function useReservations() {
         sendWebhook,
         refetch: fetchReservations,
     };
+}
+
+// ─── Paylaşılan kaynak (Context) ─────────────────────────────────────────────
+// Tüm uygulamada TEK fetch / TEK state. Provider mantığı bir kez çalıştırır;
+// her sayfa aynı veriyi okur ve anında senkron kalır.
+export type ReservationsContextValue = ReturnType<typeof useReservationsState>;
+
+export const ReservationsContext = createContext<ReservationsContextValue | null>(null);
+
+// Provider'ın kullanacağı iç state hook'u
+export { useReservationsState };
+
+// Tüketici hook — sayfalar bunu çağırmaya devam eder (imza birebir aynı)
+export function useReservations(): ReservationsContextValue {
+    const ctx = useContext(ReservationsContext);
+    if (!ctx) {
+        throw new Error('useReservations, <ReservationsProvider> içinde kullanılmalıdır');
+    }
+    return ctx;
 }
