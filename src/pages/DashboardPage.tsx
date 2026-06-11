@@ -288,7 +288,7 @@ export const DashboardPage = () => {
                         {/* Takvim yaprağı (ink) */}
                         <div className="flex-shrink-0 w-[72px] h-[72px] rounded-[14px] bg-[var(--dc-inkbox)] flex flex-col items-center justify-center">
                             <span className="text-[28px] font-black text-[var(--dc-inkbox-fg)] leading-none tracking-[-0.03em]">{dayNum}</span>
-                            <span className="text-[9px] font-bold text-[var(--dc-inkbox-fg)]/70 tracking-[0.16em] uppercase mt-0.5">{monthShort}</span>
+                            <span className="text-[9px] font-bold text-[var(--dc-onbox-70)] tracking-[0.16em] uppercase mt-0.5">{monthShort}</span>
                         </div>
 
                         {/* İşletme + özet */}
@@ -436,11 +436,11 @@ export const DashboardPage = () => {
                                             "flex-1 min-w-[38px] flex flex-col items-center gap-1 py-2 px-1 rounded-[10px] transition-all",
                                             sel ? "bg-[var(--dc-inkbox)] -translate-y-px shadow-[0_3px_10px_rgba(14,14,14,0.15)]" : "hover:bg-[var(--dc-surface2)]"
                                         )}>
-                                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.08em]", sel ? "text-[var(--dc-inkbox-fg)]/50" : "text-[var(--dc-muted)]")}>{d.label}</span>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.08em]", sel ? "text-[var(--dc-onbox-50)]" : "text-[var(--dc-muted)]")}>{d.label}</span>
                                         <span className={cn("text-[14px] font-extrabold leading-none", sel ? "text-[var(--dc-inkbox-fg)]" : "text-[var(--dc-ink)]")}>{d.num}</span>
                                         <span className={cn(
                                             "w-1 h-1 rounded-full",
-                                            d.hasEvent ? (sel ? "bg-[var(--dc-cream)]/60" : "bg-[var(--dc-orange)]") : "bg-transparent"
+                                            d.hasEvent ? (sel ? "bg-[var(--dc-onbox-60)]" : "bg-[var(--dc-orange)]") : "bg-transparent"
                                         )} />
                                     </button>
                                 );
@@ -467,7 +467,7 @@ export const DashboardPage = () => {
                                                 className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border transition-all group",
                                                     isPast
-                                                        ? "border-[var(--dc-border-soft)] bg-[var(--dc-surface2)]/60 opacity-60"
+                                                        ? "border-[var(--dc-border-soft)] bg-[var(--dc-surface2-60)] opacity-60"
                                                         : "border-[var(--dc-border-soft)] hover:border-[var(--dc-orange)] hover:shadow-sm"
                                                 )}
                                             >
