@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Moon, Sun } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import {
     LDashboard,
@@ -27,6 +29,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, onMobileClose }: SidebarProps) => {
     const { user, logout } = useAuth();
+    const { dark, toggle: toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -206,6 +209,26 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 >
                                     <LProfile className="w-4 h-4" />
                                     Profil
+                                </button>
+                                {/* Karanlık mod — sadece dashboard'a uygulanır */}
+                                <button
+                                    onClick={() => toggleTheme()}
+                                    className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                                        {dark ? 'Açık Mod' : 'Karanlık Mod'}
+                                    </span>
+                                    {/* mini switch */}
+                                    <span className={cn(
+                                        "relative inline-flex h-[18px] w-[32px] items-center rounded-full transition-colors flex-shrink-0",
+                                        dark ? "bg-[#FF5A1F]" : "bg-gray-300"
+                                    )}>
+                                        <span className={cn(
+                                            "inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform",
+                                            dark ? "translate-x-[16px]" : "translate-x-[2px]"
+                                        )} />
+                                    </span>
                                 </button>
                                 <button
                                     onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}

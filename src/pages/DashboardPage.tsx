@@ -6,6 +6,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { LueraButton } from '@/components/ui/LueraButton';
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
@@ -22,10 +23,10 @@ const MONO = "'JetBrains Mono', monospace";
 type TrendKind = 'up' | 'down' | 'neutral' | 'warn';
 
 const TREND_STYLE: Record<TrendKind, React.CSSProperties> = {
-    up:      { background: '#E8F5EA',               color: '#2A8A30' },
-    down:    { background: '#FBECEC',               color: '#C0392B' },
-    neutral: { background: '#F3EDE4',               color: 'rgba(14,14,14,0.45)' },
-    warn:    { background: 'rgba(255,90,31,0.10)',  color: '#FF5A1F' },
+    up:      { background: 'var(--dc-green-bg)',               color: 'var(--dc-green)' },
+    down:    { background: 'var(--dc-red-bg)',               color: 'var(--dc-red2)' },
+    neutral: { background: 'var(--dc-surface2)',               color: 'var(--dc-muted)' },
+    warn:    { background: 'rgba(255,90,31,0.10)',  color: 'var(--dc-orange)' },
 };
 
 function TrendChip({ kind, text }: { kind: TrendKind; text: string }) {
@@ -62,7 +63,7 @@ function Sparkline({ data, urgent, activeIndex }: { data: number[]; urgent?: boo
                     <div
                         key={i}
                         className="flex-1 rounded-t-[2px] transition-[height] duration-500"
-                        style={{ height: `${h}%`, background: active ? (urgent ? '#FF5A1F' : '#0E0E0E') : '#EDE6DB' }}
+                        style={{ height: `${h}%`, background: active ? (urgent ? 'var(--dc-orange)' : 'var(--dc-ink)') : 'var(--dc-surface3)' }}
                     />
                 );
             })}
@@ -74,17 +75,17 @@ function Sparkline({ data, urgent, activeIndex }: { data: number[]; urgent?: boo
 function ProgressBar({ label, pct, urgent }: { label: string; pct: number; urgent?: boolean }) {
     return (
         <div className="mt-[5px]">
-            <div className="flex justify-between text-[9.5px] mb-[3px]" style={{ fontFamily: MONO, color: 'rgba(14,14,14,0.5)' }}>
-                <span>{label}</span><span className="font-semibold" style={{ color: 'rgba(14,14,14,0.7)' }}>%{pct}</span>
+            <div className="flex justify-between text-[9.5px] mb-[3px]" style={{ fontFamily: MONO, color: 'var(--dc-muted)' }}>
+                <span>{label}</span><span className="font-semibold" style={{ color: 'var(--dc-ink)' }}>%{pct}</span>
             </div>
-            <div className="h-[3px] rounded-full overflow-hidden" style={{ background: '#EDE6DB' }}>
+            <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--dc-surface3)' }}>
                 <div
                     className="h-full rounded-full transition-[width] duration-1000"
                     style={{
                         width: `${pct}%`,
                         background: urgent
                             ? 'linear-gradient(90deg,#FF5A1F,#ff8a52)'
-                            : 'linear-gradient(90deg,#0E0E0E,rgba(14,14,14,.6))',
+                            : 'linear-gradient(90deg,var(--dc-ink),var(--dc-muted))',
                     }}
                 />
             </div>
@@ -108,14 +109,14 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
                 "hover:shadow-[0_2px_8px_rgba(14,14,14,0.08),0_8px_24px_rgba(14,14,14,0.06)]",
             )}
             style={{
-                background: urgent ? 'rgba(255,90,31,0.035)' : '#FAF7F3',
-                border: `1px solid ${urgent ? 'rgba(255,90,31,0.25)' : 'rgba(14,14,14,0.08)'}`,
+                background: urgent ? 'rgba(255,90,31,0.035)' : 'var(--dc-surface)',
+                border: `1px solid ${urgent ? 'rgba(255,90,31,0.25)' : 'var(--dc-border)'}`,
             }}
         >
             <div className="flex items-center justify-between mb-1">
                 <span
                     className="text-[10px] font-bold uppercase tracking-[0.18em]"
-                    style={{ fontFamily: MONO, color: urgent ? '#FF5A1F' : 'rgba(14,14,14,0.55)' }}
+                    style={{ fontFamily: MONO, color: urgent ? 'var(--dc-orange)' : 'var(--dc-muted)' }}
                 >
                     {label}
                 </span>
@@ -123,13 +124,13 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
             </div>
             <p
                 className="text-[25px] font-black leading-[1.05] tracking-[-0.05em]"
-                style={{ color: urgent ? '#FF5A1F' : '#0E0E0E' }}
+                style={{ color: urgent ? 'var(--dc-orange)' : 'var(--dc-ink)' }}
             >
                 {value}
             </p>
-            <p className="text-[12px] mt-0.5 font-semibold" style={{ color: 'rgba(14,14,14,0.62)' }}>{sublabel}</p>
-            <p className="text-[10.5px] mt-[3px] font-medium" style={{ color: 'rgba(14,14,14,0.45)' }}>
-                {compareLabel}: <b style={{ color: '#0E0E0E' }}>{compareValue}</b>
+            <p className="text-[12px] mt-0.5 font-semibold" style={{ color: 'var(--dc-muted)' }}>{sublabel}</p>
+            <p className="text-[10.5px] mt-[3px] font-medium" style={{ color: 'var(--dc-muted)' }}>
+                {compareLabel}: <b style={{ color: 'var(--dc-ink)' }}>{compareValue}</b>
             </p>
             {children}
         </button>
@@ -138,6 +139,7 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
 
 export const DashboardPage = () => {
     const navigate = useNavigate();
+    const { dark } = useTheme();
     const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations, getReservationsByDate } = useReservations();
     const stats                = getStats();
     const todayReservations    = getTodayReservations();
@@ -276,32 +278,32 @@ export const DashboardPage = () => {
     const selDateLabel = selDay ? `${selDay.num} ${monthShort.charAt(0)}${monthShort.slice(1).toLowerCase()}` : '';
 
     return (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#F5F0E6]">
+        <div className={cn("dash-theme flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto space-y-6">
 
                 {/* ── Hero: Takvim Yaprağı + İşletme + Akıllı Özet ─────────────── */}
-                <div className="rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
+                <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6 p-6 sm:px-7">
                         {/* Takvim yaprağı (ink) */}
-                        <div className="flex-shrink-0 w-[72px] h-[72px] rounded-[14px] bg-[#0E0E0E] flex flex-col items-center justify-center">
-                            <span className="text-[28px] font-black text-[#F0EBE1] leading-none tracking-[-0.03em]">{dayNum}</span>
-                            <span className="text-[9px] font-bold text-[#F0EBE1]/70 tracking-[0.16em] uppercase mt-0.5">{monthShort}</span>
+                        <div className="flex-shrink-0 w-[72px] h-[72px] rounded-[14px] bg-[var(--dc-inkbox)] flex flex-col items-center justify-center">
+                            <span className="text-[28px] font-black text-[var(--dc-inkbox-fg)] leading-none tracking-[-0.03em]">{dayNum}</span>
+                            <span className="text-[9px] font-bold text-[var(--dc-inkbox-fg)]/70 tracking-[0.16em] uppercase mt-0.5">{monthShort}</span>
                         </div>
 
                         {/* İşletme + özet */}
                         <div className="flex-1 min-w-0">
-                            <p className="text-[10.5px] font-semibold text-[#FF5A1F] uppercase tracking-[0.12em] mb-1.5">
+                            <p className="text-[10.5px] font-semibold text-[var(--dc-orange)] uppercase tracking-[0.12em] mb-1.5">
                                 {weekday} · {monthYear}
                             </p>
-                            <h1 className="text-[22px] font-extrabold text-[#0E0E0E] tracking-[-0.03em] leading-tight truncate">
+                            <h1 className="text-[22px] font-extrabold text-[var(--dc-ink)] tracking-[-0.03em] leading-tight truncate">
                                 {settings.businessName}
                             </h1>
-                            <p className="text-[13.5px] text-[#0E0E0E]/[0.44] mt-1">
+                            <p className="text-[13.5px] text-[var(--dc-muted)] mt-1">
                                 {remainingToday > 0 ? (
                                     <>
-                                        Bugün <span className="font-bold text-[#0E0E0E]">{remainingToday} randevun</span> var
-                                        {nextAppt && <> · ilki <span className="font-bold text-[#E8430F]">{nextAppt.startTime}</span>'te</>}
+                                        Bugün <span className="font-bold text-[var(--dc-ink)]">{remainingToday} randevun</span> var
+                                        {nextAppt && <> · ilki <span className="font-bold text-[var(--dc-orange-d)]">{nextAppt.startTime}</span>'te</>}
                                         {stats.pending > 0 && <> · {stats.pending} onay bekliyor</>}
                                     </>
                                 ) : todayReservations.length > 0 ? (
@@ -327,11 +329,11 @@ export const DashboardPage = () => {
 
                 {/* ── Hatırlatma Güven Şeridi ──────────────────────────────────── */}
                 {remindersSent > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-100">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                            <Bell className="w-4 h-4 text-emerald-600" />
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: 'var(--dc-green-bg)', border: '1px solid var(--dc-green-bg)' }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--dc-green-bg)' }}>
+                            <Bell className="w-4 h-4" style={{ color: 'var(--dc-green)' }} />
                         </div>
-                        <p className="text-sm text-emerald-800">
+                        <p className="text-sm" style={{ color: 'var(--dc-green)' }}>
                             <span className="font-bold">{remindersSent} müşteriye</span> otomatik WhatsApp hatırlatması gönderildi — senin yerine sistem hatırlattı ✅
                         </p>
                     </div>
@@ -369,7 +371,7 @@ export const DashboardPage = () => {
                         {cardData.weekResCount > 0 ? (
                             <ProgressBar label="Yanıt oranı" pct={cardData.responseRate} urgent />
                         ) : (
-                            <div className="mt-[5px] text-[10px]" style={{ fontFamily: MONO, color: 'rgba(14,14,14,0.45)' }}>
+                            <div className="mt-[5px] text-[10px]" style={{ fontFamily: MONO, color: 'var(--dc-muted)' }}>
                                 Bu hafta yanıt bekleyen yok
                             </div>
                         )}
@@ -407,38 +409,38 @@ export const DashboardPage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
                     {/* Bugünün Programı — ana panel */}
-                    <div className="lg:col-span-3 relative overflow-hidden rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_1px_3px_rgba(14,14,14,0.06)]">
-                        <div className="px-5 py-4 border-b border-[#0E0E0E]/[0.08] flex items-center justify-between">
+                    <div className="lg:col-span-3 relative overflow-hidden rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)]">
+                        <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[#0E0E0E] flex items-center justify-center">
-                                    <Clock className="w-4 h-4 text-[#F0EBE1]" />
+                                <div className="w-9 h-9 rounded-xl bg-[var(--dc-inkbox)] flex items-center justify-center">
+                                    <Clock className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-[#0E0E0E]">{selIsToday ? 'Bugünün Programı' : `${selDateLabel} Programı`}</h2>
-                                    <p className="text-[11px] text-[#0E0E0E]/[0.45]">{selectedReservations.length} randevu planlandı</p>
+                                    <h2 className="text-base font-bold text-[var(--dc-ink)]">{selIsToday ? 'Bugünün Programı' : `${selDateLabel} Programı`}</h2>
+                                    <p className="text-[11px] text-[var(--dc-muted)]">{selectedReservations.length} randevu planlandı</p>
                                 </div>
                             </div>
                             <button onClick={() => navigate('/calendar')}
-                                className="text-xs font-semibold text-[#FF5A1F] hover:bg-[#FF5A1F]/[0.08] px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                                className="text-xs font-semibold text-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)] px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
                                 Tümünü Gör <ArrowRight className="w-3 h-3" />
                             </button>
                         </div>
 
                         {/* Haftalık şerit */}
-                        <div className="flex gap-[3px] px-4 py-3 border-b border-[#0E0E0E]/[0.08] overflow-x-auto">
+                        <div className="flex gap-[3px] px-4 py-3 border-b border-[var(--dc-border)] overflow-x-auto">
                             {weekDays.map((d) => {
                                 const sel = selectedDate === d.dateStr;
                                 return (
                                     <button key={d.dateStr} onClick={() => setSelectedDate(d.dateStr)}
                                         className={cn(
                                             "flex-1 min-w-[38px] flex flex-col items-center gap-1 py-2 px-1 rounded-[10px] transition-all",
-                                            sel ? "bg-[#0E0E0E] -translate-y-px shadow-[0_3px_10px_rgba(14,14,14,0.15)]" : "hover:bg-[#F3EDE4]"
+                                            sel ? "bg-[var(--dc-inkbox)] -translate-y-px shadow-[0_3px_10px_rgba(14,14,14,0.15)]" : "hover:bg-[var(--dc-surface2)]"
                                         )}>
-                                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.08em]", sel ? "text-[#F0EBE1]/50" : "text-[#0E0E0E]/[0.45]")}>{d.label}</span>
-                                        <span className={cn("text-[14px] font-extrabold leading-none", sel ? "text-[#F0EBE1]" : "text-[#0E0E0E]")}>{d.num}</span>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.08em]", sel ? "text-[var(--dc-inkbox-fg)]/50" : "text-[var(--dc-muted)]")}>{d.label}</span>
+                                        <span className={cn("text-[14px] font-extrabold leading-none", sel ? "text-[var(--dc-inkbox-fg)]" : "text-[var(--dc-ink)]")}>{d.num}</span>
                                         <span className={cn(
                                             "w-1 h-1 rounded-full",
-                                            d.hasEvent ? (sel ? "bg-[#F0EBE1]/60" : "bg-[#FF5A1F]") : "bg-transparent"
+                                            d.hasEvent ? (sel ? "bg-[var(--dc-cream)]/60" : "bg-[var(--dc-orange)]") : "bg-transparent"
                                         )} />
                                     </button>
                                 );
@@ -448,11 +450,11 @@ export const DashboardPage = () => {
                         <div className="p-4">
                             {selectedReservations.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12">
-                                    <div className="w-16 h-16 rounded-2xl bg-[#F3EDE4] border border-[#0E0E0E]/[0.08] flex items-center justify-center mb-3">
-                                        <Calendar className="w-7 h-7 text-[#0E0E0E]/[0.28]" />
+                                    <div className="w-16 h-16 rounded-2xl bg-[var(--dc-surface2)] border border-[var(--dc-border)] flex items-center justify-center mb-3">
+                                        <Calendar className="w-7 h-7 text-[var(--dc-muted2)]" />
                                     </div>
-                                    <p className="text-sm font-semibold text-[#0E0E0E] mb-1">{selIsToday ? 'Bugün randevu yok' : `${selDateLabel} randevu yok`}</p>
-                                    <LueraButton onClick={() => navigate('/calendar')} variant="accent" size="sm" className="mt-2" style={{ color: '#F3ECE0' }}>
+                                    <p className="text-sm font-semibold text-[var(--dc-ink)] mb-1">{selIsToday ? 'Bugün randevu yok' : `${selDateLabel} randevu yok`}</p>
+                                    <LueraButton onClick={() => navigate('/calendar')} variant="accent" size="sm" className="mt-2" style={{ color: 'var(--dc-cream)' }}>
                                         + Randevu oluştur
                                     </LueraButton>
                                 </div>
@@ -465,19 +467,19 @@ export const DashboardPage = () => {
                                                 className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border transition-all group",
                                                     isPast
-                                                        ? "border-[#0E0E0E]/[0.06] bg-[#F3EDE4]/60 opacity-60"
-                                                        : "border-[#0E0E0E]/[0.06] hover:border-[#FF5A1F]/40 hover:shadow-sm"
+                                                        ? "border-[var(--dc-border-soft)] bg-[var(--dc-surface2)]/60 opacity-60"
+                                                        : "border-[var(--dc-border-soft)] hover:border-[var(--dc-orange)] hover:shadow-sm"
                                                 )}
                                             >
                                                 <div className="text-center min-w-[48px]">
-                                                    <p className="text-sm font-extrabold text-[#0E0E0E] tabular-nums">{res.startTime}</p>
-                                                    <p className="text-[10px] text-[#0E0E0E]/[0.45] tabular-nums">{res.endTime}</p>
+                                                    <p className="text-sm font-extrabold text-[var(--dc-ink)] tabular-nums">{res.startTime}</p>
+                                                    <p className="text-[10px] text-[var(--dc-muted)] tabular-nums">{res.endTime}</p>
                                                 </div>
                                                 <div className="w-1 h-11 rounded-full flex-shrink-0"
-                                                    style={{ backgroundColor: res.serviceColor || '#FF5A1F' }} />
+                                                    style={{ backgroundColor: res.serviceColor || 'var(--dc-orange)' }} />
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-[#0E0E0E] truncate">{res.customerName}</p>
-                                                    <p className="text-xs text-[#0E0E0E]/[0.45] truncate">{res.service}</p>
+                                                    <p className="text-sm font-bold text-[var(--dc-ink)] truncate">{res.customerName}</p>
+                                                    <p className="text-xs text-[var(--dc-muted)] truncate">{res.service}</p>
                                                 </div>
 
                                                 {/* Tek-tık aksiyonlar */}
@@ -519,34 +521,34 @@ export const DashboardPage = () => {
                     <div className="lg:col-span-2 flex flex-col gap-4">
 
                         {/* Yaklaşan Randevular */}
-                        <div className="flex-1 relative overflow-hidden rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_1px_3px_rgba(14,14,14,0.06)]">
-                            <div className="px-5 py-4 border-b border-[#0E0E0E]/[0.08] flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[#F3EDE4] border border-[#0E0E0E]/[0.08] flex items-center justify-center">
-                                    <Calendar className="w-4 h-4 text-[#0E0E0E]" />
+                        <div className="flex-1 relative overflow-hidden rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)]">
+                            <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-[var(--dc-surface2)] border border-[var(--dc-border)] flex items-center justify-center">
+                                    <Calendar className="w-4 h-4 text-[var(--dc-ink)]" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-[#0E0E0E]">Yaklaşan</h2>
-                                    <p className="text-[11px] text-[#0E0E0E]/[0.45]">{upcomingReservations.length} randevu</p>
+                                    <h2 className="text-base font-bold text-[var(--dc-ink)]">Yaklaşan</h2>
+                                    <p className="text-[11px] text-[var(--dc-muted)]">{upcomingReservations.length} randevu</p>
                                 </div>
                             </div>
 
                             <div className="p-3 space-y-2">
                                 {upcomingReservations.length === 0 ? (
                                     <div className="text-center py-8">
-                                        <p className="text-sm text-[#0E0E0E]/[0.45]">Yaklaşan randevu yok</p>
+                                        <p className="text-sm text-[var(--dc-muted)]">Yaklaşan randevu yok</p>
                                     </div>
                                 ) : (
                                     upcomingReservations.map((res) => (
                                         <div key={res.id}
                                             onClick={() => navigate('/reservations')}
-                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F3EDE4] border border-[#0E0E0E]/[0.06] hover:bg-[#FF5A1F]/[0.07] hover:border-[#FF5A1F]/30 transition-all cursor-pointer">
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--dc-surface2)] border border-[var(--dc-border-soft)] hover:bg-[var(--dc-orange-soft)] hover:border-[var(--dc-orange)] transition-all cursor-pointer">
                                             <div className="w-1.5 h-8 rounded-full flex-shrink-0"
-                                                style={{ backgroundColor: res.serviceColor || '#FF5A1F' }} />
+                                                style={{ backgroundColor: res.serviceColor || 'var(--dc-orange)' }} />
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-[#0E0E0E] truncate">{res.customerName}</p>
-                                                <p className="text-[11px] text-[#0E0E0E]/[0.45] truncate">{formatDateEU(res.date)} · {res.service}</p>
+                                                <p className="text-sm font-semibold text-[var(--dc-ink)] truncate">{res.customerName}</p>
+                                                <p className="text-[11px] text-[var(--dc-muted)] truncate">{formatDateEU(res.date)} · {res.service}</p>
                                             </div>
-                                            <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#FF5A1F]/15 text-[#E8430F] flex-shrink-0 tabular-nums">
+                                            <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--dc-orange-soft)] text-[var(--dc-orange-d)] flex-shrink-0 tabular-nums">
                                                 {res.startTime}
                                             </span>
                                         </div>
@@ -556,32 +558,32 @@ export const DashboardPage = () => {
                         </div>
 
                         {/* Haftalık Özet */}
-                        <div className="rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
+                        <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
                             <div className="px-5 pt-4 pb-3">
-                                <h2 className="text-[13.5px] font-bold text-[#0E0E0E]">Haftalık Özet</h2>
-                                <p className="text-[11px] text-[#0E0E0E]/[0.45] mt-0.5">Bu hafta</p>
+                                <h2 className="text-[13.5px] font-bold text-[var(--dc-ink)]">Haftalık Özet</h2>
+                                <p className="text-[11px] text-[var(--dc-muted)] mt-0.5">Bu hafta</p>
                             </div>
-                            <div className="grid grid-cols-3 border-t border-[#0E0E0E]/[0.08]">
-                                <div className="text-center py-3.5 px-3 border-r border-[#0E0E0E]/[0.08]">
-                                    <p className="text-[20px] font-black text-[#2D8F32] tracking-[-0.04em]">{weekStats.completed}</p>
-                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#2D8F32] mt-0.5">Tamamlandı</p>
+                            <div className="grid grid-cols-3 border-t border-[var(--dc-border)]">
+                                <div className="text-center py-3.5 px-3 border-r border-[var(--dc-border)]">
+                                    <p className="text-[20px] font-black text-[var(--dc-green)] tracking-[-0.04em]">{weekStats.completed}</p>
+                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-green)] mt-0.5">Tamamlandı</p>
                                 </div>
-                                <div className="text-center py-3.5 px-3 border-r border-[#0E0E0E]/[0.08]">
-                                    <p className="text-[20px] font-black text-[#C94040] tracking-[-0.04em]">{weekStats.noShow}</p>
-                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#C94040] mt-0.5">İptal</p>
+                                <div className="text-center py-3.5 px-3 border-r border-[var(--dc-border)]">
+                                    <p className="text-[20px] font-black text-[var(--dc-red)] tracking-[-0.04em]">{weekStats.noShow}</p>
+                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-red)] mt-0.5">İptal</p>
                                 </div>
                                 <div className="text-center py-3.5 px-3">
-                                    <p className="text-[20px] font-black text-[#B87A00] tracking-[-0.04em]">%{weekStats.rate}</p>
-                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#B87A00] mt-0.5">Oran</p>
+                                    <p className="text-[20px] font-black text-[var(--dc-amber)] tracking-[-0.04em]">%{weekStats.rate}</p>
+                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-amber)] mt-0.5">Oran</p>
                                 </div>
                             </div>
-                            <div className="px-[18px] pt-3 pb-4 border-t border-[#0E0E0E]/[0.08]">
+                            <div className="px-[18px] pt-3 pb-4 border-t border-[var(--dc-border)]">
                                 <div className="flex justify-between text-[11px] font-semibold mb-[7px]">
-                                    <span className="text-[#0E0E0E]/[0.45]">Tamamlanma oranı</span>
-                                    <span className="text-[#0E0E0E]">%{weekStats.rate}</span>
+                                    <span className="text-[var(--dc-muted)]">Tamamlanma oranı</span>
+                                    <span className="text-[var(--dc-ink)]">%{weekStats.rate}</span>
                                 </div>
-                                <div className="h-[6px] bg-[#EDE6DB] rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF8052] transition-[width] duration-1000 ease-out"
+                                <div className="h-[6px] bg-[var(--dc-surface3)] rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-[var(--dc-orange)] to-[var(--dc-orange-d)] transition-[width] duration-1000 ease-out"
                                         style={{ width: `${weekStats.rate}%` }} />
                                 </div>
                             </div>

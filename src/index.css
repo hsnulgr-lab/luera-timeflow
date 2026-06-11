@@ -10,6 +10,33 @@ html, body, #root {
   max-width: 100%;
 }
 
+/* ── Dashboard tema değişkenleri ──────────────────────────────────────────────
+   Işık değerleri = mevcut hex'ler (ışık modu birebir aynı kalır).
+   .dark eklenince dark palete geçer. Sadece dashboard kapsamında. */
+.dash-theme {
+  /* siyah kutular (tarih yaprağı, ikon kutuları) — dark'ta koyu yüzeye döner, ışığa değil */
+  --dc-inkbox:#0E0E0E; --dc-inkbox-fg:#F0EBE1;
+  --dc-ink:#0E0E0E; --dc-cream:#F0EBE1; --dc-orange:#FF5A1F; --dc-orange-d:#E8430F;
+  --dc-page:#F5F0E6; --dc-surface:#FAF7F3; --dc-surface2:#F3EDE4; --dc-surface3:#EDE6DB;
+  --dc-border:rgba(14,14,14,0.08); --dc-border-soft:rgba(14,14,14,0.06);
+  --dc-muted:rgba(14,14,14,0.45); --dc-muted2:rgba(14,14,14,0.28);
+  --dc-orange-soft:rgba(255,90,31,0.08);
+  --dc-green:#2D8F32; --dc-green-bg:#E8F5EA;
+  --dc-red:#C94040; --dc-red2:#C0392B; --dc-red-bg:#FBECEC;
+  --dc-amber:#B87A00;
+}
+.dash-theme.dark {
+  --dc-inkbox:#272320; --dc-inkbox-fg:#F0EBE1;
+  --dc-ink:#F0EBE1; --dc-cream:#0F0D0B; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
+  --dc-page:#0F0D0B; --dc-surface:#161310; --dc-surface2:#1F1C18; --dc-surface3:#272320;
+  --dc-border:rgba(240,235,225,0.08); --dc-border-soft:rgba(240,235,225,0.05);
+  --dc-muted:rgba(240,235,225,0.46); --dc-muted2:rgba(240,235,225,0.28);
+  --dc-orange-soft:rgba(255,90,31,0.14);
+  --dc-green:#7AD3A0; --dc-green-bg:rgba(45,160,50,.16);
+  --dc-red:#e07070; --dc-red2:#e07070; --dc-red-bg:rgba(224,112,112,.16);
+  --dc-amber:#E0A12E;
+}
+
 @layer base {
   :root {
     /* Premium Purple-Indigo Theme - Matching LeadFlow */

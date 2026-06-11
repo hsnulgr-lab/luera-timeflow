@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Layout } from '@/components/layout/Layout';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -35,6 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -68,6 +70,7 @@ function App() {
         }}
       />
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 
