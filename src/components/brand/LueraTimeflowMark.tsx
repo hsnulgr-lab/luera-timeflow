@@ -13,6 +13,11 @@ interface LueraTimeflowMarkProps {
     pillHeightRatio?: number;
     /** "timeflow" text size as a fraction of the pill height. Design default 0.52. */
     textRatio?: number;
+    /**
+     * Dark variant. Mirrors "Luera LeadFlow Animation.html" (ink zemin):
+     * wordmark cream'e döner. Pill turuncu kalır.
+     */
+    dark?: boolean;
     className?: string;
 }
 
@@ -37,8 +42,12 @@ export const LueraTimeflowMark = ({
     animate = true,
     pillHeightRatio = 0.38,
     textRatio = 0.52,
+    dark = false,
     className,
 }: LueraTimeflowMarkProps) => {
+    const wordmarkColor = dark ? CREAM : INK;
+    // Dark sürümde "timeflow" rozet yazısı ink olur (tasarım: ink on orange).
+    const badgeTextColor = dark ? INK : CREAM;
     const wmRef = useRef<HTMLSpanElement>(null);
     const badgeRef = useRef<HTMLSpanElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);
@@ -186,7 +195,7 @@ export const LueraTimeflowMark = ({
                 letterSpacing: '-0.045em',
                 lineHeight: 0.8,
                 whiteSpace: 'nowrap',
-                color: INK,
+                color: wordmarkColor,
                 opacity: 0,
                 transform: 'translateY(10px)',
                 userSelect: 'none',
@@ -214,7 +223,7 @@ export const LueraTimeflowMark = ({
                     style={{
                         fontSize: 0,
                         fontWeight: 800,
-                        color: CREAM,
+                        color: badgeTextColor,
                         whiteSpace: 'nowrap',
                         letterSpacing: '-0.01em',
                         opacity: 0,

@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 /**
  * Luera TimeFlow — Karşılama animasyonu
  * Sadece login sonrası 1 kez çalışır (~4s), sonra onDone() çağrılır.
  *
- * Animasyon sırası (tasarım: Luera TimeFlow Light Animation.html):
+ * Light tasarım : Luera TimeFlow Light Animation.html (cream zemin, ink wordmark)
+ * Dark  tasarım : Luera LeadFlow Animation.html        (ink zemin, cream wordmark)
+ * Tema (useTheme) ile zemin + wordmark rengi takas edilir; turuncu rozet ve
+ * üzerindeki ink yazı her iki temada da aynıdır.
+ *
+ * Animasyon sırası:
  *   0ms  → sahne görünür (cream bg)
  *  30ms  → "luera" wordmark kayarak yukarı gelir (0.65s)
  * 930ms  → turuncu nokta spring pop (0.38s)
@@ -17,6 +23,12 @@ import { useEffect, useRef, useState } from 'react';
 interface Props { onDone: () => void; }
 
 export function SplashScreen({ onDone }: Props) {
+  const { dark } = useTheme();
+
+  // Tema renkleri — dark sürüm zemin/wordmark'ı takas eder
+  const stageBg = dark ? '#0E0E0E' : '#F3ECE0';
+  const wordmarkColor = dark ? '#F3ECE0' : '#0E0E0E';
+
   const wmRef    = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const btextRef = useRef<HTMLSpanElement>(null);
@@ -85,7 +97,7 @@ export function SplashScreen({ onDone }: Props) {
       {/* Full-screen cream stage */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#F3ECE0',
+        background: stageBg,
         display: 'grid', placeItems: 'center',
         opacity: fadeOut ? 0 : 1,
         transition: fadeOut ? 'opacity 0.65s cubic-bezier(.4,0,.2,1)' : 'none',
@@ -103,7 +115,7 @@ export function SplashScreen({ onDone }: Props) {
             letterSpacing: '-0.045em',
             lineHeight: 0.80,
             whiteSpace: 'nowrap',
-            color: '#0E0E0E',
+            color: wordmarkColor,
             // entrance animation
             opacity:   wmIn ? 1 : 0,
             transform: wmIn ? 'translateY(0)' : 'translateY(10px)',

@@ -3,33 +3,29 @@ import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft } from 'lucide
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Customer } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  ink:      '#0E0E0E',
-  cream:    '#F0EBE1',
-  orange:   '#FF5A1F',
-  surface:  '#FAF7F3',
-  surface2: '#F3EDE4',
-  surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)',
-  border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)',
-  muted2:   'rgba(14,14,14,0.28)',
+const LT = {
+  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
+  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
   shadow:   '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
-  r:    '14px',
-  rSm:  '10px',
-  rXs:  '7px',
+  r: '14px', rSm: '10px', rXs: '7px',
 };
-
-const STATUS_DOT: Record<string, string> = {
-  confirmed: 'rgba(14,14,14,0.4)',
-  pending:   '#FF5A1F',
-  completed: 'rgba(14,14,14,0.28)',
-  cancelled: 'rgba(14,14,14,0.18)',
+const DT = {
+  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
+  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
+  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
+  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  shadow:   '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
+  shadowSm: '0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
+  shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
+  r: '14px', rSm: '10px', rXs: '7px',
 };
 
 function initials(name: string) {
@@ -42,6 +38,21 @@ function isNew(createdAt: string) {
 // ── Component ────────────────────────────────────────────────────────────────
 export const CustomersPage = () => {
   const isMobile = useIsMobile();
+  const { dark } = useTheme();
+  const T = dark ? DT : LT;
+
+  const statusDot: Record<string, string> = dark ? {
+    confirmed: 'rgba(240,235,225,0.4)',
+    pending:   '#FF5A1F',
+    completed: 'rgba(240,235,225,0.28)',
+    cancelled: 'rgba(240,235,225,0.18)',
+  } : {
+    confirmed: 'rgba(14,14,14,0.4)',
+    pending:   '#FF5A1F',
+    completed: 'rgba(14,14,14,0.28)',
+    cancelled: 'rgba(14,14,14,0.18)',
+  };
+
   const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer } = useCustomers();
   const { reservations } = useReservations();
   const [selId, setSelId]         = useState<string | null>(null);
@@ -67,7 +78,7 @@ export const CustomersPage = () => {
       {/* ── Page header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'10px', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:'13px' }}>
-          <div style={{ width:40, height:40, background:T.ink, borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
+          <div style={{ width:40, height:40, background: dark ? '#272320' : '#0E0E0E', borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="7" r="3.5" stroke="#F3ECE0" strokeWidth="1.5"/>
               <path d="M3 17c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="#F3ECE0" strokeWidth="1.5" strokeLinecap="round"/>
@@ -78,8 +89,10 @@ export const CustomersPage = () => {
             <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{allCustomers.length} müşteri</div>
           </div>
         </div>
-        <button onClick={()=>setShowNew(true)} style={{ display:'flex', alignItems:'center', gap:'7px', background:T.ink, color:T.cream, border:'none', borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
-          onMouseEnter={e=>(e.currentTarget.style.background='#2a2a2a')} onMouseLeave={e=>(e.currentTarget.style.background=T.ink)}>
+        <button onClick={()=>setShowNew(true)}
+          style={{ display:'flex', alignItems:'center', gap:'7px', background: dark ? '#272320' : '#0E0E0E', color:'#F0EBE1', border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
+          onMouseEnter={e=>(e.currentTarget.style.background= dark ? '#363028' : '#2a2a2a')}
+          onMouseLeave={e=>(e.currentTarget.style.background= dark ? '#272320' : '#0E0E0E')}>
           <Plus size={13} strokeWidth={2.5}/> Yeni Müşteri
         </button>
       </div>
@@ -87,7 +100,7 @@ export const CustomersPage = () => {
       {/* ── Split layout ── */}
       <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '380px 1fr', gap:0, flex:1, minHeight:0, overflow:'hidden', background:T.surface, border:`1px solid ${T.border}`, borderRadius:`${T.r} ${T.r} 0 0`, boxShadow:T.shadowSm }}>
 
-        {/* ── LIST column ── (mobilde seçim varken gizli) */}
+        {/* ── LIST column ── */}
         <div style={{ display: (isMobile && selected) ? 'none' : 'flex', flexDirection:'column', borderRight: isMobile ? 'none' : `1px solid ${T.border}`, overflow:'hidden' }}>
           {/* Search */}
           <div style={{ padding:'14px 16px', borderBottom:`1px solid ${T.border}`, flexShrink:0 }}>
@@ -112,8 +125,8 @@ export const CustomersPage = () => {
               customers.map(cust => {
                 const isSel  = selId === cust.id;
                 const newC   = isNew(cust.createdAt);
-                const avBg   = newC ? T.orange : T.ink;
-                const avFg   = newC ? T.ink    : T.cream;
+                const avBg   = newC ? T.orange : (dark ? '#272320' : '#0E0E0E');
+                const avFg   = newC ? (dark ? '#0F0D0B' : '#0E0E0E') : '#F0EBE1';
                 const badge  = cust.totalReservations === 0 ? 'zero' : cust.totalReservations >= 3 ? 'hot' : '';
                 return (
                   <div key={cust.id} onClick={()=>setSelId(isSel ? null : cust.id)}
@@ -135,7 +148,7 @@ export const CustomersPage = () => {
                       </div>
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px', flexShrink:0 }}>
-                      <span style={{ background: badge==='hot'?T.orange : badge==='zero'?T.surface3 : T.ink, color: badge==='hot'?T.ink : badge==='zero'?T.muted : T.cream, fontSize:'9px', fontWeight:800, padding:'3px 7px', borderRadius:'999px', minWidth:28, textAlign:'center' }}>
+                      <span style={{ background: badge==='hot'?T.orange : badge==='zero'?T.surface3 : (dark?'#272320':'#0E0E0E'), color: badge==='hot'?(dark?'#0F0D0B':'#0E0E0E') : badge==='zero'?T.muted : '#F0EBE1', fontSize:'9px', fontWeight:800, padding:'3px 7px', borderRadius:'999px', minWidth:28, textAlign:'center' }}>
                         {cust.totalReservations} randevu
                       </span>
                       {newC && <span style={{ fontSize:'8.5px', fontWeight:800, color:T.orange, letterSpacing:'.06em', textTransform:'uppercase' }}>YENİ</span>}
@@ -153,17 +166,17 @@ export const CustomersPage = () => {
           </div>
         </div>
 
-        {/* ── DETAIL panel ── (mobilde seçim yokken gizli) */}
+        {/* ── DETAIL panel ── */}
         <div style={{ display: (isMobile && !selected) ? 'none' : 'flex', flexDirection:'column', overflow:'hidden' }}>
           {!selected ? (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'14px', background:T.ink, padding:'40px' }}>
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'14px', background: dark ? '#272320' : '#0E0E0E', padding:'40px' }}>
               <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <circle cx="28" cy="20" r="12" stroke={T.cream} strokeWidth="2" opacity=".35"/>
-                <path d="M8 48c0-11 9-20 20-20s20 9 20 20" stroke={T.cream} strokeWidth="2" strokeLinecap="round" opacity=".35"/>
+                <circle cx="28" cy="20" r="12" stroke="#F0EBE1" strokeWidth="2" opacity=".35"/>
+                <path d="M8 48c0-11 9-20 20-20s20 9 20 20" stroke="#F0EBE1" strokeWidth="2" strokeLinecap="round" opacity=".35"/>
               </svg>
               <div>
-                <div style={{ fontSize:'14px', fontWeight:700, color:T.cream, opacity:.65, textAlign:'center' }}>Müşteri Seçin</div>
-                <div style={{ fontSize:'12px', color:T.cream, opacity:.38, textAlign:'center', lineHeight:1.55, maxWidth:180, margin:'2px auto 0' }}>Detayları görmek için listeden bir müşteri seçin</div>
+                <div style={{ fontSize:'14px', fontWeight:700, color:'#F0EBE1', opacity:.65, textAlign:'center' }}>Müşteri Seçin</div>
+                <div style={{ fontSize:'12px', color:'#F0EBE1', opacity:.38, textAlign:'center', lineHeight:1.55, maxWidth:180, margin:'2px auto 0' }}>Detayları görmek için listeden bir müşteri seçin</div>
               </div>
             </div>
           ) : (
@@ -185,7 +198,7 @@ export const CustomersPage = () => {
                   ].map((btn,i)=>(
                     <button key={i} title={btn.title} onClick={btn.action}
                       style={{ width:28, height:28, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}
-                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=btn.danger?'rgba(201,64,64,0.08)':T.surface2;(e.currentTarget as HTMLElement).style.color=btn.danger?'#C94040':T.ink;(e.currentTarget as HTMLElement).style.borderColor=btn.danger?'rgba(201,64,64,0.3)':T.border2}}
+                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=btn.danger?'rgba(201,64,64,0.08)':T.surface2;(e.currentTarget as HTMLElement).style.color=btn.danger?(dark?'#e07070':'#C94040'):T.ink;(e.currentTarget as HTMLElement).style.borderColor=btn.danger?'rgba(201,64,64,0.3)':T.border2}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted;(e.currentTarget as HTMLElement).style.borderColor=T.border}}>
                       {btn.icon}
                     </button>
@@ -197,7 +210,7 @@ export const CustomersPage = () => {
               <div style={{ flex:1, overflowY:'auto', background:T.surface }}>
                 {/* Hero */}
                 <div style={{ padding:'26px 22px 18px', display:'flex', alignItems:'center', gap:'16px', borderBottom:`1px solid ${T.border}` }}>
-                  <div style={{ width:54, height:54, borderRadius:'50%', background:T.ink, color:T.cream, display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
+                  <div style={{ width:54, height:54, borderRadius:'50%', background: dark ? '#272320' : '#0E0E0E', color:'#F0EBE1', display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
                   <div>
                     <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', lineHeight:1.1, color:T.ink }}>{selected.name}</div>
                     <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px' }}>{selected.lastVisit ? `Son ziyaret: ${selected.lastVisit}` : 'Henüz ziyaret yok'}</div>
@@ -235,7 +248,7 @@ export const CustomersPage = () => {
                     <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'10px' }}>Randevu Geçmişi</div>
                     {custHistory.slice(0,8).map((r,i,arr)=>(
                       <div key={r.id} style={{ display:'flex', alignItems:'center', gap:'11px', padding:'9px 0', borderBottom:i<arr.length-1?`1px solid ${T.border}`:'none' }}>
-                        <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0, background:STATUS_DOT[r.status]||T.muted2 }}/>
+                        <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0, background:statusDot[r.status]||T.muted2 }}/>
                         <div style={{ fontSize:'12.5px', fontWeight:650, flex:1, color:T.ink }}>{r.service}</div>
                         <div style={{ fontSize:'10px', color:T.muted, fontFamily:"'JetBrains Mono',monospace", whiteSpace:'nowrap' }}>{r.date} · {r.startTime}–{r.endTime}</div>
                       </div>
@@ -258,8 +271,8 @@ export const CustomersPage = () => {
 
       {/* ── New Customer Modal ── */}
       {showNew && (
-        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowNew(false)}>
-          <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:440, maxWidth:'90vw', boxShadow:T.shadowLg, animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark ? 'rgba(0,0,0,0.6)' : 'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowNew(false)}>
+          <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:440, maxWidth:'90vw', boxShadow:T.shadowLg, animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both', border:`1px solid ${T.border2}` }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
               <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>Yeni Müşteri</div>
               <button onClick={()=>setShowNew(false)} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
@@ -286,7 +299,7 @@ export const CustomersPage = () => {
             <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', paddingTop:'18px', borderTop:`1px solid ${T.border}` }}>
               <button onClick={()=>setShowNew(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
               <button onClick={handleCreate} disabled={!newCust.name||!newCust.phone}
-                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?T.ink:T.surface3, color:newCust.name&&newCust.phone?T.cream:T.muted2, fontSize:'13px', fontWeight:650, cursor:newCust.name&&newCust.phone?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
+                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#272320':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F0EBE1':T.muted2, fontSize:'13px', fontWeight:650, cursor:newCust.name&&newCust.phone?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
                 Müşteri Ekle
               </button>
             </div>

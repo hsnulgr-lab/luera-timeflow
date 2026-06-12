@@ -5,13 +5,15 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { Menu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { AiAssistant } from '@/components/ai/AiAssistant';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export const Layout = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const { dark } = useTheme();
 
     return (
-        <div className="min-h-screen bg-[#F5F0E6]">
+        <div className={cn("min-h-screen", dark ? "bg-[#0F0D0B]" : "bg-[#F5F0E6]")}>
             <Sidebar
                 isCollapsed={isCollapsed}
                 onCollapsedChange={setIsCollapsed}
@@ -20,17 +22,22 @@ export const Layout = () => {
             />
 
             {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-30 flex items-center justify-between px-4">
+            <div className={cn(
+                "md:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b z-30 flex items-center justify-between px-4",
+                dark
+                    ? "bg-[#141210]/90 border-[rgba(243,237,227,0.07)]"
+                    : "bg-white/80 border-gray-100"
+            )}>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setIsMobileOpen(true)}
-                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                        className={cn("p-2 rounded-lg", dark ? "text-[rgba(243,237,227,0.6)] hover:bg-[rgba(243,237,227,0.05)]" : "text-gray-600 hover:bg-gray-100")}
                     >
                         <Menu size={20} />
                     </button>
                     <div className="flex items-baseline gap-1.5">
-                        <h1 className="text-lg font-bold text-gray-900">LUERA</h1>
-                        <span className="text-[10px] text-gray-400 tracking-wide">TimeFlow</span>
+                        <h1 className={cn("text-lg font-bold", dark ? "text-[#F0EBE1]" : "text-gray-900")}>LUERA</h1>
+                        <span className={cn("text-[10px] tracking-wide", dark ? "text-[rgba(240,235,225,0.4)]" : "text-gray-400")}>TimeFlow</span>
                     </div>
                 </div>
                 <NotificationDropdown />

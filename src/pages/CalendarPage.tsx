@@ -5,6 +5,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
 import { useCustomers } from '@/hooks/useCustomers';
 import { cn } from '@/utils/cn';
+import { useTheme } from '@/contexts/ThemeContext';
 import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
@@ -16,11 +17,13 @@ const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temm
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 - 19:00
 
 // ── Randevu Oluştur modalı tasarım tokenları (Luera v2) ───────────────────────
+// Renkler dashboard'ın --dc-* tema değişkenlerine bağlı: kök ".dash-theme[.dark]"
+// sarmalayıcısı sayesinde inline stiller + <style> bloğu otomatik tema-duyarlı olur.
 const M = {
-    ink: '#0E0E0E', cream: '#F0EBE1', orange: '#FF5A1F',
-    surface: '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-    border: 'rgba(14,14,14,0.08)', border2: 'rgba(14,14,14,0.14)',
-    muted: 'rgba(14,14,14,0.45)', muted2: 'rgba(14,14,14,0.26)',
+    ink: 'var(--dc-ink)', cream: 'var(--dc-inkbox-fg)', orange: '#FF5A1F',
+    surface: 'var(--dc-surface)', surface2: 'var(--dc-surface2)', surface3: 'var(--dc-surface3)',
+    border: 'var(--dc-border)', border2: 'var(--dc-border2)',
+    muted: 'var(--dc-muted)', muted2: 'var(--dc-muted2)',
 };
 const MONO = "'JetBrains Mono', monospace";
 
@@ -89,6 +92,7 @@ function MLabel({ children, optional }: { children: React.ReactNode; optional?: 
 }
 
 export const CalendarPage = () => {
+    const { dark } = useTheme();
     const { reservations, addReservation, settings, checkConflict } = useReservations();
     const { staff } = useStaff();
     const { allCustomers } = useCustomers();
@@ -326,19 +330,19 @@ export const CalendarPage = () => {
     const weekTotal = weekDays.reduce((sum, d) => sum + getDateCount(d.date), 0);
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={cn("dash-theme flex-1 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
             {/* Tek Satır Araç Çubuğu */}
-            <div className="relative px-3 sm:px-6 py-3 border-b border-[#0E0E0E]/[0.08] bg-[#FAF7F3]">
+            <div className="relative px-3 sm:px-6 py-3 border-b border-[var(--dc-border)] bg-[var(--dc-surface)]">
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Sol: Dönem navigasyonu */}
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => navigate(-1)}
-                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                            className="p-2 rounded-lg hover:bg-[var(--dc-surface3)] text-[var(--dc-muted)] hover:text-[var(--dc-ink)] transition-all active:scale-90"
                         >
                             <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <h1 className="text-lg font-extrabold text-gray-900 tracking-tight text-center min-w-[180px]">
+                        <h1 className="text-lg font-extrabold text-[var(--dc-ink)] tracking-tight text-center min-w-[180px]">
                             {view === 'day'
                                 ? currentDate.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
                                 : `${MONTHS_TR[month]} ${year}`
@@ -346,26 +350,26 @@ export const CalendarPage = () => {
                         </h1>
                         <button
                             onClick={() => navigate(1)}
-                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                            className="p-2 rounded-lg hover:bg-[var(--dc-surface3)] text-[var(--dc-muted)] hover:text-[var(--dc-ink)] transition-all active:scale-90"
                         >
                             <ChevronRight className="w-5 h-5" />
                         </button>
                         <button
                             onClick={() => { setCurrentDate(new Date()); setSelectedDate(today); }}
-                            className="ml-1 px-3.5 py-1.5 rounded-full text-xs font-bold text-[#0E0E0E] bg-[#FAF7F3] border border-[#0E0E0E]/[0.14] hover:border-[#0E0E0E] transition-all active:scale-95"
+                            className="ml-1 px-3.5 py-1.5 rounded-full text-xs font-bold text-[var(--dc-ink)] bg-[var(--dc-surface)] border border-[var(--dc-border2)] hover:border-[var(--dc-ink)] transition-all active:scale-95"
                         >
                             Bugün
                         </button>
                     </div>
 
                     {/* Küçük sayaçlar */}
-                    <div className="hidden lg:flex items-center gap-1.5 pl-3 ml-1 border-l border-[#0E0E0E]/[0.1]">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#0E0E0E] px-2.5 py-1 rounded-full bg-[#FAF7F3] border border-[#0E0E0E]/[0.08]">
+                    <div className="hidden lg:flex items-center gap-1.5 pl-3 ml-1 border-l border-[var(--dc-border)]">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--dc-ink)] px-2.5 py-1 rounded-full bg-[var(--dc-surface)] border border-[var(--dc-border)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A1F]" />
                             Bugün <span className="tabular-nums">{todayCount}</span>
                         </span>
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#0E0E0E] px-2.5 py-1 rounded-full bg-[#FAF7F3] border border-[#0E0E0E]/[0.08]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#0E0E0E]/50" />
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--dc-ink)] px-2.5 py-1 rounded-full bg-[var(--dc-surface)] border border-[var(--dc-border)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--dc-muted)]" />
                             Hafta <span className="tabular-nums">{weekTotal}</span>
                         </span>
                     </div>
@@ -373,7 +377,7 @@ export const CalendarPage = () => {
                     {/* Sağ: Görünüm + Filtre + Ekle */}
                     <div className="flex flex-wrap items-center gap-2 ml-auto justify-end">
                         {/* Görünüm anahtarı */}
-                        <div className="flex items-center bg-[#F3EDE4] rounded-full p-[3px] gap-0.5">
+                        <div className="flex items-center bg-[var(--dc-surface2)] rounded-full p-[3px] gap-0.5">
                             {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
                                 <button
                                     key={v}
@@ -381,8 +385,8 @@ export const CalendarPage = () => {
                                     className={cn(
                                         "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
                                         view === v
-                                            ? "bg-[#FAF7F3] text-[#0E0E0E] shadow-[0_1px_3px_rgba(14,14,14,0.06)]"
-                                            : "text-[#0E0E0E]/[0.45] hover:text-[#0E0E0E]"
+                                            ? "bg-[var(--dc-surface)] text-[var(--dc-ink)] shadow-[0_1px_3px_rgba(14,14,14,0.06)]"
+                                            : "text-[var(--dc-muted)] hover:text-[var(--dc-ink)]"
                                     )}
                                 >
                                     {v === 'month' ? 'Ay' : v === 'week' ? 'Hafta' : 'Gün'}
@@ -396,50 +400,50 @@ export const CalendarPage = () => {
                                 <button
                                     onClick={() => setStaffMenuOpen(o => !o)}
                                     className={cn(
-                                        "flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-full border bg-[#FAF7F3] text-sm font-medium transition-all",
-                                        staffMenuOpen ? "border-[#0E0E0E] ring-2 ring-[#FF5A1F]/15" : "border-[#0E0E0E]/[0.08] hover:border-[#0E0E0E]"
+                                        "flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-full border bg-[var(--dc-surface)] text-sm font-medium transition-all",
+                                        staffMenuOpen ? "border-[var(--dc-ink)] ring-2 ring-[#FF5A1F]/15" : "border-[var(--dc-border)] hover:border-[var(--dc-ink)]"
                                     )}
                                 >
                                     {selectedStaffMember ? (
                                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedStaffMember.color }} />
                                     ) : (
-                                        <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                        <Users className="w-4 h-4 text-[var(--dc-muted)] flex-shrink-0" />
                                     )}
-                                    <span className="text-gray-700 max-w-[120px] truncate">
+                                    <span className="text-[var(--dc-ink)] max-w-[120px] truncate">
                                         {selectedStaffMember ? selectedStaffMember.name : 'Tüm Personel'}
                                     </span>
-                                    <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", staffMenuOpen && "rotate-180")} />
+                                    <ChevronDown className={cn("w-4 h-4 text-[var(--dc-muted)] transition-transform", staffMenuOpen && "rotate-180")} />
                                 </button>
 
                                 {staffMenuOpen && (
-                                    <div className="absolute z-30 right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="absolute z-30 right-0 mt-2 w-56 bg-[var(--dc-surface)] rounded-2xl border border-[var(--dc-border)] shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150">
                                         {/* Tüm Personel */}
                                         <button
                                             onClick={() => { setStaffFilter('all'); setStaffMenuOpen(false); }}
-                                            className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                            className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-[var(--dc-surface2)] transition-colors text-left"
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                <Users className="w-4 h-4 text-gray-500" />
+                                            <div className="w-8 h-8 rounded-full bg-[var(--dc-surface3)] flex items-center justify-center flex-shrink-0">
+                                                <Users className="w-4 h-4 text-[var(--dc-muted)]" />
                                             </div>
-                                            <span className="flex-1 text-sm font-medium text-gray-700">Tüm Personel</span>
+                                            <span className="flex-1 text-sm font-medium text-[var(--dc-ink)]">Tüm Personel</span>
                                             {staffFilter === 'all' && <Check className="w-4 h-4 text-[#FF5A1F] flex-shrink-0" />}
                                         </button>
 
-                                        <div className="h-px bg-gray-100 mx-3 my-1" />
+                                        <div className="h-px bg-[var(--dc-surface3)] mx-3 my-1" />
 
                                         {/* Personel listesi */}
                                         {staff.map(s => (
                                             <button
                                                 key={s.id}
                                                 onClick={() => { setStaffFilter(s.id); setStaffMenuOpen(false); }}
-                                                className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-[var(--dc-surface2)] transition-colors text-left"
                                             >
                                                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white" style={{ backgroundColor: s.color }}>
                                                     {s.name.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
-                                                    {s.specialty && <p className="text-[11px] text-gray-400 truncate">{s.specialty}</p>}
+                                                    <p className="text-sm font-medium text-[var(--dc-ink)] truncate">{s.name}</p>
+                                                    {s.specialty && <p className="text-[11px] text-[var(--dc-muted)] truncate">{s.specialty}</p>}
                                                 </div>
                                                 {staffFilter === s.id && <Check className="w-4 h-4 text-[#FF5A1F] flex-shrink-0" />}
                                             </button>
@@ -451,7 +455,7 @@ export const CalendarPage = () => {
 
                         <button
                             onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-[#0E0E0E] text-[#F0EBE1] hover:bg-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(255,90,31,0.28)] transition-all active:translate-y-0"
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] hover:bg-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(255,90,31,0.28)] transition-all active:translate-y-0"
                         >
                             <Plus className="w-4 h-4" />
                             <span className="hidden sm:inline">Randevu Oluştur</span>
@@ -464,13 +468,13 @@ export const CalendarPage = () => {
             <div className="px-3 sm:px-6 pb-3 pt-3 flex-1 flex flex-col min-h-0">
                 {/* Month View */}
                 {view === 'month' && (
-                    <div className="rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_2px_8px_rgba(14,14,14,0.07),0_8px_24px_rgba(14,14,14,0.06)] overflow-hidden flex-1 flex flex-col">
+                    <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07),0_8px_24px_rgba(14,14,14,0.06)] overflow-hidden flex-1 flex flex-col">
                         {/* Day headers */}
-                        <div className="grid grid-cols-7 bg-[#F3EDE4] border-b border-[#0E0E0E]/[0.08]">
+                        <div className="grid grid-cols-7 bg-[var(--dc-surface2)] border-b border-[var(--dc-border)]">
                             {DAYS_TR.map((d, i) => (
                                 <div key={d} className={cn(
                                     "py-3 px-3 text-[9.5px] font-extrabold uppercase tracking-[0.12em]",
-                                    i >= 5 ? "text-[#0E0E0E]/[0.28]" : "text-[#0E0E0E]/[0.45]"
+                                    i >= 5 ? "text-[var(--dc-muted2)]" : "text-[var(--dc-muted)]"
                                 )}>
                                     {d}
                                 </div>
@@ -493,19 +497,19 @@ export const CalendarPage = () => {
                                         key={date}
                                         onClick={() => handleDateClick(date)}
                                         className={cn(
-                                            "relative flex flex-col px-2 pt-2 pb-1.5 border-b border-r border-[#0E0E0E]/[0.08] text-left transition-colors duration-150 group overflow-hidden min-h-0",
-                                            !isCurrentMonth && "bg-[#0E0E0E]/[0.018]",
+                                            "relative flex flex-col px-2 pt-2 pb-1.5 border-b border-r border-[var(--dc-border)] text-left transition-colors duration-150 group overflow-hidden min-h-0",
+                                            !isCurrentMonth && "bg-[var(--dc-border-soft)]",
                                             isToday && "bg-[#FF5A1F]/[0.06]",
-                                            "hover:bg-[#F3EDE4]",
+                                            "hover:bg-[var(--dc-surface2)]",
                                         )}
                                     >
                                         <div className="flex items-center justify-between flex-shrink-0 mb-1">
                                             <span className={cn(
                                                 "inline-flex items-center justify-center text-[12.5px] font-extrabold transition-all",
                                                 isToday
-                                                    ? "w-[24px] h-[24px] rounded-full bg-[#FF5A1F] text-[#F0EBE1]"
-                                                    : !isCurrentMonth ? "text-[#0E0E0E]/30"
-                                                        : isWeekend ? "text-[#0E0E0E]/[0.45]" : "text-[#0E0E0E]",
+                                                    ? "w-[24px] h-[24px] rounded-full bg-[#FF5A1F] text-[var(--dc-inkbox-fg)]"
+                                                    : !isCurrentMonth ? "text-[var(--dc-muted2)]"
+                                                        : isWeekend ? "text-[var(--dc-muted)]" : "text-[var(--dc-ink)]",
                                             )}>
                                                 {day}
                                             </span>
@@ -520,9 +524,9 @@ export const CalendarPage = () => {
                                                             key={r.id}
                                                             className={cn(
                                                                 "relative flex items-center gap-1.5 pl-[9px] pr-1.5 py-1 rounded-[6px] text-[10.5px] font-semibold overflow-hidden transition-colors",
-                                                                pending ? "bg-[#FF5A1F]/[0.10] text-[#E8430F]" : "bg-[#EDE6DB] text-[#0E0E0E] group-hover:bg-[#F3EDE4]"
+                                                                pending ? "bg-[#FF5A1F]/[0.10] text-[var(--dc-orange-d)]" : "bg-[var(--dc-surface3)] text-[var(--dc-ink)] group-hover:bg-[var(--dc-surface2)]"
                                                             )}
-                                                            style={{ '--bar': r.serviceColor || (pending ? '#FF5A1F' : 'rgba(14,14,14,0.35)') } as React.CSSProperties}
+                                                            style={{ '--bar': r.serviceColor || (pending ? '#FF5A1F' : 'var(--dc-muted)') } as React.CSSProperties}
                                                         >
                                                             <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[3px]" style={{ background: 'var(--bar)' }} />
                                                             <span className="text-[9px] font-bold opacity-70 tabular-nums flex-shrink-0">{r.startTime}</span>
@@ -531,7 +535,7 @@ export const CalendarPage = () => {
                                                     );
                                                 })}
                                                 {count > 2 && (
-                                                    <span className="block text-[10px] text-[#0E0E0E]/[0.45] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - 2} randevu daha</span>
+                                                    <span className="block text-[10px] text-[var(--dc-muted)] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - 2} randevu daha</span>
                                                 )}
                                             </div>
                                         )}
@@ -544,26 +548,26 @@ export const CalendarPage = () => {
 
                 {/* Week View */}
                 {view === 'week' && (
-                    <div className="rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex-1 flex flex-col min-h-0">
-                        <div className="grid grid-cols-8 flex-shrink-0 bg-[#F3EDE4]">
-                            <div className="border-r border-[#0E0E0E]/[0.10] p-3 flex items-end bg-[#F3EDE4]">
-                                <Clock className="w-3.5 h-3.5 text-[#0E0E0E]/30" />
+                    <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex-1 flex flex-col min-h-0">
+                        <div className="grid grid-cols-8 flex-shrink-0 bg-[var(--dc-surface2)]">
+                            <div className="border-r border-[var(--dc-border)] p-3 flex items-end bg-[var(--dc-surface2)]">
+                                <Clock className="w-3.5 h-3.5 text-[var(--dc-muted2)]" />
                             </div>
                             {weekDays.map((d) => (
                                 <div key={d.date}
                                     className={cn(
-                                        "p-3 text-center border-r border-b border-[#0E0E0E]/[0.10] relative",
-                                        d.isToday ? "bg-[#FF5A1F]/[0.08]" : "bg-[#F3EDE4]"
+                                        "p-3 text-center border-r border-b border-[var(--dc-border)] relative",
+                                        d.isToday ? "bg-[#FF5A1F]/[0.08]" : "bg-[var(--dc-surface2)]"
                                     )}
                                 >
                                     {d.isToday && <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF5A1F] to-transparent" />}
                                     <span className={cn(
                                         "text-[11px] font-bold uppercase tracking-wider",
-                                        d.isToday ? "text-[#FF5A1F]" : "text-gray-400"
+                                        d.isToday ? "text-[#FF5A1F]" : "text-[var(--dc-muted)]"
                                     )}>{d.dayName}</span>
                                     <span className={cn(
                                         "block text-lg font-bold mt-0.5",
-                                        d.isToday ? "text-[#E8430F]" : "text-gray-800"
+                                        d.isToday ? "text-[var(--dc-orange-d)]" : "text-[var(--dc-ink)]"
                                     )}>{d.day}</span>
                                 </div>
                             ))}
@@ -571,9 +575,9 @@ export const CalendarPage = () => {
 
                         <div className="flex-1 min-h-0 overflow-y-auto">
                         {HOURS.map((hour) => (
-                            <div key={hour} className="grid grid-cols-8 border-b border-[#0E0E0E]/[0.07]">
-                                <div className="border-r border-[#0E0E0E]/[0.10] p-2 text-right pr-3 bg-[#F3EDE4]">
-                                    <span className="text-[11px] font-bold text-[#0E0E0E]/40 tabular-nums">{String(hour).padStart(2, '0')}:00</span>
+                            <div key={hour} className="grid grid-cols-8 border-b border-[var(--dc-border-soft)]">
+                                <div className="border-r border-[var(--dc-border)] p-2 text-right pr-3 bg-[var(--dc-surface2)]">
+                                    <span className="text-[11px] font-bold text-[var(--dc-muted)] tabular-nums">{String(hour).padStart(2, '0')}:00</span>
                                 </div>
                                 {weekDays.map((d) => {
                                     const hourRes = filteredReservations.filter(r =>
@@ -583,19 +587,19 @@ export const CalendarPage = () => {
                                     return (
                                         <div key={d.date + hour}
                                             className={cn(
-                                                "border-r border-[#0E0E0E]/[0.07] p-1 min-h-[56px] transition-all duration-200",
+                                                "border-r border-[var(--dc-border-soft)] p-1 min-h-[56px] transition-all duration-200",
                                                 !available
-                                                    ? "bg-[#0E0E0E]/[0.03] cursor-not-allowed"
-                                                    : cn("cursor-pointer", d.isToday ? "bg-[#FF5A1F]/[0.03] hover:bg-[#FF5A1F]/[0.07]" : "hover:bg-[#F3EDE4]/60"),
+                                                    ? "bg-[var(--dc-border-soft)] cursor-not-allowed"
+                                                    : cn("cursor-pointer", d.isToday ? "bg-[#FF5A1F]/[0.03] hover:bg-[#FF5A1F]/[0.07]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
                                             onClick={() => { if (!available) return; setSelectedDate(d.date); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
                                         >
                                             {hourRes.map((r) => {
                                                 const blockStyle = r.status === 'pending'
-                                                    ? "bg-[#FF5A1F]/[0.13] text-[#E8430F] border border-[#FF5A1F]/25 hover:bg-[#FF5A1F]/20"
+                                                    ? "bg-[#FF5A1F]/[0.13] text-[var(--dc-orange-d)] border border-[#FF5A1F]/25 hover:bg-[#FF5A1F]/20"
                                                     : r.status === 'completed'
-                                                        ? "bg-[#EDE6DB] text-[#0E0E0E]/[0.45] border border-[#0E0E0E]/[0.08] hover:bg-[#F3EDE4]"
-                                                        : "bg-[#0E0E0E] text-[#F0EBE1] border border-transparent hover:bg-[#1c1c1c]";
+                                                        ? "bg-[var(--dc-surface3)] text-[var(--dc-muted)] border border-[var(--dc-border)] hover:bg-[var(--dc-surface2)]"
+                                                        : "bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] border border-transparent hover:bg-[#1c1c1c]";
                                                 return (
                                                     <div key={r.id}
                                                         className={cn(
@@ -622,17 +626,17 @@ export const CalendarPage = () => {
                 {view === 'day' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
                         {/* Time slots */}
-                        <div className="lg:col-span-2 rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex flex-col min-h-0">
-                            <div className="px-5 py-4 border-b border-[#0E0E0E]/[0.08] flex items-center justify-between bg-[#F3EDE4] flex-shrink-0">
+                        <div className="lg:col-span-2 rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex flex-col min-h-0">
+                            <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center justify-between bg-[var(--dc-surface2)] flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-[#FF5A1F]" />
-                                    <span className="text-sm font-bold text-[#0E0E0E]">Saat Çizelgesi</span>
+                                    <span className="text-sm font-bold text-[var(--dc-ink)]">Saat Çizelgesi</span>
                                 </div>
-                                <span className="text-xs text-[#0E0E0E]/[0.45] font-medium">
+                                <span className="text-xs text-[var(--dc-muted)] font-medium">
                                     {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} randevu
                                 </span>
                             </div>
-                            <div className="divide-y divide-[#0E0E0E]/[0.07] flex-1 min-h-0 overflow-y-auto">
+                            <div className="divide-y divide-[var(--dc-border-soft)] flex-1 min-h-0 overflow-y-auto">
                                 {HOURS.map((hour) => {
                                     const dateStr = toISODate(currentDate);
                                     const hourRes = filteredReservations.filter(r =>
@@ -647,16 +651,16 @@ export const CalendarPage = () => {
                                             className={cn(
                                                 "flex items-stretch min-h-[68px] transition-all duration-200",
                                                 !available
-                                                    ? "bg-[#0E0E0E]/[0.03] cursor-not-allowed opacity-70"
-                                                    : cn("cursor-pointer group", isCurrentHour ? "bg-[#FF5A1F]/[0.06]" : "hover:bg-[#F3EDE4]/60"),
+                                                    ? "bg-[var(--dc-border-soft)] cursor-not-allowed opacity-70"
+                                                    : cn("cursor-pointer group", isCurrentHour ? "bg-[#FF5A1F]/[0.06]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
                                             onClick={() => { if (!available) return; setSelectedDate(dateStr); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
                                         >
-                                            <div className="w-[72px] flex-shrink-0 p-3 border-r border-[#0E0E0E]/[0.08] bg-[#F3EDE4]/40 text-right relative">
+                                            <div className="w-[72px] flex-shrink-0 p-3 border-r border-[var(--dc-border)] bg-[var(--dc-surface2)] text-right relative">
                                                 {isCurrentHour && <div className="absolute top-1/2 right-0 w-2 h-2 rounded-full bg-[#FF5A1F] -translate-y-1/2 translate-x-1 shadow-lg shadow-[#FF5A1F]/50" />}
                                                 <span className={cn(
                                                     "text-xs font-bold tabular-nums",
-                                                    isCurrentHour ? "text-[#FF5A1F]" : "text-[#0E0E0E]/40"
+                                                    isCurrentHour ? "text-[#FF5A1F]" : "text-[var(--dc-muted)]"
                                                 )}>
                                                     {String(hour).padStart(2, '0')}:00
                                                 </span>
@@ -664,13 +668,13 @@ export const CalendarPage = () => {
                                             <div className="flex-1 p-2 space-y-1.5">
                                                 {hourRes.map((r) => (
                                                     <div key={r.id}
-                                                        className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#0E0E0E]/[0.08] bg-[#FAF7F3] shadow-sm transition-all duration-200 hover:shadow-md hover:bg-[#F3EDE4]"
+                                                        className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-sm transition-all duration-200 hover:shadow-md hover:bg-[var(--dc-surface2)]"
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: r.serviceColor || '#FF5A1F' }} />
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold text-[#0E0E0E] truncate">{r.customerName}</p>
-                                                            <p className="text-[11px] text-[#0E0E0E]/[0.45] tabular-nums">{r.startTime} - {r.endTime} · {r.service}</p>
+                                                            <p className="text-sm font-bold text-[var(--dc-ink)] truncate">{r.customerName}</p>
+                                                            <p className="text-[11px] text-[var(--dc-muted)] tabular-nums">{r.startTime} - {r.endTime} · {r.service}</p>
                                                         </div>
                                                         <span className={cn("px-2.5 py-1 rounded-lg text-[10px] font-bold flex-shrink-0", STATUS_BADGE[r.status])}>
                                                             {STATUS_LABEL[r.status]}
@@ -679,7 +683,7 @@ export const CalendarPage = () => {
                                                 ))}
                                                 {hourRes.length === 0 && (
                                                     <div className="flex items-center justify-center h-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                        <span className="text-[11px] text-[#0E0E0E]/30 flex items-center gap-1">
+                                                        <span className="text-[11px] text-[var(--dc-muted2)] flex items-center gap-1">
                                                             <Plus className="w-3 h-3" /> Tıkla ekle
                                                         </span>
                                                     </div>
@@ -693,12 +697,12 @@ export const CalendarPage = () => {
 
                         {/* Day Summary Sidebar */}
                         <div className="space-y-4">
-                            <div className="rounded-2xl bg-[#FAF7F3] border border-[#0E0E0E]/[0.08] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden">
+                            <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden">
                                 <div className="flex items-center gap-2 px-5 pt-5 pb-4">
-                                    <div className="w-7 h-7 rounded-lg bg-[#0E0E0E] grid place-items-center flex-shrink-0">
+                                    <div className="w-7 h-7 rounded-lg bg-[var(--dc-inkbox)] grid place-items-center flex-shrink-0">
                                         <Sparkles className="w-3.5 h-3.5 text-[#FF5A1F]" />
                                     </div>
-                                    <h3 className="text-sm font-bold text-[#0E0E0E]">Günün Özeti</h3>
+                                    <h3 className="text-sm font-bold text-[var(--dc-ink)]">Günün Özeti</h3>
                                 </div>
 
                                 {(() => {
@@ -709,39 +713,39 @@ export const CalendarPage = () => {
 
                                     return (
                                         <>
-                                            <div className="grid grid-cols-3 border-y border-[#0E0E0E]/[0.08]">
-                                                <div className="text-center py-3.5 px-2 border-r border-[#0E0E0E]/[0.08]">
-                                                    <p className="text-[22px] font-black text-[#0E0E0E] tracking-[-0.04em] leading-none">{dayRes.length}</p>
-                                                    <p className="text-[9px] text-[#0E0E0E]/[0.45] uppercase tracking-[0.08em] font-bold mt-1.5">Toplam</p>
+                                            <div className="grid grid-cols-3 border-y border-[var(--dc-border)]">
+                                                <div className="text-center py-3.5 px-2 border-r border-[var(--dc-border)]">
+                                                    <p className="text-[22px] font-black text-[var(--dc-ink)] tracking-[-0.04em] leading-none">{dayRes.length}</p>
+                                                    <p className="text-[9px] text-[var(--dc-muted)] uppercase tracking-[0.08em] font-bold mt-1.5">Toplam</p>
                                                 </div>
-                                                <div className="text-center py-3.5 px-2 border-r border-[#0E0E0E]/[0.08]">
-                                                    <p className="text-[22px] font-black text-[#B87A00] tracking-[-0.04em] leading-none">{pending}</p>
-                                                    <p className="text-[9px] text-[#B87A00] uppercase tracking-[0.08em] font-bold mt-1.5">Bekleyen</p>
+                                                <div className="text-center py-3.5 px-2 border-r border-[var(--dc-border)]">
+                                                    <p className="text-[22px] font-black text-[var(--dc-amber)] tracking-[-0.04em] leading-none">{pending}</p>
+                                                    <p className="text-[9px] text-[var(--dc-amber)] uppercase tracking-[0.08em] font-bold mt-1.5">Bekleyen</p>
                                                 </div>
                                                 <div className="text-center py-3.5 px-2">
-                                                    <p className="text-[22px] font-black text-[#2D8F32] tracking-[-0.04em] leading-none">{confirmed}</p>
-                                                    <p className="text-[9px] text-[#2D8F32] uppercase tracking-[0.08em] font-bold mt-1.5">Onaylı</p>
+                                                    <p className="text-[22px] font-black text-[var(--dc-green)] tracking-[-0.04em] leading-none">{confirmed}</p>
+                                                    <p className="text-[9px] text-[var(--dc-green)] uppercase tracking-[0.08em] font-bold mt-1.5">Onaylı</p>
                                                 </div>
                                             </div>
 
                                             {dayRes.length > 0 ? (
                                                 <div className="p-3.5 space-y-2">
-                                                    <p className="text-[9.5px] text-[#0E0E0E]/[0.45] uppercase tracking-[0.1em] font-bold mb-1 px-1">Program</p>
+                                                    <p className="text-[9.5px] text-[var(--dc-muted)] uppercase tracking-[0.1em] font-bold mb-1 px-1">Program</p>
                                                     {dayRes.sort((a, b) => a.startTime.localeCompare(b.startTime)).map((r) => (
-                                                        <div key={r.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#F3EDE4] border border-[#0E0E0E]/[0.06] hover:bg-[#EDE6DB] transition-all">
+                                                        <div key={r.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--dc-surface2)] border border-[var(--dc-border-soft)] hover:bg-[var(--dc-surface3)] transition-all">
                                                             <div className="flex-shrink-0 w-1 h-8 rounded-full" style={{ backgroundColor: r.serviceColor || '#FF5A1F' }} />
-                                                            <span className="text-xs font-black text-[#E8430F] tabular-nums w-10 flex-shrink-0">{r.startTime}</span>
+                                                            <span className="text-xs font-black text-[var(--dc-orange-d)] tabular-nums w-10 flex-shrink-0">{r.startTime}</span>
                                                             <div className="flex-1 min-w-0">
-                                                                <span className="text-[13px] text-[#0E0E0E] font-bold truncate block leading-tight">{r.customerName}</span>
-                                                                <span className="text-[10.5px] text-[#0E0E0E]/[0.45] truncate block">{r.service}</span>
+                                                                <span className="text-[13px] text-[var(--dc-ink)] font-bold truncate block leading-tight">{r.customerName}</span>
+                                                                <span className="text-[10.5px] text-[var(--dc-muted)] truncate block">{r.service}</span>
                                                             </div>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
                                                 <div className="text-center py-8">
-                                                    <CalendarIcon className="w-8 h-8 text-[#0E0E0E]/[0.18] mx-auto mb-2" />
-                                                    <p className="text-xs text-[#0E0E0E]/[0.45]">Bu gün için randevu yok</p>
+                                                    <CalendarIcon className="w-8 h-8 text-[var(--dc-muted2)] mx-auto mb-2" />
+                                                    <p className="text-xs text-[var(--dc-muted)]">Bu gün için randevu yok</p>
                                                 </div>
                                             )}
                                         </>

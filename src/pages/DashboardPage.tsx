@@ -450,8 +450,8 @@ export const DashboardPage = () => {
                         <div className="p-4">
                             {selectedReservations.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12">
-                                    <div className="w-16 h-16 rounded-2xl bg-[var(--dc-surface2)] border border-[var(--dc-border)] flex items-center justify-center mb-3">
-                                        <Calendar className="w-7 h-7 text-[var(--dc-muted2)]" />
+                                    <div className="w-16 h-16 rounded-2xl bg-[var(--dc-surface3)] border border-[var(--dc-border2)] flex items-center justify-center mb-3">
+                                        <Calendar className="w-7 h-7 text-[var(--dc-muted)]" />
                                     </div>
                                     <p className="text-sm font-semibold text-[var(--dc-ink)] mb-1">{selIsToday ? 'Bugün randevu yok' : `${selDateLabel} randevu yok`}</p>
                                     <LueraButton onClick={() => navigate('/calendar')} variant="accent" size="sm" className="mt-2" style={{ color: 'var(--dc-cream)' }}>

@@ -21,7 +21,7 @@ html, body, #root {
   --dc-surface2-60:rgba(243,237,228,0.6);
   --dc-ink:#0E0E0E; --dc-cream:#F0EBE1; --dc-orange:#FF5A1F; --dc-orange-d:#E8430F;
   --dc-page:#F5F0E6; --dc-surface:#FAF7F3; --dc-surface2:#F3EDE4; --dc-surface3:#EDE6DB;
-  --dc-border:rgba(14,14,14,0.08); --dc-border-soft:rgba(14,14,14,0.06);
+  --dc-border:rgba(14,14,14,0.08); --dc-border-soft:rgba(14,14,14,0.06); --dc-border2:rgba(14,14,14,0.14);
   --dc-muted:rgba(14,14,14,0.45); --dc-muted2:rgba(14,14,14,0.28);
   --dc-orange-soft:rgba(255,90,31,0.08);
   --dc-green:#2D8F32; --dc-green-bg:#E8F5EA;
@@ -34,12 +34,39 @@ html, body, #root {
   --dc-surface2-60:rgba(31,28,24,0.6);
   --dc-ink:#F0EBE1; --dc-cream:#0F0D0B; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
   --dc-page:#0F0D0B; --dc-surface:#161310; --dc-surface2:#1F1C18; --dc-surface3:#272320;
-  --dc-border:rgba(240,235,225,0.08); --dc-border-soft:rgba(240,235,225,0.05);
+  --dc-border:rgba(240,235,225,0.08); --dc-border-soft:rgba(240,235,225,0.05); --dc-border2:rgba(240,235,225,0.22);
   --dc-muted:rgba(240,235,225,0.46); --dc-muted2:rgba(240,235,225,0.28);
   --dc-orange-soft:rgba(255,90,31,0.14);
   --dc-green:#7AD3A0; --dc-green-bg:rgba(45,160,50,.16);
   --dc-red:#e07070; --dc-red2:#e07070; --dc-red-bg:rgba(224,112,112,.16);
   --dc-amber:#E0A12E;
+}
+
+/* ── Sidebar mikro-etkileşimleri (tasarım: Luera Sidebar Dark.html) ──
+   Aktif çubuk nefes alan turuncu glow, tıklamada ripple + label pop. */
+.sb-active-bar {
+  box-shadow: 0 0 8px 1px rgba(255, 90, 31, 0.55);
+  animation: sb-bar-breathe 2.4s ease-in-out infinite;
+}
+@keyframes sb-bar-breathe {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 90, 31, 0.40); }
+  50%      { box-shadow: 0 0 14px 3px rgba(255, 90, 31, 0.75); }
+}
+.sb-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  pointer-events: none;
+  animation: sb-ripple-out 480ms cubic-bezier(.2, .8, .2, 1) forwards;
+}
+@keyframes sb-ripple-out {
+  to { transform: scale(2.8); opacity: 0; }
+}
+.sb-pop { animation: sb-label-pop 300ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sb-label-pop {
+  0%   { transform: translateX(0); }
+  40%  { transform: translateX(4px); }
+  100% { transform: translateX(0); }
 }
 
 @layer base {

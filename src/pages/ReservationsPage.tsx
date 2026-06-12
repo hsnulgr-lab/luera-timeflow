@@ -3,29 +3,45 @@ import { createPortal } from 'react-dom';
 import { Search, CheckCircle2, XCircle, Clock, Trash2, Edit2, MessageCircle, MoreHorizontal, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useTheme } from '@/contexts/ThemeContext';
 import { formatDateEU } from '@/utils/date';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { Reservation } from '@/types';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const T = {
-  ink:     '#0E0E0E',
-  cream:   '#F0EBE1',
-  orange:  '#FF5A1F',
-  orangeD: '#E8430F',
-  surface:  '#FAF7F3',
-  surface2: '#F3EDE4',
-  surface3: '#EDE6DB',
-  border:  'rgba(14,14,14,0.08)',
-  border2: 'rgba(14,14,14,0.14)',
-  muted:   'rgba(14,14,14,0.45)',
-  muted2:  'rgba(14,14,14,0.28)',
+const LT = {
+  ink:     '#0E0E0E', cream:  '#F0EBE1', orange: '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
+  border:  'rgba(14,14,14,0.08)', border2: 'rgba(14,14,14,0.14)',
+  muted:   'rgba(14,14,14,0.45)', muted2:  'rgba(14,14,14,0.28)',
   shadow:  '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm:'0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg:'0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
-  r:   '14px',
-  rSm: '10px',
-  rXs: '7px',
+  r: '14px', rSm: '10px', rXs: '7px',
+};
+const DT = {
+  ink:     '#F0EBE1', cream:  '#0F0D0B', orange: '#FF5A1F',
+  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
+  border:  'rgba(240,235,225,0.08)', border2: 'rgba(240,235,225,0.20)',
+  muted:   'rgba(240,235,225,0.45)', muted2:  'rgba(240,235,225,0.28)',
+  shadow:  '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
+  shadowSm:'0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
+  shadowLg:'0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
+  r: '14px', rSm: '10px', rXs: '7px',
+};
+
+// Status badge config — light + dark variants
+const L_RSB: Record<Reservation['status'], { label: string; style: React.CSSProperties }> = {
+  confirmed: { label: 'Onaylı',     style: { background:'#E6F4EA', color:'#2E7D43', border:'1px solid rgba(46,125,67,0.18)' } },
+  pending:   { label: 'Bekleyen',   style: { background:'#FCEFD6', color:'#A66A0E', border:'1px solid rgba(166,106,14,0.18)' } },
+  completed: { label: 'Tamamlandı', style: { background:'#E8EFF9', color:'#2E6FB0', border:'1px solid rgba(46,111,176,0.18)' } },
+  cancelled: { label: 'İptal',      style: { background:'#FCEAEA', color:'#C0392B', border:'1px solid rgba(192,57,43,0.18)', textDecoration:'line-through', opacity:0.75 } },
+};
+const D_RSB: Record<Reservation['status'], { label: string; style: React.CSSProperties }> = {
+  confirmed: { label: 'Onaylı',     style: { background:'rgba(45,160,50,.16)',   color:'#7AD3A0', border:'1px solid rgba(122,211,160,0.2)' } },
+  pending:   { label: 'Bekleyen',   style: { background:'rgba(255,90,31,0.14)',  color:'#FF7A45', border:'1px solid rgba(255,90,31,0.25)' } },
+  completed: { label: 'Tamamlandı', style: { background:'rgba(46,111,176,0.14)', color:'#6EA8DD', border:'1px solid rgba(110,168,221,0.18)' } },
+  cancelled: { label: 'İptal',      style: { background:'rgba(224,112,112,0.14)',color:'#e07070', border:'1px solid rgba(224,112,112,0.18)', textDecoration:'line-through', opacity:0.75 } },
 };
 
 type StatusFilter = 'all' | Reservation['status'];
@@ -35,56 +51,24 @@ function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// Status badge config
-// Durum rozetleri — evrensel konvansiyon (sarı=bekliyor, yeşil=onaylı, mavi=tamamlandı, kırmızı=iptal)
-const RSB: Record<Reservation['status'], { label: string; style: React.CSSProperties }> = {
-  confirmed: {
-    label: 'Onaylı',
-    style: {
-      background: '#E6F4EA',
-      color: '#2E7D43',
-      border: '1px solid rgba(46,125,67,0.18)',
-    },
-  },
-  pending: {
-    label: 'Bekleyen',
-    style: {
-      background: '#FCEFD6',
-      color: '#A66A0E',
-      border: '1px solid rgba(166,106,14,0.18)',
-    },
-  },
-  completed: {
-    label: 'Tamamlandı',
-    style: {
-      background: '#E8EFF9',
-      color: '#2E6FB0',
-      border: '1px solid rgba(46,111,176,0.18)',
-    },
-  },
-  cancelled: {
-    label: 'İptal',
-    style: {
-      background: '#FCEAEA',
-      color: '#C0392B',
-      border: '1px solid rgba(192,57,43,0.18)',
-      textDecoration: 'line-through',
-      opacity: 0.75,
-    },
-  },
-};
-
-// Service dot colour by status
-const svcDot: Record<Reservation['status'], string> = {
-  pending:   '#FF5A1F',
-  confirmed: 'rgba(14,14,14,0.35)',
-  completed: 'rgba(14,14,14,0.28)',
-  cancelled: 'rgba(14,14,14,0.18)',
-};
-
 export const ReservationsPage = () => {
   const { reservations, updateReservation, deleteReservation } = useReservations();
   const isMobile = useIsMobile();
+  const { dark } = useTheme();
+  const T = dark ? DT : LT;
+  const RSB = dark ? D_RSB : L_RSB;
+  const svcDot: Record<Reservation['status'], string> = dark ? {
+    pending:   '#FF5A1F',
+    confirmed: 'rgba(240,235,225,0.4)',
+    completed: 'rgba(240,235,225,0.28)',
+    cancelled: 'rgba(240,235,225,0.18)',
+  } : {
+    pending:   '#FF5A1F',
+    confirmed: 'rgba(14,14,14,0.35)',
+    completed: 'rgba(14,14,14,0.28)',
+    cancelled: 'rgba(14,14,14,0.18)',
+  };
+
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sort, setSort]                 = useState<SortOption>('date-desc');
@@ -144,7 +128,6 @@ export const ReservationsPage = () => {
         return a.startTime.localeCompare(b.startTime);
       }
       if (sort === 'name') return a.customerName.localeCompare(b.customerName, 'tr');
-      // date-desc (default)
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return a.startTime.localeCompare(b.startTime);
     });
@@ -184,11 +167,11 @@ export const ReservationsPage = () => {
     let icoStyle: React.CSSProperties = { width: 32, height: 32, borderRadius: 8, display: 'grid', placeItems: 'center', flexShrink: 0, background: T.surface2 };
 
     if (variant === 'orange') {
-      cardStyle = { ...cardStyle, border: `1px solid ${T.orange}`, background: 'rgba(255,90,31,0.06)' };
+      cardStyle = { ...cardStyle, border: `1px solid ${T.orange}`, background: dark ? 'rgba(255,90,31,0.10)' : 'rgba(255,90,31,0.06)' };
       valStyle  = { ...valStyle,  color: T.orange };
-      icoStyle  = { ...icoStyle,  background: 'rgba(255,90,31,0.10)' };
+      icoStyle  = { ...icoStyle,  background: dark ? 'rgba(255,90,31,0.16)' : 'rgba(255,90,31,0.10)' };
     } else if (isActive) {
-      cardStyle = { ...cardStyle, border: `1px solid ${T.border2}`, background: '#FFFFFF', boxShadow: T.shadow };
+      cardStyle = { ...cardStyle, border: `1px solid ${T.border2}`, background: dark ? T.surface2 : '#FFFFFF', boxShadow: T.shadow };
       valStyle  = { ...valStyle,  color: T.ink };
       lblStyle  = { ...lblStyle,  color: T.muted };
       icoStyle  = { ...icoStyle,  background: T.surface2 };
@@ -226,7 +209,7 @@ export const ReservationsPage = () => {
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: 40, height: 40, background: T.ink, borderRadius: '10px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, background: dark ? '#272320' : '#0E0E0E', borderRadius: '10px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
               <rect x="3" y="3" width="14" height="14" rx="2" stroke="#F3ECE0" strokeWidth="1.5"/>
               <path d="M7 8h6M7 12h4" stroke="#F3ECE0" strokeWidth="1.5" strokeLinecap="round"/>
@@ -237,18 +220,17 @@ export const ReservationsPage = () => {
             <div style={{ fontSize: '11.5px', color: T.muted, marginTop: '2px' }}>{reservations.length} toplam kayıt</div>
           </div>
         </div>
-        {/* Yeni Randevu button */}
         <button
           style={{
             display: 'flex', alignItems: 'center', gap: '7px',
-            background: T.ink, color: T.cream,
-            border: 'none', borderRadius: T.rSm,
+            background: dark ? '#272320' : '#0E0E0E', color: '#F0EBE1',
+            border: `1px solid ${T.border2}`, borderRadius: T.rSm,
             padding: '9px 16px', fontSize: '13px', fontWeight: 650,
             cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.01em',
             transition: 'background .15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#2a2a2a')}
-          onMouseLeave={e => (e.currentTarget.style.background = T.ink)}
+          onMouseEnter={e => (e.currentTarget.style.background = dark ? '#363028' : '#2a2a2a')}
+          onMouseLeave={e => (e.currentTarget.style.background = dark ? '#272320' : '#0E0E0E')}
         >
           <Plus size={13} strokeWidth={2.5} />
           Yeni Randevu
@@ -259,7 +241,7 @@ export const ReservationsPage = () => {
       <div style={{ display: isMobile ? 'grid' : 'flex', gridTemplateColumns: isMobile ? '1fr 1fr' : undefined, gap: '10px', marginBottom: '16px' }}>
         {statCard(
           'all', 'Toplam', counts.all,
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ color: T.ink }}>
             <rect x="2" y="2" width="5" height="5" rx="1.2" fill="currentColor" opacity=".9"/>
             <rect x="9" y="2" width="5" height="5" rx="1.2" fill="currentColor" opacity=".4"/>
             <rect x="2" y="9" width="5" height="5" rx="1.2" fill="currentColor" opacity=".4"/>
@@ -277,7 +259,7 @@ export const ReservationsPage = () => {
         )}
         {statCard(
           'confirmed', 'Onaylı', counts.confirmed,
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ color: T.ink }}>
             <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.4" opacity=".6"/>
             <path d="M5.5 8l2 2L10.5 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".6"/>
           </svg>,
@@ -285,7 +267,7 @@ export const ReservationsPage = () => {
         )}
         {statCard(
           'completed', 'Tamamlandı', counts.completed,
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ color: T.muted2 as string }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ color: T.muted }}>
             <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.4"/>
             <path d="M5.5 8l2 2L10.5 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>,
@@ -304,15 +286,10 @@ export const ReservationsPage = () => {
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
-              width: '100%',
-              background: T.surface,
-              border: `1px solid ${T.border2}`,
-              borderRadius: T.rSm,
-              padding: '9px 14px 9px 36px',
-              fontFamily: 'inherit',
-              fontSize: '13px',
-              color: T.ink,
-              outline: 'none',
+              width: '100%', background: T.surface,
+              border: `1px solid ${T.border2}`, borderRadius: T.rSm,
+              padding: '9px 14px 9px 36px', fontFamily: 'inherit',
+              fontSize: '13px', color: T.ink, outline: 'none',
             }}
             onFocus={e => { e.target.style.borderColor = T.orange; e.target.style.boxShadow = '0 0 0 3px rgba(255,90,31,0.08)'; }}
             onBlur={e  => { e.target.style.borderColor = T.border2; e.target.style.boxShadow = 'none'; }}
@@ -337,6 +314,7 @@ export const ReservationsPage = () => {
             borderRadius: T.rSm, padding: '8px 12px',
             fontFamily: 'inherit', fontSize: '12px', color: T.muted,
             outline: 'none', cursor: 'pointer',
+            colorScheme: dark ? 'dark' : 'light',
           }}
         >
           <option value="date-desc">En yeni → en eski</option>
@@ -372,8 +350,8 @@ export const ReservationsPage = () => {
           filtered.map((res, idx) => {
             const badge  = RSB[res.status];
             const av     = res.status === 'pending'
-              ? { bg: T.orange, fg: T.ink }
-              : { bg: T.ink,    fg: T.cream };
+              ? { bg: T.orange, fg: dark ? '#0F0D0B' : '#0E0E0E' }
+              : { bg: dark ? '#272320' : '#0E0E0E', fg: '#F0EBE1' };
             const rowOpacity = res.status === 'cancelled' ? 0.55 : 1;
             const isMenuOpen = showActions === res.id;
 
@@ -385,7 +363,6 @@ export const ReservationsPage = () => {
                   borderBottom: idx < filtered.length - 1 ? `1px solid ${T.border}` : 'none',
                   opacity: rowOpacity, position: 'relative',
                 }}>
-                  {/* Üst: müşteri + menü */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                       <div style={{ width: 38, height: 38, borderRadius: '50%', background: av.bg, color: av.fg, display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: 800, flexShrink: 0 }}>{initials(res.customerName)}</div>
@@ -402,7 +379,6 @@ export const ReservationsPage = () => {
                       <MoreHorizontal size={16} />
                     </button>
                   </div>
-                  {/* Orta: tarih/saat + durum */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
                       <span style={{ fontSize: '13px', fontWeight: 700, color: T.ink }}>{formatDateEU(res.date)}</span>
@@ -410,7 +386,6 @@ export const ReservationsPage = () => {
                     </div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: '8px', fontSize: '11px', fontWeight: 750, whiteSpace: 'nowrap', flexShrink: 0, ...badge.style }}>{badge.label}</span>
                   </div>
-                  {/* Alt: hizmet · personel */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '12.5px', color: T.ink }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: svcDot[res.status] }} />
                     <span>{res.service}</span>
@@ -523,7 +498,7 @@ export const ReservationsPage = () => {
             >
               {[
                 { icon: <Edit2 size={13} color={T.orange} />, label: 'Düzenle', action: () => { setEditReservation(res); setShowActions(null); } },
-                res.status !== 'confirmed' && { icon: <CheckCircle2 size={13} color="rgba(14,14,14,0.6)" />, label: 'Onayla', action: () => handleStatusChange(res.id, 'confirmed') },
+                res.status !== 'confirmed' && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Onayla', action: () => handleStatusChange(res.id, 'confirmed') },
                 res.status !== 'completed' && { icon: <Clock size={13} color={T.muted} />, label: 'Tamamlandı', action: () => handleStatusChange(res.id, 'completed') },
                 res.status !== 'cancelled' && { icon: <XCircle size={13} color={T.muted2} />, label: 'İptal Et', action: () => handleStatusChange(res.id, 'cancelled') },
               ].filter(Boolean).map((item, i) => item && (
@@ -537,7 +512,7 @@ export const ReservationsPage = () => {
               <div style={{ height: 1, background: T.border, margin: '3px 0' }} />
               <button
                 onClick={() => { deleteReservation(res.id); setShowActions(null); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 14px', fontSize: '12.5px', fontWeight: 500, color: '#C94040', cursor: 'pointer', transition: 'background .12s', border: 'none', background: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 14px', fontSize: '12.5px', fontWeight: 500, color: dark ? '#e07070' : '#C94040', cursor: 'pointer', transition: 'background .12s', border: 'none', background: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
                 onMouseEnter={e => (e.currentTarget.style.background = T.surface2)}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
@@ -558,7 +533,6 @@ export const ReservationsPage = () => {
         />
       )}
 
-      {/* modalIn keyframe (injected once) */}
       <style>{`@keyframes modalIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
     </div>
   );

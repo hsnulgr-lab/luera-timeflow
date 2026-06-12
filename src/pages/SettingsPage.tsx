@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle } from 'lucide-react';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { useReservations } from '@/hooks/useReservations';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Service, WorkingHours } from '@/types';
 import {
     getMyKey, generateMyKey, revokeMyKey,
@@ -11,45 +12,55 @@ import {
 } from '@/services/integrationApi';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  ink:      '#0E0E0E',
-  cream:    '#F0EBE1',
-  orange:   '#FF5A1F',
-  surface:  '#FAF7F3',
-  surface2: '#F3EDE4',
-  surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)',
-  border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)',
-  muted2:   'rgba(14,14,14,0.28)',
+const LT = {
+  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
+  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
   shadow:   '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
-  r:    '14px',
-  rSm:  '10px',
-  rXs:  '7px',
+  r: '14px', rSm: '10px', rXs: '7px',
+};
+const DT = {
+  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
+  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
+  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
+  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  shadow:   '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
+  shadowSm: '0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
+  shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
+  r: '14px', rSm: '10px', rXs: '7px',
 };
 
-// ── Input / Label helpers ─────────────────────────────────────────────────────
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: T.muted, marginBottom: '6px' }}>{children}</div>;
+function useT() {
+  const { dark } = useTheme();
+  return { T: dark ? DT : LT, dark };
 }
 
-function Input({ value, onChange, type = 'text', placeholder, style }: {
+// ── Sub-components ────────────────────────────────────────────────────────────
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  const { T } = useT();
+  return <div style={{ fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{children}</div>;
+}
+
+function Input({ value, onChange, type='text', placeholder, style }: {
   value: string; onChange: (v: string) => void;
   type?: string; placeholder?: string; style?: React.CSSProperties;
 }) {
+  const { T, dark } = useT();
   return (
     <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-      style={{ width: '100%', background: T.surface2, border: `1px solid ${T.border2}`, borderRadius: T.rSm, padding: '10px 13px', fontFamily: 'inherit', fontSize: '13.5px', color: T.ink, outline: 'none', ...style }}
-      onFocus={e => { e.target.style.borderColor = T.orange; e.target.style.boxShadow = '0 0 0 3px rgba(255,90,31,0.1)'; }}
-      onBlur={e  => { e.target.style.borderColor = T.border2; e.target.style.boxShadow = 'none'; }}
+      style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light', ...style }}
+      onFocus={e=>{ e.target.style.borderColor=T.orange; e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'; }}
+      onBlur={e =>{ e.target.style.borderColor=T.border2; e.target.style.boxShadow='none'; }}
     />
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: T.muted, marginBottom: '14px' }}>{children}</div>;
+  const { T } = useT();
+  return <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'14px' }}>{children}</div>;
 }
 
 // ── IntegrationCard ───────────────────────────────────────────────────────────
@@ -58,6 +69,8 @@ interface IntegrationCardProps {
 }
 
 function IntegrationCard({ module, label, description, Icon }: IntegrationCardProps) {
+  const { T, dark } = useT();
+
   const [myKey, setMyKey]                   = useState<IntegrationConnection | null>(null);
   const [myKeyLoading, setMyKeyLoading]     = useState(true);
   const [myKeyVisible, setMyKeyVisible]     = useState(false);
@@ -71,10 +84,8 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   const [testing, setTesting]               = useState(false);
   const [testResult, setTestResult]         = useState<boolean | null>(null);
   const [incomingError, setIncomingError]   = useState<string | null>(null);
-  // Gerçek bağlantı durumu — gateway testiyle doğrulanır (key varlığı değil)
-  const [connStatus, setConnStatus]         = useState<'idle' | 'checking' | 'connected' | 'unverified'>('idle');
+  const [connStatus, setConnStatus]         = useState<'idle'|'checking'|'connected'|'unverified'>('idle');
 
-  // Kayıtlı karşı-key'i gateway üzerinden doğrula
   const verifyConnection = async (key: string) => {
     if (!key) { setConnStatus('idle'); return; }
     setConnStatus('checking');
@@ -86,8 +97,8 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
     (async () => {
       try {
         const [key, incoming] = await Promise.all([getMyKey(module), getIncomingKey(module)]);
-        setMyKey(key); setIncomingKey(incoming ?? ''); setIncomingSaved(incoming ?? '');
-        await verifyConnection(incoming ?? '');
+        setMyKey(key); setIncomingKey(incoming??''); setIncomingSaved(incoming??'');
+        await verifyConnection(incoming??'');
       } catch { setMyKeyError('Bağlantı bilgileri yüklenemedi.'); setConnStatus('idle'); }
       finally  { setMyKeyLoading(false); }
     })();
@@ -96,7 +107,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   const handleGenerate = async () => {
     setGenerating(true); setMyKeyError(null);
     try { const key = await generateMyKey(module); setMyKey(key); setMyKeyVisible(true); }
-    catch (e: any) { setMyKeyError(`Key oluşturulamadı: ${e?.message ?? 'bilinmeyen hata'}`); }
+    catch (e: any) { setMyKeyError(`Key oluşturulamadı: ${e?.message??'bilinmeyen hata'}`); }
     finally { setGenerating(false); }
   };
   const handleRevoke = async () => {
@@ -109,173 +120,173 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   const handleCopy = () => {
     if (!myKey?.api_key) return;
     navigator.clipboard.writeText(buildConnectionString(myKey.api_key, myKey.user_id));
-    setMyKeyCopied(true); setTimeout(() => setMyKeyCopied(false), 2000);
+    setMyKeyCopied(true); setTimeout(()=>setMyKeyCopied(false), 2000);
   };
   const handleSaveIncoming = async () => {
     setSavingIncoming(true); setIncomingError(null); setTestResult(null);
-    try {
-      await saveIncomingKey(module, incomingKey);
-      setIncomingSaved(incomingKey);
-      await verifyConnection(incomingKey); // kaydedince gerçek bağlantıyı doğrula
-    }
+    try { await saveIncomingKey(module, incomingKey); setIncomingSaved(incomingKey); await verifyConnection(incomingKey); }
     catch { setIncomingError('Key kaydedilemedi.'); }
     finally { setSavingIncoming(false); }
   };
   const handleTest = async () => {
     if (!incomingKey) return; setTesting(true); setTestResult(null);
     const ok = await testConnection(incomingKey);
-    setTestResult(ok);
-    setConnStatus(ok ? 'connected' : 'unverified'); // rozet de güncellensin
-    setTesting(false);
+    setTestResult(ok); setConnStatus(ok?'connected':'unverified'); setTesting(false);
   };
 
-  const isConnected = connStatus === 'connected'; // gerçek bağlantı (gateway doğrulamalı)
+  const isConnected = connStatus === 'connected';
   const isDirty     = incomingKey !== incomingSaved;
 
+  const inkbox = dark ? '#272320' : '#0E0E0E';
+  const inkboxFg = '#F0EBE1';
+
   return (
-    <div style={{ background: isConnected ? 'rgba(255,90,31,0.04)' : T.surface, border: `1px solid ${isConnected ? T.orange : T.border}`, borderRadius: T.r, padding: '20px', transition: 'all .15s' }}>
+    <div style={{ background:isConnected?dark?'rgba(255,90,31,0.07)':'rgba(255,90,31,0.04)':T.surface, border:`1px solid ${isConnected?T.orange:T.border}`, borderRadius:T.r, padding:'20px', transition:'all .15s' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: 40, height: 40, borderRadius: T.rSm, background: isConnected ? T.ink : T.surface2, display: 'grid', placeItems: 'center' }}>
-            <Icon size={18} color={isConnected ? T.cream : T.muted} />
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <div style={{ width:40, height:40, borderRadius:T.rSm, background:isConnected?inkbox:T.surface2, display:'grid', placeItems:'center' }}>
+            <Icon size={18} color={isConnected?inkboxFg:T.muted}/>
           </div>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 750, color: T.ink, letterSpacing: '-0.01em' }}>LUERA {label}</div>
-            <div style={{ fontSize: '11.5px', color: T.muted, marginTop: '2px' }}>{description}</div>
+            <div style={{ fontSize:'14px', fontWeight:750, color:T.ink, letterSpacing:'-0.01em' }}>LUERA {label}</div>
+            <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{description}</div>
           </div>
         </div>
-        {/* Gerçek bağlantı durumu rozeti */}
-        {connStatus === 'connected' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#2E7D43', background: '#E6F4EA', border: '1px solid rgba(46,125,67,0.2)', padding: '4px 10px', borderRadius: '999px' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2E7D43', animation: 'pulse 2s infinite' }}/>
+        {connStatus==='connected' && (
+          <span style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:700, color: dark?'#7AD3A0':'#2E7D43', background: dark?'rgba(45,160,50,.16)':'#E6F4EA', border:`1px solid ${dark?'rgba(122,211,160,0.2)':'rgba(46,125,67,0.2)'}`, padding:'4px 10px', borderRadius:'999px' }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background: dark?'#7AD3A0':'#2E7D43', animation:'pulse 2s infinite' }}/>
             Bağlı
           </span>
         )}
-        {connStatus === 'checking' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: T.muted, background: T.surface2, border: `1px solid ${T.border}`, padding: '4px 10px', borderRadius: '999px' }}>
+        {connStatus==='checking' && (
+          <span style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:600, color:T.muted, background:T.surface2, border:`1px solid ${T.border}`, padding:'4px 10px', borderRadius:'999px' }}>
             <Loader2 size={11} className="animate-spin"/> Kontrol ediliyor
           </span>
         )}
-        {connStatus === 'unverified' && (
-          <span title="Key kayıtlı ama gateway yanıt vermedi" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#A66A0E', background: '#FCEFD6', border: '1px solid rgba(166,106,14,0.2)', padding: '4px 10px', borderRadius: '999px' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E0A12E' }}/>
+        {connStatus==='unverified' && (
+          <span title="Key kayıtlı ama gateway yanıt vermedi" style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:700, color: dark?'#E0A12E':'#A66A0E', background: dark?'rgba(224,161,46,0.12)':'#FCEFD6', border:`1px solid ${dark?'rgba(224,161,46,0.2)':'rgba(166,106,14,0.2)'}`, padding:'4px 10px', borderRadius:'999px' }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:'#E0A12E' }}/>
             Doğrulanmadı
           </span>
         )}
-        {connStatus === 'idle' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: T.muted, background: T.surface2, border: `1px solid ${T.border}`, padding: '4px 10px', borderRadius: '999px' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.muted2 }}/>
+        {connStatus==='idle' && (
+          <span style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:600, color:T.muted, background:T.surface2, border:`1px solid ${T.border}`, padding:'4px 10px', borderRadius:'999px' }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:T.muted2 }}/>
             Bağlı Değil
           </span>
         )}
       </div>
 
       {/* TimeFlow API Key */}
-      <div style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: T.rSm, padding: '14px 16px', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '8px' }}>
+      <div style={{ background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'14px 16px', marginBottom:'12px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'7px', marginBottom:'8px' }}>
           <Key size={13} color={T.muted}/>
-          <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: T.muted }}>TimeFlow API Key</span>
+          <span style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>TimeFlow API Key</span>
         </div>
-        <div style={{ fontSize: '11.5px', color: T.muted, marginBottom: '12px' }}>Bu key'i {label} ayarlarına girerek bağlantıyı etkinleştir.</div>
+        <div style={{ fontSize:'11.5px', color:T.muted, marginBottom:'12px' }}>Bu key'i {label} ayarlarına girerek bağlantıyı etkinleştir.</div>
         {myKeyLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0' }}>
             <Loader2 size={16} color={T.muted} className="animate-spin"/>
           </div>
         ) : myKey ? (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: T.surface, border: `1px solid ${T.border2}`, borderRadius: T.rXs, padding: '8px 12px', marginBottom: '8px' }}>
-              <code style={{ flex: 1, fontSize: '11px', fontFamily: "'JetBrains Mono',monospace", color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rXs, padding:'8px 12px', marginBottom:'8px' }}>
+              <code style={{ flex:1, fontSize:'11px', fontFamily:"'JetBrains Mono',monospace", color:T.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {myKeyVisible ? myKey.api_key : `${myKey.api_key.slice(0,8)}${'•'.repeat(16)}${myKey.api_key.slice(-4)}`}
               </code>
-              <button onClick={() => setMyKeyVisible(v => !v)} style={{ fontSize: '10px', fontWeight: 700, color: T.muted, padding: '2px 8px', borderRadius: T.rXs, border: `1px solid ${T.border}`, background: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                {myKeyVisible ? 'Gizle' : 'Göster'}
+              <button onClick={()=>setMyKeyVisible(v=>!v)} style={{ fontSize:'10px', fontWeight:700, color:T.muted, padding:'2px 8px', borderRadius:T.rXs, border:`1px solid ${T.border}`, background:'none', cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+                {myKeyVisible?'Gizle':'Göster'}
               </button>
             </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={handleCopy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', borderRadius: T.rSm, background: myKeyCopied ? '#5DBB63' : T.ink, color: myKeyCopied ? '#fff' : T.cream, border: 'none', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s' }}>
-                {myKeyCopied ? <><CheckCircle2 size={13}/> Kopyalandı</> : <><Copy size={13}/> Kopyala</>}
+            <div style={{ display:'flex', gap:'6px' }}>
+              <button onClick={handleCopy} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'8px', borderRadius:T.rSm, background:myKeyCopied?'#5DBB63':inkbox, color:myKeyCopied?'#fff':inkboxFg, border:'none', fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}>
+                {myKeyCopied?<><CheckCircle2 size={13}/>Kopyalandı</>:<><Copy size={13}/>Kopyala</>}
               </button>
-              <button onClick={handleGenerate} disabled={generating} title="Yeni key üret" style={{ padding: '8px 12px', borderRadius: T.rSm, border: `1px solid ${T.border2}`, background: T.surface, color: T.muted, cursor: 'pointer', transition: 'all .15s' }}>
-                <RefreshCw size={13} className={generating ? 'animate-spin' : ''}/>
+              <button onClick={handleGenerate} disabled={generating} title="Yeni key üret" style={{ padding:'8px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.muted, cursor:'pointer', transition:'all .15s' }}>
+                <RefreshCw size={13} className={generating?'animate-spin':''}/>
               </button>
-              <button onClick={handleRevoke} disabled={revoking} title="Key'i iptal et" style={{ padding: '8px 12px', borderRadius: T.rSm, border: '1px solid rgba(201,64,64,0.2)', background: T.surface, color: '#C94040', cursor: 'pointer', transition: 'all .15s' }}>
+              <button onClick={handleRevoke} disabled={revoking} title="Key'i iptal et" style={{ padding:'8px 12px', borderRadius:T.rSm, border:`1px solid ${dark?'rgba(224,112,112,0.3)':'rgba(201,64,64,0.2)'}`, background:T.surface, color: dark?'#e07070':'#C94040', cursor:'pointer', transition:'all .15s' }}>
                 <Trash2 size={13}/>
               </button>
             </div>
-            <div style={{ fontSize: '10.5px', color: T.muted2, marginTop: '8px' }}>
-              Oluşturulma: {new Date(myKey.created_at).toLocaleDateString('tr-TR', { day:'numeric', month:'long', year:'numeric' })}
+            <div style={{ fontSize:'10.5px', color:T.muted2, marginTop:'8px' }}>
+              Oluşturulma: {new Date(myKey.created_at).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})}
             </div>
           </div>
         ) : (
-          <button onClick={handleGenerate} disabled={generating} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '10px', borderRadius: T.rSm, background: T.ink, color: T.cream, border: 'none', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            {generating ? <><Loader2 size={13} className="animate-spin"/> Oluşturuluyor...</> : <><Key size={13}/> API Key Oluştur</>}
+          <button onClick={handleGenerate} disabled={generating} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'10px', borderRadius:T.rSm, background:inkbox, color:inkboxFg, border:'none', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+            {generating?<><Loader2 size={13} className="animate-spin"/>Oluşturuluyor...</>:<><Key size={13}/>API Key Oluştur</>}
           </button>
         )}
-        {myKeyError && <div style={{ fontSize: '11.5px', color: '#C94040', marginTop: '8px' }}>{myKeyError}</div>}
+        {myKeyError && <div style={{ fontSize:'11.5px', color: dark?'#e07070':'#C94040', marginTop:'8px' }}>{myKeyError}</div>}
       </div>
 
       {/* Incoming key */}
-      <div style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: T.rSm, padding: '14px 16px' }}>
-        <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: T.muted, marginBottom: '4px' }}>{label} API Key</div>
-        <div style={{ fontSize: '11.5px', color: T.muted, marginBottom: '10px' }}>{label} → Ayarlar → Entegrasyonlar sayfasından kopyala.</div>
-        <input type="text" value={incomingKey} onChange={e => { setIncomingKey(e.target.value); setTestResult(null); }} placeholder="API key yapıştır..."
-          style={{ width: '100%', background: T.surface, border: `1px solid ${T.border2}`, borderRadius: T.rSm, padding: '9px 12px', fontFamily: "'JetBrains Mono',monospace", fontSize: '11.5px', color: T.ink, outline: 'none', marginBottom: '8px' }}
-          onFocus={e => { e.target.style.borderColor = T.orange; e.target.style.boxShadow = '0 0 0 3px rgba(255,90,31,0.08)'; }}
-          onBlur={e  => { e.target.style.borderColor = T.border2; e.target.style.boxShadow = 'none'; }}
+      <div style={{ background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'14px 16px' }}>
+        <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'4px' }}>{label} API Key</div>
+        <div style={{ fontSize:'11.5px', color:T.muted, marginBottom:'10px' }}>{label} → Ayarlar → Entegrasyonlar sayfasından kopyala.</div>
+        <input type="text" value={incomingKey} onChange={e=>{setIncomingKey(e.target.value);setTestResult(null);}} placeholder="API key yapıştır..."
+          style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:"'JetBrains Mono',monospace", fontSize:'11.5px', color:T.ink, outline:'none', marginBottom:'8px' }}
+          onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.08)';}}
+          onBlur={e =>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none';}}
         />
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={handleSaveIncoming} disabled={savingIncoming || !isDirty} style={{ flex: 1, padding: '9px', borderRadius: T.rSm, background: isDirty ? T.ink : T.surface3, color: isDirty ? T.cream : T.muted2, border: 'none', fontSize: '12.5px', fontWeight: 700, cursor: isDirty ? 'pointer' : 'not-allowed', fontFamily: 'inherit', transition: 'background .15s' }}>
-            {savingIncoming ? 'Kaydediliyor...' : 'Kaydet'}
+        <div style={{ display:'flex', gap:'6px' }}>
+          <button onClick={handleSaveIncoming} disabled={savingIncoming||!isDirty} style={{ flex:1, padding:'9px', borderRadius:T.rSm, background:isDirty?inkbox:T.surface3, color:isDirty?inkboxFg:T.muted2, border:'none', fontSize:'12.5px', fontWeight:700, cursor:isDirty?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
+            {savingIncoming?'Kaydediliyor...':'Kaydet'}
           </button>
-          <button onClick={handleTest} disabled={testing || !incomingKey} style={{ padding: '9px 16px', borderRadius: T.rSm, border: `1px solid ${T.border2}`, background: T.surface, color: T.muted, fontSize: '12.5px', fontWeight: 600, cursor: incomingKey ? 'pointer' : 'not-allowed', fontFamily: 'inherit', transition: 'all .15s' }}>
-            {testing ? <Loader2 size={13} className="animate-spin"/> : 'Test Et'}
+          <button onClick={handleTest} disabled={testing||!incomingKey} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.muted, fontSize:'12.5px', fontWeight:600, cursor:incomingKey?'pointer':'not-allowed', fontFamily:'inherit', transition:'all .15s' }}>
+            {testing?<Loader2 size={13} className="animate-spin"/>:'Test Et'}
           </button>
         </div>
         {testResult !== null && (
-          <div style={{ fontSize: '11.5px', fontWeight: 600, marginTop: '8px', color: testResult ? '#4a9e50' : '#C94040' }}>
-            {testResult ? '✓ Bağlantı başarılı' : '✗ Bağlantı kurulamadı — key\'i kontrol edin'}
+          <div style={{ fontSize:'11.5px', fontWeight:600, marginTop:'8px', color:testResult?(dark?'#7AD3A0':'#4a9e50'):(dark?'#e07070':'#C94040') }}>
+            {testResult?'✓ Bağlantı başarılı':'✗ Bağlantı kurulamadı — key\'i kontrol edin'}
           </div>
         )}
-        {incomingError && <div style={{ fontSize: '11.5px', color: '#C94040', marginTop: '8px' }}>{incomingError}</div>}
+        {incomingError && <div style={{ fontSize:'11.5px', color:dark?'#e07070':'#C94040', marginTop:'8px' }}>{incomingError}</div>}
       </div>
     </div>
   );
 }
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-type TabId = 'general' | 'hours' | 'services' | 'webhooks' | 'integrations' | 'whatsapp';
+type TabId = 'general'|'hours'|'services'|'webhooks'|'integrations'|'whatsapp';
 
 export const SettingsPage = () => {
+  const { T, dark } = useT();
   const { settings, updateSettings } = useReservations();
-  const [activeTab, setActiveTab]     = useState<TabId>('general');
+  const [activeTab, setActiveTab]       = useState<TabId>('general');
   const [businessName, setBusinessName] = useState(settings.businessName);
   const [workingHours, setWorkingHours] = useState(settings.workingHours);
   const [services, setServices]         = useState(settings.services);
-  const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl || '');
+  const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [saved, setSaved]               = useState(false);
 
+  const inkbox   = dark ? '#272320' : '#0E0E0E';
+  const inkboxFg = '#F0EBE1';
+
   const handleSave = () => {
-    updateSettings({ ...settings, businessName, workingHours, services, webhookUrl: webhookUrl || undefined });
-    setSaved(true); setTimeout(() => setSaved(false), 2000);
+    updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined});
+    setSaved(true); setTimeout(()=>setSaved(false), 2000);
   };
-  const updateHour = (day: number, field: keyof WorkingHours, value: string | boolean) =>
-    setWorkingHours(prev => prev.map(h => h.day === day ? { ...h, [field]: value } : h));
+  const updateHour = (day: number, field: keyof WorkingHours, value: string|boolean) =>
+    setWorkingHours(prev => prev.map(h => h.day===day?{...h,[field]:value}:h));
   const addService = () => {
     const colors = ['#FF5A1F','#E8973C','#C95A3C','#CB5E84','#8E70B2','#3F9D9A','#5E9C6C','#5B7CC2'];
-    setServices(prev => [...prev, { id:`svc-${Date.now()}`, name:'', duration:30, color:colors[prev.length%colors.length] }]);
+    setServices(prev=>[...prev,{id:`svc-${Date.now()}`,name:'',duration:30,color:colors[prev.length%colors.length]}]);
   };
-  const updateService = (id: string, field: keyof Service, value: string | number) =>
-    setServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
-  const removeService = (id: string) => setServices(prev => prev.filter(s => s.id !== id));
+  const updateService = (id: string, field: keyof Service, value: string|number) =>
+    setServices(prev=>prev.map(s=>s.id===id?{...s,[field]:value}:s));
+  const removeService = (id: string) => setServices(prev=>prev.filter(s=>s.id!==id));
 
-  const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
-    { id:'general',      label:'Genel',           icon:Settings    },
-    { id:'hours',        label:'Çalışma Saatleri', icon:Clock       },
-    { id:'services',     label:'Hizmetler',        icon:Palette     },
-    { id:'webhooks',     label:'Webhook',          icon:Globe       },
-    { id:'whatsapp',     label:'WhatsApp',         icon:MessageCircle },
-    { id:'integrations', label:'Entegrasyonlar',   icon:Puzzle      },
+  const tabs: {id:TabId;label:string;icon:React.ElementType}[] = [
+    {id:'general',      label:'Genel',            icon:Settings    },
+    {id:'hours',        label:'Çalışma Saatleri', icon:Clock       },
+    {id:'services',     label:'Hizmetler',        icon:Palette     },
+    {id:'webhooks',     label:'Webhook',           icon:Globe       },
+    {id:'whatsapp',     label:'WhatsApp',          icon:MessageCircle},
+    {id:'integrations', label:'Entegrasyonlar',   icon:Puzzle      },
   ];
 
   return (
@@ -285,23 +296,24 @@ export const SettingsPage = () => {
         {/* ── Header ── */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'13px' }}>
-            <div style={{ width:40, height:40, background:T.ink, borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
-              <Settings size={18} color={T.cream}/>
+            <div style={{ width:40, height:40, background:inkbox, borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
+              <Settings size={18} color={inkboxFg}/>
             </div>
             <div>
               <div style={{ fontSize:'21px', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1, color:T.ink }}>Ayarlar</div>
               <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>Sistem konfigürasyonu</div>
             </div>
           </div>
-          <button onClick={handleSave} style={{ display:'flex', alignItems:'center', gap:'7px', background:saved?'#5DBB63':T.ink, color:saved?'#fff':T.cream, border:'none', borderRadius:T.rSm, padding:'9px 18px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .25s' }}>
+          <button onClick={handleSave}
+            style={{ display:'flex', alignItems:'center', gap:'7px', background:saved?'#5DBB63':inkbox, color:saved?'#fff':inkboxFg, border:'none', borderRadius:T.rSm, padding:'9px 18px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .25s' }}>
             <Save size={13}/>{saved?'Kaydedildi!':'Kaydet'}
           </button>
         </div>
 
         {/* ── Tab bar ── */}
-        <div style={{ display:'flex', gap:'2px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'4px', marginBottom:'18px' }}>
-          {tabs.map(tab => {
-            const isActive = activeTab === tab.id;
+        <div style={{ display:'flex', gap:'2px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'4px', marginBottom:'18px', overflowX:'auto' }}>
+          {tabs.map(tab=>{
+            const isActive = activeTab===tab.id;
             return (
               <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
                 style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'8px 10px', borderRadius:T.rXs, background:isActive?T.surface:'transparent', border:`1px solid ${isActive?T.border:'transparent'}`, boxShadow:isActive?T.shadowSm:'none', fontSize:'12px', fontWeight:isActive?700:500, color:isActive?T.ink:T.muted, cursor:'pointer', fontFamily:'inherit', transition:'all .15s', whiteSpace:'nowrap' }}>
@@ -316,7 +328,7 @@ export const SettingsPage = () => {
         <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.r, boxShadow:T.shadowSm, padding:'24px' }}>
 
           {/* ── Genel ── */}
-          {activeTab === 'general' && (
+          {activeTab==='general' && (
             <div>
               <SectionTitle>İşletme Bilgileri</SectionTitle>
               <div style={{ marginBottom:'14px' }}>
@@ -326,7 +338,7 @@ export const SettingsPage = () => {
               <div style={{ marginBottom:'22px' }}>
                 <FieldLabel>Slot Süresi (dakika)</FieldLabel>
                 <select value={settings.slotDuration} onChange={e=>updateSettings({...settings,slotDuration:parseInt(e.target.value)})}
-                  style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}>
+                  style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
                   <option value="15">15 dakika</option>
                   <option value="30">30 dakika</option>
                   <option value="60">60 dakika</option>
@@ -343,21 +355,21 @@ export const SettingsPage = () => {
           )}
 
           {/* ── Çalışma Saatleri ── */}
-          {activeTab === 'hours' && (
+          {activeTab==='hours' && (
             <div>
               <SectionTitle>Çalışma Saatleri</SectionTitle>
               <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                {workingHours.map(h => (
+                {workingHours.map(h=>(
                   <div key={h.day} style={{ display:'flex', alignItems:'center', gap:'14px', padding:'12px 16px', background:h.isOff?T.surface2:T.surface, border:`1px solid ${T.border}`, borderRadius:T.rSm, opacity:h.isOff?0.6:1, transition:'all .15s' }}>
                     <span style={{ width:80, fontSize:'13px', fontWeight:650, color:T.ink, flexShrink:0 }}>{h.dayName}</span>
                     <label style={{ display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', flexShrink:0 }}>
-                      <input type="checkbox" checked={!h.isOff} onChange={e=>updateHour(h.day,'isOff',!e.target.checked)} style={{ width:14, height:14, accentColor:T.ink }}/>
+                      <input type="checkbox" checked={!h.isOff} onChange={e=>updateHour(h.day,'isOff',!e.target.checked)} style={{ width:14, height:14, accentColor:T.orange }}/>
                       <span style={{ fontSize:'11.5px', color:T.muted }}>{h.isOff?'Kapalı':'Açık'}</span>
                     </label>
                     {!h.isOff && <>
-                      <input type="time" value={h.start} onChange={e=>updateHour(h.day,'start',e.target.value)} style={{ padding:'6px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none' }}/>
+                      <input type="time" value={h.start} onChange={e=>updateHour(h.day,'start',e.target.value)} style={{ padding:'6px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', colorScheme:dark?'dark':'light' }}/>
                       <span style={{ color:T.muted2, fontSize:'12px' }}>—</span>
-                      <input type="time" value={h.end} onChange={e=>updateHour(h.day,'end',e.target.value)} style={{ padding:'6px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none' }}/>
+                      <input type="time" value={h.end} onChange={e=>updateHour(h.day,'end',e.target.value)} style={{ padding:'6px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', colorScheme:dark?'dark':'light' }}/>
                     </>}
                   </div>
                 ))}
@@ -366,16 +378,16 @@ export const SettingsPage = () => {
           )}
 
           {/* ── Hizmetler ── */}
-          {activeTab === 'services' && (
+          {activeTab==='services' && (
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' }}>
                 <SectionTitle>Hizmetler</SectionTitle>
-                <button onClick={addService} style={{ display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', background:T.ink, color:T.cream, border:'none', borderRadius:T.rSm, fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                <button onClick={addService} style={{ display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', background:inkbox, color:inkboxFg, border:'none', borderRadius:T.rSm, fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
                   <Plus size={11}/> Ekle
                 </button>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                {services.map(s => (
+                {services.map(s=>(
                   <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
                     <input type="color" value={s.color} onChange={e=>updateService(s.id,'color',e.target.value)} style={{ width:32, height:32, borderRadius:'8px', border:'none', cursor:'pointer', padding:0, background:'none' }}/>
                     <input type="text" value={s.name} placeholder="Hizmet adı" onChange={e=>updateService(s.id,'name',e.target.value)}
@@ -387,7 +399,7 @@ export const SettingsPage = () => {
                       <span style={{ fontSize:'11px', color:T.muted }}>dk</span>
                     </div>
                     <button onClick={()=>removeService(s.id)} style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}
-                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color='#C94040';(e.currentTarget as HTMLElement).style.borderColor='rgba(201,64,64,0.3)'}}
+                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color= dark?'#e07070':'#C94040';(e.currentTarget as HTMLElement).style.borderColor='rgba(201,64,64,0.3)'}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted;(e.currentTarget as HTMLElement).style.borderColor=T.border}}>
                       <Trash2 size={13}/>
                     </button>
@@ -398,10 +410,10 @@ export const SettingsPage = () => {
           )}
 
           {/* ── WhatsApp ── */}
-          {activeTab === 'whatsapp' && <WhatsAppTab />}
+          {activeTab==='whatsapp' && <WhatsAppTab/>}
 
           {/* ── Entegrasyonlar ── */}
-          {activeTab === 'integrations' && (
+          {activeTab==='integrations' && (
             <div>
               <SectionTitle>Entegrasyonlar</SectionTitle>
               <div style={{ fontSize:'12.5px', color:T.muted, marginBottom:'18px', lineHeight:1.6 }}>
@@ -415,7 +427,7 @@ export const SettingsPage = () => {
           )}
 
           {/* ── Webhook ── */}
-          {activeTab === 'webhooks' && (
+          {activeTab==='webhooks' && (
             <div>
               <SectionTitle>Webhook Entegrasyonu</SectionTitle>
               <div style={{ padding:'12px 14px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, marginBottom:'16px', fontSize:'12px', color:T.muted, lineHeight:1.65 }}>
@@ -427,7 +439,7 @@ export const SettingsPage = () => {
               </div>
               <div style={{ padding:'14px 16px', background:'rgba(255,90,31,0.04)', border:'1px solid rgba(255,90,31,0.14)', borderRadius:T.rSm }}>
                 <div style={{ fontSize:'12px', fontWeight:750, color:T.ink, marginBottom:'10px' }}>Gönderilen Veri Formatı</div>
-                <pre style={{ fontSize:'11px', fontFamily:"'JetBrains Mono',monospace", background:T.ink, color:'rgba(240,235,225,0.75)', padding:'12px 14px', borderRadius:T.rXs, overflowX:'auto', lineHeight:1.7 }}>
+                <pre style={{ fontSize:'11px', fontFamily:"'JetBrains Mono',monospace", background: dark?'#0F0D0B':'#0E0E0E', color:'rgba(240,235,225,0.75)', padding:'12px 14px', borderRadius:T.rXs, overflowX:'auto', lineHeight:1.7 }}>
 {`{
   "event": "reservation.created",
   "data": {
