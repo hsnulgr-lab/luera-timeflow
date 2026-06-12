@@ -13,20 +13,20 @@ import {
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
-  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
-  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
+  ink:      '#0E0E0E', cream:    '#F3EDE3', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
+  border:   'rgba(14,14,14,0.09)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.48)', muted2:   'rgba(14,14,14,0.30)',
   shadow:   '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 const DT = {
-  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
-  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
-  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
-  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  ink:      '#F3EDE3', cream:    '#0C0A08', orange:   '#FF5A1F',
+  surface:  '#111009', surface2: '#191610', surface3: '#231E18',
+  border:   'rgba(243,237,227,0.08)', border2:  'rgba(243,237,227,0.20)',
+  muted:    'rgba(243,237,227,0.45)', muted2:   'rgba(243,237,227,0.28)',
   shadow:   '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
   shadowSm: '0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
   shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
@@ -137,8 +137,8 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
   const isConnected = connStatus === 'connected';
   const isDirty     = incomingKey !== incomingSaved;
 
-  const inkbox = dark ? '#272320' : '#0E0E0E';
-  const inkboxFg = '#F0EBE1';
+  const inkbox = dark ? '#231E18' : '#0E0E0E';
+  const inkboxFg = '#F3EDE3';
 
   return (
     <div style={{ background:isConnected?dark?'rgba(255,90,31,0.07)':'rgba(255,90,31,0.04)':T.surface, border:`1px solid ${isConnected?T.orange:T.border}`, borderRadius:T.r, padding:'20px', transition:'all .15s' }}>
@@ -263,8 +263,8 @@ export const SettingsPage = () => {
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [saved, setSaved]               = useState(false);
 
-  const inkbox   = dark ? '#272320' : '#0E0E0E';
-  const inkboxFg = '#F0EBE1';
+  const inkbox   = dark ? '#231E18' : '#0E0E0E';
+  const inkboxFg = '#F3EDE3';
 
   const handleSave = () => {
     updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined});
@@ -439,7 +439,7 @@ export const SettingsPage = () => {
               </div>
               <div style={{ padding:'14px 16px', background:'rgba(255,90,31,0.04)', border:'1px solid rgba(255,90,31,0.14)', borderRadius:T.rSm }}>
                 <div style={{ fontSize:'12px', fontWeight:750, color:T.ink, marginBottom:'10px' }}>Gönderilen Veri Formatı</div>
-                <pre style={{ fontSize:'11px', fontFamily:"'JetBrains Mono',monospace", background: dark?'#0F0D0B':'#0E0E0E', color:'rgba(240,235,225,0.75)', padding:'12px 14px', borderRadius:T.rXs, overflowX:'auto', lineHeight:1.7 }}>
+                <pre style={{ fontSize:'11px', fontFamily:"'JetBrains Mono',monospace", background: dark?'#0C0A08':'#0E0E0E', color:'rgba(243,237,227,0.75)', padding:'12px 14px', borderRadius:T.rXs, overflowX:'auto', lineHeight:1.7 }}>
 {`{
   "event": "reservation.created",
   "data": {

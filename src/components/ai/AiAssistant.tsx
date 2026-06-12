@@ -51,20 +51,20 @@ export function AiAssistant() {
 
     // Theme tokens
     const T = {
-        ink:     dark ? '#F0EBE1'                      : '#0E0E0E',
-        muted:   dark ? 'rgba(240,235,225,0.55)'       : 'rgba(14,14,14,0.50)',
-        muted2:  dark ? 'rgba(240,235,225,0.35)'       : 'rgba(14,14,14,0.32)',
+        ink:     dark ? '#F3EDE3'                      : '#0E0E0E',
+        muted:   dark ? 'rgba(243,237,227,0.55)'       : 'rgba(14,14,14,0.50)',
+        muted2:  dark ? 'rgba(243,237,227,0.35)'       : 'rgba(14,14,14,0.32)',
         surface: dark ? '#1A1613'                      : '#FFFFFF',
         surface2:dark ? '#211E1A'                      : '#F3EDE4',
         surface3:dark ? '#2A2520'                      : '#EDE6DB',
-        border:  dark ? 'rgba(240,235,225,0.09)'       : 'rgba(14,14,14,0.08)',
-        border2: dark ? 'rgba(240,235,225,0.14)'       : 'rgba(14,14,14,0.12)',
+        border:  dark ? 'rgba(243,237,227,0.09)'       : 'rgba(14,14,14,0.08)',
+        border2: dark ? 'rgba(243,237,227,0.14)'       : 'rgba(14,14,14,0.12)',
         orange:  '#FF5A1F',
         green:   dark ? '#4ade80'                      : '#16a34a',
         amber:   dark ? '#fbbf24'                      : '#d97706',
         blue:    dark ? '#60a5fa'                      : '#2563eb',
         purple:  dark ? '#a78bfa'                      : '#7c3aed',
-        btnHover:dark ? 'rgba(240,235,225,0.06)'       : 'rgba(14,14,14,0.05)',
+        btnHover:dark ? 'rgba(243,237,227,0.06)'       : 'rgba(14,14,14,0.05)',
     };
 
     const today = todayISO();
@@ -225,17 +225,17 @@ export function AiAssistant() {
                 <button
                     onClick={() => setOpen(o => !o)}
                     className="group flex items-center gap-2.5 w-full min-w-0 pl-1 pr-2.5 py-1 rounded-full transition-all"
-                    style={{ background: open ? (dark ? 'rgba(240,235,225,0.06)' : 'rgba(14,14,14,0.05)') : 'transparent' }}
-                    onMouseEnter={(e) => { if (!open) e.currentTarget.style.background = dark ? 'rgba(240,235,225,0.04)' : 'rgba(14,14,14,0.03)'; }}
+                    style={{ background: open ? (dark ? 'rgba(243,237,227,0.06)' : 'rgba(14,14,14,0.05)') : 'transparent' }}
+                    onMouseEnter={(e) => { if (!open) e.currentTarget.style.background = dark ? 'rgba(243,237,227,0.04)' : 'rgba(14,14,14,0.03)'; }}
                     onMouseLeave={(e) => { if (!open) e.currentTarget.style.background = 'transparent'; }}
                 >
                     <span className="flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-[0.1em] px-2.5 py-1 rounded-full flex-shrink-0"
-                        style={{ background: T.ink, color: dark ? '#0E0E0E' : '#F0EBE1' }}>
+                        style={{ background: T.ink, color: dark ? '#0E0E0E' : '#F3EDE3' }}>
                         <Sparkles className="w-2.5 h-2.5 opacity-85" />
                         AI
                     </span>
                     {insightLoading && !insight ? (
-                        <span className="h-2.5 w-32 rounded-full animate-pulse" style={{ background: dark ? 'rgba(240,235,225,0.10)' : 'rgba(14,14,14,0.10)' }} />
+                        <span className="h-2.5 w-32 rounded-full animate-pulse" style={{ background: dark ? 'rgba(243,237,227,0.10)' : 'rgba(14,14,14,0.10)' }} />
                     ) : (
                         <span className="text-[12.5px] truncate" style={{ color: T.muted }}>{insight ?? 'AI Asistan'}</span>
                     )}
@@ -306,7 +306,7 @@ export function AiAssistant() {
                                     {insightLoading && !insight ? (
                                         <div className="space-y-2">
                                             {[80, 100, 64].map((w, i) => (
-                                                <div key={i} className="h-3 rounded-full animate-pulse" style={{ width: `${w}%`, background: dark ? 'rgba(240,235,225,0.08)' : 'rgba(14,14,14,0.07)' }} />
+                                                <div key={i} className="h-3 rounded-full animate-pulse" style={{ width: `${w}%`, background: dark ? 'rgba(243,237,227,0.08)' : 'rgba(14,14,14,0.07)' }} />
                                             ))}
                                         </div>
                                     ) : (

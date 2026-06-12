@@ -9,20 +9,20 @@ import type { Staff, WorkingHours } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
-  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
-  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
+  ink:      '#0E0E0E', cream:    '#F3EDE3', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
+  border:   'rgba(14,14,14,0.09)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.48)', muted2:   'rgba(14,14,14,0.30)',
   shadow:   '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 const DT = {
-  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
-  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
-  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
-  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  ink:      '#F3EDE3', cream:    '#0C0A08', orange:   '#FF5A1F',
+  surface:  '#111009', surface2: '#191610', surface3: '#231E18',
+  border:   'rgba(243,237,227,0.08)', border2:  'rgba(243,237,227,0.20)',
+  muted:    'rgba(243,237,227,0.45)', muted2:   'rgba(243,237,227,0.28)',
   shadow:   '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
   shadowSm: '0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
   shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
@@ -146,8 +146,8 @@ export const StaffPage = () => {
     setForm(prev => ({ ...prev, workingHours: prev.workingHours.map(h => h.day===day?{...h,[field]:value}:h) }));
   };
 
-  const avatarBg  = dark ? '#272320' : '#0E0E0E';
-  const avatarFg  = '#F0EBE1';
+  const avatarBg  = dark ? '#231E18' : '#0E0E0E';
+  const avatarFg  = '#F3EDE3';
 
   // ── Stat cards ─────────────────────────────────────────────────────────────
   const statCards = [
@@ -241,7 +241,7 @@ export const StaffPage = () => {
                       </div>
                     )}
                     <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:600, color:T.muted, marginTop:'5px' }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%', background: dark ? 'rgba(240,235,225,0.3)' : T.muted2, flexShrink:0 }}/>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background: dark ? 'rgba(243,237,227,0.3)' : T.muted2, flexShrink:0 }}/>
                       Aktif
                     </div>
                   </div>
@@ -275,7 +275,7 @@ export const StaffPage = () => {
                       return (
                         <div key={di} style={{ width:26, height:26, borderRadius:6, display:'grid', placeItems:'center', fontSize:'9px', fontWeight:800,
                           background: isToday ? T.orange : isWork ? avatarBg : T.surface2,
-                          color:      isToday ? (dark?'#0F0D0B':'#0E0E0E') : isWork ? avatarFg : T.muted2,
+                          color:      isToday ? (dark?'#0C0A08':'#0E0E0E') : isWork ? avatarFg : T.muted2,
                           transition:'all .15s' }}>
                           {d}
                         </div>
@@ -355,7 +355,7 @@ export const StaffPage = () => {
                   return (
                     <div key={di} style={{ width:26, height:26, borderRadius:6, display:'grid', placeItems:'center', fontSize:'9px', fontWeight:800,
                       background: isToday ? T.orange : isWork ? avatarBg : T.surface2,
-                      color:      isToday ? (dark?'#0F0D0B':'#0E0E0E') : isWork ? avatarFg : T.muted2 }}>
+                      color:      isToday ? (dark?'#0C0A08':'#0E0E0E') : isWork ? avatarFg : T.muted2 }}>
                       {d}
                     </div>
                   );

@@ -10,20 +10,20 @@ import type { Reservation } from '@/types';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const LT = {
-  ink:     '#0E0E0E', cream:  '#F0EBE1', orange: '#FF5A1F',
-  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-  border:  'rgba(14,14,14,0.08)', border2: 'rgba(14,14,14,0.14)',
-  muted:   'rgba(14,14,14,0.45)', muted2:  'rgba(14,14,14,0.28)',
+  ink:     '#0E0E0E', cream:  '#F3EDE3', orange: '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
+  border:  'rgba(14,14,14,0.09)', border2: 'rgba(14,14,14,0.14)',
+  muted:   'rgba(14,14,14,0.48)', muted2:  'rgba(14,14,14,0.30)',
   shadow:  '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm:'0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg:'0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 const DT = {
-  ink:     '#F0EBE1', cream:  '#0F0D0B', orange: '#FF5A1F',
-  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
-  border:  'rgba(240,235,225,0.08)', border2: 'rgba(240,235,225,0.20)',
-  muted:   'rgba(240,235,225,0.45)', muted2:  'rgba(240,235,225,0.28)',
+  ink:     '#F3EDE3', cream:  '#0C0A08', orange: '#FF5A1F',
+  surface:  '#111009', surface2: '#191610', surface3: '#231E18',
+  border:  'rgba(243,237,227,0.08)', border2: 'rgba(243,237,227,0.20)',
+  muted:   'rgba(243,237,227,0.45)', muted2:  'rgba(243,237,227,0.28)',
   shadow:  '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
   shadowSm:'0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
   shadowLg:'0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
@@ -59,13 +59,13 @@ export const ReservationsPage = () => {
   const RSB = dark ? D_RSB : L_RSB;
   const svcDot: Record<Reservation['status'], string> = dark ? {
     pending:   '#FF5A1F',
-    confirmed: 'rgba(240,235,225,0.4)',
-    completed: 'rgba(240,235,225,0.28)',
-    cancelled: 'rgba(240,235,225,0.18)',
+    confirmed: 'rgba(243,237,227,0.4)',
+    completed: 'rgba(243,237,227,0.28)',
+    cancelled: 'rgba(243,237,227,0.18)',
   } : {
     pending:   '#FF5A1F',
     confirmed: 'rgba(14,14,14,0.35)',
-    completed: 'rgba(14,14,14,0.28)',
+    completed: 'rgba(14,14,14,0.30)',
     cancelled: 'rgba(14,14,14,0.18)',
   };
 
@@ -209,7 +209,7 @@ export const ReservationsPage = () => {
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: 40, height: 40, background: dark ? '#272320' : '#0E0E0E', borderRadius: '10px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, background: dark ? '#231E18' : '#0E0E0E', borderRadius: '10px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
               <rect x="3" y="3" width="14" height="14" rx="2" stroke="#F3ECE0" strokeWidth="1.5"/>
               <path d="M7 8h6M7 12h4" stroke="#F3ECE0" strokeWidth="1.5" strokeLinecap="round"/>
@@ -223,14 +223,14 @@ export const ReservationsPage = () => {
         <button
           style={{
             display: 'flex', alignItems: 'center', gap: '7px',
-            background: dark ? '#272320' : '#0E0E0E', color: '#F0EBE1',
+            background: dark ? '#231E18' : '#0E0E0E', color: '#F3EDE3',
             border: `1px solid ${T.border2}`, borderRadius: T.rSm,
             padding: '9px 16px', fontSize: '13px', fontWeight: 650,
             cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.01em',
             transition: 'background .15s',
           }}
           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#363028' : '#2a2a2a')}
-          onMouseLeave={e => (e.currentTarget.style.background = dark ? '#272320' : '#0E0E0E')}
+          onMouseLeave={e => (e.currentTarget.style.background = dark ? '#231E18' : '#0E0E0E')}
         >
           <Plus size={13} strokeWidth={2.5} />
           Yeni Randevu
@@ -350,8 +350,8 @@ export const ReservationsPage = () => {
           filtered.map((res, idx) => {
             const badge  = RSB[res.status];
             const av     = res.status === 'pending'
-              ? { bg: T.orange, fg: dark ? '#0F0D0B' : '#0E0E0E' }
-              : { bg: dark ? '#272320' : '#0E0E0E', fg: '#F0EBE1' };
+              ? { bg: T.orange, fg: dark ? '#0C0A08' : '#0E0E0E' }
+              : { bg: dark ? '#231E18' : '#0E0E0E', fg: '#F3EDE3' };
             const rowOpacity = res.status === 'cancelled' ? 0.55 : 1;
             const isMenuOpen = showActions === res.id;
 

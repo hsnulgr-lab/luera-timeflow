@@ -14,28 +14,26 @@ html, body, #root {
    Işık değerleri = mevcut hex'ler (ışık modu birebir aynı kalır).
    .dark eklenince dark palete geçer. Sadece dashboard kapsamında. */
 .dash-theme {
-  /* siyah kutular (tarih yaprağı, ikon kutuları) — dark'ta koyu yüzeye döner, ışığa değil */
-  --dc-inkbox:#0E0E0E; --dc-inkbox-fg:#F0EBE1;
-  /* kutu üzerindeki soluk metin/nokta — iki modda da açık kalır */
-  --dc-onbox-70:rgba(240,235,225,0.7); --dc-onbox-50:rgba(240,235,225,0.5); --dc-onbox-60:rgba(240,235,225,0.6);
+  --dc-inkbox:#0E0E0E; --dc-inkbox-fg:#F3EDE3;
+  --dc-onbox-70:rgba(243,237,227,0.7); --dc-onbox-50:rgba(243,237,227,0.5); --dc-onbox-60:rgba(243,237,227,0.6);
   --dc-surface2-60:rgba(243,237,228,0.6);
-  --dc-ink:#0E0E0E; --dc-cream:#F0EBE1; --dc-orange:#FF5A1F; --dc-orange-d:#E8430F;
-  --dc-page:#F5F0E6; --dc-surface:#FAF7F3; --dc-surface2:#F3EDE4; --dc-surface3:#EDE6DB;
-  --dc-border:rgba(14,14,14,0.08); --dc-border-soft:rgba(14,14,14,0.06); --dc-border2:rgba(14,14,14,0.14);
-  --dc-muted:rgba(14,14,14,0.45); --dc-muted2:rgba(14,14,14,0.28);
+  --dc-ink:#0E0E0E; --dc-cream:#F3EDE3; --dc-orange:#FF5A1F; --dc-orange-d:#E8430F;
+  --dc-page:#F3ECE0; --dc-surface:#FAF7F3; --dc-surface2:#F0E9DF; --dc-surface3:#E9E1D5;
+  --dc-border:rgba(14,14,14,0.09); --dc-border-soft:rgba(14,14,14,0.06); --dc-border2:rgba(14,14,14,0.14);
+  --dc-muted:rgba(14,14,14,0.48); --dc-muted2:rgba(14,14,14,0.30);
   --dc-orange-soft:rgba(255,90,31,0.08);
   --dc-green:#2D8F32; --dc-green-bg:#E8F5EA;
   --dc-red:#C94040; --dc-red2:#C0392B; --dc-red-bg:#FBECEC;
   --dc-amber:#B87A00;
 }
 .dash-theme.dark {
-  --dc-inkbox:#272320; --dc-inkbox-fg:#F0EBE1;
-  --dc-onbox-70:rgba(240,235,225,0.7); --dc-onbox-50:rgba(240,235,225,0.5); --dc-onbox-60:rgba(240,235,225,0.6);
-  --dc-surface2-60:rgba(31,28,24,0.6);
-  --dc-ink:#F0EBE1; --dc-cream:#0F0D0B; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
-  --dc-page:#0F0D0B; --dc-surface:#161310; --dc-surface2:#1F1C18; --dc-surface3:#272320;
-  --dc-border:rgba(240,235,225,0.08); --dc-border-soft:rgba(240,235,225,0.05); --dc-border2:rgba(240,235,225,0.22);
-  --dc-muted:rgba(240,235,225,0.46); --dc-muted2:rgba(240,235,225,0.28);
+  --dc-inkbox:#231E18; --dc-inkbox-fg:#F3EDE3;
+  --dc-onbox-70:rgba(243,237,227,0.7); --dc-onbox-50:rgba(243,237,227,0.5); --dc-onbox-60:rgba(243,237,227,0.6);
+  --dc-surface2-60:rgba(25,22,16,0.6);
+  --dc-ink:#F3EDE3; --dc-cream:#0C0A08; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
+  --dc-page:#0C0A08; --dc-surface:#111009; --dc-surface2:#191610; --dc-surface3:#231E18;
+  --dc-border:rgba(243,237,227,0.10); --dc-border-soft:rgba(243,237,227,0.07); --dc-border2:rgba(243,237,227,0.22);
+  --dc-muted:rgba(243,237,227,0.55); --dc-muted2:rgba(243,237,227,0.30);
   --dc-orange-soft:rgba(255,90,31,0.14);
   --dc-green:#7AD3A0; --dc-green-bg:rgba(45,160,50,.16);
   --dc-red:#e07070; --dc-red2:#e07070; --dc-red-bg:rgba(224,112,112,.16);
@@ -64,27 +62,27 @@ html, body, #root {
   inset: 0;
   border-radius: inherit;
   background:
-    /* top-left H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top left / 10px 1.5px no-repeat,
-    /* top-left V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top left / 1.5px 10px no-repeat,
-    /* top-right H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top right / 10px 1.5px no-repeat,
-    /* top-right V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top right / 1.5px 10px no-repeat,
-    /* bottom-left H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom left / 10px 1.5px no-repeat,
-    /* bottom-left V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom left / 1.5px 10px no-repeat,
-    /* bottom-right H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom right / 10px 1.5px no-repeat,
-    /* bottom-right V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom right / 1.5px 10px no-repeat;
+    /* top-left H */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) top left / 10px 1.5px no-repeat,
+    /* top-left V */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) top left / 1.5px 10px no-repeat,
+    /* top-right H */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) top right / 10px 1.5px no-repeat,
+    /* top-right V */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) top right / 1.5px 10px no-repeat,
+    /* bottom-left H */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) bottom left / 10px 1.5px no-repeat,
+    /* bottom-left V */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) bottom left / 1.5px 10px no-repeat,
+    /* bottom-right H */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) bottom right / 10px 1.5px no-repeat,
+    /* bottom-right V */ linear-gradient(rgba(243,237,227,0.42),rgba(243,237,227,0.42)) bottom right / 1.5px 10px no-repeat;
   pointer-events: none;
   transition: background 0.2s;
 }
 .btn-bracket:hover::before {
   background:
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top left / 10px 1.5px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top left / 1.5px 10px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top right / 10px 1.5px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top right / 1.5px 10px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom left / 10px 1.5px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom left / 1.5px 10px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom right / 10px 1.5px no-repeat,
-    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom right / 1.5px 10px no-repeat;
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) top left / 10px 1.5px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) top left / 1.5px 10px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) top right / 10px 1.5px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) top right / 1.5px 10px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) bottom left / 10px 1.5px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) bottom left / 1.5px 10px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) bottom right / 10px 1.5px no-repeat,
+    linear-gradient(rgba(243,237,227,0.75),rgba(243,237,227,0.75)) bottom right / 1.5px 10px no-repeat;
 }
 
 .sb-ripple {

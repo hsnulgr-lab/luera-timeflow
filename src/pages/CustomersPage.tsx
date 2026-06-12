@@ -8,20 +8,20 @@ import type { Customer } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
-  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
-  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
+  ink:      '#0E0E0E', cream:    '#F3EDE3', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
+  border:   'rgba(14,14,14,0.09)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.48)', muted2:   'rgba(14,14,14,0.30)',
   shadow:   '0 2px 8px rgba(14,14,14,0.07),0 8px 24px rgba(14,14,14,0.06)',
   shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
   shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 const DT = {
-  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
-  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
-  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
-  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  ink:      '#F3EDE3', cream:    '#0C0A08', orange:   '#FF5A1F',
+  surface:  '#111009', surface2: '#191610', surface3: '#231E18',
+  border:   'rgba(243,237,227,0.08)', border2:  'rgba(243,237,227,0.20)',
+  muted:    'rgba(243,237,227,0.45)', muted2:   'rgba(243,237,227,0.28)',
   shadow:   '0 2px 8px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.25)',
   shadowSm: '0 1px 3px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.15)',
   shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
@@ -42,14 +42,14 @@ export const CustomersPage = () => {
   const T = dark ? DT : LT;
 
   const statusDot: Record<string, string> = dark ? {
-    confirmed: 'rgba(240,235,225,0.4)',
+    confirmed: 'rgba(243,237,227,0.4)',
     pending:   '#FF5A1F',
-    completed: 'rgba(240,235,225,0.28)',
-    cancelled: 'rgba(240,235,225,0.18)',
+    completed: 'rgba(243,237,227,0.28)',
+    cancelled: 'rgba(243,237,227,0.18)',
   } : {
     confirmed: 'rgba(14,14,14,0.4)',
     pending:   '#FF5A1F',
-    completed: 'rgba(14,14,14,0.28)',
+    completed: 'rgba(14,14,14,0.30)',
     cancelled: 'rgba(14,14,14,0.18)',
   };
 
@@ -78,7 +78,7 @@ export const CustomersPage = () => {
       {/* ── Page header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'10px', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:'13px' }}>
-          <div style={{ width:40, height:40, background: dark ? '#272320' : '#0E0E0E', borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
+          <div style={{ width:40, height:40, background: dark ? '#231E18' : '#0E0E0E', borderRadius:'10px', display:'grid', placeItems:'center', flexShrink:0 }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="7" r="3.5" stroke="#F3ECE0" strokeWidth="1.5"/>
               <path d="M3 17c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="#F3ECE0" strokeWidth="1.5" strokeLinecap="round"/>
@@ -90,9 +90,9 @@ export const CustomersPage = () => {
           </div>
         </div>
         <button onClick={()=>setShowNew(true)}
-          style={{ display:'flex', alignItems:'center', gap:'7px', background: dark ? '#272320' : '#0E0E0E', color:'#F0EBE1', border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
+          style={{ display:'flex', alignItems:'center', gap:'7px', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
           onMouseEnter={e=>(e.currentTarget.style.background= dark ? '#363028' : '#2a2a2a')}
-          onMouseLeave={e=>(e.currentTarget.style.background= dark ? '#272320' : '#0E0E0E')}>
+          onMouseLeave={e=>(e.currentTarget.style.background= dark ? '#231E18' : '#0E0E0E')}>
           <Plus size={13} strokeWidth={2.5}/> Yeni Müşteri
         </button>
       </div>
@@ -125,8 +125,8 @@ export const CustomersPage = () => {
               customers.map(cust => {
                 const isSel  = selId === cust.id;
                 const newC   = isNew(cust.createdAt);
-                const avBg   = newC ? T.orange : (dark ? '#272320' : '#0E0E0E');
-                const avFg   = newC ? (dark ? '#0F0D0B' : '#0E0E0E') : '#F0EBE1';
+                const avBg   = newC ? T.orange : (dark ? '#231E18' : '#0E0E0E');
+                const avFg   = newC ? (dark ? '#0C0A08' : '#0E0E0E') : '#F3EDE3';
                 const badge  = cust.totalReservations === 0 ? 'zero' : cust.totalReservations >= 3 ? 'hot' : '';
                 return (
                   <div key={cust.id} onClick={()=>setSelId(isSel ? null : cust.id)}
@@ -148,7 +148,7 @@ export const CustomersPage = () => {
                       </div>
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px', flexShrink:0 }}>
-                      <span style={{ background: badge==='hot'?T.orange : badge==='zero'?T.surface3 : (dark?'#272320':'#0E0E0E'), color: badge==='hot'?(dark?'#0F0D0B':'#0E0E0E') : badge==='zero'?T.muted : '#F0EBE1', fontSize:'9px', fontWeight:800, padding:'3px 7px', borderRadius:'999px', minWidth:28, textAlign:'center' }}>
+                      <span style={{ background: badge==='hot'?T.orange : badge==='zero'?T.surface3 : (dark?'#231E18':'#0E0E0E'), color: badge==='hot'?(dark?'#0C0A08':'#0E0E0E') : badge==='zero'?T.muted : '#F3EDE3', fontSize:'9px', fontWeight:800, padding:'3px 7px', borderRadius:'999px', minWidth:28, textAlign:'center' }}>
                         {cust.totalReservations} randevu
                       </span>
                       {newC && <span style={{ fontSize:'8.5px', fontWeight:800, color:T.orange, letterSpacing:'.06em', textTransform:'uppercase' }}>YENİ</span>}
@@ -169,14 +169,14 @@ export const CustomersPage = () => {
         {/* ── DETAIL panel ── */}
         <div style={{ display: (isMobile && !selected) ? 'none' : 'flex', flexDirection:'column', overflow:'hidden' }}>
           {!selected ? (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'14px', background: dark ? '#272320' : '#0E0E0E', padding:'40px' }}>
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'14px', background: dark ? '#231E18' : '#0E0E0E', padding:'40px' }}>
               <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <circle cx="28" cy="20" r="12" stroke="#F0EBE1" strokeWidth="2" opacity=".35"/>
-                <path d="M8 48c0-11 9-20 20-20s20 9 20 20" stroke="#F0EBE1" strokeWidth="2" strokeLinecap="round" opacity=".35"/>
+                <circle cx="28" cy="20" r="12" stroke="#F3EDE3" strokeWidth="2" opacity=".35"/>
+                <path d="M8 48c0-11 9-20 20-20s20 9 20 20" stroke="#F3EDE3" strokeWidth="2" strokeLinecap="round" opacity=".35"/>
               </svg>
               <div>
-                <div style={{ fontSize:'14px', fontWeight:700, color:'#F0EBE1', opacity:.65, textAlign:'center' }}>Müşteri Seçin</div>
-                <div style={{ fontSize:'12px', color:'#F0EBE1', opacity:.38, textAlign:'center', lineHeight:1.55, maxWidth:180, margin:'2px auto 0' }}>Detayları görmek için listeden bir müşteri seçin</div>
+                <div style={{ fontSize:'14px', fontWeight:700, color:'#F3EDE3', opacity:.65, textAlign:'center' }}>Müşteri Seçin</div>
+                <div style={{ fontSize:'12px', color:'#F3EDE3', opacity:.38, textAlign:'center', lineHeight:1.55, maxWidth:180, margin:'2px auto 0' }}>Detayları görmek için listeden bir müşteri seçin</div>
               </div>
             </div>
           ) : (
@@ -210,7 +210,7 @@ export const CustomersPage = () => {
               <div style={{ flex:1, overflowY:'auto', background:T.surface }}>
                 {/* Hero */}
                 <div style={{ padding:'26px 22px 18px', display:'flex', alignItems:'center', gap:'16px', borderBottom:`1px solid ${T.border}` }}>
-                  <div style={{ width:54, height:54, borderRadius:'50%', background: dark ? '#272320' : '#0E0E0E', color:'#F0EBE1', display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
+                  <div style={{ width:54, height:54, borderRadius:'50%', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
                   <div>
                     <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', lineHeight:1.1, color:T.ink }}>{selected.name}</div>
                     <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px' }}>{selected.lastVisit ? `Son ziyaret: ${selected.lastVisit}` : 'Henüz ziyaret yok'}</div>
@@ -299,7 +299,7 @@ export const CustomersPage = () => {
             <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', paddingTop:'18px', borderTop:`1px solid ${T.border}` }}>
               <button onClick={()=>setShowNew(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
               <button onClick={handleCreate} disabled={!newCust.name||!newCust.phone}
-                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#272320':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F0EBE1':T.muted2, fontSize:'13px', fontWeight:650, cursor:newCust.name&&newCust.phone?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
+                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#231E18':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F3EDE3':T.muted2, fontSize:'13px', fontWeight:650, cursor:newCust.name&&newCust.phone?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
                 Müşteri Ekle
               </button>
             </div>

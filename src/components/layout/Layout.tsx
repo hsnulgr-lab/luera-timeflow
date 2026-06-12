@@ -13,7 +13,7 @@ export const Layout = () => {
     const { dark } = useTheme();
 
     return (
-        <div className={cn("min-h-screen", dark ? "bg-[#0F0D0B]" : "bg-[#F5F0E6]")}>
+        <div className={cn("min-h-screen", dark ? "bg-[#0C0A08]" : "bg-[#F3ECE0]")}>
             <Sidebar
                 isCollapsed={isCollapsed}
                 onCollapsedChange={setIsCollapsed}
@@ -36,7 +36,7 @@ export const Layout = () => {
                         <Menu size={20} />
                     </button>
                     <div className="flex items-baseline gap-1.5">
-                        <h1 className={cn("text-lg font-bold", dark ? "text-[#F0EBE1]" : "text-gray-900")}>LUERA</h1>
+                        <h1 className={cn("text-lg font-bold", dark ? "text-[#F3EDE3]" : "text-gray-900")}>LUERA</h1>
                         <span className={cn("text-[10px] tracking-wide", dark ? "text-[rgba(240,235,225,0.4)]" : "text-gray-400")}>TimeFlow</span>
                     </div>
                 </div>

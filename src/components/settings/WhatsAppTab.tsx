@@ -14,17 +14,17 @@ import {
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
-  ink:      '#0E0E0E', cream:    '#F0EBE1', orange:   '#FF5A1F',
-  surface:  '#FAF7F3', surface2: '#F3EDE4', surface3: '#EDE6DB',
-  border:   'rgba(14,14,14,0.08)', border2:  'rgba(14,14,14,0.14)',
-  muted:    'rgba(14,14,14,0.45)', muted2:   'rgba(14,14,14,0.28)',
+  ink:      '#0E0E0E', cream:    '#F3EDE3', orange:   '#FF5A1F',
+  surface:  '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
+  border:   'rgba(14,14,14,0.09)', border2:  'rgba(14,14,14,0.14)',
+  muted:    'rgba(14,14,14,0.48)', muted2:   'rgba(14,14,14,0.30)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 const DT = {
-  ink:      '#F0EBE1', cream:    '#0F0D0B', orange:   '#FF5A1F',
-  surface:  '#161310', surface2: '#1F1C18', surface3: '#272320',
-  border:   'rgba(240,235,225,0.08)', border2:  'rgba(240,235,225,0.20)',
-  muted:    'rgba(240,235,225,0.45)', muted2:   'rgba(240,235,225,0.28)',
+  ink:      '#F3EDE3', cream:    '#0C0A08', orange:   '#FF5A1F',
+  surface:  '#111009', surface2: '#191610', surface3: '#231E18',
+  border:   'rgba(243,237,227,0.08)', border2:  'rgba(243,237,227,0.20)',
+  muted:    'rgba(243,237,227,0.45)', muted2:   'rgba(243,237,227,0.28)',
   r: '14px', rSm: '10px', rXs: '7px',
 };
 
@@ -46,8 +46,8 @@ export function WhatsAppTab() {
     const { settings, updateSettings } = useReservations();
     const { dark } = useTheme();
     const T = dark ? DT : LT;
-    const inkbox   = dark ? '#272320' : '#0E0E0E';
-    const inkboxFg = '#F0EBE1';
+    const inkbox   = dark ? '#231E18' : '#0E0E0E';
+    const inkboxFg = '#F3EDE3';
 
     const [status, setStatus]               = useState<Status>('checking');
     const [qrCode, setQrCode]               = useState<string | null>(null);
@@ -346,7 +346,7 @@ export function WhatsAppTab() {
                     {/* 2 saat */}
                     <div>
                         <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'12px' }}>
-                            <span style={{ background:T.orange, color: dark?'#0F0D0B':'#0E0E0E', fontSize:'9px', fontWeight:800, letterSpacing:'.12em', textTransform:'uppercase', padding:'4px 9px', borderRadius:'999px' }}>2 saat önce</span>
+                            <span style={{ background:T.orange, color: dark?'#0C0A08':'#0E0E0E', fontSize:'9px', fontWeight:800, letterSpacing:'.12em', textTransform:'uppercase', padding:'4px 9px', borderRadius:'999px' }}>2 saat önce</span>
                             <span style={{ fontSize:'10.5px', color:T.muted }}>Hatırlatma</span>
                         </div>
                         <div style={{ background:chatBg, borderRadius:T.rSm, padding:'14px', marginBottom:'12px', minHeight:140 }}>

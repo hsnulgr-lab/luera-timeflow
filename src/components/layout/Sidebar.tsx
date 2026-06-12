@@ -238,7 +238,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 "w-10 h-10 rounded-full flex items-center justify-center shadow-md",
                                 dark ? "bg-[#F3EDE3]" : "bg-[#0E0E0E]"
                             )}>
-                                <span className={cn("font-bold text-sm", dark ? "text-[#141210]" : "text-[#F0EBE1]")}>{(user?.name || 'U').charAt(0).toUpperCase()}</span>
+                                <span className={cn("font-bold text-sm", dark ? "text-[#141210]" : "text-[#F3EDE3]")}>{(user?.name || 'U').charAt(0).toUpperCase()}</span>
                             </div>
                             {(!isCollapsed || isMobileOpen) && (
                                 <>
