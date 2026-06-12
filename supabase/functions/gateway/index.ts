@@ -117,6 +117,18 @@ async function handleInbound(req: Request): Promise<Response> {
             );
         }
 
+        // ── Subscription gate (LUERA Core) ────────────────────────────────────
+        // Core'a "bu tenant TimeFlow abonesi mi?" diye sorar.
+        // Varsayılan SHADOW mod: sadece loglar, isteği geçirir (pilot için güvenli).
+        // CORE_SUBSCRIPTION_ENFORCE=true olunca abonesi olmayan 403 alır.
+        const subGate = await checkSubscription(organization_id);
+        if (!subGate.ok) {
+            return new Response(
+                JSON.stringify(subGate.body),
+                { status: subGate.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
         // ── Çakışma kontrolü (organization_id bazlı) ──────────────────────────
         const { data: conflicts } = await supabase
             .from('reservations')
@@ -224,4 +236,62 @@ async function handleInbound(req: Request): Promise<Response> {
 function timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
+}
+
+// ── LUERA Core subscription doğrulaması ──────────────────────────────────────
+// Core'daki has_active_subscription(p_org_id, p_module) RPC'sini çağırır.
+//
+// Modlar (CORE_SUBSCRIPTION_ENFORCE env'i ile):
+//   - unset/false (varsayılan, SHADOW): sonucu loglar, isteği HER ZAMAN geçirir.
+//   - true (ENFORCE): abone değilse 403, Core erişilemezse 503 döner.
+//
+// Core env'leri (Coolify): CORE_SUPABASE_URL, CORE_SERVICE_KEY
+// Bunlar tanımlı değilse gate atlanır (kademeli kurulum — bkz. Omurga Uyum notu).
+type SubGate = { ok: true } | { ok: false; status: number; body: unknown };
+
+async function checkSubscription(orgId: string): Promise<SubGate> {
+    const enforce  = Deno.env.get('CORE_SUBSCRIPTION_ENFORCE') === 'true';
+    const coreUrl  = Deno.env.get('CORE_SUPABASE_URL');
+    const coreKey  = Deno.env.get('CORE_SERVICE_KEY');
+    const MODULE   = 'timeflow';
+
+    // Core bağlı değil → gate'i atla (henüz entegre değil)
+    if (!coreUrl || !coreKey) {
+        if (enforce) {
+            console.error('Subscription ENFORCE açık ama CORE_SUPABASE_URL/CORE_SERVICE_KEY tanımsız');
+            return { ok: false, status: 503, body: { error: 'SUB_CHECK_FAILED', hint: 'Core yapılandırması eksik' } };
+        }
+        return { ok: true };
+    }
+
+    try {
+        const core = createClient(coreUrl, coreKey);
+        const { data, error } = await core.rpc('has_active_subscription', {
+            p_org_id: orgId,
+            p_module: MODULE,
+        });
+
+        if (error) {
+            console.error('Core subscription RPC hatası:', error.message);
+            // ENFORCE'ta Core hatası isteği bloklar (503 — 403'ten ayrı, fark edilsin)
+            return enforce
+                ? { ok: false, status: 503, body: { error: 'SUB_CHECK_FAILED', detail: error.message } }
+                : { ok: true };
+        }
+
+        const active = data === true;
+        if (!active) {
+            console.log(`Subscription: org=${orgId} module=${MODULE} → PASİF (enforce=${enforce})`);
+            return enforce
+                ? { ok: false, status: 403, body: { error: 'SUB_NONE', hint: 'Bu organizasyonun aktif TimeFlow aboneliği yok' } }
+                : { ok: true }; // SHADOW: logla ama geçir
+        }
+
+        return { ok: true };
+    } catch (err) {
+        console.error('Core subscription bağlantı hatası:', err);
+        return enforce
+            ? { ok: false, status: 503, body: { error: 'SUB_CHECK_FAILED', detail: String(err) } }
+            : { ok: true };
+    }
 }
