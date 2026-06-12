@@ -54,16 +54,16 @@ export function AiAssistant() {
         ink:     dark ? '#F3EDE3'                      : '#0E0E0E',
         muted:   dark ? 'rgba(243,237,227,0.55)'       : 'rgba(14,14,14,0.50)',
         muted2:  dark ? 'rgba(243,237,227,0.35)'       : 'rgba(14,14,14,0.32)',
-        surface: dark ? '#1A1613'                      : '#FFFFFF',
-        surface2:dark ? '#211E1A'                      : '#F3EDE4',
-        surface3:dark ? '#2A2520'                      : '#EDE6DB',
+        surface: dark ? '#141209'                      : '#FFFFFF',
+        surface2:dark ? 'rgba(243,237,227,0.04)'       : '#F3EDE4',
+        surface3:dark ? 'rgba(243,237,227,0.065)'      : '#EDE6DB',
         border:  dark ? 'rgba(243,237,227,0.09)'       : 'rgba(14,14,14,0.08)',
-        border2: dark ? 'rgba(243,237,227,0.14)'       : 'rgba(14,14,14,0.12)',
+        border2: dark ? 'rgba(243,237,227,0.18)'       : 'rgba(14,14,14,0.12)',
         orange:  '#FF5A1F',
-        green:   dark ? '#4ade80'                      : '#16a34a',
+        green:   dark ? '#86EFAC'                      : '#16a34a',
         amber:   dark ? '#fbbf24'                      : '#d97706',
-        blue:    dark ? '#60a5fa'                      : '#2563eb',
-        purple:  dark ? '#a78bfa'                      : '#7c3aed',
+        blue:    dark ? '#93C5FD'                      : '#2563eb',
+        purple:  dark ? '#D8B4FE'                      : '#7c3aed',
         btnHover:dark ? 'rgba(243,237,227,0.06)'       : 'rgba(14,14,14,0.05)',
     };
 
@@ -186,17 +186,19 @@ export function AiAssistant() {
         {
             label: 'Cumartesi doldur',
             sub: `${campaign.length > 0 ? campaign.length : satFree} slota hatırlatma gönder`,
-            icon: <CalendarPlus className="w-5 h-5" />,
-            iconBg: T.orange,
-            iconColor: '#fff',
+            icon: <CalendarPlus className="w-4 h-4" />,
+            iconBg: dark ? 'rgba(255,90,31,0.15)' : 'rgba(255,90,31,0.10)',
+            iconBorder: dark ? 'rgba(255,90,31,0.25)' : 'rgba(255,90,31,0.15)',
+            iconColor: T.orange,
             onClick: () => { setModal('campaign'); setOpen(false); },
             disabled: campaign.length === 0,
         },
         {
             label: 'Müşteri geri kazan',
             sub: winback.length > 0 ? `${winback.length} müşteri ${RISK_DAYS}+ gündür uğramadı` : 'Kayıp müşteri yok',
-            icon: <Heart className="w-5 h-5" />,
-            iconBg: dark ? 'rgba(244,63,94,0.18)' : 'rgba(244,63,94,0.12)',
+            icon: <Heart className="w-4 h-4" />,
+            iconBg: dark ? 'rgba(244,63,94,0.15)' : 'rgba(244,63,94,0.10)',
+            iconBorder: dark ? 'rgba(244,63,94,0.25)' : 'rgba(244,63,94,0.15)',
             iconColor: '#f43f5e',
             onClick: () => { setModal('winback'); setOpen(false); },
             disabled: winback.length === 0,
@@ -204,16 +206,18 @@ export function AiAssistant() {
         {
             label: 'Rapor oluştur',
             sub: `${MONTHS_TR[new Date(today + 'T12:00:00').getMonth()]} performansı`,
-            icon: <BarChart2 className="w-5 h-5" />,
-            iconBg: dark ? 'rgba(74,222,128,0.16)' : 'rgba(22,163,74,0.10)',
+            icon: <BarChart2 className="w-4 h-4" />,
+            iconBg: dark ? 'rgba(74,222,128,0.12)' : 'rgba(22,163,74,0.10)',
+            iconBorder: dark ? 'rgba(74,222,128,0.22)' : 'rgba(22,163,74,0.15)',
             iconColor: T.green,
             onClick: () => { navigate('/analytics'); setOpen(false); },
         },
         {
             label: 'Tahmin gör',
             sub: `${MONTHS_TR[(new Date(today + 'T12:00:00').getMonth() + 1) % 12]} ${new Date(today + 'T12:00:00').getFullYear()} öngörüsü`,
-            icon: <TrendingUp className="w-5 h-5" />,
-            iconBg: dark ? 'rgba(167,139,250,0.16)' : 'rgba(124,58,237,0.10)',
+            icon: <TrendingUp className="w-4 h-4" />,
+            iconBg: dark ? 'rgba(192,132,252,0.12)' : 'rgba(124,58,237,0.10)',
+            iconBorder: dark ? 'rgba(192,132,252,0.22)' : 'rgba(124,58,237,0.15)',
             iconColor: T.purple,
             onClick: () => { navigate('/analytics'); setOpen(false); },
         },
@@ -246,7 +250,7 @@ export function AiAssistant() {
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                         <div
-                            className="absolute z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                            className="absolute z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150"
                             style={{
                                 width: 460,
                                 maxWidth: '92vw',
@@ -254,15 +258,31 @@ export function AiAssistant() {
                                 border: `1px solid ${T.border}`,
                                 borderRadius: 18,
                                 boxShadow: dark
-                                    ? '0 8px 40px rgba(0,0,0,0.50), 0 2px 8px rgba(0,0,0,0.30)'
+                                    ? '0 0 0 1px rgba(255,90,31,0.06), 0 24px 64px rgba(0,0,0,0.90), 0 8px 24px rgba(0,0,0,0.60), 0 0 80px rgba(255,90,31,0.04)'
                                     : '0 8px 40px rgba(14,14,14,0.14), 0 2px 8px rgba(14,14,14,0.07)',
+                                overflow: 'hidden',
+                                position: 'relative',
                             }}
                         >
+                            {/* Ambient glow blob — dark only */}
+                            {dark && (
+                                <div style={{
+                                    position: 'absolute', top: -40, left: -40,
+                                    width: 220, height: 160, pointerEvents: 'none', zIndex: 0,
+                                    background: 'radial-gradient(ellipse, rgba(255,90,31,0.12) 0%, transparent 70%)',
+                                }} />
+                            )}
+                            <div style={{ position: 'relative', zIndex: 1, borderTop: dark ? '1.5px solid rgba(255,90,31,0.35)' : 'none' }}>
                             {/* Header */}
                             <div className="flex items-start justify-between" style={{ padding: '16px 18px 14px', borderBottom: `1px solid ${T.border}` }}>
                                 <div className="flex items-center gap-3">
-                                    <div className="flex items-center justify-center flex-shrink-0" style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(255,90,31,0.14)' }}>
-                                        <Sparkles className="w-5 h-5" style={{ color: T.orange }} />
+                                    <div className="flex items-center justify-center flex-shrink-0" style={{
+                                        width: 36, height: 36, borderRadius: 11,
+                                        background: dark ? 'linear-gradient(135deg, rgba(255,90,31,0.22) 0%, rgba(255,90,31,0.06) 100%)' : 'rgba(255,90,31,0.12)',
+                                        border: dark ? '1px solid rgba(255,90,31,0.30)' : 'none',
+                                        boxShadow: dark ? '0 0 16px rgba(255,90,31,0.15)' : 'none',
+                                    }}>
+                                        <Sparkles className="w-[18px] h-[18px]" style={{ color: T.orange }} />
                                     </div>
                                     <div>
                                         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.orange }}>AI İçgörüsü</p>
@@ -277,25 +297,30 @@ export function AiAssistant() {
                             </div>
 
                             {/* Stats row */}
-                            <div className="grid grid-cols-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+                            <div className="flex gap-2" style={{ padding: '14px 18px', borderBottom: `1px solid ${T.border}`, flexWrap: 'wrap' }}>
                                 {stats.map((s, i) => (
-                                    <div key={i} className="text-center" style={{ padding: '14px 8px', borderRight: i < 3 ? `1px solid ${T.border}` : 'none' }}>
-                                        <div className="flex items-baseline justify-center gap-1.5" style={{ marginBottom: 4 }}>
-                                            <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em', color: T.ink, lineHeight: 1 }}>{s.value}</span>
+                                    <div key={i} style={{
+                                        flex: '1 1 80px', minWidth: 80,
+                                        background: dark ? 'rgba(243,237,227,0.04)' : '#F3EDE4',
+                                        border: `1px solid ${T.border}`,
+                                        borderRadius: 12, padding: '11px 14px',
+                                    }}>
+                                        <div className="flex items-baseline gap-1.5" style={{ marginBottom: 4 }}>
+                                            <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.05em', color: T.ink, lineHeight: 1 }}>{s.value}</span>
                                             {s.badge && (
                                                 <span style={{
                                                     fontSize: 9.5, fontWeight: 700, letterSpacing: '0.02em',
                                                     color: s.badgeUp ? T.green : T.muted,
                                                     background: s.badgeUp
                                                         ? (dark ? 'rgba(74,222,128,0.14)' : 'rgba(22,163,74,0.10)')
-                                                        : T.surface3,
+                                                        : (dark ? 'rgba(243,237,227,0.08)' : 'rgba(14,14,14,0.07)'),
                                                     padding: '2px 5px', borderRadius: 999,
                                                 }}>
                                                     {s.badge}
                                                 </span>
                                             )}
                                         </div>
-                                        <p style={{ fontSize: 9.5, color: T.muted2, fontWeight: 600 }}>{s.label}</p>
+                                        <p style={{ fontSize: 10.5, color: T.muted, fontWeight: 600 }}>{s.label}</p>
                                     </div>
                                 ))}
                             </div>
@@ -326,25 +351,26 @@ export function AiAssistant() {
                                         disabled={a.disabled}
                                         className="flex items-center gap-3 text-left transition-all rounded-xl"
                                         style={{
-                                            padding: '10px 12px',
+                                            padding: '11px 13px',
                                             background: T.surface2,
                                             border: `1px solid ${T.border}`,
                                             opacity: a.disabled ? 0.4 : 1,
                                             cursor: a.disabled ? 'default' : 'pointer',
                                         }}
-                                        onMouseEnter={(e) => { if (!a.disabled) { e.currentTarget.style.background = T.surface3; e.currentTarget.style.borderColor = T.border2; } }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.background = T.surface2; e.currentTarget.style.borderColor = T.border; }}
+                                        onMouseEnter={(e) => { if (!a.disabled) { e.currentTarget.style.background = T.surface3; e.currentTarget.style.borderColor = T.border2; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; } }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = T.surface2; e.currentTarget.style.borderColor = T.border; (e.currentTarget as HTMLElement).style.transform = ''; }}
                                     >
-                                        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 10, background: a.iconBg, color: a.iconColor }}>
+                                        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 32, height: 32, borderRadius: 9, background: a.iconBg, border: `1px solid ${a.iconBorder ?? 'transparent'}`, color: a.iconColor }}>
                                             {a.icon}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p style={{ fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.2 }}>{a.label}</p>
-                                            <p style={{ fontSize: 10.5, color: T.muted2, marginTop: 2, lineHeight: 1.3 }} className="truncate">{a.sub}</p>
+                                            <p style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, lineHeight: 1.2 }}>{a.label}</p>
+                                            <p style={{ fontSize: 11, color: T.muted, marginTop: 2, lineHeight: 1.3 }} className="truncate">{a.sub}</p>
                                         </div>
                                     </button>
                                 ))}
                             </div>
+                            </div>{/* inner z-1 wrapper */}
                         </div>
                     </>
                 )}
