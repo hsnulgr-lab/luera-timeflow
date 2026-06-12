@@ -286,7 +286,7 @@ export const DashboardPage = () => {
                 <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6 p-6 sm:px-7">
                         {/* Takvim yaprağı (ink) */}
-                        <div className="flex-shrink-0 w-[72px] h-[72px] rounded-[14px] bg-[var(--dc-inkbox)] flex flex-col items-center justify-center">
+                        <div className={cn("flex-shrink-0 w-[72px] h-[72px] rounded-[14px] bg-[var(--dc-inkbox)] flex flex-col items-center justify-center", dark && "shadow-[0_0_0_1.5px_rgba(255,90,31,0.75),0_0_8px_rgba(255,90,31,0.18)]")}>
                             <span className="text-[28px] font-black text-[var(--dc-inkbox-fg)] leading-none tracking-[-0.03em]">{dayNum}</span>
                             <span className="text-[9px] font-bold text-[var(--dc-onbox-70)] tracking-[0.16em] uppercase mt-0.5">{monthShort}</span>
                         </div>
@@ -434,7 +434,9 @@ export const DashboardPage = () => {
                                     <button key={d.dateStr} onClick={() => setSelectedDate(d.dateStr)}
                                         className={cn(
                                             "flex-1 min-w-[38px] flex flex-col items-center gap-1 py-2 px-1 rounded-[10px] transition-all",
-                                            sel ? "bg-[var(--dc-inkbox)] -translate-y-px shadow-[0_3px_10px_rgba(14,14,14,0.15)]" : "hover:bg-[var(--dc-surface2)]"
+                                            sel
+                                                ? cn("bg-[var(--dc-inkbox)] -translate-y-px", dark ? "shadow-[0_0_0_1.5px_rgba(255,90,31,0.75),0_0_8px_rgba(255,90,31,0.15)]" : "shadow-[0_3px_10px_rgba(14,14,14,0.15)]")
+                                                : "hover:bg-[var(--dc-surface2)]"
                                         )}>
                                         <span className={cn("text-[9px] font-bold uppercase tracking-[0.08em]", sel ? "text-[var(--dc-onbox-50)]" : "text-[var(--dc-muted)]")}>{d.label}</span>
                                         <span className={cn("text-[14px] font-extrabold leading-none", sel ? "text-[var(--dc-inkbox-fg)]" : "text-[var(--dc-ink)]")}>{d.num}</span>

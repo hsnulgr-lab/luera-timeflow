@@ -27,11 +27,11 @@ html, body, #root {
   --dc-amber:#B87A00;
 }
 .dash-theme.dark {
-  --dc-inkbox:#231E18; --dc-inkbox-fg:#F3EDE3;
+  --dc-inkbox:#2A2118; --dc-inkbox-fg:#F3EDE3;
   --dc-onbox-70:rgba(243,237,227,0.7); --dc-onbox-50:rgba(243,237,227,0.5); --dc-onbox-60:rgba(243,237,227,0.6);
-  --dc-surface2-60:rgba(25,22,16,0.6);
-  --dc-ink:#F3EDE3; --dc-cream:#0C0A08; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
-  --dc-page:#0C0A08; --dc-surface:#111009; --dc-surface2:#191610; --dc-surface3:#231E18;
+  --dc-surface2-60:rgba(28,23,16,0.6);
+  --dc-ink:#F3EDE3; --dc-cream:#120E08; --dc-orange:#FF5A1F; --dc-orange-d:#FF7A45;
+  --dc-page:#120E08; --dc-surface:#1C1710; --dc-surface2:#252015; --dc-surface3:#30281A;
   --dc-border:rgba(243,237,227,0.10); --dc-border-soft:rgba(243,237,227,0.07); --dc-border2:rgba(243,237,227,0.22);
   --dc-muted:rgba(243,237,227,0.55); --dc-muted2:rgba(243,237,227,0.30);
   --dc-orange-soft:rgba(255,90,31,0.14);
