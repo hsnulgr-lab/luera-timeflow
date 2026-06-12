@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,25 +18,10 @@ function mapDbCustomer(row: any): Customer {
 }
 
 export function useCustomers() {
-    const { user } = useAuth();
+    const { user, orgId } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-    const [orgId, setOrgId] = useState<string | null>(null);
-
-    // ─── org_id çöz ──────────────────────────────────────────────────────────
-    const fetchOrgId = useCallback(async () => {
-        if (!user) return null;
-        const { data } = await supabase
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-        const id = data?.org_id ?? null;
-        setOrgId(id);
-        return id;
-    }, [user]);
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
     const fetchCustomers = useCallback(async (resolvedOrgId: string) => {
@@ -95,56 +80,66 @@ export function useCustomers() {
     }, []);
 
     useEffect(() => {
-        if (user) {
-            fetchOrgId().then(id => { if (id) fetchCustomers(id); });
-        }
-    }, [user, fetchOrgId, fetchCustomers]);
+        if (user && orgId) fetchCustomers(orgId);
+    }, [user, orgId, fetchCustomers]);
+
+    // Race condition guard: aynı anda iki ekleme isteği gönderilmesini engeller
+    const addingRef = useRef(false);
 
     // ─── Müşteri ekle ────────────────────────────────────────────────────────
     const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'totalReservations'>) => {
-        if (!user) return null;
-
-        if (!orgId) {
+        if (!user || !orgId) {
             toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
             return null;
         }
+        if (addingRef.current) return null;
+        addingRef.current = true;
 
-        // Telefon numarası duplicate kontrolü
-        const normalizedPhone = customer.phone.replace(/\s+/g, '').trim();
-        const { data: existing } = await supabase
-            .from('customers')
-            .select('id, name')
-            .eq('organization_id', orgId)
-            .eq('phone', normalizedPhone)
-            .maybeSingle();
+        try {
+            // Telefon numarası duplicate kontrolü
+            const normalizedPhone = customer.phone.replace(/\s+/g, '').trim();
+            const { data: existing } = await supabase
+                .from('customers')
+                .select('id, name')
+                .eq('organization_id', orgId)
+                .eq('phone', normalizedPhone)
+                .maybeSingle();
 
-        if (existing) {
-            toast.error(`Bu numara zaten kayıtlı: ${existing.name}`);
-            return null;
+            if (existing) {
+                toast.error(`Bu numara zaten kayıtlı: ${existing.name}`);
+                return null;
+            }
+
+            const { data, error } = await supabase
+                .from('customers')
+                .insert({
+                    user_id: user.id,
+                    organization_id: orgId,
+                    name: customer.name,
+                    phone: normalizedPhone,
+                    email: customer.email || null,
+                    notes: customer.notes || '',
+                })
+                .select()
+                .single();
+
+            if (error) {
+                // UNIQUE constraint ihlali — iki tab aynı anda ekledi
+                if (error.code === '23505') {
+                    toast.error('Bu telefon numarası zaten kayıtlı');
+                } else {
+                    toast.error('Müşteri eklenemedi');
+                    console.error('Error adding customer:', error);
+                }
+                return null;
+            }
+
+            const newCust: Customer = { ...mapDbCustomer(data), totalReservations: 0 };
+            setCustomers(prev => [newCust, ...prev]);
+            return newCust;
+        } finally {
+            addingRef.current = false;
         }
-
-        const { data, error } = await supabase
-            .from('customers')
-            .insert({
-                user_id: user.id,
-                organization_id: orgId,
-                name: customer.name,
-                phone: normalizedPhone,
-                email: customer.email || null,
-                notes: customer.notes || '',
-            })
-            .select()
-            .single();
-
-        if (error) {
-            toast.error('Müşteri eklenemedi');
-            console.error('Error adding customer:', error);
-            return null;
-        }
-
-        const newCust: Customer = { ...mapDbCustomer(data), totalReservations: 0 };
-        setCustomers(prev => [newCust, ...prev]);
-        return newCust;
     }, [user, orgId]);
 
     // ─── Müşteri güncelle ────────────────────────────────────────────────────
@@ -187,14 +182,16 @@ export function useCustomers() {
         toast.success('Müşteri arşivlendi');
     }, []);
 
-    // ─── Arama filtresi ──────────────────────────────────────────────────────
-    const filteredCustomers = customers.filter(c => {
-        if (!searchQuery) return true;
+    // ─── Arama filtresi (memoized) ───────────────────────────────────────────
+    const filteredCustomers = useMemo(() => {
+        if (!searchQuery) return customers;
         const q = searchQuery.toLowerCase();
-        return c.name.toLowerCase().includes(q) ||
+        return customers.filter(c =>
+            c.name.toLowerCase().includes(q) ||
             c.phone.includes(q) ||
-            (c.email && c.email.toLowerCase().includes(q));
-    });
+            (c.email && c.email.toLowerCase().includes(q))
+        );
+    }, [customers, searchQuery]);
 
     return {
         customers: filteredCustomers,
@@ -205,9 +202,6 @@ export function useCustomers() {
         updateCustomer,
         deleteCustomer,
         isLoading,
-        refetch: () => {
-            if (orgId) return fetchCustomers(orgId);
-            return fetchOrgId().then(id => { if (id) fetchCustomers(id); });
-        },
+        refetch: () => { if (orgId) fetchCustomers(orgId); },
     };
 }

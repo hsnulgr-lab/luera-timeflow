@@ -247,14 +247,17 @@ export const CalendarPage = () => {
     );
 
     // Personelin o gün o saatte çalışıp çalışmadığını kontrol et
-    const isStaffHourAvailable = useCallback((dateStr: string, hour: number): boolean => {
+    const isStaffHourAvailable = useCallback((dateStr: string, hour: number, minute = 0): boolean => {
         if (!selectedStaffMember?.workingHours?.length) return true;
         const dayOfWeek = (new Date(dateStr + 'T12:00:00').getDay() + 6) % 7; // 0=Pzt … 6=Paz
         const dayHours = selectedStaffMember.workingHours.find(wh => wh.day === dayOfWeek);
         if (!dayHours || dayHours.isOff) return false;
-        const startH = parseInt(dayHours.start.split(':')[0]);
-        const endH   = parseInt(dayHours.end.split(':')[0]);
-        return hour >= startH && hour < endH;
+        const [startH, startM = 0] = dayHours.start.split(':').map(Number);
+        const [endH,   endM   = 0] = dayHours.end.split(':').map(Number);
+        const slotMin  = hour * 60 + minute;
+        const startMin = startH * 60 + startM;
+        const endMin   = endH   * 60 + endM;
+        return slotMin >= startMin && slotMin < endMin;
     }, [selectedStaffMember]);
 
     const getDateCount = (date: string) => {

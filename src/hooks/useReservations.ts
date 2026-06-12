@@ -30,7 +30,9 @@ const defaultSettings: Settings = {
 };
 
 function timeToMinutes(time: string): number {
+    if (!time || !time.includes(':')) return 0;
     const [h, m] = time.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return 0;
     return h * 60 + m;
 }
 
@@ -60,11 +62,10 @@ function mapDbReservation(row: any): Reservation {
 
 // Ağır mantık — yalnızca Provider içinde BİR KEZ çalışır
 function useReservationsState() {
-    const { user } = useAuth();
+    const { user, orgId } = useAuth();
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
-    const [orgId, setOrgId] = useState<string | null>(null);
 
     // Webhook URL'yi ref'te tut — CRUD callback'leri stale closure olmadan erişsin
     const webhookUrlRef = useRef<string | undefined>(undefined);
@@ -92,25 +93,6 @@ function useReservationsState() {
             .catch(err => console.error('Webhook error:', err))
             .finally(() => clearTimeout(timer));
     }, []);
-
-    // ─── org_id çöz ──────────────────────────────────────────────────────────
-    const fetchOrgId = useCallback(async () => {
-        if (!user) return null;
-        const { data, error } = await supabase
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-        if (error) {
-            console.error('org_id çözümlenemedi:', error);
-            toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
-            return null;
-        }
-        const id = data?.org_id ?? null;
-        setOrgId(id);
-        return id;
-    }, [user]);
 
     // ─── Rezervasyonları getir ────────────────────────────────────────────────
     const fetchReservations = useCallback(async (currentOrgId?: string | null) => {
@@ -230,31 +212,23 @@ function useReservationsState() {
 
     // ─── Yükleme + Real-time subscription ────────────────────────────────────
     useEffect(() => {
-        if (!user) return;
+        if (!user || !orgId) return;
 
-        let channel: ReturnType<typeof supabase.channel> | null = null;
+        fetchReservations(orgId);
+        fetchSettings(orgId);
 
-        fetchOrgId().then(id => {
-            fetchReservations(id);
-            fetchSettings(id);
+        // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği
+        const channel = supabase
+            .channel(`reservations:${orgId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'reservations', filter: `organization_id=eq.${orgId}` },
+                () => { fetchReservations(orgId); }
+            )
+            .subscribe();
 
-            if (!id) return;
-
-            // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği
-            channel = supabase
-                .channel(`reservations:${id}`)
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'reservations', filter: `organization_id=eq.${id}` },
-                    () => { fetchReservations(id); }
-                )
-                .subscribe();
-        });
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+        return () => { supabase.removeChannel(channel); };
+    }, [user, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Rezervasyon ekle ────────────────────────────────────────────────────
     const addReservation = useCallback(async (reservation: Omit<Reservation, 'id' | 'createdAt'>) => {

@@ -12,6 +12,7 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
+    orgId: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -31,23 +32,44 @@ const mapSupabaseUser = (supabaseUser: SupabaseUser | null): User | null => {
     };
 };
 
+async function resolveOrgId(userId: string): Promise<string | null> {
+    const { data } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+    return data?.org_id ?? null;
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [orgId, setOrgId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const handleSession = async (supabaseUser: import('@supabase/supabase-js').User | null) => {
+        const mapped = mapSupabaseUser(supabaseUser);
+        setUser(mapped);
+        if (supabaseUser) {
+            const id = await resolveOrgId(supabaseUser.id);
+            setOrgId(id);
+        } else {
+            setOrgId(null);
+        }
+        setIsLoading(false);
+    };
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(mapSupabaseUser(session?.user ?? null));
-            setIsLoading(false);
+            handleSession(session?.user ?? null);
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(mapSupabaseUser(session?.user ?? null));
-            setIsLoading(false);
+            handleSession(session?.user ?? null);
         });
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
         try {
@@ -83,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         <AuthContext.Provider
             value={{
                 user,
+                orgId,
                 isAuthenticated: !!user,
                 isLoading,
                 login,

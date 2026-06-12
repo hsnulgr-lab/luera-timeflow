@@ -7,26 +7,17 @@ import { useAuth } from '@/contexts/AuthContext';
  * org_id'yi kendi çözer, bağımsız kullanılabilir (Layout üst şeridinde).
  */
 export function useInsight() {
-    const { user } = useAuth();
+    const { user, orgId } = useAuth();
     const [insight, setInsight] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !orgId) return;
         let cancelled = false;
 
         (async () => {
             setLoading(true);
             try {
-                const { data: member } = await supabase
-                    .from('organization_members')
-                    .select('org_id')
-                    .eq('user_id', user.id)
-                    .limit(1)
-                    .maybeSingle();
-
-                const orgId = member?.org_id;
-                if (!orgId) return;
 
                 const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/insight`, {
                     method: 'POST',

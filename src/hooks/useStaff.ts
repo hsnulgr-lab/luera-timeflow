@@ -20,24 +20,9 @@ function mapDbStaff(row: any): Staff {
 }
 
 export function useStaff() {
-    const { user } = useAuth();
+    const { user, orgId } = useAuth();
     const [staff, setStaff]   = useState<Staff[]>([]);
-    const [orgId, setOrgId]   = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    // org_id çöz
-    const fetchOrgId = useCallback(async () => {
-        if (!user) return null;
-        const { data } = await supabase
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-        const id = data?.org_id ?? null;
-        setOrgId(id);
-        return id;
-    }, [user]);
 
     // Personelleri getir
     const fetchStaff = useCallback(async (resolvedOrgId: string) => {
@@ -59,10 +44,8 @@ export function useStaff() {
     }, []);
 
     useEffect(() => {
-        if (user) {
-            fetchOrgId().then(id => { if (id) fetchStaff(id); });
-        }
-    }, [user, fetchOrgId, fetchStaff]);
+        if (user && orgId) fetchStaff(orgId);
+    }, [user, orgId, fetchStaff]);
 
     // Personel ekle
     const addStaff = useCallback(async (member: Omit<Staff, 'id' | 'createdAt' | 'organizationId'>) => {
@@ -121,8 +104,7 @@ export function useStaff() {
 
     const refetch = useCallback(() => {
         if (orgId) return fetchStaff(orgId);
-        return fetchOrgId().then(id => { if (id) fetchStaff(id); });
-    }, [orgId, fetchOrgId, fetchStaff]);
+    }, [orgId, fetchStaff]);
 
     return {
         staff,
