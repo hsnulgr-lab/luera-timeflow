@@ -52,6 +52,41 @@ html, body, #root {
   0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 90, 31, 0.40); }
   50%      { box-shadow: 0 0 14px 3px rgba(255, 90, 31, 0.75); }
 }
+/* ── btn--bracket: köşe parantezi butonu (dark mode only) ──────────────────── */
+.btn-bracket {
+  position: relative;
+  background: transparent;
+  border: none;
+}
+.btn-bracket::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    /* top-left H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top left / 10px 1.5px no-repeat,
+    /* top-left V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top left / 1.5px 10px no-repeat,
+    /* top-right H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top right / 10px 1.5px no-repeat,
+    /* top-right V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) top right / 1.5px 10px no-repeat,
+    /* bottom-left H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom left / 10px 1.5px no-repeat,
+    /* bottom-left V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom left / 1.5px 10px no-repeat,
+    /* bottom-right H */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom right / 10px 1.5px no-repeat,
+    /* bottom-right V */ linear-gradient(rgba(240,235,225,0.42),rgba(240,235,225,0.42)) bottom right / 1.5px 10px no-repeat;
+  pointer-events: none;
+  transition: background 0.2s;
+}
+.btn-bracket:hover::before {
+  background:
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top left / 10px 1.5px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top left / 1.5px 10px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top right / 10px 1.5px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) top right / 1.5px 10px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom left / 10px 1.5px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom left / 1.5px 10px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom right / 10px 1.5px no-repeat,
+    linear-gradient(rgba(240,235,225,0.75),rgba(240,235,225,0.75)) bottom right / 1.5px 10px no-repeat;
+}
+
 .sb-ripple {
   position: absolute;
   border-radius: 50%;
