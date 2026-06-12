@@ -316,7 +316,7 @@ export const DashboardPage = () => {
 
                         {/* CTA */}
                         <div className="flex items-center gap-2 flex-shrink-0">
-                            <LueraButton onClick={() => navigate('/calendar')} variant={dark ? 'bracket' : 'ghost'} size="md">
+                            <LueraButton onClick={() => navigate('/calendar')} variant={dark ? 'ghost-dark' : 'ghost'} size="md">
                                 Takvimi Gör
                             </LueraButton>
                             <LueraButton onClick={() => navigate('/calendar')} variant="ink" size="md">

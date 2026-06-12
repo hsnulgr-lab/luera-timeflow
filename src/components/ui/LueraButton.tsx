@@ -1,7 +1,7 @@
 import { cn } from '@/utils/cn';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'accent' | 'ghost' | 'ink' | 'bracket';
+type Variant = 'primary' | 'accent' | 'ghost' | 'ghost-dark' | 'ink' | 'bracket';
 type Size = 'sm' | 'md' | 'lg';
 
 interface LueraButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -23,6 +23,8 @@ const VARIANTS: Record<Variant, string> = {
         'bg-[#FF5A1F] text-[#0E0E0E] border border-[#FF5A1F] font-bold hover:-translate-y-px hover:shadow-[0_12px_32px_rgba(255,90,31,0.35)]',
     ghost:
         'bg-transparent text-[#0E0E0E] border border-[#0E0E0E]/[0.13] hover:bg-[#F3EDE4] hover:border-[#0E0E0E]',
+    'ghost-dark':
+        'bg-transparent text-[rgba(243,236,224,0.85)] border border-[rgba(243,236,224,0.25)] hover:bg-[rgba(243,236,224,0.06)] hover:border-[#F3ECE0]',
     ink:
         'bg-[#0E0E0E] text-[#F0EBE1] border border-[#0E0E0E] hover:bg-[#FF5A1F] hover:border-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(255,90,31,0.25)]',
     bracket:
