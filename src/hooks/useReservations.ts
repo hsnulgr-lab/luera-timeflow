@@ -71,34 +71,42 @@ function useReservationsState() {
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
 
     // ─── Standart webhook gönderici ──────────────────────────────────────────
-    const fireWebhook = useCallback(async (event: string, payload: object) => {
+    const fireWebhook = useCallback((event: string, payload: object) => {
         const url = webhookUrlRef.current;
         if (!url) return;
-        try {
-            await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    event,
-                    source: 'timeflow',
-                    timestamp: new Date().toISOString(),
-                    data: payload,
-                }),
-            });
-        } catch (err) {
-            console.error('Webhook error:', err);
-        }
+        const body = JSON.stringify({
+            event,
+            source: 'timeflow',
+            timestamp: new Date().toISOString(),
+            data: payload,
+        });
+        // Fire-and-forget with 8s timeout — UI'ı bloklamaz, hata sessizce loglanır
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            signal: controller.signal,
+        })
+            .catch(err => console.error('Webhook error:', err))
+            .finally(() => clearTimeout(timer));
     }, []);
 
     // ─── org_id çöz ──────────────────────────────────────────────────────────
     const fetchOrgId = useCallback(async () => {
         if (!user) return null;
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('organization_members')
             .select('org_id')
             .eq('user_id', user.id)
             .limit(1)
             .maybeSingle();
+        if (error) {
+            console.error('org_id çözümlenemedi:', error);
+            toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
+            return null;
+        }
         const id = data?.org_id ?? null;
         setOrgId(id);
         return id;
@@ -143,17 +151,26 @@ function useReservationsState() {
         const resolvedOrgId = currentOrgId ?? orgId;
 
         // maybeSingle: çoklu satırda .single() patlardı; yokken null döner
-        const { data: settingsData } = await supabase
+        const { data: settingsData, error: settingsErr } = await supabase
             .from('settings')
             .select('*')
             .eq('user_id', user.id)
             .maybeSingle();
 
-        const { data: servicesData } = await supabase
+        if (settingsErr) {
+            console.error('Ayarlar yüklenemedi:', settingsErr);
+            toast.error('Ayarlar yüklenemedi');
+        }
+
+        const { data: servicesData, error: servicesErr } = await supabase
             .from('services')
             .select('*')
             .eq('user_id', user.id)
             .order('created_at');
+
+        if (servicesErr) {
+            console.error('Hizmetler yüklenemedi:', servicesErr);
+        }
 
         const allServices: Service[] = (servicesData || []).map((s: any) => ({
             id: s.id,
@@ -211,14 +228,32 @@ function useReservationsState() {
         }
     }, [user, orgId]);
 
-    // ─── Yükleme ─────────────────────────────────────────────────────────────
+    // ─── Yükleme + Real-time subscription ────────────────────────────────────
     useEffect(() => {
-        if (user) {
-            fetchOrgId().then(id => {
-                fetchReservations(id);
-                fetchSettings(id);
-            });
-        }
+        if (!user) return;
+
+        let channel: ReturnType<typeof supabase.channel> | null = null;
+
+        fetchOrgId().then(id => {
+            fetchReservations(id);
+            fetchSettings(id);
+
+            if (!id) return;
+
+            // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği
+            channel = supabase
+                .channel(`reservations:${id}`)
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'reservations', filter: `organization_id=eq.${id}` },
+                    () => { fetchReservations(id); }
+                )
+                .subscribe();
+        });
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Rezervasyon ekle ────────────────────────────────────────────────────
@@ -227,6 +262,20 @@ function useReservationsState() {
 
         if (!orgId) {
             toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
+            return null;
+        }
+
+        // Temel validasyon
+        if (!reservation.customerName?.trim()) {
+            toast.error('Müşteri adı gerekli');
+            return null;
+        }
+        if (!reservation.date || !reservation.startTime || !reservation.endTime) {
+            toast.error('Tarih ve saat alanları gerekli');
+            return null;
+        }
+        if (timeToMinutes(reservation.endTime) <= timeToMinutes(reservation.startTime)) {
+            toast.error('Bitiş saati başlangıç saatinden sonra olmalı');
             return null;
         }
 
@@ -291,10 +340,12 @@ function useReservationsState() {
         if (updates.status !== undefined) dbUpdates.status = updates.status;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
-        const { error } = await supabase
+        const { data: serverRow, error } = await supabase
             .from('reservations')
             .update(dbUpdates)
-            .eq('id', id);
+            .eq('id', id)
+            .select('*, staff(name, color)')
+            .single();
 
         if (error) {
             toast.error('Rezervasyon güncellenemedi');
@@ -302,14 +353,14 @@ function useReservationsState() {
             return;
         }
 
-        const existing = reservations.find(r => r.id === id);
-        if (!existing) {
+        if (!serverRow) {
             // Başka bir tab/kullanıcı bu rezervasyonu silmiş olabilir; listeyi yenile
             toast.error('Rezervasyon bulunamadı, liste yenileniyor');
             fetchReservations(orgId!);
             return;
         }
-        const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+        // Server'dan gelen satırı kullan — trigger/default değerleri korunur
+        const updated = mapDbReservation(serverRow);
         setReservations(prev => prev.map(r => r.id === id ? updated : r));
         fireWebhook('reservation.updated', {
             id,
@@ -409,8 +460,7 @@ function useReservationsState() {
             return;
         }
 
-        // Hizmetleri güncelle — veri kaybına karşı snapshot + rollback
-        // (transaction yerine: insert başarısız olursa eski hizmetleri geri yükle)
+        // Hizmetleri güncelle — snapshot al, sil, ekle; hata varsa rollback
         const { data: oldServices } = await supabase
             .from('services').select('*').eq('user_id', user.id);
 
@@ -419,7 +469,7 @@ function useReservationsState() {
         if (delError) {
             toast.error('Hizmetler güncellenemedi');
             console.error('Error deleting services:', delError);
-            return; // silme başarısız → eski hizmetler güvende
+            return;
         }
 
         if (newSettings.services.length > 0) {
@@ -434,20 +484,19 @@ function useReservationsState() {
                 }))
             );
             if (insError) {
-                // ROLLBACK: yeni kayıt başarısız → eski hizmetleri geri yükle
-                if (oldServices && oldServices.length > 0) {
-                    await supabase.from('services').insert(
-                        oldServices.map((s: any) => ({
-                            user_id: s.user_id,
-                            organization_id: s.organization_id,
-                            name: s.name,
-                            duration: s.duration,
-                            color: s.color,
-                            price: s.price ?? null,
-                        }))
-                    );
+                // Rollback: eski hizmetleri geri yükle (id olmadan — yeni satırlar oluşur)
+                const rollbackRows = (oldServices || []).map((s: any) => ({
+                    user_id: s.user_id,
+                    organization_id: s.organization_id,
+                    name: s.name,
+                    duration: s.duration,
+                    color: s.color,
+                    price: s.price ?? null,
+                }));
+                if (rollbackRows.length > 0) {
+                    await supabase.from('services').insert(rollbackRows);
                 }
-                toast.error('Hizmetler kaydedilemedi — önceki haline döndürüldü');
+                toast.error('Hizmetler kaydedilemedi — önceki liste geri yüklendi');
                 console.error('Error inserting services:', insError);
                 return;
             }
