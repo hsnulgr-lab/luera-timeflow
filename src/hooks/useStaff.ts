@@ -40,12 +40,12 @@ export function useStaff() {
     }, [user]);
 
     // Personelleri getir
-    const fetchStaff = useCallback(async () => {
-        if (!user) return;
+    const fetchStaff = useCallback(async (resolvedOrgId: string) => {
         setIsLoading(true);
         const { data, error } = await supabase
             .from('staff')
             .select('*')
+            .eq('organization_id', resolvedOrgId)
             .eq('is_active', true)
             .order('created_at');
 
@@ -56,12 +56,11 @@ export function useStaff() {
             setStaff((data || []).map(mapDbStaff));
         }
         setIsLoading(false);
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         if (user) {
-            fetchOrgId();
-            fetchStaff();
+            fetchOrgId().then(id => { if (id) fetchStaff(id); });
         }
     }, [user, fetchOrgId, fetchStaff]);
 
@@ -120,12 +119,17 @@ export function useStaff() {
         toast.success('Personel kaldırıldı');
     }, []);
 
+    const refetch = useCallback(() => {
+        if (orgId) return fetchStaff(orgId);
+        return fetchOrgId().then(id => { if (id) fetchStaff(id); });
+    }, [orgId, fetchOrgId, fetchStaff]);
+
     return {
         staff,
         isLoading,
         addStaff,
         updateStaff,
         deleteStaff,
-        refetch: fetchStaff,
+        refetch,
     };
 }

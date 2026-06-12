@@ -280,6 +280,15 @@ export const CalendarPage = () => {
     const handleCreateReservation = async () => {
         if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
 
+        // Personelin kapalı günü/saati kontrolü
+        if (newRes.staffId && selectedStaffMember?.workingHours?.length) {
+            const startHour = parseInt(newRes.startTime.split(':')[0]);
+            if (!isStaffHourAvailable(selectedDate, startHour)) {
+                toast.error('Bu personel seçilen tarihte/saatte çalışmıyor.');
+                return;
+            }
+        }
+
         // Check for conflicts
         const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined);
         if (conflict) {

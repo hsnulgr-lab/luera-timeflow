@@ -39,14 +39,14 @@ export function useCustomers() {
     }, [user]);
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
-    const fetchCustomers = useCallback(async () => {
-        if (!user) return;
+    const fetchCustomers = useCallback(async (resolvedOrgId: string) => {
         setIsLoading(true);
 
         // Müşterileri getir
         const { data, error } = await supabase
             .from('customers')
             .select('*')
+            .eq('organization_id', resolvedOrgId)
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
@@ -92,12 +92,11 @@ export function useCustomers() {
 
         setCustomers(enriched);
         setIsLoading(false);
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         if (user) {
-            fetchOrgId();
-            fetchCustomers();
+            fetchOrgId().then(id => { if (id) fetchCustomers(id); });
         }
     }, [user, fetchOrgId, fetchCustomers]);
 
@@ -206,6 +205,9 @@ export function useCustomers() {
         updateCustomer,
         deleteCustomer,
         isLoading,
-        refetch: fetchCustomers,
+        refetch: () => {
+            if (orgId) return fetchCustomers(orgId);
+            return fetchOrgId().then(id => { if (id) fetchCustomers(id); });
+        },
     };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,9 +116,16 @@ function useReservationsState() {
             .select('*, staff(name, color)');
         if (resolvedOrgId) query = query.eq('organization_id', resolvedOrgId);
 
+        // Son 90 gün + gelecekteki tüm rezervasyonlar; 1000-satır truncation'ı engeller
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const cutoff = ninetyDaysAgo.toISOString().slice(0, 10);
+
         const { data, error } = await query
+            .gte('date', cutoff)
             .order('date', { ascending: false })
-            .order('start_time', { ascending: true });
+            .order('start_time', { ascending: true })
+            .limit(500);
 
         if (error) {
             toast.error('Rezervasyonlar yüklenemedi');
@@ -295,7 +302,14 @@ function useReservationsState() {
             return;
         }
 
-        const updated = { ...reservations.find(r => r.id === id)!, ...updates, updatedAt: new Date().toISOString() };
+        const existing = reservations.find(r => r.id === id);
+        if (!existing) {
+            // Başka bir tab/kullanıcı bu rezervasyonu silmiş olabilir; listeyi yenile
+            toast.error('Rezervasyon bulunamadı, liste yenileniyor');
+            fetchReservations(orgId!);
+            return;
+        }
+        const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
         setReservations(prev => prev.map(r => r.id === id ? updated : r));
         fireWebhook('reservation.updated', {
             id,
@@ -309,7 +323,7 @@ function useReservationsState() {
             notes:          updated.notes ?? '',
             staff_id:       updated.staffId ?? null,
         });
-    }, [reservations, fireWebhook]);
+    }, [reservations, fireWebhook, fetchReservations, orgId]);
 
     // ─── Rezervasyon sil ─────────────────────────────────────────────────────
     const deleteReservation = useCallback(async (id: string) => {
@@ -477,9 +491,7 @@ function useReservationsState() {
         return conflict || null;
     }, [reservations]);
 
-    const sendWebhook = fireWebhook;
-
-    return {
+    return useMemo(() => ({
         reservations,
         settings,
         isLoading,
@@ -493,9 +505,14 @@ function useReservationsState() {
         getStats,
         updateSettings,
         checkConflict,
-        sendWebhook,
+        sendWebhook: fireWebhook,
         refetch: fetchReservations,
-    };
+    }), [
+        reservations, settings, isLoading, orgId,
+        addReservation, updateReservation, deleteReservation,
+        getReservationsByDate, getTodayReservations, getUpcomingReservations,
+        getStats, updateSettings, checkConflict, fireWebhook, fetchReservations,
+    ]);
 }
 
 // ─── Paylaşılan kaynak (Context) ─────────────────────────────────────────────
