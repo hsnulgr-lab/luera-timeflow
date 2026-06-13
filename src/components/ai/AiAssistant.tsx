@@ -250,7 +250,7 @@ export function AiAssistant() {
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                         <div
-                            className="absolute z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                            className="absolute top-full z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
                             style={{
                                 width: 460,
                                 maxWidth: '92vw',
