@@ -5,6 +5,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { Menu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { AiAssistant } from '@/components/ai/AiAssistant';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export const Layout = () => {
@@ -61,7 +62,9 @@ export const Layout = () => {
                 "transition-all duration-300 pt-14 md:pt-14 h-screen flex flex-col",
                 isCollapsed ? "md:ml-20" : "md:ml-64"
             )}>
-                <Outlet />
+                <ErrorBoundary>
+                    <Outlet />
+                </ErrorBoundary>
             </main>
         </div>
     );

@@ -144,11 +144,15 @@ function useReservationsState() {
             toast.error('Ayarlar yüklenemedi');
         }
 
-        const { data: servicesData, error: servicesErr } = await supabase
-            .from('services')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at');
+        // Servisler org bazlı paylaşılır — aynı organizasyondaki tüm kullanıcılar
+        // aynı hizmet kataloğunu görür (RLS de organization_id'ye dayanır).
+        const { data: servicesData, error: servicesErr } = resolvedOrgId
+            ? await supabase
+                .from('services')
+                .select('*')
+                .eq('organization_id', resolvedOrgId)
+                .order('created_at')
+            : { data: [], error: null };
 
         if (servicesErr) {
             console.error('Hizmetler yüklenemedi:', servicesErr);
@@ -434,21 +438,53 @@ function useReservationsState() {
             return;
         }
 
-        // Hizmetleri güncelle — snapshot al, sil, ekle; hata varsa rollback
-        const { data: oldServices } = await supabase
-            .from('services').select('*').eq('user_id', user.id);
-
-        const { error: delError } = await supabase
-            .from('services').delete().eq('user_id', user.id);
-        if (delError) {
+        // Hizmetleri diff-upsert ile güncelle — mevcut ID'ler KORUNUR.
+        // Eski "tümünü sil + yeniden ekle" yaklaşımı her kayıtta servis ID'lerini
+        // değiştiriyor, böylece rezervasyon referansları ve geçmiş bütünlüğü
+        // bozulabiliyordu. Artık sadece eklenen/değişen/kaldırılan satırlara dokunulur.
+        const { data: existingRows, error: exErr } = await supabase
+            .from('services').select('id').eq('organization_id', orgId);
+        if (exErr) {
             toast.error('Hizmetler güncellenemedi');
-            console.error('Error deleting services:', delError);
+            console.error('Error reading services:', exErr);
             return;
         }
 
-        if (newSettings.services.length > 0) {
-            const { error: insError } = await supabase.from('services').insert(
-                newSettings.services.map(s => ({
+        // DB'de gerçekten var olan ID'ler — varsayılan ('1'..'5') ID'ler buraya girmez,
+        // dolayısıyla onlar otomatik olarak "yeni satır" (insert) sayılır.
+        const existingIds = new Set((existingRows || []).map((r: any) => r.id as string));
+        const toUpdate = newSettings.services.filter(s => existingIds.has(s.id));
+        const toInsert = newSettings.services.filter(s => !existingIds.has(s.id));
+        const keepIds = new Set(toUpdate.map(s => s.id));
+        const toDelete = [...existingIds].filter(id => !keepIds.has(id));
+
+        // 1) Kaldırılan hizmetleri sil
+        if (toDelete.length > 0) {
+            const { error } = await supabase.from('services').delete().in('id', toDelete);
+            if (error) {
+                toast.error('Hizmetler güncellenemedi');
+                console.error('Error deleting services:', error);
+                return;
+            }
+        }
+
+        // 2) Mevcut hizmetleri güncelle (ID korunur)
+        for (const s of toUpdate) {
+            const { error } = await supabase
+                .from('services')
+                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null })
+                .eq('id', s.id);
+            if (error) {
+                toast.error('Hizmetler güncellenemedi');
+                console.error('Error updating service:', error);
+                return;
+            }
+        }
+
+        // 3) Yeni hizmetleri ekle (ID'yi DB üretir)
+        if (toInsert.length > 0) {
+            const { error } = await supabase.from('services').insert(
+                toInsert.map(s => ({
                     user_id: user.id,
                     organization_id: orgId,
                     name: s.name,
@@ -457,21 +493,9 @@ function useReservationsState() {
                     price: s.price || null,
                 }))
             );
-            if (insError) {
-                // Rollback: eski hizmetleri geri yükle (id olmadan — yeni satırlar oluşur)
-                const rollbackRows = (oldServices || []).map((s: any) => ({
-                    user_id: s.user_id,
-                    organization_id: s.organization_id,
-                    name: s.name,
-                    duration: s.duration,
-                    color: s.color,
-                    price: s.price ?? null,
-                }));
-                if (rollbackRows.length > 0) {
-                    await supabase.from('services').insert(rollbackRows);
-                }
-                toast.error('Hizmetler kaydedilemedi — önceki liste geri yüklendi');
-                console.error('Error inserting services:', insError);
+            if (error) {
+                toast.error('Hizmetler kaydedilemedi');
+                console.error('Error inserting services:', error);
                 return;
             }
         }
@@ -479,7 +503,7 @@ function useReservationsState() {
         const { data: servicesData } = await supabase
             .from('services')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('organization_id', orgId)
             .order('created_at');
 
         const updatedServices: Service[] = (servicesData || []).map((s: any) => ({

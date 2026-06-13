@@ -12,6 +12,7 @@ import { CustomersPage } from '@/pages/CustomersPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { Toaster } from 'sonner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
@@ -71,6 +73,7 @@ function App() {
       />
     </AuthProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
