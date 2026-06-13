@@ -250,7 +250,7 @@ export function AiAssistant() {
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                         <div
-                            className="absolute z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150"
+                            className="absolute z-50 left-0 mt-2 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
                             style={{
                                 width: 460,
                                 maxWidth: '92vw',
@@ -260,8 +260,6 @@ export function AiAssistant() {
                                 boxShadow: dark
                                     ? '0 0 0 1px rgba(255,90,31,0.06), 0 24px 64px rgba(0,0,0,0.90), 0 8px 24px rgba(0,0,0,0.60), 0 0 80px rgba(255,90,31,0.04)'
                                     : '0 8px 40px rgba(14,14,14,0.14), 0 2px 8px rgba(14,14,14,0.07)',
-                                overflow: 'hidden',
-                                position: 'relative',
                             }}
                         >
                             {/* Ambient glow blob — dark only */}
@@ -279,10 +277,13 @@ export function AiAssistant() {
                                     <div className="flex items-center justify-center flex-shrink-0" style={{
                                         width: 36, height: 36, borderRadius: 11,
                                         background: dark ? 'linear-gradient(135deg, rgba(255,90,31,0.22) 0%, rgba(255,90,31,0.06) 100%)' : 'rgba(255,90,31,0.12)',
-                                        border: dark ? '1px solid rgba(255,90,31,0.30)' : 'none',
-                                        boxShadow: dark ? '0 0 16px rgba(255,90,31,0.15)' : 'none',
+                                        border: dark ? '1px solid rgba(255,90,31,0.30)' : '1px solid rgba(255,90,31,0.15)',
+                                        boxShadow: dark ? '0 0 16px rgba(255,90,31,0.20)' : 'none',
+                                        color: T.orange,
                                     }}>
-                                        <Sparkles className="w-[18px] h-[18px]" style={{ color: T.orange }} />
+                                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M9 2l1.8 4.2L15 7.5l-3.15 3.1.75 4.4L9 12.8l-3.6 2.2.75-4.4L3 7.5l4.2-.3L9 2z"/>
+                                        </svg>
                                     </div>
                                     <div>
                                         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.orange }}>AI İçgörüsü</p>
