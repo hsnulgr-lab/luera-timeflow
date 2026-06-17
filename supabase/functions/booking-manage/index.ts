@@ -124,6 +124,14 @@ Deno.serve(async (req: Request) => {
             if (!canModify) return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
             await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', res.id);
 
+            // Boşluk doldurma: bekleyenlere "slot açıldı" bildirimi (fire-and-forget)
+            const srk = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${srk}`, apikey: srk },
+                body: JSON.stringify({ organization_id: orgId, date: res.date }),
+            }).catch(() => {});
+
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
             const EVOLUTION_URL = Deno.env.get('EVOLUTION_API_URL');
             const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY');

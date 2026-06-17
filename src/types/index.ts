@@ -92,6 +92,19 @@ export interface CustomerPackage {
     createdAt: string;
 }
 
+export interface WaitlistEntry {
+    id: string;
+    organizationId: string;
+    customerName: string;
+    customerPhone: string;
+    serviceId?: string;
+    preferredDate?: string;   // YYYY-MM-DD
+    notes?: string;
+    status: 'waiting' | 'notified' | 'fulfilled' | 'cancelled';
+    notifiedAt?: string;
+    createdAt: string;
+}
+
 export type CalendarView = 'month' | 'week' | 'day';
 
 export interface TimeSlot {

@@ -177,6 +177,24 @@ Deno.serve(async (req: Request) => {
         }
 
         // ─────────────────────────────────────────────────────
+        // WAITLIST — dolu güne bekleme listesine ekle
+        // ─────────────────────────────────────────────────────
+        if (action === 'waitlist') {
+            const customerName: string = (body.customerName || '').trim();
+            const customerPhone: string = (body.customerPhone || '').trim();
+            if (!customerName || !customerPhone) return json({ error: 'ad ve telefon gerekli' }, 400);
+            await supabase.from('waitlist').insert({
+                organization_id: orgId,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                service_id: (body.serviceId || '').trim() || null,
+                preferred_date: (body.date || '').trim() || null,
+                notes: (body.note || '').trim() || null,
+            });
+            return json({ success: true });
+        }
+
+        // ─────────────────────────────────────────────────────
         // Ortak: slots & book için müsaitlik hesabı
         // ─────────────────────────────────────────────────────
         const date: string = (body.date || '').trim();

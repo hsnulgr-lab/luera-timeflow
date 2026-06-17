@@ -356,6 +356,13 @@ function useReservationsState() {
             notes:          updated.notes ?? '',
             staff_id:       updated.staffId ?? null,
         });
+
+        // Boşluk doldurma: panelden iptal → bekleyenleri bilgilendir (fire-and-forget)
+        if (updates.status === 'cancelled' && (serverRow as any).organization_id) {
+            supabase.functions.invoke('notify-waitlist', {
+                body: { organization_id: (serverRow as any).organization_id, date: updated.date },
+            }).catch(() => {});
+        }
     }, [reservations, fireWebhook, fetchReservations, orgId]);
 
     // ─── Rezervasyon sil ─────────────────────────────────────────────────────

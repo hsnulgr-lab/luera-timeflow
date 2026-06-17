@@ -81,6 +81,18 @@ export const CustomersPage = () => {
     return null;
   })();
 
+  // ── No-show riski (iptal geçmişinden) ──
+  const noShowRisk = (() => {
+    const cancelled = custHistory.filter(r => r.status === 'cancelled').length;
+    const completed = custHistory.filter(r => r.status === 'completed').length;
+    const decided = cancelled + completed;
+    if (decided < 2) return null;
+    const rate = cancelled / decided;
+    if (cancelled >= 2 && rate >= 0.5)  return { lvl: 'Yüksek', color: '#C94040', rate };
+    if (cancelled >= 1 && rate >= 0.34) return { lvl: 'Orta',   color: '#E8973C', rate };
+    return null;
+  })();
+
   // ── Paketler ──
   const selPackages    = selected ? pkgsForCustomer(selected.id) : [];
   const totalRemaining = selPackages.reduce((sum, p) => sum + (p.totalSessions - p.usedSessions), 0);
@@ -249,11 +261,18 @@ export const CustomersPage = () => {
                 <div style={{ padding:'16px 22px', borderBottom:`1px solid ${T.border}`, background: dark ? 'rgba(255,90,31,0.06)' : 'rgba(255,90,31,0.04)' }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
                     <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>Müşteri Değeri</div>
-                    {ltvSource && (
-                      <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10px', fontWeight:700, color:ltvSource.color, background:`${ltvSource.color}1A`, borderRadius:999, padding:'3px 9px' }}>
-                        <span style={{ width:5, height:5, borderRadius:'50%', background:ltvSource.color }}/> {ltvSource.lbl}'dan geldi
-                      </span>
-                    )}
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                      {noShowRisk && (
+                        <span title={`İptal oranı %${Math.round(noShowRisk.rate*100)}`} style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10px', fontWeight:700, color:noShowRisk.color, background:`${noShowRisk.color}1A`, borderRadius:999, padding:'3px 9px' }}>
+                          ⚠ {noShowRisk.lvl} no-show riski
+                        </span>
+                      )}
+                      {ltvSource && (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10px', fontWeight:700, color:ltvSource.color, background:`${ltvSource.color}1A`, borderRadius:999, padding:'3px 9px' }}>
+                          <span style={{ width:5, height:5, borderRadius:'50%', background:ltvSource.color }}/> {ltvSource.lbl}'dan geldi
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:'8px' }}>
                     <span style={{ fontSize:'26px', fontWeight:900, letterSpacing:'-0.04em', color:T.orange }}>{ltvSpent.toLocaleString('tr-TR')} ₺</span>

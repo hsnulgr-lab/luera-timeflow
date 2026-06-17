@@ -73,6 +73,12 @@ export function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone]         = useState<null | { date: string; time: string; service: string; status: string }>(null);
 
+  // bekleme listesi (dolu gün)
+  const [wlName, setWlName]     = useState('');
+  const [wlPhone, setWlPhone]   = useState('');
+  const [wlBusy, setWlBusy]     = useState(false);
+  const [wlJoined, setWlJoined] = useState(false);
+
   // ── profil yükle ──
   useEffect(() => {
     (async () => {
@@ -110,6 +116,14 @@ export function BookingPage() {
   useEffect(() => { if (step === 2 && date) fetchSlots(date); }, [step, date, stfId, fetchSlots]);
 
   const goStep = (n: number) => { setStep(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+  const joinWaitlist = async () => {
+    if (!svcId || !date || !wlName.trim() || wlPhone.trim().length < 7) return;
+    setWlBusy(true);
+    const { ok } = await callFn({ action: 'waitlist', slug, serviceId: svcId, date, customerName: wlName.trim(), customerPhone: wlPhone.replace(/\s/g, '') });
+    setWlBusy(false);
+    if (ok) setWlJoined(true);
+  };
 
   const submit = async () => {
     if (!svcId || !date || !time || !name.trim() || phone.trim().length < 7) return;
@@ -266,7 +280,24 @@ export function BookingPage() {
                 ) : slotsLoading ? (
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}><Loader2 size={22} color={C.orange} style={{ animation: 'tfspin .8s linear infinite' }} /></div>
                 ) : slots.length === 0 ? (
-                  <div style={{ fontSize: 12.5, color: C.muted2, padding: '6px 0 18px' }}>Bu gün için müsait saat yok. Başka bir gün deneyin.</div>
+                  <div style={{ padding: '4px 0 18px' }}>
+                    <div style={{ fontSize: 12.5, color: C.muted2, marginBottom: 12 }}>Bu gün için müsait saat yok 😔 Başka bir gün deneyebilir ya da bekleme listesine katılabilirsin.</div>
+                    {wlJoined ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', background: '#EAF3DE', borderRadius: C.rSm, fontSize: 13, fontWeight: 600, color: C.ok }}>
+                        <Check size={16} /> Bekleme listesine eklendin! Yer açılınca WhatsApp'tan haber vereceğiz.
+                      </div>
+                    ) : (
+                      <div style={{ background: C.surface2, borderRadius: C.rSm, padding: 13 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 9 }}>Yer açılınca haber ver</div>
+                        <input value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Adın" style={{ ...input, marginBottom: 8 }} />
+                        <input value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="05XX XXX XX XX" inputMode="tel" style={{ ...input, marginBottom: 10 }} />
+                        <button onClick={joinWaitlist} disabled={wlBusy || !wlName.trim() || wlPhone.trim().length < 7}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 11, borderRadius: C.rSm, border: 'none', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', background: (wlBusy || !wlName.trim() || wlPhone.trim().length < 7) ? '#E9E1D5' : C.ink, color: (wlBusy || !wlName.trim() || wlPhone.trim().length < 7) ? C.muted2 : '#fff' }}>
+                          {wlBusy ? <Loader2 size={15} style={{ animation: 'tfspin .8s linear infinite' }} /> : 'Bekleme listesine katıl'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 22 }}>
                     {slots.map(t => {
