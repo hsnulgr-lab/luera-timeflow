@@ -4,6 +4,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User,
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
 import { textOn } from '@/utils/palette';
@@ -101,6 +102,11 @@ export const CalendarPage = () => {
     const staffMenuRef = useRef<HTMLDivElement>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
+    const isMobile = useIsMobile();
+    // Mobilde hafta görünümü 8 sütuna sığmaz → gün görünümüne düş
+    useEffect(() => {
+        if (isMobile && view === 'week') setView('day');
+    }, [isMobile, view]);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
@@ -121,6 +127,7 @@ export const CalendarPage = () => {
         notes: '',
         staffId: '',
     });
+    const [recurrence, setRecurrence] = useState<{ rule: '' | 'weekly' | 'monthly'; until: string }>({ rule: '', until: '' });
 
     // Akıllı müşteri arama — isim veya telefona göre eşleşme
     const customerMatches = useMemo(() => {
@@ -149,6 +156,7 @@ export const CalendarPage = () => {
         setCustomerLocked(false);
         setSuccessData(null);
         setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+        setRecurrence({ rule: '', until: '' });
     };
 
     // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
@@ -157,6 +165,7 @@ export const CalendarPage = () => {
         setCustomerQuery('');
         setCustomerLocked(false);
         setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+        setRecurrence({ rule: '', until: '' });
     };
 
     // Personel menüsü — dışarı tıklayınca kapan
@@ -317,6 +326,8 @@ export const CalendarPage = () => {
             staffId: newRes.staffId || undefined,
             staffName: selectedStaff?.name,
             staffColor: selectedStaff?.color,
+            recurrenceRule: recurrence.rule || undefined,
+            recurrenceUntil: recurrence.rule ? (recurrence.until || undefined) : undefined,
         });
 
         if (reservation) {
@@ -390,7 +401,7 @@ export const CalendarPage = () => {
                     <div className="flex flex-wrap items-center gap-2 ml-auto justify-end">
                         {/* Görünüm anahtarı */}
                         <div className="flex items-center bg-[var(--dc-surface2)] rounded-full p-[3px] gap-0.5">
-                            {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
+                            {((isMobile ? ['month', 'day'] : ['month', 'week', 'day']) as CalendarView[]).map((v) => (
                                 <button
                                     key={v}
                                     onClick={() => setView(v)}
@@ -509,7 +520,7 @@ export const CalendarPage = () => {
                                         key={date}
                                         onClick={() => handleDateClick(date)}
                                         className={cn(
-                                            "relative flex flex-col px-2 pt-2 pb-1.5 border-b border-r border-[var(--dc-border)] text-left transition-colors duration-150 group overflow-hidden min-h-0",
+                                            "relative flex flex-col px-1 pt-1.5 pb-1 sm:px-2 sm:pt-2 sm:pb-1.5 border-b border-r border-[var(--dc-border)] text-left transition-colors duration-150 group overflow-hidden min-h-0",
                                             !isCurrentMonth && "bg-[var(--dc-border-soft)]",
                                             isToday && "bg-[#FF5A1F]/[0.06]",
                                             "hover:bg-[var(--dc-surface2)]",
@@ -529,7 +540,7 @@ export const CalendarPage = () => {
 
                                         {count > 0 && (
                                             <div className="space-y-[3px] overflow-hidden min-h-0">
-                                                {dateReservations.slice(0, 2).map((r) => {
+                                                {dateReservations.slice(0, isMobile ? 1 : 2).map((r) => {
                                                     const pending = r.status === 'pending';
                                                     return (
                                                         <div
@@ -541,13 +552,13 @@ export const CalendarPage = () => {
                                                             style={{ '--bar': r.serviceColor || (pending ? '#FF5A1F' : 'var(--dc-muted)') } as React.CSSProperties}
                                                         >
                                                             <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[3px]" style={{ background: 'var(--bar)' }} />
-                                                            <span className="text-[9px] font-bold opacity-70 tabular-nums flex-shrink-0">{r.startTime}</span>
+                                                            {!isMobile && <span className="text-[9px] font-bold opacity-70 tabular-nums flex-shrink-0">{r.startTime}</span>}
                                                             <span className="truncate">{r.customerName.split(' ')[0]}</span>
                                                         </div>
                                                     );
                                                 })}
-                                                {count > 2 && (
-                                                    <span className="block text-[10px] text-[var(--dc-muted)] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - 2} randevu daha</span>
+                                                {count > (isMobile ? 1 : 2) && (
+                                                    <span className="block text-[10px] text-[var(--dc-muted)] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - (isMobile ? 1 : 2)}{!isMobile && ' randevu daha'}</span>
                                                 )}
                                             </div>
                                         )}
@@ -1006,6 +1017,34 @@ export const CalendarPage = () => {
                                     onFocus={onFieldFocus} onBlur={onFieldBlur}
                                     value={newRes.notes} onChange={(e) => setNewRes(p => ({ ...p, notes: e.target.value }))}
                                 />
+                            </div>
+
+                            {/* TEKRAR */}
+                            <div style={{ paddingBottom: 6 }}>
+                                <MLabel optional="(opsiyonel)">Tekrar</MLabel>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    {([['', 'Yok'], ['weekly', 'Her hafta'], ['monthly', 'Her ay']] as const).map(([val, lbl]) => {
+                                        const sel = recurrence.rule === val;
+                                        return (
+                                            <button key={val} onClick={() => setRecurrence(p => ({ ...p, rule: val }))}
+                                                className="inline-flex items-center transition-all whitespace-nowrap"
+                                                style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                                                    border: `1px solid ${sel ? M.ink : M.border2}`, background: sel ? M.ink : M.surface2,
+                                                    color: sel ? M.cream : M.muted, boxShadow: sel ? '0 2px 10px rgba(14,14,14,.14)' : 'none' }}>
+                                                {lbl}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {recurrence.rule && (
+                                    <div style={{ marginTop: 8 }}>
+                                        <MLabel optional="(opsiyonel)">Bitiş tarihi</MLabel>
+                                        <input type="date" min={selectedDate || undefined} value={recurrence.until}
+                                            onChange={(e) => setRecurrence(p => ({ ...p, until: e.target.value }))}
+                                            style={{ ...fieldBase }} onFocus={onFieldFocus} onBlur={onFieldBlur} />
+                                        <div style={{ fontSize: 10.5, color: M.muted, marginTop: 4 }}>Boş bırakılırsa 8 hafta/ay boyunca tekrarlanır.</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         )}

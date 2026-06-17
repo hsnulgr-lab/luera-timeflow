@@ -39,14 +39,18 @@ Deno.serve(async (req: Request) => {
         let sent2h  = 0;
         const errors: string[] = [];
 
+        // AI mesaj üretimi için Gemini key (env → app_secrets)
+        const geminiKey = await getGeminiKey(supabase);
+
         // Tüm organizasyonların WhatsApp ayarlarını çek
         const { data: settingsList } = await supabase
             .from('settings')
-            .select('organization_id, whatsapp_instance, business_name')
+            .select('organization_id, whatsapp_instance, business_name, sector')
             .not('whatsapp_instance', 'is', null);
 
         for (const org of settingsList ?? []) {
             const { organization_id, whatsapp_instance, business_name } = org;
+            const sector: string = org.sector || 'genel';
             if (!whatsapp_instance) continue;
 
             // ── 24h Hatırlatma ───────────────────────────────────────────────
@@ -59,12 +63,9 @@ Deno.serve(async (req: Request) => {
                 .neq('status', 'cancelled');
 
             for (const r of list24h ?? []) {
-                const msg = build24hMessage({
-                    customerName: r.customer_name,
-                    startTime:    r.start_time.slice(0, 5),
-                    service:      r.service,
-                    businessName: business_name,
-                });
+                const startTime = r.start_time.slice(0, 5);
+                const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name });
+                const msg = await aiOrTemplate(geminiKey, sector, '24h', r.customer_name, r.service, startTime, business_name, tmpl);
                 const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_24h_sent: true }).eq('id', r.id);
@@ -89,12 +90,9 @@ Deno.serve(async (req: Request) => {
                 const resMin = h * 60 + m;
                 if (resMin < window2hStart || resMin > window2hEnd) continue;
 
-                const msg = build2hMessage({
-                    customerName: r.customer_name,
-                    startTime:    r.start_time.slice(0, 5),
-                    service:      r.service,
-                    businessName: business_name,
-                });
+                const startTime2 = r.start_time.slice(0, 5);
+                const tmpl2 = () => build2hMessage({ customerName: r.customer_name, startTime: startTime2, service: r.service, businessName: business_name });
+                const msg = await aiOrTemplate(geminiKey, sector, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2);
                 const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_2h_sent: true }).eq('id', r.id);
@@ -160,4 +158,70 @@ function build2hMessage(p: { customerName: string; startTime: string; service: s
         `📍 ${p.businessName}\n\n` +
         `Görüşmek üzere! ✅`
     );
+}
+
+// ─── AI (Gemini) sektörel hatırlatma ─────────────────────────────────────────
+// Gizlilik: Gemini'ye yalnızca ön ad + hizmet + saat + sektör + işletme adı gider.
+// Telefon ve soyad GİTMEZ.
+const SECTOR_HINTS: Record<string, string> = {
+    fizyoterapi: 'Bir fizyoterapi / sağlık merkezisin; sıcak ama profesyonel bir ton kullan.',
+    guzellik:    'Bir güzellik salonu / merkezisin; samimi ve sıcak bir ton kullan.',
+    danismanlik: 'Bir danışmanlık / koçluk ofisisin; saygılı, net ve profesyonel ol.',
+    saglik:      'Bir sağlık / klinik işletmesisin; güven veren, profesyonel bir ton kullan.',
+    kuafor:      'Bir kuaför / berbersin; samimi ve enerjik bir ton kullan.',
+    genel:       'Randevulu hizmet veren bir işletmesin; samimi ve nazik ol.',
+};
+
+async function getGeminiKey(supabase: any): Promise<string | null> {
+    const env = Deno.env.get('GEMINI_API_KEY');
+    if (env) return env;
+    const { data } = await supabase.from('app_secrets').select('value').eq('key', 'GEMINI_API_KEY').maybeSingle();
+    return data?.value ?? null;
+}
+
+function buildAiPrompt(type: '24h' | '2h', sector: string, customerName: string, service: string, time: string, businessName: string): string {
+    const firstName = (customerName || '').split(' ')[0];
+    const hint = SECTOR_HINTS[sector] || SECTOR_HINTS.genel;
+    const whenLine = type === '24h'
+        ? `Randevu YARIN saat ${time}.`
+        : `Randevu BUGÜN saat ${time}'de (yaklaşık 2 saat sonra).`;
+    return (
+        `${hint} İşletme adı: ${businessName}.\n` +
+        `Müşteri adı: ${firstName}. Hizmet: ${service}. ${whenLine}\n` +
+        `Bu müşteriye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe RANDEVU HATIRLATMA mesajı yaz. ` +
+        `Müşterinin adıyla başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin. ` +
+        `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
+    );
+}
+
+async function geminiMessage(key: string, prompt: string): Promise<string | null> {
+    try {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { maxOutputTokens: 220, temperature: 0.85, thinkingConfig: { thinkingBudget: 0 } },
+            }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        return (typeof text === 'string' && text.trim()) ? text.trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+// AI mesajı dener; başarısız/boşsa şablona düşer (güvenlik ağı)
+async function aiOrTemplate(
+    geminiKey: string | null, sector: string, type: '24h' | '2h',
+    customerName: string, service: string, time: string, businessName: string,
+    fallback: () => string,
+): Promise<string> {
+    if (geminiKey) {
+        const ai = await geminiMessage(geminiKey, buildAiPrompt(type, sector, customerName, service, time, businessName));
+        if (ai) return ai;
+    }
+    return fallback();
 }

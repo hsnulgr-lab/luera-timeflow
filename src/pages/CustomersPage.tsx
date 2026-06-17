@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft } from 'lucide-react';
+import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package } from 'lucide-react';
+import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useCustomerPackages } from '@/hooks/useCustomerPackages';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -54,15 +56,41 @@ export const CustomersPage = () => {
   };
 
   const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer } = useCustomers();
-  const { reservations } = useReservations();
+  const { reservations, settings } = useReservations();
+  const { forCustomer: pkgsForCustomer, addPackage, removePackage } = useCustomerPackages();
   const [selId, setSelId]         = useState<string | null>(null);
   const [showNew, setShowNew]     = useState(false);
   const [newCust, setNewCust]     = useState({ name:'', phone:'', email:'', notes:'' });
+  const [pkgForm, setPkgForm]     = useState({ name:'', total:'10' });
+  const [showPkgForm, setShowPkgForm] = useState(false);
 
   const selected    = allCustomers.find(c => c.id === selId) ?? null;
   const custHistory = selected
     ? reservations.filter(r => r.customerId === selected.id).sort((a,b) => b.date.localeCompare(a.date))
     : [];
+
+  // ── Müşteri Yaşam Boyu Değeri (LTV) ──
+  const priceOf = (svcName: string) => settings.services.find(s => s.name === svcName)?.price || 0;
+  const ltvSpent = custHistory.filter(r => r.status === 'completed').reduce((sum, r) => sum + priceOf(r.service), 0);
+  const ltvMonths = selected?.createdAt
+    ? Math.max(0, Math.round((Date.now() - new Date(selected.createdAt).getTime()) / (30 * 24 * 60 * 60 * 1000)))
+    : 0;
+  const ltvSource = (() => {
+    if (custHistory.some(r => r.source === 'leadflow')) return { lbl: 'LeadFlow', color: '#8E70B2' };
+    if (custHistory.some(r => r.source === 'booking'))  return { lbl: 'Online Booking', color: '#FF5A1F' };
+    return null;
+  })();
+
+  // ── Paketler ──
+  const selPackages    = selected ? pkgsForCustomer(selected.id) : [];
+  const totalRemaining = selPackages.reduce((sum, p) => sum + (p.totalSessions - p.usedSessions), 0);
+  const handleAddPkg = async () => {
+    if (!selected || !pkgForm.name.trim()) return;
+    const total = parseInt(pkgForm.total) || 0;
+    if (total < 1) { toast.error('Seans sayısı en az 1 olmalı'); return; }
+    const ok = await addPackage(selected.id, pkgForm.name.trim(), total);
+    if (ok) { setPkgForm({ name:'', total:'10' }); setShowPkgForm(false); toast.success('Paket eklendi'); }
+  };
 
   const handleCreate = () => {
     if (!newCust.name || !newCust.phone) return;
@@ -217,6 +245,28 @@ export const CustomersPage = () => {
                   </div>
                 </div>
 
+                {/* Müşteri Değeri (LTV) */}
+                <div style={{ padding:'16px 22px', borderBottom:`1px solid ${T.border}`, background: dark ? 'rgba(255,90,31,0.06)' : 'rgba(255,90,31,0.04)' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                    <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>Müşteri Değeri</div>
+                    {ltvSource && (
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10px', fontWeight:700, color:ltvSource.color, background:`${ltvSource.color}1A`, borderRadius:999, padding:'3px 9px' }}>
+                        <span style={{ width:5, height:5, borderRadius:'50%', background:ltvSource.color }}/> {ltvSource.lbl}'dan geldi
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:'8px' }}>
+                    <span style={{ fontSize:'26px', fontWeight:900, letterSpacing:'-0.04em', color:T.orange }}>{ltvSpent.toLocaleString('tr-TR')} ₺</span>
+                    <span style={{ fontSize:'11px', color:T.muted }}>toplam harcama</span>
+                  </div>
+                  <div style={{ display:'flex', gap:'16px', marginTop:'8px', fontSize:'11.5px', color:T.muted, flexWrap:'wrap' }}>
+                    <span>{ltvMonths > 0 ? `${ltvMonths} aydır müşteri` : 'Yeni müşteri'}</span>
+                    <span>·</span>
+                    <span>{custHistory.filter(r=>r.status==='completed').length} tamamlanan randevu</span>
+                    {totalRemaining > 0 && <><span>·</span><span style={{ color:T.orange, fontWeight:700 }}>{totalRemaining} seans hakkı</span></>}
+                  </div>
+                </div>
+
                 {/* Stats row */}
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', borderBottom:`1px solid ${T.border}` }}>
                   {[
@@ -240,6 +290,59 @@ export const CustomersPage = () => {
                       <span style={{ fontSize:'12px', fontWeight:600, fontFamily:"'JetBrains Mono',monospace", color:T.ink }}>{row.v}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Paketler */}
+                <div style={{ padding:'16px 22px', borderBottom:`1px solid ${T.border}` }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>
+                      <Package size={11}/> Paketler
+                    </div>
+                    <button onClick={()=>setShowPkgForm(v=>!v)} style={{ display:'flex', alignItems:'center', gap:'4px', padding:'4px 9px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:'none', fontSize:'11px', fontWeight:600, color:T.ink, cursor:'pointer', fontFamily:'inherit' }}>
+                      <Plus size={11}/> Paket
+                    </button>
+                  </div>
+
+                  {showPkgForm && (
+                    <div style={{ display:'flex', gap:'6px', marginBottom:'10px' }}>
+                      <input value={pkgForm.name} onChange={e=>setPkgForm(p=>({...p,name:e.target.value}))} placeholder="Paket adı (örn. 10 Seans Lazer)"
+                        style={{ flex:1, minWidth:0, padding:'7px 9px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11.5px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none' }}/>
+                      <input value={pkgForm.total} onChange={e=>setPkgForm(p=>({...p,total:e.target.value.replace(/\D/g,'')}))} placeholder="10" inputMode="numeric"
+                        style={{ width:'48px', padding:'7px 9px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11.5px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', textAlign:'center' }}/>
+                      <button onClick={handleAddPkg} disabled={!pkgForm.name.trim()}
+                        style={{ width:30, height:30, flexShrink:0, borderRadius:T.rXs, display:'grid', placeItems:'center', border:'none', background:pkgForm.name.trim()?(dark?'#231E18':'#0E0E0E'):T.surface3, color:pkgForm.name.trim()?'#F3EDE3':T.muted2, cursor:pkgForm.name.trim()?'pointer':'not-allowed' }}>
+                        <Plus size={14} strokeWidth={2.5}/>
+                      </button>
+                    </div>
+                  )}
+
+                  {selPackages.length > 0 ? (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                      {selPackages.map(p=>{
+                        const remaining = p.totalSessions - p.usedSessions;
+                        const pct = Math.round((p.usedSessions / p.totalSessions) * 100);
+                        const done = remaining <= 0;
+                        return (
+                          <div key={p.id} style={{ background:T.surface2, borderRadius:T.rSm, padding:'10px 12px' }}>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', marginBottom:'7px' }}>
+                              <span style={{ fontSize:'12.5px', fontWeight:700, color:T.ink }}>{p.name}</span>
+                              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                                <span style={{ fontSize:'11.5px', fontWeight:700, color:done?T.muted2:T.orange }}>{done?'Bitti':`${remaining}/${p.totalSessions} kaldı`}</span>
+                                <button onClick={()=>removePackage(p.id)} title="Kaldır" style={{ width:20, height:20, borderRadius:T.rXs, display:'grid', placeItems:'center', border:'none', background:'none', cursor:'pointer', color:T.muted2 }}>
+                                  <X size={11}/>
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ height:5, background:T.surface3, borderRadius:999, overflow:'hidden' }}>
+                              <div style={{ height:'100%', width:`${pct}%`, background:done?T.muted2:T.orange, borderRadius:999, transition:'width .5s' }}/>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : !showPkgForm && (
+                    <div style={{ fontSize:'11.5px', color:T.muted2 }}>Paket yok</div>
+                  )}
                 </div>
 
                 {/* History */}

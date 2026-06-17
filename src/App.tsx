@@ -11,6 +11,8 @@ import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
+import { BookingPage } from '@/pages/public/BookingPage';
+import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -43,6 +45,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/book/:slug" element={<BookingPage />} />
+          <Route path="/booking/:token" element={<BookingManagePage />} />
           <Route path="/" element={
             <ProtectedRoute>
               <ReservationsProvider>

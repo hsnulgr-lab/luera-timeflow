@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { useReservations } from '@/hooks/useReservations';
+import { useOrgProfile, slugify } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Service, WorkingHours } from '@/types';
 import {
@@ -61,6 +64,30 @@ function Input({ value, onChange, type='text', placeholder, style }: {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   const { T } = useT();
   return <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'14px' }}>{children}</div>;
+}
+
+// ── ImageUpload (booking görselleri) ──────────────────────────────────────────
+function ImageUpload({ url, busy, square, onPick, onClear, T, inkbox, inkboxFg }: {
+  label: string; url: string; busy: boolean; square?: boolean;
+  onPick: (f: File|undefined) => void; onClear: () => void; T: any; inkbox: string; inkboxFg: string;
+}) {
+  const w = square ? 84 : '100%';
+  const h = square ? 84 : 84;
+  if (url) {
+    return (
+      <div style={{ position:'relative', width:w, height:h, borderRadius:T.rSm, background:`center/cover url(${url})`, border:`1px solid ${T.border}` }}>
+        <button onClick={onClear} style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', background:inkbox, color:inkboxFg, border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
+          <X size={11}/>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <label style={{ width:w, height:h, borderRadius:T.rSm, border:`1.5px dashed ${T.border2}`, display:'grid', placeItems:'center', cursor:'pointer', color:T.muted, background:T.surface2, boxSizing:'border-box' }}>
+      {busy ? <Loader2 size={18} className="animate-spin"/> : <ImagePlus size={18}/>}
+      <input type="file" accept="image/*" style={{ display:'none' }} onChange={e=>{onPick(e.target.files?.[0]); e.currentTarget.value='';}}/>
+    </label>
+  );
 }
 
 // ── IntegrationCard ───────────────────────────────────────────────────────────
@@ -251,24 +278,41 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 }
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-type TabId = 'general'|'hours'|'services'|'webhooks'|'integrations'|'whatsapp';
+type TabId = 'general'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp';
 
 export const SettingsPage = () => {
   const { T, dark } = useT();
   const { settings, updateSettings } = useReservations();
-  const [activeTab, setActiveTab]       = useState<TabId>('general');
+  const { profile, setProfile, save: saveProfile, uploadImage } = useOrgProfile();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab]       = useState<TabId>((searchParams.get('tab') as TabId) || 'general');
+  useEffect(() => { const t = searchParams.get('tab') as TabId | null; if (t) setActiveTab(t); }, [searchParams]);
   const [businessName, setBusinessName] = useState(settings.businessName);
   const [workingHours, setWorkingHours] = useState(settings.workingHours);
   const [services, setServices]         = useState(settings.services);
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
+  const [sector, setSector]             = useState(settings.sector || 'genel');
   const [saved, setSaved]               = useState(false);
+  const [uploading, setUploading]       = useState<string|null>(null);
 
   const inkbox   = dark ? '#231E18' : '#0E0E0E';
   const inkboxFg = '#F3EDE3';
+  const bookingUrl = profile.slug ? `${window.location.origin}/book/${profile.slug}` : '';
 
-  const handleSave = () => {
-    updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined});
+  const handleSave = async () => {
+    updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined, sector});
+    await saveProfile(profile);
     setSaved(true); setTimeout(()=>setSaved(false), 2000);
+  };
+  const handleUpload = async (file: File|undefined, kind: 'logo'|'cover'|'gallery') => {
+    if (!file) return;
+    setUploading(kind);
+    const url = await uploadImage(file, kind);
+    setUploading(null);
+    if (!url) return;
+    if (kind === 'gallery') setProfile({ ...profile, galleryUrls: [...profile.galleryUrls, url] });
+    else if (kind === 'logo') setProfile({ ...profile, logoUrl: url });
+    else setProfile({ ...profile, coverUrl: url });
   };
   const updateHour = (day: number, field: keyof WorkingHours, value: string|boolean) =>
     setWorkingHours(prev => prev.map(h => h.day===day?{...h,[field]:value}:h));
@@ -284,6 +328,7 @@ export const SettingsPage = () => {
     {id:'general',      label:'Genel',            icon:Settings    },
     {id:'hours',        label:'Çalışma Saatleri', icon:Clock       },
     {id:'services',     label:'Hizmetler',        icon:Palette     },
+    {id:'booking',      label:'Booking Sayfam',   icon:Link2       },
     {id:'webhooks',     label:'Webhook',           icon:Globe       },
     {id:'whatsapp',     label:'WhatsApp',          icon:MessageCircle},
     {id:'integrations', label:'Entegrasyonlar',   icon:Puzzle      },
@@ -343,6 +388,19 @@ export const SettingsPage = () => {
                   <option value="30">30 dakika</option>
                   <option value="60">60 dakika</option>
                 </select>
+              </div>
+              <div style={{ marginBottom:'22px' }}>
+                <FieldLabel>Sektör (AI hatırlatma için)</FieldLabel>
+                <select value={sector} onChange={e=>setSector(e.target.value)}
+                  style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
+                  <option value="genel">Genel</option>
+                  <option value="guzellik">Güzellik / Salon</option>
+                  <option value="kuafor">Kuaför / Berber</option>
+                  <option value="fizyoterapi">Fizyoterapi</option>
+                  <option value="saglik">Sağlık / Klinik</option>
+                  <option value="danismanlik">Danışmanlık / Koçluk</option>
+                </select>
+                <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>WhatsApp hatırlatma mesajları sektörüne göre AI ile kişiselleştirilir.</div>
               </div>
               <div style={{ display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px 16px', background:'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.15)', borderRadius:T.rSm }}>
                 <Bell size={16} color={T.orange} style={{ flexShrink:0, marginTop:1 }}/>
@@ -405,6 +463,102 @@ export const SettingsPage = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Booking Sayfam ── */}
+          {activeTab==='booking' && (
+            <div>
+              <SectionTitle>Online Randevu Sayfası</SectionTitle>
+              <div style={{ fontSize:'12.5px', color:T.muted, marginBottom:'18px', lineHeight:1.6 }}>
+                Müşterileriniz bu linkten kendi randevularını oluşturur. Linki Instagram bio'nuza, Google İşletme profilinize veya web sitenize ekleyin.
+              </div>
+
+              {/* Slug + link */}
+              <div style={{ marginBottom:'16px' }}>
+                <FieldLabel>Randevu Adresi</FieldLabel>
+                <div style={{ display:'flex', alignItems:'stretch', border:`1px solid ${T.border2}`, borderRadius:T.rSm, overflow:'hidden', background:T.surface2 }}>
+                  <span style={{ display:'flex', alignItems:'center', padding:'0 10px', fontSize:'12px', color:T.muted, background:T.surface3, whiteSpace:'nowrap' }}>/book/</span>
+                  <input value={profile.slug} placeholder="isletme-adi"
+                    onChange={e=>setProfile({...profile, slug:e.target.value})}
+                    onBlur={e=>setProfile({...profile, slug:slugify(e.target.value)})}
+                    style={{ flex:1, border:'none', background:'transparent', padding:'10px 12px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}/>
+                </div>
+                {bookingUrl && (
+                  <div style={{ display:'flex', gap:'8px', marginTop:'8px' }}>
+                    <button onClick={()=>{navigator.clipboard.writeText(bookingUrl); toast.success('Link kopyalandı');}}
+                      style={{ display:'flex', alignItems:'center', gap:'6px', padding:'7px 12px', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontWeight:600, color:T.ink, cursor:'pointer', fontFamily:'inherit' }}>
+                      <Copy size={12}/> Linki Kopyala
+                    </button>
+                    <a href={bookingUrl} target="_blank" rel="noreferrer"
+                      style={{ display:'flex', alignItems:'center', gap:'6px', padding:'7px 12px', background:inkbox, border:'none', borderRadius:T.rXs, fontSize:'12px', fontWeight:600, color:inkboxFg, cursor:'pointer', textDecoration:'none' }}>
+                      <ExternalLink size={12}/> Önizle
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Otomatik onay */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', padding:'13px 16px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, marginBottom:'22px' }}>
+                <div>
+                  <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>Otomatik Onay</div>
+                  <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{profile.bookingAutoConfirm ? 'Randevular anında onaylanır' : 'Randevular önce onayınızı bekler'}</div>
+                </div>
+                <button onClick={()=>setProfile({...profile, bookingAutoConfirm:!profile.bookingAutoConfirm})}
+                  style={{ width:42, height:24, borderRadius:'999px', background:profile.bookingAutoConfirm?T.orange:T.surface3, border:'none', cursor:'pointer', position:'relative', flexShrink:0, transition:'background .2s' }}>
+                  <span style={{ position:'absolute', top:2, left:profile.bookingAutoConfirm?20:2, width:20, height:20, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
+                </button>
+              </div>
+
+              {/* Görseller */}
+              <SectionTitle>Görseller</SectionTitle>
+              <div style={{ display:'flex', gap:'12px', marginBottom:'8px', flexWrap:'wrap' }}>
+                {/* Logo */}
+                <div>
+                  <div style={{ fontSize:'11px', color:T.muted, marginBottom:'6px' }}>Logo</div>
+                  <ImageUpload label="Logo" url={profile.logoUrl} busy={uploading==='logo'} square
+                    onPick={f=>handleUpload(f,'logo')} onClear={()=>setProfile({...profile, logoUrl:''})} T={T} inkbox={inkbox} inkboxFg={inkboxFg}/>
+                </div>
+                {/* Cover */}
+                <div style={{ flex:1, minWidth:200 }}>
+                  <div style={{ fontSize:'11px', color:T.muted, marginBottom:'6px' }}>Kapak Fotoğrafı</div>
+                  <ImageUpload label="Kapak" url={profile.coverUrl} busy={uploading==='cover'}
+                    onPick={f=>handleUpload(f,'cover')} onClear={()=>setProfile({...profile, coverUrl:''})} T={T} inkbox={inkbox} inkboxFg={inkboxFg}/>
+                </div>
+              </div>
+
+              {/* Galeri */}
+              <div style={{ fontSize:'11px', color:T.muted, margin:'10px 0 6px' }}>Galeri</div>
+              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'22px' }}>
+                {profile.galleryUrls.map((u,i)=>(
+                  <div key={i} style={{ position:'relative', width:84, height:64, borderRadius:T.rXs, background:`center/cover url(${u})`, border:`1px solid ${T.border}` }}>
+                    <button onClick={()=>setProfile({...profile, galleryUrls:profile.galleryUrls.filter((_,j)=>j!==i)})}
+                      style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', background:inkbox, color:inkboxFg, border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
+                      <X size={11}/>
+                    </button>
+                  </div>
+                ))}
+                <label style={{ width:84, height:64, borderRadius:T.rXs, border:`1.5px dashed ${T.border2}`, display:'grid', placeItems:'center', cursor:'pointer', color:T.muted, background:T.surface2 }}>
+                  {uploading==='gallery' ? <Loader2 size={16} className="animate-spin"/> : <ImagePlus size={16}/>}
+                  <input type="file" accept="image/*" style={{ display:'none' }} onChange={e=>{handleUpload(e.target.files?.[0],'gallery'); e.currentTarget.value='';}}/>
+                </label>
+              </div>
+
+              {/* Profil alanları */}
+              <SectionTitle>İşletme Bilgileri</SectionTitle>
+              <div style={{ marginBottom:'12px' }}>
+                <FieldLabel>Hakkında</FieldLabel>
+                <textarea value={profile.bio} onChange={e=>setProfile({...profile, bio:e.target.value})} placeholder="İşletmenizi kısaca tanıtın…" rows={3}
+                  style={{ width:'100%', boxSizing:'border-box', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', resize:'vertical' }}/>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'12px' }}>
+                <div><FieldLabel>Adres</FieldLabel><Input value={profile.address} onChange={v=>setProfile({...profile, address:v})} placeholder="Mahalle, ilçe/il"/></div>
+                <div><FieldLabel>Telefon</FieldLabel><Input value={profile.publicPhone} onChange={v=>setProfile({...profile, publicPhone:v})} placeholder="0212 xxx xx xx"/></div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
+                <div><FieldLabel>Instagram</FieldLabel><Input value={profile.instagramUrl} onChange={v=>setProfile({...profile, instagramUrl:v})} placeholder="https://instagram.com/…"/></div>
+                <div><FieldLabel>Harita Linki</FieldLabel><Input value={profile.mapsUrl} onChange={v=>setProfile({...profile, mapsUrl:v})} placeholder="Google Maps linki"/></div>
               </div>
             </div>
           )}

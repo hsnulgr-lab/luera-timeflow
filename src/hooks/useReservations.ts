@@ -57,6 +57,7 @@ function mapDbReservation(row: any): Reservation {
         staffId: row.staff_id || undefined,
         staffName: row.staff?.name || undefined,
         staffColor: row.staff?.color || undefined,
+        source: row.source || 'manual',
     };
 }
 
@@ -181,6 +182,7 @@ function useReservationsState() {
                 slotDuration: settingsData.slot_duration,
                 webhookUrl: settingsData.webhook_url || undefined,
                 whatsappInstance: settingsData.whatsapp_instance || undefined,
+                sector: settingsData.sector || 'genel',
             });
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
@@ -274,6 +276,8 @@ function useReservationsState() {
                 status: reservation.status || 'pending',
                 notes: reservation.notes || '',
                 staff_id: reservation.staffId || null,
+                recurrence_rule:  reservation.recurrenceRule || null,
+                recurrence_until: reservation.recurrenceUntil || null,
             })
             .select()
             .single();
@@ -429,6 +433,7 @@ function useReservationsState() {
                 working_hours: newSettings.workingHours,
                 webhook_url: newSettings.webhookUrl || null,
                 whatsapp_instance: newSettings.whatsappInstance || null,
+                sector: newSettings.sector || 'genel',
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
 
@@ -554,11 +559,12 @@ function useReservationsState() {
         checkConflict,
         sendWebhook: fireWebhook,
         refetch: fetchReservations,
+        refetchSettings: fetchSettings,
     }), [
         reservations, settings, isLoading, orgId,
         addReservation, updateReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
-        getStats, updateSettings, checkConflict, fireWebhook, fetchReservations,
+        getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchSettings,
     ]);
 }
 

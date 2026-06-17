@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Luera işareti · CREAM varyantı (light mode) -->
+  <rect width="100" height="100" rx="16" fill="#F3ECE0"/>
+  <g transform="translate(-8.5,-2) scale(0.5)">
+    <path d="M 58 42 L 92 42 L 92 120 Q 92 138 110 138 Q 122 138 122 154 Q 122 170 106 170 Q 58 170 58 124 Z" fill="#0E0E0E"/>
+    <circle cx="152" cy="150" r="26" fill="#E8430F"/>
+  </g>
+</svg>

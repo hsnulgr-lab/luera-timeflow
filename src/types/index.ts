@@ -18,6 +18,9 @@ export interface Reservation {
     staffId?: string;
     staffName?: string;
     staffColor?: string;
+    recurrenceRule?: 'weekly' | 'monthly';
+    recurrenceUntil?: string;   // YYYY-MM-DD
+    source?: 'manual' | 'booking' | 'leadflow';
 }
 
 export interface Customer {
@@ -54,6 +57,7 @@ export interface Settings {
     webhookUrl?: string;
     slotDuration: number;
     whatsappInstance?: string;
+    sector?: string;
 }
 
 export interface Staff {
@@ -66,6 +70,25 @@ export interface Staff {
     color: string;
     workingHours?: WorkingHours[];
     isActive: boolean;
+    createdAt: string;
+}
+
+export interface StaffTimeOff {
+    id: string;
+    staffId: string;
+    organizationId: string;
+    date: string;        // YYYY-MM-DD
+    reason?: string;
+    createdAt: string;
+}
+
+export interface CustomerPackage {
+    id: string;
+    organizationId: string;
+    customerId: string;
+    name: string;
+    totalSessions: number;
+    usedSessions: number;
     createdAt: string;
 }
 

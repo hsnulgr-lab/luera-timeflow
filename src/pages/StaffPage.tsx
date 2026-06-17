@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, X, Clock, Edit2, Trash2 } from 'lucide-react';
+import { Plus, X, Clock, Edit2, Trash2, Plane } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
+import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -93,8 +94,11 @@ export const StaffPage = () => {
   const isMobile = useIsMobile();
   const { T, dark } = useT();
   const { staff, isLoading, addStaff, updateStaff, deleteStaff } = useStaff();
+  const { forStaff, addTimeOff, removeTimeOff } = useStaffTimeOff();
   const { reservations } = useReservations();
 
+  const [timeOffDate, setTimeOffDate]     = useState('');
+  const [timeOffReason, setTimeOffReason] = useState('');
   const [selId, setSelId]         = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -145,6 +149,14 @@ export const StaffPage = () => {
   const updateHour = (day: number, field: keyof WorkingHours, value: string | boolean) => {
     setForm(prev => ({ ...prev, workingHours: prev.workingHours.map(h => h.day===day?{...h,[field]:value}:h) }));
   };
+  const handleAddTimeOff = async () => {
+    if (!selMember || !timeOffDate) return;
+    const ok = await addTimeOff(selMember.id, timeOffDate, timeOffReason.trim() || undefined);
+    if (ok) { setTimeOffDate(''); setTimeOffReason(''); toast.success('İzin günü eklendi'); }
+  };
+  const fmtDate = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'long' });
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const avatarBg  = dark ? '#231E18' : '#0E0E0E';
   const avatarFg  = '#F3EDE3';
@@ -360,6 +372,47 @@ export const StaffPage = () => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* İzin / Tatil */}
+            <div style={{ marginBottom:'18px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'10px' }}>
+                <Plane size={11}/> İzin / Tatil Günleri
+              </div>
+
+              {/* Liste */}
+              {forStaff(selMember.id).length > 0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginBottom:'10px' }}>
+                  {forStaff(selMember.id).map(t => (
+                    <div key={t.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 10px', background:T.surface2, borderRadius:T.rXs }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:'12px', fontWeight:700, color:T.ink }}>{fmtDate(t.date)}</div>
+                        {t.reason && <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'1px' }}>{t.reason}</div>}
+                      </div>
+                      <button onClick={()=>removeTimeOff(t.id)} title="Kaldır"
+                        style={{ width:24, height:24, borderRadius:T.rXs, display:'grid', placeItems:'center', border:'none', background:'none', cursor:'pointer', color:T.muted2, flexShrink:0, transition:'all .15s' }}
+                        onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=dark?'rgba(201,64,64,0.14)':'rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color=dark?'#e07070':'#C94040';}}
+                        onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted2;}}>
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize:'11.5px', color:T.muted2, padding:'2px 0 10px' }}>İzin günü yok</div>
+              )}
+
+              {/* Ekle */}
+              <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+                <input type="date" min={todayStr} value={timeOffDate} onChange={e=>setTimeOffDate(e.target.value)}
+                  style={{ flex:'0 0 auto', width:'138px', padding:'7px 9px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11.5px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', colorScheme:dark?'dark':'light' }}/>
+                <input type="text" placeholder="Neden (ops.)" value={timeOffReason} onChange={e=>setTimeOffReason(e.target.value)}
+                  style={{ flex:1, minWidth:0, padding:'7px 9px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11.5px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none' }}/>
+                <button onClick={handleAddTimeOff} disabled={!timeOffDate} title="İzin ekle"
+                  style={{ width:30, height:30, flexShrink:0, borderRadius:T.rXs, display:'grid', placeItems:'center', border:'none', background:timeOffDate?avatarBg:T.surface3, color:timeOffDate?avatarFg:T.muted2, cursor:timeOffDate?'pointer':'not-allowed', transition:'all .15s' }}>
+                  <Plus size={14} strokeWidth={2.5}/>
+                </button>
               </div>
             </div>
 
