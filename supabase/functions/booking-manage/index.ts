@@ -61,6 +61,13 @@ async function sendWhatsApp(baseUrl: string, apiKey: string, instance: string, p
     } catch { return false; }
 }
 
+async function getSecret(supabase: any, key: string): Promise<string | null> {
+    const env = Deno.env.get(key);
+    if (env) return env;
+    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
+    return data?.value ?? null;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -133,8 +140,8 @@ Deno.serve(async (req: Request) => {
             }).catch(() => {});
 
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
-            const EVOLUTION_URL = Deno.env.get('EVOLUTION_API_URL');
-            const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY');
+            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
+            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
             if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
                 const d = new Date(res.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
                 sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, res.customer_phone,
@@ -195,8 +202,8 @@ Deno.serve(async (req: Request) => {
             const endTime = minToTime(timeToMin(time) + serviceDuration);
             await supabase.from('reservations').update({ date, start_time: time, end_time: endTime }).eq('id', res.id);
 
-            const EVOLUTION_URL = Deno.env.get('EVOLUTION_API_URL');
-            const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY');
+            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
+            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
             if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
                 const d = new Date(date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
                 sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, res.customer_phone,

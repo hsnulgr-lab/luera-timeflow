@@ -114,6 +114,13 @@ function buildBookingMessage(p: { customerName: string; date: string; time: stri
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
 
 // ─── Servis ──────────────────────────────────────────────────
+async function getSecret(supabase: any, key: string): Promise<string | null> {
+    const env = Deno.env.get(key);
+    if (env) return env;
+    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
+    return data?.value ?? null;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -346,8 +353,8 @@ Deno.serve(async (req: Request) => {
         }
 
         // WhatsApp onay mesajı
-        const EVOLUTION_URL = Deno.env.get('EVOLUTION_API_URL');
-        const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY');
+        const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
+        const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
         if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
             const manageUrl = reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : undefined;
             const msg = buildBookingMessage({ customerName, date, time, service: svc.name, businessName, confirmed: autoConfirm, manageUrl });

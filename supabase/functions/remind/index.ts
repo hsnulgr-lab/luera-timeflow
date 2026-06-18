@@ -9,6 +9,13 @@ const corsHeaders = {
 // Turkey UTC+3
 const TZ_OFFSET_MIN = 3 * 60;
 
+async function getSecret(supabase: any, key: string): Promise<string | null> {
+    const env = Deno.env.get(key);
+    if (env) return env;
+    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
+    return data?.value ?? null;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
@@ -20,8 +27,8 @@ Deno.serve(async (req: Request) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         );
 
-        const EVOLUTION_URL = Deno.env.get('EVOLUTION_API_URL')!;
-        const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY')!;
+        const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'))!;
+        const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'))!;
 
         // Türkiye saatine göre şimdiki zaman
         const nowUtc = new Date();
