@@ -9,6 +9,7 @@ import { CalendarPage } from '@/pages/CalendarPage';
 import { ReservationsPage } from '@/pages/ReservationsPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
+import { KasaPage } from '@/pages/KasaPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { BookingPage } from '@/pages/public/BookingPage';
@@ -58,6 +59,7 @@ function App() {
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="kasa" element={<KasaPage />} />
             <Route path="staff" element={<StaffPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />

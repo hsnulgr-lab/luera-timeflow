@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, Clock, Calendar, FileText, Save, Trash2 } from 'lucide-react';
+import { X, User, Phone, Mail, Clock, Calendar, FileText, Save, Trash2, Wallet } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
+import { usePayments } from '@/hooks/usePayments';
 import { cn } from '@/utils/cn';
 import type { Reservation } from '@/types';
 
@@ -19,6 +20,7 @@ const statusConfig = {
 
 export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReservationModalProps) => {
     const { updateReservation, deleteReservation, settings, checkConflict } = useReservations();
+    const { addPayment, removeByReservation } = usePayments();
     const [form, setForm] = useState({
         customerName: reservation.customerName,
         customerPhone: reservation.customerPhone,
@@ -29,6 +31,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
         service: reservation.service,
         status: reservation.status,
         notes: reservation.notes || '',
+        isPaid: reservation.isPaid ?? false,
     });
     const [conflict, setConflict] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -45,6 +48,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
             service: reservation.service,
             status: reservation.status,
             notes: reservation.notes || '',
+            isPaid: reservation.isPaid ?? false,
         });
         setConflict(null);
         setConfirmDelete(false);
@@ -79,7 +83,24 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
             serviceColor: svc?.color || reservation.serviceColor,
             status: form.status as Reservation['status'],
             notes: form.notes || undefined,
+            isPaid: form.isPaid,
         });
+
+        // Kasa senkronizasyonu: ödendi durumu değiştiyse tahsilat oluştur/geri al
+        const wasPaid = reservation.isPaid ?? false;
+        if (form.isPaid && !wasPaid) {
+            addPayment({
+                amount: svc?.price || 0,
+                type: 'service',
+                method: 'cash',
+                description: form.service,
+                customerId: reservation.customerId || undefined,
+                reservationId: reservation.id,
+            });
+        } else if (!form.isPaid && wasPaid) {
+            removeByReservation(reservation.id);
+        }
+
         setSaved(true);
         setTimeout(() => {
             setSaved(false);
@@ -243,6 +264,35 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Ödeme durumu */}
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Ödeme</label>
+                            <button
+                                type="button"
+                                onClick={() => setForm(p => ({ ...p, isPaid: !p.isPaid }))}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all border",
+                                    form.isPaid
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <Wallet className="w-4 h-4" />
+                                    {form.isPaid ? 'Ödendi' : 'Ödenmedi'}
+                                </span>
+                                <span className={cn(
+                                    "relative inline-flex h-[20px] w-[36px] items-center rounded-full transition-colors flex-shrink-0",
+                                    form.isPaid ? "bg-emerald-500" : "bg-gray-300"
+                                )}>
+                                    <span className={cn(
+                                        "inline-block h-[16px] w-[16px] rounded-full bg-white transition-transform",
+                                        form.isPaid ? "translate-x-[18px]" : "translate-x-[2px]"
+                                    )} />
+                                </span>
+                            </button>
                         </div>
 
                         {/* Notes */}

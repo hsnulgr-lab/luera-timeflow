@@ -3,6 +3,7 @@ import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package } fro
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
+import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -58,6 +59,7 @@ export const CustomersPage = () => {
   const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer } = useCustomers();
   const { reservations, settings } = useReservations();
   const { forCustomer: pkgsForCustomer, addPackage, removePackage } = useCustomerPackages();
+  const { totalForCustomer } = usePayments();
   const [selId, setSelId]         = useState<string | null>(null);
   const [showNew, setShowNew]     = useState(false);
   const [newCust, setNewCust]     = useState({ name:'', phone:'', email:'', notes:'' });
@@ -70,8 +72,12 @@ export const CustomersPage = () => {
     : [];
 
   // ── Müşteri Yaşam Boyu Değeri (LTV) ──
+  // Gerçek tahsilat (Kasa) varsa onu kullan; yoksa tamamlanan randevuların
+  // hizmet fiyatından tahmin et (kasaya geçilmeden önceki kayıtlar için fallback).
   const priceOf = (svcName: string) => settings.services.find(s => s.name === svcName)?.price || 0;
-  const ltvSpent = custHistory.filter(r => r.status === 'completed').reduce((sum, r) => sum + priceOf(r.service), 0);
+  const realSpent = selected ? totalForCustomer(selected.id) : 0;
+  const estSpent = custHistory.filter(r => r.status === 'completed').reduce((sum, r) => sum + priceOf(r.service), 0);
+  const ltvSpent = realSpent > 0 ? realSpent : estSpent;
   const ltvMonths = selected?.createdAt
     ? Math.max(0, Math.round((Date.now() - new Date(selected.createdAt).getTime()) / (30 * 24 * 60 * 60 * 1000)))
     : 0;

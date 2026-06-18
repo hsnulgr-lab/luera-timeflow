@@ -21,6 +21,7 @@ export interface Reservation {
     recurrenceRule?: 'weekly' | 'monthly';
     recurrenceUntil?: string;   // YYYY-MM-DD
     source?: 'manual' | 'booking' | 'leadflow';
+    isPaid?: boolean;
 }
 
 export interface Customer {
@@ -102,6 +103,32 @@ export interface WaitlistEntry {
     notes?: string;
     status: 'waiting' | 'notified' | 'fulfilled' | 'cancelled';
     notifiedAt?: string;
+    createdAt: string;
+}
+
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other';
+export type PaymentType = 'service' | 'product' | 'other';
+
+export interface Payment {
+    id: string;
+    organizationId: string;
+    customerId?: string;
+    reservationId?: string;
+    productId?: string;
+    type: PaymentType;
+    description?: string;
+    amount: number;
+    method: PaymentMethod;
+    paidAt: string;
+    createdAt: string;
+}
+
+export interface Product {
+    id: string;
+    organizationId: string;
+    name: string;
+    price: number;
+    isActive: boolean;
     createdAt: string;
 }
 

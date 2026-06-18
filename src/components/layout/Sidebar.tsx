@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Link2 } from 'lucide-react';
+import { Moon, Sun, Link2, Wallet } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -64,6 +64,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         { id: '/calendar', label: 'Takvim', icon: LCalendar },
         { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard },
         { id: '/customers', label: 'Müşteriler', icon: LUsers },
+        { id: '/kasa', label: 'Kasa', icon: Wallet },
         { id: '/staff', label: 'Personel', icon: LProfile },
         { id: '/analytics', label: 'Analiz', icon: LChart },
         { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2 },
