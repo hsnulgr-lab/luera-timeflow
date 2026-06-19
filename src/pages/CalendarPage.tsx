@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
+import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -108,6 +109,7 @@ export const CalendarPage = () => {
         if (isMobile && view === 'week') setView('day');
     }, [isMobile, view]);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
@@ -626,10 +628,10 @@ export const CalendarPage = () => {
                                                 return (
                                                     <div key={r.id}
                                                         className={cn(
-                                                            "px-2 py-1.5 rounded-lg mb-0.5 transition-all hover:scale-[1.02] overflow-hidden",
+                                                            "px-2 py-1.5 rounded-lg mb-0.5 transition-all hover:scale-[1.02] overflow-hidden cursor-pointer",
                                                             blockStyle
                                                         )}
-                                                        onClick={(e) => e.stopPropagation()}
+                                                        onClick={(e) => { e.stopPropagation(); setAdisyonRes(r); }}
                                                     >
                                                         <span className="block text-[10.5px] font-bold leading-tight truncate">{r.customerName.split(' ')[0]}</span>
                                                         <span className="block text-[9px] opacity-70 leading-tight truncate">{r.service}</span>
@@ -691,8 +693,8 @@ export const CalendarPage = () => {
                                             <div className="flex-1 p-2 space-y-1.5">
                                                 {hourRes.map((r) => (
                                                     <div key={r.id}
-                                                        className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-sm transition-all duration-200 hover:shadow-md hover:bg-[var(--dc-surface2)]"
-                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-sm transition-all duration-200 hover:shadow-md hover:bg-[var(--dc-surface2)] cursor-pointer"
+                                                        onClick={(e) => { e.stopPropagation(); setAdisyonRes(r); }}
                                                     >
                                                         <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: r.serviceColor || '#FF5A1F' }} />
                                                         <div className="flex-1 min-w-0">
@@ -1077,6 +1079,14 @@ export const CalendarPage = () => {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Adisyon + Müşteri detayı (randevu kartından açılır) */}
+            {adisyonRes && (
+                <AdisyonModal
+                    reservation={reservations.find(x => x.id === adisyonRes.id) || adisyonRes}
+                    onClose={() => setAdisyonRes(null)}
+                />
             )}
         </div>
     );

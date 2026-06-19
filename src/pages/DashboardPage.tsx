@@ -6,6 +6,8 @@ import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
+import { AdisyonModal } from '@/components/reservations/AdisyonModal';
+import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LueraButton } from '@/components/ui/LueraButton';
 
@@ -163,13 +165,6 @@ export const DashboardPage = () => {
     const nextAppt = remainingTodayList[0]; // getTodayReservations saate göre sıralı
 
     // Otomatik gönderilen hatırlatma sayısı (güven göstergesi)
-    const remindersSent = useMemo(() =>
-        reservations.filter(r =>
-            r.status !== 'cancelled' && r.date >= todayStr && (r.reminder24hSent || r.reminder2hSent)
-        ).length,
-        [reservations, todayStr]
-    );
-
     // Bu hafta
     const weekStats = useMemo(() => {
         const startOfWeek = new Date(now);
@@ -269,6 +264,8 @@ export const DashboardPage = () => {
     const [selectedDate, setSelectedDate] = useState(todayStr);
 
     // Haftalık şeritte seçili güne ait randevular (saate göre sıralı)
+    const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
+
     const selectedReservations = useMemo(
         () => [...getReservationsByDate(selectedDate)].sort((a, b) => a.startTime.localeCompare(b.startTime)),
         [getReservationsByDate, selectedDate]
@@ -326,18 +323,6 @@ export const DashboardPage = () => {
                         </div>
                     </div>
                 </div>
-
-                {/* ── Hatırlatma Güven Şeridi ──────────────────────────────────── */}
-                {remindersSent > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: 'var(--dc-green-bg)', border: '1px solid var(--dc-green-bg)' }}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--dc-green-bg)' }}>
-                            <Bell className="w-4 h-4" style={{ color: 'var(--dc-green)' }} />
-                        </div>
-                        <p className="text-sm" style={{ color: 'var(--dc-green)' }}>
-                            <span className="font-bold">{remindersSent} müşteriye</span> otomatik WhatsApp hatırlatması gönderildi — senin yerine sistem hatırlattı ✅
-                        </p>
-                    </div>
-                )}
 
                 {/* ── KPI Kartları (Luera Dashboard v2) ─────────────────────────── */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -466,8 +451,9 @@ export const DashboardPage = () => {
                                         const isPast = selIsToday && res.endTime < nowTime;
                                         return (
                                             <div key={res.id}
+                                                onClick={() => setAdisyonRes(res)}
                                                 className={cn(
-                                                    "flex items-center gap-3 p-3 rounded-xl border transition-all group",
+                                                    "flex items-center gap-3 p-3 rounded-xl border transition-all group cursor-pointer",
                                                     isPast
                                                         ? "border-[var(--dc-border-soft)] bg-[var(--dc-surface2-60)] opacity-60"
                                                         : "border-[var(--dc-border-soft)] hover:border-[var(--dc-orange)] hover:shadow-sm"
@@ -542,7 +528,7 @@ export const DashboardPage = () => {
                                 ) : (
                                     upcomingReservations.map((res) => (
                                         <div key={res.id}
-                                            onClick={() => navigate('/reservations')}
+                                            onClick={() => setAdisyonRes(res)}
                                             className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--dc-surface2)] border border-[var(--dc-border-soft)] hover:bg-[var(--dc-orange-soft)] hover:border-[var(--dc-orange)] transition-all cursor-pointer">
                                             <div className="w-1.5 h-8 rounded-full flex-shrink-0"
                                                 style={{ backgroundColor: res.serviceColor || 'var(--dc-orange)' }} />
@@ -594,6 +580,14 @@ export const DashboardPage = () => {
                 </div>
             </div>
             </div>
+
+            {/* Adisyon + Müşteri detayı (randevu satırından açılır) */}
+            {adisyonRes && (
+                <AdisyonModal
+                    reservation={reservations.find(x => x.id === adisyonRes.id) || adisyonRes}
+                    onClose={() => setAdisyonRes(null)}
+                />
+            )}
         </div>
     );
 };

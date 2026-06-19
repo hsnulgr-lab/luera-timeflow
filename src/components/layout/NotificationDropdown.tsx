@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bell, CheckCircle2, XCircle, AlertCircle, Clock, X } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, AlertCircle, Clock, X, MessageCircle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
@@ -7,7 +7,7 @@ import { toISODate } from '@/utils/date';
 
 interface Notification {
     id: string;
-    type: 'pending' | 'upcoming' | 'cancelled' | 'completed';
+    type: 'pending' | 'upcoming' | 'cancelled' | 'completed' | 'reminder';
     title: string;
     message: string;
     time: string;
@@ -29,6 +29,21 @@ export const NotificationDropdown = () => {
         const now = new Date();
         const todayStr = toISODate(now);
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // WhatsApp otomatik hatırlatma güven bildirimi (eskiden Dashboard şeridiydi)
+        const remindersSent = reservations.filter(r =>
+            r.status !== 'cancelled' && r.date >= todayStr && (r.reminder24hSent || r.reminder2hSent)
+        ).length;
+        if (remindersSent > 0) {
+            notifs.push({
+                id: `reminder-${remindersSent}`,
+                type: 'reminder',
+                title: 'WhatsApp hatırlatma',
+                message: `${remindersSent} müşteriye otomatik hatırlatma gönderildi — senin yerine sistem yaptı`,
+                time: 'Bugün',
+                read: readIds.has(`reminder-${remindersSent}`),
+            });
+        }
 
         const pending = reservations.filter(r => r.status === 'pending');
         if (pending.length > 0) {
@@ -140,6 +155,12 @@ export const NotificationDropdown = () => {
             color:  dark ? '#86EFAC' : '#16a34a',
             bg:     dark ? 'rgba(74,222,128,0.12)' : 'rgba(34,197,94,0.10)',
             border: dark ? 'rgba(74,222,128,0.22)' : 'rgba(34,197,94,0.20)',
+        },
+        reminder: {
+            icon: <MessageCircle className="w-4 h-4" />,
+            color:  dark ? '#86EFAC' : '#16a34a',
+            bg:     dark ? 'rgba(37,211,102,0.14)' : 'rgba(37,211,102,0.12)',
+            border: dark ? 'rgba(37,211,102,0.26)' : 'rgba(37,211,102,0.24)',
         },
     } as const;
 
