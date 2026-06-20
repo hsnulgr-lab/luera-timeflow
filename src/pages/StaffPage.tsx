@@ -160,6 +160,10 @@ export const StaffPage = () => {
 
   const avatarBg  = dark ? '#231E18' : '#0E0E0E';
   const avatarFg  = '#F3EDE3';
+  // Beyaz daire + siyah baş harf (tasarım: Dashboard v2 personel kartı)
+  const personBg  = '#F3EDE3';
+  const personFg  = '#0E0E0E';
+  const online    = dark ? '#4ADE80' : '#16A34A';
 
   // ── Stat cards ─────────────────────────────────────────────────────────────
   const statCards = [
@@ -241,7 +245,7 @@ export const StaffPage = () => {
               >
                 {/* Card top */}
                 <div style={{ padding:'18px 18px 14px', display:'flex', alignItems:'flex-start', gap:'14px', borderBottom:`1px solid ${T.border}` }}>
-                  <div style={{ width:46, height:46, borderRadius:'50%', background:avatarBg, color:avatarFg, display:'grid', placeItems:'center', fontSize:'16px', fontWeight:900, flexShrink:0, letterSpacing:'-0.02em' }}>
+                  <div style={{ width:46, height:46, borderRadius:'50%', background:personBg, color:personFg, display:'grid', placeItems:'center', fontSize:'16px', fontWeight:900, flexShrink:0, letterSpacing:'-0.02em' }}>
                     {initials(member.name)}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -252,9 +256,9 @@ export const StaffPage = () => {
                         {member.specialty}
                       </div>
                     )}
-                    <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:600, color:T.muted, marginTop:'5px' }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%', background: dark ? 'rgba(243,237,227,0.3)' : T.muted2, flexShrink:0 }}/>
-                      Aktif
+                    <div style={{ display:'flex', alignItems:'center', gap:'7px', fontSize:'11px', fontWeight:600, color:online, marginTop:'5px' }}>
+                      <span className="staff-online-dot" style={{ background:online, color:online }}/>
+                      Çevrimiçi
                     </div>
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:'4px', alignItems:'flex-end' }} onClick={e=>e.stopPropagation()}>
@@ -286,8 +290,8 @@ export const StaffPage = () => {
                       const isToday = di === todayIdx;
                       return (
                         <div key={di} style={{ width:26, height:26, borderRadius:6, display:'grid', placeItems:'center', fontSize:'9px', fontWeight:800,
-                          background: isToday ? T.orange : isWork ? avatarBg : T.surface2,
-                          color:      isToday ? (dark?'#0C0A08':'#0E0E0E') : isWork ? avatarFg : T.muted2,
+                          background: isToday ? T.orange : isWork ? personBg : T.surface2,
+                          color:      isToday ? '#0E0E0E' : isWork ? personFg : T.muted2,
                           transition:'all .15s' }}>
                           {d}
                         </div>
@@ -320,7 +324,7 @@ export const StaffPage = () => {
         {/* Panel body */}
         {selMember && (
           <div style={{ flex:1, overflowY:'auto', padding:'22px' }}>
-            <div style={{ width:60, height:60, borderRadius:'50%', background:avatarBg, color:avatarFg, display:'grid', placeItems:'center', fontSize:'22px', fontWeight:900, margin:'0 auto 12px' }}>
+            <div style={{ width:60, height:60, borderRadius:'50%', background:personBg, color:personFg, display:'grid', placeItems:'center', fontSize:'22px', fontWeight:900, margin:'0 auto 12px' }}>
               {initials(selMember.name)}
             </div>
             <div style={{ fontSize:'17px', fontWeight:800, textAlign:'center', letterSpacing:'-0.02em', color:T.ink }}>{selMember.name}</div>
@@ -366,8 +370,8 @@ export const StaffPage = () => {
                   const isToday = di === todayIdx;
                   return (
                     <div key={di} style={{ width:26, height:26, borderRadius:6, display:'grid', placeItems:'center', fontSize:'9px', fontWeight:800,
-                      background: isToday ? T.orange : isWork ? avatarBg : T.surface2,
-                      color:      isToday ? (dark?'#0C0A08':'#0E0E0E') : isWork ? avatarFg : T.muted2 }}>
+                      background: isToday ? T.orange : isWork ? personBg : T.surface2,
+                      color:      isToday ? '#0E0E0E' : isWork ? personFg : T.muted2 }}>
                       {d}
                     </div>
                   );
@@ -538,6 +542,11 @@ export const StaffPage = () => {
       <style>{`
         @keyframes modalIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        /* Çevrimiçi nabız animasyonu (tasarım: Dashboard v2) */
+        .staff-online-dot{position:relative;width:7px;height:7px;border-radius:50%;flex-shrink:0;animation:staffBlink 2s ease-in-out infinite}
+        .staff-online-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1.5px solid currentColor;animation:staffPulse 1.6s ease-out infinite}
+        @keyframes staffPulse{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+        @keyframes staffBlink{0%,100%{opacity:1}50%{opacity:.55}}
       `}</style>
     </div>
   );
