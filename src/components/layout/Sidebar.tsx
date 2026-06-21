@@ -4,6 +4,8 @@ import { Moon, Sun, Link2, Wallet } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useModules } from '@/hooks/useModules';
+import type { ModuleKey } from '@/types';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import {
     LDashboard,
@@ -30,6 +32,7 @@ interface SidebarProps {
 export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, onMobileClose }: SidebarProps) => {
     const { user, logout } = useAuth();
     const { dark, toggle: toggleTheme } = useTheme();
+    const { isEnabled } = useModules();
     const navigate = useNavigate();
     const location = useLocation();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -59,16 +62,18 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         handleNavClick(path);
     };
 
-    const menuItems = [
+    // module yoksa core (her zaman görünür); varsa modül açıkken görünür
+    const allMenuItems: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; module?: ModuleKey }[] = [
         { id: '/', label: 'Dashboard', icon: LDashboard },
-        { id: '/calendar', label: 'Takvim', icon: LCalendar },
-        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard },
+        { id: '/calendar', label: 'Takvim', icon: LCalendar, module: 'randevu' },
+        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard, module: 'randevu' },
         { id: '/customers', label: 'Müşteriler', icon: LUsers },
-        { id: '/kasa', label: 'Kasa', icon: Wallet },
-        { id: '/staff', label: 'Personel', icon: LProfile },
-        { id: '/analytics', label: 'Analiz', icon: LChart },
-        { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2 },
+        { id: '/kasa', label: 'Kasa', icon: Wallet, module: 'kasa' },
+        { id: '/staff', label: 'Personel', icon: LProfile, module: 'personel' },
+        { id: '/analytics', label: 'Analiz', icon: LChart, module: 'analiz' },
+        { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2, module: 'randevu' },
     ];
+    const menuItems = allMenuItems.filter((m) => !m.module || isEnabled(m.module));
 
     const handleNavClick = (path: string) => {
         navigate(path);

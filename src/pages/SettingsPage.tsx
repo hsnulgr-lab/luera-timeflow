@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X } from 'lucide-react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { useReservations } from '@/hooks/useReservations';
+import { useModules } from '@/hooks/useModules';
+import { MODULE_META } from '@/lib/modules';
 import { useOrgProfile, slugify } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Service, WorkingHours } from '@/types';
@@ -278,11 +280,12 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 }
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-type TabId = 'general'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp';
+type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp';
 
 export const SettingsPage = () => {
   const { T, dark } = useT();
   const { settings, updateSettings } = useReservations();
+  const { modules, isEnabled, setModule, applySectorDefaults } = useModules();
   const { profile, setProfile, save: saveProfile, uploadImage } = useOrgProfile();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab]       = useState<TabId>((searchParams.get('tab') as TabId) || 'general');
@@ -326,6 +329,7 @@ export const SettingsPage = () => {
 
   const tabs: {id:TabId;label:string;icon:React.ElementType}[] = [
     {id:'general',      label:'Genel',            icon:Settings    },
+    {id:'modules',      label:'Modüller',         icon:ToggleLeft  },
     {id:'hours',        label:'Çalışma Saatleri', icon:Clock       },
     {id:'services',     label:'Hizmetler',        icon:Palette     },
     {id:'booking',      label:'Booking Sayfam',   icon:Link2       },
@@ -399,6 +403,7 @@ export const SettingsPage = () => {
                   <option value="fizyoterapi">Fizyoterapi</option>
                   <option value="saglik">Sağlık / Klinik</option>
                   <option value="danismanlik">Danışmanlık / Koçluk</option>
+                  <option value="restoran">Restoran / Kafe</option>
                 </select>
                 <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>WhatsApp hatırlatma mesajları sektörüne göre AI ile kişiselleştirilir.</div>
               </div>
@@ -408,6 +413,50 @@ export const SettingsPage = () => {
                   <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>Bildirim Ayarları</div>
                   <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>Bildirim entegrasyonları webhook ayarlarından yapılandırılabilir.</div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Modüller ── */}
+          {activeTab==='modules' && (
+            <div>
+              <SectionTitle>Modüller</SectionTitle>
+              <p style={{ fontSize:'12.5px', color:T.muted, marginBottom:'18px', lineHeight:1.5 }}>
+                İşletmenize uygun modülleri açın/kapatın. Kapalı modüller menüde görünmez. Müşteriler, Dashboard ve Ayarlar her zaman açıktır.
+              </p>
+
+              {/* Sektör varsayılanlarını uygula */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', padding:'13px 16px', background:'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.15)', borderRadius:T.rSm, marginBottom:'18px' }}>
+                <div>
+                  <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>Sektör varsayılanları</div>
+                  <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>Seçili sektöre ({sector}) göre modülleri otomatik ayarla.</div>
+                </div>
+                <button onClick={async()=>{ await applySectorDefaults(sector); toast.success('Modüller sektöre göre ayarlandı'); }}
+                  style={{ flexShrink:0, padding:'8px 14px', borderRadius:T.rSm, border:'none', background:T.orange, color:'#fff', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                  Uygula
+                </button>
+              </div>
+
+              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                {MODULE_META.map(m => {
+                  const on = isEnabled(m.key);
+                  return (
+                    <div key={m.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'14px', padding:'14px 16px', background:T.surface2, border:`1px solid ${on?'rgba(255,90,31,0.25)':T.border2}`, borderRadius:T.rSm, transition:'border-color .15s' }}>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'13.5px', fontWeight:700, color:T.ink }}>{m.label}</div>
+                        <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>{m.desc}</div>
+                      </div>
+                      <button onClick={()=>setModule(m.key, !on)} title={on?'Kapat':'Aç'}
+                        style={{ flexShrink:0, position:'relative', width:'46px', height:'26px', borderRadius:'999px', border:'none', cursor:'pointer', background:on?T.orange:(dark?'#3A332A':'#D6CFC4'), transition:'background .2s' }}>
+                        <span style={{ position:'absolute', top:'3px', left:on?'23px':'3px', width:'20px', height:'20px', borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'16px' }}>
+                Aktif: {MODULE_META.filter(m=>modules[m.key]).map(m=>m.label).join(', ') || 'yok'}
               </div>
             </div>
           )}

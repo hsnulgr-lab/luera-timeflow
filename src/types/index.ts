@@ -132,6 +132,10 @@ export interface Product {
     createdAt: string;
 }
 
+// ── Modül Switch Sistemi (organizations.modules) ──────────────────────────────
+export type ModuleKey = 'randevu' | 'personel' | 'hizmet' | 'kasa' | 'masa' | 'analiz';
+export type Modules = Record<ModuleKey, boolean>;
+
 export type CalendarView = 'month' | 'week' | 'day';
 
 export interface TimeSlot {

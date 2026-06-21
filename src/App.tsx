@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
+import { ModulesProvider } from '@/contexts/ModulesProvider';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Layout } from '@/components/layout/Layout';
 import { MobileShell } from '@/mobile/MobileShell';
@@ -10,6 +11,8 @@ import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 import { MobileCustomers } from '@/mobile/pages/MobileCustomers';
 import { MobileKasa } from '@/mobile/pages/MobileKasa';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useModules } from '@/hooks/useModules';
+import type { ModuleKey } from '@/types';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { CalendarPage } from '@/pages/CalendarPage';
@@ -53,6 +56,12 @@ const RootLayout = () => (useIsMobile() ? <MobileShell /> : <Layout />);
 const Adaptive = ({ mobile, desktop }: { mobile: React.ReactNode; desktop: React.ReactNode }) =>
   useIsMobile() ? <>{mobile}</> : <>{desktop}</>;
 
+// Modül kapalıysa Dashboard'a yönlendir (doğrudan URL ile erişim de engellenir).
+const ModuleRoute = ({ module, children }: { module: ModuleKey; children: React.ReactNode }) => {
+  const { isEnabled } = useModules();
+  return isEnabled(module) ? <>{children}</> : <Navigate to="/" replace />;
+};
+
 function App() {
   return (
     <ErrorBoundary>
@@ -65,19 +74,21 @@ function App() {
           <Route path="/booking/:token" element={<BookingManagePage />} />
           <Route path="/" element={
             <ProtectedRoute>
-              <ReservationsProvider>
-                <RootLayout />
-              </ReservationsProvider>
+              <ModulesProvider>
+                <ReservationsProvider>
+                  <RootLayout />
+                </ReservationsProvider>
+              </ModulesProvider>
             </ProtectedRoute>
           }>
             <Route index element={<Adaptive mobile={<MobileHome />} desktop={<DashboardPage />} />} />
-            <Route path="calendar" element={<Adaptive mobile={<MobileCalendar />} desktop={<CalendarPage />} />} />
-            <Route path="new" element={<Adaptive mobile={<MobileNewReservation />} desktop={<Navigate to="/reservations" replace />} />} />
-            <Route path="reservations" element={<ReservationsPage />} />
+            <Route path="calendar" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileCalendar />} desktop={<CalendarPage />} /></ModuleRoute>} />
+            <Route path="new" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileNewReservation />} desktop={<Navigate to="/reservations" replace />} /></ModuleRoute>} />
+            <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
-            <Route path="kasa" element={<Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} />} />
-            <Route path="staff" element={<StaffPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
+            <Route path="staff" element={<ModuleRoute module="personel"><StaffPage /></ModuleRoute>} />
+            <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
