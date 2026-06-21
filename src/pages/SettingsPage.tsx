@@ -394,11 +394,41 @@ export const SettingsPage = () => {
                 <select value={sector} onChange={e=>setSector(e.target.value)}
                   style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
                   <option value="genel">Genel</option>
-                  <option value="guzellik">Güzellik / Salon</option>
-                  <option value="kuafor">Kuaför / Berber</option>
-                  <option value="fizyoterapi">Fizyoterapi</option>
-                  <option value="saglik">Sağlık / Klinik</option>
-                  <option value="danismanlik">Danışmanlık / Koçluk</option>
+                  <optgroup label="Güzellik & Bakım">
+                    <option value="guzellik">Güzellik Salonu</option>
+                    <option value="kuafor">Kuaför</option>
+                    <option value="berber">Berber</option>
+                    <option value="estetik">Estetik Merkezi</option>
+                    <option value="dovme-piercing">Dövme & Piercing Stüdyosu</option>
+                    <option value="kalici-makyaj">Kalıcı Makyaj Stüdyosu</option>
+                    <option value="tirnak-studyo">Tırnak Stüdyosu (Nail Art)</option>
+                    <option value="masaj">Masaj Salonu</option>
+                    <option value="spa">Spa Merkezi</option>
+                    <option value="cilt-bakim">Cilt Bakım Merkezi</option>
+                    <option value="solaryum">Solaryum Merkezi</option>
+                    <option value="epilasyon">Epilasyon Merkezi</option>
+                    <option value="lazer-epilasyon">Lazer Epilasyon Merkezi</option>
+                  </optgroup>
+                  <optgroup label="Sağlık & Klinik">
+                    <option value="dis-klinigi">Diş Kliniği</option>
+                    <option value="fizyoterapi">Fizyoterapi Merkezi</option>
+                    <option value="psikolog">Psikolog / Terapist</option>
+                    <option value="diyetisyen">Diyetisyen</option>
+                    <option value="sac-ekim">Saç Ekim Kliniği</option>
+                    <option value="veteriner">Veteriner</option>
+                    <option value="saglik">Sağlık / Klinik (Diğer)</option>
+                  </optgroup>
+                  <optgroup label="Spor & Fitness">
+                    <option value="pilates-yoga">Pilates / Yoga Stüdyosu</option>
+                    <option value="kisisel-antrenor">Kişisel Antrenör (PT)</option>
+                  </optgroup>
+                  <optgroup label="Danışmanlık & Profesyonel">
+                    <option value="avukat">Avukatlık Bürosu</option>
+                    <option value="mali-musavirlik">Mali Müşavirlik Ofisi</option>
+                    <option value="ozel-ders">Özel Ders / Koçluk</option>
+                    <option value="emlak">Emlak Danışmanlığı</option>
+                    <option value="danismanlik">Danışmanlık (Diğer)</option>
+                  </optgroup>
                 </select>
                 <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>WhatsApp hatırlatma mesajları sektörüne göre AI ile kişiselleştirilir.</div>
               </div>
