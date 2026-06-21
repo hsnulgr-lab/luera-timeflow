@@ -7,6 +7,7 @@ import { T } from './theme';
 const ICONS: Record<string, string> = {
     home: 'M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5ZM9 22V12h6v10',
     takvim: 'M3 4h18v17a0 0 0 01 3H3V4ZM3 9h18M8 2v3M16 2v3',
+    masa: 'M3 9h18M5 9V7a2 2 0 012-2h10a2 2 0 012 2v2M6 9v10M18 9v10M4 14h16',
     mus: 'M8 8a3.5 3.5 0 100-7 3.5 3.5 0 000 7ZM2 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 6a3 3 0 010 6M19 20c0-3-1.5-5.2-3.5-6',
     kasa: 'M2.5 6h19v13a0 0 0 01 2.5H2.5V6ZM2.5 11h19',
     analiz: 'M4 20V10M10 20V4M16 20v-7M3 20h18',
@@ -23,6 +24,7 @@ export const BottomTabBar = () => {
     const candidates: Tab[] = [
         { id: '/', label: 'Ana', icon: ICONS.home },
         { id: '/calendar', label: 'Takvim', icon: ICONS.takvim, module: 'randevu' },
+        { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa' },
         { id: '/customers', label: 'Müşteri', icon: ICONS.mus },
         { id: '/kasa', label: 'Kasa', icon: ICONS.kasa, module: 'kasa' },
         { id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' },
@@ -32,8 +34,8 @@ export const BottomTabBar = () => {
     const left = sideTabs.slice(0, mid);
     const right = sideTabs.slice(mid);
 
-    // FAB hedefi: randevu varsa yeni randevu, yoksa kasa, o da yoksa müşteri
-    const fabTarget = isEnabled('randevu') ? '/new' : isEnabled('kasa') ? '/kasa' : '/customers';
+    // FAB hedefi: randevu varsa yeni randevu, yoksa masa, yoksa kasa, o da yoksa müşteri
+    const fabTarget = isEnabled('randevu') ? '/new' : isEnabled('masa') ? '/masa' : isEnabled('kasa') ? '/kasa' : '/customers';
 
     const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
 

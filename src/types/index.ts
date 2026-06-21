@@ -136,6 +136,33 @@ export interface Product {
 export type ModuleKey = 'randevu' | 'personel' | 'hizmet' | 'kasa' | 'masa' | 'analiz';
 export type Modules = Record<ModuleKey, boolean>;
 
+// ── Restoran Masa Modülü (randevu sisteminden ayrı) ───────────────────────────
+export interface Table {
+    id: string;
+    organizationId: string;
+    name: string;
+    capacity: number;
+    isActive: boolean;
+    createdAt: string;
+}
+
+export type TableReservationStatus = 'reserved' | 'seated' | 'completed' | 'cancelled';
+
+export interface TableReservation {
+    id: string;
+    organizationId: string;
+    tableId: string;
+    customerName: string;
+    customerPhone?: string;
+    partySize: number;
+    date: string;        // YYYY-MM-DD
+    startTime: string;   // HH:MM
+    endTime?: string;    // HH:MM (tahmini, opsiyonel)
+    status: TableReservationStatus;
+    notes?: string;
+    createdAt: string;
+}
+
 export type CalendarView = 'month' | 'week' | 'day';
 
 export interface TimeSlot {

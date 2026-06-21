@@ -23,6 +23,7 @@ import { KasaPage } from '@/pages/KasaPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { StaffDetailPage } from '@/pages/StaffDetailPage';
+import { MasaPage } from '@/pages/MasaPage';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
@@ -58,8 +59,10 @@ const Adaptive = ({ mobile, desktop }: { mobile: React.ReactNode; desktop: React
   useIsMobile() ? <>{mobile}</> : <>{desktop}</>;
 
 // Modül kapalıysa Dashboard'a yönlendir (doğrudan URL ile erişim de engellenir).
+// Modüller yüklenene kadar bekle — yoksa varsayılanla erken redirect olur (örn. masa).
 const ModuleRoute = ({ module, children }: { module: ModuleKey; children: React.ReactNode }) => {
-  const { isEnabled } = useModules();
+  const { isEnabled, isLoading } = useModules();
+  if (isLoading) return null;
   return isEnabled(module) ? <>{children}</> : <Navigate to="/" replace />;
 };
 
@@ -88,6 +91,7 @@ function App() {
             <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
+            <Route path="masa" element={<ModuleRoute module="masa"><MasaPage /></ModuleRoute>} />
             <Route path="staff" element={<ModuleRoute module="personel"><StaffPage /></ModuleRoute>} />
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
