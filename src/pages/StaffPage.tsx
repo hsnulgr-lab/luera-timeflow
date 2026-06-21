@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, X, Clock, Edit2, Trash2, Plane } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, X, Clock, Edit2, Trash2, Plane, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
@@ -92,6 +93,7 @@ function IBtn({ onClick, title, children }: { onClick: () => void; title?: strin
 // ── Component ────────────────────────────────────────────────────────────────
 export const StaffPage = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { T, dark } = useT();
   const { staff, isLoading, addStaff, updateStaff, deleteStaff } = useStaff();
   const { forStaff, addTimeOff, removeTimeOff } = useStaffTimeOff();
@@ -442,6 +444,12 @@ export const StaffPage = () => {
                 </div>
               );
             })()}
+
+            {/* Detay sayfası */}
+            <button onClick={()=>navigate(`/staff/${selMember.id}`)}
+              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'11px', borderRadius:'999px', background:T.orange, color:'#fff', border:'none', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:'8px' }}>
+              <BarChart3 size={14}/> Detay & Performans
+            </button>
 
             {/* Actions */}
             <div style={{ display:'flex', gap:'8px', marginTop:'4px' }}>

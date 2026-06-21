@@ -22,6 +22,7 @@ import { CustomersPage } from '@/pages/CustomersPage';
 import { KasaPage } from '@/pages/KasaPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
+import { StaffDetailPage } from '@/pages/StaffDetailPage';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
@@ -88,6 +89,7 @@ function App() {
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="staff" element={<ModuleRoute module="personel"><StaffPage /></ModuleRoute>} />
+            <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
