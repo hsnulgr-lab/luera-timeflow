@@ -107,13 +107,22 @@ export const MobileHome = () => {
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.orange, boxShadow: `0 0 8px ${T.orange}` }} />
                     <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>luera timeflow</span>
                 </div>
-                <button onClick={() => navigate('/reservations')} style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', flexShrink: 0 }}>
-                    <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                        <path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke={T.muted} strokeWidth="1.5" strokeLinejoin="round" />
-                        <path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    {pendingCount > 0 && <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Personel Modu girişi */}
+                    <button onClick={() => navigate('/personel')} aria-label="Personel Modu" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, color: T.muted }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 8a3 3 0 100-6 3 3 0 000 6ZM2 19c0-3.3 2.7-5 6-5s6 1.7 6 5M16 7a2.5 2.5 0 010 5M19 19c0-2.6-1.4-4.3-3.5-4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    </button>
+                    {/* Bildirimler */}
+                    <button onClick={() => navigate('/reservations')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', flexShrink: 0 }}>
+                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
+                            <path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke={T.muted} strokeWidth="1.5" strokeLinejoin="round" />
+                            <path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        {pendingCount > 0 && <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
+                    </button>
+                </div>
             </div>
 
             {/* ═══ TODAY OVERVIEW CARD ═══ */}
