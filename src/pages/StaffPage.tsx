@@ -8,6 +8,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Staff, WorkingHours } from '@/types';
+import { hashPin } from '@/lib/pin';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -70,11 +71,11 @@ const DEFAULT_HOURS: WorkingHours[] = [
 
 interface StaffForm {
   name: string; specialty: string; phone: string; email: string;
-  color: string; useCustomHours: boolean; workingHours: WorkingHours[];
+  color: string; useCustomHours: boolean; workingHours: WorkingHours[]; pin: string;
 }
 const emptyForm = (): StaffForm => ({
   name:'', specialty:'', phone:'', email:'',
-  color: COLORS[0], useCustomHours: false, workingHours: DEFAULT_HOURS,
+  color: COLORS[0], useCustomHours: false, workingHours: DEFAULT_HOURS, pin:'',
 });
 
 // ── Inline button helper ──────────────────────────────────────────────────────
@@ -130,15 +131,18 @@ export const StaffPage = () => {
   const openEdit = (m: Staff) => {
     setEditing(m);
     setForm({ name:m.name, specialty:m.specialty||'', phone:m.phone||'', email:m.email||'',
-      color:m.color, useCustomHours:!!m.workingHours, workingHours:m.workingHours||DEFAULT_HOURS });
+      color:m.color, useCustomHours:!!m.workingHours, workingHours:m.workingHours||DEFAULT_HOURS, pin:'' });
     setShowModal(true);
   };
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Personel adı gerekli'); return; }
     setSaving(true);
+    // PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut PIN korunur
+    const pinHash = form.pin.trim() ? await hashPin(form.pin.trim()) : undefined;
     const payload = { name:form.name.trim(), specialty:form.specialty.trim()||undefined,
       phone:form.phone.trim()||undefined, email:form.email.trim()||undefined,
-      color:form.color, workingHours:form.useCustomHours?form.workingHours:undefined, isActive:true };
+      color:form.color, workingHours:form.useCustomHours?form.workingHours:undefined, isActive:true,
+      ...(pinHash ? { pin: pinHash } : {}) };
     if (editing) { await updateStaff(editing.id, payload); toast.success('Personel güncellendi'); }
     else         { await addStaff(payload);                 toast.success('Personel eklendi'); }
     setSaving(false); setShowModal(false);
@@ -495,6 +499,17 @@ export const StaffPage = () => {
                   onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
               </div>
             ))}
+
+            {/* PIN — Personel Modu girişi */}
+            <div style={{ marginBottom:'14px' }}>
+              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel PIN</label>
+              <input type="text" inputMode="numeric" maxLength={6} placeholder={editing?'Değiştirmek için yeni PIN':'4 haneli PIN (ör. 1234)'}
+                value={form.pin} onChange={e=>setForm(p=>({...p,pin:e.target.value.replace(/\D/g,'')}))}
+                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', letterSpacing:'.3em' }}
+                onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
+                onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Personel bu PIN ile "Personel Modu"na girer. {editing?'Boş bırakılırsa mevcut PIN korunur.':''}</div>
+            </div>
 
             {/* Color picker */}
             <div style={{ marginBottom:'14px' }}>

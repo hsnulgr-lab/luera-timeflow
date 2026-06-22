@@ -308,6 +308,13 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                     <LSettings className="w-4 h-4" />
                                     Ayarlar
                                 </button>
+                                <button
+                                    onClick={() => { navigate('/personel'); setShowUserMenu(false); }}
+                                    className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
+                                >
+                                    <LProfile className="w-4 h-4" />
+                                    Personel Modu
+                                </button>
                                 <div className={cn("border-t", dark ? "border-[rgba(243,237,227,0.08)]" : "border-gray-100")} />
                                 <button
                                     onClick={async () => {

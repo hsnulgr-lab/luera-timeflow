@@ -15,6 +15,7 @@ function mapDbStaff(row: any): Staff {
         color: row.color || '#8B5CF6',
         workingHours: row.working_hours || undefined,
         isActive: row.is_active ?? true,
+        pin: row.pin || undefined,
         createdAt: row.created_at,
     };
 }
@@ -64,6 +65,7 @@ export function useStaff() {
                 color:         member.color,
                 working_hours: member.workingHours || null,
                 is_active:     member.isActive ?? true,
+                pin:           member.pin || null,
             })
             .select()
             .single();
@@ -88,6 +90,7 @@ export function useStaff() {
         if (updates.color       !== undefined) dbUpdates.color         = updates.color;
         if (updates.workingHours !== undefined) dbUpdates.working_hours = updates.workingHours || null;
         if (updates.isActive    !== undefined) dbUpdates.is_active     = updates.isActive;
+        if (updates.pin         !== undefined) dbUpdates.pin           = updates.pin || null;
 
         const { error } = await supabase.from('staff').update(dbUpdates).eq('id', id);
         if (error) { toast.error('Personel güncellenemedi'); return; }

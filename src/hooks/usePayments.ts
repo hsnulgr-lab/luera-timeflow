@@ -11,6 +11,7 @@ function mapRow(row: any): Payment {
         customerId: row.customer_id || undefined,
         reservationId: row.reservation_id || undefined,
         productId: row.product_id || undefined,
+        staffId: row.staff_id || undefined,
         type: row.type,
         description: row.description || undefined,
         amount: Number(row.amount),
@@ -28,6 +29,7 @@ export interface NewPayment {
     customerId?: string;
     reservationId?: string;
     productId?: string;
+    staffId?: string;
     paidAt?: string;
 }
 
@@ -66,6 +68,7 @@ export function usePayments() {
                 customer_id: p.customerId ?? null,
                 reservation_id: p.reservationId ?? null,
                 product_id: p.productId ?? null,
+                staff_id: p.staffId ?? null,
                 type: p.type ?? 'service',
                 description: p.description ?? null,
                 amount: p.amount,

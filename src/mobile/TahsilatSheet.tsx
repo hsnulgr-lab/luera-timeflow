@@ -3,6 +3,7 @@ import { Banknote, CreditCard, Building2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useStaff } from '@/hooks/useStaff';
 import type { PaymentMethod } from '@/types';
 import { BottomSheet } from './BottomSheet';
 import { T } from './theme';
@@ -14,15 +15,17 @@ const METHODS: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
     { id: 'other', label: 'Diğer', icon: <Wallet size={18} /> },
 ];
 
-export function TahsilatSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TahsilatSheet({ open, onClose, lockStaffId }: { open: boolean; onClose: () => void; lockStaffId?: string }) {
     const { addPayment } = usePayments();
     const { allCustomers } = useCustomers();
+    const { staff } = useStaff();
 
     const [amount, setAmount] = useState('');
     const [method, setMethod] = useState<PaymentMethod>('cash');
     const [customerId, setCustomerId] = useState('');
     const [custQuery, setCustQuery] = useState('');
     const [description, setDescription] = useState('');
+    const [staffId, setStaffId] = useState(lockStaffId || '');
     const [saving, setSaving] = useState(false);
 
     const matches = useMemo(() => {
@@ -35,15 +38,17 @@ export function TahsilatSheet({ open, onClose }: { open: boolean; onClose: () =>
     const amountNum = Number(amount.replace(/[^\d]/g, ''));
     const canSave = amountNum > 0 && !saving;
 
-    const reset = () => { setAmount(''); setMethod('cash'); setCustomerId(''); setCustQuery(''); setDescription(''); };
+    const reset = () => { setAmount(''); setMethod('cash'); setCustomerId(''); setCustQuery(''); setDescription(''); setStaffId(lockStaffId || ''); };
 
     const handleSave = async () => {
         if (amountNum <= 0) return;
         setSaving(true);
-        const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined });
+        const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined });
         setSaving(false);
         if (res) { toast.success('Tahsilat kaydedildi'); reset(); onClose(); }
     };
+
+    const activeStaff = staff.filter((s) => s.isActive);
 
     const field = { background: T.surface, border: `1px solid ${T.border}`, color: T.ink, fontFamily: T.font } as const;
 
@@ -106,6 +111,24 @@ export function TahsilatSheet({ open, onClose }: { open: boolean; onClose: () =>
                     <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ör. Saç kesimi"
                         className="w-full rounded-2xl px-4 py-3.5 text-[15px] outline-none" style={field} />
                 </div>
+
+                {!lockStaffId && activeStaff.length > 0 && (
+                    <div>
+                        <label className="mb-1.5 block text-[12px] font-semibold" style={{ color: T.muted }}>Personel <span style={{ opacity: 0.6 }}>(opsiyonel)</span></label>
+                        <div className="flex flex-wrap gap-2">
+                            {activeStaff.map((s) => {
+                                const sel = staffId === s.id;
+                                return (
+                                    <button key={s.id} onClick={() => setStaffId(sel ? '' : s.id)}
+                                        className="rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors"
+                                        style={{ background: sel ? T.orange : T.surface, border: `1px solid ${sel ? T.orange : T.border}`, color: sel ? '#0E0E0E' : T.ink }}>
+                                        {s.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <button disabled={!canSave} onClick={handleSave}
                     className="mt-2 flex h-14 w-full items-center justify-center rounded-[18px] text-[16px] font-bold transition-opacity disabled:opacity-40"

@@ -71,6 +71,7 @@ export interface Staff {
     color: string;
     workingHours?: WorkingHours[];
     isActive: boolean;
+    pin?: string;        // Personel Modu girişi için (SHA-256 hash; opsiyonel)
     createdAt: string;
 }
 
@@ -115,6 +116,7 @@ export interface Payment {
     customerId?: string;
     reservationId?: string;
     productId?: string;
+    staffId?: string;
     type: PaymentType;
     description?: string;
     amount: number;

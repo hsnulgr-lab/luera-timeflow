@@ -24,6 +24,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { StaffDetailPage } from '@/pages/StaffDetailPage';
 import { MasaPage } from '@/pages/MasaPage';
+import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
@@ -76,6 +77,11 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:slug" element={<BookingPage />} />
           <Route path="/booking/:token" element={<BookingManagePage />} />
+          <Route path="/personel" element={
+            <ProtectedRoute>
+              <StaffModeRoot />
+            </ProtectedRoute>
+          } />
           <Route path="/" element={
             <ProtectedRoute>
               <ModulesProvider>
