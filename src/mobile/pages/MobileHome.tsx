@@ -4,6 +4,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
+import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
@@ -37,6 +38,7 @@ export const MobileHome = () => {
     const { payments } = usePayments();
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
+    const { isManager, disable: exitManager } = useManagerMode();
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
@@ -106,14 +108,21 @@ export const MobileHome = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.orange, boxShadow: `0 0 8px ${T.orange}` }} />
                     <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>luera timeflow</span>
+                    {isManager && <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.08em', background: 'rgba(255,90,31,.15)', color: T.orange, padding: '2px 7px', borderRadius: 999, fontFamily: T.mono }}>YÖNETİCİ</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {/* Personel Modu girişi */}
-                    <button onClick={() => navigate('/personel')} aria-label="Personel Modu" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, color: T.muted }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <path d="M8 8a3 3 0 100-6 3 3 0 000 6ZM2 19c0-3.3 2.7-5 6-5s6 1.7 6 5M16 7a2.5 2.5 0 010 5M19 19c0-2.6-1.4-4.3-3.5-4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    </button>
+                    {/* Yönetici ise çıkış, değilse Personel/Yönetici girişi */}
+                    {isManager ? (
+                        <button onClick={exitManager} aria-label="Yönetici modundan çık" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, color: T.muted }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                    ) : (
+                        <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, color: T.muted }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M8 8a3 3 0 100-6 3 3 0 000 6ZM2 19c0-3.3 2.7-5 6-5s6 1.7 6 5M16 7a2.5 2.5 0 010 5M19 19c0-2.6-1.4-4.3-3.5-4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                    )}
                     {/* Bildirimler */}
                     <button onClick={() => navigate('/reservations')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', flexShrink: 0 }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
@@ -136,16 +145,23 @@ export const MobileHome = () => {
                                 <div style={{ fontSize: 10, color: T.muted2, marginTop: 2, fontFamily: T.mono }}>{done} tamam · {total - done} kaldı</div>
                             </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 9.5, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 4 }}>Gelir</div>
-                            <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: T.green, lineHeight: 1 }}>{fmt(revTick)} <span style={{ fontSize: 13 }}>₺</span></div>
-                            {yRevPct !== 0 && (
-                                <div style={{ fontSize: 10, color: yRevPct >= 0 ? T.green : T.red, fontWeight: 700, marginTop: 3, display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'flex-end' }}>
-                                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ transform: yRevPct < 0 ? 'rotate(180deg)' : 'none' }}><path d="M2 8L5 2l3 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                    {yRevPct > 0 ? '+' : ''}{yRevPct}% dünden
-                                </div>
-                            )}
-                        </div>
+                        {isManager ? (
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 9.5, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 4 }}>Gelir</div>
+                                <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: T.green, lineHeight: 1 }}>{fmt(revTick)} <span style={{ fontSize: 13 }}>₺</span></div>
+                                {yRevPct !== 0 && (
+                                    <div style={{ fontSize: 10, color: yRevPct >= 0 ? T.green : T.red, fontWeight: 700, marginTop: 3, display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'flex-end' }}>
+                                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ transform: yRevPct < 0 ? 'rotate(180deg)' : 'none' }}><path d="M2 8L5 2l3 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                        {yRevPct > 0 ? '+' : ''}{yRevPct}% dünden
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 9.5, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 4 }}>Tamamlanan</div>
+                                <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: T.green, lineHeight: 1 }}>{done}<span style={{ fontSize: 13, color: T.muted }}>/{total}</span></div>
+                            </div>
+                        )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <div style={{ flex: 1, height: 3.5, background: 'rgba(243,237,227,.07)', borderRadius: 999, overflow: 'hidden' }}>
@@ -169,12 +185,12 @@ export const MobileHome = () => {
 
             {/* ═══ QUICK ACTIONS ═══ */}
             <div style={{ padding: '20px 22px 0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isManager ? 4 : 3},1fr)`, gap: 10 }}>
                     {[
                         { lbl: 'Randevu', clr: T.orange, bg: 'rgba(255,90,31,.13)', bdg: 'rgba(255,90,31,.25)', path: 'M10 4v12M4 10h12', to: '/new' },
                         { lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.13)', bdg: 'rgba(124,196,127,.2)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' },
                         { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.13)', bdg: 'rgba(107,159,212,.2)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
-                        { lbl: 'Analiz', clr: T.purple, bg: 'rgba(201,139,219,.13)', bdg: 'rgba(201,139,219,.2)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', to: '/analytics' },
+                        ...(isManager ? [{ lbl: 'Analiz', clr: T.purple, bg: 'rgba(201,139,219,.13)', bdg: 'rgba(201,139,219,.2)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', to: '/analytics' }] : []),
                     ].map((a) => (
                         <button key={a.lbl} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '15px 4px 13px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, cursor: 'pointer' }}>
                             <div style={{ width: 44, height: 44, borderRadius: 14, background: a.bg, border: `1px solid ${a.bdg}`, display: 'grid', placeItems: 'center' }}>
@@ -187,7 +203,8 @@ export const MobileHome = () => {
             </div>
 
             {/* ═══ WEEKLY STAT STRIP ═══ */}
-            <div style={{ margin: '20px 22px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ margin: '20px 22px 0', display: 'grid', gridTemplateColumns: isManager ? '1fr 1fr' : '1fr', gap: 10 }}>
+                {isManager && (
                 <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, padding: '14px 16px' }}>
                     <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 8 }}>Bu Hafta</div>
                     <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: T.ink }}>{fmt(weekTick)} <span style={{ fontSize: 14, color: T.muted }}>₺</span></div>
@@ -198,6 +215,7 @@ export const MobileHome = () => {
                         </div>
                     )}
                 </div>
+                )}
                 <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, padding: '14px 16px' }}>
                     <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 8 }}>Müşteri</div>
                     <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: T.ink }}>{weekCust}</div>

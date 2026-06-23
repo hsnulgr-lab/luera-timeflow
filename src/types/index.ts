@@ -59,6 +59,7 @@ export interface Settings {
     slotDuration: number;
     whatsappInstance?: string;
     sector?: string;
+    managerPin?: string;   // Mobil Yönetici Modu girişi (SHA-256 hash; opsiyonel)
 }
 
 export interface Staff {

@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModules } from '@/hooks/useModules';
+import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import type { ModuleKey } from '@/types';
 import { T } from './theme';
 
@@ -19,15 +20,17 @@ export const BottomTabBar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isEnabled } = useModules();
+    const { isManager } = useManagerMode();
 
     // Aday sekmeler — core (module yok) + açık modüller; en fazla 4 yan sekme
+    // Analiz finansal olduğu için sadece Yönetici modunda görünür.
     const candidates: Tab[] = [
         { id: '/', label: 'Ana', icon: ICONS.home },
         { id: '/calendar', label: 'Takvim', icon: ICONS.takvim, module: 'randevu' },
         { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa' },
         { id: '/customers', label: 'Müşteri', icon: ICONS.mus },
         { id: '/kasa', label: 'Kasa', icon: ICONS.kasa, module: 'kasa' },
-        { id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' },
+        ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey }] : []),
     ];
     const sideTabs = candidates.filter((t) => !t.module || isEnabled(t.module)).slice(0, 4);
     const mid = Math.ceil(sideTabs.length / 2);

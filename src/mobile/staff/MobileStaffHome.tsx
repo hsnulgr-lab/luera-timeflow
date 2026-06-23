@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
-import { LogOut, CheckCircle2, Wallet, Calendar, ShoppingBag } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { LogOut, CheckCircle2, Wallet, Calendar, ShoppingBag, Check, X, Plus } from 'lucide-react';
 import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { useStaffStats } from '@/hooks/useStaffStats';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate, formatDateEU } from '@/utils/date';
+import { TahsilatSheet } from '../TahsilatSheet';
 import { T, STS_COLOR, STS_BG, STS_LABEL } from '../theme';
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
@@ -13,9 +14,10 @@ const PM_TR: Record<string, string> = { cash: 'Nakit', card: 'Kart', transfer: '
 
 export const MobileStaffHome = () => {
     const { staff, logout } = useStaffSession();
+    const [sheetOpen, setSheetOpen] = useState(false);
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
-    const { getReservationsByDate } = useReservations();
+    const { getReservationsByDate, updateReservation } = useReservations();
 
     const todayStr = useMemo(() => toISODate(new Date()), []);
     const myToday = useMemo(
@@ -74,12 +76,24 @@ export const MobileStaffHome = () => {
                                         <div style={{ fontSize: 14, fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
                                         <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2 }}>{r.service}</div>
                                     </div>
-                                    <span style={{ padding: '3px 8px', borderRadius: 999, background: STS_BG[r.status], color: STS_COLOR[r.status], fontSize: 9.5, fontWeight: 750 }}>{STS_LABEL[r.status]}</span>
+                                    {r.status === 'pending' ? (
+                                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                            <button onClick={() => updateReservation(r.id, { status: 'confirmed' })} aria-label="Onayla" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(124,196,127,.16)', color: T.green, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Check size={16} /></button>
+                                            <button onClick={() => updateReservation(r.id, { status: 'cancelled' })} aria-label="Reddet" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(224,112,112,.16)', color: T.red, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><X size={16} /></button>
+                                        </div>
+                                    ) : (
+                                        <span style={{ padding: '3px 8px', borderRadius: 999, background: STS_BG[r.status], color: STS_COLOR[r.status], fontSize: 9.5, fontWeight: 750, flexShrink: 0 }}>{STS_LABEL[r.status]}</span>
+                                    )}
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
+
+                {/* Tahsilat Al */}
+                <button onClick={() => setSheetOpen(true)} style={{ marginTop: 14, width: '100%', height: 52, borderRadius: 16, border: 'none', background: T.green, color: '#0a2e16', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', boxShadow: '0 8px 22px rgba(124,196,127,0.22)' }}>
+                    <Plus size={18} strokeWidth={2.6} /> Tahsilat Al
+                </button>
             </div>
 
             {/* Hizmet dağılımım */}
@@ -115,6 +129,8 @@ export const MobileStaffHome = () => {
                     </div>
                 </div>
             )}
+
+            <TahsilatSheet open={sheetOpen} onClose={() => setSheetOpen(false)} lockStaffId={staff?.id} />
         </div>
     );
 };

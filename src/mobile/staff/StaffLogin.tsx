@@ -8,7 +8,7 @@ import { T, avatarColor } from '../theme';
 import type { Staff } from '@/types';
 
 // Personel Modu girişi: önce personel seç, sonra PIN gir.
-export const StaffLogin = () => {
+export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
     const navigate = useNavigate();
     const { staff } = useStaff();
     const { login } = useStaffSession();
@@ -40,9 +40,9 @@ export const StaffLogin = () => {
 
     return (
         <div style={{ height: '100dvh', background: T.bg, color: T.ink, fontFamily: T.font, display: 'flex', flexDirection: 'column', padding: '0 22px', paddingTop: 'calc(env(safe-area-inset-top,0px) + 24px)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-            <button onClick={() => (selected ? (setSelected(null), setPin('')) : navigate('/'))}
+            <button onClick={() => (selected ? (setSelected(null), setPin('')) : (onBack ? onBack() : navigate('/')))}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: T.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 18 }}>
-                <ArrowLeft size={16} /> {selected ? 'Personel seç' : 'Çıkış'}
+                <ArrowLeft size={16} /> {selected ? 'Personel seç' : 'Geri'}
             </button>
 
             {!selected ? (

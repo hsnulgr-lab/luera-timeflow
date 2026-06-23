@@ -6,6 +6,7 @@ import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
 import { MODULE_META } from '@/lib/modules';
+import { hashPin } from '@/lib/pin';
 import { useOrgProfile, slugify } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Service, WorkingHours } from '@/types';
@@ -295,6 +296,7 @@ export const SettingsPage = () => {
   const [services, setServices]         = useState(settings.services);
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [sector, setSector]             = useState(settings.sector || 'genel');
+  const [managerPinInput, setManagerPinInput] = useState('');
   const [saved, setSaved]               = useState(false);
   const [uploading, setUploading]       = useState<string|null>(null);
 
@@ -303,8 +305,11 @@ export const SettingsPage = () => {
   const bookingUrl = profile.slug ? `${window.location.origin}/book/${profile.slug}` : '';
 
   const handleSave = async () => {
-    updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined, sector});
+    // Yönetici PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut korunur
+    const managerPin = managerPinInput.trim() ? await hashPin(managerPinInput.trim()) : settings.managerPin;
+    updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined, sector, managerPin});
     await saveProfile(profile);
+    setManagerPinInput('');
     setSaved(true); setTimeout(()=>setSaved(false), 2000);
   };
   const handleUpload = async (file: File|undefined, kind: 'logo'|'cover'|'gallery') => {
@@ -406,6 +411,14 @@ export const SettingsPage = () => {
                   <option value="restoran">Restoran / Kafe</option>
                 </select>
                 <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>WhatsApp hatırlatma mesajları sektörüne göre AI ile kişiselleştirilir.</div>
+              </div>
+              <div style={{ marginBottom:'22px' }}>
+                <FieldLabel>Yönetici PIN (Mobil)</FieldLabel>
+                <input type="text" inputMode="numeric" maxLength={6}
+                  placeholder={settings.managerPin ? 'Değiştirmek için yeni PIN' : '4 haneli PIN (ör. 1234)'}
+                  value={managerPinInput} onChange={e=>setManagerPinInput(e.target.value.replace(/\D/g,''))}
+                  style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', letterSpacing:'.3em' }}/>
+                <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Mobil uygulamada "Yönetici Girişi" bu PIN ile açılır; ciro ve tam erişim görünür. {settings.managerPin?'Tanımlı — boş bırakırsan korunur.':'Henüz tanımlı değil.'}</div>
               </div>
               <div style={{ display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px 16px', background:'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.15)', borderRadius:T.rSm }}>
                 <Bell size={16} color={T.orange} style={{ flexShrink:0, marginTop:1 }}/>

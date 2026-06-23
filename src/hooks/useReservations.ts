@@ -184,6 +184,7 @@ function useReservationsState() {
                 webhookUrl: settingsData.webhook_url || undefined,
                 whatsappInstance: settingsData.whatsapp_instance || undefined,
                 sector: settingsData.sector || 'genel',
+                managerPin: settingsData.manager_pin || undefined,
             });
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
@@ -443,6 +444,7 @@ function useReservationsState() {
                 webhook_url: newSettings.webhookUrl || null,
                 whatsapp_instance: newSettings.whatsappInstance || null,
                 sector: newSettings.sector || 'genel',
+                manager_pin: newSettings.managerPin || null,
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
 

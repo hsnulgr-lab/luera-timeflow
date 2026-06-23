@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
 import { ModulesProvider } from '@/contexts/ModulesProvider';
+import { ManagerModeProvider } from '@/contexts/ManagerModeProvider';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Layout } from '@/components/layout/Layout';
 import { MobileShell } from '@/mobile/MobileShell';
@@ -73,6 +74,7 @@ function App() {
     <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
+        <ManagerModeProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:slug" element={<BookingPage />} />
@@ -105,6 +107,7 @@ function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ManagerModeProvider>
       </BrowserRouter>
       <Toaster
         position="top-right"
