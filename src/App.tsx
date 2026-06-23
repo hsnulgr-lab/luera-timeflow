@@ -7,6 +7,8 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Layout } from '@/components/layout/Layout';
 import { MobileShell } from '@/mobile/MobileShell';
 import { MobileHome } from '@/mobile/pages/MobileHome';
+import { MobileAdminHome } from '@/mobile/pages/MobileAdminHome';
+import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { MobileCalendar } from '@/mobile/pages/MobileCalendar';
 import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 import { MobileCustomers } from '@/mobile/pages/MobileCustomers';
@@ -56,6 +58,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Veri katmanı (ReservationsProvider) ortak — entegrasyonlar değişmez.
 const RootLayout = () => (useIsMobile() ? <MobileShell /> : <Layout />);
 
+// Mobil ana ekran: yönetici modunda Yönetici Paneli, değilse operasyonel ana sayfa.
+const MobileHomeSwitch = () => {
+  const { isManager } = useManagerMode();
+  return isManager ? <MobileAdminHome /> : <MobileHome />;
+};
+
 // Sayfa seçici: aynı route'ta mobil/masaüstü varyantı arasında geçiş yapar.
 const Adaptive = ({ mobile, desktop }: { mobile: React.ReactNode; desktop: React.ReactNode }) =>
   useIsMobile() ? <>{mobile}</> : <>{desktop}</>;
@@ -93,7 +101,7 @@ function App() {
               </ModulesProvider>
             </ProtectedRoute>
           }>
-            <Route index element={<Adaptive mobile={<MobileHome />} desktop={<DashboardPage />} />} />
+            <Route index element={<Adaptive mobile={<MobileHomeSwitch />} desktop={<DashboardPage />} />} />
             <Route path="calendar" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileCalendar />} desktop={<CalendarPage />} /></ModuleRoute>} />
             <Route path="new" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileNewReservation />} desktop={<Navigate to="/reservations" replace />} /></ModuleRoute>} />
             <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
