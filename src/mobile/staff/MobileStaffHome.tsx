@@ -103,7 +103,7 @@ export const MobileStaffHome = () => {
                             <div key={d.ds} onClick={() => setSelected(d.ds)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 3px 7px', borderRadius: 14, cursor: 'pointer', background: sel ? T.surface : 'transparent', boxShadow: sel ? `0 0 0 1.5px ${T.orange}, 0 0 0 3px rgba(255,90,31,.15)` : 'none' }}>
                                 <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: T.mono, color: sel ? T.orange : T.muted2 }}>{DAY_LETTERS[i]}</div>
                                 <div style={{ fontSize: 17, fontWeight: d.isToday ? 900 : 700, letterSpacing: '-0.03em', color: sel ? T.orange : d.isToday ? T.ink : T.muted, lineHeight: 1 }}>{d.num}</div>
-                                <div style={{ width: 5, height: 5, borderRadius: '50%', background: d.hasEvent ? (sel ? T.orange : 'rgba(243,237,227,.25)') : 'transparent' }} />
+                                <div style={{ width: 5, height: 5, borderRadius: '50%', background: d.hasEvent ? (sel ? T.orange : T.muted2) : 'transparent' }} />
                             </div>
                         );
                     })}
@@ -132,7 +132,7 @@ export const MobileStaffHome = () => {
                                 <div style={{ fontFamily: T.mono, fontSize: 12.5, fontWeight: 800, color: T.muted, lineHeight: 1 }}>{a.startTime}</div>
                                 {i < selAppts.length - 1 && <div style={{ width: 1.5, flex: 1, marginTop: 7, minHeight: 20, background: `linear-gradient(${a.serviceColor || color}66,transparent)` }} />}
                             </div>
-                            <div style={{ flex: 1, background: T.surface, border: '1px solid rgba(243,237,227,.09)', borderRadius: 16, padding: '12px 14px', borderLeft: `3.5px solid ${a.serviceColor || color}` }}>
+                            <div style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '12px 14px', borderLeft: `3.5px solid ${a.serviceColor || color}` }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                                     <div style={{ minWidth: 0 }}>
                                         <div style={{ fontSize: 14, fontWeight: 780, letterSpacing: '-0.01em' }}>{a.customerName}</div>
@@ -155,7 +155,7 @@ export const MobileStaffHome = () => {
                                 {a.status === 'confirmed' && (
                                     <div style={{ display: 'flex', gap: 7, marginTop: 4 }}>
                                         <button onClick={() => updateReservation(a.id, { status: 'completed' })} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Tamamla</button>
-                                        <button onClick={() => setSheetOpen(true)} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: 'rgba(243,237,227,.06)', color: T.muted, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Tahsilat</button>
+                                        <button onClick={() => setSheetOpen(true)} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: T.surface2, color: T.muted, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Tahsilat</button>
                                     </div>
                                 )}
                             </div>
@@ -181,7 +181,7 @@ export const MobileStaffHome = () => {
                             <span style={{ fontSize: 10.5, color: T.muted, fontFamily: T.mono }}>Tamamlama oranı</span>
                             <span style={{ fontSize: 10.5, color: T.orange, fontWeight: 750, fontFamily: T.mono }}>{stats.completionRate}%</span>
                         </div>
-                        <div style={{ height: 4, background: 'rgba(243,237,227,.07)', borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{ height: 4, background: T.surface3, borderRadius: 999, overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${stats.completionRate}%`, background: `linear-gradient(90deg,${T.orange},${T.orangeD})`, borderRadius: 999 }} />
                         </div>
                     </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
+import { ReservationSheet } from '../ReservationSheet';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
 
 const DAY_LETTERS = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P']; // Pzt..Paz
@@ -11,8 +12,10 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 
 export const MobileCalendar = () => {
     const navigate = useNavigate();
-    const { reservations, getReservationsByDate } = useReservations();
+    const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation } = useReservations();
     const [selected, setSelected] = useState(() => toISODate(new Date()));
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const active = useMemo(() => reservations.find((r) => r.id === activeId) ?? null, [reservations, activeId]);
     const sel = useMemo(() => new Date(selected + 'T00:00:00'), [selected]);
     const todayStr = useMemo(() => toISODate(new Date()), []);
 
@@ -62,7 +65,7 @@ export const MobileCalendar = () => {
                     <div key={d.ds} onClick={() => setSelected(d.ds)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '10px 3px 8px', borderRadius: 15, cursor: 'pointer', position: 'relative', background: d.isSelected ? T.surface : 'transparent', transition: 'all .18s', boxShadow: d.isSelected ? `0 0 0 1.5px ${T.orange}, 0 0 0 3.5px rgba(255,90,31,.15), 0 4px 14px rgba(0,0,0,.35)` : 'none' }}>
                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: T.mono, color: d.isSelected ? T.orange : T.muted2 }}>{DAY_LETTERS[i]}</div>
                         <div style={{ fontSize: 18, fontWeight: d.isToday ? 900 : 700, letterSpacing: '-0.03em', color: d.isSelected ? T.orange : d.isToday ? T.ink : T.muted, lineHeight: 1 }}>{d.num}</div>
-                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: d.hasEvent ? (d.isSelected ? T.orange : 'rgba(243,237,227,.25)') : 'transparent' }} />
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: d.hasEvent ? (d.isSelected ? T.orange : T.muted2) : 'transparent' }} />
                     </div>
                 ))}
             </div>
@@ -81,7 +84,7 @@ export const MobileCalendar = () => {
             {/* Timeline */}
             {dayList.length > 0 ? (
                 <div style={{ padding: '0 22px' }}>
-                    {dayList.map((a, i) => <TimelineRow key={a.id} r={a} last={i === dayList.length - 1} onClick={() => navigate('/calendar')} />)}
+                    {dayList.map((a, i) => <TimelineRow key={a.id} r={a} last={i === dayList.length - 1} onClick={() => setActiveId(a.id)} />)}
                 </div>
             ) : (
                 <div style={{ textAlign: 'center', padding: '36px 20px 20px', color: T.muted }}>
@@ -105,6 +108,14 @@ export const MobileCalendar = () => {
                     ))}
                 </div>
             </div>
+
+            <ReservationSheet
+                reservation={active}
+                services={settings.services}
+                onClose={() => setActiveId(null)}
+                onUpdate={updateReservation}
+                onDelete={deleteReservation}
+            />
         </div>
     );
 };
@@ -117,7 +128,7 @@ function TimelineRow({ r, last, onClick }: { r: Reservation; last: boolean; onCl
                 <div style={{ fontFamily: T.mono, fontSize: 12, fontWeight: 700, color: T.muted, lineHeight: 1 }}>{r.startTime}</div>
                 {!last && <div style={{ width: 1.5, flex: 1, marginTop: 8, minHeight: 20, background: `linear-gradient(${ac}99,transparent)` }} />}
             </div>
-            <div onClick={onClick} style={{ flex: 1, background: T.surface, border: `1px solid rgba(243,237,227,.09)`, borderRadius: 16, padding: '12px 13px', display: 'flex', gap: 10, alignItems: 'center', borderLeft: `3.5px solid ${ac}`, cursor: 'pointer' }}>
+            <div onClick={onClick} style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '12px 13px', display: 'flex', gap: 10, alignItems: 'center', borderLeft: `3.5px solid ${ac}`, cursor: 'pointer' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 750, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
                     <div style={{ fontSize: 11.5, color: T.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>

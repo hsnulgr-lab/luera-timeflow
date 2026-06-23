@@ -7,6 +7,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { toISODate } from '@/utils/date';
+import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
 
 function useTicker(target: number, dur = 900, delay = 200) {
@@ -89,6 +90,7 @@ export const MobileAdminHome = () => {
                         <span style={{ fontSize: 10.5, color: T.muted, fontFamily: T.mono }}>Tam Erişim</span>
                     </div>
                 </div>
+                <ThemeToggle />
                 <button onClick={exitManager} aria-label="Yönetici modundan çık" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', color: T.muted, cursor: 'pointer' }}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>

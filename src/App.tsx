@@ -13,6 +13,8 @@ import { MobileCalendar } from '@/mobile/pages/MobileCalendar';
 import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 import { MobileCustomers } from '@/mobile/pages/MobileCustomers';
 import { MobileKasa } from '@/mobile/pages/MobileKasa';
+import { MobileStaff } from '@/mobile/pages/MobileStaff';
+import { MobileSettings } from '@/mobile/pages/MobileSettings';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useModules } from '@/hooks/useModules';
 import type { ModuleKey } from '@/types';
@@ -108,10 +110,10 @@ function App() {
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="masa" element={<ModuleRoute module="masa"><MasaPage /></ModuleRoute>} />
-            <Route path="staff" element={<ModuleRoute module="personel"><StaffPage /></ModuleRoute>} />
+            <Route path="staff" element={<ModuleRoute module="personel"><Adaptive mobile={<MobileStaff />} desktop={<StaffPage />} /></ModuleRoute>} />
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<Adaptive mobile={<MobileSettings />} desktop={<SettingsPage />} />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

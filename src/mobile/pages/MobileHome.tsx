@@ -5,6 +5,7 @@ import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
+import { ThemeToggle } from '../ThemeToggle';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
 
 // Ease-out sayaç animasyonu
@@ -79,12 +80,13 @@ export const MobileHome = () => {
                     <span style={{ fontSize: 13, fontWeight: 750, letterSpacing: '-0.01em' }}>luera timeflow</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
+                    <ThemeToggle />
                     <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                     </button>
                     <button onClick={() => navigate('/reservations')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                        {pendingCount > 0 && <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: '2px solid #120E08' }} />}
+                        {pendingCount > 0 && <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
                     </button>
                 </div>
             </div>
@@ -109,7 +111,7 @@ export const MobileHome = () => {
 
             {/* Progress */}
             <div style={{ padding: '10px 22px 0', display: 'flex', alignItems: 'center', gap: 9 }}>
-                <div style={{ flex: 1, height: 3, background: 'rgba(243,237,227,.07)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{ flex: 1, height: 3, background: T.surface3, borderRadius: 999, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg,${T.orange},${T.orangeD})`, borderRadius: 999, transition: 'width .6s' }} />
                 </div>
                 <span style={{ fontSize: 10, color: T.orange, fontWeight: 800, fontFamily: T.mono, flexShrink: 0 }}>{done}/{total} tamam</span>
@@ -207,13 +209,13 @@ export const MobileHome = () => {
                             </div>
                             <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}><b style={{ color: T.ink }}>{pendingCount} randevu</b> onay bekliyor. Şimdi onaylansın mı?</div>
                         </div>
-                        <button onClick={() => setAiDismissed(true)} style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(243,237,227,.05)', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0, border: 'none', color: T.muted2 }}>
+                        <button onClick={() => setAiDismissed(true)} style={{ width: 22, height: 22, borderRadius: 7, background: T.surface2, display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0, border: 'none', color: T.muted2 }}>
                             <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
                         </button>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => navigate('/reservations')} style={{ flex: 1, height: 38, borderRadius: 11, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>İncele</button>
-                        <button onClick={() => setAiDismissed(true)} style={{ flex: 1, height: 38, borderRadius: 11, background: 'rgba(243,237,227,.06)', color: T.muted, fontSize: 12.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Sonra</button>
+                        <button onClick={() => setAiDismissed(true)} style={{ flex: 1, height: 38, borderRadius: 11, background: T.surface2, color: T.muted, fontSize: 12.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Sonra</button>
                     </div>
                 </div>
             )}

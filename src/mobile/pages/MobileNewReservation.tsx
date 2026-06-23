@@ -217,7 +217,7 @@ export const MobileNewReservation = () => {
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px 0', textAlign: 'center' }}>
                                 {monthGrid.map((c, i) => c === null ? <div key={i} /> : (
-                                    <div key={c.ds} onClick={() => !c.past && (setDate(c.ds), setTime(null))} style={{ position: 'relative', padding: '6px 2px', borderRadius: 10, fontSize: 13, fontWeight: c.today ? 900 : 650, color: c.ds === date ? '#0E0E0E' : c.past ? T.muted2 : c.dow >= 5 ? 'rgba(243,237,227,0.4)' : T.ink, background: c.ds === date ? T.orange : 'transparent', cursor: c.past ? 'default' : 'pointer', transition: 'all .14s' }}>
+                                    <div key={c.ds} onClick={() => !c.past && (setDate(c.ds), setTime(null))} style={{ position: 'relative', padding: '6px 2px', borderRadius: 10, fontSize: 13, fontWeight: c.today ? 900 : 650, color: c.ds === date ? '#0E0E0E' : c.past ? T.muted2 : c.dow >= 5 ? T.muted : T.ink, background: c.ds === date ? T.orange : 'transparent', cursor: c.past ? 'default' : 'pointer', transition: 'all .14s' }}>
                                         {c.d}
                                         {c.today && c.ds !== date && <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: T.orange }} />}
                                     </div>
