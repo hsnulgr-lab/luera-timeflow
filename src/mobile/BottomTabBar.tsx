@@ -7,10 +7,10 @@ import { T } from './theme';
 // İkon path'leri (handoff README)
 const ICONS: Record<string, string> = {
     home: 'M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5ZM9 22V12h6v10',
-    takvim: 'M3 4h18v17a0 0 0 01 3H3V4ZM3 9h18M8 2v3M16 2v3',
+    takvim: 'M3 5h18v16H3V5ZM3 10h18M8 3v3M16 3v3M8 14h1M12 14h1M16 14h1M8 18h1M12 18h1',
     masa: 'M3 9h18M5 9V7a2 2 0 012-2h10a2 2 0 012 2v2M6 9v10M18 9v10M4 14h16',
     mus: 'M8 8a3.5 3.5 0 100-7 3.5 3.5 0 000 7ZM2 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 6a3 3 0 010 6M19 20c0-3-1.5-5.2-3.5-6',
-    kasa: 'M2.5 6h19v13a0 0 0 01 2.5H2.5V6ZM2.5 11h19',
+    kasa: 'M3 8h18M3 8a2 2 0 00-2 2v9a2 2 0 002 2h18a2 2 0 002-2v-9a2 2 0 00-2-2M3 8V6a2 2 0 012-2h14a2 2 0 012 2v2M16 14a2 2 0 11-4 0 2 2 0 014 0Z',
     analiz: 'M4 20V10M10 20V4M16 20v-7M3 20h18',
 };
 
