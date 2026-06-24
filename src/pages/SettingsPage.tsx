@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard } from 'lucide-react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { BillingTab } from '@/components/settings/BillingTab';
@@ -298,6 +298,7 @@ export const SettingsPage = () => {
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [sector, setSector]             = useState(settings.sector || 'genel');
   const [managerPinInput, setManagerPinInput] = useState('');
+  const [loyaltyReward, setLoyaltyReward] = useState(settings.loyaltyReward || 'Ücretsiz hizmet');
   const [saved, setSaved]               = useState(false);
   const [uploading, setUploading]       = useState<string|null>(null);
 
@@ -422,6 +423,40 @@ export const SettingsPage = () => {
                   style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', letterSpacing:'.3em' }}/>
                 <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Mobil uygulamada "Yönetici Girişi" bu PIN ile açılır; ciro ve tam erişim görünür. {settings.managerPin?'Tanımlı — boş bırakırsan korunur.':'Henüz tanımlı değil.'}</div>
               </div>
+              {/* ── Dijital Müşteri Kartı (sadakat) ── */}
+              <div style={{ marginBottom:'22px', padding:'16px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                  <div>
+                    <div style={{ fontSize:'13.5px', fontWeight:700, color:T.ink, display:'flex', alignItems:'center', gap:7 }}>
+                      <Gift size={15} color={T.orange}/> Dijital Müşteri Kartı
+                    </div>
+                    <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>"{settings.loyaltyThreshold ?? 10} gelişte 1 {settings.loyaltyReward || 'ödül'}" — her tamamlanan randevu 1 damga.</div>
+                  </div>
+                  <button onClick={()=>updateSettings({...settings, loyaltyEnabled: !(settings.loyaltyEnabled)})}
+                    style={{ width:46, height:28, borderRadius:999, background:settings.loyaltyEnabled?T.orange:T.surface3, position:'relative', border:'none', cursor:'pointer', flexShrink:0, transition:'background .18s' }}>
+                    <span style={{ position:'absolute', top:3, left:settings.loyaltyEnabled?21:3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .18s' }}/>
+                  </button>
+                </div>
+                {settings.loyaltyEnabled && (
+                  <div style={{ display:'flex', gap:12, marginTop:14 }}>
+                    <div style={{ width:140 }}>
+                      <FieldLabel>Eşik (ziyaret)</FieldLabel>
+                      <select value={settings.loyaltyThreshold ?? 10} onChange={e=>updateSettings({...settings, loyaltyThreshold:parseInt(e.target.value)})}
+                        style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
+                        {[5,6,8,10,12,15,20].map(n=><option key={n} value={n}>{n} ziyaret</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <FieldLabel>Ödül</FieldLabel>
+                      <input value={loyaltyReward} onChange={e=>setLoyaltyReward(e.target.value)}
+                        onBlur={()=>updateSettings({...settings, loyaltyReward:loyaltyReward.trim()||'Ücretsiz hizmet'})}
+                        placeholder="Örn. Ücretsiz tıraş"
+                        style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px 16px', background:'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.15)', borderRadius:T.rSm }}>
                 <Bell size={16} color={T.orange} style={{ flexShrink:0, marginTop:1 }}/>
                 <div>

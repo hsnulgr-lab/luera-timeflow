@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Search, Phone, MessageCircle, Plus } from 'lucide-react';
+import { Search, Phone, MessageCircle, Plus, Gift } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useReservations } from '@/hooks/useReservations';
 import { formatDateEU } from '@/utils/date';
 import type { Customer } from '@/types';
 import { NewCustomerSheet } from '../NewCustomerSheet';
@@ -14,7 +15,9 @@ function waLink(phone: string): string {
 }
 
 export const MobileCustomers = () => {
-    const { customers, allCustomers, searchQuery, setSearchQuery } = useCustomers();
+    const { customers, allCustomers, searchQuery, setSearchQuery, redeemLoyalty } = useCustomers();
+    const { settings } = useReservations();
+    const loyalty = settings.loyaltyEnabled ? { thr: settings.loyaltyThreshold ?? 10, reward: settings.loyaltyReward || 'Ücretsiz hizmet' } : null;
     const [sheetOpen, setSheetOpen] = useState(false);
     const totalVisits = useMemo(() => allCustomers.reduce((s, c) => s + c.totalReservations, 0), [allCustomers]);
 
@@ -42,7 +45,7 @@ export const MobileCustomers = () => {
                         {searchQuery ? 'Eşleşen müşteri yok' : 'Henüz müşteri yok'}
                     </div>
                 )}
-                {customers.map((c) => <CustomerRow key={c.id} c={c} />)}
+                {customers.map((c) => <CustomerRow key={c.id} c={c} loyalty={loyalty} onRedeem={redeemLoyalty} />)}
             </div>
 
             <NewCustomerSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
@@ -50,17 +53,27 @@ export const MobileCustomers = () => {
     );
 };
 
-function CustomerRow({ c }: { c: Customer }) {
+function CustomerRow({ c, loyalty, onRedeem }: { c: Customer; loyalty: { thr: number; reward: string } | null; onRedeem: (id: string, thr: number) => void }) {
     const color = avatarColor(c.name);
+    const stamps = c.loyaltyStamps ?? 0;
+    const ready = loyalty ? stamps >= loyalty.thr : false;
+    const inCard = loyalty ? stamps % loyalty.thr : 0;
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, background: T.surface, border: `1px solid ${T.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, background: T.surface, border: `1px solid ${ready ? 'rgba(255,90,31,.35)' : T.border}` }}>
             <span style={{ width: 44, height: 44, borderRadius: '50%', background: color, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 800, color: '#0E0E0E', flexShrink: 0 }}>{(c.name || '?').charAt(0).toUpperCase()}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</p>
                 <p style={{ fontSize: 12, color: T.muted, fontFamily: T.mono, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.phone || 'telefon yok'}</p>
-                <div style={{ marginTop: 4, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontWeight: 700, color: T.ink }}>{c.totalReservations}</span> randevu
+                <div style={{ marginTop: 4, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span><span style={{ fontWeight: 700, color: T.ink }}>{c.totalReservations}</span> randevu</span>
                     {c.lastVisit && <span>· son {formatDateEU(c.lastVisit)}</span>}
+                    {loyalty && !ready && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: T.muted }}><Gift size={10} /> {inCard}/{loyalty.thr}</span>}
+                    {loyalty && ready && (
+                        <button onClick={() => { if (confirm(`${c.name} için ödülü kullan? (${loyalty.reward})`)) onRedeem(c.id, loyalty.thr); }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,90,31,.14)', border: '1px solid rgba(255,90,31,.3)', color: T.orange, fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                            <Gift size={10} /> Ödül hazır
+                        </button>
+                    )}
                 </div>
             </div>
             {c.phone && (

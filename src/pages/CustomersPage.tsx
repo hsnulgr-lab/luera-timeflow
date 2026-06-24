@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package } from 'lucide-react';
+import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
@@ -56,7 +56,7 @@ export const CustomersPage = () => {
     cancelled: 'rgba(14,14,14,0.18)',
   };
 
-  const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer } = useCustomers();
+  const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer, redeemLoyalty } = useCustomers();
   const { reservations, settings } = useReservations();
   const { forCustomer: pkgsForCustomer, addPackage, removePackage } = useCustomerPackages();
   const { totalForCustomer } = usePayments();
@@ -305,6 +305,38 @@ export const CustomersPage = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Sadakat kartı */}
+                {settings.loyaltyEnabled && (() => {
+                  const thr = settings.loyaltyThreshold ?? 10;
+                  const stamps = selected.loyaltyStamps ?? 0;
+                  const inCard = stamps % thr;
+                  const ready = stamps >= thr;
+                  return (
+                    <div style={{ padding:'16px 22px', borderBottom:`1px solid ${T.border}` }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'11px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>
+                          <Gift size={11}/> Sadakat Kartı
+                        </div>
+                        <span style={{ fontSize:'11px', fontWeight:700, color:ready?T.orange:T.muted, fontFamily:"'JetBrains Mono',monospace" }}>{ready?`${Math.floor(stamps/thr)} ödül hazır`:`${inCard}/${thr}`}</span>
+                      </div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom: ready?'11px':0 }}>
+                        {Array.from({length:thr}).map((_,i)=>{
+                          const filled = i < (ready ? thr : inCard);
+                          return <div key={i} style={{ width:24, height:24, borderRadius:'50%', display:'grid', placeItems:'center', background:filled?'rgba(255,90,31,0.14)':T.surface2, border:`1.5px solid ${filled?T.orange:T.border2}` }}>
+                            {filled ? <Gift size={11} color={T.orange}/> : <span style={{ fontSize:'9px', color:T.muted2, fontWeight:700 }}>{i+1}</span>}
+                          </div>;
+                        })}
+                      </div>
+                      {ready && (
+                        <button onClick={()=>redeemLoyalty(selected.id, thr)}
+                          style={{ width:'100%', padding:'9px', borderRadius:T.rSm, border:'none', background:T.orange, color:'#fff', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                          <Gift size={13}/> Ödülü Kullan ({settings.loyaltyReward || 'Ücretsiz hizmet'})
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Contact */}
                 <div style={{ padding:'16px 22px', borderBottom:`1px solid ${T.border}` }}>

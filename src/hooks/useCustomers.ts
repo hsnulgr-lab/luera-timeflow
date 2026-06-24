@@ -13,6 +13,7 @@ function mapDbCustomer(row: any): Customer {
         totalReservations: row.total_reservations || 0,
         lastVisit: row.last_visit || undefined,
         notes: row.notes || '',
+        loyaltyStamps: row.loyalty_stamps ?? 0,
         createdAt: row.created_at,
     };
 }
@@ -182,6 +183,18 @@ export function useCustomers() {
         toast.success('Müşteri arşivlendi');
     }, []);
 
+    // ─── Sadakat ödülü kullan (damgayı eşik kadar düşür) ─────────────────────
+    const redeemLoyalty = useCallback(async (id: string, threshold: number) => {
+        const cust = customers.find(c => c.id === id);
+        const current = cust?.loyaltyStamps ?? 0;
+        if (current < threshold) { toast.error('Yeterli damga yok'); return; }
+        const next = current - threshold;
+        const { error } = await supabase.from('customers').update({ loyalty_stamps: next }).eq('id', id);
+        if (error) { toast.error('Ödül kullanılamadı'); console.error(error); return; }
+        setCustomers(prev => prev.map(c => c.id === id ? { ...c, loyaltyStamps: next } : c));
+        toast.success('Ödül kullanıldı 🎉');
+    }, [customers]);
+
     // ─── Arama filtresi (memoized) ───────────────────────────────────────────
     const filteredCustomers = useMemo(() => {
         if (!searchQuery) return customers;
@@ -201,6 +214,7 @@ export function useCustomers() {
         addCustomer,
         updateCustomer,
         deleteCustomer,
+        redeemLoyalty,
         isLoading,
         refetch: () => { if (orgId) fetchCustomers(orgId); },
     };

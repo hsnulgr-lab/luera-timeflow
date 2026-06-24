@@ -32,6 +32,7 @@ export interface Customer {
     totalReservations: number;
     lastVisit?: string;
     notes?: string;
+    loyaltyStamps?: number;   // Dijital müşteri kartı — biriken damga
     createdAt: string;
 }
 
@@ -60,6 +61,9 @@ export interface Settings {
     whatsappInstance?: string;
     sector?: string;
     managerPin?: string;   // Mobil Yönetici Modu girişi (SHA-256 hash; opsiyonel)
+    loyaltyEnabled?: boolean;    // Dijital müşteri kartı açık mı
+    loyaltyThreshold?: number;   // Kaç ziyarette 1 ödül (vars. 10)
+    loyaltyReward?: string;      // Ödül metni (vars. "Ücretsiz hizmet")
 }
 
 export interface Staff {

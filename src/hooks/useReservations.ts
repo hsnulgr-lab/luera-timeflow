@@ -185,6 +185,9 @@ function useReservationsState() {
                 whatsappInstance: settingsData.whatsapp_instance || undefined,
                 sector: settingsData.sector || 'genel',
                 managerPin: settingsData.manager_pin || undefined,
+                loyaltyEnabled: settingsData.loyalty_enabled ?? false,
+                loyaltyThreshold: settingsData.loyalty_threshold ?? 10,
+                loyaltyReward: settingsData.loyalty_reward || 'Ücretsiz hizmet',
             });
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
@@ -445,6 +448,9 @@ function useReservationsState() {
                 whatsapp_instance: newSettings.whatsappInstance || null,
                 sector: newSettings.sector || 'genel',
                 manager_pin: newSettings.managerPin || null,
+                loyalty_enabled: newSettings.loyaltyEnabled ?? false,
+                loyalty_threshold: newSettings.loyaltyThreshold ?? 10,
+                loyalty_reward: newSettings.loyaltyReward || 'Ücretsiz hizmet',
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
 
