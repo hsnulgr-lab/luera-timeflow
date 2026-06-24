@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft } from 'lucide-react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
+import { BillingTab } from '@/components/settings/BillingTab';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
 import { MODULE_META } from '@/lib/modules';
@@ -281,7 +282,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 }
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp';
+type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp'|'billing';
 
 export const SettingsPage = () => {
   const { T, dark } = useT();
@@ -340,6 +341,7 @@ export const SettingsPage = () => {
     {id:'booking',      label:'Booking Sayfam',   icon:Link2       },
     {id:'webhooks',     label:'Webhook',           icon:Globe       },
     {id:'whatsapp',     label:'WhatsApp',          icon:MessageCircle},
+    {id:'billing',      label:'Faturalandırma',   icon:CreditCard  },
     {id:'integrations', label:'Entegrasyonlar',   icon:Puzzle      },
   ];
 
@@ -627,6 +629,8 @@ export const SettingsPage = () => {
 
           {/* ── WhatsApp ── */}
           {activeTab==='whatsapp' && <WhatsAppTab/>}
+
+          {activeTab==='billing' && <BillingTab/>}
 
           {/* ── Entegrasyonlar ── */}
           {activeTab==='integrations' && (
