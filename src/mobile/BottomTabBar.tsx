@@ -16,10 +16,10 @@ const ICONS: Record<string, string> = {
 
 interface Tab { id: string; label: string; icon: string; module?: ModuleKey; prio: number }
 
-// Bar'da yalnızca 4 yan slot var (FAB ortada). 5+ modül açıkken hangilerinin
-// kalacağını PRIO belirler (küçük = öncelikli). Kasa (finans) hiç düşmesin diye
-// Masa'dan önce gelir; Masa yalnızca boş slot varsa (örn. randevu kapalıyken)
-// görünür. Seçilenler sonra doğal bar sırasına göre dizilir.
+// Bar kapasitesi: ortada FAB varken 4 yan sekme; 5 modül açıkken FAB gizlenir
+// ve 5 sekme tam gösterilir (hiçbiri düşmez). 5'ten fazlaysa (Yönetici+Analiz)
+// PRIO ile en düşük öncelikli (Analiz — Yönetim grid'inde zaten var) elenir.
+// Gösterilenler her zaman doğal bar sırasına göre dizilir.
 const BAR_ORDER = ['/', '/calendar', '/masa', '/customers', '/kasa', '/analytics'];
 
 export const BottomTabBar = () => {
@@ -38,14 +38,19 @@ export const BottomTabBar = () => {
         { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa', prio: 4 },
         ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey, prio: 5 }] : []),
     ];
-    const sideTabs = candidates
-        .filter((t) => !t.module || isEnabled(t.module))
-        .sort((a, b) => a.prio - b.prio)
-        .slice(0, 4)
-        .sort((a, b) => BAR_ORDER.indexOf(a.id) - BAR_ORDER.indexOf(b.id));
-    const mid = Math.ceil(sideTabs.length / 2);
-    const left = sideTabs.slice(0, mid);
-    const right = sideTabs.slice(mid);
+    const byBarOrder = (a: Tab, b: Tab) => BAR_ORDER.indexOf(a.id) - BAR_ORDER.indexOf(b.id);
+    const enabledTabs = candidates.filter((t) => !t.module || isEnabled(t.module)).sort(byBarOrder);
+
+    // ≤4 sekme → FAB göster (4 yan slot). 5+ sekme → FAB gizle, en fazla 5 sekme.
+    const useFab = enabledTabs.length <= 4;
+    const cap = useFab ? 4 : 5;
+    const shown = enabledTabs.length <= cap
+        ? enabledTabs
+        : [...enabledTabs].sort((a, b) => a.prio - b.prio).slice(0, cap).sort(byBarOrder);
+
+    const mid = Math.ceil(shown.length / 2);
+    const left = shown.slice(0, mid);
+    const right = shown.slice(mid);
 
     // FAB hedefi: randevu varsa yeni randevu, yoksa masa, yoksa kasa, o da yoksa müşteri
     const fabTarget = isEnabled('randevu') ? '/new' : isEnabled('masa') ? '/masa' : isEnabled('kasa') ? '/kasa' : '/customers';
@@ -68,15 +73,21 @@ export const BottomTabBar = () => {
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-start"
             style={{ height: 82, paddingTop: 10, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', background: T.surface, borderTop: `1px solid ${T.border}` }}>
-            {left.map(renderTab)}
-            <div className="flex flex-1 items-center justify-center" style={{ marginTop: -6 }}>
-                <button type="button" aria-label="Yeni randevu" onClick={() => navigate(fabTarget)}
-                    className="grid place-items-center transition-transform active:scale-95"
-                    style={{ width: 52, height: 52, borderRadius: 17, background: T.orange, boxShadow: '0 6px 22px rgba(255,90,31,.40), 0 0 0 1.5px rgba(255,90,31,.6)' }}>
-                    <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#0E0E0E" strokeWidth="2.4" strokeLinecap="round" /></svg>
-                </button>
-            </div>
-            {right.map(renderTab)}
+            {useFab ? (
+                <>
+                    {left.map(renderTab)}
+                    <div className="flex flex-1 items-center justify-center" style={{ marginTop: -6 }}>
+                        <button type="button" aria-label="Yeni randevu" onClick={() => navigate(fabTarget)}
+                            className="grid place-items-center transition-transform active:scale-95"
+                            style={{ width: 52, height: 52, borderRadius: 17, background: T.orange, boxShadow: '0 6px 22px rgba(255,90,31,.40), 0 0 0 1.5px rgba(255,90,31,.6)' }}>
+                            <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#0E0E0E" strokeWidth="2.4" strokeLinecap="round" /></svg>
+                        </button>
+                    </div>
+                    {right.map(renderTab)}
+                </>
+            ) : (
+                shown.map(renderTab)
+            )}
         </nav>
     );
 };
