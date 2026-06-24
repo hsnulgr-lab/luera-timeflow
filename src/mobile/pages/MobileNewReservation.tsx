@@ -25,7 +25,7 @@ function waLink(phone: string): string {
 
 export const MobileNewReservation = () => {
     const navigate = useNavigate();
-    const { reservations, settings, addReservation } = useReservations();
+    const { settings, addReservation, checkConflict } = useReservations();
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
     const activeStaff = useMemo(() => staff.filter((s) => s.isActive), [staff]);
@@ -45,24 +45,32 @@ export const MobileNewReservation = () => {
 
     const selStaff = activeStaff[staffIdx];
 
-    // Saat slotları + dolu kontrolü — yalnızca SEÇİLİ personelin o günkü randevuları
-    // doluluğu belirler; personel değişince yeniden hesaplanır. (staffId yoksa
-    // tek-kaynak salon kabulüyle gün geneli sayılır.)
+    // Saat slotları — süre-bazlı çakışma + çalışma saatleri + geçmiş saat:
+    //  • Hizmet süresi kadar yer açılmalı (çakışma = interval overlap)
+    //  • Yalnızca seçili personelin randevuları doluluğu belirler (checkConflict)
+    //  • O günün çalışma saatleri dışına taşan / kapalı gün slot üretmez
+    //  • Bugünse geçmiş saatler dolu (seçilemez)
     const slots = useMemo(() => {
         const out: { t: string; avail: boolean }[] = [];
-        const staffId = selStaff?.id;
-        const taken = new Set(
-            reservations
-                .filter((r) => r.date === date && r.status !== 'cancelled' && (staffId ? r.staffId === staffId : true))
-                .map((r) => r.startTime)
-        );
+        const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+        const dur = svc?.duration || settings.slotDuration || 30;
         const step = settings.slotDuration || 30;
-        for (let m = 9 * 60; m <= 18 * 60; m += step) {
+        const wd = new Date(date + 'T00:00:00').getDay();
+        const wh = settings.workingHours?.find((w) => w.day === wd);
+        if (wh?.isOff) return out; // kapalı gün
+        const dayStart = wh ? toMin(wh.start) : 9 * 60;
+        const dayEnd = wh ? toMin(wh.end) : 18 * 60;
+        const todayIso = toISODate(new Date());
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        for (let m = dayStart; m + dur <= dayEnd; m += step) {
             const t = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-            out.push({ t, avail: !taken.has(t) });
+            const isPast = date === todayIso && m < nowMin;
+            const conflict = checkConflict(date, t, addMinutes(t, dur), undefined, selStaff?.id);
+            out.push({ t, avail: !isPast && !conflict });
         }
         return out;
-    }, [reservations, date, settings.slotDuration, selStaff?.id]);
+    }, [date, svc?.duration, settings.slotDuration, settings.workingHours, selStaff?.id, checkConflict]);
 
     // Ay grid'i
     const monthGrid = useMemo(() => {
@@ -91,6 +99,14 @@ export const MobileNewReservation = () => {
     const handleNext = async () => {
         if (step < 3) { setStep((s) => s + 1); return; }
         if (!svc || !time) return;
+        // Son an çakışma kontrolü — bu sırada başka randevu eklenmiş olabilir
+        const clash = checkConflict(date, time, addMinutes(time, svc.duration), undefined, selStaff?.id);
+        if (clash) {
+            toast.error(`Bu saat ${selStaff?.name || 'personel'} için dolu (${clash.startTime}–${clash.endTime}). Lütfen başka saat seçin.`);
+            setTime(null);
+            setStep(1);
+            return;
+        }
         setSaving(true);
         const res = await addReservation({
             customerId: cust?.id || '',
@@ -233,17 +249,24 @@ export const MobileNewReservation = () => {
                         </div>
 
                         <Label>Müsait Saatler · {dObj.getDate()} {MONTHS[dObj.getMonth()]}</Label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
-                            {slots.map((s) => {
-                                const on = time === s.t;
-                                return (
-                                    <div key={s.t} onClick={() => s.avail && setTime(s.t)} style={{ padding: '11px 4px', background: !s.avail ? T.surface3 : on ? 'rgba(255,90,31,.1)' : T.surface, border: `1.5px solid ${on ? T.orange : s.avail ? T.border : 'transparent'}`, borderRadius: 13, textAlign: 'center', fontFamily: T.mono, fontSize: 12.5, fontWeight: 750, color: !s.avail ? T.muted2 : on ? T.orange : T.ink, cursor: s.avail ? 'pointer' : 'not-allowed', transition: 'all .14s' }}>
-                                        {s.t}
-                                        {!s.avail && <div style={{ fontSize: 8, color: T.muted2, fontFamily: T.mono, marginTop: 1 }}>dolu</div>}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        {slots.length === 0 ? (
+                            <div style={{ padding: '20px 16px', textAlign: 'center', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 15, fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
+                                Bu gün için uygun saat yok.<br />Çalışma saatleri kapalı olabilir veya hizmet süresi sığmıyor.
+                            </div>
+                        ) : slots.every((s) => !s.avail) ? (
+                            <>
+                                <div style={{ padding: '14px 16px', marginBottom: 10, textAlign: 'center', background: 'rgba(224,168,78,.10)', border: '1px solid rgba(224,168,78,.25)', borderRadius: 14, fontSize: 12.5, color: T.amber, fontWeight: 700 }}>
+                                    {selStaff ? `${selStaff.name} bu gün dolu` : 'Bu gün dolu'} — başka gün/personel seçin
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
+                                    {slots.map((s) => <SlotTile key={s.t} s={s} on={time === s.t} onPick={() => s.avail && setTime(s.t)} />)}
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
+                                {slots.map((s) => <SlotTile key={s.t} s={s} on={time === s.t} onPick={() => s.avail && setTime(s.t)} />)}
+                            </div>
+                        )}
 
                         {activeStaff.length > 0 && (
                             <>
@@ -366,4 +389,13 @@ export const MobileNewReservation = () => {
 
 function Label({ children }: { children: React.ReactNode }) {
     return <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 13 }}>{children}</div>;
+}
+
+function SlotTile({ s, on, onPick }: { s: { t: string; avail: boolean }; on: boolean; onPick: () => void }) {
+    return (
+        <div onClick={onPick} style={{ padding: '11px 4px', background: !s.avail ? T.surface3 : on ? 'rgba(255,90,31,.1)' : T.surface, border: `1.5px solid ${on ? T.orange : s.avail ? T.border : 'transparent'}`, borderRadius: 13, textAlign: 'center', fontFamily: T.mono, fontSize: 12.5, fontWeight: 750, color: !s.avail ? T.muted2 : on ? T.orange : T.ink, cursor: s.avail ? 'pointer' : 'not-allowed', transition: 'all .14s' }}>
+            {s.t}
+            {!s.avail && <div style={{ fontSize: 8, color: T.muted2, fontFamily: T.mono, marginTop: 1 }}>dolu</div>}
+        </div>
+    );
 }
