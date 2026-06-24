@@ -45,17 +45,24 @@ export const MobileNewReservation = () => {
 
     const selStaff = activeStaff[staffIdx];
 
-    // Saat slotları + dolu kontrolü
+    // Saat slotları + dolu kontrolü — yalnızca SEÇİLİ personelin o günkü randevuları
+    // doluluğu belirler; personel değişince yeniden hesaplanır. (staffId yoksa
+    // tek-kaynak salon kabulüyle gün geneli sayılır.)
     const slots = useMemo(() => {
         const out: { t: string; avail: boolean }[] = [];
-        const taken = new Set(reservations.filter((r) => r.date === date && r.status !== 'cancelled').map((r) => r.startTime));
+        const staffId = selStaff?.id;
+        const taken = new Set(
+            reservations
+                .filter((r) => r.date === date && r.status !== 'cancelled' && (staffId ? r.staffId === staffId : true))
+                .map((r) => r.startTime)
+        );
         const step = settings.slotDuration || 30;
         for (let m = 9 * 60; m <= 18 * 60; m += step) {
             const t = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
             out.push({ t, avail: !taken.has(t) });
         }
         return out;
-    }, [reservations, date, settings.slotDuration]);
+    }, [reservations, date, settings.slotDuration, selStaff?.id]);
 
     // Ay grid'i
     const monthGrid = useMemo(() => {
@@ -245,7 +252,7 @@ export const MobileNewReservation = () => {
                                     {activeStaff.slice(0, 3).map((p, i) => {
                                         const on = staffIdx === i;
                                         return (
-                                            <div key={p.id} onClick={() => setStaffIdx(i)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: 'pointer', transition: 'all .15s' }}>
+                                            <div key={p.id} onClick={() => { setStaffIdx(i); setTime(null); }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: 'pointer', transition: 'all .15s' }}>
                                                 <div style={{ position: 'relative' }}>
                                                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color || avatarColor(p.name), display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 850, color: '#0E0E0E' }}>{p.name[0]?.toUpperCase()}</div>
                                                     <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: T.green, border: `2px solid ${T.surface}` }} />
