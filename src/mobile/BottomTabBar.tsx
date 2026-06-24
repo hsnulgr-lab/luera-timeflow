@@ -14,7 +14,13 @@ const ICONS: Record<string, string> = {
     analiz: 'M4 20V10M10 20V4M16 20v-7M3 20h18',
 };
 
-interface Tab { id: string; label: string; icon: string; module?: ModuleKey }
+interface Tab { id: string; label: string; icon: string; module?: ModuleKey; prio: number }
+
+// Bar'da yalnızca 4 yan slot var (FAB ortada). 5+ modül açıkken hangilerinin
+// kalacağını PRIO belirler (küçük = öncelikli). Kasa (finans) hiç düşmesin diye
+// Masa'dan önce gelir; Masa yalnızca boş slot varsa (örn. randevu kapalıyken)
+// görünür. Seçilenler sonra doğal bar sırasına göre dizilir.
+const BAR_ORDER = ['/', '/calendar', '/masa', '/customers', '/kasa', '/analytics'];
 
 export const BottomTabBar = () => {
     const navigate = useNavigate();
@@ -22,17 +28,21 @@ export const BottomTabBar = () => {
     const { isEnabled } = useModules();
     const { isManager } = useManagerMode();
 
-    // Aday sekmeler — core (module yok) + açık modüller; en fazla 4 yan sekme
-    // Analiz finansal olduğu için sadece Yönetici modunda görünür.
+    // Aday sekmeler — core (module yok) + açık modüller. Analiz finansal olduğu
+    // için sadece Yönetici modunda görünür.
     const candidates: Tab[] = [
-        { id: '/', label: 'Ana', icon: ICONS.home },
-        { id: '/calendar', label: 'Takvim', icon: ICONS.takvim, module: 'randevu' },
-        { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa' },
-        { id: '/customers', label: 'Müşteri', icon: ICONS.mus },
-        { id: '/kasa', label: 'Kasa', icon: ICONS.kasa, module: 'kasa' },
-        ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey }] : []),
+        { id: '/', label: 'Ana', icon: ICONS.home, prio: 0 },
+        { id: '/kasa', label: 'Kasa', icon: ICONS.kasa, module: 'kasa', prio: 1 },
+        { id: '/customers', label: 'Müşteri', icon: ICONS.mus, prio: 2 },
+        { id: '/calendar', label: 'Takvim', icon: ICONS.takvim, module: 'randevu', prio: 3 },
+        { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa', prio: 4 },
+        ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey, prio: 5 }] : []),
     ];
-    const sideTabs = candidates.filter((t) => !t.module || isEnabled(t.module)).slice(0, 4);
+    const sideTabs = candidates
+        .filter((t) => !t.module || isEnabled(t.module))
+        .sort((a, b) => a.prio - b.prio)
+        .slice(0, 4)
+        .sort((a, b) => BAR_ORDER.indexOf(a.id) - BAR_ORDER.indexOf(b.id));
     const mid = Math.ceil(sideTabs.length / 2);
     const left = sideTabs.slice(0, mid);
     const right = sideTabs.slice(mid);

@@ -12,7 +12,7 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 
 export const MobileCalendar = () => {
     const navigate = useNavigate();
-    const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation } = useReservations();
+    const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation, checkConflict } = useReservations();
     const [selected, setSelected] = useState(() => toISODate(new Date()));
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = useMemo(() => reservations.find((r) => r.id === activeId) ?? null, [reservations, activeId]);
@@ -115,6 +115,7 @@ export const MobileCalendar = () => {
                 onClose={() => setActiveId(null)}
                 onUpdate={updateReservation}
                 onDelete={deleteReservation}
+                checkConflict={checkConflict}
             />
         </div>
     );

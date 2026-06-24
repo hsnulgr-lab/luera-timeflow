@@ -19,12 +19,13 @@ const STATUSES: ReservationStatus[] = ['pending', 'confirmed', 'completed', 'can
 
 // Randevu detay + düzenle. Yönetici ve operatör ortak kullanır; düzenleme alanları
 // updateReservation/deleteReservation ile mevcut veri katmanına bağlanır.
-export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete }: {
+export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete, checkConflict }: {
     reservation: Reservation | null;
     services: Service[];
     onClose: () => void;
     onUpdate: (id: string, updates: Partial<Reservation>) => Promise<void> | void;
     onDelete: (id: string) => Promise<void> | void;
+    checkConflict?: (date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string) => Reservation | null;
 }) {
     const [edit, setEdit] = useState(false);
     const [date, setDate] = useState('');
@@ -50,13 +51,20 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
 
     const saveEdit = async () => {
         if (!service.trim()) { toast.error('Hizmet seçin'); return; }
-        setSaving(true);
         const svc = services.find((x) => x.name === service);
         const dur = svc?.duration ?? 30;
+        const end = addMinutes(start, dur);
+        // Çakışma kontrolü — kendi randevusu hariç, aynı personel için
+        const clash = checkConflict?.(date, start, end, r.id, r.staffId);
+        if (clash) {
+            toast.error(`Bu saat ${r.staffName || 'personel'} için dolu (${clash.startTime}–${clash.endTime}). Başka saat seçin.`);
+            return;
+        }
+        setSaving(true);
         await onUpdate(r.id, {
             date,
             startTime: start,
-            endTime: addMinutes(start, dur),
+            endTime: end,
             service,
             serviceColor: svc?.color ?? r.serviceColor,
             notes: notes.trim(),
