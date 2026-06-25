@@ -173,7 +173,7 @@ export const MobileNewReservation = () => {
     return (
         <div style={{ position: 'relative', height: '100%', background: T.bg, color: T.ink, display: 'flex', flexDirection: 'column' }}>
             {/* Sticky header */}
-            <div style={{ padding: '14px 20px 14px', background: `${T.bg}f0`, backdropFilter: 'blur(12px)' }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 20px 14px', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                     {step > 0 ? (
                         <button onClick={back} style={{ width: 36, height: 36, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0, color: T.muted }}>

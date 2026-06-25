@@ -75,7 +75,7 @@ export const MobileStaff = () => {
     return (
         <div style={{ color: T.ink, paddingBottom: 20 }}>
             {/* Header */}
-            <div style={{ padding: '14px 22px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <button onClick={() => navigate('/')} aria-label="Geri" style={backBtn}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>

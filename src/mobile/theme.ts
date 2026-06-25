@@ -59,8 +59,12 @@ export function applyMobileThemeVars(dark: boolean) {
     for (const k in vars) root.style.setProperty(k, vars[k]);
     // Native form kontrolleri (time/date picker, spinner) tema ile uyumlu olsun
     root.style.setProperty('--lt-scheme', dark ? 'dark' : 'light');
-    // PWA durum çubuğu rengi tema ile uyumlu (içerik bara denk gelmesin + renk uyumu)
+    // PWA durum çubuğu rengi tema ile uyumlu olsun:
     const bg = vars['--lt-bg'];
+    // 1) html/body arka planı tema rengi (status bar bölgesi/overscroll beyaz kalmasın)
+    root.style.backgroundColor = bg;
+    if (document.body) document.body.style.backgroundColor = bg;
+    // 2) theme-color meta (Android standalone status bar zemini)
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
     if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
     meta.content = bg;

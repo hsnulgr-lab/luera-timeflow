@@ -84,7 +84,7 @@ export const MobileAdminHome = () => {
     return (
         <div style={{ color: T.ink, paddingBottom: 16 }}>
             {/* Header */}
-            <div style={{ padding: '14px 22px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <div style={{ width: 42, height: 42, borderRadius: 14, background: 'linear-gradient(135deg,#C98BDB,#9B5FB8)', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{(user?.name || 'Y').charAt(0).toUpperCase()}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.025em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Yönetici'}</div>

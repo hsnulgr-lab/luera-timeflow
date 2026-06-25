@@ -31,8 +31,8 @@ export const MobileKasa = () => {
     const methods: PaymentMethod[] = ['cash', 'card', 'transfer', 'other'];
 
     return (
-        <div style={{ padding: '14px 22px 0', color: T.ink }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ color: T.ink, paddingBottom: 24 }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <div>
                     <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em' }}>Kasa</h1>
                     <p style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{payments.length} işlem</p>
@@ -41,6 +41,7 @@ export const MobileKasa = () => {
                     <Plus size={18} strokeWidth={2.5} /> Tahsilat
                 </button>
             </div>
+            <div style={{ padding: '0 22px' }}>
 
             {/* Bugün */}
             <div style={{ marginTop: 20, borderRadius: 20, padding: 20, background: 'linear-gradient(145deg,rgba(255,90,31,.10),rgba(255,90,31,.02))', border: '1px solid rgba(255,90,31,.20)' }}>
@@ -72,6 +73,8 @@ export const MobileKasa = () => {
                     <div style={{ borderRadius: 16, padding: 24, textAlign: 'center', background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 13 }}>Henüz tahsilat kaydı yok</div>
                 )}
                 {recent.map((p) => <PaymentRow key={p.id} p={p} name={custName(p.customerId)} />)}
+            </div>
+
             </div>
 
             <TahsilatSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />

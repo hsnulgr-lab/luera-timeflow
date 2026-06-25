@@ -22,8 +22,8 @@ export const MobileCustomers = () => {
     const totalVisits = useMemo(() => allCustomers.reduce((s, c) => s + c.totalReservations, 0), [allCustomers]);
 
     return (
-        <div style={{ padding: '14px 22px 0', color: T.ink }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ color: T.ink, paddingBottom: 24 }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <div>
                     <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em' }}>Müşteriler</h1>
                     <p style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{allCustomers.length} kişi · {totalVisits} ziyaret</p>
@@ -32,6 +32,7 @@ export const MobileCustomers = () => {
                     <Plus size={22} strokeWidth={2.5} color="#0E0E0E" />
                 </button>
             </div>
+            <div style={{ padding: '0 22px' }}>
 
             <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, borderRadius: 14, padding: '13px 14px', background: T.surface, border: `1px solid ${T.border2}` }}>
                 <Search size={18} color={T.muted} />
@@ -46,6 +47,8 @@ export const MobileCustomers = () => {
                     </div>
                 )}
                 {customers.map((c) => <CustomerRow key={c.id} c={c} loyalty={loyalty} onRedeem={redeemLoyalty} />)}
+            </div>
+
             </div>
 
             <NewCustomerSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />

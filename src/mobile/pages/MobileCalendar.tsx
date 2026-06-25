@@ -46,7 +46,7 @@ export const MobileCalendar = () => {
     return (
         <div style={{ color: T.ink }}>
             {/* Month header */}
-            <div style={{ padding: '10px 22px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 22px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <button onClick={() => shiftWeek(-1)} style={navBtn}>
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
