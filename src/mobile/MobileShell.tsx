@@ -12,7 +12,7 @@ export const MobileShell = () => {
 
     return (
         <div className="flex flex-col h-[100dvh] overflow-hidden"
-            style={{ background: T.bg, color: T.ink, fontFamily: T.font }}
+            style={{ background: T.bg, color: T.ink, fontFamily: T.font, paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
             <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
                 style={{ paddingBottom: fullscreenFlow ? 0 : 'calc(env(safe-area-inset-bottom,0px) + 82px)' }}
