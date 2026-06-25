@@ -142,7 +142,21 @@ export interface Product {
 }
 
 // ── Modül Switch Sistemi (organizations.modules) ──────────────────────────────
-export type ModuleKey = 'randevu' | 'personel' | 'hizmet' | 'kasa' | 'masa' | 'analiz';
+export type ModuleKey = 'randevu' | 'personel' | 'hizmet' | 'kasa' | 'masa' | 'analiz' | 'sira';
+
+export type QueueStatus = 'waiting' | 'called' | 'served' | 'left';
+export interface QueueEntry {
+    id: string;
+    organizationId: string;
+    customerName: string;
+    customerPhone?: string;
+    service?: string;
+    staffId?: string;
+    status: QueueStatus;
+    joinedAt: string;
+    calledAt?: string;
+    notes?: string;
+}
 export type Modules = Record<ModuleKey, boolean>;
 
 // ── Restoran Masa Modülü (randevu sisteminden ayrı) ───────────────────────────

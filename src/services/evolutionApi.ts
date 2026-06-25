@@ -116,6 +116,31 @@ export function build2hMessage(params: {
     );
 }
 
+// Sırasız bekleme — sıraya eklenince konum/ETA bilgisi
+export function buildQueueJoinMessage(params: {
+    customerName: string;
+    businessName: string;
+    position: number;     // önünde kaç kişi + 1 (1 = sıradaki)
+    etaMin: number;
+}): string {
+    const pos = params.position <= 1
+        ? `Sıradaki sizsiniz, birazdan çağıracağız.`
+        : `Sıranız: *${params.position}.* — tahmini bekleme *~${params.etaMin} dk*`;
+    return (
+        `Merhaba ${params.customerName} 👋\n\n` +
+        `*${params.businessName}* sırasına eklendiniz.\n${pos}\n\n` +
+        `Sıranız gelince size haber vereceğiz ✅`
+    );
+}
+
+// Sırasız bekleme — sıra geldiğinde çağrı
+export function buildQueueReadyMessage(params: { customerName: string; businessName: string }): string {
+    return (
+        `Merhaba ${params.customerName} 🔔\n\n` +
+        `Sıranız geldi! *${params.businessName}* sizi bekliyor, buyurun 🙌`
+    );
+}
+
 // Randevu tamamlandıktan sonra "tekrar randevu al" daveti (Sıradaki Randevu Otomasyonu)
 export function buildRebookMessage(params: {
     customerName: string;

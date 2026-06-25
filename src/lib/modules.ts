@@ -8,24 +8,25 @@ export const MODULE_META: { key: ModuleKey; label: string; desc: string }[] = [
     { key: 'kasa', label: 'Kasa', desc: 'Tahsilat, gelir ve ürün satışı' },
     { key: 'masa', label: 'Masa', desc: 'Restoran masa yönetimi ve oturma planı' },
     { key: 'analiz', label: 'Analiz', desc: 'İstatistik ve performans raporları' },
+    { key: 'sira', label: 'Sıra', desc: 'Sırasız bekleme — kuaför/berber walk-in kuyruğu' },
 ];
 
 export const ALL_MODULE_KEYS = MODULE_META.map((m) => m.key);
 
 // Hiçbir veri yokken güvenli varsayılan: hepsi açık (genel işletme)
 export const DEFAULT_MODULES: Modules = {
-    randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true,
+    randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false,
 };
 
 // Sektör → varsayılan modül seti (migration 023 ile birebir)
 export const SECTOR_MODULES: Record<string, Modules> = {
-    restoran: { randevu: false, personel: false, hizmet: false, kasa: true, masa: true, analiz: true },
-    guzellik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true },
-    kuafor: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true },
-    fizyoterapi: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true },
-    saglik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true },
-    danismanlik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true },
-    genel: { randevu: true, personel: true, hizmet: true, kasa: true, masa: true, analiz: true },
+    restoran: { randevu: false, personel: false, hizmet: false, kasa: true, masa: true, analiz: true, sira: false },
+    guzellik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
+    kuafor: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: true },
+    fizyoterapi: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
+    saglik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
+    danismanlik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
+    genel: { randevu: true, personel: true, hizmet: true, kasa: true, masa: true, analiz: true, sira: false },
 };
 
 export function modulesForSector(sector: string): Modules {

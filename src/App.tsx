@@ -15,6 +15,8 @@ import { MobileCustomers } from '@/mobile/pages/MobileCustomers';
 import { MobileKasa } from '@/mobile/pages/MobileKasa';
 import { MobileStaff } from '@/mobile/pages/MobileStaff';
 import { MobileSettings } from '@/mobile/pages/MobileSettings';
+import { MobileQueue } from '@/mobile/pages/MobileQueue';
+import { QueuePage } from '@/pages/QueuePage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useModules } from '@/hooks/useModules';
 import type { ModuleKey } from '@/types';
@@ -110,6 +112,7 @@ function App() {
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="masa" element={<ModuleRoute module="masa"><MasaPage /></ModuleRoute>} />
+            <Route path="queue" element={<ModuleRoute module="sira"><Adaptive mobile={<MobileQueue />} desktop={<QueuePage />} /></ModuleRoute>} />
             <Route path="staff" element={<ModuleRoute module="personel"><Adaptive mobile={<MobileStaff />} desktop={<StaffPage />} /></ModuleRoute>} />
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />

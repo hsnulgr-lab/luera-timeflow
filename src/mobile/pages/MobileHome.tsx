@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
+import { useModules } from '@/hooks/useModules';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
@@ -38,6 +39,7 @@ export const MobileHome = () => {
     const { reservations, settings, getTodayReservations, updateReservation } = useReservations();
     const { stats } = usePayments();
     const { staff } = useStaff();
+    const { isEnabled } = useModules();
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
@@ -159,7 +161,9 @@ export const MobileHome = () => {
                     { lbl: 'Randevu', clr: T.orange, bg: 'rgba(255,90,31,.12)', path: 'M10 4v12M4 10h12', to: '/new' },
                     { lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.12)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' },
                     { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
-                    { lbl: 'Analiz', clr: T.purple, bg: 'rgba(201,139,219,.12)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', to: '/analytics' },
+                    isEnabled('sira')
+                        ? { lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.12)', path: 'M7 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 17c0-2.5 2.2-4.5 5-4.5M13 5a2.5 2.5 0 010 5M18 17c0-2.5-1.5-4.3-4-4.5', to: '/queue' }
+                        : { lbl: 'Analiz', clr: T.purple, bg: 'rgba(201,139,219,.12)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', to: '/analytics' },
                 ].map((a) => (
                     <button key={a.lbl} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '13px 4px 11px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                         <div style={{ width: 40, height: 40, borderRadius: 13, background: a.bg, display: 'grid', placeItems: 'center' }}>

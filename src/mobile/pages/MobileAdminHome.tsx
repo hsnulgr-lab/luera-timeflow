@@ -6,6 +6,7 @@ import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
+import { useModules } from '@/hooks/useModules';
 import { toISODate } from '@/utils/date';
 import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
@@ -40,6 +41,7 @@ export const MobileAdminHome = () => {
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
     const { disable: exitManager } = useManagerMode();
+    const { isEnabled } = useModules();
 
     const totalRev = useTicker(stats.total, 1200, 200);
     const monthRev = useTicker(stats.month, 900, 300);
@@ -70,6 +72,7 @@ export const MobileAdminHome = () => {
     }, [payments, todayList]);
 
     const MGMT = [
+        ...(isEnabled('sira') ? [{ lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M7 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 18c0-2.5 2.2-4.5 5-4.5M13 6a2.5 2.5 0 010 5M18 18c0-2.5-1.5-4.3-4-4.5', badge: null, to: '/queue' }] : []),
         { lbl: 'Personel', clr: T.purple, bg: 'rgba(201,139,219,.13)', path: 'M10 9a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: activeStaff || null, to: '/staff' },
         { lbl: 'Müşteriler', clr: T.blue, bg: 'rgba(107,159,212,.13)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: allCustomers.length || null, to: '/customers' },
         { lbl: 'Hizmetler', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M3 6h14M3 10h14M3 14h8', badge: settings.services.length || null, to: '/settings?tab=services' },
