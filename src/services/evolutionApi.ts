@@ -115,3 +115,20 @@ export function build2hMessage(params: {
         `Görüşmek üzere! ✅`
     );
 }
+
+// Randevu tamamlandıktan sonra "tekrar randevu al" daveti (Sıradaki Randevu Otomasyonu)
+export function buildRebookMessage(params: {
+    customerName: string;
+    service: string;
+    businessName: string;
+    note?: string;        // teşvik satırı (ör. "%10 erken rezervasyon indirimi")
+    bookingUrl?: string;
+}): string {
+    const noteLine = params.note?.trim() ? `\n\n🎁 ${params.note.trim()}` : '';
+    const linkLine = params.bookingUrl ? `\n\n👉 ${params.bookingUrl}` : '';
+    return (
+        `Merhaba ${params.customerName} 👋\n\n` +
+        `*${params.businessName}*'daki *${params.service}* hizmetiniz tamamlandı, teşekkür ederiz! 🙏\n\n` +
+        `Bir sonraki randevunuzu şimdiden ayırtmak ister misiniz?${noteLine}${linkLine}`
+    );
+}

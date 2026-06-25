@@ -64,6 +64,8 @@ export interface Settings {
     loyaltyEnabled?: boolean;    // Dijital müşteri kartı açık mı
     loyaltyThreshold?: number;   // Kaç ziyarette 1 ödül (vars. 10)
     loyaltyReward?: string;      // Ödül metni (vars. "Ücretsiz hizmet")
+    rebookEnabled?: boolean;     // Sıradaki randevu otomasyonu açık mı
+    rebookNote?: string;         // Teşvik satırı (ör. "%10 erken rezervasyon indirimi")
 }
 
 export interface Staff {

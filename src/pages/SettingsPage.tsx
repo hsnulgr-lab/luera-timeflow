@@ -299,6 +299,7 @@ export const SettingsPage = () => {
   const [sector, setSector]             = useState(settings.sector || 'genel');
   const [managerPinInput, setManagerPinInput] = useState('');
   const [loyaltyReward, setLoyaltyReward] = useState(settings.loyaltyReward || 'Ücretsiz hizmet');
+  const [rebookNote, setRebookNote]     = useState(settings.rebookNote || '');
   const [saved, setSaved]               = useState(false);
   const [uploading, setUploading]       = useState<string|null>(null);
 
@@ -453,6 +454,32 @@ export const SettingsPage = () => {
                         placeholder="Örn. Ücretsiz tıraş"
                         style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}/>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Sıradaki Randevu Otomasyonu ── */}
+              <div style={{ marginBottom:'22px', padding:'16px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                  <div>
+                    <div style={{ fontSize:'13.5px', fontWeight:700, color:T.ink, display:'flex', alignItems:'center', gap:7 }}>
+                      <RefreshCw size={15} color={T.orange}/> Sıradaki Randevu Otomasyonu
+                    </div>
+                    <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>Randevu "Tamamlandı" olunca müşteriye WhatsApp ile tekrar-randevu daveti gönderilir.</div>
+                  </div>
+                  <button onClick={()=>updateSettings({...settings, rebookEnabled: !(settings.rebookEnabled)})}
+                    style={{ width:46, height:28, borderRadius:999, background:settings.rebookEnabled?T.orange:T.surface3, position:'relative', border:'none', cursor:'pointer', flexShrink:0, transition:'background .18s' }}>
+                    <span style={{ position:'absolute', top:3, left:settings.rebookEnabled?21:3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .18s' }}/>
+                  </button>
+                </div>
+                {settings.rebookEnabled && (
+                  <div style={{ marginTop:14 }}>
+                    <FieldLabel>Teşvik metni (opsiyonel)</FieldLabel>
+                    <input value={rebookNote} onChange={e=>setRebookNote(e.target.value)}
+                      onBlur={()=>updateSettings({...settings, rebookNote:rebookNote.trim()})}
+                      placeholder="Örn. Bu hafta %10 erken rezervasyon indirimi"
+                      style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}/>
+                    <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Mesaja "🎁 ..." satırı olarak eklenir. WhatsApp bağlı ve booking adresi (slug) tanımlı olmalı.</div>
                   </div>
                 )}
               </div>

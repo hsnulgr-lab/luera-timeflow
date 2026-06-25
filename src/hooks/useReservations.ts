@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { todayISO, toISODate } from '@/utils/date';
+import { sendTextMessage, buildRebookMessage } from '@/services/evolutionApi';
 import type { Reservation, Settings, Service } from '@/types';
 
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
@@ -188,6 +189,8 @@ function useReservationsState() {
                 loyaltyEnabled: settingsData.loyalty_enabled ?? false,
                 loyaltyThreshold: settingsData.loyalty_threshold ?? 10,
                 loyaltyReward: settingsData.loyalty_reward || 'Ücretsiz hizmet',
+                rebookEnabled: settingsData.rebook_enabled ?? false,
+                rebookNote: settingsData.rebook_note || '',
             });
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
@@ -369,7 +372,28 @@ function useReservationsState() {
                 body: { organization_id: (serverRow as any).organization_id, date: updated.date },
             }).catch(() => {});
         }
-    }, [reservations, fireWebhook, fetchReservations, orgId]);
+
+        // Sıradaki Randevu Otomasyonu: tamamlanınca WhatsApp ile tekrar-randevu daveti
+        // (idempotent: rebook_sent; gönderim başarılıysa işaretlenir)
+        if (updates.status === 'completed' && !(serverRow as any).rebook_sent
+            && settings.rebookEnabled && settings.whatsappInstance && updated.customerPhone) {
+            (async () => {
+                let bookingUrl = '';
+                const { data: org } = await supabase.from('organizations')
+                    .select('slug').eq('id', (serverRow as any).organization_id).maybeSingle();
+                if (org?.slug) bookingUrl = `${window.location.origin}/book/${org.slug}`;
+                const msg = buildRebookMessage({
+                    customerName: updated.customerName,
+                    service: updated.service,
+                    businessName: settings.businessName,
+                    note: settings.rebookNote,
+                    bookingUrl,
+                });
+                const ok = await sendTextMessage(settings.whatsappInstance!, updated.customerPhone, msg);
+                if (ok) await supabase.from('reservations').update({ rebook_sent: true }).eq('id', id);
+            })().catch(() => {});
+        }
+    }, [reservations, fireWebhook, fetchReservations, orgId, settings]);
 
     // ─── Rezervasyon sil ─────────────────────────────────────────────────────
     const deleteReservation = useCallback(async (id: string) => {
@@ -451,6 +475,8 @@ function useReservationsState() {
                 loyalty_enabled: newSettings.loyaltyEnabled ?? false,
                 loyalty_threshold: newSettings.loyaltyThreshold ?? 10,
                 loyalty_reward: newSettings.loyaltyReward || 'Ücretsiz hizmet',
+                rebook_enabled: newSettings.rebookEnabled ?? false,
+                rebook_note: newSettings.rebookNote || '',
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
 
