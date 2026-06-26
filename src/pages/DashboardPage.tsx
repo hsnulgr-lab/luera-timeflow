@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle, Bell } from 'lucide-react';
 import { LNotifications } from '@/components/icons/LueraIcons';
 import { useReservations } from '@/hooks/useReservations';
-import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
@@ -143,9 +142,6 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
 export const DashboardPage = () => {
     const navigate = useNavigate();
     const { dark } = useTheme();
-    const setup = useSetupStatus();
-    const [setupDismissed, setSetupDismissed] = useState(() => { try { return localStorage.getItem('luera_setup_dismissed') === '1'; } catch { return false; } });
-    const dismissSetup = () => { try { localStorage.setItem('luera_setup_dismissed', '1'); } catch { /* yoksay */ } setSetupDismissed(true); };
     const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations, getReservationsByDate } = useReservations();
     const stats                = getStats();
     const todayReservations    = getTodayReservations();
@@ -282,42 +278,6 @@ export const DashboardPage = () => {
         <div className={cn("dash-theme flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-
-                {/* ── Kurulum checklist (tamamlanana kadar) ─────────────────────── */}
-                {setup.ready && !setup.complete && !setupDismissed && (
-                    <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] p-5 sm:px-6 shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
-                        <div className="flex items-center justify-between mb-3.5">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0" style={{ background: 'rgba(255,90,31,0.12)' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5.4L20 8l-4 4 1 6-5-2.8L7 18l1-6-4-4 5.6-.6L12 2Z" stroke="var(--dc-orange)" strokeWidth="1.6" strokeLinejoin="round" /></svg>
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-[14.5px] font-bold text-[var(--dc-ink)] tracking-[-0.01em]">Kurulumu tamamla</div>
-                                    <div className="text-[11.5px] text-[var(--dc-muted)]">{setup.doneCount}/{setup.total} adım · işletmeni randevuya hazırla</div>
-                                </div>
-                            </div>
-                            <button onClick={dismissSetup} className="w-8 h-8 rounded-lg grid place-items-center text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)] flex-shrink-0" aria-label="Gizle">
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
-                            </button>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-[var(--dc-surface2)] overflow-hidden mb-3.5">
-                            <div className="h-full bg-[var(--dc-orange)] rounded-full transition-all" style={{ width: `${(setup.doneCount / setup.total) * 100}%` }} />
-                        </div>
-                        <div className="grid sm:grid-cols-2 gap-2">
-                            {setup.steps.map((s) => (
-                                <button key={s.id} onClick={() => !s.done && navigate(s.to)} disabled={s.done}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors"
-                                    style={{ background: s.done ? 'transparent' : 'var(--dc-surface2)', borderColor: 'var(--dc-border)', cursor: s.done ? 'default' : 'pointer' }}>
-                                    <span className="w-5 h-5 rounded-full grid place-items-center flex-shrink-0" style={{ background: s.done ? '#5DBB63' : 'transparent', border: s.done ? 'none' : '1.5px solid var(--dc-border2)' }}>
-                                        {s.done && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                                    </span>
-                                    <span className="text-[12.5px] font-medium" style={{ color: s.done ? 'var(--dc-muted)' : 'var(--dc-ink)', textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</span>
-                                    {!s.done && <span className="ml-auto text-[11px] font-bold text-[var(--dc-orange)]">Ayarla →</span>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* ── Hero: Takvim Yaprağı + İşletme + Akıllı Özet ─────────────── */}
                 <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
