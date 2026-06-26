@@ -60,6 +60,7 @@ function mapDbReservation(row: any): Reservation {
         staffColor: row.staff?.color || undefined,
         source: row.source || 'manual',
         isPaid: row.is_paid ?? false,
+        arrivedAt: row.arrived_at || undefined,
     };
 }
 
@@ -330,6 +331,7 @@ function useReservationsState() {
         if (updates.status !== undefined) dbUpdates.status = updates.status;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
         if (updates.isPaid !== undefined) dbUpdates.is_paid = updates.isPaid;
+        if (updates.arrivedAt !== undefined) dbUpdates.arrived_at = updates.arrivedAt;
 
         const { data: serverRow, error } = await supabase
             .from('reservations')

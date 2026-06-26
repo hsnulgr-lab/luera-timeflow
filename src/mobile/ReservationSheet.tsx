@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { Reservation, Service } from '@/types';
+import { apptPhase, PHASE_LABEL, primaryAction } from '@/lib/appointmentFlow';
 import { BottomSheet } from './BottomSheet';
 import { STS_BG, STS_COLOR, STS_LABEL, T } from './theme';
 
@@ -19,12 +20,13 @@ const STATUSES: ReservationStatus[] = ['pending', 'confirmed', 'completed', 'can
 
 // Randevu detay + düzenle. Yönetici ve operatör ortak kullanır; düzenleme alanları
 // updateReservation/deleteReservation ile mevcut veri katmanına bağlanır.
-export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete, checkConflict }: {
+export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete, onCollect, checkConflict }: {
     reservation: Reservation | null;
     services: Service[];
     onClose: () => void;
     onUpdate: (id: string, updates: Partial<Reservation>) => Promise<void> | void;
     onDelete: (id: string) => Promise<void> | void;
+    onCollect?: (r: Reservation) => void;   // "Tamamla & Tahsilat" → parent Tahsilat Sheet'i açar
     checkConflict?: (date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string) => Reservation | null;
 }) {
     const [edit, setEdit] = useState(false);
@@ -46,6 +48,21 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
 
     if (!reservation) return null;
     const r = reservation;
+
+    const ph = apptPhase(r);
+    const pa = primaryAction(ph);
+    const phBadge = ({
+        pending: { c: STS_COLOR.pending, bg: STS_BG.pending },
+        upcoming: { c: STS_COLOR.confirmed, bg: STS_BG.confirmed },
+        inService: { c: T.orange, bg: 'rgba(255,90,31,.14)' },
+        done: { c: STS_COLOR.completed, bg: STS_BG.completed },
+        cancelled: { c: STS_COLOR.cancelled, bg: STS_BG.cancelled },
+    } as const)[ph];
+    const runPrimary = () => {
+        if (pa.kind === 'approve') onUpdate(r.id, { status: 'confirmed' });
+        else if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
+        else if (pa.kind === 'completePay') { if (onCollect) onCollect(r); else onUpdate(r.id, { status: 'completed' }); }
+    };
 
     const setStatus = async (s: ReservationStatus) => { await onUpdate(r.id, { status: s }); toast.success(STS_LABEL[s]); };
 
@@ -90,7 +107,10 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
                         <div style={{ fontSize: 17, fontWeight: 850, letterSpacing: '-0.02em' }}>{r.customerName}</div>
                         {r.customerPhone && <div style={{ fontSize: 12.5, color: T.muted, fontFamily: T.mono, marginTop: 2 }}>{r.customerPhone}</div>}
                     </div>
-                    <div style={{ padding: '4px 11px', borderRadius: 999, background: STS_BG[r.status], color: STS_COLOR[r.status], fontSize: 11, fontWeight: 800 }}>{STS_LABEL[r.status]}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <div style={{ padding: '4px 11px', borderRadius: 999, background: phBadge.bg, color: phBadge.c, fontSize: 11, fontWeight: 800 }}>{PHASE_LABEL[ph]}</div>
+                        {ph === 'done' && <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 9.5, fontWeight: 800, background: r.isPaid ? 'rgba(124,196,127,.14)' : 'rgba(224,112,112,.12)', color: r.isPaid ? T.green : T.red }}>{r.isPaid ? 'Ödendi' : 'Ödenmedi'}</div>}
+                    </div>
                 </div>
 
                 {!edit ? (
@@ -104,9 +124,14 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
                             {r.notes && <Row label="Not" value={r.notes} last />}
                         </div>
 
-                        {/* Durum aksiyonları */}
+                        {/* Birincil sonraki-aksiyon */}
+                        {pa.kind !== 'none' && (
+                            <button onClick={runPrimary} style={{ width: '100%', height: 50, borderRadius: 15, background: T.orange, color: '#0E0E0E', fontSize: 15, fontWeight: 850, border: 'none', cursor: 'pointer' }}>{pa.label}</button>
+                        )}
+
+                        {/* Durum aksiyonları (elle override) */}
                         <div>
-                            <div style={{ fontSize: 11, fontWeight: 750, letterSpacing: '.08em', textTransform: 'uppercase', color: T.muted, marginBottom: 9, fontFamily: T.mono }}>Durum</div>
+                            <div style={{ fontSize: 11, fontWeight: 750, letterSpacing: '.08em', textTransform: 'uppercase', color: T.muted, marginBottom: 9, fontFamily: T.mono }}>Durumu elle değiştir</div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
                                 {STATUSES.map((s) => {
                                     const on = r.status === s;

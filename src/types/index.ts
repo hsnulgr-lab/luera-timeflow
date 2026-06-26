@@ -22,6 +22,7 @@ export interface Reservation {
     recurrenceUntil?: string;   // YYYY-MM-DD
     source?: 'manual' | 'booking' | 'leadflow';
     isPaid?: boolean;
+    arrivedAt?: string;   // "Müşteri Geldi" zaman damgası (confirmed → hizmette)
 }
 
 export interface Customer {

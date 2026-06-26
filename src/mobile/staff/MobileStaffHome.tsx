@@ -5,8 +5,19 @@ import { useStaffStats } from '@/hooks/useStaffStats';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate } from '@/utils/date';
+import type { Reservation } from '@/types';
+import { apptPhase, PHASE_LABEL, priceForReservation, type ApptPhase } from '@/lib/appointmentFlow';
 import { TahsilatSheet } from '../TahsilatSheet';
-import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
+import { T, STS_COLOR, STS_BG, avatarColor } from '../theme';
+
+// Faz → rozet rengi (status anahtarına eşle, inService özel turuncu)
+const PH_BADGE: Record<ApptPhase, { c: string; bg: string }> = {
+    pending: { c: STS_COLOR.pending, bg: STS_BG.pending },
+    upcoming: { c: STS_COLOR.confirmed, bg: STS_BG.confirmed },
+    inService: { c: T.orange, bg: 'rgba(255,90,31,.14)' },
+    done: { c: STS_COLOR.completed, bg: STS_BG.completed },
+    cancelled: { c: STS_COLOR.cancelled, bg: STS_BG.cancelled },
+};
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 const DAY_LETTERS = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
@@ -16,9 +27,10 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 export const MobileStaffHome = () => {
     const { staff, logout } = useStaffSession();
     const [sheetOpen, setSheetOpen] = useState(false);
+    const [payRes, setPayRes] = useState<Reservation | null>(null);  // tamamla&tahsilat bağlamı
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
-    const { reservations, getReservationsByDate, updateReservation } = useReservations();
+    const { reservations, settings, getReservationsByDate, updateReservation } = useReservations();
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
@@ -126,7 +138,7 @@ export const MobileStaffHome = () => {
                         <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>Bu gün için randevunuz bulunmuyor</div>
                     </div>
                 ) : (
-                    selAppts.map((a, i) => (
+                    selAppts.map((a, i) => { const ph = apptPhase(a); const bd = PH_BADGE[ph]; return (
                         <div key={a.id} style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                             <div style={{ width: 44, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 3 }}>
                                 <div style={{ fontFamily: T.mono, fontSize: 12.5, fontWeight: 800, color: T.muted, lineHeight: 1 }}>{a.startTime}</div>
@@ -142,25 +154,29 @@ export const MobileStaffHome = () => {
                                             <span style={{ fontFamily: T.mono, fontSize: 10.5 }}>{a.startTime}–{a.endTime}</span>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                        <div style={{ padding: '3px 8px', borderRadius: 999, background: STS_BG[a.status], color: STS_COLOR[a.status], fontSize: 9.5, fontWeight: 750 }}>{STS_LABEL[a.status]}</div>
+                                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                        <div style={{ padding: '3px 8px', borderRadius: 999, background: bd.bg, color: bd.c, fontSize: 9.5, fontWeight: 750 }}>{PHASE_LABEL[ph]}</div>
+                                        {ph === 'done' && <div style={{ padding: '2px 7px', borderRadius: 999, fontSize: 9, fontWeight: 800, background: a.isPaid ? 'rgba(124,196,127,.14)' : 'rgba(224,112,112,.12)', color: a.isPaid ? T.green : T.red }}>{a.isPaid ? 'Ödendi' : 'Ödenmedi'}</div>}
                                     </div>
                                 </div>
-                                {a.status === 'pending' && (
+                                {ph === 'pending' && (
                                     <div style={{ display: 'flex', gap: 7, marginTop: 4 }}>
                                         <button onClick={() => updateReservation(a.id, { status: 'confirmed' })} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Onayla</button>
                                         <button onClick={() => updateReservation(a.id, { status: 'cancelled' })} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: 'rgba(224,112,112,.1)', color: T.red, fontSize: 12, fontWeight: 700, border: '1px solid rgba(224,112,112,.2)', cursor: 'pointer' }}>✕ Reddet</button>
                                     </div>
                                 )}
-                                {a.status === 'confirmed' && (
+                                {ph === 'upcoming' && (
+                                    <button onClick={() => updateReservation(a.id, { arrivedAt: new Date().toISOString() })} style={{ width: '100%', height: 34, marginTop: 4, borderRadius: 9, background: 'rgba(107,159,212,.14)', color: T.blue, fontSize: 12.5, fontWeight: 800, border: '1px solid rgba(107,159,212,.25)', cursor: 'pointer' }}>Müşteri Geldi</button>
+                                )}
+                                {ph === 'inService' && (
                                     <div style={{ display: 'flex', gap: 7, marginTop: 4 }}>
-                                        <button onClick={() => updateReservation(a.id, { status: 'completed' })} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Tamamla</button>
-                                        <button onClick={() => setSheetOpen(true)} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: T.surface2, color: T.muted, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Tahsilat</button>
+                                        <button onClick={() => { setPayRes(a); setSheetOpen(true); }} style={{ flex: 1, height: 34, borderRadius: 9, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Tamamla & Tahsilat</button>
+                                        <button onClick={() => updateReservation(a.id, { status: 'completed' })} style={{ height: 34, padding: '0 12px', borderRadius: 9, background: T.surface2, color: T.muted, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Ödemesiz</button>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    ))
+                    ); })
                 )}
             </div>
 
@@ -190,12 +206,25 @@ export const MobileStaffHome = () => {
 
             {/* Tahsilat Al */}
             <div style={{ padding: '16px 22px 0' }}>
-                <button onClick={() => setSheetOpen(true)} style={{ width: '100%', height: 52, borderRadius: 16, border: 'none', background: T.green, color: '#0a2e16', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', boxShadow: '0 8px 22px rgba(124,196,127,0.22)' }}>
-                    <Plus size={18} strokeWidth={2.6} /> Tahsilat Al
+                <button onClick={() => { setPayRes(null); setSheetOpen(true); }} style={{ width: '100%', height: 52, borderRadius: 16, border: 'none', background: T.green, color: '#0a2e16', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', boxShadow: '0 8px 22px rgba(124,196,127,0.22)' }}>
+                    <Plus size={18} strokeWidth={2.6} /> Hızlı Tahsilat
                 </button>
             </div>
 
-            <TahsilatSheet open={sheetOpen} onClose={() => setSheetOpen(false)} lockStaffId={staff?.id} />
+            <TahsilatSheet
+                open={sheetOpen}
+                onClose={() => { setSheetOpen(false); setPayRes(null); }}
+                lockStaffId={staff?.id}
+                title={payRes ? 'Tamamla & Tahsilat' : undefined}
+                prefill={payRes ? {
+                    amount: priceForReservation(payRes, settings.services) || undefined,
+                    customerId: payRes.customerId || undefined,
+                    description: payRes.service,
+                    staffId: staff?.id,
+                    reservationId: payRes.id,
+                } : undefined}
+                onPaid={payRes ? () => updateReservation(payRes.id, { status: 'completed', isPaid: true }) : undefined}
+            />
         </div>
     );
 };

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { apptPhase } from '@/lib/appointmentFlow';
 import { Search, CheckCircle2, XCircle, Clock, Trash2, Edit2, MessageCircle, MoreHorizontal, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -53,6 +55,7 @@ function initials(name: string) {
 
 export const ReservationsPage = () => {
   const { reservations, updateReservation, deleteReservation } = useReservations();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { dark } = useTheme();
   const T = dark ? DT : LT;
@@ -221,6 +224,7 @@ export const ReservationsPage = () => {
           </div>
         </div>
         <button
+          onClick={() => navigate('/calendar')}
           style={{
             display: 'flex', alignItems: 'center', gap: '7px',
             background: dark ? '#231E18' : '#0E0E0E', color: '#F3EDE3',
@@ -384,7 +388,10 @@ export const ReservationsPage = () => {
                       <span style={{ fontSize: '13px', fontWeight: 700, color: T.ink }}>{formatDateEU(res.date)}</span>
                       <span style={{ fontSize: '11.5px', color: T.muted, fontFamily: "'JetBrains Mono', monospace" }}>{res.startTime}–{res.endTime}</span>
                     </div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: '8px', fontSize: '11px', fontWeight: 750, whiteSpace: 'nowrap', flexShrink: 0, ...badge.style }}>{badge.label}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: '8px', fontSize: '11px', fontWeight: 750, whiteSpace: 'nowrap', ...badge.style }}>{apptPhase(res) === 'inService' ? 'Hizmette' : badge.label}</span>
+                      {res.status === 'completed' && <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: res.isPaid ? 'rgba(46,138,53,.12)' : 'rgba(192,57,43,.10)', color: res.isPaid ? (dark ? '#7CC47F' : '#2E8A35') : (dark ? '#e07070' : '#C0392B') }}>{res.isPaid ? 'Ödendi' : 'Ödenmedi'}</span>}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '12.5px', color: T.ink }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: svcDot[res.status] }} />
@@ -446,10 +453,13 @@ export const ReservationsPage = () => {
                 <div style={{ fontSize: '12.5px', color: T.muted }}>{res.staffName || '—'}</div>
 
                 {/* Status badge */}
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: '8px', fontSize: '11px', fontWeight: 750, whiteSpace: 'nowrap', ...badge.style }}>
-                    {badge.label}
+                    {apptPhase(res) === 'inService' ? 'Hizmette' : badge.label}
                   </span>
+                  {res.status === 'completed' && (
+                    <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: res.isPaid ? 'rgba(46,138,53,.12)' : 'rgba(192,57,43,.10)', color: res.isPaid ? (dark ? '#7CC47F' : '#2E8A35') : (dark ? '#e07070' : '#C0392B') }}>{res.isPaid ? 'Ödendi' : 'Ödenmedi'}</span>
+                  )}
                 </div>
 
                 {/* Row menu button */}
@@ -498,7 +508,8 @@ export const ReservationsPage = () => {
             >
               {[
                 { icon: <Edit2 size={13} color={T.orange} />, label: 'Düzenle', action: () => { setEditReservation(res); setShowActions(null); } },
-                res.status !== 'confirmed' && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Onayla', action: () => handleStatusChange(res.id, 'confirmed') },
+                res.status === 'pending' && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Onayla', action: () => handleStatusChange(res.id, 'confirmed') },
+                res.status === 'confirmed' && !res.arrivedAt && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Müşteri Geldi', action: () => { updateReservation(res.id, { arrivedAt: new Date().toISOString() }); setShowActions(null); } },
                 res.status !== 'completed' && { icon: <Clock size={13} color={T.muted} />, label: 'Tamamlandı', action: () => handleStatusChange(res.id, 'completed') },
                 res.status !== 'cancelled' && { icon: <XCircle size={13} color={T.muted2} />, label: 'İptal Et', action: () => handleStatusChange(res.id, 'cancelled') },
               ].filter(Boolean).map((item, i) => item && (

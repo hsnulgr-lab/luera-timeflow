@@ -4,6 +4,8 @@ import { useReservations } from '@/hooks/useReservations';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { ReservationSheet } from '../ReservationSheet';
+import { TahsilatSheet } from '../TahsilatSheet';
+import { priceForReservation } from '@/lib/appointmentFlow';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
 
 const DAY_LETTERS = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P']; // Pzt..Paz
@@ -15,6 +17,7 @@ export const MobileCalendar = () => {
     const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation, checkConflict } = useReservations();
     const [selected, setSelected] = useState(() => toISODate(new Date()));
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [payRes, setPayRes] = useState<Reservation | null>(null);   // Tamamla & Tahsilat bağlamı
     const active = useMemo(() => reservations.find((r) => r.id === activeId) ?? null, [reservations, activeId]);
     const sel = useMemo(() => new Date(selected + 'T00:00:00'), [selected]);
     const todayStr = useMemo(() => toISODate(new Date()), []);
@@ -115,7 +118,22 @@ export const MobileCalendar = () => {
                 onClose={() => setActiveId(null)}
                 onUpdate={updateReservation}
                 onDelete={deleteReservation}
+                onCollect={(r) => { setActiveId(null); setPayRes(r); }}
                 checkConflict={checkConflict}
+            />
+
+            <TahsilatSheet
+                open={!!payRes}
+                onClose={() => setPayRes(null)}
+                title={payRes ? 'Tamamla & Tahsilat' : undefined}
+                prefill={payRes ? {
+                    amount: priceForReservation(payRes, settings.services) || undefined,
+                    customerId: payRes.customerId || undefined,
+                    description: payRes.service,
+                    staffId: payRes.staffId,
+                    reservationId: payRes.id,
+                } : undefined}
+                onPaid={payRes ? () => updateReservation(payRes.id, { status: 'completed', isPaid: true }) : undefined}
             />
         </div>
     );

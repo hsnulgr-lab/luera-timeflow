@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Banknote, CreditCard, Building2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePayments } from '@/hooks/usePayments';
@@ -15,7 +15,21 @@ const METHODS: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
     { id: 'other', label: 'Diğer', icon: <Wallet size={18} /> },
 ];
 
-export function TahsilatSheet({ open, onClose, lockStaffId }: { open: boolean; onClose: () => void; lockStaffId?: string }) {
+// Randevu "Tamamla & Tahsilat" akışında bağlamı önceden doldurmak için.
+export interface TahsilatPrefill {
+    amount?: number;
+    customerId?: string;
+    description?: string;
+    staffId?: string;
+    reservationId?: string;
+}
+
+export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, title }: {
+    open: boolean; onClose: () => void; lockStaffId?: string;
+    prefill?: TahsilatPrefill;
+    onPaid?: () => void;        // ödeme başarılıysa (randevu tamamlama vb.)
+    title?: string;
+}) {
     const { addPayment } = usePayments();
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
@@ -27,6 +41,18 @@ export function TahsilatSheet({ open, onClose, lockStaffId }: { open: boolean; o
     const [description, setDescription] = useState('');
     const [staffId, setStaffId] = useState(lockStaffId || '');
     const [saving, setSaving] = useState(false);
+
+    // Açılışta prefill ile bağlamı doldur (randevudan gelince)
+    useEffect(() => {
+        if (!open) return;
+        setAmount(prefill?.amount ? String(prefill.amount) : '');
+        setCustomerId(prefill?.customerId || '');
+        setDescription(prefill?.description || '');
+        setStaffId(prefill?.staffId || lockStaffId || '');
+        setMethod('cash'); setCustQuery('');
+        // open değişimini izle; prefill referansı her render değişebileceğinden alanlara bak
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const matches = useMemo(() => {
         const q = custQuery.trim().toLowerCase();
@@ -43,9 +69,9 @@ export function TahsilatSheet({ open, onClose, lockStaffId }: { open: boolean; o
     const handleSave = async () => {
         if (amountNum <= 0) return;
         setSaving(true);
-        const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined });
+        const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId });
         setSaving(false);
-        if (res) { toast.success('Tahsilat kaydedildi'); reset(); onClose(); }
+        if (res) { toast.success('Tahsilat kaydedildi'); reset(); onPaid?.(); onClose(); }
     };
 
     const activeStaff = staff.filter((s) => s.isActive);
@@ -53,7 +79,7 @@ export function TahsilatSheet({ open, onClose, lockStaffId }: { open: boolean; o
     const field = { background: T.surface, border: `1px solid ${T.border}`, color: T.ink, fontFamily: T.font } as const;
 
     return (
-        <BottomSheet open={open} onClose={onClose} title="Yeni Tahsilat">
+        <BottomSheet open={open} onClose={onClose} title={title || 'Yeni Tahsilat'}>
             <div className="space-y-5 pb-2" style={{ color: T.ink }}>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold" style={{ color: T.muted }}>Tutar</label>
