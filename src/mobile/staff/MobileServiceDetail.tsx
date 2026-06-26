@@ -53,7 +53,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
     }, [r]);
 
     // Aktif hizmette saniyelik tik — süre canlı görünsün
-    const tick = useRef<ReturnType<typeof setInterval>>();
+    const tick = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
     useEffect(() => {
         if (step === 'active') {
             tick.current = setInterval(() => forceTick((n) => n + 1), 1000);
