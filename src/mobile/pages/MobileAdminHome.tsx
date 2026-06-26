@@ -7,6 +7,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { useModules } from '@/hooks/useModules';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { toISODate } from '@/utils/date';
 import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
@@ -42,6 +43,9 @@ export const MobileAdminHome = () => {
     const { staff } = useStaff();
     const { disable: exitManager } = useManagerMode();
     const { isEnabled } = useModules();
+    const setup = useSetupStatus();
+    const [setupDismissed, setSetupDismissed] = useState(() => { try { return localStorage.getItem('luera_setup_dismissed') === '1'; } catch { return false; } });
+    const dismissSetup = () => { try { localStorage.setItem('luera_setup_dismissed', '1'); } catch { /* yoksay */ } setSetupDismissed(true); };
 
     const totalRev = useTicker(stats.total, 1200, 200);
     const monthRev = useTicker(stats.month, 900, 300);
@@ -98,6 +102,41 @@ export const MobileAdminHome = () => {
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
             </div>
+
+            {/* Kurulum checklist (tamamlanana kadar) */}
+            {!setup.complete && !setupDismissed && (
+                <div style={{ margin: '16px 22px 0', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, padding: 15 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,90,31,.13)', display: 'grid', placeItems: 'center' }}>
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5.4L20 8l-4 4 1 6-5-2.8L7 18l1-6-4-4 5.6-.6L12 2Z" stroke={T.orange} strokeWidth="1.6" strokeLinejoin="round" /></svg>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 14, fontWeight: 850, letterSpacing: '-0.02em' }}>Kurulumu tamamla</div>
+                                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.mono, marginTop: 1 }}>{setup.doneCount}/{setup.total} adım</div>
+                            </div>
+                        </div>
+                        <button onClick={dismissSetup} aria-label="Gizle" style={{ width: 30, height: 30, borderRadius: 9, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', color: T.muted2, cursor: 'pointer' }}>
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+                        </button>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 999, background: T.surface3, overflow: 'hidden', marginBottom: 12 }}>
+                        <div style={{ height: '100%', width: `${(setup.doneCount / setup.total) * 100}%`, background: T.orange, borderRadius: 999 }} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {setup.steps.map((s) => (
+                            <button key={s.id} onClick={() => !s.done && navigate(s.to)} disabled={s.done}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: s.done ? 'transparent' : T.surface2, border: `1px solid ${T.border}`, cursor: s.done ? 'default' : 'pointer', textAlign: 'left' }}>
+                                <span style={{ width: 20, height: 20, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, background: s.done ? T.green : 'transparent', border: s.done ? 'none' : `1.5px solid ${T.border2}` }}>
+                                    {s.done && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#0E0E0E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                                </span>
+                                <span style={{ fontSize: 12.5, fontWeight: 600, color: s.done ? T.muted : T.ink, textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</span>
+                                {!s.done && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: T.orange }}>Ayarla →</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Revenue hero */}
             <div style={{ margin: '16px 22px 0', background: 'linear-gradient(145deg,#2A1C10,#1C1710)', border: '1px solid rgba(255,90,31,.18)', borderRadius: 22, padding: 18, overflow: 'hidden', position: 'relative' }}>
