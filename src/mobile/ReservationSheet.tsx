@@ -4,9 +4,7 @@ import type { Reservation, Service } from '@/types';
 import { apptPhase, PHASE_LABEL, primaryAction } from '@/lib/appointmentFlow';
 import { useStaff } from '@/hooks/useStaff';
 import { BottomSheet } from './BottomSheet';
-import { STS_BG, STS_COLOR, STS_LABEL, T } from './theme';
-
-type ReservationStatus = Reservation['status'];
+import { STS_BG, STS_COLOR, T } from './theme';
 
 // Dakika ekleyerek bitiş saatini hesapla (HH:MM)
 function addMinutes(hhmm: string, mins: number): string {
@@ -16,8 +14,6 @@ function addMinutes(hhmm: string, mins: number): string {
     const nm = total % 60;
     return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
 }
-
-const STATUSES: ReservationStatus[] = ['pending', 'confirmed', 'completed', 'cancelled'];
 
 // Randevu detay + düzenle. Yönetici ve operatör ortak kullanır; düzenleme alanları
 // updateReservation/deleteReservation ile mevcut veri katmanına bağlanır.
@@ -66,8 +62,6 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
         else if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
         else if (pa.kind === 'completePay') { if (onCollect) onCollect(r); else onUpdate(r.id, { status: 'completed' }); }
     };
-
-    const setStatus = async (s: ReservationStatus) => { await onUpdate(r.id, { status: s }); toast.success(STS_LABEL[s]); };
 
     const saveEdit = async () => {
         if (!service.trim()) { toast.error('Hizmet seçin'); return; }
@@ -144,19 +138,6 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
                         {pa.kind !== 'none' && (
                             <button onClick={runPrimary} style={{ width: '100%', height: 50, borderRadius: 15, background: T.orange, color: '#0E0E0E', fontSize: 15, fontWeight: 850, border: 'none', cursor: 'pointer' }}>{pa.label}</button>
                         )}
-
-                        {/* Durum aksiyonları (elle override) */}
-                        <div>
-                            <div style={{ fontSize: 11, fontWeight: 750, letterSpacing: '.08em', textTransform: 'uppercase', color: T.muted, marginBottom: 9, fontFamily: T.mono }}>Durumu elle değiştir</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
-                                {STATUSES.map((s) => {
-                                    const on = r.status === s;
-                                    return (
-                                        <button key={s} onClick={() => setStatus(s)} style={{ height: 44, borderRadius: 13, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', background: on ? STS_BG[s] : T.surface, color: on ? STS_COLOR[s] : T.muted, border: `1px solid ${on ? STS_COLOR[s] : T.border}` }}>{STS_LABEL[s]}</button>
-                                    );
-                                })}
-                            </div>
-                        </div>
 
                         <div style={{ display: 'flex', gap: 10 }}>
                             <button onClick={() => setEdit(true)} style={{ flex: 1, height: 50, borderRadius: 15, background: T.orange, color: '#0E0E0E', fontSize: 15, fontWeight: 850, border: 'none', cursor: 'pointer' }}>Düzenle</button>
