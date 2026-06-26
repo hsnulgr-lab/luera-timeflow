@@ -8,6 +8,7 @@ import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { apptPhase, PHASE_LABEL, priceForReservation, type ApptPhase } from '@/lib/appointmentFlow';
 import { TahsilatSheet } from '../TahsilatSheet';
+import { MobileServiceDetail } from './MobileServiceDetail';
 import { T, STS_COLOR, STS_BG, avatarColor } from '../theme';
 
 // Faz → rozet rengi (status anahtarına eşle, inService özel turuncu)
@@ -28,6 +29,7 @@ export const MobileStaffHome = () => {
     const { staff, logout } = useStaffSession();
     const [sheetOpen, setSheetOpen] = useState(false);
     const [payRes, setPayRes] = useState<Reservation | null>(null);  // tamamla&tahsilat bağlamı
+    const [detailId, setDetailId] = useState<string | null>(null);   // açık hizmet detayı
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
     const { reservations, settings, getReservationsByDate, updateReservation } = useReservations();
@@ -77,6 +79,8 @@ export const MobileStaffHome = () => {
 
     const todayAppts = getReservationsByDate(todayStr).filter((r) => r.staffId === staff?.id && r.status !== 'cancelled');
     const todayDone = todayAppts.filter((r) => r.status === 'completed').length;
+
+    if (detailId) return <MobileServiceDetail reservationId={detailId} onBack={() => setDetailId(null)} />;
 
     return (
         <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, fontFamily: T.font, overflowY: 'auto', paddingTop: 'calc(env(safe-area-inset-top,0px))', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
@@ -174,7 +178,7 @@ export const MobileStaffHome = () => {
                                 <div style={{ fontFamily: T.mono, fontSize: 12.5, fontWeight: 800, color: T.muted, lineHeight: 1 }}>{a.startTime}</div>
                                 {i < selAppts.length - 1 && <div style={{ width: 1.5, flex: 1, marginTop: 7, minHeight: 20, background: `linear-gradient(${a.serviceColor || color}66,transparent)` }} />}
                             </div>
-                            <div style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '12px 14px', borderLeft: `3.5px solid ${a.serviceColor || color}` }}>
+                            <div onClick={() => setDetailId(a.id)} style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '12px 14px', borderLeft: `3.5px solid ${a.serviceColor || color}`, cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                                     <div style={{ minWidth: 0 }}>
                                         <div style={{ fontSize: 14, fontWeight: 780, letterSpacing: '-0.01em' }}>{a.customerName}</div>
@@ -191,18 +195,15 @@ export const MobileStaffHome = () => {
                                 </div>
                                 {ph === 'pending' && (
                                     <div style={{ display: 'flex', gap: 7, marginTop: 4 }}>
-                                        <button onClick={() => updateReservation(a.id, { status: 'confirmed' })} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Onayla</button>
-                                        <button onClick={() => updateReservation(a.id, { status: 'cancelled' })} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: 'rgba(224,112,112,.1)', color: T.red, fontSize: 12, fontWeight: 700, border: '1px solid rgba(224,112,112,.2)', cursor: 'pointer' }}>✕ Reddet</button>
+                                        <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'confirmed' }); }} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Onayla</button>
+                                        <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'cancelled' }); }} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: 'rgba(224,112,112,.1)', color: T.red, fontSize: 12, fontWeight: 700, border: '1px solid rgba(224,112,112,.2)', cursor: 'pointer' }}>✕ Reddet</button>
                                     </div>
                                 )}
                                 {ph === 'upcoming' && (
-                                    <button onClick={() => updateReservation(a.id, { arrivedAt: new Date().toISOString() })} style={{ width: '100%', height: 34, marginTop: 4, borderRadius: 9, background: 'rgba(107,159,212,.14)', color: T.blue, fontSize: 12.5, fontWeight: 800, border: '1px solid rgba(107,159,212,.25)', cursor: 'pointer' }}>Müşteri Geldi</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, fontWeight: 750, color: T.orange }}>Hizmete başla <span style={{ fontSize: 15 }}>›</span></div>
                                 )}
                                 {ph === 'inService' && (
-                                    <div style={{ display: 'flex', gap: 7, marginTop: 4 }}>
-                                        <button onClick={() => { setPayRes(a); setSheetOpen(true); }} style={{ flex: 1, height: 34, borderRadius: 9, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Tamamla & Tahsilat</button>
-                                        <button onClick={() => updateReservation(a.id, { status: 'completed' })} style={{ height: 34, padding: '0 12px', borderRadius: 9, background: T.surface2, color: T.muted, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Ödemesiz</button>
-                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, fontWeight: 750, color: T.orange }}>Hizmeti aç <span style={{ fontSize: 15 }}>›</span></div>
                                 )}
                             </div>
                         </div>

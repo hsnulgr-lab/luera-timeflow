@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Plus, Banknote, CreditCard, Building2, Wallet } from 'lucide-react';
+import { Plus, Banknote, CreditCard, Building2, Wallet, Receipt } from 'lucide-react';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
-import type { Payment, PaymentMethod, PaymentType } from '@/types';
+import { useReservations } from '@/hooks/useReservations';
+import { priceForReservation } from '@/lib/appointmentFlow';
+import type { Payment, PaymentMethod, PaymentType, Reservation } from '@/types';
 import { TahsilatSheet } from '../TahsilatSheet';
 import { T } from '../theme';
 
@@ -20,12 +22,25 @@ function MethodIcon({ m, size = 16 }: { m: PaymentMethod; size?: number }) {
 export const MobileKasa = () => {
     const { payments, stats } = usePayments();
     const { allCustomers } = useCustomers();
+    const { reservations, settings, updateReservation } = useReservations();
     const [sheetOpen, setSheetOpen] = useState(false);
+    const [bill, setBill] = useState<Reservation | null>(null);   // personelin gönderdiği adisyon
 
     const custName = useMemo(() => {
         const m = new Map(allCustomers.map((c) => [c.id, c.name]));
         return (id?: string) => (id ? m.get(id) : undefined);
     }, [allCustomers]);
+
+    const billTotal = (r: Reservation) => priceForReservation(r, settings.services) + (r.adisyonItems || []).reduce((s, l) => s + l.price, 0);
+    const billSummary = (r: Reservation) => [r.service, ...(r.adisyonItems || []).map((l) => l.name)].join(' + ');
+
+    // Personel hizmeti bitirip "Kasaya Gönder" dedi → tamamlandı + ödenmedi + süre durmuş.
+    const pending = useMemo(
+        () => reservations.filter((r) => r.status === 'completed' && !r.isPaid && r.serviceEndedAt && billTotal(r) > 0)
+            .sort((a, b) => (b.serviceEndedAt || '').localeCompare(a.serviceEndedAt || '')),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [reservations, settings.services],
+    );
 
     const recent = useMemo(() => [...payments].sort((a, b) => b.paidAt.localeCompare(a.paidAt)).slice(0, 25), [payments]);
     const methods: PaymentMethod[] = ['cash', 'card', 'transfer', 'other'];
@@ -53,6 +68,29 @@ export const MobileKasa = () => {
                 </div>
             </div>
 
+            {/* Kasada bekleyen adisyonlar — personelin gönderdiği, tahsil edilmeyi bekleyen */}
+            {pending.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <Receipt size={18} style={{ color: T.orange }} />
+                        <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>Kasada Bekleyen</h2>
+                        <span style={{ minWidth: 20, height: 20, borderRadius: 999, background: T.orange, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 900, color: '#0E0E0E', padding: '0 6px' }}>{pending.length}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {pending.map((r) => (
+                            <button key={r.id} onClick={() => { setBill(r); setSheetOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, background: 'rgba(255,90,31,.06)', border: '1px solid rgba(255,90,31,.22)', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: 14.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</p>
+                                    <p style={{ fontSize: 11.5, color: T.muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{billSummary(r)}{r.staffName ? ` · ${r.staffName}` : ''}</p>
+                                </div>
+                                <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', color: T.orange, flexShrink: 0 }}>₺{fmt(billTotal(r))}</span>
+                                <span style={{ fontSize: 20, color: T.muted2, flexShrink: 0 }}>›</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Yöntem dağılımı */}
             <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {methods.map((m) => (
@@ -77,7 +115,13 @@ export const MobileKasa = () => {
 
             </div>
 
-            <TahsilatSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+            <TahsilatSheet
+                open={sheetOpen}
+                onClose={() => { setSheetOpen(false); setBill(null); }}
+                title={bill ? 'Adisyonu Tahsil Et' : undefined}
+                prefill={bill ? { amount: billTotal(bill) || undefined, customerId: bill.customerId || undefined, description: billSummary(bill), staffId: bill.staffId, reservationId: bill.id } : undefined}
+                onPaid={bill ? () => updateReservation(bill.id, { isPaid: true }) : undefined}
+            />
         </div>
     );
 };

@@ -22,7 +22,18 @@ export interface Reservation {
     recurrenceUntil?: string;   // YYYY-MM-DD
     source?: 'manual' | 'booking' | 'leadflow';
     isPaid?: boolean;
-    arrivedAt?: string;   // "Müşteri Geldi" zaman damgası (confirmed → hizmette)
+    arrivedAt?: string;   // "Başladı" zaman damgası (confirmed → hizmette); süre başlangıcı
+    serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
+    adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (boya/ürün/ekstra)
+}
+
+// Adisyon satır kalemi — hizmet sırasında canlı eklenir, randevuya kalıcı yazılır.
+// Temel hizmet ücreti ayrı (settings.services'ten); burada yalnızca ekstralar tutulur.
+export interface AdisyonItem {
+    id: string;
+    name: string;
+    price: number;
+    kind: 'product' | 'extra';   // katalog ürünü mü, serbest ekstra mı
 }
 
 export interface Customer {
