@@ -334,7 +334,7 @@ export const ReservationsPage = () => {
       }}>
         {/* Head — mobilde gizli */}
         <div style={{
-          display: isMobile ? 'none' : 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.4fr 1fr 110px 36px',
+          display: isMobile ? 'none' : 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.4fr 1fr 110px 150px',
           alignItems: 'center', padding: '8px 18px',
           background: T.surface2, borderBottom: `1px solid ${T.border}`,
         }}>
@@ -406,7 +406,7 @@ export const ReservationsPage = () => {
               <div
                 key={res.id}
                 style={{
-                  display: 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.4fr 1fr 110px 36px',
+                  display: 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.4fr 1fr 110px 150px',
                   alignItems: 'center', padding: '12px 18px',
                   borderBottom: idx < filtered.length - 1 ? `1px solid ${T.border}` : 'none',
                   cursor: 'pointer', transition: 'background .15s',
@@ -462,8 +462,21 @@ export const ReservationsPage = () => {
                   )}
                 </div>
 
-                {/* Row menu button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {/* Inline birincil aksiyon + menü */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                  {(() => {
+                    const ph2 = apptPhase(res);
+                    const act = ph2 === 'pending' ? { l: 'Onayla', fn: () => handleStatusChange(res.id, 'confirmed') }
+                      : ph2 === 'upcoming' ? { l: 'Geldi', fn: () => { updateReservation(res.id, { arrivedAt: new Date().toISOString() }); } }
+                      : ph2 === 'inService' ? { l: 'Tamamla', fn: () => handleStatusChange(res.id, 'completed') }
+                      : null;
+                    return act ? (
+                      <button onClick={e => { e.stopPropagation(); act.fn(); }}
+                        style={{ padding: '5px 11px', borderRadius: T.rXs, fontSize: '11.5px', fontWeight: 700, background: T.orange, color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
+                        {act.l}
+                      </button>
+                    ) : null;
+                  })()}
                   <button
                     ref={el => { actionBtnRefs.current[res.id] = el; }}
                     onClick={e => { e.stopPropagation(); openActions(res.id); }}
