@@ -54,6 +54,13 @@ export const MobileStaffHome = () => {
         [getReservationsByDate, selected, staff?.id]
     );
 
+    // Atanmamış havuz (personel "farketmez" / personelsiz randevular) — herkes görür, sahiplenir
+    const unassigned = useMemo(
+        () => getReservationsByDate(selected).filter((r) => !r.staffId && r.status !== 'cancelled' && r.status !== 'completed').sort((a, b) => a.startTime.localeCompare(b.startTime)),
+        [getReservationsByDate, selected]
+    );
+    const claim = (a: Reservation) => { updateReservation(a.id, { staffId: staff?.id, staffName: staff?.name, staffColor: color }); };
+
     // Bugünkü gelir + bu hafta gelir (kendi tahsilatları)
     const { todayRev, weekRev } = useMemo(() => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -122,8 +129,31 @@ export const MobileStaffHome = () => {
                 </div>
             </div>
 
+            {/* Atanmamış havuz — sahiplen */}
+            {unassigned.length > 0 && (
+                <div style={{ padding: '4px 22px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 11 }}>
+                        <div style={{ fontSize: 13, fontWeight: 850, letterSpacing: '-0.02em', color: T.orange }}>Atanmamış</div>
+                        <div style={{ minWidth: 18, height: 18, borderRadius: 999, background: T.orange, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900, color: '#0E0E0E', padding: '0 5px' }}>{unassigned.length}</div>
+                        <span style={{ fontSize: 11, color: T.muted }}>· sahiplen</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 4 }}>
+                        {unassigned.map((a) => (
+                            <div key={a.id} style={{ background: 'rgba(255,90,31,.06)', border: '1px solid rgba(255,90,31,.25)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ fontFamily: T.mono, fontSize: 12.5, fontWeight: 800, color: T.muted, flexShrink: 0 }}>{a.startTime}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 780, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.customerName}</div>
+                                    <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, fontFamily: T.mono }}>{a.service}</div>
+                                </div>
+                                <button onClick={() => claim(a)} style={{ height: 34, padding: '0 14px', borderRadius: 10, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer', flexShrink: 0 }}>Ben alıyorum</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Seçili gün randevularım */}
-            <div style={{ padding: '0 22px' }}>
+            <div style={{ padding: '14px 22px 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.muted }}>{DLBL[(selDate.getDay() + 6) % 7]} {selDate.getDate()} {MONTHS[selDate.getMonth()]}</div>
                     <div style={{ fontSize: 12, color: T.muted }}>{selAppts.length > 0 ? `${selAppts.length} randevu` : 'Boş gün'}</div>

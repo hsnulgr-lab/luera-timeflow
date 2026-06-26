@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { Reservation, Service } from '@/types';
 import { apptPhase, PHASE_LABEL, primaryAction } from '@/lib/appointmentFlow';
+import { useStaff } from '@/hooks/useStaff';
 import { BottomSheet } from './BottomSheet';
 import { STS_BG, STS_COLOR, STS_LABEL, T } from './theme';
 
@@ -35,6 +36,8 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     const [service, setService] = useState('');
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
+    const { staff } = useStaff();
+    const activeStaff = staff.filter((s) => s.isActive);
 
     useEffect(() => {
         if (reservation) {
@@ -123,6 +126,19 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
                             {r.staffName && <Row label="Personel" value={r.staffName} />}
                             {r.notes && <Row label="Not" value={r.notes} last />}
                         </div>
+
+                        {/* Atanmamışsa: personel ata */}
+                        {!r.staffId && activeStaff.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 750, letterSpacing: '.08em', textTransform: 'uppercase', color: T.orange, marginBottom: 9, fontFamily: T.mono }}>Atanmamış — personel ata</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {activeStaff.map((s) => (
+                                        <button key={s.id} onClick={() => onUpdate(r.id, { staffId: s.id, staffName: s.name, staffColor: s.color })}
+                                            style={{ padding: '9px 13px', borderRadius: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: T.surface, color: T.ink, border: `1px solid ${T.border}` }}>{s.name}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Birincil sonraki-aksiyon */}
                         {pa.kind !== 'none' && (
