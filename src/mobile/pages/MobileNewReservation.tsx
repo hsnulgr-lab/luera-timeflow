@@ -248,6 +248,30 @@ export const MobileNewReservation = () => {
                             </div>
                         </div>
 
+                        {activeStaff.length > 0 && (
+                            <>
+                                <Label>Personel</Label>
+                                <div style={{ display: 'flex', gap: 9, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', margin: '0 -22px 18px', padding: '2px 22px' }}>
+                                    {activeStaff.map((p, i) => {
+                                        const on = staffIdx === i;
+                                        return (
+                                            <div key={p.id} onClick={() => { setStaffIdx(i); setTime(null); }} style={{ flex: '0 0 auto', width: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: 'pointer', transition: 'all .15s' }}>
+                                                <div style={{ position: 'relative' }}>
+                                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color || avatarColor(p.name), display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 850, color: '#0E0E0E' }}>{p.name[0]?.toUpperCase()}</div>
+                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: T.green, border: `2px solid ${T.surface}` }} />
+                                                </div>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: 11.5, fontWeight: 750 }}>{p.name}</div>
+                                                    <div style={{ fontSize: 9.5, color: T.muted, marginTop: 1 }}>{p.specialty || 'Personel'}</div>
+                                                </div>
+                                                {on && <div style={{ width: 18, height: 18, borderRadius: '50%', background: T.orange, display: 'grid', placeItems: 'center' }}><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#0E0E0E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+
                         <Label>Müsait Saatler · {dObj.getDate()} {MONTHS[dObj.getMonth()]}</Label>
                         {slots.length === 0 ? (
                             <div style={{ padding: '20px 16px', textAlign: 'center', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 15, fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
@@ -266,30 +290,6 @@ export const MobileNewReservation = () => {
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
                                 {slots.map((s) => <SlotTile key={s.t} s={s} on={time === s.t} onPick={() => s.avail && setTime(s.t)} />)}
                             </div>
-                        )}
-
-                        {activeStaff.length > 0 && (
-                            <>
-                                <div style={{ marginTop: 18 }}><Label>Personel</Label></div>
-                                <div style={{ display: 'flex', gap: 9 }}>
-                                    {activeStaff.slice(0, 3).map((p, i) => {
-                                        const on = staffIdx === i;
-                                        return (
-                                            <div key={p.id} onClick={() => { setStaffIdx(i); setTime(null); }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: 'pointer', transition: 'all .15s' }}>
-                                                <div style={{ position: 'relative' }}>
-                                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color || avatarColor(p.name), display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 850, color: '#0E0E0E' }}>{p.name[0]?.toUpperCase()}</div>
-                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: T.green, border: `2px solid ${T.surface}` }} />
-                                                </div>
-                                                <div style={{ textAlign: 'center' }}>
-                                                    <div style={{ fontSize: 11.5, fontWeight: 750 }}>{p.name}</div>
-                                                    <div style={{ fontSize: 9.5, color: T.muted, marginTop: 1 }}>{p.specialty || 'Personel'}</div>
-                                                </div>
-                                                {on && <div style={{ width: 18, height: 18, borderRadius: '50%', background: T.orange, display: 'grid', placeItems: 'center' }}><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#0E0E0E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></div>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
                         )}
                     </div>
                 )}
