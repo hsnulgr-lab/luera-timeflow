@@ -104,7 +104,7 @@ export const MobileAdminHome = () => {
             </div>
 
             {/* Kurulum checklist (tamamlanana kadar) */}
-            {!setup.complete && !setupDismissed && (
+            {setup.ready && !setup.complete && !setupDismissed && (
                 <div style={{ margin: '16px 22px 0', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, padding: 15 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

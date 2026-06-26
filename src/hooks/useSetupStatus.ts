@@ -13,9 +13,11 @@ export interface SetupStep {
 }
 
 export function useSetupStatus() {
-    const { settings } = useReservations();
-    const { staff } = useStaff();
-    const { profile } = useOrgProfile();
+    const { settings, isLoading: resLoading } = useReservations();
+    const { staff, isLoading: staffLoading } = useStaff();
+    const { profile, loading: profileLoading } = useOrgProfile();
+    // Veriler yüklenmeden checklist hesaplama (yoksa tam-kurulu org'da kart flicker eder)
+    const ready = !resLoading && !staffLoading && !profileLoading;
 
     return useMemo(() => {
         const steps: SetupStep[] = [
@@ -26,6 +28,6 @@ export function useSetupStatus() {
             { id: 'whatsapp', label: "WhatsApp'ı bağla", done: !!settings.whatsappInstance, to: '/settings?tab=whatsapp' },
         ];
         const doneCount = steps.filter((s) => s.done).length;
-        return { steps, doneCount, total: steps.length, complete: doneCount === steps.length };
-    }, [settings.businessName, settings.services, settings.whatsappInstance, staff.length, profile.slug]);
+        return { steps, doneCount, total: steps.length, complete: doneCount === steps.length, ready };
+    }, [settings.businessName, settings.services, settings.whatsappInstance, staff.length, profile.slug, ready]);
 }

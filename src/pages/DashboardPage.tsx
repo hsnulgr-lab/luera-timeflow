@@ -284,7 +284,7 @@ export const DashboardPage = () => {
             <div className="max-w-6xl mx-auto space-y-6">
 
                 {/* ── Kurulum checklist (tamamlanana kadar) ─────────────────────── */}
-                {!setup.complete && !setupDismissed && (
+                {setup.ready && !setup.complete && !setupDismissed && (
                     <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] p-5 sm:px-6 shadow-[0_1px_3px_rgba(14,14,14,0.06),0_4px_16px_rgba(14,14,14,0.05)]">
                         <div className="flex items-center justify-between mb-3.5">
                             <div className="flex items-center gap-3 min-w-0">
