@@ -109,8 +109,8 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                 </div>
             )}
 
-            {/* ══ SCROLL BODY ══ */}
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 120 }}>
+            {/* ══ BODY ══ */}
+            <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 124px)' }}>
                 <Nav onBack={onBack} />
 
                 {/* Müşteri header */}
@@ -214,7 +214,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
             </div>
 
             {/* ══ BOTTOM CTA ══ */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(env(safe-area-inset-bottom,0px) + 24px)', background: `linear-gradient(transparent,${D.bg} 32%)` }}>
+            <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(env(safe-area-inset-bottom,0px) + 24px)', background: `linear-gradient(transparent,${D.bg} 32%)` }}>
                 {phase === 'pending' && (
                     <div style={{ display: 'flex', gap: 10 }}>
                         <button onClick={() => { updateReservation(r.id, { status: 'cancelled' }); onBack(); }} style={{ width: 90, height: 56, borderRadius: 16, background: D.s2, border: `1px solid ${D.border}`, color: D.red, fontSize: 14, fontWeight: 750, cursor: 'pointer' }}>Reddet</button>
@@ -247,12 +247,12 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
 };
 
 // ── Düzen ──
-const shell: React.CSSProperties = { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', background: D.bg, color: D.ink, fontFamily: D.font, paddingTop: 'env(safe-area-inset-top,0px)' };
+const shell: React.CSSProperties = { position: 'relative', minHeight: '100dvh', background: D.bg, color: D.ink, fontFamily: D.font };
 const ctaGreen: React.CSSProperties = { flex: 1, height: 56, borderRadius: 16, background: 'linear-gradient(145deg,#2E7C31,#1A5E1D)', color: '#fff', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 24px rgba(46,124,49,.38)', letterSpacing: '-.01em' };
 
 function Nav({ onBack }: { onBack: () => void }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', position: 'sticky', top: 0, zIndex: 10, background: `${D.bg}ee`, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: `1px solid ${D.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 'calc(env(safe-area-inset-top,0px) + 10px) 16px 10px', position: 'sticky', top: 0, zIndex: 10, background: `${D.bg}ee`, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: `1px solid ${D.border}` }}>
             <button onClick={onBack} aria-label="Geri" style={{ width: 36, height: 36, borderRadius: 11, background: D.s2, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted, flexShrink: 0 }}>
                 <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7l6 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
