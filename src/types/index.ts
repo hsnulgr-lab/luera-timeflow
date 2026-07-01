@@ -25,6 +25,7 @@ export interface Reservation {
     arrivedAt?: string;   // "Başladı" zaman damgası (confirmed → hizmette); süre başlangıcı
     serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
     adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (boya/ürün/ekstra)
+    groupId?: string;   // Çoklu hizmet booking'i — aynı ziyaretin satırları bu id'yi paylaşır
 }
 
 // Adisyon satır kalemi — hizmet sırasında canlı eklenir, randevuya kalıcı yazılır.

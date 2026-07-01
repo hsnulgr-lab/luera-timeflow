@@ -63,6 +63,7 @@ function mapDbReservation(row: any): Reservation {
         arrivedAt: row.arrived_at || undefined,
         serviceEndedAt: row.service_ended_at || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
+        groupId: row.group_id || undefined,
     };
 }
 
@@ -234,13 +235,57 @@ function useReservationsState() {
         fetchReservations(orgId);
         fetchSettings(orgId);
 
-        // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği
+        // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği.
+        // Tam tabloyu yeniden çekmek yerine değişen satırı doğrudan state'e merge
+        // ediyoruz — websocket gecikmesinin üstüne ekstra round-trip binmesin diye
+        // (eski hâli ~500 satırlık join'li bir SELECT'i her event'te tetikliyordu).
         const channel = supabase
             .channel(`reservations:${orgId}`)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'reservations', filter: `organization_id=eq.${orgId}` },
-                () => { fetchReservations(orgId); }
+                (payload) => {
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as any)?.id;
+                        if (oldId) setReservations(prev => prev.filter(r => r.id !== oldId));
+                        return;
+                    }
+
+                    const rawRow = payload.new as any;
+                    const newId = rawRow?.id;
+                    if (!newId) return;
+
+                    // staff(name,color) join'i postgres_changes payload'ında gelmiyor —
+                    // anında göstermek için aynı staffId'ye sahip mevcut bir satırdan
+                    // local olarak doldur (round-trip yok); sonra tek satırlık düzeltme
+                    // sorgusuyla kesinleştir.
+                    setReservations(prev => {
+                        const fallbackStaff = rawRow.staff_id
+                            ? prev.find(r => r.staffId === rawRow.staff_id)
+                            : undefined;
+                        const mapped = mapDbReservation(rawRow);
+                        if (fallbackStaff) {
+                            mapped.staffName = mapped.staffName ?? fallbackStaff.staffName;
+                            mapped.staffColor = mapped.staffColor ?? fallbackStaff.staffColor;
+                        }
+                        const exists = prev.some(r => r.id === newId);
+                        return exists
+                            ? prev.map(r => r.id === newId ? mapped : r)
+                            : [mapped, ...prev];
+                    });
+
+                    // Fire-and-forget: staff adı/rengi dahil kesin veriyi getir ve düzelt.
+                    supabase
+                        .from('reservations')
+                        .select('*, staff(name, color)')
+                        .eq('id', newId)
+                        .single()
+                        .then(({ data, error }) => {
+                            if (error || !data) return;
+                            const corrected = mapDbReservation(data);
+                            setReservations(prev => prev.map(r => r.id === newId ? corrected : r));
+                        });
+                }
             )
             .subscribe();
 
@@ -287,6 +332,7 @@ function useReservationsState() {
                 status: reservation.status || 'pending',
                 notes: reservation.notes || '',
                 staff_id: reservation.staffId || null,
+                group_id: reservation.groupId || null,
                 recurrence_rule:  reservation.recurrenceRule || null,
                 recurrence_until: reservation.recurrenceUntil || null,
             })

@@ -43,12 +43,27 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
     };
 
     const customer = allCustomers.find(c => c.id === r.customerId);
-    const servicePrice = settings.services.find(s => s.name === r.service)?.price || 0;
+    const svcPrice = (x: Reservation) => settings.services.find(s => s.name === x.service)?.price || 0;
+
+    // Çoklu hizmet booking'i: aynı group_id'li satırların hepsi tek birleşik adisyonda.
+    const groupRes = useMemo(
+        () => (r.groupId ? reservations.filter(x => x.groupId === r.groupId).sort((a, b) => a.startTime.localeCompare(b.startTime)) : [r]),
+        [reservations, r.groupId, r.id],
+    );
+    const isGroup = groupRes.length > 1;
+
+    // Adisyon satırları: her randevu için hizmet + personelin canlı eklediği kalemler.
+    const baseRows = useMemo(() => groupRes.flatMap(x => [
+        { name: x.service, sub: x.staffName || 'Hizmet', price: svcPrice(x) },
+        ...(x.adisyonItems || []).map(it => ({ name: it.name, sub: it.kind === 'product' ? 'Ürün' : 'Ekstra', price: it.price })),
+    ]), [groupRes, settings.services]);
+    const baseTotal = baseRows.reduce((s, row) => s + row.price, 0);
+
     const resPayments = useMemo(() => payments.filter(p => p.reservationId === r.id), [payments, r.id]);
-    const isPaid = (r.isPaid ?? false) || resPayments.length > 0;
+    const isPaid = groupRes.every(x => x.isPaid) || resPayments.length > 0;
 
     const discount = parseInt(discStr || '0', 10) || 0;
-    const subtotal = servicePrice + lines.reduce((s, l) => s + l.price, 0);
+    const subtotal = baseTotal + lines.reduce((s, l) => s + l.price, 0);
     const net = Math.max(0, subtotal - discount);
 
     const addLine = (id: string) => {
@@ -58,19 +73,19 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
 
     const collect = async () => {
         if (net <= 0) return;
-        const summary = [r.service, ...lines.map(l => l.name)].join(' + ');
+        const summary = [...groupRes.map(x => x.service), ...lines.map(l => l.name)].join(' + ');
         const desc = discount > 0 ? `${summary} (indirim ${fmt(discount)}₺)` : summary;
-        const type = servicePrice > 0 ? 'service' : (lines.length ? 'product' : 'other');
+        const type = baseTotal > 0 ? 'service' : (lines.length ? 'product' : 'other');
         const p = await addPayment({
             amount: net, method, type, description: desc,
             customerId: r.customerId || undefined, reservationId: r.id,
-            productId: lines.length === 1 && servicePrice === 0 ? lines[0].productId : undefined,
+            productId: lines.length === 1 && baseTotal === 0 ? lines[0].productId : undefined,
         });
-        if (p) { await updateReservation(r.id, { isPaid: true }); toast.success(`${fmt(net)} ₺ tahsil edildi`); }
+        if (p) { for (const x of groupRes) await updateReservation(x.id, { isPaid: true }); toast.success(`${fmt(net)} ₺ tahsil edildi`); }
     };
     const undo = async () => {
         await removeByReservation(r.id);
-        await updateReservation(r.id, { isPaid: false });
+        for (const x of groupRes) await updateReservation(x.id, { isPaid: false });
         toast.success('Tahsilat geri alındı');
     };
 
@@ -97,7 +112,7 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                        <div style={{ fontSize: 12, color: T.muted }}>{r.date} · {r.startTime}–{r.endTime} · {r.service}</div>
+                        <div style={{ fontSize: 12, color: T.muted }}>{r.date} · {isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : `${r.startTime}–${r.endTime} · ${r.service}`}</div>
                     </div>
                     {isPaid && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: T.green, background: 'var(--dc-green-bg)', borderRadius: 999, padding: '4px 10px' }}><Check size={13} /> Ödendi</span>}
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 4, marginLeft: 4 }}><X size={20} /></button>
@@ -121,7 +136,7 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                         <>
                             {/* Hesap satırları */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-                                <Row label={r.service} sub="Hizmet" amount={servicePrice} T={T} />
+                                {baseRows.map((row, i) => <Row key={`b${i}`} label={row.name} sub={row.sub} amount={row.price} T={T} />)}
                                 {(isPaid ? [] : lines).map((l, i) => (
                                     <Row key={i} label={l.name} sub="Ürün" amount={l.price} T={T} onDel={() => setLines(prev => prev.filter((_, x) => x !== i))} />
                                 ))}

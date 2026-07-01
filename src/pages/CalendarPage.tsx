@@ -130,6 +130,8 @@ export const CalendarPage = () => {
         staffId: '',
     });
     const [recurrence, setRecurrence] = useState<{ rule: '' | 'weekly' | 'monthly'; until: string }>({ rule: '', until: '' });
+    // Çoklu işlem (hizmet+personel+saat) — aynı müşteri/tarih için birden çok hizmet
+    const [resLines, setResLines] = useState<{ id: string; service: string; serviceColor: string; staffId: string; staffName?: string; staffColor?: string; startTime: string; endTime: string }[]>([]);
 
     // Akıllı müşteri arama — isim veya telefona göre eşleşme
     const customerMatches = useMemo(() => {
@@ -159,6 +161,7 @@ export const CalendarPage = () => {
         setSuccessData(null);
         setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
         setRecurrence({ rule: '', until: '' });
+        setResLines([]);
     };
 
     // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
@@ -168,6 +171,7 @@ export const CalendarPage = () => {
         setCustomerLocked(false);
         setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
         setRecurrence({ rule: '', until: '' });
+        setResLines([]);
     };
 
     // Personel menüsü — dışarı tıklayınca kapan
@@ -291,60 +295,65 @@ export const CalendarPage = () => {
         }
     };
 
-    const handleCreateReservation = async () => {
-        if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
-
-        // Personelin kapalı günü/saati kontrolü
-        if (newRes.staffId && selectedStaffMember?.workingHours?.length) {
-            const startHour = parseInt(newRes.startTime.split(':')[0]);
-            if (!isStaffHourAvailable(selectedDate, startHour)) {
-                toast.error('Bu personel seçilen tarihte/saatte çalışmıyor.');
-                return;
+    // Taslaktan (mevcut hizmet+personel+saat) bir işlem satırı kur — çakışma kontrollü
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    const lineFromDraft = (): { ok: boolean; line?: typeof resLines[number] } => {
+        if (!newRes.service) { toast.error('Hizmet seçin'); return { ok: false }; }
+        if (!selectedDate) return { ok: false };
+        const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined);
+        if (conflict) { toast.error(`Çakışma! ${conflict.customerName} — ${conflict.startTime}/${conflict.endTime}`); return { ok: false }; }
+        if (newRes.staffId) {
+            const s1 = toMin(newRes.startTime), e1 = toMin(newRes.endTime);
+            if (resLines.some(l => l.staffId === newRes.staffId && toMin(l.startTime) < e1 && s1 < toMin(l.endTime))) {
+                toast.error('Bu personel bu saatte zaten ekli'); return { ok: false };
             }
         }
+        const svc = settings.services.find(s => s.name === newRes.service);
+        const st = staff.find(s => s.id === newRes.staffId);
+        return { ok: true, line: { id: (crypto.randomUUID?.() || String(Date.now())), service: newRes.service, serviceColor: svc?.color || '#FF5A1F', staffId: newRes.staffId, staffName: st?.name, staffColor: st?.color, startTime: newRes.startTime, endTime: newRes.endTime } };
+    };
 
-        // Check for conflicts
-        const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined);
-        if (conflict) {
-            toast.error(`Çakışma! ${conflict.customerName} — ${conflict.startTime}/${conflict.endTime} saatinde randevu mevcut.`);
-            return;
+    const addDraftLine = () => {
+        const { ok, line } = lineFromDraft();
+        if (!ok || !line) return;
+        setResLines(p => [...p, line]);
+        setNewRes(p => ({ ...p, service: '', staffId: '', startTime: line.endTime, endTime: line.endTime }));
+        toast.success('İşlem eklendi');
+    };
+    const removeResLine = (id: string) => setResLines(p => p.filter(l => l.id !== id));
+
+    const handleCreateReservation = async () => {
+        if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
+        // Eklenen işlemler + (eklenmemiş taslak hizmet varsa onu da dahil et)
+        const lines = [...resLines];
+        if (newRes.service) { const { ok, line } = lineFromDraft(); if (!ok) return; if (line) lines.push(line); }
+        if (lines.length === 0) { toast.error('En az bir hizmet seçin'); return; }
+
+        const groupId = lines.length > 1 ? (crypto.randomUUID?.() || String(Date.now())) : undefined;
+        let created = 0;
+        for (const ln of lines) {
+            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined);
+            if (conflict) { toast.error(`Çakışma! ${ln.staffName || ''} ${ln.startTime} — atlandı`); continue; }
+            const res = await addReservation({
+                customerId: '', customerName: newRes.customerName, customerPhone: newRes.customerPhone, customerEmail: newRes.customerEmail,
+                date: selectedDate, startTime: ln.startTime, endTime: ln.endTime, service: ln.service, serviceColor: ln.serviceColor,
+                status: 'pending', notes: newRes.notes, staffId: ln.staffId || undefined, staffName: ln.staffName, staffColor: ln.staffColor,
+                groupId,
+                recurrenceRule: lines.length === 1 ? (recurrence.rule || undefined) : undefined,
+                recurrenceUntil: lines.length === 1 && recurrence.rule ? (recurrence.until || undefined) : undefined,
+            });
+            if (res) created++;
         }
 
-        const selectedStaff = staff.find(s => s.id === newRes.staffId);
-        const svc = settings.services.find(s => s.name === newRes.service);
-        const serviceColor = svc?.color || '#FF5A1F';
-        const reservation = await addReservation({
-            customerId: '',
-            customerName: newRes.customerName,
-            customerPhone: newRes.customerPhone,
-            customerEmail: newRes.customerEmail,
-            date: selectedDate,
-            startTime: newRes.startTime,
-            endTime: newRes.endTime,
-            service: newRes.service,
-            serviceColor,
-            status: 'pending',
-            notes: newRes.notes,
-            staffId: newRes.staffId || undefined,
-            staffName: selectedStaff?.name,
-            staffColor: selectedStaff?.color,
-            recurrenceRule: recurrence.rule || undefined,
-            recurrenceUntil: recurrence.rule ? (recurrence.until || undefined) : undefined,
-        });
-
-        if (reservation) {
-            // Formu kapatma — başarı özetini göster
+        if (created > 0) {
+            const first = lines[0];
+            const totalDur = lines.reduce((s, l) => s + durationMin(l.startTime, l.endTime), 0);
+            const names = [...new Set(lines.map(l => l.staffName).filter(Boolean))].join(', ');
             setSuccessData({
-                customerName: newRes.customerName,
-                customerPhone: newRes.customerPhone,
-                service: newRes.service,
-                duration: svc?.duration ?? durationMin(newRes.startTime, newRes.endTime),
-                dateLabel: formatDateEU(selectedDate),
-                startTime: newRes.startTime,
-                endTime: newRes.endTime,
-                staffName: selectedStaff?.name || 'Fark etmez',
-                staffColor: selectedStaff?.color,
-                serviceColor,
+                customerName: newRes.customerName, customerPhone: newRes.customerPhone,
+                service: lines.length > 1 ? `${lines.length} işlem` : first.service, duration: totalDur,
+                dateLabel: formatDateEU(selectedDate), startTime: lines[0].startTime, endTime: lines[lines.length - 1].endTime,
+                staffName: names || 'Fark etmez', staffColor: lines.length > 1 ? undefined : first.staffColor, serviceColor: first.serviceColor,
             });
         }
     };
@@ -1010,6 +1019,36 @@ export const CalendarPage = () => {
                                 </div>
                             )}
 
+                            {/* İŞLEMLER (çoklu hizmet) */}
+                            <div>
+                                {resLines.length > 0 && (
+                                    <>
+                                        <MLabel>Eklenen İşlemler · {resLines.length}</MLabel>
+                                        <div className="flex flex-col" style={{ gap: 6, marginBottom: 8 }}>
+                                            {resLines.map((l) => (
+                                                <div key={l.id} className="flex items-center" style={{ gap: 10, padding: '8px 11px', borderRadius: 10, background: M.surface2, border: `1px solid ${M.border}` }}>
+                                                    <span style={{ width: 9, height: 9, borderRadius: 3, background: l.serviceColor, flexShrink: 0 }} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="truncate" style={{ fontSize: 12.5, fontWeight: 700, color: M.ink }}>{l.service}</div>
+                                                        <div style={{ fontSize: 10.5, color: M.muted, fontFamily: MONO, letterSpacing: '.03em' }}>{l.startTime}–{l.endTime} · {l.staffName || 'Fark etmez'}</div>
+                                                    </div>
+                                                    <button onClick={() => removeResLine(l.id)} title="Çıkar" className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 24, height: 24, borderRadius: 6, color: M.muted }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(224,90,90,.12)'; e.currentTarget.style.color = '#E05A5A'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = M.muted; }}>
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                <button onClick={addDraftLine} disabled={!newRes.service}
+                                    className="inline-flex items-center justify-center gap-2 w-full transition-all"
+                                    style={{ height: 40, borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: `1px dashed ${newRes.service ? M.orange : M.border2}`, background: 'transparent', color: newRes.service ? M.orange : M.muted2, cursor: newRes.service ? 'pointer' : 'not-allowed' }}>
+                                    <Plus className="w-4 h-4" strokeWidth={2.4} /> Başka işlem ekle
+                                </button>
+                            </div>
+
                             {/* NOT */}
                             <div style={{ paddingBottom: 6 }}>
                                 <MLabel optional="(opsiyonel)">Not</MLabel>
@@ -1067,7 +1106,7 @@ export const CalendarPage = () => {
                                 onMouseEnter={(e) => { if (newRes.customerName && newRes.customerPhone) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; } }}
                                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                             >
-                                Randevu Oluştur
+                                {(() => { const n = resLines.length + (newRes.service ? 1 : 0); return n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur'; })()}
                                 <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
                             </button>
                             <button onClick={closeDialog} className="w-full transition-colors" style={{ height: 36, fontSize: 12.5, fontWeight: 600, color: M.muted, background: 'transparent' }}

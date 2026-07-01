@@ -19,12 +19,15 @@ function MethodIcon({ m, size = 16 }: { m: PaymentMethod; size?: number }) {
     return <Wallet size={size} />;
 }
 
+// Kasada bekleyen birleşik adisyon — tekli randevu veya gruplu (çoklu hizmet) booking.
+interface Bill { key: string; reservationIds: string[]; customerId?: string; customerName: string; staffNames: string[]; total: number; summary: string; firstId: string; staffId?: string; endedAt: string; }
+
 export const MobileKasa = () => {
     const { payments, stats } = usePayments();
     const { allCustomers } = useCustomers();
     const { reservations, settings, updateReservation } = useReservations();
     const [sheetOpen, setSheetOpen] = useState(false);
-    const [bill, setBill] = useState<Reservation | null>(null);   // personelin gönderdiği adisyon
+    const [bill, setBill] = useState<Bill | null>(null);   // kasada bekleyen (gruplu/tekli) adisyon
 
     const custName = useMemo(() => {
         const m = new Map(allCustomers.map((c) => [c.id, c.name]));
@@ -35,12 +38,28 @@ export const MobileKasa = () => {
     const billSummary = (r: Reservation) => [r.service, ...(r.adisyonItems || []).map((l) => l.name)].join(' + ');
 
     // Personel hizmeti bitirip "Kasaya Gönder" dedi → tamamlandı + ödenmedi + süre durmuş.
-    const pending = useMemo(
-        () => reservations.filter((r) => r.status === 'completed' && !r.isPaid && r.serviceEndedAt && billTotal(r) > 0)
-            .sort((a, b) => (b.serviceEndedAt || '').localeCompare(a.serviceEndedAt || '')),
+    // Çoklu hizmet booking'lerinde (group_id) satırlar tek birleşik adisyonda toplanır;
+    // her satır bitince gruba eklenir, kasada tek seferde tahsil edilir.
+    const bills = useMemo(() => {
+        const lines = reservations.filter((r) => r.status === 'completed' && !r.isPaid && r.serviceEndedAt && billTotal(r) > 0);
+        const groups = new Map<string, Reservation[]>();
+        const out: Bill[] = [];
+        for (const r of lines) {
+            if (r.groupId) { const a = groups.get(r.groupId) || []; a.push(r); groups.set(r.groupId, a); }
+            else out.push({ key: r.id, reservationIds: [r.id], customerId: r.customerId || undefined, customerName: r.customerName, staffNames: r.staffName ? [r.staffName] : [], total: billTotal(r), summary: billSummary(r), firstId: r.id, staffId: r.staffId, endedAt: r.serviceEndedAt || '' });
+        }
+        for (const [g, arr] of groups) {
+            arr.sort((a, b) => a.startTime.localeCompare(b.startTime));
+            out.push({
+                key: 'g-' + g, reservationIds: arr.map((r) => r.id), customerId: arr[0].customerId || undefined, customerName: arr[0].customerName,
+                staffNames: [...new Set(arr.map((r) => r.staffName).filter(Boolean) as string[])],
+                total: arr.reduce((s, r) => s + billTotal(r), 0), summary: arr.map((r) => r.service).join(' + '),
+                firstId: arr[0].id, staffId: arr[0].staffId, endedAt: arr.reduce((m, r) => (r.serviceEndedAt || '') > m ? (r.serviceEndedAt || '') : m, ''),
+            });
+        }
+        return out.sort((a, b) => b.endedAt.localeCompare(a.endedAt));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [reservations, settings.services],
-    );
+    }, [reservations, settings.services]);
 
     const recent = useMemo(() => [...payments].sort((a, b) => b.paidAt.localeCompare(a.paidAt)).slice(0, 25), [payments]);
     const methods: PaymentMethod[] = ['cash', 'card', 'transfer', 'other'];
@@ -69,21 +88,24 @@ export const MobileKasa = () => {
             </div>
 
             {/* Kasada bekleyen adisyonlar — personelin gönderdiği, tahsil edilmeyi bekleyen */}
-            {pending.length > 0 && (
+            {bills.length > 0 && (
                 <div style={{ marginTop: 24 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                         <Receipt size={18} style={{ color: T.orange }} />
                         <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>Kasada Bekleyen</h2>
-                        <span style={{ minWidth: 20, height: 20, borderRadius: 999, background: T.orange, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 900, color: '#0E0E0E', padding: '0 6px' }}>{pending.length}</span>
+                        <span style={{ minWidth: 20, height: 20, borderRadius: 999, background: T.orange, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 900, color: '#0E0E0E', padding: '0 6px' }}>{bills.length}</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {pending.map((r) => (
-                            <button key={r.id} onClick={() => { setBill(r); setSheetOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, background: 'rgba(255,90,31,.06)', border: '1px solid rgba(255,90,31,.22)', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+                        {bills.map((b) => (
+                            <button key={b.key} onClick={() => { setBill(b); setSheetOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, background: 'rgba(255,90,31,.06)', border: '1px solid rgba(255,90,31,.22)', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: 14.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</p>
-                                    <p style={{ fontSize: 11.5, color: T.muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{billSummary(r)}{r.staffName ? ` · ${r.staffName}` : ''}</p>
+                                    <p style={{ fontSize: 14.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {b.customerName}
+                                        {b.reservationIds.length > 1 && <span style={{ marginLeft: 7, fontSize: 10.5, fontWeight: 800, color: T.orange, background: 'rgba(255,90,31,.14)', borderRadius: 999, padding: '1px 7px' }}>{b.reservationIds.length} hizmet</span>}
+                                    </p>
+                                    <p style={{ fontSize: 11.5, color: T.muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.summary}{b.staffNames.length ? ` · ${b.staffNames.join(', ')}` : ''}</p>
                                 </div>
-                                <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', color: T.orange, flexShrink: 0 }}>₺{fmt(billTotal(r))}</span>
+                                <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', color: T.orange, flexShrink: 0 }}>₺{fmt(b.total)}</span>
                                 <span style={{ fontSize: 20, color: T.muted2, flexShrink: 0 }}>›</span>
                             </button>
                         ))}
@@ -119,8 +141,8 @@ export const MobileKasa = () => {
                 open={sheetOpen}
                 onClose={() => { setSheetOpen(false); setBill(null); }}
                 title={bill ? 'Adisyonu Tahsil Et' : undefined}
-                prefill={bill ? { amount: billTotal(bill) || undefined, customerId: bill.customerId || undefined, description: billSummary(bill), staffId: bill.staffId, reservationId: bill.id } : undefined}
-                onPaid={bill ? () => updateReservation(bill.id, { isPaid: true }) : undefined}
+                prefill={bill ? { amount: bill.total || undefined, customerId: bill.customerId || undefined, description: bill.summary, staffId: bill.staffId, reservationId: bill.firstId } : undefined}
+                onPaid={bill ? async () => { for (const id of bill.reservationIds) await updateReservation(id, { isPaid: true }); } : undefined}
             />
         </div>
     );
