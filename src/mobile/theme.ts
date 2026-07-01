@@ -27,6 +27,17 @@ export const DARK_VARS: Record<string, string> = {
     '--lt-blue-bg': 'rgba(107,159,212,0.14)',
     '--lt-amber-bg': 'rgba(224,168,78,0.14)',
     '--lt-red-bg': 'rgba(224,112,112,0.14)',
+    // Personel/hizmet ekranı (design_handoff_personel_hizmet) için ek token'lar
+    '--lt-muted3': 'rgba(243,237,227,.11)',
+    '--lt-overlay': 'rgba(10,8,4,.96)',
+    '--lt-chip-bg': 'rgba(24,19,16,.80)',
+    '--lt-hero-1': '#2A1A0A',
+    '--lt-hero-2': '#180E06',
+    '--lt-orb1': 'rgba(255,90,31,.22)',
+    '--lt-orb2': 'rgba(201,139,219,.10)',
+    '--lt-green-border': 'rgba(124,196,127,.30)',
+    '--lt-red-border': 'rgba(224,90,90,.20)',
+    '--lt-btn-ink-bg': '#0D0D0D',
 };
 
 export const LIGHT_VARS: Record<string, string> = {

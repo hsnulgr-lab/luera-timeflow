@@ -42,11 +42,28 @@ export function useQueue() {
     useEffect(() => {
         if (!user || !orgId) return;
         fetchQueue(orgId);
-        // Canlı güncelleme — çoklu cihaz aynı sırayı görsün
+        // Canlı güncelleme — çoklu cihaz aynı sırayı görsün.
+        // REPLICA IDENTITY FULL (034_realtime.sql) sayesinde payload.new/old tam satırı
+        // içerir; tekrar fetch yerine satırı doğrudan state'e merge ediyoruz (round-trip yok).
         const ch = supabase
             .channel(`queue:${orgId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `organization_id=eq.${orgId}` },
-                () => fetchQueue(orgId))
+                (payload) => {
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as any)?.id;
+                        if (oldId) setEntries(prev => prev.filter(e => e.id !== oldId));
+                        return;
+                    }
+                    const row = mapRow(payload.new);
+                    if (row.status !== 'waiting' && row.status !== 'called') {
+                        setEntries(prev => prev.filter(e => e.id !== row.id));
+                        return;
+                    }
+                    setEntries(prev => {
+                        const exists = prev.some(e => e.id === row.id);
+                        return exists ? prev.map(e => e.id === row.id ? row : e) : [...prev, row];
+                    });
+                })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
     }, [user, orgId, fetchQueue]);

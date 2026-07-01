@@ -56,7 +56,30 @@ export function usePayments() {
     }, []);
 
     useEffect(() => {
-        if (user && orgId) fetchPayments(orgId);
+        if (!user || !orgId) return;
+        fetchPayments(orgId);
+
+        // Canlı güncelleme — kasa/tahsilat tüm cihazlarda anında senkron olsun.
+        // 036_payments_realtime.sql ile publication + REPLICA IDENTITY FULL ayarlandı;
+        // event geldiğinde tüm tabloyu yeniden çekmek yerine satırı doğrudan merge ediyoruz.
+        const ch = supabase
+            .channel(`payments:${orgId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `organization_id=eq.${orgId}` },
+                (payload) => {
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as any)?.id;
+                        if (oldId) setPayments(prev => prev.filter(p => p.id !== oldId));
+                        return;
+                    }
+                    const row = mapRow(payload.new);
+                    setPayments(prev => {
+                        const exists = prev.some(p => p.id === row.id);
+                        return exists ? prev.map(p => p.id === row.id ? row : p) : [row, ...prev];
+                    });
+                })
+            .subscribe();
+
+        return () => { supabase.removeChannel(ch); };
     }, [user, orgId, fetchPayments]);
 
     const addPayment = useCallback(async (p: NewPayment): Promise<Payment | null> => {
