@@ -31,6 +31,12 @@ async function callFn(body: Record<string, unknown>) {
 
 function initials(n: string) { return n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
 const pad = (n: number) => String(n).padStart(2, '0');
+const t2m = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+const m2t = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+// Sepet satırı — bir hizmet + seçilen personel/tarih/saat
+type Line = { id: string; serviceId: string; svcName: string; duration: number; price: number | null; color: string; staffId: string; staffName: string; date: string; time: string; endTime: string };
 
 const AVATAR_BG: Record<string, string> = {}; // staff color → soft bg (hesaplanır)
 function softBg(hex: string) {
@@ -65,7 +71,8 @@ export function BookingPage() {
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<null | { date: string; time: string; service: string; status: string }>(null);
+  const [lines, setLines] = useState<Line[]>([]);          // sepet — eklenen hizmetler
+  const [done, setDone] = useState<null | { status: string; lines: { service: string; date: string; time: string }[] }>(null);
 
   // bekleme listesi (dolu gün)
   const [wlName, setWlName] = useState('');
@@ -112,20 +119,53 @@ export function BookingPage() {
     if (ok) setWlJoined(true);
   };
 
+  // ── sepet (İşlemler) ──
+  const buildLine = (): Line | null => {
+    if (!selSvc || !date || !time) return null;
+    return {
+      id: uid(), serviceId: selSvc.id, svcName: selSvc.name, duration: selSvc.duration,
+      price: selSvc.price, color: selSvc.color, staffId: stfId,
+      staffName: stfId === 'any' ? 'Fark etmez' : (selStf?.name || '—'),
+      date, time, endTime: m2t(t2m(time) + selSvc.duration),
+    };
+  };
+  const clearDraft = () => { setSvcId(null); setStfId('any'); setDate(null); setTime(null); setSlots([]); };
+  const addAnother = () => { const l = buildLine(); if (!l) return; setLines(p => [...p, l]); clearDraft(); goStep(1); };
+  const continueInfo = () => { const l = buildLine(); if (!l) return; setLines(p => [...p, l]); clearDraft(); goStep(3); };
+  const removeLine = (id: string) => setLines(p => p.filter(l => l.id !== id));
+  const cartTotal = lines.reduce((s, l) => s + (l.price || 0), 0) + (selSvc?.price || 0);
+
+  // sepetteki seçimlere göre çakışan saatleri süz
+  const shownSlots = useMemo(() => {
+    if (!selSvc) return slots;
+    const dur = selSvc.duration;
+    return slots.filter(t => {
+      const s = t2m(t), e = s + dur;
+      return !lines.some(l => {
+        if (l.date !== date) return false;
+        const ls = t2m(l.time), le = t2m(l.endTime);
+        const sameStaff = stfId !== 'any' && l.staffId !== 'any' && stfId === l.staffId;
+        return sameStaff ? (s < le && ls < e) : (s === ls);
+      });
+    });
+  }, [slots, lines, date, stfId, selSvc]);
+
   const submit = async () => {
-    if (!svcId || !date || !time || !name.trim() || phone.trim().length < 7) return;
+    if (lines.length === 0 || !name.trim() || phone.trim().length < 7) return;
     setSubmitting(true);
     const { ok, status, json } = await callFn({
-      action: 'book', slug, serviceId: svcId, staffId: stfId, date, time,
+      action: 'book', slug,
+      lines: lines.map(l => ({ serviceId: l.serviceId, staffId: l.staffId, date: l.date, time: l.time })),
       customerName: name.trim(), customerPhone: phone.replace(/\s/g, ''), customerEmail: email.trim(), note: note.trim(),
     });
     setSubmitting(false);
     if (ok && json.success) {
-      setDone({ date: json.date, time: json.time, service: json.service, status: json.status });
+      setDone({ status: json.status, lines: json.lines || [] });
       setStep(4);
     } else if (status === 409) {
-      setStep(2); setTime(null); if (date) fetchSlots(date);
-      alert('Seçtiğiniz saat az önce dolmuş olabilir. Lütfen tekrar bir saat seçin.');
+      if (typeof json.lineIndex === 'number') setLines(p => p.filter((_, i) => i !== json.lineIndex));
+      alert(json.error || 'Seçtiğiniz saatlerden biri az önce dolmuş olabilir. Lütfen tekrar seçin.');
+      goStep(1);
     } else {
       alert(json.error || 'Randevu oluşturulamadı. Lütfen tekrar deneyin.');
     }
@@ -134,7 +174,7 @@ export function BookingPage() {
   const reset = () => {
     setStep(1); setSvcId(null); setStfId('any'); setDate(null); setTime(null);
     setSlots([]); setName(''); setPhone(''); setEmail(''); setNote(''); setDone(null);
-    setWlName(''); setWlPhone(''); setWlJoined(false);
+    setLines([]); setWlName(''); setWlPhone(''); setWlJoined(false);
     window.scrollTo({ top: 0 });
   };
 
@@ -231,7 +271,11 @@ export function BookingPage() {
                 </div>
               </>}
 
-              <button className="tf-cta" onClick={() => goStep(2)} disabled={!svcId}>Devam et <span className="tf-arr">→</span></button>
+              {lines.length > 0 && <CartList lines={lines} onRemove={removeLine} />}
+
+              <button className="tf-cta" onClick={() => goStep(2)} disabled={!svcId}>
+                {lines.length > 0 ? 'Bu hizmet için saat seç' : 'Devam et'} <span className="tf-arr">→</span>
+              </button>
             </div>
           )}
 
@@ -273,7 +317,7 @@ export function BookingPage() {
                 <div style={{ fontSize: 12.5, color: 'rgba(243,237,227,.28)', paddingBottom: 4 }}>Müsait saatleri görmek için bir gün seçin.</div>
               ) : slotsLoading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}><div className="tf-spin" /></div>
-              ) : slots.length === 0 ? (
+              ) : shownSlots.length === 0 ? (
                 <div style={{ paddingBottom: 4 }}>
                   <div style={{ fontSize: 12.5, color: 'rgba(243,237,227,.42)', marginBottom: 12, lineHeight: 1.5 }}>Bu gün için müsait saat yok. Başka gün deneyebilir ya da bekleme listesine katılabilirsin.</div>
                   {wlJoined ? (
@@ -291,28 +335,44 @@ export function BookingPage() {
                 </div>
               ) : (
                 <div className="tf-tgrid">
-                  {slots.map(t => (
+                  {shownSlots.map(t => (
                     <button key={t} className={`tf-ts${time === t ? ' sel' : ''}`} onClick={() => setTime(t)}>{t}</button>
                   ))}
                 </div>
               )}
 
-              <button className="tf-cta" onClick={() => goStep(3)} disabled={!date || !time}>Devam et <span className="tf-arr">→</span></button>
+              {lines.length > 0 && <CartList lines={lines} onRemove={removeLine} />}
+
+              <button className="tf-cta2" onClick={addAnother} disabled={!date || !time}>+ Başka hizmet ekle</button>
+              <button className="tf-cta" onClick={continueInfo} disabled={!date || !time}>
+                Devam et {lines.length > 0 && <span style={{ opacity: .8, fontWeight: 600 }}>· {lines.length + 1} işlem</span>} <span className="tf-arr">→</span>
+              </button>
             </div>
           )}
 
           {/* STEP 3 — Bilgiler & Özet */}
           {step === 3 && (
             <div className="tf-sin">
-              <button className="tf-back" onClick={() => goStep(2)}>{ChevSvg} Geri</button>
-              <div className="tf-slbl">Özet</div>
+              <button className="tf-back" onClick={() => goStep(1)}>{ChevSvg} Hizmet ekle</button>
+              <div className="tf-slbl">Özet · {lines.length} işlem</div>
               <div className="tf-sumc">
-                <div className="tf-sr"><span className="tf-sk">Hizmet</span><span className="tf-sv">{selSvc?.name}</span></div>
-                <div className="tf-sr"><span className="tf-sk">Süre</span><span className="tf-sv">{selSvc?.duration} dk</span></div>
-                <div className="tf-sr"><span className="tf-sk">Personel</span><span className="tf-sv">{stfId === 'any' ? 'Fark etmez' : selStf?.name || '—'}</span></div>
-                <div className="tf-sr"><span className="tf-sk">Tarih</span><span className="tf-sv">{date ? fmtFull(date) : '—'}</span></div>
-                <div className="tf-sr"><span className="tf-sk">Saat</span><span className="tf-sv" style={{ color: '#FF5A1F', fontSize: 15 }}>{time}</span></div>
-                {selSvc?.price != null && <div className="tf-sr"><span className="tf-sk">Ücret</span><span className="tf-sv" style={{ color: '#FF5A1F' }}>{selSvc.price.toLocaleString('tr-TR')} ₺</span></div>}
+                {lines.map((l) => (
+                  <div key={l.id} className="tf-lr">
+                    <div className="tf-ldot" style={{ background: l.color }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="tf-lname">{l.svcName}</div>
+                      <div className="tf-lmeta">{fmtFull(l.date)} · {l.time} · {l.staffName}</div>
+                    </div>
+                    {l.price != null && <span className="tf-lprice">{l.price.toLocaleString('tr-TR')} ₺</span>}
+                    {lines.length > 1 && <button className="tf-lx" onClick={() => removeLine(l.id)} aria-label="Kaldır">×</button>}
+                  </div>
+                ))}
+                {cartTotal > 0 && (
+                  <div className="tf-sr" style={{ borderTop: '1px solid rgba(243,237,227,.10)' }}>
+                    <span className="tf-sk" style={{ fontWeight: 700 }}>Toplam</span>
+                    <span className="tf-sv" style={{ color: '#FF5A1F', fontSize: 15 }}>{cartTotal.toLocaleString('tr-TR')} ₺</span>
+                  </div>
+                )}
               </div>
 
               <div className="tf-slbl" style={{ marginTop: 20 }}>İletişim</div>
@@ -340,9 +400,15 @@ export function BookingPage() {
                 {done.status === 'confirmed' ? 'WhatsApp üzerinden onay mesajı gönderildi.' : `${biz.name} talebinizi onaylayınca WhatsApp'tan bilgilendirileceksiniz.`}
               </div>
               <div className="tf-sumc" style={{ width: '100%', textAlign: 'left' }}>
-                <div className="tf-sr"><span className="tf-sk">Hizmet</span><span className="tf-sv">{done.service}</span></div>
-                <div className="tf-sr"><span className="tf-sk">Tarih</span><span className="tf-sv">{fmtFull(done.date)}</span></div>
-                <div className="tf-sr"><span className="tf-sk">Saat</span><span className="tf-sv" style={{ color: '#FF5A1F', fontSize: 15 }}>{done.time}</span></div>
+                {done.lines.map((l, i) => (
+                  <div key={i} className="tf-lr">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="tf-lname">{l.service}</div>
+                      <div className="tf-lmeta">{fmtFull(l.date)}</div>
+                    </div>
+                    <span className="tf-lprice" style={{ color: '#FF5A1F' }}>{l.time}</span>
+                  </div>
+                ))}
               </div>
               <button className="tf-cta" style={{ width: '100%' }} onClick={reset}>Yeni Randevu Al</button>
             </div>
@@ -354,6 +420,26 @@ export function BookingPage() {
         </div>
       </div>
       <BookingCSS />
+    </div>
+  );
+}
+
+const fmtShort = (d: string) => { const dt = new Date(d + 'T00:00:00Z'); return `${dt.getUTCDate()} ${MON[dt.getUTCMonth()]}`; };
+
+function CartList({ lines, onRemove }: { lines: Line[]; onRemove: (id: string) => void }) {
+  return (
+    <div className="tf-cart">
+      <div className="tf-cartlbl">Eklenen işlemler</div>
+      {lines.map(l => (
+        <div key={l.id} className="tf-lr">
+          <div className="tf-ldot" style={{ background: l.color }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tf-lname">{l.svcName}</div>
+            <div className="tf-lmeta">{fmtShort(l.date)} · {l.time} · {l.staffName}</div>
+          </div>
+          <button className="tf-lx" onClick={() => onRemove(l.id)} aria-label="Kaldır">×</button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -461,6 +547,20 @@ textarea.tf-inp{height:88px;padding:13px 16px;resize:none;line-height:1.5}
 .tf-cs{font-size:13.5px;color:rgba(243,237,227,.50);line-height:1.55}
 .tf-sin{opacity:1}
 @media(prefers-reduced-motion:no-preference){.tf-sin{animation:tfIn .32s cubic-bezier(.2,.8,.2,1)}@keyframes tfIn{from{transform:translateY(14px)}to{transform:translateY(0)}}}
+.tf-cta2{width:100%;height:48px;border-radius:15px;background:rgba(243,237,227,.06);border:1.5px dashed rgba(243,237,227,.20);color:rgba(243,237,227,.72);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:16px;transition:all .18s cubic-bezier(.2,.8,.2,1);-webkit-tap-highlight-color:transparent}
+.tf-cta2:hover:not(:disabled){border-color:rgba(255,90,31,.45);color:#F3EDE3}
+.tf-cta2:active:not(:disabled){transform:scale(.98)}
+.tf-cta2:disabled{opacity:.28;cursor:not-allowed}
+.tf-cart{margin-top:18px;background:rgba(24,18,10,.6);border:1.5px solid rgba(243,237,227,.08);border-radius:16px;padding:6px 0 4px}
+.tf-cartlbl{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(243,237,227,.32);padding:8px 14px 4px}
+.tf-lr{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(243,237,227,.06)}
+.tf-lr:last-child{border-bottom:none}
+.tf-ldot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tf-lname{font-size:13px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-lmeta{font-size:11px;color:rgba(243,237,227,.42);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-lprice{font-size:12.5px;font-weight:800;color:#F3EDE3;flex-shrink:0}
+.tf-lx{width:24px;height:24px;border-radius:8px;background:rgba(243,237,227,.06);border:none;color:rgba(243,237,227,.55);font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;display:grid;place-items:center;font-family:inherit;transition:all .15s}
+.tf-lx:hover{background:rgba(232,64,16,.18);color:#FF7040}
 .tf-spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,90,31,.25);border-top-color:#FF5A1F;animation:tfspin .8s linear infinite}
 .tf-spin-sm{width:18px;height:18px;border-width:2.5px}
 @keyframes tfspin{to{transform:rotate(360deg)}}

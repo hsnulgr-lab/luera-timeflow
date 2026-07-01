@@ -202,6 +202,165 @@ Deno.serve(async (req: Request) => {
         }
 
         // ─────────────────────────────────────────────────────
+        // BOOK (çoklu hizmet) — lines: [{ serviceId, staffId, date, time }]
+        // Her satır ayrı personel/saat; müsaitlik gerçek doluluğa +
+        // aynı istekteki önceki satırlara göre hesaplanır. Tek birleşik
+        // adisyon için paylaşılan group_id atanır (satır>1 ise).
+        // ─────────────────────────────────────────────────────
+        const rawLines = Array.isArray(body.lines) ? body.lines : null;
+        if (action === 'book' && rawLines) {
+            if (rawLines.length === 0) return json({ error: 'En az bir hizmet gerekli' }, 400);
+
+            const customerName: string = (body.customerName || '').trim();
+            const customerPhone: string = (body.customerPhone || '').trim();
+            const customerEmail: string = (body.customerEmail || '').trim();
+            const note: string = (body.note || '').trim();
+            if (!customerName || !customerPhone) return json({ error: 'ad ve telefon gerekli' }, 400);
+
+            // Aktif personel (bir kez)
+            const { data: allStaff } = await supabase
+                .from('staff').select('id, name, working_hours').eq('organization_id', orgId).eq('is_active', true);
+            const staffList = allStaff || [];
+
+            // Tarih bazlı doluluk/izin önbelleği
+            const dateCache = new Map<string, { dayRes: { staff_id: string; start_time: string; end_time: string }[]; timeOffSet: Set<string> }>();
+            async function loadDate(d: string) {
+                const hit = dateCache.get(d);
+                if (hit) return hit;
+                const [{ data: dr }, { data: to }] = await Promise.all([
+                    supabase.from('reservations').select('staff_id, start_time, end_time').eq('organization_id', orgId).eq('date', d).neq('status', 'cancelled'),
+                    supabase.from('staff_time_off').select('staff_id').eq('organization_id', orgId).eq('date', d),
+                ]);
+                const v = { dayRes: (dr || []) as any[], timeOffSet: new Set((to || []).map((t: any) => t.staff_id)) };
+                dateCache.set(d, v);
+                return v;
+            }
+
+            // Aynı istek içinde önceki satırların işgal ettiği aralıklar (personel+tarih)
+            const extraBusy = new Map<string, [number, number][]>(); // key: `${staffId}|${date}`
+            const nowTR2 = new Date(Date.now() + TZ_OFFSET_MIN * 60_000);
+            const todayTR2 = nowTR2.toISOString().slice(0, 10);
+
+            interface Prepared { serviceId: string; svcName: string; svcColor: string; date: string; time: string; endTime: string; staffId: string }
+            const prepared: Prepared[] = [];
+
+            for (let i = 0; i < rawLines.length; i++) {
+                const ln = rawLines[i] || {};
+                const lSvcId: string = (ln.serviceId || '').trim();
+                const lDate: string = (ln.date || '').trim();
+                const lTime: string = (ln.time || '').trim();
+                const lStaffReq: string = (ln.staffId || 'any').trim();
+                if (!lSvcId || !lDate || !lTime) return json({ error: `Eksik hizmet bilgisi (satır ${i + 1})`, lineIndex: i }, 400);
+
+                const { data: svc } = await supabase
+                    .from('services').select('id, name, duration, color').eq('id', lSvcId).eq('organization_id', orgId).maybeSingle();
+                if (!svc) return json({ error: `Hizmet bulunamadı (satır ${i + 1})`, lineIndex: i }, 404);
+                const dur: number = svc.duration || 30;
+
+                const { dayRes, timeOffSet } = await loadDate(lDate);
+                const weekday = weekdayOf(lDate);
+                const minStart = lDate === todayTR2 ? (nowTR2.getUTCHours() * 60 + nowTR2.getUTCMinutes()) : 0;
+                const startMin = timeToMin(lTime);
+
+                let candidates = staffList;
+                if (lStaffReq !== 'any') candidates = candidates.filter(s => s.id === lStaffReq);
+
+                // Bu saatte boş ilk personeli bul
+                let chosen: string | undefined;
+                for (const st of candidates) {
+                    const key = `${st.id}|${lDate}`;
+                    const dbBusy = dayRes.filter(r => r.staff_id === st.id).map(r => [timeToMin(r.start_time), timeToMin(r.end_time)] as [number, number]);
+                    const extra = extraBusy.get(key) || [];
+                    const mins = staffSlots({
+                        orgHours, staffHours: st.working_hours || null, weekday,
+                        serviceDuration: dur, slotDuration,
+                        dayReservations: [...dbBusy, ...extra].map(([s, e]) => ({ start_time: minToTime(s), end_time: minToTime(e) })),
+                        isTimeOff: timeOffSet.has(st.id), minStart,
+                    });
+                    if (mins.includes(startMin)) { chosen = st.id; break; }
+                }
+
+                if (!chosen) {
+                    return json({ error: `Seçtiğiniz saat artık müsait değil (satır ${i + 1}). Lütfen tekrar seçin.`, lineIndex: i }, 409);
+                }
+
+                const endTime = minToTime(startMin + dur);
+                const key = `${chosen}|${lDate}`;
+                const list = extraBusy.get(key) || [];
+                list.push([startMin, startMin + dur]);
+                extraBusy.set(key, list);
+
+                prepared.push({ serviceId: lSvcId, svcName: svc.name, svcColor: svc.color || '#FF5A1F', date: lDate, time: lTime, endTime, staffId: chosen });
+            }
+
+            const autoConfirm: boolean = !!org.booking_auto_confirm;
+            const ownerId = org.owner_id as string;
+
+            // Müşteri bul / oluştur
+            let customerId: string | null = null;
+            const { data: existing } = await supabase
+                .from('customers').select('id').eq('organization_id', orgId).eq('phone', customerPhone).maybeSingle();
+            if (existing) {
+                customerId = existing.id;
+            } else {
+                const { data: created } = await supabase
+                    .from('customers')
+                    .insert({ user_id: ownerId, organization_id: orgId, name: customerName, phone: customerPhone, email: customerEmail || null })
+                    .select('id').single();
+                customerId = created?.id ?? null;
+            }
+
+            const groupId = prepared.length > 1 ? crypto.randomUUID() : null;
+            const status = autoConfirm ? 'confirmed' : 'pending';
+            const rows = prepared.map(p => ({
+                user_id: ownerId,
+                organization_id: orgId,
+                customer_id: customerId,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                customer_email: customerEmail || null,
+                date: p.date,
+                start_time: p.time,
+                end_time: p.endTime,
+                service: p.svcName,
+                service_color: p.svcColor,
+                status,
+                notes: note || '',
+                staff_id: p.staffId,
+                source: 'booking',
+                group_id: groupId,
+            }));
+
+            const { data: inserted, error: insErr } = await supabase.from('reservations').insert(rows).select();
+            if (insErr || !inserted) {
+                console.error('multi booking insert error', insErr);
+                return json({ error: 'Randevu oluşturulamadı' }, 500);
+            }
+
+            // WhatsApp — tek birleşik mesaj
+            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
+            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
+            if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
+                const lineTxt = prepared.map(p => {
+                    const d = new Date(p.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
+                    return `💼 ${p.svcName}\n🗓️ ${d} ⏰ ${p.time}`;
+                }).join('\n\n');
+                const head = autoConfirm
+                    ? `Merhaba ${customerName} 👋\n\n*${businessName}* randevunuz oluşturuldu ✅\n\n`
+                    : `Merhaba ${customerName} 👋\n\n*${businessName}* randevu talebiniz alındı 📝\n\n`;
+                const tail = autoConfirm ? `\n\nSizi bekliyoruz!` : `\n\nOnaylandığında size tekrar bilgi vereceğiz.`;
+                sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, customerPhone, head + lineTxt + tail).catch(() => {});
+            }
+
+            return json({
+                success: true,
+                status,
+                groupId,
+                lines: prepared.map(p => ({ service: p.svcName, date: p.date, time: p.time })),
+            });
+        }
+
+        // ─────────────────────────────────────────────────────
         // Ortak: slots & book için müsaitlik hesabı
         // ─────────────────────────────────────────────────────
         const date: string = (body.date || '').trim();
