@@ -3,7 +3,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { useProducts } from '@/hooks/useProducts';
 import { priceForReservation } from '@/lib/appointmentFlow';
 import type { AdisyonItem } from '@/types';
-import { D, fmtNum, fmtTimer, HizmetKeyframes, SlideToStart } from './hizmetDesign';
+import { D, STS, fmtNum, fmtTimer, HizmetKeyframes, SlideToStart } from './hizmetDesign';
 
 const rid = () => Math.random().toString(36).slice(2, 9);
 
@@ -88,8 +88,8 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
 
             {/* ══ DONE OVERLAY ══ */}
             {phase === 'done' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(10,8,4,.96)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 28px', animation: 'lz-fadeUp .35s both' }}>
-                    <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(124,196,127,.12)', border: '2px solid rgba(124,196,127,.35)', display: 'grid', placeItems: 'center', marginBottom: 22, boxShadow: '0 0 0 12px rgba(124,196,127,.05)' }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: D.overlay, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 28px', animation: 'lz-fadeUp .35s both' }}>
+                    <div style={{ width: 80, height: 80, borderRadius: '50%', background: STS.done.bg, border: `2px solid ${D.greenBorder}`, display: 'grid', placeItems: 'center', marginBottom: 22, boxShadow: '0 0 0 12px rgba(124,196,127,.05)' }}>
                         <svg width="38" height="38" viewBox="0 0 40 40" fill="none">
                             <path d="M9 21l9 9 14-16" stroke={D.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="32" strokeDashoffset="32" style={{ animation: 'lz-checkDraw .6s .15s cubic-bezier(.2,.8,.2,1) forwards' }} />
                         </svg>
@@ -227,8 +227,8 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         <button onClick={() => setPaused(true)} style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0, background: D.s2, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted }}>
                             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="4" height="12" rx="1.5" fill="currentColor" /><rect x="9" y="1" width="4" height="12" rx="1.5" fill="currentColor" /></svg>
                         </button>
-                        <button onClick={finalize} style={{ flex: 1, height: 56, borderRadius: 16, background: '#0D0D0D', color: D.ink, fontSize: 15.5, fontWeight: 800, border: `1.5px solid ${D.border2}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, letterSpacing: '-.01em' }}>
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" fill={`${D.ink}cc`} /></svg>
+                        <button onClick={finalize} style={{ flex: 1, height: 56, borderRadius: 16, background: D.btnInkBg, color: '#F3EDE3', fontSize: 15.5, fontWeight: 800, border: `1.5px solid ${D.border2}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, letterSpacing: '-.01em' }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" fill="#F3EDE3cc" /></svg>
                             Bitti
                         </button>
                     </div>
@@ -252,7 +252,7 @@ const ctaGreen: React.CSSProperties = { flex: 1, height: 56, borderRadius: 16, b
 
 function Nav({ onBack }: { onBack: () => void }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 'calc(env(safe-area-inset-top,0px) + 10px) 16px 10px', position: 'sticky', top: 0, zIndex: 10, background: `${D.bg}ee`, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: `1px solid ${D.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 'calc(env(safe-area-inset-top,0px) + 10px) 16px 10px', position: 'sticky', top: 0, zIndex: 10, background: D.overlay, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: `1px solid ${D.border}` }}>
             <button onClick={onBack} aria-label="Geri" style={{ width: 36, height: 36, borderRadius: 11, background: D.s2, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted, flexShrink: 0 }}>
                 <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7l6 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
@@ -281,7 +281,7 @@ function Item({ name, type, price, onDel, delay = 0 }: { name: string; type: str
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 800, fontFamily: D.mono, letterSpacing: '-.02em' }}>{fmtNum(price)} ₺</div>
                 {onDel && (
-                    <button onClick={onDel} aria-label="Sil" style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(224,90,90,.10)', border: 'none', cursor: 'pointer', color: D.red, display: 'grid', placeItems: 'center' }}>
+                    <button onClick={onDel} aria-label="Sil" style={{ width: 28, height: 28, borderRadius: 9, background: STS.cancelled.bg, border: 'none', cursor: 'pointer', color: D.red, display: 'grid', placeItems: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                     </button>
                 )}

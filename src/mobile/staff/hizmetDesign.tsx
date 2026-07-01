@@ -1,23 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
+import { T, STS_BG } from '../theme';
 
-// ── Tasarım token'ları (design_handoff_personel_hizmet — sabit koyu palet) ──
+// ── Tasarım token'ları — artık uygulama genelindeki tema sistemine (T, CSS
+// değişkenleri) bağlı; koyu/açık geçişi ThemeProvider'daki global toggle ile
+// otomatik olur (design_handoff_personel_hizmet_light ile birebir eşlenmiştir).
 export const D = {
-    bg: '#0A0804', s1: '#181310', s2: '#221C12', s3: '#2C2618',
-    border: 'rgba(243,237,227,.08)', border2: 'rgba(243,237,227,.14)',
-    ink: '#F3EDE3', muted: 'rgba(243,237,227,.50)', muted2: 'rgba(243,237,227,.28)', muted3: 'rgba(243,237,227,.11)',
-    orange: '#FF5A1F', orangeD: '#E84010', green: '#7CC47F', blue: '#6B9FD4', amber: '#E0A84E', purple: '#C98BDB', red: '#E05A5A',
-    font: "'Hanken Grotesk',system-ui,sans-serif", mono: "'JetBrains Mono',monospace",
+    bg: T.bg, s1: T.surface, s2: T.surface2, s3: T.surface3,
+    border: T.border, border2: T.border2,
+    ink: T.ink, muted: T.muted, muted2: T.muted2, muted3: T.muted3,
+    orange: T.orange, orangeD: T.orangeD, green: T.green, blue: T.blue, amber: T.amber, purple: T.purple, red: T.red,
+    font: T.font, mono: T.mono,
+    overlay: T.overlay, chipBg: T.chipBg, hero1: T.hero1, hero2: T.hero2, orb1: T.orb1, orb2: T.orb2,
+    greenBorder: T.greenBorder, redBorder: T.redBorder, btnInkBg: T.btnInkBg,
 } as const;
 
 export const fmtNum = (n: number) => n.toLocaleString('tr-TR');
 export const fmtTimer = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export const STS: Record<string, { lbl: string; c: string; bg: string }> = {
-    done: { lbl: 'Tamamlandı', c: D.green, bg: 'rgba(124,196,127,.12)' },
-    upcoming: { lbl: 'Onaylandı', c: D.blue, bg: 'rgba(107,159,212,.12)' },
+    done: { lbl: 'Tamamlandı', c: D.green, bg: STS_BG.completed },
+    upcoming: { lbl: 'Onaylandı', c: D.blue, bg: STS_BG.confirmed },
     inService: { lbl: 'Devam ediyor', c: D.orange, bg: 'rgba(255,90,31,.12)' },
-    pending: { lbl: 'Onay bekliyor', c: D.amber, bg: 'rgba(224,168,78,.12)' },
-    cancelled: { lbl: 'İptal', c: D.red, bg: 'rgba(224,90,90,.12)' },
+    pending: { lbl: 'Onay bekliyor', c: D.amber, bg: STS_BG.pending },
+    cancelled: { lbl: 'İptal', c: D.red, bg: STS_BG.cancelled },
 };
 
 // Animasyon keyframe'leri — bir kez enjekte edilir (inline style'lar bunlara referans verir)

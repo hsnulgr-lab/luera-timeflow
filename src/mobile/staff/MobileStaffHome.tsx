@@ -89,9 +89,9 @@ export const MobileStaffHome = () => {
             <div style={{ overflowY: 'auto', overflowX: 'hidden', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 28px)' }}>
 
                 {/* ══ AMBIENT HERO ══ */}
-                <div style={{ height: 120, position: 'relative', overflow: 'hidden', background: `linear-gradient(160deg,#2A1A0A 0%,#180E06 50%,${D.bg} 100%)`, paddingTop: 'env(safe-area-inset-top,0px)' }}>
-                    <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,90,31,.22) 0%,transparent 65%)', top: -100, left: -50, animation: 'lz-floatOrb1 11s ease-in-out infinite' }} />
-                    <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(201,139,219,.10) 0%,transparent 60%)', top: 0, right: -30, animation: 'lz-floatOrb2 15s ease-in-out infinite' }} />
+                <div style={{ height: 120, position: 'relative', overflow: 'hidden', background: `linear-gradient(160deg,${D.hero1} 0%,${D.hero2} 50%,${D.bg} 100%)`, paddingTop: 'env(safe-area-inset-top,0px)' }}>
+                    <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: `radial-gradient(circle,${D.orb1} 0%,transparent 65%)`, top: -100, left: -50, animation: 'lz-floatOrb1 11s ease-in-out infinite' }} />
+                    <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: `radial-gradient(circle,${D.orb2} 0%,transparent 60%)`, top: 0, right: -30, animation: 'lz-floatOrb2 15s ease-in-out infinite' }} />
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 20px 16px', display: 'flex', alignItems: 'center', gap: 13 }}>
                         <div style={{ width: 46, height: 46, borderRadius: 15, flexShrink: 0, background: 'linear-gradient(145deg,#FF5A1F,#CC3A0A)', display: 'grid', placeItems: 'center', fontSize: 19, fontWeight: 900, color: '#fff', boxShadow: '0 4px 20px rgba(255,90,31,.40)' }}>{(staff?.name || '?').charAt(0).toUpperCase()}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -101,7 +101,7 @@ export const MobileStaffHome = () => {
                                 <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>Çalışmada</span>
                             </div>
                         </div>
-                        <button onClick={logout} aria-label="Çıkış" style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(24,19,16,.8)', border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                        <button onClick={logout} aria-label="Çıkış" style={{ width: 38, height: 38, borderRadius: 12, background: D.chipBg, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                             <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M12 4l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </button>
                     </div>
@@ -215,14 +215,14 @@ export const MobileStaffHome = () => {
                                                     )}
                                                     {ph === 'pending' && (
                                                         <div style={{ display: 'flex', gap: 7, marginTop: 8 }}>
-                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'confirmed' }); }} style={{ flex: 1, height: 32, borderRadius: 9, background: 'rgba(124,196,127,.12)', color: D.green, fontSize: 12, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Onayla</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'cancelled' }); }} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: 'rgba(224,90,90,.1)', color: D.red, fontSize: 12, fontWeight: 700, border: '1px solid rgba(224,90,90,.2)', cursor: 'pointer' }}>✕ Reddet</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'confirmed' }); }} style={{ flex: 1, height: 32, borderRadius: 9, background: STS.done.bg, color: D.green, fontSize: 12, fontWeight: 750, border: `1px solid ${D.greenBorder}`, cursor: 'pointer' }}>✓ Onayla</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'cancelled' }); }} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: STS.cancelled.bg, color: D.red, fontSize: 12, fontWeight: 700, border: `1px solid ${D.redBorder}`, cursor: 'pointer' }}>✕ Reddet</button>
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
                                                     <div style={{ padding: '3px 9px', borderRadius: 999, background: st?.bg, color: st?.c, fontSize: 10, fontWeight: 750 }}>{st?.lbl}</div>
-                                                    {ph === 'done' && <div style={{ padding: '3px 9px', borderRadius: 999, background: a.isPaid ? 'rgba(124,196,127,.10)' : 'rgba(224,90,90,.10)', color: a.isPaid ? D.green : D.red, fontSize: 10, fontWeight: 750 }}>{a.isPaid ? 'Ödendi' : 'Ödenmedi'}</div>}
+                                                    {ph === 'done' && <div style={{ padding: '3px 9px', borderRadius: 999, background: a.isPaid ? STS.done.bg : STS.cancelled.bg, color: a.isPaid ? D.green : D.red, fontSize: 10, fontWeight: 750 }}>{a.isPaid ? 'Ödendi' : 'Ödenmedi'}</div>}
                                                 </div>
                                             </div>
                                         </div>

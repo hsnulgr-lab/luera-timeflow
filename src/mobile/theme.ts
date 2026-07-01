@@ -61,6 +61,17 @@ export const LIGHT_VARS: Record<string, string> = {
     '--lt-blue-bg': 'rgba(40,112,176,0.12)',
     '--lt-amber-bg': 'rgba(184,114,10,0.12)',
     '--lt-red-bg': 'rgba(192,57,43,0.12)',
+    // Personel/hizmet ekranı (design_handoff_personel_hizmet_light) için ek token'lar
+    '--lt-muted3': 'rgba(26,18,8,.10)',
+    '--lt-overlay': 'rgba(240,235,225,.96)',
+    '--lt-chip-bg': 'rgba(240,235,225,.90)',
+    '--lt-hero-1': '#FDE8D8',
+    '--lt-hero-2': '#F5E6D4',
+    '--lt-orb1': 'rgba(255,90,31,.16)',
+    '--lt-orb2': 'rgba(160,100,220,.07)',
+    '--lt-green-border': 'rgba(46,138,53,.30)',
+    '--lt-red-border': 'rgba(192,57,43,.20)',
+    '--lt-btn-ink-bg': '#1C1208',
 };
 
 // :root üzerine ilgili tema değişkenlerini uygula (ThemeProvider'dan çağrılır).
@@ -102,6 +113,17 @@ export const T = {
     bg: 'var(--lt-bg,#120E08)',
     font: "'Hanken Grotesk',system-ui,sans-serif",
     mono: "'JetBrains Mono',monospace",
+    // Personel/hizmet ekranı (design_handoff_personel_hizmet) için ek token'lar
+    muted3: 'var(--lt-muted3,rgba(243,237,227,.11))',
+    overlay: 'var(--lt-overlay,rgba(10,8,4,.96))',
+    chipBg: 'var(--lt-chip-bg,rgba(24,19,16,.80))',
+    hero1: 'var(--lt-hero-1,#2A1A0A)',
+    hero2: 'var(--lt-hero-2,#180E06)',
+    orb1: 'var(--lt-orb1,rgba(255,90,31,.22))',
+    orb2: 'var(--lt-orb2,rgba(201,139,219,.10))',
+    greenBorder: 'var(--lt-green-border,rgba(124,196,127,.30))',
+    redBorder: 'var(--lt-red-border,rgba(224,90,90,.20))',
+    btnInkBg: 'var(--lt-btn-ink-bg,#0D0D0D)',
 } as const;
 
 // Randevu durumu → tasarım rozet renkleri (tema değişkeniyle açık/koyu uyumlu)
