@@ -121,7 +121,7 @@ async function handleInbound(req: Request): Promise<Response> {
         // Core'a "bu tenant TimeFlow abonesi mi?" diye sorar.
         // Varsayılan SHADOW mod: sadece loglar, isteği geçirir (pilot için güvenli).
         // CORE_SUBSCRIPTION_ENFORCE=true olunca abonesi olmayan 403 alır.
-        const subGate = await checkSubscription(organization_id);
+        const subGate = await checkSubscription(supabase, organization_id);
         if (!subGate.ok) {
             return new Response(
                 JSON.stringify(subGate.body),
@@ -249,10 +249,19 @@ function timeToMinutes(time: string): number {
 // Bunlar tanımlı değilse gate atlanır (kademeli kurulum — bkz. Omurga Uyum notu).
 type SubGate = { ok: true } | { ok: false; status: number; body: unknown };
 
-async function checkSubscription(orgId: string): Promise<SubGate> {
-    const enforce  = Deno.env.get('CORE_SUBSCRIPTION_ENFORCE') === 'true';
-    const coreUrl  = Deno.env.get('CORE_SUPABASE_URL');
-    const coreKey  = Deno.env.get('CORE_SERVICE_KEY');
+// Sır okuma: önce env, yoksa app_secrets tablosu (self-hosted'da env
+// compose'a gömülü olduğundan repo deseni app_secrets — bkz. remind/insight)
+async function getSecret(supabase: any, key: string): Promise<string | null> {
+    const env = Deno.env.get(key);
+    if (env) return env;
+    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
+    return data?.value ?? null;
+}
+
+async function checkSubscription(supabase: any, orgId: string): Promise<SubGate> {
+    const enforce  = (await getSecret(supabase, 'CORE_SUBSCRIPTION_ENFORCE')) === 'true';
+    const coreUrl  = await getSecret(supabase, 'CORE_SUPABASE_URL');
+    const coreKey  = await getSecret(supabase, 'CORE_SERVICE_KEY');
     const MODULE   = 'timeflow';
 
     // Core bağlı değil → gate'i atla (henüz entegre değil)
@@ -266,9 +275,10 @@ async function checkSubscription(orgId: string): Promise<SubGate> {
 
     try {
         const core = createClient(coreUrl, coreKey);
+        // Core'daki gerçek imza: has_active_subscription(p_org_id, p_module_name)
         const { data, error } = await core.rpc('has_active_subscription', {
             p_org_id: orgId,
-            p_module: MODULE,
+            p_module_name: MODULE,
         });
 
         if (error) {

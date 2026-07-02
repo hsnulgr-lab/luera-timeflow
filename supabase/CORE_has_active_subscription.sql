@@ -1,40 +1,32 @@
 -- ============================================================
--- LUERA CORE tarafı — has_active_subscription RPC
+-- LUERA CORE tarafı — has_active_subscription RPC (SÖZLEŞME)
 -- ============================================================
--- ⚠️  Bu dosya TimeFlow'a DEĞİL, LUERA Core Supabase'ine
---     (core.lueratech.com) uygulanır. Burada yalnızca SÖZLEŞME
---     olarak tutuluyor; TimeFlow gateway Edge Function'ı bu
---     imzayı çağırıyor (supabase/functions/gateway/index.ts → checkSubscription).
+-- ⚠️  Bu dosya TimeFlow'a DEĞİL, LUERA Core Supabase'ine aittir.
 --
--- Çağrı imzası (TimeFlow gateway'in beklediği):
---   has_active_subscription(p_org_id UUID, p_module TEXT) RETURNS BOOLEAN
+-- DURUM (2026-07-02, canlı Core'dan doğrulandı): Bu RPC Core'da
+-- ZATEN MEVCUT ve aşağıdaki gövdeye sahip — yeniden uygulamak
+-- gerekmez, dosya yalnızca sözleşme referansıdır.
 --
--- Dönüş: organizasyonun verilen modüle AKTİF aboneliği varsa true.
+-- DİKKAT: İkinci parametrenin adı p_module_name'dir (p_module DEĞİL).
+-- TimeFlow gateway'i RPC'yi { p_org_id, p_module_name } ile çağırır
+-- (supabase/functions/gateway/index.ts → checkSubscription).
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.has_active_subscription(
     p_org_id UUID,
-    p_module TEXT
+    p_module_name TEXT
 )
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
-SECURITY DEFINER
-SET search_path = public
 AS $$
     SELECT EXISTS (
         SELECT 1
-        FROM subscriptions s
-        WHERE s.organization_id = p_org_id
-          AND s.module          = p_module
-          AND s.status          = 'active'
-          AND (s.expires_at IS NULL OR s.expires_at > now())
+        FROM public.subscriptions
+        WHERE organization_id = p_org_id
+          AND module_name     = p_module_name
+          AND status IN ('trial', 'active')
+          AND (expires_at IS NULL OR expires_at > NOW())
+          AND (trial_ends_at IS NULL OR status <> 'trial' OR trial_ends_at > NOW())
     );
 $$;
-
--- NOT: subscriptions tablosunun gerçek kolon adları Core şemasına göre
--- ayarlanmalı (module / module_key, status / state, expires_at / valid_until).
--- Yukarıdaki imza TimeFlow'un beklediği p_org_id + p_module + boolean dönüşüdür;
--- gövdeyi Core şemasına uydur.
-
-NOTIFY pgrst, 'reload schema';
