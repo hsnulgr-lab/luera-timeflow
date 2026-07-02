@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { useStaffStats } from '@/hooks/useStaffStats';
+import { usePush } from '@/hooks/usePush';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate } from '@/utils/date';
@@ -15,6 +16,7 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 
 export const MobileStaffHome = () => {
     const { staff, logout } = useStaffSession();
+    const push = usePush('staff', staff?.id);
     const [detailId, setDetailId] = useState<string | null>(null);
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
@@ -101,6 +103,11 @@ export const MobileStaffHome = () => {
                                 <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>Çalışmada</span>
                             </div>
                         </div>
+                        {push.supported && (
+                            <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: push.enabled ? 'rgba(255,90,31,.14)' : D.chipBg, border: `1px solid ${push.enabled ? 'rgba(255,90,31,.3)' : D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: push.enabled ? D.orange : D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                                <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                            </button>
+                        )}
                         <button onClick={logout} aria-label="Çıkış" style={{ width: 38, height: 38, borderRadius: 12, background: D.chipBg, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                             <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M12 4l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </button>

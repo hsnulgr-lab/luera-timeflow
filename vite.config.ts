@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',           // yeni deploy'da otomatik güncelle (cache bayatlamaz)
+      strategies: 'injectManifest',         // özel SW (src/sw.ts) — Web Push handler için
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['favicon-dark.svg', 'favicon-light.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Luera TimeFlow',
@@ -26,10 +29,8 @@ export default defineConfig({
           { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallbackDenylist: [/^\/book\//],   // public booking yolu SW fallback dışı
-        cleanupOutdatedCaches: true,
       },
       devOptions: { enabled: false },
     }),

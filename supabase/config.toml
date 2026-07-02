@@ -3,3 +3,8 @@
 # kimlik doğrulama Standard Webhooks imzasıyla fonksiyon içinde yapılır.
 [functions.dodo-webhook]
 verify_jwt = false
+
+# send-push'u DB trigger (pg_net) ve remind çağırır — Supabase JWT taşımaz;
+# kimlik doğrulama x-push-secret (app_secrets.PUSH_TRIGGER_SECRET) ile fonksiyon içinde.
+[functions.send-push]
+verify_jwt = false

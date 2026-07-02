@@ -124,9 +124,51 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} errors=${errors.length}`);
+        // ── Yaklaşan randevu push'u (WhatsApp'tan bağımsız, tüm org'lar) ──────
+        // Atanmış personele, randevusuna ~10-25 dk kala bir kez push.
+        let sentPush = 0;
+        const pushBase = await getSecret(supabase, 'FUNCTIONS_BASE_URL');
+        const pushSecret = await getSecret(supabase, 'PUSH_TRIGGER_SECRET');
+        if (pushBase && pushSecret) {
+            const winStart = `${String(Math.floor((nowMin + 10) / 60)).padStart(2, '0')}:${String((nowMin + 10) % 60).padStart(2, '0')}`;
+            const winEnd   = `${String(Math.floor((nowMin + 25) / 60)).padStart(2, '0')}:${String((nowMin + 25) % 60).padStart(2, '0')}`;
+            const { data: soon } = await supabase
+                .from('reservations')
+                .select('id, organization_id, customer_name, service, start_time, staff_id')
+                .eq('date', todayStr)
+                .eq('reminder_push_sent', false)
+                .not('staff_id', 'is', null)
+                .in('status', ['confirmed', 'pending'])
+                .gte('start_time', winStart)
+                .lte('start_time', winEnd);
+
+            for (const r of soon ?? []) {
+                try {
+                    const res = await fetch(`${pushBase}/send-push`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-push-secret': pushSecret },
+                        body: JSON.stringify({
+                            organization_id: r.organization_id,
+                            target: { staffId: r.staff_id },
+                            payload: {
+                                title: 'Sıradaki randevun yaklaşıyor',
+                                body: `${r.customer_name || 'Müşteri'} · ${r.service || ''} · ${String(r.start_time).slice(0, 5)}`,
+                                url: '/calendar',
+                                tag: `soon-${r.id}`,
+                            },
+                        }),
+                    });
+                    if (res.ok) {
+                        await supabase.from('reservations').update({ reminder_push_sent: true }).eq('id', r.id);
+                        sentPush++;
+                    }
+                } catch (_e) { /* sessiz geç — bir sonraki turda tekrar denenir */ }
+            }
+        }
+
+        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} push=${sentPush} errors=${errors.length}`);
         return new Response(
-            JSON.stringify({ success: true, sent24h, sent2h, errors }),
+            JSON.stringify({ success: true, sent24h, sent2h, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
     } catch (err) {

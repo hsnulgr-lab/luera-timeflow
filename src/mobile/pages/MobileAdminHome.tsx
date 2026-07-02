@@ -7,6 +7,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { useModules } from '@/hooks/useModules';
+import { usePush } from '@/hooks/usePush';
 import { toISODate } from '@/utils/date';
 import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
@@ -42,6 +43,7 @@ export const MobileAdminHome = () => {
     const { staff } = useStaff();
     const { disable: exitManager } = useManagerMode();
     const { isEnabled } = useModules();
+    const push = usePush('manager');
 
     const totalRev = useTicker(stats.total, 1200, 200);
     const monthRev = useTicker(stats.month, 900, 300);
@@ -93,6 +95,11 @@ export const MobileAdminHome = () => {
                         <span style={{ fontSize: 10.5, color: T.muted, fontFamily: T.mono }}>Tam Erişim</span>
                     </div>
                 </div>
+                {push.supported && (
+                    <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: push.enabled ? 'rgba(255,90,31,.13)' : T.surface2, border: `1px solid ${push.enabled ? 'rgba(255,90,31,.28)' : T.border}`, display: 'grid', placeItems: 'center', color: push.enabled ? T.orange : T.muted, cursor: 'pointer' }}>
+                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                    </button>
+                )}
                 <ThemeToggle />
                 <button onClick={exitManager} aria-label="Yönetici modundan çık" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', color: T.muted, cursor: 'pointer' }}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -100,7 +107,7 @@ export const MobileAdminHome = () => {
             </div>
 
             {/* Revenue hero */}
-            <div style={{ margin: '16px 22px 0', background: 'linear-gradient(145deg,#2A1C10,#1C1710)', border: '1px solid rgba(255,90,31,.18)', borderRadius: 22, padding: 18, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ margin: '16px 22px 0', background: `linear-gradient(145deg,${T.hero1},${T.hero2})`, border: '1px solid rgba(255,90,31,.18)', borderRadius: 22, padding: 18, overflow: 'hidden', position: 'relative' }}>
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 150, height: 150, borderRadius: '50%', border: '1px solid rgba(255,90,31,.08)', pointerEvents: 'none' }} />
                 <div style={{ fontSize: 10.5, color: 'rgba(255,90,31,.7)', fontWeight: 750, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 10 }}>Toplam Gelir</div>
                 <div style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1 }}>{fmt(totalRev)} <span style={{ fontSize: 22, color: T.muted }}>₺</span></div>
@@ -126,7 +133,7 @@ export const MobileAdminHome = () => {
                             <div style={{ fontSize: 15, fontWeight: 850, letterSpacing: '-0.025em' }}>Onay Bekliyor</div>
                             <div style={{ width: 20, height: 20, borderRadius: '50%', background: T.orange, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900, color: '#0E0E0E' }}>{pending.length}</div>
                         </div>
-                        <div onClick={() => navigate('/reservations')} style={{ fontSize: 12, fontWeight: 750, color: T.orange, cursor: 'pointer' }}>Tümü →</div>
+                        <div onClick={() => navigate('/calendar')} style={{ fontSize: 12, fontWeight: 750, color: T.orange, cursor: 'pointer' }}>Tümü →</div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {pending.map((p) => (
