@@ -153,7 +153,8 @@ export const MobileNewReservation = () => {
     // ── BAŞARI EKRANI ──
     if (done) {
         return (
-            <div style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 28px', background: T.bg, color: T.ink }}>
+            <div style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', background: T.bg, color: T.ink }}>
+              <div style={{ margin: 'auto 0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 28px' }}>
                 <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'rgba(124,196,127,.12)', border: '1px solid rgba(124,196,127,.25)', display: 'grid', placeItems: 'center', marginBottom: 22, position: 'relative', flexShrink: 0 }}>
                     <div style={{ position: 'absolute', inset: -10, borderRadius: '50%', border: '1.5px solid rgba(124,196,127,.15)' }} />
                     <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke={T.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -185,6 +186,7 @@ export const MobileNewReservation = () => {
                         <button onClick={reset} style={{ flex: 1, height: 48, borderRadius: 14, background: T.orange, color: '#0E0E0E', fontSize: 13.5, fontWeight: 850, border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,90,31,.35)' }}>+ Yeni</button>
                     </div>
                 </div>
+              </div>
             </div>
         );
     }

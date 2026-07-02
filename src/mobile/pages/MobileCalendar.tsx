@@ -63,7 +63,7 @@ export const MobileCalendar = () => {
             </div>
 
             {/* Week strip */}
-            <div style={{ padding: '0 16px 20px', display: 'flex', gap: 5 }}>
+            <div style={{ padding: '8px 16px 20px', display: 'flex', gap: 5 }}>
                 {week.map((d, i) => (
                     <div key={d.ds} onClick={() => setSelected(d.ds)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '10px 3px 8px', borderRadius: 15, cursor: 'pointer', position: 'relative', background: d.isSelected ? T.surface : 'transparent', transition: 'all .18s', boxShadow: d.isSelected ? `0 0 0 1.5px ${T.orange}, 0 0 0 3.5px rgba(255,90,31,.15), 0 4px 14px rgba(0,0,0,.35)` : 'none' }}>
                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: T.mono, color: d.isSelected ? T.orange : T.muted2 }}>{DAY_LETTERS[i]}</div>

@@ -86,7 +86,7 @@ export const MobileHome = () => {
                     <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                     </button>
-                    <button onClick={() => navigate('/reservations')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
+                    <button onClick={() => navigate('/calendar')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                         {pendingCount > 0 && <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
                     </button>
@@ -218,7 +218,7 @@ export const MobileHome = () => {
                         </button>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => navigate('/reservations')} style={{ flex: 1, height: 38, borderRadius: 11, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>İncele</button>
+                        <button onClick={() => navigate('/calendar')} style={{ flex: 1, height: 38, borderRadius: 11, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>İncele</button>
                         <button onClick={() => setAiDismissed(true)} style={{ flex: 1, height: 38, borderRadius: 11, background: T.surface2, color: T.muted, fontSize: 12.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Sonra</button>
                     </div>
                 </div>
