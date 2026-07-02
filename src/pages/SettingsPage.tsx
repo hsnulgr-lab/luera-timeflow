@@ -284,6 +284,20 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp'|'billing';
 
+// Booking sayfasının gömülebilir (iframe) versiyonu için kopyala-yapıştır kodu.
+// Script, widget'ın postMessage ile bildirdiği yüksekliğe göre iframe'i boyutlar.
+function buildEmbedCode(bookingUrl: string): string {
+  const src = `${bookingUrl}?embed=1`;
+  return `<!-- Luera TimeFlow randevu widget'ı -->
+<iframe src="${src}" title="Online Randevu" loading="lazy"
+  style="width:100%;max-width:464px;height:760px;border:none;border-radius:22px;display:block"></iframe>
+<script>window.addEventListener("message",function(e){
+  if(e.data&&e.data.type==="tf-embed-height"){
+    document.querySelectorAll('iframe[src^="${bookingUrl}"]').forEach(function(f){f.style.height=e.data.height+"px"});
+  }
+});</script>`;
+}
+
 export const SettingsPage = () => {
   const { T, dark } = useT();
   const { settings, updateSettings } = useReservations();
@@ -624,6 +638,23 @@ export const SettingsPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* Siteye göm (widget) */}
+              {bookingUrl && (
+                <div style={{ marginBottom:'22px' }}>
+                  <FieldLabel>Web Sitene Göm (Widget)</FieldLabel>
+                  <div style={{ fontSize:'11.5px', color:T.muted, marginBottom:'8px', lineHeight:1.6 }}>
+                    Aşağıdaki kodu web sitenin HTML'ine yapıştır; randevu ekranı sitenin içinde açılır ve yüksekliği içeriğe göre kendini ayarlar.
+                  </div>
+                  <pre style={{ margin:0, padding:'12px 14px', background:inkbox, color:inkboxFg, borderRadius:T.rSm, fontSize:'10.5px', lineHeight:1.55, overflowX:'auto', whiteSpace:'pre-wrap', wordBreak:'break-all', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                    {buildEmbedCode(bookingUrl)}
+                  </pre>
+                  <button onClick={()=>{navigator.clipboard.writeText(buildEmbedCode(bookingUrl)); toast.success('Widget kodu kopyalandı');}}
+                    style={{ display:'flex', alignItems:'center', gap:'6px', marginTop:'8px', padding:'7px 12px', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12px', fontWeight:600, color:T.ink, cursor:'pointer', fontFamily:'inherit' }}>
+                    <Copy size={12}/> Widget Kodunu Kopyala
+                  </button>
+                </div>
+              )}
 
               {/* Otomatik onay */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', padding:'13px 16px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, marginBottom:'22px' }}>

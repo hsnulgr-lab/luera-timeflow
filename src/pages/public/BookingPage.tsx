@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 // ── Backend (public-booking edge fn) — veri katmanı korunur ───────────────────
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-booking`;
@@ -50,6 +50,10 @@ function softBg(hex: string) {
 
 export function BookingPage() {
   const { slug = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  // Embed modu (?embed=1): hero gizlenir, shell iframe'i doldurur,
+  // yükseklik postMessage ile host sayfaya bildirilir
+  const embed = searchParams.get('embed') === '1';
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -94,6 +98,16 @@ export function BookingPage() {
       setLoading(false);
     })();
   }, [slug]);
+
+  // Embed: içerik yüksekliğini host sayfaya bildir (iframe otomatik boyutlansın)
+  useEffect(() => {
+    if (!embed || window.parent === window) return;
+    const post = () => window.parent.postMessage({ type: 'tf-embed-height', height: document.documentElement.scrollHeight }, '*');
+    post();
+    const ro = new ResizeObserver(post);
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, [embed, loading]);
 
   const selSvc = useMemo(() => services.find(s => s.id === svcId) || null, [services, svcId]);
   const selStf = useMemo(() => staff.find(s => s.id === stfId) || null, [staff, stfId]);
@@ -179,9 +193,11 @@ export function BookingPage() {
   };
 
   // ── durum ekranları ──
-  if (loading) return <div className="tf-page"><div className="tf-shell" style={{ minHeight: 400, display: 'grid', placeItems: 'center' }}><div className="tf-spin" /></div><BookingCSS /></div>;
+  const pageCls = embed ? 'tf-page tf-emb' : 'tf-page';
+
+  if (loading) return <div className={pageCls}><div className="tf-shell" style={{ minHeight: 400, display: 'grid', placeItems: 'center' }}><div className="tf-spin" /></div><BookingCSS /></div>;
   if (notFound || !biz) return (
-    <div className="tf-page"><div className="tf-shell" style={{ padding: 40, textAlign: 'center' }}>
+    <div className={pageCls}><div className="tf-shell" style={{ padding: 40, textAlign: 'center' }}>
       <div style={{ fontSize: 17, fontWeight: 800, color: '#F3EDE3' }}>İşletme bulunamadı</div>
       <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(243,237,227,.48)' }}>Bu randevu bağlantısı geçersiz veya kaldırılmış olabilir.</div>
     </div><BookingCSS /></div>
@@ -199,14 +215,16 @@ export function BookingPage() {
   const today0 = new Date(); today0.setHours(0, 0, 0, 0);
 
   return (
-    <div className="tf-page">
+    <div className={pageCls}>
       <div className="tf-shell">
-        {/* Hero */}
-        <div className="tf-hero">
-          <div className="tf-orb1" /><div className="tf-orb2" /><div className="tf-orb3" />
-          <div className="tf-hlogo">luera<span className="tf-hdot" /></div>
-          <div className="tf-hmark">TIMEFLOW</div>
-        </div>
+        {/* Hero — embed modunda gizli (host sayfada yer kaplamasın) */}
+        {!embed && (
+          <div className="tf-hero">
+            <div className="tf-orb1" /><div className="tf-orb2" /><div className="tf-orb3" />
+            <div className="tf-hlogo">luera<span className="tf-hdot" /></div>
+            <div className="tf-hmark">TIMEFLOW</div>
+          </div>
+        )}
 
         {/* Profile */}
         <div className="tf-profile">
@@ -561,6 +579,10 @@ textarea.tf-inp{height:88px;padding:13px 16px;resize:none;line-height:1.5}
 .tf-lprice{font-size:12.5px;font-weight:800;color:#F3EDE3;flex-shrink:0}
 .tf-lx{width:24px;height:24px;border-radius:8px;background:rgba(243,237,227,.06);border:none;color:rgba(243,237,227,.55);font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;display:grid;place-items:center;font-family:inherit;transition:all .15s}
 .tf-lx:hover{background:rgba(232,64,16,.18);color:#FF7040}
+.tf-page.tf-emb{min-height:0;background:transparent;padding:0}
+.tf-page.tf-emb::before{display:none}
+.tf-page.tf-emb .tf-shell{width:100%;margin:0;border-radius:22px;box-shadow:0 0 0 1px rgba(243,237,227,.09);overflow:hidden}
+@media(min-width:540px){.tf-page.tf-emb{padding:0}.tf-page.tf-emb .tf-shell{width:100%}}
 .tf-spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,90,31,.25);border-top-color:#FF5A1F;animation:tfspin .8s linear infinite}
 .tf-spin-sm{width:18px;height:18px;border-width:2.5px}
 @keyframes tfspin{to{transform:rotate(360deg)}}
