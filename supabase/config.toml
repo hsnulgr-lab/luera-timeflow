@@ -1,0 +1,5 @@
+# Edge function deploy ayarları.
+# dodo-webhook'u Dodo Payments çağırır — Supabase JWT'si taşımaz;
+# kimlik doğrulama Standard Webhooks imzasıyla fonksiyon içinde yapılır.
+[functions.dodo-webhook]
+verify_jwt = false
