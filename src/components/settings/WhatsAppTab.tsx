@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
+import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
     createInstance,
@@ -44,6 +45,7 @@ function WaIcon({ size=22 }: { size?: number }) {
 
 export function WhatsAppTab() {
     const { settings, updateSettings } = useReservations();
+    const { profile } = useOrgProfile();
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const inkbox   = dark ? '#231E18' : '#0E0E0E';
@@ -64,11 +66,13 @@ export function WhatsAppTab() {
         customerName: 'Ahmet Yılmaz', startTime: '10:00',
         service: settings.services[0]?.name || 'Konsültasyon',
         businessName: settings.businessName,
+        mapsUrl: profile.mapsUrl || undefined,
     });
     const preview2h = build2hMessage({
         customerName: 'Ahmet Yılmaz', startTime: '14:00',
         service: settings.services[0]?.name || 'Konsültasyon',
         businessName: settings.businessName,
+        mapsUrl: profile.mapsUrl || undefined,
     });
 
     const checkStatus = useCallback(async (instName: string) => {

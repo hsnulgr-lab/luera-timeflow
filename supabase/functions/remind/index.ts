@@ -55,10 +55,24 @@ Deno.serve(async (req: Request) => {
             .select('organization_id, whatsapp_instance, business_name, sector')
             .not('whatsapp_instance', 'is', null);
 
+        // Konum linki (organizations.maps_url) — mesaj sonuna eklenir
+        const orgIds = (settingsList ?? []).map((s: any) => s.organization_id).filter(Boolean);
+        const mapsUrlByOrg = new Map<string, string>();
+        if (orgIds.length > 0) {
+            const { data: orgRows } = await supabase
+                .from('organizations')
+                .select('id, maps_url')
+                .in('id', orgIds);
+            for (const o of orgRows ?? []) {
+                if (o.maps_url) mapsUrlByOrg.set(o.id, o.maps_url);
+            }
+        }
+
         for (const org of settingsList ?? []) {
             const { organization_id, whatsapp_instance, business_name } = org;
             const sector: string = org.sector || 'genel';
             if (!whatsapp_instance) continue;
+            const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
 
             // ── 24h Hatırlatma ───────────────────────────────────────────────
             const { data: list24h } = await supabase
@@ -72,7 +86,7 @@ Deno.serve(async (req: Request) => {
             for (const r of list24h ?? []) {
                 const startTime = r.start_time.slice(0, 5);
                 const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name });
-                const msg = await aiOrTemplate(geminiKey, sector, '24h', r.customer_name, r.service, startTime, business_name, tmpl);
+                const msg = withMapsUrl(await aiOrTemplate(geminiKey, sector, '24h', r.customer_name, r.service, startTime, business_name, tmpl), mapsUrl);
                 const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_24h_sent: true }).eq('id', r.id);
@@ -99,7 +113,7 @@ Deno.serve(async (req: Request) => {
 
                 const startTime2 = r.start_time.slice(0, 5);
                 const tmpl2 = () => build2hMessage({ customerName: r.customer_name, startTime: startTime2, service: r.service, businessName: business_name });
-                const msg = await aiOrTemplate(geminiKey, sector, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2);
+                const msg = withMapsUrl(await aiOrTemplate(geminiKey, sector, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2), mapsUrl);
                 const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_2h_sent: true }).eq('id', r.id);
@@ -128,6 +142,12 @@ Deno.serve(async (req: Request) => {
 
 function datePart(d: Date): string {
     return d.toISOString().slice(0, 10);
+}
+
+// Konum linkini şablon/AI ayrımı olmadan tek noktadan ekler
+// (AI'ya URL verilmez — bozma riski var)
+function withMapsUrl(msg: string, mapsUrl: string | null): string {
+    return mapsUrl ? `${msg}\n\n📍 Konum: ${mapsUrl}` : msg;
 }
 
 async function sendWhatsApp(

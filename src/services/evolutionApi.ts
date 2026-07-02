@@ -93,12 +93,14 @@ export function build24hMessage(params: {
     startTime: string;
     service: string;
     businessName: string;
+    mapsUrl?: string;
 }): string {
     return (
         `Merhaba ${params.customerName} 👋\n\n` +
         `*${params.businessName}*'daki ${params.service} randevunuzu hatırlatmak istedik.\n\n` +
         `📅 Yarın saat *${params.startTime}*\n\n` +
-        `Görüşmek üzere! 🗓️`
+        `Görüşmek üzere! 🗓️` +
+        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
     );
 }
 
@@ -107,12 +109,14 @@ export function build2hMessage(params: {
     startTime: string;
     service: string;
     businessName: string;
+    mapsUrl?: string;
 }): string {
     return (
         `Merhaba ${params.customerName} 👋\n\n` +
         `Bugün saat *${params.startTime}*'deki *${params.service}* randevunuz 2 saat sonra.\n\n` +
         `📍 ${params.businessName}\n\n` +
-        `Görüşmek üzere! ✅`
+        `Görüşmek üzere! ✅` +
+        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
     );
 }
 
