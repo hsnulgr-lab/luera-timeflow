@@ -376,8 +376,9 @@ export const SettingsPage = () => {
     {id:'webhooks',     label:'Webhook',           icon:Globe       },
     {id:'whatsapp',     label:'WhatsApp',          icon:MessageCircle},
     {id:'billing',      label:'Faturalandırma',   icon:CreditCard  },
-    {id:'integrations', label:'Entegrasyonlar',   icon:Puzzle      },
   ];
+  // Entegrasyonlar bir ayar bölümü değil, eklenti/uzantı merkezi — sekme
+  // listesinde değil, tab çubuğunun yanında ayrı vurgulu bir buton olarak durur.
 
   return (
     <div style={{ flex:1, minHeight:0, overflowY:'auto', background:T.surface, padding:'24px 28px 40px' }}>
@@ -401,6 +402,17 @@ export const SettingsPage = () => {
                 Kaydedilmemiş değişiklikler var
               </span>
             )}
+            {/* Entegrasyonlar: ayar sekmesi değil eklenti merkezi — başlıkta ayrı durur */}
+            <button onClick={()=>setActiveTab('integrations')}
+              style={{ display:'flex', alignItems:'center', gap:'7px', padding:'9px 16px', borderRadius:T.rSm,
+                background: activeTab==='integrations' ? 'linear-gradient(135deg,#FF5A1F,#E04510)' : 'rgba(255,90,31,.08)',
+                border:`1px solid ${activeTab==='integrations' ? 'transparent' : 'rgba(255,90,31,.35)'}`,
+                boxShadow: activeTab==='integrations' ? '0 4px 14px rgba(255,90,31,.35)' : 'none',
+                fontSize:'12.5px', fontWeight:750, color: activeTab==='integrations' ? '#fff' : '#FF5A1F',
+                cursor:'pointer', fontFamily:'inherit', transition:'all .15s', whiteSpace:'nowrap' }}>
+              <Puzzle size={14}/>
+              Entegrasyonlar
+            </button>
             <button onClick={handleSave}
               style={{ display:'flex', alignItems:'center', gap:'7px', background:saved?'#5DBB63':inkbox, color:saved?'#fff':inkboxFg, border:'none', borderRadius:T.rSm, padding:'9px 18px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .25s' }}>
               <Save size={13}/>{saved?'Kaydedildi!':'Kaydet'}
@@ -408,13 +420,13 @@ export const SettingsPage = () => {
           </div>
         </div>
 
-        {/* ── Tab bar ── */}
-        <div style={{ display:'flex', gap:'2px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'4px', marginBottom:'18px', overflowX:'auto' }}>
+        {/* ── Tab bar ── (sığmazsa sarar; Entegrasyonlar başlıkta ayrı butondur) */}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:'2px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'4px', marginBottom:'18px' }}>
           {tabs.map(tab=>{
             const isActive = activeTab===tab.id;
             return (
               <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
-                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'8px 10px', borderRadius:T.rXs, background:isActive?T.surface:'transparent', border:`1px solid ${isActive?T.border:'transparent'}`, boxShadow:isActive?T.shadowSm:'none', fontSize:'12px', fontWeight:isActive?700:500, color:isActive?T.ink:T.muted, cursor:'pointer', fontFamily:'inherit', transition:'all .15s', whiteSpace:'nowrap' }}>
+                style={{ flex:'1 0 auto', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'8px 10px', borderRadius:T.rXs, background:isActive?T.surface:'transparent', border:`1px solid ${isActive?T.border:'transparent'}`, boxShadow:isActive?T.shadowSm:'none', fontSize:'12px', fontWeight:isActive?700:500, color:isActive?T.ink:T.muted, cursor:'pointer', fontFamily:'inherit', transition:'all .15s', whiteSpace:'nowrap' }}>
                 <tab.icon size={13}/>
                 <span className="hidden sm:inline">{tab.label}</span>
               </button>
