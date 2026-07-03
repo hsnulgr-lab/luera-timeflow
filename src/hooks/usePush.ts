@@ -45,6 +45,12 @@ export function usePush(role: PushRole, staffId?: string) {
         if (!supported) { toast.error('Bu cihaz/ tarayıcı bildirim desteklemiyor'); return false; }
         setBusy(true);
         try {
+            // İzin daha önce reddedildiyse tarayıcı bir daha sormaz — kullanıcıyı
+            // tarayıcı/işletim sistemi ayarına yönlendir, yoksa kısır döngüde kalır.
+            if (Notification.permission === 'denied') {
+                toast.error('Bildirim izni daha önce reddedilmiş. Tarayıcının site ayarlarından (adres çubuğundaki kilit simgesi) bildirimlere izin verip tekrar deneyin.', { duration: 6000 });
+                return false;
+            }
             const perm = await Notification.requestPermission();
             if (perm !== 'granted') { toast('Bildirim izni verilmedi', { icon: '🔕' }); return false; }
 

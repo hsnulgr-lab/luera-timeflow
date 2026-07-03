@@ -15,6 +15,16 @@ const METHODS: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
     { id: 'other', label: 'Diğer', icon: <Wallet size={18} /> },
 ];
 
+// Adisyon satırı — hangi hizmeti hangi personel yaptı, tutarı ne.
+// Birden fazla personel varsa tahsilat satır bazında bölünüp her personele yazılır.
+export interface TahsilatLine {
+    reservationId: string;
+    staffId?: string;
+    staffName?: string;
+    amount: number;
+    name: string;
+}
+
 // Randevu "Tamamla & Tahsilat" akışında bağlamı önceden doldurmak için.
 export interface TahsilatPrefill {
     amount?: number;
@@ -22,6 +32,7 @@ export interface TahsilatPrefill {
     description?: string;
     staffId?: string;
     reservationId?: string;
+    lines?: TahsilatLine[];
 }
 
 export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, title }: {
@@ -64,14 +75,46 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
     const amountNum = Number(amount.replace(/[^\d]/g, ''));
     const canSave = amountNum > 0 && !saving;
 
+    // Adisyonda birden fazla personel varsa tahsilat satır bazında bölünür.
+    // Tutar değiştirilirse (indirim vb.) paylar oransal dağıtılır, küsurat son satıra.
+    const splitLines = useMemo(() => {
+        const lines = prefill?.lines;
+        if (!lines || lines.length < 2) return null;
+        if (new Set(lines.map((l) => l.staffId || '')).size < 2) return null;
+        return lines;
+    }, [prefill?.lines]);
+    const splitShares = useMemo(() => {
+        if (!splitLines) return null;
+        const base = splitLines.reduce((s, l) => s + l.amount, 0);
+        if (base <= 0) return null;
+        let remaining = amountNum;
+        return splitLines.map((l, i) => {
+            const amt = i === splitLines.length - 1 ? remaining : Math.round(amountNum * (l.amount / base));
+            remaining -= amt;
+            return { ...l, share: amt };
+        });
+    }, [splitLines, amountNum]);
+
     const reset = () => { setAmount(''); setMethod('cash'); setCustomerId(''); setCustQuery(''); setDescription(''); setStaffId(lockStaffId || ''); };
 
     const handleSave = async () => {
         if (amountNum <= 0) return;
         setSaving(true);
-        const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId });
+        let ok: boolean;
+        if (splitShares) {
+            // Çok personelli adisyon: her hizmet satırı kendi personeline yazılır
+            const results = [];
+            for (const l of splitShares) {
+                if (l.share <= 0) continue;
+                results.push(await addPayment({ amount: l.share, method, type: 'service', customerId: customerId || undefined, description: l.name, staffId: l.staffId, reservationId: l.reservationId }));
+            }
+            ok = results.length > 0 && results.every(Boolean);
+        } else {
+            const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId });
+            ok = !!res;
+        }
         setSaving(false);
-        if (res) { toast.success('Tahsilat kaydedildi'); reset(); onPaid?.(); onClose(); }
+        if (ok) { toast.success('Tahsilat kaydedildi'); reset(); onPaid?.(); onClose(); }
         else { toast.error('Tahsilat kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'); }
     };
 
@@ -139,7 +182,22 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
                         className="w-full rounded-2xl px-4 py-3.5 text-[15px] outline-none" style={field} />
                 </div>
 
-                {!lockStaffId && activeStaff.length > 0 && (
+                {splitShares ? (
+                    <div>
+                        <label className="mb-1.5 block text-[12px] font-semibold" style={{ color: T.muted }}>Personel Dağılımı</label>
+                        <div className="space-y-1.5">
+                            {splitShares.map((l) => (
+                                <div key={l.reservationId} className="flex items-center justify-between rounded-xl px-4 py-2.5" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <span className="text-[13.5px] font-bold">{l.staffName || 'Atanmamış'}</span>
+                                        <span className="ml-2 text-[11.5px]" style={{ color: T.muted }}>{l.name}</span>
+                                    </div>
+                                    <span className="text-[13.5px] font-black" style={{ color: T.green, flexShrink: 0 }}>₺{l.share.toLocaleString('tr-TR')}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : !lockStaffId && activeStaff.length > 0 && (
                     <div>
                         <label className="mb-1.5 block text-[12px] font-semibold" style={{ color: T.muted }}>Personel <span style={{ opacity: 0.6 }}>(opsiyonel)</span></label>
                         <div className="flex flex-wrap gap-2">

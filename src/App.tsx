@@ -43,10 +43,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--lt-bg, #120E08)' }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-[#CCFF00]/30 border-t-[#CCFF00] animate-spin" />
-          <p className="text-sm text-gray-400">Yükleniyor...</p>
+          <div className="w-12 h-12 rounded-full border-2 border-[#FF5A1F]/30 border-t-[#FF5A1F] animate-spin" />
+          <p className="text-sm" style={{ color: 'var(--lt-muted, rgba(243,237,227,0.5))' }}>Yükleniyor...</p>
         </div>
       </div>
     );

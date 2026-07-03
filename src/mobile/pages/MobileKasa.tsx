@@ -5,7 +5,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { priceForReservation } from '@/lib/appointmentFlow';
 import type { Payment, PaymentMethod, PaymentType, Reservation } from '@/types';
-import { TahsilatSheet } from '../TahsilatSheet';
+import { TahsilatSheet, type TahsilatLine } from '../TahsilatSheet';
 import { T } from '../theme';
 
 const PM_TR: Record<PaymentMethod, string> = { cash: 'Nakit', card: 'Kart', transfer: 'Havale', other: 'Diğer' };
@@ -20,7 +20,7 @@ function MethodIcon({ m, size = 16 }: { m: PaymentMethod; size?: number }) {
 }
 
 // Kasada bekleyen birleşik adisyon — tekli randevu veya gruplu (çoklu hizmet) booking.
-interface Bill { key: string; reservationIds: string[]; customerId?: string; customerName: string; staffNames: string[]; total: number; summary: string; firstId: string; staffId?: string; endedAt: string; }
+interface Bill { key: string; reservationIds: string[]; customerId?: string; customerName: string; staffNames: string[]; total: number; summary: string; firstId: string; staffId?: string; endedAt: string; lines: TahsilatLine[]; }
 
 export const MobileKasa = () => {
     const { payments, stats } = usePayments();
@@ -46,7 +46,7 @@ export const MobileKasa = () => {
         const out: Bill[] = [];
         for (const r of lines) {
             if (r.groupId) { const a = groups.get(r.groupId) || []; a.push(r); groups.set(r.groupId, a); }
-            else out.push({ key: r.id, reservationIds: [r.id], customerId: r.customerId || undefined, customerName: r.customerName, staffNames: r.staffName ? [r.staffName] : [], total: billTotal(r), summary: billSummary(r), firstId: r.id, staffId: r.staffId, endedAt: r.serviceEndedAt || '' });
+            else out.push({ key: r.id, reservationIds: [r.id], customerId: r.customerId || undefined, customerName: r.customerName, staffNames: r.staffName ? [r.staffName] : [], total: billTotal(r), summary: billSummary(r), firstId: r.id, staffId: r.staffId, endedAt: r.serviceEndedAt || '', lines: [{ reservationId: r.id, staffId: r.staffId, staffName: r.staffName, amount: billTotal(r), name: billSummary(r) }] });
         }
         for (const [g, arr] of groups) {
             arr.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -55,6 +55,7 @@ export const MobileKasa = () => {
                 staffNames: [...new Set(arr.map((r) => r.staffName).filter(Boolean) as string[])],
                 total: arr.reduce((s, r) => s + billTotal(r), 0), summary: arr.map((r) => r.service).join(' + '),
                 firstId: arr[0].id, staffId: arr[0].staffId, endedAt: arr.reduce((m, r) => (r.serviceEndedAt || '') > m ? (r.serviceEndedAt || '') : m, ''),
+                lines: arr.map((r) => ({ reservationId: r.id, staffId: r.staffId, staffName: r.staffName, amount: billTotal(r), name: billSummary(r) })),
             });
         }
         return out.sort((a, b) => b.endedAt.localeCompare(a.endedAt));
@@ -141,7 +142,7 @@ export const MobileKasa = () => {
                 open={sheetOpen}
                 onClose={() => { setSheetOpen(false); setBill(null); }}
                 title={bill ? 'Adisyonu Tahsil Et' : undefined}
-                prefill={bill ? { amount: bill.total || undefined, customerId: bill.customerId || undefined, description: bill.summary, staffId: bill.staffId, reservationId: bill.firstId } : undefined}
+                prefill={bill ? { amount: bill.total || undefined, customerId: bill.customerId || undefined, description: bill.summary, staffId: bill.staffId, reservationId: bill.firstId, lines: bill.lines } : undefined}
                 onPaid={bill ? async () => { for (const id of bill.reservationIds) await updateReservation(id, { isPaid: true }); } : undefined}
             />
         </div>

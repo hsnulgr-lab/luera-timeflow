@@ -188,7 +188,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                                         <option value="" style={{ background: D.s2 }}>Üründen seç…</option>
                                         {products.map((p) => <option key={p.id} value={p.id} style={{ background: D.s2 }}>{p.name} — {fmtNum(p.price)} ₺</option>)}
                                     </select>
-                                    <button onClick={addProd} disabled={itemBusy} style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: selProd ? D.orange : D.s3, border: 'none', cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', transition: 'background .15s' }}>
+                                    <button onClick={addProd} disabled={itemBusy} aria-label="Ürün ekle" style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: selProd ? D.orange : D.s3, border: 'none', cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', transition: 'background .15s' }}>
                                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke={selProd ? '#fff' : D.muted2} strokeWidth="1.9" strokeLinecap="round" /></svg>
                                     </button>
                                 </div>
@@ -201,7 +201,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <input value={exDesc} onChange={(e) => setExDesc(e.target.value)} placeholder="Açıklama" style={{ flex: 1, height: 46, borderRadius: 12, background: D.s1, border: `1px solid ${D.border}`, color: D.ink, fontFamily: D.font, fontSize: 13, padding: '0 12px', outline: 'none' }} />
                                 <input value={exPrice} onChange={(e) => setExPrice(e.target.value.replace(/[^\d]/g, ''))} placeholder="₺" inputMode="numeric" style={{ width: 68, height: 46, borderRadius: 12, background: D.s1, border: `1px solid ${D.border}`, color: D.ink, fontFamily: D.mono, fontSize: 14, padding: '0 10px', outline: 'none', textAlign: 'center' }} />
-                                <button onClick={addExtra} disabled={itemBusy} style={{ width: 46, height: 46, borderRadius: 12, background: D.s2, border: `1px solid ${D.border}`, cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', color: D.muted2, flexShrink: 0 }}>
+                                <button onClick={addExtra} disabled={itemBusy} aria-label="Ekstra ekle" style={{ width: 46, height: 46, borderRadius: 12, background: D.s2, border: `1px solid ${D.border}`, cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', color: D.muted2, flexShrink: 0 }}>
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
                                 </button>
                             </div>

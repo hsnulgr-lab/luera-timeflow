@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -46,14 +46,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // Aynı kullanıcı için orgId'yi tekrar sorgulama (TOKEN_REFRESHED vb.
+    // olaylarda gereksiz sorgu + state sıfırlanması → veri "gelip gitmesin")
+    const resolvedForUserRef = useRef<string | null>(null);
 
     const handleSession = async (supabaseUser: import('@supabase/supabase-js').User | null) => {
         const mapped = mapSupabaseUser(supabaseUser);
         setUser(mapped);
         if (supabaseUser) {
-            const id = await resolveOrgId(supabaseUser.id);
-            setOrgId(id);
+            if (resolvedForUserRef.current !== supabaseUser.id) {
+                resolvedForUserRef.current = supabaseUser.id;
+                const id = await resolveOrgId(supabaseUser.id);
+                setOrgId(id);
+            }
         } else {
+            resolvedForUserRef.current = null;
             setOrgId(null);
         }
         setIsLoading(false);
@@ -65,7 +72,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            handleSession(session?.user ?? null);
+            // supabase-js v2: bu callback auth kilidini tutar; içinde await'li
+            // Supabase sorgusu (resolveOrgId) deadlock yaratır → sonsuz spinner.
+            // setTimeout ile kilidin dışına ertele.
+            setTimeout(() => handleSession(session?.user ?? null), 0);
         });
 
         return () => subscription.unsubscribe();

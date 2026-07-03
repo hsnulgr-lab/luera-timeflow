@@ -379,6 +379,8 @@ function useReservationsState() {
         if (updates.status !== undefined) dbUpdates.status = updates.status;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
         if (updates.isPaid !== undefined) dbUpdates.is_paid = updates.isPaid;
+        // staff_name/staff_color kolonu yok — ad ve renk select'teki staff() join'inden gelir
+        if (updates.staffId !== undefined) dbUpdates.staff_id = updates.staffId ?? null;
         if (updates.arrivedAt !== undefined) dbUpdates.arrived_at = updates.arrivedAt;
         if (updates.serviceEndedAt !== undefined) dbUpdates.service_ended_at = updates.serviceEndedAt;
         if (updates.adisyonItems !== undefined) dbUpdates.adisyon_items = updates.adisyonItems;

@@ -10,7 +10,7 @@ import type { Staff } from '@/types';
 // Personel Modu girişi: önce personel seç, sonra PIN gir.
 export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
     const navigate = useNavigate();
-    const { staff } = useStaff();
+    const { staff, isLoading } = useStaff();
     const { login } = useStaffSession();
 
     // Sadece PIN'i tanımlı personel giriş yapabilir
@@ -49,7 +49,11 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                 <>
                     <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em' }}>Personel Girişi</h1>
                     <p style={{ fontSize: 13, color: T.muted, marginTop: 4, marginBottom: 22 }}>Kendi PIN'inle gir, sadece kendi randevu ve satışlarını gör.</p>
-                    {eligible.length === 0 ? (
+                    {isLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2px solid ${T.border2}`, borderTopColor: T.orange, animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : eligible.length === 0 ? (
                         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24, textAlign: 'center', color: T.muted, fontSize: 13 }}>
                             Henüz PIN tanımlı personel yok.<br />İşletme sahibi, Personel ekranından PIN atamalı.
                             <button onClick={() => navigate('/staff')}

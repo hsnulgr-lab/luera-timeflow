@@ -69,7 +69,9 @@ export function usePayments() {
         // 036_payments_realtime.sql ile publication + REPLICA IDENTITY FULL ayarlandı;
         // event geldiğinde tüm tabloyu yeniden çekmek yerine satırı doğrudan merge ediyoruz.
         const ch = supabase
-            .channel(`payments:${orgId}`)
+            // Kanal adı benzersiz olmalı: aynı topic'e ikinci abonelik sessizce
+            // başarısız olur (birden çok ekran usePayments kullanıyor)
+            .channel(`payments:${orgId}:${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `organization_id=eq.${orgId}` },
                 (payload) => {
                     if (payload.eventType === 'DELETE') {

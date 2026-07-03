@@ -22,7 +22,7 @@ function waLink(phone: string): string {
 }
 
 export const MobileCustomers = () => {
-    const { customers, allCustomers, searchQuery, setSearchQuery, redeemLoyalty } = useCustomers();
+    const { customers, allCustomers, searchQuery, setSearchQuery, redeemLoyalty, isLoading } = useCustomers();
     const { settings } = useReservations();
     const loyalty = settings.loyaltyEnabled ? { thr: settings.loyaltyThreshold ?? 10, reward: settings.loyaltyReward || 'Ücretsiz hizmet' } : null;
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -49,7 +49,7 @@ export const MobileCustomers = () => {
             </div>
 
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {customers.length === 0 && (
+                {!isLoading && customers.length === 0 && (
                     searchQuery ? (
                         <EmptyState T={T} icon={<Search size={22} />} title="Eşleşen müşteri yok"
                             description="Aramanızla eşleşen müşteri bulunamadı"

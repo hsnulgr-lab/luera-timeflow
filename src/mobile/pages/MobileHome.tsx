@@ -4,6 +4,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { useModules } from '@/hooks/useModules';
+import { usePush } from '@/hooks/usePush';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
@@ -41,6 +42,7 @@ export const MobileHome = () => {
     const { stats } = usePayments();
     const { staff } = useStaff();
     const { isEnabled } = useModules();
+    const push = usePush('manager');
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
@@ -87,10 +89,12 @@ export const MobileHome = () => {
                     <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 44, height: 44, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                     </button>
-                    <button onClick={() => navigate('/calendar')} aria-label="Bildirimler" style={{ width: 44, height: 44, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                        {pendingCount > 0 && <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
-                    </button>
+                    {push.supported && (
+                        <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler"
+                            style={{ width: 44, height: 44, borderRadius: 12, background: push.enabled ? 'rgba(255,90,31,.14)' : T.surface2, border: `1px solid ${push.enabled ? 'rgba(255,90,31,.3)' : T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: push.enabled ? T.orange : T.muted }}>
+                            <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -179,7 +183,7 @@ export const MobileHome = () => {
             {staffToday.length > 0 && (
                 <div style={{ padding: '20px 22px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <div style={{ fontSize: 15, fontWeight: 850, letterSpacing: '-0.025em' }}>Personel</div>
+                        <div style={{ fontSize: 15, fontWeight: 850, letterSpacing: '-0.025em' }}>Personel · Bugün</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: T.green }} /><span style={{ fontSize: 11.5, color: T.muted, fontWeight: 600 }}>{activeStaffCount} aktif</span></div>
                     </div>
                     <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden', display: 'flex' }}>
@@ -193,7 +197,7 @@ export const MobileHome = () => {
                                     <div style={{ fontSize: 12, fontWeight: 780 }}>{p.name}</div>
                                     <div style={{ fontSize: 10, color: T.muted, marginTop: 1 }}>{p.specialty || 'Personel'}</div>
                                 </div>
-                                <div style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 750, color: p.apts > 0 ? T.orange : T.muted2, background: p.apts > 0 ? 'rgba(255,90,31,.1)' : T.surface2, padding: '2px 10px', borderRadius: 999 }}>{p.apts} apt</div>
+                                <div style={{ fontSize: 11, fontWeight: 750, color: p.apts > 0 ? T.orange : T.muted2, background: p.apts > 0 ? 'rgba(255,90,31,.1)' : T.surface2, padding: '2px 10px', borderRadius: 999 }}>{p.apts > 0 ? `${p.apts} randevu` : 'boş'}</div>
                             </div>
                         ))}
                     </div>

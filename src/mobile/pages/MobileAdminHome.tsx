@@ -8,7 +8,6 @@ import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { useModules } from '@/hooks/useModules';
 import { usePush } from '@/hooks/usePush';
-import { toast } from 'sonner';
 import { toISODate } from '@/utils/date';
 import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
@@ -80,7 +79,7 @@ export const MobileAdminHome = () => {
         { lbl: 'Müşteriler', clr: T.blue, bg: 'rgba(107,159,212,.13)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: allCustomers.length || null, to: '/customers' },
         { lbl: 'Hizmetler', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M3 6h14M3 10h14M3 14h8', badge: settings.services.length || null, to: '/settings?tab=services' },
         { lbl: 'Çalışma Saat.', clr: T.green, bg: 'rgba(124,196,127,.13)', path: 'M10 6v4l3 3M10 2a8 8 0 100 16A8 8 0 0010 2', badge: null, to: '/settings?tab=hours' },
-        { lbl: 'Analiz', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', badge: null, to: null, soon: true },
+        ...(isEnabled('analiz') ? [{ lbl: 'Analiz', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', badge: null, to: '/analytics' }] : []),
         { lbl: 'Ayarlar', clr: T.muted, bg: T.surface3, path: 'M10 13a3 3 0 100-6 3 3 0 000 6ZM10 3v1M10 16v1M3 10h1M16 10h1M5.4 5.4l.7.7M13.9 13.9l.7.7M5.4 14.6l.7-.7M13.9 6.1l.7-.7', badge: null, to: '/settings' },
     ] as const;
 
@@ -161,9 +160,8 @@ export const MobileAdminHome = () => {
                 <div style={{ fontSize: 15, fontWeight: 850, letterSpacing: '-0.025em', marginBottom: 13 }}>Yönetim</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>
                     {MGMT.map((m) => (
-                        <button key={m.lbl} onClick={() => (m as any).soon ? toast('Analiz mobilde yakında — masaüstünden erişebilirsin') : navigate(m.to as string)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '16px 6px 14px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer', position: 'relative', opacity: (m as any).soon ? .6 : 1 }}>
+                        <button key={m.lbl} onClick={() => navigate(m.to as string)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '16px 6px 14px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer', position: 'relative' }}>
                             {m.badge && <div style={{ position: 'absolute', top: 8, right: 8, minWidth: 18, height: 18, borderRadius: 999, background: T.orange, display: 'grid', placeItems: 'center', fontSize: 9.5, fontWeight: 900, color: '#0E0E0E', padding: '0 4px' }}>{m.badge}</div>}
-                            {(m as any).soon && <div style={{ position: 'absolute', top: 8, right: 8, padding: '2px 6px', borderRadius: 999, background: T.surface3, fontSize: 8.5, fontWeight: 800, color: T.muted }}>YAKINDA</div>}
                             <div style={{ width: 44, height: 44, borderRadius: 14, background: m.bg, display: 'grid', placeItems: 'center' }}>
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d={m.path} stroke={m.clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                             </div>
