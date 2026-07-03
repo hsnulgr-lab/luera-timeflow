@@ -130,13 +130,13 @@ Not: Denetim ajanlarının 3 bulgusu yanlış çıktı ve rapora alınmadı (per
 
 ## FİX LİSTESİ (uygulama sırasıyla)
 
-**Beta'yı açmadan (P0 — ~1,5-2 gün):**
-- [ ] 1. Onboarding: kayıt sonrası kurulum sihirbazı ya da asgari "Başlangıç Rehberi" kartı (P0-1)
-- [ ] 2. ManagerLogin: PIN yokken "PIN Oluştur" akışı (P0-2)
-- [ ] 3. Mobilde /masa ve /staff/:id ölü uçlarını kapat (P0-3)
-- [ ] 4. `ConfirmDialog` bileşeni + 8 `confirm()` değişimi (P0-4)
-- [ ] 5. QueuePage WhatsApp + TahsilatSheet hata toast'ları (P0-5)
-- [ ] 6. Mobil randevu iptaline onay/geri-al (P0-6)
+**Beta'yı açmadan (P0):**
+- [~] 1. Onboarding (P0-1) — **kullanıcı kararıyla beta sonrasına ertelendi** (2026-07-03)
+- [x] 2. ManagerLogin: PIN yokken PIN oluşturma akışı (P0-2) — commit 9db286a
+- [~] 3. (P0-3) — `/staff/:id` YANLIŞ POZİTİF (mobilde erişilemiyor); `/masa` gerçek mobil sayfa olarak P2'ye taşındı
+- [x] 4. `ConfirmDialog` + 8 `confirm()` değişimi (P0-4) — commit 75b135c
+- [x] 5. QueuePage WhatsApp + TahsilatSheet hata toast'ları (P0-5) — commit 75b135c
+- [x] 6. Mobil randevu iptaline geri-al toast'ı (P0-6) — commit 75b135c
 
 **İlk hafta (P1 — ~2 gün):**
 - [ ] 7. Üç formda saving/disabled durumu (P1-1)
