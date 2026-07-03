@@ -19,6 +19,7 @@ export const MobileQueue = () => {
     const wa = settings.whatsappInstance;
 
     const [sheet, setSheet] = useState(false);
+    const [showAllWaiting, setShowAllWaiting] = useState(false);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [service, setService] = useState('');
@@ -103,7 +104,7 @@ export const MobileQueue = () => {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                        {waiting.map((e, i) => (
+                        {(showAllWaiting ? waiting : waiting.slice(0, 10)).map((e, i) => (
                             <div key={e.id} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: i === 0 ? T.orange : T.surface2, color: i === 0 ? '#0E0E0E' : T.muted, display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0 }}>{i + 1}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -118,6 +119,12 @@ export const MobileQueue = () => {
                                 </div>
                             </div>
                         ))}
+                        {!showAllWaiting && waiting.length > 10 && (
+                            <button onClick={() => setShowAllWaiting(true)}
+                                style={{ padding: '11px', borderRadius: 14, background: T.surface2, border: `1px solid ${T.border}`, color: T.muted, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Tümünü gör ({waiting.length})
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

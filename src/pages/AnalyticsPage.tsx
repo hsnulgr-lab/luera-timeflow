@@ -71,6 +71,19 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
   );
 }
 
+function KpiSkeleton() {
+  const { T } = useT();
+  return (
+    <Card>
+      <div style={{ padding: '16px 18px' }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: T.surface2, marginBottom: '12px', animation: 'analytics-pulse 1.4s ease-in-out infinite' }} />
+        <div style={{ width: '60%', height: 9, borderRadius: 4, background: T.surface2, marginBottom: '8px', animation: 'analytics-pulse 1.4s ease-in-out infinite' }} />
+        <div style={{ width: '40%', height: 24, borderRadius: 6, background: T.surface2, animation: 'analytics-pulse 1.4s ease-in-out infinite' }} />
+      </div>
+    </Card>
+  );
+}
+
 function SecTitle({ children }: { children: React.ReactNode }) {
   const { T } = useT();
   return (
@@ -82,7 +95,7 @@ function SecTitle({ children }: { children: React.ReactNode }) {
 
 export const AnalyticsPage = () => {
   const { T, dark } = useT();
-  const { reservations } = useReservations();
+  const { reservations, isLoading } = useReservations();
   const isMobile = useIsMobile();
 
   const a = useMemo(() => {
@@ -180,8 +193,14 @@ export const AnalyticsPage = () => {
         </div>
 
         {/* ── KPI Cards ── */}
+        <style>{'@keyframes analytics-pulse{0%,100%{opacity:.5}50%{opacity:1}}'}</style>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: '10px', marginBottom: '18px' }}>
-
+          {isLoading ? (
+            <>
+              <KpiSkeleton /><KpiSkeleton /><KpiSkeleton /><KpiSkeleton />
+            </>
+          ) : (
+          <>
           <Card>
             <div style={{ padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -241,6 +260,8 @@ export const AnalyticsPage = () => {
               </div>
             </div>
           </Card>
+          </>
+          )}
         </div>
 
         {/* ── Charts row ── */}

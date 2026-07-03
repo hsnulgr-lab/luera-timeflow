@@ -7,6 +7,7 @@ import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
+import { EmptyState } from '@/components/EmptyState';
 import type { Customer } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export const CustomersPage = () => {
   const { totalForCustomer } = usePayments();
   const [selId, setSelId]         = useState<string | null>(null);
   const [showNew, setShowNew]     = useState(false);
+  const [creatingCust, setCreatingCust] = useState(false);
   const [newCust, setNewCust]     = useState({ name:'', phone:'', email:'', notes:'' });
   const [pkgForm, setPkgForm]     = useState({ name:'', total:'10' });
   const [showPkgForm, setShowPkgForm] = useState(false);
@@ -110,9 +112,11 @@ export const CustomersPage = () => {
     if (ok) { setPkgForm({ name:'', total:'10' }); setShowPkgForm(false); toast.success('Paket eklendi'); }
   };
 
-  const handleCreate = () => {
-    if (!newCust.name || !newCust.phone) return;
-    addCustomer(newCust);
+  const handleCreate = async () => {
+    if (!newCust.name || !newCust.phone || creatingCust) return;
+    setCreatingCust(true);
+    await addCustomer(newCust);
+    setCreatingCust(false);
     setShowNew(false);
     setNewCust({ name:'', phone:'', email:'', notes:'' });
   };
@@ -162,11 +166,15 @@ export const CustomersPage = () => {
           {/* List body */}
           <div style={{ flex:1, overflowY:'auto' }}>
             {customers.length === 0 ? (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', gap:'8px' }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="14" r="8" stroke={T.muted2} strokeWidth="1.5"/><path d="M5 36c0-8.3 6.7-15 15-15s15 6.7 15 15" stroke={T.muted2} strokeWidth="1.5" strokeLinecap="round"/></svg>
-                <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>Müşteri bulunamadı</div>
-                <div style={{ fontSize:'11.5px', color:T.muted, textAlign:'center' }}>Yeni müşteri ekleyin veya aramayı değiştirin</div>
-              </div>
+              searchQuery ? (
+                <EmptyState T={T} icon={<Search size={22} />} title="Müşteri bulunamadı"
+                  description="Aramanızla eşleşen müşteri yok"
+                  actionLabel="Aramayı Temizle" onAction={() => setSearchQuery('')} />
+              ) : (
+                <EmptyState T={T} icon={<Search size={22} />} title="Henüz müşteri yok"
+                  description="İlk müşterini ekleyerek başla"
+                  actionLabel="Yeni Müşteri" onAction={() => setShowNew(true)} />
+              )
             ) : (
               customers.map(cust => {
                 const isSel  = selId === cust.id;
@@ -440,9 +448,9 @@ export const CustomersPage = () => {
                 <X size={16}/>
               </button>
             </div>
-            {[{label:'Ad Soyad',key:'name',type:'text',ph:'Müşteri adı'},{label:'Telefon',key:'phone',type:'tel',ph:'0532 xxx xxxx'},{label:'E-posta (opsiyonel)',key:'email',type:'email',ph:'email@ornek.com'}].map(f=>(
+            {[{label:'Ad Soyad',key:'name',type:'text',ph:'Müşteri adı',required:true},{label:'Telefon',key:'phone',type:'tel',ph:'0532 xxx xxxx',required:true},{label:'E-posta (opsiyonel)',key:'email',type:'email',ph:'email@ornek.com',required:false}].map(f=>(
               <div key={f.key} style={{ marginBottom:'14px' }}>
-                <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}</label>
+                <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}{f.required && <span style={{ color:'#C94040' }}> *</span>}</label>
                 <input type={f.type} placeholder={f.ph} value={(newCust as any)[f.key]} onChange={e=>setNewCust(p=>({...p,[f.key]:e.target.value}))}
                   style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}
                   onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
@@ -458,9 +466,9 @@ export const CustomersPage = () => {
             </div>
             <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', paddingTop:'18px', borderTop:`1px solid ${T.border}` }}>
               <button onClick={()=>setShowNew(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
-              <button onClick={handleCreate} disabled={!newCust.name||!newCust.phone}
-                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#231E18':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F3EDE3':T.muted2, fontSize:'13px', fontWeight:650, cursor:newCust.name&&newCust.phone?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
-                Müşteri Ekle
+              <button onClick={handleCreate} disabled={!newCust.name||!newCust.phone||creatingCust}
+                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#231E18':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F3EDE3':T.muted2, fontSize:'13px', fontWeight:650, cursor:(newCust.name&&newCust.phone&&!creatingCust)?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
+                {creatingCust?'Ekleniyor…':'Müşteri Ekle'}
               </button>
             </div>
           </div>

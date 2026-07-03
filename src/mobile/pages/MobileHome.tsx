@@ -83,11 +83,11 @@ export const MobileHome = () => {
                     <span style={{ fontSize: 13, fontWeight: 750, letterSpacing: '-0.01em' }}>luera timeflow</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <ThemeToggle />
-                    <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
+                    <ThemeToggle size={44} />
+                    <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 44, height: 44, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                     </button>
-                    <button onClick={() => navigate('/calendar')} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
+                    <button onClick={() => navigate('/calendar')} aria-label="Bildirimler" style={{ width: 44, height: 44, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: T.muted }}>
                         <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                         {pendingCount > 0 && <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.orange, border: `2px solid ${T.bg}` }} />}
                     </button>
@@ -164,7 +164,7 @@ export const MobileHome = () => {
                     { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
                     isEnabled('sira')
                         ? { lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.12)', path: 'M7 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 17c0-2.5 2.2-4.5 5-4.5M13 5a2.5 2.5 0 010 5M18 17c0-2.5-1.5-4.3-4-4.5', to: '/queue' }
-                        : { lbl: 'Analiz', clr: T.purple, bg: 'rgba(201,139,219,.12)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', to: '/analytics' },
+                        : { lbl: 'Ayarlar', clr: T.muted, bg: T.surface3, path: 'M10 13a3 3 0 100-6 3 3 0 000 6ZM10 3v1M10 16v1M3 10h1M16 10h1M5.4 5.4l.7.7M13.9 13.9l.7.7M5.4 14.6l.7-.7M13.9 6.1l.7-.7', to: '/settings' },
                 ].map((a) => (
                     <button key={a.lbl} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '13px 4px 11px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                         <div style={{ width: 40, height: 40, borderRadius: 13, background: a.bg, display: 'grid', placeItems: 'center' }}>
@@ -187,7 +187,7 @@ export const MobileHome = () => {
                             <div key={p.id} onClick={() => navigate('/staff')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '15px 6px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', cursor: 'pointer' }}>
                                 <div style={{ position: 'relative' }}>
                                     <div style={{ width: 44, height: 44, borderRadius: '50%', background: p.color || avatarColor(p.name), display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 900, color: '#0E0E0E' }}>{p.name[0]?.toUpperCase()}</div>
-                                    <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: T.green, border: '2.5px solid #1C1710' }} />
+                                    <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: T.green, border: `2.5px solid ${T.surface}` }} />
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: 12, fontWeight: 780 }}>{p.name}</div>

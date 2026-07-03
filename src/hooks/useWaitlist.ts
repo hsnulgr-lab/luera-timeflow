@@ -43,7 +43,34 @@ export function useWaitlist() {
     }, []);
 
     useEffect(() => {
-        if (user && orgId) fetchEntries(orgId);
+        if (!user || !orgId) return;
+        fetchEntries(orgId);
+
+        // Canlı güncelleme — 040_waitlist_realtime.sql ile publication + REPLICA
+        // IDENTITY FULL ayarlandı; dolu güne müşteri yazılınca müdürün açık
+        // ekranına yenileme gerekmeden düşsün.
+        const ch = supabase
+            .channel(`waitlist:${orgId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'waitlist', filter: `organization_id=eq.${orgId}` },
+                (payload) => {
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as any)?.id;
+                        if (oldId) setEntries(prev => prev.filter(e => e.id !== oldId));
+                        return;
+                    }
+                    const row = mapRow(payload.new);
+                    if (row.status !== 'waiting') {
+                        setEntries(prev => prev.filter(e => e.id !== row.id));
+                        return;
+                    }
+                    setEntries(prev => {
+                        const exists = prev.some(e => e.id === row.id);
+                        return exists ? prev.map(e => e.id === row.id ? row : e) : [...prev, row];
+                    });
+                })
+            .subscribe();
+
+        return () => { supabase.removeChannel(ch); };
     }, [user, orgId, fetchEntries]);
 
     const addEntry = useCallback(async (e: { customerName: string; customerPhone: string; serviceId?: string; preferredDate?: string; notes?: string }) => {

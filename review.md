@@ -92,25 +92,25 @@ Not: Denetim ajanlarının 3 bulgusu yanlış çıktı ve rapora alınmadı (per
 
 ---
 
-## P2 — CİLA / SONRASI (özet liste)
+## P2 — CİLA / SONRASI (tamamlandı)
 
-| # | Bulgu | Konum | Fix |
-|---|-------|-------|-----|
-| P2-1 | BottomSheet'te sürükle-kapat yok (tutamaç görsel) | `src/mobile/BottomSheet.tsx:37-39` | Tutamaça touch-drag ile kapatma |
-| P2-2 | Dokunma hedefleri 38px (44 önerilir) | MobileHome:86-92 başlık butonları, MobileCalendar hafta şeridi | 44×44'e büyüt |
-| P2-3 | Boş durum mesajları tutarsız ton/CTA'sız | ReservationsPage:347, CustomersPage:164, MobileCustomers:51 | Standart boş-durum bileşeni + eylem butonu |
-| P2-4 | EditReservationModal'da "ID:" ve karışık dil | `src/components/reservations/EditReservationModal.tsx:126` | Türkçeleştir/kaldır |
-| P2-5 | AnalyticsPage'te ₺ öneki ve skeleton yok | AnalyticsPage KPI kartları | Global `formatCurrency` + yükleme iskeleti |
-| P2-6 | İkon butonlarda aria-label eksik (yaygın) | StaffPage IBtn:82-92, MobileCalendar:82 vb. | aria-label geçir |
-| P2-7 | Dropdown Escape ile kapanmıyor | ReservationsPage:452-486 | CalendarPage:178'deki Escape deseni |
-| P2-8 | MobileCalendar seçili tarih navigasyonda kayboluyor | MobileCalendar:18 | `?date=` query param |
-| P2-9 | Adım 1'e dönünce önceki seçim özeti görünmüyor | MobileNewReservation | Üstte seçim breadcrumb'ı |
-| P2-10 | ReservationSheet kapatınca edit state sıfırlanmıyor | ReservationSheet:38-46 | reservation değişince state reset |
-| P2-11 | BillingTab plan grid'i sabit 3 kolon | BillingTab.tsx:142 | Dar ekranda 1 kolona düş (mobile taşınırsa şart) |
-| P2-12 | Kasa'da Enter kısayolu keşfedilemez | KasaPage:109 | Tutar altına ipucu metni |
-| P2-13 | Slot çakışma toast'ları yönlendirmesiz | MobileNewReservation:105, ReservationSheet:74 | "Başka saat/personel seçin" ekle |
-| P2-14 | StaffLogin'de PIN'siz personel için yol gösterme butonu yok | StaffLogin:52-55 | "/staff'a git" butonu |
-| P2-15 | MobileQueue uzun listede sanallaştırma yok | MobileQueue:52-120 | İlk 10 + "Tümünü gör" (100+ sıralık işletme betada beklenmiyor) |
+| # | Bulgu | Durum |
+|---|-------|-------|
+| P2-1 | BottomSheet'te sürükle-kapat yok | [x] Tutamaca touch+mouse drag-to-close eklendi (`src/mobile/BottomSheet.tsx`) |
+| P2-2 | Dokunma hedefleri 38px | [x] MobileHome başlık butonları + ThemeToggle + MobileCalendar hafta nav 44×44'e büyütüldü |
+| P2-3 | Boş durum mesajları tutarsız/CTA'sız | [x] Ortak `src/components/EmptyState.tsx` oluşturuldu; ReservationsPage, CustomersPage, MobileCustomers'a uygulandı |
+| P2-4 | EditReservationModal'da "ID:" | [x] Ham ID yerine müşteri adı gösteriliyor |
+| P2-5 | AnalyticsPage ₺ öneki ve skeleton yok | [~] Skeleton eklendi; ₺ öneki uygulanamadı — sayfada şu an hiç para birimi gösteren KPI yok (eski bulgu, kod artık farklı) |
+| P2-6 | İkon butonlarda aria-label eksik | [~] StaffPage IBtn + MobileCalendar örnekleri düzeltildi; kalan ~259 buton için ayrı görev flag'lendi (task_8d3f7684) |
+| P2-7 | Dropdown Escape ile kapanmıyor | [x] ReservationsPage'e Escape dinleyicisi eklendi |
+| P2-8 | MobileCalendar seçili tarih navigasyonda kayboluyor | [x] `?date=` query param ile senkron |
+| P2-9 | Önceki seçim özeti görünmüyor | [x] MobileNewReservation'a adım-üstü seçim breadcrumb'ı eklendi |
+| P2-10 | ReservationSheet kapatınca edit state sıfırlanmıyor | [x] reservation null olduğunda da reset ediliyor |
+| P2-11 | BillingTab plan grid'i sabit 3 kolon | [x] `auto-fit,minmax(220px,1fr)` ile responsive |
+| P2-12 | Kasa'da Enter kısayolu keşfedilemez | [x] Tutar altına "Onaylamak için Enter" ipucu |
+| P2-13 | Slot çakışma toast'ları yönlendirmesiz | [x] MobileNewReservation:105'e "Başka saat veya personel seçin" eklendi (ReservationSheet'te zaten vardı) |
+| P2-14 | StaffLogin'de PIN'siz personel için yol gösterme yok | [x] "Personel Ekranına Git" butonu eklendi |
+| P2-15 | MobileQueue uzun listede sanallaştırma yok | [x] İlk 10 + "Tümünü gör (N)" |
 
 ---
 
@@ -139,14 +139,14 @@ Not: Denetim ajanlarının 3 bulgusu yanlış çıktı ve rapora alınmadı (per
 - [x] 6. Mobil randevu iptaline geri-al toast'ı (P0-6) — commit 75b135c
 
 **İlk hafta (P1 — ~2 gün):**
-- [ ] 7. Üç formda saving/disabled durumu (P1-1)
-- [ ] 8. Settings dirty-check uyarısı (P1-2)
-- [ ] 9. Personel modu light-mode renk düzeltmeleri (P1-3)
-- [ ] 10. Mobil Analiz girişlerini gizle/yönlendir (P1-4)
-- [ ] 11. Waitlist realtime (P1-5)
-- [ ] 12. usePayments 90 gün + limit (P1-6)
-- [ ] 13. MobileNewReservation done-state reset (P1-7)
-- [ ] 14. Zorunlu alan işaretleri + inputMode="tel" (P1-8)
+- [x] 7. Üç formda saving/disabled durumu (P1-1) — CustomersPage, CalendarPage, MobileServiceDetail
+- [x] 8. Settings dirty-check uyarısı (P1-2) — beforeunload guard + "Kaydedilmemiş değişiklikler var" rozeti (sekme-içi state zaten kaybolmuyormuş, gerçek risk sayfadan çıkış/yenilemeymiş)
+- [~] 9. Personel modu light-mode renk düzeltmeleri (P1-3) — incelendi: D token seti zaten theme-aware; tek gerçek hata (MobileHome:190 sabit `#1C1710` border) düzeltildi, diğer flagged satırlar yanlış-pozitif (canlı renkli CTA/avatar üzerinde beyaz metin, temadan bağımsız doğru)
+- [x] 10. Mobil Analiz girişlerini gizle/yönlendir (P1-4) — MobileHome: Ayarlar'a çevrildi; MobileAdminHome: "yakında" rozeti + toast
+- [x] 11. Waitlist realtime (P1-5) — useWaitlist subscription eklendi + `supabase/040_waitlist_realtime.sql` migration (DEPLOY EDİLMELİ)
+- [x] 12. usePayments limit (P1-6) — tarih penceresi yerine satır-sayısı limiti (3000) seçildi: totalForCustomer/LTV ve "tüm zamanlar" toplamı bozulmasın diye
+- [x] 13. MobileNewReservation done-state reset (P1-7) — "Kapat" butonuna reset() eklendi
+- [x] 14. Zorunlu alan işaretleri + inputMode="tel" (P1-8) — CustomersPage/StaffPage kırmızı *, QueuePage telefon inputMode
 
 **Sonrası (P2):** yukarıdaki 15 kalem — sprint aralarına serpiştir; ayrıca "Fazlalıklar" 2-4.
 

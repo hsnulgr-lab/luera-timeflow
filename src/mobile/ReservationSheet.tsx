@@ -37,8 +37,10 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     const activeStaff = staff.filter((s) => s.isActive);
 
     useEffect(() => {
+        // reservation null olduğunda (sheet kapandığında) da sıfırla — aksi halde
+        // aynı randevu tekrar açıldığında bir önceki oturumun edit modu/taslağı kalıyordu.
+        setEdit(false);
         if (reservation) {
-            setEdit(false);
             setDate(reservation.date);
             setStart(reservation.startTime);
             setService(reservation.service);

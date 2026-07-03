@@ -140,7 +140,7 @@ export function BillingTab() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, marginBottom: 10 }}>
         {PLANS.map((p) => {
           const isCurrent = hasActiveSub && p.id === subscription!.plan;
           const isPending = pendingPlan === p.id;

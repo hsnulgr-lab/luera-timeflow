@@ -84,7 +84,7 @@ function IBtn({ onClick, title, children }: { onClick: () => void; title?: strin
   const { T } = useT();
   return (
     <button
-      onClick={onClick} title={title}
+      onClick={onClick} title={title} aria-label={title}
       style={{ width:28, height:28, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s', flexShrink:0 }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.surface2; (e.currentTarget as HTMLElement).style.color = T.ink; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = T.muted; }}
@@ -491,9 +491,9 @@ export const StaffPage = () => {
             </div>
 
             {/* Form fields */}
-            {[{label:'Ad Soyad *',key:'name',type:'text',placeholder:'Personel adı'},{label:'Uzmanlık',key:'specialty',type:'text',placeholder:'Saç, Cilt Bakımı…'},{label:'Telefon',key:'phone',type:'tel',placeholder:'0532 xxx xxxx'},{label:'E-posta',key:'email',type:'email',placeholder:'email@örnek.com'}].map(f=>(
+            {[{label:'Ad Soyad',key:'name',type:'text',placeholder:'Personel adı',required:true},{label:'Uzmanlık',key:'specialty',type:'text',placeholder:'Saç, Cilt Bakımı…',required:false},{label:'Telefon',key:'phone',type:'tel',placeholder:'0532 xxx xxxx',required:false},{label:'E-posta',key:'email',type:'email',placeholder:'email@örnek.com',required:false}].map(f=>(
               <div key={f.key} style={{ marginBottom:'14px' }}>
-                <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}</label>
+                <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}{f.required && <span style={{ color:'#C94040' }}> *</span>}</label>
                 <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e=>setForm(p=>({...p,[f.key]:e.target.value}))}
                   style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}
                   onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}

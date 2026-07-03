@@ -69,7 +69,7 @@ export const QueuePage = () => {
         {/* Ekle */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
           <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Müşteri adı" style={{ ...inp, flex: 2, minWidth: 140 }} />
-          <input value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Telefon (opsiyonel)" style={{ ...inp, flex: 1.5, minWidth: 120 }} />
+          <input value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Telefon (opsiyonel)" inputMode="tel" style={{ ...inp, flex: 1.5, minWidth: 120 }} />
           <input value={service} onChange={e => setService(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Hizmet (opsiyonel)" style={{ ...inp, flex: 1.5, minWidth: 120 }} />
           <button onClick={add} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: T.rSm, background: T.orange, color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><Plus size={14} /> Sıraya Ekle</button>
         </div>

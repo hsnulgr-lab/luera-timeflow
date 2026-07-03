@@ -22,6 +22,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
     const [selProd, setSelProd] = useState('');
     const [exDesc, setExDesc] = useState('');
     const [exPrice, setExPrice] = useState('');
+    const [itemBusy, setItemBusy] = useState(false);
 
     // Canlı kaynak — listeden id ile türetilir ki güncellemeler anında yansısın
     const r = reservations.find((x) => x.id === reservationId);
@@ -67,12 +68,14 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
     // ── Eylemler ──
     const start = () => updateReservation(r.id, { arrivedAt: new Date().toISOString() });
     const finalize = () => { updateReservation(r.id, { status: 'completed', serviceEndedAt: new Date().toISOString() }); setJustFinished(true); };
-    const setItems = (next: AdisyonItem[]) => updateReservation(r.id, { adisyonItems: next });
+    const setItems = async (next: AdisyonItem[]) => { setItemBusy(true); await updateReservation(r.id, { adisyonItems: next }); setItemBusy(false); };
     const addProd = () => {
+        if (itemBusy) return;
         const p = products.find((x) => x.id === selProd);
         if (p) { setItems([...items, { id: rid(), name: p.name, price: p.price, kind: 'product' }]); setSelProd(''); }
     };
     const addExtra = () => {
+        if (itemBusy) return;
         const price = Number(exPrice.replace(/[^\d]/g, ''));
         if (!exDesc.trim()) return;
         setItems([...items, { id: rid(), name: exDesc.trim(), price, kind: 'extra' }]);
@@ -185,7 +188,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                                         <option value="" style={{ background: D.s2 }}>Üründen seç…</option>
                                         {products.map((p) => <option key={p.id} value={p.id} style={{ background: D.s2 }}>{p.name} — {fmtNum(p.price)} ₺</option>)}
                                     </select>
-                                    <button onClick={addProd} style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: selProd ? D.orange : D.s3, border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', transition: 'background .15s' }}>
+                                    <button onClick={addProd} disabled={itemBusy} style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: selProd ? D.orange : D.s3, border: 'none', cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', transition: 'background .15s' }}>
                                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke={selProd ? '#fff' : D.muted2} strokeWidth="1.9" strokeLinecap="round" /></svg>
                                     </button>
                                 </div>
@@ -198,7 +201,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <input value={exDesc} onChange={(e) => setExDesc(e.target.value)} placeholder="Açıklama" style={{ flex: 1, height: 46, borderRadius: 12, background: D.s1, border: `1px solid ${D.border}`, color: D.ink, fontFamily: D.font, fontSize: 13, padding: '0 12px', outline: 'none' }} />
                                 <input value={exPrice} onChange={(e) => setExPrice(e.target.value.replace(/[^\d]/g, ''))} placeholder="₺" inputMode="numeric" style={{ width: 68, height: 46, borderRadius: 12, background: D.s1, border: `1px solid ${D.border}`, color: D.ink, fontFamily: D.mono, fontSize: 14, padding: '0 10px', outline: 'none', textAlign: 'center' }} />
-                                <button onClick={addExtra} style={{ width: 46, height: 46, borderRadius: 12, background: D.s2, border: `1px solid ${D.border}`, cursor: 'pointer', display: 'grid', placeItems: 'center', color: D.muted2, flexShrink: 0 }}>
+                                <button onClick={addExtra} disabled={itemBusy} style={{ width: 46, height: 46, borderRadius: 12, background: D.s2, border: `1px solid ${D.border}`, cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', color: D.muted2, flexShrink: 0 }}>
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
                                 </button>
                             </div>

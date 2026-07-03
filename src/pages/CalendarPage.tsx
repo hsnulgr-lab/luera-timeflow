@@ -111,6 +111,7 @@ export const CalendarPage = () => {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
+    const [creatingReservation, setCreatingReservation] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
     // Randevu oluşturulduktan sonra gösterilecek başarı özeti (null = form görünür)
@@ -323,12 +324,13 @@ export const CalendarPage = () => {
     const removeResLine = (id: string) => setResLines(p => p.filter(l => l.id !== id));
 
     const handleCreateReservation = async () => {
-        if (!selectedDate || !newRes.customerName || !newRes.customerPhone) return;
+        if (!selectedDate || !newRes.customerName || !newRes.customerPhone || creatingReservation) return;
         // Eklenen işlemler + (eklenmemiş taslak hizmet varsa onu da dahil et)
         const lines = [...resLines];
         if (newRes.service) { const { ok, line } = lineFromDraft(); if (!ok) return; if (line) lines.push(line); }
         if (lines.length === 0) { toast.error('En az bir hizmet seçin'); return; }
 
+        setCreatingReservation(true);
         const groupId = lines.length > 1 ? (crypto.randomUUID?.() || String(Date.now())) : undefined;
         let created = 0;
         for (const ln of lines) {
@@ -344,6 +346,7 @@ export const CalendarPage = () => {
             });
             if (res) created++;
         }
+        setCreatingReservation(false);
 
         if (created > 0) {
             const first = lines[0];
@@ -1095,19 +1098,19 @@ export const CalendarPage = () => {
                         <div className="flex-shrink-0 flex flex-col" style={{ padding: '10px 18px 15px', borderTop: `1px solid ${M.border}`, gap: 4 }}>
                             <button
                                 onClick={handleCreateReservation}
-                                disabled={!newRes.customerName || !newRes.customerPhone}
+                                disabled={!newRes.customerName || !newRes.customerPhone || creatingReservation}
                                 className="inline-flex items-center justify-center gap-2 w-full transition-all"
                                 style={{
                                     height: 46, borderRadius: 999, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em',
                                     background: M.orange, color: M.ink,
-                                    opacity: (!newRes.customerName || !newRes.customerPhone) ? .42 : 1,
-                                    cursor: (!newRes.customerName || !newRes.customerPhone) ? 'not-allowed' : 'pointer',
+                                    opacity: (!newRes.customerName || !newRes.customerPhone || creatingReservation) ? .42 : 1,
+                                    cursor: (!newRes.customerName || !newRes.customerPhone || creatingReservation) ? 'not-allowed' : 'pointer',
                                 }}
-                                onMouseEnter={(e) => { if (newRes.customerName && newRes.customerPhone) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; } }}
+                                onMouseEnter={(e) => { if (newRes.customerName && newRes.customerPhone && !creatingReservation) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; } }}
                                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                             >
-                                {(() => { const n = resLines.length + (newRes.service ? 1 : 0); return n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur'; })()}
-                                <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
+                                {creatingReservation ? 'Oluşturuluyor…' : (() => { const n = resLines.length + (newRes.service ? 1 : 0); return n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur'; })()}
+                                {!creatingReservation && <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>}
                             </button>
                             <button onClick={closeDialog} className="w-full transition-colors" style={{ height: 36, fontSize: 12.5, fontWeight: 600, color: M.muted, background: 'transparent' }}
                                 onMouseEnter={(e) => e.currentTarget.style.color = M.ink}

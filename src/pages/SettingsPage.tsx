@@ -322,6 +322,23 @@ export const SettingsPage = () => {
   const inkboxFg = '#F3EDE3';
   const bookingUrl = profile.slug ? `${window.location.origin}/book/${profile.slug}` : '';
 
+  // Kaydedilmemiş değişiklik var mı — sayfadan çıkarken/yenilerken sessizce kaybolmasın
+  const dirty = businessName !== settings.businessName
+    || JSON.stringify(workingHours) !== JSON.stringify(settings.workingHours)
+    || JSON.stringify(services) !== JSON.stringify(settings.services)
+    || webhookUrl !== (settings.webhookUrl || '')
+    || sector !== (settings.sector || 'genel')
+    || loyaltyReward !== (settings.loyaltyReward || 'Ücretsiz hizmet')
+    || rebookNote !== (settings.rebookNote || '')
+    || managerPinInput.trim() !== '';
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
   const handleSave = async () => {
     // Yönetici PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut korunur
     const managerPin = managerPinInput.trim() ? await hashPin(managerPinInput.trim()) : settings.managerPin;
@@ -377,10 +394,18 @@ export const SettingsPage = () => {
               <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>Sistem konfigürasyonu</div>
             </div>
           </div>
-          <button onClick={handleSave}
-            style={{ display:'flex', alignItems:'center', gap:'7px', background:saved?'#5DBB63':inkbox, color:saved?'#fff':inkboxFg, border:'none', borderRadius:T.rSm, padding:'9px 18px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .25s' }}>
-            <Save size={13}/>{saved?'Kaydedildi!':'Kaydet'}
-          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            {dirty && !saved && (
+              <span style={{ fontSize:'11.5px', fontWeight:650, color:'#E8973C', display:'flex', alignItems:'center', gap:'5px' }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:'#E8973C', flexShrink:0 }}/>
+                Kaydedilmemiş değişiklikler var
+              </span>
+            )}
+            <button onClick={handleSave}
+              style={{ display:'flex', alignItems:'center', gap:'7px', background:saved?'#5DBB63':inkbox, color:saved?'#fff':inkboxFg, border:'none', borderRadius:T.rSm, padding:'9px 18px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .25s' }}>
+              <Save size={13}/>{saved?'Kaydedildi!':'Kaydet'}
+            </button>
+          </div>
         </div>
 
         {/* ── Tab bar ── */}

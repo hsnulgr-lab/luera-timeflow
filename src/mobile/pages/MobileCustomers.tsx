@@ -10,6 +10,7 @@ import { NewCustomerSheet } from '../NewCustomerSheet';
 import { BottomSheet } from '../BottomSheet';
 import { T, avatarColor } from '../theme';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { EmptyState } from '@/components/EmptyState';
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
@@ -49,9 +50,15 @@ export const MobileCustomers = () => {
 
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {customers.length === 0 && (
-                    <div style={{ borderRadius: 16, padding: 24, textAlign: 'center', background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 13 }}>
-                        {searchQuery ? 'Eşleşen müşteri yok' : 'Henüz müşteri yok'}
-                    </div>
+                    searchQuery ? (
+                        <EmptyState T={T} icon={<Search size={22} />} title="Eşleşen müşteri yok"
+                            description="Aramanızla eşleşen müşteri bulunamadı"
+                            actionLabel="Aramayı Temizle" onAction={() => setSearchQuery('')} />
+                    ) : (
+                        <EmptyState T={T} icon={<Search size={22} />} title="Henüz müşteri yok"
+                            description="İlk müşterini ekleyerek başla"
+                            actionLabel="Yeni Müşteri" onAction={() => setSheetOpen(true)} />
+                    )
                 )}
                 {customers.map((c) => <CustomerRow key={c.id} c={c} loyalty={loyalty} onRedeem={redeemLoyalty} onOpen={setSelected} />)}
             </div>

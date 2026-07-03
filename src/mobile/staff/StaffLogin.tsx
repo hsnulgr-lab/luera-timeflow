@@ -52,6 +52,10 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                     {eligible.length === 0 ? (
                         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24, textAlign: 'center', color: T.muted, fontSize: 13 }}>
                             Henüz PIN tanımlı personel yok.<br />İşletme sahibi, Personel ekranından PIN atamalı.
+                            <button onClick={() => navigate('/staff')}
+                                style={{ marginTop: 16, padding: '9px 18px', borderRadius: 10, border: 'none', background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Personel Ekranına Git
+                            </button>
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatDateEU } from '@/utils/date';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import { EmptyState } from '@/components/EmptyState';
 import type { Reservation } from '@/types';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
@@ -100,6 +101,14 @@ export const ReservationsPage = () => {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [showActions]);
+
+  // close dropdown on Escape
+  useEffect(() => {
+    if (!showActions) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowActions(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [showActions]);
 
   const openActions = useCallback((id: string) => {
@@ -345,11 +354,15 @@ export const ReservationsPage = () => {
 
         {/* Rows */}
         {filtered.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '56px 24px', gap: '8px' }}>
-            <Clock size={36} color={T.muted2} />
-            <div style={{ fontSize: '14px', fontWeight: 700, color: T.ink }}>Sonuç bulunamadı</div>
-            <div style={{ fontSize: '12px', color: T.muted }}>Arama veya filtre kriterlerinizi değiştirin</div>
-          </div>
+          (search || statusFilter !== 'all') ? (
+            <EmptyState T={T} icon={<Clock size={24} />} title="Sonuç bulunamadı"
+              description="Arama veya filtre kriterlerinizi değiştirin"
+              actionLabel="Filtreleri Temizle" onAction={() => { setSearch(''); setStatusFilter('all'); }} />
+          ) : (
+            <EmptyState T={T} icon={<Clock size={24} />} title="Henüz randevu yok"
+              description="İlk randevunu oluşturarak başla"
+              actionLabel="Yeni Randevu" onAction={() => navigate('/calendar')} />
+          )
         ) : (
           filtered.map((res, idx) => {
             const badge  = RSB[res.status];

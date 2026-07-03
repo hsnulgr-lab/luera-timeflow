@@ -324,6 +324,7 @@ export const KasaPage = () => {
                         value={amtStr}
                         onChange={e => { setSelItem(null); setAmtStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 7)); }}
                     />
+                    {net > 0 && <div className="amt-hint">Onaylamak için <kbd>Enter</kbd></div>}
                 </div>
 
                 <div className="sheet-ft">
@@ -536,6 +537,7 @@ const KASA_CSS = `
 .kasa-root .amt-cur{font-size:26px;font-weight:800;opacity:.55}
 .kasa-root .amt-hint{font-size:11.5px;color:var(--muted);margin-top:8px;font-weight:600;min-height:16px}
 .kasa-root .amt-hint b{color:var(--orange)}
+.kasa-root .amt-hint kbd{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--surface3);border:1px solid var(--border2);color:var(--ink)}
 .kasa-root .fld-lbl{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 9px;font-family:'JetBrains Mono',monospace}
 .kasa-root .svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .kasa-root .svc{padding:11px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);text-align:center;transition:all .15s;cursor:pointer}

@@ -38,6 +38,11 @@ export interface NewPayment {
  * Randevuya "ödendi" demek bir payment satırı oluşturur; ürün satışı da öyle.
  * LTV ve gelir raporları bu satırlardan türetilir.
  */
+// Son N kaydı çekiyoruz (tarihe göre değil satır sayısına göre sınır) — LTV ve
+// tüm-zaman toplamlar (stats.total, totalForCustomer) doğru kalır, sadece çok
+// yoğun/uzun ömürlü işletmelerde en eski kayıtlar listeden düşer.
+const PAYMENTS_LIMIT = 3000;
+
 export function usePayments() {
     const { user, orgId } = useAuth();
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -49,7 +54,8 @@ export function usePayments() {
             .from('payments')
             .select('*')
             .eq('organization_id', resolvedOrgId)
-            .order('paid_at', { ascending: false });
+            .order('paid_at', { ascending: false })
+            .limit(PAYMENTS_LIMIT);
         if (error) console.error(error);
         else setPayments((data || []).map(mapRow));
         setIsLoading(false);

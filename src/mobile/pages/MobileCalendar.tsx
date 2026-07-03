@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
@@ -15,7 +15,10 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 export const MobileCalendar = () => {
     const navigate = useNavigate();
     const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation, checkConflict } = useReservations();
-    const [selected, setSelected] = useState(() => toISODate(new Date()));
+    // Seçili tarih ?date= parametresinde tutulur — sayfadan çıkıp dönünce kaybolmasın
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [selected, setSelectedRaw] = useState(() => searchParams.get('date') || toISODate(new Date()));
+    const setSelected = (ds: string) => { setSelectedRaw(ds); setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('date', ds); return next; }, { replace: true }); };
     const [activeId, setActiveId] = useState<string | null>(null);
     const [payRes, setPayRes] = useState<Reservation | null>(null);   // Tamamla & Tahsilat bağlamı
     const active = useMemo(() => reservations.find((r) => r.id === activeId) ?? null, [reservations, activeId]);
@@ -44,20 +47,20 @@ export const MobileCalendar = () => {
     const monthCancel = monthRes.filter((r) => r.status === 'cancelled').length;
 
     const shiftWeek = (dir: number) => { const d = new Date(sel); d.setDate(sel.getDate() + dir * 7); setSelected(toISODate(d)); };
-    const navBtn = { width: 38, height: 38, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted } as const;
+    const navBtn = { width: 44, height: 44, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted } as const;
 
     return (
         <div style={{ color: T.ink }}>
             {/* Month header */}
             <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 22px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-                <button onClick={() => shiftWeek(-1)} style={navBtn}>
+                <button onClick={() => shiftWeek(-1)} aria-label="Önceki hafta" style={navBtn}>
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.04em' }}>{MONTHS[sel.getMonth()]} {sel.getFullYear()}</div>
                     <div style={{ fontSize: 11, color: T.muted, marginTop: 2, fontFamily: T.mono }}>Bu Hafta</div>
                 </div>
-                <button onClick={() => shiftWeek(1)} style={navBtn}>
+                <button onClick={() => shiftWeek(1)} aria-label="Sonraki hafta" style={navBtn}>
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
             </div>
@@ -79,7 +82,7 @@ export const MobileCalendar = () => {
                     <div style={{ fontSize: 15.5, fontWeight: 850, letterSpacing: '-0.025em' }}>{DLBL[(sel.getDay() + 6) % 7]}, {sel.getDate()} {MONTHS[sel.getMonth()]}</div>
                     <div style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{dayList.length > 0 ? `${dayList.length} randevu` : 'Randevu yok'}</div>
                 </div>
-                <div onClick={() => navigate('/new')} style={{ width: 36, height: 36, borderRadius: 11, background: T.orange, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+                <div onClick={() => navigate('/new')} role="button" aria-label="Yeni randevu" style={{ width: 36, height: 36, borderRadius: 11, background: T.orange, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#0E0E0E" strokeWidth="2.2" strokeLinecap="round" /></svg>
                 </div>
             </div>

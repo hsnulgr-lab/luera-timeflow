@@ -102,7 +102,7 @@ export const MobileNewReservation = () => {
         if (!svc || !time || !selStaff) return;
         const endTime = addMinutes(time, svc.duration);
         const clash = checkConflict(date, time, endTime, undefined, selStaff.id);
-        if (clash) { toast.error(`${selStaff.name} bu saatte dolu (${clash.startTime}–${clash.endTime})`); return; }
+        if (clash) { toast.error(`${selStaff.name} bu saatte dolu (${clash.startTime}–${clash.endTime}). Başka saat veya personel seçin.`); return; }
         const s1 = toMin(time), e1 = toMin(endTime);
         if (lines.some((l) => l.staffId === selStaff.id && toMin(l.time) < e1 && s1 < toMin(l.endTime))) {
             toast.error(`${selStaff.name} bu saatte zaten ekli`); return;
@@ -182,7 +182,7 @@ export const MobileNewReservation = () => {
                         </a>
                     )}
                     <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => navigate('/calendar')} style={{ flex: 1, height: 48, borderRadius: 14, background: T.surface2, color: T.muted, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Kapat</button>
+                        <button onClick={() => { reset(); navigate('/calendar'); }} style={{ flex: 1, height: 48, borderRadius: 14, background: T.surface2, color: T.muted, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Kapat</button>
                         <button onClick={reset} style={{ flex: 1, height: 48, borderRadius: 14, background: T.orange, color: '#0E0E0E', fontSize: 13.5, fontWeight: 850, border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,90,31,.35)' }}>+ Yeni</button>
                     </div>
                 </div>
@@ -218,6 +218,31 @@ export const MobileNewReservation = () => {
                         <div key={i} style={{ height: 4, flex: i === step ? 3 : 1, borderRadius: 2, background: i <= step ? T.orange : T.surface3, opacity: i === step ? 1 : i < step ? 0.7 : 0.3, transition: 'all .35s cubic-bezier(.2,.8,.2,1)' }} />
                     ))}
                 </div>
+                {/* Seçim özeti — geri dönüldüğünde önceki adımlarda ne seçildiği görünsün */}
+                {step >= 1 && (svc || lines.length > 0) && (
+                    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', marginTop: 10 }}>
+                        {(svc || lines[0]?.service) && (
+                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.border}`, color: T.ink }}>
+                                {lines.length > 1 ? `${lines.length} hizmet` : (svc?.name || lines[0]?.service.name)}
+                            </span>
+                        )}
+                        {step >= 1 && (
+                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.border}`, color: T.ink }}>
+                                {dateChip}
+                            </span>
+                        )}
+                        {time && (
+                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.border}`, color: T.ink, fontFamily: T.mono }}>
+                                {time}
+                            </span>
+                        )}
+                        {selStaff && (
+                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.border}`, color: T.ink }}>
+                                {selStaff.name}
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Scroll body */}

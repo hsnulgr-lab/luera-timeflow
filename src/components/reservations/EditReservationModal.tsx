@@ -140,7 +140,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-gray-900">Randevu Düzenle</h3>
-                            <p className="text-xs text-gray-400">ID: {reservation.id.slice(0, 8)}</p>
+                            <p className="text-xs text-gray-400">{reservation.customerName}</p>
                         </div>
                     </div>
 
