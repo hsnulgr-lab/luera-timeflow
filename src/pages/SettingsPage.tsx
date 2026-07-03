@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift } from 'lucide-react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { BillingTab } from '@/components/settings/BillingTab';
 import { useReservations } from '@/hooks/useReservations';
@@ -142,7 +143,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
     finally { setGenerating(false); }
   };
   const handleRevoke = async () => {
-    if (!confirm('Bu API key\'i iptal etmek istediğinizden emin misiniz?')) return;
+    if (!(await confirmDialog({ title: 'API key iptal edilsin mi?', description: 'Bu anahtar geçersiz olur; kullanan entegrasyonlar durur.', danger: true, confirmLabel: 'İptal Et' }))) return;
     setRevoking(true);
     try { await revokeMyKey(module); setMyKey(null); setMyKeyVisible(false); }
     catch { setMyKeyError('Key iptal edilemedi.'); }

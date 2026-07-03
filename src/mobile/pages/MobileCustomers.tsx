@@ -9,6 +9,7 @@ import type { Customer } from '@/types';
 import { NewCustomerSheet } from '../NewCustomerSheet';
 import { BottomSheet } from '../BottomSheet';
 import { T, avatarColor } from '../theme';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
@@ -79,7 +80,7 @@ function CustomerRow({ c, loyalty, onRedeem, onOpen }: { c: Customer; loyalty: {
                     {c.lastVisit && <span>· son {formatDateEU(c.lastVisit)}</span>}
                     {loyalty && !ready && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: T.muted }}><Gift size={10} /> {inCard}/{loyalty.thr}</span>}
                     {loyalty && ready && (
-                        <button onClick={(e) => { e.stopPropagation(); if (confirm(`${c.name} için ödülü kullan? (${loyalty.reward})`)) onRedeem(c.id, loyalty.thr); }}
+                        <button onClick={async (e) => { e.stopPropagation(); if (await confirmDialog({ title: 'Ödül kullanılsın mı?', description: `${c.name} · ${loyalty.reward}`, confirmLabel: 'Kullan' })) onRedeem(c.id, loyalty.thr); }}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,90,31,.14)', border: '1px solid rgba(255,90,31,.3)', color: T.orange, fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
                             <Gift size={10} /> Ödül hazır
                         </button>

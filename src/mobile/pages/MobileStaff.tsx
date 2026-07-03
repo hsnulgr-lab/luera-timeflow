@@ -7,6 +7,7 @@ import { hashPin } from '@/lib/pin';
 import type { Staff } from '@/types';
 import { BottomSheet } from '../BottomSheet';
 import { T } from '../theme';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 const COLORS = ['#FF5A1F', '#C98BDB', '#6B9FD4', '#E0A84E', '#7CC47F', '#CB5E84', '#E07070', '#9B8CFF'];
 
@@ -67,7 +68,7 @@ export const MobileStaff = () => {
 
     const remove = async () => {
         if (!editing) return;
-        if (!confirm(`${editing.name} kaldırılsın mı?`)) return;
+        if (!(await confirmDialog({ title: `${editing.name} kaldırılsın mı?`, description: 'Personel listeden kaldırılır.', danger: true, confirmLabel: 'Kaldır' }))) return;
         await deleteStaff(editing.id);
         setSheetOpen(false);
     };

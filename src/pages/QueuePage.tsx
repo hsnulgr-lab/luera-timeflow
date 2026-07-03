@@ -39,7 +39,7 @@ export const QueuePage = () => {
     if (row) {
       if (wa && row.customerPhone) {
         const msg = buildQueueJoinMessage({ customerName: row.customerName, businessName: settings.businessName, position: pos, etaMin: (pos - 1) * avg });
-        sendTextMessage(wa, row.customerPhone, msg).catch(() => {});
+        sendTextMessage(wa, row.customerPhone, msg).catch(() => toast.error('WhatsApp mesajı gönderilemedi'));
       }
       toast.success('Sıraya eklendi');
       setName(''); setPhone(''); setService('');
@@ -48,7 +48,7 @@ export const QueuePage = () => {
 
   const call = (e: QueueEntry) => {
     callEntry(e.id);
-    if (wa && e.customerPhone) sendTextMessage(wa, e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName })).catch(() => {});
+    if (wa && e.customerPhone) sendTextMessage(wa, e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName })).catch(() => toast.error('WhatsApp mesajı gönderilemedi'));
     toast.success('Çağrıldı');
   };
 

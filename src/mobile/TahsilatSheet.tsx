@@ -72,6 +72,7 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
         const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId });
         setSaving(false);
         if (res) { toast.success('Tahsilat kaydedildi'); reset(); onPaid?.(); onClose(); }
+        else { toast.error('Tahsilat kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'); }
     };
 
     const activeStaff = staff.filter((s) => s.isActive);

@@ -4,6 +4,7 @@ import { CreditCard, Check, Sparkles, Download, Loader2, ShieldCheck } from 'luc
 import { toast } from 'sonner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBilling } from '@/hooks/useBilling';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Design tokens (SettingsPage ile birebir) ─────────────────────────────────
 const LT = {
@@ -240,7 +241,7 @@ export function BillingTab() {
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: T.ink }}>Aboneliği iptal et</div>
               <div style={{ fontSize: '11.5px', color: T.muted, marginTop: 2 }}>Dönem sonuna kadar erişiminiz devam eder; sonra aboneliğiniz sonlanır.</div>
             </div>
-            <button onClick={() => { if (confirm('Aboneliği iptal etmek istediğinize emin misiniz?')) cancelSubscription(); }}
+            <button onClick={async () => { if (await confirmDialog({ title: 'Abonelik iptal edilsin mi?', description: 'Dönem sonuna kadar erişiminiz devam eder.', danger: true, confirmLabel: 'İptal Et' })) cancelSubscription(); }}
               disabled={busy}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: T.rSm, border: 'none', background: '#E07070', color: '#fff', cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 700, flexShrink: 0, opacity: busy ? 0.7 : 1 }}>
               {busy && <Loader2 size={13} className="animate-spin" />} İptal Et

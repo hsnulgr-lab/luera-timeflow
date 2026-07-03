@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Staff, WorkingHours } from '@/types';
 import { hashPin } from '@/lib/pin';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -148,7 +149,7 @@ export const StaffPage = () => {
     setSaving(false); setShowModal(false);
   };
   const handleDelete = async (m: Staff) => {
-    if (!confirm(`"${m.name}" personelini kaldırmak istediğinizden emin misiniz?`)) return;
+    if (!(await confirmDialog({ title: `"${m.name}" kaldırılsın mı?`, description: 'Personel işletmeden kaldırılır.', danger: true, confirmLabel: 'Kaldır' }))) return;
     await deleteStaff(m.id);
     if (selId === m.id) closePanel();
   };

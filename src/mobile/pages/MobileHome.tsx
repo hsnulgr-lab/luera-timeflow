@@ -7,6 +7,7 @@ import { useModules } from '@/hooks/useModules';
 import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
+import { toast } from 'sonner';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
 
 // Ease-out sayaç animasyonu
@@ -149,7 +150,7 @@ export const MobileHome = () => {
                                 onToggle={() => setExpanded(expanded === a.id ? null : a.id)}
                                 onComplete={() => updateReservation(a.id, { status: 'completed' })}
                                 onConfirm={() => updateReservation(a.id, { status: 'confirmed' })}
-                                onCancel={() => { updateReservation(a.id, { status: 'cancelled' }); setExpanded(null); }} />
+                                onCancel={() => { const prev = a.status; updateReservation(a.id, { status: 'cancelled' }); setExpanded(null); toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(a.id, { status: prev }) } }); }} />
                         ))}
                     </div>
                 )}

@@ -6,6 +6,7 @@ import { useTableReservations } from '@/hooks/useTableReservations';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toISODate, formatDateEU } from '@/utils/date';
 import type { Table, TableReservation } from '@/types';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Tokens (LT/DT deseni) ─────────────────────────────────────────────────────
 const LT = {
@@ -162,7 +163,7 @@ export const MasaPage = () => {
                                     style={{ width: '100%', marginTop: 14, padding: '10px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.orange, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                     + Bu masaya rezervasyon
                                 </button>
-                                <button onClick={() => { if (confirm(`${selTable.name} silinsin mi?`)) { deleteTable(selTable.id); setSelTableId(null); } }}
+                                <button onClick={async () => { if (await confirmDialog({ title: `${selTable.name} silinsin mi?`, danger: true, confirmLabel: 'Sil' })) { deleteTable(selTable.id); setSelTableId(null); } }}
                                     style={{ width: '100%', marginTop: 8, padding: '9px', borderRadius: 10, border: 'none', background: 'none', color: T.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                                     Masayı sil
                                 </button>

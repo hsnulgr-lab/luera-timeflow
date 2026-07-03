@@ -5,6 +5,7 @@ import { apptPhase, PHASE_LABEL, primaryAction } from '@/lib/appointmentFlow';
 import { useStaff } from '@/hooks/useStaff';
 import { BottomSheet } from './BottomSheet';
 import { STS_BG, STS_COLOR, T } from './theme';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 // Dakika ekleyerek bitiş saatini hesapla (HH:MM)
 function addMinutes(hhmm: string, mins: number): string {
@@ -89,7 +90,7 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     };
 
     const remove = async () => {
-        if (!confirm(`${r.customerName} randevusu silinsin mi?`)) return;
+        if (!(await confirmDialog({ title: 'Randevu silinsin mi?', description: `${r.customerName} randevusu geri alınamaz.`, danger: true, confirmLabel: 'Sil' }))) return;
         await onDelete(r.id);
         onClose();
     };

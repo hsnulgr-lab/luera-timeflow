@@ -35,6 +35,7 @@ import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
+import { ConfirmDialogHost } from '@/components/ConfirmDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -132,6 +133,7 @@ function App() {
           },
         }}
       />
+      <ConfirmDialogHost />
     </AuthProvider>
     </ThemeProvider>
     </ErrorBoundary>

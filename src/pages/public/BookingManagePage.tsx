@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Clock, User, Loader2, Check, X, RefreshCw, ChevronLeft } from 'lucide-react';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 const C = {
   page: '#F3ECE0', surface: '#FFFFFF', surface2: '#FAF7F3', ink: '#0E0E0E', orange: '#FF5A1F',
@@ -66,7 +67,7 @@ export function BookingManagePage() {
   useEffect(() => { if (rescheduling && date) fetchSlots(date); }, [rescheduling, date, fetchSlots]);
 
   const doCancel = async () => {
-    if (!confirm('Randevunuzu iptal etmek istediğinize emin misiniz?')) return;
+    if (!(await confirmDialog({ title: 'Randevunuz iptal edilsin mi?', description: 'Bu işlem geri alınamaz.', danger: true, confirmLabel: 'İptal Et', cancelLabel: 'Vazgeç' }))) return;
     setBusy(true);
     const { ok } = await callFn({ action: 'cancel', token });
     setBusy(false);
