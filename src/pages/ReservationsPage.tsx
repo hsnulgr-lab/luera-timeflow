@@ -479,8 +479,17 @@ export const ReservationsPage = () => {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
                   {(() => {
                     const ph2 = apptPhase(res);
+                    // "Müşteri Geldi" hizmeti başlatmaz — sadece atanmış personele push gider,
+                    // personel hizmeti kendi başlatır. Geldi işaretlendiyse pasif "Bekliyor" rozeti.
+                    if (ph2 === 'upcoming' && res.customerArrivedAt) {
+                      return (
+                        <span style={{ padding: '5px 10px', borderRadius: T.rXs, fontSize: '11px', fontWeight: 700, background: 'rgba(224,168,78,.14)', color: '#E0A84E', whiteSpace: 'nowrap' }}>
+                          👋 Bekliyor
+                        </span>
+                      );
+                    }
                     const act = ph2 === 'pending' ? { l: 'Onayla', fn: () => handleStatusChange(res.id, 'confirmed') }
-                      : ph2 === 'upcoming' ? { l: 'Geldi', fn: () => { updateReservation(res.id, { arrivedAt: new Date().toISOString() }); } }
+                      : ph2 === 'upcoming' ? { l: 'Müşteri Geldi', fn: () => { updateReservation(res.id, { customerArrivedAt: new Date().toISOString() }); } }
                       : ph2 === 'inService' ? { l: 'Tamamla', fn: () => handleStatusChange(res.id, 'completed') }
                       : null;
                     return act ? (
@@ -535,7 +544,8 @@ export const ReservationsPage = () => {
               {[
                 { icon: <Edit2 size={13} color={T.orange} />, label: 'Düzenle', action: () => { setEditReservation(res); setShowActions(null); } },
                 res.status === 'pending' && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Onayla', action: () => handleStatusChange(res.id, 'confirmed') },
-                res.status === 'confirmed' && !res.arrivedAt && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Müşteri Geldi', action: () => { updateReservation(res.id, { arrivedAt: new Date().toISOString() }); setShowActions(null); } },
+                res.status === 'confirmed' && !res.customerArrivedAt && !res.arrivedAt && { icon: <CheckCircle2 size={13} color={T.muted} />, label: 'Müşteri Geldi', action: () => { updateReservation(res.id, { customerArrivedAt: new Date().toISOString() }); setShowActions(null); } },
+                res.status === 'confirmed' && !res.arrivedAt && { icon: <Clock size={13} color={T.muted} />, label: 'Hizmete Başla', action: () => { updateReservation(res.id, { arrivedAt: new Date().toISOString() }); setShowActions(null); } },
                 res.status !== 'completed' && { icon: <Clock size={13} color={T.muted} />, label: 'Tamamlandı', action: () => handleStatusChange(res.id, 'completed') },
                 res.status !== 'cancelled' && { icon: <XCircle size={13} color={T.muted2} />, label: 'İptal Et', action: () => handleStatusChange(res.id, 'cancelled') },
               ].filter(Boolean).map((item, i) => item && (
