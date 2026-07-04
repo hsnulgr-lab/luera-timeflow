@@ -318,6 +318,18 @@ export const SettingsPage = () => {
   const [saved, setSaved]               = useState(false);
   const [uploading, setUploading]       = useState<string|null>(null);
 
+  // Ayarlar Supabase'den asenkron gelir; form alanlarını yüklenen değerlerle
+  // senkronla — yoksa varsayılanlarla dolan form "kaydedilmemiş değişiklik var" sanır
+  useEffect(() => {
+    setBusinessName(settings.businessName);
+    setWorkingHours(settings.workingHours);
+    setServices(settings.services);
+    setWebhookUrl(settings.webhookUrl || '');
+    setSector(settings.sector || 'genel');
+    setLoyaltyReward(settings.loyaltyReward || 'Ücretsiz hizmet');
+    setRebookNote(settings.rebookNote || '');
+  }, [settings]);
+
   const inkbox   = dark ? '#231E18' : '#0E0E0E';
   const inkboxFg = '#F3EDE3';
   const bookingUrl = profile.slug ? `${window.location.origin}/book/${profile.slug}` : '';

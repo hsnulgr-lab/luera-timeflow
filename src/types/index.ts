@@ -22,6 +22,7 @@ export interface Reservation {
     recurrenceUntil?: string;   // YYYY-MM-DD
     source?: 'manual' | 'booking' | 'leadflow';
     isPaid?: boolean;
+    customerArrivedAt?: string;   // Resepsiyon "Müşteri Geldi" dedi — personele push gider, hizmet başlamaz
     arrivedAt?: string;   // "Başladı" zaman damgası (confirmed → hizmette); süre başlangıcı
     serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
     adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (boya/ürün/ekstra)

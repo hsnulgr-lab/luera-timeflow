@@ -114,12 +114,12 @@ Not: Denetim ajanlarının 3 bulgusu yanlış çıktı ve rapora alınmadı (per
 
 ---
 
-## FAZLA / GEREKSİZ OLANLAR ("neler fazla")
+## FAZLA / GEREKSİZ OLANLAR (tamamlandı — 2026-07-04)
 
-1. **İki farklı silme-onayı deseni** — ReservationsPage'te iki-tıklı "Emin misin?", başka yerlerde `confirm()`. P0-4'te tek desene inince kendiliğinden çözülür.
-2. **`supabase/migration.sql` ve `update_database.sql`** — sıra numaralı migration'larla çakışan eski toplu dosyalar; yeni geliştirici için kafa karıştırıcı. Arşiv klasörüne taşı ya da başına "KULLANMA — tarihsel" notu koy.
-3. **MobileHome'da hem "Giriş" (personel modu) hem bildirim zili hem tema butonu** — başlıkta 3 ikon; personel moduna geçiş alt bara ya da daha belirgin bir yere taşınabilir (beta kullanıcısı "Giriş" ikonunun ne olduğunu bilemez). Küçük ama ilk izlenimde kafa karıştırıcı.
-4. **AI Önerisi kartı (MobileHome:203-225)** yalnızca "onay bekleyen var" bilgisini tekrarlıyor — hemen üstteki Onay Bekliyor bölümüyle aynı işi yapıyor. Ya gerçek AI içgörüsü (insight fonksiyonu zaten var) bağlansın ya kart kaldırılsın.
+1. **İki farklı silme-onayı deseni** — [x] Doğrulandı: yerel `confirm()` tamamen kalktı (P0-4). Kalan tek "iki-tıklı Emin misin?" EditReservationModal'da — raporun kendisi bu deseni kabul saymıştı, bulgu kapandı.
+2. **`supabase/migration.sql` ve `update_database.sql`** — [x] `supabase/_archive/` klasörüne taşındı + "KULLANMA — tarihsel" README eklendi.
+3. **MobileHome başlığında 3 anonim ikon** — [x] Gizemli "Giriş" ikon butonu ikon+metinli "Personel" butonuna çevrildi; ne olduğu artık ilk bakışta belli. (Alt bar FAB+sekme kapasitesi dolu olduğu için oraya taşınmadı.)
+4. **AI Önerisi kartı** — [x] pendingCount tekrarı kaldırıldı; kart gerçek AI içgörüsüne (useInsight — Groq destekli günlük içgörü, sessionStorage cache'li) bağlandı. İçgörü yoksa kart hiç görünmüyor.
 
 ## BİLİNÇLİ KABUL EDİLENLER (bulgu değil, kayıt için)
 - Faturalandırma/widget kodu/WhatsApp kurulumu mobilde yok → tasarım felsefesi gereği masaüstü işi.

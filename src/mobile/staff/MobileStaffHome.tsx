@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { useStaffStats } from '@/hooks/useStaffStats';
 import { usePush } from '@/hooks/usePush';
@@ -16,6 +17,9 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 
 export const MobileStaffHome = () => {
     const { staff, logout } = useStaffSession();
+    const navigate = useNavigate();
+    // Çıkışta personel giriş kapısında kalma — doğrudan ana sayfaya dön
+    const handleLogout = () => { logout(); navigate('/'); };
     const push = usePush('staff', staff?.id);
     const [detailId, setDetailId] = useState<string | null>(null);
     const stats = useStaffStats(staff?.id, staff?.name);
@@ -108,7 +112,7 @@ export const MobileStaffHome = () => {
                                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                             </button>
                         )}
-                        <button onClick={logout} aria-label="Çıkış" style={{ width: 38, height: 38, borderRadius: 12, background: D.chipBg, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                        <button onClick={handleLogout} aria-label="Çıkış" style={{ width: 38, height: 38, borderRadius: 12, background: D.chipBg, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted2, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                             <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M12 4l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </button>
                     </div>
@@ -211,7 +215,7 @@ export const MobileStaffHome = () => {
                                                     {ph === 'upcoming' && (
                                                         <div style={{ marginTop: 7, fontSize: 12, fontWeight: 750, color: D.orange, letterSpacing: '-.01em', display: 'flex', alignItems: 'center', gap: 4 }}>
                                                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 4-8 4V2z" fill="currentColor" /></svg>
-                                                            Hizmete başla
+                                                            {a.customerArrivedAt ? 'Müşterin geldi 👋 · Hizmete başla' : 'Hizmete başla'}
                                                         </div>
                                                     )}
                                                     {ph === 'inService' && (

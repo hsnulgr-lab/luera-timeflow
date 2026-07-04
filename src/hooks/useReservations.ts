@@ -61,6 +61,7 @@ function mapDbReservation(row: any): Reservation {
         source: row.source || 'manual',
         isPaid: row.is_paid ?? false,
         arrivedAt: row.arrived_at || undefined,
+        customerArrivedAt: row.customer_arrived_at || undefined,
         serviceEndedAt: row.service_ended_at || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
         groupId: row.group_id || undefined,
@@ -382,6 +383,7 @@ function useReservationsState() {
         // staff_name/staff_color kolonu yok — ad ve renk select'teki staff() join'inden gelir
         if (updates.staffId !== undefined) dbUpdates.staff_id = updates.staffId ?? null;
         if (updates.arrivedAt !== undefined) dbUpdates.arrived_at = updates.arrivedAt;
+        if (updates.customerArrivedAt !== undefined) dbUpdates.customer_arrived_at = updates.customerArrivedAt;
         if (updates.serviceEndedAt !== undefined) dbUpdates.service_ended_at = updates.serviceEndedAt;
         if (updates.adisyonItems !== undefined) dbUpdates.adisyon_items = updates.adisyonItems;
 

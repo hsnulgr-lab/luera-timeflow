@@ -15,6 +15,11 @@ export function useInsight() {
         if (!user || !orgId) return;
         let cancelled = false;
 
+        // Günün içgörüsü oturum içinde bir kez çekilir — sayfa geçişlerinde anında gelsin
+        const cacheKey = `tf-insight:${orgId}:${new Date().toISOString().slice(0, 10)}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) { setInsight(cached); return; }
+
         (async () => {
             setLoading(true);
             try {
@@ -28,7 +33,10 @@ export function useInsight() {
                     body: JSON.stringify({ organization_id: orgId }),
                 });
                 const data = await res.json();
-                if (!cancelled && data.insight) setInsight(data.insight);
+                if (!cancelled && data.insight) {
+                    setInsight(data.insight);
+                    sessionStorage.setItem(cacheKey, data.insight);
+                }
             } catch {
                 /* sessizce geç — içgörü kritik değil */
             } finally {
@@ -37,7 +45,8 @@ export function useInsight() {
         })();
 
         return () => { cancelled = true; };
-    }, [user]);
+    // orgId login sonrası asenkron çözülür — bağımlılıkta olmazsa içgörü hiç yüklenmez
+    }, [user, orgId]);
 
     return { insight, loading };
 }

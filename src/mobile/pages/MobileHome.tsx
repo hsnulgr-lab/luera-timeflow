@@ -5,7 +5,6 @@ import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { useModules } from '@/hooks/useModules';
 import { usePush } from '@/hooks/usePush';
-import { toISODate } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
@@ -38,14 +37,13 @@ const MONTH_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', '
 
 export const MobileHome = () => {
     const navigate = useNavigate();
-    const { reservations, settings, getTodayReservations, updateReservation } = useReservations();
+    const { settings, getTodayReservations, updateReservation } = useReservations();
     const { stats } = usePayments();
     const { staff } = useStaff();
     const { isEnabled } = useModules();
     const push = usePush('manager');
 
     const now = useMemo(() => new Date(), []);
-    const todayStr = toISODate(now);
     const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const dateLabel = `${DAY_SHORT[now.getDay()]} · ${now.getDate()} ${MONTH_SHORT[now.getMonth()]} ${now.getFullYear()}`;
 
@@ -73,8 +71,6 @@ export const MobileHome = () => {
     const activeStaffCount = staff.filter((s) => s.isActive).length;
 
     const [expanded, setExpanded] = useState<string | null>(null);
-    const [aiDismissed, setAiDismissed] = useState(false);
-    const pendingCount = reservations.filter((r) => r.status === 'pending' && r.date >= todayStr).length;
 
     return (
         <div style={{ color: T.ink }}>
@@ -86,8 +82,9 @@ export const MobileHome = () => {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <ThemeToggle size={44} />
-                    <button onClick={() => navigate('/personel')} aria-label="Giriş" style={{ width: 44, height: 44, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted }}>
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                    <button onClick={() => navigate('/personel')} aria-label="Personel modu girişi" style={{ height: 44, padding: '0 12px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: T.muted }}>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                        <span style={{ fontSize: 11.5, fontWeight: 750 }}>Personel</span>
                     </button>
                     {push.supported && (
                         <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler"
@@ -152,7 +149,7 @@ export const MobileHome = () => {
                         {todayList.map((a, i) => (
                             <ApptRow key={a.id} r={a} last={i === todayList.length - 1} price={priceOf(a.service)} expanded={expanded === a.id}
                                 onToggle={() => setExpanded(expanded === a.id ? null : a.id)}
-                                onComplete={() => updateReservation(a.id, { status: 'completed' })}
+                                onArrive={() => { updateReservation(a.id, { customerArrivedAt: new Date().toISOString() }); toast.success(a.staffName ? `${a.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi'); }}
                                 onConfirm={() => updateReservation(a.id, { status: 'confirmed' })}
                                 onCancel={() => { const prev = a.status; updateReservation(a.id, { status: 'cancelled' }); setExpanded(null); toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(a.id, { status: prev }) } }); }} />
                         ))}
@@ -204,39 +201,14 @@ export const MobileHome = () => {
                 </div>
             )}
 
-            {/* AI Önerisi */}
-            {!aiDismissed && pendingCount > 0 && (
-                <div style={{ margin: '18px 22px 0', background: 'linear-gradient(145deg,rgba(255,90,31,.10),rgba(255,90,31,.02))', border: '1px solid rgba(255,90,31,.20)', borderRadius: 20, padding: '14px 15px 13px' }}>
-                    <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', marginBottom: 11 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(255,90,31,.15)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 1.5L12.2 7.8H18.5L13.5 11.5L15.7 17.8L10 14L4.3 17.8L6.5 11.5L1.5 7.8H7.8L10 1.5Z" fill="#FF5A1F" opacity=".9" /><circle cx="15.5" cy="3.5" r="1.3" fill="#FF5A1F" opacity=".5" /></svg>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 850, color: T.orange }}>AI Önerisi</span>
-                                <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(255,90,31,.15)', color: T.orange, padding: '2px 6px', borderRadius: 999, fontFamily: T.mono }}>YENİ</span>
-                            </div>
-                            <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}><b style={{ color: T.ink }}>{pendingCount} randevu</b> onay bekliyor. Şimdi onaylansın mı?</div>
-                        </div>
-                        <button onClick={() => setAiDismissed(true)} style={{ width: 22, height: 22, borderRadius: 7, background: T.surface2, display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0, border: 'none', color: T.muted2 }}>
-                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
-                        </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => navigate('/calendar')} style={{ flex: 1, height: 38, borderRadius: 11, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>İncele</button>
-                        <button onClick={() => setAiDismissed(true)} style={{ flex: 1, height: 38, borderRadius: 11, background: T.surface2, color: T.muted, fontSize: 12.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Sonra</button>
-                    </div>
-                </div>
-            )}
-
             <div style={{ height: 16 }} />
         </div>
     );
 };
 
-function ApptRow({ r, last, price, expanded, onToggle, onComplete, onConfirm, onCancel }: {
+function ApptRow({ r, last, price, expanded, onToggle, onArrive, onConfirm, onCancel }: {
     r: Reservation; last: boolean; price: number; expanded: boolean;
-    onToggle: () => void; onComplete: () => void; onConfirm: () => void; onCancel: () => void;
+    onToggle: () => void; onArrive: () => void; onConfirm: () => void; onCancel: () => void;
 }) {
     const ac = r.staffColor || r.serviceColor || T.orange;
     return (
@@ -263,7 +235,20 @@ function ApptRow({ r, last, price, expanded, onToggle, onComplete, onConfirm, on
             </div>
             {expanded && r.status !== 'completed' && r.status !== 'cancelled' && (
                 <div onClick={(e) => e.stopPropagation()} style={{ padding: '0 16px 13px 20px', display: 'flex', gap: 8 }}>
-                    <button onClick={onComplete} style={{ flex: 1, height: 36, borderRadius: 10, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12.5, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>✓ Tamamla</button>
+                    {/* Akış: "Müşteri Geldi" sadece haber verir (personele push);
+                        hizmeti personel kendisi başlatır, tamamlama da personelin işi */}
+                    {r.arrivedAt ? (
+                        <div style={{ flex: 1, height: 36, borderRadius: 10, background: 'rgba(107,159,212,.12)', color: T.blue, fontSize: 12.5, fontWeight: 750, border: '1px solid rgba(107,159,212,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.blue, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            Hizmette
+                        </div>
+                    ) : r.customerArrivedAt ? (
+                        <div style={{ flex: 1, height: 36, borderRadius: 10, background: 'rgba(224,168,78,.12)', color: T.amber, fontSize: 12.5, fontWeight: 750, border: '1px solid rgba(224,168,78,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            👋 Geldi · personel bekleniyor
+                        </div>
+                    ) : (
+                        <button onClick={onArrive} style={{ flex: 1, height: 36, borderRadius: 10, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12.5, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>👋 Müşteri Geldi</button>
+                    )}
                     {r.status === 'pending' && <button onClick={onConfirm} style={{ flex: 1, height: 36, borderRadius: 10, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Onayla</button>}
                     <button onClick={onCancel} style={{ height: 36, width: 36, borderRadius: 10, background: 'rgba(224,112,112,.12)', color: '#E07070', border: '1px solid rgba(224,112,112,.2)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
