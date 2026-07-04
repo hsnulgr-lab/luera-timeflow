@@ -58,14 +58,14 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
     // Check conflicts when time or date changes
     useEffect(() => {
         if (form.date && form.startTime && form.endTime) {
-            const conflicting = checkConflict(form.date, form.startTime, form.endTime, reservation.id);
+            const conflicting = checkConflict(form.date, form.startTime, form.endTime, reservation.id, reservation.staffId);
             if (conflicting) {
                 setConflict(`${conflicting.customerName} - ${conflicting.startTime}/${conflicting.endTime} ile çakışıyor!`);
             } else {
                 setConflict(null);
             }
         }
-    }, [form.date, form.startTime, form.endTime, reservation.id, checkConflict]);
+    }, [form.date, form.startTime, form.endTime, reservation.id, reservation.staffId, checkConflict]);
 
     const handleSave = () => {
         if (!form.customerName || !form.customerPhone) return;

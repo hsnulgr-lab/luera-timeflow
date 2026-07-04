@@ -621,17 +621,24 @@ function useReservationsState() {
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
     }, [user, orgId]);
 
-    // ─── Çakışma kontrolü ────────────────────────────────────────────────────
+    // ─── Çakışma kontrolü (kaynak = personel bazlı doluluk) ──────────────────
+    // Çakışma yalnızca AYNI kaynak içinde geçerlidir:
+    //   • Personel seçiliyse → sadece o personelin randevularıyla (farklı
+    //     personeller paralel çalışır, çakışma sayılmaz).
+    //   • Personel seçili değilse → yalnızca diğer "atanmamış" randevularla
+    //     (tek kişilik işletme / walk-in havuzu kendi içinde çakışır).
+    // Böylece bir personelin dolu saati başkasının boş saatini bloklamaz.
     const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string): Reservation | null => {
         const startMin = timeToMinutes(startTime);
         const endMin = timeToMinutes(endTime);
+        const target = staffId || null;
 
         const conflict = reservations.find(r => {
             if (r.id === excludeId) return false;
             if (r.date !== date) return false;
             if (r.status === 'cancelled') return false;
-            // Personel seçildiyse sadece aynı personelin randevularını kontrol et
-            if (staffId && r.staffId && r.staffId !== staffId) return false;
+            // Yalnızca aynı kaynağı (aynı personel; ya da ikisi de atanmamış) karşılaştır
+            if ((r.staffId || null) !== target) return false;
 
             const rStart = timeToMinutes(r.startTime);
             const rEnd = timeToMinutes(r.endTime);
