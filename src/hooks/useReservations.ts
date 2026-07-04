@@ -451,6 +451,36 @@ function useReservationsState() {
         }
     }, [reservations, fireWebhook, fetchReservations, orgId, settings]);
 
+    // ─── Atanmamış randevuyu sahiplen (yarış-korumalı) ───────────────────────
+    // İki personel aynı anda "Ben alıyorum" derse yalnızca ilki başarılı olur:
+    // UPDATE ... WHERE staff_id IS NULL atomik olduğundan ikinci istek 0 satır
+    // etkiler → false döner ve "başkası aldı" bilgisi verilir. Realtime kanalı
+    // zaten diğer cihazlarda kartı anında kaldırır; bu koruma yarış penceresini kapatır.
+    const claimReservation = useCallback(async (id: string, staffId: string): Promise<boolean> => {
+        const { data: serverRow, error } = await supabase
+            .from('reservations')
+            .update({ staff_id: staffId, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .is('staff_id', null)          // ATOMİK KORUMA: yalnızca hâlâ atanmamışsa
+            .select('*, staff(name, color)')
+            .maybeSingle();
+
+        if (error) {
+            toast.error('Sahiplenme başarısız');
+            console.error('Error claiming reservation:', error);
+            return false;
+        }
+        if (!serverRow) {
+            // 0 satır → başka bir personel az önce sahiplendi; gerçek durumu çek
+            toast.error('Bu randevu az önce başka bir personel tarafından alındı');
+            if (orgId) fetchReservations(orgId);
+            return false;
+        }
+        const updated = mapDbReservation(serverRow);
+        setReservations(prev => prev.map(r => r.id === id ? updated : r));
+        return true;
+    }, [orgId, fetchReservations]);
+
     // ─── Rezervasyon sil ─────────────────────────────────────────────────────
     const deleteReservation = useCallback(async (id: string) => {
         const { error } = await supabase
@@ -656,6 +686,7 @@ function useReservationsState() {
         orgId,
         addReservation,
         updateReservation,
+        claimReservation,
         deleteReservation,
         getReservationsByDate,
         getTodayReservations,
@@ -668,7 +699,7 @@ function useReservationsState() {
         refetchSettings: fetchSettings,
     }), [
         reservations, settings, isLoading, orgId,
-        addReservation, updateReservation, deleteReservation,
+        addReservation, updateReservation, claimReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
         getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchSettings,
     ]);

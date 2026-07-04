@@ -24,7 +24,7 @@ export const MobileStaffHome = () => {
     const [detailId, setDetailId] = useState<string | null>(null);
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
-    const { reservations, getReservationsByDate, updateReservation } = useReservations();
+    const { reservations, getReservationsByDate, updateReservation, claimReservation } = useReservations();
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
@@ -66,7 +66,15 @@ export const MobileStaffHome = () => {
         () => getReservationsByDate(selected).filter((r) => !r.staffId && r.status !== 'cancelled' && r.status !== 'completed').sort((a, b) => a.startTime.localeCompare(b.startTime)),
         [getReservationsByDate, selected]
     );
-    const claim = (a: Reservation) => { updateReservation(a.id, { staffId: staff?.id, staffName: staff?.name, staffColor: color }); };
+    // Yarış-korumalı sahiplenme: sunucu tarafında atomik (yalnızca hâlâ atanmamışsa),
+    // diğer cihazlarda realtime ile kart zaten kaybolur.
+    const [claiming, setClaiming] = useState<string | null>(null);
+    const claim = async (a: Reservation) => {
+        if (!staff?.id || claiming) return;
+        setClaiming(a.id);
+        await claimReservation(a.id, staff.id);
+        setClaiming(null);
+    };
 
     const { todayRev, weekRev } = useMemo(() => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -169,7 +177,7 @@ export const MobileStaffHome = () => {
                                         <div style={{ fontSize: 14, fontWeight: 780, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.customerName}</div>
                                         <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2, fontFamily: D.mono }}>{a.service}</div>
                                     </div>
-                                    <button onClick={() => claim(a)} style={{ height: 34, padding: '0 14px', borderRadius: 10, background: D.orange, color: '#fff', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer', flexShrink: 0 }}>Ben alıyorum</button>
+                                    <button onClick={() => claim(a)} disabled={claiming === a.id} style={{ height: 34, padding: '0 14px', borderRadius: 10, background: D.orange, color: '#fff', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: claiming === a.id ? 'default' : 'pointer', opacity: claiming === a.id ? .6 : 1, flexShrink: 0 }}>{claiming === a.id ? 'Alınıyor…' : 'Ben alıyorum'}</button>
                                 </div>
                             ))}
                         </div>
