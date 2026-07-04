@@ -7,11 +7,14 @@ import { cn } from '@/utils/cn';
 import { AiAssistant } from '@/components/ai/AiAssistant';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePendingBillsAlert } from '@/hooks/usePendingBills';
 
 export const Layout = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { dark } = useTheme();
+    // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
+    usePendingBillsAlert();
 
     return (
         <div className={cn("min-h-screen", dark ? "bg-[#0C0A08]" : "bg-[#F3ECE0]")}>

@@ -5,6 +5,7 @@ import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useModules } from '@/hooks/useModules';
+import { usePendingBills } from '@/hooks/usePendingBills';
 import type { ModuleKey } from '@/types';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import {
@@ -33,6 +34,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     const { user, logout } = useAuth();
     const { dark, toggle: toggleTheme } = useTheme();
     const { isEnabled } = useModules();
+    const pendingBills = usePendingBills();
     const navigate = useNavigate();
     const location = useLocation();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -205,6 +207,16 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 )}
                                 <Icon size={20} className={cn(popped && "sb-pop")} />
                                 {(!isCollapsed || isMobileOpen) && <span className={cn(popped && "sb-pop")}>{item.label}</span>}
+                                {/* Kasada bekleyen adisyon rozeti — personel adisyon gönderince artar */}
+                                {item.id === '/kasa' && pendingBills.length > 0 && (
+                                    (!isCollapsed || isMobileOpen) ? (
+                                        <span className="ml-auto min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-[#FF5A1F] text-white text-[11px] font-bold">
+                                            {pendingBills.length}
+                                        </span>
+                                    ) : (
+                                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF5A1F]" />
+                                    )
+                                )}
                             </button>
                         );
                     })}
