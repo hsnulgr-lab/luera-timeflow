@@ -5,7 +5,7 @@ import { LNotifications } from '@/components/icons/LueraIcons';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
-import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
+import { phaseBadge } from '@/utils/statusColors';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -493,9 +493,11 @@ export const DashboardPage = () => {
                                                             </a>
                                                         </>
                                                     )}
-                                                    <span className={cn("hidden sm:inline px-2 py-1 rounded-lg text-[10px] font-bold", STATUS_BADGE[res.status])}>
-                                                        {STATUS_LABEL[res.status]}
-                                                    </span>
+                                                    {(() => { const pb = phaseBadge(res); return (
+                                                        <span className={cn("hidden sm:inline px-2 py-1 rounded-lg text-[10px] font-bold", pb.badge)}>
+                                                            {pb.label}
+                                                        </span>
+                                                    ); })()}
                                                 </div>
                                             </div>
                                         );

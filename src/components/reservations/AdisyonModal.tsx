@@ -5,6 +5,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useStaff } from '@/hooks/useStaff';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Reservation, PaymentMethod } from '@/types';
@@ -28,6 +29,8 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
     const { payments, addPayment, removeByReservation, totalForCustomer } = usePayments();
     const { products } = useProducts();
     const { allCustomers } = useCustomers();
+    const { staff } = useStaff();
+    const staffName = (id?: string) => (id ? staff.find(s => s.id === id)?.name : undefined);
     const { forCustomer } = useCustomerPackages();
 
     const [tab, setTab] = useState<'adisyon' | 'musteri'>('adisyon');
@@ -112,7 +115,7 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                        <div style={{ fontSize: 12, color: T.muted }}>{r.date} · {isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : `${r.startTime}–${r.endTime} · ${r.service}`}</div>
+                        <div style={{ fontSize: 12, color: T.muted }}>{r.date} · {isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : `${r.startTime}–${r.endTime} · ${r.service}${r.staffName ? ` · ${r.staffName}` : ''}`}</div>
                     </div>
                     {isPaid && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: T.green, background: 'var(--dc-green-bg)', borderRadius: 999, padding: '4px 10px' }}><Check size={13} /> Ödendi</span>}
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 4, marginLeft: 4 }}><X size={20} /></button>
@@ -141,7 +144,7 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                                     <Row key={i} label={l.name} sub="Ürün" amount={l.price} T={T} onDel={() => setLines(prev => prev.filter((_, x) => x !== i))} />
                                 ))}
                                 {isPaid && resPayments.length > 0 && resPayments.map(p => (
-                                    <Row key={p.id} label={p.description || 'Tahsilat'} sub={PM.find(m => m.key === p.method)?.label} amount={p.amount} T={T} />
+                                    <Row key={p.id} label={p.description || 'Tahsilat'} sub={[staffName(p.staffId), PM.find(m => m.key === p.method)?.label].filter(Boolean).join(' · ')} amount={p.amount} T={T} />
                                 ))}
                             </div>
 
