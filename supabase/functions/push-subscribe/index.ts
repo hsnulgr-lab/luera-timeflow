@@ -17,6 +17,7 @@ const corsHeaders = {
  *   { action: 'config' } → { publicKey }
  *   { action: 'subscribe', subscription:{endpoint,keys:{p256dh,auth}}, staffId?, role } → { ok }
  *   { action: 'unsubscribe', endpoint } → { ok }
+ *   { action: 'status', endpoint, staffId? } → { subscribed }   // toggle kimlik-farkında olsun
  */
 
 Deno.serve(async (req: Request) => {
@@ -82,6 +83,20 @@ Deno.serve(async (req: Request) => {
             if (!body.endpoint) return json({ error: 'endpoint_required' }, 400);
             await admin.from('push_subscriptions').delete().eq('endpoint', body.endpoint).eq('organization_id', orgId);
             return json({ ok: true }, 200);
+        }
+
+        // status — bu cihazdaki abonelik o an açık olan personele mi ait?
+        // Toggle'ın rol/kimlik-farkında olması için: aynı endpoint başka personele
+        // aitse (veya yoksa) subscribed=false döner.
+        if (action === 'status') {
+            if (!body.endpoint) return json({ error: 'endpoint_required' }, 400);
+            let q = admin.from('push_subscriptions')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId)
+                .eq('endpoint', body.endpoint);
+            q = body.staffId ? q.eq('staff_id', body.staffId) : q.is('staff_id', null);
+            const { count } = await q;
+            return json({ subscribed: (count ?? 0) > 0 }, 200);
         }
 
         return json({ error: 'unknown_action' }, 400);

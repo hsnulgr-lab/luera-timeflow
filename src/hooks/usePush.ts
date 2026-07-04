@@ -27,7 +27,9 @@ export function usePush(role: PushRole, staffId?: string) {
     const [enabled, setEnabled] = useState(false);
     const [busy, setBusy] = useState(false);
 
-    // Mevcut abonelik var mı?
+    // Bu cihazda, O AN açık olan kimlik (staffId) için abonelik var mı?
+    // Tarayıcı aboneliği + izin ön koşul; ama abonelik başka personele aitse
+    // (shared cihaz) bu kimlik için "kapalı" gösterilir → status ile doğrulanır.
     useEffect(() => {
         if (!supported) return;
         let cancel = false;
@@ -35,11 +37,18 @@ export function usePush(role: PushRole, staffId?: string) {
             try {
                 const reg = await navigator.serviceWorker.ready;
                 const sub = await reg.pushManager.getSubscription();
-                if (!cancel) setEnabled(!!sub && Notification.permission === 'granted');
+                if (!sub || Notification.permission !== 'granted') {
+                    if (!cancel) setEnabled(false);
+                    return;
+                }
+                const { data } = await supabase.functions.invoke('push-subscribe', {
+                    body: { action: 'status', endpoint: sub.endpoint, staffId: role === 'staff' ? staffId : undefined },
+                });
+                if (!cancel) setEnabled(!!data?.subscribed);
             } catch { /* yoksay */ }
         })();
         return () => { cancel = true; };
-    }, [supported]);
+    }, [supported, role, staffId]);
 
     const enable = useCallback(async () => {
         if (!supported) { toast.error('Bu cihaz/ tarayıcı bildirim desteklemiyor'); return false; }

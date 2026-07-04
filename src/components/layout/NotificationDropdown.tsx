@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bell, CheckCircle2, XCircle, AlertCircle, Clock, X, MessageCircle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useTheme } from '@/contexts/ThemeContext';
-import { usePush } from '@/hooks/usePush';
 import { cn } from '@/utils/cn';
 import { toISODate } from '@/utils/date';
 
@@ -24,8 +23,6 @@ export const NotificationDropdown = () => {
     });
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { reservations } = useReservations();
-    // Masaüstü web push — tarayıcı kapalıyken de "adisyon kasada" bildirimi düşsün
-    const push = usePush('manager');
 
     const notifications = useMemo<Notification[]>(() => {
         const notifs: Notification[] = [];
@@ -261,28 +258,6 @@ export const NotificationDropdown = () => {
                                     </button>
                                 </div>
                             </div>
-
-                            {/* Masaüstü web push aç/kapat — tarayıcı arkaplandayken de bildirim */}
-                            {push.supported && (
-                                <button
-                                    onClick={() => push.enabled ? push.disable() : push.enable()}
-                                    disabled={push.busy}
-                                    className="w-full flex items-center justify-between px-4 py-2.5 transition-colors"
-                                    style={{ borderBottom: `1px solid ${T.rowBorder}`, background: 'transparent' }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = T.rowHover)}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <span className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: T.ink }}>
-                                        <Bell className="w-3.5 h-3.5" style={{ color: push.enabled ? T.orange : T.muted2 }} />
-                                        Masaüstü bildirimleri
-                                    </span>
-                                    <span className="relative inline-flex h-[18px] w-[32px] items-center rounded-full transition-colors flex-shrink-0"
-                                        style={{ background: push.enabled ? T.orange : (dark ? 'rgba(243,237,227,0.2)' : '#D1CCC4') }}>
-                                        <span className="inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform"
-                                            style={{ transform: push.enabled ? 'translateX(16px)' : 'translateX(2px)' }} />
-                                    </span>
-                                </button>
-                            )}
 
                             {/* Notification List */}
                             <div className="max-h-80 overflow-y-auto">

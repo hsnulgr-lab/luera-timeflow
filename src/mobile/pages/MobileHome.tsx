@@ -4,7 +4,6 @@ import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { useModules } from '@/hooks/useModules';
-import { usePush } from '@/hooks/usePush';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
@@ -41,7 +40,6 @@ export const MobileHome = () => {
     const { stats } = usePayments();
     const { staff } = useStaff();
     const { isEnabled } = useModules();
-    const push = usePush('manager');
 
     const now = useMemo(() => new Date(), []);
     const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -86,12 +84,6 @@ export const MobileHome = () => {
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                         <span style={{ fontSize: 11.5, fontWeight: 750 }}>Personel</span>
                     </button>
-                    {push.supported && (
-                        <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler"
-                            style={{ width: 44, height: 44, borderRadius: 12, background: push.enabled ? 'rgba(255,90,31,.14)' : T.surface2, border: `1px solid ${push.enabled ? 'rgba(255,90,31,.3)' : T.border}`, display: 'grid', placeItems: 'center', position: 'relative', cursor: 'pointer', color: push.enabled ? T.orange : T.muted }}>
-                            <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                        </button>
-                    )}
                 </div>
             </div>
 

@@ -7,7 +7,6 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { useModules } from '@/hooks/useModules';
-import { usePush } from '@/hooks/usePush';
 import { toISODate } from '@/utils/date';
 import { ThemeToggle } from '../ThemeToggle';
 import { T } from '../theme';
@@ -43,7 +42,6 @@ export const MobileAdminHome = () => {
     const { staff } = useStaff();
     const { disable: exitManager } = useManagerMode();
     const { isEnabled } = useModules();
-    const push = usePush('manager');
 
     const totalRev = useTicker(stats.total, 1200, 200);
     const monthRev = useTicker(stats.month, 900, 300);
@@ -95,11 +93,6 @@ export const MobileAdminHome = () => {
                         <span style={{ fontSize: 10.5, color: T.muted, fontFamily: T.mono }}>Tam Erişim</span>
                     </div>
                 </div>
-                {push.supported && (
-                    <button onClick={() => push.enabled ? push.disable() : push.enable()} disabled={push.busy} aria-label="Bildirimler" style={{ width: 38, height: 38, borderRadius: 12, background: push.enabled ? 'rgba(255,90,31,.13)' : T.surface2, border: `1px solid ${push.enabled ? 'rgba(255,90,31,.28)' : T.border}`, display: 'grid', placeItems: 'center', color: push.enabled ? T.orange : T.muted, cursor: 'pointer' }}>
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8.5 15.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    </button>
-                )}
                 <ThemeToggle />
                 <button onClick={exitManager} aria-label="Yönetici modundan çık" style={{ width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', color: T.muted, cursor: 'pointer' }}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
