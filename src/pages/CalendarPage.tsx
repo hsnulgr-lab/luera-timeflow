@@ -11,6 +11,7 @@ import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
+import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -110,7 +111,18 @@ export const CalendarPage = () => {
     }, [isMobile, view]);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
+    const [editRes, setEditRes] = useState<Reservation | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
+    // Dashboard "Yeni Randevu" CTA'sı kullanıcıyı boş takvime bırakmasın:
+    // ?new=1 ile gelince oluşturma diyaloğu doğrudan açılır (param temizlenir).
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('new') === '1') {
+            setSelectedDate(todayISO());
+            setShowNewDialog(true);
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, []);
     const [creatingReservation, setCreatingReservation] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
@@ -1128,6 +1140,15 @@ export const CalendarPage = () => {
                 <AdisyonModal
                     reservation={reservations.find(x => x.id === adisyonRes.id) || adisyonRes}
                     onClose={() => setAdisyonRes(null)}
+                    onEdit={(res) => setEditRes(res)}
+                />
+            )}
+
+            {editRes && (
+                <EditReservationModal
+                    reservation={reservations.find(x => x.id === editRes.id) || editRes}
+                    isOpen={!!editRes}
+                    onClose={() => setEditRes(null)}
                 />
             )}
         </div>

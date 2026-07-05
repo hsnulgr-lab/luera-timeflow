@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle, Bell } from 'lucide-react';
 import { LNotifications } from '@/components/icons/LueraIcons';
@@ -6,7 +6,10 @@ import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { phaseBadge } from '@/utils/statusColors';
+import { apptPhase } from '@/lib/appointmentFlow';
+import { toast } from 'sonner';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
+import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LueraButton } from '@/components/ui/LueraButton';
@@ -60,12 +63,13 @@ function Sparkline({ data, urgent, activeIndex }: { data: number[]; urgent?: boo
         <div className="flex items-end gap-[2px] h-[11px] mt-[5px]">
             {data.map((v, i) => {
                 const active = i === ai;
-                const h = Math.max(14, Math.round((v / max) * 100));
+                // 0 randevulu gün doluymuş gibi görünmesin — ince zemin çizgisi
+                const h = v === 0 ? '2px' : `${Math.max(14, Math.round((v / max) * 100))}%`;
                 return (
                     <div
                         key={i}
                         className="flex-1 rounded-t-[2px] transition-[height] duration-500"
-                        style={{ height: `${h}%`, background: active ? (urgent ? 'var(--dc-orange)' : 'var(--dc-ink)') : 'var(--dc-surface3)' }}
+                        style={{ height: h, background: active ? (urgent ? 'var(--dc-orange)' : 'var(--dc-ink)') : 'var(--dc-surface3)' }}
                     />
                 );
             })}
@@ -142,13 +146,19 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
 export const DashboardPage = () => {
     const navigate = useNavigate();
     const { dark } = useTheme();
-    const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations, getReservationsByDate } = useReservations();
+    const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations, getReservationsByDate, updateReservation } = useReservations();
     const stats                = getStats();
     const todayReservations    = getTodayReservations();
     const upcomingReservations = getUpcomingReservations(5);
 
-    // now bir kez hesaplanır — yoksa her render'da değişip tüm useMemo'ları boşa geçersizleştirir
-    const now      = useMemo(() => new Date(), []);
+    // now dakikada bir tazelenir — gün boyu açık kalan dashboard'da "geçmiş"
+    // soluklaştırması ve "ilki 11:00'te" metni bayatlamasın. useMemo yerine
+    // state: her render'da değişmez, sadece dakika başında memo'ları geçersizler.
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 60_000);
+        return () => clearInterval(t);
+    }, []);
     const todayStr = toISODate(now);
     const nowTime  = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
@@ -159,8 +169,11 @@ export const DashboardPage = () => {
     const weekday   = now.toLocaleDateString('tr-TR', { weekday: 'long' });
     const monthYear = now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
 
+    // Bugünün tek kaynağı: iptal hariç bugünkü randevular. Hero, BUGÜN kartı
+    // ve program başlığı hep bu sayıyı kullanır — üç farklı sayı görünmesin.
+    const todayActive = todayReservations.filter(r => r.status !== 'cancelled');
     // Bugün kalan (henüz geçmemiş) randevular + en yakını
-    const remainingTodayList = todayReservations.filter(r => r.status !== 'cancelled' && r.endTime >= nowTime);
+    const remainingTodayList = todayActive.filter(r => r.endTime >= nowTime);
     const remainingToday = remainingTodayList.length;
     const nextAppt = remainingTodayList[0]; // getTodayReservations saate göre sıralı
 
@@ -176,11 +189,11 @@ export const DashboardPage = () => {
         const weekRes = reservations.filter(r => r.date >= toISODate(startOfWeek)
             && r.date <= toISODate(endOfWeek));
         const completed = weekRes.filter(r => r.status === 'completed').length;
-        const noShow    = weekRes.filter(r => r.status === 'cancelled').length;
+        const cancelled = weekRes.filter(r => r.status === 'cancelled').length;
         const total     = weekRes.filter(r => r.status !== 'cancelled').length;
         const rate      = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-        return { total: weekRes.length, completed, noShow, rate };
+        return { total: weekRes.length, completed, cancelled, rate };
     }, [reservations, now]);
 
     // ── KPI kart verileri (gerçek veriden) ────────────────────────────────────
@@ -214,9 +227,12 @@ export const DashboardPage = () => {
         const answered = weekRes.filter(r => r.status !== 'pending').length;
         const responseRate = weekRes.length > 0 ? Math.round((answered / weekRes.length) * 100) : 0;
 
-        // Bekleyen — geçen hafta vs bu hafta (elma-elma kıyas)
-        const pendingThisWeek = reservations.filter(r => r.status === 'pending' && inRange(r.date, monday, sunday)).length;
-        const pendingLastWeek = reservations.filter(r => r.status === 'pending' && inRange(r.date, lastMon, lastSun)).length;
+        // Bekleyen kartı "şu an aksiyon bekleyen"e sabitlendi — karışık zaman
+        // kapsamları yerine aciliyet sinyali: en eski bekleyenin yaşı (gün).
+        const pendingList = reservations.filter(r => r.status === 'pending');
+        const oldestPendingDays = pendingList.length > 0
+            ? Math.max(0, Math.round((d.getTime() - new Date(pendingList.reduce((min, r) => r.createdAt && r.createdAt < min ? r.createdAt : min, pendingList[0].createdAt || iso(d))).getTime()) / 86_400_000))
+            : null;
 
         // Bu haftanın günlük dağılımı (Pzt→Paz) — BU HAFTA kartının sparkline'ı
         const thisWeekDaily = Array.from({ length: 7 }, (_, i) => {
@@ -225,20 +241,28 @@ export const DashboardPage = () => {
         });
         const todayIdx = (d.getDay() + 6) % 7; // bugünün hafta-içi indeksi (0=Pzt)
 
-        // Bu ay / geçen ay tamamlanan
+        // Bu ay / geçen ay tamamlanan — elma-elma kıyas: geçen ayın TAMAMI değil,
+        // geçen ayın aynı gününe kadarki tamamlananla kıyaslanır. Yoksa her ay
+        // başında sahte "%49 düşüş" alarmı görünür.
         const ym = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
         const thisYM = ym(d);
         const lastYM = ym(new Date(d.getFullYear(), d.getMonth() - 1, 1));
+        const daysInLastMonth = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+        const cutStr = `${lastYM}-${String(Math.min(d.getDate(), daysInLastMonth)).padStart(2, '0')}`;
         const completedThisMonth = reservations.filter(r => r.status === 'completed' && r.date.startsWith(thisYM)).length;
-        const completedLastMonth = reservations.filter(r => r.status === 'completed' && r.date.startsWith(lastYM)).length;
-        const goal = Math.max(completedLastMonth, 1);
-        const goalPct = Math.min(100, Math.round((completedThisMonth / goal) * 100));
+        const completedLastMonthFull = reservations.filter(r => r.status === 'completed' && r.date.startsWith(lastYM)).length;
+        const completedLastMonthToDate = reservations.filter(r => r.status === 'completed' && r.date.startsWith(lastYM) && r.date <= cutStr).length;
+        // Hedef çubuğu gün-orantılı: geçen ay toplamının, ayın bugünkü gününe
+        // düşen payı hedeftir — ay boyu "gerideyim" hissi vermez.
+        const daysInThisMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        const proratedGoal = Math.max(1, Math.round(Math.max(completedLastMonthFull, 1) * (d.getDate() / daysInThisMonth)));
+        const goalPct = Math.min(100, Math.round((completedThisMonth / proratedGoal) * 100));
 
         return {
             last7, lastWeekSameDay, lastWeekTotal, thisWeekTotal,
             responseRate, weekResCount: weekRes.length,
-            pendingThisWeek, pendingLastWeek, thisWeekDaily, todayIdx,
-            completedThisMonth, completedLastMonth, goalPct,
+            oldestPendingDays, thisWeekDaily, todayIdx,
+            completedThisMonth, completedLastMonthToDate, goalPct,
         };
     }, [reservations, now]);
 
@@ -265,6 +289,7 @@ export const DashboardPage = () => {
 
     // Haftalık şeritte seçili güne ait randevular (saate göre sıralı)
     const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
+    const [editRes, setEditRes] = useState<Reservation | null>(null);
 
     const selectedReservations = useMemo(
         () => [...getReservationsByDate(selectedDate)].sort((a, b) => a.startTime.localeCompare(b.startTime)),
@@ -303,7 +328,7 @@ export const DashboardPage = () => {
                                         {nextAppt && <> · ilki <span className="font-bold text-[var(--dc-orange-d)]">{nextAppt.startTime}</span>'te</>}
                                         {stats.pending > 0 && <> · {stats.pending} onay bekliyor</>}
                                     </>
-                                ) : todayReservations.length > 0 ? (
+                                ) : todayActive.length > 0 ? (
                                     <>Bugünkü randevuların tamamlandı 🎉</>
                                 ) : (
                                     <>Bugün için planlanmış randevu yok</>
@@ -316,7 +341,7 @@ export const DashboardPage = () => {
                             <LueraButton onClick={() => navigate('/calendar')} variant={dark ? 'ghost-dark' : 'ghost'} size="md">
                                 Takvimi Gör
                             </LueraButton>
-                            <LueraButton onClick={() => navigate('/calendar')} variant="ink" size="md">
+                            <LueraButton onClick={() => navigate('/calendar?new=1')} variant="ink" size="md">
                                 <Plus className="w-[15px] h-[15px]" />
                                 Yeni Randevu
                             </LueraButton>
@@ -330,11 +355,11 @@ export const DashboardPage = () => {
                     {/* Bugün */}
                     <StatCard
                         label="Bugün"
-                        value={stats.today}
+                        value={todayActive.length}
                         sublabel="Randevu"
                         compareLabel="Geçen hafta"
                         compareValue={cardData.lastWeekSameDay}
-                        trend={compareTrend(stats.today, cardData.lastWeekSameDay)}
+                        trend={compareTrend(todayActive.length, cardData.lastWeekSameDay)}
                         onClick={() => navigate('/calendar')}
                     >
                         <Sparkline data={cardData.last7} />
@@ -345,8 +370,8 @@ export const DashboardPage = () => {
                         label="Bekliyor"
                         value={stats.pending}
                         sublabel="Onay bekliyor"
-                        compareLabel="Geçen hafta bekleyen"
-                        compareValue={cardData.pendingLastWeek}
+                        compareLabel="En eski bekleyen"
+                        compareValue={cardData.oldestPendingDays !== null ? `${cardData.oldestPendingDays} gün` : '—'}
                         trend={stats.pending > 0
                             ? { kind: 'warn', text: '↑ işlem gerekli' }
                             : { kind: 'neutral', text: '✓ temiz' }}
@@ -380,9 +405,9 @@ export const DashboardPage = () => {
                         label="Tamamlandı"
                         value={cardData.completedThisMonth}
                         sublabel="Bu ay"
-                        compareLabel="Geçen ay"
-                        compareValue={cardData.completedLastMonth}
-                        trend={compareTrend(cardData.completedThisMonth, cardData.completedLastMonth)}
+                        compareLabel="Geçen ay (aynı güne kadar)"
+                        compareValue={cardData.completedLastMonthToDate}
+                        trend={compareTrend(cardData.completedThisMonth, cardData.completedLastMonthToDate)}
                         onClick={() => navigate('/analytics')}
                     >
                         <ProgressBar label="Hedef" pct={cardData.goalPct} />
@@ -402,7 +427,7 @@ export const DashboardPage = () => {
                                 </div>
                                 <div>
                                     <h2 className="text-base font-bold text-[var(--dc-ink)]">{selIsToday ? 'Bugünün Programı' : `${selDateLabel} Programı`}</h2>
-                                    <p className="text-[11px] text-[var(--dc-muted)]">{selectedReservations.length} randevu planlandı</p>
+                                    <p className="text-[11px] text-[var(--dc-muted)]">{selectedReservations.filter(r => r.status !== 'cancelled').length} randevu planlandı</p>
                                 </div>
                             </div>
                             <button onClick={() => navigate('/calendar')}
@@ -417,6 +442,8 @@ export const DashboardPage = () => {
                                 const sel = selectedDate === d.dateStr;
                                 return (
                                     <button key={d.dateStr} onClick={() => setSelectedDate(d.dateStr)}
+                                        aria-pressed={sel}
+                                        aria-label={`${d.num} ${monthShort} ${d.label}${d.hasEvent ? ', randevu var' : ', randevu yok'}`}
                                         className={cn(
                                             "flex-1 min-w-[38px] flex flex-col items-center gap-1 py-2 px-1 rounded-[10px] transition-all",
                                             sel
@@ -441,7 +468,7 @@ export const DashboardPage = () => {
                                         <Calendar className="w-7 h-7 text-[var(--dc-muted)]" />
                                     </div>
                                     <p className="text-sm font-semibold text-[var(--dc-ink)] mb-1">{selIsToday ? 'Bugün randevu yok' : `${selDateLabel} randevu yok`}</p>
-                                    <LueraButton onClick={() => navigate('/calendar')} variant="accent" size="sm" className="mt-2" style={{ color: 'var(--dc-cream)' }}>
+                                    <LueraButton onClick={() => navigate('/calendar?new=1')} variant="accent" size="sm" className="mt-2" style={{ color: 'var(--dc-cream)' }}>
                                         + Randevu oluştur
                                     </LueraButton>
                                 </div>
@@ -479,7 +506,8 @@ export const DashboardPage = () => {
                                                                 target="_blank" rel="noopener noreferrer"
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 title="WhatsApp'tan yaz"
-                                                                className="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center text-emerald-600 transition-all hover:scale-105 active:scale-95"
+                                                                aria-label={`${res.customerName} müşterisine WhatsApp'tan yaz`}
+                                                                className="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 dark:text-emerald-300 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                                                             >
                                                                 <MessageCircle className="w-4 h-4" />
                                                             </a>
@@ -487,15 +515,32 @@ export const DashboardPage = () => {
                                                                 href={`tel:${res.customerPhone.replace(/\s+/g, '')}`}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 title="Ara"
-                                                                className="w-9 h-9 rounded-xl bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-blue-600 transition-all hover:scale-105 active:scale-95"
+                                                                aria-label={`${res.customerName} müşterisini ara`}
+                                                                className="w-9 h-9 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 dark:text-blue-300 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                                                             >
                                                                 <Phone className="w-4 h-4" />
                                                             </a>
                                                         </>
                                                     )}
+                                                    {/* Bugünün yaklaşan randevusunda tek tıkla "Müşteri Geldi" —
+                                                        modal açmadan resepsiyon aksiyonu */}
+                                                    {selIsToday && !isPast && !res.customerArrivedAt && apptPhase(res) === 'upcoming' && (
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                await updateReservation(res.id, { customerArrivedAt: new Date().toISOString() });
+                                                                toast.success(res.staffName ? `${res.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
+                                                            }}
+                                                            title="Müşteri Geldi"
+                                                            aria-label={`${res.customerName} geldi olarak işaretle`}
+                                                            className="w-9 h-9 rounded-xl bg-[var(--dc-green-bg)] text-[var(--dc-green)] hover:brightness-95 flex items-center justify-center transition-all hover:scale-105 active:scale-95 text-[15px]"
+                                                        >
+                                                            👋
+                                                        </button>
+                                                    )}
                                                     {(() => { const pb = phaseBadge(res); return (
                                                         <span className={cn("hidden sm:inline px-2 py-1 rounded-lg text-[10px] font-bold", pb.badge)}>
-                                                            {pb.label}
+                                                            {res.customerArrivedAt && apptPhase(res) === 'upcoming' ? 'Müşteri bekliyor' : pb.label}
                                                         </span>
                                                     ); })()}
                                                 </div>
@@ -526,6 +571,12 @@ export const DashboardPage = () => {
                                 {upcomingReservations.length === 0 ? (
                                     <div className="text-center py-8">
                                         <p className="text-sm text-[var(--dc-muted)]">Yaklaşan randevu yok</p>
+                                        {stats.pending > 0 && (
+                                            <button onClick={() => navigate('/reservations')}
+                                                className="mt-2 text-xs font-semibold text-[var(--dc-orange)] hover:underline">
+                                                {stats.pending} onay bekleyen talebin var →
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
                                     upcomingReservations.map((res) => (
@@ -559,20 +610,16 @@ export const DashboardPage = () => {
                                     <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-green)] mt-0.5">Tamamlandı</p>
                                 </div>
                                 <div className="text-center py-3.5 px-3 border-r border-[var(--dc-border)]">
-                                    <p className="text-[20px] font-black text-[var(--dc-red)] tracking-[-0.04em]">{weekStats.noShow}</p>
+                                    <p className="text-[20px] font-black text-[var(--dc-red)] tracking-[-0.04em]">{weekStats.cancelled}</p>
                                     <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-red)] mt-0.5">İptal</p>
                                 </div>
                                 <div className="text-center py-3.5 px-3">
                                     <p className="text-[20px] font-black text-[var(--dc-amber)] tracking-[-0.04em]">%{weekStats.rate}</p>
-                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-amber)] mt-0.5">Oran</p>
+                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--dc-amber)] mt-0.5">Tamamlanma</p>
                                 </div>
                             </div>
                             <div className="px-[18px] pt-3 pb-4 border-t border-[var(--dc-border)]">
-                                <div className="flex justify-between text-[11px] font-semibold mb-[7px]">
-                                    <span className="text-[var(--dc-muted)]">Tamamlanma oranı</span>
-                                    <span className="text-[var(--dc-ink)]">%{weekStats.rate}</span>
-                                </div>
-                                <div className="h-[6px] bg-[var(--dc-surface3)] rounded-full overflow-hidden">
+                                <div className="h-[6px] bg-[var(--dc-surface3)] rounded-full overflow-hidden" role="progressbar" aria-valuenow={weekStats.rate} aria-valuemin={0} aria-valuemax={100} aria-label="Haftalık tamamlanma oranı">
                                     <div className="h-full rounded-full bg-gradient-to-r from-[var(--dc-orange)] to-[var(--dc-orange-d)] transition-[width] duration-1000 ease-out"
                                         style={{ width: `${weekStats.rate}%` }} />
                                 </div>
@@ -588,6 +635,15 @@ export const DashboardPage = () => {
                 <AdisyonModal
                     reservation={reservations.find(x => x.id === adisyonRes.id) || adisyonRes}
                     onClose={() => setAdisyonRes(null)}
+                    onEdit={(res) => setEditRes(res)}
+                />
+            )}
+
+            {editRes && (
+                <EditReservationModal
+                    reservation={reservations.find(x => x.id === editRes.id) || editRes}
+                    isOpen={!!editRes}
+                    onClose={() => setEditRes(null)}
                 />
             )}
         </div>

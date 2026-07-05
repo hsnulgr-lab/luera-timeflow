@@ -232,12 +232,6 @@ export const MobileStaffHome = () => {
                                                             Devam et
                                                         </div>
                                                     )}
-                                                    {ph === 'pending' && (
-                                                        <div style={{ display: 'flex', gap: 7, marginTop: 8 }}>
-                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'confirmed' }); }} style={{ flex: 1, height: 32, borderRadius: 9, background: STS.done.bg, color: D.green, fontSize: 12, fontWeight: 750, border: `1px solid ${D.greenBorder}`, cursor: 'pointer' }}>✓ Onayla</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); updateReservation(a.id, { status: 'cancelled' }); }} style={{ height: 32, padding: '0 12px', borderRadius: 9, background: STS.cancelled.bg, color: D.red, fontSize: 12, fontWeight: 700, border: `1px solid ${D.redBorder}`, cursor: 'pointer' }}>✕ Reddet</button>
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
                                                     <div style={{ padding: '3px 9px', borderRadius: 999, background: st?.bg, color: st?.c, fontSize: 10, fontWeight: 750 }}>{st?.lbl}</div>

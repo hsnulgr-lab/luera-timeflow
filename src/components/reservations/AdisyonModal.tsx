@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock } from 'lucide-react';
+import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote } from 'lucide-react';
+import { apptPhase, primaryAction, PHASE_LABEL } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
@@ -16,14 +17,17 @@ const PM: { key: PaymentMethod; label: string }[] = [
 ];
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
-interface Props { reservation: Reservation; onClose: () => void; }
+interface Props { reservation: Reservation; onClose: () => void; onEdit?: (r: Reservation) => void; }
 
 /**
  * Takvim randevu kartından açılan sekmeli panel:
+ *  • Özet     — randevu detayı, faz aksiyonu (Müşteri Geldi / …), Düzenle/İptal.
  *  • Adisyon  — hesap (hizmet + ürünler + indirim) ve Kasa'ya tahsilat.
  *  • Müşteri  — geçmiş randevular, LTV, paketler, not.
+ * Varsayılan sekme faza göre: tamamlanmış+ödenmemiş → doğrudan Adisyon;
+ * diğer hâllerde Özet (resepsiyonist önce detaya/aksiyona bakar).
  */
-export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
+export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const { dark } = useTheme();
     const { settings, reservations, updateReservation } = useReservations();
     const { payments, addPayment, removeByReservation, totalForCustomer } = usePayments();
@@ -33,7 +37,11 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
     const staffName = (id?: string) => (id ? staff.find(s => s.id === id)?.name : undefined);
     const { forCustomer } = useCustomerPackages();
 
-    const [tab, setTab] = useState<'adisyon' | 'musteri'>('adisyon');
+    // Faza-duyarlı varsayılan sekme: tamamlanmış ama ödenmemiş → tahsilat amacı (Adisyon),
+    // diğer tüm hâllerde önce Özet açılır.
+    const [tab, setTab] = useState<'ozet' | 'adisyon' | 'musteri'>(
+        r.status === 'completed' && !r.isPaid ? 'adisyon' : 'ozet',
+    );
     const [lines, setLines] = useState<{ productId: string; name: string; price: number }[]>([]);
     const [discStr, setDiscStr] = useState('');
     const [method, setMethod] = useState<PaymentMethod>('cash');
@@ -84,12 +92,33 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
             customerId: r.customerId || undefined, reservationId: r.id,
             productId: lines.length === 1 && baseTotal === 0 ? lines[0].productId : undefined,
         });
-        if (p) { for (const x of groupRes) await updateReservation(x.id, { isPaid: true }); toast.success(`${fmt(net)} ₺ tahsil edildi`); }
+        // Tahsilat = randevu yaşam döngüsünün sonu; mobil finalize ile aynı şekilde tamamlanmış işaretlenir.
+        if (p) { for (const x of groupRes) await updateReservation(x.id, { isPaid: true, status: 'completed' }); toast.success(`${fmt(net)} ₺ tahsil edildi`); }
     };
     const undo = async () => {
         await removeByReservation(r.id);
         for (const x of groupRes) await updateReservation(x.id, { isPaid: false });
         toast.success('Tahsilat geri alındı');
+    };
+
+    // ── Özet: faz + birincil aksiyon ──
+    const phase = apptPhase(r);
+    const primary = primaryAction(phase);
+    const markArrived = async () => {
+        await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
+        toast.success(r.staffName ? `${r.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
+    };
+    const cancelRes = async () => {
+        const prev = r.status;
+        await updateReservation(r.id, { status: 'cancelled' });
+        toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(r.id, { status: prev }) } });
+        onClose();
+    };
+    // Ücretsiz kapatma: hizmet(ler) var ama toplam 0 → ödeme kaydı oluşturmadan kapat.
+    const hasServiceRows = baseRows.length > 0;
+    const completeFree = async () => {
+        for (const x of groupRes) await updateReservation(x.id, { isPaid: true, status: 'completed' });
+        toast.success('Ücretsiz tamamlandı');
     };
 
     // Müşteri sekmesi verileri
@@ -123,19 +152,86 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', gap: 4, padding: '10px 14px 0' }}>
-                    {(['adisyon', 'musteri'] as const).map(t => (
-                        <button key={t} onClick={() => setTab(t)} style={{
+                    {([
+                        { key: 'ozet', label: 'Özet', icon: <ClipboardList size={15} /> },
+                        { key: 'adisyon', label: 'Adisyon', icon: <Wallet size={15} /> },
+                        { key: 'musteri', label: 'Müşteri', icon: <User size={15} /> },
+                    ] as const).map(t => (
+                        <button key={t.key} onClick={() => setTab(t.key)} style={{
                             flex: 1, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            background: tab === t ? T.orange : T.surface2, color: tab === t ? '#fff' : T.muted,
+                            background: tab === t.key ? T.orange : T.surface2, color: tab === t.key ? '#fff' : T.muted,
                         }}>
-                            {t === 'adisyon' ? <Wallet size={15} /> : <User size={15} />}{t === 'adisyon' ? 'Adisyon' : 'Müşteri'}
+                            {t.icon}{t.label}
                         </button>
                     ))}
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-                    {tab === 'adisyon' ? (
+                    {tab === 'ozet' ? (
+                        <>
+                            {/* Hizmet satırları */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                                {groupRes.map((x, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: x.serviceColor || T.orange, flexShrink: 0 }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.service}</div>
+                                            <div style={{ fontSize: 11, color: T.muted }}>{x.startTime}–{x.endTime}{x.staffName ? ` · ${x.staffName}` : ''}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Faz rozeti */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>Durum</span>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: phase === 'inService' ? '#C2410C' : phase === 'done' ? T.green : phase === 'cancelled' ? '#C0392B' : '#2E7D43' }}>
+                                    {r.customerArrivedAt && phase === 'upcoming' ? 'Müşteri bekliyor' : PHASE_LABEL[phase]}
+                                </span>
+                            </div>
+
+                            {/* Not */}
+                            {r.notes && (
+                                <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 14, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
+                                    <StickyNote size={14} style={{ color: T.muted2, marginTop: 2, flexShrink: 0 }} />
+                                    <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{r.notes}</div>
+                                </div>
+                            )}
+
+                            {/* Birincil aksiyon — faza göre */}
+                            {primary.kind === 'arrive' && !r.customerArrivedAt && (
+                                <button onClick={markArrived} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
+                                    👋 {primary.label}
+                                </button>
+                            )}
+
+                            {primary.kind === 'completePay' && !isPaid && (
+                                <button onClick={() => setTab('adisyon')} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
+                                    💰 {primary.label}
+                                </button>
+                            )}
+
+                            {/* Adisyona Git */}
+                            <button onClick={() => setTab('adisyon')} style={{ width: '100%', padding: 12, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border2}`, color: T.ink, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 14 }}>
+                                <Wallet size={15} /> {isPaid ? 'Adisyonu Gör' : 'Ödeme Al / Adisyona Git'} <ArrowRight size={15} />
+                            </button>
+
+                            {/* İkincil aksiyonlar */}
+                            {phase !== 'cancelled' && (
+                                <div style={{ display: 'flex', gap: 8, borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+                                    {onEdit && (
+                                        <button onClick={() => { onEdit(r); onClose(); }} style={{ flex: 1, padding: '10px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border2}`, color: T.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                            <Pencil size={14} /> Düzenle
+                                        </button>
+                                    )}
+                                    <button onClick={cancelRes} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.18)', color: '#C0392B', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                        <Ban size={14} /> İptal
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    ) : tab === 'adisyon' ? (
                         <>
                             {/* Hesap satırları */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
@@ -199,9 +295,20 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                                     Ödemeyi geri al
                                 </button>
                             ) : (
-                                <button onClick={collect} disabled={net <= 0} style={{ width: '100%', padding: 14, borderRadius: 12, background: net > 0 ? T.orange : T.surface3, color: net > 0 ? '#fff' : T.muted2, border: 'none', fontWeight: 800, fontSize: 15, cursor: net > 0 ? 'pointer' : 'not-allowed' }}>
-                                    {net > 0 ? `${fmt(net)} ₺ Tahsil Et` : 'Tutar yok'}
-                                </button>
+                                net > 0 ? (
+                                    <button onClick={collect} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                                        {fmt(net)} ₺ Tahsil Et
+                                    </button>
+                                ) : hasServiceRows ? (
+                                    // Toplam 0 ama hizmet var → ücretsiz işlem; ödeme kaydı olmadan kapat.
+                                    <button onClick={completeFree} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                                        Ücretsiz Tamamla
+                                    </button>
+                                ) : (
+                                    <button disabled style={{ width: '100%', padding: 14, borderRadius: 12, background: T.surface3, color: T.muted2, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'not-allowed' }}>
+                                        Tutar yok
+                                    </button>
+                                )
                             )}
                         </>
                     ) : (
@@ -245,7 +352,7 @@ export const AdisyonModal = ({ reservation: r, onClose }: Props) => {
                                                 <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.service}</div>
                                                 <div style={{ fontSize: 11, color: T.muted }}>{h.date} · {h.startTime}</div>
                                             </div>
-                                            <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted2 }}>{h.status === 'completed' ? 'Tamamlandı' : h.status === 'cancelled' ? 'İptal' : h.status === 'pending' ? 'Bekleyen' : 'Onaylı'}</span>
+                                            <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted2 }}>{h.status === 'completed' ? 'Tamamlandı' : h.status === 'cancelled' ? 'İptal' : 'Onaylı'}</span>
                                         </div>
                                     ))}
                                 </div>

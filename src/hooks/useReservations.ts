@@ -330,7 +330,7 @@ function useReservationsState() {
                 end_time: reservation.endTime,
                 service: reservation.service,
                 service_color: reservation.serviceColor || '#CCFF00',
-                status: reservation.status || 'pending',
+                status: reservation.status || 'confirmed',
                 notes: reservation.notes || '',
                 staff_id: reservation.staffId || null,
                 group_id: reservation.groupId || null,

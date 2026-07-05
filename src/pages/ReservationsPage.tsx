@@ -488,8 +488,7 @@ export const ReservationsPage = () => {
                         </span>
                       );
                     }
-                    const act = ph2 === 'pending' ? { l: 'Onayla', fn: () => handleStatusChange(res.id, 'confirmed') }
-                      : ph2 === 'upcoming' ? { l: 'Müşteri Geldi', fn: () => { updateReservation(res.id, { customerArrivedAt: new Date().toISOString() }); } }
+                    const act = ph2 === 'upcoming' ? { l: 'Müşteri Geldi', fn: () => { updateReservation(res.id, { customerArrivedAt: new Date().toISOString() }); } }
                       : ph2 === 'inService' ? { l: 'Tamamla', fn: () => handleStatusChange(res.id, 'completed') }
                       : null;
                     return act ? (

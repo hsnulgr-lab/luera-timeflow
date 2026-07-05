@@ -142,7 +142,6 @@ export const MobileHome = () => {
                             <ApptRow key={a.id} r={a} last={i === todayList.length - 1} price={priceOf(a.service)} expanded={expanded === a.id}
                                 onToggle={() => setExpanded(expanded === a.id ? null : a.id)}
                                 onArrive={() => { updateReservation(a.id, { customerArrivedAt: new Date().toISOString() }); toast.success(a.staffName ? `${a.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi'); }}
-                                onConfirm={() => updateReservation(a.id, { status: 'confirmed' })}
                                 onCancel={() => { const prev = a.status; updateReservation(a.id, { status: 'cancelled' }); setExpanded(null); toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(a.id, { status: prev }) } }); }} />
                         ))}
                     </div>
@@ -198,9 +197,9 @@ export const MobileHome = () => {
     );
 };
 
-function ApptRow({ r, last, price, expanded, onToggle, onArrive, onConfirm, onCancel }: {
+function ApptRow({ r, last, price, expanded, onToggle, onArrive, onCancel }: {
     r: Reservation; last: boolean; price: number; expanded: boolean;
-    onToggle: () => void; onArrive: () => void; onConfirm: () => void; onCancel: () => void;
+    onToggle: () => void; onArrive: () => void; onCancel: () => void;
 }) {
     const ac = r.staffColor || r.serviceColor || T.orange;
     return (
@@ -241,7 +240,6 @@ function ApptRow({ r, last, price, expanded, onToggle, onArrive, onConfirm, onCa
                     ) : (
                         <button onClick={onArrive} style={{ flex: 1, height: 36, borderRadius: 10, background: 'rgba(124,196,127,.12)', color: T.green, fontSize: 12.5, fontWeight: 750, border: '1px solid rgba(124,196,127,.2)', cursor: 'pointer' }}>👋 Müşteri Geldi</button>
                     )}
-                    {r.status === 'pending' && <button onClick={onConfirm} style={{ flex: 1, height: 36, borderRadius: 10, background: T.orange, color: '#0E0E0E', fontSize: 12.5, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Onayla</button>}
                     <button onClick={onCancel} style={{ height: 36, width: 36, borderRadius: 10, background: 'rgba(224,112,112,.12)', color: '#E07070', border: '1px solid rgba(224,112,112,.2)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                     </button>

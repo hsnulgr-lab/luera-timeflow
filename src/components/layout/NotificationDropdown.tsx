@@ -45,17 +45,6 @@ export const NotificationDropdown = () => {
             });
         }
 
-        const pending = reservations.filter(r => r.status === 'pending');
-        if (pending.length > 0) {
-            notifs.push({
-                id: `pending-${pending.length}`,
-                type: 'pending',
-                title: `${pending.length} Bekleyen Randevu`,
-                message: `${pending.length} adet randevu onayınızı bekliyor.`,
-                time: 'Şimdi',
-                read: readIds.has(`pending-${pending.length}`),
-            });
-        }
 
         const todayUpcoming = reservations.filter(r =>
             r.date === todayStr && r.startTime > currentTime && r.status !== 'cancelled'

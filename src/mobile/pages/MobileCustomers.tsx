@@ -107,7 +107,7 @@ function CustomerRow({ c, loyalty, onRedeem, onOpen }: { c: Customer; loyalty: {
 const STS: Record<string, { lbl: string; c: string }> = {
     completed: { lbl: 'Tamamlandı', c: T.green },
     confirmed: { lbl: 'Onaylı', c: T.blue },
-    pending: { lbl: 'Bekleyen', c: T.amber },
+    pending: { lbl: 'Onaylı', c: T.blue },
     cancelled: { lbl: 'İptal', c: T.red },
 };
 

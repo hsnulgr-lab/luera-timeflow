@@ -12,7 +12,6 @@ interface EditReservationModalProps {
 }
 
 const statusConfig = {
-    pending: { label: 'Bekleyen', color: 'bg-amber-100 text-amber-700 border-amber-200' },
     confirmed: { label: 'Onaylı', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
     cancelled: { label: 'İptal', color: 'bg-red-100 text-red-700 border-red-200' },
     completed: { label: 'Tamamlandı', color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -249,7 +248,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                         <div>
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Durum</label>
                             <div className="flex gap-2">
-                                {(Object.keys(statusConfig) as Reservation['status'][]).map((s) => (
+                                {(Object.keys(statusConfig) as (keyof typeof statusConfig)[]).map((s) => (
                                     <button
                                         key={s}
                                         onClick={() => setForm(p => ({ ...p, status: s }))}

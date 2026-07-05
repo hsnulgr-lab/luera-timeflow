@@ -406,9 +406,8 @@ export const AnalyticsPage = () => {
         {/* ── Durum Özeti ── */}
         <Card style={{ padding: '20px 22px' }}>
           <SecTitle>Durum Özeti</SecTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3,1fr)', gap: '10px' }}>
             {[
-              { label:'Bekleyen',   count: a.pending,   dot: T.orange,  bg: 'rgba(255,90,31,0.08)',   border: 'rgba(255,90,31,0.18)' },
               { label:'Onaylı',     count: a.confirmed, dot: T.muted,   bg: T.surface2,               border: T.border },
               { label:'Tamamlandı', count: a.completed, dot: T.green,   bg: T.greenBg,                border: dark ? 'rgba(45,160,50,0.22)' : 'rgba(93,187,99,0.18)' },
               { label:'İptal',      count: a.cancelled, dot: T.muted2,  bg: T.surface2,               border: T.border },

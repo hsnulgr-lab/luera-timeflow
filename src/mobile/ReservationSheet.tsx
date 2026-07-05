@@ -54,15 +54,13 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     const ph = apptPhase(r);
     const pa = primaryAction(ph);
     const phBadge = ({
-        pending: { c: STS_COLOR.pending, bg: STS_BG.pending },
         upcoming: { c: STS_COLOR.confirmed, bg: STS_BG.confirmed },
         inService: { c: T.orange, bg: 'rgba(255,90,31,.14)' },
         done: { c: STS_COLOR.completed, bg: STS_BG.completed },
         cancelled: { c: STS_COLOR.cancelled, bg: STS_BG.cancelled },
     } as const)[ph];
     const runPrimary = () => {
-        if (pa.kind === 'approve') onUpdate(r.id, { status: 'confirmed' });
-        else if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
+        if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
         else if (pa.kind === 'completePay') { if (onCollect) onCollect(r); else onUpdate(r.id, { status: 'completed' }); }
     };
 

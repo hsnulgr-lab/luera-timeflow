@@ -34,10 +34,9 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
 
     // Faz türetimi
     const completed = r?.status === 'completed';
-    const pending = r?.status === 'pending';
-    const started = !!r?.arrivedAt && !completed && !pending;
-    const phase: 'pending' | 'ready' | 'running' | 'paused' | 'done' =
-        (justFinished || completed) ? 'done' : pending ? 'pending' : started ? (paused ? 'paused' : 'running') : 'ready';
+    const started = !!r?.arrivedAt && !completed;
+    const phase: 'ready' | 'running' | 'paused' | 'done' =
+        (justFinished || completed) ? 'done' : started ? (paused ? 'paused' : 'running') : 'ready';
 
     // Süre: arrivedAt'tan tohumla; çalışırken saniyelik artır
     useEffect(() => {
@@ -132,13 +131,6 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                     {r.notes && <InfoRow icon={<IconNote />} lbl="Not" val={r.notes} />}
                 </div>
 
-                {/* PENDING gate */}
-                {phase === 'pending' && (
-                    <div style={{ margin: '22px 20px 0', animation: 'lz-fadeUp .3s both' }}>
-                        <div style={{ fontSize: 13, color: D.muted, lineHeight: 1.55, textAlign: 'center', marginBottom: 16 }}>Bu randevu henüz onaylanmadı. Hizmete başlamak için önce onaylayın.</div>
-                    </div>
-                )}
-
                 {/* READY empty state */}
                 {phase === 'ready' && (
                     <div style={{ margin: '22px 20px 0', textAlign: 'center', padding: '24px 0 8px', animation: 'lz-fadeUp .3s both' }}>
@@ -218,12 +210,6 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
 
             {/* ══ BOTTOM CTA ══ */}
             <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(env(safe-area-inset-bottom,0px) + 24px)', background: `linear-gradient(transparent,${D.bg} 32%)` }}>
-                {phase === 'pending' && (
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => { updateReservation(r.id, { status: 'cancelled' }); onBack(); }} style={{ width: 90, height: 56, borderRadius: 16, background: D.s2, border: `1px solid ${D.border}`, color: D.red, fontSize: 14, fontWeight: 750, cursor: 'pointer' }}>Reddet</button>
-                        <button onClick={() => updateReservation(r.id, { status: 'confirmed' })} style={ctaGreen}>Randevuyu Onayla</button>
-                    </div>
-                )}
                 {phase === 'ready' && <SlideToStart onComplete={start} />}
                 {isRunning && (
                     <div style={{ display: 'flex', gap: 10 }}>
