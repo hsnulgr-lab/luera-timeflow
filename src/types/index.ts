@@ -191,6 +191,8 @@ export interface TableReservation {
     tableId: string;
     customerName: string;
     customerPhone?: string;
+    customerId?: string;  // müşteri kartı bağı (LTV/geçmiş) — 042
+    staffId?: string;     // garson ataması (opsiyonel) — 042
     partySize: number;
     date: string;        // YYYY-MM-DD
     startTime: string;   // HH:MM

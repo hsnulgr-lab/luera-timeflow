@@ -4,8 +4,13 @@ import { toast } from 'sonner';
 import { useTables } from '@/hooks/useTables';
 import { useTableReservations } from '@/hooks/useTableReservations';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePayments } from '@/hooks/usePayments';
+import { useCustomers } from '@/hooks/useCustomers';
+import { useStaff } from '@/hooks/useStaff';
+import { useReservations } from '@/hooks/useReservations';
 import { toISODate, formatDateEU } from '@/utils/date';
-import type { Table, TableReservation } from '@/types';
+import type { Table, TableReservation, PaymentMethod, Staff } from '@/types';
 import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Tokens (LT/DT deseni) ─────────────────────────────────────────────────────
@@ -32,9 +37,21 @@ type TableStatus = 'bos' | 'rezerve' | 'dolu';
 export const MasaPage = () => {
     const { dark } = useTheme();
     const T = dark ? DT : LT;
+    const isMobile = useIsMobile();
     const { tables, addTable, deleteTable } = useTables();
+    const { addPayment } = usePayments();
+    const { allCustomers, addCustomer } = useCustomers();
+    const { staff } = useStaff();
+    const { sendWebhook } = useReservations();
     const [date, setDate] = useState(() => toISODate(new Date()));
-    const { reservations, addReservation, setStatus, removeReservation } = useTableReservations(date);
+    const { reservations: allReservations, addReservation, setStatus, removeReservation } = useTableReservations(date);
+
+    // Hayalet koruması: silinmiş (artık listede olmayan) masaya bağlı rezervasyonlar
+    // sayaçta görünüp kartta görünmesin — yalnızca görünür masaların kayıtları.
+    const reservations = useMemo(
+        () => allReservations.filter((r) => tables.some((t) => t.id === r.tableId)),
+        [allReservations, tables],
+    );
 
     const [selTableId, setSelTableId] = useState<string | null>(null);
     const [showTableModal, setShowTableModal] = useState(false);
@@ -73,8 +90,89 @@ export const MasaPage = () => {
     const fullCount = tables.filter((t) => statusOf(t.id) === 'dolu').length;
     const dObj = new Date(date + 'T00:00:00');
 
+    // Masa yoksa rezervasyon modalı boş açılmasın
+    const openResModal = (opts: { tableId?: string; walkIn?: boolean }) => {
+        if (tables.length === 0) { toast.error('Önce bir masa ekle'); setShowTableModal(true); return; }
+        setResModal({ open: true, ...opts });
+    };
+
+    // Çifte rezervasyon koruması: aynı masada zaman penceresi çakışan aktif
+    // (rezerve/oturmuş) kayıt varsa engelle. end_time yoksa 2 saatlik oturma varsay.
+    const DEFAULT_SIT_MIN = 120;
+    const toMin = (hm: string) => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
+    const findClash = (tableId: string, startTime: string, endTime?: string): TableReservation | null => {
+        const s = toMin(startTime);
+        const e = endTime ? toMin(endTime) : s + DEFAULT_SIT_MIN;
+        return (byTable.get(tableId) || []).find((r) => {
+            if (r.status === 'completed') return false;
+            const rs = toMin(r.startTime);
+            const re = r.endTime ? toMin(r.endTime) : rs + DEFAULT_SIT_MIN;
+            return s < re && rs < e;
+        }) || null;
+    };
+
+    // Telefon varsa müşteri kartına bağla: eşleşen kayıt varsa onu kullan,
+    // yoksa sessizce oluştur. LTV/geçmiş masa ziyaretlerini de görsün.
+    const linkCustomer = async (name: string, phone?: string): Promise<string | undefined> => {
+        const norm = phone?.replace(/\s+/g, '').trim();
+        if (!norm) return undefined;
+        const existing = allCustomers.find((c) => c.phone.replace(/\s+/g, '') === norm);
+        if (existing) return existing.id;
+        const created = await addCustomer({ name: name || 'Misafir', phone: norm });
+        return created?.id;
+    };
+
+    const saveReservation = async (payload: Omit<TableReservation, 'id' | 'createdAt' | 'organizationId'>) => {
+        const tName = tables.find((t) => t.id === payload.tableId)?.name || 'Masa';
+        const clash = findClash(payload.tableId, payload.startTime, payload.endTime);
+        if (clash) {
+            toast.error(`${tName} bu saatte dolu: ${clash.startTime} · ${clash.customerName}`);
+            return;
+        }
+        const cap = tables.find((t) => t.id === payload.tableId)?.capacity ?? 0;
+        if (cap > 0 && payload.partySize > cap) {
+            toast.warning(`Dikkat: ${payload.partySize} kişi, masa ${cap} kişilik`);
+        }
+        const customerId = await linkCustomer(payload.customerName, payload.customerPhone);
+        const r = await addReservation({ ...payload, customerId });
+        if (r) {
+            sendWebhook('table_reservation.created', {
+                id: r.id, table: tName, customerName: r.customerName, partySize: r.partySize,
+                date: r.date, startTime: r.startTime, walkIn: !!resModal.walkIn,
+            });
+            toast.success(resModal.walkIn ? 'Walk-in oturtuldu' : 'Rezervasyon eklendi');
+            setResModal({ open: false });
+        }
+    };
+
+    // "Tamamla" → tahsilat: tutar mevcut Kasa akışına (payments) yazılır,
+    // sonra masa kapatılır. Tutarsız kapatma da mümkün (ör. ikram).
+    const [payModal, setPayModal] = useState<TableReservation | null>(null);
+    const handleStatus = (id: string, s: TableReservation['status']) => {
+        if (s === 'completed') {
+            const r = reservations.find((x) => x.id === id);
+            if (r) { setPayModal(r); return; }
+        }
+        setStatus(id, s);
+    };
+    const completeTable = async (r: TableReservation, amount: number, method: PaymentMethod) => {
+        const tName = tables.find((t) => t.id === r.tableId)?.name || 'Masa';
+        if (amount > 0) {
+            const p = await addPayment({
+                amount, method, type: 'service',
+                description: `${tName} · ${r.customerName} · ${r.partySize} kişi`,
+                customerId: r.customerId, staffId: r.staffId,
+            });
+            if (!p) return; // hata toast'ı addPayment içinde
+        }
+        await setStatus(r.id, 'completed');
+        sendWebhook('table_reservation.completed', { id: r.id, table: tName, amount });
+        toast.success(amount > 0 ? `${amount.toLocaleString('tr-TR')} ₺ tahsil edildi · masa kapatıldı` : 'Masa kapatıldı');
+        setPayModal(null);
+    };
+
     return (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: T.page, padding: '24px 28px 48px' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: T.page, padding: isMobile ? '16px 14px 96px' : '24px 28px 48px' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto' }}>
                 {/* Başlık */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -86,10 +184,10 @@ export const MasaPage = () => {
                         <button onClick={() => setShowTableModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                             <Plus size={15} /> Masa Ekle
                         </button>
-                        <button onClick={() => setResModal({ open: true, walkIn: true })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.surface3, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <button onClick={() => openResModal({ walkIn: true })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.surface3, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                             <Armchair size={15} /> Walk-in
                         </button>
-                        <button onClick={() => setResModal({ open: true })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 6px 16px rgba(255,90,31,0.3)' }}>
+                        <button onClick={() => openResModal({})} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 6px 16px rgba(255,90,31,0.3)' }}>
                             <Plus size={15} /> Yeni Rezervasyon
                         </button>
                     </div>
@@ -117,7 +215,7 @@ export const MasaPage = () => {
                         <button onClick={() => setShowTableModal(true)} style={{ marginTop: 16, padding: '10px 18px', borderRadius: 10, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Masa Ekle</button>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: selTable ? '1fr 320px' : '1fr', gap: 18, alignItems: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: selTable && !isMobile ? '1fr 320px' : '1fr', gap: 18, alignItems: 'start' }}>
                         {/* Floor plan */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 14 }}>
                             {tables.map((t) => {
@@ -154,12 +252,12 @@ export const MasaPage = () => {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         {selRes.map((r) => (
-                                            <ResRow key={r.id} r={r} T={T} onStatus={setStatus} onRemove={removeReservation} />
+                                            <ResRow key={r.id} r={r} T={T} staffName={staff.find((s) => s.id === r.staffId)?.name} onStatus={handleStatus} onRemove={removeReservation} />
                                         ))}
                                     </div>
                                 )}
 
-                                <button onClick={() => setResModal({ open: true, tableId: selTable.id })}
+                                <button onClick={() => openResModal({ tableId: selTable.id })}
                                     style={{ width: '100%', marginTop: 14, padding: '10px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.orange, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                     + Bu masaya rezervasyon
                                 </button>
@@ -174,15 +272,17 @@ export const MasaPage = () => {
             </div>
 
             {showTableModal && <TableModal T={T} onClose={() => setShowTableModal(false)} onSave={async (n, c) => { const r = await addTable({ name: n, capacity: c }); if (r) { toast.success('Masa eklendi'); setShowTableModal(false); } }} />}
-            {resModal.open && <ResModal T={T} tables={tables} date={date} preTableId={resModal.tableId} walkIn={resModal.walkIn}
+            {resModal.open && <ResModal T={T} tables={tables} staff={staff} date={date} preTableId={resModal.tableId} walkIn={resModal.walkIn}
                 onClose={() => setResModal({ open: false })}
-                onSave={async (payload) => { const r = await addReservation(payload); if (r) { toast.success(resModal.walkIn ? 'Walk-in oturtuldu' : 'Rezervasyon eklendi'); setResModal({ open: false }); } }} />}
+                onSave={saveReservation} />}
+            {payModal && <PayModal T={T} r={payModal} tableName={tables.find((t) => t.id === payModal.tableId)?.name || 'Masa'}
+                onClose={() => setPayModal(null)} onComplete={completeTable} />}
         </div>
     );
 };
 
 // ── Rezervasyon satırı ────────────────────────────────────────────────────────
-function ResRow({ r, T, onStatus, onRemove }: { r: TableReservation; T: typeof LT; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void }) {
+function ResRow({ r, T, staffName, onStatus, onRemove }: { r: TableReservation; T: typeof LT; staffName?: string; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void }) {
     const stColor = r.status === 'seated' ? T.orange : r.status === 'completed' ? T.green : T.amber;
     const stLabel = r.status === 'seated' ? 'Oturdu' : r.status === 'completed' ? 'Tamamlandı' : 'Rezerve';
     return (
@@ -195,6 +295,7 @@ function ResRow({ r, T, onStatus, onRemove }: { r: TableReservation; T: typeof L
                 <span><Clock size={11} style={{ verticalAlign: -1 }} /> {r.startTime}{r.endTime ? `–${r.endTime}` : ''}</span>
                 <span><Users size={11} style={{ verticalAlign: -1 }} /> {r.partySize}</span>
                 {r.customerPhone && <span><Phone size={11} style={{ verticalAlign: -1 }} /> {r.customerPhone}</span>}
+                {staffName && <span>· {staffName}</span>}
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
                 {r.status === 'reserved' && <MiniBtn T={T} onClick={() => onStatus(r.id, 'seated')} primary>Oturt</MiniBtn>}
@@ -228,8 +329,8 @@ function TableModal({ T, onClose, onSave }: { T: typeof LT; onClose: () => void;
 }
 
 // ── Rezervasyon / walk-in modalı ──────────────────────────────────────────────
-function ResModal({ T, tables, date, preTableId, walkIn, onClose, onSave }: {
-    T: typeof LT; tables: Table[]; date: string; preTableId?: string; walkIn?: boolean;
+function ResModal({ T, tables, staff, date, preTableId, walkIn, onClose, onSave }: {
+    T: typeof LT; tables: Table[]; staff: Staff[]; date: string; preTableId?: string; walkIn?: boolean;
     onClose: () => void; onSave: (p: Omit<TableReservation, 'id' | 'createdAt' | 'organizationId'>) => void;
 }) {
     const now = new Date();
@@ -239,6 +340,7 @@ function ResModal({ T, tables, date, preTableId, walkIn, onClose, onSave }: {
     const [phone, setPhone] = useState('');
     const [party, setParty] = useState(2);
     const [time, setTime] = useState(walkIn ? nowHM : '19:00');
+    const [staffId, setStaffId] = useState('');
     const canSave = !!tableId && name.trim().length > 0;
     return (
         <ModalShell T={T} title={walkIn ? 'Walk-in' : 'Yeni Rezervasyon'} onClose={onClose}>
@@ -253,8 +355,55 @@ function ResModal({ T, tables, date, preTableId, walkIn, onClose, onSave }: {
                 <Field T={T} label="Saat"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp(T)} /></Field>
             </div>
             <Field T={T} label="Telefon (ops.)"><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx" style={inp(T)} /></Field>
-            <button disabled={!canSave} onClick={() => onSave({ tableId, customerName: name.trim(), customerPhone: phone.trim() || undefined, partySize: party, date, startTime: time, status: walkIn ? 'seated' : 'reserved' })} style={primaryBtn(T, !canSave)}>
+            {staff.length > 0 && (
+                <Field T={T} label="Garson (ops.)">
+                    <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={inp(T)}>
+                        <option value="">Atanmadı</option>
+                        {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </Field>
+            )}
+            <button disabled={!canSave} onClick={() => onSave({ tableId, customerName: name.trim(), customerPhone: phone.trim() || undefined, staffId: staffId || undefined, partySize: party, date, startTime: time, status: walkIn ? 'seated' : 'reserved' })} style={primaryBtn(T, !canSave)}>
                 {walkIn ? 'Oturt' : 'Rezervasyon Oluştur'}
+            </button>
+        </ModalShell>
+    );
+}
+
+// ── Masa kapatma / tahsilat modalı ────────────────────────────────────────────
+// Tutar mevcut Kasa akışına (payments) yazılır — restoran cirosu Kasa'da görünür.
+const PAY_METHODS: { key: PaymentMethod; label: string }[] = [
+    { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
+    { key: 'transfer', label: 'Havale' }, { key: 'other', label: 'Diğer' },
+];
+function PayModal({ T, r, tableName, onClose, onComplete }: {
+    T: typeof LT; r: TableReservation; tableName: string;
+    onClose: () => void; onComplete: (r: TableReservation, amount: number, method: PaymentMethod) => Promise<void>;
+}) {
+    const [amountStr, setAmountStr] = useState('');
+    const [method, setMethod] = useState<PaymentMethod>('cash');
+    const [busy, setBusy] = useState(false);
+    const amount = parseInt(amountStr || '0', 10) || 0;
+    const run = async (amt: number) => { setBusy(true); try { await onComplete(r, amt, method); } finally { setBusy(false); } };
+    return (
+        <ModalShell T={T} title={`${tableName} · Hesabı Kapat`} onClose={onClose}>
+            <p style={{ fontSize: 13, color: T.muted, marginTop: -8, marginBottom: 14 }}>{r.customerName} · {r.partySize} kişi · {r.startTime}</p>
+            <Field T={T} label="Tutar (₺)">
+                <input inputMode="numeric" autoFocus placeholder="0" value={amountStr}
+                    onChange={(e) => setAmountStr(e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inp(T), fontSize: 20, fontWeight: 800 }} />
+            </Field>
+            <Field T={T} label="Ödeme yöntemi">
+                <div style={{ display: 'flex', gap: 6 }}>
+                    {PAY_METHODS.map((m) => (
+                        <button key={m.key} onClick={() => setMethod(m.key)} style={{ flex: 1, padding: '9px 4px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: method === m.key ? T.ink : T.surface2, color: method === m.key ? T.surface : T.muted, border: `1px solid ${method === m.key ? T.ink : T.border2}` }}>{m.label}</button>
+                    ))}
+                </div>
+            </Field>
+            <button disabled={amount <= 0 || busy} onClick={() => run(amount)} style={primaryBtn(T, amount <= 0 || busy)}>
+                {amount > 0 ? `${amount.toLocaleString('tr-TR')} ₺ Tahsil Et & Kapat` : 'Tutar gir'}
+            </button>
+            <button disabled={busy} onClick={() => run(0)} style={{ width: '100%', marginTop: 8, padding: '11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Tahsilatsız Kapat (ikram/iptal)
             </button>
         </ModalShell>
     );
