@@ -10,7 +10,7 @@ import { apptPhase } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
-import { MasaDashboard, MasaSummaryCard } from '@/components/dashboard/MasaDashboard';
+import { MasaDashboard, MasaPanel } from '@/components/dashboard/MasaDashboard';
 import { useModules } from '@/hooks/useModules';
 import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -427,9 +427,6 @@ const RandevuDashboard = ({ showMasaCard }: { showMasaCard: boolean }) => {
 
                 </div>
 
-                {/* Masa modülü de açıksa kompakt özet (restoran-hibrit işletme) */}
-                {showMasaCard && <MasaSummaryCard />}
-
                 {/* ── Ana İçerik ─────────────────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
@@ -570,6 +567,9 @@ const RandevuDashboard = ({ showMasaCard }: { showMasaCard: boolean }) => {
                     {/* Sağ Panel — açık tema */}
                     <div className="lg:col-span-2 flex flex-col gap-4">
 
+                        {/* Masalar — yalnızca masa modülü açıkken (restoran-hibrit işletme) */}
+                        {showMasaCard && <MasaPanel />}
+
                         {/* Yaklaşan Randevular */}
                         <div className="flex-1 relative overflow-hidden rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)]">
                             <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center gap-3">
@@ -613,7 +613,8 @@ const RandevuDashboard = ({ showMasaCard }: { showMasaCard: boolean }) => {
                             </div>
                         </div>
 
-                        {/* Haftalık Özet */}
+                        {/* Haftalık Özet — masa açıkken yerini Masalar paneline bırakır (tek ekran) */}
+                        {!showMasaCard && (
                         <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
                             <div className="px-5 pt-4 pb-3">
                                 <h2 className="text-[13.5px] font-bold text-[var(--dc-ink)]">Haftalık Özet</h2>
@@ -640,6 +641,7 @@ const RandevuDashboard = ({ showMasaCard }: { showMasaCard: boolean }) => {
                                 </div>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
             </div>

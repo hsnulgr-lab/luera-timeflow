@@ -47,31 +47,77 @@ function useMasaToday() {
         const rezerve = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'rezerve').length;
         const doluluk = tables.length > 0 ? Math.round((dolu / tables.length) * 100) : 0;
         const tableName = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
-        return { tables, tablesLoading, visRes, dolu, rezerve, doluluk, tableName };
+        // Özet kartındaki mini kutucuklar için masa-bazlı durum listesi
+        const tableStatuses = tables.map((t) => ({ id: t.id, name: t.name, status: statusOf(byTable.get(t.id) || []) }));
+        return { tables, tablesLoading, visRes, dolu, rezerve, doluluk, tableName, tableStatuses };
     }, [tables, tablesLoading, reservations]);
 }
 
 // ── Kompakt özet kartı — randevu + masa İKİSİ DE açıkken randevu dash'ine eklenir ──
-export function MasaSummaryCard() {
+// Boş bant değil salon nabzı: her masa durum renkli bir kutucuk (isim baş harfiyle),
+// sağda Dolu/Rezerve/Boş sayaçları. Tamamı /masa'ya götürür.
+const SUMMARY_STATUS: Record<TableStatus, { bg: string; fg: string; border: string }> = {
+    dolu:    { bg: 'rgba(255,90,31,0.14)',  fg: 'var(--dc-orange)', border: 'rgba(255,90,31,0.35)' },
+    rezerve: { bg: 'rgba(224,168,78,0.16)', fg: 'var(--dc-amber, #B87A00)', border: 'rgba(224,168,78,0.4)' },
+    bos:     { bg: 'var(--dc-surface2)',    fg: 'var(--dc-muted)',  border: 'var(--dc-border)' },
+};
+
+// Sağ kolona (Bugünün Programı'nın yanına) düşen dikey panel. Yalnızca masa
+// modülü açıkken DashboardPage tarafından render edilir; kapalıyken saf TimeFlow.
+export function MasaPanel() {
     const navigate = useNavigate();
-    const { tables, tablesLoading, dolu, visRes } = useMasaToday();
-    if (tablesLoading) return null;
+    const { tables, tablesLoading, dolu, rezerve, visRes, tableStatuses } = useMasaToday();
+    if (tablesLoading || tables.length === 0) return null;
+    const bos = tables.length - dolu - rezerve;
     return (
-        <button
-            onClick={() => navigate('/masa')}
-            className="w-full flex items-center gap-3 rounded-2xl px-5 py-4 text-left transition-all hover:-translate-y-0.5 bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] hover:shadow-[0_2px_8px_rgba(14,14,14,0.08)]"
-        >
-            <div className="w-9 h-9 rounded-xl bg-[var(--dc-inkbox)] flex items-center justify-center flex-shrink-0">
-                <Armchair className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
+        <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
+            {/* Başlık */}
+            <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--dc-inkbox)] flex items-center justify-center">
+                        <Armchair className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
+                    </div>
+                    <div>
+                        <h2 className="text-base font-bold text-[var(--dc-ink)]">Masalar</h2>
+                        <p className="text-[11px] text-[var(--dc-muted)]">bugün {visRes.length} rezervasyon</p>
+                    </div>
+                </div>
+                <button onClick={() => navigate('/masa')}
+                    className="text-xs font-semibold text-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)] px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                    Masa Planı <ArrowRight className="w-3 h-3" />
+                </button>
             </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-[var(--dc-ink)]">Masalar</p>
-                <p className="text-[11.5px] text-[var(--dc-muted)]">
-                    Dolu <b className="text-[var(--dc-ink)]">{dolu}/{tables.length}</b> · bugün <b className="text-[var(--dc-ink)]">{visRes.length}</b> rezervasyon
-                </p>
+
+            {/* Dolu / Rezerve / Boş sayaçları (Haftalık Özet deseni) */}
+            <div className="grid grid-cols-3 border-b border-[var(--dc-border)]">
+                {[
+                    { n: dolu, lbl: 'Dolu', clr: 'var(--dc-orange)' },
+                    { n: rezerve, lbl: 'Rezerve', clr: 'var(--dc-amber, #B87A00)' },
+                    { n: bos, lbl: 'Boş', clr: 'var(--dc-green)' },
+                ].map((s, i) => (
+                    <div key={s.lbl} className={cn('text-center py-3.5 px-3', i < 2 && 'border-r border-[var(--dc-border)]')}>
+                        <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: s.clr }}>{s.n}</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] mt-0.5" style={{ color: s.clr }}>{s.lbl}</p>
+                    </div>
+                ))}
             </div>
-            <ArrowRight className="w-4 h-4 text-[var(--dc-orange)] flex-shrink-0" />
-        </button>
+
+            {/* Masa kutucukları — salon nabzı (isim + durum rengi) */}
+            <div className="p-4 flex flex-wrap gap-2">
+                {tableStatuses.map((t) => {
+                    const s = SUMMARY_STATUS[t.status];
+                    return (
+                        <button key={t.id} onClick={() => navigate('/masa')}
+                            title={`${t.name} · ${t.status === 'dolu' ? 'Dolu' : t.status === 'rezerve' ? 'Rezerve' : 'Boş'}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] transition-transform hover:-translate-y-0.5"
+                            style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.fg }} />
+                            <span className="text-[12px] font-bold max-w-[90px] truncate" style={{ color: 'var(--dc-ink)' }}>{t.name}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
 
