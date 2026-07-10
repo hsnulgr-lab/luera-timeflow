@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { Payment, PaymentMethod, PaymentType } from '@/types';
 
 function mapRow(row: any): Payment {
@@ -49,7 +50,9 @@ export function usePayments() {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchPayments = useCallback(async (resolvedOrgId: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen veri anında gösterilir — "boş kasa" flaşı olmaz
+        const cached = readCache<Payment[]>(`payments:${resolvedOrgId}`);
+        if (cached) { setPayments(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
             .from('payments')
             .select('*')
@@ -57,7 +60,11 @@ export function usePayments() {
             .order('paid_at', { ascending: false })
             .limit(PAYMENTS_LIMIT);
         if (error) console.error(error);
-        else setPayments((data || []).map(mapRow));
+        else {
+            const rows = (data || []).map(mapRow);
+            setPayments(rows);
+            writeCache(`payments:${resolvedOrgId}`, rows);
+        }
         setIsLoading(false);
     }, []);
 

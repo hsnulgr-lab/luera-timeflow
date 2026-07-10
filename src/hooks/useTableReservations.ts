@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { TableReservation, TableReservationStatus } from '@/types';
 
 function mapRow(row: any): TableReservation {
@@ -30,7 +31,9 @@ export function useTableReservations(date: string) {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchFor = useCallback(async (org: string, d: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen liste (gün bazlı anahtar), arkada ağdan tazele
+        const cached = readCache<TableReservation[]>(`table_res:${org}:${d}`);
+        if (cached) { setReservations(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
             .from('table_reservations')
             .select('*')
@@ -39,7 +42,11 @@ export function useTableReservations(date: string) {
             .neq('status', 'cancelled')
             .order('start_time');
         if (error) { toast.error('Rezervasyonlar yüklenemedi'); console.error(error); }
-        else setReservations((data || []).map(mapRow));
+        else {
+            const rows = (data || []).map(mapRow);
+            setReservations(rows);
+            writeCache(`table_res:${org}:${d}`, rows);
+        }
         setIsLoading(false);
     }, []);
 
@@ -50,7 +57,8 @@ export function useTableReservations(date: string) {
     useEffect(() => {
         if (!orgId || !date) return;
         const ch = supabase
-            .channel(`table_res:${orgId}:${date}`)
+            // Rastgele ek: Dashboard + MasaPage aynı güne abone olabilir (usePayments deseni)
+            .channel(`table_res:${orgId}:${date}:${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations', filter: `organization_id=eq.${orgId}` },
                 (payload) => {
                     if (payload.eventType === 'DELETE') {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, createContext, useCo
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO, toISODate } from '@/utils/date';
 import { sendTextMessage, buildRebookMessage } from '@/services/evolutionApi';
 import type { Reservation, Settings, Service } from '@/types';
@@ -109,6 +110,14 @@ function useReservationsState() {
 
         // Tenant izolasyonu — orgId bilindiğinde açık filtre (RLS'e ek savunma)
         const resolvedOrgId = currentOrgId ?? orgId;
+
+        // SWR: önce son bilinen liste anında gösterilir (hard refresh'te
+        // "randevu yok" flaşını önler), ağdan gelen taze veri üzerine yazar.
+        if (resolvedOrgId) {
+            const cached = readCache<Reservation[]>(`reservations:${resolvedOrgId}`);
+            if (cached) { setReservations(cached); setIsLoading(false); }
+        }
+
         let query = supabase
             .from('reservations')
             .select('*, staff(name, color)');
@@ -129,7 +138,9 @@ function useReservationsState() {
             toast.error('Rezervasyonlar yüklenemedi');
             console.error('Error fetching reservations:', error);
         } else {
-            setReservations((data || []).map(mapDbReservation));
+            const rows = (data || []).map(mapDbReservation);
+            setReservations(rows);
+            if (resolvedOrgId) writeCache(`reservations:${resolvedOrgId}`, rows);
         }
         setIsLoading(false);
     }, [user, orgId]);
@@ -139,6 +150,12 @@ function useReservationsState() {
         if (!user) return;
 
         const resolvedOrgId = currentOrgId ?? orgId;
+
+        // SWR: işletme adı/hizmetler hard refresh'te anında gelsin
+        if (resolvedOrgId) {
+            const cachedSettings = readCache<Settings>(`settings:${resolvedOrgId}`);
+            if (cachedSettings) setSettings(cachedSettings);
+        }
 
         // maybeSingle: çoklu satırda .single() patlardı; yokken null döner
         const { data: settingsData, error: settingsErr } = await supabase
@@ -182,7 +199,7 @@ function useReservationsState() {
         });
 
         if (settingsData) {
-            setSettings({
+            const fresh: Settings = {
                 businessName: settingsData.business_name,
                 workingHours: settingsData.working_hours || defaultSettings.workingHours,
                 services: services.length > 0 ? services : defaultSettings.services,
@@ -196,7 +213,9 @@ function useReservationsState() {
                 loyaltyReward: settingsData.loyalty_reward || 'Ücretsiz hizmet',
                 rebookEnabled: settingsData.rebook_enabled ?? false,
                 rebookNote: settingsData.rebook_note || '',
-            });
+            };
+            setSettings(fresh);
+            if (resolvedOrgId) writeCache(`settings:${resolvedOrgId}`, fresh);
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
             // ama organizasyon bulunabilirse manuel oluştur

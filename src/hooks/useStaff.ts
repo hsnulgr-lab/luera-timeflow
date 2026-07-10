@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { Staff } from '@/types';
 
 function mapDbStaff(row: any): Staff {
@@ -27,7 +28,9 @@ export function useStaff() {
 
     // Personelleri getir
     const fetchStaff = useCallback(async (resolvedOrgId: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen liste, arkada ağdan tazele
+        const cached = readCache<Staff[]>(`staff:${resolvedOrgId}`);
+        if (cached) { setStaff(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
             .from('staff')
             .select('*')
@@ -39,7 +42,9 @@ export function useStaff() {
             toast.error('Personel listesi yüklenemedi');
             console.error(error);
         } else {
-            setStaff((data || []).map(mapDbStaff));
+            const rows = (data || []).map(mapDbStaff);
+            setStaff(rows);
+            writeCache(`staff:${resolvedOrgId}`, rows);
         }
         setIsLoading(false);
     }, []);

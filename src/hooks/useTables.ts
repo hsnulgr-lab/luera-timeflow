@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { Table } from '@/types';
 
 function mapRow(row: any): Table {
@@ -21,7 +22,9 @@ export function useTables() {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchTables = useCallback(async (org: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen liste, arkada ağdan tazele
+        const cached = readCache<Table[]>(`tables:${org}`);
+        if (cached) { setTables(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
             .from('tables')
             .select('*')
@@ -29,7 +32,11 @@ export function useTables() {
             .eq('is_active', true)
             .order('created_at');
         if (error) { toast.error('Masalar yüklenemedi'); console.error(error); }
-        else setTables((data || []).map(mapRow));
+        else {
+            const rows = (data || []).map(mapRow);
+            setTables(rows);
+            writeCache(`tables:${org}`, rows);
+        }
         setIsLoading(false);
     }, []);
 
@@ -40,7 +47,9 @@ export function useTables() {
     useEffect(() => {
         if (!user || !orgId) return;
         const ch = supabase
-            .channel(`tables:${orgId}`)
+            // Rastgele ek: aynı topic'e ikinci abonelik sessizce ölür (usePayments deseni) —
+            // Dashboard + MasaPage aynı anda mount olabildiği için kanal adı benzersiz.
+            .channel(`tables:${orgId}:${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `organization_id=eq.${orgId}` },
                 (payload) => {
                     if (payload.eventType === 'DELETE') {

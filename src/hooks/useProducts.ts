@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { Product } from '@/types';
 
 function mapRow(row: any): Product {
@@ -25,14 +26,20 @@ export function useProducts() {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchProducts = useCallback(async (resolvedOrgId: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen liste, arkada ağdan tazele
+        const cached = readCache<Product[]>(`products:${resolvedOrgId}`);
+        if (cached) { setProducts(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
             .from('products')
             .select('*')
             .eq('organization_id', resolvedOrgId)
             .order('created_at', { ascending: false });
         if (error) console.error(error);
-        else setProducts((data || []).map(mapRow));
+        else {
+            const rows = (data || []).map(mapRow);
+            setProducts(rows);
+            writeCache(`products:${resolvedOrgId}`, rows);
+        }
         setIsLoading(false);
     }, []);
 

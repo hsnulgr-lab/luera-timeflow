@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 import type { Customer } from '@/types';
 
 function mapDbCustomer(row: any): Customer {
@@ -26,7 +27,9 @@ export function useCustomers() {
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
     const fetchCustomers = useCallback(async (resolvedOrgId: string) => {
-        setIsLoading(true);
+        // SWR: önce son bilinen liste, arkada ağdan tazele
+        const cached = readCache<Customer[]>(`customers:${resolvedOrgId}`);
+        if (cached) { setCustomers(cached); setIsLoading(false); } else setIsLoading(true);
 
         // Müşterileri getir
         const { data, error } = await supabase
@@ -46,6 +49,7 @@ export function useCustomers() {
         const customerList = data || [];
         if (customerList.length === 0) {
             setCustomers([]);
+            writeCache(`customers:${resolvedOrgId}`, []);
             setIsLoading(false);
             return;
         }
@@ -77,6 +81,7 @@ export function useCustomers() {
         }));
 
         setCustomers(enriched);
+        writeCache(`customers:${resolvedOrgId}`, enriched);
         setIsLoading(false);
     }, []);
 

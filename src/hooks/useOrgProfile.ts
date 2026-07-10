@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readCache, writeCache } from '@/lib/swrCache';
 
 export interface OrgProfile {
     slug: string;
@@ -54,13 +55,19 @@ export function useOrgProfile() {
     useEffect(() => {
         if (!orgId) return;
         (async () => {
-            setLoading(true);
+            // SWR: önce son bilinen profil, arkada ağdan tazele
+            const cached = readCache<OrgProfile>(`org_profile:${orgId}`);
+            if (cached) { setProfile(cached); setLoading(false); } else setLoading(true);
             const { data, error } = await supabase
                 .from('organizations')
                 .select('slug, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, booking_auto_confirm')
                 .eq('id', orgId)
                 .maybeSingle();
-            if (!error && data) setProfile(mapRow(data));
+            if (!error && data) {
+                const fresh = mapRow(data);
+                setProfile(fresh);
+                writeCache(`org_profile:${orgId}`, fresh);
+            }
             setLoading(false);
         })();
     }, [orgId]);

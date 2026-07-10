@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { clearAllCache } from '@/lib/swrCache';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -108,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = async () => {
         await supabase.auth.signOut();
+        clearAllCache(); // SWR önbelleği — ortak cihazda sonraki kullanıcıya veri sızmasın
         setUser(null);
     };
 
