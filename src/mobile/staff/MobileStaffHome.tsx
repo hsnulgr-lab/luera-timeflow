@@ -5,7 +5,9 @@ import { useStaffStats } from '@/hooks/useStaffStats';
 import { usePush } from '@/hooks/usePush';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
-import { toISODate } from '@/utils/date';
+import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
+import { useTables } from '@/hooks/useTables';
+import { toISODate, relativeDayLabel } from '@/utils/date';
 import type { Reservation } from '@/types';
 import { apptPhase } from '@/lib/appointmentFlow';
 import { MobileServiceDetail } from './MobileServiceDetail';
@@ -25,9 +27,18 @@ export const MobileStaffHome = () => {
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
     const { reservations, getReservationsByDate, updateReservation, claimReservation } = useReservations();
+    // Garsona atanan masa rezervasyonları (bugün + yaklaşan). 042 migration'ı
+    // yoksa staffId gelmez → myTables boş → bölüm hiç görünmez (restoran dışı personel etkilenmez).
+    const { reservations: tableRes } = useUpcomingTableReservations();
+    const { tables } = useTables();
 
     const now = useMemo(() => new Date(), []);
     const todayStr = toISODate(now);
+    const myTables = useMemo(
+        () => tableRes.filter((r) => r.staffId && r.staffId === staff?.id),
+        [tableRes, staff?.id],
+    );
+    const tableNameOf = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
     const color = staff?.color || D.orange;
 
     // Sürekli tarih şeridi — yatay kaydırmalı (geçmiş 21 gün → gelecek 120 gün)
@@ -245,6 +256,38 @@ export const MobileStaffHome = () => {
                         </div>
                     )}
                 </div>
+
+                {/* ══ MASA REZERVASYONLARIM (restoran modu — atanmışsa) ══ */}
+                {myTables.length > 0 && (
+                    <div style={{ padding: '22px 20px 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em' }}>Masalarım</div>
+                            <div onClick={() => navigate('/masa')} style={{ fontSize: 12, color: D.orange, fontWeight: 750, cursor: 'pointer' }}>Masa Planı →</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                            {myTables.map((r) => {
+                                const isFuture = r.date > todayStr;
+                                const st = r.status === 'seated' ? { lbl: 'Oturdu', c: D.orange, bg: 'rgba(255,90,31,.12)' }
+                                    : r.status === 'completed' ? { lbl: 'Tamamlandı', c: D.green, bg: STS.done.bg }
+                                    : { lbl: 'Rezerve', c: D.amber, bg: 'rgba(224,168,78,.12)' };
+                                return (
+                                    <div key={r.id} onClick={() => navigate('/masa')} style={{ display: 'flex', alignItems: 'center', gap: 11, background: D.s1, border: `1px solid ${D.border}`, borderRadius: 17, padding: '12px 14px', cursor: 'pointer' }}>
+                                        <div style={{ width: 54, flexShrink: 0 }}>
+                                            {isFuture && <div style={{ fontFamily: D.mono, fontSize: 10, fontWeight: 800, color: D.orange, marginBottom: 1 }}>{relativeDayLabel(r.date)}</div>}
+                                            <div style={{ fontFamily: D.mono, fontSize: 13, fontWeight: 800 }}>{r.startTime}</div>
+                                            <div style={{ fontFamily: D.mono, fontSize: 9.5, color: D.muted2, marginTop: 1 }}>{r.partySize} kişi</div>
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 780, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
+                                            <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2.5 }}>{tableNameOf(r.tableId)}</div>
+                                        </div>
+                                        <div style={{ padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.c, fontSize: 10, fontWeight: 750, flexShrink: 0 }}>{st.lbl}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* ══ PERFORMANS ══ */}
                 <div style={{ padding: '22px 20px 0' }}>

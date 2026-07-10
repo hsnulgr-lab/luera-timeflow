@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Armchair, ArrowRight, Plus, Users, Wallet } from 'lucide-react';
 import { useTables } from '@/hooks/useTables';
-import { useTableReservations } from '@/hooks/useTableReservations';
+import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
-import { todayISO } from '@/utils/date';
+import { todayISO, relativeDayLabel } from '@/utils/date';
 import { LueraButton } from '@/components/ui/LueraButton';
 import type { TableReservation } from '@/types';
 
@@ -30,26 +30,26 @@ const RES_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
     completed: { label: 'Tamamlandı', bg: 'var(--dc-green-bg)',    fg: 'var(--dc-green)' },
 };
 
-// Masa/ciro verisini derleyen ortak hook — tam dashboard ve özet kartı paylaşır.
+// Masa/ciro verisini derleyen ortak hook — tam dashboard, panel ve özet paylaşır.
+// Bugün: masa durumu (dolu/rezerve/boş). Liste: bugün + yaklaşan günler.
 function useMasaToday() {
     const today = todayISO();
     const { tables, isLoading: tablesLoading } = useTables();
-    const { reservations } = useTableReservations(today);
+    const { reservations } = useUpcomingTableReservations();
 
     return useMemo(() => {
+        const valid = reservations.filter((r) => tables.some((t) => t.id === r.tableId)); // hayalet koruması
+        const todayRes = valid.filter((r) => r.date === today);
+        const listRes = valid; // bugün + yaklaşan, hook zaten tarih+saate göre sıralı
+
         const byTable = new Map<string, TableReservation[]>();
-        for (const r of reservations) {
-            if (!tables.some((t) => t.id === r.tableId)) continue; // hayalet koruması (MasaPage ile aynı)
-            (byTable.get(r.tableId) || byTable.set(r.tableId, []).get(r.tableId)!).push(r);
-        }
-        const visRes = [...byTable.values()].flat().sort((a, b) => a.startTime.localeCompare(b.startTime));
+        for (const r of todayRes) (byTable.get(r.tableId) || byTable.set(r.tableId, []).get(r.tableId)!).push(r);
         const dolu = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'dolu').length;
         const rezerve = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'rezerve').length;
         const doluluk = tables.length > 0 ? Math.round((dolu / tables.length) * 100) : 0;
         const tableName = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
-        // Özet kartındaki mini kutucuklar için masa-bazlı durum listesi
         const tableStatuses = tables.map((t) => ({ id: t.id, name: t.name, status: statusOf(byTable.get(t.id) || []) }));
-        return { tables, tablesLoading, visRes, dolu, rezerve, doluluk, tableName, tableStatuses };
+        return { tables, tablesLoading, todayRes, listRes, dolu, rezerve, doluluk, tableName, tableStatuses };
     }, [tables, tablesLoading, reservations]);
 }
 
@@ -66,9 +66,11 @@ const SUMMARY_STATUS: Record<TableStatus, { bg: string; fg: string; border: stri
 // modülü açıkken DashboardPage tarafından render edilir; kapalıyken saf TimeFlow.
 export function MasaPanel() {
     const navigate = useNavigate();
-    const { tables, tablesLoading, dolu, rezerve, visRes, tableStatuses } = useMasaToday();
+    const today = todayISO();
+    const { tables, tablesLoading, dolu, rezerve, todayRes, listRes, tableName, tableStatuses } = useMasaToday();
     if (tablesLoading || tables.length === 0) return null;
     const bos = tables.length - dolu - rezerve;
+    const upcoming = listRes.filter((r) => r.date > today);
     return (
         <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
             {/* Başlık */}
@@ -79,7 +81,9 @@ export function MasaPanel() {
                     </div>
                     <div>
                         <h2 className="text-base font-bold text-[var(--dc-ink)]">Masalar</h2>
-                        <p className="text-[11px] text-[var(--dc-muted)]">bugün {visRes.length} rezervasyon</p>
+                        <p className="text-[11px] text-[var(--dc-muted)]">
+                            bugün {todayRes.length} rezervasyon{upcoming.length > 0 && ` · +${upcoming.length} yaklaşan`}
+                        </p>
                     </div>
                 </div>
                 <button onClick={() => navigate('/masa')}
@@ -117,6 +121,28 @@ export function MasaPanel() {
                     );
                 })}
             </div>
+
+            {/* Yaklaşan masa rezervasyonları (ileri tarihli) */}
+            {upcoming.length > 0 && (
+                <div className="px-4 pb-4 -mt-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ fontFamily: MONO, color: 'var(--dc-muted)' }}>Yaklaşan</p>
+                    <div className="space-y-1.5">
+                        {upcoming.slice(0, 3).map((r) => (
+                            <button key={r.id} onClick={() => navigate('/masa')}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left bg-[var(--dc-surface2)] border border-[var(--dc-border-soft)] hover:border-[var(--dc-orange)] transition-colors">
+                                <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 bg-[var(--dc-orange-soft)] text-[var(--dc-orange-d)]">{relativeDayLabel(r.date)}</span>
+                                <span className="text-[12.5px] font-semibold text-[var(--dc-ink)] truncate flex-1 min-w-0">{r.customerName}</span>
+                                <span className="text-[11px] text-[var(--dc-muted)] flex-shrink-0" style={{ fontFamily: MONO }}>{tableName(r.tableId)} · {r.startTime}</span>
+                            </button>
+                        ))}
+                        {upcoming.length > 3 && (
+                            <button onClick={() => navigate('/masa')} className="w-full text-center text-[11px] font-semibold text-[var(--dc-orange)] py-1">
+                                +{upcoming.length - 3} rezervasyon daha
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -148,12 +174,13 @@ export function MasaDashboard() {
     const { dark } = useTheme();
     const { settings } = useReservations();
     const { stats } = usePayments();
-    const { tables, tablesLoading, visRes, dolu, rezerve, doluluk, tableName } = useMasaToday();
+    const today = todayISO();
+    const { tables, tablesLoading, todayRes, listRes, dolu, rezerve, doluluk, tableName } = useMasaToday();
 
     const now = new Date();
     const weekday = now.toLocaleDateString('tr-TR', { weekday: 'long' });
     const monthYear = now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
-    const activeRes = visRes.filter((r) => r.status !== 'completed');
+    const activeRes = todayRes.filter((r) => r.status !== 'completed');
 
     return (
         <div className={cn("dash-theme flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
@@ -191,7 +218,7 @@ export function MasaDashboard() {
                     {/* KPI'lar */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <Kpi label="Dolu Masa" value={`${dolu}/${tables.length}`} sublabel="Şu an" accent={dolu > 0} />
-                        <Kpi label="Rezervasyon" value={String(visRes.length)} sublabel="Bugün" />
+                        <Kpi label="Rezervasyon" value={String(todayRes.length)} sublabel="Bugün" />
                         <Kpi label="Ciro" value={`${fmt(stats.today)} ₺`} sublabel="Bugün" />
                         <Kpi label="Doluluk" value={`%${doluluk}`} sublabel={`${tables.length} masa`} />
                     </div>
@@ -204,8 +231,8 @@ export function MasaDashboard() {
                                     <Wallet className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-[var(--dc-ink)]">Bugünün Rezervasyonları</h2>
-                                    <p className="text-[11px] text-[var(--dc-muted)]">{visRes.length} kayıt</p>
+                                    <h2 className="text-base font-bold text-[var(--dc-ink)]">Rezervasyonlar</h2>
+                                    <p className="text-[11px] text-[var(--dc-muted)]">bugün {todayRes.length} · yaklaşan {listRes.length - todayRes.length}</p>
                                 </div>
                             </div>
                             <button onClick={() => navigate('/masa')}
@@ -214,26 +241,30 @@ export function MasaDashboard() {
                             </button>
                         </div>
                         <div className="p-4">
-                            {visRes.length === 0 ? (
+                            {listRes.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-10">
                                     <div className="w-16 h-16 rounded-2xl bg-[var(--dc-surface3)] border border-[var(--dc-border2)] flex items-center justify-center mb-3">
                                         <Armchair className="w-7 h-7 text-[var(--dc-muted)]" />
                                     </div>
-                                    <p className="text-sm font-semibold text-[var(--dc-ink)] mb-1">Bugün rezervasyon yok</p>
+                                    <p className="text-sm font-semibold text-[var(--dc-ink)] mb-1">Rezervasyon yok</p>
                                     <LueraButton onClick={() => navigate('/masa')} variant="accent" size="sm" className="mt-2" style={{ color: 'var(--dc-cream)' }}>
                                         + Rezervasyon oluştur
                                     </LueraButton>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    {visRes.map((r) => {
+                                    {listRes.map((r) => {
                                         const b = RES_BADGE[r.status] || RES_BADGE.reserved;
+                                        const isFuture = r.date > today;
                                         return (
                                             <div key={r.id} onClick={() => navigate('/masa')}
                                                 className="flex items-center gap-3 p-3 rounded-xl border border-[var(--dc-border-soft)] hover:border-[var(--dc-orange)] hover:shadow-sm transition-all cursor-pointer">
                                                 <div className="text-center min-w-[48px]">
+                                                    {isFuture
+                                                        ? <p className="text-[11px] font-bold text-[var(--dc-orange-d)] leading-tight">{relativeDayLabel(r.date)}</p>
+                                                        : null}
                                                     <p className="text-sm font-extrabold text-[var(--dc-ink)] tabular-nums">{r.startTime}</p>
-                                                    {r.endTime && <p className="text-[10px] text-[var(--dc-muted)] tabular-nums">{r.endTime}</p>}
+                                                    {!isFuture && r.endTime && <p className="text-[10px] text-[var(--dc-muted)] tabular-nums">{r.endTime}</p>}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-bold text-[var(--dc-ink)] truncate">{r.customerName}</p>

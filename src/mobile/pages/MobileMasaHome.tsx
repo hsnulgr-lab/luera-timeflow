@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { useTables } from '@/hooks/useTables';
-import { useTableReservations } from '@/hooks/useTableReservations';
-import { todayISO } from '@/utils/date';
+import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
+import { todayISO, relativeDayLabel } from '@/utils/date';
 import type { TableReservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { T, avatarColor } from '../theme';
@@ -50,27 +50,71 @@ const RES_STS: Record<string, { label: string; clr: string; bg: string }> = {
     completed: { label: 'Tamamlandı', clr: T.green,  bg: 'rgba(124,196,127,.12)' },
 };
 
+// Mobil admin ana ekranında (randevu+masa hibrit) kompakt masa şeridi.
+// MobileHome tarafından isEnabled('masa') ile gated render edilir.
+export const MobileMasaStrip = () => {
+    const navigate = useNavigate();
+    const { tables } = useTables();
+    const { reservations } = useUpcomingTableReservations();
+    const today = todayISO();
+
+    const { dolu, rezerve, bos, todayCount, upcomingCount } = useMemo(() => {
+        const valid = reservations.filter((r) => tables.some((t) => t.id === r.tableId));
+        const todayRes = valid.filter((r) => r.date === today);
+        const byTable = new Map<string, TableReservation[]>();
+        for (const r of todayRes) (byTable.get(r.tableId) || byTable.set(r.tableId, []).get(r.tableId)!).push(r);
+        const dolu = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'dolu').length;
+        const rezerve = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'rezerve').length;
+        return { dolu, rezerve, bos: tables.length - dolu - rezerve, todayCount: todayRes.length, upcomingCount: valid.length - todayRes.length };
+    }, [tables, reservations, today]);
+
+    if (tables.length === 0) return null;
+
+    return (
+        <div style={{ padding: '18px 22px 0' }}>
+            <div onClick={() => navigate('/masa')} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, padding: '15px 16px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,90,31,.12)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12" stroke={T.orange} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 850, letterSpacing: '-0.02em' }}>Masalar</div>
+                        <div style={{ fontSize: 11.5, color: T.muted, marginTop: 1 }}>bugün {todayCount} rezervasyon{upcomingCount > 0 && ` · +${upcomingCount} yaklaşan`}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, flexShrink: 0, fontFamily: T.mono }}>
+                        {[{ n: dolu, c: T.orange }, { n: rezerve, c: T.amber }, { n: bos, c: T.green }].map((s, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.c }} />
+                                <span style={{ fontSize: 14, fontWeight: 850 }}>{s.n}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const MobileMasaHome = () => {
     const navigate = useNavigate();
     const { stats } = usePayments();
     const { staff } = useStaff();
     const { tables } = useTables();
-    const { reservations } = useTableReservations(todayISO());
+    const { reservations } = useUpcomingTableReservations();
+    const today = todayISO();
 
     const now = useMemo(() => new Date(), []);
     const dateLabel = `${DAY_SHORT[now.getDay()]} · ${now.getDate()} ${MONTH_SHORT[now.getMonth()]} ${now.getFullYear()}`;
     const revTick = useTicker(stats.today, 900, 200);
 
-    const { visRes, dolu, doluluk } = useMemo(() => {
+    const { listRes, dolu, doluluk } = useMemo(() => {
+        const valid = reservations.filter((r) => tables.some((t) => t.id === r.tableId)); // hayalet koruması
+        const todayRes = valid.filter((r) => r.date === today);
         const byTable = new Map<string, TableReservation[]>();
-        for (const r of reservations) {
-            if (!tables.some((t) => t.id === r.tableId)) continue; // hayalet koruması
-            (byTable.get(r.tableId) || byTable.set(r.tableId, []).get(r.tableId)!).push(r);
-        }
-        const visRes = [...byTable.values()].flat().sort((a, b) => a.startTime.localeCompare(b.startTime));
+        for (const r of todayRes) (byTable.get(r.tableId) || byTable.set(r.tableId, []).get(r.tableId)!).push(r);
         const dolu = tables.filter((t) => statusOf(byTable.get(t.id) || []) === 'dolu').length;
-        return { visRes, dolu, doluluk: tables.length > 0 ? Math.round((dolu / tables.length) * 100) : 0 };
-    }, [tables, reservations]);
+        return { listRes: valid, dolu, doluluk: tables.length > 0 ? Math.round((dolu / tables.length) * 100) : 0 };
+    }, [tables, reservations, today]);
 
     const tableName = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
     const staffToday = staff.filter((s) => s.isActive).slice(0, 3);
@@ -122,22 +166,24 @@ export const MobileMasaHome = () => {
             {/* Bugünün Rezervasyonları */}
             <div style={{ padding: '18px 22px 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 }}>
-                    <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.035em' }}>Bugünün Rezervasyonları</div>
+                    <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.035em' }}>Rezervasyonlar</div>
                     <div onClick={() => navigate('/masa')} style={{ fontSize: 12, fontWeight: 750, color: T.orange, cursor: 'pointer' }}>Masa Planı →</div>
                 </div>
 
-                {visRes.length === 0 ? (
+                {listRes.length === 0 ? (
                     <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, padding: '24px 16px', textAlign: 'center', color: T.muted, fontSize: 13 }}>
-                        Bugün için rezervasyon yok
+                        Yaklaşan rezervasyon yok
                         <div onClick={() => navigate('/masa')} style={{ marginTop: 10, color: T.orange, fontWeight: 750, fontSize: 12.5, cursor: 'pointer' }}>+ Rezervasyon oluştur</div>
                     </div>
                 ) : (
                     <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden' }}>
-                        {visRes.map((r, i) => {
+                        {listRes.map((r, i) => {
                             const s = RES_STS[r.status] || RES_STS.reserved;
+                            const isFuture = r.date > today;
                             return (
-                                <div key={r.id} onClick={() => navigate('/masa')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderBottom: i < visRes.length - 1 ? `1px solid ${T.border}` : 'none', cursor: 'pointer' }}>
-                                    <div style={{ width: 46, flexShrink: 0 }}>
+                                <div key={r.id} onClick={() => navigate('/masa')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderBottom: i < listRes.length - 1 ? `1px solid ${T.border}` : 'none', cursor: 'pointer' }}>
+                                    <div style={{ width: 52, flexShrink: 0 }}>
+                                        {isFuture && <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 800, color: T.orange, marginBottom: 1 }}>{relativeDayLabel(r.date)}</div>}
                                         <div style={{ fontFamily: T.mono, fontSize: 13.5, fontWeight: 850, letterSpacing: '-0.02em' }}>{r.startTime}</div>
                                         <div style={{ fontFamily: T.mono, fontSize: 9.5, color: T.muted2, marginTop: 1.5 }}>{r.partySize} kişi</div>
                                     </div>

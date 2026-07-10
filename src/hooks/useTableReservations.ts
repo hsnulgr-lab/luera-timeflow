@@ -3,7 +3,12 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
+import { todayISO } from '@/utils/date';
 import type { TableReservation, TableReservationStatus } from '@/types';
+
+export function mapTableRow(row: any): TableReservation {
+    return mapRow(row);
+}
 
 function mapRow(row: any): TableReservation {
     return {
@@ -109,23 +114,95 @@ export function useTableReservations(date: string) {
         }
         if (error) { toast.error('Rezervasyon eklenemedi'); console.error(error); return null; }
         const row = mapRow(data);
-        // Sadece görüntülenen güne aitse listeye ekle
-        if (row.date === date) setReservations((p) => [...p, row].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+        // Sadece görüntülenen güne aitse listeye ekle + cache'i güncelle (bayat veri olmasın)
+        if (row.date === date) setReservations((p) => {
+            const next = [...p, row].sort((a, b) => a.startTime.localeCompare(b.startTime));
+            if (orgId) writeCache(`table_res:${orgId}:${date}`, next);
+            return next;
+        });
         return row;
     }, [orgId, date]);
 
     const setStatus = useCallback(async (id: string, status: TableReservationStatus) => {
         const { error } = await supabase.from('table_reservations').update({ status }).eq('id', id);
         if (error) { toast.error('Durum güncellenemedi'); return; }
-        if (status === 'cancelled') setReservations((p) => p.filter((r) => r.id !== id));
-        else setReservations((p) => p.map((r) => (r.id === id ? { ...r, status } : r)));
-    }, []);
+        setReservations((p) => {
+            const next = status === 'cancelled' ? p.filter((r) => r.id !== id) : p.map((r) => (r.id === id ? { ...r, status } : r));
+            if (orgId) writeCache(`table_res:${orgId}:${date}`, next);
+            return next;
+        });
+    }, [orgId, date]);
 
     const removeReservation = useCallback(async (id: string) => {
         const { error } = await supabase.from('table_reservations').delete().eq('id', id);
         if (error) { toast.error('Rezervasyon silinemedi'); return; }
-        setReservations((p) => p.filter((r) => r.id !== id));
-    }, []);
+        setReservations((p) => {
+            const next = p.filter((r) => r.id !== id);
+            if (orgId) writeCache(`table_res:${orgId}:${date}`, next);
+            return next;
+        });
+    }, [orgId, date]);
 
     return { reservations, isLoading, addReservation, setStatus, removeReservation };
+}
+
+// Bugün + yaklaşan (date >= bugün) tüm masa rezervasyonları — salt-okunur.
+// Dashboard/mobil ana ekran ve garson mobili "sadece bugün" yerine ileri
+// tarihli masaları da göstersin diye. Realtime + SWR, useTableReservations
+// ile aynı desen; org geneli dinlenir, gün bazlı filtre client'ta.
+export function useUpcomingTableReservations() {
+    const { orgId } = useAuth();
+    const today = todayISO();
+    const [reservations, setReservations] = useState<TableReservation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchUpcoming = useCallback(async (org: string, from: string) => {
+        const cached = readCache<TableReservation[]>(`table_res_up:${org}:${from}`);
+        if (cached) { setReservations(cached); setIsLoading(false); } else setIsLoading(true);
+        const { data, error } = await supabase
+            .from('table_reservations')
+            .select('*')
+            .eq('organization_id', org)
+            .gte('date', from)
+            .neq('status', 'cancelled')
+            .order('date')
+            .order('start_time');
+        if (error) { console.error(error); }
+        else {
+            const rows = (data || []).map(mapRow);
+            setReservations(rows);
+            writeCache(`table_res_up:${org}:${from}`, rows);
+        }
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => { if (orgId) fetchUpcoming(orgId, today); }, [orgId, today, fetchUpcoming]);
+
+    useEffect(() => {
+        if (!orgId) return;
+        const ch = supabase
+            .channel(`table_res_up:${orgId}:${Math.random().toString(36).slice(2)}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations', filter: `organization_id=eq.${orgId}` },
+                (payload) => {
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as any)?.id;
+                        if (oldId) setReservations((p) => p.filter((r) => r.id !== oldId));
+                        return;
+                    }
+                    const row = mapRow(payload.new);
+                    // Geçmiş tarih ya da iptal → listeden düş; aksi hâlde upsert
+                    if (row.date < today || row.status === 'cancelled') {
+                        setReservations((p) => p.filter((r) => r.id !== row.id));
+                        return;
+                    }
+                    setReservations((p) => {
+                        const rest = p.filter((r) => r.id !== row.id);
+                        return [...rest, row].sort((a, b) => a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date));
+                    });
+                })
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [orgId, today]);
+
+    return { reservations, isLoading };
 }

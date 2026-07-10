@@ -8,7 +8,7 @@ import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
-import { MobileMasaHome } from './MobileMasaHome';
+import { MobileMasaHome, MobileMasaStrip } from './MobileMasaHome';
 
 // Ease-out sayaç animasyonu
 function useTicker(target: number, dur = 900, delay = 200) {
@@ -156,6 +156,9 @@ const MobileRandevuHome = () => {
                     </div>
                 )}
             </div>
+
+            {/* Masalar — masa modülü de açıksa (restoran-hibrit) */}
+            {isEnabled('masa') && <MobileMasaStrip />}
 
             {/* Hızlı aksiyonlar */}
             <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 9 }}>
