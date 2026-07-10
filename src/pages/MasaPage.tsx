@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Plus, Users, X, Clock, Phone, Trash2, Armchair } from 'lucide-react';
+import { Plus, Minus, Users, X, Clock, Phone, Trash2, Armchair, Wallet, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTables } from '@/hooks/useTables';
 import { useTableReservations } from '@/hooks/useTableReservations';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePayments } from '@/hooks/usePayments';
+import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate, formatDateEU } from '@/utils/date';
-import type { Table, TableReservation, PaymentMethod, Staff } from '@/types';
+import { adisyonTotal, adisyonSummary, groupMenu, addMenuItem, addExtraItem, changeQty } from '@/utils/masaAdisyon';
+import type { Table, TableReservation, PaymentMethod, Staff, Product, MasaAdisyonItem } from '@/types';
 import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Tokens (LT/DT deseni) ─────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ const DT = {
     shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
 };
 const MONO = "'JetBrains Mono', monospace";
+const fmt = (n: number) => n.toLocaleString('tr-TR');
 const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
@@ -40,11 +43,12 @@ export const MasaPage = () => {
     const isMobile = useIsMobile();
     const { tables, isLoading: tablesLoading, addTable, deleteTable } = useTables();
     const { addPayment } = usePayments();
+    const { products } = useProducts();
     const { allCustomers, addCustomer } = useCustomers();
     const { staff } = useStaff();
     const { sendWebhook } = useReservations();
     const [date, setDate] = useState(() => toISODate(new Date()));
-    const { reservations: allReservations, addReservation, setStatus, removeReservation } = useTableReservations(date);
+    const { reservations: allReservations, addReservation, setStatus, removeReservation, updateAdisyon } = useTableReservations(date);
 
     // Hayalet koruması: silinmiş (artık listede olmayan) masaya bağlı rezervasyonlar
     // sayaçta görünüp kartta görünmesin — yalnızca görünür masaların kayıtları.
@@ -145,22 +149,23 @@ export const MasaPage = () => {
         }
     };
 
-    // "Tamamla" → tahsilat: tutar mevcut Kasa akışına (payments) yazılır,
-    // sonra masa kapatılır. Tutarsız kapatma da mümkün (ör. ikram).
-    const [payModal, setPayModal] = useState<TableReservation | null>(null);
+    // Adisyon: masaya kalem eklenir (birikir), "Hesabı Kapat" ile Kasa'ya yazılır.
+    const [adisyonRes, setAdisyonRes] = useState<TableReservation | null>(null);
+    // Modal açıkken canlı satırı yansıt (realtime kalem eklendiğinde güncel kalsın)
+    const adisyonLive = adisyonRes ? reservations.find((x) => x.id === adisyonRes.id) || adisyonRes : null;
     const handleStatus = (id: string, s: TableReservation['status']) => {
         if (s === 'completed') {
             const r = reservations.find((x) => x.id === id);
-            if (r) { setPayModal(r); return; }
+            if (r) { setAdisyonRes(r); return; }
         }
         setStatus(id, s);
     };
-    const completeTable = async (r: TableReservation, amount: number, method: PaymentMethod) => {
+    const completeTable = async (r: TableReservation, amount: number, method: PaymentMethod, summary: string) => {
         const tName = tables.find((t) => t.id === r.tableId)?.name || 'Masa';
         if (amount > 0) {
             const p = await addPayment({
                 amount, method, type: 'service',
-                description: `${tName} · ${r.customerName} · ${r.partySize} kişi`,
+                description: `${tName} · ${summary || r.customerName}`,
                 customerId: r.customerId, staffId: r.staffId,
             });
             if (!p) return; // hata toast'ı addPayment içinde
@@ -168,7 +173,7 @@ export const MasaPage = () => {
         await setStatus(r.id, 'completed');
         sendWebhook('table_reservation.completed', { id: r.id, table: tName, amount });
         toast.success(amount > 0 ? `${amount.toLocaleString('tr-TR')} ₺ tahsil edildi · masa kapatıldı` : 'Masa kapatıldı');
-        setPayModal(null);
+        setAdisyonRes(null);
     };
 
     return (
@@ -264,7 +269,7 @@ export const MasaPage = () => {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         {selRes.map((r) => (
-                                            <ResRow key={r.id} r={r} T={T} staffName={staff.find((s) => s.id === r.staffId)?.name} onStatus={handleStatus} onRemove={removeReservation} />
+                                            <ResRow key={r.id} r={r} T={T} staffName={staff.find((s) => s.id === r.staffId)?.name} onStatus={handleStatus} onRemove={removeReservation} onAdisyon={() => setAdisyonRes(r)} />
                                         ))}
                                     </div>
                                 )}
@@ -287,16 +292,21 @@ export const MasaPage = () => {
             {resModal.open && <ResModal T={T} tables={tables} staff={staff} date={date} preTableId={resModal.tableId} walkIn={resModal.walkIn}
                 onClose={() => setResModal({ open: false })}
                 onSave={saveReservation} />}
-            {payModal && <PayModal T={T} r={payModal} tableName={tables.find((t) => t.id === payModal.tableId)?.name || 'Masa'}
-                onClose={() => setPayModal(null)} onComplete={completeTable} />}
+            {adisyonLive && <MasaAdisyonModal T={T} r={adisyonLive} products={products}
+                tableName={tables.find((t) => t.id === adisyonLive.tableId)?.name || 'Masa'}
+                onClose={() => setAdisyonRes(null)}
+                onUpdateItems={(updater) => updateAdisyon(adisyonLive.id, updater)}
+                onComplete={completeTable} />}
         </div>
     );
 };
 
 // ── Rezervasyon satırı ────────────────────────────────────────────────────────
-function ResRow({ r, T, staffName, onStatus, onRemove }: { r: TableReservation; T: typeof LT; staffName?: string; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void }) {
+function ResRow({ r, T, staffName, onStatus, onRemove, onAdisyon }: { r: TableReservation; T: typeof LT; staffName?: string; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void; onAdisyon: () => void }) {
     const stColor = r.status === 'seated' ? T.orange : r.status === 'completed' ? T.green : T.amber;
     const stLabel = r.status === 'seated' ? 'Oturdu' : r.status === 'completed' ? 'Tamamlandı' : 'Rezerve';
+    const total = adisyonTotal(r.adisyonItems);
+    const open = r.status !== 'completed';
     return (
         <div style={{ background: T.surface2, borderRadius: 12, padding: '11px 12px', borderLeft: `3px solid ${stColor}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -309,9 +319,15 @@ function ResRow({ r, T, staffName, onStatus, onRemove }: { r: TableReservation; 
                 {r.customerPhone && <span><Phone size={11} style={{ verticalAlign: -1 }} /> {r.customerPhone}</span>}
                 {staffName && <span>· {staffName}</span>}
             </div>
+            {total > 0 && (
+                <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span style={{ color: T.muted, fontWeight: 600 }}>Adisyon</span>
+                    <span style={{ fontWeight: 800, color: T.ink, fontFamily: "'JetBrains Mono',monospace" }}>{fmt(total)} ₺</span>
+                </div>
+            )}
             <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
                 {r.status === 'reserved' && <MiniBtn T={T} onClick={() => onStatus(r.id, 'seated')} primary>Oturt</MiniBtn>}
-                {r.status === 'seated' && <MiniBtn T={T} onClick={() => onStatus(r.id, 'completed')} primary>Tamamla</MiniBtn>}
+                {open && <MiniBtn T={T} onClick={onAdisyon} primary><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ReceiptText size={13} /> Adisyon</span></MiniBtn>}
                 <MiniBtn T={T} onClick={() => onRemove(r.id)}><Trash2 size={12} /></MiniBtn>
             </div>
         </div>
@@ -382,43 +398,116 @@ function ResModal({ T, tables, staff, date, preTableId, walkIn, onClose, onSave 
     );
 }
 
-// ── Masa kapatma / tahsilat modalı ────────────────────────────────────────────
-// Tutar mevcut Kasa akışına (payments) yazılır — restoran cirosu Kasa'da görünür.
+// ── Masa adisyon modalı ───────────────────────────────────────────────────────
+// Menüden kalem eklenir (adet), toplam birikir, "Hesabı Kapat" ile Kasa'ya yazılır.
+// Kalemler updateAdisyon ile kaydedilir → garson ile ana bilgisayar realtime paylaşır.
 const PAY_METHODS: { key: PaymentMethod; label: string }[] = [
     { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
     { key: 'transfer', label: 'Havale' }, { key: 'other', label: 'Diğer' },
 ];
-function PayModal({ T, r, tableName, onClose, onComplete }: {
-    T: typeof LT; r: TableReservation; tableName: string;
-    onClose: () => void; onComplete: (r: TableReservation, amount: number, method: PaymentMethod) => Promise<void>;
+function MasaAdisyonModal({ T, r, products, tableName, onClose, onUpdateItems, onComplete }: {
+    T: typeof LT; r: TableReservation; products: Product[]; tableName: string;
+    onClose: () => void; onUpdateItems: (updater: (prev: MasaAdisyonItem[]) => MasaAdisyonItem[]) => void;
+    onComplete: (r: TableReservation, amount: number, method: PaymentMethod, summary: string) => Promise<void>;
 }) {
-    const [amountStr, setAmountStr] = useState('');
+    const items = r.adisyonItems || [];
+    const total = adisyonTotal(items);
+    const menu = useMemo(() => groupMenu(products), [products]);
+    const [cat, setCat] = useState(menu[0]?.category || '');
     const [method, setMethod] = useState<PaymentMethod>('cash');
     const [busy, setBusy] = useState(false);
-    const amount = parseInt(amountStr || '0', 10) || 0;
-    const run = async (amt: number) => { setBusy(true); try { await onComplete(r, amt, method); } finally { setBusy(false); } };
+    const [extraName, setExtraName] = useState('');
+    const [extraPrice, setExtraPrice] = useState('');
+    const catItems = menu.find((m) => m.category === cat)?.items || [];
+
+    const add = (p: Product) => onUpdateItems((prev) => addMenuItem(prev, p));
+    const qty = (id: string, d: number) => onUpdateItems((prev) => changeQty(prev, id, d));
+    const addExtra = () => {
+        const price = parseInt(extraPrice || '0', 10) || 0;
+        if (!extraName.trim() || price <= 0) return;
+        onUpdateItems((prev) => addExtraItem(prev, extraName.trim(), price));
+        setExtraName(''); setExtraPrice('');
+    };
+    const close = async (amt: number) => { setBusy(true); try { await onComplete(r, amt, method, adisyonSummary(items)); } finally { setBusy(false); } };
+
     return (
-        <ModalShell T={T} title={`${tableName} · Hesabı Kapat`} onClose={onClose}>
+        <ModalShell T={T} title={`${tableName} · Adisyon`} onClose={onClose}>
             <p style={{ fontSize: 13, color: T.muted, marginTop: -8, marginBottom: 14 }}>{r.customerName} · {r.partySize} kişi · {r.startTime}</p>
-            <Field T={T} label="Tutar (₺)">
-                <input inputMode="numeric" autoFocus placeholder="0" value={amountStr}
-                    onChange={(e) => setAmountStr(e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inp(T), fontSize: 20, fontWeight: 800 }} />
-            </Field>
-            <Field T={T} label="Ödeme yöntemi">
-                <div style={{ display: 'flex', gap: 6 }}>
-                    {PAY_METHODS.map((m) => (
-                        <button key={m.key} onClick={() => setMethod(m.key)} style={{ flex: 1, padding: '9px 4px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: method === m.key ? T.ink : T.surface2, color: method === m.key ? T.surface : T.muted, border: `1px solid ${method === m.key ? T.ink : T.border2}` }}>{m.label}</button>
+
+            {/* Adisyon kalemleri */}
+            {items.length === 0 ? (
+                <div style={{ fontSize: 13, color: T.muted, padding: '10px 12px', background: T.surface2, borderRadius: 10, marginBottom: 14, textAlign: 'center' }}>Adisyon boş — menüden kalem ekle</div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                    {items.map((it) => (
+                        <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 11px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</div>
+                                <div style={{ fontSize: 11, color: T.muted, fontFamily: MONO }}>{fmt(it.price)} ₺ {it.kind === 'extra' ? '· ekstra' : ''}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button onClick={() => qty(it.id, -1)} style={qtyBtn(T)}><Minus size={13} /></button>
+                                <span style={{ minWidth: 18, textAlign: 'center', fontSize: 13.5, fontWeight: 800, fontFamily: MONO }}>{it.qty}</span>
+                                <button onClick={() => qty(it.id, +1)} style={qtyBtn(T)}><Plus size={13} /></button>
+                            </div>
+                            <span style={{ width: 62, textAlign: 'right', fontSize: 13.5, fontWeight: 800, fontFamily: MONO }}>{fmt(it.price * it.qty)} ₺</span>
+                        </div>
                     ))}
                 </div>
-            </Field>
-            <button disabled={amount <= 0 || busy} onClick={() => run(amount)} style={primaryBtn(T, amount <= 0 || busy)}>
-                {amount > 0 ? `${amount.toLocaleString('tr-TR')} ₺ Tahsil Et & Kapat` : 'Tutar gir'}
+            )}
+
+            {/* Menü — kategori sekmeleri + ürünler */}
+            {menu.length > 0 ? (
+                <>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                        {menu.map((m) => (
+                            <button key={m.category} onClick={() => setCat(m.category)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: cat === m.category ? T.orange : T.surface2, color: cat === m.category ? '#fff' : T.muted, border: `1px solid ${cat === m.category ? T.orange : T.border2}` }}>{m.category}</button>
+                        ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14, maxHeight: 160, overflowY: 'auto' }}>
+                        {catItems.map((p) => (
+                            <button key={p.id} onClick={() => add(p)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '9px 11px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border2}`, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{p.name}</span>
+                                <span style={{ fontSize: 11.5, color: T.orange, fontWeight: 700, fontFamily: MONO }}>{fmt(p.price)} ₺</span>
+                            </button>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>Menü boş — Kasa &gt; Ürünler'den ürün ekleyebilirsin.</div>
+            )}
+
+            {/* Serbest kalem */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                <input value={extraName} onChange={(e) => setExtraName(e.target.value)} placeholder="Serbest kalem" style={{ ...inp(T), flex: 2 }} />
+                <input value={extraPrice} onChange={(e) => setExtraPrice(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="₺" style={{ ...inp(T), flex: 1, minWidth: 0 }} />
+                <button onClick={addExtra} style={{ padding: '0 12px', borderRadius: 9, background: T.surface3, color: T.ink, border: 'none', cursor: 'pointer', fontWeight: 800 }}><Plus size={16} /></button>
+            </div>
+
+            {/* Toplam */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '10px 0', borderTop: `1px solid ${T.border}` }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.muted }}>Toplam</span>
+                <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', color: T.orange }}>{fmt(total)} <span style={{ fontSize: 15 }}>₺</span></span>
+            </div>
+
+            {/* Ödeme yöntemi */}
+            <div style={{ display: 'flex', gap: 6, margin: '8px 0 12px' }}>
+                {PAY_METHODS.map((m) => (
+                    <button key={m.key} onClick={() => setMethod(m.key)} style={{ flex: 1, padding: '8px 4px', borderRadius: 9, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: method === m.key ? T.ink : T.surface2, color: method === m.key ? T.surface : T.muted, border: `1px solid ${method === m.key ? T.ink : T.border2}` }}>{m.label}</button>
+                ))}
+            </div>
+
+            <button disabled={total <= 0 || busy} onClick={() => close(total)} style={primaryBtn(T, total <= 0 || busy)}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Wallet size={16} /> {total > 0 ? `${fmt(total)} ₺ Tahsil Et & Kapat` : 'Adisyon boş'}</span>
             </button>
-            <button disabled={busy} onClick={() => run(0)} style={{ width: '100%', marginTop: 8, padding: '11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button disabled={busy} onClick={() => close(0)} style={{ width: '100%', marginTop: 8, padding: '11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Tahsilatsız Kapat (ikram/iptal)
             </button>
         </ModalShell>
     );
+}
+function qtyBtn(T: typeof LT): React.CSSProperties {
+    return { width: 26, height: 26, borderRadius: 7, display: 'grid', placeItems: 'center', border: `1px solid ${T.border2}`, background: T.surface, color: T.ink, cursor: 'pointer' };
 }
 
 // ── Ortak modal/parça yardımcıları ────────────────────────────────────────────

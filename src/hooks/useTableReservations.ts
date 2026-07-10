@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO } from '@/utils/date';
-import type { TableReservation, TableReservationStatus } from '@/types';
+import type { TableReservation, TableReservationStatus, MasaAdisyonItem } from '@/types';
 
 export function mapTableRow(row: any): TableReservation {
     return mapRow(row);
@@ -19,6 +19,7 @@ function mapRow(row: any): TableReservation {
         customerPhone: row.customer_phone || undefined,
         customerId: row.customer_id || undefined,
         staffId: row.staff_id || undefined,
+        adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
         partySize: row.party_size ?? 2,
         date: row.date,
         startTime: row.start_time?.slice(0, 5) || row.start_time,
@@ -143,7 +144,28 @@ export function useTableReservations(date: string) {
         });
     }, [orgId, date]);
 
-    return { reservations, isLoading, addReservation, setStatus, removeReservation };
+    // Masa adisyonunu güncelle — updater fonksiyonel state üzerinden çalışır ki
+    // hızlı art arda kalem ekleme (garson) yarış/stale-closure ile kalem kaybetmesin.
+    // 043 kolonu yoksa DB yazımı sessizce geçer (akış kırılmaz); realtime ile yansır.
+    const updateAdisyon = useCallback((id: string, updater: (prev: MasaAdisyonItem[]) => MasaAdisyonItem[]) => {
+        let persisted: MasaAdisyonItem[] | null = null;
+        setReservations((p) => {
+            const cur = p.find((r) => r.id === id)?.adisyonItems || [];
+            const nextItems = updater(cur);
+            persisted = nextItems;
+            const next = p.map((r) => (r.id === id ? { ...r, adisyonItems: nextItems } : r));
+            if (orgId) writeCache(`table_res:${orgId}:${date}`, next);
+            return next;
+        });
+        // State hesaplandıktan sonra DB'ye yaz (updater içinde yan etki olmasın)
+        queueMicrotask(() => {
+            if (!persisted) return;
+            supabase.from('table_reservations').update({ adisyon_items: persisted }).eq('id', id)
+                .then(({ error }) => { if (error) console.warn('Adisyon kaydedilemedi (043 migration gerekli olabilir):', error.message); });
+        });
+    }, [orgId, date]);
+
+    return { reservations, isLoading, addReservation, setStatus, removeReservation, updateAdisyon };
 }
 
 // Bugün + yaklaşan (date >= bugün) tüm masa rezervasyonları — salt-okunur.

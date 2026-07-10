@@ -151,6 +151,7 @@ export interface Product {
     organizationId: string;
     name: string;
     price: number;
+    category?: string;   // menü gruplaması (Yemek/İçecek/Tatlı…) — 043
     isActive: boolean;
     createdAt: string;
 }
@@ -185,6 +186,15 @@ export interface Table {
 
 export type TableReservationStatus = 'reserved' | 'seated' | 'completed' | 'cancelled';
 
+// Masa adisyon kalemi — randevu AdisyonItem'ından AYRI (adet dahil). 043
+export interface MasaAdisyonItem {
+    id: string;
+    name: string;
+    price: number;   // birim fiyat
+    qty: number;
+    kind: 'product' | 'extra';   // menü ürünü mü, serbest ekstra mı
+}
+
 export interface TableReservation {
     id: string;
     organizationId: string;
@@ -193,6 +203,7 @@ export interface TableReservation {
     customerPhone?: string;
     customerId?: string;  // müşteri kartı bağı (LTV/geçmiş) — 042
     staffId?: string;     // garson ataması (opsiyonel) — 042
+    adisyonItems?: MasaAdisyonItem[];  // masa adisyonu (menü kalemleri) — 043
     partySize: number;
     date: string;        // YYYY-MM-DD
     startTime: string;   // HH:MM

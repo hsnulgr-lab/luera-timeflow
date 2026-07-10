@@ -11,6 +11,7 @@ function mapRow(row: any): Product {
         organizationId: row.organization_id,
         name: row.name,
         price: Number(row.price),
+        category: row.category || undefined,
         isActive: row.is_active,
         createdAt: row.created_at,
     };
@@ -47,12 +48,14 @@ export function useProducts() {
         if (user && orgId) fetchProducts(orgId);
     }, [user, orgId, fetchProducts]);
 
-    const addProduct = useCallback(async (name: string, price: number): Promise<Product | null> => {
+    const addProduct = useCallback(async (name: string, price: number, category?: string): Promise<Product | null> => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }
-        const { data, error } = await supabase
-            .from('products')
-            .insert({ organization_id: orgId, name, price, is_active: true })
-            .select().single();
+        // category kolonu 043 ile geldi — doluysa gönder, migration yoksa bağsız kaydet (geri düş)
+        const base = { organization_id: orgId, name, price, is_active: true };
+        let { data, error } = await supabase.from('products').insert(category ? { ...base, category } : base).select().single();
+        if (error && category) {
+            ({ data, error } = await supabase.from('products').insert(base).select().single());
+        }
         if (error) { toast.error('Ürün eklenemedi'); console.error(error); return null; }
         const row = mapRow(data);
         setProducts(prev => [row, ...prev]);

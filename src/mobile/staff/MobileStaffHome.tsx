@@ -8,9 +8,12 @@ import { useReservations } from '@/hooks/useReservations';
 import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { useTables } from '@/hooks/useTables';
 import { toISODate, relativeDayLabel } from '@/utils/date';
+import { adisyonTotal } from '@/utils/masaAdisyon';
 import type { Reservation } from '@/types';
 import { apptPhase } from '@/lib/appointmentFlow';
 import { MobileServiceDetail } from './MobileServiceDetail';
+import { MobileMasaDetail } from './MobileMasaDetail';
+import type { TableReservation } from '@/types';
 import { D, fmtNum, useTicker, HizmetKeyframes, STS } from './hizmetDesign';
 
 const WD = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
@@ -24,6 +27,7 @@ export const MobileStaffHome = () => {
     const handleLogout = () => { logout(); navigate('/'); };
     const push = usePush('staff', staff?.id);
     const [detailId, setDetailId] = useState<string | null>(null);
+    const [masaDetail, setMasaDetail] = useState<TableReservation | null>(null);
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
     const { reservations, getReservationsByDate, updateReservation, claimReservation } = useReservations();
@@ -107,6 +111,7 @@ export const MobileStaffHome = () => {
     const weekRevAnim = useTicker(weekRev, 1300, 450);
 
     if (detailId) return <MobileServiceDetail reservationId={detailId} onBack={() => setDetailId(null)} />;
+    if (masaDetail) return <MobileMasaDetail reservation={masaDetail} tableName={tableNameOf(masaDetail.tableId)} onBack={() => setMasaDetail(null)} />;
 
     return (
         <div style={{ position: 'relative', minHeight: '100dvh', background: D.bg, color: D.ink, fontFamily: D.font }}>
@@ -270,8 +275,9 @@ export const MobileStaffHome = () => {
                                 const st = r.status === 'seated' ? { lbl: 'Oturdu', c: D.orange, bg: 'rgba(255,90,31,.12)' }
                                     : r.status === 'completed' ? { lbl: 'Tamamlandı', c: D.green, bg: STS.done.bg }
                                     : { lbl: 'Rezerve', c: D.amber, bg: 'rgba(224,168,78,.12)' };
+                                const adTotal = adisyonTotal(r.adisyonItems);
                                 return (
-                                    <div key={r.id} onClick={() => navigate('/masa')} style={{ display: 'flex', alignItems: 'center', gap: 11, background: D.s1, border: `1px solid ${D.border}`, borderRadius: 17, padding: '12px 14px', cursor: 'pointer' }}>
+                                    <div key={r.id} onClick={() => setMasaDetail(r)} style={{ display: 'flex', alignItems: 'center', gap: 11, background: D.s1, border: `1px solid ${D.border}`, borderRadius: 17, padding: '12px 14px', cursor: 'pointer' }}>
                                         <div style={{ width: 54, flexShrink: 0 }}>
                                             {isFuture && <div style={{ fontFamily: D.mono, fontSize: 10, fontWeight: 800, color: D.orange, marginBottom: 1 }}>{relativeDayLabel(r.date)}</div>}
                                             <div style={{ fontFamily: D.mono, fontSize: 13, fontWeight: 800 }}>{r.startTime}</div>
@@ -279,7 +285,7 @@ export const MobileStaffHome = () => {
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 14, fontWeight: 780, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                                            <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2.5 }}>{tableNameOf(r.tableId)}</div>
+                                            <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2.5 }}>{tableNameOf(r.tableId)}{adTotal > 0 ? ` · ${adTotal.toLocaleString('tr-TR')} ₺` : ''}</div>
                                         </div>
                                         <div style={{ padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.c, fontSize: 10, fontWeight: 750, flexShrink: 0 }}>{st.lbl}</div>
                                     </div>

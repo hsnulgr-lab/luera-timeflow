@@ -5,6 +5,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useReservations } from '@/hooks/useReservations';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useTheme } from '@/contexts/ThemeContext';
+import { MENU_CATEGORIES } from '@/utils/masaAdisyon';
 import type { Payment, PaymentMethod, PaymentType } from '@/types';
 
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
@@ -389,24 +390,25 @@ export const KasaPage = () => {
 
 // ── Ürün yönetimi modalı ──
 function ProductsModal({ products, onAdd, onRemove, onClose }: {
-    products: { id: string; name: string; price: number }[];
-    onAdd: (name: string, price: number) => void;
+    products: { id: string; name: string; price: number; category?: string }[];
+    onAdd: (name: string, price: number, category?: string) => void;
     onRemove: (id: string) => void;
     onClose: () => void;
 }) {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
+    const [category, setCategory] = useState('');
     const add = () => {
         const p = parseFloat(price.replace(',', '.'));
         if (!name.trim()) { toast.error('Ürün adı gir'); return; }
         if (!p || p < 0) { toast.error('Geçerli bir fiyat gir'); return; }
-        onAdd(name.trim(), p); setName(''); setPrice('');
+        onAdd(name.trim(), p, category || undefined); setName(''); setPrice('');
     };
     return (
         <div className="pmodal-overlay open" onClick={onClose}>
             <div className="pmodal" onClick={e => e.stopPropagation()}>
                 <div className="sheet-hd">
-                    <div><div className="sheet-hd-title">Ürünler</div><div className="sheet-hd-sub">Hızlı satış için ürün kataloğu</div></div>
+                    <div><div className="sheet-hd-title">Ürünler / Menü</div><div className="sheet-hd-sub">Hızlı satış + masa adisyonu için katalog</div></div>
                     <button className="sheet-close" onClick={onClose}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></button>
                 </div>
                 <div className="pmodal-body">
@@ -415,6 +417,13 @@ function ProductsModal({ products, onAdd, onRemove, onClose }: {
                         <input className="txt-input mono" style={{ width: 92 }} placeholder="₺" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} />
                         <button className="pmodal-addbtn" onClick={add}><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></button>
                     </div>
+                    {/* Kategori (masa menüsü gruplaması — opsiyonel) */}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                        {MENU_CATEGORIES.map(c => (
+                            <button key={c} onClick={() => setCategory(category === c ? '' : c)}
+                                style={{ padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: category === c ? 'var(--dc-orange)' : 'var(--dc-surface2)', color: category === c ? '#fff' : 'var(--dc-muted)', border: `1px solid ${category === c ? 'var(--dc-orange)' : 'var(--dc-border)'}` }}>{c}</button>
+                        ))}
+                    </div>
                     {products.length === 0 ? (
                         <div className="empty-state" style={{ padding: '30px 20px' }}><div className="es-t">Henüz ürün yok</div><div className="es-s">Yukarıdan ilk ürünü ekle</div></div>
                     ) : (
@@ -422,7 +431,7 @@ function ProductsModal({ products, onAdd, onRemove, onClose }: {
                             {products.map(p => (
                                 <div className="txn" key={p.id}>
                                     <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 6l7-3.5L17 6v8l-7 3.5L3 14V6Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M3 6l7 3.5L17 6" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg></div>
-                                    <div className="txn-body"><div className="txn-name">{p.name}</div></div>
+                                    <div className="txn-body"><div className="txn-name">{p.name}</div>{p.category && <div className="txn-sub" style={{ fontSize: 11, color: 'var(--dc-muted)' }}>{p.category}</div>}</div>
                                     <div className="txn-amt">{fmt(p.price)} ₺</div>
                                     <button className="txn-del" onClick={() => onRemove(p.id)} title="Sil"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l.8 10h6.4L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
                                 </div>
