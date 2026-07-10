@@ -20,7 +20,8 @@ export const DEFAULT_MODULES: Modules = {
 
 // Sektör → varsayılan modül seti (migration 023 ile birebir)
 export const SECTOR_MODULES: Record<string, Modules> = {
-    restoran: { randevu: false, personel: false, hizmet: false, kasa: true, masa: true, analiz: true, sira: false },
+    // restoran: personel açık — garson ataması ve garsona push personel listesinden beslenir
+    restoran: { randevu: false, personel: true, hizmet: false, kasa: true, masa: true, analiz: true, sira: false },
     guzellik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
     kuafor: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: true },
     fizyoterapi: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },

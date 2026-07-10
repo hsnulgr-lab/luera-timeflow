@@ -72,6 +72,7 @@ export const MobileAdminHome = () => {
     }, [payments, todayList]);
 
     const MGMT = [
+        ...(isEnabled('masa') ? [{ lbl: 'Masalar', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12', badge: null, to: '/masa' }] : []),
         ...(isEnabled('sira') ? [{ lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M7 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 18c0-2.5 2.2-4.5 5-4.5M13 6a2.5 2.5 0 010 5M18 18c0-2.5-1.5-4.3-4-4.5', badge: null, to: '/queue' }] : []),
         { lbl: 'Personel', clr: T.purple, bg: 'rgba(201,139,219,.13)', path: 'M10 9a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: activeStaff || null, to: '/staff' },
         { lbl: 'Müşteriler', clr: T.blue, bg: 'rgba(107,159,212,.13)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: allCustomers.length || null, to: '/customers' },
@@ -118,8 +119,8 @@ export const MobileAdminHome = () => {
                 </div>
             </div>
 
-            {/* Pending approvals */}
-            {pending.length > 0 && (
+            {/* Pending approvals — yalnızca randevu modülü açıkken anlamlı */}
+            {isEnabled('randevu') && pending.length > 0 && (
                 <div style={{ margin: '16px 22px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 11 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

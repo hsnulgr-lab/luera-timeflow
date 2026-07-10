@@ -8,6 +8,7 @@ import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
+import { MobileMasaHome } from './MobileMasaHome';
 
 // Ease-out sayaç animasyonu
 function useTicker(target: number, dur = 900, delay = 200) {
@@ -35,6 +36,14 @@ const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTH_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
 export const MobileHome = () => {
+    // Restoran modu: masa açık + randevu kapalı → masa odaklı ana ekran.
+    // Diğer tüm durumlarda mevcut randevu ekranı birebir aynı kalır.
+    const { isEnabled: modEnabled, isLoading: modulesLoading } = useModules();
+    if (!modulesLoading && modEnabled('masa') && !modEnabled('randevu')) return <MobileMasaHome />;
+    return <MobileRandevuHome />;
+};
+
+const MobileRandevuHome = () => {
     const navigate = useNavigate();
     const { settings, getTodayReservations, updateReservation } = useReservations();
     const { stats } = usePayments();

@@ -38,7 +38,7 @@ export const MasaPage = () => {
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const isMobile = useIsMobile();
-    const { tables, addTable, deleteTable } = useTables();
+    const { tables, isLoading: tablesLoading, addTable, deleteTable } = useTables();
     const { addPayment } = usePayments();
     const { allCustomers, addCustomer } = useCustomers();
     const { staff } = useStaff();
@@ -178,7 +178,11 @@ export const MasaPage = () => {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
                     <div>
                         <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', color: T.ink }}>Masa Yönetimi</h1>
-                        <p style={{ fontSize: 13, color: T.muted, marginTop: 3 }}>{tables.length} masa · {dObj.getDate()} {MONTHS[dObj.getMonth()]} · {totalRes} rezervasyon · {fullCount} dolu</p>
+                        <p style={{ fontSize: 13, color: T.muted, marginTop: 3 }}>
+                            {tablesLoading
+                                ? `${dObj.getDate()} ${MONTHS[dObj.getMonth()]} · yükleniyor…`
+                                : `${tables.length} masa · ${dObj.getDate()} ${MONTHS[dObj.getMonth()]} · ${totalRes} rezervasyon · ${fullCount} dolu`}
+                        </p>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => setShowTableModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -207,7 +211,15 @@ export const MasaPage = () => {
                     })}
                 </div>
 
-                {tables.length === 0 ? (
+                {tablesLoading ? (
+                    /* İlk yükleme: "Henüz masa yok" flaşı yerine iskelet kartlar */
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 14 }}>
+                        {[0, 1, 2].map((i) => (
+                            <div key={i} style={{ height: 96, borderRadius: 16, background: T.surface2, border: `1.5px solid ${T.border}`, animation: 'pulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.15}s` }} />
+                        ))}
+                        <style>{`@keyframes pulse { 0%,100% { opacity: .45 } 50% { opacity: .9 } }`}</style>
+                    </div>
+                ) : tables.length === 0 ? (
                     <div style={{ background: T.surface, border: `1px dashed ${T.border2}`, borderRadius: 16, padding: '48px 20px', textAlign: 'center' }}>
                         <Armchair size={32} color={T.muted2} style={{ margin: '0 auto 12px' }} />
                         <p style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Henüz masa yok</p>

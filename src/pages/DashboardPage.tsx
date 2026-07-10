@@ -10,6 +10,8 @@ import { apptPhase } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import { MasaDashboard, MasaSummaryCard } from '@/components/dashboard/MasaDashboard';
+import { useModules } from '@/hooks/useModules';
 import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LueraButton } from '@/components/ui/LueraButton';
@@ -144,6 +146,16 @@ function StatCard({ label, value, sublabel, compareLabel, compareValue, trend, u
 }
 
 export const DashboardPage = () => {
+    // Restoran modu: masa açık + randevu kapalı → masa/ciro odaklı dashboard.
+    // modulesLoading iken randevu dash'i bekletilmez (mevcut davranış korunur);
+    // masa kapalıyken tüm yeni dallar false → randevu ekranı birebir aynı.
+    const { isEnabled, isLoading: modulesLoading } = useModules();
+    const masaMode = !modulesLoading && isEnabled('masa') && !isEnabled('randevu');
+    if (masaMode) return <MasaDashboard />;
+    return <RandevuDashboard showMasaCard={!modulesLoading && isEnabled('masa')} />;
+};
+
+const RandevuDashboard = ({ showMasaCard }: { showMasaCard: boolean }) => {
     const navigate = useNavigate();
     const { dark } = useTheme();
     const { reservations, settings, getStats, getTodayReservations, getUpcomingReservations, getReservationsByDate, updateReservation } = useReservations();
@@ -414,6 +426,9 @@ export const DashboardPage = () => {
                     </StatCard>
 
                 </div>
+
+                {/* Masa modülü de açıksa kompakt özet (restoran-hibrit işletme) */}
+                {showMasaCard && <MasaSummaryCard />}
 
                 {/* ── Ana İçerik ─────────────────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
