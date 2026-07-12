@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, STS_BG } from '../theme';
+import { useTicker } from '../hooks';
+
+export { useTicker };
 
 // ── Tasarım token'ları — artık uygulama genelindeki tema sistemine (T, CSS
 // değişkenleri) bağlı; koyu/açık geçişi ThemeProvider'daki global toggle ile
@@ -49,28 +52,11 @@ export function HizmetKeyframes() {
     return null;
 }
 
-// easeOutCubic ile 0 → target sayaç animasyonu
-export function useTicker(target: number, dur = 900, delay = 250) {
-    const [v, setV] = useState(0);
-    useEffect(() => {
-        let raf = 0;
-        const t = setTimeout(() => {
-            let start = 0;
-            const tick = (now: number) => {
-                if (!start) start = now;
-                const p = Math.min((now - start) / dur, 1);
-                setV(Math.round((1 - Math.pow(1 - p, 3)) * target));
-                if (p < 1) raf = requestAnimationFrame(tick);
-            };
-            raf = requestAnimationFrame(tick);
-        }, delay);
-        return () => { clearTimeout(t); cancelAnimationFrame(raf); };
-    }, [target, dur, delay]);
-    return v;
-}
-
 // ── Slide-to-Start (iOS "slide to answer" deseni) ──
-export function SlideToStart({ onComplete }: { onComplete: () => void }) {
+// onComplete false dönerse (örn. DB yazımı başarısız oldu) sürgü sıfırlanır —
+// aksi hâlde swipe "tamamlandı" görünüp donuk kalır, ekran hiç geçiş yapmaz
+// ama kullanıcı işlemin aslında başarısız olduğunu fark edemez.
+export function SlideToStart({ onComplete, label = 'Hizmete Başla' }: { onComplete: () => void | boolean | Promise<void | boolean>; label?: string }) {
     const [dragX, setDragX] = useState(0);
     const [dragging, setDrag] = useState(false);
     const [done, setDone] = useState(false);
@@ -86,8 +72,13 @@ export function SlideToStart({ onComplete }: { onComplete: () => void }) {
     const end = () => {
         if (!dragging) return;
         setDrag(false);
-        if (dragX >= maxX() * 0.82) { setDone(true); setDragX(maxX()); setTimeout(onComplete, 380); }
-        else setDragX(0);
+        if (dragX >= maxX() * 0.82) {
+            setDone(true); setDragX(maxX());
+            setTimeout(async () => {
+                const result = await onComplete();
+                if (result === false) { setDone(false); setDragX(0); }
+            }, 380);
+        } else setDragX(0);
     };
 
     useEffect(() => {
@@ -114,7 +105,7 @@ export function SlideToStart({ onComplete }: { onComplete: () => void }) {
         }}>
             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: PAD + THUMB + dragX, background: 'linear-gradient(90deg,rgba(255,90,31,.50),rgba(255,90,31,.18))', borderRadius: 20, transition }} />
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, pointerEvents: 'none', opacity: done ? 0 : 1 - p * 1.2, transition: 'opacity .2s' }}>
-                <span style={{ fontSize: 14.5, fontWeight: 780, color: 'rgba(255,255,255,.85)', letterSpacing: '-.01em', paddingLeft: THUMB * 0.6 }}>Hizmete Başla</span>
+                <span style={{ fontSize: 14.5, fontWeight: 780, color: 'rgba(255,255,255,.85)', letterSpacing: '-.01em', paddingLeft: THUMB * 0.6 }}>{label}</span>
                 <div style={{ display: 'flex', gap: 2 }}>
                     {[0, 1, 2].map((i) => (
                         <svg key={i} width="6" height="11" viewBox="0 0 6 11" fill="none" style={{ animation: `lz-arrowHint 1.4s ${i * .18}s ease-in-out infinite` }}>

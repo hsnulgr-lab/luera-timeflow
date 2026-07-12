@@ -5,6 +5,8 @@ import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
+import { useTables } from '@/hooks/useTables';
+import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { useModules } from '@/hooks/useModules';
 import { toISODate } from '@/utils/date';
@@ -41,7 +43,10 @@ export const MobileAdminHome = () => {
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
     const { disable: exitManager } = useManagerMode();
-    const { isEnabled } = useModules();
+    const { isEnabled, isLoading: modulesLoading } = useModules();
+    const masaMode = !modulesLoading && isEnabled('masa');
+    const { tables } = useTables();
+    const { reservations: tableReservations } = useUpcomingTableReservations();
 
     const totalRev = useTicker(stats.total, 1200, 200);
     const monthRev = useTicker(stats.month, 900, 300);
@@ -59,6 +64,15 @@ export const MobileAdminHome = () => {
     const todayCustomers = new Set(todayActive.map((r) => r.customerName)).size;
     const todayCancelled = todayList.filter((r) => r.status === 'cancelled').length;
 
+    // Restoran modu: "Bugün" istatistiği masa rezervasyonlarına döner (randevu
+    // verisi bu işletmelerde anlamsız — MobileMasaHome'daki hesaplamayla aynı desen).
+    const todayTableRes = useMemo(
+        () => tableReservations.filter((r) => tables.some((t) => t.id === r.tableId) && r.date === todayStr),
+        [tableReservations, tables, todayStr]
+    );
+    const todayGuests = todayTableRes.reduce((s, r) => s + r.partySize, 0);
+    const doluMasa = tables.filter((t) => todayTableRes.some((r) => r.tableId === t.id && r.status === 'seated')).length;
+
     // Son aktivite — son tahsilatlar + bugün tamamlanan/iptal
     const activity = useMemo(() => {
         const items: { icon: string; c: string; bg: string; txt: string; sub: string; t: string }[] = [];
@@ -72,13 +86,13 @@ export const MobileAdminHome = () => {
     }, [payments, todayList]);
 
     const MGMT = [
-        ...(isEnabled('masa') ? [{ lbl: 'Masalar', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12', badge: null, to: '/masa' }] : []),
-        ...(isEnabled('sira') ? [{ lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M7 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 18c0-2.5 2.2-4.5 5-4.5M13 6a2.5 2.5 0 010 5M18 18c0-2.5-1.5-4.3-4-4.5', badge: null, to: '/queue' }] : []),
+        ...(!modulesLoading && isEnabled('masa') ? [{ lbl: 'Masalar', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12', badge: null, to: '/masa' }] : []),
+        ...(!modulesLoading && isEnabled('sira') ? [{ lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M7 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 18c0-2.5 2.2-4.5 5-4.5M13 6a2.5 2.5 0 010 5M18 18c0-2.5-1.5-4.3-4-4.5', badge: null, to: '/queue' }] : []),
         { lbl: 'Personel', clr: T.purple, bg: 'rgba(201,139,219,.13)', path: 'M10 9a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: activeStaff || null, to: '/staff' },
         { lbl: 'Müşteriler', clr: T.blue, bg: 'rgba(107,159,212,.13)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', badge: allCustomers.length || null, to: '/customers' },
         { lbl: 'Hizmetler', clr: T.amber, bg: 'rgba(224,168,78,.13)', path: 'M3 6h14M3 10h14M3 14h8', badge: settings.services.length || null, to: '/settings?tab=services' },
         { lbl: 'Çalışma Saat.', clr: T.green, bg: 'rgba(124,196,127,.13)', path: 'M10 6v4l3 3M10 2a8 8 0 100 16A8 8 0 0010 2', badge: null, to: '/settings?tab=hours' },
-        ...(isEnabled('analiz') ? [{ lbl: 'Analiz', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', badge: null, to: '/analytics' }] : []),
+        ...(!modulesLoading && isEnabled('analiz') ? [{ lbl: 'Analiz', clr: T.orange, bg: 'rgba(255,90,31,.13)', path: 'M3 15V9M8 15V5M13 15v-5M3 15h14', badge: null, to: '/analytics' }] : []),
         { lbl: 'Ayarlar', clr: T.muted, bg: T.surface3, path: 'M10 13a3 3 0 100-6 3 3 0 000 6ZM10 3v1M10 16v1M3 10h1M16 10h1M5.4 5.4l.7.7M13.9 13.9l.7.7M5.4 14.6l.7-.7M13.9 6.1l.7-.7', badge: null, to: '/settings' },
     ] as const;
 
@@ -119,8 +133,9 @@ export const MobileAdminHome = () => {
                 </div>
             </div>
 
-            {/* Pending approvals — yalnızca randevu modülü açıkken anlamlı */}
-            {isEnabled('randevu') && pending.length > 0 && (
+            {/* Pending approvals — yalnızca randevu modülü açıkken; restoran (masa)
+                modunda randevu yüzü gizlenir */}
+            {!modulesLoading && isEnabled('randevu') && !isEnabled('masa') && pending.length > 0 && (
                 <div style={{ margin: '16px 22px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 11 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -167,11 +182,15 @@ export const MobileAdminHome = () => {
 
             {/* Today stats */}
             <div style={{ padding: '18px 22px 0', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>
-                {[
+                {(masaMode ? [
+                    { lbl: 'Rezervasyon', val: String(todayTableRes.length), clr: T.orange },
+                    { lbl: 'Misafir', val: String(todayGuests), clr: T.blue },
+                    { lbl: 'Dolu Masa', val: `${doluMasa}/${tables.length}`, clr: T.green },
+                ] : [
                     { lbl: 'Randevu', val: String(todayActive.length), clr: T.orange },
                     { lbl: 'Müşteri', val: String(todayCustomers), clr: T.blue },
                     { lbl: 'İptal', val: String(todayCancelled), clr: '#E07070' },
-                ].map((s) => (
+                ]).map((s) => (
                     <div key={s.lbl} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 15, padding: '13px 12px 11px' }}>
                         <div style={{ fontSize: 9.5, color: T.muted, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 7 }}>{s.lbl}</div>
                         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', color: s.clr, lineHeight: 1 }}>{s.val}</div>

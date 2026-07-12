@@ -16,6 +16,8 @@ export function BottomSheet({ open, onClose, title, children }: {
     const [dragY, setDragY] = useState(0);
     const [dragging, setDragging] = useState(false);
     const startYRef = useRef(0);
+    const dragYRef = useRef(0);
+    const closeBtnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -24,13 +26,24 @@ export function BottomSheet({ open, onClose, title, children }: {
         return () => { document.body.style.overflow = prev; };
     }, [open]);
 
-    useEffect(() => { if (!open) setDragY(0); }, [open]);
+    // Açılışta odağı sheet'e taşı, Escape ile kapat — klavye/screen-reader erişimi.
+    useEffect(() => {
+        if (!open) return;
+        closeBtnRef.current?.focus();
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
+    useEffect(() => { if (!open) { dragYRef.current = 0; setDragY(0); } }, [open]);
 
     const onDragStart = (clientY: number) => { setDragging(true); startYRef.current = clientY - dragY; };
-    const onDragMove = (clientY: number) => { setDragY(Math.max(0, clientY - startYRef.current)); };
+    const onDragMove = (clientY: number) => { const y = Math.max(0, clientY - startYRef.current); dragYRef.current = y; setDragY(y); };
     const onDragEnd = () => {
         setDragging(false);
-        setDragY(y => { if (y > DRAG_CLOSE_THRESHOLD) onClose(); return y > DRAG_CLOSE_THRESHOLD ? y : 0; });
+        if (dragYRef.current > DRAG_CLOSE_THRESHOLD) onClose();
+        else setDragY(0);
     };
 
     useEffect(() => {
@@ -73,7 +86,7 @@ export function BottomSheet({ open, onClose, title, children }: {
                 </div>
                 <div className="flex items-center justify-between px-5 pb-3 pt-3">
                     <h2 className="text-[20px] font-black tracking-[-0.03em]">{title}</h2>
-                    <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl"
+                    <button ref={closeBtnRef} onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl"
                         style={{ background: T.surface2, color: T.ink }} aria-label="Kapat">
                         <X size={18} />
                     </button>

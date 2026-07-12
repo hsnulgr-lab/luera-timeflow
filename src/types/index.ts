@@ -165,6 +165,7 @@ export interface QueueEntry {
     organizationId: string;
     customerName: string;
     customerPhone?: string;
+    partySize: number;
     service?: string;
     staffId?: string;
     status: QueueStatus;
@@ -180,6 +181,7 @@ export interface Table {
     organizationId: string;
     name: string;
     capacity: number;
+    zone: string;
     isActive: boolean;
     createdAt: string;
 }
@@ -204,11 +206,13 @@ export interface TableReservation {
     customerId?: string;  // müşteri kartı bağı (LTV/geçmiş) — 042
     staffId?: string;     // garson ataması (opsiyonel) — 042
     adisyonItems?: MasaAdisyonItem[];  // masa adisyonu (menü kalemleri) — 043
+    seatedAt?: string;   // masaya oturuldu (status→seated) zaman damgası — 044
     partySize: number;
     date: string;        // YYYY-MM-DD
     startTime: string;   // HH:MM
     endTime?: string;    // HH:MM (tahmini, opsiyonel)
     status: TableReservationStatus;
+    isPaid?: boolean;    // Tamamlandı ama ödeme henüz alınmadı mı (garson "Kasaya Gönder") — 049
     notes?: string;
     createdAt: string;
 }

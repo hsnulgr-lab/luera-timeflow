@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Link2, Wallet, Armchair, Users } from 'lucide-react';
+import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -33,7 +33,7 @@ interface SidebarProps {
 export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, onMobileClose }: SidebarProps) => {
     const { user, logout } = useAuth();
     const { dark, toggle: toggleTheme } = useTheme();
-    const { isEnabled } = useModules();
+    const { isEnabled, isLoading: modulesLoading } = useModules();
     const pendingBills = usePendingBills();
     const navigate = useNavigate();
     const location = useLocation();
@@ -64,20 +64,34 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         handleNavClick(path);
     };
 
-    // module yoksa core (her zaman görünür); varsa modül açıkken görünür
-    const allMenuItems: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; module?: ModuleKey }[] = [
+    // Restoran kimliği: masa açıkken sistem restorana bürünür — randevu-yüzü
+    // öğeleri (Takvim, Rezervasyonlar, Booking) gizlenir, Masalar öne çıkar, Menü
+    // görünür. Randevu route'ları ModuleRoute ile arkada erişilebilir kalır.
+    const restaurant = !modulesLoading && isEnabled('masa');
+    // module yoksa core (her zaman görünür); varsa modül açıkken görünür.
+    // hideInRestaurant: restoran modunda gizlenecek randevu-yüzü öğeleri.
+    const allMenuItems: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; module?: ModuleKey; hideInRestaurant?: boolean }[] = [
         { id: '/', label: 'Dashboard', icon: LDashboard },
-        { id: '/calendar', label: 'Takvim', icon: LCalendar, module: 'randevu' },
-        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard, module: 'randevu' },
         { id: '/masa', label: 'Masalar', icon: Armchair, module: 'masa' },
+        { id: '/menu', label: 'Menü', icon: UtensilsCrossed, module: 'masa' },
+        { id: '/calendar', label: 'Takvim', icon: LCalendar, module: 'randevu', hideInRestaurant: true },
+        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard, module: 'randevu', hideInRestaurant: true },
         { id: '/queue', label: 'Sıra', icon: Users, module: 'sira' },
         { id: '/customers', label: 'Müşteriler', icon: LUsers },
         { id: '/kasa', label: 'Kasa', icon: Wallet, module: 'kasa' },
         { id: '/staff', label: 'Personel', icon: LProfile, module: 'personel' },
         { id: '/analytics', label: 'Analiz', icon: LChart, module: 'analiz' },
-        { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2, module: 'randevu' },
+        { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2, module: 'randevu', hideInRestaurant: true },
     ];
-    const menuItems = allMenuItems.filter((m) => !m.module || isEnabled(m.module));
+    // Masalar/Menü sıralamada Dashboard'dan hemen sonra (restoran modunda öne).
+    // Masa kapalıyken bu iki öğe zaten filtrelenir → randevu işletmesinde sıra
+    // pratikte bugünküyle aynı (Takvim/Rezervasyonlar üstte).
+    // DEFAULT_MODULES, gerçek organizasyon ayarı gelene kadar geçici olarak
+    // modülleri açık sayar. Bu değerle çizim yapmak kapalı öğeleri kısa süreli
+    // gösterip sonra kaldırıyordu; yükleme sırasında yalnız çekirdek öğeler var.
+    const menuItems = allMenuItems.filter(
+        (m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant),
+    );
 
     const handleNavClick = (path: string) => {
         navigate(path);

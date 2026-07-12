@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Plus, Minus, Users, X, Clock, Phone, Trash2, Armchair, Wallet, ReceiptText } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Minus, Users, X, Clock, Phone, Trash2, Armchair, Wallet, ReceiptText, UtensilsCrossed, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTables } from '@/hooks/useTables';
 import { useTableReservations } from '@/hooks/useTableReservations';
+import { useQueue } from '@/hooks/useQueue';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePayments } from '@/hooks/usePayments';
@@ -11,8 +13,8 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useReservations } from '@/hooks/useReservations';
 import { toISODate, formatDateEU } from '@/utils/date';
-import { adisyonTotal, adisyonSummary, groupMenu, addMenuItem, addExtraItem, changeQty } from '@/utils/masaAdisyon';
-import type { Table, TableReservation, PaymentMethod, Staff, Product, MasaAdisyonItem } from '@/types';
+import { adisyonTotal, adisyonSummary, groupMenu, addMenuItem, addExtraItem, changeQty, seatedMinutes, elapsedLabel, LONG_SIT_MIN } from '@/utils/masaAdisyon';
+import type { Table, TableReservation, QueueEntry, PaymentMethod, Staff, Product, MasaAdisyonItem } from '@/types';
 import { confirmDialog } from '@/components/ConfirmDialog';
 
 // ── Tokens (LT/DT deseni) ─────────────────────────────────────────────────────
@@ -20,6 +22,7 @@ const LT = {
     ink: '#0E0E0E', orange: '#FF5A1F', surface: '#FAF7F3', surface2: '#F0E9DF', surface3: '#E9E1D5',
     border: 'rgba(14,14,14,0.09)', border2: 'rgba(14,14,14,0.14)', muted: 'rgba(14,14,14,0.48)', muted2: 'rgba(14,14,14,0.30)',
     page: '#F3ECE0', green: '#2D8F32', greenBg: 'rgba(45,160,50,0.10)', amber: '#B87A00', amberBg: 'rgba(224,168,78,0.14)',
+    blue: '#3B6FB0', blueBg: 'rgba(59,111,176,0.10)',
     red: '#C94040', redBg: 'rgba(201,64,64,0.10)', shadowSm: '0 1px 3px rgba(14,14,14,0.06),0 2px 8px rgba(14,14,14,0.04)',
     shadowLg: '0 4px 16px rgba(14,14,14,0.10),0 16px 48px rgba(14,14,14,0.10)',
 };
@@ -27,6 +30,7 @@ const DT = {
     ink: '#F3EDE3', orange: '#FF5A1F', surface: '#1C1710', surface2: '#252015', surface3: '#30281A',
     border: 'rgba(243,237,227,0.10)', border2: 'rgba(243,237,227,0.22)', muted: 'rgba(243,237,227,0.55)', muted2: 'rgba(243,237,227,0.30)',
     page: '#120E08', green: '#7AD3A0', greenBg: 'rgba(45,160,50,0.16)', amber: '#E0A84E', amberBg: 'rgba(224,168,78,0.16)',
+    blue: '#7AAFE8', blueBg: 'rgba(122,175,232,0.16)',
     red: '#e07070', redBg: 'rgba(224,112,112,0.16)', shadowSm: '0 1px 3px rgba(0,0,0,0.20),0 2px 8px rgba(0,0,0,0.18)',
     shadowLg: '0 4px 16px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.3)',
 };
@@ -41,7 +45,9 @@ export const MasaPage = () => {
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const isMobile = useIsMobile();
+    const navigate = useNavigate();
     const { tables, isLoading: tablesLoading, addTable, deleteTable } = useTables();
+    const { waiting: waitlist, addEntry: addWaitlistEntry, serveEntry: serveWaitlistEntry, removeEntry: removeWaitlistEntry } = useQueue();
     const { addPayment } = usePayments();
     const { products } = useProducts();
     const { allCustomers, addCustomer } = useCustomers();
@@ -57,9 +63,22 @@ export const MasaPage = () => {
         [allReservations, tables],
     );
 
+    // Canlı oturma süresi (⏱): dakikada bir tik → seated masalar güncel kalsın
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(t); }, []);
+
     const [selTableId, setSelTableId] = useState<string | null>(null);
     const [showTableModal, setShowTableModal] = useState(false);
-    const [resModal, setResModal] = useState<{ open: boolean; tableId?: string; walkIn?: boolean }>({ open: false });
+    const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+    const [resModal, setResModal] = useState<{ open: boolean; tableId?: string; walkIn?: boolean; fromWaitlist?: QueueEntry }>({ open: false });
+    const [activeZone, setActiveZone] = useState('Tümü');
+
+    // Bölge filtresi — masalarda görülen sırayla, "Tümü" en başta
+    const zones = useMemo(() => ['Tümü', ...Array.from(new Set(tables.map((t) => t.zone || 'Salon')))], [tables]);
+    const zoneGroups = useMemo(() => {
+        const order = activeZone === 'Tümü' ? Array.from(new Set(tables.map((t) => t.zone || 'Salon'))) : [activeZone];
+        return order.map((z) => ({ zone: z, items: tables.filter((t) => (t.zone || 'Salon') === z) }));
+    }, [tables, activeZone]);
 
     // Önümüzdeki 7 gün
     const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
@@ -83,15 +102,17 @@ export const MasaPage = () => {
         if (rs.some((r) => r.status === 'reserved')) return 'rezerve';
         return 'bos';
     };
-    const statusColor = (s: TableStatus) => s === 'dolu' ? T.orange : s === 'rezerve' ? T.amber : T.green;
-    const statusBg = (s: TableStatus) => s === 'dolu' ? 'rgba(255,90,31,0.10)' : s === 'rezerve' ? T.amberBg : T.greenBg;
+    const statusColor = (s: TableStatus) => s === 'dolu' ? T.orange : s === 'rezerve' ? T.blue : T.green;
+    const statusBg = (s: TableStatus) => s === 'dolu' ? 'rgba(255,90,31,0.10)' : s === 'rezerve' ? T.blueBg : T.greenBg;
     const statusLabel = (s: TableStatus) => s === 'dolu' ? 'Dolu' : s === 'rezerve' ? 'Rezerve' : 'Boş';
 
     const selTable = tables.find((t) => t.id === selTableId) || null;
     const selRes = selTableId ? (byTable.get(selTableId) || []) : [];
 
     const totalRes = reservations.length;
-    const fullCount = tables.filter((t) => statusOf(t.id) === 'dolu').length;
+    const doluCount = tables.filter((t) => statusOf(t.id) === 'dolu').length;
+    const rezCount = tables.filter((t) => statusOf(t.id) === 'rezerve').length;
+    const bosCount = tables.length - doluCount - rezCount;
     const dObj = new Date(date + 'T00:00:00');
 
     // Masa yoksa rezervasyon modalı boş açılmasın
@@ -145,6 +166,7 @@ export const MasaPage = () => {
                 date: r.date, startTime: r.startTime, walkIn: !!resModal.walkIn,
             });
             toast.success(resModal.walkIn ? 'Walk-in oturtuldu' : 'Rezervasyon eklendi');
+            if (resModal.fromWaitlist) serveWaitlistEntry(resModal.fromWaitlist.id);
             setResModal({ open: false });
         }
     };
@@ -170,7 +192,7 @@ export const MasaPage = () => {
             });
             if (!p) return; // hata toast'ı addPayment içinde
         }
-        await setStatus(r.id, 'completed');
+        await setStatus(r.id, 'completed', true);
         sendWebhook('table_reservation.completed', { id: r.id, table: tName, amount });
         toast.success(amount > 0 ? `${amount.toLocaleString('tr-TR')} ₺ tahsil edildi · masa kapatıldı` : 'Masa kapatıldı');
         setAdisyonRes(null);
@@ -178,28 +200,46 @@ export const MasaPage = () => {
 
     return (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: T.page, padding: isMobile ? '16px 14px 96px' : '24px 28px 48px' }}>
-            <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ maxWidth: 1400, margin: '0 auto' }}>
                 {/* Başlık */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
                     <div>
-                        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', color: T.ink }}>Masa Yönetimi</h1>
-                        <p style={{ fontSize: 13, color: T.muted, marginTop: 3 }}>
+                        <h1 style={{ fontSize: 27, fontWeight: 900, letterSpacing: '-0.04em', color: T.ink }}>Masa Yönetimi</h1>
+                        <p style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>
                             {tablesLoading
                                 ? `${dObj.getDate()} ${MONTHS[dObj.getMonth()]} · yükleniyor…`
-                                : `${tables.length} masa · ${dObj.getDate()} ${MONTHS[dObj.getMonth()]} · ${totalRes} rezervasyon · ${fullCount} dolu`}
+                                : `${tables.length} masa · ${dObj.getDate()} ${MONTHS[dObj.getMonth()]} · ${totalRes} rezervasyon · ${doluCount} dolu`}
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setShowTableModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                            <Plus size={15} /> Masa Ekle
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button onClick={() => navigate('/menu')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 17px', borderRadius: 999, border: `1px solid ${T.border2}`, background: 'transparent', color: T.ink, fontSize: 12.5, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <UtensilsCrossed size={14} /> Menü
                         </button>
-                        <button onClick={() => openResModal({ walkIn: true })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.surface3, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                            <Armchair size={15} /> Walk-in
+                        <button onClick={() => setShowTableModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 17px', borderRadius: 999, border: `1px solid ${T.border2}`, background: 'transparent', color: T.ink, fontSize: 12.5, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <Plus size={14} /> Masa Ekle
                         </button>
-                        <button onClick={() => openResModal({})} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 6px 16px rgba(255,90,31,0.3)' }}>
-                            <Plus size={15} /> Yeni Rezervasyon
+                        <button onClick={() => openResModal({ walkIn: true })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 17px', borderRadius: 999, border: `1px solid ${T.border2}`, background: 'transparent', color: T.ink, fontSize: 12.5, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <Armchair size={14} /> Walk-in
+                        </button>
+                        <button onClick={() => openResModal({})} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 20px', borderRadius: 999, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(255,90,31,0.28)' }}>
+                            <Plus size={14} /> Yeni Rezervasyon
                         </button>
                     </div>
+                </div>
+
+                {/* Mini durum sayaçları */}
+                <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+                    {[
+                        { label: 'Dolu', v: doluCount, c: T.orange },
+                        { label: 'Rezerve', v: rezCount, c: T.blue },
+                        { label: 'Boş', v: bosCount, c: T.green },
+                    ].map((c) => (
+                        <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, boxShadow: T.shadowSm }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.c }} />
+                            <b style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>{c.v}</b>
+                            <span style={{ fontSize: 11.5, color: T.muted, fontWeight: 600 }}>{c.label}</span>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Gün şeridi */}
@@ -214,6 +254,42 @@ export const MasaPage = () => {
                             </button>
                         );
                     })}
+                </div>
+
+                {/* Bölge filtresi */}
+                {zones.length > 2 && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+                        {zones.map((z) => (
+                            <button key={z} onClick={() => setActiveZone(z)}
+                                style={{ padding: '8px 15px', borderRadius: 999, fontSize: 12, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit', background: activeZone === z ? T.ink : T.surface, color: activeZone === z ? '#fff' : T.muted, border: `1px solid ${activeZone === z ? T.ink : T.border}` }}>
+                                {z}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Bekleme Listesi */}
+                <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: T.shadowSm, marginBottom: 22, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: waitlist.length ? `1px solid ${T.border}` : 'none' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 9, background: T.ink, color: T.surface, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Clock size={15} /></div>
+                        <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 750, color: T.ink }}>Bekleme Listesi</div>
+                            <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{waitlist.length} grup bekliyor</div>
+                        </div>
+                        <button onClick={() => setShowWaitlistModal(true)}
+                            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 999, border: `1px solid ${T.border2}`, background: 'none', color: T.ink, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <UserPlus size={13} /> Ekle
+                        </button>
+                    </div>
+                    {waitlist.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px' }}>
+                            {waitlist.map((w, i) => (
+                                <WaitRow key={w.id} w={w} i={i} T={T}
+                                    onSeat={() => setResModal({ open: true, walkIn: true, fromWaitlist: w })}
+                                    onRemove={() => removeWaitlistEntry(w.id)} />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {tablesLoading ? (
@@ -232,64 +308,106 @@ export const MasaPage = () => {
                         <button onClick={() => setShowTableModal(true)} style={{ marginTop: 16, padding: '10px 18px', borderRadius: 10, border: 'none', background: T.orange, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Masa Ekle</button>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: selTable && !isMobile ? '1fr 320px' : '1fr', gap: 18, alignItems: 'start' }}>
-                        {/* Floor plan */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 14 }}>
-                            {tables.map((t) => {
+                    <div style={{ display: 'grid', gridTemplateColumns: selTable && !isMobile ? '1fr 380px' : '1fr', gap: 18, alignItems: 'start' }}>
+                        {/* Floor plan — bölgelere göre gruplu */}
+                        <div>
+                          {zoneGroups.map(({ zone, items }) => items.length === 0 ? null : (
+                            <div key={zone} style={{ marginBottom: 22 }}>
+                              {zoneGroups.length > 1 && (
+                                <div style={{ fontSize: 10, fontWeight: 750, letterSpacing: '.12em', textTransform: 'uppercase', color: T.muted2, marginBottom: 10 }}>{zone}</div>
+                              )}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 14 }}>
+                            {items.map((t) => {
                                 const s = statusOf(t.id);
                                 const rs = byTable.get(t.id) || [];
                                 const active = selTableId === t.id;
+                                // Salon kartı bilgileri (durum bazlı)
+                                const seated = rs.find((r) => r.status === 'seated');
+                                const mins = seated ? seatedMinutes(seated.seatedAt, now) : null;
+                                const longSit = mins !== null && mins >= LONG_SIT_MIN;
+                                const waiter = seated?.staffId ? staff.find((x) => x.id === seated.staffId)?.name : undefined;
+                                const total = seated ? adisyonTotal(seated.adisyonItems) : 0;
+                                const nextRes = rs.find((r) => r.status === 'reserved');
+                                const firstTime = rs.length ? rs.slice().sort((a, b) => a.startTime.localeCompare(b.startTime))[0].startTime : null;
                                 return (
                                     <button key={t.id} onClick={() => setSelTableId(active ? null : t.id)}
-                                        style={{ textAlign: 'left', background: statusBg(s), border: `1.5px solid ${active ? statusColor(s) : T.border}`, borderRadius: 16, padding: '16px', cursor: 'pointer', transition: 'all .15s', boxShadow: T.shadowSm, position: 'relative' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 16, fontWeight: 800, color: T.ink }}>{t.name}</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: T.muted, fontFamily: MONO }}><Users size={12} /> {t.capacity}</span>
+                                        style={{ textAlign: 'left', background: statusBg(s), border: `1.5px solid ${active ? T.ink : statusColor(s) + '4D'}`, boxShadow: active ? `0 0 0 3px ${statusColor(s)}26, ${T.shadowSm}` : T.shadowSm, borderRadius: 16, padding: '18px 18px 16px', cursor: 'pointer', transition: 'all .18s', position: 'relative' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+                                            <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', color: T.ink }}>{t.name}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: T.muted, fontWeight: 600 }}><Users size={13} /> {t.capacity}</span>
                                         </div>
-                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, padding: '3px 9px', borderRadius: 999, background: statusColor(s), color: '#fff', fontSize: 11, fontWeight: 700 }}>
-                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} /> {statusLabel(s)}
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: s === 'bos' ? statusBg(s) : statusColor(s), color: s === 'bos' ? statusColor(s) : '#fff', fontSize: 11, fontWeight: 750, marginBottom: 8 }}>
+                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: s === 'bos' ? statusColor(s) : '#fff' }} /> {statusLabel(s)}
                                         </div>
-                                        {rs.length > 0 && <div style={{ fontSize: 11, color: T.muted, marginTop: 8, fontFamily: MONO }}>{rs.length} rezervasyon · ilki {rs[0].startTime}</div>}
+                                        {/* Dolu: garson · kişi · adisyon · süre; Rezerve: yaklaşan; Boş: meta */}
+                                        {s === 'dolu' && seated ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div style={{ fontSize: 11.5, color: T.muted, fontFamily: MONO, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                    <span><Users size={11} style={{ verticalAlign: -1 }} /> {seated.partySize}</span>
+                                                    {waiter && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {waiter}</span>}
+                                                    {mins !== null && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: longSit ? T.red : T.muted, fontWeight: 700 }}>
+                                                            <Clock size={11} /> {elapsedLabel(mins)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {total > 0 && <div style={{ fontSize: 13, fontWeight: 800, color: T.ink, fontFamily: MONO }}>{fmt(total)} ₺</div>}
+                                            </div>
+                                        ) : s === 'rezerve' && nextRes ? (
+                                            <div style={{ fontSize: 11.5, color: T.muted, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {nextRes.startTime} · {nextRes.customerName}{rs.length > 1 ? ` +${rs.length - 1}` : ''}
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: 11.5, color: T.muted }}>{rs.length} rezervasyon{firstTime ? ` · ilk ${firstTime}` : ''}</div>
+                                        )}
                                     </button>
                                 );
                             })}
+                              </div>
+                            </div>
+                          ))}
                         </div>
 
                         {/* Seçili masa paneli */}
                         {selTable && (
-                            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: '18px 18px', boxShadow: T.shadowSm }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: T.ink }}>{selTable.name}</h3>
-                                    <button onClick={() => setSelTableId(null)} style={{ width: 28, height: 28, borderRadius: 7, display: 'grid', placeItems: 'center', border: 'none', background: 'none', color: T.muted, cursor: 'pointer' }}><X size={16} /></button>
-                                </div>
-                                <p style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>{selTable.capacity} kişilik · {formatDateEU(date)}</p>
-
-                                {selRes.length === 0 ? (
-                                    <p style={{ fontSize: 13, color: T.muted, padding: '12px 0' }}>Bu gün rezervasyon yok</p>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {selRes.map((r) => (
-                                            <ResRow key={r.id} r={r} T={T} staffName={staff.find((s) => s.id === r.staffId)?.name} onStatus={handleStatus} onRemove={removeReservation} onAdisyon={() => setAdisyonRes(r)} />
-                                        ))}
+                            <aside style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: T.shadowLg, position: 'sticky', top: 0, maxHeight: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '18px 20px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+                                    <div>
+                                        <h3 style={{ fontSize: 17, fontWeight: 850, letterSpacing: '-0.02em', color: T.ink }}>{selTable.name}</h3>
+                                        <p style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{selTable.capacity} kişilik · {formatDateEU(date)}</p>
                                     </div>
-                                )}
+                                    <button onClick={() => setSelTableId(null)} style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: 'none', color: T.muted, cursor: 'pointer', flexShrink: 0 }}><X size={16} /></button>
+                                </div>
 
-                                <button onClick={() => openResModal({ tableId: selTable.id })}
-                                    style={{ width: '100%', marginTop: 14, padding: '10px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.orange, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                    + Bu masaya rezervasyon
-                                </button>
-                                <button onClick={async () => { if (await confirmDialog({ title: `${selTable.name} silinsin mi?`, danger: true, confirmLabel: 'Sil' })) { deleteTable(selTable.id); setSelTableId(null); } }}
-                                    style={{ width: '100%', marginTop: 8, padding: '9px', borderRadius: 10, border: 'none', background: 'none', color: T.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                    Masayı sil
-                                </button>
-                            </div>
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {selRes.length === 0 ? (
+                                        <p style={{ fontSize: 12.5, color: T.muted2, textAlign: 'center', padding: '30px 16px' }}>Bugün için rezervasyon yok</p>
+                                    ) : (
+                                        selRes.map((r) => (
+                                            <ResRow key={r.id} r={r} T={T} now={now} staffName={staff.find((s) => s.id === r.staffId)?.name} onStatus={handleStatus} onRemove={removeReservation} onAdisyon={() => setAdisyonRes(r)} />
+                                        ))
+                                    )}
+                                </div>
+
+                                <div style={{ padding: '14px 18px', borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                                    <button onClick={() => openResModal({ tableId: selTable.id })}
+                                        style={{ width: '100%', padding: '12px', borderRadius: 11, border: 'none', background: T.surface2, color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all .15s' }}>
+                                        <Plus size={14} /> Bu masaya rezervasyon
+                                    </button>
+                                    <button onClick={async () => { if (await confirmDialog({ title: `${selTable.name} silinsin mi?`, danger: true, confirmLabel: 'Sil' })) { deleteTable(selTable.id); setSelTableId(null); } }}
+                                        style={{ width: '100%', padding: '7px', borderRadius: 8, border: 'none', background: 'none', color: T.muted2, fontSize: 11.5, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                        Masayı sil
+                                    </button>
+                                </div>
+                            </aside>
                         )}
                     </div>
                 )}
             </div>
 
-            {showTableModal && <TableModal T={T} onClose={() => setShowTableModal(false)} onSave={async (n, c) => { const r = await addTable({ name: n, capacity: c }); if (r) { toast.success('Masa eklendi'); setShowTableModal(false); } }} />}
-            {resModal.open && <ResModal T={T} tables={tables} staff={staff} date={date} preTableId={resModal.tableId} walkIn={resModal.walkIn}
+            {showTableModal && <TableModal T={T} existingZones={zones.filter((z) => z !== 'Tümü')} onClose={() => setShowTableModal(false)} onSave={async (n, c, z) => { const r = await addTable({ name: n, capacity: c, zone: z }); if (r) { toast.success('Masa eklendi'); setShowTableModal(false); } }} />}
+            {showWaitlistModal && <WaitlistModal T={T} onClose={() => setShowWaitlistModal(false)} onSave={async (p) => { const r = await addWaitlistEntry(p); if (r) { toast.success(`${p.customerName} bekleme listesine eklendi`); setShowWaitlistModal(false); } }} />}
+            {resModal.open && <ResModal T={T} tables={tables} staff={staff} date={date} preTableId={resModal.tableId} walkIn={resModal.walkIn} prefill={resModal.fromWaitlist}
                 onClose={() => setResModal({ open: false })}
                 onSave={saveReservation} />}
             {adisyonLive && <MasaAdisyonModal T={T} r={adisyonLive} products={products}
@@ -302,33 +420,42 @@ export const MasaPage = () => {
 };
 
 // ── Rezervasyon satırı ────────────────────────────────────────────────────────
-function ResRow({ r, T, staffName, onStatus, onRemove, onAdisyon }: { r: TableReservation; T: typeof LT; staffName?: string; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void; onAdisyon: () => void }) {
-    const stColor = r.status === 'seated' ? T.orange : r.status === 'completed' ? T.green : T.amber;
-    const stLabel = r.status === 'seated' ? 'Oturdu' : r.status === 'completed' ? 'Tamamlandı' : 'Rezerve';
+function ResRow({ r, T, now, staffName, onStatus, onRemove, onAdisyon }: { r: TableReservation; T: typeof LT; now: number; staffName?: string; onStatus: (id: string, s: any) => void; onRemove: (id: string) => void; onAdisyon: () => void }) {
+    // Garson "Kasaya Gönder" ile completed'a geçmiş ama ödeme henüz alınmamış
+    // olabilir (isPaid=false) — bu durumda masa hâlâ Kasa'nın tahsilat almasını
+    // bekliyor, "Tamamlandı" (yeşil) yerine "Ödenmedi" (amber) gösterilir.
+    const unpaid = r.status === 'completed' && r.isPaid === false;
+    const stColor = r.status === 'seated' ? T.orange : unpaid ? T.amber : r.status === 'completed' ? T.green : T.blue;
+    const stBg = r.status === 'seated' ? 'rgba(255,90,31,0.07)' : unpaid ? T.amberBg : r.status === 'completed' ? T.greenBg : T.blueBg;
+    const stLabel = r.status === 'seated' ? 'Oturdu' : unpaid ? 'Ödenmedi' : r.status === 'completed' ? 'Tamamlandı' : 'Rezerve';
     const total = adisyonTotal(r.adisyonItems);
-    const open = r.status !== 'completed';
+    const mins = r.status === 'seated' ? seatedMinutes(r.seatedAt, now) : null;
+    const open = r.status !== 'completed' || unpaid;
     return (
-        <div style={{ background: T.surface2, borderRadius: 12, padding: '11px 12px', borderLeft: `3px solid ${stColor}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: stColor }}>{stLabel}</span>
+        <div style={{ background: stBg, borderRadius: 11, padding: '13px 14px', border: `1.5px solid ${stColor}40` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+                <span style={{ fontSize: 14, fontWeight: 750, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName}</span>
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 750, padding: '3px 9px', borderRadius: 999, background: stColor, color: '#fff' }}>{stLabel}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5, fontSize: 11.5, color: T.muted, fontFamily: "'JetBrains Mono',monospace" }}>
-                <span><Clock size={11} style={{ verticalAlign: -1 }} /> {r.startTime}{r.endTime ? `–${r.endTime}` : ''}</span>
-                <span><Users size={11} style={{ verticalAlign: -1 }} /> {r.partySize}</span>
-                {r.customerPhone && <span><Phone size={11} style={{ verticalAlign: -1 }} /> {r.customerPhone}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9, fontSize: 11.5, color: T.muted, flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {r.startTime}{r.endTime ? `–${r.endTime}` : ''}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Users size={12} /> {r.partySize}</span>
+                {r.customerPhone && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={12} /> {r.customerPhone}</span>}
+                {mins !== null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: mins >= LONG_SIT_MIN ? T.red : T.muted, fontWeight: 700 }}><Clock size={11} /> {elapsedLabel(mins)}</span>}
                 {staffName && <span>· {staffName}</span>}
             </div>
-            {total > 0 && (
-                <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-                    <span style={{ color: T.muted, fontWeight: 600 }}>Adisyon</span>
-                    <span style={{ fontWeight: 800, color: T.ink, fontFamily: "'JetBrains Mono',monospace" }}>{fmt(total)} ₺</span>
-                </div>
-            )}
-            <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {r.status === 'reserved' && <MiniBtn T={T} onClick={() => onStatus(r.id, 'seated')} primary>Oturt</MiniBtn>}
-                {open && <MiniBtn T={T} onClick={onAdisyon} primary><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ReceiptText size={13} /> Adisyon</span></MiniBtn>}
-                <MiniBtn T={T} onClick={() => onRemove(r.id)}><Trash2 size={12} /></MiniBtn>
+                {open && (r.status === 'seated' || unpaid) && <MiniBtn T={T} onClick={onAdisyon} primary><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ReceiptText size={13} /> {unpaid ? 'Tahsil Et' : 'Adisyon'}</span></MiniBtn>}
+                {r.status === 'completed' && !unpaid && (
+                    <span style={{ marginLeft: 0, fontSize: 13, fontWeight: total > 0 ? 800 : 650, color: total > 0 ? T.ink : T.muted2, fontFamily: MONO }}>
+                        {total > 0 ? `${fmt(total)} ₺` : 'Adisyon yok'}
+                    </span>
+                )}
+                <button onClick={() => onRemove(r.id)} title="Kaldır"
+                    style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: T.surface2, color: T.muted2, cursor: 'pointer', flexShrink: 0 }}>
+                    <Trash2 size={13} />
+                </button>
             </div>
         </div>
     );
@@ -337,12 +464,55 @@ function MiniBtn({ T, onClick, children, primary }: { T: typeof LT; onClick: () 
     return <button onClick={onClick} style={{ flex: primary ? 1 : '0 0 auto', padding: '6px 10px', borderRadius: 8, border: primary ? 'none' : `1px solid ${T.border2}`, background: primary ? T.orange : 'none', color: primary ? '#fff' : T.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'grid', placeItems: 'center' }}>{children}</button>;
 }
 
+// ── Bekleme listesi satırı ─────────────────────────────────────────────────────
+function waitMinutes(joinedAt: string): number {
+    return Math.max(0, Math.round((Date.now() - new Date(joinedAt).getTime()) / 60000));
+}
+function WaitRow({ w, i, T, onSeat, onRemove }: { w: QueueEntry; i: number; T: typeof LT; onSeat: () => void; onRemove: () => void }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 11, background: T.surface2 }}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', background: T.ink, color: T.surface, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.customerName}</div>
+                <div style={{ fontSize: 10.5, color: T.muted, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}><Users size={10} /> {w.partySize} kişi{w.customerPhone ? ` · ${w.customerPhone}` : ''}</div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.amber, flexShrink: 0 }}>~{waitMinutes(w.joinedAt)} dk</span>
+            <button onClick={onSeat} title="Masaya otur"
+                style={{ width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: T.orange, color: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+                <Armchair size={14} />
+            </button>
+            <button onClick={onRemove} title="Kaldır"
+                style={{ width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: T.surface3, color: T.muted2, cursor: 'pointer', flexShrink: 0 }}>
+                <Trash2 size={13} />
+            </button>
+        </div>
+    );
+}
+
+// ── Bekleme listesine ekle modalı ─────────────────────────────────────────────
+function WaitlistModal({ T, onClose, onSave }: { T: typeof LT; onClose: () => void; onSave: (p: { customerName: string; customerPhone?: string; partySize: number }) => void }) {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [party, setParty] = useState(2);
+    return (
+        <ModalShell T={T} title="Bekleme Listesine Ekle" sub="Masa boşalınca sıradaki misafiri çağır" onClose={onClose}>
+            <Field T={T} label="Ad Soyad"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="İsim" style={inp(T)} autoFocus /></Field>
+            <div style={{ display: 'flex', gap: 12 }}>
+                <Field T={T} label="Kişi Sayısı"><input type="number" min={1} value={party} onChange={(e) => setParty(Math.max(1, Number(e.target.value)))} style={inp(T)} /></Field>
+                <Field T={T} label="Telefon (ops.)"><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx" style={inp(T)} /></Field>
+            </div>
+            <button disabled={!name.trim()} onClick={() => onSave({ customerName: name.trim(), customerPhone: phone.trim() || undefined, partySize: party })} style={primaryBtn(T, !name.trim())}>Bekleme Listesine Ekle</button>
+        </ModalShell>
+    );
+}
+
 // ── Masa ekle modalı ──────────────────────────────────────────────────────────
-function TableModal({ T, onClose, onSave }: { T: typeof LT; onClose: () => void; onSave: (name: string, capacity: number) => void }) {
+function TableModal({ T, existingZones, onClose, onSave }: { T: typeof LT; existingZones: string[]; onClose: () => void; onSave: (name: string, capacity: number, zone: string) => void }) {
     const [name, setName] = useState('');
     const [capacity, setCapacity] = useState(4);
+    const [zone, setZone] = useState('Salon');
     return (
-        <ModalShell T={T} title="Masa Ekle" onClose={onClose}>
+        <ModalShell T={T} title="Yeni Masa" sub="Salona yeni bir masa ekle" onClose={onClose}>
             <Field T={T} label="Masa Adı"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="ör. Masa 1 / Bahçe 3" style={inp(T)} autoFocus /></Field>
             <Field T={T} label="Kapasite (kişi)">
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -351,27 +521,33 @@ function TableModal({ T, onClose, onSave }: { T: typeof LT; onClose: () => void;
                     ))}
                 </div>
             </Field>
-            <button disabled={!name.trim()} onClick={() => onSave(name.trim(), capacity)} style={primaryBtn(T, !name.trim())}>Ekle</button>
+            <Field T={T} label="Bölge">
+                <input value={zone} onChange={(e) => setZone(e.target.value)} placeholder="Salon" list="masa-zones" style={inp(T)} />
+                <datalist id="masa-zones">
+                    {Array.from(new Set(['Salon', 'Teras', 'Bar', ...existingZones])).map((z) => <option key={z} value={z} />)}
+                </datalist>
+            </Field>
+            <button disabled={!name.trim()} onClick={() => onSave(name.trim(), capacity, zone.trim() || 'Salon')} style={primaryBtn(T, !name.trim())}>Ekle</button>
         </ModalShell>
     );
 }
 
 // ── Rezervasyon / walk-in modalı ──────────────────────────────────────────────
-function ResModal({ T, tables, staff, date, preTableId, walkIn, onClose, onSave }: {
-    T: typeof LT; tables: Table[]; staff: Staff[]; date: string; preTableId?: string; walkIn?: boolean;
+function ResModal({ T, tables, staff, date, preTableId, walkIn, prefill, onClose, onSave }: {
+    T: typeof LT; tables: Table[]; staff: Staff[]; date: string; preTableId?: string; walkIn?: boolean; prefill?: QueueEntry;
     onClose: () => void; onSave: (p: Omit<TableReservation, 'id' | 'createdAt' | 'organizationId'>) => void;
 }) {
     const now = new Date();
     const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const [tableId, setTableId] = useState(preTableId || tables[0]?.id || '');
-    const [name, setName] = useState(walkIn ? 'Walk-in' : '');
-    const [phone, setPhone] = useState('');
-    const [party, setParty] = useState(2);
+    const [name, setName] = useState(prefill?.customerName || (walkIn ? 'Walk-in' : ''));
+    const [phone, setPhone] = useState(prefill?.customerPhone || '');
+    const [party, setParty] = useState(prefill?.partySize || 2);
     const [time, setTime] = useState(walkIn ? nowHM : '19:00');
     const [staffId, setStaffId] = useState('');
     const canSave = !!tableId && name.trim().length > 0;
     return (
-        <ModalShell T={T} title={walkIn ? 'Walk-in' : 'Yeni Rezervasyon'} onClose={onClose}>
+        <ModalShell T={T} title={walkIn ? 'Walk-in Misafir' : 'Yeni Rezervasyon'} sub={walkIn ? 'Rezervasyonsuz gelen misafiri oturt' : 'Bir masaya rezervasyon oluştur'} onClose={onClose}>
             <Field T={T} label="Masa">
                 <select value={tableId} onChange={(e) => setTableId(e.target.value)} style={inp(T)}>
                     {tables.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.capacity} kişi)</option>)}
@@ -431,8 +607,7 @@ function MasaAdisyonModal({ T, r, products, tableName, onClose, onUpdateItems, o
     const close = async (amt: number) => { setBusy(true); try { await onComplete(r, amt, method, adisyonSummary(items)); } finally { setBusy(false); } };
 
     return (
-        <ModalShell T={T} title={`${tableName} · Adisyon`} onClose={onClose}>
-            <p style={{ fontSize: 13, color: T.muted, marginTop: -8, marginBottom: 14 }}>{r.customerName} · {r.partySize} kişi · {r.startTime}</p>
+        <ModalShell T={T} title={`${tableName} · Adisyon`} sub={`${r.customerName} · ${r.partySize} kişi · ${r.startTime}`} onClose={onClose}>
 
             {/* Adisyon kalemleri */}
             {items.length === 0 ? (
@@ -511,13 +686,16 @@ function qtyBtn(T: typeof LT): React.CSSProperties {
 }
 
 // ── Ortak modal/parça yardımcıları ────────────────────────────────────────────
-function ModalShell({ T, title, onClose, children }: { T: typeof LT; title: string; onClose: () => void; children: React.ReactNode }) {
+function ModalShell({ T, title, sub, onClose, children }: { T: typeof LT; title: string; sub?: string; onClose: () => void; children: React.ReactNode }) {
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', padding: 16 }}>
             <div onClick={(e) => e.stopPropagation()} style={{ background: T.surface, borderRadius: 20, padding: 24, width: 420, maxWidth: '92vw', boxShadow: T.shadowLg, border: `1px solid ${T.border2}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 800, color: T.ink }}>{title}</h2>
-                    <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: 'none', color: T.muted, cursor: 'pointer' }}><X size={18} /></button>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: T.ink }}>{title}</h2>
+                        {sub && <p style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{sub}</p>}
+                    </div>
+                    <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, display: 'grid', placeItems: 'center', border: 'none', background: 'none', color: T.muted, cursor: 'pointer', flexShrink: 0 }}><X size={18} /></button>
                 </div>
                 {children}
             </div>

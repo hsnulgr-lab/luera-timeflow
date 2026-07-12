@@ -34,7 +34,10 @@ export const MobileSettings = () => {
         if (tab && map[tab]) setSheet(map[tab]);
     }, [params]);
 
-    if (!isManager) return <Navigate to="/" replace />;
+    // Yönetici Modu kapalıysa (cihazda hiç PIN girilmemiş) sessizce ana sayfaya
+    // dönmek yerine giriş kapısına yönlendir — aksi hâlde "Ayarlar" butonu hiçbir
+    // açıklama olmadan tıklanamıyormuş gibi görünür.
+    if (!isManager) return <Navigate to="/personel" replace />;
 
     const enabledCount = MODULE_META.filter((m) => modules[m.key] !== false).length;
 

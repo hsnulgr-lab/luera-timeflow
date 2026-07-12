@@ -5,7 +5,10 @@ import { useProducts } from '@/hooks/useProducts';
 import { useReservations } from '@/hooks/useReservations';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MENU_CATEGORIES } from '@/utils/masaAdisyon';
+import { useTables } from '@/hooks/useTables';
+import { useTableReservations } from '@/hooks/useTableReservations';
+import { MENU_CATEGORIES, adisyonTotal, adisyonSummary } from '@/utils/masaAdisyon';
+import { todayISO } from '@/utils/date';
 import type { Payment, PaymentMethod, PaymentType } from '@/types';
 
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
@@ -42,6 +45,9 @@ export const KasaPage = () => {
     const { products, addProduct, removeProduct } = useProducts();
     const { reservations, settings, updateReservation } = useReservations();
     const { allCustomers } = useCustomers();
+    const { tables } = useTables();
+    const [tableDate] = useState(() => todayISO());
+    const { reservations: tableReservations, setStatus: setTableStatus } = useTableReservations(tableDate);
 
     const [sheetOpen, setSheetOpen] = useState(false);
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -74,6 +80,11 @@ export const KasaPage = () => {
     // Tahsil bekleyen tamamlanmış randevular
     const unpaid = useMemo(() => reservations.filter(r => r.status === 'completed' && !r.isPaid), [reservations]);
     const priceOf = (svc: string) => settings.services.find(s => s.name === svc)?.price || 0;
+
+    // Garson "Adisyonu Kasaya Gönder" dedi (status→completed, isPaid=false — 049)
+    // — masa akışındaki eşdeğeri, hizmet bills'i ile aynı desen.
+    const unpaidTables = useMemo(() => tableReservations.filter(r => r.status === 'completed' && r.isPaid === false), [tableReservations]);
+    const tableNameOf = (id: string) => tables.find(t => t.id === id)?.name || 'Masa';
 
     // İstatistik ek hesaplamalar (adet + önceki hafta %)
     const extra = useMemo(() => {
@@ -155,6 +166,15 @@ export const KasaPage = () => {
         if (p) { await updateReservation(r.id, { isPaid: true }); toast.success(`${r.customerName} — ${fmt(amt)} ₺ tahsil edildi`); }
     };
 
+    const collectTable = async (resId: string) => {
+        const r = tableReservations.find(x => x.id === resId);
+        if (!r) return;
+        const amt = adisyonTotal(r.adisyonItems);
+        const tName = tableNameOf(r.tableId);
+        const p = await addPayment({ amount: amt, type: 'service', method: 'cash', description: `${tName} · ${adisyonSummary(r.adisyonItems) || r.customerName}`, customerId: r.customerId || undefined });
+        if (p) { await setTableStatus(r.id, 'completed', true); toast.success(`${tName} — ${fmt(amt)} ₺ tahsil edildi`); }
+    };
+
     const confirmTxt = net > 0 ? `${fmt(net)} ₺ Tahsil Et` : 'Tutar girin';
     const amtHint = (discount > 0 && amount > 0)
         ? `${fmt(amount)} ₺ − ${fmt(discount)} ₺ indirim`
@@ -217,6 +237,23 @@ export const KasaPage = () => {
                         </div>
                     ))}
                 </div>
+
+                {/* TAHSİL BEKLEYEN MASALAR (garson "Kasaya Gönder" — 049) */}
+                {unpaidTables.length > 0 && (
+                    <>
+                        <div className="section-hd"><div className="section-title">Tahsil bekleyen masalar</div></div>
+                        <div className="txn-list" style={{ marginBottom: 26 }}>
+                            {unpaidTables.map(r => (
+                                <div className="txn" key={r.id}>
+                                    <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2.5 7.5h15M4 7.5V6a1.5 1.5 0 011.5-1.5h9A1.5 1.5 0 0116 6v1.5M5 7.5v8M15 7.5v8M3 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></div>
+                                    <div className="txn-body"><div className="txn-name">{tableNameOf(r.tableId)} · {r.customerName}</div><div className="txn-meta">{r.partySize} kişi · {r.startTime}</div></div>
+                                    <div className="txn-amt">{fmt(adisyonTotal(r.adisyonItems))} ₺</div>
+                                    <button className="txn-collect" onClick={() => collectTable(r.id)}>Tahsil et</button>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
 
                 {/* TAHSİL BEKLEYEN RANDEVULAR */}
                 {unpaid.length > 0 && (

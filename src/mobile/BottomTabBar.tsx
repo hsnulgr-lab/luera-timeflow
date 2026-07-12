@@ -25,7 +25,7 @@ const BAR_ORDER = ['/', '/calendar', '/masa', '/customers', '/kasa', '/analytics
 export const BottomTabBar = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isEnabled } = useModules();
+    const { isEnabled, isLoading: modulesLoading } = useModules();
     const { isManager } = useManagerMode();
 
     // Aday sekmeler — core (module yok) + açık modüller. Analiz finansal olduğu
@@ -38,8 +38,15 @@ export const BottomTabBar = () => {
         { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa', prio: 4 },
         ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey, prio: 5 }] : []),
     ];
+    // Restoran kimliği: masa açıkken randevu-yüzü sekmesi (Takvim) gizlenir —
+    // ANCAK randevu modülü de bilinçli açılmışsa (hibrit işletme: masa + randevu
+    // birlikte) Takvim'e alt bardan erişim kaybolmasın diye gösterilmeye devam eder.
+    const restaurant = !modulesLoading && isEnabled('masa');
+    const hybrid = restaurant && !modulesLoading && isEnabled('randevu');
     const byBarOrder = (a: Tab, b: Tab) => BAR_ORDER.indexOf(a.id) - BAR_ORDER.indexOf(b.id);
-    const enabledTabs = candidates.filter((t) => !t.module || isEnabled(t.module)).sort(byBarOrder);
+    const enabledTabs = candidates
+        .filter((t) => (!t.module || (!modulesLoading && isEnabled(t.module))) && !(restaurant && !hybrid && t.id === '/calendar'))
+        .sort(byBarOrder);
 
     // ≤4 sekme → FAB göster (4 yan slot). 5+ sekme → FAB gizle, en fazla 5 sekme.
     const useFab = enabledTabs.length <= 4;
@@ -52,8 +59,9 @@ export const BottomTabBar = () => {
     const left = shown.slice(0, mid);
     const right = shown.slice(mid);
 
-    // FAB hedefi: randevu varsa yeni randevu, yoksa masa, yoksa kasa, o da yoksa müşteri
-    const fabTarget = isEnabled('randevu') ? '/new' : isEnabled('masa') ? '/masa' : isEnabled('kasa') ? '/kasa' : '/customers';
+    // FAB hedefi: restoran (masa) modunda yeni masa rezervasyonu öncelikli;
+    // aksi hâlde randevu → yeni randevu, yoksa kasa, o da yoksa müşteri.
+    const fabTarget = restaurant ? '/masa?new=1' : !modulesLoading && isEnabled('randevu') ? '/new' : !modulesLoading && isEnabled('kasa') ? '/kasa' : '/customers';
 
     const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
 
@@ -77,7 +85,7 @@ export const BottomTabBar = () => {
                 <>
                     {left.map(renderTab)}
                     <div className="flex flex-1 items-center justify-center" style={{ marginTop: -6 }}>
-                        <button type="button" aria-label="Yeni randevu" onClick={() => navigate(fabTarget)}
+                        <button type="button" aria-label={restaurant ? 'Yeni rezervasyon' : 'Yeni randevu'} onClick={() => navigate(fabTarget)}
                             className="grid place-items-center transition-transform active:scale-95"
                             style={{ width: 52, height: 52, borderRadius: 17, background: T.orange, boxShadow: '0 6px 22px rgba(255,90,31,.40), 0 0 0 1.5px rgba(255,90,31,.6)' }}>
                             <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#0E0E0E" strokeWidth="2.4" strokeLinecap="round" /></svg>

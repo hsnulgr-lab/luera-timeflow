@@ -33,8 +33,9 @@ export const MobileStaff = () => {
 
     const sorted = useMemo(() => [...staff].sort((a, b) => a.name.localeCompare(b.name, 'tr')), [staff]);
 
-    // Yönetici-dışı erişim engeli — personel yönetimi hassas
-    if (!isManager) return <Navigate to="/" replace />;
+    // Yönetici-dışı erişim engeli — personel yönetimi hassas. Sessizce ana
+    // sayfaya dönmek yerine giriş kapısına yönlendir (bkz. MobileSettings).
+    if (!isManager) return <Navigate to="/personel" replace />;
 
     const openAdd = () => { setEditing(null); setForm(EMPTY); setSheetOpen(true); };
     const openEdit = (m: Staff) => {

@@ -11,6 +11,7 @@ function mapRow(row: any): Table {
         organizationId: row.organization_id,
         name: row.name,
         capacity: row.capacity ?? 2,
+        zone: row.zone || 'Salon',
         isActive: row.is_active ?? true,
         createdAt: row.created_at,
     };
@@ -71,11 +72,11 @@ export function useTables() {
         return () => { supabase.removeChannel(ch); };
     }, [user, orgId]);
 
-    const addTable = useCallback(async (t: { name: string; capacity: number }) => {
+    const addTable = useCallback(async (t: { name: string; capacity: number; zone?: string }) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }
         const { data, error } = await supabase
             .from('tables')
-            .insert({ organization_id: orgId, name: t.name, capacity: t.capacity })
+            .insert({ organization_id: orgId, name: t.name, capacity: t.capacity, zone: t.zone || 'Salon' })
             .select().single();
         if (error) { toast.error('Masa eklenemedi'); console.error(error); return null; }
         const row = mapRow(data);
@@ -83,10 +84,11 @@ export function useTables() {
         return row;
     }, [orgId]);
 
-    const updateTable = useCallback(async (id: string, updates: Partial<Pick<Table, 'name' | 'capacity'>>) => {
+    const updateTable = useCallback(async (id: string, updates: Partial<Pick<Table, 'name' | 'capacity' | 'zone'>>) => {
         const db: any = {};
         if (updates.name !== undefined) db.name = updates.name;
         if (updates.capacity !== undefined) db.capacity = updates.capacity;
+        if (updates.zone !== undefined) db.zone = updates.zone;
         const { error } = await supabase.from('tables').update(db).eq('id', id);
         if (error) { toast.error('Masa güncellenemedi'); return; }
         setTables((p) => p.map((t) => (t.id === id ? { ...t, ...updates } : t)));

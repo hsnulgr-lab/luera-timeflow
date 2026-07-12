@@ -27,7 +27,7 @@ export const SECTOR_MODULES: Record<string, Modules> = {
     fizyoterapi: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
     saglik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
     danismanlik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-    genel: { randevu: true, personel: true, hizmet: true, kasa: true, masa: true, analiz: true, sira: false },
+    genel: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
 };
 
 export function modulesForSector(sector: string): Modules {

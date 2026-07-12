@@ -48,6 +48,7 @@ export const MobileNewReservation = () => {
     const [note, setNote] = useState('');
     const [showNote, setShowNote] = useState(false);
     const [done, setDone] = useState(false);
+    const [savedLines, setSavedLines] = useState<Line[]>([]); // başarı ekranında gösterilecek — kaydedilenler
     const [saving, setSaving] = useState(false);
 
     const selStaff = activeStaff[staffIdx];
@@ -129,23 +130,33 @@ export const MobileNewReservation = () => {
         if (!lines.length) return;
         setSaving(true);
         const groupId = lines.length > 1 ? gid() : undefined;
-        let okAll = true;
+        const succeeded: Line[] = [];
+        const remaining: Line[] = [];
         for (const ln of lines) {
             const clash = checkConflict(date, ln.time, ln.endTime, undefined, ln.staffId);
-            if (clash) { okAll = false; toast.error(`${ln.staffName || 'Personel'} ${ln.time} dolu, atlandı`); continue; }
+            if (clash) { remaining.push(ln); toast.error(`${ln.staffName || 'Personel'} ${ln.time} dolu, atlandı`); continue; }
             const res = await addReservation({
                 customerId: cust?.id || '', customerName: cust?.name || 'Geçici / Walk-in', customerPhone: cust?.phone || '',
                 date, startTime: ln.time, endTime: ln.endTime, service: ln.service.name, serviceColor: ln.service.color,
                 status: 'confirmed', staffId: ln.staffId, staffName: ln.staffName, staffColor: ln.staffColor,
                 notes: note.trim() || undefined, source: 'manual', groupId,
             });
-            if (!res) okAll = false;
+            if (res) succeeded.push(ln); else remaining.push(ln);
         }
         setSaving(false);
-        if (okAll) setDone(true);
+        // Başarılı satırlar sepetten çıkar — "Randevuyu Oluştur"a tekrar basınca
+        // zaten kaydedilenler ikinci kez yazılmasın (yalnızca kalanlar tekrar denenir).
+        setLines(remaining);
+        if (remaining.length === 0) {
+            setSavedLines(succeeded);
+            setDone(true);
+        } else if (succeeded.length > 0) {
+            toast.success(`${succeeded.length} hizmet kaydedildi · ${remaining.length} hizmet çakıştığı için beklemede`);
+            setStep(2);
+        }
     };
 
-    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setNote(''); setShowNote(false); setDone(false); };
+    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setNote(''); setShowNote(false); setDone(false); setSavedLines([]); };
 
     const dObj = new Date(date + 'T00:00:00');
     const dateChip = `${dObj.getDate()} ${MONTHS[dObj.getMonth()].slice(0, 3)}`;
@@ -161,11 +172,11 @@ export const MobileNewReservation = () => {
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em', marginBottom: 6 }}>Randevu Oluşturuldu!</div>
                 <div style={{ fontSize: 13, color: T.muted, marginBottom: 24, textAlign: 'center', lineHeight: 1.5 }}>
-                    {cust?.name || 'Müşteri'} için {dObj.getDate()} {MONTHS[dObj.getMonth()]} · {lines.length} hizmet eklendi.
+                    {cust?.name || 'Müşteri'} için {dObj.getDate()} {MONTHS[dObj.getMonth()]} · {savedLines.length} hizmet eklendi.
                 </div>
                 <div style={{ width: '100%', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden', marginBottom: 22 }}>
-                    {lines.map((l, i) => (
-                        <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < lines.length - 1 ? `1px solid ${T.border}` : 'none' }}>
+                    {savedLines.map((l, i) => (
+                        <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < savedLines.length - 1 ? `1px solid ${T.border}` : 'none' }}>
                             <div style={{ minWidth: 0 }}>
                                 <div style={{ fontSize: 13.5, fontWeight: 750 }}>{l.service.name}</div>
                                 <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, fontFamily: T.mono }}>{l.time}–{l.endTime} · {l.staffName || 'Atanmadı'}</div>

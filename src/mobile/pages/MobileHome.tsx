@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
@@ -8,27 +8,8 @@ import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
+import { useTicker } from '../hooks';
 import { MobileMasaHome, MobileMasaStrip } from './MobileMasaHome';
-
-// Ease-out sayaç animasyonu
-function useTicker(target: number, dur = 900, delay = 200) {
-    const [v, setV] = useState(0);
-    useEffect(() => {
-        const id = setTimeout(() => {
-            let start: number | undefined, raf: number;
-            const tick = (now: number) => {
-                if (!start) start = now;
-                const p = Math.min((now - start) / dur, 1);
-                setV(Math.round((1 - Math.pow(1 - p, 3)) * target));
-                if (p < 1) raf = requestAnimationFrame(tick);
-            };
-            raf = requestAnimationFrame(tick);
-            return () => cancelAnimationFrame(raf);
-        }, delay);
-        return () => clearTimeout(id);
-    }, [target, dur, delay]);
-    return v;
-}
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
@@ -36,12 +17,24 @@ const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTH_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
 export const MobileHome = () => {
-    // Restoran modu: masa açık + randevu kapalı → masa odaklı ana ekran.
-    // Diğer tüm durumlarda mevcut randevu ekranı birebir aynı kalır.
+    // Restoran kimliği: masa açık → masa odaklı ana ekran (randevu açık olsa bile).
+    // Masa kapalıyken mevcut randevu ekranı birebir aynı kalır.
+    // Modüller SWR cache'liyse isLoading anında false olur (flash olmaz); yalnız
+    // ilk-hiç-giriş anında (cache boş) modüller gelene dek nötr bir iskelet
+    // gösteriyoruz ki randevu ekranı bir an görünüp masa ekranına zıplamasın.
     const { isEnabled: modEnabled, isLoading: modulesLoading } = useModules();
-    if (!modulesLoading && modEnabled('masa') && !modEnabled('randevu')) return <MobileMasaHome />;
+    if (modulesLoading) return <HomeSkeleton />;
+    if (modEnabled('masa')) return <MobileMasaHome />;
     return <MobileRandevuHome />;
 };
+
+const HomeSkeleton = () => (
+    <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 0', color: T.ink }}>
+        <div style={{ height: 20, width: 140, borderRadius: 8, background: T.surface2 }} />
+        <div style={{ marginTop: 24, height: 90, borderRadius: 20, background: T.surface2 }} />
+        <div style={{ marginTop: 16, height: 60, borderRadius: 16, background: T.surface2 }} />
+    </div>
+);
 
 const MobileRandevuHome = () => {
     const navigate = useNavigate();
@@ -126,12 +119,12 @@ const MobileRandevuHome = () => {
             <div style={{ padding: '18px 22px 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 }}>
                     <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.035em' }}>Bugünün Programı</div>
-                    <div onClick={() => navigate('/calendar')} style={{ fontSize: 12, fontWeight: 750, color: T.orange, cursor: 'pointer' }}>Tümü →</div>
+                    <button onClick={() => navigate('/calendar')} style={{ fontSize: 12, fontWeight: 750, color: T.orange, cursor: 'pointer', background: 'none', border: 'none', padding: '8px 4px' }}>Tümü →</button>
                 </div>
 
                 {/* Sonraki randevu */}
                 {nextAppt && (
-                    <div onClick={() => navigate('/calendar')} style={{ background: 'linear-gradient(135deg,rgba(255,90,31,.10),rgba(255,90,31,.03))', border: '1px solid rgba(255,90,31,.20)', borderRadius: 18, padding: '13px 16px', marginBottom: 11, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                    <button onClick={() => navigate('/calendar')} style={{ width: '100%', background: 'linear-gradient(135deg,rgba(255,90,31,.10),rgba(255,90,31,.03))', border: '1px solid rgba(255,90,31,.20)', borderRadius: 18, padding: '13px 16px', marginBottom: 11, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', fontFamily: T.font }}>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.green, flexShrink: 0, boxShadow: `0 0 6px ${T.green}66` }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: T.mono, marginBottom: 3 }}>Sonraki Randevu</div>
@@ -139,7 +132,7 @@ const MobileRandevuHome = () => {
                             <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2 }}>{nextAppt.service} · <span style={{ fontFamily: T.mono }}>{nextAppt.startTime}–{nextAppt.endTime}</span></div>
                         </div>
                         {minsToNext != null && <div style={{ background: 'rgba(255,90,31,.14)', color: T.orange, fontSize: 12, fontWeight: 850, padding: '5px 12px', borderRadius: 999, fontFamily: T.mono, border: '1px solid rgba(255,90,31,.22)', flexShrink: 0 }}>{minsToNext} dk</div>}
-                    </div>
+                    </button>
                 )}
 
                 {/* Randevu listesi — açılır aksiyonlu */}
@@ -215,8 +208,8 @@ function ApptRow({ r, last, price, expanded, onToggle, onArrive, onCancel }: {
 }) {
     const ac = r.staffColor || r.serviceColor || T.orange;
     return (
-        <div onClick={onToggle} style={{ borderBottom: last ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: expanded ? T.surface2 : 'transparent', transition: 'background .12s' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ borderBottom: last ? 'none' : `1px solid ${T.border}`, background: expanded ? T.surface2 : 'transparent', transition: 'background .12s' }}>
+            <button onClick={onToggle} style={{ width: '100%', display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left', fontFamily: T.font, padding: 0 }}>
                 <div style={{ width: 4, alignSelf: 'stretch', background: ac, flexShrink: 0 }} />
                 <div style={{ flex: 1, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 46, flexShrink: 0 }}>
@@ -235,9 +228,9 @@ function ApptRow({ r, last, price, expanded, onToggle, onArrive, onCancel }: {
                         <div style={{ width: 27, height: 27, borderRadius: '50%', background: r.staffColor || avatarColor(r.customerName), display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 870, color: '#0E0E0E' }}>{(r.staffName || r.customerName)[0]?.toUpperCase()}</div>
                     </div>
                 </div>
-            </div>
+            </button>
             {expanded && r.status !== 'completed' && r.status !== 'cancelled' && (
-                <div onClick={(e) => e.stopPropagation()} style={{ padding: '0 16px 13px 20px', display: 'flex', gap: 8 }}>
+                <div style={{ padding: '0 16px 13px 20px', display: 'flex', gap: 8 }}>
                     {/* Akış: "Müşteri Geldi" sadece haber verir (personele push);
                         hizmeti personel kendisi başlatır, tamamlama da personelin işi */}
                     {r.arrivedAt ? (

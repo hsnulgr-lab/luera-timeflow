@@ -1,12 +1,107 @@
 import { useMemo, useState } from 'react';
-import { Plus, Banknote, CreditCard, Building2, Wallet, Receipt } from 'lucide-react';
+import { Plus, Banknote, CreditCard, Building2, Wallet, Receipt, Users, Clock } from 'lucide-react';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
+import { useModules } from '@/hooks/useModules';
+import { useTables } from '@/hooks/useTables';
+import { useTableReservations } from '@/hooks/useTableReservations';
+import { todayISO } from '@/utils/date';
+import { adisyonTotal, seatedMinutes, elapsedLabel } from '@/utils/masaAdisyon';
 import { priceForReservation } from '@/lib/appointmentFlow';
-import type { Payment, PaymentMethod, PaymentType, Reservation } from '@/types';
+import type { Payment, PaymentMethod, PaymentType, Reservation, TableReservation } from '@/types';
 import { TahsilatSheet, type TahsilatLine } from '../TahsilatSheet';
+import { MobileAdisyonSheet } from '../MobileAdisyonSheet';
 import { T } from '../theme';
+import { useMinuteTick } from '../hooks';
+
+// Restoran modu: mobil Kasa'da masa modunda randevu-bazlı akış yerine açık
+// (oturmuş) masaların listesi gösterilir; dokununca aynı MobileAdisyonSheet
+// açılır. Garson "Adisyonu Kasaya Gönder" dediğinde (isPaid=false — 049)
+// masa "Kasada Bekleyen"e düşer — hizmet akışındaki bills ile aynı desen.
+export const MobileKasa = () => {
+    const { isEnabled, isLoading } = useModules();
+    if (!isLoading && isEnabled('masa')) return <MobileMasaKasa />;
+    return <MobileRandevuKasa />;
+};
+
+const MobileMasaKasa = () => {
+    const { tables } = useTables();
+    useMinuteTick(); // gece yarısını geçince gün otomatik güncellensin
+    const date = todayISO();
+    const { reservations } = useTableReservations(date);
+    const [adisyonRes, setAdisyonRes] = useState<TableReservation | null>(null);
+
+    const open = useMemo(() => reservations.filter((r) => r.status === 'seated'), [reservations]);
+    // Garson "Adisyonu Kasaya Gönder" dedi (status→completed, isPaid=false) —
+    // hizmet akışındaki "Kasada Bekleyen" ile aynı desen; kasa burada tahsil eder.
+    const pending = useMemo(() => reservations.filter((r) => r.status === 'completed' && r.isPaid === false), [reservations]);
+    const tableName = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
+
+    return (
+        <div style={{ color: T.ink, paddingBottom: 24 }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.035em' }}>Kasa</h1>
+                <p style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{open.length} açık masa{pending.length > 0 ? ` · ${pending.length} bekleyen tahsilat` : ''}</p>
+            </div>
+            <div style={{ padding: '14px 22px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {pending.length > 0 && (
+                    <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 2 }}>
+                            <Receipt size={16} style={{ color: T.amber }} />
+                            <h2 style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.02em' }}>Kasada Bekleyen</h2>
+                            <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: T.amber, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900, color: '#fff', padding: '0 5px' }}>{pending.length}</span>
+                        </div>
+                        {pending.map((r) => {
+                            const total = adisyonTotal(r.adisyonItems);
+                            return (
+                                <button key={r.id} onClick={() => setAdisyonRes(r)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 15px', background: 'rgba(224,168,78,.10)', border: `1px solid ${T.amber}40`, borderRadius: 17, cursor: 'pointer', textAlign: 'left' }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(224,168,78,.18)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 850, color: T.amber, flexShrink: 0 }}>{tableName(r.tableId)}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 750 }}>{r.customerName}</div>
+                                        <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Users size={11} /> {r.partySize}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: 15, fontWeight: 850, color: T.amber }}>₺{fmt(total)}</div>
+                                        <div style={{ fontSize: 10, color: T.muted2, marginTop: 2 }}>Tahsil Et</div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                        <div style={{ height: 6 }} />
+                    </>
+                )}
+                {open.length === 0 && pending.length === 0 && (
+                    <div style={{ textAlign: 'center', color: T.muted2, fontSize: 12.5, padding: '40px 0' }}>Açık adisyon yok</div>
+                )}
+                {open.map((r) => {
+                    const running = adisyonTotal(r.adisyonItems);
+                    const mins = seatedMinutes(r.seatedAt);
+                    return (
+                        <button key={r.id} onClick={() => setAdisyonRes(r)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 15px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 17, cursor: 'pointer', textAlign: 'left' }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,90,31,.14)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 850, color: T.orange, flexShrink: 0 }}>{tableName(r.tableId)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 14, fontWeight: 750 }}>{r.customerName}</div>
+                                <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Users size={11} /> {r.partySize}</span>
+                                    {mins !== null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={11} /> {elapsedLabel(mins)}</span>}
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 15, fontWeight: 850, color: T.orange }}>₺{fmt(running)}</div>
+                                <div style={{ fontSize: 10, color: T.muted2, marginTop: 2 }}>{running ? 'devam ediyor' : 'boş'}</div>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+            <MobileAdisyonSheet open={!!adisyonRes} reservation={adisyonRes} tableName={adisyonRes ? tableName(adisyonRes.tableId) : ''}
+                onClose={() => setAdisyonRes(null)} />
+        </div>
+    );
+};
 
 const PM_TR: Record<PaymentMethod, string> = { cash: 'Nakit', card: 'Kart', transfer: 'Havale', other: 'Diğer' };
 const TYPE_TR: Record<PaymentType, string> = { service: 'Hizmet', product: 'Ürün', other: 'Tahsilat' };
@@ -22,7 +117,7 @@ function MethodIcon({ m, size = 16 }: { m: PaymentMethod; size?: number }) {
 // Kasada bekleyen birleşik adisyon — tekli randevu veya gruplu (çoklu hizmet) booking.
 interface Bill { key: string; reservationIds: string[]; customerId?: string; customerName: string; staffNames: string[]; total: number; summary: string; firstId: string; staffId?: string; endedAt: string; lines: TahsilatLine[]; }
 
-export const MobileKasa = () => {
+const MobileRandevuKasa = () => {
     const { payments, stats } = usePayments();
     const { allCustomers } = useCustomers();
     const { reservations, settings, updateReservation } = useReservations();

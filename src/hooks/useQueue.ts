@@ -10,6 +10,7 @@ function mapRow(row: any): QueueEntry {
         organizationId: row.organization_id,
         customerName: row.customer_name,
         customerPhone: row.customer_phone || undefined,
+        partySize: row.party_size ?? 2,
         service: row.service || undefined,
         staffId: row.staff_id || undefined,
         status: row.status,
@@ -68,12 +69,13 @@ export function useQueue() {
         return () => { supabase.removeChannel(ch); };
     }, [user, orgId, fetchQueue]);
 
-    const addEntry = useCallback(async (e: { customerName: string; customerPhone?: string; service?: string; staffId?: string; notes?: string }) => {
+    const addEntry = useCallback(async (e: { customerName: string; customerPhone?: string; partySize?: number; service?: string; staffId?: string; notes?: string }) => {
         if (!orgId) { toast.error('Organizasyon bulunamadı'); return null; }
         const { data, error } = await supabase.from('queue_entries').insert({
             organization_id: orgId,
             customer_name: e.customerName,
             customer_phone: e.customerPhone || null,
+            party_size: e.partySize || 2,
             service: e.service || null,
             staff_id: e.staffId || null,
             notes: e.notes || null,

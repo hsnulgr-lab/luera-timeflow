@@ -8,7 +8,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { useTables } from '@/hooks/useTables';
 import { toISODate, relativeDayLabel } from '@/utils/date';
-import { adisyonTotal } from '@/utils/masaAdisyon';
+import { adisyonTotal, seatedMinutes, elapsedLabel } from '@/utils/masaAdisyon';
 import type { Reservation } from '@/types';
 import { apptPhase } from '@/lib/appointmentFlow';
 import { MobileServiceDetail } from './MobileServiceDetail';
@@ -273,9 +273,10 @@ export const MobileStaffHome = () => {
                             {myTables.map((r) => {
                                 const isFuture = r.date > todayStr;
                                 const st = r.status === 'seated' ? { lbl: 'Oturdu', c: D.orange, bg: 'rgba(255,90,31,.12)' }
-                                    : r.status === 'completed' ? { lbl: 'Tamamlandı', c: D.green, bg: STS.done.bg }
+                                    : r.status === 'completed' ? (r.isPaid === false ? { lbl: 'Ödenmedi', c: D.amber, bg: 'rgba(224,168,78,.12)' } : { lbl: 'Tamamlandı', c: D.green, bg: STS.done.bg })
                                     : { lbl: 'Rezerve', c: D.amber, bg: 'rgba(224,168,78,.12)' };
                                 const adTotal = adisyonTotal(r.adisyonItems);
+                                const mins = r.status === 'seated' ? seatedMinutes(r.seatedAt) : null;
                                 return (
                                     <div key={r.id} onClick={() => setMasaDetail(r)} style={{ display: 'flex', alignItems: 'center', gap: 11, background: D.s1, border: `1px solid ${D.border}`, borderRadius: 17, padding: '12px 14px', cursor: 'pointer' }}>
                                         <div style={{ width: 54, flexShrink: 0 }}>
@@ -285,7 +286,7 @@ export const MobileStaffHome = () => {
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 14, fontWeight: 780, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                                            <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2.5 }}>{tableNameOf(r.tableId)}{adTotal > 0 ? ` · ${adTotal.toLocaleString('tr-TR')} ₺` : ''}</div>
+                                            <div style={{ fontSize: 11.5, color: D.muted, marginTop: 2.5 }}>{tableNameOf(r.tableId)}{mins !== null ? ` · ⏱ ${elapsedLabel(mins)}` : ''}{adTotal > 0 ? ` · ${adTotal.toLocaleString('tr-TR')} ₺` : ''}</div>
                                         </div>
                                         <div style={{ padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.c, fontSize: 10, fontWeight: 750, flexShrink: 0 }}>{st.lbl}</div>
                                     </div>

@@ -3,6 +3,26 @@ import type { MasaAdisyonItem, Product } from '@/types';
 
 export const MENU_CATEGORIES = ['Başlangıç', 'Yemek', 'İçecek', 'Tatlı', 'Diğer'] as const;
 
+// Uzun oturan masa eşiği (dk) — bu süreyi aşan dolu masa vurgulanır
+export const LONG_SIT_MIN = 90;
+
+// Masaya oturuldu damgasından (seated_at) bu ana kadar geçen dakika.
+// Damga yoksa (044 uygulanmadı / henüz oturmadı) null → ⏱ gizlenir.
+export function seatedMinutes(seatedAt?: string, now: number = Date.now()): number | null {
+    if (!seatedAt) return null;
+    const t = new Date(seatedAt).getTime();
+    if (isNaN(t)) return null;
+    return Math.max(0, Math.floor((now - t) / 60000));
+}
+
+// Süre etiketi: "0dk" / "34dk" / "1s 20dk"
+export function elapsedLabel(min: number): string {
+    if (min < 60) return `${min}dk`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m === 0 ? `${h}s` : `${h}s ${m}dk`;
+}
+
 // Adisyon toplamı = Σ(adet × birim fiyat)
 export function adisyonTotal(items: MasaAdisyonItem[] | undefined): number {
     return (items || []).reduce((s, it) => s + it.price * it.qty, 0);

@@ -20,11 +20,13 @@ function mapRow(row: any): TableReservation {
         customerId: row.customer_id || undefined,
         staffId: row.staff_id || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
+        seatedAt: row.seated_at || undefined,
         partySize: row.party_size ?? 2,
         date: row.date,
         startTime: row.start_time?.slice(0, 5) || row.start_time,
         endTime: row.end_time ? (row.end_time.slice(0, 5) || row.end_time) : undefined,
         status: row.status,
+        isPaid: row.is_paid ?? true,
         notes: row.notes || undefined,
         createdAt: row.created_at,
     };
@@ -124,15 +126,36 @@ export function useTableReservations(date: string) {
         return row;
     }, [orgId, date]);
 
-    const setStatus = useCallback(async (id: string, status: TableReservationStatus) => {
-        const { error } = await supabase.from('table_reservations').update({ status }).eq('id', id);
-        if (error) { toast.error('Durum güncellenemedi'); return; }
+    const setStatus = useCallback(async (id: string, status: TableReservationStatus, isPaid?: boolean) => {
+        // seated_at: masaya oturunca (→seated) damgala (yalnızca boşsa), geri
+        // alınca (→reserved) sıfırla. 044 kolonu yoksa hataya düşünce yalnız
+        // status ile geri düş (akış kırılmaz). now() serverda değil client'ta —
+        // damga anlık ve realtime tutarlı; ⏱ süre bu değerden hesaplanır.
+        const cur = reservations.find((r) => r.id === id);
+        let seatedAt: string | undefined | null = undefined; // undefined = dokunma
+        if (status === 'seated' && !cur?.seatedAt) seatedAt = new Date().toISOString();
+        else if (status === 'reserved') seatedAt = null;
+
+        // isPaid: garson "Kasaya Gönder" ile completed'a geçerken false (ödeme
+        // henüz alınmadı — 049); belirtilmezse (Kasa/yönetici gerçek tahsilatla
+        // kapatırken) dokunulmaz, DB varsayılanı (true) geçerli kalır.
+        const payload: Record<string, any> = { status };
+        if (seatedAt !== undefined) payload.seated_at = seatedAt;
+        if (isPaid !== undefined) payload.is_paid = isPaid;
+        let { error } = await supabase.from('table_reservations').update(payload).eq('id', id);
+        if (error && (seatedAt !== undefined || isPaid !== undefined)) {
+            console.warn('044/049 migration henüz uygulanmamış olabilir, seated_at/is_paid atlanıyor:', error.message);
+            ({ error } = await supabase.from('table_reservations').update({ status }).eq('id', id));
+        }
+        if (error) { toast.error('Durum güncellenemedi'); return false; }
         setReservations((p) => {
-            const next = status === 'cancelled' ? p.filter((r) => r.id !== id) : p.map((r) => (r.id === id ? { ...r, status } : r));
+            const apply = (r: TableReservation) => ({ ...r, status, ...(seatedAt !== undefined ? { seatedAt: seatedAt || undefined } : {}), ...(isPaid !== undefined ? { isPaid } : {}) });
+            const next = status === 'cancelled' ? p.filter((r) => r.id !== id) : p.map((r) => (r.id === id ? apply(r) : r));
             if (orgId) writeCache(`table_res:${orgId}:${date}`, next);
             return next;
         });
-    }, [orgId, date]);
+        return true;
+    }, [orgId, date, reservations]);
 
     const removeReservation = useCallback(async (id: string) => {
         const { error } = await supabase.from('table_reservations').delete().eq('id', id);

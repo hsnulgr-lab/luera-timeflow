@@ -31,6 +31,8 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { StaffDetailPage } from '@/pages/StaffDetailPage';
 import { MasaPage } from '@/pages/MasaPage';
+import { MobileMasa } from '@/mobile/pages/MobileMasa';
+import { MenuPage } from '@/pages/MenuPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
@@ -112,7 +114,8 @@ function App() {
             <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
-            <Route path="masa" element={<ModuleRoute module="masa"><MasaPage /></ModuleRoute>} />
+            <Route path="masa" element={<ModuleRoute module="masa"><Adaptive mobile={<MobileMasa />} desktop={<MasaPage />} /></ModuleRoute>} />
+            <Route path="menu" element={<ModuleRoute module="masa"><MenuPage /></ModuleRoute>} />
             <Route path="queue" element={<ModuleRoute module="sira"><Adaptive mobile={<MobileQueue />} desktop={<QueuePage />} /></ModuleRoute>} />
             <Route path="staff" element={<ModuleRoute module="personel"><Adaptive mobile={<MobileStaff />} desktop={<StaffPage />} /></ModuleRoute>} />
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
