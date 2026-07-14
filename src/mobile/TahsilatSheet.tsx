@@ -178,7 +178,7 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
 
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold" style={{ color: T.muted }}>Açıklama <span style={{ opacity: 0.6 }}>(opsiyonel)</span></label>
-                    <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ör. Saç kesimi"
+                    <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Açıklama (ops.)"
                         className="w-full rounded-2xl px-4 py-3.5 text-[15px] outline-none" style={field} />
                 </div>
 

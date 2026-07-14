@@ -8,6 +8,8 @@ import { BillingTab } from '@/components/settings/BillingTab';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
 import { MODULE_META } from '@/lib/modules';
+import { SECTOR_PROFILES, profileForSector } from '@/lib/sectorProfiles';
+import { useResources } from '@/hooks/useResources';
 import { hashPin } from '@/lib/pin';
 import { useOrgProfile, slugify } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -312,6 +314,11 @@ export const SettingsPage = () => {
   const [services, setServices]         = useState(settings.services);
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [sector, setSector]             = useState(settings.sector || 'genel');
+  // Kaynak yönetimi (051)
+  const { resources, addResource, removeResource } = useResources();
+  const resourceTypes = profileForSector(settings.sector).resourceTypes;
+  const [newResourceName, setNewResourceName] = useState('');
+  const [newResourceCap, setNewResourceCap]   = useState(1);
   const [managerPinInput, setManagerPinInput] = useState('');
   const [loyaltyReward, setLoyaltyReward] = useState(settings.loyaltyReward || 'Ücretsiz hizmet');
   const [rebookNote, setRebookNote]     = useState(settings.rebookNote || '');
@@ -467,18 +474,14 @@ export const SettingsPage = () => {
                 </select>
               </div>
               <div style={{ marginBottom:'22px' }}>
-                <FieldLabel>Sektör (AI hatırlatma için)</FieldLabel>
+                <FieldLabel>Sektör</FieldLabel>
                 <select value={sector} onChange={e=>setSector(e.target.value)}
                   style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
-                  <option value="genel">Genel</option>
-                  <option value="guzellik">Güzellik / Salon</option>
-                  <option value="kuafor">Kuaför / Berber</option>
-                  <option value="fizyoterapi">Fizyoterapi</option>
-                  <option value="saglik">Sağlık / Klinik</option>
-                  <option value="danismanlik">Danışmanlık / Koçluk</option>
-                  <option value="restoran">Restoran / Kafe</option>
+                  {Object.entries(SECTOR_PROFILES).map(([key, p]) => (
+                    <option key={key} value={key}>{p.label}</option>
+                  ))}
                 </select>
-                <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>WhatsApp hatırlatma mesajları sektörüne göre AI ile kişiselleştirilir.</div>
+                <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Terminoloji, varsayılan modüller ve AI hatırlatma tonu sektörüne göre uyarlanır.</div>
               </div>
               <div style={{ marginBottom:'22px' }}>
                 <FieldLabel>Yönetici PIN (Mobil)</FieldLabel>
@@ -599,6 +602,38 @@ export const SettingsPage = () => {
               <div style={{ fontSize:'11px', color:T.muted, marginTop:'16px' }}>
                 Aktif: {MODULE_META.filter(m=>modules[m.key]).map(m=>m.label).join(', ') || 'yok'}
               </div>
+
+              {/* ── Kaynaklar (051) — sektör profili kaynak tanımlıyorsa ── */}
+              {resourceTypes.length > 0 && (
+                <div style={{ marginTop:'28px' }}>
+                  <SectionTitle>Kaynaklar ({resourceTypes[0]})</SectionTitle>
+                  <p style={{ fontSize:'12.5px', color:T.muted, marginBottom:'14px', lineHeight:1.5 }}>
+                    Randevular personelin yanı sıra fiziksel kaynağa da bağlanabilir (ör. {resourceTypes.join(', ').toLowerCase()}). Kapasite &gt; 1 ise aynı saate o kadar kişi alınır.
+                  </p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'12px' }}>
+                    {resources.map(r => (
+                      <div key={r.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'11px 14px', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm }}>
+                        <div style={{ flex:1, fontSize:'13px', fontWeight:700, color:T.ink }}>{r.name}</div>
+                        <div style={{ fontSize:'11.5px', color:T.muted }}>{r.type} · {r.capacity} kişi</div>
+                        <button onClick={()=>removeResource(r.id)} title="Sil" style={{ border:'none', background:'none', color:T.muted, cursor:'pointer', display:'grid', placeItems:'center' }}>
+                          <Trash2 size={14}/>
+                        </button>
+                      </div>
+                    ))}
+                    {resources.length===0 && <div style={{ fontSize:'12px', color:T.muted }}>Henüz kaynak yok.</div>}
+                  </div>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    <input value={newResourceName} onChange={e=>setNewResourceName(e.target.value)} placeholder={`${resourceTypes[0]} adı (ör. ${resourceTypes[0]} 1)`}
+                      style={{ flex:1, background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:'inherit', fontSize:'13px', color:T.ink, outline:'none' }}/>
+                    <input type="number" min={1} value={newResourceCap} onChange={e=>setNewResourceCap(Math.max(1, parseInt(e.target.value)||1))} title="Kapasite"
+                      style={{ width:70, background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:'inherit', fontSize:'13px', color:T.ink, outline:'none' }}/>
+                    <button onClick={async()=>{ if(!newResourceName.trim())return; const ok=await addResource({ type:resourceTypes[0], name:newResourceName.trim(), capacity:newResourceCap }); if(ok){ setNewResourceName(''); setNewResourceCap(1); toast.success('Kaynak eklendi'); } }}
+                      style={{ padding:'9px 14px', borderRadius:T.rSm, border:'none', background:T.orange, color:'#fff', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                      Ekle
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

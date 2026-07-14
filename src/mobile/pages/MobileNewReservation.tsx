@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
+import { useResources } from '@/hooks/useResources';
+import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
+import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { toISODate, formatDateEU } from '@/utils/date';
 import type { Service, Customer } from '@/types';
 import { T, avatarColor } from '../theme';
@@ -50,6 +53,13 @@ export const MobileNewReservation = () => {
     const [done, setDone] = useState(false);
     const [savedLines, setSavedLines] = useState<Line[]>([]); // başarı ekranında gösterilecek — kaydedilenler
     const [saving, setSaving] = useState(false);
+    // Kaynak + sektöre özel alanlar (050/051)
+    const { resources } = useResources();
+    const [resourceId, setResourceId] = useState<string | null>(null);
+    const profile = profileForSector(settings.sector);
+    const resourceTypeLabel = profile.resourceTypes[0] || 'Kaynak';
+    const cfDefs = fieldDefsForSector(settings.sector, 'reservation');
+    const [cfValues, setCfValues] = useState<Record<string, string | number | boolean>>({});
 
     const selStaff = activeStaff[staffIdx];
     const grandTotal = lines.reduce((s, l) => s + (l.service.price ?? 0), 0);
@@ -132,14 +142,17 @@ export const MobileNewReservation = () => {
         const groupId = lines.length > 1 ? gid() : undefined;
         const succeeded: Line[] = [];
         const remaining: Line[] = [];
+        const selRes = resources.find((x) => x.id === resourceId);
         for (const ln of lines) {
-            const clash = checkConflict(date, ln.time, ln.endTime, undefined, ln.staffId);
+            const clash = checkConflict(date, ln.time, ln.endTime, undefined, ln.staffId, resourceId || undefined, selRes?.capacity);
             if (clash) { remaining.push(ln); toast.error(`${ln.staffName || 'Personel'} ${ln.time} dolu, atlandı`); continue; }
             const res = await addReservation({
                 customerId: cust?.id || '', customerName: cust?.name || 'Geçici / Walk-in', customerPhone: cust?.phone || '',
                 date, startTime: ln.time, endTime: ln.endTime, service: ln.service.name, serviceColor: ln.service.color,
                 status: 'confirmed', staffId: ln.staffId, staffName: ln.staffName, staffColor: ln.staffColor,
                 notes: note.trim() || undefined, source: 'manual', groupId,
+                resourceId: resourceId || undefined,
+                customFields: Object.keys(cfValues).length ? cfValues : undefined,
             });
             if (res) succeeded.push(ln); else remaining.push(ln);
         }
@@ -156,7 +169,7 @@ export const MobileNewReservation = () => {
         }
     };
 
-    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setNote(''); setShowNote(false); setDone(false); setSavedLines([]); };
+    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setNote(''); setShowNote(false); setDone(false); setSavedLines([]); setResourceId(null); setCfValues({}); };
 
     const dObj = new Date(date + 'T00:00:00');
     const dateChip = `${dObj.getDate()} ${MONTHS[dObj.getMonth()].slice(0, 3)}`;
@@ -440,11 +453,37 @@ export const MobileNewReservation = () => {
                             ))}
                         </div>
 
+                        {/* Kaynak seçimi (051) — sektör profili kaynak tanımlıyorsa */}
+                        {resources.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                                <Label>{resourceTypeLabel}</Label>
+                                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                                    {resources.map((res) => {
+                                        const on = resourceId === res.id;
+                                        return (
+                                            <button key={res.id} onClick={() => setResourceId(on ? null : res.id)}
+                                                style={{ flex: '0 0 auto', padding: '9px 14px', borderRadius: 12, fontSize: 12.5, fontWeight: 750, cursor: 'pointer', background: on ? 'rgba(255,90,31,.10)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, color: on ? T.orange : T.ink }}>
+                                                {res.name}{res.capacity > 1 ? ` · ${res.capacity} kişi` : ''}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Sektöre özel randevu alanları (050) */}
+                        {cfDefs.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                                <CustomFieldsSection defs={cfDefs} values={cfValues} onChange={setCfValues}
+                                    T={{ ink: T.ink, muted: T.muted, surface2: T.surface, border2: T.border, rSm: 14 }} />
+                            </div>
+                        )}
+
                         <button onClick={() => setShowNote((n) => !n)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: T.surface, border: `1px dashed ${showNote ? T.orange : T.border2}`, borderRadius: 14, cursor: 'pointer', color: showNote ? T.orange : T.muted, marginBottom: showNote ? 8 : 12 }}>
                             <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v9l-4 4H4V4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M12 17v-4h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                             <span style={{ fontSize: 13, fontWeight: 700 }}>{showNote ? 'Not' : 'Not ekle (opsiyonel)'}</span>
                         </button>
-                        {showNote && <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Örn: Saç uzunluğu kısa…" style={{ width: '100%', minHeight: 80, padding: '12px 14px', background: T.surface2, border: `1.5px solid ${T.orange}`, borderRadius: 14, color: T.ink, fontFamily: T.font, fontSize: 13, resize: 'none', outline: 'none', lineHeight: 1.5, marginBottom: 12 }} />}
+                        {showNote && <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Not ekle…" style={{ width: '100%', minHeight: 80, padding: '12px 14px', background: T.surface2, border: `1.5px solid ${T.orange}`, borderRadius: 14, color: T.ink, fontFamily: T.font, fontSize: 13, resize: 'none', outline: 'none', lineHeight: 1.5, marginBottom: 12 }} />}
 
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'linear-gradient(135deg,rgba(255,90,31,.08),rgba(255,90,31,.03))', border: '1px solid rgba(255,90,31,.2)', borderRadius: 15 }}>
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: T.muted }}>Toplam</span>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, Phone, MessageCircle, Plus, Gift, Package, CalendarClock } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
+import { useLabels } from '@/hooks/useLabels';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
 import { formatDateEU } from '@/utils/date';
@@ -11,6 +12,8 @@ import { BottomSheet } from '../BottomSheet';
 import { T, avatarColor } from '../theme';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
+import { DentalChart } from '@/components/dental/DentalChart';
+import { TreatmentPlans } from '@/components/dental/TreatmentPlans';
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
@@ -24,6 +27,7 @@ function waLink(phone: string): string {
 export const MobileCustomers = () => {
     const { customers, allCustomers, searchQuery, setSearchQuery, redeemLoyalty, isLoading } = useCustomers();
     const { settings } = useReservations();
+    const { t } = useLabels();
     const loyalty = settings.loyaltyEnabled ? { thr: settings.loyaltyThreshold ?? 10, reward: settings.loyaltyReward || 'Ücretsiz hizmet' } : null;
     const [sheetOpen, setSheetOpen] = useState(false);
     const [selected, setSelected] = useState<Customer | null>(null);
@@ -33,7 +37,7 @@ export const MobileCustomers = () => {
         <div style={{ color: T.ink, paddingBottom: 24 }}>
             <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, background: `color-mix(in srgb, var(--lt-bg, ${T.bg}) 85%, transparent)`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
                 <div>
-                    <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em' }}>Müşteriler</h1>
+                    <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em' }}>{t('customers')}</h1>
                     <p style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{allCustomers.length} kişi · {totalVisits} ziyaret</p>
                 </div>
                 <button onClick={() => setSheetOpen(true)} aria-label="Yeni müşteri" style={{ width: 44, height: 44, borderRadius: 14, background: T.orange, display: 'grid', placeItems: 'center', boxShadow: '0 6px 16px rgba(255,90,31,.4)' }}>
@@ -115,6 +119,7 @@ const STS: Record<string, { lbl: string; c: string }> = {
 // Masaüstü AdisyonModal "Müşteri" sekmesinin mobil karşılığı.
 function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
     const { reservations, settings } = useReservations();
+    const { sector } = useLabels();
     const { totalForCustomer } = usePayments();
     const { forCustomer } = useCustomerPackages();
 
@@ -162,6 +167,22 @@ function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null;
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: T.muted }}>
                         <CalendarClock size={14} style={{ color: T.muted2 }} />
                         {new Date(customer.createdAt).toLocaleDateString('tr-TR')} tarihinden beri müşteri
+                    </div>
+                )}
+
+                {/* Diş şeması — yalnız diş hekimi sektörü */}
+                {sector === 'dis' && (
+                    <div>
+                        <SecLbl>Diş Şeması</SecLbl>
+                        <DentalChart customerId={customer.id} T={T} />
+                    </div>
+                )}
+
+                {/* Tedavi planı + taksit takibi — yalnız diş hekimi sektörü */}
+                {sector === 'dis' && (
+                    <div>
+                        <SecLbl>Tedavi Planı</SecLbl>
+                        <TreatmentPlans customerId={customer.id} T={T} />
                     </div>
                 )}
 

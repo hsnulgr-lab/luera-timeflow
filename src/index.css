@@ -24,8 +24,9 @@ html, body, #root {
   --dc-orange-soft:rgba(255,90,31,0.08);
   --dc-green:#2D8F32; --dc-green-bg:#E8F5EA;
   --dc-red:#C94040; --dc-red2:#C0392B; --dc-red-bg:#FBECEC;
-  --dc-amber:#B87A00;
+  --dc-amber:#B87A00; --dc-amber-bg:rgba(184,121,10,0.12);
   --dc-blue:#3B6FB0; --dc-blue-bg:rgba(59,111,176,0.11);
+  --dc-purple:#7B4FA0; --dc-purple-bg:rgba(123,79,160,0.12);
 }
 .dash-theme.dark {
   --dc-inkbox:#2A2118; --dc-inkbox-fg:#F3EDE3;
@@ -38,8 +39,9 @@ html, body, #root {
   --dc-orange-soft:rgba(255,90,31,0.14);
   --dc-green:#7AD3A0; --dc-green-bg:rgba(45,160,50,.16);
   --dc-red:#e07070; --dc-red2:#e07070; --dc-red-bg:rgba(224,112,112,.16);
-  --dc-amber:#E0A12E;
+  --dc-amber:#E0A12E; --dc-amber-bg:rgba(224,161,46,0.16);
   --dc-blue:#7AAFE8; --dc-blue-bg:rgba(122,175,232,0.16);
+  --dc-purple:#C09AE0; --dc-purple-bg:rgba(192,154,224,0.16);
 }
 
 /* ── Sidebar mikro-etkileşimleri (tasarım: Luera Sidebar Dark.html) ──
@@ -323,3 +325,5 @@ html, body, #root {
 .status-completed {
   @apply bg-blue-100 text-blue-700 border-blue-200;
 }
+/* Diş şeması aktif panel açılış animasyonu */
+@keyframes dc-panel-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }

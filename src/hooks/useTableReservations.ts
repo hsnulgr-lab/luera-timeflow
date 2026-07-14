@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO } from '@/utils/date';
 import type { TableReservation, TableReservationStatus, MasaAdisyonItem } from '@/types';
@@ -35,6 +36,8 @@ function mapRow(row: any): TableReservation {
 // Belirli bir tarihteki masa rezervasyonlarını yönetir.
 export function useTableReservations(date: string) {
     const { orgId } = useAuth();
+    // Modül kapısı (Faz 5): masa kapalıysa fetch + realtime hiç başlamaz
+    const masaOn = useModuleGate('masa');
     const [reservations, setReservations] = useState<TableReservation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -58,12 +61,12 @@ export function useTableReservations(date: string) {
         setIsLoading(false);
     }, []);
 
-    useEffect(() => { if (orgId && date) fetchFor(orgId, date); }, [orgId, date, fetchFor]);
+    useEffect(() => { if (orgId && date && masaOn) fetchFor(orgId, date); }, [orgId, date, masaOn, fetchFor]);
 
     // Realtime: başka cihazın rezervasyon/oturt/tamamla/iptal işlemi anında
     // yansısın. Kanal görüntülenen güne bağlı — gün değişince yeniden kurulur.
     useEffect(() => {
-        if (!orgId || !date) return;
+        if (!orgId || !date || !masaOn) return;
         const ch = supabase
             // Rastgele ek: Dashboard + MasaPage aynı güne abone olabilir (usePayments deseni)
             .channel(`table_res:${orgId}:${date}:${Math.random().toString(36).slice(2)}`)
@@ -87,7 +90,7 @@ export function useTableReservations(date: string) {
                 })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [orgId, date]);
+    }, [orgId, date, masaOn]);
 
     const addReservation = useCallback(async (r: Omit<TableReservation, 'id' | 'createdAt' | 'organizationId'>) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }
@@ -197,6 +200,7 @@ export function useTableReservations(date: string) {
 // ile aynı desen; org geneli dinlenir, gün bazlı filtre client'ta.
 export function useUpcomingTableReservations() {
     const { orgId } = useAuth();
+    const masaOn = useModuleGate('masa');
     const today = todayISO();
     const [reservations, setReservations] = useState<TableReservation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -221,10 +225,10 @@ export function useUpcomingTableReservations() {
         setIsLoading(false);
     }, []);
 
-    useEffect(() => { if (orgId) fetchUpcoming(orgId, today); }, [orgId, today, fetchUpcoming]);
+    useEffect(() => { if (orgId && masaOn) fetchUpcoming(orgId, today); }, [orgId, masaOn, today, fetchUpcoming]);
 
     useEffect(() => {
-        if (!orgId) return;
+        if (!orgId || !masaOn) return;
         const ch = supabase
             .channel(`table_res_up:${orgId}:${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations', filter: `organization_id=eq.${orgId}` },
@@ -247,7 +251,7 @@ export function useUpcomingTableReservations() {
                 })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [orgId, today]);
+    }, [orgId, today, masaOn]);
 
     return { reservations, isLoading };
 }

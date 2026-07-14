@@ -1,13 +1,20 @@
-import { useState } from 'react';
-import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package, Gift } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, Phone, Mail, Plus, X, Trash2, Edit2, ChevronLeft, Package, Gift, AlertTriangle, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
+import { useLabels } from '@/hooks/useLabels';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EmptyState } from '@/components/EmptyState';
+import { CustomFieldsSection, CustomFieldsDisplay } from '@/components/CustomFieldsSection';
+import { DentalChart } from '@/components/dental/DentalChart';
+import { TreatmentPlans } from '@/components/dental/TreatmentPlans';
+import { fieldDefsForSector } from '@/lib/sectorProfiles';
 import type { Customer } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -43,6 +50,7 @@ function isNew(createdAt: string) {
 export const CustomersPage = () => {
   const isMobile = useIsMobile();
   const { dark } = useTheme();
+  const navigate = useNavigate();
   const T = dark ? DT : LT;
 
   const statusDot: Record<string, string> = dark ? {
@@ -59,13 +67,23 @@ export const CustomersPage = () => {
 
   const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer, redeemLoyalty } = useCustomers();
   const { reservations, settings } = useReservations();
+  const { t, sector } = useLabels();
   const { forCustomer: pkgsForCustomer, addPackage, removePackage } = useCustomerPackages();
   const { totalForCustomer } = usePayments();
   const [selId, setSelId]         = useState<string | null>(null);
+  // Dashboard'dan derin bağlantı: /customers?open=<id> gelen müşteriyi seçili açar
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId) { setSelId(openId); setSearchParams((p) => { p.delete('open'); return p; }, { replace: true }); }
+  }, [searchParams, setSearchParams]);
   const [showNew, setShowNew]     = useState(false);
   const [creatingCust, setCreatingCust] = useState(false);
   const [newCust, setNewCust]     = useState({ name:'', phone:'', email:'', notes:'' });
   const [pkgForm, setPkgForm]     = useState({ name:'', total:'10' });
+  // Sektöre özel alanlar — yeni müşteri formunda (050)
+  const cfDefs = fieldDefsForSector(settings.sector, 'customer');
+  const [cfValues, setCfValues]   = useState<Record<string, string | number | boolean>>({});
   const [showPkgForm, setShowPkgForm] = useState(false);
 
   const selected    = allCustomers.find(c => c.id === selId) ?? null;
@@ -115,10 +133,11 @@ export const CustomersPage = () => {
   const handleCreate = async () => {
     if (!newCust.name || !newCust.phone || creatingCust) return;
     setCreatingCust(true);
-    await addCustomer(newCust);
+    await addCustomer({ ...newCust, customFields: cfValues });
     setCreatingCust(false);
     setShowNew(false);
     setNewCust({ name:'', phone:'', email:'', notes:'' });
+    setCfValues({});
   };
 
   // ── render ──────────────────────────────────────────────────────────────────
@@ -135,7 +154,7 @@ export const CustomersPage = () => {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize:'21px', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1, color:T.ink }}>Müşteriler</div>
+            <div style={{ fontSize:'21px', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1, color:T.ink }}>{t('customers')}</div>
             <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{allCustomers.length} müşteri</div>
           </div>
         </div>
@@ -143,7 +162,7 @@ export const CustomersPage = () => {
           style={{ display:'flex', alignItems:'center', gap:'7px', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
           onMouseEnter={e=>(e.currentTarget.style.background= dark ? '#363028' : '#2a2a2a')}
           onMouseLeave={e=>(e.currentTarget.style.background= dark ? '#231E18' : '#0E0E0E')}>
-          <Plus size={13} strokeWidth={2.5}/> Yeni Müşteri
+          <Plus size={13} strokeWidth={2.5}/> Yeni {t('customer')}
         </button>
       </div>
 
@@ -173,7 +192,7 @@ export const CustomersPage = () => {
               ) : (
                 <EmptyState T={T} icon={<Search size={22} />} title="Henüz müşteri yok"
                   description="İlk müşterini ekleyerek başla"
-                  actionLabel="Yeni Müşteri" onAction={() => setShowNew(true)} />
+                  actionLabel={`Yeni ${t('customer')}`} onAction={() => setShowNew(true)} />
               )
             ) : (
               customers.map(cust => {
@@ -265,9 +284,33 @@ export const CustomersPage = () => {
                 {/* Hero */}
                 <div style={{ padding:'26px 22px 18px', display:'flex', alignItems:'center', gap:'16px', borderBottom:`1px solid ${T.border}` }}>
                   <div style={{ width:54, height:54, borderRadius:'50%', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
-                  <div>
+                  <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', lineHeight:1.1, color:T.ink }}>{selected.name}</div>
                     <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px' }}>{selected.lastVisit ? `Son ziyaret: ${selected.lastVisit}` : 'Henüz ziyaret yok'}</div>
+                    {/* Medikal uyarı + kontrol çağrısı — hekim ilk bakışta görmeli */}
+                    {(() => {
+                      const cf = selected.customFields || {};
+                      const alerts = [
+                        cf.alerji ? `Alerji: ${cf.alerji}` : null,
+                        cf.ilaclar ? `İlaç: ${cf.ilaclar}` : null,
+                        cf.kronik ? `Kronik: ${cf.kronik}` : null,
+                      ].filter(Boolean) as string[];
+                      if (alerts.length === 0 && !selected.recallDate) return null;
+                      return (
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:'5px', marginTop:'7px' }}>
+                          {alerts.map(a => (
+                            <span key={a} style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'10px', fontWeight:700, padding:'3px 9px', borderRadius:999, background:'rgba(192,57,43,0.12)', color: dark ? '#e07070' : '#C0392B' }}>
+                              <AlertTriangle style={{ width:11, height:11, flexShrink:0 }} />{a}
+                            </span>
+                          ))}
+                          {selected.recallDate && (
+                            <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'10px', fontWeight:700, padding:'3px 9px', borderRadius:999, background:T.surface2, color:T.muted }}>
+                              <CalendarClock style={{ width:11, height:11, flexShrink:0 }} />Kontrol: {selected.recallDate}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -299,6 +342,36 @@ export const CustomersPage = () => {
                     {totalRemaining > 0 && <><span>·</span><span style={{ color:T.orange, fontWeight:700 }}>{totalRemaining} seans hakkı</span></>}
                   </div>
                 </div>
+
+                {/* Sektöre özel alanlar (050) */}
+                {cfDefs.length > 0 && selected.customFields && Object.keys(selected.customFields).length > 0 && (
+                  <div style={{ padding:'14px 22px', borderBottom:`1px solid ${T.border}` }}>
+                    <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'8px' }}>Özel Bilgiler</div>
+                    <CustomFieldsDisplay defs={cfDefs} values={selected.customFields} T={T} />
+                  </div>
+                )}
+
+                {/* Diş şeması — yalnız diş hekimi sektörü */}
+                {sector === 'dis' && (
+                  <div style={{ padding:'14px 22px', borderBottom:`1px solid ${T.border}` }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                      <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>Diş Şeması</div>
+                      <button onClick={() => navigate(`/dental-chart?patient=${selected.id}`)}
+                        style={{ fontSize:'12px', fontWeight:700, padding:'8px 14px', minHeight:36, borderRadius:999, border:`1px solid ${T.border2}`, background:'none', color:T.ink, cursor:'pointer' }}>
+                        Tam şemayı aç →
+                      </button>
+                    </div>
+                    <DentalChart customerId={selected.id} T={T} />
+                  </div>
+                )}
+
+                {/* Tedavi planı + taksit takibi — yalnız diş hekimi sektörü */}
+                {sector === 'dis' && (
+                  <div style={{ padding:'14px 22px', borderBottom:`1px solid ${T.border}` }}>
+                    <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'10px' }}>Tedavi Planı</div>
+                    <TreatmentPlans customerId={selected.id} T={T} />
+                  </div>
+                )}
 
                 {/* Stats row */}
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', borderBottom:`1px solid ${T.border}` }}>
@@ -442,7 +515,7 @@ export const CustomersPage = () => {
         <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark ? 'rgba(0,0,0,0.6)' : 'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowNew(false)}>
           <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:440, maxWidth:'90vw', boxShadow:T.shadowLg, animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both', border:`1px solid ${T.border2}` }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
-              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>Yeni Müşteri</div>
+              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>Yeni {t('customer')}</div>
               <button onClick={()=>setShowNew(false)} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
                 onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none'}}>
                 <X size={16}/>
@@ -457,6 +530,8 @@ export const CustomersPage = () => {
                   onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
               </div>
             ))}
+            {/* Sektöre özel alanlar (050) */}
+            <CustomFieldsSection defs={cfDefs} values={cfValues} onChange={setCfValues} T={T} />
             <div style={{ marginBottom:'22px' }}>
               <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Not</label>
               <textarea placeholder="Müşteri hakkında notlar..." rows={2} value={newCust.notes} onChange={e=>setNewCust(p=>({...p,notes:e.target.value}))}

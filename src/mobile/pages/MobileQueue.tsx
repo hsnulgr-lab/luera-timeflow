@@ -139,7 +139,7 @@ export const MobileQueue = () => {
                         <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="05xx…" style={inp} />
                     </Field>
                     <Field label="Hizmet (opsiyonel)">
-                        <input value={service} onChange={(e) => setService(e.target.value)} placeholder="Örn. Saç + Sakal" style={inp} />
+                        <input value={service} onChange={(e) => setService(e.target.value)} placeholder="Hizmet adı" style={inp} />
                     </Field>
                     <button onClick={add} disabled={saving} style={{ height: 50, borderRadius: 15, background: T.orange, color: '#0E0E0E', fontSize: 15, fontWeight: 850, border: 'none', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1, marginTop: 2 }}>
                         {saving ? 'Ekleniyor…' : 'Sıraya Ekle'}

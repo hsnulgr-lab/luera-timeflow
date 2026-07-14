@@ -10,11 +10,20 @@ import { toast } from 'sonner';
 import { T, STS_COLOR, STS_BG, STS_LABEL, avatarColor } from '../theme';
 import { useTicker } from '../hooks';
 import { MobileMasaHome, MobileMasaStrip } from './MobileMasaHome';
+import { MobileDovmeHome } from './MobileDovmeHome';
+import { profileForSector } from '@/lib/sectorProfiles';
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTH_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+
+// Mobil dashboard yüzleri — sektör profili (dashboardKpis[0]) buradan yüz seçer.
+const MOBILE_FACES: Record<string, React.ComponentType> = {
+    get randevuFace() { return MobileRandevuHome; },
+    masaFace: MobileMasaHome,
+    dovmeFace: MobileDovmeHome,
+};
 
 export const MobileHome = () => {
     // Restoran kimliği: masa açık → masa odaklı ana ekran (randevu açık olsa bile).
@@ -23,9 +32,11 @@ export const MobileHome = () => {
     // ilk-hiç-giriş anında (cache boş) modüller gelene dek nötr bir iskelet
     // gösteriyoruz ki randevu ekranı bir an görünüp masa ekranına zıplamasın.
     const { isEnabled: modEnabled, isLoading: modulesLoading } = useModules();
+    const { settings } = useReservations();
     if (modulesLoading) return <HomeSkeleton />;
     if (modEnabled('masa')) return <MobileMasaHome />;
-    return <MobileRandevuHome />;
+    const Face = MOBILE_FACES[profileForSector(settings.sector).dashboardKpis[0]] ?? MobileRandevuHome;
+    return <Face />;
 };
 
 const HomeSkeleton = () => (

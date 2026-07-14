@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, createContext, useCo
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO, toISODate } from '@/utils/date';
 import { sendTextMessage, buildRebookMessage } from '@/services/evolutionApi';
@@ -66,12 +67,19 @@ function mapDbReservation(row: any): Reservation {
         serviceEndedAt: row.service_ended_at || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
         groupId: row.group_id || undefined,
+        customFields: row.custom_fields || {},
+        resourceId: row.resource_id || undefined,
+        resourceName: row.resource?.name || undefined,
+        endDate: row.end_date || undefined,
     };
 }
 
 // Ağır mantık — yalnızca Provider içinde BİR KEZ çalışır
 function useReservationsState() {
     const { user, orgId } = useAuth();
+    // Modül kapısı (Faz 5): randevu kapalıysa (saf restoran) rezervasyon fetch +
+    // realtime başlamaz; settings HER ZAMAN yüklenir (sektör/işletme adı core veri).
+    const randevuOn = useModuleGate('randevu');
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
@@ -252,8 +260,9 @@ function useReservationsState() {
     useEffect(() => {
         if (!user || !orgId) return;
 
-        fetchReservations(orgId);
         fetchSettings(orgId);
+        if (!randevuOn) { setIsLoading(false); return; }   // rezervasyon verisi + kanalı yalnız modül açıkken
+        fetchReservations(orgId);
 
         // Aynı org'daki tüm değişiklikleri dinle — çoklu kullanıcı desteği.
         // Tam tabloyu yeniden çekmek yerine değişen satırı doğrudan state'e merge
@@ -310,7 +319,7 @@ function useReservationsState() {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [user, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user, orgId, randevuOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Rezervasyon ekle ────────────────────────────────────────────────────
     const addReservation = useCallback(async (reservation: Omit<Reservation, 'id' | 'createdAt'>) => {
@@ -355,6 +364,11 @@ function useReservationsState() {
                 group_id: reservation.groupId || null,
                 recurrence_rule:  reservation.recurrenceRule || null,
                 recurrence_until: reservation.recurrenceUntil || null,
+                // 051/052 — yalnız değer varsa gönder (migration öncesi kırılmasın)
+                ...(reservation.resourceId ? { resource_id: reservation.resourceId } : {}),
+                ...(reservation.endDate ? { end_date: reservation.endDate } : {}),
+                ...(reservation.customFields && Object.keys(reservation.customFields).length
+                    ? { custom_fields: reservation.customFields } : {}),
             })
             .select()
             .single();
@@ -405,6 +419,9 @@ function useReservationsState() {
         if (updates.customerArrivedAt !== undefined) dbUpdates.customer_arrived_at = updates.customerArrivedAt;
         if (updates.serviceEndedAt !== undefined) dbUpdates.service_ended_at = updates.serviceEndedAt;
         if (updates.adisyonItems !== undefined) dbUpdates.adisyon_items = updates.adisyonItems;
+        if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
+        if (updates.resourceId !== undefined) dbUpdates.resource_id = updates.resourceId ?? null;
+        if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate ?? null;
 
         const { data: serverRow, error } = await supabase
             .from('reservations')
@@ -677,25 +694,35 @@ function useReservationsState() {
     //   • Personel seçili değilse → yalnızca diğer "atanmamış" randevularla
     //     (tek kişilik işletme / walk-in havuzu kendi içinde çakışır).
     // Böylece bir personelin dolu saati başkasının boş saatini bloklamaz.
-    const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string): Reservation | null => {
+    const checkConflict = useCallback((date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string, resourceId?: string, resourceCapacity = 1): Reservation | null => {
         const startMin = timeToMinutes(startTime);
         const endMin = timeToMinutes(endTime);
         const target = staffId || null;
 
-        const conflict = reservations.find(r => {
+        const overlaps = (r: Reservation) => {
             if (r.id === excludeId) return false;
             if (r.date !== date) return false;
             if (r.status === 'cancelled') return false;
-            // Yalnızca aynı kaynağı (aynı personel; ya da ikisi de atanmamış) karşılaştır
-            if ((r.staffId || null) !== target) return false;
-
             const rStart = timeToMinutes(r.startTime);
             const rEnd = timeToMinutes(r.endTime);
-
             return startMin < rEnd && rStart < endMin;
-        });
+        };
 
-        return conflict || null;
+        const conflict = reservations.find(r => {
+            // Yalnızca aynı kaynağı (aynı personel; ya da ikisi de atanmamış) karşılaştır
+            if ((r.staffId || null) !== target) return false;
+            return overlaps(r);
+        });
+        if (conflict) return conflict;
+
+        // Fiziksel kaynak çakışması (051): aynı kaynakta örtüşen randevu sayısı
+        // kapasiteyi doldurduysa çakışma (capacity>1 = grup dersi kontenjanı).
+        if (resourceId) {
+            const sameResource = reservations.filter(r => r.resourceId === resourceId && overlaps(r));
+            if (sameResource.length >= Math.max(1, resourceCapacity)) return sameResource[0];
+        }
+
+        return null;
     }, [reservations]);
 
     return useMemo(() => ({

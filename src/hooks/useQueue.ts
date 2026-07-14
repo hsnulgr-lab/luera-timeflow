@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleGate } from '@/hooks/useModules';
 import type { QueueEntry, QueueStatus } from '@/types';
 
 function mapRow(row: any): QueueEntry {
@@ -24,6 +25,8 @@ function mapRow(row: any): QueueEntry {
 // served/left arşivlenir (listeden düşer).
 export function useQueue() {
     const { user, orgId } = useAuth();
+    // Modül kapısı (Faz 5): sıra kapalıysa fetch + realtime hiç başlamaz
+    const siraOn = useModuleGate('sira');
     const [entries, setEntries] = useState<QueueEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -41,7 +44,7 @@ export function useQueue() {
     }, []);
 
     useEffect(() => {
-        if (!user || !orgId) return;
+        if (!user || !orgId || !siraOn) return;
         fetchQueue(orgId);
         // Canlı güncelleme — çoklu cihaz aynı sırayı görsün.
         // REPLICA IDENTITY FULL (034_realtime.sql) sayesinde payload.new/old tam satırı
@@ -67,7 +70,7 @@ export function useQueue() {
                 })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [user, orgId, fetchQueue]);
+    }, [user, orgId, siraOn, fetchQueue]);
 
     const addEntry = useCallback(async (e: { customerName: string; customerPhone?: string; partySize?: number; service?: string; staffId?: string; notes?: string }) => {
         if (!orgId) { toast.error('Organizasyon bulunamadı'); return null; }

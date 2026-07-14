@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleGate } from '@/hooks/useModules';
 import type { WaitlistEntry } from '@/types';
 
 function mapRow(row: any): WaitlistEntry {
@@ -42,8 +43,10 @@ export function useWaitlist() {
         setIsLoading(false);
     }, []);
 
+    // Modül kapısı (Faz 5): randevu kapalıysa bekleme listesi fetch+realtime başlamaz
+    const randevuOn = useModuleGate('randevu');
     useEffect(() => {
-        if (!user || !orgId) return;
+        if (!user || !orgId || !randevuOn) return;
         fetchEntries(orgId);
 
         // Canlı güncelleme — 040_waitlist_realtime.sql ile publication + REPLICA
@@ -71,7 +74,7 @@ export function useWaitlist() {
             .subscribe();
 
         return () => { supabase.removeChannel(ch); };
-    }, [user, orgId, fetchEntries]);
+    }, [user, orgId, randevuOn, fetchEntries]);
 
     const addEntry = useCallback(async (e: { customerName: string; customerPhone: string; serviceId?: string; preferredDate?: string; notes?: string }) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }

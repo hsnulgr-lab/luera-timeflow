@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
+import { useModuleGate } from '@/hooks/useModules';
 import type { Table } from '@/types';
 
 function mapRow(row: any): Table {
@@ -19,6 +20,8 @@ function mapRow(row: any): Table {
 
 export function useTables() {
     const { user, orgId } = useAuth();
+    // Modül kapısı (Faz 5): masa kapalıysa fetch + realtime hiç başlamaz
+    const masaOn = useModuleGate('masa');
     const [tables, setTables] = useState<Table[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -41,12 +44,12 @@ export function useTables() {
         setIsLoading(false);
     }, []);
 
-    useEffect(() => { if (user && orgId) fetchTables(orgId); }, [user, orgId, fetchTables]);
+    useEffect(() => { if (user && orgId && masaOn) fetchTables(orgId); }, [user, orgId, masaOn, fetchTables]);
 
     // Realtime: başka cihazın masa ekleme/güncelleme/silmesi anında yansısın
     // (usePayments/useReservations ile aynı desen; 041_masa_realtime.sql gerekli).
     useEffect(() => {
-        if (!user || !orgId) return;
+        if (!user || !orgId || !masaOn) return;
         const ch = supabase
             // Rastgele ek: aynı topic'e ikinci abonelik sessizce ölür (usePayments deseni) —
             // Dashboard + MasaPage aynı anda mount olabildiği için kanal adı benzersiz.
@@ -70,7 +73,7 @@ export function useTables() {
                 })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [user, orgId]);
+    }, [user, orgId, masaOn]);
 
     const addTable = useCallback(async (t: { name: string; capacity: number; zone?: string }) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }

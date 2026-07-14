@@ -6,7 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useModules } from '@/hooks/useModules';
 import { usePendingBills } from '@/hooks/usePendingBills';
-import type { ModuleKey } from '@/types';
+import { useLabels } from '@/hooks/useLabels';
+import { NAV_ITEMS } from '@/lib/nav';
+import { ToothIcon } from '@/components/dental/ToothIcon';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import {
     LDashboard,
@@ -68,30 +70,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     // öğeleri (Takvim, Rezervasyonlar, Booking) gizlenir, Masalar öne çıkar, Menü
     // görünür. Randevu route'ları ModuleRoute ile arkada erişilebilir kalır.
     const restaurant = !modulesLoading && isEnabled('masa');
+    const { t, sector } = useLabels();
+    // İkonlar platforma özgü — NAV_ITEMS'daki id ile eşlenir.
+    const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+        '/': LDashboard, '/masa': Armchair, '/menu': UtensilsCrossed, '/calendar': LCalendar,
+        '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet,
+        '/staff': LProfile, '/analytics': LChart, '/settings?tab=booking': Link2,
+        '/dental-chart': ToothIcon,
+    };
     // module yoksa core (her zaman görünür); varsa modül açıkken görünür.
-    // hideInRestaurant: restoran modunda gizlenecek randevu-yüzü öğeleri.
-    const allMenuItems: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; module?: ModuleKey; hideInRestaurant?: boolean }[] = [
-        { id: '/', label: 'Dashboard', icon: LDashboard },
-        { id: '/masa', label: 'Masalar', icon: Armchair, module: 'masa' },
-        { id: '/menu', label: 'Menü', icon: UtensilsCrossed, module: 'masa' },
-        { id: '/calendar', label: 'Takvim', icon: LCalendar, module: 'randevu', hideInRestaurant: true },
-        { id: '/reservations', label: 'Rezervasyonlar', icon: LClipboard, module: 'randevu', hideInRestaurant: true },
-        { id: '/queue', label: 'Sıra', icon: Users, module: 'sira' },
-        { id: '/customers', label: 'Müşteriler', icon: LUsers },
-        { id: '/kasa', label: 'Kasa', icon: Wallet, module: 'kasa' },
-        { id: '/staff', label: 'Personel', icon: LProfile, module: 'personel' },
-        { id: '/analytics', label: 'Analiz', icon: LChart, module: 'analiz' },
-        { id: '/settings?tab=booking', label: 'Booking Sayfam', icon: Link2, module: 'randevu', hideInRestaurant: true },
-    ];
-    // Masalar/Menü sıralamada Dashboard'dan hemen sonra (restoran modunda öne).
-    // Masa kapalıyken bu iki öğe zaten filtrelenir → randevu işletmesinde sıra
-    // pratikte bugünküyle aynı (Takvim/Rezervasyonlar üstte).
     // DEFAULT_MODULES, gerçek organizasyon ayarı gelene kadar geçici olarak
     // modülleri açık sayar. Bu değerle çizim yapmak kapalı öğeleri kısa süreli
     // gösterip sonra kaldırıyordu; yükleme sırasında yalnız çekirdek öğeler var.
-    const menuItems = allMenuItems.filter(
-        (m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant),
-    );
+    const menuItems = NAV_ITEMS
+        .filter((m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant) && (!m.sectorOnly || m.sectorOnly === sector))
+        .map((m) => ({ id: m.id, label: m.labelKey ? t(m.labelKey) : m.label, icon: NAV_ICONS[m.id] ?? LDashboard }));
 
     const handleNavClick = (path: string) => {
         navigate(path);

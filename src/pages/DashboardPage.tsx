@@ -11,7 +11,10 @@ import { toast } from 'sonner';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { MasaDashboard } from '@/components/dashboard/MasaDashboard';
+import { DisDashboard } from '@/components/dashboard/DisDashboard';
+import { DovmeDashboard } from '@/components/dashboard/DovmeDashboard';
 import { useModules } from '@/hooks/useModules';
+import { profileForSector } from '@/lib/sectorProfiles';
 import type { Reservation } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LueraButton } from '@/components/ui/LueraButton';
@@ -25,17 +28,28 @@ function waLink(phone: string): string {
     return `https://wa.me/${p}`;
 }
 
+// Dashboard yüzleri — sektör profili (dashboardKpis[0]) buradan yüz seçer.
+// Yeni sektör yüzü eklemek = bileşen + bu haritaya kayıt (if zinciri değil).
+const DASHBOARD_FACES: Record<string, React.ComponentType> = {
+    get randevuFace() { return RandevuDashboard; },
+    masaFace: MasaDashboard,
+    disFace: DisDashboard,
+    dovmeFace: DovmeDashboard,
+};
+
 export const DashboardPage = () => {
     // Restoran kimliği: masa açık → sistem restorana bürünür (masa/ciro odaklı
     // dashboard). Masa = "bu bir restorandır" sinyali; randevu açık olsa bile
     // restoran yüzü gösterilir. Masa kapalıyken randevu ekranı birebir aynı kalır.
     const { isEnabled, isLoading: modulesLoading } = useModules();
+    const { settings } = useReservations();
     // Modüller (cache'de yoksa) yüklenene kadar bekle — yoksa yanlış varsayılanla
     // (DEFAULT_MODULES) yanlış dashboard bir an render olup gerçek veri gelince
     // değişir (ModuleRoute'taki aynı desen, App.tsx).
     if (modulesLoading) return null;
     if (isEnabled('masa')) return <MasaDashboard />;
-    return <RandevuDashboard />;
+    const Face = DASHBOARD_FACES[profileForSector(settings.sector).dashboardKpis[0]] ?? RandevuDashboard;
+    return <Face />;
 };
 
 const RandevuDashboard = () => {

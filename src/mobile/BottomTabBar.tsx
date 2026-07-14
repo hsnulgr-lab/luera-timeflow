@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModules } from '@/hooks/useModules';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
-import type { ModuleKey } from '@/types';
+import { useLabels } from '@/hooks/useLabels';
+import { NAV_ITEMS, BAR_ORDER } from '@/lib/nav';
 import { T } from './theme';
 
 // İkon path'leri (handoff README)
@@ -14,30 +15,38 @@ const ICONS: Record<string, string> = {
     analiz: 'M4 20V10M10 20V4M16 20v-7M3 20h18',
 };
 
-interface Tab { id: string; label: string; icon: string; module?: ModuleKey; prio: number }
+interface Tab { id: string; label: string; icon: string; prio: number }
+
+// Alt bar ikonları — NAV_ITEMS id'siyle eşlenir
+const TAB_ICONS: Record<string, string> = {
+    '/': ICONS.home, '/kasa': ICONS.kasa, '/customers': ICONS.mus,
+    '/calendar': ICONS.takvim, '/masa': ICONS.masa, '/analytics': ICONS.analiz,
+};
+// Alt barda kullanılan kısa etiketler (Dashboard→Ana, Masalar→Masa)
+const SHORT_LABELS: Record<string, string> = { '/': 'Ana', '/masa': 'Masa' };
 
 // Bar kapasitesi: ortada FAB varken 4 yan sekme; 5 modül açıkken FAB gizlenir
 // ve 5 sekme tam gösterilir (hiçbiri düşmez). 5'ten fazlaysa (Yönetici+Analiz)
 // PRIO ile en düşük öncelikli (Analiz — Yönetim grid'inde zaten var) elenir.
 // Gösterilenler her zaman doğal bar sırasına göre dizilir.
-const BAR_ORDER = ['/', '/calendar', '/masa', '/customers', '/kasa', '/analytics'];
-
 export const BottomTabBar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isEnabled, isLoading: modulesLoading } = useModules();
     const { isManager } = useManagerMode();
+    const { t } = useLabels();
 
-    // Aday sekmeler — core (module yok) + açık modüller. Analiz finansal olduğu
-    // için sadece Yönetici modunda görünür.
-    const candidates: Tab[] = [
-        { id: '/', label: 'Ana', icon: ICONS.home, prio: 0 },
-        { id: '/kasa', label: 'Kasa', icon: ICONS.kasa, module: 'kasa', prio: 1 },
-        { id: '/customers', label: 'Müşteri', icon: ICONS.mus, prio: 2 },
-        { id: '/calendar', label: 'Takvim', icon: ICONS.takvim, module: 'randevu', prio: 3 },
-        { id: '/masa', label: 'Masa', icon: ICONS.masa, module: 'masa', prio: 4 },
-        ...(isManager ? [{ id: '/analytics', label: 'Analiz', icon: ICONS.analiz, module: 'analiz' as ModuleKey, prio: 5 }] : []),
-    ];
+    // Aday sekmeler NAV_ITEMS'tan (barPrio tanımlı olanlar) — core (module yok)
+    // + açık modüller. Analiz finansal olduğu için sadece Yönetici modunda görünür.
+    const candidates: Tab[] = NAV_ITEMS
+        .filter((m) => m.barPrio !== undefined && (!m.managerOnlyInBar || isManager)
+            && (!m.module || (!modulesLoading && isEnabled(m.module))))
+        .map((m) => ({
+            id: m.id,
+            label: SHORT_LABELS[m.id] ?? (m.shortLabelKey ? t(m.shortLabelKey) : m.labelKey ? t(m.labelKey) : m.label),
+            icon: TAB_ICONS[m.id] ?? ICONS.home,
+            prio: m.barPrio!,
+        }));
     // Restoran kimliği: masa açıkken randevu-yüzü sekmesi (Takvim) gizlenir —
     // ANCAK randevu modülü de bilinçli açılmışsa (hibrit işletme: masa + randevu
     // birlikte) Takvim'e alt bardan erişim kaybolmasın diye gösterilmeye devam eder.
@@ -45,7 +54,7 @@ export const BottomTabBar = () => {
     const hybrid = restaurant && !modulesLoading && isEnabled('randevu');
     const byBarOrder = (a: Tab, b: Tab) => BAR_ORDER.indexOf(a.id) - BAR_ORDER.indexOf(b.id);
     const enabledTabs = candidates
-        .filter((t) => (!t.module || (!modulesLoading && isEnabled(t.module))) && !(restaurant && !hybrid && t.id === '/calendar'))
+        .filter((tab) => !(restaurant && !hybrid && tab.id === '/calendar'))
         .sort(byBarOrder);
 
     // ≤4 sekme → FAB göster (4 yan slot). 5+ sekme → FAB gizle, en fazla 5 sekme.

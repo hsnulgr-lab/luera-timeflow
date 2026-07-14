@@ -491,7 +491,7 @@ export const StaffPage = () => {
             </div>
 
             {/* Form fields */}
-            {[{label:'Ad Soyad',key:'name',type:'text',placeholder:'Personel adı',required:true},{label:'Uzmanlık',key:'specialty',type:'text',placeholder:'Saç, Cilt Bakımı…',required:false},{label:'Telefon',key:'phone',type:'tel',placeholder:'0532 xxx xxxx',required:false},{label:'E-posta',key:'email',type:'email',placeholder:'email@örnek.com',required:false}].map(f=>(
+            {[{label:'Ad Soyad',key:'name',type:'text',placeholder:'Personel adı',required:true},{label:'Uzmanlık',key:'specialty',type:'text',placeholder:'Uzmanlık alanı',required:false},{label:'Telefon',key:'phone',type:'tel',placeholder:'0532 xxx xxxx',required:false},{label:'E-posta',key:'email',type:'email',placeholder:'email@örnek.com',required:false}].map(f=>(
               <div key={f.key} style={{ marginBottom:'14px' }}>
                 <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}{f.required && <span style={{ color:'#C94040' }}> *</span>}</label>
                 <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e=>setForm(p=>({...p,[f.key]:e.target.value}))}

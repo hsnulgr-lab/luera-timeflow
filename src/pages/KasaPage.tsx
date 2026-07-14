@@ -351,7 +351,7 @@ export const KasaPage = () => {
                         </button>
                     </div>
                     {showDisc && <div className="extra-field show"><input className="txt-input mono" type="number" inputMode="numeric" placeholder="İndirim tutarı (₺)" value={discStr} onChange={e => setDiscStr(e.target.value)} /></div>}
-                    {showNote && <div className="extra-field show"><input className="txt-input" type="text" placeholder="Not ekle (örn. saç + sakal)" value={note} onChange={e => setNote(e.target.value)} /></div>}
+                    {showNote && <div className="extra-field show"><input className="txt-input" type="text" placeholder="Not ekle (ops.)" value={note} onChange={e => setNote(e.target.value)} /></div>}
 
                     <div className="fld-lbl">Tutar (₺)</div>
                     <input

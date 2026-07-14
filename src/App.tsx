@@ -33,6 +33,7 @@ import { StaffDetailPage } from '@/pages/StaffDetailPage';
 import { MasaPage } from '@/pages/MasaPage';
 import { MobileMasa } from '@/mobile/pages/MobileMasa';
 import { MenuPage } from '@/pages/MenuPage';
+import { DentalChartPage } from '@/pages/DentalChartPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
@@ -113,6 +114,7 @@ function App() {
             <Route path="new" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileNewReservation />} desktop={<Navigate to="/reservations" replace />} /></ModuleRoute>} />
             <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
+            <Route path="dental-chart" element={<DentalChartPage />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="masa" element={<ModuleRoute module="masa"><Adaptive mobile={<MobileMasa />} desktop={<MasaPage />} /></ModuleRoute>} />
             <Route path="menu" element={<ModuleRoute module="masa"><MenuPage /></ModuleRoute>} />

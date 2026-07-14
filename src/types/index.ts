@@ -27,6 +27,22 @@ export interface Reservation {
     serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
     adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (boya/ürün/ekstra)
     groupId?: string;   // Çoklu hizmet booking'i — aynı ziyaretin satırları bu id'yi paylaşır
+    customFields?: Record<string, string | number | boolean>;   // sektöre özel alanlar — 050
+    resourceId?: string;   // fiziksel kaynak bağı (oda/koltuk/ünite…) — 051
+    resourceName?: string; // görüntüleme için (join'den)
+    endDate?: string;      // çok günlük rezervasyon bitişi (YYYY-MM-DD; yoksa tek gün) — 052
+}
+
+// ── Genel Kaynak (051) — koltuk/oda/ünite/kabin; masalardan (tables) ayrı ────
+export interface Resource {
+    id: string;
+    organizationId: string;
+    type: string;        // sektör profili resourceTypes'tan (Oda/Koltuk/Ünite…)
+    name: string;
+    capacity: number;    // >1 = aynı slota çok randevu (grup dersi)
+    isActive: boolean;
+    sort: number;
+    createdAt: string;
 }
 
 // Adisyon satır kalemi — hizmet sırasında canlı eklenir, randevuya kalıcı yazılır.
@@ -47,6 +63,8 @@ export interface Customer {
     lastVisit?: string;
     notes?: string;
     loyaltyStamps?: number;   // Dijital müşteri kartı — biriken damga
+    customFields?: Record<string, string | number | boolean>;   // sektöre özel alanlar — 050
+    recallDate?: string;      // bir sonraki kontrol çağrısı (diş sektörü) — 056
     createdAt: string;
 }
 
@@ -138,11 +156,27 @@ export interface Payment {
     reservationId?: string;
     productId?: string;
     staffId?: string;
+    treatmentPlanId?: string;
     type: PaymentType;
     description?: string;
     amount: number;
     method: PaymentMethod;
     paidAt: string;
+    createdAt: string;
+}
+
+// Tedavi planı — çok seanslı tedavilerin (örn. kanal tedavisi) toplam ücreti
+// tek planda tutulur; taksitler mevcut Payment kayıtlarına (treatmentPlanId ile)
+// bağlanır, ayrı bir finansal defter açılmaz.
+export type TreatmentPlanStatus = 'active' | 'completed' | 'cancelled';
+export interface TreatmentPlan {
+    id: string;
+    customerId: string;
+    title: string;
+    totalAmount: number;
+    status: TreatmentPlanStatus;
+    staffId?: string;
+    notes?: string;
     createdAt: string;
 }
 
@@ -223,4 +257,23 @@ export interface TimeSlot {
     time: string;
     available: boolean;
     reservation?: Reservation;
+}
+
+// Diş şeması — FDI numaralandırma (11-48). Append-only log: bir dişin güncel
+// durumu, o diş için en son eklenen kayıttır (geçmiş korunur).
+export type DentalStatus = 'saglam' | 'curuk' | 'dolgu' | 'kanal' | 'kron' | 'implant' | 'cekildi';
+// Diş yüzeyleri (MODBL): Mesial, Oklüzal, Distal, Bukkal, Lingual — 056
+export type ToothSurface = 'M' | 'O' | 'D' | 'B' | 'L';
+export type DentalRecordType = 'existing' | 'planned';
+export interface DentalRecord {
+    id: string;
+    customerId: string;
+    toothNumber: number;
+    status: DentalStatus;
+    surfaces: ToothSurface[];        // boş = tüm diş (kron/implant/çekildi vb.)
+    recordType: DentalRecordType;    // planned = tedavi planındaki işlem — 056
+    treatmentPlanId?: string;
+    note?: string;
+    staffId?: string;
+    createdAt: string;
 }

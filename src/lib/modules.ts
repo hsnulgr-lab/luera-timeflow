@@ -1,4 +1,5 @@
 import type { ModuleKey, Modules } from '@/types';
+import { profileForSector } from '@/lib/sectorProfiles';
 
 // Modül meta verisi — Ayarlar'daki toggle listesi ve etiketler tek kaynaktan.
 export const MODULE_META: { key: ModuleKey; label: string; desc: string }[] = [
@@ -18,20 +19,10 @@ export const DEFAULT_MODULES: Modules = {
     randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false,
 };
 
-// Sektör → varsayılan modül seti (migration 023 ile birebir)
-export const SECTOR_MODULES: Record<string, Modules> = {
-    // restoran: personel açık — garson ataması ve garsona push personel listesinden beslenir
-    restoran: { randevu: false, personel: true, hizmet: false, kasa: true, masa: true, analiz: true, sira: false },
-    guzellik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-    kuafor: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: true },
-    fizyoterapi: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-    saglik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-    danismanlik: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-    genel: { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false },
-};
-
+// Sektör → varsayılan modül seti artık sektör profillerinden okunur
+// (src/lib/sectorProfiles.ts — modül/terminoloji/dashboard/özel alan tek kaynak).
 export function modulesForSector(sector: string): Modules {
-    return SECTOR_MODULES[sector] ?? DEFAULT_MODULES;
+    return profileForSector(sector).modules;
 }
 
 // DB'den gelen (kısmi olabilir) modules nesnesini tam ve güvenli hale getir.

@@ -15,6 +15,8 @@ function mapDbCustomer(row: any): Customer {
         lastVisit: row.last_visit || undefined,
         notes: row.notes || '',
         loyaltyStamps: row.loyalty_stamps ?? 0,
+        customFields: row.custom_fields || {},
+        recallDate: row.recall_date || undefined,
         createdAt: row.created_at,
     };
 }
@@ -125,6 +127,9 @@ export function useCustomers() {
                     phone: normalizedPhone,
                     email: customer.email || null,
                     notes: customer.notes || '',
+                    // 050 uygulanmadan kolonu göndermeyelim — boşken eklemek gereksiz
+                    ...(customer.customFields && Object.keys(customer.customFields).length
+                        ? { custom_fields: customer.customFields } : {}),
                 })
                 .select()
                 .single();
@@ -156,6 +161,8 @@ export function useCustomers() {
         if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
         if (updates.email !== undefined) dbUpdates.email = updates.email;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+        if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
+        if (updates.recallDate !== undefined) dbUpdates.recall_date = updates.recallDate || null;
 
         const { error } = await supabase
             .from('customers')

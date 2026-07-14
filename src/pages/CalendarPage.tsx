@@ -1,8 +1,13 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, Search, Check, Users, ChevronDown } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, Search, Check, Users, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
+import { useLabels } from '@/hooks/useLabels';
 import { useStaff } from '@/hooks/useStaff';
+import { useResources } from '@/hooks/useResources';
+import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
+import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/utils/cn';
@@ -94,9 +99,42 @@ function MLabel({ children, optional }: { children: React.ReactNode; optional?: 
     );
 }
 
+// Bölüm altı yardım metni — v5: modal kendini anlatır, eğitim gerekmez
+function MHelp({ children }: { children: React.ReactNode }) {
+    return <p style={{ fontSize: 11.5, color: M.muted2, margin: '-3px 0 9px', lineHeight: 1.4 }}>{children}</p>;
+}
+
+// Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
+function waLinkTR(phone: string, text: string) {
+    let p = phone.replace(/\D/g, '');
+    if (p.startsWith('0')) p = '9' + p;
+    if (!p.startsWith('90')) p = '90' + p;
+    return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
+
+// Diş kliniği için hazır tedavi seti — Hizmet listesi hâlâ genel varsayılanlardaysa
+// modal içinden tek tıkla yüklenir (mevcut hizmetler silinmez, eksikler eklenir).
+const DENTAL_SERVICE_SET: { name: string; duration: number; color: string }[] = [
+    { name: 'Muayene', duration: 20, color: '#FF5A1F' },
+    { name: 'Kontrol', duration: 15, color: '#E8973C' },
+    { name: 'Dolgu', duration: 45, color: '#3F9D9A' },
+    { name: 'Kanal Tedavisi', duration: 60, color: '#8E70B2' },
+    { name: 'Diş Taşı Temizliği', duration: 30, color: '#5B7CC2' },
+    { name: 'Diş Çekimi', duration: 30, color: '#C95A3C' },
+    { name: 'İmplant', duration: 90, color: '#5E9C6C' },
+    { name: 'Beyazlatma', duration: 60, color: '#CB5E84' },
+];
+
 export const CalendarPage = () => {
     const { dark } = useTheme();
-    const { reservations, addReservation, settings, checkConflict } = useReservations();
+    const { reservations, addReservation, settings, checkConflict, updateSettings } = useReservations();
+    const { t } = useLabels();
+    // Kaynak + sektöre özel randevu alanları (050/051)
+    const { resources } = useResources();
+    const [resourceId, setResourceId] = useState<string | null>(null);
+    const resourceTypeLabel = profileForSector(settings.sector).resourceTypes[0] || 'Kaynak';
+    const cfDefs = fieldDefsForSector(settings.sector, 'reservation');
+    const [cfValues, setCfValues] = useState<Record<string, string | number | boolean>>({});
     const { staff } = useStaff();
     const { allCustomers } = useCustomers();
     const [staffFilter, setStaffFilter] = useState<string>('all');
@@ -146,6 +184,74 @@ export const CalendarPage = () => {
     // Çoklu işlem (hizmet+personel+saat) — aynı müşteri/tarih için birden çok hizmet
     const [resLines, setResLines] = useState<{ id: string; service: string; serviceColor: string; staffId: string; staffName?: string; staffColor?: string; startTime: string; endTime: string }[]>([]);
 
+    const routerNavigate = useNavigate();
+
+    // Seçili (kilitli) müşterinin tam kaydı — modal içinde bağlam göstermek için
+    // (medikal uyarı, son ziyaret, kontrol tarihi, diş şeması kısayolu)
+    const lockedCustomer = useMemo(
+        () => customerLocked ? allCustomers.find(c => c.phone === newRes.customerPhone) : undefined,
+        [customerLocked, allCustomers, newRes.customerPhone],
+    );
+    const medicalAlertsOf = (c?: { customFields?: Record<string, string | number | boolean> }) => {
+        const cf = c?.customFields || {};
+        return [
+            cf.alerji ? `Alerji: ${cf.alerji}` : null,
+            cf.ilaclar ? `İlaç: ${cf.ilaclar}` : null,
+            cf.kronik ? `Kronik: ${cf.kronik}` : null,
+        ].filter((x): x is string => !!x);
+    };
+
+    // Çakışma ön-uyarısı (v5): hata anında değil, oluşmadan uyar + tıklanabilir
+    // saat önerisi (30dk adımlarla sonraki uygun slot, süre korunur).
+    const draftConflict = useMemo(() => {
+        if (!showNewDialog || !selectedDate || !newRes.startTime || !newRes.endTime) return null;
+        const selRes = resources.find((x) => x.id === resourceId);
+        const c = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined, resourceId || undefined, selRes?.capacity);
+        if (!c) return null;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const dur = durationMin(newRes.startTime, newRes.endTime);
+        let [h, m] = newRes.startTime.split(':').map(Number);
+        let sug: { start: string; end: string } | null = null;
+        for (let i = 0; i < 16; i++) {
+            m += 30; if (m >= 60) { m -= 60; h++; }
+            if (h >= 22) break;
+            const s = `${pad(h)}:${pad(m)}`;
+            const eMin = h * 60 + m + dur;
+            const e = `${pad(Math.floor(eMin / 60))}:${pad(eMin % 60)}`;
+            if (!checkConflict(selectedDate, s, e, undefined, newRes.staffId || undefined, resourceId || undefined, selRes?.capacity)) { sug = { start: s, end: e }; break; }
+        }
+        return { conflictName: c.customerName, conflictTime: `${c.startTime}–${c.endTime}`, sug };
+    }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resourceId, resources, checkConflict]);
+
+    // Canlı özet (v5): Oluştur'a basmadan ne oluşturulacağı okunur
+    const draftSummary = useMemo(() => {
+        if (!selectedDate || !newRes.service) return '';
+        const staffName = staff.find((s) => s.id === newRes.staffId)?.name;
+        const unitName = resources.find((x) => x.id === resourceId)?.name;
+        return [
+            `${formatDateEU(selectedDate)} ${newRes.startTime}–${newRes.endTime}`,
+            newRes.service,
+            newRes.customerName || '—',
+            staffName || `uygun ${t('staff').toLowerCase()}`,
+            unitName,
+        ].filter(Boolean).join(' · ');
+    }, [selectedDate, newRes.service, newRes.startTime, newRes.endTime, newRes.customerName, newRes.staffId, staff, resources, resourceId, t]);
+
+    // Diş tedavi seti henüz yüklü değilse (Dolgu yoksa) modalda öneri butonu göster
+    const [loadingDentalSet, setLoadingDentalSet] = useState(false);
+    const dentalSetMissing = settings.sector === 'dis' && !settings.services.some(s => s.name === 'Dolgu');
+    const loadDentalServiceSet = async () => {
+        if (loadingDentalSet) return;
+        setLoadingDentalSet(true);
+        const existing = new Set(settings.services.map(s => s.name.toLowerCase()));
+        const additions = DENTAL_SERVICE_SET
+            .filter(s => !existing.has(s.name.toLowerCase()))
+            .map((s, i) => ({ id: `svc-${Date.now()}-${i}`, ...s }));
+        await updateSettings({ ...settings, services: [...settings.services, ...additions] });
+        setLoadingDentalSet(false);
+        toast.success('Diş tedavi seti eklendi — süre ve ücretleri Ayarlar\'dan düzenleyebilirsiniz');
+    };
+
     // Akıllı müşteri arama — isim veya telefona göre eşleşme
     const customerMatches = useMemo(() => {
         const q = customerQuery.trim().toLowerCase();
@@ -175,6 +281,8 @@ export const CalendarPage = () => {
         setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
         setRecurrence({ rule: '', until: '' });
         setResLines([]);
+        setResourceId(null);
+        setCfValues({});
     };
 
     // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
@@ -345,16 +453,25 @@ export const CalendarPage = () => {
         setCreatingReservation(true);
         const groupId = lines.length > 1 ? (crypto.randomUUID?.() || String(Date.now())) : undefined;
         let created = 0;
+        const selRes = resources.find((x) => x.id === resourceId);
         for (const ln of lines) {
-            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined);
+            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined, resourceId || undefined, selRes?.capacity);
             if (conflict) { toast.error(`Çakışma! ${ln.staffName || ''} ${ln.startTime} — atlandı`); continue; }
             const res = await addReservation({
-                customerId: '', customerName: newRes.customerName, customerPhone: newRes.customerPhone, customerEmail: newRes.customerEmail,
+                // Mevcut müşteri seçildiyse id'sini bağla; yazılan telefon kayıtlı bir
+                // müşteriye aitse yine bağla — dashboard'daki satır tıklaması hasta
+                // detayını ancak customer_id doluysa açabiliyor.
+                customerId: lockedCustomer?.id
+                    || allCustomers.find(c => c.phone.replace(/\s+/g, '') === newRes.customerPhone.replace(/\s+/g, ''))?.id
+                    || '',
+                customerName: newRes.customerName, customerPhone: newRes.customerPhone, customerEmail: newRes.customerEmail,
                 date: selectedDate, startTime: ln.startTime, endTime: ln.endTime, service: ln.service, serviceColor: ln.serviceColor,
                 status: 'pending', notes: newRes.notes, staffId: ln.staffId || undefined, staffName: ln.staffName, staffColor: ln.staffColor,
                 groupId,
                 recurrenceRule: lines.length === 1 ? (recurrence.rule || undefined) : undefined,
                 recurrenceUntil: lines.length === 1 && recurrence.rule ? (recurrence.until || undefined) : undefined,
+                resourceId: resourceId || undefined,
+                customFields: Object.keys(cfValues).length ? cfValues : undefined,
             });
             if (res) created++;
         }
@@ -823,7 +940,7 @@ export const CalendarPage = () => {
                                 <Plus className="relative w-[17px] h-[17px]" style={{ color: M.cream }} strokeWidth={2.4} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.022em', color: M.ink }}>Yeni Randevu</div>
+                                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.022em', color: M.ink }}>{t('newReservation')}</div>
                                 <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase', color: M.orange, marginTop: 3 }}>{modalDateLabel(selectedDate ?? '')}</div>
                             </div>
                             <button onClick={closeDialog} title="Kapat" className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 32, height: 32, borderRadius: 7, color: M.muted }}
@@ -842,18 +959,18 @@ export const CalendarPage = () => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>Randevu Oluşturuldu</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>{t('reservation')} Oluşturuldu</div>
                                     <div style={{ fontSize: 13, color: M.muted, lineHeight: 1.6, maxWidth: 270, marginTop: 4 }}>Takvime eklendi ve müşteriye onay bildirimi gönderildi.</div>
                                 </div>
                                 {/* Özet kartı */}
                                 <div className="w-full flex flex-col text-left" style={{ background: M.surface2, border: `1px solid ${M.border}`, borderRadius: 10, padding: '14px 18px', gap: 8 }}>
                                     {([
-                                        ['Müşteri', successData.customerName],
+                                        [t('customer'), successData.customerName],
                                         ...(successData.customerPhone ? [['Telefon', successData.customerPhone]] : []),
                                         ['Hizmet', `${successData.service} · ${successData.duration}dk`, successData.serviceColor],
                                         ['Tarih', successData.dateLabel],
                                         ['Saat', `${successData.startTime} – ${successData.endTime}`],
-                                        ['Personel', successData.staffName, successData.staffColor],
+                                        [t('staff'), successData.staffName, successData.staffColor],
                                     ] as [string, string, string?][]).map(([k, v, dot], i) => (
                                         <div key={i} className="flex items-baseline justify-between" style={{ gap: 16 }}>
                                             <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', color: M.muted, flexShrink: 0 }}>{k}</span>
@@ -864,11 +981,20 @@ export const CalendarPage = () => {
                                         </div>
                                     ))}
                                 </div>
+                                {/* WhatsApp bildirimi — v5 başarı ekranı ikincil aksiyonu */}
+                                {successData.customerPhone && (
+                                    <a href={waLinkTR(successData.customerPhone, `Merhaba ${successData.customerName}, randevunuz oluşturuldu: ${successData.dateLabel} ${successData.startTime}–${successData.endTime} · ${successData.service}. Görüşmek üzere!`)}
+                                        target="_blank" rel="noreferrer"
+                                        className="inline-flex items-center justify-center gap-2 w-full transition-all"
+                                        style={{ height: 42, borderRadius: 999, fontWeight: 700, fontSize: 13, border: `1px solid ${M.border2}`, color: M.ink, background: 'transparent' }}>
+                                        WhatsApp ile bildir
+                                    </a>
+                                )}
                                 {/* Yeni randevu butonu */}
                                 <button onClick={resetForm} className="inline-flex items-center justify-center gap-2 w-full transition-all" style={{ marginTop: 4, height: 46, borderRadius: 999, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em', background: M.orange, color: M.ink }}
                                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; }}
                                     onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                    Yeni Randevu Oluştur
+                                    {t('newReservation')} oluştur
                                     <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
                                 </button>
                             </div>
@@ -880,8 +1006,10 @@ export const CalendarPage = () => {
 
                             {/* MÜŞTERİ */}
                             <div>
-                                <MLabel>Müşteri</MLabel>
+                                <MLabel>{t('customer')}</MLabel>
+                                <MHelp>Kayıtlı {t('customer').toLowerCase()} arayın veya yeni isim yazın — otomatik kaydedilir.</MHelp>
                                 {customerLocked ? (
+                                    <>
                                     <div className="flex items-center gap-3" style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(255,90,31,.08)', border: `1px solid rgba(255,90,31,.30)` }}>
                                         <div className="grid place-items-center flex-shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', background: M.orange }}>
                                             <Check className="w-4 h-4" style={{ color: M.ink }} />
@@ -896,11 +1024,38 @@ export const CalendarPage = () => {
                                             <X className="w-4 h-4" />
                                         </button>
                                     </div>
+                                    {/* Hasta bağlamı — hekim randevu açarken kritik bilgiyi burada görür */}
+                                    {lockedCustomer && (
+                                        <div className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 7 }}>
+                                            {medicalAlertsOf(lockedCustomer).map((a) => (
+                                                <span key={a} className="inline-flex items-center" style={{ gap: 4, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(192,57,43,.12)', color: '#C0392B' }}>
+                                                    <AlertTriangle style={{ width: 11, height: 11, flexShrink: 0 }} />{a}
+                                                </span>
+                                            ))}
+                                            {lockedCustomer.recallDate && (
+                                                <span className="inline-flex items-center" style={{ gap: 4, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: M.surface2, color: M.muted }}>
+                                                    <CalendarClock style={{ width: 11, height: 11, flexShrink: 0 }} />Kontrol: {formatDateEU(lockedCustomer.recallDate)}
+                                                </span>
+                                            )}
+                                            {lockedCustomer.lastVisit && (
+                                                <span style={{ fontSize: 10.5, fontWeight: 600, padding: '3px 9px', borderRadius: 999, background: M.surface2, color: M.muted }}>
+                                                    Son ziyaret: {formatDateEU(lockedCustomer.lastVisit)}
+                                                </span>
+                                            )}
+                                            {settings.sector === 'dis' && (
+                                                <button onClick={() => routerNavigate(`/dental-chart?patient=${lockedCustomer.id}`)}
+                                                    style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'transparent', border: `1px solid ${M.border2}`, color: M.ink, cursor: 'pointer' }}>
+                                                    Diş şeması →
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    </>
                                 ) : (
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none" style={{ color: M.muted2 }} />
                                         <input
-                                            type="text" placeholder="İsim ile ara veya yeni müşteri yaz…"
+                                            type="text" placeholder={`İsim ile ara veya yeni ${t('customer').toLowerCase()} yaz…`}
                                             autoFocus autoComplete="off" spellCheck={false}
                                             style={{ ...fieldBase, paddingLeft: 34 }}
                                             onFocus={onFieldFocus} onBlur={onFieldBlur}
@@ -920,6 +1075,11 @@ export const CalendarPage = () => {
                                                             <p className="truncate" style={{ fontSize: 13, fontWeight: 650, color: M.ink }}>{c.name}</p>
                                                             <p style={{ fontSize: 10.5, color: M.muted, fontFamily: MONO, letterSpacing: '.04em' }}>{c.phone}</p>
                                                         </div>
+                                                        {medicalAlertsOf(c).length > 0 && (
+                                                            <span title={medicalAlertsOf(c).join(' · ')} style={{ color: '#C0392B', flexShrink: 0 }}>
+                                                                <AlertTriangle style={{ width: 14, height: 14 }} />
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 ))}
                                             </div>
@@ -943,7 +1103,8 @@ export const CalendarPage = () => {
 
                             {/* HİZMET */}
                             <div>
-                                <MLabel>Hizmet</MLabel>
+                                <MLabel>{t('service')}</MLabel>
+                                <MHelp>{t('service')} seçilince süre ve bitiş saati otomatik hesaplanır.</MHelp>
                                 <div className="flex flex-wrap" style={{ gap: 5 }}>
                                     {settings.services.map((s) => {
                                         const sel = newRes.service === s.name;
@@ -970,6 +1131,14 @@ export const CalendarPage = () => {
                                         );
                                     })}
                                 </div>
+                                {dentalSetMissing && (
+                                    <button onClick={loadDentalServiceSet} disabled={loadingDentalSet} className="w-full text-left transition-colors"
+                                        style={{ marginTop: 7, padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: loadingDentalSet ? 'wait' : 'pointer' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                                        {loadingDentalSet ? 'Ekleniyor…' : '+ Diş tedavi setini yükle — Muayene, Dolgu, Kanal Tedavisi, Diş Taşı Temizliği…'}
+                                    </button>
+                                )}
                             </div>
 
                             {/* ZAMAN */}
@@ -990,12 +1159,24 @@ export const CalendarPage = () => {
                                         <input type="time" value={newRes.endTime} onChange={(e) => setNewRes(p => ({ ...p, endTime: e.target.value }))} />
                                     </div>
                                 </div>
+                                {draftConflict && (
+                                    <div role="status" className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 8, padding: '9px 13px', borderRadius: 9, background: 'rgba(184,121,10,.12)', color: '#B8790A', fontSize: 12, fontWeight: 700 }}>
+                                        Bu saatte çakışma var ({draftConflict.conflictName} · {draftConflict.conflictTime})
+                                        {draftConflict.sug && (
+                                            <button onClick={() => setNewRes(p => ({ ...p, startTime: draftConflict.sug!.start, endTime: draftConflict.sug!.end }))}
+                                                style={{ color: '#B8790A', textDecoration: 'underline', fontWeight: 800, fontSize: 12, padding: 2 }}>
+                                                {draftConflict.sug.start} uygun →
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* PERSONEL */}
                             {staff.length > 0 && (
                                 <div>
-                                    <MLabel>Personel</MLabel>
+                                    <MLabel>{t('staff')}</MLabel>
+                                    <MHelp>Fark etmez seçilirse uygun {t('staff').toLowerCase()}e atanır.</MHelp>
                                     <div className="flex flex-wrap" style={{ gap: 5 }}>
                                         <button
                                             onClick={() => setNewRes(p => ({ ...p, staffId: '' }))}
@@ -1031,6 +1212,50 @@ export const CalendarPage = () => {
                                             );
                                         })}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* KAYNAK (051) — sektör profili kaynak tanımlıyor ama henüz eklenmemişse yönlendir */}
+                            {resources.length === 0 && profileForSector(settings.sector).resourceTypes.length > 0 && (
+                                <div>
+                                    <MLabel>{resourceTypeLabel}</MLabel>
+                                    <button onClick={() => routerNavigate('/settings')} className="w-full text-left transition-colors"
+                                        style={{ padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: 'pointer' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                                        Henüz {resourceTypeLabel.toLowerCase()} tanımlı değil — randevuları {resourceTypeLabel.toLowerCase()} bazında takip etmek için Ayarlar'dan ekleyin →
+                                    </button>
+                                </div>
+                            )}
+                            {resources.length > 0 && (
+                                <div>
+                                    <MLabel>{resourceTypeLabel}</MLabel>
+                                    <MHelp>Aynı saatte bir {resourceTypeLabel.toLowerCase()}de kapasitesi kadar {t('customer').toLowerCase()} olabilir.</MHelp>
+                                    <div className="flex flex-wrap" style={{ gap: 5 }}>
+                                        {resources.map(res => {
+                                            const sel = resourceId === res.id;
+                                            return (
+                                                <button key={res.id} onClick={() => setResourceId(sel ? null : res.id)}
+                                                    className="inline-flex items-center transition-all whitespace-nowrap"
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                                                        border: `1px solid ${sel ? M.ink : M.border2}`,
+                                                        background: sel ? M.ink : M.surface2,
+                                                        color: sel ? M.cream : M.muted,
+                                                    }}>
+                                                    {res.name}{res.capacity > 1 ? ` · ${res.capacity} kişi` : ''}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SEKTÖRE ÖZEL ALANLAR (050) */}
+                            {cfDefs.length > 0 && (
+                                <div>
+                                    <CustomFieldsSection defs={cfDefs} values={cfValues} onChange={setCfValues}
+                                        T={{ ink: M.ink, muted: M.muted, surface2: M.surface2, border2: M.border2, rSm: 10 }} />
                                 </div>
                             )}
 
@@ -1108,6 +1333,11 @@ export const CalendarPage = () => {
                         {/* FOOTER */}
                         {!successData && (
                         <div className="flex-shrink-0 flex flex-col" style={{ padding: '10px 18px 15px', borderTop: `1px solid ${M.border}`, gap: 4 }}>
+                            {draftSummary && (
+                                <div style={{ fontFamily: MONO, fontSize: 11.5, color: M.muted, background: M.surface2, borderRadius: 9, padding: '10px 13px', marginBottom: 6, lineHeight: 1.5 }}>
+                                    {draftSummary}
+                                </div>
+                            )}
                             <button
                                 onClick={handleCreateReservation}
                                 disabled={!newRes.customerName || !newRes.customerPhone || creatingReservation}

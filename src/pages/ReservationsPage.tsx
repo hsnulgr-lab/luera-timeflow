@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { apptPhase } from '@/lib/appointmentFlow';
 import { Search, CheckCircle2, XCircle, Clock, Trash2, Edit2, MessageCircle, MoreHorizontal, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
+import { useLabels } from '@/hooks/useLabels';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatDateEU } from '@/utils/date';
@@ -56,6 +57,7 @@ function initials(name: string) {
 
 export const ReservationsPage = () => {
   const { reservations, updateReservation, deleteReservation } = useReservations();
+  const { t } = useLabels();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { dark } = useTheme();
@@ -228,7 +230,7 @@ export const ReservationsPage = () => {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: '21px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: T.ink }}>Rezervasyonlar</div>
+            <div style={{ fontSize: '21px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: T.ink }}>{t('reservations')}</div>
             <div style={{ fontSize: '11.5px', color: T.muted, marginTop: '2px' }}>{reservations.length} toplam kayıt</div>
           </div>
         </div>
@@ -246,7 +248,7 @@ export const ReservationsPage = () => {
           onMouseLeave={e => (e.currentTarget.style.background = dark ? '#231E18' : '#0E0E0E')}
         >
           <Plus size={13} strokeWidth={2.5} />
-          Yeni Randevu
+          {t('newReservation')}
         </button>
       </div>
 
@@ -361,7 +363,7 @@ export const ReservationsPage = () => {
           ) : (
             <EmptyState T={T} icon={<Clock size={24} />} title="Henüz randevu yok"
               description="İlk randevunu oluşturarak başla"
-              actionLabel="Yeni Randevu" onAction={() => navigate('/calendar')} />
+              actionLabel={t('newReservation')} onAction={() => navigate('/calendar')} />
           )
         ) : (
           filtered.map((res, idx) => {
