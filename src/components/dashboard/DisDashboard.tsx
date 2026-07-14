@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { AlertTriangle, ArrowRight, CalendarClock, Clock, CreditCard, MessageCircle, MoreHorizontal, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
@@ -74,7 +75,7 @@ const CHART_LEGEND: { key: keyof typeof CHART_COLORS; label: string }[] = [
 export function DisDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
-    const { reservations, settings, getTodayReservations, updateReservation } = useReservations();
+    const { reservations, settings, getTodayReservations, updateReservation, ensureReservationCustomer } = useReservations();
     const { staff } = useStaff();
     const { allCustomers } = useCustomers();
     const { resources } = useResources();
@@ -88,7 +89,10 @@ export function DisDashboard() {
         () => [...getTodayReservations()].sort((a, b) => a.startTime.localeCompare(b.startTime)),
         [getTodayReservations],
     );
-    const activeToday = todayReservations.filter((r) => r.status !== 'cancelled');
+    const activeToday = useMemo(
+        () => todayReservations.filter((r) => r.status !== 'cancelled'),
+        [todayReservations],
+    );
     const inClinic = activeToday.filter((r) => ['geldi', 'tedavide'].includes(apptStatusOf(r))).length;
     const waiting = activeToday.filter((r) => apptStatusOf(r) === 'bekliyor').length;
     const nextUp = activeToday.find((r) => !['tamamlandi', 'odendi'].includes(apptStatusOf(r)));
@@ -132,13 +136,15 @@ export function DisDashboard() {
             .map((cid) => {
                 const r = activeToday.find((x) => x.customerId === cid);
                 const current = currentFor(cid);
-                if (!r || current.size === 0) return null;
+                if (!r) return null;
                 const counts = new Map<string, number>();
                 for (const rec of current.values()) {
                     if (rec.status === 'saglam') continue;
                     counts.set(rec.status, (counts.get(rec.status) || 0) + 1);
                 }
-                const summary = [...counts.entries()].map(([k, n]) => `${n} ${CHART_LABEL[k] || k}`).join(' · ') || 'Sağlam';
+                const summary = current.size === 0
+                    ? 'Henüz işaret yok'
+                    : [...counts.entries()].map(([k, n]) => `${n} ${CHART_LABEL[k] || k}`).join(' · ') || 'Sağlam';
                 return { customerId: cid, name: r.customerName, summary, current };
             })
             .filter((x): x is { customerId: string; name: string; summary: string; current: Map<number, DentalRecord> } => x !== null);
@@ -165,12 +171,41 @@ export function DisDashboard() {
     const customerIdForReservation = (r: Reservation) =>
         r.customerId || allCustomers.find((c) => c.phone.replace(/\s+/g, '') === (r.customerPhone || '').replace(/\s+/g, ''))?.id || '';
 
+    // Eski sürümde oluşturulmuş, customer_id'si boş bugünkü randevuları
+    // sırayla onar. Yeni randevular useReservations içinde doğrudan bağlanır.
+    useEffect(() => {
+        const missing = activeToday.filter((r) => !r.customerId && r.customerPhone?.trim());
+        if (missing.length === 0) return;
+        let cancelled = false;
+        void (async () => {
+            for (const reservation of missing) {
+                if (cancelled) return;
+                await ensureReservationCustomer(reservation);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [activeToday, ensureReservationCustomer]);
+
+    const [openingReservation, setOpeningReservation] = useState<string | null>(null);
+    const openReservationTarget = async (r: Reservation, target: 'customer' | 'chart') => {
+        if (openingReservation) return;
+        setOpeningReservation(r.id);
+        const customerId = await ensureReservationCustomer(r);
+        setOpeningReservation(null);
+        if (!customerId) {
+            toast.error('Bu randevu için hasta kaydı oluşturulamadı');
+            return;
+        }
+        if (target === 'chart') openChart(customerId);
+        else openCustomer(customerId);
+    };
+
     // Tek bağlamsal aksiyon — satırdaki buton akışı bir adım ilerletir
     const [advancing, setAdvancing] = useState<string | null>(null);
     const advance = async (r: Reservation) => {
         const st = apptStatusOf(r);
         if (advancing) return;
-        if (st === 'tamamlandi') { navigate('/kasa'); return; }
+        if (st === 'tamamlandi') { navigate(`/kasa?reservation=${r.id}`); return; }
         setAdvancing(r.id);
         if (st === 'bekliyor') await updateReservation(r.id, { status: 'confirmed' });
         else if (st === 'onaylandi') await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
@@ -315,8 +350,9 @@ export function DisDashboard() {
                                                 <div className="w-[3px] self-stretch rounded flex-shrink-0" style={{ background: m.bar }} />
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-1.5 min-w-0">
-                                                        <button onClick={() => cid ? openCustomer(cid) : navigate('/calendar')}
-                                                            className="text-[14px] font-bold tracking-[-0.01em] text-[var(--dc-ink)] truncate hover:text-[var(--dc-orange)] transition-colors text-left">
+                                                        <button onClick={() => void openReservationTarget(r, 'customer')}
+                                                            disabled={openingReservation === r.id}
+                                                            className="text-[14px] font-bold tracking-[-0.01em] text-[var(--dc-ink)] truncate hover:text-[var(--dc-orange)] transition-colors text-left disabled:opacity-50">
                                                             {r.customerName}
                                                         </button>
                                                         {alert && <span title={alert} className="flex-shrink-0 text-[var(--dc-red2)]"><AlertTriangle className="w-[13px] h-[13px]" /></span>}
@@ -438,9 +474,9 @@ export function DisDashboard() {
                     <div className="fixed inset-0 z-40" onClick={() => setMoreMenu(null)} />
                     <div className="fixed z-50 rounded-[11px] bg-[var(--dc-surface)] border border-[var(--dc-border2)] shadow-[0_8px_24px_rgba(14,14,14,0.10),0_24px_64px_rgba(14,14,14,0.14)] py-1 min-w-[170px]"
                         style={{ left: Math.min(moreMenu.x, window.innerWidth - 185), top: Math.min(moreMenu.y + 6, window.innerHeight - 140) }}>
-                        <button onClick={() => { const cid = customerIdForReservation(moreRes); setMoreMenu(null); openCustomer(cid || undefined); }}
+                        <button onClick={() => { setMoreMenu(null); void openReservationTarget(moreRes, 'customer'); }}
                             className="w-full text-left px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)] transition-colors">Hasta Detayı</button>
-                        <button onClick={() => { const cid = customerIdForReservation(moreRes); setMoreMenu(null); if (cid) openChart(cid); }}
+                        <button onClick={() => { setMoreMenu(null); void openReservationTarget(moreRes, 'chart'); }}
                             className="w-full text-left px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)] transition-colors">Diş Şeması</button>
                         <button onClick={async () => { setMoreMenu(null); await updateReservation(moreRes.id, { status: 'cancelled' }); }}
                             className="w-full text-left px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--dc-red2)] hover:bg-[var(--dc-red-bg)] transition-colors">İptal Et</button>

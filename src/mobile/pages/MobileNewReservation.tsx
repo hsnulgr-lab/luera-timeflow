@@ -34,8 +34,8 @@ interface Line { id: string; service: Service; staffId?: string; staffName?: str
 
 export const MobileNewReservation = () => {
     const navigate = useNavigate();
-    const { settings, addReservation, checkConflict } = useReservations();
-    const { allCustomers } = useCustomers();
+    const { reservations, settings, addReservation, checkConflict } = useReservations();
+    const { allCustomers, addCustomer } = useCustomers();
     const { staff } = useStaff();
     const activeStaff = useMemo(() => staff.filter((s) => s.isActive), [staff]);
 
@@ -48,6 +48,8 @@ export const MobileNewReservation = () => {
     const [staffIdx, setStaffIdx] = useState(0);             // taslak personel
     const [cust, setCust] = useState<Customer | null>(null);
     const [custQuery, setCustQuery] = useState('');
+    const [quickPatient, setQuickPatient] = useState({ name: '', phone: '' });
+    const [creatingPatient, setCreatingPatient] = useState(false);
     const [note, setNote] = useState('');
     const [showNote, setShowNote] = useState(false);
     const [done, setDone] = useState(false);
@@ -77,16 +79,24 @@ export const MobileNewReservation = () => {
         const todayIso = toISODate(new Date());
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
+        const selectedResource = resources.find((x) => x.id === resourceId);
+        const resourceCapacity = Math.max(1, selectedResource?.capacity || 1);
         for (let m = dayStart; m + dur <= dayEnd; m += stepM) {
             const t = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+            const endTime = addMinutes(t, dur);
             const isPast = date === todayIso && m < nowMin;
-            const conflict = checkConflict(date, t, addMinutes(t, dur), undefined, selStaff?.id);
+            const conflict = checkConflict(date, t, endTime, undefined, selStaff?.id);
             const s1 = m, e1 = m + dur;
             const cartBusy = lines.some((l) => l.staffId === selStaff?.id && toMin(l.time) < e1 && s1 < toMin(l.endTime));
-            out.push({ t, avail: !isPast && !conflict && !cartBusy });
+            const resourceBusy = !!resourceId && (
+                reservations.filter((r) => r.resourceId === resourceId && r.date === date && r.status !== 'cancelled'
+                    && toMin(r.startTime) < e1 && s1 < toMin(r.endTime)).length
+                + lines.filter((l) => toMin(l.time) < e1 && s1 < toMin(l.endTime)).length
+            ) >= resourceCapacity;
+            out.push({ t, avail: !isPast && !conflict && !cartBusy && !resourceBusy });
         }
         return out;
-    }, [date, svc?.duration, settings.slotDuration, settings.workingHours, selStaff?.id, checkConflict, lines]);
+    }, [date, svc?.duration, settings.slotDuration, settings.workingHours, selStaff?.id, checkConflict, lines, resources, resourceId, reservations]);
 
     const monthGrid = useMemo(() => {
         const first = new Date(month.y, month.m, 1);
@@ -108,15 +118,35 @@ export const MobileNewReservation = () => {
         return base.slice(0, 8);
     }, [custQuery, allCustomers]);
 
+    const createQuickPatient = async () => {
+        if (!quickPatient.name.trim() || !quickPatient.phone.trim() || creatingPatient) return;
+        setCreatingPatient(true);
+        const created = await addCustomer({ name: quickPatient.name.trim(), phone: quickPatient.phone });
+        setCreatingPatient(false);
+        if (!created) return;
+        setCust(created);
+        setStep(4);
+    };
+
     // Taslak satırı sepete ekle
     const addLine = () => {
         if (!svc || !time || !selStaff) return;
         const endTime = addMinutes(time, svc.duration);
-        const clash = checkConflict(date, time, endTime, undefined, selStaff.id);
+        const selectedResource = resources.find((x) => x.id === resourceId);
+        const clash = checkConflict(date, time, endTime, undefined, selStaff.id, resourceId || undefined, selectedResource?.capacity);
         if (clash) { toast.error(`${selStaff.name} bu saatte dolu (${clash.startTime}–${clash.endTime}). Başka saat veya personel seçin.`); return; }
         const s1 = toMin(time), e1 = toMin(endTime);
         if (lines.some((l) => l.staffId === selStaff.id && toMin(l.time) < e1 && s1 < toMin(l.endTime))) {
             toast.error(`${selStaff.name} bu saatte zaten ekli`); return;
+        }
+        if (resourceId) {
+            const capacity = Math.max(1, selectedResource?.capacity || 1);
+            const dbCount = reservations.filter((r) => r.resourceId === resourceId && r.date === date && r.status !== 'cancelled'
+                && toMin(r.startTime) < e1 && s1 < toMin(r.endTime)).length;
+            const cartCount = lines.filter((l) => toMin(l.time) < e1 && s1 < toMin(l.endTime)).length;
+            if (dbCount + cartCount >= capacity) {
+                toast.error(`${selectedResource?.name || resourceTypeLabel} bu saatte dolu`); return;
+            }
         }
         setLines((p) => [...p, { id: rid(), service: svc, staffId: selStaff.id, staffName: selStaff.name, staffColor: selStaff.color, time, endTime }]);
         setSvc(null); setTime(null);
@@ -135,17 +165,35 @@ export const MobileNewReservation = () => {
         if (step === 0) { if (svc) setStep(1); return; }
         if (step === 1) { addLine(); return; }
         if (step === 2) { if (lines.length) setStep(3); return; }
-        if (step === 3) { setStep(4); return; }
+        if (step === 3) {
+            if (settings.sector === 'dis' && !cust) { toast.error('Hasta seçin veya yeni hasta kaydedin'); return; }
+            setStep(4); return;
+        }
         // step 4 — oluştur
         if (!lines.length) return;
+        if (settings.sector === 'dis' && !cust) { toast.error('Dış randevusu için hasta kaydı gerekli'); setStep(3); return; }
         setSaving(true);
         const groupId = lines.length > 1 ? gid() : undefined;
         const succeeded: Line[] = [];
         const remaining: Line[] = [];
         const selRes = resources.find((x) => x.id === resourceId);
         for (const ln of lines) {
-            const clash = checkConflict(date, ln.time, ln.endTime, undefined, ln.staffId, resourceId || undefined, selRes?.capacity);
+            const start = toMin(ln.time), end = toMin(ln.endTime);
+            const clash = checkConflict(date, ln.time, ln.endTime, undefined, ln.staffId);
             if (clash) { remaining.push(ln); toast.error(`${ln.staffName || 'Personel'} ${ln.time} dolu, atlandı`); continue; }
+            if (ln.staffId && succeeded.some((x) => x.staffId === ln.staffId
+                && toMin(x.time) < end && start < toMin(x.endTime))) {
+                remaining.push(ln); toast.error(`${ln.staffName || 'Personel'} ${ln.time} saatinde başka bir işleme atandı`); continue;
+            }
+            if (resourceId) {
+                const capacity = Math.max(1, selRes?.capacity || 1);
+                const dbCount = reservations.filter((r) => r.resourceId === resourceId && r.date === date && r.status !== 'cancelled'
+                    && toMin(r.startTime) < end && start < toMin(r.endTime)).length;
+                const batchCount = succeeded.filter((x) => toMin(x.time) < end && start < toMin(x.endTime)).length;
+                if (dbCount + batchCount >= capacity) {
+                    remaining.push(ln); toast.error(`${selRes?.name || resourceTypeLabel} ${ln.time} saatinde dolu`); continue;
+                }
+            }
             const res = await addReservation({
                 customerId: cust?.id || '', customerName: cust?.name || 'Geçici / Walk-in', customerPhone: cust?.phone || '',
                 date, startTime: ln.time, endTime: ln.endTime, service: ln.service.name, serviceColor: ln.service.color,
@@ -169,7 +217,7 @@ export const MobileNewReservation = () => {
         }
     };
 
-    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setNote(''); setShowNote(false); setDone(false); setSavedLines([]); setResourceId(null); setCfValues({}); };
+    const reset = () => { setStep(0); setLines([]); setSvc(null); setTime(null); setCust(null); setCustQuery(''); setQuickPatient({ name: '', phone: '' }); setNote(''); setShowNote(false); setDone(false); setSavedLines([]); setResourceId(null); setCfValues({}); };
 
     const dObj = new Date(date + 'T00:00:00');
     const dateChip = `${dObj.getDate()} ${MONTHS[dObj.getMonth()].slice(0, 3)}`;
@@ -400,15 +448,32 @@ export const MobileNewReservation = () => {
                             <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0, marginTop: 1, color: T.muted }}><circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" /><path d="M13.5 13.5l3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
                             <input value={custQuery} onChange={(e) => setCustQuery(e.target.value)} placeholder="İsim veya telefon ara…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontFamily: T.font }} />
                         </div>
-                        <div onClick={() => { setCust(null); setStep(4); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: T.surface, border: `1px dashed ${T.border2}`, borderRadius: 16, marginBottom: 12, cursor: 'pointer' }}>
-                            <div style={{ width: 42, height: 42, borderRadius: '50%', background: T.surface3, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={T.muted} strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" /></svg>
+                        {settings.sector === 'dis' ? (
+                            <div style={{ padding: '14px', background: T.surface, border: `1px dashed ${T.orange}`, borderRadius: 16, marginBottom: 14 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 3 }}>Yeni hasta kaydı</div>
+                                <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 10 }}>Randevu ile birlikte diş şeması da hazırlanır.</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 9 }}>
+                                    <input value={quickPatient.name} onChange={(e) => setQuickPatient((p) => ({ ...p, name: e.target.value }))}
+                                        placeholder="Ad soyad" style={{ minWidth: 0, padding: '10px 11px', borderRadius: 11, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, outline: 'none', fontFamily: T.font, fontSize: 12.5 }} />
+                                    <input value={quickPatient.phone} onChange={(e) => setQuickPatient((p) => ({ ...p, phone: e.target.value }))}
+                                        placeholder="Telefon" inputMode="tel" style={{ minWidth: 0, padding: '10px 11px', borderRadius: 11, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, outline: 'none', fontFamily: T.mono, fontSize: 12.5 }} />
+                                </div>
+                                <button onClick={createQuickPatient} disabled={!quickPatient.name.trim() || !quickPatient.phone.trim() || creatingPatient}
+                                    style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: 'none', background: quickPatient.name.trim() && quickPatient.phone.trim() ? T.orange : T.surface3, color: quickPatient.name.trim() && quickPatient.phone.trim() ? '#0E0E0E' : T.muted2, fontSize: 12.5, fontWeight: 800, cursor: quickPatient.name.trim() && quickPatient.phone.trim() ? 'pointer' : 'not-allowed' }}>
+                                    {creatingPatient ? 'Hasta kaydediliyor…' : 'Kaydet ve devam et'}
+                                </button>
                             </div>
-                            <div>
-                                <div style={{ fontSize: 13.5, fontWeight: 700 }}>Geçici / Walk-in</div>
-                                <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2 }}>Kayıtlı müşteri olmadan devam et</div>
+                        ) : (
+                            <div onClick={() => { setCust(null); setStep(4); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: T.surface, border: `1px dashed ${T.border2}`, borderRadius: 16, marginBottom: 12, cursor: 'pointer' }}>
+                                <div style={{ width: 42, height: 42, borderRadius: '50%', background: T.surface3, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={T.muted} strokeWidth="1.5" /><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>Geçici / Walk-in</div>
+                                    <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2 }}>Kayıtlı müşteri olmadan devam et</div>
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <Label>{custQuery ? 'Sonuçlar' : 'Müşteriler'}</Label>
                         {custMatches.map((c) => {
                             const on = cust?.id === c.id;
@@ -495,11 +560,11 @@ export const MobileNewReservation = () => {
 
             {/* Sticky CTA */}
             <div style={{ padding: '12px 20px', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 14px)', background: `${T.bg}f5`, backdropFilter: 'blur(14px)', borderTop: `1px solid ${T.border}` }}>
-                <button onClick={handleNext} disabled={(step === 1 ? !time : step === 2 ? lines.length === 0 : step === 0 ? !svc : false) || saving} style={ctaStyle((step === 1 ? !!time : step === 2 ? lines.length > 0 : step === 0 ? !!svc : true) && !saving)}>
+                <button onClick={handleNext} disabled={(step === 1 ? !time : step === 2 ? lines.length === 0 : step === 3 ? settings.sector === 'dis' && !cust : step === 0 ? !svc : false) || saving} style={ctaStyle((step === 1 ? !!time : step === 2 ? lines.length > 0 : step === 3 ? settings.sector !== 'dis' || !!cust : step === 0 ? !!svc : true) && !saving)}>
                     {step === 0 && (svc ? 'Devam →' : 'Hizmet seçin')}
                     {step === 1 && (time ? `İşleme Ekle · ${dateChip} ${time}` : 'Saat seçin')}
                     {step === 2 && `Devam → (${lines.length} hizmet · ₺${grandTotal})`}
-                    {step === 3 && 'Özeti Gör →'}
+                    {step === 3 && (settings.sector === 'dis' && !cust ? 'Hasta seçin veya kaydedin' : 'Özeti Gör →')}
                     {step === 4 && (saving ? 'Kaydediliyor…' : <><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 10l4 4 6-8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>Randevuyu Oluştur</>)}
                 </button>
             </div>

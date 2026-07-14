@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePayments } from '@/hooks/usePayments';
 import { useProducts } from '@/hooks/useProducts';
@@ -44,6 +45,8 @@ export const KasaPage = () => {
     const { payments, stats, addPayment, removePayment } = usePayments();
     const { products, addProduct, removeProduct } = useProducts();
     const { reservations, settings, updateReservation } = useReservations();
+    const [searchParams] = useSearchParams();
+    const focusedReservationId = searchParams.get('reservation');
     const { allCustomers } = useCustomers();
     const { tables } = useTables();
     const [tableDate] = useState(() => todayISO());
@@ -261,7 +264,7 @@ export const KasaPage = () => {
                         <div className="section-hd"><div className="section-title">Tahsil bekleyen randevular</div></div>
                         <div className="txn-list" style={{ marginBottom: 26 }}>
                             {unpaid.map(r => (
-                                <div className="txn" key={r.id}>
+                                <div className="txn" key={r.id} style={focusedReservationId === r.id ? { border: '2px solid var(--orange)', boxShadow: '0 0 0 4px rgba(255,90,31,.10)' } : undefined}>
                                     <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2.5 7.5h15" stroke="currentColor" strokeWidth="1.5" /></svg></div>
                                     <div className="txn-body"><div className="txn-name">{r.customerName}</div><div className="txn-meta">{r.service} · {r.date}</div></div>
                                     <div className="txn-amt">{fmt(priceOf(r.service))} ₺</div>

@@ -108,14 +108,43 @@ export function useCustomers() {
             const normalizedPhone = customer.phone.replace(/\s+/g, '').trim();
             const { data: existing } = await supabase
                 .from('customers')
-                .select('id, name')
+                .select('id, name, is_active')
                 .eq('organization_id', orgId)
                 .eq('phone', normalizedPhone)
+                .order('is_active', { ascending: false })
+                .order('created_at', { ascending: true })
+                .limit(1)
                 .maybeSingle();
 
             if (existing) {
-                toast.error(`Bu numara zaten kayıtlı: ${existing.name}`);
-                return null;
+                if (existing.is_active !== false) {
+                    toast.error(`Bu numara zaten kayıtlı: ${existing.name}`);
+                    return null;
+                }
+
+                // Yeni randevu alan arşivlenmiş hastayı ikinci bir kayıt açmak
+                // yerine geri getir; deep-link detay paneli de böylece boş kalmaz.
+                const { data: restored, error: restoreError } = await supabase
+                    .from('customers')
+                    .update({
+                        is_active: true,
+                        name: customer.name,
+                        email: customer.email || null,
+                        notes: customer.notes || '',
+                        ...(customer.customFields ? { custom_fields: customer.customFields } : {}),
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', existing.id)
+                    .select()
+                    .single();
+                if (restoreError || !restored) {
+                    toast.error('Arşivlenmiş müşteri geri getirilemedi');
+                    console.error('Error restoring customer:', restoreError);
+                    return null;
+                }
+                const restoredCustomer: Customer = { ...mapDbCustomer(restored), totalReservations: 0 };
+                setCustomers(prev => [restoredCustomer, ...prev.filter(c => c.id !== restoredCustomer.id)]);
+                return restoredCustomer;
             }
 
             const { data, error } = await supabase
@@ -154,11 +183,11 @@ export function useCustomers() {
     }, [user, orgId]);
 
     // ─── Müşteri güncelle ────────────────────────────────────────────────────
-    const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
+    const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>): Promise<boolean> => {
         const dbUpdates: any = { updated_at: new Date().toISOString() };
 
         if (updates.name !== undefined) dbUpdates.name = updates.name;
-        if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+        if (updates.phone !== undefined) dbUpdates.phone = updates.phone.replace(/\s+/g, '').trim();
         if (updates.email !== undefined) dbUpdates.email = updates.email;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
         if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
@@ -172,10 +201,15 @@ export function useCustomers() {
         if (error) {
             toast.error('Müşteri güncellenemedi');
             console.error('Error updating customer:', error);
-            return;
+            return false;
         }
 
-        setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+        setCustomers(prev => prev.map(c => c.id === id ? {
+            ...c,
+            ...updates,
+            ...(updates.phone !== undefined ? { phone: dbUpdates.phone } : {}),
+        } : c));
+        return true;
     }, []);
 
     // ─── Müşteri sil (soft delete) ───────────────────────────────────────────

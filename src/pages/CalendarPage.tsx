@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { useLabels } from '@/hooks/useLabels';
 import { useStaff } from '@/hooks/useStaff';
+import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
 import { useResources } from '@/hooks/useResources';
 import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
@@ -17,7 +18,7 @@ import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
-import type { CalendarView, Reservation } from '@/types';
+import type { CalendarView, Reservation, Staff } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAYS_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -68,6 +69,11 @@ function durationMin(start: string, end: string): number {
     let d = (eh * 60 + em) - (sh * 60 + sm);
     if (d < 0) d += 24 * 60;
     return d;
+}
+
+function clockMin(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
 }
 
 // Birleşik zaman bloğu CSS'i (Luera v2 — güncellenmiş tasarım)
@@ -125,6 +131,12 @@ const DENTAL_SERVICE_SET: { name: string; duration: number; color: string }[] = 
     { name: 'Beyazlatma', duration: 60, color: '#CB5E84' },
 ];
 
+interface SlotResolution {
+    staffMember?: Staff;
+    issue?: string;
+    conflict?: Reservation;
+}
+
 export const CalendarPage = () => {
     const { dark } = useTheme();
     const { reservations, addReservation, settings, checkConflict, updateSettings } = useReservations();
@@ -135,7 +147,8 @@ export const CalendarPage = () => {
     const resourceTypeLabel = profileForSector(settings.sector).resourceTypes[0] || 'Kaynak';
     const cfDefs = fieldDefsForSector(settings.sector, 'reservation');
     const [cfValues, setCfValues] = useState<Record<string, string | number | boolean>>({});
-    const { staff } = useStaff();
+    const { staff, isLoading: staffLoading } = useStaff();
+    const { timeOff, isLoading: timeOffLoading } = useStaffTimeOff();
     const { allCustomers } = useCustomers();
     const [staffFilter, setStaffFilter] = useState<string>('all');
     const [staffMenuOpen, setStaffMenuOpen] = useState(false);
@@ -201,13 +214,99 @@ export const CalendarPage = () => {
         ].filter((x): x is string => !!x);
     };
 
-    // Çakışma ön-uyarısı (v5): hata anında değil, oluşmadan uyar + tıklanabilir
-    // saat önerisi (30dk adımlarla sonraki uygun slot, süre korunur).
+    const staffWorksAt = useCallback((member: Staff, date: string, startTime: string, endTime: string) => {
+        if (timeOff.some((x) => x.staffId === member.id && x.date === date)) return false;
+        const schedule = member.workingHours?.length ? member.workingHours : settings.workingHours;
+        const jsDay = new Date(`${date}T12:00:00`).getDay();
+        const hours = schedule.find((x) => x.day === jsDay);
+        if (!hours || hours.isOff) return false;
+        return clockMin(startTime) >= clockMin(hours.start) && clockMin(endTime) <= clockMin(hours.end);
+    }, [settings.workingHours, timeOff]);
+
+    const cartOverlaps = useCallback((staffId: string, startTime: string, endTime: string) => {
+        const start = clockMin(startTime), end = clockMin(endTime);
+        return resLines.some((line) => line.staffId === staffId
+            && clockMin(line.startTime) < end && start < clockMin(line.endTime));
+    }, [resLines]);
+
+    // "Fark etmez" boş staff_id demek değildir: o anda çalışan ve müsait
+    // gerçek bir personeli çözüp satıra yazar. Legacy NULL randevu böylece
+    // kliniğin tüm personelini yanlışlıkla bloke etmez.
+    const resolveSlotStaff = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => {
+        if (staffLoading || timeOffLoading) return { issue: 'Personel uygunluğu kontrol ediliyor…' };
+        if (staff.length === 0) {
+            const conflict = checkConflict(date, startTime, endTime);
+            return conflict
+                ? { issue: `${conflict.customerName} · ${conflict.startTime}–${conflict.endTime} ile çakışıyor`, conflict }
+                : {};
+        }
+
+        const candidates = requestedId ? staff.filter((x) => x.id === requestedId) : staff;
+        if (requestedId && candidates.length === 0) return { issue: `Seçilen ${t('staff').toLowerCase()} bulunamadı` };
+
+        const start = clockMin(startTime), end = clockMin(endTime);
+        const unassignedCount = reservations.filter((r) => !r.staffId
+            && r.date === date && r.status !== 'cancelled'
+            && clockMin(r.startTime) < end && start < clockMin(r.endTime)).length;
+        let unassignedCapacity = requestedId ? 0 : unassignedCount;
+        const unassignedUsesRequested = !!requestedId && unassignedCount > staff.filter((member) => member.id !== requestedId
+            && staffWorksAt(member, date, startTime, endTime)
+            && !checkConflict(date, startTime, endTime, undefined, member.id)
+            && !cartOverlaps(member.id, startTime, endTime)).length;
+
+        for (const member of candidates) {
+            if (!staffWorksAt(member, date, startTime, endTime)) {
+                if (requestedId) return { issue: `${member.name} bu saatte çalışmıyor veya izinli` };
+                continue;
+            }
+            const conflict = checkConflict(date, startTime, endTime, undefined, member.id);
+            if (!conflict && !cartOverlaps(member.id, startTime, endTime)) {
+                if (unassignedUsesRequested) {
+                    return { issue: 'Bu saatteki atanmamış randevu personel kapasitesini dolduruyor' };
+                }
+                // Eski staff_id=NULL kayıt kliniğin tamamını değil yalnızca
+                // bir personellik kapasiteyi kullanır.
+                if (unassignedCapacity > 0) { unassignedCapacity--; continue; }
+                return { staffMember: member };
+            }
+            if (requestedId) {
+                return { issue: conflict
+                    ? `${member.name}, ${conflict.startTime}–${conflict.endTime} saatinde dolu`
+                    : `${member.name} bu saatte sepetteki başka bir işlemde`, conflict: conflict || undefined };
+            }
+        }
+        return { issue: `Bu saatte uygun ${t('staff').toLowerCase()} yok` };
+    }, [staff, staffLoading, timeOffLoading, reservations, checkConflict, cartOverlaps, staffWorksAt, t]);
+
+    const resolveSlot = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => {
+        const staffResult = resolveSlotStaff(date, startTime, endTime, requestedId);
+        if (staffResult.issue) return staffResult;
+
+        if (resourceId) {
+            const selectedResource = resources.find((x) => x.id === resourceId);
+            const capacity = Math.max(1, selectedResource?.capacity || 1);
+            const start = clockMin(startTime), end = clockMin(endTime);
+            const dbOverlaps = reservations.filter((r) => r.resourceId === resourceId
+                && r.date === date && r.status !== 'cancelled'
+                && clockMin(r.startTime) < end && start < clockMin(r.endTime));
+            const cartCount = resLines.filter((line) => clockMin(line.startTime) < end && start < clockMin(line.endTime)).length;
+            if (dbOverlaps.length + cartCount >= capacity) {
+                return {
+                    ...staffResult,
+                    issue: `${selectedResource?.name || resourceTypeLabel} bu saatte dolu`,
+                    conflict: dbOverlaps[0],
+                };
+            }
+        }
+        return staffResult;
+    }, [resolveSlotStaff, resourceId, resources, reservations, resLines, resourceTypeLabel]);
+
+    // Çakışma ön-uyarısı: uygun personel/kaynak bulunamadığında
+    // sonraki gerçek müsait saati önerir; süre korunur.
     const draftConflict = useMemo(() => {
         if (!showNewDialog || !selectedDate || !newRes.startTime || !newRes.endTime) return null;
-        const selRes = resources.find((x) => x.id === resourceId);
-        const c = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined, resourceId || undefined, selRes?.capacity);
-        if (!c) return null;
+        const current = resolveSlot(selectedDate, newRes.startTime, newRes.endTime, newRes.staffId || undefined);
+        if (!current.issue) return null;
         const pad = (n: number) => String(n).padStart(2, '0');
         const dur = durationMin(newRes.startTime, newRes.endTime);
         let [h, m] = newRes.startTime.split(':').map(Number);
@@ -218,10 +317,10 @@ export const CalendarPage = () => {
             const s = `${pad(h)}:${pad(m)}`;
             const eMin = h * 60 + m + dur;
             const e = `${pad(Math.floor(eMin / 60))}:${pad(eMin % 60)}`;
-            if (!checkConflict(selectedDate, s, e, undefined, newRes.staffId || undefined, resourceId || undefined, selRes?.capacity)) { sug = { start: s, end: e }; break; }
+            if (!resolveSlot(selectedDate, s, e, newRes.staffId || undefined).issue) { sug = { start: s, end: e }; break; }
         }
-        return { conflictName: c.customerName, conflictTime: `${c.startTime}–${c.endTime}`, sug };
-    }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resourceId, resources, checkConflict]);
+        return { message: current.issue, sug };
+    }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resolveSlot]);
 
     // Canlı özet (v5): Oluştur'a basmadan ne oluşturulacağı okunur
     const draftSummary = useMemo(() => {
@@ -385,7 +484,7 @@ export const CalendarPage = () => {
     // Personelin o gün o saatte çalışıp çalışmadığını kontrol et
     const isStaffHourAvailable = useCallback((dateStr: string, hour: number, minute = 0): boolean => {
         if (!selectedStaffMember?.workingHours?.length) return true;
-        const dayOfWeek = (new Date(dateStr + 'T12:00:00').getDay() + 6) % 7; // 0=Pzt … 6=Paz
+        const dayOfWeek = new Date(dateStr + 'T12:00:00').getDay(); // 0=Paz … 6=Cmt (WorkingHours ile aynı)
         const dayHours = selectedStaffMember.workingHours.find(wh => wh.day === dayOfWeek);
         if (!dayHours || dayHours.isOff) return false;
         const [startH, startM = 0] = dayHours.start.split(':').map(Number);
@@ -417,21 +516,14 @@ export const CalendarPage = () => {
     };
 
     // Taslaktan (mevcut hizmet+personel+saat) bir işlem satırı kur — çakışma kontrollü
-    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
     const lineFromDraft = (): { ok: boolean; line?: typeof resLines[number] } => {
         if (!newRes.service) { toast.error('Hizmet seçin'); return { ok: false }; }
         if (!selectedDate) return { ok: false };
-        const conflict = checkConflict(selectedDate, newRes.startTime, newRes.endTime, undefined, newRes.staffId || undefined);
-        if (conflict) { toast.error(`Çakışma! ${conflict.customerName} — ${conflict.startTime}/${conflict.endTime}`); return { ok: false }; }
-        if (newRes.staffId) {
-            const s1 = toMin(newRes.startTime), e1 = toMin(newRes.endTime);
-            if (resLines.some(l => l.staffId === newRes.staffId && toMin(l.startTime) < e1 && s1 < toMin(l.endTime))) {
-                toast.error('Bu personel bu saatte zaten ekli'); return { ok: false };
-            }
-        }
+        const resolved = resolveSlot(selectedDate, newRes.startTime, newRes.endTime, newRes.staffId || undefined);
+        if (resolved.issue) { toast.error(resolved.issue); return { ok: false }; }
         const svc = settings.services.find(s => s.name === newRes.service);
-        const st = staff.find(s => s.id === newRes.staffId);
-        return { ok: true, line: { id: (crypto.randomUUID?.() || String(Date.now())), service: newRes.service, serviceColor: svc?.color || '#FF5A1F', staffId: newRes.staffId, staffName: st?.name, staffColor: st?.color, startTime: newRes.startTime, endTime: newRes.endTime } };
+        const st = resolved.staffMember;
+        return { ok: true, line: { id: (crypto.randomUUID?.() || String(Date.now())), service: newRes.service, serviceColor: svc?.color || '#FF5A1F', staffId: st?.id || '', staffName: st?.name, staffColor: st?.color, startTime: newRes.startTime, endTime: newRes.endTime } };
     };
 
     const addDraftLine = () => {
@@ -452,11 +544,28 @@ export const CalendarPage = () => {
 
         setCreatingReservation(true);
         const groupId = lines.length > 1 ? (crypto.randomUUID?.() || String(Date.now())) : undefined;
-        let created = 0;
+        const createdLines: typeof lines = [];
         const selRes = resources.find((x) => x.id === resourceId);
         for (const ln of lines) {
-            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined, resourceId || undefined, selRes?.capacity);
+            const start = clockMin(ln.startTime), end = clockMin(ln.endTime);
+            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined);
             if (conflict) { toast.error(`Çakışma! ${ln.staffName || ''} ${ln.startTime} — atlandı`); continue; }
+            if (ln.staffId && createdLines.some((x) => x.staffId === ln.staffId
+                && clockMin(x.startTime) < end && start < clockMin(x.endTime))) {
+                toast.error(`${ln.staffName || t('staff')} ${ln.startTime} saatinde başka bir işleme atandı — atlandı`);
+                continue;
+            }
+            if (resourceId) {
+                const capacity = Math.max(1, selRes?.capacity || 1);
+                const dbCount = reservations.filter((r) => r.resourceId === resourceId
+                    && r.date === selectedDate && r.status !== 'cancelled'
+                    && clockMin(r.startTime) < end && start < clockMin(r.endTime)).length;
+                const batchCount = createdLines.filter((x) => clockMin(x.startTime) < end && start < clockMin(x.endTime)).length;
+                if (dbCount + batchCount >= capacity) {
+                    toast.error(`${selRes?.name || resourceTypeLabel} ${ln.startTime} saatinde dolu — atlandı`);
+                    continue;
+                }
+            }
             const res = await addReservation({
                 // Mevcut müşteri seçildiyse id'sini bağla; yazılan telefon kayıtlı bir
                 // müşteriye aitse yine bağla — dashboard'daki satır tıklaması hasta
@@ -473,19 +582,19 @@ export const CalendarPage = () => {
                 resourceId: resourceId || undefined,
                 customFields: Object.keys(cfValues).length ? cfValues : undefined,
             });
-            if (res) created++;
+            if (res) createdLines.push(ln);
         }
         setCreatingReservation(false);
 
-        if (created > 0) {
-            const first = lines[0];
-            const totalDur = lines.reduce((s, l) => s + durationMin(l.startTime, l.endTime), 0);
-            const names = [...new Set(lines.map(l => l.staffName).filter(Boolean))].join(', ');
+        if (createdLines.length > 0) {
+            const first = createdLines[0];
+            const totalDur = createdLines.reduce((s, l) => s + durationMin(l.startTime, l.endTime), 0);
+            const names = [...new Set(createdLines.map(l => l.staffName).filter(Boolean))].join(', ');
             setSuccessData({
                 customerName: newRes.customerName, customerPhone: newRes.customerPhone,
-                service: lines.length > 1 ? `${lines.length} işlem` : first.service, duration: totalDur,
-                dateLabel: formatDateEU(selectedDate), startTime: lines[0].startTime, endTime: lines[lines.length - 1].endTime,
-                staffName: names || 'Fark etmez', staffColor: lines.length > 1 ? undefined : first.staffColor, serviceColor: first.serviceColor,
+                service: createdLines.length > 1 ? `${createdLines.length} işlem` : first.service, duration: totalDur,
+                dateLabel: formatDateEU(selectedDate), startTime: createdLines[0].startTime, endTime: createdLines[createdLines.length - 1].endTime,
+                staffName: names || 'Fark etmez', staffColor: createdLines.length > 1 ? undefined : first.staffColor, serviceColor: first.serviceColor,
             });
         }
     };
@@ -1161,7 +1270,7 @@ export const CalendarPage = () => {
                                 </div>
                                 {draftConflict && (
                                     <div role="status" className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 8, padding: '9px 13px', borderRadius: 9, background: 'rgba(184,121,10,.12)', color: '#B8790A', fontSize: 12, fontWeight: 700 }}>
-                                        Bu saatte çakışma var ({draftConflict.conflictName} · {draftConflict.conflictTime})
+                                        {draftConflict.message}
                                         {draftConflict.sug && (
                                             <button onClick={() => setNewRes(p => ({ ...p, startTime: draftConflict.sug!.start, endTime: draftConflict.sug!.end }))}
                                                 style={{ color: '#B8790A', textDecoration: 'underline', fontWeight: 800, fontSize: 12, padding: 2 }}>

@@ -65,7 +65,7 @@ export const CustomersPage = () => {
     cancelled: 'rgba(14,14,14,0.18)',
   };
 
-  const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, deleteCustomer, redeemLoyalty } = useCustomers();
+  const { customers, allCustomers, searchQuery, setSearchQuery, addCustomer, updateCustomer, deleteCustomer, redeemLoyalty } = useCustomers();
   const { reservations, settings } = useReservations();
   const { t, sector } = useLabels();
   const { forCustomer: pkgsForCustomer, addPackage, removePackage } = useCustomerPackages();
@@ -75,9 +75,15 @@ export const CustomersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const openId = searchParams.get('open');
-    if (openId) { setSelId(openId); setSearchParams((p) => { p.delete('open'); return p; }, { replace: true }); }
+    if (openId) {
+      setSelId(openId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('open');
+      setSearchParams(next, { replace: true });
+    }
   }, [searchParams, setSearchParams]);
   const [showNew, setShowNew]     = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [creatingCust, setCreatingCust] = useState(false);
   const [newCust, setNewCust]     = useState({ name:'', phone:'', email:'', notes:'' });
   const [pkgForm, setPkgForm]     = useState({ name:'', total:'10' });
@@ -130,14 +136,43 @@ export const CustomersPage = () => {
     if (ok) { setPkgForm({ name:'', total:'10' }); setShowPkgForm(false); toast.success('Paket eklendi'); }
   };
 
+  const closeCustomerForm = () => {
+    setShowNew(false);
+    setEditingCustomerId(null);
+    setNewCust({ name:'', phone:'', email:'', notes:'' });
+    setCfValues({});
+  };
+  const openNewCustomerForm = () => {
+    setEditingCustomerId(null);
+    setNewCust({ name:'', phone:'', email:'', notes:'' });
+    setCfValues({});
+    setShowNew(true);
+  };
+  const openEditCustomerForm = (customer: Customer) => {
+    setEditingCustomerId(customer.id);
+    setNewCust({ name:customer.name, phone:customer.phone, email:customer.email || '', notes:customer.notes || '' });
+    setCfValues(customer.customFields || {});
+    setShowNew(true);
+  };
+
   const handleCreate = async () => {
     if (!newCust.name || !newCust.phone || creatingCust) return;
     setCreatingCust(true);
-    await addCustomer({ ...newCust, customFields: cfValues });
+    if (editingCustomerId) {
+      const ok = await updateCustomer(editingCustomerId, { ...newCust, customFields: cfValues });
+      setCreatingCust(false);
+      if (!ok) return;
+      setSelId(editingCustomerId);
+      toast.success('Hasta bilgileri güncellendi');
+      closeCustomerForm();
+      return;
+    }
+
+    const created = await addCustomer({ ...newCust, customFields: cfValues });
     setCreatingCust(false);
-    setShowNew(false);
-    setNewCust({ name:'', phone:'', email:'', notes:'' });
-    setCfValues({});
+    if (!created) return;
+    setSelId(created.id);
+    closeCustomerForm();
   };
 
   // ── render ──────────────────────────────────────────────────────────────────
@@ -158,7 +193,7 @@ export const CustomersPage = () => {
             <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{allCustomers.length} müşteri</div>
           </div>
         </div>
-        <button onClick={()=>setShowNew(true)}
+        <button onClick={openNewCustomerForm}
           style={{ display:'flex', alignItems:'center', gap:'7px', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
           onMouseEnter={e=>(e.currentTarget.style.background= dark ? '#363028' : '#2a2a2a')}
           onMouseLeave={e=>(e.currentTarget.style.background= dark ? '#231E18' : '#0E0E0E')}>
@@ -202,7 +237,7 @@ export const CustomersPage = () => {
                 const avFg   = newC ? (dark ? '#0C0A08' : '#0E0E0E') : '#F3EDE3';
                 const badge  = cust.totalReservations === 0 ? 'zero' : cust.totalReservations >= 3 ? 'hot' : '';
                 return (
-                  <div key={cust.id} onClick={()=>setSelId(isSel ? null : cust.id)}
+                  <div key={cust.id} onClick={()=>setSelId(cust.id)}
                     style={{ display:'flex', alignItems:'center', gap:'12px', padding:'13px 16px', paddingLeft: isSel ? '13px' : '16px', borderLeft: isSel ? `3px solid ${T.orange}` : '3px solid transparent', borderBottom:`1px solid ${T.border}`, cursor:'pointer', transition:'background .15s', background: isSel ? T.surface2 : 'transparent' }}
                     onMouseEnter={e=>{if(!isSel)(e.currentTarget as HTMLElement).style.background=T.surface2}}
                     onMouseLeave={e=>{if(!isSel)(e.currentTarget as HTMLElement).style.background='transparent'}}>
@@ -266,7 +301,7 @@ export const CustomersPage = () => {
                 </div>
                 <div style={{ display:'flex', gap:'6px' }}>
                   {[
-                    { icon:<Edit2 size={12}/>, title:'Düzenle', action:()=>{}, danger:false },
+                    { icon:<Edit2 size={12}/>, title:'Düzenle', action:()=>openEditCustomerForm(selected), danger:false },
                     { icon:<Trash2 size={12}/>, title:'Sil', action:()=>{ deleteCustomer(selected.id); setSelId(null); }, danger:true },
                   ].map((btn,i)=>(
                     <button key={i} title={btn.title} onClick={btn.action}
@@ -512,11 +547,11 @@ export const CustomersPage = () => {
 
       {/* ── New Customer Modal ── */}
       {showNew && (
-        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark ? 'rgba(0,0,0,0.6)' : 'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowNew(false)}>
+        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark ? 'rgba(0,0,0,0.6)' : 'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={closeCustomerForm}>
           <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:440, maxWidth:'90vw', boxShadow:T.shadowLg, animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both', border:`1px solid ${T.border2}` }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
-              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>Yeni {t('customer')}</div>
-              <button onClick={()=>setShowNew(false)} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
+              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>{editingCustomerId ? `${t('customer')} Düzenle` : `Yeni ${t('customer')}`}</div>
+              <button onClick={closeCustomerForm} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
                 onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none'}}>
                 <X size={16}/>
               </button>
@@ -540,10 +575,10 @@ export const CustomersPage = () => {
                 onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
             </div>
             <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', paddingTop:'18px', borderTop:`1px solid ${T.border}` }}>
-              <button onClick={()=>setShowNew(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
+              <button onClick={closeCustomerForm} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
               <button onClick={handleCreate} disabled={!newCust.name||!newCust.phone||creatingCust}
                 style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:newCust.name&&newCust.phone?(dark?'#231E18':'#0E0E0E'):T.surface3, color:newCust.name&&newCust.phone?'#F3EDE3':T.muted2, fontSize:'13px', fontWeight:650, cursor:(newCust.name&&newCust.phone&&!creatingCust)?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
-                {creatingCust?'Ekleniyor…':'Müşteri Ekle'}
+                {creatingCust ? (editingCustomerId ? 'Güncelleniyor…' : 'Ekleniyor…') : (editingCustomerId ? 'Değişiklikleri Kaydet' : `${t('customer')} Ekle`)}
               </button>
             </div>
           </div>

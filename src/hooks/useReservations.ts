@@ -39,6 +39,12 @@ function timeToMinutes(time: string): number {
     return h * 60 + m;
 }
 
+function normalizeCustomerPhone(phone?: string): string {
+    return (phone || '').replace(/\s+/g, '').trim();
+}
+
+type ReservationCustomerInput = Pick<Reservation, 'customerId' | 'customerName' | 'customerPhone' | 'customerEmail'>;
+
 function mapDbReservation(row: any): Reservation {
     return {
         id: row.id,
@@ -86,6 +92,7 @@ function useReservationsState() {
 
     // Webhook URL'yi ref'te tut — CRUD callback'leri stale closure olmadan erişsin
     const webhookUrlRef = useRef<string | undefined>(undefined);
+    const customerResolvePromisesRef = useRef<Map<string, Promise<string | null>>>(new Map());
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
 
     // ─── Standart webhook gönderici ──────────────────────────────────────────
@@ -322,6 +329,127 @@ function useReservationsState() {
     }, [user, orgId, randevuOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Rezervasyon ekle ────────────────────────────────────────────────────
+    // Masaüstü ve mobil manuel akışların tek davranışı olsun: telefonlu
+    // her randevu bir customer_id alır. Böylece hasta detayi, randevu geçmişi
+    // ve diş şeması ayrı bir "hasta kaydet" adımı istemez.
+    const resolveCustomerId = useCallback(async (input: ReservationCustomerInput): Promise<string | null> => {
+        if (input.customerId) return input.customerId;
+        if (!user || !orgId) return null;
+
+        const phone = normalizeCustomerPhone(input.customerPhone);
+        if (!phone) return null; // Kimliksiz walk-in akışlarını müşteriye dönüştürme.
+
+        const pending = customerResolvePromisesRef.current.get(phone);
+        if (pending) return pending;
+
+        const resolve = async (): Promise<string | null> => {
+            const { data: matches, error: lookupError } = await supabase
+                .from('customers')
+                .select('id, is_active')
+                .eq('organization_id', orgId)
+                .eq('phone', phone)
+                .order('is_active', { ascending: false })
+                .order('created_at', { ascending: true })
+                .limit(1);
+
+            if (lookupError) {
+                console.error('Error resolving reservation customer:', lookupError);
+                toast.error('Hasta kaydı kontrol edilemedi');
+                return null;
+            }
+
+            const existing = matches?.[0];
+            if (existing) {
+                // Arşivlenmiş hasta yeniden randevu aldıysa detay sayfasında tekrar
+                // görünebilmesi için kaydı geri getir.
+                if (existing.is_active === false) {
+                    const { error } = await supabase
+                        .from('customers')
+                        .update({ is_active: true, updated_at: new Date().toISOString() })
+                        .eq('id', existing.id)
+                        .eq('organization_id', orgId);
+                    if (error) {
+                        console.error('Error restoring reservation customer:', error);
+                        toast.error('Arşivlenmiş hasta geri getirilemedi');
+                        return null;
+                    }
+                }
+                return existing.id;
+            }
+
+            const { data: created, error: createError } = await supabase
+                .from('customers')
+                .insert({
+                    user_id: user.id,
+                    organization_id: orgId,
+                    name: input.customerName.trim(),
+                    phone,
+                    email: input.customerEmail?.trim() || null,
+                    notes: '',
+                })
+                .select('id')
+                .single();
+
+            if (createError || !created) {
+                console.error('Error creating reservation customer:', createError);
+                toast.error('Hasta kaydı oluşturulamadı');
+                return null;
+            }
+            return created.id;
+        };
+
+        const promise = resolve();
+        customerResolvePromisesRef.current.set(phone, promise);
+        try {
+            return await promise;
+        } finally {
+            customerResolvePromisesRef.current.delete(phone);
+        }
+    }, [user, orgId]);
+
+    // Eski customer_id'siz randevular için tembel onarım. Dental dashboard
+    // bunu bugünün kayıtlarında arka planda, butonlar da tıklama anında
+    // çağırır; böylece eski veri de doğru hasta ekranına gider.
+    const ensureReservationCustomer = useCallback(async (reservation: Reservation): Promise<string | null> => {
+        if (!orgId) return null;
+
+        if (reservation.customerId) {
+            const { error } = await supabase
+                .from('customers')
+                .update({ is_active: true, updated_at: new Date().toISOString() })
+                .eq('id', reservation.customerId)
+                .eq('organization_id', orgId)
+                .eq('is_active', false);
+            if (error) console.error('Error restoring linked customer:', error);
+            return reservation.customerId;
+        }
+
+        const customerId = await resolveCustomerId(reservation);
+        if (!customerId) return null;
+
+        const normalizedPhone = normalizeCustomerPhone(reservation.customerPhone);
+        const { error } = await supabase
+            .from('reservations')
+            .update({
+                customer_id: customerId,
+                ...(normalizedPhone ? { customer_phone: normalizedPhone } : {}),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', reservation.id)
+            .eq('organization_id', orgId);
+
+        if (error) {
+            console.error('Error linking reservation customer:', error);
+            toast.error('Randevu hasta kaydına bağlanamadı');
+            return null;
+        }
+
+        setReservations(prev => prev.map(r => r.id === reservation.id
+            ? { ...r, customerId, customerPhone: normalizedPhone || r.customerPhone }
+            : r));
+        return customerId;
+    }, [orgId, resolveCustomerId]);
+
     const addReservation = useCallback(async (reservation: Omit<Reservation, 'id' | 'createdAt'>) => {
         if (!user) return null;
 
@@ -344,14 +472,23 @@ function useReservationsState() {
             return null;
         }
 
+        const normalizedPhone = normalizeCustomerPhone(reservation.customerPhone);
+        let resolvedCustomerId = reservation.customerId || '';
+        if (!resolvedCustomerId && normalizedPhone) {
+            resolvedCustomerId = await resolveCustomerId(reservation) || '';
+            // Telefonlu bir randevuyu hasta bağlantısız kaydetmeyelim. Aksi
+            // halde UI'daki "otomatik kaydedilir" sözü yine boşa döner.
+            if (!resolvedCustomerId) return null;
+        }
+
         const { data, error } = await supabase
             .from('reservations')
             .insert({
                 user_id: user.id,
                 organization_id: orgId,
-                customer_id: reservation.customerId || null,
+                customer_id: resolvedCustomerId || null,
                 customer_name: reservation.customerName,
-                customer_phone: reservation.customerPhone,
+                customer_phone: normalizedPhone || reservation.customerPhone,
                 customer_email: reservation.customerEmail || null,
                 date: reservation.date,
                 start_time: reservation.startTime,
@@ -396,7 +533,7 @@ function useReservationsState() {
             staff_name:     newRes.staffName ?? null,
         });
         return newRes;
-    }, [user, orgId, fireWebhook]);
+    }, [user, orgId, fireWebhook, resolveCustomerId]);
 
     // ─── Rezervasyon güncelle ────────────────────────────────────────────────
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
@@ -731,6 +868,7 @@ function useReservationsState() {
         isLoading,
         orgId,
         addReservation,
+        ensureReservationCustomer,
         updateReservation,
         claimReservation,
         deleteReservation,
@@ -745,7 +883,7 @@ function useReservationsState() {
         refetchSettings: fetchSettings,
     }), [
         reservations, settings, isLoading, orgId,
-        addReservation, updateReservation, claimReservation, deleteReservation,
+        addReservation, ensureReservationCustomer, updateReservation, claimReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
         getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchSettings,
     ]);
