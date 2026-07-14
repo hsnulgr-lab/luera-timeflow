@@ -27,6 +27,13 @@ function json(body: unknown, status = 200) {
     });
 }
 
+function isReservationConflict(error: { code?: string; message?: string } | null | undefined): boolean {
+    const message = (error?.message || '').toLowerCase();
+    return error?.code === '23P01'
+        || message.includes('reservation_staff_conflict')
+        || message.includes('reservation_resource_conflict');
+}
+
 function timeToMin(t: string): number {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + (m || 0);
@@ -298,16 +305,24 @@ Deno.serve(async (req: Request) => {
 
             // Müşteri bul / oluştur
             let customerId: string | null = null;
-            const { data: existing } = await supabase
+            const { data: existing, error: customerLookupError } = await supabase
                 .from('customers').select('id').eq('organization_id', orgId).eq('phone', customerPhone).maybeSingle();
+            if (customerLookupError) {
+                console.error('multi booking customer lookup error', customerLookupError);
+                return json({ error: 'Müşteri kaydı doğrulanamadı' }, 500);
+            }
             if (existing) {
                 customerId = existing.id;
             } else {
-                const { data: created } = await supabase
+                const { data: created, error: customerCreateError } = await supabase
                     .from('customers')
                     .insert({ user_id: ownerId, organization_id: orgId, name: customerName, phone: customerPhone, email: customerEmail || null })
                     .select('id').single();
-                customerId = created?.id ?? null;
+                if (customerCreateError || !created?.id) {
+                    console.error('multi booking customer create error', customerCreateError);
+                    return json({ error: 'Müşteri kaydı oluşturulamadı' }, 500);
+                }
+                customerId = created.id;
             }
 
             const groupId = prepared.length > 1 ? crypto.randomUUID() : null;
@@ -334,6 +349,9 @@ Deno.serve(async (req: Request) => {
             const { data: inserted, error: insErr } = await supabase.from('reservations').insert(rows).select();
             if (insErr || !inserted) {
                 console.error('multi booking insert error', insErr);
+                if (isReservationConflict(insErr)) {
+                    return json({ error: 'Seçtiğiniz saatlerden biri az önce doldu. Lütfen saatleri yeniden seçin.' }, 409);
+                }
                 return json({ error: 'Randevu oluşturulamadı' }, 500);
             }
 
@@ -448,16 +466,24 @@ Deno.serve(async (req: Request) => {
 
         // Müşteri bul / oluştur (telefon bazlı, org içi)
         let customerId: string | null = null;
-        const { data: existing } = await supabase
+        const { data: existing, error: customerLookupError } = await supabase
             .from('customers').select('id').eq('organization_id', orgId).eq('phone', customerPhone).maybeSingle();
+        if (customerLookupError) {
+            console.error('booking customer lookup error', customerLookupError);
+            return json({ error: 'Müşteri kaydı doğrulanamadı' }, 500);
+        }
         if (existing) {
             customerId = existing.id;
         } else {
-            const { data: created } = await supabase
+            const { data: created, error: customerCreateError } = await supabase
                 .from('customers')
                 .insert({ user_id: ownerId, organization_id: orgId, name: customerName, phone: customerPhone, email: customerEmail || null })
                 .select('id').single();
-            customerId = created?.id ?? null;
+            if (customerCreateError || !created?.id) {
+                console.error('booking customer create error', customerCreateError);
+                return json({ error: 'Müşteri kaydı oluşturulamadı' }, 500);
+            }
+            customerId = created.id;
         }
 
         // Rezervasyon oluştur
@@ -485,6 +511,9 @@ Deno.serve(async (req: Request) => {
 
         if (resErr || !reservation) {
             console.error('booking insert error', resErr);
+            if (isReservationConflict(resErr)) {
+                return json({ error: 'Seçtiğiniz saat az önce doldu. Lütfen başka bir saat seçin.' }, 409);
+            }
             return json({ error: 'Randevu oluşturulamadı' }, 500);
         }
 

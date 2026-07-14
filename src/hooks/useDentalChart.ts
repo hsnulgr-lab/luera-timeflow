@@ -4,7 +4,20 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { DentalRecord, DentalStatus, DentalRecordType, ToothSurface } from '@/types';
 
-function mapRow(row: any): DentalRecord {
+interface DentalRecordDbRow {
+    id: string;
+    customer_id: string;
+    tooth_number: number;
+    status: DentalStatus;
+    surfaces?: ToothSurface[] | null;
+    record_type?: DentalRecordType | null;
+    treatment_plan_id?: string | null;
+    note?: string | null;
+    staff_id?: string | null;
+    created_at: string;
+}
+
+function mapRow(row: DentalRecordDbRow): DentalRecord {
     return {
         id: row.id,
         customerId: row.customer_id,
@@ -32,25 +45,44 @@ export interface SetToothOptions {
 // gerekmiyor (customer paneli her açılışta zaten taze veri ister).
 export function useDentalChart(customerId: string | undefined) {
     const { orgId } = useAuth();
-    const [records, setRecords] = useState<DentalRecord[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchAll = useCallback(async (cid: string) => {
-        setIsLoading(true);
-        const { data, error } = await supabase
-            .from('dental_records')
-            .select('*')
-            .eq('customer_id', cid)
-            .order('created_at', { ascending: true });
-        if (error) { toast.error('Diş şeması yüklenemedi'); console.error(error); }
-        else setRecords((data || []).map(mapRow));
-        setIsLoading(false);
-    }, []);
+    const [result, setResult] = useState<{
+        customerId: string | undefined;
+        records: DentalRecord[];
+    }>({ customerId: undefined, records: [] });
 
     useEffect(() => {
-        if (!customerId) { setRecords([]); setIsLoading(false); return; }
-        fetchAll(customerId);
-    }, [customerId, fetchAll]);
+        if (!customerId) return;
+        let alive = true;
+        const timer = window.setTimeout(() => {
+            void supabase
+                .from('dental_records')
+                .select('*')
+                .eq('customer_id', customerId)
+                .order('created_at', { ascending: true })
+                .then(({ data, error }) => {
+                    if (!alive) return;
+                    if (error) {
+                        toast.error('Diş şeması yüklenemedi');
+                        console.error(error);
+                        setResult({ customerId, records: [] });
+                        return;
+                    }
+                    setResult({ customerId, records: (data || []).map(mapRow) });
+                });
+        }, 0);
+        return () => {
+            alive = false;
+            window.clearTimeout(timer);
+        };
+    }, [customerId]);
+
+    // Hasta değiştiği anda önceki hastanın kayıtlarını bir kare dahi gösterme.
+    // Yeni sorgu tamamlanana kadar görünüm boş/yükleniyor kalır.
+    const records = useMemo(
+        () => result.customerId === customerId ? result.records : [],
+        [customerId, result.customerId, result.records],
+    );
+    const isLoading = Boolean(customerId && result.customerId !== customerId);
 
     // Diş numarası → en güncel kayıt (append-only log kronolojik geldiği için son yazan kalır).
     // Planlanan (planned) kayıtlar mevcut durumu EZMEZ — ayrı haritada tutulur.
@@ -88,7 +120,9 @@ export function useDentalChart(customerId: string | undefined) {
             treatment_plan_id: opts.treatmentPlanId || null,
         }).select().single();
         if (error) { toast.error('Diş durumu kaydedilemedi'); console.error(error); return false; }
-        setRecords((p) => [...p, mapRow(data)]);
+        setResult((previous) => previous.customerId === customerId
+            ? { ...previous, records: [...previous.records, mapRow(data)] }
+            : previous);
         return true;
     }, [orgId, customerId]);
 
@@ -104,25 +138,26 @@ export function useDentalChartsForCustomers(customerIds: string[]) {
     const key = [...new Set(customerIds)].sort().join(',');
 
     useEffect(() => {
-        if (!key) { setByCustomer(new Map()); setIsLoading(false); return; }
         let alive = true;
-        setIsLoading(true);
-        supabase.from('dental_records').select('*').in('customer_id', key.split(',')).order('created_at', { ascending: true })
-            .then(({ data, error }) => {
-                if (!alive) return;
-                if (error) { console.error(error); setIsLoading(false); return; }
-                const map = new Map<string, DentalRecord[]>();
-                for (const row of (data || [])) {
-                    const rec = mapRow(row);
-                    const arr = map.get(rec.customerId) || [];
-                    arr.push(rec);
-                    map.set(rec.customerId, arr);
-                }
-                setByCustomer(map);
-                setIsLoading(false);
-            });
-        return () => { alive = false; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        const timer = window.setTimeout(() => {
+            if (!key) { setByCustomer(new Map()); setIsLoading(false); return; }
+            setIsLoading(true);
+            void supabase.from('dental_records').select('*').in('customer_id', key.split(',')).order('created_at', { ascending: true })
+                .then(({ data, error }) => {
+                    if (!alive) return;
+                    if (error) { console.error(error); setIsLoading(false); return; }
+                    const map = new Map<string, DentalRecord[]>();
+                    for (const row of (data || [])) {
+                        const rec = mapRow(row);
+                        const arr = map.get(rec.customerId) || [];
+                        arr.push(rec);
+                        map.set(rec.customerId, arr);
+                    }
+                    setByCustomer(map);
+                    setIsLoading(false);
+                });
+        }, 0);
+        return () => { alive = false; window.clearTimeout(timer); };
     }, [key]);
 
     const currentFor = useCallback((customerId: string) => {

@@ -18,6 +18,18 @@ const PM: { key: PaymentMethod; label: string }[] = [
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
 interface Props { reservation: Reservation; onClose: () => void; onEdit?: (r: Reservation) => void; }
+interface ModalTheme {
+    ink: string;
+    muted: string;
+    muted2: string;
+    surface: string;
+    surface2: string;
+    surface3: string;
+    border: string;
+    border2: string;
+    orange: string;
+    green: string;
+}
 
 /**
  * Takvim randevu kartından açılan sekmeli panel:
@@ -30,7 +42,7 @@ interface Props { reservation: Reservation; onClose: () => void; onEdit?: (r: Re
 export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const { dark } = useTheme();
     const { settings, reservations, updateReservation } = useReservations();
-    const { payments, addPayment, removeByReservation, totalForCustomer } = usePayments();
+    const { payments, addPayment, removeByReservations, totalForCustomer } = usePayments();
     const { products } = useProducts();
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
@@ -57,20 +69,41 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const svcPrice = (x: Reservation) => settings.services.find(s => s.name === x.service)?.price || 0;
 
     // Çoklu hizmet booking'i: aynı group_id'li satırların hepsi tek birleşik adisyonda.
-    const groupRes = useMemo(
-        () => (r.groupId ? reservations.filter(x => x.groupId === r.groupId).sort((a, b) => a.startTime.localeCompare(b.startTime)) : [r]),
-        [reservations, r.groupId, r.id],
-    );
+    const groupRes = useMemo(() => {
+        if (!r.groupId) return [r];
+        // Modalın açıldığı satır realtime listeye henüz düşmemiş olsa bile grup
+        // hesabından ve toplu geri almadan kaybolmasın.
+        const byId = new Map(
+            [...reservations.filter((item) => item.groupId === r.groupId), r]
+                .map((item) => [item.id, item]),
+        );
+        return [...byId.values()].sort((a, b) => (
+            a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+        ));
+    }, [reservations, r]);
     const isGroup = groupRes.length > 1;
+    const groupReservationIds = useMemo(() => groupRes.map((item) => item.id), [groupRes]);
+    // Birleşik hesap tek finans kaydıdır; her zaman grubun kronolojik ilk
+    // randevusuna bağlanır. Böylece hangi grup kartından açıldığı sonucu değiştirmez.
+    const billingReservation = groupRes[0] || r;
+    const billingReservationId = billingReservation.id;
 
     // Adisyon satırları: her randevu için hizmet + personelin canlı eklediği kalemler.
-    const baseRows = useMemo(() => groupRes.flatMap(x => [
+    const baseRows = groupRes.flatMap(x => [
         { name: x.service, sub: x.staffName || 'Hizmet', price: svcPrice(x) },
         ...(x.adisyonItems || []).map(it => ({ name: it.name, sub: it.kind === 'product' ? 'Ürün' : 'Ekstra', price: it.price })),
-    ]), [groupRes, settings.services]);
+    ]);
     const baseTotal = baseRows.reduce((s, row) => s + row.price, 0);
 
-    const resPayments = useMemo(() => payments.filter(p => p.reservationId === r.id), [payments, r.id]);
+    // Tedavi planı/taksit ödemesi kaynak randevuya bağlı olabilir; bu, o
+    // randevunun adisyon tahsilatı değildir ve "geri al" kapsamına girmez.
+    const resPayments = useMemo(
+        () => {
+            const reservationIdSet = new Set(groupReservationIds);
+            return payments.filter(payment => payment.reservationId && reservationIdSet.has(payment.reservationId) && !payment.treatmentPlanId);
+        },
+        [payments, groupReservationIds],
+    );
     const isPaid = groupRes.every(x => x.isPaid) || resPayments.length > 0;
 
     const discount = parseInt(discStr || '0', 10) || 0;
@@ -89,36 +122,50 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         const type = baseTotal > 0 ? 'service' : (lines.length ? 'product' : 'other');
         const p = await addPayment({
             amount: net, method, type, description: desc,
-            customerId: r.customerId || undefined, reservationId: r.id,
+            customerId: billingReservation.customerId || undefined, reservationId: billingReservationId,
             productId: lines.length === 1 && baseTotal === 0 ? lines[0].productId : undefined,
         });
         // Tahsilat = randevu yaşam döngüsünün sonu; mobil finalize ile aynı şekilde tamamlanmış işaretlenir.
-        if (p) { for (const x of groupRes) await updateReservation(x.id, { isPaid: true, status: 'completed' }); toast.success(`${fmt(net)} ₺ tahsil edildi`); }
+        if (p) {
+            const updates = await Promise.all(groupRes.map((item) => updateReservation(item.id, { isPaid: true, status: 'completed' })));
+            if (updates.every(Boolean)) toast.success(`${fmt(net)} ₺ tahsil edildi`);
+        }
     };
     const undo = async () => {
-        await removeByReservation(r.id);
-        for (const x of groupRes) await updateReservation(x.id, { isPaid: false });
-        toast.success('Tahsilat geri alındı');
+        // Önce grubun bütün finans kayıtlarını atomik olarak sil; ancak ondan
+        // sonra tüm randevuları ödenmedi yap. Böylece başka grup üyesinde ödeme
+        // bırakıp bütün grubu ödenmedi işaretlemek mümkün değildir.
+        // Genel kasa listesi son-N kayıtla sınırlı olabilir; ekranda ödeme
+        // görünmese bile sunucu bütün grup kimliklerini kontrol edip temizler.
+        const removed = await removeByReservations(groupReservationIds, true);
+        if (!removed) return;
+        const updates = await Promise.all(groupRes.map((item) => updateReservation(item.id, { isPaid: false })));
+        if (updates.every(Boolean)) toast.success(resPayments.length > 0 ? 'Tahsilat geri alındı' : 'Ücretsiz tamamlama geri alındı');
     };
 
     // ── Özet: faz + birincil aksiyon ──
     const phase = apptPhase(r);
     const primary = primaryAction(phase);
+    const confirmReservation = async () => {
+        const updated = await updateReservation(r.id, { status: 'confirmed' });
+        if (updated) toast.success('Randevu onaylandı');
+    };
     const markArrived = async () => {
-        await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
-        toast.success(r.staffName ? `${r.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
+        const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
+        if (updated) toast.success(r.staffName ? `${r.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
     };
     const cancelRes = async () => {
         const prev = r.status;
-        await updateReservation(r.id, { status: 'cancelled' });
+        const updated = await updateReservation(r.id, { status: 'cancelled' });
+        if (!updated) return;
         toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(r.id, { status: prev }) } });
         onClose();
     };
     // Ücretsiz kapatma: hizmet(ler) var ama toplam 0 → ödeme kaydı oluşturmadan kapat.
     const hasServiceRows = baseRows.length > 0;
     const completeFree = async () => {
-        for (const x of groupRes) await updateReservation(x.id, { isPaid: true, status: 'completed' });
-        toast.success('Ücretsiz tamamlandı');
+        const updates = await Promise.all(groupRes.map((item) => updateReservation(item.id, { isPaid: true, status: 'completed' })));
+        if (updates.every(Boolean)) toast.success('Ücretsiz tamamlandı');
     };
 
     // Müşteri sekmesi verileri
@@ -186,7 +233,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                             {/* Faz rozeti */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>Durum</span>
-                                <span style={{ fontSize: 12, fontWeight: 800, color: phase === 'inService' ? '#C2410C' : phase === 'done' ? T.green : phase === 'cancelled' ? '#C0392B' : '#2E7D43' }}>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: phase === 'pending' ? '#A66A0E' : phase === 'inService' ? '#C2410C' : phase === 'done' ? T.green : phase === 'cancelled' ? '#C0392B' : '#2E7D43' }}>
                                     {r.customerArrivedAt && phase === 'upcoming' ? 'Müşteri bekliyor' : PHASE_LABEL[phase]}
                                 </span>
                             </div>
@@ -200,6 +247,12 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                             )}
 
                             {/* Birincil aksiyon — faza göre */}
+                            {primary.kind === 'confirm' && (
+                                <button onClick={confirmReservation} style={{ width: '100%', padding: 13, borderRadius: 12, background: '#A66A0E', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
+                                    ✓ {primary.label}
+                                </button>
+                            )}
+
                             {primary.kind === 'arrive' && !r.customerArrivedAt && (
                                 <button onClick={markArrived} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
                                     👋 {primary.label}
@@ -373,7 +426,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
 };
 
 // ── Alt bileşenler ──
-function Row({ label, sub, amount, T, onDel }: { label: string; sub?: string; amount: number; T: any; onDel?: () => void }) {
+function Row({ label, sub, amount, T, onDel }: { label: string; sub?: string; amount: number; T: ModalTheme; onDel?: () => void }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -385,7 +438,7 @@ function Row({ label, sub, amount, T, onDel }: { label: string; sub?: string; am
         </div>
     );
 }
-function Stat({ label, value, accent, T }: { label: string; value: string; accent?: boolean; T: any }) {
+function Stat({ label, value, accent, T }: { label: string; value: string; accent?: boolean; T: ModalTheme }) {
     return (
         <div style={{ flex: 1, padding: '13px 14px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}` }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
@@ -393,7 +446,7 @@ function Stat({ label, value, accent, T }: { label: string; value: string; accen
         </div>
     );
 }
-function InfoRow({ icon, text, T }: { icon: React.ReactNode; text: string; T: any }) {
+function InfoRow({ icon, text, T }: { icon: React.ReactNode; text: string; T: ModalTheme }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: T.muted }}>
             <span style={{ color: T.muted2, display: 'flex' }}>{icon}</span>{text}

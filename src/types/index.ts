@@ -1,3 +1,7 @@
+import type { StaffRole } from '@/lib/staffPermissions';
+
+export type { StaffRole } from '@/lib/staffPermissions';
+
 export interface Reservation {
     id: string;
     customerId: string;
@@ -61,6 +65,8 @@ export interface Customer {
     email?: string;
     totalReservations: number;
     lastVisit?: string;
+    nextAppointment?: string;
+    nextAppointmentTime?: string;
     notes?: string;
     loyaltyStamps?: number;   // Dijital müşteri kartı — biriken damga
     customFields?: Record<string, string | number | boolean>;   // sektöre özel alanlar — 050
@@ -104,6 +110,7 @@ export interface Staff {
     id: string;
     organizationId: string;
     name: string;
+    role: StaffRole;
     specialty?: string;
     phone?: string;
     email?: string;
@@ -157,6 +164,8 @@ export interface Payment {
     productId?: string;
     staffId?: string;
     treatmentPlanId?: string;
+    installmentId?: string;
+    createdBy?: string;
     type: PaymentType;
     description?: string;
     amount: number;
@@ -176,7 +185,21 @@ export interface TreatmentPlan {
     totalAmount: number;
     status: TreatmentPlanStatus;
     staffId?: string;
+    reservationId?: string;
+    createdBy?: string;
     notes?: string;
+    createdAt: string;
+}
+
+export type InstallmentCadence = 'weekly' | 'monthly';
+export interface TreatmentInstallment {
+    id: string;
+    organizationId: string;
+    customerId: string;
+    treatmentPlanId: string;
+    sequenceNo: number;
+    dueDate: string;
+    amount: number;
     createdAt: string;
 }
 

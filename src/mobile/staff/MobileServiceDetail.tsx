@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useReservations } from '@/hooks/useReservations';
 import { useProducts } from '@/hooks/useProducts';
+import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { priceForReservation } from '@/lib/appointmentFlow';
 import type { AdisyonItem } from '@/types';
 import { D, STS, fmtNum, fmtTimer, HizmetKeyframes, SlideToStart } from './hizmetDesign';
+import { MobileDentalEncounter } from './MobileDentalEncounter';
+import {
+    canConfirmStaffAppointment,
+    canTreatStaffAppointment,
+    canViewStaffAppointment,
+} from '@/lib/staffAppointmentAccess';
 
 const rid = () => Math.random().toString(36).slice(2, 9);
 
@@ -15,6 +22,7 @@ const rid = () => Math.random().toString(36).slice(2, 9);
  */
 export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: string; onBack: () => void }) => {
     const { reservations, settings, updateReservation } = useReservations();
+    const { staff, can } = useStaffSession();
     const { products } = useProducts();
     const [paused, setPaused] = useState(false);
     const [justFinished, setJustFinished] = useState(false);
@@ -23,24 +31,41 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
     const [exDesc, setExDesc] = useState('');
     const [exPrice, setExPrice] = useState('');
     const [itemBusy, setItemBusy] = useState(false);
+    const [confirming, setConfirming] = useState(false);
 
     // Canlı kaynak — listeden id ile türetilir ki güncellemeler anında yansısın
     const r = reservations.find((x) => x.id === reservationId);
 
     const items: AdisyonItem[] = r?.adisyonItems || [];
-    const basePrice = useMemo(() => (r ? priceForReservation(r, settings.services) : 0), [r, settings.services]);
+    const basePrice = r ? priceForReservation(r, settings.services) : 0;
     const total = basePrice + items.reduce((s, l) => s + l.price, 0);
     const color = r?.serviceColor || D.orange;
+    const actor = { staffId: staff?.id, role: staff?.role, can };
+    const canView = canViewStaffAppointment(r, actor);
+    // Hizmeti başlatma/bitirme yalnız kaydın sahibi ve update-own yetkisi olan
+    // personele aittir. Dental düzenleme ayrıca dental-chart/edit ve
+    // treatment-plans/edit izinleriyle yalnız hekim rolünde kalır.
+    const canTreat = canTreatStaffAppointment(r, actor);
+    const canConfirm = canConfirmStaffAppointment(r, actor);
+    const showEncounter = canView && (can('dental-chart:view')
+        || can('treatment-plans:view')
+        || can('appointments:create'));
 
     // Faz türetimi
+    const awaitingApproval = r?.status === 'pending';
+    const cancelled = r?.status === 'cancelled';
     const completed = r?.status === 'completed';
     const started = !!r?.arrivedAt && !completed;
-    const phase: 'ready' | 'running' | 'paused' | 'done' =
-        (justFinished || completed) ? 'done' : started ? (paused ? 'paused' : 'running') : 'ready';
+    const phase: 'pending' | 'ready' | 'running' | 'paused' | 'done' | 'cancelled' =
+        cancelled ? 'cancelled' : awaitingApproval ? 'pending' : (justFinished || completed) ? 'done' : started ? (paused ? 'paused' : 'running') : 'ready';
 
     // Süre: arrivedAt'tan tohumla; çalışırken saniyelik artır
     useEffect(() => {
-        if (r?.arrivedAt) setSecs(Math.max(0, Math.floor((Date.now() - new Date(r.arrivedAt).getTime()) / 1000)));
+        if (!r?.arrivedAt) return;
+        const timer = window.setTimeout(() => {
+            setSecs(Math.max(0, Math.floor((Date.now() - new Date(r.arrivedAt!).getTime()) / 1000)));
+        }, 0);
+        return () => window.clearTimeout(timer);
     }, [r?.arrivedAt]);
     useEffect(() => {
         if (phase !== 'running') return;
@@ -64,10 +89,35 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
         );
     }
 
+    if (!canView) {
+        return (
+            <div style={shell}>
+                <Nav onBack={onBack} />
+                <div style={{ padding: 40, textAlign: 'center', color: D.muted }}>Bu randevuyu görüntüleme yetkiniz yok.</div>
+            </div>
+        );
+    }
+
     // ── Eylemler ──
-    const start = () => updateReservation(r.id, { arrivedAt: new Date().toISOString() });
-    const finalize = () => { updateReservation(r.id, { status: 'completed', serviceEndedAt: new Date().toISOString() }); setJustFinished(true); };
-    const setItems = async (next: AdisyonItem[]) => { setItemBusy(true); await updateReservation(r.id, { adisyonItems: next }); setItemBusy(false); };
+    const start = async () => {
+        if (!canTreat || r.status !== 'confirmed') return;
+        await updateReservation(r.id, { arrivedAt: new Date().toISOString() });
+    };
+    const confirm = async () => {
+        if (!canConfirm || confirming) return;
+        setConfirming(true);
+        try {
+            await updateReservation(r.id, { status: 'confirmed' });
+        } finally {
+            setConfirming(false);
+        }
+    };
+    const finalize = async () => {
+        if (!canTreat) return;
+        const updated = await updateReservation(r.id, { status: 'completed', serviceEndedAt: new Date().toISOString() });
+        if (updated) setJustFinished(true);
+    };
+    const setItems = async (next: AdisyonItem[]) => { if (!canTreat) return; setItemBusy(true); await updateReservation(r.id, { adisyonItems: next }); setItemBusy(false); };
     const addProd = () => {
         if (itemBusy) return;
         const p = products.find((x) => x.id === selProd);
@@ -89,7 +139,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
             <HizmetKeyframes />
 
             {/* ══ DONE OVERLAY ══ */}
-            {phase === 'done' && (
+            {phase === 'done' && !showEncounter && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: D.overlay, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 28px', animation: 'lz-fadeUp .35s both' }}>
                     <div style={{ width: 80, height: 80, borderRadius: '50%', background: STS.done.bg, border: `2px solid ${D.greenBorder}`, display: 'grid', placeItems: 'center', marginBottom: 22, boxShadow: '0 0 0 12px rgba(124,196,127,.05)' }}>
                         <svg width="38" height="38" viewBox="0 0 40 40" fill="none">
@@ -131,6 +181,32 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                     {r.notes && <InfoRow icon={<IconNote />} lbl="Not" val={r.notes} />}
                 </div>
 
+                {phase === 'done' && showEncounter && (
+                    <div style={{ margin: '16px 20px 0', padding: '13px 15px', borderRadius: 15, background: STS.done.bg, border: `1px solid ${D.greenBorder}`, color: D.green }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 820 }}>Muayene tamamlandı</div>
+                        <div style={{ fontSize: 11.5, marginTop: 3, lineHeight: 1.45, color: D.muted }}>Diş şeması, tedavi planı ve kontrol randevusunu aşağıdan tamamlayabilirsiniz.</div>
+                    </div>
+                )}
+
+                {/* Onaylanmayan randevu personel tarafından başlatılamaz. */}
+                {phase === 'pending' && (
+                    <div style={{ margin: '22px 20px 0', textAlign: 'center', padding: '24px 18px', borderRadius: 18, background: STS.pending.bg, border: `1px solid ${D.border}`, animation: 'lz-fadeUp .3s both' }}>
+                        <div style={{ fontSize: 17, fontWeight: 820, letterSpacing: '-.025em', marginBottom: 7, color: D.amber }}>Onay Bekliyor</div>
+                        <div style={{ fontSize: 13, color: D.muted, lineHeight: 1.55 }}>
+                            {canConfirm
+                                ? (staff?.role === 'doctor' ? 'Randevu size atandı. Onayladıktan sonra muayeneyi başlatabilirsiniz.' : 'Yetkiniz kapsamında randevuyu onaylayabilirsiniz.')
+                                : 'Randevuyu onaylama yetkiniz yok. Yetkili personelin onayı bekleniyor.'}
+                        </div>
+                    </div>
+                )}
+
+                {phase === 'cancelled' && (
+                    <div style={{ margin: '22px 20px 0', textAlign: 'center', padding: '24px 18px', borderRadius: 18, background: 'rgba(224,112,112,.10)', border: `1px solid ${D.border}`, color: D.red }}>
+                        <div style={{ fontSize: 17, fontWeight: 820, letterSpacing: '-.025em', marginBottom: 7 }}>Randevu İptal Edildi</div>
+                        <div style={{ fontSize: 13, color: D.muted, lineHeight: 1.55 }}>İptal edilen randevuda klinik kayıt veya kontrol işlemi yapılamaz.</div>
+                    </div>
+                )}
+
                 {/* READY empty state */}
                 {phase === 'ready' && (
                     <div style={{ margin: '22px 20px 0', textAlign: 'center', padding: '24px 0 8px', animation: 'lz-fadeUp .3s both' }}>
@@ -141,6 +217,8 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         <div style={{ fontSize: 13, color: D.muted, lineHeight: 1.55 }}>Başlat'a basınca süre işlemeye başlar.</div>
                     </div>
                 )}
+
+                {showEncounter && <MobileDentalEncounter key={`${r.id}:${r.date}:${r.customerId || ''}`} reservation={r} locked={phase === 'pending' || phase === 'cancelled'} />}
 
                 {/* TIMER card */}
                 {(isRunning || isPaused) && (
@@ -171,7 +249,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         </div>
 
                         {/* Ürün ekle */}
-                        {products.length > 0 && (
+                        {canTreat && products.length > 0 && (
                             <div style={{ marginTop: 16 }}>
                                 <Cap>Ürün ekle</Cap>
                                 <div style={{ display: 'flex', alignItems: 'center', background: D.s1, border: `1px solid ${D.border}`, borderRadius: 14, padding: '0 14px', gap: 8 }}>
@@ -188,7 +266,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         )}
 
                         {/* Ekstra ekle */}
-                        <div style={{ marginTop: 14 }}>
+                        {canTreat && <div style={{ marginTop: 14 }}>
                             <Cap>Ekstra ekle (boya, ek işlem…)</Cap>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <input value={exDesc} onChange={(e) => setExDesc(e.target.value)} placeholder="Açıklama" style={{ flex: 1, height: 46, borderRadius: 12, background: D.s1, border: `1px solid ${D.border}`, color: D.ink, fontFamily: D.font, fontSize: 13, padding: '0 12px', outline: 'none' }} />
@@ -197,7 +275,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
                                 </button>
                             </div>
-                        </div>
+                        </div>}
 
                         {/* Toplam */}
                         <div style={{ marginTop: 22, paddingTop: 17, borderTop: `1px solid ${D.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -210,8 +288,12 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
 
             {/* ══ BOTTOM CTA ══ */}
             <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(env(safe-area-inset-bottom,0px) + 24px)', background: `linear-gradient(transparent,${D.bg} 32%)` }}>
-                {phase === 'ready' && <SlideToStart onComplete={start} />}
-                {isRunning && (
+                {phase === 'pending' && canConfirm && <button onClick={confirm} disabled={confirming} style={{ width: '100%', height: 56, borderRadius: 16, background: D.orange, color: '#fff', border: 'none', fontSize: 14, fontWeight: 800, cursor: confirming ? 'wait' : 'pointer', opacity: confirming ? .65 : 1 }}>{confirming ? 'Onaylanıyor…' : 'Randevuyu Onayla'}</button>}
+                {phase === 'pending' && !canConfirm && <button disabled style={{ width: '100%', height: 56, borderRadius: 16, background: D.s2, color: D.muted, border: `1px solid ${D.border}`, fontSize: 14, fontWeight: 800, cursor: 'not-allowed' }}>Onay Bekleniyor</button>}
+                {phase === 'cancelled' && <button disabled style={{ width: '100%', height: 56, borderRadius: 16, background: D.s2, color: D.red, border: `1px solid ${D.border}`, fontSize: 14, fontWeight: 800, cursor: 'not-allowed' }}>İptal Edildi</button>}
+                {phase !== 'pending' && phase !== 'cancelled' && phase !== 'done' && !canTreat && <button disabled style={{ width: '100%', height: 56, borderRadius: 16, background: D.s2, color: D.muted, border: `1px solid ${D.border}`, fontSize: 14, fontWeight: 800, cursor: 'not-allowed' }}>Salt Okunur</button>}
+                {phase === 'ready' && canTreat && <SlideToStart onComplete={start} />}
+                {isRunning && canTreat && (
                     <div style={{ display: 'flex', gap: 10 }}>
                         <button onClick={() => setPaused(true)} style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0, background: D.s2, border: `1px solid ${D.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.muted }}>
                             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="4" height="12" rx="1.5" fill="currentColor" /><rect x="9" y="1" width="4" height="12" rx="1.5" fill="currentColor" /></svg>
@@ -222,7 +304,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         </button>
                     </div>
                 )}
-                {isPaused && (
+                {isPaused && canTreat && (
                     <div style={{ display: 'flex', gap: 10 }}>
                         <button onClick={() => setPaused(false)} style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0, background: 'rgba(255,90,31,.12)', border: '1.5px solid rgba(255,90,31,.25)', display: 'grid', placeItems: 'center', cursor: 'pointer', color: D.orange }}>
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 1.5l10 5.5-10 5.5V1.5z" fill="currentColor" /></svg>
@@ -230,6 +312,7 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         <button onClick={finalize} style={ctaGreen}>Kasaya Gönder · {fmtNum(total)} ₺</button>
                     </div>
                 )}
+                {phase === 'done' && showEncounter && <button onClick={onBack} style={{ width: '100%', height: 54, borderRadius: 17, background: D.orange, color: '#fff', fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Takvime Dön</button>}
             </div>
         </div>
     );

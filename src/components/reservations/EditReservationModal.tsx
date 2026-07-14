@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { X, User, Phone, Mail, Clock, Calendar, FileText, Save, Trash2, Wallet } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
@@ -17,8 +17,12 @@ const statusConfig = {
     completed: { label: 'Tamamlandı', color: 'bg-blue-100 text-blue-700 border-blue-200' },
 };
 
-export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReservationModalProps) => {
-    const { updateReservation, deleteReservation, settings, checkConflict } = useReservations();
+export const EditReservationModal = (props: EditReservationModalProps) => (
+    <EditReservationModalContent key={`${props.reservation.id}:${props.isOpen ? 'open' : 'closed'}`} {...props} />
+);
+
+const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReservationModalProps) => {
+    const { updateReservation, deleteReservation, ensureReservationCustomer, settings, checkConflict } = useReservations();
     const { addPayment, removeByReservation } = usePayments();
     const [form, setForm] = useState({
         customerName: reservation.customerName,
@@ -32,79 +36,92 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
         notes: reservation.notes || '',
         isPaid: reservation.isPaid ?? false,
     });
-    const [conflict, setConflict] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        setForm({
-            customerName: reservation.customerName,
-            customerPhone: reservation.customerPhone,
-            customerEmail: reservation.customerEmail || '',
-            date: reservation.date,
-            startTime: reservation.startTime,
-            endTime: reservation.endTime,
-            service: reservation.service,
-            status: reservation.status,
-            notes: reservation.notes || '',
-            isPaid: reservation.isPaid ?? false,
-        });
-        setConflict(null);
-        setConfirmDelete(false);
-        setSaved(false);
-    }, [reservation, isOpen]);
-
-    // Check conflicts when time or date changes
-    useEffect(() => {
-        if (form.date && form.startTime && form.endTime) {
-            const conflicting = checkConflict(form.date, form.startTime, form.endTime, reservation.id, reservation.staffId);
-            if (conflicting) {
-                setConflict(`${conflicting.customerName} - ${conflicting.startTime}/${conflicting.endTime} ile çakışıyor!`);
-            } else {
-                setConflict(null);
-            }
-        }
+    const conflict = useMemo(() => {
+        if (!form.date || !form.startTime || !form.endTime) return null;
+        const conflicting = checkConflict(form.date, form.startTime, form.endTime, reservation.id, reservation.staffId);
+        return conflicting
+            ? `${conflicting.customerName} - ${conflicting.startTime}/${conflicting.endTime} ile çakışıyor!`
+            : null;
     }, [form.date, form.startTime, form.endTime, reservation.id, reservation.staffId, checkConflict]);
 
-    const handleSave = () => {
-        if (!form.customerName || !form.customerPhone) return;
+    const handleSave = async () => {
+        if (saving || saved || !form.customerName || !form.customerPhone) return;
         if (conflict) return;
 
-        const svc = settings.services.find(s => s.name === form.service);
-        updateReservation(reservation.id, {
-            customerName: form.customerName,
-            customerPhone: form.customerPhone,
-            customerEmail: form.customerEmail || undefined,
-            date: form.date,
-            startTime: form.startTime,
-            endTime: form.endTime,
-            service: form.service,
-            serviceColor: svc?.color || reservation.serviceColor,
-            status: form.status as Reservation['status'],
-            notes: form.notes || undefined,
-            isPaid: form.isPaid,
-        });
-
-        // Kasa senkronizasyonu: ödendi durumu değiştiyse tahsilat oluştur/geri al
+        setSaving(true);
         const wasPaid = reservation.isPaid ?? false;
-        if (form.isPaid && !wasPaid) {
-            addPayment({
-                amount: svc?.price || 0,
-                type: 'service',
-                method: 'cash',
-                description: form.service,
-                customerId: reservation.customerId || undefined,
-                reservationId: reservation.id,
-            });
-        } else if (!form.isPaid && wasPaid) {
-            removeByReservation(reservation.id);
-        }
+        const paidFlagChanged = form.isPaid !== wasPaid;
+        const restorePaidFlag = async () => {
+            if (!paidFlagChanged) return;
+            await updateReservation(reservation.id, { isPaid: wasPaid });
+        };
 
-        setSaved(true);
-        setTimeout(() => {
-            setSaved(false);
-            onClose();
-        }, 800);
+        try {
+            const svc = settings.services.find(s => s.name === form.service);
+            const updated = await updateReservation(reservation.id, {
+                // Bağlı hastanın kimliği randevu içinden değiştirilmez; aksi halde
+                // karttaki isim ile customer_id farklı kişileri gösterebilir.
+                ...(!reservation.customerId ? {
+                    customerName: form.customerName,
+                    customerPhone: form.customerPhone,
+                    customerEmail: form.customerEmail || undefined,
+                } : {}),
+                date: form.date,
+                startTime: form.startTime,
+                endTime: form.endTime,
+                service: form.service,
+                serviceColor: svc?.color || reservation.serviceColor,
+                status: form.status as Reservation['status'],
+                notes: form.notes || undefined,
+                isPaid: form.isPaid,
+            });
+            if (!updated) return;
+            let linkedCustomerId = updated.customerId || reservation.customerId || null;
+            if (!linkedCustomerId) {
+                linkedCustomerId = await ensureReservationCustomer(updated);
+                if (!linkedCustomerId) {
+                    await restorePaidFlag();
+                    return;
+                }
+            }
+
+            // Kasa senkronizasyonu: ödendi durumu değiştiyse tahsilat oluştur/geri al
+            if (form.isPaid && !wasPaid) {
+                const payment = await addPayment({
+                    amount: svc?.price || 0,
+                    type: 'service',
+                    method: 'cash',
+                    description: form.service,
+                    customerId: linkedCustomerId,
+                    reservationId: reservation.id,
+                });
+                if (!payment) {
+                    await restorePaidFlag();
+                    return;
+                }
+            } else if (!form.isPaid && wasPaid) {
+                // Eski/ücretsiz kayıtlarda isPaid=true olup ayrı bir tahsilat
+                // satırı bulunmayabilir. Sunucu DELETE'i bunu doğruladıysa
+                // işaretin geri alınmasına izin ver.
+                const removed = await removeByReservation(reservation.id, true);
+                if (!removed) {
+                    await restorePaidFlag();
+                    return;
+                }
+            }
+
+            setSaved(true);
+            setTimeout(() => {
+                setSaved(false);
+                onClose();
+            }, 800);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = () => {
@@ -152,13 +169,19 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                     )}
 
                     <div className="space-y-4">
+                        {reservation.customerId && (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                                Hasta kimliği bu randevuya bağlıdır. Ad, telefon ve e-posta değişikliklerini Hasta Detayı'ndan yapın.
+                            </div>
+                        )}
                         {/* Customer Info */}
                         <div>
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
                                 <User className="w-3 h-3" /> Müşteri Adı
                             </label>
-                            <input
-                                type="text" value={form.customerName}
+                                <input
+                                    type="text" value={form.customerName}
+                                    disabled={!!reservation.customerId}
                                 onChange={(e) => setForm(p => ({ ...p, customerName: e.target.value }))}
                                 className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
                             />
@@ -171,6 +194,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                                 </label>
                                 <input
                                     type="tel" value={form.customerPhone}
+                                    disabled={!!reservation.customerId}
                                     onChange={(e) => setForm(p => ({ ...p, customerPhone: e.target.value }))}
                                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
                                 />
@@ -181,6 +205,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                                 </label>
                                 <input
                                     type="email" value={form.customerEmail}
+                                    disabled={!!reservation.customerId}
                                     onChange={(e) => setForm(p => ({ ...p, customerEmail: e.target.value }))}
                                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
                                 />
@@ -324,7 +349,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={!form.customerName || !form.customerPhone || !!conflict}
+                                disabled={saving || saved || !form.customerName || !form.customerPhone || !!conflict}
                                 className={cn(
                                     "flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2",
                                     saved
@@ -333,7 +358,7 @@ export const EditReservationModal = ({ reservation, isOpen, onClose }: EditReser
                                 )}
                             >
                                 <Save className="w-4 h-4" />
-                                {saved ? 'Kaydedildi!' : 'Kaydet'}
+                                {saved ? 'Kaydedildi!' : saving ? 'Kaydediliyor…' : 'Kaydet'}
                             </button>
                         </div>
                     </div>

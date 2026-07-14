@@ -15,6 +15,7 @@ import { CustomFieldsSection, CustomFieldsDisplay } from '@/components/CustomFie
 import { DentalChart } from '@/components/dental/DentalChart';
 import { TreatmentPlans } from '@/components/dental/TreatmentPlans';
 import { fieldDefsForSector } from '@/lib/sectorProfiles';
+import { formatDateEU } from '@/utils/date';
 import type { Customer } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -321,7 +322,12 @@ export const CustomersPage = () => {
                   <div style={{ width:54, height:54, borderRadius:'50%', background: dark ? '#231E18' : '#0E0E0E', color:'#F3EDE3', display:'grid', placeItems:'center', fontSize:'19px', fontWeight:900, flexShrink:0 }}>{initials(selected.name)}</div>
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', lineHeight:1.1, color:T.ink }}>{selected.name}</div>
-                    <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px' }}>{selected.lastVisit ? `Son ziyaret: ${selected.lastVisit}` : 'Henüz ziyaret yok'}</div>
+                    <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px' }}>{selected.lastVisit ? `Son ziyaret: ${formatDateEU(selected.lastVisit)}` : 'Henüz tamamlanan ziyaret yok'}</div>
+                    {selected.nextAppointment && (
+                      <div style={{ fontSize:'12px', color:T.muted, marginTop:'3px' }}>
+                        Sonraki randevu: {formatDateEU(selected.nextAppointment)}{selected.nextAppointmentTime ? ` · ${selected.nextAppointmentTime}` : ''}
+                      </div>
+                    )}
                     {/* Medikal uyarı + kontrol çağrısı — hekim ilk bakışta görmeli */}
                     {(() => {
                       const cf = selected.customFields || {};

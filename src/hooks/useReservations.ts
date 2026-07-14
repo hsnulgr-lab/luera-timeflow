@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
+import { getReservationConflictError } from '@/lib/reservationErrors';
 import { todayISO, toISODate } from '@/utils/date';
 import { sendTextMessage, buildRebookMessage } from '@/services/evolutionApi';
 import type { Reservation, Settings, Service } from '@/types';
@@ -89,10 +90,12 @@ function useReservationsState() {
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
 
     // Webhook URL'yi ref'te tut — CRUD callback'leri stale closure olmadan erişsin
     const webhookUrlRef = useRef<string | undefined>(undefined);
     const customerResolvePromisesRef = useRef<Map<string, Promise<string | null>>>(new Map());
+    const settingsRequestRef = useRef(0);
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
 
     // ─── Standart webhook gönderici ──────────────────────────────────────────
@@ -162,9 +165,19 @@ function useReservationsState() {
 
     // ─── Ayarları getir ──────────────────────────────────────────────────────
     const fetchSettings = useCallback(async (currentOrgId?: string | null) => {
-        if (!user) return;
+        const requestId = ++settingsRequestRef.current;
+        if (!user) {
+            setIsSettingsLoading(false);
+            return;
+        }
+
+        setIsSettingsLoading(true);
 
         const resolvedOrgId = currentOrgId ?? orgId;
+        if (!resolvedOrgId) {
+            setIsSettingsLoading(false);
+            return;
+        }
 
         // SWR: işletme adı/hizmetler hard refresh'te anında gelsin
         if (resolvedOrgId) {
@@ -179,23 +192,32 @@ function useReservationsState() {
             .eq('user_id', user.id)
             .maybeSingle();
 
+        if (requestId !== settingsRequestRef.current) return;
+
         if (settingsErr) {
             console.error('Ayarlar yüklenemedi:', settingsErr);
             toast.error('Ayarlar yüklenemedi');
+            // Ağ/RLS hatasını "kayıt yok" sanıp dental ayarları genel
+            // varsayılanlarla ezme. Varsa org cache'i ekranda kalır.
+            setIsSettingsLoading(false);
+            return;
         }
 
         // Servisler org bazlı paylaşılır — aynı organizasyondaki tüm kullanıcılar
         // aynı hizmet kataloğunu görür (RLS de organization_id'ye dayanır).
-        const { data: servicesData, error: servicesErr } = resolvedOrgId
-            ? await supabase
-                .from('services')
-                .select('*')
-                .eq('organization_id', resolvedOrgId)
-                .order('created_at')
-            : { data: [], error: null };
+        const { data: servicesData, error: servicesErr } = await supabase
+            .from('services')
+            .select('*')
+            .eq('organization_id', resolvedOrgId)
+            .order('created_at');
+
+        if (requestId !== settingsRequestRef.current) return;
 
         if (servicesErr) {
             console.error('Hizmetler yüklenemedi:', servicesErr);
+            toast.error('Hizmetler yüklenemedi');
+            setIsSettingsLoading(false);
+            return;
         }
 
         const allServices: Service[] = (servicesData || []).map((s: any) => ({
@@ -261,6 +283,7 @@ function useReservationsState() {
                 services: services.length > 0 ? services : defaultSettings.services,
             });
         }
+        setIsSettingsLoading(false);
     }, [user, orgId]);
 
     // ─── Yükleme + Real-time subscription ────────────────────────────────────
@@ -511,8 +534,10 @@ function useReservationsState() {
             .single();
 
         if (error) {
-            toast.error('Rezervasyon oluşturulamadı');
+            const conflictError = getReservationConflictError(error);
+            toast.error(conflictError?.message ?? 'Rezervasyon oluşturulamadı');
             console.error('Error adding reservation:', error);
+            if (conflictError && orgId) await fetchReservations(orgId);
             return null;
         }
 
@@ -533,12 +558,13 @@ function useReservationsState() {
             staff_name:     newRes.staffName ?? null,
         });
         return newRes;
-    }, [user, orgId, fireWebhook, resolveCustomerId]);
+    }, [user, orgId, fireWebhook, resolveCustomerId, fetchReservations]);
 
     // ─── Rezervasyon güncelle ────────────────────────────────────────────────
-    const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
+    const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>): Promise<Reservation | null> => {
         const dbUpdates: any = { updated_at: new Date().toISOString() };
 
+        if (updates.customerId !== undefined) dbUpdates.customer_id = updates.customerId || null;
         if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
         if (updates.customerPhone !== undefined) dbUpdates.customer_phone = updates.customerPhone;
         if (updates.customerEmail !== undefined) dbUpdates.customer_email = updates.customerEmail;
@@ -568,16 +594,18 @@ function useReservationsState() {
             .single();
 
         if (error) {
-            toast.error('Rezervasyon güncellenemedi');
+            const conflictError = getReservationConflictError(error);
+            toast.error(conflictError?.message ?? 'Rezervasyon güncellenemedi');
             console.error('Error updating reservation:', error);
-            return;
+            if (conflictError && orgId) await fetchReservations(orgId);
+            return null;
         }
 
         if (!serverRow) {
             // Başka bir tab/kullanıcı bu rezervasyonu silmiş olabilir; listeyi yenile
             toast.error('Rezervasyon bulunamadı, liste yenileniyor');
-            fetchReservations(orgId!);
-            return;
+            if (orgId) await fetchReservations(orgId);
+            return null;
         }
         // Server'dan gelen satırı kullan — trigger/default değerleri korunur
         const updated = mapDbReservation(serverRow);
@@ -622,7 +650,9 @@ function useReservationsState() {
                 if (ok) await supabase.from('reservations').update({ rebook_sent: true }).eq('id', id);
             })().catch(() => {});
         }
-    }, [reservations, fireWebhook, fetchReservations, orgId, settings]);
+
+        return updated;
+    }, [fireWebhook, fetchReservations, orgId, settings]);
 
     // ─── Atanmamış randevuyu sahiplen (yarış-korumalı) ───────────────────────
     // İki personel aynı anda "Ben alıyorum" derse yalnızca ilki başarılı olur:
@@ -639,8 +669,10 @@ function useReservationsState() {
             .maybeSingle();
 
         if (error) {
-            toast.error('Sahiplenme başarısız');
+            const conflictError = getReservationConflictError(error);
+            toast.error(conflictError?.message ?? 'Sahiplenme başarısız');
             console.error('Error claiming reservation:', error);
+            if (conflictError && orgId) await fetchReservations(orgId);
             return false;
         }
         if (!serverRow) {
@@ -711,12 +743,12 @@ function useReservationsState() {
     }, [reservations]);
 
     // ─── Ayarları güncelle ───────────────────────────────────────────────────
-    const updateSettings = useCallback(async (newSettings: Settings) => {
-        if (!user) return;
+    const updateSettings = useCallback(async (newSettings: Settings): Promise<boolean> => {
+        if (!user) return false;
 
         if (!orgId) {
             toast.error('Organizasyon bilgisi alınamadı');
-            return;
+            return false;
         }
 
         const { error: settingsError } = await supabase
@@ -742,7 +774,7 @@ function useReservationsState() {
         if (settingsError) {
             toast.error('Ayarlar kaydedilemedi');
             console.error('Error updating settings:', settingsError);
-            return;
+            return false;
         }
 
         // Hizmetleri diff-upsert ile güncelle — mevcut ID'ler KORUNUR.
@@ -754,7 +786,7 @@ function useReservationsState() {
         if (exErr) {
             toast.error('Hizmetler güncellenemedi');
             console.error('Error reading services:', exErr);
-            return;
+            return false;
         }
 
         // DB'de gerçekten var olan ID'ler — varsayılan ('1'..'5') ID'ler buraya girmez,
@@ -771,7 +803,7 @@ function useReservationsState() {
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
                 console.error('Error deleting services:', error);
-                return;
+                return false;
             }
         }
 
@@ -784,7 +816,7 @@ function useReservationsState() {
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
                 console.error('Error updating service:', error);
-                return;
+                return false;
             }
         }
 
@@ -803,15 +835,21 @@ function useReservationsState() {
             if (error) {
                 toast.error('Hizmetler kaydedilemedi');
                 console.error('Error inserting services:', error);
-                return;
+                return false;
             }
         }
 
-        const { data: servicesData } = await supabase
+        const { data: servicesData, error: servicesRefreshError } = await supabase
             .from('services')
             .select('*')
             .eq('organization_id', orgId)
             .order('created_at');
+
+        if (servicesRefreshError) {
+            toast.error('Hizmetler yenilenemedi');
+            console.error('Error refreshing services:', servicesRefreshError);
+            return false;
+        }
 
         const updatedServices: Service[] = (servicesData || []).map((s: any) => ({
             id: s.id,
@@ -822,6 +860,7 @@ function useReservationsState() {
         }));
 
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
+        return true;
     }, [user, orgId]);
 
     // ─── Çakışma kontrolü (kaynak = personel bazlı doluluk) ──────────────────
@@ -866,6 +905,7 @@ function useReservationsState() {
         reservations,
         settings,
         isLoading,
+        isSettingsLoading,
         orgId,
         addReservation,
         ensureReservationCustomer,
@@ -882,7 +922,7 @@ function useReservationsState() {
         refetch: fetchReservations,
         refetchSettings: fetchSettings,
     }), [
-        reservations, settings, isLoading, orgId,
+        reservations, settings, isLoading, isSettingsLoading, orgId,
         addReservation, ensureReservationCustomer, updateReservation, claimReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
         getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchSettings,

@@ -8,6 +8,11 @@ import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Staff, WorkingHours } from '@/types';
+import {
+  STAFF_ROLE_OPTIONS,
+  staffRoleLabel,
+  type StaffRole,
+} from '@/lib/staffPermissions';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
 
@@ -71,11 +76,11 @@ const DEFAULT_HOURS: WorkingHours[] = [
 ];
 
 interface StaffForm {
-  name: string; specialty: string; phone: string; email: string;
+  name: string; role: StaffRole; specialty: string; phone: string; email: string;
   color: string; useCustomHours: boolean; workingHours: WorkingHours[]; pin: string;
 }
 const emptyForm = (): StaffForm => ({
-  name:'', specialty:'', phone:'', email:'',
+  name:'', role:'staff', specialty:'', phone:'', email:'',
   color: COLORS[0], useCustomHours: false, workingHours: DEFAULT_HOURS, pin:'',
 });
 
@@ -131,7 +136,7 @@ export const StaffPage = () => {
   const openAdd  = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
   const openEdit = (m: Staff) => {
     setEditing(m);
-    setForm({ name:m.name, specialty:m.specialty||'', phone:m.phone||'', email:m.email||'',
+    setForm({ name:m.name, role:m.role, specialty:m.specialty||'', phone:m.phone||'', email:m.email||'',
       color:m.color, useCustomHours:!!m.workingHours, workingHours:m.workingHours||DEFAULT_HOURS, pin:'' });
     setShowModal(true);
   };
@@ -140,7 +145,7 @@ export const StaffPage = () => {
     setSaving(true);
     // PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut PIN korunur
     const pinHash = form.pin.trim() ? await hashPin(form.pin.trim()) : undefined;
-    const payload = { name:form.name.trim(), specialty:form.specialty.trim()||undefined,
+    const payload = { name:form.name.trim(), role:form.role, specialty:form.specialty.trim()||undefined,
       phone:form.phone.trim()||undefined, email:form.email.trim()||undefined,
       color:form.color, workingHours:form.useCustomHours?form.workingHours:undefined, isActive:true,
       ...(pinHash ? { pin: pinHash } : {}) };
@@ -257,12 +262,11 @@ export const StaffPage = () => {
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:'15px', fontWeight:800, letterSpacing:'-0.02em', lineHeight:1.1, color:T.ink }}>{member.name}</div>
-                    {member.specialty && (
-                      <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:700, letterSpacing:'.06em', textTransform:'uppercase', color:T.muted, marginTop:'4px' }}>
-                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="1" y="3" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 3V2a2 2 0 014 0v1" stroke="currentColor" strokeWidth="1.2"/></svg>
-                        {member.specialty}
-                      </div>
-                    )}
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:750, letterSpacing:'.06em', textTransform:'uppercase', color:T.orange, marginTop:'4px' }}>
+                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="1" y="3" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 3V2a2 2 0 014 0v1" stroke="currentColor" strokeWidth="1.2"/></svg>
+                      {staffRoleLabel(member.role)}
+                    </div>
+                    {member.specialty && <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'2px' }}>{member.specialty}</div>}
                     <div style={{ display:'flex', alignItems:'center', gap:'7px', fontSize:'11px', fontWeight:600, color:online, marginTop:'5px' }}>
                       <span className="staff-online-dot" style={{ background:online, color:online }}/>
                       Çevrimiçi
@@ -335,10 +339,9 @@ export const StaffPage = () => {
               {initials(selMember.name)}
             </div>
             <div style={{ fontSize:'17px', fontWeight:800, textAlign:'center', letterSpacing:'-0.02em', color:T.ink }}>{selMember.name}</div>
-            {selMember.specialty && (
-              <div style={{ fontSize:'11px', fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:T.muted, textAlign:'center', marginTop:'4px', marginBottom:'18px' }}>{selMember.specialty}</div>
-            )}
-            {!selMember.specialty && <div style={{ marginBottom:'18px' }}/>}
+            <div style={{ fontSize:'11px', fontWeight:750, textTransform:'uppercase', letterSpacing:'.1em', color:T.orange, textAlign:'center', marginTop:'4px' }}>{staffRoleLabel(selMember.role)}</div>
+            {selMember.specialty && <div style={{ fontSize:'10.5px', color:T.muted, textAlign:'center', marginTop:'3px' }}>{selMember.specialty}</div>}
+            <div style={{ marginBottom:'18px' }}/>
 
             {/* Stats row */}
             {(() => {
@@ -488,6 +491,16 @@ export const StaffPage = () => {
                 onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none'}}>
                 <X size={16}/>
               </button>
+            </div>
+
+            {/* Uygulama-içi Personel Modu rolü */}
+            <div style={{ marginBottom:'14px' }}>
+              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel Rolü</label>
+              <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value as StaffRole}))}
+                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', fontWeight:650, color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
+                {STAFF_ROLE_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label} — {option.description}</option>)}
+              </select>
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Personel Modu'nda görünen işlemleri belirler; PIN tek başına veritabanı yetkilendirmesi değildir.</div>
             </div>
 
             {/* Form fields */}

@@ -20,6 +20,12 @@ const TZ_OFFSET_MIN = 3 * 60;
 function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
+function isReservationConflict(error: { code?: string; message?: string } | null | undefined): boolean {
+    const message = (error?.message || '').toLowerCase();
+    return error?.code === '23P01'
+        || message.includes('reservation_staff_conflict')
+        || message.includes('reservation_resource_conflict');
+}
 function timeToMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); }
 function minToTime(m: number): string { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 function weekdayOf(d: string): number { return new Date(d + 'T00:00:00Z').getUTCDay(); }
@@ -129,7 +135,20 @@ Deno.serve(async (req: Request) => {
         // ── CANCEL ──
         if (action === 'cancel') {
             if (!canModify) return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
-            await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', res.id);
+            const { data: cancelledReservation, error: cancelError } = await supabase
+                .from('reservations')
+                .update({ status: 'cancelled' })
+                .eq('id', res.id)
+                .in('status', ['pending', 'confirmed'])
+                .select('id, status')
+                .maybeSingle();
+            if (cancelError) {
+                console.error('booking cancel error', cancelError);
+                return json({ error: 'Randevu iptal edilemedi' }, 500);
+            }
+            if (!cancelledReservation || cancelledReservation.status !== 'cancelled') {
+                return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
+            }
 
             // Boşluk doldurma: bekleyenlere "slot açıldı" bildirimi (fire-and-forget)
             const srk = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -200,7 +219,23 @@ Deno.serve(async (req: Request) => {
             if (!available.includes(time)) return json({ error: 'Seçtiğiniz saat müsait değil. Lütfen başka bir saat seçin.' }, 409);
 
             const endTime = minToTime(timeToMin(time) + serviceDuration);
-            await supabase.from('reservations').update({ date, start_time: time, end_time: endTime }).eq('id', res.id);
+            const { data: updatedReservation, error: updateError } = await supabase
+                .from('reservations')
+                .update({ date, start_time: time, end_time: endTime })
+                .eq('id', res.id)
+                .in('status', ['pending', 'confirmed'])
+                .select('id, date, start_time, end_time')
+                .maybeSingle();
+            if (updateError) {
+                console.error('booking reschedule error', updateError);
+                if (isReservationConflict(updateError)) {
+                    return json({ error: 'Seçtiğiniz saat az önce doldu. Lütfen başka bir saat seçin.' }, 409);
+                }
+                return json({ error: 'Randevu güncellenemedi' }, 500);
+            }
+            if (!updatedReservation) {
+                return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
+            }
 
             const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
             const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));

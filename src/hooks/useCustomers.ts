@@ -3,9 +3,65 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
+import { todayISO, toISODate } from '@/utils/date';
 import type { Customer } from '@/types';
 
-function mapDbCustomer(row: any): Customer {
+interface CustomerDbRow {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string | null;
+    total_reservations?: number | null;
+    last_visit?: string | null;
+    notes?: string | null;
+    loyalty_stamps?: number | null;
+    custom_fields?: Record<string, string | number | boolean> | null;
+    recall_date?: string | null;
+    created_at: string;
+}
+
+interface ReservationMetricRow {
+    customer_id: string | null;
+    date: string;
+    start_time?: string | null;
+    status?: string | null;
+    service_ended_at?: string | null;
+}
+
+interface CustomerDbUpdates {
+    updated_at: string;
+    name?: string;
+    phone?: string;
+    email?: string;
+    notes?: string;
+    custom_fields?: Record<string, string | number | boolean>;
+    recall_date?: string | null;
+}
+
+type CustomerMetrics = Pick<Customer,
+    'totalReservations' | 'lastVisit' | 'nextAppointment' | 'nextAppointmentTime'>;
+
+function rememberCustomerMetrics(
+    snapshots: Map<string, Map<string, CustomerMetrics>>,
+    organizationId: string,
+    customerList: Customer[],
+) {
+    // Listede artık görünmeyen (ör. arşivlenen) hastanın son sağlam geçmişini de
+    // bellekte tut. Kayıt geri getirilirse zenginleştirme tamamlanana kadar bu
+    // değerler kullanılabilir.
+    const organizationMetrics = snapshots.get(organizationId) || new Map<string, CustomerMetrics>();
+    for (const customer of customerList) {
+        organizationMetrics.set(customer.id, {
+            totalReservations: customer.totalReservations,
+            lastVisit: customer.lastVisit,
+            nextAppointment: customer.nextAppointment,
+            nextAppointmentTime: customer.nextAppointmentTime,
+        });
+    }
+    snapshots.set(organizationId, organizationMetrics);
+}
+
+function mapDbCustomer(row: CustomerDbRow): Customer {
     return {
         id: row.id,
         name: row.name,
@@ -26,12 +82,47 @@ export function useCustomers() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const requestGenerationRef = useRef(0);
+    const isMountedRef = useRef(false);
+    const activeOrgRef = useRef(orgId);
+    const requestedOrgRef = useRef<string | null>(null);
+    const metricSnapshotsRef = useRef(new Map<string, Map<string, CustomerMetrics>>());
+
+    // Render ile org değiştiği anda eski isteğin sonucu geçersiz sayılsın. Effect'i
+    // beklemek, hızlı hesap değişiminde eski organizasyon verisinin kısa süreliğine
+    // yeni ekrana yazılmasına izin verebilir.
+    activeOrgRef.current = orgId;
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+            requestGenerationRef.current += 1;
+        };
+    }, []);
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
     const fetchCustomers = useCallback(async (resolvedOrgId: string) => {
+        const requestGeneration = ++requestGenerationRef.current;
+        const organizationChanged = requestedOrgRef.current !== resolvedOrgId;
+        requestedOrgRef.current = resolvedOrgId;
+        const isCurrentRequest = () => isMountedRef.current
+            && requestGenerationRef.current === requestGeneration
+            && activeOrgRef.current === resolvedOrgId;
+
         // SWR: önce son bilinen liste, arkada ağdan tazele
-        const cached = readCache<Customer[]>(`customers:${resolvedOrgId}`);
-        if (cached) { setCustomers(cached); setIsLoading(false); } else setIsLoading(true);
+        const cacheKey = `customers:${resolvedOrgId}`;
+        const cached = readCache<Customer[]>(cacheKey);
+        if (cached) {
+            rememberCustomerMetrics(metricSnapshotsRef.current, resolvedOrgId, cached);
+            if (isCurrentRequest()) {
+                setCustomers(cached);
+                setIsLoading(false);
+            }
+        } else if (isCurrentRequest()) {
+            if (organizationChanged) setCustomers([]);
+            setIsLoading(true);
+        }
 
         // Müşterileri getir
         const { data, error } = await supabase
@@ -41,6 +132,8 @@ export function useCustomers() {
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
+        if (!isCurrentRequest()) return;
+
         if (error) {
             toast.error('Müşteriler yüklenemedi');
             console.error('Error fetching customers:', error);
@@ -48,47 +141,122 @@ export function useCustomers() {
             return;
         }
 
-        const customerList = data || [];
+        const customerList = (data || []) as CustomerDbRow[];
         if (customerList.length === 0) {
             setCustomers([]);
-            writeCache(`customers:${resolvedOrgId}`, []);
+            writeCache(cacheKey, []);
             setIsLoading(false);
             return;
         }
 
         // Tüm müşteri ID'leri için rezervasyonları tek sorguda getir (N+1 fix)
-        const customerIds = customerList.map((c: any) => c.id);
-        const { data: reservations } = await supabase
+        const customerIds = customerList.map(customer => customer.id);
+        const { data: reservations, error: reservationsError } = await supabase
             .from('reservations')
-            .select('customer_id, date')
+            .select('customer_id, date, start_time, status, service_ended_at')
             .in('customer_id', customerIds)
             .order('date', { ascending: false });
 
-        // JS'de count ve last_visit hesapla
-        const countMap = new Map<string, number>();
-        const lastVisitMap = new Map<string, string>();
+        if (!isCurrentRequest()) return;
 
-        for (const res of (reservations || [])) {
+        if (reservationsError) {
+            // Rezervasyon zenginleştirmesi başarısız olduğunda `reservations || []`
+            // ile devam etmek tüm geçmişi sıfırlayıp sağlam cache'i bozuyordu. Temel
+            // hasta kaydını tazele, ancak son bilinen metrikleri koru ve bu kısmi
+            // sonucu cache'e yazma; sonraki refetch gerçek geçmişi yeniden hesaplar.
+            const cachedById = new Map((cached || []).map(customer => [customer.id, customer]));
+            const rememberedById = metricSnapshotsRef.current.get(resolvedOrgId);
+            const customersWithPreservedMetrics = customerList.map(row => {
+                const base = mapDbCustomer(row);
+                const previous = rememberedById?.get(base.id) || cachedById.get(base.id);
+                return {
+                    ...base,
+                    totalReservations: previous?.totalReservations ?? base.totalReservations,
+                    lastVisit: previous?.lastVisit ?? base.lastVisit,
+                    nextAppointment: previous?.nextAppointment,
+                    nextAppointmentTime: previous?.nextAppointmentTime,
+                };
+            });
+
+            console.error('Error fetching customer reservations:', reservationsError);
+            toast.error('Randevu geçmişi yüklenemedi; mevcut metrikler korundu');
+            setCustomers(customersWithPreservedMetrics);
+            setIsLoading(false);
+            return;
+        }
+
+        // JS'de toplam randevu, son tamamlanan ziyaret ve sıradaki randevuyu hesapla.
+        // Gelecekteki bir randevu hiçbir zaman "son ziyaret" sayılmaz.
+        const countMap = new Map<string, number>();
+        const lastVisitMap = new Map<string, { date: string; sortKey: string }>();
+        const nextAppointmentMap = new Map<string, { date: string; time?: string; sortKey: string }>();
+        const today = todayISO();
+        const now = new Date();
+        const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        for (const res of (reservations || []) as ReservationMetricRow[]) {
             if (!res.customer_id) continue;
             countMap.set(res.customer_id, (countMap.get(res.customer_id) || 0) + 1);
-            if (!lastVisitMap.has(res.customer_id)) {
-                lastVisitMap.set(res.customer_id, res.date);
+
+            const startTime = res.start_time?.slice(0, 5) || undefined;
+
+            if (res.status === 'completed') {
+                // service_ended_at, mevcut şemadaki gerçek tamamlanma zamanıdır.
+                // Eski kayıtlarda yoksa randevu tarihini kullanırız; iki durumda da
+                // gelecek tarihleri ziyaret geçmişine sokmayız.
+                const endedAt = res.service_ended_at ? new Date(res.service_ended_at) : null;
+                const hasValidEndedAt = !!endedAt && !Number.isNaN(endedAt.getTime());
+                const completedDate = hasValidEndedAt ? toISODate(endedAt) : res.date;
+                const isCompletedInPast = hasValidEndedAt
+                    ? endedAt.getTime() <= now.getTime()
+                    : res.date <= today;
+                if (isCompletedInPast) {
+                    const sortKey = hasValidEndedAt
+                        ? endedAt.toISOString()
+                        : `${res.date}T${startTime || '23:59'}:00`;
+                    const current = lastVisitMap.get(res.customer_id);
+                    if (!current || sortKey > current.sortKey) {
+                        lastVisitMap.set(res.customer_id, { date: completedDate, sortKey });
+                    }
+                }
+            }
+
+            const isUpcoming = res.status !== 'completed'
+                && res.status !== 'cancelled'
+                && (res.date > today || (res.date === today && (!startTime || startTime >= nowTime)));
+            if (isUpcoming) {
+                const sortKey = `${res.date}T${startTime || '23:59'}:00`;
+                const current = nextAppointmentMap.get(res.customer_id);
+                if (!current || sortKey < current.sortKey) {
+                    nextAppointmentMap.set(res.customer_id, { date: res.date, time: startTime, sortKey });
+                }
             }
         }
 
-        const enriched: Customer[] = customerList.map((c: any) => ({
+        const enriched: Customer[] = customerList.map(c => ({
             ...mapDbCustomer(c),
             totalReservations: countMap.get(c.id) || 0,
-            lastVisit: lastVisitMap.get(c.id) || undefined,
+            lastVisit: lastVisitMap.get(c.id)?.date,
+            nextAppointment: nextAppointmentMap.get(c.id)?.date,
+            nextAppointmentTime: nextAppointmentMap.get(c.id)?.time,
         }));
 
         setCustomers(enriched);
-        writeCache(`customers:${resolvedOrgId}`, enriched);
+        rememberCustomerMetrics(metricSnapshotsRef.current, resolvedOrgId, enriched);
+        writeCache(cacheKey, enriched);
         setIsLoading(false);
     }, []);
 
     useEffect(() => {
-        if (user && orgId) fetchCustomers(orgId);
+        if (user && orgId) {
+            void fetchCustomers(orgId);
+        } else {
+            // Çıkış/org değişimi sırasında devam eden istek artık state yazamaz.
+            requestGenerationRef.current += 1;
+            requestedOrgRef.current = null;
+            setCustomers([]);
+            setIsLoading(false);
+        }
     }, [user, orgId, fetchCustomers]);
 
     // Race condition guard: aynı anda iki ekleme isteği gönderilmesini engeller
@@ -142,8 +310,24 @@ export function useCustomers() {
                     console.error('Error restoring customer:', restoreError);
                     return null;
                 }
-                const restoredCustomer: Customer = { ...mapDbCustomer(restored), totalReservations: 0 };
-                setCustomers(prev => [restoredCustomer, ...prev.filter(c => c.id !== restoredCustomer.id)]);
+                const restoredBase = mapDbCustomer(restored);
+                const cachedCustomer = readCache<Customer[]>(`customers:${orgId}`)
+                    ?.find(item => item.id === restoredBase.id);
+                const rememberedCustomer = metricSnapshotsRef.current.get(orgId)?.get(restoredBase.id);
+                const previousMetrics = rememberedCustomer || cachedCustomer;
+                const restoredCustomer: Customer = {
+                    ...restoredBase,
+                    totalReservations: previousMetrics?.totalReservations ?? restoredBase.totalReservations,
+                    lastVisit: previousMetrics?.lastVisit ?? restoredBase.lastVisit,
+                    nextAppointment: previousMetrics?.nextAppointment,
+                    nextAppointmentTime: previousMetrics?.nextAppointmentTime,
+                };
+                if (isMountedRef.current && activeOrgRef.current === orgId) {
+                    setCustomers(prev => [restoredCustomer, ...prev.filter(c => c.id !== restoredCustomer.id)]);
+                    // Arşivdeyken de var olan randevuları yeniden hesapla; optimistik
+                    // satır gerçek geçmiş yüklenene kadar DB/cache değerlerini korur.
+                    void fetchCustomers(orgId);
+                }
                 return restoredCustomer;
             }
 
@@ -175,16 +359,18 @@ export function useCustomers() {
             }
 
             const newCust: Customer = { ...mapDbCustomer(data), totalReservations: 0 };
-            setCustomers(prev => [newCust, ...prev]);
+            if (isMountedRef.current && activeOrgRef.current === orgId) {
+                setCustomers(prev => [newCust, ...prev]);
+            }
             return newCust;
         } finally {
             addingRef.current = false;
         }
-    }, [user, orgId]);
+    }, [user, orgId, fetchCustomers]);
 
     // ─── Müşteri güncelle ────────────────────────────────────────────────────
     const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>): Promise<boolean> => {
-        const dbUpdates: any = { updated_at: new Date().toISOString() };
+        const dbUpdates: CustomerDbUpdates = { updated_at: new Date().toISOString() };
 
         if (updates.name !== undefined) dbUpdates.name = updates.name;
         if (updates.phone !== undefined) dbUpdates.phone = updates.phone.replace(/\s+/g, '').trim();

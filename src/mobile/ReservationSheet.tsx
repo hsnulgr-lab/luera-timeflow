@@ -22,7 +22,7 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     reservation: Reservation | null;
     services: Service[];
     onClose: () => void;
-    onUpdate: (id: string, updates: Partial<Reservation>) => Promise<void> | void;
+    onUpdate: (id: string, updates: Partial<Reservation>) => Promise<Reservation | null> | Reservation | null;
     onDelete: (id: string) => Promise<void> | void;
     onCollect?: (r: Reservation) => void;   // "Tamamla & Tahsilat" → parent Tahsilat Sheet'i açar
     checkConflict?: (date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string) => Reservation | null;
@@ -54,13 +54,15 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
     const ph = apptPhase(r);
     const pa = primaryAction(ph);
     const phBadge = ({
+        pending: { c: STS_COLOR.pending, bg: STS_BG.pending },
         upcoming: { c: STS_COLOR.confirmed, bg: STS_BG.confirmed },
         inService: { c: T.orange, bg: 'rgba(255,90,31,.14)' },
         done: { c: STS_COLOR.completed, bg: STS_BG.completed },
         cancelled: { c: STS_COLOR.cancelled, bg: STS_BG.cancelled },
     } as const)[ph];
     const runPrimary = () => {
-        if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
+        if (pa.kind === 'confirm') onUpdate(r.id, { status: 'confirmed' });
+        else if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
         else if (pa.kind === 'completePay') { if (onCollect) onCollect(r); else onUpdate(r.id, { status: 'completed' }); }
     };
 
@@ -76,7 +78,7 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
             return;
         }
         setSaving(true);
-        await onUpdate(r.id, {
+        const updated = await onUpdate(r.id, {
             date,
             startTime: start,
             endTime: end,
@@ -85,6 +87,7 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
             notes: notes.trim(),
         });
         setSaving(false);
+        if (!updated) return;
         setEdit(false);
         toast.success('Randevu güncellendi');
     };

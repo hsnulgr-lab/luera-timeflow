@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, X, Sparkles, Search, Check, Users, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, X, Sparkles, Search, Check, Users, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { useLabels } from '@/hooks/useLabels';
@@ -76,6 +76,11 @@ function clockMin(time: string): number {
     return (h || 0) * 60 + (m || 0);
 }
 
+function addMinutesToTime(time: string, minutes: number): string {
+    const total = (clockMin(time) + Math.max(0, minutes)) % (24 * 60);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 // Birleşik zaman bloğu CSS'i (Luera v2 — güncellenmiş tasarım)
 const TIME_BLOCK_CSS = `
 .lz-timeblock{display:grid;grid-template-columns:1fr auto 1fr;background:${M.surface2};border:1.5px solid ${M.border2};border-radius:10px;overflow:hidden}
@@ -139,7 +144,7 @@ interface SlotResolution {
 
 export const CalendarPage = () => {
     const { dark } = useTheme();
-    const { reservations, addReservation, settings, checkConflict, updateSettings } = useReservations();
+    const { reservations, addReservation, settings, isSettingsLoading, checkConflict, updateSettings } = useReservations();
     const { t } = useLabels();
     // Kaynak + sektöre özel randevu alanları (050/051)
     const { resources } = useResources();
@@ -181,21 +186,69 @@ export const CalendarPage = () => {
     const [successData, setSuccessData] = useState<null | {
         customerName: string; customerPhone: string; service: string; duration: number;
         dateLabel: string; startTime: string; endTime: string; staffName: string; staffColor?: string; serviceColor: string;
+        createdCount: number; requestedCount: number;
     }>(null);
 
-    const [newRes, setNewRes] = useState({
-        customerName: '',
-        customerPhone: '',
-        customerEmail: '',
-        service: settings.services[0]?.name || '',
-        startTime: '09:00',
-        endTime: '09:30',
-        notes: '',
-        staffId: '',
+    const [newRes, setNewRes] = useState(() => {
+        const service = settings.services[0];
+        const startTime = '09:00';
+        return {
+            customerName: '',
+            customerPhone: '',
+            customerEmail: '',
+            service: service?.name || '',
+            startTime,
+            endTime: addMinutesToTime(startTime, service?.duration ?? 30),
+            notes: '',
+            staffId: '',
+        };
     });
     const [recurrence, setRecurrence] = useState<{ rule: '' | 'weekly' | 'monthly'; until: string }>({ rule: '', until: '' });
     // Çoklu işlem (hizmet+personel+saat) — aynı müşteri/tarih için birden çok hizmet
     const [resLines, setResLines] = useState<{ id: string; service: string; serviceColor: string; staffId: string; staffName?: string; staffColor?: string; startTime: string; endTime: string }[]>([]);
+    const settingsDraftInitializedRef = useRef(false);
+    const serviceManuallySelectedRef = useRef(false);
+    const endTimeManuallyEditedRef = useRef(false);
+
+    // İlk render'da context genel varsayılanlarla başlayabilir. Gerçek klinik
+    // ayarları geldikten sonra hizmet/süreyi yalnızca bir kez düzelt; bu sırada
+    // yazılmış hasta, not, başlangıç saati ve elle girilmiş bitişi koru.
+    useEffect(() => {
+        if (isSettingsLoading || settingsDraftInitializedRef.current || settings.services.length === 0) return;
+        settingsDraftInitializedRef.current = true;
+
+        setNewRes((previous) => {
+            const firstService = settings.services[0];
+            const service = serviceManuallySelectedRef.current ? previous.service : firstService.name;
+            const selectedService = settings.services.find((item) => item.name === service);
+            return {
+                ...previous,
+                service,
+                endTime: endTimeManuallyEditedRef.current || !selectedService
+                    ? previous.endTime
+                    : addMinutesToTime(previous.startTime, selectedService.duration),
+            };
+        });
+    }, [isSettingsLoading, settings.services]);
+
+    const serviceDuration = useCallback((serviceName: string) => (
+        settings.services.find((service) => service.name === serviceName)?.duration ?? 30
+    ), [settings.services]);
+
+    const resetReservationDraft = useCallback(() => {
+        const service = settings.services[0];
+        const startTime = '09:00';
+        return {
+            customerName: '',
+            customerPhone: '',
+            customerEmail: '',
+            service: service?.name || '',
+            startTime,
+            endTime: addMinutesToTime(startTime, service?.duration ?? 30),
+            notes: '',
+            staffId: '',
+        };
+    }, [settings.services]);
 
     const routerNavigate = useNavigate();
 
@@ -346,9 +399,14 @@ export const CalendarPage = () => {
         const additions = DENTAL_SERVICE_SET
             .filter(s => !existing.has(s.name.toLowerCase()))
             .map((s, i) => ({ id: `svc-${Date.now()}-${i}`, ...s }));
-        await updateSettings({ ...settings, services: [...settings.services, ...additions] });
-        setLoadingDentalSet(false);
-        toast.success('Diş tedavi seti eklendi — süre ve ücretleri Ayarlar\'dan düzenleyebilirsiniz');
+        try {
+            const saved = await updateSettings({ ...settings, services: [...settings.services, ...additions] });
+            if (saved) {
+                toast.success('Diş tedavi seti eklendi — süre ve ücretleri Ayarlar\'dan düzenleyebilirsiniz');
+            }
+        } finally {
+            setLoadingDentalSet(false);
+        }
     };
 
     // Akıllı müşteri arama — isim veya telefona göre eşleşme
@@ -374,10 +432,12 @@ export const CalendarPage = () => {
 
     const closeDialog = () => {
         setShowNewDialog(false);
+        serviceManuallySelectedRef.current = false;
+        endTimeManuallyEditedRef.current = false;
         setCustomerQuery('');
         setCustomerLocked(false);
         setSuccessData(null);
-        setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+        setNewRes(resetReservationDraft());
         setRecurrence({ rule: '', until: '' });
         setResLines([]);
         setResourceId(null);
@@ -386,12 +446,16 @@ export const CalendarPage = () => {
 
     // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
     const resetForm = () => {
+        serviceManuallySelectedRef.current = false;
+        endTimeManuallyEditedRef.current = false;
         setSuccessData(null);
         setCustomerQuery('');
         setCustomerLocked(false);
-        setNewRes({ customerName: '', customerPhone: '', customerEmail: '', service: settings.services[0]?.name || '', startTime: '09:00', endTime: '09:30', notes: '', staffId: '' });
+        setNewRes(resetReservationDraft());
         setRecurrence({ rule: '', until: '' });
         setResLines([]);
+        setResourceId(null);
+        setCfValues({});
     };
 
     // Personel menüsü — dışarı tıklayınca kapan
@@ -590,16 +654,20 @@ export const CalendarPage = () => {
             const first = createdLines[0];
             const totalDur = createdLines.reduce((s, l) => s + durationMin(l.startTime, l.endTime), 0);
             const names = [...new Set(createdLines.map(l => l.staffName).filter(Boolean))].join(', ');
+            if (createdLines.length < lines.length) {
+                toast.warning(`${lines.length} işlemin ${createdLines.length} tanesi oluşturuldu; ${lines.length - createdLines.length} işlem eklenemedi`);
+            }
             setSuccessData({
                 customerName: newRes.customerName, customerPhone: newRes.customerPhone,
-                service: createdLines.length > 1 ? `${createdLines.length} işlem` : first.service, duration: totalDur,
+                service: lines.length > 1 ? `${createdLines.length} / ${lines.length} işlem` : first.service, duration: totalDur,
                 dateLabel: formatDateEU(selectedDate), startTime: createdLines[0].startTime, endTime: createdLines[createdLines.length - 1].endTime,
                 staffName: names || 'Fark etmez', staffColor: createdLines.length > 1 ? undefined : first.staffColor, serviceColor: first.serviceColor,
+                createdCount: createdLines.length, requestedCount: lines.length,
             });
+        } else if (lines.length > 1) {
+            toast.error(`${lines.length} işlemin hiçbiri oluşturulamadı`);
         }
     };
-
-    const dayReservations = selectedDate ? filteredReservations.filter(r => r.date === selectedDate) : [];
 
     const todayCount = filteredReservations.filter(r => r.date === today && r.status !== 'cancelled').length;
     const weekTotal = weekDays.reduce((sum, d) => sum + getDateCount(d.date), 0);
@@ -867,7 +935,13 @@ export const CalendarPage = () => {
                                                     ? "bg-[var(--dc-border-soft)] cursor-not-allowed"
                                                     : cn("cursor-pointer", d.isToday ? "bg-[#FF5A1F]/[0.03] hover:bg-[#FF5A1F]/[0.07]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
-                                            onClick={() => { if (!available) return; setSelectedDate(d.date); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
+                                            onClick={() => {
+                                                if (!available) return;
+                                                const startTime = `${String(hour).padStart(2, '0')}:00`;
+                                                setSelectedDate(d.date);
+                                                setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
+                                                setShowNewDialog(true);
+                                            }}
                                         >
                                             {hourRes.map((r) => {
                                                 const blockStyle = r.status === 'pending'
@@ -929,7 +1003,13 @@ export const CalendarPage = () => {
                                                     ? "bg-[var(--dc-border-soft)] cursor-not-allowed opacity-70"
                                                     : cn("cursor-pointer group", isCurrentHour ? "bg-[#FF5A1F]/[0.06]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
-                                            onClick={() => { if (!available) return; setSelectedDate(dateStr); setNewRes(p => ({ ...p, startTime: `${String(hour).padStart(2, '0')}:00`, endTime: `${String(hour + 1).padStart(2, '0')}:00` })); setShowNewDialog(true); }}
+                                            onClick={() => {
+                                                if (!available) return;
+                                                const startTime = `${String(hour).padStart(2, '0')}:00`;
+                                                setSelectedDate(dateStr);
+                                                setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
+                                                setShowNewDialog(true);
+                                            }}
                                         >
                                             <div className="w-[72px] flex-shrink-0 p-3 border-r border-[var(--dc-border)] bg-[var(--dc-surface2)] text-right relative">
                                                 {isCurrentHour && <div className="absolute top-1/2 right-0 w-2 h-2 rounded-full bg-[#FF5A1F] -translate-y-1/2 translate-x-1 shadow-lg shadow-[#FF5A1F]/50" />}
@@ -1068,8 +1148,16 @@ export const CalendarPage = () => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>{t('reservation')} Oluşturuldu</div>
-                                    <div style={{ fontSize: 13, color: M.muted, lineHeight: 1.6, maxWidth: 270, marginTop: 4 }}>Takvime eklendi ve müşteriye onay bildirimi gönderildi.</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>
+                                        {successData.createdCount < successData.requestedCount
+                                            ? 'Randevu Kısmen Oluşturuldu'
+                                            : `${t('reservation')} Oluşturuldu`}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: M.muted, lineHeight: 1.6, maxWidth: 310, marginTop: 4 }}>
+                                        {successData.createdCount < successData.requestedCount
+                                            ? `${successData.requestedCount} işlemin ${successData.createdCount} tanesi takvime eklendi; ${successData.requestedCount - successData.createdCount} işlem çakışma veya kayıt hatası nedeniyle eklenemedi.`
+                                            : 'Takvime eklendi ve müşteriye onay bildirimi gönderildi.'}
+                                    </div>
                                 </div>
                                 {/* Özet kartı */}
                                 <div className="w-full flex flex-col text-left" style={{ background: M.surface2, border: `1px solid ${M.border}`, borderRadius: 10, padding: '14px 18px', gap: 8 }}>
@@ -1221,9 +1309,8 @@ export const CalendarPage = () => {
                                             <button
                                                 key={s.id}
                                                 onClick={() => {
-                                                    const [h, m] = newRes.startTime.split(':').map(Number);
-                                                    const endMin = h * 60 + m + s.duration;
-                                                    setNewRes(p => ({ ...p, service: s.name, endTime: `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}` }));
+                                                    serviceManuallySelectedRef.current = true;
+                                                    setNewRes(p => ({ ...p, service: s.name, endTime: addMinutesToTime(p.startTime, s.duration) }));
                                                 }}
                                                 className="inline-flex items-center transition-all whitespace-nowrap"
                                                 style={{
@@ -1256,7 +1343,10 @@ export const CalendarPage = () => {
                                 <div className="lz-timeblock">
                                     <div className="lz-ts" onClick={(e) => { const i = e.currentTarget.querySelector('input'); (i as HTMLInputElement & { showPicker?: () => void })?.showPicker?.(); }}>
                                         <div className="lz-ts-lbl">Başlangıç</div>
-                                        <input type="time" value={newRes.startTime} onChange={(e) => setNewRes(p => ({ ...p, startTime: e.target.value }))} />
+                                        <input type="time" value={newRes.startTime} onChange={(e) => {
+                                            const startTime = e.target.value;
+                                            setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
+                                        }} />
                                     </div>
                                     <div className="lz-ts-mid">
                                         <div className="lz-ts-mid-line" />
@@ -1265,14 +1355,20 @@ export const CalendarPage = () => {
                                     </div>
                                     <div className="lz-ts" onClick={(e) => { const i = e.currentTarget.querySelector('input'); (i as HTMLInputElement & { showPicker?: () => void })?.showPicker?.(); }}>
                                         <div className="lz-ts-lbl">Bitiş</div>
-                                        <input type="time" value={newRes.endTime} onChange={(e) => setNewRes(p => ({ ...p, endTime: e.target.value }))} />
+                                        <input type="time" value={newRes.endTime} onChange={(e) => {
+                                            endTimeManuallyEditedRef.current = true;
+                                            setNewRes(p => ({ ...p, endTime: e.target.value }));
+                                        }} />
                                     </div>
                                 </div>
                                 {draftConflict && (
                                     <div role="status" className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 8, padding: '9px 13px', borderRadius: 9, background: 'rgba(184,121,10,.12)', color: '#B8790A', fontSize: 12, fontWeight: 700 }}>
                                         {draftConflict.message}
                                         {draftConflict.sug && (
-                                            <button onClick={() => setNewRes(p => ({ ...p, startTime: draftConflict.sug!.start, endTime: draftConflict.sug!.end }))}
+                                            <button onClick={() => {
+                                                endTimeManuallyEditedRef.current = true;
+                                                setNewRes(p => ({ ...p, startTime: draftConflict.sug!.start, endTime: draftConflict.sug!.end }));
+                                            }}
                                                 style={{ color: '#B8790A', textDecoration: 'underline', fontWeight: 800, fontSize: 12, padding: 2 }}>
                                                 {draftConflict.sug.start} uygun →
                                             </button>

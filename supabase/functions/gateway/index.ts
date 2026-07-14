@@ -6,6 +6,13 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+function isReservationConflict(error: { code?: string; message?: string } | null | undefined): boolean {
+    const message = (error?.message || '').toLowerCase();
+    return error?.code === '23P01'
+        || message.includes('reservation_staff_conflict')
+        || message.includes('reservation_resource_conflict');
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
@@ -80,6 +87,7 @@ async function handleInbound(req: Request): Promise<Response> {
             customer_name, customer_phone, date,
             start_time, end_time, service,
         } = data_source;
+        const staff_id: string | null = data_source.staff_id || null;
 
         // user_id: API key'den çözüldüyse onu kullan, yoksa body'den al
         const user_id = resolvedUserId || data_source.user_id;
@@ -130,12 +138,16 @@ async function handleInbound(req: Request): Promise<Response> {
         }
 
         // ── Çakışma kontrolü (organization_id bazlı) ──────────────────────────
-        const { data: conflicts } = await supabase
+        let conflictQuery = supabase
             .from('reservations')
             .select('id, customer_name, start_time, end_time')
             .eq('organization_id', organization_id)
             .eq('date', date)
             .neq('status', 'cancelled');
+        conflictQuery = staff_id
+            ? conflictQuery.eq('staff_id', staff_id)
+            : conflictQuery.is('staff_id', null);
+        const { data: conflicts } = await conflictQuery;
 
         const newStart = timeToMinutes(start_time);
         const newEnd   = timeToMinutes(end_time);
@@ -159,13 +171,21 @@ async function handleInbound(req: Request): Promise<Response> {
 
         if (!customer_id) {
             // Aynı telefon + org'da müşteri var mı?
-            const { data: existingCustomer } = await supabase
+            const { data: existingCustomer, error: customerLookupError } = await supabase
                 .from('customers')
                 .select('id')
                 .eq('organization_id', organization_id)
                 .eq('phone', customer_phone)
                 .eq('is_active', true)
                 .maybeSingle();
+
+            if (customerLookupError) {
+                console.error('Customer lookup error:', customerLookupError);
+                return new Response(
+                    JSON.stringify({ error: 'Müşteri kaydı doğrulanamadı' }),
+                    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+            }
 
             if (existingCustomer?.id) {
                 customer_id = existingCustomer.id;
@@ -176,7 +196,7 @@ async function handleInbound(req: Request): Promise<Response> {
                     .eq('id', customer_id);
             } else {
                 // Yeni müşteri oluştur
-                const { data: newCustomer } = await supabase
+                const { data: newCustomer, error: customerCreateError } = await supabase
                     .from('customers')
                     .insert({
                         user_id,
@@ -187,7 +207,15 @@ async function handleInbound(req: Request): Promise<Response> {
                     })
                     .select('id')
                     .single();
-                customer_id = newCustomer?.id ?? null;
+
+                if (customerCreateError || !newCustomer?.id) {
+                    console.error('Customer create error:', customerCreateError);
+                    return new Response(
+                        JSON.stringify({ error: 'Müşteri kaydı oluşturulamadı' }),
+                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    );
+                }
+                customer_id = newCustomer.id;
             }
         }
 
@@ -208,6 +236,7 @@ async function handleInbound(req: Request): Promise<Response> {
                 service_color:   data_source.service_color   || '#CCFF00',
                 status:          data_source.status          || 'pending',
                 notes:           data_source.notes           || '',
+                staff_id,
             })
             .select()
             .single();
@@ -215,8 +244,13 @@ async function handleInbound(req: Request): Promise<Response> {
         if (error) {
             console.error('Insert error:', error);
             return new Response(
-                JSON.stringify({ error: 'Rezervasyon oluşturulamadı', detail: error.message }),
-                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                JSON.stringify({
+                    error: isReservationConflict(error)
+                        ? 'Seçilen saat az önce doldu. Lütfen başka bir saat seçin.'
+                        : 'Rezervasyon oluşturulamadı',
+                    detail: error.message,
+                }),
+                { status: isReservationConflict(error) ? 409 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
         }
 

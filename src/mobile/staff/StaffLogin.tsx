@@ -4,6 +4,7 @@ import { ArrowLeft, Delete } from 'lucide-react';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { hashPin } from '@/lib/pin';
+import { permissionsForStaffRole, staffRoleLabel } from '@/lib/staffPermissions';
 import { T, avatarColor } from '../theme';
 import type { Staff } from '@/types';
 
@@ -30,9 +31,19 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
             setChecking(true);
             const h = await hashPin(next);
             if (h === selected.pin) {
-                login({ id: selected.id, name: selected.name, color: selected.color });
-            } else {
+                login({
+                    id: selected.id,
+                    name: selected.name,
+                    color: selected.color,
+                    role: selected.role,
+                    permissions: permissionsForStaffRole(selected.role),
+                });
+            } else if (next.length === 6) {
+                // 4 veya 5 haneli bir deneme uyuşmadığında kullanıcının
+                // sonraki haneyi girmesine izin ver. Yalnız azami 6 hanede sıfırla.
                 setError(true); setPin(''); setChecking(false);
+            } else {
+                setChecking(false);
             }
         }
     };
@@ -48,7 +59,7 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
             {!selected ? (
                 <>
                     <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em' }}>Personel Girişi</h1>
-                    <p style={{ fontSize: 13, color: T.muted, marginTop: 4, marginBottom: 22 }}>Kendi PIN'inle gir, sadece kendi randevu ve satışlarını gör.</p>
+                    <p style={{ fontSize: 13, color: T.muted, marginTop: 4, marginBottom: 22 }}>Kendi PIN'inle gir, rolüne göre izinli işlemleri gör.</p>
                     {isLoading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
                             <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2px solid ${T.border2}`, borderTopColor: T.orange, animation: 'spin 1s linear infinite' }} />
@@ -68,7 +79,8 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                                     <span style={{ width: 56, height: 56, borderRadius: '50%', background: s.color || avatarColor(s.name), display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 800, color: '#0E0E0E' }}>{s.name.charAt(0).toUpperCase()}</span>
                                     <span style={{ fontSize: 14, fontWeight: 700 }}>{s.name}</span>
-                                    {s.specialty && <span style={{ fontSize: 11, color: T.muted }}>{s.specialty}</span>}
+                                    <span style={{ fontSize: 11, color: T.orange, fontWeight: 750 }}>{staffRoleLabel(s.role)}</span>
+                                    {s.specialty && <span style={{ fontSize: 10.5, color: T.muted, marginTop: -5 }}>{s.specialty}</span>}
                                 </button>
                             ))}
                         </div>
@@ -79,12 +91,13 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
                         <span style={{ width: 64, height: 64, borderRadius: '50%', background: selected.color || avatarColor(selected.name), display: 'inline-grid', placeItems: 'center', fontSize: 26, fontWeight: 800, color: '#0E0E0E' }}>{selected.name.charAt(0).toUpperCase()}</span>
                         <h2 style={{ fontSize: 20, fontWeight: 800, marginTop: 12 }}>{selected.name}</h2>
-                        <p style={{ fontSize: 13, color: T.muted, marginTop: 2 }}>{error ? <span style={{ color: T.red }}>Yanlış PIN, tekrar dene</span> : 'PIN gir'}</p>
+                        <div style={{ fontSize: 11, color: T.orange, fontWeight: 750, marginTop: 3 }}>{staffRoleLabel(selected.role)}</div>
+                        <p style={{ fontSize: 13, color: T.muted, marginTop: 2 }}>{error ? <span style={{ color: T.red }}>Yanlış PIN, tekrar dene</span> : '4–6 haneli PIN gir'}</p>
                     </div>
 
                     {/* PIN noktaları */}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '22px 0 28px' }}>
-                        {Array.from({ length: 4 }).map((_, i) => (
+                        {Array.from({ length: 6 }).map((_, i) => (
                             <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: i < pin.length ? T.orange : T.surface3, border: `1px solid ${T.border2}`, transition: 'all .15s' }} />
                         ))}
                     </div>

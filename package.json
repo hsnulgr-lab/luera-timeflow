@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
+    "test:conflicts": "node --test tests/reservation-conflicts.test.mjs",
+    "test:conflicts:db": "psql \"$DATABASE_URL\" -X -v ON_ERROR_STOP=1 -f supabase/tests/reservation_conflict_regression.sql",
+    "test:finance:db": "psql \"$DATABASE_URL\" -X -v ON_ERROR_STOP=1 -f supabase/tests/treatment_finance_regression.sql",
     "preview": "vite preview"
   },
   "dependencies": {

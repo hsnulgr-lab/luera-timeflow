@@ -4,8 +4,7 @@
 export type ResStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
 export const STATUS_LABEL: Record<ResStatus, string> = {
-  // 'pending' artık üretilmiyor; legacy kayıtlar 'Onaylı' gibi görünür.
-  pending:   'Onaylı',
+  pending:   'Onay Bekliyor',
   confirmed: 'Onaylı',
   cancelled: 'İptal',
   completed: 'Tamamlandı',
@@ -13,7 +12,7 @@ export const STATUS_LABEL: Record<ResStatus, string> = {
 
 // Rozet (arka plan + metin) — Tailwind arbitrary class
 export const STATUS_BADGE: Record<ResStatus, string> = {
-  pending:   'bg-[#E6F4EA] text-[#2E7D43]', // legacy → onaylı gibi
+  pending:   'bg-[#FCEFD6] text-[#A66A0E]', // amber — onay bekliyor
   confirmed: 'bg-[#E6F4EA] text-[#2E7D43]', // yeşil — onaylı ✓
   cancelled: 'bg-[#FCEAEA] text-[#C0392B]', // kırmızı — iptal ✗
   completed: 'bg-[#E8EFF9] text-[#2E6FB0]', // mavi — tamamlandı
@@ -21,7 +20,7 @@ export const STATUS_BADGE: Record<ResStatus, string> = {
 
 // Renkli nokta (liste/takvim göstergesi)
 export const STATUS_DOT: Record<ResStatus, string> = {
-  pending:   'bg-[#2E7D43]',
+  pending:   'bg-[#A66A0E]',
   confirmed: 'bg-[#2E7D43]',
   cancelled: 'bg-[#C0392B]',
   completed: 'bg-[#2E6FB0]',

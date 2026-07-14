@@ -5,8 +5,8 @@ import { labelsForSector, type LabelKey } from '@/lib/sectorProfiles';
 // Sektöre göre terminoloji: t('customer') → "Müşteri" / "Hasta" / "Müvekkil"…
 // ReservationsProvider içinde kullanılmalı (sektör settings'ten okunur).
 export function useLabels() {
-    const { settings, isLoading } = useReservations();
+    const { settings, isSettingsLoading } = useReservations();
     const labels = useMemo(() => labelsForSector(settings.sector), [settings.sector]);
     const t = (key: LabelKey) => labels[key];
-    return { t, labels, sector: settings.sector || 'genel', isLoading };
+    return { t, labels, sector: settings.sector || 'genel', isLoading: isSettingsLoading };
 }

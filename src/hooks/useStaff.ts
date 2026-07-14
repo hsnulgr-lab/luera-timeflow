@@ -3,13 +3,37 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
+import { normalizeStaffRole } from '@/lib/staffPermissions';
 import type { Staff } from '@/types';
 
-function mapDbStaff(row: any): Staff {
+function isMissingStaffRoleColumn(error: { code?: string; message?: string; details?: string } | null): boolean {
+    if (!error) return false;
+    const message = String(error.message || error.details || '').toLowerCase();
+    return (error.code === 'PGRST204' || error.code === '42703')
+        && message.includes('role');
+}
+
+interface StaffDbRow {
+    id: string;
+    organization_id: string;
+    name: string;
+    role?: string | null;
+    specialty?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    color?: string | null;
+    working_hours?: Staff['workingHours'] | null;
+    is_active?: boolean | null;
+    pin?: string | null;
+    created_at: string;
+}
+
+function mapDbStaff(row: StaffDbRow): Staff {
     return {
         id: row.id,
         organizationId: row.organization_id,
         name: row.name,
+        role: normalizeStaffRole(row.role, row.specialty),
         specialty: row.specialty || undefined,
         phone: row.phone || undefined,
         email: row.email || undefined,
@@ -50,7 +74,9 @@ export function useStaff() {
     }, []);
 
     useEffect(() => {
-        if (user && orgId) fetchStaff(orgId);
+        if (!user || !orgId) return;
+        const timer = window.setTimeout(() => { void fetchStaff(orgId); }, 0);
+        return () => window.clearTimeout(timer);
     }, [user, orgId, fetchStaff]);
 
     // Personel ekle
@@ -59,21 +85,33 @@ export function useStaff() {
             toast.error('Organizasyon bilgisi alınamadı');
             return null;
         }
-        const { data, error } = await supabase
+        const basePayload = {
+            organization_id: orgId,
+            name:          member.name,
+            specialty:     member.specialty || null,
+            phone:         member.phone || null,
+            email:         member.email || null,
+            color:         member.color,
+            working_hours: member.workingHours || null,
+            is_active:     member.isActive ?? true,
+            pin:           member.pin || null,
+        };
+        let result = await supabase
             .from('staff')
             .insert({
-                organization_id: orgId,
-                name:          member.name,
-                specialty:     member.specialty || null,
-                phone:         member.phone || null,
-                email:         member.email || null,
-                color:         member.color,
-                working_hours: member.workingHours || null,
-                is_active:     member.isActive ?? true,
-                pin:           member.pin || null,
+                ...basePayload,
+                role:           member.role,
             })
             .select()
             .single();
+
+        // 058 henüz uygulanmamış ortamlarda personel ekleme akışını
+        // bozma. Rol bu durumda uzmanlık alanından okunur; kalıcı rol için
+        // migration uygulanmalıdır.
+        if (isMissingStaffRoleColumn(result.error)) {
+            result = await supabase.from('staff').insert(basePayload).select().single();
+        }
+        const { data, error } = result;
 
         if (error) {
             toast.error('Personel eklenemedi');
@@ -87,7 +125,7 @@ export function useStaff() {
 
     // Personel güncelle
     const updateStaff = useCallback(async (id: string, updates: Partial<Staff>) => {
-        const dbUpdates: any = { updated_at: new Date().toISOString() };
+        const dbUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
         if (updates.name        !== undefined) dbUpdates.name          = updates.name;
         if (updates.specialty   !== undefined) dbUpdates.specialty     = updates.specialty || null;
         if (updates.phone       !== undefined) dbUpdates.phone         = updates.phone || null;
@@ -96,8 +134,15 @@ export function useStaff() {
         if (updates.workingHours !== undefined) dbUpdates.working_hours = updates.workingHours || null;
         if (updates.isActive    !== undefined) dbUpdates.is_active     = updates.isActive;
         if (updates.pin         !== undefined) dbUpdates.pin           = updates.pin || null;
+        if (updates.role        !== undefined) dbUpdates.role          = updates.role;
 
-        const { error } = await supabase.from('staff').update(dbUpdates).eq('id', id);
+        let result = await supabase.from('staff').update(dbUpdates).eq('id', id);
+        if (updates.role !== undefined && isMissingStaffRoleColumn(result.error)) {
+            const legacyUpdates = { ...dbUpdates };
+            delete legacyUpdates.role;
+            result = await supabase.from('staff').update(legacyUpdates).eq('id', id);
+        }
+        const { error } = result;
         if (error) { toast.error('Personel güncellenemedi'); return; }
         setStaff(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     }, []);

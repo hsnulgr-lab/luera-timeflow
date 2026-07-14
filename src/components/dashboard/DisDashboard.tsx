@@ -145,9 +145,9 @@ export function DisDashboard() {
                 const summary = current.size === 0
                     ? 'Henüz işaret yok'
                     : [...counts.entries()].map(([k, n]) => `${n} ${CHART_LABEL[k] || k}`).join(' · ') || 'Sağlam';
-                return { customerId: cid, name: r.customerName, summary, current };
+                return { customerId: cid, reservationId: r.id, name: r.customerName, summary, current };
             })
-            .filter((x): x is { customerId: string; name: string; summary: string; current: Map<number, DentalRecord> } => x !== null);
+            .filter((x): x is { customerId: string; reservationId: string; name: string; summary: string; current: Map<number, DentalRecord> } => x !== null);
     }, [todayCustomerIds, activeToday, currentFor]);
 
     const colorFor = (status: string) => CHART_COLORS[status] || 'var(--dc-surface3)';
@@ -164,7 +164,12 @@ export function DisDashboard() {
     const customerById = useMemo(() => new Map(allCustomers.map((c) => [c.id, c])), [allCustomers]);
     const resourceById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
 
-    const openChart = (customerId?: string) => navigate(customerId ? `/dental-chart?patient=${customerId}` : '/dental-chart');
+    const openChart = (customerId?: string, reservationId?: string) => {
+        if (!customerId) { navigate('/dental-chart'); return; }
+        const query = new URLSearchParams({ patient: customerId });
+        if (reservationId) query.set('reservation', reservationId);
+        navigate(`/dental-chart?${query.toString()}`);
+    };
     const openCustomer = (customerId?: string) => customerId ? navigate(`/customers?open=${customerId}`) : navigate('/customers');
 
     // Eski randevularda customer_id boş olabiliyor — telefon eşleşmesiyle hastayı bul
@@ -196,7 +201,7 @@ export function DisDashboard() {
             toast.error('Bu randevu için hasta kaydı oluşturulamadı');
             return;
         }
-        if (target === 'chart') openChart(customerId);
+        if (target === 'chart') openChart(customerId, r.id);
         else openCustomer(customerId);
     };
 
@@ -400,8 +405,8 @@ export function DisDashboard() {
                                     <>
                                         <div className="flex gap-3 p-3.5 overflow-x-auto">
                                             {chartSummaries.map((c) => (
-                                                <div key={c.customerId} onClick={() => openChart(c.customerId)} role="button" tabIndex={0}
-                                                    onKeyDown={(e) => { if (e.key === 'Enter') openChart(c.customerId); }}
+                                                <div key={c.customerId} onClick={() => openChart(c.customerId, c.reservationId)} role="button" tabIndex={0}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') openChart(c.customerId, c.reservationId); }}
                                                     className="flex-shrink-0 w-[182px] border border-[var(--dc-border)] hover:border-[var(--dc-border2)] rounded-[11px] p-[11px] bg-[var(--dc-surface2)] cursor-pointer transition-all hover:shadow-[0_1px_2px_rgba(14,14,14,0.04),0_2px_8px_rgba(14,14,14,0.04)] hover:-translate-y-px">
                                                     <div className="text-[12.5px] font-bold text-[var(--dc-ink)] mb-px truncate">{c.name}</div>
                                                     <div className="text-[10.5px] text-[var(--dc-muted)] mb-2 truncate">{c.summary}</div>

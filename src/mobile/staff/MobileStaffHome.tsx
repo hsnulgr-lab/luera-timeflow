@@ -15,22 +15,25 @@ import { MobileServiceDetail } from './MobileServiceDetail';
 import { MobileMasaDetail } from './MobileMasaDetail';
 import type { TableReservation } from '@/types';
 import { D, fmtNum, useTicker, HizmetKeyframes, STS } from './hizmetDesign';
+import { staffRoleLabel } from '@/lib/staffPermissions';
+import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 
 const WD = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
 const DLBL = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
 export const MobileStaffHome = () => {
-    const { staff, logout } = useStaffSession();
+    const { staff, logout, can } = useStaffSession();
     const navigate = useNavigate();
     // Çıkışta personel giriş kapısında kalma — doğrudan ana sayfaya dön
     const handleLogout = () => { logout(); navigate('/'); };
     const push = usePush('staff', staff?.id);
     const [detailId, setDetailId] = useState<string | null>(null);
     const [masaDetail, setMasaDetail] = useState<TableReservation | null>(null);
+    const [creatingAppointment, setCreatingAppointment] = useState(false);
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
-    const { reservations, getReservationsByDate, updateReservation, claimReservation } = useReservations();
+    const { reservations, getReservationsByDate, claimReservation } = useReservations();
     // Garsona atanan masa rezervasyonları (bugün + yaklaşan). 042 migration'ı
     // yoksa staffId gelmez → myTables boş → bölüm hiç görünmez (restoran dışı personel etkilenmez).
     const { reservations: tableRes } = useUpcomingTableReservations();
@@ -44,6 +47,11 @@ export const MobileStaffHome = () => {
     );
     const tableNameOf = (id: string) => tables.find((t) => t.id === id)?.name || 'Masa';
     const color = staff?.color || D.orange;
+    const canViewAllAppointments = can('appointments:view-all');
+    const canCreateAppointments = can('appointments:create');
+    const canClaimAppointments = can('appointments:update-all') || can('appointments:create');
+    const canViewPayments = can('payments:view');
+    const canViewAllPayments = staff?.role === 'cashier';
 
     // Sürekli tarih şeridi — yatay kaydırmalı (geçmiş 21 gün → gelecek 120 gün)
     const days = useMemo(() => {
@@ -51,9 +59,9 @@ export const MobileStaffHome = () => {
         return Array.from({ length: 141 }, (_, i) => {
             const d = new Date(start); d.setDate(start.getDate() + i);
             const ds = toISODate(d);
-            return { ds, num: d.getDate(), wd: WD[(d.getDay() + 6) % 7], isToday: ds === todayStr, hasEvent: reservations.some((r) => r.date === ds && r.staffId === staff?.id && r.status !== 'cancelled') };
+            return { ds, num: d.getDate(), wd: WD[(d.getDay() + 6) % 7], isToday: ds === todayStr, hasEvent: reservations.some((r) => r.date === ds && (canViewAllAppointments || r.staffId === staff?.id) && r.status !== 'cancelled') };
         });
-    }, [now, todayStr, reservations, staff?.id]);
+    }, [now, todayStr, reservations, staff?.id, canViewAllAppointments]);
 
     const [selected, setSelected] = useState(todayStr);
     const selDate = useMemo(() => new Date(selected + 'T00:00:00'), [selected]);
@@ -73,8 +81,8 @@ export const MobileStaffHome = () => {
     }, [days]);
 
     const selAppts = useMemo(
-        () => getReservationsByDate(selected).filter((r) => r.staffId === staff?.id && r.status !== 'cancelled').sort((a, b) => a.startTime.localeCompare(b.startTime)),
-        [getReservationsByDate, selected, staff?.id]
+        () => getReservationsByDate(selected).filter((r) => (canViewAllAppointments || r.staffId === staff?.id) && r.status !== 'cancelled').sort((a, b) => a.startTime.localeCompare(b.startTime)),
+        [getReservationsByDate, selected, staff?.id, canViewAllAppointments]
     );
 
     const unassigned = useMemo(
@@ -85,7 +93,7 @@ export const MobileStaffHome = () => {
     // diğer cihazlarda realtime ile kart zaten kaybolur.
     const [claiming, setClaiming] = useState<string | null>(null);
     const claim = async (a: Reservation) => {
-        if (!staff?.id || claiming) return;
+        if (!staff?.id || claiming || !canClaimAppointments) return;
         setClaiming(a.id);
         await claimReservation(a.id, staff.id);
         setClaiming(null);
@@ -96,20 +104,26 @@ export const MobileStaffHome = () => {
         const weekAgo = startOfDay - 6 * 86400000;
         let today = 0, wk = 0;
         for (const p of payments) {
-            if (p.staffId !== staff?.id) continue;
+            if (!canViewPayments || (!canViewAllPayments && p.staffId !== staff?.id)) continue;
             const t = new Date(p.paidAt).getTime();
             if (t >= startOfDay) today += p.amount;
             if (t >= weekAgo) wk += p.amount;
         }
         return { todayRev: today, weekRev: wk };
-    }, [payments, staff?.id, now]);
+    }, [payments, staff?.id, now, canViewPayments, canViewAllPayments]);
 
-    const todayAppts = getReservationsByDate(todayStr).filter((r) => r.staffId === staff?.id && r.status !== 'cancelled');
+    const todayAppts = getReservationsByDate(todayStr).filter((r) => (canViewAllAppointments || r.staffId === staff?.id) && r.status !== 'cancelled');
     const todayDone = todayAppts.filter((r) => r.status === 'completed').length;
 
     const todayRevAnim = useTicker(todayRev, 700, 200);
     const weekRevAnim = useTicker(weekRev, 1300, 450);
 
+    if (creatingAppointment && canCreateAppointments) return (
+        <MobileNewReservation
+            onClose={() => setCreatingAppointment(false)}
+            lockedStaffId={staff?.role === 'doctor' ? staff.id : undefined}
+        />
+    );
     if (detailId) return <MobileServiceDetail reservationId={detailId} onBack={() => setDetailId(null)} />;
     if (masaDetail) return <MobileMasaDetail reservation={masaDetail} tableName={tableNameOf(masaDetail.tableId)} onBack={() => setMasaDetail(null)} />;
 
@@ -128,7 +142,7 @@ export const MobileStaffHome = () => {
                             <div style={{ fontSize: 18, fontWeight: 850, letterSpacing: '-.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff?.name}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: D.green, boxShadow: `0 0 6px ${D.green}` }} />
-                                <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>Çalışmada</span>
+                                <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>{staff ? staffRoleLabel(staff.role) : 'Personel'} · Çalışmada</span>
                             </div>
                         </div>
                         {push.supported && (
@@ -142,11 +156,29 @@ export const MobileStaffHome = () => {
                     </div>
                 </div>
 
+                {canCreateAppointments && (
+                    <div style={{ padding: '14px 16px 0' }}>
+                        <button
+                            type="button"
+                            onClick={() => setCreatingAppointment(true)}
+                            aria-label="Yeni randevu oluştur"
+                            style={{ width: '100%', minHeight: 58, borderRadius: 18, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, background: `linear-gradient(145deg,${D.orange},${D.orangeD})`, color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(255,90,31,.28)', textAlign: 'left' }}
+                        >
+                            <span style={{ width: 36, height: 36, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,.16)', fontSize: 25, fontWeight: 400, lineHeight: 1 }}>+</span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ display: 'block', fontSize: 15, fontWeight: 850, letterSpacing: '-.02em' }}>Yeni Randevu</span>
+                                <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, opacity: .82 }}>{staff?.role === 'doctor' ? 'Kendi takvimine hasta ekle' : 'Klinik takvimine randevu ekle'}</span>
+                            </span>
+                            <span aria-hidden="true" style={{ fontSize: 21, opacity: .8 }}>›</span>
+                        </button>
+                    </div>
+                )}
+
                 {/* ══ STATS ══ */}
-                <div style={{ padding: '14px 16px 0', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
+                <div style={{ padding: '14px 16px 0', display: 'grid', gridTemplateColumns: `repeat(${canViewPayments ? 3 : 2},1fr)`, gap: 9 }}>
                     {[
                         { lbl: 'RANDEVUM', val: String(todayAppts.length), clr: D.orange, big: true },
-                        { lbl: 'GELİR', val: `${fmtNum(todayRevAnim)}₺`, clr: D.green, big: false },
+                        ...(canViewPayments ? [{ lbl: 'GELİR', val: `${fmtNum(todayRevAnim)}₺`, clr: D.green, big: false }] : []),
                         { lbl: 'TAMAMLANAN', val: String(todayDone), clr: D.blue, big: true },
                     ].map((s) => (
                         <div key={s.lbl} style={{ background: D.s1, border: `1px solid ${D.border}`, borderRadius: 18, padding: '13px 14px', position: 'relative', overflow: 'hidden' }}>
@@ -160,7 +192,7 @@ export const MobileStaffHome = () => {
                 {/* ══ CALENDAR ══ */}
                 <div style={{ padding: '22px 20px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 15 }}>
-                        <div style={{ fontSize: 17, fontWeight: 850, letterSpacing: '-.025em' }}>Takvimim</div>
+                        <div style={{ fontSize: 17, fontWeight: 850, letterSpacing: '-.025em' }}>{canViewAllAppointments ? 'Klinik Takvimi' : 'Takvimim'}</div>
                         <div style={{ fontFamily: D.mono, fontSize: 11.5, color: D.muted2, fontWeight: 500 }}>{MONTHS[selDate.getMonth()]} {selDate.getFullYear()}</div>
                     </div>
                     <div ref={stripRef} style={{ display: 'flex', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', margin: '0 -20px', padding: '2px 20px' }}>
@@ -178,7 +210,7 @@ export const MobileStaffHome = () => {
                 </div>
 
                 {/* ══ ATANMAMIŞ (sahiplen) ══ */}
-                {unassigned.length > 0 && (
+                {canClaimAppointments && unassigned.length > 0 && (
                     <div style={{ padding: '22px 20px 0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
                             <div style={{ fontSize: 13, fontWeight: 850, letterSpacing: '-.02em', color: D.orange }}>Atanmamış</div>
@@ -300,8 +332,8 @@ export const MobileStaffHome = () => {
                 <div style={{ padding: '22px 20px 0' }}>
                     <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '-.025em', marginBottom: 12 }}>Bu Hafta · Performansım</div>
                     <div style={{ background: D.s1, border: `1px solid ${D.border}`, borderRadius: 20, padding: 18, overflow: 'hidden' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${D.border}` }}>
-                            {([['Randevu', String(stats.thisWeek), D.ink, false], ['Gelir', `${fmtNum(weekRevAnim)}₺`, D.green, true], ['Tamamlanan', String(stats.completed), D.orange, false]] as const).map(([k, v, c, mono], i, arr) => (
+                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canViewPayments ? 3 : 2},1fr)`, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${D.border}` }}>
+                            {([['Randevu', String(stats.thisWeek), D.ink, false], ...(canViewPayments ? [['Gelir', `${fmtNum(weekRevAnim)}₺`, D.green, true] as const] : []), ['Tamamlanan', String(stats.completed), D.orange, false]] as const).map(([k, v, c, mono], i, arr) => (
                                 <div key={k} style={{ textAlign: 'center', borderRight: i < arr.length - 1 ? `1px solid ${D.border}` : 'none', padding: '0 10px' }}>
                                     <div style={{ fontSize: mono ? 14 : 22, fontWeight: 900, letterSpacing: '-.04em', color: c, lineHeight: 1.1, fontFamily: mono ? D.mono : 'inherit' }}>{v}</div>
                                     <div style={{ fontSize: 10.5, color: D.muted2, marginTop: 6, fontWeight: 650 }}>{k}</div>

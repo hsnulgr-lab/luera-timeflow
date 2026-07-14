@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, History } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -50,10 +50,9 @@ export function DentalChartPage() {
     const { allCustomers, updateCustomer } = useCustomers();
     const [params, setParams] = useSearchParams();
 
-    // Kullanıcı seçimi > ?patient= parametresi. Otomatik "ilk hasta" seçilmez —
-    // hekim farkında olmadan yanlış hastanın şemasını düzenlemesin (klinik risk).
-    const [selectedId, setSelectedId] = useState('');
-    const customerId = selectedId || params.get('patient') || '';
+    // URL tek kaynaktır; geri/ileri gezinmede ekrandaki hasta adres çubuğuyla
+    // daima aynı kalsın. Otomatik "ilk hasta" seçilmez (klinik risk).
+    const customerId = params.get('patient') || '';
     const customer = allCustomers.find((c) => c.id === customerId);
 
     // Aramalı hasta seçici (combobox) — 50+ hastada <select> kullanılamaz oluyor
@@ -68,10 +67,33 @@ export function DentalChartPage() {
     }, [custQuery, allCustomers]);
 
     const { current, planned, historyFor, setTooth } = useDentalChart(customerId || undefined);
-    const { addPlan } = useTreatmentPlans(customerId || undefined);
-    const { settings } = useReservations();
+    const { addPlan, removePlan } = useTreatmentPlans(customerId || undefined);
+    const { settings, reservations } = useReservations();
+    const requestedReservationId = params.get('reservation') || '';
 
-    const [active, setActive] = useState<{ n: number; type: ToothType } | null>(null);
+    // Randevudan açılan muayenede plan ve taksit sorumlu hekime yazılsın.
+    // Eski linklerde reservation parametresi yoksa, yalnızca o hastanın bugün
+    // tek bir randevusu varsa otomatik bağlanır; belirsiz durumda tahmin yapılmaz.
+    const appointmentContext = useMemo(() => {
+        if (!customer) return undefined;
+        const normalizedPhone = customer.phone.replace(/\s+/g, '');
+        const belongsToCustomer = (r: (typeof reservations)[number]) =>
+            r.customerId === customer.id
+            || (!r.customerId && !!normalizedPhone && (r.customerPhone || '').replace(/\s+/g, '') === normalizedPhone);
+
+        if (requestedReservationId) {
+            const requested = reservations.find((r) => r.id === requestedReservationId);
+            if (requested && belongsToCustomer(requested)) return requested;
+        }
+
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const todayMatches = reservations.filter((r) => r.date === today && r.status !== 'cancelled' && belongsToCustomer(r));
+        return todayMatches.length === 1 ? todayMatches[0] : undefined;
+    }, [customer, requestedReservationId, reservations]);
+
+    const [activeState, setActive] = useState<{ customerId: string; n: number; type: ToothType } | null>(null);
+    const active = activeState?.customerId === customerId ? activeState : null;
     const [draftStatus, setDraftStatus] = useState<DentalStatus>('saglam');
     const [draftSurfaces, setDraftSurfaces] = useState<ToothSurface[]>([]);
     const [planSvcId, setPlanSvcId] = useState('');
@@ -80,16 +102,22 @@ export function DentalChartPage() {
     const [saving, setSaving] = useState(false);
 
     // Sağ tık hızlı menüsü — dişe sağ tıkla → durumu tek tıkla kaydet (modal yok)
-    const [ctxMenu, setCtxMenu] = useState<{ n: number; x: number; y: number } | null>(null);
+    const [ctxMenuState, setCtxMenu] = useState<{ customerId: string; n: number; x: number; y: number } | null>(null);
+    const ctxMenu = ctxMenuState?.customerId === customerId ? ctxMenuState : null;
     const quickSet = async (n: number, status: DentalStatus) => {
         setCtxMenu(null);
         const rec = current.get(n);
-        await setTooth(n, status, { surfaces: rec && rec.status === status ? rec.surfaces : [] });
+        await setTooth(n, status, {
+            staffId: appointmentContext?.staffId,
+            surfaces: rec && rec.status === status ? rec.surfaces : [],
+        });
     };
 
     // Recall (kontrol çağrısı) tarihi — hasta bazında, başlık satırından yönetilir
-    const [recallDraft, setRecallDraft] = useState('');
-    useEffect(() => { setRecallDraft(customer?.recallDate || ''); }, [customer?.id, customer?.recallDate]);
+    const [recallState, setRecallState] = useState<{ customerId: string; value: string }>({ customerId: '', value: '' });
+    const recallDraft = customer && recallState.customerId === customer.id
+        ? recallState.value
+        : customer?.recallDate || '';
 
     const upperGroups = useMemo(() => groupSpans(UPPER_ORDER), []);
     const lowerGroups = useMemo(() => groupSpans(LOWER_ORDER), []);
@@ -110,7 +138,7 @@ export function DentalChartPage() {
     if (sector !== 'dis') return <Navigate to="/" replace />;
 
     const pick = (n: number, type: ToothType) => {
-        setActive({ n, type });
+        setActive({ customerId, n, type });
         const rec = current.get(n);
         setDraftStatus(rec?.status ?? 'saglam');
         setDraftSurfaces(rec?.surfaces ?? []);
@@ -128,6 +156,7 @@ export function DentalChartPage() {
         setSaving(true);
         const ok = await setTooth(active.n, draftStatus, {
             note: note.trim() || undefined,
+            staffId: appointmentContext?.staffId,
             surfaces: SURFACE_STATUSES.includes(draftStatus) ? draftSurfaces : [],
         });
         setSaving(false);
@@ -141,13 +170,20 @@ export function DentalChartPage() {
         const svc = settings.services.find((s) => s.id === planSvcId);
         if (!svc) return;
         setAddingPlan(true);
-        const plan = await addPlan(`${active.n} ${svc.name}`, svc.price ?? 0);
+        const plan = await addPlan(`${active.n} ${svc.name}`, svc.price ?? 0, {
+            staffId: appointmentContext?.staffId,
+            reservationId: appointmentContext?.id,
+        });
         if (plan) {
-            await setTooth(active.n, draftStatus === 'saglam' ? 'dolgu' : draftStatus, {
+            const toothSaved = await setTooth(active.n, draftStatus === 'saglam' ? 'dolgu' : draftStatus, {
                 recordType: 'planned', treatmentPlanId: plan.id,
+                staffId: appointmentContext?.staffId,
                 surfaces: SURFACE_STATUSES.includes(draftStatus) ? draftSurfaces : [],
                 note: `Planlı: ${svc.name}`,
             });
+            // İki ayrı tabloyu tek RPC'ye taşımadan önce güvenli telafi: diş
+            // kaydı yazılamazsa yetim finans planını bırakma.
+            if (!toothSaved) await removePlan(plan.id);
         }
         setAddingPlan(false);
         setPlanSvcId('');
@@ -155,15 +191,20 @@ export function DentalChartPage() {
 
     const saveRecall = async (value: string) => {
         if (!customer) return;
-        setRecallDraft(value);
+        setRecallState({ customerId: customer.id, value });
         // Boş string DB'de null'a çevrilir (updateCustomer) — tarih temizleme desteklenir
-        await updateCustomer(customer.id, { recallDate: value });
+        const saved = await updateCustomer(customer.id, { recallDate: value });
+        if (!saved) setRecallState({ customerId: customer.id, value: customer.recallDate || '' });
     };
 
     const selectCustomer = (id: string) => {
-        setSelectedId(id);
         setActive(null);
-        setParams((p) => { p.set('patient', id); return p; }, { replace: true });
+        setParams((p) => {
+            const next = new URLSearchParams(p);
+            next.set('patient', id);
+            next.delete('reservation');
+            return next;
+        }, { replace: true });
     };
 
     // Diş render yardımcısı — güncel durum rengi + yüzeyler + planlı işlem halkası
@@ -177,7 +218,7 @@ export function DentalChartPage() {
                     active?.n === t.n && 'bg-[rgba(255,90,31,.08)] ring-1 ring-[var(--dc-orange)]')}
                 onClick={() => pick(t.n, t.type)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(t.n, t.type); } }}
-                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ n: t.n, x: e.clientX, y: e.clientY }); }}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ customerId, n: t.n, x: e.clientX, y: e.clientY }); }}
                 title={`Diş ${t.n}${rec ? ` · ${STATUS_LABEL[rec.status]}` : ''}${plan ? ` · Planlı: ${STATUS_LABEL[plan.status]}` : ''} — sağ tık: hızlı işlem`}>
                 <ToothSVG type={t.type} color={color} size={40} flip={flip}
                     surfaces={rec?.surfaces} ring={plan ? 'var(--dc-orange)' : undefined} />
@@ -432,7 +473,11 @@ export function DentalChartPage() {
                                 <div className="text-[11px] text-[var(--dc-muted)] mt-px">{customer.name}</div>
                             </div>
                             <div className="p-4">
-                                <TreatmentPlans customerId={customer.id} T={{
+                                <TreatmentPlans
+                                    customerId={customer.id}
+                                    staffId={appointmentContext?.staffId}
+                                    reservationId={appointmentContext?.id}
+                                    T={{
                                     ink: 'var(--dc-ink)', muted: 'var(--dc-muted)', surface: 'var(--dc-surface)',
                                     surface2: 'var(--dc-surface2)', border: 'var(--dc-border)', border2: 'var(--dc-border2)',
                                 }} />

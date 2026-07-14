@@ -268,7 +268,7 @@ function PinSheet({ open, onClose, settings, updateSettings }: SheetProps) {
 }
 
 // ─── Shared ──────────────────────────────────────────────────────────────────
-interface SheetProps { open: boolean; onClose: () => void; settings: Settings; updateSettings: (s: Settings) => Promise<void> }
+interface SheetProps { open: boolean; onClose: () => void; settings: Settings; updateSettings: (s: Settings) => Promise<boolean> }
 const backBtn: React.CSSProperties = { width: 38, height: 38, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', color: T.muted, cursor: 'pointer', flexShrink: 0 };
 const inp: React.CSSProperties = { width: '100%', height: 48, borderRadius: 14, background: T.surface, border: `1px solid ${T.border}`, color: T.ink, fontSize: 15, fontWeight: 600, padding: '0 15px', outline: 'none', fontFamily: T.font };
 const timeInp: React.CSSProperties = { flex: 1, height: 38, borderRadius: 10, background: T.bg, border: `1px solid ${T.border}`, color: T.ink, fontSize: 13, fontFamily: T.mono, padding: '0 8px', outline: 'none', colorScheme: 'var(--lt-scheme,dark)' as any };

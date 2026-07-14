@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { hashPin } from '@/lib/pin';
+import {
+    STAFF_ROLE_OPTIONS,
+    staffRoleLabel,
+    type StaffRole,
+} from '@/lib/staffPermissions';
 import type { Staff } from '@/types';
 import { BottomSheet } from '../BottomSheet';
 import { T } from '../theme';
@@ -13,13 +18,14 @@ const COLORS = ['#FF5A1F', '#C98BDB', '#6B9FD4', '#E0A84E', '#7CC47F', '#CB5E84'
 
 interface FormState {
     name: string;
+    role: StaffRole;
     specialty: string;
     phone: string;
     color: string;
     isActive: boolean;
     pin: string;
 }
-const EMPTY: FormState = { name: '', specialty: '', phone: '', color: COLORS[0], isActive: true, pin: '' };
+const EMPTY: FormState = { name: '', role: 'staff', specialty: '', phone: '', color: COLORS[0], isActive: true, pin: '' };
 
 export const MobileStaff = () => {
     const navigate = useNavigate();
@@ -40,7 +46,7 @@ export const MobileStaff = () => {
     const openAdd = () => { setEditing(null); setForm(EMPTY); setSheetOpen(true); };
     const openEdit = (m: Staff) => {
         setEditing(m);
-        setForm({ name: m.name, specialty: m.specialty || '', phone: m.phone || '', color: m.color, isActive: m.isActive, pin: '' });
+        setForm({ name: m.name, role: m.role, specialty: m.specialty || '', phone: m.phone || '', color: m.color, isActive: m.isActive, pin: '' });
         setSheetOpen(true);
     };
 
@@ -51,6 +57,7 @@ export const MobileStaff = () => {
         const pinHash = form.pin.trim() ? await hashPin(form.pin.trim()) : undefined;
         const base = {
             name: form.name.trim(),
+            role: form.role,
             specialty: form.specialty.trim() || undefined,
             phone: form.phone.trim() || undefined,
             color: form.color,
@@ -101,7 +108,8 @@ export const MobileStaff = () => {
                         <div style={{ width: 44, height: 44, borderRadius: 14, background: m.color, display: 'grid', placeItems: 'center', fontSize: 17, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{m.name.charAt(0).toUpperCase()}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                            <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, fontFamily: T.mono }}>{m.specialty || 'Genel'}{m.pin ? ' · PIN ✓' : ''}</div>
+                            <div style={{ fontSize: 11.5, color: T.orange, marginTop: 2, fontWeight: 750 }}>{staffRoleLabel(m.role)}</div>
+                            <div style={{ fontSize: 10.5, color: T.muted, marginTop: 2, fontFamily: T.mono }}>{m.specialty || 'Uzmanlık yok'}{m.pin ? ' · PIN ✓' : ''}</div>
                         </div>
                         <div style={{ padding: '3px 9px', borderRadius: 999, fontSize: 10, fontWeight: 800, background: m.isActive ? 'rgba(124,196,127,.14)' : T.surface3, color: m.isActive ? T.green : T.muted, border: `1px solid ${m.isActive ? 'rgba(124,196,127,.25)' : T.border}` }}>{m.isActive ? 'Aktif' : 'Pasif'}</div>
                     </button>
@@ -112,6 +120,12 @@ export const MobileStaff = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 6, paddingBottom: 4 }}>
                     <Field label="Ad Soyad">
                         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Örn. Ayşe Yılmaz" style={inp} />
+                    </Field>
+                    <Field label="Personel Rolü">
+                        <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })} style={{ ...inp, appearance: 'auto' }}>
+                            {STAFF_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label} — {option.description}</option>)}
+                        </select>
+                        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 6, lineHeight: 1.4 }}>Personel Modu işlemlerini belirler; PIN gerçek veritabanı yetkilendirmesi değildir.</div>
                     </Field>
                     <Field label="Uzmanlık / Görev">
                         <input value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Örn. Kuaför, Garson…" style={inp} />

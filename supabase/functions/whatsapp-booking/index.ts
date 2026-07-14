@@ -23,6 +23,12 @@ const SESSION_TTL_MIN = 120; // 2 saat sessizlikten sonra konuşma sıfırlanır
 function ok(body: unknown = { ok: true }) {
     return new Response(JSON.stringify(body), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
+function isReservationConflict(error: { code?: string; message?: string } | null | undefined): boolean {
+    const message = (error?.message || '').toLowerCase();
+    return error?.code === '23P01'
+        || message.includes('reservation_staff_conflict')
+        || message.includes('reservation_resource_conflict');
+}
 function timeToMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); }
 function minToTime(m: number): string { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 function weekdayOf(d: string): number { return new Date(d + 'T00:00:00Z').getUTCDay(); }
@@ -268,23 +274,46 @@ Deno.serve(async (req: Request) => {
 
         // Müşteri bul/oluştur
         let customerId: string | null = null;
-        const { data: existing } = await admin.from('customers').select('id, name').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
+        const { data: existing, error: customerLookupError } = await admin.from('customers').select('id, name').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
         const pushName = (payload.data?.pushName || '').trim();
+        if (customerLookupError) {
+            console.error('whatsapp customer lookup error', customerLookupError);
+            return reply('Hasta kaydınız şu anda doğrulanamadı. Lütfen biraz sonra tekrar deneyin.');
+        }
         if (existing) { customerId = existing.id; }
         else {
-            const { data: created } = await admin.from('customers').insert({ user_id: ownerId, organization_id: orgId, name: pushName || `WhatsApp ${phone.slice(-4)}`, phone }).select('id').single();
-            customerId = created?.id ?? null;
+            const { data: created, error: customerCreateError } = await admin.from('customers').insert({ user_id: ownerId, organization_id: orgId, name: pushName || `WhatsApp ${phone.slice(-4)}`, phone }).select('id').single();
+            if (customerCreateError || !created?.id) {
+                console.error('whatsapp customer create error', customerCreateError);
+                return reply('Hasta kaydınız şu anda oluşturulamadı. Lütfen biraz sonra tekrar deneyin.');
+            }
+            customerId = created.id;
         }
         const customerName = existing?.name || pushName || `WhatsApp ${phone.slice(-4)}`;
         const autoConfirm = !!org?.booking_auto_confirm;
 
-        const { data: reservation } = await admin.from('reservations').insert({
+        const { data: reservation, error: reservationError } = await admin.from('reservations').insert({
             user_id: ownerId, organization_id: orgId, customer_id: customerId,
             customer_name: customerName, customer_phone: phone,
             date, start_time: state.time, end_time: endTime,
             service: svc.name, service_color: svc.color || '#FF5A1F',
             status: autoConfirm ? 'confirmed' : 'pending', notes: 'WhatsApp AI randevu', staff_id: chosenStaff, source: 'booking',
         }).select('id, customer_token').single();
+
+        if (reservationError || !reservation) {
+            console.error('whatsapp reservation insert error', reservationError);
+            if (isReservationConflict(reservationError)) {
+                const conflictedTime = state.time;
+                state.time = null;
+                state.awaitingConfirm = false;
+                await saveState();
+                const alternatives = available.filter((slot) => slot !== conflictedTime).slice(0, 8);
+                return reply(alternatives.length > 0
+                    ? `O saat az önce doldu 😔 Müsait: ${alternatives.join(' · ')} — hangisini seçersin?`
+                    : 'O saat az önce doldu 😔 Bu gün için başka müsait saat kalmadı. Başka bir gün ister misin?');
+            }
+            return reply('Randevu şu anda oluşturulamadı. Lütfen biraz sonra tekrar deneyin.');
+        }
 
         // Webhook (LeadFlow) — settings.webhook_url
         const { data: wh } = await admin.from('settings').select('webhook_url').eq('organization_id', orgId).maybeSingle();

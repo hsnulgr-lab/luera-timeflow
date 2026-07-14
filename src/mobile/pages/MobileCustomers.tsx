@@ -89,6 +89,7 @@ function CustomerRow({ c, loyalty, onRedeem, onOpen }: { c: Customer; loyalty: {
                 <div style={{ marginTop: 4, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span><span style={{ fontWeight: 700, color: T.ink }}>{c.totalReservations}</span> randevu</span>
                     {c.lastVisit && <span>· son {formatDateEU(c.lastVisit)}</span>}
+                    {c.nextAppointment && <span>· sıradaki {formatDateEU(c.nextAppointment)}{c.nextAppointmentTime ? ` ${c.nextAppointmentTime}` : ''}</span>}
                     {loyalty && !ready && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: T.muted }}><Gift size={10} /> {inCard}/{loyalty.thr}</span>}
                     {loyalty && ready && (
                         <button onClick={async (e) => { e.stopPropagation(); if (await confirmDialog({ title: 'Ödül kullanılsın mı?', description: `${c.name} · ${loyalty.reward}`, confirmLabel: 'Kullan' })) onRedeem(c.id, loyalty.thr); }}
@@ -111,7 +112,7 @@ function CustomerRow({ c, loyalty, onRedeem, onOpen }: { c: Customer; loyalty: {
 const STS: Record<string, { lbl: string; c: string }> = {
     completed: { lbl: 'Tamamlandı', c: T.green },
     confirmed: { lbl: 'Onaylı', c: T.blue },
-    pending: { lbl: 'Onaylı', c: T.blue },
+    pending: { lbl: 'Onay bekliyor', c: T.amber },
     cancelled: { lbl: 'İptal', c: T.red },
 };
 

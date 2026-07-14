@@ -32,12 +32,22 @@ function waLink(phone: string): string {
 // Sepetteki bir hizmet satırı (hizmet + personel + saat). Tarih booking geneli.
 interface Line { id: string; service: Service; staffId?: string; staffName?: string; staffColor?: string; time: string; endTime: string; }
 
-export const MobileNewReservation = () => {
+interface MobileNewReservationProps {
+    /** Personel panelinde admin kabuğuna çıkmadan akışı kapatır. */
+    onClose?: () => void;
+    /** Kendi takvimini yöneten hekim için atamayı sabitler. */
+    lockedStaffId?: string;
+}
+
+export const MobileNewReservation = ({ onClose, lockedStaffId }: MobileNewReservationProps = {}) => {
     const navigate = useNavigate();
     const { reservations, settings, addReservation, checkConflict } = useReservations();
     const { allCustomers, addCustomer } = useCustomers();
     const { staff } = useStaff();
-    const activeStaff = useMemo(() => staff.filter((s) => s.isActive), [staff]);
+    const activeStaff = useMemo(
+        () => staff.filter((s) => s.isActive && (!lockedStaffId || s.id === lockedStaffId)),
+        [staff, lockedStaffId],
+    );
 
     const [step, setStep] = useState(0);
     const [lines, setLines] = useState<Line[]>([]);          // sepet
@@ -45,7 +55,7 @@ export const MobileNewReservation = () => {
     const [month, setMonth] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
     const [date, setDate] = useState(() => toISODate(new Date()));   // booking geneli tarih
     const [time, setTime] = useState<string | null>(null);   // taslak saat
-    const [staffIdx, setStaffIdx] = useState(0);             // taslak personel
+    const [selectedStaffId, setSelectedStaffId] = useState(lockedStaffId || '');
     const [cust, setCust] = useState<Customer | null>(null);
     const [custQuery, setCustQuery] = useState('');
     const [quickPatient, setQuickPatient] = useState({ name: '', phone: '' });
@@ -63,7 +73,7 @@ export const MobileNewReservation = () => {
     const cfDefs = fieldDefsForSector(settings.sector, 'reservation');
     const [cfValues, setCfValues] = useState<Record<string, string | number | boolean>>({});
 
-    const selStaff = activeStaff[staffIdx];
+    const selStaff = activeStaff.find((member) => member.id === selectedStaffId) || activeStaff[0];
     const grandTotal = lines.reduce((s, l) => s + (l.service.price ?? 0), 0);
 
     // Saat slotları — çakışma (DB) + sepet (aynı personel) + çalışma saatleri + geçmiş
@@ -254,7 +264,7 @@ export const MobileNewReservation = () => {
                         </a>
                     )}
                     <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => { reset(); navigate('/calendar'); }} style={{ flex: 1, height: 48, borderRadius: 14, background: T.surface2, color: T.muted, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Kapat</button>
+                        <button onClick={() => { reset(); if (onClose) onClose(); else navigate('/calendar'); }} style={{ flex: 1, height: 48, borderRadius: 14, background: T.surface2, color: T.muted, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>Kapat</button>
                         <button onClick={reset} style={{ flex: 1, height: 48, borderRadius: 14, background: T.orange, color: '#0E0E0E', fontSize: 13.5, fontWeight: 850, border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,90,31,.35)' }}>+ Yeni</button>
                     </div>
                 </div>
@@ -281,7 +291,7 @@ export const MobileNewReservation = () => {
                         <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em' }}>Yeni Randevu</div>
                         <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{STEPS[step]} · Adım {step + 1} / {STEPS.length}</div>
                     </div>
-                    <button onClick={() => navigate(-1)} style={{ width: 36, height: 36, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted2 }}>
+                    <button onClick={() => onClose ? onClose() : navigate(-1)} style={{ width: 36, height: 36, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: T.muted2 }}>
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                     </button>
                 </div>
@@ -374,10 +384,10 @@ export const MobileNewReservation = () => {
                             <>
                                 <Label>Personel</Label>
                                 <div style={{ display: 'flex', gap: 9, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', margin: '0 -20px 18px', padding: '2px 20px' }}>
-                                    {activeStaff.map((p, i) => {
-                                        const on = staffIdx === i;
+                                    {activeStaff.map((p) => {
+                                        const on = selStaff?.id === p.id;
                                         return (
-                                            <div key={p.id} onClick={() => { setStaffIdx(i); setTime(null); }} style={{ flex: '0 0 auto', width: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: 'pointer', transition: 'all .15s' }}>
+                                            <div key={p.id} onClick={() => { if (!lockedStaffId) { setSelectedStaffId(p.id); setTime(null); } }} style={{ flex: '0 0 auto', width: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '12px 8px', background: on ? 'rgba(255,90,31,.08)' : T.surface, border: `1.5px solid ${on ? T.orange : T.border}`, borderRadius: 15, cursor: lockedStaffId ? 'default' : 'pointer', transition: 'all .15s' }}>
                                                 <div style={{ position: 'relative' }}>
                                                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color || avatarColor(p.name), display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 850, color: '#0E0E0E' }}>{p.name[0]?.toUpperCase()}</div>
                                                     <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: T.green, border: `2px solid ${T.surface}` }} />
