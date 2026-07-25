@@ -669,6 +669,17 @@ export const SettingsPage = () => {
                   <Plus size={11}/> Ekle
                 </button>
               </div>
+              {/* Sütun başlıkları — alanların ne olduğu satıra bakınca anlaşılsın.
+                  Önceden yalnız "dk" ve "gün dönüş" etiketleri vardı, ücret alanı
+                  hiç yoktu; Kasa fiyatı buradan okuduğu için hepsi ₺0 kalıyordu. */}
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'0 14px 6px', fontSize:'9.5px', fontWeight:800, letterSpacing:'.12em', textTransform:'uppercase', color:T.muted2 }}>
+                <span style={{ width:32 }}>Renk</span>
+                <span style={{ flex:1 }}>Hizmet adı</span>
+                <span style={{ width:112 }}>Ücret</span>
+                <span style={{ width:97 }}>Süre</span>
+                <span style={{ width:117 }}>Dönüş</span>
+                <span style={{ width:30 }}/>
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                 {services.map(s=>(
                   <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
@@ -676,15 +687,24 @@ export const SettingsPage = () => {
                     <input type="text" value={s.name} placeholder="Hizmet adı" onChange={e=>updateService(s.id,'name',e.target.value)}
                       style={{ flex:1, padding:'8px 12px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', fontFamily:'inherit', color:T.ink, background:T.surface, outline:'none' }}
                       onFocus={e=>{e.target.style.borderColor=T.orange}} onBlur={e=>{e.target.style.borderColor=T.border2}}/>
-                    <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    {/* Ücret — Kasa'da hizmet seçilince otomatik gelen tutar */}
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px', width:112 }} title="Hizmetin varsayılan ücreti. Kasa'da bu hizmet seçilince tutar buradan gelir; boş bırakılırsa ₺0 görünür.">
+                      <span style={{ fontSize:'12.5px', color:T.muted, fontWeight:700 }}>₺</span>
+                      <input type="number" value={s.price ?? ''} min={0} step={50} placeholder="0"
+                        onChange={e=>updateService(s.id,'price',e.target.value?Math.max(0,parseFloat(e.target.value)):0)}
+                        style={{ width:92, padding:'8px 10px', border:`1px solid ${(s.price ?? 0) > 0 ? T.border2 : 'rgba(255,90,31,0.35)'}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}
+                        onFocus={e=>{e.target.style.borderColor=T.orange}}
+                        onBlur={e=>{e.target.style.borderColor=(s.price ?? 0) > 0 ? T.border2 : 'rgba(255,90,31,0.35)'}}/>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px', width:97 }}>
                       <input type="number" value={s.duration} min={5} step={5} onChange={e=>updateService(s.id,'duration',parseInt(e.target.value))}
                         style={{ width:70, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
                       <span style={{ fontSize:'11px', color:T.muted }}>dk</span>
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:'5px' }} title="Dönüş periyodu — seans tamamlanınca bu kadar gün sonrasına hatırlatma kurulur (boş = kapalı)">
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px', width:117 }} title="Dönüş periyodu — seans tamamlanınca bu kadar gün sonrasına hatırlatma kurulur (boş = kapalı)">
                       <input type="number" value={s.recallDays ?? ''} min={1} placeholder="—" onChange={e=>updateService(s.id,'recallDays',e.target.value?parseInt(e.target.value):0)}
                         style={{ width:56, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
-                      <span style={{ fontSize:'11px', color:T.muted }}>gün dönüş</span>
+                      <span style={{ fontSize:'11px', color:T.muted }}>gün sonra</span>
                     </div>
                     <button onClick={()=>removeService(s.id)} style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}
                       onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color= dark?'#e07070':'#C94040';(e.currentTarget as HTMLElement).style.borderColor='rgba(201,64,64,0.3)'}}
@@ -693,6 +713,28 @@ export const SettingsPage = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Ücreti girilmemiş hizmetler Kasa'da ₺0 görünür — sessizce yanlış
+                  tutar tahsil edilmesin diye burada uyarılıyor. */}
+              {services.some(s => s.name.trim() && !(s.price ?? 0)) && (
+                <div style={{ display:'flex', alignItems:'flex-start', gap:'9px', marginTop:'12px', padding:'11px 13px', borderRadius:T.rSm, background: dark?'rgba(255,90,31,0.07)':'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.22)' }}>
+                  <span style={{ fontSize:'13px', lineHeight:1.2 }}>⚠️</span>
+                  <div style={{ fontSize:'11.5px', color:T.muted, lineHeight:1.55 }}>
+                    <strong style={{ color:T.ink }}>
+                      {services.filter(s => s.name.trim() && !(s.price ?? 0)).length} hizmetin ücreti girilmemiş.
+                    </strong>{' '}
+                    Kasa'da bu hizmetler <strong style={{ color:T.ink }}>₺0</strong> olarak açılır ve hızlı hizmet
+                    listesinde görünmez; tutarı her seferinde elle yazmanız gerekir.
+                  </div>
+                </div>
+              )}
+              <div style={{ fontSize:'11px', color:T.muted2, marginTop:'10px', lineHeight:1.55 }}>
+                <strong style={{ color:T.muted }}>Ücret</strong> — Kasa'da hizmet seçilince gelen varsayılan tutar; adisyonda elle değiştirilebilir.
+                {' · '}
+                <strong style={{ color:T.muted }}>Süre</strong> — takvimde kapladığı zaman.
+                {' · '}
+                <strong style={{ color:T.muted }}>Dönüş</strong> — seans bitince kaç gün sonrasına hatırlatma kurulacağı (boş = kapalı).
               </div>
             </div>
           )}
