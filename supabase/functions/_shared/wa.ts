@@ -293,6 +293,50 @@ export async function findCustomerByPhone(
         (c.phone || '').replace(/\D/g, '').slice(-10) === tail) ?? null;
 }
 
+/**
+ * Hattın gerçekten ayakta olduğunu Evolution'a sorar ve org_whatsapp'ı günceller.
+ *
+ * Neden gerekli: bağlantı durumu yalnız kullanıcı Ayarlar'ı açınca ya da bir
+ * gönderim başarısız olunca tazeleniyordu. Telefon kapanıp oturum düşünce
+ * veritabanı saatlerce "connected" diyor, uygulamadaki "bağlantı düştü" uyarısı
+ * hiç çıkmıyordu. remind zaten 30 dakikada bir çalıştığı için sağlık kontrolünü
+ * oraya iliştiriyoruz — ayrı bir zamanlayıcı gerekmiyor.
+ */
+export async function verifyConnection(admin: Admin, org: OrgWa): Promise<boolean> {
+    if (!org.instance) return false;
+    const url = await getSecret(admin, 'EVOLUTION_API_URL');
+    const key = await getSecret(admin, 'EVOLUTION_API_KEY');
+    if (!url || !key) return false;
+
+    let state = 'close';
+    try {
+        const res = await fetch(`${url}/instance/connectionState/${org.instance}`, {
+            headers: { 'Content-Type': 'application/json', 'apikey': key },
+        });
+        if (res.ok) state = (await res.json())?.instance?.state ?? 'close';
+    } catch {
+        // Evolution'a ulaşılamıyor: hattı düşmüş saymıyoruz, bu turu atlıyoruz.
+        return false;
+    }
+
+    if (state === 'open') {
+        if (org.status !== 'connected') {
+            await admin.from('org_whatsapp').update({
+                status: 'connected', last_error: null,
+                last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+            }).eq('organization_id', org.organization_id);
+        } else {
+            await admin.from('org_whatsapp')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('organization_id', org.organization_id);
+        }
+        return true;
+    }
+
+    await markDisconnected(admin, org.organization_id, `state:${state}`);
+    return false;
+}
+
 export async function markDisconnected(admin: Admin, orgId: string, error: string): Promise<void> {
     await admin.from('org_whatsapp')
         .update({ status: 'disconnected', last_error: error, updated_at: new Date().toISOString() })

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    connectedOrgs, featureOn, getOrgWa, getSecret, sendWA,
+    connectedOrgs, featureOn, getOrgWa, getSecret, sendWA, verifyConnection,
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
@@ -176,6 +176,14 @@ Deno.serve(async (req: Request) => {
             // settings.comms'a yazar (066). Yoksa nötr profille devam edilir.
             const comms: Comms = resolveComms(conf?.comms);
             const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
+
+            // Hat gerçekten ayakta mı? Düşmüşse org_whatsapp güncellenir ve bu
+            // org atlanır — ölü hatta boşuna gönderim denenmez, uygulamadaki
+            // "bağlantı düştü" uyarısı da en geç 30 dakikada belirir.
+            if (!(await verifyConnection(supabase, orgWa as OrgWa))) {
+                errors.push(`offline:${organization_id}`);
+                continue;
+            }
 
             // Her gönderim aynı kapıdan: normalize + opt-out + kota + log
             const send = async (phone: string, text: string, kind: WaKind, customerId?: string | null) => {
