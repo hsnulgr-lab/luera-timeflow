@@ -4,7 +4,9 @@ import { toast } from 'sonner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useQueue } from '@/hooks/useQueue';
 import { useReservations } from '@/hooks/useReservations';
-import { sendTextMessage, buildQueueJoinMessage, buildQueueReadyMessage } from '@/services/evolutionApi';
+import { buildQueueJoinMessage, buildQueueReadyMessage } from '@/services/waTemplates';
+import { sendWhatsApp, WA_FAIL_TEXT } from '@/services/whatsapp';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
 import type { QueueEntry } from '@/types';
 
 const LT = {
@@ -26,7 +28,13 @@ export const QueuePage = () => {
   const { waiting, called, addEntry, callEntry, serveEntry, removeEntry } = useQueue();
   const { settings } = useReservations();
   const avg = settings.slotDuration || 20;
-  const wa = settings.whatsappInstance;
+  const { isConnected: wa } = useWhatsApp();
+
+  // Gönderim sessizce düşmesin: sebebi (bağlı değil / opt-out / kota) söylensin.
+  const notify = async (phone: string, text: string, kind: 'queue_join' | 'queue_ready') => {
+    const res = await sendWhatsApp(phone, text, kind);
+    if (!res.ok && res.reason) toast.error(WA_FAIL_TEXT[res.reason]);
+  };
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -39,7 +47,7 @@ export const QueuePage = () => {
     if (row) {
       if (wa && row.customerPhone) {
         const msg = buildQueueJoinMessage({ customerName: row.customerName, businessName: settings.businessName, position: pos, etaMin: (pos - 1) * avg });
-        sendTextMessage(wa, row.customerPhone, msg).catch(() => toast.error('WhatsApp mesajı gönderilemedi'));
+        notify(row.customerPhone, msg, 'queue_join');
       }
       toast.success('Sıraya eklendi');
       setName(''); setPhone(''); setService('');
@@ -48,7 +56,7 @@ export const QueuePage = () => {
 
   const call = (e: QueueEntry) => {
     callEntry(e.id);
-    if (wa && e.customerPhone) sendTextMessage(wa, e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName })).catch(() => toast.error('WhatsApp mesajı gönderilemedi'));
+    if (wa && e.customerPhone) notify(e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName }), 'queue_ready');
     toast.success('Çağrıldı');
   };
 

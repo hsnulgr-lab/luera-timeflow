@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { normalizePhone } from '@/lib/phone';
+import { useNavigate } from 'react-router-dom';
 import { Search, Phone, MessageCircle, Plus, Gift, Package, CalendarClock } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
@@ -18,10 +20,7 @@ import { TreatmentPlans } from '@/components/dental/TreatmentPlans';
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 
 function waLink(phone: string): string {
-    let p = phone.replace(/\D/g, '');
-    if (p.startsWith('0')) p = '90' + p.slice(1);
-    else if (!p.startsWith('90')) p = '90' + p;
-    return `https://wa.me/${p}`;
+    return `https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}`;
 }
 
 export const MobileCustomers = () => {
@@ -119,6 +118,7 @@ const STS: Record<string, { lbl: string; c: string }> = {
 // Müşteri detayı — geçmiş randevular, harcama (LTV), paketler ve not.
 // Masaüstü AdisyonModal "Müşteri" sekmesinin mobil karşılığı.
 function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
+    const navigate = useNavigate();
     const { reservations, settings } = useReservations();
     const { sector } = useLabels();
     const { totalForCustomer } = usePayments();
@@ -140,7 +140,7 @@ function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null;
     const color = avatarColor(customer.name);
 
     return (
-        <BottomSheet open={!!customer} onClose={onClose} title="Müşteri Detayı">
+        <BottomSheet open={!!customer} onClose={onClose} title={sector === 'dis' ? 'Hasta Detayı' : 'Müşteri Detayı'}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 4, color: T.ink }}>
                 {/* Başlık */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
@@ -220,13 +220,15 @@ function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null;
                             {history.slice(0, 12).map((h) => {
                                 const st = STS[h.status] || STS.pending;
                                 return (
-                                    <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 13px', borderRadius: 12, background: T.surface, border: `1px solid ${T.border}` }}>
+                                    <button key={h.id} type="button" disabled={sector !== 'dis'}
+                                        onClick={() => { onClose(); navigate(`/dental-visit/${encodeURIComponent(h.id)}`); }}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 13px', borderRadius: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.ink, fontFamily: T.font, textAlign: 'left', cursor: sector === 'dis' ? 'pointer' : 'default' }}>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.service}</div>
                                             <div style={{ fontSize: 11, color: T.muted, fontFamily: T.mono, marginTop: 2 }}>{formatDateEU(h.date)} · {h.startTime}</div>
                                         </div>
                                         <span style={{ fontSize: 10.5, fontWeight: 800, color: st.c, flexShrink: 0 }}>{st.lbl}</span>
-                                    </div>
+                                    </button>
                                 );
                             })}
                         </div>

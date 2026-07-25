@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from 'react';
 import { toast } from 'sonner';
+import { commsForSector } from '@/lib/sectorProfiles';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { getReservationConflictError } from '@/lib/reservationErrors';
 import { todayISO, toISODate } from '@/utils/date';
-import { sendTextMessage, buildRebookMessage } from '@/services/evolutionApi';
+import { buildRebookMessage } from '@/services/waTemplates';
+import { sendWhatsApp } from '@/services/whatsapp';
+import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from '@/lib/appointmentFlow';
 import type { Reservation, Settings, Service } from '@/types';
 
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
@@ -82,6 +85,18 @@ function mapDbReservation(row: any): Reservation {
 }
 
 // Ağır mantık — yalnızca Provider içinde BİR KEZ çalışır
+// Sektör iletişim profilini settings.comms'a yazar (066). Yalnız eksikse veya
+// sektör değişip org kendi metnini yazmamışsa günceller — custom override korunur.
+async function syncSectorComms(orgId: string | null | undefined, sector: string, stored: any) {
+    if (!orgId) return;
+    if (stored?.custom) return;                       // klinik kendi tonunu yazmış
+    const next = { ...commsForSector(sector), sector };
+    if (stored && stored.sector === sector) return;   // zaten güncel
+    const { error } = await supabase.from('settings').update({ comms: next }).eq('organization_id', orgId);
+    // 066 uygulanmadıysa kolon yok — sessiz geç, mesajlaşma nötr profille sürer.
+    if (error && error.code !== '42703' && error.code !== 'PGRST204') console.error('comms sync:', error);
+}
+
 function useReservationsState() {
     const { user, orgId } = useAuth();
     // Modül kapısı (Faz 5): randevu kapalıysa (saf restoran) rezervasyon fetch +
@@ -163,6 +178,35 @@ function useReservationsState() {
         setIsLoading(false);
     }, [user, orgId]);
 
+    // Ziyaret ekranı geçmiş bir randevuya doğrudan bağlanabilir. Ana liste
+    // performans için son 90 gün / 500 satırla sınırlı olduğundan yalnızca
+    // provider state'inde aramak eski deep-link'leri yanlışlıkla 404 yapar.
+    // Tam kimlikli sorgu tenant filtresiyle çalışır ve bulunan satırı ortak
+    // listeye bir kez merge eder; böylece alt bileşenler de aynı bağlamı görür.
+    const fetchReservationById = useCallback(async (id: string): Promise<Reservation | null> => {
+        if (!orgId || !id) return null;
+        const { data, error } = await supabase
+            .from('reservations')
+            .select('*, staff(name, color)')
+            .eq('organization_id', orgId)
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error fetching reservation by id:', error);
+            toast.error('Randevu yüklenemedi');
+            return null;
+        }
+        if (!data) return null;
+
+        const reservation = mapDbReservation(data);
+        setReservations((previous) => [
+            reservation,
+            ...previous.filter((item) => item.id !== reservation.id),
+        ]);
+        return reservation;
+    }, [orgId]);
+
     // ─── Ayarları getir ──────────────────────────────────────────────────────
     const fetchSettings = useCallback(async (currentOrgId?: string | null) => {
         const requestId = ++settingsRequestRef.current;
@@ -226,6 +270,7 @@ function useReservationsState() {
             duration: s.duration,
             color: s.color,
             price: s.price ? Number(s.price) : undefined,
+            recallDays: s.recall_days ? Number(s.recall_days) : undefined,
         }));
 
         const seen = new Set<string>();
@@ -242,7 +287,6 @@ function useReservationsState() {
                 services: services.length > 0 ? services : defaultSettings.services,
                 slotDuration: settingsData.slot_duration,
                 webhookUrl: settingsData.webhook_url || undefined,
-                whatsappInstance: settingsData.whatsapp_instance || undefined,
                 sector: settingsData.sector || 'genel',
                 managerPin: settingsData.manager_pin || undefined,
                 loyaltyEnabled: settingsData.loyalty_enabled ?? false,
@@ -250,9 +294,14 @@ function useReservationsState() {
                 loyaltyReward: settingsData.loyalty_reward || 'Ücretsiz hizmet',
                 rebookEnabled: settingsData.rebook_enabled ?? false,
                 rebookNote: settingsData.rebook_note || '',
+                arrivalToleranceMin: settingsData.arrival_tolerance_min ?? undefined,
             };
             setSettings(fresh);
             if (resolvedOrgId) writeCache(`settings:${resolvedOrgId}`, fresh);
+            // Sektörel WhatsApp profilini DB'ye senkronla (066). Edge function
+            // sektör tablosunu kod içinde taşımaz, yalnız bu kolonu okur.
+            // Klinik kendi metnini yazdıysa (custom) dokunulmaz.
+            void syncSectorComms(resolvedOrgId, fresh.sector || 'genel', settingsData.comms);
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
             // ama organizasyon bulunabilirse manuel oluştur
@@ -494,6 +543,14 @@ function useReservationsState() {
             toast.error('Bitiş saati başlangıç saatinden sonra olmalı');
             return null;
         }
+        // Geçmişe randevu oluşturulamaz. Geç kaydedilen bir "şimdi gelen" (walk-in)
+        // için tolerans kadar (vars. 2s) geriye izin verilir; öncesi engellenir.
+        const startAt = new Date(`${reservation.date}T${reservation.startTime}:00`);
+        const tolMs = (settings.arrivalToleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN) * 60_000;
+        if (!Number.isNaN(startAt.getTime()) && startAt.getTime() < Date.now() - tolMs) {
+            toast.error('Geçmişe randevu oluşturulamaz');
+            return null;
+        }
 
         const normalizedPhone = normalizeCustomerPhone(reservation.customerPhone);
         let resolvedCustomerId = reservation.customerId || '';
@@ -623,6 +680,48 @@ function useReservationsState() {
             staff_id:       updated.staffId ?? null,
         });
 
+        // Paket motoru (güzellik): pakete bağlı seans tamamlanınca sayaç ilerler.
+        // Randevu, oluşturulurken custom_fields.paket_plan_id ile plana bağlanır
+        // (BeautySessionModal). Çifte sayımı randevudaki paket_sayildi bayrağı önler.
+        if (updates.status === 'completed' && updated.customFields?.paket_plan_id
+            && !updated.customFields?.paket_sayildi) {
+            (async () => {
+                const planId = String(updated.customFields!.paket_plan_id);
+                const { data: plan } = await supabase.from('treatment_plans')
+                    .select('id, session_count, sessions_done, status').eq('id', planId).maybeSingle();
+                if (!plan) return;
+                const count = Math.max(1, Number(plan.session_count ?? 1));
+                const done = Math.min(count, Math.max(0, Number(plan.sessions_done ?? 0)) + 1);
+                const { error: planErr } = await supabase.from('treatment_plans')
+                    .update({ sessions_done: done, ...(done >= count ? { status: 'completed' } : {}) })
+                    .eq('id', planId);
+                if (planErr) { console.error('Paket seansı sayılamadı:', planErr); return; }
+                await supabase.from('reservations')
+                    .update({ custom_fields: { ...updated.customFields, paket_sayildi: true } })
+                    .eq('id', id);
+                setReservations(prev => prev.map(r => r.id === id
+                    ? { ...r, customFields: { ...r.customFields, paket_sayildi: true } } : r));
+                toast.success(`Paket seansı işlendi · ${done}/${count}${done >= count ? ' — paket tamamlandı ✨' : ''}`);
+            })().catch(console.error);
+        }
+
+        // Hizmet bazlı dönüş (recall): seans tamamlanınca müşterinin recall_date'i
+        // hizmetin periyoduna göre ileri atılır (manikür 21, lazer 45 gün — 067).
+        // remind cron'u bu tarihe 2 gün kala WhatsApp hatırlatması gönderir (065).
+        if (updates.status === 'completed' && updated.customerId) {
+            const svc = settings.services.find((s) => s.name === updated.service)
+                || settings.services.find((s) => updated.service?.toLocaleLowerCase('tr').includes(s.name.toLocaleLowerCase('tr')));
+            if (svc?.recallDays) {
+                const next = new Date(`${updated.date}T12:00:00`);
+                next.setDate(next.getDate() + svc.recallDays);
+                const nextISO = next.toISOString().slice(0, 10);
+                supabase.from('customers')
+                    .update({ recall_date: nextISO, recall_reminded_for: null })
+                    .eq('id', updated.customerId)
+                    .then(({ error: recallErr }) => { if (recallErr) console.error('Recall tarihi yazılamadı:', recallErr); });
+            }
+        }
+
         // Boşluk doldurma: panelden iptal → bekleyenleri bilgilendir (fire-and-forget)
         if (updates.status === 'cancelled' && (serverRow as any).organization_id) {
             supabase.functions.invoke('notify-waitlist', {
@@ -633,7 +732,7 @@ function useReservationsState() {
         // Sıradaki Randevu Otomasyonu: tamamlanınca WhatsApp ile tekrar-randevu daveti
         // (idempotent: rebook_sent; gönderim başarılıysa işaretlenir)
         if (updates.status === 'completed' && !(serverRow as any).rebook_sent
-            && settings.rebookEnabled && settings.whatsappInstance && updated.customerPhone) {
+            && settings.rebookEnabled && updated.customerPhone) {
             (async () => {
                 let bookingUrl = '';
                 const { data: org } = await supabase.from('organizations')
@@ -646,8 +745,10 @@ function useReservationsState() {
                     note: settings.rebookNote,
                     bookingUrl,
                 });
-                const ok = await sendTextMessage(settings.whatsappInstance!, updated.customerPhone, msg);
-                if (ok) await supabase.from('reservations').update({ rebook_sent: true }).eq('id', id);
+                // Bağlı değilse proxy zaten reason:'not_connected' döner; ayrıca
+                // settings'te instance kontrolü yapmıyoruz (bağlantı org_whatsapp'ta).
+                const res = await sendWhatsApp(updated.customerPhone, msg, 'rebook', updated.customerId);
+                if (res.ok) await supabase.from('reservations').update({ rebook_sent: true }).eq('id', id);
             })().catch(() => {});
         }
 
@@ -760,7 +861,6 @@ function useReservationsState() {
                 slot_duration: newSettings.slotDuration,
                 working_hours: newSettings.workingHours,
                 webhook_url: newSettings.webhookUrl || null,
-                whatsapp_instance: newSettings.whatsappInstance || null,
                 sector: newSettings.sector || 'genel',
                 manager_pin: newSettings.managerPin || null,
                 loyalty_enabled: newSettings.loyaltyEnabled ?? false,
@@ -811,7 +911,7 @@ function useReservationsState() {
         for (const s of toUpdate) {
             const { error } = await supabase
                 .from('services')
-                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null })
+                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null })
                 .eq('id', s.id);
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
@@ -830,6 +930,7 @@ function useReservationsState() {
                     duration: s.duration,
                     color: s.color,
                     price: s.price || null,
+                    recall_days: s.recallDays || null,
                 }))
             );
             if (error) {
@@ -857,6 +958,7 @@ function useReservationsState() {
             duration: s.duration,
             color: s.color,
             price: s.price ? Number(s.price) : undefined,
+            recallDays: s.recall_days ? Number(s.recall_days) : undefined,
         }));
 
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
@@ -920,12 +1022,13 @@ function useReservationsState() {
         checkConflict,
         sendWebhook: fireWebhook,
         refetch: fetchReservations,
+        fetchReservationById,
         refetchSettings: fetchSettings,
     }), [
         reservations, settings, isLoading, isSettingsLoading, orgId,
         addReservation, ensureReservationCustomer, updateReservation, claimReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
-        getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchSettings,
+        getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchReservationById, fetchSettings,
     ]);
 }
 

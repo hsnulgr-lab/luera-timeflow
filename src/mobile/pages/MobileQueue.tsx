@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQueue } from '@/hooks/useQueue';
 import { useReservations } from '@/hooks/useReservations';
-import { sendTextMessage, buildQueueJoinMessage, buildQueueReadyMessage } from '@/services/evolutionApi';
+import { buildQueueJoinMessage, buildQueueReadyMessage } from '@/services/waTemplates';
+import { sendWhatsApp, WA_FAIL_TEXT } from '@/services/whatsapp';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
 import type { QueueEntry } from '@/types';
 import { BottomSheet } from '../BottomSheet';
 import { Field } from './MobileStaff';
@@ -16,7 +18,13 @@ export const MobileQueue = () => {
     const { waiting, called, addEntry, callEntry, serveEntry, removeEntry } = useQueue();
     const { settings } = useReservations();
     const avg = settings.slotDuration || 20;
-    const wa = settings.whatsappInstance;
+    const { isConnected: wa } = useWhatsApp();
+
+    // Sebebi söylenen gönderim — eskiden hata sessizce yutuluyordu.
+    const notify = async (phone: string, text: string, kind: 'queue_join' | 'queue_ready') => {
+        const res = await sendWhatsApp(phone, text, kind);
+        if (!res.ok && res.reason) toast.error(WA_FAIL_TEXT[res.reason]);
+    };
 
     const [sheet, setSheet] = useState(false);
     const [showAllWaiting, setShowAllWaiting] = useState(false);
@@ -35,7 +43,7 @@ export const MobileQueue = () => {
             // Sıraya eklendi → WhatsApp konum/ETA (fire-and-forget)
             if (wa && row.customerPhone) {
                 const msg = buildQueueJoinMessage({ customerName: row.customerName, businessName: settings.businessName, position: pos, etaMin: (pos - 1) * avg });
-                sendTextMessage(wa, row.customerPhone, msg).catch(() => {});
+                notify(row.customerPhone, msg, 'queue_join');
             }
             toast.success('Sıraya eklendi');
             setName(''); setPhone(''); setService(''); setSheet(false);
@@ -45,7 +53,7 @@ export const MobileQueue = () => {
     const call = (e: QueueEntry) => {
         callEntry(e.id);
         if (wa && e.customerPhone) {
-            sendTextMessage(wa, e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName })).catch(() => {});
+            notify(e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName }), 'queue_ready');
         }
         toast.success('Çağrıldı 🔔');
     };

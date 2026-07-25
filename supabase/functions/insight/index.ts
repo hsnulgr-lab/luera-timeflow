@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireUserOrg } from '../_shared/auth.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -15,15 +16,19 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { organization_id, refresh } = await req.json();
-        if (!organization_id) {
-            return json({ error: 'organization_id gerekli' }, 400);
-        }
+        const { refresh } = await req.json();
 
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL')!,
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         );
+
+        // Org, çağıranın ÜYELİĞİNDEN çözülür. Önceden gövdedeki organization_id
+        // doğrudan kullanılıyordu ve hiçbir kimlik kontrolü yoktu: org id'yi
+        // bilen biri başka işletmenin iş istatistiklerini okuyabiliyordu.
+        const auth = await requireUserOrg(supabase, req, corsHeaders);
+        if (auth instanceof Response) return auth;
+        const organization_id = auth.orgId;
 
         const nowTR = new Date(Date.now() + TZ_OFFSET_MIN * 60_000);
         const todayStr = nowTR.toISOString().slice(0, 10);

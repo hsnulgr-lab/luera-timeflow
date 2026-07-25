@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getOrgWa, sendWA } from '../_shared/wa.ts';
 
 // ============================================================
 // booking-manage — Müşteri self-servis randevu yönetimi
@@ -57,23 +58,6 @@ function computeSlots(opts: {
     return out;
 }
 
-async function sendWhatsApp(baseUrl: string, apiKey: string, instance: string, phone: string, text: string): Promise<boolean> {
-    try {
-        const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey },
-            body: JSON.stringify({ number: phone, text }),
-        });
-        return res.ok;
-    } catch { return false; }
-}
-
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
-}
-
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -98,7 +82,7 @@ Deno.serve(async (req: Request) => {
         // Org + settings
         const [{ data: org }, { data: settings }] = await Promise.all([
             supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
-            supabase.from('settings').select('business_name, working_hours, slot_duration, whatsapp_instance').eq('organization_id', orgId).maybeSingle(),
+            supabase.from('settings').select('business_name, working_hours, slot_duration').eq('organization_id', orgId).maybeSingle(),
         ]);
         const businessName = settings?.business_name || org?.name || 'İşletme';
         const orgHours: WH[] = settings?.working_hours || [];
@@ -159,12 +143,10 @@ Deno.serve(async (req: Request) => {
             }).catch(() => {});
 
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
-            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
-            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
-            if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
+            const orgWa = await getOrgWa(supabase, orgId);
+            if (orgWa?.instance && orgWa.status === 'connected') {
                 const d = new Date(res.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
-                sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, res.customer_phone,
-                    `Randevunuz iptal edildi ❌\n\n${d} · ${(res.start_time || '').slice(0, 5)} · ${res.service}\n\nYeni randevu için bizimle iletişime geçebilirsiniz.`).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', text: `Randevunuz iptal edildi ❌\n\n${d} · ${(res.start_time || '').slice(0, 5)} · ${res.service}\n\nYeni randevu için bizimle iletişime geçebilirsiniz.` }).catch(() => {});
             }
             return json({ success: true, status: 'cancelled' });
         }
@@ -237,12 +219,10 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
             }
 
-            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
-            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
-            if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
+            const orgWa = await getOrgWa(supabase, orgId);
+            if (orgWa?.instance && orgWa.status === 'connected') {
                 const d = new Date(date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
-                sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, res.customer_phone,
-                    `Randevunuz güncellendi ✅\n\n🗓️ ${d}\n⏰ ${time}\n💼 ${res.service}\n\nGörüşmek üzere!`).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', text: `Randevunuz güncellendi ✅\n\n🗓️ ${d}\n⏰ ${time}\n💼 ${res.service}\n\nGörüşmek üzere!` }).catch(() => {});
             }
             return json({ success: true, date, time, endTime });
         }

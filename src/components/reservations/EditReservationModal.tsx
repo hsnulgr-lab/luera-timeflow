@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { X, User, Phone, Mail, Clock, Calendar, FileText, Save, Trash2, Wallet } from 'lucide-react';
+import { X, User, Phone, Mail, Clock, Calendar, FileText, Check, Trash2, Wallet } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
+import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import type { Reservation } from '@/types';
 
@@ -11,11 +12,16 @@ interface EditReservationModalProps {
     onClose: () => void;
 }
 
+const MONO = "'JetBrains Mono','SFMono-Regular',Consolas,monospace";
+// Yeni tasarım dili: krem/siyah/turuncu (--dc-*). Durum seçili rengi token'lardan.
 const statusConfig = {
-    confirmed: { label: 'Onaylı', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    cancelled: { label: 'İptal', color: 'bg-red-100 text-red-700 border-red-200' },
-    completed: { label: 'Tamamlandı', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    confirmed: { label: 'Onaylı', bg: 'var(--dc-green-bg)', fg: 'var(--dc-green)' },
+    cancelled: { label: 'İptal', bg: 'var(--dc-red-bg)', fg: 'var(--dc-red)' },
+    completed: { label: 'Tamamlandı', bg: 'var(--dc-blue-bg)', fg: 'var(--dc-blue)' },
 };
+// Ortak input sınıfı — krem zemin, turuncu odak
+const INPUT = 'w-full px-3.5 py-3 rounded-xl bg-[var(--dc-page)] border border-[var(--dc-border2)] text-[13.5px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1 transition-all disabled:opacity-60';
+const LABEL = 'text-[10px] font-bold text-[var(--dc-muted)] uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2';
 
 export const EditReservationModal = (props: EditReservationModalProps) => (
     <EditReservationModalContent key={`${props.reservation.id}:${props.isOpen ? 'open' : 'closed'}`} {...props} />
@@ -24,6 +30,7 @@ export const EditReservationModal = (props: EditReservationModalProps) => (
 const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReservationModalProps) => {
     const { updateReservation, deleteReservation, ensureReservationCustomer, settings, checkConflict } = useReservations();
     const { addPayment, removeByReservation } = usePayments();
+    const { dark } = useTheme();
     const [form, setForm] = useState({
         customerName: reservation.customerName,
         customerPhone: reservation.customerPhone,
@@ -137,231 +144,152 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-                {/* Top gradient line */}
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#CCFF00] via-blue-400/40 to-purple-400/40" />
-
-                {/* Close button */}
-                <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all z-10">
-                    <X className="w-4 h-4" />
-                </button>
-
-                <div className="p-6">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center shadow-lg">
-                            <Calendar className="w-5 h-5 text-[#CCFF00]" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900">Randevu Düzenle</h3>
-                            <p className="text-xs text-gray-400">{reservation.customerName}</p>
-                        </div>
+        <div className={cn('dash-theme fixed inset-0 z-[100] flex items-center justify-center p-4', dark && 'dark')}>
+            <div className="absolute inset-0 bg-[rgba(14,14,14,0.48)] backdrop-blur-[2px]" onClick={onClose} />
+            <div className="relative w-full max-w-lg max-h-[calc(100vh-32px)] bg-[var(--dc-surface)] rounded-3xl shadow-2xl border border-[var(--dc-border2)] overflow-hidden flex flex-col">
+                {/* Başlık */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--dc-border)] flex-shrink-0">
+                    <div className="w-[38px] h-[38px] rounded-xl bg-[var(--dc-inkbox)] flex items-center justify-center">
+                        <Calendar className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
                     </div>
+                    <div className="min-w-0">
+                        <h3 className="text-base font-extrabold text-[var(--dc-ink)] tracking-[-0.02em]">Randevu Düzenle</h3>
+                        <p className="text-[11.5px] text-[var(--dc-muted)] truncate">{reservation.customerName}</p>
+                    </div>
+                    <button onClick={onClose} aria-label="Kapat" className="ml-auto w-[38px] h-[38px] rounded-lg flex items-center justify-center text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
 
-                    {/* Conflict Warning */}
+                <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0 space-y-4">
+                    {/* Çakışma uyarısı */}
                     {conflict && (
-                        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium flex items-center gap-2">
+                        <div className="p-3 rounded-xl bg-[var(--dc-red-bg)] text-[var(--dc-red)] text-[13px] font-semibold flex items-center gap-2">
                             <Clock className="w-4 h-4 flex-shrink-0" />
                             {conflict}
                         </div>
                     )}
+                    {reservation.customerId && (
+                        <div className="rounded-xl bg-[var(--dc-amber-bg)] px-3.5 py-2.5 text-[12px] font-semibold text-[var(--dc-amber)] leading-snug">
+                            Hasta kimliği bu randevuya bağlıdır. Ad, telefon ve e-posta değişikliklerini Hasta Detayı'ndan yapın.
+                        </div>
+                    )}
 
-                    <div className="space-y-4">
-                        {reservation.customerId && (
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                                Hasta kimliği bu randevuya bağlıdır. Ad, telefon ve e-posta değişikliklerini Hasta Detayı'ndan yapın.
-                            </div>
-                        )}
-                        {/* Customer Info */}
+                    {/* Müşteri */}
+                    <div>
+                        <label className={LABEL}><User className="w-3 h-3" /> Müşteri Adı</label>
+                        <input type="text" value={form.customerName} disabled={!!reservation.customerId}
+                            onChange={(e) => setForm(p => ({ ...p, customerName: e.target.value }))} className={INPUT} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                <User className="w-3 h-3" /> Müşteri Adı
-                            </label>
-                                <input
-                                    type="text" value={form.customerName}
-                                    disabled={!!reservation.customerId}
-                                onChange={(e) => setForm(p => ({ ...p, customerName: e.target.value }))}
-                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                            />
+                            <label className={LABEL}><Phone className="w-3 h-3" /> Telefon</label>
+                            <input type="tel" value={form.customerPhone} disabled={!!reservation.customerId}
+                                onChange={(e) => setForm(p => ({ ...p, customerPhone: e.target.value }))} className={INPUT} style={{ fontFamily: MONO }} />
                         </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                    <Phone className="w-3 h-3" /> Telefon
-                                </label>
-                                <input
-                                    type="tel" value={form.customerPhone}
-                                    disabled={!!reservation.customerId}
-                                    onChange={(e) => setForm(p => ({ ...p, customerPhone: e.target.value }))}
-                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                    <Mail className="w-3 h-3" /> E-posta
-                                </label>
-                                <input
-                                    type="email" value={form.customerEmail}
-                                    disabled={!!reservation.customerId}
-                                    onChange={(e) => setForm(p => ({ ...p, customerEmail: e.target.value }))}
-                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Date & Time */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Tarih</label>
-                                <input
-                                    type="date" value={form.date}
-                                    onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))}
-                                    className="w-full px-3 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                    <Clock className="w-3 h-3" /> Başlangıç
-                                </label>
-                                <input
-                                    type="time" value={form.startTime}
-                                    onChange={(e) => setForm(p => ({ ...p, startTime: e.target.value }))}
-                                    className="w-full px-3 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Bitiş</label>
-                                <input
-                                    type="time" value={form.endTime}
-                                    onChange={(e) => setForm(p => ({ ...p, endTime: e.target.value }))}
-                                    className="w-full px-3 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Service */}
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Hizmet</label>
-                            <div className="flex flex-wrap gap-2">
-                                {settings.services.map((s) => (
-                                    <button
-                                        key={s.id}
+                            <label className={LABEL}><Mail className="w-3 h-3" /> E-posta</label>
+                            <input type="email" value={form.customerEmail} disabled={!!reservation.customerId}
+                                onChange={(e) => setForm(p => ({ ...p, customerEmail: e.target.value }))} className={INPUT} />
+                        </div>
+                    </div>
+
+                    {/* Tarih & saat */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className={LABEL}>Tarih</label>
+                            <input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))} className={INPUT} style={{ fontFamily: MONO }} />
+                        </div>
+                        <div>
+                            <label className={LABEL}><Clock className="w-3 h-3" /> Başlangıç</label>
+                            <input type="time" value={form.startTime} onChange={(e) => setForm(p => ({ ...p, startTime: e.target.value }))} className={INPUT} style={{ fontFamily: MONO }} />
+                        </div>
+                        <div>
+                            <label className={LABEL}>Bitiş</label>
+                            <input type="time" value={form.endTime} onChange={(e) => setForm(p => ({ ...p, endTime: e.target.value }))} className={INPUT} style={{ fontFamily: MONO }} />
+                        </div>
+                    </div>
+
+                    {/* Hizmet */}
+                    <div>
+                        <label className={LABEL}>Hizmet</label>
+                        <div className="flex flex-wrap gap-2">
+                            {settings.services.map((s) => {
+                                const active = form.service === s.name;
+                                return (
+                                    <button key={s.id} type="button"
                                         onClick={() => {
                                             setForm(p => ({ ...p, service: s.name }));
                                             const [h, m] = form.startTime.split(':').map(Number);
                                             const endMin = h * 60 + m + s.duration;
                                             setForm(p => ({ ...p, endTime: `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}` }));
                                         }}
-                                        className={cn(
-                                            "px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 border",
-                                            form.service === s.name
-                                                ? "text-slate-900 shadow-md"
-                                                : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 bg-gray-50"
-                                        )}
-                                        style={form.service === s.name ? { backgroundColor: s.color, borderColor: s.color, boxShadow: `0 4px 14px ${s.color}30` } : {}}
-                                    >
-                                        {s.name} ({s.duration}dk)
+                                        className={cn('inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[12px] font-bold border transition-colors',
+                                            active ? 'bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] border-[var(--dc-inkbox)]'
+                                                : 'bg-[var(--dc-surface2)] border-[var(--dc-border)] text-[var(--dc-ink)] hover:border-[var(--dc-ink)]')}>
+                                        <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
+                                        {s.name} <span className="opacity-70" style={{ fontFamily: MONO }}>{s.duration}dk</span>
                                     </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Status */}
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Durum</label>
-                            <div className="flex gap-2">
-                                {(Object.keys(statusConfig) as (keyof typeof statusConfig)[]).map((s) => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setForm(p => ({ ...p, status: s }))}
-                                        className={cn(
-                                            "px-3 py-2 rounded-lg text-xs font-bold transition-all border",
-                                            form.status === s
-                                                ? statusConfig[s].color
-                                                : "border-gray-200 text-gray-400 hover:border-gray-300 bg-gray-50"
-                                        )}
-                                    >
-                                        {statusConfig[s].label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Ödeme durumu */}
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-2 block">Ödeme</label>
-                            <button
-                                type="button"
-                                onClick={() => setForm(p => ({ ...p, isPaid: !p.isPaid }))}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all border",
-                                    form.isPaid
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : "bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300"
-                                )}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <Wallet className="w-4 h-4" />
-                                    {form.isPaid ? 'Ödendi' : 'Ödenmedi'}
-                                </span>
-                                <span className={cn(
-                                    "relative inline-flex h-[20px] w-[36px] items-center rounded-full transition-colors flex-shrink-0",
-                                    form.isPaid ? "bg-emerald-500" : "bg-gray-300"
-                                )}>
-                                    <span className={cn(
-                                        "inline-block h-[16px] w-[16px] rounded-full bg-white transition-transform",
-                                        form.isPaid ? "translate-x-[18px]" : "translate-x-[2px]"
-                                    )} />
-                                </span>
-                            </button>
-                        </div>
-
-                        {/* Notes */}
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-1.5 mb-2">
-                                <FileText className="w-3 h-3" /> Not
-                            </label>
-                            <textarea
-                                value={form.notes}
-                                onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))}
-                                placeholder="Ek bilgiler..."
-                                rows={2}
-                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-300 focus:border-[#CCFF00] focus:ring-2 focus:ring-[#CCFF00]/15 outline-none transition-all resize-none"
-                            />
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3 pt-2">
-                            <button
-                                onClick={handleDelete}
-                                className={cn(
-                                    "px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
-                                    confirmDelete
-                                        ? "bg-red-500 text-white hover:bg-red-600"
-                                        : "bg-red-50 text-red-500 hover:bg-red-100"
-                                )}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                {confirmDelete ? 'Emin misin?' : 'Sil'}
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving || saved || !form.customerName || !form.customerPhone || !!conflict}
-                                className={cn(
-                                    "flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2",
-                                    saved
-                                        ? "bg-emerald-500 text-white"
-                                        : "bg-gradient-to-r from-[#CCFF00] to-[#b8e600] text-slate-900 hover:shadow-xl hover:shadow-[#CCFF00]/25 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-                                )}
-                            >
-                                <Save className="w-4 h-4" />
-                                {saved ? 'Kaydedildi!' : saving ? 'Kaydediliyor…' : 'Kaydet'}
-                            </button>
+                                );
+                            })}
                         </div>
                     </div>
+
+                    {/* Durum */}
+                    <div>
+                        <label className={LABEL}>Durum</label>
+                        <div className="flex gap-2">
+                            {(Object.keys(statusConfig) as (keyof typeof statusConfig)[]).map((s) => {
+                                const active = form.status === s;
+                                return (
+                                    <button key={s} type="button" onClick={() => setForm(p => ({ ...p, status: s }))}
+                                        className={cn('px-3.5 py-2 rounded-full text-[12px] font-bold border transition-colors',
+                                            active ? 'border-transparent' : 'bg-[var(--dc-surface2)] border-[var(--dc-border)] text-[var(--dc-muted)] hover:border-[var(--dc-ink)] hover:text-[var(--dc-ink)]')}
+                                        style={active ? { background: statusConfig[s].bg, color: statusConfig[s].fg } : undefined}>
+                                        {statusConfig[s].label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Ödeme */}
+                    <div>
+                        <label className={LABEL}>Ödeme</label>
+                        <button type="button" onClick={() => setForm(p => ({ ...p, isPaid: !p.isPaid }))}
+                            className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors border',
+                                form.isPaid ? 'bg-[var(--dc-green-bg)] text-[var(--dc-green)] border-transparent'
+                                    : 'bg-[var(--dc-surface2)] text-[var(--dc-muted)] border-[var(--dc-border2)] hover:border-[var(--dc-ink)]')}>
+                            <span className="flex items-center gap-2"><Wallet className="w-4 h-4" />{form.isPaid ? 'Ödendi' : 'Ödenmedi'}</span>
+                            <span className={cn('relative inline-flex h-[20px] w-[36px] items-center rounded-full transition-colors flex-shrink-0', form.isPaid ? 'bg-[var(--dc-green)]' : 'bg-[var(--dc-border2)]')}>
+                                <span className={cn('inline-block h-[16px] w-[16px] rounded-full bg-white transition-transform', form.isPaid ? 'translate-x-[18px]' : 'translate-x-[2px]')} />
+                            </span>
+                        </button>
+                    </div>
+
+                    {/* Not */}
+                    <div>
+                        <label className={LABEL}><FileText className="w-3 h-3" /> Not</label>
+                        <textarea value={form.notes} onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))}
+                            placeholder="Ek bilgiler…" rows={2}
+                            className={cn(INPUT, 'resize-none placeholder:text-[var(--dc-muted2)]')} />
+                    </div>
+                </div>
+
+                {/* Alt bar */}
+                <div className="flex gap-3 px-5 py-4 border-t border-[var(--dc-border)] flex-shrink-0">
+                    <button type="button" onClick={handleDelete}
+                        className={cn('px-4 py-3 rounded-full text-[13px] font-bold transition-colors flex items-center gap-2',
+                            confirmDelete ? 'bg-[var(--dc-red)] text-white' : 'bg-[var(--dc-red-bg)] text-[var(--dc-red)] hover:brightness-95')}>
+                        <Trash2 className="w-4 h-4" />{confirmDelete ? 'Emin misin?' : 'Sil'}
+                    </button>
+                    <button type="button" onClick={handleSave}
+                        disabled={saving || saved || !form.customerName || !form.customerPhone || !!conflict}
+                        className={cn('flex-1 py-3 rounded-full font-bold text-[13.5px] transition-all flex items-center justify-center gap-2 hover:-translate-y-px disabled:opacity-35 disabled:cursor-not-allowed disabled:translate-y-0',
+                            saved ? 'bg-[var(--dc-green)] text-white' : 'bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] hover:bg-[var(--dc-orange)]')}>
+                        <Check className="w-4 h-4" />{saved ? 'Kaydedildi!' : saving ? 'Kaydediliyor…' : 'Kaydet'}
+                    </button>
                 </div>
             </div>
         </div>

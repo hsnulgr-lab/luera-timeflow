@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { normalizePhone } from '@/lib/phone';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle, Bell } from 'lucide-react';
 import { LNotifications } from '@/components/icons/LueraIcons';
@@ -13,6 +14,7 @@ import { EditReservationModal } from '@/components/reservations/EditReservationM
 import { MasaDashboard } from '@/components/dashboard/MasaDashboard';
 import { DisDashboard } from '@/components/dashboard/DisDashboard';
 import { DovmeDashboard } from '@/components/dashboard/DovmeDashboard';
+import { GuzellikDashboard } from '@/components/dashboard/GuzellikDashboard';
 import { useModules } from '@/hooks/useModules';
 import { profileForSector } from '@/lib/sectorProfiles';
 import type { Reservation } from '@/types';
@@ -22,10 +24,7 @@ import { MONO, compareTrend, Sparkline, ProgressBar, StatCard } from '@/componen
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
 function waLink(phone: string): string {
-    let p = phone.replace(/\D/g, '');
-    if (p.startsWith('0')) p = '90' + p.slice(1);
-    else if (!p.startsWith('90')) p = '90' + p;
-    return `https://wa.me/${p}`;
+    return `https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}`;
 }
 
 // Dashboard yüzleri — sektör profili (dashboardKpis[0]) buradan yüz seçer.
@@ -35,6 +34,7 @@ const DASHBOARD_FACES: Record<string, React.ComponentType> = {
     masaFace: MasaDashboard,
     disFace: DisDashboard,
     dovmeFace: DovmeDashboard,
+    guzellikFace: GuzellikDashboard,
 };
 
 export const DashboardPage = () => {

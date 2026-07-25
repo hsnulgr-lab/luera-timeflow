@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<title>Luera TimeFlow · Güzellik Salonu</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --dc-page:#F3ECE0; --dc-surface:#FAF7F3; --dc-surface2:#F0E9DF; --dc-surface3:#E9E1D5;
+  --dc-ink:#0E0E0E; --dc-ink-txt:#F3EDE3;
+  --dc-orange:#FF5A1F; --dc-orange-d:#E8430F; --dc-orange-soft:rgba(255,90,31,0.08);
+  --green:#2D8F32; --green-bg:#E8F5EA; --red:#C94040; --red-bg:#FBECEC;
+  --amber:#B87A00; --amber-bg:rgba(184,122,0,.12); --blue:#3B6FB0; --blue-bg:rgba(59,111,176,.11);
+  --purple:#7B4FA0; --purple-bg:rgba(123,79,160,.11);
+  --border:rgba(14,14,14,0.09); --border2:rgba(14,14,14,0.16); --muted:rgba(14,14,14,0.48); --muted2:rgba(14,14,14,0.32);
+  --shadow-sm:0 1px 2px rgba(14,14,14,0.04),0 2px 8px rgba(14,14,14,0.04);
+  --shadow-lg:0 8px 24px rgba(14,14,14,0.10),0 24px 64px rgba(14,14,14,0.14);
+  --r:22px; --r-sm:13px; --r-xs:9px; --sidebar-w:236px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--dc-page);color:var(--dc-ink);font-family:'Hanken Grotesk',system-ui,sans-serif;height:100%;-webkit-font-smoothing:antialiased}
+button,a,input,select{font-family:inherit;cursor:pointer;text-decoration:none;color:inherit}
+button{border:none;background:none}
+::selection{background:rgba(255,90,31,.22)}
+svg{display:block}
+a{color:var(--dc-orange-d);font-weight:650} a:hover{color:var(--dc-orange)}
+.mono{font-family:'JetBrains Mono',monospace}
+.klabel{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;overflow:hidden}
+.sidebar{background:var(--dc-page);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-logo{padding:22px 18px 16px;display:flex;align-items:center;gap:9px;flex-shrink:0}
+.luera-wm{font-weight:900;font-size:21px;letter-spacing:-0.045em;line-height:1;display:inline-flex;align-items:flex-end;white-space:nowrap}
+.luera-wm .dot{width:.2em;height:.2em;border-radius:50%;background:var(--dc-orange);margin-left:.05em;margin-bottom:.02em;display:inline-block}
+.sb-badge{background:var(--dc-ink);color:var(--dc-ink-txt);font-size:10px;font-weight:800;letter-spacing:.06em;padding:3px 9px;border-radius:999px;line-height:1;text-transform:uppercase}
+.sb-nav{flex:1;padding:8px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-sm);font-size:13.5px;font-weight:550;color:var(--muted);transition:all .15s;white-space:nowrap;width:100%;text-align:left;min-height:44px}
+.nav-item:hover{color:var(--dc-ink);background:var(--dc-surface2)}
+.nav-item.active{color:var(--dc-ink-txt);background:var(--dc-ink);font-weight:650}
+.nav-icon{width:18px;height:18px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-icon,.nav-item:hover .nav-icon{opacity:1}
+.sb-bottom{padding:10px 10px 14px;border-top:1px solid var(--border);flex-shrink:0}
+.user-row{display:flex;align-items:center;gap:10px;padding:9px 10px}
+.avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--dc-ink),#3a3a3a);display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+.user-name{font-size:13px;font-weight:650}
+.user-role{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;margin-top:1px}
+.user-role::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+.main-wrap{display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{display:flex;align-items:center;gap:16px;background:var(--dc-page);border-bottom:1px solid var(--border);height:62px;flex-shrink:0;padding:0 24px}
+.topbar-title{font-size:16px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+.topbar-date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+.searchwrap{flex:1;max-width:330px;margin-left:8px}
+.searchbox{display:flex;align-items:center;gap:9px;background:var(--dc-surface2);border:1px solid transparent;border-radius:999px;padding:10px 15px;color:var(--muted);transition:all .15s}
+.searchbox:focus-within{border-color:var(--border2);background:var(--dc-surface)}
+.searchbox input{flex:1;border:none;background:none;font-size:13px;outline:none;color:var(--dc-ink)}
+.btn-ink{background:var(--dc-ink);color:var(--dc-ink-txt);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .2s;white-space:nowrap;min-height:44px;justify-content:center}
+.btn-ink:hover{background:#2a2a2a;transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,14,14,.22)}
+.btn-ink:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-cream{background:transparent;color:var(--dc-ink);padding:11px 17px;border-radius:999px;font-size:12.5px;font-weight:650;border:1px solid var(--border2);transition:all .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;min-height:44px}
+.btn-cream:hover{border-color:var(--dc-ink);background:var(--dc-surface2)}
+.btn-cream.sm,.btn-ink.sm{min-height:36px;padding:7px 14px;font-size:12px}
+.main{flex:1;overflow-y:auto;padding:22px 24px 48px}
+.wrap{max-width:1380px;margin:0 auto}
+.view{display:none}
+.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* HERO */
+.hero{background:var(--dc-surface);border:1px solid var(--border);border-radius:var(--r);display:flex;align-items:stretch;overflow:hidden;margin-bottom:16px}
+.hero-block{background:var(--dc-ink);color:var(--dc-ink-txt);width:132px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:20px 14px}
+.hero-block .hb-day{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.65}
+.hero-block .hb-num{font-size:42px;font-weight:900;letter-spacing:-.04em;line-height:1.05}
+.hero-block .hb-mon{font-size:12.5px;font-weight:650;opacity:.8}
+.hero-body{flex:1;padding:22px 26px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;min-width:0}
+.hero-info{flex:1;min-width:240px}
+.hero-kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.hero-title{font-size:23px;font-weight:800;letter-spacing:-.03em}
+.hero-sub{font-size:13.5px;color:var(--muted);margin-top:5px}
+.hero-sub b{color:var(--dc-ink);font-weight:750}
+.hero-acts{display:flex;gap:10px;flex-wrap:wrap}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi{background:var(--dc-surface);border:1px solid var(--border);border-radius:20px;padding:18px 20px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.kpi.alert{background:var(--dc-orange-soft);border-color:rgba(255,90,31,.4)}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kpi-val{font-size:30px;font-weight:900;letter-spacing:-.035em;line-height:1}
+.kpi-val small{font-size:16px;font-weight:800;color:var(--muted)}
+.kpi-cmp{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.kpi-cmp .up{color:var(--green);font-weight:750}
+.kpi-cmp .down{color:var(--red);font-weight:750}
+.kpi-cmp .flat{color:var(--muted);font-weight:700}
+.spark{display:flex;align-items:flex-end;gap:3px;height:26px;margin-top:2px}
+.spark i{flex:1;background:var(--dc-surface3);border-radius:3px 3px 0 0;min-width:5px}
+.spark i.hi{background:var(--dc-ink)}
+.kpi.alert .spark i{background:rgba(255,90,31,.22)}
+.kpi.alert .spark i.hi{background:var(--dc-orange)}
+.kpi-link{font-size:12px;font-weight:750;color:var(--dc-orange-d);margin-top:2px;align-self:flex-start;padding:2px 0}
+.kpi-link:hover{color:var(--dc-orange)}
+
+.dash-grid{display:grid;grid-template-columns:1fr 356px;gap:16px;align-items:start}
+.card{background:var(--dc-surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+.card-hd{display:flex;align-items:center;gap:12px;padding:17px 20px;border-bottom:1px solid var(--border)}
+.card-ico{width:34px;height:34px;border-radius:11px;background:var(--dc-ink);color:var(--dc-ink-txt);display:grid;place-items:center;flex-shrink:0}
+.card-title{font-size:14px;font-weight:750;letter-spacing:-0.01em}
+.card-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.card-cta{margin-left:auto;font-size:12.5px;font-weight:650;color:var(--dc-orange-d);padding:8px 12px;border-radius:var(--r-xs);white-space:nowrap;transition:background .15s}
+.card-cta:hover{background:var(--dc-orange-soft)}
+
+/* PROGRAM LANES */
+.sched{padding:16px 20px 20px;overflow-x:auto}
+.sched-scale{position:relative;height:20px;margin-left:110px;min-width:640px}
+.sched-scale span{position:absolute;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);letter-spacing:.04em}
+.lane{display:flex;align-items:center;gap:0;margin-top:10px;min-width:750px}
+.lane-label{width:110px;flex-shrink:0;padding-right:12px}
+.lane-name{font-size:12.5px;font-weight:750}
+.lane-meta{font-size:10.5px;color:var(--muted);margin-top:1px}
+.lane-track{position:relative;flex:1;height:52px;background:var(--dc-surface2);border-radius:12px;min-width:640px;background-image:repeating-linear-gradient(90deg,transparent,transparent calc(10% - 1px),rgba(14,14,14,.05) calc(10% - 1px),rgba(14,14,14,.05) 10%)}
+.blk{position:absolute;top:5px;bottom:5px;border-radius:9px;padding:5px 10px;overflow:hidden;color:#fff;cursor:pointer;transition:transform .12s,box-shadow .12s;border-left:3px solid rgba(0,0,0,.22)}
+.blk:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.blk-name{font-size:11.5px;font-weight:750;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk-svc{font-size:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk.now{outline:2px solid var(--dc-ink);outline-offset:1px}
+/* canlı faz katmanı */
+.blk.ph-wait{opacity:.55;border:1.5px dashed rgba(14,14,14,.45)}
+.blk.ph-arrived{border-left:5px solid #B87A00}
+.blk.ph-active{animation:blkpulse 2.4s ease-in-out infinite}
+@keyframes blkpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,90,31,0)}50%{box-shadow:0 0 0 4px rgba(255,90,31,.28)}}
+.blk.ph-done{outline:2px solid var(--green);outline-offset:1px}
+.blk.ph-completed{opacity:.35}
+.blk-timer{font-family:'JetBrains Mono',monospace;font-size:9.5px;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk.sel-blk{outline:2px solid var(--dc-ink);outline-offset:2px}
+/* blok aksiyon çubuğu */
+.blockbar{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--dc-ink);color:var(--dc-ink-txt);border-radius:999px;padding:9px 10px 9px 22px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow-lg);z-index:90;opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.2,.8,.2,1);max-width:calc(100vw - 40px)}
+.blockbar.show{opacity:1;pointer-events:auto;transform:translateX(-50%)}
+.bb-who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.bb-name{font-size:13.5px;font-weight:750;white-space:nowrap}
+.bb-time{font-family:'JetBrains Mono',monospace;font-size:10.5px;opacity:.6;letter-spacing:.06em;white-space:nowrap}
+.bb-btn{border-radius:999px;padding:0 18px;min-height:38px;font-size:12.5px;font-weight:750;color:#fff;white-space:nowrap;transition:filter .15s}
+.bb-btn:hover{filter:brightness(1.12)}
+.bb-btn.amber{background:#B87A00}.bb-btn.orange{background:var(--dc-orange)}.bb-btn.green{background:var(--green)}
+.bb-sec{border:1px solid rgba(243,237,227,.32);border-radius:999px;padding:0 15px;min-height:38px;font-size:12px;font-weight:650;color:var(--dc-ink-txt);white-space:nowrap;transition:background .15s}
+.bb-sec:hover{background:rgba(255,255,255,.09)}
+.bb-close{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:rgba(243,237,227,.55);transition:all .15s;flex-shrink:0}
+.bb-close:hover{color:var(--dc-ink-txt);background:rgba(255,255,255,.09)}
+.bb-sug{font-size:12.5px;font-weight:650;white-space:nowrap}
+.bb-sug b{color:#ffb38f}
+/* şu an salonda */
+.q-row.overdue{background:var(--red-bg)}
+.q-row.overdue:hover{background:var(--red-bg)}
+.q-row.overdue .q-sub b.wt{color:var(--red)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:0;margin-right:3px}
+.live-dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(45,143,50,.18)}
+.live-dot.wt{background:#B87A00;box-shadow:0 0 0 3px rgba(184,122,0,.18)}
+.nowline{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--dc-orange);border-radius:2px;z-index:2}
+.nowline::before{content:'';position:absolute;top:-3px;left:-3px;width:8px;height:8px;border-radius:50%;background:var(--dc-orange)}
+.sched-legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:12px 20px 16px;border-top:1px solid var(--border)}
+.leg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);font-weight:600}
+.leg i{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* AKSİYON KUYRUĞU */
+.q-sec{padding:6px 12px 4px}
+.q-sec .klabel{display:block;padding:10px 8px 6px}
+.q-row{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:var(--r-sm);transition:background .15s;position:relative}
+.q-row:hover{background:var(--dc-surface2)}
+.q-bar{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0}
+.q-body{flex:1;min-width:0}
+.q-name{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-sub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+.q-sub b{color:var(--dc-ink);font-weight:700}
+.q-acts{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.icon-act{width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);display:grid;place-items:center;color:var(--muted);transition:all .15s;background:var(--dc-surface)}
+.icon-act:hover{border-color:var(--dc-ink);color:var(--dc-ink);background:var(--dc-surface2)}
+.icon-act.wa:hover{color:var(--green);border-color:var(--green)}
+.pill-act{font-size:12px;font-weight:750;background:var(--dc-ink);color:var(--dc-ink-txt);padding:0 14px;min-height:34px;border-radius:999px;transition:background .15s;white-space:nowrap}
+.pill-act:hover{background:var(--dc-orange)}
+.pill-act.ghost{background:transparent;color:var(--dc-ink);border:1px solid var(--border2)}
+.pill-act.ghost:hover{background:var(--dc-surface2);border-color:var(--dc-ink)}
+.q-empty{padding:14px 10px;font-size:12px;color:var(--muted);line-height:1.5}
+.q-foot{padding:12px 18px 16px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.5}
+
+.status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.status-chip::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+.status-chip.green{background:var(--green-bg);color:var(--green)}
+.status-chip.red{background:var(--red-bg);color:var(--red)}
+.status-chip.amber{background:var(--amber-bg);color:var(--amber)}
+.status-chip.blue{background:var(--blue-bg);color:var(--blue)}
+.status-chip.purple{background:var(--purple-bg);color:var(--purple)}
+.status-chip.gray{background:var(--dc-surface2);color:var(--muted)}
+.status-chip.orange{background:rgba(255,90,31,.13);color:var(--dc-orange-d)}
+
+/* ═══ MÜŞTERİ KARTI ═══ */
+.cust-head{display:flex;align-items:center;gap:18px;padding:22px 24px;flex-wrap:wrap}
+.avatar.xl{width:58px;height:58px;font-size:19px;border-radius:18px}
+.cust-info{flex:1;min-width:220px}
+.cust-name{font-size:21px;font-weight:800;letter-spacing:-.025em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cust-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.cust-contact{font-size:12.5px;color:var(--muted);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap}
+.cust-acts{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.cust-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:16px}
+
+.pkg-wrap{padding:14px 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pkg{border:1px solid var(--border);border-radius:16px;background:var(--dc-surface2);padding:16px 17px;display:flex;flex-direction:column;gap:10px}
+.pkg.done{background:var(--dc-orange-soft);border-color:rgba(255,90,31,.4)}
+.pkg-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pkg-name{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.pkg-svc{font-size:11.5px;color:var(--muted);margin-top:2px}
+.pkg-frac{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--dc-ink);white-space:nowrap}
+.pbar{height:7px;border-radius:999px;background:var(--dc-surface3);overflow:hidden}
+.pbar span{display:block;height:100%;border-radius:999px;background:var(--dc-ink)}
+.pkg.done .pbar span{background:var(--dc-orange)}
+.pkg-meta{display:flex;flex-wrap:wrap;gap:5px 16px;font-size:12px;color:var(--muted)}
+.pkg-meta b{color:var(--dc-ink);font-weight:750;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.pkg-foot{display:flex;align-items:center;gap:8px;margin-top:2px}
+.pkg-foot .spacer{flex:1}
+
+/* timeline */
+.tl{padding:8px 20px 18px}
+.tl-row{display:flex;gap:14px;position:relative;padding:12px 0}
+.tl-row::before{content:'';position:absolute;left:5px;top:26px;bottom:-8px;width:2px;background:var(--dc-surface3)}
+.tl-row:last-child::before{display:none}
+.tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:4px;border:3px solid var(--dc-surface)}
+.tl-body{flex:1;min-width:0}
+.tl-t{font-size:13px;font-weight:750;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tl-date{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+.tl-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.tl-amt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;flex-shrink:0;color:var(--muted)}
+.tl-amt.pos{color:var(--green)}
+
+/* ödeme özeti */
+.pay-box{padding:18px 20px 8px}
+.pay-big{font-size:28px;font-weight:900;letter-spacing:-.03em;font-family:'JetBrains Mono',monospace}
+.pay-big.red{color:var(--red)}
+.pay-rows{padding:10px 20px 16px;display:flex;flex-direction:column}
+.pay-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.pay-row:last-child{border-bottom:none}
+.pay-row .l{color:var(--muted);font-weight:600}
+.pay-row .v{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px}
+.pay-foot{padding:0 20px 18px;display:flex;gap:9px}
+
+/* ═══ MODAL ═══ */
+.overlay{position:fixed;inset:0;background:rgba(14,14,14,.48);backdrop-filter:blur(2px);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;top:50%;left:50%;width:920px;max-width:calc(100vw - 40px);max-height:calc(100vh - 48px);background:var(--dc-surface);border-radius:24px;border:1px solid var(--border2);box-shadow:var(--shadow-lg);z-index:101;transform:translate(-50%,-48%) scale(.97);opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.modal.open{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+.modal-hd{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-ico{width:38px;height:38px;border-radius:12px;background:var(--dc-ink);color:var(--dc-ink-txt);display:grid;place-items:center;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:800;letter-spacing:-0.02em}
+.modal-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.modal-close{margin-left:auto;width:38px;height:38px;border-radius:var(--r-xs);display:grid;place-items:center;color:var(--muted);transition:all .15s}
+.modal-close:hover{background:var(--dc-surface2);color:var(--dc-ink)}
+.modal-body{padding:18px 22px 10px;overflow-y:auto;flex:1;min-height:0}
+.m-grid{display:grid;grid-template-columns:280px 1fr;gap:22px}
+.m-sec-t{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.m-step{width:20px;height:20px;border-radius:50%;background:var(--dc-ink);color:var(--dc-ink-txt);font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+.m-sec-t span{font-size:12.5px;font-weight:800}
+.m-input{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--dc-page);font-size:13.5px;min-height:44px;outline:none}
+.m-input:focus{outline:2px solid var(--dc-orange);outline-offset:-1px}
+.m-cust{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border2);border-radius:var(--r-sm);background:var(--dc-surface2);margin-top:8px}
+.m-cust .avatar{width:34px;height:34px;font-size:12px;border-radius:11px}
+.m-cust-body{flex:1;min-width:0}
+.m-cust-name{font-size:13.5px;font-weight:750}
+.m-cust-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.m-unlock{font-size:12px;font-weight:700;color:var(--dc-orange-d);padding:8px 10px;border-radius:8px}
+.m-unlock:hover{background:var(--dc-orange-soft)}
+.m-hint{margin-top:8px;padding:10px 13px;border-radius:var(--r-xs);font-size:12px;font-weight:650;line-height:1.45}
+.m-hint.pkg-hint{background:var(--green-bg);color:var(--green)}
+.m-hint.warn{background:var(--red-bg);color:var(--red)}
+.svc-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.svc-opt{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--dc-surface);text-align:left;transition:all .15s;width:100%}
+.svc-opt:hover{border-color:var(--border2);background:var(--dc-surface2)}
+.svc-opt.active{border-color:var(--dc-ink);background:var(--dc-ink);color:var(--dc-ink-txt)}
+.svc-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.svc-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.svc-name{font-size:13px;font-weight:750}
+.svc-sub{font-size:11px;opacity:.65;margin-top:1px}
+.svc-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:4px 8px;border-radius:6px;background:var(--green-bg);color:var(--green);white-space:nowrap}
+.svc-opt.active .svc-tag{background:rgba(255,255,255,.16);color:var(--dc-ink-txt)}
+.svc-tag.fee{background:var(--dc-surface2);color:var(--muted)}
+.m-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.m-select{position:relative}
+.m-select select{appearance:none;width:100%;padding:12px 36px 12px 14px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--dc-page);font-size:13px;font-weight:650;min-height:44px;outline:none}
+.m-select::after{content:'';position:absolute;right:15px;top:50%;width:8px;height:8px;border-right:1.8px solid var(--muted);border-bottom:1.8px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.slot-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px}
+.slot{padding:10px 4px;border-radius:10px;border:1px solid var(--border);background:var(--dc-page);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:center;transition:all .13s;min-height:40px}
+.slot:hover{border-color:var(--dc-ink)}
+.slot.busy{opacity:.32;cursor:not-allowed;background:var(--dc-surface3);border-color:transparent;text-decoration:line-through}
+.slot.busy:hover{border-color:transparent}
+.slot.sel{background:var(--dc-ink);color:var(--dc-ink-txt);border-color:var(--dc-ink)}
+.slot-note{font-size:11px;color:var(--muted);margin-top:9px;display:flex;gap:14px;flex-wrap:wrap}
+.slot-note i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.modal-ft{padding:14px 22px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:14px}
+.m-summary{flex:1;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);background:var(--dc-surface2);border-radius:var(--r-xs);padding:12px 15px;line-height:1.5;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-summary b{color:var(--dc-ink)}
+
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dc-ink);color:var(--dc-ink-txt);padding:13px 20px;border-radius:999px;font-size:13px;font-weight:650;display:flex;align-items:center;gap:9px;box-shadow:var(--shadow-lg);z-index:200;opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.2,.8,.2,1)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast-ico{width:18px;height:18px;border-radius:50%;background:var(--green);display:grid;place-items:center;flex-shrink:0}
+
+/* ═══ PAKETLER ═══ */
+.pk-filter{display:flex;align-items:center;gap:8px;margin:2px 0 14px;flex-wrap:wrap}
+.fpill{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;border:1px solid var(--border2);font-size:12.5px;font-weight:650;color:var(--muted);background:transparent;transition:all .15s;min-height:38px}
+.fpill:hover{border-color:var(--dc-ink);color:var(--dc-ink)}
+.fpill.active{background:var(--dc-ink);color:var(--dc-ink-txt);border-color:var(--dc-ink);font-weight:700}
+.fpill .cnt{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;opacity:.65}
+.fpill .cnt.red{color:var(--red);opacity:1;background:var(--red-bg);padding:2px 7px;border-radius:99px}
+.fpill.active .cnt.red{color:#ffb4b4;background:rgba(255,255,255,.12)}
+.pk-search{margin-left:auto;max-width:290px;flex:1}
+.pk-grid{display:grid;grid-template-columns:1fr 356px;gap:16px;align-items:start}
+.pk-list{display:flex;flex-direction:column;gap:10px;min-width:0}
+.prow{display:flex;align-items:center;gap:14px;background:var(--dc-surface);border:1px solid var(--border);border-radius:18px;padding:14px 18px 14px 14px;box-shadow:var(--shadow-sm);transition:border-color .15s}
+.prow:hover{border-color:var(--border2)}
+.prow.late{border-color:rgba(201,64,64,.35)}
+.prow.fin{background:var(--dc-orange-soft)}
+.p-bar{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0}
+.p-cust{width:170px;flex-shrink:1;min-width:120px}
+.p-name{font-size:14px;font-weight:750;padding:0;text-align:left;transition:color .12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%}
+.p-name:hover{color:var(--dc-orange-d)}
+.p-pkg{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-prog{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.p-prog .pbar{flex:1;min-width:50px}
+.p-frac{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;background:var(--dc-surface2);padding:3px 8px;border-radius:6px;flex-shrink:0}
+.p-due{width:80px;flex-shrink:0;text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+.p-due.red{color:var(--red)}
+.p-due.ok{color:var(--green);font-size:11.5px}
+.p-date{width:88px;flex-shrink:0;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+.p-status{width:88px;flex-shrink:0;display:flex;justify-content:center}
+.p-acts{display:flex;gap:7px;align-items:center;flex-shrink:0;justify-content:flex-end}
+.p-sub-warn{font-size:10.5px;color:var(--red);font-weight:700;margin-top:2px}
+.pill-act.done{background:transparent;color:var(--green);border:1px solid transparent;cursor:default}
+.pill-act.done:hover{background:transparent}
+.pk-note{font-size:12px;color:var(--muted);padding:12px 6px 0;line-height:1.5}
+.top-list{padding:8px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.top-row{display:flex;flex-direction:column;gap:5px}
+.top-line{display:flex;align-items:baseline;gap:8px}
+.top-name{font-size:13px;font-weight:750;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-cnt{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted)}
+.top-amt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+.top-bar{height:6px;border-radius:999px;background:var(--dc-surface2);overflow:hidden}
+.top-bar span{display:block;height:100%;border-radius:999px}
+.renew-box{padding:16px 20px 20px}
+.renew-big{font-size:34px;font-weight:900;letter-spacing:-.03em;font-family:'JetBrains Mono',monospace;margin:6px 0 4px}
+.renew-sub{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:12px}
+
+@media (max-width:1560px){.prow{gap:11px}.p-date{display:none}}
+@media (max-width:1320px){.pk-grid{grid-template-columns:1fr}}
+@media (max-width:1180px){.dash-grid,.cust-grid,.pk-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.pkg-wrap{grid-template-columns:1fr}.m-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-logo"><span class="luera-wm">luera<span class="dot"></span></span><span class="sb-badge">güzellik</span></div>
+    <nav class="sb-nav" aria-label="Ana menü">
+      <button class="nav-item active" data-view="dashboard"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="11" y="3" width="6" height="6" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="11" width="6" height="6" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.4" stroke="currentColor" stroke-width="1.6"/></svg><span>Dashboard</span></button>
+      <button class="nav-item"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Seans Takvimi</span></button>
+      <button class="nav-item" data-view="customer"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 17c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Müşteriler</span></button>
+      <button class="nav-item" data-view="packages"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v3.5c0 2-1.5 3.5-3.5 3.5h-5C5.5 11 4 9.5 4 7.5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 11v3.5M6.5 17h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Paketler</span></button>
+      <button class="nav-item"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M3 16.5V10M10 16.5V6M17 16.5v-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Raporlar</span></button>
+      <button class="nav-item"><svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3L4.9 4.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Ayarlar</span></button>
+    </nav>
+    <div class="sb-bottom"><div class="user-row"><div class="avatar">S</div><div><div class="user-name">Selin</div><div class="user-role">Resepsiyon</div></div></div></div>
+  </aside>
+
+  <div class="main-wrap">
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-date">SALI · 18 TEMMUZ 2026</div>
+      <div class="searchwrap"><div class="searchbox"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input type="text" placeholder="Müşteri ara…" aria-label="Müşteri ara"/></div></div>
+      <button class="btn-ink" style="margin-left:auto" onclick="openModal()"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Yeni Seans</button>
+    </div>
+
+    <main class="main"><div class="wrap">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <section class="view active" id="view-dashboard" data-screen-label="Güzellik Dashboard">
+      <div class="hero">
+        <div class="hero-block"><span class="hb-day">Salı</span><span class="hb-num">18</span><span class="hb-mon">Temmuz 2026</span></div>
+        <div class="hero-body">
+          <div class="hero-info">
+            <div class="hero-kicker">LU Güzellik Salonu</div>
+            <div class="hero-title">Bugün 11 seans sizi bekliyor ✨</div>
+            <div class="hero-sub">Şu an <b>2 müşteri işlemde</b>, 2 bekliyor · Kabin 2 <b>14:30</b>'da boşalıyor · <b>3 müşteri</b> aksiyon bekliyor</div>
+          </div>
+          <div class="hero-acts">
+            <button class="btn-cream" onclick="showView('customer')">Müşteri Kartı Örneği</button>
+            <button class="btn-ink" onclick="openModal()"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Yeni Seans</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Bugün</span><span class="status-chip green">Yolunda</span></div>
+          <div class="kpi-val">11 <small>seans</small></div>
+          <div class="kpi-cmp"><span class="up">▲ 2</span> geçen salıya göre</div>
+          <div class="spark"><i style="height:40%"></i><i style="height:55%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:60%"></i><i style="height:78%"></i><i class="hi" style="height:100%"></i></div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Doluluk</span><span class="status-chip amber">Kabin 2 boş</span></div>
+          <div class="kpi-val">%76</div>
+          <div class="kpi-cmp">Kabin 1 <b class="mono" style="font-size:11.5px">%90</b> · Kabin 2 <b class="mono" style="font-size:11.5px">%55</b> · Lazer <b class="mono" style="font-size:11.5px">%82</b></div>
+          <div class="spark"><i style="height:62%"></i><i style="height:58%"></i><i style="height:70%"></i><i style="height:66%"></i><i style="height:82%"></i><i style="height:74%"></i><i class="hi" style="height:76%"></i></div>
+        </div>
+        <div class="kpi alert">
+          <div class="kpi-top"><span class="klabel" style="color:var(--dc-orange-d)">Biten Paketler</span><span class="status-chip orange">Yenileme fırsatı</span></div>
+          <div class="kpi-val">4 <small>müşteri</small></div>
+          <div class="kpi-cmp">Son seansı bu hafta biten paketler</div>
+          <div class="spark"><i style="height:30%"></i><i style="height:45%"></i><i style="height:35%"></i><i style="height:60%"></i><i style="height:50%"></i><i style="height:80%"></i><i class="hi" style="height:100%"></i></div>
+          <button class="kpi-link" onclick="toast('4 müşteri yenileme listesi açıldı')">Listeyi aç →</button>
+        </div>
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Bu Ay Paket Satışı</span><span class="status-chip green">Hedefte</span></div>
+          <div class="kpi-val">₺86.400</div>
+          <div class="kpi-cmp"><span class="up">▲ %14</span> geçen aya göre · 9 paket</div>
+          <div class="spark"><i style="height:35%"></i><i style="height:50%"></i><i style="height:42%"></i><i style="height:64%"></i><i style="height:58%"></i><i style="height:72%"></i><i class="hi" style="height:88%"></i></div>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.5v4l2.6 2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <div><div class="card-title">Bugünün Programı</div><div class="card-sub">Kabin bazlı — bloğa tıklayınca seans detayı açılır</div></div>
+            <button class="card-cta">Takvime Git →</button>
+          </div>
+          <div class="sched">
+            <div class="sched-scale" id="schedScale"></div>
+            <div class="lane">
+              <div class="lane-label"><div class="lane-name">Kabin 1</div><div class="lane-meta">Deniz · cilt/bakım</div></div>
+              <div class="lane-track" id="lane1"></div>
+            </div>
+            <div class="lane">
+              <div class="lane-label"><div class="lane-name">Kabin 2</div><div class="lane-meta">Melis · ağda/masaj</div></div>
+              <div class="lane-track" id="lane2"></div>
+            </div>
+            <div class="lane">
+              <div class="lane-label"><div class="lane-name">Lazer Cihazı</div><div class="lane-meta">Deniz &amp; Melis</div></div>
+              <div class="lane-track" id="lane3"></div>
+            </div>
+          </div>
+          <div class="sched-legend">
+            <div class="leg"><i style="background:#7B4FA0"></i>Lazer Epilasyon</div>
+            <div class="leg"><i style="background:#3B6FB0"></i>Cilt Bakımı</div>
+            <div class="leg"><i style="background:#2D8F32"></i>Masaj</div>
+            <div class="leg"><i style="background:#B87A00"></i>Ağda</div>
+            <div class="leg"><i style="background:#C94040"></i>Bölgesel İncelme</div>
+            <div class="leg" style="margin-left:auto"><i style="background:var(--dc-orange);border-radius:99px;width:3px;height:12px"></i>Şu an: 14:20</div>
+          </div>
+          <div class="sched-legend" style="padding-top:0;border-top:none;margin-top:-6px">
+            <div class="leg"><i style="background:var(--dc-surface3);border:1.5px dashed rgba(14,14,14,.4)"></i>Bekleniyor</div>
+            <div class="leg"><i style="background:var(--dc-surface3);border-left:4px solid #B87A00;border-radius:2px"></i>Geldi · bekliyor</div>
+            <div class="leg"><i style="background:var(--dc-orange);box-shadow:0 0 0 3px rgba(255,90,31,.2)"></i>İşlemde</div>
+            <div class="leg"><i style="background:transparent;border:2px solid var(--green)"></i>Bitti · kasada ₺</div>
+            <div class="leg"><i style="background:var(--dc-surface3);opacity:.5"></i>Tamamlandı ✓</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 5h12M4 10h12M4 15h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <div><div class="card-title">Aksiyon Kuyruğu</div><div class="card-sub">Her satır tek tıkla çözülür</div></div>
+          </div>
+          <div class="q-sec">
+            <span class="klabel" style="color:var(--dc-orange-d)">Şu an salonda</span>
+            <div class="q-row"><span class="q-bar" style="background:#B87A00"></span>
+              <div class="q-body"><div class="q-name"><span class="live-dot wt"></span>Elif Kaya</div><div class="q-sub">bekliyor <b>8 dk</b> · Kabin 1 hazırlanıyor</div></div>
+              <div class="q-acts"><button class="pill-act" onclick="toast('Elif Kaya Kabin 1&#39;e alındı')">Kabine Al</button></div>
+            </div>
+            <div class="q-row overdue"><span class="q-bar" style="background:var(--red)"></span>
+              <div class="q-body"><div class="q-name"><span class="live-dot wt" style="background:var(--red);box-shadow:0 0 0 3px rgba(201,64,64,.18)"></span>Seda Güler</div><div class="q-sub">bekliyor <b class="wt">12 dk</b> · Kabin 2 meşgul — ikram sunuldu mu?</div></div>
+              <div class="q-acts"><button class="pill-act" onclick="toast('Seda Güler Kabin 2&#39;ye alındı')">Kabine Al</button></div>
+            </div>
+            <div class="q-row"><span class="q-bar" style="background:var(--green)"></span>
+              <div class="q-body"><div class="q-name"><span class="live-dot on"></span>Gizem Polat</div><div class="q-sub">işlemde <b>32 dk</b> · Deniz · Lazer · bitiş ~<b>14:30</b></div></div>
+            </div>
+            <div class="q-row"><span class="q-bar" style="background:var(--green)"></span>
+              <div class="q-body"><div class="q-name"><span class="live-dot on"></span>Nur Sönmez</div><div class="q-sub">işlemde <b>50 dk</b> · Deniz · Bölgesel İncelme · bitiş ~<b>14:45</b></div></div>
+            </div>
+          </div>
+          <div class="q-sec">
+            <span class="klabel">Sonraki seansı planlanmamış</span>
+            <div class="q-row"><span class="q-bar" style="background:var(--purple)"></span>
+              <div class="q-body"><div class="q-name">Elif Kaya</div><div class="q-sub">Lazer Tüm Vücut · <b>4/8</b> · önerilen: <b>12 Ağu</b></div></div>
+              <div class="q-acts"><button class="pill-act" onclick="openModal('elif')">Planla</button></div>
+            </div>
+            <div class="q-row"><span class="q-bar" style="background:var(--blue)"></span>
+              <div class="q-body"><div class="q-name">Merve Aslan</div><div class="q-sub">Cilt Bakımı Paketi · <b>2/6</b> · önerilen: <b>1 Ağu</b></div></div>
+              <div class="q-acts"><button class="pill-act" onclick="openModal('merve')">Planla</button></div>
+            </div>
+          </div>
+          <div class="q-sec">
+            <span class="klabel">60+ gündür gelmiyor</span>
+            <div class="q-row"><span class="q-bar" style="background:var(--red)"></span>
+              <div class="q-body"><div class="q-name">Buse Yıldız</div><div class="q-sub">Son seans: <b>4 May</b> · 75 gün · masaj müdavimi</div></div>
+              <div class="q-acts">
+                <button class="icon-act wa" title="WhatsApp mesajı" onclick="toast('Buse Yıldız için WhatsApp taslağı hazırlandı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button>
+                <button class="pill-act ghost" onclick="toast('“Sizi özledik” mesajı gönderildi ✨')">Mesaj At</button>
+              </div>
+            </div>
+            <div class="q-row"><span class="q-bar" style="background:var(--red)"></span>
+              <div class="q-body"><div class="q-name">Gamze Öztürk</div><div class="q-sub">Son seans: <b>18 Nis</b> · 91 gün · lazer paketi yarım</div></div>
+              <div class="q-acts">
+                <button class="icon-act" title="Ara" onclick="toast('Gamze Öztürk aranıyor…')"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4.5C4 3.7 4.7 3 5.5 3h1.8c.4 0 .8.3.9.7l.7 2.6c.1.4 0 .8-.3 1l-1.2 1c.8 1.9 2.4 3.5 4.3 4.3l1-1.2c.2-.3.6-.4 1-.3l2.6.7c.4.1.7.5.7.9v1.8c0 .8-.7 1.5-1.5 1.5C9 16 4 11 4 4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+                <button class="pill-act ghost" onclick="toast('“Sizi özledik” mesajı gönderildi ✨')">Mesaj At</button>
+              </div>
+            </div>
+          </div>
+          <div class="q-sec" style="padding-bottom:10px">
+            <span class="klabel">Yarın onaysız</span>
+            <div class="q-row"><span class="q-bar" style="background:var(--amber)"></span>
+              <div class="q-body"><div class="q-name">Zeynep Demir</div><div class="q-sub">Yarın <b>10:00</b> · Bölgesel İncelme · onay bekliyor</div></div>
+              <div class="q-acts">
+                <button class="icon-act wa" title="WhatsApp onayı iste" onclick="toast('Onay mesajı gönderildi')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button>
+                <button class="icon-act" title="Ara" onclick="toast('Zeynep Demir aranıyor…')"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4.5C4 3.7 4.7 3 5.5 3h1.8c.4 0 .8.3.9.7l.7 2.6c.1.4 0 .8-.3 1l-1.2 1c.8 1.9 2.4 3.5 4.3 4.3l1-1.2c.2-.3.6-.4 1-.3l2.6.7c.4.1.7.5.7.9v1.8c0 .8-.7 1.5-1.5 1.5C9 16 4 11 4 4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="q-foot">Kuyruk her sabah 08:00'de yenilenir · biten paketler ve doğum günleri de buraya düşer</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ MÜŞTERİ KARTI ═══ -->
+    <section class="view" id="view-customer" data-screen-label="Müşteri Kartı">
+      <div class="card">
+        <div class="cust-head">
+          <div class="avatar xl">EK</div>
+          <div class="cust-info">
+            <div class="cust-name">Elif Kaya <span class="status-chip green">Aktif müşteri</span></div>
+            <div class="cust-badges">
+              <span class="status-chip red">⚠ Hamilelik — lazer uygulanmaz</span>
+              <span class="status-chip amber">Alerji: badem yağı</span>
+              <span class="status-chip gray">Üyelik: Mar 2024</span>
+            </div>
+            <div class="cust-contact"><span>0532 481 22 07</span><span>elif.kaya@gmail.com</span><span>Son ziyaret: 14 Tem 2026</span></div>
+          </div>
+          <div class="cust-acts">
+            <button class="icon-act wa" title="WhatsApp" onclick="toast('WhatsApp sohbeti açıldı')"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button>
+            <button class="icon-act" title="Ara" onclick="toast('Elif Kaya aranıyor…')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4.5C4 3.7 4.7 3 5.5 3h1.8c.4 0 .8.3.9.7l.7 2.6c.1.4 0 .8-.3 1l-1.2 1c.8 1.9 2.4 3.5 4.3 4.3l1-1.2c.2-.3.6-.4 1-.3l2.6.7c.4.1.7.5.7.9v1.8c0 .8-.7 1.5-1.5 1.5C9 16 4 11 4 4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+            <button class="btn-cream">Paket Sat</button>
+            <button class="btn-ink" onclick="openModal('elif')"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Yeni Seans</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-hd">
+          <div class="card-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v3.5c0 2-1.5 3.5-3.5 3.5h-5C5.5 11 4 9.5 4 7.5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 11v3.5M6.5 17h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+          <div><div class="card-title">Aktif Paketler</div><div class="card-sub">2 aktif · 1 tamamlandı — yenileme önerilebilir</div></div>
+          <button class="card-cta">Paket Sat →</button>
+        </div>
+        <div class="pkg-wrap">
+          <div class="pkg">
+            <div class="pkg-top"><div><div class="pkg-name">Lazer Tüm Vücut</div><div class="pkg-svc">Alexandrite · 8 seanslık paket</div></div><span class="pkg-frac">5/8</span></div>
+            <div class="pbar"><span style="width:62.5%"></span></div>
+            <div class="pkg-meta"><span>Kalan <b>₺3.600</b></span><span>Seans başı <b>₺1.200</b></span><span>Sonraki öneri <b>12 Ağu</b></span></div>
+            <div class="pkg-foot"><span class="status-chip red" style="font-size:10.5px">⚠ Hamilelik nedeniyle beklemede</span><span class="spacer"></span><button class="btn-ink sm" onclick="openModal('elif')">Seansı Planla</button></div>
+          </div>
+          <div class="pkg">
+            <div class="pkg-top"><div><div class="pkg-name">Cilt Bakımı 6'lı</div><div class="pkg-svc">Hydrafacial · 6 seanslık paket</div></div><span class="pkg-frac">2/6</span></div>
+            <div class="pbar"><span style="width:33.3%"></span></div>
+            <div class="pkg-meta"><span>Kalan <b>₺0 — peşin ödendi</b></span><span>Sonraki öneri <b>1 Ağu</b></span></div>
+            <div class="pkg-foot"><span class="status-chip green" style="font-size:10.5px">Ödemesi tamam</span><span class="spacer"></span><button class="btn-ink sm" onclick="openModal('elif-cilt')">Seansı Planla</button></div>
+          </div>
+          <div class="pkg done" style="grid-column:1/-1;flex-direction:row;align-items:center;gap:16px">
+            <div style="flex:1;min-width:0"><div class="pkg-name">Manikür-Pedikür 4'lü — tamamlandı ✨</div><div class="pkg-svc" style="margin-top:3px">Son seans 14 Tem · Elif bu paketi 2 kez yeniledi, yenileme şansı yüksek</div></div>
+            <button class="btn-cream sm" onclick="toast('Yenileme teklifi WhatsApp ile gönderildi')">Teklif Gönder</button>
+            <button class="btn-ink sm" onclick="toast('Yenileme satışı başlatıldı')">Paketi Yenile</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cust-grid">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.5v4l2.6 2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <div><div class="card-title">Seans Geçmişi</div><div class="card-sub">Son 5 kayıt</div></div>
+            <button class="card-cta">Tümü →</button>
+          </div>
+          <div class="tl">
+            <div class="tl-row"><span class="tl-dot" style="background:var(--amber)"></span><div class="tl-body"><div class="tl-t">Manikür + Pedikür <span class="tl-date">14 TEM 2026</span></div><div class="tl-sub">Melis · paket 4/4 · 75 dk</div></div><span class="tl-amt">Paketten</span></div>
+            <div class="tl-row"><span class="tl-dot" style="background:var(--blue)"></span><div class="tl-body"><div class="tl-t">Hydrafacial Cilt Bakımı <span class="tl-date">30 HAZ 2026</span></div><div class="tl-sub">Deniz · paket 2/6 · 60 dk</div></div><span class="tl-amt">Paketten</span></div>
+            <div class="tl-row"><span class="tl-dot" style="background:var(--purple)"></span><div class="tl-body"><div class="tl-t">Lazer Tüm Vücut <span class="tl-date">17 HAZ 2026</span></div><div class="tl-sub">Deniz · paket 5/8 · 90 dk · taksit ödemesi alındı</div></div><span class="tl-amt pos">+₺1.200</span></div>
+            <div class="tl-row"><span class="tl-dot" style="background:var(--purple)"></span><div class="tl-body"><div class="tl-t">Lazer Tüm Vücut <span class="tl-date">20 MAY 2026</span></div><div class="tl-sub">Deniz · paket 4/8 · 90 dk</div></div><span class="tl-amt pos">+₺1.200</span></div>
+            <div class="tl-row"><span class="tl-dot" style="background:var(--green)"></span><div class="tl-body"><div class="tl-t">Aromaterapi Masajı <span class="tl-date">2 MAY 2026</span></div><div class="tl-sub">Melis · tekil seans · 50 dk</div></div><span class="tl-amt pos">+₺950</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h14" stroke="currentColor" stroke-width="1.6"/></svg></div>
+            <div><div class="card-title">Ödeme &amp; Bakiye</div><div class="card-sub">Paket taksitleri dahil</div></div>
+          </div>
+          <div class="pay-box"><span class="klabel">Kalan Bakiye</span><div class="pay-big red" style="margin-top:6px">₺3.600</div></div>
+          <div class="pay-rows">
+            <div class="pay-row"><span class="l">Toplam paket tutarı</span><span class="v">₺27.400</span></div>
+            <div class="pay-row"><span class="l">Ödenen</span><span class="v" style="color:var(--green)">₺23.800</span></div>
+            <div class="pay-row"><span class="l">Kalan (Lazer Tüm Vücut)</span><span class="v" style="color:var(--red)">₺3.600</span></div>
+            <div class="pay-row"><span class="l">Ödeme planı</span><span class="v">3 × ₺1.200 · seans başı</span></div>
+            <div class="pay-row"><span class="l">Son ödeme</span><span class="v">17 Haz · kart</span></div>
+          </div>
+          <div class="pay-foot"><button class="btn-ink sm" onclick="toast('Ödeme alma ekranı açıldı')">Ödeme Al</button><button class="btn-cream sm" onclick="toast('Ekstre WhatsApp ile gönderildi')">Ekstre Gönder</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAKETLER ═══ -->
+    <section class="view" id="view-packages" data-screen-label="Paketler">
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Aktif Paket</span><span class="status-chip green">Sağlıklı</span></div>
+          <div class="kpi-val">23</div>
+          <div class="kpi-cmp">₺412.000 toplam paket geliri</div>
+          <div class="spark"><i style="height:45%"></i><i style="height:52%"></i><i style="height:60%"></i><i style="height:58%"></i><i style="height:70%"></i><i style="height:82%"></i><i class="hi" style="height:92%"></i></div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Bu Ay Satılan</span><span class="status-chip green">▲ %14</span></div>
+          <div class="kpi-val">9 <small>paket</small></div>
+          <div class="kpi-cmp">₺86.400 · geçen ay 8 paket</div>
+          <div class="spark"><i style="height:38%"></i><i style="height:55%"></i><i style="height:44%"></i><i style="height:62%"></i><i style="height:58%"></i><i style="height:74%"></i><i class="hi" style="height:88%"></i></div>
+        </div>
+        <div class="kpi alert">
+          <div class="kpi-top"><span class="klabel" style="color:var(--dc-orange-d)">Biten Paketler</span><span class="status-chip orange">Teklif gönder</span></div>
+          <div class="kpi-val">4</div>
+          <div class="kpi-cmp">Yenileme fırsatı — ort. dönüşüm %62</div>
+          <div class="spark"><i style="height:30%"></i><i style="height:48%"></i><i style="height:40%"></i><i style="height:56%"></i><i style="height:66%"></i><i style="height:78%"></i><i class="hi" style="height:100%"></i></div>
+          <button class="kpi-link" onclick="toast('4 bitmiş paket için teklif listesi açıldı')">Listeyi aç →</button>
+        </div>
+        <div class="kpi">
+          <div class="kpi-top"><span class="klabel">Kalan Tahsilat</span><span class="status-chip amber">Taksit takipte</span></div>
+          <div class="kpi-val">₺37.200</div>
+          <div class="kpi-cmp">3 müşteride gecikmiş taksit</div>
+          <div class="spark"><i style="height:80%"></i><i style="height:72%"></i><i style="height:66%"></i><i style="height:60%"></i><i style="height:52%"></i><i style="height:46%"></i><i class="hi" style="height:40%"></i></div>
+        </div>
+      </div>
+
+      <div class="pk-filter">
+        <button class="fpill active">Tümü <span class="cnt">23</span></button>
+        <button class="fpill">Aktif <span class="cnt">16</span></button>
+        <button class="fpill">Bitti <span class="cnt">4</span></button>
+        <button class="fpill">Taksiti Geciken <span class="cnt red">3</span></button>
+        <button class="fpill">İptal</button>
+        <div class="searchwrap pk-search"><div class="searchbox"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input type="text" placeholder="Müşteri veya paket ara…" aria-label="Paket ara"/></div></div>
+      </div>
+
+      <div class="pk-grid">
+        <div class="pk-list">
+          <div class="prow">
+            <span class="p-bar" style="background:var(--purple)"></span>
+            <div class="p-cust"><button class="p-name" onclick="showView('customer')">Elif Kaya</button><div class="p-pkg">Lazer Tüm Vücut · 8 seans</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:62.5%"></span></div><span class="p-frac">5/8</span></div>
+            <div class="p-due red">₺3.600</div>
+            <div class="p-date">17 HAZ 2026</div>
+            <div class="p-status"><span class="status-chip green">Aktif</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Elif Kaya · WhatsApp açıldı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act" onclick="openModal('elif')">Seansı Planla</button></div>
+          </div>
+          <div class="prow fin">
+            <span class="p-bar" style="background:var(--blue)"></span>
+            <div class="p-cust"><button class="p-name">Merve Aslan</button><div class="p-pkg">Cilt Bakımı 6'lı · Hydrafacial</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:100%;background:var(--dc-orange)"></span></div><span class="p-frac">6/6</span></div>
+            <div class="p-due ok">Ödendi ✓</div>
+            <div class="p-date">10 TEM 2026</div>
+            <div class="p-status"><span class="status-chip orange">Bitti</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Merve Aslan · WhatsApp açıldı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="btn-cream sm" onclick="toast('Yenileme teklifi gönderildi ✨')">Yenileme Teklifi</button></div>
+          </div>
+          <div class="prow late">
+            <span class="p-bar" style="background:var(--green)"></span>
+            <div class="p-cust"><button class="p-name">Buse Yıldız</button><div class="p-pkg">Masaj 10'lu · Aromaterapi</div><div class="p-sub-warn">34 gündür ödeme yok</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:30%"></span></div><span class="p-frac">3/10</span></div>
+            <div class="p-due red">₺4.900</div>
+            <div class="p-date">14 HAZ 2026</div>
+            <div class="p-status"><span class="status-chip red">Gecikmiş</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Ödeme hatırlatması taslağı hazırlandı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act" onclick="toast('Ödeme alma ekranı açıldı')">Ödeme Al</button></div>
+          </div>
+          <div class="prow">
+            <span class="p-bar" style="background:var(--purple)"></span>
+            <div class="p-cust"><button class="p-name">Hazal Mutlu</button><div class="p-pkg">Lazer Kol + Bacak · 6 seans</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:33.3%"></span></div><span class="p-frac">2/6</span></div>
+            <div class="p-due ok">Ödendi ✓</div>
+            <div class="p-date">18 TEM 2026</div>
+            <div class="p-status"><span class="status-chip green">Aktif</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Hazal Mutlu · WhatsApp açıldı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act" onclick="openModal()">Seansı Planla</button></div>
+          </div>
+          <div class="prow fin">
+            <span class="p-bar" style="background:var(--amber)"></span>
+            <div class="p-cust"><button class="p-name">Zeynep Demir</button><div class="p-pkg">Manikür-Pedikür 4'lü</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:100%;background:var(--dc-orange)"></span></div><span class="p-frac">4/4</span></div>
+            <div class="p-due ok">Ödendi ✓</div>
+            <div class="p-date">08 TEM 2026</div>
+            <div class="p-status"><span class="status-chip orange">Bitti</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Zeynep Demir · WhatsApp açıldı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act done">Teklif gönderildi ✓</button></div>
+          </div>
+          <div class="prow">
+            <span class="p-bar" style="background:var(--red)"></span>
+            <div class="p-cust"><button class="p-name">Nur Sönmez</button><div class="p-pkg">Bölgesel İncelme 12'li</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:58.3%"></span></div><span class="p-frac">7/12</span></div>
+            <div class="p-due red">₺8.400</div>
+            <div class="p-date">18 TEM 2026</div>
+            <div class="p-status"><span class="status-chip green">Aktif</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('Nur Sönmez · WhatsApp açıldı')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act" onclick="openModal()">Seansı Planla</button></div>
+          </div>
+          <div class="prow late">
+            <span class="p-bar" style="background:var(--blue)"></span>
+            <div class="p-cust"><button class="p-name">Gamze Öztürk</button><div class="p-pkg">Cilt Bakımı 6'lı · Hydrafacial</div><div class="p-sub-warn">91 gündür gelmiyor</div></div>
+            <div class="p-prog"><div class="pbar"><span style="width:50%"></span></div><span class="p-frac">3/6</span></div>
+            <div class="p-due red">₺2.700</div>
+            <div class="p-date">18 NİS 2026</div>
+            <div class="p-status"><span class="status-chip red">Gecikmiş</span></div>
+            <div class="p-acts"><button class="icon-act wa" title="WhatsApp" onclick="toast('“Sizi özledik” mesajı gönderildi ✨')"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 0 0-6 10.5L3 17l3.6-.95A7 7 0 1 0 10 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 8c.3 1.6 1.9 3.4 3.6 3.9l1-1 1.4.8c-.3 1-1.1 1.4-2 1.3c-2.3-.3-4.7-2.7-5-5c-.1-.9.3-1.7 1.3-2l.8 1.4-1.1.6z" fill="currentColor"/></svg></button><button class="pill-act ghost" onclick="toast('“Sizi özledik” mesajı gönderildi ✨')">Mesaj At</button></div>
+          </div>
+          <div class="pk-note">Henüz paketi olmayan müşteri mi var? Müşteri kartından <a href="#" onclick="showView('customer');return false">Paket Sat</a> ile başlayın.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 16.5V10M10 16.5V6M17 16.5v-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+              <div><div class="card-title">En Çok Satan Paketler</div><div class="card-sub">Son 6 ay</div></div>
+            </div>
+            <div class="top-list">
+              <div class="top-row"><div class="top-line"><span class="top-name">Lazer Tüm Vücut 8'li</span><span class="top-cnt">14 adet</span><span class="top-amt">₺134.400</span></div><div class="top-bar"><span style="width:100%;background:var(--purple)"></span></div></div>
+              <div class="top-row"><div class="top-line"><span class="top-name">Cilt Bakımı 6'lı</span><span class="top-cnt">11 adet</span><span class="top-amt">₺89.100</span></div><div class="top-bar"><span style="width:66%;background:var(--blue)"></span></div></div>
+              <div class="top-row"><div class="top-line"><span class="top-name">Masaj 10'lu</span><span class="top-cnt">7 adet</span><span class="top-amt">₺59.500</span></div><div class="top-bar"><span style="width:44%;background:var(--green)"></span></div></div>
+              <div class="top-row"><div class="top-line"><span class="top-name">Bölgesel İncelme 12'li</span><span class="top-cnt">5 adet</span><span class="top-amt">₺72.000</span></div><div class="top-bar"><span style="width:53%;background:var(--red)"></span></div></div>
+              <div class="top-row"><div class="top-line"><span class="top-name">Manikür-Pedikür 4'lü</span><span class="top-cnt">5 adet</span><span class="top-amt">₺14.000</span></div><div class="top-bar"><span style="width:10%;background:var(--amber)"></span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M16 5a8 8 0 1 0 1.5 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M17 3v3.5h-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div><div class="card-title">Yenileme Oranı</div><div class="card-sub">Bitmiş paketlerde</div></div>
+            </div>
+            <div class="renew-box">
+              <span class="klabel">Son 6 Ay</span>
+              <div class="renew-big">%62</div>
+              <div class="renew-sub">Bitmiş 13 paketin <b>8'i yenilendi</b> · teklif gönderilenlerde oran %78'e çıkıyor ✨</div>
+              <div class="pbar"><span style="width:62%;background:var(--dc-orange)"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    </div></main>
+  </div>
+</div>
+
+<!-- ═══ HIZLI SEANS MODALI ═══ -->
+<div class="overlay" id="overlay" onclick="closeModal()"></div>
+<div class="modal" id="modal" role="dialog" aria-label="Yeni seans">
+  <div class="modal-hd">
+    <div class="modal-ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+    <div><div class="modal-title">Yeni Seans</div><div class="modal-sub">Telefonda konuşurken bile 5 tıkta biter</div></div>
+    <button class="modal-close" onclick="closeModal()" aria-label="Kapat"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <div class="m-grid">
+      <div>
+        <div class="m-sec-t"><span class="m-step">1</span><span>Müşteri</span></div>
+        <input class="m-input" type="text" placeholder="İsim veya telefon yaz…" value="Elif Kaya"/>
+        <div class="m-cust">
+          <div class="avatar">EK</div>
+          <div class="m-cust-body"><div class="m-cust-name">Elif Kaya</div><div class="m-cust-sub">0532 481 22 07 · 2 aktif paket</div></div>
+          <button class="m-unlock" onclick="toast('Müşteri seçimi sıfırlandı')">Değiştir</button>
+        </div>
+        <div class="m-hint pkg-hint">Aktif paketi bulundu: <b>Cilt Bakımı 6'lı</b> — otomatik seçildi, ücret alınmaz.</div>
+        <div class="m-hint warn">⚠ Hamilelik kaydı var — lazer hizmetleri kapalı.</div>
+
+        <div class="m-sec-t" style="margin-top:18px"><span class="m-step">2</span><span>Hizmet / Paket</span></div>
+        <div class="svc-list">
+          <button class="svc-opt active"><span class="svc-dot" style="background:var(--blue)"></span><span class="svc-body"><span class="svc-name">Cilt Bakımı 6'lı — paketten</span><span class="svc-sub">Hydrafacial · 60 dk · Deniz önerilir</span></span><span class="svc-tag">kalan 4 seans · ücret ₺0</span></button>
+          <button class="svc-opt"><span class="svc-dot" style="background:var(--green)"></span><span class="svc-body"><span class="svc-name">Aromaterapi Masajı</span><span class="svc-sub">Tekil seans · 50 dk</span></span><span class="svc-tag fee">₺950</span></button>
+          <button class="svc-opt" style="opacity:.45;cursor:not-allowed" title="Hamilelik nedeniyle kapalı"><span class="svc-dot" style="background:var(--purple)"></span><span class="svc-body"><span class="svc-name">Lazer Tüm Vücut — paketten</span><span class="svc-sub">Hamilelik nedeniyle uygulanamaz</span></span><span class="svc-tag fee">kapalı</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="m-sec-t"><span class="m-step">3</span><span>Personel · Kabin · Saat</span></div>
+        <div class="m-row">
+          <div class="m-select"><select><option>Deniz (önerilen)</option><option>Melis</option><option>Fark etmez</option></select></div>
+          <div class="m-select"><select><option>Kabin 1 (uygun)</option><option>Kabin 2</option></select></div>
+        </div>
+        <div class="m-row" style="grid-template-columns:1fr">
+          <div class="m-select"><select><option>Yarın · Çarşamba 19 Tem</option><option>Bugün · Salı 18 Tem</option><option>Perşembe 20 Tem</option><option>Cuma 21 Tem</option></select></div>
+        </div>
+        <div class="slot-grid" id="slotGrid"></div>
+        <div class="slot-note"><span><i style="background:var(--dc-page);border:1px solid var(--border2)"></i>Uygun</span><span><i style="background:var(--dc-surface3)"></i>Dolu / cihaz çakışması</span><span><i style="background:var(--dc-ink)"></i>Seçili</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-ft">
+    <div class="m-summary" id="mSummary"><b>Elif Kaya</b> · Cilt Bakımı (paketten, ₺0) · Deniz · Kabin 1 · <b>Çar 19 Tem 14:00</b></div>
+    <button class="btn-ink" onclick="createSession()"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 10.5l4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Seansı Oluştur</button>
+  </div>
+</div>
+
+<div class="blockbar" id="blockBar" data-screen-label="Blok aksiyon çubuğu"></div>
+
+<div class="toast" id="toast"><span class="toast-ico"><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10.5l4 4 8-9" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="toastMsg"></span></div>
+
+<script>
+// tabs
+function showView(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
+  document.querySelectorAll('.nav-item[data-view]').forEach(n=>n.classList.toggle('active',n.dataset.view===v));
+  document.getElementById('topbarTitle').textContent = v==='customer' ? 'Müşteri Kartı · Elif Kaya' : v==='packages' ? 'Paketler' : 'Dashboard';
+}
+document.querySelectorAll('.nav-item[data-view]').forEach(n=>n.addEventListener('click',()=>showView(n.dataset.view)));
+
+// program lanes (09:00–19:00) — canlı faz katmanı
+const DAY0=9, DAY1=19;
+function pct(h){return ((h-DAY0)/(DAY1-DAY0)*100)}
+const scale=document.getElementById('schedScale');
+for(let h=DAY0;h<=DAY1;h++){const s=document.createElement('span');s.style.left=pct(h)+'%';s.textContent=(h<10?'0':'')+h+':00';scale.appendChild(s);}
+const PH={wait:'Bekleniyor',arrived:'Salonda bekliyor',active:'İşlemde',done:'Bitti · kasada',completed:'Tamamlandı'};
+const sessions={
+  lane1:[
+    {a:9.5,b:10.5,name:'Ayşe T.',svc:'Hydrafacial',color:'#3B6FB0',ph:'completed'},
+    {a:11,b:12.5,name:'Merve A.',svc:'Cilt Bakımı',color:'#3B6FB0',ph:'completed'},
+    {a:13.5,b:14.75,name:'Nur S.',svc:'Bölgesel İncelme',color:'#C94040',ph:'active',timer:'işlemde 50 dk'},
+    {a:14.9,b:15.9,name:'Elif K.',svc:'Hydrafacial',color:'#3B6FB0',ph:'arrived',timer:'bekliyor 08:24'},
+    {a:17,b:18,name:'Ceren U.',svc:'Cilt Bakımı',color:'#3B6FB0',ph:'wait'}],
+  lane2:[
+    {a:10,b:11,name:'Buket A.',svc:'Ağda',color:'#B87A00',ph:'completed'},
+    {a:13,b:14,name:'Selma K.',svc:'Masaj',color:'#2D8F32',ph:'done'},
+    {a:14.5,b:15.5,name:'Seda G.',svc:'Masaj',color:'#2D8F32',ph:'arrived',timer:'bekliyor 12:03'},
+    {a:16,b:17.25,name:'İrem D.',svc:'Aromaterapi',color:'#2D8F32',ph:'wait'}],
+  lane3:[
+    {a:9.5,b:11,name:'Hazal M.',svc:'Lazer 2/6',color:'#7B4FA0',ph:'completed'},
+    {a:11.5,b:12.5,name:'Sena Y.',svc:'Lazer 1/8',color:'#7B4FA0',ph:'completed'},
+    {a:13.8,b:14.5,name:'Gizem P.',svc:'Lazer 7/8',color:'#7B4FA0',ph:'active',timer:'işlemde 32 dk'},
+    {a:16.5,b:18,name:'Melisa T.',svc:'Lazer 3/8',color:'#7B4FA0',ph:'wait'}]
+};
+function fmtT(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm}
+function renderLanes(){
+  for(const[id,list]of Object.entries(sessions)){
+    const track=document.getElementById(id);track.innerHTML='';
+    list.forEach(s=>{
+      const d=document.createElement('button');d.className='blk ph-'+s.ph+(s===selSess?' sel-blk':'');
+      d.style.left=pct(s.a)+'%';d.style.width=(pct(s.b)-pct(s.a))+'%';d.style.background=s.color;
+      let nm=s.name; if(s.ph==='done')nm+=' · ₺'; if(s.ph==='completed')nm+=' ✓';
+      const l2=(s.ph==='arrived'||s.ph==='active')?'<div class="blk-timer">'+s.timer+'</div>':'<div class="blk-svc">'+s.svc+'</div>';
+      d.innerHTML='<div class="blk-name">'+nm+'</div>'+l2;
+      d.onclick=()=>openBlockBar(s);
+      track.appendChild(d);
+    });
+    const nl=document.createElement('div');nl.className='nowline';nl.style.left=pct(14.33)+'%';track.appendChild(nl);
+  }
+}
+// blok aksiyon çubuğu
+let selSess=null;
+const bar=document.getElementById('blockBar');
+function openBlockBar(s){selSess=s;renderBar();renderLanes();bar.classList.add('show');}
+function closeBlockBar(){selSess=null;bar.classList.remove('show');renderLanes();}
+function renderBar(){
+  const s=selSess;if(!s)return;
+  const who='<div class="bb-who"><span class="bb-name">'+s.name+'</span><span class="bb-time">'+fmtT(s.a)+'–'+fmtT(s.b)+' · '+s.svc+' · '+PH[s.ph].toUpperCase()+'</span></div>';
+  let mid='';
+  if(s.ph==='wait')mid='<button class="bb-btn amber" onclick="advPhase()">✓ Geldi</button>';
+  else if(s.ph==='arrived')mid='<button class="bb-btn orange" onclick="advPhase()">▶ Başladı</button>';
+  else if(s.ph==='active')mid='<button class="bb-btn green" onclick="advPhase()">✓ Bitti &amp; Tamamla</button>';
+  else if(s.ph==='done')mid='<span class="bb-sug">Sonraki seans önerisi: <b>12 Ağu</b></span><button class="bb-btn orange" onclick="closeBlockBar();openModal()">Hemen Planla</button><button class="bb-sec" onclick="advPhase()">Sonra</button>';
+  else mid='<span class="bb-sug" style="color:rgba(243,237,227,.6)">Seans tamamlandı ✓</span>';
+  const sec=(s.ph==='done')?'':'<button class="bb-sec" onclick="showView(&quot;customer&quot;);closeBlockBar()">Müşteri Kartı</button>';
+  bar.innerHTML=who+mid+sec+'<button class="bb-close" onclick="closeBlockBar()" aria-label="Kapat"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>';
+}
+function advPhase(){
+  const s=selSess;if(!s)return;
+  if(s.ph==='wait'){s.ph='arrived';s.timer='bekliyor 00:12';toast(s.name+' geldi olarak işaretlendi');}
+  else if(s.ph==='arrived'){s.ph='active';s.timer='işlemde 1 dk';toast(s.name+' · seans başladı');}
+  else if(s.ph==='active'){s.ph='done';toast(s.name+' · seans bitti — kasada ✨');}
+  else if(s.ph==='done'){s.ph='completed';toast(s.name+' · seans tamamlandı ✓');closeBlockBar();return;}
+  renderBar();renderLanes();
+}
+renderLanes();
+
+// modal slot grid
+const slots=[['09:00',1],['09:30',1],['10:00',0],['10:30',0],['11:00',1],['11:30',1],['12:00',0],['12:30',1],['13:00',1],['13:30',0],['14:00',1,'sel'],['14:30',1],['15:00',0],['15:30',1],['16:00',1],['16:30',0],['17:00',1],['17:30',1]];
+const grid=document.getElementById('slotGrid');
+slots.forEach(([t,ok,sel])=>{
+  const b=document.createElement('button');b.className='slot'+(ok?'':' busy')+(sel?' sel':'');b.textContent=t;
+  if(ok)b.onclick=()=>{grid.querySelectorAll('.slot').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+    document.getElementById('mSummary').innerHTML='<b>Elif Kaya</b> · Cilt Bakımı (paketten, ₺0) · Deniz · Kabin 1 · <b>Çar 19 Tem '+t+'</b>';};
+  grid.appendChild(b);
+});
+
+// modal
+function openModal(){document.getElementById('overlay').classList.add('open');document.getElementById('modal').classList.add('open');}
+function closeModal(){document.getElementById('overlay').classList.remove('open');document.getElementById('modal').classList.remove('open');}
+function createSession(){closeModal();toast('Seans oluşturuldu · Elif Kaya · Çar 19 Tem ✨');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+// toast
+let toastT;
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+</script>
+</body>
+</html>

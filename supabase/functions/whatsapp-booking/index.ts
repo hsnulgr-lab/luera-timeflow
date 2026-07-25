@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+    findCustomerByPhone, getSecret, logMessage, sendWA as sendWhatsApp,
+    type OrgWa,
+} from '../_shared/wa.ts';
+import { normalizePhone } from '../_shared/phone.ts';
 
 // ============================================================
 // whatsapp-booking — WhatsApp üzerinden AI ile randevu
@@ -29,6 +34,19 @@ function isReservationConflict(error: { code?: string; message?: string } | null
         || message.includes('reservation_staff_conflict')
         || message.includes('reservation_resource_conflict');
 }
+/**
+ * AI'dan gelen tarih güvenilir mi? YYYY-MM-DD biçiminde, gerçek bir gün,
+ * bugünden önce değil ve 90 günden uzağa değil.
+ */
+function isSaneDate(v: string, todayStr: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const t = Date.parse(`${v}T00:00:00Z`);
+    if (Number.isNaN(t)) return false;
+    if (new Date(t).toISOString().slice(0, 10) !== v) return false; // 2026-02-31 gibi
+    const today = Date.parse(`${todayStr}T00:00:00Z`);
+    return t >= today && t <= today + 90 * 86_400_000;
+}
+
 function timeToMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); }
 function minToTime(m: number): string { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 function weekdayOf(d: string): number { return new Date(d + 'T00:00:00Z').getUTCDay(); }
@@ -56,22 +74,6 @@ function staffSlots(opts: {
         out.push(s);
     }
     return out;
-}
-
-async function getSecret(admin: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await admin.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
-}
-
-async function sendWA(baseUrl: string, apiKey: string, instance: string, phone: string, text: string) {
-    try {
-        await fetch(`${baseUrl}/message/sendText/${instance}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey },
-            body: JSON.stringify({ number: phone, text }),
-        });
-    } catch { /* ignore */ }
 }
 
 // Groq (llama-3.3-70b): serbest metinden yapı ÇIKARIR (karar vermez).
@@ -117,35 +119,110 @@ Deno.serve(async (req: Request) => {
         const d = payload.data || {};
         const fromMe = d.key?.fromMe === true;
         const remoteJid: string = d.key?.remoteJid || '';
+        const providerMsgId: string = d.key?.id || '';
         const text: string = (d.message?.conversation || d.message?.extendedTextMessage?.text || '').trim();
 
         // Yalnızca gerçek, gelen, birebir mesajları işle
         if (fromMe || !remoteJid || remoteJid.includes('@g.us') || !text || !instance) return ok({ skipped: true });
-        const phone = remoteJid.split('@')[0];
+        // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır
+        const phone = normalizePhone(remoteJid.split('@')[0]) || remoteJid.split('@')[0];
 
         const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-        // Org'u instance'tan çöz
+        // Org'u instance'tan çöz — org_whatsapp.instance UNIQUE (070). Eskiden
+        // settings üzerinden çözülüyordu ve settings kullanıcı başına tek satır
+        // olduğu için çok üyeli org'da eşleşme belirsizdi.
+        const { data: orgWaRow } = await admin
+            .from('org_whatsapp')
+            .select('organization_id, instance, status, webhook_secret, features')
+            .eq('instance', instance)
+            .maybeSingle();
+        if (!orgWaRow?.organization_id) return ok({ skipped: 'org yok' });
+        const orgWa = orgWaRow as OrgWa;
+        const orgId = orgWa.organization_id;
+
+        // Webhook doğrulaması: fonksiyon URL'ini ve instance adını bilen herkes
+        // botu sürebiliyordu. Sır, bağlanırken proxy tarafından Evolution'a
+        // yazılan ?s=<webhook_secret> parametresidir.
+        const givenSecret = new URL(req.url).searchParams.get('s') || '';
+        if (!orgWa.webhook_secret || givenSecret !== orgWa.webhook_secret) {
+            return new Response(JSON.stringify({ error: 'unauthorized' }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // Idempotency: Evolution aynı mesajı tekrar POST ederse ikinci kez
+        // işlenmesin (aynı randevu iki kez oluşabiliyordu).
+        if (providerMsgId) {
+            const { error: seenErr } = await admin
+                .from('wa_inbound_seen')
+                .insert({ provider_msg_id: providerMsgId, organization_id: orgId });
+            // 23505 = aynı mesaj daha önce işlendi. Başka bir hata olursa
+            // (tablo/bağlantı) mesajı düşürmek yerine işlemeye devam et.
+            if (seenErr?.code === '23505') return ok({ skipped: 'duplicate' });
+        }
+
         const { data: setting } = await admin
             .from('settings')
-            .select('organization_id, business_name, working_hours, slot_duration')
-            .eq('whatsapp_instance', instance)
+            .select('business_name, working_hours, slot_duration')
+            .eq('organization_id', orgId)
+            .limit(1)
             .maybeSingle();
-        if (!setting?.organization_id) return ok({ skipped: 'org yok' });
-        const orgId = setting.organization_id;
-        const orgHours: WH[] = setting.working_hours || [];
-        const slotDuration: number = setting.slot_duration || 30;
-        const businessName: string = setting.business_name || 'İşletme';
+        const orgHours: WH[] = setting?.working_hours || [];
+        const slotDuration: number = setting?.slot_duration || 30;
+        const businessName: string = setting?.business_name || 'İşletme';
 
         const { data: org } = await admin.from('organizations').select('slug, owner_id, booking_auto_confirm').eq('id', orgId).maybeSingle();
 
-        const EVOLUTION_URL = await getSecret(admin, 'EVOLUTION_API_URL');
-        const EVOLUTION_KEY = await getSecret(admin, 'EVOLUTION_API_KEY');
+        const known = await findCustomerByPhone(admin, orgId, phone);
+
         const GROQ_KEY = await getSecret(admin, 'GROQ_API_KEY');
-        const reply = async (t: string) => {
-            if (EVOLUTION_URL && EVOLUTION_KEY) await sendWA(EVOLUTION_URL, EVOLUTION_KEY, instance, phone, t);
+        const reply = async (t: string, kind: 'booking' | 'optout' = 'booking') => {
+            await sendWhatsApp(admin, {
+                org: orgWa, phone, text: t, kind,
+                customerId: known?.id ?? null,
+                // Müşteri yazdı, biz cevaplıyoruz: opt-out otomatik gönderimi
+                // durdurur, karşılıklı konuşmayı değil.
+                ignoreOptOut: true,
+            });
             return ok({ reply: t });
         };
+
+        // Gelen mesajı kaydet — bugüne kadar konuşmanın hiçbir kalıcı izi yoktu
+        await logMessage(admin, {
+            orgId, direction: 'in', phone, kind: 'inbound',
+            status: 'sent', body: text, customerId: known?.id ?? null,
+            providerMsgId: providerMsgId || null,
+        });
+
+        // ── Opt-out: "DUR" diyen müşteriye bir daha otomatik mesaj gitmez ────
+        if (/^\s*(dur|stop|iptal et|çıkar|cikar|abone iptal|mesaj istemiyorum)\s*$/i.test(text)) {
+            if (known?.id) {
+                await admin.from('customers')
+                    .update({ wa_opt_out: true, wa_opt_out_at: new Date().toISOString() })
+                    .eq('id', known.id).eq('organization_id', orgId);
+            }
+            return reply(
+                `Anlaşıldı — bundan sonra size otomatik mesaj göndermeyeceğiz.\n\n` +
+                `Tekrar almak isterseniz bu mesaja *BAŞLAT* yazmanız yeterli.`,
+                'optout',
+            );
+        }
+        if (/^\s*(başlat|baslat|start|devam)\s*$/i.test(text) && known?.wa_opt_out) {
+            await admin.from('customers')
+                .update({ wa_opt_out: false, wa_opt_out_at: null })
+                .eq('id', known.id).eq('organization_id', orgId);
+            return reply('Tekrar aramıza hoş geldiniz! Bilgilendirme mesajlarınız yeniden açıldı 😊', 'optout');
+        }
+
+        // Bot maliyeti koruması: bir numara saatte 20 mesajdan fazlasını
+        // tetikleyemez (her mesaj bir Groq çağrısı demek).
+        const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+        const { count: recentIn } = await admin
+            .from('wa_message_log')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgId).eq('phone', phone)
+            .eq('direction', 'in').gte('created_at', hourAgo);
+        if ((recentIn ?? 0) > 20) return ok({ skipped: 'rate_limited' });
 
         // Hizmetler + aktif personel
         const [{ data: services }, { data: allStaff }] = await Promise.all([
@@ -186,7 +263,11 @@ Deno.serve(async (req: Request) => {
                 || svcArr.find(s => s.name.toLowerCase().includes(ex.service!.toLowerCase()) || ex.service!.toLowerCase().includes(s.name.toLowerCase()));
             if (matched) { state.serviceId = matched.id; state.serviceName = matched.name; state.serviceDuration = matched.duration; }
         }
-        if (ex.date) { state.date = ex.date; if (state.time && ex.date !== state._dateForTime) { /* tarih değişti, saatı koru */ } }
+        // AI'nın ürettiği tarih doğrulanmadan state'e ve oradan reservations
+        // insert'ine gidiyordu; hatalı/uydurma bir tarih randevu oluşturabiliyordu.
+        // Biçim + makul aralık kontrolü burada yapılır (saat zaten slot listesine
+        // karşı doğrulanıyor).
+        if (ex.date && isSaneDate(ex.date, todayStr)) state.date = ex.date;
         if (ex.time) state.time = ex.time;
 
         const saveState = async () => {
@@ -274,12 +355,11 @@ Deno.serve(async (req: Request) => {
 
         // Müşteri bul/oluştur
         let customerId: string | null = null;
-        const { data: existing, error: customerLookupError } = await admin.from('customers').select('id, name').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
+        // Kayıtlı müşteri araması normalize numarayla ve yazım varyantlarıyla
+        // yapılır (0532… / +90532… / 532… hepsi aynı kişi); yoksa her yazımdan
+        // ayrı bir müşteri kaydı oluşuyordu.
+        const existing = known;
         const pushName = (payload.data?.pushName || '').trim();
-        if (customerLookupError) {
-            console.error('whatsapp customer lookup error', customerLookupError);
-            return reply('Hasta kaydınız şu anda doğrulanamadı. Lütfen biraz sonra tekrar deneyin.');
-        }
         if (existing) { customerId = existing.id; }
         else {
             const { data: created, error: customerCreateError } = await admin.from('customers').insert({ user_id: ownerId, organization_id: orgId, name: pushName || `WhatsApp ${phone.slice(-4)}`, phone }).select('id').single();

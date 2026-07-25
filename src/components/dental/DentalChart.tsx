@@ -21,6 +21,8 @@ interface T { ink: string; muted: string; surface: string; surface2: string; bor
 interface DentalChartProps {
     customerId: string;
     staffId?: string;
+    encounterId?: string;
+    reservationId?: string;
     T: T;
     readOnly?: boolean;
 }
@@ -30,10 +32,10 @@ interface DentalChartProps {
 // güncel durum en son eklenen kayıttan okunur (bkz. useDentalChart).
 export function DentalChart(props: DentalChartProps) {
     // Hasta değişiminde açık diş editörü ve taslak kesin olarak sıfırlansın.
-    return <DentalChartForCustomer key={props.customerId} {...props} />;
+    return <DentalChartForCustomer key={`${props.customerId}:${props.reservationId || props.encounterId || 'patient'}`} {...props} />;
 }
 
-function DentalChartForCustomer({ customerId, staffId, T, readOnly = false }: DentalChartProps) {
+function DentalChartForCustomer({ customerId, staffId, encounterId, reservationId, T, readOnly = false }: DentalChartProps) {
     const { current, historyFor, isLoading, setTooth } = useDentalChart(customerId);
     const [active, setActive] = useState<number | null>(null);
     const [draftStatus, setDraftStatus] = useState<DentalStatus>('saglam');
@@ -58,6 +60,8 @@ function DentalChartForCustomer({ customerId, staffId, T, readOnly = false }: De
         const rec = current.get(active);
         const ok = await setTooth(active, draftStatus, {
             note: note.trim() || undefined, staffId,
+            encounterId,
+            reservationId,
             surfaces: SURFACE_STATUSES.includes(draftStatus)
                 ? draftSurfaces
                 : (rec && rec.status === draftStatus ? rec.surfaces : []),

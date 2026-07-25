@@ -7,14 +7,20 @@ import type { TreatmentPlan, TreatmentPlanStatus } from '@/types';
 export interface TreatmentPlanAttribution {
     staffId?: string;
     reservationId?: string;
+    encounterId?: string;
     notes?: string;
+    status?: TreatmentPlanStatus;   // 'proposed' = onay bekleyen teklif — 063
+    sessionCount?: number;          // 064: çok seanslı tedavi (varsayılan 1)
 }
 
-function isMissingAttributionColumn(error: { code?: string; message?: string; details?: string } | null): boolean {
-    if (!error) return false;
+function missingAttributionColumn(error: { code?: string; message?: string; details?: string } | null): 'reservation_id' | 'encounter_id' | 'created_by' | null {
+    if (!error) return null;
     const message = String(error.message || error.details || '').toLowerCase();
-    return (error.code === 'PGRST204' || error.code === '42703')
-        && (message.includes('reservation_id') || message.includes('created_by'));
+    if (error.code !== 'PGRST204' && error.code !== '42703') return null;
+    if (message.includes('reservation_id')) return 'reservation_id';
+    if (message.includes('encounter_id')) return 'encounter_id';
+    if (message.includes('created_by')) return 'created_by';
+    return null;
 }
 
 interface TreatmentPlanDbRow {
@@ -25,9 +31,12 @@ interface TreatmentPlanDbRow {
     status: TreatmentPlanStatus;
     staff_id?: string | null;
     reservation_id?: string | null;
+    encounter_id?: string | null;
     created_by?: string | null;
     notes?: string | null;
     created_at: string;
+    session_count?: number | string | null;
+    sessions_done?: number | string | null;
 }
 
 interface PlannedDentalRecordRow {
@@ -54,9 +63,12 @@ function mapRow(row: TreatmentPlanDbRow): TreatmentPlan {
         status: row.status,
         staffId: row.staff_id || undefined,
         reservationId: row.reservation_id || undefined,
+        encounterId: row.encounter_id || undefined,
         createdBy: row.created_by || undefined,
         notes: row.notes || undefined,
         createdAt: row.created_at,
+        sessionCount: Math.max(1, Number(row.session_count ?? 1) || 1),
+        sessionsDone: Math.max(0, Number(row.sessions_done ?? 0) || 0),
     };
 }
 
@@ -116,17 +128,31 @@ export function useTreatmentPlans(customerId: string | undefined) {
             total_amount: totalAmount,
             staff_id: attribution.staffId || null,
             notes: attribution.notes || null,
+            ...(attribution.status ? { status: attribution.status } : {}),
+            ...(attribution.sessionCount && attribution.sessionCount > 1 ? { session_count: Math.min(50, Math.trunc(attribution.sessionCount)) } : {}),
         };
-        let result = await supabase.from('treatment_plans').insert({
+        const payload: Record<string, unknown> = {
             ...basePayload,
             reservation_id: attribution.reservationId || null,
+            ...(attribution.encounterId ? { encounter_id: attribution.encounterId } : {}),
             created_by: user?.id || null,
-        }).select().single();
+        };
+        let result = await supabase.from('treatment_plans').insert(payload).select().single();
 
-        // Migration henüz uygulanmamış bir ortamda plan oluşturmayı tamamen
-        // kırma. 057 uygulandığında yeni bağlar otomatik olarak yazılır.
-        if (isMissingAttributionColumn(result.error)) {
-            result = await supabase.from('treatment_plans').insert(basePayload).select().single();
+        // 064 uygulanmamışsa seans kolonu olmadan yeniden dene (plan tek seans sayılır)
+        if (result.error && 'session_count' in payload
+            && `${result.error.message || ''} ${result.error.details || ''}`.includes('session_count')) {
+            delete payload.session_count;
+            result = await supabase.from('treatment_plans').insert(payload).select().single();
+        }
+
+        // 057/062 kademeli uygulanırken mevcut olan randevu/hekim bağlarını
+        // kaybetme; yalnız gerçekten eksik opsiyonel kolonu çıkarıp yeniden dene.
+        for (let attempt = 0; result.error && attempt < 3; attempt += 1) {
+            const missing = missingAttributionColumn(result.error);
+            if (!missing || !(missing in payload)) break;
+            delete payload[missing];
+            result = await supabase.from('treatment_plans').insert(payload).select().single();
         }
         const { data, error } = result;
         if (error) { toast.error('Tedavi planı oluşturulamadı'); console.error(error); return null; }
@@ -227,22 +253,22 @@ export function useTreatmentPlans(customerId: string | undefined) {
 
     const setPlanAttribution = useCallback(async (
         id: string,
-        attribution: Pick<TreatmentPlanAttribution, 'staffId' | 'reservationId'>,
+        attribution: Pick<TreatmentPlanAttribution, 'staffId' | 'reservationId' | 'encounterId'>,
     ) => {
-        if (!attribution.staffId && !attribution.reservationId) return true;
-        const staffPatch = attribution.staffId ? { staff_id: attribution.staffId } : {};
-        let result = await supabase.from('treatment_plans').update({
-            ...staffPatch,
+        if (!attribution.staffId && !attribution.reservationId && !attribution.encounterId) return true;
+        const patch: Record<string, unknown> = {
+            ...(attribution.staffId ? { staff_id: attribution.staffId } : {}),
             ...(attribution.reservationId ? { reservation_id: attribution.reservationId } : {}),
-        }).eq('id', id).select().single();
+            ...(attribution.encounterId ? { encounter_id: attribution.encounterId } : {}),
+        };
+        let result = await supabase.from('treatment_plans').update(patch).eq('id', id).select().single();
 
-        // Eski şemada reservation_id yoksa en azından sorumlu hekimi kalıcı
-        // yaz. Migration sonrasında randevu bağı da aynı işlemde saklanır.
-        if (isMissingAttributionColumn(result.error) && attribution.staffId) {
-            result = await supabase.from('treatment_plans')
-                .update({ staff_id: attribution.staffId })
-                .eq('id', id)
-                .select().single();
+        for (let attempt = 0; result.error && attempt < 2; attempt += 1) {
+            const missing = missingAttributionColumn(result.error);
+            if (!missing || !(missing in patch)) break;
+            delete patch[missing];
+            if (Object.keys(patch).length === 0) return true;
+            result = await supabase.from('treatment_plans').update(patch).eq('id', id).select().single();
         }
         const { data, error } = result;
         if (error) { toast.error('Plan sorumlusu güncellenemedi'); console.error(error); return false; }
@@ -258,5 +284,29 @@ export function useTreatmentPlans(customerId: string | undefined) {
         return true;
     }, [updatePlans]);
 
-    return { plans, isLoading, addPlan, setPlanStatus, setPlanAttribution, removePlan };
+    // 064: bir seans tamamla. Son seansta plan 'completed' olur (diş kayıtları
+    // dahil eski akış); ara seanslar yalnız sayacı ilerletir. Kolon yoksa
+    // (migration uygulanmamış) tek seanslı eski davranışa düşer.
+    const completeSession = useCallback(async (id: string, completedByStaffId?: string) => {
+        const plan = plans.find((p) => p.id === id);
+        const count = plan?.sessionCount ?? 1;
+        const newDone = Math.min((plan?.sessionsDone ?? 0) + 1, count);
+        if (newDone >= count) {
+            const ok = await setPlanStatus(id, 'completed', completedByStaffId);
+            if (ok && count > 1) {
+                const { error } = await supabase.from('treatment_plans').update({ sessions_done: newDone }).eq('id', id);
+                if (!error) updatePlans((prev) => prev.map((p) => p.id === id ? { ...p, sessionsDone: newDone } : p));
+            }
+            return ok;
+        }
+        const { error } = await supabase
+            .from('treatment_plans').update({ sessions_done: newDone })
+            .eq('id', id).eq('customer_id', customerId);
+        if (error) return setPlanStatus(id, 'completed', completedByStaffId);
+        updatePlans((prev) => prev.map((p) => p.id === id ? { ...p, sessionsDone: newDone } : p));
+        toast.success(`Seans kaydedildi · ${newDone}/${count}`);
+        return true;
+    }, [plans, customerId, setPlanStatus, updatePlans]);
+
+    return { plans, isLoading, addPlan, setPlanStatus, setPlanAttribution, removePlan, completeSession };
 }

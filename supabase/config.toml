@@ -8,3 +8,8 @@ verify_jwt = false
 # kimlik doğrulama x-push-secret (app_secrets.PUSH_TRIGGER_SECRET) ile fonksiyon içinde.
 [functions.send-push]
 verify_jwt = false
+
+# whatsapp-booking'i Evolution API çağırır — Supabase JWT taşımaz; kimlik
+# doğrulama URL'deki ?s=<org_whatsapp.webhook_secret> ile fonksiyon içinde.
+[functions.whatsapp-booking]
+verify_jwt = false

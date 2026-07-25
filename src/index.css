@@ -22,6 +22,8 @@ html, body, #root {
   --dc-border:rgba(14,14,14,0.09); --dc-border-soft:rgba(14,14,14,0.06); --dc-border2:rgba(14,14,14,0.14);
   --dc-muted:rgba(14,14,14,0.48); --dc-muted2:rgba(14,14,14,0.30);
   --dc-orange-soft:rgba(255,90,31,0.08);
+  /* Seans Takvimi (premium gün görünümü) — kart zeminden gölgeyle ayrılır */
+  --dc-card:#FFFDFB; --dc-hair2:rgba(14,14,14,0.04); --dc-offhrs:rgba(14,14,14,0.028); --dc-ink70:rgba(14,14,14,0.62);
   --dc-green:#2D8F32; --dc-green-bg:#E8F5EA;
   --dc-red:#C94040; --dc-red2:#C0392B; --dc-red-bg:#FBECEC;
   --dc-amber:#B87A00; --dc-amber-bg:rgba(184,121,10,0.12);
@@ -37,6 +39,7 @@ html, body, #root {
   --dc-border:rgba(243,237,227,0.10); --dc-border-soft:rgba(243,237,227,0.07); --dc-border2:rgba(243,237,227,0.22);
   --dc-muted:rgba(243,237,227,0.55); --dc-muted2:rgba(243,237,227,0.30);
   --dc-orange-soft:rgba(255,90,31,0.14);
+  --dc-card:#241E16; --dc-hair2:rgba(243,237,227,0.05); --dc-offhrs:rgba(243,237,227,0.03); --dc-ink70:rgba(243,237,227,0.68);
   --dc-green:#7AD3A0; --dc-green-bg:rgba(45,160,50,.16);
   --dc-red:#e07070; --dc-red2:#e07070; --dc-red-bg:rgba(224,112,112,.16);
   --dc-amber:#E0A12E; --dc-amber-bg:rgba(224,161,46,0.16);
@@ -54,6 +57,13 @@ html, body, #root {
   0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 90, 31, 0.40); }
   50%      { box-shadow: 0 0 14px 3px rgba(255, 90, 31, 0.75); }
 }
+/* ── Güzellik dashboard canlı faz katmanı: işlemdeki blok nabız atar ───────── */
+.gz-blk-active { animation: gz-blk-pulse 2.4s ease-in-out infinite; }
+@keyframes gz-blk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
+  50%      { box-shadow: 0 0 0 4px rgba(255, 90, 31, 0.28); }
+}
+
 /* ── btn--bracket: köşe parantezi butonu (dark mode only) ──────────────────── */
 .btn-bracket {
   position: relative;

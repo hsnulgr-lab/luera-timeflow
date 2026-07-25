@@ -88,6 +88,7 @@ export interface Service {
     duration: number;
     color: string;
     price?: number;
+    recallDays?: number;   // hizmet bazlı dönüş periyodu (gün) — 067; boşsa sektör varsayılanı
 }
 
 export interface Settings {
@@ -96,7 +97,6 @@ export interface Settings {
     services: Service[];
     webhookUrl?: string;
     slotDuration: number;
-    whatsappInstance?: string;
     sector?: string;
     managerPin?: string;   // Mobil Yönetici Modu girişi (SHA-256 hash; opsiyonel)
     loyaltyEnabled?: boolean;    // Dijital müşteri kartı açık mı
@@ -104,6 +104,7 @@ export interface Settings {
     loyaltyReward?: string;      // Ödül metni (vars. "Ücretsiz hizmet")
     rebookEnabled?: boolean;     // Sıradaki randevu otomasyonu açık mı
     rebookNote?: string;         // Teşvik satırı (ör. "%10 erken rezervasyon indirimi")
+    arrivalToleranceMin?: number; // Geç-kalma toleransı (dk) — sonrası 'Gelmedi' (vars. 120)
 }
 
 export interface Staff {
@@ -177,7 +178,9 @@ export interface Payment {
 // Tedavi planı — çok seanslı tedavilerin (örn. kanal tedavisi) toplam ücreti
 // tek planda tutulur; taksitler mevcut Payment kayıtlarına (treatmentPlanId ile)
 // bağlanır, ayrı bir finansal defter açılmaz.
-export type TreatmentPlanStatus = 'active' | 'completed' | 'cancelled';
+// proposed = hastaya sunulmuş ama henüz onaylanmamış teklif (bakiyeye yazılmaz);
+// active = hasta onayladı, tedavi sürüyor — 063
+export type TreatmentPlanStatus = 'proposed' | 'active' | 'completed' | 'cancelled';
 export interface TreatmentPlan {
     id: string;
     customerId: string;
@@ -186,9 +189,105 @@ export interface TreatmentPlan {
     status: TreatmentPlanStatus;
     staffId?: string;
     reservationId?: string;
+    encounterId?: string;
     createdBy?: string;
     notes?: string;
     createdAt: string;
+    // 064: çok seanslı tedavi — eski satırlar 1 seans kabul edilir
+    sessionCount: number;
+    sessionsDone: number;
+}
+
+// Hasta ziyareti / muayene omurgası — 062. Bir randevu tenant içinde en
+// fazla bir encounter'a bağlanır; klinik notlar ve işlemler bu kaydı izler.
+export type PatientEncounterVisitType =
+    | 'examination'
+    | 'treatment'
+    | 'control'
+    | 'emergency'
+    | 'consultation'
+    | 'other';
+
+export type PatientEncounterStatus =
+    | 'scheduled'
+    | 'checked_in'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled';
+
+export interface PatientEncounter {
+    id: string;
+    organizationId: string;
+    customerId: string;
+    reservationId?: string;
+    attendingStaffId?: string;
+    visitType: PatientEncounterVisitType;
+    status: PatientEncounterStatus;
+    reasonForVisit?: string;
+    chiefComplaint?: string;
+    diagnosis?: string;
+    clinicalNotes?: string;
+    checkedInAt?: string;
+    startedAt?: string;
+    completedAt?: string;
+    cancelledAt?: string;
+    createdBy?: string;
+    updatedBy?: string;
+    createdAt: string;
+    updatedAt: string;
+    metadata: Record<string, unknown>;
+}
+
+export type ClinicalProcedureCategory = 'finding' | 'existing' | 'treatment';
+export type ClinicalProcedureStatus =
+    | 'recorded'
+    | 'planned'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled';
+
+export interface ClinicalProcedure {
+    id: string;
+    organizationId: string;
+    customerId: string;
+    encounterId?: string;
+    reservationId?: string;
+    treatmentPlanId?: string;
+    sourceDentalRecordId?: string;
+    category: ClinicalProcedureCategory;
+    status: ClinicalProcedureStatus;
+    procedureCode?: string;
+    title: string;
+    toothNumber?: number;
+    surfaces: ToothSurface[];
+    clinicalNote?: string;
+    performedByStaffId?: string;
+    performedAt?: string;
+    createdBy?: string;
+    updatedBy?: string;
+    createdAt: string;
+    updatedAt: string;
+    metadata: Record<string, unknown>;
+}
+
+// Periodontal cep haritası — diş başına 6 nokta (DB/B/MB · DL/L/ML). Cep
+// derinliği ve sondalamada kanama (BOP) klinik takibin temeli. Diş başına
+// en güncel ölçüm tutulur (upsert). — 063
+export type PerioSite = 'db' | 'b' | 'mb' | 'dl' | 'l' | 'ml';
+export const PERIO_SITES: PerioSite[] = ['db', 'b', 'mb', 'dl', 'l', 'ml'];
+export interface PerioTooth {
+    id: string;
+    organizationId: string;
+    customerId: string;
+    toothNumber: number;
+    pocketDepth: (number | null)[];   // 6 nokta, mm (PERIO_SITES sırası)
+    recession: (number | null)[];     // 6 nokta, mm
+    bleeding: boolean[];              // 6 nokta, sondalamada kanama
+    mobility?: number;               // 0-3 diş sallanması
+    note?: string;
+    measuredBy?: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export type InstallmentCadence = 'weekly' | 'monthly';
@@ -296,6 +395,9 @@ export interface DentalRecord {
     surfaces: ToothSurface[];        // boş = tüm diş (kron/implant/çekildi vb.)
     recordType: DentalRecordType;    // planned = tedavi planındaki işlem — 056
     treatmentPlanId?: string;
+    encounterId?: string;
+    reservationId?: string;
+    createdBy?: string;
     note?: string;
     staffId?: string;
     createdAt: string;

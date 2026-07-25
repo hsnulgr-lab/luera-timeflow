@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getOrgWa, sendWA } from '../_shared/wa.ts';
+import { identify, deny } from '../_shared/auth.ts';
 
 // ============================================================
 // notify-waitlist — Boşluk Doldurma
@@ -23,23 +25,6 @@ function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-async function sendWhatsApp(baseUrl: string, apiKey: string, instance: string, phone: string, text: string): Promise<boolean> {
-    try {
-        const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey },
-            body: JSON.stringify({ number: phone, text }),
-        });
-        return res.ok;
-    } catch { return false; }
-}
-
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
-}
-
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -49,18 +34,26 @@ Deno.serve(async (req: Request) => {
 
         const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-        // Org slug + settings (whatsapp)
+        // İki meşru çağıran var: panel (kullanıcı oturumu) ve booking-manage
+        // (service_role, randevu iptalinde). Önceden hiçbir kontrol yoktu —
+        // org id'yi bilen herkes o işletmenin bekleme listesine mesaj attırabiliyordu.
+        const caller = await identify(supabase, req);
+        if (caller.kind === 'none') return deny(401, 'Yetkisiz', corsHeaders);
+        if (caller.kind === 'user' && caller.orgId !== organization_id) {
+            return deny(403, 'Bu işletme için yetkiniz yok', corsHeaders);
+        }
+
+        // Org slug + işletme adı. settings kullanıcı başına tek satır olduğu
+        // için limit(1) ile tek satır alıyoruz; bağlantı bilgisi org_whatsapp'ta.
         const [{ data: org }, { data: settings }] = await Promise.all([
             supabase.from('organizations').select('slug, name').eq('id', organization_id).maybeSingle(),
-            supabase.from('settings').select('business_name, whatsapp_instance').eq('organization_id', organization_id).maybeSingle(),
+            supabase.from('settings').select('business_name').eq('organization_id', organization_id).limit(1).maybeSingle(),
         ]);
         if (!org?.slug) return json({ error: 'İşletme/slug bulunamadı' }, 404);
 
-        const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
-        const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
-        const instance = settings?.whatsapp_instance;
-        if (!EVOLUTION_URL || !EVOLUTION_KEY || !instance) {
-            return json({ notified: 0, skipped: 'whatsapp yapılandırılmamış' });
+        const orgWa = await getOrgWa(supabase, organization_id);
+        if (!orgWa?.instance || orgWa.status !== 'connected') {
+            return json({ notified: 0, skipped: 'whatsapp bağlı değil' });
         }
         const businessName = settings?.business_name || org.name || 'İşletme';
         const bookingUrl = `${APP_ORIGIN}/book/${org.slug}`;
@@ -87,8 +80,10 @@ Deno.serve(async (req: Request) => {
                 `*${businessName}*'da bir randevu yeri açıldı! 🎉\n\n` +
                 `Hemen randevunu oluşturmak için:\n${bookingUrl}\n\n` +
                 `Yerler sınırlı, ilk gelen alır ⏳`;
-            const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, instance, w.customer_phone, msg);
-            if (ok) {
+            const res = await sendWA(supabase, {
+                org: orgWa, phone: w.customer_phone, text: msg, kind: 'waitlist',
+            });
+            if (res.ok) {
                 await supabase.from('waitlist').update({ status: 'notified', notified_at: new Date().toISOString() }).eq('id', w.id);
                 notified++;
             }

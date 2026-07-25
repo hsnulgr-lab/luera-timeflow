@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Sparkles, X, Send, Check, Loader2, MessageCircle } from 'lucide-react';
-import { sendTextMessage } from '@/services/evolutionApi';
+import { sendWhatsApp, WA_FAIL_TEXT } from '@/services/whatsapp';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { cn } from '@/utils/cn';
+import { supabase } from '@/lib/supabase';
 
 export interface MsgTarget {
     id: string;
@@ -16,12 +18,12 @@ interface Props {
     open: boolean;
     onClose: () => void;
     orgId: string | null;
-    whatsappInstance?: string;
     targets: MsgTarget[];
     context?: string; // kampanya için sakin gün
 }
 
-export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, targets, context }: Props) {
+export function AiMessageModal({ mode, open, onClose, orgId, targets, context }: Props) {
+    const { isConnected } = useWhatsApp();
     const [loading, setLoading] = useState(false);
     const [drafts, setDrafts] = useState<Record<string, string>>({});
     const [sent, setSent] = useState<Set<string>>(new Set());
@@ -39,11 +41,16 @@ export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, t
         setSent(new Set());
         (async () => {
             try {
+                // Anon anahtar kimlik DEĞİL (bundle'da herkese açık). Fonksiyon
+                // artık oturum token'ı bekliyor ve org'u kendisi çözüyor.
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) { toast.error('Oturum bulunamadı, tekrar giriş yapın'); return; }
                 const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/draft-messages`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
                     },
                     body: JSON.stringify({
                         organization_id: orgId,
@@ -69,15 +76,16 @@ export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, t
     if (!open) return null;
 
     const sendOne = async (c: MsgTarget): Promise<boolean> => {
-        if (!whatsappInstance) {
-            toast.error('WhatsApp bağlı değil — Ayarlar > WhatsApp\'tan bağla');
+        if (!isConnected) {
+            toast.error(WA_FAIL_TEXT.not_connected);
             return false;
         }
         const msg = drafts[c.id];
         if (!msg?.trim()) return false;
-        const ok = await sendTextMessage(whatsappInstance, c.phone, msg);
-        if (ok) { setSent(prev => new Set(prev).add(c.id)); return true; }
-        toast.error(`${c.name}: gönderilemedi`);
+        const res = await sendWhatsApp(c.phone, msg, 'ai_draft', c.id);
+        if (res.ok) { setSent(prev => new Set(prev).add(c.id)); return true; }
+        // Kota/opt-out gibi durumlar "gönderilemedi"den farklı — sebebi göster.
+        toast.error(`${c.name}: ${res.reason ? WA_FAIL_TEXT[res.reason] : 'gönderilemedi'}`);
         return false;
     };
 
@@ -89,8 +97,8 @@ export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, t
     };
 
     const handleSendAll = async () => {
-        if (!whatsappInstance) {
-            toast.error('WhatsApp bağlı değil — Ayarlar > WhatsApp\'tan bağla');
+        if (!isConnected) {
+            toast.error(WA_FAIL_TEXT.not_connected);
             return;
         }
         setBulkSending(true);
@@ -177,7 +185,7 @@ export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, t
 
                 {!loading && (
                     <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
-                        {!whatsappInstance ? (
+                        {!isConnected ? (
                             <p className="text-xs text-amber-600 flex items-center gap-1.5">
                                 <MessageCircle className="w-3.5 h-3.5" /> WhatsApp bağlı değil
                             </p>
@@ -186,7 +194,7 @@ export function AiMessageModal({ mode, open, onClose, orgId, whatsappInstance, t
                         )}
                         <button
                             onClick={handleSendAll}
-                            disabled={bulkSending || remaining === 0 || !whatsappInstance}
+                            disabled={bulkSending || remaining === 0 || !isConnected}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-[#CCFF00] text-slate-900 hover:bg-[#d4ff33] transition-all active:scale-[0.98] disabled:opacity-40"
                         >
                             {bulkSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

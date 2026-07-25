@@ -90,13 +90,13 @@ export function StatCard({ label, value, sublabel, compareLabel, compareValue, t
         <button
             onClick={onClick}
             className={cn(
-                "flex flex-col text-left rounded-[14px] px-3 py-2 transition-all hover:-translate-y-0.5",
-                "shadow-[0_1px_3px_rgba(14,14,14,0.06),0_2px_8px_rgba(14,14,14,0.04)]",
-                "hover:shadow-[0_2px_8px_rgba(14,14,14,0.08),0_8px_24px_rgba(14,14,14,0.06)]",
+                "flex flex-col text-left rounded-[16px] px-4 py-3 transition-all hover:-translate-y-0.5",
+                "shadow-[0_1px_2px_rgba(14,14,14,0.05),0_4px_14px_rgba(14,14,14,0.06)]",
+                "hover:shadow-[0_2px_4px_rgba(14,14,14,0.06),0_12px_30px_rgba(14,14,14,0.12)]",
             )}
             style={{
-                background: urgent ? 'rgba(255,90,31,0.035)' : 'var(--dc-surface)',
-                border: `1px solid ${urgent ? 'rgba(255,90,31,0.25)' : 'var(--dc-border)'}`,
+                background: urgent ? 'var(--dc-orange-soft)' : 'var(--dc-card)',
+                border: `1px solid ${urgent ? 'rgba(255,90,31,0.4)' : 'var(--dc-border)'}`,
             }}
         >
             <div className="flex items-center justify-between mb-1">

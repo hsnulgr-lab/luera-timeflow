@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getOrgWa, sendWA } from '../_shared/wa.ts';
 
 // ============================================================
 // public-booking — Self-servis online randevu motoru
@@ -86,19 +87,6 @@ function staffSlots(opts: {
     return out;
 }
 
-async function sendWhatsApp(baseUrl: string, apiKey: string, instance: string, phone: string, text: string): Promise<boolean> {
-    try {
-        const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify({ number: phone, text }),
-        });
-        return res.ok;
-    } catch {
-        return false;
-    }
-}
-
 function buildBookingMessage(p: { customerName: string; date: string; time: string; service: string; businessName: string; confirmed: boolean; manageUrl?: string }): string {
     const d = new Date(p.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
     const manage = p.manageUrl ? `\n\nRandevunuzu iptal etmek veya değiştirmek için:\n${p.manageUrl}` : '';
@@ -121,13 +109,6 @@ function buildBookingMessage(p: { customerName: string; date: string; time: stri
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
 
 // ─── Servis ──────────────────────────────────────────────────
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
-}
-
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -155,7 +136,7 @@ Deno.serve(async (req: Request) => {
         // Settings (çalışma saatleri, slot, işletme adı, whatsapp)
         const { data: settings } = await supabase
             .from('settings')
-            .select('business_name, working_hours, slot_duration, whatsapp_instance, webhook_url')
+            .select('business_name, working_hours, slot_duration, webhook_url')
             .eq('organization_id', orgId)
             .maybeSingle();
 
@@ -356,9 +337,8 @@ Deno.serve(async (req: Request) => {
             }
 
             // WhatsApp — tek birleşik mesaj
-            const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
-            const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
-            if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
+            const orgWa = await getOrgWa(supabase, orgId);
+            if (orgWa?.instance && orgWa.status === 'connected') {
                 const lineTxt = prepared.map(p => {
                     const d = new Date(p.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
                     return `💼 ${p.svcName}\n🗓️ ${d} ⏰ ${p.time}`;
@@ -367,7 +347,7 @@ Deno.serve(async (req: Request) => {
                     ? `Merhaba ${customerName} 👋\n\n*${businessName}* randevunuz oluşturuldu ✅\n\n`
                     : `Merhaba ${customerName} 👋\n\n*${businessName}* randevu talebiniz alındı 📝\n\n`;
                 const tail = autoConfirm ? `\n\nSizi bekliyoruz!` : `\n\nOnaylandığında size tekrar bilgi vereceğiz.`;
-                sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, customerPhone, head + lineTxt + tail).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', text: head + lineTxt + tail }).catch(() => {});
             }
 
             return json({
@@ -541,12 +521,11 @@ Deno.serve(async (req: Request) => {
         }
 
         // WhatsApp onay mesajı
-        const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'));
-        const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'));
-        if (EVOLUTION_URL && EVOLUTION_KEY && settings?.whatsapp_instance) {
+        const orgWa = await getOrgWa(supabase, orgId);
+        if (orgWa?.instance && orgWa.status === 'connected') {
             const manageUrl = reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : undefined;
             const msg = buildBookingMessage({ customerName, date, time, service: svc.name, businessName, confirmed: autoConfirm, manageUrl });
-            sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, settings.whatsapp_instance, customerPhone, msg).catch(() => {});
+            sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', text: msg }).catch(() => {});
         }
 
         return json({

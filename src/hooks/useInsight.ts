@@ -24,11 +24,16 @@ export function useInsight() {
             setLoading(true);
             try {
 
+                // Anon anahtar kimlik DEĞİL; fonksiyon oturum token'ı bekliyor
+                // ve org'u çağıranın üyeliğinden çözüyor.
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
                 const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/insight`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
                     },
                     body: JSON.stringify({ organization_id: orgId }),
                 });

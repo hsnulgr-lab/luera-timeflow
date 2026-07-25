@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Banknote, CreditCard, Building2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
+import { collectAllocated } from '@/lib/allocatePayment';
+import { useLabels } from '@/hooks/useLabels';
 import { usePayments } from '@/hooks/usePayments';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
@@ -42,6 +44,8 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
     title?: string;
 }) {
     const { addPayment } = usePayments();
+    // Tedavi planına otomatik mahsup yalnız diş sektöründe anlamlı
+    const isDental = useLabels().sector === 'dis';
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
 
@@ -106,11 +110,12 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
             const results = [];
             for (const l of splitShares) {
                 if (l.share <= 0) continue;
-                results.push(await addPayment({ amount: l.share, method, type: 'service', customerId: customerId || undefined, description: l.name, staffId: l.staffId, reservationId: l.reservationId }));
+                results.push(await collectAllocated(addPayment, { amount: l.share, method, type: 'service', customerId: customerId || undefined, description: l.name, staffId: l.staffId, reservationId: l.reservationId }, { allocate: isDental }));
             }
             ok = results.length > 0 && results.every(Boolean);
         } else {
-            const res = await addPayment({ amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId });
+            // Açık tedavi planına otomatik mahsup — lib/allocatePayment.ts
+            const res = await collectAllocated(addPayment, { amount: amountNum, method, type: 'service', customerId: customerId || undefined, description: description.trim() || undefined, staffId: staffId || undefined, reservationId: prefill?.reservationId }, { allocate: isDental });
             ok = !!res;
         }
         setSaving(false);

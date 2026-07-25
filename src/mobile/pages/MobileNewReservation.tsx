@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { normalizePhone } from '@/lib/phone';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
@@ -24,9 +25,7 @@ const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return (
 const rid = () => Math.random().toString(36).slice(2, 9);
 const gid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 function waLink(phone: string): string {
-    let p = (phone || '').replace(/\D/g, '');
-    if (p.startsWith('0')) p = '90' + p.slice(1); else if (!p.startsWith('90')) p = '90' + p;
-    return `https://wa.me/${p}`;
+    return `https://wa.me/${normalizePhone(phone) ?? (phone || '').replace(/\D/g, '')}`;
 }
 
 // Sepetteki bir hizmet satırı (hizmet + personel + saat). Tarih booking geneli.

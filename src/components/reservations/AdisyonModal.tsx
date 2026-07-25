@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote } from 'lucide-react';
+import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote, Stethoscope } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { apptPhase, primaryAction, PHASE_LABEL } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
@@ -40,6 +41,7 @@ interface ModalTheme {
  * diğer hâllerde Özet (resepsiyonist önce detaya/aksiyona bakar).
  */
 export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
+    const navigate = useNavigate();
     const { dark } = useTheme();
     const { settings, reservations, updateReservation } = useReservations();
     const { payments, addPayment, removeByReservations, totalForCustomer } = usePayments();
@@ -152,7 +154,9 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     };
     const markArrived = async () => {
         const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
-        if (updated) toast.success(r.staffName ? `${r.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
+        if (updated) toast.success(r.staffName
+            ? `${r.staffName} bilgilendirildi 🔔`
+            : `${settings.sector === 'dis' ? 'Hasta' : 'Müşteri'} geldi olarak işaretlendi`);
     };
     const cancelRes = async () => {
         const prev = r.status;
@@ -160,6 +164,10 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         if (!updated) return;
         toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(r.id, { status: prev }) } });
         onClose();
+    };
+    const openDentalVisit = () => {
+        onClose();
+        navigate(`/dental-visit/${encodeURIComponent(r.id)}`);
     };
     // Ücretsiz kapatma: hizmet(ler) var ama toplam 0 → ödeme kaydı oluşturmadan kapat.
     const hasServiceRows = baseRows.length > 0;
@@ -202,7 +210,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                     {([
                         { key: 'ozet', label: 'Özet', icon: <ClipboardList size={15} /> },
                         { key: 'adisyon', label: 'Adisyon', icon: <Wallet size={15} /> },
-                        { key: 'musteri', label: 'Müşteri', icon: <User size={15} /> },
+                        { key: 'musteri', label: settings.sector === 'dis' ? 'Hasta' : 'Müşteri', icon: <User size={15} /> },
                     ] as const).map(t => (
                         <button key={t.key} onClick={() => setTab(t.key)} style={{
                             flex: 1, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -262,6 +270,12 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                             {primary.kind === 'completePay' && !isPaid && (
                                 <button onClick={() => setTab('adisyon')} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
                                     💰 {primary.label}
+                                </button>
+                            )}
+
+                            {settings.sector === 'dis' && phase !== 'cancelled' && (
+                                <button onClick={openDentalVisit} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.ink, color: 'var(--dc-cream)', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+                                    <Stethoscope size={16} /> Hasta Ziyaretini Aç <ArrowRight size={15} />
                                 </button>
                             )}
 

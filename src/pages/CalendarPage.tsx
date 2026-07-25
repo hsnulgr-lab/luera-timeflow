@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { normalizePhone } from '@/lib/phone';
 import { toast } from 'sonner';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, X, Sparkles, Search, Check, Users, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
+import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
+import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { CalendarView, Reservation, Staff } from '@/types';
@@ -117,10 +120,7 @@ function MHelp({ children }: { children: React.ReactNode }) {
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
 function waLinkTR(phone: string, text: string) {
-    let p = phone.replace(/\D/g, '');
-    if (p.startsWith('0')) p = '9' + p;
-    if (!p.startsWith('90')) p = '90' + p;
-    return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 }
 
 // Diş kliniği için hazır tedavi seti — Hizmet listesi hâlâ genel varsayılanlardaysa
@@ -160,6 +160,10 @@ export const CalendarPage = () => {
     const staffMenuRef = useRef<HTMLDivElement>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
+    // Gün görünümü alt düzeni: 'list' saat çizelgesi · 'lane' ünite/koltuk şeritli
+    // Gün görünümü düzeni: 'agenda' = premium dikey zaman ızgarası (varsayılan),
+    // 'list' = saat saat liste, 'lane' = eski kaynak çizelgesi.
+    const [dayLayout, setDayLayout] = useState<'agenda' | 'list' | 'lane'>('agenda');
     const isMobile = useIsMobile();
     // Mobilde hafta görünümü 8 sütuna sığmaz → gün görünümüne düş
     useEffect(() => {
@@ -169,16 +173,29 @@ export const CalendarPage = () => {
     const [adisyonRes, setAdisyonRes] = useState<Reservation | null>(null);
     const [editRes, setEditRes] = useState<Reservation | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
+    const [showNote, setShowNote] = useState(false);   // v9: not katlanır
     // Dashboard "Yeni Randevu" CTA'sı kullanıcıyı boş takvime bırakmasın:
     // ?new=1 ile gelince oluşturma diyaloğu doğrudan açılır (param temizlenir).
+    // ?customer=<id> ile gelince o hastaya kilitli randevu formu açılır.
+    const newParamHandledRef = useRef(false);
     useEffect(() => {
+        if (newParamHandledRef.current) return;
         const params = new URLSearchParams(window.location.search);
-        if (params.get('new') === '1') {
-            setSelectedDate(todayISO());
-            setShowNewDialog(true);
-            window.history.replaceState(null, '', window.location.pathname);
+        if (params.get('new') !== '1') return;
+        const custId = params.get('customer');
+        // Hasta id'si varsa müşteri listesi yüklenene kadar bekle.
+        if (custId && allCustomers.length === 0) return;
+        newParamHandledRef.current = true;
+        setSelectedDate(todayISO());
+        setShowNewDialog(true);
+        const c = custId ? allCustomers.find(x => x.id === custId) : undefined;
+        if (c) {
+            setNewRes(p => ({ ...p, customerName: c.name, customerPhone: c.phone, customerEmail: c.email || '' }));
+            setCustomerQuery(c.name);
+            setCustomerLocked(true);
         }
-    }, []);
+        window.history.replaceState(null, '', window.location.pathname);
+    }, [allCustomers]);
     const [creatingReservation, setCreatingReservation] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
@@ -251,6 +268,18 @@ export const CalendarPage = () => {
     }, [settings.services]);
 
     const routerNavigate = useNavigate();
+
+    // Randevu kartına tıklama davranışı. Güzellik salonu modülünde takvim
+    // hızlı-bakış popup'ı (AdisyonModal) kaldırıldı: tık doğrudan müşteri
+    // kartını açar (müşterisiz walk-in'de müşteri listesine düşer). Diğer
+    // sektörlerde eski davranış — modalı açar.
+    const openReservation = useCallback((r: Reservation) => {
+        if (settings.sector === 'guzellik') {
+            routerNavigate(r.customerId ? `/beauty-customer/${r.customerId}` : '/customers');
+            return;
+        }
+        setAdisyonRes(r);
+    }, [settings.sector, routerNavigate]);
 
     // Seçili (kilitli) müşterinin tam kaydı — modal içinde bağlam göstermek için
     // (medikal uyarı, son ziyaret, kontrol tarihi, diş şeması kısayolu)
@@ -442,6 +471,7 @@ export const CalendarPage = () => {
         setResLines([]);
         setResourceId(null);
         setCfValues({});
+        setShowNote(false);
     };
 
     // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
@@ -456,6 +486,7 @@ export const CalendarPage = () => {
         setResLines([]);
         setResourceId(null);
         setCfValues({});
+        setShowNote(false);
     };
 
     // Personel menüsü — dışarı tıklayınca kapan
@@ -955,7 +986,7 @@ export const CalendarPage = () => {
                                                             "px-2 py-1.5 rounded-lg mb-0.5 transition-all hover:scale-[1.02] overflow-hidden cursor-pointer",
                                                             blockStyle
                                                         )}
-                                                        onClick={(e) => { e.stopPropagation(); setAdisyonRes(r); }}
+                                                        onClick={(e) => { e.stopPropagation(); openReservation(r); }}
                                                     >
                                                         <span className="block text-[10.5px] font-bold leading-tight truncate">{r.customerName.split(' ')[0]}</span>
                                                         <span className="block text-[9px] opacity-70 leading-tight truncate">{r.service}</span>
@@ -973,18 +1004,69 @@ export const CalendarPage = () => {
 
                 {/* Day View */}
                 {view === 'day' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+                    <div className={cn('gap-4 flex-1 min-h-0', dayLayout === 'agenda' ? 'flex flex-col' : 'grid grid-cols-1 lg:grid-cols-3')}>
                         {/* Time slots */}
-                        <div className="lg:col-span-2 rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex flex-col min-h-0">
+                        <div className={cn('rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden flex flex-col min-h-0', dayLayout !== 'agenda' && 'lg:col-span-2')}>
                             <div className="px-5 py-4 border-b border-[var(--dc-border)] flex items-center justify-between bg-[var(--dc-surface2)] flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-[#FF5A1F]" />
-                                    <span className="text-sm font-bold text-[var(--dc-ink)]">Saat Çizelgesi</span>
+                                    <span className="text-sm font-bold text-[var(--dc-ink)]">{dayLayout === 'agenda' ? 'Seans Takvimi' : dayLayout === 'lane' ? `${resourceTypeLabel} Çizelgesi` : 'Saat Çizelgesi'}</span>
                                 </div>
-                                <span className="text-xs text-[var(--dc-muted)] font-medium">
-                                    {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} randevu
-                                </span>
+                                <div className="flex items-center gap-3">
+                                    <div className="inline-flex rounded-lg bg-[var(--dc-surface)] border border-[var(--dc-border)] p-0.5">
+                                        {([['agenda', 'Takvim'], ['list', 'Liste'], ...(resources.length > 0 ? [['lane', resourceTypeLabel] as const] : [])] as const).map(([m, l]) => (
+                                            <button key={m} type="button" onClick={() => setDayLayout(m)}
+                                                className={cn('px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors',
+                                                    dayLayout === m ? 'bg-[var(--dc-ink)] text-white' : 'text-[var(--dc-muted)] hover:text-[var(--dc-ink)]')}>
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <span className="text-xs text-[var(--dc-muted)] font-medium">
+                                        {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} randevu
+                                    </span>
+                                </div>
                             </div>
+                            {dayLayout === 'agenda' ? (
+                                <DayAgendaGrid
+                                    dateStr={toISODate(currentDate)}
+                                    today={today}
+                                    reservations={filteredReservations}
+                                    resources={resources}
+                                    staff={staff}
+                                    resourceTypeLabel={resourceTypeLabel}
+                                    workingHours={settings.workingHours || []}
+                                    onOpen={(r) => openReservation(r)}
+                                    onAddAt={(hour, columnId, groupBy) => {
+                                        const startTime = `${String(hour).padStart(2, '0')}:00`;
+                                        setSelectedDate(toISODate(currentDate));
+                                        if (groupBy === 'resource') setResourceId(columnId);
+                                        setNewRes(p => ({
+                                            ...p,
+                                            startTime,
+                                            endTime: addMinutesToTime(startTime, serviceDuration(p.service)),
+                                            ...(groupBy === 'staff' && columnId ? { staffId: columnId } : {}),
+                                        }));
+                                        setShowNewDialog(true);
+                                    }}
+                                />
+                            ) : dayLayout === 'lane' && resources.length > 0 ? (
+                                <ResourceLaneGrid
+                                    dateStr={toISODate(currentDate)}
+                                    today={today}
+                                    resources={resources}
+                                    resourceTypeLabel={resourceTypeLabel}
+                                    reservations={filteredReservations}
+                                    onOpenReservation={(r) => openReservation(r)}
+                                    onAddAt={(hour, resId) => {
+                                        const startTime = `${String(hour).padStart(2, '0')}:00`;
+                                        setSelectedDate(toISODate(currentDate));
+                                        setResourceId(resId);
+                                        setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
+                                        setShowNewDialog(true);
+                                    }}
+                                />
+                            ) : (
                             <div className="divide-y divide-[var(--dc-border-soft)] flex-1 min-h-0 overflow-y-auto">
                                 {HOURS.map((hour) => {
                                     const dateStr = toISODate(currentDate);
@@ -1024,7 +1106,7 @@ export const CalendarPage = () => {
                                                 {hourRes.map((r) => (
                                                     <div key={r.id}
                                                         className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-sm transition-all duration-200 hover:shadow-md hover:bg-[var(--dc-surface2)] cursor-pointer"
-                                                        onClick={(e) => { e.stopPropagation(); setAdisyonRes(r); }}
+                                                        onClick={(e) => { e.stopPropagation(); openReservation(r); }}
                                                     >
                                                         <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: r.serviceColor || '#FF5A1F' }} />
                                                         <div className="flex-1 min-w-0">
@@ -1048,10 +1130,11 @@ export const CalendarPage = () => {
                                     );
                                 })}
                             </div>
+                            )}
                         </div>
 
-                        {/* Day Summary Sidebar */}
-                        <div className="space-y-4">
+                        {/* Day Summary Sidebar — takvim düzeninde gizli (ızgara tam genişlik) */}
+                        <div className={cn('space-y-4', dayLayout === 'agenda' && 'hidden')}>
                             <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07)] overflow-hidden">
                                 <div className="flex items-center gap-2 px-5 pt-5 pb-4">
                                     <div className="w-7 h-7 rounded-lg bg-[var(--dc-inkbox)] grid place-items-center flex-shrink-0">
@@ -1119,7 +1202,7 @@ export const CalendarPage = () => {
                     <div
                         onClick={(e) => e.stopPropagation()}
                         className="relative w-full animate-in fade-in zoom-in-95 duration-200 flex flex-col"
-                        style={{ maxWidth: 500, maxHeight: '90vh', background: M.surface, borderRadius: 22, boxShadow: '0 8px 48px rgba(14,14,14,.18), 0 2px 8px rgba(14,14,14,.08)' }}
+                        style={{ maxWidth: 600, maxHeight: '90vh', background: M.surface, borderRadius: 22, boxShadow: '0 8px 48px rgba(14,14,14,.18), 0 2px 8px rgba(14,14,14,.08)' }}
                     >
                         <style>{TIME_BLOCK_CSS}</style>
                         {/* HEADER */}
@@ -1435,20 +1518,39 @@ export const CalendarPage = () => {
                             {resources.length > 0 && (
                                 <div>
                                     <MLabel>{resourceTypeLabel}</MLabel>
-                                    <MHelp>Aynı saatte bir {resourceTypeLabel.toLowerCase()}de kapasitesi kadar {t('customer').toLowerCase()} olabilir.</MHelp>
+                                    <MHelp>Seçilmezse uygun {resourceTypeLabel.toLowerCase()} otomatik atanır.</MHelp>
                                     <div className="flex flex-wrap" style={{ gap: 5 }}>
+                                        {/* v9: "Otomatik" = kaynak seçilmemiş durum (resourceId null) */}
+                                        <button onClick={() => setResourceId(null)}
+                                            className="inline-flex items-center transition-all whitespace-nowrap"
+                                            style={{
+                                                padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                                                border: `1px solid ${!resourceId ? M.ink : M.border2}`,
+                                                background: !resourceId ? M.ink : M.surface2,
+                                                color: !resourceId ? M.cream : M.muted,
+                                            }}>
+                                            Otomatik
+                                        </button>
                                         {resources.map(res => {
                                             const sel = resourceId === res.id;
+                                            // Seçili saat aralığında bu ünitedeki dolu randevu sayısı kapasiteyi doldurmuş mu?
+                                            const busy = Boolean(selectedDate && newRes.startTime && newRes.endTime
+                                                && reservations.filter((r) => r.resourceId === res.id && r.date === selectedDate && r.status !== 'cancelled'
+                                                    && clockMin(r.startTime) < clockMin(newRes.endTime) && clockMin(newRes.startTime) < clockMin(r.endTime)).length >= Math.max(1, res.capacity));
                                             return (
-                                                <button key={res.id} onClick={() => setResourceId(sel ? null : res.id)}
+                                                <button key={res.id} onClick={() => { if (!busy) setResourceId(sel ? null : res.id); }}
+                                                    disabled={busy}
                                                     className="inline-flex items-center transition-all whitespace-nowrap"
                                                     style={{
-                                                        padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                                                        padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2, gap: 6,
                                                         border: `1px solid ${sel ? M.ink : M.border2}`,
                                                         background: sel ? M.ink : M.surface2,
-                                                        color: sel ? M.cream : M.muted,
+                                                        color: sel ? M.cream : busy ? M.muted2 : M.muted,
+                                                        opacity: busy ? 0.55 : 1, cursor: busy ? 'not-allowed' : 'pointer',
+                                                        textDecoration: busy ? 'line-through' : 'none',
                                                     }}>
                                                     {res.name}{res.capacity > 1 ? ` · ${res.capacity} kişi` : ''}
+                                                    {busy && <span style={{ textDecoration: 'none', fontSize: 9.5, fontWeight: 800, color: '#B8790A', background: 'rgba(184,121,10,.14)', padding: '2px 6px', borderRadius: 999 }}>dolu</span>}
                                                 </button>
                                             );
                                         })}
@@ -1494,15 +1596,25 @@ export const CalendarPage = () => {
                                 </button>
                             </div>
 
-                            {/* NOT */}
+                            {/* NOT — v9: katlanır */}
                             <div style={{ paddingBottom: 6 }}>
-                                <MLabel optional="(opsiyonel)">Not</MLabel>
-                                <textarea
-                                    placeholder="Ek bilgi, özel istek…" rows={2}
-                                    style={{ ...fieldBase, height: 60, resize: 'none', lineHeight: 1.55 }}
-                                    onFocus={onFieldFocus} onBlur={onFieldBlur}
-                                    value={newRes.notes} onChange={(e) => setNewRes(p => ({ ...p, notes: e.target.value }))}
-                                />
+                                {(showNote || newRes.notes) ? (
+                                    <>
+                                        <MLabel optional="(opsiyonel)">Not</MLabel>
+                                        <textarea
+                                            placeholder="Örn: 25 distal — hasta soğuk hassasiyeti bildirdi" rows={2} autoFocus={showNote && !newRes.notes}
+                                            style={{ ...fieldBase, height: 60, resize: 'none', lineHeight: 1.55 }}
+                                            onFocus={onFieldFocus} onBlur={onFieldBlur}
+                                            value={newRes.notes} onChange={(e) => setNewRes(p => ({ ...p, notes: e.target.value }))}
+                                        />
+                                    </>
+                                ) : (
+                                    <button onClick={() => setShowNote(true)} className="inline-flex items-center transition-colors" style={{ gap: 7, fontSize: 12.5, fontWeight: 700, color: M.muted, height: 40, padding: '0 4px' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = M.ink}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = M.muted}>
+                                        <Plus className="w-4 h-4" strokeWidth={2.2} /> Tedavi notu ekle
+                                    </button>
+                                )}
                             </div>
 
                             {/* TEKRAR */}
@@ -1556,7 +1668,13 @@ export const CalendarPage = () => {
                                 onMouseEnter={(e) => { if (newRes.customerName && newRes.customerPhone && !creatingReservation) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; } }}
                                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                             >
-                                {creatingReservation ? 'Oluşturuluyor…' : (() => { const n = resLines.length + (newRes.service ? 1 : 0); return n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur'; })()}
+                                {creatingReservation ? 'Oluşturuluyor…' : (() => {
+                                    // v9: eksik zorunlu alanı butonda göster
+                                    const miss = !newRes.customerName ? `${t('customer')} seçin` : !newRes.customerPhone ? 'Telefon girin' : !newRes.service && resLines.length === 0 ? `${t('service')} seçin` : '';
+                                    const n = resLines.length + (newRes.service ? 1 : 0);
+                                    const label = n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur';
+                                    return <>{label}{miss && <span style={{ fontSize: 12, fontWeight: 600, opacity: .85, marginLeft: 6 }}>· {miss}</span>}</>;
+                                })()}
                                 {!creatingReservation && <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>}
                             </button>
                             <button onClick={closeDialog} className="w-full transition-colors" style={{ height: 36, fontSize: 12.5, fontWeight: 600, color: M.muted, background: 'transparent' }}

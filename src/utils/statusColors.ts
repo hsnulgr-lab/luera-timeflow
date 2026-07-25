@@ -32,7 +32,9 @@ export const STATUS_DOT: Record<ResStatus, string> = {
 import type { Reservation } from '@/types';
 import { apptPhase } from '@/lib/appointmentFlow';
 
-export function phaseBadge(r: Pick<Reservation, 'status' | 'arrivedAt'>): { label: string; badge: string; dot: string } {
+export function phaseBadge(
+  r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'>,
+): { label: string; badge: string; dot: string } {
   const ph = apptPhase(r);
   if (ph === 'inService') {
     // Turuncu — "aktif/devam ediyor" hissi; bekleyen(amber) ve onaylı(yeşil)dan ayrışır

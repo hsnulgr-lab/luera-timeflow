@@ -23,6 +23,7 @@ import {
     LChevronUp,
     LClose,
     LLogout,
+    LPackage,
 } from '@/components/icons/LueraIcons';
 
 interface SidebarProps {
@@ -77,13 +78,14 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet,
         '/staff': LProfile, '/analytics': LChart, '/settings?tab=booking': Link2,
         '/dental-chart': ToothIcon,
+        '/packages': LPackage,
     };
     // module yoksa core (her zaman görünür); varsa modül açıkken görünür.
     // DEFAULT_MODULES, gerçek organizasyon ayarı gelene kadar geçici olarak
     // modülleri açık sayar. Bu değerle çizim yapmak kapalı öğeleri kısa süreli
     // gösterip sonra kaldırıyordu; yükleme sırasında yalnız çekirdek öğeler var.
     const menuItems = NAV_ITEMS
-        .filter((m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant) && (!m.sectorOnly || m.sectorOnly === sector))
+        .filter((m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant) && (!m.sectorOnly || m.sectorOnly === sector) && m.hideInSector !== sector)
         .map((m) => ({ id: m.id, label: m.labelKey ? t(m.labelKey) : m.label, icon: NAV_ICONS[m.id] ?? LDashboard }));
 
     const handleNavClick = (path: string) => {

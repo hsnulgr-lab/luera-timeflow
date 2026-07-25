@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, History } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useDentalChart } from '@/hooks/useDentalChart';
@@ -9,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { ToothIcon } from '@/components/dental/ToothIcon';
 import { TreatmentPlans } from '@/components/dental/TreatmentPlans';
+import { PerioChart } from '@/components/dental/PerioChart';
 import { ToothSVG, UPPER_ORDER, LOWER_ORDER, TYPE_LABEL_TR, TYPE_ACCENT, type ToothType } from '@/components/dental/ToothSVG';
 import { useReservations } from '@/hooks/useReservations';
 import { formatDateEU } from '@/utils/date';
@@ -45,6 +46,7 @@ function groupSpans(order: typeof UPPER_ORDER) {
 // yüzey + planlı işlem + geçmiş düzenleme. Sidebar "Diş Şeması" ve dashboard'daki
 // tüm giriş noktaları (?patient= ile) buraya deep-link yapar.
 export function DentalChartPage() {
+    const navigate = useNavigate();
     const { dark } = useTheme();
     const { sector, isLoading: settingsLoading } = useLabels();
     const { allCustomers, updateCustomer } = useCustomers();
@@ -92,6 +94,7 @@ export function DentalChartPage() {
         return todayMatches.length === 1 ? todayMatches[0] : undefined;
     }, [customer, requestedReservationId, reservations]);
 
+    const [mode, setMode] = useState<'dental' | 'perio'>('dental');
     const [activeState, setActive] = useState<{ customerId: string; n: number; type: ToothType } | null>(null);
     const active = activeState?.customerId === customerId ? activeState : null;
     const [draftStatus, setDraftStatus] = useState<DentalStatus>('saglam');
@@ -121,6 +124,24 @@ export function DentalChartPage() {
 
     const upperGroups = useMemo(() => groupSpans(UPPER_ORDER), []);
     const lowerGroups = useMemo(() => groupSpans(LOWER_ORDER), []);
+
+    // Boş durum "ara ve bul"a mahkûm etmesin: bugünün hastaları tek tıkla açılır.
+    const todayPatients = useMemo(() => {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const seen = new Set<string>();
+        return reservations
+            .filter((r) => r.date === today && r.status !== 'cancelled' && r.customerId)
+            .sort((a, b) => a.startTime.localeCompare(b.startTime))
+            .flatMap((r) => {
+                if (seen.has(r.customerId!)) return [];
+                const c = allCustomers.find((x) => x.id === r.customerId);
+                if (!c) return [];
+                seen.add(r.customerId!);
+                return [{ customer: c, time: r.startTime, service: r.service }];
+            })
+            .slice(0, 8);
+    }, [reservations, allCustomers]);
 
     // Medikal uyarılar — custom fields (alerji / ilaçlar / kronik) doluysa göster
     const medicalAlerts = useMemo(() => {
@@ -261,14 +282,39 @@ export function DentalChartPage() {
                                 )}
                             </div>
                             {customer && <span className="text-xs text-[var(--dc-muted)]">{customer.phone}</span>}
-                            <span className="hidden lg:inline text-[11px] text-[var(--dc-muted2)] font-semibold">Sol tık: düzenle · Sağ tık: hızlı durum</span>
+                            {customer && (
+                                <div className="inline-flex rounded-full bg-[var(--dc-surface2)] border border-[var(--dc-border)] p-0.5">
+                                    {([['dental', 'Diş Durumu'], ['perio', 'Periodontal']] as const).map(([m, l]) => (
+                                        <button key={m} type="button" onClick={() => { setMode(m); setActive(null); }}
+                                            className={cn('px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors',
+                                                mode === m ? 'bg-[var(--dc-ink)] text-white' : 'text-[var(--dc-muted)] hover:text-[var(--dc-ink)]')}>
+                                            {l}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {mode === 'dental' && <span className="hidden lg:inline text-[11px] text-[var(--dc-muted2)] font-semibold">Sol tık: düzenle · Sağ tık: hızlı durum</span>}
                             {medicalAlerts.map((a) => (
                                 <span key={a} className="flex items-center gap-1 text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-[var(--dc-red-bg)] text-[var(--dc-red2)]">
                                     <AlertTriangle className="w-3 h-3 flex-shrink-0" />{a}
                                 </span>
                             ))}
                             {customer && (
-                                <label className="ml-auto flex items-center gap-2 text-[11px] font-semibold text-[var(--dc-muted)]">
+                                <div className="ml-auto flex items-center gap-2">
+                                    {appointmentContext && (
+                                        <button type="button" onClick={() => navigate(`/dental-visit/${appointmentContext.id}`)}
+                                            className="inline-flex h-8 items-center rounded-full bg-[var(--dc-orange)] px-3.5 text-[11.5px] font-extrabold text-white hover:brightness-95 transition-all">
+                                            Bugünkü vizit →
+                                        </button>
+                                    )}
+                                    <button type="button" onClick={() => navigate(`/patient-file/${customer.id}`)}
+                                        className="inline-flex h-8 items-center rounded-full border border-[var(--dc-border2)] px-3.5 text-[11.5px] font-bold text-[var(--dc-muted)] hover:text-[var(--dc-ink)] hover:border-[var(--dc-ink)] transition-colors">
+                                        Hasta dosyası
+                                    </button>
+                                </div>
+                            )}
+                            {customer && (
+                                <label className="flex items-center gap-2 text-[11px] font-semibold text-[var(--dc-muted)]">
                                     <CalendarClock className="w-[14px] h-[14px]" /> Kontrol çağrısı:
                                     <input type="date" value={recallDraft} onChange={(e) => saveRecall(e.target.value)}
                                         className="px-2.5 py-1.5 rounded-[9px] border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[12px] font-semibold text-[var(--dc-ink)] outline-none" />
@@ -277,13 +323,47 @@ export function DentalChartPage() {
                         </div>
 
                         {!customer && (
-                            <div className="py-16 text-center">
-                                <div className="text-[14px] font-bold text-[var(--dc-ink)] mb-1">Hasta seçin</div>
-                                <div className="text-[12px] text-[var(--dc-muted)]">Şemayı görüntülemek için yukarıdan bir hasta arayın</div>
+                            <div className="px-6 py-8">
+                                <div className="text-center mb-6">
+                                    <div className="text-[14px] font-bold text-[var(--dc-ink)] mb-1">Hasta seçin</div>
+                                    <div className="text-[12px] text-[var(--dc-muted)]">Yukarıdan arayın veya aşağıdan tek tıkla açın</div>
+                                </div>
+                                {todayPatients.length > 0 && (
+                                    <div className="mb-6">
+                                        <div className="text-[10px] font-bold uppercase tracking-[.08em] text-[var(--dc-muted)] mb-2">Bugünkü hastalar</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                            {todayPatients.map(({ customer: c, time, service }) => (
+                                                <button key={c.id} type="button" onClick={() => selectCustomer(c.id)}
+                                                    className="flex items-center gap-2.5 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface2)] px-3 py-2.5 text-left hover:border-[var(--dc-orange)] transition-colors">
+                                                    <span className="font-mono text-[11px] font-bold px-1.5 py-1 rounded-md bg-[var(--dc-surface3)] text-[var(--dc-muted)] flex-shrink-0">{time}</span>
+                                                    <span className="min-w-0">
+                                                        <span className="block text-[12.5px] font-bold text-[var(--dc-ink)] truncate">{c.name}</span>
+                                                        <span className="block text-[10.5px] text-[var(--dc-muted)] truncate">{service}</span>
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {allCustomers.length > 0 && (
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-[.08em] text-[var(--dc-muted)] mb-2">Hastalar</div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {allCustomers.slice(0, 12).map((c) => (
+                                                <button key={c.id} type="button" onClick={() => selectCustomer(c.id)}
+                                                    className="px-3.5 h-9 rounded-full border border-[var(--dc-border2)] bg-[var(--dc-surface)] text-[12px] font-bold text-[var(--dc-muted)] hover:text-[var(--dc-ink)] hover:border-[var(--dc-ink)] transition-colors">
+                                                    {c.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {customer && active && (
+                        {customer && mode === 'perio' && <PerioChart customerId={customer.id} staffId={appointmentContext?.staffId} />}
+
+                        {customer && mode === 'dental' && active && (
                             <div className="mx-5 mt-4 rounded-[14px] bg-[var(--dc-surface2)] border border-[var(--dc-border)] overflow-hidden" style={{ animation: 'dc-panel-in 180ms ease' }}>
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--dc-border)]">
                                     <ToothSVG type={active.type} color={STATUS_COLOR[draftStatus]} size={44}
@@ -394,7 +474,7 @@ export function DentalChartPage() {
                             </div>
                         )}
 
-                        {customer && (
+                        {customer && mode === 'dental' && (
                         <div className="px-5 pt-7 pb-5 overflow-x-auto">
                             <div className="flex justify-center gap-0.5" style={{ minWidth: 920 }}>
                                 {upperGroups.map((g, gi) => (
@@ -448,7 +528,7 @@ export function DentalChartPage() {
                         </div>
                         )}
 
-                        {customer && (
+                        {customer && mode === 'dental' && (
                         <div className="flex flex-wrap items-center gap-x-[9px] gap-y-[5px] px-5 pb-5">
                             {STATUS_ORDER.map((s) => (
                                 <div key={s} className="flex items-center gap-1 text-[9.5px] font-semibold text-[var(--dc-muted)]">

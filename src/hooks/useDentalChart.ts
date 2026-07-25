@@ -12,9 +12,21 @@ interface DentalRecordDbRow {
     surfaces?: ToothSurface[] | null;
     record_type?: DentalRecordType | null;
     treatment_plan_id?: string | null;
+    encounter_id?: string | null;
+    reservation_id?: string | null;
+    created_by?: string | null;
     note?: string | null;
     staff_id?: string | null;
     created_at: string;
+}
+
+function missingVisitAttributionColumn(error: { code?: string; message?: string; details?: string } | null): 'encounter_id' | 'reservation_id' | null {
+    if (!error) return null;
+    const message = `${error.message || ''} ${error.details || ''}`.toLowerCase();
+    if (error.code !== 'PGRST204' && error.code !== '42703') return null;
+    if (message.includes('encounter_id')) return 'encounter_id';
+    if (message.includes('reservation_id')) return 'reservation_id';
+    return null;
 }
 
 function mapRow(row: DentalRecordDbRow): DentalRecord {
@@ -26,6 +38,9 @@ function mapRow(row: DentalRecordDbRow): DentalRecord {
         surfaces: row.surfaces || [],
         recordType: row.record_type || 'existing',
         treatmentPlanId: row.treatment_plan_id || undefined,
+        encounterId: row.encounter_id || undefined,
+        reservationId: row.reservation_id || undefined,
+        createdBy: row.created_by || undefined,
         note: row.note || undefined,
         staffId: row.staff_id || undefined,
         createdAt: row.created_at,
@@ -38,6 +53,8 @@ export interface SetToothOptions {
     surfaces?: ToothSurface[];
     recordType?: DentalRecordType;
     treatmentPlanId?: string;
+    encounterId?: string;
+    reservationId?: string;
 }
 
 // Hasta başına diş şeması — açık seçili hasta değişince o hastanın kayıtlarını
@@ -112,13 +129,25 @@ export function useDentalChart(customerId: string | undefined) {
 
     const setTooth = useCallback(async (toothNumber: number, status: DentalStatus, opts: SetToothOptions = {}) => {
         if (!orgId || !customerId) return false;
-        const { data, error } = await supabase.from('dental_records').insert({
+        const payload: Record<string, unknown> = {
             organization_id: orgId, customer_id: customerId, tooth_number: toothNumber,
             status, note: opts.note || null, staff_id: opts.staffId || null,
             surfaces: opts.surfaces || [],
             record_type: opts.recordType || 'existing',
             treatment_plan_id: opts.treatmentPlanId || null,
-        }).select().single();
+            ...(opts.encounterId ? { encounter_id: opts.encounterId } : {}),
+            ...(opts.reservationId ? { reservation_id: opts.reservationId } : {}),
+        };
+        let result = await supabase.from('dental_records').insert(payload).select().single();
+        // 062 uygulanmamış ortamlarda ziyaret atfı olmadan da append-only diş
+        // kaydını koru; migration sonrası aynı ekran otomatik olarak iki bağı da yazar.
+        for (let attempt = 0; result.error && attempt < 2; attempt += 1) {
+            const missing = missingVisitAttributionColumn(result.error);
+            if (!missing || !(missing in payload)) break;
+            delete payload[missing];
+            result = await supabase.from('dental_records').insert(payload).select().single();
+        }
+        const { data, error } = result;
         if (error) { toast.error('Diş durumu kaydedilemedi'); console.error(error); return false; }
         setResult((previous) => previous.customerId === customerId
             ? { ...previous, records: [...previous.records, mapRow(data)] }

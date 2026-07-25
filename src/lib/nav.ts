@@ -16,6 +16,7 @@ export interface NavItem {
     barPrio?: number;              // alt barda eleme önceliği (küçük = önemli); yoksa alt barda yer almaz
     managerOnlyInBar?: boolean;    // alt barda yalnız Yönetici modunda
     sectorOnly?: string;           // yalnız bu sektörde görünür (örn. 'dis' → Diş Şeması)
+    hideInSector?: string;         // bu sektörde gizlenir; öğeye Ayarlar'dan erişilir (örn. 'dis' → Booking Sayfam)
 }
 
 // Sıralama: Masalar/Menü Dashboard'dan hemen sonra (restoran modunda öne);
@@ -29,10 +30,11 @@ export const NAV_ITEMS: NavItem[] = [
     { id: '/queue', label: 'Sıra', module: 'sira' },
     { id: '/customers', label: 'Müşteriler', labelKey: 'customers', shortLabelKey: 'customer', barPrio: 2 },
     { id: '/dental-chart', label: 'Diş Şeması', sectorOnly: 'dis' },
+    { id: '/packages', label: 'Paketler', sectorOnly: 'guzellik' },
     { id: '/kasa', label: 'Kasa', module: 'kasa', barPrio: 1 },
-    { id: '/staff', label: 'Personel', labelKey: 'staff', module: 'personel' },
+    { id: '/staff', label: 'Personel', labelKey: 'staffPlural', shortLabelKey: 'staff', module: 'personel' },
     { id: '/analytics', label: 'Analiz', module: 'analiz', barPrio: 5, managerOnlyInBar: true },
-    { id: '/settings?tab=booking', label: 'Booking Sayfam', module: 'randevu', hideInRestaurant: true },
+    { id: '/settings?tab=booking', label: 'Booking Sayfam', module: 'randevu', hideInRestaurant: true, hideInSector: 'dis' },
 ];
 
 // Alt bar doğal görsel sırası (öncelikten bağımsız)

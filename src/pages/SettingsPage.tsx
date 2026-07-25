@@ -681,6 +681,11 @@ export const SettingsPage = () => {
                         style={{ width:70, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
                       <span style={{ fontSize:'11px', color:T.muted }}>dk</span>
                     </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px' }} title="Dönüş periyodu — seans tamamlanınca bu kadar gün sonrasına hatırlatma kurulur (boş = kapalı)">
+                      <input type="number" value={s.recallDays ?? ''} min={1} placeholder="—" onChange={e=>updateService(s.id,'recallDays',e.target.value?parseInt(e.target.value):0)}
+                        style={{ width:56, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
+                      <span style={{ fontSize:'11px', color:T.muted }}>gün dönüş</span>
+                    </div>
                     <button onClick={()=>removeService(s.id)} style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}
                       onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color= dark?'#e07070':'#C94040';(e.currentTarget as HTMLElement).style.borderColor='rgba(201,64,64,0.3)'}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted;(e.currentTarget as HTMLElement).style.borderColor=T.border}}>

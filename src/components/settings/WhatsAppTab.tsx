@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
-    createInstance,
-    getQRCode,
-    getConnectionState,
-    deleteInstance,
     build24hMessage,
     build2hMessage,
-} from '@/services/evolutionApi';
+    buildRecallMessage,
+    buildWinbackMessage,
+    buildRenewalMessage,
+} from '@/services/waTemplates';
+import { waConnect, waState, waDisconnect, waHealth, waSetFeatures, lastProxyError, type WaHealth } from '@/services/whatsapp';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
+import { commsForSector, type SectorComms } from '@/lib/sectorProfiles';
+import { useSectorComms } from '@/hooks/useSectorComms';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -44,128 +47,169 @@ function WaIcon({ size=22 }: { size?: number }) {
 }
 
 export function WhatsAppTab() {
-    const { settings, updateSettings } = useReservations();
+    const { settings } = useReservations();
     const { profile } = useOrgProfile();
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const inkbox   = dark ? '#231E18' : '#0E0E0E';
     const inkboxFg = '#F3EDE3';
 
-    const [status, setStatus]               = useState<Status>('checking');
-    const [qrCode, setQrCode]               = useState<string | null>(null);
-    const [qrExpiry, setQrExpiry]           = useState(60);
-    const [instanceInput, setInstanceInput] = useState('');
+    // Bağlantı artık org_whatsapp'ta (org başına tek satır) ve instance adı
+    // org id'den türetiliyor — kullanıcı ad yazmıyor, iki işletme çakışamıyor.
+    const { connection, loading, setupError, isConnected, isBroken, refresh } = useWhatsApp();
 
-    const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-    const qrTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-    const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Ekran durumu bağlantıdan TÜRETİLİR; uiStatus yalnız geçici yerel adımları
+    // (QR bekleme, oluşturuluyor) tutar. Böylece realtime'dan gelen bağlantı
+    // değişikliğini bir efektle kopyalamaya gerek kalmıyor.
+    const [uiStatus, setUiStatus] = useState<'creating' | 'qr' | 'checking' | null>(null);
+    const [qrCode, setQrCode]   = useState<string | null>(null);
+    const [qrExpiry, setQrExpiry] = useState(60);
+    const [health, setHealth]   = useState<WaHealth | null>(null);
+    const [busyFeature, setBusyFeature] = useState<string | null>(null);
+    // Webhook kaydı başarısızsa hat bağlı görünür ama gelen mesaj botu sessiz kalır.
+    const [webhookWarn, setWebhookWarn] = useState<string | null>(null);
 
-    const savedInstance = settings.whatsappInstance ?? '';
+    const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+    const qrTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const savedInstance = connection.instance ?? '';
+
+    // Önizleme sektörün gerçek dilinden üretilir — kuaför kuaför mesajını görsün.
+    // Klinik kendi metnini yazdıysa (override) önizleme de onu gösterir.
+    const sectorDefault = commsForSector(settings.sector);
+    const commsApi = useSectorComms(settings.sector || 'genel');
+    const comms = commsApi.effective;
+    const [editOpen, setEditOpen] = useState(false);
+    const [draft, setDraft] = useState<SectorComms | null>(null);
+    const edit = draft ?? comms;
+    const setEdit = (patch: Partial<SectorComms>) => setDraft({ ...edit, ...patch });
+    const sampleName = settings.sector === 'avukat' ? 'Ahmet Yılmaz' : 'Ayşe Demir';
     const preview24h = build24hMessage({
-        customerName: 'Ahmet Yılmaz', startTime: '10:00',
+        comms,
+        customerName: sampleName, startTime: '10:00',
         service: settings.services[0]?.name || 'Konsültasyon',
         businessName: settings.businessName,
         mapsUrl: profile.mapsUrl || undefined,
     });
     const preview2h = build2hMessage({
-        customerName: 'Ahmet Yılmaz', startTime: '14:00',
+        comms,
+        customerName: sampleName, startTime: '14:00',
         service: settings.services[0]?.name || 'Konsültasyon',
         businessName: settings.businessName,
         mapsUrl: profile.mapsUrl || undefined,
     });
 
-    const checkStatus = useCallback(async (instName: string) => {
-        if (!instName) { setStatus('idle'); return; }
-        const state = await getConnectionState(instName);
-        setStatus(state === 'open' ? 'connected' : 'idle');
-    }, []);
+    const previewRecall = comms.recall
+        ? buildRecallMessage({ customerName: sampleName, businessName: settings.businessName, comms })
+        : null;
+    const previewWinback = buildWinbackMessage({ customerName: sampleName, businessName: settings.businessName, comms });
+    const previewRenewal = buildRenewalMessage({
+        customerName: sampleName, packageTitle: '10 Seans Lazer', businessName: settings.businessName, comms,
+    });
 
-    useEffect(() => {
-        if (savedInstance) {
-            setInstanceInput(savedInstance);
-            checkStatus(savedInstance);
-            statusPollRef.current = setInterval(() => checkStatus(savedInstance), 30000);
-        } else {
-            setStatus('idle');
-        }
-        return () => {
-            if (pollRef.current)       clearInterval(pollRef.current);
-            if (qrTimerRef.current)    clearInterval(qrTimerRef.current);
-            if (statusPollRef.current) clearInterval(statusPollRef.current);
-        };
-    }, [savedInstance]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const onConnected = useCallback((instName: string) => {
+    const stopTimers = useCallback(() => {
         if (pollRef.current)    clearInterval(pollRef.current);
         if (qrTimerRef.current) clearInterval(qrTimerRef.current);
-        setStatus('connected'); setQrCode(null);
-        updateSettings({...settings, whatsappInstance: instName});
-        toast.success('WhatsApp başarıyla bağlandı! 🎉');
-    }, [settings, updateSettings]);
+        pollRef.current = null; qrTimerRef.current = null;
+    }, []);
 
-    const startConnectPolling = useCallback((instName: string) => {
-        if (pollRef.current) clearInterval(pollRef.current);
+    const loadHealth = useCallback(async () => { setHealth(await waHealth()); }, []);
+
+    const status: Status = uiStatus
+        ?? (loading ? 'checking' : isConnected ? 'connected' : 'idle');
+
+    // Bağlıyken son 24 saatin özetini getir.
+    useEffect(() => {
+        if (loading || !isConnected) return;
+        let alive = true;
+        (async () => {
+            const h = await waHealth();
+            if (alive) setHealth(h);
+        })();
+        return () => { alive = false; };
+    }, [loading, isConnected]);
+
+    useEffect(() => stopTimers, [stopTimers]);
+
+    const startQrLoop = useCallback(() => {
+        // Bağlanma anını yakalamak için durumu proxy'den soruyoruz; proxy
+        // org_whatsapp'ı günceller, realtime da ekranı çevirir.
+        stopTimers();
         pollRef.current = setInterval(async () => {
-            const state = await getConnectionState(instName);
-            if (state === 'open') onConnected(instName);
+            const res = await waState();
+            if (res?.connected) {
+                stopTimers(); setQrCode(null); setUiStatus(null);
+                setWebhookWarn(res.webhook && !res.webhook.ok ? (res.webhook.reason ?? 'bilinmiyor') : null);
+                refresh(); loadHealth();
+                toast.success('WhatsApp başarıyla bağlandı! 🎉');
+            }
         }, 3000);
-    }, [onConnected]);
-
-    const startQrTimer = useCallback((instName: string) => {
         setQrExpiry(60);
-        if (qrTimerRef.current) clearInterval(qrTimerRef.current);
         qrTimerRef.current = setInterval(() => {
             setQrExpiry(prev => {
                 if (prev <= 1) {
-                    getQRCode(instName).then(qr => { if (qr) { setQrCode(qr); setQrExpiry(60); } });
+                    waConnect().then(r => { if (r?.qr) setQrCode(r.qr); });
                     return 60;
                 }
                 return prev - 1;
             });
         }, 1000);
-    }, []);
+    }, [stopTimers, refresh, loadHealth]);
 
     const handleConnect = async () => {
-        const instName = instanceInput.trim();
-        if (!instName) { toast.error('Instance adı gir'); return; }
-        setStatus('creating'); setQrCode(null);
-        const currentState = await getConnectionState(instName);
-        if (currentState === 'open') { onConnected(instName); return; }
-        await createInstance(instName);
-        await new Promise(r => setTimeout(r, 1500));
-        const qr = await getQRCode(instName);
-        if (!qr) { setStatus('idle'); toast.error('QR kod alınamadı. Instance adını kontrol edin.'); return; }
-        setQrCode(qr); setStatus('qr');
-        startConnectPolling(instName); startQrTimer(instName);
+        setUiStatus('creating'); setQrCode(null);
+        const res = await waConnect();
+        if (!res) {
+            setUiStatus(null);
+            toast.error(lastProxyError || 'Bağlantı başlatılamadı');
+            return;
+        }
+        setWebhookWarn(res.webhook && !res.webhook.ok ? (res.webhook.reason ?? 'bilinmiyor') : null);
+        if (res.connected) {
+            setUiStatus(null); refresh(); loadHealth();
+            toast.success('WhatsApp zaten bağlı 🎉');
+            return;
+        }
+        if (!res.qr) {
+            setUiStatus(null);
+            toast.error('QR kod alınamadı, tekrar deneyin');
+            return;
+        }
+        setQrCode(res.qr); setUiStatus('qr'); startQrLoop();
     };
 
     const handleRefreshStatus = async () => {
-        const instName = savedInstance || instanceInput.trim();
-        if (!instName) return;
-        setStatus('checking');
-        await checkStatus(instName);
+        setUiStatus('checking');
+        const res = await waState();
+        setWebhookWarn(res?.webhook && !res.webhook.ok ? (res.webhook.reason ?? 'bilinmiyor') : null);
+        await refresh(); await loadHealth();
+        setUiStatus(null);
         toast.info('Durum güncellendi');
     };
 
     const handleRefreshQR = async () => {
-        const instName = savedInstance || instanceInput.trim();
-        const qr = await getQRCode(instName);
-        if (qr) { setQrCode(qr); setQrExpiry(60); }
+        const res = await waConnect();
+        if (res?.qr) { setQrCode(res.qr); setQrExpiry(60); }
         else toast.error('QR yenilenemedi');
     };
 
     const handleDisconnect = async () => {
-        if (pollRef.current)       clearInterval(pollRef.current);
-        if (qrTimerRef.current)    clearInterval(qrTimerRef.current);
-        if (statusPollRef.current) clearInterval(statusPollRef.current);
-        if (savedInstance) await deleteInstance(savedInstance);
-        updateSettings({...settings, whatsappInstance: undefined});
-        setStatus('idle'); setQrCode(null); setInstanceInput('');
+        stopTimers();
+        await waDisconnect();
+        await refresh();
+        setUiStatus(null); setQrCode(null); setHealth(null);
         toast.success('WhatsApp bağlantısı kesildi');
     };
 
-    const isConnected = status === 'connected';
+    const toggleFeature = async (key: 'winback' | 'renewal' | 'recall') => {
+        setBusyFeature(key);
+        const next = !connection.features[key];
+        const res = await waSetFeatures({ [key]: next });
+        setBusyFeature(null);
+        if (res?.ok) refresh();
+        else toast.error('Ayar kaydedilemedi');
+    };
+
     const chatBg = dark ? WA.chatDark : WA.chat;
 
     return (
@@ -233,11 +277,44 @@ export function WhatsAppTab() {
                             <div>
                                 <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>WhatsApp aktif</div>
                                 <div style={{ fontSize:'11px', color:T.muted, marginTop:'2px' }}>
-                                    Instance: <code style={{ fontFamily:"'JetBrains Mono',monospace", background:T.surface2, padding:'1px 6px', borderRadius:'4px', fontSize:'10.5px' }}>{savedInstance}</code>
-                                    <span style={{ marginLeft:'8px', color:T.muted2 }}>• Her 30sn kontrol edilir</span>
+                                    Hat: <code style={{ fontFamily:"'JetBrains Mono',monospace", background:T.surface2, padding:'1px 6px', borderRadius:'4px', fontSize:'10.5px' }}>{savedInstance}</code>
+                                    <span style={{ marginLeft:'8px', color:T.muted2 }}>• işletmenize özel</span>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Sağlık: son 24 saatte ne gitti? Bugüne kadar hiçbir
+                            gönderim kaydı tutulmuyordu, arıza sessiz kalıyordu. */}
+                        {health && (
+                            <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                                {([
+                                    ['Gönderildi', health.last24h.sent, WA.green],
+                                    ['Başarısız', health.last24h.failed, dark?'#e07070':'#C94040'],
+                                    ['Atlandı', health.last24h.skipped, T.muted],
+                                    ['Gelen', health.last24h.inbound, T.orange],
+                                ] as [string, number, string][]).map(([label, n, color]) => (
+                                    <div key={label} style={{ flex:'1 1 90px', padding:'10px 12px', background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
+                                        <div style={{ fontSize:'17px', fontWeight:800, color, letterSpacing:'-0.02em' }}>{n}</div>
+                                        <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'1px' }}>{label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {webhookWarn && (
+                            <div style={{ display:'flex', alignItems:'flex-start', gap:'10px', padding:'12px 14px', background: dark?'rgba(255,170,60,0.08)':'rgba(200,120,0,0.06)', border:`1px solid ${dark?'rgba(255,170,60,0.28)':'rgba(200,120,0,0.22)'}`, borderRadius:T.rSm }}>
+                                <AlertTriangle size={16} color={dark?'#E0A050':'#B47000'} style={{ flexShrink:0, marginTop:1 }}/>
+                                <div style={{ fontSize:'11.5px', color:T.muted, lineHeight:1.5 }}>
+                                    <strong style={{ color: dark?'#E0A050':'#B47000' }}>Hat bağlı ama gelen mesajlar dinlenmiyor.</strong>{' '}
+                                    Müşteriler yazdığında bot cevap veremez. Sebep: <code style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'10.5px' }}>{webhookWarn}</code>
+                                </div>
+                            </div>
+                        )}
+                        {health?.lastError && (
+                            <div style={{ fontSize:'10.5px', color:T.muted, padding:'8px 10px', borderRadius:T.rXs, background:T.surface2, border:`1px solid ${T.border}` }}>
+                                Son hata: <code style={{ fontFamily:"'JetBrains Mono',monospace" }}>{health.lastError}</code>
+                            </div>
+                        )}
+                        <div style={{ fontSize:'10.5px', color:T.muted2 }}>Son 24 saat · sayılar Ayarlar her açıldığında tazelenir</div>
                         <button onClick={handleDisconnect}
                             style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'10px', borderRadius:T.rSm, border:`1px solid ${dark?'rgba(224,112,112,0.3)':'rgba(201,64,64,0.2)'}`, background:'none', color: dark?'#e07070':'#C94040', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}
                             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.06)';}}
@@ -286,29 +363,48 @@ export function WhatsAppTab() {
                     </div>
                 )}
 
-                {/* ── Bağla formu ── */}
+                {/* ── Bağla ── */}
+                {/* Instance adı artık sorulmuyor: org id'den türetiliyor. Elle ad
+                    yazıldığında iki işletme aynı adı verip aynı WhatsApp hattına
+                    bağlanabiliyordu. */}
                 {status==='idle' && (
                     <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                        <div style={{ background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'14px 16px' }}>
-                            <div style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'8px' }}>
-                                Evolution API Instance Adı
+                        {isBroken && (
+                            <div style={{ display:'flex', alignItems:'flex-start', gap:'10px', padding:'12px 14px', background: dark?'rgba(224,112,112,0.08)':'rgba(201,64,64,0.05)', border:`1px solid ${dark?'rgba(224,112,112,0.28)':'rgba(201,64,64,0.2)'}`, borderRadius:T.rSm }}>
+                                <AlertTriangle size={16} color={dark?'#e07070':'#C94040'} style={{ flexShrink:0, marginTop:1 }}/>
+                                <div>
+                                    <div style={{ fontSize:'12.5px', fontWeight:700, color: dark?'#e07070':'#C94040' }}>Bağlantı düştü</div>
+                                    <div style={{ fontSize:'11px', color:T.muted, marginTop:'2px', lineHeight:1.5 }}>
+                                        Hatırlatmalar gönderilmiyor. Telefonda WhatsApp açık ve internete bağlı mı kontrol edip QR'ı yeniden okutun.
+                                        {connection.lastError && <> <code style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'10px' }}>{connection.lastError}</code></>}
+                                    </div>
+                                </div>
                             </div>
-                            <input
-                                type="text"
-                                value={instanceInput}
-                                onChange={e=>setInstanceInput(e.target.value)}
-                                placeholder="örn: timeflow"
-                                onKeyDown={e=>e.key==='Enter'&&handleConnect()}
-                                style={{ width:'100%', background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rXs, padding:'9px 12px', fontFamily:"'JetBrains Mono',monospace", fontSize:'12.5px', color:T.ink, outline:'none', marginBottom:'6px' }}
-                                onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.08)';}}
-                                onBlur={e =>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none';}}
-                            />
-                            <div style={{ fontSize:'10.5px', color:T.muted }}>Evolution API Manager'dan oluşturduğun instance adı</div>
+                        )}
+                        {setupError && (
+                            <div style={{ display:'flex', alignItems:'flex-start', gap:'10px', padding:'12px 14px', background: dark?'rgba(224,112,112,0.08)':'rgba(201,64,64,0.05)', border:`1px solid ${dark?'rgba(224,112,112,0.28)':'rgba(201,64,64,0.2)'}`, borderRadius:T.rSm }}>
+                                <AlertTriangle size={16} color={dark?'#e07070':'#C94040'} style={{ flexShrink:0, marginTop:1 }}/>
+                                <div style={{ fontSize:'11.5px', color:T.muted, lineHeight:1.5 }}>
+                                    <strong style={{ color: dark?'#e07070':'#C94040' }}>Kurulum tamamlanmamış.</strong> {setupError}
+                                </div>
+                            </div>
+                        )}
+                        <div style={{ background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm, padding:'14px 16px' }}>
+                            <div style={{ fontSize:'12.5px', color:T.muted, lineHeight:1.6 }}>
+                                Bağla'ya bastığınızda işletmenize özel bir WhatsApp hattı hazırlanır ve QR kod çıkar.
+                                Telefonunuzdan <strong style={{ color:T.ink }}>WhatsApp → Bağlı Cihazlar → Cihaz Ekle</strong> ile okutmanız yeterli.
+                            </div>
+                            {/* Daha önce elle "timeflow" gibi bir ad yazılmışsa o hat
+                                artık kullanılmıyor; QR'ın yeniden okutulması gerekir. */}
+                            <div style={{ fontSize:'10.5px', color:T.muted2, marginTop:'8px', lineHeight:1.5 }}>
+                                Daha önce Evolution'da elle bir instance adı tanımladıysanız o hat artık kullanılmıyor —
+                                hat adı işletmenizden türetiliyor ve QR'ı bir kez yeniden okutmanız gerekiyor.
+                            </div>
                         </div>
-                        <button onClick={handleConnect} disabled={!instanceInput.trim()}
-                            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'12px', borderRadius:T.rSm, background:instanceInput.trim()?inkbox:T.surface3, color:instanceInput.trim()?inkboxFg:T.muted2, border:'none', fontSize:'13px', fontWeight:700, cursor:instanceInput.trim()?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
+                        <button onClick={handleConnect}
+                            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'12px', borderRadius:T.rSm, background:inkbox, color:inkboxFg, border:'none', fontSize:'13px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}>
                             <Smartphone size={15}/>
-                            WhatsApp Bağla
+                            {isBroken ? 'Yeniden Bağlan' : 'WhatsApp Bağla'}
                         </button>
                     </div>
                 )}
@@ -326,10 +422,90 @@ export function WhatsAppTab() {
                         </div>
                         <div>
                             <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>Gönderilecek Mesajlar</div>
-                            <div style={{ fontSize:'11px', color:T.muted, marginTop:'1px' }}>Otomatik hatırlatma şablonları</div>
+                            <div style={{ fontSize:'11px', color:T.muted, marginTop:'1px' }}>
+                                {commsApi.isCustom ? 'Kendi mesaj diliniz' : 'Sektör varsayılanı — düzenlenebilir'}
+                            </div>
                         </div>
                     </div>
+                    {commsApi.available && (
+                        <button onClick={() => { setDraft(null); setEditOpen(o => !o); }}
+                            style={{ display:'flex', alignItems:'center', gap:'6px', padding:'7px 12px', borderRadius:'999px', border:`1px solid ${T.border2}`, background:'none', color:T.ink, fontSize:'11.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                            {editOpen ? 'Kapat' : 'Mesaj dilini düzenle'}
+                        </button>
+                    )}
                 </div>
+
+                {/* ── Mesaj dili override'ı ──
+                    Sektör varsayılanı src/lib/sectorProfiles.ts'te; burada kaydedilen
+                    metin settings.comms'a custom=true ile yazılır ve sektör senkronu
+                    onu bir daha ezmez. Edge function (remind) aynı kaydı okur. */}
+                {editOpen && (
+                    <div style={{ padding:'18px 20px', borderBottom:`1px solid ${T.border}`, background:T.surface2, display:'grid', gap:'14px' }}>
+                        <label style={{ display:'grid', gap:'6px' }}>
+                            <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>Karakter — AI bu tonu kullanır</span>
+                            <textarea value={edit.persona} onChange={e => setEdit({ persona: e.target.value })} rows={2}
+                                style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'12.5px', fontFamily:'inherit', resize:'vertical' }} />
+                        </label>
+
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:'10px' }}>
+                            <label style={{ display:'grid', gap:'6px' }}>
+                                <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>Muhatap</span>
+                                <input value={edit.audience} onChange={e => setEdit({ audience: e.target.value })} placeholder="hastamız"
+                                    style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'12.5px', fontFamily:'inherit' }} />
+                            </label>
+                            <label style={{ display:'grid', gap:'6px' }}>
+                                <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>"…hatırlatmak istedik"</span>
+                                <input value={edit.servicePhrase} onChange={e => setEdit({ servicePhrase: e.target.value })} placeholder="tedavinizi"
+                                    style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'12.5px', fontFamily:'inherit' }} />
+                            </label>
+                            <label style={{ display:'grid', gap:'6px' }}>
+                                <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>Emoji</span>
+                                <input value={edit.emoji} onChange={e => setEdit({ emoji: e.target.value.slice(0, 4) })} maxLength={4}
+                                    style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'14px', textAlign:'center', fontFamily:'inherit' }} />
+                            </label>
+                        </div>
+
+                        {edit.recall && (
+                            <div style={{ display:'grid', gridTemplateColumns:'1fr 120px', gap:'10px' }}>
+                                <label style={{ display:'grid', gap:'6px' }}>
+                                    <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>Dönüş hatırlatması</span>
+                                    <input value={edit.recall.concept} onChange={e => setEdit({ recall: { ...edit.recall!, concept: e.target.value } })} placeholder="diş kontrolü"
+                                        style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'12.5px', fontFamily:'inherit' }} />
+                                </label>
+                                <label style={{ display:'grid', gap:'6px' }}>
+                                    <span style={{ fontSize:'10.5px', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:T.muted }}>Kaç gün sonra</span>
+                                    <input value={String(edit.recall.afterDays)} inputMode="numeric"
+                                        onChange={e => setEdit({ recall: { ...edit.recall!, afterDays: Number(e.target.value.replace(/\D/g, '')) || 0 } })}
+                                        style={{ width:'100%', padding:'10px 12px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:T.surface, color:T.ink, fontSize:'12.5px', textAlign:'center', fontFamily:'inherit' }} />
+                                </label>
+                            </div>
+                        )}
+
+                        {edit.guardrail && (
+                            <div style={{ fontSize:'10.5px', color:T.muted, padding:'8px 10px', borderRadius:T.rXs, background:T.surface, border:`1px solid ${T.border}` }}>
+                                Güvenlik kuralı korunur: “{edit.guardrail}”
+                            </div>
+                        )}
+
+                        <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+                            <button disabled={commsApi.saving || !draft}
+                                onClick={async () => { if (draft && await commsApi.save(draft)) { setDraft(null); setEditOpen(false); } }}
+                                style={{ padding:'10px 18px', borderRadius:T.rSm, border:'none', background: draft ? inkbox : T.surface3, color: draft ? inkboxFg : T.muted2, fontSize:'12.5px', fontWeight:700, cursor: draft ? 'pointer' : 'not-allowed', fontFamily:'inherit' }}>
+                                Kaydet
+                            </button>
+                            {commsApi.isCustom && (
+                                <button disabled={commsApi.saving}
+                                    onClick={async () => { if (await commsApi.reset()) { setDraft(null); setEditOpen(false); } }}
+                                    style={{ padding:'10px 14px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', color:T.muted, fontSize:'12px', fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                                    Sektör varsayılanına dön
+                                </button>
+                            )}
+                            <span style={{ fontSize:'10.5px', color:T.muted2, marginLeft:'auto' }}>
+                                Varsayılan: {sectorDefault.persona.slice(0, 40)}…
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', padding:'20px', gap:'20px' }}>
                     {/* 24 saat */}
@@ -361,6 +537,53 @@ export function WhatsAppTab() {
                         </div>
                         <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'5px' }}>Randevudan 2 saat önce gönderilir</div>
                     </div>
+
+                    {/* Kapatılabilir otomatik mesajlar.
+                        Winback ve yenileme bugüne kadar kullanıcıya hiç
+                        gösterilmeden onun adına gidiyordu; artık hem önizleniyor
+                        hem de kapatılabiliyor. */}
+                    {([
+                        previewRecall && {
+                            key: 'recall' as const, badge: comms.recall!.concept, label: 'Dönüş hatırlatması',
+                            text: previewRecall, time: '11:30',
+                            note: `Son ziyaretten ~${comms.recall!.afterDays} gün sonra, tarihe 2 gün kala bir kez gönderilir`,
+                        },
+                        {
+                            key: 'winback' as const, badge: 'Sizi özledik', label: 'Geri kazanım',
+                            text: previewWinback, time: '12:05',
+                            note: '60 günden uzun süredir gelmeyen, ileri tarihli randevusu olmayan müşteriye bir kez gönderilir',
+                        },
+                        {
+                            key: 'renewal' as const, badge: 'Paket yenileme', label: 'Biten pakete teklif',
+                            text: previewRenewal, time: '16:40',
+                            note: 'Tüm seansları tamamlanan paketin sahibine paket başına bir kez gönderilir',
+                        },
+                    ].filter(Boolean) as { key: 'recall'|'winback'|'renewal'; badge: string; label: string; text: string; time: string; note: string }[])
+                    .map(card => {
+                        const on = connection.features[card.key];
+                        return (
+                            <div key={card.key} style={{ gridColumn:'1 / -1', opacity: on ? 1 : 0.55, transition:'opacity .15s' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'12px' }}>
+                                    <span style={{ background:T.orange, color: dark?'#0C0A08':'#0E0E0E', fontSize:'9px', fontWeight:800, letterSpacing:'.12em', textTransform:'uppercase', padding:'4px 9px', borderRadius:'999px' }}>{card.badge}</span>
+                                    <span style={{ fontSize:'10.5px', color:T.muted }}>{card.label}</span>
+                                    <button onClick={() => toggleFeature(card.key)} disabled={busyFeature === card.key}
+                                        style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:'6px', padding:'5px 11px', borderRadius:'999px', border:`1px solid ${on ? 'rgba(37,211,102,0.3)' : T.border2}`, background: on ? 'rgba(37,211,102,0.1)' : 'none', color: on ? '#2a8a40' : T.muted, fontSize:'11px', fontWeight:700, cursor: busyFeature === card.key ? 'wait' : 'pointer', fontFamily:'inherit' }}>
+                                        {busyFeature === card.key && <Loader2 size={11} className="animate-spin"/>}
+                                        {on ? 'Açık' : 'Kapalı'}
+                                    </button>
+                                </div>
+                                <div style={{ background:chatBg, borderRadius:T.rSm, padding:'14px', marginBottom:'12px' }}>
+                                    <div style={{ background: dark?'#2a3942':'white', borderRadius:'0 10px 10px 10px', padding:'11px 13px', fontSize:'12px', lineHeight:1.6, color: dark?'#e9edef':'#111', maxWidth:'92%', boxShadow:'0 1px 3px rgba(0,0,0,.12)' }}>
+                                        <div style={{ whiteSpace:'pre-line' }}>{card.text}</div>
+                                        <div style={{ fontSize:'9px', color: dark?'rgba(233,237,239,0.4)':'rgba(0,0,0,.35)', textAlign:'right', marginTop:'5px' }}>{card.time} ✔✔</div>
+                                    </div>
+                                </div>
+                                <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'5px' }}>
+                                    {on ? card.note : 'Kapalı — bu mesaj gönderilmiyor'}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>

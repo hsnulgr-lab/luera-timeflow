@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+    connectedOrgs, featureOn, getOrgWa, getSecret, sendWA,
+    type OrgWa, type WaKind,
+} from '../_shared/wa.ts';
+import { identify, deny } from '../_shared/auth.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -8,13 +13,6 @@ const corsHeaders = {
 
 // Turkey UTC+3
 const TZ_OFFSET_MIN = 3 * 60;
-
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
-}
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -27,8 +25,11 @@ Deno.serve(async (req: Request) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         );
 
-        const EVOLUTION_URL = (await getSecret(supabase, 'EVOLUTION_API_URL'))!;
-        const EVOLUTION_KEY = (await getSecret(supabase, 'EVOLUTION_API_KEY'))!;
+        // Manuel tetikleme: panel/vizit ekranındaki "Hatırlat" butonu tek bir
+        // hastanın kontrol (recall) mesajını hemen gönderir. Body yoksa (cron)
+        // tam otomatik tarama çalışır.
+        let reqBody: { recallCustomerId?: string } = {};
+        try { reqBody = await req.json(); } catch { /* cron: gövde yok */ }
 
         // Türkiye saatine göre şimdiki zaman
         const nowUtc = new Date();
@@ -36,7 +37,17 @@ Deno.serve(async (req: Request) => {
 
         const todayStr    = datePart(nowTR);
         const tomorrowStr = datePart(new Date(nowTR.getTime() + 86_400_000));
+        const plus2Str    = datePart(new Date(nowTR.getTime() + 2 * 86_400_000));
         const nowMin      = nowTR.getHours() * 60 + nowTR.getMinutes();
+
+        // Sessiz saatler: cron 30 dakikada bir çalıştığı için gece yarısı da
+        // tetikleniyor ve "yarınki randevunuz" hatırlatması 00:00'da gidiyordu.
+        // İşletme adına gönderilen mesajlar yalnız 09:00–21:00 (TR) arasında.
+        // 2 saat kala hatırlatma bunun DIŞINDA: randevu saatine bağlı, zaten
+        // mesai içine denk gelir ve geciktirilirse anlamını yitirir.
+        const SENDABLE_FROM = 9 * 60;
+        const SENDABLE_TO   = 21 * 60;
+        const sendableHour  = nowMin >= SENDABLE_FROM && nowMin < SENDABLE_TO;
 
         // 2h penceresi: şu andan 90-150 dakika arasındaki randevular
         const window2hStart = nowMin + 90;
@@ -44,21 +55,110 @@ Deno.serve(async (req: Request) => {
 
         let sent24h = 0;
         let sent2h  = 0;
+        let sentRecall = 0;
+        let sentWinback = 0;
+        let sentRenewal = 0;
         const errors: string[] = [];
 
         // AI mesaj üretimi için Gemini key (env → app_secrets)
         const geminiKey = await getGeminiKey(supabase);
 
-        // Tüm organizasyonların WhatsApp ayarlarını çek
-        const { data: settingsList } = await supabase
-            .from('settings')
-            .select('organization_id, whatsapp_instance, business_name, sector')
-            .not('whatsapp_instance', 'is', null);
+        // ── MANUEL MOD: tek hasta kontrol hatırlatması ───────────────────────
+        // "Hatırlat" butonu bu yolu tetikler; cron beklemeden anında gönderir.
+        if (reqBody.recallCustomerId) {
+            // Tenant izolasyonu: service-role RLS'i bypass ettiği için çağıranın
+            // org'unu JWT'den doğrula ve hastanın AYNI org'a ait olduğunu kanıtla.
+            // Aksi halde başka kliniğin hastasına mesaj attırılabilirdi.
+            const authHeader = req.headers.get('Authorization') || '';
+            const jwt = authHeader.replace(/^Bearer\s+/i, '');
+            const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+            if (userErr || !userData?.user) {
+                return new Response(JSON.stringify({ error: 'Yetkisiz' }),
+                    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            const { data: member } = await supabase
+                .from('organization_members')
+                .select('org_id')
+                .eq('user_id', userData.user.id)
+                .limit(1)
+                .maybeSingle();
+            const callerOrgId = member?.org_id;
+            if (!callerOrgId) {
+                return new Response(JSON.stringify({ error: 'Organizasyon bulunamadı' }),
+                    { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
 
-        // Konum linki (organizations.maps_url) — mesaj sonuna eklenir
-        const orgIds = (settingsList ?? []).map((s: any) => s.organization_id).filter(Boolean);
+            const { data: cust } = await supabase
+                .from('customers')
+                .select('id, name, phone, recall_date, organization_id')
+                .eq('id', reqBody.recallCustomerId)
+                .eq('organization_id', callerOrgId)
+                .maybeSingle();
+            if (!cust?.phone) {
+                return new Response(JSON.stringify({ error: 'Hasta veya telefon bulunamadı' }),
+                    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            const { data: orgSettings } = await supabase
+                .from('settings')
+                .select('business_name')
+                .eq('organization_id', cust.organization_id)
+                .limit(1)
+                .maybeSingle();
+            // Bağlantı org_whatsapp'ta (070) — settings kullanıcı başına tek satır
+            // olduğu için oradan okumak çok üyeli org'da belirsizdi.
+            const orgWa = await getOrgWa(supabase, cust.organization_id);
+            if (!orgWa?.instance || orgWa.status !== 'connected') {
+                return new Response(JSON.stringify({ error: 'WhatsApp bağlı değil' }),
+                    { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            const { data: orgRow } = await supabase
+                .from('organizations').select('maps_url').eq('id', cust.organization_id).maybeSingle();
+            const mapsUrl = orgRow?.maps_url ?? null;
+            // settings satırı yoksa (silinmiş/eksik) mesaj yine gitsin
+            const bizName = orgSettings?.business_name || 'İşletme';
+            const tmpl = () => buildRecallMessage({ customerName: cust.name, businessName: bizName });
+            const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, cust.name, bizName, tmpl), mapsUrl);
+            // Elle tetiklenen hatırlatma kotaya takılmasın (kind:'manual').
+            const res = await sendWA(supabase, {
+                org: orgWa, phone: cust.phone, text: msg, kind: 'manual', customerId: cust.id,
+            });
+            const sent = res.ok;
+            if (sent && cust.recall_date) {
+                await supabase.from('customers').update({ recall_reminded_for: cust.recall_date }).eq('id', cust.id);
+            }
+            return new Response(JSON.stringify({ success: sent }),
+                { status: sent ? 200 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // ── CRON MODU: yalnız zamanlayıcı tetikleyebilir ────────────────────
+        // Buraya kadar gelen istek gövdesiz demektir = tüm org'ların taraması.
+        // Kimlik kontrolü yoktu: URL'i bilen herkes tüm müşterilere mesaj
+        // gönderilmesini tetikleyebiliyordu. Artık x-cron-secret (ya da dahili
+        // service_role çağrısı) şart.
+        const caller = await identify(supabase, req);
+        if (caller.kind !== 'cron' && caller.kind !== 'service') {
+            return deny(401, 'Bu uç yalnız zamanlayıcı tarafından çağrılabilir', corsHeaders);
+        }
+
+        // Bağlı organizasyonlar — org başına TEK satır (org_whatsapp, 070).
+        // Eskiden settings satırları üzerinde dönülüyordu; settings kullanıcı
+        // başına tek satır olduğu için 3 üyeli org 3 kez işleniyordu.
+        const orgList = await connectedOrgs(supabase);
+        const orgIds = orgList.map((o) => o.organization_id);
+
+        // İşletme adı + sektörel iletişim profili (settings'ten, org bazlı)
+        const settingsByOrg = new Map<string, { business_name: string; comms: unknown }>();
         const mapsUrlByOrg = new Map<string, string>();
         if (orgIds.length > 0) {
+            const { data: settingsRows } = await supabase
+                .from('settings')
+                .select('organization_id, business_name, comms')
+                .in('organization_id', orgIds);
+            for (const s of settingsRows ?? []) {
+                if (!settingsByOrg.has(s.organization_id)) {
+                    settingsByOrg.set(s.organization_id, { business_name: s.business_name, comms: s.comms });
+                }
+            }
             const { data: orgRows } = await supabase
                 .from('organizations')
                 .select('id, maps_url')
@@ -68,16 +168,25 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        for (const org of settingsList ?? []) {
-            const { organization_id, whatsapp_instance, business_name } = org;
-            const sector: string = org.sector || 'genel';
-            if (!whatsapp_instance) continue;
+        for (const orgWa of orgList) {
+            const organization_id = orgWa.organization_id;
+            const conf = settingsByOrg.get(organization_id);
+            const business_name = conf?.business_name ?? 'İşletme';
+            // Sektörel iletişim profili — kaynak src/lib/sectorProfiles.ts, uygulama
+            // settings.comms'a yazar (066). Yoksa nötr profille devam edilir.
+            const comms: Comms = resolveComms(conf?.comms);
             const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
 
+            // Her gönderim aynı kapıdan: normalize + opt-out + kota + log
+            const send = async (phone: string, text: string, kind: WaKind, customerId?: string | null) => {
+                const res = await sendWA(supabase, { org: orgWa as OrgWa, phone, text, kind, customerId });
+                return res.ok;
+            };
+
             // ── 24h Hatırlatma ───────────────────────────────────────────────
-            const { data: list24h } = await supabase
+            const { data: list24h } = !sendableHour ? { data: [] } : await supabase
                 .from('reservations')
-                .select('id, customer_name, customer_phone, start_time, service')
+                .select('id, customer_id, customer_name, customer_phone, start_time, service')
                 .eq('organization_id', organization_id)
                 .eq('date', tomorrowStr)
                 .eq('reminder_24h_sent', false)
@@ -85,9 +194,9 @@ Deno.serve(async (req: Request) => {
 
             for (const r of list24h ?? []) {
                 const startTime = r.start_time.slice(0, 5);
-                const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name });
-                const msg = withMapsUrl(await aiOrTemplate(geminiKey, sector, '24h', r.customer_name, r.service, startTime, business_name, tmpl), mapsUrl);
-                const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
+                const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name, comms });
+                const msg = withMapsUrl(await aiOrTemplate(geminiKey, comms, '24h', r.customer_name, r.service, startTime, business_name, tmpl), mapsUrl);
+                const ok = await send(r.customer_phone, msg, 'reminder_24h', r.customer_id);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_24h_sent: true }).eq('id', r.id);
                     sent24h++;
@@ -99,7 +208,7 @@ Deno.serve(async (req: Request) => {
             // ── 2h Hatırlatma ────────────────────────────────────────────────
             const { data: list2h } = await supabase
                 .from('reservations')
-                .select('id, customer_name, customer_phone, start_time, service')
+                .select('id, customer_id, customer_name, customer_phone, start_time, service')
                 .eq('organization_id', organization_id)
                 .eq('date', todayStr)
                 .eq('reminder_2h_sent', false)
@@ -112,14 +221,134 @@ Deno.serve(async (req: Request) => {
                 if (resMin < window2hStart || resMin > window2hEnd) continue;
 
                 const startTime2 = r.start_time.slice(0, 5);
-                const tmpl2 = () => build2hMessage({ customerName: r.customer_name, startTime: startTime2, service: r.service, businessName: business_name });
-                const msg = withMapsUrl(await aiOrTemplate(geminiKey, sector, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2), mapsUrl);
-                const ok = await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, whatsapp_instance, r.customer_phone, msg);
+                const tmpl2 = () => build2hMessage({ customerName: r.customer_name, startTime: startTime2, service: r.service, businessName: business_name, comms });
+                const msg = withMapsUrl(await aiOrTemplate(geminiKey, comms, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2), mapsUrl);
+                const ok = await send(r.customer_phone, msg, 'reminder_2h', r.customer_id);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_2h_sent: true }).eq('id', r.id);
                     sent2h++;
                 } else {
                     errors.push(`2h:${r.id}`);
+                }
+            }
+
+            // ── Dönüş (recall) Hatırlatması ──────────────────────────────────
+            // Sektörün recall kavramı varsa (diş: kontrol, kuaför: dip boyası,
+            // gym: üyelik yenileme…) recall_date'e 2 gün kala tek sefer gönderilir.
+            // recall_reminded_for aynı tarihe ikinci mesajı engeller (065).
+            if (comms.recall && featureOn(orgWa, 'recall') && sendableHour) {
+                const { data: recallList } = await supabase
+                    .from('customers')
+                    .select('id, name, phone, recall_date, recall_reminded_for')
+                    .eq('organization_id', organization_id)
+                    .not('recall_date', 'is', null)
+                    .lte('recall_date', plus2Str);
+
+                for (const c of recallList ?? []) {
+                    if (!c.phone) continue;
+                    // Bu kontrol tarihi için zaten hatırlatıldıysa atla
+                    if (c.recall_reminded_for && c.recall_reminded_for === c.recall_date) continue;
+                    const tmpl = () => buildRecallMessage({ customerName: c.name, businessName: business_name, comms });
+                    const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
+                    const ok = await send(c.phone, msg, 'recall', c.id);
+                    if (ok) {
+                        await supabase.from('customers').update({ recall_reminded_for: c.recall_date }).eq('id', c.id);
+                        sentRecall++;
+                    } else {
+                        errors.push(`recall:${c.id}`);
+                    }
+                }
+            }
+
+            // ── "Sizi özledik" (winback) — 067 ───────────────────────────────
+            // İşletme Ayarlar → WhatsApp'tan kapatabilir (org_whatsapp.features).
+            // 60+ gündür gelmeyen, ileri tarihli randevusu olmayan müşteriye bir
+            // kez gönderilir; 90 gün geçmeden tekrarlanmaz. Tur başına 15 mesaj
+            // (WhatsApp spam görünümünü ve süreyi sınırlar).
+            if (featureOn(orgWa, 'winback') && sendableHour) {
+                const cutoff60 = datePart(new Date(nowTR.getTime() - 60 * 86_400_000));
+                const resend90 = new Date(nowUtc.getTime() - 90 * 86_400_000).toISOString();
+                const { data: futureRes } = await supabase
+                    .from('reservations')
+                    .select('customer_id')
+                    .eq('organization_id', organization_id)
+                    .gte('date', todayStr)
+                    .neq('status', 'cancelled');
+                const hasFuture = new Set((futureRes ?? []).map((r: any) => r.customer_id).filter(Boolean));
+
+                const { data: winbackList } = await supabase
+                    .from('customers')
+                    .select('id, name, phone, last_visit, winback_sent_at')
+                    .eq('organization_id', organization_id)
+                    .not('phone', 'is', null)
+                    .not('last_visit', 'is', null)
+                    .lte('last_visit', cutoff60)
+                    .order('last_visit', { ascending: true })
+                    .limit(60);
+
+                let budget = 15;
+                for (const c of winbackList ?? []) {
+                    if (budget <= 0) break;
+                    if (!c.phone || hasFuture.has(c.id)) continue;
+                    if (c.winback_sent_at && c.winback_sent_at > resend90) continue;
+                    const tmpl = () => buildWinbackMessage({ customerName: c.name, businessName: business_name, comms });
+                    const msg = withMapsUrl(await winbackAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
+                    const ok = await send(c.phone, msg, 'winback', c.id);
+                    if (ok) {
+                        await supabase.from('customers').update({ winback_sent_at: nowUtc.toISOString() }).eq('id', c.id);
+                        sentWinback++;
+                        budget--;
+                    } else {
+                        errors.push(`winback:${c.id}`);
+                    }
+                }
+            }
+
+            // ── Biten pakete yenileme teklifi — 067 ──────────────────────────
+            // Tüm seansları tamamlanmış paketin sahibine paket başına bir kez
+            // yenileme mesajı gönderilir (renewal_offered_at damgası).
+            if (featureOn(orgWa, 'renewal') && sendableHour) {
+                // DİKKAT: eleme (sessions_done >= session_count) PostgREST'te
+                // kolon-kolon karşılaştırması gerektirdiği için JS'te yapılıyor.
+                // Bu yüzden LIMIT, elemeden ÖNCEKİ kümeye uygulanır — sıralamasız
+                // küçük bir limitle biten planlar hiç görülmeyebiliyordu (canlıda
+                // 57 aday plan içinden tek biten plan 30'luk rastgele dilime
+                // girmediği için yenileme teklifi hiç gitmiyordu).
+                // Çözüm: SQL'de daraltabildiğimiz kadar daralt (session_count > 1),
+                // deterministik sırala, limiti güvenli bir tavana çek.
+                const { data: donePlans } = await supabase
+                    .from('treatment_plans')
+                    .select('id, title, customer_id, session_count, sessions_done, renewal_offered_at, status')
+                    .eq('organization_id', organization_id)
+                    .neq('status', 'cancelled')
+                    .is('renewal_offered_at', null)
+                    .gt('session_count', 1)
+                    .order('created_at', { ascending: false })
+                    .limit(500);
+
+                const ready = (donePlans ?? []).filter((p: any) =>
+                    Number(p.sessions_done ?? 0) >= Math.max(1, Number(p.session_count ?? 1)) && Number(p.session_count ?? 1) > 1);
+                let budget = 15;
+                for (const p of ready) {
+                    if (budget <= 0) break;
+                    const { data: cust } = await supabase
+                        .from('customers').select('id, name, phone')
+                        .eq('id', p.customer_id).eq('organization_id', organization_id).maybeSingle();
+                    if (!cust?.phone) {
+                        // Telefonu olmayan paket her turda taranmasın
+                        await supabase.from('treatment_plans').update({ renewal_offered_at: nowUtc.toISOString() }).eq('id', p.id);
+                        continue;
+                    }
+                    const tmpl = () => buildRenewalMessage({ customerName: cust.name, packageTitle: p.title, businessName: business_name, comms });
+                    const msg = withMapsUrl(await renewalAiOrTemplate(geminiKey, comms, cust.name, p.title, business_name, tmpl), mapsUrl);
+                    const ok = await send(cust.phone, msg, 'renewal', cust.id);
+                    if (ok) {
+                        await supabase.from('treatment_plans').update({ renewal_offered_at: nowUtc.toISOString() }).eq('id', p.id);
+                        sentRenewal++;
+                        budget--;
+                    } else {
+                        errors.push(`renewal:${p.id}`);
+                    }
                 }
             }
         }
@@ -166,9 +395,9 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} push=${sentPush} errors=${errors.length}`);
+        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
-            JSON.stringify({ success: true, sent24h, sent2h, sentPush, errors }),
+            JSON.stringify({ success: true, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
     } catch (err) {
@@ -192,54 +421,166 @@ function withMapsUrl(msg: string, mapsUrl: string | null): string {
     return mapsUrl ? `${msg}\n\n📍 Konum: ${mapsUrl}` : msg;
 }
 
-async function sendWhatsApp(
-    baseUrl: string,
-    apiKey: string,
-    instance: string,
-    phone: string,
-    text: string,
-): Promise<boolean> {
-    try {
-        const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify({ number: phone, text }),
-        });
-        return res.ok;
-    } catch {
-        return false;
-    }
-}
-
-function build24hMessage(p: { customerName: string; startTime: string; service: string; businessName: string }): string {
+function build24hMessage(p: { customerName: string; startTime: string; service: string; businessName: string; comms?: Comms }): string {
+    const c = p.comms ?? NEUTRAL_COMMS;
     return (
         `Merhaba ${p.customerName} 👋\n\n` +
-        `*${p.businessName}*'daki ${p.service} randevunuzu hatırlatmak istedik.\n\n` +
+        `*${p.businessName}*'daki ${p.service} ${c.servicePhrase} hatırlatmak istedik.\n\n` +
         `📅 Yarın saat *${p.startTime}*\n\n` +
-        `Görüşmek üzere! 🗓️`
+        `Görüşmek üzere! ${c.emoji}`
     );
 }
 
-function build2hMessage(p: { customerName: string; startTime: string; service: string; businessName: string }): string {
+function build2hMessage(p: { customerName: string; startTime: string; service: string; businessName: string; comms?: Comms }): string {
     return (
         `Merhaba ${p.customerName} 👋\n\n` +
         `Bugün saat *${p.startTime}*'deki *${p.service}* randevunuz 2 saat sonra.\n\n` +
         `📍 ${p.businessName}\n\n` +
-        `Görüşmek üzere! ✅`
+        `Görüşmek üzere! ${(p.comms ?? NEUTRAL_COMMS).emoji}`
     );
+}
+
+// Dönüş (recall) şablonu — AI başarısız olursa güvenlik ağı. Kavram sektörden
+// gelir: diş kontrolü / dip boyası / üyelik yenileme…
+function buildRecallMessage(p: { customerName: string; businessName: string; comms?: Comms }): string {
+    const firstName = (p.customerName || '').split(' ')[0];
+    const c = p.comms ?? NEUTRAL_COMMS;
+    const concept = c.recall?.concept ?? 'dönüş';
+    return (
+        `Merhaba ${firstName} 👋\n\n` +
+        `*${p.businessName}*'den yazıyoruz. *${concept}* zamanınız geldi ${c.emoji}\n\n` +
+        `Size uygun bir güne randevu oluşturmak için bu mesaja yanıt vermeniz yeterli. İyi günler dileriz! 😊`
+    );
+}
+
+// "Sizi özledik" şablonu — 60+ gün gelmeyen müşteri için güvenlik ağı
+function buildWinbackMessage(p: { customerName: string; businessName: string; comms?: Comms }): string {
+    const firstName = (p.customerName || '').split(' ')[0];
+    const c = p.comms ?? NEUTRAL_COMMS;
+    return (
+        `Merhaba ${firstName} ${c.emoji}\n\n` +
+        `*${p.businessName}* olarak sizi özledik! Bir süredir uğramadınız — ` +
+        `size uygun bir güne ${c.serviceWord} planlamak isterseniz bu mesaja yanıt vermeniz yeterli. 😊`
+    );
+}
+
+function buildWinbackAiPrompt(comms: Comms, customerName: string, businessName: string): string {
+    const firstName = (customerName || '').split(' ')[0];
+    return (
+        `${comms.persona} İşletme adı: ${businessName}.\n` +
+        `${comms.audience} ${firstName}. Bu kişi 2 aydan uzun süredir gelmedi.\n` +
+        `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe "SİZİ ÖZLEDİK" mesajı yaz. ` +
+        `Adıyla başla. Suçlayıcı olma; nazikçe dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        (comms.guardrail ? `${comms.guardrail} ` : '') +
+        `İndirim/kampanya UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
+    );
+}
+
+async function winbackAiOrTemplate(
+    geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
+): Promise<string> {
+    if (geminiKey) {
+        const ai = await geminiMessage(geminiKey, buildWinbackAiPrompt(comms, customerName, businessName));
+        if (ai) return ai;
+    }
+    return fallback();
+}
+
+// Paket yenileme şablonu — biten paket için güvenlik ağı
+function buildRenewalMessage(p: { customerName: string; packageTitle: string; businessName: string; comms?: Comms }): string {
+    const firstName = (p.customerName || '').split(' ')[0];
+    const c = p.comms ?? NEUTRAL_COMMS;
+    return (
+        `Merhaba ${firstName} ${c.emoji}\n\n` +
+        `*${p.businessName}*'daki *${p.packageTitle}* paketiniz tamamlandı — emeğinize sağlık! 🎉\n\n` +
+        `Devam etmek isterseniz yenileme için bu mesaja yanıt vermeniz yeterli; size uygun bir plan hazırlayalım. 😊`
+    );
+}
+
+function buildRenewalAiPrompt(comms: Comms, customerName: string, packageTitle: string, businessName: string): string {
+    const firstName = (customerName || '').split(' ')[0];
+    return (
+        `${comms.persona} İşletme adı: ${businessName}.\n` +
+        `${comms.audience} ${firstName}. Bu kişinin "${packageTitle}" paketindeki tüm seanslar tamamlandı.\n` +
+        `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe PAKET YENİLEME teklifi yaz. ` +
+        `Adıyla başla, paketi tebrikle an, yenilemek isterse dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        (comms.guardrail ? `${comms.guardrail} ` : '') +
+        `Fiyat/indirim UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
+    );
+}
+
+async function renewalAiOrTemplate(
+    geminiKey: string | null, comms: Comms, customerName: string, packageTitle: string, businessName: string, fallback: () => string,
+): Promise<string> {
+    if (geminiKey) {
+        const ai = await geminiMessage(geminiKey, buildRenewalAiPrompt(comms, customerName, packageTitle, businessName));
+        if (ai) return ai;
+    }
+    return fallback();
+}
+
+// Recall için AI mesajı — gizlilik: yalnız ön ad + işletme adı gider (telefon/soyad GİTMEZ)
+function buildRecallAiPrompt(comms: Comms, customerName: string, businessName: string): string {
+    const firstName = (customerName || '').split(' ')[0];
+    const concept = comms.recall?.concept ?? 'dönüş';
+    return (
+        `${comms.persona} İşletme adı: ${businessName}.\n` +
+        `${comms.audience} ${firstName}. Bu kişinin periyodik *${concept}* zamanı geldi.\n` +
+        `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe HATIRLATMA mesajı yaz. ` +
+        `Adıyla başla. Randevu için dönüş yapmasını nazikçe iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        (comms.guardrail ? `${comms.guardrail} ` : '') +
+        `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
+    );
+}
+
+async function recallAiOrTemplate(
+    geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
+): Promise<string> {
+    if (geminiKey) {
+        const ai = await geminiMessage(geminiKey, buildRecallAiPrompt(comms, customerName, businessName));
+        if (ai) return ai;
+    }
+    return fallback();
 }
 
 // ─── AI (Gemini) sektörel hatırlatma ─────────────────────────────────────────
 // Gizlilik: Gemini'ye yalnızca ön ad + hizmet + saat + sektör + işletme adı gider.
 // Telefon ve soyad GİTMEZ.
-const SECTOR_HINTS: Record<string, string> = {
-    fizyoterapi: 'Bir fizyoterapi / sağlık merkezisin; sıcak ama profesyonel bir ton kullan.',
-    guzellik:    'Bir güzellik salonu / merkezisin; samimi ve sıcak bir ton kullan.',
-    danismanlik: 'Bir danışmanlık / koçluk ofisisin; saygılı, net ve profesyonel ol.',
-    saglik:      'Bir sağlık / klinik işletmesisin; güven veren, profesyonel bir ton kullan.',
-    kuafor:      'Bir kuaför / berbersin; samimi ve enerjik bir ton kullan.',
-    genel:       'Randevulu hizmet veren bir işletmesin; samimi ve nazik ol.',
+// Sektörel iletişim profili — TEK KAYNAK src/lib/sectorProfiles.ts'tir.
+// Uygulama sektör seçildiğinde settings.comms'a yazar (066); burada sektör
+// tablosunun ikinci bir kopyası TUTULMAZ, aksi halde iki taraf birbirinden
+// kayar (eski SECTOR_HINTS tam olarak bu yüzden 8 sektörü ıskalıyordu).
+interface Comms {
+    persona: string;
+    audience: string;
+    serviceWord: string;
+    servicePhrase: string;
+    emoji: string;
+    recall?: { concept: string; afterDays: number };
+    guardrail?: string;
+}
+
+// comms yazılmamış org'lar için nötr profil — mesajlaşma asla kesilmez.
+const NEUTRAL_COMMS: Comms = {
+    persona: 'Randevulu hizmet veren bir işletmesin; samimi, nazik ve net ol.',
+    audience: 'müşterimiz',
+    serviceWord: 'randevu',
+    servicePhrase: 'randevunuzu',
+    emoji: '🗓️',
 };
+
+function resolveComms(raw: any): Comms {
+    if (!raw || typeof raw !== 'object' || !raw.persona) return NEUTRAL_COMMS;
+    return {
+        persona: String(raw.persona),
+        audience: String(raw.audience ?? NEUTRAL_COMMS.audience),
+        serviceWord: String(raw.serviceWord ?? NEUTRAL_COMMS.serviceWord),
+        servicePhrase: String(raw.servicePhrase ?? NEUTRAL_COMMS.servicePhrase),
+        emoji: String(raw.emoji ?? NEUTRAL_COMMS.emoji),
+        recall: raw.recall?.concept ? { concept: String(raw.recall.concept), afterDays: Number(raw.recall.afterDays) || 90 } : undefined,
+        guardrail: raw.guardrail ? String(raw.guardrail) : undefined,
+    };
+}
 
 async function getGeminiKey(supabase: any): Promise<string | null> {
     const env = Deno.env.get('GEMINI_API_KEY');
@@ -248,17 +589,17 @@ async function getGeminiKey(supabase: any): Promise<string | null> {
     return data?.value ?? null;
 }
 
-function buildAiPrompt(type: '24h' | '2h', sector: string, customerName: string, service: string, time: string, businessName: string): string {
+function buildAiPrompt(type: '24h' | '2h', comms: Comms, customerName: string, service: string, time: string, businessName: string): string {
     const firstName = (customerName || '').split(' ')[0];
-    const hint = SECTOR_HINTS[sector] || SECTOR_HINTS.genel;
     const whenLine = type === '24h'
         ? `Randevu YARIN saat ${time}.`
         : `Randevu BUGÜN saat ${time}'de (yaklaşık 2 saat sonra).`;
     return (
-        `${hint} İşletme adı: ${businessName}.\n` +
-        `Müşteri adı: ${firstName}. Hizmet: ${service}. ${whenLine}\n` +
-        `Bu müşteriye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe RANDEVU HATIRLATMA mesajı yaz. ` +
-        `Müşterinin adıyla başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin. ` +
+        `${comms.persona} İşletme adı: ${businessName}.\n` +
+        `${comms.audience} ${firstName}. ${comms.serviceWord}: ${service}. ${whenLine}\n` +
+        `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe RANDEVU HATIRLATMA mesajı yaz. ` +
+        `Adıyla başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        (comms.guardrail ? `${comms.guardrail} ` : '') +
         `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
     );
 }
@@ -284,12 +625,12 @@ async function geminiMessage(key: string, prompt: string): Promise<string | null
 
 // AI mesajı dener; başarısız/boşsa şablona düşer (güvenlik ağı)
 async function aiOrTemplate(
-    geminiKey: string | null, sector: string, type: '24h' | '2h',
+    geminiKey: string | null, comms: Comms, type: '24h' | '2h',
     customerName: string, service: string, time: string, businessName: string,
     fallback: () => string,
 ): Promise<string> {
     if (geminiKey) {
-        const ai = await geminiMessage(geminiKey, buildAiPrompt(type, sector, customerName, service, time, businessName));
+        const ai = await geminiMessage(geminiKey, buildAiPrompt(type, comms, customerName, service, time, businessName));
         if (ai) return ai;
     }
     return fallback();

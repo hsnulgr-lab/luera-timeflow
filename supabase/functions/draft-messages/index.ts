@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireUserOrg } from '../_shared/auth.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -19,20 +20,27 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { organization_id, customers, intent, context } = await req.json();
-        if (!organization_id || !Array.isArray(customers) || customers.length === 0) {
-            return json({ error: 'organization_id ve customers gerekli' }, 400);
+        const { customers, intent, context } = await req.json();
+        if (!Array.isArray(customers) || customers.length === 0) {
+            return json({ error: 'customers gerekli' }, 400);
         }
 
-        // İşletme adını DB'den al (frontend'e güvenmeden)
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL')!,
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         );
+
+        // Org, çağıranın ÜYELİĞİNDEN çözülür. Önceden gövdeden alınıyordu ve
+        // kimlik kontrolü yoktu: org id'yi bilen biri o işletmenin müşteri
+        // adlarını içeren taslakları alabiliyor, Groq faturasını da şişirebiliyordu.
+        const auth = await requireUserOrg(supabase, req, corsHeaders);
+        if (auth instanceof Response) return auth;
+        const organization_id = auth.orgId;
         const { data: settings } = await supabase
             .from('settings')
             .select('business_name')
             .eq('organization_id', organization_id)
+            .limit(1)
             .maybeSingle();
         const businessName = settings?.business_name || 'İşletmemiz';
 

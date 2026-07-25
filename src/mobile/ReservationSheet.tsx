@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { Reservation, Service } from '@/types';
 import { apptPhase, PHASE_LABEL, primaryAction } from '@/lib/appointmentFlow';
+import type { ApptPhase } from '@/lib/appointmentFlow';
 import { useStaff } from '@/hooks/useStaff';
 import { BottomSheet } from './BottomSheet';
 import { STS_BG, STS_COLOR, T } from './theme';
@@ -18,13 +19,14 @@ function addMinutes(hhmm: string, mins: number): string {
 
 // Randevu detay + düzenle. Yönetici ve operatör ortak kullanır; düzenleme alanları
 // updateReservation/deleteReservation ile mevcut veri katmanına bağlanır.
-export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete, onCollect, checkConflict }: {
+export function ReservationSheet({ reservation, services, onClose, onUpdate, onDelete, onCollect, onOpenVisit, checkConflict }: {
     reservation: Reservation | null;
     services: Service[];
     onClose: () => void;
     onUpdate: (id: string, updates: Partial<Reservation>) => Promise<Reservation | null> | Reservation | null;
     onDelete: (id: string) => Promise<void> | void;
     onCollect?: (r: Reservation) => void;   // "Tamamla & Tahsilat" → parent Tahsilat Sheet'i açar
+    onOpenVisit?: (r: Reservation) => void;
     checkConflict?: (date: string, startTime: string, endTime: string, excludeId?: string, staffId?: string) => Reservation | null;
 }) {
     const [edit, setEdit] = useState(false);
@@ -53,13 +55,15 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
 
     const ph = apptPhase(r);
     const pa = primaryAction(ph);
-    const phBadge = ({
+    // ApptPhase'in TÜM değerleri karşılanmalı — eksik anahtar rozeti undefined bırakıyordu
+    const phBadge: { c: string; bg: string } = ({
         pending: { c: STS_COLOR.pending, bg: STS_BG.pending },
         upcoming: { c: STS_COLOR.confirmed, bg: STS_BG.confirmed },
         inService: { c: T.orange, bg: 'rgba(255,90,31,.14)' },
+        missed: { c: T.red, bg: 'rgba(224,112,112,.14)' },
         done: { c: STS_COLOR.completed, bg: STS_BG.completed },
         cancelled: { c: STS_COLOR.cancelled, bg: STS_BG.cancelled },
-    } as const)[ph];
+    } satisfies Record<ApptPhase, { c: string; bg: string }>)[ph];
     const runPrimary = () => {
         if (pa.kind === 'confirm') onUpdate(r.id, { status: 'confirmed' });
         else if (pa.kind === 'arrive') onUpdate(r.id, { arrivedAt: new Date().toISOString() });
@@ -136,6 +140,12 @@ export function ReservationSheet({ reservation, services, onClose, onUpdate, onD
                                     ))}
                                 </div>
                             </div>
+                        )}
+
+                        {onOpenVisit && (
+                            <button onClick={() => onOpenVisit(r)} style={{ width: '100%', height: 50, borderRadius: 15, background: T.ink, color: T.bg, fontSize: 15, fontWeight: 850, border: `1px solid ${T.border2}`, cursor: 'pointer' }}>
+                                Hasta Ziyaretini Aç
+                            </button>
                         )}
 
                         {/* Birincil sonraki-aksiyon */}

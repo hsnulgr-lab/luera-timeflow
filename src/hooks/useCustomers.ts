@@ -80,6 +80,8 @@ function mapDbCustomer(row: CustomerDbRow): Customer {
 export function useCustomers() {
     const { user, orgId } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
+    // Pasif müşteriler ayrı tutulur: listelere karışmaz, yalnız ad çözümlemesine girer
+    const [archived, setArchived] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const requestGenerationRef = useRef(0);
@@ -99,6 +101,21 @@ export function useCustomers() {
             isMountedRef.current = false;
             requestGenerationRef.current += 1;
         };
+    }, []);
+
+    // ─── Pasife alınmış müşteriler — YALNIZ ad çözümlemesi için ─────────────
+    // Listelerde/seçicilerde görünmezler, ama paketleri ve randevuları tabloda
+    // durur. Bunlar olmadan Paketler/Dashboard'da satır adı "Müşteri" görünüp
+    // butonlar sessizce ölüyordu; kök sebep buydu.
+    const fetchArchived = useCallback(async (resolvedOrgId: string) => {
+        const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('organization_id', resolvedOrgId)
+            .eq('is_active', false);
+        if (error) { console.error('Pasif müşteriler yüklenemedi:', error); return; }
+        if (!isMountedRef.current || activeOrgRef.current !== resolvedOrgId) return;
+        setArchived((data || []).map((row) => mapDbCustomer(row as CustomerDbRow)));
     }, []);
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
@@ -247,17 +264,92 @@ export function useCustomers() {
         setIsLoading(false);
     }, []);
 
+    // Hasta ziyareti eski veya arşivlenmiş bir randevu üzerinden açılabilir.
+    // Ana aktif hasta listesinde bulunmayan kaydı kimliğiyle, tenant filtresi
+    // altında getirip bu hook örneğinin listesine merge ederiz.
+    const fetchCustomerById = useCallback(async (id: string): Promise<Customer | null> => {
+        if (!orgId || !id) return null;
+        const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('id', id)
+            .maybeSingle();
+        if (error) {
+            console.error('Error fetching customer by id:', error);
+            return null;
+        }
+        if (!data) return null;
+        const customer = mapDbCustomer(data as CustomerDbRow);
+        if (isMountedRef.current && activeOrgRef.current === orgId) {
+            setCustomers((previous) => [customer, ...previous.filter((item) => item.id !== customer.id)]);
+        }
+        return customer;
+    }, [orgId]);
+
     useEffect(() => {
         if (user && orgId) {
             void fetchCustomers(orgId);
+            void fetchArchived(orgId);
         } else {
             // Çıkış/org değişimi sırasında devam eden istek artık state yazamaz.
             requestGenerationRef.current += 1;
             requestedOrgRef.current = null;
             setCustomers([]);
+            setArchived([]);
             setIsLoading(false);
         }
-    }, [user, orgId, fetchCustomers]);
+    }, [user, orgId, fetchCustomers, fetchArchived]);
+
+    // Realtime — başka cihazda müşteri eklenince/güncellenince (sadakat damgası,
+    // arşivleme) liste anında yansısın (068 ile customers publication'a eklendi).
+    // Hesaplanan metrikler (totalReservations, lastVisit, nextAppointment)
+    // payload'da GELMEZ; mevcut state ya da snapshot'tan korunur — yoksa realtime
+    // güncelleme müşterinin ziyaret geçmişini sıfırlardı.
+    useEffect(() => {
+        if (!user || !orgId) return;
+        const ch = supabase
+            .channel(`customers:${orgId}:${Math.random().toString(36).slice(2)}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `organization_id=eq.${orgId}` },
+                (payload) => {
+                    if (activeOrgRef.current !== orgId) return;
+                    if (payload.eventType === 'DELETE') {
+                        const oldId = (payload.old as { id?: string })?.id;
+                        if (!oldId) return;
+                        setCustomers((p) => p.filter((c) => c.id !== oldId));
+                        setArchived((p) => p.filter((c) => c.id !== oldId));
+                        return;
+                    }
+                    const raw = payload.new as CustomerDbRow & { is_active?: boolean };
+                    const base = mapDbCustomer(raw);
+                    if (raw.is_active === false) {
+                        // Arşivlendi: aktif listeden düş, arşive taşı
+                        setCustomers((p) => p.filter((c) => c.id !== base.id));
+                        setArchived((p) => p.some((c) => c.id === base.id)
+                            ? p.map((c) => (c.id === base.id ? { ...c, ...base } : c))
+                            : [base, ...p]);
+                        return;
+                    }
+                    // Aktif: arşivden geri geldiyse oradan düş, metrikleri koru
+                    setArchived((p) => p.filter((c) => c.id !== base.id));
+                    setCustomers((prev) => {
+                        const existing = prev.find((c) => c.id === base.id);
+                        const metrics = existing || metricSnapshotsRef.current.get(orgId)?.get(base.id);
+                        const merged: Customer = {
+                            ...base,
+                            totalReservations: metrics?.totalReservations ?? base.totalReservations,
+                            lastVisit: metrics?.lastVisit ?? base.lastVisit,
+                            nextAppointment: metrics?.nextAppointment,
+                            nextAppointmentTime: metrics?.nextAppointmentTime,
+                        };
+                        return existing
+                            ? prev.map((c) => (c.id === base.id ? merged : c))
+                            : [merged, ...prev];
+                    });
+                })
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [user, orgId]);
 
     // Race condition guard: aynı anda iki ekleme isteği gönderilmesini engeller
     const addingRef = useRef(false);
@@ -438,9 +530,19 @@ export function useCustomers() {
         );
     }, [customers, searchQuery]);
 
+    // Ad çözümlemesi için TEK kaynak: aktif + pasif hepsi. Paket/randevu satırı
+    // pasife alınmış bir müşteriye aitse bile adı ve telefonu buradan bulunur.
+    const customerById = useMemo(
+        () => new Map([...customers, ...archived].map((c) => [c.id, c])),
+        [customers, archived],
+    );
+    const archivedIds = useMemo(() => new Set(archived.map((c) => c.id)), [archived]);
+
     return {
         customers: filteredCustomers,
         allCustomers: customers,
+        customerById,
+        isArchivedCustomer: (id: string) => archivedIds.has(id),
         searchQuery,
         setSearchQuery,
         addCustomer,
@@ -448,6 +550,7 @@ export function useCustomers() {
         deleteCustomer,
         redeemLoyalty,
         isLoading,
+        fetchCustomerById,
         refetch: () => { if (orgId) fetchCustomers(orgId); },
     };
 }

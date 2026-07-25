@@ -34,6 +34,11 @@ import { MasaPage } from '@/pages/MasaPage';
 import { MobileMasa } from '@/mobile/pages/MobileMasa';
 import { MenuPage } from '@/pages/MenuPage';
 import { DentalChartPage } from '@/pages/DentalChartPage';
+import { DentalVisitPage } from '@/pages/DentalVisitPage';
+import { PatientFilePage } from '@/pages/PatientFilePage';
+import { BeautyCustomerPage } from '@/pages/BeautyCustomerPage';
+import { PackagesPage } from '@/pages/PackagesPage';
+import { ClinicSetupPage } from '@/pages/ClinicSetupPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
@@ -115,6 +120,10 @@ function App() {
             <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
             <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
             <Route path="dental-chart" element={<DentalChartPage />} />
+            <Route path="dental-visit/:reservationId" element={<ModuleRoute module="randevu"><DentalVisitPage /></ModuleRoute>} />
+            <Route path="patient-file/:customerId" element={<PatientFilePage />} />
+            <Route path="beauty-customer/:customerId" element={<BeautyCustomerPage />} />
+            <Route path="packages" element={<PackagesPage />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="masa" element={<ModuleRoute module="masa"><Adaptive mobile={<MobileMasa />} desktop={<MasaPage />} /></ModuleRoute>} />
             <Route path="menu" element={<ModuleRoute module="masa"><MenuPage /></ModuleRoute>} />
@@ -123,6 +132,7 @@ function App() {
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
             <Route path="settings" element={<Adaptive mobile={<MobileSettings />} desktop={<SettingsPage />} />} />
+            <Route path="kurulum" element={<ClinicSetupPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

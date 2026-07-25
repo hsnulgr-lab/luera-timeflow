@@ -382,7 +382,6 @@ export function AiAssistant() {
                 open={modal === 'winback'}
                 onClose={() => setModal(null)}
                 orgId={orgId}
-                whatsappInstance={settings.whatsappInstance}
                 targets={winback}
             />
             <AiMessageModal
@@ -390,7 +389,6 @@ export function AiAssistant() {
                 open={modal === 'campaign'}
                 onClose={() => setModal(null)}
                 orgId={orgId}
-                whatsappInstance={settings.whatsappInstance}
                 targets={campaign}
                 context={`${quietDay} günü`}
             />

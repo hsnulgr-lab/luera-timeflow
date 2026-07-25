@@ -19,6 +19,7 @@ interface TreatmentPlansProps {
     customerId: string;
     staffId?: string;
     reservationId?: string;
+    encounterId?: string;
     T: T;
     readOnly?: boolean;
     canCollect?: boolean;
@@ -33,7 +34,7 @@ export function TreatmentPlans(props: TreatmentPlansProps) {
     return <TreatmentPlansForCustomer key={props.customerId} {...props} />;
 }
 
-function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, readOnly = false, canCollect = true }: TreatmentPlansProps) {
+function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encounterId, T, readOnly = false, canCollect = true }: TreatmentPlansProps) {
     const { plans, isLoading: plansLoading, addPlan, setPlanStatus, setPlanAttribution } = useTreatmentPlans(customerId);
     const planIds = useMemo(() => plans.map((plan) => plan.id), [plans]);
     const { installments, isLoading: installmentsLoading, available: installmentEngineAvailable, createSchedule } = useInstallmentSchedules(planIds);
@@ -87,6 +88,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
         const p = await addPlan(title.trim(), amount, {
             staffId: responsibleStaffId,
             reservationId: contextReservationId,
+            encounterId,
         });
         setSavingPlan(false);
         if (p) { setTitle(''); setTotal(''); setPlanStaffId(''); setShowNew(false); }
@@ -124,6 +126,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
             const attributed = await setPlanAttribution(plan.id, {
                 staffId: responsibleStaffId,
                 reservationId: plan.reservationId || contextReservationId,
+                encounterId: plan.encounterId || encounterId,
             });
             if (!attributed) { setClinicalUpdatingId(null); return; }
         }
@@ -175,6 +178,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
             const attributed = await setPlanAttribution(plan.id, {
                 staffId: responsibleStaffId,
                 reservationId: plan.reservationId || contextReservationId,
+                encounterId: plan.encounterId || encounterId,
             });
             if (!attributed) { setPaying(false); return; }
         }
@@ -280,7 +284,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
     // Kalan bakiye — aktif planların toplamı − plana bağlı ödemeler (denormalize
     // kolon yok; tek kaynak payments). Hastanın borcu bir bakışta görünsün.
     const totalRemaining = plans
-        .filter((p) => p.status !== 'cancelled')
+        .filter((p) => p.status !== 'cancelled' && p.status !== 'proposed')
         .reduce((s, p) => s + Math.max(0, p.totalAmount - paidFor(p.id)), 0);
     const today = (() => {
         const now = new Date();
@@ -334,13 +338,13 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
                                     <span style={{ fontSize: 11, fontWeight: 750, color: '#B8720A' }}>{planInstallments.length} vadeli</span>
                                 ) : (
                                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                        {!readOnly && installmentEngineAvailable && !installmentsLoading && schedulePlanId !== plan.id && (
+                                        {!readOnly && plan.status !== 'proposed' && installmentEngineAvailable && !installmentsLoading && schedulePlanId !== plan.id && (
                                             <button type="button" onClick={() => openSchedule(plan.id)}
                                                 style={{ fontSize: 11, fontWeight: 750, color: '#B8720A', border: `1px solid ${T.border2}`, background: 'none', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                                 Taksit Planla
                                             </button>
                                         )}
-                                        {canCollect && payingId !== plan.id && (
+                                        {canCollect && plan.status !== 'proposed' && payingId !== plan.id && (
                                             <button type="button" onClick={() => openPay(plan, remaining)}
                                                 style={{ fontSize: 11, fontWeight: 750, color: T.ink, border: `1px solid ${T.border2}`, background: 'none', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                                 Ödeme Al
@@ -350,10 +354,20 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, T, read
                                 )}
                             </div>
                             <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <span style={{ fontSize: 10.5, fontWeight: 750, color: clinicallyCompleted ? '#2E8A35' : plan.status === 'cancelled' ? '#C0392B' : T.muted }}>
-                                    Klinik: {clinicallyCompleted ? 'Tamamlandı' : plan.status === 'cancelled' ? 'İptal' : 'Devam ediyor'}
+                                <span style={{ fontSize: 10.5, fontWeight: 750, color: clinicallyCompleted ? '#2E8A35' : plan.status === 'cancelled' ? '#C0392B' : plan.status === 'proposed' ? '#B8720A' : T.muted }}>
+                                    {plan.status === 'proposed' ? 'Teklif · onay bekliyor' : `Klinik: ${clinicallyCompleted ? 'Tamamlandı' : plan.status === 'cancelled' ? 'İptal' : 'Devam ediyor'}`}
                                 </span>
-                                {!readOnly && plan.status !== 'cancelled' && (
+                                {!readOnly && plan.status === 'proposed' && (
+                                    <button
+                                        type="button"
+                                        disabled={clinicalUpdatingId === plan.id}
+                                        onClick={async () => { setClinicalUpdatingId(plan.id); const ok = await setPlanStatus(plan.id, 'active'); setClinicalUpdatingId(null); if (ok) toast.success('Teklif onaylandı — tedavi aktif'); }}
+                                        style={{ padding: '6px 11px', borderRadius: 8, border: 0, background: '#2E8A35', color: '#fff', fontSize: 10.5, fontWeight: 800, cursor: clinicalUpdatingId === plan.id ? 'not-allowed' : 'pointer', opacity: clinicalUpdatingId === plan.id ? .6 : 1 }}
+                                    >
+                                        {clinicalUpdatingId === plan.id ? 'Onaylanıyor…' : 'Teklifi Onayla'}
+                                    </button>
+                                )}
+                                {!readOnly && plan.status !== 'cancelled' && plan.status !== 'proposed' && (
                                     <button
                                         type="button"
                                         disabled={clinicalUpdatingId === plan.id || staffLoading}

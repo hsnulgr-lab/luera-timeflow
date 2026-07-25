@@ -122,6 +122,7 @@ export const MobileCalendar = () => {
                 onUpdate={updateReservation}
                 onDelete={deleteReservation}
                 onCollect={(r) => { setActiveId(null); setPayRes(r); }}
+                onOpenVisit={settings.sector === 'dis' ? (r) => { setActiveId(null); navigate(`/dental-visit/${encodeURIComponent(r.id)}`); } : undefined}
                 checkConflict={checkConflict}
             />
 

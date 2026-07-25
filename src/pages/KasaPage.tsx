@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { BeautyCashRegister } from '@/pages/BeautyCashRegister';
 import { toast } from 'sonner';
 import { usePayments } from '@/hooks/usePayments';
+import { collectAllocated } from '@/lib/allocatePayment';
 import { useProducts } from '@/hooks/useProducts';
+import { useLabels } from '@/hooks/useLabels';
 import { useReservations } from '@/hooks/useReservations';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -44,6 +47,10 @@ export const KasaPage = () => {
     const { dark } = useTheme();
     const { payments, stats, addPayment, removePayment } = usePayments();
     const { products, addProduct, removeProduct } = useProducts();
+    // Tedavi planına otomatik mahsup yalnız diş sektöründe anlamlı
+    const sector = useLabels().sector;
+    const isDental = sector === 'dis';
+    const navigate = useNavigate();
     const { reservations, settings, updateReservation } = useReservations();
     const [searchParams] = useSearchParams();
     const focusedReservationId = searchParams.get('reservation');
@@ -65,6 +72,8 @@ export const KasaPage = () => {
     const [method, setMethod] = useState<PaymentMethod>('cash');
     const [selItem, setSelItem] = useState<number | null>(null);
     const [selCust, setSelCust] = useState<{ id: string; name: string; phone: string } | null>(null);
+    // Tahsilat silme geri alınamaz — ilk tık uyarır, ikinci tık siler
+    const [confirmDel, setConfirmDel] = useState<string | null>(null);
     const [custQuery, setCustQuery] = useState('');
     const [success, setSuccess] = useState<{ amt: number; cust: string; pm: string; date: string } | null>(null);
 
@@ -150,11 +159,14 @@ export const KasaPage = () => {
         const type: PaymentType = it ? it.kind : (note ? 'service' : 'other');
         let desc = note || it?.label || undefined;
         if (discount > 0) desc = `${desc ?? 'Tahsilat'} (indirim ${fmt(discount)}₺)`;
-        const p = await addPayment({
+        // Hasta seçiliyse tahsilat açık tedavi planlarına otomatik dağıtılır —
+        // personelin ek bir seçim yapması gerekmez (lib/allocatePayment.ts).
+        const res = await collectAllocated(addPayment, {
             amount: net, method, type, description: desc,
             customerId: selCust?.id, productId: it?.productId,
-        });
-        if (!p) return;
+        }, { allocate: isDental });
+        if (!res) return;
+        if (res.planTitles.length > 0) toast.success(`${fmt(res.allocated)} ₺ mahsup edildi · ${res.planTitles.join(', ')}`);
         const now = new Date();
         const date = now.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) + ' ' +
             now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -165,8 +177,19 @@ export const KasaPage = () => {
         const r = reservations.find(x => x.id === resId);
         if (!r) return;
         const amt = priceOf(r.service);
-        const p = await addPayment({ amount: amt, type: 'service', method: 'cash', description: r.service, customerId: r.customerId || undefined, reservationId: r.id });
-        if (p) { await updateReservation(r.id, { isPaid: true }); toast.success(`${r.customerName} — ${fmt(amt)} ₺ tahsil edildi`); }
+        // Fiyatı tanımsız hizmette tek tıkla 0 ₺ kaydedip randevuyu "ödendi" işaretlemek
+        // parayı sessizce kaybettirir — tutarı personel girsin diye tahsilat panelini aç.
+        if (amt <= 0) {
+            toast.error(`"${r.service}" hizmetinin fiyatı tanımlı değil — tutarı elle girin`);
+            resetSheet();
+            if (r.customerId) setSelCust({ id: r.customerId, name: r.customerName, phone: r.customerPhone || '' });
+            setNote(r.service);
+            setShowNote(true);
+            setSheetOpen(true);
+            return;
+        }
+        const res = await collectAllocated(addPayment, { amount: amt, type: 'service', method: 'cash', description: r.service, customerId: r.customerId || undefined, reservationId: r.id }, { allocate: isDental });
+        if (res) { await updateReservation(r.id, { isPaid: true }); toast.success(`${r.customerName} — ${fmt(amt)} ₺ tahsil edildi`); }
     };
 
     const collectTable = async (resId: string) => {
@@ -182,6 +205,15 @@ export const KasaPage = () => {
     const amtHint = (discount > 0 && amount > 0)
         ? `${fmt(amount)} ₺ − ${fmt(discount)} ₺ indirim`
         : (net === 0 ? 'Tutar girin veya hizmet seçin' : `${PM_TR[method]} ile tahsilat`);
+
+    // Güzellik salonu: 3 sütunlu premium kasa deneyimi (ayrı bileşen)
+    if (sector === 'guzellik') {
+        return (
+            <div className={`dash-theme${dark ? ' dark' : ''} flex-1 min-h-0 overflow-hidden`}>
+                <BeautyCashRegister onBack={() => navigate('/')} />
+            </div>
+        );
+    }
 
     return (
         <div className={`kasa-root dash-theme${dark ? ' dark' : ''}`}>
@@ -267,7 +299,9 @@ export const KasaPage = () => {
                                 <div className="txn" key={r.id} style={focusedReservationId === r.id ? { border: '2px solid var(--orange)', boxShadow: '0 0 0 4px rgba(255,90,31,.10)' } : undefined}>
                                     <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2.5 7.5h15" stroke="currentColor" strokeWidth="1.5" /></svg></div>
                                     <div className="txn-body"><div className="txn-name">{r.customerName}</div><div className="txn-meta">{r.service} · {r.date}</div></div>
-                                    <div className="txn-amt">{fmt(priceOf(r.service))} ₺</div>
+                                    <div className={`txn-amt${priceOf(r.service) <= 0 ? ' zero' : ''}`}>
+                                        {priceOf(r.service) > 0 ? `${fmt(priceOf(r.service))} ₺` : 'Fiyat yok'}
+                                    </div>
                                     <button className="txn-collect" onClick={() => collect(r.id)}>Tahsil et</button>
                                 </div>
                             ))}
@@ -292,7 +326,14 @@ export const KasaPage = () => {
                                 <div className={`txn-ico ${PM_CLS[p.method]}`}><PmSvg m={p.method} size={20} /></div>
                                 <div className="txn-body"><div className="txn-name">{name}{cust && p.description ? ` · ${cust}` : ''}</div><div className="txn-meta">{fmtMeta(p)}</div></div>
                                 <div className={`txn-amt${p.amount === 0 ? ' zero' : ''}`}>{fmt(p.amount)} ₺</div>
-                                <button className="txn-del" onClick={() => removePayment(p.id)} title="Sil"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l.8 10h6.4L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+                                <button className="txn-del"
+                                    style={confirmDel === p.id ? { color: '#C94040', background: 'rgba(201,64,64,.12)' } : undefined}
+                                    title={confirmDel === p.id ? 'Emin misiniz? Tekrar basın — kalıcı siler' : 'Sil'}
+                                    onClick={() => {
+                                        if (confirmDel !== p.id) { setConfirmDel(p.id); setTimeout(() => setConfirmDel(c => (c === p.id ? null : c)), 4000); return; }
+                                        removePayment(p.id);
+                                        setConfirmDel(null);
+                                    }}><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l.8 10h6.4L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
                             </div>
                         );
                     })}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { normalizePhone } from '@/lib/phone';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, Clock, MessageCircle, Phone, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
@@ -43,10 +44,7 @@ function depositMeta(r: Reservation): { label: string; fg: string; bg: string } 
 }
 
 function waLink(phone: string): string {
-    let normalized = phone.replace(/\D/g, '');
-    if (normalized.startsWith('0')) normalized = `90${normalized.slice(1)}`;
-    else if (!normalized.startsWith('90')) normalized = `90${normalized}`;
-    return `https://wa.me/${normalized}`;
+    return `https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}`;
 }
 
 export function DovmeDashboard() {
