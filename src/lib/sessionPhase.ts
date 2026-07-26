@@ -10,7 +10,11 @@ import type { Reservation } from '@/types';
 export type SessionPhase = 'wait' | 'arrived' | 'active' | 'done' | 'completed';
 
 export function phaseOf(r: Reservation): SessionPhase {
-    if (r.status === 'completed') return 'completed';
+    // "İşlemi bitir" hem status'ü 'completed' yapıyor hem serviceEndedAt yazıyor
+    // (advancePatch). Bu yüzden status kontrolü koşulsuz önce gelirse 'done'
+    // fazına HİÇ düşülmez ve dashboard'daki "Kasada" sütunu hep boş kalır.
+    // Doğrusu: hizmet bitti ama tahsilat yok → kasada; tahsilat da yapıldı → kapandı.
+    if (r.status === 'completed') return r.isPaid ? 'completed' : 'done';
     if (r.serviceEndedAt) return 'done';
     if (r.arrivedAt) return 'active';
     if (r.customerArrivedAt) return 'arrived';
