@@ -56,7 +56,7 @@ function WaIcon({ size=22 }: { size?: number }) {
 
 export function WhatsAppTab() {
     const { settings } = useReservations();
-    const { profile, setProfile, save: saveProfile, saving: savingProfile } = useOrgProfile();
+    const { profile, setProfile, savePartial, saving: savingProfile, loading: loadingProfile } = useOrgProfile();
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const inkbox   = dark ? '#231E18' : '#0E0E0E';
@@ -673,7 +673,12 @@ export function WhatsAppTab() {
                                                 style={{ width:58, padding:'7px 9px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'13px', fontWeight:700, outline:'none', textAlign:'right' }}/>
                                             gün
                                         </label>
-                                        <button onClick={() => { void saveProfile(profile); }} disabled={savingProfile}
+                                        <button
+                                            onClick={() => { void savePartial({
+                                                winbackDiscountPercent: profile.winbackDiscountPercent,
+                                                winbackDiscountDays: profile.winbackDiscountDays,
+                                            }); }}
+                                            disabled={savingProfile || loadingProfile}
                                             style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:T.rXs, border:'none', background:T.ink, color: dark?'#0C0A08':'#FBF7F0', fontSize:'12.5px', fontWeight:750, cursor: savingProfile?'wait':'pointer', fontFamily:'inherit' }}>
                                             {savingProfile ? 'Kaydediliyor…' : 'Kaydet'}
                                         </button>

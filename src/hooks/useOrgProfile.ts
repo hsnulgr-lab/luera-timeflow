@@ -113,6 +113,48 @@ export function useOrgProfile() {
         return true;
     }, [orgId]);
 
+    // Alan eşlemesi — savePartial yalnız verilen anahtarları yazsın diye.
+    const COLUMN_OF: Partial<Record<keyof OrgProfile, string>> = {
+        slug: 'slug', bio: 'bio', logoUrl: 'logo_url', coverUrl: 'cover_url',
+        galleryUrls: 'gallery_urls', address: 'address', publicPhone: 'public_phone',
+        instagramUrl: 'instagram_url', mapsUrl: 'maps_url',
+        googleReviewUrl: 'google_review_url',
+        winbackDiscountPercent: 'winback_discount_percent',
+        winbackDiscountDays: 'winback_discount_days',
+        bookingAutoConfirm: 'booking_auto_confirm',
+    };
+
+    /**
+     * Yalnız verilen alanları yazar.
+     *
+     * `save` profilin TAMAMINI gönderir; bu, profil formunun kendisi için doğru
+     * ama iki alanlık bir ayar kutusu için tehlikeli: kanca örneği henüz
+     * yüklenmemişse (ya da başka bir sekmede boş kalmışsa) bio/logo/adres gibi
+     * alanlar boş değerle ezilir. Kısmi kayıt bu riski tamamen kaldırır.
+     */
+    const savePartial = useCallback(async (patch: Partial<OrgProfile>): Promise<boolean> => {
+        if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return false; }
+        const row: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(patch)) {
+            const col = COLUMN_OF[key as keyof OrgProfile];
+            if (col) row[col] = value;
+        }
+        if (Object.keys(row).length === 0) return true;
+
+        setSaving(true);
+        const { error } = await supabase.from('organizations').update(row).eq('id', orgId);
+        setSaving(false);
+        if (error) {
+            toast.error('Ayar kaydedilemedi');
+            console.error('savePartial:', error);
+            return false;
+        }
+        setProfile((prev) => ({ ...prev, ...patch }));
+        toast.success('Kaydedildi');
+        return true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orgId]);
+
     // Görsel yükle → public URL döndür
     const uploadImage = useCallback(async (file: File, prefix: 'logo' | 'cover' | 'gallery'): Promise<string | null> => {
         if (!orgId) return null;
@@ -124,5 +166,5 @@ export function useOrgProfile() {
         return data.publicUrl;
     }, [orgId]);
 
-    return { profile, setProfile, loading, saving, save, uploadImage };
+    return { profile, setProfile, loading, saving, save, savePartial, uploadImage };
 }
