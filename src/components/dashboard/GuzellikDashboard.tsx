@@ -806,9 +806,11 @@ export function GuzellikDashboard() {
                                                     const amount = sessionAmount(r);
                                                     // Yoğunlukta aksiyon satırın kendisinde olmalı — seçip
                                                     // aşağıdaki çubuğa inmek kişi başı 2 tık + göz gezintisiydi
+                                                    // Kasada sütununda aksiyon YOK: tahsilat Kasa sayfasında
+                                                    // yapılır, dashboard yalnız "kim kasada bekliyor"u gösterir.
                                                     const act = stage.key === 'waiting' ? { label: 'Kabine al', run: () => void advance(r, 'active') }
                                                         : stage.key === 'active' ? { label: 'Bitir', run: () => void advance(r, 'completed') }
-                                                            : { label: amount > 0 ? `Ödeme al · ${fmtTL(amount)}` : 'Ödeme al', run: () => void takePayment(r) };
+                                                            : null;
                                                     return (
                                                         <div key={r.id} role="button" tabIndex={0} aria-pressed={selected?.id === r.id}
                                                             className={cn('flow-person', selected?.id === r.id && 'selected', late && 'late')}
@@ -825,8 +827,10 @@ export function GuzellikDashboard() {
                                                                         : stage.key === 'active' ? `${runMin} dk`
                                                                             : amount > 0 ? fmtTL(amount) : 'hazır'}
                                                                 </span>
-                                                                <button className="flow-act" disabled={busyId === r.id}
-                                                                    onClick={(e) => { e.stopPropagation(); act.run(); }}>{act.label}</button>
+                                                                {act && (
+                                                                    <button className="flow-act" disabled={busyId === r.id}
+                                                                        onClick={(e) => { e.stopPropagation(); act.run(); }}>{act.label}</button>
+                                                                )}
                                                             </span>
                                                         </div>
                                                     );
