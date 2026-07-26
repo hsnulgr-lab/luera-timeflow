@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { waState } from '@/services/whatsapp';
 
 // WhatsApp bağlantı durumu — org başına tek satır (org_whatsapp, migration 070).
 //
@@ -14,6 +15,8 @@ export interface WaFeatures {
     renewal: boolean;
     recall: boolean;
     assistant: boolean;
+    /** Randevu oluşturulur oluşturulmaz giden onay mesajı. */
+    confirmation: boolean;
 }
 
 export interface WaConnection {
@@ -26,7 +29,7 @@ export interface WaConnection {
 
 const EMPTY: WaConnection = {
     instance: null, status: 'disconnected', connectedAt: null, lastError: null,
-    features: { winback: true, renewal: true, recall: true, assistant: false },
+    features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true },
 };
 
 function mapRow(row: Record<string, unknown>): WaConnection {
@@ -41,20 +44,28 @@ function mapRow(row: Record<string, unknown>): WaConnection {
             renewal: f.renewal ?? true,
             recall: f.recall ?? true,
             assistant: f.assistant ?? false,
+            confirmation: f.confirmation ?? true,
         },
     };
 }
+
+// Oturum başına bir kez doğrulanan org'lar. Kanca hem Layout'ta (her sayfa) hem
+// Ayarlar'da kullanılıyor; her mount'ta Evolution'a gitmemek için modül düzeyinde.
+const verifiedOrgs = new Set<string>();
 
 export function useWhatsApp() {
     const { orgId } = useAuth();
     const [connection, setConnection] = useState<WaConnection>(EMPTY);
     const [loading, setLoading] = useState(true);
+    // Bayat satırı Evolution'a doğrulatana kadar "düştü" uyarısı gösterilmez.
+    const [verifying, setVerifying] = useState(false);
+    const verifyingRef = useRef(false);
     // Tabloya hiç ulaşılamadığında ekran "Bağlı Değil" gösteriyordu — gerçekten
     // bağlı olmamakla, migration 070'in çalışmamış olmasını ayırt edilemiyordu.
     const [setupError, setSetupError] = useState<string | null>(null);
 
-    const refresh = useCallback(async () => {
-        if (!orgId) return;
+    const refresh = useCallback(async (): Promise<WaConnection | null> => {
+        if (!orgId) return null;
         const { data, error } = await supabase
             .from('org_whatsapp')
             .select('instance, status, connected_at, last_error, features')
@@ -68,16 +79,49 @@ export function useWhatsApp() {
                 ? 'Veritabanı kurulumu eksik: 070_whatsapp_multitenant.sql çalıştırılmamış.'
                 : `WhatsApp durumu okunamadı (${error.code || 'hata'}).`);
             setConnection(EMPTY);
-        } else {
-            setSetupError(null);
-            setConnection(data ? mapRow(data) : EMPTY);
+            setLoading(false);
+            return null;
         }
+        setSetupError(null);
+        const next = data ? mapRow(data) : EMPTY;
+        setConnection(next);
         setLoading(false);
+        return next;
     }, [orgId]);
+
+    /**
+     * org_whatsapp satırı yalnızca proxy (service_role) tarafından yazılıyor ve
+     * pratikte sadece Ayarlar'daki QR ekranı açıkken tazeleniyordu. Kullanıcı
+     * hattı Evolution tarafında ayağa kaldırdığında ya da 'connecting' aşamasında
+     * sayfayı kapattığında satır bayat kalıyor; sonuç: tüm sayfalarda yanlış
+     * "bağlantı düştü" bandı VE proxy'nin sendWA'da mesajı 'not_connected' diye
+     * atlaması. Açılışta bir kez gerçek durumu sorup satırı onartıyoruz —
+     * 'state' action'ı Evolution 'open' derse satırı connected'a çekiyor.
+     */
+    const verifyStale = useCallback(async (row: WaConnection) => {
+        if (!orgId || verifyingRef.current) return;
+        if (!row.instance || row.status === 'connected') return;   // sorulacak bir şey yok
+        if (verifiedOrgs.has(orgId)) return;
+        verifiedOrgs.add(orgId);
+        verifyingRef.current = true;
+        setVerifying(true);
+        try {
+            const res = await waState();
+            if (res?.connected) await refresh();
+        } catch {
+            // Evolution'a ulaşılamadı — satır ne diyorsa o geçerli.
+        } finally {
+            verifyingRef.current = false;
+            setVerifying(false);
+        }
+    }, [orgId, refresh]);
 
     useEffect(() => {
         if (!orgId) return;
-        (async () => { await refresh(); })();
+        (async () => {
+            const row = await refresh();
+            if (row) await verifyStale(row);
+        })();
         // Bağlantı proxy tarafından (service_role) güncelleniyor; QR okutulduğu
         // anda ekranın kendiliğinden "Bağlı"ya dönmesi için realtime dinliyoruz.
         const ch = supabase
@@ -87,7 +131,7 @@ export function useWhatsApp() {
                 (payload) => { if (payload.new) setConnection(mapRow(payload.new as Record<string, unknown>)); })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [orgId, refresh]);
+    }, [orgId, refresh, verifyStale]);
 
     return {
         connection,
@@ -96,7 +140,12 @@ export function useWhatsApp() {
         /** Tablo/migration seviyesinde bir sorun varsa mesajı; yoksa null. */
         setupError,
         isConnected: connection.status === 'connected',
-        /** Bağlanmış ama şu an düşmüş — kullanıcıya uyarı gösterilecek durum. */
-        isBroken: connection.status !== 'connected' && Boolean(connection.instance),
+        /**
+         * Bağlanmış ama şu an düşmüş — kullanıcıya uyarı gösterilecek durum.
+         * Doğrulama sürerken bastırılır: bayat satır yüzünden her açılışta bir
+         * anlığına yanlış alarm çalıyordu.
+         */
+        isBroken: !loading && !verifying
+            && connection.status !== 'connected' && Boolean(connection.instance),
     };
 }

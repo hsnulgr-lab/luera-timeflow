@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 // adresine gidip sessizce false dönüyordu. Artık her hata bir sebep taşıyor.
 
 export type WaKind =
-    | 'queue_join' | 'queue_ready' | 'rebook' | 'ai_draft' | 'manual';
+    | 'confirmation' | 'queue_join' | 'queue_ready' | 'rebook' | 'ai_draft' | 'manual';
 
 export type WaFailReason =
     | 'not_connected' | 'opt_out' | 'quota' | 'invalid_phone' | 'failed';
@@ -96,6 +96,6 @@ export function waHealth() { return call<WaHealth>({ action: 'health' }); }
  * Otomatik mesaj türlerini aç/kapat. org_whatsapp'ta yazma RLS'i olmadığı için
  * (yalnız service_role) doğrudan tablo update'i yapılamaz, proxy'den geçer.
  */
-export function waSetFeatures(features: Partial<Record<'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {
+export function waSetFeatures(features: Partial<Record<'confirmation' | 'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {
     return call<{ ok: boolean; features: Record<string, boolean> }>({ action: 'features', features });
 }

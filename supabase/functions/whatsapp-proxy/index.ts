@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    getOrgWa, getSecret, instanceFor, markDisconnected, sendWA,
+    featureOn, getOrgWa, getSecret, instanceFor, markDisconnected, sendWA,
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 
@@ -72,7 +72,7 @@ Deno.serve(async (req: Request) => {
         // otomatik mesajları açıp kapatması bu action'dan geçer.
         if (action === 'features') {
             const patch = (body.features ?? {}) as Record<string, unknown>;
-            const allowed = ['winback', 'renewal', 'recall', 'assistant'];
+            const allowed = ['confirmation', 'winback', 'renewal', 'recall', 'assistant'];
             const next = { ...org.features };
             for (const k of allowed) {
                 if (typeof patch[k] === 'boolean') next[k] = patch[k] as boolean;
@@ -87,9 +87,14 @@ Deno.serve(async (req: Request) => {
             const phone = String(body.phone || '').trim();
             const text = String(body.text || '');
             if (!phone || !text) return json({ error: 'phone ve text gerekli' }, 400);
+            const kind = (body.kind as WaKind) || 'manual';
+            // Randevu onayı işletme tarafından kapatılabilir; kapalıysa panelden
+            // gelen istek de sessizce atlanır (tek anahtar, üç kaynak).
+            if (kind === 'confirmation' && !featureOn(org, 'confirmation')) {
+                return json({ ok: false, reason: 'failed' }, 200);
+            }
             const res = await sendWA(admin, {
-                org, phone, text,
-                kind: (body.kind as WaKind) || 'manual',
+                org, phone, text, kind,
                 customerId: body.customerId ?? null,
             });
             return json(res, res.ok ? 200 : 200); // reason'ı okuyabilsin diye 200

@@ -8,6 +8,43 @@ import type { SectorComms } from '@/lib/sectorProfiles';
 // VITE_EVOLUTION_API_URL okuyordu ve .env'de böyle bir değişken olmadığı için
 // tüm gönderim sessizce ölüydü.
 
+// ─── Randevu onayı ───────────────────────────────────────────────────────────
+
+/** "27 Temmuz Pazartesi" — şablonlarda okunabilir tarih. */
+export function formatTrDate(iso: string): string {
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+}
+
+// Randevu oluşturulur oluşturulmaz gider — müşteri elinde yazılı bir kayıt olsun
+// diye. 24s/2s hatırlatmalarından farkı: anlık ve tek seferlik.
+// Edge function'lardaki (public-booking, whatsapp-booking) eşi aynı metni üretir.
+export function buildConfirmationMessage(params: {
+    customerName: string;
+    date: string;              // ISO (YYYY-MM-DD)
+    startTime: string;
+    service: string;
+    businessName: string;
+    staffName?: string;
+    mapsUrl?: string;
+    comms?: SectorComms;
+}): string {
+    const firstName = (params.customerName || '').split(' ')[0];
+    const c = params.comms;
+    const svcWord = c?.serviceWord ?? 'randevu';
+    return (
+        `Merhaba ${firstName} 👋\n\n` +
+        `*${params.businessName}* — ${svcWord} kaydınız oluşturuldu ✅\n\n` +
+        `📅 ${formatTrDate(params.date)}\n` +
+        `🕐 Saat *${params.startTime}*\n` +
+        `💠 ${params.service}` +
+        (params.staffName ? `\n👤 ${params.staffName}` : '') +
+        `\n\nDeğişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere! ${c?.emoji ?? '🗓️'}` +
+        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
+    );
+}
+
 // ─── Hatırlatma mesajı şablonları ────────────────────────────────────────────
 
 // Hatırlatma şablonları — sektörün iletişim profiline göre (bkz. sectorProfiles).

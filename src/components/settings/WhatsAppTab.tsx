@@ -5,13 +5,14 @@ import { useReservations } from '@/hooks/useReservations';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
+    buildConfirmationMessage,
     build24hMessage,
     build2hMessage,
     buildRecallMessage,
     buildWinbackMessage,
     buildRenewalMessage,
 } from '@/services/waTemplates';
-import { waConnect, waState, waDisconnect, waHealth, waSetFeatures, lastProxyError, type WaHealth } from '@/services/whatsapp';
+import { waConnect, waState, waDisconnect, waHealth, waSetFeatures, sendWhatsApp, WA_FAIL_TEXT, lastProxyError, type WaHealth } from '@/services/whatsapp';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { commsForSector, type SectorComms } from '@/lib/sectorProfiles';
 import { useSectorComms } from '@/hooks/useSectorComms';
@@ -99,6 +100,16 @@ export function WhatsAppTab() {
         mapsUrl: profile.mapsUrl || undefined,
     });
 
+    const previewConfirmation = buildConfirmationMessage({
+        comms,
+        customerName: sampleName,
+        date: new Date(Date.now() + 86400_000).toISOString().slice(0, 10),
+        startTime: '10:00',
+        service: settings.services[0]?.name || 'Konsültasyon',
+        businessName: settings.businessName,
+        mapsUrl: profile.mapsUrl || undefined,
+    });
+
     const previewRecall = comms.recall
         ? buildRecallMessage({ customerName: sampleName, businessName: settings.businessName, comms })
         : null;
@@ -114,6 +125,34 @@ export function WhatsAppTab() {
     }, []);
 
     const loadHealth = useCallback(async () => { setHealth(await waHealth()); }, []);
+
+    // ── Test gönderimi ───────────────────────────────────────────────────────
+    const [testPhone, setTestPhone] = useState('');
+    const [testBusy, setTestBusy] = useState(false);
+    const [testResult, setTestResult] = useState<{ ok: boolean; text: string; detail?: string } | null>(null);
+
+    const sendTest = async () => {
+        if (testBusy) return;
+        setTestBusy(true);
+        setTestResult(null);
+        const res = await sendWhatsApp(
+            testPhone,
+            `${settings.businessName} · WhatsApp test mesajı ✅\n\nBu mesajı aldıysanız randevu onayları da gönderilebiliyor demektir.`,
+            'confirmation',
+        );
+        setTestBusy(false);
+        if (res.ok) {
+            setTestResult({ ok: true, text: 'Gönderildi. Telefonu kontrol edin.' });
+        } else {
+            // reason yoksa sorun proxy'ye ulaşmakta — lastProxyError bunu söyler.
+            setTestResult({
+                ok: false,
+                text: res.reason ? WA_FAIL_TEXT[res.reason] : 'Gönderilemedi.',
+                detail: lastProxyError || res.reason || 'bilinmiyor',
+            });
+        }
+        void loadHealth();
+    };
 
     const status: Status = uiStatus
         ?? (loading ? 'checking' : isConnected ? 'connected' : 'idle');
@@ -201,7 +240,7 @@ export function WhatsAppTab() {
         toast.success('WhatsApp bağlantısı kesildi');
     };
 
-    const toggleFeature = async (key: 'winback' | 'renewal' | 'recall') => {
+    const toggleFeature = async (key: 'confirmation' | 'winback' | 'renewal' | 'recall') => {
         setBusyFeature(key);
         const next = !connection.features[key];
         const res = await waSetFeatures({ [key]: next });
@@ -315,6 +354,34 @@ export function WhatsAppTab() {
                             </div>
                         )}
                         <div style={{ fontSize:'10.5px', color:T.muted2 }}>Son 24 saat · sayılar Ayarlar her açıldığında tazelenir</div>
+
+                        {/* Test gönderimi — "mesaj gitmiyor" şikâyeti bugüne kadar
+                            sebebini söylemeden kalıyordu. Randevu onayıyla AYNI
+                            yoldan (kind: 'confirmation') gider; sunucunun döndürdüğü
+                            sebep ham hâliyle gösterilir. */}
+                        <div style={{ padding:'12px', borderRadius:T.rSm, border:`1px solid ${T.border}`, background:T.surface, display:'grid', gap:'8px' }}>
+                            <div style={{ fontSize:'12px', fontWeight:750 }}>Test mesajı gönder</div>
+                            <div style={{ display:'flex', gap:'7px' }}>
+                                <input value={testPhone} onChange={e => setTestPhone(e.target.value)}
+                                    placeholder="05xx xxx xx xx" inputMode="tel"
+                                    style={{ flex:1, minWidth:0, padding:'9px 11px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'13px', outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
+                                <button onClick={sendTest} disabled={testBusy || testPhone.replace(/\D/g,'').length < 10}
+                                    style={{ padding:'9px 14px', borderRadius:T.rXs, border:'none', background:T.ink, color: dark?'#0C0A08':'#FBF7F0', fontSize:'12.5px', fontWeight:750, cursor: testBusy ? 'wait' : 'pointer', fontFamily:'inherit', opacity: testPhone.replace(/\D/g,'').length < 10 ? .4 : 1 }}>
+                                    {testBusy ? 'Gönderiliyor…' : 'Gönder'}
+                                </button>
+                            </div>
+                            {testResult && (
+                                <div style={{ fontSize:'11.5px', lineHeight:1.5, color: testResult.ok ? WA.green : (dark?'#e07070':'#C94040') }}>
+                                    {testResult.text}
+                                    {testResult.detail && (
+                                        <div style={{ marginTop:'4px', color:T.muted }}>
+                                            Sunucu: <code style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'10.5px' }}>{testResult.detail}</code>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div style={{ fontSize:'10.5px', color:T.muted2 }}>Randevu onay mesajıyla aynı yolu kullanır — buradan giden mesaj randevuda da gider.</div>
+                        </div>
                         <button onClick={handleDisconnect}
                             style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'10px', borderRadius:T.rSm, border:`1px solid ${dark?'rgba(224,112,112,0.3)':'rgba(201,64,64,0.2)'}`, background:'none', color: dark?'#e07070':'#C94040', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}
                             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.06)';}}
@@ -543,6 +610,11 @@ export function WhatsAppTab() {
                         gösterilmeden onun adına gidiyordu; artık hem önizleniyor
                         hem de kapatılabiliyor. */}
                     {([
+                        {
+                            key: 'confirmation' as const, badge: 'Randevu onayı', label: 'Kayıt oluşunca',
+                            text: previewConfirmation, time: '09:12',
+                            note: 'Randevu oluşturulur oluşturulmaz gönderilir — panelden, online rezervasyondan ve WhatsApp botundan',
+                        },
                         previewRecall && {
                             key: 'recall' as const, badge: comms.recall!.concept, label: 'Dönüş hatırlatması',
                             text: previewRecall, time: '11:30',
@@ -558,7 +630,7 @@ export function WhatsAppTab() {
                             text: previewRenewal, time: '16:40',
                             note: 'Tüm seansları tamamlanan paketin sahibine paket başına bir kez gönderilir',
                         },
-                    ].filter(Boolean) as { key: 'recall'|'winback'|'renewal'; badge: string; label: string; text: string; time: string; note: string }[])
+                    ].filter(Boolean) as { key: 'confirmation'|'recall'|'winback'|'renewal'; badge: string; label: string; text: string; time: string; note: string }[])
                     .map(card => {
                         const on = connection.features[card.key];
                         return (

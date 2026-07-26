@@ -7,8 +7,8 @@ import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { getReservationConflictError } from '@/lib/reservationErrors';
 import { todayISO, toISODate } from '@/utils/date';
-import { buildRebookMessage } from '@/services/waTemplates';
-import { sendWhatsApp } from '@/services/whatsapp';
+import { buildConfirmationMessage, buildRebookMessage } from '@/services/waTemplates';
+import { sendWhatsApp, lastProxyError, WA_FAIL_TEXT } from '@/services/whatsapp';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from '@/lib/appointmentFlow';
 import type { Reservation, Settings, Service } from '@/types';
 
@@ -614,8 +614,40 @@ function useReservationsState() {
             staff_id:       newRes.staffId ?? null,
             staff_name:     newRes.staffName ?? null,
         });
+
+        // Randevu onayı: müşteri elinde yazılı kayıt olsun diye anında gider.
+        // İptal edilmiş/geçmiş kayıtlar için gönderilmez. Kapatma anahtarı
+        // org_whatsapp.features.confirmation — kontrol proxy'de, üç kaynak
+        // (panel, online booking, WhatsApp botu) aynı anahtara bakar.
+        if (newRes.customerPhone && newRes.status !== 'cancelled') {
+            (async () => {
+                const { data: org } = await supabase.from('organizations')
+                    .select('maps_url').eq('id', orgId).maybeSingle();
+                const msg = buildConfirmationMessage({
+                    customerName: newRes.customerName,
+                    date: newRes.date,
+                    startTime: newRes.startTime,
+                    service: newRes.service,
+                    businessName: settings.businessName,
+                    staffName: newRes.staffName,
+                    mapsUrl: org?.maps_url || undefined,
+                    comms: commsForSector(settings.sector),
+                });
+                const res = await sendWhatsApp(newRes.customerPhone, msg, 'confirmation', newRes.customerId);
+                if (!res.ok) {
+                    console.warn('Randevu onayı gönderilemedi:', res.reason, lastProxyError);
+                    // 'not_connected' için susuyoruz: WhatsApp hiç kurulmamış
+                    // işletmede her randevuda uyarı çıkmasın, üstelik Layout'taki
+                    // bant zaten bu durumu söylüyor. Diğerleri kullanıcının
+                    // yapabileceği bir şey olduğunu gösterir, sessiz kalmamalı.
+                    if (res.reason && res.reason !== 'not_connected') {
+                        toast.warning(`Onay mesajı gönderilemedi — ${WA_FAIL_TEXT[res.reason]}`);
+                    }
+                }
+            })().catch(() => {});   // bağlantı yoksa randevu yine oluşmuş olmalı
+        }
         return newRes;
-    }, [user, orgId, fireWebhook, resolveCustomerId, fetchReservations]);
+    }, [user, orgId, fireWebhook, resolveCustomerId, fetchReservations, settings]);
 
     // ─── Rezervasyon güncelle ────────────────────────────────────────────────
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>): Promise<Reservation | null> => {
