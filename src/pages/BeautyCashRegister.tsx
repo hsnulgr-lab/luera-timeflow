@@ -19,6 +19,7 @@ import { collectAllocated } from '@/lib/allocatePayment';
 import { PKG_TICKET, isPkgTicket, planIdOf, readPkgQueue, writePkgQueue } from '@/lib/kasaPackageQueue';
 import type { PaymentMethod, Reservation } from '@/types';
 import './beautyCash.css';
+import { reservationServiceLines, reservationPrice } from '@/utils/reservationServices';
 
 // ── Beauty Kasa · 3 sütunlu ödeme deneyimi ───────────────────────────────────
 // Tasarım: timeflow-beauty-cash-final (Claude Design), bf-* sınıfları birebir.
@@ -57,6 +58,13 @@ function MethodIcon({ m }: { m: UiMethod }) {
 
 interface Line { id: string; name: string; detail: string; price: number; quantity: number; kind: 'Hizmet' | 'Ürün'; locked?: boolean; lockLabel?: string; covered?: boolean; }
 
+/** Bölünmüş tahsilatın tek parçası — bir yöntem, bir tutar. */
+interface PayPart { id: string; method: UiMethod; amount: string; }
+
+const partAmount = (p: PayPart) => parseInt(p.amount.replace(/\D/g, '') || '0', 10) || 0;
+const newPart = (method: UiMethod, amount: number): PayPart =>
+    ({ id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, method, amount: String(Math.max(0, Math.round(amount))) });
+
 /** Randevu bir paket hakkından mı karşılanıyor (BeautySessionModal / Kasa bağlar). */
 const coveringPlanId = (r?: Reservation | null) => String(r?.customFields?.paket_plan_id ?? '');
 
@@ -69,7 +77,6 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
     const { orgId } = useAuth();
     const [params] = useSearchParams();
 
-    const priceOf = (svc: string) => settings.services?.find((s) => s.name === svc)?.price || 0;
 
     // Kuyruk: tahsil bekleyen tamamlanmış randevular (gerçek)
     const unpaidReservations = useMemo(
@@ -129,6 +136,10 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
     const [receipt, setReceipt] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [payError, setPayError] = useState('');
+    // Tahsilatı bölme: boş dizi = "tamamı, seçili yöntemle" (varsayılan akış).
+    // Dolu olduğunda ödeme yöntem yöntem parçalanır; parçaların toplamı kalandan
+    // azsa hesap KAPANMAZ, fark müşterinin borcu olarak kuyrukta durur.
+    const [parts, setParts] = useState<PayPart[]>([]);
     const [done, setDone] = useState<Record<string, { amount: number; method: string; number: string; change: number; receipt: boolean }>>({});
     const [extras, setExtras] = useState<Record<string, Line[]>>({});
     const [catalogSearch, setCatalogSearch] = useState('');
@@ -198,15 +209,17 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
             }];
         }
         const covered = Boolean(coveringPlanId(record));
-        const svc: Line = {
-            id: 'svc', name: record.service,
+        // Bir seansta birden fazla hizmet olabilir — her biri ayrı kalem olarak
+        // görünür ki müşteri neyin ne kadar tuttuğunu fişte görebilsin.
+        const svcLines: Line[] = reservationServiceLines(record, settings.services || []).map((l, i) => ({
+            id: `svc-${l.id}-${i}`, name: l.name,
             detail: covered ? 'Paket hakkından karşılandı' : [record.staffName, 'Tamamlandı'].filter(Boolean).join(' · '),
-            price: covered ? 0 : priceOf(record.service),
+            price: covered ? 0 : l.price,
             quantity: 1, kind: 'Hizmet', locked: true,
             lockLabel: covered ? 'Pakete dahil' : 'Randevu', covered,
-        };
+        }));
         const adis: Line[] = (record.adisyonItems || []).map((a) => ({ id: a.id, name: a.name, detail: a.kind === 'product' ? 'Ürün · adisyon' : 'Ekstra', price: a.price, quantity: 1, kind: a.kind === 'product' ? 'Ürün' : 'Hizmet' }));
-        return [svc, ...adis, ...(extras[record.id] || [])];
+        return [...svcLines, ...adis, ...(extras[record.id] || [])];
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [record, extras, settings.services]);
 
@@ -233,7 +246,33 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
     const discount = Math.min(parseInt(discountStr || '0', 10) || 0, subtotal);
     const totalDue = Math.max(0, subtotal - discount - priorPaid);
     const cashAmount = parseInt(cashReceived.replace(/\D/g, '') || '0', 10) || 0;
-    const changeDue = method === 'cash' ? Math.max(0, cashAmount - totalDue) : 0;
+
+    // Bölünmüş mod: ödeme parçaların toplamı kadar. Tek yöntem modunda kalanın tamamı.
+    const splitMode = parts.length > 0;
+    const paidNow = splitMode ? parts.reduce((s, p) => s + partAmount(p), 0) : totalDue;
+    const remainingAfter = Math.max(0, totalDue - paidNow);
+    const isPartial = splitMode && remainingAfter > 0;
+
+    const changeDue = !splitMode && method === 'cash' ? Math.max(0, cashAmount - totalDue) : 0;
+
+    /** Gönderilecek parçalar — tek yöntem modu da tek parçalı bir bölünme sayılır. */
+    const effectiveParts = (): { method: UiMethod; amount: number }[] => splitMode
+        ? parts.map((p) => ({ method: p.method, amount: partAmount(p) })).filter((p) => p.amount > 0)
+        : [{ method, amount: totalDue }];
+
+    const startSplit = () => {
+        setParts([newPart(method, totalDue)]);
+        setPayError('');
+    };
+    const addPart = () => setParts((v) => [...v, newPart(v.some((p) => p.method === 'cash') ? 'card' : 'cash', Math.max(0, totalDue - v.reduce((s, p) => s + partAmount(p), 0)))]);
+    const removePart = (id: string) => setParts((v) => {
+        const next = v.filter((p) => p.id !== id);
+        return next;   // son parça da silinirse tek yöntem moduna döner
+    });
+    const patchPart = (id: string, patch: Partial<PayPart>) => {
+        setParts((v) => v.map((p) => p.id === id ? { ...p, ...patch } : p));
+        setPayError('');
+    };
 
     // Aktif paket (bilgi amaçlı — hak kullanımı ayrı akış, burada salt gösterim)
     const activePkg = useMemo(
@@ -252,15 +291,19 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
         if (processing) return;
         setSelectedId(id);
         setStage(done[id] ? 'complete' : 'summary');
-        setMethod('card'); setDiscountStr(''); setCashReceived(''); setTransferRef(''); setPayError('');
+        setMethod('card'); setDiscountStr(''); setCashReceived(''); setTransferRef(''); setPayError(''); setParts([]);
     };
 
     const balanceOf = (r: Reservation) => {
         if (done[r.id]) return 0;
         if (isPkgTicket(r.id)) return planBalance(planIdOf(r.id));
         // Pakete dahil seans ücretsiz; adisyon kalemleri (ürün/ekstra) ücretlenir.
-        const svcPrice = coveringPlanId(r) ? 0 : priceOf(r.service);
-        return svcPrice + (r.adisyonItems || []).reduce((s, a) => s + a.price, 0);
+        const svcPrice = coveringPlanId(r) ? 0 : reservationPrice(r, settings.services || []);
+        const gross = svcPrice + (r.adisyonItems || []).reduce((s, a) => s + a.price, 0);
+        // Kapora veya kısmi tahsilat alınmışsa kuyrukta KALAN görünmeli — brüt
+        // tutarı göstermek "ne kadar bekliyoruz" sorusunu yanlış cevaplıyordu.
+        const already = payments.filter((p) => p.reservationId === r.id).reduce((s, p) => s + p.amount, 0);
+        return Math.max(0, gross - already);
     };
 
     const removeExtra = (id: string) => {
@@ -290,9 +333,16 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
     };
 
     const validate = (): string => {
-        if (method === 'gift') return 'Hediye kartı ödemesi henüz aktif değil.';
-        if (method === 'cash' && cashAmount < totalDue) return `Nakit tutarı ${tl(totalDue - cashAmount)} eksik.`;
-        if (method === 'transfer' && !transferRef.trim()) return 'Havale / QR referansı girin.';
+        const used = effectiveParts();
+        if (used.length === 0) return 'Tahsil edilecek bir tutar girin.';
+        if (used.some((p) => p.method === 'gift')) return 'Hediye kartı ödemesi henüz aktif değil.';
+        if (used.some((p) => p.method === 'transfer') && !transferRef.trim()) return 'Havale / QR referansı girin.';
+        if (splitMode) {
+            if (paidNow > totalDue) return `Toplam ${tl(paidNow - totalDue)} fazla — kalan ${tl(totalDue)}.`;
+            if (paidNow <= 0) return 'Tahsil edilecek bir tutar girin.';
+        } else if (method === 'cash' && cashAmount < totalDue) {
+            return `Nakit tutarı ${tl(totalDue - cashAmount)} eksik.`;
+        }
         return '';
     };
 
@@ -302,41 +352,66 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
         if (err) { setPayError(err); return; }
         setProcessing(true); setPayError('');
         const pmMap: Record<UiMethod, PaymentMethod> = { card: 'card', cash: 'cash', transfer: 'transfer', gift: 'other' };
+        const used = effectiveParts();
+        // Gün sonu kırılımı yöntem yöntem doğru olsun diye her parça AYRI bir
+        // payment satırıdır — tek satıra "karma" yazmak raporu bozardı.
+        const methodLabel = used.length === 1
+            ? (METHODS.find((m) => m.id === used[0].method)?.label || 'Kart')
+            : used.map((p) => `${METHODS.find((m) => m.id === p.method)?.label} ${tl(p.amount)}`).join(' + ');
+        const partSuffix = (i: number) => used.length > 1 ? ` · ${i + 1}/${used.length}` : '';
 
         // Paket tahsilatı: ödeme doğrudan plana yazılır (randevu yok, isPaid yok).
         // Yöntem Kasa'dan geldiği için gün sonu kırılımı doğru olur.
         if (isPkgTicket(record.id)) {
             const planId = planIdOf(record.id);
-            const p = await addPayment({
-                amount: totalDue, type: 'service', method: pmMap[method],
-                description: `Paket tahsilatı · ${record.service}${discount > 0 ? ` (indirim ${tl(discount)})` : ''}`,
-                customerId: record.customerId || undefined, treatmentPlanId: planId,
-            });
-            if (!p) { setProcessing(false); setPayError('Tahsilat kaydedilemedi — tekrar deneyin.'); return; }
-            // Bir sonraki gelişte kuyrukta olmasın; bu oturumda başarı ekranı için kalır.
-            writePkgQueue(readPkgQueue().filter((x) => x !== planId));
+            for (const [i, part] of used.entries()) {
+                const p = await addPayment({
+                    amount: part.amount, type: 'service', method: pmMap[part.method],
+                    description: `Paket tahsilatı · ${record.service}${discount > 0 ? ` (indirim ${tl(discount)})` : ''}${partSuffix(i)}`,
+                    customerId: record.customerId || undefined, treatmentPlanId: planId,
+                });
+                if (!p) { setProcessing(false); setPayError('Tahsilat kaydedilemedi — tekrar deneyin.'); return; }
+            }
             await loadPaidByPlan();
+            // Kısmi tahsilatta paket bileti kuyrukta kalır — kalan bakiye canlı
+            // hesaplandığı için bir sonraki tahsilat kaldığı yerden devam eder.
+            if (remainingAfter <= 0) writePkgQueue(readPkgQueue().filter((x) => x !== planId));
+            if (isPartial) {
+                setProcessing(false); setParts([]); setStage('summary');
+                toast.success(`${tl(paidNow)} alındı · ${tl(remainingAfter)} paket bakiyesi kaldı`);
+                return;
+            }
             const pkgSerial = `TF-PKT-${String(Object.keys(done).length + 1).padStart(2, '0')}`;
-            setDone((v) => ({ ...v, [record.id]: { amount: totalDue, method: METHODS.find((m) => m.id === method)?.label || 'Kart', number: pkgSerial, change: changeDue, receipt } }));
+            setDone((v) => ({ ...v, [record.id]: { amount: paidNow, method: methodLabel, number: pkgSerial, change: changeDue, receipt } }));
             setProcessing(false); setStage('complete');
-            toast.success(`${record.customerName} — paket tahsilatı ${tl(totalDue)}`);
+            toast.success(`${record.customerName} — paket tahsilatı ${tl(paidNow)}`);
             return;
         }
 
         // Kalan sıfırsa (kapora ile tamamen ödenmiş) yeni tahsilat yazılmaz, hesap kapatılır.
-        if (totalDue > 0) {
+        for (const [i, part] of used.entries()) {
+            if (part.amount <= 0) continue;
             const p = await collectAllocated(addPayment, {
-                amount: totalDue, type: 'service', method: pmMap[method],
-                description: discount > 0 ? `${record.service} (indirim ${tl(discount)})` : record.service,
+                amount: part.amount, type: 'service', method: pmMap[part.method],
+                description: `${discount > 0 ? `${record.service} (indirim ${tl(discount)})` : record.service}${partSuffix(i)}`,
                 customerId: record.customerId || undefined, reservationId: record.id,
             }, { allocate: false });
             if (!p) { setProcessing(false); setPayError('Tahsilat kaydedilemedi — tekrar deneyin.'); return; }
         }
+
+        // Kısmi tahsilat: hesap KAPANMAZ. Randevu kuyrukta kalır, kalan tutar
+        // borç olarak görünür — "müşteri tamamını ödeyemedi, kasa karışmasın".
+        if (isPartial) {
+            setProcessing(false); setParts([]); setStage('summary');
+            toast.success(`${tl(paidNow)} alındı · ${tl(remainingAfter)} borç kaldı`);
+            return;
+        }
+
         await updateReservation(record.id, { isPaid: true });
         const serial = `TF-${(record.id.replace(/\D/g, '').slice(-4) || '0000').padStart(4, '0')}-${String(Object.keys(done).length + 1).padStart(2, '0')}`;
-        setDone((v) => ({ ...v, [record.id]: { amount: totalDue, method: METHODS.find((m) => m.id === method)?.label || 'Kart', number: serial, change: changeDue, receipt } }));
+        setDone((v) => ({ ...v, [record.id]: { amount: paidNow, method: methodLabel, number: serial, change: changeDue, receipt } }));
         setProcessing(false); setStage('complete');
-        toast.success(`${record.customerName} — ${tl(totalDue)} tahsil edildi`);
+        toast.success(`${record.customerName} — ${tl(paidNow)} tahsil edildi`);
     };
 
     const nextOpen = unpaid.find((r) => r.id !== record?.id && !done[r.id]);
@@ -592,10 +667,18 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
                     {stage === 'payment' && !completed && (
                         <section className="bf-payment-stage">
                             <div className="bf-payment-head"><button type="button" className="bf-stage-back" onClick={() => setStage('summary')}><ArrowLeft size={15} />Hesaba dön</button><i><Wifi size={13} />Terminal hazır</i></div>
-                            <div className="bf-payment-amount"><small>TAHSİL EDİLECEK</small><strong>{tl(totalDue)}</strong><span>{METHODS.find((m) => m.id === method)?.label} ile</span></div>
+                            <div className="bf-payment-amount">
+                                <small>TAHSİL EDİLECEK</small>
+                                <strong>{tl(splitMode ? paidNow : totalDue)}</strong>
+                                <span>{splitMode ? `${parts.length} parça · toplam kalan ${tl(totalDue)}` : `${METHODS.find((m) => m.id === method)?.label} ile`}</span>
+                            </div>
 
+                            {!splitMode && (<>
                             <div className="bf-method-section">
-                                <div className="bf-payment-section-title"><h3>Ödeme yöntemi</h3><small>Bir yöntem seçin</small></div>
+                                <div className="bf-payment-section-title">
+                                    <h3>Ödeme yöntemi</h3>
+                                    <button type="button" className="bf-split-open" onClick={startSplit}>Tutarı böl / kısmi al</button>
+                                </div>
                                 <div className="bf-methods" role="radiogroup">
                                     {METHODS.map((m) => (
                                         <button type="button" role="radio" aria-checked={method === m.id} key={m.id} disabled={!m.supported} className={method === m.id ? 'selected' : ''} onClick={() => { if (!m.supported) { toast('Bu yöntem yakında'); return; } setMethod(m.id); setPayError(''); if (m.id === 'cash' && !cashReceived) setCashReceived(String(totalDue)); }}>
@@ -604,21 +687,61 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
                                     ))}
                                 </div>
                             </div>
+                            </>)}
 
-                            {method === 'cash' && (
+                            {/* Bölünmüş tahsilat: müşteri hem nakit hem kart verebilir ya da
+                                tutarın bir kısmını şimdi ödeyip kalanını borç bırakabilir. */}
+                            {splitMode && (
+                                <div className="bf-paysplit">
+                                    <div className="bf-payment-section-title">
+                                        <h3>Tahsilatı böl</h3>
+                                        <button type="button" className="bf-split-open" onClick={() => { setParts([]); setPayError(''); }}>Tek yönteme dön</button>
+                                    </div>
+                                    {parts.map((p, i) => (
+                                        <div className="bf-split-row" key={p.id}>
+                                            <select value={p.method} onChange={(e) => patchPart(p.id, { method: e.target.value as UiMethod })} aria-label={`${i + 1}. parça yöntemi`}>
+                                                {METHODS.filter((m) => m.supported).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                            </select>
+                                            <div className="bf-split-amount"><b>₺</b>
+                                                <input value={p.amount} inputMode="numeric" aria-label={`${i + 1}. parça tutarı`}
+                                                    onChange={(e) => patchPart(p.id, { amount: e.target.value.replace(/\D/g, '') })} />
+                                            </div>
+                                            <button type="button" className="bf-split-remove" onClick={() => removePart(p.id)} aria-label="Parçayı kaldır"><Trash2 size={15} /></button>
+                                        </div>
+                                    ))}
+                                    <button type="button" className="bf-split-add" onClick={addPart}><Plus size={14} />Yöntem ekle</button>
+                                    <div className="bf-split-summary">
+                                        <div><span>Şimdi alınan</span><strong>{tl(paidNow)}</strong></div>
+                                        <div className={remainingAfter > 0 ? 'due' : 'green'}>
+                                            <span>{remainingAfter > 0 ? 'Borç kalacak' : 'Kalan'}</span><strong>{tl(remainingAfter)}</strong>
+                                        </div>
+                                    </div>
+                                    {isPartial && (
+                                        <div className="bf-context-note amber" style={{ margin: 0 }}>
+                                            <CircleAlert size={15} />
+                                            <span>Hesap <b>kapanmayacak</b>. {tl(remainingAfter)} borç olarak kuyrukta kalır, sonraki tahsilatta kaldığı yerden devam eder.</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {!splitMode && method === 'cash' && (
                                 <div className="bf-cash-entry">
                                     <label><span>Alınan nakit</span><div><b>₺</b><input value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} inputMode="numeric" /></div></label>
                                     <span><small>PARA ÜSTÜ</small><strong>{tl(changeDue)}</strong></span>
                                     <div>{[totalDue, Math.ceil(totalDue / 100) * 100, Math.ceil(totalDue / 500) * 500].filter((v, i, a) => a.indexOf(v) === i).map((v) => <button type="button" key={v} onClick={() => setCashReceived(String(v))}>{tl(v)}</button>)}</div>
                                 </div>
                             )}
-                            {method === 'transfer' && <label className="bf-reference-field"><span>Havale / QR referansı</span><input value={transferRef} onChange={(e) => setTransferRef(e.target.value)} placeholder="Örn. 847219" /></label>}
+                            {effectiveParts().some((p) => p.method === 'transfer') && <label className="bf-reference-field"><span>Havale / QR referansı</span><input value={transferRef} onChange={(e) => setTransferRef(e.target.value)} placeholder="Örn. 847219" /></label>}
 
-                            <div className="bf-method-confirm"><MethodIcon m={method} /><span><small>SEÇİLİ YÖNTEM</small><strong>{METHODS.find((m) => m.id === method)?.label} · Terminal 01</strong></span></div>
+                            {!splitMode && <div className="bf-method-confirm"><MethodIcon m={method} /><span><small>SEÇİLİ YÖNTEM</small><strong>{METHODS.find((m) => m.id === method)?.label} · Terminal 01</strong></span></div>}
                             {payError && <div className="bf-payment-error" role="alert"><CircleAlert size={15} />{payError}</div>}
                             <button type="button" className={`bf-primary-pay${processing ? ' processing' : ''}`} onClick={submit} disabled={processing}>
                                 <span>{processing ? <i className="bf-spinner" /> : <ShieldCheck size={17} />}</span>
-                                <div><small>{processing ? 'KAYDEDİLİYOR' : 'ÖDEMEYİ TAMAMLA'}</small><strong>{processing ? 'Lütfen bekleyin…' : `${tl(totalDue)} tahsil et`}</strong></div>
+                                <div>
+                                    <small>{processing ? 'KAYDEDİLİYOR' : isPartial ? 'KISMİ TAHSİLAT' : 'ÖDEMEYİ TAMAMLA'}</small>
+                                    <strong>{processing ? 'Lütfen bekleyin…' : isPartial ? `${tl(paidNow)} al, ${tl(remainingAfter)} borç bırak` : `${tl(paidNow)} tahsil et`}</strong>
+                                </div>
                                 {!processing && <ArrowRight size={18} />}
                             </button>
                             <label className="bf-receipt-default"><input type="checkbox" checked={receipt} onChange={(e) => setReceipt(e.target.checked)} /><span>Makbuz oluştur</span></label>
