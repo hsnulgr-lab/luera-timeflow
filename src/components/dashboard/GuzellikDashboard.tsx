@@ -12,11 +12,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate } from '@/utils/date';
 import { MONO } from '@/components/dashboard/kpi';
-import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
+import { BeautySessionModal, type SessionPreset } from '@/components/beauty/BeautySessionModal';
 import { advancePatch, phaseOf, minsSince } from '@/lib/sessionPhase';
 import type { SessionPhase } from '@/lib/sessionPhase';
 import type { Customer, Reservation, Service, TreatmentPlan } from '@/types';
 import './beautyOps.css';
+import { reservationPrice } from '@/utils/reservationServices';
 
 // ── Güzellik Dashboard'u · "Günün Akışı" ─────────────────────────────────────
 // Tasarım: design_handoff_gunun_akisi. İlke — dashboard bir takvim değildir;
@@ -69,6 +70,8 @@ export function GuzellikDashboard() {
     const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const [modalCustomer, setModalCustomer] = useState<Customer | null | undefined>(undefined);
+    // Gün planındaki boş saatten açıldığında saat/sütun önden dolar
+    const [modalPreset, setModalPreset] = useState<SessionPreset | undefined>(undefined);
     const [walkInOpen, setWalkInOpen] = useState(false);
     // Operasyon kontrolü: sütunlar ünite mi uzman mı, ortak ekranda soyad maskesi,
     // ve akış/ızgara arasında paylaşılan seçili seans
@@ -89,7 +92,7 @@ export function GuzellikDashboard() {
     // Seansın tutarı: hizmet fiyatı + adisyona eklenen kalemler
     const sessionAmount = useMemo(() => (r: Reservation): number => {
         const extras = (r.adisyonItems || []).reduce((sum, i) => sum + (i.price || 0), 0);
-        const base = services.find((s) => s.name === r.service)?.price || 0;
+        const base = reservationPrice(r, services);
         return base + extras;
     }, [services]);
 
@@ -230,6 +233,29 @@ export function GuzellikDashboard() {
     const laneKeyOf = useMemo(
         () => (r: Reservation) => (laneMode === 'unit' ? r.resourceId : r.staffId) || '__none',
         [laneMode],
+    );
+
+    // Gün planındaki boş saate tıklayınca seans modalı o saat/sütunla açılır —
+    // seans takvimindeki "+" yakalayıcısının aynısı (bkz. DayAgendaGrid).
+    const openSlot = (hour: number, laneId: string) => {
+        // Geçmiş bir saate tıklandıysa saati önden doldurmuyoruz — geçmişe randevu
+        // kaydedilemediği için seçili ama tıklanamaz bir slot göstermek olurdu.
+        const now = new Date();
+        const past = hour + 1 <= now.getHours() + now.getMinutes() / 60;
+        setModalPreset({
+            date: today,
+            ...(past ? {} : { slot: `${String(hour).padStart(2, '0')}:00` }),
+            ...(laneId === '__none' ? {} : laneMode === 'unit' ? { resourceId: laneId } : { staffId: laneId }),
+        });
+        setModalCustomer(null);
+    };
+
+    // "+" gösterilecek saatler: ızgaradaki tam saatler, yalnız katlanmış boş
+    // bantlar hariç. Seans takvimiyle (DayAgendaGrid) aynı davranış — geçmiş
+    // saatler de tıklanabilir; o durumda modal saat seçimini boş bırakır.
+    const addableHours = useMemo(
+        () => grid.ticks.filter((h) => h < grid.to && !grid.gaps.some((g) => h >= g.from && h < g.to)),
+        [grid],
     );
 
     // Çakışan seanslar birbirini örtmesin: küme içinde sütunlara paylaştırılır
@@ -935,6 +961,16 @@ export function GuzellikDashboard() {
                                             ))}
                                             {lanes.map((lane, i) => (
                                                 <div className={cn('schedule-lane', i % 2 === 1 && 'alt')} key={lane.id} style={{ gridColumn: i + 2, gridRow: 1 }}>
+                                                    {/* Boş saat yakalayıcıları — kartların ALTINDA durur, dolu
+                                                        saatler kartla örtülür. */}
+                                                    {addableHours.map((h) => (
+                                                        <button key={`add-${h}`} type="button" className="slot-add"
+                                                            style={{ top: grid.topPx(h) + 3, height: PPH - 6 }}
+                                                            aria-label={`${lane.name} · ${String(h).padStart(2, '0')}:00 için yeni seans`}
+                                                            onClick={() => openSlot(h, lane.id)}>
+                                                            <span>+</span>
+                                                        </button>
+                                                    ))}
                                                     {(placed.get(lane.id) || []).map(({ r, top, height, col, cols }) => {
                                                         const ph = phaseOf(r);
                                                         return (
@@ -991,8 +1027,9 @@ export function GuzellikDashboard() {
             {modalCustomer !== undefined && (
                 <BeautySessionModal
                     customer={modalCustomer}
-                    onClose={() => setModalCustomer(undefined)}
-                    onCreated={() => { setModalCustomer(undefined); void refreshPackages(); }}
+                    preset={modalPreset}
+                    onClose={() => { setModalCustomer(undefined); setModalPreset(undefined); }}
+                    onCreated={() => { setModalCustomer(undefined); setModalPreset(undefined); void refreshPackages(); }}
                 />
             )}
         </div>

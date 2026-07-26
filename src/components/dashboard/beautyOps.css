@@ -252,6 +252,23 @@
     color: var(--dc-muted2); font: 500 9.5px 'JetBrains Mono', monospace; letter-spacing: .04em;
 }
 
+/* Boş saat yakalayıcısı — ızgara sessiz kalsın diye yalnız hover'da belirir.
+   z-index kartların (3) altında: dolu saatler kartla örtülür. */
+.gz-ops .slot-add {
+    position: absolute; left: 5px; right: 5px; z-index: 1;
+    display: grid; place-items: center; cursor: pointer;
+    border: 1px solid transparent; border-radius: 11px;
+    background: transparent; color: transparent; transition: .14s;
+}
+.gz-ops .slot-add:hover,
+.gz-ops .slot-add:focus-visible {
+    border-color: rgba(255, 90, 31, .5);
+    background: rgba(255, 90, 31, .045);
+    color: var(--dc-orange);
+    outline: none;
+}
+.gz-ops .slot-add span { font-size: 18px; line-height: 1; font-weight: 400; }
+
 .gz-ops .appointment {
     position: absolute; min-width: 0; border-radius: 11px; border: 1px solid var(--dc-border);
     background: var(--dc-card); color: var(--dc-ink); box-shadow: 0 1px 3px rgba(14, 14, 14, .06);
