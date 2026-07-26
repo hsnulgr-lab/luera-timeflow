@@ -72,7 +72,7 @@ Deno.serve(async (req: Request) => {
         // otomatik mesajları açıp kapatması bu action'dan geçer.
         if (action === 'features') {
             const patch = (body.features ?? {}) as Record<string, unknown>;
-            const allowed = ['confirmation', 'winback', 'renewal', 'recall', 'assistant'];
+            const allowed = ['confirmation', 'review', 'winback', 'renewal', 'recall', 'assistant'];
             const next = { ...org.features };
             for (const k of allowed) {
                 if (typeof patch[k] === 'boolean') next[k] = patch[k] as boolean;

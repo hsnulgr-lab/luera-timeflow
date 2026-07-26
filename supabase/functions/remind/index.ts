@@ -58,6 +58,7 @@ Deno.serve(async (req: Request) => {
         let sentRecall = 0;
         let sentWinback = 0;
         let sentRenewal = 0;
+        let sentReview = 0;
         const errors: string[] = [];
 
         // AI mesaj üretimi için Gemini key (env → app_secrets)
@@ -149,6 +150,8 @@ Deno.serve(async (req: Request) => {
         // İşletme adı + sektörel iletişim profili (settings'ten, org bazlı)
         const settingsByOrg = new Map<string, { business_name: string; comms: unknown }>();
         const mapsUrlByOrg = new Map<string, string>();
+        // Değerlendirme daveti ve indirimli winback için org ayarları
+        const orgExtras = new Map<string, { reviewUrl: string | null; discountPercent: number; discountDays: number }>();
         if (orgIds.length > 0) {
             const { data: settingsRows } = await supabase
                 .from('settings')
@@ -161,10 +164,15 @@ Deno.serve(async (req: Request) => {
             }
             const { data: orgRows } = await supabase
                 .from('organizations')
-                .select('id, maps_url')
+                .select('id, maps_url, google_review_url, winback_discount_percent, winback_discount_days')
                 .in('id', orgIds);
             for (const o of orgRows ?? []) {
                 if (o.maps_url) mapsUrlByOrg.set(o.id, o.maps_url);
+                orgExtras.set(o.id, {
+                    reviewUrl: o.google_review_url ?? null,
+                    discountPercent: Number(o.winback_discount_percent ?? 0) || 0,
+                    discountDays: Number(o.winback_discount_days ?? 30) || 0,
+                });
             }
         }
 
@@ -176,6 +184,8 @@ Deno.serve(async (req: Request) => {
             // settings.comms'a yazar (066). Yoksa nötr profille devam edilir.
             const comms: Comms = resolveComms(conf?.comms);
             const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
+            const extras = orgExtras.get(organization_id)
+                ?? { reviewUrl: null, discountPercent: 0, discountDays: 30 };
 
             // Hat gerçekten ayakta mı? Düşmüşse org_whatsapp güncellenir ve bu
             // org atlanır — ölü hatta boşuna gönderim denenmez, uygulamadaki
@@ -268,6 +278,45 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
+            // ── Google değerlendirme daveti — 071 ────────────────────────────
+            // Tahsilat kapandıktan ~3 saat sonra: müşteri işletmeden ayrılmış,
+            // deneyim hâlâ taze. Hemen göndermek (daha içerideyken) rahatsız
+            // edici, ertesi güne bırakmak yanıt oranını düşürüyor.
+            // İşletme Google değerlendirme linkini girmemişse hiç denenmez.
+            if (featureOn(orgWa, 'review') && sendableHour && extras.reviewUrl) {
+                const readyBefore = new Date(nowUtc.getTime() - 3 * 3_600_000).toISOString();
+                // Çok eski hesapları diriltme: 2 günden fazla gecikmişse (cron
+                // durmuş, link sonradan girilmiş) davet artık anlamsız.
+                const notOlderThan = new Date(nowUtc.getTime() - 2 * 86_400_000).toISOString();
+                const { data: reviewList } = await supabase
+                    .from('reservations')
+                    .select('id, customer_id, customer_name, customer_phone, paid_at')
+                    .eq('organization_id', organization_id)
+                    .eq('review_sent', false)
+                    .eq('is_paid', true)
+                    .not('paid_at', 'is', null)
+                    .lte('paid_at', readyBefore)
+                    .gte('paid_at', notOlderThan)
+                    .order('paid_at', { ascending: true })
+                    .limit(30);
+
+                for (const r of reviewList ?? []) {
+                    if (!r.customer_phone) continue;
+                    const msg = buildReviewMessage({
+                        customerName: r.customer_name,
+                        businessName: business_name,
+                        reviewUrl: extras.reviewUrl,
+                        comms,
+                    });
+                    const ok = await send(r.customer_phone, msg, 'review', r.customer_id);
+                    // Gönderilemese de işaretliyoruz: opt-out ya da geçersiz numara
+                    // kalıcı sebepler, her turda yeniden denemek log şişirir.
+                    await supabase.from('reservations').update({ review_sent: true }).eq('id', r.id);
+                    if (ok) sentReview++;
+                    else errors.push(`review:${r.id}`);
+                }
+            }
+
             // ── "Sizi özledik" (winback) — 067 ───────────────────────────────
             // İşletme Ayarlar → WhatsApp'tan kapatabilir (org_whatsapp.features).
             // 60+ gündür gelmeyen, ileri tarihli randevusu olmayan müşteriye bir
@@ -299,8 +348,24 @@ Deno.serve(async (req: Request) => {
                     if (budget <= 0) break;
                     if (!c.phone || hasFuture.has(c.id)) continue;
                     if (c.winback_sent_at && c.winback_sent_at > resend90) continue;
+
+                    // İndirim teklifi — 071. Oran 0 ise kod üretilmez, mesaj
+                    // eski hâlinde gider. Kod müşteriye ÖZEL: kimin döndüğünü
+                    // ölçebilmenin tek yolu, aksi halde indirim veriliyor ama
+                    // karşılığı bilinmiyordu.
+                    let offer: DiscountOffer | null = null;
+                    if (extras.discountPercent > 0) {
+                        offer = await issueDiscountCode(
+                            supabase, organization_id, c.id,
+                            extras.discountPercent, extras.discountDays,
+                        );
+                    }
+
+                    // AI kod uydurabilir ya da düşürebilir; indirim satırı
+                    // şablondan, metnin sonuna sabit eklenir.
                     const tmpl = () => buildWinbackMessage({ customerName: c.name, businessName: business_name, comms });
-                    const msg = withMapsUrl(await winbackAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
+                    const base = withMapsUrl(await winbackAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
+                    const msg = offer ? base + discountLine(offer) : base;
                     const ok = await send(c.phone, msg, 'winback', c.id);
                     if (ok) {
                         await supabase.from('customers').update({ winback_sent_at: nowUtc.toISOString() }).eq('id', c.id);
@@ -403,7 +468,7 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
+        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
             JSON.stringify({ success: true, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -462,6 +527,87 @@ function buildRecallMessage(p: { customerName: string; businessName: string; com
 }
 
 // "Sizi özledik" şablonu — 60+ gün gelmeyen müşteri için güvenlik ağı
+// ── İndirim kodu — 071 ──────────────────────────────────────────────────────
+interface DiscountOffer { code: string; percent: number; expiresAt: string | null }
+
+// Karışması kolay harf/rakamlar (O/0, I/1) dışarıda: kod telefonda sözlü olarak
+// da söyleniyor, "sıfır mı O mu" tartışması yaşanmasın.
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function randomCode(len = 6): string {
+    let out = '';
+    const bytes = new Uint8Array(len);
+    crypto.getRandomValues(bytes);
+    for (const b of bytes) out += CODE_ALPHABET[b % CODE_ALPHABET.length];
+    return out;
+}
+
+/**
+ * Müşteriye özel indirim kodu üretir. Kullanılmamış ve süresi geçmemiş bir kodu
+ * varsa yenisini üretmez — aynı müşteriye iki tur mesaj giderse elinde iki kod
+ * birikmesin. Kod org içinde tekil (unique constraint); çakışırsa yeniden dener.
+ */
+async function issueDiscountCode(
+    // deno-lint-ignore no-explicit-any
+    supabase: any, orgId: string, customerId: string,
+    percent: number, days: number,
+): Promise<DiscountOffer | null> {
+    const nowIso = new Date().toISOString();
+    const { data: existing } = await supabase
+        .from('discount_codes')
+        .select('code, percent, expires_at')
+        .eq('organization_id', orgId)
+        .eq('customer_id', customerId)
+        .is('redeemed_at', null)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .limit(1)
+        .maybeSingle();
+    if (existing?.code) {
+        return { code: existing.code, percent: existing.percent, expiresAt: existing.expires_at ?? null };
+    }
+
+    const expiresAt = days > 0
+        ? new Date(Date.now() + days * 86_400_000).toISOString()
+        : null;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const code = randomCode();
+        const { error } = await supabase.from('discount_codes').insert({
+            organization_id: orgId, customer_id: customerId,
+            code, percent, source: 'winback', expires_at: expiresAt,
+        });
+        if (!error) return { code, percent, expiresAt };
+        // 23505 = unique violation → başka kod dene; diğer hatalarda vazgeç
+        if (error.code !== '23505') {
+            console.error('discount code insert:', error);
+            return null;
+        }
+    }
+    return null;
+}
+
+function discountLine(o: DiscountOffer): string {
+    const until = o.expiresAt
+        ? ` (${new Date(o.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} tarihine kadar)`
+        : '';
+    return `\n\n🎁 Size özel *%${o.percent} indirim*${until}\nKod: *${o.code}*\nRandevunuzda bu kodu söylemeniz yeterli.`;
+}
+
+// Google değerlendirme daveti — 071. İstemcideki eşi src/services/waTemplates.ts,
+// ikisi aynı metni üretmeli (Ayarlar'daki önizleme oradan besleniyor).
+function buildReviewMessage(p: {
+    customerName: string; businessName: string; reviewUrl: string; comms?: Comms;
+}): string {
+    const firstName = (p.customerName || '').split(' ')[0];
+    const c = p.comms ?? NEUTRAL_COMMS;
+    return (
+        `Merhaba ${firstName} ${c.emoji}\n\n` +
+        `Bugün *${p.businessName}*'i tercih ettiğiniz için teşekkür ederiz!\n\n` +
+        `Memnun kaldıysanız Google'da kısa bir değerlendirme bırakmanız bizim için çok değerli — ` +
+        `bir dakikanızı bile almaz 🙏\n\n👉 ${p.reviewUrl}`
+    );
+}
+
 function buildWinbackMessage(p: { customerName: string; businessName: string; comms?: Comms }): string {
     const firstName = (p.customerName || '').split(' ')[0];
     const c = p.comms ?? NEUTRAL_COMMS;

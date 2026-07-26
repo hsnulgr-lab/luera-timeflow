@@ -96,6 +96,6 @@ export function waHealth() { return call<WaHealth>({ action: 'health' }); }
  * Otomatik mesaj türlerini aç/kapat. org_whatsapp'ta yazma RLS'i olmadığı için
  * (yalnız service_role) doğrudan tablo update'i yapılamaz, proxy'den geçer.
  */
-export function waSetFeatures(features: Partial<Record<'confirmation' | 'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {
+export function waSetFeatures(features: Partial<Record<'confirmation' | 'review' | 'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {
     return call<{ ok: boolean; features: Record<string, boolean> }>({ action: 'features', features });
 }

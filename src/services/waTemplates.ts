@@ -45,6 +45,26 @@ export function buildConfirmationMessage(params: {
     );
 }
 
+// ─── Google değerlendirme daveti ─────────────────────────────────────────────
+
+// Tahsilat kapandıktan ~3 saat sonra gider (remind cron). İşletme puanı
+// büyümenin en ucuz kaldıracı ama kimse elle istemiyor. Edge function'daki
+// (remind) eşi aynı metni üretir — ikisi aynı görünmeli.
+export function buildReviewMessage(params: {
+    customerName: string;
+    businessName: string;
+    reviewUrl: string;
+    comms?: SectorComms;
+}): string {
+    const firstName = (params.customerName || '').split(' ')[0];
+    return (
+        `Merhaba ${firstName} ${params.comms?.emoji ?? '😊'}\n\n` +
+        `Bugün *${params.businessName}*'i tercih ettiğiniz için teşekkür ederiz!\n\n` +
+        `Memnun kaldıysanız Google'da kısa bir değerlendirme bırakmanız bizim için çok değerli — ` +
+        `bir dakikanızı bile almaz 🙏\n\n👉 ${params.reviewUrl}`
+    );
+}
+
 // ─── Hatırlatma mesajı şablonları ────────────────────────────────────────────
 
 // Hatırlatma şablonları — sektörün iletişim profiline göre (bkz. sectorProfiles).
@@ -141,6 +161,18 @@ export function buildRebookMessage(params: {
         `*${params.businessName}*'daki *${params.service}* hizmetiniz tamamlandı, teşekkür ederiz! 🙏\n\n` +
         `Bir sonraki randevunuzu şimdiden ayırtmak ister misiniz?${noteLine}${linkLine}`
     );
+}
+
+/**
+ * "Sizi özledik" mesajının sonuna eklenen indirim teklifi — 071.
+ * Kodu remind edge function üretir (müşteriye özel, Kasa'da tanınır); buradaki
+ * sürüm Ayarlar'daki önizleme içindir, ikisi aynı görünmeli.
+ */
+export function buildDiscountLine(percent: number, days: number, code: string): string {
+    const until = days > 0
+        ? ` (${new Date(Date.now() + days * 86400_000).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} tarihine kadar)`
+        : '';
+    return `\n\n🎁 Size özel *%${percent} indirim*${until}\nKod: *${code}*\nRandevunuzda bu kodu söylemeniz yeterli.`;
 }
 
 // "Sizi özledik" (winback) — 60+ gündür gelmeyen müşteriye. remind edge

@@ -17,6 +17,8 @@ export interface WaFeatures {
     assistant: boolean;
     /** Randevu oluşturulur oluşturulmaz giden onay mesajı. */
     confirmation: boolean;
+    /** Tahsilattan ~3 saat sonra giden Google değerlendirme daveti. */
+    review: boolean;
 }
 
 export interface WaConnection {
@@ -29,7 +31,7 @@ export interface WaConnection {
 
 const EMPTY: WaConnection = {
     instance: null, status: 'disconnected', connectedAt: null, lastError: null,
-    features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true },
+    features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true, review: true },
 };
 
 function mapRow(row: Record<string, unknown>): WaConnection {
@@ -45,6 +47,7 @@ function mapRow(row: Record<string, unknown>): WaConnection {
             recall: f.recall ?? true,
             assistant: f.assistant ?? false,
             confirmation: f.confirmation ?? true,
+            review: f.review ?? true,
         },
     };
 }

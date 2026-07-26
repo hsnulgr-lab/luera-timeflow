@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
@@ -6,10 +6,12 @@ import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
     buildConfirmationMessage,
+    buildReviewMessage,
     build24hMessage,
     build2hMessage,
     buildRecallMessage,
     buildWinbackMessage,
+    buildDiscountLine,
     buildRenewalMessage,
 } from '@/services/waTemplates';
 import { waConnect, waState, waDisconnect, waHealth, waSetFeatures, sendWhatsApp, WA_FAIL_TEXT, lastProxyError, type WaHealth } from '@/services/whatsapp';
@@ -38,6 +40,11 @@ const WA = { bg: '#075E54', green: '#25D366', chat: '#ECE5DD', chatDark: '#1A273
 
 type Status = 'checking'|'idle'|'creating'|'qr'|'connected';
 
+// Önizlemelerde kullanılan örnek tarih. Modül düzeyinde hesaplanır: render
+// sırasında Date.now() çağırmak saf olmayan bir işlem (her render farklı değer).
+const PREVIEW_TOMORROW_ISO = new Date(Date.now() + 86400_000).toISOString().slice(0, 10);
+const PREVIEW_DISCOUNT_CODE = 'K7RM2P';
+
 function WaIcon({ size=22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -49,7 +56,7 @@ function WaIcon({ size=22 }: { size?: number }) {
 
 export function WhatsAppTab() {
     const { settings } = useReservations();
-    const { profile } = useOrgProfile();
+    const { profile, setProfile, save: saveProfile, saving: savingProfile } = useOrgProfile();
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const inkbox   = dark ? '#231E18' : '#0E0E0E';
@@ -103,17 +110,32 @@ export function WhatsAppTab() {
     const previewConfirmation = buildConfirmationMessage({
         comms,
         customerName: sampleName,
-        date: new Date(Date.now() + 86400_000).toISOString().slice(0, 10),
+        date: PREVIEW_TOMORROW_ISO,
         startTime: '10:00',
         service: settings.services[0]?.name || 'Konsültasyon',
         businessName: settings.businessName,
         mapsUrl: profile.mapsUrl || undefined,
     });
 
+    const previewReview = buildReviewMessage({
+        comms,
+        customerName: sampleName,
+        businessName: settings.businessName,
+        reviewUrl: profile.googleReviewUrl || 'https://g.page/r/ornek/review',
+    });
+
     const previewRecall = comms.recall
         ? buildRecallMessage({ customerName: sampleName, businessName: settings.businessName, comms })
         : null;
-    const previewWinback = buildWinbackMessage({ customerName: sampleName, businessName: settings.businessName, comms });
+    const winbackDiscount = profile.winbackDiscountPercent || 0;
+    const discountPreviewLine = useMemo(
+        () => winbackDiscount > 0
+            ? buildDiscountLine(winbackDiscount, profile.winbackDiscountDays, PREVIEW_DISCOUNT_CODE)
+            : '',
+        [winbackDiscount, profile.winbackDiscountDays],
+    );
+    const previewWinback = buildWinbackMessage({ customerName: sampleName, businessName: settings.businessName, comms })
+        + discountPreviewLine;
     const previewRenewal = buildRenewalMessage({
         customerName: sampleName, packageTitle: '10 Seans Lazer', businessName: settings.businessName, comms,
     });
@@ -240,7 +262,7 @@ export function WhatsAppTab() {
         toast.success('WhatsApp bağlantısı kesildi');
     };
 
-    const toggleFeature = async (key: 'confirmation' | 'winback' | 'renewal' | 'recall') => {
+    const toggleFeature = async (key: 'confirmation' | 'review' | 'winback' | 'renewal' | 'recall') => {
         setBusyFeature(key);
         const next = !connection.features[key];
         const res = await waSetFeatures({ [key]: next });
@@ -615,6 +637,13 @@ export function WhatsAppTab() {
                             text: previewConfirmation, time: '09:12',
                             note: 'Randevu oluşturulur oluşturulmaz gönderilir — panelden, online rezervasyondan ve WhatsApp botundan',
                         },
+                        {
+                            key: 'review' as const, badge: 'Google değerlendirme', label: 'Tahsilattan sonra',
+                            text: previewReview, time: '14:05',
+                            note: profile.googleReviewUrl
+                                ? 'Hesap kapandıktan ~3 saat sonra, randevu başına bir kez gönderilir'
+                                : 'Gönderilmiyor — Ayarlar → İşletme Profili\'nde Google Değerlendirme Linki boş',
+                        },
                         previewRecall && {
                             key: 'recall' as const, badge: comms.recall!.concept, label: 'Dönüş hatırlatması',
                             text: previewRecall, time: '11:30',
@@ -624,13 +653,45 @@ export function WhatsAppTab() {
                             key: 'winback' as const, badge: 'Sizi özledik', label: 'Geri kazanım',
                             text: previewWinback, time: '12:05',
                             note: '60 günden uzun süredir gelmeyen, ileri tarihli randevusu olmayan müşteriye bir kez gönderilir',
+                            extra: (
+                                <div style={{ marginTop:'10px', padding:'12px', borderRadius:T.rSm, border:`1px solid ${T.border}`, background:T.surface, display:'grid', gap:'8px' }}>
+                                    <div style={{ fontSize:'12px', fontWeight:750 }}>İndirim teklifi</div>
+                                    <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+                                        <label style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', color:T.muted }}>
+                                            Oran
+                                            <input inputMode="numeric" value={String(profile.winbackDiscountPercent || '')}
+                                                onChange={e => setProfile({ ...profile, winbackDiscountPercent: Math.min(100, Number(e.target.value.replace(/\D/g,'')) || 0) })}
+                                                placeholder="0"
+                                                style={{ width:58, padding:'7px 9px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'13px', fontWeight:700, outline:'none', textAlign:'right' }}/>
+                                            %
+                                        </label>
+                                        <label style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', color:T.muted }}>
+                                            Geçerlilik
+                                            <input inputMode="numeric" value={String(profile.winbackDiscountDays ?? '')}
+                                                onChange={e => setProfile({ ...profile, winbackDiscountDays: Number(e.target.value.replace(/\D/g,'')) || 0 })}
+                                                placeholder="30"
+                                                style={{ width:58, padding:'7px 9px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'13px', fontWeight:700, outline:'none', textAlign:'right' }}/>
+                                            gün
+                                        </label>
+                                        <button onClick={() => { void saveProfile(profile); }} disabled={savingProfile}
+                                            style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:T.rXs, border:'none', background:T.ink, color: dark?'#0C0A08':'#FBF7F0', fontSize:'12.5px', fontWeight:750, cursor: savingProfile?'wait':'pointer', fontFamily:'inherit' }}>
+                                            {savingProfile ? 'Kaydediliyor…' : 'Kaydet'}
+                                        </button>
+                                    </div>
+                                    <div style={{ fontSize:'10.5px', color:T.muted2, lineHeight:1.5 }}>
+                                        {profile.winbackDiscountPercent > 0
+                                            ? 'Her müşteriye özel bir kod üretilir; Kasa\u2019da İndirim ekranından girilince otomatik uygulanır ve kimin döndüğü ölçülür.'
+                                            : 'Oran 0 — mesaj indirimsiz gider. Bir oran girip kaydedin.'}
+                                    </div>
+                                </div>
+                            ),
                         },
                         {
                             key: 'renewal' as const, badge: 'Paket yenileme', label: 'Biten pakete teklif',
                             text: previewRenewal, time: '16:40',
                             note: 'Tüm seansları tamamlanan paketin sahibine paket başına bir kez gönderilir',
                         },
-                    ].filter(Boolean) as { key: 'confirmation'|'recall'|'winback'|'renewal'; badge: string; label: string; text: string; time: string; note: string }[])
+                    ].filter(Boolean) as { key: 'confirmation'|'review'|'recall'|'winback'|'renewal'; badge: string; label: string; text: string; time: string; note: string; extra?: React.ReactNode }[])
                     .map(card => {
                         const on = connection.features[card.key];
                         return (
@@ -653,6 +714,7 @@ export function WhatsAppTab() {
                                 <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'5px' }}>
                                     {on ? card.note : 'Kapalı — bu mesaj gönderilmiyor'}
                                 </div>
+                                {on && card.extra}
                             </div>
                         );
                     })}

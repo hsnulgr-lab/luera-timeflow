@@ -14,7 +14,7 @@ import { normalizePhone } from './phone.ts';
 export type Admin = any; // service_role SupabaseClient
 
 export type WaKind =
-    | 'confirmation' | 'reminder_24h' | 'reminder_2h' | 'recall' | 'winback' | 'renewal'
+    | 'confirmation' | 'review' | 'reminder_24h' | 'reminder_2h' | 'recall' | 'winback' | 'renewal'
     | 'queue_join' | 'queue_ready' | 'rebook' | 'waitlist'
     | 'ai_draft' | 'manual' | 'booking' | 'inbound' | 'optout';
 

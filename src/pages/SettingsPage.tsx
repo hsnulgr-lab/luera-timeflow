@@ -849,6 +849,16 @@ export const SettingsPage = () => {
                 <div><FieldLabel>Instagram</FieldLabel><Input value={profile.instagramUrl} onChange={v=>setProfile({...profile, instagramUrl:v})} placeholder="https://instagram.com/…"/></div>
                 <div><FieldLabel>Harita Linki</FieldLabel><Input value={profile.mapsUrl} onChange={v=>setProfile({...profile, mapsUrl:v})} placeholder="Google Maps linki"/></div>
               </div>
+              {/* Değerlendirme linki harita linkinden AYRI: bu, yorum formunu
+                  doğrudan açan URL. Boşsa değerlendirme daveti hiç gönderilmez. */}
+              <div>
+                <FieldLabel>Google Değerlendirme Linki</FieldLabel>
+                <Input value={profile.googleReviewUrl} onChange={v=>setProfile({...profile, googleReviewUrl:v})} placeholder="https://g.page/r/…/review"/>
+                <div style={{ fontSize:'11px', color:T.muted, marginTop:'5px', lineHeight:1.5 }}>
+                  Google işletme profilinizde <b>Yorum iste</b> → bağlantıyı kopyala ile alınır.
+                  Girilmezse tahsilat sonrası değerlendirme daveti gönderilmez.
+                </div>
+              </div>
             </div>
           )}
 

@@ -14,12 +14,19 @@ export interface OrgProfile {
     publicPhone: string;
     instagramUrl: string;
     mapsUrl: string;
+    /** Google değerlendirme (yorum yaz) linki — yol tarifinden AYRI URL. */
+    googleReviewUrl: string;
+    /** "Sizi özledik" mesajıyla verilen indirim oranı; 0 = indirim yok. */
+    winbackDiscountPercent: number;
+    /** İndirim kodu kaç gün geçerli; 0 = süresiz. */
+    winbackDiscountDays: number;
     bookingAutoConfirm: boolean;
 }
 
 const EMPTY: OrgProfile = {
     slug: '', bio: '', logoUrl: '', coverUrl: '', galleryUrls: [],
-    address: '', publicPhone: '', instagramUrl: '', mapsUrl: '', bookingAutoConfirm: false,
+    address: '', publicPhone: '', instagramUrl: '', mapsUrl: '', googleReviewUrl: '',
+    winbackDiscountPercent: 0, winbackDiscountDays: 30, bookingAutoConfirm: false,
 };
 
 function mapRow(row: any): OrgProfile {
@@ -33,6 +40,9 @@ function mapRow(row: any): OrgProfile {
         publicPhone: row.public_phone || '',
         instagramUrl: row.instagram_url || '',
         mapsUrl: row.maps_url || '',
+        googleReviewUrl: row.google_review_url || '',
+        winbackDiscountPercent: Number(row.winback_discount_percent ?? 0) || 0,
+        winbackDiscountDays: Number(row.winback_discount_days ?? 30) || 0,
         bookingAutoConfirm: !!row.booking_auto_confirm,
     };
 }
@@ -60,7 +70,7 @@ export function useOrgProfile() {
             if (cached) { setProfile(cached); setLoading(false); } else setLoading(true);
             const { data, error } = await supabase
                 .from('organizations')
-                .select('slug, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, booking_auto_confirm')
+                .select('slug, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, google_review_url, winback_discount_percent, winback_discount_days, booking_auto_confirm')
                 .eq('id', orgId)
                 .maybeSingle();
             if (!error && data) {
@@ -87,6 +97,9 @@ export function useOrgProfile() {
                 public_phone: p.publicPhone || null,
                 instagram_url: p.instagramUrl || null,
                 maps_url: p.mapsUrl || null,
+                google_review_url: p.googleReviewUrl || null,
+                winback_discount_percent: p.winbackDiscountPercent || 0,
+                winback_discount_days: p.winbackDiscountDays ?? 30,
                 booking_auto_confirm: p.bookingAutoConfirm,
             })
             .eq('id', orgId);

@@ -20,6 +20,7 @@ import { PKG_TICKET, isPkgTicket, planIdOf, readPkgQueue, writePkgQueue } from '
 import type { PaymentMethod, Reservation } from '@/types';
 import './beautyCash.css';
 import { reservationServiceLines, reservationPrice } from '@/utils/reservationServices';
+import { lookupDiscountCode, redeemDiscountCode, DISCOUNT_CODE_ERROR_TEXT, type DiscountCode } from '@/services/discountCodes';
 
 // ── Beauty Kasa · 3 sütunlu ödeme deneyimi ───────────────────────────────────
 // Tasarım: timeflow-beauty-cash-final (Claude Design), bf-* sınıfları birebir.
@@ -155,6 +156,11 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
     const [kaporaMethod, setKaporaMethod] = useState<PaymentMethod>('cash');
     const [kaporaBusy, setKaporaBusy] = useState(false);
     const [discountOpen, setDiscountOpen] = useState(false);
+    // İndirim kodu (071) — "sizi özledik" mesajıyla giden müşteriye özel kod
+    const [codeStr, setCodeStr] = useState('');
+    const [codeBusy, setCodeBusy] = useState(false);
+    const [codeError, setCodeError] = useState('');
+    const [appliedCode, setAppliedCode] = useState<DiscountCode | null>(null);
     const [coverOpen, setCoverOpen] = useState(false);
     const [coverBusy, setCoverBusy] = useState(false);
 
@@ -292,6 +298,7 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
         setSelectedId(id);
         setStage(done[id] ? 'complete' : 'summary');
         setMethod('card'); setDiscountStr(''); setCashReceived(''); setTransferRef(''); setPayError(''); setParts([]);
+        setCodeStr(''); setCodeError(''); setAppliedCode(null);
     };
 
     const balanceOf = (r: Reservation) => {
@@ -323,6 +330,26 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
         if (!record || processing || isPkgTicket(record.id)) { if (record && isPkgTicket(record.id)) toast('Paket tahsilatına kalem eklenemez'); return; }
         setExtras((v) => ({ ...v, [record.id]: [...(v[record.id] || []), { id: `x-${Date.now()}`, name, detail: 'Ek hizmet', price, quantity: 1, kind: 'Hizmet' }] }));
         setCatalogSearch('');
+    };
+
+    // Kodu doğrula ve indirimi ara toplam üzerinden hesapla. Tutar sabitlenir;
+    // sonradan kalem eklenirse indirim kendiliğinden büyümez (kasiyer görsün).
+    const applyDiscountCode = async () => {
+        if (!record || !orgId || codeBusy) return;
+        setCodeBusy(true); setCodeError('');
+        const res = await lookupDiscountCode(orgId, codeStr, record.customerId || undefined);
+        setCodeBusy(false);
+        if (!res.ok) { setCodeError(DISCOUNT_CODE_ERROR_TEXT[res.reason]); setAppliedCode(null); return; }
+        const amount = Math.min(subtotal, Math.round(subtotal * res.code.percent / 100));
+        if (amount <= 0) { setCodeError('Ara toplam sıfır — indirim uygulanamaz.'); return; }
+        setAppliedCode(res.code);
+        setDiscountStr(String(amount));
+        toast.success(`%${res.code.percent} indirim uygulandı · ${tl(amount)}`);
+        setDiscountOpen(false);
+    };
+
+    const clearDiscountCode = () => {
+        setAppliedCode(null); setCodeStr(''); setCodeError(''); setDiscountStr('');
     };
 
     const goToPayment = () => {
@@ -389,6 +416,7 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
         }
 
         // Kalan sıfırsa (kapora ile tamamen ödenmiş) yeni tahsilat yazılmaz, hesap kapatılır.
+        let firstPaymentId: string | undefined;
         for (const [i, part] of used.entries()) {
             if (part.amount <= 0) continue;
             const p = await collectAllocated(addPayment, {
@@ -397,6 +425,16 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
                 customerId: record.customerId || undefined, reservationId: record.id,
             }, { allocate: false });
             if (!p) { setProcessing(false); setPayError('Tahsilat kaydedilemedi — tekrar deneyin.'); return; }
+            if (!firstPaymentId) firstPaymentId = (p as { id?: string }).id;
+        }
+
+        // Kod ancak tahsilat yazıldıktan SONRA yanar; ödeme kaydedilemezse
+        // müşterinin kodu boşa gitmemeli. Kısmi tahsilatta da yakılır: indirim
+        // hesabın tamamına uygulandı, ikinci kez kullanılmamalı.
+        if (appliedCode) {
+            const redeemed = await redeemDiscountCode(appliedCode.id, firstPaymentId);
+            if (!redeemed) console.warn('Kod zaten kullanılmış olabilir:', appliedCode.code);
+            setAppliedCode(null);
         }
 
         // Kısmi tahsilat: hesap KAPANMAZ. Randevu kuyrukta kalır, kalan tutar
@@ -524,7 +562,6 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
                         })}
                         {visibleQueue.length === 0 && <div className="bf-empty"><CircleCheck size={24} /><strong>Bu listede kayıt yok</strong><small>Başka bir sekme seçin.</small></div>}
                     </div>
-                    <button type="button" className="bf-new-sale" onClick={() => navigate('/calendar')}><Plus size={16} />Randevusuz satış oluştur</button>
                 </aside>
 
                 {/* ORTA — aktif hesap */}
@@ -901,10 +938,38 @@ export function BeautyCashRegister({ onBack }: { onBack: () => void }) {
                         <div style={{ padding: 18 }}>
                             <strong style={{ fontSize: 15, fontWeight: 800 }}>İndirim</strong>
                             <div style={{ fontSize: 12, color: 'var(--dc-muted)', margin: '2px 0 14px' }}>Ara toplam {tl(subtotal)}</div>
+                            {/* İndirim kodu — "sizi özledik" mesajıyla giden kod (071).
+                                Tutarı elle girmek yerine kod okutmak, kampanyanın
+                                kimi geri getirdiğini ölçmenin tek yolu. */}
+                            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM KODU</label>
+                            {appliedCode ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 11, background: 'var(--dc-green-bg)', color: 'var(--dc-green)', fontSize: 13, fontWeight: 700 }}>
+                                    <BadgePercent size={16} />
+                                    <span style={{ flex: 1 }}>{appliedCode.code} · %{appliedCode.percent}</span>
+                                    <button type="button" onClick={clearDiscountCode}
+                                        style={{ border: 'none', background: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>kaldır</button>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input inputMode="text" autoCapitalize="characters" value={codeStr}
+                                        onChange={(e) => { setCodeStr(e.target.value.toLocaleUpperCase('tr-TR')); setCodeError(''); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') void applyDiscountCode(); }}
+                                        placeholder="Örn. K7RM2P"
+                                        style={{ ...DLG_INPUT, flex: 1, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '.08em' }} />
+                                    <button type="button" style={{ ...DLG_GHOST, whiteSpace: 'nowrap' }}
+                                        disabled={codeBusy || !codeStr.trim()} onClick={applyDiscountCode}>
+                                        {codeBusy ? 'Kontrol…' : 'Uygula'}
+                                    </button>
+                                </div>
+                            )}
+                            {codeError && <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--dc-red, #c0392b)' }}>{codeError}</div>}
+
+                            <div style={{ height: 1, background: 'var(--dc-border)', margin: '16px 0' }} />
+
                             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM TUTARI (₺)</label>
-                            <input autoFocus inputMode="numeric" value={discountStr} onChange={(e) => setDiscountStr(e.target.value.replace(/\D/g, ''))} placeholder="0" style={DLG_INPUT} />
+                            <input inputMode="numeric" value={discountStr} onChange={(e) => { setDiscountStr(e.target.value.replace(/\D/g, '')); setAppliedCode(null); }} placeholder="0" style={DLG_INPUT} />
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
-                                <button type="button" style={DLG_GHOST} onClick={() => { setDiscountStr(''); setDiscountOpen(false); }}>Kaldır</button>
+                                <button type="button" style={DLG_GHOST} onClick={() => { clearDiscountCode(); setDiscountOpen(false); }}>Kaldır</button>
                                 <button type="button" style={DLG_PRIMARY} onClick={() => setDiscountOpen(false)}>Uygula</button>
                             </div>
                         </div>
