@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
                 const d = new Date(res.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
-                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', text: `Randevunuz iptal edildi ❌\n\n${d} · ${(res.start_time || '').slice(0, 5)} · ${res.service}\n\nYeni randevu için bizimle iletişime geçebilirsiniz.` }).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true, text: `Randevunuz iptal edildi ❌\n\n${d} · ${(res.start_time || '').slice(0, 5)} · ${res.service}\n\nYeni randevu için bizimle iletişime geçebilirsiniz.` }).catch(() => {});
             }
             return json({ success: true, status: 'cancelled' });
         }
@@ -222,7 +222,7 @@ Deno.serve(async (req: Request) => {
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
                 const d = new Date(date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
-                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', text: `Randevunuz güncellendi ✅\n\n🗓️ ${d}\n⏰ ${time}\n💼 ${res.service}\n\nGörüşmek üzere!` }).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true, text: `Randevunuz güncellendi ✅\n\n🗓️ ${d}\n⏰ ${time}\n💼 ${res.service}\n\nGörüşmek üzere!` }).catch(() => {});
             }
             return json({ success: true, date, time, endTime });
         }

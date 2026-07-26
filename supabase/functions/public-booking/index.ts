@@ -347,7 +347,7 @@ Deno.serve(async (req: Request) => {
                     ? `Merhaba ${customerName} 👋\n\n*${businessName}* randevunuz oluşturuldu ✅\n\n`
                     : `Merhaba ${customerName} 👋\n\n*${businessName}* randevu talebiniz alındı 📝\n\n`;
                 const tail = autoConfirm ? `\n\nSizi bekliyoruz!` : `\n\nOnaylandığında size tekrar bilgi vereceğiz.`;
-                sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', text: head + lineTxt + tail }).catch(() => {});
+                sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text: head + lineTxt + tail }).catch(() => {});
             }
 
             return json({
@@ -525,7 +525,7 @@ Deno.serve(async (req: Request) => {
         if (orgWa?.instance && orgWa.status === 'connected') {
             const manageUrl = reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : undefined;
             const msg = buildBookingMessage({ customerName, date, time, service: svc.name, businessName, confirmed: autoConfirm, manageUrl });
-            sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', text: msg }).catch(() => {});
+            sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text: msg }).catch(() => {});
         }
 
         return json({
