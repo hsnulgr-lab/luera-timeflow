@@ -1,4 +1,5 @@
 import type { Reservation, Service } from '@/types';
+import { reservationPrice } from '@/utils/reservationServices';
 
 // Randevu yaşam döngüsü — tek kaynak. Tüm yüzeyler (mobil personel, mobil
 // düzenle sheet, masaüstü rezervasyon/takvim) bu mantığı paylaşır ki
@@ -54,7 +55,8 @@ export function primaryAction(phase: ApptPhase): { kind: ApptActionKind; label: 
     }
 }
 
-// Randevunun hizmet fiyatı (settings.services eşleşmesi). Tahsilat ön-dolumu için.
-export function priceForReservation(r: Pick<Reservation, 'service'>, services: Service[]): number {
-    return services.find((s) => s.name === r.service)?.price ?? 0;
+// Randevunun hizmet fiyatı. Tahsilat ön-dolumu için — çoklu hizmetli seansta
+// kalemlerin toplamı döner (bkz. utils/reservationServices).
+export function priceForReservation(r: Reservation, services: Service[]): number {
+    return reservationPrice(r, services);
 }

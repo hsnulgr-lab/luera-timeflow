@@ -9,15 +9,24 @@ import { useStaff } from '@/hooks/useStaff';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { cn } from '@/utils/cn';
 import { toISODate } from '@/utils/date';
-import type { Customer, Service, TreatmentPlan } from '@/types';
+import type { Customer, Service, TreatmentPlan, WorkingHours } from '@/types';
 
 // Güzellik "Yeni Seans" modalı — tasarım: Guzellik Salonu.html modal bölümü.
 // Fark: klasik randevu modalının aksine paket-farkındalıklı çalışır — müşterinin
 // aktif paketi varsa otomatik önerilir (ücret ₺0), hamilelik kaydı varsa lazer
 // tipi hizmetler kapatılır. Hedef: telefonda konuşurken 5 tıkta seans.
 
+/** Takvimdeki boş saatten açıldığında önden doldurulan alanlar. */
+export interface SessionPreset {
+    date?: string;          // ISO (YYYY-MM-DD)
+    slot?: string;          // HH:mm
+    staffId?: string;
+    resourceId?: string;
+}
+
 interface Props {
     customer: Customer | null;          // null = müşteri aramayla seçilecek
+    preset?: SessionPreset;             // gün planındaki "+" bunu doldurur
     onClose: () => void;
     onCreated: () => void;
 }
@@ -25,10 +34,39 @@ interface Props {
 // Hamilelikte kapalı hizmetler — isim eşleşmesiyle (lazer, bölgesel incelme)
 const PREGNANCY_BLOCKED = /lazer|incelme|zayıflama|g5/i;
 
-const SLOT_TIMES = Array.from({ length: 18 }, (_, i) => {
-    const h = 9 + Math.floor(i / 2);
-    return `${String(h).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
-});
+// Saat listesi işletmenin ÇALIŞMA SAATLERİNDEN türetilir. Eskiden 09:00–17:30
+// sabitti; Ayarlar'dan "Pazar 09:00–23:59" denince modal bunu görmüyordu.
+// Adım aralığı settings.slotDuration (yoksa 30 dk).
+function slotTimesFor(
+    dateISO: string,
+    workingHours: WorkingHours[] = [],
+    stepMin = 30,
+    preset?: string,
+): string[] {
+    const weekday = new Date(`${dateISO}T12:00:00`).getDay();
+    const wh = workingHours.find((w) => w.day === weekday);
+    // Kapalı gün: hiç slot yok — kullanıcı "bugün kapalıyız" bilgisini görsün.
+    if (wh?.isOff) return preset ? [preset] : [];
+
+    const toMinutes = (t: string) => {
+        const [h, m] = (t || '').split(':').map(Number);
+        return Number.isFinite(h) ? h * 60 + (m || 0) : NaN;
+    };
+    const start = toMinutes(wh?.start || '09:00');
+    const end = toMinutes(wh?.end || '18:00');
+    const step = Math.max(5, stepMin || 30);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        return preset ? [preset] : [];
+    }
+
+    const out: string[] = [];
+    for (let m = start; m < end; m += step) {
+        out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    }
+    // Izgaradaki "+" mesai dışı bir saate denk gelebilir; seçili görünsün diye eklenir.
+    if (preset && !out.includes(preset)) out.push(preset);
+    return out.sort();
+}
 
 function addMinutes(time: string, mins: number): string {
     const [h, m] = time.split(':').map(Number);
@@ -37,7 +75,7 @@ function addMinutes(time: string, mins: number): string {
 }
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
-export function BeautySessionModal({ customer: initialCustomer, onClose, onCreated }: Props) {
+export function BeautySessionModal({ customer: initialCustomer, preset, onClose, onCreated }: Props) {
     const { customers, addCustomer } = useCustomers();
     const { reservations, settings, addReservation } = useReservations();
     const { resources } = useResources();
@@ -58,24 +96,39 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
     );
     const pregnant = Boolean(customer?.customFields?.hamilelik);
 
-    // Seçim durumu: paket (plan) VEYA tekil hizmet
+    // Seçim durumu: paket (plan) VEYA bir ya da daha fazla tekil hizmet.
+    // Tek seansta birden fazla işlem çok yaygın (kaş + cilt bakımı, dolgu +
+    // diş temizliği); süre ve ücret seçilenlerin toplamıdır.
     const [selectedPlan, setSelectedPlan] = useState<TreatmentPlan | null>(null);
-    const [selectedService, setSelectedService] = useState<Service | null>(null);
-    const [staffId, setStaffId] = useState('');
-    const [resourceId, setResourceId] = useState('');
-    const [date, setDate] = useState(() => toISODate(new Date()));
-    const [slot, setSlot] = useState('');
+    const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+    const [staffId, setStaffId] = useState(preset?.staffId || '');
+    const [resourceId, setResourceId] = useState(preset?.resourceId || '');
+    const [date, setDate] = useState(() => preset?.date || toISODate(new Date()));
+    const [slot, setSlot] = useState(preset?.slot || '');
     const [saving, setSaving] = useState(false);
+
+    const slotTimes = useMemo(
+        () => slotTimesFor(date, settings.workingHours, settings.slotDuration, preset?.slot),
+        [date, settings.workingHours, settings.slotDuration, preset?.slot],
+    );
+
+    const hasServices = selectedServices.length > 0;
+    const toggleService = (s: Service) => {
+        setSelectedPlan(null);
+        setSelectedServices((prev) => prev.some((x) => x.id === s.id)
+            ? prev.filter((x) => x.id !== s.id)
+            : [...prev, s]);
+    };
 
     // Müşteri seçilince aktif paketi otomatik öner (async yüklenen plandan tek sefer
     // başlangıç seçimi — meşru effect kullanımı).
     useEffect(() => {
-        if (activePlans.length > 0 && !selectedService) {
+        if (activePlans.length > 0 && !hasServices) {
             const allowed = pregnant ? activePlans.filter((p) => !PREGNANCY_BLOCKED.test(p.title)) : activePlans;
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedPlan(allowed[0] || null);
         }
-    }, [activePlans, pregnant, selectedService]);
+    }, [activePlans, pregnant, hasServices]);
 
     const services: Service[] = settings.services || [];
     const activeResources = useMemo(() => resources.filter((r) => r.isActive).sort((a, b) => a.sort - b.sort), [resources]);
@@ -85,7 +138,12 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
     const planService = (plan: TreatmentPlan): Service | undefined =>
         services.find((s) => plan.title.toLocaleLowerCase('tr').includes(s.name.toLocaleLowerCase('tr')) || s.name.toLocaleLowerCase('tr').includes(plan.title.toLocaleLowerCase('tr')));
 
-    const duration = selectedPlan ? (planService(selectedPlan)?.duration || 60) : (selectedService?.duration || 60);
+    // Birden fazla hizmet seçiliyse süreler toplanır — çakışma kontrolü, slot
+    // doluluğu ve bitiş saati hepsi bu toplam üzerinden hesaplanır.
+    const duration = selectedPlan
+        ? (planService(selectedPlan)?.duration || 60)
+        : (hasServices ? selectedServices.reduce((s, x) => s + (x.duration || 0), 0) || 60 : 60);
+    const totalPrice = hasServices ? selectedServices.reduce((s, x) => s + (x.price || 0), 0) : 0;
 
     const dateOptions = useMemo(() => Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
@@ -176,13 +234,16 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
         }
     };
 
-    const serviceLabel = selectedPlan ? `${selectedPlan.title} (paketten, ₺0)` : selectedService?.name || '—';
-    const canSave = Boolean(customer && (selectedPlan || selectedService) && slot);
+    const serviceNames = selectedServices.map((s) => s.name).join(' + ');
+    const serviceLabel = selectedPlan
+        ? `${selectedPlan.title} (paketten, ₺0)`
+        : hasServices ? `${serviceNames} · ${duration} dk${totalPrice ? ` · ₺${totalPrice.toLocaleString('tr-TR')}` : ''}` : '—';
+    const canSave = Boolean(customer && (selectedPlan || hasServices) && slot);
 
     const create = async () => {
         if (!customer || saving) return;
         setSaving(true);
-        const svc = selectedPlan ? planService(selectedPlan) : selectedService;
+        const svc = selectedPlan ? planService(selectedPlan) : selectedServices[0];
         // "Fark etmez" seçiliyken atamayı burada yap: kayıt anındaki müsaitliğe
         // göre kişi/kabin belirlenir. Eskiden staff_id boş gidiyordu ve DB tüm
         // atanmamış randevuları aynı kişi sayıp çakışma hatası veriyordu.
@@ -196,13 +257,24 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
             date,
             startTime: slot,
             endTime: addMinutes(slot, duration),
-            service: selectedPlan ? selectedPlan.title : (selectedService?.name || 'Seans'),
+            service: selectedPlan ? selectedPlan.title : (serviceNames || 'Seans'),
             serviceColor: svc?.color,
             status: 'confirmed',
             staffId: pickedStaff,
             staffName: activeStaff.find((s) => s.id === pickedStaff)?.name,
             resourceId: pickedResource,
-            customFields: selectedPlan ? { paket_plan_id: selectedPlan.id, paket_seans: `${selectedPlan.sessionsDone + 1}/${selectedPlan.sessionCount}` } : undefined,
+            // Çoklu hizmette kalemler ayrı ayrı da saklanır: Kasa hesabı
+            // kalem kalem gösterebilsin, `service` metnine bağlı kalmasın.
+            customFields: selectedPlan
+                ? { paket_plan_id: selectedPlan.id, paket_seans: `${selectedPlan.sessionsDone + 1}/${selectedPlan.sessionCount}` }
+                : selectedServices.length > 1
+                    ? {
+                        // custom_fields düz bir Record<string, string|number|boolean>;
+                        // kalem listesi JSON metni olarak saklanır.
+                        hizmetler: JSON.stringify(selectedServices.map((s) => ({ id: s.id, name: s.name, price: s.price ?? 0, duration: s.duration ?? 0 }))),
+                        hizmet_ucreti: totalPrice,
+                    }
+                    : undefined,
         });
         setSaving(false);
         if (created) {
@@ -288,13 +360,21 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
                             <div className="flex items-center gap-2 mb-2 mt-5">
                                 <span className="w-5 h-5 rounded-full bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center">2</span>
                                 <span className="text-[12.5px] font-extrabold text-[var(--dc-ink)]">Hizmet / Paket</span>
+                                <span className="ml-auto text-[11px] text-[var(--dc-muted)]">Birden fazla seçebilirsiniz</span>
                             </div>
+                            {hasServices && (
+                                <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--dc-surface2)] text-[11.5px] text-[var(--dc-muted)]">
+                                    <b className="text-[var(--dc-ink)]">{selectedServices.length} hizmet</b>
+                                    <span>· {duration} dk{totalPrice > 0 && ` · ₺${totalPrice.toLocaleString('tr-TR')}`}</span>
+                                    <button onClick={() => setSelectedServices([])} className="ml-auto font-bold text-[var(--dc-orange-d)] hover:underline">Temizle</button>
+                                </div>
+                            )}
                             <div className="space-y-1.5">
                                 {activePlans.map((p) => {
                                     const blocked = pregnant && PREGNANCY_BLOCKED.test(p.title);
                                     const activeSel = selectedPlan?.id === p.id;
                                     return (
-                                        <button key={p.id} disabled={blocked} onClick={() => { setSelectedPlan(p); setSelectedService(null); }}
+                                        <button key={p.id} disabled={blocked} onClick={() => { setSelectedPlan(p); setSelectedServices([]); }}
                                             title={blocked ? 'Hamilelik nedeniyle kapalı' : undefined}
                                             className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors',
                                                 blocked ? 'opacity-45 cursor-not-allowed border-[var(--dc-border)]'
@@ -313,15 +393,19 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
                                 })}
                                 {services.map((s) => {
                                     const blocked = pregnant && PREGNANCY_BLOCKED.test(s.name);
-                                    const activeSel = selectedService?.id === s.id;
+                                    const order = selectedServices.findIndex((x) => x.id === s.id);
+                                    const activeSel = order >= 0;
                                     return (
-                                        <button key={s.id} disabled={blocked} onClick={() => { setSelectedService(s); setSelectedPlan(null); }}
-                                            title={blocked ? 'Hamilelik nedeniyle kapalı' : undefined}
+                                        <button key={s.id} disabled={blocked} onClick={() => toggleService(s)}
+                                            aria-pressed={activeSel}
+                                            title={blocked ? 'Hamilelik nedeniyle kapalı' : activeSel ? 'Seçimden çıkar' : 'Seansa ekle'}
                                             className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors',
                                                 blocked ? 'opacity-45 cursor-not-allowed border-[var(--dc-border)]'
                                                     : activeSel ? 'border-[var(--dc-inkbox)] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)]'
                                                         : 'border-[var(--dc-border)] bg-[var(--dc-surface)] hover:border-[var(--dc-border2)] hover:bg-[var(--dc-surface2)]')}>
-                                            <span className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style={{ background: s.color }} />
+                                            {activeSel
+                                                ? <span className="w-[18px] h-[18px] rounded-md bg-white/20 text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">{order + 1}</span>
+                                                : <span className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style={{ background: s.color }} />}
                                             <span className="flex-1 min-w-0">
                                                 <span className={cn('block text-[13px] font-bold truncate', !activeSel && 'text-[var(--dc-ink)]')}>{s.name}</span>
                                                 <span className={cn('block text-[11px] mt-px', activeSel ? 'opacity-70' : 'text-[var(--dc-muted)]')}>{blocked ? 'Hamilelik nedeniyle uygulanamaz' : `Tekil seans · ${s.duration} dk`}</span>
@@ -358,8 +442,13 @@ export function BeautySessionModal({ customer: initialCustomer, onClose, onCreat
                                 {dateOptions.map((d) => <option key={d.iso} value={d.iso}>{d.label}</option>)}
                             </select>
 
+                            {slotTimes.length === 0 && (
+                                <div className="mt-3 px-3.5 py-3 rounded-xl border border-dashed border-[var(--dc-border2)] bg-[var(--dc-surface2)] text-[12.5px] text-[var(--dc-muted)]">
+                                    Bu gün işletme kapalı — çalışma saatlerini Ayarlar'dan değiştirebilirsiniz.
+                                </div>
+                            )}
                             <div className="grid grid-cols-6 gap-[7px] mt-3">
-                                {SLOT_TIMES.map((t) => {
+                                {slotTimes.map((t) => {
                                     const busy = busySlot(t);
                                     const past = date === toISODate(new Date()) && toMin(t) <= new Date().getHours() * 60 + new Date().getMinutes();
                                     const disabled = busy || past;

@@ -13,7 +13,8 @@ import { useTables } from '@/hooks/useTables';
 import { useTableReservations } from '@/hooks/useTableReservations';
 import { MENU_CATEGORIES, adisyonTotal, adisyonSummary } from '@/utils/masaAdisyon';
 import { todayISO } from '@/utils/date';
-import type { Payment, PaymentMethod, PaymentType } from '@/types';
+import type { Payment, PaymentMethod, PaymentType, Reservation } from '@/types';
+import { reservationPrice } from '@/utils/reservationServices';
 
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('tr-TR');
@@ -91,7 +92,8 @@ export const KasaPage = () => {
 
     // Tahsil bekleyen tamamlanmış randevular
     const unpaid = useMemo(() => reservations.filter(r => r.status === 'completed' && !r.isPaid), [reservations]);
-    const priceOf = (svc: string) => settings.services.find(s => s.name === svc)?.price || 0;
+    // Çoklu hizmetli seansta ücret custom_fields'tan gelir (bkz. reservationServices)
+    const priceOf = (r: Reservation) => reservationPrice(r, settings.services);
 
     // Garson "Adisyonu Kasaya Gönder" dedi (status→completed, isPaid=false — 049)
     // — masa akışındaki eşdeğeri, hizmet bills'i ile aynı desen.
@@ -176,7 +178,7 @@ export const KasaPage = () => {
     const collect = async (resId: string) => {
         const r = reservations.find(x => x.id === resId);
         if (!r) return;
-        const amt = priceOf(r.service);
+        const amt = priceOf(r);
         // Fiyatı tanımsız hizmette tek tıkla 0 ₺ kaydedip randevuyu "ödendi" işaretlemek
         // parayı sessizce kaybettirir — tutarı personel girsin diye tahsilat panelini aç.
         if (amt <= 0) {
@@ -299,8 +301,8 @@ export const KasaPage = () => {
                                 <div className="txn" key={r.id} style={focusedReservationId === r.id ? { border: '2px solid var(--orange)', boxShadow: '0 0 0 4px rgba(255,90,31,.10)' } : undefined}>
                                     <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2.5 7.5h15" stroke="currentColor" strokeWidth="1.5" /></svg></div>
                                     <div className="txn-body"><div className="txn-name">{r.customerName}</div><div className="txn-meta">{r.service} · {r.date}</div></div>
-                                    <div className={`txn-amt${priceOf(r.service) <= 0 ? ' zero' : ''}`}>
-                                        {priceOf(r.service) > 0 ? `${fmt(priceOf(r.service))} ₺` : 'Fiyat yok'}
+                                    <div className={`txn-amt${priceOf(r) <= 0 ? ' zero' : ''}`}>
+                                        {priceOf(r) > 0 ? `${fmt(priceOf(r))} ₺` : 'Fiyat yok'}
                                     </div>
                                     <button className="txn-collect" onClick={() => collect(r.id)}>Tahsil et</button>
                                 </div>

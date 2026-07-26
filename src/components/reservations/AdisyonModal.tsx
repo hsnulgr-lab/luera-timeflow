@@ -11,6 +11,7 @@ import { useStaff } from '@/hooks/useStaff';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Reservation, PaymentMethod } from '@/types';
+import { reservationPrice } from '@/utils/reservationServices';
 
 const PM: { key: PaymentMethod; label: string }[] = [
     { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
@@ -68,7 +69,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     };
 
     const customer = allCustomers.find(c => c.id === r.customerId);
-    const svcPrice = (x: Reservation) => settings.services.find(s => s.name === x.service)?.price || 0;
+    const svcPrice = (x: Reservation) => reservationPrice(x, settings.services);
 
     // Çoklu hizmet booking'i: aynı group_id'li satırların hepsi tek birleşik adisyonda.
     const groupRes = useMemo(() => {
