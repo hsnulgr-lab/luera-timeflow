@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarCheck, Clock, DoorOpen, Gift, Lock, MapPin, Package, Plus, Sparkles, User, Zap } from 'lucide-react';
+import { CalendarCheck, Clock, DoorOpen, Gift, Lock, MapPin, Package, Plus, Sparkles, User, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
@@ -754,25 +754,6 @@ export function GuzellikDashboard() {
                         />
                     )}
 
-                    {/* Fırsat şeridi — detaylı liste Paketler/Müşteriler sayfalarında yaşar */}
-                    {actionCount > 0 && (
-                        <button className="ops-strip"
-                            onClick={() => navigate(renewals.length > 0 ? '/packages?f=renewal'
-                                : unplanned.length > 0 ? '/packages?f=unplanned' : '/packages')}>
-                            <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--dc-orange)' }} />
-                            <b>{actionCount} fırsat bekliyor</b>
-                            <span>
-                                {[
-                                    renewals.length > 0 && `${renewals.length} paket yenilemesi`,
-                                    unplanned.length > 0 && `${unplanned.length} planlanmamış seans`,
-                                    lost.length > 0 && `${lost.length} kayıp müşteri`,
-                                    tomorrowPending.length > 0 && `${tomorrowPending.length} yarın onaysız`,
-                                    giftEarned.length > 0 && `${giftEarned.length} hediye hak etti`,
-                                ].filter(Boolean).join(' · ')}
-                            </span>
-                            <em>Paketler'i aç <ArrowRight className="w-3.5 h-3.5" /></em>
-                        </button>
-                    )}
 
                     {/* Ana bölüm */}
                     <section>
