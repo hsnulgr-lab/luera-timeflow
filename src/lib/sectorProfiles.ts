@@ -1,4 +1,7 @@
 import type { Modules } from '@/types';
+// Yalnızca tip — çalışma zamanında silinir, staffPermissions ↔ sectorProfiles
+// arasında döngüsel import oluşmaz (staffPermissions bu dosyadan fonksiyon alır).
+import type { StaffRole } from '@/lib/staffPermissions';
 
 // ── Sektör Profili — tek kaynak ───────────────────────────────────────────────
 // "Sektöre bürünme"nin omurgası: modül seti, terminoloji, dashboard dizilimi,
@@ -69,10 +72,19 @@ export interface SectorComms {
     guardrail?: string;
 }
 
+// ── Personel rolleri ─────────────────────────────────────────────────────────
+// Rolün DEĞERİ (doctor/assistant/cashier/staff) sektörden bağımsızdır: yetki
+// setini o belirler ve DB'de saklanan da odur. Sektöre göre değişen yalnızca
+// nasıl anıldığı — diş kliniğinde "Hekim", berberde "Berber", restoranda
+// "Şef garson". Boş bırakılan alanlar sektörün terminolojisinden türetilir
+// (bkz. staffPermissions.staffRoleOptionsForSector).
+export type SectorStaffRoles = Partial<Record<StaffRole, { label?: string; description?: string }>>;
+
 export interface SectorProfile {
     label: string;                              // Ayarlar dropdown etiketi
     modules: Modules;                           // varsayılan modül seti
     labels: Partial<Record<LabelKey, string>>;  // terminoloji farkları
+    staffRoles?: SectorStaffRoles;              // rol adlandırması (yetki değil)
     dashboardKpis: WidgetKey[];                 // sektör dashboard dizilimi (Faz 2)
     customFieldTemplates: FieldDef[];           // varsayılan özel alanlar (Faz 3)
     resourceTypes: string[];                    // koltuk/oda/kabin… (Faz 4; boş = kaynak UI gizli)
@@ -90,13 +102,16 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
     genel: {
         label: 'Genel',
         modules: RANDEVU,
-        labels: {}, dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: [],
+        labels: {},
+        staffRoles: { doctor: { label: 'Uzman' } },
+        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: [],
         comms: { persona: 'Randevulu hizmet veren bir işletmesin; samimi, nazik ve net ol.', audience: 'müşterimiz', serviceWord: 'randevu', servicePhrase: 'randevunuzu', emoji: '🗓️' },
     },
     guzellik: {
         label: 'Güzellik / Salon',
         modules: RANDEVU,
         labels: { reservation: 'Seans', newReservation: 'Yeni seans' },
+        staffRoles: { doctor: { label: 'Uzman', description: 'Bakım uygular, müşteri kaydını ve tahsilatı yönetir' } },
         dashboardKpis: ['guzellikFace'],
         customFieldTemplates: [
             { entity: 'customer', key: 'cilt_tipi', label: 'Cilt tipi', type: 'select', options: ['Kuru', 'Yağlı', 'Karma', 'Hassas'] },
@@ -110,19 +125,24 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
     kuafor: {
         label: 'Kuaför',
         modules: { ...RANDEVU, sira: true },
-        labels: {}, dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
+        labels: {},
+        staffRoles: { doctor: { label: 'Kuaför' }, assistant: { label: 'Çırak' } },
+        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
         comms: { persona: 'Bir kuaförsün; samimi, enerjik ve sohbet eder gibi bir ton kullan.', audience: 'müşterimiz', serviceWord: 'işlem', servicePhrase: 'işleminizi', emoji: '💇', recall: { concept: 'saç bakımı / dip boyası zamanı', afterDays: 28 } },
     },
     berber: {
         label: 'Berber',
         modules: { ...RANDEVU, sira: true },
-        labels: {}, dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
+        labels: {},
+        staffRoles: { doctor: { label: 'Berber' }, assistant: { label: 'Çırak' } },
+        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
         comms: { persona: 'Bir berbersin; sıcak, kısa ve delikanlı ağzı sayılabilecek rahat bir ton kullan (abartma).', audience: 'müşterimiz', serviceWord: 'kesim', servicePhrase: 'kesiminizi', emoji: '💈', recall: { concept: 'saç kesimi zamanı', afterDays: 21 } },
     },
     estetik: {
         label: 'Estetik Kliniği',
         modules: RANDEVU,
         labels: { customer: 'Danışan', customers: 'Danışanlar', reservation: 'Seans', newReservation: 'Yeni seans' },
+        staffRoles: { doctor: { label: 'Uzman', description: 'Seans uygular, danışan dosyasını ve tahsilatı yönetir' } },
         dashboardKpis: RANDEVU_KPIS,
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
@@ -135,6 +155,10 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Diş Hekimi',
         modules: RANDEVU,
         labels: { customer: 'Hasta', customers: 'Hastalar', reservations: 'Randevular', service: 'Tedavi', services: 'Tedaviler', staff: 'Hekim', staffPlural: 'Hekimler' },
+        staffRoles: {
+            doctor: { label: 'Hekim', description: 'Muayene, diş şeması ve tedavi planı' },
+            assistant: { label: 'Asistan', description: 'Randevu ve hasta akışı desteği' },
+        },
         dashboardKpis: ['disFace'],
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
@@ -148,6 +172,10 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Sağlık / Klinik',
         modules: RANDEVU,
         labels: { customer: 'Hasta', customers: 'Hastalar', reservation: 'Muayene', newReservation: 'Yeni muayene' },
+        staffRoles: {
+            doctor: { label: 'Doktor', description: 'Muayene, hasta dosyası ve tedavi' },
+            assistant: { label: 'Yardımcı personel' },
+        },
         dashboardKpis: RANDEVU_KPIS,
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
@@ -159,6 +187,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Fizyoterapi',
         modules: RANDEVU,
         labels: { customer: 'Hasta', customers: 'Hastalar', reservation: 'Seans', newReservation: 'Yeni seans' },
+        staffRoles: { doctor: { label: 'Fizyoterapist', description: 'Seans uygular, hasta dosyasını ve tahsilatı yönetir' } },
         dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Oda'],
         comms: { persona: 'Bir fizyoterapi merkezisin; motive edici ama profesyonel bir ton kullan.', audience: 'danışanımız', serviceWord: 'seans', servicePhrase: 'seansınızı', emoji: '🤸', recall: { concept: 'kontrol seansı', afterDays: 60 }, guardrail: 'Tıbbi tavsiye verme, egzersiz reçetesi yazma.' },
     },
@@ -166,6 +195,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Tattoo / Piercing Stüdyosu',
         modules: RANDEVU,
         labels: { reservation: 'Seans', newReservation: 'Yeni seans', staff: 'Artist' },
+        staffRoles: { doctor: { label: 'Artist', description: 'Tasarım, seans uygulama ve kapora' } },
         dashboardKpis: ['dovmeFace'],
         customFieldTemplates: [
             { entity: 'reservation', key: 'bolge', label: 'Vücut bölgesi', type: 'text' },
@@ -184,6 +214,11 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Avukatlık Bürosu',
         modules: RANDEVU,
         labels: { customer: 'Müvekkil', customers: 'Müvekkiller', reservation: 'Görüşme', newReservation: 'Yeni görüşme', service: 'Danışmanlık', services: 'Danışmanlıklar', staff: 'Avukat' },
+        staffRoles: {
+            doctor: { label: 'Avukat', description: 'Görüşme, müvekkil dosyası ve ücretlendirme' },
+            assistant: { label: 'Katip', description: 'Görüşme ve müvekkil akışı desteği' },
+            cashier: { label: 'Muhasebe' },
+        },
         dashboardKpis: RANDEVU_KPIS,
         customFieldTemplates: [
             { entity: 'customer', key: 'dosya_no', label: 'Dosya numarası', type: 'text' },
@@ -197,6 +232,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Danışmanlık / Koçluk',
         modules: RANDEVU,
         labels: { customer: 'Danışan', customers: 'Danışanlar', reservation: 'Görüşme', newReservation: 'Yeni görüşme' },
+        staffRoles: { doctor: { label: 'Danışman', description: 'Görüşme yürütür, danışan dosyasını ve tahsilatı yönetir' } },
         dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: [],
         comms: { persona: 'Bir danışmanlık / koçluk ofisisin; saygılı, net ve profesyonel ol.', audience: 'danışanımız', serviceWord: 'görüşme', servicePhrase: 'görüşmenizi', emoji: '📌' },
     },
@@ -204,6 +240,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Gym / PT',
         modules: RANDEVU,
         labels: { customer: 'Üye', customers: 'Üyeler', reservation: 'Ders', reservations: 'Dersler', newReservation: 'Yeni ders', service: 'Ders', services: 'Dersler', staff: 'Antrenör' },
+        staffRoles: { doctor: { label: 'Antrenör', description: 'Ders verir, üye dosyasını ve tahsilatı yönetir' } },
         dashboardKpis: RANDEVU_KPIS,
         customFieldTemplates: [
             { entity: 'customer', key: 'hedef', label: 'Hedef', type: 'text' },
@@ -216,6 +253,10 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Gelinlikçi',
         modules: RANDEVU,
         labels: { reservation: 'Prova', reservations: 'Provalar', newReservation: 'Yeni prova', service: 'Model', services: 'Modeller' },
+        staffRoles: {
+            doctor: { label: 'Satış danışmanı', description: 'Prova yürütür, müşteri dosyasını ve tahsilatı yönetir' },
+            assistant: { label: 'Terzi', description: 'Prova ve ölçü akışı desteği' },
+        },
         dashboardKpis: RANDEVU_KPIS,
         customFieldTemplates: [
             { entity: 'customer', key: 'beden', label: 'Beden', type: 'text' },
@@ -230,7 +271,13 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         label: 'Restoran / Kafe',
         // personel açık — garson ataması ve garsona push personel listesinden beslenir
         modules: { randevu: false, personel: true, hizmet: false, kasa: true, masa: true, analiz: true, sira: false },
-        labels: {}, dashboardKpis: MASA_KPIS, customFieldTemplates: [], resourceTypes: [],
+        labels: {},
+        staffRoles: {
+            doctor: { label: 'Şef garson', description: 'Masa açar, adisyonu ve tahsilatı yönetir' },
+            assistant: { label: 'Garson', description: 'Masa ve sipariş akışı desteği' },
+            staff: { label: 'Personel', description: 'Kendi masaları ve temel misafir bilgileri' },
+        },
+        dashboardKpis: MASA_KPIS, customFieldTemplates: [], resourceTypes: [],
         comms: { persona: 'Bir restoransın; sıcak, davetkâr ve iştah açan bir ton kullan.', audience: 'misafirimiz', serviceWord: 'rezervasyon', servicePhrase: 'rezervasyonunuzu', emoji: '🍽️' },
     },
 };

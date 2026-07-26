@@ -10,7 +10,7 @@ import { useResources } from '@/hooks/useResources';
 import { useStaff } from '@/hooks/useStaff';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SECTOR_PROFILES, profileForSector } from '@/lib/sectorProfiles';
-import { STAFF_ROLE_OPTIONS, STAFF_ROLE_PERMISSIONS, inferStaffRoleFromSpecialty } from '@/lib/staffPermissions';
+import { STAFF_ROLE_PERMISSIONS, inferStaffRoleFromSpecialty, staffRoleOptionsForSector } from '@/lib/staffPermissions';
 import type { Service, StaffRole } from '@/types';
 
 // ── Design tokens (SettingsPage ile aynı) ────────────────────────────────────
@@ -69,6 +69,9 @@ export function ClinicSetupPage() {
   const [recallNote, setRecallNote] = useState(settings.rebookNote || '');
 
   const profile = profileForSector(sector);
+  // Roller sektörün diliyle: diş kliniğinde "Hekim", berberde "Berber".
+  const roleOptions = useMemo(() => staffRoleOptionsForSector(sector), [sector]);
+  const doctorLabel = roleOptions.find(o => o.value === 'doctor')?.label || 'Uzman';
   const resourceType = profile.resourceTypes[0] || 'Kaynak';
   const resourceLabel = profile.resourceTypes.length ? profile.resourceTypes[0] : 'Kaynak';
 
@@ -98,7 +101,7 @@ export function ClinicSetupPage() {
       if (!ok) return;
     }
     if (step === 3 && lockedStaff.length > 0) {
-      toast.error(`${lockedStaff.length} hekimin rolü atanmadı — muayene ekranı kilitli kalır`);
+      toast.error(`${lockedStaff.length} kişinin rolü atanmadı — ${doctorLabel.toLocaleLowerCase('tr-TR')} ekranı kilitli kalır`);
       return;
     }
     if (step < STEPS.length - 1) setStep(step + 1);
@@ -232,10 +235,10 @@ export function ClinicSetupPage() {
                           <b style={{ fontSize: 15 }}>{m.name}</b>
                           <span style={{ display: 'block', color: T.muted, fontSize: 12.5 }}>{m.specialty || 'Ekip üyesi'}</span>
                         </div>
-                        <span style={chip(T, !locked)}>{locked ? 'Rol seçin' : `✓ ${STAFF_ROLE_OPTIONS.find(o => o.value === m.role)?.label}`}</span>
+                        <span style={chip(T, !locked)}>{locked ? 'Rol seçin' : `✓ ${roleOptions.find(o => o.value === m.role)?.label}`}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 14 }}>
-                        {STAFF_ROLE_OPTIONS.map(opt => {
+                        {roleOptions.map(opt => {
                           const sel = m.role === opt.value;
                           return (
                             <button key={opt.value} onClick={() => updateStaff(m.id, { role: opt.value as StaffRole })}
@@ -249,7 +252,7 @@ export function ClinicSetupPage() {
                       {locked ? (
                         <div style={{ marginTop: 12, padding: '11px 13px', borderRadius: T.rSm, background: 'rgba(255,90,31,.08)', border: '1px solid rgba(255,90,31,.25)', fontSize: 12.5, color: '#a8360d', display: 'flex', gap: 9, lineHeight: 1.45 }}>
                           <Lock size={15} style={{ flex: '0 0 auto', marginTop: 1 }} />
-                          <div><b>Muayene ekranı kilitli.</b> {m.name.split(' ')[0]} hekim olarak çalışıyor ama rolü atanmadığı için diş şemasını ve tedavi planını açamıyor. <b>Hekim</b>'i seçtiğinizde kilit kalkar.</div>
+                          <div><b>Yetkili ekranı kilitli.</b> {m.name.split(' ')[0]} {doctorLabel.toLocaleLowerCase('tr-TR')} olarak çalışıyor ama rolü atanmadığı için {sector === 'dis' ? 'diş şemasını ve tedavi planını' : 'dosya ve tahsilat ekranlarını'} açamıyor. <b>{doctorLabel}</b> rolünü seçtiğinizde kilit kalkar.</div>
                         </div>
                       ) : (
                         <div style={{ marginTop: 13, paddingTop: 13, borderTop: `1px dashed ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: 6 }}>

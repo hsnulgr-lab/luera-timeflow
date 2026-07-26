@@ -4,11 +4,8 @@ import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
 import { hashPin } from '@/lib/pin';
-import {
-    STAFF_ROLE_OPTIONS,
-    staffRoleLabel,
-    type StaffRole,
-} from '@/lib/staffPermissions';
+import { type StaffRole } from '@/lib/staffPermissions';
+import { useStaffRoles } from '@/hooks/useLabels';
 import type { Staff } from '@/types';
 import { BottomSheet } from '../BottomSheet';
 import { T } from '../theme';
@@ -31,6 +28,7 @@ export const MobileStaff = () => {
     const navigate = useNavigate();
     const { isManager } = useManagerMode();
     const { staff, addStaff, updateStaff, deleteStaff } = useStaff();
+    const { roleOptions, roleLabel } = useStaffRoles();
 
     const [sheetOpen, setSheetOpen] = useState(false);
     const [editing, setEditing] = useState<Staff | null>(null);
@@ -108,7 +106,7 @@ export const MobileStaff = () => {
                         <div style={{ width: 44, height: 44, borderRadius: 14, background: m.color, display: 'grid', placeItems: 'center', fontSize: 17, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{m.name.charAt(0).toUpperCase()}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                            <div style={{ fontSize: 11.5, color: T.orange, marginTop: 2, fontWeight: 750 }}>{staffRoleLabel(m.role)}</div>
+                            <div style={{ fontSize: 11.5, color: T.orange, marginTop: 2, fontWeight: 750 }}>{roleLabel(m.role)}</div>
                             <div style={{ fontSize: 10.5, color: T.muted, marginTop: 2, fontFamily: T.mono }}>{m.specialty || 'Uzmanlık yok'}{m.pin ? ' · PIN ✓' : ''}</div>
                         </div>
                         <div style={{ padding: '3px 9px', borderRadius: 999, fontSize: 10, fontWeight: 800, background: m.isActive ? 'rgba(124,196,127,.14)' : T.surface3, color: m.isActive ? T.green : T.muted, border: `1px solid ${m.isActive ? 'rgba(124,196,127,.25)' : T.border}` }}>{m.isActive ? 'Aktif' : 'Pasif'}</div>
@@ -123,7 +121,7 @@ export const MobileStaff = () => {
                     </Field>
                     <Field label="Personel Rolü">
                         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })} style={{ ...inp, appearance: 'auto' }}>
-                            {STAFF_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label} — {option.description}</option>)}
+                            {roleOptions.map((option) => <option key={option.value} value={option.value}>{option.label} — {option.description}</option>)}
                         </select>
                         <div style={{ fontSize: 10.5, color: T.muted, marginTop: 6, lineHeight: 1.4 }}>Personel Modu işlemlerini belirler; PIN gerçek veritabanı yetkilendirmesi değildir.</div>
                     </Field>

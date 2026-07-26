@@ -15,7 +15,7 @@ import { MobileServiceDetail } from './MobileServiceDetail';
 import { MobileMasaDetail } from './MobileMasaDetail';
 import type { TableReservation } from '@/types';
 import { D, fmtNum, useTicker, HizmetKeyframes, STS } from './hizmetDesign';
-import { staffRoleLabel } from '@/lib/staffPermissions';
+import { useStaffRoles } from '@/hooks/useLabels';
 import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 
 const WD = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
@@ -34,6 +34,7 @@ export const MobileStaffHome = () => {
     const stats = useStaffStats(staff?.id, staff?.name);
     const { payments } = usePayments();
     const { reservations, getReservationsByDate, claimReservation } = useReservations();
+    const { roleLabel } = useStaffRoles();
     // Garsona atanan masa rezervasyonları (bugün + yaklaşan). 042 migration'ı
     // yoksa staffId gelmez → myTables boş → bölüm hiç görünmez (restoran dışı personel etkilenmez).
     const { reservations: tableRes } = useUpcomingTableReservations();
@@ -142,7 +143,7 @@ export const MobileStaffHome = () => {
                             <div style={{ fontSize: 18, fontWeight: 850, letterSpacing: '-.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff?.name}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: D.green, boxShadow: `0 0 6px ${D.green}` }} />
-                                <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>{staff ? staffRoleLabel(staff.role) : 'Personel'} · Çalışmada</span>
+                                <span style={{ fontSize: 11.5, color: D.muted, fontWeight: 600 }}>{staff ? roleLabel(staff.role) : 'Personel'} · Çalışmada</span>
                             </div>
                         </div>
                         {push.supported && (

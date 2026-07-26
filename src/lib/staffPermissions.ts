@@ -1,3 +1,5 @@
+import { labelsForSector, profileForSector } from '@/lib/sectorProfiles';
+
 export type StaffRole = 'doctor' | 'assistant' | 'cashier' | 'staff';
 
 export type StaffPermission =
@@ -15,16 +17,44 @@ export type StaffPermission =
     | 'payments:view'
     | 'payments:collect';
 
-export const STAFF_ROLE_OPTIONS: ReadonlyArray<{
+export interface StaffRoleOption {
     value: StaffRole;
     label: string;
     description: string;
-}> = [
-    { value: 'doctor', label: 'Hekim', description: 'Muayene, diş şeması ve tedavi planı' },
-    { value: 'assistant', label: 'Asistan', description: 'Randevu ve hasta akışı desteği' },
-    { value: 'cashier', label: 'Kasa', description: 'Tahsilat ve finans işlemleri' },
-    { value: 'staff', label: 'Personel', description: 'Kendi randevuları ve temel hasta bilgileri' },
-];
+}
+
+const ROLE_ORDER: readonly StaffRole[] = ['doctor', 'assistant', 'cashier', 'staff'];
+
+/**
+ * Sektörün diliyle rol listesi. Rol DEĞERLERİ sabittir (yetki setini onlar
+ * belirler, DB'de saklanan da odur); değişen yalnızca adlandırma — bir güzellik
+ * salonunda "Hekim — diş şeması" yazması modülün ruhuna aykırıydı.
+ *
+ * Ad ve açıklama önce sektör profilinin `staffRoles` bloğundan okunur, yoksa
+ * sektörün terminolojisinden (labels) türetilir. Yeni sektör eklendiğinde
+ * burada kod değişmez.
+ */
+export function staffRoleOptionsForSector(sector?: string | null): StaffRoleOption[] {
+    const L = labelsForSector(sector);
+    const overrides = profileForSector(sector).staffRoles || {};
+    const lc = (s: string) => s.toLocaleLowerCase('tr-TR');
+
+    const derived: Record<StaffRole, { label: string; description: string }> = {
+        doctor: { label: L.staff, description: `${L.service} uygular, ${lc(L.customer)} dosyasını ve tahsilatı yönetir` },
+        assistant: { label: 'Asistan', description: `${L.reservation} ve ${lc(L.customer)} akışı desteği` },
+        cashier: { label: 'Kasa', description: 'Tahsilat ve finans işlemleri' },
+        staff: { label: 'Personel', description: `Kendi ${lc(L.reservation)} kayıtları ve temel ${lc(L.customer)} bilgileri` },
+    };
+
+    return ROLE_ORDER.map((value) => ({
+        value,
+        label: overrides[value]?.label ?? derived[value].label,
+        description: overrides[value]?.description ?? derived[value].description,
+    }));
+}
+
+/** Sektör bilinmeyen yerler için güvenli varsayılan (genel işletme dili). */
+export const STAFF_ROLE_OPTIONS: ReadonlyArray<StaffRoleOption> = staffRoleOptionsForSector('genel');
 
 export const STAFF_ROLE_PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     doctor: [
@@ -89,6 +119,6 @@ export function permissionsForStaffRole(role: StaffRole): StaffPermission[] {
     return [...STAFF_ROLE_PERMISSIONS[role]];
 }
 
-export function staffRoleLabel(role: StaffRole): string {
-    return STAFF_ROLE_OPTIONS.find((option) => option.value === role)?.label || 'Personel';
+export function staffRoleLabel(role: StaffRole, sector?: string | null): string {
+    return staffRoleOptionsForSector(sector).find((option) => option.value === role)?.label || 'Personel';
 }

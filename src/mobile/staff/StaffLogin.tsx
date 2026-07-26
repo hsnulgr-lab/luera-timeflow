@@ -4,7 +4,8 @@ import { ArrowLeft, Delete } from 'lucide-react';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffSession } from '@/contexts/StaffSessionProvider';
 import { hashPin } from '@/lib/pin';
-import { permissionsForStaffRole, staffRoleLabel } from '@/lib/staffPermissions';
+import { permissionsForStaffRole } from '@/lib/staffPermissions';
+import { useStaffRoles } from '@/hooks/useLabels';
 import { T, avatarColor } from '../theme';
 import type { Staff } from '@/types';
 
@@ -13,6 +14,7 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
     const navigate = useNavigate();
     const { staff, isLoading } = useStaff();
     const { login } = useStaffSession();
+    const { roleLabel } = useStaffRoles();
 
     // Sadece PIN'i tanımlı personel giriş yapabilir
     const eligible = useMemo(() => staff.filter((s) => s.isActive && s.pin), [staff]);
@@ -79,7 +81,7 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                                     <span style={{ width: 56, height: 56, borderRadius: '50%', background: s.color || avatarColor(s.name), display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 800, color: '#0E0E0E' }}>{s.name.charAt(0).toUpperCase()}</span>
                                     <span style={{ fontSize: 14, fontWeight: 700 }}>{s.name}</span>
-                                    <span style={{ fontSize: 11, color: T.orange, fontWeight: 750 }}>{staffRoleLabel(s.role)}</span>
+                                    <span style={{ fontSize: 11, color: T.orange, fontWeight: 750 }}>{roleLabel(s.role)}</span>
                                     {s.specialty && <span style={{ fontSize: 10.5, color: T.muted, marginTop: -5 }}>{s.specialty}</span>}
                                 </button>
                             ))}
@@ -91,7 +93,7 @@ export const StaffLogin = ({ onBack }: { onBack?: () => void }) => {
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
                         <span style={{ width: 64, height: 64, borderRadius: '50%', background: selected.color || avatarColor(selected.name), display: 'inline-grid', placeItems: 'center', fontSize: 26, fontWeight: 800, color: '#0E0E0E' }}>{selected.name.charAt(0).toUpperCase()}</span>
                         <h2 style={{ fontSize: 20, fontWeight: 800, marginTop: 12 }}>{selected.name}</h2>
-                        <div style={{ fontSize: 11, color: T.orange, fontWeight: 750, marginTop: 3 }}>{staffRoleLabel(selected.role)}</div>
+                        <div style={{ fontSize: 11, color: T.orange, fontWeight: 750, marginTop: 3 }}>{roleLabel(selected.role)}</div>
                         <p style={{ fontSize: 13, color: T.muted, marginTop: 2 }}>{error ? <span style={{ color: T.red }}>Yanlış PIN, tekrar dene</span> : '4–6 haneli PIN gir'}</p>
                     </div>
 
