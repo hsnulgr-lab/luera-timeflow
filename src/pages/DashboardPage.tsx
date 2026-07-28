@@ -15,6 +15,7 @@ import { MasaDashboard } from '@/components/dashboard/MasaDashboard';
 import { DisDashboard } from '@/components/dashboard/DisDashboard';
 import { DovmeDashboard } from '@/components/dashboard/DovmeDashboard';
 import { GuzellikDashboard } from '@/components/dashboard/GuzellikDashboard';
+import { KuaforDashboard } from '@/components/dashboard/KuaforDashboard';
 import { useModules } from '@/hooks/useModules';
 import { profileForSector } from '@/lib/sectorProfiles';
 import type { Reservation } from '@/types';
@@ -35,6 +36,7 @@ const DASHBOARD_FACES: Record<string, React.ComponentType> = {
     disFace: DisDashboard,
     dovmeFace: DovmeDashboard,
     guzellikFace: GuzellikDashboard,
+    kuaforFace: KuaforDashboard,
 };
 
 export const DashboardPage = () => {

@@ -127,7 +127,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         modules: { ...RANDEVU, sira: true },
         labels: {},
         staffRoles: { doctor: { label: 'Kuaför' }, assistant: { label: 'Çırak' } },
-        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
+        dashboardKpis: ['kuaforFace'], customFieldTemplates: [], resourceTypes: ['Koltuk', 'Yıkama'],
         comms: { persona: 'Bir kuaförsün; samimi, enerjik ve sohbet eder gibi bir ton kullan.', audience: 'müşterimiz', serviceWord: 'işlem', servicePhrase: 'işleminizi', emoji: '💇', recall: { concept: 'saç bakımı / dip boyası zamanı', afterDays: 28 } },
     },
     berber: {
