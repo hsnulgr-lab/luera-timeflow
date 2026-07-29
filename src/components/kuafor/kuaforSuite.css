@@ -1623,6 +1623,8 @@
 .ks-stage-badge.checkout,
 .ks-stage-badge.completed { color: var(--dc-green); background: var(--dc-green-bg); }
 .ks-stage-badge.cancelled { color: var(--dc-red); background: var(--dc-red-bg); }
+/* Gelmedi türetilmiş durumdur: iptalden ayrışsın ama aynı sıcaklıkta uyarsın. */
+.ks-stage-badge.missed { color: var(--dc-red2); background: var(--dc-red-bg); }
 
 .ks-row-actions {
   display: flex;
@@ -1653,13 +1655,15 @@
   background: var(--dc-orange);
 }
 
-.ks-row-actions > i {
-  width: 27px;
-  height: 27px;
-  display: grid;
-  place-items: center;
-  color: var(--dc-muted2);
-  font-style: normal;
+/* Kurtarma aksiyonu (Geç geldi): turuncu vurgu salon akışına ayrılmıştır. */
+.ks-row-actions > button.secondary {
+  color: var(--dc-muted);
+}
+
+.ks-row-actions > button.secondary:hover {
+  color: var(--dc-ink);
+  border-color: var(--dc-ink);
+  background: var(--dc-surface2);
 }
 
 .ks-reservation-detail {
@@ -1781,6 +1785,7 @@
 .ks-detail-stage.checkout,
 .ks-detail-stage.completed { color: var(--dc-green); background: var(--dc-green-bg); }
 .ks-detail-stage.cancelled { color: var(--dc-red); background: var(--dc-red-bg); }
+.ks-detail-stage.missed { color: var(--dc-red2); background: var(--dc-red-bg); }
 
 .ks-detail-stage small,
 .ks-detail-stage b {

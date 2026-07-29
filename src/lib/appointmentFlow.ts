@@ -1,5 +1,5 @@
 import type { Reservation, Service } from '@/types';
-import { reservationPrice } from '@/utils/reservationServices';
+import { reservationPrice } from '../utils/reservationServices.ts';
 
 // Randevu yaşam döngüsü — tek kaynak. Tüm yüzeyler (mobil personel, mobil
 // düzenle sheet, masaüstü rezervasyon/takvim) bu mantığı paylaşır ki

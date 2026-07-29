@@ -1,4 +1,4 @@
-import { todayISO } from '@/utils/date';
+import { todayISO } from '../utils/date.ts';
 import type { PatientEncounterStatus, Reservation, Staff } from '@/types';
 
 export const DENTAL_VISIT_TABS = ['exam', 'chart', 'plan', 'sessions', 'payment', 'recall'] as const;

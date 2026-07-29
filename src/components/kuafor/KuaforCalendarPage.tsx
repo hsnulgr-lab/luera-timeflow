@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import {
     Armchair, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3,
     Droplets, Filter, Plus, Scissors, Sparkles, TimerReset, Users, Waves, X,
@@ -16,7 +16,8 @@ import { todayISO, toISODate } from '@/utils/date';
 import {
     KF_FORMULA_KEY as FORMULA_KEY,
     isKuaforColorService,
-    kuaforLiveStageOf as appointmentState,
+    kuaforLiveStageOf,
+    type KuaforLiveStage,
 } from '@/lib/kuaforFlow';
 import type { Reservation } from '@/types';
 import {
@@ -30,20 +31,18 @@ type Lane = { id: string; name: string; detail: string; color: string };
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const ROW_HEIGHT = 72;
 
-function appointmentStateLabel(reservation: Reservation) {
-    const state = appointmentState(reservation);
-    return {
-        pending: 'Onay bekliyor',
-        confirmed: 'Planlandı',
-        waiting: 'Salonda bekliyor',
-        service: 'Uygulamada',
-        processing: 'Boya süresi',
-        finish: 'Yıkama / fön',
-        checkout: 'Kasaya hazır',
-        completed: 'Tamamlandı',
-        cancelled: 'İptal',
-    }[state];
-}
+const STATE_LABELS: Record<KuaforLiveStage, string> = {
+    pending: 'Onay bekliyor',
+    confirmed: 'Planlandı',
+    waiting: 'Salonda bekliyor',
+    service: 'Uygulamada',
+    processing: 'Boya süresi',
+    finish: 'Yıkama / fön',
+    checkout: 'Kasaya hazır',
+    missed: 'Gelmedi',
+    completed: 'Tamamlandı',
+    cancelled: 'İptal',
+};
 
 export function KuaforCalendarPage() {
     const navigate = useNavigate();
@@ -55,6 +54,19 @@ export function KuaforCalendarPage() {
     const { resolve, findSlots, isReady: slotRulesReady } = useSlotResolver();
 
     const today = todayISO();
+    // Canlı saat: "şimdi" çizgisi ve 'Gelmedi' türetimi aynı kaynaktan okunsun
+    // (render gövdesinde her çizimde yeni Date üretmek kararsız sonuç verir).
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 20_000);
+        return () => clearInterval(timer);
+    }, []);
+    const appointmentState = useCallback(
+        (reservation: Reservation): KuaforLiveStage =>
+            kuaforLiveStageOf(reservation, { now, toleranceMin: settings.arrivalToleranceMin }),
+        [now, settings.arrivalToleranceMin],
+    );
+
     const [date, setDate] = useState(today);
     const [view, setView] = useState<ViewMode>('team');
     const [staffFilter, setStaffFilter] = useState('all');
@@ -317,7 +329,6 @@ export function KuaforCalendarPage() {
         setDate(toISODate(next));
     };
 
-    const now = new Date();
     const nowTop = !isSalonClosed && date === today && now.getHours() >= startHour && now.getHours() < endHour
         ? ((now.getHours() * 60 + now.getMinutes() - startHour * 60) / 60) * ROW_HEIGHT
         : null;
@@ -432,7 +443,7 @@ export function KuaforCalendarPage() {
                                                 <span className="ks-appt-time">{reservation.startTime}</span>
                                                 <strong>{reservation.customerName}</strong>
                                                 <small>{reservation.service}</small>
-                                                {height > 60 && <em>{reservation.staffName || reservation.resourceName || appointmentStateLabel(reservation)}</em>}
+                                                {height > 60 && <em>{reservation.staffName || reservation.resourceName || STATE_LABELS[appointmentState(reservation)]}</em>}
                                                 {formula && height > 82 && <b><Droplets size={11} /> {String(formula)}</b>}
                                             </button>
                                         );
@@ -476,7 +487,7 @@ export function KuaforCalendarPage() {
                             <span>{initialsOf(selected.customerName)}</span>
                             <div><h2 id="ks-calendar-detail-title">{selected.customerName}</h2><p>{selected.customerPhone}</p></div>
                         </div>
-                        <div className={`ks-status-pill ${appointmentState(selected)}`}>{appointmentStateLabel(selected)}</div>
+                        <div className={`ks-status-pill ${appointmentState(selected)}`}>{STATE_LABELS[appointmentState(selected)]}</div>
                         <dl className="ks-detail-list">
                             <div><dt>Saat</dt><dd>{selected.startTime}–{selected.endTime}</dd></div>
                             <div><dt>İşlem</dt><dd>{selected.service}</dd></div>

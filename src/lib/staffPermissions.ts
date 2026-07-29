@@ -1,4 +1,4 @@
-import { labelsForSector, profileForSector } from '@/lib/sectorProfiles';
+import { labelsForSector, profileForSector } from './sectorProfiles.ts';
 
 export type StaffRole = 'doctor' | 'assistant' | 'cashier' | 'staff';
 

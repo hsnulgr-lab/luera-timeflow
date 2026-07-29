@@ -22,12 +22,14 @@ import { todayISO, toISODate } from '@/utils/date';
 import type { Reservation, WaitlistEntry } from '@/types';
 import { dateLabel, initialsOf, moneyOf, KuaforSuiteFrame } from './KuaforSuiteFrame';
 
-type TabKey = 'all' | 'pending' | 'confirmed' | 'salon' | 'completed' | 'cancelled' | 'waitlist';
+type TabKey = 'all' | 'pending' | 'confirmed' | 'salon' | 'missed' | 'completed' | 'cancelled' | 'waitlist';
 type StageAction = {
     label: string;
     patch?: Partial<Reservation>;
     message?: string;
     navigateTo?: string;
+    /** Kurtarma aksiyonu — birincil turuncu buton yerine sakin buton. */
+    secondary?: boolean;
 };
 
 const STAGE_META: Record<LiveStage, { label: string; short: string; icon: ElementType }> = {
@@ -38,13 +40,16 @@ const STAGE_META: Record<LiveStage, { label: string; short: string; icon: Elemen
     processing: { label: 'Boya süresi', short: 'Yıkama / fön', icon: TimerReset },
     finish: { label: 'Yıkama / fön', short: 'Kasaya gönder', icon: Droplets },
     checkout: { label: 'Kasaya hazır', short: 'Kasayı aç', icon: CircleDollarSign },
+    missed: { label: 'Gelmedi', short: 'Geç geldi', icon: AlertTriangle },
     completed: { label: 'Tamamlandı', short: 'Tamamlandı', icon: CheckCircle2 },
-    cancelled: { label: 'İptal / gelmedi', short: 'İptal', icon: XCircle },
+    cancelled: { label: 'İptal', short: 'İptal', icon: XCircle },
 };
 
-function nextAction(reservation: Reservation, serviceDuration?: number): StageAction | null {
-    const stage = liveStage(reservation);
+function nextAction(reservation: Reservation, stage: LiveStage, serviceDuration?: number): StageAction | null {
     if (stage === 'pending') return { label: 'Onayla', patch: { status: 'confirmed' }, message: 'Randevu onaylandı' };
+    // Saati geçmiş ama gelmemiş müşteri: tek çıkış yolu geç gelişi kaydetmek.
+    // Birincil buton değil — turuncu aksiyon salonu yönlendirmeli, gecikmeyi değil.
+    if (stage === 'missed') return { label: 'Geç geldi', patch: { customerArrivedAt: new Date().toISOString() }, message: 'Müşteri geç gelişi kaydedildi', secondary: true };
     if (stage === 'confirmed') return { label: 'Müşteri geldi', patch: { customerArrivedAt: new Date().toISOString() }, message: 'Müşteri salona alındı' };
     if (stage === 'waiting') return { label: 'Koltuğa al', patch: { arrivedAt: new Date().toISOString() }, message: 'İşlem başlatıldı' };
     if (stage === 'service') {
@@ -135,12 +140,27 @@ export function KuaforReservationsPage() {
     }, [selected, waitlistOpen]);
 
     const today = todayISO();
+
+    // 'Gelmedi' türetilmiş bir durumdur ve saat geçtikçe kendiliğinden görünmeli;
+    // bunun için canlı bir saat gerekiyor (KuaforDashboard ile aynı desen).
+    // Render gövdesinde Date.now() çağırmak saf olmayan sonuç üretir.
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 20_000);
+        return () => clearInterval(timer);
+    }, []);
+    const stageOptions = useMemo(
+        () => ({ now, toleranceMin: settings.arrivalToleranceMin }),
+        [now, settings.arrivalToleranceMin],
+    );
+
     const visible = useMemo(() => reservations
         .filter((reservation) => {
-            const stage = liveStage(reservation);
+            const stage = liveStage(reservation, stageOptions);
             if (tab === 'pending' && stage !== 'pending') return false;
             if (tab === 'confirmed' && stage !== 'confirmed') return false;
             if (tab === 'salon' && !['waiting', 'service', 'processing', 'finish', 'checkout'].includes(stage)) return false;
+            if (tab === 'missed' && stage !== 'missed') return false;
             if (tab === 'completed' && stage !== 'completed') return false;
             if (tab === 'cancelled' && stage !== 'cancelled') return false;
             if (query) {
@@ -153,7 +173,7 @@ export function KuaforReservationsPage() {
         .sort((a, b) => {
             if (a.date !== b.date) return a.date.localeCompare(b.date);
             return a.startTime.localeCompare(b.startTime);
-        }), [query, reservations, tab]);
+        }), [query, reservations, stageOptions, tab]);
 
     const counts = useMemo(() => {
         const values: Record<Exclude<TabKey, 'waitlist'>, number> = {
@@ -161,23 +181,25 @@ export function KuaforReservationsPage() {
             pending: 0,
             confirmed: 0,
             salon: 0,
+            missed: 0,
             completed: 0,
             cancelled: 0,
         };
         for (const reservation of reservations) {
-            const stage = liveStage(reservation);
+            const stage = liveStage(reservation, stageOptions);
             if (stage === 'pending') values.pending++;
             if (stage === 'confirmed') values.confirmed++;
             if (['waiting', 'service', 'processing', 'finish', 'checkout'].includes(stage)) values.salon++;
+            if (stage === 'missed') values.missed++;
             if (stage === 'completed') values.completed++;
             if (stage === 'cancelled') values.cancelled++;
         }
         return values;
-    }, [reservations]);
+    }, [reservations, stageOptions]);
 
     const todayReservations = reservations.filter((reservation) => reservation.date === today && reservation.status !== 'cancelled');
     const lateWaits = todayReservations.filter((reservation) => reservation.customerArrivedAt && !reservation.arrivedAt
-        && Date.now() - new Date(reservation.customerArrivedAt).getTime() >= 10 * 60_000);
+        && now.getTime() - new Date(reservation.customerArrivedAt).getTime() >= 10 * 60_000);
     const onlineToday = todayReservations.filter((reservation) => reservation.source === 'booking').length;
     const todayRevenue = payments
         .filter((payment) => payment.reservationId && toISODate(new Date(payment.paidAt)) === today)
@@ -185,7 +207,7 @@ export function KuaforReservationsPage() {
 
     const advance = async (reservation: Reservation) => {
         const duration = settings.services.find((service) => service.name === reservation.service)?.duration;
-        const action = nextAction(reservation, duration);
+        const action = nextAction(reservation, liveStage(reservation, stageOptions), duration);
         if (!action || busyId) return;
         if (action.navigateTo) {
             navigate(action.navigateTo);
@@ -250,7 +272,8 @@ export function KuaforReservationsPage() {
 
     const selectedLive = selected ? reservations.find((reservation) => reservation.id === selected.id) || selected : null;
     const selectedService = selectedLive ? settings.services.find((service) => service.name === selectedLive.service) : undefined;
-    const selectedAction = selectedLive ? nextAction(selectedLive, selectedService?.duration) : null;
+    const selectedStage = selectedLive ? liveStage(selectedLive, stageOptions) : null;
+    const selectedAction = selectedLive && selectedStage ? nextAction(selectedLive, selectedStage, selectedService?.duration) : null;
 
     return (
         <KuaforSuiteFrame
@@ -290,6 +313,7 @@ export function KuaforReservationsPage() {
                             ['pending', 'Onay', counts.pending],
                             ['confirmed', 'Planlanan', counts.confirmed],
                             ['salon', 'Salonda', counts.salon],
+                            ['missed', 'Gelmedi', counts.missed],
                             ['completed', 'Tamamlanan', counts.completed],
                             ['cancelled', 'İptal', counts.cancelled],
                             ['waitlist', 'Bekleme listesi', waitlist.length],
@@ -334,11 +358,11 @@ export function KuaforReservationsPage() {
                         <div className="ks-reservation-table">
                             <div className="ks-table-head"><span>Müşteri</span><span>Tarih · saat</span><span>Hizmet</span><span>Kuaför / alan</span><span>Canlı durum</span><span /></div>
                             {visible.map((reservation) => {
-                                const stage = liveStage(reservation);
+                                const stage = liveStage(reservation, stageOptions);
                                 const meta = STAGE_META[stage];
                                 const StageIcon = meta.icon;
                                 const duration = settings.services.find((service) => service.name === reservation.service)?.duration;
-                                const action = nextAction(reservation, duration);
+                                const action = nextAction(reservation, stage, duration);
                                 return (
                                     <div
                                         key={reservation.id}
@@ -359,7 +383,7 @@ export function KuaforReservationsPage() {
                                         <span className="ks-staff-cell"><b>{reservation.staffName || 'Atanmadı'}</b><small>{reservation.resourceName || 'Alan seçilmedi'}</small></span>
                                         <span className={`ks-stage-badge ${stage}`}><StageIcon size={13} />{meta.label}</span>
                                         <span className="ks-row-actions">
-                                            {action && <button type="button" disabled={busyId === reservation.id} onClick={(event) => { event.stopPropagation(); void advance(reservation); }}>{busyId === reservation.id ? '…' : action.label}<ChevronRight size={13} /></button>}
+                                            {action && <button type="button" className={action.secondary ? 'secondary' : ''} disabled={busyId === reservation.id} onClick={(event) => { event.stopPropagation(); void advance(reservation); }}>{busyId === reservation.id ? '…' : action.label}<ChevronRight size={13} /></button>}
                                         </span>
                                     </div>
                                 );
@@ -383,9 +407,9 @@ export function KuaforReservationsPage() {
                                     <div><h2>{selectedLive.customerName}</h2><p>{selectedLive.customerPhone}</p></div>
                                     <a href={`https://wa.me/${selectedLive.customerPhone.replace(/\D/g, '').replace(/^0/, '90')}`} target="_blank" rel="noreferrer" title="WhatsApp"><MessageCircle size={17} /></a>
                                 </div>
-                                <div className={`ks-detail-stage ${liveStage(selectedLive)}`}>
-                                    {(() => { const Icon = STAGE_META[liveStage(selectedLive)].icon; return <Icon size={17} />; })()}
-                                    <span><small>CANLI DURUM</small><b>{STAGE_META[liveStage(selectedLive)].label}</b></span>
+                                <div className={`ks-detail-stage ${selectedStage}`}>
+                                    {(() => { const Icon = STAGE_META[selectedStage!].icon; return <Icon size={17} />; })()}
+                                    <span><small>CANLI DURUM</small><b>{STAGE_META[selectedStage!].label}</b></span>
                                 </div>
                                 <dl className="ks-detail-list">
                                     <div><dt>Tarih</dt><dd>{dateLabel(selectedLive.date)}</dd></div>
@@ -402,7 +426,7 @@ export function KuaforReservationsPage() {
                                     <span><b>Hatırlatma durumu</b><small>{selectedLive.reminder24hSent || selectedLive.reminder2hSent ? `${selectedLive.reminder24hSent ? '24 saat' : ''}${selectedLive.reminder24hSent && selectedLive.reminder2hSent ? ' + ' : ''}${selectedLive.reminder2hSent ? '2 saat' : ''} mesajı gönderildi` : 'Henüz otomatik mesaj gönderilmedi'}</small></span>
                                 </div>
                                 <div className="ks-detail-actions">
-                                    {selectedAction && <button className="ks-btn ks-btn-primary" disabled={busyId === selectedLive.id} onClick={() => advance(selectedLive)}>{selectedAction.label}<ArrowRight size={15} /></button>}
+                                    {selectedAction && <button className={`ks-btn ${selectedAction.secondary ? 'ks-btn-ghost' : 'ks-btn-primary'}`} disabled={busyId === selectedLive.id} onClick={() => advance(selectedLive)}>{selectedAction.label}<ArrowRight size={15} /></button>}
                                     <button className="ks-btn ks-btn-ghost" onClick={() => setEditReservation(selectedLive)}>Düzenle</button>
                                     {selectedLive.status !== 'cancelled' && selectedLive.status !== 'completed' && <button className="ks-text-danger" disabled={busyId === selectedLive.id} onClick={() => void cancelReservation(selectedLive)}>Randevuyu iptal et</button>}
                                 </div>
