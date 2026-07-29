@@ -596,6 +596,12 @@
   background-color: color-mix(in srgb, var(--dc-surface3) 58%, transparent);
 }
 
+/* Hafta görünümünde kapalılık şerit başına — tüm hafta kilitlenmez. */
+.ks-lane.closed {
+  background-color: color-mix(in srgb, var(--dc-surface3) 58%, transparent);
+  cursor: not-allowed;
+}
+
 .ks-lane-head {
   min-width: calc(64px + var(--lanes) * 155px);
   display: grid;

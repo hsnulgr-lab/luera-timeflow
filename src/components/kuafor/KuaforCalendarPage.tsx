@@ -26,7 +26,7 @@ import {
 } from './KuaforSuiteFrame';
 
 type ViewMode = 'team' | 'week' | 'chairs';
-type Lane = { id: string; name: string; detail: string; color: string };
+type Lane = { id: string; name: string; detail: string; color: string; closed?: boolean };
 
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const ROW_HEIGHT = 72;
@@ -161,22 +161,43 @@ export function KuaforCalendarPage() {
         [reservations, date],
     );
 
-    const workingHours = settings.workingHours?.find((hours) => hours.day === new Date(`${date}T12:00:00`).getDay());
-    const isSalonClosed = !workingHours || workingHours.isOff;
-    const openingMinutes = isSalonClosed ? 9 * 60 : minutesOf(workingHours.start);
-    const closingMinutes = isSalonClosed ? 18 * 60 : minutesOf(workingHours.end);
-    const startHour = Math.floor(openingMinutes / 60);
-    const endHour = Math.max(startHour + 1, Math.ceil(closingMinutes / 60));
-    const hours = Array.from({ length: endHour - startHour }, (_, index) => startHour + index);
+    // Çalışma penceresi gün başına okunur: hafta görünümündeki 7 gün farklı
+    // saatlerde açık olabiliyor, tek güne bakmak yetmiyordu.
+    const hoursForDate = useCallback((iso: string) => {
+        const row = settings.workingHours?.find((hours) => hours.day === new Date(`${iso}T12:00:00`).getDay());
+        if (!row || row.isOff) return { closed: true, open: 9 * 60, close: 18 * 60 };
+        return { closed: false, open: minutesOf(row.start), close: minutesOf(row.end) };
+    }, [settings.workingHours]);
+
+    const selectedDayHours = hoursForDate(date);
+    const isSalonClosed = selectedDayHours.closed;
+
+    // Zaman ekseni hafta görünümünde 7 günün BİRLEŞİMİ. Tek günün penceresi
+    // kullanıldığında farklı saatli günlerin randevuları eksenin dışında kalıp
+    // en üste yığılmış güdük kartlara dönüşüyordu.
+    const { startHour, endHour, hours } = useMemo(() => {
+        const windows = view === 'week'
+            ? weekDays.map((day) => hoursForDate(day.iso)).filter((window) => !window.closed)
+            : [selectedDayHours];
+        const open = windows.length ? Math.min(...windows.map((window) => window.open)) : 9 * 60;
+        const close = windows.length ? Math.max(...windows.map((window) => window.close)) : 18 * 60;
+        const first = Math.floor(open / 60);
+        const last = Math.max(first + 1, Math.ceil(close / 60));
+        return { startHour: first, endHour: last, hours: Array.from({ length: last - first }, (_, index) => first + index) };
+    }, [hoursForDate, selectedDayHours, view, weekDays]);
 
     const lanes: Lane[] = useMemo(() => {
         if (view === 'week') {
-            return weekDays.map((day) => ({
-                id: day.iso,
-                name: `${day.short} ${day.day}`,
-                detail: day.isToday ? 'Bugün' : `${day.count} randevu`,
-                color: day.isToday ? '#FF5A1F' : '#8A8580',
-            }));
+            return weekDays.map((day) => {
+                const closed = hoursForDate(day.iso).closed;
+                return {
+                    id: day.iso,
+                    name: `${day.short} ${day.day}`,
+                    detail: closed ? 'Kapalı' : day.isToday ? 'Bugün' : `${day.count} randevu`,
+                    color: closed ? '#8A8580' : day.isToday ? '#FF5A1F' : '#8A8580',
+                    closed,
+                };
+            });
         }
         if (view === 'chairs') {
             const source = activeResources.length
@@ -204,7 +225,7 @@ export function KuaforCalendarPage() {
             detail: member.specialty || 'Kuaför',
             color: member.color || '#FF5A1F',
         }));
-    }, [activeResources, activeStaff, dayReservations, staffFilter, view, weekDays]);
+    }, [activeResources, activeStaff, dayReservations, hoursForDate, staffFilter, view, weekDays]);
 
     const reservationsForLane = (lane: Lane) => {
         if (view === 'week') {
@@ -221,8 +242,9 @@ export function KuaforCalendarPage() {
 
     const openAt = (event: MouseEvent<HTMLDivElement>, lane: Lane) => {
         if ((event.target as HTMLElement).closest('.ks-appointment')) return;
-        if (isSalonClosed) {
-            toast.info('Salon seçili günde kapalı');
+        // Hafta görünümünde kapalılık şerit başına; gün görünümlerinde seçili gün.
+        if (lane.closed ?? isSalonClosed) {
+            toast.info(view === 'week' ? `${lane.name} günü salon kapalı` : 'Salon seçili günde kapalı');
             return;
         }
         const rect = event.currentTarget.getBoundingClientRect();
@@ -307,7 +329,10 @@ export function KuaforCalendarPage() {
     const confirmed = dayReservations.filter((reservation) => reservation.status === 'confirmed').length;
     const waiting = waitlist.filter((entry) => entry.status === 'waiting');
     const bookedMinutes = dayReservations.reduce((sum, reservation) => sum + Math.max(0, minutesOf(reservation.endTime) - minutesOf(reservation.startTime)), 0);
-    const capacityMinutes = isSalonClosed ? 0 : Math.max(1, (closingMinutes - openingMinutes) * Math.max(1, activeStaff.length));
+    // Doluluk seçili günün kendi penceresine göre — eksenin hafta birleşimi değil.
+    const capacityMinutes = isSalonClosed
+        ? 0
+        : Math.max(1, (selectedDayHours.close - selectedDayHours.open) * Math.max(1, activeStaff.length));
     const occupancy = capacityMinutes ? Math.min(100, Math.round((bookedMinutes / capacityMinutes) * 100)) : 0;
 
     const freeSlots = useMemo(() => {
@@ -329,7 +354,8 @@ export function KuaforCalendarPage() {
         setDate(toISODate(next));
     };
 
-    const nowTop = !isSalonClosed && date === today && now.getHours() >= startHour && now.getHours() < endHour
+    const nowInFrame = view === 'week' ? weekDays.some((day) => day.isToday) : date === today && !isSalonClosed;
+    const nowTop = nowInFrame && now.getHours() >= startHour && now.getHours() < endHour
         ? ((now.getHours() * 60 + now.getMinutes() - startHour * 60) / 60) * ROW_HEIGHT
         : null;
 
@@ -402,7 +428,7 @@ export function KuaforCalendarPage() {
                     ))}
                 </aside>
 
-                <article className={`ks-timeline-card ${isSalonClosed ? 'is-closed' : ''}`} style={{ '--lanes': lanes.length } as CSSProperties}>
+                <article className={`ks-timeline-card ${isSalonClosed && view !== 'week' ? 'is-closed' : ''}`} style={{ '--lanes': lanes.length } as CSSProperties}>
                     <header className="ks-lane-head" style={{ '--lanes': lanes.length } as CSSProperties}>
                         <span className="ks-axis-corner"><Clock3 size={15} /></span>
                         {lanes.map((lane) => (
@@ -412,7 +438,7 @@ export function KuaforCalendarPage() {
                             </div>
                         ))}
                     </header>
-                    {isSalonClosed && (
+                    {isSalonClosed && view !== 'week' && (
                         <div className="ks-closed-banner">
                             <CalendarDays size={17} />
                             <span><b>Salon bu gün kapalı</b><small>Çalışma saatini Ayarlar bölümünden değiştirebilirsiniz.</small></span>
@@ -424,7 +450,7 @@ export function KuaforCalendarPage() {
                         </div>
                         <div className="ks-lanes" style={{ '--lanes': lanes.length, '--timeline-height': `${hours.length * ROW_HEIGHT}px` } as CSSProperties}>
                             {lanes.map((lane) => (
-                                <div key={lane.id} className="ks-lane" style={{ height: hours.length * ROW_HEIGHT }} onDoubleClick={(event) => openAt(event, lane)}>
+                                <div key={lane.id} className={`ks-lane ${lane.closed ? 'closed' : ''}`} style={{ height: hours.length * ROW_HEIGHT }} onDoubleClick={(event) => openAt(event, lane)}>
                                     {reservationsForLane(lane).map((reservation) => {
                                         const start = Math.max(startHour * 60, minutesOf(reservation.startTime));
                                         const end = Math.min(endHour * 60, minutesOf(reservation.endTime));
@@ -453,7 +479,7 @@ export function KuaforCalendarPage() {
                             {nowTop !== null && <div className="ks-now-line" style={{ top: nowTop }}><span>şimdi</span></div>}
                         </div>
                     </div>
-                    <footer className="ks-timeline-hint"><Sparkles size={13} /> {isSalonClosed ? 'Kapalı günde yeni saat eklenemez.' : 'Boş bir alana çift tıklayarak o saate randevu ekleyin.'}</footer>
+                    <footer className="ks-timeline-hint"><Sparkles size={13} /> {isSalonClosed && view !== 'week' ? 'Kapalı günde yeni saat eklenemez.' : 'Boş bir alana çift tıklayarak o saate randevu ekleyin.'}</footer>
                 </article>
 
                 <aside className="ks-day-insight">
