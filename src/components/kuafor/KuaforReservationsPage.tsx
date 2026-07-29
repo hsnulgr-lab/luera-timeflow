@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
 import {
     AlertTriangle, ArrowRight, BadgeCheck, CalendarClock, Check, CheckCircle2, ChevronRight,
-    CircleDollarSign, Clock3, Droplets, Hourglass, MessageCircle,
+    ChevronDown, CircleDollarSign, Droplets, History, Hourglass, MessageCircle,
     Plus, Scissors, Search, Sparkles, TimerReset, Users, X, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +23,10 @@ import type { Reservation, WaitlistEntry } from '@/types';
 import { dateLabel, initialsOf, moneyOf, KuaforSuiteFrame } from './KuaforSuiteFrame';
 
 type TabKey = 'all' | 'pending' | 'confirmed' | 'salon' | 'missed' | 'completed' | 'cancelled' | 'waitlist';
+/** Zaman kapsamı — durum sekmelerinden bağımsız ikinci eksen. */
+type Scope = 'today' | 'week' | 'all';
+
+const TAB_KEYS: TabKey[] = ['all', 'pending', 'confirmed', 'salon', 'missed', 'completed', 'cancelled', 'waitlist'];
 type StageAction = {
     label: string;
     patch?: Partial<Reservation>;
@@ -114,19 +118,19 @@ export function KuaforReservationsPage() {
     const { payments } = usePayments();
     const { entries: waitlist, addEntry, removeEntry } = useWaitlist();
 
-    const initialTab = searchParams.get('tab') === 'waitlist' ? 'waitlist' : 'all';
-    const [tab, setTab] = useState<TabKey>(initialTab);
+    // Aktif sekmenin tek kaynağı URL: dashboard'dan gelen ?tab=waitlist bağlantısı
+    // sayfa zaten açıkken de çalışır ve sekmeler paylaşılabilir olur. Ayrı bir
+    // state tutup efektle senkronlamak kademeli render üretiyordu.
+    const tabParam = searchParams.get('tab');
+    const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : 'all';
+    const [scope, setScope] = useState<Scope>('today');
+    const [showPast, setShowPast] = useState(false);
     const [query, setQuery] = useState('');
     const [selected, setSelected] = useState<Reservation | null>(null);
     const [editReservation, setEditReservation] = useState<Reservation | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [waitlistOpen, setWaitlistOpen] = useState(false);
     const [waitDraft, setWaitDraft] = useState({ name: '', phone: '', serviceId: '', date: '', notes: '' });
-
-    useEffect(() => {
-        if (searchParams.get('tab') !== 'waitlist') return;
-        setTab('waitlist');
-    }, [searchParams]);
 
     useEffect(() => {
         if (!waitlistOpen && !selected) return;
@@ -154,7 +158,22 @@ export function KuaforReservationsPage() {
         [now, settings.arrivalToleranceMin],
     );
 
-    const visible = useMemo(() => reservations
+    // Takvim haftası (Pzt–Paz) — takvim sayfasındaki hafta rayıyla aynı sınırlar.
+    const weekBounds = useMemo(() => {
+        const monday = new Date(`${today}T12:00:00`);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { start: toISODate(monday), end: toISODate(sunday) };
+    }, [today]);
+
+    const scoped = useMemo(() => reservations.filter((reservation) => {
+        if (scope === 'today') return reservation.date === today;
+        if (scope === 'week') return reservation.date >= weekBounds.start && reservation.date <= weekBounds.end;
+        return true;
+    }), [reservations, scope, today, weekBounds]);
+
+    const visible = useMemo(() => scoped
         .filter((reservation) => {
             const stage = liveStage(reservation, stageOptions);
             if (tab === 'pending' && stage !== 'pending') return false;
@@ -169,15 +188,29 @@ export function KuaforReservationsPage() {
                     .toLocaleLowerCase('tr').replace(/\s/g, '').includes(normalized);
             }
             return true;
-        })
-        .sort((a, b) => {
-            if (a.date !== b.date) return a.date.localeCompare(b.date);
-            return a.startTime.localeCompare(b.startTime);
-        }), [query, reservations, stageOptions, tab]);
+        }), [query, scoped, stageOptions, tab]);
+
+    // Bugün / Yaklaşan / Geçmiş — düz bir liste geçmişi en üste alıyordu.
+    // Bugün ve yaklaşan artan (sıradaki iş üstte), geçmiş azalan (en yenisi üstte).
+    const groups = useMemo(() => {
+        const byTime = (a: Reservation, b: Reservation) => a.startTime.localeCompare(b.startTime);
+        const byDateTime = (a: Reservation, b: Reservation) => (a.date !== b.date
+            ? a.date.localeCompare(b.date)
+            : byTime(a, b));
+        return {
+            today: visible.filter((reservation) => reservation.date === today).sort(byTime),
+            upcoming: visible.filter((reservation) => reservation.date > today).sort(byDateTime),
+            past: visible.filter((reservation) => reservation.date < today).sort((a, b) => -byDateTime(a, b)),
+        };
+    }, [visible, today]);
+
+    // Arama veya durum filtresi aktifken geçmişi gizlemek sonuçları yutar.
+    const pastForced = Boolean(query) || tab !== 'all';
+    const pastVisible = pastForced || showPast;
 
     const counts = useMemo(() => {
         const values: Record<Exclude<TabKey, 'waitlist'>, number> = {
-            all: reservations.length,
+            all: scoped.length,
             pending: 0,
             confirmed: 0,
             salon: 0,
@@ -185,7 +218,7 @@ export function KuaforReservationsPage() {
             completed: 0,
             cancelled: 0,
         };
-        for (const reservation of reservations) {
+        for (const reservation of scoped) {
             const stage = liveStage(reservation, stageOptions);
             if (stage === 'pending') values.pending++;
             if (stage === 'confirmed') values.confirmed++;
@@ -195,7 +228,7 @@ export function KuaforReservationsPage() {
             if (stage === 'cancelled') values.cancelled++;
         }
         return values;
-    }, [reservations, stageOptions]);
+    }, [scoped, stageOptions]);
 
     const todayReservations = reservations.filter((reservation) => reservation.date === today && reservation.status !== 'cancelled');
     const lateWaits = todayReservations.filter((reservation) => reservation.customerArrivedAt && !reservation.arrivedAt
@@ -250,11 +283,10 @@ export function KuaforReservationsPage() {
         toast.success('Müşteri bekleme listesine eklendi');
     };
 
-    const setTabAndUrl = (next: TabKey) => {
-        setTab(next);
+    const setTab = (next: TabKey) => {
         const params = new URLSearchParams(searchParams);
-        if (next === 'waitlist') params.set('tab', 'waitlist');
-        else params.delete('tab');
+        if (next === 'all') params.delete('tab');
+        else params.set('tab', next);
         setSearchParams(params, { replace: true });
     };
 
@@ -268,6 +300,38 @@ export function KuaforReservationsPage() {
         if (entry.serviceId) params.set('service', entry.serviceId);
         if (entry.preferredDate) params.set('date', entry.preferredDate);
         navigate(`/calendar?${params.toString()}`);
+    };
+
+    const renderRow = (reservation: Reservation) => {
+        const stage = liveStage(reservation, stageOptions);
+        const meta = STAGE_META[stage];
+        const StageIcon = meta.icon;
+        const duration = settings.services.find((service) => service.name === reservation.service)?.duration;
+        const action = nextAction(reservation, stage, duration);
+        return (
+            <div
+                key={reservation.id}
+                role="button"
+                tabIndex={0}
+                className={`ks-reservation-row ${selected?.id === reservation.id ? 'selected' : ''} ${stage}`}
+                onClick={() => setSelected(reservation)}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelected(reservation);
+                    }
+                }}
+            >
+                <span className="ks-client-cell"><i>{initialsOf(reservation.customerName)}</i><span><b>{reservation.customerName}</b><small>{reservation.customerPhone}</small></span></span>
+                <span className="ks-date-cell"><b>{dateLabel(reservation.date, { day: 'numeric', month: 'short' })}</b><small>{reservation.startTime}–{reservation.endTime}</small></span>
+                <span className="ks-service-cell"><i style={{ background: reservation.serviceColor || '#FF5A1F' }} /><span><b>{reservation.service}</b>{reservation.customFields?.[FORMULA_KEY] && <small><Droplets size={11} /> {String(reservation.customFields[FORMULA_KEY])}</small>}</span></span>
+                <span className="ks-staff-cell"><b>{reservation.staffName || 'Atanmadı'}</b><small>{reservation.resourceName || 'Alan seçilmedi'}</small></span>
+                <span className={`ks-stage-badge ${stage}`}><StageIcon size={13} />{meta.label}</span>
+                <span className="ks-row-actions">
+                    {action && <button type="button" className={action.secondary ? 'secondary' : ''} disabled={busyId === reservation.id} onClick={(event) => { event.stopPropagation(); void advance(reservation); }}>{busyId === reservation.id ? '…' : action.label}<ChevronRight size={13} /></button>}
+                </span>
+            </div>
+        );
     };
 
     const selectedLive = selected ? reservations.find((reservation) => reservation.id === selected.id) || selected : null;
@@ -285,7 +349,7 @@ export function KuaforReservationsPage() {
             icon={CalendarClock}
             actions={(
                 <>
-                    <button className="ks-btn ks-btn-ghost" onClick={() => setTabAndUrl('waitlist')}>
+                    <button className="ks-btn ks-btn-ghost" onClick={() => setTab('waitlist')}>
                         <Hourglass size={16} /> Bekleme listesi
                         {waitlist.length > 0 && <b className="ks-mini-count">{waitlist.length}</b>}
                     </button>
@@ -306,6 +370,11 @@ export function KuaforReservationsPage() {
                 <article className="ks-reservation-list">
                     <header className="ks-list-toolbar">
                         <div className="ks-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Müşteri, telefon, hizmet veya kuaför ara…" />{query && <button aria-label="Aramayı temizle" onClick={() => setQuery('')}><X size={14} /></button>}</div>
+                        <div className="ks-scope" role="group" aria-label="Zaman kapsamı">
+                            {([['today', 'Bugün'], ['week', 'Bu hafta'], ['all', 'Tümü']] as const).map(([key, label]) => (
+                                <button key={key} type="button" className={scope === key ? 'active' : ''} onClick={() => setScope(key)}>{label}</button>
+                            ))}
+                        </div>
                     </header>
                     <nav className="ks-tabs">
                         {([
@@ -318,7 +387,7 @@ export function KuaforReservationsPage() {
                             ['cancelled', 'İptal', counts.cancelled],
                             ['waitlist', 'Bekleme listesi', waitlist.length],
                         ] as const).map(([key, label, count]) => (
-                            <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTabAndUrl(key)}>
+                            <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
                                 {label}<span>{count}</span>
                             </button>
                         ))}
@@ -353,41 +422,37 @@ export function KuaforReservationsPage() {
                             )}
                         </div>
                     ) : visible.length === 0 ? (
-                        <div className="ks-empty-state"><span><Search size={21} /></span><h3>Bu görünümde randevu yok</h3><p>Aramayı veya durum filtresini değiştirebilirsiniz.</p></div>
+                        <div className="ks-empty-state"><span><Search size={21} /></span><h3>Bu görünümde randevu yok</h3><p>Kapsamı, aramayı veya durum filtresini değiştirebilirsiniz.</p></div>
                     ) : (
                         <div className="ks-reservation-table">
                             <div className="ks-table-head"><span>Müşteri</span><span>Tarih · saat</span><span>Hizmet</span><span>Kuaför / alan</span><span>Canlı durum</span><span /></div>
-                            {visible.map((reservation) => {
-                                const stage = liveStage(reservation, stageOptions);
-                                const meta = STAGE_META[stage];
-                                const StageIcon = meta.icon;
-                                const duration = settings.services.find((service) => service.name === reservation.service)?.duration;
-                                const action = nextAction(reservation, stage, duration);
-                                return (
-                                    <div
-                                        key={reservation.id}
-                                        role="button"
-                                        tabIndex={0}
-                                        className={`ks-reservation-row ${selectedLive?.id === reservation.id ? 'selected' : ''} ${stage}`}
-                                        onClick={() => setSelected(reservation)}
-                                        onKeyDown={(event) => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault();
-                                                setSelected(reservation);
-                                            }
-                                        }}
-                                    >
-                                        <span className="ks-client-cell"><i>{initialsOf(reservation.customerName)}</i><span><b>{reservation.customerName}</b><small>{reservation.customerPhone}</small></span></span>
-                                        <span className="ks-date-cell"><b>{dateLabel(reservation.date, { day: 'numeric', month: 'short' })}</b><small>{reservation.startTime}–{reservation.endTime}</small></span>
-                                        <span className="ks-service-cell"><i style={{ background: reservation.serviceColor || '#FF5A1F' }} /><span><b>{reservation.service}</b>{reservation.customFields?.[FORMULA_KEY] && <small><Droplets size={11} /> {String(reservation.customFields[FORMULA_KEY])}</small>}</span></span>
-                                        <span className="ks-staff-cell"><b>{reservation.staffName || 'Atanmadı'}</b><small>{reservation.resourceName || 'Alan seçilmedi'}</small></span>
-                                        <span className={`ks-stage-badge ${stage}`}><StageIcon size={13} />{meta.label}</span>
-                                        <span className="ks-row-actions">
-                                            {action && <button type="button" className={action.secondary ? 'secondary' : ''} disabled={busyId === reservation.id} onClick={(event) => { event.stopPropagation(); void advance(reservation); }}>{busyId === reservation.id ? '…' : action.label}<ChevronRight size={13} /></button>}
-                                        </span>
+                            {groups.today.length > 0 && (
+                                <>
+                                    <div className="ks-group-head accent"><span>BUGÜN · {dateLabel(today, { day: 'numeric', month: 'long' })}</span><i /><em>{groups.today.length} randevu</em></div>
+                                    {groups.today.map(renderRow)}
+                                </>
+                            )}
+                            {groups.upcoming.length > 0 && (
+                                <>
+                                    <div className="ks-group-head"><span>YAKLAŞAN</span><i /><em>{groups.upcoming.length} randevu</em></div>
+                                    {groups.upcoming.map(renderRow)}
+                                </>
+                            )}
+                            {groups.past.length > 0 && (pastVisible ? (
+                                <>
+                                    <div className="ks-group-head">
+                                        <span>GEÇMİŞ</span><i />
+                                        {!pastForced && <button type="button" onClick={() => setShowPast(false)}>Gizle</button>}
+                                        <em>{groups.past.length} randevu</em>
                                     </div>
-                                );
-                            })}
+                                    {groups.past.map(renderRow)}
+                                </>
+                            ) : (
+                                <button type="button" className="ks-past-toggle" onClick={() => setShowPast(true)}>
+                                    <span><History size={15} /> Geçmiş randevular · {groups.past.length} kayıt</span>
+                                    <ChevronDown size={16} />
+                                </button>
+                            ))}
                         </div>
                     )}
                 </article>
