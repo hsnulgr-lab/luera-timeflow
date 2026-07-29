@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
 import {
     AlertTriangle, ArrowRight, BadgeCheck, CalendarClock, Check, CheckCircle2, ChevronRight,
     ChevronDown, CircleDollarSign, Droplets, History, Hourglass, MessageCircle,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useWaitlist } from '@/hooks/useWaitlist';
@@ -20,7 +21,8 @@ import {
 } from '@/lib/kuaforFlow';
 import { todayISO, toISODate } from '@/utils/date';
 import type { Reservation, WaitlistEntry } from '@/types';
-import { dateLabel, initialsOf, moneyOf, KuaforSuiteFrame } from './KuaforSuiteFrame';
+import { KuaforSuiteFrame } from './KuaforSuiteFrame';
+import { dateLabel, initialsOf, moneyOf } from './kuaforSuite';
 
 type TabKey = 'all' | 'pending' | 'confirmed' | 'salon' | 'missed' | 'completed' | 'cancelled' | 'waitlist';
 /** Zaman kapsamı — durum sekmelerinden bağımsız ikinci eksen. */
@@ -115,6 +117,7 @@ export function KuaforReservationsPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { reservations, settings, updateReservation } = useReservations();
+    const { allCustomers, updateCustomer } = useCustomers();
     const { payments } = usePayments();
     const { entries: waitlist, addEntry, removeEntry } = useWaitlist();
 
@@ -123,25 +126,37 @@ export function KuaforReservationsPage() {
     // state tutup efektle senkronlamak kademeli render üretiyordu.
     const tabParam = searchParams.get('tab');
     const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : 'all';
-    const [scope, setScope] = useState<Scope>('today');
+    const [scope, setScope] = useState<Scope>(() => (searchParams.get('res') ? 'all' : 'today'));
     const [showPast, setShowPast] = useState(false);
     const [query, setQuery] = useState('');
-    const [selected, setSelected] = useState<Reservation | null>(null);
+    // Seçim id üzerinden: müşteri kartındaki geçmiş satırı ?res=<id> ile buraya
+    // bağlanabiliyor. Param'ı state'e efektle kopyalamak yerine okuyoruz.
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [editReservation, setEditReservation] = useState<Reservation | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [waitlistOpen, setWaitlistOpen] = useState(false);
     const [waitDraft, setWaitDraft] = useState({ name: '', phone: '', serviceId: '', date: '', notes: '' });
 
+    const activeId = selectedId ?? searchParams.get('res');
+
+    const closeDetail = useCallback(() => {
+        setSelectedId(null);
+        if (!searchParams.get('res')) return;
+        const params = new URLSearchParams(searchParams);
+        params.delete('res');
+        setSearchParams(params, { replace: true });
+    }, [searchParams, setSearchParams]);
+
     useEffect(() => {
-        if (!waitlistOpen && !selected) return;
+        if (!waitlistOpen && !activeId) return;
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
             setWaitlistOpen(false);
-            setSelected(null);
+            closeDetail();
         };
         window.addEventListener('keydown', closeOnEscape);
         return () => window.removeEventListener('keydown', closeOnEscape);
-    }, [selected, waitlistOpen]);
+    }, [activeId, closeDetail, waitlistOpen]);
 
     const today = todayISO();
 
@@ -238,6 +253,16 @@ export function KuaforReservationsPage() {
         .filter((payment) => payment.reservationId && toISODate(new Date(payment.paidAt)) === today)
         .reduce((sum, payment) => sum + payment.amount, 0);
 
+    const syncFormulaToCustomer = async (reservation: Reservation) => {
+        const formula = reservation.customFields?.[FORMULA_KEY];
+        if (!formula || !reservation.customerId) return;
+        const customer = allCustomers.find((item) => item.id === reservation.customerId);
+        if (!customer || String(customer.customFields?.[FORMULA_KEY] || '') === String(formula)) return;
+        await updateCustomer(customer.id, {
+            customFields: { ...(customer.customFields || {}), [FORMULA_KEY]: formula },
+        });
+    };
+
     const advance = async (reservation: Reservation) => {
         const duration = settings.services.find((service) => service.name === reservation.service)?.duration;
         const action = nextAction(reservation, liveStage(reservation, stageOptions), duration);
@@ -251,8 +276,12 @@ export function KuaforReservationsPage() {
         const result = await updateReservation(reservation.id, action.patch);
         setBusyId(null);
         if (!result) return;
-        setSelected(result);
+        setSelectedId(result.id);
         if (action.message) toast.success(action.message);
+        // Kasaya giden randevunun formülü müşteri kartına işlenir: kart "son
+        // kullanılan formül"ü tek yerden okur, sektör profilindeki müşteri ve
+        // randevu alanları arasındaki bağ böylece kodda gerçekten kurulur.
+        if (liveStage(result, stageOptions) === 'checkout') await syncFormulaToCustomer(result);
     };
 
     const cancelReservation = async (reservation: Reservation) => {
@@ -261,7 +290,7 @@ export function KuaforReservationsPage() {
         const result = await updateReservation(reservation.id, { status: 'cancelled' });
         setBusyId(null);
         if (!result) return;
-        setSelected(result);
+        setSelectedId(result.id);
         toast.success('Randevu iptal edildi');
     };
 
@@ -313,12 +342,12 @@ export function KuaforReservationsPage() {
                 key={reservation.id}
                 role="button"
                 tabIndex={0}
-                className={`ks-reservation-row ${selected?.id === reservation.id ? 'selected' : ''} ${stage}`}
-                onClick={() => setSelected(reservation)}
+                className={`ks-reservation-row ${activeId === reservation.id ? 'selected' : ''} ${stage}`}
+                onClick={() => setSelectedId(reservation.id)}
                 onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        setSelected(reservation);
+                        setSelectedId(reservation.id);
                     }
                 }}
             >
@@ -334,7 +363,7 @@ export function KuaforReservationsPage() {
         );
     };
 
-    const selectedLive = selected ? reservations.find((reservation) => reservation.id === selected.id) || selected : null;
+    const selectedLive = activeId ? reservations.find((reservation) => reservation.id === activeId) || null : null;
     const selectedService = selectedLive ? settings.services.find((service) => service.name === selectedLive.service) : undefined;
     const selectedStage = selectedLive ? liveStage(selectedLive, stageOptions) : null;
     const selectedAction = selectedLive && selectedStage ? nextAction(selectedLive, selectedStage, selectedService?.duration) : null;
@@ -465,7 +494,7 @@ export function KuaforReservationsPage() {
                             <>
                                 <header>
                                     <span className="ks-eyebrow">RANDEVU KARTI</span>
-                                    <button aria-label="Randevu detayını kapat" onClick={() => setSelected(null)}><X size={16} /></button>
+                                    <button aria-label="Randevu detayını kapat" onClick={closeDetail}><X size={16} /></button>
                                 </header>
                                 <div className="ks-detail-person">
                                     <span>{initialsOf(selectedLive.customerName)}</span>

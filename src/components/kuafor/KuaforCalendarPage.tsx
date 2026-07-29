@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react';
 import {
     Armchair, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3,
     Droplets, Filter, Plus, Scissors, Sparkles, TimerReset, Users, Waves, X,
@@ -20,10 +20,8 @@ import {
     type KuaforLiveStage,
 } from '@/lib/kuaforFlow';
 import type { Reservation } from '@/types';
-import {
-    addMinutes, dateLabel, initialsOf, minutesOf, timeOf,
-    KuaforSuiteFrame,
-} from './KuaforSuiteFrame';
+import { KuaforSuiteFrame } from './KuaforSuiteFrame';
+import { addMinutes, dateLabel, initialsOf, minutesOf, timeOf } from './kuaforSuite';
 
 type ViewMode = 'team' | 'week' | 'chairs';
 type Lane = { id: string; name: string; detail: string; color: string; closed?: boolean };
@@ -67,58 +65,49 @@ export function KuaforCalendarPage() {
         [now, settings.arrivalToleranceMin],
     );
 
-    const [date, setDate] = useState(today);
+    // ?new=1 ile gelen taslak parametreleri mount'ta BİR KEZ okunur. Bunları
+    // efektten setState ederek kurmak kademeli render üretiyordu; hepsi ilk
+    // state'in parçası. Müşteri kaydı (ad/telefon/formül) burada beklenmez,
+    // liste geldiğinde render sırasında okunur — aşağıdaki launchCustomer.
+    const [launch] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('new') !== '1') return null;
+        return {
+            customerId: params.get('customer') || '',
+            name: params.get('name') || '',
+            phone: params.get('phone') || '',
+            service: params.get('service') || '',
+            date: params.get('date') || '',
+            waitlistId: params.get('waitlist') || '',
+        };
+    });
+
+    const [date, setDate] = useState(launch?.date || today);
     const [view, setView] = useState<ViewMode>('team');
     const [staffFilter, setStaffFilter] = useState('all');
     const [selected, setSelected] = useState<Reservation | null>(null);
     const [editReservation, setEditReservation] = useState<Reservation | null>(null);
-    const [newOpen, setNewOpen] = useState(false);
+    const [newOpen, setNewOpen] = useState(Boolean(launch));
     const [saving, setSaving] = useState(false);
+    const [customerTouched, setCustomerTouched] = useState(false);
     const [draft, setDraft] = useState({
-        customerId: '',
-        customerName: '',
-        customerPhone: '',
-        service: settings.services[0]?.name || '',
+        customerId: launch?.customerId || '',
+        customerName: launch?.name || '',
+        customerPhone: launch?.phone || '',
+        service: '',
         staffId: '',
         resourceId: '',
         startTime: '09:00',
         note: '',
         formula: '',
-        waitlistId: '',
+        waitlistId: launch?.waitlistId || '',
     });
 
-    const newParamHandledRef = useRef(false);
+    // Taslak parametreleri okundu; adres çubuğu temizlenir (dış sistem senkronu).
     useEffect(() => {
-        if (newParamHandledRef.current) return;
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('new') !== '1') return;
-        const customerId = params.get('customer') || '';
-        if (customerId && allCustomers.length === 0) return;
-        const customer = allCustomers.find((item) => item.id === customerId);
-        const requestedService = params.get('service');
-        const service = requestedService
-            ? settings.services.find((item) => item.id === requestedService || item.name === requestedService)
-            : undefined;
-        const requestedDate = params.get('date');
-        newParamHandledRef.current = true;
-        if (requestedDate) setDate(requestedDate);
-        setDraft((previous) => ({
-            ...previous,
-            customerId: customer?.id || '',
-            customerName: customer?.name || params.get('name') || '',
-            customerPhone: customer?.phone || params.get('phone') || '',
-            service: service?.name || previous.service,
-            formula: String(customer?.customFields?.[FORMULA_KEY] || ''),
-            waitlistId: params.get('waitlist') || '',
-        }));
-        setNewOpen(true);
+        if (!launch) return;
         window.history.replaceState(null, '', window.location.pathname);
-    }, [allCustomers, settings.services]);
-
-    useEffect(() => {
-        if (draft.service || settings.services.length === 0) return;
-        setDraft((previous) => ({ ...previous, service: settings.services[0].name }));
-    }, [draft.service, settings.services]);
+    }, [launch]);
 
     useEffect(() => {
         if (!newOpen && !selected) return;
@@ -237,8 +226,23 @@ export function KuaforCalendarPage() {
         return dayReservations.filter((reservation) => (reservation.staffId || 'unassigned') === lane.id);
     };
 
-    const selectedService = settings.services.find((service) => service.name === draft.service) || settings.services[0];
+    // Hizmet varsayılanı efektle drafta yazılmıyor, render'da türetiliyor:
+    // ayarlar geç gelse bile ilk hizmet kendiliğinden seçili görünür.
+    const serviceName = draft.service || settings.services[0]?.name || '';
+    const selectedService = settings.services.find((service) => service.name === serviceName) || settings.services[0];
     const endTime = addMinutes(draft.startTime, selectedService?.duration || 45);
+
+    // ?customer=<id> ile gelindiğinde ad/telefon/formül müşteri kaydından
+    // OKUNUR; drafta kopyalanmaz (kopyalamak liste yüklenene kadar beklemeyi,
+    // yani efektten setState etmeyi gerektiriyordu). Kullanıcı alana dokunduğu
+    // anda taslak devralır.
+    const launchCustomer = draft.customerId
+        ? allCustomers.find((customer) => customer.id === draft.customerId)
+        : undefined;
+    const storedFormula = String(launchCustomer?.customFields?.[FORMULA_KEY] || '');
+    const customerName = customerTouched ? draft.customerName : (draft.customerName || launchCustomer?.name || '');
+    const customerPhone = customerTouched ? draft.customerPhone : (draft.customerPhone || launchCustomer?.phone || '');
+    const formula = draft.formula || storedFormula;
 
     const openAt = (event: MouseEvent<HTMLDivElement>, lane: Lane) => {
         if ((event.target as HTMLElement).closest('.ks-appointment')) return;
@@ -262,7 +266,7 @@ export function KuaforCalendarPage() {
     };
 
     const createReservation = async () => {
-        if (!draft.customerName.trim() || !draft.customerPhone.trim() || !draft.service || saving) {
+        if (!customerName.trim() || !customerPhone.trim() || !serviceName || saving) {
             toast.error('Müşteri, telefon ve hizmet bilgilerini tamamlayın');
             return;
         }
@@ -284,23 +288,24 @@ export function KuaforCalendarPage() {
         setSaving(true);
         const result = await addReservation({
             customerId: draft.customerId,
-            customerName: draft.customerName.trim(),
-            customerPhone: draft.customerPhone.trim(),
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
             date,
             startTime: draft.startTime,
             endTime,
-            service: draft.service,
+            service: serviceName,
             serviceColor: selectedService?.color || '#FF5A1F',
             status: 'confirmed',
             notes: draft.note,
             staffId: resolution.staffMember?.id || draft.staffId || undefined,
             resourceId: draft.resourceId || undefined,
-            customFields: draft.formula ? { [FORMULA_KEY]: draft.formula } : undefined,
+            customFields: formula ? { [FORMULA_KEY]: formula } : undefined,
         });
         setSaving(false);
         if (!result) return;
         if (draft.waitlistId) await removeEntry(draft.waitlistId);
         setNewOpen(false);
+        setCustomerTouched(false);
         setDraft((previous) => ({
             ...previous,
             customerId: '',
@@ -315,6 +320,7 @@ export function KuaforCalendarPage() {
 
     const pickCustomer = (value: string) => {
         const customer = allCustomers.find((item) => `${item.name} · ${item.phone}` === value);
+        setCustomerTouched(true);
         setDraft((previous) => ({
             ...previous,
             customerName: customer?.name || value,
@@ -547,20 +553,20 @@ export function KuaforCalendarPage() {
                             <button aria-label="Yeni randevu penceresini kapat" onClick={() => setNewOpen(false)}><X size={17} /></button>
                         </header>
                         <div className="ks-modal-body">
-                            <label><span>Müşteri adı</span><input list="ks-customer-options" value={draft.customerName} onChange={(event) => pickCustomer(event.target.value)} placeholder="İsimle ara veya yeni müşteri yaz" /></label>
+                            <label><span>Müşteri adı</span><input list="ks-customer-options" value={customerName} onChange={(event) => pickCustomer(event.target.value)} placeholder="İsimle ara veya yeni müşteri yaz" /></label>
                             <datalist id="ks-customer-options">{allCustomers.map((customer) => <option key={customer.id} value={`${customer.name} · ${customer.phone}`} />)}</datalist>
-                            <label><span>Telefon</span><input value={draft.customerPhone} onChange={(event) => setDraft((previous) => ({ ...previous, customerPhone: event.target.value }))} placeholder="05xx xxx xx xx" /></label>
+                            <label><span>Telefon</span><input value={customerPhone} onChange={(event) => { setCustomerTouched(true); setDraft((previous) => ({ ...previous, customerPhone: event.target.value })); }} placeholder="05xx xxx xx xx" /></label>
                             <div className="ks-form-grid">
-                                <label><span>Hizmet</span><select value={draft.service} onChange={(event) => setDraft((previous) => ({ ...previous, service: event.target.value }))}>{settings.services.map((service) => <option key={service.id} value={service.name}>{service.name} · {service.duration} dk</option>)}</select></label>
+                                <label><span>Hizmet</span><select value={serviceName} onChange={(event) => setDraft((previous) => ({ ...previous, service: event.target.value }))}>{settings.services.map((service) => <option key={service.id} value={service.name}>{service.name} · {service.duration} dk</option>)}</select></label>
                                 <label><span>Başlangıç</span><input type="time" step={900} value={draft.startTime} onChange={(event) => setDraft((previous) => ({ ...previous, startTime: event.target.value }))} /></label>
                             </div>
                             <div className="ks-form-grid">
                                 <label><span>Kuaför</span><select value={draft.staffId} onChange={(event) => setDraft((previous) => ({ ...previous, staffId: event.target.value }))}><option value="">Otomatik ata</option>{activeStaff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
                                 <label><span>Koltuk / yıkama</span><select value={draft.resourceId} onChange={(event) => setDraft((previous) => ({ ...previous, resourceId: event.target.value }))}><option value="">Kaynak seçilmedi</option>{activeResources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
                             </div>
-                            {isKuaforColorService(draft.service) && <label className="ks-formula-field"><span><Droplets size={13} /> Renk formülü</span><input value={draft.formula} onChange={(event) => setDraft((previous) => ({ ...previous, formula: event.target.value }))} placeholder="Örn. 7.1 + 8.0 / 20 vol" /></label>}
+                            {isKuaforColorService(serviceName) && <label className="ks-formula-field"><span><Droplets size={13} /> Renk formülü</span><input value={formula} onChange={(event) => setDraft((previous) => ({ ...previous, formula: event.target.value }))} placeholder="Örn. 7.1 + 8.0 / 20 vol" /></label>}
                             <label><span>Salon notu</span><textarea value={draft.note} onChange={(event) => setDraft((previous) => ({ ...previous, note: event.target.value }))} placeholder="Tercih, hassasiyet veya hazırlık notu…" rows={2} /></label>
-                            <div className="ks-booking-summary"><Check size={16} /><p><strong>{draft.service || 'Hizmet seçin'}</strong><small>{draft.startTime}–{endTime} · {activeStaff.find((member) => member.id === draft.staffId)?.name || 'uygun kuaföre otomatik atanır'}</small></p></div>
+                            <div className="ks-booking-summary"><Check size={16} /><p><strong>{serviceName || 'Hizmet seçin'}</strong><small>{draft.startTime}–{endTime} · {activeStaff.find((member) => member.id === draft.staffId)?.name || 'uygun kuaföre otomatik atanır'}</small></p></div>
                         </div>
                         <footer><button className="ks-btn ks-btn-ghost" onClick={() => setNewOpen(false)}>Vazgeç</button><button className="ks-btn ks-btn-primary" disabled={saving} onClick={createReservation}>{saving ? 'Kaydediliyor…' : 'Randevuyu oluştur'} <ArrowRight size={15} /></button></footer>
                     </section>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
-    AlertTriangle, ArrowRight, CalendarClock, Check, ChevronRight, Crown, Droplets,
-    Edit2, Gift, Heart, History, MessageCircle, Plus, Scissors, Search, Sparkles, Star,
+    AlertTriangle, ArrowRight, CalendarClock, ChevronRight, Crown, Droplets,
+    Edit2, Gift, Heart, History, MessageCircle, Scissors, Search, Sparkles, Star,
     Tag, TimerReset, TrendingUp, UserPlus, Users, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,13 +12,16 @@ import { useReservations } from '@/hooks/useReservations';
 import { KF_FORMULA_KEY as FORMULA_KEY, isKuaforColorService } from '@/lib/kuaforFlow';
 import { todayISO } from '@/utils/date';
 import type { Customer, Reservation } from '@/types';
-import { dateLabel, initialsOf, moneyOf, KuaforSuiteFrame } from './KuaforSuiteFrame';
+import { KuaforSuiteFrame } from './KuaforSuiteFrame';
+import { dateLabel, initialsOf, moneyOf } from './kuaforSuite';
 
 type Segment = 'all' | 'vip' | 'color' | 'return' | 'new';
 
 interface CustomerStats {
     history: Reservation[];
     completed: Reservation[];
+    /** Son 90 gün içinde tamamlanan işlemler — "tekrar ziyaret" ölçütü. */
+    completedIn90: Reservation[];
     upcoming: Reservation[];
     spend: number;
     favoriteService: string;
@@ -92,6 +95,7 @@ export function KuaforCustomersPage() {
             const spend = payments
                 .filter((payment) => payment.customerId === customer.id)
                 .reduce((sum, payment) => sum + payment.amount, 0);
+            const completedIn90 = completed.filter((reservation) => daysSince(reservation.date) <= 90);
             const lastColor = completed.find((reservation) => isKuaforColorService(reservation.service));
             const formulaReservation = completed.find((reservation) =>
                 isKuaforColorService(reservation.service) && reservation.customFields?.[FORMULA_KEY]);
@@ -99,6 +103,7 @@ export function KuaforCustomersPage() {
             result.set(customer.id, {
                 history,
                 completed,
+                completedIn90,
                 upcoming,
                 spend,
                 favoriteService: mostFrequent(completed.map((reservation) => reservation.service)),
@@ -136,8 +141,6 @@ export function KuaforCustomersPage() {
         };
         window.addEventListener('keydown', closeOnEscape);
         return () => window.removeEventListener('keydown', closeOnEscape);
-    // clearForm only resets local draft state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formOpen]);
 
     const customerMatchesSegment = (customer: Customer) => {
@@ -185,7 +188,7 @@ export function KuaforCustomersPage() {
     }), [allCustomers, statsByCustomer]);
 
     const totalValue = [...statsByCustomer.values()].reduce((sum, stats) => sum + stats.spend, 0);
-    const returning = allCustomers.filter((customer) => (statsByCustomer.get(customer.id)?.completed.length || 0) >= 2).length;
+    const returning = allCustomers.filter((customer) => (statsByCustomer.get(customer.id)?.completedIn90.length || 0) >= 2).length;
     const retention = allCustomers.length ? Math.round((returning / allCustomers.length) * 100) : 0;
 
     const clearForm = () => {
@@ -389,7 +392,7 @@ export function KuaforCustomersPage() {
                                     <header><span><Star size={16} /></span><div><small>TERCİHLER</small><h3>Müşterinin favorileri</h3></div></header>
                                     <div><span><Scissors size={15} /></span><p><small>Favori hizmet</small><b>{selectedStats.favoriteService}</b></p></div>
                                     <div><span><Users size={15} /></span><p><small>Tercih edilen kuaför</small><b>{selectedStats.favoriteStaff}</b></p></div>
-                                    <div><span><Tag size={15} /></span><p><small>90 günlük ziyaret ort.</small><b>{averageVisitDays(selectedStats.completed) ? `${averageVisitDays(selectedStats.completed)} gün` : 'Yeni müşteri'}</b></p></div>
+                                    <div><span><Tag size={15} /></span><p><small>Ziyaret aralığı ort.</small><b>{averageVisitDays(selectedStats.completed) ? `${averageVisitDays(selectedStats.completed)} gün` : 'Yeni müşteri'}</b></p></div>
                                 </article>
 
                                 {loyaltyEnabled && (
@@ -403,13 +406,13 @@ export function KuaforCustomersPage() {
                             </section>
 
                             <section className="ks-history-card">
-                                <header><div><span className="ks-eyebrow">SON 90 GÜN</span><h3>Hizmet ve formül geçmişi</h3></div><span>{selectedStats.history.length} kayıt</span></header>
+                                <header><div><span className="ks-eyebrow">ZİYARET GEÇMİŞİ</span><h3>Hizmet ve formül geçmişi</h3></div><span>{selectedStats.history.length} kayıt</span></header>
                                 {selectedStats.history.length === 0 ? (
                                     <div className="ks-inline-empty"><History size={20} /><span><b>Henüz ziyaret kaydı yok</b><small>İlk randevuyu oluşturarak müşteri hikâyesini başlatın.</small></span></div>
                                 ) : (
                                     <div className="ks-history-list">
                                         {selectedStats.history.slice(0, 8).map((reservation) => (
-                                            <button key={reservation.id} onClick={() => navigate('/reservations')}>
+                                            <button key={reservation.id} onClick={() => navigate(`/reservations?res=${encodeURIComponent(reservation.id)}`)}>
                                                 <span className="ks-history-date"><b>{new Date(`${reservation.date}T12:00:00`).getDate()}</b><small>{new Date(`${reservation.date}T12:00:00`).toLocaleDateString('tr-TR', { month: 'short' })}</small></span>
                                                 <i className={reservation.status} style={{ background: reservation.serviceColor || '#FF5A1F' }} />
                                                 <span className="ks-history-copy"><b>{reservation.service}</b><small>{reservation.startTime} · {reservation.staffName || 'Atanmadı'}</small></span>
