@@ -135,7 +135,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         modules: { ...RANDEVU, sira: true },
         labels: {},
         staffRoles: { doctor: { label: 'Berber' }, assistant: { label: 'Çırak' } },
-        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Koltuk'],
+        dashboardKpis: ['berberFace'], customFieldTemplates: [], resourceTypes: ['Koltuk'],
         comms: { persona: 'Bir berbersin; sıcak, kısa ve delikanlı ağzı sayılabilecek rahat bir ton kullan (abartma).', audience: 'müşterimiz', serviceWord: 'kesim', servicePhrase: 'kesiminizi', emoji: '💈', recall: { concept: 'saç kesimi zamanı', afterDays: 21 } },
     },
     estetik: {
@@ -143,7 +143,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         modules: RANDEVU,
         labels: { customer: 'Danışan', customers: 'Danışanlar', reservation: 'Seans', newReservation: 'Yeni seans' },
         staffRoles: { doctor: { label: 'Uzman', description: 'Seans uygular, danışan dosyasını ve tahsilatı yönetir' } },
-        dashboardKpis: RANDEVU_KPIS,
+        dashboardKpis: ['estetikFace'],
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
             { entity: 'customer', key: 'kronik', label: 'Kronik rahatsızlık', type: 'text' },
@@ -171,14 +171,23 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
     saglik: {
         label: 'Sağlık / Klinik',
         modules: RANDEVU,
-        labels: { customer: 'Hasta', customers: 'Hastalar', reservation: 'Muayene', newReservation: 'Yeni muayene' },
+        // Genel klinikte her randevu "muayene" değildir: takvim kabuğu kapsayıcı
+        // kalır (Randevu), ziyaret türü randevunun İÇİNDE ayrı alanda tutulur.
+        labels: {
+            customer: 'Hasta', customers: 'Hastalar',
+            reservation: 'Randevu', reservations: 'Randevular', newReservation: 'Yeni randevu',
+            staff: 'Hekim', staffPlural: 'Hekimler',
+        },
         staffRoles: {
-            doctor: { label: 'Doktor', description: 'Muayene, hasta dosyası ve tedavi' },
+            doctor: { label: 'Hekim', description: 'Muayene, hasta dosyası ve tedavi' },
             assistant: { label: 'Yardımcı personel' },
         },
-        dashboardKpis: RANDEVU_KPIS,
+        dashboardKpis: ['saglikFace'],
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
+            // Ziyaret türü İDARİ bir sınıflandırmadır — ayrı bir rezervasyon
+            // status'ü değildir, klinik uygunluk anlamına gelmez.
+            { entity: 'reservation', key: 'ziyaret_turu', label: 'Ziyaret türü', type: 'select', options: ['İlk muayene', 'Kontrol', 'Sonuç görüşmesi', 'İşlem'] },
         ],
         resourceTypes: ['Oda'],
         comms: { persona: 'Bir sağlık kuruluşu / kliniksin; güven veren, ölçülü ve profesyonel bir ton kullan.', audience: 'hastamız', serviceWord: 'muayene', servicePhrase: 'muayenenizi', emoji: '🩺', recall: { concept: 'kontrol muayenesi', afterDays: 180 }, guardrail: 'TIBBİ TAVSİYE VERME, teşhis koyma.' },
@@ -188,7 +197,19 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         modules: RANDEVU,
         labels: { customer: 'Hasta', customers: 'Hastalar', reservation: 'Seans', newReservation: 'Yeni seans' },
         staffRoles: { doctor: { label: 'Fizyoterapist', description: 'Seans uygular, hasta dosyasını ve tahsilatı yönetir' } },
-        dashboardKpis: RANDEVU_KPIS, customFieldTemplates: [], resourceTypes: ['Oda'],
+        dashboardKpis: ['fizyoterapiFace'],
+        // Fizyoterapi yüzünün okuduğu alanlar. Klinik plan (treatment_plans) ve
+        // ticari paket hakkı (customer_packages) ayrı kaynaklardır; buraya
+        // "kalan seans" gibi birleşik bir sayaç EKLENMEZ.
+        customFieldTemplates: [
+            { entity: 'customer', key: 'islevsel_hedef', label: 'İşlevsel hedef', type: 'text' },
+            { entity: 'customer', key: 'klinik_uyari', label: 'Klinik uyarı (düşme riski vb.)', type: 'text' },
+            { entity: 'customer', key: 'ev_programi', label: 'Ev programı', type: 'text' },
+            { entity: 'customer', key: 'ev_programi_gun', label: 'Haftalık uygulanan gün (0-7)', type: 'number' },
+            { entity: 'reservation', key: 'agri', label: 'Ağrı bildirimi (0-10)', type: 'number' },
+            { entity: 'reservation', key: 'rom', label: 'Hareket açıklığı (°)', type: 'number' },
+        ],
+        resourceTypes: ['Terapi alanı', 'Cihaz'],
         comms: { persona: 'Bir fizyoterapi merkezisin; motive edici ama profesyonel bir ton kullan.', audience: 'danışanımız', serviceWord: 'seans', servicePhrase: 'seansınızı', emoji: '🤸', recall: { concept: 'kontrol seansı', afterDays: 60 }, guardrail: 'Tıbbi tavsiye verme, egzersiz reçetesi yazma.' },
     },
     tattoo: {

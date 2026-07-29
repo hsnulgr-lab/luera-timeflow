@@ -8,6 +8,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
 import { useResources } from '@/hooks/useResources';
+import { clockMin, addMinutesToTime, resolveSlot as resolveSlotShared, type SlotResolution, type SlotRules } from '@/lib/slotResolution';
 import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -21,7 +22,7 @@ import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
 import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
-import type { CalendarView, Reservation, Staff } from '@/types';
+import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAYS_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -74,15 +75,8 @@ function durationMin(start: string, end: string): number {
     return d;
 }
 
-function clockMin(time: string): number {
-    const [h, m] = time.split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
-
-function addMinutesToTime(time: string, minutes: number): string {
-    const total = (clockMin(time) + Math.max(0, minutes)) % (24 * 60);
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
+// clockMin / addMinutesToTime artık lib/slotResolution.ts içinde — slot
+// kurallarıyla aynı yerde dursun diye taşındı (davranış birebir aynı).
 
 // Birleşik zaman bloğu CSS'i (Luera v2 — güncellenmiş tasarım)
 const TIME_BLOCK_CSS = `
@@ -135,12 +129,6 @@ const DENTAL_SERVICE_SET: { name: string; duration: number; color: string }[] = 
     { name: 'İmplant', duration: 90, color: '#5E9C6C' },
     { name: 'Beyazlatma', duration: 60, color: '#CB5E84' },
 ];
-
-interface SlotResolution {
-    staffMember?: Staff;
-    issue?: string;
-    conflict?: Reservation;
-}
 
 export const CalendarPage = () => {
     const { dark } = useTheme();
@@ -296,92 +284,24 @@ export const CalendarPage = () => {
         ].filter((x): x is string => !!x);
     };
 
-    const staffWorksAt = useCallback((member: Staff, date: string, startTime: string, endTime: string) => {
-        if (timeOff.some((x) => x.staffId === member.id && x.date === date)) return false;
-        const schedule = member.workingHours?.length ? member.workingHours : settings.workingHours;
-        const jsDay = new Date(`${date}T12:00:00`).getDay();
-        const hours = schedule.find((x) => x.day === jsDay);
-        if (!hours || hours.isOff) return false;
-        return clockMin(startTime) >= clockMin(hours.start) && clockMin(endTime) <= clockMin(hours.end);
-    }, [settings.workingHours, timeOff]);
+    // Slot çözümü ortak kural katmanından gelir (lib/slotResolution.ts).
+    // Sayfa kendi hook örneklerini zaten tuttuğu için kuralları burada kurar
+    // (useSlotResolver hook'u aynı veriyi ikinci kez çekmesin diye). Kural
+    // gövdesi Sağlık dashboard'uyla ortaktır: iki yüzey aynı taslağa aynı
+    // cevabı verir. Buradaki tek ek, sayfanın taslak bağlamı — seçili kaynak
+    // ve sepetteki satırlar.
+    const slotRules: SlotRules = useMemo(() => ({
+        staff, staffLoading, timeOff, timeOffLoading,
+        workingHours: settings.workingHours || [],
+        reservations, resources, checkConflict,
+        staffWord: t('staff').toLocaleLowerCase('tr'),
+        resourceTypeLabel,
+    }), [staff, staffLoading, timeOff, timeOffLoading, settings.workingHours,
+        reservations, resources, checkConflict, t, resourceTypeLabel]);
 
-    const cartOverlaps = useCallback((staffId: string, startTime: string, endTime: string) => {
-        const start = clockMin(startTime), end = clockMin(endTime);
-        return resLines.some((line) => line.staffId === staffId
-            && clockMin(line.startTime) < end && start < clockMin(line.endTime));
-    }, [resLines]);
-
-    // "Fark etmez" boş staff_id demek değildir: o anda çalışan ve müsait
-    // gerçek bir personeli çözüp satıra yazar. Legacy NULL randevu böylece
-    // kliniğin tüm personelini yanlışlıkla bloke etmez.
-    const resolveSlotStaff = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => {
-        if (staffLoading || timeOffLoading) return { issue: 'Personel uygunluğu kontrol ediliyor…' };
-        if (staff.length === 0) {
-            const conflict = checkConflict(date, startTime, endTime);
-            return conflict
-                ? { issue: `${conflict.customerName} · ${conflict.startTime}–${conflict.endTime} ile çakışıyor`, conflict }
-                : {};
-        }
-
-        const candidates = requestedId ? staff.filter((x) => x.id === requestedId) : staff;
-        if (requestedId && candidates.length === 0) return { issue: `Seçilen ${t('staff').toLowerCase()} bulunamadı` };
-
-        const start = clockMin(startTime), end = clockMin(endTime);
-        const unassignedCount = reservations.filter((r) => !r.staffId
-            && r.date === date && r.status !== 'cancelled'
-            && clockMin(r.startTime) < end && start < clockMin(r.endTime)).length;
-        let unassignedCapacity = requestedId ? 0 : unassignedCount;
-        const unassignedUsesRequested = !!requestedId && unassignedCount > staff.filter((member) => member.id !== requestedId
-            && staffWorksAt(member, date, startTime, endTime)
-            && !checkConflict(date, startTime, endTime, undefined, member.id)
-            && !cartOverlaps(member.id, startTime, endTime)).length;
-
-        for (const member of candidates) {
-            if (!staffWorksAt(member, date, startTime, endTime)) {
-                if (requestedId) return { issue: `${member.name} bu saatte çalışmıyor veya izinli` };
-                continue;
-            }
-            const conflict = checkConflict(date, startTime, endTime, undefined, member.id);
-            if (!conflict && !cartOverlaps(member.id, startTime, endTime)) {
-                if (unassignedUsesRequested) {
-                    return { issue: 'Bu saatteki atanmamış randevu personel kapasitesini dolduruyor' };
-                }
-                // Eski staff_id=NULL kayıt kliniğin tamamını değil yalnızca
-                // bir personellik kapasiteyi kullanır.
-                if (unassignedCapacity > 0) { unassignedCapacity--; continue; }
-                return { staffMember: member };
-            }
-            if (requestedId) {
-                return { issue: conflict
-                    ? `${member.name}, ${conflict.startTime}–${conflict.endTime} saatinde dolu`
-                    : `${member.name} bu saatte sepetteki başka bir işlemde`, conflict: conflict || undefined };
-            }
-        }
-        return { issue: `Bu saatte uygun ${t('staff').toLowerCase()} yok` };
-    }, [staff, staffLoading, timeOffLoading, reservations, checkConflict, cartOverlaps, staffWorksAt, t]);
-
-    const resolveSlot = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => {
-        const staffResult = resolveSlotStaff(date, startTime, endTime, requestedId);
-        if (staffResult.issue) return staffResult;
-
-        if (resourceId) {
-            const selectedResource = resources.find((x) => x.id === resourceId);
-            const capacity = Math.max(1, selectedResource?.capacity || 1);
-            const start = clockMin(startTime), end = clockMin(endTime);
-            const dbOverlaps = reservations.filter((r) => r.resourceId === resourceId
-                && r.date === date && r.status !== 'cancelled'
-                && clockMin(r.startTime) < end && start < clockMin(r.endTime));
-            const cartCount = resLines.filter((line) => clockMin(line.startTime) < end && start < clockMin(line.endTime)).length;
-            if (dbOverlaps.length + cartCount >= capacity) {
-                return {
-                    ...staffResult,
-                    issue: `${selectedResource?.name || resourceTypeLabel} bu saatte dolu`,
-                    conflict: dbOverlaps[0],
-                };
-            }
-        }
-        return staffResult;
-    }, [resolveSlotStaff, resourceId, resources, reservations, resLines, resourceTypeLabel]);
+    const resolveSlot = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => (
+        resolveSlotShared(slotRules, { date, startTime, endTime, staffId: requestedId, resourceId, cart: resLines })
+    ), [slotRules, resourceId, resLines]);
 
     // Çakışma ön-uyarısı: uygun personel/kaynak bulunamadığında
     // sonraki gerçek müsait saati önerir; süre korunur.

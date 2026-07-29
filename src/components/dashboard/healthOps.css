@@ -1,0 +1,2104 @@
+/* ── Sağlık / Klinik Dashboard V2 · "Klinik Nabzı + Randevu Merceği" ─────────
+   Kaynak: Timeflow Sağlık / Klinik V2 prototipi (yerleşim ve ölçüler birebir;
+   10 px altı etiketler okunabilirlik için büyütüldü).
+   TAMAMI .hc-ops kökü (modal/drawer için .hc-ops-layer) altında scope'ludur.
+
+   Renkler --dc-* tokenlarından okunur. Sektör ikincil vurgusu sakin petrol
+   mavisi/teal olarak --hc-* altında tanımlanır; Timeflow turuncusu ana eylem
+   rengi olarak kalır. Sidebar/topbar burada yok — uygulama kabuğu mevcut. */
+
+.hc-ops {
+  --hc-clinic: #315c79;
+  --hc-clinic-dark: #24485e;
+  --hc-clinic-soft: #eaf1f5;
+  --hc-clinic-line: #d4e0e7;
+  --hc-teal: #2a7b72;
+  --hc-teal-soft: #e4f1ee;
+  --hc-tint: #fcfaf7;
+  --hc-rail: #f6f1ea;
+  --hc-lens: #f3f7f9;
+  --hc-ink-surface: #101112;
+  --hc-ink-surface-2: #1d1e20;
+  --hc-ink-fg: #f4efe8;
+  --hc-ink-muted: #a8a6a2;
+  --hc-shadow: 0 17px 38px rgba(38, 30, 22, 0.12);
+  --hc-shadow-sm: 0 2px 7px rgba(40, 34, 27, 0.09);
+  color: var(--dc-ink);
+}
+
+.hc-ops.dark {
+  --hc-clinic: #8fb8d4;
+  --hc-clinic-dark: #a9cbe2;
+  --hc-clinic-soft: rgba(143, 184, 212, 0.14);
+  --hc-clinic-line: rgba(143, 184, 212, 0.26);
+  --hc-teal: #6fc4b6;
+  --hc-teal-soft: rgba(111, 196, 182, 0.14);
+  --hc-tint: var(--dc-surface2);
+  --hc-rail: var(--dc-surface2);
+  --hc-lens: var(--dc-surface2);
+  --hc-ink-surface: #0b0c0d;
+  --hc-ink-surface-2: #1a1b1d;
+  --hc-shadow: 0 17px 38px rgba(0, 0, 0, 0.36);
+  --hc-shadow-sm: 0 2px 7px rgba(0, 0, 0, 0.3);
+}
+
+.hc-ops button { cursor: pointer; font: inherit; color: inherit; }
+.hc-ops button:disabled { cursor: not-allowed; opacity: 0.45; }
+.hc-ops button:focus-visible,
+.hc-ops input:focus-visible,
+.hc-ops select:focus-visible {
+  outline: 3px solid rgba(255, 90, 31, 0.32);
+  outline-offset: 2px;
+}
+
+.hc-ops .dashboard {
+  width: min(1620px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 20px 0 44px;
+  display: grid;
+  gap: 16px;
+}
+
+.hc-ops .eyebrow {
+  display: block;
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.hc-ops .panel {
+  border: 1px solid var(--dc-border);
+  border-radius: 18px;
+  background: var(--dc-card);
+  box-shadow: var(--hc-shadow-sm);
+}
+
+.hc-ops .dot {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dc-muted2);
+}
+
+.hc-ops .dot.blue { background: var(--hc-clinic); }
+.hc-ops .dot.teal { background: var(--hc-teal); }
+.hc-ops .dot.green { background: var(--dc-green); }
+.hc-ops .dot.amber { background: var(--dc-amber); }
+.hc-ops .dot.red { background: var(--dc-red); }
+
+/* ── Butonlar ────────────────────────────────────────────────────────────── */
+.hc-ops .button,
+.hc-ops-layer .button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 12px;
+  background: var(--dc-card);
+  color: var(--dc-ink);
+  font-size: 13px;
+  font-weight: 760;
+  white-space: nowrap;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.hc-ops .button:hover,
+.hc-ops-layer .button:hover { transform: translateY(-1px); }
+
+.hc-ops .button.primary,
+.hc-ops-layer .button.primary {
+  border-color: var(--dc-inkbox);
+  background: var(--dc-inkbox);
+  color: var(--dc-inkbox-fg);
+}
+
+.hc-ops .button.secondary:hover,
+.hc-ops-layer .button.secondary:hover { border-color: var(--hc-clinic); }
+
+.hc-ops .button.compact,
+.hc-ops-layer .button.compact {
+  min-height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.hc-ops .button.full,
+.hc-ops-layer .button.full { width: 100%; }
+
+.hc-ops .icon-button,
+.hc-ops-layer .icon-button {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--dc-border);
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--dc-card);
+  color: var(--dc-ink);
+}
+
+.hc-ops .notification-button em {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--dc-page);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--dc-orange);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.hc-ops .avatar {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--dc-inkbox-fg);
+  background: var(--dc-inkbox);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  font-weight: 760;
+}
+
+.hc-ops .avatar.blue {
+  color: var(--hc-clinic);
+  background: var(--hc-clinic-soft);
+  border: 1px solid var(--hc-clinic-line);
+}
+
+/* ── Kompakt üst alan ────────────────────────────────────────────────────── */
+.hc-ops .command-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hc-ops .global-search {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--dc-border);
+  border-radius: 13px;
+  background: var(--dc-card);
+  color: var(--dc-muted);
+  font-size: 13px;
+  text-align: left;
+}
+
+.hc-ops .global-search span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .global-search kbd,
+.hc-ops-layer kbd {
+  padding: 3px 6px;
+  border: 1px solid var(--dc-border);
+  border-radius: 6px;
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+}
+
+.hc-ops .privacy-switch {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--dc-border);
+  border-radius: 12px;
+  background: var(--dc-card);
+  color: var(--dc-muted);
+  font-size: 12.5px;
+  font-weight: 720;
+}
+
+.hc-ops .privacy-switch i {
+  position: relative;
+  width: 32px;
+  height: 19px;
+  border-radius: 20px;
+  background: var(--dc-surface3);
+  transition: background 160ms ease;
+}
+
+.hc-ops .privacy-switch i::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 160ms ease;
+}
+
+.hc-ops .privacy-switch[aria-checked='true'] i { background: var(--hc-clinic); }
+.hc-ops .privacy-switch[aria-checked='true'] i::after { transform: translateX(13px); }
+
+/* ── Klinik Nabzı ────────────────────────────────────────────────────────── */
+.hc-ops .clinic-pulse {
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: minmax(300px, 1.05fr) minmax(520px, 1.75fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 20px 22px;
+}
+
+.hc-ops .pulse-title { min-width: 0; }
+
+.hc-ops .pulse-title h1 {
+  margin: 7px 0 10px;
+  font-size: clamp(23px, 1.9vw, 31px);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+}
+
+.hc-ops .pulse-title h1 em { color: var(--dc-orange); font-style: normal; }
+
+.hc-ops .pulse-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 13px;
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-weight: 740;
+}
+
+.hc-ops .pulse-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hc-ops .pulse-stages {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(102px, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--dc-border);
+  border-radius: 14px;
+  background: var(--hc-tint);
+}
+
+.hc-ops .pulse-stages article {
+  min-width: 0;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+}
+
+.hc-ops .pulse-stages article + article { border-left: 1px solid var(--dc-border); }
+.hc-ops .pulse-stages article.wait-stage { background: var(--dc-orange-soft); }
+
+.hc-ops .pulse-stage-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.hc-ops .pulse-stage-icon.blue { background: var(--hc-clinic-soft); color: var(--hc-clinic); }
+.hc-ops .pulse-stage-icon.amber { background: var(--dc-amber-bg); color: var(--dc-amber); }
+.hc-ops .pulse-stage-icon.teal { background: var(--hc-teal-soft); color: var(--hc-teal); }
+.hc-ops .pulse-stage-icon.green { background: var(--dc-green-bg); color: var(--dc-green); }
+.hc-ops .pulse-stage-icon.orange { background: var(--dc-card); color: var(--dc-orange); }
+
+.hc-ops .pulse-stages article > span:last-child { min-width: 0; display: grid; }
+
+.hc-ops .pulse-stages small {
+  overflow: hidden;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .pulse-stages strong {
+  overflow: hidden;
+  margin-top: 3px;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .pulse-actions { display: grid; gap: 8px; }
+.hc-ops .pulse-actions .button { width: 100%; white-space: nowrap; }
+
+/* ── Timeflow AI şeridi ──────────────────────────────────────────────────── */
+.hc-ops .ai-command-strip {
+  position: relative;
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: 184px minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  overflow: hidden;
+  padding: 13px 18px 17px;
+  border: 1px solid #252525;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 87% 20%, rgba(255, 90, 31, 0.16), transparent 14rem),
+    var(--hc-ink-surface);
+  color: #fff;
+  box-shadow: var(--hc-shadow);
+}
+
+.hc-ops .ai-command-strip::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--dc-orange);
+}
+
+.hc-ops .ai-command-brand { display: flex; align-items: center; gap: 11px; }
+
+.hc-ops .ai-command-brand > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 11px;
+  background: var(--hc-ink-surface-2);
+  color: var(--dc-orange);
+}
+
+.hc-ops .ai-command-brand div { display: grid; }
+
+.hc-ops .ai-command-brand small {
+  color: var(--hc-ink-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.hc-ops .ai-command-brand strong { margin-top: 3px; font-size: 13px; }
+
+.hc-ops .ai-command-copy { min-width: 0; display: grid; }
+
+.hc-ops .ai-command-copy strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .ai-command-copy span {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--hc-ink-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .ai-command-actions { display: flex; align-items: center; gap: 10px; }
+
+.hc-ops .ai-command-actions .button.primary {
+  border-color: #fff;
+  background: #fff;
+  color: var(--hc-ink-surface);
+}
+
+.hc-ops .ai-command-actions > button:last-child {
+  border: 0;
+  background: none;
+  color: var(--hc-ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hc-ops .ai-command-strip > p {
+  position: absolute;
+  right: 18px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: #8e8c88;
+  font-size: 10px;
+}
+
+.hc-ops .ai-command-collapsed {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #252525;
+  border-radius: 13px;
+  background: var(--hc-ink-surface);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.hc-ops .ai-command-collapsed svg:first-child { color: var(--dc-orange); }
+.hc-ops .ai-command-collapsed svg:last-child { margin-left: auto; }
+
+/* ── Randevu Kontrol Merkezi ─────────────────────────────────────────────── */
+.hc-ops .appointment-hub { overflow: hidden; }
+
+.hc-ops .appointment-hub-head {
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--dc-border);
+}
+
+.hc-ops .appointment-hub-head h2 {
+  margin: 5px 0 3px;
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+
+.hc-ops .appointment-hub-head p { margin: 0; color: var(--dc-muted); font-size: 12.5px; }
+
+.hc-ops .appointment-head-tools { display: flex; align-items: center; gap: 10px; }
+
+.hc-ops .view-switch {
+  display: flex;
+  padding: 4px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+}
+
+.hc-ops .view-switch button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-weight: 780;
+}
+
+.hc-ops .view-switch button.active {
+  background: var(--dc-card);
+  color: var(--dc-ink);
+  box-shadow: var(--hc-shadow-sm);
+}
+
+.hc-ops .live-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hc-ops .live-time i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dc-green);
+}
+
+.hc-ops .appointment-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  min-height: 560px;
+}
+
+.hc-ops .appointment-master {
+  min-width: 0;
+  border-right: 1px solid var(--dc-border);
+  background: var(--dc-card);
+}
+
+.hc-ops .appointment-master-tools {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--dc-border);
+  background: var(--hc-tint);
+}
+
+.hc-ops .segmented {
+  display: flex;
+  padding: 4px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+}
+
+.hc-ops .segmented button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-weight: 760;
+}
+
+.hc-ops .segmented button.active {
+  background: var(--dc-card);
+  color: var(--dc-ink);
+  box-shadow: var(--hc-shadow-sm);
+}
+
+.hc-ops .segmented em {
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--dc-surface3);
+  color: var(--dc-muted);
+  font-size: 9.5px;
+  font-style: normal;
+}
+
+.hc-ops .appointment-list-columns,
+.hc-ops .appointment-row-v2 {
+  display: grid;
+  grid-template-columns: 72px minmax(200px, 1.3fr) minmax(140px, 0.78fr) minmax(180px, 1fr) 66px;
+  align-items: center;
+  gap: 12px;
+}
+
+.hc-ops .appointment-list-columns {
+  min-height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--dc-border);
+  background: var(--hc-rail);
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hc-ops .appointment-scroll { max-height: 620px; overflow-y: auto; }
+
+.hc-ops .appointment-group-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--dc-border);
+  background: var(--hc-tint);
+  color: var(--dc-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops .appointment-group-label.current {
+  background: var(--hc-clinic-soft);
+  color: var(--hc-clinic-dark);
+}
+
+.hc-ops .appointment-group-label em {
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 99px;
+  background: var(--dc-card);
+  font-size: 9.5px;
+  font-style: normal;
+}
+
+.hc-ops .appointment-group-label small {
+  margin-left: auto;
+  color: var(--hc-teal);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.hc-ops .appointment-row-v2 {
+  position: relative;
+  width: 100%;
+  min-height: 66px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--dc-border);
+  background: var(--dc-card);
+  text-align: left;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.hc-ops .appointment-row-v2::before {
+  content: '';
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+}
+
+.hc-ops .appointment-row-v2:hover { background: var(--hc-tint); }
+
+.hc-ops .appointment-row-v2.selected {
+  z-index: 1;
+  background: var(--hc-clinic-soft);
+  box-shadow: inset -1px 0 var(--hc-clinic);
+}
+
+.hc-ops .appointment-row-v2.selected::before { background: var(--dc-orange); }
+
+.hc-ops .appointment-row-v2 > span { min-width: 0; }
+
+.hc-ops .appointment-time-v2 { display: grid; }
+
+.hc-ops .appointment-time-v2 strong {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 15px;
+}
+
+.hc-ops .appointment-time-v2 small { margin-top: 2px; color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops .appointment-person-v2 {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.hc-ops .appointment-person-v2 > span,
+.hc-ops .appointment-resource-v2 { min-width: 0; display: grid; }
+
+.hc-ops .appointment-person-v2 strong,
+.hc-ops .appointment-resource-v2 strong {
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .appointment-person-v2 small,
+.hc-ops .appointment-resource-v2 small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .appointment-person-v2 small i {
+  margin: 0 5px;
+  color: var(--dc-muted2);
+  font-style: normal;
+}
+
+.hc-ops .appointment-state-v2 { display: grid; justify-items: start; gap: 4px; }
+
+.hc-ops .state-label {
+  width: max-content;
+  max-width: 100%;
+  min-height: 25px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 99px;
+  color: var(--dc-muted);
+  background: var(--dc-surface2);
+  font-size: 10.5px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.hc-ops .state-label.blue { background: var(--hc-clinic); color: #fff; }
+.hc-ops.dark .state-label.blue { color: var(--hc-ink-surface); }
+.hc-ops .state-label.soft-blue { background: var(--hc-clinic-soft); color: var(--hc-clinic); }
+.hc-ops .state-label.teal { background: var(--hc-teal-soft); color: var(--hc-teal); }
+.hc-ops .state-label.green { background: var(--dc-green-bg); color: var(--dc-green); }
+.hc-ops .state-label.amber { background: var(--dc-amber-bg); color: var(--dc-amber); }
+.hc-ops .state-label.red { background: var(--dc-red-bg); color: var(--dc-red); }
+.hc-ops .state-label.neutral { background: var(--dc-surface2); color: var(--dc-muted); }
+
+.hc-ops .appointment-state-v2 > small {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--dc-green);
+  font-size: 10.5px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .appointment-state-v2 > small.has-missing { color: var(--dc-amber); }
+
+.hc-ops .appointment-open-v2 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--hc-clinic);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.hc-ops .appointment-empty {
+  padding: 46px 20px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--dc-muted);
+  text-align: center;
+}
+
+.hc-ops .appointment-empty strong { color: var(--dc-ink); font-size: 14px; }
+.hc-ops .appointment-empty p { margin: 0; font-size: 12.5px; max-width: 380px; }
+
+/* ── Randevu Merceği ─────────────────────────────────────────────────────── */
+.hc-ops .appointment-lens {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 92% 4%, rgba(49, 92, 121, 0.1), transparent 14rem),
+    var(--hc-lens);
+}
+
+.hc-ops .lens-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hc-ops .lens-head > div { display: grid; }
+
+.hc-ops .lens-head > div > strong {
+  margin-top: 5px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 20px;
+}
+
+.hc-ops .lens-patient {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--hc-clinic-line);
+  border-radius: 12px;
+  background: var(--dc-card);
+}
+
+.hc-ops .lens-patient > span { min-width: 0; display: grid; }
+
+.hc-ops .lens-patient strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .lens-patient small {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--dc-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .lens-patient button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: none;
+  color: var(--hc-clinic);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops .lens-identity { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.hc-ops .lens-identity article {
+  min-width: 0;
+  display: grid;
+  padding: 10px;
+  border: 1px solid var(--hc-clinic-line);
+  border-radius: 11px;
+  background: var(--dc-card);
+}
+
+.hc-ops .lens-identity > article > span,
+.hc-ops .lens-section-title span,
+.hc-ops .lens-continuity dt {
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  font-weight: 740;
+}
+
+.hc-ops .lens-identity strong {
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .lens-identity small {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .lens-readiness,
+.hc-ops .lens-continuity {
+  padding: 12px;
+  border: 1px solid var(--hc-clinic-line);
+  border-radius: 12px;
+  background: var(--dc-card);
+}
+
+.hc-ops .lens-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hc-ops .lens-section-title > div { display: grid; }
+.hc-ops .lens-section-title strong { margin-top: 3px; font-size: 12.5px; }
+
+.hc-ops .readiness-ring {
+  --ready: 80%;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--dc-card) 54%, transparent 56%),
+    conic-gradient(var(--hc-clinic) var(--ready), var(--dc-surface3) 0);
+  color: var(--hc-clinic);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops .lens-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.hc-ops .lens-checks span {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  font-weight: 740;
+}
+
+.hc-ops .lens-checks span.done { background: var(--dc-green-bg); color: var(--dc-green); }
+
+.hc-ops .lens-checks span.missing {
+  grid-column: 1 / -1;
+  border: 1px solid var(--dc-amber);
+  background: var(--dc-amber-bg);
+  color: var(--dc-amber);
+}
+
+.hc-ops .lens-clinical-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--hc-clinic-soft);
+  color: var(--hc-clinic);
+}
+
+.hc-ops .lens-clinical-note span { display: grid; font-size: 10px; }
+.hc-ops .lens-clinical-note strong { margin-bottom: 2px; font-size: 11px; }
+
+.hc-ops .lens-continuity > p {
+  margin: 9px 0;
+  padding: 8px;
+  border-left: 2px solid var(--dc-orange);
+  background: var(--dc-orange-soft);
+  color: var(--dc-ink70);
+  font-size: 10.5px;
+  font-weight: 740;
+}
+
+.hc-ops .lens-continuity dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 0;
+}
+
+.hc-ops .lens-continuity dl div { min-width: 0; display: grid; }
+
+.hc-ops .lens-continuity dd {
+  overflow: hidden;
+  margin: 3px 0 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .lens-ai {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid #272728;
+  border-radius: 12px;
+  background: var(--hc-ink-surface);
+  color: #fff;
+}
+
+.hc-ops .lens-ai-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--hc-ink-surface-2);
+  color: var(--dc-orange);
+}
+
+.hc-ops .lens-ai > div { min-width: 0; display: grid; }
+.hc-ops .lens-ai > div > span { color: var(--hc-ink-muted); font-size: 10px; font-weight: 740; }
+
+.hc-ops .lens-ai strong {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.hc-ops .lens-ai small { margin-top: 3px; color: #8b8a86; font-size: 9.5px; }
+
+.hc-ops .lens-ai button {
+  border: 0;
+  background: none;
+  color: #b9d1df;
+  font-size: 10px;
+  font-weight: 800;
+  align-self: start;
+}
+
+.hc-ops .lens-actions { display: grid; gap: 7px; margin-top: auto; }
+
+.hc-ops .lens-actions > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.hc-ops .lens-actions .button.compact { min-width: 0; padding: 0 7px; font-size: 11px; }
+
+.hc-ops .lens-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  color: var(--dc-muted);
+  text-align: center;
+}
+
+.hc-ops .lens-empty strong { color: var(--dc-ink); font-size: 14px; }
+.hc-ops .lens-empty p { margin: 0; font-size: 12px; }
+
+.hc-ops .appointment-hub-foot {
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border-top: 1px solid var(--dc-border);
+  background: var(--hc-tint);
+  color: var(--dc-muted);
+  font-size: 11px;
+}
+
+.hc-ops .appointment-hub-foot span,
+.hc-ops .appointment-hub-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hc-ops .appointment-hub-foot button {
+  border: 0;
+  background: none;
+  color: var(--hc-clinic);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ── Hekim akışı ─────────────────────────────────────────────────────────── */
+.hc-ops .doctor-flow {
+  position: relative;
+  min-height: 480px;
+  padding: 12px 14px 18px;
+  background: var(--dc-card);
+}
+
+.hc-ops .doctor-flow-row {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  min-height: 120px;
+  padding: 10px 0;
+  border-top: 1px solid var(--dc-border);
+}
+
+.hc-ops .doctor-flow-row:first-child { border-top: 0; }
+
+.hc-ops .doctor-flow-person {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px 0 0;
+}
+
+.hc-ops .doctor-flow-person > span { min-width: 0; display: grid; }
+.hc-ops .doctor-flow-person strong { font-size: 12px; }
+.hc-ops .doctor-flow-person small { margin-top: 3px; color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops .doctor-flow-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-content: start;
+  gap: 8px;
+}
+
+.hc-ops .doctor-flow-card {
+  min-height: 72px;
+  display: grid;
+  align-content: start;
+  padding: 9px;
+  border: 1px solid var(--dc-border);
+  border-radius: 10px;
+  background: var(--dc-card);
+  text-align: left;
+}
+
+.hc-ops .doctor-flow-card.selected {
+  border-color: var(--hc-clinic);
+  box-shadow: inset 3px 0 var(--dc-orange), 0 5px 16px rgba(49, 92, 121, 0.1);
+}
+
+.hc-ops .doctor-flow-card time {
+  color: var(--hc-clinic);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops .doctor-flow-card strong {
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .doctor-flow-card small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .doctor-flow-empty {
+  grid-column: 1 / -1;
+  padding: 14px 4px;
+  color: var(--dc-muted);
+  font-size: 11.5px;
+}
+
+.hc-ops .doctor-flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-left: 118px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dc-border);
+  color: var(--dc-muted);
+  font-size: 10.5px;
+}
+
+.hc-ops .doctor-flow-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ── Takip Defteri ───────────────────────────────────────────────────────── */
+.hc-ops .followup-book { padding: 20px 22px; }
+
+.hc-ops .section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.hc-ops .section-head h2 { margin: 5px 0 3px; font-size: 22px; letter-spacing: -0.04em; }
+.hc-ops .section-head p { margin: 0; color: var(--dc-muted); font-size: 12.5px; }
+
+.hc-ops .followup-head-actions { display: flex; align-items: center; gap: 10px; }
+
+.hc-ops .count-badge {
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 99px;
+  background: var(--dc-orange-soft);
+  color: var(--dc-orange);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops .followup-columns,
+.hc-ops .followup-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(160px, 1fr) 110px 96px 132px;
+  align-items: center;
+  gap: 12px;
+}
+
+.hc-ops .followup-columns {
+  min-height: 32px;
+  margin-top: 16px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--dc-border);
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hc-ops .followup-row {
+  min-height: 58px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--dc-border);
+}
+
+.hc-ops .followup-patient,
+.hc-ops .followup-reason {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.hc-ops .followup-patient strong,
+.hc-ops .followup-reason strong,
+.hc-ops .followup-last,
+.hc-ops .followup-owner {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .followup-last,
+.hc-ops .followup-owner,
+.hc-ops .followup-row time {
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.hc-ops .followup-row time { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+.hc-ops .followup-row > button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 9px;
+  background: var(--dc-card);
+  color: var(--hc-clinic);
+  font-size: 11.5px;
+  font-weight: 780;
+}
+
+.hc-ops .followup-empty {
+  margin-top: 16px;
+  padding: 30px 16px;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  border: 1px dashed var(--dc-border2);
+  border-radius: 14px;
+  color: var(--dc-muted);
+  text-align: center;
+}
+
+.hc-ops .followup-empty strong { color: var(--dc-ink); font-size: 14px; }
+.hc-ops .followup-empty p { margin: 0; font-size: 12.5px; max-width: 460px; }
+
+.hc-ops .privacy-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-muted);
+  font-size: 11px;
+}
+
+/* ── Akış Kaçakları ──────────────────────────────────────────────────────── */
+.hc-ops .operations-strip {
+  display: grid;
+  grid-template-columns: 190px repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 22px;
+  position: relative;
+}
+
+.hc-ops .operation-lead { display: flex; align-items: center; gap: 11px; }
+
+.hc-ops .operation-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--hc-teal-soft);
+  color: var(--hc-teal);
+}
+
+.hc-ops .operation-lead strong { display: block; margin-top: 3px; font-size: 13px; }
+
+.hc-ops .operations-strip > button {
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--dc-border);
+  border-radius: 12px;
+  background: var(--hc-tint);
+  text-align: left;
+}
+
+.hc-ops .operations-strip > button > span { min-width: 0; display: grid; }
+
+.hc-ops .operations-strip > button strong,
+.hc-ops .operations-strip > button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops .operations-strip > button strong { font-size: 12.5px; }
+.hc-ops .operations-strip > button small { margin-top: 3px; color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops .operations-strip > p {
+  position: absolute;
+  right: 18px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--dc-muted);
+  font-size: 10px;
+}
+
+/* ── Drawer / Modal katmanı ──────────────────────────────────────────────── */
+.hc-ops-layer {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  background: rgba(14, 14, 14, 0.45);
+  backdrop-filter: blur(5px);
+  color: var(--dc-ink);
+  --hc-clinic: #315c79;
+  --hc-clinic-dark: #24485e;
+  --hc-clinic-soft: #eaf1f5;
+  --hc-clinic-line: #d4e0e7;
+  --hc-teal: #2a7b72;
+  --hc-teal-soft: #e4f1ee;
+  --hc-tint: #fcfaf7;
+  --hc-ink-surface: #101112;
+  --hc-ink-surface-2: #1d1e20;
+  --hc-ink-muted: #a8a6a2;
+}
+
+.hc-ops-layer.dark {
+  --hc-clinic: #8fb8d4;
+  --hc-clinic-dark: #a9cbe2;
+  --hc-clinic-soft: rgba(143, 184, 212, 0.14);
+  --hc-clinic-line: rgba(143, 184, 212, 0.26);
+  --hc-teal: #6fc4b6;
+  --hc-teal-soft: rgba(111, 196, 182, 0.14);
+  --hc-tint: var(--dc-surface2);
+}
+
+.hc-ops-layer button { cursor: pointer; font: inherit; }
+.hc-ops-layer button:disabled { cursor: not-allowed; opacity: 0.45; }
+.hc-ops-layer button:focus-visible,
+.hc-ops-layer input:focus-visible,
+.hc-ops-layer select:focus-visible {
+  outline: 3px solid rgba(255, 90, 31, 0.32);
+  outline-offset: 2px;
+}
+
+.hc-ops-layer.drawer { display: flex; justify-content: flex-end; }
+
+.hc-ops-layer .booking-drawer {
+  width: min(900px, 96vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid var(--dc-border);
+  background: var(--dc-surface);
+  animation: hc-drawer-in 200ms ease both;
+}
+
+@keyframes hc-drawer-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.hc-ops-layer .drawer-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 42px;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px 15px;
+  border-bottom: 1px solid var(--dc-border);
+}
+
+.hc-ops-layer .drawer-head h2 { margin: 5px 0 3px; font-size: 22px; letter-spacing: -0.04em; }
+.hc-ops-layer .drawer-head p { margin: 0; color: var(--dc-muted); font-size: 12px; }
+
+.hc-ops-layer .eyebrow {
+  display: block;
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hc-ops-layer .composer-head-progress { display: flex; align-items: center; gap: 6px; }
+
+.hc-ops-layer .composer-head-progress span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 99px;
+  background: var(--dc-surface2);
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.hc-ops-layer .composer-head-progress span.active { background: var(--dc-orange-soft); color: var(--dc-orange); }
+.hc-ops-layer .composer-head-progress span.done { background: var(--dc-green-bg); color: var(--dc-green); }
+.hc-ops-layer .composer-head-progress i { width: 16px; height: 1px; background: var(--dc-border2); }
+
+.hc-ops-layer .booking-form {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hc-ops-layer .booking-step {
+  padding: 14px;
+  border: 1px solid var(--dc-border);
+  border-radius: 14px;
+  background: var(--dc-card);
+}
+
+.hc-ops-layer .booking-step.disabled { opacity: 0.5; }
+
+.hc-ops-layer .step-title {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.hc-ops-layer .step-title > span:first-child {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--dc-inkbox);
+  color: var(--dc-inkbox-fg);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hc-ops-layer .step-title div { min-width: 0; display: grid; }
+.hc-ops-layer .step-title strong { font-size: 13px; }
+.hc-ops-layer .step-title small { margin-top: 2px; color: var(--dc-muted); font-size: 11px; }
+.hc-ops-layer .step-title > svg { color: var(--dc-green); }
+
+.hc-ops-layer .input-shell {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 11px;
+  padding: 0 12px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-muted);
+}
+
+.hc-ops-layer .input-shell:focus-within { border-color: var(--dc-orange); background: var(--dc-surface); }
+
+.hc-ops-layer .input-shell input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--dc-ink);
+  font-size: 13.5px;
+}
+
+.hc-ops-layer .patient-options-label {
+  display: block;
+  margin: 11px 0 5px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hc-ops-layer .patient-options { display: grid; gap: 6px; max-height: 230px; overflow-y: auto; }
+
+.hc-ops-layer .patient-options button,
+.hc-ops-layer .doctor-options button,
+.hc-ops-layer .modal-list button {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  text-align: left;
+}
+
+.hc-ops-layer .patient-options button:hover,
+.hc-ops-layer .doctor-options button:hover,
+.hc-ops-layer .modal-list button:hover { border-color: var(--hc-clinic); }
+
+.hc-ops-layer .doctor-options button.active,
+.hc-ops-layer .visit-types button.active,
+.hc-ops-layer .slot-options button.active {
+  border-color: var(--dc-ink);
+  background: var(--dc-card);
+  box-shadow: 0 0 0 1.5px var(--dc-ink);
+}
+
+.hc-ops-layer .patient-options button > span,
+.hc-ops-layer .doctor-options button > span,
+.hc-ops-layer .modal-list button > span { min-width: 0; display: grid; }
+
+.hc-ops-layer .patient-options strong,
+.hc-ops-layer .doctor-options strong,
+.hc-ops-layer .modal-list strong {
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops-layer .patient-options small,
+.hc-ops-layer .doctor-options small,
+.hc-ops-layer .modal-list small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops-layer .new-patient-button,
+.hc-ops-layer .all-slots {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--dc-border2);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--dc-muted);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.hc-ops-layer .new-patient-fields { display: grid; gap: 10px; margin-top: 11px; }
+
+.hc-ops-layer .new-patient-fields label,
+.hc-ops-layer .walkin-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-weight: 760;
+}
+
+.hc-ops-layer .new-patient-fields input,
+.hc-ops-layer .walkin-form select,
+.hc-ops-layer .walkin-form input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.hc-ops-layer .duplicate-note,
+.hc-ops-layer .clinical-boundary,
+.hc-ops-layer .authorized-note,
+.hc-ops-layer .clinical-warning,
+.hc-ops-layer .conflict-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px;
+  border-radius: 11px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.hc-ops-layer .duplicate-note,
+.hc-ops-layer .clinical-boundary,
+.hc-ops-layer .authorized-note { background: var(--hc-clinic-soft); color: var(--hc-clinic-dark); }
+.hc-ops-layer .clinical-warning { background: var(--dc-amber-bg); color: var(--dc-amber); }
+.hc-ops-layer .conflict-note { background: var(--dc-red-bg); color: var(--dc-red); }
+
+.hc-ops-layer .clinical-boundary span,
+.hc-ops-layer .authorized-note span,
+.hc-ops-layer .clinical-warning span,
+.hc-ops-layer .conflict-note span { display: grid; }
+
+.hc-ops-layer .clinical-boundary strong,
+.hc-ops-layer .authorized-note strong,
+.hc-ops-layer .clinical-warning strong,
+.hc-ops-layer .conflict-note strong { margin-bottom: 3px; font-size: 12px; }
+
+.hc-ops-layer .selected-booking-patient {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+  padding: 11px;
+  border: 1px solid var(--hc-clinic-line);
+  border-radius: 12px;
+  background: var(--hc-clinic-soft);
+}
+
+.hc-ops-layer .selected-booking-patient > span { min-width: 0; display: grid; }
+.hc-ops-layer .selected-booking-patient strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.hc-ops-layer .selected-booking-patient small { margin-top: 2px; color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops-layer .selected-booking-patient > button {
+  border: 1px solid var(--dc-border2);
+  border-radius: 9px;
+  min-height: 32px;
+  padding: 0 10px;
+  background: var(--dc-card);
+  color: var(--dc-ink);
+  font-size: 11.5px;
+  font-weight: 760;
+}
+
+.hc-ops-layer .selected-booking-patient p {
+  grid-column: 1 / -1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  border-radius: 9px;
+  background: var(--dc-amber-bg);
+  color: var(--dc-amber);
+  font-size: 11px;
+  font-weight: 740;
+}
+
+.hc-ops-layer .visit-types {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.hc-ops-layer .visit-types button {
+  min-height: 56px;
+  display: grid;
+  place-content: center;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  text-align: center;
+}
+
+.hc-ops-layer .visit-types button span { font-size: 11.5px; font-weight: 760; }
+.hc-ops-layer .visit-types button small { color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops-layer .hc-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.hc-ops-layer .date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 7px;
+}
+
+.hc-ops-layer .doctor-options { display: grid; gap: 7px; margin-top: 10px; }
+.hc-ops-layer .doctor-options.disabled { opacity: 0.5; pointer-events: none; }
+
+.hc-ops-layer .slot-options { display: grid; gap: 7px; margin-top: 11px; }
+
+.hc-ops-layer .slot-options button {
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  text-align: left;
+}
+
+.hc-ops-layer .slot-options button > span { display: grid; }
+.hc-ops-layer .slot-options button strong { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13.5px; }
+.hc-ops-layer .slot-options button small { margin-top: 2px; color: var(--hc-clinic); font-size: 10.5px; font-weight: 760; }
+.hc-ops-layer .slot-options button em { color: var(--dc-muted); font-size: 11px; font-style: normal; }
+.hc-ops-layer .slot-options button > svg { color: var(--dc-green); }
+
+.hc-ops-layer .slot-empty {
+  margin: 11px 0 0;
+  padding: 16px 12px;
+  border: 1px dashed var(--dc-border2);
+  border-radius: 11px;
+  color: var(--dc-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.hc-ops-layer .booking-summary {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) minmax(200px, 1.2fr) minmax(160px, 0.9fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--hc-clinic-line);
+  border-radius: 14px;
+  background: var(--dc-card);
+  box-shadow: 0 -10px 24px rgba(68, 58, 44, 0.1);
+}
+
+.hc-ops-layer .booking-summary.incomplete { border-color: var(--dc-border); background: var(--dc-surface2); }
+
+.hc-ops-layer .booking-summary-person,
+.hc-ops-layer .booking-summary-when > span { min-width: 0; display: grid; }
+
+.hc-ops-layer .booking-summary-person strong,
+.hc-ops-layer .booking-summary-when strong {
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops-layer .booking-summary-person small,
+.hc-ops-layer .booking-summary-when small {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-ops-layer .booking-summary-when {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-left: 11px;
+  border-left: 1px solid var(--hc-clinic-line);
+  color: var(--hc-clinic);
+}
+
+.hc-ops-layer .booking-summary-confirm { display: grid; gap: 4px; }
+
+.hc-ops-layer .booking-summary-confirm span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--hc-clinic-dark);
+  font-size: 10.5px;
+  font-weight: 740;
+}
+
+.hc-ops-layer .booking-summary > button { min-height: 46px; white-space: nowrap; }
+
+.hc-ops-layer .booking-summary > p {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin: -3px 0 0;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.hc-ops-layer.modal { display: grid; place-items: center; padding: 24px; }
+
+.hc-ops-layer .modal-card {
+  width: min(540px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid var(--dc-border);
+  border-radius: 18px;
+  background: var(--dc-card);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
+  animation: hc-modal-in 180ms ease both;
+}
+
+@keyframes hc-modal-in {
+  from { opacity: 0; transform: translateY(9px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hc-ops-layer .modal-head {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  border-bottom: 1px solid var(--dc-border);
+}
+
+.hc-ops-layer .modal-head h2 { margin: 5px 0 0; font-size: 22px; letter-spacing: -0.04em; }
+
+.hc-ops-layer .modal-list { display: grid; gap: 7px; }
+.hc-ops-layer .modal-list em {
+  color: var(--dc-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+.hc-ops-layer .walkin-form { display: grid; gap: 13px; }
+
+.hc-ops-layer .modal-empty {
+  margin: 0;
+  padding: 24px 10px;
+  color: var(--dc-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.hc-ops-layer .notification-list { display: grid; gap: 7px; }
+
+.hc-ops-layer .notification-list p {
+  min-height: 56px;
+  margin: 0;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+}
+
+.hc-ops-layer .notification-list .dot {
+  grid-row: 1 / 3;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.hc-ops-layer .notification-list .dot.red { background: var(--dc-red); }
+.hc-ops-layer .notification-list .dot.amber { background: var(--dc-amber); }
+.hc-ops-layer .notification-list .dot.blue { background: var(--hc-clinic); }
+.hc-ops-layer .notification-list strong { display: block; font-size: 12.5px; }
+.hc-ops-layer .notification-list small { display: block; color: var(--dc-muted); font-size: 10.5px; }
+
+.hc-ops-layer .patient-modal { display: grid; gap: 13px; }
+
+.hc-ops-layer .patient-modal-head {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.hc-ops-layer .patient-modal-head > span:not(.identity-chip) { min-width: 0; display: grid; }
+.hc-ops-layer .patient-modal-head strong { font-size: 14px; }
+.hc-ops-layer .patient-modal-head small { margin-top: 2px; color: var(--dc-muted); font-size: 11px; }
+
+.hc-ops-layer .identity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 99px;
+  background: var(--dc-green-bg);
+  color: var(--dc-green);
+  font-size: 10.5px;
+  font-weight: 780;
+}
+
+.hc-ops-layer .patient-modal dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.hc-ops-layer .patient-modal dl div {
+  padding: 11px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-surface2);
+}
+
+.hc-ops-layer .patient-modal dt { color: var(--dc-muted); font-size: 10.5px; }
+.hc-ops-layer .patient-modal dd { margin: 4px 0 0; font-size: 12.5px; font-weight: 760; }
+
+.hc-ops-layer .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── Duyarlı yerleşim ────────────────────────────────────────────────────── */
+@media (max-width: 1400px) {
+  .hc-ops .clinic-pulse { grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr); }
+  .hc-ops .pulse-actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .hc-ops .appointment-workbench { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+
+@media (max-width: 1180px) {
+  /* Beş kutucuk tek satırda kırpılmasın — üçe sar */
+  .hc-ops .pulse-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hc-ops .pulse-stages article:nth-child(3n + 1) { border-left: 0; }
+  .hc-ops .pulse-stages article:nth-child(n + 4) { border-top: 1px solid var(--dc-border); }
+  .hc-ops .appointment-workbench { grid-template-columns: 1fr; }
+  .hc-ops .appointment-master { border-right: 0; border-bottom: 1px solid var(--dc-border); }
+  .hc-ops .appointment-scroll { max-height: none; }
+  .hc-ops .ai-command-strip { grid-template-columns: 1fr; gap: 12px; padding-bottom: 22px; }
+  .hc-ops .operations-strip { grid-template-columns: 1fr 1fr; }
+  .hc-ops .operation-lead { grid-column: 1 / -1; }
+  .hc-ops-layer .booking-summary { grid-template-columns: 1fr 1fr; }
+  .hc-ops-layer .booking-summary > button { grid-column: 1 / -1; }
+}
+
+@media (max-width: 1024px) {
+  /* Satırlar okunaklı kartlara döner — yatay tablo mobilde ezilmesin */
+  .hc-ops .appointment-list-columns { display: none; }
+  .hc-ops .appointment-row-v2 {
+    grid-template-columns: 78px minmax(0, 1fr);
+    grid-template-areas:
+      'time person'
+      'time resource'
+      'state state';
+    row-gap: 7px;
+    padding: 12px 14px;
+  }
+  .hc-ops .appointment-time-v2 { grid-area: time; }
+  .hc-ops .appointment-person-v2 { grid-area: person; }
+  .hc-ops .appointment-resource-v2 { grid-area: resource; padding-left: 45px; }
+  .hc-ops .appointment-state-v2 {
+    grid-area: state;
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 10px;
+  }
+  .hc-ops .appointment-open-v2 { display: none; }
+  .hc-ops .followup-columns { display: none; }
+  .hc-ops .followup-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'patient action'
+      'reason action'
+      'meta meta';
+    row-gap: 6px;
+    padding: 12px 10px;
+  }
+  .hc-ops .followup-patient { grid-area: patient; }
+  .hc-ops .followup-reason { grid-area: reason; }
+  .hc-ops .followup-last { grid-area: meta; }
+  .hc-ops .followup-owner,
+  .hc-ops .followup-row time { display: none; }
+  .hc-ops .followup-row > button { grid-area: action; }
+}
+
+@media (max-width: 900px) {
+  .hc-ops .dashboard { width: calc(100% - 24px); padding: 12px 0 32px; }
+  .hc-ops .clinic-pulse { grid-template-columns: 1fr; padding: 18px; }
+  .hc-ops .pulse-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hc-ops .pulse-stages article:nth-child(odd) { border-left: 0; }
+  .hc-ops .pulse-stages article:nth-child(n + 3) { border-top: 1px solid var(--dc-border); }
+  .hc-ops .pulse-actions { grid-column: auto; }
+  .hc-ops .command-bar { flex-wrap: wrap; }
+  .hc-ops .global-search { order: -1; width: 100%; flex-basis: 100%; }
+  .hc-ops .appointment-hub-head { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .hc-ops .operations-strip { grid-template-columns: 1fr; }
+  .hc-ops .doctor-flow-legend { margin-left: 0; }
+  .hc-ops .doctor-flow-row { grid-template-columns: 1fr; }
+  .hc-ops-layer.drawer { align-items: flex-end; }
+  .hc-ops-layer .booking-drawer { width: 100%; height: 94%; border-radius: 18px 18px 0 0; }
+  .hc-ops-layer .drawer-head { grid-template-columns: minmax(0, 1fr) 42px; }
+  .hc-ops-layer .composer-head-progress { grid-column: 1 / -1; }
+  .hc-ops-layer .visit-types { grid-template-columns: 1fr 1fr; }
+  .hc-ops-layer .booking-summary { grid-template-columns: 1fr; }
+  .hc-ops-layer .patient-modal dl,
+  .hc-ops-layer .modal-actions { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-ops *,
+  .hc-ops *::before,
+  .hc-ops *::after,
+  .hc-ops-layer *,
+  .hc-ops-layer *::before,
+  .hc-ops-layer *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

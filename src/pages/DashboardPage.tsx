@@ -16,6 +16,10 @@ import { DisDashboard } from '@/components/dashboard/DisDashboard';
 import { DovmeDashboard } from '@/components/dashboard/DovmeDashboard';
 import { GuzellikDashboard } from '@/components/dashboard/GuzellikDashboard';
 import { KuaforDashboard } from '@/components/dashboard/KuaforDashboard';
+import { BerberDashboard } from '@/components/dashboard/BerberDashboard';
+import { EstetikDashboard } from '@/components/dashboard/EstetikDashboard';
+import { FizyoterapiDashboard } from '@/components/dashboard/FizyoterapiDashboard';
+import { HealthClinicDashboard } from '@/components/dashboard/HealthClinicDashboard';
 import { useModules } from '@/hooks/useModules';
 import { profileForSector } from '@/lib/sectorProfiles';
 import type { Reservation } from '@/types';
@@ -37,6 +41,10 @@ const DASHBOARD_FACES: Record<string, React.ComponentType> = {
     dovmeFace: DovmeDashboard,
     guzellikFace: GuzellikDashboard,
     kuaforFace: KuaforDashboard,
+    berberFace: BerberDashboard,
+    estetikFace: EstetikDashboard,
+    fizyoterapiFace: FizyoterapiDashboard,
+    saglikFace: HealthClinicDashboard,
 };
 
 export const DashboardPage = () => {
