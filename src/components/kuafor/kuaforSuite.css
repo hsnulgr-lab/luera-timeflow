@@ -28,11 +28,21 @@
   box-sizing: border-box;
 }
 
+/* Form öğelerinde `font: inherit` kısayolu kullanılmaz: seçici gücü (.ks-shell
+   button) bileşenin kendi .ks-btn kuralından yüksek olduğu için buton yazı
+   boyutunu eziyor ve sayfa tabanını miras alıyordu. Aile/ağırlık miras alınır,
+   boyut kabuğun tabanından ya da bileşenin kendi kuralından gelir. */
+.ks-shell {
+  font-size: 13px;
+}
+
 .ks-shell button,
 .ks-shell input,
 .ks-shell select,
 .ks-shell textarea {
-  font: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 .ks-shell button,
@@ -148,16 +158,16 @@
   align-items: center;
   gap: 6px;
   color: var(--dc-muted);
-  font: 760 10.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 760 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.13em;
 }
 
 .ks-head-copy h1 {
-  margin: 5px 0 3px;
-  font-size: clamp(23px, 2.15vw, 34px);
-  line-height: 1.04;
-  letter-spacing: -0.048em;
-  font-weight: 820;
+  margin: 4px 0 2px;
+  font-size: 21px;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  font-weight: 800;
 }
 
 .ks-head-copy h1 em {
@@ -191,7 +201,7 @@
   gap: 7px;
   border: 1px solid var(--dc-border2);
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 790;
   text-decoration: none;
   transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
@@ -253,7 +263,7 @@
   place-items: center;
   color: #fff;
   background: var(--dc-orange);
-  font: 800 10px ui-monospace, monospace;
+  font: 800 11px ui-monospace, monospace;
 }
 
 /* Shared live metrics */
@@ -315,23 +325,23 @@
 .ks-metric-strip small {
   grid-column: 1 / -1;
   color: var(--dc-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 720;
 }
 
 .ks-metric-strip strong {
-  font: 850 25px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 850 21px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.06em;
 }
 
 .ks-metric-strip strong.money {
-  font-size: clamp(17px, 1.45vw, 22px);
+  font-size: 21px;
 }
 
 .ks-metric-strip em {
   overflow: hidden;
   color: var(--dc-muted2);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-style: normal;
   font-weight: 680;
   text-overflow: ellipsis;
@@ -389,7 +399,7 @@
 .ks-date-nav > div span {
   display: block;
   color: var(--dc-orange-d);
-  font: 760 9px ui-monospace, monospace;
+  font: 760 10.5px ui-monospace, monospace;
   letter-spacing: .13em;
 }
 
@@ -409,7 +419,7 @@
   border-radius: 999px;
   color: var(--dc-muted);
   background: transparent;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 740;
 }
 
@@ -438,7 +448,7 @@
   border-radius: 999px;
   color: var(--dc-muted);
   background: transparent;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 740;
   transition: .18s ease;
 }
@@ -467,7 +477,7 @@
   outline: 0;
   color: var(--dc-ink);
   background: transparent;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 720;
 }
 
@@ -494,7 +504,7 @@
   color: var(--dc-muted2);
   text-align: center;
   writing-mode: initial;
-  font: 760 7.5px ui-monospace, monospace;
+  font: 760 11px ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -523,13 +533,13 @@
 }
 
 .ks-week-rail button small {
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 740;
   text-transform: uppercase;
 }
 
 .ks-week-rail button strong {
-  font: 850 17px/1 ui-monospace, monospace;
+  font: 850 16px/1 ui-monospace, monospace;
 }
 
 .ks-week-rail button em {
@@ -543,7 +553,7 @@
   border-radius: 99px;
   color: var(--dc-ink);
   background: var(--dc-surface3);
-  font: 760 8px ui-monospace, monospace;
+  font: 760 10px ui-monospace, monospace;
 }
 
 .ks-week-rail button.active em {
@@ -583,13 +593,13 @@
 
 .ks-closed-banner b {
   color: var(--dc-ink);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 .ks-closed-banner small {
   margin-top: 2px;
   color: var(--dc-muted);
-  font-size: 8.5px;
+  font-size: 10.5px;
 }
 
 .ks-timeline-card.is-closed .ks-lane {
@@ -649,14 +659,14 @@
 }
 
 .ks-lane-head strong {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 780;
 }
 
 .ks-lane-head small {
   margin-top: 2px;
   color: var(--dc-muted);
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .ks-timeline-scroll {
@@ -682,7 +692,7 @@
   display: block;
   border-bottom: 1px solid var(--dc-border);
   text-align: right;
-  font: 720 9.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 720 11px ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .ks-lanes {
@@ -752,7 +762,7 @@
 .ks-appointment .ks-appt-time {
   display: block;
   color: var(--dc-muted);
-  font: 760 8.5px ui-monospace, monospace;
+  font: 760 10.5px ui-monospace, monospace;
 }
 
 .ks-appointment strong,
@@ -767,19 +777,19 @@
 
 .ks-appointment strong {
   padding-right: 8px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.22;
 }
 
 .ks-appointment small {
   color: var(--dc-muted);
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .ks-appointment em {
   margin-top: 4px;
   color: var(--dc-muted2);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-style: normal;
   font-weight: 650;
 }
@@ -792,7 +802,7 @@
   border-radius: 5px;
   color: var(--dc-purple);
   background: var(--dc-purple-bg);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .ks-appointment.color-service {
@@ -839,7 +849,7 @@
   border-radius: 4px;
   color: #fff;
   background: var(--dc-orange);
-  font: 760 7.5px ui-monospace, monospace;
+  font: 760 10px ui-monospace, monospace;
 }
 
 .ks-timeline-hint {
@@ -851,7 +861,7 @@
   border-top: 1px solid var(--dc-border);
   color: var(--dc-muted2);
   background: var(--dc-surface2);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -892,7 +902,7 @@
 
 .ks-day-insight header small {
   color: var(--dc-onbox-50);
-  font: 740 8.5px ui-monospace, monospace;
+  font: 740 10.5px ui-monospace, monospace;
   letter-spacing: .13em;
 }
 
@@ -921,13 +931,13 @@
 }
 
 .ks-capacity-ring b {
-  font: 850 25px/1 ui-monospace, monospace;
+  font: 850 21px/1 ui-monospace, monospace;
 }
 
 .ks-capacity-ring small {
   margin-top: 4px;
   color: var(--dc-onbox-50);
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .ks-free-list {
@@ -939,7 +949,7 @@
 .ks-free-list > span {
   margin-bottom: 2px;
   color: var(--dc-onbox-50);
-  font: 730 8.5px ui-monospace, monospace;
+  font: 730 10.5px ui-monospace, monospace;
   letter-spacing: .11em;
 }
 
@@ -967,19 +977,19 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 .ks-free-list button em {
   color: var(--dc-onbox-50);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-style: normal;
 }
 
 .ks-free-list p {
   margin: 0;
   color: var(--dc-onbox-50);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.5;
 }
 
@@ -1015,14 +1025,14 @@
   display: block;
 }
 
-.ks-waitlist-note b { font-size: 10.5px; }
-.ks-waitlist-note small { color: var(--dc-onbox-50); font-size: 8.5px; }
+.ks-waitlist-note b { font-size: 11.5px; }
+.ks-waitlist-note small { color: var(--dc-onbox-50); font-size: 10.5px; }
 
 .ks-waitlist-note button {
   border: 0;
   color: var(--dc-orange);
   background: transparent;
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 760;
 }
 
@@ -1086,7 +1096,7 @@
 .ks-modal > header small {
   display: block;
   color: var(--dc-orange-d);
-  font: 740 8.5px ui-monospace, monospace;
+  font: 740 10.5px ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -1099,7 +1109,7 @@
 .ks-modal > header p {
   margin: 0;
   color: var(--dc-muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 .ks-modal > header > button,
@@ -1133,7 +1143,7 @@
   align-items: center;
   gap: 5px;
   color: var(--dc-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 760;
 }
 
@@ -1148,7 +1158,7 @@
   outline: 0;
   color: var(--dc-ink);
   background: var(--dc-card);
-  font-size: 12.5px;
+  font-size: 13px;
   transition: .18s ease;
 }
 
@@ -1200,7 +1210,7 @@
   gap: 5px;
   color: var(--dc-muted2);
   background: var(--dc-surface);
-  font: 740 9px ui-monospace, monospace;
+  font: 740 10.5px ui-monospace, monospace;
   letter-spacing: .11em;
 }
 
@@ -1236,9 +1246,9 @@
 }
 
 .ks-booking-summary strong,
-.ks-form-alert b { font-size: 11.5px; }
+.ks-form-alert b { font-size: 12.5px; }
 .ks-booking-summary small,
-.ks-form-alert small { margin-top: 2px; opacity: .78; font-size: 9.5px; }
+.ks-form-alert small { margin-top: 2px; opacity: .78; font-size: 11px; }
 
 .ks-modal > footer {
   padding: 12px 20px 16px;
@@ -1248,6 +1258,651 @@
   gap: 8px;
   border-top: 1px solid var(--dc-border);
   background: var(--dc-card);
+}
+
+/* Yeni salon randevusu · modalın diğer ortak kullanımlarına dokunmaz. */
+
+.ks-appointment-modal-layer {
+  background:
+    radial-gradient(circle at 72% 18%, color-mix(in srgb, var(--dc-orange) 10%, transparent), transparent 31%),
+    rgba(14, 14, 14, .54);
+  backdrop-filter: blur(9px) saturate(.88);
+}
+
+.ks-appointment-modal {
+  width: min(860px, calc(100vw - 36px));
+  max-height: min(860px, calc(100dvh - 36px));
+  position: relative;
+  isolation: isolate;
+  border-color: color-mix(in srgb, var(--dc-orange) 13%, var(--dc-border2));
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--dc-surface) 96%, var(--dc-orange-soft));
+  box-shadow:
+    0 34px 100px rgba(14, 14, 14, .28),
+    0 1px 0 color-mix(in srgb, white 54%, transparent) inset;
+}
+
+.ks-appointment-modal::before {
+  content: "";
+  width: 220px;
+  height: 220px;
+  position: absolute;
+  z-index: -1;
+  right: -96px;
+  top: -120px;
+  border: 36px solid color-mix(in srgb, var(--dc-orange) 6%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ks-appointment-modal > .ks-appointment-modal-head {
+  min-height: 102px;
+  padding: 19px 22px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 13px;
+  background:
+    linear-gradient(116deg, color-mix(in srgb, var(--dc-card) 96%, var(--dc-orange-soft)), var(--dc-card)),
+    var(--dc-card);
+}
+
+.ks-appointment-modal > .ks-appointment-modal-head > .ks-appointment-mark {
+  width: 48px;
+  height: 48px;
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--dc-orange) 18%, transparent);
+  border-radius: 16px;
+  color: var(--dc-orange);
+  background:
+    radial-gradient(circle at 25% 20%, rgba(255, 255, 255, .78), transparent 42%),
+    var(--dc-orange-soft);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--dc-orange) 13%, transparent);
+}
+
+.ks-appointment-mark::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  border: 2px solid var(--dc-card);
+  border-radius: 50%;
+  background: var(--dc-green);
+  box-shadow: 0 0 0 4px var(--dc-green-bg);
+  animation: ks-live 2.4s ease-in-out infinite;
+}
+
+.ks-appointment-title {
+  min-width: 0;
+}
+
+.ks-appointment-modal > header .ks-appointment-title small {
+  font-size: 10.5px;
+  letter-spacing: .16em;
+}
+
+.ks-appointment-modal > header .ks-appointment-title h2 {
+  margin: 3px 0 2px;
+  font-size: 18px;
+  font-weight: 820;
+  letter-spacing: -.035em;
+}
+
+.ks-appointment-modal > header .ks-appointment-title p {
+  font-size: 11px;
+}
+
+.ks-appointment-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ks-appointment-date-pill {
+  min-height: 48px;
+  padding: 7px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--dc-border);
+  border-radius: 14px;
+  color: var(--dc-muted);
+  background: color-mix(in srgb, var(--dc-surface) 76%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset;
+}
+
+.ks-appointment-date-pill > svg {
+  color: var(--dc-orange);
+}
+
+.ks-appointment-date-pill > span,
+.ks-appointment-date-pill b,
+.ks-appointment-date-pill small {
+  display: block;
+}
+
+.ks-appointment-date-pill b {
+  color: var(--dc-ink);
+  font-size: 11px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.ks-appointment-modal > header .ks-appointment-date-pill small {
+  margin-top: 1px;
+  color: var(--dc-muted);
+  font: 720 10.5px ui-monospace, monospace;
+  letter-spacing: .04em;
+}
+
+.ks-appointment-close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dc-border);
+  border-radius: 12px;
+  color: var(--dc-muted);
+  background: var(--dc-card);
+  transition: transform .18s ease, color .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.ks-appointment-close:hover {
+  transform: rotate(5deg);
+  border-color: color-mix(in srgb, var(--dc-orange) 34%, var(--dc-border));
+  color: var(--dc-orange);
+  background: var(--dc-orange-soft);
+}
+
+.ks-appointment-body {
+  padding: 17px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 245px;
+  align-items: stretch;
+  gap: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--dc-page) 50%, transparent), transparent 42%),
+    color-mix(in srgb, var(--dc-surface) 96%, var(--dc-page));
+}
+
+.ks-appointment-form {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ks-appointment-section {
+  padding: 13px;
+  position: relative;
+  border: 1px solid var(--dc-border);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--dc-card) 93%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .38) inset;
+  animation: ks-appointment-section-in .36s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.ks-appointment-section:nth-child(2) { animation-delay: 45ms; }
+.ks-appointment-section:nth-child(3) { animation-delay: 90ms; }
+
+.ks-appointment-section > header {
+  min-height: 31px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ks-appointment-section-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--dc-green);
+  background: var(--dc-green-bg);
+}
+
+.ks-appointment-section-icon.orange {
+  color: var(--dc-orange);
+  background: var(--dc-orange-soft);
+}
+
+.ks-appointment-section-icon.soft {
+  color: var(--dc-purple);
+  background: var(--dc-purple-bg);
+}
+
+.ks-appointment-section > header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.ks-appointment-section > header strong,
+.ks-appointment-section > header small {
+  display: block;
+}
+
+.ks-appointment-section > header strong {
+  color: var(--dc-ink);
+  font-size: 12.5px;
+  font-weight: 810;
+}
+
+.ks-appointment-section > header small {
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-appointment-section > header > em {
+  min-height: 22px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--dc-border);
+  border-radius: 999px;
+  color: var(--dc-muted);
+  background: var(--dc-surface);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.ks-appointment-section:first-child > header > em {
+  border-color: color-mix(in srgb, var(--dc-green) 22%, transparent);
+  color: var(--dc-green);
+  background: var(--dc-green-bg);
+}
+
+.ks-appointment-modal .ks-form-grid {
+  gap: 9px;
+}
+
+.ks-appointment-customer-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(150px, .65fr);
+}
+
+.ks-appointment-primary-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(130px, .65fr);
+}
+
+.ks-appointment-assignment-grid {
+  margin-top: 9px;
+}
+
+.ks-appointment-modal .ks-modal-body label > span {
+  margin-bottom: 5px;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  letter-spacing: .01em;
+}
+
+.ks-appointment-modal .ks-modal-body label > span b {
+  color: var(--dc-orange);
+}
+
+.ks-appointment-modal .ks-modal-body label > span em {
+  margin-left: auto;
+  color: var(--dc-muted2);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.ks-appointment-modal .ks-modal-body input,
+.ks-appointment-modal .ks-modal-body select,
+.ks-appointment-modal .ks-modal-body textarea {
+  min-height: 43px;
+  padding-inline: 11px;
+  border-color: var(--dc-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dc-surface) 88%, var(--dc-card));
+  font-size: 12.5px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .34) inset;
+}
+
+.ks-appointment-modal .ks-modal-body input:hover,
+.ks-appointment-modal .ks-modal-body select:hover,
+.ks-appointment-modal .ks-modal-body textarea:hover {
+  border-color: color-mix(in srgb, var(--dc-orange) 24%, var(--dc-border));
+}
+
+.ks-appointment-modal .ks-modal-body input:focus,
+.ks-appointment-modal .ks-modal-body select:focus,
+.ks-appointment-modal .ks-modal-body textarea:focus {
+  transform: translateY(-1px);
+  border-color: var(--dc-orange);
+  background: var(--dc-card);
+  box-shadow:
+    0 0 0 3px var(--dc-orange-soft),
+    0 8px 20px color-mix(in srgb, var(--dc-orange) 7%, transparent);
+}
+
+.ks-appointment-auto-note {
+  margin: 8px 1px -1px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dc-muted);
+  font-size: 10px;
+}
+
+.ks-appointment-auto-note svg {
+  color: var(--dc-orange);
+}
+
+.ks-appointment-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 9px;
+}
+
+.ks-appointment-detail-grid.single {
+  grid-template-columns: 1fr;
+}
+
+.ks-appointment-detail-grid textarea {
+  min-height: 54px;
+  resize: none;
+}
+
+.ks-appointment-formula input {
+  border-color: color-mix(in srgb, var(--dc-purple) 18%, var(--dc-border)) !important;
+}
+
+.ks-appointment-preview {
+  min-width: 0;
+  min-height: 100%;
+  padding: 17px;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, white 9%, transparent);
+  border-radius: 20px;
+  color: var(--dc-inkbox-fg);
+  background:
+    radial-gradient(circle at 106% -4%, color-mix(in srgb, var(--dc-orange) 32%, transparent), transparent 37%),
+    radial-gradient(circle at -8% 112%, color-mix(in srgb, var(--dc-orange) 13%, transparent), transparent 40%),
+    var(--dc-inkbox);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--dc-inkbox) 22%, transparent);
+  animation: ks-appointment-preview-in .45s .08s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.ks-preview-orbit {
+  width: 150px;
+  height: 150px;
+  position: absolute;
+  right: -84px;
+  top: -76px;
+  border: 1px solid color-mix(in srgb, var(--dc-orange) 30%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ks-preview-orbit::after {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border: 18px solid color-mix(in srgb, var(--dc-orange) 5%, transparent);
+  border-radius: inherit;
+}
+
+.ks-appointment-preview > header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ks-appointment-preview > header small {
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 55%, transparent);
+  font: 760 10px ui-monospace, monospace;
+  letter-spacing: .16em;
+}
+
+.ks-appointment-preview > header i {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dc-green) 13%, transparent);
+}
+
+.ks-appointment-preview > header i > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dc-green);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--dc-green) 12%, transparent);
+  animation: ks-live 2.2s ease-in-out infinite;
+}
+
+.ks-appointment-preview.error > header i {
+  background: color-mix(in srgb, var(--dc-red) 13%, transparent);
+}
+
+.ks-appointment-preview.error > header i > span {
+  background: var(--dc-red);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--dc-red) 12%, transparent);
+}
+
+.ks-appointment-preview.checking > header i > span,
+.ks-appointment-preview.pending > header i > span {
+  background: var(--dc-orange);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--dc-orange) 12%, transparent);
+}
+
+.ks-preview-date {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 68%, transparent);
+  font-size: 11px;
+}
+
+.ks-preview-date svg {
+  color: var(--dc-orange);
+}
+
+.ks-preview-time {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ks-preview-time strong {
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.ks-preview-time svg {
+  color: var(--dc-orange);
+}
+
+.ks-preview-service {
+  margin-top: 18px;
+  padding: 13px 0;
+  border-top: 1px solid color-mix(in srgb, var(--dc-inkbox-fg) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dc-inkbox-fg) 10%, transparent);
+}
+
+.ks-preview-service small,
+.ks-preview-service strong,
+.ks-preview-service span {
+  display: block;
+}
+
+.ks-preview-service small {
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 44%, transparent);
+  font: 740 10px ui-monospace, monospace;
+  letter-spacing: .12em;
+}
+
+.ks-preview-service strong {
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-preview-service span {
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 60%, transparent);
+  font-size: 10.5px;
+}
+
+.ks-appointment-preview dl {
+  margin: 12px 0 0;
+  display: grid;
+  gap: 9px;
+}
+
+.ks-appointment-preview dl > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.ks-appointment-preview dt {
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 43%, transparent);
+  font-size: 10px;
+}
+
+.ks-appointment-preview dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 720;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-preview-status {
+  min-height: 61px;
+  margin-top: auto;
+  padding: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--dc-green) 24%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--dc-green) 11%, transparent);
+}
+
+.ks-preview-status > span {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--dc-green);
+  background: color-mix(in srgb, var(--dc-green) 14%, transparent);
+}
+
+.ks-preview-status p {
+  min-width: 0;
+  margin: 0;
+}
+
+.ks-preview-status strong,
+.ks-preview-status small {
+  display: block;
+}
+
+.ks-preview-status strong {
+  font-size: 11px;
+}
+
+.ks-preview-status small {
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--dc-inkbox-fg) 58%, transparent);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.ks-appointment-preview.error .ks-preview-status {
+  border-color: color-mix(in srgb, var(--dc-red) 28%, transparent);
+  background: color-mix(in srgb, var(--dc-red) 11%, transparent);
+}
+
+.ks-appointment-preview.error .ks-preview-status > span {
+  color: var(--dc-red);
+  background: color-mix(in srgb, var(--dc-red) 14%, transparent);
+}
+
+.ks-appointment-preview.checking .ks-preview-status,
+.ks-appointment-preview.pending .ks-preview-status {
+  border-color: color-mix(in srgb, var(--dc-orange) 26%, transparent);
+  background: color-mix(in srgb, var(--dc-orange) 10%, transparent);
+}
+
+.ks-appointment-preview.checking .ks-preview-status > span,
+.ks-appointment-preview.pending .ks-preview-status > span {
+  color: var(--dc-orange);
+  background: color-mix(in srgb, var(--dc-orange) 14%, transparent);
+}
+
+.ks-appointment-modal > .ks-appointment-footer {
+  min-height: 72px;
+  padding: 12px 18px;
+  justify-content: space-between;
+  background: color-mix(in srgb, var(--dc-card) 96%, var(--dc-orange-soft));
+}
+
+.ks-appointment-footer > p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dc-muted);
+}
+
+.ks-appointment-footer > p > svg {
+  color: var(--dc-orange);
+}
+
+.ks-appointment-footer > p span,
+.ks-appointment-footer > p b,
+.ks-appointment-footer > p small {
+  display: block;
+}
+
+.ks-appointment-footer > p b {
+  color: var(--dc-ink);
+  font-size: 10.5px;
+}
+
+.ks-appointment-footer > p small {
+  margin-top: 1px;
+  font-size: 10px;
+}
+
+.ks-appointment-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ks-appointment-footer .ks-btn-primary {
+  min-width: 180px;
 }
 
 .ks-drawer-layer {
@@ -1296,7 +1951,7 @@
 }
 
 .ks-drawer-person h2 { font-size: 18px; }
-.ks-drawer-person p { margin-top: 3px; color: var(--dc-muted); font: 650 11px ui-monospace, monospace; }
+.ks-drawer-person p { margin-top: 3px; color: var(--dc-muted); font: 650 11.5px ui-monospace, monospace; }
 
 .ks-status-pill {
   width: max-content;
@@ -1304,7 +1959,7 @@
   border-radius: 999px;
   color: var(--dc-orange-d);
   background: var(--dc-orange-soft);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 760;
 }
 
@@ -1330,14 +1985,14 @@
 
 .ks-detail-list dt {
   color: var(--dc-muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 680;
 }
 
 .ks-detail-list dd {
   margin: 0;
   color: var(--dc-ink);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 720;
   text-align: right;
 }
@@ -1409,7 +2064,7 @@
   outline: 0;
   color: var(--dc-ink);
   background: transparent;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .ks-search button {
@@ -1437,7 +2092,7 @@
   color: var(--dc-muted);
   background: transparent;
   white-space: nowrap;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 720;
 }
 
@@ -1449,7 +2104,7 @@
   border-radius: 99px;
   color: var(--dc-muted);
   background: var(--dc-surface3);
-  font: 740 8px ui-monospace, monospace;
+  font: 740 10px ui-monospace, monospace;
 }
 
 .ks-tabs button.active {
@@ -1481,7 +2136,7 @@
   color: var(--dc-muted);
   background: transparent;
   white-space: nowrap;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 720;
 }
 
@@ -1506,7 +2161,7 @@
   gap: 8px;
   color: var(--dc-muted);
   background: var(--dc-card);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .08em;
 }
@@ -1532,7 +2187,7 @@
   border: 0;
   color: var(--dc-muted);
   background: transparent;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 750;
 }
 
@@ -1552,7 +2207,7 @@
   border-top: 1px solid var(--dc-border);
   color: var(--dc-muted);
   background: transparent;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 650;
 }
 
@@ -1570,7 +2225,7 @@
 .ks-table-head,
 .ks-reservation-row {
   display: grid;
-  grid-template-columns: 1.55fr .9fr 1.25fr 1fr 118px 105px;
+  grid-template-columns: 1.5fr 1fr 1.2fr 1fr 132px 118px;
   align-items: center;
   gap: 10px;
 }
@@ -1580,7 +2235,7 @@
   padding: 0 15px;
   color: var(--dc-muted2);
   background: var(--dc-surface2);
-  font: 730 8.5px ui-monospace, monospace;
+  font: 730 11px ui-monospace, monospace;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -1647,7 +2302,7 @@
   border-radius: 11px;
   color: var(--dc-inkbox-fg);
   background: var(--dc-inkbox);
-  font-size: 9.5px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 800;
 }
@@ -1677,7 +2332,7 @@
 .ks-service-cell b,
 .ks-date-cell b,
 .ks-staff-cell b {
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .ks-client-cell small,
@@ -1686,7 +2341,7 @@
 .ks-staff-cell small {
   margin-top: 3px;
   color: var(--dc-muted);
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .ks-date-cell small {
@@ -1709,7 +2364,7 @@
 
 .ks-stage-badge {
   width: max-content;
-  max-width: 115px;
+  max-width: 128px;
   min-height: 27px;
   padding: 0 8px;
   display: inline-flex;
@@ -1718,7 +2373,7 @@
   border-radius: 999px;
   color: var(--dc-muted);
   background: var(--dc-surface3);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -1751,7 +2406,7 @@
   border-radius: 8px;
   color: var(--dc-ink);
   background: var(--dc-card);
-  font-size: 8.5px;
+  font-size: 11.5px;
   font-weight: 740;
   white-space: nowrap;
   cursor: pointer;
@@ -1811,7 +2466,7 @@
 .ks-detail-placeholder h3,
 .ks-empty-state h3 { font-size: 14px; }
 .ks-detail-placeholder p,
-.ks-empty-state p { max-width: 260px; margin-top: 5px; color: var(--dc-muted); font-size: 10.5px; line-height: 1.5; }
+.ks-empty-state p { max-width: 260px; margin-top: 5px; color: var(--dc-muted); font-size: 11.5px; line-height: 1.5; }
 
 .ks-reservation-detail > header {
   display: flex;
@@ -1846,7 +2501,7 @@
   border-radius: 14px;
   color: var(--dc-inkbox-fg);
   background: var(--dc-inkbox);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 820;
 }
 
@@ -1863,8 +2518,8 @@
   white-space: nowrap;
 }
 
-.ks-detail-person h2 { font-size: 16px; }
-.ks-detail-person p { margin-top: 3px; color: var(--dc-muted); font: 650 10px ui-monospace, monospace; }
+.ks-detail-person h2 { font-size: 17px; }
+.ks-detail-person p { margin-top: 3px; color: var(--dc-muted); font: 650 11px ui-monospace, monospace; }
 
 .ks-detail-person a {
   width: 36px;
@@ -1901,12 +2556,12 @@
 }
 
 .ks-detail-stage small {
-  font: 730 8px ui-monospace, monospace;
+  font: 730 10px ui-monospace, monospace;
   letter-spacing: .1em;
   opacity: .68;
 }
 
-.ks-detail-stage b { margin-top: 2px; font-size: 11px; }
+.ks-detail-stage b { margin-top: 2px; font-size: 11.5px; }
 
 .ks-reservation-detail .ks-detail-list {
   margin: 12px 0;
@@ -1924,8 +2579,8 @@
 
 .ks-reminder-state b,
 .ks-reminder-state small { display: block; }
-.ks-reminder-state b { font-size: 10px; }
-.ks-reminder-state small { margin-top: 2px; color: var(--dc-muted); font-size: 8.5px; }
+.ks-reminder-state b { font-size: 11px; }
+.ks-reminder-state small { margin-top: 2px; color: var(--dc-muted); font-size: 10.5px; }
 
 .ks-detail-actions {
   margin-top: 14px;
@@ -1939,7 +2594,7 @@
   border: 0;
   color: var(--dc-red);
   background: transparent;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 710;
 }
 
@@ -1981,7 +2636,7 @@
 }
 
 .ks-section-title h2 { margin-top: 4px; font-size: 17px; }
-.ks-section-title p { margin-top: 4px; color: var(--dc-muted); font-size: 10.5px; }
+.ks-section-title p { margin-top: 4px; color: var(--dc-muted); font-size: 11.5px; }
 
 .ks-waitlist-grid {
   display: grid;
@@ -2016,7 +2671,7 @@
   border-radius: 10px;
   color: var(--dc-orange-d);
   background: var(--dc-orange-soft);
-  font: 780 11px ui-monospace, monospace;
+  font: 780 11.5px ui-monospace, monospace;
 }
 
 .ks-wait-person b,
@@ -2027,8 +2682,8 @@
   display: block;
 }
 
-.ks-wait-person b { font-size: 11.5px; }
-.ks-wait-person small { margin-top: 2px; color: var(--dc-muted); font: 650 9px ui-monospace, monospace; }
+.ks-wait-person b { font-size: 12.5px; }
+.ks-wait-person small { margin-top: 2px; color: var(--dc-muted); font: 650 10.5px ui-monospace, monospace; }
 
 .ks-wait-pref {
   grid-column: 2 / -1;
@@ -2036,15 +2691,15 @@
   border-top: 1px solid var(--dc-border);
 }
 
-.ks-wait-pref small { color: var(--dc-muted2); font: 730 8px ui-monospace, monospace; letter-spacing: .09em; }
-.ks-wait-pref b { margin-top: 3px; font-size: 10.5px; }
-.ks-wait-pref span { margin-top: 2px; color: var(--dc-muted); font-size: 9px; }
+.ks-wait-pref small { color: var(--dc-muted2); font: 730 10px ui-monospace, monospace; letter-spacing: .09em; }
+.ks-wait-pref b { margin-top: 3px; font-size: 11.5px; }
+.ks-wait-pref span { margin-top: 2px; color: var(--dc-muted); font-size: 10.5px; }
 
 .ks-waitlist-grid article > p {
   grid-column: 2 / -1;
   margin: 0;
   color: var(--dc-muted);
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .ks-wait-actions {
@@ -2064,7 +2719,7 @@
   border-radius: 8px;
   color: var(--dc-ink);
   background: var(--dc-card);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 720;
 }
 
@@ -2114,7 +2769,7 @@
   border-radius: 999px;
   color: var(--dc-muted);
   background: var(--dc-card);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 720;
   white-space: nowrap;
 }
@@ -2182,7 +2837,7 @@
   border-radius: 12px;
   color: var(--dc-ink);
   background: var(--dc-card);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 820;
 }
@@ -2205,8 +2860,8 @@
   white-space: nowrap;
 }
 
-.ks-customer-copy b { font-size: 11.5px; }
-.ks-customer-copy small { margin-top: 4px; color: var(--dc-muted); font-size: 9.5px; }
+.ks-customer-copy b { font-size: 12.5px; }
+.ks-customer-copy small { margin-top: 4px; color: var(--dc-muted); font-size: 11px; }
 
 .ks-customer-list em {
   padding: 4px 6px;
@@ -2214,7 +2869,7 @@
   align-items: center;
   gap: 3px;
   border-radius: 999px;
-  font-size: 7.5px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 780;
   white-space: nowrap;
@@ -2290,7 +2945,7 @@
 .ks-profile-title p {
   margin-top: 4px;
   color: var(--dc-muted);
-  font: 650 10px ui-monospace, monospace;
+  font: 650 11px ui-monospace, monospace;
 }
 
 .ks-profile-actions {
@@ -2335,20 +2990,20 @@
 
 .ks-profile-kpis small {
   color: var(--dc-muted);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 710;
 }
 
 .ks-profile-kpis strong {
   margin-top: 5px;
-  font: 820 16px ui-monospace, monospace;
+  font: 820 17px ui-monospace, monospace;
   letter-spacing: -.04em;
 }
 
 .ks-profile-kpis span {
   margin-top: 4px;
   color: var(--dc-muted2);
-  font-size: 8.5px;
+  font-size: 10.5px;
 }
 
 .ks-profile-grid {
@@ -2395,13 +3050,13 @@
 
 .ks-profile-grid article > header small {
   color: var(--dc-muted2);
-  font: 730 7.5px ui-monospace, monospace;
+  font: 730 10px ui-monospace, monospace;
   letter-spacing: .1em;
 }
 
 .ks-profile-grid article > header h3 {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .ks-profile-grid article > header button {
@@ -2409,7 +3064,7 @@
   border: 0;
   color: var(--dc-orange-d);
   background: transparent;
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 740;
 }
 
@@ -2451,8 +3106,8 @@
   white-space: nowrap;
 }
 
-.ks-hair-attributes small { color: var(--dc-muted); font-size: 7.5px; }
-.ks-hair-attributes b { margin-top: 4px; font-size: 9.5px; }
+.ks-hair-attributes small { color: var(--dc-muted); font-size: 10px; }
+.ks-hair-attributes b { margin-top: 4px; font-size: 11px; }
 
 .ks-formula-card blockquote {
   min-height: 67px;
@@ -2465,7 +3120,7 @@
   color: var(--dc-purple);
   background: var(--dc-purple-bg);
   text-align: center;
-  font: 760 11px/1.45 ui-monospace, monospace;
+  font: 760 11.5px/1.45 ui-monospace, monospace;
 }
 
 .ks-formula-card > p {
@@ -2474,7 +3129,7 @@
   align-items: center;
   gap: 6px;
   color: var(--dc-muted);
-  font-size: 8.5px;
+  font-size: 10.5px;
 }
 
 .ks-preference-card > div {
@@ -2505,8 +3160,8 @@
   white-space: nowrap;
 }
 
-.ks-preference-card small { color: var(--dc-muted); font-size: 7.5px; }
-.ks-preference-card b { margin-top: 2px; font-size: 9px; }
+.ks-preference-card small { color: var(--dc-muted); font-size: 10px; }
+.ks-preference-card b { margin-top: 2px; font-size: 10.5px; }
 
 .ks-loyalty-card {
   grid-column: span 1;
@@ -2537,7 +3192,7 @@
 }
 
 .ks-loyalty-card > p strong { font: 830 19px ui-monospace, monospace; }
-.ks-loyalty-card > p span { color: var(--dc-muted); font-size: 9px; }
+.ks-loyalty-card > p span { color: var(--dc-muted); font-size: 10.5px; }
 
 .ks-loyalty-card > button {
   width: 100%;
@@ -2546,7 +3201,7 @@
   border-radius: 9px;
   color: var(--dc-green);
   background: var(--dc-card);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 740;
 }
 
@@ -2569,8 +3224,8 @@
   display: block;
 }
 
-.ks-inline-empty b { color: var(--dc-muted); font-size: 9.5px; }
-.ks-inline-empty small { margin-top: 3px; font-size: 8px; }
+.ks-inline-empty b { color: var(--dc-muted); font-size: 11px; }
+.ks-inline-empty small { margin-top: 3px; font-size: 10px; }
 
 .ks-history-card {
   margin-top: 10px;
@@ -2592,7 +3247,7 @@
 
 .ks-history-card > header h3 {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .ks-history-card > header > span {
@@ -2600,7 +3255,7 @@
   border-radius: 999px;
   color: var(--dc-muted);
   background: var(--dc-card);
-  font: 730 8.5px ui-monospace, monospace;
+  font: 730 10.5px ui-monospace, monospace;
 }
 
 .ks-history-list > button {
@@ -2632,7 +3287,7 @@
 }
 
 .ks-history-date b { font: 820 13px ui-monospace, monospace; }
-.ks-history-date small { color: var(--dc-muted); font-size: 7.5px; text-transform: uppercase; }
+.ks-history-date small { color: var(--dc-muted); font-size: 10px; text-transform: uppercase; }
 
 .ks-history-list > button > i {
   width: 4px;
@@ -2656,8 +3311,8 @@
   white-space: nowrap;
 }
 
-.ks-history-copy b { font-size: 10.5px; }
-.ks-history-copy small { margin-top: 3px; color: var(--dc-muted); font-size: 8.5px; }
+.ks-history-copy b { font-size: 11.5px; }
+.ks-history-copy small { margin-top: 3px; color: var(--dc-muted); font-size: 10.5px; }
 
 .ks-history-list em {
   min-width: 0;
@@ -2669,7 +3324,7 @@
   border-radius: 7px;
   color: var(--dc-purple);
   background: var(--dc-purple-bg);
-  font-size: 8px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 690;
   text-overflow: ellipsis;
@@ -2682,7 +3337,7 @@
   color: var(--dc-muted);
   background: var(--dc-card);
   text-align: center;
-  font-size: 7.5px;
+  font-size: 10px;
   font-weight: 730;
 }
 
@@ -2707,7 +3362,7 @@
   border-radius: 9px;
   color: var(--dc-muted);
   background: var(--dc-surface2);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 720;
 }
 
@@ -2745,7 +3400,7 @@
 
   .ks-table-head,
   .ks-reservation-row {
-    grid-template-columns: 1.5fr .85fr 1.1fr .9fr 110px 92px;
+    grid-template-columns: 1.4fr .95fr 1.05fr .85fr 122px 104px;
     gap: 7px;
   }
 
@@ -2873,8 +3528,8 @@
     gap: 10px;
   }
 
-  .ks-head-copy h1 { font-size: 22px; }
-  .ks-head-copy p { font-size: 11px; }
+  .ks-head-copy h1 { font-size: 20px; }
+  .ks-head-copy p { font-size: 11.5px; }
 
   .ks-head-actions {
     overflow-x: auto;
@@ -2983,6 +3638,120 @@
   }
 }
 
+@media (max-width: 680px) {
+  .ks-appointment-modal-layer {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ks-appointment-modal {
+    width: 100%;
+    max-height: 94dvh;
+    border-width: 1px 0 0;
+    border-radius: 25px 25px 0 0;
+  }
+
+  .ks-appointment-modal > .ks-appointment-modal-head {
+    min-height: 86px;
+    padding: 15px 14px;
+    grid-template-columns: 42px minmax(0, 1fr) 36px;
+    gap: 10px;
+  }
+
+  .ks-appointment-modal > .ks-appointment-modal-head > .ks-appointment-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .ks-appointment-modal > header .ks-appointment-title h2 {
+    font-size: 17px;
+  }
+
+  .ks-appointment-modal > header .ks-appointment-title p,
+  .ks-appointment-date-pill {
+    display: none;
+  }
+
+  .ks-appointment-head-actions {
+    display: block;
+  }
+
+  .ks-appointment-body {
+    padding: 11px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ks-appointment-section {
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .ks-appointment-customer-grid,
+  .ks-appointment-primary-grid,
+  .ks-appointment-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ks-appointment-preview {
+    min-height: 265px;
+    position: relative;
+    padding: 15px;
+  }
+
+  .ks-preview-date {
+    margin-top: 13px;
+  }
+
+  .ks-preview-service {
+    margin-top: 14px;
+  }
+
+  .ks-appointment-preview dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .ks-appointment-preview dl > div {
+    display: block;
+  }
+
+  .ks-appointment-preview dd {
+    margin-top: 2px;
+    text-align: left;
+  }
+
+  .ks-appointment-modal > .ks-appointment-footer {
+    min-height: 68px;
+    padding: 10px 11px calc(10px + env(safe-area-inset-bottom));
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+  }
+
+  .ks-appointment-footer > p {
+    display: none;
+  }
+
+  .ks-appointment-footer > div {
+    width: 100%;
+  }
+
+  .ks-appointment-footer .ks-btn {
+    min-height: 44px;
+  }
+
+  .ks-appointment-footer .ks-btn-ghost {
+    flex: 0 0 auto;
+  }
+
+  .ks-appointment-footer .ks-btn-primary {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ks-shell *,
   .ks-shell *::before,
@@ -3022,6 +3791,16 @@
 @keyframes ks-modal-in {
   from { opacity: 0; transform: translateY(16px) scale(.975); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ks-appointment-section-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ks-appointment-preview-in {
+  from { opacity: 0; transform: translateX(9px) scale(.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 @keyframes ks-drawer-in {
