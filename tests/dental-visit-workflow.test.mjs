@@ -20,6 +20,7 @@ const dashboard = read('../src/components/dashboard/DisDashboard.tsx');
 const adisyon = read('../src/components/reservations/AdisyonModal.tsx');
 const reservationsPage = read('../src/pages/ReservationsPage.tsx');
 const customersPage = read('../src/pages/CustomersPage.tsx');
+const patientFilePage = read('../src/pages/PatientFilePage.tsx');
 const mobileCalendar = read('../src/mobile/pages/MobileCalendar.tsx');
 
 const reservation = {
@@ -36,8 +37,10 @@ test('visit route derives patient and doctor from the canonical reservation id',
   assert.match(page, /fetchReservationById\(reservationId\)/);
   assert.match(page, /const customerId = reservation\?\.customerId \|\| ''/);
   assert.match(page, /reservation\?\.staffId \? staff\.find/);
-  assert.match(page, /searchParams\.get\('tab'\)/);
-  assert.doesNotMatch(page, /searchParams\.get\(['"](?:patient|staff)['"]\)/);
+  // Sekme durumu artık URL'de değil, workspace'in kendi state'inde yaşar
+  // (controlled/uncontrolled): URL üzerinden hasta/hekim/sekme enjekte edilemez.
+  assert.match(workspace, /const activeTab = controlledTab \?\? internalTab/);
+  assert.doesNotMatch(page, /searchParams\.get\(['"](?:patient|staff|tab)['"]\)/);
 });
 
 test('exact reservation and archived patient lookups remain tenant scoped', () => {
@@ -70,15 +73,30 @@ test('visit workspace keeps examination, chart, plan, finance and recall in one 
   assert.match(dentalChart, /encounterId\?: string/);
   assert.match(dentalChart, /reservationId\?: string/);
   assert.match(treatmentPlans, /encounterId\?: string/);
-  assert.match(page, /Kontrol Randevusu Oluştur/);
-  assert.match(page, /checkConflict\(date, time, end, undefined, reservation\.staffId, reservation\.resourceId\)/);
-  assert.match(page, /kaynak ziyaret: \$\{reservation\.id\}/);
+  // Recall ayrı bir "randevu oluştur" adımı değil, ziyaret kapanışının yan
+  // etkisi: recallDate hastaya yazılır, hatırlatmayı remind cron'u gönderir
+  // (065_dental_recall_reminders). Mevcut recall tarihi ezilmez.
+  assert.match(page, /recallOpt !== 'Yok' && !customer\.recallDate/);
+  assert.match(page, /onSetRecall\(recallDateISO\)/);
+  assert.match(page, /updateCustomer\(customer\.id, \{ recallDate: dateISO \}\)/);
 });
 
 test('all appointment surfaces expose the same visit route', () => {
-  for (const source of [dashboard, adisyon, reservationsPage, customersPage, mobileCalendar]) {
+  for (const source of [dashboard, adisyon, reservationsPage, patientFilePage]) {
     assert.match(source, /dental-visit\/\$\{encodeURIComponent\(/);
   }
+  // Müşteriler sayfası ziyarete doğrudan değil, hasta dosyası üzerinden gider:
+  // Müşteriler → "Tam Dosya" (/patient-file/:id) → "Ziyareti Aç" (/dental-visit/:id).
+  assert.match(customersPage, /patient-file\/\$\{selected\.id\}/);
+  assert.match(patientFilePage, /Ziyareti Aç/);
+  // Mobil takvim rotayı sektör profilinden alır (lib/calendarSectorProfiles):
+  // yüzeyde `sector === 'dis'` karşılaştırması taşımak yerine tek kaynağa bağlı.
+  // Rotanın gövdesi orada, yine encodeURIComponent ile.
+  assert.match(mobileCalendar, /visitRoute\(/);
+  assert.match(
+    readFileSync(new URL('../src/lib/calendarSectorProfiles.ts', import.meta.url), 'utf8'),
+    /dental-visit\/\$\{encodeURIComponent\(/,
+  );
   assert.match(adisyon, /Hasta Ziyaretini Aç/);
   assert.match(dashboard, /Muayeneyi (?:Başlat|Aç)/);
   assert.match(dashboard, /!r\.customerId && !r\.customerPhone\?\.trim\(\)/);
