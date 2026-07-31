@@ -220,25 +220,34 @@ export async function sendWA(admin: Admin, opts: {
     let providerMsgId: string | null = null;
     let errText: string | null = null;
     let ok = false;
-    try {
-        const res = await fetch(`${url}/message/sendText/${org.instance}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': key },
-            body: JSON.stringify({ number: phone, text }),
-        });
-        ok = res.ok;
-        if (res.ok) {
-            const j = await res.json().catch(() => null);
-            providerMsgId = j?.key?.id ?? null;
-        } else {
+    // Geçici hatada (ağ kopması, 5xx, 429) bir kez daha dene; kalıcı hatada
+    // (4xx) retry anlamsız. Daha fazlası edge function süresini yakar — kalıcı
+    // teslimat garantisi istenirse sıradaki adım wa_message_log tabanlı outbox.
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch(`${url}/message/sendText/${org.instance}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': key },
+                body: JSON.stringify({ number: phone, text }),
+            });
+            ok = res.ok;
+            if (res.ok) {
+                const j = await res.json().catch(() => null);
+                providerMsgId = j?.key?.id ?? null;
+                errText = null;
+                break;
+            }
             errText = `http_${res.status}`;
             // 404 = instance yok, 401/403 = oturum düştü → bağlantıyı düşmüş işaretle
             if (res.status === 404 || res.status === 401 || res.status === 403) {
                 await markDisconnected(admin, orgId, errText);
+                break;
             }
+            if (res.status < 500 && res.status !== 429) break; // diğer kalıcı 4xx
+        } catch (e) {
+            errText = String(e).slice(0, 300);
         }
-    } catch (e) {
-        errText = String(e).slice(0, 300);
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
     }
 
     await logMessage(admin, {

@@ -13,3 +13,19 @@ verify_jwt = false
 # doğrulama URL'deki ?s=<org_whatsapp.webhook_secret> ile fonksiyon içinde.
 [functions.whatsapp-booking]
 verify_jwt = false
+
+# public-booking'i işletmenin online randevu sayfası çağırır — ziyaretçi login
+# olmaz. Güvenlik: slug → organization_id scope'u + istismar freni (telefon/gün,
+# org/saat). Buradaki kayıt olmadan deploy edilirse sayfa herkese 401 döner.
+[functions.public-booking]
+verify_jwt = false
+
+# booking-manage'i müşteri randevu iptal/erteleme linkinden çağırır — login yok;
+# güvenlik tahmin edilemez reservations.customer_token ile sağlanır.
+[functions.booking-manage]
+verify_jwt = false
+
+# gateway'i n8n gibi dış otomasyonlar çağırır — Supabase JWT taşımaz; kimlik
+# doğrulama integration_connections.api_key ile fonksiyon içinde.
+[functions.gateway]
+verify_jwt = false

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getOrgWa, sendWA } from '../_shared/wa.ts';
+import { getOrgWa, sendWA, type Admin } from '../_shared/wa.ts';
 
 // ============================================================
 // public-booking — Self-servis online randevu motoru
@@ -85,6 +85,79 @@ function staffSlots(opts: {
         out.push(s);
     }
     return out;
+}
+
+// Müşteri bul/oluştur — yarış güvenli. 072'nin kısmi UNIQUE indeksi eşzamanlı
+// iki insert'ten birini 23505 ile düşürür; kaybeden taraf kazananı yeniden okur.
+async function findOrCreateCustomer(
+    supabase: Admin,
+    p: { orgId: string; ownerId: string; name: string; phone: string; email: string },
+): Promise<{ id: string } | { error: string }> {
+    const lookup = () => supabase
+        .from('customers').select('id')
+        .eq('organization_id', p.orgId).eq('phone', p.phone)
+        .eq('is_active', true)
+        .maybeSingle();
+
+    const { data: existing, error: lookupErr } = await lookup();
+    if (lookupErr) {
+        console.error('booking customer lookup error', lookupErr);
+        return { error: 'Müşteri kaydı doğrulanamadı' };
+    }
+    if (existing?.id) return { id: existing.id };
+
+    const { data: created, error: createErr } = await supabase
+        .from('customers')
+        .insert({ user_id: p.ownerId, organization_id: p.orgId, name: p.name, phone: p.phone, email: p.email || null })
+        .select('id').single();
+    if (created?.id) return { id: created.id };
+
+    if (createErr?.code === '23505') {
+        const { data: winner } = await lookup();
+        if (winner?.id) return { id: winner.id };
+    }
+    console.error('booking customer create error', createErr);
+    return { error: 'Müşteri kaydı oluşturulamadı' };
+}
+
+// İstismar freni — login'siz endpoint'in tek koruması. Telefon başına günde 3,
+// org başına saatte 30 online kayıt: gerçek müşteriyi hiç kısmaz, otomatize
+// spam'i (WhatsApp tetikleme + tablo çöplenmesi) anlamsızlaştırır.
+// Sayım birimi SATIR DEĞİL İŞLEM: çoklu hizmet (sepet) tek istekte birden çok
+// rezervasyon satırı yazar ve bunlar group_id paylaşır. Satır saymak, üç
+// hizmetlik tek randevu alan gerçek müşteriyi 24 saat kilitlerdi.
+const ABUSE_PER_PHONE_DAILY = 5;   // kişi başına 24 saatte online randevu İŞLEMİ
+const ABUSE_PER_ORG_HOURLY = 60;   // org başına saatte online rezervasyon satırı
+
+async function bookingAbuseCheck(
+    supabase: Admin, orgId: string, phone: string,
+): Promise<string | null> {
+    const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+
+    const [{ data: phoneRows }, { count: orgRows }] = await Promise.all([
+        supabase.from('reservations').select('group_id')
+            .eq('organization_id', orgId).eq('customer_phone', phone)
+            .eq('source', 'booking').gte('created_at', dayAgo)
+            .limit(200),
+        supabase.from('reservations').select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgId).eq('source', 'booking')
+            .gte('created_at', hourAgo),
+    ]);
+
+    // Aynı group_id'li satırlar tek işlem; group_id'siz her satır kendi başına.
+    const groups = new Set<string>();
+    let solo = 0;
+    for (const row of (phoneRows ?? []) as { group_id: string | null }[]) {
+        if (row.group_id) groups.add(row.group_id);
+        else solo++;
+    }
+    const phoneEvents = groups.size + solo;
+
+    if (phoneEvents >= ABUSE_PER_PHONE_DAILY || (orgRows ?? 0) >= ABUSE_PER_ORG_HOURLY) {
+        return 'Çok fazla işlem yapıldı. Lütfen daha sonra tekrar deneyin veya bizi telefonla arayın.';
+    }
+    return null;
 }
 
 function buildBookingMessage(p: { customerName: string; date: string; time: string; service: string; businessName: string; confirmed: boolean; manageUrl?: string }): string {
@@ -178,6 +251,16 @@ Deno.serve(async (req: Request) => {
             const customerName: string = (body.customerName || '').trim();
             const customerPhone: string = (body.customerPhone || '').trim();
             if (!customerName || !customerPhone) return json({ error: 'ad ve telefon gerekli' }, 400);
+            // Bekleme listesi de login'siz yazım — aynı fren + kendi tablo tavanı
+            const abuseMsg = await bookingAbuseCheck(supabase, orgId, customerPhone);
+            if (abuseMsg) return json({ error: abuseMsg }, 429);
+            const { count: wlCount } = await supabase
+                .from('waitlist').select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId).eq('customer_phone', customerPhone)
+                .gte('created_at', new Date(Date.now() - 24 * 3600_000).toISOString());
+            if ((wlCount ?? 0) >= ABUSE_PER_PHONE_DAILY) {
+                return json({ error: 'Bekleme listesine zaten eklendiniz. İşletme sizinle iletişime geçecek.' }, 429);
+            }
             await supabase.from('waitlist').insert({
                 organization_id: orgId,
                 customer_name: customerName,
@@ -204,6 +287,9 @@ Deno.serve(async (req: Request) => {
             const customerEmail: string = (body.customerEmail || '').trim();
             const note: string = (body.note || '').trim();
             if (!customerName || !customerPhone) return json({ error: 'ad ve telefon gerekli' }, 400);
+
+            const abuseMsg = await bookingAbuseCheck(supabase, orgId, customerPhone);
+            if (abuseMsg) return json({ error: abuseMsg }, 429);
 
             // Aktif personel (bir kez)
             const { data: allStaff } = await supabase
@@ -284,27 +370,12 @@ Deno.serve(async (req: Request) => {
             const autoConfirm: boolean = !!org.booking_auto_confirm;
             const ownerId = org.owner_id as string;
 
-            // Müşteri bul / oluştur
-            let customerId: string | null = null;
-            const { data: existing, error: customerLookupError } = await supabase
-                .from('customers').select('id').eq('organization_id', orgId).eq('phone', customerPhone).maybeSingle();
-            if (customerLookupError) {
-                console.error('multi booking customer lookup error', customerLookupError);
-                return json({ error: 'Müşteri kaydı doğrulanamadı' }, 500);
-            }
-            if (existing) {
-                customerId = existing.id;
-            } else {
-                const { data: created, error: customerCreateError } = await supabase
-                    .from('customers')
-                    .insert({ user_id: ownerId, organization_id: orgId, name: customerName, phone: customerPhone, email: customerEmail || null })
-                    .select('id').single();
-                if (customerCreateError || !created?.id) {
-                    console.error('multi booking customer create error', customerCreateError);
-                    return json({ error: 'Müşteri kaydı oluşturulamadı' }, 500);
-                }
-                customerId = created.id;
-            }
+            // Müşteri bul / oluştur — yarış güvenli (072 + 23505 fallback)
+            const cust = await findOrCreateCustomer(supabase, {
+                orgId, ownerId, name: customerName, phone: customerPhone, email: customerEmail,
+            });
+            if ('error' in cust) return json({ error: cust.error }, 500);
+            const customerId = cust.id;
 
             const groupId = prepared.length > 1 ? crypto.randomUUID() : null;
             const status = autoConfirm ? 'confirmed' : 'pending';
@@ -444,27 +515,15 @@ Deno.serve(async (req: Request) => {
         const autoConfirm: boolean = !!org.booking_auto_confirm;
         const ownerId = org.owner_id as string;
 
-        // Müşteri bul / oluştur (telefon bazlı, org içi)
-        let customerId: string | null = null;
-        const { data: existing, error: customerLookupError } = await supabase
-            .from('customers').select('id').eq('organization_id', orgId).eq('phone', customerPhone).maybeSingle();
-        if (customerLookupError) {
-            console.error('booking customer lookup error', customerLookupError);
-            return json({ error: 'Müşteri kaydı doğrulanamadı' }, 500);
-        }
-        if (existing) {
-            customerId = existing.id;
-        } else {
-            const { data: created, error: customerCreateError } = await supabase
-                .from('customers')
-                .insert({ user_id: ownerId, organization_id: orgId, name: customerName, phone: customerPhone, email: customerEmail || null })
-                .select('id').single();
-            if (customerCreateError || !created?.id) {
-                console.error('booking customer create error', customerCreateError);
-                return json({ error: 'Müşteri kaydı oluşturulamadı' }, 500);
-            }
-            customerId = created.id;
-        }
+        const abuseMsg = await bookingAbuseCheck(supabase, orgId, customerPhone);
+        if (abuseMsg) return json({ error: abuseMsg }, 429);
+
+        // Müşteri bul / oluştur — yarış güvenli (072 + 23505 fallback)
+        const cust = await findOrCreateCustomer(supabase, {
+            orgId, ownerId, name: customerName, phone: customerPhone, email: customerEmail,
+        });
+        if ('error' in cust) return json({ error: cust.error }, 500);
+        const customerId = cust.id;
 
         // Rezervasyon oluştur
         const { data: reservation, error: resErr } = await supabase
@@ -536,7 +595,8 @@ Deno.serve(async (req: Request) => {
             service: svc.name,
         });
     } catch (err) {
+        // Detay yalnız loga — iç hata metni anonim istemciye sızdırılmaz.
         console.error('public-booking error:', err);
-        return json({ error: 'Sunucu hatası', detail: String(err) }, 500);
+        return json({ error: 'Sunucu hatası' }, 500);
     }
 });

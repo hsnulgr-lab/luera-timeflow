@@ -3,6 +3,7 @@ import {
     featureOn, getOrgWa, getSecret, instanceFor, markDisconnected, sendWA,
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
+import { resolveOrg } from '../_shared/org.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -48,22 +49,24 @@ Deno.serve(async (req: Request) => {
         if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
         const userId = userData.user.id;
 
-        // 2) Kullanıcının org'unu server-side çöz (client'a güvenme)
-        const { data: member } = await admin
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', userId)
-            .limit(1)
-            .maybeSingle();
-        const orgId = member?.org_id;
-        if (!orgId) return json({ error: 'no_org' }, 403);
+        const body = await req.json().catch(() => ({}));
+        const action = body.action as Action;
+
+        // 2) Kullanıcının org'unu server-side çöz (client'a güvenme). Çoklu
+        //    üyelikte body.orgId zorunlu ve üyelik doğrulanır (_shared/org.ts).
+        const resolved = await resolveOrg(admin, userId, body.orgId ?? null);
+        if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+        const { orgId, role } = resolved;
+
+        // Bağlantıyı kurmak/koparmak ve otomatik mesaj anahtarları org sahibinin
+        // kararı — "member" rolündeki bir personel hesabı bunları değiştiremez.
+        if ((action === 'connect' || action === 'disconnect' || action === 'features') && role === 'member') {
+            return json({ error: 'owner_required' }, 403);
+        }
 
         // 3) Instance adı org'dan türetilir — cross-tenant erişim imkânsız
         const instance = instanceFor(orgId);
         const org = await ensureRow(admin, orgId);
-
-        const body = await req.json().catch(() => ({}));
-        const action = body.action as Action;
 
         // send ve health Evolution ayarları olmadan da anlamlı cevap verebilmeli
         if (action === 'health') return json(await health(admin, orgId, org), 200);
@@ -170,7 +173,9 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'gecersiz action' }, 400);
         }
     } catch (e) {
-        return json({ error: String(e) }, 500);
+        // Detay yalnız loga — iç hata metni istemciye sızdırılmaz.
+        console.error('whatsapp-proxy error:', e);
+        return json({ error: 'server_error' }, 500);
     }
 });
 

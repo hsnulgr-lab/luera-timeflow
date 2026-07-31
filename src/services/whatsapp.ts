@@ -34,6 +34,15 @@ const PROXY_ERROR_TR: Record<string, string> = {
     evolution_not_configured: 'Sunucuda Evolution API ayarları eksik (EVOLUTION_API_URL / EVOLUTION_API_KEY).',
     no_org: 'Hesabınız bir işletmeye bağlı değil.',
     unauthorized: 'Oturumunuz doğrulanamadı, çıkıp tekrar girin.',
+    // Bağlantıyı kurmak/koparmak ve otomatik mesaj anahtarları işletme sahibinin
+    // kararı — personel hesabı bu action'ları çağıramaz (whatsapp-proxy).
+    owner_required: 'Bu işlem için işletme sahibi yetkisi gerekiyor.',
+    // Kullanıcı birden çok işletmeye üye: hangi işletme olduğu belirsiz kalmasın
+    // diye sunucu rastgele seçmek yerine açıkça soruyor.
+    org_id_required: 'Birden fazla işletmeye bağlısınız; lütfen işletme seçin.',
+    forbidden_org: 'Bu işletme için yetkiniz yok.',
+    org_lookup_failed: 'İşletme bilginiz okunamadı, tekrar deneyin.',
+    server_error: 'Sunucuda beklenmeyen bir hata oluştu, tekrar deneyin.',
 };
 
 async function call<T>(body: Record<string, unknown>): Promise<T | null> {
