@@ -15,13 +15,20 @@ set -euo pipefail
 # Ortam değişkenleri (varsayılanları aşağıda):
 #   DEPLOY_HOST   sunucu (root@ip)
 #   EDGE_SERVICE  edge-runtime konteynerinin adı ya da adının bir parçası
+#   DEPLOY_KEY    SSH özel anahtarı (bu makinede ~/.ssh/luera_vps)
 #
-# ŞİFRE İSTEMEMESİ İÇİN: bir kez `ssh-copy-id root@<ip>` çalıştırıp anahtar
-# kurun. Şifreyle giriş hem her seferinde elle yazmayı gerektirir hem de
-# betiğin otomatikleşmesini imkânsız kılar.
+# Anahtar varsayılan adda olmadığı için (~/.ssh/id_rsa değil) açıkça verilir;
+# `ssh-copy-id` da bu yüzden "No identities found" diyordu.
+#
+# NOT: sunucuda İKİ Supabase yığını var (TimeFlow + LeadFlow). Konteyner adının
+# sonundaki kimlik TimeFlow'unkidir — yanlış yığına deploy etmemek için servis
+# adı tam yazılır, desen aramasına bırakılmaz.
 
 HOST="${DEPLOY_HOST:-root@76.13.4.164}"
-SERVICE="${EDGE_SERVICE:-supabase-t6yi63jbebvj6c7oo7yjofnt}"
+SERVICE="${EDGE_SERVICE:-supabase-edge-functions-t6yi63jbebvj6c7oo7yjofnt}"
+# Bu VPS için anahtar varsayılan adda değil (id_rsa/id_ed25519), açıkça verilir.
+SSH_KEY="${DEPLOY_KEY:-$HOME/.ssh/luera_vps}"
+SSH_OPTS=(-i "$SSH_KEY" -o BatchMode=yes)
 
 cd "$(dirname "$0")/.."
 
@@ -41,24 +48,29 @@ echo
 #    Yol kuruluma göre değişir (Coolify volume'ü, bind mount, vb.), o yüzden
 #    tahmin edilmez — konteynerin kendi mount bilgisinden okunur.
 echo "▸ Konteyner ve mount bulunuyor…"
-read -r CONTAINER HOSTPATH < <(ssh "$HOST" bash -s <<'REMOTE'
+
+# Konteyner TAM ADIYLA aranır. Desenle arayıp ilkini almak tehlikeli: bu VPS'te
+# iki Supabase yığını var (TimeFlow + LeadFlow) ve ikisinin de edge-functions
+# konteyneri "edge" desenine uyuyor — yanlış yığına deploy etmek işten değil.
+LOOKUP_SCRIPT='
 set -euo pipefail
-name=$(docker ps --format '{{.Names}}' | grep -iE 'edge|function' | head -1 || true)
+want="$1"
+name=$(docker ps --format "{{.Names}}" | grep -Fx "$want" || true)
 if [ -z "$name" ]; then
-    echo "HATA: edge-runtime konteyneri bulunamadı. Adaylar:" >&2
-    docker ps --format '  {{.Names}}' >&2
+    echo "HATA: $want adli calisan konteyner yok. Adaylar:" >&2
+    docker ps --format "  {{.Names}}" | grep -iE "edge|function" >&2
     exit 1
 fi
-path=$(docker inspect "$name" \
-    --format '{{range .Mounts}}{{if eq .Destination "/home/deno/functions"}}{{.Source}}{{end}}{{end}}')
+path=$(docker inspect "$name" --format "{{range .Mounts}}{{if eq .Destination \"/home/deno/functions\"}}{{.Source}}{{end}}{{end}}")
 if [ -z "$path" ]; then
-    echo "HATA: $name içinde /home/deno/functions mount'u yok. Mevcut mount'lar:" >&2
-    docker inspect "$name" --format '{{range .Mounts}}  {{.Destination}} <- {{.Source}}{{"\n"}}{{end}}' >&2
+    echo "HATA: $name icinde /home/deno/functions mount edilmemis." >&2
     exit 1
 fi
 echo "$name $path"
-REMOTE
-)
+'
+LOOKUP=$(ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$SERVICE" <<< "$LOOKUP_SCRIPT")
+CONTAINER="${LOOKUP%% *}"
+HOSTPATH="${LOOKUP#* }"
 
 echo "  konteyner: $CONTAINER"
 echo "  klasör:    $HOSTPATH"
@@ -66,7 +78,7 @@ echo
 
 # 2) _shared her zaman gider — fonksiyonların çoğu ondan import ediyor.
 echo "▸ _shared kopyalanıyor…"
-rsync -az --delete supabase/functions/_shared/ "$HOST:$HOSTPATH/_shared/"
+rsync -az --delete -e "ssh ${SSH_OPTS[*]}" supabase/functions/_shared/ "$HOST:$HOSTPATH/_shared/"
 
 for fn in "${FUNCTIONS[@]}"; do
     if [ ! -d "supabase/functions/$fn" ]; then
@@ -74,17 +86,17 @@ for fn in "${FUNCTIONS[@]}"; do
         continue
     fi
     echo "▸ $fn kopyalanıyor…"
-    rsync -az --delete "supabase/functions/$fn/" "$HOST:$HOSTPATH/$fn/"
+    rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "supabase/functions/$fn/" "$HOST:$HOSTPATH/$fn/"
 done
 
 # 3) Yeniden başlat. edge-runtime dosyaları başlangıçta okur; restart olmadan
 #    eski sürüm çalışmaya devam eder ve "deploy ettim ama değişmedi" olur.
 echo
 echo "▸ $CONTAINER yeniden başlatılıyor…"
-ssh "$HOST" "docker restart $CONTAINER" >/dev/null
+ssh "${SSH_OPTS[@]}" "$HOST" "docker restart $CONTAINER" >/dev/null
 sleep 3
-ssh "$HOST" "docker ps --filter name=$CONTAINER --format '  {{.Names}}  {{.Status}}'"
+ssh "${SSH_OPTS[@]}" "$HOST" "docker ps --filter name=$CONTAINER --format '  {{.Names}}  {{.Status}}'"
 
 echo
 echo "✓ Bitti. Son loglar:"
-ssh "$HOST" "docker logs --tail 20 $CONTAINER"
+ssh "${SSH_OPTS[@]}" "$HOST" "docker logs --tail 20 $CONTAINER"
