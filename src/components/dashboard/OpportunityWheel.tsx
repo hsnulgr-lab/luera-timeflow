@@ -124,8 +124,25 @@ export function OpportunityWheel({ items, busy, onAct }: {
 
     useEffect(() => () => window.clearTimeout(settleRef.current), []);
 
-    // Kuyruk boşalınca modül tamamen kaybolur — kart sade hâline döner.
-    if (items.length === 0) return null;
+    // Kuyruk boşken modül GİZLENMEZ, sakin bir hâle geçer.
+    //
+    // Önce boş listede `return null` yapıyordu. Sonuç: yeni kurulan bir salonda
+    // modül hiç görünmüyor, kullanıcı böyle bir yer olduğunu öğrenemiyor — ve
+    // öğrenmediği için doldurduğunda nereye bakacağını da bilmiyor. Kaybolan
+    // modül, olmayan modüldür; boş durumda yerini koruması gerekir.
+    if (items.length === 0) {
+        return (
+            <div className="opp-mod is-empty">
+                <div className="opp-pick">
+                    <div className="opp-band" />
+                    <div className="opp-empty">
+                        <strong>Bugün takip işi yok</strong>
+                        <span>Biten paket, hediye hak eden müşteri ve uzaklaşanlar burada sıraya girer.</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const active = items[Math.min(cur, items.length - 1)];
     const Icon = ICON[active.kind];

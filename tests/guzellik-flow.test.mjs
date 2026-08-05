@@ -47,6 +47,15 @@ test('rezerve hak sayımı, sayılmış randevuları dışarıda bırakır', () 
     assert.match(packages, /r\.customFields\?\.paket_sayildi\) continue/);
 });
 
+test('fırsat çarkı boşken gizlenmez, sakin bir hâle geçer', () => {
+    // Önce boş listede `return null` yapıyordu: yeni kurulan salonda modül hiç
+    // görünmüyor, kullanıcı böyle bir yer olduğunu öğrenemiyordu.
+    const wheel = read('../src/components/dashboard/OpportunityWheel.tsx');
+    assert.doesNotMatch(wheel, /if \(items\.length === 0\) return null/);
+    assert.match(wheel, /opp-mod is-empty/);
+    assert.match(wheel, /Bugün takip işi yok/);
+});
+
 // ── Tahsilat ────────────────────────────────────────────────────────────────
 
 test('dashboard tahsilat yapmaz, kasaya yönlendirir', () => {

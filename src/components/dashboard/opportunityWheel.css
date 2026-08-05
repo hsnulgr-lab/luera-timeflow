@@ -52,6 +52,37 @@
     padding-left: 14px;
 }
 
+/* Boş durum — modül yerini korur, sessizleşir. Orta bant durmaya devam eder ki
+   kuyruk dolduğunda kaydın nereye oturacağı önceden öğrenilmiş olsun. */
+.gz-ops .opp-mod.is-empty {
+    padding-right: 0;
+}
+
+.gz-ops .opp-empty {
+    position: absolute;
+    inset: 0;
+    left: 14px;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding-right: 12px;
+}
+
+.gz-ops .opp-empty strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--dc-ink);
+}
+
+.gz-ops .opp-empty span {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--dc-muted);
+}
+
 /* Seçili kaydı tutan orta bant */
 .gz-ops .opp-band {
     position: absolute;
