@@ -711,9 +711,13 @@ export function GuzellikDashboard() {
 
                                         <div className="sakin-units-head">
                                             <span className="eyebrow">Üniteler</span>
-                                            <span className={cn('sakin-count', freeCabins.length === 0 && 'full')}>
-                                                {freeCabins.length > 0 ? `Boş · ${freeCabins.length}` : 'Hepsi dolu'}
-                                            </span>
+                                            {/* Ünite tanımlı değilken "Hepsi dolu" yazıyordu — hemen altında
+                                                "Henüz ünite eklenmemiş" ile birlikte. Yokluk doluluk değildir. */}
+                                            {cabins.length > 0 && (
+                                                <span className={cn('sakin-count', freeCabins.length === 0 && 'full')}>
+                                                    {freeCabins.length > 0 ? `Boş · ${freeCabins.length}` : 'Hepsi dolu'}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="sakin-units">
                                             {cabins.length === 0 && <span className="sakin-empty">Henüz ünite eklenmemiş — Ayarlar'dan ekleyin.</span>}
