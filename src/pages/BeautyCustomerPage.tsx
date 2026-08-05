@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { normalizePhone } from '@/lib/phone';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, CreditCard, GlassWater, MessageCircle, Phone, Plus } from 'lucide-react';
+import { ArrowLeft, Clock, CreditCard, Gift, GlassWater, MessageCircle, Phone, Plus } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
@@ -46,7 +46,7 @@ export function BeautyCustomerPage() {
     const cashOn = useCashEnabled();
     const { dark } = useTheme();
     const { orgId } = useAuth();
-    const { customers } = useCustomers();
+    const { customers, redeemLoyalty } = useCustomers();
     const { reservations, settings } = useReservations();
     const { plans } = useTreatmentPlans(customerId);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -86,6 +86,14 @@ export function BeautyCustomerPage() {
     // Burada bir zamanlar ikinci bir regex vardı (/lazer|incelme/i) ve seans
     // modalindekinden farklıydı: aynı paket bir ekranda kapalı, diğerinde açıktı.
     const riskFlags = activeRiskFlags(customer, settings.sector);
+    // Sadakat: damga kasada basılıyor (BeautyCashRegister), kullanılacağı yer ise
+    // müşteri kartı. Kuaförde bu vardı, güzellikte yoktu — damga birikiyor ama
+    // uzman ödülü hiçbir ekrandan kullandıramıyordu.
+    const loyaltyOn = Boolean(settings.loyaltyEnabled);
+    const loyaltyThreshold = settings.loyaltyThreshold ?? 10;
+    const loyaltyReward = settings.loyaltyReward || 'Ücretsiz hizmet';
+    const stamps = customer?.loyaltyStamps ?? 0;
+    const loyaltyEarned = stamps >= loyaltyThreshold;
     const allergy = String(customer?.customFields?.alerji || '');
     const skinType = String(customer?.customFields?.cilt_tipi || '');
     const lastPayment = payments[0];
@@ -144,6 +152,57 @@ export function BeautyCustomerPage() {
                             <button onClick={() => setModalOpen(true)} className="flex items-center gap-1.5 bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] px-4.5 min-h-[42px] px-5 rounded-full text-[13px] font-bold transition-all hover:-translate-y-px"><Plus className="w-3.5 h-3.5" />Yeni Seans</button>
                         </div>
                     </section>
+
+                    {/* Sadakat — eşik dolunca kart yeşile döner ve ödül burada kullanılır */}
+                    {loyaltyOn && (
+                        <section className={cn(
+                            'rounded-2xl border shadow-[0_1px_3px_rgba(14,14,14,0.06)] px-5 py-4 flex flex-wrap items-center gap-x-4 gap-y-3',
+                            loyaltyEarned
+                                ? 'border-[var(--dc-green)] bg-[var(--dc-green-bg)]'
+                                : 'border-[var(--dc-border)] bg-[var(--dc-surface)]',
+                        )}>
+                            <div className={cn('w-[34px] h-[34px] rounded-[11px] flex items-center justify-center flex-shrink-0',
+                                loyaltyEarned ? 'bg-[var(--dc-green)]' : 'bg-[var(--dc-inkbox)]')}>
+                                <Gift className="w-4 h-4 text-[var(--dc-inkbox-fg)]" />
+                            </div>
+                            <div className="min-w-[180px]">
+                                <h2 className="text-[14px] font-bold text-[var(--dc-ink)]">
+                                    {loyaltyEarned ? `Ödül hazır — ${loyaltyReward}` : 'Sadakat damgası'}
+                                </h2>
+                                <p className="text-[11.5px] text-[var(--dc-muted)]">
+                                    {loyaltyEarned
+                                        ? 'Eşik doldu, ödülü şimdi kullanabilirsiniz'
+                                        : `${loyaltyThreshold} seansta 1 ${loyaltyReward.toLocaleLowerCase('tr')}`}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <span className="flex gap-[4px]">
+                                    {Array.from({ length: Math.min(loyaltyThreshold, 10) }, (_, i) => (
+                                        <span key={i} className="w-[7px] h-[7px] rounded-full" style={{
+                                            background: i < stamps
+                                                ? (loyaltyEarned ? 'var(--dc-green)' : 'var(--dc-orange)')
+                                                : 'var(--dc-surface3)',
+                                        }} />
+                                    ))}
+                                </span>
+                                <span className={cn('text-[12.5px] font-bold', loyaltyEarned ? 'text-[var(--dc-green)]' : 'text-[var(--dc-ink)]')}
+                                    style={{ fontFamily: MONO }}>{stamps}/{loyaltyThreshold}</span>
+                            </div>
+                            <button
+                                onClick={() => void redeemLoyalty(customer.id, loyaltyThreshold)}
+                                disabled={!loyaltyEarned}
+                                title={loyaltyEarned ? `${loyaltyReward} — damgadan ${loyaltyThreshold} düşülür` : `${loyaltyThreshold - stamps} seans kaldı`}
+                                className={cn(
+                                    'ml-auto px-4 min-h-[38px] rounded-full text-[12.5px] font-bold transition-colors',
+                                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                                    loyaltyEarned
+                                        ? 'bg-[var(--dc-green)] text-[var(--dc-inkbox-fg)] hover:opacity-90'
+                                        : 'border border-[var(--dc-border2)] text-[var(--dc-ink)]',
+                                )}>
+                                {loyaltyEarned ? 'Ödülü kullan' : `${loyaltyThreshold - stamps} seans kaldı`}
+                            </button>
+                        </section>
+                    )}
 
                     {/* Aktif Paketler */}
                     <section className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] overflow-hidden">
