@@ -199,7 +199,7 @@ Deno.serve(async (req: Request) => {
         // Org çözümle
         const { data: org } = await supabase
             .from('organizations')
-            .select('id, name, owner_id, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, booking_auto_confirm')
+            .select('id, name, owner_id, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, kvkk_url, booking_auto_confirm')
             .eq('slug', slug)
             .maybeSingle();
 
@@ -237,6 +237,9 @@ Deno.serve(async (req: Request) => {
                     phone: org.public_phone,
                     instagramUrl: org.instagram_url,
                     mapsUrl: org.maps_url,
+                    // KVKK aydınlatma metni bağlantısı (081). Boşsa randevu
+                    // sayfasında rıza kutusu yine zorunlu, yalnız bağlantı çıkmaz.
+                    kvkkUrl: org.kvkk_url,
                     workingHours: orgHours,
                 },
                 services: (services || []).map(s => ({ id: s.id, name: s.name, duration: s.duration, color: s.color, price: s.price ? Number(s.price) : null })),

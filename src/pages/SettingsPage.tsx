@@ -1020,6 +1020,12 @@ export const SettingsPage = () => {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
                 <div><FieldLabel>Instagram</FieldLabel><Input value={profile.instagramUrl} onChange={v=>setProfile({...profile, instagramUrl:v})} placeholder="https://instagram.com/…"/></div>
                 <div><FieldLabel>Harita Linki</FieldLabel><Input value={profile.mapsUrl} onChange={v=>setProfile({...profile, mapsUrl:v})} placeholder="Google Maps linki"/></div>
+                {/* KVKK aydınlatma metni işletmenin kendi hukuki beyanıdır (veri
+                    sorumlusu işletme, Luera veri işleyen) — ürün metni yazamaz,
+                    yayınlanmış metne bağlantı verir. Boşsa randevu sayfasında
+                    rıza kutusu yine zorunludur, yalnız bağlantı çıkmaz. */}
+                <div><FieldLabel>KVKK Aydınlatma Metni Linki</FieldLabel><Input value={profile.kvkkUrl} onChange={v=>setProfile({...profile, kvkkUrl:v})} placeholder="https://…/kvkk"/>
+                  <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>Randevu sayfasındaki onay kutusunun yanında görünür. Metni siz yayınlarsınız — veri sorumlusu işletmenizdir.</div></div>
               </div>
               {/* Değerlendirme linki harita linkinden AYRI: bu, yorum formunu
                   doğrudan açan URL. Boşsa değerlendirme daveti hiç gönderilmez. */}

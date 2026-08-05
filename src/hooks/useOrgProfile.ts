@@ -16,6 +16,12 @@ export interface OrgProfile {
     mapsUrl: string;
     /** Google değerlendirme (yorum yaz) linki — yol tarifinden AYRI URL. */
     googleReviewUrl: string;
+    /**
+     * İşletmenin yayınladığı KVKK aydınlatma metninin adresi. Randevu
+     * sayfasındaki rıza kutusunun yanında bağlantı olarak çıkar; boşsa yalnız
+     * rıza metni görünür. Metin ürüne gömülmez — veri sorumlusu işletmedir.
+     */
+    kvkkUrl: string;
     /** "Sizi özledik" mesajıyla verilen indirim oranı; 0 = indirim yok. */
     winbackDiscountPercent: number;
     /** İndirim kodu kaç gün geçerli; 0 = süresiz. */
@@ -25,7 +31,7 @@ export interface OrgProfile {
 
 const EMPTY: OrgProfile = {
     slug: '', bio: '', logoUrl: '', coverUrl: '', galleryUrls: [],
-    address: '', publicPhone: '', instagramUrl: '', mapsUrl: '', googleReviewUrl: '',
+    address: '', publicPhone: '', instagramUrl: '', mapsUrl: '', googleReviewUrl: '', kvkkUrl: '',
     winbackDiscountPercent: 0, winbackDiscountDays: 30, bookingAutoConfirm: false,
 };
 
@@ -41,6 +47,7 @@ function mapRow(row: any): OrgProfile {
         instagramUrl: row.instagram_url || '',
         mapsUrl: row.maps_url || '',
         googleReviewUrl: row.google_review_url || '',
+        kvkkUrl: row.kvkk_url || '',
         winbackDiscountPercent: Number(row.winback_discount_percent ?? 0) || 0,
         winbackDiscountDays: Number(row.winback_discount_days ?? 30) || 0,
         bookingAutoConfirm: !!row.booking_auto_confirm,
@@ -70,7 +77,7 @@ export function useOrgProfile() {
             if (cached) { setProfile(cached); setLoading(false); } else setLoading(true);
             const { data, error } = await supabase
                 .from('organizations')
-                .select('slug, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, google_review_url, winback_discount_percent, winback_discount_days, booking_auto_confirm')
+                .select('slug, bio, logo_url, cover_url, gallery_urls, address, public_phone, instagram_url, maps_url, google_review_url, kvkk_url, winback_discount_percent, winback_discount_days, booking_auto_confirm')
                 .eq('id', orgId)
                 .maybeSingle();
             if (!error && data) {
@@ -97,6 +104,7 @@ export function useOrgProfile() {
                 public_phone: p.publicPhone || null,
                 instagram_url: p.instagramUrl || null,
                 maps_url: p.mapsUrl || null,
+                kvkk_url: p.kvkkUrl || null,
                 google_review_url: p.googleReviewUrl || null,
                 winback_discount_percent: p.winbackDiscountPercent || 0,
                 winback_discount_days: p.winbackDiscountDays ?? 30,
@@ -117,7 +125,7 @@ export function useOrgProfile() {
     const COLUMN_OF: Partial<Record<keyof OrgProfile, string>> = {
         slug: 'slug', bio: 'bio', logoUrl: 'logo_url', coverUrl: 'cover_url',
         galleryUrls: 'gallery_urls', address: 'address', publicPhone: 'public_phone',
-        instagramUrl: 'instagram_url', mapsUrl: 'maps_url',
+        instagramUrl: 'instagram_url', mapsUrl: 'maps_url', kvkkUrl: 'kvkk_url',
         googleReviewUrl: 'google_review_url',
         winbackDiscountPercent: 'winback_discount_percent',
         winbackDiscountDays: 'winback_discount_days',
