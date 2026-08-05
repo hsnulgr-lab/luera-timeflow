@@ -192,6 +192,32 @@ export interface Payment {
     createdAt: string;
 }
 
+// ── Gider (080) ─────────────────────────────────────────────────────────────
+// Kâr hesabının eksik yarısı: payments parayı gelirken, expenses giderken
+// kaydeder. Tekrarlı gider (kira, maaş) TEK satırdır; aylara yayma işi raporda
+// yapılır — bkz. src/lib/expenses.ts.
+export type ExpenseCategory =
+    | 'kira' | 'personel' | 'malzeme' | 'fatura' | 'vergi' | 'pazarlama' | 'bakim' | 'diger';
+
+export interface Expense {
+    id: string;
+    organizationId: string;
+    category: ExpenseCategory;
+    description?: string;
+    amount: number;
+    method: PaymentMethod;
+    /** Giderin günü; tekrarlıda ilk geçerli olduğu ay (YYYY-MM-DD). */
+    spentOn: string;
+    /** 'monthly' = her ay tekrarlar. Boş = tek seferlik. */
+    recurrence?: 'monthly';
+    /** Tekrarın bittiği tarih; boş = sürüyor. */
+    endedOn?: string;
+    staffId?: string;
+    supplier?: string;
+    createdBy?: string;
+    createdAt: string;
+}
+
 // Tedavi planı — çok seanslı tedavilerin (örn. kanal tedavisi) toplam ücreti
 // tek planda tutulur; taksitler mevcut Payment kayıtlarına (treatmentPlanId ile)
 // bağlanır, ayrı bir finansal defter açılmaz.
