@@ -14,8 +14,14 @@ const dentalChart = read('../src/components/dental/DentalChart.tsx');
 test('clinical completion is explicit and independent from financial completion', () => {
   assert.match(treatmentPlans, /const financiallyPaid = remaining <= 0/);
   assert.match(treatmentPlans, /const clinicallyCompleted = plan\.status === 'completed'/);
-  assert.match(treatmentPlans, /Tedaviyi tamamla/);
-  assert.match(treatmentPlans, /Planı yeniden aç/);
+  // Klinik durum artık iki ayrı butonla değil, geri alınabilir bir anahtarla
+  // değiştiriliyor ("Tedaviyi tamamla" / "Planı yeniden aç" metinleri kalktı).
+  // Korunması gereken şey metin değil davranış: durum açıkça görünür, basılı
+  // olup olmadığı erişilebilirlik katmanına yansır ve geri alınabilir.
+  assert.match(treatmentPlans, /aria-pressed=\{clinicallyCompleted\}/);
+  assert.match(treatmentPlans, /Klinik: \{clinicallyCompleted \? 'Tamamlandı'/);
+  assert.match(treatmentPlans, /Planı yeniden açmak için dokunun/);
+  assert.match(treatmentPlans, /disabled=\{readOnly \|\| cancelled \|\| busy \|\| staffLoading\}/);
   assert.match(treatmentPlans, /setPlanStatus\(plan\.id, nextStatus, responsibleStaffId\)/);
   assert.match(treatmentPlans, /if \(readOnly \|\| plansLoading \|\| staffLoading/);
   assert.match(treatmentPlans, /Bu tedaviyi yalnız sorumlu hekim tamamlayabilir/);
@@ -49,9 +55,19 @@ test('newly linked reservation payment uses the resolved patient id', () => {
 });
 
 test('read-only compact chart opens tooth details and history without exposing editors', () => {
-  assert.match(dentalChart, /disabled=\{isLoading\}/);
-  assert.match(dentalChart, /onClick=\{\(\) => openTooth\(n\)\}/);
-  assert.match(dentalChart, /\{readOnly && active !== null && \(/);
+  // Yükleme sırasında ark artık "disabled" değil, hiç çizilmiyor: kayıtlar
+  // gelmeden çizilirse TÜM dişler sağlam görünür ve bu klinik olarak yanıltıcı.
+  // Korunan garanti aynı — yükleme bitmeden şema okunamaz.
+  assert.match(dentalChart, /\{isLoading \? \(/);
+  assert.match(dentalChart, /role="status" aria-live="polite"/);
+  assert.match(dentalChart, /dchart-skeleton-arch/);
+  // Diş seçimi ark bileşenine devredildi (ToothArchBoard); şema artık her diş
+  // için kendi onClick'ini yazmıyor.
+  assert.match(dentalChart, /onSelect=\{openTooth\}/);
+  // Geçmiş salt-okunur modda da açılır — readOnly'ye bağlı DEĞİL. Asıl kural
+  // düzenleyicilerin gizlenmesi: durum çipleri, yüzey seçimi ve not alanı.
+  assert.match(dentalChart, /\{active !== null && \([\s\S]*?dchart-history/);
   assert.match(dentalChart, /activeHistory\.map/);
-  assert.match(dentalChart, /\{!readOnly && active !== null && \(/);
+  assert.match(dentalChart, /\{!readOnly && \(/);
+  assert.match(dentalChart, /if \(readOnly \|\| !active\) return;/);
 });
