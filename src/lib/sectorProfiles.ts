@@ -385,3 +385,19 @@ export function fieldDefsForSector(sector: string | null | undefined, entity: Fi
 export function commsForSector(sector?: string | null): SectorComms {
     return profileForSector(sector).comms;
 }
+
+/**
+ * `treatment_plans` satırının türü. Tablo iki işi taşıyor: klinik tedavi planı
+ * (diş/sağlık/fizyoterapi) ve ticari seans paketi (güzellik/kuaför/estetik…).
+ * Ayrım sektörün kendi bilgisi olduğu için burada yaşar; DB tarafında aynı eşleme
+ * trigger'da tekrarlanır (supabase/077_plan_kind.sql).
+ *
+ * `session_count > 1` ayraç DEĞİLDİR: 4 seanslık kanal tedavisi de çok seanslıdır.
+ */
+export type PlanKind = 'tedavi' | 'paket';
+
+const CLINICAL_SECTORS = new Set(['dis', 'saglik', 'fizyoterapi']);
+
+export function planKindForSector(sector?: string | null): PlanKind {
+    return CLINICAL_SECTORS.has(sector || '') ? 'tedavi' : 'paket';
+}

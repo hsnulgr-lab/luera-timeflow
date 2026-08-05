@@ -309,6 +309,9 @@ export function GuzellikDashboard() {
     }, [lanes, todayList, laneKeyOf, grid]);
 
     // ── KPI hesapları ─────────────────────────────────────────────────────────
+    // Klinik/ticari ayrımı artık kaynakta yapılıyor (useOrgPackages yalnız
+    // plan_kind='paket' çeker); buradaki sessionCount > 1 koşulu tek seanslık
+    // satışları "yenilenecek paket" saymamak içindir.
     const finishedPackages = useMemo(
         () => packages.filter((p) => p.status !== 'cancelled' && p.sessionCount > 1 && p.sessionsDone >= p.sessionCount),
         [packages],

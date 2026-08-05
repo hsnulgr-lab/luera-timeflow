@@ -37,12 +37,23 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
             setIsLoading(false);
             return;
         }
-        const { data, error } = await supabase
+        // Yalnız TİCARİ paketler. Bu hook'un tüm çağıranları paket yüzeyi
+        // (güzellik/estetik dashboard'ı, Paketler sayfaları, premium kasa);
+        // klinik tedavi planları hasta kartındaki useTreatmentPlans'tan okunur.
+        // Filtre yokken güzellik fırsat kuyruğunda implant/kanal satırları
+        // görünüyordu (bkz. supabase/077_plan_kind.sql).
+        const query = () => supabase
             .from('treatment_plans')
             .select('*')
             .eq('organization_id', orgId)
             .order('created_at', { ascending: false })
             .limit(500);
+
+        let { data, error } = await query().eq('plan_kind', 'paket');
+        // 077 uygulanmamışsa kolon yok — filtresiz devam et (eski davranış).
+        if (error && `${error.message || ''} ${error.details || ''}`.includes('plan_kind')) {
+            ({ data, error } = await query());
+        }
         if (error) { console.error('Paketler yüklenemedi:', error); setIsLoading(false); return; }
         const rows: OrgPackage[] = (data || []).map((row) => ({
             id: row.id,
@@ -87,7 +98,7 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
         try {
             const count = Math.min(50, Math.max(1, Math.round(input.sessionCount)));
             const amount = Math.max(0, Math.round(input.totalAmount));
-            const { data, error } = await supabase.from('treatment_plans').insert({
+            const payload: Record<string, unknown> = {
                 organization_id: orgId,
                 customer_id: input.customerId,
                 title: input.title.trim(),
@@ -97,7 +108,16 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
                 status: 'active',
                 staff_id: input.staffId || null,
                 notes: input.notes || null,
-            }).select('*').single();
+                // Bu yüzeyden satılan her plan ticari pakettir; sektöre bakmaya
+                // gerek yok. Trigger yalnız damga boş gelirse devreye girer.
+                plan_kind: 'paket',
+            };
+            let { data, error } = await supabase.from('treatment_plans').insert(payload).select('*').single();
+            // 077 uygulanmamışsa kolonsuz yeniden dene (bkz. refresh'teki aynı düşüş).
+            if (error && `${error.message || ''} ${error.details || ''}`.includes('plan_kind')) {
+                delete payload.plan_kind;
+                ({ data, error } = await supabase.from('treatment_plans').insert(payload).select('*').single());
+            }
             if (error || !data) { console.error('Paket oluşturulamadı:', error); return null; }
             await refresh();
             return {
