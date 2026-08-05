@@ -766,21 +766,41 @@ function useReservationsState() {
             && !updated.customFields?.paket_sayildi) {
             (async () => {
                 const planId = String(updated.customFields!.paket_plan_id);
-                const { data: plan } = await supabase.from('treatment_plans')
-                    .select('id, session_count, sessions_done, status').eq('id', planId).maybeSingle();
-                if (!plan) return;
-                const count = Math.max(1, Number(plan.session_count ?? 1));
-                const done = Math.min(count, Math.max(0, Number(plan.sessions_done ?? 0)) + 1);
-                const { error: planErr } = await supabase.from('treatment_plans')
-                    .update({ sessions_done: done, ...(done >= count ? { status: 'completed' } : {}) })
-                    .eq('id', planId);
-                if (planErr) { console.error('Paket seansı sayılamadı:', planErr); return; }
-                await supabase.from('reservations')
-                    .update({ custom_fields: { ...updated.customFields, paket_sayildi: true } })
-                    .eq('id', id);
+                // Hak düşümü TEK transaction'da (078). Eskiden oku-değiştir-yaz
+                // idi: iki cihaz aynı anda tamamlarsa ikisi de aynı sessions_done
+                // değerini okuyup hakkı bir kez düşürüyordu. Bayrak da ayrı bir
+                // istekle yazıldığı için arada hata olunca hak düşmüş ama randevu
+                // işaretlenmemiş kalabiliyordu.
+                const { data, error: rpcErr } = await supabase.rpc('consume_plan_session', {
+                    p_plan_id: planId,
+                    p_reservation_id: id,
+                });
+                // 078 uygulanmamışsa fonksiyon yoktur — eski yola düş. Atomik
+                // değildir ama paket sayacının hiç işlememesinden iyidir.
+                const missingFn = rpcErr && (rpcErr.code === 'PGRST202'
+                    || /consume_plan_session/.test(`${rpcErr.message || ''} ${rpcErr.details || ''}`));
+                if (rpcErr && !missingFn) { console.error('Paket seansı sayılamadı:', rpcErr); return; }
+
+                let result = (data || {}) as { counted?: boolean; done?: number; total?: number; completed?: boolean };
+                if (missingFn) {
+                    const { data: plan } = await supabase.from('treatment_plans')
+                        .select('id, session_count, sessions_done, status').eq('id', planId).maybeSingle();
+                    if (!plan) return;
+                    const total = Math.max(1, Number(plan.session_count ?? 1));
+                    const done = Math.min(total, Math.max(0, Number(plan.sessions_done ?? 0)) + 1);
+                    const { error: planErr } = await supabase.from('treatment_plans')
+                        .update({ sessions_done: done, ...(done >= total ? { status: 'completed' } : {}) })
+                        .eq('id', planId);
+                    if (planErr) { console.error('Paket seansı sayılamadı:', planErr); return; }
+                    await supabase.from('reservations')
+                        .update({ custom_fields: { ...updated.customFields, paket_sayildi: true } })
+                        .eq('id', id);
+                    result = { counted: true, done, total, completed: done >= total };
+                }
                 setReservations(prev => prev.map(r => r.id === id
                     ? { ...r, customFields: { ...r.customFields, paket_sayildi: true } } : r));
-                toast.success(`Paket seansı işlendi · ${done}/${count}${done >= count ? ' — paket tamamlandı ✨' : ''}`);
+                if (!result.counted) return;   // zaten sayılmış ya da hakkı bitmiş
+                toast.success(`Paket seansı işlendi · ${result.done}/${result.total}${result.completed ? ' — paket tamamlandı ✨' : ''}`);
             })().catch(console.error);
         }
 
