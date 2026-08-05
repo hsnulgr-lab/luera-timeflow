@@ -2,14 +2,21 @@ import { useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useReservations } from './useReservations';
+import { useCashEnabled } from './useModules';
 
 // Tahsil bekleyen adisyonlar — tamamlanmış ama henüz tahsil edilmemiş randevular.
 // Masaüstü Kasa listesi ve sidebar rozeti bunu kullanır.
+//
+// Kasa modülü kapalıyken boş döner. Kapı burada, çünkü bu liste üç ayrı yüzeyi
+// birden besliyor: sidebar rozeti, usePendingBillsAlert toast'ı ve toast'ın
+// "Kasaya git" aksiyonu. Tek noktada kesmek üçünü birden susturur; aksi hâlde
+// kasası olmayan işletme, gidemeyeceği bir yere çağıran bildirimler alır.
 export function usePendingBills() {
     const { reservations } = useReservations();
+    const cashOn = useCashEnabled();
     return useMemo(
-        () => reservations.filter(r => r.status === 'completed' && !r.isPaid),
-        [reservations],
+        () => (cashOn ? reservations.filter(r => r.status === 'completed' && !r.isPaid) : []),
+        [reservations, cashOn],
     );
 }
 

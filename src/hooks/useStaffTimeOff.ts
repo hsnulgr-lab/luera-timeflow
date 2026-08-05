@@ -25,9 +25,11 @@ export function useStaffTimeOff() {
     const { user, orgId } = useAuth();
     const [timeOff, setTimeOff] = useState<StaffTimeOff[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchTimeOff = useCallback(async (resolvedOrgId: string) => {
         setIsLoading(true);
+        setError(null);
         const today = new Date().toISOString().slice(0, 10);
         const { data, error } = await supabase
             .from('staff_time_off')
@@ -38,6 +40,7 @@ export function useStaffTimeOff() {
 
         if (error) {
             console.error(error);
+            setError('Personel izinleri yüklenemedi');
         } else {
             setTimeOff((data || []).map(mapRow));
         }
@@ -78,5 +81,5 @@ export function useStaffTimeOff() {
         [timeOff],
     );
 
-    return { timeOff, isLoading, addTimeOff, removeTimeOff, forStaff };
+    return { timeOff, isLoading, error, addTimeOff, removeTimeOff, forStaff };
 }

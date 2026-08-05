@@ -3,6 +3,7 @@ import { normalizePhone } from '@/lib/phone';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, Clock, MessageCircle, Phone, Plus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { formatDateEU, todayISO, toISODate } from '@/utils/date';
@@ -51,6 +52,7 @@ export function DovmeDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
     const { reservations, settings, getReservationsByDate } = useReservations();
+    const cashOn = useCashEnabled();
     const today = todayISO();
     const now = useMemo(() => new Date(), []);
     const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -178,7 +180,7 @@ export function DovmeDashboard() {
                         <StatCard label="Onay" value={stats.approval} sublabel="Müşteri onayı" compareLabel="Açık iş" compareValue={stats.design + stats.approval} trend={stats.approval ? { kind: 'warn', text: 'yanıt bekliyor' } : { kind: 'neutral', text: '✓ temiz' }} onClick={() => navigate('/reservations')}>
                             <ProgressBar label="Açık iş dağılımı" pct={cardData.approvalShare} urgent={stats.approval > 0} />
                         </StatCard>
-                        <StatCard label="Kapora" value={`${stats.deposit.toLocaleString('tr-TR')}₺`} sublabel="Alınan kapora" compareLabel="Bekleyen" compareValue={stats.depositWaiting} trend={stats.depositWaiting ? { kind: 'warn', text: 'tahsilat var' } : { kind: 'neutral', text: '✓ temiz' }} onClick={() => navigate('/kasa')}>
+                        <StatCard label="Kapora" value={`${stats.deposit.toLocaleString('tr-TR')}₺`} sublabel="Alınan kapora" compareLabel="Bekleyen" compareValue={stats.depositWaiting} trend={stats.depositWaiting ? { kind: 'warn', text: 'tahsilat var' } : { kind: 'neutral', text: '✓ temiz' }} onClick={() => navigate(cashOn ? '/kasa' : '/reservations')}>
                             <div className="mt-[5px] text-[10px]" style={{ fontFamily: MONO, color: 'var(--dc-muted)' }}>Kayıtlı seans kaporaları</div>
                         </StatCard>
                     </section>

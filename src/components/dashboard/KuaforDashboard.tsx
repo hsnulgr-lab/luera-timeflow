@@ -1,25 +1,45 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ElementType } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     AlertTriangle, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, ChevronRight,
     CircleDollarSign, Clock3, Coffee, DoorOpen, Droplets, Eye, EyeOff, Gauge, History,
-    PackageOpen, Plus, Scissors, Search, ShieldCheck, Sparkles, TimerReset, WandSparkles,
-    Waves, WalletCards, X, Zap,
+    PackageOpen, Plus, RefreshCw, Scissors, Search, ShieldCheck, Sparkles, TimerReset,
+    UserPlus, WandSparkles, Waves, WalletCards, X, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
-import { useResources } from '@/hooks/useResources';
 import { useCustomers } from '@/hooks/useCustomers';
-import { useStaff } from '@/hooks/useStaff';
 import { useWaitlist } from '@/hooks/useWaitlist';
+import { useSlotResolver } from '@/hooks/useSlotResolver';
+import { useModules, useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate } from '@/utils/date';
 import { phaseOf, minsSince, advancePatch } from '@/lib/sessionPhase';
 import { profileForSector } from '@/lib/sectorProfiles';
-import { AdisyonModal } from '@/components/reservations/AdisyonModal';
+import {
+    KF_FORMULA_KEY as CF_FORMULA,
+    KF_STAGE_KEY as CF_STAGE,
+    KF_TIMER_KEY as CF_TIMER,
+    isKuaforColorService as isColorService,
+    isKuaforWashUnit as isWashUnit,
+    kuaforLiveStageOf,
+    kuaforStageOf as stageOf,
+    type KuaforStage as KfStage,
+} from '@/lib/kuaforFlow';
+import {
+    KF_USAGE_DONE_KEY as CF_USAGE_DONE,
+    KF_USAGE_KEY as CF_USAGE,
+    encodeUsage, recipeFor, usageAlreadyDeducted, usageFor, usageOverrides,
+    type UsageLine,
+} from '@/lib/serviceRecipe';
+import { useProducts } from '@/hooks/useProducts';
+import { useStock } from '@/hooks/useStock';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { Customer, Reservation, Service } from '@/types';
+import { findAvailableSlots, staffWorksAt, type AvailableSlot } from '@/lib/slotResolution';
+import { packLanes } from '@/lib/calendarGrid';
+import { reservationPrice } from '@/utils/reservationServices';
 import './kuaforOps.css';
 
 // ── Kuaför Dashboard'u · "Salon akışı" ───────────────────────────────────────
@@ -32,32 +52,23 @@ import './kuaforOps.css';
 // yalnız 'active' fazının içindeki iki ara adım (boya süresi / yıkama) randevu
 // custom_fields'ında saklanır — sayfa yenilense de sayaç doğru devam eder.
 
-type KfStage = 'waiting' | 'service' | 'processing' | 'finish' | 'checkout';
 type BoardView = 'flow' | 'seats' | 'team';
 type ScheduleView = 'team' | 'resources';
 type Tone = 'amber' | 'orange' | 'purple' | 'blue' | 'green' | 'red';
-
-// custom_fields anahtarları — kuaför akışına özel, tek yerde tanımlı
-const CF_STAGE = 'kf_stage';        // 'processing' | 'finish'
-const CF_TIMER = 'kf_timer_end';    // ISO — boya süresi hedefi
-const CF_FORMULA = 'kf_formula';    // renk formülü (varsa gösterilir)
+type PriorityKind = 'overdue' | 'long-wait' | 'missed' | 'checkout' | 'waiting' | 'late'
+    | 'finish' | 'service' | 'processing' | 'upcoming';
 
 // Boya süresi varsayılanı; hizmet süresi biliniyorsa onun yarısı kullanılır
 const PROCESS_MIN = 30;
-
-// Renk işlemi mi? Boya süresi aşaması YALNIZ bunlarda açılır — kesim/fön
-// müşterisi boya sayacına zorlanmaz.
-const COLOR_RE = /boya|renk|balyaj|r[öo]fle|ombre|somb?re|a[çc]ma|toner|me[çc]|perma|keratin|highlight|k[üu]ll[üu]/i;
-const isColorService = (name: string) => COLOR_RE.test(name || '');
-
-// Yıkama üniteleri koltuklardan ayrılır — "1/2 yıkama aktif" satırı buradan
-const isWashUnit = (name: string, type?: string) => /y[ıi]kama|wash/i.test(`${name} ${type || ''}`);
+const CF_LIVE_RESOURCE = 'kf_live_resource_id';
+const NO_WASH_RE = /danışman|konsültasyon|makyaj|kaş|kirpik|manikür|pedikür|ağda|epilasyon|masaj|örgü|topuz|şekillendirme|sadece fön|kuru kesim/i;
+const likelyNeedsWash = (name: string) => !NO_WASH_RE.test(name || '');
 
 const STAGES: { key: KfStage; label: string; icon: ElementType }[] = [
     { key: 'waiting', label: 'Bekliyor', icon: Clock3 },
-    { key: 'service', label: 'Uygulamada', icon: Scissors },
+    { key: 'service', label: 'İşlemde', icon: Scissors },
     { key: 'processing', label: 'Boya süresi', icon: TimerReset },
-    { key: 'finish', label: 'Yıkama · Fön', icon: Waves },
+    { key: 'finish', label: 'Yıkama / Bitiriş', icon: Waves },
     { key: 'checkout', label: 'Kasaya hazır', icon: WalletCards },
 ];
 
@@ -70,33 +81,32 @@ const initialsOf = (name: string) => name.split(' ').map((w) => w[0]).filter(Boo
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
 const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
-/** "45 dakikalık" / "2,5 saatlik" — uzun boşluklarda dakika okunmuyor. */
-const durText = (m: number) => (m < 90 ? `${m} dakikalık` : `${(m / 60).toFixed(m % 60 === 0 ? 0 : 1).replace('.', ',')} saatlik`);
 /** Timestamp'ı temizlemek için — updateReservation undefined'ı atlar, null'ı yazar. */
 const CLEAR = null as unknown as undefined;
-
-/** Randevunun kuaför akışındaki aşaması; salon dışındaysa null. */
-function stageOf(r: Reservation): KfStage | null {
-    const ph = phaseOf(r);
-    if (ph === 'arrived') return 'waiting';
-    if (ph === 'active') {
-        const s = r.customFields?.[CF_STAGE];
-        if (s === 'processing') return 'processing';
-        if (s === 'finish') return 'finish';
-        return 'service';
-    }
-    if (ph === 'done') return 'checkout';
-    return null;
-}
 
 export function KuaforDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
-    const { reservations, settings, updateReservation, addReservation } = useReservations();
-    const { resources } = useResources();
-    const { customers } = useCustomers();
-    const { staff } = useStaff();
-    const { entries: waitlist } = useWaitlist();
+    const {
+        reservations, settings, updateReservation, addReservation, checkConflict,
+        isLoading: reservationsLoading, isSettingsLoading, error: reservationsError, settingsError,
+    } = useReservations();
+    const {
+        customers, addCustomer, updateCustomer, isLoading: customersLoading, error: customersError,
+    } = useCustomers();
+    const {
+        entries: waitlist, isLoading: waitlistLoading, error: waitlistError,
+    } = useWaitlist();
+    // Sarf tüketimi: hizmet reçetesi (Ayarlar → Hizmetler) işlem kasaya
+    // gönderilirken stok defterine 'usage' hareketi olarak düşer.
+    const { products } = useProducts();
+    const { addMovements } = useStock();
+    const {
+        rules: slotRules, staff, resources, timeOff, isReady: slotRulesReady,
+        staffLoading, resourceLoading, timeOffLoading, staffError, resourceError, timeOffError,
+    } = useSlotResolver();
+    const { isEnabled } = useModules();
+    const cashOn = useCashEnabled();
     const today = todayISO();
 
     // Ağır hesaplar 20 saniyede bir tazelenir; saniyelik sayaçlar kendi
@@ -114,7 +124,7 @@ export function KuaforDashboard() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [walkinOpen, setWalkinOpen] = useState(false);
-    const [cardRes, setCardRes] = useState<Reservation | null>(null);
+    const [processingRes, setProcessingRes] = useState<Reservation | null>(null);
     const [editRes, setEditRes] = useState<Reservation | null>(null);
 
     const services: Service[] = useMemo(() => settings.services || [], [settings.services]);
@@ -124,7 +134,33 @@ export function KuaforDashboard() {
         [active, today],
     );
     const activeResources = useMemo(() => resources.filter((r) => r.isActive).sort((a, b) => a.sort - b.sort), [resources]);
-    const activeStaff = useMemo(() => staff.filter((s) => s.isActive !== false), [staff]);
+    const enabledStaff = useMemo(() => staff.filter((s) => s.isActive !== false), [staff]);
+
+    const workDay = useMemo(() => {
+        const wh = settings.workingHours?.find((w) => w.day === now.getDay());
+        return {
+            open: toMin(wh?.start || '09:00'),
+            close: toMin(wh?.end || '19:00'),
+            isOff: wh?.isOff ?? false,
+        };
+    }, [settings.workingHours, now]);
+    const isSalonOpen = !workDay.isOff && nowMin >= workDay.open && nowMin < workDay.close;
+    const activeStaff = useMemo(() => enabledStaff.filter((member) => (
+        staffWorksAt(
+            { timeOff, workingHours: settings.workingHours || [] },
+            member,
+            today,
+            fromMin(nowMin),
+            fromMin(nowMin + 1),
+        )
+    )), [enabledStaff, timeOff, settings.workingHours, today, nowMin]);
+
+    const isDashboardLoading = reservationsLoading || isSettingsLoading || customersLoading
+        || waitlistLoading || staffLoading || resourceLoading || timeOffLoading;
+    const loadErrors = [
+        reservationsError, settingsError, customersError, waitlistError,
+        staffError, resourceError, timeOffError,
+    ].filter(Boolean) as string[];
 
     // ── Aşama kümeleri ────────────────────────────────────────────────────────
     const byStage = useMemo(() => {
@@ -136,8 +172,21 @@ export function KuaforDashboard() {
         () => STAGES.flatMap((s) => byStage[s.key]),
         [byStage],
     );
+    const missedAppointments = useMemo(
+        () => todayList.filter((r) => kuaforLiveStageOf(r, {
+            now,
+            toleranceMin: settings.arrivalToleranceMin,
+        }) === 'missed'),
+        [todayList, now, settings.arrivalToleranceMin],
+    );
+    const lateAppointments = useMemo(
+        () => todayList.filter((r) => phaseOf(r) === 'wait'
+            && !missedAppointments.some((missed) => missed.id === r.id)
+            && toMin(r.startTime) < nowMin),
+        [todayList, missedAppointments, nowMin],
+    );
     const upcoming = useMemo(
-        () => todayList.filter((r) => phaseOf(r) === 'wait' && toMin(r.endTime) >= nowMin),
+        () => todayList.filter((r) => phaseOf(r) === 'wait' && toMin(r.startTime) >= nowMin),
         [todayList, nowMin],
     );
     const doneToday = useMemo(() => todayList.filter((r) => phaseOf(r) === 'completed'), [todayList]);
@@ -158,9 +207,24 @@ export function KuaforDashboard() {
         [byStage.waiting, now],
     );
 
+    // ── Kaynak sahipliği — TEK KAYNAK ─────────────────────────────────────────
+    // Bir randevunun o an fiilen tuttuğu koltuk/yıkama ünitesi. Kasa aşamasında
+    // ya da salon dışında kaynak tutulmaz: randevu başka bir ekrandan (Kasa,
+    // Rezervasyonlar) tamamlandığında custom_fields temizlenmiyor ve koltuk
+    // şeritte "boş" görünürken "Koltuğa al" adımına dolu geliyordu.
+    const liveResourceId = useCallback((r: Reservation) => {
+        const stage = stageOf(r);
+        if (stage === null || stage === 'checkout') return undefined;
+        const stored = r.customFields?.[CF_LIVE_RESOURCE];
+        if (typeof stored === 'string') return stored;
+        // Eski kayıtlar için planlı kaynak yalnız aktif hizmet aşamasında
+        // geçici fallback'tir; bekleyen müşteri koltuğu işgal etmiş sayılmaz.
+        return stage === 'service' || stage === 'processing' ? r.resourceId : undefined;
+    }, []);
+
     // ── Kaynak durumu (koltuk / yıkama) ───────────────────────────────────────
     const units = useMemo(() => activeResources.map((res) => {
-        const here = inSalon.filter((r) => r.resourceId === res.id);
+        const here = inSalon.filter((r) => liveResourceId(r) === res.id);
         const working = here.find((r) => { const s = stageOf(r); return s === 'service' || s === 'processing' || s === 'finish'; });
         const st = stageOf(working || ({} as Reservation));
         const overdue = working && overdueChecks.some((o) => o.id === working.id);
@@ -175,34 +239,40 @@ export function KuaforDashboard() {
                     : prep ? 'Müşteri bekliyor' : 'Hazır',
             freeAt: working?.endTime,
         };
-    }), [activeResources, inSalon, overdueChecks]);
+    }), [activeResources, inSalon, overdueChecks, liveResourceId]);
 
     const chairs = useMemo(() => units.filter((u) => !u.wash), [units]);
     const washes = useMemo(() => units.filter((u) => u.wash), [units]);
-    const busyChairs = chairs.filter((c) => c.state !== 'free').length;
-    const busyWashes = washes.filter((c) => c.state !== 'free').length;
+    const busyChairs = chairs.filter((c) => ['busy', 'processing', 'late'].includes(c.state)).length;
+    const busyWashes = washes.filter((c) => ['busy', 'processing', 'late'].includes(c.state)).length;
 
     // ── Ekip yükü ─────────────────────────────────────────────────────────────
-    const workDay = useMemo(() => {
-        const wh = settings.workingHours?.find((w) => w.day === now.getDay());
-        return { open: toMin(wh?.start || '09:00'), close: toMin(wh?.end || '19:00') };
-    }, [settings.workingHours, now]);
-
-    const team = useMemo(() => activeStaff.map((s) => {
+    const team = useMemo(() => enabledStaff.map((s) => {
         const mine = todayList.filter((r) => r.staffId === s.id);
         const minutes = mine.reduce((sum, r) => sum + Math.max(0, toMin(r.endTime) - toMin(r.startTime)), 0);
         const span = Math.max(60, workDay.close - workDay.open);
         const load = Math.min(100, Math.round((minutes / span) * 100));
-        const current = inSalon.find((r) => r.staffId === s.id);
+        const current = inSalon
+            .filter((r) => r.staffId === s.id)
+            .sort((a, b) => {
+                const rank = (r: Reservation) => {
+                    const stage = stageOf(r);
+                    return stage === 'processing' ? 0 : stage === 'service' || stage === 'finish' ? 1 : stage === 'checkout' ? 2 : 3;
+                };
+                return rank(a) - rank(b);
+            })[0];
         const next = mine.find((r) => phaseOf(r) === 'wait' && toMin(r.startTime) >= nowMin);
+        const onShift = activeStaff.some((member) => member.id === s.id);
         return {
             id: s.id, name: s.name, role: s.specialty || profileForSector(settings.sector).staffRoles?.doctor?.label || 'Kuaför',
-            load, count: mine.length,
-            current: current ? `${current.customerName.split(' ')[0]} · ${current.service}` : mine.length ? 'Şu an boşta' : 'Bugün randevusu yok',
+            load, count: mine.length, onShift,
+            current: current ? `${current.customerName.split(' ')[0]} · ${current.service}`
+                : !onShift ? 'İzinli / mesai dışında'
+                    : mine.length ? 'Şu an boşta' : 'Bugün randevusu yok',
             next: next ? `${next.customerName.split(' ')[0]} · ${next.startTime}` : 'Gün planı bitti',
-            tone: load >= 85 ? 'red' : load >= 60 ? '' : load >= 30 ? 'blue' : 'green',
+            tone: !onShift ? 'muted' : load >= 85 ? 'red' : load >= 60 ? '' : load >= 30 ? 'blue' : 'green',
         };
-    }), [activeStaff, todayList, inSalon, workDay, nowMin, settings.sector]);
+    }), [enabledStaff, activeStaff, todayList, inSalon, workDay, nowMin, settings.sector]);
 
     // ── Gizlilik maskesi (ortak ekranda soyad) ────────────────────────────────
     const mask = useMemo(() => (name: string) => {
@@ -214,22 +284,28 @@ export function KuaforDashboard() {
 
     // ── Seçili müşteri ────────────────────────────────────────────────────────
     const selected = useMemo(
-        () => inSalon.find((r) => r.id === selectedId) || overdueChecks[0] || inSalon[0] || upcoming[0] || null,
-        [inSalon, selectedId, overdueChecks, upcoming],
+        () => todayList.find((r) => r.id === selectedId) || overdueChecks[0] || inSalon[0] || missedAppointments[0] || lateAppointments[0] || upcoming[0] || null,
+        [todayList, selectedId, overdueChecks, inSalon, missedAppointments, lateAppointments, upcoming],
     );
 
     // ── Aşama ilerletme ───────────────────────────────────────────────────────
     // Her ilerletme geri alınabilir: sonner aksiyonu önceki alanları aynen yazar.
-    const runStep = async (r: Reservation, patch: Partial<Reservation>, undo: Partial<Reservation>, message: string) => {
+    const runStep = async (
+        r: Reservation,
+        patch: Partial<Reservation>,
+        undo: Partial<Reservation>,
+        message: string,
+        allowUndo = true,
+    ) => {
         if (busyId) return;                       // çift tıklama ikinci kayıt açmaz
         setBusyId(r.id);
         const ok = await updateReservation(r.id, patch);
         setBusyId(null);
         if (!ok) return;
         setSelectedId(r.id);
-        toast.success(message, {
+        toast.success(message, allowUndo ? {
             action: { label: 'Geri al', onClick: () => { void updateReservation(r.id, undo); } },
-        });
+        } : undefined);
     };
 
     const cf = (r: Reservation, patch: Record<string, string | number | boolean | undefined>) => {
@@ -238,45 +314,191 @@ export function KuaforDashboard() {
         return next;
     };
 
-    /** Aşamaya göre TEK geçerli sonraki adım — kesim müşterisi boyaya zorlanmaz. */
-    const nextStep = (r: Reservation): { label: string; run: () => void } | null => {
-        const st = stageOf(r);
+    const liveResourceIsFree = useCallback((resourceId: string, exceptId?: string) => !inSalon.some((item) => (
+        item.id !== exceptId && liveResourceId(item) === resourceId
+    )), [inSalon, liveResourceId]);
+
+    // Sarf malzemesi işlem KAPANIRKEN düşer — tek yer burası. Reçetesi olan her
+    // hizmet otomatik yazar; renk sayacında girilen düzeltme reçeteyi ezer.
+    // Randevuya konan bayrak, aynı randevu tekrar kapatılırsa çift düşmeyi
+    // engeller (kasaya gönderme geri alınabiliyor).
+    const deductServiceUsage = useCallback(async (r: Reservation) => {
+        if (usageAlreadyDeducted(r)) return;
+        const lines = usageFor(r, settings.services, products);
+        if (lines.length === 0) return;
+        await addMovements(lines.map((line) => ({
+            productId: line.productId,
+            type: 'usage' as const,
+            delta: -line.quantity,
+            note: `${r.service} · ${r.customerName}`,
+            reservationId: r.id,
+        })));
+    }, [addMovements, products, settings.services]);
+
+    const sendToCheckout = (r: Reservation, message?: string) => {
         const prevCF = { ...(r.customFields || {}) };
+        const usage = usageAlreadyDeducted(r) ? [] : usageFor(r, settings.services, products);
+        void deductServiceUsage(r);
+        void runStep(r, {
+            ...advancePatch('completed'),
+            customFields: cf(r, {
+                [CF_STAGE]: undefined,
+                [CF_TIMER]: undefined,
+                [CF_LIVE_RESOURCE]: undefined,
+                ...(usage.length > 0 ? { [CF_USAGE_DONE]: true } : {}),
+            }),
+        }, {
+            serviceEndedAt: CLEAR,
+            status: 'confirmed',
+            customFields: prevCF,
+        }, message || `${r.customerName.split(' ')[0]} kasaya gönderildi`, false);
+    };
+
+    // Yıkama/bitiriş bir AŞAMA'dır, kaynak şartı değil. Salonların çoğunda ayrı
+    // yıkama ünitesi yoktur — yıkama koltuğun başındaki evyede yapılır. Ayrı
+    // ünite tanımlıysa müşteri oraya taşınır; yoksa ya da hepsi doluysa akış
+    // mevcut koltukta devam eder. Aşamayı bloklamak müşteriyi "İşlemde"
+    // kolonunda kilitliyor ve kasaya giden tek yolu kapatıyordu.
+    const moveToFinish = (r: Reservation) => {
+        const wash = washes.find((unit) => liveResourceIsFree(unit.id, r.id));
+        const stayPut = liveResourceId(r) || r.resourceId;
+        const prevCF = { ...(r.customFields || {}) };
+        const first = r.customerName.split(' ')[0];
+        void runStep(r, {
+            customFields: cf(r, {
+                [CF_STAGE]: 'finish',
+                [CF_TIMER]: undefined,
+                [CF_LIVE_RESOURCE]: wash?.id || stayPut || undefined,
+            }),
+        }, { customFields: prevCF }, wash
+            ? `${first} · ${wash.name} alanına alındı`
+            : washes.length === 0
+                ? `${first} yıkama / bitirişe alındı`
+                : `${first} bitirişte — yıkama alanları dolu, koltukta devam ediyor`);
+    };
+
+    const startService = (r: Reservation) => {
+        // Kapanış saatinden sonra koltukta müşteri olması kuaförde kural, istisna
+        // değil: 19:00'da kapanan salon 19:20'de son müşteriyi bitiriyor olur.
+        // Bu yüzden yalnız KAPALI GÜN engeldir; mesai sonrası akış durdurulmaz.
+        if (workDay.isOff) {
+            toast.error('Salon bugün kapalı');
+            return;
+        }
+        if (!slotRulesReady) {
+            toast.loading('Personel ve kaynak uygunluğu kontrol ediliyor…', { duration: 1800 });
+            return;
+        }
+        const occupiedStaff = new Set(inSalon
+            .filter((item) => {
+                const stage = stageOf(item);
+                return item.id !== r.id && (stage === 'service' || stage === 'finish');
+            })
+            .map((item) => item.staffId)
+            .filter(Boolean));
+        // Vardiya listesi tercih edilir ama zorunlu değildir: mesai bitmiş ya da
+        // vardiya hiç tanımlanmamış bir salonda koltukta müşteri olması kuralın
+        // kendisidir. Kimse vardiyada görünmüyorsa aktif personel havuzuna düşülür.
+        const onShiftPool = activeStaff.filter((member) => !occupiedStaff.has(member.id));
+        const fallbackPool = enabledStaff.filter((member) => !occupiedStaff.has(member.id));
+        const pool = onShiftPool.length > 0 ? onShiftPool : fallbackPool;
+        const assigned = pool.find((member) => member.id === r.staffId);
+        const member = assigned || pool[0];
+        const plannedChair = chairs.find((chair) => chair.id === r.resourceId && liveResourceIsFree(chair.id, r.id));
+        const chair = plannedChair || chairs.find((candidate) => liveResourceIsFree(candidate.id, r.id));
+        if (!member) {
+            toast.error(enabledStaff.length === 0
+                ? 'Henüz personel eklenmemiş; koltuğa alma personele bağlıdır'
+                : 'Tüm kuaförler şu anda başka müşteride', {
+                action: enabledStaff.length === 0
+                    ? { label: 'Personel ekle', onClick: () => navigate('/staff') }
+                    : undefined,
+            });
+            return;
+        }
+        const offShift = onShiftPool.length === 0;
+        if (!chair) {
+            toast.error('Şu anda boş koltuk yok');
+            return;
+        }
+        const conflict = checkConflict(r.date, r.startTime, r.endTime, r.id, member.id, r.resourceId);
+        if (conflict && member.id !== r.staffId) {
+            toast.error(`${member.name}, planlanan saatte başka bir müşteride`);
+            return;
+        }
+        const prevCF = { ...(r.customFields || {}) };
+        void runStep(r, {
+            ...advancePatch('active'),
+            staffId: member.id,
+            customFields: cf(r, { [CF_LIVE_RESOURCE]: chair.id }),
+        }, {
+            arrivedAt: CLEAR,
+            status: 'confirmed',
+            staffId: r.staffId || CLEAR,
+            customFields: prevCF,
+        }, `${r.customerName.split(' ')[0]} · ${chair.name} · ${member.name}${offShift ? ' (mesai dışı)' : ''}`);
+    };
+
+    /** Aşamaya göre geçerli sonraki adım. Alternatif, yıkama gerektirmeyen hizmetlerde akışı zorlamaz. */
+    const nextStep = (r: Reservation): {
+        label: string;
+        run: () => void;
+        secondary?: { label: string; run: () => void };
+    } | null => {
+        const st = stageOf(r);
+        if (st === null && phaseOf(r) === 'wait') return {
+            label: kuaforLiveStageOf(r, { now, toleranceMin: settings.arrivalToleranceMin }) === 'missed'
+                ? 'Geç geldi olarak işaretle' : 'Geldi olarak işaretle',
+            run: () => void runStep(r, advancePatch('arrived'),
+                { customerArrivedAt: CLEAR }, `${r.customerName.split(' ')[0]} geldi olarak işaretlendi`),
+        };
         if (st === 'waiting') return {
             label: 'Koltuğa al',
-            run: () => void runStep(r, advancePatch('active'),
-                { arrivedAt: CLEAR, status: 'confirmed' }, `${r.customerName.split(' ')[0]} koltuğa alındı`),
+            run: () => startService(r),
         };
         if (st === 'service') {
             if (isColorService(r.service)) {
-                const dur = services.find((s) => s.name === r.service)?.duration;
-                const mins = Math.max(10, Math.round((dur ? dur / 2 : PROCESS_MIN)));
                 return {
                     label: 'Boya süresini başlat',
-                    run: () => void runStep(r,
-                        { customFields: cf(r, { [CF_STAGE]: 'processing', [CF_TIMER]: new Date(Date.now() + mins * 60_000).toISOString() }) },
-                        { customFields: prevCF }, `Boya süresi başladı · ${mins} dk`),
+                    run: () => setProcessingRes(r),
+                    secondary: { label: 'Boya sayacı olmadan bitir', run: () => moveToFinish(r) },
                 };
             }
-            return {
-                label: 'Yıkamaya al',
-                run: () => void runStep(r, { customFields: cf(r, { [CF_STAGE]: 'finish' }) },
-                    { customFields: prevCF }, `${r.customerName.split(' ')[0]} yıkamaya alındı`),
-            };
+            return likelyNeedsWash(r.service)
+                ? {
+                    label: 'Yıkamaya al',
+                    run: () => moveToFinish(r),
+                    secondary: { label: 'Yıkamasız kasaya gönder', run: () => sendToCheckout(r) },
+                }
+                : {
+                    label: 'Kasaya gönder',
+                    run: () => sendToCheckout(r),
+                    secondary: { label: 'Yıkama / bitirişe al', run: () => moveToFinish(r) },
+                };
         }
         if (st === 'processing') return {
-            label: 'Kontrol edildi',
-            run: () => void runStep(r, { customFields: cf(r, { [CF_STAGE]: 'finish', [CF_TIMER]: undefined }) },
-                { customFields: prevCF }, 'Renk kontrolü kaydedildi · sırada yıkama'),
+            label: 'Kontrol edildi · yıkamaya al',
+            run: () => moveToFinish(r),
+            secondary: { label: 'Yıkamasız kasaya gönder', run: () => sendToCheckout(r) },
         };
         if (st === 'finish') return {
             label: 'Kasaya gönder',
-            run: () => void runStep(r,
-                { ...advancePatch('completed'), customFields: cf(r, { [CF_STAGE]: undefined, [CF_TIMER]: undefined }) },
-                { serviceEndedAt: CLEAR, status: 'confirmed', customFields: prevCF }, `${r.customerName.split(' ')[0]} kasaya gönderildi`),
+            run: () => sendToCheckout(r),
         };
-        // Kasada aksiyon yok: tahsilat Kasa sayfasında yapılır (bkz. d6a7ce1)
-        if (st === 'checkout') return { label: 'Kasayı aç', run: () => navigate('/kasa') };
+        if (st === 'checkout') {
+            // Kasa modülü kapalıysa tahsilat başka bir yerde takip ediliyordur;
+            // randevunun "Kasaya hazır" kolonunda süresiz beklememesi için
+            // kapatma adımı sunulur (ödeme kaydı üretilmez).
+            if (!cashOn) return {
+                label: 'Kaydı kapat',
+                run: () => void runStep(r, { isPaid: true }, { isPaid: false },
+                    `${r.customerName.split(' ')[0]} kaydı kapatıldı`),
+            };
+            return {
+                label: 'Kasada tahsil et',
+                run: () => navigate(`/kasa?reservation=${encodeURIComponent(r.id)}`),
+            };
+        }
         return null;
     };
 
@@ -288,33 +510,98 @@ export function KuaforDashboard() {
             { customFields: { ...(r.customFields || {}) } }, '+2 dakika uzatma kaydedildi');
     };
 
-    // ── Boşluk avı: bugünün satılabilir aralığı ───────────────────────────────
+    // Renk hafızası tek yerden beslenir: formül, sayaç başlarken kuaförün elinde
+    // olduğu an kaydedilir. Randevuya yazılır (geçmişte hangi işlemde ne
+    // kullanıldığı kalır) ve müşteri kartına aynalanır (bir sonraki ziyarette
+    // "son formül" olarak açılır).
+    const beginProcessing = (r: Reservation, minutes: number, formula: string, usage: UsageLine[]) => {
+        const safeMinutes = Math.max(5, Math.min(180, Math.round(minutes)));
+        const trimmed = formula.trim();
+        const prevCF = { ...(r.customFields || {}) };
+        void runStep(r, {
+            customFields: cf(r, {
+                [CF_STAGE]: 'processing',
+                [CF_TIMER]: new Date(Date.now() + safeMinutes * 60_000).toISOString(),
+                ...(trimmed ? { [CF_FORMULA]: trimmed } : {}),
+                // Miktar düzeltmesi randevuya yazılır; stok işlem kapanınca düşer
+                // (boya sürerken müşteri vazgeçebilir, sayaç geri alınabilir).
+                ...(usage.length > 0 ? { [CF_USAGE]: encodeUsage(usage) } : {}),
+            }),
+        }, { customFields: prevCF }, `Boya süresi başladı · ${safeMinutes} dk`);
+        if (trimmed && r.customerId) {
+            const customer = customers.find((c) => c.id === r.customerId);
+            if (customer && String(customer.customFields?.[CF_FORMULA] || '') !== trimmed) {
+                void updateCustomer(r.customerId, {
+                    customFields: { ...(customer.customFields || {}), [CF_FORMULA]: trimmed },
+                });
+            }
+        }
+        setProcessingRes(null);
+    };
+
+    // ── Boşluk avı: çalışma saati + personel + izin + koltuk kapasitesi ───────
     const gap = useMemo(() => {
-        const busy = todayList
-            .map((r) => [toMin(r.startTime), toMin(r.endTime)] as [number, number])
-            .sort((a, b) => a[0] - b[0]);
-        const merged: [number, number][] = [];
-        for (const b of busy) {
-            const last = merged[merged.length - 1];
-            if (last && b[0] <= last[1]) last[1] = Math.max(last[1], b[1]);
-            else merged.push([...b]);
+        if (!slotRulesReady || workDay.isOff || nowMin >= workDay.close || chairs.length === 0) return null;
+        type Match = { start: number; end: number; waitlistId?: string; serviceName: string };
+        const matches: Match[] = [];
+        const eligible = waitlist.filter((entry) => entry.status === 'waiting'
+            && (!entry.preferredDate || entry.preferredDate === today)
+            && Boolean(entry.serviceId));
+
+        for (const entry of eligible) {
+            const service = services.find((candidate) => candidate.id === entry.serviceId);
+            if (!service) continue;
+            let bestForEntry: Match | null = null;
+            for (const chair of chairs) {
+                const [slot] = findAvailableSlots(slotRules, {
+                    date: today,
+                    durationMin: service.duration,
+                    resourceId: chair.id,
+                    notBefore: fromMin(nowMin),
+                    stepMin: settings.slotDuration || 15,
+                    limit: 1,
+                });
+                if (!slot) continue;
+                const candidate = {
+                    start: toMin(slot.startTime),
+                    end: toMin(slot.endTime),
+                    waitlistId: entry.id,
+                    serviceName: service.name,
+                };
+                if (!bestForEntry || candidate.start < bestForEntry.start) bestForEntry = candidate;
+            }
+            if (bestForEntry) matches.push(bestForEntry);
         }
-        let cursor = Math.max(nowMin, workDay.open);
-        let best: { start: number; end: number } | null = null;
-        for (const [s, e] of merged) {
-            if (s > cursor && s - cursor >= 30) { const g = { start: cursor, end: s }; if (!best || g.end - g.start > best.end - best.start) best = g; }
-            cursor = Math.max(cursor, e);
+
+        if (matches.length === 0) {
+            const service = [...services].filter((item) => item.duration > 0).sort((a, b) => a.duration - b.duration)[0];
+            if (!service) return null;
+            for (const chair of chairs) {
+                const [slot] = findAvailableSlots(slotRules, {
+                    date: today,
+                    durationMin: service.duration,
+                    resourceId: chair.id,
+                    notBefore: fromMin(nowMin),
+                    stepMin: settings.slotDuration || 15,
+                    limit: 1,
+                });
+                if (slot) matches.push({
+                    start: toMin(slot.startTime),
+                    end: toMin(slot.endTime),
+                    serviceName: service.name,
+                });
+            }
         }
-        if (workDay.close - cursor >= 30) { const g = { start: cursor, end: workDay.close }; if (!best || g.end - g.start > best.end - best.start) best = g; }
+        const best = matches.sort((a, b) => a.start - b.start || a.end - b.end)[0];
         if (!best) return null;
-        const len = best.end - best.start;
-        const fits = waitlist.filter((w) => {
-            if (w.status !== 'waiting') return false;
-            const dur = services.find((s) => s.id === w.serviceId)?.duration ?? 45;
-            return dur <= len;
-        }).length;
-        return { ...best, len, fits };
-    }, [todayList, nowMin, workDay, waitlist, services]);
+        const fits = new Set(matches
+            .filter((candidate) => candidate.waitlistId && candidate.start === best.start)
+            .map((candidate) => candidate.waitlistId)).size;
+        return { ...best, len: best.end - best.start, fits };
+    }, [
+        slotRulesReady, workDay.isOff, workDay.close, nowMin, chairs, waitlist, today,
+        services, slotRules, settings.slotDuration,
+    ]);
 
     // ── Geri dönüş zamanı gelen müşteriler ────────────────────────────────────
     const recallDays = profileForSector(settings.sector).comms.recall?.afterDays ?? 28;
@@ -328,9 +615,13 @@ export function KuaforDashboard() {
         const cutoff = new Date(now); cutoff.setDate(now.getDate() - recallDays);
         const cutoffISO = toISODate(cutoff);
         return customers
-            .filter((c) => c.lastVisit && c.lastVisit <= cutoffISO && !futureByCustomer.has(c.id))
-            .sort((a, b) => (a.lastVisit || '').localeCompare(b.lastVisit || ''));
-    }, [customers, futureByCustomer, now, recallDays]);
+            .filter((c) => {
+                if (futureByCustomer.has(c.id)) return false;
+                if (c.recallDate) return c.recallDate <= today;
+                return Boolean(c.lastVisit && c.lastVisit <= cutoffISO);
+            })
+            .sort((a, b) => (a.recallDate || a.lastVisit || '').localeCompare(b.recallDate || b.lastVisit || ''));
+    }, [customers, futureByCustomer, now, recallDays, today]);
     const reachable = useMemo(() => dueBack.filter((c) => Boolean(c.phone)).length, [dueBack]);
 
     // Yeniden randevu oranı — son 30 günde gelenlerin ileri randevusu var mı
@@ -365,12 +656,17 @@ export function KuaforDashboard() {
         const span = Math.max(60, workDay.close - workDay.open);
         const capacity = span * Math.max(1, chairs.length);
         const booked = todayList.reduce((sum, r) => sum + Math.max(0, toMin(r.endTime) - toMin(r.startTime)), 0);
+        // Payda yalnız müşterinin GELDİĞİ randevular: hiç gelmeyen müşteri ekibin
+        // tamamlama performansını düşürmemeli (no-show ayrı bir sinyaldir).
+        const due = todayList.filter((r) => (toMin(r.endTime) <= nowMin || Boolean(r.serviceEndedAt))
+            && (Boolean(r.customerArrivedAt) || Boolean(r.arrivedAt) || r.status === 'completed'));
+        const serviceFinished = due.filter((r) => Boolean(r.serviceEndedAt) || r.status === 'completed');
         return {
             onTime: started.length ? Math.round((onTime / started.length) * 100) : null,
-            occupancy: Math.min(100, Math.round((booked / capacity) * 100)),
-            completion: todayList.length ? Math.round((doneToday.length / todayList.length) * 100) : null,
+            occupancy: workDay.isOff ? 0 : Math.min(100, Math.round((booked / capacity) * 100)),
+            completion: due.length ? Math.round((serviceFinished.length / due.length) * 100) : null,
         };
-    }, [todayList, workDay, chairs.length, doneToday.length]);
+    }, [todayList, workDay, chairs.length, nowMin]);
 
     const behind = useMemo(
         () => team.filter((t) => t.load >= 85).sort((a, b) => b.load - a.load)[0] || null,
@@ -381,15 +677,41 @@ export function KuaforDashboard() {
         [team],
     );
 
-    // ── Öncelik kuyruğu — gerçek veriden türetilir ────────────────────────────
-    type Task = { id: string; level: 'now' | 'today' | 'opportunity'; title: string; detail: string; action: string; icon: ElementType; run: () => void };
+    const processingSoon = useMemo(() => [...byStage.processing]
+        .filter((r) => !overdueChecks.some((overdue) => overdue.id === r.id))
+        .sort((a, b) => String(a.customFields?.[CF_TIMER] || '').localeCompare(String(b.customFields?.[CF_TIMER] || '')))[0] || null,
+    [byStage.processing, overdueChecks]);
+
+    const priority = useMemo<{ kind: PriorityKind; reservation: Reservation } | null>(() => {
+        if (overdueChecks[0]) return { kind: 'overdue', reservation: overdueChecks[0] };
+        if (longWaits[0]) return { kind: 'long-wait', reservation: longWaits[0].r };
+        if (missedAppointments[0]) return { kind: 'missed', reservation: missedAppointments[0] };
+        if (byStage.checkout[0]) return { kind: 'checkout', reservation: byStage.checkout[0] };
+        // Salonda oturan müşteri, henüz gelmemiş geç müşteriden önce gelir:
+        // 10 dk eşiği (longWaits) yalnız "kritik" rozetini belirler, kartın
+        // konusunu değil. Bu satır olmadan bekleme alanında müşteri varken kart
+        // "Bekleyen operasyon yok" diyordu.
+        if (byStage.waiting[0]) return { kind: 'waiting', reservation: byStage.waiting[0] };
+        if (lateAppointments[0]) return { kind: 'late', reservation: lateAppointments[0] };
+        if (byStage.finish[0]) return { kind: 'finish', reservation: byStage.finish[0] };
+        if (byStage.service[0]) return { kind: 'service', reservation: byStage.service[0] };
+        if (processingSoon) return { kind: 'processing', reservation: processingSoon };
+        if (upcoming[0]) return { kind: 'upcoming', reservation: upcoming[0] };
+        return null;
+    }, [
+        overdueChecks, longWaits, missedAppointments, byStage.checkout, byStage.waiting,
+        lateAppointments, byStage.finish, byStage.service, processingSoon, upcoming,
+    ]);
+
+    // ── Öncelik kuyruğu — yalnız operasyon; satış fırsatları FlowPilot'ta ──────
+    type Task = { id: string; level: 'now' | 'today'; title: string; detail: string; action: string; icon: ElementType; run: () => void };
     const tasks = useMemo(() => {
         const out: Task[] = [];
         for (const r of overdueChecks.slice(0, 2)) {
             out.push({
                 id: `check-${r.id}`, level: 'now',
                 title: `${mask(r.customerName)} · renk kontrolü gecikti`,
-                detail: [units.find((u) => u.id === r.resourceId)?.name, r.staffName, r.customFields?.[CF_FORMULA]].filter(Boolean).join(' · ') || r.service,
+                detail: [units.find((u) => u.id === liveResourceId(r))?.name, r.staffName, r.customFields?.[CF_FORMULA]].filter(Boolean).join(' · ') || r.service,
                 action: 'Kontrole git', icon: TimerReset,
                 run: () => { setSelectedId(r.id); setBoardView('flow'); },
             });
@@ -403,79 +725,92 @@ export function KuaforDashboard() {
                 run: () => { setSelectedId(w.r.id); setBoardView('flow'); },
             });
         }
-        if (byStage.checkout.length > 0) {
+        for (const r of missedAppointments.slice(0, 2)) {
+            out.push({
+                id: `missed-${r.id}`, level: 'now',
+                title: `${mask(r.customerName)} randevusuna gelmedi`,
+                detail: `${r.startTime} · ${r.service}`,
+                action: 'Kaydı aç', icon: AlertTriangle,
+                run: () => { setSelectedId(r.id); setBoardView('flow'); },
+            });
+        }
+        if (cashOn && byStage.checkout.length > 0) {
+            const first = byStage.checkout[0];
             out.push({
                 id: 'cash', level: 'today',
                 title: `${byStage.checkout.length} müşteri kasada bekliyor`,
                 detail: byStage.checkout.map((r) => mask(r.customerName)).join(' · '),
-                action: 'Kasayı aç', icon: CircleDollarSign,
-                run: () => navigate('/kasa'),
+                action: 'Tahsilata git', icon: CircleDollarSign,
+                run: () => navigate(`/kasa?reservation=${encodeURIComponent(first.id)}`),
             });
         }
-        if (gap && gap.fits > 0) {
+        // 10 dakikanın altındaki beklemeler longWaits'e girmez ama görev de
+        // değildir demek yanlış: müşteri salonda oturuyor ve koltuğa alınmayı
+        // bekliyor. Kuyruk bu yüzden "Operasyon sakin" diyordu.
+        const shortWaits = byStage.waiting.filter((r) => !longWaits.some((w) => w.r.id === r.id));
+        for (const r of shortWaits.slice(0, 2)) {
+            const minutes = r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0;
             out.push({
-                id: 'gap', level: 'opportunity',
-                title: `${fromMin(gap.start)}'da ${durText(gap.len)} boşluk`,
-                detail: `Bekleme listesindeki ${gap.fits} müşteri süreye uygun`,
-                action: 'Eşleşmeleri gör', icon: Sparkles,
-                run: () => navigate('/queue'),
+                id: `seat-${r.id}`, level: 'today',
+                title: `${mask(r.customerName)} koltuğa alınmayı bekliyor`,
+                detail: [`${minutes} dk`, r.service, r.staffName].filter(Boolean).join(' · '),
+                action: 'Karşılamayı aç', icon: Coffee,
+                run: () => { setSelectedId(r.id); setBoardView('flow'); },
             });
         }
-        if (dueBack.length > 0) {
+        for (const r of lateAppointments.slice(0, 2)) {
+            const minutes = Math.max(1, nowMin - toMin(r.startTime));
             out.push({
-                id: 'recall', level: 'opportunity',
-                title: `${dueBack.length} müşterinin dönüş zamanı geldi`,
-                detail: `${recallDays} gündür gelmeyen · ${reachable} müşteriye ulaşılabiliyor`,
-                action: 'Listeyi aç', icon: History,
-                run: () => navigate('/customers'),
+                id: `late-${r.id}`, level: 'today',
+                title: `${mask(r.customerName)} ${minutes} dakika gecikti`,
+                detail: `${r.startTime} · ${r.service}`,
+                action: 'Karşılamayı aç', icon: Clock3,
+                run: () => { setSelectedId(r.id); setBoardView('flow'); },
+            });
+        }
+        if (out.length === 0 && priority && priority.kind !== 'upcoming') {
+            const r = priority.reservation;
+            out.push({
+                id: `tracking-${r.id}`, level: 'today',
+                title: `${mask(r.customerName)} takipte`,
+                detail: priority.kind === 'processing' ? 'Boya sayacı çalışıyor'
+                    : priority.kind === 'finish' ? 'Yıkama / bitiriş aşamasında'
+                        : 'Hizmet devam ediyor',
+                action: 'Akışı aç', icon: priority.kind === 'processing' ? TimerReset : Scissors,
+                run: () => { setSelectedId(r.id); setBoardView('flow'); },
             });
         }
         return out.slice(0, 5);
-    }, [overdueChecks, longWaits, byStage.checkout, gap, dueBack, reachable, recallDays, units, mask, navigate]);
+    }, [overdueChecks, longWaits, missedAppointments, byStage.checkout, byStage.waiting,
+        lateAppointments, units, mask, navigate, now, nowMin, liveResourceId, priority, cashOn]);
 
     // ── FlowPilot fırsatları ──────────────────────────────────────────────────
     const opportunities = useMemo(() => {
         const out: { id: string; tone: string; title: string; detail: string; run: () => void }[] = [];
         if (gap) out.push({
-            id: 'gap', tone: 'purple', title: 'Boşluğu doldur',
-            detail: `${fromMin(gap.start)} · ${gap.fits > 0 ? `${gap.fits} uygun müşteri` : `${durText(gap.len)} boş`}`,
-            run: () => navigate('/queue'),
+            id: 'gap', tone: 'purple', title: gap.fits > 0 ? 'Bekleme listesini eşleştir' : 'Satılabilir boş saat',
+            detail: `${fromMin(gap.start)} · ${gap.fits > 0 ? `${gap.fits} uygun müşteri` : `${gap.serviceName} için uygun`}`,
+            run: () => navigate(gap.fits > 0
+                ? '/reservations?tab=waitlist'
+                : `/calendar?new=1&date=${today}&time=${fromMin(gap.start)}`),
         });
         if (dueBack.length > 0) out.push({
             id: 'recall', tone: 'orange', title: 'Geri dönüş zamanı',
             detail: `${reachable} müşteriye ulaşılabiliyor`,
-            run: () => navigate('/customers'),
+            run: () => navigate(`/customers?segment=return&days=${recallDays}`),
         });
         if (tomorrow.pending.length > 0) out.push({
             id: 'pending', tone: 'red', title: 'Onay bekleyen randevu',
             detail: `Yarın için ${tomorrow.pending.length} randevu`,
-            run: () => navigate('/reservations'),
+            run: () => navigate(`/reservations?tab=pending&date=${tomorrow.iso}`),
         });
         else if (tomorrow.color.length > 0) out.push({
             id: 'prep', tone: 'red', title: 'Yarının renk hazırlığı',
             detail: `${tomorrow.color.length} renk randevusu planlı`,
-            run: () => navigate('/calendar'),
+            run: () => navigate(`/calendar?date=${tomorrow.iso}`),
         });
         return out;
-    }, [gap, dueBack.length, reachable, tomorrow, navigate]);
-
-    // ── AI şeridi: bağlamsal tek cümle; söyleyecek şey yoksa şerit çıkmaz ─────
-    const aiLine = useMemo(() => {
-        if (overdueChecks[0]) {
-            const r = overdueChecks[0];
-            return { text: `${mask(r.customerName)} için renk kontrolü zamanı geçti — saç sağlığı için önce buraya bakın.`, action: 'Kontrole git', run: () => setSelectedId(r.id) };
-        }
-        if (gap && gap.fits > 0) {
-            return { text: `${fromMin(gap.start)}'daki ${durText(gap.len)} boşluk, bekleme listesindeki ${gap.fits} müşteriyle eşleşiyor.`, action: 'Uygun müşterileri gör', run: () => navigate('/queue') };
-        }
-        if (longWaits[0]) {
-            return { text: `${mask(longWaits[0].r.customerName)} ${longWaits[0].mins} dakikadır bekliyor — ikram sunmayı unutmayın.`, action: 'Karşılamayı aç', run: () => setSelectedId(longWaits[0].r.id) };
-        }
-        if (dueBack.length > 0) {
-            return { text: `${dueBack.length} müşterinin dönüş zamanı geldi; ${reachable} müşteriye bugün ulaşılabilir.`, action: 'Listeyi aç', run: () => navigate('/customers') };
-        }
-        return null;
-    }, [overdueChecks, gap, longWaits, dueBack.length, reachable, mask, navigate]);
+    }, [gap, dueBack.length, reachable, recallDays, tomorrow, today, navigate]);
 
     // ── Gün başlığı ───────────────────────────────────────────────────────────
     const weekdayLong = now.toLocaleDateString('tr-TR', { weekday: 'long' }).toLocaleUpperCase('tr');
@@ -494,24 +829,82 @@ export function KuaforDashboard() {
     }, [todayList, workDay]);
 
     const heroFacts = [
+        // Başlık kritik uyarıya ayrıldığı için mesai bilgisi buraya taşındı.
+        workDay.isOff ? 'salon bugün kapalı' : !isSalonOpen ? 'mesai dışı' : null,
         inSalon.length > 0 && `${inSalon.length} müşteri salonda`,
         byStage.processing.length > 0 && `${byStage.processing.length} boya süresi`,
         byStage.checkout.length > 0 && `${byStage.checkout.length} kasaya hazır`,
         peak && `yoğunluk ${peak}`,
         inSalon.length === 0 && `${todayList.length} randevu planlı`,
     ].filter(Boolean).join(' · ');
+    const operationalAlert = overdueChecks.length > 0
+        ? `${overdueChecks.length} renk kontrolü gecikti`
+        : longWaits.length > 0
+            ? `${longWaits.length} müşteri uzun süredir bekliyor`
+            : missedAppointments.length > 0
+                ? `${missedAppointments.length} müşteri gelmedi`
+                : byStage.checkout.length > 0
+                    ? `${byStage.checkout.length} tahsilat bekliyor`
+                    : lateAppointments.length > 0
+                        ? `${lateAppointments.length} müşteri gecikti`
+                        : null;
+    const teamLanes = useMemo(() => {
+        const lanes = team.map((member) => ({
+            id: member.id,
+            name: member.name,
+            sub: !member.onShift ? 'İzinli / mesai dışında'
+                : member.load >= 85 ? 'Yoğun' : member.current,
+            state: !member.onShift ? 'free' : member.load >= 85 ? 'warn' : member.load > 0 ? 'busy' : 'free',
+        }));
+        if (todayList.some((reservation) => !reservation.staffId)) {
+            lanes.push({ id: '__none', name: 'Atanmamış', sub: 'Personel bekliyor', state: 'warn' });
+        }
+        return lanes;
+    }, [team, todayList]);
+    const resourceLanes = useMemo(() => {
+        const lanes = units.map((unit) => ({
+            id: unit.id,
+            name: unit.name,
+            sub: unit.state === 'free' ? 'Hazır' : unit.detail,
+            state: unit.state === 'late' ? 'warn' : unit.state === 'free' ? 'free' : 'busy',
+        }));
+        if (todayList.some((reservation) => !reservation.resourceId)) {
+            lanes.push({ id: '__none', name: 'Atanmamış', sub: 'Koltuk bekliyor', state: 'warn' });
+        }
+        return lanes;
+    }, [units, todayList]);
+    const rhythmTarget = isEnabled('analiz') ? '/analytics' : '/staff';
+    const returnTarget = `/customers?segment=return&days=${recallDays}`;
+    const tomorrowTarget = `/calendar?date=${tomorrow.iso}`;
+    const getWalkinSlot = useCallback((service: Service, unitId?: string, staffId?: string) => {
+        if (!slotRulesReady || workDay.isOff) return null;
+        const candidates = unitId ? chairs.filter((chair) => chair.id === unitId) : chairs;
+        const slots = candidates.flatMap((chair) => findAvailableSlots(slotRules, {
+            date: today,
+            durationMin: service.duration || 45,
+            staffId: staffId || undefined,
+            resourceId: chair.id,
+            notBefore: fromMin(nowMin),
+            stepMin: settings.slotDuration || 15,
+            limit: 1,
+        }));
+        return slots.sort((a, b) => a.startTime.localeCompare(b.startTime))[0] || null;
+    }, [slotRulesReady, workDay.isOff, chairs, slotRules, today, nowMin, settings.slotDuration]);
 
     return (
         <div className={cn('dash-theme kf-ops flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]', dark && 'dark')}>
             <div className="flex-1 min-h-0 overflow-y-auto">
                 <div className="content">
-
-                    {/* AI şeridi — yalnız söyleyecek bağlamsal bir şey varken */}
-                    {aiLine && (
-                        <div className="ai-note">
-                            <span className="ai-badge"><Sparkles size={13} />AI</span>
-                            <span>{aiLine.text}</span>
-                            <button onClick={aiLine.run}>{aiLine.action}</button>
+                    {isDashboardLoading && (
+                        <div className="dashboard-state loading" role="status">
+                            <RefreshCw size={16} /> Salon verileri güncelleniyor; son bilinen bilgiler gösteriliyor.
+                        </div>
+                    )}
+                    {loadErrors.length > 0 && (
+                        <div className="dashboard-state error" role="alert">
+                            <AlertTriangle size={17} />
+                            <span><strong>Bazı canlı veriler alınamadı.</strong> {Array.from(new Set(loadErrors)).join(' · ')}</span>
+                            <button onClick={() => window.location.reload()}>Yeniden dene</button>
                         </div>
                     )}
 
@@ -525,24 +918,35 @@ export function KuaforDashboard() {
                         <div className="day-copy">
                             <span className="eyebrow">{(settings.businessName || 'KUAFÖR SALONU').toLocaleUpperCase('tr')} · <LiveClock /></span>
                             <h1>
-                                {overdueChecks.length > 0
-                                    ? <>Akışta gecikme var; <em>{overdueChecks.length} renk kontrolü gecikti.</em></>
-                                    : todayList.length === 0
-                                        ? <>Bugün için <em>planlanmış randevu yok.</em></>
-                                        : <>Akış dengeli; <em>kritik gecikme yok.</em></>}
+                                {/* Mesai dışı olması müdahale gerektiren müşteriyi ikinci plana
+                                    atmaz: 19:10'da boyası bekleyen müşteri hâlâ günün en kritik
+                                    işidir. Kapalı/mesai dışı bilgisi alttaki satırda durur. */}
+                                {operationalAlert
+                                    ? <>Şimdi ilgilenin; <em>{operationalAlert}.</em></>
+                                    : workDay.isOff
+                                        ? <>Salon bugün <em>kapalı.</em></>
+                                        : !isSalonOpen
+                                            ? <>Salon şu anda <em>mesai dışında.</em></>
+                                            : todayList.length === 0
+                                                ? <>Bugün için <em>planlanmış randevu yok.</em></>
+                                                : <>Salon akışı <em>kontrol altında.</em></>}
                             </h1>
-                            <p>{heroFacts || 'Salon boş — randevusuz müşteriyi hemen işleme alabilirsiniz'}</p>
+                            <p>{heroFacts || (isSalonOpen
+                                ? 'Salon boş — randevusuz müşteriyi sıraya ekleyebilirsiniz'
+                                : `Çalışma saati ${fromMin(workDay.open)}–${fromMin(workDay.close)}`)}</p>
                             <div className="day-facts" aria-label="Salonun canlı durumu">
                                 {chairs.length > 0 && <span><i className="green" /> {busyChairs} / {chairs.length} koltuk aktif</span>}
                                 {washes.length > 0 && <span><i className="blue" /> {busyWashes} / {washes.length} yıkama aktif</span>}
-                                <span><i className="purple" /> {activeStaff.length} kişi vardiyada</span>
+                                <span><i className="purple" /> {slotRulesReady ? `${activeStaff.length} kişi vardiyada` : 'Vardiya kontrol ediliyor'}</span>
                             </div>
                         </div>
                         <div className="hero-actions">
                             <button className="button secondary" onClick={() => navigate('/calendar')}>
                                 <CalendarDays size={17} /> Takvimi aç
                             </button>
-                            <button className="button secondary" onClick={() => setWalkinOpen(true)}>
+                            <button className="button secondary" disabled={!isSalonOpen || !slotRulesReady}
+                                title={!isSalonOpen ? 'Salon çalışma saatleri dışında' : undefined}
+                                onClick={() => setWalkinOpen(true)}>
                                 <Zap size={17} /> Walk-in ekle
                             </button>
                             <button className="button primary" onClick={() => navigate('/calendar?new=1')}>
@@ -559,7 +963,9 @@ export function KuaforDashboard() {
                                     <span className="eyebrow">CANLI SALON</span>
                                     <h2>Salonun ritmi</h2>
                                 </div>
-                                <span className="live-state"><i /> Şu an güncelleniyor</span>
+                                <span className={cn('live-state', isDashboardLoading && 'loading')}>
+                                    <i /> {isDashboardLoading ? 'Veriler güncelleniyor' : 'Canlı veriler'}
+                                </span>
                             </header>
                             <div className="pulse-stats">
                                 {STAGES.map(({ key, label, icon: Icon }) => (
@@ -573,7 +979,7 @@ export function KuaforDashboard() {
                                 ))}
                             </div>
                             <div className="resource-ribbon">
-                                <span className="ribbon-label">KAYNAKLAR</span>
+                                <span className="ribbon-label">KOLTUKLAR &amp; YIKAMA</span>
                                 {units.length === 0 && (
                                     <button onClick={() => navigate('/settings')}>Henüz koltuk eklenmemiş — Ayarlar'dan ekleyin</button>
                                 )}
@@ -592,19 +998,18 @@ export function KuaforDashboard() {
                         </article>
 
                         <PriorityCard
-                            overdue={overdueChecks[0] || null}
-                            processing={byStage.processing.find((r) => !overdueChecks.some((o) => o.id === r.id)) || null}
-                            waiting={longWaits[0]?.r || byStage.waiting[0] || null}
-                            next={upcoming[0] || null}
+                            priority={priority}
                             now={now}
-                            unitName={(id?: string) => units.find((u) => u.id === id)?.name}
+                            unitName={(r) => units.find((u) => u.id === liveResourceId(r))?.name}
                             mask={mask}
                             busyId={busyId}
                             onSelect={setSelectedId}
                             onStep={(r) => nextStep(r)?.run()}
+                            stepLabel={(r) => nextStep(r)?.label || 'Kaydı aç'}
                             onExtend={extendTimer}
                             onArrive={(r) => void runStep(r, advancePatch('arrived'),
                                 { customerArrivedAt: CLEAR }, `${r.customerName.split(' ')[0]} geldi olarak işaretlendi`)}
+                            hasOpportunity={opportunities.length > 0}
                         />
                     </section>
 
@@ -656,7 +1061,7 @@ export function KuaforDashboard() {
 
                             {boardView === 'flow' && (
                                 <>
-                                    <div className="stage-grid">
+                                    <div className={cn('stage-grid', inSalon.length === 0 && 'empty')}>
                                         {STAGES.map((stage) => {
                                             const Icon = stage.icon;
                                             const items = byStage[stage.key];
@@ -690,7 +1095,7 @@ export function KuaforDashboard() {
                                                                         <small>{r.staffName || 'Atanmadı'}</small>
                                                                     </span>
                                                                     <span className="client-location">
-                                                                        <DoorOpen size={13} /> {units.find((u) => u.id === r.resourceId)?.name || stageLocation(stage.key)}
+                                                                        <DoorOpen size={13} /> {units.find((u) => u.id === liveResourceId(r))?.name || stageLocation(stage.key)}
                                                                     </span>
                                                                     {typeof formula === 'string' && formula && (
                                                                         <span className="client-note formula"><Droplets size={13} /> {formula}</span>
@@ -727,7 +1132,7 @@ export function KuaforDashboard() {
                                                     <p>
                                                         <span>{selected.service}</span>
                                                         <span>{selected.staffName || 'Personel atanmadı'}</span>
-                                                        <span>{units.find((u) => u.id === selected.resourceId)?.name || stageLocation(st)}</span>
+                                                        <span>{units.find((u) => u.id === liveResourceId(selected))?.name || stageLocation(st)}</span>
                                                     </p>
                                                 </div>
                                                 <div className="selected-context">
@@ -737,12 +1142,29 @@ export function KuaforDashboard() {
                                                         <><History size={15} /><span><small>SON ZİYARET</small><strong>{lastDays === null ? 'İlk ziyaret' : lastDays === 0 ? 'Bugün' : `${lastDays} gün önce`}</strong></span></>
                                                     )}
                                                 </div>
-                                                <button className="button secondary compact" onClick={() => setCardRes(selected)}>Müşteri kartı</button>
-                                                {step && (
-                                                    <button className="button primary compact" disabled={busyId === selected.id} onClick={step.run}>
-                                                        {step.label} <ArrowRight size={16} />
+                                                {/* Aksiyonlar tek küme: tek tek sarmalanınca birincil buton
+                                                    alt satırın soluna düşüyor ve şeridin ortası boş kalıyordu. */}
+                                                <div className="selected-actions">
+                                                    <button className="button secondary compact"
+                                                        onClick={() => navigate(selected.customerId
+                                                            ? `/customers?open=${encodeURIComponent(selected.customerId)}`
+                                                            : `/customers?q=${encodeURIComponent(selected.customerPhone || selected.customerName)}`)}>
+                                                        Müşteri profilini aç
                                                     </button>
-                                                )}
+                                                    <button className="button secondary compact" onClick={() => setEditRes(selected)}>
+                                                        Randevuyu düzenle
+                                                    </button>
+                                                    {step?.secondary && (
+                                                        <button className="button ghost compact" disabled={Boolean(busyId)} onClick={step.secondary.run}>
+                                                            {step.secondary.label}
+                                                        </button>
+                                                    )}
+                                                    {step && (
+                                                        <button className="button primary compact" disabled={Boolean(busyId)} onClick={step.run}>
+                                                            {step.label} <ArrowRight size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })() : (
@@ -753,7 +1175,7 @@ export function KuaforDashboard() {
                                                 <strong>Şu an salonda müşteri yok</strong>
                                                 <p><span>{doneToday.length} işlem tamamlandı</span><span>{upcoming.length} randevu kaldı</span></p>
                                             </div>
-                                            <button className="button primary compact" onClick={() => setWalkinOpen(true)}>
+                                            <button className="button primary compact" disabled={!isSalonOpen || !slotRulesReady} onClick={() => setWalkinOpen(true)}>
                                                 Walk-in ekle <ArrowRight size={16} />
                                             </button>
                                         </div>
@@ -766,7 +1188,7 @@ export function KuaforDashboard() {
                                     {units.length === 0 && <p className="px-3 py-6 text-[12.5px] text-[var(--dc-muted)]">Önce Ayarlar'dan koltuk/yıkama ekleyin.</p>}
                                     {units.map((u) => (
                                         <button key={u.id} className={`resource-card ${u.state}`}
-                                            onClick={() => { const r = inSalon.find((x) => x.resourceId === u.id); if (r) { setSelectedId(r.id); setBoardView('flow'); } }}>
+                                            onClick={() => { const r = inSalon.find((x) => liveResourceId(x) === u.id); if (r) { setSelectedId(r.id); setBoardView('flow'); } }}>
                                             <span className="resource-icon">
                                                 {u.wash ? <Droplets size={19} /> : <Scissors size={19} />}
                                             </span>
@@ -817,8 +1239,8 @@ export function KuaforDashboard() {
                                         <span className="task-icon"><Check size={17} /></span>
                                         <div>
                                             <small>TEMİZ</small>
-                                            <strong>Bekleyen iş yok</strong>
-                                            <p>Gecikme, kasada bekleyen ya da kaçan fırsat görünmüyor.</p>
+                                            <strong>Operasyon sakin</strong>
+                                            <p>Gecikme, gelmeyen müşteri veya kasada bekleyen tahsilat görünmüyor.</p>
                                         </div>
                                     </article>
                                 )}
@@ -828,7 +1250,7 @@ export function KuaforDashboard() {
                                         <article className={t.level} key={t.id}>
                                             <span className="task-icon"><Icon size={17} /></span>
                                             <div>
-                                                <small>{t.level === 'now' ? 'ŞİMDİ' : t.level === 'today' ? 'BUGÜN' : 'FIRSAT'}</small>
+                                                <small>{t.level === 'now' ? 'ŞİMDİ' : 'BUGÜN'}</small>
                                                 <strong>{t.title}</strong>
                                                 <p>{t.detail}</p>
                                                 <button onClick={t.run}>{t.action} <ChevronRight size={14} /></button>
@@ -871,9 +1293,7 @@ export function KuaforDashboard() {
                         <Timeline
                             view={scheduleView}
                             list={todayList}
-                            lanes={scheduleView === 'team'
-                                ? team.map((t) => ({ id: t.id, name: t.name, sub: t.load >= 85 ? 'Yoğun' : t.current, state: t.load >= 85 ? 'warn' : t.load > 0 ? 'busy' : 'free' }))
-                                : units.map((u) => ({ id: u.id, name: u.name, sub: u.state === 'free' ? 'Hazır' : u.detail, state: u.state === 'late' ? 'warn' : u.state === 'free' ? 'free' : 'busy' }))}
+                            lanes={scheduleView === 'team' ? teamLanes : resourceLanes}
                             laneKeyOf={(r) => (scheduleView === 'team' ? r.staffId : r.resourceId) || '__none'}
                             workDay={workDay}
                             now={now}
@@ -885,7 +1305,7 @@ export function KuaforDashboard() {
                     {/* ── Büyüme kartları ────────────────────────────────────── */}
                     <section className="growth-grid">
                         <article className="growth-card return-card">
-                            <header><span><History size={17} /></span><small>GERİ DÖNÜŞ</small><button onClick={() => navigate('/customers')}><ChevronRight size={15} /></button></header>
+                            <header><span><History size={17} /></span><small>GERİ DÖNÜŞ</small><button aria-label="Geri dönüş listesini aç" onClick={() => navigate(returnTarget)}><ChevronRight size={15} /></button></header>
                             <strong>{dueBack.length > 0 ? `${dueBack.length} müşterinin zamanı geldi` : 'Geri dönüş listesi temiz'}</strong>
                             <p>{dueBack.length > 0
                                 ? `${recallDays} gündür gelmeyen müşteriler; ${reachable} tanesine telefonla ulaşılabiliyor.`
@@ -895,13 +1315,13 @@ export function KuaforDashboard() {
                                 <span><b>{reachable}</b><small>iletişime uygun</small></span>
                                 <span><b>{rebookRate === null ? '—' : `%${rebookRate}`}</b><small>yeniden randevu</small></span>
                             </div>
-                            <button className="text-action" onClick={() => navigate('/customers')}>
+                            <button className="text-action" onClick={() => navigate(returnTarget)}>
                                 Uygun müşterileri gör <ArrowRight size={15} />
                             </button>
                         </article>
 
                         <article className="growth-card stock-card">
-                            <header><span><PackageOpen size={17} /></span><small>HAZIRLIK · YARIN</small><button onClick={() => navigate('/calendar')}><ChevronRight size={15} /></button></header>
+                            <header><span><PackageOpen size={17} /></span><small>HAZIRLIK · YARIN</small><button aria-label="Yarının planını aç" onClick={() => navigate(tomorrowTarget)}><ChevronRight size={15} /></button></header>
                             <strong>{tomorrow.list.length > 0 ? `Yarın ${tomorrow.list.length} randevu var` : 'Yarın için randevu yok'}</strong>
                             <p>{tomorrow.color.length > 0
                                 ? `${tomorrow.color.length} renk işlemi planlı — boya ve açıcı hazırlığını bugün yapın.`
@@ -914,13 +1334,13 @@ export function KuaforDashboard() {
                                 </span>
                                 {tomorrow.pending.length > 0 && <b>{tomorrow.pending.length} ONAY</b>}
                             </div>
-                            <button className="text-action" onClick={() => navigate('/calendar')}>
+                            <button className="text-action" onClick={() => navigate(tomorrowTarget)}>
                                 Yarının planını aç <ArrowRight size={15} />
                             </button>
                         </article>
 
                         <article className="growth-card rhythm-card">
-                            <header><span><Gauge size={17} /></span><small>EKİP RİTMİ</small><button onClick={() => navigate('/analytics')}><ChevronRight size={15} /></button></header>
+                            <header><span><Gauge size={17} /></span><small>EKİP RİTMİ</small><button aria-label={isEnabled('analiz') ? 'Analizi aç' : 'Ekip planını aç'} onClick={() => navigate(rhythmTarget)}><ChevronRight size={15} /></button></header>
                             <strong>{behind ? 'Yük dengesiz' : 'Akış hedefe yakın'}</strong>
                             <p>{behind
                                 ? `${behind.name} bugün %${behind.load} dolu${freeSoon ? `; ${freeSoon.name} destek verebilir` : ''}.`
@@ -930,8 +1350,8 @@ export function KuaforDashboard() {
                                 <span><i className="orange" /><small>Koltuk doluluğu</small><b>%{rhythm.occupancy}</b></span>
                                 <span><i className="purple" /><small>Tamamlanma</small><b>{rhythm.completion === null ? '—' : `%${rhythm.completion}`}</b></span>
                             </div>
-                            <button className="text-action" onClick={() => navigate('/analytics')}>
-                                Akışı dengele <ArrowRight size={15} />
+                            <button className="text-action" onClick={() => navigate(rhythmTarget)}>
+                                {isEnabled('analiz') ? 'Akışı dengele' : 'Ekip planını aç'} <ArrowRight size={15} />
                             </button>
                         </article>
                     </section>
@@ -942,8 +1362,10 @@ export function KuaforDashboard() {
                 <WalkinModal
                     customers={customers}
                     services={services}
-                    units={units}
+                    units={chairs}
                     staff={activeStaff.map((s) => ({ id: s.id, name: s.name }))}
+                    getSlot={getWalkinSlot}
+                    onCreateCustomer={async (name, phone) => addCustomer({ name, phone })}
                     onClose={() => setWalkinOpen(false)}
                     onCreate={async (payload) => {
                         const created = await addReservation(payload);
@@ -956,11 +1378,23 @@ export function KuaforDashboard() {
                 />
             )}
 
-            {cardRes && (
-                <AdisyonModal
-                    reservation={reservations.find((x) => x.id === cardRes.id) || cardRes}
-                    onClose={() => setCardRes(null)}
-                    onEdit={(res) => setEditRes(res)}
+            {processingRes && (
+                <ProcessingTimerModal
+                    reservation={processingRes}
+                    defaultFormula={String(
+                        processingRes.customFields?.[CF_FORMULA]
+                        || customers.find((c) => c.id === processingRes.customerId)?.customFields?.[CF_FORMULA]
+                        || '',
+                    )}
+                    usage={(() => {
+                        const overrides = usageOverrides(processingRes);
+                        const base = recipeFor(processingRes.service, settings.services, products);
+                        return base.map((line) => (
+                            line.productId in overrides ? { ...line, quantity: overrides[line.productId] } : line
+                        ));
+                    })()}
+                    onClose={() => setProcessingRes(null)}
+                    onStart={(minutes, formula, usage) => beginProcessing(processingRes, minutes, formula, usage)}
                 />
             )}
             {editRes && (
@@ -977,43 +1411,19 @@ export function KuaforDashboard() {
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
 
 function amountOf(r: Reservation, services: Service[]): number {
-    const extras = (r.adisyonItems || []).reduce((sum, i) => sum + (i.price || 0), 0);
-    const base = services.find((s) => s.name === r.service)?.price || 0;
-    return base + extras;
+    return reservationPrice(r, services);
 }
 
-/** Bir sütundaki çakışan randevuları yan yana kolonlara paylaştırır. */
+/** Bir sütundaki çakışan randevuları yan yana kolonlara paylaştırır —
+ *  geometri ortak katmandan (lib/calendarGrid.packLanes). */
 function placeLane(list: Reservation[]): { r: Reservation; col: number; cols: number }[] {
-    const items = [...list].sort((a, b) => a.startTime.localeCompare(b.startTime));
-    const out: { r: Reservation; col: number; cols: number }[] = [];
-    let cluster: Reservation[] = [];
-    let clusterEnd = -1;
-    const flush = () => {
-        if (cluster.length === 0) return;
-        const colEnds: number[] = [];
-        const assigned = cluster.map((r) => {
-            let c = colEnds.findIndex((e) => e <= toMin(r.startTime));
-            if (c === -1) c = colEnds.length;
-            colEnds[c] = toMin(r.endTime);
-            return { r, col: c };
-        });
-        for (const a of assigned) out.push({ ...a, cols: colEnds.length });
-        cluster = [];
-        clusterEnd = -1;
-    };
-    for (const r of items) {
-        if (cluster.length > 0 && toMin(r.startTime) >= clusterEnd) flush();
-        cluster.push(r);
-        clusterEnd = Math.max(clusterEnd, toMin(r.endTime));
-    }
-    flush();
-    return out;
+    return packLanes(list).map(({ item, lane, lanes }) => ({ r: item, col: lane, cols: lanes }));
 }
 
 function stageLocation(stage: KfStage | null): string {
     if (stage === 'waiting') return 'Bekleme alanı';
     if (stage === 'checkout') return 'Kasa';
-    if (stage === 'finish') return 'Yıkama';
+    if (stage === 'finish') return 'Yıkama / bitiriş';
     return 'Salon';
 }
 
@@ -1037,8 +1447,7 @@ function stageHint(stage: KfStage, items: Reservation[], now: Date, overdue: Res
 function StageTiming({ r, stage }: { r: Reservation; stage: KfStage }) {
     const [tick, setTick] = useState(() => Date.now());
     useEffect(() => {
-        if (stage !== 'processing') return;
-        const t = setInterval(() => setTick(Date.now()), 1000);
+        const t = setInterval(() => setTick(Date.now()), stage === 'processing' ? 1000 : 30_000);
         return () => clearInterval(t);
     }, [stage]);
 
@@ -1073,47 +1482,56 @@ function LiveClock() {
 }
 
 // ── Şimdi ilgilen kartı ──────────────────────────────────────────────────────
-// Tek bir şey söyler: salonun şu anda en pahalı hatası. Gecikmiş renk kontrolü
-// > akan boya sayacı > uzun bekleyen > sıradaki randevu.
-function PriorityCard({ overdue, processing, waiting, next, now, unitName, mask, busyId, onSelect, onStep, onExtend, onArrive }: {
-    overdue: Reservation | null;
-    processing: Reservation | null;
-    waiting: Reservation | null;
-    next: Reservation | null;
+// Sağ kuyrukla aynı öncelik kaynağını kullanır; iki alan farklı “ilk iş” söylemez.
+function PriorityCard({
+    priority, now, unitName, mask, busyId, onSelect, onStep, stepLabel,
+    onExtend, onArrive, hasOpportunity,
+}: {
+    priority: { kind: PriorityKind; reservation: Reservation } | null;
     now: Date;
-    unitName: (id?: string) => string | undefined;
+    unitName: (reservation: Reservation) => string | undefined;
     mask: (n: string) => string;
     busyId: string | null;
     onSelect: (id: string) => void;
     onStep: (r: Reservation) => void;
+    stepLabel: (r: Reservation) => string;
     onExtend: (r: Reservation) => void;
     onArrive: (r: Reservation) => void;
+    hasOpportunity: boolean;
 }) {
-    const target = overdue || processing || waiting || next;
-    const critical = Boolean(overdue);
-
-    useEffect(() => { if (target) onSelect(target.id); }, [target?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-    if (!target) {
+    if (!priority) {
         return (
             <article className="priority-card resolved">
                 <header><span>SIRADAKİ HAREKET</span><i /></header>
                 <div className="priority-time">—</div>
-                <span className="priority-status">GÜN TEMİZ</span>
-                <h2>Bekleyen iş yok</h2>
-                <p>Salonda ilgilenilmesi gereken müşteri görünmüyor.</p>
+                <span className="priority-status">OPERASYON SAKİN</span>
+                <h2>Bekleyen operasyon yok</h2>
+                <p>{hasOpportunity ? 'Büyüme fırsatları FlowPilot bölümünde hazır.' : 'Şu anda müdahale gerektiren müşteri görünmüyor.'}</p>
             </article>
         );
     }
 
+    const { reservation: target, kind } = priority;
     const stage = stageOf(target);
     const timerEnd = target.customFields?.[CF_TIMER];
     const formula = target.customFields?.[CF_FORMULA];
     const waitMins = target.customerArrivedAt ? minsSince(target.customerArrivedAt, now) : 0;
     const etaMin = toMin(target.startTime) - (now.getHours() * 60 + now.getMinutes());
+    const lateMins = Math.max(1, Math.abs(etaMin));
+    const critical = kind === 'overdue' || kind === 'long-wait' || kind === 'missed';
+    const status = kind === 'overdue' ? 'KONTROL GECİKTİ'
+        : kind === 'long-wait' ? 'UZUN BEKLİYOR'
+            : kind === 'missed' ? 'GELMEDİ'
+                : kind === 'checkout' ? 'TAHSİLAT BEKLİYOR'
+                    : kind === 'waiting' ? `${waitMins} DK BEKLİYOR`
+                    : kind === 'late' ? `${lateMins} DK GECİKTİ`
+                        : kind === 'processing' ? 'KONTROLE KALAN'
+                            : kind === 'finish' ? 'BİTİRİŞTE'
+                                : kind === 'service' ? 'İŞLEMDE'
+                                    : etaMin <= 1 ? 'BİRAZDAN' : `${etaMin} DK SONRA`;
 
     return (
-        <article className={cn('priority-card', !critical && 'resolved')}>
+        <article className={cn('priority-card', !critical && 'resolved')} onClick={() => onSelect(target.id)}>
             <header>
                 <span>{critical ? 'ŞİMDİ İLGİLEN' : 'SIRADAKİ HAREKET'}</span>
                 <i />
@@ -1123,13 +1541,12 @@ function PriorityCard({ overdue, processing, waiting, next, now, unitName, mask,
                 {typeof timerEnd === 'string'
                     ? <PriorityClock end={timerEnd} />
                     : stage === 'waiting' ? `${waitMins} dk`
-                        : target.startTime}
+                        : kind === 'missed' || kind === 'late' ? `${lateMins} dk`
+                            : kind === 'checkout' && target.serviceEndedAt ? `${minsSince(target.serviceEndedAt, now)} dk`
+                                : target.startTime}
             </div>
             <span className={cn('priority-status', critical && 'danger')}>
-                {critical ? 'GECİKTİ'
-                    : stage === 'processing' ? 'KONTROLE KALAN'
-                        : stage === 'waiting' ? 'BEKLİYOR'
-                            : etaMin <= 1 ? 'BİRAZDAN' : `${etaMin} DK SONRA`}
+                {status}
             </span>
             <h2>{mask(target.customerName)}</h2>
             <p>{[target.service, target.staffName].filter(Boolean).join(' · ')}</p>
@@ -1137,26 +1554,26 @@ function PriorityCard({ overdue, processing, waiting, next, now, unitName, mask,
             <div className="priority-context">
                 {critical ? <TimerReset size={17} /> : <WandSparkles size={16} />}
                 <span>
-                    <strong>{[unitName(target.resourceId), target.staffName].filter(Boolean).join(' · ') || 'Kaynak atanmadı'}</strong>
+                    <strong>{[unitName(target), target.staffName].filter(Boolean).join(' · ') || 'Atama bekliyor'}</strong>
                     {typeof formula === 'string' && formula ? formula : stage === 'waiting' ? 'Bekleme alanında' : 'Hazırlık tamam'}
                 </span>
                 {critical ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
             </div>
 
-            {stage === null ? (
-                <button className="priority-action" disabled={busyId === target.id} onClick={() => onArrive(target)}>
-                    <Check size={17} /> Geldi olarak işaretle
+            {kind === 'upcoming' || kind === 'missed' || kind === 'late' ? (
+                <button className="priority-action" disabled={Boolean(busyId)} onClick={() => onArrive(target)}>
+                    <Check size={17} /> {kind === 'missed' || kind === 'late' ? 'Geç geldi olarak işaretle' : 'Geldi olarak işaretle'}
                 </button>
-            ) : critical ? (
+            ) : kind === 'overdue' ? (
                 <div className="priority-actions">
-                    <button className="priority-action" disabled={busyId === target.id} onClick={() => onStep(target)}>
+                    <button className="priority-action" disabled={Boolean(busyId)} onClick={() => onStep(target)}>
                         <Check size={17} /> Kontrol edildi
                     </button>
-                    <button className="time-extension" disabled={busyId === target.id} onClick={() => onExtend(target)}>+2 dk</button>
+                    <button className="time-extension" disabled={Boolean(busyId)} onClick={() => onExtend(target)}>+2 dk</button>
                 </div>
             ) : (
-                <button className="priority-action" disabled={busyId === target.id} onClick={() => onStep(target)}>
-                    <Check size={17} /> {stage === 'processing' ? 'Kontrol edildi' : stage === 'waiting' ? 'Koltuğa al' : 'Sonraki aşama'}
+                <button className="priority-action" disabled={Boolean(busyId)} onClick={() => onStep(target)}>
+                    <Check size={17} /> {stepLabel(target)}
                 </button>
             )}
         </article>
@@ -1283,12 +1700,106 @@ function Timeline({ view, list, lanes, laneKeyOf, workDay, now, mask, onSelect }
     );
 }
 
+function ProcessingTimerModal({ reservation, defaultFormula, usage: usageDefault, onClose, onStart }: {
+    reservation: Reservation;
+    defaultFormula: string;
+    usage: UsageLine[];
+    onClose: () => void;
+    onStart: (minutes: number, formula: string, usage: UsageLine[]) => void;
+}) {
+    const [minutes, setMinutes] = useState(PROCESS_MIN);
+    const [formula, setFormula] = useState(defaultFormula);
+    // Reçete varsayılan gelir, personel düzeltir. 0 yazmak "bu üründen
+    // kullanılmadı" demektir; stok işlem kasaya giderken düşer.
+    const [usage, setUsage] = useState<UsageLine[]>(usageDefault);
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    return (
+        <div className="modal-layer">
+            <button className="scrim" aria-label="Boya sayacı penceresini kapat" onClick={onClose} />
+            <section className="quick-modal processing-modal" role="dialog" aria-modal="true" aria-labelledby="kf-processing-title">
+                <header>
+                    <span className="modal-symbol"><TimerReset size={20} /></span>
+                    <div>
+                        <span className="eyebrow">RENK KONTROLÜ</span>
+                        <h2 id="kf-processing-title">Boya süresini belirleyin</h2>
+                        <p>{reservation.customerName} · {reservation.service}</p>
+                    </div>
+                    <button aria-label="Kapat" onClick={onClose}><X size={18} /></button>
+                </header>
+                <div className="modal-body">
+                    <div className="timer-presets" aria-label="Boya süresi seçenekleri">
+                        {[20, 30, 40, 45, 60].map((value) => (
+                            <button type="button" key={value} className={cn(minutes === value && 'selected')} onClick={() => setMinutes(value)}>
+                                <strong>{value}</strong><small>dakika</small>
+                            </button>
+                        ))}
+                    </div>
+                    <label>
+                        <span>Özel süre</span>
+                        <div className="field">
+                            <TimerReset size={16} />
+                            <input type="number" min={5} max={180} step={5} value={minutes}
+                                onChange={(event) => setMinutes(Math.max(5, Math.min(180, Number(event.target.value) || PROCESS_MIN)))} />
+                            <b>dk</b>
+                        </div>
+                    </label>
+                    <label>
+                        <span>Renk formülü</span>
+                        <div className="field">
+                            <Droplets size={16} />
+                            <input value={formula} onChange={(event) => setFormula(event.target.value)}
+                                placeholder="Örn. 7.1 + 8.0 / 20 vol" />
+                        </div>
+                    </label>
+                    {usage.length > 0 && (
+                        <div className="usage-block">
+                            <span className="usage-title">KULLANILAN MALZEME</span>
+                            {usage.map((line, index) => (
+                                <label key={line.productId} className="usage-line">
+                                    <span>{line.name}</span>
+                                    <div className="field">
+                                        <input
+                                            type="number" min={0} step="any" value={line.quantity}
+                                            onChange={(event) => {
+                                                const next = Math.max(0, Number(event.target.value) || 0);
+                                                setUsage((prev) => prev.map((item, i) => (i === index ? { ...item, quantity: next } : item)));
+                                            }}
+                                        />
+                                        <b>{line.unit}</b>
+                                    </div>
+                                </label>
+                            ))}
+                            <p className="usage-hint">Hizmet reçetesinden geldi. Bu müşteride farklıysa düzeltin — stok işlem kapanınca düşer.</p>
+                        </div>
+                    )}
+                    <div className="modal-note"><ShieldCheck size={16} /> Sayaç seçtiğiniz gerçek ürün ve formül süresine göre başlar; formül bu randevuya ve müşterinin renk hafızasına yazılır.</div>
+                </div>
+                <footer>
+                    <button className="button secondary" onClick={onClose}>Vazgeç</button>
+                    <button className="button primary" onClick={() => onStart(minutes, formula, usage)}>
+                        Sayacı başlat <ArrowRight size={16} />
+                    </button>
+                </footer>
+            </section>
+        </div>
+    );
+}
+
 // ── Walk-in: kapıdan giren müşteriyi sıraya al ───────────────────────────────
-function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
+function WalkinModal({
+    customers, services, units, staff, getSlot, onCreateCustomer, onClose, onCreate,
+}: {
     customers: Customer[];
     services: Service[];
     units: { id: string; name: string; state: string }[];
     staff: { id: string; name: string }[];
+    getSlot: (service: Service, unitId?: string, staffId?: string) => AvailableSlot | null;
+    onCreateCustomer: (name: string, phone: string) => Promise<Customer | null>;
     onClose: () => void;
     onCreate: (payload: Omit<Reservation, 'id' | 'createdAt'>) => Promise<boolean>;
 }) {
@@ -1298,6 +1809,10 @@ function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
     const [unitId, setUnitId] = useState(units.find((u) => u.state === 'free')?.id || '');
     const [staffId, setStaffId] = useState('');
     const [saving, setSaving] = useState(false);
+    const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newPhone, setNewPhone] = useState('');
+    const [creatingCustomer, setCreatingCustomer] = useState(false);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -1312,21 +1827,34 @@ function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
     }, [query, customers, picked]);
 
     const service = services.find((s) => s.id === serviceId);
-    const freeUnit = units.find((u) => u.id === unitId) || units.find((u) => u.state === 'free');
+    const slot = useMemo(
+        () => service ? getSlot(service, unitId || undefined, staffId || undefined) : null,
+        [service, getSlot, unitId, staffId],
+    );
+    const slotUnit = units.find((unit) => unit.id === slot?.resourceId);
+
+    const createCustomer = async () => {
+        if (!newName.trim() || !newPhone.trim() || creatingCustomer) return;
+        setCreatingCustomer(true);
+        const created = await onCreateCustomer(newName.trim(), newPhone.trim());
+        setCreatingCustomer(false);
+        if (!created) return;
+        setPicked(created);
+        setQuery(created.name);
+        setNewCustomerOpen(false);
+    };
 
     const submit = async () => {
-        if (!picked || !service || saving) return;
+        if (!picked || !service || !slot || saving) return;
         setSaving(true);
-        const start = new Date();
-        const end = new Date(start.getTime() + (service.duration || 45) * 60_000);
         const ok = await onCreate({
             customerId: picked.id, customerName: picked.name, customerPhone: picked.phone, customerEmail: picked.email,
-            date: toISODate(start), startTime: hhmm(start), endTime: hhmm(end),
+            date: todayISO(), startTime: slot.startTime, endTime: slot.endTime,
             service: service.name, serviceColor: service.color,
             status: 'confirmed',
-            staffId: staffId || undefined,
-            staffName: staff.find((s) => s.id === staffId)?.name,
-            resourceId: unitId || undefined,
+            staffId: slot.staffId,
+            staffName: slot.staffName,
+            resourceId: slot.resourceId,
         });
         setSaving(false);
         if (!ok) return;
@@ -1372,8 +1900,30 @@ function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
                             </span>
                         </button>
                     ))}
-                    {!picked && query.trim() && results.length === 0 && (
-                        <p className="text-[12px] text-[var(--dc-muted)] px-1">Sonuç yok — Müşteriler sayfasından ekleyip geri dönün.</p>
+                    {!picked && query.trim() && results.length === 0 && !newCustomerOpen && (
+                        <button type="button" className="inline-customer-create" onClick={() => {
+                            setNewCustomerOpen(true);
+                            if (/^[+\d\s()-]+$/.test(query.trim())) setNewPhone(query.trim());
+                            else setNewName(query.trim());
+                        }}>
+                            <UserPlus size={16} />
+                            <span><strong>Yeni müşteri oluştur</strong><small>Akıştan çıkmadan salon hafızasına ekleyin</small></span>
+                            <ChevronRight size={15} />
+                        </button>
+                    )}
+                    {!picked && newCustomerOpen && (
+                        <div className="inline-customer-form">
+                            <label><span>Ad soyad</span><input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Müşteri adı" autoFocus /></label>
+                            <label><span>Telefon</span><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="05xx xxx xx xx" /></label>
+                            <div>
+                                <button type="button" className="button secondary compact" onClick={() => setNewCustomerOpen(false)}>Vazgeç</button>
+                                <button type="button" className="button primary compact"
+                                    disabled={!newName.trim() || !newPhone.trim() || creatingCustomer}
+                                    onClick={() => void createCustomer()}>
+                                    {creatingCustomer ? 'Kaydediliyor…' : 'Müşteriyi kaydet'}
+                                </button>
+                            </div>
+                        </div>
                     )}
 
                     <label>
@@ -1394,7 +1944,7 @@ function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
                             <DoorOpen size={16} />
                             <select value={unitId} onChange={(e) => setUnitId(e.target.value)} aria-label="Koltuk">
                                 <option value="">Koltuk fark etmez</option>
-                                {units.map((u) => <option key={u.id} value={u.id}>{u.name}{u.state !== 'free' ? ' (dolu)' : ''}</option>)}
+                                {units.map((u) => <option key={u.id} value={u.id}>{u.name}{u.state !== 'free' ? ' (şu an dolu)' : ''}</option>)}
                             </select>
                             <ChevronDown size={15} />
                         </div>
@@ -1408,20 +1958,22 @@ function WalkinModal({ customers, services, units, staff, onClose, onCreate }: {
                         </div>
                     </label>
 
-                    <div className="availability-card">
+                    <div className={cn('availability-card', !slot && 'unavailable')}>
                         <span><Clock3 size={18} /></span>
                         <div>
-                            <small>TAHMİNİ BAŞLAMA</small>
-                            <strong>{freeUnit && freeUnit.state === 'free' ? 'Şimdi' : 'İlk koltuk boşalınca'}</strong>
-                            <p>{[freeUnit?.name, service ? `${service.duration} dk` : null].filter(Boolean).join(' · ') || 'Koltuk seçilmedi'}</p>
+                            <small>DOĞRULANMIŞ BAŞLAMA</small>
+                            <strong>{slot ? slot.startTime : 'Uygun saat yok'}</strong>
+                            <p>{slot
+                                ? [slotUnit?.name, slot.staffName, service ? `${service.duration} dk` : null].filter(Boolean).join(' · ')
+                                : 'Personel, vardiya ve koltuk kapasitesini kontrol edin'}</p>
                         </div>
-                        <BadgeCheck size={19} />
+                        {slot ? <BadgeCheck size={19} /> : <AlertTriangle size={19} />}
                     </div>
-                    <div className="modal-note"><ShieldCheck size={16} /> Kayıt bekleme alanına düşer; hizmet süresi koltuğa alınca başlar.</div>
+                    <div className="modal-note"><ShieldCheck size={16} /> Müşteri bekleme alanına eklenir; gerçek hizmet süresi “Koltuğa al” ile başlar.</div>
                 </div>
                 <footer>
                     <button className="button secondary" onClick={onClose}>Vazgeç</button>
-                    <button className="button primary" disabled={!picked || !service || saving} onClick={() => void submit()}>
+                    <button className="button primary" disabled={!picked || !service || !slot || saving} onClick={() => void submit()}>
                         {saving ? 'Ekleniyor…' : 'Sıraya ekle'} <ArrowRight size={16} />
                     </button>
                 </footer>

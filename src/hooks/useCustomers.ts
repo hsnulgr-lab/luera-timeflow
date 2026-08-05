@@ -84,6 +84,7 @@ export function useCustomers() {
     const [archived, setArchived] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const requestGenerationRef = useRef(0);
     const isMountedRef = useRef(false);
     const activeOrgRef = useRef(orgId);
@@ -120,6 +121,7 @@ export function useCustomers() {
 
     // ─── Müşterileri getir (N+1 fix: 3 sorgu → 1 sorgu) ─────────────────────
     const fetchCustomers = useCallback(async (resolvedOrgId: string) => {
+        setError(null);
         const requestGeneration = ++requestGenerationRef.current;
         const organizationChanged = requestedOrgRef.current !== resolvedOrgId;
         requestedOrgRef.current = resolvedOrgId;
@@ -154,6 +156,7 @@ export function useCustomers() {
         if (error) {
             toast.error('Müşteriler yüklenemedi');
             console.error('Error fetching customers:', error);
+            setError('Müşteriler yüklenemedi');
             setIsLoading(false);
             return;
         }
@@ -197,6 +200,7 @@ export function useCustomers() {
 
             console.error('Error fetching customer reservations:', reservationsError);
             toast.error('Randevu geçmişi yüklenemedi; mevcut metrikler korundu');
+            setError('Müşteri geçmişi güncellenemedi; son bilinen veriler gösteriliyor');
             setCustomers(customersWithPreservedMetrics);
             setIsLoading(false);
             return;
@@ -550,6 +554,7 @@ export function useCustomers() {
         deleteCustomer,
         redeemLoyalty,
         isLoading,
+        error,
         fetchCustomerById,
         refetch: () => { if (orgId) fetchCustomers(orgId); },
     };

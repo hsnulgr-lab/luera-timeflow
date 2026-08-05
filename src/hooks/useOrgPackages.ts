@@ -25,13 +25,18 @@ export interface OrgPackage extends TreatmentPlan {
 // müşterilerin paketlerine tek sorguda bakmak zorunda. Tablo aynı — paket =
 // çok seanslı plan (064: session_count/sessions_done), bakiye patientBalance'la
 // aynı formülden hesaplanır; yeni tablo/şema YOKTUR.
-export function useOrgPackages() {
+export function useOrgPackages(options?: { enabled?: boolean }) {
     const { orgId } = useAuth();
+    const enabled = options?.enabled ?? true;
     const [packages, setPackages] = useState<OrgPackage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const refresh = useCallback(async () => {
-        if (!orgId) return;
+        if (!orgId || !enabled) {
+            setPackages([]);
+            setIsLoading(false);
+            return;
+        }
         const { data, error } = await supabase
             .from('treatment_plans')
             .select('*')
@@ -56,23 +61,27 @@ export function useOrgPackages() {
         setPackages(rows);
         writeCache(`packages:${orgId}`, rows);
         setIsLoading(false);
-    }, [orgId]);
+    }, [enabled, orgId]);
 
     // SWR: önbellekteki paketleri anında göster (kasa/diğer sayfalar gibi),
     // ardından ağdan tazele — "Henüz paket yok" ve geç yükleme flash'ı biter.
     useEffect(() => {
-        if (!orgId) return;
+        if (!orgId || !enabled) {
+            setPackages([]);
+            setIsLoading(false);
+            return;
+        }
         const cached = readCache<OrgPackage[]>(`packages:${orgId}`);
         if (cached) { setPackages(cached); setIsLoading(false); }
         else { setPackages([]); setIsLoading(true); }
         void refresh();
-    }, [orgId, refresh]);
+    }, [enabled, orgId, refresh]);
 
     // Çift satış kilidi: drawer'da "Paketi güvenle oluştur" iki kez tetiklenirse
     // (çift tık / çift enter) ikinci çağrı sessizce düşer — çift paket kaydı olmaz.
     const creatingRef = useRef(false);
     const addPackage = useCallback(async (input: NewPackageInput): Promise<OrgPackage | null> => {
-        if (!orgId) return null;
+        if (!orgId || !enabled) return null;
         if (creatingRef.current) return null;
         creatingRef.current = true;
         try {
@@ -102,7 +111,22 @@ export function useOrgPackages() {
         } finally {
             creatingRef.current = false;
         }
-    }, [orgId, refresh]);
+    }, [enabled, orgId, refresh]);
+
+    // Yenileme teklifi damgası. Damga olmadan biten paket "yenileme fırsatı"
+    // listelerinden hiç düşmez ve aynı müşteriye her gün teklif önerilir.
+    // Paketler sayfası bunu kendi içinde yapıyordu; dashboard'ın fırsat kuyruğu
+    // ve müşteri kartı da aynı damgayı basmak zorunda — tek kaynak burası.
+    const markRenewalOffered = useCallback(async (planId: string): Promise<boolean> => {
+        if (!orgId || !enabled) return false;
+        const { error } = await supabase.from('treatment_plans')
+            .update({ renewal_offered_at: new Date().toISOString() })
+            .eq('id', planId)
+            .eq('organization_id', orgId);
+        if (error) { console.error('Yenileme damgası yazılamadı:', error); return false; }
+        await refresh();
+        return true;
+    }, [enabled, orgId, refresh]);
 
     // Kayıtlı hak düzeltme — plan sayacını güncelle + append-only deftere yaz.
     // Denklem korunur (used ≤ total). Tek düzeltmede |delta| ≤ 3 (DB kısıtı da var).
@@ -110,7 +134,7 @@ export function useOrgPackages() {
     const correctRights = useCallback(async (
         planId: string, field: 'total' | 'used', delta: number, reason: string,
     ): Promise<{ ok: boolean; error?: string }> => {
-        if (!orgId) return { ok: false, error: 'Organizasyon yok' };
+        if (!orgId || !enabled) return { ok: false, error: 'Paket özelliği kapalı' };
         if (!reason.trim()) return { ok: false, error: 'Sebep gerekli' };
         if (![-3, -2, -1, 1, 2, 3].includes(delta)) return { ok: false, error: 'En fazla 3 hak düzeltilebilir' };
         if (correctingRef.current) return { ok: false, error: 'İşlem sürüyor' };
@@ -142,20 +166,20 @@ export function useOrgPackages() {
         } finally {
             correctingRef.current = false;
         }
-    }, [orgId, packages, refresh]);
+    }, [enabled, orgId, packages, refresh]);
 
     // Realtime — başka cihazda paket satılınca / seans işlenince kuyruk anında
     // tazelensin (068 ile treatment_plans publication'a eklendi). Paket değişimi
     // seyrek olduğundan tam refetch yeterince ucuz ve hesaplanan alanları korur.
     useEffect(() => {
-        if (!orgId) return;
+        if (!orgId || !enabled) return;
         const ch = supabase
             .channel(`org-packages:${orgId}:${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'treatment_plans', filter: `organization_id=eq.${orgId}` },
                 () => { void refresh(); })
             .subscribe();
         return () => { supabase.removeChannel(ch); };
-    }, [orgId, refresh]);
+    }, [enabled, orgId, refresh]);
 
-    return { packages, isLoading, refresh, addPackage, correctRights };
+    return { packages, isLoading, refresh, addPackage, correctRights, markRenewalOffered };
 }

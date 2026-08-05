@@ -287,6 +287,11 @@ Deno.serve(async (req: Request) => {
             const customerEmail: string = (body.customerEmail || '').trim();
             const note: string = (body.note || '').trim();
             if (!customerName || !customerPhone) return json({ error: 'ad ve telefon gerekli' }, 400);
+            // KVKK açık rızası — istemci gönderir, sunucu ZORUNLU tutar. İstemci
+            // kutusu atlanabilir (doğrudan API çağrısı); rızasız kayıt alınmaz.
+            const kvkkConsentAt: string | null = typeof body.kvkkConsentAt === 'string' && body.kvkkConsentAt
+                ? body.kvkkConsentAt : null;
+            if (!kvkkConsentAt) return json({ error: 'KVKK aydınlatma onayı gerekli' }, 400);
 
             const abuseMsg = await bookingAbuseCheck(supabase, orgId, customerPhone);
             if (abuseMsg) return json({ error: abuseMsg }, 429);
@@ -396,6 +401,9 @@ Deno.serve(async (req: Request) => {
                 staff_id: p.staffId,
                 source: 'booking',
                 group_id: groupId,
+                // Rızanın kanıtı kaydın kendisinde durur — "onay alındı mı?"
+                // sorusu sonradan loglarda aranmasın.
+                custom_fields: { kvkk_onay: kvkkConsentAt },
             }));
 
             const { data: inserted, error: insErr } = await supabase.from('reservations').insert(rows).select();

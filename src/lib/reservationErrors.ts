@@ -1,4 +1,4 @@
-export type ReservationConflictKind = 'staff' | 'resource' | 'unknown';
+export type ReservationConflictKind = 'staff' | 'resource' | 'eligibility' | 'unknown';
 
 export interface ReservationConflictError {
     kind: ReservationConflictKind;
@@ -8,6 +8,7 @@ export interface ReservationConflictError {
 const CONFLICT_MESSAGES: Record<ReservationConflictKind, string> = {
     staff: 'Seçilen personel bu saat aralığında dolu. Takvim yenilenmiş olabilir; başka bir saat veya personel seçin.',
     resource: 'Seçilen kaynak/ünite bu saat aralığında dolu. Takvim yenilenmiş olabilir; başka bir saat veya kaynak seçin.',
+    eligibility: 'Bu işlem bu müşteriye uygulanamaz (kayıtlı sağlık/risk bilgisi nedeniyle). Müşteri kartındaki bilgileri kontrol edin.',
     unknown: 'Bu saat aralığı az önce doldu. Başka bir saat, personel veya kaynak seçin.',
 };
 
@@ -41,6 +42,21 @@ export function getReservationConflictError(error: unknown): ReservationConflict
     // sözcük eşlemesiyle ele alırız.
     const text = fold(errorText(error)).replace(/[_-]+/g, ' ');
     if (!text) return null;
+
+    // Kontrendikasyon guard'ı (076). Çakışmadan önce bakılır: mesaj "reservation
+    // eligibility blocked" olduğu için aşağıdaki genel eşlemeye takılmaz, ama
+    // kullanıcıya "saat doldu" demek tamamen yanlış yönlendirme olurdu.
+    if (/\beligibility blocked\b/.test(text)) {
+        const detail = errorText(error);
+        const reason = /"reason"\s*:\s*"([^"]+)"/.exec(detail)?.[1];
+        const note = /"note"\s*:\s*"([^"]+)"/.exec(detail)?.[1];
+        return {
+            kind: 'eligibility',
+            message: reason
+                ? `Bu işlem uygulanamaz — ${reason}${note ? ` (${note})` : ''}.`
+                : CONFLICT_MESSAGES.eligibility,
+        };
+    }
 
     const mentionsStaff = /\b(staff|personel|hekim|doktor|calisan|employee)\b/.test(text);
     const mentionsResource = /\b(resource|kaynak|unite|unit|chair|koltuk|oda|room|masa)\b/.test(text);

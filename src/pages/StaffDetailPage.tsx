@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Phone, Mail, TrendingUp, CheckCircle2, XCircle, Wallet, Calendar } from 'lucide-react';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffStats } from '@/hooks/useStaffStats';
+import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatDateEU } from '@/utils/date';
 
@@ -28,6 +29,7 @@ export const StaffDetailPage = () => {
     const { dark } = useTheme();
     const T = dark ? DT : LT;
     const { staff } = useStaff();
+    const { t } = useLabels();
     const member = useMemo(() => staff.find((s) => s.id === id), [staff, id]);
     const stats = useStaffStats(id, member?.name);
 
@@ -119,7 +121,7 @@ export const StaffDetailPage = () => {
                 <div style={{ ...card, padding: '18px 20px', marginBottom: 18 }}>
                     <h2 style={{ fontSize: 14, fontWeight: 800, color: T.ink, marginBottom: 14 }}>Sattığı Hizmetler</h2>
                     {stats.services.length === 0 ? (
-                        <p style={{ fontSize: 13, color: T.muted }}>Henüz randevu yok</p>
+                        <p style={{ fontSize: 13, color: T.muted }}>Henüz {t('reservation').toLocaleLowerCase('tr')} yok</p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {stats.services.map((s) => (
@@ -137,7 +139,7 @@ export const StaffDetailPage = () => {
                 <div style={{ ...card, padding: '18px 20px' }}>
                     <h2 style={{ fontSize: 14, fontWeight: 800, color: T.ink, marginBottom: 14 }}>Kişisel Takvim · Yaklaşan</h2>
                     {stats.upcomingList.length === 0 ? (
-                        <p style={{ fontSize: 13, color: T.muted }}>Yaklaşan randevu yok</p>
+                        <p style={{ fontSize: 13, color: T.muted }}>Yaklaşan {t('reservation').toLocaleLowerCase('tr')} yok</p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {Object.entries(grouped).map(([date, rows]) => (

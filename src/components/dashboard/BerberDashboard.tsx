@@ -12,6 +12,7 @@ import { useResources } from '@/hooks/useResources';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useWaitlist } from '@/hooks/useWaitlist';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { normalizePhone } from '@/lib/phone';
@@ -79,6 +80,7 @@ export function BerberDashboard() {
     const { customers, customerById } = useCustomers();
     const { staff } = useStaff();
     const { entries: waitlist } = useWaitlist();
+    const cashOn = useCashEnabled();
     const today = todayISO();
 
     const [now, setNow] = useState(() => new Date());
@@ -302,9 +304,11 @@ export function BerberDashboard() {
         if (nextUp && toMin(nextUp.startTime) - nowMin <= 30) return { kind: 'arrive' as const, res: nextUp };
         if (longestWait) return { kind: 'seat' as const, item: longestWait };
         if (nextUp) return { kind: 'arrive' as const, res: nextUp };
-        if (atTill[0]) return { kind: 'till' as const, res: atTill[0] };
+        // Kasa modülü kapalıysa "Hesabı aç" gidecek yer bulamaz — sonraki iş
+        // olarak hiç önerilmez (bkz. useCashEnabled).
+        if (cashOn && atTill[0]) return { kind: 'till' as const, res: atTill[0] };
         return null;
-    }, [nextUp, longestWait, atTill, nowMin, readyChairs.length]);
+    }, [nextUp, longestWait, atTill, nowMin, readyChairs.length, cashOn]);
 
     // ── FlowPilot: tek öneri ──────────────────────────────────────────────────
     const gap = useMemo(() => {
@@ -370,7 +374,7 @@ export function BerberDashboard() {
                 tone: 'amber', icon: RotateCcw, run: () => markChairReady(c.id),
             });
         }
-        for (const r of atTill.slice(0, 1)) {
+        for (const r of (cashOn ? atTill.slice(0, 1) : [])) {
             const amount = priceOf(r);
             out.push({
                 key: `till-${r.id}`, kicker: 'KASAYA HAZIR',

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
+import { activeRiskFlags, evaluateEligibility, firstBlocked } from '@/lib/serviceEligibility';
 import { useStaff } from '@/hooks/useStaff';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { cn } from '@/utils/cn';
@@ -30,9 +31,6 @@ interface Props {
     onClose: () => void;
     onCreated: () => void;
 }
-
-// Hamilelikte kapalı hizmetler — isim eşleşmesiyle (lazer, bölgesel incelme)
-const PREGNANCY_BLOCKED = /lazer|incelme|zayıflama|g5/i;
 
 // Saat listesi işletmenin ÇALIŞMA SAATLERİNDEN türetilir. Eskiden 09:00–17:30
 // sabitti; Ayarlar'dan "Pazar 09:00–23:59" denince modal bunu görmüyordu.
@@ -94,7 +92,13 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         () => plans.filter((p) => p.status === 'active' && p.sessionsDone < p.sessionCount),
         [plans],
     );
-    const pregnant = Boolean(customer?.customFields?.hamilelik);
+    // Kontrendikasyon tek kaynaktan okunur (lib/serviceEligibility): aynı kural
+    // takvim, mobil oluşturucu, düzenleme ve paket satışında da uygulanır.
+    const riskFlags = useMemo(() => activeRiskFlags(customer, settings.sector), [customer, settings.sector]);
+    const blockedFor = useMemo(
+        () => (target: { name: string; tags?: string[] }) => evaluateEligibility(customer, target, settings.sector),
+        [customer, settings.sector],
+    );
 
     // Seçim durumu: paket (plan) VEYA bir ya da daha fazla tekil hizmet.
     // Tek seansta birden fazla işlem çok yaygın (kaş + cilt bakımı, dolgu +
@@ -124,11 +128,11 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     // başlangıç seçimi — meşru effect kullanımı).
     useEffect(() => {
         if (activePlans.length > 0 && !hasServices) {
-            const allowed = pregnant ? activePlans.filter((p) => !PREGNANCY_BLOCKED.test(p.title)) : activePlans;
+            const allowed = activePlans.filter((p) => !blockedFor({ name: p.title }).blocked);
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedPlan(allowed[0] || null);
         }
-    }, [activePlans, pregnant, hasServices]);
+    }, [activePlans, blockedFor, hasServices]);
 
     const services: Service[] = settings.services || [];
     const activeResources = useMemo(() => resources.filter((r) => r.isActive).sort((a, b) => a.sort - b.sort), [resources]);
@@ -242,6 +246,14 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
 
     const create = async () => {
         if (!customer || saving) return;
+        // Kaydetme anında son kontrol: seçim yapıldıktan sonra müşteri
+        // değiştirilmiş olabilir (buton kilidi o an için doğruydu).
+        const targets = selectedPlan ? [{ name: selectedPlan.title }] : selectedServices;
+        const hit = firstBlocked(customer, targets, settings.sector);
+        if (hit) {
+            toast.error(`${hit.target.name} bu müşteriye uygulanamaz — ${hit.verdict.message}`);
+            return;
+        }
         setSaving(true);
         const svc = selectedPlan ? planService(selectedPlan) : selectedServices[0];
         // "Fark etmez" seçiliyken atamayı burada yap: kayıt anındaki müsaitliğe
@@ -353,9 +365,11 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                             {customer && selectedPlan && (
                                 <div className="mt-2 px-3.5 py-2.5 rounded-lg bg-[var(--dc-green-bg)] text-[var(--dc-green)] text-[12px] font-semibold leading-snug">Aktif paketi bulundu: <b>{selectedPlan.title}</b> — otomatik seçildi, ücret alınmaz.</div>
                             )}
-                            {customer && pregnant && (
-                                <div className="mt-2 px-3.5 py-2.5 rounded-lg bg-[var(--dc-red-bg)] text-[var(--dc-red)] text-[12px] font-semibold leading-snug">⚠ Hamilelik kaydı var — lazer hizmetleri kapalı.</div>
-                            )}
+                            {customer && riskFlags.map((flag) => (
+                                <div key={flag.key} className="mt-2 px-3.5 py-2.5 rounded-lg bg-[var(--dc-red-bg)] text-[var(--dc-red)] text-[12px] font-semibold leading-snug">
+                                    ⚠ {flag.label} kaydı var{flag.note ? ` — ${flag.note}` : ''}; ilgili hizmetler kapalı.
+                                </div>
+                            ))}
 
                             <div className="flex items-center gap-2 mb-2 mt-5">
                                 <span className="w-5 h-5 rounded-full bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center">2</span>
@@ -371,11 +385,12 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                             )}
                             <div className="space-y-1.5">
                                 {activePlans.map((p) => {
-                                    const blocked = pregnant && PREGNANCY_BLOCKED.test(p.title);
+                                    const verdict = blockedFor({ name: p.title });
+                                    const blocked = verdict.blocked;
                                     const activeSel = selectedPlan?.id === p.id;
                                     return (
                                         <button key={p.id} disabled={blocked} onClick={() => { setSelectedPlan(p); setSelectedServices([]); }}
-                                            title={blocked ? 'Hamilelik nedeniyle kapalı' : undefined}
+                                            title={verdict.message}
                                             className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors',
                                                 blocked ? 'opacity-45 cursor-not-allowed border-[var(--dc-border)]'
                                                     : activeSel ? 'border-[var(--dc-inkbox)] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)]'
@@ -383,7 +398,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                                             <span className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style={{ background: planService(p)?.color || 'var(--dc-purple)' }} />
                                             <span className="flex-1 min-w-0">
                                                 <span className={cn('block text-[13px] font-bold truncate', !activeSel && 'text-[var(--dc-ink)]')}>{p.title} — paketten</span>
-                                                <span className={cn('block text-[11px] mt-px', activeSel ? 'opacity-70' : 'text-[var(--dc-muted)]')}>{blocked ? 'Hamilelik nedeniyle uygulanamaz' : `${planService(p)?.duration || 60} dk`}</span>
+                                                <span className={cn('block text-[11px] mt-px', activeSel ? 'opacity-70' : 'text-[var(--dc-muted)]')}>{blocked ? verdict.message : `${planService(p)?.duration || 60} dk`}</span>
                                             </span>
                                             <span className={cn('flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap', activeSel ? 'bg-white/15' : blocked ? 'bg-[var(--dc-surface2)] text-[var(--dc-muted)]' : 'bg-[var(--dc-green-bg)] text-[var(--dc-green)]')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                                                 {blocked ? 'kapalı' : `kalan ${p.sessionCount - p.sessionsDone} seans · ₺0`}
@@ -392,7 +407,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                                     );
                                 })}
                                 {services.map((s) => {
-                                    const blocked = pregnant && PREGNANCY_BLOCKED.test(s.name);
+                                    const blocked = blockedFor(s).blocked;
                                     const order = selectedServices.findIndex((x) => x.id === s.id);
                                     const activeSel = order >= 0;
                                     return (

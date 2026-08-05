@@ -24,8 +24,10 @@ export function useResources() {
     const { user, orgId } = useAuth();
     const [resources, setResources] = useState<Resource[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchResources = useCallback(async (org: string) => {
+        setError(null);
         const cached = readCache<Resource[]>(`resources:${org}`);
         if (cached) { setResources(cached); setIsLoading(false); } else setIsLoading(true);
         const { data, error } = await supabase
@@ -35,7 +37,10 @@ export function useResources() {
             .eq('is_active', true)
             .order('sort')
             .order('created_at');
-        if (error) { console.error('Error fetching resources:', error); }
+        if (error) {
+            console.error('Error fetching resources:', error);
+            setError('Koltuk ve yıkama alanları yüklenemedi');
+        }
         else {
             const rows = (data || []).map(mapRow);
             setResources(rows);
@@ -101,5 +106,5 @@ export function useResources() {
         setResources((p) => p.filter((r) => r.id !== id));
     }, []);
 
-    return { resources, isLoading, addResource, updateResource, removeResource };
+    return { resources, isLoading, error, addResource, updateResource, removeResource };
 }

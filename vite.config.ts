@@ -31,6 +31,10 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Tek parça uygulama paketi 2 MiB'ı geçti (varsayılan sınır). Sınırın
+        // altında kalan dosya precache DIŞINDA kalıyor ve çevrimdışı açılış
+        // bozuluyordu; kod bölme yapılana kadar sınır yükseltildi.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       devOptions: { enabled: false },
     }),

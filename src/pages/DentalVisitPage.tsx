@@ -13,6 +13,7 @@ import { useStaff } from '@/hooks/useStaff';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { PerioChart } from '@/components/dental/PerioChart';
 import { resolveDentalVisitAccess } from '@/lib/dentalVisit';
+import { sendRecallReminder } from '@/lib/recallReminder';
 import { computePatientFinance, isBillablePlan, planRemaining } from '@/lib/patientBalance';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +21,7 @@ import { cn } from '@/utils/cn';
 import { todayISO } from '@/utils/date';
 import type { Customer, DentalStatus, InstallmentCadence, Reservation, ToothSurface } from '@/types';
 
-// Muayene formu girişi (eski PatientVisitWorkspace ile aynı sözleşme)
+// Muayene formu girişi (kaldırılan eski vizit workspace'i ile aynı sözleşme)
 export interface DentalVisitExamInput {
     chiefComplaint: string;
     diagnosis: string;
@@ -375,6 +376,9 @@ function VisitJourney(props: VisitJourneyProps) {
         if (ok) { setInstPlanId(''); setInstCount('3'); }
     };
 
+    // Geçmişte kalmış kontrol tarihi "planlı" sayılmaz — hasta recall
+    // döngüsünden düşmesin diye yeni kontrol seçilebilir olmalı.
+    const recallActive = Boolean(customer.recallDate && customer.recallDate >= todayISO());
     const recallDate = useMemo(() => { const d = new Date(); RECALL_OPTS.find((o) => o.k === recallOpt)?.add(d); return d; }, [recallOpt]);
     const recallDateStr = recallDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     const recallDateISO = `${recallDate.getFullYear()}-${String(recallDate.getMonth() + 1).padStart(2, '0')}-${String(recallDate.getDate()).padStart(2, '0')}`;
@@ -399,16 +403,23 @@ function VisitJourney(props: VisitJourneyProps) {
         if (!readOnly && !visitCompleted) {
             const hasExam = composeChief() || composeDiag() || note.trim();
             if (hasExam) await onSaveExam(examInput());
-            if (recallOpt !== 'Yok' && !customer.recallDate) await onSetRecall(recallDateISO);
+            if (recallOpt !== 'Yok' && !recallActive) await onSetRecall(recallDateISO);
             await onCompleteVisit();
         }
         onClose();
     });
 
-    const openWhatsApp = () => {
+    // wa.me deep-link'i sendWA kapısını (opt-out, kota, wa_message_log)
+    // atlıyordu — gönderim artık remind fonksiyonunun manuel modundan geçer.
+    // Tarih önce kaydedilir ki gönderilen hatırlatma planlanan kontrole bağlansın.
+    const openWhatsApp = () => advance(async () => {
         if (!patientPhone) return;
-        window.open(`https://wa.me/${patientPhone.replace(/\D/g, '').replace(/^0/, '90')}?text=${encodeURIComponent(`Merhaba ${customer.name}, ${clinicName} kontrol randevunuz ${recallDateStr}. Uygunluğunuzu onaylamak için EVET yazın.`)}`, '_blank');
-    };
+        await onSetRecall(recallDateISO);
+        const res = await sendRecallReminder(customer.id);
+        if (res.ok) toast.success('Kontrol hatırlatması WhatsApp\'tan gönderildi');
+        else if (res.reason === 'no_whatsapp') toast.error('WhatsApp bağlı değil — Ayarlar → WhatsApp bölümünden bağlayın');
+        else toast.error('Hatırlatma gönderilemedi');
+    });
 
     const colorForTooth = (n: number): string => {
         const f = [...findings].reverse().find((x) => x.tooth === n);
@@ -833,7 +844,7 @@ function VisitJourney(props: VisitJourneyProps) {
             {/* Kapanış: kontrol seçimi + tek buton. Recall/WhatsApp/tamamlama yan etki. */}
             <div className="rounded-2xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-[0_1px_2px_rgba(14,14,14,0.04),0_2px_8px_rgba(14,14,14,0.04)] px-5 py-4">
                 <div className="flex flex-wrap items-center gap-3">
-                    {customer.recallDate ? (
+                    {recallActive ? (
                         <div className="flex items-center gap-2 text-[12px] font-bold text-[var(--dc-green)]"><CheckCircle2 size={15} />Kontrol planlandı: <span className="font-mono">{customer.recallDate}</span></div>
                     ) : (
                         <>
@@ -851,7 +862,7 @@ function VisitJourney(props: VisitJourneyProps) {
                         </>
                     )}
                     <div className="ml-auto flex items-center gap-2.5">
-                        {!readOnly && !visitCompleted && recallOpt !== 'Yok' && !customer.recallDate && patientPhone && (
+                        {!readOnly && !visitCompleted && recallOpt !== 'Yok' && !recallActive && patientPhone && (
                             <button disabled={busy} onClick={openWhatsApp} className="inline-flex items-center justify-center rounded-full border border-[var(--dc-border2)] px-4 h-12 text-[12.5px] font-bold text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)] transition-colors">WhatsApp ile Hatırlat</button>
                         )}
                         <button disabled={busy} onClick={closeVisit} className={primaryStyle}>
@@ -859,7 +870,7 @@ function VisitJourney(props: VisitJourneyProps) {
                         </button>
                     </div>
                 </div>
-                {!customer.recallDate && !readOnly && !visitCompleted && recallOpt !== 'Yok' && (
+                {!recallActive && !readOnly && !visitCompleted && recallOpt !== 'Yok' && (
                     <p className="mt-2 text-[11px] text-[var(--dc-muted2)]">"Viziti Bitir" notları kaydeder, kontrolü planlar ve ziyareti kapatır. Hatırlatma, kontrol tarihinden 2 gün önce otomatik gönderilir.</p>
                 )}
             </div>

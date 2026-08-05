@@ -17,6 +17,8 @@ type Biz = {
   name: string; bio: string | null; logoUrl: string | null; coverUrl: string | null;
   galleryUrls: string[]; address: string | null; phone: string | null;
   instagramUrl: string | null; mapsUrl: string | null; workingHours: WH[];
+  /** İşletmenin KVKK aydınlatma metni adresi — girilmemişse bağlantı çıkmaz. */
+  kvkkUrl?: string | null;
 };
 
 async function callFn(body: Record<string, unknown>) {
@@ -75,6 +77,8 @@ export function BookingPage() {
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // KVKK açık rızası — işaretlenmeden randevu gönderilemez (bkz. step 3).
+  const [kvkkOk, setKvkkOk] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);          // sepet — eklenen hizmetler
   const [done, setDone] = useState<null | { status: string; lines: { service: string; date: string; time: string }[] }>(null);
 
@@ -166,11 +170,15 @@ export function BookingPage() {
 
   const submit = async () => {
     if (lines.length === 0 || !name.trim() || phone.trim().length < 7) return;
+    if (!kvkkOk) return;
     setSubmitting(true);
     const { ok, status, json } = await callFn({
       action: 'book', slug,
       lines: lines.map(l => ({ serviceId: l.serviceId, staffId: l.staffId, date: l.date, time: l.time })),
       customerName: name.trim(), customerPhone: phone.replace(/\s/g, ''), customerEmail: email.trim(), note: note.trim(),
+      // Rızanın kanıtı kaydın kendisinde durmalı — sonradan "onay alındı mı?"
+      // sorusunun cevabı loglarda aranmasın.
+      kvkkConsentAt: new Date().toISOString(),
     });
     setSubmitting(false);
     if (ok && json.success) {
@@ -401,7 +409,24 @@ export function BookingPage() {
 
               <div style={{ fontSize: 11.5, color: 'rgba(243,237,227,.42)', margin: '12px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>Onay ve hatırlatma WhatsApp üzerinden gönderilecek.</div>
 
-              <button className="tf-cta" onClick={submit} disabled={submitting || !name.trim() || phone.trim().length < 7}>
+              {/* KVKK — aydınlatma verinin ALINDIĞI anda yapılır; onay zaman
+                  damgasıyla randevuya yazılır (custom_fields.kvkk_onay). */}
+              <label className="tf-kvkk" style={{ display: 'flex', gap: 9, alignItems: 'flex-start', margin: '14px 0 0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={kvkkOk} onChange={e => setKvkkOk(e.target.checked)}
+                  style={{ marginTop: 2, width: 17, height: 17, accentColor: '#FF5A1F', flexShrink: 0 }} />
+                <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'rgba(243,237,227,.62)' }}>
+                  Ad, telefon ve randevu bilgilerimin randevu yönetimi ve hatırlatma amacıyla
+                  {biz?.name ? ` ${biz.name}` : ''} tarafından işlenmesini kabul ediyorum.
+                  {/* Aydınlatma metni bağlantısı işletme Ayarlar'dan URL girince çıkar.
+                      Sabit bir /kvkk bağlantısı 404 verirdi; metnin içeriği de
+                      işletmenin kendi hukuki beyanıdır, ürün tarafından yazılamaz. */}
+                  {biz?.kvkkUrl && (
+                    <>{' '}<a href={biz.kvkkUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#FF5A1F', textDecoration: 'underline' }}>Aydınlatma metni</a></>
+                  )}
+                </span>
+              </label>
+
+              <button className="tf-cta" onClick={submit} disabled={submitting || !kvkkOk || !name.trim() || phone.trim().length < 7}>
                 {submitting ? <span className="tf-spin tf-spin-sm" /> : <>Randevuyu Onayla&nbsp;&nbsp;✓</>}
               </button>
             </div>

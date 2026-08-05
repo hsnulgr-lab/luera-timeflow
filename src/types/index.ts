@@ -56,6 +56,7 @@ export interface AdisyonItem {
     name: string;
     price: number;
     kind: 'product' | 'extra';   // katalog ürünü mü, serbest ekstra mı
+    productId?: string;           // katalog ürünüyse raporlama/gelecek stok bağı
 }
 
 export interface Customer {
@@ -89,6 +90,20 @@ export interface Service {
     color: string;
     price?: number;
     recallDays?: number;   // hizmet bazlı dönüş periyodu (gün) — 067; boşsa sektör varsayılanı
+    recipe?: ServiceRecipeLine[];  // işlemde tüketilen sarf malzemesi — 074/stok
+    /**
+     * Uygunluk etiketleri — hizmetin NE olduğunu söyler, kime yasak olduğunu
+     * değil. Yasak eşleşmesi sektör profilindeki riskFlags'te yaşar
+     * (bkz. lib/serviceEligibility). Örn. ['lazer'] etiketli bir hizmet,
+     * güzellikte hamilelik bayrağı olan müşteriye kapatılır.
+     */
+    tags?: string[];
+}
+
+/** Bir hizmetin standart sarf tüketimi: "Dip boya = 60ml boya + 60ml oksidan". */
+export interface ServiceRecipeLine {
+    productId: string;
+    quantity: number;      // ürünün kendi biriminde (ml, gr, adet)
 }
 
 export interface Settings {
@@ -119,6 +134,8 @@ export interface Staff {
     workingHours?: WorkingHours[];
     isActive: boolean;
     pin?: string;        // Personel Modu girişi için (SHA-256 hash; opsiyonel)
+    /** Ciro primi yüzdesi (0–100). 0 = prim yok. Tutar payments'tan türetilir — 073 */
+    commissionRate?: number;
     createdAt: string;
 }
 
@@ -309,6 +326,30 @@ export interface Product {
     price: number;
     category?: string;   // menü gruplaması (Yemek/İçecek/Tatlı…) — 043
     isActive: boolean;
+    createdAt: string;
+    // ── Depo alanları (074) — migration yoksa varsayılanlarla gelir
+    kind?: ProductKind;   // satılık / sarf malzemesi
+    unit?: string;        // adet, ml, gr…
+    cost?: number;        // birim maliyet
+    threshold?: number;   // kritik eşik (0 = uyarı üretme)
+    parLevel?: number;    // hedef (dolu raf) seviyesi
+    tracksStock?: boolean;
+}
+
+export type ProductKind = 'retail' | 'consumable';
+
+// Stok defteri — miktar bu satırların toplamıdır, ayrıca saklanmaz (074)
+export type StockMovementType = 'in' | 'sale' | 'usage' | 'waste' | 'count';
+
+export interface StockMovement {
+    id: string;
+    organizationId: string;
+    productId: string;
+    type: StockMovementType;
+    delta: number;        // giriş +, çıkış −
+    note?: string;
+    reservationId?: string;
+    paymentId?: string;
     createdAt: string;
 }
 

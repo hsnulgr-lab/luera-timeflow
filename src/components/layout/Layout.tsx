@@ -12,6 +12,7 @@ import { useWhatsApp } from '@/hooks/useWhatsApp';
 
 export const Layout = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [calendarCollapsed, setCalendarCollapsed] = useState(true);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { dark } = useTheme();
     // Kasa yoğun, geniş bir ekran: AI şeridi + üst bar gizli, sidebar otomatik daralır.
@@ -24,8 +25,11 @@ export const Layout = () => {
     const { isBroken: waBroken } = useWhatsApp();
     const onKasa = path.startsWith('/kasa');
     const onPackages = path.startsWith('/packages');
-    const hideAi = onKasa || onPackages;
-    const collapsed = onKasa || onPackages || isCollapsed;
+    // Takvim bütün sektörlerde bir odak çalışma alanıdır. Üst AI şeridi yerine
+    // takvim araç çubuğu kullanılır; dar sidebar ise programa daha fazla alan verir.
+    const onCalendar = path === '/calendar';
+    const hideTopBar = onKasa || onPackages || onCalendar;
+    const collapsed = onKasa || onPackages || (onCalendar ? calendarCollapsed : isCollapsed);
     // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
     usePendingBillsAlert();
 
@@ -33,7 +37,7 @@ export const Layout = () => {
         <div className={cn("min-h-screen", dark ? "bg-[#0C0A08]" : "bg-[#F3ECE0]")}>
             <Sidebar
                 isCollapsed={collapsed}
-                onCollapsedChange={setIsCollapsed}
+                onCollapsedChange={onCalendar ? setCalendarCollapsed : setIsCollapsed}
                 isMobileOpen={isMobileOpen}
                 onMobileClose={() => setIsMobileOpen(false)}
             />
@@ -61,7 +65,7 @@ export const Layout = () => {
             </div>
 
             {/* Desktop Top Bar (notification area) — Kasa'da komple gizli */}
-            {!hideAi && (
+            {!hideTopBar && (
                 <div className={cn(
                     "hidden md:flex fixed top-0 right-0 h-14 items-center gap-4 px-6 z-20 transition-all duration-300",
                     collapsed ? "left-20" : "left-64"
@@ -76,7 +80,7 @@ export const Layout = () => {
             {/* Main Content — Kasa'da üst bar olmadığı için desktop'ta boşluk yok */}
             <main className={cn(
                 "transition-all duration-300 pt-14 h-screen flex flex-col",
-                hideAi ? "md:pt-0" : "md:pt-14",
+                hideTopBar ? "md:pt-0" : "md:pt-14",
                 collapsed ? "md:ml-20" : "md:ml-64"
             )}>
                 {/* WhatsApp bağlantısı düştüğünde hatırlatmalar sessizce durur;

@@ -10,6 +10,7 @@ import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
+import { useCashEnabled } from '@/hooks/useModules';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -97,6 +98,7 @@ function Card({ icon, title, sub, right, children }: { icon: React.ReactNode; ti
 
 export function PatientFilePage() {
     const navigate = useNavigate();
+    const cashOn = useCashEnabled();
     const { customerId = '' } = useParams<{ customerId: string }>();
     const { dark } = useTheme();
     const { orgId } = useAuth();
@@ -406,7 +408,7 @@ export function PatientFilePage() {
                             <div className="p-[18px] pt-3.5">
                                 {latestOpenReservation
                                     ? <button onClick={() => navigate(`/dental-visit/${encodeURIComponent(latestOpenReservation.id)}`)} className="h-12 w-full rounded-full bg-[var(--dc-orange)] text-[13px] font-bold text-white transition-all hover:brightness-95">Tahsilat Al</button>
-                                    : <button onClick={() => navigate('/kasa')} className="h-12 w-full rounded-full bg-[var(--dc-orange)] text-[13px] font-bold text-white transition-all hover:brightness-95">Tahsilat Al</button>}
+                                    : cashOn && <button onClick={() => navigate('/kasa')} className="h-12 w-full rounded-full bg-[var(--dc-orange)] text-[13px] font-bold text-white transition-all hover:brightness-95">Tahsilat Al</button>}
                             </div>
                         </Card>
 

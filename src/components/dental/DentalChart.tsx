@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useDentalChart } from '@/hooks/useDentalChart';
-import { ToothSVG, UPPER_ORDER, LOWER_ORDER } from '@/components/dental/ToothSVG';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ToothArchBoard, ToothLegend } from '@/components/dental/ToothAnatomy';
+import { STATUS_LEGEND } from '@/components/dental/dentalStatusMeta';
+import { TOOTH_TYPE_BY_NUMBER, TYPE_LABEL_TR } from '@/components/dental/ToothSVG';
+import { cn } from '@/utils/cn';
 import type { DentalStatus, ToothSurface } from '@/types';
+import './dentalChart.css';
 
-export const STATUS_META: Record<DentalStatus, { label: string; color: string; bg: string }> = {
+const STATUS_META: Record<DentalStatus, { label: string; color: string; bg: string }> = {
     saglam:  { label: 'Sağlam',         color: '#8a8a8a', bg: 'transparent' },
     curuk:   { label: 'Çürük',          color: '#C0392B', bg: 'rgba(192,57,43,0.14)' },
     dolgu:   { label: 'Dolgu',          color: '#2870B0', bg: 'rgba(40,112,176,0.14)' },
@@ -15,15 +20,25 @@ export const STATUS_META: Record<DentalStatus, { label: string; color: string; b
 const STATUS_ORDER: DentalStatus[] = ['saglam', 'curuk', 'dolgu', 'kanal', 'kron', 'implant', 'cekildi'];
 const SURFACE_ORDER: ToothSurface[] = ['M', 'O', 'D', 'B', 'L'];
 const SURFACE_STATUSES: DentalStatus[] = ['curuk', 'dolgu'];
+const SWATCH_CLS = new Map(STATUS_LEGEND.map((item) => [item.status, item.cls]));
 
-interface T { ink: string; muted: string; surface: string; surface2: string; border: string; border2: string }
+// Diş numarasından okunabilir konum: "Kanin · Sağ üst"
+function toothLocation(n: number): string {
+    const quadrant = Math.floor(n / 10);
+    const side = quadrant === 1 || quadrant === 4 ? 'Sağ' : 'Sol';
+    const jaw = quadrant <= 2 ? 'üst' : 'alt';
+    const type = TOOTH_TYPE_BY_NUMBER[n];
+    return `${type ? TYPE_LABEL_TR[type] : 'Diş'} · ${side} ${jaw}`;
+}
+
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }).toLocaleUpperCase('tr');
+const fmtYear = (iso: string) => new Date(iso).getFullYear();
 
 interface DentalChartProps {
     customerId: string;
     staffId?: string;
     encounterId?: string;
     reservationId?: string;
-    T: T;
     readOnly?: boolean;
 }
 
@@ -35,8 +50,9 @@ export function DentalChart(props: DentalChartProps) {
     return <DentalChartForCustomer key={`${props.customerId}:${props.reservationId || props.encounterId || 'patient'}`} {...props} />;
 }
 
-function DentalChartForCustomer({ customerId, staffId, encounterId, reservationId, T, readOnly = false }: DentalChartProps) {
-    const { current, historyFor, isLoading, setTooth } = useDentalChart(customerId);
+function DentalChartForCustomer({ customerId, staffId, encounterId, reservationId, readOnly = false }: DentalChartProps) {
+    const { dark } = useTheme();
+    const { current, planned, historyFor, isLoading, setTooth } = useDentalChart(customerId);
     const [active, setActive] = useState<number | null>(null);
     const [draftStatus, setDraftStatus] = useState<DentalStatus>('saglam');
     const [draftSurfaces, setDraftSurfaces] = useState<ToothSurface[]>([]);
@@ -56,7 +72,7 @@ function DentalChartForCustomer({ customerId, staffId, encounterId, reservationI
     const save = async () => {
         if (readOnly || !active) return;
         setSaving(true);
-        // Kompakt görünümde yüzey seçici yok — durum değişmediyse mevcut yüzeyler korunur
+        // Durum değişmediyse mevcut yüzeyler korunur — yalnız not güncellenmiş olabilir.
         const rec = current.get(active);
         const ok = await setTooth(active, draftStatus, {
             note: note.trim() || undefined, staffId,
@@ -70,126 +86,145 @@ function DentalChartForCustomer({ customerId, staffId, encounterId, reservationI
         if (ok) setActive(null);
     };
 
-    const Tooth = ({ n, type, flip }: { n: number; type: (typeof UPPER_ORDER)[number]['type']; flip?: boolean }) => {
-        const rec = current.get(n);
-        const color = rec ? STATUS_META[rec.status].color : STATUS_META.saglam.color;
-        return (
-            <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => openTooth(n)}
-                aria-label={`Diş ${n} detayını aç`}
-                title={rec ? `${n} · ${STATUS_META[rec.status].label}` : `${n} · Sağlam`}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, cursor: isLoading ? 'default' : 'pointer', background: 'none', border: 'none', padding: 2, flexShrink: 0, opacity: isLoading ? .9 : 1 }}
-            >
-                <span style={{ fontSize: 8, fontWeight: 800, color: T.muted, opacity: 0.75 }}>{n}</span>
-                <ToothSVG type={type} color={color} size={26} flip={flip}
-                    surfaces={rec?.surfaces} neutralColor={STATUS_META.saglam.color} />
-            </button>
-        );
-    };
+    const markedCount = current.size;
 
     return (
-        <div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', padding: '12px 8px', background: T.surface2, borderRadius: 14, border: `1px solid ${T.border}`, overflowX: 'auto' }}>
-                <div style={{ display: 'flex', gap: 1 }}>{UPPER_ORDER.map((t) => <Tooth key={t.n} n={t.n} type={t.type} flip />)}</div>
-                <div style={{ width: '100%', height: 1, background: T.border, margin: '2px 0' }} />
-                <div style={{ display: 'flex', gap: 1 }}>{LOWER_ORDER.map((t) => <Tooth key={t.n} n={t.n} type={t.type} />)}</div>
-            </div>
+        <div className={cn('dchart dash-theme', dark && 'dark')}>
+            <header className="dchart-header">
+                <div className="eyebrow">Diş Kliniği · Kalıcı dişler</div>
+                <div className="dchart-heading">
+                    <h2>Diş Şeması</h2>
+                    <span className="dchart-count">{markedCount > 0 ? `${markedCount} kayıt` : '32 diş'}</span>
+                </div>
+                <p className="dchart-subtitle">FDI numaralandırma · işaretlenmemiş dişler sağlam kabul edilir</p>
+            </header>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                {STATUS_ORDER.filter((s) => s !== 'saglam').map((s) => (
-                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: T.muted }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_META[s].color }} />
-                        {STATUS_META[s].label}
+            <section className="dchart-body" aria-label="Odontogram">
+                {isLoading ? (
+                    /* Kayıtlar gelmeden ark çizilirse tüm dişler "sağlam" görünür — klinik olarak yanıltıcı. */
+                    <div role="status" aria-live="polite" aria-label="Diş şeması yükleniyor">
+                        <div className="dchart-skeleton-arch" aria-hidden="true">
+                            {Array.from({ length: 16 }, (_, i) => <span className="dchart-skeleton" key={`u${i}`} />)}
+                        </div>
+                        <div className="dchart-skeleton-arch" aria-hidden="true">
+                            {Array.from({ length: 16 }, (_, i) => <span className="dchart-skeleton" key={`l${i}`} />)}
+                        </div>
                     </div>
-                ))}
-            </div>
+                ) : (
+                    <ToothArchBoard
+                        statusOf={(n) => current.get(n)?.status}
+                        plannedOf={(n) => planned.has(n)}
+                        selected={active}
+                        onSelect={openTooth}
+                    />
+                )}
+                <ToothLegend />
+            </section>
 
-            {readOnly && active !== null && (
-                <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: `1px solid ${T.border2}`, background: T.surface }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: T.ink }}>Diş {active} · detay</div>
-                        <button type="button" aria-label="Diş detayını kapat" onClick={() => setActive(null)} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
-                    </div>
-                    {activeRecord ? (
-                        <div style={{ padding: '9px 10px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}`, marginBottom: 11 }}>
-                            <div style={{ fontSize: 11.5, fontWeight: 800, color: STATUS_META[activeRecord.status].color }}>
-                                Güncel: {STATUS_META[activeRecord.status].label}
-                                {activeRecord.surfaces.length > 0 ? ` · ${activeRecord.surfaces.join('')}` : ''}
+            {active !== null && (
+                <section className="dchart-selected" aria-label={`Diş ${active} detayı`}>
+                    <div className="dchart-selected-head">
+                        <span className="dchart-tooth-badge">{active}</span>
+                        <div className="dchart-selected-copy">
+                            <div style={{ minWidth: 0 }}>
+                                <h3>{toothLocation(active)}</h3>
+                                <p>
+                                    {activeRecord ? 'Mevcut durum' : 'Bu diş için kayıt yok'}
+                                    {activeRecord && activeRecord.surfaces.length > 0 ? ` · yüzey ${activeRecord.surfaces.join('')}` : ''}
+                                </p>
                             </div>
-                            {activeRecord.note && <div style={{ marginTop: 4, color: T.muted, fontSize: 11.5, lineHeight: 1.45 }}>{activeRecord.note}</div>}
+                            <span className={cn('dchart-current', activeRecord?.status ?? 'saglam')}>
+                                {STATUS_META[activeRecord?.status ?? 'saglam'].label}
+                            </span>
+                        </div>
+                        <button type="button" className="dchart-close" aria-label="Diş detayını kapat" onClick={() => setActive(null)}>×</button>
+                    </div>
+
+                    {!readOnly && (
+                        <div className="dchart-form">
+                            <span className="field-label">Durumu değiştir</span>
+                            <div className="dchart-chips">
+                                {STATUS_ORDER.map((s) => (
+                                    <button key={s} type="button"
+                                        className={cn('dchart-chip', s, draftStatus === s && 'on')}
+                                        onClick={() => { setDraftStatus(s); if (!SURFACE_STATUSES.includes(s)) setDraftSurfaces([]); }}>
+                                        <span className={cn('dt-swatch', SWATCH_CLS.get(s))} />{STATUS_META[s].label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {SURFACE_STATUSES.includes(draftStatus) && (
+                                <>
+                                    <span className="field-label" style={{ display: 'block', marginTop: 13 }}>Yüzey (MODBL)</span>
+                                    <div className="dchart-surfaces">
+                                        {SURFACE_ORDER.map((surface) => {
+                                            const selected = draftSurfaces.includes(surface);
+                                            return (
+                                                <button key={surface} type="button" aria-pressed={selected}
+                                                    className={cn('dchart-surface', selected && 'on')}
+                                                    onClick={() => setDraftSurfaces((prev) => selected ? prev.filter((x) => x !== surface) : [...prev, surface])}>
+                                                    {surface}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="dchart-note">
+                                <label className="field-label" htmlFor={`dchart-note-${active}`}>Kısa klinik not</label>
+                                <textarea id={`dchart-note-${active}`} value={note} maxLength={180} rows={2}
+                                    placeholder="Muayene bulgusunu kısa ve net yazın"
+                                    onChange={(e) => setNote(e.target.value)} />
+                                <span className="dchart-note-help">En fazla 180 karakter</span>
+                            </div>
+
+                            <div className="dchart-footer">
+                                <span className="dchart-last-edit">
+                                    {activeRecord ? `Son düzenleme ${new Date(activeRecord.createdAt).toLocaleDateString('tr-TR')}` : 'Henüz kayıt yok'}
+                                </span>
+                                <button type="button" className="dchart-save" disabled={saving} onClick={save}>
+                                    {saving ? 'Kaydediliyor…' : 'Kaydet'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </section>
+            )}
+
+            {active !== null && (
+                <section className="dchart-history" aria-label="Diş geçmişi">
+                    <div className="dchart-history-head">
+                        <h3>Diş geçmişi</h3>
+                        <span className="dchart-history-count">{activeHistory.length} kayıt</span>
+                    </div>
+                    {activeHistory.length === 0 ? (
+                        <div className="dchart-empty">
+                            <div className="dchart-empty-icon" aria-hidden="true">↺</div>
+                            <h3>Bu diş için kayıt yok</h3>
+                            <p>Durum değişiklikleri ve klinik notlar burada görünecek.</p>
                         </div>
                     ) : (
-                        <div style={{ color: T.muted, fontSize: 11.5, marginBottom: 11 }}>Bu diş için mevcut durum kaydı yok.</div>
-                    )}
-                    <div style={{ fontSize: 10.5, fontWeight: 800, color: T.muted, marginBottom: 6 }}>Geçmiş</div>
-                    {activeHistory.length === 0 ? (
-                        <div style={{ color: T.muted, fontSize: 11.5 }}>Henüz geçmiş kaydı yok.</div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div>
                             {activeHistory.map((record) => (
-                                <div key={record.id} style={{ padding: '8px 9px', borderRadius: 9, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: T.ink, fontSize: 11, fontWeight: 750 }}>
-                                        <span>{STATUS_META[record.status].label}{record.surfaces.length > 0 ? ` · ${record.surfaces.join('')}` : ''}{record.recordType === 'planned' ? ' · planlı' : ''}</span>
-                                        <time style={{ color: T.muted, fontSize: 10, fontWeight: 600, flexShrink: 0 }}>{new Date(record.createdAt).toLocaleDateString('tr-TR')}</time>
+                                <div className="dchart-row" key={record.id}>
+                                    <time className="dchart-row-date" dateTime={record.createdAt}>
+                                        <strong>{fmtDay(record.createdAt)}</strong>{fmtYear(record.createdAt)}
+                                    </time>
+                                    <span className={cn('dchart-dot', record.status)} aria-hidden="true" />
+                                    <div className="dchart-row-body">
+                                        <strong>
+                                            {STATUS_META[record.status].label}
+                                            {record.surfaces.length > 0 ? ` · ${record.surfaces.join('')}` : ''}
+                                            {record.recordType === 'planned' ? ' · planlı' : ''}
+                                        </strong>
+                                        {record.note && <span>{record.note}</span>}
                                     </div>
-                                    {record.note && <div style={{ color: T.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 3 }}>{record.note}</div>}
                                 </div>
                             ))}
                         </div>
                     )}
-                </div>
-            )}
-
-            {!readOnly && active !== null && (
-                <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: `1px solid ${T.border2}`, background: T.surface }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: T.ink }}>
-                            Diş {active}
-                            {/* Korunan yüzeyler görünür olsun — durum değişmeden kaydedilirse aynen kalır */}
-                            {(() => { const r = current.get(active); return r && r.surfaces.length > 0
-                                ? <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: T.muted, marginLeft: 6 }}>yüzey: {r.surfaces.join('')}</span>
-                                : null; })()}
-                        </div>
-                        <button type="button" onClick={() => setActive(null)} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                        {STATUS_ORDER.map((s) => (
-                            <button key={s} type="button" onClick={() => { setDraftStatus(s); if (!SURFACE_STATUSES.includes(s)) setDraftSurfaces([]); }}
-                                style={{
-                                    padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
-                                    border: `1px solid ${STATUS_META[s].color}55`,
-                                    background: draftStatus === s ? STATUS_META[s].color : 'transparent',
-                                    color: draftStatus === s ? '#fff' : STATUS_META[s].color,
-                                }}>
-                                {STATUS_META[s].label}
-                            </button>
-                        ))}
-                    </div>
-                    {SURFACE_STATUSES.includes(draftStatus) && (
-                        <div style={{ marginBottom: 10 }}>
-                            <div style={{ fontSize: 10.5, fontWeight: 750, color: T.muted, marginBottom: 6 }}>Yüzey (MODBL)</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
-                                {SURFACE_ORDER.map((surface) => {
-                                    const selected = draftSurfaces.includes(surface);
-                                    return (
-                                        <button key={surface} type="button" onClick={() => setDraftSurfaces((prev) => selected ? prev.filter((x) => x !== surface) : [...prev, surface])}
-                                            style={{ height: 34, borderRadius: 9, border: `1px solid ${selected ? '#0E0E0E' : T.border2}`, background: selected ? '#0E0E0E' : T.surface2, color: selected ? '#F3EDE3' : T.muted, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                                            {surface}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Not (ops.)"
-                        style={{ width: '100%', padding: '8px 11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
-                    <button type="button" disabled={saving} onClick={save}
-                        style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: saving ? T.border2 : '#0E0E0E', color: '#F3EDE3', fontSize: 12.5, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                        {saving ? 'Kaydediliyor…' : 'Kaydet'}
-                    </button>
-                </div>
+                </section>
             )}
         </div>
     );

@@ -6,12 +6,21 @@ import { readCache, writeCache } from '@/lib/swrCache';
 import { normalizeStaffRole } from '@/lib/staffPermissions';
 import type { Staff } from '@/types';
 
-function isMissingStaffRoleColumn(error: { code?: string; message?: string; details?: string } | null): boolean {
+function isMissingColumn(
+    error: { code?: string; message?: string; details?: string } | null,
+    column: string,
+): boolean {
     if (!error) return false;
     const message = String(error.message || error.details || '').toLowerCase();
     return (error.code === 'PGRST204' || error.code === '42703')
-        && message.includes('role');
+        && message.includes(column);
 }
+
+const isMissingStaffRoleColumn = (error: Parameters<typeof isMissingColumn>[0]) =>
+    isMissingColumn(error, 'role');
+/** 073 uygulanmamış ortamda prim oranı sessizce atlanır (oran 0 okunur). */
+const isMissingCommissionColumn = (error: Parameters<typeof isMissingColumn>[0]) =>
+    isMissingColumn(error, 'commission_rate');
 
 interface StaffDbRow {
     id: string;
@@ -25,6 +34,7 @@ interface StaffDbRow {
     working_hours?: Staff['workingHours'] | null;
     is_active?: boolean | null;
     pin?: string | null;
+    commission_rate?: number | string | null;
     created_at: string;
 }
 
@@ -41,6 +51,7 @@ function mapDbStaff(row: StaffDbRow): Staff {
         workingHours: row.working_hours || undefined,
         isActive: row.is_active ?? true,
         pin: row.pin || undefined,
+        commissionRate: Number(row.commission_rate ?? 0) || 0,
         createdAt: row.created_at,
     };
 }
@@ -49,9 +60,11 @@ export function useStaff() {
     const { user, orgId } = useAuth();
     const [staff, setStaff]   = useState<Staff[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Personelleri getir
     const fetchStaff = useCallback(async (resolvedOrgId: string) => {
+        setError(null);
         // SWR: önce son bilinen liste, arkada ağdan tazele
         const cached = readCache<Staff[]>(`staff:${resolvedOrgId}`);
         if (cached) { setStaff(cached); setIsLoading(false); } else setIsLoading(true);
@@ -65,6 +78,7 @@ export function useStaff() {
         if (error) {
             toast.error('Personel listesi yüklenemedi');
             console.error(error);
+            setError('Personel listesi yüklenemedi');
         } else {
             const rows = (data || []).map(mapDbStaff);
             setStaff(rows);
@@ -96,14 +110,15 @@ export function useStaff() {
             is_active:     member.isActive ?? true,
             pin:           member.pin || null,
         };
+        const withRole = { ...basePayload, role: member.role };
         let result = await supabase
             .from('staff')
-            .insert({
-                ...basePayload,
-                role:           member.role,
-            })
+            .insert({ ...withRole, commission_rate: member.commissionRate ?? 0 })
             .select()
             .single();
+        if (isMissingCommissionColumn(result.error)) {
+            result = await supabase.from('staff').insert(withRole).select().single();
+        }
 
         // 058 henüz uygulanmamış ortamlarda personel ekleme akışını
         // bozma. Rol bu durumda uzmanlık alanından okunur; kalıcı rol için
@@ -135,11 +150,17 @@ export function useStaff() {
         if (updates.isActive    !== undefined) dbUpdates.is_active     = updates.isActive;
         if (updates.pin         !== undefined) dbUpdates.pin           = updates.pin || null;
         if (updates.role        !== undefined) dbUpdates.role          = updates.role;
+        if (updates.commissionRate !== undefined) dbUpdates.commission_rate = updates.commissionRate;
 
         let result = await supabase.from('staff').update(dbUpdates).eq('id', id);
         if (updates.role !== undefined && isMissingStaffRoleColumn(result.error)) {
             const legacyUpdates = { ...dbUpdates };
             delete legacyUpdates.role;
+            result = await supabase.from('staff').update(legacyUpdates).eq('id', id);
+        }
+        if (updates.commissionRate !== undefined && isMissingCommissionColumn(result.error)) {
+            const legacyUpdates = { ...dbUpdates };
+            delete legacyUpdates.commission_rate;
             result = await supabase.from('staff').update(legacyUpdates).eq('id', id);
         }
         const { error } = result;
@@ -162,6 +183,7 @@ export function useStaff() {
     return {
         staff,
         isLoading,
+        error,
         addStaff,
         updateStaff,
         deleteStaff,

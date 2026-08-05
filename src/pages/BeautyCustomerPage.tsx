@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, CreditCard, GlassWater, MessageCircle, Phone, Plus } 
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
+import { useCashEnabled } from '@/hooks/useModules';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,7 +14,8 @@ import { cn } from '@/utils/cn';
 import { formatDateEU, toISODate } from '@/utils/date';
 import { MONO } from '@/components/dashboard/kpi';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
-import type { Payment, PaymentMethod, PaymentType, TreatmentPlan } from '@/types';
+import { activeRiskFlags, evaluateEligibility } from '@/lib/serviceEligibility';
+import type { Payment, PaymentMethod, PaymentType } from '@/types';
 
 // Güzellik Müşteri Kartı — tasarım: "Luera TimeFlow Guzellik Salonu.html"
 // müşteri kartı ekranı. Paket odaklı: başlıkta uyarı rozetleri (hamilelik,
@@ -41,6 +43,7 @@ function nextSuggestion(lastVisit?: string, afterDays = 28): string {
 export function BeautyCustomerPage() {
     const { customerId } = useParams<{ customerId: string }>();
     const navigate = useNavigate();
+    const cashOn = useCashEnabled();
     const { dark } = useTheme();
     const { orgId } = useAuth();
     const { customers } = useCustomers();
@@ -79,7 +82,10 @@ export function BeautyCustomerPage() {
         .sort((a, b) => b.date === a.date ? b.startTime.localeCompare(a.startTime) : b.date.localeCompare(a.date))
         .slice(0, 5), [reservations, customerId]);
 
-    const pregnant = Boolean(customer?.customFields?.hamilelik);
+    // Risk bayrakları ve kontrendikasyon tek kaynaktan (lib/serviceEligibility).
+    // Burada bir zamanlar ikinci bir regex vardı (/lazer|incelme/i) ve seans
+    // modalindekinden farklıydı: aynı paket bir ekranda kapalı, diğerinde açıktı.
+    const riskFlags = activeRiskFlags(customer, settings.sector);
     const allergy = String(customer?.customFields?.alerji || '');
     const skinType = String(customer?.customFields?.cilt_tipi || '');
     const lastPayment = payments[0];
@@ -116,7 +122,9 @@ export function BeautyCustomerPage() {
                                 {chip('bg-[var(--dc-green-bg)] text-[var(--dc-green)]', 'Aktif müşteri')}
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                {pregnant && chip('bg-[var(--dc-red-bg)] text-[var(--dc-red)]', '⚠ Hamilelik — lazer uygulanmaz')}
+                                {riskFlags.map((f) => (
+                                    <span key={f.key}>{chip('bg-[var(--dc-red-bg)] text-[var(--dc-red)]', `⚠ ${f.label}${f.note ? ` — ${f.note}` : ''}`)}</span>
+                                ))}
                                 {allergy && chip('bg-[var(--dc-amber-bg)] text-[var(--dc-amber)]', `Alerji: ${allergy}`)}
                                 {skinType && chip('bg-[var(--dc-surface2)] text-[var(--dc-muted)]', `Cilt: ${skinType}`)}
                                 {chip('bg-[var(--dc-surface2)] text-[var(--dc-muted)]', `Üyelik: ${monoDate(customer.createdAt).split(' ').slice(1).join(' ')}`)}
@@ -154,7 +162,8 @@ export function BeautyCustomerPage() {
                             {activePlans.map((p) => {
                                 const remaining = planRemaining(p, finance.paidByPlan);
                                 const perSession = Math.round(p.totalAmount / p.sessionCount);
-                                const blocked = pregnant && /lazer|incelme/i.test(p.title);
+                                const verdict = evaluateEligibility(customer, { name: p.title }, settings.sector);
+                                const blocked = verdict.blocked;
                                 return (
                                     <div key={p.id} className="rounded-2xl border border-[var(--dc-border)] bg-[var(--dc-surface2)] p-4 flex flex-col gap-2.5">
                                         <div className="flex items-start justify-between gap-2.5">
@@ -174,12 +183,14 @@ export function BeautyCustomerPage() {
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             {blocked
-                                                ? chip('bg-[var(--dc-red-bg)] text-[var(--dc-red)]', '⚠ Hamilelik nedeniyle beklemede')
+                                                ? chip('bg-[var(--dc-red-bg)] text-[var(--dc-red)]', `⚠ ${verdict.reason} nedeniyle beklemede`)
                                                 : remaining === 0
                                                     ? chip('bg-[var(--dc-green-bg)] text-[var(--dc-green)]', 'Ödemesi tamam')
                                                     : chip('bg-[var(--dc-amber-bg)] text-[var(--dc-amber)]', 'Taksit devam ediyor')}
                                             <span className="flex-1" />
-                                            <button onClick={() => setModalOpen(true)} className="bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12px] font-bold px-3.5 min-h-[36px] rounded-full hover:bg-[var(--dc-orange)] transition-colors">Seansı Planla</button>
+                                            {/* Kart "beklemede" derken planlama düğmesi açık kalıyordu. */}
+                                            <button onClick={() => setModalOpen(true)} disabled={blocked} title={verdict.message}
+                                                className="bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12px] font-bold px-3.5 min-h-[36px] rounded-full hover:bg-[var(--dc-orange)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--dc-inkbox)]">Seansı Planla</button>
                                         </div>
                                     </div>
                                 );
@@ -261,7 +272,7 @@ export function BeautyCustomerPage() {
                                     </div>
                                 ))}
                                 <div className="flex gap-2 pt-3">
-                                    <button onClick={() => navigate('/kasa')} className="bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12px] font-bold px-4 min-h-[36px] rounded-full hover:bg-[var(--dc-orange)] transition-colors">Ödeme Al</button>
+                                    {cashOn && <button onClick={() => navigate('/kasa')} className="bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12px] font-bold px-4 min-h-[36px] rounded-full hover:bg-[var(--dc-orange)] transition-colors">Ödeme Al</button>}
                                     {customer.phone && <a href={`${waLink(customer.phone)}?text=${encodeURIComponent(`Merhaba ${customer.name.split(' ')[0]} 🌸 Güncel hesap özetiniz: toplam ₺${finance.total.toLocaleString('tr-TR')}, ödenen ₺${finance.paid.toLocaleString('tr-TR')}, kalan ₺${finance.balance.toLocaleString('tr-TR')}. Dilediğiniz zaman salonumuzdan ödeyebilirsiniz ✨`)}`} target="_blank" rel="noopener noreferrer" className="px-4 min-h-[36px] inline-flex items-center rounded-full border border-[var(--dc-border2)] text-[12px] font-bold text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)] transition-colors">Ekstre Gönder</a>}
                                 </div>
                             </div>

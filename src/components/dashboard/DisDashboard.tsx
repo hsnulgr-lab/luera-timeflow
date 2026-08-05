@@ -7,6 +7,7 @@ import { useStaff } from '@/hooks/useStaff';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useResources } from '@/hooks/useResources';
 import { usePayments } from '@/hooks/usePayments';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useDentalChartsForCustomers } from '@/hooks/useDentalChart';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -82,6 +83,7 @@ export function DisDashboard() {
     const { allCustomers } = useCustomers();
     const { resources } = useResources();
     const { payments } = usePayments();
+    const cashOn = useCashEnabled();
 
     // Canlı sayaçlar (koltuk süresi, gecikme) dakikada bir tazelensin.
     const [nowTick, setNowTick] = useState(() => new Date());
@@ -345,7 +347,15 @@ export function DisDashboard() {
     const advance = async (r: Reservation) => {
         const st = apptStatusOf(r);
         if (advancing) return;
-        if (st === 'tamamlandi') { navigate(`/kasa?reservation=${r.id}`); return; }
+        // Kasa kapalıysa tahsilat TimeFlow dışında takip ediliyordur; kayıt
+        // "tamamlandı ama ödenmedi"de asılı kalmasın diye kapatılır.
+        if (st === 'tamamlandi') {
+            if (cashOn) { navigate(`/kasa?reservation=${r.id}`); return; }
+            setAdvancing(r.id);
+            await updateReservation(r.id, { isPaid: true });
+            setAdvancing(null);
+            return;
+        }
         setAdvancing(r.id);
         if (st === 'bekliyor') await updateReservation(r.id, { status: 'confirmed' });
         else if (st === 'onaylandi') await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
@@ -596,7 +606,7 @@ export function DisDashboard() {
                             { k: 'Bugün Tahsil', v: fmtTL(todayCollected), cls: 'text-[var(--dc-green)]', mono: true },
                             { k: 'Bekleyen Tahsilat', v: fmtTL(outstandingTotal), cls: 'text-[var(--dc-red2)]', mono: true },
                         ] as const).map((m, i) => (
-                            <button key={m.k} onClick={() => navigate(m.k === 'Bekleyen Tahsilat' || m.k === 'Bugün Tahsil' ? '/kasa' : '/calendar')}
+                            <button key={m.k} onClick={() => navigate(cashOn && (m.k === 'Bekleyen Tahsilat' || m.k === 'Bugün Tahsil') ? '/kasa' : '/calendar')}
                                 className={cn('flex flex-col gap-0.5 items-start px-[18px] py-3.5 min-h-[64px] hover:bg-[var(--dc-surface2)] transition-colors border-[var(--dc-border)]', i < 4 && 'lg:border-r', i < 3 && 'max-lg:border-b', i % 2 === 0 && i < 4 && 'max-lg:border-r')}>
                                 <span className="text-[11px] font-bold text-[var(--dc-muted)] tracking-[0.03em]">{m.k}</span>
                                 <span className={cn('text-[17px] font-extrabold tracking-[-0.02em]', m.cls, 'mono' in m && m.mono && 'font-mono')}>{m.v}</span>
@@ -739,7 +749,7 @@ export function DisDashboard() {
                                                         <MessageCircle className="w-3 h-3" /> {remindingId === it.customerId ? 'Gönderiliyor…' : 'Hatırlat'}
                                                     </button>
                                                 )}
-                                                {it.type === 'pay' && (
+                                                {it.type === 'pay' && cashOn && (
                                                     <button onClick={() => navigate('/kasa')}
                                                         className="flex-shrink-0 text-[11.5px] font-bold px-3.5 h-[36px] rounded-full bg-[var(--dc-ink)] text-[var(--dc-inkbox-fg)] hover:bg-[var(--dc-orange)] transition-colors">Ödeme Al</button>
                                                 )}

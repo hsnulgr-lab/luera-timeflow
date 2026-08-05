@@ -76,19 +76,19 @@
 }
 
 .kf-ops .day-hero {
-  min-height: 132px;
+  min-height: 104px;
   border: 1px solid var(--dc-border);
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--dc-card);
   box-shadow: var(--shadow-md);
   overflow: hidden;
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr) auto;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
   align-items: stretch;
 }
 
 .kf-ops .date-tile {
-  padding: 17px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -97,16 +97,20 @@
   color: var(--dc-inkbox-fg);
 }
 
+/* Gün başlığı ürünün kendi tipografisiyle konuşur; mono yalnız sayaç ve
+   teknik alanlarda kalır (bkz. .priority-time, .timeline hour marks). */
 .kf-ops .date-tile span,
 .kf-ops .date-tile small {
-  font: 700 11px 'JetBrains Mono', monospace;
-  letter-spacing: 0.15em;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
 }
 
 .kf-ops .date-tile strong {
-  margin: 2px 0;
-  font-size: 47px;
-  letter-spacing: -0.08em;
+  margin: 1px 0;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
   line-height: 1;
 }
 
@@ -117,8 +121,15 @@
 
 .kf-ops .day-copy {
   min-width: 0;
-  padding: 18px 25px;
+  padding: 13px 20px;
   align-self: center;
+}
+
+.kf-ops .day-copy .eyebrow {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
 }
 
 .kf-ops .eyebrow {
@@ -129,10 +140,10 @@
 }
 
 .kf-ops .day-copy h1 {
-  margin: 6px 0 3px;
-  font-size: clamp(20px, 2vw, 26px);
-  line-height: 1.12;
-  letter-spacing: -0.04em;
+  margin: 4px 0 2px;
+  font-size: clamp(17px, 1.55vw, 21px);
+  line-height: 1.15;
+  letter-spacing: -0.032em;
 }
 
 .kf-ops .day-copy h1 em {
@@ -143,17 +154,17 @@
 .kf-ops .day-copy p {
   margin: 0;
   color: var(--dc-muted);
-  font-size: 14px;
+  font-size: 12.5px;
 }
 
 .kf-ops .day-facts {
-  margin-top: 11px;
+  margin-top: 7px;
   display: flex;
   align-items: center;
   gap: 17px;
   flex-wrap: wrap;
   color: var(--dc-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -194,7 +205,7 @@
 }
 
 .kf-ops .hero-actions {
-  padding: 20px 22px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -217,6 +228,65 @@
 
 .kf-ops .button:hover {
   transform: translateY(-1px);
+}
+
+.kf-ops .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+
+.kf-ops .button.ghost {
+  min-height: 36px;
+  padding-inline: 12px;
+  border: 1px dashed var(--dc-border2);
+  background: transparent;
+  color: var(--dc-muted);
+  font-size: 11px;
+}
+
+.kf-ops .dashboard-state {
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid var(--dc-border);
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--dc-card);
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  box-shadow: var(--shadow-sm);
+}
+
+.kf-ops .dashboard-state.loading svg {
+  color: var(--dc-orange);
+  animation: kf-spin 1.2s linear infinite;
+}
+
+.kf-ops .dashboard-state.error {
+  border-color: color-mix(in srgb, var(--dc-red) 36%, var(--dc-border));
+  background: var(--dc-red-bg);
+  color: var(--dc-red);
+}
+
+.kf-ops .dashboard-state.error span {
+  min-width: 0;
+  flex: 1;
+}
+
+.kf-ops .dashboard-state.error button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  background: transparent;
+  color: inherit;
+  font-weight: 800;
+}
+
+@keyframes kf-spin {
+  to { transform: rotate(360deg); }
 }
 
 .kf-ops .button.primary {
@@ -785,6 +855,14 @@
   gap: 7px;
 }
 
+.kf-ops .stage-grid.empty .stage-column {
+  min-height: 82px;
+}
+
+.kf-ops .stage-grid.empty .stage-list {
+  display: none;
+}
+
 .kf-ops .stage-column {
   min-width: 0;
   min-height: 314px;
@@ -1029,6 +1107,7 @@
   background: var(--dc-card);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 9px;
 }
 
@@ -1047,6 +1126,17 @@
 .kf-ops .selected-main {
   min-width: 170px;
   flex: 1;
+}
+
+/* Aksiyon kümesi sağa yaslanır ve dar ekranda bütün olarak alt satıra iner —
+   böylece şeridin ortasında boşluk kalmaz. */
+.kf-ops .selected-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .kf-ops .selected-main > strong {
@@ -2050,6 +2140,12 @@
   color: var(--dc-green);
 }
 
+.kf-ops .availability-card.unavailable {
+  border-color: color-mix(in srgb, var(--dc-red) 42%, var(--dc-border));
+  background: var(--dc-red-bg);
+  color: var(--dc-red);
+}
+
 .kf-ops .availability-card > span {
   width: 34px;
   height: 34px;
@@ -2086,6 +2182,153 @@
   gap: 7px;
   color: var(--dc-muted);
   font-size: 10.5px;
+}
+
+/* Renk sayacında sarf düzeltmesi — reçete varsayılan, personel düzeltir */
+.kf-ops .usage-block {
+  display: grid;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--dc-border);
+  border-radius: 12px;
+  background: var(--dc-surface);
+}
+.kf-ops .usage-title {
+  color: var(--dc-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.kf-ops .usage-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.kf-ops .usage-line > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-ops .usage-line .field {
+  flex: none;
+  width: 118px;
+}
+.kf-ops .usage-line .field input {
+  text-align: right;
+}
+.kf-ops .usage-hint {
+  margin: 2px 0 0;
+  color: var(--dc-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.kf-ops .inline-customer-create {
+  width: 100%;
+  min-height: 54px;
+  padding: 9px 11px;
+  border: 1px dashed color-mix(in srgb, var(--dc-orange) 55%, var(--dc-border));
+  border-radius: 12px;
+  background: var(--dc-orange-soft);
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  color: var(--dc-orange-d);
+  text-align: left;
+}
+
+.kf-ops .inline-customer-create span {
+  display: grid;
+  gap: 2px;
+}
+
+.kf-ops .inline-customer-create strong {
+  color: var(--dc-ink);
+  font-size: 12px;
+}
+
+.kf-ops .inline-customer-create small {
+  color: var(--dc-muted);
+  font-size: 9.5px;
+}
+
+.kf-ops .inline-customer-form {
+  padding: 11px;
+  border: 1px solid var(--dc-border);
+  border-radius: 13px;
+  background: var(--dc-card);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.kf-ops .inline-customer-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--dc-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.kf-ops .inline-customer-form input {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 9px;
+  outline: 0;
+  background: var(--dc-surface);
+  color: var(--dc-ink);
+}
+
+.kf-ops .inline-customer-form > div {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.kf-ops .processing-modal {
+  width: min(100%, 470px);
+}
+
+.kf-ops .timer-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.kf-ops .timer-presets button {
+  min-height: 64px;
+  border: 1px solid var(--dc-border);
+  border-radius: 13px;
+  background: var(--dc-card);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  transition: 0.16s ease;
+}
+
+.kf-ops .timer-presets button.selected {
+  border-color: var(--dc-orange);
+  background: var(--dc-orange-soft);
+  color: var(--dc-orange-d);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dc-orange) 12%, transparent);
+}
+
+.kf-ops .timer-presets strong {
+  font: 800 18px 'JetBrains Mono', monospace;
+}
+
+.kf-ops .timer-presets small {
+  color: var(--dc-muted);
+  font-size: 9px;
 }
 
 .kf-ops .quick-modal > footer {

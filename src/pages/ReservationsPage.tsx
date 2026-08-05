@@ -357,7 +357,7 @@ export const ReservationsPage = () => {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 9px' }}>
       <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '.08em', color: accent ? T.orange : T.muted }}>{label}</span>
       <span style={{ flex: 1, height: 1, background: T.border }} />
-      <span style={{ fontSize: '11px', color: T.muted2 }}>{count} randevu</span>
+      <span style={{ fontSize: '11px', color: T.muted2 }}>{count} {t('reservation').toLocaleLowerCase('tr')}</span>
     </div>
   );
 
@@ -380,11 +380,11 @@ export const ReservationsPage = () => {
             <div style={{ fontSize: '21px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: T.ink }}>{t('reservations')}</div>
             <div style={{ fontSize: '12px', color: T.muted, marginTop: '3px' }}>
               {todayReal.length > 0 ? (
-                <>Bugün <b style={{ color: T.ink, fontWeight: 700 }}>{todayReal.length}</b> randevu{nextToday ? <> · sıradaki <b style={{ color: T.orange, fontWeight: 700 }}>{nextToday.startTime}</b> {nextToday.customerName}</> : ' · tümü tamamlandı'}</>
+                <>Bugün <b style={{ color: T.ink, fontWeight: 700 }}>{todayReal.length}</b> {t('reservation').toLocaleLowerCase('tr')}{nextToday ? <> · sıradaki <b style={{ color: T.orange, fontWeight: 700 }}>{nextToday.startTime}</b> {nextToday.customerName}</> : ' · tümü tamamlandı'}</>
               ) : nextUpcoming ? (
-                <>Bugün randevu yok · yaklaşan <b style={{ color: T.ink, fontWeight: 700 }}>{formatDateEU(nextUpcoming.date)}</b> {nextUpcoming.customerName}</>
+                <>Bugün {t('reservation').toLocaleLowerCase('tr')} yok · yaklaşan <b style={{ color: T.ink, fontWeight: 700 }}>{formatDateEU(nextUpcoming.date)}</b> {nextUpcoming.customerName}</>
               ) : (
-                <>{reservations.length} toplam randevu</>
+                <>{reservations.length} toplam {t('reservation').toLocaleLowerCase('tr')}</>
               )}
             </div>
           </div>
@@ -462,8 +462,8 @@ export const ReservationsPage = () => {
           </div>
         ) : (
           <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r, boxShadow: T.shadowSm }}>
-            <EmptyState T={T} icon={<Clock size={24} />} title="Henüz randevu yok"
-              description="İlk randevunu oluşturarak başla"
+            <EmptyState T={T} icon={<Clock size={24} />} title={`Henüz ${t('reservation').toLocaleLowerCase('tr')} yok`}
+              description={`İlk ${t('reservation').toLocaleLowerCase('tr')} kaydını oluşturarak başla`}
               actionLabel={t('newReservation')} onAction={() => navigate('/calendar')} />
           </div>
         )
@@ -490,7 +490,7 @@ export const ReservationsPage = () => {
                   {!pastForced && (
                     <button onClick={() => setShowPast(false)} style={{ fontSize: '11px', fontWeight: 650, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Gizle</button>
                   )}
-                  <span style={{ fontSize: '11px', color: T.muted2 }}>{past.length} randevu</span>
+                  <span style={{ fontSize: '11px', color: T.muted2 }}>{past.length} {t('reservation').toLocaleLowerCase('tr')}</span>
                 </div>
                 {groupCard(past)}
               </div>
@@ -502,7 +502,7 @@ export const ReservationsPage = () => {
                   padding: '13px 18px', color: T.muted, fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'inherit', boxShadow: T.shadowSm,
                 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><History size={15} /> Geçmiş randevular · {past.length} kayıt</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><History size={15} /> Geçmiş {t('reservations').toLocaleLowerCase('tr')} · {past.length} kayıt</span>
                 <ChevronDown size={16} />
               </button>
             )

@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, User, Phone, Mail, Clock, Calendar, FileText, Check, Trash2, Wallet } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
+import { useCashEnabled } from '@/hooks/useModules';
+import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import type { Reservation } from '@/types';
@@ -30,7 +33,9 @@ export const EditReservationModal = (props: EditReservationModalProps) => (
 const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReservationModalProps) => {
     const { updateReservation, deleteReservation, ensureReservationCustomer, settings, checkConflict } = useReservations();
     const { addPayment, removeByReservation } = usePayments();
+    const cashOn = useCashEnabled();
     const { dark } = useTheme();
+    const { t } = useLabels();
     const [form, setForm] = useState({
         customerName: reservation.customerName,
         customerPhone: reservation.customerPhone,
@@ -143,7 +148,10 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
 
     if (!isOpen) return null;
 
-    return (
+    // document.body'ye portallanır: sektör yüzlerinin sayfa kabuğu (transform
+    // bırakan giriş animasyonları, overflow:hidden) position:fixed'i kendi
+    // içine hapsedip pencereyi üstten ve alttan kırpıyordu.
+    return createPortal((
         <div className={cn('dash-theme fixed inset-0 z-[100] flex items-center justify-center p-4', dark && 'dark')}>
             <div className="absolute inset-0 bg-[rgba(14,14,14,0.48)] backdrop-blur-[2px]" onClick={onClose} />
             <div className="relative w-full max-w-lg max-h-[calc(100vh-32px)] bg-[var(--dc-surface)] rounded-3xl shadow-2xl border border-[var(--dc-border2)] overflow-hidden flex flex-col">
@@ -171,13 +179,13 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
                     )}
                     {reservation.customerId && (
                         <div className="rounded-xl bg-[var(--dc-amber-bg)] px-3.5 py-2.5 text-[12px] font-semibold text-[var(--dc-amber)] leading-snug">
-                            Hasta kimliği bu randevuya bağlıdır. Ad, telefon ve e-posta değişikliklerini Hasta Detayı'ndan yapın.
+                            {t('customer')} kimliği bu randevuya bağlıdır. Ad, telefon ve e-posta değişikliklerini {t('customer').toLocaleLowerCase('tr')} kartından yapın.
                         </div>
                     )}
 
                     {/* Müşteri */}
                     <div>
-                        <label className={LABEL}><User className="w-3 h-3" /> Müşteri Adı</label>
+                        <label className={LABEL}><User className="w-3 h-3" /> {t('customer')} Adı</label>
                         <input type="text" value={form.customerName} disabled={!!reservation.customerId}
                             onChange={(e) => setForm(p => ({ ...p, customerName: e.target.value }))} className={INPUT} />
                     </div>
@@ -213,7 +221,7 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
 
                     {/* Hizmet */}
                     <div>
-                        <label className={LABEL}>Hizmet</label>
+                        <label className={LABEL}>{t('service')}</label>
                         <div className="flex flex-wrap gap-2">
                             {settings.services.map((s) => {
                                 const active = form.service === s.name;
@@ -254,8 +262,10 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
                         </div>
                     </div>
 
-                    {/* Ödeme */}
-                    <div>
+                    {/* Ödeme — kasa modülü kapalıysa hiç gösterilmez: bu anahtar
+                        açıldığında ödeme kaydı yazıyor, kasası olmayan işletmede
+                        kaynağı olmayan bir tahsilat üretirdi. */}
+                    {cashOn && <div>
                         <label className={LABEL}>Ödeme</label>
                         <button type="button" onClick={() => setForm(p => ({ ...p, isPaid: !p.isPaid }))}
                             className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors border',
@@ -266,7 +276,7 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
                                 <span className={cn('inline-block h-[16px] w-[16px] rounded-full bg-white transition-transform', form.isPaid ? 'translate-x-[18px]' : 'translate-x-[2px]')} />
                             </span>
                         </button>
-                    </div>
+                    </div>}
 
                     {/* Not */}
                     <div>
@@ -293,5 +303,5 @@ const EditReservationModalContent = ({ reservation, isOpen, onClose }: EditReser
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 };

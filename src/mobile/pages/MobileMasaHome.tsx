@@ -5,7 +5,7 @@ import { useStaff } from '@/hooks/useStaff';
 import { useTables } from '@/hooks/useTables';
 import { useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { useQueue } from '@/hooks/useQueue';
-import { useModules } from '@/hooks/useModules';
+import { useModules, useCashEnabled } from '@/hooks/useModules';
 import { todayISO, relativeDayLabel } from '@/utils/date';
 import { seatedMinutes, elapsedLabel } from '@/utils/masaAdisyon';
 import type { TableReservation } from '@/types';
@@ -93,6 +93,15 @@ export const MobileMasaHome = () => {
     const { waiting: waitlist } = useQueue();
     const { isEnabled, isLoading: modulesLoading } = useModules();
     const hybrid = !modulesLoading && isEnabled('randevu'); // masa + randevu birlikte açık — hibrit işletme
+    const cashOn = useCashEnabled();
+
+    // Hızlı aksiyonlar modüle göre daralır; ızgara sütunu öğe sayısını izler.
+    const quickActions = useMemo(() => [
+        { lbl: 'Masa', clr: T.orange, bg: 'rgba(255,90,31,.12)', path: 'M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12', to: '/masa' },
+        ...(hybrid ? [{ lbl: 'Takvim', clr: T.purple, bg: 'rgba(201,139,219,.12)', path: 'M3 5h14v12H3V5ZM3 8h14M7 3v3M13 3v3', to: '/calendar' }] : []),
+        ...(cashOn ? [{ lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.12)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' }] : []),
+        { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
+    ], [hybrid, cashOn]);
     useMinuteTick(); // gün değişimi + ⏱ süre etiketlerini canlı tutar
     const today = todayISO();
 
@@ -234,13 +243,8 @@ export const MobileMasaHome = () => {
 
             {/* Hızlı aksiyonlar — restoran seti (+ hibritte Takvim). Ayarlar buradan
                 kaldırıldı — Yönetim ekranından (Personel girişi > Yönetici) erişilir. */}
-            <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: `repeat(${hybrid ? 4 : 3},1fr)`, gap: 9 }}>
-                {[
-                    { lbl: 'Masa', clr: T.orange, bg: 'rgba(255,90,31,.12)', path: 'M3 9h14M5 9V7a2 2 0 012-2h6a2 2 0 012 2v2M6 9v7M14 9v7M4 13h12', to: '/masa' },
-                    ...(hybrid ? [{ lbl: 'Takvim', clr: T.purple, bg: 'rgba(201,139,219,.12)', path: 'M3 5h14v12H3V5ZM3 8h14M7 3v3M13 3v3', to: '/calendar' }] : []),
-                    { lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.12)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' },
-                    { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
-                ].map((a) => (
+            <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: `repeat(${quickActions.length},1fr)`, gap: 9 }}>
+                {quickActions.map((a) => (
                     <button key={a.lbl} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '13px 4px 11px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                         <div style={{ width: 40, height: 40, borderRadius: 13, background: a.bg, display: 'grid', placeItems: 'center' }}>
                             <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d={a.path} stroke={a.clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>

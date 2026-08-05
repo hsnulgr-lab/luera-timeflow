@@ -7,6 +7,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useResources } from '@/hooks/useResources';
 import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
+import { firstBlocked } from '@/lib/serviceEligibility';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { toISODate, formatDateEU } from '@/utils/date';
 import type { Service, Customer } from '@/types';
@@ -176,10 +177,23 @@ export const MobileNewReservation = ({ onClose, lockedStaffId }: MobileNewReserv
         if (step === 2) { if (lines.length) setStep(3); return; }
         if (step === 3) {
             if (settings.sector === 'dis' && !cust) { toast.error('Hasta seçin veya yeni hasta kaydedin'); return; }
+            // Bu akışta hizmet müşteriden ÖNCE seçiliyor; kontrendikasyon ancak
+            // müşteri belli olunca değerlendirilebilir. Sepet burada yeniden
+            // doğrulanır — yoksa uygunsuz işlem kayda geçerdi.
+            const blockedLine = firstBlocked(cust, lines.map((l) => l.service), settings.sector);
+            if (blockedLine) {
+                toast.error(`${blockedLine.target.name} ${cust?.name || 'bu müşteri'} için uygulanamaz — ${blockedLine.verdict.message}`);
+                setStep(2); return;
+            }
             setStep(4); return;
         }
         // step 4 — oluştur
         if (!lines.length) return;
+        const blockedAtSave = firstBlocked(cust, lines.map((l) => l.service), settings.sector);
+        if (blockedAtSave) {
+            toast.error(`${blockedAtSave.target.name} uygulanamaz — ${blockedAtSave.verdict.message}`);
+            setStep(2); return;
+        }
         if (settings.sector === 'dis' && !cust) { toast.error('Dış randevusu için hasta kaydı gerekli'); setStep(3); return; }
         setSaving(true);
         const groupId = lines.length > 1 ? gid() : undefined;

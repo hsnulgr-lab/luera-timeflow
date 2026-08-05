@@ -1,5 +1,5 @@
-/* ── Beauty Kasa · 3 sütunlu ödeme deneyimi ────────────────────────────────
-   Kaynak: timeflow-beauty-cash-final (Claude Design). CSS zaten --dc-* token'ları
+/* ── Salon Kasa · 3 sütunlu ödeme deneyimi ────────────────────────────────
+   Güzellik ve kuaför profilleri aynı premium kabuğu paylaşır. CSS --dc-* token'ları
    kullanıyor; kök .beauty-cash-final altında scope'lu, global sızıntı yok.
    Renkler bizim index.css token'larından gelir; açık/koyu tema otomatik. */
 
@@ -9,7 +9,8 @@
   --bf-panel: 240ms;
   --bf-ease: cubic-bezier(.2,.8,.2,1);
   container-type: inline-size;
-  height: 100dvh;
+  height: 100%;
+  min-height: 0;
   padding: 12px 14px;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -21,11 +22,28 @@
     linear-gradient(145deg, #f5eee4 0%, var(--dc-page) 54%, #eee5d8 100%);
   color: var(--dc-ink);
 }
+.beauty-cash-final.is-warm {
+  background:
+    radial-gradient(circle at 78% -10%, rgba(255,255,255,.94) 0, transparent 28rem),
+    radial-gradient(circle at 8% 102%, color-mix(in srgb, var(--dc-orange-soft) 64%, transparent) 0, transparent 24rem),
+    linear-gradient(145deg, #f7f0e7 0%, var(--dc-page) 56%, #eee3d4 100%);
+}
+.beauty-cash-final.is-warm .bf-logo {
+  background: linear-gradient(145deg, var(--dc-inkbox), color-mix(in srgb, var(--dc-inkbox) 82%, var(--dc-orange)));
+}
 .beauty-cash-final button,
 .beauty-cash-final input,
 .beauty-cash-final select { min-width: 0; }
 .beauty-cash-final button { transition: color var(--bf-ui) var(--bf-ease), background var(--bf-ui) var(--bf-ease), border-color var(--bf-ui) var(--bf-ease), transform var(--bf-fast) var(--bf-ease), box-shadow var(--bf-ui) var(--bf-ease); }
 .beauty-cash-final button:active { transform: scale(.985); }
+.beauty-cash-final button:focus-visible,
+.beauty-cash-final input:focus-visible,
+.beauty-cash-final select:focus-visible,
+.beauty-cash-final textarea:focus-visible {
+  outline: 2px solid var(--dc-orange);
+  outline-offset: 2px;
+}
+.beauty-cash-final button:disabled { cursor: not-allowed; }
 .bf-live { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
 .bf-header,
@@ -659,3 +677,18 @@
 .bf-pkg-note { margin: 0 0 9px; padding: 9px 11px; border: 1px solid var(--dc-purple); border-radius: 12px; background: var(--dc-purple-bg); color: var(--dc-purple); display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; }
 .bf-pkg-note svg { flex: 0 0 auto; }
 .bf-pkg-note b { font-weight: 800; }
+
+/* ── Diş: vadesi gelen taksitler (kuyruk altı ray) ─────────────────────────── */
+.bf-inst-due { margin: 10px 12px 12px; border: 1px solid var(--dc-border); border-radius: 14px; background: var(--dc-surface); overflow: hidden; flex-shrink: 0; }
+.bf-inst-head { display: flex; align-items: center; gap: 7px; padding: 10px 12px; border-bottom: 1px solid var(--dc-border); color: var(--dc-muted); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.bf-inst-head b { margin-left: auto; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 8px; background: var(--dc-amber-bg); color: var(--dc-amber); display: grid; place-items: center; font: 800 11px "Inter", system-ui, -apple-system, sans-serif; }
+.bf-inst-row { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: none; background: none; cursor: pointer; text-align: left; border-bottom: 1px solid var(--dc-border-soft); font-family: inherit; color: var(--dc-ink); transition: background .12s; }
+.bf-inst-row:last-child { border-bottom: none; }
+.bf-inst-row:hover { background: var(--dc-surface2); }
+.bf-inst-copy { flex: 1; min-width: 0; display: grid; }
+.bf-inst-copy strong { font-size: 12.5px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bf-inst-copy small { font-size: 11px; color: var(--dc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bf-inst-amt { display: grid; text-align: right; flex-shrink: 0; }
+.bf-inst-amt strong { font-size: 12.5px; font-weight: 800; }
+.bf-inst-amt small { font-size: 10.5px; color: var(--dc-muted); }
+.bf-inst-row.overdue .bf-inst-amt small { color: var(--dc-red); font-weight: 750; }

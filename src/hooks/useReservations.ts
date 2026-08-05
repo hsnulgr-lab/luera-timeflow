@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from 'react';
 import { toast } from 'sonner';
-import { commsForSector } from '@/lib/sectorProfiles';
+import { commsForSector, profileForSector } from '@/lib/sectorProfiles';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
@@ -9,7 +9,7 @@ import { getReservationConflictError } from '@/lib/reservationErrors';
 import { todayISO, toISODate } from '@/utils/date';
 import { buildConfirmationMessage, buildRebookMessage } from '@/services/waTemplates';
 import { sendWhatsApp, lastProxyError, WA_FAIL_TEXT } from '@/services/whatsapp';
-import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from '@/lib/appointmentFlow';
+import { DEFAULT_ARRIVAL_TOLERANCE_MIN, didBecomeClosed, recallDaysFor } from '@/lib/appointmentFlow';
 import type { Reservation, Settings, Service } from '@/types';
 
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
@@ -97,6 +97,32 @@ async function syncSectorComms(orgId: string | null | undefined, sector: string,
     if (error && error.code !== '42703' && error.code !== 'PGRST204') console.error('comms sync:', error);
 }
 
+// Sektörün kontrendikasyon kurallarını settings.risk_rules'a yazar (076).
+// comms ile aynı desen: kural TypeScript'te tek kaynakta yaşar, DB trigger'ı
+// onu okuyabilsin diye org satırına kopyalanır. Böylece kuralın ikinci bir
+// elle yazılmış kopyası SQL içinde tutulmaz ve iki taraf birbirinden kaymaz.
+async function syncSectorRules(orgId: string | null | undefined, sector: string, stored: any) {
+    if (!orgId) return;
+    const flags = profileForSector(sector).riskFlags ?? [];
+    const next = flags.map((f) => ({
+        key: f.key,
+        label: f.label,
+        blocks: f.blocks,
+        note: f.note ?? null,
+        // RegExp JSON'a serileşmez — trigger'ın ~ operatörü için kaynak metni yazılır.
+        legacyNamePattern: f.legacyNamePattern?.source ?? null,
+        sector,
+    }));
+    // İçerik karşılaştırması: "stored[0].sector" kontrolü, kuralı olmayan
+    // sektörde stored=[] iken hiçbir zaman eşleşmiyor ve her ayar okumasında
+    // aynı boş diziyi tekrar yazıyordu (sayfa başına bir gereksiz UPDATE).
+    if (JSON.stringify(stored ?? null) === JSON.stringify(next.length > 0 ? next : null)) return;
+    if (!stored && flags.length === 0) return;                           // yazacak kural yok
+    const { error } = await supabase.from('settings').update({ risk_rules: next.length > 0 ? next : null }).eq('organization_id', orgId);
+    // 076 uygulanmadıysa kolon yok — UI kontrolü çalışmaya devam eder.
+    if (error && error.code !== '42703' && error.code !== 'PGRST204') console.error('risk_rules sync:', error);
+}
+
 function useReservationsState() {
     const { user, orgId } = useAuth();
     // Modül kapısı (Faz 5): randevu kapalıysa (saf restoran) rezervasyon fetch +
@@ -106,12 +132,21 @@ function useReservationsState() {
     const [settings, setSettings] = useState<Settings>(defaultSettings);
     const [isLoading, setIsLoading] = useState(true);
     const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
 
     // Webhook URL'yi ref'te tut — CRUD callback'leri stale closure olmadan erişsin
     const webhookUrlRef = useRef<string | undefined>(undefined);
     const customerResolvePromisesRef = useRef<Map<string, Promise<string | null>>>(new Map());
     const settingsRequestRef = useRef(0);
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
+
+    // Güncelleme ÖNCESİ satırı okumak için — updateReservation, kaydın bu
+    // güncellemeyle ilk kez kapanıp kapanmadığını bilmek zorunda (didBecomeClosed).
+    // Liste doğrudan bağımlılığa alınırsa callback her rezervasyon değişiminde
+    // yeniden kurulur; webhookUrlRef ile aynı desen kullanılıyor.
+    const reservationsRef = useRef<Reservation[]>([]);
+    useEffect(() => { reservationsRef.current = reservations; }, [reservations]);
 
     // ─── Standart webhook gönderici ──────────────────────────────────────────
     const fireWebhook = useCallback((event: string, payload: object) => {
@@ -140,6 +175,7 @@ function useReservationsState() {
     const fetchReservations = useCallback(async (currentOrgId?: string | null) => {
         if (!user) return;
         setIsLoading(true);
+        setError(null);
 
         // Tenant izolasyonu — orgId bilindiğinde açık filtre (RLS'e ek savunma)
         const resolvedOrgId = currentOrgId ?? orgId;
@@ -170,6 +206,7 @@ function useReservationsState() {
         if (error) {
             toast.error('Rezervasyonlar yüklenemedi');
             console.error('Error fetching reservations:', error);
+            setError('Rezervasyonlar yüklenemedi');
         } else {
             const rows = (data || []).map(mapDbReservation);
             setReservations(rows);
@@ -216,6 +253,7 @@ function useReservationsState() {
         }
 
         setIsSettingsLoading(true);
+        setSettingsError(null);
 
         const resolvedOrgId = currentOrgId ?? orgId;
         if (!resolvedOrgId) {
@@ -241,6 +279,7 @@ function useReservationsState() {
         if (settingsErr) {
             console.error('Ayarlar yüklenemedi:', settingsErr);
             toast.error('Ayarlar yüklenemedi');
+            setSettingsError('Salon ayarları yüklenemedi');
             // Ağ/RLS hatasını "kayıt yok" sanıp dental ayarları genel
             // varsayılanlarla ezme. Varsa org cache'i ekranda kalır.
             setIsSettingsLoading(false);
@@ -260,6 +299,7 @@ function useReservationsState() {
         if (servicesErr) {
             console.error('Hizmetler yüklenemedi:', servicesErr);
             toast.error('Hizmetler yüklenemedi');
+            setSettingsError('Hizmet kataloğu yüklenemedi');
             setIsSettingsLoading(false);
             return;
         }
@@ -271,6 +311,9 @@ function useReservationsState() {
             color: s.color,
             price: s.price ? Number(s.price) : undefined,
             recallDays: s.recall_days ? Number(s.recall_days) : undefined,
+            // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
+            // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
+            tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
         }));
 
         const seen = new Set<string>();
@@ -302,6 +345,7 @@ function useReservationsState() {
             // sektör tablosunu kod içinde taşımaz, yalnız bu kolonu okur.
             // Klinik kendi metnini yazdıysa (custom) dokunulmaz.
             void syncSectorComms(resolvedOrgId, fresh.sector || 'genel', settingsData.comms);
+            void syncSectorRules(resolvedOrgId, fresh.sector || 'genel', settingsData.risk_rules);
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
             // ama organizasyon bulunabilirse manuel oluştur
@@ -651,6 +695,9 @@ function useReservationsState() {
 
     // ─── Rezervasyon güncelle ────────────────────────────────────────────────
     const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>): Promise<Reservation | null> => {
+        // Kapanış geçişi için güncelleme ÖNCESİ durum — DB yanıtı beklenmeden,
+        // henüz hiçbir yazma olmadan alınır (bkz. didBecomeClosed).
+        const prevRow = reservationsRef.current.find((r) => r.id === id);
         const dbUpdates: any = { updated_at: new Date().toISOString() };
 
         if (updates.customerId !== undefined) dbUpdates.customer_id = updates.customerId || null;
@@ -737,15 +784,31 @@ function useReservationsState() {
             })().catch(console.error);
         }
 
-        // Hizmet bazlı dönüş (recall): seans tamamlanınca müşterinin recall_date'i
-        // hizmetin periyoduna göre ileri atılır (manikür 21, lazer 45 gün — 067).
+        // Ödeme ve hizmet iki farklı ekrandan, farklı sırayla tamamlanabilir.
+        // Otomasyonları yalnız kayıt ilk kez gerçekten "kapalı" duruma
+        // geçtiğinde çalıştır: hem hizmet tamamlanmış hem tahsil edilmiş olmalı.
+        // Karşılaştırma serverRow ile YAPILMAZ — o güncellenmiş satırdır ve
+        // kapanışı yapan güncellemede geçişi görünmez kılar (bkz. didBecomeClosed).
+        const becameClosed = didBecomeClosed(prevRow, updated, updates);
+
+        // Hizmet bazlı dönüş (recall): yalnız tahsilat gerçekten tamamlanınca
+        // müşterinin recall_date'i ileri atılır. Dashboard'un "Kasaya gönder"
+        // adımı status='completed', isPaid=false yazar; bu ara durumda mesaj/
+        // otomasyon çalıştırmak kasada bekleyen müşteriye erken dönüş daveti
+        // gönderebiliyordu.
         // remind cron'u bu tarihe 2 gün kala WhatsApp hatırlatması gönderir (065).
-        if (updates.status === 'completed' && updated.customerId) {
-            const svc = settings.services.find((s) => s.name === updated.service)
-                || settings.services.find((s) => updated.service?.toLocaleLowerCase('tr').includes(s.name.toLocaleLowerCase('tr')));
-            if (svc?.recallDays) {
+        if (becameClosed && updated.customerId) {
+            // Hizmette gün yazılmamışsa sektörün kendi dönüş periyodu kullanılır
+            // (güzellik: 30 gün "bakım yenileme"). Sektörün recall kavramı yoksa
+            // fallback de yoktur — o sektörde recall gönderilmez.
+            const days = recallDaysFor(
+                updated.service,
+                settings.services,
+                commsForSector(settings.sector).recall?.afterDays,
+            );
+            if (days) {
                 const next = new Date(`${updated.date}T12:00:00`);
-                next.setDate(next.getDate() + svc.recallDays);
+                next.setDate(next.getDate() + days);
                 const nextISO = next.toISOString().slice(0, 10);
                 supabase.from('customers')
                     .update({ recall_date: nextISO, recall_reminded_for: null })
@@ -761,9 +824,9 @@ function useReservationsState() {
             }).catch(() => {});
         }
 
-        // Sıradaki Randevu Otomasyonu: tamamlanınca WhatsApp ile tekrar-randevu daveti
+        // Sıradaki Randevu Otomasyonu: ödeme tamamlanınca WhatsApp ile tekrar-randevu daveti
         // (idempotent: rebook_sent; gönderim başarılıysa işaretlenir)
-        if (updates.status === 'completed' && !(serverRow as any).rebook_sent
+        if (becameClosed && !(serverRow as any).rebook_sent
             && settings.rebookEnabled && updated.customerPhone) {
             (async () => {
                 let bookingUrl = '';
@@ -943,7 +1006,7 @@ function useReservationsState() {
         for (const s of toUpdate) {
             const { error } = await supabase
                 .from('services')
-                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null })
+                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null, tags: s.tags ?? [] })
                 .eq('id', s.id);
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
@@ -963,6 +1026,7 @@ function useReservationsState() {
                     color: s.color,
                     price: s.price || null,
                     recall_days: s.recallDays || null,
+                    tags: s.tags ?? [],
                 }))
             );
             if (error) {
@@ -991,6 +1055,9 @@ function useReservationsState() {
             color: s.color,
             price: s.price ? Number(s.price) : undefined,
             recallDays: s.recall_days ? Number(s.recall_days) : undefined,
+            // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
+            // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
+            tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
         }));
 
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
@@ -1040,6 +1107,8 @@ function useReservationsState() {
         settings,
         isLoading,
         isSettingsLoading,
+        error,
+        settingsError,
         orgId,
         addReservation,
         ensureReservationCustomer,
@@ -1057,7 +1126,7 @@ function useReservationsState() {
         fetchReservationById,
         refetchSettings: fetchSettings,
     }), [
-        reservations, settings, isLoading, isSettingsLoading, orgId,
+        reservations, settings, isLoading, isSettingsLoading, error, settingsError, orgId,
         addReservation, ensureReservationCustomer, updateReservation, claimReservation, deleteReservation,
         getReservationsByDate, getTodayReservations, getUpcomingReservations,
         getStats, updateSettings, checkConflict, fireWebhook, fetchReservations, fetchReservationById, fetchSettings,

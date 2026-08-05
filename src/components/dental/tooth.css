@@ -1,0 +1,296 @@
+/* ── Anatomik diş glifi ───────────────────────────────────────────────────────
+   Tasarım Codex çıktısından (LUERA-TimeFlow-Dis-Semasi.html) alındı. Diş
+   gövdesi iki görünümden oluşur: yandan kesit (kök + kron + pulpa) ve üstten
+   çiğneme yüzeyi. Renkler durum sınıflarının (.is-curuk, .is-dolgu…) set ettiği
+   CSS değişkenlerinden gelir; SVG path'leri renk bilmez.
+
+   Bütün seçiciler `dt-` önekli — bileşen farklı kabuklarda (mobil hasta
+   detayı, hasta kartı paneli) render ediliyor, dışarı sızmamalı. */
+
+.dt-board {
+  padding: 10px 8px 12px;
+  border: 1px solid var(--dc-border);
+  border-radius: 16px;
+  background: var(--dc-surface2);
+}
+
+.dt-orientation {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid var(--dc-border);
+  color: var(--dc-muted2);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.dt-arch + .dt-arch { margin-top: 24px; }
+
+.dt-arch-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  padding: 0 2px;
+}
+
+.dt-arch-label {
+  color: var(--dc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.dt-arch-range { color: var(--dc-muted2); font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.dt-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 1px;
+}
+
+/* Orta hat — sağ/sol çeyrek ayrımı */
+.dt-grid::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-.5px);
+  background: var(--dc-border2);
+  pointer-events: none;
+}
+
+.dt-tooth {
+  --tooth-outline: var(--dc-border2);
+  --tooth-crown-fill: var(--dc-surface);
+  --tooth-root-fill: var(--dc-surface);
+  --tooth-top-fill: var(--dc-surface);
+  --tooth-pulp: var(--dc-muted2);
+  --tooth-detail: var(--dc-border2);
+  --condition-color: var(--dc-ink);
+  --condition-opacity: 0;
+  --pulp-width: 1;
+  position: relative;
+  min-width: 0;
+  min-height: 82px;
+  padding: 3px 0 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dt-tooth:disabled { cursor: default; }
+
+.dt-tooth:hover:not(:disabled) { border-color: var(--dc-border2); background: var(--dc-surface); }
+
+.dt-tooth:focus-visible { outline: 2px solid var(--dc-orange); outline-offset: 1px; }
+
+.dt-tooth.is-selected {
+  outline: 2px solid var(--dc-ink);
+  outline-offset: -1px;
+  background: var(--dc-orange-soft);
+}
+
+.dt-num { color: var(--dc-muted); font: 800 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.dt-tooth.is-selected .dt-num { color: var(--dc-ink); }
+
+.dt-side,
+.dt-top {
+  width: 100%;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dt-side { height: 51px; }
+
+.dt-top { height: 20px; }
+
+.dt-tooth.is-lateral .dt-side,
+.dt-tooth.is-lateral .dt-top { width: 92%; }
+
+.dt-tooth.is-wisdom .dt-side,
+.dt-tooth.is-wisdom .dt-top { width: 94%; }
+
+/* Alt çene: numara üstte, kesit ters çevrilir (kron yukarı bakar) */
+.dt-arch.lower .dt-num { order: 0; margin-bottom: 2px; }
+.dt-arch.lower .dt-top { order: 1; }
+.dt-arch.lower .dt-side { order: 2; transform: scaleY(-1); }
+
+/* Ark simetrisi: sol çeyrek dişleri aynalanır */
+.dt-arch.upper .dt-tooth.mirror .dt-side,
+.dt-arch.upper .dt-tooth.mirror .dt-top { transform: scaleX(-1); }
+.dt-arch.lower .dt-tooth.mirror .dt-side { transform: scaleY(-1) scaleX(-1); }
+.dt-arch.lower .dt-tooth.mirror .dt-top { transform: scaleX(-1); }
+
+/* ── Path boyaları — durumdan gelen değişkenler ───────────────────────────── */
+.dt-root-shell { fill: var(--tooth-root-fill); stroke: var(--tooth-outline); }
+.dt-crown-shell { fill: var(--tooth-crown-fill); stroke: var(--tooth-outline); }
+.dt-top-shell { fill: var(--tooth-top-fill); stroke: var(--tooth-outline); }
+
+.dt-pulp {
+  fill: none;
+  stroke: var(--tooth-pulp);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: var(--pulp-width);
+}
+
+.dt-detail { fill: none; stroke: var(--tooth-detail); stroke-linecap: round; stroke-linejoin: round; }
+
+.dt-patch { fill: var(--condition-color); opacity: var(--condition-opacity); }
+
+.dt-implant-body { fill: var(--dc-green-bg); stroke: var(--dc-green); }
+
+.dt-implant-thread { fill: none; stroke: var(--dc-green); stroke-linecap: round; }
+
+.dt-root-shell,
+.dt-crown-shell,
+.dt-top-shell,
+.dt-pulp,
+.dt-detail,
+.dt-patch,
+.dt-implant-body,
+.dt-implant-thread { vector-effect: non-scaling-stroke; }
+
+/* ── Durumlar ─────────────────────────────────────────────────────────────── */
+.dt-tooth.is-curuk {
+  --tooth-top-fill: var(--dc-red-bg);
+  --condition-color: var(--dc-red2);
+  --condition-opacity: 1;
+}
+
+.dt-tooth.is-dolgu {
+  --tooth-top-fill: var(--dc-blue-bg);
+  --condition-color: var(--dc-blue);
+  --condition-opacity: 1;
+}
+
+.dt-tooth.is-kanal {
+  --tooth-top-fill: var(--dc-amber-bg);
+  --tooth-root-fill: var(--dc-amber-bg);
+  --tooth-pulp: var(--dc-amber);
+  --pulp-width: 1.8;
+}
+
+.dt-tooth.is-kron,
+.dt-tooth.is-implant {
+  --tooth-outline: var(--dc-green);
+  --tooth-crown-fill: var(--dc-green-bg);
+  --tooth-top-fill: var(--dc-green-bg);
+  --tooth-detail: var(--dc-green);
+}
+
+.dt-tooth.is-cekildi {
+  --tooth-outline: var(--dc-muted2);
+  --tooth-crown-fill: var(--dc-surface3);
+  --tooth-root-fill: var(--dc-surface3);
+  --tooth-top-fill: var(--dc-surface3);
+  --tooth-pulp: var(--dc-muted2);
+  --tooth-detail: var(--dc-muted2);
+}
+
+.dt-tooth.is-cekildi .dt-side,
+.dt-tooth.is-cekildi .dt-top { opacity: .48; }
+
+.dt-tooth.is-cekildi::after {
+  content: '×';
+  position: absolute;
+  z-index: 2;
+  top: 31px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--dc-muted);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.dt-arch.lower .dt-tooth.is-cekildi::after { top: 52px; }
+
+.dt-tooth.is-planned { border: 1px dashed var(--dc-orange); background: var(--dc-orange-soft); }
+
+/* ── Lejant ───────────────────────────────────────────────────────────────── */
+.dt-legend {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px 9px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dc-border);
+}
+
+.dt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dc-muted);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dt-swatch {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 1px solid var(--dc-border2);
+  border-radius: 3px;
+  background: var(--dc-surface);
+}
+
+.dt-swatch.curuk { border-color: var(--dc-red2); background: var(--dc-red2); }
+.dt-swatch.dolgu { border-color: var(--dc-blue); background: var(--dc-blue); }
+.dt-swatch.kanal { border-color: var(--dc-amber); background: var(--dc-amber); }
+.dt-swatch.kron { border-color: var(--dc-green); background: var(--dc-green); }
+.dt-swatch.implant { border-color: var(--dc-green); background: var(--dc-green-bg); }
+
+.dt-swatch.implant::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--dc-green);
+}
+
+.dt-swatch.cekildi { border-color: var(--dc-muted2); background: var(--dc-muted2); }
+.dt-swatch.planned { border: 1px dashed var(--dc-orange); background: var(--dc-orange-soft); }
+
+.dt-scroll {
+  overflow-x: auto;
+  padding: 2px 1px 5px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dc-border2) transparent;
+}
+
+.dt-scroll::-webkit-scrollbar { height: 5px; }
+
+.dt-scroll::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--dc-border2); }
+
+.dt-scroll:focus-visible { outline: 2px solid var(--dc-orange); outline-offset: 2px; border-radius: 16px; }
+
+.dt-scroll-inner { min-width: 388px; }
+
+@media (max-width: 480px) {
+  .dt-tooth { min-height: 80px; }
+}

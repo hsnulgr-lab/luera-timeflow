@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed } from 'lucide-react';
+import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed, Boxes } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -75,7 +75,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     // İkonlar platforma özgü — NAV_ITEMS'daki id ile eşlenir.
     const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
         '/': LDashboard, '/masa': Armchair, '/menu': UtensilsCrossed, '/calendar': LCalendar,
-        '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet,
+        '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet, '/stock': Boxes,
         '/staff': LProfile, '/analytics': LChart, '/settings?tab=booking': Link2,
         '/dental-chart': ToothIcon,
         '/packages': LPackage,
@@ -85,8 +85,17 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     // modülleri açık sayar. Bu değerle çizim yapmak kapalı öğeleri kısa süreli
     // gösterip sonra kaldırıyordu; yükleme sırasında yalnız çekirdek öğeler var.
     const menuItems = NAV_ITEMS
-        .filter((m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant) && (!m.sectorOnly || m.sectorOnly === sector) && m.hideInSector !== sector)
-        .map((m) => ({ id: m.id, label: m.labelKey ? t(m.labelKey) : m.label, icon: NAV_ICONS[m.id] ?? LDashboard }));
+        .filter((m) => (!m.module || (!modulesLoading && isEnabled(m.module))) && !(restaurant && m.hideInRestaurant) && (!m.sectorOnly || (Array.isArray(m.sectorOnly) ? m.sectorOnly.includes(sector) : m.sectorOnly === sector)) && m.hideInSector !== sector)
+        .map((m) => ({
+            id: m.id,
+            // Kuaförde /queue kapıdaki walk-in akışıdır; "Sıra" yerine işi
+            // doğrudan anlatan ad kullanılır. Randevu bekleme listesi ise
+            // Rezervasyonlar sayfasındaki ayrı sekmede tutulur.
+            label: m.id === '/queue' && sector === 'kuafor'
+                ? 'Walk-in Sırası'
+                : m.labelKey ? t(m.labelKey) : m.label,
+            icon: NAV_ICONS[m.id] ?? LDashboard,
+        }));
 
     const handleNavClick = (path: string) => {
         navigate(path);

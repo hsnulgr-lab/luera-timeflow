@@ -18,8 +18,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { sendPackageToKasa } from '@/lib/kasaPackageQueue';
+import { evaluateEligibility } from '@/lib/serviceEligibility';
+import { useLabels } from '@/hooks/useLabels';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
+import { useCashEnabled } from '@/hooks/useModules';
 import { todayISO } from '@/utils/date';
 import type { Customer, Reservation, Service } from '@/types';
 import './beautyPackages.css';
@@ -81,6 +84,7 @@ const FILTER_LABEL: Record<FilterKey, string> = {
 
 export function BeautyPackages() {
     const navigate = useNavigate();
+    const cashOn = useCashEnabled();
     const [searchParams, setSearchParams] = useSearchParams();
     const { dark } = useTheme();
     const { orgId, user } = useAuth();
@@ -88,6 +92,7 @@ export function BeautyPackages() {
     const { templates, addTemplate, updateTemplate, removeTemplate } = usePackageTemplates();
     const { customers, customerById, isArchivedCustomer, addCustomer } = useCustomers();
     const { reservations, settings } = useReservations();
+    const { t } = useLabels();
     const { resources } = useResources();
     const { addPayment } = usePayments();
     const resourceName = useCallback((id?: string) => resources.find((r) => r.id === id)?.name || '', [resources]);
@@ -335,7 +340,7 @@ export function BeautyPackages() {
     const rowAction = (p: Pkg): { label: string; run: () => void } => {
         if (p.state === 'paused') return { label: 'Detay', run: () => openDetail(p.raw.id) };
         if (p.needsRenewal) return { label: 'Yenile', run: () => void sendRenewalOffer(p) };
-        if (p.balance > 0) return { label: 'Kasaya', run: () => sendToKasa(p) };
+        if (cashOn && p.balance > 0) return { label: 'Kasaya', run: () => sendToKasa(p) };
         if (p.available > 0 && !p.next && p.customer && !isArchivedCustomer(p.raw.customerId)) {
             return { label: 'Planla', run: () => setModalCustomer(p.customer!) };
         }
@@ -562,7 +567,7 @@ export function BeautyPackages() {
                                         {detailMenu && (
                                             <div className="detail-menu">
                                                 {user?.role === 'Admin' && <button onClick={() => { setDetailMenu(false); setCorrectFor(selected); }}><Layers size={13} />Düzeltme yap</button>}
-                                                {selected.next && <button onClick={() => { setDetailMenu(false); setEditRes(selected.next!); }}><Calendar size={13} />Randevuyu aç</button>}
+                                                {selected.next && <button onClick={() => { setDetailMenu(false); setEditRes(selected.next!); }}><Calendar size={13} />{t('reservation')} aç</button>}
                                                 {selected.state !== 'paused' && (
                                                     <button className="danger" onClick={() => void cancelPackage(selected)}>
                                                         <X size={13} />{cancelConfirm === selected.raw.id ? 'Onayla · paketi iptal et' : 'Paketi iptal et'}
@@ -607,7 +612,7 @@ export function BeautyPackages() {
                                         <strong>{selected.overdue ? 'Tahsilat gecikti' : 'Yenileme fırsatı'}</strong>
                                         {selected.overdue ? `${selected.silentDays} gündür ödeme yok · açık bakiye ${fmtTL(selected.balance)}` : 'Paket tamamlandı — yenileme teklifi gönderebilirsiniz.'}
                                     </span>
-                                    {selected.overdue
+                                    {selected.overdue && cashOn
                                         ? <button className="note-action" onClick={() => sendToKasa(selected)}>Kasaya gönder</button>
                                         : selected.customer?.phone && hasWa(selected.customer.phone) && <button className="note-action" disabled={offering === selected.raw.id} onClick={() => void sendRenewalOffer(selected)}>Teklif gönder</button>}
                                 </div>
@@ -624,7 +629,7 @@ export function BeautyPackages() {
                                     <div className="detail-section">
                                         <div className="section-title">
                                             <span><Calendar size={14} />Sonraki seans</span>
-                                            {selected.next && <button onClick={() => setEditRes(selected.next!)}>Randevuyu aç<ChevronRight size={12} /></button>}
+                                            {selected.next && <button onClick={() => setEditRes(selected.next!)}>{t('reservation')} aç<ChevronRight size={12} /></button>}
                                         </div>
                                         {selected.next ? (
                                             <div className="next-session">
@@ -646,10 +651,10 @@ export function BeautyPackages() {
                                         )}
                                     </div>
                                     <div className="detail-section compact">
-                                        <div className="section-title"><span><Package size={14} />Hak özeti</span><small>Randevu tamamlanınca düşer</small></div>
+                                        <div className="section-title"><span><Package size={14} />Hak özeti</span><small>{t('reservation')} tamamlanınca düşer</small></div>
                                         <div className="rights-cards">
                                             <div><small>KULLANILDI</small><strong>{selected.used}</strong><span>Tamamlanan seans</span></div>
-                                            <div><small>REZERVE</small><strong>{selected.reserved}</strong><span>Yaklaşan randevu</span></div>
+                                            <div><small>REZERVE</small><strong>{selected.reserved}</strong><span>Yaklaşan {t('reservation').toLocaleLowerCase('tr')}</span></div>
                                             <div><small>KULLANILABİLİR</small><strong>{selected.available}</strong><span>Planlanabilir hak</span></div>
                                         </div>
                                         <div className="integrity-line">
@@ -672,7 +677,7 @@ export function BeautyPackages() {
                                             {selected.balance > 0
                                                 ? <span className="mini-danger">{selected.paid > 0 ? 'Kısmi ödeme' : 'Ödeme yok'}</span>
                                                 : <span className="mini-success">Tam ödendi</span>}
-                                            {selected.balance > 0 && (
+                                            {selected.balance > 0 && cashOn && (
                                                 <button className="button primary" style={{ marginLeft: 'auto', minHeight: 34, fontSize: 10.5 }}
                                                     title="Tahsilat Kasa'dan alınır — yöntem ve tutar orada seçilir"
                                                     onClick={() => sendToKasa(selected)}>
@@ -742,7 +747,7 @@ export function BeautyPackages() {
             {saleOpen && (
                 <SaleDrawer
                     customers={customers} services={services} templates={templates} packages={packages}
-                    isArchived={isArchivedCustomer} initialCustomerId={saleCustomerId}
+                    isArchived={isArchivedCustomer} initialCustomerId={saleCustomerId} sector={settings.sector}
                     addPackage={addPackage} addPayment={addPayment} addCustomer={addCustomer}
                     onClose={() => { setSaleOpen(false); setSaleCustomerId(null); }}
                     onDone={async (newId) => { setSaleOpen(false); setSaleCustomerId(null); await refresh(); await loadPaid(); setSelectedId(newId); setMobileDetail(true); }}
@@ -790,9 +795,11 @@ interface SaleProps {
     onOpenExisting: (id: string) => void;
     /** Müşteri kartından açıldıysa bu müşteri önseçili gelir, adım 2'den başlar. */
     initialCustomerId?: string | null;
+    /** Kontrendikasyon kuralları sektöre bağlıdır (bkz. lib/serviceEligibility). */
+    sector?: string | null;
 }
 
-function SaleDrawer({ customers, services, templates, packages, isArchived, addPackage, addPayment, addCustomer, onClose, onDone, onOpenExisting, initialCustomerId }: SaleProps) {
+function SaleDrawer({ customers, services, templates, packages, isArchived, addPackage, addPayment, addCustomer, onClose, onDone, onOpenExisting, initialCustomerId, sector }: SaleProps) {
     const preselected = useMemo(() => initialCustomerId ? customers.find((c) => c.id === initialCustomerId) ?? null : null, [initialCustomerId, customers]);
     const [step, setStep] = useState(preselected ? 2 : 1);
     const [custQuery, setCustQuery] = useState('');
@@ -840,10 +847,19 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
     const depositTooHigh = Math.round(deposit) > clampPrice;
     const balance = clampPrice - clampDeposit;
 
-    const canNext = step === 1 ? Boolean(customer) : step === 2 ? Boolean(service && count >= 1) : step === 3 ? clampPrice >= 0 && !depositTooHigh : confirmed;
+    // Satılan paket ileride seans olarak uygulanacak — uygulanamayacak bir işlemi
+    // satmak müşteriye iade borcu yaratır. Kontrendikasyon satış anında sorulur.
+    const saleVerdict = evaluateEligibility(customer, service, sector);
+
+    const canNext = step === 1 ? Boolean(customer) : step === 2 ? Boolean(service && count >= 1 && !saleVerdict.blocked) : step === 3 ? clampPrice >= 0 && !depositTooHigh : confirmed;
     const dirty = Boolean(customer || service);
 
     const pickService = (s: Service) => {
+        const verdict = evaluateEligibility(customer, s, sector);
+        if (verdict.blocked) {
+            toast.error(`${s.name} ${customer?.name || 'bu müşteri'} için satılamaz — ${verdict.message}`);
+            return;
+        }
         setService(s);
         setCountLocked(false);
         if (!price && s.price) setPrice(s.price * count);
@@ -871,6 +887,11 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
 
     const submit = async () => {
         if (!customer || !service || saving || savedRef.current) return;
+        // Müşteri, hizmet seçildikten SONRA değiştirilmiş olabilir.
+        if (saleVerdict.blocked) {
+            toast.error(`${service.name} bu müşteriye satılamaz — ${saleVerdict.message}`);
+            return;
+        }
         setSaving(true);
         const created = await addPackage({
             customerId: customer.id,

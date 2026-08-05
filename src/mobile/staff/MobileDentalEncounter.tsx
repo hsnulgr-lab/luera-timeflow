@@ -10,15 +10,6 @@ import { D } from './hizmetDesign';
 
 type EncounterTab = 'chart' | 'plans' | 'control';
 
-const DENTAL_THEME = {
-    ink: D.ink,
-    muted: D.muted,
-    surface: D.s1,
-    surface2: D.s2,
-    border: D.border,
-    border2: D.border2,
-};
-
 function addDays(date: string, days: number): string {
     const value = new Date(`${date}T12:00:00`);
     value.setDate(value.getDate() + days);
@@ -173,7 +164,7 @@ export function MobileDentalEncounter({ reservation, locked = false }: { reserva
                         {linking ? 'Randevu hasta kaydına bağlanıyor…' : 'Bu randevunun hasta kaydı bağlanamadı. Telefon bilgisini kontrol edin.'}
                     </div>
                 ) : activeTab === 'chart' ? (
-                    <DentalChart customerId={customerId} staffId={staff?.id} T={DENTAL_THEME} readOnly={locked || !can('dental-chart:edit')} />
+                    <DentalChart customerId={customerId} staffId={staff?.id} readOnly={locked || !can('dental-chart:edit')} />
                 ) : activeTab === 'plans' ? (
                     <TreatmentPlans
                         customerId={customerId}
@@ -181,7 +172,6 @@ export function MobileDentalEncounter({ reservation, locked = false }: { reserva
                         // yaparken kendi kimliğini planın hekimi diye yazmaz.
                         staffId={can('treatment-plans:edit') ? staff?.id : reservation.staffId}
                         reservationId={reservation.id}
-                        T={DENTAL_THEME}
                         readOnly={locked || !can('treatment-plans:edit')}
                         canCollect={!locked && can('payments:collect')}
                     />

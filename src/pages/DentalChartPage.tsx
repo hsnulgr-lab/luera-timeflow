@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, History } from 'lucide-react';
+import { AlertTriangle, CalendarClock, History, LoaderCircle } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useDentalChart } from '@/hooks/useDentalChart';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
@@ -68,7 +68,7 @@ export function DentalChartPage() {
             .slice(0, 8);
     }, [custQuery, allCustomers]);
 
-    const { current, planned, historyFor, setTooth } = useDentalChart(customerId || undefined);
+    const { current, planned, historyFor, setTooth, isLoading: chartLoading } = useDentalChart(customerId || undefined);
     const { addPlan, removePlan } = useTreatmentPlans(customerId || undefined);
     const { settings, reservations } = useReservations();
     const requestedReservationId = params.get('reservation') || '';
@@ -474,7 +474,14 @@ export function DentalChartPage() {
                             </div>
                         )}
 
-                        {customer && mode === 'dental' && (
+                        {/* Kayıtlar gelmeden ark çizilirse tüm dişler "sağlam" görünür —
+                            klinik olarak yanıltıcı; veri gelene dek spinner. */}
+                        {customer && mode === 'dental' && chartLoading && (
+                            <div className="px-5 py-16 flex items-center justify-center gap-2 text-[12px] font-bold text-[var(--dc-muted)]">
+                                <LoaderCircle size={16} className="animate-spin" /> Diş şeması yükleniyor…
+                            </div>
+                        )}
+                        {customer && mode === 'dental' && !chartLoading && (
                         <div className="px-5 pt-7 pb-5 overflow-x-auto">
                             <div className="flex justify-center gap-0.5" style={{ minWidth: 920 }}>
                                 {upperGroups.map((g, gi) => (
@@ -557,10 +564,7 @@ export function DentalChartPage() {
                                     customerId={customer.id}
                                     staffId={appointmentContext?.staffId}
                                     reservationId={appointmentContext?.id}
-                                    T={{
-                                    ink: 'var(--dc-ink)', muted: 'var(--dc-muted)', surface: 'var(--dc-surface)',
-                                    surface2: 'var(--dc-surface2)', border: 'var(--dc-border)', border2: 'var(--dc-border2)',
-                                }} />
+                                />
                             </div>
                         </div>
                     )}

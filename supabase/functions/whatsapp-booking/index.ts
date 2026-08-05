@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    findCustomerByPhone, getSecret, logMessage, sendWA as sendWhatsApp,
+    featureOn, findCustomerByPhone, getSecret, logMessage, sendWA as sendWhatsApp,
     type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
@@ -213,6 +213,11 @@ Deno.serve(async (req: Request) => {
                 .eq('id', known.id).eq('organization_id', orgId);
             return reply('Tekrar aramıza hoş geldiniz! Bilgilendirme mesajlarınız yeniden açıldı 😊', 'optout');
         }
+
+        // AI asistan toggle'ı (Ayarlar → WhatsApp). Kapalıysa bot hiç cevap
+        // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.
+        // Varsayılan false: istemcideki useWhatsApp ile aynı (bilinçli açılmalı).
+        if (!featureOn(orgWa, 'assistant', false)) return ok({ skipped: 'assistant_off' });
 
         // Bot maliyeti koruması: bir numara saatte 20 mesajdan fazlasını
         // tetikleyemez (her mesaj bir Groq çağrısı demek).

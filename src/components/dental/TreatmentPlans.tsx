@@ -5,22 +5,30 @@ import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
 import { usePayments } from '@/hooks/usePayments';
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/utils/cn';
 import type { InstallmentCadence, PaymentMethod, TreatmentInstallment, TreatmentPlan } from '@/types';
+import './treatmentPlans.css';
 
 const PAY_METHODS: { key: PaymentMethod; label: string }[] = [
     { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
     { key: 'transfer', label: 'Havale' }, { key: 'other', label: 'Diğer' },
 ];
 const fmt = (n: number) => n.toLocaleString('tr-TR');
+const fmtDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-interface T { ink: string; muted: string; surface: string; surface2: string; border: string; border2: string }
+const STATUS_META: Record<TreatmentPlan['status'], { label: string; cls: string }> = {
+    proposed: { label: 'Teklif', cls: 'offer' },
+    active: { label: 'Aktif', cls: 'active' },
+    completed: { label: 'Tamamlandı', cls: 'done' },
+    cancelled: { label: 'İptal', cls: 'cancelled' },
+};
 
 interface TreatmentPlansProps {
     customerId: string;
     staffId?: string;
     reservationId?: string;
     encounterId?: string;
-    T: T;
     readOnly?: boolean;
     canCollect?: boolean;
 }
@@ -34,7 +42,8 @@ export function TreatmentPlans(props: TreatmentPlansProps) {
     return <TreatmentPlansForCustomer key={props.customerId} {...props} />;
 }
 
-function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encounterId, T, readOnly = false, canCollect = true }: TreatmentPlansProps) {
+function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encounterId, readOnly = false, canCollect = true }: TreatmentPlansProps) {
+    const { dark } = useTheme();
     const { plans, isLoading: plansLoading, addPlan, setPlanStatus, setPlanAttribution } = useTreatmentPlans(customerId);
     const planIds = useMemo(() => plans.map((plan) => plan.id), [plans]);
     const { installments, isLoading: installmentsLoading, available: installmentEngineAvailable, createSchedule } = useInstallmentSchedules(planIds);
@@ -45,6 +54,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
         () => staff.filter((member) => member.isActive && member.role === 'doctor'),
         [staff],
     );
+    const doctorNameOf = (id?: string) => staff.find((member) => member.id === id)?.name;
 
     const appointmentContext = useMemo(() => {
         if (reservationId) {
@@ -158,6 +168,8 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
         setPayStaffId(plan.staffId || contextStaffId || (doctors.length === 1 ? doctors[0].id : ''));
     };
 
+    const closePay = () => { setPayingId(null); setPayingInstallmentId(null); setPayStaffId(''); };
+
     const collectPayment = async (plan: TreatmentPlan, remaining: number) => {
         if (!canCollect) return;
         const amount = Number(payAmount || '0') || 0;
@@ -198,10 +210,7 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
             reservationId: plan.reservationId || contextReservationId,
         });
         setPaying(false);
-        if (p) {
-            setPayingId(null);
-            setPayingInstallmentId(null);
-        }
+        if (p) closePay();
     };
 
     const [schedulePlanId, setSchedulePlanId] = useState<string | null>(null);
@@ -234,53 +243,6 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
         if (created) setSchedulePlanId(null);
     };
 
-    const renderPaymentForm = (plan: TreatmentPlan, remaining: number) => {
-        if (payingId !== plan.id) return null;
-        const targetInstallment = payingInstallmentId
-            ? installments.find((item) => item.id === payingInstallmentId)
-            : undefined;
-        const disabled = paying || staffLoading || !(plan.staffId || payStaffId || contextStaffId);
-        return (
-            <div style={{ marginTop: 9, padding: 10, borderRadius: 11, border: `1px solid ${T.border}` }}>
-                {targetInstallment && (
-                    <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, marginBottom: 7 }}>
-                        {targetInstallment.sequenceNo}. taksit · vade {new Date(`${targetInstallment.dueDate}T12:00:00`).toLocaleDateString('tr-TR')}
-                    </div>
-                )}
-                <input value={payAmount} onChange={(event) => {
-                    const normalized = event.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
-                    setPayAmount(normalized.replace(/(\..*)\./g, '$1'));
-                }} inputMode="decimal" placeholder="₺" aria-label="Tahsilat tutarı"
-                    style={{ width: '100%', padding: '8px 11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
-                {doctors.length > 0 && !plan.staffId && (
-                    <select value={payStaffId || contextStaffId || ''} onChange={(event) => setPayStaffId(event.target.value)} aria-label="Taksit sorumlusu hekim"
-                        style={{ width: '100%', padding: '8px 11px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}>
-                        <option value="">Sorumlu hekim seçin…</option>
-                        {doctors.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-                    </select>
-                )}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                    {PAY_METHODS.map((method) => (
-                        <button key={method.key} type="button" onClick={() => setPayMethod(method.key)}
-                            style={{ flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: payMethod === method.key ? '#0E0E0E' : T.surface2, color: payMethod === method.key ? '#F3EDE3' : T.muted, border: `1px solid ${T.border2}` }}>
-                            {method.label}
-                        </button>
-                    ))}
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" onClick={() => { setPayingId(null); setPayingInstallmentId(null); setPayStaffId(''); }}
-                        style={{ flex: 1, padding: '8px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                        Vazgeç
-                    </button>
-                    <button type="button" disabled={disabled} onClick={() => collectPayment(plan, remaining)}
-                        style={{ flex: 2, padding: '8px', borderRadius: 10, border: 'none', background: disabled ? T.border2 : '#FF5A1F', color: '#0E0E0E', fontSize: 12, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-                        {paying ? 'Kaydediliyor…' : 'Ödemeyi Kaydet'}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     // Kalan bakiye — aktif planların toplamı − plana bağlı ödemeler (denormalize
     // kolon yok; tek kaynak payments). Hastanın borcu bir bakışta görünsün.
     const totalRemaining = plans
@@ -290,117 +252,239 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     })();
+    const activeCount = plans.filter((p) => p.status === 'active').length;
+    const offerCount = plans.filter((p) => p.status === 'proposed').length;
+    const lastPayment = payments.reduce<string | null>((latest, p) => (
+        !latest || (p.paidAt || '') > latest ? (p.paidAt || latest) : latest
+    ), null);
 
-    return (
-        <div>
-            {/* v5: kalan bakiye — büyük mono sayı, kırmızı; sıfırsa sakin */}
-            {plans.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', color: totalRemaining > 0 ? '#C0392B' : T.muted, fontVariantNumeric: 'tabular-nums' }}>
-                        {fmt(totalRemaining)} ₺
+    // ── Kısmi tahsilat formu ──────────────────────────────────────────────────
+    const renderPaymentForm = (plan: TreatmentPlan, remaining: number) => {
+        const targetInstallment = payingInstallmentId
+            ? installments.find((item) => item.id === payingInstallmentId)
+            : undefined;
+        const disabled = paying || staffLoading || !(plan.staffId || payStaffId || contextStaffId);
+        const amountValue = Number(payAmount || '0') || 0;
+        const installmentRemaining = targetInstallment
+            ? Math.max(0, targetInstallment.amount - paidForInstallment(targetInstallment.id))
+            : remaining;
+        const cap = Math.min(remaining, installmentRemaining);
+        const overCap = amountValue > cap;
+        return (
+            <div className="tp-form">
+                {targetInstallment && (
+                    <div className="tp-note-warn" style={{ color: 'var(--dc-blue)', background: 'var(--dc-blue-bg)' }}>
+                        {targetInstallment.sequenceNo}. taksit · vade {fmtDate(targetInstallment.dueDate)}
                     </div>
-                    <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 600, marginTop: 3 }}>
-                        {totalRemaining > 0 ? 'kalan bakiye' : 'bakiye yok — tüm ödemeler alındı'}
+                )}
+                <div className="tp-field">
+                    <label className="field-label" htmlFor={`tp-pay-${plan.id}`}>Tahsil edilecek tutar</label>
+                    <div className="tp-input-wrap">
+                        <input
+                            id={`tp-pay-${plan.id}`}
+                            value={payAmount}
+                            inputMode="decimal"
+                            aria-invalid={overCap}
+                            onChange={(event) => {
+                                const normalized = event.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                                setPayAmount(normalized.replace(/(\..*)\./g, '$1'));
+                            }}
+                        />
+                        <span className="tp-input-suffix">₺</span>
+                    </div>
+                    {overCap && <p style={{ marginTop: 5, color: 'var(--dc-red2)', fontSize: 10, fontWeight: 700 }}>! En fazla {fmt(cap)} ₺ tahsil edilebilir.</p>}
+                </div>
+                {doctors.length > 0 && !plan.staffId && (
+                    <div className="tp-field">
+                        <label className="field-label" htmlFor={`tp-paydoc-${plan.id}`}>Sorumlu hekim</label>
+                        <select id={`tp-paydoc-${plan.id}`} value={payStaffId || contextStaffId || ''} onChange={(event) => setPayStaffId(event.target.value)}>
+                            <option value="">Hekim seçin…</option>
+                            {doctors.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                        </select>
+                    </div>
+                )}
+                <div className="tp-field">
+                    <span className="field-label">Ödeme yöntemi</span>
+                    <div className="tp-segmented" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                        {PAY_METHODS.map((method) => (
+                            <button key={method.key} type="button" className={cn(payMethod === method.key && 'is-on')} onClick={() => setPayMethod(method.key)}>
+                                {method.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
+                <div className="tp-form-actions">
+                    <button type="button" className="tp-button secondary" onClick={closePay}>Vazgeç</button>
+                    <button type="button" className="tp-button primary" disabled={disabled} onClick={() => collectPayment(plan, remaining)}>
+                        {paying ? 'Kaydediliyor…' : 'Tahsilatı Kaydet'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    // ── Taksit planlama formu ─────────────────────────────────────────────────
+    const renderScheduleForm = (plan: TreatmentPlan, remaining: number) => (
+        <div className="tp-form">
+            <div className="tp-note-warn" style={{ color: 'var(--dc-muted)', background: 'transparent', padding: '0 0 9px', fontWeight: 600 }}>
+                {fmt(remaining)} ₺ kalan bakiye için vade oluşturulur.
+            </div>
+            <div className="tp-field-row">
+                <div className="tp-field">
+                    <label className="field-label" htmlFor={`tp-count-${plan.id}`}>Taksit sayısı (2–24)</label>
+                    <input id={`tp-count-${plan.id}`} value={scheduleCount} inputMode="numeric"
+                        onChange={(event) => setScheduleCount(event.target.value.replace(/[^0-9]/g, '').slice(0, 2))} />
+                </div>
+                <div className="tp-field">
+                    <label className="field-label" htmlFor={`tp-due-${plan.id}`}>İlk vade tarihi</label>
+                    <input id={`tp-due-${plan.id}`} type="date" value={firstDueDate} onChange={(event) => setFirstDueDate(event.target.value)} />
+                </div>
+            </div>
+            <div className="tp-field">
+                <span className="field-label">Ödeme sıklığı</span>
+                <div className="tp-segmented two">
+                    {([['monthly', 'Aylık'], ['weekly', 'Haftalık']] as const).map(([value, label]) => (
+                        <button key={value} type="button" className={cn(scheduleCadence === value && 'is-on')} onClick={() => setScheduleCadence(value)}>{label}</button>
+                    ))}
+                </div>
+            </div>
+            <div className="tp-form-actions">
+                <button type="button" className="tp-button secondary" onClick={() => setSchedulePlanId(null)}>Vazgeç</button>
+                <button type="button" className="tp-button primary" disabled={scheduling} onClick={() => saveSchedule(plan, remaining)}>
+                    {scheduling ? 'Oluşturuluyor…' : 'Planı Oluştur'}
+                </button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className={cn('tp-root dash-theme', dark && 'dark')}>
+            {plans.length > 0 && (
+                <section className="tp-balance" aria-label="Toplam kalan bakiye">
+                    <div className="eyebrow">Toplam kalan bakiye</div>
+                    <strong className="tp-balance-amount">{fmt(totalRemaining)} ₺</strong>
+                    <div className="tp-balance-foot">
+                        <span>{lastPayment ? `Son tahsilat: ${new Date(lastPayment).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}` : 'Henüz tahsilat yok'}</span>
+                        <span className="mono">{activeCount} aktif{offerCount > 0 ? ` · ${offerCount} teklif` : ''}</span>
+                    </div>
+                </section>
             )}
+
+            {plans.length > 0 && (
+                <div className="tp-section-heading">
+                    <h2>Tedavi planları</h2>
+                    <span className="tp-count-pill">{plans.length} plan</span>
+                </div>
+            )}
+
             {plansLoading && (
-                <div style={{ fontSize: 12.5, color: T.muted, textAlign: 'center', padding: '14px 0' }}>Tedavi planları yükleniyor…</div>
+                <div className="tp-skeleton-card" role="status" aria-live="polite" aria-label="Tedavi planları yükleniyor">
+                    <div className="tp-skeleton-row"><span className="tp-skeleton title" /><span className="tp-skeleton badge" /></div>
+                    <span className="tp-skeleton line" />
+                    <span className="tp-skeleton progress" />
+                    <span className="tp-skeleton short" />
+                </div>
             )}
+
             {plans.length === 0 && !showNew && !plansLoading && (
-                <div style={{ fontSize: 12.5, color: T.muted, textAlign: 'center', padding: '14px 0' }}>Aktif tedavi planı yok</div>
+                <div className="tp-empty">
+                    <div className="tp-empty-icon" aria-hidden="true">＋</div>
+                    <h3>Aktif tedavi planı yok</h3>
+                    <p>Hasta için ilk tedavi planını ekleyerek ödeme ve seans takibini başlatın.</p>
+                </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+
+            <div className="tp-list">
                 {plans.map((plan) => {
                     const paid = paidFor(plan.id);
                     const remaining = Math.max(0, plan.totalAmount - paid);
                     const pct = plan.totalAmount > 0 ? Math.min(100, Math.round((paid / plan.totalAmount) * 100)) : 0;
                     const financiallyPaid = remaining <= 0;
                     const clinicallyCompleted = plan.status === 'completed';
+                    const cancelled = plan.status === 'cancelled';
+                    const proposed = plan.status === 'proposed';
                     const planInstallments = installments
                         .filter((item) => item.treatmentPlanId === plan.id)
                         .sort((a, b) => a.sequenceNo - b.sequenceNo);
                     const hasSchedule = planInstallments.length > 0;
+                    const meta = STATUS_META[plan.status];
+                    const doctorName = doctorNameOf(plan.staffId);
+                    const busy = clinicalUpdatingId === plan.id;
+                    const payOpen = payingId === plan.id;
+                    const scheduleOpen = schedulePlanId === plan.id && !hasSchedule;
+                    const canPlanSchedule = !readOnly && !proposed && !cancelled && !financiallyPaid
+                        && installmentEngineAvailable && !installmentsLoading && !hasSchedule;
+                    const canPayNow = canCollect && !proposed && !cancelled && !financiallyPaid;
+
                     return (
-                        <div key={plan.id} style={{ padding: '13px 14px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                                <div style={{ fontSize: 13, fontWeight: 750, color: T.ink, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.title}</div>
-                                <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: T.muted, flexShrink: 0 }}>%{pct}</span>
+                        <article key={plan.id} className={cn('tp-card', plan.status === 'active' && 'is-active', cancelled && 'is-cancelled')}>
+                            <div className="tp-card-head">
+                                <div style={{ minWidth: 0 }}>
+                                    <h3>{plan.title}</h3>
+                                    <p className="tp-doctor">{doctorName ? `Sorumlu hekim · ${doctorName}` : 'Sorumlu hekim atanmadı'}</p>
+                                </div>
+                                <span className={cn('tp-status', meta.cls)}>{meta.label}</span>
                             </div>
-                            <div style={{ height: 6, background: T.border, borderRadius: 999, overflow: 'hidden', marginBottom: 10 }}>
-                                <div style={{ height: '100%', width: `${pct}%`, background: '#FF5A1F', borderRadius: 999 }} />
+
+                            <div className="tp-progress">
+                                <div className="tp-progress-meta">
+                                    <span>Ödenen / toplam</span>
+                                    <span className="money">{fmt(paid)} ₺ / {fmt(plan.totalAmount)} ₺</span>
+                                </div>
+                                <div className="tp-progress-track" role="progressbar" aria-label={`${plan.title} ödeme ilerlemesi`}
+                                    aria-valuemin={0} aria-valuemax={plan.totalAmount} aria-valuenow={paid}>
+                                    <div className={cn('tp-progress-bar', financiallyPaid && 'is-green', cancelled && 'is-muted')} style={{ width: `${pct}%` }} />
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: T.ink }}>{fmt(paid)} ₺ / {fmt(plan.totalAmount)} ₺</span>
-                                {financiallyPaid ? (
-                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#2E8A35' }}>Ödendi</span>
-                                ) : hasSchedule ? (
-                                    <span style={{ fontSize: 11, fontWeight: 750, color: '#B8720A' }}>{planInstallments.length} vadeli</span>
-                                ) : (
-                                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                        {!readOnly && plan.status !== 'proposed' && installmentEngineAvailable && !installmentsLoading && schedulePlanId !== plan.id && (
-                                            <button type="button" onClick={() => openSchedule(plan.id)}
-                                                style={{ fontSize: 11, fontWeight: 750, color: '#B8720A', border: `1px solid ${T.border2}`, background: 'none', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                Taksit Planla
-                                            </button>
-                                        )}
-                                        {canCollect && plan.status !== 'proposed' && payingId !== plan.id && (
-                                            <button type="button" onClick={() => openPay(plan, remaining)}
-                                                style={{ fontSize: 11, fontWeight: 750, color: T.ink, border: `1px solid ${T.border2}`, background: 'none', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                Ödeme Al
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <span style={{ fontSize: 10.5, fontWeight: 750, color: clinicallyCompleted ? '#2E8A35' : plan.status === 'cancelled' ? '#C0392B' : plan.status === 'proposed' ? '#B8720A' : T.muted }}>
-                                    {plan.status === 'proposed' ? 'Teklif · onay bekliyor' : `Klinik: ${clinicallyCompleted ? 'Tamamlandı' : plan.status === 'cancelled' ? 'İptal' : 'Devam ediyor'}`}
-                                </span>
-                                {!readOnly && plan.status === 'proposed' && (
-                                    <button
-                                        type="button"
-                                        disabled={clinicalUpdatingId === plan.id}
-                                        onClick={async () => { setClinicalUpdatingId(plan.id); const ok = await setPlanStatus(plan.id, 'active'); setClinicalUpdatingId(null); if (ok) toast.success('Teklif onaylandı — tedavi aktif'); }}
-                                        style={{ padding: '6px 11px', borderRadius: 8, border: 0, background: '#2E8A35', color: '#fff', fontSize: 10.5, fontWeight: 800, cursor: clinicalUpdatingId === plan.id ? 'not-allowed' : 'pointer', opacity: clinicalUpdatingId === plan.id ? .6 : 1 }}
-                                    >
-                                        {clinicalUpdatingId === plan.id ? 'Onaylanıyor…' : 'Teklifi Onayla'}
-                                    </button>
-                                )}
-                                {!readOnly && plan.status !== 'cancelled' && plan.status !== 'proposed' && (
-                                    <button
-                                        type="button"
-                                        disabled={clinicalUpdatingId === plan.id || staffLoading}
-                                        onClick={() => changeClinicalStatus(plan)}
-                                        style={{ padding: '6px 9px', borderRadius: 8, border: `1px solid ${T.border2}`, background: clinicallyCompleted ? 'none' : '#0E0E0E', color: clinicallyCompleted ? T.muted : '#F3EDE3', fontSize: 10.5, fontWeight: 800, cursor: clinicalUpdatingId === plan.id || staffLoading ? 'not-allowed' : 'pointer', opacity: clinicalUpdatingId === plan.id || staffLoading ? .6 : 1 }}
-                                    >
-                                        {clinicalUpdatingId === plan.id ? 'Güncelleniyor…' : clinicallyCompleted ? 'Planı yeniden aç' : 'Tedaviyi tamamla'}
-                                    </button>
-                                )}
-                            </div>
-                            {schedulePlanId === plan.id && !hasSchedule && (
-                                <div style={{ marginTop: 10, padding: 10, borderRadius: 11, border: `1px solid ${T.border2}` }}>
-                                    <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.45, marginBottom: 8 }}>{fmt(remaining)} ₺ kalan bakiye için vade oluşturulur.</div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: 7, marginBottom: 7 }}>
-                                        <input value={scheduleCount} onChange={(event) => setScheduleCount(event.target.value.replace(/[^0-9]/g, '').slice(0, 2))} inputMode="numeric" aria-label="Taksit sayısı" placeholder="3"
-                                            style={{ minWidth: 0, padding: '8px 9px', borderRadius: 9, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12, outline: 'none' }} />
-                                        <input type="date" value={firstDueDate} onChange={(event) => setFirstDueDate(event.target.value)} aria-label="İlk taksit vadesi"
-                                            style={{ minWidth: 0, padding: '8px 9px', borderRadius: 9, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12, outline: 'none' }} />
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                                        {([['monthly', 'Aylık'], ['weekly', 'Haftalık']] as const).map(([value, label]) => (
-                                            <button key={value} type="button" onClick={() => setScheduleCadence(value)}
-                                                style={{ flex: 1, padding: '7px', borderRadius: 9, border: `1px solid ${T.border2}`, background: scheduleCadence === value ? '#0E0E0E' : T.surface2, color: scheduleCadence === value ? '#F3EDE3' : T.muted, fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>{label}</button>
-                                        ))}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 6 }}>
-                                        <button type="button" onClick={() => setSchedulePlanId(null)} style={{ flex: 1, padding: 8, borderRadius: 9, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Vazgeç</button>
-                                        <button type="button" disabled={scheduling} onClick={() => saveSchedule(plan, remaining)} style={{ flex: 2, padding: 8, borderRadius: 9, border: 0, background: scheduling ? T.border2 : '#0E0E0E', color: '#F3EDE3', fontSize: 11.5, fontWeight: 800, cursor: scheduling ? 'not-allowed' : 'pointer' }}>{scheduling ? 'Oluşturuluyor…' : 'Vadeleri Oluştur'}</button>
-                                    </div>
+
+                            {(plan.sessionCount > 1 || hasSchedule) && (
+                                <div className="tp-details-row">
+                                    {plan.sessionCount > 1
+                                        ? <span className="tp-session-pill">Seans {plan.sessionsDone}/{plan.sessionCount}</span>
+                                        : <span />}
+                                    {hasSchedule && <span className="tp-schedule-pill">{planInstallments.length} vadeli</span>}
                                 </div>
                             )}
+
+                            {/* Klinik durum: teklif onayı ayrı bir aksiyon, diğerlerinde anahtar */}
+                            {proposed ? (
+                                <div className="tp-switch-row" style={{ borderTop: '1px solid var(--dc-border)' }}>
+                                    <span className="tp-switch-copy">
+                                        <strong>Teklif · onay bekliyor</strong>
+                                        <small>Hasta onaylayınca tedavi aktifleşir</small>
+                                    </span>
+                                    {!readOnly && (
+                                        <button type="button" className="tp-approve" disabled={busy}
+                                            onClick={async () => {
+                                                setClinicalUpdatingId(plan.id);
+                                                const ok = await setPlanStatus(plan.id, 'active');
+                                                setClinicalUpdatingId(null);
+                                                if (ok) toast.success('Teklif onaylandı — tedavi aktif');
+                                            }}>
+                                            {busy ? 'Onaylanıyor…' : 'Teklifi Onayla'}
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <button type="button" className="tp-switch-row" disabled={readOnly || cancelled || busy || staffLoading}
+                                    aria-pressed={clinicallyCompleted}
+                                    onClick={() => changeClinicalStatus(plan)}>
+                                    <span className="tp-switch-copy">
+                                        <strong>Klinik: {clinicallyCompleted ? 'Tamamlandı' : cancelled ? 'İptal' : 'Devam ediyor'}</strong>
+                                        <small>{busy ? 'Güncelleniyor…' : cancelled ? 'İptal edilen planda düzenlenemez' : clinicallyCompleted ? 'Planı yeniden açmak için dokunun' : 'Tüm klinik işlemler bittiğinde işaretleyin'}</small>
+                                    </span>
+                                    <span className={cn('tp-switch', clinicallyCompleted && 'is-on')} aria-hidden="true" />
+                                </button>
+                            )}
+
                             {hasSchedule && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                                <div className="tp-installments" role="table" aria-label={`${plan.title} taksitleri`}>
+                                    <div className="tp-inst-head" role="row">
+                                        <span role="columnheader">No</span>
+                                        <span role="columnheader">Tutar</span>
+                                        <span role="columnheader">Vade</span>
+                                        <span role="columnheader">Durum</span>
+                                    </div>
                                     {planInstallments.map((installment) => {
                                         const installmentPaid = paidForInstallment(installment.id);
                                         const installmentRemaining = Math.max(0, installment.amount - installmentPaid);
@@ -408,67 +492,109 @@ function TreatmentPlansForCustomer({ customerId, staffId, reservationId, encount
                                         const overdue = !isPaid && installment.dueDate < today;
                                         const partial = installmentPaid > 0 && !isPaid;
                                         return (
-                                            <div key={installment.id} style={{ padding: '9px 10px', borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                                                <div style={{ width: 24, height: 24, borderRadius: 8, display: 'grid', placeItems: 'center', background: isPaid ? 'rgba(46,138,53,.12)' : overdue ? 'rgba(192,57,43,.12)' : T.surface2, color: isPaid ? '#2E8A35' : overdue ? '#C0392B' : T.muted, fontSize: 10, fontWeight: 850 }}>{installment.sequenceNo}</div>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 11.5, fontWeight: 750, color: T.ink }}>{fmt(installment.amount)} ₺ <span style={{ color: T.muted, fontWeight: 600 }}>· {new Date(`${installment.dueDate}T12:00:00`).toLocaleDateString('tr-TR')}</span></div>
-                                                    <div style={{ marginTop: 2, fontSize: 10.5, color: isPaid ? '#2E8A35' : overdue ? '#C0392B' : T.muted }}>{isPaid ? 'Ödendi' : partial ? `${fmt(installmentPaid)} ₺ ödendi · ${fmt(installmentRemaining)} ₺ kaldı` : overdue ? 'Vadesi geçti' : 'Bekliyor'}</div>
-                                                </div>
-                                                {canCollect && !isPaid && payingId !== plan.id && (
-                                                    <button type="button" onClick={() => openPay(plan, remaining, installment)} style={{ padding: '6px 9px', borderRadius: 8, border: `1px solid ${T.border2}`, background: 'none', color: T.ink, fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>Öde</button>
-                                                )}
+                                            <div key={installment.id} className="tp-inst-row" role="row">
+                                                <span className="number mono" role="cell">{installment.sequenceNo}</span>
+                                                <strong className="money" role="cell">{fmt(installment.amount)} ₺</strong>
+                                                <span className="due mono" role="cell">{fmtDate(installment.dueDate)}</span>
+                                                <span role="cell" style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                                                    <span className={cn('tp-inst-status', isPaid ? 'paid' : partial ? 'partial' : overdue ? 'overdue' : 'waiting')}>
+                                                        {isPaid ? 'Ödendi' : partial ? `${fmt(installmentRemaining)} ₺ kaldı` : overdue ? 'Gecikti' : 'Bekliyor'}
+                                                    </span>
+                                                    {canCollect && !isPaid && !payOpen && !cancelled && (
+                                                        <button type="button" className="tp-inst-pay" onClick={() => openPay(plan, remaining, installment)}>Öde</button>
+                                                    )}
+                                                </span>
                                             </div>
                                         );
                                     })}
                                 </div>
                             )}
-                            {renderPaymentForm(plan, remaining)}
-                        </div>
+
+                            {financiallyPaid && !cancelled && plan.totalAmount > 0 && (
+                                <div className="tp-note-paid"><span className="mono">0 ₺</span> bakiye yok — tüm ödemeler alındı</div>
+                            )}
+
+                            {cancelled && <p className="tp-note-locked">Plan iptal edildiği için tahsilat ve taksit aksiyonları kapalı.</p>}
+
+                            {(canPayNow || canPlanSchedule) && (
+                                <div className="tp-actions">
+                                    {canPayNow && (
+                                        <div className={cn('tp-disclosure', payOpen && 'is-open')}>
+                                            <button type="button" className="tp-disclosure-title" aria-expanded={payOpen}
+                                                onClick={() => (payOpen ? closePay() : openPay(plan, remaining))}>
+                                                Kısmi Tahsilat
+                                            </button>
+                                            {payOpen && renderPaymentForm(plan, remaining)}
+                                        </div>
+                                    )}
+                                    {canPlanSchedule && (
+                                        <div className={cn('tp-disclosure', scheduleOpen && 'is-open')}>
+                                            <button type="button" className="tp-disclosure-title" aria-expanded={scheduleOpen}
+                                                onClick={() => (scheduleOpen ? setSchedulePlanId(null) : openSchedule(plan.id))}>
+                                                Taksit Planla
+                                            </button>
+                                            {scheduleOpen && renderScheduleForm(plan, remaining)}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </article>
                     );
                 })}
             </div>
 
-            {!readOnly && !plansLoading && (!showNew ? (
-                <button type="button" onClick={() => {
-                    setPlanStaffId(contextStaffId || (doctors.length === 1 ? doctors[0].id : ''));
-                    setShowNew(true);
-                }}
-                    style={{ marginTop: 10, width: '100%', padding: '10px', borderRadius: 10, border: `1px dashed ${T.border2}`, background: 'none', color: T.muted, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                    + Yeni Tedavi Planı
-                </button>
-            ) : (
-                <div style={{ marginTop: 10, padding: 12, borderRadius: 14, border: `1px solid ${T.border2}`, background: T.surface }}>
-                    <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Tedavi adı (örn. Kanal Tedavisi - 46)"
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
-                    <input value={total} onChange={(e) => setTotal(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="Toplam ücret (₺)"
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
-                    {doctors.length > 0 && (
-                        <select value={planStaffId || contextStaffId || ''} onChange={(e) => setPlanStaffId(e.target.value)} aria-label="Sorumlu hekim"
-                            style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 12.5, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}>
-                            <option value="">Sorumlu hekim seçin…</option>
-                            {contextStaffId && !doctors.some((member) => member.id === contextStaffId) && (
-                                <option value={contextStaffId}>{appointmentContext?.staffName || 'Randevu hekimi'}</option>
+            {!readOnly && !plansLoading && (
+                <div className="tp-new">
+                    {!showNew ? (
+                        <button type="button" className="tp-new-summary" onClick={() => {
+                            setPlanStaffId(contextStaffId || (doctors.length === 1 ? doctors[0].id : ''));
+                            setShowNew(true);
+                        }}>
+                            + Yeni Tedavi Planı
+                        </button>
+                    ) : (
+                        <div className="tp-new-form">
+                            <h3>Yeni plan bilgileri</h3>
+                            {!staffLoading && doctors.length === 0 && !contextStaffId && (
+                                <div className="tp-note-warn">Plan oluşturmak için Personel ekranından hekim rolü tanımlayın.</div>
                             )}
-                            {doctors.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-                        </select>
-                    )}
-                    {!staffLoading && doctors.length === 0 && !contextStaffId && (
-                        <div style={{ marginBottom: 8, padding: '8px 10px', borderRadius: 10, background: 'rgba(184,114,10,.10)', color: '#B8720A', fontSize: 11.5, fontWeight: 700 }}>
-                            Plan oluşturmak için Personel ekranından hekim rolü tanımlayın.
+                            <div className="tp-field">
+                                <label className="field-label" htmlFor="tp-new-title">Tedavi planı adı</label>
+                                <input id="tp-new-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. 46 Kanal tedavisi" autoComplete="off" />
+                            </div>
+                            <div className="tp-field">
+                                <label className="field-label" htmlFor="tp-new-total">Toplam tutar</label>
+                                <div className="tp-input-wrap">
+                                    <input id="tp-new-total" value={total} inputMode="numeric" placeholder="0"
+                                        onChange={(e) => setTotal(e.target.value.replace(/[^0-9]/g, ''))} />
+                                    <span className="tp-input-suffix">₺</span>
+                                </div>
+                            </div>
+                            {doctors.length > 0 && (
+                                <div className="tp-field">
+                                    <label className="field-label" htmlFor="tp-new-doctor">Sorumlu hekim</label>
+                                    <select id="tp-new-doctor" value={planStaffId || contextStaffId || ''} onChange={(e) => setPlanStaffId(e.target.value)}>
+                                        <option value="">Hekim seçin…</option>
+                                        {contextStaffId && !doctors.some((member) => member.id === contextStaffId) && (
+                                            <option value={contextStaffId}>{appointmentContext?.staffName || 'Randevu hekimi'}</option>
+                                        )}
+                                        {doctors.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="tp-form-actions">
+                                <button type="button" className="tp-button secondary" onClick={() => { setShowNew(false); setTitle(''); setTotal(''); setPlanStaffId(''); }}>
+                                    Vazgeç
+                                </button>
+                                <button type="button" className="tp-button orange" onClick={createPlan}
+                                    disabled={savingPlan || staffLoading || !(planStaffId || contextStaffId)}>
+                                    {savingPlan ? 'Kaydediliyor…' : 'Planı Kaydet'}
+                                </button>
+                            </div>
                         </div>
                     )}
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" onClick={() => { setShowNew(false); setTitle(''); setTotal(''); setPlanStaffId(''); }}
-                            style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${T.border2}`, background: 'none', color: T.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                            Vazgeç
-                        </button>
-                        <button type="button" disabled={savingPlan || staffLoading || !(planStaffId || contextStaffId)} onClick={createPlan}
-                            style={{ flex: 2, padding: '9px', borderRadius: 10, border: 'none', background: savingPlan || staffLoading || !(planStaffId || contextStaffId) ? T.border2 : '#0E0E0E', color: '#F3EDE3', fontSize: 12, fontWeight: 800, cursor: savingPlan || staffLoading || !(planStaffId || contextStaffId) ? 'not-allowed' : 'pointer' }}>
-                            {savingPlan ? 'Kaydediliyor…' : 'Plan Oluştur'}
-                        </button>
-                    </div>
                 </div>
-            ))}
+            )}
         </div>
     );
 }

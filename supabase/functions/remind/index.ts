@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
             }
             const { data: orgSettings } = await supabase
                 .from('settings')
-                .select('business_name')
+                .select('business_name, comms')
                 .eq('organization_id', cust.organization_id)
                 .limit(1)
                 .maybeSingle();
@@ -117,8 +117,9 @@ Deno.serve(async (req: Request) => {
             const mapsUrl = orgRow?.maps_url ?? null;
             // settings satırı yoksa (silinmiş/eksik) mesaj yine gitsin
             const bizName = orgSettings?.business_name || 'İşletme';
-            const tmpl = () => buildRecallMessage({ customerName: cust.name, businessName: bizName });
-            const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, cust.name, bizName, tmpl), mapsUrl);
+            const manualComms = resolveComms(orgSettings?.comms);
+            const tmpl = () => buildRecallMessage({ customerName: cust.name, businessName: bizName, comms: manualComms });
+            const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, manualComms, cust.name, bizName, tmpl), mapsUrl);
             // Elle tetiklenen hatırlatma kotaya takılmasın (kind:'manual').
             const res = await sendWA(supabase, {
                 org: orgWa, phone: cust.phone, text: msg, kind: 'manual', customerId: cust.id,
@@ -148,18 +149,18 @@ Deno.serve(async (req: Request) => {
         const orgIds = orgList.map((o) => o.organization_id);
 
         // İşletme adı + sektörel iletişim profili (settings'ten, org bazlı)
-        const settingsByOrg = new Map<string, { business_name: string; comms: unknown }>();
+        const settingsByOrg = new Map<string, { business_name: string; comms: unknown; sector: string | null }>();
         const mapsUrlByOrg = new Map<string, string>();
         // Değerlendirme daveti ve indirimli winback için org ayarları
         const orgExtras = new Map<string, { reviewUrl: string | null; discountPercent: number; discountDays: number }>();
         if (orgIds.length > 0) {
             const { data: settingsRows } = await supabase
                 .from('settings')
-                .select('organization_id, business_name, comms')
+                .select('organization_id, business_name, comms, sector')
                 .in('organization_id', orgIds);
             for (const s of settingsRows ?? []) {
                 if (!settingsByOrg.has(s.organization_id)) {
-                    settingsByOrg.set(s.organization_id, { business_name: s.business_name, comms: s.comms });
+                    settingsByOrg.set(s.organization_id, { business_name: s.business_name, comms: s.comms, sector: s.sector ?? null });
                 }
             }
             const { data: orgRows } = await supabase
@@ -255,14 +256,25 @@ Deno.serve(async (req: Request) => {
             // gym: üyelik yenileme…) recall_date'e 2 gün kala tek sefer gönderilir.
             // recall_reminded_for aynı tarihe ikinci mesajı engeller (065).
             if (comms.recall && featureOn(orgWa, 'recall') && sendableHour) {
+                // Alt sınır: 60 günden eski recall tarihleri artık "kaçmış"tır —
+                // ilk kurulumdaki tarihi kayıtlara toplu mesaj patlatılmaz.
+                // Telefonsuz hastalar SQL'de elenir (işaretlenemedikleri için
+                // eskiden her 30 dakikada bir yeniden taranıyorlardı).
+                const recallFloor = datePart(new Date(nowTR.getTime() - 60 * 86_400_000));
                 const { data: recallList } = await supabase
                     .from('customers')
                     .select('id, name, phone, recall_date, recall_reminded_for')
                     .eq('organization_id', organization_id)
                     .not('recall_date', 'is', null)
-                    .lte('recall_date', plus2Str);
+                    .not('phone', 'is', null)
+                    .gte('recall_date', recallFloor)
+                    .lte('recall_date', plus2Str)
+                    .order('recall_date', { ascending: true })
+                    .limit(200);
 
+                let recallBudget = 30;
                 for (const c of recallList ?? []) {
+                    if (recallBudget <= 0) break;
                     if (!c.phone) continue;
                     // Bu kontrol tarihi için zaten hatırlatıldıysa atla
                     if (c.recall_reminded_for && c.recall_reminded_for === c.recall_date) continue;
@@ -272,6 +284,7 @@ Deno.serve(async (req: Request) => {
                     if (ok) {
                         await supabase.from('customers').update({ recall_reminded_for: c.recall_date }).eq('id', c.id);
                         sentRecall++;
+                        recallBudget--;
                     } else {
                         errors.push(`recall:${c.id}`);
                     }
@@ -380,7 +393,11 @@ Deno.serve(async (req: Request) => {
             // ── Biten pakete yenileme teklifi — 067 ──────────────────────────
             // Tüm seansları tamamlanmış paketin sahibine paket başına bir kez
             // yenileme mesajı gönderilir (renewal_offered_at damgası).
-            if (featureOn(orgWa, 'renewal') && sendableHour) {
+            // Diş kliniğinde çok seanslı treatment_plan "paket" değil tedavidir
+            // (3 seanslı kanal tedavisi bitince "paketinizi yenileyelim mi"
+            // mesajı klinik olarak yanlış). Diş'te dönüş mesajı recall kanalından
+            // gider; renewal bu sektörde hiç taranmaz.
+            if (conf?.sector !== 'dis' && featureOn(orgWa, 'renewal') && sendableHour) {
                 // DİKKAT: eleme (sessions_done >= session_count) PostgREST'te
                 // kolon-kolon karşılaştırması gerektirdiği için JS'te yapılıyor.
                 // Bu yüzden LIMIT, elemeden ÖNCEKİ kümeye uygulanır — sıralamasız

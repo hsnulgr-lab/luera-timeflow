@@ -1,0 +1,319 @@
+/* ── Fırsat çarkı ─────────────────────────────────────────────────────────────
+   Kaynak: Claude Design · "Luera Fırsat Modülü v2.html" (ölçüler birebir alındı).
+   Kayıtlar dikey bir çarkta durur: ortadaki bant seçili kaydı tutar, üst/alttaki
+   kayıtlar perspektifle yatıp soluklaşır. Aksiyon butonu çarkın DIŞINDA sabittir
+   — ortadaki kayda göre etiketi ve rengi değişir, 44px dokunma hedefi kaymaz.
+
+   Prototipteki seçiciler global (.mod, .row, .badge…). Burada hepsi .gz-ops
+   kökü ve opp- öneki altında; görsel sonuç aynı, sızıntı yok. */
+
+.gz-ops {
+    --opp-band: rgba(14, 14, 14, .055);
+}
+
+/* GuzellikDashboard'da dash-theme, gz-ops ve dark AYNI elemanda duruyor —
+   ".dash-theme.dark .gz-ops" gibi torun seçici hiç eşleşmez. İkisi de yazılı:
+   biri bugünkü yapı, diğeri kök ayrılırsa. */
+.gz-ops.dark,
+.dash-theme.dark .gz-ops {
+    --opp-band: rgba(243, 237, 227, .07);
+}
+
+/* Modül kabı — sol kenarındaki 3px ray seçili kaydın rengini alır */
+.gz-ops .opp-mod {
+    width: 100%;
+    background: var(--dc-surface);
+    border: 1px solid var(--dc-border);
+    border-radius: 14px;
+    padding: 0 10px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.gz-ops .opp-mod::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--opp-rail, var(--dc-border2));
+    transition: background .22s;
+}
+
+.gz-ops .opp-pick {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    height: 96px;
+    padding-left: 14px;
+}
+
+/* Seçili kaydı tutan orta bant */
+.gz-ops .opp-band {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--opp-band);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.gz-ops .opp-track {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    perspective: 420px;
+    perspective-origin: 50% 50%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior: contain;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 72px, transparent 96px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 72px, transparent 96px);
+}
+
+.gz-ops .opp-track::-webkit-scrollbar { display: none; }
+
+.gz-ops .opp-pad {
+    height: 32px;
+    flex: none;
+}
+
+.gz-ops .opp-row {
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    flex: none;
+    line-height: 1;
+    box-sizing: border-box;
+    transition: transform .22s cubic-bezier(.22, .7, .2, 1), opacity .22s;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding-right: 8px;
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+}
+
+.gz-ops .opp-row .opp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    flex: none;
+}
+
+.gz-ops .opp-row .opp-badge i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+
+.gz-ops .opp-row .opp-nm {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    flex: none;
+}
+
+.gz-ops .opp-row .opp-ctx {
+    font-size: 11.5px;
+    color: var(--dc-muted);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.gz-ops .opp-row .opp-ctx b {
+    color: var(--dc-ink);
+    font-weight: 600;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+}
+
+.gz-ops .opp-t-pkg  { color: var(--dc-orange-d); background: var(--dc-orange-soft); }
+.gz-ops .opp-t-gift { color: var(--dc-green);    background: var(--dc-green-bg); }
+.gz-ops .opp-t-conf { color: var(--dc-amber);    background: var(--dc-amber-bg); }
+.gz-ops .opp-t-plan { color: var(--dc-blue);     background: var(--dc-blue-bg); }
+.gz-ops .opp-t-lost { color: var(--dc-red);      background: var(--dc-red-bg); }
+
+.gz-ops .opp-mod .opp-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    z-index: 2;
+}
+
+.gz-ops .opp-count {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--dc-muted2);
+    letter-spacing: .05em;
+    font-variant-numeric: tabular-nums;
+}
+
+.gz-ops .opp-act {
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    flex: none;
+    transition: background .18s, opacity .18s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.gz-ops .opp-act svg { width: 15px; height: 15px; flex: none; }
+.gz-ops .opp-act.ink { background: var(--dc-inkbox); color: var(--dc-inkbox-fg); }
+.gz-ops .opp-act.ink:hover { opacity: .87; }
+.gz-ops .opp-act.wa { background: var(--dc-orange); color: var(--dc-inkbox-fg); }
+.gz-ops .opp-act.wa:hover { background: var(--dc-orange-d); }
+.gz-ops .opp-act:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Karşılama kartı — çarkın oturduğu yuva (tasarımın .wc yapısı) */
+.gz-ops .opp-wc {
+    background: var(--dc-card);
+    border: 1px solid var(--dc-border);
+    border-radius: 20px;
+    /* Tasarımda .wc --sh-sm kullanıyor (--sh-md değil); .gz-ops'taki --shadow-sm
+       birebir aynı değeri taşıyor. */
+    box-shadow: var(--shadow-sm);
+    /* .dash-theme yalnız değişken tanımlar, color vermez; prototipteki
+       body{color:var(--dc-ink)} karşılığı burada kurulur. Yoksa koyu temada
+       müşteri adları tarayıcı varsayılanı (siyah) ile görünmez oluyor. */
+    color: var(--dc-ink);
+    min-height: 130px;
+    padding: 16px;
+    display: flex;
+    align-items: stretch;
+    gap: 18px;
+}
+
+.gz-ops .opp-datebox {
+    width: 96px;
+    flex: none;
+    background: var(--dc-inkbox);
+    color: var(--dc-inkbox-fg);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 6px;
+    gap: 1px;
+}
+
+.gz-ops .opp-datebox .dw { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .15em; opacity: .62; }
+.gz-ops .opp-datebox .dd { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 34px; font-weight: 600; line-height: 1; letter-spacing: -.03em; }
+.gz-ops .opp-datebox .dm { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 500; opacity: .62; }
+
+.gz-ops .opp-wc-main {
+    flex: none;
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 2px 0;
+}
+
+.gz-ops .opp-wc-main .kicker { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--dc-muted); }
+.gz-ops .opp-wc-main h1 { font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.gz-ops .opp-wc-main .sub { font-size: 12.5px; color: var(--dc-muted); font-weight: 500; }
+.gz-ops .opp-wc-main .sub b { color: var(--dc-ink); font-weight: 700; }
+
+.gz-ops .opp-slot {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+
+.gz-ops .opp-wc-acts {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 9px;
+    margin-left: auto;
+}
+
+.gz-ops .opp-wc-acts button {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    transition: .16s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.gz-ops .opp-wc-acts .b-out { border: 1.5px solid var(--dc-border2); color: var(--dc-ink); background: none; }
+.gz-ops .opp-wc-acts .b-out:hover { background: var(--dc-surface2); }
+.gz-ops .opp-wc-acts .b-fill { background: var(--dc-inkbox); color: var(--dc-inkbox-fg); }
+.gz-ops .opp-wc-acts .b-fill:hover { opacity: .87; }
+
+@media (max-width: 1279px) {
+    .gz-ops .opp-wc { flex-wrap: wrap; }
+    .gz-ops .opp-wc-main { width: auto; flex: 1 1 240px; }
+    .gz-ops .opp-wc-acts { flex-direction: row; margin-left: 0; order: 4; }
+    .gz-ops .opp-slot { order: 3; flex: 1 1 100%; }
+}
+
+@media (max-width: 767px) {
+    .gz-ops .opp-datebox { width: 76px; }
+    .gz-ops .opp-datebox .dd { font-size: 28px; }
+    .gz-ops .opp-wc-main h1 { font-size: 21px; }
+    .gz-ops .opp-wc-acts { flex: 1 1 100%; }
+    .gz-ops .opp-wc-acts button { flex: 1; padding: 0 12px; }
+    .gz-ops .opp-mod { flex-wrap: wrap; padding: 0 10px 10px; }
+    .gz-ops .opp-pick { flex: 1 1 100%; }
+    .gz-ops .opp-mod .opp-right { width: 100%; justify-content: space-between; }
+    .gz-ops .opp-act { flex: 1; }
+    .gz-ops .opp-row .opp-ctx { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gz-ops .opp-row { transition-duration: .001ms; }
+}

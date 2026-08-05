@@ -60,3 +60,53 @@ export function primaryAction(phase: ApptPhase): { kind: ApptActionKind; label: 
 export function priceForReservation(r: Reservation, services: Service[]): number {
     return reservationPrice(r, services);
 }
+
+// Kapanış = hizmet tamamlandı VE tahsil edildi. Ödeme ve hizmet iki farklı
+// ekrandan, farklı sırayla bitebildiği için "kapandı" tek bir alandan okunamaz.
+export type ClosableRow = Pick<Reservation, 'status' | 'isPaid'>;
+
+export const isClosed = (r: ClosableRow | undefined | null): boolean =>
+    r?.status === 'completed' && Boolean(r.isPaid);
+
+/**
+ * Randevu bu güncellemeyle İLK KEZ kapandı mı? Recall ve tekrar-seans
+ * otomasyonları yalnız bu geçişte çalışmalı — her kaydetmede değil.
+ *
+ * `prev` güncelleme ÖNCESİ satırdır ve bu ayrım kritiktir: Postgres'in
+ * `UPDATE ... RETURNING` yanıtı GÜNCELLENMİŞ satırı döndürür. Önceki durumu
+ * oradan okumak, kapanışı yapan güncellemede "zaten kapalıydı" sonucunu verir;
+ * geçiş hiçbir zaman yakalanmaz ve recall sessizce hiç çalışmaz.
+ *
+ * `updates` kontrolü bayat `prev` içindir: başka bir sekme randevuyu çoktan
+ * kapatmışsa, ilgisiz bir alanın güncellenmesi geçiş sanılıp recall'ı yeniden
+ * tetiklemesin.
+ */
+export function didBecomeClosed(
+    prev: ClosableRow | undefined | null,
+    next: ClosableRow,
+    updates: Partial<ClosableRow>,
+): boolean {
+    if (isClosed(prev) || !isClosed(next)) return false;
+    return updates.status === 'completed' || updates.isPaid === true;
+}
+
+/**
+ * Kapanan seansın dönüş (recall) periyodu — gün. Öncelik sırası:
+ * hizmetin kendi `recallDays` değeri → sektörün varsayılanı (comms.recall) →
+ * yok. Sektör fallback'i olmadan, hizmet satırına elle gün yazmayan hiçbir
+ * işletmede recall kurulmuyordu; oysa `Service.recallDays` tipi bunu
+ * "boşsa sektör varsayılanı" diye tarif ediyor (types/index.ts).
+ *
+ * Hizmet eşleşmesi: önce birebir ad, sonra kapsayan ad ("Lazer - Bacak"
+ * hizmeti "Lazer" tanımını bulsun diye).
+ */
+export function recallDaysFor(
+    serviceName: string | undefined,
+    services: Pick<Service, 'name' | 'recallDays'>[],
+    sectorFallbackDays?: number,
+): number | undefined {
+    const lower = serviceName?.toLocaleLowerCase('tr');
+    const svc = services.find((s) => s.name === serviceName)
+        || (lower ? services.find((s) => lower.includes(s.name.toLocaleLowerCase('tr'))) : undefined);
+    return svc?.recallDays ?? sectorFallbackDays ?? undefined;
+}

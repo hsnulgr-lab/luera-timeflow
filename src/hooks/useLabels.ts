@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useReservations } from '@/hooks/useReservations';
 import { labelsForSector, type LabelKey } from '@/lib/sectorProfiles';
 import { staffRoleOptionsForSector, type StaffRole } from '@/lib/staffPermissions';
@@ -8,7 +8,12 @@ import { staffRoleOptionsForSector, type StaffRole } from '@/lib/staffPermission
 export function useLabels() {
     const { settings, isSettingsLoading } = useReservations();
     const labels = useMemo(() => labelsForSector(settings.sector), [settings.sector]);
-    const t = (key: LabelKey) => labels[key];
+    // t REFERANS OLARAK KARARLI olmalı: çağıran bileşenler onu useMemo/useCallback
+    // bağımlılığına koyuyor. Her render'da yeni bir fonksiyon dönerse o memolar
+    // her render'da geçersizleşir (React Compiler bunu "memoization could not be
+    // preserved" diye raporluyor) — yani etiket kullanmak sessizce performans
+    // maliyeti yaratırdı.
+    const t = useCallback((key: LabelKey) => labels[key], [labels]);
     return { t, labels, sector: settings.sector || 'genel', isLoading: isSettingsLoading };
 }
 

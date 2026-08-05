@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
-import { useModules } from '@/hooks/useModules';
+import { useModules, useCashEnabled } from '@/hooks/useModules';
 import type { Reservation } from '@/types';
 import { ThemeToggle } from '../ThemeToggle';
 import { toast } from 'sonner';
@@ -53,6 +53,18 @@ const MobileRandevuHome = () => {
     const { stats } = usePayments();
     const { staff } = useStaff();
     const { isEnabled } = useModules();
+    const cashOn = useCashEnabled();
+
+    // Hızlı aksiyonlar modüle göre daralır; sütun sayısı da öğe sayısını izler
+    // ki kasa kapalıyken ızgarada boş bir hücre kalmasın.
+    const quickActions = useMemo(() => [
+        { lbl: 'Randevu', clr: T.orange, bg: 'rgba(255,90,31,.12)', path: 'M10 4v12M4 10h12', to: '/new' },
+        ...(cashOn ? [{ lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.12)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' }] : []),
+        { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
+        isEnabled('sira')
+            ? { lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.12)', path: 'M7 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 17c0-2.5 2.2-4.5 5-4.5M13 5a2.5 2.5 0 010 5M18 17c0-2.5-1.5-4.3-4-4.5', to: '/queue' }
+            : { lbl: 'Ayarlar', clr: T.muted, bg: T.surface3, path: 'M10 13a3 3 0 100-6 3 3 0 000 6ZM10 3v1M10 16v1M3 10h1M16 10h1M5.4 5.4l.7.7M13.9 13.9l.7.7M5.4 14.6l.7-.7M13.9 6.1l.7-.7', to: '/settings' },
+    ], [cashOn, isEnabled]);
 
     const now = useMemo(() => new Date(), []);
     const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -165,15 +177,8 @@ const MobileRandevuHome = () => {
             {isEnabled('masa') && <MobileMasaStrip />}
 
             {/* Hızlı aksiyonlar */}
-            <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 9 }}>
-                {[
-                    { lbl: 'Randevu', clr: T.orange, bg: 'rgba(255,90,31,.12)', path: 'M10 4v12M4 10h12', to: '/new' },
-                    { lbl: 'Tahsilat', clr: T.green, bg: 'rgba(124,196,127,.12)', path: 'M2 6.5h16v9H2V6.5ZM2 10.5h16', to: '/kasa' },
-                    { lbl: 'Müşteri', clr: T.blue, bg: 'rgba(107,159,212,.12)', path: 'M10 8a3 3 0 100-6 3 3 0 000 6ZM4 17c0-3 2.7-5 6-5s6 2 6 5', to: '/customers' },
-                    isEnabled('sira')
-                        ? { lbl: 'Sıra', clr: T.amber, bg: 'rgba(224,168,78,.12)', path: 'M7 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5ZM2 17c0-2.5 2.2-4.5 5-4.5M13 5a2.5 2.5 0 010 5M18 17c0-2.5-1.5-4.3-4-4.5', to: '/queue' }
-                        : { lbl: 'Ayarlar', clr: T.muted, bg: T.surface3, path: 'M10 13a3 3 0 100-6 3 3 0 000 6ZM10 3v1M10 16v1M3 10h1M16 10h1M5.4 5.4l.7.7M13.9 13.9l.7.7M5.4 14.6l.7-.7M13.9 6.1l.7-.7', to: '/settings' },
-                ].map((a) => (
+            <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: `repeat(${quickActions.length},1fr)`, gap: 9 }}>
+                {quickActions.map((a) => (
                     <button key={a.lbl} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '13px 4px 11px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, cursor: 'pointer' }}>
                         <div style={{ width: 40, height: 40, borderRadius: 13, background: a.bg, display: 'grid', placeItems: 'center' }}>
                             <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d={a.path} stroke={a.clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>

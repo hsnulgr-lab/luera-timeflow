@@ -5,12 +5,17 @@ import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
 import { useCustomers } from '@/hooks/useCustomers';
-import { usePayments } from '@/hooks/usePayments';
 import { useStaff } from '@/hooks/useStaff';
 import { useOrgPackages } from '@/hooks/useOrgPackages';
+import { normalizePhone } from '@/lib/phone';
+import { commsForSector } from '@/lib/sectorProfiles';
+import { buildRenewalMessage, buildWinbackMessage } from '@/services/waTemplates';
+import { useCashEnabled } from '@/hooks/useModules';
+import { OpportunityWheel, type Opportunity } from '@/components/dashboard/OpportunityWheel';
+import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
-import { todayISO, toISODate } from '@/utils/date';
+import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { MONO } from '@/components/dashboard/kpi';
 import { BeautySessionModal, type SessionPreset } from '@/components/beauty/BeautySessionModal';
 import { advancePatch, phaseOf, minsSince } from '@/lib/sessionPhase';
@@ -38,8 +43,6 @@ const PHASE_TR: Record<SessionPhase, string> = {
     wait: 'Bekleniyor', arrived: 'Geldi · bekliyor', active: 'İşlemde', done: 'Ödeme bekliyor', completed: 'Tamamlandı',
 };
 
-// Derinlik gölgeyle sağlanır (handoff) — kartlar #FFFDFB zeminde sayfadan kalkar
-const SH_MD = '0 2px 4px rgba(14,14,14,.05),0 10px 26px rgba(14,14,14,.09)';
 
 const timeToH = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -47,18 +50,27 @@ const timeToH = (t: string) => {
 };
 const initialsOf = (name: string) => name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toLocaleUpperCase('tr');
 const fmtTL = (n: number) => `₺${Math.round(n).toLocaleString('tr-TR')}`;
+/** Bugüne kadar geçen tam gün — "113 gündür yok" sayacı için. */
+const daysSince = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(`${iso}T12:00:00`).getTime()) / 86_400_000));
 
 type CabinStatus = 'busy' | 'prep' | 'free';
+
 
 export function GuzellikDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
     const { reservations, settings, updateReservation, addReservation } = useReservations();
     const { resources } = useResources();
-    const { customers, customerById, updateCustomer } = useCustomers();
+    const { customers, customerById, redeemLoyalty } = useCustomers();
     const { staff } = useStaff();
-    const { packages, refresh: refreshPackages } = useOrgPackages();
-    const { addPayment } = usePayments();
+    const { packages, refresh: refreshPackages, markRenewalOffered } = useOrgPackages();
+    const cashOn = useCashEnabled();
+    // Sektör terminolojisi — güzellikte "seans", genelde "randevu".
+    // NOT: "Randevusuz müşteri" bilerek çevrilmiyor; "randevusuz" Türkçede
+    // walk-in'in yerleşik karşılığı ve sektörden bağımsız doğru ("seanssız
+    // müşteri" kulağa yanlış geliyor).
+    const { t } = useLabels();
+    const resWord = t('reservation').toLocaleLowerCase('tr');
     const today = todayISO();
 
     // Canlı sayaçlar 30 saniyede bir tazelenir
@@ -127,10 +139,6 @@ export function GuzellikDashboard() {
         return { id: res.id, name: res.name, staffName, status, freeAt: busyWith?.endTime };
     }), [activeResources, inService, waiting, todayList]);
 
-    const nextFreeCabin = useMemo(() => {
-        const busy = cabins.filter((c) => c.status === 'busy' && c.freeAt).sort((a, b) => (a.freeAt || '').localeCompare(b.freeAt || ''));
-        return busy[0] || null;
-    }, [cabins]);
     const firstFreeCabin = useMemo(() => cabins.find((c) => c.status === 'free') || null, [cabins]);
 
     // ── Personel şeridi: kim müsait, kim yüklü ────────────────────────────────
@@ -320,7 +328,10 @@ export function GuzellikDashboard() {
         .filter((x): x is { plan: typeof x.plan; customer: Customer } => Boolean(x.customer))
         .slice(0, 3), [packages, futureByCustomer, customerById]);
 
+    // Teklifi gönderilmiş paket fırsat sayılmaz — yoksa aynı müşteri her gün
+    // listede kalır ve kuyruk güvenilirliğini kaybeder (damga: markRenewalOffered).
     const renewals = useMemo(() => finishedPackages
+        .filter((p) => !p.renewalOfferedAt)
         .map((p) => ({ plan: p, customer: customerById.get(p.customerId) }))
         .filter((x): x is { plan: typeof x.plan; customer: Customer } => Boolean(x.customer))
         .slice(0, 3), [finishedPackages, customerById]);
@@ -349,7 +360,87 @@ export function GuzellikDashboard() {
         ? customers.filter((c) => (c.loyaltyStamps ?? 0) >= loyaltyThreshold).slice(0, 2)
         : [], [customers, loyaltyOn, loyaltyThreshold]);
 
-    const actionCount = unplanned.length + renewals.length + lost.length + tomorrowPending.length + giftEarned.length;
+    // ── Fırsat kuyruğu ────────────────────────────────────────────────────────
+    // Yukarıdaki beş liste uzun süre yalnız actionCount'a düşüyordu: hesaplanıyor
+    // ama ekrana hiç çizilmiyordu. Salonun bugünkü işini takvim anlatır; parayı
+    // getiren iş burada. Her satırda TEK aksiyon var — okuyup geçilecek bir
+    // rapor değil, tıklanacak bir kuyruk.
+    const opportunities = useMemo((): Opportunity[] => {
+        const firstName = (n: string) => n.split(' ')[0];
+        const wa = (phone: string, text: string) =>
+            window.open(`https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+        const business = settings.businessName || 'Salonumuz';
+        const comms = commsForSector(settings.sector);
+
+        return [
+            // Biten paket — teklif için en verimli an; damga basılır ki tekrar çıkmasın
+            ...renewals.map(({ plan, customer }): Opportunity => ({
+                id: `renewal-${plan.id}`,
+                kind: 'pkg',
+                label: 'Paket bitti',
+                name: customer.name,
+                context: <>{plan.title} · <b>{plan.sessionCount}</b> seans tamamlandı</>,
+                actionLabel: 'Teklif gönder',
+                actionKind: 'wa',
+                disabled: !customer.phone,
+                run: async () => {
+                    wa(customer.phone, buildRenewalMessage({
+                        customerName: customer.name, packageTitle: plan.title, businessName: business, comms,
+                    }));
+                    await markRenewalOffered(plan.id);
+                    toast.success('Yenileme teklifi gönderildi ✨');
+                },
+            })),
+            // Hediye hak etti — ödül kullanılmazsa damga sonsuza kadar birikir
+            ...giftEarned.map((c): Opportunity => ({
+                id: `gift-${c.id}`,
+                kind: 'gift',
+                label: 'Hediye hak etti',
+                name: c.name,
+                context: <><b>{c.loyaltyStamps}</b>/<b>{loyaltyThreshold}</b> damga doldu · ödül hazır</>,
+                actionLabel: 'Ödülü kullan',
+                actionKind: 'ink',
+                run: () => redeemLoyalty(c.id, loyaltyThreshold),
+            })),
+            // Yarın onay bekleyen — bugün onaylanmazsa yarın boş koltuk demek
+            ...tomorrowPending.map((r): Opportunity => ({
+                id: `confirm-${r.id}`,
+                kind: 'conf',
+                label: 'Yarın onay bekliyor',
+                name: r.customerName,
+                context: <>{r.service} · yarın <b>{r.startTime}</b></>,
+                actionLabel: 'Onayla',
+                actionKind: 'ink',
+                run: async () => { await updateReservation(r.id, { status: 'confirmed' }); },
+            })),
+            // Paketi var ama ileri randevusu yok — hakkı yanmasın
+            ...unplanned.map(({ plan, customer }): Opportunity => ({
+                id: `unplanned-${plan.id}`,
+                kind: 'plan',
+                label: 'Seansı planlanmamış',
+                name: customer.name,
+                context: <>{plan.title} · <b>{plan.sessionCount - plan.sessionsDone}</b> seans hakkı · tarih yok</>,
+                actionLabel: 'Seans planla',
+                actionKind: 'ink',
+                run: () => setModalCustomer(customer),
+            })),
+            // 60+ gündür uğramamış
+            ...lost.map((c): Opportunity => ({
+                id: `lost-${c.id}`,
+                kind: 'lost',
+                label: 'Uzaklaşıyor',
+                name: c.name,
+                context: c.lastVisit
+                    ? <>son ziyaret <b>{formatDateEU(c.lastVisit)}</b> · <b>{daysSince(c.lastVisit)}</b> gündür yok</>
+                    : <>uzun süredir gelmiyor</>,
+                actionLabel: 'Mesaj at',
+                actionKind: 'wa',
+                disabled: !c.phone,
+                run: () => { wa(c.phone, buildWinbackMessage({ customerName: firstName(c.name), businessName: business, comms })); },
+            })),
+        ];
+    }, [renewals, giftEarned, tomorrowPending, unplanned, lost, settings.businessName, settings.sector,
+        loyaltyThreshold, markRenewalOffered, redeemLoyalty, updateReservation]);
 
     // Müşteri başına aktif paket — kartta seans ilerlemesi
     const pkgByCustomer = useMemo(() => {
@@ -392,30 +483,11 @@ export function GuzellikDashboard() {
         setBusyId(null);
     };
 
-    // Ödeme Al: tahsilat + sadakat damgası + seansı kapat
-    const takePayment = async (r: Reservation) => {
-        if (busyId) return;
-        setBusyId(r.id);
-        const amount = sessionAmount(r);
-        if (amount > 0) {
-            await addPayment({
-                customerId: r.customerId, reservationId: r.id, staffId: r.staffId,
-                type: 'service', description: `${r.service} · ${r.customerName}`,
-                amount, method: 'cash',
-            });
-        }
-        await updateReservation(r.id, { status: 'completed', isPaid: true });
-        // Dijital müşteri kartı — her tamamlanan seans bir damga
-        if (loyaltyOn && r.customerId) {
-            const c = customerById.get(r.customerId);
-            const next = (c?.loyaltyStamps ?? 0) + 1;
-            await updateCustomer(r.customerId, { loyaltyStamps: next });
-            if (next >= loyaltyThreshold) toast.success(`🎁 ${r.customerName} hediye hak etti — ${next}/${loyaltyThreshold} damga`);
-            else toast.success(`Damga eklendi · ${next}/${loyaltyThreshold}`);
-        }
-        void refreshPackages();
-        setBusyId(null);
-    };
+    // Tahsilat dashboard'da YAPILMAZ — kasaya devredilir. Buradaki kısa yol
+    // ödeme yöntemini soramadığı için her tahsilatı "nakit" yazıyor, paket
+    // mahsubunu (allocatePayment) atlıyor ve sadakat damgasını ikinci bir yerde
+    // basıyordu. Kasa bunların üçünü de doğru yapan tek yüzey.
+    const openCashFor = (r: Reservation) => navigate(`/kasa?reservation=${encodeURIComponent(r.id)}`);
 
     // ── AI şeridi: bağlamsal tek cümle ────────────────────────────────────────
     const aiHint = useMemo(() => {
@@ -443,8 +515,8 @@ export function GuzellikDashboard() {
         { label: 'Kabinlerini ekle', done: activeResources.length > 0, to: '/settings' },
         { label: 'Personeli ekle', done: activeStaff.length > 0, to: '/staff' },
         { label: 'Hizmet ve fiyatları gir', done: services.some((s) => (s.price ?? 0) > 0), to: '/settings?tab=services' },
-        { label: 'İlk randevunu oluştur', done: reservations.length > 0, to: '/calendar' },
-    ], [activeResources.length, activeStaff.length, services, reservations.length]);
+        { label: `İlk ${resWord} oluştur`, done: reservations.length > 0, to: '/calendar' },
+    ], [activeResources.length, activeStaff.length, services, reservations.length, resWord]);
     const setupDone = setupSteps.filter((s) => s.done).length;
     const needsSetup = setupDone < setupSteps.length;
 
@@ -510,44 +582,51 @@ export function GuzellikDashboard() {
                         </section>
                     )}
 
-                    {/* Karşılama */}
-                    <section className="rounded-[20px] bg-[var(--dc-card)] border border-[var(--dc-border)] overflow-hidden flex items-stretch" style={{ boxShadow: SH_MD }}>
-                        <div className="flex-shrink-0 w-[104px] bg-[var(--dc-inkbox)] flex flex-col items-center justify-center gap-0.5 px-3 py-5">
-                            <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--dc-onbox-60)]" style={{ fontFamily: MONO }}>{weekday}</span>
-                            <span className="text-[40px] font-black text-[var(--dc-inkbox-fg)] leading-none tracking-[-0.04em]">{dayNum}</span>
-                            <span className="text-[11.5px] font-semibold text-[var(--dc-onbox-70)]">{monthShort}</span>
+                    {/* Karşılama — tasarım: Claude Design "Luera Fırsat Modülü v2".
+                        Tarih kutusu, metin bloğu, fırsat çarkı yuvası ve aksiyonlar
+                        tek satırda; çark yuvası boşsa kart sade hâline döner. */}
+                    <section className="opp-wc">
+                        <div className="opp-datebox">
+                            <span className="dw">{weekday.toLocaleUpperCase('tr')}</span>
+                            <span className="dd">{dayNum}</span>
+                            <span className="dm">{monthShort}</span>
                         </div>
-                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-5 px-6 py-5">
-                            <div className="flex-1 min-w-[260px]">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--dc-muted)] mb-1.5" style={{ fontFamily: MONO }}>
-                                    {settings.businessName || 'Güzellik Salonu'} · {nowTime}
-                                </p>
-                                {/* Karşılama YALNIZ günün iş hacmini söyler. Salonun anlık
-                                    durumu ("sakin" / "N müşteri içeride") tek yerde — alttaki
-                                    salon panelinde — yaşar; burada tekrar edilmez. */}
-                                <h1 className="text-[23px] font-extrabold text-[var(--dc-ink)] tracking-[-0.03em] leading-[1.18]">
-                                    {todayList.length === 0
-                                        ? <>Bugün için planlanmış seans yok ✨</>
-                                        : <>Bugün <b className="text-[var(--dc-orange-d)]">{todayList.length} seans</b> planlı.</>}
-                                </h1>
-                                <p className="text-[13px] text-[var(--dc-muted)] mt-1.5">
-                                    {todayList.length > 0 && <>
-                                        {doneToday.length} tamamlandı
-                                        {inSalon.length > 0 && <> · {inSalon.length} içeride</>}
-                                        {upcoming.length > 0 && <> · {upcoming.length} kaldı</>}
-                                        {noShow.length > 0 && <> · <span className="text-[var(--dc-red)]">{noShow.length} gelmedi</span></>}
-                                        {' · '}
-                                    </>}
-                                    {nextFreeCabin && <>{nextFreeCabin.name} <span style={{ fontFamily: MONO }}>{nextFreeCabin.freeAt}</span>'te boşalıyor · </>}
-                                    {nextThree[0] && <>sıradaki <span style={{ fontFamily: MONO }}>{nextThree[0].startTime}</span> {mask(nextThree[0].customerName)}</>}
-                                    {!nextThree[0] && actionCount > 0 && <><b className="text-[var(--dc-ink)] font-bold">{actionCount} fırsat</b> bekliyor</>}
-                                </p>
-                            </div>
-                            {/* Diğer modüllerle aynı buton dili: siyah birincil, hover'da turuncu */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <button className="btn secondary" onClick={() => navigate('/calendar')}>Takvimi Aç</button>
-                                <button className="btn primary" onClick={() => setModalCustomer(null)}><Plus className="w-3.5 h-3.5" />Yeni Seans</button>
-                            </div>
+                        <div className="opp-wc-main">
+                            <span className="kicker">{settings.businessName || 'Güzellik Salonu'} · {nowTime}</span>
+                            {/* Karşılama YALNIZ günün iş hacmini söyler. Salonun anlık
+                                durumu ("sakin" / "N müşteri içeride") tek yerde — alttaki
+                                salon panelinde — yaşar; burada tekrar edilmez. */}
+                            <h1>
+                                {todayList.length === 0
+                                    ? <>Bugün için planlanmış {resWord} yok ✨</>
+                                    : <>Bugün <b className="text-[var(--dc-orange-d)]">{todayList.length} {resWord}</b> planlı.</>}
+                            </h1>
+                            <span className="sub">
+                                {todayList.length > 0 && <>
+                                    {doneToday.length} tamamlandı
+                                    {inSalon.length > 0 && <> · {inSalon.length} içeride</>}
+                                    {upcoming.length > 0 && <> · {upcoming.length} kaldı</>}
+                                    {noShow.length > 0 && <> · <span className="text-[var(--dc-red)]">{noShow.length} gelmedi</span></>}
+                                </>}
+                                {opportunities.length > 0
+                                    ? <>{todayList.length > 0 && ' · '}<b>{opportunities.length} fırsat bekliyor</b></>
+                                    : todayList.length > 0 ? <> · takip işi yok</> : <>takip işi yok</>}
+                            </span>
+                        </div>
+                        <div className="opp-slot">
+                            <OpportunityWheel
+                                items={opportunities}
+                                busy={busyId}
+                                onAct={async (op) => {
+                                    if (busyId) return;
+                                    setBusyId(op.id);
+                                    try { await op.run(); } finally { setBusyId(null); }
+                                }}
+                            />
+                        </div>
+                        <div className="opp-wc-acts">
+                            <button className="b-out" onClick={() => navigate('/calendar')}>Takvimi Aç</button>
+                            <button className="b-fill" onClick={() => setModalCustomer(null)}><Plus className="w-3.5 h-3.5 inline -mt-px mr-1" />Yeni Seans</button>
                         </div>
                     </section>
 
@@ -581,7 +660,7 @@ export function GuzellikDashboard() {
                                         <span className="slim-note">
                                             {[
                                                 doneToday.length > 0 && `bugün ${doneToday.length} seans tamamlandı`,
-                                                'başka randevu yok',
+                                                `başka ${resWord} yok`,
                                                 freeCabins.length > 0 && `${freeCabins.length} ünite hazır`,
                                             ].filter(Boolean).join(' · ')}
                                         </span>
@@ -655,8 +734,8 @@ export function GuzellikDashboard() {
                                                 {waiting.length > 0
                                                     ? <span>{waiting.map((r) => `${mask(r.customerName)} (${r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0} dk)`).join(' · ')}</span>
                                                     : nextUp
-                                                        ? <span>Sıradaki randevu <span className="mono">{nextUp.startTime}</span> · {mask(nextUp.customerName)}</span>
-                                                        : <span>Bugün başka randevu yok</span>}
+                                                        ? <span>Sıradaki {resWord} <span className="mono">{nextUp.startTime}</span> · {mask(nextUp.customerName)}</span>
+                                                        : <span>Bugün başka {resWord} yok</span>}
                                             </div>
                                             <button className={cn('walkin-button', walkInOpen && 'on')} onClick={() => setWalkInOpen((v) => !v)}>
                                                 <Zap className="w-3.5 h-3.5" />Randevusuz müşteri
@@ -723,7 +802,7 @@ export function GuzellikDashboard() {
                                                 <div className="spark">✨</div>
                                                 <span className="eyebrow">Sıradaki</span>
                                                 {/* Salon durumu solda anlatılıyor — burada tekrar etmiyoruz */}
-                                                <h3>Bugün başka randevu yok.</h3>
+                                                <h3>Bugün başka {resWord} yok.</h3>
                                                 <button className="next-primary" onClick={() => setModalCustomer(null)}><Plus />Randevusuz müşteri al</button>
                                             </>
                                         )}
@@ -884,9 +963,9 @@ export function GuzellikDashboard() {
                                                 <button className="btn primary small" disabled={busyId === selected.id}
                                                     onClick={() => void advance(selected, 'completed')}>İşlemi bitir</button>
                                             )}
-                                            {ph === 'done' && (
-                                                <button className="btn primary small" disabled={busyId === selected.id}
-                                                    onClick={() => void takePayment(selected)}>Ödeme al{amount > 0 ? ` · ${fmtTL(amount)}` : ''}</button>
+                                            {ph === 'done' && cashOn && (
+                                                <button className="btn primary small"
+                                                    onClick={() => openCashFor(selected)}>Kasayı aç{amount > 0 ? ` · ${fmtTL(amount)}` : ''}</button>
                                             )}
                                         </div>
                                     </div>

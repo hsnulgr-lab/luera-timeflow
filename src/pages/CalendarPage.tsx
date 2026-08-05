@@ -5,11 +5,13 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, X, Sp
 import { useNavigate } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
 import { useLabels } from '@/hooks/useLabels';
-import { useStaff } from '@/hooks/useStaff';
-import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
-import { useResources } from '@/hooks/useResources';
-import { clockMin, addMinutesToTime, resolveSlot as resolveSlotShared, type SlotResolution, type SlotRules } from '@/lib/slotResolution';
+import { useSlotResolver } from '@/hooks/useSlotResolver';
+import { clockMin, addMinutesToTime, type SlotResolution } from '@/lib/slotResolution';
+import { monthGridOf, weekDaysOf } from '@/lib/calendarGrid';
+import { useCalendarDay } from '@/hooks/useCalendarDay';
+import { serviceSeedFor, missingSeedServices } from '@/lib/serviceSeeds';
 import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
+import { activeRiskFlags, evaluateEligibility } from '@/lib/serviceEligibility';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -22,12 +24,12 @@ import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
 import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAYS_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 - 19:00
 
 // ── Randevu Oluştur modalı tasarım tokenları (Luera v2) ───────────────────────
 // Renkler dashboard'ın --dc-* tema değişkenlerine bağlı: kök ".dash-theme[.dark]"
@@ -117,31 +119,22 @@ function waLinkTR(phone: string, text: string) {
     return `https://wa.me/${normalizePhone(phone) ?? phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 }
 
-// Diş kliniği için hazır tedavi seti — Hizmet listesi hâlâ genel varsayılanlardaysa
-// modal içinden tek tıkla yüklenir (mevcut hizmetler silinmez, eksikler eklenir).
-const DENTAL_SERVICE_SET: { name: string; duration: number; color: string }[] = [
-    { name: 'Muayene', duration: 20, color: '#FF5A1F' },
-    { name: 'Kontrol', duration: 15, color: '#E8973C' },
-    { name: 'Dolgu', duration: 45, color: '#3F9D9A' },
-    { name: 'Kanal Tedavisi', duration: 60, color: '#8E70B2' },
-    { name: 'Diş Taşı Temizliği', duration: 30, color: '#5B7CC2' },
-    { name: 'Diş Çekimi', duration: 30, color: '#C95A3C' },
-    { name: 'İmplant', duration: 90, color: '#5E9C6C' },
-    { name: 'Beyazlatma', duration: 60, color: '#CB5E84' },
-];
-
 export const CalendarPage = () => {
     const { dark } = useTheme();
-    const { reservations, addReservation, settings, isSettingsLoading, checkConflict, updateSettings } = useReservations();
+    const { reservations, addReservation, settings, isSettingsLoading, updateSettings } = useReservations();
     const { t } = useLabels();
-    // Kaynak + sektöre özel randevu alanları (050/051)
-    const { resources } = useResources();
+    // Kaynak + sektöre özel randevu alanları (050/051).
+    // Uygunluk verisi ve kuralları useSlotResolver'dan gelir: kural nesnesi
+    // burada ikinci kez elle kurulunca iki yüzey aynı taslağa farklı cevap
+    // verebiliyordu. Hook'lar SWR cache'li — ikinci bir ağ isteği doğmaz.
+    const { staff, resources, resolve: resolveSlotWith, findSlots } = useSlotResolver();
+    // Saat ekseni, kapalı gün ve doluluk artık işletmenin gerçek çalışma
+    // saatlerinden okunur — eksen 08–19 aralığına sabitlenmiş durumdaydı.
+    const { isClosed, axisFor, occupancyOf } = useCalendarDay();
     const [resourceId, setResourceId] = useState<string | null>(null);
     const resourceTypeLabel = profileForSector(settings.sector).resourceTypes[0] || 'Kaynak';
     const cfDefs = fieldDefsForSector(settings.sector, 'reservation');
     const [cfValues, setCfValues] = useState<Record<string, string | number | boolean>>({});
-    const { staff, isLoading: staffLoading } = useStaff();
-    const { timeOff, isLoading: timeOffLoading } = useStaffTimeOff();
     const { allCustomers } = useCustomers();
     const [staffFilter, setStaffFilter] = useState<string>('all');
     const [staffMenuOpen, setStaffMenuOpen] = useState(false);
@@ -278,51 +271,55 @@ export const CalendarPage = () => {
     const medicalAlertsOf = (c?: { customFields?: Record<string, string | number | boolean> }) => {
         const cf = c?.customFields || {};
         return [
+            // Sektörün kontrendikasyon bayrakları (güzellik: hamilelik) — bu
+            // uyarılar eskiden yalnız güzellik müşteri kartında görünüyordu,
+            // randevunun kurulduğu ekranda değil.
+            ...activeRiskFlags(c, settings.sector).map((f) => `⚠ ${f.label}${f.note ? ` — ${f.note}` : ''}`),
+            cf.cilt_tipi ? `Cilt: ${cf.cilt_tipi}` : null,
             cf.alerji ? `Alerji: ${cf.alerji}` : null,
             cf.ilaclar ? `İlaç: ${cf.ilaclar}` : null,
             cf.kronik ? `Kronik: ${cf.kronik}` : null,
         ].filter((x): x is string => !!x);
     };
 
-    // Slot çözümü ortak kural katmanından gelir (lib/slotResolution.ts).
-    // Sayfa kendi hook örneklerini zaten tuttuğu için kuralları burada kurar
-    // (useSlotResolver hook'u aynı veriyi ikinci kez çekmesin diye). Kural
-    // gövdesi Sağlık dashboard'uyla ortaktır: iki yüzey aynı taslağa aynı
-    // cevabı verir. Buradaki tek ek, sayfanın taslak bağlamı — seçili kaynak
-    // ve sepetteki satırlar.
-    const slotRules: SlotRules = useMemo(() => ({
-        staff, staffLoading, timeOff, timeOffLoading,
-        workingHours: settings.workingHours || [],
-        reservations, resources, checkConflict,
-        staffWord: t('staff').toLocaleLowerCase('tr'),
-        resourceTypeLabel,
-    }), [staff, staffLoading, timeOff, timeOffLoading, settings.workingHours,
-        reservations, resources, checkConflict, t, resourceTypeLabel]);
+    // Taslaktaki müşteri — kilitli değilse telefondan çözülür. Uygunluk kontrolü
+    // bunun üzerinden yapılır (bkz. lineFromDraft).
+    const draftCustomer = useMemo(
+        () => lockedCustomer
+            || allCustomers.find((c) => c.phone.replace(/\s+/g, '') === newRes.customerPhone.replace(/\s+/g, '')),
+        [lockedCustomer, allCustomers, newRes.customerPhone],
+    );
 
+    // Taslak bağlamı (seçili kaynak + sepetteki satırlar) her sorguya eklenir;
+    // kuralların kendisi hook'tan gelir.
     const resolveSlot = useCallback((date: string, startTime: string, endTime: string, requestedId?: string): SlotResolution => (
-        resolveSlotShared(slotRules, { date, startTime, endTime, staffId: requestedId, resourceId, cart: resLines })
-    ), [slotRules, resourceId, resLines]);
+        resolveSlotWith({ date, startTime, endTime, staffId: requestedId, resourceId, cart: resLines })
+    ), [resolveSlotWith, resourceId, resLines]);
 
-    // Çakışma ön-uyarısı: uygun personel/kaynak bulunamadığında
-    // sonraki gerçek müsait saati önerir; süre korunur.
+    // Çakışma ön-uyarısı: uygun personel/kaynak bulunamadığında sonraki gerçek
+    // müsait saati önerir; süre korunur.
+    //
+    // Öneri artık findAvailableSlots'tan geliyor. Eskiden burada 30 dakikalık
+    // sabit adımlarla 16 kez ileri deneme yapılıyordu; o döngü işletmenin slot
+    // adımını (settings.slotDuration) ve org kapalı gününü hesaba katmadığı için
+    // gerçekte dolu ya da mesai dışı bir saati "uygun" diye önerebiliyordu.
     const draftConflict = useMemo(() => {
         if (!showNewDialog || !selectedDate || !newRes.startTime || !newRes.endTime) return null;
         const current = resolveSlot(selectedDate, newRes.startTime, newRes.endTime, newRes.staffId || undefined);
         if (!current.issue) return null;
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const dur = durationMin(newRes.startTime, newRes.endTime);
-        let [h, m] = newRes.startTime.split(':').map(Number);
-        let sug: { start: string; end: string } | null = null;
-        for (let i = 0; i < 16; i++) {
-            m += 30; if (m >= 60) { m -= 60; h++; }
-            if (h >= 22) break;
-            const s = `${pad(h)}:${pad(m)}`;
-            const eMin = h * 60 + m + dur;
-            const e = `${pad(Math.floor(eMin / 60))}:${pad(eMin % 60)}`;
-            if (!resolveSlot(selectedDate, s, e, newRes.staffId || undefined).issue) { sug = { start: s, end: e }; break; }
-        }
-        return { message: current.issue, sug };
-    }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resolveSlot]);
+        const [slot] = findSlots({
+            date: selectedDate,
+            durationMin: durationMin(newRes.startTime, newRes.endTime),
+            staffId: newRes.staffId || undefined,
+            resourceId: resourceId || undefined,
+            notBefore: newRes.startTime,
+            limit: 1,
+        });
+        return {
+            message: current.issue,
+            sug: slot ? { start: slot.startTime, end: slot.endTime } : null,
+        };
+    }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resolveSlot, findSlots, resourceId]);
 
     // Canlı özet (v5): Oluştur'a basmadan ne oluşturulacağı okunur
     const draftSummary = useMemo(() => {
@@ -338,23 +335,26 @@ export const CalendarPage = () => {
         ].filter(Boolean).join(' · ');
     }, [selectedDate, newRes.service, newRes.startTime, newRes.endTime, newRes.customerName, newRes.staffId, staff, resources, resourceId, t]);
 
-    // Diş tedavi seti henüz yüklü değilse (Dolgu yoksa) modalda öneri butonu göster
-    const [loadingDentalSet, setLoadingDentalSet] = useState(false);
-    const dentalSetMissing = settings.sector === 'dis' && !settings.services.some(s => s.name === 'Dolgu');
-    const loadDentalServiceSet = async () => {
-        if (loadingDentalSet) return;
-        setLoadingDentalSet(true);
-        const existing = new Set(settings.services.map(s => s.name.toLowerCase()));
-        const additions = DENTAL_SERVICE_SET
-            .filter(s => !existing.has(s.name.toLowerCase()))
-            .map((s, i) => ({ id: `svc-${Date.now()}-${i}`, ...s }));
+    // Sektörün hazır hizmet seti henüz yüklü değilse modalda öneri gösterilir.
+    // Set içeriği lib/serviceSeeds'te — genel takvim yüzü tek bir sektörün
+    // içeriğini taşımaz, yeni sektör eklemek bu sayfayı düzenlemeyi gerektirmez.
+    const [loadingSeed, setLoadingSeed] = useState(false);
+    const serviceSeed = serviceSeedFor(settings.sector);
+    const missingSeed = useMemo(
+        () => (serviceSeed ? missingSeedServices(serviceSeed, settings.services) : []),
+        [serviceSeed, settings.services],
+    );
+    const seedMissing = Boolean(serviceSeed)
+        && !settings.services.some((s) => s.name === serviceSeed?.probeName);
+    const loadServiceSeed = async () => {
+        if (loadingSeed || !serviceSeed) return;
+        setLoadingSeed(true);
+        const additions = missingSeed.map((s, i) => ({ id: `svc-${Date.now()}-${i}`, ...s }));
         try {
             const saved = await updateSettings({ ...settings, services: [...settings.services, ...additions] });
-            if (saved) {
-                toast.success('Diş tedavi seti eklendi — süre ve ücretleri Ayarlar\'dan düzenleyebilirsiniz');
-            }
+            if (saved) toast.success(`${serviceSeed.label} eklendi — süre ve ücretleri Ayarlar'dan düzenleyebilirsiniz`);
         } finally {
-            setLoadingDentalSet(false);
+            setLoadingSeed(false);
         }
     };
 
@@ -426,63 +426,32 @@ export const CalendarPage = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    const daysInMonth = useMemo(() => {
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const startDow = (firstDay.getDay() + 6) % 7;
+    // Ay ızgarası ortak geometriden (lib/calendarGrid.monthGridOf): sabit 42
+    // hücre, pazartesi başlangıçlı, ay/yıl sınırı dahil.
+    const daysInMonth = useMemo(
+        () => monthGridOf(year, month).map(({ iso, inMonth }) => ({
+            date: iso,
+            day: Number(iso.slice(8, 10)),
+            isCurrentMonth: inMonth,
+        })),
+        [year, month],
+    );
 
-        const days: { date: string; day: number; isCurrentMonth: boolean }[] = [];
+    const weekDays = useMemo(
+        () => weekDaysOf(toISODate(currentDate)).map((iso, i) => ({
+            date: iso,
+            day: Number(iso.slice(8, 10)),
+            dayName: DAYS_TR[i],
+            fullName: DAYS_FULL[i],
+            isToday: iso === today,
+        })),
+        [currentDate, today],
+    );
 
-        const prevLastDay = new Date(year, month, 0).getDate();
-        for (let i = startDow - 1; i >= 0; i--) {
-            const d = prevLastDay - i;
-            const prevMonth = month === 0 ? 11 : month - 1;
-            const prevYear = month === 0 ? year - 1 : year;
-            days.push({
-                date: `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-                day: d,
-                isCurrentMonth: false,
-            });
-        }
-
-        for (let d = 1; d <= lastDay.getDate(); d++) {
-            days.push({
-                date: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-                day: d,
-                isCurrentMonth: true,
-            });
-        }
-
-        const remaining = 42 - days.length;
-        for (let d = 1; d <= remaining; d++) {
-            const nextMonth = month === 11 ? 0 : month + 1;
-            const nextYear = month === 11 ? year + 1 : year;
-            days.push({
-                date: `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-                day: d,
-                isCurrentMonth: false,
-            });
-        }
-
-        return days;
-    }, [year, month]);
-
-    const weekDays = useMemo(() => {
-        const start = new Date(currentDate);
-        const dow = (start.getDay() + 6) % 7;
-        start.setDate(start.getDate() - dow);
-        return Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(start);
-            d.setDate(d.getDate() + i);
-            return {
-                date: toISODate(d),
-                day: d.getDate(),
-                dayName: DAYS_TR[i],
-                fullName: DAYS_FULL[i],
-                isToday: toISODate(d) === today,
-            };
-        });
-    }, [currentDate, today]);
+    // Hafta ekseni 7 günün BİRLEŞİMİ; gün ekseni seçili günün penceresi.
+    // Kapalı günler eksene katılmaz (bkz. useCalendarDay.axisFor).
+    const weekAxis = useMemo(() => axisFor(weekDays.map((d) => d.date)), [axisFor, weekDays]);
+    const dayAxis = useMemo(() => axisFor([toISODate(currentDate)]), [axisFor, currentDate]);
 
     const filteredReservations = useMemo(() =>
         staffFilter === 'all'
@@ -534,9 +503,17 @@ export const CalendarPage = () => {
     const lineFromDraft = (): { ok: boolean; line?: typeof resLines[number] } => {
         if (!newRes.service) { toast.error('Hizmet seçin'); return { ok: false }; }
         if (!selectedDate) return { ok: false };
+        const svc = settings.services.find(s => s.name === newRes.service);
+        // Kontrendikasyon — sektör kuralı (lib/serviceEligibility). Bu kontrol
+        // eskiden yalnız güzellik seans modalindeydi; genel takvim aynı müşteriye
+        // aynı işlemi serbestçe kaydediyordu.
+        const verdict = evaluateEligibility(draftCustomer, svc || { name: newRes.service }, settings.sector);
+        if (verdict.blocked) {
+            toast.error(`${newRes.service} uygulanamaz — ${verdict.message}`);
+            return { ok: false };
+        }
         const resolved = resolveSlot(selectedDate, newRes.startTime, newRes.endTime, newRes.staffId || undefined);
         if (resolved.issue) { toast.error(resolved.issue); return { ok: false }; }
-        const svc = settings.services.find(s => s.name === newRes.service);
         const st = resolved.staffMember;
         return { ok: true, line: { id: (crypto.randomUUID?.() || String(Date.now())), service: newRes.service, serviceColor: svc?.color || '#FF5A1F', staffId: st?.id || '', staffName: st?.name, staffColor: st?.color, startTime: newRes.startTime, endTime: newRes.endTime } };
     };
@@ -560,26 +537,24 @@ export const CalendarPage = () => {
         setCreatingReservation(true);
         const groupId = lines.length > 1 ? (crypto.randomUUID?.() || String(Date.now())) : undefined;
         const createdLines: typeof lines = [];
-        const selRes = resources.find((x) => x.id === resourceId);
         for (const ln of lines) {
-            const start = clockMin(ln.startTime), end = clockMin(ln.endTime);
-            const conflict = checkConflict(selectedDate, ln.startTime, ln.endTime, undefined, ln.staffId || undefined);
-            if (conflict) { toast.error(`Çakışma! ${ln.staffName || ''} ${ln.startTime} — atlandı`); continue; }
-            if (ln.staffId && createdLines.some((x) => x.staffId === ln.staffId
-                && clockMin(x.startTime) < end && start < clockMin(x.endTime))) {
-                toast.error(`${ln.staffName || t('staff')} ${ln.startTime} saatinde başka bir işleme atandı — atlandı`);
+            // Kaydetmeden hemen önceki son doğrulama ORTAK kural katmanından
+            // gelir (resolveSlot): çalışma saati, izin, randevu çakışması ve
+            // kaynak kapasitesi tek yerde hesaplanır. Burada eskiden bunların
+            // elle yazılmış bir kopyası vardı ve kural katmanıyla ayrışabiliyordu.
+            // `cart` zaten bu turda oluşturulmuş satırları da hesaba katar, yani
+            // toplu kayıtta parti içi çakışma da yakalanır.
+            const verdict = resolveSlotWith({
+                date: selectedDate,
+                startTime: ln.startTime,
+                endTime: ln.endTime,
+                staffId: ln.staffId || undefined,
+                resourceId,
+                cart: createdLines.map((x) => ({ staffId: x.staffId || '', startTime: x.startTime, endTime: x.endTime })),
+            });
+            if (verdict.issue) {
+                toast.error(`${ln.startTime} · ${verdict.issue} — atlandı`);
                 continue;
-            }
-            if (resourceId) {
-                const capacity = Math.max(1, selRes?.capacity || 1);
-                const dbCount = reservations.filter((r) => r.resourceId === resourceId
-                    && r.date === selectedDate && r.status !== 'cancelled'
-                    && clockMin(r.startTime) < end && start < clockMin(r.endTime)).length;
-                const batchCount = createdLines.filter((x) => clockMin(x.startTime) < end && start < clockMin(x.endTime)).length;
-                if (dbCount + batchCount >= capacity) {
-                    toast.error(`${selRes?.name || resourceTypeLabel} ${ln.startTime} saatinde dolu — atlandı`);
-                    continue;
-                }
             }
             const res = await addReservation({
                 // Mevcut müşteri seçildiyse id'sini bağla; yazılan telefon kayıtlı bir
@@ -622,11 +597,15 @@ export const CalendarPage = () => {
 
     const todayCount = filteredReservations.filter(r => r.date === today && r.status !== 'cancelled').length;
     const weekTotal = weekDays.reduce((sum, d) => sum + getDateCount(d.date), 0);
+    // Doluluk: planlanan dakika / (açık dakika × kaynak sayısı). Kapalı günde 0.
+    const todayOccupancy = occupancyOf(today, Math.max(1, resources.filter((r) => r.isActive).length));
 
     return (
-        <div className={cn("dash-theme flex-1 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
+        <div className={cn("dash-theme calendar-focus-page relative isolate flex-1 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
+            <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-8 h-64 w-64 rounded-full border border-[#FF5A1F]/10 opacity-70" />
+            <div aria-hidden="true" className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full border-[24px] border-[#FF5A1F]/[0.035]" />
             {/* Tek Satır Araç Çubuğu */}
-            <div className="relative px-3 sm:px-6 py-3 border-b border-[var(--dc-border)] bg-[var(--dc-surface)]">
+            <div className="relative z-[2] mx-3 mt-3 rounded-[18px] border border-[var(--dc-border)] bg-[var(--dc-surface)] px-3 py-3 shadow-[0_5px_18px_rgba(14,14,14,0.06)] animate-in fade-in slide-in-from-top-2 duration-500 motion-reduce:animate-none sm:mx-5 sm:px-5">
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Sol: Dönem navigasyonu */}
                     <div className="flex items-center gap-1">
@@ -636,7 +615,7 @@ export const CalendarPage = () => {
                         >
                             <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <h1 className="text-lg font-extrabold text-[var(--dc-ink)] tracking-tight text-center min-w-[180px]">
+                        <h1 className="min-w-[190px] text-center text-xl font-extrabold tracking-tight text-[var(--dc-ink)]">
                             {view === 'day'
                                 ? currentDate.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
                                 : `${MONTHS_TR[month]} ${year}`
@@ -665,6 +644,11 @@ export const CalendarPage = () => {
                         <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--dc-ink)] px-2.5 py-1 rounded-full bg-[var(--dc-surface)] border border-[var(--dc-border)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--dc-muted)]" />
                             Hafta <span className="tabular-nums">{weekTotal}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--dc-ink)] px-2.5 py-1 rounded-full bg-[var(--dc-surface)] border border-[var(--dc-border)]"
+                            title="Bugün planlanan sürenin çalışma saatlerine oranı">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--dc-green)]" />
+                            Doluluk <span className="tabular-nums">%{todayOccupancy}</span>
                         </span>
                     </div>
 
@@ -747,19 +731,23 @@ export const CalendarPage = () => {
                             </div>
                         )}
 
+                        <div className="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-[0_1px_3px_rgba(14,14,14,0.04)]">
+                            <NotificationDropdown />
+                        </div>
+
                         <button
                             onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] hover:bg-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(255,90,31,0.28)] transition-all active:translate-y-0"
                         >
                             <Plus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Randevu Oluştur</span>
+                            <span className="hidden sm:inline">{t('newReservation')}</span>
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Calendar Content */}
-            <div className="px-3 sm:px-6 pb-3 pt-3 flex-1 flex flex-col min-h-0">
+            <div className="relative z-[1] flex min-h-0 flex-1 flex-col px-3 pb-4 pt-3 animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none sm:px-5">
                 {/* Month View */}
                 {view === 'month' && (
                     <div className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_2px_8px_rgba(14,14,14,0.07),0_8px_24px_rgba(14,14,14,0.06)] overflow-hidden flex-1 flex flex-col">
@@ -782,6 +770,9 @@ export const CalendarPage = () => {
                                 const isToday = date === today;
                                 const dayOfWeek = idx % 7;
                                 const isWeekend = dayOfWeek >= 5;
+                                // İşletmenin kapalı günü: hafta sonu varsayımı değil,
+                                // gerçek çalışma saatleri (useCalendarDay).
+                                const dayClosed = isClosed(date);
                                 const dateReservations = filteredReservations
                                     .filter(r => r.date === date && r.status !== 'cancelled')
                                     .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -793,6 +784,7 @@ export const CalendarPage = () => {
                                         className={cn(
                                             "relative flex flex-col px-1 pt-1.5 pb-1 sm:px-2 sm:pt-2 sm:pb-1.5 border-b border-r border-[var(--dc-border)] text-left transition-colors duration-150 group overflow-hidden min-h-0",
                                             !isCurrentMonth && "bg-[var(--dc-border-soft)]",
+                                            dayClosed && "bg-[var(--dc-border-soft)] opacity-60",
                                             isToday && "bg-[#FF5A1F]/[0.06]",
                                             "hover:bg-[var(--dc-surface2)]",
                                         )}
@@ -807,6 +799,7 @@ export const CalendarPage = () => {
                                             )}>
                                                 {day}
                                             </span>
+                                            {dayClosed && <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--dc-muted2)]">Kapalı</span>}
                                         </div>
 
                                         {count > 0 && (
@@ -829,7 +822,7 @@ export const CalendarPage = () => {
                                                     );
                                                 })}
                                                 {count > (isMobile ? 1 : 2) && (
-                                                    <span className="block text-[10px] text-[var(--dc-muted)] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - (isMobile ? 1 : 2)}{!isMobile && ' randevu daha'}</span>
+                                                    <span className="block text-[10px] text-[var(--dc-muted)] pl-1 pt-0.5 font-bold flex-shrink-0">+{count - (isMobile ? 1 : 2)}{!isMobile && ` ${t('reservation').toLocaleLowerCase('tr')} daha`}</span>
                                                 )}
                                             </div>
                                         )}
@@ -861,14 +854,16 @@ export const CalendarPage = () => {
                                     )}>{d.dayName}</span>
                                     <span className={cn(
                                         "block text-lg font-bold mt-0.5",
-                                        d.isToday ? "text-[var(--dc-orange-d)]" : "text-[var(--dc-ink)]"
+                                        isClosed(d.date) ? "text-[var(--dc-muted2)]"
+                                            : d.isToday ? "text-[var(--dc-orange-d)]" : "text-[var(--dc-ink)]"
                                     )}>{d.day}</span>
+                                    {isClosed(d.date) && <span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--dc-muted2)]">Kapalı</span>}
                                 </div>
                             ))}
                         </div>
 
                         <div className="flex-1 min-h-0 overflow-y-auto">
-                        {HOURS.map((hour) => (
+                        {weekAxis.hours.map((hour) => (
                             <div key={hour} className="grid grid-cols-8 border-b border-[var(--dc-border-soft)]">
                                 <div className="border-r border-[var(--dc-border)] p-2 text-right pr-3 bg-[var(--dc-surface2)]">
                                     <span className="text-[11px] font-bold text-[var(--dc-muted)] tabular-nums">{String(hour).padStart(2, '0')}:00</span>
@@ -943,7 +938,7 @@ export const CalendarPage = () => {
                                         ))}
                                     </div>
                                     <span className="text-xs text-[var(--dc-muted)] font-medium">
-                                        {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} randevu
+                                        {filteredReservations.filter(r => r.date === toISODate(currentDate) && r.status !== 'cancelled').length} {t('reservation').toLocaleLowerCase('tr')}
                                     </span>
                                 </div>
                             </div>
@@ -974,6 +969,7 @@ export const CalendarPage = () => {
                                 <ResourceLaneGrid
                                     dateStr={toISODate(currentDate)}
                                     today={today}
+                                    hours={dayAxis.hours}
                                     resources={resources}
                                     resourceTypeLabel={resourceTypeLabel}
                                     reservations={filteredReservations}
@@ -988,7 +984,7 @@ export const CalendarPage = () => {
                                 />
                             ) : (
                             <div className="divide-y divide-[var(--dc-border-soft)] flex-1 min-h-0 overflow-y-auto">
-                                {HOURS.map((hour) => {
+                                {dayAxis.hours.map((hour) => {
                                     const dateStr = toISODate(currentDate);
                                     const hourRes = filteredReservations.filter(r =>
                                         r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour && r.status !== 'cancelled'
@@ -1103,7 +1099,7 @@ export const CalendarPage = () => {
                                             ) : (
                                                 <div className="text-center py-8">
                                                     <CalendarIcon className="w-8 h-8 text-[var(--dc-muted2)] mx-auto mb-2" />
-                                                    <p className="text-xs text-[var(--dc-muted)]">Bu gün için randevu yok</p>
+                                                    <p className="text-xs text-[var(--dc-muted)]">Bu gün için {t('reservation').toLocaleLowerCase('tr')} yok</p>
                                                 </div>
                                             )}
                                         </>
@@ -1153,7 +1149,7 @@ export const CalendarPage = () => {
                                 <div>
                                     <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>
                                         {successData.createdCount < successData.requestedCount
-                                            ? 'Randevu Kısmen Oluşturuldu'
+                                            ? `${t('reservation')} Kısmen Oluşturuldu`
                                             : `${t('reservation')} Oluşturuldu`}
                                     </div>
                                     <div style={{ fontSize: 13, color: M.muted, lineHeight: 1.6, maxWidth: 310, marginTop: 4 }}>
@@ -1183,7 +1179,7 @@ export const CalendarPage = () => {
                                 </div>
                                 {/* WhatsApp bildirimi — v5 başarı ekranı ikincil aksiyonu */}
                                 {successData.customerPhone && (
-                                    <a href={waLinkTR(successData.customerPhone, `Merhaba ${successData.customerName}, randevunuz oluşturuldu: ${successData.dateLabel} ${successData.startTime}–${successData.endTime} · ${successData.service}. Görüşmek üzere!`)}
+                                    <a href={waLinkTR(successData.customerPhone, `Merhaba ${successData.customerName}, ${t('reservation').toLocaleLowerCase('tr')} kaydınız oluşturuldu: ${successData.dateLabel} ${successData.startTime}–${successData.endTime} · ${successData.service}. Görüşmek üzere!`)}
                                         target="_blank" rel="noreferrer"
                                         className="inline-flex items-center justify-center gap-2 w-full transition-all"
                                         style={{ height: 42, borderRadius: 999, fontWeight: 700, fontSize: 13, border: `1px solid ${M.border2}`, color: M.ink, background: 'transparent' }}>
@@ -1330,12 +1326,14 @@ export const CalendarPage = () => {
                                         );
                                     })}
                                 </div>
-                                {dentalSetMissing && (
-                                    <button onClick={loadDentalServiceSet} disabled={loadingDentalSet} className="w-full text-left transition-colors"
-                                        style={{ marginTop: 7, padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: loadingDentalSet ? 'wait' : 'pointer' }}
+                                {seedMissing && serviceSeed && (
+                                    <button onClick={loadServiceSeed} disabled={loadingSeed} className="w-full text-left transition-colors"
+                                        style={{ marginTop: 7, padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: loadingSeed ? 'wait' : 'pointer' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                        {loadingDentalSet ? 'Ekleniyor…' : '+ Diş tedavi setini yükle — Muayene, Dolgu, Kanal Tedavisi, Diş Taşı Temizliği…'}
+                                        {loadingSeed
+                                            ? 'Ekleniyor…'
+                                            : `+ ${serviceSeed.label}ni yükle — ${serviceSeed.services.slice(0, 4).map((x) => x.name).join(', ')}…`}
                                     </button>
                                 )}
                             </div>
@@ -1431,7 +1429,7 @@ export const CalendarPage = () => {
                                         style={{ padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: 'pointer' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                        Henüz {resourceTypeLabel.toLowerCase()} tanımlı değil — randevuları {resourceTypeLabel.toLowerCase()} bazında takip etmek için Ayarlar'dan ekleyin →
+                                        Henüz {resourceTypeLabel.toLowerCase()} tanımlı değil — {t('reservations').toLocaleLowerCase('tr')} {resourceTypeLabel.toLowerCase()} bazında takip etmek için Ayarlar'dan ekleyin →
                                     </button>
                                 </div>
                             )}
@@ -1592,7 +1590,7 @@ export const CalendarPage = () => {
                                     // v9: eksik zorunlu alanı butonda göster
                                     const miss = !newRes.customerName ? `${t('customer')} seçin` : !newRes.customerPhone ? 'Telefon girin' : !newRes.service && resLines.length === 0 ? `${t('service')} seçin` : '';
                                     const n = resLines.length + (newRes.service ? 1 : 0);
-                                    const label = n > 1 ? `Randevu Oluştur · ${n} işlem` : 'Randevu Oluştur';
+                                    const label = n > 1 ? `${t('newReservation')} · ${n} işlem` : t('newReservation');
                                     return <>{label}{miss && <span style={{ fontSize: 12, fontWeight: 600, opacity: .85, marginLeft: 6 }}>· {miss}</span>}</>;
                                 })()}
                                 {!creatingReservation && <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>}

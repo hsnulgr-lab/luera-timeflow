@@ -5,6 +5,7 @@ import { useTables } from '@/hooks/useTables';
 import { useTableReservations, useUpcomingTableReservations } from '@/hooks/useTableReservations';
 import { useQueue } from '@/hooks/useQueue';
 import { usePayments } from '@/hooks/usePayments';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useReservations } from '@/hooks/useReservations';
 import { useStaff } from '@/hooks/useStaff';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -50,6 +51,7 @@ export function MasaDashboard() {
     const { waiting: waitlist } = useQueue();
     const { reservations: upcoming } = useUpcomingTableReservations();
     const { settings } = useReservations();
+    const cashOn = useCashEnabled();
     const { stats, payments } = usePayments();
     const { staff } = useStaff();
 
@@ -184,7 +186,7 @@ export function MasaDashboard() {
                             label="Ciro" value={`${fmt(stats.today)} ₺`} sublabel="Bugün"
                             compareLabel="Bu hafta" compareValue={`${fmt(stats.week)} ₺`}
                             trend={compareTrend(stats.today, revYesterday)}
-                            onClick={() => navigate('/kasa')}
+                            onClick={cashOn ? () => navigate('/kasa') : undefined}
                         >
                             <Sparkline data={revLast7} />
                         </StatCard>

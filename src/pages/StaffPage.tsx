@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X, Clock, Edit2, Trash2, Plane, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
+import { usePayments } from '@/hooks/usePayments';
 import { useStaffTimeOff } from '@/hooks/useStaffTimeOff';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Staff, WorkingHours } from '@/types';
 import { type StaffRole } from '@/lib/staffPermissions';
-import { useStaffRoles } from '@/hooks/useLabels';
+import { useLabels, useStaffRoles } from '@/hooks/useLabels';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { commissionFor, monthRange } from '@/lib/staffCommission';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -75,10 +77,12 @@ const DEFAULT_HOURS: WorkingHours[] = [
 interface StaffForm {
   name: string; role: StaffRole; specialty: string; phone: string; email: string;
   color: string; useCustomHours: boolean; workingHours: WorkingHours[]; pin: string;
+  commissionRate: string;
 }
 const emptyForm = (): StaffForm => ({
   name:'', role:'staff', specialty:'', phone:'', email:'',
   color: COLORS[0], useCustomHours: false, workingHours: DEFAULT_HOURS, pin:'',
+  commissionRate: '0',
 });
 
 // ── Inline button helper ──────────────────────────────────────────────────────
@@ -101,8 +105,14 @@ export const StaffPage = () => {
   const { T, dark } = useT();
   const { staff, isLoading, addStaff, updateStaff, deleteStaff } = useStaff();
   const { forStaff, addTimeOff, removeTimeOff } = useStaffTimeOff();
-  const { reservations } = useReservations();
+  const { payments } = usePayments();
+  const { reservations, settings } = useReservations();
   const { roleOptions, roleLabel } = useStaffRoles();
+  // Sektör dili: diş kliniğinde sidebar "Hekimler" derken sayfa "Personel"
+  // diyordu — başlık/butonlar sektör etiketinden okunur.
+  const { t } = useLabels();
+  const staffWord = t('staff');
+  const staffPluralWord = t('staffPlural');
 
   const [timeOffDate, setTimeOffDate]     = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
@@ -135,7 +145,8 @@ export const StaffPage = () => {
   const openEdit = (m: Staff) => {
     setEditing(m);
     setForm({ name:m.name, role:m.role, specialty:m.specialty||'', phone:m.phone||'', email:m.email||'',
-      color:m.color, useCustomHours:!!m.workingHours, workingHours:m.workingHours||DEFAULT_HOURS, pin:'' });
+      color:m.color, useCustomHours:!!m.workingHours, workingHours:m.workingHours||DEFAULT_HOURS, pin:'',
+      commissionRate: String(m.commissionRate ?? 0) });
     setShowModal(true);
   };
   const handleSave = async () => {
@@ -146,6 +157,7 @@ export const StaffPage = () => {
     const payload = { name:form.name.trim(), role:form.role, specialty:form.specialty.trim()||undefined,
       phone:form.phone.trim()||undefined, email:form.email.trim()||undefined,
       color:form.color, workingHours:form.useCustomHours?form.workingHours:undefined, isActive:true,
+      commissionRate: Math.max(0, Math.min(100, Number(form.commissionRate) || 0)),
       ...(pinHash ? { pin: pinHash } : {}) };
     if (editing) { await updateStaff(editing.id, payload); toast.success('Personel güncellendi'); }
     else         { await addStaff(payload);                 toast.success('Personel eklendi'); }
@@ -179,7 +191,7 @@ export const StaffPage = () => {
   const statCards = [
     { icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="5" r="2.5" stroke={T.ink} strokeWidth="1.4" opacity=".7"/><path d="M1 14c0-3 2.7-5 6-5" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><circle cx="12" cy="5" r="2.5" stroke={T.ink} strokeWidth="1.4" opacity=".4"/><path d="M10 14c0-2.5 1.8-4.3 3.8-4.8" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" opacity=".4"/></svg>, val: staff.length, lbl:'Aktif Çalışan', icoStyle:{ background:T.surface2 }, valColor:T.ink },
     { icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke={T.orange} strokeWidth="1.4"/><path d="M5 8h6M8 5v6" stroke={T.orange} strokeWidth="1.4" strokeLinecap="round"/></svg>, val:weekResCount, lbl:'Bu Hafta', icoStyle:{ background:dark?'rgba(255,90,31,0.12)':'rgba(255,90,31,0.08)' }, valColor:T.orange },
-    { icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><polyline points="2,12 6,8 9,11 14,5" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/></svg>, val:avgPerStaff, lbl:'Ort. Randevu', icoStyle:{ background:T.surface2 }, valColor:T.ink },
+    { icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><polyline points="2,12 6,8 9,11 14,5" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/></svg>, val:avgPerStaff, lbl:`Ort. ${t('reservation')}`, icoStyle:{ background:T.surface2 }, valColor:T.ink },
     { icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke={T.ink} strokeWidth="1.4" opacity=".7"/><path d="M8 5v3.5l2 1" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" opacity=".7"/></svg>, val:`%${completedPct}`, lbl:'Tamamlanma', icoStyle:{ background:T.surface2 }, valColor:T.ink },
   ];
 
@@ -198,7 +210,7 @@ export const StaffPage = () => {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize:'21px', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1, color:T.ink }}>Personel</div>
+            <div style={{ fontSize:'21px', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1, color:T.ink }}>{staffPluralWord}</div>
             <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{staff.length} aktif çalışan</div>
           </div>
         </div>
@@ -206,7 +218,7 @@ export const StaffPage = () => {
           style={{ display:'flex', alignItems:'center', gap:'7px', background:avatarBg, color:avatarFg, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
           onMouseEnter={e=>(e.currentTarget.style.background= dark?'#363028':'#2a2a2a')}
           onMouseLeave={e=>(e.currentTarget.style.background=avatarBg)}>
-          <Plus size={13} strokeWidth={2.5}/> Personel Ekle
+          <Plus size={13} strokeWidth={2.5}/> {staffWord} Ekle
         </button>
       </div>
 
@@ -322,7 +334,7 @@ export const StaffPage = () => {
       <div style={{ position:'fixed', top:0, right:0, bottom:0, width:340, background:T.surface, borderLeft:`1px solid ${T.border}`, zIndex:88, transform:panelOpen?'translateX(0)':'translateX(100%)', transition:'transform .3s cubic-bezier(.4,0,.2,1)', boxShadow:panelOpen?T.shadowLg:'none', display:'flex', flexDirection:'column' }}>
         {/* Panel header */}
         <div style={{ padding:'16px 18px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>Personel Detayı</div>
+          <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>{staffWord} Detayı</div>
           <button onClick={closePanel} style={{ width:28, height:28, borderRadius:T.rXs, display:'grid', placeItems:'center', border:'none', background:'none', cursor:'pointer', color:T.muted }}
             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2;(e.currentTarget as HTMLElement).style.color=T.ink}}
             onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted}}>
@@ -353,6 +365,38 @@ export const StaffPage = () => {
                       <div style={{ fontSize:'8.5px', fontWeight:800, textTransform:'uppercase', letterSpacing:'.1em', color:T.muted, marginTop:'3px' }}>{s.l}</div>
                     </div>
                   ))}
+                </div>
+              );
+            })()}
+
+            {/* Prim — bu ay. Tutar saklanmaz; tahsilat düzeltilirse prim de düzelir. */}
+            {(() => {
+              const period = monthRange();
+              const summary = commissionFor(selMember, {
+                payments,
+                reservations,
+                services: settings.services,
+                range: period,
+              });
+              const money = (n: number) => `₺${Math.round(n).toLocaleString('tr-TR')}`;
+              return (
+                <div style={{ marginBottom:'18px', border:`1px solid ${T.border}`, borderRadius:T.rSm, overflow:'hidden' }}>
+                  <div style={{ padding:'9px 12px', background:T.surface2, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted }}>Prim · {period.label}</span>
+                    <span style={{ fontSize:'10.5px', fontWeight:800, color:summary.rate ? T.orange : T.muted2 }}>%{summary.rate}</span>
+                  </div>
+                  {summary.rate === 0 ? (
+                    <div style={{ padding:'12px', fontSize:'11.5px', color:T.muted }}>
+                      Prim oranı tanımlı değil. Düzenle'den oran girin.
+                    </div>
+                  ) : (
+                    <div style={{ padding:'12px', display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:'10px' }}>
+                      <div>
+                        <div style={{ fontSize:'20px', fontWeight:900, letterSpacing:'-0.04em', color:T.ink }}>{money(summary.commission)}</div>
+                        <div style={{ fontSize:'10.5px', color:T.muted, marginTop:'2px' }}>{money(summary.revenue)} ciro · {summary.count} tahsilat</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -484,7 +528,7 @@ export const StaffPage = () => {
         <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark?'rgba(0,0,0,0.6)':'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowModal(false)}>
           <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:480, maxWidth:'90vw', boxShadow:T.shadowLg, maxHeight:'90vh', overflowY:'auto', animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both', border:`1px solid ${T.border2}` }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
-              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>{editing?'Personeli Düzenle':'Yeni Personel'}</div>
+              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>{editing?`${staffWord} Düzenle`:`Yeni ${staffWord}`}</div>
               <button onClick={()=>setShowModal(false)} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
                 onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none'}}>
                 <X size={16}/>
@@ -511,6 +555,17 @@ export const StaffPage = () => {
                   onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
               </div>
             ))}
+
+            {/* Prim oranı — tutar saklanmaz, tahsilattan türetilir (bkz. lib/staffCommission) */}
+            <div style={{ marginBottom:'14px' }}>
+              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Prim oranı (%)</label>
+              <input type="number" min={0} max={100} step={1} placeholder="0"
+                value={form.commissionRate} onChange={e=>setForm(p=>({...p,commissionRate:e.target.value}))}
+                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}
+                onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
+                onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Bu kişiye bağlı tahsilatların yüzdesi prim olarak hesaplanır. 0 = prim yok.</div>
+            </div>
 
             {/* PIN — Personel Modu girişi */}
             <div style={{ marginBottom:'14px' }}>
@@ -567,7 +622,7 @@ export const StaffPage = () => {
               <button onClick={()=>setShowModal(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
               <button onClick={handleSave} disabled={saving||!form.name.trim()}
                 style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:form.name.trim()?avatarBg:T.surface3, color:form.name.trim()?avatarFg:T.muted2, fontSize:'13px', fontWeight:650, cursor:form.name.trim()?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
-                {saving?'Kaydediliyor…':editing?'Güncelle':'Personel Ekle'}
+                {saving?'Kaydediliyor…':editing?'Güncelle':`${staffWord} Ekle`}
               </button>
             </div>
           </div>

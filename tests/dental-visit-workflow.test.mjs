@@ -13,7 +13,6 @@ const page = read('../src/pages/DentalVisitPage.tsx');
 const reservationHook = read('../src/hooks/useReservations.ts');
 const customerHook = read('../src/hooks/useCustomers.ts');
 const encounterHook = read('../src/hooks/usePatientEncounter.ts');
-const workspace = read('../src/components/dental/PatientVisitWorkspace.tsx');
 const dentalChart = read('../src/components/dental/DentalChart.tsx');
 const treatmentPlans = read('../src/components/dental/TreatmentPlans.tsx');
 const dashboard = read('../src/components/dashboard/DisDashboard.tsx');
@@ -37,9 +36,7 @@ test('visit route derives patient and doctor from the canonical reservation id',
   assert.match(page, /fetchReservationById\(reservationId\)/);
   assert.match(page, /const customerId = reservation\?\.customerId \|\| ''/);
   assert.match(page, /reservation\?\.staffId \? staff\.find/);
-  // Sekme durumu artık URL'de değil, workspace'in kendi state'inde yaşar
-  // (controlled/uncontrolled): URL üzerinden hasta/hekim/sekme enjekte edilemez.
-  assert.match(workspace, /const activeTab = controlledTab \?\? internalTab/);
+  // URL üzerinden hasta/hekim/sekme enjekte edilemez.
   assert.doesNotMatch(page, /searchParams\.get\(['"](?:patient|staff|tab)['"]\)/);
 });
 
@@ -62,12 +59,11 @@ test('clinical editing is blocked for unsafe reservation contexts', () => {
   assert.equal(resolveDentalVisitAccess({ ...reservation, customerId: undefined }, activeDoctor).readOnly, true);
 });
 
-test('visit workspace keeps examination, chart, plan, finance and recall in one context', () => {
-  for (const label of ['Muayene', 'Diş Şeması', 'Tedavi Planı', 'Tahsilat', 'Kontrol / Recall']) {
-    assert.match(workspace, new RegExp(label.replace('/', '\\/')));
+test('visit journey keeps complaint, chart, offer, finance and recall in one context', () => {
+  for (const label of ['Şikayet', 'Teklifi Onaya Sun', 'Tahsil Et', 'Kontrol']) {
+    assert.match(page, new RegExp(label));
   }
-  assert.match(workspace, /encounterId=\{encounter\?\.id\}/);
-  assert.match(workspace, /reservationId=\{reservation\?\.id\}/);
+  assert.match(page, /function VisitJourney\(/);
   assert.match(page, /key=\{`\$\{reservation\.id\}:\$\{customer\.id\}`\}/);
   assert.match(page, /staffLoading \|\| encounterApi\.isLoading/);
   assert.match(dentalChart, /encounterId\?: string/);
@@ -75,10 +71,16 @@ test('visit workspace keeps examination, chart, plan, finance and recall in one 
   assert.match(treatmentPlans, /encounterId\?: string/);
   // Recall ayrı bir "randevu oluştur" adımı değil, ziyaret kapanışının yan
   // etkisi: recallDate hastaya yazılır, hatırlatmayı remind cron'u gönderir
-  // (065_dental_recall_reminders). Mevcut recall tarihi ezilmez.
-  assert.match(page, /recallOpt !== 'Yok' && !customer\.recallDate/);
+  // (065_dental_recall_reminders). GELECEKTEKİ bir kontrol tarihi ezilmez;
+  // süresi geçmiş kontrol ise yeniden planlanabilir (hasta döngüden düşmesin).
+  assert.match(page, /recallOpt !== 'Yok' && !recallActive/);
+  assert.match(page, /customer\.recallDate && customer\.recallDate >= todayISO\(\)/);
   assert.match(page, /onSetRecall\(recallDateISO\)/);
   assert.match(page, /updateCustomer\(customer\.id, \{ recallDate: dateISO \}\)/);
+  // "WhatsApp ile Hatırlat" wa.me deep-link'ine değil, opt-out/kota/log
+  // uygulayan sunucu kapısına (remind manuel modu) gider.
+  assert.match(page, /sendRecallReminder\(customer\.id\)/);
+  assert.doesNotMatch(page, /https:\/\/wa\.me/);
 });
 
 test('all appointment surfaces expose the same visit route', () => {

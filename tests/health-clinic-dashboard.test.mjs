@@ -36,10 +36,17 @@ test('calendar and the clinic dashboard share ONE slot rule layer', () => {
   assert.match(slotLib, /export function findAvailableSlots\(rules: SlotRules, search: SlotSearch\)/);
 
   // Takvim kendi kopyasını taşımıyor: yerel kural fonksiyonları kaldırıldı.
-  assert.match(calendar, /resolveSlot as resolveSlotShared/);
-  assert.match(calendar, /resolveSlotShared\(slotRules, \{ date, startTime, endTime, staffId: requestedId, resourceId, cart: resLines \}\)/);
   assert.doesNotMatch(codeOf(calendar), /const resolveSlotStaff = useCallback/);
   assert.doesNotMatch(codeOf(calendar), /const staffWorksAt = useCallback/);
+
+  // Takvim de dashboard da kuralları AYNI hook'tan alır. Eskiden takvim kural
+  // nesnesini kendi elleriyle kuruyordu (useSlotResolver'ın gövdesinin ikinci
+  // bir yazımı); bir alan eklenip diğerinde unutulduğunda iki yüzey aynı
+  // taslağa farklı "uygun" cevabı verebiliyordu.
+  assert.match(calendar, /useSlotResolver\(\)/);
+  assert.doesNotMatch(codeOf(calendar), /const slotRules: SlotRules = useMemo/,
+    'Takvim kural nesnesini kendisi kurmamalı — useSlotResolver tek kaynak');
+  assert.match(calendar, /resolveSlotWith\(\{ date, startTime, endTime, staffId: requestedId, resourceId, cart: resLines \}\)/);
 
   // Dashboard tarafı aynı kuralları hook üzerinden alır.
   assert.match(slotHook, /from '@\/lib\/slotResolution'/);

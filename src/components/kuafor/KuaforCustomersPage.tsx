@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
     AlertTriangle, ArrowRight, CalendarClock, ChevronRight, Crown, Droplets,
     Edit2, Gift, Heart, History, MessageCircle, Scissors, Search, Sparkles, Star,
@@ -12,10 +12,12 @@ import { useReservations } from '@/hooks/useReservations';
 import { KF_FORMULA_KEY as FORMULA_KEY, isKuaforColorService } from '@/lib/kuaforFlow';
 import { todayISO } from '@/utils/date';
 import type { Customer, Reservation } from '@/types';
+import { KuaforOverlay } from './KuaforOverlay';
 import { KuaforSuiteFrame } from './KuaforSuiteFrame';
 import { dateLabel, initialsOf, moneyOf } from './kuaforSuite';
 
 type Segment = 'all' | 'vip' | 'color' | 'return' | 'new';
+const SEGMENTS: Segment[] = ['all', 'vip', 'color', 'return', 'new'];
 
 interface CustomerStats {
     history: Reservation[];
@@ -57,12 +59,25 @@ function averageVisitDays(reservations: Reservation[]) {
 export function KuaforCustomersPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { allCustomers, addCustomer, updateCustomer, deleteCustomer, redeemLoyalty } = useCustomers();
+    const {
+        allCustomers,
+        addCustomer,
+        updateCustomer,
+        deleteCustomer,
+        redeemLoyalty,
+        isLoading: customersLoading,
+    } = useCustomers();
     const { reservations, settings } = useReservations();
     const { payments } = usePayments();
     const [query, setQuery] = useState(searchParams.get('q') || '');
-    const [segment, setSegment] = useState<Segment>('all');
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const segmentParam = searchParams.get('segment');
+    const segment: Segment = SEGMENTS.includes(segmentParam as Segment) ? (segmentParam as Segment) : 'all';
+    const parsedReturnDays = Number.parseInt(searchParams.get('days') || '', 10);
+    const returnDays = Number.isFinite(parsedReturnDays) && parsedReturnDays > 0
+        ? Math.min(parsedReturnDays, 3_650)
+        : 60;
+    const requestedOpenId = searchParams.get('open');
+    const [selectedId, setSelectedId] = useState<string | null>(() => requestedOpenId);
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -112,25 +127,43 @@ export function KuaforCustomersPage() {
                 lastFormulaDate: formulaReservation?.date,
                 lastColorDate: lastColor?.date,
                 colorDue: Boolean(lastColor && daysSince(lastColor.date) >= 21 && upcoming.length === 0),
-                returnRisk: Boolean(lastVisit && daysSince(lastVisit) >= 60 && upcoming.length === 0),
+                // Dashboard'daki geri dönüş kuyruğu önce müşteriye özel tarihi
+                // kullanır. Böyle bir tarih yoksa sektörün URL ile ilettiği
+                // periyoda (örn. 28 gün) göre son ziyaret fallback olur.
+                returnRisk: Boolean(
+                    upcoming.length === 0
+                    && (customer.recallDate
+                        ? customer.recallDate.slice(0, 10) <= today
+                        : Boolean(lastVisit && daysSince(lastVisit) >= returnDays)),
+                ),
             });
         }
         return result;
-    }, [allCustomers, payments, reservations, today]);
+    }, [allCustomers, payments, reservations, returnDays, today]);
 
     const isVipCustomer = (customer: Customer, stats?: CustomerStats) =>
         customer.customFields?.kf_vip === true
         || Boolean(stats && (stats.spend >= 5_000 || stats.completed.length >= 8));
 
-    useEffect(() => {
-        const openId = searchParams.get('open');
-        if (openId) {
-            setSelectedId(openId);
-            const next = new URLSearchParams(searchParams);
-            next.delete('open');
-            setSearchParams(next, { replace: true });
-        }
+    const setSegment = useCallback((nextSegment: Segment) => {
+        const next = new URLSearchParams(searchParams);
+        if (nextSegment === 'all') next.delete('segment');
+        else next.set('segment', nextSegment);
+        if (nextSegment !== 'return') next.delete('days');
+        setSearchParams(next, { replace: true });
     }, [searchParams, setSearchParams]);
+
+    useEffect(() => {
+        if (!requestedOpenId || customersLoading) return;
+        if (allCustomers.some((customer) => customer.id === requestedOpenId)) {
+            setSelectedId(requestedOpenId);
+        }
+        // Parametreyi veri gelmeden tüketmek seçimi ilk boş render'da
+        // kaybettiriyordu. Müşteri listesi çözüldükten sonra temizle.
+        const next = new URLSearchParams(searchParams);
+        next.delete('open');
+        setSearchParams(next, { replace: true });
+    }, [allCustomers, customersLoading, requestedOpenId, searchParams, setSearchParams]);
 
     useEffect(() => {
         if (!formOpen) return;
@@ -169,9 +202,10 @@ export function KuaforCustomersPage() {
     }, [allCustomers, query, segment, statsByCustomer]);
 
     useEffect(() => {
+        if (requestedOpenId) return;
         if (selectedId && listed.some((customer) => customer.id === selectedId)) return;
         setSelectedId(listed[0]?.id || null);
-    }, [listed, selectedId]);
+    }, [listed, requestedOpenId, selectedId]);
 
     const selected = allCustomers.find((customer) => customer.id === selectedId) || null;
     const selectedStats = selected ? statsByCustomer.get(selected.id) : undefined;
@@ -435,7 +469,7 @@ export function KuaforCustomersPage() {
             </section>
 
             {formOpen && (
-                <div className="ks-modal-layer" onClick={() => { setFormOpen(false); clearForm(); }}>
+                <KuaforOverlay className="ks-modal-layer" onClick={() => { setFormOpen(false); clearForm(); }}>
                     <section className="ks-modal ks-customer-modal" role="dialog" aria-modal="true" aria-labelledby="ks-customer-form-title" onClick={(event) => event.stopPropagation()}>
                         <header><span><UserPlus size={18} /></span><div><small>SALON HAFIZASI</small><h2 id="ks-customer-form-title">{editingId ? 'Müşteri kartını düzenle' : 'Yeni müşteri ekle'}</h2><p>İletişim ve saç profili bilgileri</p></div><button aria-label="Müşteri penceresini kapat" onClick={() => { setFormOpen(false); clearForm(); }}><X size={17} /></button></header>
                         <div className="ks-modal-body">
@@ -454,7 +488,7 @@ export function KuaforCustomersPage() {
                         </div>
                         <footer><button className="ks-btn ks-btn-ghost" onClick={() => { setFormOpen(false); clearForm(); }}>Vazgeç</button><button className="ks-btn ks-btn-primary" disabled={saving} onClick={saveCustomer}>{saving ? 'Kaydediliyor…' : editingId ? 'Değişiklikleri kaydet' : 'Müşteriyi ekle'} <ArrowRight size={15} /></button></footer>
                     </section>
-                </div>
+                </KuaforOverlay>
             )}
         </KuaforSuiteFrame>
     );

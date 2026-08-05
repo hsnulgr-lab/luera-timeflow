@@ -72,6 +72,35 @@ export interface SectorComms {
     guardrail?: string;
 }
 
+// ── Uygunluk (kontrendikasyon) ───────────────────────────────────────────────
+// Bir müşteri özelliği ile hizmet etiketinin çakışması. Kural sektörün kendi
+// bilgisidir: güzellikte hamilelik lazeri kapatır, kuaförde böyle bir kural yok.
+//
+// Kural METİN EŞLEŞMESİYLE değil, etiketle çalışır. Daha önce iki ayrı dosyada
+// iki ayrı Türkçe regex vardı ("lazer|incelme|zayıflama|g5" ve "lazer|incelme");
+// aynı paket bir ekranda kapanıp diğerinde açık kalıyordu. Etiketler hizmet
+// tanımında (Service.tags) yaşar, tek yerden okunur.
+export interface RiskFlag {
+    /** Müşteri özel alanının anahtarı — customFields[key] doluysa bayrak aktif. */
+    key: string;
+    /** Kullanıcıya gösterilen sebep: "Hamilelik". */
+    label: string;
+    /** Bu bayrak aktifken kapatılan hizmet etiketleri. */
+    blocks: string[];
+    /** Uyarı metninin devamı — neden kapandığını tek cümlede söyler. */
+    note?: string;
+    /**
+     * Etiketi olmayan (eski) hizmetler için ad eşleşmesi. Yalnız geriye dönük
+     * uyum içindir; yeni hizmetler etiketle çalışır. Tek kaynak burasıdır.
+     *
+     * DESEN ASCII YAZILIR ("zayiflama", "incelme"): eşleşmeden önce ad Türkçe
+     * duyarlı biçimde katlanır (bkz. serviceEligibility.foldTr). JS'te /i
+     * bayrağı "İ" harfini ASCII "i"ye çevirmez — "Bölgesel İncelme" gibi
+     * tamamen olağan bir hizmet adı aksi hâlde korumadan kaçar.
+     */
+    legacyNamePattern?: RegExp;
+}
+
 // ── Personel rolleri ─────────────────────────────────────────────────────────
 // Rolün DEĞERİ (doctor/assistant/cashier/staff) sektörden bağımsızdır: yetki
 // setini o belirler ve DB'de saklanan da odur. Sektöre göre değişen yalnızca
@@ -89,10 +118,18 @@ export interface SectorProfile {
     customFieldTemplates: FieldDef[];           // varsayılan özel alanlar (Faz 3)
     resourceTypes: string[];                    // koltuk/oda/kabin… (Faz 4; boş = kaynak UI gizli)
     comms: SectorComms;                         // WhatsApp dili (bkz. SectorComms)
+    riskFlags?: RiskFlag[];                     // kontrendikasyon kuralları (bkz. RiskFlag)
 }
 
 // Randevu-yüzü ortak modül seti
 const RANDEVU: Modules = { randevu: true, personel: true, hizmet: true, kasa: true, masa: false, analiz: true, sira: false };
+
+// Tezgâh üstü tahsilat yapmayan sektörler için: ücret dosya/fatura üzerinden
+// yürür, gün sonu kasası tutulmaz. Kasa yüzeyleri (sidebar, adisyon rozeti,
+// "Kasaya gönder" aksiyonları) modül kapalıyken kendiliğinden gizlenir.
+// NOT: 'cashier' personel rolü (staffPermissions) kapsam dışı — hukuk bürosunda
+// "Muhasebe" rolü tahsilat dışı yetkiler (payments:view) için hâlâ anlamlı.
+const RANDEVU_KASASIZ: Modules = { ...RANDEVU, kasa: false };
 
 // Randevu-yüzü ortak dashboard dizilimi (Faz 2'de RandevuDashboard'un ayrıştırılmış hali)
 const RANDEVU_KPIS: WidgetKey[] = ['randevuFace'];
@@ -110,7 +147,13 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
     guzellik: {
         label: 'Güzellik / Salon',
         modules: RANDEVU,
-        labels: { reservation: 'Seans', newReservation: 'Yeni seans' },
+        // Çoğul de yazılır: yalnız tekil override edilince sidebar "Rezervasyonlar"
+        // derken dashboard "seans" diyordu. `calendar` bilerek varsayılan ("Takvim")
+        // bırakıldı — yan yana "Seans Takvimi" + "Seanslar" gereksiz tekrar olurdu.
+        labels: {
+            reservation: 'Seans', reservations: 'Seanslar', newReservation: 'Yeni seans',
+            staff: 'Uzman', staffPlural: 'Uzmanlar',
+        },
         staffRoles: { doctor: { label: 'Uzman', description: 'Bakım uygular, müşteri kaydını ve tahsilatı yönetir' } },
         dashboardKpis: ['guzellikFace'],
         customFieldTemplates: [
@@ -121,13 +164,34 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         ],
         resourceTypes: ['Kabin'],
         comms: { persona: 'Bir güzellik salonu / bakım merkezisin; sıcak, samimi ve şımartan bir ton kullan.', audience: 'müşterimiz', serviceWord: 'bakım', servicePhrase: 'bakımınızı', emoji: '✨', recall: { concept: 'bakım yenileme', afterDays: 30 } },
+        riskFlags: [{
+            key: 'hamilelik',
+            label: 'Hamilelik',
+            blocks: ['lazer', 'medikal'],
+            note: 'gebelikte uygulanmaz',
+            // Etiketsiz eski hizmetler için — yeni kayıtlar Service.tags kullanır.
+            // ASCII yazılır; ad katlanarak karşılaştırılır (bkz. RiskFlag).
+            legacyNamePattern: /lazer|incelme|zayiflama|g5|radyofrekans/,
+        }],
     },
     kuafor: {
         label: 'Kuaför',
         modules: { ...RANDEVU, sira: true },
         labels: {},
-        staffRoles: { doctor: { label: 'Kuaför' }, assistant: { label: 'Çırak' } },
-        dashboardKpis: ['kuaforFace'], customFieldTemplates: [], resourceTypes: ['Koltuk', 'Yıkama'],
+        staffRoles: {
+            doctor: { label: 'Kuaför', description: 'Hizmet, renk formülü ve müşteri ilişkisini yönetir' },
+            assistant: { label: 'Çırak', description: 'Hazırlık, yıkama ve salon akışını destekler' },
+        },
+        dashboardKpis: ['kuaforFace'],
+        customFieldTemplates: [
+            { entity: 'customer', key: 'sac_tipi', label: 'Saç tipi', type: 'select', options: ['İnce telli', 'Normal', 'Kalın telli', 'Karma'] },
+            { entity: 'customer', key: 'sac_dokusu', label: 'Saç dokusu', type: 'select', options: ['Düz', 'Dalgalı', 'Kıvırcık', 'Çok kıvırcık'] },
+            { entity: 'customer', key: 'alerji', label: 'Kimyasal / ürün hassasiyeti', type: 'text' },
+            { entity: 'customer', key: 'tercih_notu', label: 'Saç ve stil tercihi', type: 'text' },
+            { entity: 'customer', key: 'kf_formula', label: 'Son renk formülü', type: 'text' },
+            { entity: 'reservation', key: 'kf_formula', label: 'Renk formülü', type: 'text' },
+        ],
+        resourceTypes: ['Koltuk', 'Yıkama'],
         comms: { persona: 'Bir kuaförsün; samimi, enerjik ve sohbet eder gibi bir ton kullan.', audience: 'müşterimiz', serviceWord: 'işlem', servicePhrase: 'işleminizi', emoji: '💇', recall: { concept: 'saç bakımı / dip boyası zamanı', afterDays: 28 } },
     },
     berber: {
@@ -163,6 +227,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
         customFieldTemplates: [
             { entity: 'customer', key: 'alerji', label: 'Alerji bilgisi', type: 'text' },
             { entity: 'customer', key: 'ilaclar', label: 'Kullandığı ilaçlar', type: 'text' },
+            { entity: 'customer', key: 'kronik', label: 'Kronik rahatsızlık', type: 'text' },
             { entity: 'reservation', key: 'tedavi_notu', label: 'Tedavi notu', type: 'text' },
         ],
         resourceTypes: ['Ünite'],
@@ -233,7 +298,7 @@ export const SECTOR_PROFILES: Record<string, SectorProfile> = {
     },
     avukat: {
         label: 'Avukatlık Bürosu',
-        modules: RANDEVU,
+        modules: RANDEVU_KASASIZ,
         labels: { customer: 'Müvekkil', customers: 'Müvekkiller', reservation: 'Görüşme', newReservation: 'Yeni görüşme', service: 'Danışmanlık', services: 'Danışmanlıklar', staff: 'Avukat' },
         staffRoles: {
             doctor: { label: 'Avukat', description: 'Görüşme, müvekkil dosyası ve ücretlendirme' },

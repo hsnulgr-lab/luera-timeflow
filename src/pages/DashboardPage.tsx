@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { normalizePhone } from '@/lib/phone';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle, Bell } from 'lucide-react';
-import { LNotifications } from '@/components/icons/LueraIcons';
+import { Calendar, Clock, Plus, ArrowRight, Phone, MessageCircle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { cn } from '@/utils/cn';
-import { todayISO, toISODate, formatDateEU } from '@/utils/date';
+import { toISODate, formatDateEU } from '@/utils/date';
 import { phaseBadge } from '@/utils/statusColors';
 import { apptPhase } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';

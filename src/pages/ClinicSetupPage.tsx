@@ -8,8 +8,10 @@ import {
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
 import { useStaff } from '@/hooks/useStaff';
+import { useModules } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SECTOR_PROFILES, profileForSector } from '@/lib/sectorProfiles';
+import { MODULE_META, modulesForSector } from '@/lib/modules';
 import { STAFF_ROLE_PERMISSIONS, inferStaffRoleFromSpecialty, staffRoleOptionsForSector } from '@/lib/staffPermissions';
 import type { Service, StaffRole } from '@/types';
 
@@ -51,6 +53,7 @@ export function ClinicSetupPage() {
   const { settings, updateSettings } = useReservations();
   const { resources, addResource, updateResource, removeResource } = useResources();
   const { staff, updateStaff } = useStaff();
+  const { applySectorDefaults } = useModules();
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -69,11 +72,21 @@ export function ClinicSetupPage() {
   const [recallNote, setRecallNote] = useState(settings.rebookNote || '');
 
   const profile = profileForSector(sector);
+  // Seçilen sektörde hangi modüllerin açılacağı — sürpriz olmasın diye hem
+  // adım 0'da gösterilir hem de onay metninde kullanılır.
+  const sectorModules = useMemo(() => {
+    const on = modulesForSector(sector);
+    return MODULE_META.filter((m) => on[m.key]);
+  }, [sector]);
+  const moduleSummary = sectorModules.map((m) => m.label).join(', ');
   // Roller sektörün diliyle: diş kliniğinde "Hekim", berberde "Berber".
   const roleOptions = useMemo(() => staffRoleOptionsForSector(sector), [sector]);
   const doctorLabel = roleOptions.find(o => o.value === 'doctor')?.label || 'Uzman';
-  const resourceType = profile.resourceTypes[0] || 'Kaynak';
-  const resourceLabel = profile.resourceTypes.length ? profile.resourceTypes[0] : 'Kaynak';
+  // Sektörün TÜM kaynak türleri kurulumda sunulur. Yalnız ilkini sunmak
+  // kuaförde yıkama ünitesini yaratılamaz kılıyordu; salon akışının bitiriş
+  // adımı ise o türü arıyordu.
+  const resourceTypeOptions = profile.resourceTypes.length ? profile.resourceTypes : ['Kaynak'];
+  const resourceLabel = resourceTypeOptions[0];
 
   // Hekim olması gerektiği halde rolü hekim olmayan personel (kilit sorunu)
   const lockedStaff = useMemo(
@@ -99,6 +112,18 @@ export function ClinicSetupPage() {
     if (step === 0 || step === 1 || step === 4) {
       const ok = await persistSettings();
       if (!ok) return;
+      // Sektör adımı: modülleri sektör profiline getir. Bu, kurulumun eksik
+      // halkasıydı — sektör seçmek modülleri hiç ayarlamıyordu, avukatlık
+      // bürosu bile kasa modülü açık başlıyordu.
+      // İLK kurulumda sessizce uygulanır; SONRADAN sektör değiştiren mevcut
+      // bir işletmede elle açılmış modüller ezileceği için onay istenir.
+      if (step === 0 && sector !== settings.sector) {
+        const firstSetup = !settings.sector;
+        const confirmed = firstSetup || window.confirm(
+          `Modüller "${profile.label}" varsayılanına alınacak: ${moduleSummary}.\n\nElle yaptığınız modül değişiklikleri sıfırlanır. Devam edilsin mi?`,
+        );
+        if (confirmed) await applySectorDefaults(sector);
+      }
     }
     if (step === 3 && lockedStaff.length > 0) {
       toast.error(`${lockedStaff.length} kişinin rolü atanmadı — ${doctorLabel.toLocaleLowerCase('tr-TR')} ekranı kilitli kalır`);
@@ -166,6 +191,17 @@ export function ClinicSetupPage() {
                     <Sel T={T} value={sector} onChange={setSector} options={Object.entries(SECTOR_PROFILES).map(([k, p]) => ({ value: k, label: p.label }))} />
                   </Field>
                 </div>
+                {/* Sektör seçimi modül setini belirler; hangi ekranların açılıp
+                    kapanacağı burada görünsün ki kurulumdan sonra sürpriz olmasın. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '-4px 0 10px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.muted }}>Açılacak modüller</span>
+                  {sectorModules.map((m) => (
+                    <span key={m.key} style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 99, padding: '3px 9px' }}>{m.label}</span>
+                  ))}
+                  {MODULE_META.filter((m) => !sectorModules.includes(m)).map((m) => (
+                    <span key={m.key} style={{ fontSize: 11.5, fontWeight: 600, color: T.muted2, borderRadius: 99, padding: '3px 9px', textDecoration: 'line-through' }}>{m.label}</span>
+                  ))}
+                </div>
                 <Field T={T} label="Randevu slotu">
                   <Sel T={T} value={String(slotDuration)} onChange={v => setSlotDuration(Number(v))}
                     options={[15, 20, 30, 45, 60].map(m => ({ value: String(m), label: `${m} dakika` }))} />
@@ -209,12 +245,23 @@ export function ClinicSetupPage() {
                     <span style={{ width: 11, height: 11, borderRadius: 99, background: T.orange, flex: '0 0 auto' }} />
                     <input value={r.name} onChange={e => updateResource(r.id, { name: e.target.value })}
                       style={{ ...inpBase(T), flex: 1, border: 'none', background: 'transparent', fontWeight: 700 }} />
+                    {resourceTypeOptions.length > 1 && (
+                      <span style={{ color: T.muted, fontSize: 12, fontWeight: 700 }}>{r.type}</span>
+                    )}
                     <span style={{ color: T.muted, fontSize: 12.5, fontWeight: 600 }}>Kapasite</span>
                     <input type="number" min={1} value={r.capacity} onChange={e => updateResource(r.id, { capacity: Math.max(1, Number(e.target.value)) })} style={{ ...inpBase(T), width: 70 }} />
                     <button onClick={() => removeResource(r.id)} style={xBtn(T)}><Trash2 size={15} /></button>
                   </div>
                 ))}
-                <button onClick={() => addResource({ type: resourceType, name: `${resourceLabel} ${resources.length + 1}`, capacity: 1 })} style={addBtn(T)}><Plus size={15} /> {resourceLabel} ekle</button>
+                {resourceTypeOptions.map(type => (
+                  <button key={type}
+                    onClick={() => addResource({
+                      type,
+                      name: `${type} ${resources.filter(r => r.type === type).length + 1}`,
+                      capacity: 1,
+                    })}
+                    style={addBtn(T)}><Plus size={15} /> {type} ekle</button>
+                ))}
               </>
             )}
 

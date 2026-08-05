@@ -13,6 +13,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useOrgPackages } from '@/hooks/useOrgPackages';
 import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
@@ -84,6 +85,7 @@ export function EstetikDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
     const { reservations, settings, updateReservation } = useReservations();
+    const cashOn = useCashEnabled();
     const { resources } = useResources();
     const { customers, customerById } = useCustomers();
     const { staff } = useStaff();
@@ -298,7 +300,13 @@ export function EstetikDashboard() {
             void step(r, advancePatch('completed'), { serviceEndedAt: CLEAR, status: 'confirmed' }, `${short} · kayıt tamamlandı`);
             return;
         }
-        // Dashboard ödeme YAZMAZ — yalnız Kasa akışını açar
+        // Dashboard ödeme YAZMAZ — yalnız Kasa akışını açar. Kasa modülü
+        // kapalıysa tahsilat başka yerde takip ediliyordur; kayıt "çıkışa hazır"
+        // aşamasında süresiz beklemesin diye kapatılır (ödeme kaydı üretilmez).
+        if (!cashOn) {
+            void step(r, { isPaid: true }, { isPaid: false }, `${short} kaydı kapatıldı`);
+            return;
+        }
         navigate('/kasa');
     };
 
@@ -313,7 +321,7 @@ export function EstetikDashboard() {
             detail: LIVE_STEPS.filter((s) => readinessOf(missing)[s.key] !== true).map((s) => s.missing).join(' · '),
             run: () => { setSelectedId(missing.id); setModal('readiness'); },
         });
-        if (byStage['Çıkışa hazır'].length > 0) out.push({
+        if (cashOn && byStage['Çıkışa hazır'].length > 0) out.push({
             key: 'cash', tone: 'green', icon: WalletCards,
             title: `${byStage['Çıkışa hazır'].length} hasta çıkışa hazır`,
             detail: pendingCash > 0 ? `${money(pendingCash)} tahsilat Kasa'da bekliyor` : 'Kayıt ve çıkış işlemi bekliyor',
@@ -331,7 +339,7 @@ export function EstetikDashboard() {
             detail: 'Aktif planlar · seans planlaması bekliyor',
             run: () => navigate('/packages'),
         });
-        if (dueInstallments.length > 0) out.push({
+        if (cashOn && dueInstallments.length > 0) out.push({
             key: 'inst', tone: 'blue', icon: ReceiptText,
             title: `${dueInstallments.length} taksit 7 gün içinde`,
             detail: `${money(dueInstallments.reduce((s, i) => s + i.amount, 0))} planlı tahsilat`,

@@ -3,10 +3,11 @@ import { cn } from '@/utils/cn';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import type { Reservation, Resource } from '@/types';
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 - 19:00
-
 interface ResourceLaneGridProps {
     dateStr: string;
+    /** Gösterilecek saatler — işletmenin gerçek çalışma penceresi (useCalendarDay.axisFor).
+     *  Eskiden bileşen içinde 08–19 sabitiydi; erken açan işletme ilk randevusunu göremiyordu. */
+    hours: number[];
     today: string;
     resources: Resource[];
     resourceTypeLabel: string;
@@ -19,7 +20,7 @@ interface ResourceLaneGridProps {
 // satırlar = saatler. Her randevu bağlı olduğu kaynağın sütununda görünür;
 // kaynağı olmayanlar "Atanmamış" sütununda. Boş hücreye tıkla → o kaynak+saat
 // için yeni randevu. Klinikte hangi ünitenin dolu/boş olduğu tek bakışta görünür.
-export function ResourceLaneGrid({ dateStr, today, resources, resourceTypeLabel, reservations, onOpenReservation, onAddAt }: ResourceLaneGridProps) {
+export function ResourceLaneGrid({ dateStr, today, hours, resources, resourceTypeLabel, reservations, onOpenReservation, onAddAt }: ResourceLaneGridProps) {
     const activeResources = resources.filter((r) => r.isActive).sort((a, b) => a.sort - b.sort);
     const dayRes = reservations.filter((r) => r.date === dateStr && r.status !== 'cancelled');
     const hasUnassigned = dayRes.some((r) => !r.resourceId);
@@ -46,7 +47,7 @@ export function ResourceLaneGrid({ dateStr, today, resources, resourceTypeLabel,
                 ))}
 
                 {/* Saat satırları */}
-                {HOURS.map((hour) => (
+                {hours.map((hour) => (
                     <div key={hour} className="contents">
                         <div className={cn('border-b border-r border-[var(--dc-border)] bg-[var(--dc-surface2)] px-2 py-2 text-right', hour === nowHour && 'bg-[#FF5A1F]/[0.06]')}>
                             <span className={cn('text-[11px] font-bold tabular-nums', hour === nowHour ? 'text-[#FF5A1F]' : 'text-[var(--dc-muted)]')}>{String(hour).padStart(2, '0')}:00</span>

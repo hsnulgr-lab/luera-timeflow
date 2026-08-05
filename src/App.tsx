@@ -9,7 +9,6 @@ import { MobileShell } from '@/mobile/MobileShell';
 import { MobileHome } from '@/mobile/pages/MobileHome';
 import { MobileAdminHome } from '@/mobile/pages/MobileAdminHome';
 import { useManagerMode } from '@/contexts/ManagerModeProvider';
-import { MobileCalendar } from '@/mobile/pages/MobileCalendar';
 import { MobileNewReservation } from '@/mobile/pages/MobileNewReservation';
 import { MobileCustomers } from '@/mobile/pages/MobileCustomers';
 import { MobileKasa } from '@/mobile/pages/MobileKasa';
@@ -22,10 +21,8 @@ import { useModules } from '@/hooks/useModules';
 import type { ModuleKey } from '@/types';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
-import { CalendarPage } from '@/pages/CalendarPage';
 import { ReservationsPage } from '@/pages/ReservationsPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
-import { CustomersPage } from '@/pages/CustomersPage';
 import { KasaPage } from '@/pages/KasaPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StaffPage } from '@/pages/StaffPage';
@@ -38,6 +35,7 @@ import { DentalVisitPage } from '@/pages/DentalVisitPage';
 import { PatientFilePage } from '@/pages/PatientFilePage';
 import { BeautyCustomerPage } from '@/pages/BeautyCustomerPage';
 import { PackagesPage } from '@/pages/PackagesPage';
+import { StockPage } from '@/pages/StockPage';
 import { ClinicSetupPage } from '@/pages/ClinicSetupPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
@@ -45,6 +43,7 @@ import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
 import { ConfirmDialogHost } from '@/components/ConfirmDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { DesktopCalendarFace, DesktopReservationsFace, DesktopCustomersFace, MobileCalendarFace } from '@/pages/sectorFaces';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -115,16 +114,17 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Adaptive mobile={<MobileHomeSwitch />} desktop={<DashboardPage />} />} />
-            <Route path="calendar" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileCalendar />} desktop={<CalendarPage />} /></ModuleRoute>} />
+            <Route path="calendar" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileCalendarFace />} desktop={<DesktopCalendarFace />} /></ModuleRoute>} />
             <Route path="new" element={<ModuleRoute module="randevu"><Adaptive mobile={<MobileNewReservation />} desktop={<Navigate to="/reservations" replace />} /></ModuleRoute>} />
-            <Route path="reservations" element={<ModuleRoute module="randevu"><ReservationsPage /></ModuleRoute>} />
-            <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<CustomersPage />} />} />
+            <Route path="reservations" element={<ModuleRoute module="randevu"><Adaptive mobile={<ReservationsPage />} desktop={<DesktopReservationsFace />} /></ModuleRoute>} />
+            <Route path="customers" element={<Adaptive mobile={<MobileCustomers />} desktop={<DesktopCustomersFace />} />} />
             <Route path="dental-chart" element={<DentalChartPage />} />
             <Route path="dental-visit/:reservationId" element={<ModuleRoute module="randevu"><DentalVisitPage /></ModuleRoute>} />
             <Route path="patient-file/:customerId" element={<PatientFilePage />} />
             <Route path="beauty-customer/:customerId" element={<BeautyCustomerPage />} />
             <Route path="packages" element={<PackagesPage />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
+            <Route path="stock" element={<ModuleRoute module="kasa"><StockPage /></ModuleRoute>} />
             <Route path="masa" element={<ModuleRoute module="masa"><Adaptive mobile={<MobileMasa />} desktop={<MasaPage />} /></ModuleRoute>} />
             <Route path="menu" element={<ModuleRoute module="masa"><MenuPage /></ModuleRoute>} />
             <Route path="queue" element={<ModuleRoute module="sira"><Adaptive mobile={<MobileQueue />} desktop={<QueuePage />} /></ModuleRoute>} />

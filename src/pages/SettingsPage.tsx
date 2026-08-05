@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { BillingTab } from '@/components/settings/BillingTab';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
-import { MODULE_META } from '@/lib/modules';
+import { MODULE_META, modulesForSector } from '@/lib/modules';
 import { SECTOR_PROFILES, profileForSector } from '@/lib/sectorProfiles';
+import { eligibilityTagsFor } from '@/lib/serviceEligibility';
 import { useResources } from '@/hooks/useResources';
+import { useProducts } from '@/hooks/useProducts';
 import { hashPin } from '@/lib/pin';
 import { useOrgProfile, slugify } from '@/hooks/useOrgProfile';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Service, WorkingHours } from '@/types';
+import type { Service, ServiceRecipeLine, WorkingHours } from '@/types';
 import {
     getMyKey, generateMyKey, revokeMyKey,
     getIncomingKey, saveIncomingKey, testConnection,
@@ -307,6 +309,7 @@ export const SettingsPage = () => {
   const { modules, isEnabled, setModule, applySectorDefaults } = useModules();
   const { profile, setProfile, save: saveProfile, uploadImage } = useOrgProfile();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab]       = useState<TabId>((searchParams.get('tab') as TabId) || 'general');
   useEffect(() => { const t = searchParams.get('tab') as TabId | null; if (t) setActiveTab(t); }, [searchParams]);
   const [businessName, setBusinessName] = useState(settings.businessName);
@@ -315,10 +318,18 @@ export const SettingsPage = () => {
   const [webhookUrl, setWebhookUrl]     = useState(settings.webhookUrl||'');
   const [sector, setSector]             = useState(settings.sector || 'genel');
   // Kaynak yönetimi (051)
-  const { resources, addResource, removeResource } = useResources();
-  const resourceTypes = profileForSector(settings.sector).resourceTypes;
+  const { resources, addResource, updateResource, removeResource } = useResources();
+  const { products } = useProducts();
+  // Reçetede yalnız stok takibi açık ürünler seçilebilir
+  const stockProducts = products.filter(p => p.tracksStock !== false);
+  const [recipeOpen, setRecipeOpen] = useState<string | null>(null);
+  const resourceTypes = profileForSector(sector).resourceTypes;
+  // Hizmet satırındaki uygunluk etiketi seçenekleri — sektörden türetilir.
+  const eligibilityTags = eligibilityTagsFor(sector);
   const [newResourceName, setNewResourceName] = useState('');
   const [newResourceCap, setNewResourceCap]   = useState(1);
+  const [newResourceType, setNewResourceType] = useState(() => resourceTypes[0] || '');
+  const effectiveResourceType = resourceTypes.includes(newResourceType) ? newResourceType : (resourceTypes[0] || '');
   const [managerPinInput, setManagerPinInput] = useState('');
   const [loyaltyReward, setLoyaltyReward] = useState(settings.loyaltyReward || 'Ücretsiz hizmet');
   const [rebookNote, setRebookNote]     = useState(settings.rebookNote || '');
@@ -361,10 +372,33 @@ export const SettingsPage = () => {
   const handleSave = async () => {
     // Yönetici PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut korunur
     const managerPin = managerPinInput.trim() ? await hashPin(managerPinInput.trim()) : settings.managerPin;
+    const sectorChanged = Boolean(settings.sector) && sector !== settings.sector;
+    // Sektör bir tema değil, verinin anlamıdır: paketler, özel alanlar,
+    // kontrendikasyon kuralları ve terminoloji ona bağlıdır. Dolu bir işletmede
+    // sektör değiştirmek, eski sektörün kayıtlarını yeni sektörün ekranlarında
+    // gösterir (diş tedavi planlarının güzellik "Paketler" sayfasında çıkması
+    // tam olarak buydu). Bilinçli bir karar olduğundan emin olalım.
+    if (sectorChanged) {
+      const ok = await confirmDialog({
+        title: `Sektör "${profileForSector(settings.sector).label}" → "${profileForSector(sector).label}" olarak değiştirilsin mi?`,
+        description: 'Mevcut müşteri, randevu ve paket kayıtları SİLİNMEZ; ancak eski sektöre göre oluşturuldukları için yeni sektörün ekranlarında yanlış görünebilir. Dolu bir işletmede bu değişiklik önerilmez.',
+        confirmLabel: 'Sektörü değiştir',
+        danger: true,
+      });
+      if (!ok) { setSector(settings.sector || 'genel'); return; }
+    }
     updateSettings({...settings, businessName, workingHours, services, webhookUrl:webhookUrl||undefined, sector, managerPin});
     await saveProfile(profile);
     setManagerPinInput('');
     setSaved(true); setTimeout(()=>setSaved(false), 2000);
+    // Sektör değişimi modülleri BİLEREK sıfırlamaz — kullanıcının elle açtığı
+    // modüller sessizce kapanmamalı. Bunun yerine öneri hatırlatılır.
+    if (sectorChanged) {
+      toast('Sektör güncellendi', {
+        description: `Modülleri ${profileForSector(sector).label} varsayılanına almak için Modüller sekmesindeki "Uygula" düğmesini kullanın.`,
+        duration: 7000,
+      });
+    }
   };
   const handleUpload = async (file: File|undefined, kind: 'logo'|'cover'|'gallery') => {
     if (!file) return;
@@ -382,9 +416,22 @@ export const SettingsPage = () => {
     const colors = ['#FF5A1F','#E8973C','#C95A3C','#CB5E84','#8E70B2','#3F9D9A','#5E9C6C','#5B7CC2'];
     setServices(prev=>[...prev,{id:`svc-${Date.now()}`,name:'',duration:30,color:colors[prev.length%colors.length]}]);
   };
-  const updateService = (id: string, field: keyof Service, value: string|number) =>
+  const updateService = (id: string, field: keyof Service, value: string|number|string[]) =>
     setServices(prev=>prev.map(s=>s.id===id?{...s,[field]:value}:s));
   const removeService = (id: string) => setServices(prev=>prev.filter(s=>s.id!==id));
+
+  // ── Hizmet reçetesi (sarf tüketimi) ──
+  // "Dip boya = 60 ml boya + 60 ml oksidan". İşlem kasaya gönderilince stok
+  // defterine 'usage' hareketi olarak düşer; personel renk sayacında miktarı
+  // düzeltebilir. Reçete yoksa o hizmet stoktan hiçbir şey düşürmez.
+  const setRecipe = (id: string, recipe: ServiceRecipeLine[]) =>
+    setServices(prev=>prev.map(s=>s.id===id?{...s,recipe}:s));
+  const addRecipeLine = (svc: Service) => {
+    const used = new Set((svc.recipe||[]).map(l=>l.productId));
+    const next = stockProducts.find(p=>!used.has(p.id));
+    if (!next) return;
+    setRecipe(svc.id, [...(svc.recipe||[]), { productId: next.id, quantity: 0 }]);
+  };
 
   const tabs: {id:TabId;label:string;icon:React.ElementType}[] = [
     {id:'general',      label:'Genel',            icon:Settings    },
@@ -573,7 +620,9 @@ export const SettingsPage = () => {
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', padding:'13px 16px', background:'rgba(255,90,31,0.05)', border:'1px solid rgba(255,90,31,0.15)', borderRadius:T.rSm, marginBottom:'18px' }}>
                 <div>
                   <div style={{ fontSize:'13px', fontWeight:700, color:T.ink }}>Sektör varsayılanları</div>
-                  <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>Seçili sektöre ({sector}) göre modülleri otomatik ayarla.</div>
+                  <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>
+                    {profileForSector(sector).label} için önerilen set: {MODULE_META.filter(m => modulesForSector(sector)[m.key]).map(m => m.label).join(', ')}.
+                  </div>
                 </div>
                 <button onClick={async()=>{ await applySectorDefaults(sector); toast.success('Modüller sektöre göre ayarlandı'); }}
                   style={{ flexShrink:0, padding:'8px 14px', borderRadius:T.rSm, border:'none', background:T.orange, color:'#fff', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
@@ -584,14 +633,26 @@ export const SettingsPage = () => {
               <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
                 {MODULE_META.map(m => {
                   const on = isEnabled(m.key);
+                  // Restoran adisyonu kasadan tahsil edilir: masa açıkken kasa
+                  // kapatılamaz, yoksa garsonun "Kasaya gönder" dediği hesap
+                  // hiçbir ekranda açılamaz. Ters yön otomatik düzeltilir.
+                  const lockedOn = m.key === 'kasa' && isEnabled('masa');
+                  const toggle = () => {
+                    if (lockedOn) return;
+                    if (m.key === 'masa' && !on && !isEnabled('kasa')) void setModule('kasa', true);
+                    void setModule(m.key, !on);
+                  };
                   return (
                     <div key={m.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'14px', padding:'14px 16px', background:T.surface2, border:`1px solid ${on?'rgba(255,90,31,0.25)':T.border2}`, borderRadius:T.rSm, transition:'border-color .15s' }}>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontSize:'13.5px', fontWeight:700, color:T.ink }}>{m.label}</div>
-                        <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>{m.desc}</div>
+                        <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'3px' }}>
+                          {lockedOn ? 'Masa modülü açıkken kapatılamaz — adisyon tahsilatı kasadan yapılır.' : m.desc}
+                        </div>
                       </div>
-                      <button onClick={()=>setModule(m.key, !on)} title={on?'Kapat':'Aç'}
-                        style={{ flexShrink:0, position:'relative', width:'46px', height:'26px', borderRadius:'999px', border:'none', cursor:'pointer', background:on?T.orange:(dark?'#3A332A':'#D6CFC4'), transition:'background .2s' }}>
+                      <button onClick={toggle} disabled={lockedOn}
+                        title={lockedOn ? 'Masa açıkken kasa kapatılamaz' : on?'Kapat':'Aç'}
+                        style={{ flexShrink:0, position:'relative', width:'46px', height:'26px', borderRadius:'999px', border:'none', cursor:lockedOn?'not-allowed':'pointer', opacity:lockedOn?0.55:1, background:on?T.orange:(dark?'#3A332A':'#D6CFC4'), transition:'background .2s' }}>
                         <span style={{ position:'absolute', top:'3px', left:on?'23px':'3px', width:'20px', height:'20px', borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
                       </button>
                     </div>
@@ -606,7 +667,7 @@ export const SettingsPage = () => {
               {/* ── Kaynaklar (051) — sektör profili kaynak tanımlıyorsa ── */}
               {resourceTypes.length > 0 && (
                 <div style={{ marginTop:'28px' }}>
-                  <SectionTitle>Kaynaklar ({resourceTypes[0]})</SectionTitle>
+                  <SectionTitle>Koltuk ve çalışma alanları</SectionTitle>
                   <p style={{ fontSize:'12.5px', color:T.muted, marginBottom:'14px', lineHeight:1.5 }}>
                     Randevular personelin yanı sıra fiziksel kaynağa da bağlanabilir (ör. {resourceTypes.join(', ').toLowerCase()}). Kapasite &gt; 1 ise aynı saate o kadar kişi alınır.
                   </p>
@@ -614,7 +675,12 @@ export const SettingsPage = () => {
                     {resources.map(r => (
                       <div key={r.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'11px 14px', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm }}>
                         <div style={{ flex:1, fontSize:'13px', fontWeight:700, color:T.ink }}>{r.name}</div>
-                        <div style={{ fontSize:'11.5px', color:T.muted }}>{r.type} · {r.capacity} kişi</div>
+                        <select value={r.type} onChange={e=>void updateResource(r.id,{type:e.target.value})}
+                          aria-label={`${r.name} kaynak türü`}
+                          style={{ background:T.surface, border:`1px solid ${T.border2}`, borderRadius:T.rXs, padding:'6px 8px', fontFamily:'inherit', fontSize:'11.5px', color:T.ink }}>
+                          {(resourceTypes.includes(r.type)?resourceTypes:[r.type,...resourceTypes]).map(type=><option key={type} value={type}>{type}</option>)}
+                        </select>
+                        <div style={{ fontSize:'11.5px', color:T.muted }}>{r.capacity} kişi</div>
                         <button onClick={()=>removeResource(r.id)} title="Sil" style={{ border:'none', background:'none', color:T.muted, cursor:'pointer', display:'grid', placeItems:'center' }}>
                           <Trash2 size={14}/>
                         </button>
@@ -622,14 +688,41 @@ export const SettingsPage = () => {
                     ))}
                     {resources.length===0 && <div style={{ fontSize:'12px', color:T.muted }}>Henüz kaynak yok.</div>}
                   </div>
-                  <div style={{ display:'flex', gap:'8px' }}>
-                    <input value={newResourceName} onChange={e=>setNewResourceName(e.target.value)} placeholder={`${resourceTypes[0]} adı (ör. ${resourceTypes[0]} 1)`}
+                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                    <select value={effectiveResourceType} onChange={e=>setNewResourceType(e.target.value)} aria-label="Kaynak türü"
+                      style={{ minWidth:120, background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:'inherit', fontSize:'13px', color:T.ink, outline:'none' }}>
+                      {resourceTypes.map(type=><option key={type} value={type}>{type}</option>)}
+                    </select>
+                    <input value={newResourceName} onChange={e=>setNewResourceName(e.target.value)} placeholder={`${effectiveResourceType} adı (ör. ${effectiveResourceType} 1)`}
                       style={{ flex:1, background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:'inherit', fontSize:'13px', color:T.ink, outline:'none' }}/>
                     <input type="number" min={1} value={newResourceCap} onChange={e=>setNewResourceCap(Math.max(1, parseInt(e.target.value)||1))} title="Kapasite"
                       style={{ width:70, background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 12px', fontFamily:'inherit', fontSize:'13px', color:T.ink, outline:'none' }}/>
-                    <button onClick={async()=>{ if(!newResourceName.trim())return; const ok=await addResource({ type:resourceTypes[0], name:newResourceName.trim(), capacity:newResourceCap }); if(ok){ setNewResourceName(''); setNewResourceCap(1); toast.success('Kaynak eklendi'); } }}
+                    <button onClick={async()=>{ if(!newResourceName.trim()||!effectiveResourceType)return; const ok=await addResource({ type:effectiveResourceType, name:newResourceName.trim(), capacity:newResourceCap }); if(ok){ setNewResourceName(''); setNewResourceCap(1); toast.success(`${effectiveResourceType} eklendi`); } }}
                       style={{ padding:'9px 14px', borderRadius:T.rSm, border:'none', background:T.orange, color:'#fff', fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
                       Ekle
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Ürün kataloğu artık Stoklar sayfasında ──
+                   Aynı tabloya iki ayrı yerden girmek "hangisi doğru" sorusunu
+                   üretiyordu. Stoklar sayfası ürünün adı/fiyatı yanında birim,
+                   maliyet, eşik ve stok hareketlerini de tuttuğu için katalog
+                   tek yerde: orada. Burada yalnız yol tarifi kalır. ── */}
+              {isEnabled('kasa') && !isEnabled('masa') && (
+                <div style={{ marginTop:'28px' }}>
+                  <SectionTitle>Satılan ürünler</SectionTitle>
+                  <div style={{ display:'flex', alignItems:'center', gap:'14px', flexWrap:'wrap', padding:'14px 16px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
+                    <Boxes size={18} style={{ color:T.orange, flexShrink:0 }}/>
+                    <p style={{ flex:1, minWidth:220, margin:0, fontSize:'12.5px', color:T.muted, lineHeight:1.55 }}>
+                      Ürün kataloğu <strong style={{ color:T.ink }}>Stoklar</strong> sayfasına taşındı. Ad ve fiyatın
+                      yanında birim, maliyet, kritik eşik ve stok hareketleri de orada tutuluyor —
+                      {products.length > 0 ? ` kayıtlı ${products.length} ürün korundu.` : ' ilk ürününüzü oradan ekleyin.'}
+                    </p>
+                    <button onClick={()=>navigate('/stock')}
+                      style={{ padding:'9px 14px', borderRadius:T.rSm, border:'none', background:inkbox, color:inkboxFg, fontSize:'12.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+                      Stoklar'a git
                     </button>
                   </div>
                 </div>
@@ -682,7 +775,8 @@ export const SettingsPage = () => {
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                 {services.map(s=>(
-                  <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
+                  <div key={s.id}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px', background:T.surface2, border:`1px solid ${T.border}`, borderRadius:T.rSm }}>
                     <input type="color" value={s.color} onChange={e=>updateService(s.id,'color',e.target.value)} style={{ width:32, height:32, borderRadius:'8px', border:'none', cursor:'pointer', padding:0, background:'none' }}/>
                     <input type="text" value={s.name} placeholder="Hizmet adı" onChange={e=>updateService(s.id,'name',e.target.value)}
                       style={{ flex:1, padding:'8px 12px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', fontFamily:'inherit', color:T.ink, background:T.surface, outline:'none' }}
@@ -706,11 +800,89 @@ export const SettingsPage = () => {
                         style={{ width:56, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface, outline:'none', fontFamily:"'JetBrains Mono',monospace" }}/>
                       <span style={{ fontSize:'11px', color:T.muted }}>gün sonra</span>
                     </div>
+                    {/* Reçete — bu hizmette tüketilen sarf malzemesi */}
+                    <button onClick={()=>setRecipeOpen(prev=>prev===s.id?null:s.id)}
+                      title="Bu hizmette tüketilen sarf malzemesi (boya, oksidan…). Girilirse işlem kasaya gönderilince stoktan otomatik düşer."
+                      style={{ height:30, padding:'0 10px', borderRadius:T.rXs, display:'flex', alignItems:'center', gap:'5px', border:`1px solid ${(s.recipe?.length ?? 0) > 0 ? 'rgba(255,90,31,0.35)' : T.border}`, background:'none', cursor:'pointer', color:(s.recipe?.length ?? 0) > 0 ? T.orange : T.muted, fontSize:'11px', fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap' }}>
+                      <Boxes size={12}/> {(s.recipe?.length ?? 0) > 0 ? `${s.recipe?.length} sarf` : 'Reçete'}
+                    </button>
                     <button onClick={()=>removeService(s.id)} style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted, transition:'all .15s' }}
                       onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(201,64,64,0.08)';(e.currentTarget as HTMLElement).style.color= dark?'#e07070':'#C94040';(e.currentTarget as HTMLElement).style.borderColor='rgba(201,64,64,0.3)'}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none';(e.currentTarget as HTMLElement).style.color=T.muted;(e.currentTarget as HTMLElement).style.borderColor=T.border}}>
                       <Trash2 size={13}/>
                     </button>
+                  </div>
+                  {/* Uygunluk etiketleri — sektörün kontrendikasyon kuralları
+                      hangi etiketleri kapatıyorsa seçenekler onlardır (tek kaynak:
+                      sectorProfiles.riskFlags). Kuralı olmayan sektörde hiç çıkmaz.
+                      Etiketsiz hizmette kural yalnız ad eşleşmesine düşer. */}
+                  {eligibilityTags.length > 0 && (
+                    <div style={{ display:'flex', alignItems:'center', gap:'7px', flexWrap:'wrap', margin:'6px 0 0', padding:'0 14px' }}>
+                      <span style={{ fontSize:'10.5px', fontWeight:700, color:T.muted2, letterSpacing:'.06em' }}
+                        title="Bu etiketler, müşterinin sağlık/risk bilgisiyle çakışan işlemlerin seçilmesini engeller.">
+                        Uygunluk:
+                      </span>
+                      {eligibilityTags.map(tag=>{
+                        const on = (s.tags||[]).includes(tag);
+                        return (
+                          <button key={tag} onClick={()=>updateService(s.id,'tags',
+                            on ? (s.tags||[]).filter(t=>t!==tag) : [...(s.tags||[]), tag])}
+                            aria-pressed={on}
+                            style={{ height:26, padding:'0 10px', borderRadius:999, cursor:'pointer', fontFamily:'inherit',
+                              fontSize:'11px', fontWeight:700, transition:'all .15s',
+                              border:`1px solid ${on ? T.orange : T.border}`,
+                              background:on ? 'rgba(255,90,31,0.10)' : 'none',
+                              color:on ? T.orange : T.muted }}>
+                            {tag}
+                          </button>
+                        );
+                      })}
+                      {(s.tags||[]).length===0 && (
+                        <span style={{ fontSize:'10.5px', color:T.muted2 }}>etiketsiz — kural yalnız hizmet adına bakar</span>
+                      )}
+                    </div>
+                  )}
+                  {recipeOpen===s.id && (
+                    <div style={{ margin:'6px 0 0', padding:'12px 14px', background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.rSm, display:'grid', gap:'8px' }}>
+                      <div style={{ fontSize:'9.5px', fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', color:T.muted2 }}>
+                        Bu hizmette tüketilen sarf
+                      </div>
+                      {stockProducts.length===0 && (
+                        <div style={{ fontSize:'11.5px', color:T.muted, lineHeight:1.55 }}>
+                          Önce Stoklar sayfasından ürün ekleyin — reçete oradaki ürünlerden kurulur.
+                        </div>
+                      )}
+                      {(s.recipe||[]).map((line,i)=>(
+                        <div key={`${s.id}-${i}`} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                          <select value={line.productId}
+                            onChange={e=>setRecipe(s.id,(s.recipe||[]).map((l,j)=>j===i?{...l,productId:e.target.value}:l))}
+                            style={{ flex:1, minWidth:0, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'12.5px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none' }}>
+                            {stockProducts.map(p=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+                          </select>
+                          <input type="number" min={0} step="any" value={line.quantity || ''} placeholder="0"
+                            onChange={e=>setRecipe(s.id,(s.recipe||[]).map((l,j)=>j===i?{...l,quantity:Math.max(0,parseFloat(e.target.value)||0)}:l))}
+                            style={{ width:88, padding:'8px 10px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'13px', color:T.ink, background:T.surface2, outline:'none', textAlign:'right', fontFamily:"'JetBrains Mono',monospace" }}/>
+                          <span style={{ width:34, fontSize:'11px', color:T.muted }}>
+                            {products.find(p=>p.id===line.productId)?.unit || 'adet'}
+                          </span>
+                          <button onClick={()=>setRecipe(s.id,(s.recipe||[]).filter((_,j)=>j!==i))}
+                            style={{ width:30, height:30, borderRadius:T.rXs, display:'grid', placeItems:'center', border:`1px solid ${T.border}`, background:'none', cursor:'pointer', color:T.muted }}>
+                            <Trash2 size={13}/>
+                          </button>
+                        </div>
+                      ))}
+                      {stockProducts.length>0 && (s.recipe||[]).length < stockProducts.length && (
+                        <button onClick={()=>addRecipeLine(s)}
+                          style={{ justifySelf:'start', display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', background:'none', color:T.ink, border:`1px dashed ${T.border2}`, borderRadius:T.rSm, fontSize:'11.5px', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                          <Plus size={11}/> Malzeme ekle
+                        </button>
+                      )}
+                      <div style={{ fontSize:'11px', color:T.muted2, lineHeight:1.55 }}>
+                        İşlem kasaya gönderilince bu miktarlar stoktan otomatik düşer. Renk sayacında
+                        personel miktarı o müşteriye göre düzeltebilir; reçete yalnız başlangıç değeridir.
+                      </div>
+                    </div>
+                  )}
                   </div>
                 ))}
               </div>

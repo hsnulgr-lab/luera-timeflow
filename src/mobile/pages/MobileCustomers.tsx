@@ -175,7 +175,7 @@ function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null;
                 {sector === 'dis' && (
                     <div>
                         <SecLbl>Diş Şeması</SecLbl>
-                        <DentalChart customerId={customer.id} T={T} />
+                        <DentalChart customerId={customer.id} />
                     </div>
                 )}
 
@@ -183,7 +183,7 @@ function CustomerDetailSheet({ customer, onClose }: { customer: Customer | null;
                 {sector === 'dis' && (
                     <div>
                         <SecLbl>Tedavi Planı</SecLbl>
-                        <TreatmentPlans customerId={customer.id} T={T} />
+                        <TreatmentPlans customerId={customer.id} />
                     </div>
                 )}
 

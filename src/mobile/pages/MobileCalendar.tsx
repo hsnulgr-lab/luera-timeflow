@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useReservations } from '@/hooks/useReservations';
+import { useCashEnabled } from '@/hooks/useModules';
 import { toISODate } from '@/utils/date';
+import { weekDaysOf } from '@/lib/calendarGrid';
+import { calendarProfileFor } from '@/lib/calendarSectorProfiles';
 import type { Reservation } from '@/types';
 import { ReservationSheet } from '../ReservationSheet';
 import { TahsilatSheet } from '../TahsilatSheet';
@@ -14,7 +17,12 @@ const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz'
 
 export const MobileCalendar = () => {
     const navigate = useNavigate();
+    // Kasa kapalıysa ReservationSheet 'Tamamla & Tahsilat' yerine ödemesiz
+    // tamamlamaya düşer (onCollect verilmediğinde kendi fallback'i devreye girer).
+    const cashOn = useCashEnabled();
     const { reservations, settings, getReservationsByDate, updateReservation, deleteReservation, checkConflict } = useReservations();
+    // Ziyaret ekranı sektör profilinden — mobil takvimdeki son sektör if'i kalktı.
+    const { visitRoute } = calendarProfileFor(settings.sector);
     // Seçili tarih ?date= parametresinde tutulur — sayfadan çıkıp dönünce kaybolmasın
     const [searchParams, setSearchParams] = useSearchParams();
     const [selected, setSelectedRaw] = useState(() => searchParams.get('date') || toISODate(new Date()));
@@ -25,15 +33,16 @@ export const MobileCalendar = () => {
     const sel = useMemo(() => new Date(selected + 'T00:00:00'), [selected]);
     const todayStr = useMemo(() => toISODate(new Date()), []);
 
-    const week = useMemo(() => {
-        const monday = new Date(sel);
-        monday.setDate(sel.getDate() - ((sel.getDay() + 6) % 7));
-        return Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(monday); d.setDate(monday.getDate() + i);
-            const ds = toISODate(d);
-            return { ds, num: d.getDate(), isSelected: ds === selected, isToday: ds === todayStr, hasEvent: reservations.some((r) => r.date === ds && r.status !== 'cancelled') };
-        });
-    }, [sel, selected, reservations, todayStr]);
+    const week = useMemo(
+        () => weekDaysOf(selected).map((ds) => ({
+            ds,
+            num: Number(ds.slice(8, 10)),
+            isSelected: ds === selected,
+            isToday: ds === todayStr,
+            hasEvent: reservations.some((r) => r.date === ds && r.status !== 'cancelled'),
+        })),
+        [selected, reservations, todayStr],
+    );
 
     const dayList = useMemo(
         () => [...getReservationsByDate(selected)].filter((r) => r.status !== 'cancelled').sort((a, b) => a.startTime.localeCompare(b.startTime)),
@@ -121,8 +130,8 @@ export const MobileCalendar = () => {
                 onClose={() => setActiveId(null)}
                 onUpdate={updateReservation}
                 onDelete={deleteReservation}
-                onCollect={(r) => { setActiveId(null); setPayRes(r); }}
-                onOpenVisit={settings.sector === 'dis' ? (r) => { setActiveId(null); navigate(`/dental-visit/${encodeURIComponent(r.id)}`); } : undefined}
+                onCollect={cashOn ? (r) => { setActiveId(null); setPayRes(r); } : undefined}
+                onOpenVisit={visitRoute ? (r) => { setActiveId(null); navigate(visitRoute(r.id)); } : undefined}
                 checkConflict={checkConflict}
             />
 

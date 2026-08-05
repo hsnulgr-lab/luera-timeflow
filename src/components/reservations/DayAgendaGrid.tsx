@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
 import {phaseOf, phaseTimer, type SessionPhase} from '@/lib/sessionPhase';
+import { packLanes } from '@/lib/calendarGrid';
 import type { Reservation, Resource, Staff, WorkingHours } from '@/types';
 
 // ── Seans Takvimi · premium gün görünümü ─────────────────────────────────────
@@ -51,44 +52,10 @@ interface Placed {
     lanes: number;
 }
 
-// Çakışan randevuları aynı sütunda yan yana şeritlere yerleştirir.
-// Kümedeki en yoğun nokta kaç şerit gerektiriyorsa hepsi o genişliği paylaşır —
-// böylece kartlar asla üst üste binip kırpılmaz.
+// Şerit yerleşimi ortak geometri katmanından (lib/calendarGrid.packLanes) —
+// kuaför takvimi ve KuaforDashboard ile aynı gövde.
 function packColumn(items: Reservation[]): Placed[] {
-    const sorted = [...items].sort((a, b) => timeToH(a.startTime) - timeToH(b.startTime));
-    const out: Placed[] = [];
-    let cluster: Reservation[] = [];
-    let clusterEnd = -1;
-
-    const flush = () => {
-        if (cluster.length === 0) return;
-        const laneEnds: number[] = [];
-        const placed: Placed[] = cluster.map((r) => {
-            const a = timeToH(r.startTime);
-            const b = timeToH(r.endTime);
-            let lane = laneEnds.findIndex((end) => end <= a + 1e-9);
-            if (lane < 0) { lane = laneEnds.length; laneEnds.push(0); }
-            laneEnds[lane] = b;
-            return { r, lane, lanes: 1 };
-        });
-        for (const p of placed) { p.lanes = laneEnds.length; out.push(p); }
-        cluster = [];
-    };
-
-    for (const r of sorted) {
-        const a = timeToH(r.startTime);
-        const b = timeToH(r.endTime);
-        if (cluster.length > 0 && a < clusterEnd - 1e-9) {
-            cluster.push(r);
-            clusterEnd = Math.max(clusterEnd, b);
-        } else {
-            flush();
-            cluster = [r];
-            clusterEnd = b;
-        }
-    }
-    flush();
-    return out;
+    return packLanes(items).map(({ item, lane, lanes }) => ({ r: item, lane, lanes }));
 }
 
 interface DayAgendaGridProps {

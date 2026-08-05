@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { TrendingUp, Users, Calendar, Clock, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const MONTHS_TR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
@@ -96,6 +97,7 @@ function SecTitle({ children }: { children: React.ReactNode }) {
 export const AnalyticsPage = () => {
   const { T, dark } = useT();
   const { reservations, isLoading } = useReservations();
+  const { t } = useLabels();
   const isMobile = useIsMobile();
 
   const a = useMemo(() => {
@@ -212,7 +214,7 @@ export const AnalyticsPage = () => {
                   {Math.abs(a.growth)}%
                 </span>
               </div>
-              <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: T.muted, marginBottom: '4px' }}>Toplam Randevu</div>
+              <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: T.muted, marginBottom: '4px' }}>Toplam {t('reservation')}</div>
               <div style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', color: T.ink, lineHeight: 1 }}>{a.total}</div>
               <div style={{ fontSize: '10.5px', color: T.muted, marginTop: '6px', fontFamily: "'JetBrains Mono',monospace" }}>Bu ay: {a.thisMonth} · Geçen: {a.lastMonth}</div>
             </div>
@@ -270,7 +272,7 @@ export const AnalyticsPage = () => {
           {/* Son 7 Gün */}
           <Card style={{ padding: '20px 22px' }}>
             <SecTitle>Son 7 Gün</SecTitle>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: T.ink, marginBottom: '4px' }}>Günlük Randevu</div>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: T.ink, marginBottom: '4px' }}>Günlük {t('reservation')}</div>
             <div style={{ fontSize: '11px', color: T.muted, marginBottom: '20px' }}>Son 7 günün dağılımı</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: 140 }}>
               {a.last7Days.map((day, i) => {

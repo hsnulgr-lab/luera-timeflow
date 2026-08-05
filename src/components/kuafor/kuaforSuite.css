@@ -28,6 +28,16 @@
   box-sizing: border-box;
 }
 
+/* Portal edilen modal/drawer sarmalayıcısı: kabuğun değişkenleri ve reset'leri
+   gerekli, sayfa yerleşimi (flex/overflow/zemin) gerekli değil. */
+.ks-shell.ks-shell-overlay {
+  flex: none;
+  position: static;
+  overflow: visible;
+  background: none;
+  isolation: auto;
+}
+
 /* Form öğelerinde `font: inherit` kısayolu kullanılmaz: seçici gücü (.ks-shell
    button) bileşenin kendi .ks-btn kuralından yüksek olduğu için buton yazı
    boyutunu eziyor ve sayfa tabanını miras alıyordu. Aile/ağırlık miras alınır,
@@ -1036,6 +1046,604 @@
   font-weight: 760;
 }
 
+/* Calendar focus mode
+   Yoğun salon günlerinde birincil yüzey takvimdir: üst özetler tek komut
+   çubuğuna sıkışır, kolon başlığı ve gövde aynı viewport'ta kayar. */
+
+.ks-calendar-page .ks-page-head {
+  display: none;
+}
+
+.ks-calendar-page .ks-scroll {
+  width: min(100%, 1760px);
+  padding: 16px 20px 34px;
+}
+
+.ks-calendar-page .ks-calendar-command {
+  min-height: 74px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(230px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-radius: 18px;
+}
+
+.ks-calendar-command .ks-date-nav > div {
+  min-width: 155px;
+}
+
+.ks-calendar-quick-stats {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.ks-calendar-quick-stats > span {
+  min-height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--dc-muted);
+  background: var(--dc-surface2);
+  white-space: nowrap;
+}
+
+.ks-calendar-quick-stats > span svg {
+  color: var(--dc-orange);
+}
+
+.ks-calendar-quick-stats > span:nth-child(2) svg {
+  color: var(--dc-green);
+}
+
+.ks-calendar-quick-stats > span.processing svg {
+  color: var(--dc-purple);
+}
+
+.ks-calendar-quick-stats > span:last-child svg {
+  color: var(--dc-blue);
+}
+
+.ks-calendar-quick-stats b {
+  color: var(--dc-ink);
+  font: 820 11.5px ui-monospace, monospace;
+}
+
+.ks-calendar-quick-stats small {
+  color: var(--dc-muted);
+  font-size: 9.5px;
+  font-weight: 680;
+}
+
+.ks-calendar-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.ks-calendar-controls .ks-segmented {
+  margin-left: 0;
+}
+
+.ks-calendar-controls .ks-segmented button {
+  padding-inline: 11px;
+  font-size: 11.5px;
+}
+
+.ks-calendar-controls .ks-filter {
+  height: 36px;
+}
+
+.ks-calendar-notifications {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-card);
+}
+
+.ks-calendar-notifications > div,
+.ks-calendar-notifications button {
+  width: 100%;
+  height: 100%;
+}
+
+.ks-calendar-new {
+  min-height: 40px;
+  padding-inline: 15px;
+  font-size: 12px;
+}
+
+.ks-week-strip {
+  min-height: 64px;
+  margin-bottom: 10px;
+  padding: 5px;
+  display: grid;
+  grid-template-columns: 72px repeat(7, minmax(86px, 1fr));
+  align-items: stretch;
+  gap: 3px;
+  border: 1px solid var(--dc-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--dc-card) 94%, transparent);
+  box-shadow: var(--ks-shadow-sm);
+}
+
+.ks-week-strip-label {
+  display: grid;
+  place-items: center;
+  color: var(--dc-muted2);
+  font: 760 8.5px ui-monospace, monospace;
+  letter-spacing: .1em;
+}
+
+.ks-week-strip button {
+  min-width: 0;
+  padding: 7px 9px;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  justify-content: start;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--dc-muted);
+  background: transparent;
+  text-align: left;
+  transition: border-color .18s ease, color .18s ease, background .18s ease;
+}
+
+.ks-week-strip button:hover {
+  color: var(--dc-ink);
+  background: var(--dc-surface2);
+}
+
+.ks-week-strip button.active {
+  border-color: color-mix(in srgb, var(--dc-orange) 24%, var(--dc-border));
+  color: var(--dc-ink);
+  background: var(--dc-orange-soft);
+}
+
+.ks-week-strip button.today::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  border-radius: 50%;
+  background: var(--dc-orange);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--dc-orange) 10%, transparent);
+}
+
+.ks-week-strip button small {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.ks-week-strip button strong {
+  color: var(--dc-ink);
+  font: 820 13.5px ui-monospace, monospace;
+}
+
+.ks-week-strip button em {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dc-muted2);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-calendar-page .ks-calendar-layout {
+  display: block;
+}
+
+.ks-calendar-page .ks-timeline-card {
+  width: 100%;
+  height: min(760px, calc(100dvh - 285px));
+  min-height: 520px;
+  border-radius: 18px;
+  box-shadow: var(--ks-shadow-sm);
+}
+
+.ks-calendar-page .ks-timeline-scroll {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  display: block;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--dc-border2) transparent;
+  scrollbar-width: thin;
+}
+
+.ks-timeline-grid {
+  width: 100%;
+  min-width: var(--calendar-min-width);
+}
+
+.ks-calendar-page .ks-lane-head {
+  width: 100%;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  grid-template-columns: 64px var(--lane-template);
+  background: color-mix(in srgb, var(--dc-card) 95%, var(--dc-surface2));
+  box-shadow: 0 1px 0 var(--dc-border), 0 5px 14px rgba(14, 14, 14, .035);
+}
+
+.ks-calendar-page .ks-axis-corner {
+  position: sticky;
+  left: 0;
+  z-index: 9;
+  background: color-mix(in srgb, var(--dc-card) 95%, var(--dc-surface2));
+}
+
+.ks-calendar-page .ks-lane-head > div {
+  min-height: 58px;
+  padding: 9px 13px;
+  background: transparent;
+}
+
+.ks-calendar-page .ks-lane-head strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ks-calendar-page .ks-lane-head small {
+  margin-top: 2px;
+  color: var(--dc-muted2);
+  font-size: 10.5px;
+}
+
+.ks-timeline-body {
+  min-height: var(--timeline-height);
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.ks-calendar-page .ks-time-axis {
+  height: var(--timeline-height);
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--dc-card) 94%, var(--dc-surface2));
+}
+
+.ks-calendar-page .ks-time-axis span {
+  padding: 8px 10px 0 0;
+  color: var(--dc-muted2);
+  border-bottom-color: var(--dc-border);
+  font-size: 10.5px;
+}
+
+.ks-calendar-page .ks-lanes {
+  width: 100%;
+  min-width: 0;
+  height: var(--timeline-height);
+  grid-template-columns: var(--lane-template);
+}
+
+.ks-calendar-page .ks-lane {
+  scroll-snap-align: start;
+  border-right-color: var(--dc-border);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 43px,
+      var(--dc-border-soft) 43px,
+      var(--dc-border-soft) 44px,
+      transparent 44px,
+      transparent 87px,
+      var(--dc-border) 87px,
+      var(--dc-border) 88px
+    );
+}
+
+.ks-calendar-page .ks-lane:hover {
+  background-color: color-mix(in srgb, var(--dc-orange-soft) 20%, transparent);
+}
+
+.ks-calendar-page .ks-appointment {
+  min-height: 20px;
+  left: auto;
+  padding: 5px 7px 5px 9px;
+  border-color: color-mix(in srgb, var(--service-color) 20%, var(--dc-border2));
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dc-card) 96%, var(--service-color));
+  box-shadow: 0 2px 7px rgba(14, 14, 14, .065);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.ks-calendar-page .ks-appointment:hover {
+  z-index: 5;
+  transform: none;
+  border-color: var(--service-color);
+  background: var(--dc-card);
+  box-shadow: 0 7px 18px rgba(14, 14, 14, .13);
+}
+
+.ks-calendar-page .ks-appointment > i {
+  width: 5px;
+  height: 5px;
+  right: 6px;
+  top: 6px;
+}
+
+.ks-calendar-page .ks-appointment .ks-appt-time {
+  color: var(--dc-muted2);
+  font-size: 9.5px;
+  letter-spacing: .015em;
+}
+
+.ks-calendar-page .ks-appointment strong {
+  padding-right: 7px;
+  color: var(--dc-ink);
+  font-size: 11.5px;
+  line-height: 1.18;
+}
+
+.ks-calendar-page .ks-appointment small {
+  margin-top: 1px;
+  color: var(--dc-muted);
+  font-size: 9.5px;
+}
+
+.ks-calendar-page .ks-appointment em {
+  width: max-content;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: var(--dc-muted);
+  background: var(--dc-surface2);
+  font-size: 7.5px;
+  font-weight: 730;
+}
+
+.ks-calendar-page .ks-appointment.is-micro {
+  padding: 2px 6px 2px 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ks-calendar-page .ks-appointment.is-micro > i {
+  display: none;
+}
+
+.ks-calendar-page .ks-appointment.is-micro .ks-appt-time {
+  flex: 0 0 auto;
+  font-size: 8px;
+}
+
+.ks-calendar-page .ks-appointment.is-micro strong {
+  min-width: 0;
+  padding: 0;
+  font-size: 9px;
+}
+
+.ks-calendar-page .ks-appointment.is-compact {
+  padding-block: 4px;
+}
+
+.ks-calendar-page .ks-appointment.is-overlapping strong {
+  font-size: 10px;
+}
+
+.ks-calendar-page .ks-appointment.pending {
+  border-style: solid;
+}
+
+.ks-calendar-page .ks-appointment.waiting {
+  border-left-color: var(--dc-amber);
+  background: color-mix(in srgb, var(--dc-card) 90%, var(--dc-amber-bg));
+}
+
+.ks-calendar-page .ks-appointment.service {
+  border-left-color: var(--dc-orange);
+}
+
+.ks-calendar-page .ks-appointment.processing {
+  border-left-color: var(--dc-purple);
+  background: color-mix(in srgb, var(--dc-card) 90%, var(--dc-purple-bg));
+}
+
+.ks-calendar-page .ks-appointment.finish {
+  border-left-color: var(--dc-blue);
+  background: color-mix(in srgb, var(--dc-card) 91%, var(--dc-blue-bg));
+}
+
+.ks-calendar-page .ks-appointment.checkout {
+  border-left-color: var(--dc-green);
+  background: color-mix(in srgb, var(--dc-card) 88%, var(--dc-green-bg));
+}
+
+.ks-calendar-page .ks-now-line {
+  z-index: 1;
+  left: 0;
+  right: 0;
+  height: 1px;
+  box-shadow: none;
+}
+
+.ks-calendar-page .ks-now-line::before {
+  width: 6px;
+  height: 6px;
+  left: -3px;
+  top: -2px;
+}
+
+.ks-now-label {
+  position: absolute;
+  z-index: 6;
+  right: 6px;
+  transform: translateY(-50%);
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: #fff;
+  background: var(--dc-orange);
+  font: 760 8px ui-monospace, monospace;
+  font-style: normal;
+}
+
+.ks-calendar-page .ks-timeline-hint {
+  min-height: 29px;
+  font-size: 9px;
+}
+
+.ks-calendar-opportunities {
+  min-height: 68px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: minmax(190px, .8fr) minmax(280px, 1.7fr) minmax(170px, .65fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--dc-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--dc-card) 94%, transparent);
+  box-shadow: var(--ks-shadow-sm);
+}
+
+.ks-calendar-opportunities > header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ks-calendar-opportunities > header > span {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--dc-orange);
+  background: var(--dc-orange-soft);
+}
+
+.ks-calendar-opportunities > header p {
+  min-width: 0;
+  margin: 0;
+}
+
+.ks-calendar-opportunities > header small,
+.ks-calendar-opportunities > header strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-calendar-opportunities > header small {
+  color: var(--dc-muted2);
+  font: 750 7.5px ui-monospace, monospace;
+  letter-spacing: .1em;
+}
+
+.ks-calendar-opportunities > header strong {
+  margin-top: 3px;
+  font-size: 9px;
+}
+
+.ks-calendar-slot-list {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ks-calendar-slot-list button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 9px;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--dc-border);
+  border-radius: 10px;
+  color: var(--dc-ink);
+  background: var(--dc-surface2);
+  font-size: 9px;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.ks-calendar-slot-list button:hover {
+  transform: translateY(-1px);
+  border-color: var(--dc-orange);
+  background: var(--dc-orange-soft);
+}
+
+.ks-calendar-slot-list button svg:first-child {
+  color: var(--dc-orange);
+}
+
+.ks-calendar-slot-list p {
+  margin: 0;
+  color: var(--dc-muted);
+  font-size: 9px;
+}
+
+.ks-calendar-waitlist {
+  min-height: 42px;
+  padding: 6px 9px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  color: var(--dc-ink);
+  background: var(--dc-surface2);
+  text-align: left;
+}
+
+.ks-calendar-waitlist > svg:first-child {
+  color: var(--dc-blue);
+}
+
+.ks-calendar-waitlist span,
+.ks-calendar-waitlist b,
+.ks-calendar-waitlist small {
+  min-width: 0;
+  display: block;
+}
+
+.ks-calendar-waitlist b {
+  font-size: 9px;
+}
+
+.ks-calendar-waitlist small {
+  margin-top: 2px;
+  color: var(--dc-muted);
+  font-size: 8px;
+}
+
 /* Shared modal and calendar drawer */
 
 .ks-modal-layer,
@@ -1052,9 +1660,12 @@
   animation: ks-fade .18s ease both;
 }
 
+/* Pop-up ölçüsü: ekranı kaplamaz. Gövde zaten kendi içinde kaydığı için
+   yüksekliği kısmak içerik kaybettirmez. (.ks-appointment-modal kendi
+   ölçülerini ayrıca tanımlar; iki sütunlu plan penceresi geniş kalır.) */
 .ks-modal {
-  width: min(600px, 95vw);
-  max-height: min(820px, 92vh);
+  width: min(520px, 94vw);
+  max-height: min(640px, 84vh);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--dc-border2);
@@ -1067,7 +1678,7 @@
 }
 
 .ks-modal-compact {
-  width: min(520px, 95vw);
+  width: min(460px, 94vw);
 }
 
 .ks-modal > header {
@@ -1556,6 +2167,192 @@
   font-weight: 650;
 }
 
+/* Ziyaretin işlem satırları — kesim + boya + fön tek randevu penceresinde */
+.ks-line-list {
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ks-line-list > li {
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto 24px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--dc-border);
+  border-radius: 11px;
+  background: var(--dc-card);
+}
+
+/* Satırın kendi kuaförü — boyayı başkası yapabilir, prim ona yazılır. */
+.ks-line-list > li > select {
+  max-width: 132px;
+  min-height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 8px;
+  color: var(--dc-ink);
+  background: var(--dc-surface2);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.ks-line-list > li > b {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--dc-inkbox-fg);
+  background: var(--dc-inkbox);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ks-line-list > li > span {
+  min-width: 0;
+}
+
+.ks-line-list > li strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ks-line-list > li small {
+  display: block;
+  color: var(--dc-muted);
+  font-size: 11px;
+}
+
+.ks-line-list > li em {
+  color: var(--dc-muted);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.ks-line-list > li > button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--dc-muted);
+  background: transparent;
+}
+
+.ks-line-list > li > button:hover {
+  color: var(--dc-red);
+  background: var(--dc-red-bg);
+}
+
+/* Liste boşken yönlendirme — "ekle" butonu yok, seçim doğrudan ekliyor. */
+.ks-line-empty {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px dashed var(--dc-border2);
+  border-radius: 11px;
+  color: var(--dc-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* Müşteri önerisi — native <datalist> yerine suite'in kendi kartı.
+   Panelin z-index'i tek başına yetmiyor: sonraki .ks-appointment-section
+   kutuları DOM sırasında sonra geldiği için üste biniyordu. Paneli barındıran
+   bölümün TAMAMI yükseltilir, böylece sıralama içerikten bağımsız çözülür. */
+.ks-appointment-section:has(.ks-customer-suggest) {
+  z-index: 40;
+}
+
+.ks-customer-field {
+  position: relative;
+}
+
+.ks-customer-suggest {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 244px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border: 1px solid var(--dc-border2);
+  border-radius: 14px;
+  background: var(--dc-card);
+  box-shadow: var(--ks-shadow-lg);
+}
+
+.ks-customer-suggest > button {
+  width: 100%;
+  padding: 7px 8px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+}
+
+.ks-customer-suggest > button:hover,
+.ks-customer-suggest > button:focus-visible {
+  background: var(--dc-surface2);
+}
+
+.ks-customer-suggest > button > i {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--dc-inkbox-fg);
+  background: var(--dc-inkbox);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ks-customer-suggest > button > span {
+  min-width: 0;
+  display: block;
+}
+
+.ks-customer-suggest > button b {
+  display: block;
+  color: var(--dc-ink);
+  font-size: 12.5px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ks-customer-suggest > button small {
+  display: block;
+  color: var(--dc-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
 .ks-appointment-modal .ks-modal-body input,
 .ks-appointment-modal .ks-modal-body select,
 .ks-appointment-modal .ks-modal-body textarea {
@@ -1617,9 +2414,14 @@
   border-color: color-mix(in srgb, var(--dc-purple) 18%, var(--dc-border)) !important;
 }
 
+/* Özet paneli formla birlikte uzamaz: içerik boyunda kalır ve pencerenin
+   üstüne yapışır. `min-height: 100%` onu satır yüksekliğine kadar geriyordu,
+   konteyner kadar uzun bir eleman da sticky davranamıyordu — işlem ekledikçe
+   panel aşağı doğru büyüyüp durum kartını ekrandan kaçırıyordu. */
 .ks-appointment-preview {
   min-width: 0;
-  min-height: 100%;
+  align-self: start;
+  max-height: calc(100% - 2px);
   padding: 17px;
   position: sticky;
   top: 0;
@@ -1796,7 +2598,7 @@
 
 .ks-preview-status {
   min-height: 61px;
-  margin-top: auto;
+  margin-top: 14px;
   padding: 10px;
   display: flex;
   align-items: flex-start;
@@ -2739,6 +3541,7 @@
 
 .ks-customer-index {
   min-width: 0;
+  min-height: 0;
   padding: 14px 0 0;
   display: flex;
   flex-direction: column;
@@ -2784,9 +3587,15 @@
   background: var(--dc-inkbox);
 }
 
+/* flex-basis: 0 kritik: liste kendi içeriğiyle kolonun boyunu BELİRLEMEZ,
+   satır yüksekliğini sağdaki profil paneli kurar, liste de o boya uzayıp
+   kendi içinde kayar. Sabit max-height verilirse (denendi) uzun profillerde
+   altta boşluk kalıyor, viewport'a kilitlenirse sayfa scroll'u ölüyordu. */
 .ks-customer-list {
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 240px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-top: 1px solid var(--dc-border);
 }
 
@@ -2882,8 +3691,8 @@
 
 .ks-customer-profile {
   min-width: 0;
+  min-height: 0;
   padding: 20px;
-  overflow-y: auto;
 }
 
 .ks-customer-profile > .ks-detail-placeholder {
@@ -3638,6 +4447,166 @@
   }
 }
 
+@media (max-width: 1350px) {
+  .ks-calendar-page .ks-calendar-command {
+    min-height: 108px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .ks-calendar-page .ks-calendar-quick-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .ks-calendar-page .ks-calendar-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ks-calendar-page .ks-timeline-card {
+    height: min(720px, calc(100dvh - 325px));
+  }
+}
+
+@media (max-width: 920px) {
+  .ks-calendar-page .ks-calendar-command {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .ks-calendar-page .ks-calendar-command .ks-date-nav,
+  .ks-calendar-page .ks-calendar-controls {
+    width: 100%;
+  }
+
+  .ks-calendar-page .ks-calendar-quick-stats {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ks-calendar-page .ks-calendar-controls {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ks-week-strip {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .ks-week-strip-label {
+    min-width: 64px;
+  }
+
+  .ks-week-strip button {
+    min-width: 108px;
+    scroll-snap-align: start;
+  }
+
+  .ks-calendar-page .ks-timeline-scroll {
+    scroll-snap-type: x proximity;
+  }
+
+  .ks-calendar-opportunities {
+    grid-template-columns: minmax(170px, .75fr) minmax(260px, 1.25fr);
+  }
+
+  .ks-calendar-waitlist {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .ks-calendar-page .ks-scroll {
+    padding: 10px 8px 24px;
+  }
+
+  .ks-calendar-page .ks-calendar-command {
+    padding: 9px;
+    gap: 8px;
+    border-radius: 15px;
+  }
+
+  .ks-calendar-command .ks-date-nav > div {
+    min-width: 0;
+  }
+
+  .ks-calendar-page .ks-calendar-quick-stats > span {
+    min-height: 32px;
+    padding-inline: 8px;
+  }
+
+  .ks-calendar-page .ks-calendar-controls .ks-segmented button {
+    min-height: 34px;
+    padding-inline: 9px;
+  }
+
+  .ks-calendar-page .ks-filter {
+    margin-left: 0;
+  }
+
+  .ks-calendar-new {
+    min-height: 36px;
+  }
+
+  .ks-week-strip {
+    min-height: 56px;
+    border-radius: 14px;
+  }
+
+  .ks-week-strip-label {
+    display: none;
+  }
+
+  .ks-week-strip button {
+    min-width: 96px;
+  }
+
+  .ks-calendar-page .ks-timeline-card {
+    height: min(640px, calc(100dvh - 255px));
+    min-height: 500px;
+    border-radius: 15px;
+  }
+
+  .ks-calendar-page .ks-lane-head {
+    grid-template-columns: 58px var(--lane-template);
+  }
+
+  .ks-timeline-body {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .ks-calendar-page .ks-lane-head > div {
+    padding-inline: 9px;
+  }
+
+  .ks-calendar-opportunities {
+    padding: 9px;
+    grid-template-columns: 1fr;
+  }
+
+  .ks-calendar-slot-list {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ks-calendar-slot-list button {
+    min-width: 112px;
+  }
+
+  .ks-calendar-waitlist {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 680px) {
   .ks-appointment-modal-layer {
     align-items: flex-end;
@@ -3694,8 +4663,11 @@
     grid-template-columns: 1fr;
   }
 
+  /* Tek kolona düşünce panel formun üstünde durur; yapışma anlamsızlaşır. */
   .ks-appointment-preview {
     min-height: 265px;
+    max-height: none;
+    align-self: stretch;
     position: relative;
     padding: 15px;
   }
@@ -3763,19 +4735,23 @@
   }
 }
 
+/* Bitiş kareleri transform BIRAKMAZ: animation-fill-mode: both ile kalan
+   translateY(0) bile elemanı position:fixed için containing block yapıyor ve
+   modal katmanı sayfa gövdesine hapsoluyordu (scrim üst barları örtmüyor,
+   pencere alta taşıyordu). transform: none bu zinciri kesiyor. */
 @keyframes ks-page-in {
   from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-block-in {
   from { opacity: 0; transform: translateY(5px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-row-in {
   from { opacity: 0; transform: translateX(-4px); }
-  to { opacity: 1; transform: translateX(0); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-live {
@@ -3790,17 +4766,17 @@
 
 @keyframes ks-modal-in {
   from { opacity: 0; transform: translateY(16px) scale(.975); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-appointment-section-in {
   from { opacity: 0; transform: translateY(7px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-appointment-preview-in {
   from { opacity: 0; transform: translateX(9px) scale(.985); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes ks-drawer-in {

@@ -9,6 +9,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useCustomerPackages } from '@/hooks/useCustomerPackages';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Reservation, PaymentMethod } from '@/types';
 import { reservationPrice } from '@/utils/reservationServices';
@@ -46,6 +47,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const { dark } = useTheme();
     const { settings, reservations, updateReservation } = useReservations();
     const { payments, addPayment, removeByReservations, totalForCustomer } = usePayments();
+    const cashOn = useCashEnabled();
     const { products } = useProducts();
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
@@ -363,7 +365,20 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                                     Ödemeyi geri al
                                 </button>
                             ) : (
-                                net > 0 ? (
+                                // Kasa modülü kapalıyken tahsilat TimeFlow'da tutulmuyordur:
+                                // ödeme kaydı yazan buton gösterilmez, randevu ödeme kaydı
+                                // üretmeden kapatılır (completeFree ile aynı yol).
+                                !cashOn ? (
+                                    hasServiceRows ? (
+                                        <button onClick={completeFree} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                                            Randevuyu Tamamla
+                                        </button>
+                                    ) : (
+                                        <button disabled style={{ width: '100%', padding: 14, borderRadius: 12, background: T.surface3, color: T.muted2, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'not-allowed' }}>
+                                            Hizmet ekleyin
+                                        </button>
+                                    )
+                                ) : net > 0 ? (
                                     <button onClick={collect} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
                                         {fmt(net)} ₺ Tahsil Et
                                     </button>

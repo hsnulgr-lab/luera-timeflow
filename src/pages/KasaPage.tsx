@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { BeautyCashRegister } from '@/pages/BeautyCashRegister';
+import { isCashVariant } from '@/lib/cashSectorProfiles';
 import { toast } from 'sonner';
 import { usePayments } from '@/hooks/usePayments';
 import { collectAllocated } from '@/lib/allocatePayment';
@@ -22,7 +23,6 @@ const AV_COLORS = ['#C98BDB', '#6B9FD4', '#7CC47F', '#E0A84E', '#D67B7B', '#8B7F
 
 const PM_TR: Record<PaymentMethod, string> = { cash: 'Nakit', card: 'Kart', transfer: 'Havale', other: 'Diğer' };
 const PM_CLS: Record<PaymentMethod, string> = { cash: 'cash', card: 'card', transfer: 'bank', other: 'other' };
-const TR_PM: Record<string, PaymentMethod> = { Nakit: 'cash', Kart: 'card', Havale: 'transfer', 'Diğer': 'other' };
 const TYPE_TR: Record<PaymentType, string> = { service: 'Hizmet', product: 'Ürün', other: 'Tahsilat' };
 
 function initials(name: string) {
@@ -105,7 +105,6 @@ export const KasaPage = () => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const weekAgo = startOfDay - 6 * 864e5;
         const prevStart = startOfDay - 13 * 864e5, prevEnd = startOfDay - 6 * 864e5;
         let todayN = 0, monthN = 0, prevWeek = 0;
         for (const p of payments) {
@@ -208,11 +207,14 @@ export const KasaPage = () => {
         ? `${fmt(amount)} ₺ − ${fmt(discount)} ₺ indirim`
         : (net === 0 ? 'Tutar girin veya hizmet seçin' : `${PM_TR[method]} ile tahsilat`);
 
-    // Güzellik salonu: 3 sütunlu premium kasa deneyimi (ayrı bileşen)
-    if (sector === 'guzellik') {
+    // Randevulu sektörlerin tamamı (artık diş dahil — allocatePlans bayrağı)
+    // ortak 3 sütunlu kasayı kullanır; veri yetenekleri ve terminoloji
+    // bileşendeki sektör profilinden gelir. Aşağıdaki eski kasa yalnız
+    // restorana kalır: masa/adisyon kuyruğu ortak kasada işlevini kaybederdi.
+    if (isCashVariant(sector)) {
         return (
             <div className={`dash-theme${dark ? ' dark' : ''} flex-1 min-h-0 overflow-hidden`}>
-                <BeautyCashRegister onBack={() => navigate('/')} />
+                <BeautyCashRegister onBack={() => navigate('/')} variant={sector} />
             </div>
         );
     }

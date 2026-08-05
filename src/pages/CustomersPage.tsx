@@ -13,7 +13,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
-import { fieldDefsForSector } from '@/lib/sectorProfiles';
+import { commsForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
 import { cn } from '@/utils/cn';
 import type { Customer, DentalStatus, TreatmentPlanStatus } from '@/types';
 
@@ -61,6 +61,8 @@ export function CustomersPage() {
     const { allCustomers, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
     const { reservations, settings } = useReservations();
     const { t, sector } = useLabels();
+    // Mesaj metni sektörün kendi diliyle: "bakımınızı", "tedavinizi"…
+    const comms = commsForSector(sector);
     const { payments } = usePayments();
     const isDental = sector === 'dis';
     const isBeauty = sector === 'guzellik';
@@ -190,7 +192,7 @@ export function CustomersPage() {
         const bal = balanceOf(c.id);
         if (bal > 0) return <span className="flex-shrink-0 font-mono text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-[var(--dc-red-bg)] text-[var(--dc-red2)]">{fmtTL(bal)}</span>;
         if (c.recallDate) return <span className="flex-shrink-0 text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-[var(--dc-amber-bg)] text-[var(--dc-amber)]">Kontrol · {fmtShort(c.recallDate)}</span>;
-        return <span className="flex-shrink-0 text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-[var(--dc-surface2)] text-[var(--dc-muted)]">{c.totalReservations} randevu</span>;
+        return <span className="flex-shrink-0 text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-[var(--dc-surface2)] text-[var(--dc-muted)]">{c.totalReservations} {t('reservation').toLocaleLowerCase('tr')}</span>;
     };
 
     const cardCls = 'bg-[var(--dc-surface)] border border-[var(--dc-border)] rounded-[20px] shadow-[0_2px_8px_rgba(14,14,14,0.05),0_10px_30px_rgba(14,14,14,0.07)]';
@@ -214,8 +216,8 @@ export function CustomersPage() {
         const next = [...custHistory].reverse().find(r => r.date >= today && r.status !== 'cancelled');
         const out: { label: string; text: string }[] = [];
         if (next) out.push({
-            label: `Randevu hatırlat · ${fmtShort(next.date)} ${next.startTime}`,
-            text: `Merhaba ${selected.name}, ${biz}. ${fmtShort(next.date)} ${next.startTime} randevunuzu hatırlatmak istedik. Görüşmek üzere!`,
+            label: `${t('reservation')} hatırlat · ${fmtShort(next.date)} ${next.startTime}`,
+            text: `Merhaba ${selected.name}, ${biz}. ${fmtShort(next.date)} ${next.startTime} ${comms.servicePhrase} hatırlatmak istedik. Görüşmek üzere!`,
         });
         if (selBal > 0) out.push({
             label: `Bakiye hatırlat · ${fmtTL(selBal)}`,
@@ -226,12 +228,12 @@ export function CustomersPage() {
             text: `Merhaba ${selected.name}, ${biz}. ${fmtShort(selected.recallDate)} tarihinde kontrol zamanınız geliyor. Randevu oluşturmak ister misiniz?`,
         });
         if (!next) out.push({
-            label: 'Randevuya davet',
+            label: `${t('reservation')} daveti`,
             text: `Merhaba ${selected.name}, ${biz}. Sizi tekrar aramızda görmek isteriz; uygun olduğunuz bir gün için randevu ayarlayalım mı?`,
         });
         out.push({ label: 'Boş mesaj', text: `Merhaba ${selected.name}, ${biz}den yazıyoruz.` });
         return out;
-    }, [selected, custHistory, selBal, settings.businessName]);
+    }, [selected, custHistory, selBal, settings.businessName, comms.servicePhrase, t]);
 
     return (
         <div className={cn('dash-theme flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]', dark && 'dark')}>
@@ -355,7 +357,7 @@ export function CustomersPage() {
                                     // hastanın tüm ödemeleri ("Toplam Harcama") vardı ve plan
                                     // toplamıyla uyuşmuyordu.
                                     { k: 'Tedavi Tutarı', v: fmtTL(selFinance.total), debt: false },
-                                    { k: 'Tamamlanan Randevu', v: String(selDone), debt: false },
+                                    { k: `Tamamlanan ${t('reservation')}`, v: String(selDone), debt: false },
                                     { k: 'Kalan Bakiye', v: fmtTL(selBal), debt: selBal > 0 },
                                 ]).map(kpi => (
                                     <div key={kpi.k} className={cn('rounded-[15px] border px-4 py-3.5', kpi.debt ? 'bg-[var(--dc-red-bg)] border-[rgba(192,64,46,0.25)]' : 'bg-[var(--dc-page)] border-[var(--dc-border)]')}>
@@ -421,9 +423,9 @@ export function CustomersPage() {
 
                             {/* Randevu Geçmişi */}
                             <div className="px-6 pt-[18px]">
-                                <div className="flex items-center gap-2 mb-2.5"><span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--dc-muted2)]">Randevu Geçmişi</span></div>
+                                <div className="flex items-center gap-2 mb-2.5"><span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--dc-muted2)]">{t('reservation')} Geçmişi</span></div>
                                 {custHistory.length === 0 ? (
-                                    <div className="text-[12.5px] font-semibold text-[var(--dc-muted)] py-3">Henüz randevu kaydı yok — ilk randevuyu aşağıdan oluşturabilirsiniz.</div>
+                                    <div className="text-[12.5px] font-semibold text-[var(--dc-muted)] py-3">Henüz {t('reservation').toLocaleLowerCase('tr')} kaydı yok — ilkini aşağıdan oluşturabilirsiniz.</div>
                                 ) : (
                                     <div className="flex flex-col">
                                         {custHistory.slice(0, 5).map(r => {
@@ -443,7 +445,7 @@ export function CustomersPage() {
 
                             {/* Hızlı aksiyonlar */}
                             <div className="flex gap-2.5 px-6 pt-[18px] pb-5 mt-auto border-t border-[var(--dc-border)] flex-wrap" style={{ marginTop: 18 }}>
-                                <button onClick={() => navigate(`/calendar?new=1&customer=${selected.id}`)} className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 min-h-[46px] px-4 rounded-[13px] bg-[var(--dc-orange)] text-white text-[13px] font-bold hover:opacity-90 transition-opacity"><CalendarClock size={15} />Yeni Randevu</button>
+                                <button onClick={() => navigate(`/calendar?new=1&customer=${selected.id}`)} className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 min-h-[46px] px-4 rounded-[13px] bg-[var(--dc-orange)] text-white text-[13px] font-bold hover:opacity-90 transition-opacity"><CalendarClock size={15} />{t('newReservation')}</button>
                                 {isDental && <button onClick={() => navigate(`/dental-chart?patient=${selected.id}`)} className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 min-h-[46px] px-4 rounded-[13px] border border-[var(--dc-border2)] text-[var(--dc-ink)] text-[13px] font-bold hover:border-[var(--dc-ink)] transition-colors"><Stethoscope size={15} />Diş Şeması</button>}
                                 <div className="flex-1 min-w-[140px] relative">
                                     <button onClick={() => setWaOpen(o => !o)} className="w-full inline-flex items-center justify-center gap-2 min-h-[46px] px-4 rounded-[13px] border border-[var(--dc-border2)] text-[var(--dc-green)] text-[13px] font-bold hover:border-[var(--dc-green)] transition-colors"><MessageCircle size={15} />WhatsApp</button>

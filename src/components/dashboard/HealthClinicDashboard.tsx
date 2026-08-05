@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
+import { useCashEnabled } from '@/hooks/useModules';
 import { useResources } from '@/hooks/useResources';
 import { useSlotResolver } from '@/hooks/useSlotResolver';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -97,6 +98,7 @@ export function HealthClinicDashboard() {
     const navigate = useNavigate();
     const { dark } = useTheme();
     const { reservations, settings, updateReservation } = useReservations();
+    const cashOn = useCashEnabled();
     const { allCustomers, customerById } = useCustomers();
     const { staff } = useStaff();
     const { resources } = useResources();
@@ -225,6 +227,12 @@ export function HealthClinicDashboard() {
         }
         if (ph === 'done') {
             // Klinik kapanış tamam; kalan yalnız FİNANSAL kapanış — ayrı yüzey.
+            // Kasa modülü kapalıysa finansal kapanış TimeFlow dışında takip
+            // ediliyordur; kayıt açıkta kalmasın diye burada kapatılır.
+            if (!cashOn) return {
+                label: 'Kaydı kapat',
+                run: () => step(r, { isPaid: true }, `${short} kaydı kapatıldı`),
+            };
             return { label: 'Kasaya gönder', run: () => navigate('/kasa') };
         }
         return null;
@@ -921,7 +929,7 @@ export function HealthClinicDashboard() {
                             </span>
                             <ArrowRight size={16} />
                         </button>
-                        <button type="button" onClick={() => navigate('/kasa')}>
+                        {cashOn && <button type="button" onClick={() => navigate('/kasa')}>
                             <CircleDollarSign size={18} />
                             <span>
                                 <strong>
@@ -930,7 +938,7 @@ export function HealthClinicDashboard() {
                                 <small>Klinik kapanıştan ayrıdır</small>
                             </span>
                             <ArrowRight size={16} />
-                        </button>
+                        </button>}
                         <p><ShieldCheck size={15} /> Finans hasta sırasını ve AI aday sırasını değiştirmez.</p>
                     </section>
                 </div>

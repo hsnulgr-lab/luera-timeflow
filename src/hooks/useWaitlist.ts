@@ -29,16 +29,21 @@ export function useWaitlist() {
     const { user, orgId } = useAuth();
     const [entries, setEntries] = useState<WaitlistEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchEntries = useCallback(async (resolvedOrgId: string) => {
         setIsLoading(true);
+        setError(null);
         const { data, error } = await supabase
             .from('waitlist')
             .select('*')
             .eq('organization_id', resolvedOrgId)
             .eq('status', 'waiting')
             .order('created_at');
-        if (error) console.error(error);
+        if (error) {
+            console.error(error);
+            setError('Bekleme listesi yüklenemedi');
+        }
         else setEntries((data || []).map(mapRow));
         setIsLoading(false);
     }, []);
@@ -103,5 +108,5 @@ export function useWaitlist() {
 
     const refetch = useCallback(() => { if (orgId) return fetchEntries(orgId); }, [orgId, fetchEntries]);
 
-    return { entries, isLoading, addEntry, removeEntry, refetch };
+    return { entries, isLoading, error, addEntry, removeEntry, refetch };
 }

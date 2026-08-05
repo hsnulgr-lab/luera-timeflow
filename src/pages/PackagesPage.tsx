@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { normalizePhone } from '@/lib/phone';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, MessageCircle, Plus, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -14,6 +14,7 @@ import { todayISO } from '@/utils/date';
 import { MONO, Sparkline, StatCard } from '@/components/dashboard/kpi';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { useLabels } from '@/hooks/useLabels';
+import { useCashEnabled } from '@/hooks/useModules';
 import { BeautyPackages } from '@/pages/BeautyPackages';
 import type { Customer } from '@/types';
 
@@ -68,14 +69,19 @@ export function PackagesPage() {
     }, [sector]);
     // Yalnız ilk-kez (cache boş) ve hâlâ yükleniyorken kısa placeholder — flash yerine.
     if (!known && isLoading) return <div className="flex-1 min-h-0" />;
-    // Güzellik sektörü: yeni "Paket Merkezi" tasarımı. Diğer sektörler mevcut
-    // paket listesini kullanır (bozulmadan korunur).
-    if ((known || sector) === 'guzellik') return <BeautyPackages />;
+    // Güzellik ve kuaför: "Paket Merkezi" tasarımı (seans paketi + karma paket —
+    // hak randevunun plana bağlanmasıyla düşer, hizmet ayrımı yapmaz). Diğer
+    // sektörler mevcut paket listesini kullanır (bozulmadan korunur).
+    // Diş'te paket kavramı treatment_plans üzerinden yürür (nav'da da gizli);
+    // doğrudan URL ile girilirse çakışan ikinci bir görünüm açılıyordu.
+    if ((known || sector) === 'dis') return <Navigate to="/customers" replace />;
+    if (['guzellik', 'kuafor'].includes(known || sector)) return <BeautyPackages />;
     return <PackagesPageDefault />;
 }
 
 function PackagesPageDefault() {
     const navigate = useNavigate();
+    const cashOn = useCashEnabled();
     const { dark } = useTheme();
     const { orgId } = useAuth();
     const { customerById, isArchivedCustomer } = useCustomers();
@@ -371,7 +377,7 @@ function PackagesPageDefault() {
                                             ) : r.overdue && r.lost && r.customer?.phone ? (
                                                 <a href={waLink(r.customer.phone, `Merhaba ${r.customer.name.split(' ')[0]} 🌸 ${r.pkg.title} paketinizde ${r.pkg.sessionCount - r.pkg.sessionsDone} seansınız sizi bekliyor — dilediğiniz güne planlayalım ✨`)} target="_blank" rel="noopener noreferrer"
                                                     className="px-4 min-h-[40px] inline-flex items-center rounded-full border border-[var(--dc-border2)] text-[12.5px] font-bold text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)] hover:border-[var(--dc-ink)] transition-colors whitespace-nowrap">Mesaj At</a>
-                                            ) : r.overdue ? (
+                                            ) : r.overdue && cashOn ? (
                                                 <button onClick={() => navigate('/kasa')} className="bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12.5px] font-bold px-4 min-h-[40px] rounded-full hover:bg-[var(--dc-orange)] transition-colors whitespace-nowrap">Ödeme Al</button>
                                             ) : (
                                                 <button disabled={!r.customer || isArchivedCustomer(r.pkg.customerId)}

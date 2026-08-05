@@ -15,9 +15,9 @@ import {
 // sonucu veremez. Kuralların kendisi lib/slotResolution.ts içinde saftır.
 export function useSlotResolver() {
     const { reservations, settings, checkConflict } = useReservations();
-    const { staff, isLoading: staffLoading } = useStaff();
-    const { timeOff, isLoading: timeOffLoading } = useStaffTimeOff();
-    const { resources } = useResources();
+    const { staff, isLoading: staffLoading, error: staffError } = useStaff();
+    const { timeOff, isLoading: timeOffLoading, error: timeOffError } = useStaffTimeOff();
+    const { resources, isLoading: resourceLoading, error: resourceError } = useResources();
     const { t } = useLabels();
 
     const resourceTypeLabel = profileForSector(settings.sector).resourceTypes[0] || 'Kaynak';
@@ -33,6 +33,15 @@ export function useSlotResolver() {
 
     return {
         rules,
+        staff,
+        resources,
+        timeOff,
+        staffLoading,
+        resourceLoading,
+        timeOffLoading,
+        staffError,
+        resourceError,
+        timeOffError,
         /** Personel uygunluğu (kaynak hariç). */
         resolveStaff: useCallback((q: SlotQuery): SlotResolution => resolveSlotStaff(rules, q), [rules]),
         /** Personel + kaynak birlikte — kaydetmeden hemen önce de bunu çağırın. */
@@ -40,6 +49,6 @@ export function useSlotResolver() {
         /** Doğrulanmış uygun saatler. */
         findSlots: useCallback((s: SlotSearch): AvailableSlot[] => findAvailableSlots(rules, s), [rules]),
         /** Uygunluk verisi henüz yüklenmediyse "uygun" iddiası gösterilmemeli. */
-        isReady: !staffLoading && !timeOffLoading,
+        isReady: !staffLoading && !timeOffLoading && !resourceLoading,
     };
 }
