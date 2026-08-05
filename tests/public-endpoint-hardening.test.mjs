@@ -89,6 +89,7 @@ test('whatsapp send retries transient failures only', () => {
   assert.match(wa, /for \(let attempt = 0; attempt < 2; attempt\+\+\)/);
   // Kalıcı 4xx'te retry yok; 429 ve 5xx retry'lanır
   assert.match(wa, /if \(res\.status < 500 && res\.status !== 429\) break/);
-  // Oturum düşmesi hâlâ bağlantıyı disconnected işaretler (fallback korunuyor)
-  assert.match(wa, /await markDisconnected\(admin, orgId, errText\)/);
+  // Oturum düşmesi hâlâ bağlantıyı disconnected işaretler (fallback korunuyor).
+  // 079 ile ham gönderim `deliver()`e taşındı; org id oraya parametreyle geçiyor.
+  assert.match(wa, /await markDisconnected\(admin, o\.orgId, errText\)/);
 });

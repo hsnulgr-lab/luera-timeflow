@@ -416,7 +416,9 @@ function VisitJourney(props: VisitJourneyProps) {
         if (!patientPhone) return;
         await onSetRecall(recallDateISO);
         const res = await sendRecallReminder(customer.id);
-        if (res.ok) toast.success('Kontrol hatırlatması WhatsApp\'tan gönderildi');
+        if (res.ok) toast.success(res.queued
+            ? 'Bağlantı şu an sorunlu — hatırlatma kuyruğa alındı, birazdan gönderilecek'
+            : 'Kontrol hatırlatması WhatsApp\'tan gönderildi');
         else if (res.reason === 'no_whatsapp') toast.error('WhatsApp bağlı değil — Ayarlar → WhatsApp bölümünden bağlayın');
         else toast.error('Hatırlatma gönderilemedi');
     });

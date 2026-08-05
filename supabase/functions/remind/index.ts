@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    connectedOrgs, featureOn, getOrgWa, getSecret, sendWA, verifyConnection,
+    connectedOrgs, drainOutbox, featureOn, getOrgWa, getSecret, sendWA, verifyConnection,
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
@@ -124,12 +124,14 @@ Deno.serve(async (req: Request) => {
             const res = await sendWA(supabase, {
                 org: orgWa, phone: cust.phone, text: msg, kind: 'manual', customerId: cust.id,
             });
-            const sent = res.ok;
-            if (sent && cust.recall_date) {
+            // Kuyruğa alındıysa da damgala: teslimat outbox'ın işi, kullanıcı
+            // butona tekrar basınca ikinci mesaj kuyruğa girmesin (079).
+            const handled = res.ok || Boolean(res.queued);
+            if (handled && cust.recall_date) {
                 await supabase.from('customers').update({ recall_reminded_for: cust.recall_date }).eq('id', cust.id);
             }
-            return new Response(JSON.stringify({ success: sent }),
-                { status: sent ? 200 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify({ success: res.ok, queued: Boolean(res.queued) }),
+                { status: handled ? 200 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         // ── CRON MODU: yalnız zamanlayıcı tetikleyebilir ────────────────────
@@ -147,6 +149,11 @@ Deno.serve(async (req: Request) => {
         // başına tek satır olduğu için 3 üyeli org 3 kez işleniyordu.
         const orgList = await connectedOrgs(supabase);
         const orgIds = orgList.map((o) => o.organization_id);
+
+        // Bekleyen kuyruk ÖNCE boşaltılır (079): geciken hatırlatma yeni
+        // hatırlatmadan daha aceledir. Sessiz saatte de çalışır — kuyruktaki
+        // mesaj zaten gönderilebilir bir saatte üretilmiştir.
+        const outbox = await drainOutbox(supabase);
 
         // İşletme adı + sektörel iletişim profili (settings'ten, org bazlı)
         const settingsByOrg = new Map<string, { business_name: string; comms: unknown; sector: string | null }>();
@@ -197,9 +204,14 @@ Deno.serve(async (req: Request) => {
             }
 
             // Her gönderim aynı kapıdan: normalize + opt-out + kota + log
+            //
+            // Kuyruğa alınan mesaj da "hallolmuş" sayılır (079). Sayılmazsa
+            // randevu `reminder_24h_sent` işaretlenmez ve bir sonraki tur AYNI
+            // mesajı sıfırdan kuyruğa ekler — geçici bir ağ hatası müşteriye üç
+            // hatırlatma olarak döner.
             const send = async (phone: string, text: string, kind: WaKind, customerId?: string | null) => {
                 const res = await sendWA(supabase, { org: orgWa as OrgWa, phone, text, kind, customerId });
-                return res.ok;
+                return res.ok || Boolean(res.queued);
             };
 
             // ── 24h Hatırlatma ───────────────────────────────────────────────
@@ -485,9 +497,9 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
+        console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
-            JSON.stringify({ success: true, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
+            JSON.stringify({ success: true, outbox, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
     } catch (err) {

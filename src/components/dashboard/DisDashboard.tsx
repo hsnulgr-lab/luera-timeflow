@@ -286,7 +286,12 @@ export function DisDashboard() {
         setRemindingId(customerId);
         const res = await sendRecallReminder(customerId);
         setRemindingId(null);
-        if (res.ok) { toast.success('Kontrol hatırlatması WhatsApp\'tan gönderildi'); return; }
+        if (res.ok) {
+            toast.success(res.queued
+                ? 'Bağlantı şu an sorunlu — hatırlatma kuyruğa alındı, birazdan gönderilecek'
+                : 'Kontrol hatırlatması WhatsApp\'tan gönderildi');
+            return;
+        }
         if (res.reason === 'no_whatsapp') toast.error('WhatsApp bağlı değil — Ayarlar → WhatsApp\'tan bağlayın');
         else if (res.reason === 'not_found') toast.error('Hastanın telefon numarası kayıtlı değil');
         else toast.error('Hatırlatma gönderilemedi, tekrar deneyin');

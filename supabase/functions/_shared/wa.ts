@@ -84,11 +84,13 @@ export async function logMessage(admin: Admin, row: {
     direction: 'out' | 'in';
     phone: string;
     kind: WaKind;
-    status: 'sent' | 'failed' | 'skipped';
+    status: 'sent' | 'failed' | 'skipped' | 'queued';
     body?: string;
     customerId?: string | null;
     error?: string | null;
     providerMsgId?: string | null;
+    attempts?: number;
+    nextAttemptAt?: string | null;
 }): Promise<void> {
     await admin.from('wa_message_log').insert({
         organization_id: row.orgId,
@@ -100,7 +102,39 @@ export async function logMessage(admin: Admin, row: {
         status: row.status,
         error: row.error ?? null,
         provider_msg_id: row.providerMsgId ?? null,
+        ...(row.attempts !== undefined ? { attempts: row.attempts } : {}),
+        ...(row.nextAttemptAt !== undefined ? { next_attempt_at: row.nextAttemptAt } : {}),
+        ...(row.attempts ? { last_attempt_at: new Date().toISOString() } : {}),
     }).then(() => {}, () => {}); // log yazamamak gönderimi engellememeli
+}
+
+// ── Kuyruk ──────────────────────────────────────────────────────────────────
+// Geçici hatada mesaj kaybolmasın diye wa_message_log'un 'queued' satırları bir
+// giden kuyruğu olarak kullanılır (bkz. supabase/079_wa_outbox.sql).
+//
+// Gecikmeler artan: 5 dk → 30 dk → 2 saat. remind cron'u 30 dakikada bir
+// çalıştığı için pratikte ilk deneme bir sonraki turda olur; üç denemeden sonra
+// pes edilir. Randevu hatırlatması saatler sonra gitmemeli — geç hatırlatma
+// hatırlatma değildir, o yüzden tavan bilinçli olarak alçak.
+const RETRY_DELAYS_MS = [5 * 60_000, 30 * 60_000, 120 * 60_000];
+export const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
+
+export function nextAttemptAt(attempts: number): string | null {
+    const delay = RETRY_DELAYS_MS[attempts - 1];
+    return delay === undefined ? null : new Date(Date.now() + delay).toISOString();
+}
+
+/** Hata geçici mi? Yalnız bunlar yeniden denenir. */
+export function isTransient(error: string | null): boolean {
+    if (!error) return false;
+    if (/^http_(429|5\d\d)$/.test(error)) return true;
+    // Ağ/DNS/timeout hataları http_ öneki almaz; fetch'in fırlattığı metindir.
+    return !error.startsWith('http_')
+        && error !== 'evolution_not_configured'
+        && error !== 'invalid_phone'
+        && error !== 'not_connected'
+        && !error.startsWith('quota:')
+        && error !== 'opt_out';
 }
 
 // ── Kota ────────────────────────────────────────────────────────────────────
@@ -152,7 +186,18 @@ export async function canSend(
 }
 
 // ── Gönderim ────────────────────────────────────────────────────────────────
-export interface SendResult { ok: boolean; reason?: SendReason; phone?: string }
+export interface SendResult {
+    ok: boolean;
+    reason?: SendReason;
+    phone?: string;
+    /**
+     * Gönderilemedi ama kuyruğa alındı — teslimat sorumluluğu artık outbox'ta.
+     * Çağıran "gönderildi" saymamalı ama "yeniden denenecek" olarak da
+     * İŞARETLEMELİ: aksi halde bir sonraki cron turu aynı mesajı sıfırdan
+     * kuyruğa ekler ve müşteri iki hatırlatma alır.
+     */
+    queued?: boolean;
+}
 
 /**
  * Tek gönderim yolu: normalize → opt-out → kota → Evolution → log.
@@ -217,18 +262,46 @@ export async function sendWA(admin: Admin, opts: {
         return { ok: false, reason: 'failed', phone };
     }
 
+    const { ok, providerMsgId, errText } = await deliver(admin, {
+        url, key, instance: org.instance, orgId, phone, text,
+    });
+
+    // Geçici hata: mesajı kuyruğa al, remind cron'u tekrar denesin (079).
+    // Kalıcı hata kuyruğa girmez — aynı sonucu verir, üstelik opt-out'a ya da
+    // geçersiz numaraya ısrar etmek yanlış olur.
+    const queue = !ok && isTransient(errText);
+    await logMessage(admin, {
+        orgId, direction: 'out', phone, kind, body: text,
+        status: ok ? 'sent' : queue ? 'queued' : 'failed',
+        error: errText,
+        customerId: opts.customerId, providerMsgId,
+        attempts: 1,
+        nextAttemptAt: queue ? nextAttemptAt(1) : null,
+    });
+
+    if (ok) return { ok: true, phone };
+    return { ok: false, reason: 'failed', phone, ...(queue ? { queued: true } : {}) };
+}
+
+/**
+ * Ham gönderim — log YAZMAZ. Hem ilk deneme hem kuyruk boşaltma buradan geçer;
+ * tek fark, kuyruk yeni satır açmak yerine mevcut satırı güncellemesidir.
+ * İstek içinde iki deneme yapılır (anlık bir sarsıntı bir sonraki cron turunu
+ * beklemesin); ısrarlı hata kuyruğa devredilir.
+ */
+async function deliver(admin: Admin, o: {
+    url: string; key: string; instance: string; orgId: string; phone: string; text: string;
+}): Promise<{ ok: boolean; providerMsgId: string | null; errText: string | null }> {
     let providerMsgId: string | null = null;
     let errText: string | null = null;
     let ok = false;
-    // Geçici hatada (ağ kopması, 5xx, 429) bir kez daha dene; kalıcı hatada
-    // (4xx) retry anlamsız. Daha fazlası edge function süresini yakar — kalıcı
-    // teslimat garantisi istenirse sıradaki adım wa_message_log tabanlı outbox.
+
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const res = await fetch(`${url}/message/sendText/${org.instance}`, {
+            const res = await fetch(`${o.url}/message/sendText/${o.instance}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': key },
-                body: JSON.stringify({ number: phone, text }),
+                headers: { 'Content-Type': 'application/json', 'apikey': o.key },
+                body: JSON.stringify({ number: o.phone, text: o.text }),
             });
             ok = res.ok;
             if (res.ok) {
@@ -240,7 +313,7 @@ export async function sendWA(admin: Admin, opts: {
             errText = `http_${res.status}`;
             // 404 = instance yok, 401/403 = oturum düştü → bağlantıyı düşmüş işaretle
             if (res.status === 404 || res.status === 401 || res.status === 403) {
-                await markDisconnected(admin, orgId, errText);
+                await markDisconnected(admin, o.orgId, errText);
                 break;
             }
             if (res.status < 500 && res.status !== 429) break; // diğer kalıcı 4xx
@@ -250,13 +323,97 @@ export async function sendWA(admin: Admin, opts: {
         if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
     }
 
-    await logMessage(admin, {
-        orgId, direction: 'out', phone, kind, body: text,
-        status: ok ? 'sent' : 'failed', error: errText,
-        customerId: opts.customerId, providerMsgId,
-    });
+    return { ok, providerMsgId, errText };
+}
 
-    return ok ? { ok: true, phone } : { ok: false, reason: 'failed', phone };
+/**
+ * Kuyruğu boşaltır — remind cron'unun her turunda çağrılır.
+ *
+ * Zamanı gelen 'queued' satırlar tek tek yeniden gönderilir. Yeni log satırı
+ * AÇILMAZ, mevcut satır güncellenir: yoksa tek hatırlatma kotada üç mesaj gibi
+ * görünür ve geçmiş sekmesi aynı mesajı üst üste gösterirdi.
+ *
+ * Kuyruktaki satır, sıraya girdiğinden beri kalıcı olarak geçersizleşmiş
+ * olabilir: müşteri "DUR" demiş ya da hat düşmüş olabilir. İkisi de burada
+ * yeniden denetlenir; ısrar etmek opt-out'u çiğnemek olurdu.
+ */
+export async function drainOutbox(admin: Admin, limit = 50): Promise<{ sent: number; requeued: number; dropped: number }> {
+    const now = new Date().toISOString();
+    const { data: rows } = await admin
+        .from('wa_message_log')
+        .select('id, organization_id, phone, kind, body, customer_id, attempts')
+        .eq('status', 'queued')
+        .lte('next_attempt_at', now)
+        .order('next_attempt_at', { ascending: true })
+        .limit(limit);
+
+    if (!rows?.length) return { sent: 0, requeued: 0, dropped: 0 };
+
+    const url = await getSecret(admin, 'EVOLUTION_API_URL');
+    const key = await getSecret(admin, 'EVOLUTION_API_KEY');
+    const tally = { sent: 0, requeued: 0, dropped: 0 };
+    const orgCache = new Map<string, OrgWa | null>();
+
+    for (const row of rows) {
+        const attempts = Number(row.attempts ?? 1) + 1;
+        const finish = async (patch: Record<string, unknown>) => {
+            await admin.from('wa_message_log')
+                .update({ attempts, last_attempt_at: new Date().toISOString(), ...patch })
+                .eq('id', row.id);
+        };
+
+        if (!url || !key) {
+            await finish({ status: 'failed', error: 'evolution_not_configured', next_attempt_at: null });
+            tally.dropped++;
+            continue;
+        }
+
+        if (!orgCache.has(row.organization_id)) {
+            orgCache.set(row.organization_id, await getOrgWa(admin, row.organization_id));
+        }
+        const org = orgCache.get(row.organization_id) ?? null;
+        if (!org?.instance || org.status !== 'connected') {
+            // Hat hâlâ düşük: pes etme, bir sonraki pencereye ertele.
+            const next = nextAttemptAt(attempts);
+            await finish(next
+                ? { error: 'not_connected', next_attempt_at: next }
+                : { status: 'failed', error: 'not_connected', next_attempt_at: null });
+            next ? tally.requeued++ : tally.dropped++;
+            continue;
+        }
+
+        if (await isOptedOut(admin, row.organization_id, row.phone, row.customer_id)) {
+            await finish({ status: 'skipped', error: 'opt_out', next_attempt_at: null });
+            tally.dropped++;
+            continue;
+        }
+
+        const { ok, providerMsgId, errText } = await deliver(admin, {
+            url, key, instance: org.instance, orgId: row.organization_id,
+            phone: row.phone, text: String(row.body ?? ''),
+        });
+
+        if (ok) {
+            await finish({ status: 'sent', error: null, provider_msg_id: providerMsgId, next_attempt_at: null });
+            tally.sent++;
+            continue;
+        }
+
+        const next = isTransient(errText) ? nextAttemptAt(attempts) : null;
+        if (next) {
+            await finish({ error: errText, next_attempt_at: next });
+            tally.requeued++;
+        } else {
+            await finish({
+                status: 'failed',
+                error: errText ?? (attempts >= MAX_ATTEMPTS ? 'retry_exhausted' : 'failed'),
+                next_attempt_at: null,
+            });
+            tally.dropped++;
+        }
+    }
+
+    return tally;
 }
 
 /** Müşteri "DUR" demiş mi? Numara ham kayıtlı olduğu için varyantlarla eşleşir. */

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 // korumalı) + Evolution API üzerinden WhatsApp. Otomatik gönderim ise cron'da
 // kontrol tarihinden 2 gün önce çalışır — bu yalnız "Hatırlat" butonu içindir.
 export async function sendRecallReminder(customerId: string): Promise<
-    { ok: true } | { ok: false; reason: 'no_whatsapp' | 'not_found' | 'failed' }
+    { ok: true; queued?: boolean } | { ok: false; reason: 'no_whatsapp' | 'not_found' | 'failed' }
 > {
     try {
         const { data, error } = await supabase.functions.invoke('remind', {
@@ -19,6 +19,10 @@ export async function sendRecallReminder(customerId: string): Promise<
             if (status === 404) return { ok: false, reason: 'not_found' };
             return { ok: false, reason: 'failed' };
         }
+        // Geçici bir hatada mesaj kuyruğa alınmış olabilir (079): gönderim
+        // başarısız ama kayıp değil, cron tekrar deneyecek. Kullanıcıya "gitmedi"
+        // demek yanlış olur — tekrar bastırır, ikinci mesaj kuyruğa girer.
+        if (data?.queued) return { ok: true, queued: true };
         return data?.success ? { ok: true } : { ok: false, reason: 'failed' };
     } catch {
         return { ok: false, reason: 'failed' };
