@@ -6,11 +6,12 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
 import { activeRiskFlags, evaluateEligibility, firstBlocked } from '@/lib/serviceEligibility';
+import { allResourcesFull, isResourceFull, pickFreeResource } from '@/lib/resourceCapacity';
 import { useStaff } from '@/hooks/useStaff';
 import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { cn } from '@/utils/cn';
 import { toISODate } from '@/utils/date';
-import type { Customer, Service, TreatmentPlan, WorkingHours } from '@/types';
+import type { Customer, Resource, Service, TreatmentPlan, WorkingHours } from '@/types';
 
 // Güzellik "Yeni Seans" modalı — tasarım: Guzellik Salonu.html modal bölümü.
 // Fark: klasik randevu modalının aksine paket-farkındalıklı çalışır — müşterinin
@@ -157,16 +158,36 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         return { iso, label: `${label} · ${d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}` };
     }), []);
 
-    /** Belirli bir personel / kaynak, [t, t+süre) aralığında dolu mu? */
-    const isBusy = (t: string, sId?: string, rId?: string): boolean => {
+    /** Belirli bir personel [t, t+süre) aralığında dolu mu? */
+    const isBusy = (t: string, sId: string): boolean => {
         const start = toMin(t);
         const end = start + duration;
-        return reservations.some((r) => {
-            if (r.date !== date || r.status === 'cancelled') return false;
-            const hits = (Boolean(sId) && r.staffId === sId) || (Boolean(rId) && r.resourceId === rId);
-            if (!hits) return false;
-            return toMin(r.startTime) < end && toMin(r.endTime) > start;
-        });
+        return reservations.some((r) => r.date === date && r.status !== 'cancelled'
+            && r.staffId === sId && toMin(r.startTime) < end && toMin(r.endTime) > start);
+    };
+
+    // Kaynak doluluğu KAPASİTEYE göre ölçülür (bkz. lib/resourceCapacity).
+    // Eskiden tek bir çakışma yeterliydi: kapasitesi 2 olan bir kabin ilk
+    // seanstan sonra eleniyordu — oysa DB guard'ı (060) kapasiteye kadar izin
+    // veriyor, yani UI kendini DB'den daha katı kısıtlıyordu.
+    const busyIntervals = useMemo(() => reservations
+        .filter((r) => r.date === date && r.status !== 'cancelled' && r.resourceId)
+        .map((r) => ({ resourceId: r.resourceId, start: toMin(r.startTime), end: toMin(r.endTime) })),
+        [reservations, date]);
+
+    const freeResource = (t: string): Resource | undefined =>
+        pickFreeResource(activeResources, busyIntervals, toMin(t), toMin(t) + duration);
+
+    // Kabin tanımlı bir salonda kabinsiz seans yürümez. Eskiden hepsi doluyken
+    // autoResource sessizce undefined dönüyor ve kayıt kabinsiz oluşuyordu:
+    // takvimde kabin şeridine düşmeyen, kimsenin fark etmediği bir seans.
+    const resourceBusy = (t: string): boolean => {
+        const start = toMin(t);
+        const end = start + duration;
+        const picked = resourceId ? activeResources.find((r) => r.id === resourceId) : undefined;
+        if (picked) return isResourceFull(picked, busyIntervals, start, end);
+        if (resourceId) return false;   // silinmiş/pasif kaynak seçili kalmış
+        return allResourcesFull(activeResources, busyIntervals, start, end);
     };
 
     // Personeli atanmamış randevular DB'de tek bir kişi gibi çakışır
@@ -194,20 +215,18 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         return [...free].sort((a, b) => dayLoad(a.id) - dayLoad(b.id) || a.name.localeCompare(b.name, 'tr'))[0].id;
     };
 
-    /** Kabin de aynı mantıkla: müsait olan atanır, hiçbiri boş değilse boş bırakılır. */
+    /** Kabin de aynı mantıkla: kapasitesi dolmamış ilk kabin atanır. */
     const autoResource = (t: string): string | undefined => {
         if (resourceId) return resourceId;
-        return activeResources.find((r) => !isBusy(t, undefined, r.id))?.id;
+        return freeResource(t)?.id;
     };
 
     // Slot doluluğu: seçim varsa onun, yoksa "atanabilecek biri kaldı mı" sorusu.
     const busySlot = (t: string): boolean => {
-        if (staffId) return isBusy(t, staffId, resourceId || undefined);
-        if (activeStaff.length > 0) {
-            if (!activeStaff.some((s) => !isBusy(t, s.id))) return true;   // herkes dolu
-            return resourceId ? isBusy(t, undefined, resourceId) : false;
-        }
-        return unassignedBusy(t) || (resourceId ? isBusy(t, undefined, resourceId) : false);
+        if (resourceBusy(t)) return true;
+        if (staffId) return isBusy(t, staffId);
+        if (activeStaff.length > 0) return !activeStaff.some((s) => !isBusy(t, s.id));   // herkes dolu
+        return unassignedBusy(t);
     };
 
     const searchResults = useMemo(() => {
@@ -252,6 +271,13 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         const hit = firstBlocked(customer, targets, settings.sector);
         if (hit) {
             toast.error(`${hit.target.name} bu müşteriye uygulanamaz — ${hit.verdict.message}`);
+            return;
+        }
+        // Kabin tanımlıysa kabinsiz kayıt oluşturulmaz. Slot listesi bunu zaten
+        // dolu gösteriyor; burası aradaki boşluk için (başka cihazda az önce
+        // dolmuş olabilir) — sessizce kabinsiz kaydetmektense reddetmek doğru.
+        if (activeResources.length > 0 && !autoResource(slot)) {
+            toast.error('Bu saatte uygun kabin yok — başka bir saat veya kabin seçin');
             return;
         }
         setSaving(true);
