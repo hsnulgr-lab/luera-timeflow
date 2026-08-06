@@ -245,7 +245,38 @@
 .tfv2-profile-meta { display: flex; flex-wrap: wrap; gap: 6px 13px; margin-top: 7px; color: var(--tfv2-muted); font-size: 12px; }
 .tfv2-profile-meta.is-secondary { margin-top: 3px; }
 .tfv2-profile-meta span { display: inline-flex; align-items: center; gap: 5px; }
-.tfv2-profile-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.tfv2-profile-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+
+/* Künyedeki aksiyonlar bilinçli olarak SESSİZ.
+ *
+ * Dolgulu siyah düğme burada gereksiz ağırlık yapıyordu: sayfada zaten iki
+ * güçlü birincil aksiyon var (odak kartındaki "Seansı planla" ve öneri
+ * bandındaki "Uygula"). Üçüncü bir dolgu, gözün nereye gideceğini
+ * bulanıklaştırıyor ve dar sütunda künyeyi eziyor. Metinler korunuyor;
+ * değişen yalnız ağırlık — çerçeve ve dolgu kalkıyor, tıklanabilirliği
+ * hover ve odak halkası taşıyor. */
+.tfv2-profile-actions .tfv2-button,
+.tfv2-profile-actions .tfv2-icon-button {
+    height: 36px;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    color: var(--tfv2-muted);
+    font-weight: 600;
+    border-radius: 11px;
+}
+.tfv2-profile-actions .tfv2-button { padding: 0 11px; gap: 7px; }
+.tfv2-profile-actions .tfv2-icon-button { width: 36px; }
+.tfv2-profile-actions .tfv2-button:hover,
+.tfv2-profile-actions .tfv2-icon-button:hover {
+    transform: none;
+    border-color: transparent;
+    background: var(--tfv2-soft-2);
+    color: var(--tfv2-ink);
+}
+/* "Yeni seans" künyenin en olası adımı — dolgu yerine yalnız renkle ayrışır. */
+.tfv2-profile-actions .tfv2-button.is-primary { color: var(--tfv2-orange); }
+.tfv2-profile-actions .tfv2-button.is-primary:hover { background: var(--tfv2-orange-soft); color: var(--tfv2-orange); }
 
 /* Dosya sütunu daraldığında künyeye yer aç: aksiyon düğmeleri etiketlerini
  * bırakıp ikona iner. Medya sorgusu değil KAPSAYICI sorgusu — daralan şey
