@@ -243,8 +243,19 @@
 .tfv2-profile-kicker { margin: 0 0 3px; color: var(--tfv2-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .tfv2-profile-copy h2 { margin: 0; font-size: clamp(25px, 2vw, 31px); line-height: 1.05; letter-spacing: -.045em; }
 .tfv2-profile-meta { display: flex; flex-wrap: wrap; gap: 6px 13px; margin-top: 7px; color: var(--tfv2-muted); font-size: 12px; }
+.tfv2-profile-meta.is-secondary { margin-top: 3px; }
 .tfv2-profile-meta span { display: inline-flex; align-items: center; gap: 5px; }
-.tfv2-profile-actions { display: flex; gap: 8px; }
+.tfv2-profile-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* Dosya sütunu daraldığında künyeye yer aç: aksiyon düğmeleri etiketlerini
+ * bırakıp ikona iner. Medya sorgusu değil KAPSAYICI sorgusu — daralan şey
+ * ekran değil, üç sütunlu düzendeki bu sütun. */
+.tfv2-dossier { container-type: inline-size; container-name: tfv2-dossier; }
+
+@container tfv2-dossier (max-width: 720px) {
+    .tfv2-profile-actions .tfv2-button { width: 42px; padding: 0; }
+    .tfv2-profile-actions .tfv2-button span { display: none; }
+}
 
 .tfv2-profile-flags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 24px 18px 97px; background: var(--tfv2-surface-raised); }
 .tfv2-flag { display: inline-flex; align-items: center; gap: 6px; color: var(--tfv2-muted); font-size: 12px; }

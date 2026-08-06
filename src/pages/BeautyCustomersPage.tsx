@@ -453,11 +453,18 @@ export function BeautyCustomersPage() {
                                 <div className="tfv2-profile-copy">
                                     <p className="tfv2-profile-kicker">Müşteri profili · {codeOf(selected.id)}</p>
                                     <h2>{maskName(selected.name, privacy)}</h2>
+                                    {/* İki ayrı satır: kimlik bilgisi üstte, tercih altta.
+                                        Üçü tek sarmalayan satırdayken dar sütunda üç ayrı
+                                        satıra bölünüp künyeyi sıkışık gösteriyordu. */}
                                     <div className="tfv2-profile-meta">
                                         <span><TfIcon name="phone" className="tfv2-icon-sm" />{maskPhone(selected.phone, privacy)}</span>
                                         <span>{new Date(selected.createdAt).getFullYear()}'ten beri müşteri</span>
-                                        {dossier.favStaff && <span>Tercihi: <b>{dossier.favStaff}</b></span>}
                                     </div>
+                                    {dossier.favStaff && (
+                                        <div className="tfv2-profile-meta is-secondary">
+                                            <span>Tercihi: <b>{dossier.favStaff}</b></span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="tfv2-profile-actions">
                                     <button className="tfv2-button" onClick={() => setDialog('whatsapp')}>
