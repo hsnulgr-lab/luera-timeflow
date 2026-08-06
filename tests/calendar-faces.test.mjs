@@ -7,7 +7,7 @@ import { CALENDAR_PROFILES, calendarProfileFor } from '../src/lib/calendarSector
 // geri sızmasını engelleyen kilit.
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
-const FACE_KEYS = ['genel', 'salon'];
+const FACE_KEYS = ['genel', 'salon', 'guzellik'];
 const PAGES = ['calendar', 'reservations', 'customers'];
 
 test('kuaför salon yüzünü, diğer sektörler genel yüzü alır', () => {

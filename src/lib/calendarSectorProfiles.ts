@@ -12,7 +12,7 @@
 // kalır ki testler node ile doğrudan import edebilsin (bkz. cashSectorProfiles).
 
 /** Bir sayfanın hangi tasarımla çizileceği. */
-export type FaceKey = 'genel' | 'salon';
+export type FaceKey = 'genel' | 'salon' | 'guzellik';
 
 export interface CalendarProfile {
     calendar: FaceKey;
@@ -48,6 +48,9 @@ const SALON: CalendarProfile = {
 
 export const CALENDAR_PROFILES: Record<string, CalendarProfile> = {
     kuafor: SALON,
+    // Güzellikte YALNIZ müşteri yüzü farklı: takvim ve rezervasyon jenerik
+    // yüzde zaten kabin şeridi ve paket rozetiyle çalışıyor (bkz. 2.5 kararı).
+    guzellik: { ...DEFAULT_PROFILE, customers: 'guzellik' },
     dis: {
         ...DEFAULT_PROFILE,
         visitRoute: (reservationId) => `/dental-visit/${encodeURIComponent(reservationId)}`,

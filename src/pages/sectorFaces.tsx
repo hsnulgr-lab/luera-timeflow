@@ -4,6 +4,7 @@ import { calendarProfileFor, type FaceKey } from '@/lib/calendarSectorProfiles';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { ReservationsPage } from '@/pages/ReservationsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
+import { BeautyCustomersPage } from '@/pages/BeautyCustomersPage';
 import { KuaforCalendarPage } from '@/components/kuafor/KuaforCalendarPage';
 import { KuaforReservationsPage } from '@/components/kuafor/KuaforReservationsPage';
 import { KuaforCustomersPage } from '@/components/kuafor/KuaforCustomersPage';
@@ -21,16 +22,19 @@ import { MobileCalendar } from '@/mobile/pages/MobileCalendar';
 const CALENDAR_FACES: Record<FaceKey, ComponentType> = {
     genel: CalendarPage,
     salon: KuaforCalendarPage,
+    guzellik: CalendarPage,
 };
 
 const RESERVATIONS_FACES: Record<FaceKey, ComponentType> = {
     genel: ReservationsPage,
     salon: KuaforReservationsPage,
+    guzellik: ReservationsPage,
 };
 
 const CUSTOMERS_FACES: Record<FaceKey, ComponentType> = {
     genel: CustomersPage,
     salon: KuaforCustomersPage,
+    guzellik: BeautyCustomersPage,
 };
 
 // Mobilde bugün tek takvim yüzü var; harita yine de profilden okur ki sektöre
@@ -38,6 +42,7 @@ const CUSTOMERS_FACES: Record<FaceKey, ComponentType> = {
 const MOBILE_CALENDAR_FACES: Record<FaceKey, ComponentType> = {
     genel: MobileCalendar,
     salon: MobileCalendar,
+    guzellik: MobileCalendar,
 };
 
 export const DesktopCalendarFace = () => {
