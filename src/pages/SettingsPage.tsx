@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift, Boxes } from 'lucide-react';
+import { Settings, Clock, Save, Plus, Trash2, Globe, Bell, Palette, Puzzle, Key, Copy, RefreshCw, CheckCircle2, Loader2, Zap, Phone, MessageCircle, Link2, ExternalLink, ImagePlus, X, ToggleLeft, CreditCard, Gift, Boxes, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { WhatsAppTab } from '@/components/settings/WhatsAppTab';
 import { BillingTab } from '@/components/settings/BillingTab';
+import { DataTab } from '@/components/settings/DataTab';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
 import { MODULE_META, modulesForSector } from '@/lib/modules';
@@ -287,7 +288,7 @@ function IntegrationCard({ module, label, description, Icon }: IntegrationCardPr
 }
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp'|'billing';
+type TabId = 'general'|'modules'|'hours'|'services'|'booking'|'webhooks'|'integrations'|'whatsapp'|'billing'|'data';
 
 // Booking sayfasının gömülebilir (iframe) versiyonu için kopyala-yapıştır kodu.
 // Script, widget'ın postMessage ile bildirdiği yüksekliğe göre iframe'i boyutlar.
@@ -442,6 +443,7 @@ export const SettingsPage = () => {
     {id:'webhooks',     label:'Webhook',           icon:Globe       },
     {id:'whatsapp',     label:'WhatsApp',          icon:MessageCircle},
     {id:'billing',      label:'Faturalandırma',   icon:CreditCard  },
+    {id:'data',         label:'Veri',             icon:Database    },
   ];
   // Entegrasyonlar bir ayar bölümü değil, eklenti/uzantı merkezi — sekme
   // listesinde değil, tab çubuğunun yanında ayrı vurgulu bir buton olarak durur.
@@ -1044,6 +1046,9 @@ export const SettingsPage = () => {
           {activeTab==='whatsapp' && <WhatsAppTab/>}
 
           {activeTab==='billing' && <BillingTab/>}
+
+          {/* ── Veri (dışa/içe aktarma) ── */}
+          {activeTab==='data' && <DataTab/>}
 
           {/* ── Entegrasyonlar ── */}
           {activeTab==='integrations' && (
