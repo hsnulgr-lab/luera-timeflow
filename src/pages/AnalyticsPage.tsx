@@ -4,6 +4,7 @@ import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ProfitPanels } from '@/components/analytics/ProfitPanels';
 
 const MONTHS_TR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
 const DAYS_TR   = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
@@ -334,6 +335,9 @@ export const AnalyticsPage = () => {
             )}
           </Card>
         </div>
+
+        {/* ── Kârlılık (gider defteri istemeyen dilim) ── */}
+        <ProfitPanels isMobile={isMobile} />
 
         {/* ── Bottom row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>
