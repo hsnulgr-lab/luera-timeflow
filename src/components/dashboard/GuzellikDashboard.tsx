@@ -8,7 +8,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
 import { useOrgPackages } from '@/hooks/useOrgPackages';
 import { normalizePhone } from '@/lib/phone';
-import { commsForSector } from '@/lib/sectorProfiles';
+import { commsForSector, profileForSector } from '@/lib/sectorProfiles';
 import { buildRenewalMessage, buildWinbackMessage } from '@/services/waTemplates';
 import { useCashEnabled } from '@/hooks/useModules';
 import { OpportunityWheel, type Opportunity } from '@/components/dashboard/OpportunityWheel';
@@ -61,7 +61,7 @@ export function GuzellikDashboard() {
     const { dark } = useTheme();
     const { reservations, settings, updateReservation, addReservation } = useReservations();
     const { resources } = useResources();
-    const { customers, customerById, redeemLoyalty } = useCustomers();
+    const { customers, customerById, redeemLoyalty, addCustomer } = useCustomers();
     const { staff } = useStaff();
     const { packages, refresh: refreshPackages, markRenewalOffered } = useOrgPackages();
     const cashOn = useCashEnabled();
@@ -834,6 +834,8 @@ export function GuzellikDashboard() {
                             services={services}
                             cabins={cabins}
                             staff={activeStaff}
+                            sector={settings.sector}
+                            onCreateCustomer={addCustomer}
                             onClose={() => setWalkInOpen(false)}
                             onStart={async (payload) => {
                                 const created = await addReservation(payload);
@@ -1117,16 +1119,24 @@ export function GuzellikDashboard() {
 }
 
 // ── Randevusuz müşteri: 4 tıkta işleme başlat ────────────────────────────────
-function WalkInForm({ customers, services, cabins, staff, onClose, onStart }: {
+function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustomer, onClose, onStart }: {
     customers: Customer[];
     services: Service[];
     cabins: { id: string; name: string; status: CabinStatus }[];
     staff: { id: string; name: string }[];
+    sector?: string | null;
+    onCreateCustomer: (c: Omit<Customer, 'id' | 'createdAt' | 'totalReservations'>) => Promise<Customer | null>;
     onClose: () => void;
     onStart: (payload: Omit<Reservation, 'id' | 'createdAt'>) => Promise<void>;
 }) {
     const [query, setQuery] = useState('');
     const [picked, setPicked] = useState<Customer | null>(null);
+    // Kapıdan giren müşteri çoğunlukla KAYITLI DEĞİLDİR. Eski hâli "Müşteriler
+    // sayfasından ekleyip geri dönün" diyordu; kutunun kendi vaadini
+    // ("hemen işleme al") bozuyordu.
+    const [creating, setCreating] = useState(false);
+    const [newPhone, setNewPhone] = useState('');
+    const [risks, setRisks] = useState<Record<string, boolean>>({});
     const [serviceId, setServiceId] = useState(services[0]?.id || '');
     const [cabinId, setCabinId] = useState(cabins.find((c) => c.status === 'free')?.id || '');
     const [staffId, setStaffId] = useState('');
@@ -1140,6 +1150,29 @@ function WalkInForm({ customers, services, cabins, staff, onClose, onStart }: {
 
     const service = services.find((s) => s.id === serviceId);
     const canStart = Boolean(picked && service && !saving);
+
+    // Sektörün kontrendikasyon bayrakları — güzellikte "Hamilelik", kuaförde yok.
+    const riskFlags = useMemo(() => profileForSector(sector).riskFlags ?? [], [sector]);
+
+    /** Yeni müşteriyi açıp doğrudan seçili hâle getirir; akış kesilmez. */
+    const createAndPick = async () => {
+        const name = query.trim();
+        if (!name || saving) return;
+        setSaving(true);
+        const customFields: Record<string, string | number | boolean> = {};
+        for (const f of riskFlags) if (risks[f.key]) customFields[f.key] = true;
+        const created = await onCreateCustomer({
+            name,
+            phone: newPhone.replace(/\s+/g, '').trim(),
+            email: '',
+            notes: 'Randevusuz — kapıda eklendi',
+            ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
+        });
+        setSaving(false);
+        if (!created) return;   // addCustomer kendi hatasını zaten bildiriyor
+        setCreating(false);
+        setPicked(created);
+    };
 
     const start = async () => {
         if (!picked || !service) return;
@@ -1185,8 +1218,44 @@ function WalkInForm({ customers, services, cabins, staff, onClose, onStart }: {
                                 {(c.loyaltyStamps ?? 0) > 0 && <span className="text-[10.5px] font-semibold text-[var(--dc-muted)] flex items-center gap-1" style={{ fontFamily: MONO }}><Gift className="w-3 h-3" />{c.loyaltyStamps}</span>}
                             </button>
                         ))}
-                        {query.trim() && results.length === 0 && (
-                            <p className="text-[12px] text-[var(--dc-muted)] px-1 py-2">Sonuç yok — Müşteriler sayfasından ekleyip geri dönün.</p>
+                        {query.trim() && results.length === 0 && !creating && (
+                            <button onClick={() => setCreating(true)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border border-dashed border-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)] transition-colors text-left">
+                                <span className="w-[30px] h-[30px] rounded-[10px] bg-[var(--dc-orange)] text-white grid place-items-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[13px] font-bold text-[var(--dc-ink)] truncate">"{query.trim()}" adıyla yeni müşteri</span>
+                                    <span className="block text-[11px] text-[var(--dc-muted)]">Kaydı burada açıp işleme başlayın</span>
+                                </span>
+                            </button>
+                        )}
+                        {creating && (
+                            <div className="rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border2)] p-3 space-y-2.5">
+                                <div className="text-[12.5px] font-bold text-[var(--dc-ink)]">{query.trim()}</div>
+                                <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} inputMode="tel"
+                                    placeholder="Telefon (opsiyonel — hatırlatma için)"
+                                    className="w-full px-3 py-2.5 rounded-lg border border-[var(--dc-border2)] bg-[var(--dc-surface)] text-[13px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1" />
+                                {/* Sektörün risk bayrakları burada SORULUR. Hızlı ekleme
+                                    yolları bunu hiç sormuyordu; kaydı açıp aynı tıkla
+                                    lazer seansı başlatmak, 076 guard'ının koruduğu şeyi
+                                    boşa çıkarırdı — bayrağı hiç girilmemiş müşteride
+                                    guard zaten engel görmez. */}
+                                {riskFlags.map((f) => (
+                                    <label key={f.key} className="flex items-center gap-2 text-[12.5px] text-[var(--dc-ink)] cursor-pointer">
+                                        <input type="checkbox" checked={Boolean(risks[f.key])}
+                                            onChange={(e) => setRisks((r) => ({ ...r, [f.key]: e.target.checked }))} />
+                                        {f.label}
+                                        {f.note && <span className="text-[11px] text-[var(--dc-muted)]">· {f.note}</span>}
+                                    </label>
+                                ))}
+                                <div className="flex gap-2">
+                                    <button onClick={() => { setCreating(false); setNewPhone(''); setRisks({}); }}
+                                        className="px-3 py-2 rounded-lg text-[12.5px] font-semibold text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)]">Vazgeç</button>
+                                    <button onClick={createAndPick} disabled={saving}
+                                        className="flex-1 px-3 py-2 rounded-lg bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12.5px] font-bold disabled:opacity-50">
+                                        {saving ? 'Kaydediliyor…' : 'Kaydet ve devam et'}
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </>
