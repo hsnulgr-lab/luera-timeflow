@@ -4,7 +4,6 @@ import { Sidebar } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { Menu, AlertTriangle } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { AiAssistant } from '@/components/ai/AiAssistant';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePendingBillsAlert } from '@/hooks/usePendingBills';
@@ -15,20 +14,18 @@ export const Layout = () => {
     const [calendarCollapsed, setCalendarCollapsed] = useState(true);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { dark } = useTheme();
-    // Kasa yoğun, geniş bir ekran: AI şeridi + üst bar gizli, sidebar otomatik daralır.
-    // Kullanıcının manuel tercihi (isCollapsed) bozulmaz — Kasa'dan çıkınca geri gelir.
-    // Paketler de kendi tam-ekran tasarımına sahip (üst AI şeridi butonları karartıyordu);
-    // orada da AI şeridi gizli ama sidebar açık kalır (tasarımda sol menü var).
+    // Kasa yoğun, geniş bir ekran: sidebar otomatik daralır. Kullanıcının manuel
+    // tercihi (isCollapsed) bozulmaz — Kasa'dan çıkınca geri gelir. Paketler de
+    // kendi tam-ekran tasarımına sahip, orada da sidebar daralır.
     const path = useLocation().pathname;
     const navigate = useNavigate();
     // Bağlanmış ama şu an düşmüş WhatsApp — sessiz arıza olmasın.
     const { isBroken: waBroken } = useWhatsApp();
     const onKasa = path.startsWith('/kasa');
     const onPackages = path.startsWith('/packages');
-    // Takvim bütün sektörlerde bir odak çalışma alanıdır. Üst AI şeridi yerine
-    // takvim araç çubuğu kullanılır; dar sidebar ise programa daha fazla alan verir.
+    // Takvim bütün sektörlerde bir odak çalışma alanıdır; dar sidebar programa
+    // daha fazla alan verir.
     const onCalendar = path === '/calendar';
-    const hideTopBar = onKasa || onPackages || onCalendar;
     const collapsed = onKasa || onPackages || (onCalendar ? calendarCollapsed : isCollapsed);
     // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
     usePendingBillsAlert();
@@ -64,23 +61,16 @@ export const Layout = () => {
                 <NotificationDropdown />
             </div>
 
-            {/* Desktop Top Bar (notification area) — Kasa'da komple gizli */}
-            {!hideTopBar && (
-                <div className={cn(
-                    "hidden md:flex fixed top-0 right-0 h-14 items-center gap-4 px-6 z-20 transition-all duration-300",
-                    collapsed ? "left-20" : "left-64"
-                )}>
-                    <AiAssistant />
-                    <div className="ml-auto">
-                        <NotificationDropdown />
-                    </div>
-                </div>
-            )}
+            {/* Masaüstü üst barı 2026-08-07'de kaldırıldı. Tek içeriği AI içgörü
+                şeridiydi; o rafa kalkınca geriye 56px'lik boş bir bant ve bir zil
+                kaldı. Zil sidebar'ın künyesine taşındı — böylece Kasa, Paketler ve
+                Takvim'de de görünüyor (üst bar orada zaten gizliydi, bu üç sayfada
+                masaüstünde hiç bildirim erişimi yoktu). Mobil başlık kendi zilini
+                taşımaya devam ediyor. */}
 
-            {/* Main Content — Kasa'da üst bar olmadığı için desktop'ta boşluk yok */}
+            {/* Main Content — masaüstünde üst bar yok, içerik en tepeden başlar */}
             <main className={cn(
-                "transition-all duration-300 pt-14 h-screen flex flex-col",
-                hideTopBar ? "md:pt-0" : "md:pt-14",
+                "transition-all duration-300 pt-14 md:pt-0 h-screen flex flex-col",
                 collapsed ? "md:ml-20" : "md:ml-64"
             )}>
                 {/* WhatsApp bağlantısı düştüğünde hatırlatmalar sessizce durur;
