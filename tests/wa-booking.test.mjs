@@ -7,6 +7,7 @@ import {
 import {
     greetingName, isPlaceholderName, pickCustomer,
 } from '../supabase/functions/_shared/booking/identity.ts';
+import * as MSG from '../supabase/functions/_shared/booking/messages.ts';
 import {
     availabilityFor, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
@@ -588,4 +589,148 @@ test('sağlayıcı çökerse null döner, atmaz — bot susmamalı', () => {
     // yalnız kural tabanlı çözümle devam eder.
     assert.match(ai, /} catch \{\s*return null;\s*\}/);
     assert.match(ai, /return null;\s*\}\s*$/m);
+});
+
+// ── Botun ağzı: üslup ve sektöre bürünme ────────────────────────────────────
+// Canlıda tek konuşmada üslup dört kez değişti ("istersiniz" → "istersin" →
+// "sana uygun" → "Onaylıyor musun" → "Seni bekliyoruz") ve diş kliniği "Dolgu"
+// için 💆 ile 🌷 aldı. Bu testler ikisini de makineyle engelliyor.
+
+const DENTAL = {
+    persona: 'Bir diş kliniğisin.', audience: 'hastamız',
+    serviceWord: 'tedavi', servicePhrase: 'tedavinizi', emoji: '🦷',
+};
+const CTX = { comms: DENTAL, businessName: 'LU Klinik', firstName: 'Hasan' };
+const SERVICES = [{ name: 'Dolgu', duration: 15 }, { name: 'İmplant', duration: 45 }];
+const TIMES = ['09:00', '09:45', '10:30', '11:15', '12:00'];
+
+/** Bir konuşmada botun kurabileceği bütün cümleler. */
+function allMessages(ctx = CTX) {
+    const d = { service: 'Dolgu', dateLabel: '9 Ağustos Pazar', time: '09:00' };
+    return {
+        greeting: MSG.greeting(ctx, SERVICES),
+        askDay: MSG.askDay(ctx, 'Dolgu'),
+        offerTimes: MSG.offerTimes(ctx, { dateLabel: d.dateLabel, serviceName: 'Dolgu', times: TIMES }),
+        timeTaken: MSG.timeTaken(ctx, { wanted: '14:00', dateLabel: d.dateLabel, times: TIMES }),
+        timeTakenEmpty: MSG.timeTaken(ctx, { wanted: '14:00', dateLabel: d.dateLabel, times: [] }),
+        dayFull: MSG.dayFull(ctx, d.dateLabel),
+        slotJustTaken: MSG.slotJustTaken(ctx, TIMES),
+        slotJustTakenEmpty: MSG.slotJustTaken(ctx, []),
+        summary: MSG.summary(ctx, d),
+        confirmNudge: MSG.confirmNudge(ctx, d),
+        declined: MSG.declined(ctx, { dateLabel: d.dateLabel, times: TIMES }),
+        created: MSG.created(ctx, { ...d, manageUrl: 'https://x/booking/abc' }),
+        createdPending: MSG.created(ctx, { ...d, pending: true }),
+        cancelled: MSG.conversationCancelled(ctx),
+        blocked: MSG.eligibilityBlocked(ctx, 'hamilelik'),
+        failed: MSG.createFailed(ctx),
+        media: MSG.mediaUnsupported(ctx),
+        optedOut: MSG.optedOut(ctx),
+        optedIn: MSG.optedIn(ctx),
+    };
+}
+
+test('hiçbir mesajda senli benli hitap yok', () => {
+    // "siz" tanış olmayanda, yaşlıda ve klinik/avukat sektörlerinde tek doğru
+    // seçim. Sıcaklık kelime seçiminden gelir, sen/siz'den değil.
+    const SENLI = /\b(sana|senin|seni|senle|sende)\b|\b\w+(?:musun|mısın|misin|sun\?|sın\?)\b|\b\w+(?:ersin|arsın|irsin)\b/i;
+    for (const [key, text] of Object.entries(allMessages())) {
+        assert.ok(!SENLI.test(text), `${key} senli benli: ${text}`);
+    }
+});
+
+test('mesaj başına en fazla bir emoji, o da sektörün emojisi', () => {
+    const EMOJI = /\p{Extended_Pictographic}/gu;
+    for (const [key, text] of Object.entries(allMessages())) {
+        const found = text.match(EMOJI) ?? [];
+        assert.ok(found.length <= 1, `${key} ${found.length} emoji taşıyor: ${found.join('')}`);
+        for (const e of found) assert.equal(e, DENTAL.emoji, `${key} sektör dışı emoji: ${e}`);
+    }
+});
+
+test('sektör sözcüğü profilden gelir — klinik "tedavi" der', () => {
+    const m = allMessages();
+    assert.match(m.greeting, /Hangi tedavi için/);
+    assert.match(m.summary, /Tedavinizi özetleyeyim/);
+    assert.match(m.summary, /\*Tedavi:\* Dolgu/);
+    assert.match(m.blocked, /Bu tedavi için/);
+});
+
+test('aynı metinler kuaförde "işlem" olur — hiçbir şey sabit yazılmamış', () => {
+    const kuafor = {
+        comms: {
+            persona: 'Bir kuaförsün.', audience: 'müşterimiz',
+            serviceWord: 'işlem', servicePhrase: 'işleminizi', emoji: '💇',
+        },
+        businessName: 'LU Kuaför', firstName: 'Nisa',
+    };
+    const m = allMessages(kuafor);
+    assert.match(m.greeting, /Hangi işlem için/);
+    assert.match(m.summary, /İşleminizi özetleyeyim/);
+    assert.ok(!m.greeting.includes('🦷'), 'diş emojisi kuaföre sızmamalı');
+    assert.ok(m.greeting.includes('💇'));
+});
+
+test('tanınmayan müşteri işletme adıyla karşılanır', () => {
+    const anon = MSG.greeting({ ...CTX, firstName: null }, SERVICES);
+    assert.match(anon, /LU Klinik/);
+    assert.ok(!/Merhaba \w+!/.test(anon.split('\n')[0]) || anon.startsWith('Merhaba!'));
+});
+
+test('onay bekleyen randevu "hazır" demez', () => {
+    // booking_auto_confirm kapalıyken kayıt 'pending' düşüyor ama bot
+    // "Randevun oluştu!" diyordu — müşteri onaylanmış sanıp geliyordu.
+    const m = allMessages();
+    assert.match(m.created, /hazır/);
+    assert.ok(!/hazır/.test(m.createdPending), 'pending randevu hazır sayılmamalı');
+    assert.match(m.createdPending, /Talebinizi aldık/);
+    assert.match(m.createdPending, /haber vereceğiz/);
+});
+
+test('iptal linki yalnız varsa eklenir', () => {
+    const m = allMessages();
+    assert.match(m.created, /booking\/abc/);
+    assert.ok(!m.createdPending.includes('http'), 'link yoksa boş satır kalmamalı');
+});
+
+test('saat listesi satır başına dörde bölünür', () => {
+    // Tek uzun satır telefonda kayıyordu.
+    const lines = MSG.offerTimes(CTX, { dateLabel: 'x', serviceName: 'y', times: TIMES })
+        .split('\n').filter(l => /^\d{2}:\d{2}/.test(l));
+    assert.equal(lines.length, 2, 'beş saat iki satıra bölünmeli');
+    assert.equal(lines[0].split('·').length, 4);
+    assert.equal(lines[1].trim(), '12:00', 'artan tek saat kendi satırında');
+});
+
+test('boş liste hâlleri anlamlı cümle kurar', () => {
+    const m = allMessages();
+    assert.match(m.timeTakenEmpty, /başka bir gün/i);
+    assert.match(m.slotJustTakenEmpty, /başka bir gün/i);
+    assert.ok(!m.timeTakenEmpty.includes('\n\n\n'), 'boş liste boş satır bırakmamalı');
+});
+
+test('gerekçesiz uygunluk engeli de düzgün cümle', () => {
+    const noReason = MSG.eligibilityBlocked(CTX, null);
+    assert.ok(!noReason.includes('()'), 'boş parantez kalmamalı');
+    assert.match(noReason, /ekibimizin onayı/);
+});
+
+test('comms yazılmamış org nötr profile düşer — bot susmaz', () => {
+    const neutral = MSG.resolveComms(null);
+    assert.equal(neutral.serviceWord, 'randevu');
+    assert.equal(neutral, MSG.NEUTRAL_COMMS);
+    assert.equal(MSG.resolveComms({ persona: 'x' }).serviceWord, 'randevu', 'eksik alan doldurulur');
+});
+
+test('edge fonksiyonu mesajları modülden alır — kopya metin kalmadı', () => {
+    assert.match(booking, /import \* as M from '\.\.\/_shared\/booking\/messages\.ts'/);
+    // Eski elle yazılmış emoji dizilimleri geri sızmasın.
+    for (const junk of ['💼', '🗓️ ${fmt', '⏰ ${available', 'Özetliyorum', 'Seni bekliyoruz']) {
+        assert.ok(!booking.includes(junk), `kopya metin geri gelmiş: ${junk}`);
+    }
+});
+
+test('bot sektör profilini okur', () => {
+    assert.match(booking, /M\.resolveComms\(setting\?\.comms\)/);
+    assert.match(booking, /business_name, working_hours, slot_duration, comms/);
 });

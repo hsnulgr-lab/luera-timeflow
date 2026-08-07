@@ -6,6 +6,7 @@ import {
 import { normalizePhone } from '../_shared/phone.ts';
 import { isSaneDate, matchOfferedTime, parseWhen } from '../_shared/booking/dates.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
+import * as M from '../_shared/booking/messages.ts';
 import {
     availabilityFor, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
@@ -157,17 +158,29 @@ Deno.serve(async (req: Request) => {
 
         const { data: setting } = await admin
             .from('settings')
-            .select('business_name, working_hours, slot_duration')
+            .select('business_name, working_hours, slot_duration, comms')
             .eq('organization_id', orgId)
             .limit(1)
             .maybeSingle();
         const orgHours: WH[] = setting?.working_hours || [];
         const slotDuration: number = setting?.slot_duration || 30;
         const businessName: string = setting?.business_name || 'İşletme';
+        // Sektör iletişim profili (066). Hatırlatma mesajları bunu okuyordu ama
+        // BOT okumuyordu: diş kliniği "Dolgu" için 💆 ve 🌷 emojisi alıyordu.
+        const comms = M.resolveComms(setting?.comms);
 
         const { data: org } = await admin.from('organizations').select('slug, owner_id, booking_auto_confirm').eq('id', orgId).maybeSingle();
 
         const known = await findCustomerByPhone(admin, orgId, phone);
+
+        // Botun ağzı tek yerde: _shared/booking/messages. Sektör sözcüğü ve
+        // emojisi profilden gelir, hitap her zaman "siz" — canlıda tek
+        // konuşmada üslup dört kez değişiyordu.
+        // greetingName yer tutucuyu (Geçici / Walk-in) eler: bot gerçek adı
+        // olan kayıt dururken "Merhaba Geçici!" yazmıştı.
+        const msgCtx = (): M.Ctx => ({
+            comms, businessName, firstName: greetingName(known?.name),
+        });
 
         const reply = async (t: string, kind: 'booking' | 'optout' = 'booking') => {
             await sendWhatsApp(admin, {
@@ -198,17 +211,13 @@ Deno.serve(async (req: Request) => {
                     .update({ wa_opt_out: true, wa_opt_out_at: new Date().toISOString() })
                     .eq('id', known.id).eq('organization_id', orgId);
             }
-            return reply(
-                `Anlaşıldı — bundan sonra size otomatik mesaj göndermeyeceğiz.\n\n` +
-                `Tekrar almak isterseniz bu mesaja *BAŞLAT* yazmanız yeterli.`,
-                'optout',
-            );
+            return reply(M.optedOut(msgCtx()), 'optout');
         }
         if (topIntent === 'optin' && known?.wa_opt_out) {
             await admin.from('customers')
                 .update({ wa_opt_out: false, wa_opt_out_at: null })
                 .eq('id', known.id).eq('organization_id', orgId);
-            return reply('Tekrar aramıza hoş geldiniz! Bilgilendirme mesajlarınız yeniden açıldı 😊', 'optout');
+            return reply(M.optedIn(msgCtx()), 'optout');
         }
 
         // AI asistan toggle'ı (Ayarlar → WhatsApp). Kapalıysa bot hiç cevap
@@ -219,7 +228,7 @@ Deno.serve(async (req: Request) => {
         // Sesli mesaj / fotoğraf: okuyamıyoruz ama sessiz kalmak müşteriyi
         // cevapsız bırakıyordu. Kısa bir yönlendirme, konuşmayı bozmadan.
         if (msgKind === 'media') {
-            return reply('Sesli mesajı ve görselleri okuyamıyorum 🙈 Yazarsanız hemen yardımcı olurum.');
+            return reply(M.mediaUnsupported(msgCtx()));
         }
 
         // Bot maliyeti koruması: bir numara saatte 20 mesajdan fazlasını
@@ -287,7 +296,7 @@ Deno.serve(async (req: Request) => {
         // İptal niyeti
         if (ex.intent === 'cancel') {
             await admin.from('whatsapp_sessions').delete().eq('organization_id', orgId).eq('phone', phone);
-            return reply('Tabii, bu konuşmayı iptal ettim. Yeni bir randevu için istediğin zaman yazabilirsin 🌸');
+            return reply(M.conversationCancelled(msgCtx()));
         }
 
         // State'i güncelle (yeni bilgiyle)
@@ -315,22 +324,11 @@ Deno.serve(async (req: Request) => {
         // ── Eksik bilgi → sor ──
         if (!state.serviceId) {
             await saveState();
-            const list = svcArr.slice(0, 8).map(s => `• ${s.name} (${s.duration} dk)`).join('\n');
-            // Numarayı tanıyorsak adıyla karşıla. Müşteri kaydı zaten çözülmüş
-            // durumdaydı ama hiçbir cevapta kullanılmıyordu: bot kim olduğunu
-            // biliyor, söylemiyordu.
-            // greetingName yer tutucuyu (Geçici / Walk-in, WhatsApp 1234) ELER:
-            // canlıda bot gerçek adı olan kayıt dururken "Merhaba Geçici!" yazdı.
-            // Yanlış adla hitap etmek, hiç ad kullanmamaktan kötü.
-            const first = greetingName(known?.name);
-            const hello = first
-                ? `Merhaba ${first}! 👋`
-                : `Merhaba! 👋 *${businessName}*'a hoş geldiniz.`;
-            return reply(`${hello} Hangi hizmet için randevu istersiniz?\n\n${list}`);
+            return reply(M.greeting(msgCtx(), svcArr));
         }
         if (!state.date) {
             await saveState();
-            return reply(`Harika, *${state.serviceName}* 💆 Hangi gün gelmek istersin? (örn. "yarın", "cumartesi", "20 Haziran")`);
+            return reply(M.askDay(msgCtx(), String(state.serviceName)));
         }
 
         // Slot hesabı (seçili gün, herhangi personel)
@@ -376,7 +374,7 @@ Deno.serve(async (req: Request) => {
         if (available.length === 0) {
             state.date = null; state.time = null;
             await saveState();
-            return reply(`${fmtDate(date)} için maalesef boş yer yok 😔 Başka bir gün dener misin?`);
+            return reply(M.dayFull(msgCtx(), fmtDate(date)));
         }
 
         // Liste sunulduktan SONRA gelen çıplak sayı bir seçimdir. Genel çözücü
@@ -395,31 +393,40 @@ Deno.serve(async (req: Request) => {
             // sayıyı seçim saymanın koşulu bu.
             state.offeredTimes = true;
             await saveState();
-            return reply(`${fmtDate(date)} için *${state.serviceName}* müsait saatler:\n\n⏰ ${available.slice(0, 8).join(' · ')}\n\nHangisi sana uygun?`);
+            return reply(M.offerTimes(msgCtx(), {
+                dateLabel: fmtDate(date), serviceName: String(state.serviceName),
+                times: available.slice(0, 8),
+            }));
         }
 
         // ── Saat var ama müsait değil ──
         if (!available.includes(state.time)) {
             const wanted = state.time; state.time = null;
             await saveState();
-            return reply(`${wanted} maalesef dolu 😔 ${fmtDate(date)} için müsait saatler:\n\n⏰ ${available.slice(0, 8).join(' · ')}\n\nHangisini ayarlayayım?`);
+            return reply(M.timeTaken(msgCtx(), {
+                wanted, dateLabel: fmtDate(date), times: available.slice(0, 8),
+            }));
         }
 
         // ── Hepsi tamam — onay iste / onaylandıysa oluştur ──
         if (!state.awaitingConfirm) {
             state.awaitingConfirm = true;
             await saveState();
-            return reply(`Özetliyorum:\n\n💼 ${state.serviceName}\n🗓️ ${fmtDate(date)}\n⏰ ${state.time}\n\nOnaylıyor musun? (Evet / Hayır)`);
+            return reply(M.summary(msgCtx(), {
+                service: String(state.serviceName), dateLabel: fmtDate(date), time: String(state.time),
+            }));
         }
 
         // awaitingConfirm = true
         if (ex.confirm === 'no') {
             state.time = null; state.awaitingConfirm = false;
             await saveState();
-            return reply(`Tamam, vazgeçtim. ${fmtDate(date)} için başka saat ister misin?\n\n⏰ ${available.slice(0, 8).join(' · ')}`);
+            return reply(M.declined(msgCtx(), { dateLabel: fmtDate(date), times: available.slice(0, 8) }));
         }
         if (ex.confirm !== 'yes') {
-            return reply(`Onaylamak için "Evet", vazgeçmek için "Hayır" yazabilirsin 🙂\n\n💼 ${state.serviceName} · ${fmtDate(date)} · ${state.time}`);
+            return reply(M.confirmNudge(msgCtx(), {
+                service: String(state.serviceName), dateLabel: fmtDate(date), time: String(state.time),
+            }));
         }
 
         // ── ONAY: randevu oluştur ──
@@ -431,7 +438,7 @@ Deno.serve(async (req: Request) => {
         if (chosenStaff === undefined || !slotResource.has(startMin)) { // arada dolduysa
             state.time = null; state.awaitingConfirm = false;
             await saveState();
-            return reply(`Az önce o saat doldu 😔 Müsait: ${available.slice(0, 8).join(' · ')} — hangisi?`);
+            return reply(M.slotJustTaken(msgCtx(), available.slice(0, 8)));
         }
         const endTime = minToTime(startMin + serviceDuration);
         const svc = svcArr.find(s => s.id === state.serviceId)!;
@@ -449,7 +456,7 @@ Deno.serve(async (req: Request) => {
             const { data: created, error: customerCreateError } = await admin.from('customers').insert({ user_id: ownerId, organization_id: orgId, name: pushName || `WhatsApp ${phone.slice(-4)}`, phone }).select('id').single();
             if (customerCreateError || !created?.id) {
                 console.error('whatsapp customer create error', customerCreateError);
-                return reply('Hasta kaydınız şu anda oluşturulamadı. Lütfen biraz sonra tekrar deneyin.');
+                return reply(M.createFailed(msgCtx()));
             }
             customerId = created.id;
         }
@@ -473,9 +480,7 @@ Deno.serve(async (req: Request) => {
                 state.awaitingConfirm = false;
                 await saveState();
                 const alternatives = available.filter((slot) => slot !== conflictedTime).slice(0, 8);
-                return reply(alternatives.length > 0
-                    ? `O saat az önce doldu 😔 Müsait: ${alternatives.join(' · ')} — hangisini seçersin?`
-                    : 'O saat az önce doldu 😔 Bu gün için başka müsait saat kalmadı. Başka bir gün ister misin?');
+                return reply(M.slotJustTaken(msgCtx(), alternatives));
             }
             // Uygunluk engeli (076): tekrar denemek işe YARAMAZ. Genel "biraz
             // sonra deneyin" mesajı müşteriyi sonsuz döngüye sokuyordu; gerekçe
@@ -483,14 +488,9 @@ Deno.serve(async (req: Request) => {
             const blocked = eligibilityBlock(reservationError);
             if (blocked) {
                 await admin.from('whatsapp_sessions').delete().eq('organization_id', orgId).eq('phone', phone);
-                const why = blocked.reason ? ` (${blocked.reason})` : '';
-                return reply(
-                    `Bu hizmeti buradan planlayamıyorum${why}. 🌸\n\n` +
-                    `Kayıtlarımızdaki bilgiler nedeniyle randevunun salon tarafından onaylanması gerekiyor — ` +
-                    `bizi arayabilir ya da buraya yazabilirsiniz, ekibimiz sizinle ilgilenecek.`,
-                );
+                return reply(M.eligibilityBlocked(msgCtx(), blocked.reason));
             }
-            return reply('Randevu şu anda oluşturulamadı. Lütfen biraz sonra tekrar deneyin.');
+            return reply(M.createFailed(msgCtx()));
         }
 
         // Webhook (LeadFlow) — settings.webhook_url
@@ -504,8 +504,15 @@ Deno.serve(async (req: Request) => {
 
         // Konuşmayı temizle + onay mesajı
         await admin.from('whatsapp_sessions').delete().eq('organization_id', orgId).eq('phone', phone);
-        const manage = reservation?.customer_token ? `\n\nİptal/değişiklik için:\n${APP_ORIGIN}/booking/${reservation.customer_token}` : '';
-        return reply(`Randevun oluştu! ✅\n\n💼 ${svc.name}\n🗓️ ${fmtDate(date)}\n⏰ ${state.time}\n\nSeni bekliyoruz 🌷${manage}`);
+        // Otomatik onay kapalıysa kayıt 'pending' düşüyor ama bot yine
+        // "Randevun oluştu!" diyordu — müşteri onaylanmış sanıp geliyordu.
+        return reply(M.created(msgCtx(), {
+            service: svc.name, dateLabel: fmtDate(date), time: String(state.time),
+            manageUrl: reservation?.customer_token
+                ? `${APP_ORIGIN}/booking/${reservation.customer_token}`
+                : null,
+            pending: !autoConfirm,
+        }));
     } catch (err) {
         console.error('whatsapp-booking error:', err);
         return ok({ error: String(err) });
