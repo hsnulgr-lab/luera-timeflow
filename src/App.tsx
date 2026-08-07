@@ -36,7 +36,7 @@ import { PatientFilePage } from '@/pages/PatientFilePage';
 import { BeautyCustomerPage } from '@/pages/BeautyCustomerPage';
 import { PackagesPage } from '@/pages/PackagesPage';
 import { StockPage } from '@/pages/StockPage';
-import { ClinicSetupPage } from '@/pages/ClinicSetupPage';
+import { SetupWizardPage } from '@/pages/SetupWizardPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
@@ -132,7 +132,7 @@ function App() {
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
             <Route path="settings" element={<Adaptive mobile={<MobileSettings />} desktop={<SettingsPage />} />} />
-            <Route path="kurulum" element={<ClinicSetupPage />} />
+            <Route path="kurulum" element={<SetupWizardPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

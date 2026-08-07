@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
+import { SetupBanner } from './SetupBanner';
 import { Menu, AlertTriangle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -90,6 +91,9 @@ export const Layout = () => {
                         <span className="underline underline-offset-2">Yeniden bağlan</span>
                     </button>
                 )}
+                {/* Kurulum yarıda kaldıysa: /kurulum sayfası VARDI ama hiçbir
+                    yerden ulaşılmıyordu. Yeni org bomboş uygulamaya düşüyordu. */}
+                <SetupBanner />
                 <ErrorBoundary>
                     <Outlet />
                 </ErrorBoundary>
