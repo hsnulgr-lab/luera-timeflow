@@ -24,12 +24,13 @@
 .sw-page {
     background: var(--dc-page);
     color: var(--dc-ink);
-    min-height: 100vh;
-    padding: 28px 20px 80px;
+    min-height: 100%;
+    padding: 20px 20px 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 22px;
+    width: 100%;
 }
 
 .sw-shell {
@@ -39,7 +40,7 @@
     border: 1px solid var(--dc-border);
     border-radius: 22px;
     box-shadow: 0 1px 2px rgba(14, 14, 14, .05), 0 4px 14px rgba(14, 14, 14, .06);
-    overflow: hidden;
+    position: relative;
     container-type: inline-size;
 }
 
@@ -85,16 +86,22 @@
 
 /* ── gövde ── */
 .sw-body {
-    padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 18px; min-height: 330px;
+    padding: 20px 26px 22px; display: flex; flex-direction: column; gap: 16px; min-height: 280px;
 }
 .sw-q { display: flex; flex-direction: column; gap: 6px; }
-.sw-q h1 { font-size: 27px; font-weight: 800; letter-spacing: -.035em; line-height: 1.15; text-wrap: balance; }
-.sw-q p { font-size: 14.5px; color: var(--dc-muted); max-width: 56ch; text-wrap: pretty; }
+.sw-q h1 { font-size: 25px; font-weight: 800; letter-spacing: -.035em; line-height: 1.15; text-wrap: balance; }
+.sw-q p { font-size: 14px; color: var(--dc-muted); max-width: 56ch; text-wrap: pretty; }
 
 /* ── alt bar ── */
 .sw-foot {
     border-top: 1px solid var(--dc-border); background: var(--dc-surface);
     padding: 14px 26px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    position: sticky; bottom: 0; z-index: 20;
+    border-bottom-left-radius: 22px; border-bottom-right-radius: 22px;
+    box-shadow: 0 -4px 16px rgba(14, 14, 14, .07);
+}
+.dash-theme.dark .sw-foot {
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, .35);
 }
 .sw-why { font-size: 12.5px; color: var(--dc-muted2); margin-right: auto; display: flex; align-items: center; gap: 7px; }
 
@@ -133,10 +140,10 @@
 .sw-inp.filled { background: var(--dc-card); border-color: var(--dc-border2); }
 
 /* ── seçim kartları ── */
-.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
+.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .sw-pick {
     background: var(--dc-surface); border: 1.5px solid var(--dc-border); border-radius: 13px;
-    min-height: 88px; padding: 13px; display: flex; flex-direction: column; gap: 8px;
+    min-height: 76px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
     align-items: flex-start; text-align: left; position: relative; cursor: pointer;
     color: var(--dc-ink); font-family: inherit;
     transition: border-color .15s, background .15s;

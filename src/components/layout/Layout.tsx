@@ -71,7 +71,7 @@ export const Layout = () => {
 
             {/* Main Content — masaüstünde üst bar yok, içerik en tepeden başlar */}
             <main className={cn(
-                "transition-all duration-300 pt-14 md:pt-0 h-screen flex flex-col",
+                "transition-all duration-300 pt-14 md:pt-0 h-screen flex flex-col overflow-y-auto",
                 collapsed ? "md:ml-20" : "md:ml-64"
             )}>
                 {/* WhatsApp bağlantısı düştüğünde hatırlatmalar sessizce durur;
