@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw, Trash2, RotateCcw, Smartphone, AlertTriangle, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
@@ -262,7 +262,7 @@ export function WhatsAppTab() {
         toast.success('WhatsApp bağlantısı kesildi');
     };
 
-    const toggleFeature = async (key: 'confirmation' | 'review' | 'winback' | 'renewal' | 'recall') => {
+    const toggleFeature = async (key: 'confirmation' | 'review' | 'winback' | 'renewal' | 'recall' | 'assistant') => {
         setBusyFeature(key);
         const next = !connection.features[key];
         const res = await waSetFeatures({ [key]: next });
@@ -498,6 +498,43 @@ export function WhatsAppTab() {
                     </div>
                 )}
             </div>
+
+            {/* ── AI Asistan ──
+                Bu anahtar veritabanında (org_whatsapp.features.assistant) ve edge
+                fonksiyonunda baştan beri vardı ama arayüzde HİÇ YOKTU: kapalıyken
+                bot gelen hiçbir mesaja cevap vermiyor ve kullanıcının açma yolu
+                bulunmuyordu. Diğer beş özellik "şu mesajı gönder/gönderme"
+                anahtarı; bu ise botun konuşup konuşmayacağını belirlediği için
+                mesaj kartlarının arasına değil, ayrı bir blok olarak duruyor. */}
+            {connection.status === 'connected' && (
+                <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.r, padding:'16px 20px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap' }}>
+                        <div style={{ width:32, height:32, borderRadius:T.rXs, background:T.surface2, border:`1px solid ${T.border}`, display:'grid', placeItems:'center' }}>
+                            <Sparkles size={15} color={T.muted}/>
+                        </div>
+                        <div style={{ flex:1, minWidth:180 }}>
+                            <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>AI Asistan</div>
+                            <div style={{ fontSize:'11px', color:T.muted, marginTop:'1px' }}>
+                                Müşteri yazınca bot cevaplar ve randevu oluşturur
+                            </div>
+                        </div>
+                        <button onClick={() => toggleFeature('assistant')} disabled={busyFeature === 'assistant'}
+                            style={{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 13px', borderRadius:'999px', border:`1px solid ${connection.features.assistant ? 'rgba(37,211,102,0.3)' : T.border2}`, background: connection.features.assistant ? 'rgba(37,211,102,0.1)' : 'none', color: connection.features.assistant ? '#2a8a40' : T.muted, fontSize:'11.5px', fontWeight:700, cursor: busyFeature === 'assistant' ? 'wait' : 'pointer', fontFamily:'inherit' }}>
+                            {busyFeature === 'assistant' && <Loader2 size={11} className="animate-spin"/>}
+                            {connection.features.assistant ? 'Açık' : 'Kapalı'}
+                        </button>
+                    </div>
+                    <div style={{ fontSize:'11px', color:T.muted, lineHeight:1.6, marginTop:'12px', paddingTop:'12px', borderTop:`1px solid ${T.border}` }}>
+                        {connection.features.assistant
+                            ? 'Hattınıza yazan müşteriye bot cevap veriyor: hizmet, gün ve saati anlayıp müsait '
+                              + 'saatleri sunuyor, onay alınca randevuyu oluşturuyor. Uygun olmayan bir talebi '
+                              + 'kendisi reddediyor ve sizi devreye sokuyor.'
+                            : 'Kapalı — bot gelen mesajlara cevap vermiyor. Mesajlar yine de kaydediliyor ve '
+                              + 'siz telefonunuzdan elle yanıtlayabilirsiniz. "DUR" yazan müşterinin çıkış hakkı '
+                              + 'bu anahtardan bağımsız her zaman çalışır.'}
+                    </div>
+                </div>
+            )}
 
             {/* ── Mesaj Şablonları ── */}
             <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.r, overflow:'hidden' }}>
