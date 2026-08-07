@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
             comms, businessName, firstName: greetingName(known?.name),
         });
 
-        const reply = async (t: string, kind: 'booking' | 'optout' = 'booking') => {
+        const reply = async (t: string, kind: 'booking' | 'optout' | 'cooldown' = 'booking') => {
             await sendWhatsApp(admin, {
                 org: orgWa, phone, text: t, kind,
                 customerId: known?.id ?? null,
@@ -231,15 +231,38 @@ Deno.serve(async (req: Request) => {
             return reply(M.mediaUnsupported(msgCtx()));
         }
 
-        // Bot maliyeti koruması: bir numara saatte 20 mesajdan fazlasını
-        // tetikleyemez (her mesaj bir Groq çağrısı demek).
+        // ── Akış koruması ────────────────────────────────────────────────────
+        // Eski hâli tek bir eşikti (saatte 20 gelen mesaj) ve aşılınca bot
+        // SESSİZCE duruyordu. Canlıda test ederken doldu: hem müşteri hem
+        // işletme "bot bozuldu" sandı. İki ayrı derdi tek eşikle çözmeye
+        // çalışmak da yanlıştı — biri maliyet, diğeri kötüye kullanım.
+        //
+        // MODEL BÜTÇESİ aşılınca bot susmuyor, yalnız modele sormayı bırakıyor:
+        // kural tabanlı çözücü (dates/intent) ağsız çalıştığı için konuşma
+        // devam eder, sadece serbest cümleleri anlamakta zorlanır.
+        //
+        // TAŞMA EŞİĞİ gerçek bir döngü/kötüye kullanım içindir ve orada bile
+        // saatte BİR KEZ açıklama gönderilir, sonra sessiz kalınır.
+        const AI_BUDGET_PER_HOUR = 20;
+        const FLOOD_PER_HOUR = 60;
         const hourAgo = new Date(Date.now() - 3600_000).toISOString();
         const { count: recentIn } = await admin
             .from('wa_message_log')
             .select('id', { count: 'exact', head: true })
             .eq('organization_id', orgId).eq('phone', phone)
             .eq('direction', 'in').gte('created_at', hourAgo);
-        if ((recentIn ?? 0) > 20) return ok({ skipped: 'rate_limited' });
+        const inbound = recentIn ?? 0;
+
+        if (inbound > FLOOD_PER_HOUR) {
+            const { count: warned } = await admin
+                .from('wa_message_log')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId).eq('phone', phone)
+                .eq('kind', 'cooldown').gte('created_at', hourAgo);
+            if ((warned ?? 0) > 0) return ok({ skipped: 'rate_limited' });
+            return reply(M.cooldown(msgCtx()), 'cooldown');
+        }
+        const aiBudgetLeft = inbound <= AI_BUDGET_PER_HOUR;
 
         // Hizmetler + aktif personel
         const [{ data: services }, { data: allStaff }] = await Promise.all([
@@ -288,7 +311,9 @@ Deno.serve(async (req: Request) => {
                 && Boolean(when.date || state.date)
                 && Boolean(when.time || state.time)
                 && Boolean(when.date || when.time));
-        const needsAi = !ruleSettled;
+        // Model bütçesi dolduysa modele sorulmaz — bot yine cevap verir,
+        // yalnız serbest cümleleri anlamakta zorlanır. Susmaktan iyidir.
+        const needsAi = !ruleSettled && aiBudgetLeft;
         const ex: Extraction = needsAi
             ? (await extractWithAi(admin, {
                 services: svcArr, today: todayStr, todayName, state, message: text,

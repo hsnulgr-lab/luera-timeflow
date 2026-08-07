@@ -318,7 +318,7 @@ test('model varsayılan olarak çağrılır, yalnız kural mesajı bitirdiyse at
     // kaçırıyordu: bütün alanlar doluyken "aslında lazer olsun" diyen müşterinin
     // isteği modele hiç sorulmadan yutuluyordu.
     assert.match(booking, /const ruleSettled =/);
-    assert.match(booking, /const needsAi = !ruleSettled;/);
+    assert.match(booking, /const needsAi = !ruleSettled && aiBudgetLeft;/);
     assert.match(booking, /needsAi\s*\n?\s*\?\s*\(await extractWithAi/);
 });
 
@@ -809,4 +809,50 @@ test('kuru selamlama oturumu sıfırlar', () => {
 test('gün sorusu saat listesiyle karıştırılmaz', () => {
     assert.match(booking, /detectIntent\(text\) === 'availability'/);
     assert.match(booking, /M\.offerDays\(/);
+});
+
+// ── Akış koruması ───────────────────────────────────────────────────────────
+// Eski hâli tek eşikti ve aşılınca bot SESSİZCE duruyordu; canlıda test
+// ederken doldu ve "bot bozuldu" sanıldı. Ayrıca eşik gelen tüm mesajları
+// sayıyordu, oysa koruduğu şey model çağrısıydı — kural tabanlı çözücü
+// devredeyken model zaten çağrılmıyor.
+
+test('iki ayrı eşik var: model bütçesi ve taşma', () => {
+    assert.match(booking, /const AI_BUDGET_PER_HOUR = 20;/);
+    assert.match(booking, /const FLOOD_PER_HOUR = 60;/);
+    assert.ok(FLOOD_GT_AI(), 'taşma eşiği model bütçesinden yüksek olmalı');
+    function FLOOD_GT_AI() {
+        const ai = Number(booking.match(/AI_BUDGET_PER_HOUR = (\d+)/)[1]);
+        const flood = Number(booking.match(/FLOOD_PER_HOUR = (\d+)/)[1]);
+        return flood > ai;
+    }
+});
+
+test('model bütçesi dolunca bot susmaz, yalnız modele sormaz', () => {
+    assert.match(booking, /const needsAi = !ruleSettled && aiBudgetLeft;/);
+    // Bütçe kontrolü erken return YAPMAMALI — akış devam etmeli.
+    const budgetLine = booking.indexOf('const aiBudgetLeft');
+    const seg = booking.slice(budgetLine, budgetLine + 200);
+    assert.ok(!/return ok\(\{ skipped/.test(seg), 'bütçe dolunca konuşma kesilmemeli');
+});
+
+test('taşmada saatte bir kez açıklama gider, sonra sessizlik', () => {
+    assert.match(booking, /\.eq\('kind', 'cooldown'\)/);
+    assert.match(booking, /return reply\(M\.cooldown\(msgCtx\(\)\), 'cooldown'\)/);
+    assert.match(booking, /if \(\(warned \?\? 0\) > 0\) return ok\(\{ skipped: 'rate_limited' \}\)/);
+});
+
+test('cooldown mesajı kotaya sayılmaz', () => {
+    // Kota İŞLETMENİN başlattığı mesajları sayar; bu müşteriye verilen cevap.
+    const wa = readFileSync(new URL('../supabase/functions/_shared/wa.ts', import.meta.url), 'utf8');
+    assert.match(wa, /UNMETERED[\s\S]{0,200}'cooldown'/);
+    assert.match(wa, /\| 'cooldown';/, 'WaKind cooldown türünü tanımalı');
+});
+
+test('cooldown metni ne olduğunu ve ne yapılacağını söyler', () => {
+    const t = MSG.cooldown(CTX);
+    assert.match(t, /çok fazla mesaj/);
+    assert.match(t, /Birazdan/);
+    assert.match(t, /arayabilirsiniz/, 'acil durum için çıkış yolu verilmeli');
+    assert.equal((t.match(/\p{Extended_Pictographic}/gu) ?? []).length, 1);
 });

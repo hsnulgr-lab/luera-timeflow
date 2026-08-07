@@ -203,6 +203,17 @@ export function optedOut(c: Ctx): string {
         + `Tekrar almak isterseniz *BAŞLAT* yazmanız yeterli.`;
 }
 
+/**
+ * Akış koruması devreye girdi. Botun SUSMASI yerine bu mesaj gider — canlıda
+ * limit dolunca hiçbir şey dönmüyordu ve hem müşteri hem işletme "bot bozuldu"
+ * sanıyordu. Saatte bir kez gönderilir, sonra gerçekten sessiz kalınır.
+ */
+export function cooldown(c: Ctx): string {
+    return `Şu an çok fazla mesaj aldım, biraz yavaşlamam gerekiyor. ${c.comms.emoji}\n\n`
+        + `Birazdan yazarsanız kaldığımız yerden devam ederiz. Acele bir durumsa `
+        + `bizi arayabilirsiniz.`;
+}
+
 export function optedIn(c: Ctx): string {
     return `Tekrar hoş geldiniz! ${c.comms.emoji} Bilgilendirme mesajlarınız yeniden açık.`;
 }
