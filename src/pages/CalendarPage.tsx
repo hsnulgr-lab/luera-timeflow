@@ -24,7 +24,6 @@ import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
 import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
-import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -731,10 +730,11 @@ export const CalendarPage = () => {
                             </div>
                         )}
 
-                        <div className="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface)] shadow-[0_1px_3px_rgba(14,14,14,0.04)]">
-                            <NotificationDropdown />
-                        </div>
-
+                        {/* Bildirim zili buradan kaldırıldı (2026-08-07): sayfanın
+                            üstündeki bar yokken takvimin tek bildirim erişimi buydu,
+                            artık zil sidebar künyesinde ve her sayfada duruyor.
+                            Çift zil hem tekrardı hem araç çubuğunu tek satıra
+                            sığmaktan alıkoyuyordu. */}
                         <button
                             onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] hover:bg-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(255,90,31,0.28)] transition-all active:translate-y-0"

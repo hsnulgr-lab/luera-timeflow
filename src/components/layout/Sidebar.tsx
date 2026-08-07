@@ -10,6 +10,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { NAV_ITEMS } from '@/lib/nav';
 import { ToothIcon } from '@/components/dental/ToothIcon';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
+import { NotificationDropdown } from './NotificationDropdown';
 import {
     LDashboard,
     LCalendar,
@@ -265,12 +266,18 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                     dark ? "border-[rgba(243,237,227,0.08)] bg-[#141210]" : "border-[#131211]/10 bg-[#FAF7F3]"
                 )}>
                     <div className="relative">
+                    {/* Künye satırı: kullanıcı + bildirim zili. Zil eskiden sayfanın
+                        tepesindeki 56px'lik barda dururdu; o bar AI şeridiyle birlikte
+                        kalkınca (bkz. Layout.tsx) buraya indi. Kazancı: Kasa, Paketler
+                        ve Takvim'de de erişilebilir — üst bar o üç sayfada zaten
+                        gizliydi, masaüstünde hiç bildirim görünmüyordu. */}
+                    <div className="flex items-center gap-1">
                         <button
                             onClick={() => (!isCollapsed || isMobileOpen) && setShowUserMenu(!showUserMenu)}
                             className={cn(
-                                "w-full flex items-center gap-3 p-2 rounded-xl transition-colors",
+                                "flex-1 min-w-0 flex items-center gap-3 p-2 rounded-xl transition-colors",
                                 dark ? "hover:bg-[rgba(243,237,227,0.05)]" : "hover:bg-gray-100",
-                                isCollapsed && !isMobileOpen ? "justify-center" : ""
+                                isCollapsed && !isMobileOpen ? "w-full justify-center" : ""
                             )}
                         >
                             <div className={cn(
@@ -299,70 +306,81 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                             )}
                         </button>
 
-                        {/* Dropdown Menu */}
-                        {showUserMenu && (!isCollapsed || isMobileOpen) && (
-                            <div className={cn(
-                                "absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg border overflow-hidden",
-                                dark ? "bg-[#1B1815] border-[rgba(243,237,227,0.08)]" : "bg-white border-gray-100"
-                            )}>
-                                <button
-                                    onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
-                                >
-                                    <LProfile className="w-4 h-4" />
-                                    Profil
-                                </button>
-                                {/* Karanlık mod — sadece dashboard'a uygulanır */}
-                                <button
-                                    onClick={() => toggleTheme()}
-                                    className={cn("w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
-                                >
-                                    <span className="flex items-center gap-3">
-                                        {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                                        {dark ? 'Açık Mod' : 'Karanlık Mod'}
-                                    </span>
-                                    {/* mini switch */}
-                                    <span className={cn(
-                                        "relative inline-flex h-[18px] w-[32px] items-center rounded-full transition-colors flex-shrink-0",
-                                        dark ? "bg-[#FF5A1F]" : "bg-gray-300"
-                                    )}>
-                                        <span className={cn(
-                                            "inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform",
-                                            dark ? "translate-x-[16px]" : "translate-x-[2px]"
-                                        )} />
-                                    </span>
-                                </button>
-                                <button
-                                    onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
-                                >
-                                    <LSettings className="w-4 h-4" />
-                                    Ayarlar
-                                </button>
-                                <button
-                                    onClick={() => { navigate('/personel'); setShowUserMenu(false); }}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
-                                >
-                                    <LProfile className="w-4 h-4" />
-                                    Personel Modu
-                                </button>
-                                <div className={cn("border-t", dark ? "border-[rgba(243,237,227,0.08)]" : "border-gray-100")} />
-                                <button
-                                    onClick={async () => {
-                                        await logout();
-                                        setShowUserMenu(false);
-                                        navigate('/login');
-                                    }}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors",
-                                        dark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"
-                                    )}
-                                >
-                                    <LLogout className="w-4 h-4" />
-                                    Çıkış Yap
-                                </button>
+                        {/* Bildirim zili — mobilde üst başlıkta olduğu için burada
+                            gizli. Sidebar daralınca da gizlenir: 80px'lik şeritte
+                            avatarın altına sarkıp ayrı bir sıra açıyordu. Künye dipte
+                            durduğundan panel yukarı ve sağa açılır. */}
+                        {!isCollapsed && (
+                            <div className="hidden md:block shrink-0">
+                                <NotificationDropdown placement="top-left" />
                             </div>
                         )}
+                    </div>
+
+                    {/* Dropdown Menu */}
+                    {showUserMenu && (!isCollapsed || isMobileOpen) && (
+                        <div className={cn(
+                            "absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg border overflow-hidden",
+                            dark ? "bg-[#1B1815] border-[rgba(243,237,227,0.08)]" : "bg-white border-gray-100"
+                        )}>
+                            <button
+                                onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
+                                className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
+                            >
+                                <LProfile className="w-4 h-4" />
+                                Profil
+                            </button>
+                            {/* Karanlık mod — sadece dashboard'a uygulanır */}
+                            <button
+                                onClick={() => toggleTheme()}
+                                className={cn("w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
+                            >
+                                <span className="flex items-center gap-3">
+                                    {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                                    {dark ? 'Açık Mod' : 'Karanlık Mod'}
+                                </span>
+                                {/* mini switch */}
+                                <span className={cn(
+                                    "relative inline-flex h-[18px] w-[32px] items-center rounded-full transition-colors flex-shrink-0",
+                                    dark ? "bg-[#FF5A1F]" : "bg-gray-300"
+                                )}>
+                                    <span className={cn(
+                                        "inline-block h-[14px] w-[14px] rounded-full bg-white transition-transform",
+                                        dark ? "translate-x-[16px]" : "translate-x-[2px]"
+                                    )} />
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
+                                className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
+                            >
+                                <LSettings className="w-4 h-4" />
+                                Ayarlar
+                            </button>
+                            <button
+                                onClick={() => { navigate('/personel'); setShowUserMenu(false); }}
+                                className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
+                            >
+                                <LProfile className="w-4 h-4" />
+                                Personel Modu
+                            </button>
+                            <div className={cn("border-t", dark ? "border-[rgba(243,237,227,0.08)]" : "border-gray-100")} />
+                            <button
+                                onClick={async () => {
+                                    await logout();
+                                    setShowUserMenu(false);
+                                    navigate('/login');
+                                }}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors",
+                                    dark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"
+                                )}
+                            >
+                                <LLogout className="w-4 h-4" />
+                                Çıkış Yap
+                            </button>
+                        </div>
+                    )}
                     </div>
                 </div>
             </aside>

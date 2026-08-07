@@ -14,7 +14,19 @@ interface Notification {
     read: boolean;
 }
 
-export const NotificationDropdown = () => {
+/**
+ * Panelin zile göre nereye açılacağı. Zil sayfanın tepesindeyken aşağı-sola
+ * açılır (varsayılan); sidebar'ın dibindeki künyede ise ekranın altına taşmasın
+ * diye yukarı, sidebar'ın sağına doğru açılır.
+ */
+type Placement = 'bottom-right' | 'top-left';
+
+const PANEL_POS: Record<Placement, string> = {
+    'bottom-right': 'right-0 top-full mt-2',
+    'top-left': 'left-0 bottom-full mb-2',
+};
+
+export const NotificationDropdown = ({ placement = 'bottom-right' }: { placement?: Placement } = {}) => {
     const { dark } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [readIds, setReadIds] = useState<Set<string>>(() => {
@@ -198,7 +210,7 @@ export const NotificationDropdown = () => {
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
                     <div
-                        className="absolute right-0 top-full mt-2 w-80 z-50 overflow-hidden"
+                        className={`absolute ${PANEL_POS[placement]} w-80 z-50 overflow-hidden`}
                         style={{
                             background: T.cardBg,
                             border: `1px solid ${T.cardBorder}`,
