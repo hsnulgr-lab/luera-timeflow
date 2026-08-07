@@ -223,6 +223,36 @@ export function parseTurkishTime(text: string): string | null {
     return null;
 }
 
+/**
+ * Sunulmuş saat listesinden seçim. Bot "09:00 · 09:45 · 10:30…" dedikten
+ * SONRA gelen çıplak sayı tartışmasız bir seçimdir.
+ *
+ * parseTurkishTime çıplak sayıyı bilinçli olarak saat saymıyor ("2 kişiyiz"
+ * 14:00 randevusuna dönüşmesin diye) — ama bu kural liste sunulduktan sonra
+ * müşteriyi kilitliyordu: canlıda "9" yazan kullanıcıya bot aynı listeyi
+ * tekrar gönderdi. Bağlam varken kural gevşetilir.
+ */
+export function matchOfferedTime(text: string, offered: string[]): string | null {
+    if (!offered?.length) return null;
+    const s = foldTr(text);
+
+    // Tam yazım: "09:00", "9:00"
+    const colon = s.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (colon) {
+        const want = `${pad(Number(colon[1]))}:${colon[2]}`;
+        return offered.includes(want) ? want : null;
+    }
+
+    // Çıplak sayı: saati eşleşen ilk slot. "9" → 09:00, "10" → 10:30 (o saatte
+    // tek slot varsa). Aynı saatte iki slot varsa (09:00 ve 09:45) ilki alınır;
+    // müşteri onay adımında saati görüyor ve düzeltebiliyor.
+    const bare = s.match(/^\s*(\d{1,2})\s*[.,]?\s*$/) || s.match(/\b(\d{1,2})\b/);
+    if (!bare) return null;
+    const h = Number(bare[1]);
+    if (!Number.isFinite(h) || h < 0 || h > 23) return null;
+    return offered.find((t) => Number(t.slice(0, 2)) === h) ?? null;
+}
+
 /** Kolaylık: bir mesajdan hem tarih hem saat. */
 export function parseWhen(text: string, todayStr: string): { date: string | null; time: string | null } {
     return { date: parseTurkishDate(text, todayStr), time: parseTurkishTime(text) };

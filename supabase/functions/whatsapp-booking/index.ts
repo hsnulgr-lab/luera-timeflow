@@ -4,7 +4,8 @@ import {
     type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
-import { isSaneDate, parseWhen } from '../_shared/booking/dates.ts';
+import { isSaneDate, matchOfferedTime, parseWhen } from '../_shared/booking/dates.ts';
+import { greetingName } from '../_shared/booking/identity.ts';
 import {
     availabilityFor, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
@@ -318,8 +319,12 @@ Deno.serve(async (req: Request) => {
             // Numarayı tanıyorsak adıyla karşıla. Müşteri kaydı zaten çözülmüş
             // durumdaydı ama hiçbir cevapta kullanılmıyordu: bot kim olduğunu
             // biliyor, söylemiyordu.
-            const hello = known?.name
-                ? `Merhaba ${known.name.split(' ')[0]}! 👋`
+            // greetingName yer tutucuyu (Geçici / Walk-in, WhatsApp 1234) ELER:
+            // canlıda bot gerçek adı olan kayıt dururken "Merhaba Geçici!" yazdı.
+            // Yanlış adla hitap etmek, hiç ad kullanmamaktan kötü.
+            const first = greetingName(known?.name);
+            const hello = first
+                ? `Merhaba ${first}! 👋`
                 : `Merhaba! 👋 *${businessName}*'a hoş geldiniz.`;
             return reply(`${hello} Hangi hizmet için randevu istersiniz?\n\n${list}`);
         }
@@ -374,8 +379,21 @@ Deno.serve(async (req: Request) => {
             return reply(`${fmtDate(date)} için maalesef boş yer yok 😔 Başka bir gün dener misin?`);
         }
 
+        // Liste sunulduktan SONRA gelen çıplak sayı bir seçimdir. Genel çözücü
+        // çıplak sayıyı bilinçli olarak saat saymıyor ("2 kişiyiz" 14:00
+        // olmasın diye) ama bu kural burada müşteriyi kilitliyordu: canlıda
+        // saatler sıralandıktan sonra "9" yazan kullanıcıya bot aynı listeyi
+        // tekrar gönderdi. Bağlam varken kural gevşetilir.
+        if (!state.time && state.offeredTimes) {
+            const picked = matchOfferedTime(text, available);
+            if (picked) state.time = picked;
+        }
+
         // ── Saat yok → müsaitleri sun ──
         if (!state.time) {
+            // Hangi saatlerin sunulduğunu işaretle: bir sonraki turda çıplak
+            // sayıyı seçim saymanın koşulu bu.
+            state.offeredTimes = true;
             await saveState();
             return reply(`${fmtDate(date)} için *${state.serviceName}* müsait saatler:\n\n⏰ ${available.slice(0, 8).join(' · ')}\n\nHangisi sana uygun?`);
         }

@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-    foldTr, isSaneDate, parseTurkishDate, parseTurkishTime, parseWhen,
+    foldTr, isSaneDate, matchOfferedTime, parseTurkishDate, parseTurkishTime, parseWhen,
 } from '../supabase/functions/_shared/booking/dates.ts';
+import {
+    greetingName, isPlaceholderName, pickCustomer,
+} from '../supabase/functions/_shared/booking/identity.ts';
 import {
     availabilityFor, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
@@ -391,6 +394,85 @@ test('edge kopyası src/lib/resourceCapacity ile aynı davranır', () => {
         );
         assert.equal(edgeAllFull(resources, busy, s, e), appAllFull(resources, busy, s, e), `allFull ${s}-${e}`);
     }
+});
+
+// ── Kimlik: hangi kayıt "o kişi" ────────────────────────────────────────────
+
+test('yer tutucu adlar isim sayılmaz', () => {
+    // Canlıda bot "Merhaba Geçici!" yazdı — kayıtta gerçekten öyle yazıyordu.
+    for (const n of ['Geçici / Walk-in', 'geçici', 'Walk-in', 'WALK IN', 'Misafir',
+        'WhatsApp 8380', 'İsimsiz', '', '   ', null, undefined]) {
+        assert.equal(isPlaceholderName(n), true, String(n));
+    }
+    for (const n of ['hasan ülger', 'Nisa Nur Öz Er', 'Ali']) {
+        assert.equal(isPlaceholderName(n), false, n);
+    }
+});
+
+test('greetingName yer tutucuda null döner', () => {
+    assert.equal(greetingName('Geçici / Walk-in'), null);
+    assert.equal(greetingName('hasan ülger'), 'Hasan');
+    assert.equal(greetingName('  nisa nur  '), 'Nisa');
+});
+
+test('aynı numarada birden çok kayıt varsa gerçek adlı olan seçilir', () => {
+    // Canlı veri: 072'nin tekillik indeksi HAM telefon üzerinde, "05468158380"
+    // ile "5468158380" iki ayrı anahtar. Eskiden .limit(1) sırasızdı.
+    const rows = [
+        { id: 'a', name: 'Geçici / Walk-in', is_active: true, created_at: '2026-07-15T17:17:02Z' },
+        { id: 'b', name: 'Geçici / Walk-in', is_active: true, created_at: '2026-07-15T17:17:02Z' },
+        { id: 'c', name: 'hasan ülger', is_active: true, created_at: '2026-06-16T16:24:54Z' },
+    ];
+    assert.equal(pickCustomer(rows)?.id, 'c');
+    // Sıra değişse de sonuç aynı olmalı — belirlenimci seçim.
+    assert.equal(pickCustomer([...rows].reverse())?.id, 'c');
+});
+
+test('pasif kayıt aktif olanın gerisinde kalır', () => {
+    const rows = [
+        { id: 'x', name: 'Hasan Ülger', is_active: false, created_at: '2026-01-01T00:00:00Z' },
+        { id: 'y', name: 'Geçici', is_active: true, created_at: '2026-07-01T00:00:00Z' },
+    ];
+    assert.equal(pickCustomer(rows)?.id, 'y', 'pasif kayıt seçilmemeli');
+});
+
+test('eşitlikte en eski kayıt — alt kayıtlar onda', () => {
+    const rows = [
+        { id: 'yeni', name: 'Ali', is_active: true, created_at: '2026-07-01T00:00:00Z' },
+        { id: 'eski', name: 'Ali', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+    ];
+    assert.equal(pickCustomer(rows)?.id, 'eski');
+});
+
+test('boş liste null döner', () => {
+    assert.equal(pickCustomer([]), null);
+});
+
+// ── Sunulan listeden saat seçimi ────────────────────────────────────────────
+
+const OFFERED = ['09:00', '09:45', '10:30', '11:15', '12:00'];
+
+test('liste sunulduktan sonra çıplak sayı seçimdir', () => {
+    // Canlı hata: bot saatleri sıraladı, müşteri "9" yazdı, bot listeyi tekrarladı.
+    assert.equal(matchOfferedTime('9', OFFERED), '09:00');
+    assert.equal(matchOfferedTime('10', OFFERED), '10:30');
+    assert.equal(matchOfferedTime('12', OFFERED), '12:00');
+});
+
+test('tam yazım da eşleşir, listede yoksa null', () => {
+    assert.equal(matchOfferedTime('9:00', OFFERED), '09:00');
+    assert.equal(matchOfferedTime('09:45 olsun', OFFERED), '09:45');
+    assert.equal(matchOfferedTime('13:00', OFFERED), null, 'sunulmayan saat seçilemez');
+    assert.equal(matchOfferedTime('20', OFFERED), null);
+});
+
+test('liste boşsa hiçbir şey eşleşmez', () => {
+    assert.equal(matchOfferedTime('9', []), null);
+});
+
+test('sayı içermeyen mesaj saat seçimi değildir', () => {
+    assert.equal(matchOfferedTime('bilmiyorum', OFFERED), null);
+    assert.equal(matchOfferedTime('teşekkürler', OFFERED), null);
 });
 
 // ── Teslimat makbuzları (084) ───────────────────────────────────────────────

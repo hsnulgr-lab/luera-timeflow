@@ -9,6 +9,7 @@
 // olduğu için 3 üyeli org'da instance → org çözümü belirsizdi.
 
 import { normalizePhone } from './phone.ts';
+import { pickCustomer } from './booking/identity.ts';
 
 // deno-lint-ignore no-explicit-any
 export type Admin = any; // service_role SupabaseClient
@@ -433,6 +434,14 @@ export async function isOptedOut(
 /**
  * Normalize edilmiş numaradan müşteriyi bulur. customers.phone ham biçimde
  * tutulduğu için olası yazımları tek sorguda dener (90…, 0…, 5…).
+ *
+ * AYNI NUMARADA BİRDEN ÇOK KAYIT olabiliyor: 072'nin tekillik indeksi ham
+ * telefon metni üzerinde, yani "05468158380" ile "5468158380" iki ayrı
+ * anahtar. Eskiden burada `.limit(1)` vardı ve SIRALAMA YOKTU — hangi satırın
+ * döneceği belirsizdi. Canlıda tam olarak bu oldu: gerçek adı olan kayıt
+ * dururken bot müşteriye "Merhaba Geçici!" yazdı.
+ *
+ * Seçim artık pickCustomer'da ve belirlenimci: aktif → gerçek adlı → en eski.
  */
 export async function findCustomerByPhone(
     admin: Admin, orgId: string, normalizedPhone: string,
@@ -443,22 +452,23 @@ export async function findCustomerByPhone(
     ]));
     const { data } = await admin
         .from('customers')
-        .select('id, name, phone, wa_opt_out')
+        .select('id, name, phone, wa_opt_out, is_active, created_at')
         .eq('organization_id', orgId)
         .in('phone', variants)
-        .limit(1);
-    if (data?.length) return data[0];
+        .limit(20);
+    if (data?.length) return pickCustomer(data);
 
     // Yazımı boşluklu/tireli kayıtlar için son çare: son 10 haneye göre tara.
     const { data: all } = await admin
         .from('customers')
-        .select('id, name, phone, wa_opt_out')
+        .select('id, name, phone, wa_opt_out, is_active, created_at')
         .eq('organization_id', orgId)
         .not('phone', 'is', null)
         .limit(2000);
     const tail = local.slice(-10);
-    return (all ?? []).find((c: { phone?: string }) =>
-        (c.phone || '').replace(/\D/g, '').slice(-10) === tail) ?? null;
+    const matches = (all ?? []).filter((c: { phone?: string }) =>
+        (c.phone || '').replace(/\D/g, '').slice(-10) === tail);
+    return pickCustomer(matches);
 }
 
 /**
