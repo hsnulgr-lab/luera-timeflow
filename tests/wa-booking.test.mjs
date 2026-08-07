@@ -856,3 +856,40 @@ test('cooldown metni ne olduğunu ve ne yapılacağını söyler', () => {
     assert.match(t, /arayabilirsiniz/, 'acil durum için çıkış yolu verilmeli');
     assert.equal((t.match(/\p{Extended_Pictographic}/gu) ?? []).length, 1);
 });
+
+// ── Yönetim linkinden giden mesajlar (booking-manage) ───────────────────────
+// Bu iki mesaj bota değil web akışına aitti ve kendi ağzıyla konuşuyordu.
+// Aynı müşteri aynı gün hem bottan hem linkten mesaj alabiliyor.
+
+const manage = readFileSync(
+    new URL('../supabase/functions/booking-manage/index.ts', import.meta.url), 'utf8');
+
+test('iptal ve taşıma mesajları da aynı ağzı kullanır', () => {
+    const d = { service: 'Dolgu', dateLabel: '9 Ağustos Pazar', time: '09:00' };
+    const cancel = MSG.cancelledByCustomer(CTX, d);
+    const move = MSG.rescheduledByCustomer(CTX, d);
+    const SENLI = /\b(sana|senin|seni)\b|\b\w+(?:musun|mısın|misin)\b/i;
+    for (const [k, t] of Object.entries({ cancel, move })) {
+        assert.ok(!SENLI.test(t), `${k} senli benli`);
+        const e = t.match(/\p{Extended_Pictographic}/gu) ?? [];
+        assert.ok(e.length <= 1 && e.every((x) => x === DENTAL.emoji), `${k} emoji: ${e.join('')}`);
+        assert.match(t, /\*Tedavi:\* Dolgu/, `${k} sektör etiketi taşımalı`);
+    }
+    assert.match(cancel, /Hasan, randevunuzu iptal ettim/);
+    assert.match(move, /taşıdım/);
+});
+
+test('adı bilinmeyen müşteride iptal cümlesi bozulmaz', () => {
+    const t = MSG.cancelledByCustomer({ ...CTX, firstName: null },
+        { service: 'Dolgu', dateLabel: 'x', time: '09:00' });
+    assert.match(t, /^Randevunuzu iptal ettim/);
+    assert.ok(!t.includes(', randevunuzu'), 'ad yoksa baştaki virgül kalmamalı');
+});
+
+test('booking-manage elle yazılmış metin taşımıyor', () => {
+    assert.match(manage, /import \* as M from '\.\.\/_shared\/booking\/messages\.ts'/);
+    for (const junk of ['iptal edildi ❌', 'güncellendi ✅', '🗓️ ${d}', '💼 ${res.service}']) {
+        assert.ok(!manage.includes(junk), `kopya metin: ${junk}`);
+    }
+    assert.match(manage, /M\.resolveComms\(settings\?\.comms\)/, 'sektör profilini okumalı');
+});

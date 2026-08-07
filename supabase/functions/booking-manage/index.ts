@@ -1,5 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getOrgWa, sendWA } from '../_shared/wa.ts';
+import * as M from '../_shared/booking/messages.ts';
+import { greetingName } from '../_shared/booking/identity.ts';
+import { formatDateTr } from '../_shared/booking/slots.ts';
 
 // ============================================================
 // booking-manage — Müşteri self-servis randevu yönetimi
@@ -82,9 +85,17 @@ Deno.serve(async (req: Request) => {
         // Org + settings
         const [{ data: org }, { data: settings }] = await Promise.all([
             supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
-            supabase.from('settings').select('business_name, working_hours, slot_duration').eq('organization_id', orgId).maybeSingle(),
+            supabase.from('settings').select('business_name, working_hours, slot_duration, comms').eq('organization_id', orgId).maybeSingle(),
         ]);
         const businessName = settings?.business_name || org?.name || 'İşletme';
+        // Müşteriye giden mesajlar bota değil bu akışa aitti ve kendi ağzıyla
+        // konuşuyordu. Aynı müşteri aynı gün hem bottan hem linkten mesaj
+        // alabiliyor; tek işletmeden iki farklı ses çıkmamalı.
+        const msgCtx = (): M.Ctx => ({
+            comms: M.resolveComms(settings?.comms),
+            businessName,
+            firstName: greetingName(res.customer_name),
+        });
         const orgHours: WH[] = settings?.working_hours || [];
         const slotDuration: number = settings?.slot_duration || 30;
 
@@ -145,8 +156,14 @@ Deno.serve(async (req: Request) => {
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
-                const d = new Date(res.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
-                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true, text: `Randevunuz iptal edildi ❌\n\n${d} · ${(res.start_time || '').slice(0, 5)} · ${res.service}\n\nYeni randevu için bizimle iletişime geçebilirsiniz.` }).catch(() => {});
+                sendWA(supabase, {
+                    org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true,
+                    text: M.cancelledByCustomer(msgCtx(), {
+                        service: res.service,
+                        dateLabel: formatDateTr(res.date),
+                        time: (res.start_time || '').slice(0, 5),
+                    }),
+                }).catch(() => {});
             }
             return json({ success: true, status: 'cancelled' });
         }
@@ -221,8 +238,12 @@ Deno.serve(async (req: Request) => {
 
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
-                const d = new Date(date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
-                sendWA(supabase, { org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true, text: `Randevunuz güncellendi ✅\n\n🗓️ ${d}\n⏰ ${time}\n💼 ${res.service}\n\nGörüşmek üzere!` }).catch(() => {});
+                sendWA(supabase, {
+                    org: orgWa, phone: res.customer_phone, kind: 'booking', ignoreOptOut: true,
+                    text: M.rescheduledByCustomer(msgCtx(), {
+                        service: res.service, dateLabel: formatDateTr(date), time,
+                    }),
+                }).catch(() => {});
             }
             return json({ success: true, date, time, endTime });
         }

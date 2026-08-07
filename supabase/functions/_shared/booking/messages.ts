@@ -176,6 +176,29 @@ export function created(c: Ctx, o: {
     return `${head}\n\n${detailBlock(c, o)}\n\n${tail}${manage}`;
 }
 
+/**
+ * Müşteri randevusunu YÖNETİM LİNKİNDEN iptal etti (booking-manage).
+ *
+ * Bu iki mesaj bota değil web akışına aitti ve kendi ağzıyla konuşuyordu
+ * ("Randevunuz iptal edildi ❌", "🗓️⏰💼" dizilimi). Aynı müşteri aynı gün
+ * hem bottan hem linkten mesaj alabiliyor; iki farklı ses tek işletmeden
+ * geliyormuş gibi durmuyordu.
+ */
+export function cancelledByCustomer(c: Ctx, o: {
+    service: string; dateLabel: string; time: string;
+}): string {
+    const who = c.firstName ? `${c.firstName}, randevunuzu` : 'Randevunuzu';
+    return `${who} iptal ettim.\n\n${detailBlock(c, o)}\n\n`
+        + `Yeni bir randevu için buraya yazmanız yeterli.`;
+}
+
+/** Müşteri randevusunu linkten başka bir saate taşıdı. */
+export function rescheduledByCustomer(c: Ctx, o: {
+    service: string; dateLabel: string; time: string;
+}): string {
+    return `Randevunuzu taşıdım. ${c.comms.emoji}\n\n${detailBlock(c, o)}\n\nGörüşmek üzere.`;
+}
+
 export function conversationCancelled(c: Ctx): string {
     return `Tamamdır, iptal ettim. Yeni bir randevu için istediğiniz zaman yazabilirsiniz.`;
 }
