@@ -1,17 +1,34 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    featureOn, findCustomerByPhone, getSecret, logMessage, sendWA as sendWhatsApp,
+    featureOn, findCustomerByPhone, logMessage, sendWA as sendWhatsApp,
     type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
+import { isSaneDate, parseWhen } from '../_shared/booking/dates.ts';
+import {
+    availabilityFor, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
+    type WorkingHour as WH,
+} from '../_shared/booking/slots.ts';
+import { detectConfirm, detectIntent, inboundKind } from '../_shared/booking/intent.ts';
+import { assignResources } from '../_shared/booking/resources.ts';
+import { EMPTY_EXTRACTION, extractWithAi, type Extraction } from '../_shared/booking/ai.ts';
 
 // ============================================================
-// whatsapp-booking — WhatsApp üzerinden AI ile randevu
+// whatsapp-booking — WhatsApp üzerinden randevu
 // ------------------------------------------------------------
 // Evolution API gelen mesaj webhook'u buraya POST eder.
-// Gemini niyeti ANLAR (hizmet/tarih/saat), randevuyu KODUMUZ
-// oluşturur (slot kontrolü + çakışma + kayıt). AI yanlış anlasa
-// bile geçersiz randevu oluşmaz.
+//
+// Anlama üç katmanlı ve bu SIRA önemli:
+//   1. Kural tabanlı çözücü (_shared/booking/dates, intent) — kesin, bedava,
+//      ağ gerektirmez. "yarın 3 buçuk" buradan çıkar.
+//   2. Model (Groq → Gemini yedek) — yalnız 1. katmanın çözemediği cümleler.
+//   3. Hiçbiri çözemezse akış eksik bilgiyi SORAR; bot asla susmaz.
+//
+// Randevuyu her hâlükârda KOD oluşturur: slot, çakışma, uygunluk. Model yanlış
+// anlasa bile geçersiz randevu oluşmaz.
+//
+// Slot/tarih/niyet mantığı _shared/booking altında saf modüllerde durur ve
+// tests/wa-booking.test.mjs ile node üzerinden test edilir — buraya kopyalanmaz.
 //
 // Çok turlu: whatsapp_sessions tablosunda toplanan bilgi tutulur.
 // ============================================================
@@ -35,78 +52,23 @@ function isReservationConflict(error: { code?: string; message?: string } | null
         || message.includes('reservation_resource_conflict');
 }
 /**
- * AI'dan gelen tarih güvenilir mi? YYYY-MM-DD biçiminde, gerçek bir gün,
- * bugünden önce değil ve 90 günden uzağa değil.
+ * Uygunluk engeli (076): hamilelik gibi bir risk bayrağı hizmetin etiketiyle
+ * çakışıyor. Guard 23514 ile 'reservation_eligibility_blocked' fırlatıyor;
+ * bunu tanımazsak müşteri "biraz sonra tekrar deneyin" görüp sonsuza kadar
+ * dener — engel kalkmayacağı için hiç başarmaz.
  */
-function isSaneDate(v: string, todayStr: string): boolean {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-    const t = Date.parse(`${v}T00:00:00Z`);
-    if (Number.isNaN(t)) return false;
-    if (new Date(t).toISOString().slice(0, 10) !== v) return false; // 2026-02-31 gibi
-    const today = Date.parse(`${todayStr}T00:00:00Z`);
-    return t >= today && t <= today + 90 * 86_400_000;
-}
-
-function timeToMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); }
-function minToTime(m: number): string { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
-function weekdayOf(d: string): number { return new Date(d + 'T00:00:00Z').getUTCDay(); }
-function overlaps(aS: number, aE: number, bS: number, bE: number) { return aS < bE && bS < aE; }
-function fmtDate(d: string) { return new Date(d + 'T00:00:00Z').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }); }
-
-interface WH { day: number; start: string; end: string; isOff: boolean }
-
-function staffSlots(opts: {
-    orgHours: WH[]; staffHours: WH[] | null; weekday: number; serviceDuration: number; slotDuration: number;
-    dayReservations: { start_time: string; end_time: string }[]; isTimeOff: boolean; minStart: number;
-}): number[] {
-    if (opts.isTimeOff) return [];
-    const org = opts.orgHours?.find(h => h.day === opts.weekday);
-    if (!org || org.isOff) return [];
-    const staff = (opts.staffHours ?? opts.orgHours)?.find(h => h.day === opts.weekday);
-    if (!staff || staff.isOff) return [];
-    const start = Math.max(timeToMin(org.start), timeToMin(staff.start));
-    const end = Math.min(timeToMin(org.end), timeToMin(staff.end));
-    const busy = opts.dayReservations.map(r => [timeToMin(r.start_time), timeToMin(r.end_time)] as [number, number]);
-    const out: number[] = [];
-    for (let s = start; s + opts.serviceDuration <= end; s += opts.slotDuration) {
-        if (s < opts.minStart) continue;
-        if (busy.some(([bS, bE]) => overlaps(s, s + opts.serviceDuration, bS, bE))) continue;
-        out.push(s);
-    }
-    return out;
-}
-
-// Groq (llama-3.3-70b): serbest metinden yapı ÇIKARIR (karar vermez).
-// Sadece JSON üretir; müşteriye giden yanıtlar şablon olduğu için
-// prose kalitesi önemsiz. Groq free tier cömert → WhatsApp hacmine uygun.
-async function aiExtract(key: string, opts: {
-    services: { name: string }[]; today: string; todayName: string; state: any; message: string;
-}): Promise<{ service: string | null; date: string | null; time: string | null; confirm: 'yes' | 'no' | null; intent: string }> {
-    const svcList = opts.services.map(s => s.name).join(', ');
-    const system =
-        `Sen bir randevu asistanısın. Kullanıcının Türkçe mesajından bilgi ÇIKAR (karar verme).\n` +
-        `Bugün: ${opts.today} (${opts.todayName}). Mevcut hizmetler: ${svcList}.\n` +
-        `Şimdiye kadar toplanan: ${JSON.stringify(opts.state || {})}.\n` +
-        `SADECE şu JSON formatında yanıt ver: {"service": <hizmet adı tam olarak listeden ya da null>, "date": <YYYY-MM-DD ya da null>, "time": <HH:MM ya da null>, "confirm": <"yes"|"no"|null>, "intent": <"book"|"cancel"|"greeting"|"other">}\n` +
-        `Kurallar: "yarın", "salı", "bu cumartesi" gibi ifadeleri bugüne göre gerçek tarihe çevir. "3 buçuk"=15:30, "sabah 10"=10:00. Bilgi yoksa null. Onay (evet/olur/tamam)=yes, ret (hayır/yok)=no. service'i yalnızca listedeki adlardan biriyle eşleştir.`;
+function eligibilityBlock(
+    error: { code?: string; message?: string; details?: string } | null | undefined,
+): { reason: string | null } | null {
+    if (!error) return null;
+    const message = (error.message || '') + ' ' + (error.details || '');
+    if (!message.includes('reservation_eligibility_blocked')) return null;
+    let reason: string | null = null;
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 300,
-                response_format: { type: 'json_object' },
-                messages: [{ role: 'system', content: system }, { role: 'user', content: opts.message }],
-            }),
-        });
-        if (!res.ok) return { service: null, date: null, time: null, confirm: null, intent: 'other' };
-        const data = await res.json();
-        const txt = data?.choices?.[0]?.message?.content || '{}';
-        const p = JSON.parse(txt);
-        return { service: p.service ?? null, date: p.date ?? null, time: p.time ?? null, confirm: p.confirm ?? null, intent: p.intent ?? 'other' };
-    } catch {
-        return { service: null, date: null, time: null, confirm: null, intent: 'other' };
-    }
+        const parsed = JSON.parse(error.details || '{}');
+        if (typeof parsed?.reason === 'string') reason = parsed.reason;
+    } catch { /* detail JSON değilse gerekçesiz devam */ }
+    return { reason };
 }
 
 Deno.serve(async (req: Request) => {
@@ -121,9 +83,17 @@ Deno.serve(async (req: Request) => {
         const remoteJid: string = d.key?.remoteJid || '';
         const providerMsgId: string = d.key?.id || '';
         const text: string = (d.message?.conversation || d.message?.extendedTextMessage?.text || '').trim();
+        // Sesli mesaj Türkiye'de çok yaygın; okuyamıyoruz ama sessiz kalmak
+        // müşteriyi cevapsız bırakıyordu.
+        const hasMedia = Boolean(
+            d.message?.audioMessage || d.message?.imageMessage
+            || d.message?.videoMessage || d.message?.documentMessage
+            || d.message?.stickerMessage,
+        );
 
-        // Yalnızca gerçek, gelen, birebir mesajları işle
-        if (fromMe || !remoteJid || remoteJid.includes('@g.us') || !text || !instance) return ok({ skipped: true });
+        if (!instance) return ok({ skipped: true });
+        const msgKind = inboundKind({ fromMe, remoteJid, text, hasMedia });
+        if (msgKind === 'skip') return ok({ skipped: true });
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır
         const phone = normalizePhone(remoteJid.split('@')[0]) || remoteJid.split('@')[0];
 
@@ -175,7 +145,6 @@ Deno.serve(async (req: Request) => {
 
         const known = await findCustomerByPhone(admin, orgId, phone);
 
-        const GROQ_KEY = await getSecret(admin, 'GROQ_API_KEY');
         const reply = async (t: string, kind: 'booking' | 'optout' = 'booking') => {
             await sendWhatsApp(admin, {
                 org: orgWa, phone, text: t, kind,
@@ -190,12 +159,16 @@ Deno.serve(async (req: Request) => {
         // Gelen mesajı kaydet — bugüne kadar konuşmanın hiçbir kalıcı izi yoktu
         await logMessage(admin, {
             orgId, direction: 'in', phone, kind: 'inbound',
-            status: 'sent', body: text, customerId: known?.id ?? null,
+            status: 'sent', body: msgKind === 'media' ? '[medya]' : text,
+            customerId: known?.id ?? null,
             providerMsgId: providerMsgId || null,
         });
 
         // ── Opt-out: "DUR" diyen müşteriye bir daha otomatik mesaj gitmez ────
-        if (/^\s*(dur|stop|iptal et|çıkar|cikar|abone iptal|mesaj istemiyorum)\s*$/i.test(text)) {
+        // Niyet tespiti _shared/booking/intent'te; "randevumu iptal et" ile
+        // "DUR" birbirine karışmasın diye opt-out yalnız tek kelimede yakalanır.
+        const topIntent = msgKind === 'text' ? detectIntent(text) : 'other';
+        if (topIntent === 'optout') {
             if (known?.id) {
                 await admin.from('customers')
                     .update({ wa_opt_out: true, wa_opt_out_at: new Date().toISOString() })
@@ -207,7 +180,7 @@ Deno.serve(async (req: Request) => {
                 'optout',
             );
         }
-        if (/^\s*(başlat|baslat|start|devam)\s*$/i.test(text) && known?.wa_opt_out) {
+        if (topIntent === 'optin' && known?.wa_opt_out) {
             await admin.from('customers')
                 .update({ wa_opt_out: false, wa_opt_out_at: null })
                 .eq('id', known.id).eq('organization_id', orgId);
@@ -218,6 +191,12 @@ Deno.serve(async (req: Request) => {
         // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.
         // Varsayılan false: istemcideki useWhatsApp ile aynı (bilinçli açılmalı).
         if (!featureOn(orgWa, 'assistant', false)) return ok({ skipped: 'assistant_off' });
+
+        // Sesli mesaj / fotoğraf: okuyamıyoruz ama sessiz kalmak müşteriyi
+        // cevapsız bırakıyordu. Kısa bir yönlendirme, konuşmayı bozmadan.
+        if (msgKind === 'media') {
+            return reply('Sesli mesajı ve görselleri okuyamıyorum 🙈 Yazarsanız hemen yardımcı olurum.');
+        }
 
         // Bot maliyeti koruması: bir numara saatte 20 mesajdan fazlasını
         // tetikleyemez (her mesaj bir Groq çağrısı demek).
@@ -245,16 +224,41 @@ Deno.serve(async (req: Request) => {
         const todayStr = nowTR.toISOString().slice(0, 10);
         const todayName = nowTR.toLocaleDateString('tr-TR', { weekday: 'long', timeZone: 'UTC' });
 
-        // Groq ile niyet çıkar
-        const ex = GROQ_KEY
-            ? await aiExtract(GROQ_KEY, { services: svcArr, today: todayStr, todayName, state, message: text })
-            : { service: null, date: null, time: null, confirm: null, intent: 'other' };
+        // ── 1. katman: kural tabanlı çözüm ───────────────────────────────────
+        // Tarih, saat, onay ve iptal modele SORULMAZ. Bunlar kesin çözülebilen
+        // ve yanlış çözüldüğünde geri alınamaz iş yaptıran şeyler.
+        const when = parseWhen(text, todayStr);
+        const ruleConfirm = detectConfirm(text);
 
-        // Basit onay/ret + iptal'i kod tarafında yakala (LLM'e güvenme)
-        const low = text.toLowerCase();
-        if (/(^|\s)(evet|evt|olur|tamam|tmm|onay|onaylıyorum|onaylyorum|ok|okey|tabii|yes|👍|✅)/.test(low)) ex.confirm = 'yes';
-        else if (/(^|\s)(hayır|hayir|yok|olmaz|vazgeç|vazgec|no|👎)/.test(low)) ex.confirm = 'no';
-        if (/(^|\s)(iptal|vazgeç|vazgec|boşver|bosver)/.test(low) && !state.awaitingConfirm) ex.intent = 'cancel';
+        // ── 2. katman: model ─────────────────────────────────────────────────
+        // Model VARSAYILAN olarak çağrılır; yalnız kuralın mesajı tamamen
+        // çözdüğü iki durumda atlanır. Tersini yapmak (yalnız eksik alan varken
+        // çağırmak) "aslında lazer olsun" gibi fikir değişikliklerini kaçırıyor:
+        // bütün alanlar dolu olduğu için model hiç sorulmuyor ve müşterinin
+        // yeni isteği sessizce yutuluyordu.
+        const ruleSettled =
+            // Onay bekliyoruz ve net bir evet/hayır geldi — mesajın başka işi yok.
+            (Boolean(state.awaitingConfirm) && ruleConfirm !== null)
+            // Ya da kural son eksik alanı doldurdu ("yarın 3 buçuk").
+            || (Boolean(state.serviceId)
+                && Boolean(when.date || state.date)
+                && Boolean(when.time || state.time)
+                && Boolean(when.date || when.time));
+        const needsAi = !ruleSettled;
+        const ex: Extraction = needsAi
+            ? (await extractWithAi(admin, {
+                services: svcArr, today: todayStr, todayName, state, message: text,
+                known: { date: when.date, time: when.time },
+            }) ?? { ...EMPTY_EXTRACTION })
+            : { ...EMPTY_EXTRACTION };
+
+        // Kural her zaman modelin üstüne yazar — sağlayıcı ne derse desin.
+        if (when.date) ex.date = when.date;
+        if (when.time) ex.time = when.time;
+        if (ruleConfirm) ex.confirm = ruleConfirm;
+        if (detectIntent(text, { awaitingConfirm: Boolean(state.awaitingConfirm) }) === 'cancel') {
+            ex.intent = 'cancel';
+        }
 
         // İptal niyeti
         if (ex.intent === 'cancel') {
@@ -273,7 +277,10 @@ Deno.serve(async (req: Request) => {
         // Biçim + makul aralık kontrolü burada yapılır (saat zaten slot listesine
         // karşı doğrulanıyor).
         if (ex.date && isSaneDate(ex.date, todayStr)) state.date = ex.date;
-        if (ex.time) state.time = ex.time;
+        // Saat de biçim denetiminden geçer: model "akşam" gibi bir şey
+        // döndürdüğünde state'e çöp yazılmasın (slot listesi zaten eşleşmeyecek
+        // ama oturum kalıcı, çöp de kalıcı olurdu).
+        if (ex.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(ex.time)) state.time = ex.time;
 
         const saveState = async () => {
             await admin.from('whatsapp_sessions').upsert(
@@ -285,7 +292,13 @@ Deno.serve(async (req: Request) => {
         if (!state.serviceId) {
             await saveState();
             const list = svcArr.slice(0, 8).map(s => `• ${s.name} (${s.duration} dk)`).join('\n');
-            return reply(`Merhaba! 👋 *${businessName}*'a hoş geldin. Hangi hizmet için randevu istersin?\n\n${list}`);
+            // Numarayı tanıyorsak adıyla karşıla. Müşteri kaydı zaten çözülmüş
+            // durumdaydı ama hiçbir cevapta kullanılmıyordu: bot kim olduğunu
+            // biliyor, söylemiyordu.
+            const hello = known?.name
+                ? `Merhaba ${known.name.split(' ')[0]}! 👋`
+                : `Merhaba! 👋 *${businessName}*'a hoş geldiniz.`;
+            return reply(`${hello} Hangi hizmet için randevu istersiniz?\n\n${list}`);
         }
         if (!state.date) {
             await saveState();
@@ -295,20 +308,42 @@ Deno.serve(async (req: Request) => {
         // Slot hesabı (seçili gün, herhangi personel)
         const date = state.date as string;
         const serviceDuration = state.serviceDuration || slotDuration;
-        const { data: dayRes } = await admin.from('reservations').select('staff_id, start_time, end_time').eq('organization_id', orgId).eq('date', date).neq('status', 'cancelled');
+        const { data: dayRes } = await admin.from('reservations').select('staff_id, resource_id, start_time, end_time').eq('organization_id', orgId).eq('date', date).neq('status', 'cancelled');
         const { data: timeOff } = await admin.from('staff_time_off').select('staff_id').eq('organization_id', orgId).eq('date', date);
+        const { data: resourceRows } = await admin.from('resources').select('id, capacity, sort').eq('organization_id', orgId).eq('is_active', true).order('sort');
         const offSet = new Set((timeOff || []).map((t: any) => t.staff_id));
         const weekday = weekdayOf(date);
         const minStart = date === todayStr ? (nowTR.getUTCHours() * 60 + nowTR.getUTCMinutes()) : 0;
 
-        const slotStaff = new Map<number, string>();
-        for (const st of (allStaff || [])) {
-            const resFor = (dayRes || []).filter((r: any) => r.staff_id === st.id);
-            for (const s of staffSlots({ orgHours, staffHours: st.working_hours || null, weekday, serviceDuration, slotDuration, dayReservations: resFor, isTimeOff: offSet.has(st.id), minStart })) {
-                if (!slotStaff.has(s)) slotStaff.set(s, st.id);
-            }
-        }
-        const available = [...slotStaff.keys()].sort((a, b) => a - b).map(minToTime);
+        const staffAvail = availabilityFor({
+            staff: (allStaff || []).map((st: any) => ({
+                id: st.id,
+                workingHours: st.working_hours || null,
+                isTimeOff: offSet.has(st.id),
+                dayReservations: (dayRes || []).filter((r: any) => r.staff_id === st.id),
+            })),
+            orgHours, weekday, serviceDuration, slotDuration, minStart,
+        });
+
+        // Kabin süzgeci: personel müsait olsa da kabin yoksa o saat sunulmaz.
+        // WhatsApp randevuları bugüne kadar resource_id'siz yazılıyordu ve
+        // operasyon ekranında kabinsiz düşüyordu.
+        const resourceBusy = (dayRes || [])
+            .filter((r: any) => r.resource_id)
+            .map((r: any) => ({
+                resourceId: r.resource_id,
+                start: timeToMin(r.start_time),
+                end: timeToMin(r.end_time),
+            }));
+        const slotResource = assignResources({
+            minutes: [...staffAvail.staffByMinute.keys()],
+            duration: serviceDuration,
+            resources: (resourceRows || []).map((r: any) => ({ id: r.id, capacity: r.capacity })),
+            busy: resourceBusy,
+        });
+
+        const slotStaff = staffAvail.staffByMinute;
+        const available = [...slotResource.keys()].sort((a, b) => a - b).map(minToTime);
 
         if (available.length === 0) {
             state.date = null; state.time = null;
@@ -349,7 +384,10 @@ Deno.serve(async (req: Request) => {
         // ── ONAY: randevu oluştur ──
         const startMin = timeToMin(state.time);
         const chosenStaff = slotStaff.get(startMin);
-        if (chosenStaff === undefined) { // arada dolduysa
+        // Kabin ataması slot listesiyle AYNI kaynaktan gelir; müşteriye sunulan
+        // saat ile yazılan kabin birbirinden kayamaz.
+        const chosenResource = slotResource.get(startMin) ?? null;
+        if (chosenStaff === undefined || !slotResource.has(startMin)) { // arada dolduysa
             state.time = null; state.awaitingConfirm = false;
             await saveState();
             return reply(`Az önce o saat doldu 😔 Müsait: ${available.slice(0, 8).join(' · ')} — hangisi?`);
@@ -382,7 +420,8 @@ Deno.serve(async (req: Request) => {
             customer_name: customerName, customer_phone: phone,
             date, start_time: state.time, end_time: endTime,
             service: svc.name, service_color: svc.color || '#FF5A1F',
-            status: autoConfirm ? 'confirmed' : 'pending', notes: 'WhatsApp AI randevu', staff_id: chosenStaff, source: 'booking',
+            status: autoConfirm ? 'confirmed' : 'pending', notes: 'WhatsApp AI randevu',
+            staff_id: chosenStaff, resource_id: chosenResource, source: 'booking',
         }).select('id, customer_token').single();
 
         if (reservationError || !reservation) {
@@ -396,6 +435,19 @@ Deno.serve(async (req: Request) => {
                 return reply(alternatives.length > 0
                     ? `O saat az önce doldu 😔 Müsait: ${alternatives.join(' · ')} — hangisini seçersin?`
                     : 'O saat az önce doldu 😔 Bu gün için başka müsait saat kalmadı. Başka bir gün ister misin?');
+            }
+            // Uygunluk engeli (076): tekrar denemek işe YARAMAZ. Genel "biraz
+            // sonra deneyin" mesajı müşteriyi sonsuz döngüye sokuyordu; gerekçe
+            // söylenip konuşma salona devredilir.
+            const blocked = eligibilityBlock(reservationError);
+            if (blocked) {
+                await admin.from('whatsapp_sessions').delete().eq('organization_id', orgId).eq('phone', phone);
+                const why = blocked.reason ? ` (${blocked.reason})` : '';
+                return reply(
+                    `Bu hizmeti buradan planlayamıyorum${why}. 🌸\n\n` +
+                    `Kayıtlarımızdaki bilgiler nedeniyle randevunun salon tarafından onaylanması gerekiyor — ` +
+                    `bizi arayabilir ya da buraya yazabilirsiniz, ekibimiz sizinle ilgilenecek.`,
+                );
             }
             return reply('Randevu şu anda oluşturulamadı. Lütfen biraz sonra tekrar deneyin.');
         }
