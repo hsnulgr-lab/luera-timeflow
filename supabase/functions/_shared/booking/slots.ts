@@ -92,6 +92,44 @@ export function staffSlots(input: SlotInput): number[] {
     return out;
 }
 
+/**
+ * Önümüzdeki günlerden hangileri müsait? "Hangi günler müsaitsiniz" sorusunun
+ * cevabı — canlıda bu soruya bot aynı saat listesini tekrar göndermişti.
+ *
+ * Gün başına tek bir "en az bir slot var mı" kontrolü yapılır; saat listesi
+ * müşteri günü seçince hesaplanır.
+ */
+export function availableDays(opts: {
+    fromISO: string;
+    /** Kaç gün ileriye bakılacak. */
+    horizon: number;
+    orgHours: WorkingHour[];
+    serviceDuration: number;
+    slotDuration: number;
+    /** Gün → o günkü dolu aralıklar (tüm personel toplamı değil, personel bazlı). */
+    staffByDay: (dateISO: string) => StaffDay[];
+    /** Bugün için "şu andan önce" slot açılmasın diye (dk). */
+    minStartToday: number;
+    /** En fazla kaç gün döndürülecek. */
+    limit: number;
+}): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < opts.horizon && out.length < opts.limit; i++) {
+        const t = Date.parse(`${opts.fromISO}T00:00:00Z`) + i * 86_400_000;
+        const iso = new Date(t).toISOString().slice(0, 10);
+        const { times } = availabilityFor({
+            staff: opts.staffByDay(iso),
+            orgHours: opts.orgHours,
+            weekday: weekdayOf(iso),
+            serviceDuration: opts.serviceDuration,
+            slotDuration: opts.slotDuration,
+            minStart: i === 0 ? opts.minStartToday : 0,
+        });
+        if (times.length > 0) out.push(iso);
+    }
+    return out;
+}
+
 export interface StaffDay {
     id: string;
     workingHours: WorkingHour[] | null;

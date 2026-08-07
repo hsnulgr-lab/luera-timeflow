@@ -9,7 +9,7 @@ import {
 } from '../supabase/functions/_shared/booking/identity.ts';
 import * as MSG from '../supabase/functions/_shared/booking/messages.ts';
 import {
-    availabilityFor, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
+    availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
 import {
     detectConfirm, detectIntent, inboundKind,
@@ -651,8 +651,8 @@ test('mesaj başına en fazla bir emoji, o da sektörün emojisi', () => {
 test('sektör sözcüğü profilden gelir — klinik "tedavi" der', () => {
     const m = allMessages();
     assert.match(m.greeting, /Hangi tedavi için/);
-    assert.match(m.summary, /Tedavinizi özetleyeyim/);
     assert.match(m.summary, /\*Tedavi:\* Dolgu/);
+    assert.match(m.created, /\*Tedavi:\* Dolgu/);
     assert.match(m.blocked, /Bu tedavi için/);
 });
 
@@ -666,7 +666,8 @@ test('aynı metinler kuaförde "işlem" olur — hiçbir şey sabit yazılmamı�
     };
     const m = allMessages(kuafor);
     assert.match(m.greeting, /Hangi işlem için/);
-    assert.match(m.summary, /İşleminizi özetleyeyim/);
+    assert.match(m.summary, /\*İşlem:\* Dolgu/);
+    assert.match(m.greeting, /LU Kuaför/);
     assert.ok(!m.greeting.includes('🦷'), 'diş emojisi kuaföre sızmamalı');
     assert.ok(m.greeting.includes('💇'));
 });
@@ -681,10 +682,10 @@ test('onay bekleyen randevu "hazır" demez', () => {
     // booking_auto_confirm kapalıyken kayıt 'pending' düşüyor ama bot
     // "Randevun oluştu!" diyordu — müşteri onaylanmış sanıp geliyordu.
     const m = allMessages();
-    assert.match(m.created, /hazır/);
-    assert.ok(!/hazır/.test(m.createdPending), 'pending randevu hazır sayılmamalı');
-    assert.match(m.createdPending, /Talebinizi aldık/);
-    assert.match(m.createdPending, /haber vereceğiz/);
+    assert.match(m.created, /Hazır/);
+    assert.ok(!/[Hh]azır/.test(m.createdPending), 'pending randevu hazır sayılmamalı');
+    assert.match(m.createdPending, /Talebinizi aldım/);
+    assert.match(m.createdPending, /haber vereceğim/);
 });
 
 test('iptal linki yalnız varsa eklenir', () => {
@@ -733,4 +734,79 @@ test('edge fonksiyonu mesajları modülden alır — kopya metin kalmadı', () =
 test('bot sektör profilini okur', () => {
     assert.match(booking, /M\.resolveComms\(setting\?\.comms\)/);
     assert.match(booking, /business_name, working_hours, slot_duration, comms/);
+});
+
+// ── Canlı konuşmadan çıkan üç düzeltme ──────────────────────────────────────
+
+test('mesajda tarih varsa çıplak sayı saat sanılmaz', () => {
+    // GERÇEK HATA: "11 Ağustos istiyorum" yazan müşteriye bot 11:15'i seçip
+    // özet gösterdi — gün numarasını saat sandı.
+    const offered = ['09:00', '10:30', '11:15', '12:00'];
+    assert.equal(matchOfferedTime('11 Ağustos istiyorum', offered), null);
+    assert.equal(matchOfferedTime('9 Eylül olsun', offered), null);
+    assert.equal(matchOfferedTime('yarın 12 olur mu', offered), null);
+    assert.equal(matchOfferedTime('pazartesi 10', offered), null);
+    assert.equal(matchOfferedTime('11.08 gelebilirim', offered), null);
+    // Tarih varken bile AÇIK yazım kabul edilir — belirsizlik yok.
+    assert.equal(matchOfferedTime('11 Ağustos 10:30', offered), '10:30');
+    // Tarih yoksa eski davranış sürüyor.
+    assert.equal(matchOfferedTime('11', offered), '11:15');
+});
+
+test('"hangi günler müsait" ayrı bir niyet', () => {
+    for (const t of ['Hangi günler müsait', 'hangi gunler musaitsiniz',
+        'müsait gün var mı', 'ne zaman müsaitsiniz', 'boş gün var mı']) {
+        assert.equal(detectIntent(t), 'availability', t);
+    }
+    // Saat sorusu gün sorusu değil.
+    assert.notEqual(detectIntent('hangi saatler var'), 'availability');
+});
+
+test('müsait günler listesi kapalı günleri atlar', () => {
+    // Pazar kapalı; 2026-08-07 Cuma → Cuma, Cumartesi, (Pazar atlanır), Pazartesi
+    const hours = [
+        { day: 5, start: '09:00', end: '18:00', isOff: false },
+        { day: 6, start: '10:00', end: '15:00', isOff: false },
+        { day: 0, start: '09:00', end: '18:00', isOff: true },
+        { day: 1, start: '09:00', end: '18:00', isOff: false },
+    ];
+    const days = availableDays({
+        fromISO: TODAY, horizon: 5, limit: 5,
+        orgHours: hours, serviceDuration: 60, slotDuration: 60, minStartToday: 0,
+        staffByDay: () => [{ id: 's', workingHours: null, isTimeOff: false, dayReservations: [] }],
+    });
+    assert.deepEqual(days, ['2026-08-07', '2026-08-08', '2026-08-10']);
+});
+
+test('müsait gün listesi limitte durur ve dolu günü atlar', () => {
+    const hours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '09:00', end: '10:00', isOff: false }));
+    const days = availableDays({
+        fromISO: TODAY, horizon: 10, limit: 2,
+        orgHours: hours, serviceDuration: 60, slotDuration: 60, minStartToday: 0,
+        // İlk gün tamamen dolu.
+        staffByDay: (iso) => [{
+            id: 's', workingHours: null, isTimeOff: false,
+            dayReservations: iso === TODAY ? [{ start_time: '09:00', end_time: '10:00' }] : [],
+        }],
+    });
+    assert.deepEqual(days, ['2026-08-08', '2026-08-09'], 'dolu gün atlanır, limit uygulanır');
+});
+
+test('gün listesi mesajı boşken de anlamlı', () => {
+    const empty = MSG.offerDays(CTX, { serviceName: 'Dolgu', days: [] });
+    assert.match(empty, /dolu görünüyor/);
+    assert.ok(!empty.includes('•'));
+});
+
+test('kuru selamlama oturumu sıfırlar', () => {
+    // GERÇEK HATA: müşteri 20 dk sonra "merhaba" yazdı, bot baştan karşıladı
+    // ama eski tarih state'te duruyordu — hizmet seçilir seçilmez gün
+    // sormadan saatlere atladı.
+    assert.match(booking, /detectIntent\(text\) === 'greeting' && Object\.keys\(state\)\.length > 0/);
+    assert.match(booking, /state = \{\};/);
+});
+
+test('gün sorusu saat listesiyle karıştırılmaz', () => {
+    assert.match(booking, /detectIntent\(text\) === 'availability'/);
+    assert.match(booking, /M\.offerDays\(/);
 });

@@ -86,21 +86,38 @@ export function greeting(c: Ctx, services: { name: string; duration: number }[])
         .map((s) => `• *${s.name}* · ${s.duration} dk`)
         .join('\n');
     const hello = c.firstName
-        ? `Merhaba ${c.firstName}! ${c.comms.emoji}\n*${c.businessName}*`
-        : `Merhaba! ${c.comms.emoji}\n*${c.businessName}*'a hoş geldiniz.`;
-    return `${hello}\n\nHangi ${c.comms.serviceWord} için randevu oluşturalım?\n\n${list}\n\n`
-        + `Adını yazmanız yeterli.`;
+        ? `Merhaba ${c.firstName}! ${c.comms.emoji}`
+        : `Merhaba! ${c.comms.emoji}`;
+    return `${hello}\nBen *${c.businessName}* randevu asistanıyım.\n\n`
+        + `Hangi ${c.comms.serviceWord} için gelmek istersiniz?\n\n${list}\n\n`
+        + `Adını yazmanız yeterli, gerisini ben hallederim.`;
 }
 
 export function askDay(c: Ctx, serviceName: string): string {
-    return `*${serviceName}* için ilerleyelim. Hangi gün gelmek istersiniz?\n\n`
-        + `"yarın", "cumartesi" ya da "20 Ağustos" gibi yazabilirsiniz.`;
+    return `*${serviceName}*, tabii. Hangi gün gelmek istersiniz?\n\n`
+        + `"yarın", "cumartesi" ya da "20 Ağustos" diyebilirsiniz. `
+        + `Müsait günleri görmek isterseniz *hangi günler* yazmanız yeterli.`;
+}
+
+/**
+ * "Hangi günler müsaitsiniz?" — canlıda bot bu soruya aynı saat listesini
+ * tekrar gönderdi. Gün sorusu ayrı bir istek ve ayrı bir cevabı olmalı.
+ */
+export function offerDays(c: Ctx, o: { serviceName: string; days: { iso: string; label: string }[] }): string {
+    if (o.days.length === 0) {
+        return `*${o.serviceName}* için önümüzdeki iki hafta dolu görünüyor. `
+            + `Bizi arayabilirsiniz, size bir yer açalım.`;
+    }
+    const list = o.days.map((d) => `• ${d.label}`).join('\n');
+    return `*${o.serviceName}* için en yakın müsait günler:\n\n${list}\n\n`
+        + `Hangisini isterseniz yazın, o günün saatlerini göstereyim.`;
 }
 
 // ── Saat ────────────────────────────────────────────────────────────────────
 
 export function offerTimes(c: Ctx, o: { dateLabel: string; serviceName: string; times: string[] }): string {
-    return `${o.dateLabel} · *${o.serviceName}*\nUygun saatler:\n\n${timeGrid(o.times)}\n\nHangisi size uygun?`;
+    return `${o.dateLabel} günü *${o.serviceName}* için şu saatlerde yerimiz var:\n\n`
+        + `${timeGrid(o.times)}\n\nHangisi size uygun?`;
 }
 
 export function timeTaken(c: Ctx, o: { wanted: string; dateLabel: string; times: string[] }): string {
@@ -113,7 +130,8 @@ export function timeTaken(c: Ctx, o: { wanted: string; dateLabel: string; times:
 }
 
 export function dayFull(c: Ctx, dateLabel: string): string {
-    return `${dateLabel} için uygun yer kalmamış. Başka bir gün deneyelim mi?`;
+    return `${dateLabel} maalesef dolu. Başka bir gün deneyelim mi? `
+        + `*hangi günler* yazarsanız müsait günleri sıralayayım.`;
 }
 
 export function slotJustTaken(c: Ctx, times: string[]): string {
@@ -126,7 +144,7 @@ export function slotJustTaken(c: Ctx, times: string[]): string {
 // ── Onay ────────────────────────────────────────────────────────────────────
 
 export function summary(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
-    return `${c.comms.servicePhrase.charAt(0).toLocaleUpperCase('tr')}${c.comms.servicePhrase.slice(1)} özetleyeyim:\n\n`
+    return `Son bir kontrol edelim:\n\n`
         + `${detailBlock(c, o)}\n\nOnaylıyor musunuz? *Evet* yazmanız yeterli.`;
 }
 
@@ -149,10 +167,10 @@ export function created(c: Ctx, o: {
     pending?: boolean;
 }): string {
     const head = o.pending
-        ? `Talebinizi aldık. ${c.comms.emoji}`
-        : `Randevunuz hazır. ${c.comms.emoji}`;
+        ? `Talebinizi aldım. ${c.comms.emoji}`
+        : `Hazır, kaydınızı aldım. ${c.comms.emoji}`;
     const tail = o.pending
-        ? `Onaylandığında size haber vereceğiz.`
+        ? `Ekibimiz onaylayınca size haber vereceğim.`
         : `Sizi bekliyoruz.`;
     const manage = o.manageUrl ? `\n\nİptal veya değişiklik için:\n${o.manageUrl}` : '';
     return `${head}\n\n${detailBlock(c, o)}\n\n${tail}${manage}`;

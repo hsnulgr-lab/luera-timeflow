@@ -11,11 +11,12 @@ import { foldTr } from './dates.ts';
 export type Confirm = 'yes' | 'no' | null;
 
 export type Intent =
-    | 'book'        // randevu almak istiyor
-    | 'cancel'      // konuşmadan/işlemden vazgeçiyor
+    | 'book'         // randevu almak istiyor
+    | 'cancel'       // konuşmadan/işlemden vazgeçiyor
     | 'greeting'
-    | 'optout'      // "DUR"
-    | 'optin'       // "BAŞLAT"
+    | 'availability' // "hangi günler müsaitsiniz"
+    | 'optout'       // "DUR"
+    | 'optin'        // "BAŞLAT"
     | 'other';
 
 const YES = /(^|\s)(evet|evt|olur|tamam|tmm|onay|onayliyorum|ok|okey|okay|tabii|tabi|yes|peki|uygun)(\s|$|[.!,])/;
@@ -28,6 +29,10 @@ const OPT_OUT = /^\s*(dur|stop|cikar|abone iptal|mesaj istemiyorum)\s*$/;
 const OPT_IN = /^\s*(baslat|start|devam)\s*$/;
 
 const GREETING = /^\s*(merhaba|selam|slm|iyi gunler|iyi aksamlar|gunaydin|hey|hi|hello|selamun aleykum|meraba)[\s!.]*$/;
+
+// "Hangi günler müsaitsiniz" — canlıda bot bu soruya aynı saat listesini
+// tekrar gönderdi. Gün sorusu, saat sorusundan ayrı bir istek.
+const AVAILABILITY = /hangi\s*gun|musait\s*gun|bos\s*gun|ne\s*zaman\s*musait|gun\s*var|hangi\s*gunler/;
 
 /** Emoji ile onay/ret — 👍 ✅ 👎 tek başına yollandığında. */
 const YES_EMOJI = /[\u{1F44D}\u{2705}\u{1F64C}]/u;
@@ -58,6 +63,7 @@ export function detectIntent(text: string, opts: { awaitingConfirm?: boolean } =
     if (OPT_OUT.test(s)) return 'optout';
     if (OPT_IN.test(s)) return 'optin';
     if (GREETING.test(s)) return 'greeting';
+    if (AVAILABILITY.test(s)) return 'availability';
     if (!opts.awaitingConfirm && CANCEL.test(s)) return 'cancel';
     return 'other';
 }

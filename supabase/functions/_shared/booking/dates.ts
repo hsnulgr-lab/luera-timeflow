@@ -236,6 +236,22 @@ export function matchOfferedTime(text: string, offered: string[]): string | null
     if (!offered?.length) return null;
     const s = foldTr(text);
 
+    // Mesajda TARİH varsa çıplak sayı saat değildir. Canlıda "11 Ağustos
+    // istiyorum" yazan müşteriye bot 11:15'i seçip özet gösterdi — gün
+    // numarasını saat sandı. Tarih ipucu varsa bu yol hiç açılmaz; saati
+    // ancak açık yazım (09:00) verir.
+    const hasDateHint = /\b(ocak|subat|mart|nisan|mayis|haziran|temmuz|agustos|eylul|ekim|kasim|aralik)\b/.test(s)
+        || /\b(bugun|yarin|obur\s*gun|haftaya|gelecek\s*hafta|onumuzdeki)\b/.test(s)
+        || /\b(pazartesi|sali|carsamba|persembe|cumartesi|cuma|pazar)\b/.test(s)
+        || /\b\d{1,2}[./]\d{1,2}\b/.test(s)
+        || /\b\d{4}-\d{2}-\d{2}\b/.test(s);
+    if (hasDateHint) {
+        const colonOnly = s.match(/\b(\d{1,2}):(\d{2})\b/);
+        if (!colonOnly) return null;
+        const want = `${pad(Number(colonOnly[1]))}:${colonOnly[2]}`;
+        return offered.includes(want) ? want : null;
+    }
+
     // Tam yazım: "09:00", "9:00"
     const colon = s.match(/\b(\d{1,2}):(\d{2})\b/);
     if (colon) {

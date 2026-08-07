@@ -8,7 +8,7 @@ import { isSaneDate, matchOfferedTime, parseWhen } from '../_shared/booking/date
 import { greetingName } from '../_shared/booking/identity.ts';
 import * as M from '../_shared/booking/messages.ts';
 import {
-    availabilityFor, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
+    availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
 } from '../_shared/booking/slots.ts';
 import { detectConfirm, detectIntent, inboundKind } from '../_shared/booking/intent.ts';
@@ -257,6 +257,17 @@ Deno.serve(async (req: Request) => {
         const todayStr = nowTR.toISOString().slice(0, 10);
         const todayName = nowTR.toLocaleDateString('tr-TR', { weekday: 'long', timeZone: 'UTC' });
 
+        // Kuru bir "merhaba" YENİ konuşma demektir. Canlıda tam tersi oldu:
+        // müşteri 20 dakika sonra "merhaba" yazdı, bot baştan karşıladı ama
+        // eski oturumdaki tarih sessizce duruyordu — hizmeti seçer seçmez gün
+        // sormadan saatlere atladı. Karşılama sıfırdan başlıyorsa durum da
+        // sıfırdan başlamalı.
+        if (msgKind === 'text' && detectIntent(text) === 'greeting' && Object.keys(state).length > 0) {
+            state = {};
+            await admin.from('whatsapp_sessions').delete()
+                .eq('organization_id', orgId).eq('phone', phone);
+        }
+
         // ── 1. katman: kural tabanlı çözüm ───────────────────────────────────
         // Tarih, saat, onay ve iptal modele SORULMAZ. Bunlar kesin çözülebilen
         // ve yanlış çözüldüğünde geri alınamaz iş yaptıran şeyler.
@@ -326,6 +337,42 @@ Deno.serve(async (req: Request) => {
             await saveState();
             return reply(M.greeting(msgCtx(), svcArr));
         }
+        // "Hangi günler müsaitsiniz?" — canlıda bot bu soruya aynı saat
+        // listesini tekrar gönderdi. Gün sorusu ayrı bir istek: önümüzdeki iki
+        // haftada en az bir slotu olan günler sıralanır.
+        if (msgKind === 'text' && detectIntent(text) === 'availability') {
+            const horizon = 14;
+            const lastISO = new Date(Date.parse(`${todayStr}T00:00:00Z`) + (horizon - 1) * 86_400_000)
+                .toISOString().slice(0, 10);
+            const [{ data: rangeRes }, { data: rangeOff }] = await Promise.all([
+                admin.from('reservations')
+                    .select('date, staff_id, start_time, end_time')
+                    .eq('organization_id', orgId).gte('date', todayStr).lte('date', lastISO)
+                    .neq('status', 'cancelled'),
+                admin.from('staff_time_off')
+                    .select('date, staff_id')
+                    .eq('organization_id', orgId).gte('date', todayStr).lte('date', lastISO),
+            ]);
+            const days = availableDays({
+                fromISO: todayStr, horizon, limit: 5,
+                orgHours,
+                serviceDuration: state.serviceDuration || slotDuration,
+                slotDuration,
+                minStartToday: nowTR.getUTCHours() * 60 + nowTR.getUTCMinutes(),
+                staffByDay: (iso) => (allStaff || []).map((st: any) => ({
+                    id: st.id,
+                    workingHours: st.working_hours || null,
+                    isTimeOff: (rangeOff || []).some((t: any) => t.date === iso && t.staff_id === st.id),
+                    dayReservations: (rangeRes || []).filter((r: any) => r.date === iso && r.staff_id === st.id),
+                })),
+            });
+            await saveState();
+            return reply(M.offerDays(msgCtx(), {
+                serviceName: String(state.serviceName),
+                days: days.map((iso) => ({ iso, label: fmtDate(iso) })),
+            }));
+        }
+
         if (!state.date) {
             await saveState();
             return reply(M.askDay(msgCtx(), String(state.serviceName)));
@@ -382,7 +429,9 @@ Deno.serve(async (req: Request) => {
         // olmasın diye) ama bu kural burada müşteriyi kilitliyordu: canlıda
         // saatler sıralandıktan sonra "9" yazan kullanıcıya bot aynı listeyi
         // tekrar gönderdi. Bağlam varken kural gevşetilir.
-        if (!state.time && state.offeredTimes) {
+        // Mesajda tarih varsa çıplak sayı saat değildir: canlıda "11 Ağustos
+        // istiyorum" yazan müşteriye bot 11:15'i seçip özet gösterdi.
+        if (!state.time && state.offeredTimes && !when.date) {
             const picked = matchOfferedTime(text, available);
             if (picked) state.time = picked;
         }
