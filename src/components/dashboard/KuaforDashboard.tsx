@@ -835,7 +835,7 @@ export function KuaforDashboard() {
         byStage.processing.length > 0 && `${byStage.processing.length} boya süresi`,
         byStage.checkout.length > 0 && `${byStage.checkout.length} kasaya hazır`,
         peak && `yoğunluk ${peak}`,
-        inSalon.length === 0 && `${todayList.length} randevu planlı`,
+        inSalon.length === 0 && `bugün ${todayList.length} randevu`,
     ].filter(Boolean).join(' · ');
     const operationalAlert = overdueChecks.length > 0
         ? `${overdueChecks.length} renk kontrolü gecikti`

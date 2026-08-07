@@ -170,7 +170,7 @@ export function FizyoterapiDashboard() {
                 const live = items.filter((r) => phaseOf(r) === 'active').length;
                 out.push({
                     key: s.id, label: s.name, initials: initialsOf(s.name),
-                    sub: live > 0 ? `${live} seans aktif` : `${items.length} seans planlı`,
+                    sub: live > 0 ? `${live} seans aktif` : `${items.length} seans`,
                     items,
                 });
             }
@@ -181,7 +181,7 @@ export function FizyoterapiDashboard() {
                 const items = filtered.filter((r) => r.resourceId === res.id);
                 out.push({
                     key: res.id, label: res.name, initials: initialsOf(res.name),
-                    sub: `${items.length} seans planlı`, items,
+                    sub: `${items.length} seans`, items,
                 });
             }
             const orphan = filtered.filter((r) => !r.resourceId || !activeResources.some((x) => x.id === r.resourceId));
@@ -426,7 +426,7 @@ export function FizyoterapiDashboard() {
                                 <em> {openDecisions.length > 0 ? `${openDecisions.length} klinik karar bekliyor.` : 'bekleyen klinik karar yok.'}</em>
                             </h1>
                             <div className="day-meta">
-                                <span><i className="dot teal" /> {todayList.length} seans planlı</span>
+                                <span><i className="dot teal" /> bugün {todayList.length} seans</span>
                                 <span><i className="dot green" /> {staffOnDuty} fizyoterapist görevde</span>
                                 {activeResources.length > 0 && (
                                     <span><i className="dot blue" /> {roomsInUse} / {activeResources.length} alan kullanımda</span>

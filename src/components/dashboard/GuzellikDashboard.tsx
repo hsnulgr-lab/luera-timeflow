@@ -128,6 +128,9 @@ export function GuzellikDashboard() {
         [todayList, nowTime],
     );
     const nextThree = upcoming.slice(0, 3);
+    // Günün ÖNÜNDE duran iş: içeridekiler + henüz gelmemişler. Tamamlananlar ve
+    // gelmeyenler hariç — karşılama başlığı bu sayıyı konuşur.
+    const remaining = inSalon.length + upcoming.length;
 
     // ── Kabin durumu şeridi (ızgaranın yerine geçer) ──────────────────────────
     const cabins = useMemo(() => activeResources.map((res) => {
@@ -596,13 +599,19 @@ export function GuzellikDashboard() {
                         </div>
                         <div className="opp-wc-main">
                             <span className="kicker">{settings.businessName || 'Güzellik Salonu'} · {nowTime}</span>
-                            {/* Karşılama YALNIZ günün iş hacmini söyler. Salonun anlık
-                                durumu ("sakin" / "N müşteri içeride") tek yerde — alttaki
-                                salon panelinde — yaşar; burada tekrar edilmez. */}
+                            {/* Karşılama günün ÖNÜNDE DURAN işini söyler; toplam sayı değil.
+                                Gün bittiğinde "N seans var" demek yanıltıyordu — biten seans
+                                da sayıya giriyordu. Kırılım alt satırda; salonun anlık durumu
+                                ("sakin" / "N müşteri içeride") ise tek yerde, alttaki salon
+                                panelinde yaşar ve burada tekrar edilmez. */}
                             <h1>
                                 {todayList.length === 0
                                     ? <>Bugün için planlanmış {resWord} yok ✨</>
-                                    : <>Bugün <b className="text-[var(--dc-orange-d)]">{todayList.length} {resWord}</b> planlı.</>}
+                                    : remaining > 0
+                                        ? <>Bugün <b className="text-[var(--dc-orange-d)]">{remaining} {resWord}</b> sizi bekliyor.</>
+                                        : doneToday.length > 0
+                                            ? <>Bugünün işi <b className="text-[var(--dc-orange-d)]">tamamlandı</b>.</>
+                                            : <>Bugün <b className="text-[var(--dc-red)]">kimse gelmedi</b>.</>}
                             </h1>
                             <span className="sub">
                                 {todayList.length > 0 && <>

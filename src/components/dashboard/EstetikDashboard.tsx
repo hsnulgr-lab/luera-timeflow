@@ -412,7 +412,7 @@ export function EstetikDashboard() {
                             <h1>Bugün klinikte <em>her adım görünür.</em></h1>
                             <p>
                                 {[
-                                    `${todayList.length} randevu planlı`,
+                                    `bugün ${todayList.length} randevu`,
                                     byStage['İşlemde'].length > 0 && `${byStage['İşlemde'].length} işlem sürüyor`,
                                     waitingPrep > 0 && `${waitingPrep} hazırlık dikkat istiyor`,
                                     byStage['Çıkışa hazır'].length > 0 && `${byStage['Çıkışa hazır'].length} hasta çıkışa hazır`,

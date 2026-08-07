@@ -408,7 +408,7 @@ export function HealthClinicDashboard() {
                                 )}
                             </h1>
                             <div className="pulse-trust">
-                                <span><i className="dot green" />{todayList.length} randevu planlı</span>
+                                <span><i className="dot green" />bugün {todayList.length} randevu</span>
                                 <span>{doctorsOnDuty} / {activeStaff.length || '—'} hekim görevde</span>
                                 {activeResources.length > 0 && <span>{roomsInUse} / {activeResources.length} oda kullanımda</span>}
                             </div>
