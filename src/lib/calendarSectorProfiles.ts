@@ -48,9 +48,10 @@ const SALON: CalendarProfile = {
 
 export const CALENDAR_PROFILES: Record<string, CalendarProfile> = {
     kuafor: SALON,
-    // Güzellikte YALNIZ müşteri yüzü farklı: takvim ve rezervasyon jenerik
-    // yüzde zaten kabin şeridi ve paket rozetiyle çalışıyor (bkz. 2.5 kararı).
-    guzellik: { ...DEFAULT_PROFILE, customers: 'guzellik' },
+    // Güzellikte müşteri ve rezervasyon yüzleri kendine özel; TAKVİM jenerik
+    // kalıyor — kabin şeridi ve paket rozetiyle zaten sektöre bürünüyor
+    // (bkz. 2.5 kararı).
+    guzellik: { ...DEFAULT_PROFILE, customers: 'guzellik', reservations: 'guzellik' },
     dis: {
         ...DEFAULT_PROFILE,
         visitRoute: (reservationId) => `/dental-visit/${encodeURIComponent(reservationId)}`,

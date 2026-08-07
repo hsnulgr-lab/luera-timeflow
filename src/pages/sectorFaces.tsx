@@ -5,6 +5,7 @@ import { CalendarPage } from '@/pages/CalendarPage';
 import { ReservationsPage } from '@/pages/ReservationsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { BeautyCustomersPage } from '@/pages/BeautyCustomersPage';
+import { BeautyReservationsPage } from '@/pages/BeautyReservationsPage';
 import { KuaforCalendarPage } from '@/components/kuafor/KuaforCalendarPage';
 import { KuaforReservationsPage } from '@/components/kuafor/KuaforReservationsPage';
 import { KuaforCustomersPage } from '@/components/kuafor/KuaforCustomersPage';
@@ -28,7 +29,7 @@ const CALENDAR_FACES: Record<FaceKey, ComponentType> = {
 const RESERVATIONS_FACES: Record<FaceKey, ComponentType> = {
     genel: ReservationsPage,
     salon: KuaforReservationsPage,
-    guzellik: ReservationsPage,
+    guzellik: BeautyReservationsPage,
 };
 
 const CUSTOMERS_FACES: Record<FaceKey, ComponentType> = {
