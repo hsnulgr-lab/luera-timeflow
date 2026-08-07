@@ -1,0 +1,108 @@
+// Bilgi sorusu yönlendiricisi — Dalga 2.
+//
+// Bota gelen her mesaj randevu talebi değil. Canlıda müşteriler "randevum ne
+// zamandı", "kaç para", "kaçta açıksınız", "borcum var mı" yazdı; bot üçünü de
+// hizmet adı sandı ve karşılamaya döndü. Bu modül mesajın KONUSUNU ayırır.
+//
+// ÜÇ KURAL — bunlar pazarlıksız:
+//
+// 1. KİŞİSEL VERİ YALNIZ EŞLEŞEN NUMARAYA. Randevu, paket ve bakiye
+//    (PERSONAL kümesi) ancak yazan numara bir müşteri kaydıyla eşleşiyorsa
+//    cevaplanır. Numara tanınmıyorsa veri verilmez, salona yönlendirilir.
+//    "Ahmet'in borcu ne kadar" diye soran birine cevap verilmez.
+//
+// 2. SAYILARI MODEL ÜRETMEZ. Tutar, tarih, saat, kalan seans — hepsi
+//    veritabanından okunur ve mesaj şablonuna KOD tarafından yazılır. Modelin
+//    tek işi konuyu adlandırmaktır.
+//
+// 3. MODEL YALNIZ ENUM DÖNER. Kural katmanı çözemezse modele sorulur ama
+//    dönebileceği tek şey aşağıdaki Topic listesinden bir değerdir; serbest
+//    metin kabul edilmez (bkz. coerce, ai.ts).
+//
+// Saf modül: tests/wa-booking.test.mjs doğrudan import eder.
+
+import { foldTr } from './dates.ts';
+
+export type Topic =
+    | 'my_appointment' // "randevum ne zaman"
+    | 'my_package'     // "kaç seansım kaldı"
+    | 'my_balance'     // "borcum var mı"
+    | 'hours'          // "kaça kadar açıksınız"
+    | 'price'          // "ne kadar"
+    | 'location'       // "neredesiniz"
+    | 'human';         // "yetkiliyle görüşmek istiyorum"
+
+export const TOPICS: readonly Topic[] = [
+    'my_appointment', 'my_package', 'my_balance', 'hours', 'price', 'location', 'human',
+];
+
+/** Kişiye özel veri içeren konular — numara eşleşmeden cevaplanmaz. */
+export const PERSONAL: ReadonlySet<Topic> = new Set<Topic>([
+    'my_appointment', 'my_package', 'my_balance',
+]);
+
+/** Model çıktısını Topic'e daraltır; listede yoksa null. */
+export function coerceTopic(raw: unknown): Topic | null {
+    return typeof raw === 'string' && (TOPICS as readonly string[]).includes(raw)
+        ? raw as Topic
+        : null;
+}
+
+// Kalıplar foldTr'den GEÇMİŞ metne bakar: "açıksınız" → "aciksiniz",
+// "müdür" → "mudur". Ham Türkçe yazmak sessizce eşleşmemeye yol açar.
+//
+// SIRA ÖNEMLİ, yukarıdaki daha özgüldür:
+//   "borcum ne kadar"  → my_balance, price değil (iyelik eki niyeti belirler)
+//   "kaça kadar açık"  → hours, price değil ("kaca" ikisinde de geçiyor)
+const RULES: { topic: Topic; re: RegExp }[] = [
+    // "randevum var mı", "randevum ne zaman", "saat kaçtaydı"
+    {
+        topic: 'my_appointment',
+        re: /\brandevu(m|mu|muz|mun|larim|lariniz)\b|\bne zamandi\b|\bkacta(ydi|ymis)\b|\bkayitli randevu\b|\bkayitli miyim\b/,
+    },
+    // "kaç seansım kaldı", "paketim", "kalan seans"
+    {
+        topic: 'my_package',
+        re: /\bpaket(im|imde|imden)\b|\bkac seans\b|\bseansim\b|\bkalan seans\b|\bseans hakk?im\b/,
+    },
+    // "borcum var mı", "bakiyem", "ne kadar ödedim"
+    {
+        topic: 'my_balance',
+        re: /\bborc(um|umuz)\b|\bbakiye(m|miz)\b|\bne kadar odedim\b|\bodemem\b|\bkalan odeme\b|\bhesabim\b/,
+    },
+    // "yetkiliye bağlayın", "insanla görüşmek istiyorum" — botun kendini
+    // devretmesi gereken tek durum.
+    //
+    // "mudur" BİLİNÇLİ OLARAK YOK: Türkçede soru eki olarak da geçiyor
+    // ("uygun mudur", "müsait midir") ve her soruyu devretmeye çalışırdı.
+    {
+        topic: 'human',
+        re: /\byetkili\w*|\b(isletme|salon|klinik) sahib\w*|\binsan(la|la konus\w*| ile)\b|\bgercek bir(i|isi)\b|\bbot ile konusmak istemiyorum\b|\bbirine bagla\w*|\bbiriyle gorus\w*/,
+    },
+    // "kaça kadar açıksınız", "pazar açık mısınız", "çalışma saatleri"
+    {
+        topic: 'hours',
+        re: /\bcalisma saat\w*|\bacik mi\w*|\baciksiniz\b|\bkaca kadar\b|\bkacta ac\w*|\bkacta kapa\w*|\bmesai\w*|\bhangi saatler\w*/,
+    },
+    // "ne kadar", "kaç TL", "fiyat listesi", "ücret"
+    {
+        topic: 'price',
+        re: /\bfiyat\w*\b|\bucret\w*\b|\bne kadar\b|\bkac (tl|lira|para)\b|\bkaca\b|\btarife\b/,
+    },
+    // "neredesiniz", "adres", "nasıl gelirim"
+    {
+        topic: 'location',
+        re: /\badres\w*\b|\bnerede\w*\b|\bkonum\b|\bnasil gel(ir|ebil)\w*\b|\byol tarifi\b|\bharita\b/,
+    },
+];
+
+/**
+ * Mesajın konusu. Randevu akışına ait bir cümleyse (hizmet adı, gün, saat,
+ * onay) null döner ve çağıran normal akışa devam eder.
+ */
+export function detectTopic(text: string): Topic | null {
+    if (!text) return null;
+    const s = foldTr(text);
+    for (const r of RULES) if (r.re.test(s)) return r.topic;
+    return null;
+}

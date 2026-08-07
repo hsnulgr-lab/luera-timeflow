@@ -13,8 +13,15 @@ import {
     availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
 import {
-    detectConfirm, detectIntent, inboundKind,
+    detectConfirm, detectIntent, detectListChoice, inboundKind,
 } from '../supabase/functions/_shared/booking/intent.ts';
+import {
+    coerceTopic, detectTopic, PERSONAL,
+} from '../supabase/functions/_shared/booking/inquiry.ts';
+import {
+    computeBalance, formatTL,
+} from '../supabase/functions/_shared/booking/finance.ts';
+import { computePatientFinance } from '../src/lib/patientBalance.ts';
 import {
     parseReceiptEvent, parseReceiptStatus, receiptPatch,
 } from '../supabase/functions/_shared/booking/receipts.ts';
@@ -529,6 +536,8 @@ test('okundu, teslim edilmişliği de ima eder', () => {
 });
 
 // ── Migration ve kablolama sözleşmesi ───────────────────────────────────────
+const mig085 = readFileSync(
+    new URL('../supabase/085_wa_reminder_confirm.sql', import.meta.url), 'utf8');
 const mig084 = readFileSync(
     new URL('../supabase/084_wa_receipts_and_retention.sql', import.meta.url), 'utf8');
 const proxy = readFileSync(
@@ -808,7 +817,7 @@ test('kuru selamlama oturumu sıfırlar', () => {
 });
 
 test('gün sorusu saat listesiyle karıştırılmaz', () => {
-    assert.match(booking, /detectIntent\(text\) === 'availability'/);
+    assert.match(booking, /intent === 'availability'/);
     assert.match(booking, /M\.offerDays\(/);
 });
 
@@ -965,4 +974,280 @@ test('kural hizmeti bulduysa modele sorulmaz', () => {
 
 test('belirsizlik akışa bağlı — karşılama tekrarlanmıyor', () => {
     assert.match(booking, /if \(svcHit\.candidates\.length > 1\) \{\s*\n\s*return reply\(M\.askWhichService/);
+});
+
+// ── Dalga 2: bilgi soruları ─────────────────────────────────────────────────
+// Bota gelen her mesaj randevu talebi değil. Canlıda müşteriler "randevum ne
+// zamandı", "kaç para", "kaçta açıksınız" yazdı; bot üçünü de hizmet adı sandı
+// ve karşılamaya döndü.
+
+test('konu tespiti — kişisel sorular', () => {
+    assert.equal(detectTopic('randevum ne zamandı acaba'), 'my_appointment');
+    assert.equal(detectTopic('Randevum var mı?'), 'my_appointment');
+    assert.equal(detectTopic('kaç seansım kaldı'), 'my_package');
+    assert.equal(detectTopic('paketimde ne kadar var'), 'my_package');
+    assert.equal(detectTopic('borcum var mı'), 'my_balance');
+    assert.equal(detectTopic('bakiyem ne kadar'), 'my_balance');
+});
+
+test('konu tespiti — işletme bilgisi', () => {
+    assert.equal(detectTopic('kaça kadar açıksınız'), 'hours');
+    assert.equal(detectTopic('pazar açık mısınız'), 'hours');
+    assert.equal(detectTopic('çalışma saatleriniz nedir'), 'hours');
+    assert.equal(detectTopic('lazer ne kadar'), 'price');
+    assert.equal(detectTopic('fiyat listeniz var mı'), 'price');
+    assert.equal(detectTopic('adresiniz neresi'), 'location');
+    assert.equal(detectTopic('neredesiniz'), 'location');
+    assert.equal(detectTopic('yetkiliyle görüşebilir miyim'), 'human');
+});
+
+test('iyelik eki niyeti belirler — borç fiyat değildir', () => {
+    // "borcum ne kadar" hem my_balance hem price kalıbına uyuyor; sıra kişisel
+    // olanı kazandırmalı, yoksa müşteri borcunu sorunca fiyat listesi alır.
+    assert.equal(detectTopic('borcum ne kadar'), 'my_balance');
+    // Aynı tuzak saatlerde: "kaça kadar" ile "kaça" çakışıyor.
+    assert.equal(detectTopic('kaça kadar açıksınız'), 'hours');
+});
+
+test('"mudur" soru eki insana devretmez', () => {
+    // GERÇEK TUZAK: Türkçede "mudur" soru ekidir. Kalıba alınsaydı her nazik
+    // soru bota "beni insana bağla" gibi görünürdü.
+    assert.equal(detectTopic('yarın uygun mudur'), null);
+    assert.equal(detectTopic('lazer için müsait midir'), null);
+});
+
+test('randevu akışına ait cümleler konu üretmez', () => {
+    for (const t of ['merhaba', 'yarın 3 buçuk', 'lazer', 'evet', 'cumartesi olur mu']) {
+        assert.equal(detectTopic(t), null, t);
+    }
+});
+
+test('model konu için yalnız enum döndürebilir', () => {
+    assert.equal(coerceTopic('price'), 'price');
+    assert.equal(coerceTopic('my_balance'), 'my_balance');
+    // Serbest metin, uydurma değer ve tip hataları null'a düşer.
+    for (const bad of ['fiyat sorusu', 'MY_BALANCE', 42, null, undefined, {}, ['price']]) {
+        assert.equal(coerceTopic(bad), null, String(bad));
+    }
+});
+
+test('kişisel konular ayrı kümede', () => {
+    for (const t of ['my_appointment', 'my_package', 'my_balance']) {
+        assert.ok(PERSONAL.has(t), t);
+    }
+    for (const t of ['hours', 'price', 'location', 'human']) {
+        assert.ok(!PERSONAL.has(t), t);
+    }
+});
+
+test('kişisel veri eşleşmeyen numaraya verilmez', () => {
+    // Kural 1: numarayı bilen herkes başkasının randevusunu okuyamamalı.
+    assert.match(booking, /if \(PERSONAL\.has\(topic\) && !known\?\.id\)/);
+    assert.match(booking, /return reply\(M\.notRecognized\(msgCtx\(\)\)\)/);
+});
+
+test('sayılar veritabanından gelir, modelden değil', () => {
+    // Bakiye tek formülden geçer (finance.ts = patientBalance.ts aynası).
+    assert.match(booking, /computeBalance\(/);
+    assert.match(booking, /formatTL\(/);
+    // Fiyat services.price'tan okunur.
+    assert.match(booking, /select\('id, name, duration, color, price'\)/);
+    // Modele "uydurma" talimatı verilmiş olmalı.
+    assert.match(ai, /UYDURMA/);
+});
+
+test('kural konuyu bulduysa modele hiç gidilmez', () => {
+    assert.match(booking, /\|\| Boolean\(ruleTopic\)/);
+});
+
+// ── Bakiye aynası: finance.ts ile patientBalance.ts aynı sonucu vermeli ─────
+// resources.ts ile aynı düzen: biri değişip diğeri unutulursa test kırılsın.
+
+test('bakiye formülü uygulama ile aynı', () => {
+    const cases = [
+        { plans: [], pays: [] },
+        { plans: [{ id: 'p1', totalAmount: 1000, status: 'active' }], pays: [] },
+        {
+            plans: [{ id: 'p1', totalAmount: 1000, status: 'active' }],
+            pays: [{ amount: 400, treatmentPlanId: 'p1' }],
+        },
+        {
+            // İptal plana yapılmış ödeme bakiyeyi düşürmemeli.
+            plans: [
+                { id: 'p1', totalAmount: 1000, status: 'active' },
+                { id: 'p2', totalAmount: 500, status: 'cancelled' },
+            ],
+            pays: [{ amount: 500, treatmentPlanId: 'p2' }],
+        },
+        {
+            // Plana bağlanmamış 'service' tahsilatı borca sayılır, 'product' sayılmaz.
+            plans: [{ id: 'p1', totalAmount: 1000, status: 'completed' }],
+            pays: [{ amount: 300, type: 'service' }, { amount: 200, type: 'product' }],
+        },
+        {
+            // Fazla tahsilat: bakiye negatife düşmez, overpaid ayrı raporlanır.
+            plans: [{ id: 'p1', totalAmount: 100, status: 'active' }],
+            pays: [{ amount: 250, treatmentPlanId: 'p1' }],
+        },
+        {
+            // 'proposed' henüz teklif — borç değil.
+            plans: [{ id: 'p1', totalAmount: 900, status: 'proposed' }],
+            pays: [],
+        },
+    ];
+    for (const { plans, pays } of cases) {
+        const edge = computeBalance(plans, pays);
+        const app = computePatientFinance(plans, pays);
+        assert.deepEqual(
+            { total: edge.total, paid: edge.paid, balance: edge.balance, overpaid: edge.overpaid },
+            { total: app.total, paid: app.paid, balance: app.balance, overpaid: app.overpaid },
+            JSON.stringify({ plans, pays }),
+        );
+    }
+});
+
+test('tutar biçimi', () => {
+    assert.equal(formatTL(0), '0 ₺');
+    assert.equal(formatTL(1250), '1.250 ₺');
+    assert.equal(formatTL(1250.5), '1.250,50 ₺');
+    assert.equal(formatTL(999999), '999.999 ₺');
+});
+
+// ── Dalga 3: iptal / erteleme ───────────────────────────────────────────────
+
+test('"randevumu iptal et" konuşmayı değil RANDEVUYU iptal eder', () => {
+    // GERÇEK RİSK: bu cümle 'cancel'a düşerse bot "tamam iptal ettim" der ama
+    // randevu takvimde durur — müşteri gelmez, slot boşa gider.
+    assert.equal(detectIntent('randevumu iptal etmek istiyorum'), 'cancel_appointment');
+    assert.equal(detectIntent('yarınki seansımı iptal edelim'), 'cancel_appointment');
+    assert.equal(detectIntent('gelemeyeceğim'), 'cancel_appointment');
+});
+
+test('randevudan söz etmeyen iptal konuşmayı bırakır', () => {
+    assert.equal(detectIntent('iptal'), 'cancel');
+    assert.equal(detectIntent('boş ver'), 'cancel');
+    assert.equal(detectIntent('vazgeçtim'), 'cancel');
+});
+
+test('onay beklerken "iptal" randevuyu silmez', () => {
+    // O an "iptal" önerilen saati reddetmektir; cancel_appointment'a düşerse
+    // müşterinin BAŞKA bir randevusu iptal edilirdi.
+    assert.equal(detectIntent('iptal', { awaitingConfirm: true }), 'other');
+    assert.equal(detectIntent('randevuyu iptal et', { awaitingConfirm: true }), 'other');
+});
+
+test('erteleme niyeti', () => {
+    assert.equal(detectIntent('randevumu erteleyebilir miyiz'), 'reschedule');
+    assert.equal(detectIntent('seansımı başka güne alalım'), 'reschedule');
+    assert.equal(detectIntent('randevumun saatini değiştirmek istiyorum'), 'reschedule');
+});
+
+test('akış ortasında "başka gün" erteleme değildir', () => {
+    // Akış içindeyken bu cümle önerilen günü beğenmemektir; erteleme sayılsaydı
+    // bot yarım kalan randevuyu bırakıp kayıtlı randevuyu taşımaya çalışırdı.
+    assert.equal(detectIntent('randevu başka gün olsun', { inFlow: true }), 'other');
+    assert.equal(detectIntent('randevu başka gün olsun', { inFlow: false }), 'reschedule');
+});
+
+test('numaralı listeden seçim', () => {
+    assert.equal(detectListChoice('2', 3), 2);
+    assert.equal(detectListChoice('1.', 3), 1);
+    assert.equal(detectListChoice('ikinci', 3), 2);
+    assert.equal(detectListChoice('sonuncu', 3), 3);
+    // Sınır dışı ve belirsiz girdide tahmin YOK — yanlış randevu iptal edilmesin.
+    assert.equal(detectListChoice('5', 3), null);
+    assert.equal(detectListChoice('0', 3), null);
+    assert.equal(detectListChoice('yarın 3', 3), null);
+    assert.equal(detectListChoice('2', 0), null);
+});
+
+test('iptal modele sorulmaz, erteleme sorulabilir', () => {
+    // Geri alınamaz işlem yalnız kural katmanından tetiklenir.
+    assert.match(booking, /if \(intent === 'cancel_appointment'\) return startAppointmentChange\('iptal'\)/);
+    assert.match(booking, /ex\.intent === 'reschedule'\) return startAppointmentChange\('ertele'\)/);
+    assert.ok(!/ex\.intent === 'cancel_appointment'/.test(booking),
+        'randevu iptali model çıktısından tetiklenmemeli');
+});
+
+test('iptal onay ister, tek adımda silmez', () => {
+    assert.match(booking, /state\.cancelId = /);
+    assert.match(booking, /M\.confirmCancel\(/);
+    assert.match(booking, /if \(state\.cancelId && ruleConfirm\)/);
+});
+
+test('iptal edilen slot bekleme listesine ve işletmeciye duyurulur', () => {
+    assert.match(booking, /announceFreedSlot\(admin, orgId/);
+    assert.match(booking, /notifyOwner\(admin, orgId, \{\s*\n\s*title: 'Randevu iptal edildi'/);
+});
+
+test('erteleme yeni kayıt AÇMAZ, mevcut kaydı taşır', () => {
+    // Yeni kayıt açılsaydı müşteri iki randevulu görünür, eskisi takvimde ölü
+    // bir slot olarak kalırdı.
+    assert.match(booking, /if \(state\.rescheduleId\) \{/);
+    const idx = booking.indexOf('if (state.rescheduleId) {');
+    const block = booking.slice(idx, idx + 900);
+    assert.ok(block.includes(".update({"), 'erteleme UPDATE ile yapılmalı');
+    assert.ok(!block.includes('.insert('), 'erteleme INSERT etmemeli');
+});
+
+test('taşınan randevu kendi slotunu dolu göstermez', () => {
+    // Aynı güne çekme: randevu kendi saatini meşgul sayarsa müşteri "o saat
+    // dolu" cevabını kendi randevusundan alır.
+    assert.match(booking, /dayResRaw \|\| \[\]\)\.filter\(\(r: any\) => r\.id !== state\.rescheduleId\)/);
+});
+
+test('taşınan randevunun hatırlatmaları sıfırlanır', () => {
+    for (const src of [booking, manage]) {
+        assert.match(src, /reminder_24h_sent: false, reminder_2h_sent: false/);
+        assert.match(src, /customer_confirm: null, customer_confirm_at: null/);
+    }
+});
+
+// ── 24 saat onay döngüsü ────────────────────────────────────────────────────
+
+test('hatırlatma yalnız asistan açıkken soru sorar', () => {
+    // Kapalıyken gelen "hayır" cevaplanmaz ve müşteri cevapsız kalır —
+    // soru sormanın en kötü hâli.
+    assert.match(remind, /function withConfirmAsk\(msg: string, assistantOn: boolean\)/);
+    assert.match(remind, /if \(!assistantOn\) return msg;/);
+    assert.match(remind, /withConfirmAsk\(\s*\n?\s*await aiOrTemplate/);
+});
+
+test('hatırlatma yanıtı yalnız akış YOKKEN randevuya bağlanır', () => {
+    // Konuşmanın ortasındaki "evet" her zaman o konuşmaya aittir.
+    assert.match(booking, /if \(!inFlow && ruleConfirm && known\?\.id\)/);
+    assert.match(booking, /\.eq\('reminder_24h_sent', true\)\.is\('customer_confirm', null\)/);
+});
+
+test('"hayır" randevuyu iptal eder ve yeri serbest bırakır', () => {
+    const idx = booking.indexOf("if (!inFlow && ruleConfirm && known?.id)");
+    const block = booking.slice(idx, idx + 2200);
+    assert.ok(block.includes("customer_confirm: 'no'"));
+    assert.ok(block.includes("status: 'cancelled'"));
+    assert.ok(block.includes('announceFreedSlot('));
+});
+
+test('085 yanıt sütunlarını enum ile sınırlar', () => {
+    assert.match(mig085, /customer_confirm\s+TEXT/);
+    assert.match(mig085, /customer_confirm IN \('yes', 'no'\)/);
+    // Kısmi indeks: yalnız yanıt bekleyen satırlar taşınır.
+    assert.match(mig085, /WHERE customer_confirm IS NULL AND reminder_24h_sent = true/);
+});
+
+test('bildirim gönderilemezse randevu akışı bozulmaz', () => {
+    const notify = readFileSync(
+        new URL('../supabase/functions/_shared/notify.ts', import.meta.url), 'utf8');
+    // notifyOwner içindeki her şey try/catch'te ve hata yutuluyor.
+    assert.match(notify, /export async function notifyOwner/);
+    assert.match(notify, /\} catch \{/);
+    // Çağrı yerleri await ETMEMELİ: bildirim müşteriye verilen sözü bekletmez.
+    assert.ok(!/await notifyOwner\(/.test(booking), 'notifyOwner await edilmemeli');
+    assert.ok(!/await announceFreedSlot\(/.test(booking), 'announceFreedSlot await edilmemeli');
+});
+
+test('iptal onayına gelen "Evet" hatırlatma yanıtı sanılmaz', () => {
+    // GERÇEK RİSK: A1 (hatırlatma yanıtı) A2'den (iptal onayı) önce çalışıyor.
+    // cancelId inFlow'a dahil edilmezse "Evet" hatırlatmaya gider ve müşterinin
+    // iptal etmek istediği randevu değil, BAŞKA bir randevusu etkilenir.
+    assert.match(booking, /state\.cancelId \|\| state\.pickList/);
 });

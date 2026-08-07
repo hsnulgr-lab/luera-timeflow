@@ -3,6 +3,7 @@ import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
 import { formatDateTr } from '../_shared/booking/slots.ts';
+import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
 
 // ============================================================
 // booking-manage — Müşteri self-servis randevu yönetimi
@@ -146,12 +147,16 @@ Deno.serve(async (req: Request) => {
             }
 
             // Boşluk doldurma: bekleyenlere "slot açıldı" bildirimi (fire-and-forget)
-            const srk = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-waitlist`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${srk}`, apikey: srk },
-                body: JSON.stringify({ organization_id: orgId, date: res.date }),
-            }).catch(() => {});
+            announceFreedSlot(supabase, orgId, res.date);
+            // İşletmeciye de haber ver — iptal, salonun en pahalı olayı ve
+            // haberi olmayan salon o slotu bir başkasına satamıyor. Bot iptali
+            // (whatsapp-booking) zaten bildiriyordu; link iptali sessizdi.
+            notifyOwner(supabase, orgId, {
+                title: 'Randevu iptal edildi',
+                body: `${res.customer_name} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} — yönetim linkinden iptal etti.`,
+                url: `/takvim?date=${res.date}`,
+                tag: `res-${res.id}`,
+            });
 
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
             const orgWa = await getOrgWa(supabase, orgId);
@@ -220,7 +225,12 @@ Deno.serve(async (req: Request) => {
             const endTime = minToTime(timeToMin(time) + serviceDuration);
             const { data: updatedReservation, error: updateError } = await supabase
                 .from('reservations')
-                .update({ date, start_time: time, end_time: endTime })
+                .update({
+                    date, start_time: time, end_time: endTime,
+                    // Yeni saat için yeniden hatırlatılmalı; eski yanıt da geçersiz (085).
+                    reminder_24h_sent: false, reminder_2h_sent: false,
+                    customer_confirm: null, customer_confirm_at: null,
+                })
                 .eq('id', res.id)
                 .in('status', ['pending', 'confirmed'])
                 .select('id, date, start_time, end_time')
@@ -235,6 +245,13 @@ Deno.serve(async (req: Request) => {
             if (!updatedReservation) {
                 return json({ error: 'Bu randevu artık değiştirilemez' }, 409);
             }
+
+            notifyOwner(supabase, orgId, {
+                title: 'Randevu ertelendi',
+                body: `${res.customer_name} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} → ${formatDateTr(date)} ${time}`,
+                url: `/takvim?date=${date}`,
+                tag: `res-${res.id}`,
+            });
 
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {

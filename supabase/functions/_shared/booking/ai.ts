@@ -12,17 +12,24 @@
 // (groq | gemini). Ölçüm yapıp karar verince deploy gerekmez, ayar yeter.
 
 import { getSecret, type Admin } from '../wa.ts';
+import { coerceTopic, TOPICS, type Topic } from './inquiry.ts';
 
 export interface Extraction {
     service: string | null;
     date: string | null;
     time: string | null;
     confirm: 'yes' | 'no' | null;
-    intent: 'book' | 'cancel' | 'greeting' | 'other';
+    intent: 'book' | 'cancel' | 'reschedule' | 'greeting' | 'other';
+    /**
+     * Bilgi sorusunun konusu (Dalga 2). Model burada YALNIZ bir enum döner —
+     * cevabı kod yazar, sayıları veritabanı verir. Listede olmayan her değer
+     * null'a düşürülür (bkz. coerceTopic).
+     */
+    topic: Topic | null;
 }
 
 export const EMPTY_EXTRACTION: Extraction = {
-    service: null, date: null, time: null, confirm: null, intent: 'other',
+    service: null, date: null, time: null, confirm: null, intent: 'other', topic: null,
 };
 
 export interface ExtractContext {
@@ -49,10 +56,18 @@ function buildPrompt(ctx: ExtractContext): string {
         (already ? `${already}\n` : '') +
         `SADECE şu JSON formatında yanıt ver: {"service": <hizmet adı tam olarak listeden ya da null>, ` +
         `"date": <YYYY-MM-DD ya da null>, "time": <HH:MM ya da null>, ` +
-        `"confirm": <"yes"|"no"|null>, "intent": <"book"|"cancel"|"greeting"|"other">}\n` +
+        `"confirm": <"yes"|"no"|null>, "intent": <"book"|"cancel"|"reschedule"|"greeting"|"other">, ` +
+        `"topic": <${TOPICS.map((t) => `"${t}"`).join('|')}|null>}\n` +
         `Kurallar: "yarın", "salı", "bu cumartesi" gibi ifadeleri bugüne göre gerçek tarihe çevir. ` +
         `"3 buçuk"=15:30, "sabah 10"=10:00. Bilgi yoksa null. ` +
         `Onay (evet/olur/tamam)=yes, ret (hayır/yok)=no. ` +
+        `intent: randevu almak=book, mevcut randevuyu iptal etmek=cancel, ` +
+        `mevcut randevuyu başka güne taşımak=reschedule.\n` +
+        `topic: kullanıcı randevu almaya değil BİLGİ ALMAYA çalışıyorsa doldur. ` +
+        `my_appointment=kendi randevusunu soruyor, my_package=kalan seansını soruyor, ` +
+        `my_balance=borcunu soruyor, hours=çalışma saatleri, price=fiyat, ` +
+        `location=adres/yol tarifi, human=insanla görüşmek istiyor. Aksi halde null.\n` +
+        `TUTAR, TARİH, SAAT VE SEANS SAYISI UYDURMA — topic'i adlandır, cevabı sistem yazacak. ` +
         `service'i yalnızca listedeki adlardan biriyle eşleştir.`
     );
 }
@@ -62,7 +77,8 @@ function coerce(raw: string | null): Extraction | null {
     if (!raw) return null;
     try {
         const p = JSON.parse(raw);
-        const intent = ['book', 'cancel', 'greeting', 'other'].includes(p?.intent) ? p.intent : 'other';
+        const intent = ['book', 'cancel', 'reschedule', 'greeting', 'other'].includes(p?.intent)
+            ? p.intent : 'other';
         const confirm = p?.confirm === 'yes' || p?.confirm === 'no' ? p.confirm : null;
         return {
             service: typeof p?.service === 'string' ? p.service : null,
@@ -70,6 +86,8 @@ function coerce(raw: string | null): Extraction | null {
             time: typeof p?.time === 'string' ? p.time : null,
             confirm,
             intent,
+            // Serbest metin kabul edilmez: listede olmayan her şey null.
+            topic: coerceTopic(p?.topic),
         };
     } catch {
         return null;

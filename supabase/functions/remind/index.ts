@@ -232,7 +232,13 @@ Deno.serve(async (req: Request) => {
             for (const r of list24h ?? []) {
                 const startTime = r.start_time.slice(0, 5);
                 const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name, comms });
-                const msg = withMapsUrl(await aiOrTemplate(geminiKey, comms, '24h', r.customer_name, r.service, startTime, business_name, tmpl), mapsUrl);
+                const msg = withMapsUrl(
+                    withConfirmAsk(
+                        await aiOrTemplate(geminiKey, comms, '24h', r.customer_name, r.service, startTime, business_name, tmpl),
+                        featureOn(orgWa as OrgWa, 'assistant', false),
+                    ),
+                    mapsUrl,
+                );
                 const ok = await send(r.customer_phone, msg, 'reminder_24h', r.customer_id);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_24h_sent: true }).eq('id', r.id);
@@ -527,6 +533,21 @@ function datePart(d: Date): string {
 // (AI'ya URL verilmez — bozma riski var)
 function withMapsUrl(msg: string, mapsUrl: string | null): string {
     return mapsUrl ? `${msg}\n\n📍 Konum: ${mapsUrl}` : msg;
+}
+
+/**
+ * 24 saatlik hatırlatmaya "Evet / Hayır" sorusu ekler (085 · Dalga 3).
+ *
+ * Şablonun İÇİNE yazılmadı çünkü metin aiOrTemplate'ten geçiyor ve model onu
+ * yeniden yazarken soruyu düşürebilir. Soruyu sonda eklemek, hangi metin
+ * gitmiş olursa olsun cevabın istendiğini garanti eder.
+ *
+ * Yalnız AI asistan AÇIKKEN eklenir: kapalıyken bota gelen "hayır" cevaplanmaz
+ * ve müşteri cevapsız kalır — soru sormanın en kötü hâli budur.
+ */
+function withConfirmAsk(msg: string, assistantOn: boolean): string {
+    if (!assistantOn) return msg;
+    return `${msg}\n\nGelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.`;
 }
 
 function build24hMessage(p: { customerName: string; startTime: string; service: string; businessName: string; comms?: Comms }): string {
