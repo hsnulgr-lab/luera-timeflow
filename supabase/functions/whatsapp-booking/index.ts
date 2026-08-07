@@ -11,6 +11,7 @@ import {
 } from '../_shared/booking/slots.ts';
 import { detectConfirm, detectIntent, inboundKind } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
+import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction } from '../_shared/booking/ai.ts';
 
 // ============================================================
@@ -92,8 +93,13 @@ Deno.serve(async (req: Request) => {
         );
 
         if (!instance) return ok({ skipped: true });
+
+        // Teslimat makbuzu mu? Kendi gönderdiğimiz mesajın durumu olduğu için
+        // fromMe=true gelir ve aşağıdaki eleme onu düşürürdü. Ayrıştırma saf ve
+        // ağsız; org çözümü ile sır doğrulamasından SONRA işlenir.
+        const receipts = parseReceiptEvent(payload);
         const msgKind = inboundKind({ fromMe, remoteJid, text, hasMedia });
-        if (msgKind === 'skip') return ok({ skipped: true });
+        if (receipts.length === 0 && msgKind === 'skip') return ok({ skipped: true });
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır
         const phone = normalizePhone(remoteJid.split('@')[0]) || remoteJid.split('@')[0];
 
@@ -118,6 +124,23 @@ Deno.serve(async (req: Request) => {
         if (!orgWa.webhook_secret || givenSecret !== orgWa.webhook_secret) {
             return new Response(JSON.stringify({ error: 'unauthorized' }),
                 { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // ── Teslimat makbuzu (084) ───────────────────────────────────────────
+        // MESSAGES_UPDATE bir konuşma olayı değil, kendi gönderdiğimiz mesajın
+        // durumu. Randevu akışına hiç girmez; damgayı yazıp çıkar.
+        if (receipts.length > 0) {
+            const now = new Date().toISOString();
+            for (const r of receipts) {
+                await admin.from('wa_message_log')
+                    .update(receiptPatch(r.receipt, now))
+                    .eq('organization_id', orgId)
+                    .eq('provider_msg_id', r.providerMsgId)
+                    // Zaten okundu yazılmış satıra "teslim edildi" geri yazmasın:
+                    // makbuzlar sırasız gelebiliyor.
+                    .is(r.receipt === 'delivered' ? 'delivered_at' : 'read_at', null);
+            }
+            return ok({ receipts: receipts.length });
         }
 
         // Idempotency: Evolution aynı mesajı tekrar POST ederse ikinci kez

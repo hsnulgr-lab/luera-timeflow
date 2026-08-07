@@ -155,6 +155,12 @@ Deno.serve(async (req: Request) => {
         // mesaj zaten gönderilebilir bir saatte üretilmiştir.
         const outbox = await drainOutbox(supabase);
 
+        // KVKK saklama (084): süresi dolmuş mesaj GÖVDELERİ boşaltılır — satır
+        // kalır, kota sayımı ve teslimat kanıtı bozulmaz. Ayrı bir zamanlayıcı
+        // açmıyoruz; bu cron zaten 30 dakikada bir çalışıyor ve fonksiyon
+        // boşaltacak satır bulamazsa hiçbir maliyeti yok.
+        const { data: purged } = await supabase.rpc('purge_wa_message_bodies', { p_months: 12 });
+
         // İşletme adı + sektörel iletişim profili (settings'ten, org bazlı)
         const settingsByOrg = new Map<string, { business_name: string; comms: unknown; sector: string | null }>();
         const mapsUrlByOrg = new Map<string, string>();
@@ -499,7 +505,7 @@ Deno.serve(async (req: Request) => {
 
         console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
-            JSON.stringify({ success: true, outbox, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
+            JSON.stringify({ success: true, outbox, purged: purged ?? 0, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
     } catch (err) {

@@ -219,7 +219,13 @@ async function registerWebhook(
     if (!fnBase) return { ok: false, reason: 'FUNCTIONS_BASE_URL tanımlı değil' };
     if (!secret) return { ok: false, reason: 'webhook_secret yok (migration 070?)' };
     const url = `${fnBase.replace(/\/$/, '')}/whatsapp-booking?s=${secret}`;
-    const payload = { enabled: true, url, webhookByEvents: false, events: ['MESSAGES_UPSERT'] };
+    // MESSAGES_UPDATE = teslim/okundu bildirimi (084). Bunu istemezsek
+    // wa_message_log'daki 'sent' yalnız "Evolution kabul etti" demek olur ve
+    // "müşteri mesaj gelmedi diyor" sorusunun cevabı hiç olmaz.
+    const payload = {
+        enabled: true, url, webhookByEvents: false,
+        events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE'],
+    };
     try {
         // Evolution v2 gövdeyi { webhook: {...} } içinde bekler, v1 düz alır.
         const res = await fetch(`${baseUrl}/webhook/set/${instance}`, {

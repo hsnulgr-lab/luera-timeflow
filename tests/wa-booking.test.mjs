@@ -11,6 +11,9 @@ import {
     detectConfirm, detectIntent, inboundKind,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
+    parseReceiptEvent, parseReceiptStatus, receiptPatch,
+} from '../supabase/functions/_shared/booking/receipts.ts';
+import {
     allResourcesFull as edgeAllFull, assignResources,
     isResourceFull as edgeFull, pickFreeResource as edgePick,
 } from '../supabase/functions/_shared/booking/resources.ts';
@@ -388,6 +391,103 @@ test('edge kopyası src/lib/resourceCapacity ile aynı davranır', () => {
         );
         assert.equal(edgeAllFull(resources, busy, s, e), appAllFull(resources, busy, s, e), `allFull ${s}-${e}`);
     }
+});
+
+// ── Teslimat makbuzları (084) ───────────────────────────────────────────────
+
+test('Baileys durum kodları teslim/okundu olarak okunur', () => {
+    assert.equal(parseReceiptStatus(3), 'delivered');
+    assert.equal(parseReceiptStatus(4), 'read');
+    assert.equal(parseReceiptStatus(5), 'read', 'sesli mesaj dinlendi = okundu');
+    // 1/2 yeni bilgi taşımıyor: 'sent' zaten yazılıydı.
+    assert.equal(parseReceiptStatus(1), null);
+    assert.equal(parseReceiptStatus(2), null);
+});
+
+test('durum metin olarak da gelebilir', () => {
+    assert.equal(parseReceiptStatus('DELIVERY_ACK'), 'delivered');
+    assert.equal(parseReceiptStatus('READ'), 'read');
+    assert.equal(parseReceiptStatus('3'), 'delivered');
+    assert.equal(parseReceiptStatus('PENDING'), null);
+    assert.equal(parseReceiptStatus(null), null);
+});
+
+test('yalnız messages.update olayı makbuz üretir', () => {
+    assert.deepEqual(parseReceiptEvent({ event: 'messages.upsert', data: { key: { id: 'x' }, status: 4 } }), []);
+    assert.deepEqual(
+        parseReceiptEvent({ event: 'MESSAGES_UPDATE', data: { key: { id: 'abc' }, status: 4 } }),
+        [{ providerMsgId: 'abc', receipt: 'read' }],
+        'olay adı MESSAGES_UPDATE ya da messages.update gelebiliyor',
+    );
+});
+
+test('makbuz gövdesi dizi de olabilir, durum update altında da', () => {
+    const out = parseReceiptEvent({
+        event: 'messages.update',
+        data: [
+            { key: { id: 'a' }, update: { status: 3 } },
+            { key: { id: 'b' }, status: 'READ' },
+            { key: { id: 'c' }, status: 1 },   // yeni bilgi yok
+            { status: 4 },                      // id yok
+        ],
+    });
+    assert.deepEqual(out, [
+        { providerMsgId: 'a', receipt: 'delivered' },
+        { providerMsgId: 'b', receipt: 'read' },
+    ]);
+});
+
+test('okundu, teslim edilmişliği de ima eder', () => {
+    // WhatsApp bazen yalnız READ yolluyor; teslim damgası boş kalmamalı.
+    const now = '2026-08-07T12:00:00.000Z';
+    assert.deepEqual(receiptPatch('read', now), { delivered_at: now, read_at: now });
+    assert.deepEqual(receiptPatch('delivered', now), { delivered_at: now });
+});
+
+// ── Migration ve kablolama sözleşmesi ───────────────────────────────────────
+const mig084 = readFileSync(
+    new URL('../supabase/084_wa_receipts_and_retention.sql', import.meta.url), 'utf8');
+const proxy = readFileSync(
+    new URL('../supabase/functions/whatsapp-proxy/index.ts', import.meta.url), 'utf8');
+const remind = readFileSync(
+    new URL('../supabase/functions/remind/index.ts', import.meta.url), 'utf8');
+
+test('webhook MESSAGES_UPDATE olayına da abone', () => {
+    // Abone olmazsak teslimat bilgisi hiç gelmez ve alanlar sonsuza kadar boş kalır.
+    assert.match(proxy, /events: \['MESSAGES_UPSERT', 'MESSAGES_UPDATE'\]/);
+});
+
+test('makbuz sır doğrulamasından SONRA işlenir', () => {
+    const secretCheck = booking.indexOf('givenSecret !== orgWa.webhook_secret');
+    const receiptWrite = booking.indexOf('receiptPatch(');
+    assert.ok(secretCheck > -1 && receiptWrite > -1);
+    assert.ok(secretCheck < receiptWrite,
+        'doğrulanmamış istek başkasının teslimat kaydını değiştirememeli');
+});
+
+test('makbuz elemeye takılmaz — fromMe olduğu için düşerdi', () => {
+    assert.match(booking, /receipts\.length === 0 && msgKind === 'skip'/);
+});
+
+test('saklama fonksiyonu satırı silmez, gövdeyi boşaltır', () => {
+    assert.match(mig084, /set body = null/);
+    assert.doesNotMatch(mig084, /delete from public\.wa_message_log/,
+        'kota sayımı, teslimat kanıtı ve raporlar satıra dayanıyor');
+    assert.match(mig084, /body_purged_at/);
+});
+
+test('saklama fonksiyonu yalnız service_role tarafından çağrılabilir', () => {
+    assert.match(mig084, /revoke all on function public\.purge_wa_message_bodies\(integer\) from authenticated/);
+    assert.match(mig084, /revoke all on function public\.purge_wa_message_bodies\(integer\) from anon/);
+});
+
+test('saklama süresi makul aralıkta kalır', () => {
+    // p_months=0 verilip her şeyin anında silinmesi engellenmeli.
+    assert.match(mig084, /p_months < 1 or p_months > 120/);
+});
+
+test('remind saklama temizliğini çağırır', () => {
+    assert.match(remind, /purge_wa_message_bodies/);
 });
 
 // ── Sağlayıcı yedeklemesi ───────────────────────────────────────────────────
