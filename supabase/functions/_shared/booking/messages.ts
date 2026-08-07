@@ -93,6 +93,16 @@ export function greeting(c: Ctx, services: { name: string; duration: number }[])
         + `Adını yazmanız yeterli, gerisini ben hallederim.`;
 }
 
+/**
+ * Birden fazla hizmet aynı ölçüde uydu — tahmin etmek yerine soruyoruz.
+ * "diş" hem "Diş teli" hem "Diş temizliği" olabilir; yanlış hizmetle randevu,
+ * randevusuzluktan kötüdür.
+ */
+export function askWhichService(c: Ctx, candidates: { name: string; duration: number }[]): string {
+    const list = candidates.map((s) => `• *${s.name}* · ${s.duration} dk`).join('\n');
+    return `Bunlardan hangisini kastettiniz?\n\n${list}`;
+}
+
 export function askDay(c: Ctx, serviceName: string): string {
     return `*${serviceName}*, tabii. Hangi gün gelmek istersiniz?\n\n`
         + `"yarın", "cumartesi" ya da "20 Ağustos" diyebilirsiniz. `

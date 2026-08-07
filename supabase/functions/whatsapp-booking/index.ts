@@ -6,6 +6,7 @@ import {
 import { normalizePhone } from '../_shared/phone.ts';
 import { isSaneDate, matchOfferedTime, parseWhen } from '../_shared/booking/dates.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
+import { matchService } from '../_shared/booking/services.ts';
 import * as M from '../_shared/booking/messages.ts';
 import {
     availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
@@ -296,6 +297,11 @@ Deno.serve(async (req: Request) => {
         // ve yanlış çözüldüğünde geri alınamaz iş yaptıran şeyler.
         const when = parseWhen(text, todayStr);
         const ruleConfirm = detectConfirm(text);
+        // Hizmet adı da kuralla eşleşir. Eskiden bunu YALNIZ model yapıyordu
+        // (adı geri yazıyor, kod listeyle karşılaştırıyordu); model bütçesi
+        // dolunca hizmet hiç eşleşmedi ve bot her mesaja karşılamayla cevap
+        // verip sonsuz döngüye girdi.
+        const svcHit = state.serviceId ? { match: null, candidates: [] } : matchService(text, svcArr);
 
         // ── 2. katman: model ─────────────────────────────────────────────────
         // Model VARSAYILAN olarak çağrılır; yalnız kuralın mesajı tamamen
@@ -306,6 +312,10 @@ Deno.serve(async (req: Request) => {
         const ruleSettled =
             // Onay bekliyoruz ve net bir evet/hayır geldi — mesajın başka işi yok.
             (Boolean(state.awaitingConfirm) && ruleConfirm !== null)
+            // Hizmet kuraldan net çözüldü; modele sorulacak bir şey kalmadı.
+            || Boolean(svcHit.match)
+            // Belirsizlik var: müşteriye soracağız, model tahmin etmesin.
+            || svcHit.candidates.length > 1
             // Ya da kural son eksik alanı doldurdu ("yarın 3 buçuk").
             || (Boolean(state.serviceId)
                 && Boolean(when.date || state.date)
@@ -335,8 +345,12 @@ Deno.serve(async (req: Request) => {
             return reply(M.conversationCancelled(msgCtx()));
         }
 
-        // State'i güncelle (yeni bilgiyle)
-        if (ex.service) {
+        // State'i güncelle (yeni bilgiyle). Kural eşleşmesi modelin üstüne yazar.
+        if (svcHit.match) {
+            state.serviceId = svcHit.match.id;
+            state.serviceName = svcHit.match.name;
+            state.serviceDuration = svcHit.match.duration;
+        } else if (ex.service) {
             const matched = svcArr.find(s => s.name.toLowerCase() === ex.service!.toLowerCase())
                 || svcArr.find(s => s.name.toLowerCase().includes(ex.service!.toLowerCase()) || ex.service!.toLowerCase().includes(s.name.toLowerCase()));
             if (matched) { state.serviceId = matched.id; state.serviceName = matched.name; state.serviceDuration = matched.duration; }
@@ -360,6 +374,12 @@ Deno.serve(async (req: Request) => {
         // ── Eksik bilgi → sor ──
         if (!state.serviceId) {
             await saveState();
+            // "diş" hem "Diş teli" hem "Diş temizliği" olabilir: tahmin etmek
+            // yerine iki adayı sorarız. Yanlış hizmetle randevu,
+            // randevusuzluktan kötüdür.
+            if (svcHit.candidates.length > 1) {
+                return reply(M.askWhichService(msgCtx(), svcHit.candidates));
+            }
             return reply(M.greeting(msgCtx(), svcArr));
         }
         // "Hangi günler müsaitsiniz?" — canlıda bot bu soruya aynı saat

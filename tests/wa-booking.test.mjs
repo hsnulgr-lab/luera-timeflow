@@ -8,6 +8,7 @@ import {
     greetingName, isPlaceholderName, pickCustomer,
 } from '../supabase/functions/_shared/booking/identity.ts';
 import * as MSG from '../supabase/functions/_shared/booking/messages.ts';
+import { matchService } from '../supabase/functions/_shared/booking/services.ts';
 import {
     availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
@@ -892,4 +893,76 @@ test('booking-manage elle yazılmış metin taşımıyor', () => {
         assert.ok(!manage.includes(junk), `kopya metin: ${junk}`);
     }
     assert.match(manage, /M\.resolveComms\(settings\?\.comms\)/, 'sektör profilini okumalı');
+});
+
+// ── Hizmet eşleştirme (kural tabanlı) ───────────────────────────────────────
+// GERÇEK HATA: eşleştirmenin tek yolu modeldi (model adı geri yazıyor, kod
+// listeyle karşılaştırıyordu). Model bütçesi dolunca hizmet hiç eşleşmedi ve
+// bot "Diş teli", "Lazer", "Plak tedavi" mesajlarının ÜÇÜNE DE karşılamayla
+// cevap verip sonsuz döngüye girdi.
+
+const SVCS = [
+    { id: '1', name: 'Teddavi', duration: 30 },
+    { id: '2', name: 'lazer', duration: 60 },
+    { id: '3', name: 'Dolgu', duration: 15 },
+    { id: '4', name: 'İmplant', duration: 45 },
+    { id: '5', name: 'Diş temizliği', duration: 90 },
+    { id: '6', name: 'Diş teli', duration: 45 },
+    { id: '7', name: 'Plak tedavisi', duration: 45 },
+];
+
+test('canlıda döngüye sokan üç mesaj artık eşleşiyor', () => {
+    assert.equal(matchService('Diş teli', SVCS).match?.id, '6');
+    assert.equal(matchService('Lazer', SVCS).match?.id, '2');
+    assert.equal(matchService('Plak tedavi', SVCS).match?.id, '7', 'ek düşmüş yazım');
+});
+
+test('cümle içinde geçen hizmet bulunur', () => {
+    assert.equal(matchService('diş teli için randevu almak istiyorum', SVCS).match?.id, '6');
+    assert.equal(matchService('implant olur mu', SVCS).match?.id, '4');
+    assert.equal(matchService('İMPLANT', SVCS).match?.id, '4', 'Türkçe İ katlanmalı');
+});
+
+test('belirsizlikte TAHMİN ETMEZ, sorar', () => {
+    // "diş" iki hizmete de uyuyor; yanlış hizmetle randevu randevusuzluktan kötü.
+    const r = matchService('diş', SVCS);
+    assert.equal(r.match, null);
+    assert.deepEqual(r.candidates.map((s) => s.id).sort(), ['5', '6']);
+});
+
+test('daha belirgin istek kazanır', () => {
+    // "diş temizliği" hem "Diş temizliği" (2 sözcük) hem "Diş teli" (1 sözcük)
+    // ile kesişiyor; tam eşleşen ve daha çok sözcüklü olan seçilir.
+    assert.equal(matchService('diş temizliği', SVCS).match?.id, '5');
+});
+
+test('alakasız mesaj hizmet üretmez', () => {
+    for (const t of ['merhaba', 'yarın 3 buçuk', 'teşekkürler', '']) {
+        assert.equal(matchService(t, SVCS).match, null, t);
+    }
+    assert.equal(matchService('lazer', []).match, null, 'hizmet listesi boş');
+});
+
+test('kısa sözcükler yanlış eşleşme yapmaz', () => {
+    // sameStem en az 3 harf şart koşuyor: "el" ⊄ "eli" olmamalı.
+    const svc = [{ id: 'a', name: 'El bakımı', duration: 30 }];
+    assert.equal(matchService('e', svc).match, null);
+});
+
+test('hizmet eşleştirme kural katmanında, modelden önce', () => {
+    assert.match(booking, /const svcHit = state\.serviceId \? .* : matchService\(text, svcArr\)/);
+    // Kural eşleşmesi modelin üstüne yazmalı.
+    const idx = booking.indexOf('if (svcHit.match) {');
+    assert.ok(idx > -1);
+    assert.ok(booking.slice(idx, idx + 260).includes('else if (ex.service)'),
+        'model yalnız kural bulamayınca devreye girmeli');
+});
+
+test('kural hizmeti bulduysa modele sorulmaz', () => {
+    assert.match(booking, /\|\| Boolean\(svcHit\.match\)/);
+    assert.match(booking, /\|\| svcHit\.candidates\.length > 1/);
+});
+
+test('belirsizlik akışa bağlı — karşılama tekrarlanmıyor', () => {
+    assert.match(booking, /if \(svcHit\.candidates\.length > 1\) \{\s*\n\s*return reply\(M\.askWhichService/);
 });
