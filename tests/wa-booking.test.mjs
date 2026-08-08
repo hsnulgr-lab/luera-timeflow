@@ -16,7 +16,8 @@ import {
     detectConfirm, detectIntent, detectListChoice, inboundKind,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
-    CLARIFY_OPTIONS, CLARIFY_QUESTION, coerceTopic, detectClarify, detectTopic, PERSONAL, TOPICS,
+    CLARIFY_OPTIONS, CLARIFY_QUESTION, clarifyQuestion, coerceTopic, detectClarify,
+    detectTopic, PERSONAL, TOPICS,
 } from '../supabase/functions/_shared/booking/inquiry.ts';
 import {
     computeBalance, formatTL,
@@ -605,6 +606,19 @@ test('konusu belli olan cümle soruya düşmez', () => {
     assert.equal(detectClarify('seans ücreti ne kadar'), null);
     assert.equal(detectClarify('yarın 15:00 uygun mu'), null);
     assert.equal(detectClarify(''), null);
+});
+
+test('soru müşterinin kendi sözcüğüyle sorulur', () => {
+    // Canlıda ters tepti: "Paketler" yazan müşteriye bot «"Seans" derken
+    // hangisini kastettiniz?» dedi — sormadığı bir kelime geri geldi.
+    assert.equal(clarifyQuestion('seans', 'Paketler'), '"Paketler" derken hangisini kastettiniz?');
+    assert.equal(clarifyQuestion('seans', 'Seanslar'), '"Seanslar" derken hangisini kastettiniz?');
+    // Sözcük yoksa sabit başlık; hiçbir hâlde boş tırnak çıkmaz.
+    assert.equal(clarifyQuestion('seans', '   '), CLARIFY_QUESTION.seans);
+    assert.equal(clarifyQuestion('seans', null), CLARIFY_QUESTION.seans);
+    assert.equal(clarifyQuestion('genel', 'saçmasapan'), CLARIFY_QUESTION.genel);
+    // Uzun metin soruyu okunmaz yapmasın.
+    assert.ok(clarifyQuestion('seans', 'x'.repeat(200)).length < 70);
 });
 
 test('her netleştirme seçeneğinin bir karşılığı var', () => {

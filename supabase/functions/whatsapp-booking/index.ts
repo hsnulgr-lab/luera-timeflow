@@ -17,7 +17,7 @@ import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
 import {
-    CLARIFY_OPTIONS, CLARIFY_QUESTION, detectClarify, detectTopic, PERSONAL,
+    CLARIFY_OPTIONS, CLARIFY_QUESTION, clarifyQuestion, detectClarify, detectTopic, PERSONAL,
     type Clarify, type Topic,
 } from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
@@ -597,7 +597,7 @@ Deno.serve(async (req: Request) => {
             state.clarify = clarifyKey;
             await saveState();
             return reply(M.askClarify(msgCtx(), {
-                question: CLARIFY_QUESTION[clarifyKey],
+                question: clarifyQuestion(clarifyKey, text),
                 options: CLARIFY_OPTIONS[clarifyKey],
             }));
         }

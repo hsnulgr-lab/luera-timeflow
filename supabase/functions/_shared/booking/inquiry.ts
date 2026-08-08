@@ -149,11 +149,28 @@ export const CLARIFY_OPTIONS: Record<Clarify, readonly ClarifyOption[]> = {
     ],
 };
 
-/** Netleştirme sorusunun başlığı. */
+/** Netleştirme sorusunun başlığı — müşterinin sözcüğü bilinmiyorsa. */
 export const CLARIFY_QUESTION: Record<Clarify, string> = {
-    seans: '"Seans" derken hangisini kastettiniz?',
+    seans: 'Bunu birkaç şekilde anlayabilirim. Hangisi?',
     genel: 'Tam olarak anlayamadım. Şunlardan hangisi?',
 };
+
+/**
+ * Soruyu müşterinin KENDİ sözcüğüyle sorar.
+ *
+ * Sabit başlık canlıda ters tepti: "Paketler" yazan müşteriye bot
+ * "«Seans» derken hangisini kastettiniz?" dedi — sormadığı bir kelime geri
+ * geldi ve bot yanlış anlamış gibi göründü.
+ */
+export function clarifyQuestion(key: Clarify, userText?: string | null): string {
+    if (key === 'seans' && userText) {
+        // Kendi yazdığını geri veriyoruz; yine de tek satıra indirip
+        // kısaltıyoruz — uzun bir metin soruyu okunmaz yapardı.
+        const w = userText.replace(/\s+/g, ' ').trim().slice(0, 24);
+        if (w) return `"${w}" derken hangisini kastettiniz?`;
+    }
+    return CLARIFY_QUESTION[key];
+}
 
 // YALNIZ mesajın TAMAMI bu sözcüklerse belirsizdir. "seanslarım kaç kaldı"
 // zaten my_package'a düşüyor; oradan çalıp soru sormak, cevabı bilinen bir
