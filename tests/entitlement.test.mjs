@@ -255,6 +255,20 @@ test('RLS kilidi OKUMAYI kapatmıyor', () => {
     assert.match(rls, /ENTITLEMENT_ENFORCE.{0,40}false/s);
 });
 
+test('sektör modülleri de kapıdan geçiyor', () => {
+    // Canlı denetimde çıktı: 087 yalnız çekirdeği kapatmış, kilitli bir org
+    // hâlâ diş kaydı girip paket satabiliyordu. "Sistem durur" vaadinin
+    // yarısının tutmaması, hiç tutmamasından daha kötü.
+    const mods = readFileSync(new URL('../supabase/088_entitlement_rls_modules.sql', import.meta.url), 'utf8');
+    for (const t of ['customer_packages', 'dental_records', 'queue_entries',
+        'table_reservations', 'stock_movements', 'waitlist']) {
+        assert.ok(mods.includes(`'${t}'`), `${t} kapsam dışı kalmış`);
+    }
+    // Bildirim yolu kapanırsa "ödeme alınamadı" uyarısı da gitmez.
+    assert.ok(!/'push_subscriptions'/.test(mods), 'bildirim yolu kilitlenmemeli');
+    assert.ok(!/'settings'/.test(mods), 'settings kilitlenmemeli');
+});
+
 test('aboneliği kullanıcı kendi yazamaz', () => {
     // org_entitlement'ta SELECT politikası var, INSERT/UPDATE YOK: service-role
     // dışında kimse kendini "active" yapamaz.
