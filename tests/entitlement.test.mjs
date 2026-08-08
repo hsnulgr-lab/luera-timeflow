@@ -242,6 +242,19 @@ test('ENFORCE kapalıyken SQL herkese açık', () => {
     assert.match(sql, /<> 'true'\s*\n\s*THEN true/);
 });
 
+test('RLS kilidi OKUMAYI kapatmıyor', () => {
+    // Kilit ürünü kullanmayı durdurur, veriyi değil. Müşterinin verisini
+    // rehin almak marka zararıdır ve KVKK açısından da savunulamaz.
+    const rls = readFileSync(new URL('../supabase/087_entitlement_rls.sql', import.meta.url), 'utf8');
+    assert.match(rls, /WITH CHECK[\s\S]{0,160}has_timeflow_access\(organization_id\)/);
+    assert.ok(!/FOR SELECT/.test(rls), 'SELECT politikalarına dokunulmamalı');
+    // settings kilitlenmez: ödeme sonrası dönen kullanıcı yarım kurulumla
+    // baş başa kalmasın.
+    assert.ok(!/'settings'/.test(rls), 'settings yazma kilidine girmemeli');
+    // Geri dönüş yolu belgelenmiş olmalı — canlıda panik anında aranacak şey.
+    assert.match(rls, /ENTITLEMENT_ENFORCE.{0,40}false/s);
+});
+
 test('aboneliği kullanıcı kendi yazamaz', () => {
     // org_entitlement'ta SELECT politikası var, INSERT/UPDATE YOK: service-role
     // dışında kimse kendini "active" yapamaz.
