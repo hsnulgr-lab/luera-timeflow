@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSecret } from '../_shared/wa.ts';
 import { resolveOrg } from '../_shared/org.ts';
+import { checkAccess } from '../_shared/entitlement.ts';
 import {
     hashPin, mintStaffToken, safeEqual, verifyStaffToken,
     DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS,
@@ -119,6 +120,12 @@ Deno.serve(async (req: Request) => {
         if (!verified.ok) return json({ error: 'invalid_token', reason: verified.reason }, 401);
         const claims = verified.claims;
         const isDevice = claims.sub === 'device';
+
+        // Abonelik kapısı. Personel kumandası ürünün bir parçası; işletmenin
+        // aboneliği bittiyse personel tableti de çalışmamalı — aksi hâlde
+        // salon panelsiz ama tabletli çalışmaya devam ederdi.
+        const staffAccess = await checkAccess(admin, claims.org);
+        if (!staffAccess.ok) return json({ error: 'subscription_inactive' }, 403);
 
         // ── roster — giriş ekranının listesi. PIN ASLA dönmez ────────────────
         if (action === 'roster') {

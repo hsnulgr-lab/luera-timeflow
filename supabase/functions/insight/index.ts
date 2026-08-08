@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkAccess } from '../_shared/entitlement.ts';
 import { requireUserOrg } from '../_shared/auth.ts';
 
 const corsHeaders = {
@@ -59,6 +60,10 @@ Deno.serve(async (req: Request) => {
         const auth = await requireUserOrg(supabase, req, corsHeaders);
         if (auth instanceof Response) return auth;
         const organization_id = auth.orgId;
+        // Abonelik kapısı: içgörü her turda model çağırıyor — abonesiz org
+        // bizim Groq/Gemini faturamızı şişirmemeli.
+        const access = await checkAccess(supabase, organization_id);
+        if (!access.ok) return deny(403, 'Aboneliğiniz aktif değil', corsHeaders);
 
         const nowTR = new Date(Date.now() + TZ_OFFSET_MIN * 60_000);
         const todayStr = nowTR.toISOString().slice(0, 10);

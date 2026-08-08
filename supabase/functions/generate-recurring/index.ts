@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkAccess } from '../_shared/entitlement.ts';
 
 // ============================================================
 // generate-recurring — Tekrar eden randevu üretici (n8n cron)
@@ -47,10 +48,22 @@ Deno.serve(async (req: Request) => {
             .is('recurrence_parent_id', null);
 
         let created = 0;
+        let skippedOrgs = 0;
         const details: string[] = [];
+        // Org başına tek kapı sorgusu — kökler aynı org'dan onlarca olabilir.
+        const accessCache = new Map<string, boolean>();
 
         for (const root of roots ?? []) {
             const rule = root.recurrence_rule as 'weekly' | 'monthly';
+
+            // Abonelik kapısı: bu cron service_role ile yazıyor, yani RLS'i
+            // atlıyor. Kapı burada olmazsa aboneliği bitmiş bir salonun
+            // tekrarlı randevuları sonsuza kadar üretilmeye devam ederdi.
+            const orgKey = String(root.organization_id);
+            if (!accessCache.has(orgKey)) {
+                accessCache.set(orgKey, (await checkAccess(supabase, orgKey)).ok);
+            }
+            if (!accessCache.get(orgKey)) { skippedOrgs++; continue; }
 
             // Zincirdeki tüm occurrence tarihleri (kök + çocuklar)
             const { data: children } = await supabase
@@ -112,8 +125,8 @@ Deno.serve(async (req: Request) => {
             details.push(`${root.id}:${rule}`);
         }
 
-        console.log(`generate-recurring: created=${created} roots=${roots?.length ?? 0}`);
-        return new Response(JSON.stringify({ success: true, created, roots: roots?.length ?? 0, details }), {
+        console.log(`generate-recurring: created=${created} roots=${roots?.length ?? 0} abonesiz=${skippedOrgs}`);
+        return new Response(JSON.stringify({ success: true, created, roots: roots?.length ?? 0, skippedOrgs, details }), {
             status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     } catch (err) {

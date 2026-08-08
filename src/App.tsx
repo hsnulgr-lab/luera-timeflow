@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
 import { ModulesProvider } from '@/contexts/ModulesProvider';
@@ -18,6 +18,7 @@ import { MobileQueue } from '@/mobile/pages/MobileQueue';
 import { QueuePage } from '@/pages/QueuePage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useModules } from '@/hooks/useModules';
+import { useEntitlement } from '@/hooks/useEntitlement';
 import type { ModuleKey } from '@/types';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -39,6 +40,8 @@ import { StockPage } from '@/pages/StockPage';
 import { SetupWizardPage } from '@/pages/SetupWizardPage';
 import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
+import { PricingPage } from '@/pages/public/PricingPage';
+import { PaywallPage } from '@/pages/PaywallPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
 import { ConfirmDialogHost } from '@/components/ConfirmDialog';
@@ -63,7 +66,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return <SubscriptionGate>{children}</SubscriptionGate>;
+};
+
+// Abonelik kapısı — ödeme yapılmadan sistem açılmaz.
+//
+// Bu bir GÜVENLİK katmanı değil, bir yönlendirme: gerçek kapı RLS'te
+// (has_timeflow_access) ve edge fonksiyonlarında. Buradaki iş, parası bitmiş
+// kullanıcıyı çalışmayan bir uygulamanın içinde dolaştırmamak.
+//
+// Duvarın KENDİSİ ve faturalandırma sekmesi muaf: ödeme yolunu kapatmak,
+// kilitlenmenin en aptalca hâli olurdu.
+const SubscriptionGate = ({ children }: { children: React.ReactNode }) => {
+  const { locked, loading } = useEntitlement();
+  const { pathname } = useLocation();
+  const exempt = pathname.startsWith('/abonelik') || pathname.startsWith('/settings');
+  // Yüklenirken engelleme: yanıp sönen bir yönlendirme, yavaş bağlantıda
+  // ödemesini yapmış kullanıcıyı da duvara atardı.
+  if (loading || exempt || !locked) return <>{children}</>;
+  return <Navigate to="/abonelik" replace />;
 };
 
 // Kabuk seçici: mobilde alt sekme çubuklu MobileShell, masaüstünde Sidebar'lı Layout.
@@ -97,6 +118,12 @@ function App() {
         <ManagerModeProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/fiyatlar" element={<PricingPage />} />
+          <Route path="/abonelik" element={
+            <ProtectedRoute>
+              <PaywallPage />
+            </ProtectedRoute>
+          } />
           <Route path="/book/:slug" element={<BookingPage />} />
           <Route path="/booking/:token" element={<BookingManagePage />} />
           <Route path="/personel" element={

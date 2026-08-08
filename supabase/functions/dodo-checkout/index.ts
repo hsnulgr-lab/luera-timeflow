@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { DEFAULT_TRIAL_DAYS, safeTrialDays } from '../_shared/entitlement.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,12 @@ const corsHeaders = {
  * Action'lar:
  *   { plan: 'baslangic'|'pro'|'isletme', cycle: 'monthly'|'yearly' } → { url }
  *   { action: 'cancel' } → dönem sonunda iptal
+ *
+ * DENEME SÜRESİ: her checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
+ * ilk tahsilat 8. gün). Dodo'da trial ÜRÜNE değil ABONELİĞE bağlanabiliyor
+ * (subscription_data.trial_period_days), yani pilot müşteriye 90 günlük deneme
+ * vermek için ayrı ürün açmak gerekmiyor. Uzunluk sunucuda beyaz listeden
+ * geçer — istemciden gelen serbest sayıyla herkes kendine 10000 gün açardı.
  */
 
 const MODULE = 'timeflow';
@@ -115,14 +122,44 @@ Deno.serve(async (req: Request) => {
             .eq('organization_id', orgId)
             .maybeSingle();
 
+        // ── Deneme hakkı ─────────────────────────────────────────────────────
+        // Yalnız DAHA ÖNCE hiç aboneliği olmamış org deneme alır. Aksi hâlde
+        // iptal edip yeniden satın alan biri her seferinde 7 gün bedava
+        // kullanırdı; ayna tablo bu geçmişi zaten tutuyor.
+        const { data: entRow } = await admin.from('org_entitlement')
+            .select('state').eq('organization_id', orgId).maybeSingle();
+        const firstTime = !entRow || entRow.state === 'none';
+        const configured = Number(await getSecret(admin, 'DODO_TRIAL_DAYS')) || DEFAULT_TRIAL_DAYS;
+        // body.trial_days pilot linki için; beyaz listeden geçmeyen değer
+        // varsayılana düşer (bkz. _shared/entitlement.ts).
+        const trialDays = firstTime
+            ? safeTrialDays(body.trial_days ?? configured)
+            : 0;
+
+        // Kupon: "ilk 3 ay %50" gibi kampanyalar. Dodo'da kuponlar fatura
+        // dönemi limitiyle tanımlı, süresiz %100 indirim yok — ücretsiz pilot
+        // için doğru araç kupon değil UZUN DENEME (trial_days).
+        const discount = typeof body.discount_code === 'string'
+            ? body.discount_code.trim().slice(0, 40)
+            : '';
+
         const appUrl = (await getSecret(admin, 'APP_URL')) || 'https://timeflow.lueratech.com';
+        // İlk satın alımda kurulum sihirbazına, sonrakilerde faturalandırmaya
+        // dön: ödeme yapan yeni müşteriyi ayarlar ekranına bırakmak, ürünü
+        // kurmadan yalnız bir fatura satırı göstermek olurdu.
+        const returnUrl = firstTime
+            ? `${appUrl}/kurulum?checkout=success`
+            : `${appUrl}/settings?tab=billing&checkout=success`;
+
         const res = await fetch(`${DODO_API_BASE}/checkouts`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${DODO_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 product_cart: [{ product_id: productId, quantity: 1 }],
                 customer: { email: user.email, name: settingsRow?.business_name || user.email },
-                return_url: `${appUrl}/settings?tab=billing&checkout=success`,
+                return_url: returnUrl,
+                ...(trialDays > 0 ? { subscription_data: { trial_period_days: trialDays } } : {}),
+                ...(discount ? { discount_codes: [discount] } : {}),
                 // org_name: webhook'un Core organizations aynalaması için (FK gereksinimi)
                 metadata: { organization_id: orgId, plan, cycle, module: MODULE, org_name: settingsRow?.business_name || '' },
                 billing_currency: 'TRY',

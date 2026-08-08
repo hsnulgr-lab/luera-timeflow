@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkAccess } from '../_shared/entitlement.ts';
 import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
@@ -82,6 +83,18 @@ Deno.serve(async (req: Request) => {
         if (!res) return json({ error: 'Randevu bulunamadı' }, 404);
 
         const orgId = res.organization_id as string;
+
+        // Abonelik kapısı — ama TAM DEĞİL, bilinçli olarak.
+        //
+        // Bu bağlantı işletmenin değil MÜŞTERİNİN elinde. Aboneliği bittiği
+        // için müşterinin randevusunu iptal etmesini engellemek, masum tarafı
+        // cezalandırıp salona no-show yazdırmak olurdu. Bu yüzden 'get',
+        // 'slots' ve 'cancel' çalışmaya devam eder; YENİ SLOT TUTAN tek işlem
+        // olan 'reschedule' kapanır — hizmetin sürdürülmesi odur.
+        const access = await checkAccess(supabase, orgId);
+        if (!access.ok && action === 'reschedule') {
+            return json({ error: 'Bu işletme şu anda çevrim içi değişiklik almıyor. Lütfen işletmeyi arayın.' }, 403);
+        }
 
         // Org + settings
         const [{ data: org }, { data: settings }] = await Promise.all([

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { SetupBanner } from './SetupBanner';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { Menu, AlertTriangle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -97,6 +98,10 @@ export const Layout = () => {
                 )}
                 {/* Kurulum yarıda kaldıysa: /kurulum sayfası VARDI ama hiçbir
                     yerden ulaşılmıyordu. Yeni org bomboş uygulamaya düşüyordu. */}
+                {/* Deneme bitiyor / ödeme alınamadı. Kurulum şeridinin
+                    ÜSTÜNDE: parası kesilmek üzere olan bir işletme için
+                    kurulumun %60'ı ikinci derece bilgidir. */}
+                <SubscriptionBanner />
                 <SetupBanner />
                 <ErrorBoundary>
                     <Outlet />

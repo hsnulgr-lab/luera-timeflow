@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getOrgWa, sendWA, type Admin } from '../_shared/wa.ts';
+import { checkAccess } from '../_shared/entitlement.ts';
 
 // ============================================================
 // public-booking — Self-servis online randevu motoru
@@ -205,6 +206,15 @@ Deno.serve(async (req: Request) => {
 
         if (!org) return json({ error: 'İşletme bulunamadı' }, 404);
         const orgId = org.id as string;
+
+        // Abonelik kapısı: aboneliği bitmiş bir işletmenin online randevu
+        // sayfası çalışmaya devam ederse hem ürünü bedava kullanmış olur hem
+        // de gelen randevuyu kimse görmez — müşteri boşa gelir. 404 DEĞİL 403:
+        // işletme var, kapısı kapalı.
+        const access = await checkAccess(supabase, orgId);
+        if (!access.ok) {
+            return json({ error: 'Bu işletme şu anda online randevu almıyor.' }, 403);
+        }
 
         // Settings (çalışma saatleri, slot, işletme adı, whatsapp)
         const { data: settings } = await supabase

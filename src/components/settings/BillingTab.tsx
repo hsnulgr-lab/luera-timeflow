@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBilling } from '@/hooks/useBilling';
 import { confirmDialog } from '@/components/ConfirmDialog';
+// Fiyatlar ÜÇ yerde gösteriliyor (burası, /fiyatlar, /abonelik) — tek kaynak.
+import { PLANS, type Cycle } from '@/lib/plans';
 
 // ── Design tokens (SettingsPage ile birebir) ─────────────────────────────────
 const LT = {
@@ -19,19 +21,6 @@ const DT = {
 };
 
 const green = '#5DBB63';
-
-type Cycle = 'monthly' | 'yearly';
-
-interface PlanFeature { label: string; soon?: boolean }
-interface Plan { id: string; name: string; tagline: string; monthly: number; yearly: number; popular?: boolean; features: PlanFeature[] }
-
-const f = (label: string, soon?: boolean): PlanFeature => ({ label, soon });
-
-const PLANS: Plan[] = [
-  { id: 'baslangic', name: 'Başlangıç', tagline: 'Yeni başlayan işletmeler', monthly: 299, yearly: 239, features: [f('1 şube'), f('3 personele kadar'), f('Randevu & takvim'), f('Online booking sayfası'), f('Temel raporlar')] },
-  { id: 'pro', name: 'Pro', tagline: 'Büyüyen salonlar için', monthly: 599, yearly: 479, popular: true, features: [f('Sınırsız personel'), f('WhatsApp hatırlatma'), f('Kasa & tahsilat'), f('Gelişmiş analiz'), f('Müşteri paketleri'), f('E-posta destek')] },
-  { id: 'isletme', name: 'İşletme', tagline: 'Çoklu şube & yüksek hacim', monthly: 1199, yearly: 959, features: [f('Çoklu şube yönetimi', true), f('API erişimi'), f('Öncelikli destek'), f('Özel raporlar'), f('Rol & yetki yönetimi', true), f('Onboarding desteği')] },
-];
 
 const fmt = (n: number) => n.toLocaleString('tr-TR');
 const fmtDate = (iso: string | null) =>

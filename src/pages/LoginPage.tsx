@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { SplashScreen } from '@/components/SplashScreen';
@@ -174,13 +174,21 @@ export const LoginPage = () => {
   const { user, login, signup } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  // /fiyatlar'dan gelen seçim: ?mode=signup&plan=pro&cycle=yearly
+  // Kullanıcı planı bir kez seçti; kayıttan sonra aynı soruyu tekrar sormak
+  // en pahalı sürtünme noktası olurdu.
+  const [params] = useSearchParams();
+  const pickedPlan = params.get('plan');
+  const pickedCycle = params.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
+  /** Kayıt/giriş sonrası nereye? Plan seçilmişse doğrudan ödemeye. */
+  const afterAuth = pickedPlan ? `/abonelik?plan=${pickedPlan}&cycle=${pickedCycle}` : '/';
 
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [name, setName]             = useState('');
   const [showPw, setShowPw]         = useState(false);
   const [isLoading, setIsLoading]   = useState(false);
-  const [isSignup, setIsSignup]     = useState(false);
+  const [isSignup, setIsSignup]     = useState(() => params.get('mode') === 'signup');
   const [error, setError]           = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [shake, setShake]           = useState(false);
@@ -196,8 +204,8 @@ export const LoginPage = () => {
   useEffect(() => {
     // Splash gösteriliyorsa user değişimi navigate'i tetiklememeli —
     // navigasyon SplashScreen.onDone'dan gelir
-    if (user && !showSplash) navigate('/');
-  }, [user, navigate, showSplash]);
+    if (user && !showSplash) navigate(afterAuth);
+  }, [user, navigate, showSplash, afterAuth]);
 
   const triggerShake = () => {
     setShake(true);
@@ -230,7 +238,7 @@ export const LoginPage = () => {
 
   // Splash gösteriliyorsa sadece onu render et
   if (showSplash) {
-    return <SplashScreen onDone={() => navigate('/')} />;
+    return <SplashScreen onDone={() => navigate(afterAuth)} />;
   }
 
   return (

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkAccess } from '../_shared/entitlement.ts';
 import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
 
@@ -42,6 +43,10 @@ Deno.serve(async (req: Request) => {
         if (caller.kind === 'user' && caller.orgId !== organization_id) {
             return deny(403, 'Bu işletme için yetkiniz yok', corsHeaders);
         }
+
+        // Abonelik kapısı: bekleme listesi duyurusu toplu WhatsApp demek.
+        const access = await checkAccess(supabase, organization_id);
+        if (!access.ok) return deny(403, 'Aboneliğiniz aktif değil', corsHeaders);
 
         // Org slug + işletme adı. settings kullanıcı başına tek satır olduğu
         // için limit(1) ile tek satır alıyoruz; bağlantı bilgisi org_whatsapp'ta.

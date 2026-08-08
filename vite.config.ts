@@ -42,6 +42,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Edge fonksiyonlarıyla PAYLAŞILAN saf mantık. Kopyalanmıyor çünkü
+      // abonelik kararının istemcide ve sunucuda farklı çıkması, kullanıcının
+      // ekranı görüp kaydedememesi demek.
+      '@shared': path.resolve(__dirname, './supabase/functions/_shared'),
     },
   },
   server: {

@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { graceUntil, mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
+import { notifyOwner } from '../_shared/notify.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -104,12 +106,20 @@ Deno.serve(async (req: Request) => {
 
                 const plan = data.metadata?.plan ?? 'pro';
                 const cycle = data.metadata?.cycle ?? 'monthly';
+                // Dodo denemeli abonelikte de subscription.active gönderiyor;
+                // "aktif" yazmak deneme kavramını görünmez kılardı — kullanıcı
+                // ne zaman ücret ödeyeceğini bilemez, biz de "denemesi bitiyor"
+                // hatırlatması gönderemezdik.
+                const onTrial = Number(data.trial_period_days) > 0;
+                const expiry = nextExpiry(data);
                 const fields = {
-                    status: 'active',
+                    status: onTrial ? 'trial' : 'active',
                     plan_tier: TIER_MAP[plan] ?? 'growth',
                     provider: 'dodo',
                     provider_ref: data.subscription_id ?? null,
-                    expires_at: nextExpiry(data),
+                    expires_at: expiry,
+                    // Core RPC 'trial' durumunda trial_ends_at'e de bakıyor.
+                    trial_ends_at: onTrial ? expiry : null,
                     metadata: {
                         plan, cycle,
                         cancel_at_period_end: false,
@@ -117,6 +127,13 @@ Deno.serve(async (req: Request) => {
                         customer_email: data.customer?.email ?? null,
                     },
                 };
+                await mirror(admin, orgId, type, {
+                    state: onTrial ? 'trial' : 'active',
+                    plan, cycle,
+                    trial_ends_at: onTrial ? expiry : null,
+                    expires_at: expiry,
+                    grace_until: null,
+                });
 
                 // Kısmi unique index (org, module_name WHERE status aktif) ON CONFLICT ile
                 // kullanılamaz → select-then-write (tek yazar webhook olduğundan güvenli)
@@ -130,12 +147,19 @@ Deno.serve(async (req: Request) => {
             case 'subscription.renewed': {
                 const sub = await findSub(core, data, orgId);
                 if (sub) {
+                    const expiry = nextExpiry(data);
                     const { error } = await core.from('subscriptions').update({
+                        // Deneme bitip ilk tahsilat başarılı olduğunda da bu
+                        // event geliyor: trial → active geçişi burada olur.
                         status: 'active',
-                        expires_at: nextExpiry(data),
+                        trial_ends_at: null,
+                        expires_at: expiry,
                         metadata: { ...sub.metadata, cancel_at_period_end: false },
                     }).eq('id', sub.id);
                     if (error) { console.error('subscription.renewed', error); return json({ error: 'core_write_failed' }, 500); }
+                    await mirror(admin, orgId, type, {
+                        state: 'active', trial_ends_at: null, expires_at: expiry, grace_until: null,
+                    });
                 } else {
                     console.warn('subscription.renewed: eşleşen abonelik yok', data.subscription_id);
                 }
@@ -144,9 +168,44 @@ Deno.serve(async (req: Request) => {
             case 'subscription.on_hold': {
                 const sub = await findSub(core, data, orgId);
                 if (sub) {
-                    const { error } = await core.from('subscriptions').update({ status: 'past_due' }).eq('id', sub.id);
+                    const until = graceUntil();
+                    const { error } = await core.from('subscriptions').update({
+                        status: 'past_due',
+                        metadata: { ...sub.metadata, on_hold_at: new Date().toISOString(), grace_until: until },
+                    }).eq('id', sub.id);
                     if (error) { console.error('subscription.on_hold', error); return json({ error: 'core_write_failed' }, 500); }
+                    // Ek süre: erişim hemen kesilmez. Kart yenileme gecikmesi
+                    // yüzünden çalışan bir salonu iş saatinin ortasında
+                    // kilitlemek, tahsil edilmemiş 599 TL'den pahalıya patlar.
+                    await mirror(admin, orgId, type, { state: 'grace', grace_until: until });
+                    // Sessiz kilit en kötüsü: kullanıcı iki gün sonra kapıyı
+                    // kapalı bulur ve neden olduğunu bilmez.
+                    if (orgId) {
+                        notifyOwner(admin, orgId, {
+                            title: 'Ödeme alınamadı',
+                            body: 'Aboneliğinizin ödemesi alınamadı. 2 gün içinde kartınızı güncelleyin, hizmetiniz kesintisiz devam etsin.',
+                            url: '/settings?tab=billing',
+                            tag: 'billing-hold',
+                        });
+                    }
                 }
+                break;
+            }
+            // Terminal durumlar: dönem gerçekten bitti ya da abonelik hiç
+            // kurulamadı. Core'da karşılığı zaten var; ayna kapıyı kapatır.
+            case 'subscription.expired':
+            case 'subscription.failed': {
+                const sub = await findSub(core, data, orgId);
+                if (sub) {
+                    // Core CHECK'i: (status='cancelled') = (cancelled_at IS NOT NULL).
+                    // 'expired' satırına cancelled_at yazmak kaydı reddettirir.
+                    await core.from('subscriptions').update(
+                        type === 'subscription.expired'
+                            ? { status: 'expired' }
+                            : { status: 'cancelled', cancelled_at: new Date().toISOString() },
+                    ).eq('id', sub.id);
+                }
+                await mirror(admin, orgId, type, { state: 'locked', grace_until: null });
                 break;
             }
             case 'subscription.updated': {
@@ -174,6 +233,10 @@ Deno.serve(async (req: Request) => {
                         metadata: { ...sub.metadata, cancel_at_period_end: true, cancelled_at: new Date().toISOString() },
                     }).eq('id', sub.id);
                     if (error) { console.error('subscription.cancelled', error); return json({ error: 'core_write_failed' }, 500); }
+                    // Aynada DURUM DEĞİŞMEZ, yalnız son event yazılır: iptal
+                    // "dönem sonunda" demek. Parasını ödediği günü müşteriden
+                    // geri almak dolandırıcılık olurdu; expires_at zaten keser.
+                    await mirror(admin, orgId, type, {});
                 }
                 break;
             }
@@ -182,6 +245,8 @@ Deno.serve(async (req: Request) => {
                 const sub = await findSub(core, data, orgId);
                 if (sub && sub.status === 'past_due') {
                     await core.from('subscriptions').update({ status: 'active' }).eq('id', sub.id);
+                    // Ek süre kalkar: kart güncellendi, kapı yeniden tam açık.
+                    await mirror(admin, orgId, type, { state: 'active', grace_until: null });
                 }
                 break;
             }
@@ -217,6 +282,24 @@ Deno.serve(async (req: Request) => {
 });
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
+
+/**
+ * TimeFlow'daki yetkilendirme aynasını günceller.
+ *
+ * Core'a yazmak YETMEZ: Core ayrı bir Supabase projesi, TimeFlow'un RLS
+ * politikaları ve edge fonksiyonları oraya bakamaz. Erişim kararı yerel
+ * tablodan verilir; bu satır yazılmazsa müşteri ödeme yapmış ama içeri
+ * girememiş olur.
+ */
+async function mirror(
+    admin: any,
+    orgId: string | null,
+    eventType: string,
+    patch: { state?: EntState } & Record<string, unknown>,
+): Promise<void> {
+    if (!orgId) return;
+    await mirrorEntitlement(admin, orgId, { ...patch, last_event: eventType });
+}
 
 async function getSecret(supabase: any, key: string): Promise<string | null> {
     const env = Deno.env.get(key);

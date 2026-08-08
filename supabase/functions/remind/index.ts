@@ -4,6 +4,7 @@ import {
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
+import { checkAccess } from '../_shared/entitlement.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -190,8 +191,15 @@ Deno.serve(async (req: Request) => {
             }
         }
 
+        let skippedOrgs = 0;
         for (const orgWa of orgList) {
             const organization_id = orgWa.organization_id;
+            // Abonelik kapısı. Cron her org'u geziyor; aboneliği bitmiş bir
+            // org'a hatırlatma göndermek hem ürünü bedava kullandırmak hem de
+            // her mesaj başına bizim para harcamamız demek. Döngü kırılmaz,
+            // yalnız bu org atlanır — bir org'un durumu diğerlerini etkilemez.
+            const access = await checkAccess(supabase, organization_id);
+            if (!access.ok) { skippedOrgs++; continue; }
             const conf = settingsByOrg.get(organization_id);
             const business_name = conf?.business_name ?? 'İşletme';
             // Sektörel iletişim profili — kaynak src/lib/sectorProfiles.ts, uygulama
@@ -509,7 +517,7 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length}${sendableHour ? '' : ' (sessiz saat)'}`);
+        console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length} abonesiz=${skippedOrgs}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
             JSON.stringify({ success: true, outbox, purged: purged ?? 0, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

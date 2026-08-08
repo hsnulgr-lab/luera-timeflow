@@ -22,6 +22,7 @@ import {
 } from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
 import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
+import { checkAccess } from '../_shared/entitlement.ts';
 
 // ============================================================
 // whatsapp-booking — WhatsApp üzerinden randevu
@@ -247,6 +248,16 @@ Deno.serve(async (req: Request) => {
                 .eq('id', known.id).eq('organization_id', orgId);
             return reply(M.optedIn(msgCtx()), 'optout');
         }
+
+        // Abonelik kapısı. Bot her mesajda model çağırıyor ve WhatsApp mesajı
+        // gönderiyor — ikisi de PARA. Aboneliği bitmiş org'un botu susmalı.
+        //
+        // DUR/BAŞLAT'tan SONRA: opt-out bir yasal hak, aboneliğe bağlanamaz.
+        // Sessizce çıkılır, müşteriye "aboneliğiniz bitti" yazılmaz — bu
+        // işletmenin müşterisi, bizim değil; onun karşısında işletmeyi mahcup
+        // etmeyiz.
+        const access = await checkAccess(admin, orgId);
+        if (!access.ok) return ok({ skipped: 'no_subscription' });
 
         // AI asistan toggle'ı (Ayarlar → WhatsApp). Kapalıysa bot hiç cevap
         // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.

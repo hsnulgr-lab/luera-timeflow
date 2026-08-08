@@ -1,0 +1,75 @@
+/* Ödeme duvarı ve herkese açık fiyat sayfası.
+ *
+ * DİKKAT: --dc-* değişkenleri `.dash-theme` altında tanımlı (bkz. index.css).
+ * Kök elemanda o sınıf yoksa kenarlık/zemin kısayolları geçersiz olur ve
+ * tarayıcı hepsini atar. */
+
+.pw-page {
+    background: var(--dc-page); color: var(--dc-ink);
+    min-height: 100vh; padding: 28px 20px 64px;
+    display: flex; justify-content: center;
+}
+.pw-shell { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 18px; }
+
+.pw-head { display: flex; align-items: center; justify-content: space-between; }
+.pw-logo { font-size: 20px; font-weight: 900; letter-spacing: -.04em; display: inline-flex; align-items: flex-end; gap: 2px; }
+.pw-logo i { width: 5px; height: 5px; border-radius: 50%; background: var(--dc-orange); margin-bottom: 5px; }
+.pw-out {
+    min-height: 44px; padding: 0 12px; border: 0; background: transparent; cursor: pointer;
+    color: var(--dc-muted); font: inherit; font-size: 13.5px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 7px;
+}
+
+.pw-notice {
+    display: flex; align-items: flex-start; gap: 12px; padding: 15px 17px; border-radius: 15px;
+    border: 1px solid var(--dc-border); background: var(--dc-surface);
+}
+.pw-notice svg { flex: none; margin-top: 1px; }
+.pw-notice b { font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
+.pw-notice p { font-size: 13.5px; line-height: 1.55; color: var(--dc-muted); margin-top: 3px; }
+/* Ödeme alınamadı: dikkat çekmeli ama panik yaratmamalı — kenarlık kırmızı,
+   zemin değil. Kırmızı bir blok, faturasını ödemek üzere olan kullanıcıyı
+   suçlanmış hissettiriyor. */
+.pw-notice.warn { border-color: var(--dc-red); }
+.pw-notice.warn svg { color: var(--dc-red); }
+.pw-notice.info svg { color: var(--dc-orange); }
+
+.pw-h1 { font-size: 27px; font-weight: 900; letter-spacing: -.045em; margin-top: 8px; }
+.pw-sub { font-size: 14.5px; line-height: 1.6; color: var(--dc-muted); max-width: 62ch; text-wrap: pretty; }
+
+.pw-foot {
+    margin-top: 10px; font-size: 13px; color: var(--dc-muted);
+    display: inline-flex; align-items: center; gap: 6px;
+}
+.pw-foot a { color: var(--dc-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Herkese açık /fiyatlar sayfası ── */
+.pw-hero { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; margin: 18px 0 6px; }
+.pw-hero h1 { font-size: 34px; font-weight: 900; letter-spacing: -.05em; line-height: 1.1; }
+.pw-hero p { font-size: 15.5px; line-height: 1.6; color: var(--dc-muted); max-width: 56ch; text-wrap: pretty; }
+.pw-login {
+    min-height: 44px; display: inline-flex; align-items: center; gap: 7px; padding: 0 14px;
+    border: 1px solid var(--dc-border); border-radius: 11px; background: var(--dc-card);
+    color: var(--dc-ink); font-size: 14px; font-weight: 700; text-decoration: none;
+}
+
+.pw-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; margin-top: 6px; }
+.pw-trust span { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--dc-muted); }
+.pw-trust svg { color: var(--dc-green); flex: none; }
+
+.pw-faq { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.pw-faq h2 { font-size: 19px; font-weight: 800; letter-spacing: -.03em; }
+.pw-faq details {
+    border: 1px solid var(--dc-border); border-radius: 13px; background: var(--dc-card); padding: 13px 16px;
+}
+.pw-faq summary {
+    cursor: pointer; font-size: 14.5px; font-weight: 700; letter-spacing: -.01em;
+    list-style: none; min-height: 24px; display: flex; align-items: center;
+}
+.pw-faq summary::-webkit-details-marker { display: none; }
+.pw-faq p { font-size: 13.5px; line-height: 1.6; color: var(--dc-muted); margin-top: 9px; text-wrap: pretty; }
+
+@media (max-width: 700px) {
+    .pw-hero h1 { font-size: 26px; }
+    .pw-h1 { font-size: 22px; }
+}
