@@ -292,6 +292,20 @@ export function notRecognized(c: Ctx): string {
         + `Bizi arayabilir ya da adınızı yazıp yeni bir ${c.comms.serviceWord} alabilirsiniz.`;
 }
 
+/**
+ * Netleştirme sorusu — botun SORU SORDUĞU tek yer.
+ *
+ * Anlaşılmayan mesaja karşılamayı tekrar göndermek, müşteriye "bir daha dene"
+ * demenin kibarcasıydı; canlıda müşteri ikinci denemede de aynı şeyi yazıp
+ * vazgeçiyordu. Numaralı seçenek hem yazmayı kolaylaştırır hem de cevabı
+ * kural katmanında kesin çözülür — modele hiç gidilmez.
+ */
+export function askClarify(c: Ctx, o: { question: string; options: readonly { label: string }[] }): string {
+    const list = o.options.map((op, i) => `*${i + 1}.* ${op.label}`).join('\n');
+    return `${o.question}\n\n${list}\n\n`
+        + `Numarasını yazmanız yeterli; dilerseniz kendi cümlenizle de anlatabilirsiniz. ${c.comms.emoji}`;
+}
+
 export interface HoursLine { label: string; text: string }
 
 export function hoursInfo(c: Ctx, o: { lines: HoursLine[]; phone?: string | null }): string {

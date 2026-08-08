@@ -106,3 +106,67 @@ export function detectTopic(text: string): Topic | null {
     for (const r of RULES) if (r.re.test(s)) return r.topic;
     return null;
 }
+
+// ── Soru sorma (netleştirme) ────────────────────────────────────────────────
+//
+// Bot bugüne kadar HİÇ soru sormuyordu: anlamadığı her mesaja aynı karşılamayı
+// ve hizmet listesini gönderiyordu. Canlıda bildirilen olay tam olarak buydu —
+// "seanslar" yazan müşteri seans ÜCRETİNİ öğrenmek istiyordu, bot ona hizmet
+// listesi attı ve müşteri ne soracağını bilemedi.
+//
+// Herkes derdini düzgün yazamaz. Tek kelimelik ve belirsiz mesajlar tahmin
+// edilmez, SORULUR — üstelik numaralı seçeneklerle: "1" yazmak, cümle kurmaktan
+// kolaydır ve seçim kural katmanında kesin çözülür (detectListChoice), modele
+// hiç gitmez.
+
+export type Clarify =
+    | 'seans'  // "seans" tek başına: ücret mi, kalan seans mı, randevu mu?
+    | 'genel'; // hiçbir şey anlaşılmadı ve karşılama zaten gönderilmişti
+
+/** Seçeneğin karşılığı: ya bir bilgi konusu ya da randevu akışına giriş. */
+export interface ClarifyOption {
+    label: string;
+    topic?: Topic;
+    /** Konu yok: normal randevu akışına düşülür. */
+    book?: boolean;
+}
+
+/**
+ * Seçenekler ve karşılıkları TEK yerde. Metin messages.ts'te, karşılığı burada
+ * olsaydı ikisi kayar ve "2" yazan müşteri başka bir cevap alırdı.
+ */
+export const CLARIFY_OPTIONS: Record<Clarify, readonly ClarifyOption[]> = {
+    seans: [
+        { label: 'Seans ücretlerini öğrenmek', topic: 'price' },
+        { label: 'Kalan seanslarımı görmek', topic: 'my_package' },
+        { label: 'Yeni randevu almak', book: true },
+    ],
+    genel: [
+        { label: 'Randevu almak', book: true },
+        { label: 'Fiyatları öğrenmek', topic: 'price' },
+        { label: 'Çalışma saatlerini öğrenmek', topic: 'hours' },
+        { label: 'Yetkiliyle görüşmek', topic: 'human' },
+    ],
+};
+
+/** Netleştirme sorusunun başlığı. */
+export const CLARIFY_QUESTION: Record<Clarify, string> = {
+    seans: '"Seans" derken hangisini kastettiniz?',
+    genel: 'Tam olarak anlayamadım. Şunlardan hangisi?',
+};
+
+// YALNIZ mesajın TAMAMI bu sözcüklerse belirsizdir. "seanslarım kaç kaldı"
+// zaten my_package'a düşüyor; oradan çalıp soru sormak, cevabı bilinen bir
+// soruyu tekrar sormak olurdu.
+const SEANS_ALONE = /^(seans|seanslar|seanslari|seanslarim?iz|seansi|seans ucreti?|paket|paketler)$/;
+
+/**
+ * Mesaj tek başına birden fazla anlama mı geliyor? Öyleyse hangi soruyu
+ * soracağımız döner. Çağıran bunu detectTopic BAŞARISIZ olduktan sonra sormalı.
+ */
+export function detectClarify(text: string): Clarify | null {
+    if (!text) return null;
+    const s = foldTr(text).replace(/[.!?,]+$/, '').trim();
+    if (SEANS_ALONE.test(s)) return 'seans';
+    return null;
+}

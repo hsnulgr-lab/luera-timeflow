@@ -32,6 +32,12 @@ export const EMPTY_EXTRACTION: Extraction = {
     service: null, date: null, time: null, confirm: null, intent: 'other', topic: null,
 };
 
+/** Konuşmanın önceki turu. */
+export interface Turn {
+    role: 'user' | 'assistant';
+    text: string;
+}
+
 export interface ExtractContext {
     services: { name: string }[];
     today: string;
@@ -41,6 +47,20 @@ export interface ExtractContext {
     message: string;
     /** Kural tabanlı çözücünün zaten bulduğu alanlar; model bunları arayacak. */
     known?: { date?: string | null; time?: string | null };
+    /**
+     * Önceki turlar (eski → yeni), şu anki mesaj HARİÇ.
+     *
+     * Bu eksikti ve botun "hafızası yok" görünmesinin sebebi buydu: modele her
+     * seferinde YALNIZ son mesaj gidiyordu. state alanı topladığımız veriyi
+     * (hizmet/tarih/saat) taşıyor ama konuşmanın kendisini taşımıyor — "peki ya
+     * bir sonraki hafta?" gibi bir cümlenin neye atıf yaptığı state'te yazmaz.
+     */
+    history?: Turn[];
+    /**
+     * Modele düşünme payı (Gemini). 0 = kapalı. Düşünen jetonlar çıktı
+     * bütçesinden yendiği için maxOutputTokens bununla birlikte büyür.
+     */
+    thinkingBudget?: number;
 }
 
 function buildPrompt(ctx: ExtractContext): string {
@@ -68,7 +88,10 @@ function buildPrompt(ctx: ExtractContext): string {
         `my_balance=borcunu soruyor, hours=çalışma saatleri, price=fiyat, ` +
         `location=adres/yol tarifi, human=insanla görüşmek istiyor. Aksi halde null.\n` +
         `TUTAR, TARİH, SAAT VE SEANS SAYISI UYDURMA — topic'i adlandır, cevabı sistem yazacak. ` +
-        `service'i yalnızca listedeki adlardan biriyle eşleştir.`
+        `service'i yalnızca listedeki adlardan biriyle eşleştir.\n` +
+        `Önceki mesajlar konuşma geçmişi olarak verilir; "peki ya sonraki hafta", ` +
+        `"o zaman olmaz" gibi cümleleri o bağlama göre yorumla. Yalnız SON kullanıcı ` +
+        `mesajı için JSON üret.`
     );
 }
 
@@ -94,7 +117,12 @@ function coerce(raw: string | null): Extraction | null {
     }
 }
 
-async function askGroq(key: string, prompt: string, message: string): Promise<Extraction | null> {
+/** Geçmiş turlar + son mesaj; ikisi de aynı sırayla iki sağlayıcıya gider. */
+function turns(ctx: ExtractContext): Turn[] {
+    return [...(ctx.history ?? []), { role: 'user' as const, text: ctx.message }];
+}
+
+async function askGroq(key: string, prompt: string, ctx: ExtractContext): Promise<Extraction | null> {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -102,7 +130,10 @@ async function askGroq(key: string, prompt: string, message: string): Promise<Ex
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 300,
                 response_format: { type: 'json_object' },
-                messages: [{ role: 'system', content: prompt }, { role: 'user', content: message }],
+                messages: [
+                    { role: 'system', content: prompt },
+                    ...turns(ctx).map((t) => ({ role: t.role === 'user' ? 'user' : 'assistant', content: t.text })),
+                ],
             }),
         });
         if (!res.ok) return null;
@@ -113,7 +144,11 @@ async function askGroq(key: string, prompt: string, message: string): Promise<Ex
     }
 }
 
-async function askGemini(key: string, prompt: string, message: string): Promise<Extraction | null> {
+async function askGemini(key: string, prompt: string, ctx: ExtractContext): Promise<Extraction | null> {
+    // Düşünen jetonlar maxOutputTokens'tan DÜŞÜLÜR. Bütçeyi açıp tavanı
+    // büyütmezsek model düşünürken kotayı bitirir ve gövde boş döner —
+    // sessiz bir "model çalışmıyor" arızası.
+    const think = Math.max(0, ctx.thinkingBudget ?? 0);
     try {
         const res = await fetch(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
@@ -122,11 +157,14 @@ async function askGemini(key: string, prompt: string, message: string): Promise<
                 headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
                 body: JSON.stringify({
                     systemInstruction: { parts: [{ text: prompt }] },
-                    contents: [{ parts: [{ text: message }] }],
+                    contents: turns(ctx).map((t) => ({
+                        role: t.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: t.text }],
+                    })),
                     generationConfig: {
                         responseMimeType: 'application/json',
-                        temperature: 0.2, maxOutputTokens: 300,
-                        thinkingConfig: { thinkingBudget: 0 },
+                        temperature: 0.2, maxOutputTokens: 300 + think,
+                        thinkingConfig: { thinkingBudget: think },
                     },
                 }),
             },
@@ -147,15 +185,25 @@ export async function extractWithAi(admin: Admin, ctx: ExtractContext): Promise<
     const prompt = buildPrompt(ctx);
     const primary = ((await getSecret(admin, 'WA_AI_PRIMARY')) || 'groq').toLowerCase();
 
-    const [groqKey, geminiKey] = await Promise.all([
+    const [groqKey, geminiKey, thinkRaw] = await Promise.all([
         getSecret(admin, 'GROQ_API_KEY'),
         getSecret(admin, 'GEMINI_API_KEY'),
+        getSecret(admin, 'WA_AI_THINKING'),
     ]);
+    // Düşünme payı ayarla değişir, deploy gerekmez. '0' yazmak kapatır.
+    // Varsayılan 512: dolaylı cümlelerde ("geçen seferki gibi olsun ama
+    // sabah") gözle görülür fark yapıyor, gecikmeyi ise saniyenin altında
+    // artırıyor. Yalnız Gemini'yi etkiler — Groq'un llama'sı düşünmüyor.
+    const parsed = Number(thinkRaw);
+    const withThink: ExtractContext = {
+        ...ctx,
+        thinkingBudget: thinkRaw !== null && Number.isFinite(parsed) ? Math.max(0, parsed) : 512,
+    };
 
     const providers: { name: string; run: () => Promise<Extraction | null> }[] = [];
     const push = (name: string) => {
-        if (name === 'groq' && groqKey) providers.push({ name, run: () => askGroq(groqKey, prompt, ctx.message) });
-        if (name === 'gemini' && geminiKey) providers.push({ name, run: () => askGemini(geminiKey, prompt, ctx.message) });
+        if (name === 'groq' && groqKey) providers.push({ name, run: () => askGroq(groqKey, prompt, withThink) });
+        if (name === 'gemini' && geminiKey) providers.push({ name, run: () => askGemini(geminiKey, prompt, withThink) });
     };
     push(primary);
     push(primary === 'groq' ? 'gemini' : 'groq');

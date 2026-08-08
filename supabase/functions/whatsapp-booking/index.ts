@@ -15,8 +15,11 @@ import {
 import { detectConfirm, detectIntent, detectListChoice, inboundKind } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
-import { EMPTY_EXTRACTION, extractWithAi, type Extraction } from '../_shared/booking/ai.ts';
-import { detectTopic, PERSONAL, type Topic } from '../_shared/booking/inquiry.ts';
+import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
+import {
+    CLARIFY_OPTIONS, CLARIFY_QUESTION, detectClarify, detectTopic, PERSONAL,
+    type Clarify, type Topic,
+} from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
 import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
 
@@ -44,7 +47,16 @@ import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
 // Slot/tarih/niyet mantığı _shared/booking altında saf modüllerde durur ve
 // tests/wa-booking.test.mjs ile node üzerinden test edilir — buraya kopyalanmaz.
 //
-// Çok turlu: whatsapp_sessions tablosunda toplanan bilgi tutulur.
+// Çok turlu ve HATIRLAR. İki ayrı hafıza var, ikisi de gerekli:
+//   • whatsapp_sessions — toplanan VERİ (hizmet, tarih, saat, akış durumu).
+//     Kararları bu belirler; modele bırakılmaz.
+//   • wa_message_log — konuşmanın KENDİSİ. Son 2 saatin turları modele bağlam
+//     olarak gider. Bu eksikti: modele her seferinde tek bir mesaj gidiyordu
+//     ve "peki ya sonraki hafta" gibi cümleler havada kalıyordu.
+//
+// Bot ANLAMADIĞINDA SORAR. Eskiden anlaşılmayan her mesaja aynı karşılamayı
+// gönderiyordu; "seanslar" yazıp ücret öğrenmek isteyen müşteri hizmet listesi
+// alıyordu. Artık numaralı seçenekle sorulur ve seçim kural katmanında çözülür.
 // ============================================================
 
 const corsHeaders = {
@@ -298,6 +310,36 @@ Deno.serve(async (req: Request) => {
                 { onConflict: 'organization_id,phone' });
         };
 
+        // ── Konuşma geçmişi ──────────────────────────────────────────────────
+        // Modelin "hafızası yok" görünmesinin sebebi buydu: whatsapp_sessions
+        // yalnız TOPLANAN VERİYİ (hizmet/tarih/saat) taşıyordu, konuşmanın
+        // kendisini değil. Modele her seferinde tek bir mesaj gidiyordu; "peki
+        // ya sonraki hafta", "olmadı, önceki daha iyiydi" gibi cümlelerin neye
+        // atıf yaptığı state'te yazmaz.
+        //
+        // Kaynak wa_message_log: zaten yazılıyordu, hiç okunmuyordu. Oturum
+        // ömrüyle (2 saat) sınırlı — dünkü konuşmayı bugüne taşımak, kapanmış
+        // bir konuyu diriltmek olurdu.
+        const HISTORY_TURNS = 8;
+        const { data: histRows } = await admin
+            .from('wa_message_log')
+            .select('direction, body, created_at')
+            .eq('organization_id', orgId).eq('phone', phone)
+            .gte('created_at', new Date(Date.now() - SESSION_TTL_MIN * 60_000).toISOString())
+            .order('created_at', { ascending: false })
+            .limit(HISTORY_TURNS + 2);
+        const histAsc = (histRows ?? []).reverse();
+        // Şu anki mesaj birkaç satır yukarıda log'a yazıldı; iki kez göndermek
+        // modele "kullanıcı aynı şeyi tekrarladı" izlenimi verirdi.
+        if (histAsc.length > 0 && histAsc[histAsc.length - 1].direction === 'in') histAsc.pop();
+        const history: Turn[] = histAsc
+            .filter((r: any) => typeof r.body === 'string' && r.body.trim().length > 0)
+            .slice(-HISTORY_TURNS)
+            .map((r: any) => ({
+                role: r.direction === 'in' ? 'user' as const : 'assistant' as const,
+                text: String(r.body).slice(0, 600),
+            }));
+
         const nowTR = new Date(Date.now() + TZ_OFFSET_MIN * 60_000);
         const todayStr = nowTR.toISOString().slice(0, 10);
         const todayName = nowTR.toLocaleDateString('tr-TR', { weekday: 'long', timeZone: 'UTC' });
@@ -513,16 +555,52 @@ Deno.serve(async (req: Request) => {
         if (intent === 'cancel_appointment') return startAppointmentChange('iptal');
         if (intent === 'reschedule') return startAppointmentChange('ertele');
 
+        // ── Netleştirme sorusunun CEVABI ─────────────────────────────────────
+        // Bir önceki turda numaralı seçenek sunmuştuk. Seçim kural katmanında
+        // çözülür; modele hiç gidilmez, yanlış anlaşılma ihtimali sıfır.
+        let forcedTopic: Topic | null = null;
+        if (state.clarify && msgKind === 'text') {
+            const opts = CLARIFY_OPTIONS[state.clarify as Clarify] ?? [];
+            const choice = detectListChoice(text, opts.length);
+            // Numara gelmediyse soruyu unutup normal akışa dönüyoruz: müşteri
+            // cümleyle cevap vermiş olabilir ("aslında randevu almak istiyorum")
+            // ve aynı soruyu ikinci kez sormak konuşmayı kilitler.
+            state.clarify = null;
+            await saveState();
+            if (choice) {
+                const picked = opts[choice - 1];
+                if (picked.topic) forcedTopic = picked.topic;
+                // book: konu yok, aşağıdaki randevu akışı devralır.
+            }
+        }
+
         // ── B. Bilgi soruları (Dalga 2) ──────────────────────────────────────
         // Kural katmanı konuyu adlandırabiliyorsa modele hiç gidilmez.
-        const ruleTopic: Topic | null = msgKind === 'text' && intent === 'other'
+        const ruleTopic: Topic | null = forcedTopic ?? (msgKind === 'text' && intent === 'other'
             ? detectTopic(text)
+            : null);
+        // Tek başına birden fazla anlama gelen mesaj ("seanslar"): tahmin etmek
+        // yerine SORULUR. Bildirilen olay buydu — seans ücretini soran müşteriye
+        // bot hizmet listesi gönderiyordu.
+        const clarifyKey: Clarify | null = !ruleTopic && !forcedTopic && msgKind === 'text' && intent === 'other'
+            ? detectClarify(text)
             : null;
         // Hizmet adı da kuralla eşleşir. Eskiden bunu YALNIZ model yapıyordu
         // (adı geri yazıyor, kod listeyle karşılaştırıyordu); model bütçesi
         // dolunca hizmet hiç eşleşmedi ve bot her mesaja karşılamayla cevap
         // verip sonsuz döngüye girdi.
         const svcHit = state.serviceId ? { match: null, candidates: [] } : matchService(text, svcArr);
+
+        // Belirsiz mesaj → soru. Gerçek bir hizmet adına denk geliyorsa
+        // ("Seans" diye bir hizmet varsa) soru sorulmaz; randevu akışı işler.
+        if (clarifyKey && !inFlow && !svcHit.match && svcHit.candidates.length === 0) {
+            state.clarify = clarifyKey;
+            await saveState();
+            return reply(M.askClarify(msgCtx(), {
+                question: CLARIFY_QUESTION[clarifyKey],
+                options: CLARIFY_OPTIONS[clarifyKey],
+            }));
+        }
 
         // ── 2. katman: model ─────────────────────────────────────────────────
         // Model VARSAYILAN olarak çağrılır; yalnız kuralın mesajı tamamen
@@ -551,6 +629,7 @@ Deno.serve(async (req: Request) => {
             ? (await extractWithAi(admin, {
                 services: svcArr, today: todayStr, todayName, state, message: text,
                 known: { date: when.date, time: when.time },
+                history,
             }) ?? { ...EMPTY_EXTRACTION })
             : { ...EMPTY_EXTRACTION };
 
@@ -716,13 +795,27 @@ Deno.serve(async (req: Request) => {
         // Hizmet listeden silinmiş ya da adı değişmişse serviceId boş kalır;
         // o zaman bile hizmet SORULMAZ — randevu taşınıyor, yeniden alınmıyor.
         if (!state.serviceId && !state.rescheduleId) {
-            await saveState();
             // "diş" hem "Diş teli" hem "Diş temizliği" olabilir: tahmin etmek
             // yerine iki adayı sorarız. Yanlış hizmetle randevu,
             // randevusuzluktan kötüdür.
             if (svcHit.candidates.length > 1) {
+                await saveState();
                 return reply(M.askWhichService(msgCtx(), svcHit.candidates));
             }
+            // Karşılama BİR KEZ gönderilir. Aynı hizmet listesini ikinci kez
+            // yollamak müşteriye "bir daha dene" demenin kibarcasıydı; canlıda
+            // müşteri ikinci denemede de anlaşılmayınca vazgeçiyordu. İkinci
+            // turda bot artık SORU sorar ve seçenek verir.
+            if (state.greeted) {
+                state.clarify = 'genel';
+                await saveState();
+                return reply(M.askClarify(msgCtx(), {
+                    question: CLARIFY_QUESTION.genel,
+                    options: CLARIFY_OPTIONS.genel,
+                }));
+            }
+            state.greeted = true;
+            await saveState();
             return reply(M.greeting(msgCtx(), svcArr));
         }
         // "Hangi günler müsaitsiniz?" — canlıda bot bu soruya aynı saat

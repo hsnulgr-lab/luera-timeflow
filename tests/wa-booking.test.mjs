@@ -16,7 +16,7 @@ import {
     detectConfirm, detectIntent, detectListChoice, inboundKind,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
-    coerceTopic, detectTopic, PERSONAL,
+    CLARIFY_OPTIONS, CLARIFY_QUESTION, coerceTopic, detectClarify, detectTopic, PERSONAL, TOPICS,
 } from '../supabase/functions/_shared/booking/inquiry.ts';
 import {
     computeBalance, formatTL,
@@ -583,6 +583,86 @@ test('remind saklama temizliğini çağırır', () => {
     assert.match(remind, /purge_wa_message_bodies/);
 });
 
+// ── Bot soru soruyor mu? ────────────────────────────────────────────────────
+// Bildirilen olay: "seanslar" yazan müşteri seans ÜCRETİNİ öğrenmek istiyordu;
+// bot ne konuyu çözebildi ne de sordu — karşılamayı ve hizmet listesini
+// gönderdi. Herkes derdini düzgün yazamaz; anlaşılmayan mesaj tahmin
+// edilmemeli, SORULMALI.
+
+test('"seanslar" tek başına belirsizdir — sorulur', () => {
+    assert.equal(detectClarify('seanslar'), 'seans');
+    assert.equal(detectClarify('Seans'), 'seans');
+    assert.equal(detectClarify('paketler'), 'seans');
+    // Nokta/ünlem cümleyi başka bir şey yapmaz.
+    assert.equal(detectClarify('seanslar?'), 'seans');
+});
+
+test('konusu belli olan cümle soruya düşmez', () => {
+    // Bunlar zaten detectTopic'te çözülüyor; soru sormak, cevabı bilinen bir
+    // soruyu tekrar sormak olurdu.
+    assert.equal(detectTopic('kaç seansım kaldı'), 'my_package');
+    assert.equal(detectClarify('kaç seansım kaldı'), null);
+    assert.equal(detectClarify('seans ücreti ne kadar'), null);
+    assert.equal(detectClarify('yarın 15:00 uygun mu'), null);
+    assert.equal(detectClarify(''), null);
+});
+
+test('her netleştirme seçeneğinin bir karşılığı var', () => {
+    // Metin messages.ts'te, karşılık inquiry.ts'te olsaydı ikisi kayar ve "2"
+    // yazan müşteri başka bir cevap alırdı. Seçenekler TEK yerde tanımlı.
+    for (const [key, opts] of Object.entries(CLARIFY_OPTIONS)) {
+        assert.ok(opts.length >= 2 && opts.length <= 4, `${key}: seçenek sayısı ${opts.length}`);
+        assert.ok(CLARIFY_QUESTION[key], `${key}: soru metni yok`);
+        for (const o of opts) {
+            assert.ok(o.label.trim(), `${key}: etiketsiz seçenek`);
+            assert.ok(o.topic || o.book, `${key}/${o.label}: karşılığı yok`);
+            if (o.topic) assert.ok(TOPICS.includes(o.topic), `${key}: geçersiz konu ${o.topic}`);
+        }
+    }
+});
+
+test('seçim kural katmanında çözülür — modele gitmez', () => {
+    const n = CLARIFY_OPTIONS.seans.length;
+    assert.equal(detectListChoice('1', n), 1);
+    assert.equal(detectListChoice('2.', n), 2);
+    // Sınır dışı seçim rastgele bir seçeneğe düşmez.
+    assert.equal(detectListChoice('9', n), null);
+});
+
+test('karşılama İKİ KEZ gönderilmez, ikinci turda soru sorulur', () => {
+    // Aynı hizmet listesini tekrar yollamak "bir daha dene" demenin
+    // kibarcasıydı; müşteri ikinci denemede de anlaşılmayınca vazgeçiyordu.
+    assert.match(booking, /if \(state\.greeted\) \{/);
+    assert.match(booking, /state\.clarify = 'genel'/);
+    assert.match(booking, /state\.greeted = true/);
+});
+
+// ── Konuşma hafızası ────────────────────────────────────────────────────────
+
+test('modele konuşma geçmişi gider', () => {
+    // Botun "hafızası yok" görünmesinin sebebi buydu: whatsapp_sessions yalnız
+    // TOPLANAN VERİYİ taşıyordu, konuşmanın kendisini değil. wa_message_log
+    // yazılıyor ama hiç okunmuyordu.
+    assert.match(booking, /wa_message_log[\s\S]{0,400}direction, body, created_at/);
+    assert.match(booking, /history,/);
+    assert.match(ai, /history\?: Turn\[\]/);
+    // Geçmiş gerçek konuşma turu olarak gider, prompt'a metin diye gömülmez.
+    assert.match(ai, /turns\(ctx\)\.map/);
+});
+
+test('geçmiş oturum ömrüyle sınırlı', () => {
+    // Dünkü konuşmayı bugüne taşımak, kapanmış bir konuyu diriltmek olurdu.
+    assert.match(booking, /SESSION_TTL_MIN \* 60_000\)\.toISOString\(\)/);
+});
+
+test('düşünme payı ayarla açılır ve çıktı tavanı onunla büyür', () => {
+    // Düşünen jetonlar maxOutputTokens'tan düşülür: bütçeyi açıp tavanı
+    // büyütmezsek model düşünürken kotayı bitirir ve gövde BOŞ döner.
+    assert.match(ai, /WA_AI_THINKING/);
+    assert.match(ai, /maxOutputTokens: 300 \+ think/);
+    assert.match(ai, /thinkingBudget: think/);
+});
+
 // ── Sağlayıcı yedeklemesi ───────────────────────────────────────────────────
 const ai = readFileSync(
     new URL('../supabase/functions/_shared/booking/ai.ts', import.meta.url), 'utf8');
@@ -637,6 +717,9 @@ function allMessages(ctx = CTX) {
         media: MSG.mediaUnsupported(ctx),
         optedOut: MSG.optedOut(ctx),
         optedIn: MSG.optedIn(ctx),
+        askClarify: MSG.askClarify(ctx, {
+            question: CLARIFY_QUESTION.genel, options: CLARIFY_OPTIONS.genel,
+        }),
     };
 }
 
@@ -973,7 +1056,7 @@ test('kural hizmeti bulduysa modele sorulmaz', () => {
 });
 
 test('belirsizlik akışa bağlı — karşılama tekrarlanmıyor', () => {
-    assert.match(booking, /if \(svcHit\.candidates\.length > 1\) \{\s*\n\s*return reply\(M\.askWhichService/);
+    assert.match(booking, /if \(svcHit\.candidates\.length > 1\) \{[\s\S]{0,80}?return reply\(M\.askWhichService/);
 });
 
 // ── Dalga 2: bilgi soruları ─────────────────────────────────────────────────
