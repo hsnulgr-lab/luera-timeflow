@@ -223,6 +223,47 @@ test('iptal edilen abonelik dönem bitmeden kapatılmıyor', () => {
     assert.match(fn('dodo-webhook'), /await mirror\(admin, orgId, type, \{\}\);/);
 });
 
+// ── Tasarım bağlantıları ────────────────────────────────────────────────────
+// Tasarım: Claude Design "Luera Fiyatlandırma.html" (yedi durum).
+
+test('yedi durumun hepsinin bir karşılığı var', () => {
+    const pricing = readFileSync(new URL('../src/pages/public/PricingPage.tsx', import.meta.url), 'utf8');
+    const wall = readFileSync(new URL('../src/pages/PaywallPage.tsx', import.meta.url), 'utf8');
+    const strip = readFileSync(new URL('../src/components/layout/SubscriptionBanner.tsx', import.meta.url), 'utf8');
+    const tab = readFileSync(new URL('../src/components/settings/BillingTab.tsx', import.meta.url), 'utf8');
+
+    assert.match(pricing, /className="hero"/);          // 1 — fiyat sayfası
+    assert.match(pricing, /className="explain"/);       //     deneme açıklaması
+    assert.match(pricing, /className="trust"/);
+    assert.match(pricing, /className="faq"/);
+    assert.match(wall, /badge n pausing/);              // 2 — deneme bitti
+    assert.match(wall, /className="keep"/);
+    assert.match(wall, /countdown live/);               // 3 — ödeme alınamadı
+    assert.match(strip, /className="strip"/);           // 4 — şerit
+    assert.match(wall, /className="receipt"/);          // 5 — ödeme sonrası
+    assert.match(wall, /badge n"><Ico n="loading"/);    //     işleniyor
+    assert.match(tab, /box hero-box/);                  // 6 — faturalandırma
+    assert.match(tab, /Fatura geçmişi/);
+});
+
+test('tasarımın CSS\'i kapsayıcı sınıfla korunuyor', () => {
+    // Tasarım `.plan`, `.wall`, `.btn`, `.price` gibi GENEL adlar kullanıyor;
+    // kapsayıcı olmadan uygulamanın başka ekranlarına sızarlardı.
+    const css = readFileSync(new URL('../src/pages/billing.css', import.meta.url), 'utf8');
+    const bare = css.split('\n').filter((l) => /^\.(?!bl\b)[a-z]/.test(l));
+    assert.deepEqual(bare, [], `kapsayıcısız seçici: ${bare.join(', ')}`);
+    // Renk jetonları kopyalanmadı — uygulamanın kendi seti kullanılıyor.
+    assert.ok(!/--dc-page:\s*#/.test(css), 'jeton değeri kopyalanmamalı');
+    assert.match(css, /dash-theme/, 'jeton kapsamı uyarısı dosyada kalmalı');
+});
+
+test('mobilde en popüler plan başa alınır', () => {
+    // Telefonda üç kartı alt alta kaydırmak zorunda kalan kullanıcı çoğu zaman
+    // ilkini seçiyor; tasarım Pro'yu CSS sırasıyla öne alıyor.
+    const css = readFileSync(new URL('../src/pages/billing.css', import.meta.url), 'utf8');
+    assert.match(css, /\.plan\.pop\{order:-1\}/);
+});
+
 // ── SQL ile TS aynı şeyi söylemeli ──────────────────────────────────────────
 // İkisi ayrışırsa RLS bir şey, arayüz başka bir şey söyler: kullanıcı ekranı
 // görür ama kaydedemez.

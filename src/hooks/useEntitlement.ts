@@ -18,6 +18,9 @@ export interface Entitlement extends Access {
     loading: boolean;
     /** Kapı kapalı — /abonelik'e yönlendirilmeli. */
     locked: boolean;
+    /** Satırdaki plan/dönem — duvar "Pro planı aktif" diyebilsin diye. */
+    plan: string | null;
+    cycle: string | null;
     refresh: () => Promise<void>;
 }
 
@@ -68,6 +71,8 @@ export function useEntitlement(): Entitlement {
     const access = computeAccess(loaded?.row);
     return {
         ...access,
+        plan: loaded?.row?.plan ?? null,
+        cycle: loaded?.row?.cycle ?? null,
         loading,
         // Yalnız satır GERÇEKTEN okunduysa kilitlenir.
         locked: !loading && loaded !== null && !access.ok,
