@@ -341,12 +341,16 @@
 }
 .sw-steps3 { display: flex; flex-direction: column; gap: 11px; flex: 1; min-width: 230px; }
 .sw-s3 { display: flex; gap: 11px; align-items: flex-start; font-size: 14px; }
-.sw-s3 b {
+/* Numara rozeti YALNIZ doğrudan çocuk. Torun seçici (`.sw-s3 b`) adım
+   metninin içindeki vurguyu — "Ayarlar → **Bağlı cihazlar**" — 23px'lik siyah
+   bir daireye çeviriyor, yazı dairenin altında eziliyordu. */
+.sw-s3 > b {
     width: 23px; height: 23px; border-radius: 50%; background: var(--dc-ink);
     color: var(--dc-inkbox-fg); font-size: 12px; font-weight: 800; display: grid;
     place-items: center; flex: none; margin-top: 1px;
 }
-.dash-theme.dark .sw-s3 b { background: var(--dc-surface2); color: var(--dc-ink); }
+.sw-s3 span b { font-weight: 800; color: var(--dc-ink); }
+.dash-theme.dark .sw-s3 > b { background: var(--dc-surface2); color: var(--dc-ink); }
 
 .sw-aibox {
     border: 1.5px solid var(--dc-border); background: var(--dc-surface); border-radius: 13px;
