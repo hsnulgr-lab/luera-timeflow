@@ -77,7 +77,9 @@ export function SetupBanner() {
                     </span>
                 </div>
                 <span className="bar"><i style={{ width: `${progress.percent}%` }} /></span>
-                <button className="sw-btn" onClick={() => navigate('/kurulum')}>
+                {/* Kaldığı yerden: adım anahtarı adreste taşınır. Şerit "1 adım
+                    kaldı" deyip sihirbaz baştan açılırsa vaat tutulmamış olur. */}
+                <button className="sw-btn" onClick={() => navigate(`/kurulum?adim=${progress.next}`)}>
                     Devam et<ArrowRight size={18} />
                 </button>
                 <button className="x" aria-label="Şimdilik gizle"

@@ -132,6 +132,23 @@ test('/kurulum artık ulaşılabilir', () => {
     assert.match(layout, /<SetupBanner \/>/);
 });
 
+test('şerit sihirbazı KALDIĞI YERDEN açar', () => {
+    // Bildirilen hata: şerit "%88, 1 adım kaldı" derken "Devam et" sihirbazı
+    // karşılama ekranından başlatıyordu — bitmiş yedi adım yeniden geziliyordu.
+    const banner = readFileSync(new URL('../src/components/layout/SetupBanner.tsx', import.meta.url), 'utf8');
+    assert.match(banner, /\/kurulum\?adim=\$\{progress\.next\}/);
+    assert.match(wizard, /searchParams\.get\('adim'\)/);
+    // Anahtar tutulur, indis değil: sektör verisi gelince "Kaynak" adımı
+    // listeye girip çıkıyor ve indis başka bir adıma kayıyordu.
+    assert.match(wizard, /useState<StepKey>/);
+    assert.ok(!/setStepIdx/.test(wizard), 'adım indisle tutulmamalı');
+});
+
+test('kurulumda sidebar daralır', () => {
+    assert.match(layout, /const onSetup = path\.startsWith\('\/kurulum'\)/);
+    assert.match(layout, /onKasa \|\| onPackages \|\| onSetup/);
+});
+
 test('sektör sözcükleri gömülü değil', () => {
     // Tasarımın kuralı: "Ünite", "Koltuk", "Tedavi" sektöre göre değişir.
     // Bileşenin içinde sabit yazılırsa 13 sektörden 12'sinde yanlış olur.

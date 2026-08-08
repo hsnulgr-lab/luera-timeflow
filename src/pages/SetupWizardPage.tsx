@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from 'sonner';
@@ -88,7 +88,18 @@ export function SetupWizardPage() {
     const { profile: org, savePartial, uploadImage } = useOrgProfile();
     const { connection, refresh: refreshWa } = useWhatsApp();
 
-    const [stepIdx, setStepIdx] = useState(0);
+    // Nerede duracağımız İNDİS değil ANAHTAR olarak tutulur. İndis tutulsaydı
+    // sektör verisi geldiğinde "Kaynak" adımı listeye girip çıktığı için
+    // kullanıcı bir anda başka bir adımda buluyordu kendini.
+    //
+    // Başlangıç adımı şeritten gelir (/kurulum?adim=identity). Şerit "1 adım
+    // kaldı" deyip sihirbazı en baştan açmak, bitmiş yedi adımı yeniden
+    // gezdirmek demekti — kullanıcının bildirdiği hata buydu.
+    const [searchParams] = useSearchParams();
+    const [stepKey, setStepKey] = useState<StepKey>(() => {
+        const q = searchParams.get('adim');
+        return SETUP_STEPS.some((s) => s.key === q) ? q as StepKey : 'welcome';
+    });
     const [saving, setSaving] = useState(false);
     const [finished, setFinished] = useState(false);
 
@@ -128,7 +139,9 @@ export function SetupWizardPage() {
     // Kaynak kavramı olmayan sektörde (danışmanlık, restoran) o adım hiç
     // gösterilmez. "Kaç danışma odanız var" sorusu kullanıcıyı şaşırtıyordu.
     const steps = SETUP_STEPS.filter((s) => s.key !== 'resources' || resourceTypes.length > 0);
+    const stepIdx = Math.max(0, steps.findIndex((s) => s.key === stepKey));
     const step = steps[stepIdx];
+    const goStep = (i: number) => setStepKey(steps[Math.min(Math.max(i, 0), steps.length - 1)].key);
     const serviceWord = sp.labels?.service || 'Hizmet';
 
     /** Hizmet satırları sektör seçilene kadar hazırlanamaz — ilk girişte kurulur. */
@@ -235,7 +248,7 @@ export function SetupWizardPage() {
             setSkipped((s) => { const n = new Set(s); n.delete(step.key); return n; });
         }
         stopQr();
-        if (stepIdx < steps.length - 1) setStepIdx(stepIdx + 1);
+        if (stepIdx < steps.length - 1) goStep(stepIdx + 1);
         else setFinished(true);
     }
 
@@ -279,7 +292,7 @@ export function SetupWizardPage() {
     const foot = (why: React.ReactNode, actions: React.ReactNode) => (
         <div className="sw-foot">
             {stepIdx > 0 && !finished && (
-                <button className="sw-btn bare" onClick={() => { stopQr(); setStepIdx(stepIdx - 1); }}>
+                <button className="sw-btn bare" onClick={() => { stopQr(); goStep(stepIdx - 1); }}>
                     <ArrowLeft size={18} />Geri
                 </button>
             )}
@@ -343,7 +356,7 @@ export function SetupWizardPage() {
                                     {s.skip && s.go
                                         ? <button className="fix" onClick={() => {
                                             const i = steps.findIndex((x) => x.key === s.go);
-                                            if (i >= 0) { setFinished(false); setStepIdx(i); }
+                                            if (i >= 0) { setFinished(false); goStep(i); }
                                         }}>Şimdi ekle</button>
                                         : <Check size={18} className="ok" />}
                                 </div>
@@ -429,7 +442,7 @@ export function SetupWizardPage() {
                         <span className="sw-time"><Clock size={16} />Yaklaşık 6 dakika sürer</span>
                     </div>
                     {foot("Girdiğiniz her şey sonradan Ayarlar'dan değişir.",
-                        <button className="sw-btn pri big" onClick={() => setStepIdx(1)}>Başlayalım<ArrowRight size={20} /></button>)}
+                        <button className="sw-btn pri big" onClick={() => goStep(1)}>Başlayalım<ArrowRight size={20} /></button>)}
                 </>)}
 
                 {/* ── 2 · Sektör ── */}

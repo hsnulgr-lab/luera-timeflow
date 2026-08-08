@@ -27,7 +27,11 @@ export const Layout = () => {
     // Takvim bütün sektörlerde bir odak çalışma alanıdır; dar sidebar programa
     // daha fazla alan verir.
     const onCalendar = path === '/calendar';
-    const collapsed = onKasa || onPackages || (onCalendar ? calendarCollapsed : isCollapsed);
+    // Kurulum sihirbazı odaklanılacak tek iş: dolu bir menü, "önce şunu mu
+    // yapsam" diye dallandırıp kurulumu yarıda bıraktırıyor. Daraltıyoruz,
+    // kapatmıyoruz — kullanıcı istediği an çıkabilmeli.
+    const onSetup = path.startsWith('/kurulum');
+    const collapsed = onKasa || onPackages || onSetup || (onCalendar ? calendarCollapsed : isCollapsed);
     // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
     usePendingBillsAlert();
 
