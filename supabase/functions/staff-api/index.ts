@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSecret } from '../_shared/wa.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
+import { can, canTouchReservation } from '../_shared/staffPerms.ts';
 import {
     hashPin, mintStaffToken, safeEqual, verifyStaffToken,
     DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS,
@@ -42,7 +43,16 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-type Action = 'device.pair' | 'roster' | 'session.start' | 'session.refresh' | 'me';
+type Action =
+    | 'device.pair' | 'roster' | 'session.start' | 'session.refresh' | 'me'
+    // ── Kumanda (mobil personel modu) ────────────────────────────────────────
+    | 'agenda'         // bugünün kendi randevuları
+    | 'visit.start'    // işleme başla
+    | 'visit.items'    // adisyon kalemleri (hizmet / malzeme / ekstra)
+    | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
+    | 'catalog'        // hizmet + ürün listesi (tek turda)
+    | 'customer'       // müşteri kartı
+    | 'performance';   // kendi cirosu
 
 interface StaffRow {
     id: string;
@@ -247,6 +257,213 @@ Deno.serve(async (req: Request) => {
                 // Yetki listesi DEĞİL rol dönüyor: izin haritası tek kaynakta
                 // (lib/staffPermissions) yaşıyor ve token onu taşımıyor.
                 staff: { id: me.id, name: me.name, color: me.color, role: me.role || 'staff' },
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // KUMANDA UÇLARI
+        // ────────────────────────────────────────────────────────────────────
+        // Tasarım: "Luera Mobil - Kumanda.html". Hepsi token'daki staff_id ve
+        // org ile sınırlıdır; gövdeden gelen kimliğe ASLA güvenilmez.
+        //
+        // Yeni tablo AÇILMADI. Ziyaret zaten reservations'ta modellenmiş:
+        //   arrived_at        → işleme başlama anı (sayaç bunu okur)
+        //   adisyon_items     → sırasında eklenen kalemler (jsonb)
+        //   service_ended_at  → personelin bitirdiği an
+        //   status=completed & is_paid=false → kasada bekleyen adisyon
+        // Masaüstü aynı alanları kullanıyor; ayrı bir "visit" tablosu açmak
+        // aynı gerçeğin iki kaydı olurdu ve ikisi bir gün ayrışırdı.
+        // ════════════════════════════════════════════════════════════════════
+
+        const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
+            + 'service, service_color, status, staff_id, notes, arrived_at, service_ended_at, '
+            + 'adisyon_items, is_paid';
+
+        /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
+        const loadOwnReservation = async (id: unknown) => {
+            if (typeof id !== 'string' || !id) return { err: json({ error: 'reservation_required' }, 400) };
+            const { data } = await admin.from('reservations').select(RES_COLS)
+                .eq('id', id).eq('organization_id', me.organization_id).maybeSingle();
+            if (!data) return { err: json({ error: 'not_found' }, 404) };
+            if (!canTouchReservation(me.role, me.id, data.staff_id)) {
+                await audit(me.organization_id, me.id, 'visit.forbidden');
+                return { err: json({ error: 'forbidden' }, 403) };
+            }
+            return { res: data };
+        };
+
+        if (action === 'agenda') {
+            // Gün, istemciden gelir ama biçimi doğrulanır: serbest metin
+            // sorguya girmemeli.
+            const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
+                ? body.date
+                : new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+
+            let q = admin.from('reservations').select(RES_COLS)
+                .eq('organization_id', me.organization_id)
+                .eq('date', date)
+                .neq('status', 'cancelled')
+                .order('start_time');
+            // Kendi randevusu kuralı SORGUDA uygulanır; filtreyi arayüze
+            // bırakmak, isteği elle atan birine tüm salonu açardı.
+            if (!can(me.role, 'appointments:view-all')) q = q.eq('staff_id', me.id);
+
+            const { data, error } = await q;
+            if (error) { console.error('agenda', error); return json({ error: 'lookup_failed' }, 500); }
+            return json({ ok: true, date, appointments: data ?? [] });
+        }
+
+        if (action === 'visit.start') {
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            if (res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+            // İkinci kez başlatmak sayacı sıfırlar — bu bir hata değil, veri
+            // kaybı. Zaten başlamışsa mevcut damgayı KORU.
+            const patch: Record<string, unknown> = {};
+            if (!res!.arrived_at) patch.arrived_at = new Date().toISOString();
+            if (res!.status === 'pending') patch.status = 'confirmed';
+            if (Object.keys(patch).length > 0) {
+                const { error } = await admin.from('reservations').update(patch).eq('id', res!.id);
+                if (error) { console.error('visit.start', error); return json({ error: 'write_failed' }, 500); }
+            }
+            await audit(me.organization_id, me.id, 'visit.start');
+            return json({ ok: true, reservation: { ...res, ...patch } });
+        }
+
+        if (action === 'visit.items') {
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            if (res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+            // Kalemler sunucuda TEMİZLENİR: fiyat sayı mı, ad var mı, tür
+            // geçerli mi. İstemciden gelen jsonb'yi olduğu gibi yazmak,
+            // adisyona keyfi alan sokabilmek demekti.
+            const raw = Array.isArray(body.items) ? body.items : null;
+            if (!raw) return json({ error: 'items_required' }, 400);
+            if (raw.length > 40) return json({ error: 'too_many_items' }, 400);
+            const items = raw.map((it: Record<string, unknown>) => ({
+                id: String(it?.id ?? crypto.randomUUID()).slice(0, 64),
+                name: String(it?.name ?? '').trim().slice(0, 120) || 'Kalem',
+                price: Math.max(0, Math.round(Number(it?.price) || 0)),
+                kind: it?.kind === 'product' ? 'product' : 'extra',
+                ...(typeof it?.productId === 'string' ? { productId: it.productId } : {}),
+                ...(Number(it?.qty) > 1 ? { qty: Math.min(99, Math.round(Number(it.qty))) } : {}),
+            }));
+            const { error } = await admin.from('reservations')
+                .update({ adisyon_items: items }).eq('id', res!.id);
+            if (error) { console.error('visit.items', error); return json({ error: 'write_failed' }, 500); }
+            return json({ ok: true, items });
+        }
+
+        if (action === 'visit.finish') {
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            // Aynı isteğin iki kez gelmesi (kötü sinyalde kuyruk tekrarı)
+            // HATA DEĞİL: zaten bitmişse aynı cevabı dön. Idempotency.
+            if (res!.status === 'completed') {
+                return json({ ok: true, alreadyFinished: true, reservation: res });
+            }
+            const now = new Date().toISOString();
+            const { error } = await admin.from('reservations')
+                .update({ status: 'completed', service_ended_at: now, ...(res!.arrived_at ? {} : { arrived_at: now }) })
+                .eq('id', res!.id).neq('status', 'completed');
+            if (error) { console.error('visit.finish', error); return json({ error: 'write_failed' }, 500); }
+
+            // Stok düşümü BURADA, kalem eklenirken değil: kalemler işlem
+            // sırasında ekleniyor ve çıkarılıyor; her dokunuşta stok oynatmak
+            // ambarı personelin fikir değişikliğine bağlardı.
+            const items = Array.isArray(res!.adisyon_items) ? res!.adisyon_items : [];
+            const used = items.filter((i: Record<string, unknown>) => i?.kind === 'product' && i?.productId);
+            if (used.length > 0) {
+                const rows = used.map((i: Record<string, unknown>) => ({
+                    organization_id: me.organization_id,
+                    product_id: i.productId,
+                    delta: -(Number(i.qty) || 1),
+                    reason: 'hizmet',
+                    reservation_id: res!.id,
+                    note: `${me.name} · ${res!.service}`,
+                }));
+                // Stok yazımı başarısız olursa işlem GERİ ALINMAZ: hizmet
+                // gerçekten yapıldı, adisyon kasaya gitmeli. Sayım hatası
+                // düzeltilebilir, kaybolan adisyon düzeltilemez.
+                const { error: stockErr } = await admin.from('stock_movements').insert(rows);
+                if (stockErr) console.error('visit.finish stok', stockErr);
+            }
+
+            const total = items.reduce((s: number, i: Record<string, unknown>) =>
+                s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
+            await audit(me.organization_id, me.id, 'visit.finish');
+            return json({ ok: true, total, itemCount: items.length, endedAt: now });
+        }
+
+        if (action === 'catalog') {
+            // Hizmet ve ürün TEK turda: kötü sinyalde iki ayrı istek, ikisinden
+            // birinin düşmesi demek. Kumanda sık sık bodrum katında açılıyor.
+            const [{ data: services }, { data: products }] = await Promise.all([
+                admin.from('services').select('id, name, duration, price, color')
+                    .eq('organization_id', me.organization_id).order('name'),
+                admin.from('products').select('id, name, price, unit, kind, tracks_stock')
+                    .eq('organization_id', me.organization_id).eq('is_active', true).order('name'),
+            ]);
+            return json({ ok: true, services: services ?? [], products: products ?? [] });
+        }
+
+        if (action === 'customer') {
+            if (!can(me.role, 'patients:view')) return json({ error: 'forbidden' }, 403);
+            const cid = typeof body.customerId === 'string' ? body.customerId : '';
+            if (!cid) return json({ error: 'customer_required' }, 400);
+            const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+            const [{ data: c }, { data: past }, { data: packs }, { data: rules }] = await Promise.all([
+                // Risk bayrakları AYRI bir kolonda değil, custom_fields
+                // içinde yaşıyor (076); kuralların kendisi settings.risk_rules'ta.
+                // İkisini de dönüyoruz, eşlemeyi istemci yapıyor — kural
+                // motorunu iki yerde çalıştırmak ikisinin ayrışması demekti.
+                admin.from('customers').select('id, name, phone, notes, custom_fields')
+                    .eq('organization_id', me.organization_id).eq('id', cid).maybeSingle(),
+                admin.from('reservations').select('id, date, service, status')
+                    .eq('organization_id', me.organization_id).eq('customer_id', cid)
+                    .lt('date', today).order('date', { ascending: false }).limit(10),
+                admin.from('customer_packages').select('id, name, total_sessions, used_sessions')
+                    .eq('organization_id', me.organization_id).eq('customer_id', cid),
+                admin.from('settings').select('risk_rules')
+                    .eq('organization_id', me.organization_id).limit(1).maybeSingle(),
+            ]);
+            if (!c) return json({ error: 'not_found' }, 404);
+            // Tahsilat ve borç BİLİNÇLİ olarak dönmüyor: kumandanın işi hizmet,
+            // finans değil. Kasa yetkisi olan personel masaüstünü kullanır.
+            return json({
+                ok: true, customer: c, history: past ?? [], packages: packs ?? [],
+                riskRules: rules?.risk_rules ?? [],
+            });
+        }
+
+        if (action === 'performance') {
+            // Personelin kendi cirosunu görmesi AYARLANABİLİR: bazı işletme
+            // sahipleri personeller arası kıyas istemiyor. Kapalıysa uç 403
+            // döner ve arayüz sekmeyi hiç göstermez.
+            const { data: st } = await admin.from('settings')
+                .select('staff_can_see_revenue')
+                .eq('organization_id', me.organization_id).limit(1).maybeSingle();
+            if (st?.staff_can_see_revenue !== true) return json({ error: 'disabled' }, 403);
+
+            const now = new Date(Date.now() + 3 * 3600_000);
+            const today = now.toISOString().slice(0, 10);
+            const weekAgo = new Date(now.getTime() - 6 * 86_400_000).toISOString().slice(0, 10);
+            const { data: done } = await admin.from('reservations')
+                .select('date, service, adisyon_items')
+                .eq('organization_id', me.organization_id).eq('staff_id', me.id)
+                .eq('status', 'completed').gte('date', weekAgo).lte('date', today);
+
+            const rows = done ?? [];
+            const sumOf = (r: Record<string, unknown>) => {
+                const items = Array.isArray(r.adisyon_items) ? r.adisyon_items : [];
+                return items.reduce((s: number, i: Record<string, unknown>) =>
+                    s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
+            };
+            const todayRows = rows.filter((r) => r.date === today);
+            return json({
+                ok: true,
+                today: { count: todayRows.length, total: todayRows.reduce((s, r) => s + sumOf(r), 0) },
+                week: { count: rows.length, total: rows.reduce((s, r) => s + sumOf(r), 0) },
             });
         }
 
