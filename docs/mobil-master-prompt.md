@@ -99,6 +99,46 @@ Cam davranışı: kaydırınca tab bar küçülür ve içerik altından geçerke
 aktif sekme camın içinde kayan bir vurgu olarak hareket eder. Erişilebilirlikte
 "saydamlığı azalt" açıksa cam **opak bir yüzeye düşer** — bu hâli de tasarla.
 
+## Yerleşim dili — Instagram ana ekranı, seçerek
+
+Referans: Instagram'ın ana ekranı. Ama **taklit değil, seçerek alıntı.**
+Instagram bir *tüketim* uygulaması, biz bir *iş* uygulamasıyız; sonsuz kaydırma
+onların hedefi, bizim kaçındığımız şey.
+
+**ALINACAKLAR:**
+
+1. **Hikâye şeridi → PERSONEL ŞERİDİ.** Müdür ana ekranının en üstünde yatay
+   kayan yuvarlak avatarlar. Instagram'da halka "yeni içerik var" der; burada
+   **durum** der: turuncu dolu halka = şu an işlemde (içinde küçük süre),
+   yeşil = müsait, gri = bugün çalışmıyor, kesik çizgi = izinli. Dokununca o
+   personelin günü açılır. Müdür telefonu açtığı an salonun tamamını görür.
+2. **Akış (feed) → GÜNÜN OLAYLARI.** Müdür ana ekranının gövdesi bir tablo
+   değil, kronolojik bir akış: "10:30 · Ayşe geldi", "Mert · Saç boyama başladı
+   (24 dk)", "₺450 tahsilat alındı", "Yeni randevu: yarın 14:00". Kartlar
+   **kenardan kenara**, aralarında ince ayırıcı, içeride bol nefes.
+3. **Kroma yokluğu.** Instagram'ın ana ekranında üstte logo + iki ikon, altta
+   tab bar, arada BAŞKA HİÇBİR ŞEY yok. Bizim "cam yalnız kabukta" kararımızla
+   birebir örtüşüyor: araya araç çubuğu, filtre satırı, sekme grubu koyma.
+4. **Aşağı çekip yenileme** ve akışın sonunda "bugünlük bu kadar" bitişi.
+5. **Kartın içinde eylem.** Instagram'da beğeni/yorum kartın içindedir, ayrı bir
+   menüde değil. Bizde de: randevu kartının içinde *"Geldi"*, adisyon kartının
+   içinde *"Tahsil et"*. Üç nokta menüsüne gömme.
+
+**ALINMAYACAKLAR — ve nedenleri:**
+
+1. **PERSONEL KUMANDASI AKIŞ DEĞİL.** Kumandanın işi personeli ekranda tutmak
+   değil, **üç dokunuşta ekrandan kurtarmak.** Personel ana ekranı tek bir büyük
+   karttır: sıradaki randevu ve tek buton. Oraya feed koymak, müşteri karşıda
+   beklerken personeli kaydırtmak olur.
+2. **Tab bar yalnız ikon OLMAYACAK.** Instagram ikonları etiketsiz çünkü
+   milyarlarca insan onları ezbere biliyor. "Kasa" ve "Uzmanlar" ikonlarını
+   kimse bilmiyor; 40–55 yaş kitlede etiketsiz tab bar doğrudan kayıptır.
+   **İkon + küçük etiket.**
+3. **Sonsuz kaydırma yok.** Akış günle sınırlıdır ve biter. Dünü görmek ayrı bir
+   eylemdir.
+4. **Görsel ağırlıklı düzen yok.** Instagram'ın kartı fotoğraftır; bizim
+   kartımız metin ve rakamdır. Boş fotoğraf alanı bırakma, tipografiyle çalış.
+
 ## Renkler — ürünün mevcut paleti
 
 Sıcak-nötr krem/kahve. Turuncu **tek** vurgu rengi, bol kullanılmaz.
@@ -123,18 +163,20 @@ sıkı harf aralığı (-0.03em); gövde 15–16 pt, 500–600.
 ## Tasarlanacak ekranlar
 
 ### Ortak kabuk
-1. **Tab bar** — en fazla 5 sekme. Müdür ve personel için ayrı sekme setleri.
-   Kaydırınca küçülen hâlini de göster.
+1. **Tab bar** — en fazla 5 sekme, **ikon + küçük etiket** (etiketsiz değil).
+   Müdür ve personel için ayrı sekme setleri. Kaydırınca küçülen hâlini de
+   göster: etiketler kaybolur, ikonlar kalır, cam daralır.
 2. **Üst bar** — işletme adı/kullanıcı, bildirim zili, mod değiştirici (müdür).
 3. **Bottom sheet** — yarım ve tam yükseklik varyantları.
 
 ### PERSONEL MODU (kumanda) — asıl iş burada
 4. **Giriş** — cihaz eşleştirme kodu → personel listesinden kendini seç → 4
    haneli PIN. Üç adım, her biri tek ekran. Yanlış PIN'de kilitlenme uyarısı.
-5. **Bugün (ana ekran)** — ekranın yarısını **sıradaki randevu** kaplar: müşteri
-   adı, hizmet, saat, tek büyük buton *"İşleme başla"*. Altında günün kalan
-   randevuları küçük satırlar hâlinde. Devam eden bir işlem varsa en üstte canlı
-   sayaçlı bir şerit.
+5. **Bugün (ana ekran)** — **bu ekran akış DEĞİL.** Ekranın yarısını
+   **sıradaki randevu** kaplar: müşteri adı, hizmet, saat, tek büyük buton
+   *"İşleme başla"*. Altında günün kalan randevuları küçük satırlar hâlinde,
+   kaydırma gerektirmeyecek kadar az. Devam eden bir işlem varsa en üstte canlı
+   sayaçlı bir şerit ve o şerit her yerden işleme dönmeyi sağlar.
 6. **Randevu detayı** — müşteri bilgisi, hizmet, süre, not; müşteri kartına geçiş.
 7. **DEVAM EDEN İŞLEM** *(en önemli ekran)* — büyük canlı süre sayacı; üç eylem:
    *hizmet ekle*, *malzeme ekle*, *not/fotoğraf ekle*; altta tek belirgin buton
@@ -151,8 +193,17 @@ sıkı harf aralığı (-0.03em); gövde 15–16 pt, 500–600.
 13. **Profil** — bildirim izni, tema, çıkış.
 
 ### MÜDÜR MODU (cep paneli)
-14. **Bugünün akışı** — ciro, doluluk oranı, gelen/gelmeyen, bekleyen adisyon,
-    WhatsApp botunun durumu. Kart ızgarası, tek bakışta okunur.
+14. **Bugünün akışı (müdür ana ekranı)** — Instagram yerleşimi burada uygulanır:
+    - **En üstte personel şeridi**: yatay kayan yuvarlak avatarlar, durum
+      halkalarıyla (işlemde / müsait / çalışmıyor / izinli).
+    - **Altında özet şeridi**: ciro, doluluk, bekleyen adisyon — üç rakam, tek
+      satır, kart ızgarası değil.
+    - **Gövde: günün olayları akışı.** Kronolojik, kenardan kenara kartlar;
+      randevu geldi/gelmedi, işlem başladı/bitti, tahsilat, yeni online randevu,
+      WhatsApp devri. Kartın içinde eylem (*Geldi*, *Tahsil et*), üç nokta
+      menüsünde değil.
+    - Aşağı çekip yenileme; akışın sonunda "bugünlük bu kadar" bitişi. Sonsuz
+      kaydırma yok — dün ayrı bir eylem.
 15. **Takvim** — gün görünümü, personel sütunları; telefonda yatay kaydırma.
 16. **Hızlı randevu oluştur** — müşteri ara/ekle → hizmet → gün → saat. Dört adım.
 17. **Müşteriler** — arama, son gelenler, müşteri kartı.
