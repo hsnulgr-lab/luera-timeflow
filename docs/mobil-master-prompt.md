@@ -253,9 +253,53 @@ o ekran ikiye bölünmeli.
 
 ## Görev
 
-`Luera TimeFlow Mobil.html` tasarımını **Expo / React Native** uygulamasına
+**`Luera Mobil - Kumanda.html`** tasarımını **Expo / React Native** uygulamasına
 çevir. Tasarım dosyası tek kaynaktır: ölçüler, renkler, boşluklar ve akış oradan
 gelir; kendinden yeni ekran uydurma.
+
+> Müdür modu ve durum ekranları **ikinci bir tasarım dosyasında** gelecek. Bu
+> turda yalnız ortak kabuk + personel kumandası yazılır; mimariyi müdür modu
+> sonradan eklenebilecek şekilde kur (rota grubu, sekme seti ve tema
+> tek yerden gelsin).
+
+## Tasarımdaki ekranlar → rotalar
+
+Tasarım 6 kabuk örneği + 14 personel ekranı içeriyor. Eşleme:
+
+| Tasarım | Rota / bileşen |
+|---|---|
+| Kabuk 01–02 · tab bar (personel/müdür seti, küçülmüş hâl) | `app/(staff)/_layout.tsx` → `NativeTabs` |
+| Kabuk 03 · saydamlığı azalt | kabuk bileşeninde erişilebilirlik dalı |
+| Kabuk 04–05 · bottom sheet (yarım / tam) | ortak `Sheet` bileşeni |
+| Kabuk 06 · personel durum halkaları | ortak `StatusRing` (müdür modunda da kullanılacak) |
+| Personel 01–03 · cihaz eşleştirme → kendini seç → PIN | `app/(auth)/pair`, `/who`, `/pin` |
+| Personel 04–05 · Bugün (boş / devam eden işlem var) | `app/(staff)/index.tsx` |
+| Personel 06 · randevu detayı | `app/(staff)/appointment/[id].tsx` |
+| **Personel 07 · devam eden işlem** | `app/(staff)/visit/[id].tsx` — **en kritik ekran** |
+| Personel 08–09 · hizmet / malzeme ekleme sheet'i | aynı rota içinde sheet |
+| Personel 10–11 · bitir özeti → gönderildi onayı | aynı rota içinde adım |
+| Personel 12 · müşteri kartı | `app/(staff)/customer/[id].tsx` |
+| Personel 13 · performansım | `app/(staff)/performance.tsx` (kapatılabilir sekme) |
+| Personel 14 · profil | `app/(staff)/profile.tsx` |
+
+Personel sekme seti: **Bugün · Müşteriler · Performans · Profil**. Performans
+kapalıysa sekme hiç render edilmez (gri/disabled değil, YOK).
+
+## Tasarımın ölçü sözleşmesi — bunlara uy
+
+Tasarım dosyasının sonundaki "React Native notları" bölümü bağlayıcıdır:
+
+- **Dokunma hedefleri:** liste satırı 62 pt, kritik buton 60–66 pt, ikon butonu
+  44×44. Hiçbiri 44'ün altına inmez.
+- **Metin kırpma:** müşteri adı, hizmet adı, işletme adı → `numberOfLines={1}`
+  kuyruk kırpma. Notlar iki satır + "devamı". **Risk bayrağı metni hiç
+  kırpılmaz** (alerji/hamilelik — kırpılırsa tehlikeli).
+- **Sayaçlar:** `fontVariant: ['tabular-nums']`. Süre biçimi dakika:saniye.
+- **Aktif sekme:** camın içinde kayan vurgu, 240 ms yumuşak duruş.
+- **375 × 667:** sekme etiketi 10 pt'ye iner; Bugün büyük kartı 190 pt; sayaç
+  76 → 58 pt; eylem kutuları 78 → 66 pt; PIN ekranında boşluk 30 → 12 pt.
+- Gölge kullanma — ayrım kenarlık ve yüzey farkıyla yapılır (tasarım böyle
+  kurulmuş, RN'de gölge platformlar arası tutarsız).
 
 ## Depo ve kurulum
 
