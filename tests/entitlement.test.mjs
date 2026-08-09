@@ -246,6 +246,21 @@ test('yedi durumun hepsinin bir karşılığı var', () => {
     assert.match(tab, /Fatura geçmişi/);
 });
 
+test('duvar, veri sağlayıcılarının dışında da açılır', () => {
+    // CANLIDA PATLADI: /abonelik rotası RootLayout'un (ve dolayısıyla
+    // ReservationsProvider'ın) DIŞINDA. useReservations oradan çağrılınca
+    // "ReservationsProvider içinde kullanılmalı" hatası fırlıyor ve kullanıcı
+    // ödeme yapmak isterken hata ekranına düşüyordu — kilitlenmenin en kötü
+    // hâli: parası biten müşteri ödeme de yapamıyor.
+    const wall = readFileSync(new URL('../src/pages/PaywallPage.tsx', import.meta.url), 'utf8');
+    const pricing = readFileSync(new URL('../src/pages/public/PricingPage.tsx', import.meta.url), 'utf8');
+    for (const [name, src] of [['PaywallPage', wall], ['PricingPage', pricing]]) {
+        for (const hook of ['useReservations', 'useModules', 'useLabels']) {
+            assert.ok(!src.includes(hook), `${name}: ${hook} sağlayıcı gerektiriyor, bu rotada yok`);
+        }
+    }
+});
+
 test('tasarımın CSS\'i kapsayıcı sınıfla korunuyor', () => {
     // Tasarım `.plan`, `.wall`, `.btn`, `.price` gibi GENEL adlar kullanıyor;
     // kapsayıcı olmadan uygulamanın başka ekranlarına sızarlardı.

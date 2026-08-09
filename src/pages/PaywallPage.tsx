@@ -6,7 +6,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBilling } from '@/hooks/useBilling';
 import { useEntitlement } from '@/hooks/useEntitlement';
-import { useReservations } from '@/hooks/useReservations';
 import { PlanCards } from '@/components/billing/PlanCards';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import {
@@ -31,15 +30,14 @@ import './billing.css';
 
 const fullFmt = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-/** Duvarda gösterilen "verileriniz duruyor" sayaçları. */
-interface Kept { customers: number; past: number; upcoming: number }
+/** Duvarda gösterilen "verileriniz duruyor" sayaçları + işletme adı. */
+interface Kept { customers: number; past: number; upcoming: number; name: string }
 
 export function PaywallPage() {
     const { dark } = useTheme();
     const { logout, orgId } = useAuth();
     const navigate = useNavigate();
     const { busy, startCheckout, pollAfterCheckout } = useBilling();
-    const { settings } = useReservations();
     const ent = useEntitlement();
     const [params] = useSearchParams();
     const [showPlans, setShowPlans] = useState(false);
@@ -72,17 +70,26 @@ export function PaywallPage() {
     // "Verileriniz duruyor" sadece bir cümle olarak inandırıcı değil; sayı
     // görmek gerekiyor. Okuma RLS'te açık bırakıldığı için bu sorgu kilitliyken
     // de çalışır — kilit ürünü kullanmayı durdurur, veriyi değil.
+    // NOT: bu sayfa uygulamanın veri sağlayıcılarının (ReservationsProvider)
+    // DIŞINDA yaşıyor — duvar, kilitli bir kullanıcıya da açılmak zorunda ve o
+    // sağlayıcılar org verisi çekmeye çalışırken hata veriyordu. Bu yüzden
+    // ihtiyaç duyduğu üç sayı ve işletme adı doğrudan sorgulanıyor.
     const loadKept = useCallback(async (id: string) => {
         const today = new Date().toISOString().slice(0, 10);
-        const [c, p, u] = await Promise.all([
+        const [c, p, u, st] = await Promise.all([
             supabase.from('customers').select('id', { count: 'exact', head: true })
                 .eq('organization_id', id).eq('is_active', true),
             supabase.from('reservations').select('id', { count: 'exact', head: true })
                 .eq('organization_id', id).lt('date', today),
             supabase.from('reservations').select('id', { count: 'exact', head: true })
                 .eq('organization_id', id).gte('date', today).neq('status', 'cancelled'),
+            supabase.from('settings').select('business_name')
+                .eq('organization_id', id).limit(1).maybeSingle(),
         ]);
-        setKept({ customers: c.count ?? 0, past: p.count ?? 0, upcoming: u.count ?? 0 });
+        setKept({
+            customers: c.count ?? 0, past: p.count ?? 0, upcoming: u.count ?? 0,
+            name: st.data?.business_name || '',
+        });
     }, []);
 
     useEffect(() => {
@@ -92,7 +99,7 @@ export function PaywallPage() {
 
     const onSelect = (plan: PlanId, cycle: Cycle) => { void startCheckout(plan, cycle); };
     const pro = planById('pro') ?? PLANS[1];
-    const bizName = settings.businessName || 'İşletmeniz';
+    const bizName = kept?.name || 'İşletmeniz';
     const initials = bizName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toLocaleUpperCase('tr')).join('');
 
     const shell = (body: React.ReactNode) => (
