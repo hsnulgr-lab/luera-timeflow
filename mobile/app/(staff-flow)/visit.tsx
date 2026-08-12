@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LayoutAnimation, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -13,10 +13,16 @@ import {
     type MaterialQuantities,
     type VisitSheet,
 } from '../../src/components/VisitSheets';
+import type { Appt } from '../../src/lib/calendar';
+import { source } from '../../src/lib/calendarSource';
 import { feedback } from '../../src/lib/feedback';
 import { numeric, useTheme } from '../../src/theme';
 
 const TEST_ELAPSED_SECONDS = 24 * 60 + 18;
+
+const param = (value: string | string[] | undefined) => (
+    typeof value === 'string' && value ? value : null
+);
 
 interface VisitLine {
     id: string;
@@ -56,7 +62,7 @@ function BackChevron() {
     );
 }
 
-function TopBar({ onBack }: { onBack: () => void }) {
+function TopBar({ customerName, onBack }: { customerName: string; onBack: () => void }) {
     const { c, glass } = useTheme();
     const barStyle: ViewStyle = {
         height: 52,
@@ -95,7 +101,7 @@ function TopBar({ onBack }: { onBack: () => void }) {
                     İşlem sürüyor
                 </Text>
                 <Text numberOfLines={1} style={{ color: c.tx2, fontSize: 11.5, fontWeight: '600' }}>
-                    Ayşe Yılmaz
+                    {customerName}
                 </Text>
             </View>
         </>
@@ -281,10 +287,26 @@ export default function ActiveVisit() {
     const { c, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const params = useLocalSearchParams<{ reservationId?: string; date?: string }>();
+    const reservationId = param(params.reservationId);
+    const date = param(params.date);
+    const lookupKey = reservationId && date ? `${date}:${reservationId}` : null;
+    const [calendarResult, setCalendarResult] = useState<{
+        key: string;
+        appointment: Appt | null;
+    } | null>(null);
     const [elapsed, setElapsed] = useState(TEST_ELAPSED_SECONDS);
     const [sheet, setSheet] = useState<VisitSheet>(null);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(['mask']);
     const [materialQuantities, setMaterialQuantities] = useState<MaterialQuantities>({ dye: 2 });
+    const calendarAppointment = calendarResult?.key === lookupKey
+        ? calendarResult.appointment
+        : null;
+    const hasCalendarRoute = lookupKey !== null;
+    const customerName = calendarAppointment?.customer_name
+        ?? (hasCalendarRoute ? 'Randevu' : 'Ayşe Yılmaz');
+    const serviceName = calendarAppointment?.service
+        ?? (hasCalendarRoute ? 'Hizmet bilgisi yükleniyor…' : 'Saç boyama + fön');
 
     const selectedServices = SERVICE_OPTIONS.filter((item) => selectedServiceIds.includes(item.id));
     const totalAmount = 1800 + selectedServices.reduce((sum, item) => sum + item.price, 0);
@@ -310,6 +332,25 @@ export default function ActiveVisit() {
         return () => clearInterval(id);
     }, []);
 
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!lookupKey || !reservationId || !date) {
+            setCalendarResult(null);
+            return () => { cancelled = true; };
+        }
+
+        source.day(date).then((appointments) => {
+            if (cancelled) return;
+            const appointment = appointments.find((item) => item.id === reservationId) ?? null;
+            setCalendarResult({ key: lookupKey, appointment });
+        }).catch(() => {
+            if (!cancelled) setCalendarResult({ key: lookupKey, appointment: null });
+        });
+
+        return () => { cancelled = true; };
+    }, [date, lookupKey, reservationId]);
+
     const animateItems = () => {
         if (reduceMotion) return;
         LayoutAnimation.configureNext({
@@ -333,7 +374,7 @@ export default function ActiveVisit() {
 
     return (
         <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
-            <TopBar onBack={() => router.back()} />
+            <TopBar customerName={customerName} onBack={() => router.back()} />
             <View style={{
                 alignItems: 'center',
                 gap: 6,
@@ -342,7 +383,7 @@ export default function ActiveVisit() {
                 paddingBottom: small ? 14 : 22,
             }}>
                 <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '700', letterSpacing: -0.15 }}>
-                    Ayşe Yılmaz
+                    {customerName}
                 </Text>
                 <Text adjustsFontSizeToFit numberOfLines={1} style={[{
                     color: c.tx,
@@ -354,7 +395,7 @@ export default function ActiveVisit() {
                     {formatElapsed(elapsed)}
                 </Text>
                 <Text style={{ color: c.tx, fontSize: 16, fontWeight: '600' }}>
-                    Saç boyama + fön
+                    {serviceName}
                 </Text>
             </View>
 

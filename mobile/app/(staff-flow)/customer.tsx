@@ -1,7 +1,10 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Appt } from '../../src/lib/calendar';
+import { source } from '../../src/lib/calendarSource';
 import { numeric, useTheme } from '../../src/theme';
 
 const HISTORY = [
@@ -25,7 +28,30 @@ function BackChevron() {
     );
 }
 
-function TopBar({ onBack }: { onBack: () => void }) {
+type CustomerRouteParams = {
+    customerName?: string | string[];
+    customerId?: string | string[];
+    reservationId?: string | string[];
+    date?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+    const first = Array.isArray(value) ? value[0] : value;
+    const clean = first?.trim();
+    return clean || undefined;
+}
+
+function initials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '--';
+
+    const letters = parts.length === 1
+        ? Array.from(parts[0]).slice(0, 2).join('')
+        : `${Array.from(parts[0])[0] ?? ''}${Array.from(parts.at(-1) ?? '')[0] ?? ''}`;
+    return letters.toLocaleUpperCase('tr-TR');
+}
+
+function TopBar({ onBack, customerName }: { onBack: () => void; customerName: string }) {
     const { c, glass } = useTheme();
     const barStyle: ViewStyle = {
         height: 52,
@@ -64,7 +90,7 @@ function TopBar({ onBack }: { onBack: () => void }) {
                     Müşteri
                 </Text>
                 <Text numberOfLines={1} style={{ color: c.tx2, fontSize: 11.5, fontWeight: '600' }}>
-                    Ayşe Yılmaz
+                    {customerName}
                 </Text>
             </View>
         </>
@@ -205,10 +231,68 @@ export default function CustomerCard() {
     const { c } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const routeParams = useLocalSearchParams<CustomerRouteParams>();
+    const routedName = firstParam(routeParams.customerName);
+    const customerId = firstParam(routeParams.customerId);
+    const reservationId = firstParam(routeParams.reservationId);
+    const date = firstParam(routeParams.date);
+    const hasCalendarContext = Boolean(routedName || customerId || reservationId || date);
+    const lookupKey = `${date ?? ''}:${reservationId ?? ''}:${customerId ?? ''}`;
+    const [lookupResult, setLookupResult] = useState<{
+        key: string;
+        appointment: Appt | null;
+    } | null>(null);
+
+    useEffect(() => {
+        if (routedName || !date || (!reservationId && !customerId)) return undefined;
+
+        let active = true;
+        source.day(date).then((appointments) => {
+            if (!active) return;
+            const appointment = appointments.find((item) => (
+                (reservationId && item.id === reservationId)
+                || (customerId && item.customer_id === customerId)
+            ));
+            setLookupResult({ key: lookupKey, appointment: appointment ?? null });
+        }).catch(() => {
+            if (active) setLookupResult({ key: lookupKey, appointment: null });
+        });
+
+        return () => { active = false; };
+    }, [customerId, date, lookupKey, reservationId, routedName]);
+
+    const calendarAppointment = lookupResult?.key === lookupKey
+        ? lookupResult.appointment
+        : null;
+    const customerName = routedName
+        ?? calendarAppointment?.customer_name
+        ?? (hasCalendarContext ? 'Müşteri' : 'Ayşe Yılmaz');
+    const customerInitials = useMemo(() => initials(customerName), [customerName]);
+    const profileSubtitle = hasCalendarContext
+        ? calendarAppointment?.info?.visitNo
+            ? `${calendarAppointment.info.visitNo}. ziyaret${calendarAppointment.info.lastVisit ? ` · Son: ${calendarAppointment.info.lastVisit}` : ''}`
+            : calendarAppointment ? 'Müşteri bilgileri' : 'Müşteri bilgileri yükleniyor…'
+        : "2022'den beri · 38 işlem";
+    const riskText = hasCalendarContext
+        ? calendarAppointment?.info?.risk
+        : 'Amonyaklı boyada ciltte kızarıklık oluyor. Amonyaksız seri kullanılıyor.';
+    const profileStats = hasCalendarContext
+        ? [
+            [calendarAppointment?.info?.pkg
+                ? String(Math.max(0, calendarAppointment.info.pkg.total - calendarAppointment.info.pkg.used))
+                : '—', 'Kalan seans'],
+            ['—', 'Toplam'],
+            [calendarAppointment?.info?.visitNo ? String(calendarAppointment.info.visitNo) : '—', 'Ziyaret'],
+        ]
+        : [
+            ['4', 'Kalan seans'],
+            ['₺12.4B', 'Toplam'],
+            ['31 gün', 'Son geliş'],
+        ];
 
     return (
         <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
-            <TopBar onBack={() => router.back()} />
+            <TopBar customerName={customerName} onBack={() => router.back()} />
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingBottom: 126 + insets.bottom }}
@@ -233,20 +317,20 @@ export default function CustomerCard() {
                         backgroundColor: c.surf2,
                     }}>
                         <Text style={{ color: c.tx, fontSize: 22, fontWeight: '800', letterSpacing: -0.44 }}>
-                            AY
+                            {customerInitials}
                         </Text>
                     </View>
                     <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                         <Text numberOfLines={1} style={{ color: c.tx, fontSize: 24, fontWeight: '800', letterSpacing: -0.77 }}>
-                            Ayşe Yılmaz
+                            {customerName}
                         </Text>
                         <Text numberOfLines={1} style={{ color: c.tx2, fontSize: 14, fontWeight: '600' }}>
-                            2022'den beri · 38 işlem
+                            {profileSubtitle}
                         </Text>
                     </View>
                 </View>
 
-                <View style={{ paddingHorizontal: 18, paddingBottom: 16 }}>
+                {riskText ? <View style={{ paddingHorizontal: 18, paddingBottom: 16 }}>
                     <View style={{
                         paddingVertical: 15,
                         paddingHorizontal: 16,
@@ -272,11 +356,11 @@ export default function CustomerCard() {
                                 Bilinmesi gerekenler
                             </Text>
                             <Text style={{ color: c.tx, fontSize: 15, lineHeight: 22.5, fontWeight: '600' }}>
-                                Amonyaklı boyada ciltte kızarıklık oluyor. Amonyaksız seri kullanılıyor.
+                                {riskText}
                             </Text>
                         </View>
                     </View>
-                </View>
+                </View> : null}
 
                 <View style={{
                     flexDirection: 'row',
@@ -285,11 +369,7 @@ export default function CustomerCard() {
                     borderColor: c.bd,
                     backgroundColor: c.surf,
                 }}>
-                    {[
-                        ['4', 'Kalan seans'],
-                        ['₺12.4B', 'Toplam'],
-                        ['31 gün', 'Son geliş'],
-                    ].map(([value, label], index) => (
+                    {profileStats.map(([value, label], index) => (
                         <View key={label} style={{
                             flex: 1,
                             gap: 3,
@@ -319,8 +399,9 @@ export default function CustomerCard() {
                     ))}
                 </View>
 
-                <SectionTitle>Devam eden paket</SectionTitle>
-                <View style={{ paddingHorizontal: 18 }}>
+                {(!hasCalendarContext || calendarAppointment?.info?.pkg) ? <>
+                    <SectionTitle>Devam eden paket</SectionTitle>
+                    <View style={{ paddingHorizontal: 18 }}>
                     <View style={{
                         padding: 16,
                         borderRadius: 20,
@@ -342,37 +423,51 @@ export default function CustomerCard() {
                                 fontWeight: '700',
                                 letterSpacing: -0.33,
                             }}>
-                                Bakım paketi 10'lu
+                                {hasCalendarContext
+                                    ? calendarAppointment?.info?.pkg?.name
+                                    : "Bakım paketi 10'lu"}
                             </Text>
                             <Text numberOfLines={1} style={{ color: c.or2, fontSize: 14, fontWeight: '700' }}>
-                                4 / 10 kaldı
+                                {hasCalendarContext && calendarAppointment?.info?.pkg
+                                    ? `${Math.max(0, calendarAppointment.info.pkg.total - calendarAppointment.info.pkg.used)} / ${calendarAppointment.info.pkg.total} kaldı`
+                                    : '4 / 10 kaldı'}
                             </Text>
                         </View>
                         <View style={{ flexDirection: 'row', gap: 4 }}>
-                            {Array.from({ length: 10 }, (_, index) => (
+                            {Array.from({
+                                length: hasCalendarContext
+                                    ? calendarAppointment?.info?.pkg?.total ?? 0
+                                    : 10,
+                            }, (_, index) => (
                                 <View key={index} style={{
                                     flex: 1,
                                     height: 7,
                                     borderRadius: 4,
-                                    backgroundColor: index < 6 ? c.surf2 : c.or + '59',
+                                    backgroundColor: index < (hasCalendarContext
+                                        ? calendarAppointment?.info?.pkg?.used ?? 0
+                                        : 6) ? c.surf2 : c.or + '59',
                                 }} />
                             ))}
                         </View>
                     </View>
-                </View>
+                    </View>
+                </> : null}
 
-                <SectionTitle trailing="Tümü">Geçmiş işlemler</SectionTitle>
-                <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.bd }}>
+                {!hasCalendarContext ? <>
+                    <SectionTitle trailing="Tümü">Geçmiş işlemler</SectionTitle>
+                    <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.bd }}>
                     {HISTORY.map((item, index) => (
                         <View key={item.name}>
                             <HistoryRow item={item} />
                             {index < HISTORY.length - 1 ? <View style={{ height: 1, backgroundColor: c.bd }} /> : null}
                         </View>
                     ))}
-                </View>
+                    </View>
+                </> : null}
 
-                <SectionTitle>Notlar</SectionTitle>
-                <View style={{ paddingHorizontal: 18 }}>
+                {(!hasCalendarContext || calendarAppointment?.notes) ? <>
+                    <SectionTitle>Notlar</SectionTitle>
+                    <View style={{ paddingHorizontal: 18 }}>
                     <View style={{
                         paddingVertical: 14,
                         paddingHorizontal: 16,
@@ -389,13 +484,16 @@ export default function CustomerCard() {
                             letterSpacing: 1.2,
                             textTransform: 'uppercase',
                         }}>
-                            11 Tem · Merve
+                            {hasCalendarContext ? 'Randevu notu' : '11 Tem · Merve'}
                         </Text>
                         <Text style={{ color: c.tx2, fontSize: 15, lineHeight: 22.5, fontWeight: '500' }}>
-                            7.3 kumral tercih ediyor, kökte yarım ton koyu.
+                            {hasCalendarContext
+                                ? calendarAppointment?.notes
+                                : '7.3 kumral tercih ediyor, kökte yarım ton koyu.'}
                         </Text>
                     </View>
-                </View>
+                    </View>
+                </> : null}
             </ScrollView>
 
             <NewAppointmentAction />

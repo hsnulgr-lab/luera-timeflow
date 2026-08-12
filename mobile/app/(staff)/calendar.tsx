@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, View } from 'react-native';
+import {
+    ActionSheetIOS,
+    Alert,
+    Animated,
+    Linking,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     DayHeader,
@@ -27,6 +37,7 @@ interface DayResult {
 export default function Calendar() {
     const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const scrollY = useRef(new Animated.Value(0)).current;
     const scrollRef = useRef<ScrollView>(null);
     const [selectedDate, setSelectedDate] = useState(PREVIEW_TODAY);
@@ -67,19 +78,90 @@ export default function Calendar() {
         return () => clearInterval(id);
     }, []);
 
-    // Kart eylemleri bir sonraki adımda gerçek rotalara bağlanacak. Şimdilik
-    // hedefleri görünür tutmak, tasarımın ölçülerini doğru doğrulamamızı sağlar.
-    const previewActions = useMemo<AppointmentActions>(() => {
-        const noOp = () => undefined;
-        return {
-            onOpen: noOp,
-            onCall: noOp,
-            onMore: noOp,
-            onCustomer: noOp,
-            onStart: noOp,
-            onResume: noOp,
-        };
+    const callCustomer = useCallback((appointment: Appt) => {
+        const dialable = appointment.customer_phone
+            ?.trim()
+            .replace(/[^\d+]/g, '')
+            .replace(/(?!^)\+/g, '');
+
+        if (!dialable) {
+            Alert.alert('Telefon numarası yok', 'Bu müşterinin kayıtlı bir telefon numarası bulunmuyor.');
+            return;
+        }
+
+        void Linking.openURL(`tel:${dialable}`).catch(() => {
+            Alert.alert('Arama başlatılamadı', 'Telefon uygulaması şu anda açılamadı.');
+        });
     }, []);
+
+    const unavailableAction = useCallback((title: string) => {
+        Alert.alert(
+            title,
+            'Bu işlem gerçek takvim verisi ve sunucu bağlantısı tamamlandığında etkinleştirilecek.',
+        );
+    }, []);
+
+    const openAppointmentMenu = useCallback((appointment: Appt) => {
+        const menuItems = [
+            ...(appointment.customer_phone ? [{ label: 'Ara', run: () => callCustomer(appointment) }] : []),
+            { label: 'Notu düzenle', run: () => unavailableAction('Notu düzenle') },
+            { label: 'İptal talebi', run: () => unavailableAction('İptal talebi') },
+        ];
+
+        if (Platform.OS === 'ios') {
+            const cancelIndex = menuItems.length;
+            ActionSheetIOS.showActionSheetWithOptions(
+                {
+                    title: appointment.customer_name,
+                    options: [...menuItems.map((item) => item.label), 'Vazgeç'],
+                    cancelButtonIndex: cancelIndex,
+                    destructiveButtonIndex: menuItems.findIndex((item) => item.label === 'İptal talebi'),
+                },
+                (buttonIndex) => menuItems[buttonIndex]?.run(),
+            );
+            return;
+        }
+
+        Alert.alert(
+            appointment.customer_name,
+            undefined,
+            menuItems.map((item) => ({ text: item.label, onPress: item.run })),
+            { cancelable: true },
+        );
+    }, [callCustomer, unavailableAction]);
+
+    const appointmentActions = useMemo<AppointmentActions>(() => {
+        return {
+            onOpen: (appointment) => router.push({
+                pathname: '/appointment',
+                params: { reservationId: appointment.id, date: appointment.date },
+            }),
+            onCall: callCustomer,
+            onMore: openAppointmentMenu,
+            onCustomer: (appointment) => {
+                if (!appointment.customer_id) {
+                    Alert.alert('Müşteri kartı bulunamadı');
+                    return;
+                }
+                router.push({
+                    pathname: '/customer',
+                    params: {
+                        customerId: appointment.customer_id,
+                        reservationId: appointment.id,
+                        date: appointment.date,
+                    },
+                });
+            },
+            onStart: (appointment) => router.push({
+                pathname: '/visit',
+                params: { reservationId: appointment.id, date: appointment.date },
+            }),
+            onResume: (appointment) => router.push({
+                pathname: '/visit',
+                params: { reservationId: appointment.id, date: appointment.date },
+            }),
+        };
+    }, [callCustomer, openAppointmentMenu, router]);
 
     const elapsedSecondsById = useMemo(() => {
         if (!isToday) return {};
@@ -218,7 +300,7 @@ export default function Calendar() {
                             nowMinutes={PREVIEW_NOW_MINUTES}
                             isToday={isToday}
                             elapsedSecondsById={elapsedSecondsById}
-                            actions={previewActions}
+                            actions={appointmentActions}
                         />
                     ) : null}
                 </View>
