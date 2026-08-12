@@ -135,11 +135,13 @@ export function DayHeader({
     dateISO,
     subtitle,
     compact = false,
+    transparent = false,
     style,
 }: {
     dateISO: string;
     subtitle: string;
     compact?: boolean;
+    transparent?: boolean;
     style?: StyleProp<ViewStyle>;
 }) {
     const { c, small } = useTheme();
@@ -152,7 +154,11 @@ export function DayHeader({
             <View
                 accessibilityRole="header"
                 accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
-                style={[styles.compactHeader, { borderBottomColor: c.bd, backgroundColor: c.glass }, style]}
+                style={[
+                    styles.compactHeader,
+                    !transparent && { borderBottomColor: c.bd, borderBottomWidth: StyleSheet.hairlineWidth, backgroundColor: c.glass },
+                    style,
+                ]}
             >
                 <Text style={[titleStyle, { color: c.tx }]}>{day}. {date.getDate()}</Text>
                 <Text numberOfLines={1} style={[type.small, styles.compactSubtitle, { color: c.tx2 }]}>
@@ -725,7 +731,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: space.sm,
-        borderBottomWidth: StyleSheet.hairlineWidth,
     },
     compactSubtitle: {
         flex: 1,

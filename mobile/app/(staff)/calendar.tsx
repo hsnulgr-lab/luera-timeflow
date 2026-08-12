@@ -10,6 +10,7 @@ import {
     View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassView } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -35,7 +36,7 @@ interface DayResult {
 }
 
 export default function Calendar() {
-    const { c, dark, reduceMotion } = useTheme();
+    const { c, dark, glass, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const scrollY = useRef(new Animated.Value(0)).current;
@@ -172,28 +173,28 @@ export default function Calendar() {
     }, [appointments, isToday, liveSeconds]);
 
     const expandedOpacity = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 40, 64],
-        outputRange: reduceMotion ? [1, 1, 0] : [1, 1, 0],
-        extrapolate: 'clamp',
-    });
-    const expandedTranslateY = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 64],
-        outputRange: reduceMotion ? [0, 0, -8] : [0, -8],
+        inputRange: [0, 48],
+        outputRange: [1, 0],
         extrapolate: 'clamp',
     });
     const compactOpacity = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 40, 64],
-        outputRange: reduceMotion ? [0, 0, 1] : [0, 0, 1],
+        inputRange: [32, 64],
+        outputRange: [0, 1],
         extrapolate: 'clamp',
     });
     const compactTranslateY = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 64],
-        outputRange: reduceMotion ? [-6, -6, 0] : [-6, 0],
+        inputRange: [32, 64],
+        outputRange: [6, 0],
+        extrapolate: 'clamp',
+    });
+    const compactChromeOpacity = scrollY.interpolate({
+        inputRange: [0, 24],
+        outputRange: [0, 1],
         extrapolate: 'clamp',
     });
     const glowOpacity = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 64],
-        outputRange: reduceMotion ? [1, 1, 0] : [1, 0],
+        inputRange: [0, 64],
+        outputRange: [1, 0],
         extrapolate: 'clamp',
     });
 
@@ -225,47 +226,13 @@ export default function Calendar() {
     }, [reduceMotion, selectedDate]);
 
     return (
-        <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
-            <Animated.View
-                pointerEvents="none"
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: glow.height + insets.top,
-                    opacity: glowOpacity,
-                }}
-            >
-                <LinearGradient
-                    colors={dark ? glow.dark : glow.light}
-                    locations={glow.locations}
-                    style={StyleSheet.absoluteFill}
-                />
-            </Animated.View>
-
-            <Animated.View
-                pointerEvents="none"
-                style={{
-                    position: 'absolute',
-                    zIndex: 30,
-                    top: insets.top,
-                    left: 0,
-                    right: 0,
-                    opacity: compactOpacity,
-                    transform: [{ translateY: compactTranslateY }],
-                }}
-            >
-                <DayHeader
-                    compact
-                    dateISO={selectedDate}
-                    subtitle={compactSubtitle}
-                />
-            </Animated.View>
-
+        <View
+            collapsable={false}
+            style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}
+        >
             <Animated.ScrollView
                 ref={scrollRef}
-                style={{ flex: 1 }}
+                style={{ flex: 1, zIndex: 1 }}
                 contentContainerStyle={{ paddingBottom: calendarMetrics.bottomInset }}
                 showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
@@ -274,12 +241,7 @@ export default function Calendar() {
                     { useNativeDriver: true },
                 )}
             >
-                <Animated.View
-                    style={{
-                        opacity: expandedOpacity,
-                        transform: [{ translateY: expandedTranslateY }],
-                    }}
-                >
+                <Animated.View style={{ opacity: expandedOpacity }}>
                     <DayHeader
                         dateISO={selectedDate}
                         subtitle={expandedSubtitle}
@@ -305,6 +267,77 @@ export default function Calendar() {
                     ) : null}
                 </View>
             </Animated.ScrollView>
+
+            <Animated.View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    zIndex: 0,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: glow.height + insets.top,
+                    opacity: glowOpacity,
+                }}
+            >
+                <LinearGradient
+                    colors={dark ? glow.dark : glow.light}
+                    locations={glow.locations}
+                    style={StyleSheet.absoluteFill}
+                />
+            </Animated.View>
+
+            <Animated.View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    zIndex: 29,
+                    top: insets.top,
+                    left: 0,
+                    right: 0,
+                    height: 52,
+                    opacity: compactChromeOpacity,
+                }}
+            >
+                {glass ? (
+                    <GlassView
+                        glassEffectStyle="regular"
+                        tintColor={c.tint}
+                        style={StyleSheet.absoluteFill}
+                    />
+                ) : (
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: c.surf }]} />
+                )}
+                <View style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: StyleSheet.hairlineWidth,
+                    backgroundColor: c.bd,
+                }} />
+            </Animated.View>
+
+            <Animated.View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    zIndex: 30,
+                    top: insets.top,
+                    left: 0,
+                    right: 0,
+                    opacity: compactOpacity,
+                    transform: [{ translateY: compactTranslateY }],
+                }}
+            >
+                <DayHeader
+                    compact
+                    transparent
+                    dateISO={selectedDate}
+                    subtitle={compactSubtitle}
+                />
+            </Animated.View>
+
         </View>
     );
 }
