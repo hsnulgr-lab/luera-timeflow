@@ -70,6 +70,53 @@ export const type = {
     tiny: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.6 },
 } as const;
 
+/** Takvimin büyük başlığı ve canlı sayaç; genel ekran tipografisinden bilinçli olarak ayrılır. */
+export const display = {
+    day: { fontSize: 54, fontWeight: '800', letterSpacing: -1.6 },
+    daySmall: { fontSize: 42, fontWeight: '800', letterSpacing: -1.3 },
+    dayMini: { fontSize: 17, fontWeight: '800', letterSpacing: -0.4 },
+    counter: { fontSize: 34, fontWeight: '800', letterSpacing: -1.0 },
+} as const;
+
+// Gömülü müşteri özeti iki temada da aynı malzemeyi kullanıyor. Bu ters yüzey,
+// kartı yeni bir cam katmanına dönüştürmeden hızlı okunmasını sağlıyor.
+export const embed = {
+    bg: '#FAF3E9',
+    chipBg: '#1C1710',
+    chipTx: '#F3EDE3',
+    riskBg: 'rgba(184,122,0,0.16)',
+    riskTx: '#8A5C00',
+    liveBg: 'rgba(255,90,31,0.10)',
+    liveBd: 'rgba(255,90,31,0.34)',
+} as const;
+
+// Uygulamadaki tek gradyan; kaydırınca sönen sıcak takvim parıltısı.
+export const glow = {
+    height: 298,
+    dark: ['rgba(255,90,31,0.18)', 'rgba(18,14,8,0)'],
+    light: ['rgba(255,90,31,0.08)', 'rgba(243,236,224,0)'],
+} as const;
+
+/** Takvim ölçü sözleşmesi; responsive varyantlar bileşenlerin içinde dağılmasın. */
+export const calendarMetrics = {
+    pageX: 18,
+    cardPadding: 18,
+    cardPaddingSmall: 14,
+    cardGap: 14,
+    timeWidth: 44,
+    timeGap: 10,
+    avatar: 44,
+    weekSelected: 56,
+    weekTarget: 52,
+    monthCell: 52,
+    nowHeight: 24,
+    statusHeight: 28,
+    liveActionHeight: 60,
+    dueRowHeight: 48,
+    dueActionHeight: 40,
+    bottomInset: 118,
+} as const;
+
 /**
  * Sayaç ve tutarlar — rakamlar zıplamasın.
  *

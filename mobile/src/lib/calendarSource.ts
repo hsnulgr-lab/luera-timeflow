@@ -1,0 +1,378 @@
+import type { Appt } from './calendar';
+
+export interface CalendarSource {
+    day(date: string): Promise<Appt[]>;
+    range(from: string, to: string): Promise<Record<string, number>>;
+}
+
+const MOCK_DAYS: Record<string, Appt[]> = {
+    // Geçmiş gün: tamamlanan işler, gelmeyen müşteri ve iptal durumu birlikte.
+    '2026-09-16': [
+        {
+            id: 'mock-20260916-1000',
+            customer_id: 'mock-customer-elif-aydin',
+            customer_name: 'Elif Aydın',
+            customer_phone: '+905321110101',
+            date: '2026-09-16',
+            start_time: '10:00',
+            end_time: '10:45',
+            service: 'Kesim + fön',
+            service_color: '#2F6FED',
+            status: 'completed',
+            notes: null,
+            arrived_at: '2026-09-16T09:57:00+03:00',
+            service_ended_at: '2026-09-16T10:43:00+03:00',
+            info: {
+                risk: null,
+                pkg: null,
+                visitNo: 3,
+                lastVisit: '18 Ağu · Kesim',
+            },
+        },
+        {
+            id: 'mock-20260916-1230',
+            customer_id: 'mock-customer-selin-dogan',
+            customer_name: 'Selin Doğan',
+            customer_phone: '+905321110102',
+            date: '2026-09-16',
+            start_time: '12:30',
+            end_time: '13:30',
+            service: 'Keratin bakımı',
+            service_color: '#0F9B8E',
+            status: 'completed',
+            notes: null,
+            arrived_at: '2026-09-16T12:25:00+03:00',
+            service_ended_at: '2026-09-16T13:28:00+03:00',
+            info: null,
+        },
+        {
+            id: 'mock-20260916-1400',
+            customer_id: 'mock-customer-burak-sen',
+            customer_name: 'Burak Şen',
+            customer_phone: '+905321110103',
+            date: '2026-09-16',
+            start_time: '14:00',
+            end_time: '14:30',
+            service: 'Kesim',
+            service_color: '#2F6FED',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+        {
+            id: 'mock-20260916-1530',
+            customer_id: 'mock-customer-ece-unal',
+            customer_name: 'Ece Ünal',
+            customer_phone: '+905321110104',
+            date: '2026-09-16',
+            start_time: '15:30',
+            end_time: '16:00',
+            service: 'Fön',
+            service_color: '#2F6FED',
+            status: 'cancelled',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+
+    // Hafta şeridinde farklı nokta yoğunluklarını görünür kılan komşu günler.
+    '2026-09-22': [
+        {
+            id: 'mock-20260922-1430',
+            customer_id: 'mock-customer-derya-koc',
+            customer_name: 'Derya Koç',
+            customer_phone: '+905321110201',
+            date: '2026-09-22',
+            start_time: '14:30',
+            end_time: '15:15',
+            service: 'Kesim + fön',
+            service_color: '#2F6FED',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+    '2026-09-23': [
+        {
+            id: 'mock-20260923-0930',
+            customer_id: 'mock-customer-gamze-arslan',
+            customer_name: 'Gamze Arslan',
+            customer_phone: '+905321110301',
+            date: '2026-09-23',
+            start_time: '09:30',
+            end_time: '10:00',
+            service: 'Fön',
+            service_color: '#2F6FED',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+        {
+            id: 'mock-20260923-1200',
+            customer_id: 'mock-customer-nazli-ertem',
+            customer_name: 'Nazlı Ertem',
+            customer_phone: '+905321110302',
+            date: '2026-09-23',
+            start_time: '12:00',
+            end_time: '13:30',
+            service: 'Saç boyama',
+            service_color: '#7A5AF0',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+        {
+            id: 'mock-20260923-1600',
+            customer_id: 'mock-customer-pelin-sari',
+            customer_name: 'Pelin Sarı',
+            customer_phone: '+905321110303',
+            date: '2026-09-23',
+            start_time: '16:00',
+            end_time: '16:45',
+            service: 'Saç bakımı',
+            service_color: '#0F9B8E',
+            status: 'pending',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+
+    // Ana tasarım senaryosu: tamamlanmış, sürmekte olan ve bekleyen üç kart.
+    '2026-09-24': [
+        {
+            id: 'mock-20260924-1000',
+            customer_id: 'mock-customer-merve-aydin',
+            customer_name: 'Merve Aydın',
+            customer_phone: '+905321110401',
+            date: '2026-09-24',
+            start_time: '10:00',
+            end_time: '10:45',
+            service: 'Kesim + fön',
+            service_color: '#2F6FED',
+            status: 'completed',
+            notes: null,
+            arrived_at: '2026-09-24T09:58:00+03:00',
+            service_ended_at: '2026-09-24T10:44:00+03:00',
+            info: null,
+        },
+        {
+            id: 'mock-20260924-1100',
+            customer_id: 'mock-customer-zeynep-kaya',
+            customer_name: 'Zeynep Kaya',
+            customer_phone: '+905321110402',
+            date: '2026-09-24',
+            start_time: '11:00',
+            end_time: '12:30',
+            service: 'Saç boyama',
+            service_color: '#7A5AF0',
+            status: 'confirmed',
+            notes: 'Kök boyası istiyor.',
+            arrived_at: '2026-09-24T11:00:00+03:00',
+            service_ended_at: null,
+            info: {
+                risk: null,
+                pkg: { name: 'Boya Paketi', used: 3, total: 8 },
+                visitNo: 4,
+                lastVisit: '12 Tem · Kesim',
+            },
+        },
+        {
+            id: 'mock-20260924-1300',
+            customer_id: 'mock-customer-elif-demir',
+            customer_name: 'Elif Demir',
+            customer_phone: '+905321110403',
+            date: '2026-09-24',
+            start_time: '13:00',
+            end_time: '13:45',
+            service: 'Keratin bakımı',
+            service_color: '#0F9B8E',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: {
+                risk: 'Amonyaklı üründe cilt hassasiyeti oluşuyor.',
+                pkg: { name: 'Bakım Paketi', used: 1, total: 4 },
+                visitNo: 2,
+                lastVisit: '3 Ağu · Bakım',
+            },
+        },
+    ],
+
+    '2026-09-25': [
+        {
+            id: 'mock-20260925-0900',
+            customer_id: 'mock-customer-ayse-korkmaz',
+            customer_name: 'Ayşe Korkmaz',
+            customer_phone: '+905321110501',
+            date: '2026-09-25',
+            start_time: '09:00',
+            end_time: '11:00',
+            service: 'Röfle',
+            service_color: '#7A5AF0',
+            status: 'confirmed',
+            notes: 'Alerji testi yapıldı.',
+            arrived_at: null,
+            service_ended_at: null,
+            info: {
+                risk: 'Alerji testi sonucu işlemden önce kontrol edilmeli.',
+                pkg: null,
+                visitNo: 6,
+                lastVisit: '21 Ağu · Röfle',
+            },
+        },
+        {
+            id: 'mock-20260925-1200',
+            customer_id: 'mock-customer-hakan-erdem',
+            customer_name: 'Hakan Erdem',
+            customer_phone: '+905321110502',
+            date: '2026-09-25',
+            start_time: '12:00',
+            end_time: '12:40',
+            service: 'Kesim + sakal',
+            service_color: '#2F6FED',
+            status: 'pending',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+        {
+            id: 'mock-20260925-1630',
+            customer_id: 'mock-customer-deniz-aslan',
+            customer_name: 'Deniz Aslan',
+            customer_phone: '+905321110503',
+            date: '2026-09-25',
+            start_time: '16:30',
+            end_time: '17:15',
+            service: 'Saç bakımı',
+            service_color: '#0F9B8E',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+
+    // Bu gün 11:00 civarında açıldığında tek bir "sırası geldi" kartı üretir.
+    '2026-09-26': [
+        {
+            id: 'mock-20260926-1100',
+            customer_id: 'mock-customer-zeynep-kaya',
+            customer_name: 'Zeynep Kaya',
+            customer_phone: '+905321110402',
+            date: '2026-09-26',
+            start_time: '11:00',
+            end_time: '12:30',
+            service: 'Saç boyama',
+            service_color: '#7A5AF0',
+            status: 'confirmed',
+            notes: 'Kök boyası istiyor.',
+            arrived_at: null,
+            service_ended_at: null,
+            info: {
+                risk: null,
+                pkg: { name: 'Boya Paketi', used: 3, total: 8 },
+                visitNo: 4,
+                lastVisit: '12 Tem · Kesim',
+            },
+        },
+        {
+            id: 'mock-20260926-1300',
+            customer_id: 'mock-customer-selin-dogan',
+            customer_name: 'Selin Doğan',
+            customer_phone: '+905321110102',
+            date: '2026-09-26',
+            start_time: '13:00',
+            end_time: '14:00',
+            service: 'Keratin bakımı',
+            service_color: '#0F9B8E',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+        {
+            id: 'mock-20260926-1530',
+            customer_id: 'mock-customer-merve-yilmaz',
+            customer_name: 'Merve Yılmaz',
+            customer_phone: '+905321110601',
+            date: '2026-09-26',
+            start_time: '15:30',
+            end_time: '16:00',
+            service: 'Kesim',
+            service_color: '#2F6FED',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+
+    // Bilerek boş: day() boş diziyi, range() sıfır randevuyu temsil eder.
+    '2026-09-27': [],
+    '2026-09-28': [
+        {
+            id: 'mock-20260928-0930',
+            customer_id: 'mock-customer-elif-aydin',
+            customer_name: 'Elif Aydın',
+            customer_phone: '+905321110101',
+            date: '2026-09-28',
+            start_time: '09:30',
+            end_time: '10:15',
+            service: 'Kesim + fön',
+            service_color: '#2F6FED',
+            status: 'confirmed',
+            notes: null,
+            arrived_at: null,
+            service_ended_at: null,
+            info: null,
+        },
+    ],
+};
+
+function cloneAppt(appt: Appt): Appt {
+    return {
+        ...appt,
+        info: appt.info
+            ? {
+                ...appt.info,
+                pkg: appt.info.pkg ? { ...appt.info.pkg } : null,
+            }
+            : appt.info,
+    };
+}
+
+export const mockSource: CalendarSource = {
+    async day(date) {
+        return (MOCK_DAYS[date] ?? []).map(cloneAppt);
+    },
+
+    async range(from, to) {
+        const counts: Record<string, number> = {};
+        for (const [date, appointments] of Object.entries(MOCK_DAYS)) {
+            if (date >= from && date <= to && appointments.length > 0) {
+                counts[date] = appointments.length;
+            }
+        }
+        return counts;
+    },
+};
+
+// Bağlama turunda yalnız bu atama apiSource'a çevrilecek.
+export const source: CalendarSource = mockSource;
