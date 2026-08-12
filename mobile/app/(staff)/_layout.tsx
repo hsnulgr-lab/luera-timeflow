@@ -19,7 +19,7 @@ export default function StaffTabs() {
     return (
         <NativeTabs
             minimizeBehavior="onScrollDown"
-            tintColor={c.tx}
+            tintColor={c.or}
             labelVisibilityMode="labeled"
         >
             <NativeTabs.Trigger name="index">
