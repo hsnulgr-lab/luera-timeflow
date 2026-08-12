@@ -8,6 +8,7 @@ import {
     type StyleProp,
     type ViewStyle,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import {
     cardStates,
     elapsed,
@@ -261,15 +262,18 @@ export function WeekStrip({
     );
 }
 
-const ICON_STROKE = 1.7;
-
 function PhoneReceiverIcon({ color }: { color: string }) {
     return (
-        <View style={styles.phoneReceiver}>
-            <View style={[styles.phoneCurve, { borderColor: color }]} />
-            <View style={[styles.phoneCapLeft, { backgroundColor: color }]} />
-            <View style={[styles.phoneCapRight, { backgroundColor: color }]} />
-        </View>
+        <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="M6.6 3.8h3l1.5 3.7-1.9 1.5a10.6 10.6 0 0 0 4.8 4.8l1.5-1.9 3.7 1.5v3a2 2 0 0 1-2.2 2A15.6 15.6 0 0 1 4.6 6a2 2 0 0 1 2-2.2z"
+                stroke={color}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+        </Svg>
     );
 }
 
@@ -314,11 +318,16 @@ function MoreButton({ label, onPress }: { label: string; onPress?: () => void })
 
 function SummaryArrowIcon({ color }: { color: string }) {
     return (
-        <View style={styles.summaryArrowIcon}>
-            <View style={[styles.summaryArrowShaft, { backgroundColor: color }]} />
-            <View style={[styles.summaryArrowHeadTop, { backgroundColor: color }]} />
-            <View style={[styles.summaryArrowHeadRight, { backgroundColor: color }]} />
-        </View>
+        <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="M6.5 17.5 17.5 6.5M9.5 6.5h8v8"
+                stroke={color}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+        </Svg>
     );
 }
 
@@ -814,39 +823,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    phoneReceiver: {
-        width: 17,
-        height: 17,
-        transform: [{ rotate: '-42deg' }],
-    },
-    phoneCurve: {
-        position: 'absolute',
-        left: 4,
-        top: 2.5,
-        width: 9,
-        height: 11,
-        borderLeftWidth: ICON_STROKE,
-        borderRightWidth: ICON_STROKE,
-        borderBottomWidth: ICON_STROKE,
-        borderBottomLeftRadius: 5,
-        borderBottomRightRadius: 5,
-    },
-    phoneCapLeft: {
-        position: 'absolute',
-        left: 2.2,
-        top: 1.65,
-        width: 5,
-        height: ICON_STROKE,
-        borderRadius: ICON_STROKE / 2,
-    },
-    phoneCapRight: {
-        position: 'absolute',
-        right: 2.2,
-        top: 1.65,
-        width: 5,
-        height: ICON_STROKE,
-        borderRadius: ICON_STROKE / 2,
-    },
     moreButton: {
         width: hit.icon,
         height: hit.icon,
@@ -923,35 +899,6 @@ const styles = StyleSheet.create({
         borderRadius: radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    summaryArrowIcon: {
-        width: 17,
-        height: 17,
-    },
-    summaryArrowShaft: {
-        position: 'absolute',
-        left: 2.9,
-        top: 7.65,
-        width: 11.2,
-        height: ICON_STROKE,
-        borderRadius: ICON_STROKE / 2,
-        transform: [{ rotate: '-45deg' }],
-    },
-    summaryArrowHeadTop: {
-        position: 'absolute',
-        left: 6.7,
-        top: 3.75,
-        width: 5.7,
-        height: ICON_STROKE,
-        borderRadius: ICON_STROKE / 2,
-    },
-    summaryArrowHeadRight: {
-        position: 'absolute',
-        left: 11.55,
-        top: 3.75,
-        width: ICON_STROKE,
-        height: 5.7,
-        borderRadius: ICON_STROKE / 2,
     },
     livePanel: {
         minHeight: calendarMetrics.liveActionHeight + space.md,
