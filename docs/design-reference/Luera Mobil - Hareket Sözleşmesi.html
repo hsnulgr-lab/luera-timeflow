@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Hareket Sözleşmesi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--desk:#E4DACA}
+body,.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040}
+.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glow:linear-gradient(180deg,rgba(255,90,31,.18) 0%,rgba(255,90,31,.06) 45%,rgba(18,14,8,0) 100%)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:#0E0E0E;font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:780px;margin-bottom:56px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:#0E0E0E;font-weight:700}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:560px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:48px 40px;margin-bottom:76px;align-items:flex-start}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:504px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:#0E0E0E;font-weight:700}
+.note.warn::before{background:var(--am)}
+a{color:var(--or2)}a:hover{color:var(--or)}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#0E0E0E}
+
+/* ── token kartları ── */
+.tok{display:flex;flex-direction:column;width:396px;border:1px solid var(--bd);border-radius:18px;background:var(--surf);overflow:hidden}
+.tok h4{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2);padding:15px 18px 11px;border-bottom:1px solid var(--bd)}
+.tok .t{display:flex;gap:12px;align-items:baseline;padding:9px 18px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.4}
+.tok .t:last-child{border-bottom:0}
+.tok .t b{flex:none;width:66px;font-weight:700;color:#0E0E0E;font-variant-numeric:tabular-nums;font-size:13px}
+.tok .t.no b{color:var(--rd)}
+.curves{display:flex;flex-wrap:wrap;gap:10px;padding:14px 18px}
+.cv{display:flex;flex-direction:column;gap:6px;width:106px}
+.cv svg{width:106px;height:52px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+.cv b{font-size:11px;font-weight:700;letter-spacing:.04em}
+.cv span{font-size:10px;font-weight:500;color:var(--tx2);line-height:1.3;font-family:ui-monospace,Menlo,monospace}
+
+/* ── demo bloğu ── */
+.demo{display:flex;flex-direction:column;gap:12px;width:504px}
+.dh{display:flex;flex-direction:column;gap:4px}
+.dh .l1{display:flex;align-items:baseline;gap:9px}
+.dh .dn{font-size:10.5px;font-weight:700;letter-spacing:.2em;color:var(--tx3);font-variant-numeric:tabular-nums}
+.dh b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.dh span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.pair{display:flex;gap:20px}
+.mw{display:flex;flex-direction:column;gap:7px;width:232px}
+.mw>.ml{font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.mw.rmw>.ml{color:var(--or2)}
+.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.play{height:32px;padding:0 15px;border-radius:999px;background:#241E16;color:#F3EDE3;font-size:12.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
+.play:hover{background:#0E0E0E}
+.play.gh{background:transparent;border:1px solid var(--bd2);color:#0E0E0E}
+.play.gh:hover{background:var(--surf2)}
+.hint{font-size:11px;font-weight:600;color:var(--tx3);letter-spacing:-.01em}
+.facts{display:flex;flex-wrap:wrap;gap:6px}
+.facts s{text-decoration:none;font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--tx2);background:var(--surf);border:1px solid var(--bd);border-radius:8px;padding:4px 8px;font-variant-numeric:tabular-nums}
+.facts s.nd{color:#1d6b21;border-color:rgba(45,143,50,.34);background:rgba(45,143,50,.09)}
+.facts s.js{color:#8A5C00;border-color:rgba(184,122,0,.34);background:rgba(184,122,0,.1)}
+
+/* ── mini telefon ── */
+.mini{position:relative;width:232px;height:420px;flex:none;border-radius:32px;border:1px solid var(--bd2);background:var(--bg);color:var(--tx);overflow:hidden;display:flex;flex-direction:column;
+--e:cubic-bezier(.215,.61,.355,1);--ein:cubic-bezier(.4,0,1,1);--edec:cubic-bezier(.2,.9,.15,1);
+--press:90ms;--micro:140ms;--fade:180ms;--move:220ms;--push:240ms;--sheet:260ms;--y:6px;--sc:.97;--scq:.92;--pulse:1.6s}
+.mini.rm{--press:60ms;--micro:100ms;--fade:140ms;--move:140ms;--push:160ms;--sheet:140ms;--y:0px;--sc:1;--scq:1;--pulse:2.4s}
+.mst{flex:none;height:26px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 14px 3px;font-size:9.5px;font-weight:700;color:var(--tx2);position:relative;z-index:30}
+.mst i{width:14px;height:7px;border:1px solid var(--tx2);border-radius:2px;display:block}
+.mbody{flex:1;min-height:0;position:relative;overflow:hidden}
+.mglow{position:absolute;left:0;right:0;top:0;height:150px;background:var(--glow);pointer-events:none;z-index:0}
+.mpad{position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px 62px}
+.mt1{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1;display:flex;align-items:flex-end;gap:4px}
+.mt1 i{width:6px;height:6px;border-radius:50%;background:var(--or);margin-bottom:5px}
+.msub{font-size:10.5px;font-weight:500;color:var(--tx2)}
+.mc{background:var(--surf);border:1px solid var(--bd);border-radius:14px;padding:11px;display:flex;flex-direction:column;gap:3px;position:relative}
+.mc .nm{font-size:13.5px;font-weight:800;letter-spacing:-.025em;line-height:1.15}
+.mc .nm em{font-style:normal;font-weight:500;color:var(--tx2)}
+.mc .ds{font-size:10.5px;font-weight:500;color:var(--tx2);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mchip{align-self:flex-start;height:20px;padding:0 8px;border-radius:8px;display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;background:rgba(45,143,50,.14);color:var(--gr)}
+.mchip s{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mtab{position:absolute;left:8px;right:8px;bottom:9px;height:44px;border-radius:999px;display:flex;padding:3px;gap:2px;background:rgba(18,15,11,.5);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(18px) saturate(170%);-webkit-backdrop-filter:blur(18px) saturate(170%);z-index:22}
+.mtab .t{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--tx3);position:relative;z-index:2;min-width:0}
+.mtab .t b{font-size:8px;font-weight:600;letter-spacing:-.02em;transition:color var(--fade) linear}
+.mtab .t svg{width:15px;height:15px;transition:color var(--fade) linear}
+.mtab .t.sel{color:var(--or2)}
+.mind{position:absolute;top:3px;bottom:3px;left:3px;border-radius:999px;background:#120E08;z-index:1;transition:transform var(--move) var(--e)}
+.mini.rm .mind{transition:none}
+.mtab.compact{height:34px;opacity:0}
+.mtab.compact .t b{display:none}
+.mtab.full,.mtab.compact{transition:opacity var(--fade) linear}
+.mbar{position:absolute;left:0;right:0;top:0;height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;background:rgba(28,23,16,.66);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--bd);z-index:20;opacity:0}
+.mbar b{font-size:13px;font-weight:800;letter-spacing:-.024em}
+.mbar span{font-size:10.5px;font-weight:600;color:var(--tx2)}
+.mscroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:1;-webkit-overflow-scrolling:touch}
+.mscroll::-webkit-scrollbar{width:0}
+.pane{position:absolute;inset:0;overflow:hidden;transition:opacity var(--fade) var(--e),transform var(--fade) var(--e);z-index:1}
+.pane.off{opacity:0;transform:translateY(var(--y));pointer-events:none}
+.scr{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;gap:8px;padding:10px 12px;transition:opacity var(--push) var(--edec),transform var(--push) var(--edec);z-index:2}
+.scr.nx{opacity:0;transform:translateX(12%);pointer-events:none}
+.scr.pv{opacity:0;transform:translateX(-6%);pointer-events:none}
+.mini.rm .scr{transform:none!important}
+.sctop{display:flex;align-items:center;gap:8px;height:30px;flex:none}
+.sctop b{font-size:14px;font-weight:800;letter-spacing:-.03em}
+.sctop svg{width:16px;height:16px;color:var(--tx2)}
+.big{font-size:34px;font-weight:800;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.mbtn{height:38px;border-radius:999px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:800;letter-spacing:-.02em;flex:none;transition:opacity var(--press) var(--e),transform var(--press) var(--e)}
+.mbtn.gho{background:transparent;border:1px solid var(--bd2);color:var(--tx)}
+.mbtn.dn{opacity:.9;transform:scale(var(--sc))}
+.mbtn.gho.dn{opacity:.6;transform:none}
+.mrow{height:44px;flex:none;border-radius:12px;display:flex;align-items:center;gap:9px;padding:0 11px;position:relative;overflow:hidden;font-size:12.5px;font-weight:600}
+.mrow .fl{position:absolute;inset:0;background:var(--surf2);opacity:0;transition:opacity var(--micro) var(--e);z-index:0}
+.mrow.dn .fl{opacity:1;transition-duration:60ms}
+.mrow>*{position:relative;z-index:1}
+.micb{width:38px;height:38px;flex:none;border-radius:12px;border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;color:var(--tx2);transition:opacity var(--press) var(--e),transform var(--press) var(--e)}
+.micb.dn{opacity:.7;transform:scale(var(--scq))}
+.micb svg{width:17px;height:17px}
+.mwk{display:flex;gap:2px;flex:none}
+.mwd{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform var(--press) var(--e);cursor:pointer}
+.mwd.dn{transform:scale(calc(var(--sc) - .01))}
+.mwd .n{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums}
+.mwd.sel .n{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx);font-weight:800}
+.mwd .l{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.mnth{flex:none;overflow:hidden;max-height:0;transition:max-height var(--sheet) var(--e)}
+.mnth.open{max-height:190px}
+.mnr{display:flex;gap:2px;opacity:0;transform:translateY(calc(var(--y) * -1));transition:opacity var(--move) var(--e),transform var(--move) var(--e)}
+.mnth.open .mnr{opacity:1;transform:none}
+.mnc{flex:1;height:30px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums;border-radius:9px}
+.mnc.sel{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx);font-weight:800}
+.chev{transition:transform var(--move) var(--e);display:block}
+.chev.up{transform:rotate(180deg)}
+.dim{position:absolute;inset:0;background:#000;opacity:0;z-index:24;transition:opacity var(--sheet) linear;pointer-events:none}
+.dim.on{opacity:.42;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;height:218px;background:var(--surf);border-top:1px solid var(--bd2);border-radius:22px 22px 0 0;z-index:25;transform:translateY(100%);transition:transform var(--sheet) var(--edec);display:flex;flex-direction:column;padding:0 12px 12px;touch-action:none}
+.sheet.on{transform:none}
+.sheet.closing{transition:transform var(--fade) var(--ein)}
+.mini.rm .sheet{transform:none;opacity:0;transition:opacity var(--sheet) linear;pointer-events:none}
+.mini.rm .sheet.on{opacity:1;pointer-events:auto}
+.grab{flex:none;height:22px;display:flex;align-items:center;justify-content:center;cursor:grab}
+.grab s{width:36px;height:4px;border-radius:2px;background:var(--bd2);display:block}
+.sheet h5{font-size:14px;font-weight:800;letter-spacing:-.03em;padding:2px 2px 8px}
+.live{display:flex;align-items:center;gap:9px;padding:11px;border-radius:14px;background:#241E16;color:#F3EDE3}
+.live .lt{display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:600;color:rgba(243,237,227,.6)}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--or);flex:none;animation:lpulse var(--pulse) ease-in-out infinite}
+@keyframes lpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live .ctr{font-size:26px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.rail{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px;background:var(--or);transform:scaleY(0);transform-origin:top;transition:transform var(--move) var(--e)}
+.st10 .rail{transform:scaleY(1)}
+.mini.rm .rail{transform:scaleY(1);opacity:0;transition:opacity var(--micro) linear}
+.mini.rm .st10 .rail{opacity:1}
+.lay{position:relative;overflow:hidden;transition:height var(--move) cubic-bezier(.4,0,.2,1)}
+.lyr{transition:opacity var(--micro) var(--e),transform var(--micro) var(--e)}
+.lyr.q{position:relative}
+.lyr.l{position:absolute;left:0;right:0;top:0;opacity:0;transform:translateY(calc(var(--y) + 2px));transition:opacity var(--fade) var(--e) 60ms,transform var(--fade) var(--e) 60ms;pointer-events:none}
+.st10 .lyr.q{opacity:0;transform:translateY(calc(var(--y) * -1));pointer-events:none}
+.st10 .lyr.l{opacity:1;transform:none;pointer-events:auto}
+.sk{background:var(--surf2);border-radius:8px;position:relative;overflow:hidden}
+.sk::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(243,237,227,.07),transparent);transform:translateX(-100%);animation:shim 1.1s linear infinite}
+.mini.rm .sk::after{animation:none;opacity:0}
+@keyframes shim{to{transform:translateX(100%)}}
+.skwrap,.rlwrap{position:absolute;inset:0;padding:10px 12px;display:flex;flex-direction:column;gap:8px;transition:opacity var(--micro) linear}
+.rlwrap{opacity:0;transition:opacity var(--fade) linear 60ms;pointer-events:none}
+.loaded .skwrap{opacity:0;pointer-events:none}
+.loaded .rlwrap{opacity:1;pointer-events:auto}
+.offb{position:absolute;left:0;right:0;top:0;height:22px;background:var(--am);color:#1a1200;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;z-index:26;transform:translateY(-100%);transition:transform var(--move) var(--e)}
+.offb.on{transform:none}
+.mini.rm .offb{transform:none;opacity:0;transition:opacity var(--micro) linear}
+.mini.rm .offb.on{opacity:1}
+.shifted{transition:transform var(--move) var(--e)}
+.shifted.on{transform:translateY(22px)}
+.mini.rm .shifted{transition:none}
+.mini.rm .shifted.on{transform:none}
+.toast{position:absolute;left:12px;right:12px;bottom:62px;height:34px;border-radius:12px;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;gap:8px;padding:0 11px;font-size:11px;font-weight:700;z-index:23;opacity:0;transform:translateY(8px);transition:opacity var(--micro) var(--e),transform var(--micro) var(--e)}
+.toast.on{opacity:1;transform:none}
+.mini.rm .toast{transform:none}
+.toast .qn{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx2)}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--bd2);border-top-color:var(--or);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ptr{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:center;height:30px;z-index:2;opacity:0}
+.pull{position:relative;z-index:3}
+.dots5{display:flex;gap:8px;justify-content:center;padding:6px 0}
+.dots5 i{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--bd2);display:block}
+.dots5 i.f{background:var(--tx);border-color:var(--tx);transform:scale(1);animation:pin 260ms cubic-bezier(.2,.8,.2,1)}
+@keyframes pin{from{transform:scale(.72)}to{transform:scale(1)}}
+.shake{animation:shk 240ms linear}
+@keyframes shk{0%{transform:translateX(0)}23%{transform:translateX(-8px)}52%{transform:translateX(8px)}77%{transform:translateX(-5px)}100%{transform:translateX(0)}}
+.mini.rm .shake{animation:none}
+.errbox{font-size:10.5px;font-weight:700;color:var(--rd);opacity:0;transform:translateY(4px);transition:opacity var(--micro) var(--e),transform var(--micro) var(--e);text-align:center}
+.errbox.on{opacity:1;transform:none}
+.mini.rm .errbox{transform:none}
+
+/* ── takvim: gün değişimi ── */
+.chead{flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:12px 12px 0;position:relative;z-index:2}
+.chead .cd{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1;display:flex;align-items:flex-end;gap:4px;transition:opacity var(--micro) linear}
+.chead .cd i{width:6px;height:6px;border-radius:50%;background:var(--or);margin-bottom:5px}
+.chead .cn{font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--tx3);font-variant-numeric:tabular-nums;transition:opacity var(--micro) linear}
+.wtrack{flex:none;position:relative;z-index:2;overflow:hidden;padding:10px 0 6px}
+.wpages{display:flex;transition:transform var(--move) var(--edec)}
+.wpg{flex:none;width:100%;display:flex;gap:2px;padding:0 10px}
+.mini.rm .wpages{transition:opacity var(--micro) linear}
+.wsel{position:absolute;top:10px;width:26px;height:26px;border-radius:10px;background:var(--surf2);border:1px solid var(--bd2);transition:transform var(--move) cubic-bezier(.2,.8,.25,1);z-index:1}
+.mini.rm .wsel{transition:none}
+.wsel.jump{transition:opacity var(--micro) linear}
+.cbody{position:relative;flex:1;min-height:0;z-index:2}
+.clay{position:absolute;inset:0;padding:4px 12px 0;display:flex;flex-direction:column;gap:8px;transition:opacity var(--fade) var(--e),transform var(--fade) var(--e)}
+.clay.o{opacity:0;pointer-events:none;transition-duration:120ms}
+.clay.xl{transform:translateX(-8px)}.clay.xr{transform:translateX(8px)}
+.mini.rm .clay{transform:none!important}
+.nowl{display:flex;align-items:center;gap:8px;flex:none}
+.nowl b{flex:none;height:18px;padding:0 8px;border-radius:999px;background:var(--or);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;font-variant-numeric:tabular-nums}
+.nowl s{flex:1;height:1px;background:var(--or);display:block}
+
+/* ── zaman şeması (haptik + 10) ── */
+.tlx{width:504px;border:1px solid var(--bd);border-radius:18px;background:var(--surf);padding:16px 18px 14px;display:flex;flex-direction:column;gap:10px}
+.tlx h4{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)}
+.trk{position:relative;height:74px;border-left:1px solid var(--bd2);border-bottom:1px solid var(--bd2)}
+.trk .gd{position:absolute;top:0;bottom:0;width:1px;background:var(--bd)}
+.trk .gd b{position:absolute;bottom:-17px;left:-11px;font-size:9px;font-weight:700;color:var(--tx3);font-variant-numeric:tabular-nums;width:24px;text-align:center}
+.trk .ev{position:absolute;height:16px;border-radius:5px;background:rgba(255,90,31,.2);border:1px solid rgba(255,90,31,.5);display:flex;align-items:center;padding:0 5px;font-size:8.5px;font-weight:700;color:#8a2c00;white-space:nowrap}
+.trk .ev.g{background:rgba(45,143,50,.16);border-color:rgba(45,143,50,.45);color:#1d6b21}
+.trk .ev.n{background:var(--surf2);border-color:var(--bd2);color:var(--tx2)}
+.trk .hp{position:absolute;top:2px;width:2px;height:14px;background:#0E0E0E}
+.trk .hp b{position:absolute;left:5px;top:0;font-size:8.5px;font-weight:700;white-space:nowrap}
+.trk .ph{position:absolute;top:0;bottom:0;width:1px;background:var(--or);opacity:0}
+.tlx .lg{font-size:11px;font-weight:500;color:var(--tx2);line-height:1.5}
+.tlx .lg b{color:#0E0E0E;font-weight:700}
+.tlx.wide{width:1048px}
+
+/* ── şartname tablosu ── */
+.tbl{width:100%;max-width:1740px;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);border-collapse:separate;border-spacing:0}
+.tbl th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--tx2);padding:13px 14px;border-bottom:1px solid var(--bd2);vertical-align:bottom;background:var(--surf2)}
+.tbl td{font-size:12px;font-weight:500;color:var(--tx2);padding:11px 14px;border-bottom:1px solid var(--bd);line-height:1.45;vertical-align:top}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.k{color:#0E0E0E;font-weight:700;font-size:12.5px;letter-spacing:-.01em;width:172px}
+.tbl td.n{font-variant-numeric:tabular-nums;color:#0E0E0E;font-weight:700;white-space:nowrap}
+.tbl td.c{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#0E0E0E}
+.tbl .y{color:#1d6b21;font-weight:700}
+.tbl .no{color:#8A5C00;font-weight:700}
+.tbl tr.grp td{background:var(--surf2);font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx2);padding:8px 14px}
+.tbl col.w1{width:172px}
+.tbl col.w2{width:auto}
+.tbl col.w3{width:96px}
+.tbl col.w4{width:158px}
+.tbl col.w5{width:118px}
+.tbl col.w6{width:210px}
+.tbl col.w7{width:270px}
+
+/* ── RN notları ── */
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1140px}
+.rn .r{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r b{flex:none;width:220px;color:#0E0E0E;font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.rn .r b.am{color:#8A5C00}
+</style></head>
+<template id="__bundler_thumbnail" data-bg-color="#E4DACA"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#E4DACA"/><rect x="430" y="180" width="150" height="440" rx="30" fill="#120E08"/><rect x="620" y="180" width="150" height="440" rx="30" fill="#120E08"/><rect x="455" y="300" width="100" height="60" rx="12" fill="#241E16"/><rect x="645" y="300" width="100" height="60" rx="12" fill="#241E16"/><circle cx="500" cy="420" r="7" fill="#FF5A1F"/><rect x="455" y="470" width="70" height="10" rx="5" fill="#FF5A1F"/><text x="600" y="730" font-family="system-ui,sans-serif" font-size="52" font-weight="800" letter-spacing="-3" text-anchor="middle" fill="#0E0E0E">hareket</text></svg></template>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-today"><path d="M4 8h16M8 3v3M16 3v3M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></g>
+<g id="i-cal"><path d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1z"/><path d="M8 13h2M14 13h2M8 16.6h2"/></g>
+<g id="i-users"><circle cx="9.5" cy="8.5" r="3.4"/><path d="M3.6 19.4c.6-3 3-4.9 5.9-4.9s5.3 1.9 5.9 4.9M16.5 6.6a3.2 3.2 0 0 1 0 6M18 14.9c2 .6 3.3 2.3 3.6 4.5"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></g>
+<g id="i-phone"><path d="M6.6 3.8h3l1.5 3.7-1.9 1.5a10.6 10.6 0 0 0 4.8 4.8l1.5-1.9 3.7 1.5v3a2 2 0 0 1-2.2 2A15.6 15.6 0 0 1 4.6 6a2 2 0 0 1 2-2.2z"/></g>
+<g id="i-chart"><path d="M4 20V10M10 20V4.8M16 20v-7M21 20H3"/></g>
+<g id="i-check"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></g>
+<g id="i-back"><path d="M15 5l-7 7 7 7"/></g>
+<g id="i-chevd"><path d="M5 9l7 7 7-7"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-run"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3.2 2"/></g>
+<g id="i-off"><path d="M2.6 3.4 21.4 20.6M5 10.4a11 11 0 0 1 3.4-2.1M12 4c3.4 0 6.6 1.2 9.2 3.4M8.6 14.2A6.6 6.6 0 0 1 12 13M12 19.4h.01"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Hareket sözleşmesi · v1<br/>Personel mobil · React Native<br/>Kaynak: Kumanda + Takvim</div></div>
+
+<div class="lede">
+<h1>Hareket sözleşmesi</h1>
+<p>Bu belge yeni ekran tanımlamaz. Var olan ekranların birbirine nasıl bağlandığını, dokunmaya nasıl karşılık verdiğini ve neyin değiştiğini <b>taşınabilir sayılarla</b> tanımlar: süre, eğri, gecikme, hangi özelliğin hareket ettiği ve “hareketi azalt” açıkken ne olduğu.</p>
+<p>Üstteki demolar hissi göstermek için var; CSS'leri şartname değil. <b>Şartname aşağıdaki tablodur.</b> Her satır <code>useNativeDriver</code> uygunluğuna göre yazıldı: hareket önce opaklık ve dönüşümle ifade edilir. Yükseklik, renk, köşe yarıçapı ve gölge animasyonu sözleşmede yok — üç yerde geometri değişimi zorunlu kaldı, ikisi <code>LayoutAnimation</code>'a devredildi ve sarı işaretlendi.</p>
+<p>Cam yüzeylerin kendi basılma tepkisi burada tanımlanmaz. Tab bar, “+” butonu ve toplanmış üst çubuk sistem materyalidir; onlara yalnız <code>isInteractive</code> ile katılırız. Tanımladığımız şey camın <b>ne zaman opağa düştüğü</b>, <b>kaydırmada hangi varyanta geçtiği</b> ve <b>içindeki göstergenin nasıl kaydığıdır</b>.</p>
+</div>
+
+<!-- ══════════ 00 TEMEL ══════════ -->
+<div class="band"><span class="num">00</span><h2>Temel</h2><p>Yedi süre, dört eğri, iki yay. Bunların dışında sayı yok — yeni bir süre gerekiyorsa sözleşme değişir.</p></div>
+<div class="row">
+<div class="tok"><h4>Süre ölçeği</h4>
+<div class="t"><b>90 ms</b>basma tepkisi · parmak değdiği an</div>
+<div class="t"><b>120 ms</b>basmadan dönüş · giriş süresinden hep uzun</div>
+<div class="t"><b>140 ms</b>mikro belirme: hata kutusu, sıraya alındı çipi, iskelet takası</div>
+<div class="t"><b>180 ms</b>çapraz solma: sekme içeriği, tab bar varyantı, bant çıkışı</div>
+<div class="t"><b>220 ms</b>gösterge kayması, geri dönüş, bant girişi, ay ızgarası satırları</div>
+<div class="t"><b>240 ms</b>ekran ilerlemesi · PIN sarsıntısının toplamı</div>
+<div class="t"><b>260 ms</b>bottom sheet açılışı · ay ızgarası açılışı — <b>üst sınır</b></div>
+<div class="t no"><b>320 ms</b>yalnız bir yerde: “işleme başla” zarfının tamamı</div>
+</div>
+<div class="tok"><h4>Eğriler</h4>
+<div class="curves">
+<div class="cv"><svg viewBox="0 0 100 50"><path d="M0 50 C21.5 30.5 35.5 0 100 0" fill="none" stroke="#FF5A1F" stroke-width="2"/></svg><b>OUT</b><span>0.215,0.61,<br/>0.355,1</span></div>
+<div class="cv"><svg viewBox="0 0 100 50"><path d="M0 50 C40 50 100 0 100 0" fill="none" stroke="#0E0E0E" stroke-width="2"/></svg><b>IN</b><span>0.4,0,1,1</span></div>
+<div class="cv"><svg viewBox="0 0 100 50"><path d="M0 50 C20 45 15 0 100 0" fill="none" stroke="#FF5A1F" stroke-width="2"/></svg><b>DECEL</b><span>0.2,0.9,<br/>0.15,1</span></div>
+<div class="cv"><svg viewBox="0 0 100 50"><path d="M0 50 L100 0" fill="none" stroke="#0E0E0E" stroke-width="2"/></svg><b>LINEAR</b><span>karartma,<br/>parıltı, renk</span></div>
+</div>
+<div class="t"><b>OUT</b>Varsayılan. Her belirme, her basma, her gösterge. <code>Easing.out(Easing.cubic)</code></div>
+<div class="t"><b>IN</b>Yalnız kaybolmalar: sheet kapanışı, bant çıkışı. <code>Easing.in(Easing.quad)</code></div>
+<div class="t"><b>DECEL</b>Ekran ilerlemesi ve sheet açılışı — iOS'un kendi yavaşlamasına yakın.</div>
+<div class="t"><b>LINEAR</b>Opaklık geçişleri ve karartma. Solmada eğri gözle görülmez, hesap ucuzdur.</div>
+</div>
+<div class="tok"><h4>Yaylar — ikisi de aşmaz</h4>
+<div class="t"><b>SAKİN</b>damping 26 · stiffness 240 · mass 1 → ~200 ms. Sekme göstergesi, sheet'in geri yerleşmesi.</div>
+<div class="t"><b>KISA</b>damping 20 · stiffness 340 · mass 0.5 → ~180 ms. PIN noktası, eşleştirme hanesi.</div>
+<div class="t"><b>DÜZELTME</b>Mevcut PIN yayı (damping 13 · stiffness 320 · mass 0.55) gözle görülür şekilde aşıyor — iş uygulamasında zıplama istemiyoruz. <b>KISA</b> ile değiştirildi; ölçek 0.72 → 1 korundu, eşleştirme hanesi 0.78 → 0.85 olarak yumuşatıldı.</div>
+<h4 style="border-top:1px solid var(--bd)">Asla animasyonlanmaz</h4>
+<div class="t no"><b>height</b>yerine ölçek + opaklık, ya da <code>LayoutAnimation</code></div>
+<div class="t no"><b>color</b>yerine üst üste binmiş iki katmanın opaklığı</div>
+<div class="t no"><b>radius</b>yerine iki varyantın çapraz solması</div>
+<div class="t no"><b>shadow</b>tasarımda gölge yok; yükseklik hissi kenarlık ve yüzeyle verilir</div>
+</div>
+<div class="note"><span><b>Ton:</b> personel ayakta, müşteri karşıda. Hareket gösteri değil yön duygusudur: nereden geldim, nereye gidiyorum, ne değişti. Zıplayan, yaylanan, dikkat çeken hiçbir şey yok. Her demoda soldaki çerçeve normal, sağdaki <b>hareketi azalt</b> açık hâl — ikisi aynı düğmeyle sürülüyor.</span></div>
+</div>
+
+<!-- ══════════ 01 KABUK ══════════ -->
+<div class="band"><span class="num">01</span><h2>Kabuk</h2><p>Sekmeler eşittir; aralarında yön yoktur. Bu yüzden sekme değişimi kayma değil solmadır — kayma “ileri gittim” der, oysa gitmedin.</p></div>
+<div class="row">
+
+<div class="demo" data-demo="tab">
+<div class="dh"><div class="l1"><span class="dn">01</span><b>Sekme değişimi</b></div><span>Çıkan içerik 120 ms'de siliniyor, giren 140 ms'de 6 pt aşağıdan yükseliyor — 60 ms bindirme. <code>prefersCrossFade</code> açıkken konum değişimi kalkar, saf çapraz solma kalır.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Sekme değiştir</button><span class="hint">ya da çerçevedeki sekmelere bas</span></div>
+<div class="facts"><s>180 ms</s><s>OUT</s><s>gecikme 60</s><s class="nd">native · opaklık + translateY</s></div>
+</div>
+
+<div class="demo" data-demo="scroll">
+<div class="dh"><div class="l1"><span class="dn">02</span><b>Kaydırma: toplanan başlık, daralan tab bar</b></div><span>Süre yok — scrollY'den okunur, 0–64 pt aralığında kırpılır. Başlık 54 → 17 pt bir <em>font boyutu</em> animasyonu değil: iki başlık da monte, biri sönerken diğeri yanıyor. Tab bar da öyle — dolu ve daralmış varyant üst üste, yükseklik hiç animasyonlanmıyor.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><span class="hint">çerçevenin içinde kaydır</span></div>
+<div class="facts"><s>scroll bağlı · 0–64 pt</s><s>LINEAR</s><s class="nd">native · yalnız opaklık</s><s>azalt: aynı</s></div>
+</div>
+
+<div class="demo" data-demo="ind">
+<div class="dh"><div class="l1"><span class="dn">03</span><b>Seçili sekme göstergesi</b></div><span>Hap kayar, ikon rengi solar. Kayma SAKİN yay (~200 ms); iki komşu sekme arasında da beş sekme arasında da aynı yay — mesafe uzadıkça süre kendiliğinden uzar. Azalt açıkken hap ışınlanır, yalnız renk 120 ms'de geçer.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Sıradaki sekme</button></div>
+<div class="facts"><s>~200 ms yay 26/240/1</s><s>gecikme 0</s><s class="nd">native · translateX</s><s>azalt: anında</s></div>
+</div>
+</div>
+
+<!-- ══════════ 02 BASMA ══════════ -->
+<div class="band"><span class="num">02</span><h2>Basma</h2><p>Beşi aynı değil. Ölçek küçülmesi yalnız kendi başına duran, komşusunu kaydırmayan hedeflerde var. Bir liste satırı ölçeklendiğinde alt satır kayıyormuş gibi görünür — orada yüzey değişir, satır durur.</p></div>
+<div class="row">
+
+<div class="demo" data-demo="press">
+<div class="dh"><div class="l1"><span class="dn">04</span><b>Beş basma hâli</b></div><span>Basma bir <em>geçiş</em> değil, parmağa verilen karşılıktır: giriş 90 ms, bırakma 120 ms (dönüş her zaman daha uzun, yoksa kopuk hissedilir). Azalt açıkken ölçek kalkar, opaklık kalır ve 60 ms'ye iner.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><span class="hint">bas ve tut — beş yüzey ayrı davranır</span></div>
+<div class="facts"><s>90 / 120 ms</s><s>OUT</s><s class="nd">native · opaklık + scale</s></div>
+</div>
+
+<div class="tlx">
+<h4>05 — Basma ile haptik arasındaki ilişki</h4>
+<div class="trk" data-demo="hap">
+<span class="gd" style="left:0"><b>0</b></span><span class="gd" style="left:25%"><b>50</b></span><span class="gd" style="left:50%"><b>100</b></span><span class="gd" style="left:75%"><b>150</b></span><span class="gd" style="left:99.6%"><b>200</b></span>
+<span class="hp" style="left:0"><b>haptik · dokunma anı (0 ms)</b></span>
+<span class="ev" style="left:0;width:45%;top:22px">görsel: opaklık + ölçek · 90 ms</span>
+<span class="ev n" style="left:45%;width:30%;top:44px">bırakma · 120 ms</span>
+<span class="ev g" style="left:0;width:2%;top:66px;padding:0"></span>
+<span class="ph"></span>
+</div>
+<div class="lg"><b>Haptik önce gelmez, görsel önce gelmez — ikisi aynı karede başlar.</b> Haptik <code>onPressIn</code>'de tetiklenir, görsel aynı <code>onPressIn</code>'de; aradaki fark 16 ms'yi geçmemeli. Bırakmada haptik <b>yok</b>: iki titreşim tek dokunuşu iki olay gibi gösterir.</div>
+<div class="lg"><b>selectionAsync</b> — sekme, gün hücresi, anahtar, sheet içindeki seçim. <b>impactLight</b> — birincil buton. <b>impactMedium</b> — yalnız “işleme başla” ve “kasaya gönder”. <b>notificationSuccess</b> — yalnız Gönderildi ekranı monte olurken. <b>notificationWarning</b> — yanlış PIN, sarsıntıyla aynı karede. Hayalet buton, liste satırı ve ikon butonu haptik vermez; gezinme titremez.</div>
+<div class="ctl"><button class="play gh">Zamanlamayı sür</button></div>
+</div>
+</div>
+
+<!-- ══════════ 03 GEÇİŞ ══════════ -->
+<div class="band"><span class="num">03</span><h2>Geçiş</h2><p>Sekmeler arası solma, ekranlar arası kayma. İleri 240, geri 200 — geri her zaman daha kısa, çünkü kullanıcı gideceği yeri biliyor.</p></div>
+<div class="row">
+
+<div class="demo" data-demo="nav">
+<div class="dh"><div class="l1"><span class="dn">06</span><b>Ekran açılışı</b></div><span>Bugün → Randevu detayı → Devam eden işlem → Bitir → Gönderildi. Giren ekran <b>%12</b> sağdan (tam genişlikten değil — 393 pt'lik yolculuk 240 ms'de aceleci görünür), çıkan %6 sola ve opaklık 1 → 0. Gönderildi bir <em>ekran</em> değil sonuçtur: kaymaz, 200 ms solar, onay işareti 80 ms gecikmeyle KISA yayla 0.9 → 1 gelir.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play" data-a="fwd">İleri</button><button class="play gh" data-a="back">Geri</button></div>
+<div class="facts"><s>ileri 240 · geri 200</s><s>DECEL</s><s class="nd">native · translateX + opaklık</s><s>azalt: 160 ms solma</s></div>
+</div>
+
+<div class="demo" data-demo="sheet">
+<div class="dh"><div class="l1"><span class="dn">07</span><b>Bottom sheet · sürükleyerek kapatma</b></div><span>Açılış 260 ms DECEL, karartma 0 → 0.42 aynı süre LINEAR. Kapanış 180 ms IN — kapanmalar hızlanarak gider. Tutamağı sürüklemek animasyon değil, birebir takip: parmak nereye giderse sheet oraya. Bırakışta 64 pt'yi ya da 700 pt/s'yi geçtiyse kalan yol 140–220 ms'de tamamlanır, geçmediyse SAKİN yayla geri oturur.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Sheet aç</button><span class="hint">tutamağı aşağı sürükle</span></div>
+<div class="facts"><s>aç 260 · kapa 180</s><s>DECEL / IN</s><s class="nd">native · translateY</s><s>azalt: yerinde solma</s></div>
+</div>
+
+<div class="demo" data-demo="month">
+<div class="dh"><div class="l1"><span class="dn">08</span><b>Ay ızgarası açılıp kapanması</b></div><span>Burada geometri kaçınılmaz: ızgara yer açıyor. Satırlar opaklık + 6 pt ile 20 ms arayla gelir (native), <b>kabın yüksekliği <code>LayoutAnimation</code>'a devredilir</b> — 260 ms, easeInEaseOut. Chevron 220 ms'de 180° döner (dönüşüm, native). Kapanışta satırlar solmaz, ızgara tek parça toplanır: aksi hâlde iki ayrı hareket görürsün.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Ay görünümü</button></div>
+<div class="facts"><s>260 ms</s><s>OUT · satır gecikmesi 20</s><s class="js">yükseklik → LayoutAnimation</s><s>azalt: 140 ms, kayma yok</s></div>
+</div>
+
+<div class="demo" data-demo="cal">
+<div class="dh"><div class="l1"><span class="dn">17 · 18 · 19</span><b>Takvim: gün değişimi, şimdi çizgisi, hafta atlama</b></div><span>Takvimin birincil etkileşimi. Sekmeler arasında yön yoktu; <b>günler arasında var</b> — dün solda, yarın sağda. Bu yüzden gövde 01'deki dikey solmayı kullanmaz: çıkan kartlar gidilen yönün tersine <b>8 pt</b> kayar, giren aynı yönden gelir. 8 pt, ekran geçişinin %12'si değil — aynı ekranın içinde içerik tazeleniyor, bir yere gidilmiyor.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play gh" data-a="prev">Dün</button><button class="play" data-a="next">Yarın</button><button class="play gh" data-a="week">Sonraki hafta</button></div>
+<div class="facts"><s>çip ~200 · gövde 120 / 160</s><s>SAKİN yay · OUT</s><s>gecikme 40</s><s class="nd">native · translateX + opaklık</s></div>
+<div class="note"><span><b>Şimdi çizgisi</b> yalnız bugünde vardır ve <b>hiç animasyonla girmez</b>: içerikle birlikte gelir. Kendi başına belirmesi “şimdi bir şey oldu” der, oysa olmadı. Başka bir güne geçilince ayrı bir çıkış animasyonu da yoktur — gövdenin parçası olarak o günle birlikte gider.</span></div>
+<div class="note"><span><b>20 · Şerit yapıştığında</b> zemin ve ayırıcı sırayla gelir: cam katman 44 → 60 pt, saç teli 60 → 72 pt. İkisi de scrollY'ye bağlı, süresi yok; ikisi de üst üste monte katmanların opaklığı — zemin rengi animasyonlanmaz. Şerit 02'deki başlık toplanmasından erken kilitlenir, çünkü altından içerik geçtiği an zemin gerekir.</span></div>
+</div>
+</div>
+<div class="band"><span class="num">04</span><h2>Canlı</h2><p>Sürekli hareket dikkat çalar. Ekranda her saniye kıpırdayan tek şey 6 pt'lik nokta; sayaç kıpırdamaz.</p></div>
+<div class="row">
+
+<div class="demo" data-demo="ctr">
+<div class="dh"><div class="l1"><span class="dn">09</span><b>Canlı sayaç ve nokta</b></div><span>Rakam <b>animasyonsuz</b> değişir: tabular rakam, sabit genişlik, zıplama yok, sayma efekti yok. Bir işlem 90 dakika sürüyor; 90 kez animasyon = 90 kez dikkat kaybı. Canlılığı yalnız nokta taşır: opaklık <b>1 → 0.35 → 1</b>, 1.6 sn, easeInOut sine. Ölçek yok — 6 pt'de ölçek titreme gibi okunur.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt · 2.4 sn</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><span class="hint">sayaç kendiliğinden ilerliyor</span></div>
+<div class="facts"><s>döngü 1.6 sn</s><s>opaklık 1 → 0.35</s><s class="nd">native · yalnız opaklık</s><s>azalt: döngü 2.4 sn</s></div>
+</div>
+
+<div class="demo" data-demo="start">
+<div class="dh"><div class="l1"><span class="dn">10</span><b>“İşleme başla” → kartın sürüyor hâli</b></div><span>Uygulamanın en önemli anı. Mevcut 600 ms'lik <code>bezier(0.22,1,0.36,1)</code> kart dönüşümü JS iş parçacığında koşuyordu ve orta seviye telefonda kare düşürüyor. Yerine <b>320 ms'lik dört aşamalı zarf</b>: iki katman üst üste, biri siliniyor diğeri yanıyor; turuncu şerit tek “büyüyen” hareket olarak gözü kartın içine çekiyor. Kartın büyümesi tek başına <code>LayoutAnimation</code>'a bırakıldı.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">İşleme başla</button><button class="play gh" data-a="reset">Baştan</button></div>
+<div class="facts"><s>zarf 320 ms</s><s>OUT</s><s class="nd">native · opaklık + translateY + scaleY</s><s class="js">yükseklik → LayoutAnimation</s></div>
+</div>
+
+<div class="tlx wide">
+<h4>10 — Zarfın aşamaları</h4>
+<div class="trk" style="height:112px">
+<span class="gd" style="left:0"><b>0</b></span><span class="gd" style="left:18.75%"><b>60</b></span><span class="gd" style="left:37.5%"><b>120</b></span><span class="gd" style="left:43.75%"><b>140</b></span><span class="gd" style="left:56.25%"><b>180</b></span><span class="gd" style="left:99.6%"><b>320</b></span>
+<span class="hp" style="left:0"><b>impactMedium</b></span>
+<span class="ev" style="left:0;width:28%;top:22px">buton etiketi soluyor · 90 ms · buton yerinde kalır</span>
+<span class="ev n" style="left:18.75%;width:37.5%;top:44px">“sıradaki” katmanı: opaklık 1 → 0, translateY 0 → −6 · 120 ms</span>
+<span class="ev" style="left:37.5%;width:62.5%;top:66px">canlı katman: opaklık 0 → 1, translateY 8 → 0 · 200 ms</span>
+<span class="ev" style="left:37.5%;width:68%;top:88px;background:rgba(255,90,31,.34)">turuncu şerit: scaleY 0 → 1, kaynak üst · 220 ms</span>
+<span class="ph"></span>
+</div>
+<div class="lg"><b>140 ms</b> · kart ~34 pt büyür → <code>LayoutAnimation.configureNext({duration:200, update:{type:'easeInEaseOut'}})</code>. Sarı işaret bu satır için: yükseklik JS iş parçacığında, ölçülmesi gerek. &nbsp;·&nbsp; <b>180 ms</b> · sayaç 00:00 ile yazılır, ilk tik 1000 ms'de. Sayma animasyonu yok.</div>
+<div class="lg"><b>Hareketi azalt:</b> konum değişimlerinin hepsi kalkar, şerit tam boyda yalnız opaklıkla belirir, katman takası 160 ms'de tek çapraz solmaya iner, <code>LayoutAnimation</code> devre dışı — kart anında büyür. Haptik ve sayaç aynı. Kullanıcı hâlâ “değişti” bilgisini alır; sahne kurulmaz.</div>
+</div>
+
+<div class="demo" data-demo="ptr">
+<div class="dh"><div class="l1"><span class="dn">11</span><b>Aşağı çekip yenileme</b></div><span>Çekme hareketi bize ait değil: sistemin <code>RefreshControl</code>'ü, parmağı birebir takip eder, eğrisi yok. Bizim tanımladığımız tek şey <b>sonrası</b>: yalnız değişen satırlar 140 ms'de opaklıkla belirir. Değişmeyen satır kıpırdamaz — hepsi yeniden animasyonlanırsa “her şey değişti” yalanı söylenir.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><span class="hint">içeriği aşağı çek ve bırak</span></div>
+<div class="facts"><s>sistem · 140 ms</s><s>LINEAR</s><s class="nd">native · opaklık</s><s>azalt: aynı</s></div>
+</div>
+</div>
+
+<!-- ══════════ 05 DURUM ══════════ -->
+<div class="band"><span class="num">05</span><h2>Durum</h2><p>Bekleme, bağlantı, kuyruk. Bunlar kullanıcının istemediği hareketler; en sessiz olanlar bunlar olmalı.</p></div>
+<div class="row">
+
+<div class="demo" data-demo="skel">
+<div class="dh"><div class="l1"><span class="dn">12</span><b>İskeletten gerçek içeriğe</b></div><span>Şart: iskelet son geometriyi <b>4 pt içinde</b> tutmalı. Tutmuyorsa geçiş solma değil zıplama olur. İskelet 120 ms'de silinir, içerik 60 ms gecikmeyle 180 ms'de yanar; konum değişimi yok — iskelet zaten oradaydı. Parıltı bir gradyanın translateX'i, 1.1 sn döngü, native.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt · parıltı yok</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Veri geldi</button><button class="play gh" data-a="reset">Baştan</button></div>
+<div class="facts"><s>120 → 180 ms</s><s>gecikme 60</s><s class="nd">native · opaklık</s><s>azalt: parıltı durur</s></div>
+</div>
+
+<div class="demo" data-demo="off">
+<div class="dh"><div class="l1"><span class="dn">13</span><b>Çevrimdışı bandı</b></div><span>26 pt'lik bant yükseklik animasyonuyla açılmaz: bant hep monte, translateY −26 → 0 ile iner ve altındaki içerik aynı miktarda aşağı kayar — ikisi de dönüşüm, ikisi de native. İniş 220 ms OUT. Çıkışta <b>1.2 sn kararlı bağlantı beklenir</b>, sonra 180 ms IN: yanıp sönen bir bant bağlantıdan daha çok rahatsız eder.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Bağlantıyı kes / ver</button></div>
+<div class="facts"><s>in 220 · out 180</s><s>bekleme 1200 ms</s><s class="nd">native · translateY</s><s>azalt: yerinde solma</s></div>
+</div>
+
+<div class="demo" data-demo="queue">
+<div class="dh"><div class="l1"><span class="dn">14</span><b>Sıraya alındı bildirimi</b></div><span>Çip tab bar'ın üstünde belirir: opaklık + 8 pt yukarı, 160 ms OUT. 2.2 sn durur, sonra <b>yalnız opaklıkla</b> gider (140 ms) — çıkışta konum değiştirmek gözü geri çağırır. Kuyruk sayısı artarsa çip yeniden animasyonlanmaz, rakam tabular olarak değişir; hareket bir kez olur.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">İşlemi sıraya al</button></div>
+<div class="facts"><s>160 · durma 2200 · 140</s><s>OUT</s><s class="nd">native · opaklık + translateY</s><s>azalt: durma 3200</s></div>
+</div>
+
+<div class="demo" data-demo="pin">
+<div class="dh"><div class="l1"><span class="dn">15</span><b>Mevcut dağarcık: PIN</b></div><span>Sarsıntı olduğu gibi kalıyor: 55/70/60/55 ms, ±8 → ±5 → 0 pt, yalnız translateX, toplam 240 ms. Nokta dolumu KISA yaya alındı (aşma yok). Hata kutusu 140 ms OUT, opaklık + 4 pt. Azalt açıkken sarsıntı tümüyle kalkar — yerine hata kutusu ve noktaların hata rengi anında gelir, haptik uyarı aynı karede.</span></div>
+<div class="pair"><div class="mw"><span class="ml">normal</span><div class="mini thm-dark"></div></div><div class="mw rmw"><span class="ml">hareketi azalt · sarsıntı yok</span><div class="mini thm-dark rm"></div></div></div>
+<div class="ctl"><button class="play">Yanlış PIN</button></div>
+<div class="facts"><s>240 ms toplam</s><s>LINEAR adımlar</s><s class="nd">native · translateX + scale</s><s>azalt: yalnız opaklık</s></div>
+</div>
+</div>
+
+<!-- ══════════ 06 ŞARTNAME ══════════ -->
+<div class="band"><span class="num">06</span><h2>Şartname</h2><p>Taşınacak olan bu tablodur. “Native sürücü” sütunu hayır diyorsa o satır ayrıca gözden geçirilir; sarı üç satır var, üçü de yükseklik.</p></div>
+<div style="margin-bottom:76px">
+<table class="tbl"><colgroup><col class="w1"/><col class="w2"/><col class="w3"/><col class="w4"/><col class="w5"/><col class="w6"/><col class="w7"/></colgroup>
+<thead><tr><th>Etkileşim</th><th>Ne hareket ediyor</th><th>Süre</th><th>Eğri</th><th>Gecikme</th><th>Native sürücü</th><th>Hareketi azalt</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="7">Kabuk</td></tr>
+<tr><td class="k">01 · Sekme değişimi</td><td>Çıkan pane opaklık 1 → 0; giren pane opaklık 0 → 1 + translateY 6 → 0</td><td class="n">120 / 140</td><td class="c">OUT</td><td class="n">60 ms</td><td><span class="y">Evet</span> — opaklık + dönüşüm</td><td>translateY kalkar; 140 ms saf çapraz solma. <code>prefersCrossFade</code> açıkken normalde de böyle</td></tr>
+<tr><td class="k">02 · Toplanan başlık</td><td>54 pt başlık opaklık 1 → 0 (0–48 pt); 17 pt çubuk başlığı opaklık 0 → 1 + translateY 6 → 0 (32–64 pt); cam katman opaklık 0 → 1 (0–24 pt); parıltı opaklık 1 → 0 (0–64 pt)</td><td class="n">scroll bağlı</td><td class="c">LINEAR</td><td class="n">—</td><td><span class="y">Evet</span> — <code>Animated.event</code>, <code>useNativeDriver:true</code>. Font boyutu animasyonlanmıyor: iki başlık da monte</td><td>Değişmez. Kaydırmaya bağlı okuma doğrudan manipülasyondur, animasyon değil</td></tr>
+<tr><td class="k">02 · Tab bar daralması</td><td>Dolu (66 pt) ve daralmış (52 pt) varyant üst üste; opaklık çapraz solması</td><td class="n">180</td><td class="c">LINEAR</td><td class="n">—</td><td><span class="y">Evet</span> — yükseklik hiç animasyonlanmıyor, iki varyant çapraz soluyor</td><td>Çapraz solma 120 ms. Eşik 12 pt histerezisle sabit</td></tr>
+<tr><td class="k">03 · Sekme göstergesi</td><td>Hap translateX; ikon ve etiket rengi</td><td class="n">~200</td><td class="c">yay 26/240/1</td><td class="n">0</td><td><span class="y">Evet</span> — translateX. Renk animasyonlanmaz: seçili/seçili değil iki metin katmanı çapraz solar</td><td>Hap anında konumlanır; renk 120 ms'de geçer</td></tr>
+<tr><td class="k">— · Cam yüzeyler</td><td>Sistem materyali. Basılma parlaması, lensleme, kenar bükülmesi <b>tanımlanmaz</b></td><td class="n">—</td><td class="c">sistem</td><td class="n">—</td><td>Sistem çizer — <code>isInteractive</code></td><td>“Saydamlığı azalt” açıkken üçü de opak <code>surf</code> + <code>bd2</code> kenarlığa düşer; geçiş yok, anında</td></tr>
+<tr class="grp"><td colspan="7">Basma</td></tr>
+<tr><td class="k">04 · Birincil buton</td><td>Opaklık 1 → 0.9 + scale 1 → 0.97</td><td class="n">90 / 120</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Ölçek kalkar; opaklık 1 → 0.85, 60 ms</td></tr>
+<tr><td class="k">04 · Hayalet buton</td><td>Opaklık 1 → 0.6. <b>Ölçek yok</b> — 1 pt kenarlık ölçeklenince bulanıklaşır</td><td class="n">90 / 120</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Aynı, 60 ms</td></tr>
+<tr><td class="k">04 · Liste satırı</td><td>Basılı yüzey katmanı opaklık 0 → 1. <b>Ölçek yok</b> — 62 pt satır ölçeklenince komşu satır kayıyormuş gibi görünür</td><td class="n">60 / 140</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span> — <code>backgroundColor</code> değil, üst üste iki yüzey</td><td>Aynı. Zaten opaklık</td></tr>
+<tr><td class="k">04 · İkon butonu</td><td>Opaklık 1 → 0.7 + scale 1 → 0.92</td><td class="n">90 / 120</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span> — 44 pt hedefte ölçek daha derin, yoksa fark edilmez</td><td>Ölçek kalkar; opaklık, 60 ms</td></tr>
+<tr><td class="k">04 · Hafta şeridi gün hücresi</td><td>Yalnız 38 pt hap scale 1 → 0.96; rakam ve etiket kıpırdamaz</td><td class="n">90 / 120</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Ölçek kalkar; seçim doğrudan yeni günde görünür</td></tr>
+<tr><td class="k">05 · Haptik</td><td>Titreşim ile görsel aynı karede, <code>onPressIn</code>. Bırakmada haptik yok</td><td class="n">0 ms fark</td><td class="c">—</td><td class="n">≤16 ms</td><td>—</td><td>Değişmez. Haptik hareket değildir; azalt açıkken tek geri bildirim odur</td></tr>
+<tr class="grp"><td colspan="7">Geçiş</td></tr>
+<tr><td class="k">06 · Ekran ilerlemesi</td><td>Giren translateX %12 → 0 + opaklık 0 → 1; çıkan translateX 0 → −%6 + opaklık 1 → 0</td><td class="n">240</td><td class="c">DECEL</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Kayma kalkar; 160 ms çapraz solma</td></tr>
+<tr><td class="k">06 · Geri dönüş</td><td>Aynı, ters yön</td><td class="n">200</td><td class="c">DECEL</td><td class="n">0</td><td><span class="y">Evet</span></td><td>160 ms çapraz solma</td></tr>
+<tr><td class="k">06 · Gönderildi</td><td>Ekran opaklık 0 → 1; onay işareti scale 0.9 → 1</td><td class="n">200 / yay</td><td class="c">KISA yay</td><td class="n">80 ms</td><td><span class="y">Evet</span></td><td>İşaret ölçeği kalkar; ekran 140 ms'de solar. <code>notificationSuccess</code> kalır</td></tr>
+<tr><td class="k">07 · Sheet açılışı</td><td>Sheet translateY %100 → 0; karartma opaklık 0 → 0.42</td><td class="n">260</td><td class="c">DECEL / LINEAR</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Kayma kalkar; sheet son konumunda 140 ms'de solar. Karartma aynı</td></tr>
+<tr><td class="k">07 · Sheet kapanışı</td><td>translateY 0 → %100; karartma 0.42 → 0</td><td class="n">180</td><td class="c">IN</td><td class="n">0</td><td><span class="y">Evet</span></td><td>140 ms solma</td></tr>
+<tr><td class="k">07 · Tutamağı sürükleme</td><td>Parmağı birebir takip (1:1). Bırakışta: yol &gt; 64 pt <b>ya da</b> hız &gt; 700 pt/s → kapanır (kalan yol 140–220 ms, hızla ölçeklenir); değilse geri oturur</td><td class="n">1:1 · 140–220</td><td class="c">SAKİN yay</td><td class="n">0</td><td><span class="no">Hayır</span> — <code>PanResponder</code>'ın <code>Animated.event</code>'i native sürücüyü desteklemez: jest değerleri her karede JS iş parçacığından geçer, <code>useNativeDriver: false</code>. Bırakıştan sonraki tamamlama tekrar native olur</td><td>Sürükleme aynı kalır (doğrudan manipülasyon). Bırakışta yay yerine 140 ms opaklık</td></tr>
+<tr><td class="k">08 · Ay ızgarası açılışı</td><td>Altı satır opaklık 0 → 1 + translateY −6 → 0, satır başına 20 ms kayma; chevron rotate 180°</td><td class="n">220</td><td class="c">OUT</td><td class="n">satır × 20</td><td><span class="no">Kısmen</span> — satırlar ve chevron native; <b>kabın yüksekliği <code>LayoutAnimation</code></b> (260 ms). Izgara yer açıyor, ölçekle taklit edilemez: hücreler bozulur</td><td>Satır kayması kalkar, ızgara 140 ms'de solar. <code>LayoutAnimation</code> devre dışı: yükseklik anında</td></tr>
+<tr><td class="k">08 · Kapanış</td><td>Izgara tek parça: opaklık 1 → 0; satır kayması yok</td><td class="n">180</td><td class="c">IN</td><td class="n">0</td><td><span class="no">Kısmen</span> — aynı yükseklik notu</td><td>140 ms solma</td></tr>
+<tr class="grp"><td colspan="7">Takvim</td></tr>
+<tr><td class="k">17 · Gün değişimi (komşu gün)</td><td>Seçili çip <b>kayar</b> — şerit sıralı bir raydır, ışınlanma sırayı gizler. Gövde: çıkan kartlar opaklık 1 → 0 + translateX ∓8; giren kartlar aynı yönden 0'a + opaklık 0 → 1. Gün başlığı (“Çar 24”) yalnız opaklıkla değişir, kaymaz — o şeridin etiketi, içeriğin parçası değil</td><td class="n">çip ~200<br/>gövde 120 / 160</td><td class="c">SAKİN yay<br/>OUT</td><td class="n">gövde 40 ms</td><td><span class="y">Evet</span> — çip translateX, gövde opaklık + translateX</td><td>Çip ışınlanır; gövde 140 ms saf çapraz solma, translateX girdisi 0. Yön bilgisini hareket değil şeritteki çip konumu taşır</td></tr>
+<tr><td class="k">17 · Gün değişimi (uzak gün)</td><td>Ay ızgarasından ya da iki günden fazla atlayarak seçim: çip <b>kaymaz</b>, 140 ms'de çapraz solar. Dört hücre boyunca süzülmek tarama (scrubbing) gibi okunur, seçim gibi değil. Gövde aynı yön kuralını uygular</td><td class="n">140 · 120 / 160</td><td class="c">LINEAR · OUT</td><td class="n">gövde 40 ms</td><td><span class="y">Evet</span></td><td>Aynı, gövdede kayma yok</td></tr>
+<tr><td class="k">17 · Haptik</td><td><code>selectionAsync</code>, seçim işlendiği karede</td><td class="n">0</td><td class="c">—</td><td class="n">≤16 ms</td><td>—</td><td>Değişmez</td></tr>
+<tr><td class="k">18 · Şimdi çizgisi · giriş</td><td><b>Hiçbir şey.</b> Yalnız bugünde vardır; ekran açılışında içerikle birlikte gelir (12'deki iskelet takasının içinde). Kendi başına animasyonu yok — belirmesi “şimdi bir şey oldu” anlamı üretir, oysa üretmemesi gerek</td><td class="n">0</td><td class="c">—</td><td class="n">—</td><td><span class="y">Evet</span> — animasyon yok</td><td>Aynı</td></tr>
+<tr><td class="k">18 · Şimdi çizgisi · konum</td><td>Konum 60 sn'de bir yeniden hesaplanır, <b>animasyonsuz</b> yerleşir. Dakikada ~1 pt: animasyon gerekmez, üstelik her dakika hareket eden bir çizgi dikkat çalar. Saat hapındaki rakam tabular, zıplamaz</td><td class="n">0 · 60 sn periyot</td><td class="c">—</td><td class="n">—</td><td><span class="y">Evet</span></td><td>Aynı</td></tr>
+<tr><td class="k">18 · Şimdi çizgisi · çıkış</td><td>Ayrı çıkış animasyonu <b>yok</b>. Başka güne geçilince gövdenin parçası olarak 17'nin yön solmasıyla gider; bugüne dönülünce aynı şekilde gelir</td><td class="n">17 ile aynı</td><td class="c">OUT</td><td class="n">—</td><td><span class="y">Evet</span></td><td>17 ile aynı</td></tr>
+<tr><td class="k">19 · Hafta atlama</td><td>Şerit <b>kayar, takas olmaz</b>: önceki/şimdiki/sonraki hafta üç sayfa hâlinde monte, translateX ile sayfa değişir. Çip aynı hafta gününde kaldığı için yatay yer değiştirmez — kayan şey rakamlar, seçim değil</td><td class="n">220</td><td class="c">DECEL</td><td class="n">0</td><td><span class="y">Evet</span> — translateX</td><td>Sayfa kayması kalkar; şerit 140 ms'de çapraz solar. Çip yine yerinde durur</td></tr>
+<tr><td class="k">19 · Şeridi kaydırma jesti</td><td>Parmağı birebir takip (1:1), sayfa genişliği kadar. Bırakışta: yol &gt; %35 <b>ya da</b> hız &gt; 500 pt/s → sayfa tamamlanır (kalan yol 140–220 ms), değilse geri oturur</td><td class="n">1:1 · 140–220</td><td class="c">DECEL</td><td class="n">0</td><td><span class="no">Hayır</span> — jest değerleri JS iş parçacığından geçer (07 ile aynı sınır); bırakıştan sonraki tamamlama native</td><td>Sürükleme aynı (doğrudan manipülasyon); bırakışta kalan yol yerine 140 ms çapraz solma</td></tr>
+<tr><td class="k">19 · Gövde tazelenmesi</td><td>Şerit yerleştikten <b>40 ms sonra</b> 17'nin gövde kuralı işler. İki hareket üst üste binmez: önce nerede olduğunu gör, sonra ne olduğunu</td><td class="n">120 / 160</td><td class="c">OUT</td><td class="n">40 ms</td><td><span class="y">Evet</span></td><td>140 ms solma, gecikme 0</td></tr>
+<tr><td class="k">20 · Şeridin yapışması</td><td>Şerit 44 pt'de üst çubuğun altına kilitlenir (02'nin 0–64 pt aralığından <b>daha erken</b>: başlık toplanmasını beklemez, çünkü şeridin altından içerik geçmeye başladığı an zemin gerekir). Zemin <b>cam</b>: 02'deki toplanmış çubukla aynı materyal ve tek parça — çubuk ve şerit ayrı iki cam katman olursa bulanıklık üst üste biner ve aralarında dikiş görünür. Serbestken zemin katmanının opaklığı 0 (parıltı görünür), 44 → 60 pt arasında 0 → 1</td><td class="n">44 → 60 pt</td><td class="c">LINEAR</td><td class="n">—</td><td><span class="y">Evet</span> — renk animasyonu değil: cam katman şeridin altında hep monte, yalnız opaklığı sürülür</td><td>Değişmez (kaydırmaya bağlı okuma). “Saydamlığı azalt” açıkken cam yerine opak <code>surf</code> katmanı solar — kabuk kuralının aynısı, eşikler aynı</td></tr>
+<tr><td class="k">20 · Ayırıcı saç teli</td><td>1 pt <code>bd</code> çizgisi. İçerik en üstteyken <b>yok</b> — yokluğu da bilgidir: “yukarıda başka bir şey yok”. Zemin tamamlandıktan sonra başlar: 60 → 72 pt arasında opaklık 0 → 1. Sırayla gelmesi tek bir olay gibi okunur; ikisi aynı anda başlarsa çizgi camın içinde kaybolur</td><td class="n">60 → 72 pt</td><td class="c">LINEAR</td><td class="n">zemin sonrası</td><td><span class="y">Evet</span> — çizgi hep monte, yalnız opaklık</td><td>Değişmez</td></tr>
+<tr class="grp"><td colspan="7">Canlı</td></tr>
+<tr><td class="k">09 · Sayaç rakamı</td><td><b>Hiçbir şey.</b> Metin saniyede bir yeniden yazılır, tabular rakam, sabit genişlik</td><td class="n">0</td><td class="c">—</td><td class="n">—</td><td><span class="y">Evet</span> — animasyon yok, iş yok</td><td>Aynı</td></tr>
+<tr><td class="k">09 · Canlı nokta</td><td>6 pt nokta, opaklık 1 → 0.35 → 1. Ölçek yok</td><td class="n">1600 döngü</td><td class="c">easeInOut sine</td><td class="n">—</td><td><span class="y">Evet</span></td><td>Döngü 2400 ms'ye uzar, aralık 1 → 0.55. Durmaz: canlılığın tek işareti o</td></tr>
+<tr><td class="k">10 · İşleme başla</td><td>Buton etiketi opaklık → 0 (90); “sıradaki” katmanı opaklık → 0 + translateY −6 (120, t60); canlı katman opaklık → 1 + translateY 8 → 0 (200, t120); turuncu şerit scaleY 0 → 1 kaynak üst (220, t120)</td><td class="n">320 zarf</td><td class="c">OUT</td><td class="n">0 / 60 / 120</td><td><span class="y">Evet</span> — dört hareketin dördü de opaklık ve dönüşüm. <span class="no">Ayrıca:</span> kartın ~34 pt büyümesi <code>LayoutAnimation</code> 200 ms, t140</td><td>Konum ve şerit ölçeği kalkar (şerit tam boyda opaklıkla gelir), tek 160 ms çapraz solma, <code>LayoutAnimation</code> yok. Haptik <code>impactMedium</code> ve sayaç aynı</td></tr>
+<tr><td class="k">11 · Aşağı çekip yenileme</td><td>Sistem <code>RefreshControl</code>. Bizim tanımımız: yenilenen içerikte <b>yalnız değişen satırlar</b> opaklık 0 → 1</td><td class="n">sistem / 140</td><td class="c">LINEAR</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Aynı. Çekme birebirdir, animasyon değil</td></tr>
+<tr class="grp"><td colspan="7">Durum</td></tr>
+<tr><td class="k">12 · İskelet → içerik</td><td>İskelet opaklık 1 → 0 (120); içerik opaklık 0 → 1 (180). Konum değişimi yok — iskelet son geometriyi 4 pt içinde tutar</td><td class="n">120 / 180</td><td class="c">OUT</td><td class="n">60 ms</td><td><span class="y">Evet</span></td><td>Aynı, 100 / 120. Parıltı döngüsü tamamen durur, iskelet sabit 0.5 opaklıkta bekler</td></tr>
+<tr><td class="k">12 · Parıltı döngüsü</td><td>Gradyan katmanı translateX −%100 → %100</td><td class="n">1100 döngü</td><td class="c">LINEAR</td><td class="n">—</td><td><span class="y">Evet</span></td><td>Durur</td></tr>
+<tr><td class="k">13 · Çevrimdışı bandı iner</td><td>Bant translateY −26 → 0; alttaki içerik translateY 0 → 26. Yükseklik animasyonu yok, bant hep monte</td><td class="n">220</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span></td><td>Kayma kalkar, bant yerini anında alır ve 140 ms'de solarak görünür</td></tr>
+<tr><td class="k">13 · Bant çıkar</td><td>Ters yön</td><td class="n">180</td><td class="c">IN</td><td class="n">1200 ms</td><td><span class="y">Evet</span> — bağlantı 1.2 sn kararlı kalmadan çıkmaz</td><td>140 ms solma; bekleme aynı</td></tr>
+<tr><td class="k">14 · Sıraya alındı</td><td>Çip opaklık 0 → 1 + translateY 8 → 0; çıkışta <b>yalnız</b> opaklık</td><td class="n">160 / 140</td><td class="c">OUT</td><td class="n">durma 2200</td><td><span class="y">Evet</span></td><td>Kayma kalkar; durma 3200 ms'ye uzar (okuma süresi hareketle kısaltılmamalı)</td></tr>
+<tr><td class="k">14 · Kuyruk sayısı</td><td>Rakam değişir, çip yeniden animasyonlanmaz</td><td class="n">0</td><td class="c">—</td><td class="n">—</td><td><span class="y">Evet</span></td><td>Aynı</td></tr>
+<tr class="grp"><td colspan="7">Mevcut dağarcık — derlenmiş</td></tr>
+<tr><td class="k">15 · PIN sarsıntısı</td><td>translateX ±8 → ±5 → 0</td><td class="n">55/70/60/55</td><td class="c">LINEAR adım</td><td class="n">0</td><td><span class="y">Evet</span> — olduğu gibi korundu</td><td><b>Tamamen kalkar.</b> Yerine hata kutusu (140 ms opaklık) + noktaların hata rengi anında + <code>notificationWarning</code></td></tr>
+<tr><td class="k">15 · PIN noktası dolumu</td><td>scale 0.72 → 1</td><td class="n">~180</td><td class="c">KISA yay</td><td class="n">0</td><td><span class="y">Evet</span> — <b>düzeltildi:</b> 13/320/0.55 aşıyordu → 20/340/0.5</td><td>Ölçek kalkar; opaklık 0 → 1, 100 ms</td></tr>
+<tr><td class="k">15 · Eşleştirme hanesi</td><td>scale 0.85 → 1 (<b>düzeltildi:</b> 0.78 fazla pop'tu)</td><td class="n">~180</td><td class="c">KISA yay</td><td class="n">hane × 0</td><td><span class="y">Evet</span> — 14/300/0.55 → 20/320/0.5</td><td>Ölçek kalkar; opaklık, 100 ms</td></tr>
+<tr><td class="k">15 · Hata kutusu</td><td>Opaklık 0 → 1 + translateY 4 → 0</td><td class="n">140</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span> — olduğu gibi korundu</td><td>translateY kalkar; 100 ms opaklık</td></tr>
+<tr><td class="k">16 · Anahtar (toggle)</td><td><b>Yeniden yazıldı.</b> Eskisi 210 ms renk animasyonuydu (JS). Yenisi: topuz translateX; açık ve kapalı ray üst üste, opaklık çapraz solması</td><td class="n">160</td><td class="c">OUT</td><td class="n">0</td><td><span class="y">Evet</span> — renk animasyonu tamamen kalktı</td><td>Topuz ışınlanır; ray çapraz solması 100 ms'de kalır</td></tr>
+<tr><td class="k">16 · Grafik açılışı</td><td><b>Yeniden yazıldı.</b> Eskisi 380 ms yükseklik animasyonuydu (JS). Yenisi: her çubuk scaleY 0.001 → 1, kaynak alt; etiketler yalnız opaklık</td><td class="n">240</td><td class="c">OUT</td><td class="n">çubuk × 24, en çok 5 kademe</td><td><span class="y">Evet</span></td><td>Kademe kalkar, ölçek kalkar; grafik 140 ms'de tek parça solarak gelir</td></tr>
+<tr><td class="k">16 · Kart dönüşümü</td><td><b>Kaldırıldı.</b> 600 ms <code>bezier(0.22,1,0.36,1)</code> — süre sözleşmenin iki katı, üstelik JS iş parçacığında. Yerine satır <b>10</b>'daki 320 ms'lik zarf</td><td class="n">—</td><td class="c">—</td><td class="n">—</td><td>—</td><td>—</td></tr>
+</tbody></table>
+</div>
+
+<!-- ══════════ 07 RN NOTLARI ══════════ -->
+<div class="band"><span class="num">07</span><h2>React Native notları</h2><p>Sözleşmenin tamamı bugünkü bağımlılıklarla yazılabilir. Reanimated hiçbir satır için <em>zorunlu</em> değil; iki yerde işi kolaylaştırır.</p></div>
+<div class="rn">
+<div class="r"><b>Animated · native</b><span>01 sekme solması · 03 gösterge · 04 beş basma hâli · 06 ekran geçişleri · 07 sheet <b>aç/kapa</b> (sürükleme değil, alttaki satıra bak) · 09 canlı nokta · 10 zarfın dört hareketi · 12 iskelet takası ve parıltı · 13 bant · 14 çip · 15 sarsıntı, nokta, hane, hata kutusu · 16 anahtar ve grafik · 17 şerit çipi ve gövde yön solması · 19 şeridin sayfa tamamlaması. Hepsi <code>useNativeDriver: true</code>; hepsi yalnız <code>opacity</code>, <code>translateX/Y</code>, <code>scale</code>, <code>scaleY</code>, <code>rotate</code>.</span></div>
+<div class="r"><b>Animated.event · scroll</b><span>02 toplanan başlık ve daralan tab bar. <code>onScroll={Animated.event([{nativeEvent:{contentOffset:{y:sy}}}],{useNativeDriver:true})}</code> + <code>sy.interpolate</code>. Süre yok; girdi scrollY, çıktı opaklık ve translateY. <code>scrollEventThrottle</code> gerekmez — native sürücüde JS'e hiç uğramaz.</span></div>
+<div class="r"><b class="am">LayoutAnimation · üç yer</b><span><b>08</b> ay ızgarası kabı (260 ms, easeInEaseOut) · <b>10</b> kartın ~34 pt büyümesi (200 ms, t140) · <b>13</b> yalnız içerik listesi <code>ListHeaderComponent</code> yerine bant kullanılmazsa (kullanıyoruz, o yüzden gerekmiyor). Üçü de JS iş parçacığında ölçüm yapar. Kural: aynı karede başka bir <code>LayoutAnimation</code> olmasın ve orta seviye telefonda ölçülmeden birleştirilmesin. Hareketi azalt açıkken <code>configureNext</code> hiç çağrılmaz.</span></div>
+<div class="r"><b>Spring · 4 yer</b><span>SAKİN (26/240/1): 03 gösterge, 07 sheet geri oturma. KISA (20/340/0.5): 15 PIN noktası, 15 eşleştirme hanesi, 06 Gönderildi onay işareti. <code>useNativeDriver:true</code>, <code>overshootClamping</code> gerekmiyor — iki yay da zaten aşmıyor.</span></div>
+<div class="r"><b class="am">PanResponder · native DEĞİL</b><span><b>Düzeltme:</b> 07 ve 19 tek bir satır olarak sayılamaz, ikiye ayrılır. <b>(1) Sheet'in açılış/kapanış animasyonu</b> ve şeridin bırakıştan sonraki sayfa tamamlaması saf <code>Animated.timing</code>'dir → <code>useNativeDriver: true</code>. <b>(2) Parmak takibi olamaz:</b> <code>PanResponder</code>'ın ürettiği <code>Animated.event</code> native sürücüyü desteklemez — jest değerleri her karede JS iş parçacığından geçer, yani <code>useNativeDriver: false</code> ile yazılır. Pratik sonuç: sürükleme sırasında JS iş parçacığı meşgulse (liste render'ı, ağ yanıtı işlenmesi) sheet parmağın arkasında kalır. Bu yüzden jest sırasında başka iş yapılmaz: sürükleme başlarken arka plan yenilemesi durdurulur, sheet içeriği önceden monte edilir.</span></div>
+<div class="r"><b>18 · şimdi çizgisi</b><span>Animasyon yok, <code>setInterval</code> 60 sn ile konum yeniden hesaplanır ve <code>LayoutAnimation</code> çağrılmadan yerleşir. Çizgi görünür alanın dışındayken “Bugün”'e basılırsa <code>scrollTo({animated: !reduceMotion})</code> — kaydırma sistemin, kendi eğrimizi yazmıyoruz.</span></div>
+<div class="r"><b>Reanimated · önerilir, zorunlu değil</b><span>İki satır Reanimated ile ölçülebilir biçimde daha iyi olur, ikisi de Animated ile <em>kabul edilebilir</em> çalışır: <b>(a) 07 sheet sürüklemesi ve 19 şerit jesti</b> — asıl sebep yukarıdaki satır: <code>PanResponder</code> + <code>Animated</code> parmak takibini JS iş parçacığında yapar. Reanimated'in worklet'leri jesti UI iş parçacığında koşturur, yani takip JS ne kadar meşgul olursa olsun kare düşürmez; ek olarak jest yarıda kesildiğinde (kullanıcı bırakmadan yön değiştirdiğinde) <code>withDecay</code> devralmayı temizler. <b>(b) 08 ay ızgarası</b> — <code>Layout</code> geçişleri <code>LayoutAnimation</code>'ın global davranışını satır bazına indirir, yani JS iş parçacığındaki tek ölçüm noktası da kalkar. Bağımlılık eklenmezse: (a) eşiği 64 pt'de sabit tutup hız kontrolünü çıkarın, (b) tabloda yazdığı gibi <code>LayoutAnimation</code>.</span></div>
+<div class="r"><b>reduceMotion · prefersCrossFade</b><span>Tema bağlamındaki iki bayrak. <code>reduceMotion</code>: süre çarpanı değil <b>ayrı hâl</b> — konum ve ölçek girdileri 0'a düşer, süreler tabloda yazan kısa değerleri alır. <code>prefersCrossFade</code>: yalnız 01'i etkiler, açıkken translateY girdisi 0. İkisi de <code>AccessibilityInfo</code>'dan okunur ve <b>çalışma anında</b> değişebilir; animasyon değerleri bu yüzden hâl içinde değil bağlamdan türetilmeli.</span></div>
+<div class="r"><b>Ölçüm eşiği</b><span>Sözleşme orta seviye Android'de (Snapdragon 6 serisi, 60 Hz) doğrulanır. Kabul: 10'daki zarf ve 08'deki açılış sırasında düşen kare <b>sıfır</b>. Düşüyorsa çözüm süreyi uzatmak değil, <code>LayoutAnimation</code>'ı çıkarmaktır.</span></div>
+</div>
+
+<div class="note" style="max-width:1100px;margin-top:24px"><span><b>Bu belgede olmayan üç şey, bilerek:</b> cam yüzeylerin basılma tepkisi (sistem materyali) · ekran içi liste yeniden sıralama hareketi (henüz ekran yok) · klavye açılış eğrisi (sistem, <code>KeyboardAvoidingView</code> ile takip edilir). Demolardaki çerçeveler 232 pt genişliğinde ölçekli maketlerdir; tipografi ve boşluk değerleri için Kumanda ve Takvim belgeleri geçerlidir.</span></div>
+</div>
+
+<template data-t="tab">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mglow"></div>
+<div class="pane" data-p="0"><div class="mpad"><span class="mt1">Bugün<i></i></span><span class="msub">Çar 24 Eylül · 5 randevu</span>
+<div class="mc"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">Saç boyama · 90 dk</span><span class="mchip"><s></s>Onaylı</span></div>
+<div class="mc"><span class="nm"><em>Merve</em> Demir</span><span class="ds">Kesim · 45 dk</span></div></div></div>
+<div class="pane off" data-p="1"><div class="mpad"><span class="mt1">Eylül</span><span class="msub">24 Çarşamba</span>
+<div class="mwk"><span class="mwd"><span class="n">22</span><span class="l">Pzt</span></span><span class="mwd"><span class="n">23</span><span class="l">Sal</span></span><span class="mwd sel"><span class="n">24</span><span class="l">Çar</span></span><span class="mwd"><span class="n">25</span><span class="l">Per</span></span><span class="mwd"><span class="n">26</span><span class="l">Cum</span></span></div>
+<div class="mc"><span class="nm">11:00 · Zeynep</span><span class="ds">Saç boyama</span></div></div></div>
+<div class="pane off" data-p="2"><div class="mpad"><span class="mt1">Müşteri</span><span class="msub">248 kayıt</span><div class="mc"><span class="nm">Zeynep Kaya</span><span class="ds">Son: 12 Ağustos</span></div><div class="mc"><span class="nm">Ali Yıldız</span><span class="ds">Son: 3 Eylül</span></div></div></div>
+<div class="pane off" data-p="3"><div class="mpad"><span class="mt1">Prim</span><span class="msub">Bu ay</span><div class="mc"><span class="nm">₺14.280</span><span class="ds">32 işlem</span></div></div></div>
+<div class="mtab"><span class="mind"></span>
+<button class="t sel" data-i="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+<button class="t" data-i="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-cal"/></svg><b>Takvim</b></button>
+<button class="t" data-i="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-users"/></svg><b>Müşteri</b></button>
+<button class="t" data-i="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-user"/></svg><b>Profil</b></button>
+</div></div>
+</template>
+
+<template data-t="scroll">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody">
+<div class="mbar"><b>Çar</b><span>24 Eylül · 5 randevu</span></div>
+<div class="mscroll"><div class="mglow"></div><div class="mpad" style="padding-top:14px">
+<span class="mt1 bigt">Çar<i></i></span><span class="msub">24 Eylül 2026 · 5 randevu</span>
+<div class="mc"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama · 90 dk</span></div>
+<div class="mc"><span class="nm"><em>Merve</em> Demir</span><span class="ds">12:30 · Kesim · 45 dk</span></div>
+<div class="mc"><span class="nm"><em>Ali</em> Yıldız</span><span class="ds">14:00 · Sakal · 20 dk</span></div>
+<div class="mc"><span class="nm"><em>Ayşe</em> Kurt</span><span class="ds">15:00 · Bakım · 60 dk</span></div>
+<div class="mc"><span class="nm"><em>Ece</em> Aydın</span><span class="ds">16:30 · Fön · 30 dk</span></div>
+</div></div>
+<div class="mtab full"><span class="mind"></span>
+<button class="t sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-cal"/></svg><b>Takvim</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-users"/></svg><b>Müşteri</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-user"/></svg><b>Profil</b></button>
+</div>
+<div class="mtab compact">
+<button class="t sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-today"/></svg></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-cal"/></svg></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-users"/></svg></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-user"/></svg></button>
+</div>
+</div>
+</template>
+
+<template data-t="ind">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:80px;align-items:center"><span class="msub" style="text-align:center;line-height:1.5">Gösterge kayarken<br/>içerik değişmiyor —<br/>burada yalnız hap ve renk var.</span></div>
+<div class="mtab" style="bottom:120px"><span class="mind"></span>
+<button class="t sel" data-i="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+<button class="t" data-i="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-cal"/></svg><b>Takvim</b></button>
+<button class="t" data-i="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-users"/></svg><b>Müşteri</b></button>
+<button class="t" data-i="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-chart"/></svg><b>Prim</b></button>
+<button class="t" data-i="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-user"/></svg><b>Profil</b></button>
+</div></div>
+</template>
+
+<template data-t="press">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="gap:10px;padding-top:14px">
+<div class="mbtn" data-k="pri">İşleme başla</div>
+<div class="mbtn gho" data-k="gho">Randevuyu ertele</div>
+<div class="mrow" data-k="row"><span class="fl"></span><span>Zeynep Kaya · 11:00</span></div>
+<div style="display:flex;gap:8px;align-items:center"><div class="micb" data-k="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-phone"/></svg></div><div class="micb" data-k="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-plus"/></svg></div><span class="msub">ikon butonu · 44 pt</span></div>
+<div class="mwk" style="margin-top:2px"><span class="mwd" data-k="day"><span class="n">22</span><span class="l">Pzt</span></span><span class="mwd" data-k="day"><span class="n">23</span><span class="l">Sal</span></span><span class="mwd sel" data-k="day"><span class="n">24</span><span class="l">Çar</span></span><span class="mwd" data-k="day"><span class="n">25</span><span class="l">Per</span></span><span class="mwd" data-k="day"><span class="n">26</span><span class="l">Cum</span></span></div>
+</div></div>
+</template>
+
+<template data-t="nav">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody">
+<div class="scr" data-s="0"><div class="mglow"></div><span class="mt1">Bugün<i></i></span><span class="msub">Sıradaki randevu</span><div class="mc"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama</span></div></div>
+<div class="scr nx" data-s="1"><div class="sctop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-back"/></svg><b>Randevu</b></div><div class="mc"><span class="nm">Zeynep Kaya</span><span class="ds">Saç boyama · 90 dk · ₺820</span></div><div class="mbtn" style="margin-top:auto">İşleme başla</div></div>
+<div class="scr nx" data-s="2"><div class="sctop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-back"/></svg><b>Devam eden</b></div><div class="live"><span class="ldot"></span><div style="flex:1"><span class="lt">Zeynep Kaya</span><span class="ctr">18:42</span></div></div><div class="mbtn" style="margin-top:auto">İşlemi bitir</div></div>
+<div class="scr nx" data-s="3"><div class="sctop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-back"/></svg><b>Özet</b></div><div class="mc"><span class="nm">₺820</span><span class="ds">Saç boyama · 1 malzeme</span></div><div class="mbtn" style="margin-top:auto">Kasaya gönder</div></div>
+<div class="scr nx" data-s="4" style="align-items:center;justify-content:center;gap:12px"><span class="ok" style="width:52px;height:52px;border-radius:50%;background:rgba(95,191,100,.16);display:flex;align-items:center;justify-content:center;color:var(--gr);transition:transform 180ms cubic-bezier(.2,.8,.2,1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:24px;height:24px"><use href="#i-check"/></svg></span><b style="font-size:16px;font-weight:800;letter-spacing:-.03em">Kasaya gönderildi</b><span class="msub">₺820 · Zeynep Kaya</span></div>
+</div>
+</template>
+
+<template data-t="sheet">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:14px"><span class="mt1">Devam eden</span><div class="live"><span class="ldot"></span><div style="flex:1"><span class="lt">Zeynep Kaya</span><span class="ctr">18:42</span></div></div><div class="mc"><span class="nm">Saç boyama</span><span class="ds">90 dk · ₺820</span></div></div>
+<span class="dim"></span>
+<div class="sheet"><div class="grab"><s></s></div><h5>Hizmet ekle</h5><div class="mrow"><span class="fl"></span><span>Fön · ₺120</span></div><div class="mrow"><span class="fl"></span><span>Bakım · ₺260</span></div><div class="mbtn" style="margin-top:auto">Ekle</div></div>
+</div>
+</template>
+
+<template data-t="month">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mglow"></div><div class="mpad" style="padding-top:12px;gap:6px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between"><span class="mt1">Eylül</span><span class="micb" data-k="chev" style="border:0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-chevd"/></svg></span></div>
+<div class="mwk"><span class="mwd"><span class="n">22</span><span class="l">Pzt</span></span><span class="mwd"><span class="n">23</span><span class="l">Sal</span></span><span class="mwd sel"><span class="n">24</span><span class="l">Çar</span></span><span class="mwd"><span class="n">25</span><span class="l">Per</span></span><span class="mwd"><span class="n">26</span><span class="l">Cum</span></span></div>
+<div class="mnth">
+<div class="mnr"><span class="mnc">1</span><span class="mnc">2</span><span class="mnc">3</span><span class="mnc">4</span><span class="mnc">5</span></div>
+<div class="mnr"><span class="mnc">8</span><span class="mnc">9</span><span class="mnc">10</span><span class="mnc">11</span><span class="mnc">12</span></div>
+<div class="mnr"><span class="mnc">15</span><span class="mnc">16</span><span class="mnc">17</span><span class="mnc">18</span><span class="mnc">19</span></div>
+<div class="mnr"><span class="mnc">22</span><span class="mnc">23</span><span class="mnc sel">24</span><span class="mnc">25</span><span class="mnc">26</span></div>
+<div class="mnr"><span class="mnc">29</span><span class="mnc">30</span><span class="mnc">1</span><span class="mnc">2</span><span class="mnc">3</span></div>
+<div class="mnr"><span class="mnc">6</span><span class="mnc">7</span><span class="mnc">8</span><span class="mnc">9</span><span class="mnc">10</span></div>
+</div>
+<div class="mc"><span class="nm">11:00 · Zeynep</span><span class="ds">Saç boyama · 90 dk</span></div>
+</div></div>
+</template>
+
+<template data-t="ctr">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:14px"><span class="mt1">Devam eden</span>
+<div class="live" style="flex-direction:column;align-items:stretch;gap:4px"><span class="lt"><span class="ldot"></span>Zeynep Kaya · saç boyama</span><span class="ctr" style="font-size:38px">18:42</span><span class="lt" style="opacity:.7">90 dk hedef · 71 dk kaldı</span></div>
+<div class="mc"><span class="nm">₺820</span><span class="ds">1 hizmet · 1 malzeme</span></div></div></div>
+</template>
+
+<template data-t="start">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:14px">
+<span class="mt1">Bugün<i></i></span>
+<div class="mc lay" style="padding:0;overflow:hidden">
+<span class="rail"></span>
+<div class="lyr q" style="padding:11px;display:flex;flex-direction:column;gap:3px"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama · 90 dk</span><span class="mchip"><s></s>Sıradaki</span></div>
+<div class="lyr l" style="padding:11px;display:flex;flex-direction:column;gap:5px"><span class="lt" style="display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:600;color:var(--tx2)"><span class="ldot"></span>SÜRÜYOR · Zeynep Kaya</span><span class="ctr" style="font-size:30px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums">00:00</span><span class="ds">Saç boyama · 90 dk hedef</span></div>
+</div>
+<div class="mbtn" data-k="go" style="margin-top:4px"><span class="lab">İşleme başla</span></div>
+<div class="mc" style="opacity:.5"><span class="nm"><em>Merve</em> Demir</span><span class="ds">12:30 · Kesim</span></div>
+</div></div>
+</template>
+
+<template data-t="ptr">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody">
+<span class="ptr"><span class="spin"></span></span>
+<div class="pull"><div class="mpad" style="padding-top:12px"><span class="mt1">Bugün<i></i></span>
+<div class="mc nw" style="opacity:1"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama</span></div>
+<div class="mc"><span class="nm"><em>Merve</em> Demir</span><span class="ds">12:30 · Kesim</span></div>
+<div class="mc"><span class="nm"><em>Ali</em> Yıldız</span><span class="ds">14:00 · Sakal</span></div>
+</div></div>
+</div>
+</template>
+
+<template data-t="skel">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody">
+<div class="skwrap"><span class="sk" style="width:96px;height:26px"></span><span class="sk" style="width:130px;height:12px"></span><span class="sk" style="height:64px;border-radius:14px"></span><span class="sk" style="height:64px;border-radius:14px"></span><span class="sk" style="height:64px;border-radius:14px"></span></div>
+<div class="rlwrap"><span class="mt1">Bugün<i></i></span><span class="msub">Çar 24 Eylül · 3 randevu</span>
+<div class="mc"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama</span></div>
+<div class="mc"><span class="nm"><em>Merve</em> Demir</span><span class="ds">12:30 · Kesim</span></div>
+<div class="mc"><span class="nm"><em>Ali</em> Yıldız</span><span class="ds">14:00 · Sakal</span></div>
+</div>
+</div>
+</template>
+
+<template data-t="off">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody">
+<div class="offb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="width:11px;height:11px"><use href="#i-off"/></svg>Çevrimdışı · 2 işlem kuyrukta</div>
+<div class="shifted"><div class="mpad" style="padding-top:12px"><span class="mt1">Bugün<i></i></span><div class="mc"><span class="nm"><em>Zeynep</em> Kaya</span><span class="ds">11:00 · Saç boyama</span></div><div class="mc"><span class="nm"><em>Merve</em> Demir</span><span class="ds">12:30 · Kesim</span></div></div></div>
+</div>
+</template>
+
+<template data-t="queue">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:12px"><span class="mt1">Özet</span><div class="mc"><span class="nm">₺820</span><span class="ds">Saç boyama · Zeynep Kaya</span></div><div class="mbtn" data-k="q">Kasaya gönder</div></div>
+<div class="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="width:13px;height:13px;color:var(--am)"><use href="#i-run"/></svg>Sıraya alındı<span class="qn">2</span></div>
+<div class="mtab"><span class="mind"></span>
+<button class="t sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-cal"/></svg><b>Takvim</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-users"/></svg><b>Müşteri</b></button>
+<button class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-user"/></svg><b>Profil</b></button>
+</div></div>
+</template>
+
+<template data-t="cal">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mglow"></div>
+<div class="chead"><span class="cd">Çar<i></i></span><span class="cn">24</span></div>
+<div class="wtrack"><span class="wsel"></span><div class="wpages"></div></div>
+<div class="cbody"><div class="clay"></div><div class="clay o"></div></div>
+</div>
+</template>
+
+<template data-t="pin">
+<div class="mst"><span>9:41</span><i></i></div>
+<div class="mbody"><div class="mpad" style="padding-top:44px;align-items:center;gap:12px">
+<span class="mt1" style="font-size:20px">PIN</span><span class="msub">Ayşe Yılmaz</span>
+<div class="pinwrap" style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%">
+<div class="dots5"><i></i><i></i><i></i><i></i></div>
+<span class="errbox">Yanlış PIN · 2 deneme kaldı</span>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:150px;margin-top:6px">
+<span class="micb">1</span><span class="micb">2</span><span class="micb">3</span><span class="micb">4</span><span class="micb">5</span><span class="micb">6</span><span class="micb">7</span><span class="micb">8</span><span class="micb">9</span>
+</div>
+</div></div>
+</template>
+
+<script>
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const T={};
+T.tab=(m)=>{const panes=[...m.querySelectorAll('.pane')],tabs=[...m.querySelectorAll('.mtab .t')],ind=m.querySelector('.mind');let i=0;
+ const size=()=>{const w=(m.querySelector('.mtab').clientWidth-6)/tabs.length;ind.style.width=w+'px';ind.style.transform='translateX('+(i*w)+'px)'};
+ const go=(n)=>{i=n;panes.forEach((p,k)=>p.classList.toggle('off',k!==n));tabs.forEach((t,k)=>t.classList.toggle('sel',k===n));size()};
+ tabs.forEach((t,k)=>t.onclick=()=>go(k));requestAnimationFrame(size);
+ m._play=()=>go((i+1)%panes.length)};
+T.ind=(m)=>{const tabs=[...m.querySelectorAll('.mtab .t')],ind=m.querySelector('.mind');let i=0;
+ const size=()=>{const w=(m.querySelector('.mtab').clientWidth-6)/tabs.length;ind.style.width=w+'px';ind.style.transform='translateX('+(i*w)+'px)'};
+ const go=(n)=>{i=n;tabs.forEach((t,k)=>t.classList.toggle('sel',k===n));size()};
+ tabs.forEach((t,k)=>t.onclick=()=>go(k));requestAnimationFrame(size);m._play=()=>go((i+1)%tabs.length)};
+T.scroll=(m)=>{const sc=m.querySelector('.mscroll'),bar=m.querySelector('.mbar'),big=m.querySelector('.bigt'),sub=big.nextElementSibling,gl=m.querySelector('.mglow'),full=m.querySelector('.mtab.full'),cm=m.querySelector('.mtab.compact');
+ const size=()=>{[full,cm].forEach(b=>{const t=[...b.querySelectorAll('.t')],ind=b.querySelector('.mind');if(!ind)return;const w=(b.clientWidth-6)/t.length;ind.style.width=w+'px';ind.style.transform='translateX(0px)'})};requestAnimationFrame(size);
+ sc.onscroll=()=>{const y=sc.scrollTop,p=clamp(y/64,0,1);bar.style.opacity=clamp((y-32)/32,0,1);bar.querySelector('b').style.transform='translateY('+(6*(1-clamp((y-32)/32,0,1)))+'px)';
+  big.style.opacity=1-clamp(y/48,0,1);sub.style.opacity=1-clamp(y/48,0,1);gl.style.opacity=1-p;
+  const s=y>12?1:0;full.style.opacity=1-s;cm.style.opacity=s;full.style.pointerEvents=s?'none':'auto';cm.style.pointerEvents=s?'auto':'none'}};
+T.press=(m)=>{m.querySelectorAll('[data-k]').forEach(el=>{const dn=()=>el.classList.add('dn'),up=()=>el.classList.remove('dn');
+ el.addEventListener('pointerdown',dn);el.addEventListener('pointerup',up);el.addEventListener('pointerleave',up);el.addEventListener('pointercancel',up)})};
+T.nav=(m)=>{const s=[...m.querySelectorAll('.scr')];let i=0;
+ const go=(n)=>{const back=n<i;i=clamp(n,0,s.length-1);m.style.setProperty('--push',(m.classList.contains('rm')?160:(back?200:240))+'ms');
+  s.forEach((el,k)=>{el.classList.toggle('nx',k>i);el.classList.toggle('pv',k<i)});
+  const ok=s[4].querySelector('.ok');if(i===4){ok.style.transform='scale(.9)';setTimeout(()=>ok.style.transform='scale(1)',80)}else ok.style.transform='scale(.9)'};
+ m._play=(a)=>go(a==='back'?i-1:i+1)};
+T.sheet=(m)=>{const sh=m.querySelector('.sheet'),dim=m.querySelector('.dim'),gr=sh.querySelector('.grab');let open=false,drag=null;
+ const set=(v)=>{open=v;sh.classList.toggle('on',v);dim.classList.toggle('on',v);if(!v){sh.classList.add('closing');setTimeout(()=>sh.classList.remove('closing'),200)}};
+ dim.onclick=()=>set(false);m._play=()=>set(!open);
+ gr.addEventListener('pointerdown',e=>{if(!open)return;drag={y:e.clientY,t:performance.now()};sh.style.transition='none';gr.setPointerCapture(e.pointerId)});
+ gr.addEventListener('pointermove',e=>{if(!drag)return;const d=Math.max(0,e.clientY-drag.y);sh.style.transform='translateY('+d+'px)';dim.style.opacity=(.42*(1-clamp(d/218,0,1)))});
+ const end=e=>{if(!drag)return;const d=Math.max(0,e.clientY-drag.y),v=d/((performance.now()-drag.t)/1000);sh.style.transition='';sh.style.transform='';dim.style.opacity='';
+  if(d>64||v>700)set(false);drag=null};
+ gr.addEventListener('pointerup',end);gr.addEventListener('pointercancel',end)};
+T.month=(m)=>{const g=m.querySelector('.mnth'),ch=m.querySelector('.chev'),rows=[...g.querySelectorAll('.mnr')],rm=m.classList.contains('rm');
+ rows.forEach((r,k)=>r.style.transitionDelay=(rm?0:k*20)+'ms');
+ const t=()=>{const o=g.classList.toggle('open');ch.classList.toggle('up',o);if(!o)rows.forEach(r=>r.style.transitionDelay='0ms');else rows.forEach((r,k)=>r.style.transitionDelay=(rm?0:k*20)+'ms')};
+ m.querySelector('[data-k="chev"]').onclick=t;m._play=t};
+T.ctr=(m)=>{let s=18*60+42;const el=m.querySelector('.ctr');
+ setInterval(()=>{s++;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000)};
+T.start=(m)=>{const card=m.querySelector('.lay'),btn=m.querySelector('[data-k="go"]'),lab=btn.querySelector('.lab'),ctr=card.querySelector('.ctr'),rm=m.classList.contains('rm');let tick=null,run=false;
+ const h=()=>card.getBoundingClientRect().height;
+ const reset=()=>{run=false;clearInterval(tick);card.style.height='';card.classList.remove('st10');lab.style.opacity='';lab.textContent='İşleme başla';ctr.textContent='00:00'};
+ const go=()=>{if(run)return;run=true;const h0=h();card.style.height=h0+'px';lab.style.transition='opacity 90ms linear';lab.style.opacity='0';
+  card.classList.add('st10');
+  setTimeout(()=>{card.style.height=card.scrollHeight+'px'},rm?0:140);
+  setTimeout(()=>{lab.textContent='İşlemi bitir';lab.style.opacity='1'},rm?160:200);
+  let s=0;setTimeout(()=>{tick=setInterval(()=>{s++;ctr.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000)},rm?0:180)};
+ m._play=(a)=>a==='reset'?reset():go()};
+T.ptr=(m)=>{const body=m.querySelector('.mbody'),pull=m.querySelector('.pull'),sp=m.querySelector('.ptr'),nw=m.querySelector('.nw');let d=null,busy=false;
+ body.addEventListener('pointerdown',e=>{if(busy)return;d={y:e.clientY};pull.style.transition='none'});
+ body.addEventListener('pointermove',e=>{if(!d)return;const dy=clamp((e.clientY-d.y)*.55,0,58);pull.style.transform='translateY('+dy+'px)';sp.style.opacity=clamp(dy/40,0,1);sp.style.transform='translateY('+(dy-30)+'px)'});
+ const end=e=>{if(!d)return;const dy=clamp((e.clientY-d.y)*.55,0,58);d=null;pull.style.transition='transform 220ms cubic-bezier(.215,.61,.355,1)';
+  if(dy>40){busy=true;pull.style.transform='translateY(30px)';nw.style.transition='none';nw.style.opacity='0';
+   setTimeout(()=>{pull.style.transform='translateY(0)';sp.style.opacity='0';nw.style.transition='opacity 140ms linear';nw.style.opacity='1';busy=false},700)}
+  else{pull.style.transform='';sp.style.opacity='0'}};
+ body.addEventListener('pointerup',end);body.addEventListener('pointercancel',end);body.addEventListener('pointerleave',end)};
+T.skel=(m)=>{const b=m.querySelector('.mbody');m._play=(a)=>b.classList.toggle('loaded',a!=='reset')};
+T.off=(m)=>{const b=m.querySelector('.offb'),s=m.querySelector('.shifted');let on=false,t=null;
+ m._play=()=>{on=!on;clearTimeout(t);if(on){b.classList.add('on');s.classList.add('on')}else{t=setTimeout(()=>{b.classList.remove('on');s.classList.remove('on')},1200)}}};
+T.queue=(m)=>{const t=m.querySelector('.toast'),qn=t.querySelector('.qn'),rm=m.classList.contains('rm');let n=1,to=null;
+ m._play=()=>{clearTimeout(to);if(t.classList.contains('on')){qn.textContent=++n}else{n=2;qn.textContent=n;t.classList.add('on')}
+  to=setTimeout(()=>t.classList.remove('on'),rm?3200:2200)};
+ m.querySelector('[data-k="q"]').onclick=()=>m._play()};
+T.cal=(m)=>{const rm=m.classList.contains('rm'),pages=m.querySelector('.wpages'),sel=m.querySelector('.wsel'),cd=m.querySelector('.cd'),cn=m.querySelector('.cn'),lays=[...m.querySelectorAll('.clay')],track=m.querySelector('.wtrack');
+ const L=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];let wk=0,di=2,cur=0,busy=false;
+ const items={24:[['Zeynep','11:00 · Saç boyama · 90 dk'],['Ayşe','15:00 · Bakım · 60 dk']],22:[['Selin','09:30 · Fön · 30 dk']],23:[['Merve','12:30 · Kesim · 45 dk'],['Ali','14:00 · Sakal · 20 dk']],25:[['Ece','10:00 · Fön · 30 dk']],26:[['Deniz','13:00 · Kesim · 45 dk'],['Ali','16:30 · Sakal · 20 dk']]};
+ const abs=(w,i)=>22+(wk+w-1)*7+i,lbl=(n)=>((n-1)%30+30)%30+1;
+ for(let w=0;w<3;w++){const p=document.createElement('div');p.className='wpg';
+  for(let i=0;i<7;i++){const c=document.createElement('span');c.className='mwd';c.innerHTML='<span class="n"></span><span class="l">'+L[i]+'</span>';if(w===1)c.onclick=()=>pick(i);p.appendChild(c)}
+  pages.appendChild(p)}
+ pages.style.transform='translateX(-100%)';
+ const paint=()=>[...pages.children].forEach((p,w)=>[...p.children].forEach((c,i)=>c.firstChild.textContent=lbl(abs(w,i))));
+ const render=(el)=>{const n=abs(1,di),list=items[n]||[];
+  el.innerHTML=list.map(([a,b])=>'<div class="mc"><span class="nm">'+a+'</span><span class="ds">'+b+'</span></div>').join('')
+   +(n===24?'<div class="nowl"><b>11:24</b><s></s></div>':'')
+   +(list.length?'':'<span class="msub" style="padding-top:6px">Boş gün · randevu yok</span>')};
+ const place=(jump)=>{const cw=(track.clientWidth-20)/7;
+  sel.classList.toggle('jump',!!jump);
+  if(jump&&!rm){sel.style.opacity='0';setTimeout(()=>{sel.style.transform='translateX('+(10+di*cw+(cw-26)/2)+'px)';sel.style.opacity='1'},70);return}
+  sel.style.transform='translateX('+(10+di*cw+(cw-26)/2)+'px)'};
+ const swap=(dir)=>{const out=lays[cur],inn=lays[1-cur];cur=1-cur;render(inn);
+  inn.classList.remove('xl','xr');inn.classList.add('o',dir>0?'xr':'xl');
+  out.classList.remove('xl','xr');out.classList.add('o',dir>0?'xl':'xr');
+  cd.style.opacity='0';cn.style.opacity='0';
+  setTimeout(()=>{cd.innerHTML=L[di]+'<i></i>';cn.textContent=lbl(abs(1,di));cd.style.opacity='1';cn.style.opacity='1'},rm?90:120);
+  requestAnimationFrame(()=>setTimeout(()=>inn.classList.remove('o','xl','xr'),rm?0:40))};
+ const pick=(i)=>{const d=i-di;if(!d)return;const jump=Math.abs(d)>2;di=i;place(jump);swap(d)};
+ const day=(d)=>{const n=di+d;if(n<0||n>6){week(d);return}di=n;place(false);swap(d)};
+ const week=(d)=>{if(busy)return;busy=true;wk+=d;
+  if(rm){pages.style.opacity='0';setTimeout(()=>{paint();pages.style.opacity='1'},70)}
+  else pages.style.transform='translateX('+(-100-d*100)+'%)';
+  setTimeout(()=>{pages.style.transition='none';paint();pages.style.transform='translateX(-100%)';
+   requestAnimationFrame(()=>{pages.style.transition='';busy=false})},rm?140:230);
+  setTimeout(()=>swap(d),rm?0:40)};
+ paint();render(lays[0]);requestAnimationFrame(()=>place(false));
+ m._play=(a)=>a==='prev'?day(-1):a==='week'?week(1):day(1)};
+T.pin=(m)=>{const w=m.querySelector('.pinwrap'),dots=[...m.querySelectorAll('.dots5 i')],err=m.querySelector('.errbox');
+ m._play=()=>{dots.forEach((d,k)=>{d.classList.remove('f');setTimeout(()=>d.classList.add('f'),k*90)});
+  setTimeout(()=>{w.classList.remove('shake');void w.offsetWidth;w.classList.add('shake');err.classList.add('on');
+   dots.forEach(d=>{d.style.background='var(--rd)';d.style.borderColor='var(--rd)'})},420);
+  setTimeout(()=>{w.classList.remove('shake');err.classList.remove('on');dots.forEach(d=>{d.classList.remove('f');d.style.background='';d.style.borderColor=''})},2600)}};
+
+document.querySelectorAll('.demo').forEach(d=>{const key=d.dataset.demo,tpl=document.querySelector('template[data-t="'+key+'"]');if(!tpl)return;
+ const minis=[...d.querySelectorAll('.mini')];
+ minis.forEach(m=>{m.appendChild(tpl.content.cloneNode(true));if(T[key])T[key](m)});
+ d.querySelectorAll('.play').forEach(b=>b.onclick=()=>minis.forEach(m=>m._play&&m._play(b.dataset.a)));});
+
+document.querySelectorAll('.trk').forEach(tr=>{const ph=tr.querySelector('.ph'),btn=tr.closest('.tlx').querySelector('.play');if(!btn||!ph)return;
+ btn.onclick=()=>{ph.style.transition='none';ph.style.left='0';ph.style.opacity='1';requestAnimationFrame(()=>{ph.style.transition='left 200ms linear';ph.style.left='100%';setTimeout(()=>ph.style.opacity='0',260)})}});
+</script>
+</body></html>
