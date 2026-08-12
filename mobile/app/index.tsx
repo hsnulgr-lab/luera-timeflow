@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 
-// Giriş kapısı. Cihaz eşleşmesi ve personel oturumu (auth) sonraki adımda
-// yazılacak; şimdilik doğrudan kumandaya.
+// İlk küçük teslim: HTML tasarımındaki Personel 01 ekranı. Cihaz ve personel
+// oturumlarına göre dallanma, sonraki auth ekranlarıyla birlikte eklenecek.
 export default function Index() {
-    return <Redirect href="/(staff)" />;
+    return <Redirect href="/(auth)/pair" />;
 }

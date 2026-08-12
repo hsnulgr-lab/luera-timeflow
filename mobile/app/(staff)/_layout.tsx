@@ -1,4 +1,4 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTheme } from '../../src/theme';
 
 // Personel sekme seti — tasarım: "Kabuk 01 — Tab bar · personel seti".
@@ -23,13 +23,13 @@ export default function StaffTabs() {
             labelVisibilityMode="labeled"
         >
             <NativeTabs.Trigger name="index">
-                <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} />
-                <NativeTabs.Trigger.Label>Bugün</NativeTabs.Trigger.Label>
+                <Icon sf={{ default: 'calendar', selected: 'calendar' }} />
+                <Label>Bugün</Label>
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="customers">
-                <NativeTabs.Trigger.Icon sf="person.2" />
-                <NativeTabs.Trigger.Label>Müşteriler</NativeTabs.Trigger.Label>
+                <Icon sf="person.2" />
+                <Label>Müşteriler</Label>
             </NativeTabs.Trigger>
 
             {/* Performans sekmesi, işletme ayarı kapalıysa HİÇ render edilmez.
@@ -37,13 +37,13 @@ export default function StaffTabs() {
                 sakladığını söyler. Kapı sunucuda (staff-api → 403 'disabled');
                 burada da gizlenmesi ikinci katman. */}
             <NativeTabs.Trigger name="performance">
-                <NativeTabs.Trigger.Icon sf="chart.bar" />
-                <NativeTabs.Trigger.Label>Performans</NativeTabs.Trigger.Label>
+                <Icon sf="chart.bar" />
+                <Label>Performans</Label>
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="profile">
-                <NativeTabs.Trigger.Icon sf="person.crop.circle" />
-                <NativeTabs.Trigger.Label>Profil</NativeTabs.Trigger.Label>
+                <Icon sf="person.crop.circle" />
+                <Label>Profil</Label>
             </NativeTabs.Trigger>
         </NativeTabs>
     );
