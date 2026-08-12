@@ -21,10 +21,9 @@ import {
 import {
     calendarMetrics,
     display,
-    embed,
     hit,
-    light,
     numeric,
+    onAccent,
     radius,
     space,
     type,
@@ -262,17 +261,19 @@ export function WeekStrip({
     );
 }
 
-function IconButton({
-    label,
-    glyph,
-    onPress,
-    style,
-}: {
-    label: string;
-    glyph: string;
-    onPress?: () => void;
-    style?: StyleProp<ViewStyle>;
-}) {
+const ICON_STROKE = 1.7;
+
+function PhoneReceiverIcon({ color }: { color: string }) {
+    return (
+        <View style={styles.phoneReceiver}>
+            <View style={[styles.phoneCurve, { borderColor: color }]} />
+            <View style={[styles.phoneCapLeft, { backgroundColor: color }]} />
+            <View style={[styles.phoneCapRight, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+function PhoneButton({ label, onPress }: { label: string; onPress?: () => void }) {
     const { c } = useTheme();
     if (!onPress) return null;
     return (
@@ -282,13 +283,42 @@ function IconButton({
             hitSlop={space.xs}
             onPress={onPress}
             style={({ pressed }) => [
-                styles.iconButton,
+                styles.phoneButton,
                 { borderColor: c.bd2, opacity: pressed ? 0.62 : 1 },
-                style,
             ]}
         >
-            <Text style={{ color: c.tx2, fontSize: type.h3.fontSize, fontWeight: '700' }}>{glyph}</Text>
+            <PhoneReceiverIcon color={c.tx2} />
         </Pressable>
+    );
+}
+
+function MoreButton({ label, onPress }: { label: string; onPress?: () => void }) {
+    const { c } = useTheme();
+    if (!onPress) return null;
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            hitSlop={space.xs}
+            onPress={onPress}
+            style={({ pressed }) => [styles.moreButton, { opacity: pressed ? 0.62 : 1 }]}
+        >
+            <View style={styles.moreDots}>
+                {[0, 1, 2].map((dot) => (
+                    <View key={dot} style={[styles.moreDot, { backgroundColor: c.tx3 }]} />
+                ))}
+            </View>
+        </Pressable>
+    );
+}
+
+function SummaryArrowIcon({ color }: { color: string }) {
+    return (
+        <View style={styles.summaryArrowIcon}>
+            <View style={[styles.summaryArrowShaft, { backgroundColor: color }]} />
+            <View style={[styles.summaryArrowHeadTop, { backgroundColor: color }]} />
+            <View style={[styles.summaryArrowHeadRight, { backgroundColor: color }]} />
+        </View>
     );
 }
 
@@ -296,6 +326,7 @@ function CustomerSummary({ appointment, onCustomer }: {
     appointment: Appt;
     onCustomer?: (appointment: Appt) => void;
 }) {
+    const { embed: e } = useTheme();
     const info = appointment.info;
     if (!info || (!info.pkg && info.visitNo == null)) return null;
 
@@ -312,25 +343,25 @@ function CustomerSummary({ appointment, onCustomer }: {
                 main,
                 info.lastVisit ? `Son ziyaret ${info.lastVisit}` : null,
             ].filter(Boolean).join(', ')}
-            style={[styles.summary, { backgroundColor: embed.bg }]}
+            style={[styles.summary, { backgroundColor: e.bg }]}
         >
             {info.pkg ? (
-                <View style={[styles.packageChip, { backgroundColor: embed.chipBg }]}>
-                    <Text style={[styles.packageNumber, numeric, { color: embed.chipTx }]}>
+                <View style={[styles.packageChip, { backgroundColor: e.chipBg }]}>
+                    <Text style={[styles.packageNumber, numeric, { color: e.chipTx }]}>
                         {info.pkg.used}<Text style={styles.packageTotal}>/{info.pkg.total}</Text>
                     </Text>
                 </View>
             ) : (
-                <View style={[styles.packageChip, { backgroundColor: embed.chipBg }]}>
-                    <Text style={[styles.packageNumber, numeric, { color: embed.chipTx }]}>{info.visitNo}</Text>
+                <View style={[styles.packageChip, { backgroundColor: e.chipBg }]}>
+                    <Text style={[styles.packageNumber, numeric, { color: e.chipTx }]}>{info.visitNo}</Text>
                 </View>
             )}
             <View style={styles.summaryCopy}>
-                <Text numberOfLines={1} style={[type.body, styles.summaryTitle, { color: light.tx }]}>{main}</Text>
+                <Text numberOfLines={1} style={[type.body, styles.summaryTitle, { color: e.tx }]}>{main}</Text>
                 {info.lastVisit ? (
-                    <Text numberOfLines={1} style={[type.tiny, { color: light.tx2 }]}>Son: {info.lastVisit}</Text>
+                    <Text numberOfLines={1} style={[type.tiny, { color: e.tx2 }]}>Son: {info.lastVisit}</Text>
                 ) : info.pkg ? (
-                    <Text numberOfLines={1} style={[type.tiny, { color: light.tx2 }]}>{info.pkg.name}</Text>
+                    <Text numberOfLines={1} style={[type.tiny, { color: e.tx2 }]}>{info.pkg.name}</Text>
                 ) : null}
             </View>
             {onCustomer ? (
@@ -341,10 +372,10 @@ function CustomerSummary({ appointment, onCustomer }: {
                     onPress={() => onCustomer(appointment)}
                     style={({ pressed }) => [
                         styles.summaryAction,
-                        { backgroundColor: embed.chipBg, opacity: pressed ? 0.78 : 1 },
+                        { backgroundColor: e.chipBg, opacity: pressed ? 0.78 : 1 },
                     ]}
                 >
-                    <Text style={[styles.summaryArrow, { color: embed.chipTx }]}>↗</Text>
+                    <SummaryArrowIcon color={e.chipTx} />
                 </Pressable>
             ) : null}
         </View>
@@ -356,7 +387,7 @@ function LivePanel({ appointment, seconds, onResume }: {
     seconds: number;
     onResume?: (appointment: Appt) => void;
 }) {
-    const { c, reduceMotion } = useTheme();
+    const { c, embed: e, reduceMotion } = useTheme();
     const pulse = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
@@ -374,23 +405,23 @@ function LivePanel({ appointment, seconds, onResume }: {
     }, [pulse, reduceMotion]);
 
     return (
-        <View style={[styles.livePanel, { backgroundColor: embed.liveBg, borderColor: embed.liveBd }]}>
+        <View style={[styles.livePanel, { backgroundColor: e.bg }]}>
             <View style={styles.liveCopy}>
                 <View style={styles.liveLabelRow}>
                     <Animated.View style={[
                         styles.liveDot,
                         { backgroundColor: c.or, opacity: pulse },
                     ]} />
-                    <Text style={[type.tiny, styles.liveLabel, { color: c.tx2 }]}>sürüyor</Text>
+                    <Text style={[type.tiny, styles.liveLabel, { color: e.tx2 }]}>sürüyor</Text>
                 </View>
                 <Text
                     accessibilityLiveRegion="polite"
                     accessibilityLabel={`İşlem süresi ${Math.floor(seconds / 60)} dakika`}
-                    style={[display.counter, numeric, styles.liveCounter, { color: c.tx }]}
+                    style={[display.counter, numeric, styles.liveCounter, { color: e.tx }]}
                 >
                     {elapsed(seconds)}
                 </Text>
-                <Text style={[type.tiny, styles.liveStarted, { color: c.tx3 }]}>
+                <Text style={[type.tiny, styles.liveStarted, { color: e.tx3 }]}>
                     {appointment.start_time.slice(0, 5)}'de başladı
                 </Text>
             </View>
@@ -404,7 +435,7 @@ function LivePanel({ appointment, seconds, onResume }: {
                         { backgroundColor: c.or, opacity: pressed ? 0.84 : 1 },
                     ]}
                 >
-                    <Text style={[type.body, styles.actionText, { color: embed.chipTx }]}>İşleme dön</Text>
+                    <Text style={[type.body, styles.actionText, { color: onAccent }]}>İşleme dön</Text>
                 </Pressable>
             ) : null}
         </View>
@@ -437,7 +468,7 @@ function DueRow({ appointment, nowMinutes, onStart }: {
                         { backgroundColor: c.or, opacity: pressed ? 0.84 : 1 },
                     ]}
                 >
-                    <Text style={[type.body, styles.actionText, { color: embed.chipTx }]}>İşleme başla</Text>
+                    <Text style={[type.body, styles.actionText, { color: onAccent }]}>İşleme başla</Text>
                 </Pressable>
             ) : null}
         </View>
@@ -461,7 +492,7 @@ export function AppointmentCard({
     dimmed?: boolean;
     style?: StyleProp<ViewStyle>;
 }) {
-    const { c, small } = useTheme();
+    const { c, embed: e, small } = useTheme();
     const name = splitName(appointment.customer_name);
     const seconds = elapsedSeconds ?? Math.max(0, (nowMinutes - toMinutes(appointment.start_time)) * 60);
     const status = statusWord(appointment);
@@ -479,10 +510,12 @@ export function AppointmentCard({
             },
             style,
         ]}>
-            {state === 'live' ? <View style={[styles.liveBar, { backgroundColor: c.or }]} /> : null}
+            {state === 'live' ? (
+                <View pointerEvents="none" style={[styles.liveBar, { borderLeftColor: c.or }]} />
+            ) : null}
             {appointment.info?.risk ? (
-                <View style={[styles.risk, { backgroundColor: embed.riskBg, paddingHorizontal: padding }]}>
-                    <Text numberOfLines={2} style={[type.tiny, styles.riskText, { color: embed.riskTx }]}>
+                <View style={[styles.risk, { backgroundColor: e.riskBg, paddingHorizontal: padding }]}>
+                    <Text numberOfLines={2} style={[type.tiny, styles.riskText, { color: e.riskTx }]}>
                         {appointment.info.risk}
                     </Text>
                 </View>
@@ -496,14 +529,32 @@ export function AppointmentCard({
                         onPress={() => actions.onOpen?.(appointment)}
                         style={({ pressed }) => [styles.nameButton, { opacity: pressed ? 0.62 : 1 }]}
                     >
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.customerName, { color: c.tx }]}>
-                            {name.given ? `${name.given} ` : ''}<Text style={styles.customerSurname}>{name.family}</Text>
+                        {name.given ? (
+                            <Text
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                                style={[
+                                    styles.customerGiven,
+                                    { color: c.tx2, fontSize: small ? 17 : part.nameSize },
+                                ]}
+                            >
+                                {name.given}
+                            </Text>
+                        ) : null}
+                        <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            style={[
+                                styles.customerSurname,
+                                { color: c.tx, fontSize: small ? 17 : part.nameSize },
+                            ]}
+                        >
+                            {name.family}
                         </Text>
                     </Pressable>
                     {appointment.customer_phone ? (
-                        <IconButton
+                        <PhoneButton
                             label={`${appointment.customer_name} müşterisini ara`}
-                            glyph="☎︎"
                             onPress={actions.onCall ? () => actions.onCall?.(appointment) : undefined}
                         />
                     ) : null}
@@ -519,11 +570,9 @@ export function AppointmentCard({
                     >
                         <Text style={[type.small, styles.avatarText, { color: c.tx }]}>{initials(appointment.customer_name)}</Text>
                     </View>
-                    <IconButton
+                    <MoreButton
                         label={`${appointment.customer_name} randevu seçenekleri`}
-                        glyph="•••"
                         onPress={actions.onMore ? () => actions.onMore?.(appointment) : undefined}
-                        style={styles.moreButton}
                     />
                 </View>
                 <Text numberOfLines={2} style={[styles.service, { color: c.tx2 }]}>
@@ -553,7 +602,7 @@ export function NowLine({ time, style }: { time: string; style?: StyleProp<ViewS
             style={[styles.nowLine, { paddingHorizontal: calendarMetrics.pageX }, style]}
         >
             <View style={[styles.nowPill, { backgroundColor: c.or }]}>
-                <Text style={[styles.nowText, numeric, { color: embed.chipTx }]}>{time}</Text>
+                <Text style={[styles.nowText, numeric, { color: onAccent }]}>{time}</Text>
             </View>
             <View style={[styles.nowHair, { backgroundColor: c.or }]} />
         </View>
@@ -718,11 +767,13 @@ const styles = StyleSheet.create({
     liveBar: {
         position: 'absolute',
         zIndex: 2,
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: part.liveBar,
-        borderRadius: radius.pill,
+        left: -1,
+        top: -1,
+        bottom: -1,
+        width: radius.xl + 1,
+        borderLeftWidth: part.liveBar,
+        borderTopLeftRadius: radius.xl + 1,
+        borderBottomLeftRadius: radius.xl + 1,
     },
     risk: {
         minHeight: calendarMetrics.statusHeight,
@@ -744,24 +795,72 @@ const styles = StyleSheet.create({
         minHeight: hit.icon,
         justifyContent: 'center',
     },
-    customerName: {
-        fontSize: part.nameSize,
+    customerGiven: {
         fontWeight: '500',
-        letterSpacing: -0.4,
+        letterSpacing: -0.2,
+        lineHeight: 21,
     },
     customerSurname: {
+        fontSize: part.nameSize,
         fontWeight: '800',
+        letterSpacing: -0.6,
+        lineHeight: 21,
     },
-    iconButton: {
+    phoneButton: {
         width: hit.icon,
         height: hit.icon,
-        borderRadius: radius.md,
-        borderWidth: 1.5,
+        borderRadius: hit.icon / 2,
+        borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
+    phoneReceiver: {
+        width: 17,
+        height: 17,
+        transform: [{ rotate: '-42deg' }],
+    },
+    phoneCurve: {
+        position: 'absolute',
+        left: 4,
+        top: 2.5,
+        width: 9,
+        height: 11,
+        borderLeftWidth: ICON_STROKE,
+        borderRightWidth: ICON_STROKE,
+        borderBottomWidth: ICON_STROKE,
+        borderBottomLeftRadius: 5,
+        borderBottomRightRadius: 5,
+    },
+    phoneCapLeft: {
+        position: 'absolute',
+        left: 2.2,
+        top: 1.65,
+        width: 5,
+        height: ICON_STROKE,
+        borderRadius: ICON_STROKE / 2,
+    },
+    phoneCapRight: {
+        position: 'absolute',
+        right: 2.2,
+        top: 1.65,
+        width: 5,
+        height: ICON_STROKE,
+        borderRadius: ICON_STROKE / 2,
+    },
     moreButton: {
-        borderWidth: 0,
+        width: hit.icon,
+        height: hit.icon,
+        borderRadius: hit.icon / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    moreDots: {
+        gap: 3,
+    },
+    moreDot: {
+        width: 3,
+        height: 3,
+        borderRadius: 1.5,
     },
     avatar: {
         width: calendarMetrics.avatar,
@@ -785,7 +884,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     summary: {
-        minHeight: calendarMetrics.liveActionHeight,
+        minHeight: calendarMetrics.summaryMinHeight,
         marginTop: space.md,
         padding: space.md,
         borderRadius: radius.lg,
@@ -825,15 +924,39 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    summaryArrow: {
-        fontSize: type.h3.fontSize,
-        fontWeight: '800',
+    summaryArrowIcon: {
+        width: 17,
+        height: 17,
+    },
+    summaryArrowShaft: {
+        position: 'absolute',
+        left: 2.9,
+        top: 7.65,
+        width: 11.2,
+        height: ICON_STROKE,
+        borderRadius: ICON_STROKE / 2,
+        transform: [{ rotate: '-45deg' }],
+    },
+    summaryArrowHeadTop: {
+        position: 'absolute',
+        left: 6.7,
+        top: 3.75,
+        width: 5.7,
+        height: ICON_STROKE,
+        borderRadius: ICON_STROKE / 2,
+    },
+    summaryArrowHeadRight: {
+        position: 'absolute',
+        left: 11.55,
+        top: 3.75,
+        width: ICON_STROKE,
+        height: 5.7,
+        borderRadius: ICON_STROKE / 2,
     },
     livePanel: {
         minHeight: calendarMetrics.liveActionHeight + space.md,
         marginTop: space.md,
         padding: space.md,
-        borderWidth: 1,
         borderRadius: radius.lg,
         flexDirection: 'row',
         alignItems: 'center',
@@ -868,7 +991,7 @@ const styles = StyleSheet.create({
         minWidth: part.actionMinWidth,
         height: calendarMetrics.liveActionHeight,
         paddingHorizontal: space.md,
-        borderRadius: radius.md,
+        borderRadius: radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
     },

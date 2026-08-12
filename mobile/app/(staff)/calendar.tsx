@@ -71,12 +71,13 @@ export default function Calendar() {
             <LinearGradient
                 pointerEvents="none"
                 colors={dark ? glow.dark : glow.light}
+                locations={glow.locations}
                 style={{
                     position: 'absolute',
-                    top: insets.top,
+                    top: 0,
                     left: 0,
                     right: 0,
-                    height: glow.height,
+                    height: glow.height + insets.top,
                 }}
             />
 

@@ -75,26 +75,54 @@ export const display = {
     day: { fontSize: 54, fontWeight: '800', letterSpacing: -1.6 },
     daySmall: { fontSize: 42, fontWeight: '800', letterSpacing: -1.3 },
     dayMini: { fontSize: 17, fontWeight: '800', letterSpacing: -0.4 },
-    counter: { fontSize: 34, fontWeight: '800', letterSpacing: -1.0 },
+    counter: { fontSize: 44, fontWeight: '800', letterSpacing: -2.2 },
 } as const;
 
-// Gömülü müşteri özeti iki temada da aynı malzemeyi kullanıyor. Bu ters yüzey,
-// kartı yeni bir cam katmanına dönüştürmeden hızlı okunmasını sağlıyor.
+export interface EmbedPalette {
+    bg: string;
+    tx: string;
+    tx2: string;
+    tx3: string;
+    chipBg: string;
+    chipTx: string;
+    riskBg: string;
+    riskTx: string;
+}
+
+// Gömülü müşteri özeti sayfanın daima tersidir: açık sayfada koyu, koyu
+// sayfada açık yüzey. Bu terslik cam değil, opak bir bilgi katmanıdır.
 export const embed = {
-    bg: '#FAF3E9',
-    chipBg: '#1C1710',
-    chipTx: '#F3EDE3',
-    riskBg: 'rgba(184,122,0,0.16)',
-    riskTx: '#8A5C00',
-    liveBg: 'rgba(255,90,31,0.10)',
-    liveBd: 'rgba(255,90,31,0.34)',
-} as const;
+    light: {
+        bg: '#241E16',
+        tx: '#F3EDE3',
+        tx2: 'rgba(243,237,227,0.58)',
+        tx3: 'rgba(243,237,227,0.42)',
+        chipBg: '#FAF3E9',
+        chipTx: '#0E0E0E',
+        riskBg: 'rgba(255,196,84,0.14)',
+        riskTx: '#FFC96B',
+    },
+    dark: {
+        bg: '#FAF3E9',
+        tx: '#0E0E0E',
+        tx2: 'rgba(14,14,14,0.52)',
+        tx3: 'rgba(14,14,14,0.34)',
+        chipBg: '#1C1710',
+        chipTx: '#F3EDE3',
+        riskBg: 'rgba(184,122,0,0.16)',
+        riskTx: '#8A5C00',
+    },
+} satisfies Record<'light' | 'dark', EmbedPalette>;
+
+/** Turuncu eylem yüzeylerinin sabit yüksek-kontrast metni. */
+export const onAccent = '#FFFFFF';
 
 // Uygulamadaki tek gradyan; kaydırınca sönen sıcak takvim parıltısı.
 export const glow = {
     height: 298,
-    dark: ['rgba(255,90,31,0.18)', 'rgba(18,14,8,0)'],
-    light: ['rgba(255,90,31,0.08)', 'rgba(243,236,224,0)'],
+    dark: ['rgba(255,90,31,0.18)', 'rgba(255,90,31,0.07)', 'rgba(18,14,8,0)'],
+    light: ['rgba(255,90,31,0.08)', 'rgba(255,90,31,0.03)', 'rgba(243,236,224,0)'],
+    locations: [0, 0.45, 1] as [number, number, number],
 } as const;
 
 /** Takvim ölçü sözleşmesi; responsive varyantlar bileşenlerin içinde dağılmasın. */
@@ -111,7 +139,8 @@ export const calendarMetrics = {
     monthCell: 52,
     nowHeight: 24,
     statusHeight: 28,
-    liveActionHeight: 60,
+    summaryMinHeight: 60,
+    liveActionHeight: 44,
     dueRowHeight: 48,
     dueActionHeight: 40,
     bottomInset: 118,

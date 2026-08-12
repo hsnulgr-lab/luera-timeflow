@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, useColorScheme, useWindowDimensions } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { dark, light, SMALL_WIDTH, type Palette } from './tokens';
+import { dark, embed, light, SMALL_WIDTH, type EmbedPalette, type Palette } from './tokens';
 
 // Tema ve cam yeteneği — tek kaynak.
 //
@@ -14,6 +14,8 @@ import { dark, light, SMALL_WIDTH, type Palette } from './tokens';
 
 interface Theme {
     c: Palette;
+    /** Sayfanın tersinde kalan opak takvim bilgi yüzeyi. */
+    embed: EmbedPalette;
     dark: boolean;
     /** Cam gerçekten kullanılabilir mi? false ise opak kabuk çizilir. */
     glass: boolean;
@@ -27,6 +29,7 @@ interface Theme {
 
 const Ctx = createContext<Theme>({
     c: light,
+    embed: embed.light,
     dark: false,
     glass: false,
     small: false,
@@ -71,6 +74,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const isDark = scheme === 'dark';
     const value: Theme = {
         c: isDark ? dark : light,
+        embed: isDark ? embed.dark : embed.light,
         dark: isDark,
         glass: isLiquidGlassAvailable() && !reduceTransparency,
         small: width < SMALL_WIDTH,
