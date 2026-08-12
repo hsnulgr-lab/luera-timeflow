@@ -109,11 +109,6 @@ export default function Calendar() {
         outputRange: reduceMotion ? [-6, -6, 0] : [-6, 0],
         extrapolate: 'clamp',
     });
-    const chromeOffset = scrollY.interpolate({
-        inputRange: reduceMotion ? [0, 63.99, 64] : [0, 64],
-        outputRange: reduceMotion ? [0, 0, 52] : [0, 52],
-        extrapolate: 'clamp',
-    });
     const glowOpacity = scrollY.interpolate({
         inputRange: reduceMotion ? [0, 63.99, 64] : [0, 64],
         outputRange: reduceMotion ? [1, 1, 0] : [1, 0],
@@ -189,9 +184,8 @@ export default function Calendar() {
             <Animated.ScrollView
                 ref={scrollRef}
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: calendarMetrics.bottomInset + 52 }}
+                contentContainerStyle={{ paddingBottom: calendarMetrics.bottomInset }}
                 showsVerticalScrollIndicator={false}
-                stickyHeaderIndices={[1]}
                 scrollEventThrottle={16}
                 onScroll={Animated.event(
                     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -210,18 +204,14 @@ export default function Calendar() {
                     />
                 </Animated.View>
 
-                <View style={{ zIndex: 20, backgroundColor: c.bg, overflow: 'visible' }}>
-                    <Animated.View style={{ transform: [{ translateY: chromeOffset }] }}>
-                        <WeekStrip
-                            days={days}
-                            selectedISO={selectedDate}
-                            counts={counts}
-                            onSelect={selectDay}
-                        />
-                    </Animated.View>
-                </View>
+                <WeekStrip
+                    days={days}
+                    selectedISO={selectedDate}
+                    counts={counts}
+                    onSelect={selectDay}
+                />
 
-                <Animated.View style={{ transform: [{ translateY: chromeOffset }] }}>
+                <View>
                     {!loadingDay ? (
                         <Timeline
                             appointments={appointments}
@@ -231,7 +221,7 @@ export default function Calendar() {
                             actions={previewActions}
                         />
                     ) : null}
-                </Animated.View>
+                </View>
             </Animated.ScrollView>
         </View>
     );
