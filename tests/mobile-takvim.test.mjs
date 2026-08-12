@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    calendarCardStates,
     cardStates,
     elapsed,
     headline,
@@ -54,6 +55,14 @@ test('due penceresi randevudan tam 10 dakika önce açılır', () => {
     const row = appt('r1', '11:00');
     assert.equal(cardStates([row], toMinutes('10:49')).get(row.id), 'plain');
     assert.equal(cardStates([row], toMinutes('10:50')).get(row.id), 'due');
+});
+
+test('sırası geldi ve canlı işlem görünümü başka güne taşınmaz', () => {
+    const due = appt('due', '11:00');
+    const live = appt('live', '10:00', { arrived_at: '2026-09-24T10:00:00Z' });
+
+    assert.equal(calendarCardStates([due], toMinutes('11:00'), false).get(due.id), 'plain');
+    assert.equal(calendarCardStates([live], toMinutes('11:00'), false).get(live.id), 'plain');
 });
 
 test('iptal edilen ve gelmedi sayılan randevu asla due olmaz', () => {

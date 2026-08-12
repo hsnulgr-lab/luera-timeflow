@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import {
-    cardStates,
+    calendarCardStates,
     elapsed,
     lateMinutes,
     nowLineAfter,
@@ -656,8 +656,8 @@ export function Timeline({
         [appointments],
     );
     const resolvedStates = useMemo(
-        () => states ?? cardStates(sorted, nowMinutes),
-        [nowMinutes, sorted, states],
+        () => states ?? calendarCardStates(sorted, nowMinutes, isToday),
+        [isToday, nowMinutes, sorted, states],
     );
     const lineAfter = nowLineAfter(sorted, nowMinutes, isToday);
     const time = `${String(Math.floor(nowMinutes / 60) % 24).padStart(2, '0')}:${String(nowMinutes % 60).padStart(2, '0')}`;

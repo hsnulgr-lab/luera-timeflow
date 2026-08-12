@@ -157,6 +157,15 @@ export function cardStates(appts: Appt[], nowMin: number): Map<string, CardState
     return states;
 }
 
+/**
+ * Seçili günün kart durumları. Canlı işlem kendi zaman damgasından okunur;
+ * “sırası geldi” ise yalnız bugün anlamlıdır ve başka günlere taşınmaz.
+ */
+export function calendarCardStates(appts: Appt[], nowMin: number, isToday: boolean): Map<string, CardState> {
+    if (isToday) return cardStates(appts, nowMin);
+    return new Map(appts.map((appointment) => [appointment.id, 'plain'] as const));
+}
+
 /** Pozitif değer gecikmeyi, sıfır/negatif değer sıranın geldiğini anlatır. */
 export function lateMinutes(a: Appt, nowMin: number): number {
     return nowMin - toMinutes(a.start_time);
