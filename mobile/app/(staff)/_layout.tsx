@@ -19,12 +19,17 @@ export default function StaffTabs() {
     return (
         <NativeTabs
             minimizeBehavior="onScrollDown"
-            tintColor={c.or}
+            tintColor={c.tx}
             labelVisibilityMode="labeled"
         >
             <NativeTabs.Trigger name="index">
-                <Icon sf={{ default: 'calendar', selected: 'calendar' }} />
+                <Icon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
                 <Label>Bugün</Label>
+            </NativeTabs.Trigger>
+
+            <NativeTabs.Trigger name="calendar">
+                <Icon sf="calendar" />
+                <Label>Takvim</Label>
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="customers">
@@ -38,7 +43,7 @@ export default function StaffTabs() {
                 burada da gizlenmesi ikinci katman. */}
             <NativeTabs.Trigger name="performance">
                 <Icon sf="chart.bar" />
-                <Label>Performans</Label>
+                <Label>Kazanç</Label>
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="profile">
