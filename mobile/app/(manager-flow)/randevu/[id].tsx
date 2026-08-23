@@ -112,7 +112,13 @@ export default function ManagerAppointment() {
                     dayAppointments={day}
                     nowMinutes={now}
                     onClose={close}
-                    onCustomer={() => router.push('/(staff-flow)/customer')}
+                    onCustomer={() => router.push({
+                        pathname: '/(staff-flow)/customer',
+                        params: {
+                            customerId: appointment.customer_id ?? undefined,
+                            customerName: appointment.customer_name,
+                        },
+                    })}
                     onMove={(mode) => setMoveMode(mode)}
                     // Hizmet ve not artık GERÇEKTEN değişiyor; satırlar
                     // chevron gösterip hiçbir şey açmıyordu.

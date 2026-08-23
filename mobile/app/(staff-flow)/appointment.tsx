@@ -337,6 +337,7 @@ export default function AppointmentDetail() {
         reservationId: appointment?.id ?? reservationId ?? '',
         date: appointment?.date ?? requestedDate ?? '',
         customerId: appointment?.customer_id ?? requestedCustomerId ?? '',
+        customerName: appointment?.customer_name ?? '',
     }), [appointment, requestedCustomerId, requestedDate, reservationId]);
 
     if (!appointment) {
@@ -414,10 +415,6 @@ export default function AppointmentDetail() {
                         accessibilityRole="button"
                         onPress={() => {
                             feedback.selection();
-                            if (isLegacyEntry) {
-                                router.push('/customer');
-                                return;
-                            }
                             router.push({ pathname: '/customer', params: routeParams });
                         }}
                         style={({ pressed }) => ({

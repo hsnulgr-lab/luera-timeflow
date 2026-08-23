@@ -227,6 +227,7 @@ export default function Calendar() {
                     pathname: '/customer',
                     params: {
                         customerId: appointment.customer_id,
+                        customerName: appointment.customer_name,
                         reservationId: appointment.id,
                         date: appointment.date,
                     },
