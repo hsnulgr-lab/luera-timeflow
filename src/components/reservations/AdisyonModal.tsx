@@ -96,7 +96,11 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     // Adisyon satırları: her randevu için hizmet + personelin canlı eklediği kalemler.
     const baseRows = groupRes.flatMap(x => [
         { name: x.service, sub: x.staffName || 'Hizmet', price: svcPrice(x) },
-        ...(x.adisyonItems || []).map(it => ({ name: it.name, sub: it.kind === 'product' ? 'Ürün' : 'Ekstra', price: it.price })),
+        ...(x.adisyonItems || []).map(it => ({
+            name: it.name,
+            sub: it.kind === 'product' ? 'Ürün' : it.kind === 'material' ? 'Malzeme' : 'Ekstra',
+            price: it.price,
+        })),
     ]);
     const baseTotal = baseRows.reduce((s, row) => s + row.price, 0);
 

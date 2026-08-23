@@ -17,6 +17,7 @@ import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedback } from '../../src/lib/feedback';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const REST = [
     { time: '12:30', name: 'Zeynep Ak', service: 'Fön · 30 dk' },
@@ -727,9 +728,8 @@ export default function Today() {
                                     fontSize: 12.5,
                                     fontWeight: '700',
                                     letterSpacing: 1.25,
-                                    textTransform: 'uppercase',
                                 }}>
-                                    {active ? 'Sıradaki · 12:30' : 'Sıradaki · 10:00'}
+                                    {upperTR(active ? 'Sıradaki · 12:30' : 'Sıradaki · 10:00')}
                                 </Text>
                             </View>
 
@@ -828,9 +828,8 @@ export default function Today() {
                         fontSize: 11.5,
                         fontWeight: '700',
                         letterSpacing: 1.84,
-                        textTransform: 'uppercase',
                     }}>
-                        Günün kalanı
+                        {upperTR('Günün kalanı')}
                     </Text>
                     <Text style={{ color: c.or, fontSize: 12.5, fontWeight: '700' }}>
                         {active ? '4 randevu' : 'Tümü'}

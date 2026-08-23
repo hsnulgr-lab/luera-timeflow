@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 23: Müşteri kartı</title>
+<style>
+:root{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--am:#D9A43B;--rd:#E07272;--gr:#5FBF64;--desk:#0B0805}
+.pnl{--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pam:#8A5C00;--pamg:#D9A43B;--prd:#A82F2F;--pbd:rgba(14,14,14,.12)}
+.pnl.inv{--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pam:#D9A43B;--pamg:#D9A43B;--prd:#E07272;--pbd:rgba(243,237,227,.14)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+a{color:#FF7A45}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1720px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:880px;margin-bottom:20px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.chain{display:flex;align-items:center;gap:12px;margin:32px 0 58px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.chain span.on{border-color:var(--am);color:var(--am)}
+.chain span.rd{border-color:var(--rd);color:var(--rd)}
+.chain i{width:22px;height:1px;background:var(--bd2)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.prose{max-width:900px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:46px;display:flex;flex-direction:column;gap:12px}
+.prose b{color:var(--tx);font-weight:700}
+.prose code,.note code,.rn code,.mspec code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.case{display:flex;gap:48px;align-items:flex-start;margin-bottom:74px;flex-wrap:wrap}
+.side{width:660px;display:flex;flex-direction:column;gap:16px;padding-top:4px}
+.side h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:7px;font-weight:700}
+.side .lead{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.side .lead b{color:var(--tx);font-weight:700}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.glasstag{display:flex;gap:9px;align-items:flex-start;font-size:12px;font-weight:600;color:var(--tx2);line-height:1.5;padding:10px 12px;border:1px dashed var(--bd2);border-radius:12px}
+.glasstag b{color:var(--tx);font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:10.5px;flex:none;padding-top:2px}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf)}
+.rn .r{display:flex;gap:16px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:138px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:168px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+/* ══ TELEFON ══ */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.phone.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040;--gr:#2F7D3C}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700;position:relative;z-index:6}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status.on-hero{color:#F3EDE3}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:currentColor;border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid currentColor;border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:currentColor;border-radius:1px}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:7}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+/* ══ KAHRAMAN ALAN — uygulamanın tek gradyanı ══ */
+.hero{flex:none;position:relative;display:flex;flex-direction:column;margin-top:-59px;padding:59px 18px 76px;height:439px;color:#F3EDE3}
+.hero.risky{height:466px}
+.hero .grad{position:absolute;left:0;right:0;top:0;bottom:0;border-radius:0 0 28px 28px;background:linear-gradient(168deg,#5A3E22 0%,#43301C 34%,#2A1E12 68%,#160F09 100%)}
+.hero .grad::after{content:"";position:absolute;left:0;right:0;top:0;bottom:0;border-radius:0 0 28px 28px;background:radial-gradient(120% 80% at 78% 12%,rgba(255,90,31,.16),rgba(255,90,31,0) 62%)}
+.hero>*{position:relative;z-index:2}
+/* kroma satırı — CAM */
+.chrome{flex:none;height:44px;display:flex;align-items:center;gap:10px;margin-top:8px}
+.gl{background:rgba(243,237,227,.13);border:1px solid rgba(243,237,227,.20);backdrop-filter:blur(18px) saturate(130%);-webkit-backdrop-filter:blur(18px) saturate(130%)}
+.opaque .gl{background:#2C2114;border-color:rgba(243,237,227,.16);backdrop-filter:none;-webkit-backdrop-filter:none}
+.opaque .plate{background:#241A10}
+.cbtn{flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#F3EDE3}
+.cpill{height:40px;padding:0 18px;border-radius:999px;display:flex;align-items:center;gap:8px;font-size:15.5px;font-weight:800;letter-spacing:-.01em;color:#F3EDE3;margin-left:auto}
+.svgi{display:block}
+/* kimlik */
+.mono{position:absolute;right:18px;top:116px;width:124px;height:124px;border-radius:50%;border:2.5px solid var(--or);background:rgba(18,14,8,.34);display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800;letter-spacing:-.02em;color:#F3EDE3;z-index:2}
+.idblock{margin-top:auto;display:flex;flex-direction:column;max-width:228px}
+.nm1{font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1;color:rgba(243,237,227,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm2{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.06;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tel{font-size:13.5px;font-weight:600;color:rgba(243,237,227,.62);margin-top:7px;letter-spacing:.01em}
+/* kahraman uyarı satırı — CAM DEĞİL, opak yüzey */
+.warn{margin-top:12px;display:flex;align-items:center;gap:11px;border-radius:14px;background:#2A1A10;border:1px solid rgba(224,114,114,.34);padding:11px 13px 11px 9px;position:relative;overflow:hidden}
+.warn .st{flex:none;width:4px;align-self:stretch;border-radius:2px;background:var(--rd)}
+.warn.debt{border-color:rgba(217,164,59,.34)}
+.warn.debt .st{background:var(--am)}
+.warn .wc{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.warn .wl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rd)}
+.warn.debt .wl{color:var(--am)}
+.warn .wl s{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor;text-decoration:none}
+.warn .wt{font-size:15.5px;font-weight:700;letter-spacing:-.01em;color:#F3EDE3;line-height:1.25;text-wrap:pretty}
+/* iki levha — CAM · kahraman alanın eteğinde, sınırın üstünde */
+.plates{position:absolute;left:18px;right:18px;bottom:-44px;display:flex;gap:10px;z-index:4}
+.plate{flex:1;min-width:0;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:0;color:#F3EDE3;position:relative;overflow:hidden}
+.plbl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(243,237,227,.66);line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pval{display:flex;align-items:baseline;gap:5px;font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.06;height:32px;margin-top:10px}
+.pval .u{font-size:15px;font-weight:700;color:rgba(243,237,227,.62);letter-spacing:-.01em}
+.pval.soft{color:rgba(243,237,227,.62);font-size:26px}
+.psub{font-size:11.5px;font-weight:500;color:rgba(243,237,227,.62);line-height:1.22;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goarr{position:absolute;right:12px;bottom:12px;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(243,237,227,.42);display:flex;align-items:center;justify-content:center;color:#F3EDE3}
+/* ══ İÇERİK — sakin, koyu, camsız ══ */
+.content{flex:1;min-height:0;display:flex;flex-direction:column;padding-top:58px;overflow:hidden}
+.sect{flex:none;display:flex;align-items:center;gap:9px;padding:14px 18px 8px;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.sect em{margin-left:auto;font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:none;color:var(--tx2)}
+.lrow{flex:none;display:flex;align-items:center;gap:12px;padding:16px 18px;border-top:1px solid var(--bd);min-width:0}
+.lrow:first-of-type{border-top:0}
+.lcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.lnm{font-size:15.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lmt{font-size:13px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lamt{flex:none;display:flex;align-items:baseline;font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.lamt .cur{font-size:12.5px;font-weight:700;padding-right:1px;color:var(--tx2)}
+.notrow{flex:none;padding:14px 18px;border-top:1px solid var(--bd);font-size:14px;font-weight:500;color:var(--tx2);line-height:1.45;text-wrap:pretty}
+.empty{flex:none;padding:18px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--bd)}
+.empty .et{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.empty .es{font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+/* gömülü kart — kart ailesi: padding 14 · r 18 · gap 12 */
+.embed{flex:none;margin:0 18px 6px}
+.pnl{border-radius:18px;background:var(--ps);color:var(--pk);position:relative;overflow:hidden;display:flex}
+.pnl .in{flex:1;display:flex;align-items:center;gap:12px;padding:14px;min-width:0}
+.pcol{flex:1;min-width:0;display:flex;flex-direction:column}
+.pnl .cl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--pk2);line-height:1.22}
+.pnl .cl s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--or);text-decoration:none}
+.pnl .chero{display:flex;align-items:baseline;gap:5px;font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.06;height:36px}
+.pnl .chero .u{font-size:17px;font-weight:700;color:var(--pk2)}
+.pnl .csub{font-size:11.5px;font-weight:500;color:var(--pk2);line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hap{height:40px;padding:0 18px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:15.5px;font-weight:800;letter-spacing:-.01em;border:1.5px solid var(--pk);white-space:nowrap;color:var(--pk)}
+.hap.fill{background:var(--or);border-color:var(--or);color:#fff}
+/* alt eylem çubuğu — başparmak bölgesi */
+.tray{flex:none;padding:12px 18px 30px;border-top:1px solid var(--bd);background:var(--bg);display:flex;flex-direction:column;gap:9px;position:relative;z-index:5}
+.tray .rem{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--am);line-height:1.3}
+.tray .rem s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--am);text-decoration:none}
+.tray .row{display:flex;align-items:center;gap:10px}
+.tray .ghost{height:40px;padding:0 4px;display:flex;align-items:center;font-size:13.5px;font-weight:700;color:var(--tx2);white-space:nowrap}
+.tray .main{flex:1;height:40px;border-radius:999px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15.5px;font-weight:800;letter-spacing:-.01em}
+/* ══ TOPLANMIŞ LEVHA — CAM · üst kenarı yok, alt köşeler 20 ══ */
+.hang{position:absolute;left:0;right:0;top:0;border-radius:0 0 20px 20px;padding:8px 18px 12px;display:flex;flex-direction:column;gap:8px;z-index:8;background:rgba(36,26,16,.72);border-bottom:1px solid rgba(243,237,227,.14);backdrop-filter:blur(20px) saturate(130%);-webkit-backdrop-filter:blur(20px) saturate(130%)}
+.hang .hr{display:flex;align-items:center;gap:12px;height:44px}
+.hang .hnm{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;font-size:17px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hang .hnm i{font-style:normal;font-weight:500;color:var(--tx2)}
+.hang .hnm b{font-weight:800}
+.hang .hrisk{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--rd);line-height:1.25;padding-bottom:2px}
+.hang .hrisk s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--rd);text-decoration:none}
+.hbtn{flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--tx);background:rgba(243,237,227,.10);border:1px solid rgba(243,237,227,.16)}
+/* ══ HAREKET SAHNELERİ ══ */
+.mrow{display:flex;flex-wrap:wrap;gap:34px 40px;margin-bottom:22px}
+.mcase{width:393px;display:flex;flex-direction:column;gap:12px}
+.mstage{position:relative;overflow:hidden;background:var(--bg);border:1px solid var(--bd);border-radius:26px;height:300px}
+.mspec{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mspec b{color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.02em}
+.mspec .rm{color:var(--tx3)}
+.mgrad{position:absolute;left:0;right:0;top:0;height:300px;border-radius:0 0 28px 28px;background:linear-gradient(168deg,#5A3E22 0%,#43301C 40%,#2A1E12 78%,#160F09 100%)}
+/* A — akıştan karta */
+.aRow{position:absolute;left:0;right:0;top:0;padding:16px 18px 16px 74px;display:flex;flex-direction:column;gap:5px}
+.aRow .l{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--am)}
+.aRow .n2{font-size:19px;font-weight:500;letter-spacing:-.02em}
+.aRow .n2 b{font-weight:800}
+.aRow .s2{font-size:13.5px;font-weight:500;color:var(--tx2)}
+.aMono{position:absolute;left:18px;top:16px;width:124px;height:124px;border-radius:50%;border:2.5px solid var(--or);background:rgba(18,14,8,.34);display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800;color:#F3EDE3;transform-origin:top left;z-index:3}
+.aName{position:absolute;left:18px;top:196px;width:232px;display:flex;flex-direction:column;z-index:3;color:#F3EDE3}
+.aFade{animation:aFade 7s linear infinite}
+@keyframes aFade{0%,8%{opacity:1}14%,92%{opacity:0}98%,100%{opacity:1}}
+.aGradA{animation:aGrad 7s linear infinite}
+@keyframes aGrad{0%,8%{opacity:0}18%,92%{opacity:1}99%,100%{opacity:0}}
+.aMonoA{animation:aMono 7s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes aMono{0%,8%{transform:scale(.3548) translate(0,0)}22%,92%{transform:translate(233px,96px) scale(1)}99%,100%{transform:scale(.3548) translate(0,0)}}
+.aNameA{animation:aName 7s linear infinite}
+@keyframes aName{0%,12%{opacity:0;transform:translateY(8px)}22%,92%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(8px)}}
+/* B — toplanma */
+.bHero{position:absolute;left:0;right:0;top:0;bottom:0}
+.bFull{animation:bFull 8s linear infinite}
+@keyframes bFull{0%,20%{opacity:1;transform:translateY(0)}46%,92%{opacity:0;transform:translateY(-10px)}99%,100%{opacity:1;transform:translateY(0)}}
+.bPlates{animation:bPlates 8s linear infinite}
+@keyframes bPlates{0%,30%{opacity:1}50%,92%{opacity:0}99%,100%{opacity:1}}
+.bHang{animation:bHang 8s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes bHang{0%,44%{opacity:0;transform:translateY(-100%)}58%,92%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(-100%)}}
+.bList{animation:bList 8s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes bList{0%,22%{transform:translateY(0)}50%,92%{transform:translateY(-96px)}99%,100%{transform:translateY(0)}}
+/* C — levhaların girişi */
+.cP1{animation:cP1 6s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes cP1{0%,14%{opacity:0;transform:translateY(10px)}26%,92%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(10px)}}
+.cP2{animation:cP2 6s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes cP2{0%,17%{opacity:0;transform:translateY(10px)}29%,92%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(10px)}}
+/* D — risk bayrağı */
+.dWarn{animation:dWarn 6s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes dWarn{0%,22%{opacity:0;transform:translateY(8px)}34%,94%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(8px)}}
+.dShift{animation:dShift 6s linear infinite;animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+@keyframes dShift{0%,22%{transform:translateY(16px)}34%,94%{transform:translateY(0)}99%,100%{transform:translateY(16px)}}
+@media (prefers-reduced-motion:reduce){.aFade,.aGradA,.aMonoA,.aNameA,.bFull,.bPlates,.bHang,.bList,.cP1,.cP2,.dWarn,.dShift{animation-duration:1ms!important;animation-iteration-count:1!important}}
+</style></head>
+<body><div class="doc">
+
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Müdür 23 · Müşteri kartı<br/>iPhone 16 Pro 393 × 852 · koyu + aydınlık</div></div>
+
+<div class="lede"><h1>Bu müşteri kim ve ona nasıl davranmalıyım?</h1>
+<p>Ekran tek bir soruya cevap veriyor. Kimlik <b>baş harflerden</b> geliyor — fotoğraf yok, olmayacak. Kahraman alan uygulamanın <b>tek gradyanını</b> taşıyor: sıcak kahveden zemine. Renk bütçesinin tamamı orada harcanıyor; altındaki liste tamamen sakin ve koyu.</p>
+<p>Referansın <b>yapısı</b> alındı: tam genişlik kahraman alan, iki ağırlıkta iki satır isim, eteğinde yan yana duran ve sınırın üstüne oturan iki cam levha, üstte yüzen kroma satırı. <b>Gökkuşağı, portre, gösteriş metrikleri ve “Follow” alınmadı</b> — dördü de bu müdürün ekranında yanlış şeyler söylerdi.</p></div>
+
+<div class="chain"><span>Akış satırı</span><i></i><span class="on">Kimlik · kahraman alan</span><i></i><span>İki levha</span><i></i><span class="rd">Risk / borç</span><i></i><span>Geçmiş · notlar</span><i></i><span>Randevu ver</span></div>
+
+<div class="band"><span class="num">Karar</span><h2>Dört seçim ve gerekçesi</h2><p>Levhaların hangi iki sayıyı taşıdığı, birincil eylemin nerede durduğu, uyarıların tek bir şekle indirilmesi ve toplanmış levhada risk bayrağının kalması.</p></div>
+
+<div class="prose">
+<p><b>Levhalar “kalan seans” ve “son geliş” taşıyor; bakiye taşımıyor.</b> Müdürün üç sorusundan ikisi zaman ve hak sorusudur: randevu verirken <em>kaç seansı kaldı</em>, telefonda <em>en son ne zaman geldi</em>. Bakiye levhaya konamaz çünkü <code>bilinmiyor</code> olabilir ve bilinmeyen veri yazılmaz — o hâlde levha çizilmezdi, çizilmeyen levha ise sınırın üstünde duran çiftin yarısını boşaltır ve yapı çöker. Levha her zaman çizilebilen veriyi taşır: paket bilgisi ya yoktur ya vardır, ikisi de bilinen bir cevaptır (<code>Yok</code> bir yalan değil, bir olgudur). Bakiye bunun yerine kahraman alanın içinde, kaçırılamayacak yerde duruyor.</p>
+<p><b>Risk ve borç tek bir şekle indirildi.</b> İkisi de aynı cümleyi kuruyor: “karar vermeden önce bunu bil.” Bu yüzden ikisi de kahraman alanın içinde aynı bileşen: <b>opak yüzey · 4 px çizgi · etiket + tam cümle</b>. Fark yalnız mürekkepte — risk kırmızı <code>#E07272</code>, borç amber <code>#D9A43B</code> — ve cümlede. İki farklı şekil icat etmek müdüre iki kalıp öğretirdi; bir şekil öğrenilir, ikincisi kaçırılır. İkisi birlikte varsa üst üste binerler, risk üstte. Bu satır <b>cam değil</b>: bulanık zeminde 15.5 px metnin kontrastı düşer ve bu, kırpılması yasak olan tek bilgidir.</p>
+<p><b>Birincil eylem üstte değil, başparmak bölgesinde.</b> Referansta “Follow” kroma satırındadır; bizde <code>Randevu ver</code> ekranın alt üçte birindeki çubukta. Kroma satırı yapı olarak korundu ama içeriği değişti: orada <b>iletişim</b> var (<code>Ara</code> hapı ve WhatsApp düğmesi), çünkü bu ekranın üç açılış nedeninden biri “telefon çalıyor” — o an müdürün eli zaten telefonu tutuyor ve tek istediği aramaya dönmek. Randevu vermek ise ekranı okuduktan <em>sonra</em> gelen karardır; okuma bittiğinde başparmak alttadır.</p>
+<p><b>Toplanmış levhada risk bayrağı kalır, borç kalmaz.</b> Alerji, kaydırma konumundan bağımsız olarak doğru olmaya devam eden bir güvenlik olgusudur — müdür notları okurken personeline bir şey söyleyebilir, o anda ekranda kalması gerekir. Borç ise bir işlem olgusudur ve yalnız tek bir anda iş görür: randevu verilirken. O an <code>Randevu ver</code> hapının bulunduğu çubukta, hapın hemen üstünde tek satır olarak hatırlatılıyor. Böylece her bilgi, işe yaradığı yerde duruyor; toplanmış levha da iki satırdan fazla büyümüyor.</p>
+</div>
+
+<div class="band"><span class="num">Malzeme</span><h2>Hangi katman cam?</h2><p>Cam yalnız yüzen kroma katmanında. Kartlara, listelere ve metin bloklarına cam uygulanmaz.</p></div>
+
+<div class="glasstag" style="max-width:1180px;margin-bottom:46px"><b>CAM</b><span>Üst kroma satırı (geri yuvarlağı · <code>Ara</code> hapı · WhatsApp düğmesi) · <b>iki levha</b> · <b>toplanmış asılı levha</b>. Üçü de kahraman alanın üstünde yüzer. — <b>CAM DEĞİL:</b> kahraman gradyanı, risk/borç satırı, gömülü krem kart, işlem listesi, notlar, alt eylem çubuğu, toplanmış levhanın altındaki hiçbir şey. “Saydamlığı azalt” açıkken cam üç yüzey de opak kahve yüzeye düşer: kroma <code>#2C2114</code>, levha <code>#241A10</code>, asılı levha <code>#241A10</code> — bulanıklık ve saturasyon kaldırılır, kenarlıklar aynı kalır.</span></div>
+
+<div id="cases"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Dört an · yalnız opacity ve transform</h2><p>Her geçişte üçü ayrı yazılı: çıkan, giren, yerinde kalan. Sahneler döngüde ve okunabilirlik için yavaşlatılmış; gerçek süreler listelerde.</p></div>
+
+<div class="mrow" id="motion"></div>
+
+<div class="band"><span class="num">Ölçü</span><h2>Ekran tablosu — CSS ile birebir</h2><p></p></div>
+
+<div class="rn" style="max-width:1240px;margin-bottom:26px">
+<div class="r h"><b>Parça</b><s>Ölçü</s><code>Renk / not</code></div>
+<div class="r"><b>Kahraman alan</b><s>h439 · alt köşeler 28 · alt dolgu 76</s><code>%51,5 — durum çubuğu dahil; alt dolgu levhanın içeride kalan 62 pt’si + 14 nefes; gradyan <code>168deg #5A3E22 → #43301C 34% → #2A1E12 68% → #160F09</code> + sağ üstte %16 turuncu ışık</code></div>
+<div class="r"><b>Risk hâlinde</b><s>h466</s><code>tek uzayan durum: risk kırpılmaz, o yüzden alan uzar. Animasyon değil, mount’ta yerleşim.</code></div>
+<div class="r"><b>Kroma satırı</b><s>h44 · üstten 8</s><code>CAM. geri 40 yuvarlak · <code>Ara</code> hapı h40 padX18 r999 15.5/800 · WhatsApp 40 yuvarlak</code></div>
+<div class="r"><b>Monogram</b><s>124 · kenarlık 2.5 · 42/800</s><code>akıştaki 44 / 2 / 14.5-800’ün kahraman karşılığı — ~2,8× ölçek. Üstten 116: kroma satırının 110 tabanını geçmez, yüzen düğmelerin arkasına girmez. Turuncu kenarlık; zemin <code>rgba(18,14,8,.34)</code></code></div>
+<div class="r"><b>İsim</b><s>34/500 + 34/800 · -.03em</s><code>ad <code>rgba(243,237,227,.72)</code> · soyad tam mürekkep. İki satır, her biri tek satırda kırpılır; maks genişlik 228 (monogramın soluna 5 pt kala)</code></div>
+<div class="r"><b>Telefon</b><s>13.5/600 · üstten 7</s><code>ikincil mürekkep <code>rgba(243,237,227,.62)</code> — okumak için, aramak için değil (aramak kroma satırında)</code></div>
+<div class="r"><b>Risk / borç satırı</b><s>r14 · pad 11/13, sol 9 · çizgi 4</s><code>CAM DEĞİL. yüzey <code>#2A1A10</code> · kenarlık risk <code>rgba(224,114,114,.34)</code> borç <code>rgba(217,164,59,.34)</code> · etiket 11.5/700 · cümle 15.5/700 tam mürekkep, <b>kırpılmaz, sarar</b></code></div>
+<div class="r"><b>Levhalar</b><s>2 × h106 · r18 · pad 14 · gap 10</s><code>CAM <code>rgba(243,237,227,.13)</code> + blur 18 · kenarlık <code>rgba(243,237,227,.20)</code> · <code>bottom:-44</code> — 62 içeride, 44 dışarıda: sınırın üstünde durur</code></div>
+<div class="r"><b>Levha içi</b><s>etiket 11.5/700 · değer 30/800 h32 · alt 11.5/500</s><code>değer gömülü kart kahraman rakamından (34) bir kademe küçük — levha kart değil. Bilinen ama sayısal olmayan değer 26/800 ikincil (<code>Yok</code>)</code></div>
+<div class="r"><b>Git oku</b><s>30 · kenarlık 1.5 · sağ/alt 12</s><code>yalnız gidilecek bir yer varsa çizilir; G4’te geçmiş boş olduğu için ok yok</code></div>
+<div class="r"><b>Liste satırı</b><s>pad 16/18 · ayırıcı 1 px içeriden 18</s><code>hizmet 15.5/600 · tarih·personel 13/500 ikincil · tutar 15.5/700, ₺ 12.5/700 ikincil, tabular-nums</code></div>
+<div class="r"><b>Gömülü kart</b><s>pad 14 · r18 · gap 12</s><code>kart ailesiyle birebir: krem <code>#FAF3E9</code> · etiket 11.5/700 · kahraman 34/800 · hap h40</code></div>
+<div class="r"><b>Alt çubuk</b><s>pad 12/18/30 · hap h40</s><code>başparmak bölgesi · <code>Randevu ver</code> dolu <code>#FF5A1F</code> · <code>Not ekle</code> hayalet 13.5/700 · üstünde borç hatırlatması 12.5/600 amber</code></div>
+<div class="r"><b>Asılı levha</b><s>üst kenar yok · alt köşeler 20 · satır h44</s><code>CAM <code>rgba(36,26,16,.72)</code> + blur 20 · ad 17/500 + 17/800 · risk satırı 13/700 kırmızı, kırpılmaz · riskli h158 / risksiz h138</code></div>
+</div>
+
+<div class="rn" style="max-width:1240px;margin-bottom:26px">
+<div class="r h"><b>Toplanma eşiği</b><s>Ne olur</s><code>Özellik</code></div>
+<div class="r"><b>0</b><s>kahraman alan tam</s><code>asılı levha <code>translateY(-100%)</code>, opacity 0 — hiç yok</code></div>
+<div class="r"><b>24</b><s>kroma satırı ve telefon söner</s><code>opacity 1→0 · yerinde kalır, kaymaz — ilk giden en az bilgi taşıyan katman</code></div>
+<div class="r"><b>32</b><s>isim ve monogram sönmeye başlar</s><code>opacity 1→0 + <code>translateY 0→-10</code> · ölçek animasyonu yok</code></div>
+<div class="r"><b>48</b><s>levhalar söner, asılı levha girmeye başlar</s><code>levha yalnız opacity 1→0 (kaymaz, sınırın üstündeki yeri sabittir) · levha <code>translateY -100%→0</code></code></div>
+<div class="r"><b>64</b><s>asılı levha yerinde</s><code>opacity 1 · ad ve geri dönüş okunur · risk varsa ikinci satır yazılı</code></div>
+</div>
+
+<div class="band"><span class="num">Sınır</span><h2>375 × 667’de sıkışanlar</h2><p>Kahraman alan oranla küçülür (h344); kırpılan şeyler değişmez.</p></div>
+
+<div class="case"><div id="small"></div>
+<div class="side"><h3><s>DAR EKRAN</s>Beş sıkışma, beş kural</h3>
+<div class="lead">667 pt yükseklikte kahraman alan <b>%51,5 oranını korur → h344</b>. Monogram 124’ten <b>104</b>’e, isim 34’ten <b>29</b>’a iner; levha yüksekliği değişmez, çünkü içindeki üç satır zaten en küçük hâlinde.</div>
+<div class="note"><span><b>Risk satırı hiçbir koşulda kırpılmaz.</b> 375’te cümle iki satıra sarar ve kahraman alan <b>h344 → h372</b> uzar. Uzayan tek şey bu; kırpılamayan bilgi kabını büyütür, kendisi küçülmez.</span></div>
+<div class="note"><span><b>Levha alt satırı ilk kırpılan.</b> 393’te <code>10 seanslık bakım · 4 kullanıldı</code>; 375’te <code>10 seans · 4 kullanıldı</code>. Etiket ve değer asla kırpılmaz — levhanın işi o iki satır.</span></div>
+<div class="note"><span><b>Kroma satırında hap daralır.</b> <code>Ara</code> hapı 375’te padX18 → padX14; geri ve WhatsApp yuvarlakları 40’ta kalır (dokunma hedefi 44 hitSlop ile korunur).</span></div>
+<div class="note"><span><b>İsim iki satırda kalır, kırpılır.</b> <code>Gülşah Karaosmanoğlu</code> 29/800’de 375’te sığmaz → soyad <code>Karaosmano…</code> olur. Alternatif üçüncü satır değil: iki satır ismin ölçüsü, üçüncü satır kahraman alanın ritmini bozar.</span></div>
+<div class="note"><span><b>İlk ekranda listeden tek satır görünür.</b> 393’te iki satır ve bölüm başlığı sığıyor; 375’te başlık + bir satır. Kaydırmasız cevaplanan üç soru (kim · risk/borç · kaç seans) yine tam.</span></div>
+</div></div>
+
+<div class="band"><span class="num">Uygulama</span><h2>React Native notları</h2><p></p></div>
+
+<div class="rn" style="max-width:1240px">
+<div class="r h"><b>Konu</b><s>Kural</s><code>Ayrıntı</code></div>
+<div class="r"><b>Metin kırpma</b><s>numberOfLines</s><code>ad 1 · soyad 1 · telefon 1 · levha etiketi 1 · levha değeri 1 · levha alt satırı 1 · hizmet adı 1 · tarih·personel 1 · asılı levha adı 1. <b>Risk/borç cümlesi: numberOfLines YOK</b> — sarar, kabı büyütür. Not metni 3 satır, sonra <code>Devamı</code>.</code></div>
+<div class="r"><b>Kırpılmayanlar</b><s>flexShrink: 0</s><code>tutar, levha değeri, risk cümlesi, ₺ düğümü. Kırpılabilenler: ad, soyad, hizmet adı, tarih, levha alt satırı.</code></div>
+<div class="r"><b>Bilinmeyen veri</b><s>çizilmez</s><code><code>balance === null</code> → uyarı satırı <b>render edilmez</b>, alt çubuktaki hatırlatma da yok. “₺0” asla yazılmaz. Paket yoksa <code>Yok</code> yazılır — bu bilinen bir cevaptır.</code></div>
+<div class="r"><b>Para biçimi</b><s>tr-TR</s><code><code>Intl.NumberFormat('tr-TR',{maximumFractionDigits:0})</code>. ₺ ayrı <code>Text</code>; liste satırında 12.5/700 ikincil, uyarı cümlesinde satır içinde 15.5/700 tam mürekkep. <code>fontVariant:['tabular-nums']</code>.</code></div>
+<div class="r"><b>Baş harfler</b><s>en fazla 2</s><code>Ad + soyadın ilk harfleri, Türkçe <code>toLocaleUpperCase('tr')</code> (İ noktalı kalır). Tek isimliyse tek harf. Fotoğraf alanı yok, yer tutucu yok.</code></div>
+<div class="r"><b>Toplanma</b><s>Animated.ScrollView</s><code><code>scrollY.interpolate</code>, girdi <code>[0,24,32,48,64]</code>, <code>extrapolate:'clamp'</code>. Yalnız <code>opacity</code> ve <code>translateY</code>. Kahraman alan yüksekliği animasyonlu değildir; asılı levha ayrı bir mutlak katmandır.</code></div>
+<div class="r"><b>Native sürücü</b><s>useNativeDriver: true</s><code>dört hareketin tamamı: monogram <code>scale</code> + <code>translate</code>, levha <code>opacity</code>+<code>translateY</code>, asılı levha <code>translateY</code>, risk satırı <code>opacity</code>+<code>translateY</code>. Yükseklik/renk/yarıçap/gölge animasyonu yok.</code></div>
+<div class="r"><b>Renk geçişi</b><s>iki yüzey</s><code><code>interpolateColor</code> yok. Gerekirse aynı kutuda üst üste iki <code>View</code>, biri sönerken öteki açılır (kart ailesindeki kuralla aynı).</code></div>
+<div class="r"><b>Cam yedeği</b><s>@react-native-community/blur</s><code>iOS <code>BlurView blurType="dark" blurAmount={18}</code>; Android <code>experimentalBlurMethod</code> güvenilmez → doğrudan opak yüzey. <code>AccessibilityInfo.isReduceTransparencyEnabled</code> → üç cam yüzey <code>#2C2114</code> / <code>#241A10</code>’a düşer, kenarlık ve ölçü aynı.</code></div>
+<div class="r"><b>Hareketi azalt</b><s>isReduceMotionEnabled</s><code>süreler 0, döngü yok, monogram büyümez (kartta hemen 132), levhalar tek karede yerinde, asılı levha kaymadan belirir. Bilgi hiçbir zaman harekete emanet edilmez.</code></div>
+<div class="r"><b>Dokunma</b><s>≥ 44</s><code>kroma yuvarlakları 40 + <code>hitSlop 2</code> · <code>Ara</code> hapı h40 + hitSlop 2 · levhalar tamamı basılabilir (84 yükseklik) · <code>Not ekle</code> h40 kutu içinde 22 görünür metin.</code></div>
+<div class="r"><b>Erişilebilirlik</b><s>tek cümle</s><code>“Elif Demir, saç boyasına alerjisi var, kalan iki seans, son geliş üç Haziran” — risk her zaman ikinci sırada okunur. Renk ve nokta tek başına anlam taşımaz; her durum kelimeyle de yazılı.</code></div>
+<div class="r"><b>Boş hâl</b><s>hata değil</s><code>G4’te ikon, illüstrasyon, uyarı rengi yok. Cümle olumlu: “Bugün ilk işlem.” Levha çerçevesi korunur, içinde bilinen cevaplar durur.</code></div>
+</div>
+
+</div>
+<script>
+const ic={back:'<svg class="svgi" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg>',
+ phone:'<svg class="svgi" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 3.2h-2c-.7 0-1.2.6-1.1 1.3.3 3 1.6 5.8 3.7 7.9 2.1 2.1 4.9 3.4 7.9 3.7.7.1 1.3-.4 1.3-1.1v-2c0-.6-.4-1.1-1-1.2l-1.9-.3c-.5-.1-1 .1-1.3.5l-.7.9C9.3 12 8 10.7 7.1 9.1l.9-.7c.4-.3.6-.8.5-1.3L8.2 5.2c-.1-.6-.6-1-1.2-1z"/></svg>',
+ wa:'<svg class="svgi" width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 16.8l1-3.2A6.6 6.6 0 1 1 6.6 16l-3.4.8z"/><path d="M7.4 8c.2 1.4 1.4 2.6 2.8 2.9"/></svg>',
+ arr:'<svg class="svgi" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg>'};
+
+const st=(hero)=>`<div class="status${hero?' on-hero':''}"><span class="n">11:34</span><div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>`;
+
+const chrome=`<div class="chrome"><span class="cbtn gl">${ic.back}</span><span class="cpill gl">${ic.phone}Ara</span><span class="cbtn gl">${ic.wa}</span></div>`;
+
+const plate=(o)=>`<div class="plate gl"><div class="plbl">${o.lb}</div><div class="pval${o.soft?' soft':''}">${o.v}</div><div class="psub">${o.sub}</div>${o.arr?`<span class="goarr">${ic.arr}</span>`:''}</div>`;
+
+const hero=(o)=>`<div class="hero${o.warn?' risky':''}"><div class="grad"></div>${chrome}
+<div class="mono">${o.ini}</div>
+<div class="idblock"><div class="nm1">${o.n1}</div><div class="nm2">${o.n2}</div><div class="tel n">${o.tel}</div></div>
+${o.warn?`<div class="warn${o.warn.debt?' debt':''}"><span class="st"></span><div class="wc"><div class="wl"><s></s>${o.warn.lb}</div><div class="wt">${o.warn.tx}</div></div></div>`:''}
+<div class="plates">${plate(o.p1)}${plate(o.p2)}</div></div>`;
+
+const lrow=(a,b,c)=>`<div class="lrow"><div class="lcol"><div class="lnm">${a}</div><div class="lmt">${b}</div></div><div class="lamt n"><span class="cur">₺</span>${c}</div></div>`;
+
+const tray=(o)=>`<div class="tray">${o&&o.rem?`<div class="rem"><s></s>${o.rem}</div>`:''}<div class="row"><span class="ghost">Not ekle</span><span class="main">Randevu ver</span></div></div>`;
+
+const embed=(inv)=>`<div class="embed"><div class="pnl${inv?' inv':''}"><div class="in"><div class="pcol"><div class="cl"><s></s>YAKLAŞAN RANDEVU</div><div class="chero n">24 Haz<span class="u">14:30</span></div><div class="csub">Kesim + fön · Merve ile</div></div><span class="hap">Değiştir</span></div></div></div>`;
+
+const HIST=lrow('Kesim + fön','18 Haz · Merve','450')+lrow('Saç boyama','2 Haz · Selin','1.200');
+
+const S=[
+ {id:'G1',ttl:'Düzenli müşteri',
+  lead:'Her şey dolu. Kahraman alan kimliği veriyor, iki levha randevu vermek için gereken iki sayıyı, liste geçmişi. Uyarı satırı yok — <b>yokluğu da bir bilgi</b>: bu müşteride bilinmesi gereken bir şey yok.',
+  hero:{ini:'ZK',n1:'Zeynep',n2:'Kaya',tel:'0532 118 24 06',
+   p1:{lb:'KALAN SEANS',v:'6',sub:'10 seanslık bakım · 4 kullanıldı'},
+   p2:{lb:'SON GELİŞ',v:'18 Haz',sub:'7. ziyaret · Merve ile',arr:1}},
+  content:`<div class="sect">SON İŞLEMLER<em>Tümü</em></div>${HIST}<div class="sect">NOTLAR</div><div class="notrow">Kısa katları sevmiyor, uzunluğu koruyor. Fön sıcaklığını düşük istiyor.</div>`,
+  tray:{},
+  notes:['<b>Üç soru kaydırmasız cevaplanıyor.</b> Kim: monogram + iki ağırlıklı isim. Risk/borç: uyarı satırı yok. Kaç seans: sol levha. Dördüncüsü — son geliş — sağ levhada, oku geçmişin tamamına gider.',
+   '<b>Sol levhanın rakamı kalan, kullanılan değil.</b> <code>6</code> hak edilmiş olan; <code>4/10</code> alt satırda duruyor. Müdür randevu verirken kalanı sorar, kullanılanı değil.',
+   '<b>Gömülü krem kart aileyi görünür kılıyor.</b> Yaklaşan randevu varsa levhaların hemen altında, listenin üstünde kart ailesinin kendi geometrisiyle (<code>pad 14 · r 18 · gap 12</code>) çıkar. Ekrandaki tek krem yüzey; kalan her şey koyu.',
+   '<b>Listede renk yok.</b> Tutarlar tam mürekkep, tarih ve personel ikincil. Renk bütçesi kahraman alanda bitti.'],
+  spec:[['Kahraman alan','h439','durum çubuğu dahil, %51,5'],['Levhalar','2 × 106 · gap 10','62 içeride / 44 dışarıda'],['Monogram','124 · 42/800','akıştaki 44’ün ~2,8×’i']]},
+ {id:'G2',ttl:'Riskli müşteri',
+  lead:'Alerji bayrağı. İsimden sonra göze çarpan <b>ikinci</b> öğe: 15.5/700 tam mürekkep, ekranda tek başına duran opak yüzey. <b>Kırmızı dolgu yok, ikon yok, nabız yok</b> — müdür panik yapmasın, bilsin.',
+  hero:{ini:'ED',n1:'Elif',n2:'Demir',tel:'0555 402 71 19',
+   warn:{lb:'ALERJİ',tx:'Saç boyasına alerjisi var'},
+   p1:{lb:'KALAN SEANS',v:'2',sub:'6 seanslık bakım · 4 kullanıldı'},
+   p2:{lb:'SON GELİŞ',v:'3 Haz',sub:'4. ziyaret · Selin ile',arr:1}},
+  content:`<div class="sect">SON İŞLEMLER<em>Tümü</em></div>${lrow('Keratin bakımı','3 Haz · Selin','900')}<div class="sect">NOTLAR</div><div class="notrow">Boya yerine bitkisel bakım uygulanıyor. Yama testi 2023’te yapıldı.</div>`,
+  tray:{},
+  notes:['<b>Baskınlık ölçüyle kuruldu, renkle değil.</b> Kırmızı yalnız 4 px çizgide, 7 px noktada ve etikette. Cümlenin kendisi tam mürekkep ve 15.5/700 — kahraman alanda isimden sonra en büyük metin. Kırmızı bir dolgu telaş üretir; ölçü üretmez, sadece görünür kılar.',
+   '<b>Alan uzuyor, cümle kısalmıyor.</b> Risk satırı kahraman alanı <code>439 → 455</code>’e çıkarır. Kırpılması yasak olan tek bilgi bu, o yüzden kabı büyütme hakkı da yalnız onda.',
+   '<b>Etiket kelimeyi taşıyor:</b> <code>ALERJİ</code> / <code>HAMİLE</code> / <code>SAĞLIK NOTU</code>. Renk tek başına anlam taşımaz; müdür renkleri hiç ayırt etmese de cümle yerinde.',
+   '<b>Levhalar yer değiştirmez.</b> Risk satırı araya girse de iki levha eteğinde, sınırın üstünde kalır. Yapı her durumda aynı; değişen tek şey aradaki satırın varlığı.'],
+  spec:[['Kahraman alan','h466','risk satırı için +27'],['Risk satırı','r14 · pad 11/13/9 · çizgi 4','yüzey #2A1A10 · cümle 15.5/700'],['Kırpma','numberOfLines yok','sarar, kırpılmaz']]},
+ {id:'G3',ttl:'Borçlu müşteri',
+  lead:'Aynı şekil, amber mürekkep. Borç randevu vermeden <b>önce</b> görülmeli; bu yüzden hem kahraman alanda hem de <code>Randevu ver</code> hapının üstünde duruyor. Tutar cümlenin içinde, tam mürekkep.',
+  hero:{ini:'KY',n1:'Kerem',n2:'Yıldız',tel:'0533 907 55 42',
+   warn:{debt:1,lb:'BAKİYE',tx:'<span class="n">₺450</span> borç var · 12 Haz işleminden'},
+   p1:{lb:'KALAN SEANS',v:'1',sub:'10 seanslık bakım · 9 kullanıldı'},
+   p2:{lb:'SON GELİŞ',v:'12 Haz',sub:'11. ziyaret · Selin ile',arr:1}},
+  content:`<div class="sect">SON İŞLEMLER<em>Tümü</em></div>${lrow('Sakal + kesim','12 Haz · Selin','450')}<div class="sect">NOTLAR</div><div class="notrow">Nakit ödemeyi tercih ediyor.</div>`,
+  tray:{rem:'₺450 borç var — randevu vermeden önce hatırlat'},
+  notes:['<b>Bir bilgi, iki yer, iki iş.</b> Kahraman alandaki satır “bu müşteri kim” sorusunun parçası; çubuktaki tek satır ise “şimdi ne yapıyorum” anının parçası. Tekrar değil, aynı olgunun iki farklı karara girmesi.',
+   '<b>Amber, kırmızı değil.</b> Kırmızı bu üründe güvenlik ve kayıp taşır; borç tahsil edilebilir bir durumdur. Kart ailesindeki kasa uyarısı da amberdi — aynı renk, aynı anlam.',
+   '<b>Tutar 34/800 değil.</b> Kahraman rakam yuvası bu ekranda levhalara ait; borç bir <em>koşul</em>, bir ölçüm değil. O yüzden tutar cümlenin içinde 15.5/700 tabular-nums, kuruşsuz, binlik nokta ile duruyor.',
+   '<b>Son levha sayısı <code>1</code>.</b> Paketin bittiği yaklaşıyor ve bu, borçla birlikte randevu konuşmasının konusu. İki levha da o konuşmanın malzemesi.'],
+  spec:[['Uyarı satırı','amber #D9A43B','kenarlık rgba(217,164,59,.34)'],['Tutar','15.5/700 tabular','₺ satır içi, kuruş yok'],['Çubuk hatırlatması','12.5/600 · nokta 7','yalnız borç varsa çizilir']]},
+ {id:'G4',ttl:'Yeni müşteri',
+  lead:'İlk ziyaret. Geçmiş yok, paket yok, bakiye <b>bilinmiyor</b> — o yüzden uyarı satırı <b>hiç çizilmedi</b>. Boş hâl bir hata gibi görünmüyor: yapı tam, cümleler olumlu.',
+  hero:{ini:'GK',n1:'Gülşah',n2:'Karaosmanoğlu',tel:'0542 663 08 71',
+   p1:{lb:'PAKET',v:'Yok',soft:1,sub:'Randevuda tanımlanabilir'},
+   p2:{lb:'İLK ZİYARET',v:'Bugün',sub:'14:30 randevusu · Merve ile'}},
+  content:`<div class="sect">SON İŞLEMLER</div><div class="empty"><div class="et">Bugün ilk işlem.</div><div class="es">Geçmiş, ilk tahsilattan sonra burada birikir.</div></div><div class="sect">NOTLAR</div><div class="notrow" style="color:var(--tx3)">Not eklenmedi.</div>`,
+  tray:{},
+  notes:['<b>Levha çerçevesi korunuyor, içerik değişiyor.</b> <code>Yok</code> bir yalan değil, bilinen bir cevap; <code>₺0</code> ise bir yalandır ve yazılmaz. Bakiye bilinmediği için uyarı satırı hiç render edilmez — boş bir rozet bırakılmaz.',
+   '<b>Sayısal olmayan değer bir kademe küçük ve ikincil:</b> <code>Yok</code> 26/800 ikincil mürekkep. Rakam ölçeği (30/800 tam mürekkep) yalnız gerçek sayılara ayrılmış; müdür levhaya bakınca sayı olup olmadığını okumadan anlar.',
+   '<b>Sağ levhada ok yok.</b> Gidilecek bir geçmiş yok. Dokunulabilirliğini söyleyen bir işaret koymak, boş bir ekrana götüren bir söz vermek olurdu.',
+   '<b>Uzun soyad kırpma sınırını gösteriyor.</b> <code>Karaosmanoğlu</code> 34/800’de 228 pt içinde tam sığıyor; bir karakter daha uzunu üç nokta ile kesilir. İsim asla üçüncü satıra taşmaz.'],
+  spec:[['Uyarı satırı','çizilmedi','bakiye bilinmiyor'],['Sol levha','Yok · 26/800 ikincil','sayı değil, bilinen cevap'],['Sağ levha','ok yok','gidilecek geçmiş yok']]}
+];
+
+document.getElementById('cases').innerHTML=S.map(s=>`<div class="case">
+<div class="phone">${st(1)}<div class="body">${hero(s.hero)}<div class="content">${s.id==='G1'?embed():''}${s.content}</div>${tray(s.tray)}</div><div class="home-ind"></div></div>
+<div class="side"><h3><s>MÜDÜR 23 · ${s.id}</s>${s.ttl}</h3>
+<div class="lead">${s.lead}</div>
+${s.notes.map(n=>`<div class="note"><span>${n}</span></div>`).join('')}
+<div class="rn">${s.spec.map(x=>`<div class="r"><b>${x[0]}</b><s>${x[1]}</s><code>${x[2]}</code></div>`).join('')}</div>
+<div class="glasstag"><b>CAM</b><span>kroma satırı · iki levha</span></div>
+</div></div>`).join('');
+
+/* G5 — kaydırılmış hâl */
+const g5=`<div class="phone"><div class="body" style="padding-top:0">
+<div class="content" style="padding-top:173px">
+<div class="sect">SON İŞLEMLER<em>Tümü</em></div>
+${lrow('Keratin bakımı','3 Haz · Selin','900')}${lrow('Fön','21 May · Merve','180')}${lrow('Kesim','2 May · Selin','380')}
+<div class="sect">NOTLAR</div>
+<div class="notrow">Boya yerine bitkisel bakım uygulanıyor. Yama testi 2023’te yapıldı.</div>
+<div class="notrow">Cumartesi sabahlarını tercih ediyor.</div>
+</div>${tray({})}</div>
+<div class="hang">${st(0)}<div class="hr"><span class="hbtn">${ic.back}</span><div class="hnm"><i>Elif</i><b>Demir</b></div><span class="hbtn">${ic.phone}</span></div>
+<div class="hrisk"><s></s>Saç boyasına alerjisi var</div></div>
+<div class="home-ind"></div></div>`;
+
+/* G1-L — aydınlık tema */
+const g1l=`<div class="phone lt">${st(1)}<div class="body">${hero(S[0].hero)}<div class="content">${embed(1)}${S[0].content}</div>${tray({})}</div><div class="home-ind"></div></div>`;
+
+document.getElementById('cases').insertAdjacentHTML('beforeend',`<div class="case">${g5}
+<div class="side"><h3><s>MÜDÜR 23 · G5</s>Kaydırılmış hâl</h3>
+<div class="lead">Kahraman alan toplandı. Asılı levhada <b>üç şey</b> kaldı: geri dönüş, iki ağırlıklı ad, ve risk bayrağı. Levhanın üst kenarı yok, alt köşeleri <code>20</code>, ekranın tepesinden başlıyor.</div>
+<div class="note"><span><b>Risk toplanmış hâlde de kalıyor.</b> Alerji kaydırma konumuna bağlı olmayan bir güvenlik olgusu; müdür notları okurken personeline bir şey söyleyebilir. İkinci satır 13/700 kırmızı, <b>kırpılmaz</b>. Riski olmayan müşteride levha tek satır (h44 + durum çubuğu) kalır.</span></div>
+<div class="note"><span><b>Borç toplanmış hâlde kalmıyor.</b> Borç yalnız randevu verilirken iş görür ve o eylem alt çubukta duruyor; hatırlatma da orada. Asılı levha iki satırdan fazla büyümez.</span></div>
+<div class="note"><span><b>Levhada monogram yok.</b> Müdür kimin kartında olduğunu adla bilir; 36 pt’lik bir baş harf yuvarlağı kahraman monogramın küçültülmüş hâli gibi görünür ve “ölçek değişti” yanılgısı verir. Ad iki ağırlıkla yazılı — kimlik zaten tipografide.</span></div>
+<div class="note"><span><b>Alt çubuk hiç toplanmaz.</b> <code>Randevu ver</code> her kaydırma konumunda başparmak bölgesinde. Toplanan yalnız kimlik katmanı.</span></div>
+<div class="rn"><div class="r"><b>Asılı levha</b><s>üst kenar yok · alt köşe 20</s><code>toplam <b>158</b>: dolgu 8 + durum 59 + boşluk 8 + satır 44 + boşluk 8 + risk 20 + dolgu 12 · altındaki içerik 173’ten başlar (15 nefes)</code></div>
+<div class="r"><b>Ad</b><s>17/500 + 17/800</s><code>tek satır, satır içinde yan yana; kırpılır</code></div>
+<div class="r"><b>Eşikler</b><s>0 · 24 · 32 · 48 · 64</s><code>interpolasyon, süre değil</code></div></div>
+<div class="glasstag"><b>CAM</b><span>yalnız asılı levha — altındaki liste, notlar ve çubuk opak</span></div>
+</div></div>
+<div class="case">${g1l}
+<div class="side"><h3><s>MÜDÜR 23 · G1-L</s>Aydınlık tema</h3>
+<div class="lead">Kahraman alan <b>koyu kalır</b>. Uygulamanın tek gradyanı zemine erimez, zemine <b>değer</b>: krem sayfanın üstünde tek koyu düzlem, o da kimlik. Kart ailesindeki kuralla aynı — koyu temada krem kart, aydınlık temada koyu kart.</div>
+<div class="note"><span><b>Gradyan ve mürekkep değişmez.</b> Kahraman alanın içindeki her şey (isim, monogram, kroma satırı, levhalar, uyarı satırı) koyu temadaki değerlerini korur. Tema yalnız sınırın <b>altını</b> takas eder: zemin <code>#F3ECE0</code>, metin <code>#0E0E0E</code>, ayırıcı <code>rgba(14,14,14,.10)</code>.</span></div>
+<div class="note"><span><b>Sınır artık bir kenar.</b> Koyu temada gradyanın alt ucu zeminle birleşiyordu; krem sayfada birleşemez. 28 pt’lik alt yarıçap bu yüzden gerekli — kenarı kaza değil, karar gibi gösteriyor.</span></div>
+<div class="note"><span><b>Cam levhalar aynı kalır.</b> İkisi de koyu gradyanın üstünde duruyor; yarısı krem sayfaya taşsa da içerikleri açık mürekkeple yazılı, çünkü camın arkasındaki baskın düzlem kahraman alanın koyu ucudur.</span></div>
+<div class="note"><span><b>Gömülü krem kart tersine döner.</b> Aydınlık temada kart <code>#1C1710</code> / <code>#F3EDE3</code> olur (Müdür 21’deki kuralla birebir); listedeki tutarlar koyu mürekkebe geçer.</span></div>
+<div class="rn"><div class="r"><b>Kahraman alan</b><s>değişmez</s><code>aynı gradyan, aynı mürekkep</code></div>
+<div class="r"><b>Zemin</b><s>#F3ECE0</s><code>yüzey #FAF7F3 · ayırıcı rgba(14,14,14,.10)</code></div>
+<div class="r"><b>Ölçüler</b><s>birebir aynı</s><code>h439 · levha 84 · monogram 132 · isim 34</code></div></div>
+<div class="glasstag"><b>CAM</b><span>kroma satırı · iki levha — ikisi de koyu düzlemin üstünde</span></div>
+</div></div>`);
+
+/* ══ HAREKET ══ */
+const M=[
+ {t:'A · Akıştan karta — 44 baş harf yuvarlağı 132 monograma',
+  d:'Bu ekranın en önemli anı: müşteri bir satırdan çıkıp bir kimliğe dönüşüyor. Yuvarlak <b>aynı elementtir</b> — silinip yeniden çizilmez, yalnız ölçeklenip yerine gider. Satırın metni yukarı doğru silinir, gradyan altta açılır, isim aşağıdan gelir.',
+  s:['<b>Çıkan</b> satır metni (etiket, ad, hizmet) 160 ms · cubic-bezier(.4,0,1,1) · <code>opacity 1→0</code>','<b>Giren</b> gradyan + kroma satırı + isim 220 ms · cubic-bezier(.2,.8,.25,1) · 60 ms gecikme · <code>opacity 0→1, translateY 8→0</code>','<b>Yerinde kalan</b> yuvarlağın kendisi ve baş harfleri: <code>scale .333→1</code> + <code>translate</code>, 220 ms · cubic-bezier(.2,.8,.25,1). Kenarlık kalınlığı 2 → 2.5 optik olarak ölçekle gelir; genişlik/yükseklik animasyonu yok.','<span class="rm">Hareketi azalt: yuvarlak kartta doğrudan 132 pt olarak çizilir, isim ve gradyan tek karede yerinde. Geçiş yok, kayıp yok.</span>'],
+  h:`<div class="mstage">
+   <div class="mgrad aGradA"></div>
+   <div class="aRow aFade"><div class="l">SIRADAKİ RANDEVU</div><div class="n2">Zeynep <b>Kaya</b></div><div class="s2">Saç boyama · 90 dk · Merve ile</div></div>
+   <div class="aMono aMonoA">ZK</div>
+   <div class="aName aNameA"><div class="nm1">Zeynep</div><div class="nm2">Kaya</div><div class="tel n">0532 118 24 06</div></div>
+  </div>`},
+ {t:'B · Kahraman alanın toplanması — eşikler 0 · 24 · 32 · 48 · 64',
+  d:'Süre değil, kaydırma konumu sürüyor. Sırayla: kroma satırı ve telefon (24), isim ve monogram (32), levhalar (48), asılı levha girer (64). Levhalar <b>kaymaz</b>, yalnız söner — sınırın üstündeki yerleri sabit bir yapıdır, kayarsa yapı bozulmuş görünür.',
+  s:['<b>Çıkan</b> kroma + telefon <code>opacity</code> 24→32 · isim + monogram <code>opacity + translateY 0→-10</code> 32→48 · levhalar <b>yalnız opacity</b> 48→60','<b>Giren</b> asılı levha <code>translateY -100%→0</code> + <code>opacity</code>, 48→64 · cubic-bezier(.2,.8,.25,1)','<b>Yerinde kalan</b> liste (kendi kaydırmasıyla akar), alt eylem çubuğu, durum çubuğu metni. Kahraman alanın yüksekliği animasyonlu değildir; asılı levha ayrı bir katmandır.','<span class="rm">Hareketi azalt: eşik 48’de tek karede takas — kahraman alan gider, asılı levha kaymadan belirir. Ad ve risk satırı her hâlde yazılı.</span>'],
+  h:`<div class="mstage">
+   <div class="bHero bFull"><div class="mgrad"></div>
+    <div style="position:absolute;left:18px;top:14px;right:18px;color:#F3EDE3">${chrome}</div>
+    <div style="position:absolute;left:18px;top:150px;color:#F3EDE3"><div class="nm1">Elif</div><div class="nm2">Demir</div></div>
+    <div class="mono" style="top:74px;width:104px;height:104px;font-size:34px">ED</div>
+   </div>
+   <div class="bPlates" style="position:absolute;left:18px;right:18px;top:224px;display:flex;gap:10px">${plate({lb:'KALAN SEANS',v:'2',sub:'6 seanslık · 4 kullanıldı'})}${plate({lb:'SON GELİŞ',v:'3 Haz',sub:'4. ziyaret',arr:1})}</div>
+   <div class="bList" style="position:absolute;left:0;right:0;top:300px"><div style="background:var(--bg)">${lrow('Keratin bakımı','3 Haz · Selin','900')}${lrow('Fön','21 May · Merve','180')}</div></div>
+   <div class="hang bHang" style="padding-top:12px">${'<div class="hr"><span class="hbtn">'+ic.back+'</span><div class="hnm"><i>Elif</i><b>Demir</b></div><span class="hbtn">'+ic.phone+'</span></div><div class="hrisk"><s></s>Saç boyasına alerjisi var</div>'}</div>
+  </div>`},
+ {t:'C · İki levhanın girişi — sırayla, 60 ms arayla',
+  d:'Birlikte değil. Aynı karede gelen iki levha <b>tek bir çubuk</b> gibi okunur; 60 ms’lik fark ikisinin iki ayrı dokunulabilir yüzey olduğunu söyler. Aralık ailenin standart gecikmesiyle aynı — yeni bir sayı icat edilmedi. Soldan sağa, çünkü okuma yönü ve önem sırası aynı: kalan seans önce.',
+  s:['<b>Giren</b> sol levha 220 ms · cubic-bezier(.2,.8,.25,1) · <code>opacity 0→1, translateY 10→0</code>','<b>Giren</b> sağ levha aynı süre ve eğri · <b>60 ms gecikme</b>','<b>Yerinde kalan</b> kahraman gradyanı, isim, monogram, sınırın konumu — levhalar boşluğa değil, hazır bir yere iner','<span class="rm">Hareketi azalt: iki levha tek karede yerinde. Sıra bilgisi taşımıyor, yalnız ayrı olduklarını söylüyor; kaybı bir şey eksiltmez.</span>'],
+  h:`<div class="mstage" style="height:240px">
+   <div class="mgrad" style="height:190px"></div>
+   <div style="position:absolute;left:18px;top:18px;right:18px;color:#F3EDE3"><div class="nm1">Zeynep</div><div class="nm2">Kaya</div></div>
+   <div style="position:absolute;left:18px;right:18px;top:146px;display:flex;gap:10px">
+    <div class="cP1" style="flex:1;min-width:0;display:flex">${plate({lb:'KALAN SEANS',v:'6',sub:'10 seans · 4 kullanıldı'})}</div>
+    <div class="cP2" style="flex:1;min-width:0;display:flex">${plate({lb:'SON GELİŞ',v:'18 Haz',sub:'7. ziyaret',arr:1})}</div>
+   </div>
+  </div>`},
+ {t:'D · Risk bayrağının belirmesi — bir kez',
+  d:'<b>Bir kez hareket eder, sonra durur.</b> Nabız bu üründe “bekleyen bir iş” demek; alerji bekleyen bir iş değil, kalıcı bir olgudur. Sürekli hareket eden bir uyarı 40–55 yaş kullanıcıda telaş üretir, üçüncü açılışta ise görünmez olur. Satır aşağıdan gelir, altındaki levhalar aynı hareketle yerine kayar — kabın büyüdüğü tek an bu, mount’ta.',
+  s:['<b>Giren</b> risk satırı 220 ms · cubic-bezier(.2,.8,.25,1) · 60 ms gecikme · <code>opacity 0→1, translateY 8→0</code> · <b>döngü yok</b>','<b>Yerinde kalan</b> isim, monogram, kroma satırı, levhaların içeriği','<b>Kayan</b> levhalar <code>translateY 16→0</code> aynı süre ve eğriyle — yükseklik animasyonu değil, hazır yerleşimin tek seferlik oturması','<span class="rm">Hareketi azalt: satır ve levhalar tek karede yerinde. Nabız hiç yoktu, kaybedilecek bir şey yok.</span>'],
+  h:`<div class="mstage" style="height:270px">
+   <div class="mgrad" style="height:220px"></div>
+   <div style="position:absolute;left:18px;top:16px;right:18px;color:#F3EDE3"><div class="nm1">Elif</div><div class="nm2">Demir</div></div>
+   <div style="position:absolute;left:18px;right:18px;top:104px;color:#F3EDE3">
+    <div class="warn dWarn" style="margin-top:0"><span class="st"></span><div class="wc"><div class="wl"><s></s>ALERJİ</div><div class="wt">Saç boyasına alerjisi var</div></div></div>
+   </div>
+   <div class="dShift" style="position:absolute;left:18px;right:18px;top:176px;display:flex;gap:10px">${plate({lb:'KALAN SEANS',v:'2',sub:'6 seans · 4 kullanıldı'})}${plate({lb:'SON GELİŞ',v:'3 Haz',sub:'4. ziyaret',arr:1})}</div>
+  </div>`}
+];
+document.getElementById('motion').innerHTML=M.map(m=>`<div class="mcase">${m.h}<div class="mspec"><b>${m.t}</b><span>${m.d}</span>${m.s.map(x=>`<span>${x}</span>`).join('')}</div></div>`).join('');
+
+/* 375 × 667 */
+document.getElementById('small').innerHTML=`<div class="phone sm">${st(1)}<div class="body">
+<div class="hero" style="height:372px;margin-top:-20px;padding-top:20px">
+<div class="grad"></div>
+<div class="chrome"><span class="cbtn gl">${ic.back}</span><span class="cpill gl" style="padding:0 14px">${ic.phone}Ara</span><span class="cbtn gl">${ic.wa}</span></div>
+<div class="mono" style="top:74px;width:104px;height:104px;font-size:34px">ED</div>
+<div class="idblock" style="max-width:210px"><div class="nm1" style="font-size:29px">Elif</div><div class="nm2" style="font-size:29px">Demir</div><div class="tel n">0555 402 71 19</div></div>
+<div class="warn"><span class="st"></span><div class="wc"><div class="wl"><s></s>ALERJİ</div><div class="wt">Saç boyasına alerjisi var, bitkisel bakım uygulanıyor</div></div></div>
+<div class="plates">${plate({lb:'KALAN SEANS',v:'2',sub:'6 seans · 4 kullanıldı'})}${plate({lb:'SON GELİŞ',v:'3 Haz',sub:'4. ziyaret',arr:1})}</div>
+</div>
+<div class="content" style="padding-top:58px"><div class="sect">SON İŞLEMLER<em>Tümü</em></div>${lrow('Keratin bakımı','3 Haz · Selin','900')}</div>
+${tray({})}</div><div class="home-ind"></div></div>`;
+</script>
+</body></html>

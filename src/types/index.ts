@@ -29,7 +29,7 @@ export interface Reservation {
     customerArrivedAt?: string;   // Resepsiyon "Müşteri Geldi" dedi — personele push gider, hizmet başlamaz
     arrivedAt?: string;   // "Başladı" zaman damgası (confirmed → hizmette); süre başlangıcı
     serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
-    adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (boya/ürün/ekstra)
+    adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (malzeme/ürün/ek hizmet)
     groupId?: string;   // Çoklu hizmet booking'i — aynı ziyaretin satırları bu id'yi paylaşır
     customFields?: Record<string, string | number | boolean>;   // sektöre özel alanlar — 050
     resourceId?: string;   // fiziksel kaynak bağı (oda/koltuk/ünite…) — 051
@@ -55,8 +55,10 @@ export interface AdisyonItem {
     id: string;
     name: string;
     price: number;
-    kind: 'product' | 'extra';   // katalog ürünü mü, serbest ekstra mı
+    kind: 'product' | 'material' | 'extra'; // satış ürünü, işlem sarfı veya ek hizmet
     productId?: string;           // katalog ürünüyse raporlama/gelecek stok bağı
+    serviceId?: string;           // ek hizmetse sunucu kataloğu bağı
+    qty?: number;                 // işlem sarfında stoktan düşecek miktar
 }
 
 export interface Customer {

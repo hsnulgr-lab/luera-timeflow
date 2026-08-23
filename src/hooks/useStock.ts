@@ -101,29 +101,83 @@ export function useStock() {
         return row;
     }, [orgId, user]);
 
-    /** Toplu çıkış — kasa satışında birden çok ürün için tek çağrı. */
-    const addMovements = useCallback(async (inputs: MovementInput[]) => {
+    /**
+     * Toplu çıkış. Randevuya bağlı `usage` satırları 090'ın kısmi tekil
+     * indeksine karşı tek tek uzlaştırılır. Satış/giriş/fire/sayım ise eski
+     * atomik toplu insert yolunda kalır; kasa stok grubu yarım yazılmamalıdır.
+     */
+    const addMovements = useCallback(async (inputs: MovementInput[]): Promise<boolean> => {
         const usable = inputs.filter(i => i.delta);
-        if (!orgId || usable.length === 0) return;
-        const { data, error } = await supabase.from('stock_movements').insert(
-            usable.map(i => ({
-                organization_id: orgId,
-                product_id: i.productId,
-                type: i.type,
-                delta: i.delta,
-                note: i.note || null,
-                reservation_id: i.reservationId || null,
-                payment_id: i.paymentId || null,
-                created_by: user?.id || null,
-            })),
-        ).select();
-        if (error) {
-            if (isMissingTable(error)) setIsAvailable(false);
-            else console.error(error);
-            return;
+        if (!orgId) return false;
+        if (usable.length === 0) return true;
+
+        const idempotentUsage = usable.filter(i => i.type === 'usage' && i.reservationId);
+        const atomic = usable.filter(i => i.type !== 'usage' || !i.reservationId);
+        if (idempotentUsage.length > 0 && atomic.length > 0) {
+            console.error('stock_movements: usage ve diğer hareketler aynı toplu çağrıda karıştırılamaz');
+            return false;
         }
-        const rows = (data || []).map(mapRow);
-        setMovements(prev => [...rows, ...prev]);
+
+        if (atomic.length > 0) {
+            const { data, error } = await supabase.from('stock_movements').insert(
+                atomic.map(input => ({
+                    organization_id: orgId,
+                    product_id: input.productId,
+                    type: input.type,
+                    delta: input.delta,
+                    note: input.note || null,
+                    reservation_id: input.reservationId || null,
+                    payment_id: input.paymentId || null,
+                    created_by: user?.id || null,
+                })),
+            ).select();
+            if (error) {
+                if (isMissingTable(error)) setIsAvailable(false);
+                else console.error('stock_movements insert', error);
+                return false;
+            }
+            const rows = (data || []).map(mapRow);
+            if (rows.length > 0) setMovements(prev => [...rows, ...prev]);
+            return true;
+        }
+
+        const inserted: StockMovement[] = [];
+        for (const input of idempotentUsage) {
+            const { data, error } = await supabase.from('stock_movements').insert({
+                organization_id: orgId,
+                product_id: input.productId,
+                type: input.type,
+                delta: input.delta,
+                note: input.note || null,
+                reservation_id: input.reservationId || null,
+                payment_id: input.paymentId || null,
+                created_by: user?.id || null,
+            }).select().single();
+            if (!error) {
+                inserted.push(mapRow(data));
+                continue;
+            }
+
+            if (input.type === 'usage' && input.reservationId && error.code === '23505') {
+                const { data: existing, error: existingError } = await supabase
+                    .from('stock_movements')
+                    .select('delta')
+                    .eq('organization_id', orgId)
+                    .eq('reservation_id', input.reservationId)
+                    .eq('product_id', input.productId)
+                    .eq('type', 'usage')
+                    .maybeSingle();
+                if (!existingError && existing && Number(existing.delta) === input.delta) continue;
+            }
+
+            if (isMissingTable(error)) setIsAvailable(false);
+            else console.error('stock_movements insert', error);
+            if (inserted.length > 0) setMovements(prev => [...inserted, ...prev]);
+            return false;
+        }
+
+        if (inserted.length > 0) setMovements(prev => [...inserted, ...prev]);
+        return true;
     }, [orgId, user]);
 
     const removeMovement = useCallback(async (id: string) => {

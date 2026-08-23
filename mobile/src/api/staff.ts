@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 // staff-api istemcisi.
 //
@@ -44,8 +45,9 @@ export interface AdisyonItem {
     id: string;
     name: string;
     price: number;
-    kind: 'product' | 'extra';
+    kind: 'product' | 'material' | 'extra';
     productId?: string;
+    serviceId?: string;
     qty?: number;
 }
 
@@ -69,19 +71,45 @@ async function raw(action: string, body: Record<string, unknown> = {}, token?: s
     return data;
 }
 
+/**
+ * Token'lar Keychain'de (SecureStore), AsyncStorage'da DEĞİL.
+ *
+ * İkisi de "cihazda saklama" ama aynı şey değil: AsyncStorage düz metin bir
+ * dosyadır. Cihaz token'ı 90 gün geçerli bir taşıyıcı belgedir — onu düz metin
+ * tutmak, yedeği ya da dosya sistemini okuyabilen birine salonun personel
+ * listesini ve PIN deneme hakkını vermek olurdu.
+ *
+ * `WHEN_UNLOCKED_THIS_DEVICE_ONLY`: telefon kilitliyken okunamaz ve YEDEKLE
+ * BAŞKA CİHAZA GEÇMEZ. Eski telefonun yedeğinden kurulan yeni bir telefon,
+ * eşleşmeyi devralmamalı; yeniden kod istemeli.
+ */
+const secureOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+
+async function readSecure(key: string): Promise<string | null> {
+    try {
+        return await SecureStore.getItemAsync(key, secureOptions);
+    } catch {
+        return null;
+    }
+}
+
 export const tokens = {
-    device: () => AsyncStorage.getItem(K_DEVICE),
-    staff: () => AsyncStorage.getItem(K_STAFF),
-    setDevice: (t: string) => AsyncStorage.setItem(K_DEVICE, t),
-    setStaff: (t: string) => AsyncStorage.setItem(K_STAFF, t),
+    device: () => readSecure(K_DEVICE),
+    staff: () => readSecure(K_STAFF),
+    setDevice: (t: string) => SecureStore.setItemAsync(K_DEVICE, t, secureOptions),
+    setStaff: (t: string) => SecureStore.setItemAsync(K_STAFF, t, secureOptions),
     /** Çıkış: personel oturumu düşer, CİHAZ EŞLEŞMESİ KALIR. Aksi hâlde her
      *  vardiya değişiminde org sahibinin gelip cihazı yeniden eşlemesi
      *  gerekirdi. */
-    clearStaff: () => AsyncStorage.removeItem(K_STAFF),
+    clearStaff: () => SecureStore.deleteItemAsync(K_STAFF, secureOptions),
+    /** Telefonu işletmeden çıkarır: yeniden bağlamak için yeni kod gerekir. */
+    clearDevice: () => SecureStore.deleteItemAsync(K_DEVICE, secureOptions),
 };
 
 /** Kimlik gerektirmeyen çağrılar (giriş akışı). */
 export const auth = {
+    /** Eşleştirme kodunu cihaz token'ına çevirir (091 + device.code.redeem). */
+    redeem: (code: string) => raw('device.code.redeem', { code }),
     roster: (deviceToken: string) => raw('roster', {}, deviceToken),
     start: (deviceToken: string, staffId: string, pin: string) =>
         raw('session.start', { staffId, pin }, deviceToken),

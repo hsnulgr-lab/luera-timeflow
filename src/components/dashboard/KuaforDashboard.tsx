@@ -323,10 +323,10 @@ export function KuaforDashboard() {
     // Randevuya konan bayrak, aynı randevu tekrar kapatılırsa çift düşmeyi
     // engeller (kasaya gönderme geri alınabiliyor).
     const deductServiceUsage = useCallback(async (r: Reservation) => {
-        if (usageAlreadyDeducted(r)) return;
+        if (usageAlreadyDeducted(r)) return true;
         const lines = usageFor(r, settings.services, products);
-        if (lines.length === 0) return;
-        await addMovements(lines.map((line) => ({
+        if (lines.length === 0) return true;
+        return addMovements(lines.map((line) => ({
             productId: line.productId,
             type: 'usage' as const,
             delta: -line.quantity,
@@ -335,23 +335,26 @@ export function KuaforDashboard() {
         })));
     }, [addMovements, products, settings.services]);
 
-    const sendToCheckout = (r: Reservation, message?: string) => {
+    const sendToCheckout = async (r: Reservation, message?: string) => {
         const prevCF = { ...(r.customFields || {}) };
         const usage = usageAlreadyDeducted(r) ? [] : usageFor(r, settings.services, products);
-        void deductServiceUsage(r);
-        void runStep(r, {
+        const stockOk = await deductServiceUsage(r);
+        await runStep(r, {
             ...advancePatch('completed'),
             customFields: cf(r, {
                 [CF_STAGE]: undefined,
                 [CF_TIMER]: undefined,
                 [CF_LIVE_RESOURCE]: undefined,
-                ...(usage.length > 0 ? { [CF_USAGE_DONE]: true } : {}),
+                ...(usage.length > 0 && stockOk ? { [CF_USAGE_DONE]: true } : {}),
             }),
         }, {
             serviceEndedAt: CLEAR,
             status: 'confirmed',
             customFields: prevCF,
         }, message || `${r.customerName.split(' ')[0]} kasaya gönderildi`, false);
+        if (usage.length > 0 && !stockOk) {
+            toast.warning('İşlem kasaya gönderildi; stok kaydı tamamlanamadı. Tekrar deneyebilirsiniz.');
+        }
     };
 
     // Yıkama/bitiriş bir AŞAMA'dır, kaynak şartı değil. Salonların çoğunda ayrı

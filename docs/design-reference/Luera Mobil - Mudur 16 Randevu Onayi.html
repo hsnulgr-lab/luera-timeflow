@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 16: Randevu oluşturuldu</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--grb:rgba(95,191,100,.13);--grd:rgba(95,191,100,.34);--rdb:rgba(224,114,114,.13);--rdd:rgba(224,114,114,.34);--amb:rgba(217,164,59,.12);--glass:rgba(28,23,16,.62);--glassbd:rgba(243,237,227,.14);--tint:rgba(37,32,21,.55);--sheen:rgba(243,237,227,.10);--dip:rgba(0,0,0,.42);--desk:#0B0805;--pink:#FFF9F5;--ork:#231006}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--grb:rgba(45,143,50,.10);--grd:rgba(45,143,50,.30);--rdb:rgba(201,64,64,.10);--rdd:rgba(201,64,64,.30);--amb:rgba(184,122,0,.10);--glass:rgba(250,247,243,.70);--glassbd:rgba(14,14,14,.10);--tint:rgba(240,233,223,.60);--sheen:rgba(255,255,255,.60);--dip:rgba(120,80,40,.16);--desk:#E4DACA;--pink:#FFF9F5;--ork:#2A1206}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+svg{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+a{color:var(--or2)}a:hover{color:var(--or)}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:860px;margin-bottom:56px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b,.note b,.rn b,.legend div b{color:var(--tx)}
+.lede code,.legend code,.note code,.rn code{font-family:ui-monospace,Menlo,monospace;font-size:.92em}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:76px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec.w375{width:375px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px}
+.rn .r{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r b{flex:none;width:230px;color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.mt{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px;margin-bottom:14px}
+.mt .h,.mt .r2{display:flex;gap:16px;padding:11px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mt .h{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--tx3)}
+.mt .r2:last-child{border-bottom:0}
+.mt i{flex:none;width:250px;font-style:normal;font-weight:700;color:var(--tx)}
+.mt em{flex:none;width:170px;font-style:normal;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
+.mt code{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--tx2)}
+.mt.mo i{width:210px}.mt.mo em{width:200px}.mt.mo u{flex:none;width:110px;text-decoration:none;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums}.mt.mo s{flex:none;width:90px;text-decoration:none;font-weight:700;color:var(--gr)}
+.mt.ax2 i{width:200px}.mt.ax2 em{width:auto;flex:1;font-weight:500;color:var(--tx2)}
+
+/* ── telefon çerçevesi ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.safe-top,.safe-bot{position:absolute;left:0;right:0;pointer-events:none;z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.safe-top{top:0;height:59px;border-bottom:1px dashed rgba(255,90,31,.4)}
+.safe-bot{bottom:0;height:34px;align-items:center;border-top:1px dashed rgba(255,90,31,.4)}
+.phone.sm .safe-top{height:20px}
+.safe-top span{position:relative;top:-18px}
+.safe-top span,.safe-bot span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:70}
+.ic{width:22px;height:22px;flex:none}
+.mn{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.status{width:100%;height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars s{width:3px;border-radius:1px;background:currentColor;text-decoration:none}
+.bars s:nth-child(1){height:4px}.bars s:nth-child(2){height:6px}.bars s:nth-child(3){height:8px}.bars s:nth-child(4){height:10px}
+.batt{width:23px;height:11px;border:1.4px solid currentColor;border-radius:3px;padding:1.4px}
+.batt i{display:block;height:100%;width:78%;background:currentColor;border-radius:1px}
+.av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--surf2);border:1px solid var(--bd2)}
+
+/* ── cam: yalnız yüzen kontrol katmanı ── */
+.glass{position:relative;overflow:hidden;background:var(--glass);backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);border:1px solid var(--glassbd);box-shadow:inset 0 1px 0 var(--sheen),inset 0 -12px 20px -14px var(--dip),0 10px 22px -8px rgba(0,0,0,.24)}
+.lens{position:absolute;inset:0;pointer-events:none;z-index:0}
+.lens::before,.lens::after{content:"";position:absolute;left:0;right:0;height:15px;backdrop-filter:blur(8px) saturate(250%) brightness(1.05);-webkit-backdrop-filter:blur(8px) saturate(250%) brightness(1.05)}
+.lens::before{top:0}
+.lens::after{bottom:0;backdrop-filter:blur(8px) saturate(250%) brightness(.94);-webkit-backdrop-filter:blur(8px) saturate(250%) brightness(.94)}
+.opaque{background:var(--surf);backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.20)}
+.opaque .lens{display:none}
+
+/* ══ ONAY EKRANI ══ */
+.cf{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;background:var(--bg)}
+.cf-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 20px;overflow:hidden}
+.cf-hero{flex:none;padding-top:64px;display:flex;flex-direction:column;align-items:center;gap:20px}
+.cf-h1{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.06;text-align:center;text-wrap:pretty}
+.cf-sub{font-size:14.5px;font-weight:600;color:var(--tx2);text-align:center;line-height:1.4;margin-top:-8px;max-width:300px}
+
+/* geri sayım halkası — yalnız rotate ile tüketilir */
+.cf-ring{--w:116px;--h:58px;width:var(--w);height:var(--w);position:relative;flex:none}
+.cf-ring .rt{position:absolute;inset:0;border-radius:50%;border:3px solid var(--bd)}
+.cf-ring .ra,.cf-ring .la{position:absolute;top:0;bottom:0;width:var(--h);overflow:hidden}
+.cf-ring .ra{right:0}.cf-ring .la{left:0}
+.cf-ring .arc{position:absolute;top:0;width:var(--w);height:var(--w);border-radius:50%;border:3px solid var(--or)}
+.cf-ring .ra .arc{right:0}.cf-ring .la .arc{left:0}
+.cf-ring .bl{position:absolute;top:0;width:var(--h);height:var(--w);background:var(--bg);transform-origin:left center}
+.cf-ring .ra .bl{left:0}
+.cf-ring .la .bl{left:var(--h)}
+.cf-ring.sm{--w:72px;--h:36px}
+.cf-ring.hold .ra .arc,.cf-ring.hold .la .arc{opacity:.34}
+.cf-ring.still .ra,.cf-ring.still .la{display:none}
+.cf-tick{position:absolute;inset:19px;border-radius:50%;background:var(--grb);border:1px solid var(--grd);display:grid;place-items:center;color:var(--gr)}
+.cf-tick .ic{width:34px;height:34px;stroke-width:2.6}
+.cf-ring.sm .cf-tick{inset:12px}
+.cf-ring.sm .cf-tick .ic{width:22px;height:22px}
+.cf-tick.bad{background:var(--rdb);border-color:var(--rdd);color:var(--rd)}
+.cf-tick.mute{background:var(--surf2);border-color:var(--bd2);color:var(--tx2)}
+
+/* özet kartı — opak, cam değil */
+.cf-card{flex:none;margin-top:32px;border-radius:24px;background:var(--card);border:1px solid var(--bd);padding:0 16px}
+.cf-row{display:flex;align-items:center;gap:12px;min-height:52px;border-top:1px solid var(--bd)}
+.cf-row:first-child{border-top:0}
+.cf-row .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cf-row b{font-size:16px;font-weight:700;letter-spacing:-.005em}
+.cf-row .ph{flex:none;font-size:13px;font-weight:600;color:var(--tx2)}
+.cf-row .ph.void{color:var(--tx3);font-weight:600}
+.cf-when{display:flex;align-items:center;gap:12px;padding:14px 0 16px;border-top:1px solid var(--bd)}
+.cf-when .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cf-when span{font-size:14.5px;font-weight:700;color:var(--tx2)}
+.cf-when b{font-size:32px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.cf-st{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-left:8px;border-left:1px solid var(--bd)}
+.cf-st .av{width:36px;height:36px;font-size:13px}
+.cf-st u{text-decoration:none;font-size:13.5px;font-weight:700}
+.cf-svc{display:flex;align-items:center;gap:11px;min-height:56px;border-top:1px solid var(--bd)}
+.cf-svc s{flex:none;width:3px;height:30px;border-radius:2px;text-decoration:none}
+.cf-svc .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cf-svc b{font-size:16px;font-weight:700}
+.cf-svc span{font-size:13px;font-weight:600;color:var(--tx2)}
+.cf-svc em{font-style:normal;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.cf-memo{display:flex;gap:9px;align-items:flex-start;padding:12px 0 14px;border-top:1px solid var(--bd);font-size:13.5px;font-weight:600;color:var(--tx2);line-height:1.4}
+.cf-memo i{font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);flex:none;padding-top:2px}
+
+/* mesaj önizlemesi (D) */
+.cf-msg{flex:none;margin-top:22px;border-radius:22px;background:var(--surf2);border:1px solid var(--bd);padding:14px 16px;display:flex;flex-direction:column;gap:7px}
+.cf-msg i{font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
+.cf-msg p{font-size:15px;font-weight:600;line-height:1.45;text-wrap:pretty}
+.cf-strip{flex:none;margin-top:20px;display:flex;align-items:center;gap:11px;min-height:64px;padding:12px 15px;border-radius:20px;background:var(--grb);border:1px solid var(--grd)}
+.cf-strip .ic{width:20px;height:20px;color:var(--gr);stroke-width:2.2}
+.cf-strip .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cf-strip b{font-size:15px;font-weight:800}
+.cf-strip span{font-size:13px;font-weight:600;color:var(--tx2)}
+
+/* yüzen kontrol bloğu */
+.cf-dock{position:absolute;left:12px;right:12px;bottom:46px;z-index:50;border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.phone.sm .cf-dock{bottom:12px;left:10px;right:10px}
+.cf-primary{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:10px;height:66px;border-radius:21px;background:var(--or);color:var(--pink);font-size:17.5px;font-weight:800;letter-spacing:-.02em}
+.cf-primary.off{background:var(--tint);color:var(--tx3);border:1px solid var(--bd)}
+.cf-secondary{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:17px;font-size:16px;font-weight:700;color:var(--tx2)}
+.cf-secondary.fill{background:var(--tint);border:1px solid var(--bd2);color:var(--tx)}
+.cf-note{position:relative;z-index:1;text-align:center;font-size:12px;font-weight:600;color:var(--tx3);line-height:1.4}
+.cf-why{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--am);text-align:center;line-height:1.35}
+.cf-why .ic{width:15px;height:15px;stroke-width:2.2}
+.spin{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid rgba(255,249,245,.34);border-top-color:var(--pink);animation:sp 900ms linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.cf-pair{display:flex;gap:10px}
+.cf-pair>*{flex:1}
+
+/* kesit (cam / opak yedek) */
+.crop{width:393px;height:330px;flex:none;position:relative;overflow:hidden;border-radius:26px;border:1px solid var(--bd2);background:var(--bg);display:flex;flex-direction:column;padding:0 20px}
+.crop .cf-dock{bottom:16px}
+.croplab{position:absolute;top:12px;left:16px;z-index:60;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx3)}
+
+/* AX5 — en büyük erişilebilirlik yazı boyutu */
+.ax .cf-hero{padding-top:34px;gap:14px}
+.ax .cf-ring{--w:84px;--h:42px}
+.ax .cf-tick{inset:14px}
+.ax .cf-tick .ic{width:26px;height:26px}
+.ax .cf-h1{font-size:30px}
+.ax .cf-card{margin-top:18px}
+.ax .cf-row{min-height:56px;padding:8px 0}
+.ax .cf-row b,.ax .cf-svc b{font-size:20px}
+.ax .cf-row .ph{font-size:17px}
+.ax .cf-when{flex-direction:column;align-items:flex-start;gap:12px}
+.ax .cf-when span{font-size:19px}
+.ax .cf-when b{font-size:30px}
+.ax .cf-st{flex-direction:row;align-items:center;padding-left:0;border-left:0;gap:10px}
+.ax .cf-st u{font-size:19px}
+.ax .cf-svc{flex-wrap:wrap;padding:10px 0}
+.ax .cf-svc span,.ax .cf-svc em{font-size:19px}
+.ax .cf-primary{height:78px;font-size:20px;border-radius:23px}
+.ax .cf-secondary{height:60px;font-size:19px}
+.ax .cf-note{font-size:15px}
+/* 375 × 667 sıkışma */
+.phone.sm .cf-hero{padding-top:26px;gap:14px}
+.phone.sm .cf-ring{--w:92px;--h:46px}
+.phone.sm .cf-tick{inset:15px}
+.phone.sm .cf-tick .ic{width:28px;height:28px}
+.phone.sm .cf-h1{font-size:29px}
+.phone.sm .cf-card{margin-top:18px}
+.phone.sm .cf-when b{font-size:28px}
+</style></head>
+<template id="__bundler_thumbnail" data-bg-color="#0B0805"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#0B0805"/><circle cx="600" cy="290" r="96" fill="none" stroke="#FF5A1F" stroke-width="10"/><circle cx="600" cy="290" r="66" fill="rgba(95,191,100,.16)" stroke="#5FBF64" stroke-width="4"/><path d="M568 292l24 24 44-52" fill="none" stroke="#5FBF64" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><rect x="430" y="440" width="340" height="20" rx="10" fill="#4A3E30"/><rect x="430" y="560" width="340" height="72" rx="24" fill="#FF5A1F"/></svg></template>
+<body>
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-check"><path d="M5 12.6 9.6 17 19 7"/></g>
+<g id="i-send"><path d="M4.5 12 20 4.6l-3.2 15.6-4.4-5.2-4.6-1.6z"/><path d="M8.2 13.4 20 4.6"/></g>
+<g id="i-x"><path d="M6 6l12 12M18 6 6 18"/></g>
+<g id="i-alert"><path d="M12 8v5.4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/><path d="M12 3.6 21.4 20H2.6z"/></g>
+<g id="i-retry"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.4h-4.4"/></g>
+<g id="i-phone"><path d="M6.6 3.8h3l1.6 4-2 1.4a11 11 0 0 0 5.6 5.6l1.4-2 4 1.6v3a1.8 1.8 0 0 1-2 1.8C11.4 18.6 5.4 12.6 4.8 5.8a1.8 1.8 0 0 1 1.8-2z"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head">
+<div class="mark">luera<i></i></div>
+<div class="meta">Müdür modu · Ekran 16<br/>Randevu oluşturuldu onayı<br/>393 × 852 · Liquid Glass</div>
+</div>
+
+<div class="lede">
+<h1>Randevu oluşturuldu</h1>
+<p>Akışın son karesi. Müdür hâlâ telefonda olabilir; ekran önce <b>“oldu”</b> der, sonra <b>ne olduğunu</b> gösterir, sonra tek bir sonraki adım sunar: müşteriye mesaj. Kimse dokunmazsa 7 saniyede kendi kapanır ve Akış'a döner.</p>
+<p><b>İstif kullanılmadı.</b> Koyu kahraman levha + krem içerik levhası istifi, üstte bağlam altta liste olan ekranlar için var. Burada tek bir sonuç cümlesi ve onun kanıtı var; ikiye bölmek sonucu ikinci sıraya düşürürdü. Ekran tek yüzey: <code>--bg</code>. İmza, tek turuncu halka ve aynı kart/hairline malzemesiyle korunuyor.</p>
+<p><b>Tik yeşil, halka turuncu.</b> Turuncu envanterde “şimdi” ve “yap” demek; sonucu anlatmıyor. Sonuç yeşil (<code>#5FBF64</code> / <code>#2D8F32</code>), zaman turuncu halka, eylem turuncu buton. Ekranda turuncunun başka yeri yok.</p>
+<p><b>Halka <code>stroke-dashoffset</code> ile değil, iki dönen kapakla tüketiliyor.</b> Tam turuncu halkanın üstünde iki yarım kapak var; sağdaki <code>-180°→0°</code>, soldaki <code>0°→180°</code> döner. Yalnız <code>rotate</code> animasyonu — native sürücüde çalışır. Ayrıntı 07'de.</p>
+</div>
+
+<!-- ══════════ 01 · A · ONAY ══════════ -->
+<div class="band"><span class="num">01</span><h2>A · Onay</h2><p>Koyu ve açık tema. Halka sağdaki karede 5. saniyede (kalan 5 sn), soldakinde 3. saniyede — aynı mekanizmanın iki ânı.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Koyu · asıl hâl</b><span>Tik, başlık, kanıt kartı, eylem. Gün–saat–kişi bir satırda toplanmış: müdür telefonda tek nefeste okuyabilsin diye saat 32 pt sistem rakamıyla, personel hemen sağında.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-77deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+  <div class="cf-note">Beklemezseniz de olur — sayım bitince Akış'a döner.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Sayı ekranda yazılı değil: kahraman “oldu”. Kalan süreyi halka söylüyor, cümle de sayımın <b>zorunlu olmadığını</b> söylüyor. Hareketi azalt açıkken sayı yazıya döner — 03'e bakın.</span></div>
+<div class="note"><span>Telefon maskeli: <code>0532 ••• 03 02</code>. Kartta müşteri, gün-saat-kişi ve hizmet-tutar üç bant; her bant bir soruya cevap.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Açık · notlu</b><span>İsteğe bağlı not varsa kartın altına dördüncü bant olarak girer. Yerleşim değişmez, kart uzar; buton bloğu yerinde kalır çünkü <code>position:absolute</code>.</span></div>
+<div class="phone thm-light">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(26deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+    <div class="cf-memo"><i>Not</i><span>Boya sonrası saç kurutma makinesi istemiyor.</span></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+  <div class="cf-note">Beklemezseniz de olur — sayım bitince Akış'a döner.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Açık temada halka 4. saniyede: sağ kapak bitmiş (<code>0deg</code>), sol kapak <code>26deg</code>'de. İki kapağın nöbet değişimi 3500 ms'de.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 02 · B · TELEFON YOK ══════════ -->
+<div class="band"><span class="num">02</span><h2>B · Numara yok</h2><p>Yeni müşteri numarasız eklenmiş olabilir. Buton pasif ve sebebini söylüyor; numara eklemenin yolu hemen altında. Sayım yine çalışır.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Koyu · mesaj gönderilemez</b><span>Pasif buton tek başına bir bilmece; sebebi butonun altında kelimeyle yazılı, renkle değil. “Numara ekle” ikincil ama gerçek bir yol — müdür telefondayken numarayı sorabilir.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-51deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph void">numara yok</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary off">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-why"><svg class="ic" viewBox="0 0 24 24"><use href="#i-alert"/></svg>Numara yok, mesaj gönderilemez.</div>
+  <div class="cf-pair"><div class="cf-secondary fill"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#i-plus"/></svg>Numara ekle</div><div class="cf-secondary">Kapat</div></div>
+  <div class="cf-note">Sayım bitince Akış'a döner.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Pasif buton dokunulabilir kalır: dokunulduğunda sebep satırı bir kez nabız atar (<code>opacity .55→1</code>, 220 ms) — sessizce yutmaz.</span></div>
+<div class="note"><span>Kartta numara alanı boş bırakılmaz, <b>“numara yok”</b> yazar. Boşluk “yüklenmedi mi?” sorusu doğurur.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Açık · C · gönderiliyor</b><span>Müdür bir şey yaptı: sayım <b>durur</b>. Halka olduğu yerde soluklaşır ve “sayım durdu” yazar. Kapat açık kalır — bekleme hâli müdürü hapsetmez.</span></div>
+<div class="phone thm-light">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring hold"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-26deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+    <div class="cf-sub">Sayım durdu — mesaj gönderiliyor.</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary"><span class="spin"></span>Gönderiliyor</div>
+  <div class="cf-secondary">Kapat</div>
+  <div class="cf-note">Mesaj arka planda gider; kapatabilirsiniz.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Bekleme göstergesi <code>rotate 0→360°</code>, 900 ms, sonsuz döngü — genişlik/renk değişmiyor, native sürücüde çalışır.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 03 · D / E / F ══════════ -->
+<div class="band"><span class="num">03</span><h2>D · Gönderildi · E · Gidemedi · F · Hareketi azalt</h2><p>D yeni bilgiyi öne alır (mesajın kendisi), A'yı tekrar etmez. E'de sayım yok. F'de hiçbir şey dönmez, kaymaz.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>D · Mesaj gönderildi</b><span>Burada yeni olan tek şey mesajın gitmesi — o yüzden kahraman mesajın metni. Randevu özeti tek satıra iner; müdür aynı kartı ikinci kez okumaz. Sayım 3,5 sn, halka küçük.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero" style="align-items:flex-start;flex-direction:row;gap:16px;padding-top:52px">
+    <div class="cf-ring sm"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-26deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1" style="text-align:left;font-size:30px;padding-top:8px">Mesaj gönderildi</div>
+  </div>
+  <div class="cf-msg">
+    <i>Zeynep Kaya'ya giden</i>
+    <p>“Randevunuz oluşturuldu: 14 Ağustos Cuma 11:00, Kesim + fön, Merve. Luera Kuaför.”</p>
+  </div>
+  <div class="cf-card">
+    <div class="cf-when" style="border-top:0"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-secondary fill" style="height:66px;border-radius:21px;font-size:17.5px;font-weight:800">Bitti</div>
+  <div class="cf-note">3 saniye sonra Akış'a döner.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Turuncu buton kalkar: yapılacak bir eylem kalmadı. “Bitti” nötr ve tek; turuncu envanteri korunur (halka hâlâ zaman).</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>E · Mesaj gidemedi</b><span>Müdürün ilk korkusu randevunun da gitmiş olması. Bu yüzden ilk satır hatayı değil, <b>randevunun durduğunu</b> söyler. Sayım yok: hata kendi kendine kaybolmaz.</span></div>
+<div class="phone thm-light">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero" style="padding-top:52px">
+    <div class="cf-ring still"><span class="rt"></span><span class="cf-tick bad"><svg class="ic" viewBox="0 0 24 24"><use href="#i-alert"/></svg></span></div>
+    <div class="cf-h1">Mesaj gönderilemedi</div>
+    <div class="cf-sub">Bağlantı kurulamadı. Mesaj gitmedi.</div>
+  </div>
+  <div class="cf-strip">
+    <svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg>
+    <span class="tb"><b>Randevu duruyor</b><span class="mn">14 Ağustos Cuma 11:00 – 12:15 · Merve</span></span>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row" style="border-top:0"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Tekrar dene<svg class="ic" viewBox="0 0 24 24"><use href="#i-retry"/></svg></div>
+  <div class="cf-secondary">Sonra</div>
+  <div class="cf-note">Bu ekran kendi kapanmaz.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Kırmızı tek ayırt edici değil: “gönderilemedi”, “gitmedi”, “duruyor” kelimeleri hâlleri renkten bağımsız ayırıyor.</span></div>
+<div class="note"><span>“Tekrar dene” turuncu, çünkü eylem. Halka çizilmez — bu hâlde zaman yok.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>F · Hareketi azalt açık</b><span>Hiçbir şey ölçeklenmez, kaymaz, dönmez. Halka dönmez: turuncu yaylar hiç çizilmez, yerine sayı yazılır. Tik ve içerik yalnız opaklıkla belirir.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring still"><span class="rt"></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+  <div class="cf-note"><span class="mn" style="font-size:14px;font-weight:700;color:var(--tx2)">5</span> saniye sonra Akış'a döner — ya da şimdi kapatın.</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Sayı saniyede bir yerinde değişir (geçiş yok). Ekran okuyucu bu satırı her saniye okumaz: <code>accessibilityLiveRegion="none"</code>.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 04 · CAM ══════════ -->
+<div class="band"><span class="num">04</span><h2>Cam ve opak yedeği</h2><p>Cam yalnız yüzen kontrol bloğunda. Kart ve tik opak — arkasından içerik kaymıyor, okunması gereken şey camın üstünde durmuyor. “Saydamlığı azalt” açıkken aynı yerleşim, opak malzeme.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Cam · <code>.cf-dock.glass</code></b><span>Kartın alt kenarı camın altından geçiyor: blur ve iki kenardaki mercek şeridi ancak arkasında içerik varken görünür.</span></div>
+<div class="crop thm-dark">
+<span class="croplab">cam</span>
+<div class="cf-card" style="margin-top:52px">
+  <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+  <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+  <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+</div>
+</div>
+<div class="note"><span><code>blur 26 · saturate 190%</code>, üstte 1 px sheen, altta 12 px dip. Kenar <code>--glassbd</code>.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Opak yedek · <code>.cf-dock.opaque</code></b><span>Aynı ölçüler, aynı yerleşim: <code>surf</code> zemin, <code>bd2</code> hairline, statik gölge. Tek fark malzeme; hiçbir şey kaymaz.</span></div>
+<div class="crop thm-dark">
+<span class="croplab">opak yedek</span>
+<div class="cf-card" style="margin-top:52px">
+  <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+  <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+  <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+</div>
+<div class="cf-dock opaque"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+</div>
+</div>
+<div class="note"><span>Yedek üç durumda devreye girer: “saydamlığı azalt”, <code>isLiquidGlassAvailable() === false</code>, ve düşük güç modu.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 05 · UYARLAMA ══════════ -->
+<div class="band"><span class="num">05</span><h2>G · Sıkışma ve en büyük yazı boyutu</h2><p>375 × 667'de halka küçülür, boşluklar kısalır. AX5'te yatay satırlar dikeye yığılır; hiçbir dokunma hedefi 44'ün altına inmez.</p></div>
+<div class="row">
+
+<div class="spec w375">
+<div class="spec-label"><b>375 × 667 · sıkışma</b><span>Küçülen: halka 116→92, üst boşluk 64→26, kart üstü 32→18. Sabit kalan: buton yükseklikleri (66 / 52), gövde 16–17, hairline.</span></div>
+<div class="phone sm thm-dark">
+<div class="safe-top"><span>20</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-77deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b></span><span class="ph mn">0532 ••• 03 02</span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk</span></span><em class="mn">₺1.000</em></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Randevu mesajı gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Sıkışmada alt not satırı düşer — sayımın zorunlu olmadığı bilgisi “Kapat” butonunun varlığıyla zaten okunuyor.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>AX5 · en büyük yazı boyutu</b><span>Kart bantları dikeye yığılır, saat kendi satırına iner, personel yan yana avatar+ad olur. Buton 66→78, ikincil 52→60. Tik 116→84; ikon 34→26 ama disk hâlâ 56 — dokunulan bir şey değil, gösterge.</span></div>
+<div class="phone thm-light ax">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="cf">
+<div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+<div class="cf-body">
+  <div class="cf-hero">
+    <div class="cf-ring"><span class="rt"></span><span class="ra"><i class="arc"></i><b class="bl" style="transform:rotate(-77deg)"></b></span><span class="la"><i class="arc"></i><b class="bl" style="transform:rotate(0deg)"></b></span><span class="cf-tick"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+    <div class="cf-h1">Randevu oluşturuldu</div>
+  </div>
+  <div class="cf-card">
+    <div class="cf-row"><span class="tb"><b>Zeynep Kaya</b><span class="ph mn" style="align-self:flex-start">0532 ••• 03 02</span></span></div>
+    <div class="cf-when"><span class="tb"><span>14 Ağustos Cuma</span><b class="mn">11:00 – 12:15</b></span><span class="cf-st"><span class="av">MR</span><u>Merve yapacak</u></span></div>
+    <div class="cf-svc"><s style="background:#C08457"></s><span class="tb"><b>Kesim + fön</b><span class="mn">75 dk · ₺1.000</span></span></div>
+  </div>
+</div>
+<div class="cf-dock glass"><span class="lens"></span>
+  <div class="cf-primary">Mesaj gönder<svg class="ic" viewBox="0 0 24 24"><use href="#i-send"/></svg></div>
+  <div class="cf-secondary">Kapat</div>
+</div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>AX5'te buton metni kısalır (“Randevu mesajı gönder” → “Mesaj gönder”); tek satır kalması için tek yol bu. Sesli okuma etiketi uzun hâli korur.</span></div>
+<div class="note"><span>AX5'te sayım <b>10 saniyeye</b> uzar — büyük yazı kullanan müdür daha yavaş okur. Halka aynı, süre parametre.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 06 · ÖLÇÜ ŞARTNAMESİ ══════════ -->
+<div class="band"><span class="num">06</span><h2>Ölçü şartnamesi</h2><p>Her sayı bu belgenin CSS'inde bir kuralda yazılı. Geliştirici ekran görüntüsünden ölçü tahmin etmiyor.</p></div>
+<div class="mt">
+<div class="h"><i>Eleman</i><em>Ölçü</em><code>Seçici</code></div>
+<div class="r2"><i>Ekran</i><em>393 × 852</em><code>.phone</code></div>
+<div class="r2"><i>Sıkışma ekranı</i><em>375 × 667</em><code>.phone.sm</code></div>
+<div class="r2"><i>Güvenli alan üst / alt</i><em>59 / 34</em><code>.safe-top · .safe-bot</code></div>
+<div class="r2"><i>Gövde yan boşluğu</i><em>20</em><code>.cf-body{padding:0 20px}</code></div>
+<div class="r2"><i>Tik bloğu üst boşluğu</i><em>64</em><code>.cf-hero{padding-top:64px}</code></div>
+<div class="r2"><i>Geri sayım halkası</i><em>116 · çizgi 3</em><code>.cf-ring{--w:116px} · .cf-ring .arc{border:3px}</code></div>
+<div class="r2"><i>Halka yarım kutusu (kapak eni)</i><em>58</em><code>.cf-ring{--h:58px}</code></div>
+<div class="r2"><i>Halka · D hâli</i><em>72</em><code>.cf-ring.sm{--w:72px}</code></div>
+<div class="r2"><i>Tik diski</i><em>78 (inset 19)</em><code>.cf-tick{inset:19px}</code></div>
+<div class="r2"><i>Tik ikonu</i><em>34 · kalınlık 2,6</em><code>.cf-tick .ic</code></div>
+<div class="r2"><i>Başlık</i><em>34 / 800</em><code>.cf-h1</code></div>
+<div class="r2"><i>Alt açıklama</i><em>14,5 / 600</em><code>.cf-sub</code></div>
+<div class="r2"><i>Özet kartı</i><em>r 24 · iç 16 · üst 32</em><code>.cf-card</code></div>
+<div class="r2"><i>Kart bandı (müşteri)</i><em>min 52</em><code>.cf-row{min-height:52px}</code></div>
+<div class="r2"><i>Gün satırı</i><em>14,5 / 700</em><code>.cf-when span</code></div>
+<div class="r2"><i>Saat aralığı</i><em>32 / 600 · tabular</em><code>.cf-when b (.mn)</code></div>
+<div class="r2"><i>Personel avatarı</i><em>36</em><code>.cf-st .av</code></div>
+<div class="r2"><i>Hizmet bandı</i><em>min 56 · renk çubuğu 3 × 30</em><code>.cf-svc · .cf-svc s</code></div>
+<div class="r2"><i>Tutar</i><em>17 / 700 · tabular</em><code>.cf-svc em (.mn)</code></div>
+<div class="r2"><i>Mesaj önizlemesi</i><em>r 22 · iç 14/16 · metin 15</em><code>.cf-msg</code></div>
+<div class="r2"><i>“Randevu duruyor” şeridi</i><em>min 64 · r 20</em><code>.cf-strip</code></div>
+<div class="r2"><i>Yüzen kontrol bloğu</i><em>sol/sağ 12 · alt 46 · r 28 · iç 14</em><code>.cf-dock</code></div>
+<div class="r2"><i>Birincil buton</i><em>66 · r 21 · 17,5 / 800</em><code>.cf-primary</code></div>
+<div class="r2"><i>İkincil buton</i><em>52 · r 17 · 16 / 700</em><code>.cf-secondary</code></div>
+<div class="r2"><i>Sebep satırı (B)</i><em>12,5 / 700 · amber</em><code>.cf-why</code></div>
+<div class="r2"><i>Sayım notu</i><em>12 / 600</em><code>.cf-note</code></div>
+<div class="r2"><i>Bekleme göstergesi</i><em>20 · çizgi 2</em><code>.spin</code></div>
+<div class="r2"><i>AX5 · halka / tik ikonu</i><em>84 / 26</em><code>.ax .cf-ring · .ax .cf-tick .ic</code></div>
+<div class="r2"><i>AX5 · butonlar</i><em>78 / 60</em><code>.ax .cf-primary · .ax .cf-secondary</code></div>
+<div class="r2"><i>375 · halka / üst boşluk</i><em>92 / 26</em><code>.phone.sm .cf-ring · .phone.sm .cf-hero</code></div>
+</div>
+<div class="note" style="max-width:1180px"><span>Turuncu envanteri: <code>.cf-ring .arc</code> (zaman) ve <code>.cf-primary</code> (eylem). Başka hiçbir kuralda <code>--or</code> geçmiyor.</span></div>
+
+<!-- ══════════ 07 · HAREKET ŞARTNAMESİ ══════════ -->
+<div class="band"><span class="num">07</span><h2>Hareket şartnamesi</h2><p>Yalnız opaklık ve dönüşüm. Giriş dizisi 400 ms'de biter; geri sayım 7000 ms. Halka iki dönen kapakla tüketilir — <code>stroke-dashoffset</code> yok.</p></div>
+<div class="mt mo">
+<div class="h"><i>Eleman</i><em>Özellik · başlangıç → bitiş</em><u>Süre · gecikme</u><code>Easing</code><s>Native</s></div>
+<div class="r2"><i>Tik diski</i><em>opacity 0 → 1</em><u>220 · 0</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Tik diski</i><em>scale 0,92 → 1</em><u>220 · 0</u><code>easeOut(0.2, 0, 0, 1)</code><s>evet</s></div>
+<div class="r2"><i>Başlık</i><em>opacity 0 → 1</em><u>200 · 70</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Başlık</i><em>translateY 8 → 0</em><u>200 · 70</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Özet kartı</i><em>opacity 0 → 1</em><u>200 · 120</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Özet kartı</i><em>translateY 12 → 0</em><u>200 · 120</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Kontrol bloğu</i><em>opacity 0 → 1</em><u>220 · 180</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Kontrol bloğu</i><em>translateY 16 → 0</em><u>220 · 180</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Halka · sağ kapak</i><em>rotate −180° → 0°</em><u>3500 · 0</u><code>linear</code><s>evet</s></div>
+<div class="r2"><i>Halka · sol kapak</i><em>rotate 0° → 180°</em><u>3500 · 3500</u><code>linear</code><s>evet</s></div>
+<div class="r2"><i>Halka · duraklatma (C)</i><em>opacity 1 → 0,34 (yaylar)</em><u>160 · 0</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Bekleme göstergesi (C)</i><em>rotate 0° → 360°, döngü</em><u>900 · 0</u><code>linear</code><s>evet</s></div>
+<div class="r2"><i>Buton basılması</i><em>scale 1 → 0,97</em><u>90 · 0</u><code>easeOut</code><s>evet</s></div>
+<div class="r2"><i>Pasif butonun sebebi (B)</i><em>opacity 0,55 → 1 → 0,55</em><u>220 · 0</u><code>easeInOut</code><s>evet</s></div>
+<div class="r2"><i>D'ye geçiş</i><em>opacity çapraz geçiş</em><u>180 · 0</u><code>easeInOut</code><s>evet</s></div>
+<div class="r2"><i>Çıkış (Akış'a dönüş)</i><em>opacity 1 → 0 · scale 1 → 0,98</em><u>200 · 0</u><code>easeIn</code><s>evet</s></div>
+<div class="r2"><i>Hareketi azalt · tümü</i><em>yalnız opacity 0 → 1</em><u>160 · 0</u><code>linear</code><s>evet</s></div>
+</div>
+<div class="rn" style="margin-bottom:76px">
+<div class="r"><b>Halkanın mekanizması</b><span>Tam turuncu halka statik çizilir. Üstünde iki <code>overflow:hidden</code> yarım kutu var (<code>.ra</code>, <code>.la</code>), her birinin içinde ekran zemini renginde bir kapak (<code>.bl</code>, <code>transform-origin</code> daire merkezi). Sağ kapak <code>-180°</code>'de kutunun dışındadır (görünmez), <code>0°</code>'de sağ yarıyı tamamen örter — yani 12'den 6'ya saat yönünde tüketir. Sol kapak <code>0°</code>'de dışarıda, <code>180°</code>'de sol yarıyı örter. İki <code>Animated.timing</code>, <code>useNativeDriver:true</code>. Kapak rengi ekran zemini olduğu için ekran tek yüzey olmalı — istifin kullanılmama sebeplerinden biri de bu.</span></div>
+<div class="r"><b>Neden dashoffset değil</b><span><code>react-native-svg</code>'de <code>strokeDashoffset</code> native sürücüde animasyonlanmaz; JS ipliğinde her kareyi köprüden geçirir ve müdür mesaj gönderirken takılır. <code>rotate</code> ise doğrudan native katmanda.</span></div>
+</div>
+
+<!-- ══════════ 08 · SESLİ OKUMA ══════════ -->
+<div class="band"><span class="num">08</span><h2>Sesli okuma</h2><p>Her hâlin bir kez duyurulan karşılığı. Geri sayım okunmaz; ekran okuyucu açıkken sayım durur.</p></div>
+<div class="mt ax2">
+<div class="h"><i>Hâl</i><em>Duyuru</em></div>
+<div class="r2"><i>A · Onay (açılışta)</i><em>“Randevu oluşturuldu. 14 Ağustos Cuma, 11:00'dan 12:15'e, Kesim + fön, Merve yapacak. Zeynep Kaya. Bin lira.” — <code>accessibilityLiveRegion="assertive"</code>, odak tik bloğuna gider.</em></div>
+<div class="r2"><i>A · Geri sayım</i><em>Okunmaz. Sayım göstergesi <code>accessibilityElementsHidden</code>. Ekran okuyucu açıkken sayım <b>tamamen durur</b>; ekran yalnız “Kapat” ile kapanır. (Uzatmak yerine durdurmayı seçtik: 7 sn de 15 sn de rastgele bir tahmin; sıfır tahmin daha dürüst.)</em></div>
+<div class="r2"><i>A · Butonlar</i><em>“Randevu mesajı gönder, düğme.” / “Kapat, düğme. Ekranı kapatır ve Akış'a döner.”</em></div>
+<div class="r2"><i>B · Numara yok</i><em>“Randevu oluşturuldu… Müşterinin numarası kayıtlı değil, mesaj gönderilemiyor.” Buton: “Randevu mesajı gönder, devre dışı. Numara yok.”</em></div>
+<div class="r2"><i>C · Gönderiliyor</i><em>“Mesaj gönderiliyor.” — <code>polite</code>. Geri sayımın durduğu duyurulmaz; zaten okunmuyordu.</em></div>
+<div class="r2"><i>D · Gönderildi</i><em>“Mesaj gönderildi. Zeynep Kaya'ya randevu bilgisi iletildi.” — <code>assertive</code>, odak “Bitti” düğmesine.</em></div>
+<div class="r2"><i>E · Gidemedi</i><em>“Mesaj gönderilemedi. Randevu duruyor: 14 Ağustos Cuma 11:00, Merve. Tekrar deneyebilirsiniz.” — <code>assertive</code>, odak “Tekrar dene” düğmesine.</em></div>
+<div class="r2"><i>F · Hareketi azalt</i><em>A ile aynı duyuru. Ekrandaki sayı satırı <code>accessibilityLiveRegion="none"</code> — saniyede bir konuşmaz.</em></div>
+</div>
+<div class="note" style="max-width:1180px;margin-bottom:76px"><span>Renk hiçbir hâlde tek ayırt edici değil: yeşil tikin yanında “oluşturuldu”, kırmızı ünlemin yanında “gönderilemedi”, amber satırın yanında “gönderilemez” yazıyor. En küçük punto 11,5 (<code>.cf-memo i</code>, <code>.cf-msg i</code>); hiçbir yerde Light/Thin kesim yok.</span></div>
+
+<!-- ══════════ 09 · REACT NATIVE ══════════ -->
+<div class="band"><span class="num">09</span><h2>React Native notları</h2><p>Türetilen ve sabit ölçüler, cam yüzeyler, sayacın yaşam döngüsü.</p></div>
+<div class="rn">
+<div class="r"><b>Sabit ölçüler</b><span>Buton yükseklikleri (66 / 52), halka 116 ve tik diski 78, kart yarıçapı 24, blok yarıçapı 28, hairline <code>StyleSheet.hairlineWidth</code> yerine 1 px (tasarım hairline'ı renkle taşıyor). Bunlar ekran genişliğinden türetilmez.</span></div>
+<div class="r"><b>Türetilen ölçüler</b><span>Yalnız yatay boşluk: gövde <code>paddingHorizontal:20</code>, blok <code>left/right:12</code>. Dikeyde tek türetme <code>cf-hero.paddingTop</code>: <code>height &lt; 700 ? 26 : 64</code>. Halka <code>height &lt; 700 ? 92 : 116</code>, AX5'te 84.</span></div>
+<div class="r"><b>Güvenli alan</b><span>Üst <code>insets.top</code> (59) durum çubuğuna gider; blok <code>bottom: insets.bottom + 12</code> (34 + 12 = 46). Ana sayfa göstergesi altında hiçbir dokunulabilir eleman yok.</span></div>
+<div class="r"><b>Cam yüzey</b><span>Tek cam: kontrol bloğu → <code>&lt;GlassView glassEffectStyle="regular" isInteractive tintColor={tint}&gt;</code> (<code>expo-glass-effect</code>). Kart, tik ve şeritler asla cam değil.</span></div>
+<div class="r"><b>Opak yedeğe düşme</b><span><code>!isLiquidGlassAvailable() || reduceTransparency || lowPowerMode</code> → <code>&lt;View style={dockOpaque}&gt;</code>: <code>backgroundColor: surf</code>, <code>borderColor: bd2</code>, <code>shadowOpacity .20 / radius 26 / offset {0,10}</code>. Ölçüler aynı; yerleşim tek kaynaktan (<code>dockBase</code>) gelir, yalnız malzeme değişir.</span></div>
+<div class="r"><b>Hareketi azalt</b><span><code>AccessibilityInfo.isReduceMotionEnabled()</code> → giriş dizisi tek <code>opacity 0→1 / 160 ms</code>ye iner, <code>translateY</code> ve <code>scale</code> kurulmaz, iki kapak <code>Animated</code>'e hiç bağlanmaz (turuncu yaylar render edilmez), <code>&lt;Text&gt;</code> sayacı <code>setInterval(1000)</code> ile azalır.</span></div>
+<div class="r"><b>Erişilebilirlik boyutu</b><span>AX3'ten sonra <code>.cf-when</code> ve <code>.cf-svc</code> <code>flexDirection:'column'</code>a döner (<code>useWindowDimensions().fontScale &gt; 1.6</code>). Kırılan tek şey birincil butonun etiketi: “Randevu mesajı gönder” tek satıra sığmaz, <code>fontScale &gt; 1.6</code>da “Mesaj gönder”e iner; <code>accessibilityLabel</code> uzun hâli korur. Buton yükseklikleri artar (78 / 60), asla <code>numberOfLines</code> ile küçültülmez.</span></div>
+<div class="r"><b>Sayaç · arka plan</b><span>Sayaç <code>Date.now()</code> hedef damgasıyla kurulur, <code>setInterval</code> sayısıyla değil. <code>AppState</code> <code>background</code>a düşünce <code>Animated</code> durdurulur ve kapak açıları dondurulur. Geri dönüşte: kalan süre &gt; 1 sn ise kalanla devam eder (kapaklar hesaplanan açıdan başlar), kalan süre bitmişse ekran <b>otomatik kapanmaz</b> — müdür geri döndüğünde ekranın altından kayması kaybolma hissi verir; onay durur, “Kapat” bekler.</span></div>
+<div class="r"><b>Sayaç · diğer duraklamalar</b><span>Ekran okuyucu açık, C hâli (gönderiliyor), E hâli (hata), herhangi bir modal/klavye açık → sayaç durur. Sayaç yalnız A, B ve D hâllerinde ve ekran öndeyken işler.</span></div>
+<div class="r"><b>Dönüş</b><span>Sayım bitince <code>navigation.popToTop()</code> + Akış sekmesi. Randevu oluşturma yığını kapanır; geri tuşu onay ekranına dönmez.</span></div>
+</div>
+
+</div>
+</body></html>

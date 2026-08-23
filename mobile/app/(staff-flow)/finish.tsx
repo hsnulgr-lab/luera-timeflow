@@ -4,6 +4,7 @@ import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedback } from '../../src/lib/feedback';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const SERVICES = [
     { name: 'Saç boyama', detail: '90 dk', amount: '₺1.450' },
@@ -106,9 +107,8 @@ function SectionTitle({ children, trailing, compact = false }: {
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
             {trailing ? (
                 <Text style={{ color: c.or, fontSize: 12.5, fontWeight: '700' }}>
@@ -176,9 +176,8 @@ function TotalBar() {
                 fontSize: 13,
                 fontWeight: '700',
                 letterSpacing: 1.82,
-                textTransform: 'uppercase',
             }}>
-                Toplam
+                {upperTR('Toplam')}
             </Text>
             <Text style={[{
                 color: c.tx,

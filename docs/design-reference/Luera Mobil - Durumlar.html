@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="tr" data-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Durumlar</title>
+<style>
+:root{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.72);--glassbd:rgba(14,14,14,.09);--tint:rgba(240,233,223,.55);--desk:#E4DACA;--sheen:rgba(255,255,255,.55)}
+html[data-theme="dark"]{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(37,32,21,.5);--desk:#0B0805;--sheen:rgba(243,237,227,.09)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:720px;margin-bottom:56px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:520px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:76px}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:var(--tx);font-weight:700}
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.safe-top,.safe-bot{position:absolute;left:0;right:0;pointer-events:none;z-index:60;display:flex;align-items:flex-end;justify-content:center;padding:0 0 3px}
+.safe-top{top:0;height:59px;border-bottom:1px dashed rgba(255,90,31,.4)}
+.safe-bot{bottom:0;height:34px;align-items:center;padding:0;border-top:1px dashed rgba(255,90,31,.4)}
+.safe-top span{position:relative;top:-18px}
+.safe-top span,.safe-bot span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700;letter-spacing:-.01em;position:relative;z-index:20}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.bars.off i{background:var(--tx3)}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.scroll{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pad-bot{height:118px;flex:none}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:70}
+.topbar{flex:none;display:flex;align-items:center;gap:12px;height:52px;padding:0 18px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid var(--glassbd);position:relative;z-index:30}
+.topbar .biz{display:flex;flex-direction:column;min-width:0;flex:1}
+.topbar .biz b{font-size:16px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .biz span{font-size:11.5px;font-weight:600;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:14px;color:var(--tx)}
+.bell-dot{position:relative}
+.bell-dot::after{content:"";position:absolute;top:11px;right:11px;width:8px;height:8px;border-radius:50%;background:var(--or);border:2px solid var(--glass)}
+.tabbar{position:absolute;left:12px;right:12px;bottom:44px;height:66px;display:flex;align-items:stretch;padding:6px;gap:2px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassbd);border-radius:26px;z-index:50;box-shadow:0 1px 0 var(--sheen) inset}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:20px;color:var(--tx2);min-width:52px}
+.tab b{font-size:10.5px;font-weight:700;white-space:nowrap}
+.tab.sel{color:var(--tx);background:var(--tint)}
+.tab.sel .ic{color:var(--or)}
+.ic{width:23px;height:23px;flex:none}
+.pgtitle{flex:none;display:flex;flex-direction:column;gap:3px;padding:18px 20px 12px}
+.pgtitle h2{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1.05}
+.pgtitle span{font-size:14px;font-weight:600;color:var(--tx2)}
+.stack{display:flex;flex-direction:column}
+.pad{padding:0 18px}
+.card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:20px;overflow:hidden}
+.btn{flex:none;width:100%;align-self:stretch;display:flex;align-items:center;justify-content:center;gap:10px;height:60px;border-radius:18px;font-size:18px;font-weight:800;letter-spacing:-.02em;background:var(--or);color:#fff}
+.btn.tall{height:66px;font-size:19px}
+.btn.sec{background:var(--surf2);color:var(--tx);border:1px solid var(--bd)}
+.btn.ghost{background:transparent;color:var(--tx2);height:52px;font-size:16px;font-weight:700}
+.mini{display:flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 15px;border-radius:14px;background:var(--surf2);border:1px solid var(--bd);font-size:14.5px;font-weight:700}
+.hair{flex:none;height:1px;background:var(--bd)}
+.rowline{display:flex;align-items:center;gap:13px;padding:14px 18px;min-height:62px}
+.rowline .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.rowline .t b{font-size:15.5px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowline .t span{font-size:13px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowline .r b{font-size:15px;font-weight:700}
+.time{flex:none;width:46px;font-size:14.5px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kicker{flex:none;display:flex;align-items:center;justify-content:space-between;padding:22px 20px 9px}
+.kicker b{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)}
+.counter{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 20px 22px}
+.counter .who{font-size:15px;font-weight:700;color:var(--tx2)}
+.counter .clock{font-size:76px;font-weight:800;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.counter .svc{font-size:16px;font-weight:600}
+.total{flex:none;display:flex;align-items:baseline;justify-content:space-between;padding:14px 20px;background:var(--surf2);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.total b{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx2)}
+.total .amt{font-size:28px;font-weight:800;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+/* durum parçaları */
+.offbar{flex:none;display:flex;align-items:center;gap:9px;height:30px;padding:0 16px;background:var(--am);color:#1A1200;font-size:12.5px;font-weight:700;letter-spacing:-.01em;position:relative;z-index:25}
+.offbar .qn{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:800}
+.offbar .qn i{width:6px;height:6px;border-radius:50%;background:#1A1200;opacity:.5}
+.banner{flex:none;display:flex;gap:11px;align-items:flex-start;margin:0 18px;padding:14px 15px;border-radius:16px;font-size:14px;font-weight:600;line-height:1.45}
+.banner.err{background:rgba(201,64,64,.11);border:1px solid rgba(201,64,64,.26);color:var(--rd)}
+.banner.info{background:var(--surf2);border:1px solid var(--bd);color:var(--tx2)}
+.banner.warn{background:rgba(184,122,0,.1);border:1px solid rgba(184,122,0,.28);color:var(--am)}
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:0 34px;text-align:center}
+.hero .ring{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surf2);border:1.7px solid var(--bd2);color:var(--tx2)}
+.hero .ring.rd{background:rgba(201,64,64,.11);border-color:rgba(201,64,64,.3);color:var(--rd)}
+.hero .ring.am{background:rgba(184,122,0,.1);border-color:rgba(184,122,0,.3);color:var(--am)}
+.hero .ring.or{background:rgba(255,90,31,.12);border-color:rgba(255,90,31,.3);color:var(--or2)}
+.hero h3{font-size:27px;font-weight:800;letter-spacing:-.035em;line-height:1.14}
+.hero p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.55;text-wrap:pretty}
+.acts{flex:none;display:flex;flex-direction:column;gap:10px;padding:0 18px 44px}
+.qlist{display:flex;flex-direction:column;width:100%;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin-top:6px}
+.qlist .qi{display:flex;align-items:center;gap:11px;padding:13px 18px;text-align:left}
+.qlist .qi .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.qlist .qi .t b{font-size:15px;font-weight:700;letter-spacing:-.015em}
+.qlist .qi .t span{font-size:12.5px;font-weight:500;color:var(--tx2)}
+.qlist .qi .st{font-size:12px;font-weight:700;color:var(--am)}
+.qlist .qi + .qi{border-top:1px solid var(--bd)}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--bd2);border-top-color:var(--am);flex:none}
+.priceline{display:flex;align-items:baseline;justify-content:center;gap:8px}
+.priceline b{font-size:40px;font-weight:800;letter-spacing:-.04em}
+.priceline span{font-size:15px;font-weight:600;color:var(--tx2)}
+.locklist{display:flex;flex-direction:column;gap:9px;width:100%;text-align:left}
+.locklist div{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;font-weight:600;color:var(--tx2);line-height:1.45}
+.locklist s{flex:none;width:16px;height:16px;border-radius:50%;margin-top:2px;background:rgba(255,90,31,.16);display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--or2)}
+.dim{position:absolute;inset:0;background:rgba(14,14,14,.06);backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px);z-index:40}
+html[data-theme="dark"] .dim{background:rgba(0,0,0,.28)}
+.legend{display:flex;flex-direction:column;gap:9px;width:420px;padding:20px;border:1px solid var(--bd);border-radius:18px;background:var(--surf)}
+.legend h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2);margin-bottom:3px}
+.legend div{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.legend div b{color:var(--tx);font-weight:700}
+.legend s{flex:none;width:11px;height:11px;border-radius:3px;margin-top:4px;background:var(--or);text-decoration:none}
+.legend s.g{background:var(--gr)}.legend s.n{background:var(--bd2)}.legend s.a{background:var(--am)}
+</style></head>
+<body class="luera-themed">
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-today"><path d="M4 8h16M8 3v3M16 3v3M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></g>
+<g id="i-users"><circle cx="9.5" cy="8.5" r="3.4"/><path d="M3.6 19.4c.6-3 3-4.9 5.9-4.9s5.3 1.9 5.9 4.9M16.5 6.6a3.2 3.2 0 0 1 0 6M18 14.9c2 .6 3.3 2.3 3.6 4.5"/></g>
+<g id="i-chart"><path d="M4 20V10M10 20V4.8M16 20v-7M21 20H3"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></g>
+<g id="i-bell"><path d="M18 15.4V10a6 6 0 1 0-12 0v5.4L4.4 18h15.2L18 15.4zM10 21h4"/></g>
+<g id="i-chev"><path d="M9 5l7 7-7 7"/></g>
+<g id="i-back"><path d="M15 5l-7 7 7 7"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-check"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></g>
+<g id="i-off"><path d="M2.6 3.4 21.4 20.6M5 10.4a11 11 0 0 1 3.4-2.1M2.5 7.6A14.6 14.6 0 0 1 8 4.4M12 4c3.4 0 6.6 1.2 9.2 3.4M15.8 10.6c1 .4 1.9 1 2.7 1.7M8.6 14.2A6.6 6.6 0 0 1 12 13M12 19.4h.01"/></g>
+<g id="i-warn"><path d="M12 4.4 2.8 20h18.4L12 4.4zM12 10v4.6M12 17.4h.01"/></g>
+<g id="i-lock"><path d="M6.4 10.6h11.2v9.4H6.4zM8.8 10.6V7.8a3.2 3.2 0 0 1 6.4 0v2.8"/></g>
+<g id="i-cal2"><path d="M4 8h16M8 3v3M16 3v3M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM12 12.6v4M10 14.6h4"/></g>
+<g id="i-refresh"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4.4V10h-5.6"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head"><div class="mark">luera<i></i></div><div class="meta">Mobil · Durumlar<br/>Boş · Çevrimdışı · Hata · İzin · Kilitli<br/>393 × 852 pt · iPhone 16 Pro</div></div>
+<div class="lede">
+<h1>Durum ekranları</h1>
+<p>Mutlu yol yetmez. Bu beş durum kumanda dosyasındaki kabuğu, jetonları ve kart dilini birebir kullanır: cam yalnız üst bar ve tab bar'da, içerik opak. Her ekran ne olduğunu ve ne yapılacağını söyler; suç yüklemez, teknik dil kullanmaz.</p>
+</div>
+
+<!-- 01 BOŞ -->
+<div class="band"><span class="num">01</span><h2>Boş</h2><p>Boş ekran bir son değil, bir davet. Personel için: bugün randevu yok, ama yapılabilecek üç şey var.</p></div>
+<div class="row">
+  <div class="spec">
+    <div class="spec-label"><b>Durum 01 — Bugün randevu yok</b><span>Personel modu · Bugün ekranı</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><div class="biz"><b>Merve · Kuaför</b><span>Studio Ayla — Kadıköy</span></div><button class="iconbtn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bell"/></svg></button></div>
+      <div class="body">
+        <div class="pgtitle"><h2>Bugün</h2><span>Salı, 11 Ağustos</span></div>
+        <div class="hero" style="justify-content:flex-start;padding-top:44px;gap:14px">
+          <div class="ring"><svg style="width:34px;height:34px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal2"/></svg></div>
+          <h3>Bugün randevunuz yok</h3>
+          <p>Gün boyunca yeni randevu gelirse burada görünür ve telefonunuz haber verir.</p>
+        </div>
+        <div class="kicker"><b>Bu arada</b></div>
+        <div class="stack">
+          <div class="hair"></div>
+          <div class="rowline"><div class="t"><b>Gelen müşteriyi hemen al</b><span>Randevusuz gelen için işlem başlat</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></div>
+          <div class="hair"></div>
+          <div class="rowline"><div class="t"><b>Yarına bakın</b><span>3 randevunuz var</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></div>
+          <div class="hair"></div>
+          <div class="rowline"><div class="t"><b>Dünkü notlarınız</b><span>2 işlem, 1 not eklenmedi</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></div>
+          <div class="hair"></div>
+        </div>
+        <div class="pad" style="padding-top:20px"><button class="btn">Randevusuz müşteri al</button></div>
+        <div class="pad-bot"></div>
+      </div>
+      <div class="tabbar">
+        <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg><b>Müşteriler</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chart"/></svg><b>Performans</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg><b>Profil</b></button>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>Büyük randevu kartının yerini boş hâl alır; sayfa yapısı değişmez. Üç satır ve tek buton — "keşfet" listesi değil, o an yapılabilecek işler.</span></div>
+  </div>
+</div>
+
+<!-- 02 ÇEVRİMDIŞI -->
+<div class="band"><span class="num">02</span><h2>Çevrimdışı</h2><p>Bant her ekranda aynı yerde, aynı yükseklikte (30 pt), üst barın hemen altında. Sırada bekleyen işlem sayısı bandın içinde; dokununca liste açılır.</p></div>
+<div class="row">
+  <div class="spec">
+    <div class="spec-label"><b>Durum 02a — Çevrimdışı bant · Bugün ekranı</b><span>Personel modu · 2 işlem sırada</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars off"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><div class="biz"><b>Merve · Kuaför</b><span>Studio Ayla — Kadıköy</span></div><button class="iconbtn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bell"/></svg></button></div>
+      <div class="offbar"><svg style="width:15px;height:15px;flex:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><use href="#i-off"/></svg>Bağlantı yok<span class="qn">2 işlem sırada<svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></span></div>
+      <div class="body">
+        <div class="pgtitle"><h2>Bugün</h2><span>Salı, 11 Ağustos · 4 randevu kaldı</span></div>
+        <div class="pad">
+          <div class="card">
+            <div style="display:flex;flex-direction:column;gap:14px;padding:20px 20px 18px">
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--or)">Sıradaki · 12:30</div>
+              <div style="display:flex;flex-direction:column;gap:5px"><div style="font-size:34px;font-weight:800;letter-spacing:-.04em;line-height:1.02">Zeynep Ak</div><div style="font-size:18px;font-weight:600;letter-spacing:-.015em">Fön</div></div>
+            </div>
+            <div class="hair"></div>
+            <div style="padding:14px"><button class="btn tall">İşleme başla</button></div>
+          </div>
+        </div>
+        <div class="banner info" style="margin-top:16px"><span>Bağlantı yokken de çalışabilirsiniz. Yaptığınız işlemler telefonda tutulur, bağlantı gelince kendiliğinden gönderilir.</span></div>
+        <div class="kicker"><b>Sırada bekleyenler</b></div>
+        <div class="qlist">
+          <div class="qi"><span class="spin"></span><div class="t"><b>Ayşe Yılmaz · adisyon</b><span>₺2.010 · 11:52'de bitirildi</span></div><span class="st">Bekliyor</span></div>
+          <div class="qi"><span class="spin"></span><div class="t"><b>Boya · 2 tüp</b><span>Depodan düşülecek</span></div><span class="st">Bekliyor</span></div>
+        </div>
+        <div class="pad-bot"></div>
+      </div>
+      <div class="tabbar">
+        <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg><b>Bugün</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg><b>Müşteriler</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chart"/></svg><b>Performans</b></button>
+        <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg><b>Profil</b></button>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>Bant amber; kırmızı değil, çünkü iş durmuyor. Sinyal çubukları da soluk. "Senkronize" gibi kelime yok: "bağlantı gelince gönderilecek".</span></div>
+  </div>
+
+  <div class="spec">
+    <div class="spec-label"><b>Durum 02b — Aynı bant · devam eden işlem</b><span>Bant konumu ve yüksekliği değişmez</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars off"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>İşlem sürüyor</b><span>12:30'da başladı</span></div></div>
+      <div class="offbar"><svg style="width:15px;height:15px;flex:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><use href="#i-off"/></svg>Bağlantı yok<span class="qn">2 işlem sırada<svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></span></div>
+      <div class="body">
+        <div class="counter"><div class="who">Zeynep Ak</div><div class="clock">08:52</div><div class="svc">Fön</div></div>
+        <div class="total"><b>Şu anki tutar</b><span class="amt">₺350</span></div>
+        <div class="scroll"><div class="stack">
+          <div class="rowline"><div class="t"><b>Fön</b><span>Hizmet · 30 dk</span></div><div class="r"><b>₺350</b></div></div>
+          <div class="hair"></div>
+        </div></div>
+        <div class="banner warn" style="margin-bottom:14px"><span>Bu işlem telefonda tutuluyor. Bitirdiğinizde kasaya bağlantı gelince gidecek — kasadaki kişi hemen görmeyebilir.</span></div>
+        <div class="pad-bot" style="height:112px"></div>
+      </div>
+      <div class="tabbar" style="height:auto;padding:12px"><button class="btn" style="height:64px">İşlemi bitir</button></div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>Bant üst barın altına yapışır ve içerik onun altından başlar — kaydırmada kaybolmaz. Devam eden işlemde ek bir cümle çıkar: kasanın gecikeceği söylenir.</span></div>
+  </div>
+</div>
+
+<!-- 03 HATA -->
+<div class="band"><span class="num">03</span><h2>Hata</h2><p>En kritik hâl: personel işlemi bitirdi, adisyon gönderilemedi. Ekran işin kaybolmadığını söyler ve tek eylem sunar.</p></div>
+<div class="row">
+  <div class="spec">
+    <div class="spec-label"><b>Durum 03 — Adisyon gönderilemedi</b><span>Personel modu · işlem bitirilirken</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars off"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><div class="biz"><b>İşlem özeti</b><span>Ayşe Yılmaz · ₺2.010</span></div></div>
+      <div class="body">
+        <div class="hero" style="justify-content:flex-start;padding-top:52px;gap:15px">
+          <div class="ring rd"><svg style="width:34px;height:34px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warn"/></svg></div>
+          <h3>Adisyon kasaya<br/>gönderilemedi</h3>
+          <p>İşleminiz kaybolmadı, telefonda duruyor. Tekrar deneyin ya da bağlantı gelince kendiliğinden gitmesi için bekletin.</p>
+        </div>
+        <div class="kicker"><b>Bekletilen işlem</b></div>
+        <div class="qlist" style="margin-top:0">
+          <div class="qi"><div class="t"><b>Ayşe Yılmaz · adisyon</b><span>3 hizmet, 2 malzeme · ₺2.010</span></div><span class="st" style="color:var(--rd)">Gönderilemedi</span></div>
+        </div>
+        <div class="banner info" style="margin-top:16px"><span>Müşteri kasaya gitmek üzereyse kasadaki kişiye tutarı sözle söyleyin: ₺2.010.</span></div>
+        <div style="flex:1"></div>
+        <div class="acts">
+          <button class="btn"><svg style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>Tekrar dene</button>
+          <button class="btn sec">Bağlantı gelince gönder</button>
+        </div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>"Kaydedilemedi" değil, "gönderilemedi" — personelin yaptığı iş kayıp değil. Hata kodu, teknik metin ve suçlayıcı dil yok. Tab bar bu ekranda gizlenir; tek çıkış iki butondan biri.</span></div>
+    <div class="note"><span>Sonuç tutar sözle iletilebilsin diye ekranda büyük ve okunur kalır. Tekrar dene 60 pt, başparmak bölgesinde.</span></div>
+  </div>
+</div>
+
+<!-- 04 BİLDİRİM İZNİ -->
+<div class="band"><span class="num">04</span><h2>Bildirim izni</h2><p>Sistem izni sorulmadan önce tek cümlelik gerekçe. "Şimdi değil" gerçek bir seçenek; kapatılamaz ekran değil.</p></div>
+<div class="row">
+  <div class="spec">
+    <div class="spec-label"><b>Durum 04 — Bildirim izni</b><span>Girişten hemen sonra, ilk gün</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="body">
+        <div class="hero" style="justify-content:center;gap:18px">
+          <div class="ring or" style="width:88px;height:88px"><svg style="width:38px;height:38px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bell"/></svg></div>
+          <h3>Randevunuz değişince<br/>haberiniz olsun</h3>
+          <p>Size yeni randevu verildiğinde ya da müşteri iptal ettiğinde telefonunuz haber verir; böylece uygulamayı açıp bakmanız gerekmez.</p>
+          <div class="locklist" style="margin-top:6px">
+            <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Yeni randevu ve iptal</span></div>
+            <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Sıradaki müşteri 15 dakika önce hatırlatma</span></div>
+            <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Reklam yok, tanıtım yok</span></div>
+          </div>
+        </div>
+        <div class="acts">
+          <button class="btn">İzin ver</button>
+          <button class="btn ghost">Şimdi değil</button>
+        </div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>"İzin ver" sistem diyaloğunu açar. "Şimdi değil" seçilirse ekran bir daha çıkmaz; ayar Profil'den açılabilir. Üçüncü madde beklentiyi baştan kesiyor.</span></div>
+  </div>
+</div>
+
+<!-- 05 KİLİTLİ -->
+<div class="band"><span class="num">05</span><h2>Abonelik kilitli</h2><p>Masaüstündeki ödeme duvarının mobil karşılığı. Müdür ödeyebilir; personel ödeyemez, o yüzden metni ve tek butonu farklı.</p></div>
+<div class="row">
+  <div class="spec">
+    <div class="spec-label"><b>Durum 05a — Kilitli · müdür</b><span>Ödeme duvarı, ödeme yapabilen kullanıcı</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><div class="biz"><b>Studio Ayla</b><span>Ayla Demir · Sahip</span></div></div>
+      <div class="body">
+        <div class="hero" style="justify-content:flex-start;padding-top:40px;gap:15px">
+          <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+          <h3>Aboneliğiniz bitti</h3>
+          <p>Randevular ve müşteri bilgileriniz yerinde duruyor. Ödemeyi yapınca her şey olduğu gibi geri açılır.</p>
+        </div>
+        <div class="pad" style="padding-top:20px">
+          <div class="card" style="padding:20px;gap:16px;align-items:center">
+            <span style="font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)">Profesyonel · aylık</span>
+            <div class="priceline"><b>₺1.490</b><span>/ ay</span></div>
+            <div class="locklist">
+              <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Sınırsız randevu ve personel</span></div>
+              <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>WhatsApp hatırlatma</span></div>
+              <div><s><svg style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Kasa, stok, prim</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="banner info" style="margin-top:16px"><span>Verileriniz 90 gün saklanır. Bu süre içinde ödeme yaparsanız hiçbir şey kaybolmaz.</span></div>
+        <div style="flex:1"></div>
+        <div class="acts">
+          <button class="btn">Ödemeyi yap</button>
+          <button class="btn ghost">Faturaları gör</button>
+        </div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>Kaybetme korkusu abartılmaz: önce "duruyor" denir, sonra süre söylenir. Fiyat tek plan; mobilde plan karşılaştırma yok, o masaüstünde kalır.</span></div>
+  </div>
+
+  <div class="spec">
+    <div class="spec-label"><b>Durum 05b — Kilitli · personel</b><span>Ödeme yapamayan kullanıcı</span></div>
+    <div class="phone">
+      <div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="topbar"><div class="biz"><b>Merve · Kuaför</b><span>Studio Ayla — Kadıköy</span></div></div>
+      <div class="body">
+        <div class="hero" style="gap:15px">
+          <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+          <h3>Uygulama şu an<br/>kullanılamıyor</h3>
+          <p>İşletmenin Luera aboneliği bitti. Bu bir hata değil ve sizinle ilgili değil — işletme sahibi ödemeyi yapınca uygulama kendiliğinden açılır.</p>
+          <div class="qlist" style="margin-top:8px">
+            <div class="qi"><div class="t"><b>Ayla Demir</b><span>İşletme sahibi</span></div><span class="st" style="color:var(--tx2)">Bilgilendirildi</span></div>
+          </div>
+        </div>
+        <div class="acts">
+          <button class="btn sec">İşletme sahibini ara</button>
+          <button class="btn ghost">Tekrar dene</button>
+        </div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+    <div class="note"><span>Personele fiyat, plan ve ödeme ekranı gösterilmez — yapamayacağı iş teklif edilmez. "Yetkiniz yok" da denmez; sebep açıkça yazılır ve tek somut eylem verilir: sahibi aramak.</span></div>
+  </div>
+</div>
+
+<div class="band"><span class="num">06</span><h2>Ortak kurallar</h2><p>Beş durumun tamamında geçerli.</p></div>
+<div class="row" style="gap:28px">
+  <div class="legend">
+    <h4>Dil ve renk</h4>
+    <div><s class="a"></s><span><b>Amber</b> iş durmuyor demek: çevrimdışı, abonelik. <b>Kırmızı</b> yalnız gerçekten başarısız olan işlemde.</span></div>
+    <div><s class="g"></s><span>Teknik kelime yok: "senkronize", "kayıt", "sunucu", "hata kodu" hiçbir ekranda geçmiyor.</span></div>
+    <div><s></s><span>Her durum ekranında en fazla iki eylem, ikisi de alt üçte birde ve 52–60 pt.</span></div>
+    <div><s class="n"></s><span>Suçlama yok, kutlama yok. Personel ekranlarında sorumluluk personele yüklenmez.</span></div>
+  </div>
+  <div class="legend">
+    <h4>Ölçü ve taşıma</h4>
+    <div><s></s><span>Çevrimdışı bant 30 pt, üst barın hemen altında, kaydırmada kaybolmaz. Cam değil — düz amber yüzey.</span></div>
+    <div><s class="g"></s><span>Hata ve kilitli ekranlarında tab bar gizlenir; çıkış yalnız ekrandaki butonlardan.</span></div>
+    <div><s class="n"></s><span>Metin kırpma: kuyruk metinleri (müşteri adı, tutar) tek satır; hero paragrafı hiç kırpılmaz.</span></div>
+    <div><s class="a"></s><span><b>375 × 667:</b> hero halkası 80 → 64 pt, başlık 27 → 23 pt, izin ekranındaki üç madde iki maddeye iner (hatırlatma maddesi kalkar).</span></div>
+  </div>
+</div>
+</div>
+</body></html>

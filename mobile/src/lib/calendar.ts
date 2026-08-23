@@ -12,6 +12,13 @@ export interface ApptInfo {
     pkg: { name: string; used: number; total: number } | null;
     visitNo: number | null;
     lastVisit: string | null;
+    /**
+     * Müşterinin açık bakiyesi. İsteğe bağlı: personel modunda hiç
+     * sorulmuyordu, müdürün randevu detayında (Müdür 08) gösteriliyor.
+     * `undefined` "bilinmiyor" demek ve o rozet HİÇ çizilmez — bilinmeyen
+     * bakiye "₺0" diye yazılamaz.
+     */
+    balance?: number | null;
 }
 
 export interface Appt {
@@ -25,7 +32,20 @@ export interface Appt {
     service: string;
     service_color: string | null;
     status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+    /**
+     * Personel modunda GEREKSİZ: sunucu zaten yalnız kendi randevularını
+     * döndürüyor, kural sorgunun içinde. Müdür modunda ise randevuyu sütuna
+     * yerleştiren tek alan bu. Sunucu (`agenda` → RES_COLS) zaten gönderiyor;
+     * isteğe bağlı olması, personel tarafındaki mevcut çağrıları bozmamak için.
+     */
+    staff_id?: string | null;
     notes: string | null;
+    /**
+     * Müşteri SALONA GELDİ (müdür/resepsiyon basar). `arrived_at` ile
+     * karıştırılmamalı: o, hizmetin başladığı an ve personel basar.
+     * Ayrım veritabanında da böyle (`043_customer_arrived.sql`).
+     */
+    customer_arrived_at?: string | null;
     arrived_at: string | null;
     service_ended_at: string | null;
     info?: ApptInfo | null;
@@ -56,6 +76,14 @@ const MONTHS_TR = [
     'Aralık',
 ] as const;
 
+// Uzun gün adları. `WEEK_LABELS` şerit için kısaltılmıştı; özet ekranı ve
+// gün seçimi tam adı yazıyor ("Cuma, 14 Ağustos"). Dizi PAZAR'dan başlar
+// çünkü `getUTCDay()` öyle sayar — WEEK_LABELS'ın pazartesi başlangıcıyla
+// karıştırılmamalı.
+const DAYS_LONG_TR = [
+    'Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi',
+] as const;
+
 function parseISODate(iso: string): Date {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
     if (!match) throw new RangeError(`Geçersiz tarih: ${iso}`);
@@ -80,6 +108,64 @@ function isoDate(date: Date): string {
 
 function addDays(date: Date, amount: number): Date {
     return new Date(date.getTime() + amount * DAY_MS);
+}
+
+/** Gün ekler/çıkarır. Randevu oluşturmada "önümüzdeki 14 gün" bundan türer. */
+export function addDaysISO(iso: string, amount: number): string {
+    return isoDate(addDays(parseISODate(iso), amount));
+}
+
+/** "Cuma" */
+export function dayNameLong(iso: string): string {
+    return DAYS_LONG_TR[parseISODate(iso).getUTCDay()];
+}
+
+// Kısa gün adları, PAZAR'dan başlar (`getUTCDay()` böyle sayar). `WEEK_LABELS`
+// pazartesi başlangıçlı olduğu için onunla karıştırılmamalı.
+const DAYS_SHORT_TR = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'] as const;
+
+/** "Çar" — gün şeridindeki kısaltma. */
+export function dayNameShort(iso: string): string {
+    return DAYS_SHORT_TR[parseISODate(iso).getUTCDay()];
+}
+
+/** Ayın kaçı — gün şeridindeki rakam. */
+export function dayNumber(iso: string): number {
+    return parseISODate(iso).getUTCDate();
+}
+
+/** "Per. 13" — toplanmış çubuğun tek metni. */
+export function formatDayShort(iso: string): string {
+    const date = parseISODate(iso);
+    return `${DAYS_SHORT_TR[date.getUTCDay()]}. ${date.getUTCDate()}`;
+}
+
+/** Ayın ilk günü mü? Cetvelde ay sınırı çentiği buradan çıkar. */
+export function isMonthStart(iso: string): boolean {
+    return parseISODate(iso).getUTCDate() === 1;
+}
+
+/** "Cuma, 14 Ağustos" — özet ve gün seçiminin tek biçimi. */
+export function formatDayLong(iso: string): string {
+    const date = parseISODate(iso);
+    return `${dayNameLong(iso)}, ${date.getUTCDate()} ${MONTHS_TR[date.getUTCMonth()]}`;
+}
+
+/**
+ * "Cumartesi 22 Ağustos" — Müdür 25'in kimlik bloğu.
+ *
+ * `formatDayLong` virgüllü ("Cuma, 14 Ağustos") ve o biçim gün seçiminde
+ * kullanılıyor. Randevu kartındaki gün satırı büyük harfe çevrilip harf
+ * aralığı açılarak yazılıyor; virgül o dizilişte gereksiz bir duraklama.
+ */
+export function formatDayFull(iso: string): string {
+    const date = parseISODate(iso);
+    return `${dayNameLong(iso)} ${date.getUTCDate()} ${MONTHS_TR[date.getUTCMonth()]}`;
+}
+
+/** İki ISO gün arasındaki tam gün farkı. Negatif = geçmiş. */
+export function daysBetween(fromISO: string, toISO: string): number {
+    return Math.round((parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()) / DAY_MS);
 }
 
 /** "HH:MM" ve "HH:MM:SS" değerlerini gün içi tam dakikaya çevirir. */
@@ -107,7 +193,8 @@ export function hhmm(min: number): string {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
-function isLive(a: Appt): boolean {
+/** Canlılık kuralı: gelmiş, bitmemiş, iptal değil. Tek kaynak. */
+export function isLive(a: Appt): boolean {
     return Boolean(a.arrived_at) && !a.service_ended_at && a.status !== 'cancelled';
 }
 
@@ -217,20 +304,36 @@ export function weekDays(anchorISO: string): WeekDay[] {
 }
 
 /** Verilen ayı, Pazartesi başlangıçlı sabit 6×7 ızgaraya yerleştirir. */
-export function monthGrid(anchorISO: string): (string | null)[][] {
+/**
+ * Ay ızgarasının tek hücresi. Komşu ayların günleri de üretilir (`inMonth:false`):
+ * tasarım onları soluk gösteriyor ve boş bırakılan hücre ızgarayı deliyor.
+ */
+export interface MonthCell {
+    date: string;
+    day: number;
+    inMonth: boolean;
+}
+
+/** 6 × 7 ay ızgarası, pazartesi başlangıçlı, kesintisiz 42 gün. */
+export function monthGrid(anchorISO: string): MonthCell[][] {
     const anchor = parseISODate(anchorISO);
     const year = anchor.getUTCFullYear();
     const month = anchor.getUTCMonth();
     const first = new Date(Date.UTC(year, month, 1));
-    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    // Pazartesi 0 olacak biçimde kaydır; ayın 1'i pazarsa altı hücre önde kalır.
     const leading = (first.getUTCDay() + 6) % 7;
-    const cells: (string | null)[] = Array.from({ length: 42 }, () => null);
 
-    for (let day = 1; day <= daysInMonth; day += 1) {
-        cells[leading + day - 1] = isoDate(new Date(Date.UTC(year, month, day)));
-    }
-
-    return Array.from({ length: 6 }, (_, row) => cells.slice(row * 7, row * 7 + 7));
+    return Array.from({ length: 6 }, (_, row) => (
+        Array.from({ length: 7 }, (_, column) => {
+            const offset = row * 7 + column - leading;
+            const date = new Date(Date.UTC(year, month, 1 + offset));
+            return {
+                date: isoDate(date),
+                day: date.getUTCDate(),
+                inMonth: date.getUTCMonth() === month,
+            };
+        })
+    ));
 }
 
 /** Takvim başlığının ikinci satırını, ekrandaki gerçek listeden üretir. */
@@ -264,4 +367,30 @@ export function elapsed(sec: number): string {
         return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+
+/**
+ * Cihazın YEREL gününü ISO olarak verir.
+ *
+ * `new Date().toISOString().slice(0,10)` KULLANILMAZ: o UTC'ye çevirir ve
+ * Türkiye'de gece yarısından sonraki üç saatte bir önceki günü döndürür.
+ * Salon 00:30'da kapanıyorsa müdür "dün"ü görürdü.
+ */
+/**
+ * Cihazın saatine göre günün kaçıncı dakikası.
+ *
+ * "Şimdi" çizgisi ekranı OKUYANIN saatidir, sunucunun değil — bu yüzden
+ * `etaMinutes`/`waitMinutes` kuralının istisnası. Takvimde sabit bir sayı
+ * duruyordu (11:24) ve çizgi hiç kıpırdamıyordu; ekran canlı görünmüyordu.
+ */
+export function todayISO(at: Date = new Date()): string {
+    const year = at.getFullYear();
+    const month = String(at.getMonth() + 1).padStart(2, '0');
+    const day = String(at.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+export function nowInMinutes(at: Date = new Date()): number {
+    return at.getHours() * 60 + at.getMinutes();
 }

@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 25: Randevu kartı, düzenleme ve taşıma sonucu</title>
+<style>
+:root{--bg:#0E0E0E;--surf:#171512;--surf2:#201D18;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--am:#D9A43B;--rd:#E07272;--gr:#5FBF64;--desk:#0B0805}
+.pnl{--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pam:#8A5C00;--pamg:#D9A43B;--prd:#A82F2F;--pbd:rgba(14,14,14,.12);--pfill:rgba(14,14,14,.06)}
+.pnl.inv{--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pam:#D9A43B;--pamg:#D9A43B;--prd:#E07272;--pbd:rgba(243,237,227,.14);--pfill:rgba(243,237,227,.07)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:#FF7A45;text-decoration:none}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1720px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:880px;margin-bottom:20px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.chain{display:flex;align-items:center;gap:12px;margin:34px 0 60px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.chain span.on{border-color:var(--am);color:var(--am)}
+.chain span.gr{border-color:var(--gr);color:var(--gr)}
+.chain span.rd{border-color:var(--rd);color:var(--rd)}
+.chain i{width:22px;height:1px;background:var(--bd2)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.prose{max-width:880px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:46px;display:flex;flex-direction:column;gap:12px}
+.prose b{color:var(--tx);font-weight:700}
+.prose code,.note code,.rn code,.mspec code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.case{display:flex;gap:48px;align-items:flex-start;margin-bottom:74px;flex-wrap:wrap}
+.side{width:620px;display:flex;flex-direction:column;gap:16px;padding-top:4px}
+.side h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:7px;font-weight:700}
+.side>p{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf)}
+.rn .r{display:flex;gap:16px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:132px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:230px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+/* ── telefon ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:#000;color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.phone.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#EFE8DD;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040;--gr:#2F7D3C}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700;background:var(--bg);color:var(--tx)}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--bg)}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:9}
+/* ── sayfa (randevu kartı) ── */
+.grab{flex:none;height:26px;display:flex;align-items:center;justify-content:center}
+.grab i{width:38px;height:5px;border-radius:3px;background:var(--tx);opacity:.22}
+.phd{flex:none;display:flex;align-items:center;justify-content:space-between;padding:2px 18px 12px}
+.phd .t{font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx2)}
+.xbtn{width:34px;height:34px;margin-right:-6px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--tx2)}
+.page{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 18px 18px;gap:14px;overflow:hidden}
+.who{display:flex;flex-direction:column;gap:8px}
+.nm{font-size:28px;line-height:1.1;letter-spacing:-.03em;font-weight:500;color:var(--tx2)}
+.nm b{font-weight:800;letter-spacing:-.035em;color:var(--tx)}
+/* kimlik — gün mutlaka görünür */
+.ident{display:flex;flex-direction:column;gap:8px}
+.iday{display:flex;align-items:baseline;gap:8px}
+.iday .d{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx2)}
+.iday .today{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--or)}
+.span{display:flex;align-items:baseline;gap:7px;font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.span .to{color:var(--tx3);font-weight:700}
+.span .du{font-size:14px;font-weight:700;color:var(--tx2);letter-spacing:-.01em}
+.pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{height:32px;padding:0 12px;border-radius:10px;background:var(--surf2);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--tx);white-space:nowrap}
+.pill.av{padding-left:6px}
+.pill s{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--or);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;text-decoration:none;color:var(--tx)}
+.pill.none s{border-color:var(--tx3);color:var(--tx2)}
+/* durum şeridi */
+.state{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border-radius:14px;background:var(--surf2)}
+.state s{flex:none;width:9px;height:9px;border-radius:50%;text-decoration:none;background:var(--tx3)}
+.state .w{font-size:15.5px;font-weight:800;letter-spacing:-.01em;color:var(--tx)}
+.state .x{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--tx2);white-space:nowrap}
+.state.wait s{background:var(--tx3)}
+.state.here s{background:var(--am)}.state.here .w{color:var(--am)}
+.state.run s{background:var(--am);animation:wpulse 2600ms ease-in-out infinite}.state.run .w{color:var(--am)}
+.state.done s{background:var(--gr)}.state.done .w{color:var(--gr)}
+.state.cx s{background:var(--rd)}.state.cx .w{color:var(--rd)}
+/* geldi / gelmedi */
+.acts{display:flex;gap:10px}
+.acts button{flex:1;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;letter-spacing:-.02em}
+.acts .yes{background:var(--or);color:#fff}
+.acts .no{border:1.5px solid var(--bd2);color:var(--tx)}
+/* gömülü krem kart */
+.pnl{border-radius:18px;background:var(--ps);color:var(--pk);position:relative;overflow:hidden;display:flex}
+.pnl .in{flex:1;display:flex;flex-direction:column;gap:12px;padding:14px;min-width:0}
+.crow{display:flex;align-items:center;gap:12px;min-width:0}
+.tok{flex:none;width:42px;height:42px;border-radius:50%;background:var(--pfill);display:flex;align-items:baseline;justify-content:center;gap:1px;padding-top:11px}
+.tok .v{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.tok .u{font-size:13.5px;font-weight:700;opacity:.42;line-height:1}
+.ccol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ctt{font-size:16px;font-weight:800;letter-spacing:-.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csb{font-size:13px;font-weight:500;color:var(--pk2);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arw{flex:none;width:36px;height:36px;border-radius:50%;background:var(--pk);color:var(--ps);display:flex;align-items:center;justify-content:center}
+.cchips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:36px;padding:0 13px;border-radius:14px;background:var(--pk);color:var(--ps);display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.chip.q{background:transparent;color:var(--pk2);border:1px solid var(--pbd)}
+/* A2 — yeni müşteri: boş değil, kenarlıklı */
+.newc{border:1px solid var(--bd);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.newc .crow .tok{background:transparent;border:1px dashed var(--bd2);padding-top:0;align-items:center}
+.newc .tok .v{font-size:15px;font-weight:800;color:var(--tx2)}
+.newc .ctt{color:var(--tx)}.newc .csb{color:var(--tx2)}
+.newc .chip{background:transparent;color:var(--tx2);border:1px solid var(--bd)}
+/* değiştir — iki kademe */
+.tiles{display:flex;gap:10px}
+.tile{flex:1;min-width:0;height:84px;border-radius:18px;background:var(--surf2);padding:12px 13px;display:flex;flex-direction:column;justify-content:space-between}
+.tile .k{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--tx2)}
+.tile .v{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .v s{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--or);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;text-decoration:none}
+.rows{display:flex;flex-direction:column}
+.lrow{display:flex;align-items:center;gap:12px;height:62px;border-top:1px solid var(--bd)}
+.lrow:last-child{border-bottom:1px solid var(--bd)}
+.lrow .lk{flex:none;font-size:15px;font-weight:700;letter-spacing:-.01em}
+.lrow .lv{margin-left:auto;font-size:14px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;text-align:right}
+.lrow .chv{flex:none;color:var(--tx3);display:flex}
+/* yıkıcı bölge */
+.dz{margin-top:auto;padding-top:22px;padding-bottom:12px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--bd)}
+.dz button{display:flex;align-items:center;gap:12px;min-height:44px}
+.dz .ic{flex:none;color:var(--rd);display:flex}
+.dz .tt{font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--rd)}
+.dz .col{display:flex;flex-direction:column;gap:2px}
+.dz .hint{font-size:12px;font-weight:500;color:var(--tx3)}
+.dz .quiet .ic{color:var(--tx2)}.dz .quiet .tt{color:var(--tx2)}
+/* iptal edilmiş sayfa */
+.cxbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border-radius:14px;border:1px solid var(--bd);color:var(--tx2);font-size:13.5px;font-weight:600}
+/* ── alt sheet'ler ── */
+.scrim{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.55)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surf);border-radius:22px 22px 0 0;display:flex;flex-direction:column;padding:0 18px 30px;gap:14px;border-top:1px solid var(--bd)}
+.sheet .grab i{opacity:.28}
+.shd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.shd h4{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.shd .sv{font-size:15px;font-weight:800;color:var(--or)}
+.shd .sv.off{color:var(--tx3)}
+.ssub{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+/* B — hizmet listesi */
+.opts{display:flex;flex-direction:column;max-height:396px;overflow:hidden}
+.opt{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--bd)}
+.opt:first-child{border-top:0}
+.opt .oc{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.opt .on{font-size:16px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opt .om{font-size:13px;font-weight:500;color:var(--tx2)}
+.opt .tick{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--bd2);display:flex;align-items:center;justify-content:center}
+.opt.sel .tick{background:var(--tx);border-color:var(--tx);color:var(--bg)}
+.opt .clash{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--am);margin-top:1px}
+.opt .clash s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--am);text-decoration:none}
+.opt.longer .om em{font-style:normal;color:var(--tx);font-weight:700}
+/* C — not */
+.field{border-radius:18px;background:var(--surf2);padding:14px;min-height:132px;display:flex;flex-direction:column;gap:10px}
+.field .txt{font-size:16px;font-weight:500;line-height:1.45;color:var(--tx)}
+.field .ph{color:var(--tx3)}
+.field .caret{display:inline-block;width:2px;height:19px;background:var(--or);vertical-align:-3px;margin-left:1px}
+.cnt{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--tx3)}
+.kbd{flex:none;background:var(--surf2);border-top:1px solid var(--bd);padding:8px 6px 34px;display:flex;flex-direction:column;gap:7px}
+.krow{display:flex;gap:5px;justify-content:center}
+.kbd b{flex:1;max-width:33px;height:40px;border-radius:6px;background:#3A3630;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500}
+.kbd .wide{max-width:none;flex:2.2}
+.phone.lt .kbd b{background:#FFF;color:#0E0E0E}
+/* D — onay */
+.dlgwrap{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;padding:24px}
+.dlg{width:100%;background:var(--surf);border:1px solid var(--bd);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.dlg h4{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.dlg p{font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5;text-wrap:pretty}
+.dlg .sum{border-radius:18px;padding:14px;background:var(--surf2);display:flex;flex-direction:column;gap:3px}
+.dlg .sum .a{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.dlg .sum .b{font-size:13px;font-weight:500;color:var(--tx2)}
+.dbtns{display:flex;flex-direction:column;gap:9px}
+.dbtns button{height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:16.5px;font-weight:800;letter-spacing:-.01em}
+.dbtns .keep{background:var(--tx);color:var(--bg)}
+.dbtns .go{border:1.5px solid var(--bd2);color:var(--rd)}
+.dbtns .go.hard{border-color:rgba(224,114,114,.45)}
+.holdbar{height:3px;border-radius:2px;background:var(--bd);overflow:hidden;display:flex}
+.holdbar i{width:100%;background:var(--rd);transform-origin:left center;transform:scaleX(.34)}
+/* E — taşıma sonucu */
+.moved{display:flex;flex-direction:column;gap:14px}
+.mvhead{display:flex;align-items:center;gap:10px}
+.gpill{height:28px;padding:0 10px;border-radius:10px;background:rgba(45,143,50,.13);color:var(--gr);display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700}
+.gpill s{flex:none;width:8px;height:8px;border-radius:50%;background:var(--gr);text-decoration:none}
+.gpill.am{background:rgba(217,164,59,.14);color:var(--am)}.gpill.am s{background:var(--am)}
+.mvcard{border-radius:18px;padding:14px;background:var(--surf2);display:flex;flex-direction:column;gap:12px}
+.mvname{font-size:16px;font-weight:500;letter-spacing:-.02em;color:var(--tx2)}
+.mvname b{font-weight:800;color:var(--tx)}
+.mvmove{display:flex;align-items:center;gap:12px}
+.mvfrom,.mvto{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mvfrom .h{font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--tx3);text-decoration:line-through;text-decoration-thickness:1.5px}
+.mvto .h{font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--tx)}
+.mvfrom .s,.mvto .s{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.mvarr{flex:none;color:var(--or);display:flex;align-items:center;justify-content:center}
+.mvsub{font-size:13px;font-weight:500;color:var(--tx2)}
+.mvbtns{display:flex;flex-direction:column;gap:10px}
+.mvbtns .b{height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.mvbtns .undo{background:var(--tx);color:var(--bg);position:relative;overflow:hidden}
+.mvbtns .undo .life{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--or);transform-origin:left center;animation:life 8s linear forwards}
+@keyframes life{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.mvbtns .call{border:1.5px solid var(--bd2);color:var(--tx)}
+.mvbtns .ok{color:var(--tx2);font-size:16px;font-weight:700;height:44px}
+/* takvim arkaplanı (E sahnesi) */
+.calbg{flex:1;display:flex;flex-direction:column;padding:6px 18px 0;gap:6px;opacity:.5}
+.cal-title{display:flex;align-items:flex-end;justify-content:space-between}
+.cal-title .day{display:flex;align-items:flex-end;font-size:48px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--tx2)}
+.cal-title .day i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--or);margin:0 0 9px 5px}
+.cal-title .num{font-size:48px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--tx3)}
+.calgrid{flex:1;display:flex;gap:8px;margin-top:10px}
+.calcol{flex:1;display:flex;flex-direction:column;gap:8px}
+.calcol .hd{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+.blk{border:1px solid var(--bd2);border-radius:12px;padding:8px 9px;font-size:12px;font-weight:700;color:var(--tx2)}
+.blk.hot{border-color:var(--or);color:var(--tx)}
+.blk.gh{border-style:dashed;opacity:.5}
+/* hareket sahneleri */
+.mrow{display:flex;flex-wrap:wrap;gap:34px 40px;margin-bottom:20px}
+.mcase{width:393px;display:flex;flex-direction:column;gap:12px}
+.mstage{padding:14px 18px;background:var(--bg);border:1px solid var(--bd);border-radius:26px;display:flex;flex-direction:column;gap:7px;justify-content:center;min-height:150px}
+.mspec{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mspec b{color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.02em}
+.mspec .rm{color:var(--tx3)}
+.stack{position:relative;display:flex}
+.stack>.ly{flex:1;display:flex}
+.stack>.ly.abs{position:absolute;left:0;top:0;right:0;bottom:0}
+@keyframes wpulse{0%,100%{opacity:1}50%{opacity:.45}}
+/* M1 — geldi'ye basış: takas (döngü 8s) */
+.m1a{animation:m1a 8s linear infinite}
+@keyframes m1a{0%,22%{opacity:1;transform:translateY(0)}24.5%,96%{opacity:0;transform:translateY(-6px)}98.5%,100%{opacity:1;transform:translateY(0)}}
+.m1b{animation:m1b 8s linear infinite}
+@keyframes m1b{0%,23%{opacity:0;transform:translateY(8px)}26%,96%{opacity:1;transform:translateY(0)}98.5%,100%{opacity:0;transform:translateY(8px)}}
+.m1c{animation:m1c 8s linear infinite}
+@keyframes m1c{0%,21.5%{transform:scale(1)}22.6%{transform:scale(.97)}24%,100%{transform:scale(1)}}
+/* M2 — sayfa açılışı, sıralı giriş (döngü 7s) */
+.m2{opacity:0;animation:m2 7s linear infinite}
+@keyframes m2{0%{opacity:0;transform:translateY(10px)}6%,90%{opacity:1;transform:translateY(0)}96%,100%{opacity:0;transform:translateY(10px)}}
+.m2.d1{animation-delay:.04s}.m2.d2{animation-delay:.1s}.m2.d3{animation-delay:.16s}
+/* M3 — taşıma oku (döngü 6s) */
+.m3f{animation:m3f 6s ease-in-out infinite}
+@keyframes m3f{0%,8%{opacity:1;transform:translateX(0)}30%,100%{opacity:.55;transform:translateX(0)}}
+.m3t{animation:m3t 6s cubic-bezier(.2,.8,.25,1) infinite}
+@keyframes m3t{0%,10%{opacity:0;transform:translateX(-14px)}30%,94%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-14px)}}
+.m3a{animation:m3a 6s ease-in-out infinite}
+@keyframes m3a{0%,9%{opacity:0;transform:translateX(-6px)}24%,92%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-6px)}}
+@media (prefers-reduced-motion:reduce){.state.run s,.m1a,.m1b,.m1c,.m2,.m3f,.m3t,.m3a,.mvbtns .undo .life{animation-duration:1ms!important;animation-iteration-count:1!important}.m2{opacity:1}}
+</style></head>
+<body><div class="doc">
+
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Müdür 25 · Randevu kartı, düzenleme ve taşıma sonucu<br/>iPhone 16 Pro 393 × 852 · koyu + aydınlık</div></div>
+
+<div class="lede"><h1>Bu randevuya ne olacak?</h1>
+<p>Randevuya dokununca açılan sayfa bir ayrıntı listesi değil, bir <b>karar sayfası</b>. Müdür günde otuz kez aynı soruyu soruyor ve cevabı dört şeyden biri: geldi mi işaretle, saatini ya da personelini değiştir, iptal et, müşterinin kim olduğuna bak. Bugünkü hâl dört eşit gri satır ve altında iki kırmızı metin — hangisinin günde otuz kez, hangisinin ayda bir basıldığı okunmuyor.</p>
+<p>Yeni düzen üç şeyi yerine oturtuyor: <b>durum</b> sayfanın en küçük cümlesi olmaktan çıkıp adın hemen altına, kendi yüzeyine geçiyor; <b>gün</b> başlığa yazılıyor; dört değiştirme satırı <b>iki kademeye</b> ayrılıyor — saat ve personel jeton olarak, hizmet ve not satır olarak. Kart çerçevesi Müdür 21 ile birebir: <code>padding 14 · radius 18 · gap 12</code>.</p></div>
+
+<div class="chain"><span>Bekliyor</span><i></i><span class="on">Geldi · bekliyor</span><i></i><span class="on">İşlem sürüyor</span><i></i><span class="gr">Tamamlandı</span><i></i><span class="rd">İptal edildi</span></div>
+
+<div class="band"><span class="num">Karar</span><h2>Dört seçim ve gerekçesi</h2><p>Durumun ağırlığı, günün yeri, değiştirme satırlarının hiyerarşisi ve iki onayın birbirinden ayrılması.</p></div>
+
+<div class="prose">
+<p><b>Durum kendi yüzeyine geçiyor, ama rakam olmuyor.</b> “Müşteri geldi.” bugün 14.5 punto gri bir cümle. Yeni hâlinde adın hemen altında <code>h52 · r14</code> bir şerit: 9 px nokta, <code>15.5 / 800</code> kelime, sağda bağlam (<code>09:38’de geldi</code>). Kelime her hâlde yazılı — renk tek başına anlam taşımıyor, iki hâl (<code>Geldi · bekliyor</code> ve <code>İşlem sürüyor</code>) aynı amberi paylaşıyor ve nabız yalnız ikincisinde. Şeridin krem kart olmamasının sebebi: krem kart “bak ve karar ver” demek, durum bir karar değil bir olgu.</p>
+<p><b>Gün başlıkta, saat aralığıyla birlikte.</b> Bugün tarih yalnız “Saati değiştir” satırının içinde küçük gri metinde duruyor; müdür başka güne bakarken bunu kaçırıyor. Yeni kimlik bloğu üç satır: <code>CUMARTESİ 22 AĞUSTOS</code> (bugünse yanına turuncu <code>BUGÜN</code>), altında <code>09:40 – 11:10 · 90 dk</code> (SF Pro, tabular), altında iki rozet — hizmet ve personel. Üç rozet yerine bir <b>zaman satırı + iki rozet</b>: saat en çok bakılan bilgi, rozet kutusunun içinde 13 puntoya sıkışmasının sebebi yoktu.</p>
+<p><b>Dört değiştirme eşit değil, ikiye ayrılıyor.</b> Saat ve personel günde onlarca kez değişir (taşıma, devir, geç kalan personel) — ikisi <code>h84</code> yan yana iki jeton, o anki değeri büyük yazılı, dokunma hedefi geniş. Hizmet ve not ayda birkaç kez değişir — ikisi <code>h62</code> normal satır, değer sağda ikincil mürekkeple. Aynı ekranda dört chevron yerine iki jeton + iki chevron: hiyerarşi tek bakışta okunuyor ve <b>her chevron gerçekten bir şey açıyor</b>.</p>
+<p><b>İki onay birbirinin aynısı değil.</b> İptal geri alınabilir bir iştir: randevu takvimde kalır. Onayı sakin bir doğrulama — başlık, ürünün değişmez cümlesi, özet paneli, ve varsayılan buton <b>Vazgeç</b>. Silme geri alınamaz: onayı bir duraksatma — kırmızı metinli buton kenarlıklı, altında <code>Geri alınamaz</code>, ve uyarı cümlesi diyaloğa taşındı, sayfadan kalktı. Sayfada kalan tek ipucu <code>12 / 500</code> tek satır. <b>Hiçbir yerde dolu kırmızı buton yok.</b></p>
+</div>
+
+<div class="band"><span class="num">Ekranlar</span><h2>A — E · telefon çerçevesinde</h2><p>Hepsi 393 × 852, alt alta. Bir hâl aydınlık temada.</p></div>
+
+<div id="cases"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Üç an · yalnız opaklık ve dönüşüm</h2><p>Süreler 160–320 ms bandında; yükseklik, renk, gölge, yarıçap animasyonu yok.</p></div>
+
+<div class="mrow" id="motion"></div>
+
+<div class="band"><span class="num">Ölçü</span><h2>Ölçü tablosu — CSS ile birebir</h2><p>Değerler yukarıdaki sınıfların birebir karşılığı.</p></div>
+
+<div class="rn" style="max-width:1400px;margin-bottom:26px">
+<div class="r h"><b>Parça</b><s>Ölçü</s><code>Renk / not</code></div>
+<div class="r"><b>Sayfa</b><s>kenar 18 · blok arası 14 · başlık–rozet 8</s><code>zemin #0E0E0E · aydınlıkta #F3ECE0</code></div>
+<div class="r"><b>Üst çubuk</b><s>tutamak 38×5 · başlık 12 / 700 .18em CAPS</s><code>kapat 34×34 dokunma, ikon 20 · ikincil mürekkep</code></div>
+<div class="r"><b>Müşteri adı</b><s>28 px · ilk ad 500 / -.03em · soyadı 800 / -.035em</s><code>ilk ad ikincil mürekkep, soyadı tam mürekkep</code></div>
+<div class="r"><b>Gün satırı</b><s>11.5 / 700 · .14em · CAPS</s><code>ikincil mürekkep · “BUGÜN” turuncu #FF5A1F (zaman = turuncu)</code></div>
+<div class="r"><b>Saat aralığı</b><s>26 / 800 · -.03em · SF Pro tabular</s><code>bitiş saati tx3 · süre eki 14 / 700 ikincil</code></div>
+<div class="r"><b>Rozet</b><s>h32 · padX12 · r10 · 13 / 600 · arası 8</s><code>zemin #201D18 · avatar 20 (1.5 halka #FF5A1F, 9 px baş harf) · Atanmamış halkası tx3</code></div>
+<div class="r"><b>Durum şeridi</b><s>h52 · padX14 · r14 · kelime 15.5 / 800</s><code>nokta 9 · bağlam 12.5 / 600 sağda · amber #D9A43B · yeşil #5FBF64 · kırmızı #E07272 · Bekliyor nötr tx3</code></div>
+<div class="r"><b>Geldi / Gelmedi</b><s>h66 · r18 · arası 10 · 18 / 800</s><code>Geldi dolu #FF5A1F beyaz · Gelmedi kenarlık 1.5 bd2 · yalnız Bekliyor hâlinde</code></div>
+<div class="r"><b>Krem kart</b><s>padding 14 · radius 18 · gap 12</s><code>#FAF3E9 · mürekkep #0E0E0E · ikincil rgba(14,14,14,.52) · aydınlıkta #1C1710 / #F3EDE3 / .58</code></div>
+<div class="r"><b>Kart içi</b><s>jeton 42 daire · rakam 21 / 800 · ek 13.5 / 700 .42</s><code>ok 36 daire (ikon 16) · alt rozet h36 · padX13 · r14 · 13 / 700</code></div>
+<div class="r"><b>Yeni müşteri (A2)</b><s>aynı çerçeve · kenarlık 1 px bd</s><code>dolgusuz — sayfanın düzlemi · jeton kesik kenarlık · rozetler kenarlıklı · <b>ok yok</b> (açacak kart yok)</code></div>
+<div class="r"><b>Jeton (saat / personel)</b><s>h84 · r18 · pad 12/13 · arası 10</s><code>zemin #201D18 · etiket 11 / 700 .13em CAPS · değer 17 / 800</code></div>
+<div class="r"><b>Satır (hizmet / not)</b><s>h62 · ayırıcı 1 px · başlık 15 / 700</s><code>değer sağda 14 / 500 ikincil, en fazla 190 pt, kırpma … · chevron 19 tx3</code></div>
+<div class="r"><b>Yıkıcı bölge</b><s>üst 22 · alt 30 · satır arası 10 · ikon 20</s><code>metin 16 / 700 · ipucu 12 / 500 tx3 · İptal kırmızı, Sil ikincil mürekkep — dolu buton yok</code></div>
+<div class="r"><b>Onay diyaloğu</b><s>kenardan 24 · dolgu 20 · iç 14 · başlık 21 / 800 (-.03em / 1.15)</s><code>gövde 14.5 / 500 · 1.5 · özet r18 pad14 · düğme h52 r16, arası 9</code></div>
+<div class="r"><b>Seçim sheet’i (B)</b><s>köşe 22 · satır padY13 · ad 16 / 700</s><code>ölçü 13 / 500 · seçim halkası 24 · çakışma 12.5 / 600 amber + nokta 7</code></div>
+<div class="r"><b>Not sheet’i (C)</b><s>alan r18 · pad 14 · min 132 · metin 16 / 500 · 1.45</s><code>sayaç 12 / 600 tx3 · Kaydet 15 / 800 turuncu, boşken tx3</code></div>
+<div class="r"><b>Taşıma sheet’i (E)</b><s>köşe 22 · blok arası 14 · başlık 21 / 800 · alt 13.5</s><code>durum rozeti h28 · padX10 · r10 · 12 / 700, zemin rgba(45,143,50,.13), nokta 8 · düğme h60, arası 10</code></div>
+<div class="r"><b>Taşıma hareketi</b><s>eski 22 / 800 tx3 üstü çizili · yeni 22 / 800 tam mürekkep</s><code>ok 20 turuncu — zaman ve eylem rengi · etiketler 11.5 / 700 .10em CAPS</code></div>
+</div>
+
+<div class="band"><span class="num">Hareket</span><h2>Geçiş tablosu</h2><p>Olay · süre · eğri · hangi özellik. Hepsi <code>useNativeDriver</code> ile sürülebilir.</p></div>
+
+<div class="rn" style="max-width:1400px;margin-bottom:26px">
+<div class="r h"><b>Olay</b><s>Süre · eğri</s><code>Özellik ve yerinde kalan</code></div>
+<div class="r"><b>Blok → sayfa</b><s>280 ms · cubic-bezier(.2,.8,.25,1)</s><code>Devam eden eleman <b>müşterinin adı</b>: takvim bloğundaki 12 / 700 ad, sayfadaki 28 px ada <code>transform: scale + translate</code> ile taşınır (opacity 1 boyunca). Sayfa yüzeyi altından <code>translateY 100%→0</code>, perde <code>opacity 0→.55</code>.</code></div>
+<div class="r"><b>İçerik girişi</b><s>240 ms · cubic-bezier(.2,.8,.25,1)</s><code>Üç kademe, <b>60 ms</b> arayla: (1) ad + kimlik, (2) durum şeridi + Geldi/Gelmedi, (3) müşteri kartı + jetonlar + satırlar. <code>opacity 0→1, translateY 10→0</code>. Yıkıcı bölge kademesizdir — son kademeyle birlikte gelir, dikkat çekmez.</code></div>
+<div class="r"><b>“Geldi”ye basış</b><s>çıkan 160 ms cubic-bezier(.4,0,1,1) · giren 220 ms cubic-bezier(.2,.8,.25,1), 60 ms gecikme</s><code><b>Takas, dönüşüm değil.</b> İki buton <code>opacity 1→0, translateY 0→-6</code>; durum şeridinin içeriği <code>opacity 0→1, translateY 8→0</code>. Şeridin kendisi (yüzey, r14, h52) hiç kıpırdamaz — dönüşüm izlenimi ondan çıkar. Basılan buton 110 ms <code>scale .97</code>.</code></div>
+<div class="r"><b>Yükseklik kapanışı</b><s>tek kare</s><code>Butonlar gidince sayfa 76 pt kısalır. Bu düşüş butonlar <code>opacity 0</code> olduktan <b>sonra</b>, tek karede yapılır; LayoutAnimation yok, görünen hiçbir öğe boyut değiştirmez.</code></div>
+<div class="r"><b>Alt sheet açılışı (B, C, E)</b><s>300 ms · cubic-bezier(.2,.8,.25,1) · kapanış 240 ms cubic-bezier(.4,0,1,1)</s><code><code>translateY 100%→0</code> + perde <code>opacity 0→.55</code>. Sheet içeriği kademelenmez: seçim listesi tek blok gelir.</code></div>
+<div class="r"><b>Onay diyaloğu (D)</b><s>200 ms · cubic-bezier(.2,.8,.25,1)</s><code><code>opacity 0→1</code> + <code>scale .96→1</code>. Sheet değil, ortada — karar sayfanın akışını keser. Kapanış 160 ms yalnız opacity.</code></div>
+<div class="r"><b>Taşıma oku (E)</b><s>eski saat 180 ms · yeni saat 260 ms cubic-bezier(.2,.8,.25,1), 80 ms gecikme</s><code>Eski saat <code>opacity 1→.55</code> (yerinde kalır, üstü çizili). Ok <code>opacity 0→1, translateX -6→0</code>. Yeni saat <code>opacity 0→1, translateX -14→0</code> — hareket soldan sağa okunur, taşımanın kendisi gibi.</code></div>
+<div class="r"><b>Geri al ömrü</b><s>8000 ms · linear</s><code>Düğmenin alt kenarındaki 3 px çubuk <code>transform: scaleX(1→0)</code>, sol köken. Renk değişmez, yükseklik değişmez. Sayaç bitince <b>sheet kapanmaz</b> — yalnız Geri al düğmesi 240 ms <code>opacity 1→0</code> ile gider, yerine boşluk değil <code>Tamam</code> yükselir (<code>translateY 8→0</code>).</code></div>
+<div class="r"><b>Hareketi azalt</b><s>süreler 0</s><code>Kademeli giriş kapanır (hepsi tek karede), geri al çubuğu render edilmez — yerine <code>8 sn</code> yazısı düğmenin sağında sayar. Bilgi harekete emanet edilmez.</code></div>
+</div>
+
+<div class="band"><span class="num">Sınır</span><h2>375 × 667’de sıkışan yerler</h2><p>Dört kural; sayfa yüksekliği 185 pt kısalıyor.</p></div>
+
+<div class="case"><div id="small"></div>
+<div class="side"><h3><s>DAR EKRAN</s>Dört sıkışma, dört kural</h3>
+<div class="note"><span><b>Sayfa kaydırılır, yıkıcı bölge sabitlenmez.</b> 393’te A1 tam sığıyor (852 − 59 durum − 26 tutamak − 46 başlık = 721; içerik 706). 375 × 667’de içerik 90 pt taşar: sayfa kaydırılır ve <code>Randevuyu iptal et</code> ilk ekranda görünmez. Bu kasıtlı — yıkıcı eylem aranarak bulunur.</span></div>
+<div class="note"><span><b>Jetonlar 375’te de yan yana kalır</b> (iki jeton 167,5 + 10). Sığmayan tek şey personel değeri: <code>Deniz</code> sığar, <code>Gülşah K.</code> baş harfe düşmez, <code>numberOfLines 1</code> ile kırpılır. Jeton alt alta inmez — inince “iki eşit satır” hissi geri gelir.</span></div>
+<div class="note"><span><b>Saat aralığı 24 px’e iner</b> (26 → 24), gün satırı aynı kalır. <code>09:40 – 11:10 · 90 dk</code> 375’te 311 pt genişlikte 26 px’te taşıyor; kırpmak yerine puntoyu düşürüyoruz — saat kırpılmaz.</span></div>
+<div class="note"><span><b>Krem kartın alt rozetleri sarmalanır.</b> 393’te <code>Bakiye ₺0</code> + <code>Telefon 0532 ••• 03 03</code> tek satır; 375’te telefon rozeti alta iner, kart 96 → 132 pt olur. Rozet metni kısaltılmaz — maskeli telefon zaten kısaltılmış bir bilgidir.</span></div>
+</div></div>
+
+<div class="band"><span class="num">Uygulama</span><h2>React Native notları</h2><p></p></div>
+
+<div class="rn" style="max-width:1400px">
+<div class="r h"><b>Konu</b><s>Kural</s><code>Ayrıntı</code></div>
+<div class="r"><b>Metin kırpma</b><s>numberOfLines</s><code>ad 1 · gün 1 · hizmet rozeti 1 · durum kelimesi 1 · jeton değeri 1 · satır değeri 1 · not önizlemesi 2. Saat aralığı ve tutar <code>flexShrink: 0</code> — hiçbir koşulda kırpılmaz.</code></div>
+<div class="r"><b>Uzun ad</b><s>iki satıra iner</s><code>28 px’te <code>Gülşah Karaosmanoğlu</code> 393’te taşar: ad bloğu <code>numberOfLines 2</code>, satır yüksekliği 1.1. İki satıra inerse durum şeridi aşağı kayar, sayfa kısalmaz — Geldi/Gelmedi butonları her hâlde ilk ekranda kalır.</code></div>
+<div class="r"><b>Uzun hizmet adı</b><s>rozet kırpılır, satır kırpılmaz</s><code>Kimlik rozetinde <code>Saç boyama + kesim + fön</code> ellipsis alır (rozet en fazla 220 pt). “Hizmeti değiştir” satırındaki değer <code>tail</code> kırpılır ama ücret korunur: <code>Saç boyama + ke… · ₺2.400</code> — para bilgisi asla kırpılmaz.</code></div>
+<div class="r"><b>Durum kaynağı</b><s>tek alan</s><code>Beş hâl tek enum: <code>waiting · arrived · running · done · cancelled</code>. Geldi/Gelmedi yalnız <code>waiting</code>’te render edilir; öteki dört hâlde <b>hiç çizilmez</b> (disabled değil — ölü kontrol yok).</code></div>
+<div class="r"><b>Chevron kuralı</b><s>açan varsa çizilir</s><code>İptal edilmiş randevuda hizmet ve not satırları ile jetonlar render edilmez, yerine tek satırlık <code>İptal edildi · 21 Ağu 14:02</code> geçer. Chevron gösterip hiçbir şey açmayan satır yok.</code></div>
+<div class="r"><b>Not alanı</b><s>280 karakter</s><code>Boş not kaydedilirse alan temizlenir ve satır <code>Not yok</code>’a döner (silme onayı yok — geri alınabilir bir iş). Kaydet klavyenin üstünde değil, sheet başlığının sağında: tek elle başparmak erişimi zor olsa da alan büyüdükçe düğme kaymaz. <code>KeyboardAvoidingView</code> yalnız sheet’i iter.</code></div>
+<div class="r"><b>Çakışma hesabı</b><s>seçmeden önce</s><code>Hizmet listesi açılırken her seçeneğin yeni bitiş saati istemcide hesaplanır ve o personelin o günkü blokları ile kesişim aranır. Çakışan seçenek <b>engellenmez</b>, uyarısı satırın içinde yazılır: <code>Deniz · 13:00–14:30</code>. Müdür bilerek çakıştırabilir.</code></div>
+<div class="r"><b>Taşıma sonucu</b><s>kendiliğinden kapanmaz</s><code>Sheet açık kalır; yalnız Geri al 8 sn sonra düşer. Gerekçe: müdür telefonu cebine koyup müşteriye bakabiliyor, sheet kendiliğinden kapanırsa “ne oldu” bilgisi kaybolur ve <code>Müşteriyi ara</code> erişilemez olur. Kapatma her zaman elle: <code>Tamam</code>, tutamak ya da perde.</code></div>
+<div class="r"><b>Geçmiş saate taşıma</b><s>uyarı, engel değil</s><code>Hedef saat şu andan önceyse yeşil rozet amberle değişir: <code>taşındı · geçmiş saate</code> ve alt metin <code>Bu saat geçti. Randevu geçmişte görünecek.</code> Geldi/Gelmedi soruları o randevuda hâlâ sorulur — müşteri gelmiş olabilir.</code></div>
+<div class="r"><b>Bildirim yok</b><s>sahte teslimat yasağı</s><code>Hiçbir ekranda “müşteriye haber verildi” yazmaz. Tek bildirme yolu <code>Müşteriyi ara</code> → <code>Linking.openURL('tel:…')</code>. Telefon kayıtlı değilse düğme render edilmez (gri değil, yok).</code></div>
+<div class="r"><b>Native sürücü</b><s>useNativeDriver: true</s><code>opacity + translateX/Y + scale. Yükseklik, renk, yarıçap, gölge animasyonu yok; renk değişimi iki yüzeyin üst üste soldurulmasıyla.</code></div>
+<div class="r"><b>Erişilebilirlik</b><s>tek cümle</s><code>“Ayşe Yılmaz, cumartesi 22 Ağustos, 09:40 – 11:10, 90 dakika, saç boyama, Deniz ile, geldi bekliyor” · düğmeler <code>accessibilityRole: button</code>, yıkıcı olanlar <code>accessibilityHint</code> ile: “randevu takvimde kalır”.</code></div>
+<div class="r"><b>Dokunma</b><s>≥ 44 pt</s><code>Jeton 84 · satır 62 · yıkıcı satır 44 (ikon + metin tek Pressable) · kapat 34 + hitSlop 6 · sheet seçim satırı 50.</code></div>
+</div>
+
+</div>
+<script>
+const ic={
+ x:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+ chev:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+ clock:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+ swap:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
+ trash:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+ ban:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+ arw:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>',
+ mv:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg>',
+ undo:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7L4 12l5 5"/><path d="M4 12h9a6 6 0 010 12h-1"/></svg>',
+ tel:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h4l2 5-3 2a12 12 0 005 5l2-3 5 2v4a2 2 0 01-2 2A16 16 0 014 5a2 2 0 012-2z"/></svg>',
+ tick:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
+};
+
+const chrome=(inner,cls,t)=>`<div class="phone ${cls||''}">
+<div class="status"><span class="n">${t||'09:38'}</span><div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">${inner}</div><div class="home-ind"></div></div>`;
+
+const head=`<div class="grab"><i></i></div><div class="phd"><span class="t">Randevu</span><span class="xbtn">${ic.x}</span></div>`;
+
+const ident=(day,today,from,to,dur,svc,staff,init)=>`<div class="ident">
+<div class="iday"><span class="d">${day}</span>${today?'<span class="today">Bugün</span>':''}</div>
+<div class="span n">${from}<span class="to">– ${to}</span><span class="du">· ${dur} dk</span></div>
+<div class="pills"><span class="pill">${svc}</span>${staff==='Atanmamış'?`<span class="pill av none"><s>—</s>Atanmamış</span>`:`<span class="pill av"><s>${init}</s>${staff}</span>`}</div></div>`;
+
+const state=(k,w,x)=>`<div class="state ${k}"><s></s><span class="w">${w}</span>${x?`<span class="x">${x}</span>`:''}</div>`;
+const acts=`<div class="acts"><button class="yes">Geldi</button><button class="no">Gelmedi</button></div>`;
+
+const custCard=`<div class="pnl"><div class="in">
+<div class="crow"><span class="tok"><span class="v n">3</span><span class="u">.</span></span>
+<span class="ccol"><span class="ctt">3. ziyaret</span><span class="csb">Son: 12 Tem · Keratin bakımı</span></span>
+<span class="arw">${ic.arw}</span></div>
+<div class="cchips"><span class="chip">Bakiye ₺0</span><span class="chip">0532 ••• 03 03</span></div></div></div>`;
+
+const newCard=`<div class="newc">
+<div class="crow"><span class="tok"><span class="v">İlk</span></span>
+<span class="ccol"><span class="ctt">Yeni müşteri</span><span class="csb">İlk ziyaret · geçmiş kayıt yok</span></span></div>
+<div class="cchips"><span class="chip">0545 ••• 71 20</span><span class="chip q">Telefonla verildi</span></div></div>`;
+
+const tiles=(t,st,init)=>`<div class="tiles">
+<div class="tile"><span class="k">${ic.clock}Saati değiştir</span><span class="v n">${t}</span></div>
+<div class="tile"><span class="k">${ic.swap}Personeli değiştir</span><span class="v">${init?`<s>${init}</s>`:''}${st}</span></div></div>`;
+
+const rows=(svc,note)=>`<div class="rows">
+<div class="lrow"><span class="lk">Hizmeti değiştir</span><span class="lv">${svc}</span><span class="chv">${ic.chev}</span></div>
+<div class="lrow"><span class="lk">Notu düzenle</span><span class="lv">${note}</span><span class="chv">${ic.chev}</span></div></div>`;
+
+const dz=`<div class="dz">
+<button><span class="ic">${ic.ban}</span><span class="col"><span class="tt">Randevuyu iptal et</span><span class="hint">Takvimde kalır, iptal işaretlenir</span></span></button>
+<button class="quiet"><span class="ic">${ic.trash}</span><span class="col"><span class="tt">Randevuyu sil</span><span class="hint">Geri alınamaz</span></span></button></div>`;
+
+/* ── A1 ── */
+const A1=`${head}<div class="page">
+<div class="who"><div class="nm">Elif <b>Demir</b></div></div>
+${ident('Cumartesi 22 Ağustos',true,'10:30','11:15',45,'Keratin bakımı','Selin','S')}
+${state('here','Geldi · bekliyor','09:38’de geldi')}
+${custCard}
+${tiles('Cmt 10:30','Selin','S')}
+${rows('Keratin bakımı · ₺1.800','Not yok')}
+${dz}</div>`;
+
+/* ── A2 ── */
+const A2=`${head}<div class="page">
+<div class="who"><div class="nm">Ayşe <b>Yılmaz</b></div></div>
+${ident('Cumartesi 22 Ağustos',true,'09:40','11:10',90,'Saç boyama','Deniz','D')}
+${state('wait','Bekliyor','10 dk sonra')}
+${acts}
+${newCard}
+${tiles('Cmt 09:40','Deniz','D')}
+${rows('Saç boyama · ₺2.400','Not yok')}
+${dz}</div>`;
+
+/* ── A3 · tamamlandı ── */
+const A3=`${head}<div class="page">
+<div class="who"><div class="nm">Merve <b>Aydın</b></div></div>
+${ident('Cuma 21 Ağustos',false,'14:00','15:30',90,'Saç boyama','Deniz','D')}
+${state('done','Tamamlandı','₺2.400 tahsil edildi · 15:34')}
+${custCard}
+${tiles('Cum 14:00','Deniz','D')}
+${rows('Saç boyama · ₺2.400','Saç boyası alerjisi var')}
+${dz}</div>`;
+
+/* ── A4 · iptal edilmiş ── */
+const A4=`${head}<div class="page">
+<div class="who"><div class="nm">Kerem <b>Yıldız</b></div></div>
+${ident('Cumartesi 22 Ağustos',true,'16:00','16:45',45,'Sakal + kesim','Atanmamış','')}
+${state('cx','İptal edildi','21 Ağu 14:02')}
+${custCard}
+<div class="cxbar">İptal edilmiş randevu düzenlenmez. Yeni randevu verin.</div>
+<div class="dz"><button class="quiet"><span class="ic">${ic.trash}</span><span class="col"><span class="tt">Randevuyu sil</span><span class="hint">Geri alınamaz · takvimden tamamen kalkar</span></span></button></div></div>`;
+
+/* ── B · hizmeti değiştir ── */
+const optRow=(n,m,sel,clash)=>`<div class="opt ${sel?'sel':''} ${clash?'longer':''}">
+<span class="oc"><span class="on">${n}</span><span class="om">${m}</span>${clash?`<span class="clash"><s></s>${clash}</span>`:''}</span>
+<span class="tick">${sel?ic.tick:''}</span></div>`;
+
+const B=`<div class="calbg"><div class="cal-title"><span class="day">Cmt<i></i></span><span class="num n">22</span></div>
+<div class="calgrid"><div class="calcol"><span class="hd">Selin</span><div class="blk hot">10:30 Elif</div><div class="blk">13:00 Nur</div></div>
+<div class="calcol"><span class="hd">Deniz</span><div class="blk">09:40 Ayşe</div></div></div></div>
+<div class="scrim"></div>
+<div class="sheet"><div class="grab"><i></i></div>
+<div class="shd"><h4>Hizmeti değiştir</h4><span class="sv off">Kaydet</span></div>
+<div class="ssub">Elif Demir · Cumartesi 10:30 · Selin ile. Süre değişirse randevu bloğu uzar.</div>
+<div class="opts">
+${optRow('Kaş alma','20 dk · ₺400',false,'')}
+${optRow('Kesim + fön','45 dk · ₺900',false,'')}
+${optRow('Keratin bakımı','45 dk · ₺1.800',true,'')}
+${optRow('Saç boyama','<em>90 dk</em> · ₺2.400',false,'Selin · 13:00–14:30 ile çakışır')}
+${optRow('Ombre','<em>150 dk</em> · ₺3.600',false,'Selin · 13:00–14:30 ile çakışır')}
+</div></div>`;
+
+/* ── C · notu düzenle ── */
+const C=`<div class="calbg" style="opacity:.35"><div class="cal-title"><span class="day">Cmt<i></i></span><span class="num n">22</span></div></div>
+<div class="scrim"></div>
+<div class="sheet" style="padding-bottom:0">
+<div class="grab"><i></i></div>
+<div class="shd"><h4>Notu düzenle</h4><span class="sv">Kaydet</span></div>
+<div class="ssub">Salonun notu. Müşteri görmez, müşteri kartına yazılmaz.</div>
+<div class="field"><div class="txt">Saç boyası alerjisi var, yama testi yapıldı<span class="caret"></span></div></div>
+<div class="cnt"><span>Bu randevuya ait</span><span class="n">42 / 280</span></div>
+<div class="kbd">
+<div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+<div class="krow"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+<div class="krow"><b class="wide">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="wide">⌫</b></div>
+<div class="krow"><b class="wide">123</b><b style="flex:6;max-width:none"> </b><b class="wide">.</b></div>
+</div></div>`;
+
+/* ── D · iptal onayı ── */
+const D=`${head}<div class="page" style="opacity:.35">
+<div class="who"><div class="nm">Elif <b>Demir</b></div></div>
+${ident('Cumartesi 22 Ağustos',true,'10:30','11:15',45,'Keratin bakımı','Selin','S')}
+${state('here','Geldi · bekliyor','09:38’de geldi')}
+${custCard}</div>
+<div class="scrim"></div>
+<div class="dlgwrap"><div class="dlg">
+<h4>Randevu iptal edilsin mi?</h4>
+<p>Randevu takvimde kalır, “iptal edildi” diye işaretlenir. Müşteriye otomatik haber gitmez, siz arayın.</p>
+<div class="sum"><span class="a">Elif Demir</span><span class="b">Cumartesi 22 Ağustos · 10:30 – 11:15 · Selin</span></div>
+<div class="dbtns"><button class="keep">Vazgeç</button><button class="go">Randevuyu iptal et</button></div>
+</div></div>`;
+
+/* ── D2 · silme onayı ── */
+const D2=`${head}<div class="page" style="opacity:.35">
+<div class="who"><div class="nm">Elif <b>Demir</b></div></div>
+${ident('Cumartesi 22 Ağustos',true,'10:30','11:15',45,'Keratin bakımı','Selin','S')}
+${state('here','Geldi · bekliyor','09:38’de geldi')}
+${custCard}</div>
+<div class="scrim"></div>
+<div class="dlgwrap"><div class="dlg">
+<h4>Randevu silinsin mi?</h4>
+<p>Silinen randevu geri gelmez, takvimden tamamen kalkar. Gelmeyen müşteri için “Gelmedi”yi kullanın.</p>
+<div class="sum"><span class="a">Elif Demir</span><span class="b">Cumartesi 22 Ağustos · 10:30 – 11:15 · Selin</span></div>
+<div class="dbtns"><button class="keep">Vazgeç</button><button class="go hard">Randevuyu sil</button><div class="holdbar"><i></i></div></div>
+</div></div>`;
+
+/* ── E · taşıma sonucu ── */
+const mvBlock=(fromT,fromS,toT,toS,anim)=>`<div class="mvmove">
+<span class="mvfrom ${anim?'m3f':''}"><span class="h n">${fromT}</span><span class="s">${fromS}</span></span>
+<span class="mvarr ${anim?'m3a':''}">${ic.mv}</span>
+<span class="mvto ${anim?'m3t':''}"><span class="h n">${toT}</span><span class="s">${toS}</span></span></div>`;
+
+const calBack=`<div class="calbg"><div class="cal-title"><span class="day">Cmt<i></i></span><span class="num n">22</span></div>
+<div class="calgrid"><div class="calcol"><span class="hd">Selin</span><div class="blk gh">12:00 Nur</div><div class="blk hot" style="margin-top:40px">13:30 Nur</div></div>
+<div class="calcol"><span class="hd">Deniz</span><div class="blk">09:40 Ayşe</div></div>
+<div class="calcol"><span class="hd">Merve</span><div class="blk">11:00 Zeynep</div></div></div></div>`;
+
+const E1=`${calBack}<div class="scrim"></div>
+<div class="sheet"><div class="grab"><i></i></div>
+<div class="moved">
+<div class="mvhead"><span class="gpill"><s></s>taşındı</span></div>
+<div class="mvcard">
+<div class="mvname">Nur <b>Aksoy</b></div>
+${mvBlock('12:00','Selin','13:30','Selin')}
+<div class="mvsub">Kaş alma · 20 dk · bugün</div></div>
+<div class="mvbtns">
+<button class="b undo">${ic.undo}Geri al<span class="life"></span></button>
+<button class="b call">${ic.tel}Müşteriyi ara</button>
+<button class="b ok">Tamam</button></div>
+</div></div>`;
+
+const E2=`${calBack}<div class="scrim"></div>
+<div class="sheet"><div class="grab"><i></i></div>
+<div class="moved">
+<div class="mvhead"><span class="gpill am"><s></s>taşındı · geçmiş saate</span></div>
+<div class="mvcard">
+<div class="mvname">Nur <b>Aksoy</b></div>
+${mvBlock('12:00','Selin','08:30','Merve')}
+<div class="mvsub">Bu saat geçti. Randevu geçmişte görünecek.</div></div>
+<div class="mvbtns">
+<button class="b undo">${ic.undo}Geri al<span class="life"></span></button>
+<button class="b call">${ic.tel}Müşteriyi ara</button>
+<button class="b ok">Tamam</button></div>
+</div></div>`;
+
+const CASES=[
+ {id:'A1',ttl:'Randevu kartı — geçmişi bilinen müşteri',h:A1,t:'09:38',
+  lead:'Müşteri geldi, işlem başlamadı. Sayfa yukarıdan aşağı tek bir cümle kuruyor: <b>kim · ne zaman · hangi durumda · geçmişi ne · neyi değiştirebilirim · neyi bitirebilirim</b>. Geldi/Gelmedi burada <b>yok</b> — o soru zaten cevaplandı.',
+  notes:['<b>Durum şeridi butonların yerini aldı.</b> Müşteri geldiği anda iki 66 pt buton gider, yerlerine tek 52 pt şerit gelir; sayfa 76 pt kısalır ve yıkıcı bölge yukarı çıkar. Şerit sağında bağlam var (<code>09:38’de geldi</code>) — “ne zamandan beri bekliyor” sorusunun cevabı.',
+   '<b>Krem kart sayfanın tersi düzlem.</b> Aynı çerçeve: <code>padding 14 · radius 18 · gap 12</code>. Jeton <code>3.</code> ziyaret sayısı; ok müşteri kartını açar — ok var çünkü açacak bir şey var.',
+   '<b>Jetonlar değeriyle konuşuyor.</b> “Saati değiştir” bir vaat, <code>Cmt 10:30</code> bir olgu. Etiket 11 punto üstte kalıyor, değer 17 punto — müdür jetona bakınca ne olduğunu, dokununca ne değişeceğini görüyor.',
+   '<b>Sayfa 706 pt.</b> 393 × 852’de tam sığar: kaydırma yok, yıkıcı bölge ekranın dibinde ama görünür. Bu tek hâlde <code>margin-top:auto</code> hiçbir şey yapmıyor — içerik zaten dolduruyor.'],
+  spec:[['Sayfa','kenar 18 · blok 14','içerik 706 pt — kaydırmasız'],['Durum','h52 · r14 · 15.5/800','amber #D9A43B · nabız yok'],['Krem kart','96 pt','jeton 42 · ok 36 · rozet h36']]},
+ {id:'A2',ttl:'Geçmişi bilinmeyen müşteri',h:A2,t:'09:30',
+  lead:'Müşteri hakkında hiçbir kayıt yok. Krem kartın yerini boşluk almıyor: <b>“yeni müşteri” bir bilgidir</b>. Aynı çerçeve, aynı 14 dolgu — ama dolgusuz, yalnız 1 px kenarlıkla. Sayfanın düzleminde kalıyor çünkü açacak bir kart yok.',
+  notes:['<b>Ok yok.</b> Krem kartta sağda 36 pt ok var, burada yok — dokununca hiçbir şey açmaz. Bugünkü sayfanın en büyük şikâyeti ölü kontroldü; boş hâl onu geri getirmemeli.',
+   '<b>Ne biliniyorsa o yazılı.</b> <code>Yeni müşteri</code> + <code>İlk ziyaret · geçmiş kayıt yok</code>, altında bilinen tek şey: maskeli telefon ve randevunun nereden geldiği (<code>Telefonla verildi</code>). Bakiye rozeti yok — bakiyesi olmayan müşteri için <code>Bakiye ₺0</code> yazmak bilgi değil gürültü.',
+   '<b>Geldi / Gelmedi burada var.</b> Durum <code>Bekliyor</code>, nokta nötr — amber değil, çünkü henüz bekleyen bir şey yok, randevu saati bile gelmedi. Şerit sağında <code>10 dk sonra</code>.',
+   '<b>Kesik kenarlıklı jeton</b> rakamın olmadığını söylüyor: <code>İlk</code> yazıyor, sıfır yazmıyor. Sıfır bir ölçüm, “ilk” bir hâl.'],
+  spec:[['Yeni müşteri','çerçeve aynı · kenarlık 1 px','dolgusuz — krem kart değil'],['Jeton','42 · kesik kenarlık','metin 15 / 800 ikincil'],['Bekliyor','nokta tx3','nötr — amber bekleme için ayrılmış']]},
+ {id:'A3',ttl:'Tamamlandı — geçmiş gün',h:A3,t:'11:04',
+  lead:'Dünkü randevu. Durum yeşil, Geldi/Gelmedi yok, tahsilat bilgisi şeridin sağında. <b>Gün satırında “Bugün” yok</b> — müdürün başka güne baktığını söyleyen tek şey bu, ve bu yüzden gün başlığa çıktı.',
+  notes:['<b>Yeşil yalnız burada.</b> Bu üründe yeşil “bitti” demek; Müdür 21’in tahsilat satırıyla aynı kelime ailesi. Şeridin sağındaki <code>₺2.400 tahsil edildi · 15:34</code> Kasa ekranına gitmeden cevabı veriyor.',
+   '<b>Değiştirme kalıyor.</b> Bitmiş randevunun saati de personeli de düzeltilebilir — geçmişe dönük kayıt düzeltmesi salonda sık. Chevron’lar duruyor çünkü hepsi bir şey açıyor.',
+   '<b>Not doluysa satır önizleme gösterir:</b> <code>Saç boyası alerjisi var</code>, en fazla 190 pt, kırpma <code>…</code>. Boşken <code>Not yok</code> — ürünün kelimesi.',
+   '<b>İptal et hâlâ duruyor</b> ama tamamlanmış randevuda anlamı “kaydı iptale çevir” değil; bu hâlde yalnız <code>Randevuyu sil</code> gösterilir. Yukarıdaki çerçevede ikisi de çizili — hangisinin hangi durumda görüneceği tabloda.'],
+  spec:[['Yeşil','#5FBF64 · nokta 9','aydınlıkta #2F7D3C'],['Gün','Bugün rozeti yok','başka gün — turuncu kelime çizilmez'],['Not önizleme','14 / 500 · maks 190 pt','tail kırpma']]},
+ {id:'A4',ttl:'İptal edildi — ölü kontrol yok',h:A4,t:'14:03',
+  lead:'İptal edilmiş randevuda düzenlenecek bir şey yok. <b>Jetonlar ve satırlar hiç çizilmiyor</b> — devre dışı gri satır değil, yokluk. Yerinde tek cümle duruyor ve altta yalnız silme kalıyor.',
+  notes:['<b>Kırmızı durum, sakin sayfa.</b> Nokta ve kelime kırmızı; başka hiçbir yerde kırmızı yok. Sayfa telaş üretmiyor, bir kaydı gösteriyor.',
+   '<b>Müşteri kartı kalıyor.</b> İptal edilen randevu bile müşteri hakkında bilgi taşır ve müdür ne sıklıkla iptal ettiğine bakar. Ok çalışıyor.',
+   '<b>“Atanmamış” personel rozeti</b> turuncu halka yerine nötr halka alıyor: turuncu bu üründe zaman ve eylem taşır, atanmamışlık ikisi de değil.',
+   '<b>Bilgi cümlesi kutu değil.</b> <code>h52</code> kenarlıklı satır, dolgusuz — “burada bir şey yok” demenin en sessiz yolu. Krem kart olsaydı bakılacak bir şey vaat ederdi.'],
+  spec:[['Kırmızı','#E07272','aydınlıkta #C94040'],['Bilgi satırı','h52 · r14 · kenarlık 1 px','13.5 / 600 ikincil'],['Yıkıcı','tek satır','iptal edilmişte iptal seçeneği yok']]},
+ {id:'A1-L',ttl:'Aydınlık tema — gömülü kart tersine döner',h:A1,t:'09:38',light:true,
+  lead:'Krem sayfa üstünde krem kart düzlem değiştirmez. Kart <b>#1C1710 / #F3EDE3</b> olur; jetonlar ve durum şeridi ise sayfanın kendi yüzeyinde kalır (<code>#EFE8DD</code>) — tersine dönen yalnız müşteri kartı.',
+  notes:['<b>Tek düzlem tersine döner.</b> Durum şeridi ve jetonlar sayfayla aynı ailedendir, koyulaşmazlar; müşteri kartı “başka bir yere açılan kapı” olduğu için tersine döner. İki kural aynı ekranda çelişmiyor çünkü işlevleri farklı.',
+   '<b>Turuncu iki temada da aynı.</b> <code>Geldi</code> butonu, <code>Bugün</code> kelimesi ve avatar halkası #FF5A1F kalır — müdür temayı değiştirdiğinde eylemi yeniden öğrenmez.',
+   '<b>Kırmızı krem üstünde koyulaşır:</b> #E07272 → #C94040. Yıkıcı metin aydınlıkta da metin; dolu buton yok.',
+   '<b>Ölçüler değişmez.</b> Aynı 18 kenar, aynı 14 blok arası, aynı 28 px ad, aynı 52 pt şerit.'],
+  spec:[['Sayfa','#F3ECE0','ayırıcı rgba(14,14,14,.10)'],['Müşteri kartı','#1C1710','mürekkep #F3EDE3 · ikincil .58'],['Jeton / şerit','#EFE8DD','sayfayla aynı aile']]},
+ {id:'B',ttl:'Hizmeti değiştir — çakışma seçmeden önce',h:B,t:'09:41',sheet:true,
+  lead:'Küçük bir seçim sheet’i. Her satır <b>ad · süre · ücret</b>; seçili olan işaretli. Süre değişince blok uzar, uzayan blok sonraki randevuyla çakışabilir — <b>çakışma satırın içinde, seçmeden önce yazılı</b>.',
+  notes:['<b>Çakışan seçenek engellenmiyor.</b> Amber uyarı satırın altında, ürünün çakışma diliyle: <code>Selin · 13:00–14:30</code>. Müdür bilerek çakıştırabilir — salonda iki işi paralel yürütmek olağan. Engellemek müdürü uygulamanın dışına iter.',
+   '<b>Uzayan süre kalın.</b> <code>90 dk</code> ve <code>150 dk</code> tam mürekkep ve 700 ağırlık; kısalan ya da aynı kalan süreler normal. Değişimin yönü rakamda okunuyor.',
+   '<b>Kaydet başlıkta ve seçim yapılana kadar sönük.</b> Seçili hizmet zaten işaretli olduğu için sheet açılır açılmaz Kaydet basılabilir değil — <code>tx3</code>, ölü değil sönük: bir seçim yapılınca turuncuya döner.',
+   '<b>Alt metin bağlamı taşıyor:</b> <code>Elif Demir · Cumartesi 10:30 · Selin ile</code>. Sheet sayfanın üstünde açılıyor ve sayfa görünmüyor; hangi randevuyu değiştirdiğini sheet kendi söylüyor.'],
+  spec:[['Sheet','köşe 22 · kenar 18 · alt 30','zemin #171512'],['Satır','padY 13 · ayırıcı 1 px','ad 16 / 700 · ölçü 13 / 500'],['Çakışma','12.5 / 600 amber','nokta 7 · ürünün biçimi']]},
+ {id:'C',ttl:'Notu düzenle — klavye açık',h:C,t:'09:42',sheet:true,
+  lead:'Tek alanlı yazı sheet’i. Not <b>salona ait</b>, müşteriye değil: “saç boyası alerjisi”, “otoparkta bekliyor”. Alan sheet’in içinde, klavye altında; <b>Kaydet başlığın sağında</b> — alan büyüdükçe düğme kaymaz.',
+  notes:['<b>Kaydet neden yukarıda.</b> Klavyenin üstündeki bir çubuk her karakterde yerini korumak için hesap ister ve iki elle kullanımı zorlar. Başlıktaki Kaydet sabit; tek elle uzanması zor ama <b>yanlışlıkla basılması da zor</b> — not yazarken istenen bu.',
+   '<b>Boş not silme demek.</b> Alan boşaltılıp kaydedilirse satır <code>Not yok</code>’a döner ve onay sorulmaz: geri alınabilir bir iş, tekrar yazılabilir.',
+   '<b>280 karakter.</b> Sayaç alanın altında sağda, sürekli görünür; 240’ı geçince amberleşir, 280’de giriş durur. Not bir hatırlatma, bir dosya değil.',
+   '<b>Alt metin sınırı çiziyor:</b> <code>Müşteri görmez, müşteri kartına yazılmaz.</code> Müdürün “bunu müşteri okur mu” tereddüdünü kaldırıyor — ve uygulamanın bir şey gönderdiği izlenimini vermiyor.'],
+  spec:[['Alan','r18 · pad 14 · min 132','metin 16 / 500 · 1.45'],['Sayaç','12 / 600 tx3','240+ amber · 280 sert sınır'],['Kaydet','15 / 800 turuncu','değişiklik yokken tx3']]},
+ {id:'D',ttl:'İptal onayı — sakin doğrulama',h:D,t:'09:44',
+  lead:'İptal geri alınabilir bir iştir; onayı bir doğrulama. Değişmez cümle gövdede: <b>“Randevu takvimde kalır, ‘iptal edildi’ diye işaretlenir. Müşteriye otomatik haber gitmez, siz arayın.”</b> Varsayılan buton <b>Vazgeç</b>, dolu ve üstte.',
+  notes:['<b>Dolu buton kalıcı olanı değil, güvenli olanı taşıyor.</b> <code>Vazgeç</code> tam mürekkep dolu; <code>Randevuyu iptal et</code> kenarlıklı ve kırmızı metin. Parmak yanlışlıkla dolu butona düşerse hiçbir şey olmuyor.',
+   '<b>Özet paneli kimi iptal ettiğini yazıyor:</b> ad, gün, saat aralığı, personel. Diyalog sayfanın üstünde ve sayfa soluk; müdürün doğru randevuda olduğunu buradan doğruluyor.',
+   '<b>“Siz arayın” bir görev veriyor.</b> Uygulama mesaj atmıyor; bunu yazmamak müdürün müşteriyi kapıda bırakmasına yol açıyordu. Cümle değiştirilmez.',
+   '<b>Sheet değil, ortada diyalog.</b> Sheet “devam eden bir iş”, diyalog “duran bir karar”. İptal kararı sayfanın akışını kesmeli.'],
+  spec:[['Diyalog','kenar 24 · pad 20 · iç 14','r22 · zemin #171512'],['Başlık','21 / 800 · -.03em · 1.15','gövde 14.5 / 500 · 1.5'],['Düğme','h52 · r16 · arası 9','Vazgeç dolu · iptal kenarlıklı kırmızı metin']]},
+ {id:'D2',ttl:'Silme onayı — duraksatma',h:D2,t:'09:45',
+  lead:'Aynı iskelet, farklı ağırlık. Silme geri alınamaz: uyarı cümlesi <b>sayfadan kalkıp buraya geldi</b>, kırmızı butonun kenarlığı koyulaştı ve altında ince bir <b>basılı tut</b> çubuğu var — düğme dokununca değil, 600 ms basılı tutunca çalışıyor.',
+  notes:['<b>İki onay birbirine benzemiyor.</b> İptalde tek dokunuş yeter, silmede parmağın kalması gerekir. Fark bir kelimede değil, bir jestte — okumadan geçen müdür bile duruyor.',
+   '<b>Uyarı artık kimsenin basmayacağı bir düğmenin altında değil.</b> Sayfada kalan tek ipucu <code>Geri alınamaz</code>, 12 punto tek satır; iki satırlık cümle karar anına taşındı.',
+   '<b>“Gelmedi”yi kullanın</b> cümlesi korunuyor: silme, gelmeyen müşteriyi kaydetmenin yolu değil. Ürünün mevcut kelimesi tırnak içinde.',
+   '<b>Basılı tut çubuğu yalnız burada.</b> Uygulamanın başka hiçbir yerinde yok; tek geri alınamaz iş bu.'],
+  spec:[['Çubuk','h3 · r2 · scaleX','kırmızı · 600 ms basılı tut'],['Kırmızı buton','kenarlık rgba(224,114,114,.45)','metin kırmızı — dolgu yok'],['Sayfa ipucu','12 / 500 tx3','tek satır: Geri alınamaz']]},
+ {id:'E1',ttl:'Taşıma sonucu — hareket, geri al, ara',h:E1,t:'12:04',sheet:true,
+  lead:'Randevu bırakıldıktan sonraki saniye. Sheet üç şey söylüyor: <b>ne oldu</b> (hareket olarak), <b>yanlışsa nasıl dönerim</b>, <b>müşteriye nasıl ulaşırım</b>. “Evet, yaz” kalktı — uygulamanın mesaj atacak kanalı yok.',
+  notes:['<b>Taşıma bir değişim, ekranda da öyle okunuyor.</b> Eski saat solda, üstü çizili ve <code>.55</code> soluk; ok turuncu; yeni saat sağda tam mürekkep. Personel de değişmişse ikinci satırda görünür (<code>Selin</code> → <code>Merve</code>) — aynı hareket iki şeyi birden taşıyabilir.',
+   '<b>Geri al en üstte ve dolu.</b> Sheet’in açıldığı saniyede en olası ihtiyaç bu. Alt kenarındaki 3 px çubuk 8 saniyede <code>scaleX</code> ile tükeniyor; süre bitince düğme söner ve yerine <code>Tamam</code> yükselir.',
+   '<b>Sheet kendiliğinden kapanmaz.</b> Müdür telefonu indirip müşteriye bakabiliyor; kendiliğinden kapanan sheet hem “ne oldu” bilgisini hem <code>Müşteriyi ara</code>’yı götürür. Kapatma her zaman elle.',
+   '<b>Müşteriyi ara tek gerçek bildirme yolu.</b> Telefon uygulamasını açar. Numara kayıtlı değilse düğme çizilmez — gri değil, yok.'],
+  spec:[['Rozet','h28 · padX10 · r10 · 12 / 700','zemin rgba(45,143,50,.13) · nokta 8'],['Hareket','22 / 800 · ok 20 turuncu','eski tx3 üstü çizili'],['Düğme','h60 · r18 · arası 10','Geri al dolu · ara kenarlıklı · Tamam metin']]},
+ {id:'E2',ttl:'Taşıma sonucu — geçmiş saate düştü',h:E2,t:'12:05',sheet:true,
+  lead:'Taşıma çakışmaya düşmez (geçersiz hedef zaten bırakılamıyor) ama <b>geçmiş bir saate</b> düşebilir. Yeşil rozet amberleşiyor, kelime uzuyor: <code>taşındı · geçmiş saate</code>. Engel değil, uyarı.',
+  notes:['<b>Amber “bekleyen bir şey var” demek.</b> Burada bekleyen şey müdürün kararı: ya geri alacak ya öyle bırakacak. Kırmızı olmuyor çünkü hatalı bir kayıt değil — geçmişe randevu yazmak salonda meşru (unutulan işlem sonradan giriliyor).',
+   '<b>Alt metin sonucu söylüyor:</b> <code>Bu saat geçti. Randevu geçmişte görünecek.</code> Ne olduğunu değil, müdürün <b>nerede arayacağını</b> söylüyor.',
+   '<b>Bu hâlde ikinci bir değişiklik var:</b> personel de değişmiş (<code>Selin</code> → <code>Merve</code>). İki satırlı hareket bloğu bunu ek bir açıklama olmadan taşıyor.',
+   '<b>Geldi/Gelmedi hâlâ sorulur.</b> Geçmişe taşınan randevuda müşteri gelmiş olabilir; randevu kartı açıldığında durum <code>Bekliyor</code> olarak kalır ve iki buton çizilir.'],
+  spec:[['Amber rozet','rgba(217,164,59,.14)','metin ve nokta #D9A43B'],['Hareket','iki satır','saat + personel aynı blokta'],['Uyarı','13 / 500 ikincil','engel yok — bilgi']]}
+];
+
+document.getElementById('cases').innerHTML=CASES.map(c=>`<div class="case">${chrome(c.h,c.light?'lt':'',c.t)}
+<div class="side"><h3><s>MÜDÜR 25 · ${c.id}</s>${c.ttl}</h3>
+<p>${c.lead}</p>
+${c.notes.map(n=>`<div class="note"><span>${n}</span></div>`).join('')}
+<div class="rn">${c.spec.map(s=>`<div class="r"><b>${s[0]}</b><s>${s[1]}</s><code>${s[2]}</code></div>`).join('')}</div>
+</div></div>`).join('');
+
+/* ── hareket sahneleri ── */
+const stack=(a,b)=>`<div class="stack">${a}<div class="ly abs">${b}</div></div>`;
+
+const M=[
+ {t:'1 · “Geldi”ye basış — takas, dönüşüm değil',
+  d:'İki 66 pt buton gidiyor, yerine tek 52 pt durum şeridi geliyor. Şeridin <b>yüzeyi zaten oradaydı</b>: butonların altında duran şerit hâl değiştiriyor, içeriği takas ediliyor. Kutu, yarıçapı ve yeri hiç kıpırdamıyor — dönüşüm izlenimi bundan çıkıyor. Butonlar görünmez olduktan sonra sayfa tek karede 76 pt kısalıyor.',
+  s:['<b>Çıkan</b> iki buton 160 ms · cubic-bezier(.4,0,1,1) · <code>opacity 1→0, translateY 0→-6</code>','<b>Giren</b> şerit içeriği 220 ms · cubic-bezier(.2,.8,.25,1) · 60 ms gecikme · <code>opacity 0→1, translateY 8→0</code>','<b>Basış</b> 110 ms · <code>scale 1→.97→1</code> · yalnız basılan buton','<b>Yerinde kalan</b> şerit yüzeyi, r14, h52, ad, kimlik bloğu, müşteri kartı','<span class="rm">Hareketi azalt: tek karede takas; kelime her hâlde yazılı.</span>'],
+  h:`<div style="display:flex;flex-direction:column;gap:14px">
+  <div class="stack" style="height:52px">
+  <div class="ly m1a">${state('wait','Bekliyor','10 dk sonra')}</div>
+  <div class="ly abs m1b">${state('here','Geldi · bekliyor','09:38’de geldi')}</div></div>
+  <div class="m1a"><div class="acts"><button class="yes m1c">Geldi</button><button class="no">Gelmedi</button></div></div>
+  </div>`},
+ {t:'2 · Sayfanın açılışı — üç kademe, 60 ms arayla',
+  d:'Takvim bloğuyla sayfa arasında devam eden eleman <b>müşterinin adı</b>: bloktaki 12 / 700 ad, sayfadaki 28 px ada ölçek ve konumla taşınır, opaklığı hiç düşmez. Geri kalan içerik üç kademede gelir — önce kim ve ne zaman, sonra durum ve karar, sonra geçmiş ve düzenleme. Yıkıcı bölge son kademeyle birlikte, kendi vurgusu olmadan.',
+  s:['<b>Yüzey</b> 280 ms · cubic-bezier(.2,.8,.25,1) · <code>translateY 100%→0</code> · perde <code>opacity 0→.55</code>','<b>Ad</b> devam eden eleman — 280 ms · <code>scale + translate</code>, opacity sabit 1','<b>Kademe 1</b> (ad altı kimlik) 240 ms · 40 ms gecikme · <code>opacity + translateY 10→0</code>','<b>Kademe 2</b> (durum + Geldi/Gelmedi) 240 ms · 100 ms · <b>Kademe 3</b> (kart + jeton + satır + yıkıcı) 240 ms · 160 ms','<span class="rm">Hareketi azalt: kademe yok, sayfa tek karede tam gelir.</span>'],
+  h:`<div style="display:flex;flex-direction:column;gap:12px">
+  <div class="nm m2" style="font-size:22px">Ayşe <b>Yılmaz</b></div>
+  <div class="m2 d1">${ident('Cumartesi 22 Ağustos',true,'09:40','11:10',90,'Saç boyama','Deniz','D')}</div>
+  <div class="m2 d2">${state('wait','Bekliyor','10 dk sonra')}</div>
+  <div class="m2 d3">${tiles('Cmt 09:40','Deniz','D')}</div></div>`},
+ {t:'3 · Taşıma oku — soldan sağa, taşımanın kendisi gibi',
+  d:'Sheet açılırken eski saat <b>zaten yerinde</b> ve tam mürekkeple duruyor; 180 ms’de solup üstü çiziliyor. Ok soldan geliyor, ardından yeni saat 14 px soldan kayarak yerine oturuyor. Okuma yönü hareketin yönüyle aynı: <code>12:00</code> <b>oldu</b> <code>13:30</code>. Altındaki çubuk geri al’ın ömrü — 8 saniyede soldan sağa tükeniyor.',
+  s:['<b>Eski saat</b> 180 ms · ease-out · <code>opacity 1→.55</code> · yerinde kalır, üstü çizili','<b>Ok</b> 220 ms · cubic-bezier(.2,.8,.25,1) · 60 ms gecikme · <code>opacity 0→1, translateX -6→0</code>','<b>Yeni saat</b> 260 ms · cubic-bezier(.2,.8,.25,1) · 80 ms gecikme · <code>opacity 0→1, translateX -14→0</code>','<b>Geri al çubuğu</b> 8000 ms · linear · <code>scaleX 1→0</code> · sol köken · süre bitince düğme 240 ms opacity ile gider','<span class="rm">Hareketi azalt: hareket tek karede tam görünür; çubuk yerine sağda “8 sn” sayar.</span>'],
+  h:`<div class="mvcard" style="background:var(--surf2)">
+  <div class="mvname">Nur <b>Aksoy</b></div>
+  ${mvBlock('12:00','Selin','13:30','Selin',true)}
+  <div class="mvsub">Kaş alma · 20 dk · bugün</div></div>`}
+];
+
+document.getElementById('motion').innerHTML=M.map(m=>`<div class="mcase">
+<div class="mstage">${m.h}</div>
+<div class="mspec"><b>${m.t}</b><span>${m.d}</span>${m.s.map(x=>`<span>${x}</span>`).join('')}</div>
+</div>`).join('');
+
+/* 375 × 667 */
+const small=`${head}<div class="page">
+<div class="who"><div class="nm">Elif <b>Demir</b></div></div>
+<div class="ident"><div class="iday"><span class="d">Cumartesi 22 Ağustos</span><span class="today">Bugün</span></div>
+<div class="span n" style="font-size:24px">10:30<span class="to">– 11:15</span><span class="du">· 45 dk</span></div>
+<div class="pills"><span class="pill">Keratin bakımı</span><span class="pill av"><s>S</s>Selin</span></div></div>
+${state('here','Geldi · bekliyor','09:38’de geldi')}
+<div class="pnl"><div class="in">
+<div class="crow"><span class="tok"><span class="v n">3</span><span class="u">.</span></span>
+<span class="ccol"><span class="ctt">3. ziyaret</span><span class="csb">Son: 12 Tem · Keratin bakımı</span></span>
+<span class="arw">${ic.arw}</span></div>
+<div class="cchips"><span class="chip">Bakiye ₺0</span><span class="chip">0532 ••• 03 03</span></div></div></div>
+${tiles('Cmt 10:30','Selin','S')}
+<div class="rows"><div class="lrow"><span class="lk">Hizmeti değiştir</span><span class="lv">Keratin bak… · ₺1.800</span><span class="chv">${ic.chev}</span></div></div>
+</div>`;
+document.getElementById('small').innerHTML=chrome(small,'sm','09:38');
+</script>
+</body></html>

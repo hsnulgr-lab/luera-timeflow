@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 19: Gün cetveli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--desk:#0B0805;--glow:linear-gradient(180deg,rgba(255,90,31,.18) 0%,rgba(255,90,31,.07) 45%,rgba(18,14,8,0) 100%);
+--gtone:rgba(10,7,3,.44);--gline:rgba(243,237,227,.14);--tickc:rgba(243,237,227,.40);--tickc2:rgba(243,237,227,.66);--dnum:rgba(243,237,227,.60);--dnumsel:#FFFFFF;--pillbd:rgba(255,255,255,.40);--pillbg:rgba(255,255,255,.05);--phdc:rgba(255,255,255,.88);
+--ph1:repeating-linear-gradient(135deg,#3E2C18 0 7px,#2C2012 7px 14px);--ph2:repeating-linear-gradient(135deg,#1B2733 0 7px,#141C26 7px 14px);--cardfill:linear-gradient(180deg,#2C2419 0%,#221C13 62%,#201A12 100%);--cardbd:rgba(243,237,227,.08)}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.72);--glassbd:rgba(14,14,14,.09);--desk:#E4DACA;--glow:linear-gradient(180deg,rgba(255,90,31,.08) 0%,rgba(255,90,31,.03) 45%,rgba(243,236,224,0) 100%);
+--gtone:rgba(250,247,243,.54);--gline:rgba(14,14,14,.11);--tickc:rgba(14,14,14,.32);--tickc2:rgba(14,14,14,.56);--dnum:rgba(14,14,14,.52);--dnumsel:#0E0E0E;--pillbd:rgba(14,14,14,.30);--pillbg:rgba(255,255,255,.40);--phdc:rgba(14,14,14,.80);
+--ph1:repeating-linear-gradient(135deg,#E8D3B8 0 7px,#DFC8AB 7px 14px);--ph2:repeating-linear-gradient(135deg,#C9D6E2 0 7px,#BCCAD8 7px 14px);--cardfill:linear-gradient(180deg,#FFFFFF 0%,#FDFAF6 58%,#F8F2E9 100%);--cardbd:rgba(14,14,14,.07)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--or2)}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1760px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:860px;margin-bottom:52px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:52px 44px;margin-bottom:74px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:375px}
+.spec.w{width:472px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.55;max-width:472px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:var(--tx);font-weight:700}
+.note code,.rn code,.prose code{font-family:ui-monospace,Menlo,monospace;font-size:11px}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1500px;margin-bottom:26px}
+.rn .r{display:flex;gap:18px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:230px;color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:150px;text-decoration:none;color:var(--tx);font-weight:700;font-size:13px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2);line-height:1.6}
+.prose{max-width:860px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:52px}
+.prose b{color:var(--tx);font-weight:700}
+.chk{display:flex;flex-direction:column;gap:11px;max-width:900px;margin-bottom:60px}
+.chk div{display:flex;gap:12px;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.55}
+.chk s{flex:none;width:20px;text-decoration:none;color:var(--gr);font-weight:800}
+.chk b{color:var(--tx);font-weight:700}
+/* ── telefon ── */
+.phone{width:375px;height:667px;flex:none;position:relative;background:var(--bg);color:var(--tx);outline:1px solid var(--bd2);outline-offset:-1px;border-radius:38px;overflow:hidden}
+.crop{width:375px;flex:none;height:212px;position:relative;background:var(--bg);color:var(--tx);outline:1px solid var(--bd2);outline-offset:-1px;border-radius:38px 38px 0 0;overflow:hidden}
+.crop.tall{height:268px}
+.stack{position:absolute;left:0;right:0;top:0;height:667px}
+.feed{position:absolute;left:0;right:0;top:0;transition:transform .28s cubic-bezier(.25,.1,.25,1)}
+.feed.up{transform:translateY(-158px)}
+.glowlay{position:absolute;left:0;right:0;top:0;height:260px;background:var(--glow);pointer-events:none}
+/* ── içerik (levhanın altındaki gerçek ekran) ── */
+.cal-head{padding:26px 18px 0;display:flex;flex-direction:column;gap:5px}
+.cal-title{display:flex;align-items:flex-end;justify-content:space-between}
+.cal-title .day{display:flex;align-items:flex-end;font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.cal-title .day i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--or);margin:0 0 8px 6px}
+.cal-title .num{font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--tx3)}
+.cal-sub{font-size:13px;font-weight:500;color:var(--tx2);letter-spacing:-.01em}
+.staff{display:flex;gap:10px;padding:14px 18px 12px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 84%,rgba(0,0,0,.15) 100%);mask-image:linear-gradient(90deg,#000 84%,rgba(0,0,0,.15) 100%)}
+.sv{flex:none;width:56px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.sv.dim{opacity:.5}
+.sring{width:48px;height:48px;border-radius:50%;border:2px solid var(--bd2);background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;letter-spacing:-.02em}
+.sring.busy{border-color:var(--or)}
+.sring.free{border-color:var(--gr)}
+.sring.leave{border-style:dashed;border-color:var(--am)}
+.sv .nm{font-size:11.5px;font-weight:700;letter-spacing:-.01em}
+.fcard{margin:0 18px 12px;border-radius:18px;overflow:hidden;background:var(--cardfill);border:1px solid var(--cardbd)}
+.ph{height:132px;display:flex;align-items:flex-end;padding:9px 11px;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.ph.a{background:var(--ph1)}.ph.b{background:var(--ph2)}
+html[data-theme="light"] .ph,.thm-light .ph{color:rgba(14,14,14,.6);text-shadow:none}
+.fmeta{padding:11px 13px 12px;display:flex;flex-direction:column;gap:4px}
+.fmeta b{font-size:15px;font-weight:800;letter-spacing:-.025em;line-height:1.2}
+.fmeta span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.4}
+.lrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 18px;border-top:1px solid var(--bd)}
+.lrow .lt{flex:none;font-size:13px;font-weight:600;color:var(--tx2);min-width:40px}
+.lrow .ln{flex:1;min-width:0;font-size:15px;font-weight:500;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .ln b{font-weight:800}
+.lrow .lw{flex:none;font-size:12px;font-weight:700;color:var(--tx2)}
+/* ══ BUZLU CAM LEVHA ══ */
+.glass{position:absolute;left:8px;right:8px;top:0;z-index:40;border-radius:0 0 20px 20px;overflow:hidden;
+--pw:359px;--pad:8px;--step:calc((var(--pw) - var(--pad)*2)/7);--tick:calc(var(--step)/10);--dsz:13px;--pillw:40px;--pillh:30px;--i:4;--t:4}
+.glass.ax5{--dsz:17px;--pillw:46px;--pillh:36px}
+.gblur{position:absolute;inset:0;backdrop-filter:blur(20px) saturate(135%);-webkit-backdrop-filter:blur(20px) saturate(135%)}
+.gtone{position:absolute;inset:0;background:var(--gtone)}
+.gedge{position:absolute;inset:0;border-radius:inherit;border:1px solid var(--gline);border-top:0;pointer-events:none;z-index:6}
+.glass.notone .gtone{display:none}
+.glass.noedge .gedge{display:none}
+.glass>.status,.glass>.navrow,.glass>.sumrow,.glass>.ruler{position:relative;z-index:4}
+.status{height:20px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:11px;font-weight:700}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:9px}
+.bars i{width:2.5px;background:currentColor;border-radius:1px}
+.bars i:nth-child(1){height:3.5px}.bars i:nth-child(2){height:5.5px}.bars i:nth-child(3){height:7px}.bars i:nth-child(4){height:9px}
+.batt{width:20px;height:10px;border:1.3px solid currentColor;border-radius:3px;padding:1.3px;display:flex;opacity:.9}
+.batt i{flex:1;background:currentColor;border-radius:1px}
+.ruler{position:relative;height:calc(var(--pillh) + 14px);margin-top:10px}
+.glass.d .ruler{margin-top:6px}
+.navrow+.ruler,.sumrow+.ruler{margin-top:6px}
+.days{position:absolute;left:var(--pad);right:var(--pad);top:0;height:var(--pillh);display:flex;z-index:3}
+.dy{position:relative;width:var(--step);height:var(--pillh);display:flex;align-items:center;justify-content:center;font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:var(--dsz);font-weight:500;color:var(--dnum);letter-spacing:-.01em}
+.dy::after{content:"";position:absolute;left:0;right:0;top:calc((44px - var(--pillh))/-2);height:44px}
+.dy.sel{color:var(--dnumsel);font-weight:700}
+.pill{position:absolute;top:0;left:0;width:var(--pillw);height:var(--pillh);border:1px solid var(--pillbd);background:var(--pillbg);border-radius:11px;z-index:2;transform:translateX(calc(var(--pad) + var(--step)*(var(--i) + .5) - var(--pillw)/2));transition:transform .18s cubic-bezier(.25,.1,.25,1)}
+.glass.ax5 .pill{border-radius:13px}
+.phd{position:absolute;top:var(--pillh);bottom:9px;left:0;width:1px;background:var(--phdc);z-index:2;transform:translateX(calc(var(--pad) + var(--step)*(var(--i) + .5) - .5px));transition:transform .18s cubic-bezier(.25,.1,.25,1)}
+.tdy{position:absolute;top:var(--pillh);bottom:9px;left:0;width:1px;background:var(--or);z-index:2;transform:translateX(calc(var(--pad) + var(--step)*(var(--t) + .5) - .5px))}
+.tdy i{position:absolute;top:-3px;left:-2.5px;width:6px;height:6px;border-radius:50%;background:var(--or)}
+.ticks{position:absolute;left:0;right:0;bottom:0;height:11px;z-index:1;background-image:linear-gradient(90deg,var(--tickc2) 0 1px,transparent 1px),linear-gradient(90deg,var(--tickc) 0 1px,transparent 1px);background-size:var(--step) 9px,var(--tick) 5px;background-position:calc(var(--pad) + var(--step)/2 - .5px) bottom,calc(var(--pad) + var(--step)/2 - .5px) bottom;background-repeat:repeat-x,repeat-x}
+.mtick{position:absolute;bottom:0;left:0;width:1px;height:11px;background:var(--tickc2);z-index:1;transform:translateX(calc(var(--pad) + var(--step)*(var(--m) + .5) - .5px))}
+.navrow{display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 10px}
+.rb{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid var(--gline);display:flex;align-items:center;justify-content:center;color:var(--tx)}
+html[data-theme="light"] .rb,.thm-light .rb{background:rgba(14,14,14,.06)}
+.rb.act{background:var(--or);border-color:transparent;color:#fff}
+.rb svg{width:19px;height:19px}
+.sumrow{display:flex;padding:6px 16px 8px;gap:0}
+.sumrow div{flex:1;display:flex;flex-direction:column;gap:1px}
+.sumrow s{text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
+.sumrow b{font-size:16px;font-weight:800;letter-spacing:-.03em;font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.dtag{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.stcap{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
+.stcap b{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.stcap i{font-style:normal;font-size:11.5px;font-weight:500;color:var(--tx2)}
+.mm{position:absolute;z-index:80;pointer-events:none}
+.mm s{position:absolute;text-decoration:none;font-family:ui-monospace,Menlo,monospace;font-size:9px;color:var(--or);white-space:nowrap;background:rgba(18,14,8,.86);padding:1px 4px;border-radius:4px}
+.mm b{position:absolute;background:rgba(255,90,31,.85)}
+</style></head>
+<body class="thm-dark">
+<div class="toggle"><span class="dot"></span><span id="tglbl">koyu</span></div>
+<div class="doc">
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">müdür 19 · gün cetveli<br/>buzlu cam levha · 375 × 667<br/>referans ölçüleri okundu</div></div>
+
+<div class="lede">
+<h1>Gün cetveli: buzlu cam levhanın birebir kopyası ve üç uyarlaması</h1>
+<p>Referans, bir kanal ekranının üstünde yüzen buzlu cam levhadır. Kopyalanan bölüm yalnız levhanın alt yarısı: yedi tarih rakamı ve altındaki cetvel bandı. Başlık satırı, kanal adı ve abone sayısı alınmadı.</p>
+<p>Malzeme <b>Liquid Glass değil</b>. Kenarda ışık kırılması, mercek etkisi ve özgül parlama yok. Üç katman var: bulanıklık, ton örtüsü, ince kenar. Levha hiçbir yerde boş zemine çizilmedi — altında Luera gün akışının gerçek içeriği duruyor, bulanık ama seçilebilir.</p>
+</div>
+
+<div class="band"><span class="num">01</span><h2>Malzeme · üç katman</h2><p>Bulanıklık arkadaki içeriğin kütlesini ve rengini bırakır; okunurluk ton örtüsünden gelir; kenar levhanın nerede bittiğini söyler. Üçü ayrı ayrı kapatılmış üç kesit.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>a · yalnız bulanıklık</b><i>ton örtüsü ve kenar kapalı — rakamlar fotoğrafın açık yerinde kayboluyor</i></div><div class="crop" data-scr='{"v":"A","st":"today","mat":"notone noedge"}'></div></div>
+<div class="spec"><div class="stcap"><b>b · bulanıklık + ton örtüsü</b><i>okunurluk buradan geliyor — kenar hâlâ yok, levha nerede bitiyor belirsiz</i></div><div class="crop" data-scr='{"v":"A","st":"today","mat":"noedge"}'></div></div>
+<div class="spec"><div class="stcap"><b>c · üçü birlikte</b><i>1 pt kenar yalnız yanlar ve alt; üst kenar yok, levha durum çubuğunu içine alıyor</i></div><div class="crop" data-scr='{"v":"A","st":"today"}'></div></div>
+</div>
+<div class="row">
+<div class="note"><span><b>Bulanıklık:</b> <code>expo-blur</code> · <code>&lt;BlurView tint="dark" intensity={50}/&gt;</code>. Web karşılığı <code>backdrop-filter:blur(20px) saturate(135%)</code> — <code>.gblur</code>. Arkadaki fotoğraf kartının rengi ve kütlesi okunmaya devam eder.</span></div>
+<div class="note"><span><b>Ton örtüsü:</b> bulanığın üstünde ayrı katman — <code>.gtone{background:rgba(10,7,3,.44)}</code>. Aydınlıkta <code>rgba(250,247,243,.54)</code>. Rakamın kontrastı bu katmanın işi; <code>intensity</code> artırmak yerine burası ayarlanır.</span></div>
+<div class="note"><span><b>Kenar:</b> <code>.gedge{border:1px solid rgba(243,237,227,.14);border-top:0}</code>. Üst kenar ve üst köşe yarıçapı yok; <code>border-radius:0 0 20px 20px</code>.</span></div>
+<div class="note"><span><b>Gölge ve kırpma ayrı:</b> levha <code>overflow:hidden</code> taşır (çentikleri alt kenarda kesmek için), gölge taşımaz. iOS'ta aynı View'da <code>shadowOpacity</code> + <code>overflow:'hidden'</code> gölgeyi kırpar.</span></div>
+</div>
+
+<div class="band"><span class="num">02</span><h2>A · birebir kopya</h2><p>Referansın geometrisi aynen. Değişen yalnız renk (#FF5A1F) ve rakamların sistem yazı tipiyle kalması. Levhada başlık yok: yedi rakam ve iki kademeli cetvel bandı.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>bugün seçili</b><i>hap 24'ün üstünde · turuncu nokta da 24'te</i></div><div class="phone" data-screen-label="A · bugün seçili" data-scr='{"v":"A","st":"today","meas":1}'></div></div>
+<div class="spec"><div class="stcap"><b>geçmiş gün seçili</b><i>hap 21'de, nötr · turuncu nokta 24'te kalır</i></div><div class="phone" data-screen-label="A · geçmiş gün" data-scr='{"v":"A","st":"past"}'></div></div>
+<div class="spec"><div class="stcap"><b>ay sınırı</b><i>31 Temmuz → 1 Ağustos · levhada ay adı yok, rakam dizisi söyler</i></div><div class="phone" data-screen-label="A · ay sınırı" data-scr='{"v":"A","st":"edge"}'></div></div>
+</div>
+<div class="row">
+<div class="note"><span><b>Çentik ritmi:</b> bir gün periyodu = 1 uzun (9 pt, rakamın tam altında) + 9 kısa (5 pt). Aralık değişmedi, <code>--tick = --step/10</code>. Ay sınırı kesitinde 1 Ağustos'un altındaki çentik üçüncü kademede: 11 pt — levhada ay adı yazmadığımız için sınırı söyleyen tek işaret.</span></div>
+<div class="note"><span><b>Referanstan alınan beş ayrıntı:</b> seçili gün çerçeveli hap (dolgu yok, <code>.pill{background:rgba(255,255,255,.05)}</code>); hapın altından inen 1 pt beyaz oynatma çizgisi; ayrı turuncu nokta + ince çizgi (bizde “bugün”); çentikler alt kenarda kesilir; seçili rakam beyaz ve kalın, diğerleri soluk ve orta ağırlık.</span></div>
+<div class="note"><span><b>Turuncu envanteri:</b> yalnız bugün noktası ve çizgisi. Seçili gün nötr — referansta da öyle. Rakam, levha zemini, kenar turuncu değil.</span></div>
+<div class="note"><span><b>Dokunma:</b> rakam hücresi görsel olarak <span class="n">49 × 30</span>; dokunma alanı <code>.dy::after</code> ile 44 pt'a çıkar (<code>top:calc((44px - var(--pillh))/-2);height:44px</code>) — görüntü büyümez. Rakamlara dokunarak hapı taşıyabilirsin.</span></div>
+</div>
+
+<div class="band"><span class="num">03</span><h2>B · cetvel + iki yuvarlak düğme</h2><p>Referansın üst satırındaki iki yuvarlak düğme korunur, aradaki başlık çıkar. Tez: levha yalnız gezinme taşır, bilgi taşımaz.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>bugün seçili · tam ekran</b><i>solda “bugüne dön”, sağda “ara” · orta boşluk bilinçli</i></div><div class="phone" data-screen-label="B · bugün seçili" data-scr='{"v":"B","st":"today"}'></div></div>
+<div class="spec"><div class="stcap"><b>geçmiş gün seçili</b><i>sol düğme etkin görünür: dönülecek bir yer var</i></div><div class="crop tall" data-scr='{"v":"B","st":"past"}'></div>
+<div class="stcap" style="margin-top:24px"><b>ay sınırı</b><i>iki haneli → tek haneli geçiş, hap 1'de</i></div><div class="crop tall" data-scr='{"v":"B","st":"edge"}'></div></div>
+<div class="spec">
+<div class="note"><span><b>Neden orta boşluk:</b> başlığın yerine başka bir şey koymak levhayı yeniden bilgi katmanı yapar. Boşluk, altındaki fotoğrafın bulanık kütlesini gösterir — saydamlığın kanıtı orada.</span></div>
+<div class="note"><span><b>Düğmeler:</b> 40 pt daire, <code>.rb</code>. Levha içindeki tek dolgu turuncu “ara” değil — turuncu envanteri eylem için serbest, ama burada ikinci turuncu bugün noktasıyla yarışır; bu yüzden sağdaki düğme vurgulu değil, nötr bırakıldı.</span></div>
+<div class="note"><span><b>Yükseklik farkı:</b> B levhası A'dan <span class="n">36 pt</span> uzun (düğme satırı 40, cetvelin üst payı 10 → 6'ya iner).</span></div>
+</div>
+</div>
+
+<div class="band"><span class="num">04</span><h2>C · cetvel + günün özeti</h2><p>Başlığın yerine günün üç rakamı: ciro, doluluk, adisyon. Tez: levha ekranı kapatıyorsa, kapattığı bilgiyi kendisi taşısın.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>bugün seçili · tam ekran</b><i>özet satırı cetvelin üstünde, alt kenardan uzak</i></div><div class="phone" data-screen-label="C · bugün seçili" data-scr='{"v":"C","st":"today"}'></div></div>
+<div class="spec"><div class="stcap"><b>geçmiş gün seçili</b><i>rakamlar seçili günün rakamları — bugünün değil</i></div><div class="crop tall" data-scr='{"v":"C","st":"past"}'></div>
+<div class="stcap" style="margin-top:24px"><b>ay sınırı</b><i>gelecek günde ciro yok: “—” yazılır, satır kaybolmaz</i></div><div class="crop tall" data-scr='{"v":"C","st":"edge"}'></div></div>
+<div class="spec">
+<div class="note"><span><b>Çözülen sorun:</b> özet satırı levhanın alt kenarında ikiye biçilmiyor. Satır cetvelin üstünde, kendi <code>padding-bottom:8px</code>'i içinde; kesen kenar yalnız çentik bandını kesiyor.</span></div>
+<div class="note"><span><b>Rakamların kaynağı:</b> seçili gün. Geçmiş günde gerçekleşen, bugünde o ana kadarki, gelecek günde <span class="n">—</span>. Rakam yerine satırı gizlemek levhanın yüksekliğini oynatır; yükseklik animasyonu yasak olduğu için satır sabit kalır.</span></div>
+<div class="note"><span><b>Yükseklik:</b> C levhası A'dan <span class="n">45 pt</span> uzun.</span></div>
+</div>
+</div>
+
+<div class="band"><span class="num">05</span><h2>D · iki kademeli levha</h2><p>Tepede levha yok: dev başlık ve personel şeridi açıkta. Kaydırınca yalnız cetvel bandı iniyor — A'dan da kısa, tek şeritlik.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>açık hâl · levha yok</b><i>ekranın tepesi kendi içeriği · durum çubuğu düz zemin</i></div><div class="phone" data-screen-label="D · açık" data-scr='{"v":"none","st":"today","top":1}'></div></div>
+<div class="spec"><div class="stcap"><b>kaydırılmış · tek şerit</b><i>levha 66 pt · A'dan 8 pt kısa</i></div><div class="phone" data-screen-label="D · kapalı" data-scr='{"v":"D","st":"today"}'></div></div>
+<div class="spec"><div class="stcap"><b>geçmiş gün seçili</b><i>tek şeritte hap yüksekliği 26 pt'a iner</i></div><div class="crop" data-scr='{"v":"D","st":"past"}'></div>
+<div class="stcap" style="margin-top:24px"><b>ay sınırı</b><i>en kısa levhada en uzun hâl</i></div><div class="crop" data-scr='{"v":"D","st":"edge"}'></div>
+<div class="note" style="margin-top:16px"><span><b>İniş:</b> <code>translateY(-100% → 0)</code> + <code>opacity</code>, 220 ms, native sürücü. Yükseklik animasyonu yok — iki kademe iki ayrı levha değil, aynı levhanın iki içeriği.</span></div>
+</div>
+</div>
+
+<div class="band"><span class="num">06</span><h2>Aydınlık tema · AX5</h2><p>Aydınlıkta ton örtüsü krem, kenar mürekkep, oynatma çizgisi beyaz değil mürekkep. AX5'te rakam 13 → 17 pt, hap 40 × 30 → 46 × 36; adım ve çentik aralığı türetildiği için kendiliğinden yerinde kalır.</p></div>
+<div class="row">
+<div class="spec"><div class="stcap"><b>aydınlık · A</b><i>bulanıklık aynı, ton örtüsü ters</i></div><div class="phone thm-light" data-screen-label="A · aydınlık" data-scr='{"v":"A","st":"today"}'></div></div>
+<div class="spec"><div class="stcap"><b>AX5 · ay sınırı</b><i>en uzun hâl: iki haneli rakamlar + en büyük yazı</i></div><div class="phone" data-screen-label="A · AX5" data-scr='{"v":"A","st":"edge","ax5":1}'></div></div>
+<div class="spec"><div class="stcap"><b>AX5 · aydınlık · C</b><i>özet satırı da büyür; cetvel bandı sabit 7 pt</i></div><div class="phone thm-light" data-screen-label="C · AX5 aydınlık" data-scr='{"v":"C","st":"past","ax5":1}'></div></div>
+</div>
+
+<div class="band"><span class="num">07</span><h2>Ölçü tablosu</h2><p>Sol kolon referans karelerinden okunan değer (ölçek: ekran genişliği 393 pt ⇒ 3,82 karesel piksel / pt). Sağ kolon dosyadaki gerçek seçici. Şartname ile CSS çeliştiğinde CSS otoritedir.</p></div>
+<div class="rn">
+<div class="r h"><b>ölçü</b><s>referanstan</s><code>375 pt ekranda · css</code></div>
+<div class="r"><b>levha yan boşluğu</b><s>7–11 pt (ort. 9)</s><code>8 pt — <b>.glass{left:8px;right:8px}</b> ⇒ levha genişliği 359 pt (<b>--pw</b>) · telefon kenarı <b>outline</b> ile çizilir ki içerik kutusu tam 375 kalsın</code></div>
+<div class="r"><b>üst kenar</b><s>yok</s><code><b>.gedge{border-top:0}</b> · <b>border-radius:0 0 20px 20px</b> — levha durum çubuğunu içine alır</code></div>
+<div class="r"><b>alt köşe yarıçapı</b><s>19 pt</s><code>20 pt — iki noktadan çözüldü: alt kenardan 4,7 pt yukarıda 6,5 pt içeri, 9,4 pt yukarıda 2,6 pt içeri</code></div>
+<div class="r"><b>cetvel yan boşluğu</b><s>9 pt</s><code>8 pt — <b>--pad</b>; rakam dizisi bu boşluğun içinde, çentik bandı değil</code></div>
+<div class="r"><b>gün adımı</b><s>51,3 pt</s><code><b>--step:calc((var(--pw) - var(--pad)*2)/7)</b> = 49 pt · sabit pt yazılmadı</code></div>
+<div class="r"><b>çentik aralığı</b><s>5,13 pt = adım/10</s><code><b>--tick:calc(var(--step)/10)</b> = 4,9 pt · iki katmanın tile genişliği kendi periyoduna eşit (<b>--step</b> ve <b>--tick</b>), fazı aynı: <b>background-position:calc(var(--pad) + var(--step)/2 - .5px) bottom</b> — bandın solunda da sağında da dikiş kayması olmaz</code></div>
+<div class="r"><b>uzun çentik (gün ortası)</b><s>—</s><code>9 pt · <b>tickMajor</b> · tek şerit + adım boyunda tile: <b>linear-gradient(90deg,var(--tickc2) 0 1px,transparent 1px)</b> · <b>background-size:var(--step) 9px</b> — tile genişliği = periyot, tekrar kendiliğinden faza kilitli · x = <b>--pad + --step*(gün indeksi + .5)</b>, rakamın tam altında</code></div>
+<div class="r"><b>kısa çentik</b><s>—</s><code>5 pt · <b>tickSmall</b> · aynı kalıp, <b>background-size:var(--tick) 5px</b> · x = aynı merkez ± n · <b>--tick</b>, n = 1..5 (n = 0 uzun çentiğin altında kalır, üstteki katman kapatır)</code></div>
+<div class="r"><b>ay sınırı çentiği</b><s>—</s><code>11 pt · <b>tickMonth</b> · <b>.mtick</b>, ayın değiştiği günün indeksinde (<b>--m</b>) · levhada ay adı yok, sınırı söyleyen tek işaret</code></div>
+<div class="r"><b>çentik kalınlığı</b><s>0,7 pt</s><code>1 pt hairline — üç kademede de aynı; renk kısada <b>--tickc</b>, uzun ve ay sınırında <b>--tickc2</b> (aynı renk, yüksek opaklık) · turuncu yok</code></div>
+<div class="r"><b>çentik bandı yüksekliği</b><s>6,5 pt</s><code>11 pt — <b>.ticks{bottom:0;height:11px}</b>, en uzun çentiğe göre; bütün çentikler tabandan yukarı çıkar. Alt kenar hairline'ı üstlerinde çizilir, bant kesilmiş görünür. Levha yüksekliği değişmedi: fark hapın altındaki 14 pt'lik paydan alındı</code></div>
+<div class="r"><b>rakam boyutu</b><s>12,8 pt (hane yüksekliği 8,1)</s><code>13 pt · <b>--dsz</b> · sistem yazı tipi, tabular · seçili 700, diğerleri 500</code></div>
+<div class="r"><b>rakam merkezi → alt kenar</b><s>28,6 pt</s><code>29 pt — <b>.days{top:0;height:var(--pillh)}</b> + <b>.ruler{height:calc(var(--pillh) + 14px)}</b></code></div>
+<div class="r"><b>hap ölçüsü</b><s>40,3 × 30,1 pt</s><code>40 × 30 — <b>--pillw</b> / <b>--pillh</b> · yarıçap 11 pt · kenar 1 pt · dolgu <b>rgba(255,255,255,.05)</b></code></div>
+<div class="r"><b>hap alt kenarı → levha alt kenarı</b><s>13,6 pt</s><code>14 pt — <b>.ruler</b> yüksekliğindeki sabit pay</code></div>
+<div class="r"><b>oynatma çizgisi</b><s>0,9 pt × 13,6 pt</s><code>1 × 5 pt — <b>.phd{top:var(--pillh);bottom:9px;width:1px}</b>; uzun çentiğin tepesinde biter · çizgi 5 + uzun çentik 9 = 14 pt kesintisiz eksen</code></div>
+<div class="r"><b>bugün noktası</b><s>5 pt çap · merkez alt kenardan 13,9 pt</s><code>6 pt daire, çizgi 1 × 5 pt — <b>.tdy{top:var(--pillh);bottom:9px}</b> · nokta merkezi hapın alt kenarı hizasında</code></div>
+<div class="r"><b>durum çubuğu</b><s>—</s><code>20 pt — <b>.status{height:20px}</b> (375 × 667 gövde); levhanın içinde</code></div>
+<div class="r"><b>levha yüksekliği</b><s>—</s><code>A 74 · B 110 · C 119 · D 66 pt — hepsi içerikten türer, sabit yazılmadı</code></div>
+</div>
+
+<div class="band"><span class="num">08</span><h2>Hareket tablosu</h2><p>Yalnız <code>opacity</code> ve <code>transform</code>, native sürücüde. Yükseklik, genişlik, renk, yarıçap ve gölge animasyonu yok.</p></div>
+<div class="rn">
+<div class="r h"><b>olay</b><s>özellik</s><code>süre · eğri · titreşim</code></div>
+<div class="r"><b>gün değişimi</b><s>transform: translateX</s><code>180 ms · cubic-bezier(.25,.1,.25,1) · hap ve oynatma çizgisi aynı transform'u paylaşır · <b>impactLight</b></code></div>
+<div class="r"><b>serbest kaydırma</b><s>FlatList contentOffset</s><code>snapToInterval = adım (49) · decelerationRate="fast" · reanimated yok, gesture-handler yok</code></div>
+<div class="r"><b>ay sınırını geçme</b><s>transform: translateX</s><code>180 ms · aynı eğri · <b>rigid</b>, geçişte tek seferlik (aynı sınırda tekrarlamaz)</code></div>
+<div class="r"><b>levhanın inişi (D)</b><s>translateY + opacity</s><code>-100% → 0 · 220 ms · ease-out · titreşim yok</code></div>
+<div class="r"><b>levhanın kalkması (D)</b><s>translateY + opacity</s><code>0 → -100% · 160 ms · ease-in</code></div>
+<div class="r"><b>oynatma çizgisi</b><s>opacity</s><code>0 → .88 · 120 ms · hap yerine oturduktan sonra</code></div>
+<div class="r"><b>yasak</b><s>—</s><code>height · width · backgroundColor · borderRadius · shadow* — hiçbiri animasyona girmez; hepsi JS köprüsünden geçer</code></div>
+</div>
+
+<div class="band"><span class="num">09</span><h2>Teknik kısıtlar</h2><p>Expo SDK 54 / React Native. Levha bir <code>BlurView</code>, cetvel bir <code>FlatList</code>.</p></div>
+<div class="prose">
+<p><b>Malzeme.</b> <code>expo-blur</code> · <code>&lt;BlurView tint="dark" intensity={50} style={StyleSheet.absoluteFill}/&gt;</code>, üstüne ayrı bir <code>View</code> ton örtüsü, en üste kenar için <code>borderWidth:1</code> + <code>borderTopWidth:0</code> taşıyan bir <code>View</code>. <code>expo-glass-effect</code> kullanılmıyor: iOS 26 istiyor ve cihazda opak yüzeye düşüyor.</p>
+<p><b>Cetvel.</b> <code>FlatList</code> · <code>horizontal</code> · <code>snapToInterval={step}</code> · <code>getItemLayout</code> ile sabit hücre. Hücre genişliği <code>(panelWidth - 16) / 7</code> olarak hesaplanır. Çentik bandı <b>tek katman değil</b>: kısa çentikler <code>step/10</code>, uzun çentikler <code>step</code> aralıklı iki ayrı katman, ikisi de aynı faza (<code>step/2</code>) kilitli — <code>react-native-svg</code> tarafında iki ayrı <code>&lt;Line&gt;</code> kümesi (<code>DayScrubber.tsx</code>), ay sınırı çentiği üçüncü küme. Panel genişliği değişince üçü birlikte kayar.</p>
+<p><b>Kırpma.</b> Levha <code>overflow:'hidden'</code> taşır, gölge taşımaz — çentiklerin alt kenarda kesilmesi bu kırpmadan gelir. Degrade metin yok; seçili rakam düz beyaz.</p>
+<p><b>Dokunma.</b> Rakam hücresi 49 × 30 görünür, dokunma alanı <code>hitSlop={{top:7,bottom:7}}</code> ile 44 pt. Mutlak minimum yazı 11 pt: özet satırı etiketleri (C) <code>.sumrow s{font-size:11px}</code> — daha küçüğü yok.</p>
+</div>
+
+<div class="band"><span class="num">10</span><h2>Denetim</h2><p>Çizmeden önce sorulan beş soru, çizdikten sonraki cevapları — artı çentik hiyerarşisi için altıncısı.</p></div>
+<div class="chk">
+<div><s>1</s><span><b>Levha gerçek içeriğin üstünde mi?</b> Her kesitte altında Luera gün akışı var: dev başlık, personel şeridi, iki fotoğraf kartı (biri sıcak, biri soğuk tonlu), defter satırları. Kartların rengi ve kütlesi bulanığın içinden okunuyor — <code>.feed.up</code> içeriği 158 pt yukarı kaydırıyor ki fotoğraf levhanın arkasına gelsin.</span></div>
+<div><s>2</s><span><b>Çentikler alt kenarı aşıyor mu?</b> <code>.ticks{bottom:0;height:11px}</code> levhanın en dibine oturur, üç kademe de tabandan yukarı çıkar (5 · 9 · 11 pt). <code>.gedge</code> hairline'ı onların üstünde (<code>z-index:6</code>) çizilir ve alt köşelerde <code>border-radius</code> çentikleri keser. Teğet bitmiyor, kesiliyor.</span></div>
+<div><s>3</s><span><b>Seçili hap çerçeveli mi?</b> Evet: 1 pt kenar, <code>rgba(255,255,255,.05)</code> dolgu. Turuncu dolgu hiçbir hâlde yok; turuncu yalnız bugün noktasında ve çizgisinde.</span></div>
+<div><s>4</s><span><b>Tablodaki her satır gerçek bir seçiciye dayanıyor mu?</b> Ölçü tablosunun sağ kolonu bu dosyadaki değişkenin ve seçicinin kendisi. Adım ve çentik aralığı sabit pt olarak hiçbir yerde yazılmadı — <code>--step</code> ve <code>--tick</code> türetiliyor.</span></div>
+<div><s>5</s><span><b>Çentik hiyerarşisi rakamla aynı eksende mi?</b> Uzun çentik katmanının fazı ile hapın, oynatma çizgisinin ve gün hücresinin merkezi aynı formülden çıkıyor: <code>--pad + --step*(i + .5)</code>. Ölçüm: gün merkezleri 32,5 · 81,5 · 130,5 · 179,5 · 228,5 · 277,5 · 326,5 — uzun çentikler de aynı dizide, kayma yok.</span></div>
+<div><s>6</s><span><b>En uzun hâlde üst üste binme var mı?</b> AX5 + ay sınırı kesitinde iki haneli rakamlar 17 pt: hane genişliği 2 × 9,4 = 18,8 pt, hücre 49 pt, hap 46 pt — hap hücrenin içinde kalıyor, her iki yanında 1,5 pt boşluk var; komşu rakama değmiyor. Çentik bandı AX5'te büyümez.</span></div>
+</div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M11 5 4 12l7 7M4 12h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+<script>
+const STATES={
+ today:{d:[20,21,22,23,24,25,26],sel:4,tdy:4},
+ past:{d:[20,21,22,23,24,25,26],sel:1,tdy:4},
+ edge:{d:[29,30,31,1,2,3,4],sel:3,tdy:2,m:3}
+};
+const SUM={today:['₺8.240','%64','₺620'],past:['₺12.400','%78','₺590'],edge:['—','%12','—']};
+const FEED=`<div class="glowlay"></div>
+<div class="cal-head"><div class="cal-title"><span class="day">Cum<i></i></span><span class="num n">24</span></div><div class="cal-sub">24 Temmuz · 14 randevu · 3 işlem sürüyor</div></div>
+<div class="staff">
+<div class="sv"><div class="sring busy">DA</div><span class="nm">Deniz</span></div>
+<div class="sv"><div class="sring busy">MK</div><span class="nm">Merve</span></div>
+<div class="sv"><div class="sring busy">SD</div><span class="nm">Selin</span></div>
+<div class="sv"><div class="sring free">EÇ</div><span class="nm">Ece</span></div>
+<div class="sv"><div class="sring leave">GT</div><span class="nm">Gül</span></div>
+<div class="sv dim"><div class="sring">KB</div><span class="nm">Kaan</span></div>
+</div>
+<div class="fcard"><div class="ph a">salon fotoğrafı · sıcak ton</div><div class="fmeta"><b>Temmuz kampanyası kapanıyor</b><span>Keratin + kesim paketinde son üç gün. 9 randevu bu kampanyadan geldi.</span></div></div>
+<div class="fcard"><div class="ph b">vitrin fotoğrafı · soğuk ton</div><div class="fmeta"><b>Yeni bakım serisi rafta</b><span>Stok 24 adet · ilk gün 6 satış.</span></div></div>
+<div class="lrow"><span class="lt n">11:24</span><span class="ln">Zeynep <b>Kaya</b></span><span class="lw">sürüyor · <span class="n">24:18</span></span></div>
+<div class="lrow"><span class="lt n">11:06</span><span class="ln">Buket <b>Şen</b></span><span class="lw">gelmedi</span></div>
+<div class="lrow"><span class="lt n">10:52</span><span class="ln">Ayşe <b>Yılmaz</b></span><span class="lw">tahsil edildi</span></div>`;
+const STATUS=`<div class="status"><span class="n">9:41</span><div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>`;
+function ruler(s,o){
+ const days=s.d.map((n,i)=>`<button class="dy${i===s.sel?' sel':''}" data-i="${i}">${n}</button>`).join('');
+ return `<div class="ruler" style="--i:${s.sel};--t:${s.tdy}${s.m!==undefined?';--m:'+s.m:''}">
+<div class="ticks"></div>${s.m!==undefined?'<div class="mtick"></div>':''}<div class="pill"></div><div class="phd"></div><div class="tdy"><i></i></div>
+<div class="days">${days}</div></div>`;
+}
+function glass(o,s){
+ if(o.v==='none')return '';
+ let mid='';
+ if(o.v==='B')mid=`<div class="navrow"><button class="rb" aria-label="Bugüne dön"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg></button><button class="rb" aria-label="Ara"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></button></div>`;
+ if(o.v==='C'){const v=SUM[o.st];mid=`<div class="sumrow"><div><s>ciro</s><b class="n">${v[0]}</b></div><div><s>doluluk</s><b class="n">${v[1]}</b></div><div><s>adisyon</s><b class="n">${v[2]}</b></div></div>`}
+ const cls=['glass',o.ax5?'ax5':'',o.mat||'',o.v==='D'?'d':''].filter(Boolean).join(' ');
+ const st=o.v==='D'?'style="--pillh:26px"':'';
+ return `<div class="${cls}" ${st}><div class="gblur"></div><div class="gtone"></div><div class="gedge"></div>${STATUS}${mid}${ruler(s,o)}</div>`;
+}
+document.querySelectorAll('[data-scr]').forEach(el=>{
+ const o=JSON.parse(el.dataset.scr),s=STATES[o.st];
+ el.innerHTML=`<div class="stack"><div class="feed${o.top?'':' up'}">${FEED}</div>${o.v==='none'?STATUS.replace('class="status"','class="status" style="position:absolute;left:0;right:0;top:0;z-index:5"'):''}${glass(o,s)}</div>`;
+});
+document.addEventListener('click',e=>{
+ const b=e.target.closest('.dy');if(!b)return;
+ const r=b.closest('.ruler');r.style.setProperty('--i',b.dataset.i);
+ r.querySelectorAll('.dy').forEach(d=>d.classList.toggle('sel',d===b));
+});
+document.querySelector('.toggle').addEventListener('click',()=>{
+ const h=document.documentElement,d=h.getAttribute('data-theme')==='dark';
+ h.setAttribute('data-theme',d?'light':'dark');
+ document.body.classList.toggle('thm-dark',!d);document.body.classList.toggle('thm-light',d);
+ document.getElementById('tglbl').textContent=d?'aydınlık':'koyu';
+});
+</script>
+</body></html>

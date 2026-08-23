@@ -14,6 +14,7 @@ import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedback } from '../lib/feedback';
 import { numeric, useTheme } from '../theme';
+import { upperTR } from '../lib/text';
 
 export type VisitSheet = 'service' | 'material' | null;
 export type MaterialQuantities = Record<string, number>;
@@ -371,9 +372,8 @@ function Kicker({ children }: { children: string }) {
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
         </View>
     );

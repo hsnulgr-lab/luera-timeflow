@@ -3,6 +3,7 @@ import { Animated, Easing, ScrollView, Text, View, type ViewStyle } from 'react-
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const TODAY = [
     { name: 'Ciro', detail: '3 işlem tamamlandı', value: '₺4.010' },
@@ -59,9 +60,8 @@ function SectionTitle({ children }: { children: string }) {
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
         </View>
     );
@@ -143,9 +143,8 @@ export default function Performance() {
                                 fontSize: 11.5,
                                 fontWeight: '600',
                                 letterSpacing: 0.92,
-                                textTransform: 'uppercase',
                             }}>
-                                {label}
+                                {upperTR(label)}
                             </Text>
                         </View>
                     ))}

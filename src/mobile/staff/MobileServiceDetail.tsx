@@ -121,7 +121,16 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
     const addProd = () => {
         if (itemBusy) return;
         const p = products.find((x) => x.id === selProd);
-        if (p) { setItems([...items, { id: rid(), name: p.name, price: p.price, kind: 'product' }]); setSelProd(''); }
+        if (p && p.kind !== 'consumable') {
+            setItems([...items, {
+                id: `product:${p.id}`,
+                name: p.name,
+                price: p.price,
+                kind: 'product',
+                productId: p.id,
+            }]);
+            setSelProd('');
+        }
     };
     const addExtra = () => {
         if (itemBusy) return;
@@ -244,7 +253,14 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <Item name={r.service} type="Hizmet" price={basePrice} />
                             {items.map((l, i) => (
-                                <Item key={l.id} name={l.name} type={l.kind === 'product' ? 'Ürün' : 'Ekstra'} price={l.price} onDel={() => delItem(l.id)} delay={i * 0.05} />
+                                <Item
+                                    key={l.id}
+                                    name={l.name}
+                                    type={l.kind === 'product' ? 'Ürün' : l.kind === 'material' ? 'Malzeme' : 'Ekstra'}
+                                    price={l.price}
+                                    onDel={() => delItem(l.id)}
+                                    delay={i * 0.05}
+                                />
                             ))}
                         </div>
 
@@ -256,7 +272,11 @@ export const MobileServiceDetail = ({ reservationId, onBack }: { reservationId: 
                                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: .4 }}><rect x="2" y="2" width="12" height="12" rx="2" stroke={D.ink} strokeWidth="1.4" /><path d="M2 6h12M6 2v12" stroke={D.ink} strokeWidth="1.4" strokeLinecap="round" /></svg>
                                     <select value={selProd} onChange={(e) => setSelProd(e.target.value)} style={{ flex: 1, background: 'transparent', border: 'none', color: selProd ? D.ink : D.muted2, fontSize: 13.5, fontFamily: D.font, fontWeight: 600, cursor: 'pointer', outline: 'none', height: 46 }}>
                                         <option value="" style={{ background: D.s2 }}>Üründen seç…</option>
-                                        {products.map((p) => <option key={p.id} value={p.id} style={{ background: D.s2 }}>{p.name} — {fmtNum(p.price)} ₺</option>)}
+                                        {products.filter((p) => p.kind !== 'consumable').map((p) => (
+                                            <option key={p.id} value={p.id} style={{ background: D.s2 }}>
+                                                {p.name} — {fmtNum(p.price)} ₺
+                                            </option>
+                                        ))}
                                     </select>
                                     <button onClick={addProd} disabled={itemBusy} aria-label="Ürün ekle" style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: selProd ? D.orange : D.s3, border: 'none', cursor: itemBusy ? 'not-allowed' : 'pointer', opacity: itemBusy ? .5 : 1, display: 'grid', placeItems: 'center', transition: 'background .15s' }}>
                                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke={selProd ? '#fff' : D.muted2} strokeWidth="1.9" strokeLinecap="round" /></svg>

@@ -12,13 +12,13 @@ import { useTheme } from '../../src/theme';
 // milyarlarca insan o ikonları ezbere biliyor; "Performans" ikonunu kimse
 // bilmiyor ve kitlemiz 40–55 yaş.
 //
-// minimizeBehavior: kaydırınca kabuk küçülür — tasarımdaki "küçülmüş hâl".
+// Tab bar her zaman tam, etiketli iOS kabuğu olarak kalır.
 
 export default function StaffTabs() {
     const { c } = useTheme();
     return (
         <NativeTabs
-            minimizeBehavior="onScrollDown"
+            minimizeBehavior="never"
             tintColor={c.or}
             labelVisibilityMode="labeled"
         >

@@ -127,25 +127,42 @@ test('weekDays yıl sonunu doğru geçer', () => {
     assert.equal(days[6].label, 'Paz');
 });
 
-test('monthGrid ayın 1\'i pazar olduğunda altı boş hücreyle başlar', () => {
+test('monthGrid ayın 1\'i pazar olduğunda önceki ayın altı gününü gösterir', () => {
     const grid = monthGrid('2021-08-15');
     assert.equal(grid.length, 6);
     assert.ok(grid.every((week) => week.length === 7));
-    assert.deepEqual(grid[0], [null, null, null, null, null, null, '2021-08-01']);
+    // Tasarım komşu ayı boş bırakmaz, soluk gösterir: hücre hep doludur.
+    assert.deepEqual(grid[0].map((cell) => cell.date), [
+        '2021-07-26', '2021-07-27', '2021-07-28',
+        '2021-07-29', '2021-07-30', '2021-07-31', '2021-08-01',
+    ]);
+    assert.deepEqual(grid[0].map((cell) => cell.inMonth), [
+        false, false, false, false, false, false, true,
+    ]);
+});
+
+test('monthGrid 42 hücrenin tamamını kesintisiz üretir', () => {
+    const cells = monthGrid('2026-05-12').flat();
+    assert.equal(cells.length, 42);
+    for (let i = 1; i < cells.length; i += 1) {
+        const previous = Date.parse(`${cells[i - 1].date}T00:00:00Z`);
+        const current = Date.parse(`${cells[i].date}T00:00:00Z`);
+        assert.equal(current - previous, 86_400_000, `${cells[i - 1].date} → ${cells[i].date}`);
+    }
 });
 
 test('monthGrid 31 çeken ayın hiçbir gününü kaybetmez', () => {
-    const dates = monthGrid('2026-05-12').flat().filter(Boolean);
-    assert.equal(dates.length, 31);
-    assert.equal(dates[0], '2026-05-01');
-    assert.equal(dates.at(-1), '2026-05-31');
+    const own = monthGrid('2026-05-12').flat().filter((cell) => cell.inMonth);
+    assert.equal(own.length, 31);
+    assert.equal(own[0].date, '2026-05-01');
+    assert.equal(own.at(-1).date, '2026-05-31');
 });
 
 test('monthGrid artık yıl şubatını 29 gün üretir', () => {
-    const leap = monthGrid('2024-02-10').flat().filter(Boolean);
-    const ordinary = monthGrid('2025-02-10').flat().filter(Boolean);
+    const leap = monthGrid('2024-02-10').flat().filter((cell) => cell.inMonth);
+    const ordinary = monthGrid('2025-02-10').flat().filter((cell) => cell.inMonth);
     assert.equal(leap.length, 29);
-    assert.equal(leap.at(-1), '2024-02-29');
+    assert.equal(leap.at(-1).date, '2024-02-29');
     assert.equal(ordinary.length, 28);
 });
 

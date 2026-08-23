@@ -44,7 +44,8 @@ const corsHeaders = {
 };
 
 type Action =
-    | 'device.pair' | 'roster' | 'session.start' | 'session.refresh' | 'me'
+    | 'device.pair' | 'device.code.create' | 'device.code.redeem'
+    | 'roster' | 'session.start' | 'session.refresh' | 'me'
     // ── Kumanda (mobil personel modu) ────────────────────────────────────────
     | 'agenda'         // bugünün kendi randevuları
     | 'visit.start'    // işleme başla
@@ -65,6 +66,110 @@ interface StaffRow {
     session_epoch: number | null;
     pin_attempts: number | null;
     pin_locked_until: string | null;
+}
+
+interface CatalogProductRow {
+    id: string;
+    name: string;
+    price: number | string | null;
+    kind: 'retail' | 'consumable' | string;
+    tracks_stock: boolean | null;
+}
+
+interface CatalogServiceRow {
+    id: string;
+    name: string;
+    price: number | string | null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function catalogPrice(value: unknown): number {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) / 100 : 0;
+}
+
+/** Altı hane: telefonda okunup yazılabilecek en uzun makul dizi. */
+const PAIR_CODE_LENGTH = 6;
+/** On dakika: sahip kodu söyleyip personel yazana kadar yeter, fazlası pencere açar. */
+const PAIR_CODE_TTL_MINUTES = 10;
+/** Bir milyon kombinasyona karşı IP başına deneme sınırı. */
+const PAIR_MAX_ATTEMPTS = 10;
+const PAIR_LOCK_MINUTES = 15;
+
+type Admin = ReturnType<typeof createClient>;
+
+/**
+ * Eşleştirme kodu üretir. Kod açık DÖNER ama açık SAKLANMAZ — veritabanında
+ * yalnız SHA-256'sı var.
+ *
+ * `crypto.getRandomValues` ile üretiliyor: `Math.random` tahmin edilebilir ve
+ * altı hanelik bir uzayda bu tek başına kırılma sebebidir. Modulo sapmasından
+ * kaçınmak için 32 bit değer aralık dışına düşerse yeniden çekilir.
+ */
+async function issuePairCode(
+    admin: Admin,
+    orgId: string,
+    staffId: string | null,
+    createdBy: string,
+): Promise<{ code: string; expiresAt: string } | null> {
+    const span = 10 ** PAIR_CODE_LENGTH;
+    const limit = Math.floor(0xffffffff / span) * span;
+
+    // Aynı anda açık duran bir kodla çakışma olasılığı düşük ama sıfır değil;
+    // benzersiz kısmi indeks çakışmayı yazmaya bırakmadan reddeder.
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const buf = new Uint32Array(1);
+        do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+        const code = String(buf[0] % span).padStart(PAIR_CODE_LENGTH, '0');
+        const expiresAt = new Date(Date.now() + PAIR_CODE_TTL_MINUTES * 60_000).toISOString();
+
+        const { error } = await admin.from('staff_device_codes').insert({
+            organization_id: orgId,
+            staff_id: staffId,
+            code_hash: await hashPin(code),
+            expires_at: expiresAt,
+            created_by: createdBy,
+        });
+        if (!error) return { code, expiresAt };
+    }
+    return null;
+}
+
+/** Kilit açıksa kalan süreyi bildirir; kilit yoksa null. */
+async function pairAttemptLock(admin: Admin, ip: string | null): Promise<boolean> {
+    if (!ip) return false;
+    const { data } = await admin
+        .from('staff_pair_attempts')
+        .select('locked_until')
+        .eq('ip', ip)
+        .maybeSingle();
+    return Boolean(data?.locked_until && new Date(data.locked_until) > new Date());
+}
+
+async function failedPairAttempt(admin: Admin, ip: string | null): Promise<void> {
+    if (!ip) return;
+    const { data } = await admin
+        .from('staff_pair_attempts')
+        .select('failures')
+        .eq('ip', ip)
+        .maybeSingle();
+
+    const failures = (Number(data?.failures) || 0) + 1;
+    const locked = failures >= PAIR_MAX_ATTEMPTS;
+    await admin.from('staff_pair_attempts').upsert({
+        ip,
+        failures: locked ? 0 : failures,
+        locked_until: locked
+            ? new Date(Date.now() + PAIR_LOCK_MINUTES * 60_000).toISOString()
+            : null,
+        updated_at: new Date().toISOString(),
+    });
+}
+
+async function clearPairAttempts(admin: Admin, ip: string | null): Promise<void> {
+    if (!ip) return;
+    await admin.from('staff_pair_attempts').delete().eq('ip', ip);
 }
 
 function json(body: unknown, status = 200): Response {
@@ -122,6 +227,117 @@ Deno.serve(async (req: Request) => {
                 DEVICE_TOKEN_TTL_SEC,
             );
             return json({ ok: true, deviceToken: token, orgId: resolved.orgId });
+        }
+
+        // ── device.code.create — sahip, personele özel eşleştirme kodu üretir ─
+        // device.pair ortak tablet içindir: sahibi cihazın başına geçer. Kişisel
+        // telefonda bu işlemez — sahibin beş personelin telefonunda tek tek
+        // oturum açması, şifresini beş kişinin yanında girmesi demek. Kod bu
+        // boşluğu kapatıyor: sahip kendi bilgisayarında üretir, personel yazar.
+        if (action === 'device.code.create') {
+            const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+            if (!jwt) return json({ error: 'unauthorized' }, 401);
+            const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+            if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
+
+            const resolved = await resolveOrg(admin, userData.user.id, body.orgId ?? null);
+            if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+            // device.pair ile aynı kapı: kod üretmek, cihaz yetkilendirmenin
+            // uzaktan hâlidir. Personel kendine kod üretemesin.
+            if (resolved.role === 'member') return json({ error: 'owner_required' }, 403);
+
+            // Kod bir personele bağlanabilir (kişisel telefon: "kendini seç"
+            // adımı düşer, kadro listesi telefona hiç inmez) ya da yalnız
+            // işletmeye (ortak tablet). İkincisinde staffId gelmez.
+            const staffId = body.staffId ? String(body.staffId) : null;
+            if (staffId && !UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
+            if (staffId) {
+                const { data: member } = await admin
+                    .from('staff')
+                    .select('id, is_active')
+                    .eq('id', staffId)
+                    .eq('organization_id', resolved.orgId)
+                    .maybeSingle();
+                if (!member || !member.is_active) return json({ error: 'invalid_staff' }, 400);
+            }
+
+            const code = await issuePairCode(admin, resolved.orgId, staffId, userData.user.id);
+            if (!code) return json({ error: 'code_unavailable' }, 503);
+
+            await audit(resolved.orgId, staffId, 'pair_code_created');
+            // Kod TEK BU CEVAPTA açık geçer; veritabanında yalnız hash'i var.
+            // Sahip okuyamazsa yeniden üretir — saklamaktan iyidir.
+            return json({
+                ok: true,
+                code: code.code,
+                expiresAt: code.expiresAt,
+                expiresInMinutes: PAIR_CODE_TTL_MINUTES,
+            });
+        }
+
+        // ── device.code.redeem — personel kodu cihaz token'ına çevirir ────────
+        if (action === 'device.code.redeem') {
+            const lock = await pairAttemptLock(admin, ip);
+            if (lock) return json({ error: 'pair_locked', minutes: PAIR_LOCK_MINUTES }, 429);
+
+            const digits = String(body.code ?? '').replace(/\D/g, '');
+            if (digits.length !== PAIR_CODE_LENGTH) {
+                await failedPairAttempt(admin, ip);
+                return json({ error: 'invalid_pair_code' }, 401);
+            }
+
+            const { data: row } = await admin
+                .from('staff_device_codes')
+                .select('id, organization_id, staff_id, expires_at, used_at')
+                .eq('code_hash', await hashPin(digits))
+                .is('used_at', null)
+                .maybeSingle();
+
+            if (!row) {
+                await failedPairAttempt(admin, ip);
+                return json({ error: 'invalid_pair_code' }, 401);
+            }
+
+            // Süresi dolmuş kod YANLIŞ kod değildir: kullanıcı doğru yazdı, kod
+            // eskidi. Çözümü de başka — yenisini işletme sahibi üretecek. Aynı
+            // hatayı vermek onu aynı kodu tekrar yazmaya iterdi.
+            if (new Date(row.expires_at) <= new Date()) {
+                return json({ error: 'expired_pair_code' }, 401);
+            }
+
+            const access = await checkAccess(admin, row.organization_id);
+            if (!access.ok) return json({ error: 'subscription_inactive' }, 403);
+
+            // Tek kullanımlık: koşullu güncelleme yarışı da çözüyor. İki telefon
+            // aynı kodu aynı anda yazarsa yalnız biri satırı işaretleyebilir.
+            const { data: claimed } = await admin
+                .from('staff_device_codes')
+                .update({ used_at: new Date().toISOString(), used_ip: ip })
+                .eq('id', row.id)
+                .is('used_at', null)
+                .select('id')
+                .maybeSingle();
+            if (!claimed) {
+                await failedPairAttempt(admin, ip);
+                return json({ error: 'invalid_pair_code' }, 401);
+            }
+
+            await clearPairAttempts(admin, ip);
+            const token = await mintStaffToken(
+                { sub: 'device', org: row.organization_id, role: 'device', epoch: 0 },
+                secret,
+                undefined,
+                DEVICE_TOKEN_TTL_SEC,
+            );
+            await audit(row.organization_id, row.staff_id, 'paired');
+
+            // staffId dönüyorsa arayüz "kendini seç" adımını atlar.
+            return json({
+                ok: true,
+                deviceToken: token,
+                orgId: row.organization_id,
+                staffId: row.staff_id,
+            });
         }
 
         // Bundan sonraki tüm uçlar token ister (cihaz ya da personel).
@@ -282,14 +498,162 @@ Deno.serve(async (req: Request) => {
         /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
         const loadOwnReservation = async (id: unknown) => {
             if (typeof id !== 'string' || !id) return { err: json({ error: 'reservation_required' }, 400) };
-            const { data } = await admin.from('reservations').select(RES_COLS)
+            const { data, error } = await admin.from('reservations').select(RES_COLS)
                 .eq('id', id).eq('organization_id', me.organization_id).maybeSingle();
+            if (error) {
+                console.error('visit reservation lookup', error);
+                return { err: json({ error: 'lookup_failed' }, 500) };
+            }
             if (!data) return { err: json({ error: 'not_found' }, 404) };
             if (!canTouchReservation(me.role, me.id, data.staff_id)) {
                 await audit(me.organization_id, me.id, 'visit.forbidden');
                 return { err: json({ error: 'forbidden' }, 403) };
             }
+            if (data.status === 'cancelled') {
+                return { err: json({ error: 'reservation_cancelled' }, 409) };
+            }
             return { res: data };
+        };
+
+        /**
+         * İşlemde tüketilen malzemeleri stok defteriyle uzlaştırır.
+         *
+         * Adisyon bitmiş olsa bile bu yardımcı tekrar çalışır: durum update'i
+         * başarılı olup stok yazımı kesildiyse, sonraki idempotent finish çağrısı
+         * eksik hareketi tamamlar. `material` ile `product` bilinçli olarak ayrı:
+         * material hizmette tüketilir (usage), product kasada satılır (sale).
+         */
+        const reconcileUsageStock = async (reservation: Record<string, unknown>) => {
+            const stored = Array.isArray(reservation.adisyon_items) ? reservation.adisyon_items : [];
+            const candidates = new Map<string, { qty: number; requestedKind: string }>();
+
+            for (const line of stored as Record<string, unknown>[]) {
+                // `product` burada yalnız geriye uyumluluk içindir. Katalog
+                // consumable diyorsa material'a yükseltilir; retail ürünler
+                // kasada sale olarak düşeceği için usage'a girmez.
+                if (line?.kind !== 'material' && line?.kind !== 'product') continue;
+                const productId = typeof line.productId === 'string' ? line.productId : '';
+                const qty = Number(line.qty ?? 1);
+                if (!UUID_RE.test(productId) || !Number.isInteger(qty) || qty < 1 || qty > 99) {
+                    // Eski masaüstü/mobil adisyonları satış ürününü productId
+                    // olmadan saklayabiliyordu. Bunun sarf olduğunu güvenle
+                    // söyleyemeyiz; usage üretmeden atlamak eski davranıştır.
+                    // Canonical material ise kimliksiz bırakılamaz.
+                    if (line.kind === 'product') continue;
+                    console.error('visit.finish stok: geçersiz ürün/malzeme satırı', { reservationId: reservation.id });
+                    return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+                }
+                const current = candidates.get(productId);
+                candidates.set(productId, {
+                    qty: (current?.qty || 0) + qty,
+                    requestedKind: line.kind === 'material' || current?.requestedKind === 'material'
+                        ? 'material'
+                        : 'product',
+                });
+            }
+
+            const productIds = [...candidates.keys()];
+            if (productIds.length === 0) return { ok: true as const, appliedCount: 0 };
+
+            const { data: products, error: productErr } = await admin.from('products')
+                .select('id, kind, tracks_stock')
+                .eq('organization_id', me.organization_id)
+                .in('id', productIds);
+            if (productErr) {
+                console.error('visit.finish stok katalog', productErr);
+                return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+            }
+            const productById = new Map((products || []).map((p: CatalogProductRow) => [p.id, p]));
+            const usage = new Map<string, number>();
+            for (const [productId, candidate] of candidates) {
+                const product = productById.get(productId);
+                if (!product) {
+                    // Silinmiş/eski kimlikli bir legacy satış ürünü usage
+                    // üretmez. Material kaybıysa stok uyarısı görünür olmalı.
+                    if (candidate.requestedKind === 'product') continue;
+                    console.error('visit.finish stok: organizasyon kataloğunda ürün yok', { reservationId: reservation.id });
+                    return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+                }
+                if (product.kind === 'consumable' && product.tracks_stock !== false) {
+                    usage.set(productId, candidate.qty);
+                    continue;
+                }
+                if (candidate.requestedKind === 'material') {
+                    console.error('visit.finish stok: material satırı sarf kataloğuyla eşleşmiyor', {
+                        reservationId: reservation.id, productId,
+                    });
+                    return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+                }
+            }
+            if (usage.size === 0) return { ok: true as const, appliedCount: 0 };
+
+            const usageProductIds = [...usage.keys()];
+
+            const reservationId = String(reservation.id || '');
+            const { data: existing, error: existingErr } = await admin.from('stock_movements')
+                .select('product_id, delta')
+                .eq('organization_id', me.organization_id)
+                .eq('reservation_id', reservationId)
+                .eq('type', 'usage')
+                .in('product_id', usageProductIds);
+            if (existingErr) {
+                console.error('visit.finish stok mevcut hareket', existingErr);
+                return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+            }
+
+            const existingByProduct = new Map<string, number>();
+            for (const movement of existing || []) {
+                if (existingByProduct.has(movement.product_id)) {
+                    console.error('visit.finish stok: aynı rezervasyon/ürün için birden çok usage');
+                    return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
+                }
+                existingByProduct.set(movement.product_id, Number(movement.delta));
+            }
+
+            let appliedCount = 0;
+            for (const [productId, qty] of usage) {
+                const expectedDelta = -qty;
+                if (existingByProduct.has(productId)) {
+                    if (existingByProduct.get(productId) !== expectedDelta) {
+                        console.error('visit.finish stok: mevcut kullanım miktarı adisyonla uyuşmuyor', {
+                            reservationId, productId,
+                        });
+                        return { ok: false as const, warning: 'stock_write_failed', appliedCount };
+                    }
+                    continue;
+                }
+
+                const { error: stockErr } = await admin.from('stock_movements').insert({
+                    organization_id: me.organization_id,
+                    product_id: productId,
+                    type: 'usage',
+                    delta: expectedDelta,
+                    reservation_id: reservationId,
+                    note: `${me.name} · ${String(reservation.service || 'Hizmet')}`,
+                });
+                if (!stockErr) {
+                    appliedCount += 1;
+                    continue;
+                }
+
+                // Eşzamanlı ikinci finish aynı kısmi tekil indekse çarpar. Bu
+                // yalnız beklenen satır gerçekten yazıldıysa başarı sayılır.
+                if (stockErr.code === '23505') {
+                    const { data: raced, error: racedErr } = await admin.from('stock_movements')
+                        .select('delta')
+                        .eq('organization_id', me.organization_id)
+                        .eq('reservation_id', reservationId)
+                        .eq('product_id', productId)
+                        .eq('type', 'usage')
+                        .maybeSingle();
+                    if (!racedErr && raced && Number(raced.delta) === expectedDelta) continue;
+                }
+
+                console.error('visit.finish stok', stockErr);
+                return { ok: false as const, warning: 'stock_write_failed', appliedCount };
+            }
+
+            return { ok: true as const, appliedCount };
         };
 
         if (action === 'agenda') {
@@ -323,8 +687,25 @@ Deno.serve(async (req: Request) => {
             if (!res!.arrived_at) patch.arrived_at = new Date().toISOString();
             if (res!.status === 'pending') patch.status = 'confirmed';
             if (Object.keys(patch).length > 0) {
-                const { error } = await admin.from('reservations').update(patch).eq('id', res!.id);
+                let update = admin.from('reservations').update(patch)
+                    .eq('id', res!.id)
+                    .eq('organization_id', me.organization_id)
+                    .neq('status', 'cancelled')
+                    .neq('status', 'completed');
+                // İki telefon/çift dokunuş aynı anda başlatırsa yalnız ilk damga
+                // yazılır; ikinci istek aşağıda güncel satırı yeniden okur.
+                if (!res!.arrived_at) update = update.is('arrived_at', null);
+                const { data: updated, error } = await update.select(RES_COLS).maybeSingle();
                 if (error) { console.error('visit.start', error); return json({ error: 'write_failed' }, 500); }
+                if (!updated) {
+                    const latest = await loadOwnReservation(res!.id);
+                    if (latest.err) return latest.err;
+                    if (latest.res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+                    await audit(me.organization_id, me.id, 'visit.start');
+                    return json({ ok: true, reservation: latest.res });
+                }
+                await audit(me.organization_id, me.id, 'visit.start');
+                return json({ ok: true, reservation: updated });
             }
             await audit(me.organization_id, me.id, 'visit.start');
             return json({ ok: true, reservation: { ...res, ...patch } });
@@ -334,23 +715,124 @@ Deno.serve(async (req: Request) => {
             const { res, err } = await loadOwnReservation(body.reservationId);
             if (err) return err;
             if (res!.status === 'completed') return json({ error: 'already_finished' }, 409);
-            // Kalemler sunucuda TEMİZLENİR: fiyat sayı mı, ad var mı, tür
-            // geçerli mi. İstemciden gelen jsonb'yi olduğu gibi yazmak,
-            // adisyona keyfi alan sokabilmek demekti.
+            // Telefon yalnız KATALOG KİMLİĞİ ve miktar söyler. Adı/fiyatı
+            // sunucu organizasyon kataloğundan çözer; aksi hâlde elle atılan
+            // bir istek kasadaki toplamı değiştirebilirdi.
             const raw = Array.isArray(body.items) ? body.items : null;
             if (!raw) return json({ error: 'items_required' }, 400);
             if (raw.length > 40) return json({ error: 'too_many_items' }, 400);
-            const items = raw.map((it: Record<string, unknown>) => ({
-                id: String(it?.id ?? crypto.randomUUID()).slice(0, 64),
-                name: String(it?.name ?? '').trim().slice(0, 120) || 'Kalem',
-                price: Math.max(0, Math.round(Number(it?.price) || 0)),
-                kind: it?.kind === 'product' ? 'product' : 'extra',
-                ...(typeof it?.productId === 'string' ? { productId: it.productId } : {}),
-                ...(Number(it?.qty) > 1 ? { qty: Math.min(99, Math.round(Number(it.qty))) } : {}),
-            }));
-            const { error } = await admin.from('reservations')
-                .update({ adisyon_items: items }).eq('id', res!.id);
+
+            const requested = raw as Record<string, unknown>[];
+            const productIds: string[] = [];
+            const serviceIds: string[] = [];
+            const seen = new Set<string>();
+            for (const line of requested) {
+                const kind = line?.kind;
+                const catalogId = kind === 'extra' ? line?.serviceId : line?.productId;
+                if ((kind !== 'product' && kind !== 'material' && kind !== 'extra')
+                    || typeof catalogId !== 'string' || !UUID_RE.test(catalogId)) {
+                    return json({ error: 'invalid_catalog_item' }, 400);
+                }
+                const key = kind === 'extra' ? `service:${catalogId}` : `product:${catalogId}`;
+                if (seen.has(key)) return json({ error: 'duplicate_catalog_item' }, 400);
+                seen.add(key);
+                if (kind === 'extra') serviceIds.push(catalogId);
+                else productIds.push(catalogId);
+            }
+
+            let productRows: CatalogProductRow[] = [];
+            if (productIds.length > 0) {
+                const { data, error } = await admin.from('products')
+                    .select('id, name, price, kind, tracks_stock')
+                    .eq('organization_id', me.organization_id)
+                    .eq('is_active', true)
+                    .in('id', productIds);
+                if (error) { console.error('visit.items products', error); return json({ error: 'lookup_failed' }, 500); }
+                productRows = (data || []) as CatalogProductRow[];
+            }
+
+            let serviceRows: CatalogServiceRow[] = [];
+            if (serviceIds.length > 0) {
+                const { data, error } = await admin.from('services')
+                    .select('id, name, price')
+                    .eq('organization_id', me.organization_id)
+                    .in('id', serviceIds);
+                if (error) { console.error('visit.items services', error); return json({ error: 'lookup_failed' }, 500); }
+                serviceRows = (data || []) as CatalogServiceRow[];
+            }
+
+            const productById = new Map(productRows.map((row) => [row.id, row]));
+            const serviceById = new Map(serviceRows.map((row) => [row.id, row]));
+            const items: Record<string, unknown>[] = [];
+            for (const line of requested) {
+                if (line.kind === 'extra') {
+                    const serviceId = String(line.serviceId);
+                    const service = serviceById.get(serviceId);
+                    const qty = Number(line.qty ?? 1);
+                    if (!service || qty !== 1) return json({ error: 'invalid_catalog_item' }, 400);
+                    items.push({
+                        id: `service:${service.id}`,
+                        name: service.name,
+                        price: catalogPrice(service.price),
+                        kind: 'extra',
+                        serviceId: service.id,
+                    });
+                    continue;
+                }
+
+                const productId = String(line.productId);
+                const product = productById.get(productId);
+                const qty = Number(line.qty ?? 1);
+                if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
+                    return json({ error: 'invalid_catalog_item' }, 400);
+                }
+                // Eski istemciler sarfı da `product` diye gönderiyordu. Türü
+                // telefondan değil katalogdaki product.kind'dan türetmek hem
+                // güvenli hem de dağıtım geçişinde geriye uyumludur.
+                if (product.kind === 'consumable') {
+                    if (product.tracks_stock === false) {
+                        return json({ error: 'invalid_catalog_item' }, 400);
+                    }
+                    items.push({
+                        id: `material:${product.id}`,
+                        name: product.name,
+                        price: 0,
+                        kind: 'material',
+                        productId: product.id,
+                        ...(qty > 1 ? { qty } : {}),
+                    });
+                } else {
+                    // Satılan ürün kasa aşamasında `sale` olarak stoktan düşer;
+                    // visit.finish onu `usage` saymaz. Masaüstü adisyon modeli
+                    // henüz qty-aware olmadığı için satış satırı tek adettir.
+                    if (line.kind !== 'product' || product.kind !== 'retail' || qty !== 1) {
+                        return json({ error: 'invalid_catalog_item' }, 400);
+                    }
+                    items.push({
+                        id: `product:${product.id}`,
+                        name: product.name,
+                        price: catalogPrice(product.price),
+                        kind: 'product',
+                        productId: product.id,
+                    });
+                }
+            }
+
+            const { data: updated, error } = await admin.from('reservations')
+                .update({ adisyon_items: items })
+                .eq('id', res!.id)
+                .eq('organization_id', me.organization_id)
+                .neq('status', 'cancelled')
+                .neq('status', 'completed')
+                .select('id, status')
+                .maybeSingle();
             if (error) { console.error('visit.items', error); return json({ error: 'write_failed' }, 500); }
+            if (!updated) {
+                const latest = await loadOwnReservation(res!.id);
+                if (latest.err) return latest.err;
+                if (latest.res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+                return json({ error: 'state_conflict' }, 409);
+            }
             return json({ ok: true, items });
         }
 
@@ -358,41 +840,71 @@ Deno.serve(async (req: Request) => {
             const { res, err } = await loadOwnReservation(body.reservationId);
             if (err) return err;
             // Aynı isteğin iki kez gelmesi (kötü sinyalde kuyruk tekrarı)
-            // HATA DEĞİL: zaten bitmişse aynı cevabı dön. Idempotency.
-            if (res!.status === 'completed') {
-                return json({ ok: true, alreadyFinished: true, reservation: res });
-            }
+            // HATA DEĞİL. Ancak stok ilk denemede kesilmiş olabilir; bu yüzden
+            // tamamlanmış satır da aşağıdaki stok uzlaştırmasına girer.
+            let alreadyFinished = res!.status === 'completed';
+            let finalized = res!;
             const now = new Date().toISOString();
-            const { error } = await admin.from('reservations')
-                .update({ status: 'completed', service_ended_at: now, ...(res!.arrived_at ? {} : { arrived_at: now }) })
-                .eq('id', res!.id).neq('status', 'completed');
-            if (error) { console.error('visit.finish', error); return json({ error: 'write_failed' }, 500); }
-
-            // Stok düşümü BURADA, kalem eklenirken değil: kalemler işlem
-            // sırasında ekleniyor ve çıkarılıyor; her dokunuşta stok oynatmak
-            // ambarı personelin fikir değişikliğine bağlardı.
-            const items = Array.isArray(res!.adisyon_items) ? res!.adisyon_items : [];
-            const used = items.filter((i: Record<string, unknown>) => i?.kind === 'product' && i?.productId);
-            if (used.length > 0) {
-                const rows = used.map((i: Record<string, unknown>) => ({
-                    organization_id: me.organization_id,
-                    product_id: i.productId,
-                    delta: -(Number(i.qty) || 1),
-                    reason: 'hizmet',
-                    reservation_id: res!.id,
-                    note: `${me.name} · ${res!.service}`,
-                }));
-                // Stok yazımı başarısız olursa işlem GERİ ALINMAZ: hizmet
-                // gerçekten yapıldı, adisyon kasaya gitmeli. Sayım hatası
-                // düzeltilebilir, kaybolan adisyon düzeltilemez.
-                const { error: stockErr } = await admin.from('stock_movements').insert(rows);
-                if (stockErr) console.error('visit.finish stok', stockErr);
+            if (alreadyFinished && !res!.service_ended_at) {
+                const { data: backfilled, error: backfillErr } = await admin.from('reservations')
+                    .update({ service_ended_at: now, ...(res!.arrived_at ? {} : { arrived_at: now }) })
+                    .eq('id', res!.id)
+                    .eq('organization_id', me.organization_id)
+                    .eq('status', 'completed')
+                    .is('service_ended_at', null)
+                    .select(RES_COLS)
+                    .maybeSingle();
+                if (backfillErr) {
+                    console.error('visit.finish legacy timestamp', backfillErr);
+                    return json({ error: 'write_failed' }, 500);
+                }
+                if (backfilled) {
+                    finalized = backfilled;
+                } else {
+                    const latest = await loadOwnReservation(res!.id);
+                    if (latest.err) return latest.err;
+                    finalized = latest.res!;
+                }
+            }
+            if (!alreadyFinished) {
+                const { data: updated, error } = await admin.from('reservations')
+                    .update({ status: 'completed', service_ended_at: now, ...(res!.arrived_at ? {} : { arrived_at: now }) })
+                    .eq('id', res!.id)
+                    .eq('organization_id', me.organization_id)
+                    .neq('status', 'cancelled')
+                    .neq('status', 'completed')
+                    .select(RES_COLS)
+                    .maybeSingle();
+                if (error) { console.error('visit.finish', error); return json({ error: 'write_failed' }, 500); }
+                if (updated) {
+                    finalized = updated;
+                } else {
+                    const latest = await loadOwnReservation(res!.id);
+                    if (latest.err) return latest.err;
+                    if (latest.res!.status !== 'completed') return json({ error: 'state_conflict' }, 409);
+                    finalized = latest.res!;
+                    alreadyFinished = true;
+                }
             }
 
+            // Stok düşümü BURADA, kalem eklenirken değil. Hata hizmetin gerçek
+            // tamamlanmasını geri almaz; fakat yanıt uyarıyı açıkça taşır.
+            const stock = await reconcileUsageStock(finalized as Record<string, unknown>);
+            const items = Array.isArray(finalized.adisyon_items) ? finalized.adisyon_items : [];
             const total = items.reduce((s: number, i: Record<string, unknown>) =>
                 s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
-            await audit(me.organization_id, me.id, 'visit.finish');
-            return json({ ok: true, total, itemCount: items.length, endedAt: now });
+            if (!alreadyFinished) await audit(me.organization_id, me.id, 'visit.finish');
+            const stockWarning = stock.ok ? undefined : stock.warning;
+            return json({
+                ok: true,
+                ...(alreadyFinished ? { alreadyFinished: true } : {}),
+                reservation: finalized,
+                total,
+                itemCount: items.length,
+                endedAt: finalized.service_ended_at || now,
+                stock: { ok: stock.ok, appliedCount: stock.appliedCount },
+                ...(stockWarning ? { stockWarning, warnings: [stockWarning] } : {}),
+            });
         }
 
         if (action === 'catalog') {

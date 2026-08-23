@@ -20,12 +20,15 @@ test('hareket 02 başlık eşikleri sözleşmedeki scroll aralıklarını kullan
     assert.doesNotMatch(calendar, /63\.99/);
 });
 
-test('native tab bar kaydırılabilir görünümü bulur ve hafta yapışmaz', () => {
+test('native tab bar sabit kalır ve güvenli alan yalnız bir kez uygulanır', () => {
     assert.match(calendar, /collapsable=\{false\}/);
-    assert.ok(
-        calendar.indexOf('<Animated.ScrollView') < calendar.indexOf('<LinearGradient'),
-        'ScrollView native hiyerarşide parıltı ve üst çubuktan önce gelmeli',
-    );
+    assert.match(calendar, /paddingTop: insets\.top/);
+    assert.doesNotMatch(calendar, /contentInsetAdjustmentBehavior="automatic"/);
+    // Kaydırma alanı tek katman: flex + zIndex. Çevrimdışı bandı indiğinde
+    // buraya YALNIZ translateY eklenir; yükseklik ya da dolgu animasyonu yok.
+    assert.match(calendar, /flex: 1,\s*\n\s*zIndex: 1,/);
+    assert.match(calendar, /transform: \[\{\s*\n\s*translateY: barProgress\.interpolate\(/);
+    assert.match(calendar, /outputRange: \[0, offlineBar\.height\]/);
     assert.doesNotMatch(calendar, /stickyHeaderIndices/);
-    assert.match(tabs, /minimizeBehavior="onScrollDown"/);
+    assert.match(tabs, /minimizeBehavior="never"/);
 });

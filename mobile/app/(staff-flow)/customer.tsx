@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Appt } from '../../src/lib/calendar';
 import { source } from '../../src/lib/calendarSource';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const HISTORY = [
     { name: 'Saç boyama + fön', detail: '11 Tem · Merve', amount: '₺1.800' },
@@ -143,9 +144,8 @@ function SectionTitle({ children, trailing }: { children: string; trailing?: str
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
             {trailing ? (
                 <Text style={{ color: c.or, fontSize: 12.5, fontWeight: '700' }}>
@@ -351,9 +351,8 @@ export default function CustomerCard() {
                                 fontSize: 14,
                                 fontWeight: '700',
                                 letterSpacing: 0.84,
-                                textTransform: 'uppercase',
                             }}>
-                                Bilinmesi gerekenler
+                                {upperTR('Bilinmesi gerekenler')}
                             </Text>
                             <Text style={{ color: c.tx, fontSize: 15, lineHeight: 22.5, fontWeight: '600' }}>
                                 {riskText}
@@ -391,9 +390,8 @@ export default function CustomerCard() {
                                 fontSize: 11.5,
                                 fontWeight: '600',
                                 letterSpacing: 0.92,
-                                textTransform: 'uppercase',
                             }}>
-                                {label}
+                                {upperTR(label)}
                             </Text>
                         </View>
                     ))}
@@ -482,9 +480,8 @@ export default function CustomerCard() {
                             fontSize: 12,
                             fontWeight: '700',
                             letterSpacing: 1.2,
-                            textTransform: 'uppercase',
                         }}>
-                            {hasCalendarContext ? 'Randevu notu' : '11 Tem · Merve'}
+                            {upperTR(hasCalendarContext ? 'Randevu notu' : '11 Tem · Merve')}
                         </Text>
                         <Text style={{ color: c.tx2, fontSize: 15, lineHeight: 22.5, fontWeight: '500' }}>
                             {hasCalendarContext

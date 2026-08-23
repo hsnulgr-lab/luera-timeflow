@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { authApi, type AuthSession } from '../../src/api/session';
 import { feedback } from '../../src/lib/feedback';
 import { useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
-function TopBar() {
+function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
     const { c, glass } = useTheme();
     const style: ViewStyle = {
         height: 52,
@@ -18,10 +20,10 @@ function TopBar() {
     const content = (
         <View style={{ minWidth: 0 }}>
             <Text style={{ color: c.tx, fontSize: 16, fontWeight: '800', letterSpacing: -0.32 }}>
-                Profil
+                {title}
             </Text>
             <Text numberOfLines={1} style={{ color: c.tx2, fontSize: 11.5, fontWeight: '600' }}>
-                Studio Ayla — Kadıköy
+                {subtitle}
             </Text>
         </View>
     );
@@ -45,9 +47,8 @@ function SectionTitle({ children }: { children: string }) {
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
         </View>
     );
@@ -175,16 +176,18 @@ function SettingRow({
     name,
     detail,
     value,
+    onPress,
 }: {
     name: string;
     detail: string;
     value?: string;
+    onPress?: () => void;
 }) {
     const { c } = useTheme();
     return (
         <Pressable
             accessibilityRole="button"
-            onPress={() => undefined}
+            onPress={onPress}
             style={({ pressed }) => ({
                 minHeight: 62,
                 paddingVertical: 10,
@@ -213,60 +216,38 @@ function SettingRow({
     );
 }
 
-function ExitIcon() {
-    const { c } = useTheme();
-    return (
-        <View style={{ width: 19, height: 19 }}>
-            <View style={{
-                position: 'absolute',
-                left: 1,
-                top: 2,
-                width: 10,
-                height: 15,
-                borderWidth: 1.7,
-                borderRightWidth: 0,
-                borderColor: c.rd,
-                borderTopLeftRadius: 3,
-                borderBottomLeftRadius: 3,
-            }} />
-            <View style={{ position: 'absolute', top: 8.5, right: 0, width: 11, height: 1.7, backgroundColor: c.rd }} />
-            <View style={{
-                position: 'absolute',
-                right: 0,
-                top: 5,
-                width: 7,
-                height: 7,
-                borderTopWidth: 1.7,
-                borderRightWidth: 1.7,
-                borderColor: c.rd,
-                transform: [{ rotate: '45deg' }],
-            }} />
-        </View>
-    );
-}
-
 export default function Profile() {
     const { c } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const [session, setSession] = useState<AuthSession | null>(null);
     const [newAppointment, setNewAppointment] = useState(true);
     const [cancellation, setCancellation] = useState(true);
     const [dailySummary, setDailySummary] = useState(false);
 
-    const logout = () => {
-        Alert.alert(
-            'Çıkış yapılsın mı?',
-            'Telefon işletmeye bağlı kalacak. Tekrar girmek için yalnız şifreniz gerekecek.',
-            [
-                { text: 'Vazgeç', style: 'cancel' },
-                { text: 'Çıkış yap', style: 'destructive', onPress: () => router.replace('/(auth)/who') },
-            ],
-        );
-    };
+    useEffect(() => {
+        let alive = true;
+        authApi.resume.get().then((result) => {
+            if (!alive) return;
+            if (!result.ok) {
+                router.replace('/(auth)/welcome');
+                return;
+            }
+            setSession(result.data);
+        });
+        return () => { alive = false; };
+    }, [router]);
+
+    if (!session) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+
+    const { profile } = session;
 
     return (
         <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
-            <TopBar />
+            <TopBar
+                title="Profil"
+                subtitle={`${profile.business.name} — ${profile.business.location}`}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -291,17 +272,28 @@ export default function Profile() {
                         backgroundColor: c.or + '24',
                     }}>
                         <Text style={{ color: c.or2, fontSize: 26, fontWeight: '800', letterSpacing: -0.52 }}>
-                            MK
+                            {profile.initials}
                         </Text>
                     </View>
                     <View style={{ alignItems: 'center', gap: 3 }}>
                         <Text style={{ color: c.tx, fontSize: 22, fontWeight: '800', letterSpacing: -0.66 }}>
-                            Merve Kaya
+                            {profile.name}
                         </Text>
                         <Text style={{ color: c.tx2, fontSize: 14, fontWeight: '600' }}>
-                            Kuaför · bu telefona bağlı
+                            {profile.actor === 'manager'
+                                ? 'Hesap sahibi · bu telefona bağlı'
+                                : `${profile.title ?? ''} · bu telefona bağlı`}
                         </Text>
                     </View>
+                </View>
+
+                <SectionTitle>Hesap</SectionTitle>
+                <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.bd }}>
+                    <SettingRow
+                        name="Hesap"
+                        detail="Giriş, Face ID ve oturum"
+                        onPress={() => router.push('/(staff-flow)/account')}
+                    />
                 </View>
 
                 <SectionTitle>Bildirimler</SectionTitle>
@@ -342,35 +334,6 @@ export default function Profile() {
                     <SettingRow name="Yardım" detail="Sık sorulanlar, destek" />
                 </View>
 
-                <View style={{ paddingTop: 20, paddingHorizontal: 18 }}>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={logout}
-                        style={({ pressed }) => ({
-                            width: '100%',
-                            height: 52,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 10,
-                            borderRadius: 18,
-                            borderWidth: 1,
-                            borderColor: c.rd + '4D',
-                            opacity: pressed ? 0.62 : 1,
-                        })}
-                    >
-                        <ExitIcon />
-                        <Text style={{ color: c.rd, fontSize: 16, fontWeight: '800', letterSpacing: -0.32 }}>
-                            Çıkış yap
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <View style={{ paddingTop: 12, paddingHorizontal: 18 }}>
-                    <Text style={{ color: c.tx3, fontSize: 12.5, lineHeight: 18.75, fontWeight: '500' }}>
-                        Çıkış yaptığınızda telefon işletmeye bağlı kalır; tekrar girmek için yalnız şifreniz yeter.
-                    </Text>
-                </View>
             </ScrollView>
         </View>
     );

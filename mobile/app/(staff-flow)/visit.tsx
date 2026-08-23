@@ -17,6 +17,7 @@ import type { Appt } from '../../src/lib/calendar';
 import { source } from '../../src/lib/calendarSource';
 import { feedback } from '../../src/lib/feedback';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const TEST_ELAPSED_SECONDS = 24 * 60 + 18;
 
@@ -421,9 +422,8 @@ export default function ActiveVisit() {
                     fontSize: 13,
                     fontWeight: '700',
                     letterSpacing: 1.82,
-                    textTransform: 'uppercase',
                 }}>
-                    Şu anki tutar
+                    {upperTR('Şu anki tutar')}
                 </Text>
                 <Text style={[{
                     color: c.tx,

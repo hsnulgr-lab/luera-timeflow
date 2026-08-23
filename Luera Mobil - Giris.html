@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Giriş (Belge C)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(37,32,21,.5);--sheen:rgba(243,237,227,.09);--desk:#0B0805;--glow:linear-gradient(180deg,rgba(255,90,31,.18) 0%,rgba(255,90,31,.07) 45%,rgba(18,14,8,0) 100%)}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.72);--glassbd:rgba(14,14,14,.09);--tint:rgba(240,233,223,.55);--sheen:rgba(255,255,255,.55);--desk:#E4DACA;--glow:linear-gradient(180deg,rgba(255,90,31,.08) 0%,rgba(255,90,31,.03) 45%,rgba(243,236,224,0) 100%)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--or2)}a:hover{color:var(--or)}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.mark.c08{font-weight:900;letter-spacing:-.05em;line-height:.82}
+.mark.c08 i{width:.22em;height:.22em;margin-left:.02em;margin-bottom:.02em;box-shadow:0 0 32px var(--or);animation:c08-active 1s ease-in-out infinite}
+@keyframes c08-active{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:780px;margin-bottom:52px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:560px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:76px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec.sm{width:375px}
+.spec.wide{width:auto;max-width:393px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:var(--tx);font-weight:700}
+.note.src::before{background:var(--bd2)}
+.legend{display:flex;flex-direction:column;gap:9px;width:340px;padding:20px;border:1px solid var(--bd);border-radius:18px;background:var(--surf)}
+.legend h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2);margin-bottom:3px}
+.legend div{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.legend div b{color:var(--tx);font-weight:700}
+.legend s{flex:none;width:11px;height:11px;border-radius:3px;margin-top:4px;background:var(--or);text-decoration:none}
+.legend s.g{background:var(--gr)}.legend s.n{background:var(--bd2)}.legend s.a{background:var(--am)}.legend s.r{background:var(--rd)}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1100px}
+.rn .r{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r b{flex:none;width:210px;color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.rn .r code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--tx)}
+
+/* ── akış şeması ── */
+.map{display:flex;flex-direction:column;gap:26px;padding:26px;border:1px solid var(--bd);border-radius:22px;background:var(--surf);margin-bottom:76px}
+.map h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)}
+.mrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mcol{display:flex;flex-direction:column;gap:10px}
+.mb{display:flex;flex-direction:column;gap:3px;justify-content:center;padding:12px 16px;min-height:60px;border-radius:18px;background:var(--card);border:1px solid var(--bd2);min-width:150px}
+.mb b{font-size:14.5px;font-weight:800;letter-spacing:-.02em}
+.mb span{font-size:12px;font-weight:500;color:var(--tx2);line-height:1.35}
+.mb.q{border-color:var(--or);border-width:1.5px}
+.mb.end{background:var(--surf2);border-style:dashed}
+.mb.quiet{background:transparent}
+.ar{flex:none;font-size:16px;font-weight:700;color:var(--tx3);padding:0 2px}
+.mnote{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:820px}
+.mnote b{color:var(--tx);font-weight:700}
+
+/* ── telefon çerçevesi ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.safe-top,.safe-bot{position:absolute;left:0;right:0;pointer-events:none;z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.safe-top{top:0;height:59px;border-bottom:1px dashed rgba(255,90,31,.4)}
+.safe-bot{bottom:0;height:34px;align-items:center;border-top:1px dashed rgba(255,90,31,.4)}
+.phone.sm .safe-top{height:20px}
+.safe-top span{position:relative;top:-18px}
+.safe-top span,.safe-bot span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700;position:relative;z-index:20}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.bars.off i{background:var(--tx3)}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.scroll{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pad-bot{height:46px;flex:none}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:70}
+.ic{width:23px;height:23px;flex:none}
+.glow{position:absolute;left:0;right:0;top:0;height:298px;background:var(--glow);pointer-events:none;z-index:0}
+.topbar{flex:none;display:flex;align-items:center;gap:10px;height:52px;padding:0 12px 0 18px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid var(--glassbd);box-shadow:0 1px 0 var(--sheen) inset;position:relative;z-index:40}
+.topbar.plain{background:none;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:0;box-shadow:none}
+.topbar.opaque{background:var(--surf);backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom-color:var(--bd2);box-shadow:none}
+.topbar .biz{display:flex;flex-direction:column;min-width:0;flex:1}
+.topbar .biz b{font-size:16px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .biz span{font-size:11.5px;font-weight:600;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:14px;color:var(--tx)}
+
+/* ── içerik atomları ── */
+.pad{padding:0 18px}
+.stack{display:flex;flex-direction:column}
+.hair{flex:none;height:1px;background:var(--bd)}
+.card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:22px;overflow:hidden}
+.pgtitle{flex:none;display:flex;flex-direction:column;gap:3px;padding:18px 20px 12px}
+.pgtitle h2{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1.05}
+.pgtitle span{font-size:14px;font-weight:600;color:var(--tx2);line-height:1.4}
+.chip{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:10px;background:var(--surf2);font-size:13px;font-weight:600;color:var(--tx2)}
+.btn{flex:none;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;height:60px;border-radius:18px;font-size:18px;font-weight:800;letter-spacing:-.02em;background:var(--or);color:#fff}
+.btn.tall{height:66px;font-size:19px}
+.btn.sec{background:var(--surf2);color:var(--tx);border:1px solid var(--bd)}
+.btn.ghost{background:transparent;color:var(--tx2);height:52px;font-size:16px;font-weight:700}
+.btn.danger{background:transparent;color:var(--rd);border:1px solid rgba(201,64,64,.34)}
+.btn.dis{opacity:.4}
+.mini{display:flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 15px;border-radius:14px;background:var(--surf2);border:1px solid var(--bd);font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.rowline{display:flex;align-items:center;gap:13px;padding:14px 18px;min-height:62px}
+.rowline.tall{min-height:74px}
+.rowline .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.rowline .t b{font-size:15.5px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowline .t span{font-size:13px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surf2);border:2px solid var(--bd2);color:var(--tx);font-size:14.5px;font-weight:800;letter-spacing:-.02em}
+.av.md{width:52px;height:52px;font-size:18px}
+.av.lg{width:76px;height:76px;font-size:26px}
+.av.or{background:rgba(255,90,31,.14);border-color:rgba(255,90,31,.34);color:var(--or2)}
+.banner{flex:none;display:flex;gap:10px;align-items:flex-start;margin:0 18px;padding:13px 15px;border-radius:14px;font-size:13.5px;font-weight:600;line-height:1.45}
+.banner.err{background:rgba(201,64,64,.11);border:1px solid rgba(201,64,64,.26);color:var(--rd)}
+.banner.info{background:var(--surf2);border:1px solid var(--bd);color:var(--tx2)}
+.banner.warn{background:rgba(184,122,0,.1);border:1px solid rgba(184,122,0,.28);color:var(--am)}
+.banner.ok{background:rgba(45,143,50,.1);border:1px solid rgba(45,143,50,.26);color:var(--gr)}
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:0 24px;min-height:0;position:relative;z-index:10}
+.field{display:flex;flex-direction:column;gap:7px}
+.field span.lb{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.field .in{height:60px;border-radius:18px;background:var(--surf);border:1px solid var(--bd2);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:16.5px;font-weight:600}
+.field .in.focus{border-color:var(--or)}
+.field .in.err{border-color:var(--rd)}
+.field .in.ok{border-color:rgba(45,143,50,.5)}
+.field .in .ph{color:var(--tx3);font-weight:500}
+.field .in .cur{width:2px;height:24px;background:var(--or)}
+.field .hint{display:flex;gap:7px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.4;padding:0 2px}
+.field .hint.done{color:var(--gr);font-weight:600}
+.field .hint s{flex:none;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--bd2);margin-top:2px;text-decoration:none;display:flex;align-items:center;justify-content:center}
+.field .hint.done s{border-color:transparent;background:rgba(45,143,50,.16);color:var(--gr)}
+/* çatallanma kart-butonu */
+.pick{display:flex;flex-direction:column;gap:4px;justify-content:center;height:86px;padding:0 20px;border-radius:22px;background:var(--card);border:1px solid var(--bd2)}
+.pick b{font-size:19px;font-weight:800;letter-spacing:-.025em}
+.pick span{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.35}
+.tlink{align-self:center;display:flex;align-items:center;justify-content:center;height:44px;padding:0 12px;font-size:15.5px;font-weight:700;letter-spacing:-.01em;color:var(--tx);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.tlink.quiet{color:var(--tx2);font-weight:600;font-size:14.5px}
+/* kod + pin */
+.code-in{display:flex;gap:9px}
+.code-in i{flex:1;height:66px;border-radius:16px;background:var(--surf);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-style:normal}
+.code-in i.fill{border-color:var(--or);background:var(--card)}
+.code-in i.err{border-color:var(--rd)}
+.pin-dots{display:flex;gap:16px;justify-content:center}
+.pin-dots i{width:16px;height:16px;border-radius:50%;border:1.7px solid var(--bd2)}
+.pin-dots i.on{background:var(--tx);border-color:var(--tx)}
+.pin-dots i.err{border-color:var(--rd)}
+.pin-dots i.on.err{background:var(--rd)}
+.keys{flex:none;display:flex;flex-direction:column;gap:10px;padding:0 18px 8px}
+.keys .kr{display:flex;gap:10px}
+.keys button{flex:1;height:62px;border-radius:16px;background:var(--surf);border:1px solid var(--bd);font-size:26px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.keys button.blank{background:transparent;border-color:transparent}
+.phone.sm .keys button{height:52px;font-size:23px}
+/* klavye */
+.kbd{flex:none;display:flex;flex-direction:column;gap:7px;padding:8px 4px 40px;background:var(--surf2);border-top:1px solid var(--bd);position:relative;z-index:20}
+.krow{display:flex;gap:6px;padding:0 3px}
+.krow b{flex:1;height:42px;border-radius:10px;background:var(--card);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600}
+.krow b.w{flex:1.5;font-size:12px;font-weight:700;color:var(--tx2)}
+.krow b.sp{flex:4.4}
+.krow b.go{background:var(--or);color:#fff;border-color:transparent;font-size:14.5px;font-weight:800}
+.phone.sm .kbd{padding:6px 4px 30px;gap:6px}
+.phone.sm .krow b{height:36px;font-size:16px}
+/* durum ekranı */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:0 34px;text-align:center;position:relative;z-index:10}
+.hero .ring{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surf2);border:1.7px solid var(--bd2);color:var(--tx2)}
+.hero .ring.rd{background:rgba(201,64,64,.11);border-color:rgba(201,64,64,.3);color:var(--rd)}
+.hero .ring.am{background:rgba(184,122,0,.1);border-color:rgba(184,122,0,.3);color:var(--am)}
+.hero .ring.or{background:rgba(255,90,31,.12);border-color:rgba(255,90,31,.3);color:var(--or2)}
+.hero .ring.gr{background:rgba(45,143,50,.11);border-color:rgba(45,143,50,.3);color:var(--gr)}
+.hero h3{font-size:27px;font-weight:800;letter-spacing:-.035em;line-height:1.14}
+.hero p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.55;text-wrap:pretty}
+.acts{flex:none;display:flex;flex-direction:column;gap:10px;padding:0 18px 44px}
+.qlist{display:flex;flex-direction:column;width:100%;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin-top:6px}
+.qlist .qi{display:flex;align-items:center;gap:11px;padding:13px 18px;text-align:left}
+.qlist .qi .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.qlist .qi .t b{font-size:15px;font-weight:700;letter-spacing:-.015em}
+.qlist .qi .t span{font-size:12.5px;font-weight:500;color:var(--tx2)}
+.qlist .qi .st{font-size:12px;font-weight:700;color:var(--tx2)}
+.qlist .qi+.qi{border-top:1px solid var(--bd)}
+/* Face ID halkası */
+.faceid{width:118px;height:118px;border-radius:50%;border:1.7px solid var(--bd2);background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx);align-self:center}
+.faceid.on{border-color:var(--or);color:var(--or2);background:rgba(255,90,31,.08)}
+/* diyalog */
+.scrim{position:absolute;inset:0;z-index:70;background:rgba(14,14,14,.34)}
+.thm-dark .scrim{background:rgba(0,0,0,.5)}
+.alertwrap{position:absolute;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:0 24px}
+.alert{width:100%;display:flex;flex-direction:column;gap:14px;background:var(--card);border:1px solid var(--bd2);border-radius:22px;padding:20px}
+.alert h3{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.alert p{font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5;text-wrap:pretty}
+.alert .acts{padding:0;display:flex;flex-direction:column;gap:9px}
+.alert ul{display:flex;flex-direction:column;gap:7px;list-style:none}
+.alert ul li{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.4}
+.alert ul li s{flex:none;width:5px;height:5px;border-radius:50%;background:var(--tx3);margin-top:7px;text-decoration:none}
+/* sektör seçimi */
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px;border-radius:18px;background:var(--surf);border:1px solid var(--bd);font-size:16.5px;font-weight:700;letter-spacing:-.02em}
+.opt.sel{border-color:var(--or);border-width:1.5px;background:var(--card)}
+.opt s{flex:none;width:22px;height:22px;border-radius:50%;border:1.7px solid var(--bd2);text-decoration:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.opt.sel s{background:var(--or);border-color:var(--or)}
+/* kontrol listesi */
+.check{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.check div{display:flex;align-items:center;gap:13px;min-height:62px;padding:12px 18px;font-size:15.5px;font-weight:700;letter-spacing:-.015em}
+.check div+div{border-top:1px solid var(--bd)}
+.check div s{flex:none;width:26px;height:26px;border-radius:50%;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--tx2);text-decoration:none;font-variant-numeric:tabular-nums}
+.steps{flex:none;display:flex;gap:6px;padding:2px 18px 14px}
+.steps i{flex:1;height:3px;border-radius:999px;background:var(--bd2)}
+.steps i.on{background:var(--tx)}
+.terms{font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5;padding:0 2px;text-wrap:pretty}
+.terms u{text-decoration-thickness:1px;text-underline-offset:3px;color:var(--tx)}
+</style></head>
+<template id="__bundler_thumbnail" data-bg-color="#0B0805"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#0B0805"/><rect x="470" y="120" width="260" height="520" rx="40" fill="#120E08" stroke="#F3EDE3" stroke-opacity=".2"/><text x="510" y="230" font-family="system-ui,sans-serif" font-size="52" font-weight="800" letter-spacing="-3" fill="#F3EDE3">luera</text><circle cx="672" cy="220" r="9" fill="#FF5A1F"/><rect x="500" y="400" width="200" height="86" rx="20" fill="#241E16" stroke="#F3EDE3" stroke-opacity=".2"/><rect x="500" y="500" width="200" height="86" rx="20" fill="#241E16" stroke="#F3EDE3" stroke-opacity=".2"/><rect x="556" y="608" width="88" height="6" rx="3" fill="#F3EDE3" fill-opacity=".5"/><text x="600" y="740" font-family="system-ui,sans-serif" font-size="42" font-weight="700" letter-spacing="4" text-anchor="middle" fill="#F3EDE3" fill-opacity=".6">GİRİŞ</text></svg></template>
+<body>
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-back"><path d="M15 5l-7 7 7 7"/></g>
+<g id="i-chev"><path d="M9 5l7 7-7 7"/></g>
+<g id="i-check"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></g>
+<g id="i-x"><path d="M6 6l12 12M18 6 6 18"/></g>
+<g id="i-mail"><path d="M3.6 6.4h16.8v11.2H3.6zM3.6 6.4 12 13l8.4-6.6"/></g>
+<g id="i-eye"><path d="M2.6 12S6 6.6 12 6.6 21.4 12 21.4 12 18 17.4 12 17.4 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.8"/></g>
+<g id="i-lock"><path d="M6.6 10.6h10.8v9h-10.8zM8.9 10.6V7.8a3.1 3.1 0 0 1 6.2 0v2.8"/></g>
+<g id="i-scan"><path d="M4 9V5.6h3.4M20 9V5.6h-3.4M4 15v3.4h3.4M20 15v3.4h-3.4"/></g>
+<g id="i-face"><path d="M4 8.6V5.8A1.8 1.8 0 0 1 5.8 4h2.8M20 8.6V5.8A1.8 1.8 0 0 0 18.2 4h-2.8M4 15.4v2.8A1.8 1.8 0 0 0 5.8 20h2.8M20 15.4v2.8a1.8 1.8 0 0 1-1.8 1.8h-2.8M9.2 9.6v2.2M14.8 9.6v2.2M12 9.6v3.6h-1.2M9.4 15.6a3.9 3.9 0 0 0 5.2 0"/></g>
+<g id="i-refresh"><path d="M4 12a8 8 0 0 1 13.6-5.7M20 12a8 8 0 0 1-13.6 5.7M17.6 3.4v3.2h-3.2M6.4 20.6v-3.2h3.2"/></g>
+<g id="i-off"><path d="M2.6 3.4 21.4 20.6M5 10.4a11 11 0 0 1 3.4-2.1M2.5 7.6A14.6 14.6 0 0 1 8 4.4M12 4c3.4 0 6.6 1.2 9.2 3.4M15.8 10.6c1 .4 1.9 1 2.7 1.7M8.6 14.2A6.6 6.6 0 0 1 12 13M12 19.4h.01"/></g>
+<g id="i-out"><path d="M9.5 20H5.6V4h3.9M14 8l4 4-4 4M18 12H9"/></g>
+<g id="i-trash"><path d="M4.6 7h14.8M9.4 7V4.6h5.2V7M6.6 7l.9 12.4h9L17.4 7M10.4 10.6v6M13.6 10.6v6"/></g>
+<g id="i-clock"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 2"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></g>
+<g id="i-shop"><path d="M4 9.4h16v10.2H4zM4 9.4 6 4.4h12l2 5M9.6 19.6v-5.2h4.8v5.2"/></g>
+<g id="i-desktop"><path d="M3.6 4.6h16.8v11.2H3.6zM8.6 19.4h6.8M12 15.8v3.6"/></g>
+<g id="i-help"><circle cx="12" cy="12" r="8.4"/><path d="M9.8 9.5a2.3 2.3 0 0 1 4.4.8c0 1.6-2.2 1.9-2.2 3.3M12 17h.01"/></g>
+<g id="i-mailsent"><path d="M3.6 6.4h16.8v11.2H3.6zM3.6 6.4 12 13l8.4-6.6M8.6 12.4l2.4 2.4 4.6-4.8"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head">
+<div class="mark">luera<i></i></div>
+<div class="meta">TimeFlow · Mobil · Giriş<br/>Belge C — Giriş akışının tamamı<br/>393 × 852 pt · iPhone 16 Pro</div>
+</div>
+<div class="lede">
+<h1>Giriş — üç kapı, tek kabuk</h1>
+<p>Bu belge sıfırdan bir tasarım değil, bir tamamlama. Personel yolunun üç adımı Kumanda belgesinde, müdür yolunun üç ekranı Müdür Modu belgesinde tasarlanmıştı. Burada ikisi yan yana geliyor, aralarındaki boşluklar dolduruyor: şifre kurtarma, birden fazla işletme, Face ID, dönüş girişi, yeni işletme kurulumu, çıkış ve hesap silme, bir de sıkışmalar.</p>
+<p>Üç düzeltme yapıldı. <b>Bir:</b> çatallanmada iki yol artık eşit ağırlıkta, turuncu bu ekranda hiç yok — her personel kendi telefonunu bağladığı için ilk açılışların çoğunluğu personeldir, çoğunluk ikincil görünen butona gönderilemez. <b>İki:</b> hiç hesabı olmayan kişi için en altta sessiz bir üçüncü yol var. <b>Üç:</b> abonelik ekranından fiyat ve ödeme butonu kalktı; abonelik uygulama dışında satılıyor.</p>
+<p>Malzeme değişmedi: cam yalnız kabukta, giriş ekranlarında tab bar olmadığı için cam neredeyse hiç yok. Kart, form, tuş takımı opak sıcak yüzey. Gölge yok — kenarlık ve yüzey farkı. Turuncu yalnız eylem. Karanlık asıl hâl; sağ üstteki düğme belgenin temasını çevirir, “· karanlık / · aydınlık” etiketli çerçeveler temaya sabitlenmiştir.</p>
+</div>
+
+<!-- ══════════ 00 · AKIŞ ŞEMASI ══════════ -->
+<div class="band"><span class="num">00</span><h2>Akış şeması</h2><p>İki hat: ilk açılış üç yola çatallanır, ikinci açılış hiç sormaz. Rol butondan değil sunucudan gelir.</p></div>
+<div class="map">
+<h4>İlk açılış</h4>
+<div class="mrow">
+  <div class="mb quiet"><b>İlk açılış</b><span>App Store’dan yeni indirildi</span></div>
+  <span class="ar">→</span>
+  <div class="mb q"><b>Giriş 01 · Karşılama</b><span>Çatallanma — iki eşit buton<br/>+ “Yeni işletme oluştur”</span></div>
+  <span class="ar">→</span>
+  <div class="mcol">
+    <div class="mrow">
+      <div class="mb"><b>İşletmemi yönetiyorum</b><span>Giriş 02 · e-posta + şifre</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 05</b><span>Birden fazla işletme<br/>varsa seçim</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 09</b><span>Face ID teklifi</span></div>
+      <span class="ar">→</span>
+      <div class="mb end"><b>Sunucu rolü söyler</b><span>hangi ev ekranı açılacak</span></div>
+    </div>
+    <div class="mrow">
+      <div class="mb"><b>Burada çalışıyorum</b><span>Giriş 06 · eşleştirme kodu</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 07 · 08</b><span>Kendini seç → PIN</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 09</b><span>Face ID teklifi</span></div>
+      <span class="ar">→</span>
+      <div class="mb end"><b>Sunucu rolü söyler</b><span>hangi ev ekranı açılacak</span></div>
+    </div>
+    <div class="mrow">
+      <div class="mb"><b>Yeni işletme oluştur</b><span>Giriş 11 · hesap</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 12</b><span>İşletme adı + sektör</span></div>
+      <span class="ar">→</span>
+      <div class="mb"><b>Giriş 13</b><span>Hazır · iki yol</span></div>
+      <span class="ar">→</span>
+      <div class="mb end"><b>Sunucu rolü söyler</b><span>müdür evi açılır</span></div>
+    </div>
+  </div>
+</div>
+<div class="hair"></div>
+<h4>İkinci ve sonraki açılışlar</h4>
+<div class="mrow">
+  <div class="mb quiet"><b>İkinci açılış</b><span>Oturum duruyor</span></div>
+  <span class="ar">→</span>
+  <div class="mb q"><b>Giriş 10 · Dönüş girişi</b><span>Kim olduğunu sormaz<br/>Face ID · PIN · şifre</span></div>
+  <span class="ar">→</span>
+  <div class="mb end"><b>Ev ekranı</b><span>Doğrudan</span></div>
+  <span class="ar">·</span>
+  <div class="mb quiet"><b>Oturum kapatıldıysa</b><span>Giriş 01’e döner</span></div>
+</div>
+<div class="mnote"><b>Şemanın tek kuralı:</b> kullanıcının bastığı buton yalnız hangi kimlikle gireceğini seçer, hangi evin açılacağını değil. Bu yüzden hiçbir giriş ekranı “müdür paneline gireceksiniz” demez; yalnız “girin” der. Aynı e-posta hem müdür hem personel olabilir — sunucu karar verir, ekran vaat etmez.</div>
+</div>
+
+<!-- ══════════ 01 · ÇATALLANMA ══════════ -->
+<div class="band"><span class="num">01</span><h2>Karşılama · çatallanma</h2><p>Belgenin en önemli ekranı. Tek soru: hangi taraftasın. Doğru cevap yok, çatal var — bu yüzden turuncu yok.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 01 — Karşılama · karanlık</b><span>İki eşit ağırlıkta kart-buton, alt üçte birde. Üstte marka ve tek cümle, altta “Sonradan değiştirebilirsiniz.” ve sessiz üçüncü yol.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 01">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:44px 24px 0;position:relative;z-index:10;display:flex;flex-direction:column;gap:14px">
+    <div class="mark c08" style="font-size:44px">luera<i></i></div>
+    <p style="font-size:17px;font-weight:500;color:var(--tx2);line-height:1.45;max-width:290px;text-wrap:pretty">Salonunuzun randevuları, kasası ve ekibi tek yerde.</p>
+  </div>
+  <div style="flex:1"></div>
+  <div class="pad stack" style="gap:12px;padding-bottom:30px;position:relative;z-index:10">
+    <button class="pick"><b>İşletmemi yönetiyorum</b><span>E-posta ve şifrenizle girin</span></button>
+    <button class="pick"><b>Burada çalışıyorum</b><span>İşletmeden aldığınız kodla girin</span></button>
+    <p style="font-size:13px;font-weight:500;color:var(--tx3);text-align:center;padding-top:2px">Sonradan değiştirebilirsiniz.</p>
+    <button class="tlink">Yeni işletme oluştur</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Marka:</b> Concept 08 — nokta işlevsel: sistem çalışıyorken nabız gibi atar (active). 44 px, ağırlık 900, nokta 0.22 em — mobilde ölçü değişmiyor.</span></div>
+<div class="note"><span><b>Düzeltme 1:</b> iki buton da opak kart-buton, aynı yükseklik, aynı tipografi. Turuncu bu ekranda hiç kullanılmıyor — her personel kendi telefonunu bağlıyor, sahip kimsenin telefonunu kurmuyor; 1 sahip + 5 personelli bir salonda ilk açılışların beşte dördü personeldir.</span></div>
+<div class="note"><span>Etiketler unvan değil <b>iş</b> söylüyor. “İşletme sahibiyim” diyen bir etiket, sahip olmayan müdürü tereddüt ettiriyordu; “işletmemi yönetiyorum” kimseyi kendini yanlış tanımlamaya zorlamıyor. Alt satırlar ne gerektiğini söylüyor, böylece yanlış kapıya girmek için tahmin gerekmiyor.</span></div>
+<div class="note"><span><b>Düzeltme 2:</b> en altta metin bağlantısı — buton değil, iki kart-butonla yarışmayacak kadar sessiz, ama 44 pt dokunma alanı ve altı çizili olduğu için görünür. Hiç hesabı olmayan kişi artık duvara çarpmıyor.</span></div>
+<div class="note src"><span>Kart-buton 86 pt = 66 pt etiket satırı + 20 pt alt satır; dokunma alanı tek parça, alt satır ayrı hedef değil.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 01 — Karşılama · aydınlık</b><span>Aynı ölçüler. Parıltı burada çok daha hafif: %8 → zemin. Kart-buton kart yüzeyinde, zeminden kenarlıkla ayrılıyor.</span></div>
+<div class="phone thm-light" data-screen-label="Giriş 01 aydınlık">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:44px 24px 0;position:relative;z-index:10;display:flex;flex-direction:column;gap:14px">
+    <div class="mark c08" style="font-size:44px">luera<i></i></div>
+    <p style="font-size:17px;font-weight:500;color:var(--tx2);line-height:1.45;max-width:290px;text-wrap:pretty">Salonunuzun randevuları, kasası ve ekibi tek yerde.</p>
+  </div>
+  <div style="flex:1"></div>
+  <div class="pad stack" style="gap:12px;padding-bottom:30px;position:relative;z-index:10">
+    <button class="pick"><b>İşletmemi yönetiyorum</b><span>E-posta ve şifrenizle girin</span></button>
+    <button class="pick"><b>Burada çalışıyorum</b><span>İşletmeden aldığınız kodla girin</span></button>
+    <p style="font-size:13px;font-weight:500;color:var(--tx3);text-align:center;padding-top:2px">Sonradan değiştirebilirsiniz.</p>
+    <button class="tlink">Yeni işletme oluştur</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Aydınlıkta iki kart-buton zeminle neredeyse aynı değerde. Ayrım gölgeyle değil, <b>kart</b> yüzeyi (#FFFDFB) ve kenarlık2 ile yapılıyor — belgenin geri kalanındaki kuralın aynısı.</span></div>
+</div>
+
+<div class="spec wide">
+<div class="legend">
+<h4>Bu ekranda olmayan üç şey</h4>
+<div><s class="n"></s><span><b>Turuncu</b> — birinin “doğru cevap” gibi görünmesini engellemek için hiç yok. İlk turuncu bir sonraki ekranda çıkıyor.</span></div>
+<div><s class="n"></s><span><b>Üçüncü soru</b> — hangi salon, hangi şehir, hangi paket sorulmuyor. Tek soru: hangi taraftasın.</span></div>
+<div><s class="n"></s><span><b>“Kayıt ol / Giriş yap” ikiliği</b> — kullanıcı hesabının olup olmadığını değil, işini söylüyor.</span></div>
+</div>
+<div class="legend">
+<h4>Değişmeyen karar</h4>
+<div><s></s><span>Çatallanma iki büyük butondur, alt üçte birde, üstte marka ve tek cümle, altta “Sonradan değiştirebilirsiniz.”</span></div>
+<div><s></s><span>Personel yolu var olan cihaz eşleştirme akışına gider (Giriş 06–08).</span></div>
+<div><s></s><span>Personel dört haneli PIN kullanır (günde on kez girilir), müdür tam şifre kullanır (tam erişim, kasa, silme).</span></div>
+</div>
+<div class="note src"><span><b>Müdür 01’den alındı — yerleşim ve dil değişmedi;</b> buton ağırlığı, etiketler, alt satırlar ve üçüncü yol Düzeltme 1–2 ile değişti.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 02 · MÜDÜR YOLU ══════════ -->
+<div class="band"><span class="num">02</span><h2>Müdür yolu</h2><p>Masaüstündeki aynı hesap. Klavye açıkken buton klavyenin üstünde durur, alan asla klavyenin altında kalmaz.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 02 — Müdür girişi · klavye açık</b><span>Bilgisayarda kullanılan e-posta ve şifre. Buton klavyenin üstünde; alan klavyenin altına düşmez.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 02">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div style="flex:none;padding:6px 24px 20px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Hesabınıza girin</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Bilgisayarda kullandığınız e-posta ve şifre.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">E-posta</span><div class="in"><svg class="ic" style="width:19px;height:19px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail"/></svg>ayla@studioayla.com</div></div>
+    <div class="field"><span class="lb">Şifre</span><div class="in focus">••••••••<span class="cur"></span><span style="flex:1"></span><svg class="ic" style="width:20px;height:20px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div></div>
+    <button class="btn tall" style="margin-top:2px">Gir</button>
+    <button class="btn ghost">Şifremi unuttum</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="kbd">
+    <div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+    <div class="krow" style="padding:0 12px"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+    <div class="krow"><b class="w">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="w">⌫</b></div>
+    <div class="krow"><b class="w">123</b><b class="sp">boşluk</b><b class="w go">Gir</b></div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Personel PIN’i 4 hanedir çünkü günde on kez girilir. Müdür şifresi tam şifredir: tam erişim, kasa ve silme yetkisi burada.</span></div>
+<div class="note"><span><b>Şifre alanı yapıştırmayı ve şifre yöneticisini engellemez.</b> Uzun ve karışık şifreyi elle yazmak zorunda kalan kullanıcı kısa şifre seçer; engellemek güvenliği azaltır. Alan iOS otomatik doldurmaya açık, klavye üstündeki öneri şeridi çalışır.</span></div>
+<div class="note src"><span>Müdür 02’den alındı — değişmedi.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 03 — Müdür girişi · hata</b><span>Suçlama yok, hata kodu yok. Kaç deneme kaldığı ve kilitlenme süresi açıkça yazılır.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 03">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div style="flex:none;padding:6px 24px 20px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Hesabınıza girin</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Bilgisayarda kullandığınız e-posta ve şifre.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">E-posta</span><div class="in"><svg class="ic" style="width:19px;height:19px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail"/></svg>ayla@studioayla.com</div></div>
+    <div class="field"><span class="lb">Şifre</span><div class="in err">••••••••<span style="flex:1"></span><svg class="ic" style="width:20px;height:20px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div></div>
+  </div>
+  <div class="banner err" style="margin-top:14px"><span>E-posta ve şifre eşleşmedi. 3 denemeniz kaldı; sonra hesap 15 dakika kapanır.</span></div>
+  <div class="pad stack" style="gap:12px;padding-top:14px">
+    <button class="btn tall">Yeniden dene</button>
+    <button class="btn ghost">Şifremi unuttum</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="banner info" style="margin-bottom:30px"><span>Şifrenizi bilgisayardan da değiştirebilirsiniz. Değiştirdiğinizde ikisi birlikte değişir.</span></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Kilit süresi bir ceza değil, bir bilgi. “Yeniden dene” tek büyük eylem; “Şifremi unuttum” onun altında sessiz kalır.</span></div>
+<div class="note"><span><b>Yanlış e-posta ile yanlış şifre aynı mesajı verir.</b> “Böyle bir hesap yok” demek, hangi e-postanın kayıtlı olduğunu dışarıya söyler. Mesaj tek: eşleşmedi. Alan kırmızı kenarlığa döner ve bir kez yatay sarsılır.</span></div>
+<div class="note src"><span>Müdür 02b’den alındı — yalnız mesaj metni iki alanı birlikte söyleyecek şekilde genişledi.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 04 — Şifremi unuttum · e-posta al</b><span>Tek alan, tek buton. Klavye açık hâl; buton klavyenin üstünde.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 04a">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div style="flex:none;padding:6px 24px 20px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Şifrenizi yenileyelim</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">E-postanızı yazın, yeni şifre bağlantısını oraya gönderelim.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">E-posta</span><div class="in focus"><svg class="ic" style="width:19px;height:19px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail"/></svg>ayla@studioayla.com<span class="cur"></span></div></div>
+    <button class="btn tall" style="margin-top:2px">Bağlantıyı gönder</button>
+  </div>
+  <div class="banner info" style="margin-top:16px"><span>Bilgisayardan giriş yapabiliyorsanız şifrenizi orada da değiştirebilirsiniz.</span></div>
+  <div style="flex:1"></div>
+  <div class="kbd">
+    <div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+    <div class="krow" style="padding:0 12px"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+    <div class="krow"><b class="w">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="w">⌫</b></div>
+    <div class="krow"><b class="w">123</b><b class="sp">boşluk</b><b class="w go">Gönder</b></div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Tek alan olduğu için başlık ve alan klavyenin üstünde rahat sığıyor; kaydırma gerekmiyor. E-posta klavyesi açılır (@ ve nokta ilk satırda), ilk harf büyütülmez.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 04 — Şifremi unuttum · gönderildi</b><span>“Gitti mi gitmedi mi” belirsizliği yok: nereye gitti, ne yapılacak, gelmezse ne olacak.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 04b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="hero" style="justify-content:flex-start;padding-top:44px;gap:15px">
+    <div class="ring gr"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mailsent"/></svg></div>
+    <h3>Bağlantıyı gönderdik</h3>
+    <p>ayla@studioayla.com adresine yeni şifre bağlantısı gitti. Bağlantı 1 saat geçerli; açıp yeni şifrenizi yazın, sonra buraya dönün.</p>
+    <div class="qlist">
+      <div class="qi"><div class="t"><b>Gelen kutusunda yok mu?</b><span>Spam / önemsiz klasörüne de bakın</span></div></div>
+      <div class="qi"><div class="t"><b>Adres yanlış mıydı?</b><span>Geri dönüp yeniden yazabilirsiniz</span></div></div>
+    </div>
+  </div>
+  <div class="acts">
+    <button class="btn sec">Yeniden gönder</button>
+    <button class="btn ghost">Girişe dön</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Adres ekranda yazılı — yanlış yazdığını burada görüyor. “Yeniden gönder” 60 saniye sonra etkinleşir; sayaç butonun içinde yazılır, ayrı bir uyarı çıkmaz.</span></div>
+<div class="note"><span>Hesap var mı yok mu bilgisi burada da sızmaz: adres kayıtlı olmasa da aynı ekran görünür. Mesaj “gönderdik”, “hesabınız bulundu” değil.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 05 — Birden fazla işletme</b><span>Sahibin birden çok salonu varsa hangisine gireceğini seçer. Satır 74 pt.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 05">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body"><div class="scroll">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="pgtitle"><h2>Hangi işletme?</h2><span>Sonra üst çubuktan değiştirebilirsiniz</span></div>
+  <div class="stack">
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">SA</div><div class="t"><b style="font-size:17px">Studio Ayla</b><span>Kadıköy · 6 personel</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">AB</div><div class="t"><b style="font-size:17px">Ayla Beauty Bebek</b><span>Bebek · 3 personel</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">AK</div><div class="t"><b style="font-size:17px">Ayla Klinik</b><span>Nişantaşı · 4 personel</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+  </div>
+  <div class="banner info" style="margin-top:18px"><span>Aboneliği bitmiş bir işletme listede kalır, açılınca ne olduğunu söyler.</span></div>
+  <div style="flex:1"></div>
+  <div class="pad" style="padding-bottom:34px"><button class="tlink quiet">Yeni işletme oluştur</button></div>
+</div></div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Tek işletmesi olan bu ekranı hiç görmez</b> — sunucu tek işletme döndürdüğünde doğrudan eve gidilir. Bir seçenekli seçim ekranı bir sorudur ve cevabı bellidir; sormuyoruz.</span></div>
+<div class="note"><span>Satır 74 pt, isim tek satır ve taşarsa üç noktayla kırpılır. Zincir sahiplerinde liste uzayabilir, o yüzden kaydırılabilir; arama alanı yalnız yedi işletmeden sonra görünür.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 03 · PERSONEL YOLU ══════════ -->
+<div class="band"><span class="num">03</span><h2>Personel yolu</h2><p>Üç adım, her adımda tek soru. Kod işletmeden gelir, personel kendini listeden seçer, PIN dört hane.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 06 — Cihaz eşleştirme kodu</b><span>Adım 1 / 3. Altta “Kodum yok” — kapalı kapı bırakmaz.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 06">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="center" style="justify-content:flex-start;padding-top:30px;gap:20px">
+    <div class="mark" style="font-size:30px">luera<i></i></div>
+    <div class="stack" style="gap:9px">
+      <h2 style="font-size:31px;font-weight:800;letter-spacing:-.035em;line-height:1.08">Bu telefonu<br/>işletmeye bağlayın</h2>
+      <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.55">Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın. Kodu işletme sahibi verir.</p>
+    </div>
+    <div class="code-in"><i class="fill">4</i><i class="fill">8</i><i class="fill">2</i><i></i><i></i><i></i></div>
+    <button class="mini" style="align-self:flex-start"><svg class="ic" style="width:19px;height:19px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scan"/></svg>Kare kodu okut</button>
+  </div>
+  <div class="keys">
+    <div class="kr"><button>1</button><button>2</button><button>3</button></div>
+    <div class="kr"><button>4</button><button>5</button><button>6</button></div>
+    <div class="kr"><button>7</button><button>8</button><button>9</button></div>
+    <div class="kr"><button class="blank"></button><button>0</button><button>⌫</button></div>
+  </div>
+  <div style="flex:none;padding:12px 18px 12px"><button class="btn dis">Devam</button></div>
+  <div style="flex:none;padding:0 18px 30px;display:flex;justify-content:center"><button class="tlink quiet">Kodum yok</button></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Klavye ekranın alt üçte ikisinde; kod alanı üst bölgede ama yalnız okunur. Devam butonu altı hane dolmadan etkin olmaz.</span></div>
+<div class="note src"><span>Kumanda · Personel 01’den alındı — değişmedi. Tek ekleme: alttaki “Kodum yok” bağlantısı.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 06b — “Kodum yok” açıklaması</b><span>Dokununca alttan kısa bir açıklama açılır. Yeni ekran değil, aynı ekranın üstünde bir cevap.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 06b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="center" style="justify-content:flex-start;padding-top:30px;gap:20px">
+    <div class="mark" style="font-size:30px">luera<i></i></div>
+    <div class="stack" style="gap:9px">
+      <h2 style="font-size:31px;font-weight:800;letter-spacing:-.035em;line-height:1.08">Bu telefonu<br/>işletmeye bağlayın</h2>
+      <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.55">Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın. Kodu işletme sahibi verir.</p>
+    </div>
+    <div class="code-in"><i class="fill">4</i><i class="fill">8</i><i class="fill">2</i><i></i><i></i><i></i></div>
+  </div>
+  <div class="scrim"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;z-index:80;display:flex;flex-direction:column;background:var(--surf);border-top:1px solid var(--bd);border-radius:22px 22px 0 0;padding:22px 20px 40px;gap:14px">
+    <h3 style="font-size:21px;font-weight:800;letter-spacing:-.03em">Kodu nereden alacaksınız?</h3>
+    <div class="stack" style="gap:12px">
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:var(--tx2)">1</span><p style="flex:1;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5">İşletme sahibi bilgisayarda Luera’yı açar.</p></div>
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:var(--tx2)">2</span><p style="flex:1;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5">Personel listesinde adınızın yanındaki <b style="color:var(--tx);font-weight:700">Telefon bağla</b>’ya basar.</p></div>
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:var(--tx2)">3</span><p style="flex:1;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5">Ekranda çıkan altı haneli kodu size söyler. Kod 10 dakika geçerlidir.</p></div>
+    </div>
+    <div class="banner info" style="margin:0"><span>Kodu yalnız işletme sahibi üretebilir. Uygulamadan istek gönderemezsiniz.</span></div>
+    <button class="btn sec">Anladım</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Kodu olmayan kişi burada tek şey öğrenmek istiyor: kim üretiyor. Üç madde, tek buton, geri dönüş kaybolmuyor — ekran kapanınca kod alanı olduğu gibi duruyor.</span></div>
+<div class="note"><span>“Talep gönder” gibi bir buton yok, çünkü karşılığı yok: kod masaüstünde üretiliyor. Yapılamayan şey teklif edilmiyor.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 07 — Kendini seç</b><span>Adım 2 / 3. Satır 74 pt.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 07">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>Studio Ayla</b><span>Kadıköy</span></div></div>
+<div class="body"><div class="scroll">
+  <div class="pgtitle"><h2>Siz kimsiniz?</h2><span>Listeden kendinizi seçin</span></div>
+  <div class="stack">
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">MK</div><div class="t"><b style="font-size:17px">Merve Kaya</b><span>Kuaför</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">SB</div><div class="t"><b style="font-size:17px">Selin Boz</b><span>Estetisyen</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">EY</div><div class="t"><b style="font-size:17px">Emre Yıldız</b><span>Berber</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline tall"><div class="av md">HA</div><div class="t"><b style="font-size:17px">Hande Arslan</b><span>Manikürist</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+  </div>
+  <div class="banner info" style="margin-top:18px"><span>Listede yoksanız işletme sahibi sizi eklemeli.</span></div>
+</div><div class="pad-bot"></div></div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Satır yüksekliği 74 pt — ıslak parmakla ıskalanmaz. İsim tek satır, taşarsa kırpılır.</span></div>
+<div class="note src"><span>Kumanda · Personel 02’den alındı — değişmedi.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 08 — PIN · yanlış giriş</b><span>Adım 3 / 3 · hatalı PIN, kilitlenme uyarısı.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 08">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>Merve Kaya</b><span>Kuaför</span></div></div>
+<div class="body">
+  <div class="center" style="justify-content:flex-start;padding-top:30px;gap:24px;align-items:center">
+    <div class="av lg or" style="width:64px;height:64px;font-size:22px">MK</div>
+    <h2 style="font-size:26px;font-weight:800;letter-spacing:-.03em;text-align:center">Şifrenizi girin</h2>
+    <div class="pin-dots"><i class="on err"></i><i class="on err"></i><i class="on err"></i><i class="err"></i></div>
+  </div>
+  <div class="banner err" style="margin-bottom:16px"><span>Şifre yanlış. 2 denemeniz kaldı. Üç kere yanlış girilirse bu telefon 15 dakika kilitlenir ve işletme sahibine haber gider.</span></div>
+  <div class="keys">
+    <div class="kr"><button>1</button><button>2</button><button>3</button></div>
+    <div class="kr"><button>4</button><button>5</button><button>6</button></div>
+    <div class="kr"><button>7</button><button>8</button><button>9</button></div>
+    <div class="kr"><button class="blank"></button><button>0</button><button>⌫</button></div>
+  </div>
+  <div style="flex:none;padding:10px 18px 44px;display:flex;justify-content:center"><button class="btn ghost">Şifremi hatırlamıyorum</button></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Dördüncü hane girilince otomatik doğrular; onay butonu yok. Hata hâlinde noktalar kırmızıya döner ve tek kere yatay sarsılır.</span></div>
+<div class="note src"><span>Kumanda · Personel 03’ten alındı — değişmedi.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 04 · FACE ID VE DÖNÜŞ ══════════ -->
+<div class="band"><span class="num">04</span><h2>Face ID ve dönüş girişi</h2><p>Bu ekranlar bir kez görülür; ikinci açılış farklı bir yerden başlar. Face ID PIN’in yerine geçmez, kısayoludur.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 09 — Face ID teklifi</b><span>İlk başarılı girişten sonra çıkar, önce değil. Müdür ve personel için aynı ekran.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 09">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="hero" style="gap:18px">
+    <div class="faceid on"><svg style="width:52px;height:52px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-face"/></svg></div>
+    <h3>Bir dahaki sefere<br/>Face ID ile açalım mı?</h3>
+    <p>Şifrenizi her açılışta yazmak zorunda kalmazsınız. Telefonunuzu tanıdıktan sonra tek bakışta girer.</p>
+  </div>
+  <div class="acts">
+    <button class="btn tall">Face ID’yi aç</button>
+    <button class="btn sec" style="height:60px">Şimdi değil</button>
+    <p style="font-size:12.5px;font-weight:500;color:var(--tx3);text-align:center;padding-top:2px">Bunu daha sonra Profil’den de açabilirsiniz.</p>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>“Şimdi değil” gerçek bir seçenek:</b> ikinci buton da 60 pt ve opak yüzey, altta gri küçük yazı değil. Ekran kapatılamaz değil — geri dönmese de her iki buton eve götürür.</span></div>
+<div class="note"><span><b>Face ID PIN’in yerine geçmez, kısayoludur.</b> Yüz doğrulandığında uygulama cihazda saklı oturum anahtarını açar; sunucu yine gerçek oturum ister. Bu yüzden PIN ve şifre hiç kaldırılmaz, yedek yol olarak kalır.</span></div>
+<div class="note"><span>Teklif ilk başarılı girişten sonra çıkar. Girişten önce sorulsa kullanıcı neye izin verdiğini bilmez; sistem izin penceresi de o zaman çıkar, bu ekran onun gerekçesidir.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 10 — Dönüş girişi · müdür</b><span>İkinci ve sonraki açılışlar. Kim olduğunu sormaz, çünkü telefon kişisel.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 10 müdür">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:30px 24px 0;position:relative;z-index:10;display:flex;justify-content:center"><div class="mark" style="font-size:26px">luera<i></i></div></div>
+  <div class="hero" style="gap:16px">
+    <div class="av lg">AD</div>
+    <div class="stack" style="gap:4px;align-items:center">
+      <h3 style="font-size:24px">Ayla Demir</h3>
+      <p style="font-size:14.5px">Studio Ayla · Kadıköy</p>
+    </div>
+    <div class="faceid" style="margin-top:6px"><svg style="width:52px;height:52px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-face"/></svg></div>
+    <p style="font-size:15.5px;color:var(--tx2)">Girmek için bakın</p>
+  </div>
+  <div class="acts">
+    <button class="btn sec">Şifreyle gir</button>
+    <button class="btn ghost">Oturumu değiştir</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Tek adım: halka. Ad ve işletme adı, doğru hesapta olduğunu doğrulamak için var — “siz kimsiniz” sorusu değil, cevabı. Halka dokunulabilir; Face ID başarısız olursa iki kez sonra kendiliğinden şifre alanına düşer.</span></div>
+<div class="note"><span><b>Müdür ile personel farkı yalnız ikincil eylemde:</b> müdürde “Şifreyle gir”, personelde “PIN ile gir”. Halka, yerleşim, ölçüler aynı.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 10 — Dönüş girişi · personel</b><span>Aynı ekran, ikincil eylem PIN. Alt satır işletmeyi söyler, unvanı değil.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 10 personel">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:30px 24px 0;position:relative;z-index:10;display:flex;justify-content:center"><div class="mark" style="font-size:26px">luera<i></i></div></div>
+  <div class="hero" style="gap:16px">
+    <div class="av lg">MK</div>
+    <div class="stack" style="gap:4px;align-items:center">
+      <h3 style="font-size:24px">Merve Kaya</h3>
+      <p style="font-size:14.5px">Studio Ayla · Kadıköy</p>
+    </div>
+    <div class="faceid" style="margin-top:6px"><svg style="width:52px;height:52px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-face"/></svg></div>
+    <p style="font-size:15.5px;color:var(--tx2)">Girmek için bakın</p>
+  </div>
+  <div class="acts">
+    <button class="btn sec">PIN ile gir</button>
+    <button class="btn ghost">Bu telefon benim değil</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Personelde üçüncü satır “Bu telefon benim değil” — telefon el değiştirdiğinde eşleştirmeyi kaldırıp Giriş 06’ya döner. Müdürde karşılığı “Oturumu değiştir”.</span></div>
+<div class="note"><span>Face ID kapalıysa halka hiç çizilmez; ekran doğrudan PIN noktalarıyla ve tuş takımıyla açılır. Boş halka gösterip “kullanılamıyor” demek yok.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 10b — Dönüş girişi · aydınlık</b><span>Aynı ölçüler; halka kenarlıkla duruyor, dolgu yok.</span></div>
+<div class="phone thm-light" data-screen-label="Giriş 10 aydınlık">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:30px 24px 0;position:relative;z-index:10;display:flex;justify-content:center"><div class="mark" style="font-size:26px">luera<i></i></div></div>
+  <div class="hero" style="gap:16px">
+    <div class="av lg">AD</div>
+    <div class="stack" style="gap:4px;align-items:center">
+      <h3 style="font-size:24px">Ayla Demir</h3>
+      <p style="font-size:14.5px">Studio Ayla · Kadıköy</p>
+    </div>
+    <div class="faceid" style="margin-top:6px"><svg style="width:52px;height:52px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-face"/></svg></div>
+    <p style="font-size:15.5px;color:var(--tx2)">Girmek için bakın</p>
+  </div>
+  <div class="acts">
+    <button class="btn sec">Şifreyle gir</button>
+    <button class="btn ghost">Oturumu değiştir</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Aydınlıkta halkanın içi <b>yüzey</b>, kenarlığı <b>kenarlık2</b>. Turuncu yalnız Face ID okurken bir kez halkanın kenarına gelir, sonra söner — dekorasyon değil, durum.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 05 · YENİ İŞLETME ══════════ -->
+<div class="band"><span class="num">05</span><h2>Yeni işletme</h2><p>Üçüncü yol. Üç ekran, her birinde tek soru. Ayrıntılı kurulum masaüstünde kalır.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 11 — Hesap · kural sağlanmadı</b><span>Şifre kuralı yazıyla söylenir, kırmızı uyarıyla değil. Klavye açık.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 11a">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="steps"><i class="on"></i><i></i><i></i></div>
+  <div style="flex:none;padding:0 24px 18px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Hesabınızı açalım</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Bu e-posta ve şifreyle bilgisayardan da girersiniz.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">E-posta</span><div class="in"><svg class="ic" style="width:19px;height:19px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail"/></svg>zeynep@sacvebakim.com</div></div>
+    <div class="field"><span class="lb">Şifre</span><div class="in focus">•••••<span class="cur"></span><span style="flex:1"></span><svg class="ic" style="width:20px;height:20px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div>
+      <div class="hint"><s></s><span>En az 8 karakter olsun, içinde bir rakam bulunsun.</span></div>
+    </div>
+    <button class="btn tall dis" style="margin-top:2px">Devam</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="kbd">
+    <div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+    <div class="krow" style="padding:0 12px"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+    <div class="krow"><b class="w">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="w">⌫</b></div>
+    <div class="krow"><b class="w">123</b><b class="sp">boşluk</b><b class="w go">Devam</b></div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Kural <b>baştan</b> yazılı ve nötr renkte; kullanıcı hata yapmadan önce ne beklendiğini biliyor. Kırmızı yalnız gerçekten yanlış olan bir şey varsa çıkar — henüz yazarken çıkmaz.</span></div>
+<div class="note"><span>Şifre alanı yapıştırmayı ve şifre yöneticisini engellemez; iOS “güçlü şifre öner” teklifini gösterebilir. Kullanım koşulları satırı kural sağlanınca görünen ekranda.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 11b — Hesap · kural sağlandı</b><span>Kural sağlanınca satır yeşil onaya döner, buton etkinleşir. Koşullar tek satır ve okunabilir.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 11b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="steps"><i class="on"></i><i></i><i></i></div>
+  <div style="flex:none;padding:0 24px 18px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Hesabınızı açalım</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Bu e-posta ve şifreyle bilgisayardan da girersiniz.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">E-posta</span><div class="in"><svg class="ic" style="width:19px;height:19px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail"/></svg>zeynep@sacvebakim.com</div></div>
+    <div class="field"><span class="lb">Şifre</span><div class="in ok">••••••••••<span style="flex:1"></span><svg class="ic" style="width:20px;height:20px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div>
+      <div class="hint done"><s><svg style="width:9px;height:9px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s><span>Şifreniz uygun: 10 karakter, içinde rakam var.</span></div>
+    </div>
+    <p class="terms">Devam ederek <u>Kullanım Koşulları</u> ve <u>Gizlilik Politikası</u>’nı kabul ediyorsunuz.</p>
+    <button class="btn tall">Devam</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="banner info" style="margin-bottom:34px"><span>Abonelik daha sonra bilgisayardan seçilir. Şimdi ödeme yapmıyorsunuz.</span></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Yeşil bir kutlama değil, bir onay: satır aynı yerde durur, yalnız işaret ve renk değişir; düzen sıçramaz.</span></div>
+<div class="note"><span>Koşullar tek satır, 13 pt ve gövde metniyle aynı okunabilirlikte; onay kutusu yok çünkü butona basmak zaten onaydır ve bu satır bunu söylüyor. Bağlantılar altı çizili, ayrı ekranda açılır.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 12 — İşletme bilgisi · klavye açık</b><span>İşletme adı yazılırken sektör listesi altta bekler. Klavye alanı kapatmaz.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 12a">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+  <div style="flex:none;padding:0 24px 18px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">İşletmeniz</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Adı müşterilere gönderilen hatırlatmalarda görünür.</p>
+  </div>
+  <div class="pad stack" style="gap:14px">
+    <div class="field"><span class="lb">İşletme adı</span><div class="in focus">Saç ve Bakım<span class="cur"></span></div></div>
+    <div class="field"><span class="lb">Ne iş yapıyorsunuz?</span>
+      <div class="opts">
+        <button class="opt"><s></s>Kuaför</button>
+        <button class="opt"><s></s>Güzellik</button>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="kbd">
+    <div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+    <div class="krow" style="padding:0 12px"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+    <div class="krow"><b class="w">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="w">⌫</b></div>
+    <div class="krow"><b class="w">123</b><b class="sp">boşluk</b><b class="w go">Bitti</b></div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Klavye açıkken sektör listesinin ilk iki satırı görünür kalır — altta bir şey olduğu belli olur, ama alan klavyenin altına düşmez. “Bitti”ye basınca klavye kapanır ve liste tamamı açılır.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 12b — Sektör seçimi</b><span>Sektör seçimi ürünün geri kalanını değiştirdiği için tek soruluk kendi ekranını hak ediyor.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 12b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+  <div style="flex:none;padding:0 24px 16px;display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Saç ve Bakım</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.45">Ne iş yapıyorsunuz? Hizmet listesi, süreler ve kayıt alanları buna göre kurulur.</p>
+  </div>
+  <div class="pad">
+    <div class="opts">
+      <button class="opt sel"><s><svg style="width:11px;height:11px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></s>Kuaför</button>
+      <button class="opt"><s></s>Güzellik</button>
+      <button class="opt"><s></s>Diş</button>
+      <button class="opt"><s></s>Klinik</button>
+      <button class="opt"><s></s>Dövme</button>
+      <button class="opt"><s></s>Restoran</button>
+      <button class="opt"><s></s>Diğer</button>
+    </div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="acts" style="padding-bottom:34px">
+    <p style="font-size:12.5px;font-weight:500;color:var(--tx3);text-align:center">Sonradan değiştirebilirsiniz.</p>
+    <button class="btn tall">Devam</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Seçim tek; seçili satır turuncu kenarlık ve turuncu daire alır — <b>renk tek başına anlam taşımasın diye</b> içinde onay işareti de var. Yedi seçenek kaydırma gerektirmeden sığıyor, satır 60 pt.</span></div>
+<div class="note"><span>Bu soru ürünün geri kalanını kuruyor: diş kliniğinde “hizmet” yerine “işlem”, restoranda “masa” devreye giriyor. Bu yüzden başka bir alanın yanına sıkıştırılmadı.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 13 — Hazır</b><span>Üç maddelik kontrol listesi ve iki yol. Kutlama yok.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 13">
+<div class="glow"></div>
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="steps" style="padding-top:8px"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+  <div style="flex:none;padding:14px 24px 20px;position:relative;z-index:10;display:flex;flex-direction:column;gap:10px">
+    <h2 style="font-size:28px;font-weight:800;letter-spacing:-.032em">Saç ve Bakım hazır</h2>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.5;text-wrap:pretty">Randevu almaya bugün başlayabilirsiniz. Üç şey eklendiğinde uygulama tam çalışır:</p>
+  </div>
+  <div class="check">
+    <div><s>1</s>Hizmetlerinizi ekleyin</div>
+    <div><s>2</s>Personelinizi ekleyin</div>
+    <div><s>3</s>Çalışma saatlerini girin</div>
+  </div>
+  <div class="banner info" style="margin-top:18px"><span>Ayrıntılı kurulum bilgisayarda daha hızlı: hizmet listesini, fiyatları ve saatleri orada topluca girersiniz.</span></div>
+  <div style="flex:1"></div>
+  <div class="acts">
+    <button class="btn tall">Uygulamayı kullanmaya başla</button>
+    <button class="btn sec" style="height:60px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-desktop"/></svg>Kurulumu bilgisayardan tamamla</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Kutlama yok: konfeti, “tebrikler”, büyük onay işareti yok. Ekran bir sonraki işi söylüyor. Rakamlı daireler onay işareti değil sıra numarası — hiçbiri henüz yapılmadı, yapılmış gibi görünmemeli.</span></div>
+<div class="note"><span>Masaüstü tavsiyesi suçlayıcı değil ve zorunlu değil: “daha hızlı” diyor, “burada yapamazsınız” demiyor. Birinci buton uygulamada kalmayı seçiyor ve ilk sırada duruyor.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 06 · ÇIKIŞ VE HESAP SİLME ══════════ -->
+<div class="band"><span class="num">06</span><h2>Çıkış ve hesabı silme</h2><p>Profil’in içinde duran iki eylem, ama giriş akışına ait: biri karşılama ekranına döndürür, diğeri hesabı yok eder.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 14 — Profil altı · müdür</b><span>“Oturumu kapat” onay istemez. “Hesabımı sil” ayrı, en altta, kırmızı çerçeveli.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 14 müdür">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>Ayla Demir</b><span>Studio Ayla · Hesap</span></div></div>
+<div class="body"><div class="scroll">
+  <div class="pgtitle" style="padding-top:14px"><h2>Hesap</h2><span>ayla@studioayla.com</span></div>
+  <div class="stack">
+    <div class="hair"></div>
+    <button class="rowline"><div class="t"><b>Şifreyi değiştir</b></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline"><div class="t"><b>Face ID ile aç</b><span>Açık</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline"><div class="t"><b>İşletme değiştir</b><span>3 işletme</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+  </div>
+  <div class="pad stack" style="gap:12px;padding-top:26px">
+    <button class="btn sec"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-out"/></svg>Oturumu kapat</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="pad stack" style="gap:10px;padding-bottom:34px">
+    <p style="font-size:12.5px;font-weight:500;color:var(--tx3);line-height:1.45">Hesabınızı silmek geri alınamaz.</p>
+    <button class="btn danger" style="height:60px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trash"/></svg>Hesabımı sil</button>
+  </div>
+</div></div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Oturumu kapatmak onay istemez</b> — zararsız ve geri alınabilir bir iş; basınca karşılama ekranına (Giriş 01) döner. Onay diyaloğu yalnız geri alınamaz işte çıkar.</span></div>
+<div class="note"><span>Silme eylemi uygulamanın içinde ve bulunabilir yerde: Profil → Hesap, en altta. Gizlenmiş ya da yalnız web’e yönlendiren hâli App Store tarafından kabul edilmiyor.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 14b — Silme onayı</b><span>Ne silinecek, ne kadar saklanacak, ne olacak — üçü de yazılı. Onay diyaloğu var.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 14b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>Ayla Demir</b><span>Studio Ayla · Hesap</span></div></div>
+<div class="body">
+  <div class="pgtitle" style="padding-top:14px"><h2>Hesap</h2><span>ayla@studioayla.com</span></div>
+  <div class="scrim"></div>
+  <div class="alertwrap">
+    <div class="alert">
+      <h3>Hesabınızı silelim mi?</h3>
+      <p>Bu işlem geri alınamaz. Silinince aynı e-postayla yeniden açsanız bile eski bilgileriniz gelmez.</p>
+      <ul>
+        <li><s></s><span>Studio Ayla, Ayla Beauty Bebek ve Ayla Klinik’in tüm randevuları ve müşteri bilgileri silinir.</span></li>
+        <li><s></s><span>Personelinizin telefon bağlantıları kesilir; uygulamaya giremezler.</span></li>
+        <li><s></s><span>Yasal olarak tutmamız gereken satış kayıtları 10 yıl saklanır, adınıza bağlı kalmaz.</span></li>
+        <li><s></s><span>Silme 30 gün içinde tamamlanır. Bu süre içinde girerseniz işlem durur.</span></li>
+      </ul>
+      <div class="acts">
+        <button class="btn danger" style="height:60px">Hesabımı sil</button>
+        <button class="btn sec" style="height:60px">Vazgeç</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Diyalog “emin misiniz” demiyor, ne olacağını sayıyor. Dört madde: veri, personel, yasal kayıt, süre. Kaçış yolu (“Vazgeç”) silme butonuyla aynı ölçüde ve altında; silme turuncu değil, kırmızı çerçeveli — turuncu istenen eylem içindir.</span></div>
+<div class="note"><span>Silmeyi onaylayınca şifre bir kez daha sorulur (aynı Giriş 02 alanı) — telefonu açık bırakan kullanıcıyı korur. Sonra karşılama ekranına döner.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 14c — Profil altı · personel</b><span>Personelde silme eylemi yoktur: personelin hesabı yok, işletmenin kaydı var.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 14c">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"><b>Merve Kaya</b><span>Studio Ayla · Kuaför</span></div></div>
+<div class="body"><div class="scroll">
+  <div class="pgtitle" style="padding-top:14px"><h2>Profil</h2><span>Studio Ayla — Kadıköy</span></div>
+  <div class="stack">
+    <div class="hair"></div>
+    <button class="rowline"><div class="t"><b>PIN’i değiştir</b></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+    <button class="rowline"><div class="t"><b>Face ID ile aç</b><span>Kapalı</span></div><svg class="ic" style="color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+    <div class="hair"></div>
+  </div>
+  <div class="pad stack" style="gap:12px;padding-top:26px">
+    <button class="btn sec"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-out"/></svg>Oturumu kapat</button>
+    <p style="font-size:12.5px;font-weight:500;color:var(--tx3);line-height:1.45">Çıkarsanız bu telefonu yeniden bağlamak için işletmeden yeni bir kod istemeniz gerekir.</p>
+  </div>
+  <div style="flex:1"></div>
+  <div class="banner info" style="margin-bottom:34px"><span>Bilgileriniz işletmenin kaydında tutuluyor. Çıkarılmak isterseniz işletme sahibiyle konuşun.</span></div>
+</div></div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Personelde “Hesabımı sil” yok, çünkü silecek bir hesap yok — kaydı işletme tutuyor. Bunu gizlemek yerine tek satırla söylüyoruz ve kime gidileceğini yazıyoruz.</span></div>
+<div class="note"><span>Personelde çıkış sonucu müdürdekinden ağır: yeniden bağlanmak için kod gerekir. Bu yüzden butonun altında tek satır uyarı var, ama onay diyaloğu yine yok — söylenmiş bir sonuç, engellenmiş bir eylem değil.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 07 · DURUMLAR VE SIKIŞMALAR ══════════ -->
+<div class="band"><span class="num">07</span><h2>Durumlar ve sıkışmalar</h2><p>Girişte yapılamayan şey gizlenmez, söylenir. Her durumda en fazla iki eylem ve ikisi de alt üçte birde.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15a — Bağlantı yok</b><span>Bant değil, tam ekran: giriş bağlantısız yapılamaz. Tek eylem.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 15a">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars off"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="hero" style="gap:15px">
+    <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-off"/></svg></div>
+    <h3>İnternet bağlantısı<br/>görünmüyor</h3>
+    <p>Girişi bağlantısız yapamıyoruz. Wi-Fi veya mobil veriyi açıp tekrar deneyin — yazdıklarınız kaybolmadı.</p>
+  </div>
+  <div class="acts">
+    <button class="btn"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>Tekrar dene</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Uygulamanın içinde çevrimdışı bir amber bant yeter, çünkü iş devam eder. Girişte iş devam etmez: kimlik sunucudan doğrulanır. Bu yüzden burada tam ekran ve tek eylem — yarım açık bir form bırakmak yalancı olurdu.</span></div>
+<div class="note"><span>Girilen e-posta ve kod hafızada duruyor; bağlantı gelince kullanıcı kaldığı yerden devam eder, baştan yazmaz.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15b — Kod geçersiz</b><span>Yanlış yazılmış kod. Çözüm: yeniden yaz.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 15b">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="center" style="justify-content:flex-start;padding-top:30px;gap:20px">
+    <div class="mark" style="font-size:30px">luera<i></i></div>
+    <div class="stack" style="gap:9px">
+      <h2 style="font-size:31px;font-weight:800;letter-spacing:-.035em;line-height:1.08">Bu telefonu<br/>işletmeye bağlayın</h2>
+      <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.55">Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın.</p>
+    </div>
+    <div class="code-in"><i class="err">4</i><i class="err">8</i><i class="err">2</i><i class="err">1</i><i class="err">7</i><i class="err">5</i></div>
+  </div>
+  <div class="banner err"><span>Bu kod eşleşmedi. Rakamları bir daha kontrol edip yeniden yazın.</span></div>
+  <div class="keys" style="padding-top:16px">
+    <div class="kr"><button>1</button><button>2</button><button>3</button></div>
+    <div class="kr"><button>4</button><button>5</button><button>6</button></div>
+    <div class="kr"><button>7</button><button>8</button><button>9</button></div>
+    <div class="kr"><button class="blank"></button><button>0</button><button>⌫</button></div>
+  </div>
+  <div style="flex:none;padding:12px 18px 34px"><button class="btn">Yeniden dene</button></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Geçersiz kod bir yazım hatasıdır: kullanıcı aynı ekranda kalır, alanlar kırmızıya döner ve bir kez sarsılır. Yeni bir kod istemesi gerekmiyor — çözüm elinde.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15c — Kodun süresi dolmuş</b><span>Farklı bir şey, farklı bir çözüm: yeni kod gerekir.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 15c">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="hero" style="gap:15px">
+    <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg></div>
+    <h3>Bu kodun<br/>süresi doldu</h3>
+    <p>Kodlar 10 dakika geçerli. İşletme sahibi bilgisayardaki Luera ekranından yeni bir kod üretebilir; yeni kodu alınca buraya yazın.</p>
+    <div class="qlist">
+      <div class="qi"><div class="t"><b>Ayla Demir</b><span>İşletme sahibi</span></div><span class="st">Kodu o üretir</span></div>
+    </div>
+  </div>
+  <div class="acts">
+    <button class="btn sec">Yeni kodu yaz</button>
+    <button class="btn ghost">İşletme sahibini ara</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>İki mesaj bilerek ayrı: “eşleşmedi” kullanıcının düzeltebileceği bir şey, “süresi doldu” başkasından bir şey istemeyi gerektiriyor. Aynı metni vermek kullanıcıyı aynı kodu üç kez yazmaya iterdi.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15d — Abonelik bitmiş · müdür</b><span>Düzeltme 3 uygulanmış hâl: fiyat yok, satın alma butonu yok, ödeme sayfasına link yok.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 15d">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><div class="biz"><b>Studio Ayla</b><span>Ayla Demir</span></div></div>
+<div class="body">
+  <div class="hero" style="justify-content:flex-start;padding-top:44px;gap:15px">
+    <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+    <h3>Aboneliğiniz bitti</h3>
+    <p>Uygulama şu an randevu göstermiyor ve yeni randevu almıyor. Randevularınız ve müşteri bilgileriniz olduğu gibi duruyor.</p>
+  </div>
+  <div class="pad" style="padding-top:22px">
+    <div class="card" style="padding:18px;gap:12px">
+      <span style="font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)">Yenileme bilgisayardan yapılır</span>
+      <p style="font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.5">Bilgisayarınızda Luera’yı açın ve hesabınıza girin. Aboneliğinizi orada yenileyebilirsiniz; yenilendikten sonra uygulama kendiliğinden açılır.</p>
+    </div>
+  </div>
+  <div class="banner info" style="margin-top:16px"><span>Bilgileriniz 90 gün saklanır. Bu süre içinde yenilerseniz hiçbir şey kaybolmaz.</span></div>
+  <div style="flex:1"></div>
+  <div class="acts">
+    <button class="btn sec"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>Yeniledim, tekrar dene</button>
+    <button class="btn ghost">Oturumu kapat</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Düzeltme 3:</b> fiyat, plan kartı, “Ödemeyi yap” butonu ve ödeme sayfasına giden link kalktı. Abonelik uygulama dışında satılıyor; App Store kuralı 3.1.1 uygulama içinde satın almaya yönlendirmeye izin vermiyor.</span></div>
+<div class="note"><span>Ekran üç şeyi söylüyor: aboneliğin bittiğini, verinin durduğunu, yenilemenin bilgisayardan yapılacağını. Tek somut eylem “tekrar dene” — kullanıcı yenileyip döndüğünde basacağı buton.</span></div>
+<div class="note src"><span>Durumlar · 05a’dan alındı — fiyat kartı, ödeme butonu ve “Faturaları gör” bağlantısı kaldırıldı; metin yenilemenin nerede yapıldığını söyleyecek şekilde değişti.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15e — Abonelik bitmiş · personel · aydınlık</b><span>Zaten fiyatsızdı; değişmedi. Sorumluluk personele yüklenmiyor.</span></div>
+<div class="phone thm-light" data-screen-label="Giriş 15e">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="topbar"><div class="biz"><b>Merve · Kuaför</b><span>Studio Ayla — Kadıköy</span></div></div>
+<div class="body">
+  <div class="hero" style="gap:15px">
+    <div class="ring am"><svg style="width:32px;height:32px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+    <h3>Uygulama şu an<br/>kullanılamıyor</h3>
+    <p>İşletmenin Luera aboneliği bitti. Bu bir hata değil ve sizinle ilgili değil — işletme sahibi yeniledikten sonra uygulama kendiliğinden açılır.</p>
+    <div class="qlist">
+      <div class="qi"><div class="t"><b>Ayla Demir</b><span>İşletme sahibi</span></div><span class="st">Bilgilendirildi</span></div>
+    </div>
+  </div>
+  <div class="acts">
+    <button class="btn sec">İşletme sahibini ara</button>
+    <button class="btn ghost">Tekrar dene</button>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Personele fiyat, plan ve ödeme ekranı gösterilmiyordu — bu varyant Düzeltme 3’ten önce de doğruydu. “Yetkiniz yok” denmiyor; sebep yazılıyor ve tek somut eylem veriliyor.</span></div>
+<div class="note src"><span>Durumlar · 05b’den alındı — değişmedi.</span></div>
+</div>
+
+<div class="spec sm">
+<div class="spec-label"><b>Giriş 15f — 375 × 667 · çatallanma</b><span>Küçülen ölçüler tek tek: hangi değer nereye iniyor.</span></div>
+<div class="phone sm thm-dark" data-screen-label="Giriş 15f">
+<div class="glow" style="height:210px"></div>
+<div class="safe-top"><span>20</span></div><div class="safe-bot"><span>0</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div style="flex:none;padding:26px 20px 0;position:relative;z-index:10;display:flex;flex-direction:column;gap:10px">
+    <div class="mark c08" style="font-size:34px">luera<i></i></div>
+    <p style="font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.4;max-width:270px;text-wrap:pretty">Salonunuzun randevuları, kasası ve ekibi tek yerde.</p>
+  </div>
+  <div style="flex:1"></div>
+  <div class="stack" style="gap:10px;padding:0 16px 18px;position:relative;z-index:10">
+    <button class="pick" style="height:78px;border-radius:20px;padding:0 16px"><b style="font-size:18px">İşletmemi yönetiyorum</b><span style="font-size:13px">E-posta ve şifrenizle girin</span></button>
+    <button class="pick" style="height:78px;border-radius:20px;padding:0 16px"><b style="font-size:18px">Burada çalışıyorum</b><span style="font-size:13px">İşletmeden aldığınız kodla girin</span></button>
+    <p style="font-size:12.5px;font-weight:500;color:var(--tx3);text-align:center">Sonradan değiştirebilirsiniz.</p>
+    <button class="tlink" style="height:44px;font-size:15px">Yeni işletme oluştur</button>
+  </div>
+</div>
+</div>
+<div class="note"><span><b>Küçülen:</b> marka 44 → 34 · kart-buton 86 → 78 · kart yarıçapı 22 → 20 · sayfa yatay boşluk 18 → 16 · kart-buton arası 12 → 10 · alt boşluk 30 → 18 · üst boşluk 44 → 26. <b>Küçülmeyen:</b> dokunma hedefleri (kart-buton 78 pt, bağlantı 44 pt) ve gövde 15.5 pt.</span></div>
+<div class="note"><span>Sıralama değişmiyor, hiçbir şey iki sütuna dağılmıyor, hiçbir şey kaydırmaya girmiyor. Bu ekran 667 pt’de de tek ekrandır.</span></div>
+</div>
+
+<div class="spec sm">
+<div class="spec-label"><b>Giriş 15g — 375 × 667 · klavye açık</b><span>Küçük ekranda klavye açıkken alan ve buton nerede duruyor.</span></div>
+<div class="phone sm thm-dark" data-screen-label="Giriş 15g">
+<div class="safe-top"><span>20</span></div><div class="safe-bot"><span>0</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar plain" style="height:44px"><button class="iconbtn" style="margin-left:-12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div style="flex:none;padding:0 20px 14px;display:flex;flex-direction:column;gap:5px">
+    <h2 style="font-size:24px;font-weight:800;letter-spacing:-.03em">Hesabınıza girin</h2>
+    <p style="font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.35">Bilgisayarda kullandığınız e-posta ve şifre.</p>
+  </div>
+  <div class="stack" style="gap:10px;padding:0 16px">
+    <div class="field" style="gap:5px"><span class="lb">E-posta</span><div class="in" style="height:56px;border-radius:16px">ayla@studioayla.com</div></div>
+    <div class="field" style="gap:5px"><span class="lb">Şifre</span><div class="in focus" style="height:56px;border-radius:16px">••••••••<span class="cur"></span><span style="flex:1"></span><svg class="ic" style="width:19px;height:19px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div></div>
+    <button class="btn" style="height:60px;border-radius:16px">Gir</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="kbd">
+    <div class="krow"><b>q</b><b>w</b><b>e</b><b>r</b><b>t</b><b>y</b><b>u</b><b>ı</b><b>o</b><b>p</b><b>ğ</b><b>ü</b></div>
+    <div class="krow" style="padding:0 10px"><b>a</b><b>s</b><b>d</b><b>f</b><b>g</b><b>h</b><b>j</b><b>k</b><b>l</b><b>ş</b><b>i</b></div>
+    <div class="krow"><b class="w">⇧</b><b>z</b><b>x</b><b>c</b><b>v</b><b>b</b><b>n</b><b>m</b><b>ö</b><b>ç</b><b class="w">⌫</b></div>
+    <div class="krow"><b class="w">123</b><b class="sp">boşluk</b><b class="w go">Gir</b></div>
+  </div>
+</div>
+</div>
+<div class="note"><span><b>Klavye açıkken küçülen:</b> başlık 28 → 24 · alan yüksekliği 60 → 56 · alan yarıçapı 18 → 16 · alan arası 14 → 10 · klavye tuşu 42 → 36 · alt güvenli boşluk 40 → 30. <b>Feda edilen:</b> “Şifremi unuttum” butonu klavye açıkken görünmez — klavye kapanınca geri gelir.</span></div>
+<div class="note"><span>Kural aynı kalıyor: odaklı alan ve birincil buton her zaman klavyenin üstünde. Küçük ekranda bunu korumak için ikincil eylem gizleniyor, alan küçültülmüyor — 56 pt taban.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Giriş 15h — Erişilebilirlik · büyük yazı</b><span>Büyük yazı tipi açıkken buton ve alan yükseklikleri. Saydamlığı azalt açıkken cam yüzey kalmıyor.</span></div>
+<div class="phone thm-dark" data-screen-label="Giriş 15h">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body">
+  <div class="topbar opaque" style="height:60px"><button class="iconbtn" style="margin-left:-6px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-back"/></svg></button><div class="biz"></div></div>
+  <div style="flex:none;padding:16px 24px 18px;display:flex;flex-direction:column;gap:9px">
+    <h2 style="font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1.1">Hesabınıza girin</h2>
+    <p style="font-size:18px;font-weight:500;color:var(--tx2);line-height:1.45">Bilgisayarda kullandığınız e-posta ve şifre.</p>
+  </div>
+  <div class="pad stack" style="gap:16px">
+    <div class="field"><span class="lb" style="font-size:13px">E-posta</span><div class="in" style="height:70px;font-size:19px">ayla@studioayla.com</div></div>
+    <div class="field"><span class="lb" style="font-size:13px">Şifre</span><div class="in focus" style="height:70px;font-size:19px">••••••••<span class="cur" style="height:28px"></span><span style="flex:1"></span><svg class="ic" style="width:22px;height:22px;color:var(--tx2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg></div></div>
+    <button class="btn" style="height:76px;font-size:22px">Gir</button>
+    <button class="btn ghost" style="height:60px;font-size:18px">Şifremi unuttum</button>
+  </div>
+  <div style="flex:1"></div>
+  <div class="banner info" style="margin-bottom:30px;font-size:15px"><span>Şifrenizi bilgisayardan da değiştirebilirsiniz.</span></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Büyüyen:</b> başlık 28 → 32 · gövde 15.5 → 18 · alan 60 → 70 · alan yazısı 16.5 → 19 · birincil buton 66 → 76 · ikincil buton 52 → 60. Ölçüler büyüyor, sayı ve sıra değişmiyor; hiçbir şey iki satıra bölünüp kırpılmıyor.</span></div>
+<div class="note"><span><b>Saydamlığı azalt:</b> giriş akışında cam neredeyse hiç yok — yalnız üst çubuk. O da <b>yüzey</b>e ve <b>kenarlık2</b>’ye düşüyor, parlama kalkıyor. Kart, form ve tuş takımı zaten opaktı, hiçbiri değişmiyor.</span></div>
+</div>
+
+<div class="spec wide">
+<div class="legend">
+<h4>Giriş akışında dil</h4>
+<div><s class="n"></s><span>Geçmeyen kelimeler: <b>alan, kayıt, senkronize, sunucu, hata kodu, kimlik doğrulama, oturum açma başarısız</b>. Yerine: “yazın”, “bilgileriniz”, “eşleşmedi”, “bağlantı görünmüyor”.</span></div>
+<div><s class="r"></s><span><b>Kırmızı</b> yalnız kullanıcının düzeltebileceği bir uyuşmazlıkta (şifre, kod). <b>Amber</b> iş durduğunda ama suç kullanıcıda olmadığında (bağlantı, abonelik, süre).</span></div>
+<div><s class="g"></s><span><b>Yeşil</b> yalnız bir kural sağlandığında; kutlama için değil.</span></div>
+<div><s></s><span><b>Turuncu</b> yalnız eylem: birincil buton, seçili sektör, dolu kod hanesi, imleç. Çatallanmada hiç yok.</span></div>
+</div>
+<div class="legend">
+<h4>Her adımda çıkış</h4>
+<div><s></s><span>Geri oku her ekranda, aynı yerde (sol üst, 44 pt).</span></div>
+<div><s></s><span>Kodu olmayana: “Kodum yok” → kimin ürettiğini söyleyen açıklama.</span></div>
+<div><s></s><span>Şifresini bilmeyene: “Şifremi unuttum” → e-posta bağlantısı.</span></div>
+<div><s></s><span>Hesabı olmayana: “Yeni işletme oluştur”.</span></div>
+<div><s></s><span>Listede olmayana: “işletme sahibi sizi eklemeli” + arama eylemi.</span></div>
+</div>
+<div class="note"><span>Yanlış kapıdan girmek ölümcül değil: çatallanmada seçilen taraf yalnız bir sonraki ekranı belirler, geri okuyla dönülür. Rolü sunucu söylediği için yanlış butona basmak yanlış yetkiyle giriş anlamına gelmez.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 08 · REACT NATIVE NOTLARI ══════════ -->
+<div class="band"><span class="num">08</span><h2>React Native notları</h2><p>Yalnız flexbox. Gölge yok — kenarlık ve yüzey farkı. Aşağıdaki ölçüler kesindir.</p></div>
+<div class="rn">
+<div class="r"><b>Cihaz ve güvenli alan</b><span>Tasarım <code>393 × 852</code>, üst güvenli alan <code>59</code>, alt <code>34</code>. Küçük ekran testi <code>375 × 667</code> (üst <code>20</code>, alt <code>0</code>). Alt güvenli alan <code>0</code> olan cihazlarda son eylemin altına <code>34</code> yerine <code>24</code> boşluk.</span></div>
+<div class="r"><b>Yükseklikler</b><span>Kritik buton <code>66</code> · normal buton <code>60</code> · ikincil (ghost) <code>52</code> · giriş alanı <code>60</code> (küçük ekranda <code>56</code>, taban) · liste satırı <code>62</code> · personel/işletme seçim satırı <code>74</code> · ikon butonu <code>44</code> · çatallanma kart-butonu <code>86</code> (küçük ekranda <code>78</code>) · sektör satırı <code>60</code> · tuş takımı tuşu <code>62</code> (küçük ekranda <code>52</code>) · klavye tuşu <code>42</code> (küçük ekranda <code>36</code>) · Face ID halkası <code>118</code>.</span></div>
+<div class="r"><b>Yarıçap ve boşluk</b><span>Kart <code>22</code> · gömülü kart <code>18</code> · giriş alanı <code>18</code> (küçük ekranda <code>16</code>) · ikon butonu <code>14</code> · durum çipi <code>10</code> · kod hanesi <code>16</code>. Sayfa yatay <code>18</code> (metin blokları <code>24</code>) · kart içi <code>16</code> · satır arası <code>14</code>.</span></div>
+<div class="r"><b>Tipografi</b><span>Hanken Grotesk. başlık1 <code>28/800/-0.9</code> · başlık2 <code>21/800/-0.6</code> · başlık3 <code>17/800/-0.4</code> · gövde <code>15.5/500/-0.1</code> · küçük <code>13.5/500</code> · minik <code>11.5/700/+0.6</code>. Kod haneleri, PIN noktaları ve süre sayaçları <code>fontVariant: ['tabular-nums']</code>.</span></div>
+<div class="r"><b>Metin kırpma</b><span>Tek satır + <code>ellipsis</code>: kişi adı, işletme adı, e-posta (liste satırlarında), üst çubuk başlığı. <b>Kırpılmaz, sarar:</b> başlıklar (<code>numberOfLines={2}</code>), açıklama paragrafları, hata ve bilgi bantları, koşullar satırı, diyalog maddeleri. Buton etiketleri kırpılmaz ve sarmaz — büyük yazıda buton yükseklikle büyür (<code>76</code>). Kullanıcı girdisi (işletme adı) form alanında sarmaz, yatay kayar.</span></div>
+<div class="r"><b>Düzen</b><span>Yalnız flexbox: <code>flexDirection</code>, <code>gap</code>, <code>flex: 1</code> boşluk yayıcı. Grid, float, <code>position: sticky</code> yok. Ekranın üst bloğu <code>flex: none</code>, ortada <code>flex: 1</code> esneme, alt eylem bloğu <code>flex: none</code> — bu yüzden butonlar her yükseklikte alt üçte birde kalır. Gölge yerine <code>borderWidth: 1</code> + yüzey farkı; <code>elevation</code> ve <code>shadowOpacity</code> hiçbir yerde yok.</span></div>
+<div class="r"><b>Klavye davranışı</b><span><code>KeyboardAvoidingView</code> · iOS <code>behavior="padding"</code>, Android <code>"height"</code>. Odaklı alan ve birincil buton her zaman klavyenin üstünde; alan asla klavyenin altında kalmaz. Form gövdesi <code>keyboardShouldPersistTaps="handled"</code> olan bir <code>ScrollView</code> içinde, <code>automaticallyAdjustKeyboardInsets</code> açık. Küçük ekranda ikincil eylem (“Şifremi unuttum”) klavye açıkken gizlenir, alan küçültülmez. Klavye dışına dokunmak klavyeyi kapatır, alanı temizlemez.</span></div>
+<div class="r"><b>Otomatik odak sırası</b><span>Giriş 02/04/11: ekran açılınca ilk boş alana odak (<code>autoFocus</code>), <code>returnKeyType="next"</code> → şifre alanı, şifrede <code>"go"</code> → gönder. Giriş 06: kod alanı tek gizli girdi, altı hane dolunca odak düşer ve “Devam” etkinleşir. Giriş 08: dördüncü hane girilince otomatik doğrulama, onay butonu yok. Giriş 12: işletme adından sektör listesine odak geçmez — liste dokunmayla seçilir.</span></div>
+<div class="r"><b>Şifre yöneticisi ve otomatik doldurma</b><span>E-posta: <code>textContentType="username"</code>, <code>autoComplete="email"</code>, <code>keyboardType="email-address"</code>, <code>autoCapitalize="none"</code>. Şifre (giriş): <code>textContentType="password"</code>. Şifre (yeni hesap): <code>textContentType="newPassword"</code> + <code>passwordRules</code> → iOS güçlü şifre önerir. Yapıştırma ve şifre yöneticisi <b>engellenmez</b>; <code>contextMenuHidden</code> kullanılmaz. Kod alanı: <code>textContentType="oneTimeCode"</code>, <code>keyboardType="number-pad"</code>. PIN: <code>secureTextEntry</code>, klavye özel tuş takımı.</span></div>
+<div class="r"><b>Face ID nereye bağlanıyor</b><span>Teklif ilk başarılı girişten <b>sonra</b> (Giriş 09). Onaylanınca sunucu oturum anahtarı Keychain’e <code>WhenUnlockedThisDeviceOnly</code> + <code>biometryCurrentSet</code> ile yazılır. Dönüş girişinde (Giriş 10) yüz doğrulanır, anahtar açılır, sunucudan gerçek oturum istenir — Face ID PIN’in/şifrenin yerine geçmez, kısayoludur. Parmak/yüz değişirse anahtar geçersizleşir ve ekran sessizce PIN/şifreye düşer. Face ID kapalı veya donanım yoksa halka hiç çizilmez. Yedek yol her zaman açık: PIN (personel), şifre (müdür).</span></div>
+<div class="r"><b>Rol ve yönlendirme</b><span>Çatallanma butonu yalnız hangi kimlik akışına gireceğini belirler; ev ekranını sunucu döndürür (<code>role</code> + <code>businesses[]</code>). <code>businesses.length === 1</code> ise Giriş 05 atlanır. Hiçbir giriş ekranı rol vaat eden metin göstermez.</span></div>
+<div class="r"><b>Hata ve kilit</b><span>Yanlış e-posta ve yanlış şifre <b>aynı</b> mesajı döndürür. Kalan deneme ve kilit süresi sunucudan gelir, ekranda yazıyla söylenir (hata kodu gösterilmez). Hata hareketi: alan/nokta kırmızı kenarlığa döner + tek yatay sarsıntı (<code>±6 px</code>, <code>180 ms</code>, tek tekrar). Kilitli hâlde alanlar okunur kalır, buton devre dışı olur ve sayaç butonun içinde yazar.</span></div>
+<div class="r"><b>Hesap silme</b><span>Uygulama içinden erişilebilir (Profil → Hesap → en alt), yalnız web’e yönlendirmez. Onay diyaloğu ne silineceğini, ne kadar saklanacağını ve 30 günlük süreyi yazar; onaydan sonra şifre bir kez daha istenir. Personel varyantında bu eylem <b>hiç yoktur</b>.</span></div>
+<div class="r"><b>Abonelik ekranı</b><span>Fiyat, plan kartı, satın alma butonu ve ödeme sayfasına giden link <b>bulunmaz</b> (App Store 3.1.1). Ekran durumu ve verinin saklanma süresini söyler, yenilemenin bilgisayardan yapıldığını belirtir. Tek eylem yeniden denemedir.</span></div>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 15: Randevu oluştur</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.62);--glassbd:rgba(243,237,227,.14);--tint:rgba(37,32,21,.55);--sheen:rgba(243,237,227,.10);--dip:rgba(0,0,0,.42);--desk:#0B0805;--pink:#FFF9F5;--ork:#231006;--orb:linear-gradient(180deg,rgba(255,90,31,.20),rgba(255,90,31,.09));--ord:rgba(255,90,31,.40);--orq:rgba(255,122,69,.86)}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.70);--glassbd:rgba(14,14,14,.10);--tint:rgba(240,233,223,.60);--sheen:rgba(255,255,255,.60);--dip:rgba(120,80,40,.16);--desk:#E4DACA;--pink:#FFF9F5;--ork:#2A1206;--orb:linear-gradient(180deg,rgba(255,90,31,.17),rgba(255,90,31,.07));--ord:rgba(232,67,15,.38);--orq:rgba(232,67,15,.92)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+svg{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+a{color:var(--or2)}a:hover{color:var(--or)}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:840px;margin-bottom:56px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede code,.legend code,.note code,.rn code{font-family:ui-monospace,Menlo,monospace;font-size:.92em}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:560px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:76px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec.w375{width:375px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:var(--tx);font-weight:700}
+.legend{display:flex;flex-direction:column;gap:9px;width:393px;padding:20px;border:1px solid var(--bd);border-radius:18px;background:var(--surf)}
+.legend h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2);margin-bottom:3px}
+.legend div{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.legend div b{color:var(--tx);font-weight:700}
+.legend s{flex:none;width:11px;height:11px;border-radius:3px;margin-top:4px;background:var(--or);text-decoration:none}
+.legend s.n{background:var(--bd2)}.legend s.a{background:var(--am)}.legend s.r{background:var(--rd)}.legend s.g{background:var(--gr)}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px}
+.rn .r{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r b{flex:none;width:230px;color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.mt{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px;margin-bottom:14px}
+.mt .h,.mt .r2{display:flex;gap:16px;padding:11px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mt .h{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--tx3)}
+.mt .r2:last-child{border-bottom:0}
+.mt i{flex:none;width:250px;font-style:normal;font-weight:700;color:var(--tx)}
+.mt em{flex:none;width:150px;font-style:normal;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
+.mt code{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--tx2)}
+
+/* ── telefon çerçevesi ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.safe-top,.safe-bot{position:absolute;left:0;right:0;pointer-events:none;z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.safe-top{top:0;height:59px;border-bottom:1px dashed rgba(255,90,31,.4)}
+.safe-bot{bottom:0;height:34px;align-items:center;border-top:1px dashed rgba(255,90,31,.4)}
+.phone.sm .safe-top{height:20px}
+.safe-top span{position:relative;top:-18px}
+.safe-top span,.safe-bot span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:70}
+.ic{width:22px;height:22px;flex:none}
+.mn{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+
+/* ── cam: yüzen kontrol katmanı ── */
+.glass{position:relative;overflow:hidden;background:var(--glass);backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);border:1px solid var(--glassbd);box-shadow:inset 0 1px 0 var(--sheen),inset 0 -12px 20px -14px var(--dip),0 10px 22px -8px rgba(0,0,0,.24)}
+.lens{position:absolute;inset:0;pointer-events:none;z-index:0}
+.lens::before,.lens::after{content:"";position:absolute;left:0;right:0;height:15px;backdrop-filter:blur(8px) saturate(250%) brightness(1.05);-webkit-backdrop-filter:blur(8px) saturate(250%) brightness(1.05)}
+.lens::before{top:0}
+.lens::after{bottom:0;backdrop-filter:blur(8px) saturate(250%) brightness(.94);-webkit-backdrop-filter:blur(8px) saturate(250%) brightness(.94)}
+.gbtn .lens::before,.gbtn .lens::after{height:9px}
+.opaque{background:var(--surf);backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.20)}
+.opaque .lens{display:none}
+
+/* ── istif: koyu kahraman levha + krem içerik levhası ── */
+.hero{flex:none;position:relative;z-index:2;display:flex;flex-direction:column;padding:0 0 22px;background:#1C1710;border-radius:0 0 34px 34px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.34);--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--surf2:#252015;--card:#241E16;--glass:rgba(28,23,16,.58);--glassbd:rgba(243,237,227,.16);--sheen:rgba(243,237,227,.12);--dip:rgba(0,0,0,.5);color:var(--tx)}
+.skirt{position:absolute;left:0;right:0;bottom:0;height:44%;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(120,52,12,0) 0%,rgba(140,60,14,.22) 40%,rgba(176,72,16,.34) 74%,rgba(214,84,18,.44) 100%)}
+.hero>*:not(.skirt){position:relative;z-index:1}
+.plate{flex:1;min-height:0;position:relative;z-index:3;margin-top:-16px;padding-top:6px;background:var(--bg);border-radius:28px 28px 0 0;overflow:hidden;display:flex;flex-direction:column}
+.status{width:100%;height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars s{width:3px;border-radius:1px;background:currentColor;text-decoration:none}
+.bars s:nth-child(1){height:4px}.bars s:nth-child(2){height:6px}.bars s:nth-child(3){height:8px}.bars s:nth-child(4){height:10px}
+.batt{width:23px;height:11px;border:1.4px solid currentColor;border-radius:3px;padding:1.4px}
+.batt i{display:block;height:100%;width:78%;background:currentColor;border-radius:1px}
+
+/* ── üst çubuk ── */
+.top{flex:none;display:flex;align-items:center;gap:12px;height:56px;padding:0 18px}
+.gbtn{width:44px;height:44px;flex:none;border-radius:999px;display:grid;place-items:center;backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--tint)}
+.gbtn .lens{display:none}
+.top h3{font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.step{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2)}
+
+/* ── tipografik kahraman ── */
+.htitle{padding:6px 22px 0}
+.hq{font-size:40px;font-weight:800;letter-spacing:-.035em;line-height:1.02;display:flex;align-items:flex-end}
+.hq i{width:.14em;height:.14em;border-radius:50%;background:var(--or);margin-left:.05em;margin-bottom:.1em;flex:none}
+.hday{display:flex;align-items:flex-end;gap:10px}
+.hday b{font-size:54px;font-weight:800;letter-spacing:-.05em;line-height:1;display:flex;align-items:flex-end}
+.hday b i{width:.13em;height:.13em;border-radius:50%;background:var(--or);margin-left:.05em;margin-bottom:.06em;flex:none}
+.hday em{margin-left:auto;font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-style:normal;font-size:54px;font-weight:300;letter-spacing:-.03em;line-height:1;color:var(--tx3);font-variant-numeric:tabular-nums}
+.hsub{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13.5px;font-weight:600;color:var(--tx2)}
+.hsub s{width:3px;height:3px;border-radius:50%;background:var(--tx3);text-decoration:none;flex:none}
+.hsub b{color:var(--tx);font-weight:700}
+
+/* ── gün şeridi (14 gün, yatay) ── */
+.strip{display:flex;gap:8px;padding:14px 22px 0;overflow:hidden;-webkit-mask:linear-gradient(90deg,#000 0,#000 82%,rgba(0,0,0,.12) 100%);mask:linear-gradient(90deg,#000 0,#000 82%,rgba(0,0,0,.12) 100%)}
+.d{flex:none;width:48px;height:66px;border-radius:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid transparent;position:relative}
+.d b{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:20px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.d span{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tx3)}
+.d.nm span{color:var(--tx2);letter-spacing:.01em;text-transform:none;font-size:11.5px}
+.d.tdy{border-color:var(--bd2)}
+.d.tdy::after{content:"";position:absolute;bottom:6px;width:4px;height:4px;border-radius:50%;background:var(--or)}
+.d.sel{background:var(--or);color:var(--ork)}
+.d.sel span{color:rgba(35,16,6,.92)}
+.d.sel::after{content:"";position:absolute;bottom:-9px;width:5px;height:5px;border-radius:50%;background:var(--or)}
+
+/* ── bölüm başlığı ── */
+.sec{flex:none;display:flex;align-items:baseline;gap:8px;padding:16px 20px 8px}
+.sec h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2)}
+.sec em{font-style:normal;font-size:11.5px;font-weight:600;color:var(--tx3)}
+.sec .lk{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--tx2)}
+
+/* ── dikey zaman rayı ── */
+.rail{flex:none;display:flex;flex-direction:column;padding:0 20px}
+.slot{flex:none;display:flex;align-items:flex-start;min-height:44px;border-top:1px solid var(--bd)}
+.slot .t{flex:none;width:54px;padding-top:14px;font-size:13px;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
+.slot.shut .t{color:var(--tx3)}
+.slot .why{padding-top:14px;font-size:12.5px;font-weight:600;color:var(--tx3)}
+.slot.busy{border-top:1px solid var(--bd);padding-bottom:8px}
+.slot.busy .t{padding-top:20px}
+.bcard{flex:1;min-width:0;display:flex;align-items:center;gap:11px;min-height:56px;margin-top:8px;padding:10px 13px;border-radius:16px;background:var(--card);border:1px solid var(--bd)}
+.bcard s{flex:none;width:3px;height:34px;border-radius:2px;text-decoration:none}
+.bcard .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bcard b{font-size:15px;font-weight:700;letter-spacing:-.005em}
+.bcard span{font-size:12.5px;font-weight:500;color:var(--tx2);font-variant-numeric:tabular-nums}
+.bcard.tall{height:96px;margin-top:8px}
+.pick.busy3{border-top:1px solid var(--bd)}
+.pick.busy3 .tc u.a{color:var(--tx2);font-weight:600}
+.pick.busy3 .tc{height:104px}
+.pick.busy3 .tc u.b{top:48px}
+.pick.busy3 .tc u.c{top:82px}
+.bcard .rng{flex:none;font-size:12.5px;font-weight:700;color:var(--tx3);font-variant-numeric:tabular-nums}
+
+/* ── seçili aralık: süre gölgesi ── */
+.pick{flex:none;display:flex;align-items:flex-start;padding-bottom:8px;border-top:1px solid var(--ord)}
+.pick .tc{flex:none;width:54px;position:relative;height:118px}
+.pick .tc u{position:absolute;left:0;text-decoration:none;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.pick .tc u.a{top:14px;color:var(--or2);font-weight:700}
+.pick .tc u.b{top:58px;color:var(--tx3)}
+.pick .tc u.c{top:102px;color:var(--tx3)}
+.pblk{flex:1;min-width:0;position:relative;height:110px;margin-top:8px;padding:12px 14px 10px;border-radius:18px;background:var(--orb);border:1px solid var(--ord);overflow:hidden;display:flex;flex-direction:column}
+.pblk .tk{position:absolute;left:0;right:0;height:1px;background:rgba(255,90,31,.22)}
+.pblk .tk.k1{top:36px}.pblk .tk.k2{top:80px}
+.pblk .hd{display:flex;align-items:baseline;gap:8px}
+.pblk .hd b{font-size:17px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.pblk .hd span{font-size:12.5px;font-weight:600;color:var(--tx2)}
+.pblk .hd u{margin-left:auto;text-decoration:none;font-size:11.5px;font-weight:800;color:var(--or2);font-variant-numeric:tabular-nums}
+.pblk .who{margin-top:auto;display:flex;align-items:center;gap:9px;position:relative;z-index:1}
+.av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--surf2);border:1px solid var(--bd2)}
+.pblk .who b{font-size:13.5px;font-weight:700}
+.pblk .who u{margin-left:auto;display:flex;align-items:center;gap:5px;text-decoration:none;font-size:12.5px;font-weight:700;color:var(--tx2);height:44px;padding-left:8px}
+.pblk .who u .ic{width:15px;height:15px}
+
+/* ── not ── */
+.noterow{flex:none;display:flex;align-items:center;gap:10px;min-height:56px;margin:10px 20px 0;padding:0 14px;border-radius:16px;background:var(--surf2);border:1px dashed var(--bd2);font-size:14.5px;font-weight:600;color:var(--tx2)}
+
+/* ── arama ── */
+.search{display:flex;align-items:center;gap:10px;height:52px;padding:0 15px;border-radius:17px;background:var(--surf2);border:1px solid var(--bd);font-size:16px;font-weight:600;color:var(--tx3)}
+.search.filled{color:var(--tx);font-weight:700}
+.search .ic{color:var(--tx2)}
+.search .clr{margin-left:auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bd);color:var(--tx2)}
+.search .clr .ic{width:13px;height:13px}
+.hero .search{margin:18px 22px 0}
+.sfloat{box-shadow:inset 0 1px 0 var(--sheen),inset 0 -12px 20px -14px var(--dip),0 8px 16px -8px rgba(0,0,0,.22);position:absolute;top:12px;left:12px;right:12px;z-index:45;height:56px;padding:0 16px;border-radius:19px;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700}
+.sfloat .ic{color:var(--tx2)}
+.sfloat .clr{margin-left:auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--tint);border:1px solid var(--glassbd);color:var(--tx2)}
+.sfloat .clr .ic{width:13px;height:13px}
+
+/* ── müşteri satırı ── */
+.crow{flex:none;display:flex;align-items:center;gap:12px;min-height:62px;padding:6px 20px}
+.crow .av{width:42px;height:42px;font-size:14.5px}
+.crow .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.crow b{font-size:16px;font-weight:700;letter-spacing:-.005em}
+.crow b mark{background:none;color:inherit;font-weight:800;box-shadow:inset 0 -2px 0 var(--bd2)}
+.crow span{font-size:12.5px;font-weight:500;color:var(--tx2)}
+.crow .ph{flex:none;font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--tx3);font-variant-numeric:tabular-nums}
+.hero .picked{display:flex;align-items:center;gap:12px;min-height:62px;margin:16px 22px 0;padding:9px 13px;border-radius:18px;background:var(--surf2);border:1px solid var(--bd)}
+.hero .picked .av{width:42px;height:42px;font-size:14.5px}
+.hero .picked .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hero .picked b{font-size:17px;font-weight:700}
+.hero .picked span{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
+.hero .picked .x{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--tx2)}
+
+/* ── hizmet satırı ── */
+.srow{flex:none;display:flex;align-items:center;gap:12px;min-height:62px;margin:0 20px 7px;padding:0 14px;border-radius:16px;background:var(--card);border:1px solid var(--bd)}
+.srow s{flex:none;width:3px;height:30px;border-radius:2px;text-decoration:none}
+.srow b{font-size:16px;font-weight:700;letter-spacing:-.005em}
+.srow em{margin-left:auto;font-style:normal;font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:14px;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
+.srow.on{background:var(--surf2);border-color:var(--bd2)}
+.srow.on .ck{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--tx);color:var(--bg)}
+.srow.on .ck .ic{width:13px;height:13px;stroke-width:2.4}
+
+/* ── boş sonuç / yeni müşteri ── */
+.empty{flex:none;padding:26px 20px 0;display:flex;flex-direction:column;gap:8px}
+.empty b{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.empty p{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.5;text-wrap:pretty}
+.solid{flex:none;display:flex;align-items:center;justify-content:center;gap:9px;height:66px;margin:18px 20px 0;border-radius:20px;background:var(--tx);color:var(--bg);font-size:17px;font-weight:800;letter-spacing:-.015em}
+.hint{flex:none;padding:10px 20px 0;font-size:12.5px;font-weight:500;color:var(--tx3)}
+
+/* ── yüzen özet çubuğu + eylem ── */
+.bar{position:absolute;left:12px;right:12px;bottom:46px;z-index:50;border-radius:28px;padding:15px 16px 16px;display:flex;flex-direction:column;gap:13px}
+.phone.sm .bar{bottom:12px;left:10px;right:10px;padding:13px 14px 14px;border-radius:26px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;position:relative;z-index:1}
+.kv div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kv b{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--tx2)}
+.kv span{font-size:17px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv span.mn{font-weight:600;letter-spacing:-.005em}
+.kv span.void{color:var(--tx3);font-weight:600}
+.cta{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;height:66px;border-radius:21px;font-size:17.5px;font-weight:800;letter-spacing:-.02em;color:var(--pink);background:var(--or);box-shadow:none}
+.cta.off{background:var(--tint);color:var(--tx3);box-shadow:inset 0 1px 0 var(--sheen);backdrop-filter:none;-webkit-backdrop-filter:none}
+.cta.solidor{background:var(--or);box-shadow:none;color:var(--pink)}
+.bar.mini{padding:13px 14px}
+
+/* ── cam kesitleri ── */
+.crop{width:393px;height:420px;flex:none;position:relative;overflow:hidden;border-radius:26px;border:1px solid var(--bd2);background:var(--bg)}
+.crop .bar{bottom:18px}
+.crop .rail{padding-top:8px}
+.croplab{position:absolute;top:12px;left:16px;z-index:60;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx3)}
+.ratio{display:flex;flex-direction:column;gap:3px;width:393px;font-size:12px;font-weight:600;color:var(--tx2)}
+.ratio i{font-style:normal;color:var(--tx);font-weight:800;font-variant-numeric:tabular-nums}
+
+/* ── erişilebilirlik: en büyük yazı boyutu (AX5) ── */
+.ax .hq,.ax .hday b,.ax .hday em{font-size:34px}
+.ax .hsub{font-size:16px;flex-wrap:wrap;margin-top:8px}
+.ax .d{width:64px;height:80px}
+.ax .d b{font-size:26px}
+.ax .d span{font-size:14px}
+.ax .sec h4,.ax .sec em{font-size:15px;letter-spacing:.08em}
+.ax .slot{flex-direction:column;min-height:56px;padding:4px 0}
+.ax .slot .t{width:auto;padding-top:6px;font-size:19px;color:var(--tx)}
+.ax .slot .why{padding-top:2px;font-size:17px;font-weight:600;color:var(--tx2)}
+.ax .pick{flex-direction:column}
+.ax .pick .tc{height:auto;display:flex;gap:14px;padding-top:2px}
+.ax .pick .tc u{position:static;font-size:19px}
+.ax .pick .tc u.a{color:var(--or2)}
+.ax .pblk{height:auto;gap:8px;padding:12px}
+.ax .pblk .tk{display:none}
+.ax .pblk .hd{flex-direction:column;align-items:flex-start;gap:3px}
+.ax .pblk .hd b{font-size:22px}
+.ax .pblk .hd span,.ax .pblk .who b{font-size:17px}
+.ax .pblk .who{flex-direction:column;align-items:flex-start;gap:8px}
+.ax .pblk .who u{margin-left:0;padding-left:0;font-size:17px}
+.ax .kv{grid-template-columns:1fr}
+.ax .kv b{font-size:14px}
+.ax .kv span{font-size:22px}
+.ax .cta{height:78px;font-size:21px}
+</style></head>
+<template id="__bundler_thumbnail" data-bg-color="#0B0805"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#0B0805"/><rect x="470" y="120" width="260" height="560" rx="54" fill="#1C1710" stroke="#3A3025"/><rect x="510" y="180" width="120" height="34" rx="10" fill="#F3EDE3"/><rect x="510" y="240" width="180" height="14" rx="7" fill="#4A3E30"/><rect x="510" y="300" width="180" height="60" rx="18" fill="#FF5A1F" opacity=".28"/><rect x="510" y="560" width="180" height="60" rx="20" fill="#FF5A1F"/></svg></template>
+<body>
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-x"><path d="M6 6l12 12M18 6 6 18"/></g>
+<g id="i-search"><circle cx="11" cy="11" r="6.6"/><path d="M16 16l4.4 4.4"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-chev"><path d="M9.5 5.5 16 12l-6.5 6.5"/></g>
+<g id="i-swap"><path d="M4 8.4h13l-3-3M20 15.6H7l3 3"/></g>
+<g id="i-check"><path d="M5 12.6 9.6 17 19 7"/></g>
+<g id="i-arr"><path d="M5 12h13l-4.6-4.6M18 12l-4.6 4.6"/></g>
+<g id="i-pen"><path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4z"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head">
+<div class="mark">luera<i></i></div>
+<div class="meta">Müdür modu · Ekran 15<br/>Randevu oluşturma · iki sayfa<br/>393 × 852 · Liquid Glass</div>
+</div>
+
+<div class="lede">
+<h1>Randevu oluşturma</h1>
+<p>Dört adımlık kumanda akışı iki tam sayfaya indi. <b>Sayfa 1 kim ve ne</b>, <b>sayfa 2 ne zaman</b>. Beşinci bir özet adımı yok: özet, sayfa 2'nin altında içeriğin üstünde yüzen cam çubuğun içinde yaşıyor.</p>
+<p>Cam bir efekt değil, bir katman kuralı. Yüzen kontroller (özet çubuğu, kaydırılmış arama çubuğu, koyu levhanın üstündeki gün şeridi) cam; okunması gereken içerik (saat satırları, müşteri satırları, hizmet kartları) opak. Her cam yüzeyin opak yedeği aynı yerleşimle çizildi — 03'te.</p>
+<p>Saatin sunumunda <b>dikey zaman rayı</b> seçildi (5·c Aday 1). Gerekçe 02'de; kısacası 22 eş kutu bir tabela gibi okunuyordu, ray bir gün gibi okunuyor.</p>
+</div>
+
+<!-- ══════════ 01 · SAYFA 1 ══════════ -->
+<div class="band"><span class="num">01</span><h2>Sayfa 1 — kim ve ne</h2><p>İki soru tek sayfada. Solda "+" ile boş giriş, sağda müşteri ve hizmet seçilmiş hâl. Aynı yerleşim, iki tema.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Koyu · boş giriş</b><span>Sekme çubuğundaki "+" ile geldi: hiçbir şey bilinmiyor. Arama boşken son gelenler listelenir; hizmet bölümü hemen altında başlar. Çubuk pasif ve neyin eksik olduğunu yazıyor.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Kapat"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></button><h3>Yeni randevu</h3><span class="step">1 / 2</span></div>
+  <div class="search"><svg class="ic" viewBox="0 0 24 24"><use href="#i-search"/></svg><span>Müşteri ara</span></div>
+</div>
+<div class="plate">
+  <div class="sec"><h4>Son gelenler</h4><em>6</em><span class="lk">Tümü</span></div>
+  <div class="crow"><span class="av">AD</span><span class="tb"><b>Ayşe Demir</b><span>Bugün 11:00 · Saç boyama</span></span><span class="ph">0532 ••• •• 47</span></div>
+  <div class="crow"><span class="av">ZK</span><span class="tb"><b>Zeynep Kaya</b><span>son 2 Ağu</span></span><span class="ph">0555 ••• •• 12</span></div>
+  <div class="crow"><span class="av">HY</span><span class="tb"><b>Hakan Yılmaz</b><span>son 28 Tem</span></span><span class="ph">0542 ••• •• 03</span></div>
+  <div class="crow"><span class="av">EŞ</span><span class="tb"><b>Elif Şahin</b><span>son 14 Tem</span></span><span class="ph">—</span></div>
+  <div class="sec"><h4>Hizmet</h4><em>8</em></div>
+  <div class="srow"><s style="background:#C08457"></s><b>Kesim + fön</b><em>75 dk · ₺1.000</em></div>
+  <div class="srow"><s style="background:#EBCFB6"></s><b>Kesim</b><em>30 dk · ₺450</em></div>
+  <div class="srow"><s style="background:#7E93A8"></s><b>Saç boyama</b><em>90 dk · ₺2.400</em></div>
+  <div class="bar glass mini"><span class="lens"></span><div class="cta off">Müşteri ve hizmet seçin</div></div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Arama alanı koyu levhanın içinde duruyor. Sayfa kaydırılınca içerikten koparak üstte <b>yüzen cam çubuğa</b> dönüşür — 04'teki arama ekranı o hâli gösteriyor.</span></div>
+<div class="note"><span>Telefon numarası ekranda ham görünmez: <code>0532 ••• •• 47</code>. Numarası olmayan müşteride tire.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Açık · seçim yapılmış</b><span>Müşteri seçilince koyu levhaya kalıcı olarak taşınır — müdür kiminle ilgilendiğini kaybetmez — ve içerik levhası hizmete ayrılır. Süre ve fiyat her satırda görünür, çünkü süre sayfa 2'nin ızgarasını değiştirir.</span></div>
+<div class="phone thm-light">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Kapat"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></button><h3>Yeni randevu</h3><span class="step">1 / 2</span></div>
+  <div class="picked"><span class="av">AD</span><span class="tb"><b>Ayşe Demir</b><span>0532 ••• •• 47</span></span><button class="x" aria-label="Müşteriyi değiştir"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></button></div>
+</div>
+<div class="plate">
+  <div class="sec"><h4>Hizmet</h4><em>8</em></div>
+  <div class="srow on"><s style="background:#C08457"></s><b>Kesim + fön</b><em>75 dk · ₺1.000</em><span class="ck"><svg class="ic" viewBox="0 0 24 24"><use href="#i-check"/></svg></span></div>
+  <div class="srow"><s style="background:#EBCFB6"></s><b>Kesim</b><em>30 dk · ₺450</em></div>
+  <div class="srow"><s style="background:#7E93A8"></s><b>Saç boyama</b><em>90 dk · ₺2.400</em></div>
+  <div class="srow"><s style="background:#8FA98C"></s><b>Keratin bakımı</b><em>45 dk · ₺1.800</em></div>
+  <div class="srow"><s style="background:#B99BC0"></s><b>Kaş alma</b><em>20 dk · ₺300</em></div>
+  <div class="srow"><s style="background:#C08457"></s><b>Fön</b><em>30 dk · ₺400</em></div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv"><div><b>Müşteri</b><span>Ayşe Demir</span></div><div><b>Hizmet</b><span>Kesim + fön</span></div></div>
+    <div class="cta">Devam<svg class="ic" viewBox="0 0 24 24"><use href="#i-arr"/></svg></div>
+  </div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Hizmetin kendi rengi 3 px'lik bir işaret olarak duruyor; kartı boyamıyor. Seçili hizmet turuncu değil — turuncu envanteri yalnız zaman ve eylem. Seçim <code>surf2</code> zemin + <code>bd2</code> kenar + onay işaretiyle anlatılıyor.</span></div>
+<div class="note"><span>Liste, ızgaraya tercih edildi: "75 dk · ₺1.000" iki bilgi tek satırda okunuyor; 6–15 hizmette ızgara bu iki sayıyı kısaltmaya zorluyor.</span></div>
+<div class="legend"><h4>Sayfa 1 kararları</h4>
+<div><s></s><span><b>Kalıcı müşteri</b> koyu levhada, listeden çıkınca kaybolmuyor.</span></div>
+<div><s class="n"></s><span><b>Devam</b> iki seçim tamamlanana kadar pasif; etiket eksiği söylüyor.</span></div>
+<div><s class="n"></s><span><b>Fiyat nötr</b>: vurgu yok, rozet yok, sistem yazı tipiyle tabular.</span></div>
+</div>
+</div>
+</div>
+
+<!-- ══════════ 02 · SAYFA 2 ══════════ -->
+<div class="band"><span class="num">02</span><h2>Sayfa 2 — ne zaman</h2><p>Eforun ağırlığı burada: 22 saat kutusu, üç hâl, sebebini yazan iki hâl ve içeriğin üstünde yüzen cam çubuk.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Koyu · saat seçili (süre gölgesi)</b><span>Tipografik kahraman gün adı ve rakamdan kuruluyor; altında hangi randevunun kurulduğu. 11:00 seçilince 75 dakika <b>mekânla</b> işgal ediliyor: 11:00–12:15 tek sürekli turuncu blok, içinde 11:30 ve 12:00 tikleri.</span></div>
+<div class="phone thm-dark">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Geri"><svg class="ic" viewBox="0 0 24 24" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button><h3>Yeni randevu</h3><span class="step">2 / 2</span></div>
+  <div class="htitle"><div class="hday"><b>Çar<i></i></b><em>24</em></div>
+    <div class="hsub"><b>Ayşe Demir</b><s></s><span>Kesim + fön</span><s></s><span class="mn">75 dk</span></div>
+  </div>
+  <div class="strip">
+    <div class="d nm tdy"><b class="mn">22</b><span>Bugün</span></div>
+    <div class="d nm"><b class="mn">23</b><span>Yarın</span></div>
+    <div class="d sel"><b class="mn">24</b><span>Çar</span></div>
+    <div class="d"><b class="mn">25</b><span>Per</span></div>
+    <div class="d"><b class="mn">26</b><span>Cum</span></div>
+    <div class="d"><b class="mn">27</b><span>Cmt</span></div>
+    <div class="d"><b class="mn">28</b><span>Paz</span></div>
+  </div>
+</div>
+<div class="plate">
+  <div class="sec"><h4>Sabah</h4><em>2 boş</em></div>
+  <div class="rail">
+    <div class="pick busy3"><span class="tc"><u class="a mn">09:00</u><u class="b mn">09:30</u><u class="c mn">10:00</u></span>
+      <div class="bcard tall"><s style="background:#7E93A8"></s><span class="tb"><b>Merve · Saç boyama</b><span>Zeynep Kaya · 90 dk</span></span><span class="rng">10:30'a</span></div>
+    </div>
+    <div class="slot shut"><span class="t mn">10:30</span><span class="why">Merve izinli · Selin çalışmıyor</span></div>
+    <div class="pick"><span class="tc"><u class="a mn">11:00</u><u class="b mn">11:30</u><u class="c mn">12:00</u></span>
+      <div class="pblk"><span class="tk k1"></span><span class="tk k2"></span>
+        <div class="hd"><b>11:00 – 12:15</b><span>Kesim + fön</span><u>75 dk</u></div>
+        <div class="who"><span class="av">M</span><b>Merve yapacak</b><u>Değiştir<svg class="ic" viewBox="0 0 24 24"><use href="#i-swap"/></svg></u></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec"><h4>Öğleden sonra</h4><em>7 boş</em></div>
+  <div class="rail">
+    <div class="slot"><span class="t mn">12:30</span></div>
+    <div class="slot busy"><span class="t mn">13:00</span><div class="bcard"><s style="background:#B99BC0"></s><span class="tb"><b>Selin · Kaş alma</b><span>Bahar Aydın</span></span><span class="rng">13:20'ye</span></div></div>
+  </div>
+  <div class="noterow"><svg class="ic" viewBox="0 0 24 24"><use href="#i-pen"/></svg><span>Not ekle</span></div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv">
+      <div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="mn">11:00–12:15</span></div>
+      <div><b>Hizmet</b><span>Kesim + fön</span></div><div><b>Tutar</b><span class="mn">₺1.000</span></div>
+    </div>
+    <div class="cta">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Boş zaman çöküyor, dolu zaman kart oluyor.</b> Boş satır 44 yüksek, yalnız hairline ve saat; dolu satır gerçek bir kart ve sebebini kendi içinde taşıyor ("Selin · Kaş alma · 09:50'ye"). Kapalı satır soluk ama sebebi kelimeyle yazılı.</span></div>
+<div class="note"><span>Kim yapacak bir soru değil, seçilen aralığın içinde duran bir sonuç: <b>Merve yapacak</b> + <b>Değiştir</b>. Dokunma alanı 44.</span></div>
+<div class="note"><span>Çubuk sayfanın son satırı değil: 13:00 ve 13:30 satırları camın <b>altından</b> geçiyor, kenar bandında kırılıyor. Kesitler 03'te.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Açık · saat henüz seçilmedi</b><span>Aynı sayfa, eksik seçimle. Buton pasif ve eksiği söylüyor ("Saat seçin"), özet ızgarasında saat ve tutar boş. Ray seçim yokken tam yükseklikte okunuyor — 22 kutunun neye benzediği burada görünür.</span></div>
+<div class="phone thm-light">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Geri"><svg class="ic" viewBox="0 0 24 24" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button><h3>Yeni randevu</h3><span class="step">2 / 2</span></div>
+  <div class="htitle"><div class="hday"><b>Çar<i></i></b><em>24</em></div>
+    <div class="hsub"><b>Ayşe Demir</b><s></s><span>Kesim + fön</span><s></s><span class="mn">75 dk</span></div>
+  </div>
+  <div class="strip">
+    <div class="d nm tdy"><b class="mn">22</b><span>Bugün</span></div>
+    <div class="d nm"><b class="mn">23</b><span>Yarın</span></div>
+    <div class="d sel"><b class="mn">24</b><span>Çar</span></div>
+    <div class="d"><b class="mn">25</b><span>Per</span></div>
+    <div class="d"><b class="mn">26</b><span>Cum</span></div>
+    <div class="d"><b class="mn">27</b><span>Cmt</span></div>
+    <div class="d"><b class="mn">28</b><span>Paz</span></div>
+  </div>
+</div>
+<div class="plate">
+  <div class="sec"><h4>Sabah</h4><em>4 boş</em></div>
+  <div class="rail">
+    <div class="slot"><span class="t mn">09:00</span></div>
+    <div class="slot busy"><span class="t mn">09:30</span><div class="bcard"><s style="background:#B99BC0"></s><span class="tb"><b>Selin · Kaş alma</b><span>Bahar Aydın</span></span><span class="rng">09:50'ye</span></div></div>
+    <div class="slot"><span class="t mn">10:00</span></div>
+    <div class="slot shut"><span class="t mn">10:30</span><span class="why">Merve izinli · Selin çalışmıyor</span></div>
+    <div class="slot"><span class="t mn">11:00</span></div>
+    <div class="slot"><span class="t mn">11:30</span></div>
+  </div>
+  <div class="sec"><h4>Öğleden sonra</h4><em>7 boş</em></div>
+  <div class="rail">
+    <div class="slot"><span class="t mn">12:00</span></div>
+    <div class="slot"><span class="t mn">12:30</span></div>
+    <div class="slot busy"><span class="t mn">13:00</span><div class="bcard"><s style="background:#7E93A8"></s><span class="tb"><b>Merve · Saç boyama</b><span>Zeynep Kaya</span></span><span class="rng">14:30'a</span></div></div>
+    <div class="slot"><span class="t mn">14:30</span></div>
+    <div class="slot"><span class="t mn">15:00</span></div>
+  </div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv">
+      <div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="void">seçilmedi</span></div>
+      <div><b>Hizmet</b><span>Kesim + fön</span></div><div><b>Tutar</b><span class="mn">₺1.000</span></div>
+    </div>
+    <div class="cta off">Saat seçin</div>
+  </div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Bölüm sınırı sabit:</b> Sabah 09:00–12:00 · Öğleden sonra 12:00–17:00 · Akşam 17:00–20:00. Sayaç ("2 boş") bölümün <b>tamamındaki</b> boş kutuyu sayar — çubuğun altında kalan satırlar dahil, o an görünen satır sayısına eşit olmak zorunda değil. Seçim sayacı değiştirmez: seçilen kutular hâlâ boş kutulardır.</span></div>
+<div class="note"><span>Turuncu bu ekranda iki yerde: <b>seçili gün</b> ve <b>seçili saat</b> (zaman) ile <b>Randevuyu oluştur</b> (eylem). Bugün işareti 4 px'lik nokta olarak üçüncü değil, aynı envanterin küçük hâli.</span></div>
+<div class="legend"><h4>Saat kutusu üç hâl</h4>
+<div><s class="n"></s><span><b>Boş</b> — 44 yüksek sessiz satır, hairline + saat. Ferah, az mürekkep.</span></div>
+<div><s class="g"></s><span><b>Dolu</b> — kart; personel, hizmet, bitiş saati ve müşteri satırın içinde. Listeden kalkmıyor.</span></div>
+<div><s class="a"></s><span><b>Kapalı</b> — soluk satır + gerekçe cümlesi. "Dolu" tek başına cevap değil.</span></div>
+<div><s></s><span><b>Seçili</b> — süre kadar sürekli blok; 11:30 ve 12:00 solda dim, blok içinde tik.</span></div>
+</div>
+<div class="note"><span><b>Aday 1 seçildi.</b> 22 eş kutu bir tabela gibi okunuyor ve üç hâlin gerekçesini taşıyacak yeri yok; ray boş zamanı çökertip dolu zamanı kartlaştırdığı için ekran bir gün gibi okunuyor ve gerekçe cümlesi kendi satırında sığıyor. Aday 2'nin (iki sütun çip) 11 pt'lik ikinci satırı sebebi kısaltmaya zorluyordu.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 03 · CAM ══════════ -->
+<div class="band"><span class="num">03</span><h2>Cam · iki hâl ve opak yedek</h2><p>Camın altında içerik varken ve boşluk varken; ve "saydamlığı azalt" açıkken aynı yerleşimin opak malzemeyle hâli.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Altından koyu bir blok geçerken</b><span>Cam altındaki rengi emiyor: turuncu bloğun üstünden geçerken ısınıyor, kenar bandında içerik yoğunlaşıp kayıyor (kırılma). Üst kenarda ince speküler çizgi, alt kenarda koyu dip — camın kalınlığı bu ikisinden okunuyor.</span></div>
+<div class="crop">
+  <span class="croplab">cam · içerik üstünde</span>
+  <div class="rail" style="padding-top:38px">
+    <div class="slot"><span class="t mn">12:30</span></div>
+    <div class="pick"><span class="tc"><u class="a mn">13:00</u><u class="b mn">13:30</u><u class="c mn">14:00</u></span>
+      <div class="pblk"><span class="tk k1"></span><span class="tk k2"></span>
+        <div class="hd"><b>13:00 – 14:15</b><span>Kesim + fön</span><u>75 dk</u></div>
+        <div class="who"><span class="av">M</span><b>Merve yapacak</b><u>Değiştir<svg class="ic" viewBox="0 0 24 24"><use href="#i-swap"/></svg></u></div>
+      </div>
+    </div>
+    <div class="slot busy"><span class="t mn">14:30</span><div class="bcard"><s style="background:#7E93A8"></s><span class="tb"><b>Merve · Saç boyama</b><span>Zeynep Kaya</span></span><span class="rng">16:00'a</span></div></div>
+  </div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv"><div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="mn">13:00–14:15</span></div></div>
+    <div class="cta">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="ratio"><span>Cam üstündeki metin — ölçülen kontrast</span>
+<span>Birincil değer (17/700) altında kart geçerken · <i>14.8:1</i></span>
+<span>Etiket (11/700, tx2) altında kart geçerken · <i>5.4:1</i></span>
+<span>Buton mürekkebi #FFF9F5 · turuncu cam <i>4.0:1</i> (18/800 → büyük metin eşiği 3:1)</span>
+</div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Altında boşluk varken</b><span>Aynı çubuk, altında yalnız levha zemini. Adaptif kontrast: içerik koyulaştıkça metin açılır; boşlukta ton düşer ama kontrast korunur. Yerleşim, ölçü ve dokunma hedefleri iki hâlde de aynı.</span></div>
+<div class="crop">
+  <span class="croplab">cam · boşluk üstünde</span>
+  <div class="rail" style="padding-top:38px">
+    <div class="slot"><span class="t mn">18:30</span></div>
+    <div class="slot"><span class="t mn">19:00</span></div>
+    <div class="slot"><span class="t mn">19:30</span></div>
+    <div class="slot" style="border-bottom:1px solid var(--bd)"><span class="t mn">20:00</span></div>
+  </div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv"><div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="mn">13:00–14:15</span></div></div>
+    <div class="cta">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="ratio"><span>Aynı çubuk, boşluk üstünde</span>
+<span>Birincil değer · <i>15.6:1</i> · Etiket · <i>5.7:1</i></span>
+<span>Kenar bandı kırılmayı yalnız içerik varken gösterir; boşlukta cam düz bir levhaya yaklaşır.</span>
+</div>
+<div class="note"><span>Cam geçişlerini (şekillerin birleşmesi, akması) sistem yapıyor. Bizim tarafta yalnız <b>opaklık ve dönüşüm</b> animasyonlanıyor; yükseklik, renk, yarıçap ve gölge animasyonlanmıyor. Statik gölge serbest.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Opak yedek · "saydamlığı azalt" / iOS 25</b><span>Kendi başına iyi duran bir yüzey: <code>surf</code> zemin, <code>bd2</code> hairline, statik gölge. Turuncu buton düz levha oluyor. Ölçü, yerleşim ve 66'lık dokunma hedefi değişmiyor — yalnız malzeme değişiyor.</span></div>
+<div class="phone">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn opaque" aria-label="Geri"><svg class="ic" viewBox="0 0 24 24" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button><h3>Yeni randevu</h3><span class="step">2 / 2</span></div>
+  <div class="htitle"><div class="hday"><b>Çar<i></i></b><em>24</em></div>
+    <div class="hsub"><b>Ayşe Demir</b><s></s><span>Kesim + fön</span><s></s><span class="mn">75 dk</span></div>
+  </div>
+  <div class="strip">
+    <div class="d nm tdy"><b class="mn">22</b><span>Bugün</span></div>
+    <div class="d nm"><b class="mn">23</b><span>Yarın</span></div>
+    <div class="d sel"><b class="mn">24</b><span>Çar</span></div>
+    <div class="d"><b class="mn">25</b><span>Per</span></div>
+    <div class="d"><b class="mn">26</b><span>Cum</span></div>
+    <div class="d"><b class="mn">27</b><span>Cmt</span></div>
+    <div class="d"><b class="mn">28</b><span>Paz</span></div>
+  </div>
+</div>
+<div class="plate">
+  <div class="sec"><h4>Sabah</h4><em>2 boş</em></div>
+  <div class="rail">
+    <div class="pick busy3"><span class="tc"><u class="a mn">09:00</u><u class="b mn">09:30</u><u class="c mn">10:00</u></span>
+      <div class="bcard tall"><s style="background:#7E93A8"></s><span class="tb"><b>Merve · Saç boyama</b><span>Zeynep Kaya · 90 dk</span></span><span class="rng">10:30'a</span></div>
+    </div>
+    <div class="slot shut"><span class="t mn">10:30</span><span class="why">Merve izinli · Selin çalışmıyor</span></div>
+    <div class="pick"><span class="tc"><u class="a mn">11:00</u><u class="b mn">11:30</u><u class="c mn">12:00</u></span>
+      <div class="pblk"><span class="tk k1"></span><span class="tk k2"></span>
+        <div class="hd"><b>11:00 – 12:15</b><span>Kesim + fön</span><u>75 dk</u></div>
+        <div class="who"><span class="av">M</span><b>Merve yapacak</b><u>Değiştir<svg class="ic" viewBox="0 0 24 24"><use href="#i-swap"/></svg></u></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec"><h4>Öğleden sonra</h4><em>7 boş</em></div>
+  <div class="rail">
+    <div class="slot"><span class="t mn">12:30</span></div>
+    <div class="slot busy"><span class="t mn">13:00</span><div class="bcard"><s style="background:#B99BC0"></s><span class="tb"><b>Selin · Kaş alma</b><span>Bahar Aydın</span></span><span class="rng">13:20'ye</span></div></div>
+  </div>
+  <div class="noterow"><svg class="ic" viewBox="0 0 24 24"><use href="#i-pen"/></svg><span>Not ekle</span></div>
+  <div class="bar opaque"><div class="kv">
+      <div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="mn">11:00–12:15</span></div>
+      <div><b>Hizmet</b><span>Kesim + fön</span></div><div><b>Tutar</b><span class="mn">₺1.000</span></div>
+    </div>
+    <div class="cta solidor">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Yedek hâlde çubuğun altındaki içerik görünmüyor; bu yüzden alt dolgu (<code>contentInset</code> 248) daha da gerekli — son saat satırı çubuğun altında kalmamalı.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 04 · MÜŞTERİ ARAMASI ══════════ -->
+<div class="band"><span class="num">04</span><h2>Müşteri araması</h2><p>Yazılmış sorgu ve süzülmüş sonuçlar; sonuç yoksa yeni müşteri tek dokunuş. Arama alanı burada kaydırılmış hâlde: yüzen cam çubuk.</p></div>
+<div class="row">
+
+<div class="spec">
+<div class="spec-label"><b>Arama dolu</b><span>Son gelenler listesinin yerini sonuçlar aldı. Ad başından eşleşenler önce; eşleşen harfler turuncu değil, kalın + ince alt çizgi ile işaretli. Arama alanı kaydırmada cam çubuğa dönüştü — altından müşteri satırları geçiyor.</span></div>
+<div class="phone">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero" style="padding-bottom:12px"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Kapat"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></button><h3>Yeni randevu</h3><span class="step">1 / 2</span></div>
+</div>
+<div class="plate" style="margin-top:-16px">
+  <div class="sfloat glass"><span class="lens"></span><svg class="ic" viewBox="0 0 24 24"><use href="#i-search"/></svg><span>ay</span><span class="clr"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></span></div>
+  <div class="sec" style="padding-top:94px"><h4>Sonuç</h4><em>4</em></div>
+  <div class="crow"><span class="av">AD</span><span class="tb"><b><mark>Ay</mark>şe Demir</b><span>Bugün 11:00 · Saç boyama</span></span><span class="ph">0532 ••• •• 47</span></div>
+  <div class="crow"><span class="av">AT</span><span class="tb"><b><mark>Ay</mark>şenur Tok</b><span>son 9 Ağu</span></span><span class="ph">0533 ••• •• 90</span></div>
+  <div class="crow"><span class="av">AY</span><span class="tb"><b><mark>Ay</mark>han Ergin</b><span>son 21 Tem</span></span><span class="ph">—</span></div>
+  <div class="crow"><span class="av">BA</span><span class="tb"><b>Bahar <mark>Ay</mark>dın</b><span>Bugün 09:30 · Kaş alma</span></span><span class="ph">0544 ••• •• 61</span></div>
+  <div class="sec"><h4>Listede yok mu</h4></div>
+  <div class="solid" style="margin-top:0"><svg class="ic" viewBox="0 0 24 24"><use href="#i-plus"/></svg>"ay" adıyla ekle</div>
+  <div class="hint">Yalnız ad yeter. Telefonu sonra ekleyebilirsin.</div>
+  <div class="bar glass mini"><span class="lens"></span><div class="cta off">Müşteri ve hizmet seçin</div></div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Yüzen arama çubuğu 56 yüksek, üstten 12; altındaki ilk bölüm başlığı 80 px'lik payla başlıyor (<code>.sfloat</code> + 24 nefes). Kaydırma sırasında çubuğun kenar bandında satırlar bükülüyor.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>Sonuç yok · yeni müşteri</b><span>Müdür telefondaki müşteriyi bekletmiyor: aranan ad neyse o adla eklemek tek dokunuş. Buton nötr mürekkep — turuncu envanteri zaman ve eylem için ayrılmış, ve bu ekranın turuncusu yok.</span></div>
+<div class="phone">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero" style="padding-bottom:12px"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Kapat"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></button><h3>Yeni randevu</h3><span class="step">1 / 2</span></div>
+</div>
+<div class="plate" style="margin-top:-16px">
+  <div class="sfloat glass"><span class="lens"></span><svg class="ic" viewBox="0 0 24 24"><use href="#i-search"/></svg><span>Ali Kaya</span><span class="clr"><svg class="ic" viewBox="0 0 24 24"><use href="#i-x"/></svg></span></div>
+  <div class="empty" style="padding-top:100px"><b>"Ali Kaya" kayıtlı değil</b><p>Kayıtlı 214 müşteride bu ad geçmiyor. Aynı ekrandan ekleyebilirsin.</p></div>
+  <div class="solid"><svg class="ic" viewBox="0 0 24 24"><use href="#i-plus"/></svg>"Ali Kaya" adıyla ekle</div>
+  <div class="hint">Yalnız ad yeter. Telefon, randevu kurulduktan sonra müşteri kartından eklenir.</div>
+  <div class="sec" style="margin-top:14px"><h4>Benzer kayıtlar</h4><em>2</em></div>
+  <div class="crow"><span class="av">AK</span><span class="tb"><b>Ali <mark>Kay</mark>han</b><span>son 3 Haz</span></span><span class="ph">0537 ••• •• 22</span></div>
+  <div class="crow"><span class="av">AK</span><span class="tb"><b>Alev <mark>Kaya</mark>lı</b><span>son 30 Tem</span></span><span class="ph">—</span></div>
+  <div class="bar glass mini"><span class="lens"></span><div class="cta off">Müşteri ve hizmet seçin</div></div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Benzer kayıtlar, "yeni müşteri" yolunun altında duruyor: yanlışlıkla ikinci bir kayıt açılmasını engelliyor ama eklemenin önüne geçmiyor.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 05 · UYARLAMA ══════════ -->
+<div class="band"><span class="num">05</span><h2>Uyarlama</h2><p>Sıkışma ve en büyük erişilebilirlik yazı boyutu. Neyin ölçekleneceği ve neyin sabit kaldığı 06'da yazılı.</p></div>
+<div class="row">
+
+<div class="spec w375">
+<div class="spec-label"><b>375 × 667 sıkışması</b><span>Kahraman 58 → 44, gün kutusu 66 → 58, çubuk alt boşluğu 46 → 12. Sabit kalan: 44'lük saat satırı, 66'lık kritik buton, gün kutusu 48 genişlik. Kısalan yer içerik levhasının görünen satır sayısı.</span></div>
+<div class="phone sm">
+<div class="safe-top"><span>20</span></div>
+<div class="hero" style="padding-bottom:22px"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top" style="height:50px;padding:0 14px"><button class="gbtn" aria-label="Geri"><svg class="ic" viewBox="0 0 24 24" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button><h3>Yeni randevu</h3><span class="step">2 / 2</span></div>
+  <div class="htitle" style="padding:4px 18px 0"><div class="hday" style="font-size:0"><b style="font-size:44px">Çar<i></i></b><em style="font-size:44px">24</em></div>
+    <div class="hsub" style="margin-top:7px;font-size:12.5px"><b>Ayşe Demir</b><s></s><span>Kesim + fön</span><s></s><span class="mn">75 dk</span></div>
+  </div>
+  <div class="strip" style="padding:12px 18px 0;gap:7px">
+    <div class="d nm tdy" style="height:58px"><b class="mn" style="font-size:18px">22</b><span>Bugün</span></div>
+    <div class="d nm" style="height:58px"><b class="mn" style="font-size:18px">23</b><span>Yarın</span></div>
+    <div class="d sel" style="height:58px"><b class="mn" style="font-size:18px">24</b><span>Çar</span></div>
+    <div class="d" style="height:58px"><b class="mn" style="font-size:18px">25</b><span>Per</span></div>
+    <div class="d" style="height:58px"><b class="mn" style="font-size:18px">26</b><span>Cum</span></div>
+    <div class="d" style="height:58px"><b class="mn" style="font-size:18px">27</b><span>Cmt</span></div>
+  </div>
+</div>
+<div class="plate">
+  <div class="sec" style="padding:12px 18px 6px"><h4>Sabah</h4><em>2 boş</em></div>
+  <div class="rail" style="padding:0 18px">
+    <div class="slot shut"><span class="t mn">10:30</span><span class="why">Merve izinli</span></div>
+    <div class="pick"><span class="tc"><u class="a mn">11:00</u><u class="b mn">11:30</u><u class="c mn">12:00</u></span>
+      <div class="pblk"><span class="tk k1"></span><span class="tk k2"></span>
+        <div class="hd"><b>11:00 – 12:15</b><u>75 dk</u></div>
+        <div class="who"><span class="av">M</span><b>Merve yapacak</b><u>Değiştir<svg class="ic" viewBox="0 0 24 24"><use href="#i-swap"/></svg></u></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec" style="padding:12px 18px 6px"><h4>Öğleden sonra</h4><em>7 boş</em></div>
+  <div class="rail" style="padding:0 18px">
+    <div class="slot"><span class="t mn">12:30</span></div>
+    <div class="slot"><span class="t mn">13:00</span></div>
+  </div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv">
+      <div><b>Gün</b><span>24 Ağu Çar</span></div><div><b>Saat</b><span class="mn">11:00–12:15</span></div>
+      <div><b>Hizmet</b><span>Kesim + fön</span></div><div><b>Tutar</b><span class="mn">₺1.000</span></div>
+    </div>
+    <div class="cta">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span>Kapalı satırın gerekçesi sıkışmada kısalıyor ("Merve izinli"); tam cümle sesli okumada ve satıra dokunulunca görünür. Sebep gizlenmiyor, kırpılıyor.</span></div>
+</div>
+
+<div class="spec">
+<div class="spec-label"><b>En büyük erişilebilirlik boyutu (AX5)</b><span>Yatay satırlar dikeye yığılıyor: saat kendi satırında, gerekçe altında; özet ızgarası 2×2'den tek kolona düşüyor. Gün kutusu 48 → 64 genişliyor, şeritte daha az gün görünüyor. Blok yüksekliği artık süreyle değil içerikle belirleniyor — süre bilgisi metne devrediliyor.</span></div>
+<div class="phone ax">
+<div class="safe-top"><span>güvenli alan 59</span></div>
+<div class="hero" style="padding-bottom:26px"><div class="skirt"></div>
+  <div class="status"><span class="mn">9:41</span><span class="rt"><span class="bars"><s></s><s></s><s></s><s></s></span><span class="batt"><i></i></span></span></div>
+  <div class="top"><button class="gbtn" aria-label="Geri"><svg class="ic" viewBox="0 0 24 24" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button><h3>Yeni randevu</h3><span class="step">2 / 2</span></div>
+  <div class="htitle"><div class="hday"><b>Çar<i></i></b><em>24</em></div>
+    <div class="hsub"><b>Ayşe Demir</b><s></s><span>Kesim + fön · 75 dk</span></div>
+  </div>
+  <div class="strip">
+    <div class="d nm tdy"><b class="mn">22</b><span>Bugün</span></div>
+    <div class="d nm"><b class="mn">23</b><span>Yarın</span></div>
+    <div class="d sel"><b class="mn">24</b><span>Çar</span></div>
+    <div class="d"><b class="mn">25</b><span>Per</span></div>
+    <div class="d"><b class="mn">26</b><span>Cum</span></div>
+  </div>
+</div>
+<div class="plate">
+  <div class="rail">
+    <div class="slot shut"><span class="t mn">10:30</span><span class="why">Merve izinli · Selin çalışmıyor</span></div>
+    <div class="pick"><span class="tc"><u class="a mn">11:00</u><u class="b mn">11:30</u><u class="c mn">12:00</u></span>
+      <div class="pblk">
+        <div class="hd"><b>11:00 – 12:15</b><span>Kesim + fön · 75 dk</span></div>
+        <div class="who"><span class="av">M</span><b>Merve yapacak</b><u>Değiştir<svg class="ic" viewBox="0 0 24 24"><use href="#i-swap"/></svg></u></div>
+      </div>
+    </div>
+  </div>
+  <div class="bar glass"><span class="lens"></span>
+    <div class="kv">
+      <div><b>Gün · Saat</b><span class="mn">24 Ağu Çar · 11:00–12:15</span></div>
+      <div><b>Hizmet · Tutar</b><span>Kesim + fön · <span class="mn">₺1.000</span></span></div>
+    </div>
+    <div class="cta">Randevuyu oluştur</div>
+  </div>
+</div>
+<div class="safe-bot"><span>34</span></div><div class="home-ind"></div>
+</div>
+<div class="note"><span>Ölçeklenen: metin, satır yükseklikleri, blok yüksekliği, çubuk yüksekliği. Sabit: yarıçaplar, kenar kalınlıkları, 20'lik yan dolgu, ikon 44, gün kutusu genişliği tavanı 64.</span></div>
+<div class="legend"><h4>Sesli okuma</h4>
+<div><s></s><span><b>Gün şeridi</b> — "24 Ağustos Çarşamba, seçili. 14 günden üçüncüsü. Ayarlanabilir."</span></div>
+<div><s class="n"></s><span><b>Boş saat</b> — "11:00 boş. Kesim + fön için seç, 12:15'te biter."</span></div>
+<div><s class="g"></s><span><b>Dolu saat</b> — "09:30 dolu, Selin, 09:30'dan 09:50'ye, Kaş alma, Bahar Aydın. Seçilemez."</span></div>
+<div><s class="a"></s><span><b>Kapalı saat</b> — "10:30 kapalı. Merve izinli, Selin çalışmıyor. Seçilemez."</span></div>
+<div><s></s><span><b>Çubuk</b> — "Özet. 24 Ağustos Çarşamba, 11:00'dan 12:15'e, Kesim + fön, bin lira. Randevuyu oluştur, buton."</span></div>
+</div>
+</div>
+</div>
+
+<!-- ══════════ 06 · ÖLÇÜ ŞARTNAMESİ ══════════ -->
+<div class="band"><span class="num">06</span><h2>Ölçü şartnamesi</h2><p>Her sayı bu belgenin CSS'inde bir kuralda yazılı. Geliştirici ekran görüntüsünden ölçü tahmin etmiyor.</p></div>
+<div class="mt">
+<div class="h"><i>Eleman</i><em>Ölçü</em><code>Seçici</code></div>
+<div class="r2"><i>Telefon çerçevesi</i><em>393 × 852</em><code>.phone</code></div>
+<div class="r2"><i>Güvenli alan üst / alt</i><em>59 / 34</em><code>.safe-top · .safe-bot</code></div>
+<div class="r2"><i>Koyu kahraman levha alt köşe</i><em>34</em><code>.hero{border-radius:0 0 34px 34px}</code></div>
+<div class="r2"><i>İçerik levhası üst köşe · örtüşme</i><em>28 · −16</em><code>.plate</code></div>
+<div class="r2"><i>Üst çubuk yüksekliği</i><em>56</em><code>.top</code></div>
+<div class="r2"><i>Yuvarlak düğme (tint)</i><em>44 · r999 · cam değil</em><code>.gbtn</code></div>
+<div class="r2"><i>Kahraman gün adı / rakam</i><em>54 / 800 · 54 / 300</em><code>.hday b · .hday em</code></div>
+<div class="r2"><i>Sayfa 1 kahraman sorusu</i><em>40 / 800</em><code>.hq</code></div>
+<div class="r2"><i>Kahraman alt satırı</i><em>13.5 / 600 · tx2</em><code>.hsub</code></div>
+<div class="r2"><i>Gün kutusu</i><em>48 × 66 · r17 · gap 8</em><code>.d · .strip{gap}</code></div>
+<div class="r2"><i>Gün rakamı / kısaltması</i><em>20 / 600 · 11 / 700</em><code>.d b · .d span</code></div>
+<div class="r2"><i>Seçili gün kısaltması</i><em>rgba(35,16,6,.92) · turuncu üstünde 5.3:1</em><code>.d.sel span</code></div>
+<div class="r2"><i>Seçili gün işareti</i><em>nokta 5 · alt −9</em><code>.d.sel::after</code></div>
+<div class="r2"><i>Bugün işareti</i><em>nokta 4 · alt 6</em><code>.d.tdy::after</code></div>
+<div class="r2"><i>Bölüm başlığı</i><em>11.5 / 700 · .16em</em><code>.sec h4</code></div>
+<div class="r2"><i>Boş saat satırı</i><em>min 44 · hairline üst</em><code>.slot</code></div>
+<div class="r2"><i>Saat etiketi kolonu</i><em>54 · 13 / 600 · tabular</em><code>.slot .t</code></div>
+<div class="r2"><i>Dolu saat kartı</i><em>min 56 · r16 · card + bd</em><code>.bcard</code></div>
+<div class="r2"><i>Dolu blok (90 dk · 3 kutu)</i><em>96 · r16</em><code>.pick.busy3 · .bcard.tall</code></div>
+<div class="r2"><i>Hizmet rengi işareti</i><em>3 × 34 · r2</em><code>.bcard s</code></div>
+<div class="r2"><i>Kapalı satır gerekçesi</i><em>12.5 / 600 · tx3</em><code>.slot .why</code></div>
+<div class="r2"><i>Seçili aralık bloğu (75 dk)</i><em>110 · r18</em><code>.pblk</code></div>
+<div class="r2"><i>Blok tikleri (11:30 · 12:00)</i><em>üst 36 · 80</em><code>.pblk .tk.k1 · .k2</code></div>
+<div class="r2"><i>Blok aralık başlığı</i><em>17 / 800 · tabular</em><code>.pblk .hd b</code></div>
+<div class="r2"><i>Personel dairesi</i><em>26 · 11 / 800</em><code>.av</code></div>
+<div class="r2"><i>"Değiştir" hedefi</i><em>44</em><code>.pblk .who u{height:44px}</code></div>
+<div class="r2"><i>Not satırı</i><em>min 56 · r16 · kesikli bd2</em><code>.noterow</code></div>
+<div class="r2"><i>Arama alanı (durgun)</i><em>52 · r17 · 16 / 600</em><code>.search</code></div>
+<div class="r2"><i>Arama alanı (yüzen cam)</i><em>56 · r19 · üst 12</em><code>.sfloat</code></div>
+<div class="r2"><i>Müşteri satırı</i><em>min 62 · av 42</em><code>.crow · .crow .av</code></div>
+<div class="r2"><i>Eşleşen harf</i><em>800 + 2 px turuncu alt çizgi</em><code>.crow b mark</code></div>
+<div class="r2"><i>Hizmet satırı</i><em>min 62 · r16 · 16 / 700</em><code>.srow</code></div>
+<div class="r2"><i>Seçili hizmet onayı</i><em>22 · tx zemin</em><code>.srow.on .ck</code></div>
+<div class="r2"><i>Yeni müşteri butonu</i><em>66 · r20 · 17 / 800</em><code>.solid</code></div>
+<div class="r2"><i>Yüzen özet çubuğu</i><em>yan 12 · alt 46 · r28 · dolgu 15/16/16</em><code>.bar</code></div>
+<div class="r2"><i>Etiket / değer ızgarası</i><em>2 kolon · gap 12 / 14</em><code>.kv</code></div>
+<div class="r2"><i>Etiket · değer</i><em>11 / 700 tx2 · 17 / 700</em><code>.kv b · .kv span</code></div>
+<div class="r2"><i>Kritik buton</i><em>66 · r21 · 17.5 / 800</em><code>.cta</code></div>
+<div class="r2"><i>Pasif buton</i><em>aynı ölçü · tint + tx3</em><code>.cta.off</code></div>
+<div class="r2"><i>Cam malzemesi</i><em>blur 26 · sat %190</em><code>.glass{backdrop-filter}</code></div>
+<div class="r2"><i>Speküler kenar / dip</i><em>inset 0 1 0 sheen · inset 0 −12 20 −14 dip</em><code>.glass{box-shadow}</code></div>
+<div class="r2"><i>Kırılma bandı (mercek)</i><em>15 · blur 8 · sat %250</em><code>.lens::before · .lens::after</code></div>
+<div class="r2"><i>Opak yedek</i><em>surf + bd2 + 0 10 26 gölge</em><code>.opaque</code></div>
+<div class="r2"><i>Turuncu buton dolgusu</i><em>düz #FF5A1F · gölge yok</em><code>.cta{background}</code></div>
+<div class="r2"><i>Çubuk altı içerik payı</i><em>248 (15 + 92 + 13 + 66 + 16 + 46)</em><code>contentInset · RN notu</code></div>
+<div class="r2"><i>375 × 667: kahraman</i><em>44 · gün kutusu 58</em><code>.phone.sm (satır içi)</code></div>
+<div class="r2"><i>AX5: saat / değer / buton</i><em>19 · 22 · 78</em><code>.ax .slot .t · .ax .kv span · .ax .cta</code></div>
+<div class="r2"><i>Mutlak tipografi tabanı</i><em>gövde 17 · minimum 11</em><code>.kv span · .kv b</code></div>
+</div>
+
+<!-- ══════════ 07 · REACT NATIVE ══════════ -->
+<div class="band"><span class="num">07</span><h2>React Native notları</h2><p>Cam yüzeylerin karşılığı, türetilen ve sabit ölçüler, güvenli alan, saydamlık azaltma.</p></div>
+<div class="rn">
+<div class="r"><b>İstifin kurulumu</b><span>Tek ağaç: <code>&lt;Hero&gt;</code> (<code>borderBottomLeftRadius/RightRadius:34</code>, <code>backgroundColor:'#1C1710'</code>) + <code>&lt;Plate&gt;</code> (<code>marginTop:-16</code>, <code>borderTopLeftRadius/RightRadius:28</code>, <code>backgroundColor:bg</code>). Kahraman ve gün şeridi koyu levhanın içinde yaşıyor; Kasa ekranıyla aynı iskelet, yeni bir dil icat edilmedi.</span></div>
+<div class="r"><b>Yüzen özet çubuğu</b><span><code>&lt;GlassView glassEffectStyle="regular" isInteractive tintColor={null}&gt;</code>, <code>position:'absolute'</code>, <code>left/right:12</code>, <code>bottom:insets.bottom + 12</code> (≈46), <code>borderRadius:28</code>. <code>regular</code> — clear değil: altından kayan saat satırları üstünde 11–17 pt metin okunacak. <code>isInteractive</code> gerekli, çünkü içinde buton var.</span></div>
+<div class="r"><b>Turuncu buton</b><span>Çubuğun içinde ayrı bir <code>GlassView</code>: <code>glassEffectStyle="regular"</code> + <code>tintColor="#FF5A1F"</code> (%94 opaklık hissi tint'ten gelir), <code>isInteractive</code>. Yüzey düz: gradyan, iç parlaklık ve 3D kabartma yok. Pasif hâlde <code>GlassView</code> kalır, <code>tintColor</code> düşer ve metin <code>tx3</code> olur.</span></div>
+<div class="r"><b>Kapat / geri düğmesi</b><span>Cam <b>değil</b>: düz <code>View</code> + <code>backgroundColor:tint</code> + <code>borderRadius:22</code> + <code>borderWidth:1 borderColor:glassbd</code>. Gerekçe: düğme opak koyu kahraman levhanın üstünde duruyor, kıracak hareketli içerik yok — orada cam sahte cam olur. İkon <code>tx</code>, 1.7 kalınlık.</span></div>
+<div class="r"><b>Yüzen arama çubuğu</b><span>Kaydırma eşiği geçilince <code>GlassContainer</code> içinde <code>GlassView glassEffectStyle="regular"</code>, <code>tintColor={null}</code>, <code>isInteractive</code> (TextInput). Şeklin birleşme/akma geçişini sistem yapar; bizim tarafta yalnız <code>opacity</code> ve <code>translateY</code> animasyonlanır.</span></div>
+<div class="r"><b>Gün şeridi</b><span>Koyu levhanın üstünde yüzdüğü için <code>GlassContainer</code>'a alınabilir; ancak seçili gün turuncu <b>opak</b> kalır (ölçülen kontrast ihtiyacı). <code>FlatList horizontal</code>, <code>getItemLayout</code> ile 48+8 sabit adım, <code>initialScrollIndex</code> seçili gün.</span></div>
+<div class="r"><b>Opak yedek</b><span><code>isLiquidGlassAvailable()</code> false ise (iOS 25, Expo Go, development build yok) veya <code>AccessibilityInfo.isReduceTransparencyEnabled()</code> true ise: <code>View</code> + <code>backgroundColor:surf</code> + <code>borderWidth:1 borderColor:bd2</code> + statik <code>shadowRadius:26 shadowOpacity:.20</code>. Buton düz <code>or</code>. Yerleşim, ölçü ve dokunma hedefleri değişmez; yalnız malzeme değişir — bu yüzden yedek süs değil, şart.</span></div>
+<div class="r"><b>Çubuk altı pay</b><span><code>contentInset / contentContainerStyle.paddingBottom = 248</code> (üst dolgu 15 + ızgara 92 + gap 13 + buton 66 + alt dolgu 16 + çubuğun alt boşluğu 46). Son saat satırı (20:00) çubuğun altında kalmamalı; <code>scrollIndicatorInsets</code> aynı değeri alır.</span></div>
+<div class="r"><b>Türetilen ölçüler</b><span>Blok yüksekliği = <code>süre / 30 × 44 − 8</code> (75 dk → 110). Tik konumları = <code>n × 44 − 8</code>. Bölüm sayaçları ("2 boş") veriden sayılır. Aralık metni = başlangıç + hizmet süresi. Bunlar sabitlenmez.</span></div>
+<div class="r"><b>Sabit ölçüler</b><span>44 saat satırı, 66 kritik buton, 62 liste satırı, 44 ikon hedefi, yarıçaplar (34 · 28 · 21 · 18 · 17 · 16), 20 yan dolgu, 12 çubuk yanı, 1 px hairline. Erişilebilirlik boyutu büyüdüğünde bunlar büyümez; satırlar dikeye yığılır.</span></div>
+<div class="r"><b>Erişilebilirlik boyutunda ne kırılır</b><span>AX4'ten sonra: özet ızgarası 2×2'den tek kolona düşer; saat satırı yatay düzenini bırakıp dikeye yığılır; gün kutusu 64'e çıkar ve şeritte 5 gün görünür; blok yüksekliği süreyle değil içerikle belirlenir, süre bilgisi metne devredilir ("11:00 – 12:15 · 75 dk"). Kırpılmaz, yığılır.</span></div>
+<div class="r"><b>Sesli okuma</b><span>Saat satırı <code>accessibilityLabel</code>'ı sebebi cümlede taşır ("11:00 dolu, Merve, 11:00'dan 12:15'e") ve <code>accessibilityState={{disabled:true}}</code> alır. Renk tek ayırt edici değil: dolu ve kapalı hâller kelimeyle de ayrışıyor. Gün şeridi <code>accessibilityRole="adjustable"</code>.</span></div>
+<div class="r"><b>Veri gerçeği</b><span>Sunucuda randevu oluşturma ucu yok; ekran sahte veriyle çalışıyor. "Randevuyu oluştur" yerel duruma yazar ve akışı kapatır. Sahte bir onay/ödeme yüzeyi eklenmedi.</span></div>
+</div>
+
+<!-- ══════════ 08 · v2 DEĞİŞİKLİK LİSTESİ ══════════ -->
+<div class="band"><span class="num">08</span><h2>v2 değişiklik listesi</h2><p>Altı düzeltme. Ekran sayısı, yerleşim, renk ve ölçü değişmedi.</p></div>
+<div class="mt">
+<div class="h"><i>Madde</i><em>Ne değişti</em><code>Seçici / yer</code></div>
+<div class="r2"><i>1 · Kahraman rakamı</i><em>58 → 54</em><code>şartname satırı, CSS'ten okundu: .hday b · .hday em</code></div>
+<div class="r2"><i>2 · Mercek bandı</i><em>13 / blur 9 → 15 / blur 8</em><code>şartname satırı: .lens::before · .lens::after</code></div>
+<div class="r2"><i>3 · Yuvarlak düğme cam değil</i><em>class="gbtn glass" → class="gbtn", içindeki .lens kaldırıldı (8 yer); lede'nin cam listesi üç yüzeye indi; RN notu düz View + tint oldu; şartname satırı "Yuvarlak düğme (tint)"</em><code>.gbtn · lede · RN "Kapat / geri düğmesi"</code></div>
+<div class="r2"><i>4 · Seçili gün kısaltması</i><em>rgba(35,16,6,.72) → .92 · turuncu üstünde 3.26:1 → 5.3:1; ölçülen değer şartnameye yazıldı</em><code>.d.sel span</code></div>
+<div class="r2"><i>5 · Çubuk altı pay</i><em>232 → 248 (15 + 92 + 13 + 66 + 16 + 46); scrollIndicatorInsets aynı</em><code>şartname satırı · RN "Çubuk altı pay" · opak yedek notu</code></div>
+<div class="r2"><i>6 · Bölüm sınırı sabitlendi</i><em>Sabah 09:00–12:00 · Öğleden sonra 12:00–17:00 · Akşam 17:00–20:00. Koyu Sayfa 2 ve opak yedek 09:00'dan başlıyor (09:00–10:30 dolu blok), 12:30 artık Öğleden sonra bölümünde; sayaçlar bölüm toplamına göre düzeltildi (koyu Sabah 2 · açık Sabah 4 · Öğleden sonra 7); 375 × 667 karesine Öğleden sonra başlığı eklendi</em><code>.sec · .rail · .pick.busy3 + .bcard.tall (yeni, 110 · r16)</code></div>
+</div>
+
+</div>
+</body></html>

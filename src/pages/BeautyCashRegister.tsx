@@ -415,7 +415,9 @@ export function BeautyCashRegister({
             const adisyonLines: Line[] = (member.adisyonItems || []).map((item) => ({
                 id: `adisyon-${member.id}-${item.id}`,
                 name: item.name,
-                detail: item.kind === 'product' ? 'Ürün · adisyon' : 'Ek hizmet',
+                detail: item.kind === 'product'
+                    ? 'Ürün · adisyon'
+                    : item.kind === 'material' ? 'Malzeme · işlemde kullanıldı' : 'Ek hizmet',
                 price: item.price,
                 quantity: 1,
                 kind: item.kind === 'product' ? 'Ürün' : 'Hizmet',
@@ -590,9 +592,10 @@ export function BeautyCashRegister({
                 kind: 'Hizmet' as const,
                 detail: service.duration ? `${service.duration} dk` : 'Ek hizmet',
                 productId: undefined as string | undefined,
+                serviceId: service.id as string | undefined,
             }));
         const productItems = products
-            .filter((product) => product.isActive && product.price > 0)
+            .filter((product) => product.isActive && product.kind !== 'consumable' && product.price > 0)
             .map((product) => ({
                 id: `product:${product.id}`,
                 sourceId: product.id,
@@ -601,6 +604,7 @@ export function BeautyCashRegister({
                 kind: 'Ürün' as const,
                 detail: product.category || 'Salon ürünü',
                 productId: product.id,
+                serviceId: undefined as string | undefined,
             }));
         return [...services, ...productItems]
             .filter((item) => !q || `${item.name} ${item.detail}`.toLocaleLowerCase('tr').includes(q))
@@ -628,6 +632,7 @@ export function BeautyCashRegister({
                     price: item.price,
                     kind: item.kind === 'Ürün' ? 'product' : 'extra',
                     productId: item.productId,
+                    serviceId: item.serviceId,
                 },
             ],
         });

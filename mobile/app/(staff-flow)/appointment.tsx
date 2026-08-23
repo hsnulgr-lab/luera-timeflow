@@ -7,6 +7,7 @@ import { feedback } from '../../src/lib/feedback';
 import { toMinutes, type Appt } from '../../src/lib/calendar';
 import { source } from '../../src/lib/calendarSource';
 import { numeric, useTheme } from '../../src/theme';
+import { upperTR } from '../../src/lib/text';
 
 const LEGACY_APPOINTMENT: Appt = {
     id: 'legacy-appointment',
@@ -168,9 +169,8 @@ function SectionTitle({ children }: { children: string }) {
                 fontSize: 11.5,
                 fontWeight: '700',
                 letterSpacing: 1.84,
-                textTransform: 'uppercase',
             }}>
-                {children}
+                {upperTR(children)}
             </Text>
         </View>
     );
@@ -474,9 +474,8 @@ export default function AppointmentDetail() {
                                 fontSize: 11.5,
                                 fontWeight: '600',
                                 letterSpacing: 0.92,
-                                textTransform: 'uppercase',
                             }}>
-                                {label}
+                                {upperTR(label)}
                             </Text>
                         </View>
                     ))}

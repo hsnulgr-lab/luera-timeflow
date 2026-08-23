@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Clock, Edit2, Trash2, Plane, BarChart3 } from 'lucide-react';
+import { Plus, X, Clock, Edit2, Trash2, Plane, BarChart3, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStaff } from '@/hooks/useStaff';
 import { usePayments } from '@/hooks/usePayments';
@@ -14,6 +14,7 @@ import { useLabels, useStaffRoles } from '@/hooks/useLabels';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { commissionFor, monthRange } from '@/lib/staffCommission';
+import { useDevicePairing } from '@/hooks/useDevicePairing';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -139,6 +140,7 @@ export const StaffPage = () => {
   const openPanel  = (id: string) => { setSelId(id); setPanelOpen(true); };
   const closePanel = () => { setPanelOpen(false); setTimeout(() => setSelId(null), 300); };
   const selMember  = staff.find(s => s.id === selId) ?? null;
+  const pairing    = useDevicePairing(selMember?.id ?? null);
 
   // ── Modal ──────────────────────────────────────────────────────────────────
   const openAdd  = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
@@ -410,6 +412,53 @@ export const StaffPage = () => {
                   <span style={{ fontWeight:650, textAlign:'right', fontFamily:"'JetBrains Mono',monospace", fontSize:'11.5px', color:T.ink }}>{row.v}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Telefon bağla — personelin kendi telefonu için tek kullanımlık kod.
+                Kod sunucuda açık saklanmaz; ekrandan kaybolursa yenisi üretilir. */}
+            <div style={{ marginBottom:'18px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'10px' }}>
+                <Smartphone size={11}/> Telefon Bağla
+              </div>
+
+              {pairing.code && !pairing.expired ? (
+                <div style={{ border:`1px solid ${T.orange}`, borderRadius:T.rSm, overflow:'hidden' }}>
+                  <div style={{ padding:'14px 12px', textAlign:'center', background:T.surface2 }}>
+                    <div style={{ fontSize:'30px', fontWeight:900, letterSpacing:'.22em', color:T.ink, fontFamily:"'JetBrains Mono',monospace", paddingLeft:'.22em' }}>
+                      {pairing.code.code}
+                    </div>
+                    <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>
+                      {selMember.name} bu kodu telefonundaki Luera uygulamasına yazsın.
+                    </div>
+                  </div>
+                  <div style={{ padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', borderTop:`1px solid ${T.border}` }}>
+                    <span style={{ fontSize:'11px', fontWeight:700, color:pairing.secondsLeft <= 60 ? T.orange : T.muted }}>
+                      {Math.floor(pairing.secondsLeft / 60)}:{String(pairing.secondsLeft % 60).padStart(2,'0')} geçerli
+                    </span>
+                    <button onClick={pairing.clear}
+                      style={{ border:'none', background:'none', cursor:'pointer', fontSize:'11px', fontWeight:700, color:T.muted2, padding:'2px 4px' }}>
+                      Kapat
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button onClick={pairing.create} disabled={pairing.busy}
+                    style={{ width:'100%', padding:'10px 12px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'12.5px', fontWeight:700, fontFamily:'inherit', cursor:pairing.busy?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px' }}>
+                    <Smartphone size={13}/>
+                    {pairing.busy ? 'Kod üretiliyor…' : pairing.expired ? 'Yeni kod üret' : 'Telefon bağla'}
+                  </button>
+                  <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px', lineHeight:1.45 }}>
+                    {pairing.expired
+                      ? 'Kodun süresi doldu. Personel henüz yazmadıysa yeni bir kod üretin.'
+                      : 'Altı haneli kod üretilir, 10 dakika geçerlidir ve bir kez kullanılır. Personel kodu yazınca telefonu bu işletmeye bağlanır; girişi yine kendi PIN’iyle yapar.'}
+                  </div>
+                </>
+              )}
+
+              {pairing.error && (
+                <div style={{ fontSize:'11.5px', color:'#C94040', marginTop:'8px', fontWeight:650 }}>{pairing.error}</div>
+              )}
             </div>
 
             {/* Schedule */}

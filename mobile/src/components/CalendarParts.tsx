@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
     Animated,
+    Easing,
     Pressable,
     StyleSheet,
     Text,
@@ -8,28 +9,35 @@ import {
     type StyleProp,
     type ViewStyle,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
     calendarCardStates,
     elapsed,
     lateMinutes,
+    monthGrid,
     nowLineAfter,
     statusWord,
     toMinutes,
     type Appt,
     type CardState,
 } from '../lib/calendar';
+import { feedback } from '../lib/feedback';
 import {
     calendarMetrics,
     display,
+    flowMetrics,
+    font,
     hit,
     numeric,
+    offlineBar,
     onAccent,
     radius,
+    skeleton,
     space,
     type,
     useTheme,
 } from '../theme';
+import { lowerTR, upperTR } from '../lib/text';
 
 /**
  * Bu ölçüler yalnız Takvim parçalarına ait. Genel ölçü sözleşmesi tokens'ta;
@@ -42,15 +50,27 @@ const part = {
     weekDot: 4,
     weekDotDense: 7,
     weekMarker: 24,
-    nameSize: 19,
+    nameFirst: 15.5,
+    nameLast: 21,
+    phoneButton: 40,
     serviceSize: 13.5,
     packageChip: 42,
     summaryAction: 44,
     actionMinWidth: 118,
+    // Ay ızgarası: sütun başlığı 11, gün rakamı 16, yoğunluk noktası 4.
+    // Izgaranın yatay dolgusu sayfanınkinden (18) dar; yedi sütun 375 pt'de
+    // sıkışmasın diye tasarım 12 kullanıyor.
+    monthPageX: 12,
+    monthHead: 11,
+    monthNumber: 16,
+    monthDot: 4,
+    monthFooterLabel: 14,
 } as const;
 
 const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'] as const;
 const DAY_LONG = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'] as const;
+/** Ay ızgarasının sütun başlıkları — hafta pazartesi başlar, DAY_SHORT'tan farklı sıra. */
+const MONTH_HEAD = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'] as const;
 const MONTHS = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
@@ -69,6 +89,13 @@ export interface AppointmentActions {
     onCustomer?: (appointment: Appt) => void;
     onStart?: (appointment: Appt) => void;
     onResume?: (appointment: Appt) => void;
+    /**
+     * Yalnız MÜDÜR modunda verilir. Personelin kendi ekranında "Saati değiştir"
+     * ve "Personeli değiştir" YOKTUR — kumanda kendi gününü düzenlemez, uygular.
+     * Müdürde açıkta duruyor çünkü en çok yapılan düzeltme bu ikisi.
+     */
+    onReschedule?: (appointment: Appt) => void;
+    onReassign?: (appointment: Appt) => void;
 }
 
 function dateFromISO(dateISO: string) {
@@ -136,12 +163,18 @@ export function DayHeader({
     subtitle,
     compact = false,
     transparent = false,
+    monthOpen,
+    onToggleMonth,
     style,
 }: {
     dateISO: string;
     subtitle: string;
     compact?: boolean;
     transparent?: boolean;
+    /** Ay ızgarası açık mı? Yalnız erişilebilirlik durumunu bildirmek için. */
+    monthOpen?: boolean;
+    /** Verilirse başlık ay ızgarasını açıp kapatan düğmeye dönüşür. */
+    onToggleMonth?: () => void;
     style?: StyleProp<ViewStyle>;
 }) {
     const { c, small } = useTheme();
@@ -168,12 +201,8 @@ export function DayHeader({
         );
     }
 
-    return (
-        <View
-            accessibilityRole="header"
-            accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
-            style={[styles.dayHeader, { paddingHorizontal: calendarMetrics.pageX }, style]}
-        >
+    const body = (
+        <>
             <View style={styles.dayTitleRow}>
                 <View style={styles.dayWord}>
                     <Text style={[titleStyle, { color: c.tx, lineHeight: titleStyle.fontSize }]}>{day}</Text>
@@ -184,6 +213,37 @@ export function DayHeader({
                 </Text>
             </View>
             <Text style={[type.small, { color: c.tx2 }]}>{subtitle}</Text>
+        </>
+    );
+
+    // Ay ızgarasının anahtarı başlığın kendisidir; tasarımda ayrı bir düğme yok.
+    // Bu yüzden erişilebilirlik durumu ve etiketi burada açıkça söylenir.
+    if (onToggleMonth) {
+        return (
+            <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: monthOpen }}
+                accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
+                accessibilityHint={monthOpen ? 'Hafta görünümüne döner' : 'Ay görünümünü açar'}
+                onPress={onToggleMonth}
+                style={({ pressed }) => [
+                    styles.dayHeader,
+                    { paddingHorizontal: calendarMetrics.pageX, opacity: pressed ? 0.62 : 1 },
+                    style,
+                ]}
+            >
+                {body}
+            </Pressable>
+        );
+    }
+
+    return (
+        <View
+            accessibilityRole="header"
+            accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
+            style={[styles.dayHeader, { paddingHorizontal: calendarMetrics.pageX }, style]}
+        >
+            {body}
         </View>
     );
 }
@@ -228,7 +288,7 @@ export function WeekStrip({
                                 selected && {
                                     width: calendarMetrics.weekSelected,
                                     height: calendarMetrics.weekSelected,
-                                    borderRadius: radius.lg,
+                                    borderRadius: radius.md,
                                     borderColor: c.bd2,
                                     borderWidth: 1,
                                     backgroundColor: c.surf2,
@@ -248,7 +308,7 @@ export function WeekStrip({
                             styles.weekLabel,
                             { color: selected ? c.or : c.tx3 },
                         ]}>
-                            {day.label}
+                            {upperTR(day.label)}
                         </Text>
                         <View style={styles.weekMarker}>
                             {count > 0 ? (
@@ -264,6 +324,270 @@ export function WeekStrip({
                     </Pressable>
                 );
             })}
+        </View>
+    );
+}
+
+/** İskelet bloğu. Parlama yok — tasarımın kuralı: bekleme sakin geçer. */
+function Skel({ width, height, style }: {
+    width?: number | `${number}%`;
+    height: number;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c } = useTheme();
+    return (
+        <View style={[
+            { width, height, borderRadius: skeleton.radius, backgroundColor: c.surf2 },
+            style,
+        ]} />
+    );
+}
+
+/**
+ * Gün listesinin iskeleti.
+ *
+ * ŞART (hareket sözleşmesi 12): iskelet, gerçek içeriğin geometrisini 4 pt
+ * içinde tutmalı. Tutmazsa geçiş solma değil zıplama olur. Bu yüzden satır
+ * yüksekliği, saat sütunu genişliği ve kart dolgusu gerçek kartla aynı
+ * ölçülerden okunur — burada serbest sayı yok.
+ */
+export function TimelineSkeleton({ rows = 3, style }: {
+    rows?: number;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c, small } = useTheme();
+    const padding = small ? calendarMetrics.cardPaddingSmall : calendarMetrics.cardPadding;
+
+    return (
+        <View
+            accessibilityLabel="Gün yükleniyor"
+            style={[styles.timeline, style]}
+        >
+            {Array.from({ length: rows }, (_, index) => (
+                <View key={index} style={styles.timelineRow}>
+                    <Skel
+                        width={skeleton.time.width}
+                        height={skeleton.time.height}
+                        style={{ marginTop: padding }}
+                    />
+                    <View style={[
+                        styles.card,
+                        { backgroundColor: c.surf, borderColor: c.bd, padding, gap: space.xs },
+                    ]}>
+                        <Skel width={index === 1 ? 150 : 120} height={skeleton.name.height} />
+                        <Skel width={index === 1 ? 120 : 190} height={skeleton.service.height} />
+                    </View>
+                </View>
+            ))}
+        </View>
+    );
+}
+
+/**
+ * Gömülü müşteri özetinin iskeleti — kart gövdesi DOLUYKEN görünebilir.
+ * Özet ayrı bir istekle geldiği için tasarım bu ara hâli ayrıca çiziyor.
+ */
+export function SummarySkeleton({ style }: { style?: StyleProp<ViewStyle> }) {
+    const { embed: e } = useTheme();
+    return (
+        <View style={[styles.summary, { backgroundColor: e.bg, gap: space.sm + 2 }, style]}>
+            <View style={{ width: '52%', height: 14, borderRadius: 9, backgroundColor: e.skeleton }} />
+            <View style={{ width: '34%', height: 12, borderRadius: 9, backgroundColor: e.skeleton }} />
+        </View>
+    );
+}
+
+/**
+ * Çevrimdışı bandı.
+ *
+ * Bant HEP MONTE (hareket sözleşmesi 13): yükseklik animasyonu yok, band
+ * translateY −26 → 0 ile iner ve altındaki içerik aynı miktarda aşağı kayar.
+ * İkisi de dönüşüm, ikisi de native sürücüde. "Hareketi azalt" açıkken kayma
+ * kalkar, bant yerini anında alır ve 140 ms'de solarak görünür.
+ */
+export function OfflineBar({ text, progress, style }: {
+    text: string | null;
+    /** 0 gizli, 1 görünür. Aynı değer alttaki içeriği de kaydırır; iki hareket
+     *  ayrı ayrı zamanlanırsa bant ile içerik arasında boşluk açılır. */
+    progress: Animated.Value;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c, reduceMotion } = useTheme();
+
+    return (
+        <Animated.View
+            accessibilityLiveRegion="polite"
+            pointerEvents="none"
+            style={[
+                styles.offlineBar,
+                { backgroundColor: c.am },
+                {
+                    opacity: progress,
+                    transform: [{
+                        translateY: reduceMotion
+                            ? 0
+                            : progress.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-offlineBar.height, 0],
+                            }),
+                    }],
+                },
+                style,
+            ]}
+        >
+            <Text numberOfLines={1} style={styles.offlineText}>{text ?? ''}</Text>
+        </Animated.View>
+    );
+}
+
+/** Bandın iniş/çıkış zamanlaması — bant ve içerik kaymasının TEK kaynağı. */
+export function animateOfflineBar(
+    progress: Animated.Value,
+    shown: boolean,
+    reduceMotion: boolean,
+) {
+    Animated.timing(progress, {
+        toValue: shown ? 1 : 0,
+        // Sözleşme: iniş 220 OUT, çıkış 180 IN. Hareket azaltılmışsa kayma
+        // yok, yalnız 140 ms'lik solma kalır.
+        duration: reduceMotion ? 140 : shown ? 220 : 180,
+        easing: reduceMotion
+            ? Easing.linear
+            : shown ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
+        useNativeDriver: true,
+    }).start();
+}
+
+function ChevronUpIcon({ color }: { color: string }) {
+    return (
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="m6 14.5 6-6 6 6"
+                stroke={color}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+        </Svg>
+    );
+}
+
+/**
+ * Ay ızgarası — hafta şeridinin yerini alır, altına inmez.
+ *
+ * Yoğunluk noktayla anlatılır ve ÜÇ kademelidir: bir randevu tek soluk nokta,
+ * iki randevu iki soluk nokta, üç ve üstü üç TURUNCU nokta. Sayı yazılmaz;
+ * ızgarada rakam okumak, bakışta yoğunluk görmekten yavaştır.
+ */
+export function MonthGrid({
+    anchorISO,
+    selectedISO,
+    counts,
+    onSelect,
+    style,
+}: {
+    anchorISO: string;
+    selectedISO: string;
+    counts: Record<string, number>;
+    onSelect: (dateISO: string) => void;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c } = useTheme();
+    const weeks = useMemo(() => monthGrid(anchorISO), [anchorISO]);
+
+    return (
+        <View style={[styles.month, style]}>
+            <View style={styles.monthHead}>
+                {MONTH_HEAD.map((label) => (
+                    <Text key={label} style={[styles.monthHeadLabel, { color: c.tx3 }]}>
+                        {upperTR(label)}
+                    </Text>
+                ))}
+            </View>
+
+            {weeks.map((week) => (
+                <View key={week[0].date} style={styles.monthRow}>
+                    {week.map((cell) => {
+                        const selected = cell.date === selectedISO;
+                        const count = counts[cell.date] ?? 0;
+                        const dense = count >= 3;
+                        const dots = Math.min(3, count);
+                        return (
+                            <Pressable
+                                key={cell.date}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                                accessibilityLabel={`${fullDate(cell.date)}, ${count ? `${count} randevu` : 'randevu yok'}`}
+                                onPress={() => onSelect(cell.date)}
+                                style={({ pressed }) => [
+                                    styles.monthCell,
+                                    selected && {
+                                        backgroundColor: c.surf2,
+                                        borderColor: c.bd2,
+                                        borderWidth: 1,
+                                    },
+                                    { opacity: pressed ? 0.62 : 1 },
+                                ]}
+                            >
+                                <Text style={[
+                                    styles.monthNumber,
+                                    numeric,
+                                    selected
+                                        ? { color: c.tx, fontWeight: '800' }
+                                        : cell.inMonth
+                                            ? { color: c.tx2 }
+                                            // Komşu ayın günü: hem daha soluk renk hem düşük
+                                            // opaklık. Tek başına renk, koyu temada yeterince
+                                            // geri çekilmiyor.
+                                            : { color: c.tx3, opacity: 0.5 },
+                                ]}>
+                                    {cell.day}
+                                </Text>
+                                <View style={styles.monthDots}>
+                                    {Array.from({ length: dots }, (_, index) => (
+                                        <View
+                                            key={index}
+                                            style={[
+                                                styles.monthDot,
+                                                { backgroundColor: dense ? c.or : c.tx3 },
+                                            ]}
+                                        />
+                                    ))}
+                                </View>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            ))}
+        </View>
+    );
+}
+
+/** Ay ızgarasını kapatan tek eylem. Izgaranın dışında, kendi satırında durur. */
+export function MonthFooter({ onClose, style }: {
+    onClose: () => void;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c } = useTheme();
+    return (
+        <View style={[styles.monthFooter, style]}>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Haftaya dön"
+                onPress={onClose}
+                style={({ pressed }) => [
+                    styles.monthFooterButton,
+                    {
+                        backgroundColor: c.surf2,
+                        borderColor: c.bd,
+                        opacity: pressed ? 0.62 : 1,
+                    },
+                ]}
+            >
+                <ChevronUpIcon color={c.tx2} />
+                <Text style={[styles.monthFooterLabel, { color: c.tx2 }]}>Haftaya dön</Text>
+            </Pressable>
         </View>
     );
 }
@@ -290,7 +614,7 @@ function PhoneButton({ label, onPress }: { label: string; onPress?: () => void }
         <Pressable
             accessibilityRole="button"
             accessibilityLabel={label}
-            hitSlop={space.xs}
+            hitSlop={(hit.icon - part.phoneButton) / 2}
             onPress={onPress}
             style={({ pressed }) => [
                 styles.phoneButton,
@@ -337,12 +661,122 @@ function SummaryArrowIcon({ color }: { color: string }) {
     );
 }
 
+function EmptyCalendarIcon({ color }: { color: string }) {
+    return (
+        <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1zM8 13h2M14 13h2M8 16.6h2"
+                stroke={color}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+        </Svg>
+    );
+}
+
+function EmptyArrowIcon({ color }: { color: string }) {
+    return (
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="M6.5 17.5 17.5 6.5M9.5 6.5h8v8"
+                stroke={color}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+        </Svg>
+    );
+}
+
+const DAY_DATIVE = [
+    'Pazara', 'Pazartesiye', 'Salıya', 'Çarşambaya',
+    'Perşembeye', 'Cumaya', 'Cumartesiye',
+] as const;
+
+export function EmptyDay({
+    dateISO,
+    nextAppointment,
+    onGoNext,
+    style,
+}: {
+    dateISO: string;
+    nextAppointment: Appt | null;
+    onGoNext?: (appointment: Appt) => void;
+    style?: StyleProp<ViewStyle>;
+}) {
+    const { c, small } = useTheme();
+    const date = dateFromISO(dateISO);
+    const dayName = DAY_LONG[date.getDay()];
+    const nextDate = nextAppointment ? dateFromISO(nextAppointment.date) : null;
+    const nextDayName = nextDate ? DAY_LONG[nextDate.getDay()] : null;
+    const nextTime = nextAppointment?.start_time.slice(0, 5);
+
+    return (
+        <View
+            accessibilityLabel={nextAppointment
+                ? `${dayName} günü randevunuz yok. Bir sonraki randevu ${nextDayName} ${nextTime}, ${nextAppointment.customer_name}.`
+                : `${dayName} günü randevunuz yok. Yaklaşan başka randevu bulunmuyor.`}
+            style={[
+                styles.emptyDay,
+                { minHeight: small ? 300 : 390 },
+                style,
+            ]}
+        >
+            <View style={[styles.emptyRing, { backgroundColor: c.surf2, borderColor: c.bd }]}>
+                <EmptyCalendarIcon color={c.tx3} />
+            </View>
+            <Text accessibilityRole="header" style={[type.h2, styles.emptyTitle, { color: c.tx }]}>
+                Bu gün randevunuz yok.
+            </Text>
+            <Text style={[styles.emptyDescription, { color: c.tx2 }]}>
+                {dayName} tamamen boş.{' '}
+                {nextAppointment && nextDayName ? (
+                    <>
+                        Bir sonraki randevu{' '}
+                        <Text style={styles.emptyStrong}>
+                            {nextDayName.toLocaleLowerCase('tr-TR')} {nextTime},
+                        </Text>
+                        {' '}{nextAppointment.customer_name}.
+                    </>
+                ) : 'Yaklaşan başka randevu bulunmuyor.'}
+            </Text>
+            {nextAppointment && nextDate && onGoNext ? (
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${nextDayName} gününe, ${nextTime} randevusuna git`}
+                    onPress={() => onGoNext(nextAppointment)}
+                    style={({ pressed }) => [
+                        styles.emptyAction,
+                        {
+                            backgroundColor: c.surf2,
+                            borderColor: c.bd2,
+                            opacity: pressed ? 0.78 : 1,
+                        },
+                    ]}
+                >
+                    <Text style={[styles.emptyActionText, { color: c.tx }]}>
+                        {DAY_DATIVE[nextDate.getDay()]} git
+                    </Text>
+                    <EmptyArrowIcon color={c.tx} />
+                </Pressable>
+            ) : null}
+        </View>
+    );
+}
+
 function CustomerSummary({ appointment, onCustomer }: {
     appointment: Appt;
     onCustomer?: (appointment: Appt) => void;
 }) {
     const { embed: e } = useTheme();
     const info = appointment.info;
+    // `undefined` ile `null` BURADA farklı anlam taşır:
+    //   undefined → özet henüz gelmedi (ayrı istek), iskelet göster
+    //   null      → geldi ve gösterilecek bir şey yok, hiç çizme
+    if (info === undefined) return <SummarySkeleton />;
     if (!info || (!info.pkg && info.visitNo == null)) return null;
 
     const main = info.visitNo === 1
@@ -427,7 +861,7 @@ function LivePanel({ appointment, seconds, onResume }: {
                         styles.liveDot,
                         { backgroundColor: c.or, opacity: pulse },
                     ]} />
-                    <Text style={[type.tiny, styles.liveLabel, { color: e.tx2 }]}>sürüyor</Text>
+                    <Text style={[type.tiny, styles.liveLabel, { color: e.tx2 }]}>{lowerTR('sürüyor')}</Text>
                 </View>
                 <Text
                     accessibilityLiveRegion="polite"
@@ -450,7 +884,7 @@ function LivePanel({ appointment, seconds, onResume }: {
                         { backgroundColor: c.or, opacity: pressed ? 0.84 : 1 },
                     ]}
                 >
-                    <Text style={[type.body, styles.actionText, { color: onAccent }]}>İşleme dön</Text>
+                    <Text style={[styles.actionText, styles.liveActionText, { color: onAccent }]}>İşleme dön</Text>
                 </Pressable>
             ) : null}
         </View>
@@ -550,7 +984,7 @@ export function AppointmentCard({
                                 ellipsizeMode="tail"
                                 style={[
                                     styles.customerGiven,
-                                    { color: c.tx2, fontSize: small ? 17 : part.nameSize },
+                                    { color: c.tx2 },
                                 ]}
                             >
                                 {name.given}
@@ -561,7 +995,7 @@ export function AppointmentCard({
                             ellipsizeMode="tail"
                             style={[
                                 styles.customerSurname,
-                                { color: c.tx, fontSize: small ? 17 : part.nameSize },
+                                { color: c.tx },
                             ]}
                         >
                             {name.family}
@@ -604,6 +1038,82 @@ export function AppointmentCard({
             {state === 'due' ? (
                 <DueRow appointment={appointment} nowMinutes={nowMinutes} onStart={actions.onStart} />
             ) : null}
+            <ManagerActions appointment={appointment} actions={actions} />
+        </View>
+    );
+}
+
+/**
+ * Kartın altındaki müdür eylemleri — "Saati değiştir" ve "Personeli".
+ *
+ * Personelin kendi ekranında bu satır HİÇ ÇİZİLMEZ: kumanda kendi gününü
+ * düzenlemez, uygular. Aynı kart iki modda da kullanılıyor; farkı yaratan
+ * şey, müdür ekranının bu iki tutamağı vermesi.
+ *
+ * Ana eylem değil ikincil düzeltmeler oldukları için kartın gövdesinde değil,
+ * ayrı bir şeritte ve üstlerinde saç teli var.
+ */
+function ManagerActions({ appointment, actions }: {
+    appointment: Appt;
+    actions: AppointmentActions;
+}) {
+    const { c } = useTheme();
+    if (!actions.onReschedule && !actions.onReassign) return null;
+
+    const mini = (label: string, icon: 'clock' | 'swap', onPress: () => void) => (
+        <Pressable
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={`${appointment.customer_name} · ${label}`}
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={{
+                flex: 1,
+                height: flowMetrics.miniHeight,
+                paddingHorizontal: flowMetrics.miniButtonX,
+                borderRadius: flowMetrics.miniRadius,
+                backgroundColor: c.surf2,
+                borderWidth: 1,
+                borderColor: c.bd,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: flowMetrics.miniGapInner,
+            }}
+        >
+            <Svg width={flowMetrics.miniIcon} height={flowMetrics.miniIcon} viewBox="0 0 24 24" fill="none">
+                {icon === 'clock' ? (
+                    <>
+                        <Circle cx={12} cy={12} r={8.4} stroke={c.tx} strokeWidth={1.7} />
+                        <Path d="M12 7.6V12l3 2" stroke={c.tx} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+                    </>
+                ) : (
+                    <Path d="M4 8h13l-3-3M20 16H7l3 3" stroke={c.tx} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+                )}
+            </Svg>
+            <Text style={{
+                color: c.tx,
+                fontSize: flowMetrics.miniText,
+                fontFamily: font.bold,
+                fontWeight: '700',
+                letterSpacing: flowMetrics.miniText * -0.01,
+            }}>
+                {label}
+            </Text>
+        </Pressable>
+    );
+
+    return (
+        <View style={{
+            flexDirection: 'row',
+            gap: space.sm,
+            paddingTop: flowMetrics.evActsY,
+            paddingHorizontal: calendarMetrics.cardPadding,
+            paddingBottom: calendarMetrics.cardPadding,
+            borderTopWidth: 1,
+            borderColor: c.bd,
+        }}>
+            {actions.onReschedule ? mini('Saati değiştir', 'clock', () => actions.onReschedule?.(appointment)) : null}
+            {actions.onReassign ? mini('Personeli', 'swap', () => actions.onReassign?.(appointment)) : null}
         </View>
     );
 }
@@ -637,6 +1147,33 @@ export function DayEnd({ label = 'Günün sonu', style }: {
     );
 }
 
+/**
+ * Yenilemeden sonra DEĞİŞEN satırın belirişi (hareket sözleşmesi 11).
+ * Çekme hareketi sistemin; bizim tanımladığımız tek şey sonrası: yalnız değişen
+ * satırlar 140 ms'de opaklıkla belirir. Değişmeyen satır hiç kıpırdamaz.
+ */
+function EnterFade({ active, children }: { active: boolean; children: ReactNode }) {
+    const { reduceMotion } = useTheme();
+    const opacity = useRef(new Animated.Value(active ? 0 : 1)).current;
+
+    useEffect(() => {
+        if (!active) {
+            opacity.setValue(1);
+            return;
+        }
+        opacity.setValue(reduceMotion ? 1 : 0);
+        if (reduceMotion) return;
+        Animated.timing(opacity, {
+            toValue: 1,
+            duration: 140,
+            easing: Easing.linear,
+            useNativeDriver: true,
+        }).start();
+    }, [active, opacity, reduceMotion]);
+
+    return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+}
+
 export function Timeline({
     appointments,
     nowMinutes,
@@ -645,6 +1182,7 @@ export function Timeline({
     elapsedSecondsById = {},
     actions,
     showDayEnd = true,
+    enteringIds,
     style,
 }: {
     appointments: Appt[];
@@ -654,6 +1192,8 @@ export function Timeline({
     elapsedSecondsById?: Record<string, number>;
     actions?: AppointmentActions;
     showDayEnd?: boolean;
+    /** Yenilemede değişen randevular; yalnız bunlar solarak belirir. */
+    enteringIds?: ReadonlySet<string>;
     style?: StyleProp<ViewStyle>;
 }) {
     const { c } = useTheme();
@@ -673,29 +1213,31 @@ export function Timeline({
             {lineAfter === -1 ? <NowLine time={time} /> : null}
             {sorted.map((appointment, index) => (
                 <View key={appointment.id}>
-                    <View style={[
-                        styles.timelineRow,
-                        {
-                            paddingHorizontal: calendarMetrics.pageX,
-                            marginBottom: calendarMetrics.cardGap,
-                        },
-                    ]}>
-                        <Text style={[
-                            styles.time,
-                            numeric,
-                            { color: c.tx2, width: calendarMetrics.timeWidth },
+                    <EnterFade active={enteringIds?.has(appointment.id) ?? false}>
+                        <View style={[
+                            styles.timelineRow,
+                            {
+                                paddingHorizontal: calendarMetrics.pageX,
+                                marginBottom: calendarMetrics.cardGap,
+                            },
                         ]}>
-                            {appointment.start_time.slice(0, 5)}
-                        </Text>
-                        <AppointmentCard
-                            appointment={appointment}
-                            state={resolvedStates.get(appointment.id) ?? 'plain'}
-                            nowMinutes={nowMinutes}
-                            elapsedSeconds={elapsedSecondsById[appointment.id]}
-                            actions={actions}
-                            style={styles.timelineCard}
-                        />
-                    </View>
+                            <Text style={[
+                                styles.time,
+                                numeric,
+                                { color: c.tx2, width: calendarMetrics.timeWidth },
+                            ]}>
+                                {appointment.start_time.slice(0, 5)}
+                            </Text>
+                            <AppointmentCard
+                                appointment={appointment}
+                                state={resolvedStates.get(appointment.id) ?? 'plain'}
+                                nowMinutes={nowMinutes}
+                                elapsedSeconds={elapsedSecondsById[appointment.id]}
+                                actions={actions}
+                                style={styles.timelineCard}
+                            />
+                        </View>
+                    </EnterFade>
                     {lineAfter === index ? <NowLine time={time} /> : null}
                 </View>
             ))}
@@ -750,6 +1292,7 @@ const styles = StyleSheet.create({
     weekNumber: {
         width: calendarMetrics.weekTarget,
         height: calendarMetrics.weekTarget,
+        borderRadius: radius.md,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -759,7 +1302,6 @@ const styles = StyleSheet.create({
         letterSpacing: type.h3.letterSpacing,
     },
     weekLabel: {
-        textTransform: 'uppercase',
     },
     weekMarker: {
         width: '100%',
@@ -770,6 +1312,82 @@ const styles = StyleSheet.create({
     weekHair: {
         width: StyleSheet.hairlineWidth,
         flex: 1,
+    },
+    offlineBar: {
+        height: offlineBar.height,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: space.xs + 2,
+    },
+    offlineText: {
+        fontSize: offlineBar.fontSize,
+        fontWeight: '700',
+        color: offlineBar.tx,
+    },
+    month: {
+        paddingTop: space.sm - 2,
+        paddingHorizontal: part.monthPageX,
+        paddingBottom: calendarMetrics.cardGap,
+        gap: 2,
+    },
+    monthHead: {
+        flexDirection: 'row',
+        paddingBottom: space.xs,
+    },
+    monthHeadLabel: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: part.monthHead,
+        fontWeight: '700',
+        letterSpacing: part.monthHead * 0.06,
+    },
+    monthRow: {
+        flexDirection: 'row',
+    },
+    monthCell: {
+        flex: 1,
+        height: calendarMetrics.monthCell,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        borderRadius: radius.md,
+    },
+    monthNumber: {
+        fontSize: part.monthNumber,
+        fontWeight: '700',
+        lineHeight: part.monthNumber,
+    },
+    monthDots: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+        height: 5,
+    },
+    monthDot: {
+        width: part.monthDot,
+        height: part.monthDot,
+        borderRadius: radius.pill,
+    },
+    monthFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.sm,
+        paddingHorizontal: calendarMetrics.pageX,
+    },
+    monthFooterButton: {
+        flex: 1,
+        height: hit.icon,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: space.xs + 2,
+    },
+    monthFooterLabel: {
+        fontSize: part.monthFooterLabel,
+        fontWeight: '700',
     },
     card: {
         flex: 1,
@@ -810,21 +1428,22 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     customerGiven: {
+        fontSize: part.nameFirst,
         fontWeight: '500',
-        letterSpacing: -0.2,
-        lineHeight: 21,
+        letterSpacing: part.nameFirst * -0.01,
+        lineHeight: part.nameFirst * 1.1,
     },
     customerSurname: {
-        fontSize: part.nameSize,
+        fontSize: part.nameLast,
         fontWeight: '800',
-        letterSpacing: -0.6,
-        lineHeight: 21,
+        letterSpacing: part.nameLast * -0.03,
+        lineHeight: part.nameLast * 1.1,
     },
     phoneButton: {
-        width: hit.icon,
-        height: hit.icon,
-        borderRadius: hit.icon / 2,
-        borderWidth: 1,
+        width: part.phoneButton,
+        height: part.phoneButton,
+        borderRadius: part.phoneButton / 2,
+        borderWidth: 1.5,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -852,6 +1471,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     avatarText: {
+        fontSize: 13.5,
         fontWeight: '800',
         letterSpacing: -0.2,
     },
@@ -930,7 +1550,6 @@ const styles = StyleSheet.create({
     },
     liveLabel: {
         letterSpacing: 0,
-        textTransform: 'lowercase',
     },
     liveCounter: {
         lineHeight: display.counter.fontSize + space.xs,
@@ -942,7 +1561,7 @@ const styles = StyleSheet.create({
     liveAction: {
         minWidth: part.actionMinWidth,
         height: calendarMetrics.liveActionHeight,
-        paddingHorizontal: space.md,
+        paddingHorizontal: 16,
         borderRadius: radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
@@ -951,6 +1570,9 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: -0.3,
         textAlign: 'center',
+    },
+    liveActionText: {
+        fontSize: 14.5,
     },
     dueRow: {
         minHeight: calendarMetrics.dueRowHeight,
@@ -969,8 +1591,8 @@ const styles = StyleSheet.create({
     dueAction: {
         minWidth: part.actionMinWidth,
         height: calendarMetrics.dueActionHeight,
-        paddingHorizontal: space.md,
-        borderRadius: radius.md,
+        paddingHorizontal: space.lg,
+        borderRadius: radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -1024,5 +1646,48 @@ const styles = StyleSheet.create({
     },
     timelineCard: {
         flex: 1,
+    },
+    emptyDay: {
+        paddingHorizontal: 40,
+        paddingBottom: 90,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: space.md,
+    },
+    emptyRing: {
+        width: 66,
+        height: 66,
+        borderRadius: 33,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyTitle: {
+        textAlign: 'center',
+    },
+    emptyDescription: {
+        fontSize: 14.5,
+        fontWeight: '500',
+        lineHeight: 21.75,
+        textAlign: 'center',
+    },
+    emptyStrong: {
+        fontWeight: '800',
+    },
+    emptyAction: {
+        minHeight: hit.actionSm,
+        marginTop: 4,
+        paddingHorizontal: 22,
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 9,
+    },
+    emptyActionText: {
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: -0.32,
     },
 });

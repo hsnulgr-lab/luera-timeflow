@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 20: Bekleme kartları</title>
+<style>
+:root{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--am:#D9A43B;--rd:#E07272;--gr:#5FBF64;--desk:#0B0805}
+/* krem kart (koyu tema) */
+.pnl{--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pam:#8A5C00;--pamg:#D9A43B;--prd:#A82F2F;--pbd:rgba(14,14,14,.12);--pfill:rgba(14,14,14,.06)}
+/* ters kart (aydınlık tema) */
+.pnl.inv{--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pam:#D9A43B;--pamg:#D9A43B;--prd:#E07272;--pbd:rgba(243,237,227,.14);--pfill:rgba(243,237,227,.07)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:#FF7A45}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1720px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:840px;margin-bottom:20px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.chain{display:flex;align-items:center;gap:12px;margin:34px 0 60px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.chain span.on{border-color:var(--am);color:var(--am);border-style:solid}
+.chain i{width:22px;height:1px;background:var(--bd2)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.prose{max-width:860px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:46px;display:flex;flex-direction:column;gap:12px}
+.prose b{color:var(--tx);font-weight:700}
+.prose code,.note code,.rn code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.case{display:flex;gap:48px;align-items:flex-start;margin-bottom:74px;flex-wrap:wrap}
+.side{width:640px;display:flex;flex-direction:column;gap:16px;padding-top:4px}
+.side h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:7px;font-weight:700}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf)}
+.rn .r{display:flex;gap:16px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:132px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:150px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+/* ── telefon ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.phone.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28}
+.cal-head{flex:none;padding:6px 18px 0;display:flex;flex-direction:column;gap:5px}
+.cal-title{display:flex;align-items:flex-end}
+.cal-title .day{display:flex;align-items:flex-end;font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.cal-title .day i{flex:none;width:10px;height:10px;border-radius:50%;background:var(--or);margin:0 0 10px 6px}
+.cal-title .num{font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--tx3)}
+.cal-sub{font-size:13.5px;font-weight:500;color:var(--tx2);letter-spacing:-.01em;padding-bottom:8px}
+/* ── akış satırı ── */
+.feed{flex:1;display:flex;flex-direction:column;min-height:0}
+.frow{flex:none;display:flex;flex-direction:column;padding:16px 18px;border-top:1px solid var(--bd)}
+.frow.fade{opacity:.5}
+.fhd{display:flex;align-items:center;gap:7px;min-height:22px}
+.fhd .ft{font-size:13px;font-weight:600;color:var(--tx2);margin-right:5px}
+.fhd s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--or);text-decoration:none}
+.fhd .flb{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fhd .kebab{display:flex;flex-direction:column;gap:3px;padding:11px 4px;margin:-11px -4px -11px auto}
+.fhd .kebab i{width:3px;height:3px;border-radius:50%;background:var(--tx3)}
+.fnm{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.3;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fnm b{font-weight:800}
+.fsv{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.amber .fhd s{background:var(--am)}.amber .fhd .flb{color:var(--am)}
+.late .fhd s{background:var(--rd)}.late .fhd .flb{color:var(--rd)}
+.slot{margin:7px 0}
+/* ══ KART ÇERÇEVESİ — padding 14 · radius 18 · gap 12 ══ */
+.pnl{border-radius:18px;background:var(--ps);color:var(--pk);position:relative;overflow:hidden;display:flex}
+.pnl .in{flex:1;display:flex;align-items:center;gap:12px;padding:14px;min-width:0}
+.pnl.warn .in{padding-left:10px}
+.pnl .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pamg)}
+.pnl.hot .stripe{background:var(--prd)}
+.pcol{flex:1;min-width:0;display:flex;flex-direction:column}
+.plbl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--pk2);line-height:1.22;white-space:nowrap}
+.plbl s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--pamg);text-decoration:none}
+.pnl.warn .plbl{color:var(--pam)}
+.pnl.hot .plbl{color:var(--prd)}.pnl.hot .plbl s{background:var(--prd)}
+.pnl.hot .hero{color:var(--prd)}.pnl.hot .hero .u{color:var(--prd);opacity:.72}
+.hero{display:flex;align-items:baseline;gap:5px;font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.06;height:36px}
+.hero .u{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--pk2)}
+.hero.run{letter-spacing:-.02em}
+.psub{font-size:11.5px;font-weight:500;color:var(--pk2);line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* eylemler — yatay hap geometrisi, sağ sütunda */
+.pact{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.hap{height:40px;padding:0 18px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:15.5px;font-weight:800;letter-spacing:-.01em;border:1.5px solid var(--pk);white-space:nowrap}
+.hap.fill{background:var(--or);border-color:var(--or);color:#fff}
+.ghost{height:22px;padding:0 4px;display:flex;align-items:center;font-size:13.5px;font-weight:700;color:var(--pk2);white-space:nowrap}
+/* personel hapı — SÜRÜYOR kartındakiyle aynı */
+.staffpill{flex:none;height:36px;padding:0 14px 0 5px;border-radius:999px;background:var(--pk);color:var(--ps);display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.staffpill s{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--or);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;text-decoration:none;background:var(--ps);color:var(--pk)}
+/* çakışma satırı — 3. görseldeki cümle */
+.conf{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--pam);line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conf s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--pamg);text-decoration:none}
+/* C4 — devir satırı, kart değil */
+.hand{display:flex;align-items:center;gap:9px;height:38px;padding:0 2px;font-size:13.5px;font-weight:600;color:var(--tx2);letter-spacing:-.01em}
+.hand .lb{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);flex:none}
+.hand .av{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--or);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--tx)}
+.hand em{font-style:normal;color:var(--tx);font-weight:700}
+/* nabız + çapraz soldurma altyapısı */
+.pulse{animation:wpulse 2600ms ease-in-out infinite}
+@keyframes wpulse{0%,100%{opacity:1}50%{opacity:.45}}
+.pulse-run{animation:rpulse 800ms ease-in-out infinite}
+@keyframes rpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.stack{position:relative;display:flex}
+.stack>.ly{flex:1;display:flex}
+.stack>.ly.abs{position:absolute;left:0;top:0;right:0;bottom:0}
+/* ── hareket sahneleri ── */
+.mrow{display:flex;flex-wrap:wrap;gap:34px 40px;margin-bottom:20px}
+.mcase{width:393px;display:flex;flex-direction:column;gap:12px}
+.mstage{padding:0 18px;background:var(--bg);border:1px solid var(--bd);border-radius:26px;padding-top:14px;padding-bottom:14px;display:flex;flex-direction:column;gap:7px}
+.mspec{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mspec b{color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.02em}
+.mspec code{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--tx)}
+.mspec .rm{color:var(--tx3)}
+/* M1 — Geldi'ye basıldı (döngü 6s) */
+.m1-out{animation:m1out 6s linear infinite}
+@keyframes m1out{0%,16%{opacity:1;transform:translateY(0)}19%,97%{opacity:0;transform:translateY(-6px)}99%,100%{opacity:1;transform:translateY(0)}}
+.m1-in{animation:m1in 6s linear infinite}
+@keyframes m1in{0%,17%{opacity:0;transform:translateY(8px)}22%,97%{opacity:1;transform:translateY(0)}99%,100%{opacity:0;transform:translateY(8px)}}
+.m1-press{animation:m1press 6s linear infinite}
+@keyframes m1press{0%,15.5%{transform:scale(1)}16.5%{transform:scale(.96)}18%,100%{transform:scale(1)}}
+/* M2 — geri alma penceresi (döngü 8s) */
+.m2-undo{animation:m2undo 8s linear infinite}
+@keyframes m2undo{0%{opacity:0;transform:translateY(4px)}4%,62%{opacity:1;transform:translateY(0)}70%,100%{opacity:0;transform:translateY(0)}}
+.m2-next{animation:m2next 8s linear infinite}
+@keyframes m2next{0%,66%{opacity:0}76%,100%{opacity:1}}
+/* M3 — bekleme nabzı + dakika dönüşü (döngü 9s) */
+.m3-old{animation:m3old 9s linear infinite}
+@keyframes m3old{0%,50%{opacity:1;transform:translateY(0)}53%,97%{opacity:0;transform:translateY(-4px)}100%{opacity:1;transform:translateY(0)}}
+.m3-new{animation:m3new 9s linear infinite}
+@keyframes m3new{0%,51%{opacity:0;transform:translateY(4px)}56%,97%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(4px)}}
+/* M4 — eşik geçişi (döngü 10s) */
+.m4-a{animation:m4a 10s ease-in-out infinite}
+@keyframes m4a{0%,34%{opacity:1}44%,96%{opacity:0}100%{opacity:1}}
+.m4-b{animation:m4b 10s ease-in-out infinite}
+@keyframes m4b{0%,35%{opacity:0}45%,96%{opacity:1}100%{opacity:0}}
+.m4-sweep{animation:m4sweep 10s linear infinite}
+@keyframes m4sweep{0%,34%{opacity:0;transform:translateX(-100%)}40%{opacity:.5}48%,100%{opacity:0;transform:translateX(100%)}}
+/* M5 — devir (döngü 7s) */
+.m5-gone{animation:m5gone 7s linear infinite}
+@keyframes m5gone{0%,28%{opacity:1;transform:translateY(0)}34%,96%{opacity:0;transform:translateY(-4px)}100%{opacity:1;transform:translateY(0)}}
+.m5-hand{animation:m5hand 7s linear infinite}
+@keyframes m5hand{0%,30%{opacity:0;transform:translateY(6px)}36%,86%{opacity:1;transform:translateY(0)}94%,100%{opacity:0;transform:translateY(6px)}}
+.m5-av{animation:m5av 7s linear infinite}
+@keyframes m5av{0%,32%{opacity:0;transform:scale(1.12)}40%,86%{opacity:1;transform:scale(1)}94%,100%{opacity:0;transform:scale(1.12)}}
+/* M6 — BEKLİYOR → SÜRÜYOR (döngü 7s) */
+.m6-w{animation:m6w 7s linear infinite}
+@keyframes m6w{0%,40%{opacity:1;transform:translateY(0)}45%,96%{opacity:0;transform:translateY(-5px)}100%{opacity:1;transform:translateY(0)}}
+.m6-r{animation:m6r 7s linear infinite}
+@keyframes m6r{0%,42%{opacity:0;transform:translateY(6px)}48%,96%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(6px)}}
+.m6-pill{animation:m6pill 7s linear infinite}
+@keyframes m6pill{0%,43%{opacity:0;transform:translateX(10px)}50%,96%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(10px)}}
+@media (prefers-reduced-motion:reduce){.pulse,.pulse-run{animation:none;opacity:.7}
+.m1-out,.m1-in,.m1-press,.m2-undo,.m2-next,.m3-old,.m3-new,.m4-a,.m4-b,.m4-sweep,.m5-gone,.m5-hand,.m5-av,.m6-w,.m6-r,.m6-pill{animation-duration:1ms!important;animation-iteration-count:1!important}}
+</style></head>
+<body><div class="doc">
+
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Müdür 20 · Bekleme kartları<br/>iPhone 16 Pro 393 × 852 · koyu + aydınlık</div></div>
+
+<div class="lede"><h1>Geldi ile Sürüyor arası</h1>
+<p>Müdür “Geldi”ye bastı; personel işlemi henüz başlatmadı. Bu aralık şu an ekranda boş: satır yeşil bir yazıya dönüyor, ne sayaç ne eylem var. Aşağıdaki yedi durum <b>aynı kart çerçevesini</b> kullanır — <code>padding 14 · radius 18 · gap 12</code> — ve hiçbiri 100 pt’yi geçmez.</p>
+<p>Kart tek soruya cevap verir: <b>şu an ne oluyor, ben ne yapmalıyım?</b> Bekleme yeşil değil amberdir; hiçbir şey bitmedi, bir şey bekleniyor.</p></div>
+
+<div class="chain"><span>GİRMESİNE 6 dk</span><i></i><span class="on">Geldi · bekliyor</span><i></i><span>SÜRÜYOR 24:18</span></div>
+
+<div class="band"><span class="num">Karar</span><h2>Üç seçim ve gerekçesi</h2><p>Rakamın boyu, eylemin dili, sayacın ritmi — üçü de kartın ≤100 pt sınırından ve iki sayacın yan yana duracak olmasından çıktı.</p></div>
+
+<div class="prose">
+<p><b>Bekleme rakamı 34 px / 800 — <code>SÜRÜYOR</code> ile aynı, <code>GİRMESİNE</code>’den küçük.</b> 40 px yalnız <em>henüz burada olmayan</em> müşteriye ait: o rakam bir tahmin ve bir hazırlık çağrısıdır, en yüksek sesle konuşur. Müşteri salona girdiği an rakam <em>ölçüme</em> döner — geçen süre. Geçen süreyi ölçen iki hâl (<code>bekliyor 4 dk</code>, <code>SÜRÜYOR 24:18</code>) aynı boyda durur; böylece akışta aşağı kaydıran müdür “burada olanlar” ile “henüz yolda olan” arasındaki farkı rakamın boyundan okur.</p>
+<p><b>İki sayaç nasıl ayrılıyor.</b> <code>SÜRÜYOR</code> bir makine göstergesidir: iki nokta, <code>24:18</code>, saniye saniye tikler, yanındaki 6 px turuncu nokta 800 ms’de nabız atar. Bekleme bir <em>cümledir</em>: birim yazılı (<code>4 dk</code> — <code>dk</code> 17 px/700, ikincil mürekkep), iki nokta yok, nokta amber ve nabzı <b>2600 ms</b> — üç kat yavaş, %45’e kadar sönük. Rakam dakikada bir değişir ve <em>değişirken görünür biçimde döner</em> (220 ms); saniyelik sayaç dönmez, yerinde değişir. Aynı ekranda üst üste duran iki kart bu yüzden karıştırılamaz: biri tikliyor, öteki nefes alıyor.</p>
+<p><b>Eylemler yatay hap (h40 · padX18 · r999 · 15.5/800), sağ sütunda dikey sıralı.</b> Dikey yığın (<code>h44</code> birincil + hayalet) bir <em>çatal</em> dilidir: Geldi / Gelmedi birbirini dışlar, karar mecburi. Beklemede karar mecburi değil — kart kendi kendine ilerler, eylemler <em>isteğe bağlı</em>. Hap dili bunu söyler. İkinci sebep sert: iki <code>h44</code> + boşluk = 96 pt, tek başına kartın tavanını yiyor. Hap + hayalet metin = 68 pt, kart 96 pt’de kalıyor. Dokunma hedefi 44 pt’ye <code>hitSlop 2/0</code> ile tamamlanır, hapın kendisi 40 pt görünür.</p>
+<p><b>Turuncu yalnız iki yerde.</b> Zaman (SÜRÜYOR nabzı, personel halkası) ve <em>bastırılması gereken</em> eylem (10. dakikadaki <code>Hatırlat</code>). Bekleme durumunun rengi amber, uzun beklemenin rengi kırmızı; ikisinin de karşılığı kelimeyle yazılı (<code>bekliyor</code>, <code>UZUN BEKLİYOR</code>), renk tek başına hiçbir şey söylemiyor.</p>
+</div>
+
+<div class="band"><span class="num">Durumlar</span><h2>C1 — C5 · telefon çerçevesinde</h2><p>Her ekranda üstte <code>SÜRÜYOR</code> satırı var: iki sayaç gerçekten yan yana görülsün.</p></div>
+
+<div id="cases"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Altı an · yalnız opacity ve transform</h2><p>Yükseklik, genişlik, renk, yarıçap, gölge animasyonu yok. Renk değişimi iki yüzeyin çapraz soldurulmasıyla yapılır. Sahneler döngüde çalışıyor.</p></div>
+
+<div class="mrow" id="motion"></div>
+
+<div class="band"><span class="num">Ölçü</span><h2>Kart tablosu — CSS ile birebir</h2><p>Çelişki yok: aşağıdaki değerler yukarıdaki sınıfların birebir karşılığı.</p></div>
+
+<div class="rn" style="max-width:1180px;margin-bottom:26px">
+<div class="r h"><b>Parça</b><s>Ölçü</s><code>Renk / not</code></div>
+<div class="r"><b>Kart</b><s>padding 14 · r 18 · gap 12</s><code>krem #FAF3E9 · ters #1C1710 — gölge yok, kenarlık yok</code></div>
+<div class="r"><b>Uyarı hâli</b><s>çizgi 4 + dolgu 10 = 14</s><code>amber #D9A43B · kırmızı #A82F2F (krem) / #E07272 (ters)</code></div>
+<div class="r"><b>Etiket satırı</b><s>11.5 / 700 · .06em · CAPS</s><code>nokta 7 px · nötr rgba(14,14,14,.52) · amber #8A5C00 · kırmızı #A82F2F</code></div>
+<div class="r"><b>Kahraman rakam</b><s>34 / 800 · -.03em · h36</s><code>mürekkep #0E0E0E · uzun beklemede #A82F2F / #E07272 · birim “dk” 17 / 700 ikincil · tabular-nums · sıfırsız</code></div>
+<div class="r"><b>Alt satır</b><s>11.5 / 500</s><code>ikincil mürekkep · tek satır · kırpma …</code></div>
+<div class="r"><b>Çakışma satırı</b><s>11.5 / 600 + nokta 7</s><code>amber — “Selin şu an işlemde · 08 dk”</code></div>
+<div class="r"><b>Hap eylem</b><s>h40 · padX18 · r999 · 15.5 / 800</s><code>kenarlık 1.5 mürekkep · dolu hâl yalnız Hatırlat’ta turuncu #FF5A1F</code></div>
+<div class="r"><b>Hayalet eylem</b><s>h22 görünür · 13.5 / 700</s><code>ikincil mürekkep · hitSlop ile 44 pt</code></div>
+<div class="r"><b>Personel hapı</b><s>h36 · padX14 · r999 · 14.5 / 700</s><code>avatar 26 px · 2 px turuncu halka</code></div>
+<div class="r"><b>Devir satırı (C4)</b><s>h38 · kart yok</s><code>13.5 / 600 ikincil · etiket 11 / 700 .14em · avatar 24 px</code></div>
+<div class="r"><b>Satır bağlamı</b><s>padding 16 / 18 · ayırıcı 1 px</s><code>kartın üstünde ve altında 7 px · ad 19/500 + soyad 19/800 · hizmet 13.5/500</code></div>
+<div class="r"><b>Kart yükseklikleri</b><s>C1 92 · C2 96 · C3a 96 · C3b 96 · C5 96</s><code>C4 = 38 (kartın yarısından küçük) · tavan 100</code></div>
+</div>
+
+<div class="rn" style="max-width:1180px;margin-bottom:26px">
+<div class="r h"><b>Hareket</b><s>Süre · eğri · özellik</s><code>“Hareketi azalt” açıkken</code></div>
+<div class="r"><b>Geldi’ye basış</b><s>çıkan 160 ms cubic-bezier(.4,0,1,1) opacity+translateY(-6) · giren 220 ms cubic-bezier(.2,.8,.25,1) opacity+translateY(8→0) · 60 ms gecikme</s><code>çapraz soldurma yok, anında takas; kart aynı yerde kalır</code></div>
+<div class="r"><b>Geri al penceresi</b><s>5000 ms görünür · sönüş 700 ms cubic-bezier(.4,0,.6,1) yalnız opacity · yerinden kıpırdamaz</s><code>5 sn sonra tek karede kaybolur; eylemler yerine geçer</code></div>
+<div class="r"><b>Bekleme nabzı</b><s>2600 ms ease-in-out sonsuz · opacity 1 ↔ .45 · 7 px nokta</s><code>nabız durur, nokta .7 opaklıkta sabit kalır</code></div>
+<div class="r"><b>Dakika dönüşü</b><s>220 ms cubic-bezier(.2,.8,.25,1) · opacity + translateY ±4</s><code>rakam anında değişir</code></div>
+<div class="r"><b>Eşik 5 / 10 dk</b><s>900 ms ease-in-out çapraz soldurma (iki yüzey) + 1200 ms tek seferlik ışık süpürmesi (opacity .5 + translateX)</s><code>süpürme yok, iki yüzey anında takas; kelime (UZUN BEKLİYOR) her hâlde yazılı</code></div>
+<div class="r"><b>Devir (C4)</b><s>giden satır 260 ms opacity+translateY(-4) · devir satırı 300 ms opacity+translateY(6) · avatar 320 ms scale 1.12→1</s><code>satırlar anında yer değiştirir, avatar ölçeklenmez</code></div>
+<div class="r"><b>BEKLİYOR → SÜRÜYOR</b><s>rakam 180 ms out / 240 ms in · nokta çapraz soldurma 240 ms · personel hapı 260 ms translateX(10→0) · toplam 380 ms</s><code>tek karede dönüşür; kart yine aynı kart</code></div>
+</div>
+
+<div class="band"><span class="num">Sınır</span><h2>375 × 667’de sıkışan yerler</h2><p>Küçük ekranda kart yüksekliği değişmiyor; sıkışma genişlikte.</p></div>
+
+<div class="case"><div id="small"></div>
+<div class="side"><h3><s>DAR EKRAN</s>Üç sıkışma, üç kural</h3>
+<div class="note"><span><b>Sağ sütun sabit, sol sütun kırpılır.</b> Kart içi genişlik 393’te 329, 375’te 311 — 18 px eksik. Bekleme süresi asla kırpılmaz; kısalan alt satır (<code>Bekleme alanı · Selin’e düştü</code>) <code>numberOfLines 1</code> ile <code>…</code> alır.</span></div>
+<div class="note"><span><b>C2’de personel hapı ile hap eylem yan yana gelmez.</b> 375’te çakışma satırı kartın alt satırının yerini alır, personel hapı düşer; kim beklediği zaten cümlede yazılı (“Selin şu an işlemde · 08 dk”).</span></div>
+<div class="note"><span><b>C3b’de <code>Hatırlat</code> + <code>Bilgi ver</code> ikisi birden sığmaz.</b> Hayalet metin <code>Bilgi ver</code> kalır, ikinci hap kebap menüsüne iner. Kırmızı etiket ve rakam korunur.</span></div>
+<div class="note"><span><b>Etiket satırı</b> 375’te <code>GELDİ · BEKLİYOR</code> yerine <code>BEKLİYOR</code>’a düşer — nokta + kelime her hâlde kalır.</span></div>
+</div></div>
+
+<div class="band"><span class="num">Uygulama</span><h2>React Native notları</h2><p></p></div>
+
+<div class="rn" style="max-width:1180px">
+<div class="r h"><b>Konu</b><s>Kural</s><code>Ayrıntı</code></div>
+<div class="r"><b>Metin kırpma</b><s>numberOfLines</s><code>ad+soyad 1 · hizmet 1 · alt satır 1 · çakışma satırı 1 · etiket 1. Süre <code>flexShrink:0</code>, hiçbir koşulda kırpılmaz.</code></div>
+<div class="r"><b>Sayaç biçimi</b><s>dakika birimli</s><code>Math.floor((now-arrivedAt)/60000) + ' dk'. Baştaki sıfır yok. Tazeleme 30 sn (masaüstüyle aynı); UI dakika değişince döner. SÜRÜYOR ayrı: mm:ss, 1 sn.</code></div>
+<div class="r"><b>Tabular</b><s>fontVariant</s><code>['tabular-nums'] yalnız rakam düğümünde; “dk” ayrı Text, Hanken Grotesk.</code></div>
+<div class="r"><b>Native sürücü</b><s>useNativeDriver: true</s><code>opacity + translateX/Y + scale — altı hareketin tamamı. Yükseklik/renk/yarıçap animasyonu yok, yeniden yerleşim tetiklenmiyor.</code></div>
+<div class="r"><b>Renk geçişi</b><s>iki yüzey</s><code>Aynı kutuda üst üste iki View (amber / kırmızı), biri sönerken öteki açılır. interpolateColor yok.</code></div>
+<div class="r"><b>Nabız</b><s>Animated.loop</s><code>2600 ms, isInteraction:false. Ekran odakta değilken durdurulur (useFocusEffect).</code></div>
+<div class="r"><b>Erişilebilirlik</b><s>tek cümle</s><code>accessibilityLabel: “Elif Demir, geldi, 4 dakikadır bekliyor, Selin’e düştü”. Nokta ve renk hiçbir anlamı tek başına taşımaz.</code></div>
+<div class="r"><b>Hareketi azalt</b><s>AccessibilityInfo</s><code>isReduceMotionEnabled → süreler 0, döngüler kapalı, opaklık .7 sabit. Bilgi hiçbir zaman harekete emanet edilmez.</code></div>
+<div class="r"><b>Dokunma</b><s>44 pt</s><code>Hap h40 + hitSlop{top:2,bottom:2}; hayalet metin h22 + hitSlop{top:11,bottom:11}. Geri al penceresi 5 sn, sönerken de basılabilir (dokunulursa iptal edilmez, uygulanır).</code></div>
+<div class="r"><b>Bildirim dili</b><s>durum, teslimat değil</s><code>“Selin’e düştü” / “Selin’i bekliyor”. “Bildirim gönderildi” metni hiçbir hâlde yok.</code></div>
+</div>
+
+</div>
+<script>
+const chrome=(inner,cls)=>`<div class="phone ${cls||''}">
+<div class="status"><span class="n">11:34</span><div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+<div class="body"><div class="cal-head"><div class="cal-title"><span class="day">Per<i></i></span><span class="num n">13</span></div><div class="cal-sub">Perşembe · 14 randevu · 3 işlem sürüyor</div></div>
+<div class="feed">${inner}</div></div><div class="home-ind"></div></div>`;
+
+const kebab='<span class="kebab"><i></i><i></i><i></i></span>';
+const row=(o)=>`<div class="frow ${o.cls||''}"><div class="fhd"><span class="ft n">${o.t}</span><s></s><span class="flb">${o.lb}</span>${kebab}</div>
+<div class="fnm">${o.nm}</div><div class="fsv">${o.sv}</div>${o.card?`<div class="slot">${o.card}</div>`:''}</div>`;
+
+/* SÜRÜYOR kartı — mevcut, referans */
+const RUN=`<div class="pnl"><div class="in"><div class="pcol">
+<div class="plbl"><s style="background:var(--or)" class="pulse-run"></s>SÜRÜYOR</div>
+<div class="hero run n">24:18</div><div class="psub">11:00’de başladı</div></div>
+<div class="staffpill"><s>MK</s>Merve</div></div></div>`;
+
+/* durum kartları */
+const C1=`<div class="pnl"><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div>
+<div class="hero"><span class="n">1</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Selin’e düştü</div></div>
+<div class="pact"><span class="ghost">Geri al</span></div></div></div>`;
+
+const C1L=`<div class="pnl inv"><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div>
+<div class="hero"><span class="n">1</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Selin’e düştü</div></div>
+<div class="pact"><span class="ghost">Geri al</span></div></div></div>`;
+
+const C2=`<div class="pnl"><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div>
+<div class="hero"><span class="n">3</span><span class="u">dk</span></div>
+<div class="conf"><s></s>Selin şu an işlemde · <span class="n">08 dk</span></div></div>
+<div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div></div></div>`;
+
+const C3a=`<div class="pnl warn"><span class="stripe"></span><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>BEKLİYOR · KARŞILA</div>
+<div class="hero"><span class="n">5</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Selin’i bekliyor</div></div>
+<div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Karşılamayı aç</span></div></div></div>`;
+
+const C3b=`<div class="pnl warn hot"><span class="stripe"></span><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>UZUN BEKLİYOR</div>
+<div class="hero"><span class="n">10</span><span class="u">dk</span></div><div class="psub">Elif 10 dakikadır bekliyor</div></div>
+<div class="pact"><span class="hap fill">Hatırlat</span><span class="ghost">Bilgi ver</span></div></div></div>`;
+
+const C5=`<div class="pnl"><div class="in"><div class="pcol">
+<div class="plbl"><s class="pulse"></s>RANDEVUSUZ · BEKLİYOR</div>
+<div class="hero"><span class="n">2</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Deniz’e düştü</div></div>
+<div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div></div></div>`;
+
+const C4=`<div class="hand"><span class="lb">DEVİR</span><span class="av">SL</span><span><em>Selin</em> boşaldı, buna geçiyor</span></div>`;
+
+const runRow=row({t:'11:24',lb:'İŞLEM BAŞLADI',nm:'Zeynep <b>Kaya</b>',sv:'Saç boyama · 90 dk',card:RUN});
+const nextRow=row({t:'12:15',lb:'SIRADAKİ RANDEVU',nm:'Gülşah <b>Karaosmanoğlu</b>',sv:'Keratin bakımı · 45 dk · Selin ile',cls:'fade'});
+
+const CASES=[
+ {id:'C1',ttl:'Bekliyor · personel müsait',lead:'“Geldi”ye basıldı, personele düştü, henüz başlamadı. İlk beş saniye <b>Geri al</b> duruyor, sonra kendiliğinden söner ve yerini eylemlere bırakır.',
+  notes:['<b>Tek eylem, o da geçici.</b> Personel müsait olduğuna göre müdürün yapacağı bir şey yok — bekleme kendi kendine ilerler. Kartta bu yüzden yalnız yanlış basışın çıkışı var.',
+   '<b>“Selin’e düştü”</b> durumu söyler, teslimat iddia etmez. Bildirim altyapısı değişse de cümle doğru kalır.',
+   '<b>92 pt:</b> 14 + 14 etiket + 36 rakam + 14 alt satır + 14. <code>GİRMESİNE</code> kartıyla aynı yükseklik — “Geldi”ye basınca satır hiç kıpırdamaz.'],
+  spec:[['Yükseklik','92 pt','kart tavanı 100'],['Nokta','7 px amber','nabız 2600 ms, opacity 1↔.45'],['Geri al','13.5 / 700 hayalet','5 sn sonra 700 ms’de söner']],
+  card:C1},
+ {id:'C2',ttl:'Bekliyor · personel hizmette',lead:'Atanan personel başka müşteride. Kart alt satırını feda eder, yerine mobilde zaten kullanılan cümleyi koyar: <b>Selin şu an işlemde · 08 dk</b>.',
+  notes:['<b>Bilgi eklemek için bir şey çıkardık.</b> “Bekleme alanı” satırı gitti; müdürün müşteriye söyleyeceği cümle onun yerine geldi. Kart bir müşteri dosyası değil, durum çubuğu.',
+   '<b>İki eylem, iki ağırlık.</b> <code>Bilgi ver</code> hap — asıl iş bu, müşteri bilgisi olursa bekler. <code>Beklemeye al</code> hayalet: sırayı değiştirmek istisnadır.',
+   '<b>Personel hapı burada yok.</b> SÜRÜYOR kartındaki hap “kim çalışıyor”u söyler; burada kimse çalışmıyor, o yüzden bilgi cümleye iner.'],
+  spec:[['Yükseklik','96 pt','sağ sütun 40 + 6 + 22 = 68'],['Çakışma satırı','11.5 / 600 amber','#8A5C00 krem üstünde'],['Hap','h40 · padX18 · r999','kenarlık 1.5 mürekkep']],
+  card:C2},
+ {id:'C3a',ttl:'Bekleme 5 dk · amber',lead:'Beşinci dakikada kart uyarı hâline geçer: soldan 4 px çizgi, dolgu 10 — <b>toplam 14 sabit</b>, metin yerinden oynamaz.',
+  notes:['<b>Etiket kelimeyi değiştirir:</b> <code>BEKLİYOR · KARŞILA</code>. Renk tek başına anlam taşımadığı için eşik her zaman yazıyla da geçilir.',
+   '<b>Karşılamayı aç</b> ürünün mevcut kelimesi; hayalet kalır çünkü müdür çoğu zaman zaten karşılıyor, ekrana dokunmuyor.',
+   '<b>Geçiş 900 ms çapraz soldurma.</b> Nötr yüzey sönerken amber yüzey açılır; renk değeri animasyona girmez.'],
+  spec:[['Yükseklik','96 pt','uyarı çizgisi yüksekliği değiştirmez'],['Çizgi','4 px + dolgu 10','#D9A43B'],['Etiket','11.5 / 700 · #8A5C00','nokta amber']],
+  card:C3a},
+ {id:'C3b',ttl:'Bekleme 10 dk · kırmızı',lead:'Onuncu dakikada tek yeni eylem çıkar: <b>Hatırlat</b>. Alt satır sözlüğün cümlesini kurar: <b>Elif 10 dakikadır bekliyor</b>.',
+  notes:['<b>Tek dolu hap.</b> Turuncu burada “bastırılması gereken eylem” olarak görünür — kartın başka hiçbir hâlinde dolu hap yok, o yüzden bu görünüş dikkat çeker.',
+   '<b>Kırmızı krem üstünde #A82F2F</b>, ters kartta #E07272. Rakam da kırmızıya döner; ama asıl işaret <code>UZUN BEKLİYOR</code> kelimesi.',
+   '<b>Sıra bozulmaz:</b> kart listedeki yerinden oynamaz, üste taşınmaz. Yerinden zıplayan bir satır müdürün gözünü kaybettirir.'],
+  spec:[['Yükseklik','96 pt','C3a ile aynı'],['Etiket + rakam','#A82F2F','nokta, etiket ve rakam birlikte döner'],['Hatırlat','h40 dolu #FF5A1F','beyaz metin 15.5 / 800']],
+  card:C3b},
+ {id:'C5',ttl:'Randevusuz (walk-in)',lead:'Randevu yok, boştaki personele atandı. Geri sayım yok — ölçülecek tek şey bekleme.',
+  notes:['<b>Etiket randevusuzluğu söyler:</b> <code>RANDEVUSUZ · BEKLİYOR</code>. Satırın saati müşterinin geldiği saat, randevu saati değil.',
+   '<b>Hizmet satırında süre yok</b> (“Saç kesimi” yalnız); süre personel işlemi başlatınca doğar.',
+   '<b>Eşikler aynı işler.</b> 5 ve 10. dakika randevusuzda da geçerli; bekleyen müşteri, randevusu olsun olmasın bekliyor.'],
+  spec:[['Yükseklik','96 pt','C1 iskeleti + eylem çifti'],['Rakam','34 / 800','geri sayım yok, yalnız bekleme'],['Eylem','hap + hayalet','C2 ile aynı çift']],
+  card:C5},
+ {id:'C4',ttl:'Devir anı — kart değil, ince satır',lead:'Personel öncekini bitirdi, buna geçiyor. Müdürün yapacağı bir şey yok; <b>38 pt</b> bir satır, kartın yarısından küçük.',
+  notes:['<b>Kart bir soru sorar, bu satır cevap vermez.</b> Kart çerçevesi (krem yüzey, kahraman rakam) “bak ve karar ver” demektir. Devirde karar yok, saniyeler var: krem yüzey burada yalancı bir aciliyet üretirdi.',
+   '<b>Sayaç da yok.</b> Devir 5–20 saniyelik bir aralık; dakika birimli sayaç <code>0 dk</code> gösterirdi, saniyelik sayaç ise bekleme dilini bozardı.',
+   '<b>Ömrü kısa.</b> Satır <code>SÜRÜYOR</code> gelene kadar durur, ardından kart doğar (M6). Bu yüzden en küçük hâl aynı zamanda en hareketli an.'],
+  spec:[['Yükseklik','38 pt','tavanın yarısının altı'],['Etiket','11 / 700 · .14em','tx3'],['Avatar','24 px · 1.7 halka','turuncu — personel demek']],
+  card:C4},
+ {id:'C1-L',ttl:'Aydınlık tema — kart tersine döner',lead:'Krem sayfa üstünde krem kart düzlem değiştirmez. Kart <b>#1C1710 / #F3EDE3</b> olur; ters düzlem “bu satırın içinde bir şey oluyor” der.',
+  notes:['<b>Amber tersine dönünce açılır:</b> koyu yüzeyde #D9A43B okunur, krem yüzeyde #8A5C00. Kırmızı da öyle: #E07272 ↔ #A82F2F.',
+   '<b>Hap kenarlığı</b> mürekkep rengini takip eder (1.5 px), dolu hap her iki temada turuncu kalır.',
+   '<b>Ölçüler değişmez.</b> Aynı 92 pt, aynı 14 dolgu, aynı 34 px rakam — tema yalnız yüzey ve mürekkep takas eder.'],
+  spec:[['Kart','#1C1710','mürekkep #F3EDE3 · ikincil .58'],['Sayfa','#F3ECE0','satır ayırıcı rgba(14,14,14,.10)'],['Amber','#D9A43B','koyu yüzeyde açık amber']],
+  card:C1L,light:true}
+];
+
+const NM={C1:['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile'],
+ C2:['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile'],
+ C3a:['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile'],
+ C3b:['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile'],
+ C5:['11:32','Burak <b>Aslan</b>','Randevusuz · Saç kesimi'],
+ C4:['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile'],
+ 'C1-L':['11:30','Elif <b>Demir</b>','Keratin bakımı · 45 dk · Selin ile']};
+
+const LB={C1:['GELDİ · BEKLİYOR','amber'],C2:['GELDİ · BEKLİYOR','amber'],C3a:['BEKLİYOR · 5 DK','amber'],C3b:['UZUN BEKLİYOR','late'],C5:['RANDEVUSUZ · BEKLİYOR','amber'],C4:['GELDİ · BEKLİYOR','amber'],'C1-L':['GELDİ · BEKLİYOR','amber']};
+
+document.getElementById('cases').innerHTML=CASES.map(c=>{
+ const [t,nm,sv]=NM[c.id],[lb,cls]=LB[c.id];
+ const subject=row({t,lb,nm,sv,cls,card:c.card});
+ const inner=runRow+subject+nextRow;
+ return `<div class="case">${chrome(inner,c.light?'lt':'')}
+ <div class="side"><h3><s>MÜDÜR 20 · ${c.id}</s>${c.ttl}</h3>
+ <p style="font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty">${c.lead}</p>
+ ${c.notes.map(n=>`<div class="note"><span>${n}</span></div>`).join('')}
+ <div class="rn">${c.spec.map(s=>`<div class="r"><b>${s[0]}</b><s>${s[1]}</s><code>${s[2]}</code></div>`).join('')}</div>
+ </div></div>`}).join('');
+
+/* ── hareket sahneleri ── */
+const stack=(a,b)=>`<div class="stack">${a}<div class="ly abs">${b}</div></div>`;
+
+const M=[
+ {t:'1 · “Geldi”ye basıldığı an',d:'Kart aynı kart: krem yüzey, 18 yarıçap, 92 pt — hiçbiri kıpırdamaz. Etiket, rakam ve sağ sütun çapraz soldurulur; rakam yukarı çıkar, yeni rakam aşağıdan gelir.',
+  s:['<b>Çıkan</b> 160 ms · cubic-bezier(.4,0,1,1) · <code>opacity 1→0, translateY 0→-6</code>','<b>Giren</b> 220 ms · cubic-bezier(.2,.8,.25,1) · 60 ms gecikme · <code>opacity 0→1, translateY 8→0</code>','<b>Yerinde kalan</b> kart yüzeyi, etiket noktası, satırın adı ve hizmeti','<span class="rm">Hareketi azalt: takas tek karede, gecikme yok.</span>'],
+  h:`<div class="pnl"><div class="in"><div class="pcol">
+  ${stack(`<div class="ly m1-out"><div class="plbl">GİRMESİNE</div></div>`,`<div class="ly m1-in"><div class="plbl"><s></s>GELDİ · BEKLİYOR</div></div>`)}
+  ${stack(`<div class="ly m1-out"><div class="hero"><span class="n">6</span><span class="u">dk</span></div></div>`,`<div class="ly m1-in"><div class="hero"><span class="n">1</span><span class="u">dk</span></div></div>`)}
+  ${stack(`<div class="ly m1-out"><div class="psub">11:30 · 45 dk</div></div>`,`<div class="ly m1-in"><div class="psub">Bekleme alanı · Selin’e düştü</div></div>`)}
+  </div><div class="pact" style="width:118px">
+  ${stack(`<div class="ly m1-out" style="flex-direction:column;align-items:flex-end;gap:6px"><span class="hap fill m1-press">Geldi</span><span class="ghost">Gelmedi</span></div>`,`<div class="ly m1-in" style="flex-direction:column;align-items:flex-end;justify-content:center"><span class="ghost">Geri al</span></div>`)}
+  </div></div></div>`},
+ {t:'2 · Geri alma penceresi',d:'Beş saniye durur, sonra sakin biçimde söner: yalnız opaklık, kıpırdama yok. Yerine eylemler açılır — boşluk kalmaz, kart yüksekliği sabit.',
+  s:['<b>Görünür</b> 5000 ms','<b>Sönüş</b> 700 ms · cubic-bezier(.4,0,.6,1) · <code>opacity 1→0</code> · transform yok','<b>Devralan</b> 400 ms · ease-out · <code>opacity 0→1</code> · 200 ms gecikme','<span class="rm">Hareketi azalt: 5 sn dolunca anında takas.</span>'],
+  h:`<div class="pnl"><div class="in"><div class="pcol">
+  <div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div>
+  <div class="hero"><span class="n">1</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Selin’e düştü</div></div>
+  <div class="pact" style="width:126px">${stack(`<div class="ly m2-undo" style="align-items:center;justify-content:flex-end"><span class="ghost">Geri al</span></div>`,`<div class="ly m2-next" style="flex-direction:column;align-items:flex-end;gap:6px"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div>`)}</div>
+  </div></div>`},
+ {t:'3 · Bekleme nabzı ve dakika dönüşü',d:'Üstteki SÜRÜYOR noktası 800 ms’de 1↔.35 atıyor. Bekleme noktası 2600 ms’de 1↔.45: üç kat yavaş, daha sönük. Rakam dakikada bir döner — saniyelik sayaç dönmez, yerinde değişir.',
+  s:['<b>Nabız</b> 2600 ms · ease-in-out · sonsuz · <code>opacity 1↔.45</code> · 7 px nokta','<b>Dakika dönüşü</b> 220 ms · cubic-bezier(.2,.8,.25,1) · <code>opacity + translateY ±4</code>','<b>Karşılaştırma</b> SÜRÜYOR: 800 ms · 1↔.35 · 6 px','<span class="rm">Hareketi azalt: iki nokta da .7 sabit; rakam anında değişir.</span>'],
+  h:`<div class="pnl" style="margin-bottom:7px"><div class="in"><div class="pcol">
+  <div class="plbl"><s style="background:var(--or)" class="pulse-run"></s>SÜRÜYOR</div>
+  <div class="hero run n">24:18</div><div class="psub">11:00’de başladı</div></div><div class="staffpill"><s>MK</s>Merve</div></div></div>
+  <div class="pnl"><div class="in"><div class="pcol">
+  <div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div>
+  ${stack(`<div class="ly m3-old"><div class="hero"><span class="n">4</span><span class="u">dk</span></div></div>`,`<div class="ly m3-new"><div class="hero"><span class="n">5</span><span class="u">dk</span></div></div>`)}
+  <div class="psub">Bekleme alanı · Selin’e düştü</div></div>
+  <div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div></div></div>`},
+ {t:'4 · Eşik geçişleri (5 → 10 dk)',d:'İki yüzey üst üste: nötr sönerken amber açılır, amber sönerken kırmızı. Üstünden bir kez ışık geçer — müdür ekrana bakmıyorken de geçişin olduğunu kenar görüşüyle fark eder.',
+  s:['<b>Çapraz soldurma</b> 900 ms · ease-in-out · <code>opacity</code> (iki yüzey)','<b>Süpürme</b> 1200 ms · linear · tek seferlik · <code>opacity .5 + translateX -100%→100%</code>','<b>Değişmeyen</b> rakamın yeri, dolgu (4+10=14), kart yüksekliği','<span class="rm">Hareketi azalt: süpürme yok, yüzeyler anında takas; kelime her hâlde yazılı.</span>'],
+  h:`<div class="stack">
+  <div class="ly m4-a"><div class="pnl warn" style="flex:1"><span class="stripe"></span><div class="in"><div class="pcol">
+  <div class="plbl"><s class="pulse"></s>BEKLİYOR · KARŞILA</div>
+  <div class="hero"><span class="n">5</span><span class="u">dk</span></div><div class="psub">Bekleme alanı · Selin’i bekliyor</div></div>
+  <div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Karşılamayı aç</span></div></div></div></div>
+  <div class="ly abs m4-b"><div class="pnl warn hot" style="flex:1"><span class="stripe"></span><div class="in"><div class="pcol">
+  <div class="plbl"><s class="pulse"></s>UZUN BEKLİYOR</div>
+  <div class="hero"><span class="n">10</span><span class="u">dk</span></div><div class="psub">Elif 10 dakikadır bekliyor</div></div>
+  <div class="pact"><span class="hap fill">Hatırlat</span><span class="ghost">Bilgi ver</span></div></div></div></div>
+  <div class="ly abs" style="overflow:hidden;border-radius:18px;pointer-events:none"><div class="m4-sweep" style="flex:1;background:linear-gradient(90deg,rgba(250,243,233,0),rgba(255,255,255,.85),rgba(250,243,233,0))"></div></div>
+  </div>`},
+ {t:'5 · Devir anı',d:'Biten satırın kartı yukarı doğru sönüyor; alttaki satırda devir çizgisi aşağıdan açılıyor, personelin halkası hafifçe büyükten yerine oturuyor. İki satır arasında olan tek şey bu.',
+  s:['<b>Giden kart</b> 260 ms · cubic-bezier(.4,0,1,1) · <code>opacity + translateY 0→-4</code>','<b>Devir satırı</b> 300 ms · cubic-bezier(.2,.8,.25,1) · 80 ms gecikme · <code>opacity + translateY 6→0</code>','<b>Avatar</b> 320 ms · cubic-bezier(.2,.8,.25,1) · <code>opacity + scale 1.12→1</code>','<span class="rm">Hareketi azalt: satırlar anında yer değiştirir, ölçek yok.</span>'],
+  h:`<div style="display:flex;flex-direction:column">
+  <div class="fhd" style="padding-bottom:4px"><span class="ft n">11:00</span><s></s><span class="flb">TAMAMLANDI</span></div>
+  <div class="fnm" style="font-size:17px">Zeynep <b>Kaya</b></div>
+  <div class="slot m5-gone">${RUN}</div>
+  <div style="height:1px;background:var(--bd);margin:8px 0"></div>
+  <div class="fhd amber" style="padding-bottom:4px"><span class="ft n">11:30</span><s style="background:var(--am)"></s><span class="flb" style="color:var(--am)">GELDİ · BEKLİYOR</span></div>
+  <div class="fnm" style="font-size:17px">Elif <b>Demir</b></div>
+  <div class="m5-hand"><div class="hand"><span class="lb">DEVİR</span><span class="av m5-av">SL</span><span><em>Selin</em> boşaldı, buna geçiyor</span></div></div>
+  </div>`},
+ {t:'6 · BEKLİYOR → SÜRÜYOR',d:'Ödül anı ve takas değil dönüşüm: yüzey, yarıçap, dolgu ve kartın yeri sabit kalır. Etiket ile rakam çapraz soldurulur, amber nokta turuncuya döner, personel hapı sağdan girer.',
+  s:['<b>Rakam</b> 180 ms out (opacity + translateY -5) / 240 ms in (translateY 6→0) · cubic-bezier(.2,.8,.25,1)','<b>Nokta</b> 240 ms çapraz soldurma · amber yüzey sönerken turuncu açılır','<b>Personel hapı</b> 260 ms · cubic-bezier(.2,.8,.25,1) · <code>opacity + translateX 10→0</code>','<b>Toplam</b> 380 ms · <span class="rm">Hareketi azalt: tek karede dönüşür, hap kaymaz.</span>'],
+  h:`<div class="pnl"><div class="in"><div class="pcol">
+  ${stack(`<div class="ly m6-w"><div class="plbl"><s class="pulse"></s>GELDİ · BEKLİYOR</div></div>`,`<div class="ly m6-r"><div class="plbl"><s style="background:var(--or)" class="pulse-run"></s>SÜRÜYOR</div></div>`)}
+  ${stack(`<div class="ly m6-w"><div class="hero"><span class="n">6</span><span class="u">dk</span></div></div>`,`<div class="ly m6-r"><div class="hero run n">00:04</div></div>`)}
+  ${stack(`<div class="ly m6-w"><div class="psub">Bekleme alanı · Selin’i bekliyor</div></div>`,`<div class="ly m6-r"><div class="psub">11:36’da başladı</div></div>`)}
+  </div><div class="pact" style="width:112px">${stack(`<div class="ly m6-w" style="flex-direction:column;align-items:flex-end;gap:6px"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div>`,`<div class="ly m6-r m6-pill" style="align-items:center;justify-content:flex-end"><div class="staffpill"><s>SL</s>Selin</div></div>`)}</div>
+  </div></div>`}
+];
+
+document.getElementById('motion').innerHTML=M.map(m=>`<div class="mcase">
+<div class="mstage">${m.h}</div>
+<div class="mspec"><b>${m.t}</b><span>${m.d}</span>${m.s.map(x=>`<span>${x}</span>`).join('')}</div>
+</div>`).join('');
+
+/* 375 × 667 */
+const smallInner=row({t:'11:24',lb:'İŞLEM BAŞLADI',nm:'Zeynep <b>Kaya</b>',sv:'Saç boyama · 90 dk',card:RUN})
+ +row({t:'11:30',lb:'BEKLİYOR',nm:'Elif <b>Demir</b>',sv:'Keratin bakımı · 45 dk · Selin ile',cls:'amber',
+  card:`<div class="pnl"><div class="in"><div class="pcol">
+  <div class="plbl"><s class="pulse"></s>BEKLİYOR</div>
+  <div class="hero"><span class="n">3</span><span class="u">dk</span></div>
+  <div class="conf"><s></s>Selin şu an işlemde · <span class="n">08 dk</span></div></div>
+  <div class="pact"><span class="hap">Bilgi ver</span><span class="ghost">Beklemeye al</span></div></div></div>`});
+document.getElementById('small').innerHTML=chrome(smallInner,'sm');
+</script>
+</body></html>

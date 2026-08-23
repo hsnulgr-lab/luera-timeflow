@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 14: Kasa v4</title>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--m1:#C08457;--m2:#D6A583;--m3:#EBCFB6;--mink:#2A1A0E;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(37,32,21,.5);--sheen:rgba(243,237,227,.09);--desk:#0B0805;--amb:linear-gradient(158deg,rgba(217,164,59,.20),rgba(217,164,59,.09));--amd:rgba(217,164,59,.34);--rdb:linear-gradient(158deg,rgba(224,114,114,.19),rgba(224,114,114,.08));--rdd:rgba(224,114,114,.32);--pend:linear-gradient(180deg,#C63C0C 0%,#E8430F 45%,#FF5A1F 100%);--pink:#FFF9F5;--pline:rgba(243,237,227,.14);--dim:rgba(6,4,2,.62)}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--m1:#8A4A2B;--m2:#A5643B;--m3:#C08A5E;--mink:#FFFDFB;--pink:#FFF9F5;--glass:rgba(250,247,243,.72);--glassbd:rgba(14,14,14,.09);--tint:rgba(240,233,223,.55);--sheen:rgba(255,255,255,.55);--desk:#E4DACA;--amb:linear-gradient(158deg,rgba(184,122,0,.16),rgba(184,122,0,.06));--amd:rgba(184,122,0,.30);--rdb:linear-gradient(158deg,rgba(201,64,64,.13),rgba(201,64,64,.045));--rdd:rgba(201,64,64,.28);--pend:linear-gradient(180deg,#C63C0C 0%,#E8430F 45%,#FF5A1F 100%);--pline:rgba(255,255,255,.55);--dim:rgba(30,22,12,.34)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk','Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 140px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--or2)}a:hover{color:var(--or)}
+.doc{max-width:1740px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.03em;margin-bottom:.03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:820px;margin-bottom:56px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede code,.legend code,.note code,.rn code{font-family:ui-monospace,Menlo,monospace;font-size:.92em}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:520px;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:76px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec.w375{width:375px}
+.spec-label{display:flex;flex-direction:column;gap:5px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.spec-label span{font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:8px}
+.note b{color:var(--tx);font-weight:700}
+.legend{display:flex;flex-direction:column;gap:9px;width:393px;padding:20px;border:1px solid var(--bd);border-radius:18px;background:var(--surf)}
+.legend h4{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx2);margin-bottom:3px}
+.legend div{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.legend div b{color:var(--tx);font-weight:700}
+.legend s{flex:none;width:11px;height:11px;border-radius:3px;margin-top:4px;background:var(--or);text-decoration:none}
+.legend s.n{background:var(--bd2)}
+.legend s.a{background:var(--am)}
+.legend s.r{background:var(--rd)}
+.legend s.p1{background:var(--m1);border-radius:999px}
+.legend s.p2{background:var(--m2);border-radius:999px}
+.legend s.p3{background:var(--m3);border-radius:999px}
+.legend s.o{background:transparent;border:1px solid var(--bd2);border-radius:999px}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px}
+.rn .r{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r b{flex:none;width:230px;color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.mt{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1180px;margin-bottom:14px}
+.mt .h,.mt .r2{display:flex;gap:16px;padding:11px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mt .h{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--tx3)}
+.mt .r2:last-child{border-bottom:0}
+.mt i{flex:none;width:250px;font-style:normal;font-weight:700;color:var(--tx)}
+.mt em{flex:none;width:130px;font-style:normal;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
+.mt code{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--tx2)}
+
+/* ── telefon çerçevesi ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.safe-top,.safe-bot{position:absolute;left:0;right:0;pointer-events:none;z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.safe-top{top:0;height:59px;border-bottom:1px dashed rgba(255,90,31,.4)}
+.safe-bot{bottom:0;height:34px;align-items:center;border-top:1px dashed rgba(255,90,31,.4)}
+.phone.sm .safe-top{height:20px}
+.safe-top span{position:relative;top:-18px}
+.safe-top span,.safe-bot span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+.pad-bot{height:112px;flex:none}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:70}
+.ic{width:23px;height:23px;flex:none}
+.tabbar{position:absolute;left:12px;right:12px;bottom:46px;height:66px;display:flex;align-items:stretch;padding:6px;gap:2px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassbd);border-radius:999px;z-index:50;box-shadow:0 1px 0 var(--sheen) inset}
+.tabbar.small{height:60px;bottom:12px;left:10px;right:10px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:999px;color:var(--tx2);min-width:44px}
+.tab.plus{color:var(--or)}
+.tab.plus .ic{width:27px;height:27px}
+.tab.sel{color:var(--tx);background:var(--tint)}
+.tab.sel .ic{color:var(--or)}
+
+/* ── istif: önde koyu kahraman panel, arkasında amber bekleyen panel ── */
+.stack{flex:none;position:relative;display:flex;flex-direction:column}
+.hero{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 0 20px;background:#1C1710;border-radius:0 0 34px 34px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.34);--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--surf2:#252015;--card:#241E16;--m1:#C08457;--m2:#D6A583;--m3:#EBCFB6;--mink:#2A1A0E;--gr:#5FBF64;color:var(--tx)}
+.skirt{position:absolute;left:0;right:0;bottom:0;height:38%;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(120,52,12,0) 0%,rgba(140,60,14,.34) 34%,rgba(176,72,16,.64) 68%,rgba(214,84,18,.96) 100%)}
+.hero>*:not(.skirt){position:relative;z-index:1}
+.status{width:100%;height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+/* dönem şeridi — referansta avatar/ikonun durduğu yer */
+.seg{flex:none;display:flex;gap:3px;height:36px;padding:3px;margin:6px 0 0;background:rgba(243,237,227,.07);border:1px solid var(--bd);border-radius:13px;width:max-content}
+.seg button{display:flex;align-items:center;justify-content:center;padding:0 14px;border-radius:10px;font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--tx2);min-width:44px}
+.seg button.on{background:rgba(243,237,227,.13);color:var(--tx)}
+.lb{margin-top:20px;font-size:11.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2)}
+.money{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;margin:8px 0 14px;font-size:68px;font-weight:300;letter-spacing:-.012em;line-height:.84;color:var(--tx);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:flex;align-items:baseline}
+.money s{font-size:1em;font-weight:inherit;color:inherit;text-decoration:none;margin-right:.04em;letter-spacing:inherit}
+.money.zero{color:var(--tx2)}
+.delta{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border-radius:11px;background:var(--surf2);border:1px solid var(--bd);font-size:13.5px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums;width:max-content}
+.delta.up{background:rgba(95,191,100,.13);border-color:rgba(95,191,100,.26);color:var(--gr)}
+.delta i{flex:none;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:6px solid currentColor}
+.delta.dn i{border-bottom:0;border-top:6px solid currentColor}
+.sum{margin-top:10px;font-size:13px;font-weight:500;color:var(--tx2);letter-spacing:-.01em}
+/* oran çubuğu — daireyle aynı renk kodu */
+.ratio{width:100%;display:flex;flex-direction:column;align-items:center;gap:9px;padding:18px 20px 0}
+.rbar{width:100%;display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:var(--surf2)}
+.rbar i{height:10px;border-radius:5px}
+.rbar i.s1{background:var(--m1)}
+.rbar i.s2{background:var(--m2)}
+.rbar i.s3{background:var(--m3)}
+.rbar.empty{background:var(--surf2)}
+.rleg{display:flex;justify-content:center;gap:16px}
+.rleg span{display:flex;align-items:center;gap:6px;font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rleg span s{flex:none;width:9px;height:9px;border-radius:999px;text-decoration:none}
+.rleg span.l1 s{background:var(--m1)}
+.rleg span.l2 s{background:var(--m2)}
+.rleg span.l3 s{background:var(--m3)}
+/* arkadan taşan panel: henüz girmemiş para */
+.pend{position:relative;z-index:1;display:flex;align-items:center;gap:12px;margin:-26px 12px 0;padding:38px 18px 12px;min-height:96px;border-radius:0 0 28px 28px;background:var(--pend);color:var(--pink)}
+.pend .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.pend .t b{font-size:17px;font-weight:600;letter-spacing:.004em;text-shadow:0 1px 1px rgba(90,26,0,.28)}
+.pend .t span{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-size:13px;font-weight:400;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.thm-light .pend .t span{color:rgba(255,255,255,.86)}
+.pend .ch{flex:none;color:rgba(255,255,255,.8)}
+.thm-light .pend .ch{color:rgba(255,255,255,.85)}
+.ax .pend .t span{white-space:normal}
+
+/* ── hareket başlığı ── */
+.kicker{flex:none;display:flex;align-items:baseline;justify-content:space-between;padding:18px 20px 10px}
+.kicker b{font-size:11.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx2)}
+.kicker span{font-size:12.5px;font-weight:700;color:var(--tx3);font-variant-numeric:tabular-nums}
+
+/* ── hareket kartları ── */
+.list{flex:1;display:flex;flex-direction:column;gap:8px;padding:0 20px;min-height:0;overflow:hidden;position:relative;z-index:1}
+.tcard{flex:none;display:flex;align-items:center;gap:12px;min-height:78px;padding:13px 14px;border-radius:20px;background:var(--card);border:1px solid var(--bd)}
+.tcard.fixed{background:var(--amb);border-color:var(--amd)}
+.tcard.void{background:var(--rdb);border-color:var(--rdd)}
+.av{flex:none;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14.5px;font-weight:800;letter-spacing:.01em;background:var(--surf2);color:var(--tx2)}
+.av.m1{background:var(--m1);color:var(--mink)}
+.av.m2{background:var(--m2);color:var(--mink)}
+.av.m3{background:var(--m3);color:var(--mink)}
+.thm-light .av.m3{color:#3A2214}
+.tcard.void .av{background:transparent;border:1px dashed var(--bd2);color:var(--tx3)}
+.tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tb b{font-size:16.5px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb .sv{font-size:13px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb .sv s{color:var(--tx3);text-decoration:none}
+.tb .who{font-size:11.5px;font-weight:600;color:var(--tx3);letter-spacing:.01em}
+.tr{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.tr b{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;font-size:20px}
+.tr b.d3{font-size:17px}
+.tr b.d5{font-size:23px}
+.tr .mth{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+.tcard.void .tr b{text-decoration:line-through;text-decoration-thickness:1.6px;color:var(--tx2)}
+.chip{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:7px;background:transparent;border:1px solid var(--amd);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--am);margin-top:3px;width:max-content}
+.trace{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--rd);margin-top:3px}
+.trace s{flex:none;width:12px;height:1.5px;background:var(--rd);text-decoration:none}
+.dayend{flex:none;display:flex;justify-content:center;padding:16px 20px 0}
+.mini{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border-radius:14px;font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--tx2)}
+.emptyline{flex:none;padding:8px 20px 0;font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.5;text-wrap:pretty}
+
+/* ── sheet: hareket detayı ── */
+.dimmer{position:absolute;inset:0;background:var(--dim);z-index:30}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:40;display:flex;flex-direction:column;background:var(--surf);border-radius:26px 26px 0 0;border-top:1px solid var(--bd2);max-height:704px;overflow:hidden}
+.grab{flex:none;height:26px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%)}
+.grab s{width:38px;height:5px;border-radius:3px;background:var(--bd2);text-decoration:none}
+.sh-body{flex:1;display:flex;flex-direction:column;padding:14px 20px 0;min-height:0;overflow:hidden}
+.sh-top{display:flex;align-items:flex-start;gap:13px;padding-bottom:16px}
+.sh-top .tb b{font-size:19px;letter-spacing:-.025em}
+.sh-amt{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;margin-left:auto;text-align:right;font-size:26px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.sh-sec{display:flex;flex-direction:column;gap:2px;padding:11px 0;border-top:1px solid var(--bd)}
+.sh-sec h5{font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx3);margin-bottom:7px}
+.sl{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:26px;font-size:15px;font-weight:500;color:var(--tx2)}
+.sl b{font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.sl.tot{margin-top:6px;padding-top:9px;border-top:1px solid var(--bd);font-size:16px}
+.sl.tot span{color:var(--tx);font-weight:700}
+.sl .mth{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--tx)}
+.sh-link{display:flex;align-items:center;justify-content:space-between;min-height:48px;font-size:15.5px;font-weight:700;letter-spacing:-.015em;border-top:1px solid var(--bd)}
+.sh-note{display:flex;gap:8px;padding:12px 0 14px;font-size:12px;font-weight:500;color:var(--tx3);line-height:1.5;border-top:1px solid var(--bd);text-wrap:pretty}
+.sh-note s{flex:none;width:13px;height:1px;background:var(--tx3);margin-top:8px;text-decoration:none}
+.sh-acts{flex:none;display:flex;gap:10px;padding:12px 20px 30px;border-top:1px solid var(--bd);background:var(--surf)}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:66px;border-radius:20px;font-size:16.5px;font-weight:700;letter-spacing:-.015em}
+.btn.sec{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx)}
+.btn.dest{background:transparent;border:1px solid var(--rdd);color:var(--rd)}
+
+/* ── iptal onayı ── */
+.alert{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:45;width:296px;border-radius:24px;background:var(--surf);border:1px solid var(--bd2);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.al-b{display:flex;flex-direction:column;gap:9px;padding:22px 20px 18px;text-align:center}
+.al-b b{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.al-b .w{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.45;text-wrap:pretty}
+.al-b .what{display:flex;flex-direction:column;gap:1px;padding:11px 12px;margin:2px 0;border-radius:14px;background:var(--surf2);border:1px solid var(--bd);text-align:left}
+.al-b .what b{font-size:15px}
+.al-b .what span{font-size:12.5px;font-weight:500;color:var(--tx2);font-variant-numeric:tabular-nums}
+.al-acts{display:flex;flex-direction:column;border-top:1px solid var(--bd)}
+.al-acts button{height:56px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;letter-spacing:-.015em}
+.al-acts button+button{border-top:1px solid var(--bd)}
+.al-acts .no{color:var(--tx2)}
+.al-acts .yes{color:var(--rd);font-weight:800}
+
+/* ── AX yığılmış düzen ── */
+.ax .seg{height:auto;flex-direction:column;gap:5px;width:calc(100% - 40px);padding:5px}
+.ax .seg button{height:56px;font-size:21px}
+.ax .lb{font-size:17px;letter-spacing:.12em;margin-top:16px}
+.ax .money{font-size:72px;margin:6px 0 12px}
+.ax .delta{height:40px;font-size:19px;padding:0 14px}
+.ax .sum{font-size:19px;line-height:1.4}
+.ax .rleg{flex-direction:column;align-items:flex-start;gap:9px}
+.ax .rleg span{font-size:19px}
+.ax .kicker{flex-direction:column;align-items:flex-start;gap:4px;padding-top:16px}
+.ax .kicker b{font-size:17px}
+.ax .kicker span{font-size:17px}
+.ax .tcard{flex-direction:column;align-items:stretch;gap:10px;min-height:0;padding:16px}
+.ax .tcard .av{width:52px;height:52px;font-size:19px}
+.ax .tb b{font-size:26px;white-space:normal}
+.ax .tb .sv{font-size:21px;white-space:normal}
+.ax .tb .who{font-size:19px}
+.ax .tr{flex-direction:row;align-items:baseline;gap:12px}
+.ax .tr b,.ax .tr b.d3{font-size:30px}
+.ax .tr .mth{font-size:17px}
+.ax .axrow{display:flex;align-items:center;gap:13px}
+.ax .pend{min-height:0;align-items:flex-start;flex-direction:column;gap:8px}
+.ax .pend .t b{font-size:22px;line-height:1.25}
+.ax .pend .t span{font-size:19px}
+</style></head>
+<template id="__bundler_thumbnail" data-bg-color="#0B0805"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#0B0805"/><rect x="490" y="100" width="220" height="600" rx="36" fill="#120E08" stroke="#F3EDE3" stroke-opacity=".2"/><path d="M490 100h220v250a30 30 0 0 1-30 30H520a30 30 0 0 1-30-30z" fill="#1C1710"/><text x="600" y="180" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" letter-spacing="3" fill="#8b7f6f">BUGÜN GİREN</text><text x="600" y="240" text-anchor="middle" font-family="system-ui,sans-serif" font-size="52" font-weight="400" fill="#F3EDE3">₺8.450</text><rect x="512" y="356" width="176" height="66" rx="22" fill="#D9A43B"/><rect x="512" y="440" width="176" height="70" rx="20" fill="#241E16"/><rect x="512" y="520" width="176" height="70" rx="20" fill="#332218" stroke="#E07272" stroke-opacity=".3"/><text x="600" y="750" font-family="system-ui,sans-serif" font-size="56" font-weight="800" letter-spacing="-3" text-anchor="middle" fill="#F3EDE3">luera</text></svg></template>
+<body>
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-today"><path d="M4 8h16M8 3v3M16 3v3M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></g>
+<g id="i-cal"><path d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1z"/><path d="M8 13h2M14 13h2M8 16.6h2"/></g>
+<g id="i-cash"><path d="M3.6 7.4h16.8v9.2H3.6zM12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></g>
+<g id="i-card"><rect x="3.4" y="6" width="17.2" height="12" rx="2.4"/><path d="M3.4 10.2h17.2"/></g>
+<g id="i-wire"><path d="M4 8.5h13l-3-3M20 15.5H7l3 3"/></g>
+<g id="i-chev"><path d="M9.5 5.5 16 12l-6.5 6.5"/></g>
+<g id="i-doc"><path d="M6.5 3.5h7l4.5 4.5v12a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/><path d="M13.2 3.6V8h4.4M8.6 12.5h6.8M8.6 16h4.4"/></g>
+<g id="i-pen"><path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4z"/></g>
+<g id="i-x"><path d="M6 6l12 12M18 6 6 18"/></g>
+</defs></svg>
+
+<div class="doc">
+<div class="doc-head">
+<div class="mark">luera<i></i></div>
+<div class="meta">TimeFlow · Mobil · Müdür Modu<br/>Belge A — Ek 14 · Kasa · v4<br/>393 × 852 pt · iPhone 16 Pro</div>
+</div>
+<div class="lede">
+<h1>Müdür 14 — Kasa <span style="color:var(--tx3)">v4</span></h1>
+<p>Bu tur referansın kompozisyonunu aldı: <b>iki kart istifi</b> (önde koyu panel = giren para, arkasından çıkan turuncu panel = henüz girmemiş para; koyu panelin altına giren, yalnız alt köşeleri yuvarlak), <b>ortalanmış kahraman</b> (68 pt, ağırlık 300, sistem yazı tipi), <b>tonlu kartlar</b>, <b>renkli daireler</b> ve <b>tek doygun vurgu</b>. Sayfa başlığı kalktı — sekme çubuğu zaten “Kasa” diyor, tarih bilgisi etiket ve dönem şeridiyle veriliyor. Referansın avatarı, kart kimliği, karuseli, “Add Card” çağrısı, kuruşu ve saf siyahı alınmadı; sağ ve sol üst köşe boş.</p>
+<p>Koyu panel <b>iki temada da koyu</b> (#1C1710): krem sayfanın üstünde de duruyor, içinde beyaz dev rakam var, iki tema tek tasarım gibi okunuyor. Panelin alt %38’inde arkadaki turuncu panelin sıcaklığını ima eden, alt kenara doğru kesintisiz ısınan bir <b>gradyan etek</b> var — bulanıklık değil. Cam yalnız kabukta: sekme çubuğu ve sheet tutamağı.</p>
+<p>Turuncu envanterinde tek istisna var: <b>bekleyen tahsilat paneli</b> (referanstaki arka kartın karşılığı). Onun dışında kural sürüyor — hiçbir para tutarı turuncu değil, kahraman rakam nötr beyaz, turuncu yalnız zaman ve eylemde (sekme çubuğundaki artı, seçili sekme, güvenli alan kılavuzu). Yöntem renkleri tek bir <b>sıcak kil ailesinin üç basamağı</b>: nakit en koyu ve doygun, kart orta, havale en açık — hem tonda hem parlaklıkta ayrıştıkları için renk körlüğünde de okunuyorlar. Oran çubuğu ile daireler aynı üç değeri kullanıyor.</p>
+</div>
+
+<!-- ══════════ 01 · KARARLAR ══════════ -->
+<div class="band"><span class="num">01</span><h2>Kararlar</h2><p>Dört karar: istifin fiziği, yöntem renk ailesi, tek vurgunun yeri, boş günün biçimi.</p></div>
+<div class="row">
+<div class="legend">
+<h4>1 · İstif iki gerçek nesne</h4>
+<div><s class="n"></s><span><b>Önde koyu panel = giren para.</b> Kenardan kenara, güvenli alanı örter, alt köşeleri 30. Üstte dönem şeridi, sonra ortalanmış etiket → dev rakam → değişim hapı → özet → oran çubuğu.</span></div>
+<div><s class="a"></s><span><b>Arkadan taşan panel = henüz girmemiş para.</b> Soldan/sağdan 12 pt içeride, kendi 26 yarıçapı var, üst 30 pt’si koyu panelin arkasında kalıyor. İstif dekoratif değil: iki para hâlini fiziksel olarak katmanlıyor.</span></div>
+<div><s class="n"></s><span><b>Etek gradyanı</b> panelin alt %38’inde ve ısınma <b>kesintisiz</b>: <code>#1C1710</code>’dan pas kahvesine, oradan alt kenarda turuncuya çalan dibe (<code>rgba(120,52,12,0)</code> → <code>rgba(214,84,18,.96)</code>, dört durak, dikey). En sıcak nokta tam alt kenar — arkadaki turuncunun ışığı orada sızıyor. Bant görünmez. Bulanıklık yok — içerik katmanında cam yasak.</span></div>
+<div><s class="a"></s><span><b>Kavuşma bölgesi:</b> koyu panel aşağıya gölge düşürür (<code>0 8 18 rgba(0,0,0,.34)</code>), turuncu panel 26 pt onun arkasına girer (üst köşeleri yok, yalnız alt köşeler 28) ve turuncu panelin üst kenarı koyu panelin arkasında kalıyor — iki panel birbirine bağlı, ayrı bir buton gibi durmuyor.</span></div><div><s class="o"></s><span><b>Bekleyen yoksa istif tek katmana düşer:</b> koyu panel 30 yarıçaplı köşeleriyle biter, altında panel olmaz, liste doğrudan başlar.</span></div>
+</div>
+<div class="legend">
+<h4>2 · Yöntem renk ailesi</h4>
+<div><s class="p1"></s><span><b>Nakit — en koyu, en doygun kil</b> <code>#C08457</code> koyu / <code>#8A4A2B</code> açık. Müdürün en çok umursadığı yöntem en ağır basamağı alıyor.</span></div>
+<div><s class="p2"></s><span><b>Kart — orta basamak</b> <code>#D6A583</code> / <code>#A5643B</code>. Salonun çoğunluk yöntemi; sakin.</span></div>
+<div><s class="p3"></s><span><b>Havale — en açık basamak</b> <code>#EBCFB6</code> / <code>#C08A5E</code>. Nadir yöntem, en hafif değer.</span></div>
+<div><s class="o"></s><span><b>Neden kil:</b> mor ve mavi bu krem/kahve sisteminin dışındaydı, özellikle açık temada krem zeminde yabancı duruyordu. Kil ailesi sistemin içinden geliyor ve uyarı renklerinden uzak: nakitin kili kırmızıdan (<code>#C94040 / #E07272</code>) daha kahverengi ve daha az doygun, hiçbiri turuncuya (<code>#FF5A1F</code>) yaklaşmıyor. Yöntem bir durum değil bir sınıf; ayrı bir aileyi hak ediyor. <b>Renk tek başına anlam taşımıyor</b> — yöntem kelimesi tutarın altında kalıyor.</span></div>
+<div><s class="n"></s><span><b>Aynı üç değer iki yerde:</b> oran çubuğunun dilimleri ve dairelerin dolgusu. Fark hem tonda hem parlaklıkta olduğu için çubuk gri basılsa da okunur. Müdürün ikinci sorusu (“neyle girdi?”) çubukta oran, listede tekil olarak okumadan cevaplanıyor.</span></div>
+</div>
+<div class="legend">
+<h4>3 · Tek vurgu bekleyen tahsilatta</h4>
+<div><s class="a"></s><span><b>Turuncu.</b> Envanter kuralı bu tek panel için kaldırıldı: referanstaki arka kart turuncuydu, bizdeki de öyle. Ekranın geri kalanında turuncu hâlâ yalnız zaman ve eylemde (sekme artısı, seçili sekme) — panel dokunulabilir ama tahsilat eylemi yok.</span></div>
+<div><s class="n"></s><span><b>Yeri istifin arkası:</b> “girmiş para”yı okuduktan sonra “girmemiş para” fiziksel olarak onun <em>arkasından</em> çıkıyor. Panel toplamı yorumlar, listeye ait değildir.</span></div>
+<div><s class="o"></s><span><b>Tahsilat butonu yok.</b> Dokunmak detaya gider; para mobilde alınmıyor. Gri bir “yakında” butonu da yok.</span></div>
+<div><s class="n"></s><span><b>Kart oranı:</b> dikey dolgu 38/12 (üstün 26’sı koyu panelin arkasında), toplam yükseklik ≥96, yarıçap 28 sabit — yarıçap yükseklikle büyümediği için oransal olarak küçülüyor ve panel haptan karta dönüyor. Birinci satır 17 / 600 açık harf aralığıyla, ikinci satır 13 / 400 %82 opaklıkta. <b>Gradyan dikey ve aşağı doğru parlaklaşıyor:</b> <code>#C63C0C → #E8430F → #FF5A1F</code> (180deg, üç durak), ışık alt kenarda toplanıyor; üst kenarda <code>inset 0 1px 0 rgba(255,255,255,.30)</code> hattı var; iki temada birebir aynı, krem sayfada soluklaştırılmıyor. Metin ve ikon krem (<code>#FFF9F5</code>), ana satır 800 ağırlık + <code>0 1 1 rgba(90,26,0,.34)</code> gölgeyle taşınıyor. Turuncu kısıtı yalnız bu panel için kaldırıldı — bekleyen tahsilat referanstaki turuncu kartın birebir karşılığı. Doygun blokta ikinci bir renk kullanılmıyor — tutar da aynı mürekkep, kendi rengi yok.</span></div>
+</div>
+<div class="legend">
+<h4>4 · Boş gün: dev rakam ₺0 olarak kalır</h4>
+<div><s class="n"></s><span><b>Karar: kalır.</b> ₺0 bir hata değil, doğru bir ölçüm. Sabah 09:10’da kasa boştur ve müdürün gördüğü şey tam olarak budur.</span></div>
+<div><s class="n"></s><span><b>İkinci gerekçe alışkanlık:</b> müdür bu ekranı günde onlarca kez açıyor. Rakamın yerine mesaj koymak sabahla akşam arasında ekranın <em>şeklini</em> değiştirir; gözün her açılışta aynı noktaya inmesi bu ekranın en değerli özelliği.</span></div>
+<div><s class="n"></s><span><b>Değişen şey ton:</b> ₺0 <code>tx2</code> (nötr, kırmızı değil), hapın yerinde karşılaştırma yerine dürüst bir cümle, oran çubuğu boş yatak, etiketleri gizli.</span></div>
+<div><s class="a"></s><span><b>Bekleyen paneli görünür kalır</b> — para girmemiş ama bekleyen var; boş günün tek gerçek haberi o, ve ekranın tek doygun rengi olarak öyle görünüyor.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 02 · ANA SAYFA ══════════ -->
+<div class="band"><span class="num">02</span><h2>Ekran 1 — Kasa ana sayfası</h2><p>İki tema, ikisi de tam özenle. Ölçüler birebir aynı; farklı olan yalnız kart tonlarının alfası ve yöntem renklerinin lightness’ı.</p></div>
+<div class="row">
+
+<!-- 14a dark -->
+<div class="spec">
+<div class="spec-label"><b>14a — varsayılan · karanlık</b><span>Yukarıdan aşağı soru sıklığı: ne kadar → neyle → kim → bu ay. Üst köşeler boş.</span></div>
+<div class="phone thm-dark" data-screen-label="14a">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <div class="ratio">
+        <div class="rbar" role="img" aria-label="Yöntem dağılımı: nakit yüzde 37, 3.100 lira; kart yüzde 54, 4.550 lira; havale yüzde 9, 800 lira"><i class="s1" style="width:36.7%"></i><i class="s2" style="width:53.8%"></i><i class="s3" style="width:9.5%"></i></div>
+        <div class="rleg"><span class="l1"><s></s>Nakit ₺3.100</span><span class="l2"><s></s>Kart ₺4.550</span><span class="l3"><s></s>Havale ₺800</span></div>
+      </div>
+    </div>
+    <button class="pend"><span class="t"><b>2 adisyon tahsil edilmedi</b><span>₺2.650 · en eskisi 24 dk bekliyor</span></span><svg class="ic ch" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+  </div>
+  <div class="kicker"><b>Hareketler</b><span>6 işlem · 1 iptal</span></div>
+  <div class="list">
+    <button class="tcard"><span class="av m2">MA</span><span class="tb"><b>Merve Aydın</b><span class="sv">Kesim + fön <s>·</s> 11:34</span><span class="who">Merve aldı</span></span><span class="tr"><b>₺1.800</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <button class="tcard fixed"><span class="av m1">ZK</span><span class="tb"><b>Zeynep Kaya</b><span class="sv">Saç boyama <s>·</s> 11:12</span><span class="chip">düzeltildi</span></span><span class="tr"><b class="d5">₺2.400</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+    <button class="tcard"><span class="av m2">ED</span><span class="tb"><b>Elif Demir</b><span class="sv">Keratin bakımı <s>·</s> 10:48</span><span class="who">Selin aldı</span></span><span class="tr"><b>₺1.950</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <button class="tcard"><span class="av m1">BŞ</span><span class="tb"><b>Buket Şen</b><span class="sv">Kaş alma <s>·</s> 10:20</span><span class="who">Ece aldı</span></span><span class="tr"><b class="d3">₺700</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+    <div class="pad-bot"></div>
+  </div>
+</div>
+<div class="tabbar">
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></button>
+  <button class="tab plus" aria-label="Randevu oluştur"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg></button>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Dönem şeridi referanstaki avatar/ikon hattında.</b> 36 pt, kendi genişliğinde, ortalanmış; seçili hap nötr (<code>rgba(243,237,227,.13)</code>), turuncu değil. Etiket dönemle değişir: “BUGÜN GİREN” → “BU HAFTA GİREN” → “BU AY GİREN”.</span></div>
+<div class="note"><span><b>Para rakamları sistem yazı tipiyle</b> (<code>-apple-system, "SF Pro Display", system-ui</code>): dev tutar, kart tutarları, oran değerleri, bekleyen panelin tutarı, sheet toplamı. Metin (müşteri adı, hizmet, etiketler) Hanken Grotesk kalıyor — iki yazı tipi iş bölümü yapıyor. Dev tutar 68 / ağırlık 300 / <code>−.012em</code>: SF Pro Display dar ve oval, bu boyutta ince ağırlıkta zarif kalıyor. <b>₺ rakamlarla eşit boy, eşit ağırlık, eşit renk</b>, satır içinde — küçültme, soluklaştırma, kaydırma yok.</span></div>
+<div class="note"><span><b>Aşağı yön nötr:</b> <code>.delta.dn</code> ne yeşil ne kırmızı — <code>surf2</code> zemin, <code>tx2</code> metin. Salonun sakin günü hata değil. Dönem değişince karşılaştırmanın adı da değişir (“geçen haftaya göre”).</span></div>
+<div class="note"><span><b>Oran çubuğu üç kutu değil:</b> 10 pt yüksek, 5 yarıçap, dilimler arası 2 pt boşluk. Altındaki üç değer yöntem noktalarıyla eşleşiyor. Sesli okumada tek düğüm: “Yöntem dağılımı: nakit yüzde 37, 3.100 lira; kart yüzde 54, 4.550 lira; havale yüzde 9, 800 lira”.</span></div>
+<div class="note"><span><b>Büyüklük ipucu hane sayısından:</b> yüzler 17, binler 20, on binler ve gün içinde en büyük işlem 23 pt. ₺700 ile ₺2.400 aynı görünmüyor ama kart bir grafiğe dönüşmüyor.</span></div>
+<div class="note"><span><b>Üç metin kademesi:</b> tutar ve müşteri adı <code>tx</code> · hizmet ve saat <code>tx2</code> · yöntem etiketi ve personel <code>tx3</code>. Düzeltilmiş kartta “kim aldı” satırının yerini çip alır; kart yüksekliği sabit kalır.</span></div>
+</div>
+
+<!-- 14a light -->
+<div class="spec">
+<div class="spec-label"><b>14a — aynı ekran · aydınlık</b><span>Panel iki temada da koyu. Kart tonları ve yöntem renkleri krem zemin için ayrıca ayarlandı — koyunun ters çevrilmişi değil.</span></div>
+<div class="phone thm-light" data-screen-label="14a-light">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <div class="ratio">
+        <div class="rbar" role="img" aria-label="Yöntem dağılımı: nakit yüzde 37, 3.100 lira; kart yüzde 54, 4.550 lira; havale yüzde 9, 800 lira"><i class="s1" style="width:36.7%"></i><i class="s2" style="width:53.8%"></i><i class="s3" style="width:9.5%"></i></div>
+        <div class="rleg"><span class="l1"><s></s>Nakit ₺3.100</span><span class="l2"><s></s>Kart ₺4.550</span><span class="l3"><s></s>Havale ₺800</span></div>
+      </div>
+    </div>
+    <button class="pend"><span class="t"><b>2 adisyon tahsil edilmedi</b><span>₺2.650 · en eskisi 24 dk bekliyor</span></span><svg class="ic ch" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+  </div>
+  <div class="kicker"><b>Hareketler</b><span>6 işlem · 1 iptal</span></div>
+  <div class="list">
+    <button class="tcard void"><span class="av">SK</span><span class="tb"><b>Sevil Kanat</b><span class="sv">Kesim + fön <s>·</s> 10:05</span><span class="trace"><s></s>iptal · Ayla, 11:42</span></span><span class="tr"><b>₺1.200</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+    <button class="tcard"><span class="av m3">HT</span><span class="tb"><b>Hale Toprak</b><span class="sv">Saç bakımı + ürün <s>·</s> 09:52</span><span class="who">Deniz aldı</span></span><span class="tr"><b class="d3">₺800</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-wire"/></svg>havale</span></span></button>
+    <button class="tcard"><span class="av m2">NA</span><span class="tb"><b>Nihan Arı</b><span class="sv">Kesim <s>·</s> 09:30</span><span class="who">Deniz aldı</span></span><span class="tr"><b class="d3">₺800</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <div class="dayend"><button class="mini"><svg class="ic" style="width:19px;height:19px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-doc"/></svg>Gün sonu özeti</button></div>
+    <div class="pad-bot"></div>
+  </div>
+</div>
+<div class="tabbar">
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></button>
+  <button class="tab plus" aria-label="Randevu oluştur"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg></button>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Koyu panel açık temada da koyu.</b> Krem sayfa (#F3ECE0) üstünde #1C1710 blok; referansın kontrast gücü korunuyor ve iki tema tek tasarım gibi duruyor. Panelin içindeki kademeler koyu tema değişkenlerinden geliyor — <code>.hero</code> kendi <code>--tx/--tx2/--tx3</code>’ünü tanımlıyor.</span></div>
+<div class="note"><span><b>Hareket kartı tonları krem için yeniden ayarlandı:</b> düzeltildi tonu <code>%16 → %6</code> amber gradyan, kırmızı <code>%13 → %4.5</code>. Kremin üstünde aynı alfa uyarı levhasına dönüyor; ayırt edici iş kenara (<code>--amd %30</code>, <code>--rdd %28</code>) ve üstü çizili tutara bırakıldı.</span></div>
+<div class="note"><span><b>Yöntem renkleri açık temada koyulaşıyor</b> (<code>#8A4A2B</code> · <code>#A5643B</code> · <code>#C08A5E</code>): koyu temanın değerleri kremin üstünde kontrast tutmuyordu. Mürekkep de basamağa göre değişir — nakit ve kartta krem, en açık basamak olan havalede koyu (<code>#3A2214</code>), çünkü krem mürekkep orada 2.8:1’de kalıyordu.</span></div>
+<div class="note"><span><b>Listenin sonu kaydırılmış hâlde:</b> iptal kartı, havale kartı, gün sonu bağlantısı. İptal edilen kayıt listeden kaybolmaz — toplama girmez ama görünür kalır.</span></div>
+<div class="note"><span><b>Gün sonu özeti bir buton kabuğu değil:</b> 44 pt, zeminsiz, <code>tx2</code>. Günün kapanışı bir eylem değil, bir belge.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 03 · SHEET · ONAY · BOŞ GÜN ══════════ -->
+<div class="band"><span class="num">03</span><h2>Ekran 2–4 — Detay, iptal, boş gün</h2><p>Kısa tutuldu: efor ana sayfada. Onay diyaloğu bu uygulamada yalnız yıkıcı eylemde vardır.</p></div>
+<div class="row">
+
+<!-- sheet -->
+<div class="spec">
+<div class="spec-label"><b>14b — hareket detayı (sheet)</b><span>Karta dokununca açılır. Cam yalnız tutamakta; içerik opak <code>surf</code>.</span></div>
+<div class="phone thm-dark" data-screen-label="14b-detay">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <span class="sum">6 tahsilat · son giriş 11:34</span>
+    </div>
+  </div>
+  <div class="dimmer"></div>
+  <div class="sheet">
+    <div class="grab"><s></s></div>
+    <div class="sh-body">
+      <div class="sh-top"><span class="av m1">ZK</span><span class="tb"><b>Zeynep Kaya</b><span class="sv">13 Ağustos 2026, 11:12</span></span><span class="sh-amt">₺2.400</span></div>
+      <div class="sh-sec">
+        <h5>Randevu</h5>
+        <div class="sl"><span>Saç boyama <s>·</s> 10:15–11:10</span><b>Merve</b></div>
+      </div>
+      <div class="sh-sec">
+        <h5>Hizmetler</h5>
+        <div class="sl"><span>Saç boyama</span><b>₺1.900</b></div>
+        <div class="sl"><span>Fön</span><b>₺350</b></div>
+        <div class="sl"><span>Bakım ürünü</span><b>₺150</b></div>
+        <div class="sl tot"><span>Toplam</span><b>₺2.400</b></div>
+      </div>
+      <div class="sh-sec">
+        <h5>Tahsilat</h5>
+        <div class="sl"><span>Yöntem</span><span class="mth"><svg class="ic" style="width:17px;height:17px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>Nakit</span></div>
+        <div class="sl"><span>Alan</span><b>Merve</b></div>
+        <div class="sl"><span>Açıklama</span><b>Ürün indirimi uygulandı</b></div>
+      </div>
+      <button class="sh-link">Zeynep Kaya’nın kartı<svg class="ic" style="width:20px;height:20px;color:var(--tx3)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+      <div class="sh-note"><s></s><span>Düzeltme kaydı güncellemez: eski kayıt iptal edilir, yenisi yazılır. Listede ikisi de görünür — üstte yeni tutar, altında üstü çizili eski.</span></div>
+    </div>
+    <div class="sh-acts">
+      <button class="btn sec"><svg class="ic" style="width:19px;height:19px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pen"/></svg>Düzelt</button>
+      <button class="btn dest"><svg class="ic" style="width:19px;height:19px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>İptal et</button>
+    </div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>İki eylem, iki biçim:</b> “Düzelt” dolgulu ikincil (<code>surf2</code> + <code>bd2</code>), “İptal et” yalnız kırmızı kenarlı. İkisi de 66 pt. Yıkıcı eylem dolgulu değil: yanlışlıkla en cazip görünen şey olmamalı.</span></div>
+<div class="note"><span><b>Dürüstlük notu eylemlerin üstünde</b>, <code>tx3</code> 12 pt. Kullanıcı “Düzelt”e tek eylem olarak basar ama listede iz göreceğini önceden bilir. Bu bir hata mesajı değil, veritabanı gerçeği: ödeme güncelleme yolu yok.</span></div>
+<div class="note"><span><b>Hizmet satırları tek tek fiyatlı</b>, toplam ayırıcının altında. “Bu tutar niye böyle” sorusu burada bitiyor.</span></div>
+<div class="note"><span><b>Daire sheet’te de yöntem rengini taşır</b> — liste ile detay arasında renk sürekliliği. Sheet’te ayrıca yöntem kelimesi kendi satırında yazılı.</span></div>
+</div>
+
+<!-- onay -->
+<div class="spec">
+<div class="spec-label"><b>14c — iptal onayı</b><span>Uygulamadaki tek onay diyaloğu. Ne iptal ediliyor, sonuç ne, geri alınamaz.</span></div>
+<div class="phone thm-dark" data-screen-label="14c-onay">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <span class="sum">6 tahsilat · son giriş 11:34</span>
+      <div class="ratio">
+        <div class="rbar"><i class="s1" style="width:36.7%"></i><i class="s2" style="width:53.8%"></i><i class="s3" style="width:9.5%"></i></div>
+        <div class="rleg"><span class="l1"><s></s>Nakit ₺3.100</span><span class="l2"><s></s>Kart ₺4.550</span><span class="l3"><s></s>Havale ₺800</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="kicker"><b>Hareketler</b><span>7 işlem</span></div>
+  <div class="list">
+    <button class="tcard"><span class="av m2">MA</span><span class="tb"><b>Merve Aydın</b><span class="sv">Kesim + fön <s>·</s> 11:34</span><span class="who">Merve aldı</span></span><span class="tr"><b>₺1.800</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <button class="tcard"><span class="av m1">SK</span><span class="tb"><b>Sevil Kanat</b><span class="sv">Kesim + fön <s>·</s> 10:05</span><span class="who">Ece aldı</span></span><span class="tr"><b>₺1.200</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+    <div class="pad-bot"></div>
+  </div>
+  <div class="dimmer"></div>
+  <div class="alert">
+    <div class="al-b">
+      <b>Tahsilatı iptal et</b>
+      <div class="what"><b>Sevil Kanat</b><span>₺1.200 nakit · 10:05 · Ece aldı</span></div>
+      <span class="w">Tutar gün toplamından düşer. Kayıt silinmez, listede iptal izi olarak kalır. Bu işlem geri alınamaz.</span>
+    </div>
+    <div class="al-acts"><button class="yes">İptal et</button><button class="no">Vazgeç</button></div>
+  </div>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="spec-label" style="margin-top:2px"><b>onay sonrası · listedeki iz</b><span>Kart yerinde kalır, tonu kırmızıya döner, dairesi boşalır, tutarı üstü çizilir, izi altına yazılır.</span></div>
+<div class="thm-dark" style="width:393px;padding:16px 20px;background:var(--bg);border:1px solid var(--bd2);border-radius:26px;display:flex;flex-direction:column;gap:8px">
+  <button class="tcard"><span class="av m2">ED</span><span class="tb"><b>Elif Demir</b><span class="sv">Keratin bakımı <s>·</s> 10:48</span><span class="who">Selin aldı</span></span><span class="tr"><b>₺1.950</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+  <button class="tcard void"><span class="av">SK</span><span class="tb"><b>Sevil Kanat</b><span class="sv">Kesim + fön <s>·</s> 10:05</span><span class="trace"><s></s>iptal · Ayla, 11:42</span></span><span class="tr"><b>₺1.200</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+</div>
+<div class="note"><span><b>Yıkıcı eylem üstte:</b> iOS alarm gramerinde onay üstte, vazgeçme altta ve <code>tx2</code>. Kırmızı ve 800 ağırlık yalnız “İptal et”te.</span></div>
+<div class="note"><span><b>Neyin iptal edildiği alıntı kutusunda</b>: müşteri, tutar, yöntem, saat, alan personel. Diyalog “emin misiniz” sormuyor, <em>ne olacağını</em> söylüyor.</span></div>
+<div class="note"><span><b>Ekranda kaç onay var: bir.</b> Düzeltme, dönem değişimi, sheet kapama, gün sonu — hiçbiri onay istemez. Diyaloğun gücü nadirliğinden geliyor.</span></div>
+<div class="note"><span><b>İz kartında daire yöntem rengini bırakır</b>: zemin kalkar, kenar kesikli olur, harfler <code>tx3</code>. Renk bir tahsilatın sıfatıydı; tahsilat iptal edilince sıfat da düşüyor. Müşteri hâlâ okunur — iz anonim değil.</span></div>
+</div>
+
+<!-- boş gün -->
+<div class="spec">
+<div class="spec-label"><b>14d — boş gün</b><span>Sabah 09:10, henüz tahsilat yok. İskelet aynı; değişen ton ve tek satır.</span></div>
+<div class="phone thm-dark" data-screen-label="14d-bos">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:10<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money zero"><s>₺</s>0</b>
+      <span class="delta">dün bu saatte de ₺0</span>
+      <div class="ratio">
+        <div class="rbar empty" role="img" aria-label="Yöntem dağılımı yok, bugün tahsilat girmedi"></div>
+      </div>
+    </div>
+    <button class="pend"><span class="t"><b>1 adisyon tahsil edilmedi</b><span>₺900 · dünden kaldı, 18 saat bekliyor</span></span><svg class="ic ch" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+  </div>
+  <div class="kicker"><b>Hareketler</b><span>0 işlem</span></div>
+  <div class="emptyline">Henüz tahsilat yok. Personel kasaya gönderdikçe burada görünür.</div>
+</div>
+<div class="tabbar">
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></button>
+  <button class="tab plus" aria-label="Randevu oluştur"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg></button>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>₺0 <code>tx2</code> renginde</b>, aynı 68 pt. Nötr renk “bu bir uyarı değil” der; boyut “bu ekranın konusu hâlâ bu rakam” der.</span></div>
+<div class="note"><span><b>Hap nötr ve dürüst:</b> “dün bu saatte de ₺0”. Yön oku yok, yüzde yok — sıfırın yüzdesi tanımsız. Karşılaştırma yapılamıyorsa hap tamamen gizlenir, uydurma sıfır yüzde gösterilmez.</span></div>
+<div class="note"><span><b>Oran çubuğu yatak olarak kalır</b>, etiketleri gizlenir: alan korunuyor, ilk tahsilat girdiğinde düzen kaymıyor.</span></div>
+<div class="note"><span><b>İstif boş günde de iki katman:</b> gün ₺0 ama dünden kalmış ₺900 var. Bekleyen olmadığı günde panel hiç çizilmez ve koyu panel kendi köşeleriyle biter.</span></div>
+<div class="note"><span><b>Suçlayıcı değil:</b> illüstrasyon yok, “hadi başla” yok, gri buton yok. İki cümle bilgi, sonrası boşluk. Salonda 09:10’da kasa boşsa her şey yolunda.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 04 · SIKIŞMA VE ERİŞİLEBİLİRLİK ══════════ -->
+<div class="band"><span class="num">04</span><h2>Sıkışma ve erişilebilirlik</h2><p>375 × 667 küçük ekran, ve en büyük erişilebilirlik yazı boyutunda yığılmış düzen.</p></div>
+<div class="row">
+
+<!-- 375 -->
+<div class="spec w375">
+<div class="spec-label"><b>14e — 375 × 667 sıkışma</b><span>Kesilen şey: kart sayısı ve etiket kelimeleri. Kesilmeyen şey: istif, kart yüksekliği, dokunma hedefleri.</span></div>
+<div class="phone sm thm-dark" data-screen-label="14e-375">
+<div class="safe-top"><span>20</span></div><div class="safe-bot"><span>0</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero" style="padding-bottom:16px">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg" style="margin-top:10px"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb" style="margin-top:14px">bugün giren</span>
+      <b class="money" style="font-size:58px;margin:6px 0 12px"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <div class="ratio" style="padding-top:14px">
+        <div class="rbar"><i class="s1" style="width:36.7%"></i><i class="s2" style="width:53.8%"></i><i class="s3" style="width:9.5%"></i></div>
+        <div class="rleg" style="gap:14px"><span class="l1"><s></s>₺3.100</span><span class="l2"><s></s>₺4.550</span><span class="l3"><s></s>₺800</span></div>
+      </div>
+    </div>
+    <button class="pend"><span class="t"><b>2 adisyon tahsil edilmedi</b><span>₺2.650 · en eskisi 24 dk</span></span><svg class="ic ch" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev"/></svg></button>
+  </div>
+  <div class="kicker" style="padding:12px 20px 8px"><b>Hareketler</b><span>6 işlem · 1 iptal</span></div>
+  <div class="list">
+    <button class="tcard"><span class="av m2">MA</span><span class="tb"><b>Merve Aydın</b><span class="sv">Kesim + fön <s>·</s> 11:34</span><span class="who">Merve aldı</span></span><span class="tr"><b>₺1.800</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <button class="tcard fixed"><span class="av m1">ZK</span><span class="tb"><b>Zeynep Kaya</b><span class="sv">Saç boyama <s>·</s> 11:12</span><span class="chip">düzeltildi</span></span><span class="tr"><b class="d5">₺2.400</b><span class="mth"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg>nakit</span></span></button>
+    <div class="pad-bot"></div>
+  </div>
+</div>
+<div class="tabbar small">
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></button>
+  <button class="tab plus" aria-label="Randevu oluştur"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg></button>
+</div>
+</div>
+<div class="note"><span><b>Rakam 96 → 78.</b> Tek türetilen tipografik ölçü bu (<code>width &lt; 380</code>). Diğer her puntaj sabit; panelin dolgusu ve şeridin üst boşluğu birkaç pt kısılıyor.</span></div>
+<div class="note"><span><b>Oran etiketleri kısalır:</b> “Nakit ₺3.100” → “₺3.100”. Kelime rengin yerini almıyor, renk zaten kodlu; 375’te üç etiket tek satıra ancak böyle sığıyor ve iki satıra düşmek çubuğun bütünlüğünü bozuyor. <b>Bu, yöntem kelimesinin kart üstünde kalmasının nedeni</b> — erişilebilirlik yükü çubukta değil kartta taşınıyor.</span></div>
+<div class="note"><span><b>Kart yüksekliği düşmüyor</b> (78, min 62’nin üstünde). Sıkışan yerde satır küçültülmez, satır sayısı azalır: 375’te iki kart görünür, kaydırma zaten var.</span></div>
+</div>
+
+<!-- AX -->
+<div class="spec">
+<div class="spec-label"><b>14f — en büyük erişilebilirlik boyutu (AX5)</b><span>Kart yatay düzeni dikeye yığıldı, oran etiketleri tek kolona indi, dönem şeridi dikey, dev rakam neredeyse hiç büyümedi.</span></div>
+<div class="phone thm-dark ax" data-screen-label="14f-ax">
+<div class="safe-top"><span>güvenli alan 59</span></div><div class="safe-bot"><span>34</span></div>
+<div class="body">
+  <div class="stack">
+    <div class="hero">
+      <div class="skirt"></div>
+      <div class="status">9:41<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>
+      <div class="seg"><button class="on">Bugün</button><button>Bu hafta</button><button>Bu ay</button></div>
+      <span class="lb">bugün giren</span>
+      <b class="money"><s>₺</s>8.450</b>
+      <span class="delta up"><i></i>%12 · düne göre</span>
+      <div class="ratio">
+        <div class="rbar"><i class="s1" style="width:36.7%"></i><i class="s2" style="width:53.8%"></i><i class="s3" style="width:9.5%"></i></div>
+        <div class="rleg"><span class="l1"><s></s>Nakit ₺3.100</span><span class="l2"><s></s>Kart ₺4.550</span><span class="l3"><s></s>Havale ₺800</span></div>
+      </div>
+    </div>
+    <button class="pend"><span class="t"><b>2 adisyon tahsil edilmedi</b><span>₺2.650 · en eskisi 24 dk bekliyor</span></span></button>
+  </div>
+  <div class="kicker"><b>Hareketler</b><span>6 işlem · 1 iptal</span></div>
+  <div class="list">
+    <button class="tcard"><span class="axrow"><span class="av m2">MA</span><span class="tb"><b>Merve Aydın</b><span class="sv">Kesim + fön · 11:34</span><span class="who">Merve aldı</span></span></span><span class="tr"><b>₺1.800</b><span class="mth"><svg class="ic" style="width:19px;height:19px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-card"/></svg>kart</span></span></button>
+    <div class="pad-bot"></div>
+  </div>
+</div>
+<div class="tabbar">
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-today"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></button>
+  <button class="tab plus" aria-label="Randevu oluştur"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tab sel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cash"/></svg></button>
+  <button class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg></button>
+</div>
+<div class="home-ind"></div>
+</div>
+<div class="note"><span><b>Ne ölçeklenir:</b> müşteri adı 16.5 → 26 · hizmet/saat 13 → 21 · personel ve yöntem 11.5 → 19/17 · oran etiketleri 12.5 → 19 · dönem şeridi 13.5 → 21 · kahraman etiket 11.5 → 17 · özet 13 → 19 · bekleyen paneli 15.5 → 22.</span></div>
+<div class="note"><span><b>Ne sabit kalır:</b> <b>dev rakam 96 → 100</b> (yalnız %4) — zaten ekranın en büyük öğesi; büyüteç ihtiyacı olan metin liste metni. Ayrıca sabit: ikon kutusu 23, oran çubuğu yüksekliği 10, panel yarıçapı 30, bekleyen panelin 12 pt yan payı ve 4 pt üst boşluğu, sayfa payı 20, kenar kalınlıkları.</span></div>
+<div class="note"><span><b>Yığılma:</b> kart <code>flex-direction:column</code>’a döner — üstte daire + ad/hizmet/personel, altta tutar + yöntem yatay bir satır. Tutar sağa yapışmayı bırakır, metin sütunuyla aynı kenardan okunur. Bekleyen paneli de dikeye yığılır (başlık üstte, tutar+süre altta).</span></div>
+<div class="note"><span><b>Kolon azaltma:</b> oran çubuğunun üç etiketi tek kolona iner, dönem şeridi üç yatay haptan üç satıra döner (her biri 56 pt, panel genişliğinde). Çubuğun kendisi hiç değişmez — oran, metin boyutundan bağımsız bir grafik.</span></div>
+<div class="note"><span><b>Sesli okuma sırası:</b> dönem → “bugün giren 8.450 lira” → “%12 artış, düne göre” → oran çubuğu tek cümle → bekleyen paneli (“2 adisyon tahsil edilmedi, 2.650 lira, en eskisi 24 dakika bekliyor, detay”) → her kart tek cümle (“Merve Aydın, 1.800 lira, kart, kesim ve fön, 11:34, Merve aldı”). Daireler ayrı odaklanmaz; renk kart cümlesinde <em>yöntem kelimesi</em> olarak geçer. İptal kartı cümlesi “iptal edildi” ile <em>başlar</em>.</span></div>
+</div>
+</div>
+
+<!-- ══════════ 05 · ÖLÇÜ ŞARTNAMESİ ══════════ -->
+<div class="band"><span class="num">05</span><h2>Ölçü şartnamesi</h2><p>Her sayı yukarıdaki CSS’te aynen yazılı; seçici otoritedir.</p></div>
+<div class="mt">
+<div class="h"><i>Öğe</i><em>Ölçü</em><code>Seçici</code></div>
+<div class="r2"><i>Kahraman panel</i><em>r 0 0 34 34 · #1C1710</em><code>.hero</code></div>
+<div class="r2"><i>Etek gradyanı — başlangıç</i><em>panelin alt %38’i</em><code>.skirt{height:38%}</code></div>
+<div class="r2"><i>Etek durakları (dikey, kesintisiz)</i><em>0% şeffaf · 34% %34 · 68% %64 · 100% %96 — en sıcak nokta alt kenar</em><code>.skirt (rgba(120,52,12) → rgba(214,84,18))</code></div>
+<div class="r2"><i>Panel gölgesi (önde durma)</i><em>0 8 18 rgba(0,0,0,.34)</em><code>.hero{box-shadow}</code></div>
+<div class="r2"><i>İki panel arası</i><em>boşluk yok · turuncu panel koyu panelin altına giriyor</em><code>.pend{margin-top:-26px}</code></div>
+<div class="r2"><i>Üst kenar</i><em>hat yok — üst kenar koyu panelin arkasında kalıyor</em><code>.pend{margin-top:-26px}</code></div>
+<div class="r2"><i>Panel içi kademe</i><em>koyu tema tokenleri</em><code>.hero{--tx …}</code></div>
+<div class="r2"><i>Durum çubuğu (panel içinde)</i><em>59 · 13 / 700</em><code>.status</code></div>
+<div class="r2"><i>Dönem şeridi</i><em>36 · r13 · pad 3 · max-content</em><code>.seg</code></div>
+<div class="r2"><i>Dönem hapı (seçili)</i><em>13.5 / 700 · r10 · min-w 44</em><code>.seg button.on</code></div>
+<div class="r2"><i>Kahraman etiket</i><em>11.5 / 700 · .2em · üst 20</em><code>.lb</code></div>
+<div class="r2"><i>Dev rakam (sistem yazı tipi)</i><em>68 / 300 · −.012em · lh .84 · tabular</em><code>.money</code></div>
+<div class="r2"><i>Para yazı tipi yığını</i><em>-apple-system · SF Pro Display · system-ui</em><code>.money · .tr b · .rleg span · .pend .t span · .sh-amt</code></div>
+<div class="r2"><i>₺ işareti</i><em>rakamla eşit: 1em · aynı ağırlık · aynı renk</em><code>.money s</code></div>
+<div class="r2"><i>Değişim hapı</i><em>30 · r11 · 13.5 / 700</em><code>.delta</code></div>
+<div class="r2"><i>Özet satırı</i><em>13 / 500 · tx2</em><code>.sum</code></div>
+<div class="r2"><i>Oran çubuğu</i><em>10 · r5 · dilim arası 2</em><code>.rbar · .rbar i</code></div>
+<div class="r2"><i>Oran etiketleri</i><em>12.5 / 700 · nokta 9 · gap 16</em><code>.rleg span</code></div>
+<div class="r2"><i>Bekleyen panel (arkadan taşan)</i><em>min 96 · r 0 0 28 28 · yan pay 12 · bindirme −26</em><code>.pend</code></div>
+<div class="r2"><i>Bekleyen panel dikey dolgusu</i><em>üst 38 (26’sı koyu panelin arkasında) / alt 12 · yan 18</em><code>.pend</code></div>
+<div class="r2"><i>Bekleyen panel metinleri</i><em>17 / 600 · ikinci satır 13 / 400 · %82–86 beyaz</em><code>.pend .t b · .pend .t span</code></div>
+<div class="r2"><i>Bekleyen metni</i><em>15.5 / 800 · alt 12.5 / 600</em><code>.pend .t b · .pend .t span</code></div>
+<div class="r2"><i>Hareketler başlığı</i><em>11.5 / 700 · .18em · üst 18</em><code>.kicker b</code></div>
+<div class="r2"><i>Sayaç</i><em>12.5 / 700 · tx3</em><code>.kicker span</code></div>
+<div class="r2"><i>Hareket kartı</i><em>min 78 · r20 · pad 13/14</em><code>.tcard</code></div>
+<div class="r2"><i>Kartlar arası boşluk</i><em>8</em><code>.list{gap:8px}</code></div>
+<div class="r2"><i>Yöntem dairesi</i><em>42 · dolgu m1/m2/m3</em><code>.av.m1 · .av.m2 · .av.m3</code></div>
+<div class="r2"><i>Nakit / kart / havale (koyu)</i><em>#C08457 · #D6A583 · #EBCFB6</em><code>--m1 · --m2 · --m3</code></div>
+<div class="r2"><i>Nakit / kart / havale (açık)</i><em>#8A4A2B · #A5643B · #C08A5E</em><code>--m1 · --m2 · --m3</code></div>
+<div class="r2"><i>Daire mürekkebi</i><em>#2A1A0E koyu / krem açık, havale #3A2214</em><code>--mink · .thm-light .av.m3</code></div>
+<div class="r2"><i>Müşteri adı</i><em>16.5 / 700</em><code>.tb b</code></div>
+<div class="r2"><i>Hizmet + saat</i><em>13 / 500 · tx2</em><code>.tb .sv</code></div>
+<div class="r2"><i>Personel</i><em>11.5 / 600 · tx3</em><code>.tb .who</code></div>
+<div class="r2"><i>Tutar (hane kademesi)</i><em>17 / 20 / 23</em><code>.tr b.d3 · .tr b · .tr b.d5</code></div>
+<div class="r2"><i>Yöntem etiketi</i><em>11 / 700 · .1em · tx3</em><code>.tr .mth</code></div>
+<div class="r2"><i>Düzeltildi çipi</i><em>20 · r7 · 10.5 / 700</em><code>.chip</code></div>
+<div class="r2"><i>İptal izi satırı</i><em>11 / 700 · rd</em><code>.trace</code></div>
+<div class="r2"><i>Üstü çizili tutar</i><em>1.6 kalınlık</em><code>.tcard.void .tr b</code></div>
+<div class="r2"><i>Gün sonu bağlantısı</i><em>44 · 14.5 / 700 · tx2</em><code>.mini</code></div>
+<div class="r2"><i>Sheet</i><em>r26 · maks 704</em><code>.sheet</code></div>
+<div class="r2"><i>Sheet tutamağı (cam)</i><em>26 · çubuk 38 × 5</em><code>.grab · .grab s</code></div>
+<div class="r2"><i>Sheet tutarı</i><em>26 / 700</em><code>.sh-amt</code></div>
+<div class="r2"><i>Kritik buton</i><em>66 · r20 · 16.5 / 700</em><code>.btn</code></div>
+<div class="r2"><i>Onay diyaloğu</i><em>296 · r24</em><code>.alert</code></div>
+<div class="r2"><i>Diyalog butonu</i><em>56 · 17 / 700</em><code>.al-acts button</code></div>
+<div class="r2"><i>Tab bar (kabuk, cam)</i><em>66 · alt 46 · r999</em><code>.tabbar</code></div>
+<div class="r2"><i>İkon / sekme hedefi</i><em>min 44</em><code>.tab{min-width:44px}</code></div>
+<div class="r2"><i>Liste altı payı</i><em>112</em><code>.pad-bot</code></div>
+<div class="r2"><i>Güvenli alan üst / alt</i><em>59 / 34</em><code>.safe-top · .safe-bot</code></div>
+<div class="r2"><i>375 × 667: rakam</i><em>58</em><code>.phone.sm .money (satır içi)</code></div>
+<div class="r2"><i>AX5: rakam</i><em>72</em><code>.ax .money</code></div>
+<div class="r2"><i>AX5: kart</i><em>column · pad 16</em><code>.ax .tcard</code></div>
+<div class="r2"><i>Kart tonu — amber</i><em>%20→%9 koyu / %16→%6 açık</em><code>--amb · .tcard.fixed</code></div>
+<div class="r2"><i>Kart tonu — kırmızı</i><em>%19→%8 koyu / %13→%4.5 açık</em><code>--rdb · .tcard.void</code></div>
+<div class="r2"><i>Bekleyen gradyanı (180deg, dikey)</i><em>#C63C0C 0% → #E8430F 45% → #FF5A1F 100% · iki temada aynı</em><code>--pend · .pend{background}</code></div>
+<div class="r2"><i>Bekleyen mürekkebi</i><em>#FFF9F5 · ikinci satır beyaz %82/%86 · gölge 0 1 1</em><code>--pink · .pend .t span</code></div>
+</div>
+
+<!-- ══════════ 06 · REACT NATIVE ══════════ -->
+<div class="band"><span class="num">06</span><h2>React Native notları</h2><p>Türetilen ve sabit ölçüler, güvenli alan, saydamlık azaltma, erişilebilirlik boyutunda ne kırılır.</p></div>
+<div class="rn">
+<div class="r"><b>İstifin kurulumu</b><span>Tek <code>View</code> ağacı: <code>&lt;Stack&gt;</code> içinde <code>&lt;Hero&gt;</code> (<code>borderBottomLeftRadius/RightRadius:30</code>, <code>shadowOffset:{0,8}</code> <code>shadowRadius:18</code> <code>shadowOpacity:.34</code>; Android <code>elevation:6</code>) ve <code>&lt;Pending&gt;</code> (<code>marginTop:-26</code>, <code>marginHorizontal:12</code>, <code>borderBottomLeftRadius/RightRadius:28</code>, üst köşeler 0, <code>paddingTop:38</code>). Android’de <code>zIndex</code> yetmez: Hero <code>elevation:6</code>, Pending <code>elevation:1</code>. Bekleyen yoksa Pending hiç render edilmez; Hero’nun köşeleri zaten yuvarlak olduğu için başka değişiklik gerekmez.</span></div>
+<div class="r"><b>Gradyanlar (expo-linear-gradient)</b><span>Üçü de <code>LinearGradient</code>, hiçbiri <code>BlurView</code> değil — içerik katmanında bulanıklık kullanılmıyor. <b>Etek:</b> Hero içinde <code>position:absolute</code> alt %38, <code>pointerEvents:none</code>, <code>colors:['rgba(120,52,12,0)','rgba(140,60,14,.34)','rgba(176,72,16,.64)','rgba(214,84,18,.96)']</code>, <code>locations:[0,.34,.68,1]</code>, <code>start:{x:0,y:0} end:{x:0,y:1}</code>. <b>Turuncu panel:</b> <code>colors:['#C63C0C','#E8430F','#FF5A1F']</code>, <code>locations:[0,.45,1]</code>, dikey (<code>start:{x:0,y:0} end:{x:0,y:1}</code>), iki temada aynı. RN’de <code>inset</code> gölge yok: üst kenar hattı, panelin en üstüne mutlak konumlu ayrı bir <code>View</code> olarak çizilir (<code>position:'absolute' top:0 left:0 right:0 height:StyleSheet.hairlineWidth*2 backgroundColor:'rgba(255,255,255,.30)'</code>, köşe yarıçapını taşıması için panelin <code>overflow:'hidden'</code> içinde). <b>Kart tonları:</b> 158° eşdeğeri <code>start:{x:0,y:0} end:{x:.55,y:1}</code>. Android’de gradyanlar aynı; yalnız <code>elevation</code> gölgeyi taklit eder.</span></div>
+<div class="r"><b>Türetilen ölçü</b><span>Yalnız üçü: oran çubuğu dilim genişlikleri (yüzde), kart metin kolonu (<code>flex:1</code> + <code>numberOfLines</code>), dev rakamın 380 altındaki puntosu (<code>width &lt; 380 ? 78 : 96</code>). Başka hiçbir puntaj ekran genişliğinden hesaplanmaz.</span></div>
+<div class="r"><b>Sabit ölçü</b><span>Yarıçaplar (10 / 13 / 20 / 26 / 30), panel arası boşluk 4, panel yan payı 12, sayfa payı 20, kart boşluğu 8, daire 42, ikon kutusu 23, oran çubuğu 10, kenar 1 (üstü çizili 1.6). <code>tokens.ts</code>’te durur, <code>PixelRatio</code>’ya sokulmaz.</span></div>
+<div class="r"><b>Kahraman panel ve güvenli alan</b><span>Panel üst güvenli alanı örter: <code>paddingTop = insets.top</code>, panelin kendisi ekranın en üstünden başlar (<code>SafeAreaView</code> değil, <code>useSafeAreaInsets</code>). Durum çubuğu <code>barStyle="light-content"</code> <b>iki temada da</b> — panel her zaman koyu. Alt: liste <code>contentContainerStyle.paddingBottom = 112</code> (tab bar 66 + alt boşluk 46), sheet <code>paddingBottom = insets.bottom + 30</code>.</span></div>
+<div class="r"><b>Para tipografisi</b><span>Para rakamlarında <code>fontFamily</code> <b>verilmez</b> — sistem yazı tipi (iOS’ta SF Pro Display); metin bileşenleri <code>fontFamily:'HankenGrotesk'</code> alır. Dev tutar <code>fontSize:68 fontWeight:'300' letterSpacing:-0.8</code>; <code>₺</code> ayrı <code>Text</code> ama <b>aynı stil</b>. Gradyanlar <code>expo-linear-gradient</code>, blur yok. <code>fontVariant:['tabular-nums']</code> — dev rakam, kart tutarları, bekleyen tutarı, sheet toplamı, oran etiketleri. Biçim <code>Intl.NumberFormat('tr-TR',{maximumFractionDigits:0})</code> uygulanır.</span></div>
+<div class="r"><b>Cam ve “saydamlığı azalt”</b><span><code>BlurView</code> yalnız iki yerde: tab bar ve sheet tutamağı. <code>AccessibilityInfo.isReduceTransparencyEnabled()</code> true ise ikisi de opak <code>surf</code> + 1 px <code>bd</code>’ye döner — içerik katmanı zaten opak olduğu için ekranın geri kalanı hiç etkilenmez, düzen kaymaz. Android’de blur yerine <code>surf</code> %92 opaklık.</span></div>
+<div class="r"><b>Yöntem rengi</b><span><code>method: 'cash' | 'card' | 'transfer' | 'other'</code> → temadan <code>{fill, ink}</code> (kil ailesinin üç basamağı; <code>ink</code> basamakla değişir, açık temada havale koyu mürekkep alır). Dörtte biri (“diğer”) renk almaz, nötr <code>surf2</code> dairesiyle çizilir ve kelimesi “DİĞER” olur. Aynı harita oran çubuğunda kullanılır; iki bileşen tek kaynaktan okur (<code>methodColor(theme, method)</code>) — çubuk ile daire ayrışırsa hata orada değil kaynaktadır.</span></div>
+<div class="r"><b>Kart tonu</b><span><code>normal | corrected | voided</code> → <code>{gradient, border}</code>. Gradyan <code>LinearGradient</code> 158°. Ton <code>Animated</code> ile değişmez; kayıt durumu değişince liste yeniden render olur (renk animasyonu yasak). Yeni durum eklenirse yeni renk ailesi değil, mevcut üç aileden biri.</span></div>
+<div class="r"><b>Hareket</b><span>İzinli: sheet giriş/çıkış (<code>translateY</code> + opaklık, 320 ms), kart basma (<code>scale .98</code>, 120 ms), diyalog (opaklık + <code>scale .96 → 1</code>), dönem değişiminde rakamın <code>opacity</code> geçişi (140 ms). Yasak: yükseklik, renk, yarıçap, gölge animasyonu. Statik gölge yalnız diyalogda.</span></div>
+<div class="r"><b>Erişilebilirlik boyutu — ne kırılır</b><span><code>fontScale &gt; 1.6</code> eşiğinde: kart <code>flexDirection</code> <code>row → column</code> ve <code>minHeight</code> <code>undefined</code>; oran etiketleri tek kolon; dönem şeridi dikey (haplar panel genişliğinde, her biri 56); bekleyen paneli dikey. Dev rakam <code>allowFontScaling={false}</code> + eşikte elle 100 — tek istisna, gerekçesi 14f’te. Panel yüksekliği içerikle büyür; liste kısalır, kaydırma telafi eder. <b>Kırılan tek şey:</b> AX5’te panel + bekleyen ≈ 560 pt, ekranda tek kart kalır — kabul edilen bedel, çünkü rakam ve bekleyen bu ekranın iki haberidir.</span></div>
+<div class="r"><b>Dokunma hedefleri</b><span>Kart 78, bekleyen paneli 96, kritik buton 66, gün sonu 44, sekme 44 × 44, dönem hapı 30 × 44 (min-width), diyalog butonu 56. Dönem hapının yüksekliği 30 pt görünür ama dokunma alanı <code>hitSlop:{top:7,bottom:7}</code> ile 44’e tamamlanır — şeridin kendisi 36 pt.</span></div>
+<div class="r"><b>Sesli okuma</b><span>Oran çubuğu tek düğüm: <code>accessibilityRole="image"</code> + tam cümle; dilimler <code>importantForAccessibility="no-hide-descendants"</code>. Daireler dekoratif (<code>accessible={false}</code>) — yöntem bilgisi kart cümlesinde kelime olarak geçiyor. Kart tek düğüm; iptal kartı “iptal edildi” ile başlar. Diyalog <code>accessibilityViewIsModal</code>, odak “Vazgeç”te.</span></div>
+<div class="r"><b>Boş durum</b><span>Aynı bileşen ağacı, <code>data.length === 0</code> dalı: rakam <code>tx2</code>, hap karşılaştırma varsa nötr metin yoksa gizli, oran çubuğu dilimsiz yatak, liste yerine tek <code>Text</code>. Ayrı <code>EmptyState</code> ekranı yok — düzenin kaymaması bilinçli.</span></div>
+</div>
+</div>
+</body></html>
