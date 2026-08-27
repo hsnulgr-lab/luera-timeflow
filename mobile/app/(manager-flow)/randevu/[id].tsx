@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppointmentDetail } from '../../../src/components/AppointmentDetail';
 import { MoveResultSheet, MoveSheet } from '../../../src/components/MoveParts';
 import { Empty } from '../../../src/components/ui';
-import { source } from '../../../src/lib/calendarSource';
+import { source, updateLocalAppointment } from '../../../src/lib/calendarSource';
 import { mockDay } from '../../../src/lib/managerFlow';
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
@@ -91,7 +91,10 @@ export default function ManagerAppointment() {
             toStartMinutes: target.startMinutes,
             toStaffName: target.staffName,
         });
-        setAppointment(applyMove(appointment, target));
+        const moved = applyMove(appointment, target);
+        setAppointment(moved);
+        // Kaynağa da yaz: kartı kapatınca takvim yeni saati göstersin.
+        updateLocalAppointment(moved);
     }, [appointment, staffName]);
 
     const close = useCallback(() => {

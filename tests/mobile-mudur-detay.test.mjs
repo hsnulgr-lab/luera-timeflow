@@ -459,3 +459,94 @@ test('ölçüler tasarımın CSS’iyle birebir', () => {
     px('moveTime', 22);
     px('sheetRadius', 22);
 });
+
+// ── Ziyaret kartı ve katılım ────────────────────────────────────────────────
+
+test('yuvarlak KİMLİĞİ taşır — başlıktaki rakamı ikinci kez yazmaz', () => {
+    const known = visitSummary({
+        ...base,
+        customer_name: 'Elif Demir',
+        info: { risk: null, pkg: null, visitNo: 3, lastVisit: '12 Tem' },
+    });
+    assert.equal(known.initials, 'ED');
+    const parts = code('src/components/ApptParts25.tsx');
+    assert.match(parts, /\{summary\.initials\}/);
+});
+
+test('"Gelmedi" kaldırıldı — hiçbir yere yazmıyordu', () => {
+    const parts = code('src/components/ApptParts25.tsx');
+    assert.doesNotMatch(parts, /label="Gelmedi"/);
+    // Gelmemek beyan edilmez, türetilir; önceden biliniyorsa doğru eylem iptal.
+    assert.match(parts, /label="Geldi"/);
+});
+
+test('zaman damgası ISO da olsa saat yazılır — "2026-’de" çıkmaz', () => {
+    const running = stateLine({
+        ...base,
+        arrived_at: '2026-08-13T10:32:00+03:00',
+        service_ended_at: null,
+    }, 11 * 60);
+    assert.equal(running.context, '10:32’de başladı');
+    // Saat sütunu biçimi de çalışır.
+    const plain = stateLine({
+        ...base, arrived_at: '10:32:00', service_ended_at: null,
+    }, 11 * 60);
+    assert.equal(plain.context, '10:32’de başladı');
+});
+
+test('uzak randevu dakika yığını olarak yazılmaz', () => {
+    const far = stateLine({
+        ...base,
+        start_time: '12:00', arrived_at: null, customer_arrived_at: null,
+        service_ended_at: null, status: 'confirmed',
+    }, 2 * 60 + 15);
+    assert.equal(far.context, '9 sa 45 dk sonra');
+});
+
+// ── Notlardan gelen dört hata ───────────────────────────────────────────────
+
+test('not sayfası klavyenin altında kalmaz', () => {
+    const sheet = code('src/components/Sheet.tsx');
+    assert.match(sheet, /KeyboardAvoidingView/);
+    // Android klavyeyi kendi yönetir; iOS'ta sayfa yukarı itilir.
+    assert.match(sheet, /Platform\.OS === 'ios' \? 'padding' : undefined/);
+});
+
+test('taşıma KAYNAĞA yazılır — kartı kapatınca eski saate dönmez', () => {
+    const detail = code('app/(manager-flow)/randevu/[id].tsx');
+    assert.match(detail, /updateLocalAppointment\(moved\)/);
+    const calendar = code('app/(manager)/calendar.tsx');
+    assert.match(calendar, /updateLocalAppointment\(moved\)/);
+});
+
+test('taşınan randevu eski gününde KALMAZ', () => {
+    const src = code('src/lib/calendarSource.ts');
+    const fn = src.slice(src.indexOf('export function updateLocalAppointment'));
+    // Gün değiştiyse eski günden çıkarılmalı, yoksa randevu iki yerde durur.
+    assert.match(fn.slice(0, 700), /findIndex\(\(candidate\) => candidate\.id === appointment\.id\)/);
+    assert.match(fn.slice(0, 700), /splice\(at, 1\)/);
+});
+
+test('aynı gün aynı anda iki kez istenmez', () => {
+    const src = code('src/lib/calendarSource.ts');
+    assert.match(src, /dayInFlight/);
+    // Önbellek DEĞİL: cevap dönünce kayıt silinir, yoksa yeni randevu görünmezdi.
+    assert.match(src, /finally\(\(\) => \{ dayInFlight\.delete\(date\); \}\)/);
+});
+
+test('klavye kapsayıcısı sayfanın esneme zincirini bozmaz', () => {
+    // `flex:1` verilmezse kapsayıcı içeriği kadar büzülüyor ve içerideki
+    // maxHeight:'88%' sıfır yükseklikli kaba göre çözülüyor: sayfa altta
+    // ince bir şeride iniyor, gövdesi hiç görünmüyor.
+    const sheet = code('src/components/Sheet.tsx');
+    assert.match(sheet, /KeyboardAvoidingView[\s\S]{0,220}style=\{\{ flex: 1, justifyContent: 'flex-end' \}\}/);
+});
+
+test('aydınlık temada yüzeyler kenarlıkla ayrışır', () => {
+    // #FAF7F3 üstünde #F0E9DF dolgu tek başına şekli göstermiyor.
+    const parts = code('src/components/ApptParts25.tsx');
+    const strip = parts.slice(parts.indexOf('export function StateStrip'));
+    assert.match(strip.slice(0, 900), /backgroundColor: c\.surf2,[\s\S]{0,120}borderColor: c\.bd/);
+    const tiles = parts.slice(parts.indexOf('export function ChangeTiles'));
+    assert.match(tiles.slice(0, 2000), /backgroundColor: c\.surf2,[\s\S]{0,120}borderColor: c\.bd/);
+});

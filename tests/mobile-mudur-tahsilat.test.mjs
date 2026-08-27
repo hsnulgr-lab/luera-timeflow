@@ -259,7 +259,7 @@ test('"Geri al" gelmediyi sıradaki randevuya döndürür', () => {
 test('"Yeniden randevu" durum değiştirmez — ekranda geçiş yapar', () => {
     assert.equal(applyNoshowAction({ ...gone, noshowMinutes: 30 }, 'Yeniden randevu'), null);
     assert.ok(screen.includes("label === 'Yeniden randevu'"));
-    assert.ok(screen.includes('/(manager-flow)/randevu-olustur'));
+    assert.ok(screen.includes('/(manager)/create'));
 });
 
 test('gelmedi eylemleri yalnız gelmedi satırında çalışır', () => {

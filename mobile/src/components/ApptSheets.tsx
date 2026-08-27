@@ -262,6 +262,9 @@ export function NoteSheet({ visible, appointment, onDismiss, onSave }: {
                     padding: apptCardMetrics.fieldPadding,
                     minHeight: apptCardMetrics.fieldMinHeight,
                     backgroundColor: c.surf2,
+                    // Aydınlık temada dolgu farkı yetmez; şekli kenarlık çizer.
+                    borderWidth: 1,
+                    borderColor: c.bd,
                 }}>
                     <TextInput
                         value={text}
@@ -396,6 +399,9 @@ export function ConfirmDialog({ visible, action, appointment, staffName, onDismi
                                 padding: apptCardMetrics.dlgSumPadding,
                                 borderRadius: apptCardMetrics.dlgSumRadius,
                                 backgroundColor: c.surf2,
+                    // Aydınlık temada dolgu farkı yetmez; şekli kenarlık çizer.
+                    borderWidth: 1,
+                    borderColor: c.bd,
                             }}>
                                 <Text style={{
                                     color: c.tx,

@@ -414,19 +414,26 @@ export function useWarnEntry(active: boolean, reduceMotion: boolean) {
 
 // ── İki levha ───────────────────────────────────────────────────────────────
 
-export function Plates({ plates, entry, onOpen }: {
+export function Plates({ plates, entry, onOpen, opacity }: {
     plates: readonly [CustomerPlate, CustomerPlate];
     entry: Animated.Value[];
     onOpen?: (key: CustomerPlate['key']) => void;
+    /**
+     * Toplanma sönümü. Kabın KENDİSİNE verilir: araya sarmalayıcı bir View
+     * konursa levhalar o sarmalayıcıya göre konumlanır ve kahraman alanın
+     * alt kenarına değil, akışın bittiği yere (uyarı satırının üstüne) düşer.
+     */
+    opacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }) {
     return (
-        <View style={{
+        <Animated.View style={{
             position: 'absolute',
             left: customerMetrics.padX,
             right: customerMetrics.padX,
             bottom: customerMetrics.plateBottom,
             flexDirection: 'row',
             gap: customerMetrics.plateGap,
+            opacity,
         }}>
             {plates.map((plate, index) => (
                 <Animated.View
@@ -446,7 +453,7 @@ export function Plates({ plates, entry, onOpen }: {
                     <PlateCard plate={plate} onOpen={onOpen} />
                 </Animated.View>
             ))}
-        </View>
+        </Animated.View>
     );
 }
 

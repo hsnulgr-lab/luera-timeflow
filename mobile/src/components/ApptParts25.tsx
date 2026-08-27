@@ -223,6 +223,13 @@ export function StateStrip({ line, entering }: { line: StateLine; entering: Anim
             paddingHorizontal: apptCardMetrics.statePadX,
             borderRadius: apptCardMetrics.stateRadius,
             backgroundColor: c.surf2,
+            /*
+              Aydınlık temada yüzeyler birbirine çok yakın (#FAF7F3 üstünde
+              #F0E9DF): dolgu tek başına şekli göstermiyor, düğme zeminden
+              ayırt edilemiyordu. Kılcal kenarlık iki temada da şekli çiziyor.
+            */
+            borderWidth: 1,
+            borderColor: c.bd,
         }}>
             <Animated.View style={{
                 flexDirection: 'row',
@@ -294,6 +301,16 @@ function usePulse(active: boolean) {
 
 // ── Geldi / Gelmedi ─────────────────────────────────────────────────────────
 
+/**
+ * Tek eylem: GELDİ.
+ *
+ * "Gelmedi" kaldırıldı, iki sebeple. Birincisi ölü kontroldü: basınca hiçbir
+ * yere yazmıyor, yalnız sayfayı kapatıyordu — yazılacak bir sütun yok.
+ * İkincisi gereksiz: gelmemek BEYAN EDİLMEZ, türetilir (saati geçti, hiç
+ * başlamadı, iptal de edilmedi). Müdür müşterinin gelmeyeceğini önceden
+ * biliyorsa doğru eylem "gelmedi" değil, aşağıdaki "Randevuyu iptal et"tir —
+ * o yer açar, bu açmaz.
+ */
 export function AttendanceRow({ leaving, onAnswer }: {
     leaving: Animated.Value;
     onAnswer: (arrived: boolean) => void;
@@ -311,7 +328,6 @@ export function AttendanceRow({ leaving, onAnswer }: {
             }],
         }}>
             <AttendanceButton label="Geldi" fill onPress={() => onAnswer(true)} />
-            <AttendanceButton label="Gelmedi" onPress={() => onAnswer(false)} />
         </Animated.View>
     );
 }
@@ -404,8 +420,7 @@ export function VisitPanel({ summary, onOpen }: {
                     width: 42,
                     height: 42,
                     borderRadius: radius.pill,
-                    flexDirection: 'row',
-                    alignItems: 'baseline',
+                    alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: known ? 'rgba(14,14,14,0.07)' : 'transparent',
                     borderWidth: known ? 0 : apptCardMetrics.newTokenDash,
@@ -413,23 +428,22 @@ export function VisitPanel({ summary, onOpen }: {
                     borderColor: c.bd2,
                 }}>
                     {known ? (
-                        <>
-                            <Num size={21} style={{
-                                color: ink.ink,
-                                fontFamily: font.extraBold,
-                                fontWeight: '800',
-                            }}>
-                                {summary.lead}
-                            </Num>
-                            <Num size={13.5} style={{
-                                color: ink.ink,
-                                opacity: 0.42,
-                                fontFamily: font.bold,
-                                fontWeight: '700',
-                            }}>
-                                {summary.trailing}
-                            </Num>
-                        </>
+                        /*
+                          Yuvarlak KİMLİĞİ taşır, sayıyı değil: yanındaki
+                          başlık zaten "3. ziyaret" diyor, aynı rakamı ikinci
+                          kez yazmak bilgi üretmiyordu. Baş harf, akıştaki
+                          müşteri balonuyla aynı şekli konuşur.
+                        */
+                        <Text style={{
+                            color: ink.ink,
+                            fontSize: 15,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: -0.3,
+                            alignSelf: 'center',
+                        }}>
+                            {summary.initials}
+                        </Text>
                     ) : (
                         // Sıfır bir ÖLÇÜM, "İlk" bir HÂL.
                         <Text style={{
@@ -555,6 +569,9 @@ export function ChangeTiles({ tiles, onPress }: {
                         paddingHorizontal: apptCardMetrics.tilePadX,
                         justifyContent: 'space-between',
                         backgroundColor: c.surf2,
+                        // Aydınlık temada dolgu farkı yetmiyor: şekli kenarlık çiziyor.
+                        borderWidth: 1,
+                        borderColor: c.bd,
                         opacity: pressed ? 0.75 : 1,
                     })}
                 >

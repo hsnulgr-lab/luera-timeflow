@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Easing, Modal, Pressable, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 
 import {
     apptCardMetrics, apptInCurve, apptMotion, apptOutCurve, detailMetrics, useTheme,
@@ -20,9 +20,18 @@ function bezier(curve: Curve) {
  * 300/240 ms sözleşmesini tutturamıyordu; hareket burada elle sürülüyor.
  * Yalnız `translateY` ve `opacity` — ikisi de native sürücüde.
  */
-export function BottomSheet({ visible, onDismiss, children }: {
+export function BottomSheet({ visible, onDismiss, fill = false, children }: {
     visible: boolean;
     onDismiss: () => void;
+    /**
+     * Gövdesi KAYAN sayfalar için sabit yükseklik.
+     *
+     * Sayfa varsayılan olarak içeriği kadar uzar. Ama içinde `flex: 1` bir
+     * `ScrollView` varsa (saat listesi, personel listesi) yüksekliği belirsiz
+     * bir kapta o çocuk SIFIR yükseklik alır: ekranda yalnız tutamak ve
+     * başlık kalır, liste hiç çizilmez. Böyle sayfalar `fill` ister.
+     */
+    fill?: boolean;
     children: ReactNode;
 }) {
     const { c, dark, reduceMotion } = useTheme();
@@ -53,8 +62,27 @@ export function BottomSheet({ visible, onDismiss, children }: {
                         backgroundColor: dark ? detailMetrics.scrimDark : detailMetrics.scrimLight,
                     }}
                 >
+                    {/*
+                      Klavye açılınca sayfa YUKARI ÇIKAR.
+                      Not alanı sayfanın altındaydı ve klavye tam üstüne
+                      biniyordu: müdür yazdığını göremiyordu. `padding` iOS'ta
+                      sayfayı kısaltmadan yukarı iter; Android klavyeyi kendi
+                      yönetir (`adjustResize`), orada davranış eklenmez.
+                    */}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        /*
+                          Esneme zincirini SÜRDÜRMEK zorunda: kapsayıcı
+                          `flex:1` almazsa kendi içeriği kadar büzülüyor ve
+                          içerideki `maxHeight:'88%'` sıfır yükseklikli bir
+                          kaba göre çözülüyor — sayfa altta ince bir şeride
+                          iniyor, gövdesi hiç görünmüyordu.
+                        */
+                        style={{ flex: 1, justifyContent: 'flex-end' }}
+                    >
                     <Animated.View style={{
                         maxHeight: '88%',
+                        ...(fill ? { height: '88%' as const } : null),
                         transform: [{
                             translateY: enter.interpolate({
                                 inputRange: [0, 1],
@@ -65,6 +93,13 @@ export function BottomSheet({ visible, onDismiss, children }: {
                         <Pressable
                             onPress={(event) => event.stopPropagation()}
                             style={{
+                                /*
+                                  Sabit yükseklikli sayfada YÜZEY DE dolmalı.
+                                  Yalnız dış kutuyu %88 yapmak yetmiyordu:
+                                  içerideki yüzey kendi içeriği kadar kalıp
+                                  kutunun TEPESİNDE bir şerit olarak duruyordu.
+                                */
+                                ...(fill ? { flex: 1 } : null),
                                 backgroundColor: c.surf,
                                 borderTopLeftRadius: apptCardMetrics.sheetRadius,
                                 borderTopRightRadius: apptCardMetrics.sheetRadius,
@@ -76,6 +111,7 @@ export function BottomSheet({ visible, onDismiss, children }: {
                             {children}
                         </Pressable>
                     </Animated.View>
+                    </KeyboardAvoidingView>
                 </Pressable>
             </Animated.View>
         </Modal>

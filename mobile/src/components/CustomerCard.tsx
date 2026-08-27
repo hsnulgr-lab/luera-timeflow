@@ -149,23 +149,88 @@ export function CustomerCard({
                 {/* ══ KAHRAMAN ALAN ══ */}
                 <View style={{
                     height: heroHeight,
-                    paddingTop: Math.max(insets.top, small ? 20 : 59),
-                    paddingHorizontal: customerMetrics.padX,
-                    paddingBottom: customerMetrics.heroPadBottom,
                     position: 'relative',
                 }}>
                     <HeroGradient radiusBottom={customerMetrics.heroRadius} />
 
-                    {/* Kroma satırı — toplanmada 24→32 söner */}
-                    <Animated.View style={{ opacity: chromeOpacity }}>
-                        <ChromeRow
-                            onBack={onBack}
-                            onCall={rawPhone && onCall ? onCall : undefined}
-                            onWhatsApp={rawPhone && onWhatsApp ? onWhatsApp : undefined}
-                        />
-                    </Animated.View>
+                    {/*
+                      Akış katmanı. Dolgu kahraman alanın KENDİSİNE değil bu
+                      iç kaba verilir: mutlak konumlu levhalar ve gradyan,
+                      alanın gerçek kenarlarına göre yerleşsin diye.
+                    */}
+                    <View style={{
+                        flex: 1,
+                        paddingTop: Math.max(insets.top, small ? 20 : 59),
+                        paddingHorizontal: customerMetrics.padX,
+                        paddingBottom: customerMetrics.heroPadBottom,
+                    }}>
 
-                    {/* Monogram — toplanmada 32→48 söner ve yukarı kayar */}
+                        {/* Kroma satırı — toplanmada 24→32 söner */}
+                        <Animated.View style={{ opacity: chromeOpacity }}>
+                            <ChromeRow
+                                onBack={onBack}
+                                onCall={rawPhone && onCall ? onCall : undefined}
+                                onWhatsApp={rawPhone && onWhatsApp ? onWhatsApp : undefined}
+                            />
+                        </Animated.View>
+
+                        {/* İsim ve telefon bloğu — toplanmada 32→48 söner ve yukarı kayar */}
+                        <Animated.View style={{
+                            marginTop: 'auto',
+                            maxWidth: small ? customerMetrics.nameWidthSmall : customerMetrics.nameWidth,
+                            opacity: identityOpacity,
+                            transform: [{ translateY: identityTranslateY }],
+                        }}>
+                            {given ? (
+                                <Text numberOfLines={1} style={{
+                                    color: customerHero.ink2,
+                                    fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
+                                    lineHeight: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
+                                    fontFamily: font.medium,
+                                    fontWeight: '500',
+                                    letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
+                                }}>
+                                    {given}
+                                </Text>
+                            ) : null}
+                            <Text numberOfLines={1} style={{
+                                color: customerHero.ink,
+                                fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
+                                lineHeight: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * 1.06,
+                                fontFamily: font.extraBold,
+                                fontWeight: '800',
+                                letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
+                            }}>
+                                {family}
+                            </Text>
+                            {phone ? (
+                                <Num size={customerMetrics.phoneText} style={{
+                                    marginTop: customerMetrics.phoneTop,
+                                    color: customerHero.ink3,
+                                    fontFamily: font.semiBold,
+                                    fontWeight: '600',
+                                }}>
+                                    {phone}
+                                </Num>
+                            ) : null}
+                        </Animated.View>
+
+                        {/* Risk / Borç satırları */}
+                        {warns.map((w, idx) => (
+                            <WarnRow
+                                key={`${w.kind}-${idx}`}
+                                warn={w}
+                                entering={w.kind === 'risk' ? warnEntry : undefined}
+                            />
+                        ))}
+
+                    </View>
+
+                    {/*
+                      Monogram — akış katmanının DIŞINDA: sağ 18 / üst 116
+                      kahraman alanın kendi kenarlarından ölçülür, dolgu
+                      üzerine ikinci kez binmesin diye.
+                    */}
                     <Monogram
                         initials={initials}
                         style={{
@@ -174,64 +239,13 @@ export function CustomerCard({
                         }}
                     />
 
-                    {/* İsim ve telefon bloğu — toplanmada 32→48 söner ve yukarı kayar */}
-                    <Animated.View style={{
-                        marginTop: 'auto',
-                        maxWidth: small ? customerMetrics.nameWidthSmall : customerMetrics.nameWidth,
-                        opacity: identityOpacity,
-                        transform: [{ translateY: identityTranslateY }],
-                    }}>
-                        {given ? (
-                            <Text numberOfLines={1} style={{
-                                color: customerHero.ink2,
-                                fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                                lineHeight: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                                fontFamily: font.medium,
-                                fontWeight: '500',
-                                letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
-                            }}>
-                                {given}
-                            </Text>
-                        ) : null}
-                        <Text numberOfLines={1} style={{
-                            color: customerHero.ink,
-                            fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                            lineHeight: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * 1.06,
-                            fontFamily: font.extraBold,
-                            fontWeight: '800',
-                            letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
-                        }}>
-                            {family}
-                        </Text>
-                        {phone ? (
-                            <Num size={customerMetrics.phoneText} style={{
-                                marginTop: customerMetrics.phoneTop,
-                                color: customerHero.ink3,
-                                fontFamily: font.semiBold,
-                                fontWeight: '600',
-                            }}>
-                                {phone}
-                            </Num>
-                        ) : null}
-                    </Animated.View>
-
-                    {/* Risk / Borç satırları */}
-                    {warns.map((w, idx) => (
-                        <WarnRow
-                            key={`${w.kind}-${idx}`}
-                            warn={w}
-                            entering={w.kind === 'risk' ? warnEntry : undefined}
-                        />
-                    ))}
-
                     {/* İki Levha — sınırın üstünde, toplanmada 48→64 yalnız söner */}
-                    <Animated.View style={{ opacity: platesOpacity }}>
-                        <Plates
-                            plates={plates}
-                            entry={plateEntry}
-                            onOpen={onOpenPlate}
-                        />
-                    </Animated.View>
+                    <Plates
+                        plates={plates}
+                        entry={plateEntry}
+                        onOpen={onOpenPlate}
+                        opacity={platesOpacity}
+                    />
                 </View>
 
                 {/* ══ İÇERİK — sakin, koyu, camsız ══ */}

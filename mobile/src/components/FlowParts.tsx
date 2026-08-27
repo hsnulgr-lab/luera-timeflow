@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from 'expo-router';
 
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
-import { upperTR } from '../lib/text';
+import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
 import {
     actionsOf, contextRows, durationBadge, etaColumn, etaPanel, initialsOf,
@@ -15,8 +16,8 @@ import {
     type WaitAction, type WaitCard as WaitCardModel,
 } from '../lib/managerFlow';
 import {
-    cardSkin, cardSwap, dueCardMetrics, flowMetrics, font, nextCardMetrics, numeric, onAccent, panelInk,
-    pressMotion, radius, swapInCurve, swapOutCurve, useTheme, waitCardMetrics, type PanelInk,
+    cardSkin, cardSwap, customerBubble, dueCardMetrics, flowMetrics, font, nextCardMetrics, numeric, onAccent, panelInk,
+    pressMotion, radius, staffDayMotion, swapInCurve, swapOutCurve, useTheme, waitCardMetrics, type PanelInk,
 } from '../theme';
 
 /**
@@ -26,6 +27,85 @@ import {
  * şeridi ve akış satırları opak — bulanık zemin üstünde rakam okunmaz."
  * Camlı olan yalnız tab bar.
  */
+
+// ── Müşteri balonu ──────────────────────────────────────────────────────────
+
+/**
+ * Akışta müşteri kartına açılan tek kapı.
+ *
+ * Baş harf yuvarlağı hem kimliği söyler hem "burası basılır" der; ayrı bir ok
+ * ya da "detay" etiketi çizilmez — akışta okunan asıl şey olayın kendisi,
+ * müşteri ikinci sırada durur.
+ *
+ * Müşteri kimliği YOKSA balon hiç çizilmez: basılınca hiçbir şey açmayan bir
+ * daire, olmayan bir daireden kötüdür.
+ */
+export function CustomerBubble({ event, onOpen, children }: {
+    event: FlowEvent;
+    onOpen?: (event: FlowEvent) => void;
+    /** Adın kendisi — balonla aynı dokunma hedefinde durur. */
+    children: ReactNode;
+}) {
+    const { c, small } = useTheme();
+    const size = small ? customerBubble.sizeSmall : customerBubble.size;
+    const openable = Boolean(event.customerId && onOpen);
+
+    const ring = (
+        <View style={{
+            width: size,
+            height: size,
+            borderRadius: radius.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: c.surf2,
+            borderWidth: customerBubble.border,
+            borderColor: c.bd2,
+        }}>
+            <Text style={{
+                color: c.tx,
+                fontSize: small ? customerBubble.textSmall : customerBubble.text,
+                fontFamily: font.extraBold,
+                fontWeight: '800',
+                letterSpacing: (small ? customerBubble.textSmall : customerBubble.text) * -0.02,
+            }}>
+                {initialsOf(event)}
+            </Text>
+        </View>
+    );
+
+    if (!openable) {
+        return (
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: customerBubble.gap,
+                minWidth: 0,
+            }}>
+                {ring}
+                <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
+            </View>
+        );
+    }
+
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${event.firstName} ${event.lastName} · müşteri kartını aç`}
+            hitSlop={customerBubble.hitSlop}
+            onPress={() => { feedback.selection(); onOpen?.(event); }}
+            style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: customerBubble.gap,
+                minWidth: 0,
+                opacity: pressed ? pressMotion.ghostOpacity : 1,
+            })}
+        >
+            {ring}
+            <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
+        </Pressable>
+    );
+}
 
 // ── Personel şeridi ─────────────────────────────────────────────────────────
 
@@ -42,8 +122,37 @@ export function StaffStrip({ people, onOpen, compact = false }: {
     /** Kaydırılmış hâlde şerit daralır; ekranın üstünü boğmasın. */
     compact?: boolean;
 }) {
-    const { c, small } = useTheme();
+    const { c, small, reduceMotion } = useTheme();
     const size = small ? flowMetrics.ringSmall : flowMetrics.ring;
+
+    /*
+     * 1. hareket anının ÇIKAN yarısı. Sayfa şeritteki halkadan doğuyor;
+     * o yüzden şerit dokunulunca yerinde büyüyerek söner (160 ms), sonra
+     * personel günü açılır ve orada kahraman halka 0.684'ten 1'e büyür.
+     * Yığın kaydırması bu ekranda kapalı, yoksa büyüme görünmezdi.
+     */
+    const exit = useRef(new Animated.Value(1)).current;
+    useFocusEffect(useCallback(() => { exit.setValue(1); }, [exit]));
+
+    const open = useCallback((id: string) => {
+        if (!onOpen) return;
+        if (reduceMotion) { onOpen(id); return; }
+        Animated.timing(exit, {
+            toValue: 0,
+            duration: staffDayMotion.enter.stripOut,
+            easing: Easing.bezier(0.4, 0, 1, 1),
+            useNativeDriver: true,
+        }).start(() => {
+            onOpen(id);
+            /*
+             * Şeridi HEMEN dinlenme hâline al. Geride opacity 0'da bırakılırsa
+             * geri dönüşte önce yığının anlık görüntüsü (şerit görünür), sonra
+             * canlı ekran (şerit sönük), sonra sıçrayarak geri gelme görünüyor
+             * — kullanıcı bunu "halkalar iki kez yüklendi" diye okuyor.
+             */
+            exit.setValue(1);
+        });
+    }, [exit, onOpen, reduceMotion]);
 
     const border = (state: StaffPresence['state']) => {
         if (state === 'busy') return { borderColor: c.or, borderWidth: flowMetrics.ringBorderBusy };
@@ -61,9 +170,18 @@ export function StaffStrip({ people, onOpen, compact = false }: {
     );
 
     return (
-        <ScrollView
+        <Animated.ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={{
+                opacity: exit,
+                transform: [{
+                    scale: exit.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [staffDayMotion.enter.stripScale, 1],
+                    }),
+                }],
+            }}
             contentContainerStyle={{
                 gap: flowMetrics.stripGap,
                 paddingHorizontal: flowMetrics.stripX,
@@ -76,7 +194,7 @@ export function StaffStrip({ people, onOpen, compact = false }: {
                     key={person.id}
                     label={`${person.name} · ${word(person.state)}`}
                     dim={person.state === 'off'}
-                    onPress={() => onOpen?.(person.id)}
+                    onPress={() => open(person.id)}
                 >
                     <View style={{
                         width: size,
@@ -128,7 +246,7 @@ export function StaffStrip({ people, onOpen, compact = false }: {
                         fontFamily: font.bold,
                         fontWeight: '700',
                     }}>
-                        {person.name}
+                        {splitStaffName(person.name).given}
                     </Text>
                     <Text numberOfLines={1} style={{
                         color: c.tx2,
@@ -140,7 +258,7 @@ export function StaffStrip({ people, onOpen, compact = false }: {
                     </Text>
                 </StaffAvatar>
             ))}
-        </ScrollView>
+        </Animated.ScrollView>
     );
 }
 
@@ -606,10 +724,12 @@ function EtaPanel({ event, ink, onAction }: {
  *
  * Yarıçap eşmerkezli: 22 − 12 (dolgu) = 10 → not kutusu 10.
  */
-function CustomerCard({ event, presence, onAction }: {
+function CustomerCard({ event, presence, onAction, onOpenCustomer }: {
     event: FlowEvent; presence: readonly StaffPresence[]; onAction?: (label: string) => void;
+    onOpenCustomer?: (event: FlowEvent) => void;
 }) {
     const column = etaColumn(event);
+    const openable = Boolean(event.customerId && onOpenCustomer);
     const rows = contextRows(event.context);
     const conflict = staffConflict(event, presence);
 
@@ -623,6 +743,28 @@ function CustomerCard({ event, presence, onAction }: {
             borderColor: cardSkin.border,
         }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: nextCardMetrics.headGap }}>
+                {/*
+                  Yuvarlak ve ad TEK dokunma hedefi. Sağdaki geri sayım
+                  sütunu dışarıda kalır: müdür saate bakarken yanlışlıkla
+                  müşteri kartını açmasın.
+                */}
+                <Pressable
+                    accessibilityRole={openable ? 'button' : undefined}
+                    accessibilityLabel={openable
+                        ? `${event.firstName} ${event.lastName} · müşteri kartını aç`
+                        : undefined}
+                    disabled={!openable}
+                    hitSlop={customerBubble.hitSlop}
+                    onPress={() => { feedback.selection(); onOpenCustomer?.(event); }}
+                    style={({ pressed }) => ({
+                        flex: 1,
+                        minWidth: 0,
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        gap: nextCardMetrics.headGap,
+                        opacity: pressed && openable ? pressMotion.ghostOpacity : 1,
+                    })}
+                >
                 <View style={{
                     width: nextCardMetrics.avatar,
                     height: nextCardMetrics.avatar,
@@ -670,6 +812,7 @@ function CustomerCard({ event, presence, onAction }: {
                         {event.detail}
                     </Text>
                 </View>
+                </Pressable>
 
                 <View style={{ alignItems: 'flex-end', gap: 1 }}>
                     <Num size={nextCardMetrics.etaRight} style={{
@@ -1954,10 +2097,12 @@ function HandoffRow({ event }: { event: FlowEvent }) {
     );
 }
 
-export function FlowRow({ event, onAction, onMore, presence = [], fresh = false }: {
+export function FlowRow({ event, onAction, onMore, onOpenCustomer, presence = [], fresh = false }: {
     event: FlowEvent;
     onAction?: (label: string) => void;
     onMore?: (event: FlowEvent) => void;
+    /** Müşteri balonu buraya bağlanır; verilmezse balon basılmaz olur. */
+    onOpenCustomer?: (event: FlowEvent) => void;
     /**
      * Personel şeridinin gerçek durumu. A2 kartındaki "Selin şu an işlemde"
      * satırı buradan TÜRETİLİR; sabit metin yazılmaz, personel boşsa satır
@@ -2069,27 +2214,29 @@ export function FlowRow({ event, onAction, onMore, presence = [], fresh = false 
                 </View>
 
                 {card === 'a2' ? null : (
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-                    <Text style={{
-                        color: c.tx,
-                        fontSize: flowMetrics.nameFirst,
-                        fontFamily: font.medium,
-                        fontWeight: '500',
-                        letterSpacing: flowMetrics.nameFirst * -0.02,
-                    }}>
-                        {event.firstName}
-                    </Text>
-                    <Text numberOfLines={1} style={{
-                        flex: 1,
-                        color: c.tx,
-                        fontSize: flowMetrics.nameLast,
-                        fontFamily: font.extraBold,
-                        fontWeight: '800',
-                        letterSpacing: flowMetrics.nameLast * -0.03,
-                    }}>
-                        {event.lastName}
-                    </Text>
-                </View>
+                <CustomerBubble event={event} onOpen={onOpenCustomer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+                        <Text style={{
+                            color: c.tx,
+                            fontSize: flowMetrics.nameFirst,
+                            fontFamily: font.medium,
+                            fontWeight: '500',
+                            letterSpacing: flowMetrics.nameFirst * -0.02,
+                        }}>
+                            {event.firstName}
+                        </Text>
+                        <Text numberOfLines={1} style={{
+                            flex: 1,
+                            color: c.tx,
+                            fontSize: flowMetrics.nameLast,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: flowMetrics.nameLast * -0.03,
+                        }}>
+                            {event.lastName}
+                        </Text>
+                    </View>
+                </CustomerBubble>
                 )}
 
                 {card === 'a2' ? null : (
@@ -2111,7 +2258,7 @@ export function FlowRow({ event, onAction, onMore, presence = [], fresh = false 
                     kendiliğinden başlar. */}
                 <CardSwap id={slot} timing={slotTiming}>
                     {card === 'a1' ? <EtaPanel event={event} ink={ink} onAction={onAction} /> : null}
-                    {card === 'a2' ? <CustomerCard event={event} presence={presence} onAction={onAction} /> : null}
+                    {card === 'a2' ? <CustomerCard event={event} presence={presence} onAction={onAction} onOpenCustomer={onOpenCustomer} /> : null}
                     {/* Müdür 20 — devir anında kart yerine ince satır: müdürün
                         yapacağı bir şey yok, kart yalancı aciliyet üretirdi. */}
                     {waiting && event.handoff ? <HandoffRow event={event} /> : null}
@@ -2206,80 +2353,6 @@ export function FlowDivider() {
  * Tasarım dosyasında müdür akışının boş hâli YOK (Durumlar.html yalnız
  * personel modunu çiziyor); burası aynı sözlükle kurulmuş sade bir karşılık.
  */
-export function FlowEmpty({ label, hint, action, onAction }: {
-    label: string;
-    hint: string;
-    /**
-     * Boş günden ÇIKIŞ. Cetvel yalnız toplanmış cam levhada duruyor, levha da
-     * kaydırınca geliyor — boş günde kaydıracak içerik olmadığı için levha hiç
-     * gelmiyordu ve müdür o günde kilitleniyordu. Çıkışsız boş ekran, boş
-     * ekrandan kötüdür.
-     */
-    action?: string;
-    onAction?: () => void;
-}) {
-    const { c } = useTheme();
-    return (
-        <View style={{
-            paddingHorizontal: flowMetrics.rowX,
-            paddingTop: 56,
-            paddingBottom: 32,
-            alignItems: 'center',
-            gap: 8,
-        }}>
-            <Text style={{
-                color: c.tx,
-                fontSize: 19,
-                fontFamily: font.extraBold,
-                fontWeight: '800',
-                letterSpacing: 19 * -0.03,
-                textAlign: 'center',
-            }}>
-                {label}
-            </Text>
-            <Text style={{
-                color: c.tx2,
-                fontSize: flowMetrics.detailSize,
-                fontFamily: font.medium,
-                fontWeight: '500',
-                lineHeight: flowMetrics.detailSize * flowMetrics.detailLine,
-                textAlign: 'center',
-                maxWidth: 280,
-            }}>
-                {hint}
-            </Text>
-
-            {action && onAction ? (
-                <Pressable
-                    accessibilityRole="button"
-                    hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-                    onPress={() => { feedback.selection(); onAction(); }}
-                    style={{
-                        marginTop: 12,
-                        height: flowMetrics.pillHeight,
-                        paddingHorizontal: flowMetrics.pillX,
-                        borderRadius: radius.pill,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: 1,
-                        borderColor: c.bd2,
-                    }}
-                >
-                    <Text style={{
-                        color: c.tx,
-                        fontSize: flowMetrics.pillText,
-                        fontFamily: font.extraBold,
-                        fontWeight: '800',
-                        letterSpacing: flowMetrics.pillText * -0.02,
-                    }}>
-                        {action}
-                    </Text>
-                </Pressable>
-            ) : null}
-        </View>
-    );
-}
-
 export function FlowEnd({ label }: { label: string }) {
     const { c } = useTheme();
     return (

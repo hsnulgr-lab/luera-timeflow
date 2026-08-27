@@ -130,10 +130,19 @@ export function SheetFootNote({ children }: { children: string }) {
 }
 
 /** Sheet'in kayan gövdesi. Liste hep burada; kabuk kaymaz. */
+/**
+ * Sayfanın kayan gövdesi.
+ *
+ * `flex: 1` DEĞİL: yüksekliği belirsiz bir kapta `flex: 1` çocuk SIFIR
+ * yükseklik alır ve liste hiç çizilmez — ekranda yalnız tutamak ve başlık
+ * kalır. `flexShrink` ise içeriği kadar yer kaplar, kabın üst sınırını
+ * (%88) aşarsa o sınıra kadar küçülür ve içi kayar. Kısa menü kısa,
+ * uzun liste tam boy.
+ */
 export function SheetBody({ children }: { children: ReactNode }) {
     return (
         <ScrollView
-            style={{ flex: 1 }}
+            style={{ flexShrink: 1, minHeight: 0 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >

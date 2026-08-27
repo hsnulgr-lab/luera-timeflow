@@ -24,7 +24,7 @@ const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 const grid = code('src/components/ColumnCalendar.tsx');
 const parts = code('src/components/MoveParts.tsx');
 const calendar = code('app/(manager)/calendar.tsx');
-const staffDay = code('app/(manager-flow)/personel/[id].tsx');
+const staffDay = code('src/components/StaffDay.tsx');
 const detail = code('app/(manager-flow)/randevu/[id].tsx');
 
 const appt = (id, start, end, staffId, status = 'confirmed') => ({
@@ -348,10 +348,10 @@ test('aynı yere "taşımak" sonuç ekranı açmaz', () => {
     }
 });
 
-test('kart içindeki iki tutamak menüye gömülmedi', () => {
-    // En çok yapılan düzeltme bu ikisi; üç noktaya gömmek görünmez yapardı.
-    assert.match(staffDay, /onReschedule: \(appointment\) => setMoveFor\(\{ appointment, mode: 'time' \}\)/);
-    assert.match(staffDay, /onReassign: \(appointment\) => setMoveFor\(\{ appointment, mode: 'staff' \}\)/);
+test('Müdür 24: taşıma akışları (saat ve personel) seçenekler menüsünden açılır', () => {
+    assert.match(staffDay, /setMoveFor\(\{\s*appointment,\s*mode:\s*action\s*\}\)/);
+    assert.match(staffDay, /<MoveSheet[\s\S]*?mode=\{moveFor\.mode\}/);
+    assert.match(staffDay, /<MoveResultSheet/);
 });
 
 test('detaydaki jetonlar taşımayı açar', () => {
@@ -376,4 +376,28 @@ test('el değiştirirken taşıma kendi kendini iptal etmiyor', () => {
 
 test('alt bant tab bar’ın altında kalmıyor', () => {
     assert.match(grid, /bottom: calendarMetrics\.bottomInset/);
+});
+
+test('gövdesi KAYAN sayfa sabit yükseklik ister — liste sıfıra inmesin', () => {
+    // SheetBody bir ScrollView ve `flex: 1` kullanıyor. Yüksekliği belirsiz
+    // bir kapta `flex: 1` çocuk SIFIR yükseklik alır: ekranda yalnız tutamak
+    // ve başlık kalır, saat/personel listesi hiç çizilmez.
+    const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
+    const strip = (text) => text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+
+    const move = strip(read('src/components/MoveParts.tsx'));
+    // Uzun liste taşıyan sayfa tam boy; kısa menü içeriği kadar kalır.
+    const sheets = move.match(/<BottomSheet[^>]*>/g) ?? [];
+    assert.equal(sheets.filter((tag) => tag.includes('fill')).length, 1);
+
+    const shell = strip(read('src/components/Sheet.tsx'));
+    assert.match(shell, /fill \? \{ height: '88%' as const \} : null/);
+    // Kutuyu uzatmak yetmez: içindeki yüzey de dolmalı, yoksa tepede
+    // bir şerit olarak durur.
+    assert.match(shell, /fill \? \{ flex: 1 \} : null/);
+    // Gövde `flex: 1` DEĞİL: belirsiz yükseklikli kapta sıfıra iner.
+    const parts = strip(read('src/components/CreateParts.tsx'));
+    const body = parts.slice(parts.indexOf('export function SheetBody'));
+    assert.match(body.slice(0, 300), /flexShrink: 1, minHeight: 0/);
+    assert.doesNotMatch(body.slice(0, 300), /style=\{\{ flex: 1 \}\}/);
 });

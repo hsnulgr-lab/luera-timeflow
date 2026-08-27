@@ -229,7 +229,7 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
     const days = useMemo(() => dayOptions(appointment.date, 14), [appointment.date]);
 
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss}>
+        <BottomSheet visible={visible} onDismiss={onDismiss} fill>
             <SheetGrabber />
             <SheetHead
                 title={mode === 'time' ? 'Yeni saat' : 'Yeni kişi'}
@@ -408,6 +408,9 @@ export function MoveResultSheet({ result, nowMinutes, today, onUndo, onCall, onD
                     padding: apptCardMetrics.moveCardPadding,
                     borderRadius: apptCardMetrics.moveCardRadius,
                     backgroundColor: c.surf2,
+                    // Aydınlık temada dolgu farkı yetmez; şekli kenarlık çizer.
+                    borderWidth: 1,
+                    borderColor: c.bd,
                 }}>
                     <Text numberOfLines={1} style={{ fontSize: apptCardMetrics.moveName }}>
                         {copy.given ? (

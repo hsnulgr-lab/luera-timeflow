@@ -119,11 +119,23 @@ const STATE_WORD: Record<ApptState, string> = {
 };
 
 /** "10 dk sonra" / "20 dk önce" — randevu saatine olan uzaklık. */
+/**
+ * "45 dk sonra" · "2 sa 15 dk sonra".
+ *
+ * Saatlerce uzaktaki bir randevu için "585 dk sonra" bir sayı yığınıdır;
+ * müdür onu saate çevirmek zorunda kalır. Bir saati geçince saat yazılır.
+ */
 function untilLabel(appointment: Appt, nowMinutes: number): string {
     const delta = toMinutes(appointment.start_time) - nowMinutes;
-    if (delta > 0) return `${delta} dk sonra`;
-    if (delta < 0) return `${-delta} dk önce`;
-    return 'Şimdi';
+    if (delta === 0) return 'Şimdi';
+    const span = Math.abs(delta);
+    const suffix = delta > 0 ? 'sonra' : 'önce';
+    if (span < 60) return `${span} dk ${suffix}`;
+    const hours = Math.floor(span / 60);
+    const minutes = span % 60;
+    return minutes === 0
+        ? `${hours} sa ${suffix}`
+        : `${hours} sa ${minutes} dk ${suffix}`;
 }
 
 /**
@@ -134,8 +146,17 @@ function untilLabel(appointment: Appt, nowMinutes: number): string {
  */
 export function stateLine(appointment: Appt, nowMinutes: number): StateLine {
     const kind = stateOf(appointment);
-    const at = (stamp: string | null | undefined) =>
-        (stamp ? `${stamp.slice(0, 5)}’de` : null);
+    /*
+     * Damga İKİ BİÇİMDE geliyor: "10:32:00" (saat sütunu) ve
+     * "2026-08-13T10:32:00+03:00" (zaman damgası). Körü körüne ilk beş
+     * karakteri almak ikincisinde "2026-" yazdırıyordu — ekranda
+     * "2026-’de başladı" diye çıkıyordu.
+     */
+    const at = (stamp: string | null | undefined) => {
+        if (!stamp) return null;
+        const time = stamp.includes('T') ? stamp.slice(11, 16) : stamp.slice(0, 5);
+        return /^\d{2}:\d{2}$/.test(time) ? `${time}’de` : null;
+    };
 
     if (kind === 'cancelled') {
         return { kind, word: STATE_WORD[kind], context: null, pulse: false };
@@ -177,6 +198,16 @@ export const CANCELLED_INFO = 'İptal edilmiş randevu düzenlenmez. Yeni randev
 export interface VisitSummary {
     /** `known` krem kart (tersine dönen düzlem), `new` sayfanın düzlemi. */
     kind: 'known' | 'new';
+    /**
+     * Yuvarlaktaki baş harfler.
+     *
+     * Önce burada ziyaret numarası yazıyordu — ama yanındaki başlık zaten
+     * "3. ziyaret" diyordu; yuvarlak aynı şeyi ikinci kez söylüyor, hiçbir
+     * yeni bilgi taşımıyordu. Artık KİMLİĞİ taşıyor ve akıştaki müşteri
+     * balonuyla aynı şekli konuşuyor: yuvarlak her yerde "bu müşteri, basınca
+     * kartı açılır" demek.
+     */
+    initials: string;
     /** Büyük rakam. Paket varsa kullanılan seans, yoksa ziyaret numarası. */
     lead: string;
     /** Küçük ek: "/8" ya da ".". Paket ve ziyaret dışında boş. */
@@ -205,6 +236,7 @@ export function visitSummary(appointment: Appt): VisitSummary {
     if (!info || (info.visitNo === null && !info.pkg && !info.lastVisit)) {
         return {
             kind: 'new',
+            initials: initialsOf(appointment.customer_name),
             lead: 'İlk',
             trailing: '',
             headline: 'Yeni müşteri',
@@ -225,6 +257,7 @@ export function visitSummary(appointment: Appt): VisitSummary {
 
     return {
         kind: 'known',
+        initials: initialsOf(appointment.customer_name),
         lead: info.pkg ? String(info.pkg.used) : String(info.visitNo ?? '—'),
         trailing: info.pkg ? `/${info.pkg.total}` : '.',
         headline: info.pkg

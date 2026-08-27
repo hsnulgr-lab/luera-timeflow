@@ -291,3 +291,42 @@ test('parametre verilmediğinde findCustomer null döner ve rota Empty gösterir
     assert.match(customerRoute, /<Empty[\s\S]*?title="Müşteri bulunamadı"/);
 });
 
+
+// ── Yerleşim kapısı: levhalar uyarı satırının üstüne binmemeli ───────────────
+
+test('levhalar kahraman alanın DOĞRUDAN çocuğu — araya sarmalayıcı View girmez', () => {
+    const screen = code('src/components/CustomerCard.tsx');
+    // <Plates> bir opacity sarmalayıcısının içinde olsaydı, mutlak konumu o
+    // sarmalayıcıya göre çözülür ve akışın bittiği yere — uyarı satırının
+    // üstüne — düşerdi. Sönüm bu yüzden prop olarak geçer.
+    assert.ok(/<Plates[\s\S]{0,200}opacity=\{platesOpacity\}/.test(screen));
+    assert.ok(!/<Animated\.View style=\{\{ opacity: platesOpacity \}\}/.test(screen));
+});
+
+test('kahraman alanın kendisinde dolgu yok — dolgu iç akış katmanında', () => {
+    const screen = code('src/components/CustomerCard.tsx');
+    const hero = screen.slice(screen.indexOf('height: heroHeight'));
+    const heroBox = hero.slice(0, hero.indexOf('<HeroGradient'));
+    // Mutlak konumlu levha/monogram/gradyan alanın gerçek kenarlarından
+    // ölçülsün diye kutunun kendisi dolgusuz kalır.
+    assert.ok(!/padding/.test(heroBox));
+    assert.ok(/paddingBottom: customerMetrics\.heroPadBottom/.test(screen));
+});
+
+test('uyarı varsa kahraman alan uzar — levhaya yer açılır', () => {
+    const screen = code('src/components/CustomerCard.tsx');
+    assert.ok(/heroGrows\(card\)/.test(screen));
+    assert.ok(/customerMetrics\.heroHeightWarn\b/.test(screen));
+    // 76 dolgu + 44 taşma: levhanın üstü akışın altından ayrı durur.
+    assert.equal(customerMetricsBottomGap(), 14);
+});
+
+function customerMetricsBottomGap() {
+    const tokens = read('src/theme/tokens.ts');
+    // Aynı adlar başka token bloklarında da geçiyor — yalnız customerMetrics.
+    const block = tokens.slice(tokens.indexOf('export const customerMetrics'));
+    const pick = (key) => Number(new RegExp(`${key}: (-?\\d+)`).exec(block)[1]);
+    // Levhanın üstü: alanın alt kenarından (plateHeight + plateBottom) yukarıda.
+    // Akışın altı:   alanın alt kenarından heroPadBottom yukarıda.
+    return pick('heroPadBottom') - (pick('plateHeight') + pick('plateBottom'));
+}
