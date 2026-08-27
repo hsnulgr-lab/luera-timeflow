@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 24: Personel günü</title>
+<style>
+:root{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--am:#D9A43B;--rd:#E07272;--gr:#5FBF64;--desk:#0B0805}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:#FF7A45;text-decoration:none}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1720px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:880px;margin-bottom:20px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.chain{display:flex;align-items:center;gap:12px;margin:34px 0 56px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.chain span.on{border-color:var(--gr);color:var(--gr)}
+.chain span.am{border-color:var(--am);color:var(--am)}
+.chain i{width:22px;height:1px;background:var(--bd2)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.prose{max-width:880px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:46px;display:flex;flex-direction:column;gap:13px}
+.prose b{color:var(--tx);font-weight:700}
+.prose em{font-style:italic;color:var(--tx)}
+.prose code,.note code,.rn code,.mspec code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.case{display:flex;gap:48px;align-items:flex-start;margin-bottom:74px;flex-wrap:wrap}
+.side{width:680px;display:flex;flex-direction:column;gap:14px;padding-top:4px}
+.side h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:7px;font-weight:700}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.note.ask::before{background:var(--am)}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf);margin-top:4px}
+.rn .r{display:flex;gap:16px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:150px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:118px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+/* ── telefon ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040;--gr:#2F7D3C}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.grad{position:absolute;left:0;right:0;top:0;height:120px;background:linear-gradient(180deg,rgba(255,90,31,.10),rgba(255,90,31,0));pointer-events:none}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28}
+/* üst çubuk */
+.tbar{flex:none;height:52px;display:flex;align-items:center;padding:0 14px;position:relative}
+.tbar .bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin-left:-8px}
+.tbar .bk s{display:block;width:11px;height:11px;border-left:1.7px solid var(--tx);border-bottom:1.7px solid var(--tx);transform:rotate(45deg);text-decoration:none}
+.tbar .ct{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.tbar .ct em{font-style:normal;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.tbar .ct s{text-decoration:none;font-size:12.5px;font-weight:500;color:var(--tx2)}
+/* isim şeridi — sayfalama göstergesi */
+.rail{flex:none;height:46px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--bd)}
+.rail .rg{flex:none;width:28px;height:28px;border-radius:50%;border:1.7px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:var(--tx3)}
+.rail .rg.on{border-width:2px;color:var(--tx);width:30px;height:30px;font-size:11px}
+.rail .rg.run{border-color:var(--or)}.rail .rg.free{border-color:var(--gr)}
+.rail .rg.off{border-style:dashed;border-color:var(--am)}.rail .rg.non{border-color:var(--bd)}
+.rail .rg.dim{opacity:.42}
+/* kaydırma alanı */
+.scr{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.pad{flex:none;display:flex;flex-direction:column;padding:18px 18px 0}
+/* kahraman blok */
+.hero-h{display:flex;align-items:center;gap:14px}
+.ring{flex:none;width:76px;height:76px;border-radius:50%;border:2.5px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;letter-spacing:-.01em;position:relative}
+.ring.run{border-color:var(--or)}.ring.free{border-color:var(--gr)}
+.ring.off{border-style:dashed;border-color:var(--am)}
+.ring.non{border-color:var(--bd);color:var(--tx2)}
+.ring .bdg{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);height:20px;padding:0 7px;border-radius:999px;background:var(--or);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;white-space:nowrap}
+.hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.hnm{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hnm b{font-weight:800}
+.hrole{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.2}
+.stamp{height:28px;padding:0 10px;border-radius:10px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:transparent;border:1px solid var(--bd2);white-space:nowrap;align-self:flex-start;color:var(--tx2)}
+.stamp s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--tx3);text-decoration:none}
+.stamp.run{color:var(--or);border-color:rgba(255,90,31,.42)}.stamp.run s{background:var(--or)}
+.stamp.free{color:var(--gr);border-color:rgba(95,191,100,.40)}.stamp.free s{background:var(--gr)}
+.stamp.am{color:var(--am);border-color:rgba(217,164,59,.42)}.stamp.am s{background:var(--am)}
+/* gömülü krem kart — padding 14 · radius 18 · gap 12 · ≤100pt */
+.pnl{--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pbd:rgba(14,14,14,.12);border-radius:18px;background:var(--ps);color:var(--pk);display:flex;overflow:hidden;margin-top:16px}
+.phone.lt .pnl{--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pbd:rgba(243,237,227,.14)}
+.pnl .in{flex:1;display:flex;align-items:center;gap:12px;padding:14px;min-width:0}
+.pcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.plbl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--pk2);line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plbl s{flex:none;width:6px;height:6px;border-radius:50%;background:var(--or);text-decoration:none}
+.hero{display:flex;align-items:baseline;gap:5px;font-size:34px;font-weight:800;letter-spacing:-.04em;line-height:1.06;height:36px}
+.hero .u{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--pk2)}
+.psub{font-size:11.5px;font-weight:500;color:var(--pk2);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* liste */
+.lhd{flex:none;display:flex;align-items:center;gap:8px;padding:22px 18px 10px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.lhd i{flex:1;height:1px;background:var(--bd)}
+.list{flex:none;display:flex;flex-direction:column}
+.row{display:flex;gap:14px;padding:16px 18px;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.row .tm{flex:none;width:46px;font-size:13.5px;font-weight:700;color:var(--tx2);padding-top:2px}
+.row .rc{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.row .rt{flex:none;display:flex;align-items:flex-start;gap:8px}
+.row .kebab{display:flex;flex-direction:column;gap:3px;padding:11px 6px;margin:-11px -6px}
+.row .kebab i{width:3px;height:3px;border-radius:50%;background:var(--tx3)}
+.rlb{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);display:flex;align-items:center;gap:7px}
+.rlb s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--or);text-decoration:none}
+.rnm{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rnm b{font-weight:800}
+.rsv{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.35}
+.rsv em{font-style:normal;color:var(--am);font-weight:600}
+.rsv i{font-style:normal;color:var(--rd);font-weight:600}
+.rnote{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.fade{opacity:.52}
+.mini{flex:none;height:26px;padding:0 9px;border-radius:9px;border:1px solid var(--bd2);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--tx2);white-space:nowrap}
+.mini s{flex:none;width:6px;height:6px;border-radius:50%;background:var(--tx3);text-decoration:none}
+.mini.am{color:var(--am);border-color:rgba(217,164,59,.42)}.mini.am s{background:var(--am)}
+.mini.rd{color:var(--rd);border-color:rgba(224,114,114,.40)}.mini.rd s{background:var(--rd)}
+.mini.gr{color:var(--tx2)}.mini.gr s{background:var(--gr)}
+/* vardiya çubuğu — boş hâllerde “şimdi”nin çerçevesi */
+.shift{flex:none;margin:14px 18px 0;border:1px solid var(--bd);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:11px}
+.shift.dash{border-style:dashed}
+.shift .sh{display:flex;align-items:baseline;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.shift .sh em{margin-left:auto;font-style:normal;font-size:12.5px;font-weight:600;color:var(--tx2);letter-spacing:0;text-transform:none}
+.track{height:22px;display:flex;align-items:center;position:relative}
+.track .base{position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--bd2)}
+.track .base.dash{height:0;border-top:1.7px dashed var(--bd2);background:none}
+.track .nowm{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;transform:translateX(-50%)}
+.track .nowm s{width:2px;height:14px;background:var(--or);border-radius:1px;text-decoration:none}
+.nowlab{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--or)}
+.nowlab i{flex:1;height:1px;background:rgba(255,90,31,.34)}
+.nowlab b{font-weight:800}
+.sfoot{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.4;text-wrap:pretty}
+/* boş hâl gövdesi */
+.emp{flex:none;padding:20px 18px 0;display:flex;flex-direction:column;gap:9px}
+.emp p{font-size:15px;font-weight:500;color:var(--tx2);line-height:1.45;text-wrap:pretty}
+.emp p b{color:var(--tx);font-weight:700}
+.endday{flex:none;padding:20px 18px;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);text-align:center}
+/* başparmak bölgesi */
+.foot{flex:none;padding:14px 18px 30px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--bd);background:var(--bg)}
+.hap{height:40px;padding:0 18px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15.5px;font-weight:800;letter-spacing:-.01em;border:1.5px solid var(--tx);white-space:nowrap}
+.hap.fill{background:var(--or);border-color:var(--or);color:#fff}
+.hap.grow{flex:1}
+.ghost{height:22px;padding:0 4px;display:flex;align-items:center;font-size:13.5px;font-weight:700;color:var(--tx2);white-space:nowrap}
+.ico{flex:none;width:17px;height:17px;border:1.7px solid currentColor;border-radius:50%;position:relative}
+.ico.plus::before,.ico.plus::after{content:"";position:absolute;background:currentColor;border-radius:1px}
+.ico.plus::before{left:3.5px;right:3.5px;top:6.6px;height:1.7px}
+.ico.plus::after{top:3.5px;bottom:3.5px;left:6.6px;width:1.7px}
+.ico.ph{border-radius:5px;border-width:1.7px}
+.pulse{animation:rpulse 800ms ease-in-out infinite}
+@keyframes rpulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* ── hareket sahneleri ── */
+.mrow{display:flex;flex-wrap:wrap;gap:34px 40px}
+.mcase{width:393px;display:flex;flex-direction:column;gap:12px}
+.mstage{padding:16px;background:var(--bg);border:1px solid var(--bd);border-radius:26px;display:flex;flex-direction:column;gap:10px;overflow:hidden;position:relative}
+.mspec{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.45}
+.mspec b{color:var(--tx);font-weight:700;font-size:12px;letter-spacing:.02em}
+.mspec .rm{color:var(--tx3)}
+.stack{position:relative;display:flex}
+.stack>.ly{flex:1;display:flex}
+.stack>.ly.abs{position:absolute;left:0;top:0;right:0;bottom:0}
+.strip52{display:flex;gap:16px}
+.s52{width:52px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.s52 .r52{width:52px;height:52px;border-radius:50%;border:2.5px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;position:relative}
+.s52 .r52.run{border-color:var(--or)}.s52 .r52.free{border-color:var(--gr)}
+.s52 .r52 .b18{position:absolute;bottom:-7px;height:18px;padding:0 6px;border-radius:999px;background:var(--or);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center}
+.s52 em{font-style:normal;font-size:12.5px;font-weight:600}
+.s52 s{text-decoration:none;font-size:11.5px;color:var(--tx2)}
+/* A — halkadan kahramana (8s) */
+.mA-strip{animation:mAstrip 8s linear infinite}
+@keyframes mAstrip{0%,14%{opacity:1;transform:scale(1)}18%,92%{opacity:0;transform:scale(1.28)}97%,100%{opacity:1;transform:scale(1)}}
+.mA-ring{animation:mAring 8s linear infinite;transform-origin:38px 38px}
+@keyframes mAring{0%,15%{opacity:0;transform:scale(.684)}21%,92%{opacity:1;transform:scale(1)}96%,100%{opacity:0;transform:scale(.684)}}
+.mA-rise{animation:mArise 8s linear infinite}
+@keyframes mArise{0%,17%{opacity:0;transform:translateY(10px)}25%,92%{opacity:1;transform:translateY(0)}96%,100%{opacity:0;transform:translateY(10px)}}
+.mA-rise2{animation-delay:.18s}
+/* B — personeller arası sayfalama (9s) */
+.mB-track{display:flex;width:200%;animation:mBtrack 9s cubic-bezier(.2,.8,.25,1) infinite}
+@keyframes mBtrack{0%,34%{transform:translateX(0)}50%,84%{transform:translateX(-50%)}100%{transform:translateX(0)}}
+.mB-r1{animation:mBr1 9s linear infinite}
+@keyframes mBr1{0%,36%{opacity:1}48%,86%{opacity:.42}98%,100%{opacity:1}}
+.mB-r2{animation:mBr2 9s linear infinite}
+@keyframes mBr2{0%,36%{opacity:.42}48%,86%{opacity:1}98%,100%{opacity:.42}}
+/* C — durum değişimi işlemde → müsait (9s) */
+.mC-out{animation:mCout 9s linear infinite}
+@keyframes mCout{0%,40%{opacity:1;transform:translateY(0)}42%,94%{opacity:0;transform:translateY(-6px)}97%,100%{opacity:1;transform:translateY(0)}}
+.mC-in{animation:mCin 9s linear infinite}
+@keyframes mCin{0%,40.7%{opacity:0;transform:translateY(8px)}43.5%,94%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(8px)}}
+.mC-bdg{animation:mCbdg 9s linear infinite}
+@keyframes mCbdg{0%,40%{opacity:1;transform:scale(1)}42%,94%{opacity:0;transform:scale(.9)}97%,100%{opacity:1;transform:scale(1)}}
+/* D — boş hâlin girişi (7s) */
+.mD-1{animation:mD1 7s linear infinite}
+@keyframes mD1{0%,6%{opacity:0;transform:translateY(8px)}16%,90%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(8px)}}
+.mD-2{animation:mD1 7s linear infinite;animation-delay:.06s}
+.mD-3{animation:mD1 7s linear infinite;animation-delay:.12s}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none;opacity:.75}
+.mA-strip,.mA-ring,.mA-rise,.mB-track,.mB-r1,.mB-r2,.mC-out,.mC-in,.mC-bdg,.mD-1,.mD-2,.mD-3{animation-duration:1ms!important;animation-iteration-count:1!important}}
+</style></head>
+<body><div class="doc">
+
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Müdür 24 · Personel günü<br/>iPhone 16 Pro 393 × 852 · koyu + aydınlık</div></div>
+
+<div class="lede"><h1>Bu personel şu an ne yapıyor, ona iş verebilir miyim?</h1>
+<p>Şeritteki halka bir soru soruyor; bu sayfa onu cevaplıyor. Bugünkü hâli iki şeyi yanlış yapıyor: <b>aynı sayacı iki kez</b> gösteriyor, ve boş personelde <b>hiçbir şey</b> göstermiyor. Aşağıdaki yedi hâl <b>Müdür 20–21’in kart çerçevesini birebir</b> kullanır — <code>padding 14 · radius 18 · gap 12</code>, kart ≤ 100 pt — ve her hâlde cevap <b>kaydırmadan</b> ilk ekranda duruyor.</p>
+<p>Sayfa üç şeyi sırayla söylüyor: <b>kim</b> (halka, ad, durum kelimesi) → <b>şu an</b> (krem kart, tek sayaç) → <b>bugünün kalanı</b> (liste). Başparmak bölgesinde tek birincil eylem var.</p></div>
+
+<div class="chain"><span>Halka · şerit</span><i></i><span class="on">Kim</span><i></i><span class="on">Şu an</span><i></i><span class="on">Bugünün kalanı</span><i></i><span class="am">Eylem</span></div>
+
+<div class="band"><span class="num">Karar 1</span><h2>Sayaç kahraman kartta, listede bir daha yok</h2><p>Yinelenmenin kaynağı kavramsaldı: kahraman “özet”, liste “tümü” sanıldı. İkisi de aynı randevuyu çizdi.</p></div>
+
+<div class="prose">
+<p><b>Kahraman kart, listenin ilk satırının kendisidir — özeti değil.</b> Sürmekte olan randevu listeden <em>çıkarılır</em>, yukarı alınır. Liste bu yüzden “bugün” değil <b>“bugünün kalanı”</b> olur ve başlığı da bunu yazar: <code>SIRADAKİ · 2 RANDEVU</code>. Böylece müşteri adı, hizmet, başlangıç saati ve sayaç ekranda tam olarak birer kez geçer. Kahraman kartın alt satırı dört bilgiyi tek cümlede taşır: <code>Ayşe Yılmaz · Saç boyama · 12:13’te biter</code> — müdürün ilk sorusunun (“ne zaman boşalır?”) cevabı sayacın altında, kaydırmadan.</p>
+<p><b>Sayaç yalnız geçen süreyi sayar, kalan süreyi yazıyla söyler.</b> İki rakam yan yana durduğunda müdür hangisinin ne olduğunu okumak zorunda kalıyor. Kahraman rakam <code>41:00</code> (geçen), bitiş <em>saat</em> olarak yazılı (<code>12:13</code>) — saat sabittir, saymaz, karışmaz.</p>
+<p><b>Üst çubuk artık randevu sayısını taşımıyor.</b> Canlıdaki <code>Kuaför · bugün 2 randevu</code> ile listenin başlığı aynı sayıyı iki kez söylüyordu. Üst çubukta yalnız ad ve rol kaldı; sayı listenin başlığında, ait olduğu yerde.</p>
+</div>
+
+<div class="band"><span class="num">Karar 2</span><h2>Personeller arası geçiş: yatay sayfalama, üstte isim şeridi</h2><p><code>react-native-gesture-handler</code> yok — sayfalama RN’in <code>ScrollView</code>’ının <code>pagingEnabled</code>’ıyla.</p></div>
+
+<div class="prose">
+<p><b>Evet, yatay geçiş olmalı.</b> Halka biçimi “dokun, gör, yana kaydır” vaat ediyor ve müdürün gerçek işi karşılaştırmaktır: Deniz 49 dakika sonra boşalıyor, Ece şimdi boş. Geri dönüp başka halkaya dokunmak bu karşılaştırmayı üç dokunuşa çıkarıyor.</p>
+<p><b>Gösterge nokta dizisi değil, isim şeridi.</b> Nokta dizisi 6 personelde “neredeyim”i söyler ama “yanımda kim var”ı söylemez; müdür isim arıyor. Üst çubuğun altında <b>28 pt baş harf halkaları</b> var — şeridin küçültülmüş hâli, aynı durum renkleriyle. Etkin olan <code>30 pt</code> ve tam mürekkep, diğerleri <code>%42</code>. Şeritteki <code>52 pt</code> halkanın kimliği (renk, kesik çizgi, baş harf) burada korunuyor, yalnız ölçek düşüyor: müdür sayfayı hangi şeritten açtıysa onu üstte görmeye devam ediyor.</p>
+<p><b>Sayfalama yalnız aynı gün, aynı sıra.</b> Yatay <code>ScrollView</code>, <code>pagingEnabled</code>, sayfa genişliği ekran genişliği; her sayfa kendi düşey <code>ScrollView</code>’unu taşır. Şerit dokunuşu da aynı yere gider (<code>scrollTo({x: i * W})</code>), böylece dokunma ve kaydırma tek modeli paylaşır. Rozet sayacı yalnız etkin sayfada canlı; komşu sayfalar <code>%42</code> soluk çizilir ve sayaçları durur.</p>
+</div>
+
+<div class="band"><span class="num">Karar 3</span><h2>Boş hâller: müdürün sorusuna cevap, keşif listesi değil</h2><p>H3 · H4 · H5’te ekran hiçbir zaman tek bir “Günün sonu” satırına inmiyor.</p></div>
+
+<div class="prose">
+<p><b>“Şimdi” çizgisi tek başına duramaz — bir çerçeveye ait olmalı.</b> Boş günde çizginin altında ve üstünde hiçbir şey olmadığı için neyin şimdisi olduğu anlaşılmıyordu. Çözüm: <b>vardiya çubuğu</b>. <code>09:00 – 19:00</code> aralığı çizilir, “şimdi” işareti o aralığın içinde durur (<code>11:24</code>). Boş gün artık boş bir liste değil, <b>içi boş bir vardiya</b>: müdür bir bakışta günün ne kadarının önünde olduğunu görür. H3’te çubuk düz, H4/H5’te <b>kesik çizgi</b> — vardiya yok.</p>
+<p><b>H4 (izinli) müdürün sorusu “ne zaman dönüyor?” — ve bu veri elimizde yok.</b> Uydurmuyoruz: ekranda dönüş tarihi <em>çizilmiyor</em>. Onun yerine bugün kesin olan iki şey yazılı: <b>bugün randevu yazılamaz</b> ve <b>müşterileri bugün başkasına verilebilir</b>. Birincil eylem <b>Ara</b> — izinli personelde müdürün gerçekten yapabileceği tek şey. Çıkış olarak <b>Müsait personeli gör</b> hayalet eylemi var: sekiz kişilik bir “keşfet” listesi değil, tek bir geri dönüş. <span style="color:var(--am)">Veri isteği: <code>staffLeave.endDate</code>.</span> Alan geldiğinde krem karta girer — etiket <code>DÖNÜŞ</code>, kahraman <code>26 Ağu</code>, alt satır <code>4 gün sonra</code>; yer şimdiden ayrılmış durumda.</p>
+<p><b>H5 (çalışmıyor) izinliden niyetiyle ayrışır, ekranda üç yerde:</b> halka kesik değil düz ve soluk (izin geçici, vardiyasızlık planlı), damga rengi gri (amber değil — amber “dikkat” demek, planlı bir günde dikkat gerekmez), ve cümle sebebi söyler: <code>Vardiya planında bugün yok.</code> H4’te salonda bir eksik var; H5’te yok. Bu yüzden H5’te “Ara” birincil değil, hayalettir: kimseyi rahatsız etmeye gerek yok.</p>
+<p><b>H3 (bütün gün boş) bir fırsat, sorun değil — ama gerekçesiz değil.</b> Krem kart <code>0 randevu</code> yazar, alt satır boş saati verir (<code>vardiya 09:00–19:00 · 8 saat boş</code>). Altında tek bir bağlam cümlesi: <b>salonda şu an 3 işlem sürüyor</b> — müdürün “buraya iş verebilir miyim” sorusunu doğrudan cevaplayan tek veri. Birincil eylem dolu hap: <b>Randevu ver</b>.</p>
+<p><b>H6’da gün özeti buraya <em>ait</em>.</b> Akşam bu sayfa artık “şu an ne yapıyor” sorusuna cevap veremez; verebileceği tek şey günün kapanışıdır: <code>4 randevu · 3 tamamlandı · 1 gelmedi</code>. Ciro yok — o Kasa’nın işi. Birincil eylem yarına kayar: <b>Yarına randevu ver</b>.</p>
+</div>
+
+<div class="band"><span class="num">Durumlar</span><h2>H1 – H6 · telefon çerçevesinde</h2><p>Saat her hâlde <b>11:24</b> (H6 hariç: 19:48). Her durumun altında ölçü tablosu; CSS onunla birebir.</p></div>
+
+<div id="cases"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Dört an · yalnız opacity ve transform</h2><p>Her geçişte üçü ayrı yazılı: çıkan, giren, yerinde kalan. Yükseklik, renk, yarıçap, gölge animasyonu yok. Sahneler döngüde.</p></div>
+
+<div class="mrow" id="motion"></div>
+
+<div class="band" style="margin-top:64px"><span class="num">Teslim</span><h2>React Native notları</h2><p>Metin sınırları, native sürücü, jest kısıtı ve 375 × 667’de sıkışanlar.</p></div>
+<div id="rnnotes"></div>
+
+</div>
+<script>
+const N=s=>`<span class="n">${s}</span>`;
+const st=(t="11:24")=>`<div class="status"><span class="n">${t}</span><span class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></span></div>`;
+const tbar=(nm,role)=>`<div class="tbar"><button class="bk"><s></s></button><span class="ct"><em>${nm}</em><s>${role}</s></span></div>`;
+const RAIL=[["DA","run"],["MK","run"],["SD","run"],["EÇ","free"],["GT","off"],["KB","non"]];
+const rail=act=>`<div class="rail">${RAIL.map(([i,c],k)=>`<span class="rg ${c} ${k===act?"on":"dim"}">${i}</span>`).join("")}</div>`;
+const ring=(ini,cls,badge)=>`<span class="ring ${cls}">${ini}${badge?`<span class="bdg n">${badge}</span>`:""}</span>`;
+const heroHead=(ini,cls,badge,nm,sur,role,stampCls,stampTx)=>`<div class="hero-h">${ring(ini,cls,badge)}<span class="hcol"><span class="hnm">${nm} <b>${sur}</b></span><span class="stamp ${stampCls}"><s></s>${stampTx}</span><span class="hrole">${role}</span></span></div>`;
+const panel=(lbl,dot,hero,sub)=>`<div class="pnl"><span class="in"><span class="pcol"><span class="plbl">${dot?'<s class="pulse"></s>':""}${lbl}</span><span class="hero n">${hero}</span><span class="psub">${sub}</span></span></span></div>`;
+const lhd=t=>`<div class="lhd">${t}<i></i></div>`;
+const row=o=>`<div class="row ${o.fade?"fade":""}"><span class="tm n">${o.tm}</span><span class="rc">${o.lb?`<span class="rlb"><s></s>${o.lb}</span>`:""}<span class="rnm">${o.nm} <b>${o.sur}</b></span><span class="rsv">${o.sv}</span>${o.note?`<span class="rnote">${o.note}</span>`:""}</span><span class="rt">${o.mini?`<span class="mini ${o.mini[1]}"><s></s>${o.mini[0]}</span>`:""}<button class="kebab"><i></i><i></i><i></i></button></span></div>`;
+const shift=(head,right,dash,pct,foot)=>`<div class="shift ${dash?"dash":""}"><span class="sh">${head}<em>${right}</em></span><span class="track"><span class="base ${dash?"dash":""}"></span><span class="nowm" style="left:${pct}%"><s></s></span></span><span class="sfoot">${foot}</span></div>`;
+const nowline=t=>`<div class="lhd" style="color:var(--or)"><span class="nowlab" style="flex:1">ŞİMDİ <b class="n">${t}</b><i></i></span></div>`;
+const foot=h=>`<div class="foot">${h}</div>`;
+const primary=t=>`<span class="hap fill grow"><span class="ico plus"></span>${t}</span>`;
+const outline=t=>`<span class="hap"><span class="ico ph"></span>${t}</span>`;
+const phone=(o)=>`<div class="phone ${o.lt?"lt":""}">${st(o.clock)}<div class="body"><div class="grad"></div>${tbar(o.nm,o.role)}${rail(o.act)}<div class="scr">${o.main}</div>${o.foot}</div><div class="home-ind"></div></div>`;
+
+/* ── H1 · İŞLEMDE ── */
+const H1main=`<div class="pad">${heroHead("DA","run","41 dk","Deniz","Aksoy","Kuaför","run","İŞLEMDE")}
+${panel("SÜRÜYOR",1,`41:00`,"Ayşe Yılmaz · Saç boyama · 12:13’te biter")}</div>
+${lhd("Sıradaki · 2 randevu")}
+<div class="list">
+${row({tm:"14:00",nm:"Merve",sur:"Aydın",sv:"Kesim + fön · 60 dk",note:"“Uçları çok kısa istemiyor”"})}
+${row({tm:"16:30",nm:"Nur",sur:"Aksoy",sv:"Kaş alma · 20 dk",mini:["onay bekliyor","am"]})}
+</div>`;
+const H1foot=foot(`${primary("Randevu ver")}${outline("Ara")}`);
+
+/* ── H2 · MÜSAİT ── */
+const H2main=`<div class="pad">${heroHead("EÇ","free","","Ece","Çelik","Kuaför","free","MÜSAİT")}
+${panel("ŞU AN BOŞ",0,`2<span class="u">sa</span> 6<span class="u">dk</span>`,"13:30’a kadar · sıradaki Hakan Toprak")}</div>
+${lhd("Bugün · 2 randevu")}
+<div class="list">
+${row({tm:"10:00",nm:"Burak",sur:"Şen",sv:"Kesim · 30 dk",mini:["iptal","rd"],fade:1})}
+</div>
+${nowline("11:24")}
+<div class="list">
+${row({tm:"13:30",nm:"Hakan",sur:"Toprak",sv:"Saç bakım maskesi · 60 dk"})}
+</div>`;
+const H2foot=foot(`${primary("Randevu ver")}${outline("Ara")}`);
+
+/* ── H3 · MÜSAİT, BUGÜN RANDEVU YOK ── */
+const H3main=`<div class="pad">${heroHead("MK","free","","Merve","Kaya","Kuaför","free","MÜSAİT")}
+${panel("BUGÜN",0,`0<span class="u">randevu</span>`,"vardiya 09:00 – 19:00 · 8 saat boş")}</div>
+${shift("Vardiya","09:00 – 19:00",0,24,"Gün başladı, hâlâ boş.")}
+<div class="emp"><p>Salonda şu an <b>3 işlem sürüyor</b>. Merve bugün hiç randevu almadı.</p></div>`;
+const H3foot=foot(`${primary("Randevu ver")}${outline("Ara")}`);
+
+/* ── H4 · İZİNLİ ── */
+const H4main=`<div class="pad">${heroHead("GT","off","","Gül","Tunç","Kuaför","am","İZİNLİ")}</div>
+<div class="emp"><p>Gül bugün salonda değil. <b>Bugün randevu yazılamaz</b>; bekleyen müşterileri başka personele verilebilir.</p></div>
+${shift("Vardiya","bugün yok",1,24,"Dönüş tarihi için izin kaydı gerekiyor.")}`;
+const H4foot=foot(`<span class="hap fill grow"><span class="ico ph"></span>Ara</span><span class="ghost">Müsait personeli gör</span>`);
+
+/* ── H5 · BUGÜN ÇALIŞMIYOR ── */
+const H5main=`<div class="pad">${heroHead("KB","non","","Kaan","Bulut","Kuaför","","BUGÜN ÇALIŞMIYOR")}</div>
+<div class="emp"><p><b>Vardiya planında bugün yok.</b> Salonda eksik yok — Kaan’ın günü zaten kapalı.</p></div>
+${shift("Vardiya","planda yok",1,24,"Sıradaki vardiyası haftalık planda.")}`;
+const H5foot=foot(`<span class="hap grow"><span class="ico ph"></span>Vardiya planı</span><span class="ghost">Ara</span>`);
+
+/* ── H6 · GÜN BİTTİ ── */
+const H6main=`<div class="pad">${heroHead("SD","free","","Selin","Demir","Kuaför","","GÜNÜN SONU")}
+${panel("BUGÜN",0,`4<span class="u">randevu</span>`,"3 tamamlandı · 1 gelmedi")}</div>
+${lhd("Bugün · kapandı")}
+<div class="list">
+${row({tm:"10:30",nm:"Elif",sur:"Demir",sv:"Keratin bakımı · 45 dk",mini:["tamamlandı","gr"],fade:1})}
+${row({tm:"13:00",nm:"Nur",sur:"Aksoy",sv:"Kaş alma · 20 dk",mini:["tamamlandı","gr"],fade:1})}
+${row({tm:"15:00",nm:"Hakan",sur:"Toprak",sv:"Kesim · 30 dk",mini:["gelmedi","rd"]})}
+${row({tm:"17:30",nm:"Ayşe",sur:"Yılmaz",sv:"Fön · 30 dk",mini:["tamamlandı","gr"],fade:1})}
+</div>
+<div class="endday">Günün sonu</div>`;
+const H6foot=foot(`${primary("Yarına randevu ver")}${outline("Ara")}`);
+
+const tbl=(rows)=>`<div class="rn"><div class="r h"><b>Öge</b><s>Ölçü</s><code>Not</code></div>${rows.map(([a,b,c])=>`<div class="r"><b>${a}</b><s>${b}</s><code>${c}</code></div>`).join("")}</div>`;
+const common=[["Üst çubuk","h52 · ad 17/800","alt satır 12.5/500 · geri hedefi 44"],["İsim şeridi","h46 · halka 28 (etkin 30)","kenarlık 1.7 (etkin 2) · baş harf 10.5/800"],["Kahraman halka","76 · kenarlık 2.5 · 22/800","şeritteki 52’nin 1.462× karşılığı"],["Damga","h28 · padX10 · r10 · 12/700","saydam zemin + 1px kenarlık · 7px nokta"]];
+
+const CASES=[
+ {id:"H1",t:"İşlemde",sub:"Deniz · şu an Ayşe Yılmaz’da",main:H1main,foot:H1foot,nm:"Deniz",role:"Kuaför",act:0,
+  notes:["<b>Tek sayaç.</b> <code>41:00</code> yalnız krem kartta. Sürmekte olan randevu listeden çıkarıldı; liste başlığı <code>SIRADAKİ · 2 RANDEVU</code>.","<b>Kaydırmasız cevap.</b> “Ne zaman boşalır?” → <code>12:13’te biter</code>, kahraman rakamın hemen altında.","<b>Şimdi çizgisi yok</b> — kalan randevuların hepsi ilerideyken çizgi bilgi taşımaz; yerini liste başlığı alır."],
+  tbl:[["Krem kart","p14 · r18 · gap12 · h≤100","yükseklik 92 (etiket 14 + sayaç 36 + alt 15 + p28)"],["Etiket satırı","11.5/700 · .06em · caps","6px turuncu nokta · 800 ms nabız"],["Kahraman sayaç","34/800 · tracking −.04em","kutu 36 · <code>tabular-nums</code> · mm:ss"],["Liste satırı","p16/18 · ayırıcı 1px","saat sütunu 46 · ad 19/500+800 · hizmet 13.5/500"],["Eylem hapı","h40 · padX18 · r999 · 15.5/800","dolu = Randevu ver · kenarlıklı = Ara"],...common]},
+ {id:"H1-L",t:"İşlemde · aydınlık tema",sub:"aynı yerleşim, krem kart ters döner",main:H1main,foot:H1foot,nm:"Deniz",role:"Kuaför",act:0,lt:1,
+  notes:["<b>Gömülü kart tersine döner:</b> <code>#1C1710 / #F3EDE3</code>. Krem sayfa üstünde krem kart düzlem değiştirmezdi.","Turuncu aynı kalır — zaman ve eylem rengi temaya bağlı değil. Yeşil <code>#2F7D3C</code>, amber <code>#B87A00</code>: krem zeminde kontrast için koyulaşır.","Üstteki gradyan aydınlıkta da aynı yerde, <code>%10</code> turuncu."],
+  tbl:[["Zemin / yüzey","#F3ECE0 / #FAF7F3","kenarlık rgba(14,14,14,.10)"],["Metin","#0E0E0E · ikincil .52","üçüncül .34"],["Gömülü kart","#1C1710 / #F3EDE3","koyu temanın tersi"],["Durum renkleri","yeşil #2F7D3C · amber #B87A00","kırmızı #C94040"],...common]},
+ {id:"H2",t:"Müsait",sub:"Ece · boşta, bugün randevusu var",main:H2main,foot:H2foot,nm:"Ece",role:"Kuaför",act:3,
+  notes:["<b>En değerli hâl.</b> Kahraman rakam sayaç değil <b>boş süre</b>: <code>2sa 6dk</code>. Müdür buraya iş vermeye geliyor; cevap rakamda.","Nabız yok — boş süre canlı saymıyor, dakikada bir tazelenir. Turuncu nokta da yok: bu bir “sürüyor” hâli değil.","<b>Şimdi çizgisi burada anlamlı:</b> iptal olan 10:00 ile 13:30 arasında duruyor, iki tarafında satır var."],
+  tbl:[["Krem kart","p14 · r18 · h92","etiket <code>ŞU AN BOŞ</code> · noktasız"],["Boş süre","34/800 · birim 17/700","birim ikincil mürekkep · sıfırsız (2sa 6dk)"],["İptal satırı","opacity .52","damga <code>iptal</code> h26 · padX9 · r9 · 12/700"],["Şimdi çizgisi","11.5/700 caps · 1px hat","turuncu · liste başlığı yuvasında (h≈43)"],["Birincil eylem","dolu hap · flex:1","başparmak bölgesi · alt 30 pt güvenli alan"],...common]},
+ {id:"H3",t:"Müsait · bugün randevusu yok",sub:"Merve · bütün gün boş",main:H3main,foot:H3foot,nm:"Merve",role:"Kuaför",act:1,
+  notes:["<b>Fırsat, sorun değil</b> — ve gerekçesi ekranda: <code>salonda şu an 3 işlem sürüyor</code>. Bu tek cümle, müdürün kararını verdirten veridir.","<b>Vardiya çubuğu</b> “şimdi” çizgisini bir çerçeveye oturtur: <code>09:00 – 19:00</code> aralığı, işaret <code>%24</code>’te.","Keşif listesi yok. Ekranda tek birincil eylem: <b>Randevu ver</b>."],
+  tbl:[["Krem kart","p14 · r18 · h92","<code>0 randevu</code> · birim 17/700"],["Vardiya çubuğu","p14 · r14 · gap11","hat 3px r2 · şimdi işareti 2×14 turuncu"],["Bağlam cümlesi","15/500 · satır 1.45","tek paragraf, en çok 2 satır"],["Boş alan","≈300 pt","kasıtlı: eylem başparmak bölgesinde tek başına"],...common]},
+ {id:"H4",t:"İzinli",sub:"Gül · bugün yok",main:H4main,foot:H4foot,nm:"Gül",role:"Kuaför",act:4,
+  notes:["<b>Krem kart yok</b> — çünkü yazacak sayı yok. Uydurma dönüş tarihi çizmiyoruz.","Söylenen iki şey bugün kesin: <b>randevu yazılamaz</b>, <b>müşterileri devredilebilir</b>. Birincil eylem <b>Ara</b>.","Vardiya çubuğu <b>kesik çizgi</b> ve alt satırı veri eksiğini açıkça söylüyor.","<b>Veri isteği:</b> <code>staffLeave.endDate</code>. Geldiğinde krem kart açılır: etiket <code>DÖNÜŞ</code> · kahraman <code>26 Ağu</code> · alt satır <code>4 gün sonra</code>. Yerleşim değişmez, kart halkanın altına girer."],
+  tbl:[["Halka","76 · kesik 2.5 · amber","şeritteki kesik halkanın büyütülmüş hâli"],["Damga","h28 · <code>İZİNLİ</code> · amber","Türkçe caps: İ noktalı"],["Cümle","15/500 · en çok 3 satır","<code>numberOfLines={3}</code>"],["Vardiya çubuğu","kesik 1.7px","hat yerine kesik çizgi = vardiya yok"],["Eylemler","dolu Ara + hayalet h22","hayalet 13.5/700 · hitSlop 12"],...common]},
+ {id:"H5",t:"Bugün çalışmıyor",sub:"Kaan · vardiyası yok",main:H5main,foot:H5foot,nm:"Kaan",role:"Kuaför",act:5,
+  notes:["<b>İzinliden üç yerde ayrışır:</b> halka düz ve soluk (kesik değil), damga gri (amber değil), cümle sebebi söylüyor.","Amber “dikkat” demek; planlı bir kapalı günde dikkat gerekmez. Bu yüzden H5 renksiz.","<b>Ara birincil değil</b> — hayalet. Birincil eylem çıkışa gidiyor: <b>Vardiya planı</b>. Ekran çıkışsız kalmıyor."],
+  tbl:[["Halka","76 · düz 2.5 · kenarlık rengi","baş harf ikincil mürekkep"],["Damga","h28 · gri · 12/700","<code>BUGÜN ÇALIŞMIYOR</code> tek satır (26 karakter)"],["Birincil eylem","kenarlıklı hap · flex:1","Vardiya planı → haftalık plan ekranı"],["Ara","hayalet h22 · 13.5/700","hitSlop {top:12,bottom:12}"],...common]},
+ {id:"H6",t:"Gün bitti",sub:"Selin · akşam 19:48",main:H6main,foot:H6foot,nm:"Selin",role:"Kuaför",act:2,clock:"19:48",
+  notes:["<b>Gün özeti buraya ait</b>, çünkü “şu an” artık yok: <code>4 randevu · 3 tamamlandı · 1 gelmedi</code>.","<b>Ciro yok.</b> Müdür görebilir ama bu ekranın işi değil — Kasa’nın.","<b>Gelmedi satırı soluk değil</b>: tamamlananlar <code>%52</code>’ye iner, gelmedi tam mürekkepte kalır. Müdürün yarına taşıyacağı tek satır o.","Birincil eylem yarına kayar."],
+  tbl:[["Krem kart","p14 · r18 · h92","<code>4 randevu</code> · alt satır sayım"],["Tamamlanan satır","opacity .52","damga <code>tamamlandı</code> · 6px yeşil nokta"],["Gelmedi satırı","opacity 1","damga kırmızı · soluklaştırılmaz"],["Günün sonu","12.5/700 caps · p20/18","ortalı · üçüncül mürekkep"],...common]}
+];
+
+document.getElementById("cases").innerHTML=CASES.map(c=>`<div class="case"><div class="side"><h3><s>${c.id} · ${c.lt?"AYDINLIK":"KOYU"}</s>${c.t}<span style="display:block;font-size:13.5px;font-weight:500;color:var(--tx2);margin-top:6px;letter-spacing:0">${c.sub}</span></h3>${c.notes.map(n=>`<span class="note ${n.includes("Veri isteği")?"ask":""}">${n}</span>`).join("")}${tbl(c.tbl)}</div>${phone(c)}</div>`).join("");
+
+/* ── HAREKET ── */
+const s52=(ini,cls,nm,sw,bdg)=>`<span class="s52"><span class="r52 ${cls}">${ini}${bdg?`<span class="b18 n">${bdg}</span>`:""}</span><em>${nm}</em><s>${sw}</s></span>`;
+const MOT=[
+ {t:"1 · Halkadan sayfaya",stage:`<div class="stack" style="height:120px;align-items:center">
+ <span class="ly abs mA-strip" style="align-items:center"><span class="strip52">${s52("DA","run","Deniz","işlemde","41 dk")}${s52("EÇ","free","Ece","müsait","")}</span></span>
+ <span class="ly abs" style="flex-direction:column;justify-content:center;gap:10px">
+  <span class="mA-ring" style="display:flex">${ring("DA","run","41 dk")}</span></span></div>
+ <div class="mA-rise mA-rise2">${panel("SÜRÜYOR",1,"41:00","Ayşe Yılmaz · Saç boyama · 12:13’te biter")}</div>`,
+  spec:["<b>Sayfa halkadan doğar.</b> Şeritteki 52 pt halka yerinde büyüyerek 76 pt kahraman halkaya dönüşür — ölçek 1.462, konum aynı yatay eksende.","<b>Çıkan</b> · şerit: <code>opacity 1→0</code> + <code>scale 1→1.28</code>, 160 ms, <code>cubic-bezier(.4,0,1,1)</code>.","<b>Giren</b> · kahraman halka: <code>scale .684→1</code> + <code>opacity 0→1</code>, 220 ms, gecikme 60 ms, <code>cubic-bezier(.2,.8,.25,1)</code>. Krem kart ve liste: <code>translateY 10→0</code> + <code>opacity</code>, 220 ms, gecikme 60/180 ms.","<b>Yerinde kalan</b> · dokunulan halkanın baş harfi ve rozeti: kimlik boyunca hiç sönmez, yalnız ölçeklenir. Rozet <code>18→20 pt</code> ölçek farkı transform’la, yükseklikle değil.","<span class='rm'>Hareketi azalt: ölçek yok. Şerit 160 ms’de söner, kahraman blok 220 ms’de <code>opacity 0→1</code> ile gelir. Halka doğrudan 76 pt çizilir.</span>"]},
+ {t:"2 · Personeller arası geçiş",stage:`<div style="overflow:hidden"><div class="mB-track">
+ <span style="width:50%;flex:none;padding-right:16px;display:flex;flex-direction:column;gap:10px">${heroHead("DA","run","41 dk","Deniz","Aksoy","Kuaför","run","İŞLEMDE")}</span>
+ <span style="width:50%;flex:none;padding-right:16px;display:flex;flex-direction:column;gap:10px">${heroHead("EÇ","free","","Ece","Çelik","Kuaför","free","MÜSAİT")}</span>
+ </div></div>
+ <div class="rail" style="border:0;padding:0;height:38px">${RAIL.map(([i,c],k)=>`<span class="rg ${c} ${k===0?"on mB-r1":k===3?"on mB-r2":"dim"}">${i}</span>`).join("")}</div>`,
+  spec:["<b>Yatay <code>ScrollView</code> · <code>pagingEnabled</code>.</b> Sayfa genişliği = ekran genişliği; jest kütüphanesi gerekmez.","<b>Çıkan</b> · Deniz sayfası: yalnız <code>translateX</code>, RN’de kaydırma sürücüsünün kendisi. Sönme yok — parmak altındaki sayfa soldurulmaz.","<b>Giren</b> · Ece sayfası: aynı <code>translateX</code>. Bırakıldığında yerine oturma 220 ms <code>cubic-bezier(.2,.8,.25,1)</code> (<code>scrollTo</code> animasyonu).","<b>Yerinde kalan</b> · isim şeridi: kaymaz. Etkin halka <code>opacity .42→1</code>, eskisi <code>1→.42</code>, 160/220 ms çapraz soldurma. Ölçek farkı (28→30) transform.","<span class='rm'>Hareketi azalt: sayfa kayması kalır (kaydırma jesti, animasyon değil); şerit çapraz soldurması 1 ms’ye iner — durum anında değişir.</span>"]},
+ {t:"3 · Durum değişimi · işlemde → müsait",stage:`<div class="stack" style="height:76px">
+  <span class="ly abs mC-out">${heroHead("DA","run","41 dk","Deniz","Aksoy","Kuaför","run","İŞLEMDE")}</span>
+  <span class="ly abs mC-in">${heroHead("DA","free","","Deniz","Aksoy","Kuaför","free","MÜSAİT")}</span></div>
+ <div class="stack" style="height:92px;margin-top:6px">
+  <span class="ly abs mC-out">${panel("SÜRÜYOR",1,"41:00","Ayşe Yılmaz · Saç boyama · 12:13’te biter")}</span>
+  <span class="ly abs mC-in">${panel("ŞU AN BOŞ",0,`1<span class="u">sa</span> 47<span class="u">dk</span>`,"14:00’a kadar · sıradaki Merve Aydın")}</span></div>`,
+  spec:["Sayfa açıkken personel işlemi bitirebilir. <b>Yerleşim kıpırdamaz</b>, iki krem kart aynı 92 pt kutuda çapraz solar.","<b>Çıkan</b> · sayaç kartı + turuncu halka + <code>İŞLEMDE</code> damgası: <code>opacity 1→0</code>, <code>translateY 0→−6</code>, 160 ms, <code>cubic-bezier(.4,0,1,1)</code>. Rozet ayrıca <code>scale 1→.9</code>.","<b>Giren</b> · boş süre kartı + yeşil halka + <code>MÜSAİT</code> damgası: <code>opacity 0→1</code>, <code>translateY 8→0</code>, 220 ms, gecikme 60 ms, <code>cubic-bezier(.2,.8,.25,1)</code>.","<b>Yerinde kalan</b> · ad, rol, baş harf, üst çubuk, liste ve başparmak bölgesindeki eylem yuvası. Yuva sabit; içindeki hap etiketi (<code>Randevu ver</code>) H1’de de aynı olduğu için değişmez — yalnız dolu/kenarlıklı çeşidi çapraz solar. Renk animasyonu yok: iki halka üst üste, biri sönerken diğeri açılır.","<span class='rm'>Hareketi azalt: <code>translateY</code> yok. 160 ms sönme + 220 ms açılma yalnız <code>opacity</code>; sayaç son değerinde donar, sonra kaybolur.</span>"]},
+ {t:"4 · Boş hâlin girişi · izinli",stage:`<div class="mD-1">${heroHead("GT","off","","Gül","Tunç","Kuaför","am","İZİNLİ")}</div>
+ <div class="mD-2" style="font-size:15px;font-weight:500;color:var(--tx2);line-height:1.45">Gül bugün salonda değil. <b style="color:var(--tx);font-weight:700">Bugün randevu yazılamaz</b>; bekleyen müşterileri başka personele verilebilir.</div>
+ <div class="mD-3">${shift("Vardiya","bugün yok",1,24,"Dönüş tarihi için izin kaydı gerekiyor.")}</div>`,
+  spec:["Boş hâl de halkadan doğar; farkı, arkasından <b>sayaç değil cümle</b> gelmesi.","<b>Giren</b> · üç öge sırayla: halka+damga (220 ms, gecikme 60), cümle (220 ms, gecikme 120), vardiya çubuğu (220 ms, gecikme 180). Hepsi <code>opacity 0→1</code> + <code>translateY 8→0</code>, <code>cubic-bezier(.2,.8,.25,1)</code>.","<b>Çıkan</b> · yok — geldiği yerde sayaç kartı hiç çizilmedi. Boş hâle geçişte önceki sayfa yatay kayar (2. an).","<b>Yerinde kalan</b> · üst çubuk, isim şeridi, başparmak bölgesindeki eylem yuvası. Kesik halka ve kesik çubuk statiktir — kesik çizgi animasyonu yok (<code>stroke</code> RN’de yok).","<span class='rm'>Hareketi azalt: kademeli gecikmeler 0’a iner, üç öge tek 220 ms’lik <code>opacity</code> ile birlikte gelir.</span>"]}
+];
+document.getElementById("motion").innerHTML=MOT.map(m=>`<div class="mcase"><h3 style="font-size:15px;font-weight:800;letter-spacing:-.01em">${m.t}</h3><div class="mstage">${m.stage}</div><div class="mspec">${m.spec.map(s=>`<span>${s}</span>`).join("")}</div></div>`).join("");
+
+document.getElementById("rnnotes").innerHTML=`<div style="max-width:1180px;display:flex;flex-direction:column;gap:26px">
+${tbl([
+["Metin kırpma","ad + soyad","<code>numberOfLines={1}</code> · <code>ellipsizeMode=\"tail\"</code>; soyad ayrı <code>Text</code>, sarma yok"],
+["","hizmet satırı","<code>numberOfLines={1}</code>; müşteri notu ayrı satır, <code>numberOfLines={1}</code> — iki satıra izin verilmez, kart 100 pt’yi aşar"],
+["","boş hâl cümlesi","<code>numberOfLines={3}</code>; 375 pt’te 3. satıra taşar, taşarsa kesilir"],
+["","damga","kırpma yok — <code>BUGÜN ÇALIŞMIYOR</code> 26 karakterle en uzunu, 375 pt’te sığar"],
+["Native sürücü","<code>useNativeDriver: true</code>","tüm <code>opacity</code>, <code>translateX/Y</code>, <code>scale</code> animasyonları: 1., 3., 4. anlar"],
+["","sürücüsüz kalan","yok — hiçbir animasyon yükseklik/renk/yarıçap sürmüyor"],
+["","sayaç","<code>setInterval</code> 1000 ms + <code>Animated</code> nabız (opacity, native). Rakam dönüşü 220 ms opacity + translateY ±4"],
+["","sayfalama","yatay <code>ScrollView pagingEnabled</code>, <code>scrollEventThrottle={16}</code>; şerit soldurması <code>Animated.divide(scrollX, W)</code> ile <code>interpolate</code> (native)"],
+["","toplanma","<code>onScroll</code> eşikleri 0 · 24 · 32 · 48 · 64 → gradyan <code>opacity</code> interpolasyonu (native)"],
+["Jest kısıtı","<code>Animated</code>","testlerde <code>jest.useFakeTimers()</code>; nabız ve sayaç <code>act()</code> içinde ilerletilir"],
+["","<code>ScrollView</code> sayfalama","jsdom’da genişlik 0 → <code>onLayout</code> elle tetiklenir; <code>scrollTo</code> spy’lanır"],
+["","<code>gesture-handler</code>","kurulu değil, mock da yok — testler yalnız <code>ScrollView</code> olaylarıyla yazılır"],
+["375 × 667","sıkışanlar","(1) İsim şeridi 6 halkada <code>gap 12</code> → <code>gap 9</code>; 7+ personelde şerit yatay kaydırılır. (2) H1’de krem kart + 2 liste satırı 667 pt’te kıvrımın altına iner — sıradaki 1. satır görünür, 2. satır kısmi. (3) Başparmak bölgesi <code>padding-bottom 30 → 18</code> (çentiksiz cihaz). (4) H6’da 4 satır sığmaz, kaydırma gerekir — beklenen."]
+])}
+<div class="prose" style="margin:0">
+<p><b>Şerit değişmedi.</b> Ana ekrandaki yatay avatar şeridi bu belgede hiç düzenlenmedi; yalnız 1. hareket anında sayfanın nereden doğduğunu göstermek için çizildi.</p>
+<p><b>Açık kalan tek veri isteği:</b> <code>staffLeave.endDate</code> (H4). Alan gelene kadar izinli sayfası dönüş tarihi göstermez; yerleşimde yeri hazır.</p>
+</div></div>`;
+</script></body></html>

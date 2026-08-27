@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="tr" data-theme="dark"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 27: Müdür profili</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+html,html[data-theme="dark"],.thm-dark{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(37,32,21,.5);--desk:#0B0805;--glow:linear-gradient(180deg,rgba(255,90,31,.16) 0%,rgba(255,90,31,.06) 45%,rgba(18,14,8,0) 100%);--cardfill:linear-gradient(180deg,#2C2419 0%,#221C13 62%,#201A12 100%);--cardrim1:rgba(243,237,227,.26);--cardsh:0 14px 30px -10px rgba(0,0,0,.62),0 3px 8px -2px rgba(0,0,0,.42);--cardbd:rgba(243,237,227,.08);--press:rgba(243,237,227,.10);--onink:#20100A;--amfill:rgba(217,164,59,.09);--ambd:rgba(217,164,59,.34);--rdfill:rgba(224,114,114,.10);--rdbd:rgba(224,114,114,.5)}
+html[data-theme="light"],.thm-light{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.72);--glassbd:rgba(14,14,14,.09);--tint:rgba(240,233,223,.55);--desk:#E4DACA;--glow:linear-gradient(180deg,rgba(255,90,31,.08) 0%,rgba(255,90,31,.03) 45%,rgba(243,236,224,0) 100%);--cardfill:linear-gradient(180deg,#FFFFFF 0%,#FDFAF6 58%,#F8F2E9 100%);--cardrim1:rgba(255,255,255,.95);--cardsh:0 12px 26px -10px rgba(74,52,26,.24),0 2px 6px -2px rgba(74,52,26,.14);--cardbd:rgba(14,14,14,.13);--press:rgba(14,14,14,.075);--onink:#FFF6F1;--amfill:rgba(184,122,0,.08);--ambd:rgba(184,122,0,.34);--rdfill:rgba(201,64,64,.07);--rdbd:rgba(201,64,64,.42)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 150px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--or2);text-decoration:none}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1760px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:900px;margin-bottom:34px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--surf);border:1px solid var(--bd2);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.chain{display:flex;align-items:center;gap:12px;margin:0 0 56px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
+.chain span.on{border-color:var(--or);color:var(--or2)}
+.chain i{width:22px;height:1px;background:var(--bd2)}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.prose{max-width:900px;font-size:14.5px;font-weight:500;color:var(--tx2);line-height:1.65;margin-bottom:52px;display:flex;flex-direction:column;gap:12px}
+.prose b{color:var(--tx);font-weight:700}
+.prose code,.note code,.rn code,.mspec code,.side code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.case{display:flex;gap:46px;align-items:flex-start;margin-bottom:70px;flex-wrap:wrap}
+.side{width:560px;display:flex;flex-direction:column;gap:15px;padding-top:2px}
+.side h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:7px;font-weight:700}
+.side>p{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.side>p b{color:var(--tx);font-weight:700}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note.rj::before{background:var(--rd)}
+.note b{color:var(--tx);font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf)}
+.rn .r{display:flex;gap:16px;padding:11px 15px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:150px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:250px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+.wide{max-width:1440px;margin-bottom:56px}
+.stages{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:60px}
+.stage{display:flex;flex-direction:column;gap:8px;width:393px}
+.scap{display:flex;align-items:baseline;gap:8px;font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tx3)}
+.scap i{font-style:normal;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--tx2)}
+.scap.now{color:var(--or2)}
+.sbox{background:var(--bg);border:1px solid var(--bd);border-radius:24px;padding:14px 0;overflow:hidden}
+/* ── telefon ── */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700;position:relative;z-index:20}
+.phone.sm .status{height:20px;padding:0 14px 2px;font-size:11px;align-items:center}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:90}
+.glow{position:absolute;left:0;right:0;top:0;height:260px;background:var(--glow);pointer-events:none;z-index:0}
+.ic{width:23px;height:23px;flex:none}
+.ic20{width:20px;height:20px;flex:none}
+.ic16{width:16px;height:16px;flex:none}
+/* tab bar */
+.tabbar{position:absolute;left:12px;right:12px;bottom:46px;height:66px;display:flex;padding:6px;gap:2px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassbd);border-radius:999px;z-index:50}
+.phone.sm .tabbar{bottom:12px;height:58px}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--tx2);min-width:44px}
+.tab.sel{color:var(--tx);background:var(--tint)}
+.tab.sel .ic{color:var(--or)}
+.tab.plus{color:var(--or)}.tab.plus .ic{width:27px;height:27px}
+/* nav */
+.nav{flex:none;min-height:52px;display:flex;align-items:center;gap:4px;padding:0 8px 0 2px;position:relative;z-index:20}
+.nav .bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx)}
+.nav h4{font-size:19px;font-weight:800;letter-spacing:-.025em}
+.nav .rt{margin-left:auto;display:flex;align-items:center;gap:2px}
+.nav .rt .ib{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx)}
+.nav .txt{height:44px;padding:0 12px;display:flex;align-items:center;font-size:15.5px;font-weight:700;color:var(--tx2)}
+.scr{flex:1;display:flex;flex-direction:column;gap:14px;padding:4px 16px 0;position:relative;z-index:10;min-height:0;overflow:hidden}
+.pad{flex:none;height:112px}
+.pad.s{height:86px}
+/* profil başlığı */
+.pf-t{font-size:10.5px;font-weight:800;letter-spacing:.22em;color:var(--tx3)}
+.pf-id{display:flex;flex-direction:column;gap:4px;padding-bottom:2px}
+.pf-id b{font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.12;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pf-id span{font-size:13px;font-weight:600;color:var(--tx2)}
+.phone.sm .pf-id b{font-size:23px}
+/* bugün kartı */
+.today{flex:none;display:flex;flex-direction:column;gap:9px;padding:14px 15px 13px;border-radius:22px;background:var(--cardfill);border:1px solid var(--cardbd);box-shadow:var(--cardsh);position:relative;overflow:hidden}
+.today .rim{position:absolute;left:0;right:0;top:0;height:1px;background:var(--cardrim1);opacity:.55}
+.tdh{display:flex;align-items:center;gap:8px}
+.tdh .k{font-size:10.5px;font-weight:800;letter-spacing:.16em;color:var(--tx3)}
+.tdh .st{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--gr)}
+.tdh .st s{width:7px;height:7px;border-radius:50%;background:var(--gr)}
+.tdh .st.off{color:var(--tx3)}.tdh .st.off s{background:var(--tx3)}
+.tdb{display:flex;align-items:flex-end;gap:10px}
+.tdb b{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.phone.sm .tdb b{font-size:30px}
+.tdb .ch{margin-left:auto;color:var(--tx3);display:flex;padding-bottom:5px}
+.tdf{font-size:12.5px;font-weight:600;color:var(--tx2)}
+.tdf i{font-style:normal;color:var(--or);font-weight:800}
+/* satır grupları */
+.grp{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;background:var(--surf);overflow:hidden;flex:none}
+.grp>.hd{padding:11px 14px 7px;font-size:10.5px;font-weight:800;letter-spacing:.18em;color:var(--tx3)}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 14px;border-bottom:1px solid var(--bd);position:relative}
+.row:last-child{border-bottom:0}
+.row .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row .lb b{font-size:16px;font-weight:700;letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .lb span{font-size:12.5px;font-weight:600;color:var(--tx2)}
+.row .vl{font-size:13.5px;font-weight:600;color:var(--tx2);white-space:nowrap}
+.row .ch{flex:none;color:var(--tx3);display:flex}
+.row .ico{flex:none;color:var(--tx2);display:flex}
+.row.big{min-height:68px}
+.row.big .lb b{font-size:17.5px;font-weight:800;letter-spacing:-.025em}
+.row.dgr .lb b,.row.dgr .ico{color:var(--rd)}
+.row.prs{background:var(--press)}
+.sw{flex:none;width:47px;height:29px;border-radius:999px;background:var(--surf2);border:1px solid var(--bd2);position:relative}
+.sw i{position:absolute;top:2px;left:2px;width:23px;height:23px;border-radius:50%;background:var(--tx);opacity:.42}
+.sw.on{background:var(--tx);border-color:var(--tx)}
+.sw.on i{left:auto;right:2px;background:var(--surf);opacity:1}
+.foot{font-size:11.5px;font-weight:600;color:var(--tx3);line-height:1.45;padding:0 4px}
+/* gün satırları */
+.dr{display:flex;align-items:center;gap:10px;min-height:60px;padding:0 14px;border-bottom:1px solid var(--bd);position:relative}
+.dr:last-child{border-bottom:0}
+.dr .dy{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.dr .bg{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--or)}
+.dr .dt{margin-left:auto;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.dr .dt.cl{font-size:15px;font-weight:700;color:var(--tx3)}
+.dr.now{background:var(--surf2)}
+.dr .sp{position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 2px 2px 0;background:var(--or)}
+/* hizmet satırları */
+.sv{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 14px;border-bottom:1px solid var(--bd)}
+.sv:last-child{border-bottom:0}
+.sv .cb{flex:none;width:4px;height:30px;border-radius:2px}
+.sv .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sv .lb b{font-size:16.5px;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv .lb span{font-size:12.5px;font-weight:600;color:var(--tx2)}
+.sv .pr{font-size:17px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.sv .pr.no{font-size:12.5px;font-weight:700;color:var(--tx3)}
+.sv .ch{flex:none;color:var(--tx3);display:flex}
+/* boş hâl */
+.empty{display:flex;flex-direction:column;gap:10px;padding:26px 18px;border:1px dashed var(--bd2);border-radius:18px;align-items:flex-start}
+.empty b{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.empty p{font-size:13.5px;font-weight:600;color:var(--tx2);line-height:1.45}
+/* alt sayfa */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:60}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:70;display:flex;flex-direction:column;background:var(--surf);border-top:1px solid var(--bd2);border-radius:24px 24px 0 0;overflow:hidden}
+.sh-gr{width:38px;height:4px;border-radius:2px;background:var(--bd2);margin:8px auto 0;flex:none}
+.sh-hd{display:flex;align-items:center;gap:10px;padding:11px 14px 8px;flex:none}
+.sh-hd b{font-size:20px;font-weight:800;letter-spacing:-.025em}
+.sh-hd .x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx2)}
+.sh-bd{flex:1;display:flex;flex-direction:column;gap:13px;padding:2px 16px 14px;overflow:hidden;min-height:0}
+.sh-ft{flex:none;padding:10px 16px 28px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:9px;background:var(--surf)}
+.btn{height:52px;border-radius:16px;background:var(--or);color:var(--onink);font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.btn.off{background:var(--surf2);color:var(--tx3);border:1px solid var(--bd)}
+.btn.gh{background:none;border:1px solid var(--bd2);color:var(--tx);font-weight:700}
+.fl{display:flex;flex-direction:column;gap:7px}
+.fl>.lbl{font-size:10.5px;font-weight:800;letter-spacing:.18em;color:var(--tx3)}
+.stp{display:flex;align-items:center;height:60px;border:1px solid var(--bd2);border-radius:16px;background:var(--surf2);overflow:hidden}
+.stp button{width:60px;height:100%;display:flex;align-items:center;justify-content:center;color:var(--tx);flex:none}
+.stp b{flex:1;text-align:center;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.stp .dv{width:1px;align-self:stretch;background:var(--bd);flex:none}
+.inp{height:54px;border:1px solid var(--bd2);border-radius:16px;background:var(--surf2);display:flex;align-items:center;gap:7px;padding:0 14px;font-size:18px;font-weight:600}
+.inp.foc{border-color:var(--or)}
+.inp .pfx{color:var(--tx3);font-size:18px;font-weight:700}
+.inp .ph{color:var(--tx3);font-weight:600}
+.inp .car{width:2px;height:24px;background:var(--or)}
+.chips{display:flex;gap:8px}
+.chip{height:44px;padding:0 15px;border-radius:12px;border:1px solid var(--bd2);background:var(--surf2);font-size:15px;font-weight:700;display:flex;align-items:center}
+.chip.on{border-color:var(--tx);background:var(--tx);color:var(--surf)}
+.sws{display:flex;align-items:center;gap:9px}
+.swb{width:44px;height:44px;border-radius:13px;flex:none;border:1px solid rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;color:#fff}
+.swb.on{box-shadow:0 0 0 2px var(--surf),0 0 0 4px var(--tx)}
+.cnm{font-size:13px;font-weight:700;color:var(--tx2);margin-left:2px}
+.kb{flex:none;background:var(--surf2);border-top:1px solid var(--bd);padding:8px 5px 26px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;z-index:75}
+.kb button{height:46px;border-radius:8px;background:var(--surf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:500}
+.kb button.bl{background:none;border:0}
+/* silme */
+.dl-h{flex:none;font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.14}
+.dl-p{flex:none;font-size:14px;font-weight:600;color:var(--tx2);line-height:1.5}
+.dl-p b{color:var(--tx);font-weight:800}
+.dlist{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:16px;overflow:hidden;background:var(--surf);flex:none}
+.dli{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-bottom:1px solid var(--bd)}
+.dli:last-child{border-bottom:0}
+.dli s{flex:none;width:5px;height:5px;border-radius:50%;background:var(--rd);margin-top:8px;text-decoration:none}
+.dli s.k{background:var(--gr)}
+.dli div{display:flex;flex-direction:column;gap:2px}
+.dli b{font-size:14.5px;font-weight:700;letter-spacing:-.015em}
+.dli span{font-size:12.5px;font-weight:600;color:var(--tx2);line-height:1.4}
+.amn{display:flex;flex-direction:column;gap:4px;padding:12px 13px;border:1px solid var(--ambd);border-radius:14px;background:var(--amfill);flex:none}
+.amn b{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--am)}
+.amn span{font-size:13px;font-weight:600;color:var(--tx2);line-height:1.45}
+.ckr{flex:none;display:flex;gap:12px;align-items:center;min-height:52px;padding:2px 0}
+.ck{flex:none;width:26px;height:26px;border-radius:8px;border:1.8px solid var(--bd2);display:flex;align-items:center;justify-content:center;color:var(--surf)}
+.ck.on{background:var(--tx);border-color:var(--tx)}
+.ckr p{font-size:13.5px;font-weight:600;line-height:1.4}
+.hold{height:56px;border-radius:16px;border:1px solid var(--rdbd);background:var(--rdfill);display:flex;align-items:center;justify-content:center;gap:9px;font-size:17px;font-weight:800;color:var(--rd)}
+.hold.dn{opacity:.38}
+.trk{height:4px;border-radius:2px;background:var(--bd);overflow:hidden;flex:none}
+.trk i{display:block;height:100%;width:100%;background:var(--rd);transform:scaleX(0);transform-origin:left center}
+.hcap{position:absolute;left:16px;right:16px;top:-19px;display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--tx3)}
+.seg{display:flex;height:48px;border:1px solid var(--bd2);border-radius:14px;background:var(--surf2);padding:4px;gap:4px}
+.seg button{flex:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14.5px;font-weight:700;color:var(--tx2)}
+.seg button.on{background:var(--tx);color:var(--surf)}
+.acc-id{display:flex;align-items:center;gap:13px;padding:4px 0 6px}
+.acc-id .mono{width:52px;height:52px;border-radius:50%;background:var(--surf2);border:2px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;letter-spacing:-.02em;flex:none}
+.acc-id .t{min-width:0;display:flex;flex-direction:column;gap:2px}
+.acc-id .t b{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.acc-id .t span{font-size:13px;font-weight:600;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rolechip{align-self:flex-start;margin-top:2px;height:22px;padding:0 9px;border:1px solid var(--bd);border-radius:6px;display:flex;align-items:center;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--tx2)}
+.banner{display:flex;flex-direction:column;gap:4px;padding:13px 14px;border:1px solid var(--bd);border-radius:16px;background:var(--surf)}
+.banner b{font-size:15.5px;font-weight:800;letter-spacing:-.02em}
+.banner span{font-size:12.5px;font-weight:600;color:var(--tx2);line-height:1.45}
+/* hareket */
+.mrow{display:flex;flex-direction:column;gap:24px;margin-bottom:56px}
+.mcase{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap}
+.mstage{width:320px;flex:none;background:var(--bg);border:1px solid var(--bd);border-radius:20px;padding:20px;display:flex;align-items:center;justify-content:center;min-height:186px;overflow:hidden;position:relative}
+.mspec{flex:1;min-width:420px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.mspec>b{font-size:16px;font-weight:800;color:var(--tx);letter-spacing:-.02em;margin-bottom:4px}
+.mspec .rm{color:var(--am)}
+.mspec span b{color:var(--tx);font-weight:700}
+.msh{width:200px;height:150px;border-radius:16px;border:1px solid var(--bd);background:var(--surf2);position:relative;overflow:hidden}
+.msh .sc{position:absolute;inset:0;background:rgba(0,0,0,.5);animation:mScrim 3.2s infinite}
+.msh .sh{position:absolute;left:0;right:0;bottom:0;height:86px;background:var(--surf);border-top:1px solid var(--bd2);border-radius:14px 14px 0 0;animation:mSheet 3.2s infinite}
+.msh .sh i{display:block;width:32px;height:3px;border-radius:2px;background:var(--bd2);margin:7px auto 0}
+@keyframes mScrim{0%,6%{opacity:0}22%,72%{opacity:1}88%,100%{opacity:0}}
+@keyframes mSheet{0%,6%{transform:translateY(86px)}22%,72%{transform:translateY(0)}88%,100%{transform:translateY(86px)}}
+.mnum{position:relative;width:180px;height:44px;overflow:hidden}
+.mnum b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.mnum b.o{animation:mOld 2.6s infinite}
+.mnum b.w{animation:mNew 2.6s infinite}
+@keyframes mOld{0%,34%{opacity:1;transform:translateY(0)}46%,100%{opacity:0;transform:translateY(-7px)}}
+@keyframes mNew{0%,34%{opacity:0;transform:translateY(7px)}46%,100%{opacity:1;transform:translateY(0)}}
+.mtg{width:47px;height:29px;border-radius:999px;position:relative;background:var(--surf2);border:1px solid var(--bd2)}
+.mtg .on2{position:absolute;inset:-1px;border-radius:999px;background:var(--tx);animation:mOn 3s infinite}
+.mtg i{position:absolute;top:2px;left:2px;width:23px;height:23px;border-radius:50%;background:var(--tx);z-index:2;animation:mKnob 3s infinite}
+.mtg i.k2{background:var(--surf);z-index:3;animation:mKnob 3s infinite,mOn 3s infinite}
+@keyframes mKnob{0%,10%{transform:translateX(0)}30%,62%{transform:translateX(18px)}82%,100%{transform:translateX(0)}}
+@keyframes mOn{0%,10%{opacity:0}30%,62%{opacity:1}82%,100%{opacity:0}}
+.mhold{width:240px;display:flex;flex-direction:column;gap:9px}
+.mhold .trk i{animation:mFill 3.6s infinite}
+@keyframes mFill{0%,8%{transform:scaleX(0)}64%,74%{transform:scaleX(1)}84%,100%{transform:scaleX(0)}}
+@media (prefers-reduced-motion:reduce){.msh .sc,.msh .sh,.mnum b,.mtg .on2,.mtg i,.mhold .trk i{animation-duration:1ms!important;animation-iteration-count:1!important}}
+</style></head>
+<body>
+<button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='light'?'dark':'light'"><span class="dot"></span><span>Tema</span></button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-today"><path d="M4 8h16M8 3v3M16 3v3M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></g>
+<g id="i-cal"><path d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1z"/><path d="M8 13h2M14 13h2M8 16.6h2"/></g>
+<g id="i-cash"><path d="M3.6 7.4h16.8v9.2H3.6zM12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-minus"><path d="M5 12h14"/></g>
+<g id="i-chev"><path d="M9 5l7 7-7 7"/></g>
+<g id="i-back"><path d="M15 5l-7 7 7 7"/></g>
+<g id="i-check"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></g>
+<g id="i-x"><path d="M6 6l12 12M18 6 6 18"/></g>
+<g id="i-swap"><path d="M4 8h13l-3-3M20 16H7l3 3"/></g>
+<g id="i-trash"><path d="M4.6 7h14.8M9.4 7V4.6h5.2V7M6.6 7l.9 12.4h9L17.4 7M10.4 10.6v6M13.6 10.6v6"/></g>
+<g id="i-off"><path d="M12 3.6v7.6M7.2 5.8a7.4 7.4 0 1 0 9.6 0"/></g>
+<g id="i-lock"><path d="M6.4 10.6h11.2v9.2H6.4zM8.8 10.6V7.8a3.2 3.2 0 0 1 6.4 0v2.8"/></g>
+<g id="i-arrow"><path d="M6.5 17.5 17.5 6.5M9.5 6.5h8v8"/></g>
+</defs></svg>
+<div class="doc">
+<div class="doc-head"><span class="mark">Luera<i></i></span><div class="meta">Müdür 27 · Müdür profili · sıfırdan<br/>393 × 852 ve 375 × 667 · koyu + aydınlık · CSS otoritedir</div></div>
+
+<div class="lede"><h1>Profil bir ayar listesi değil: salonun bugününü söyleyen bir ekran, arkasında dört kapı.</h1>
+<p>Bu sekmede bugüne kadar ortalanmış bir <b>Profil</b> yazısı vardı. Yerine geçen şey bir tercih tarlası değil: en üstte <b>tek bir kart</b> — salon bugün kaçta açılıp kaçta kapanıyor, şu anda açık mı — ve o kart aynı zamanda bugünün saatini değiştirmenin kapısı. Sahibin salonda ayakta yaptığı iş bu: “bugün 20:00’ye kadar açığız” demek.</p>
+<p>Altında iki kapı (haftanın yedi günü · hizmetler ve fiyatlar), sonra dört küçük satır (hesap · görünüm · bildirim · yasal). Toplam <b>bir kart ve altı satır</b>. Masaüstü ayar merkezi olmaya devam ediyor; cep yalnız salonda değişen üç şeyi taşıyor.</p>
+<p>Hesap ekranı ilk kez müdüre de açılıyor — oturum kapatma, şifre, Face ID, işletme değiştirme ve <b>gerçek hesap silme</b> buradan erişilebilir. Abonelik, plan, fiyat, fatura, “yenile” düğmesi <b>hiçbir yerde çizilmedi</b>: abonelik uygulama dışında satılıyor ve App Store 3.1.1 uygulama içinden satın almaya yönlendirmeyi yasaklıyor.</p></div>
+
+<div class="chain"><span>Profil sekmesi · yer tutucu</span><i></i><span class="on">Profil</span><i></i><span>Çalışma saatleri</span><i></i><span>Hizmetler</span><i></i><span>Hesap</span><i></i><span>Hesabı sil</span></div>
+
+<div class="band"><span class="num">Karar</span><h2>Sıralama ve reddedilenler</h2><p>Neyin birinci olduğu, neyin çizilmediği ve niçin.</p></div>
+
+<div class="prose">
+<p><b>Birinci sıra bugünün saatleri, çünkü bu ekranda değeri bugün değişen tek şey o.</b> Hizmet fiyatı ayda bir değişir, tema bir kez seçilir, şifre yılda bir. Çalışma saati ise bir cumartesi “bugün 18:00’de kapatıyoruz” denince değişir ve yanlış olduğunda <b>para kaybettirir</b>: müşteri kapıda döner ya da personel boşuna bekler. Bu yüzden kart yalnız bir kapı değil, bir <b>ifade</b>: <code>BUGÜN · PERŞEMBE</code>, <code>09:00 – 20:00</code>, <code>Şu anda açık</code>. Müdür sekmeyi açtığında okuduğu ilk şey bir tercih değil, salonun durumu.</p>
+<p><b>İkinci sıra iki kapı: yedi gün ve hizmet listesi.</b> İkisinin ortak özelliği bugüne kadar <b>yalnız masaüstünde</b> olması. Bu ekranın varlık sebebi bu iki eksik; o yüzden ikisi de tam boy satır (68 pt) ve altlarında değerinin özeti var (<code>7 gün · Pazar kapalı</code>, <code>9 hizmet · 2 fiyatsız</code>) — satıra basmadan önce içeride ne olduğu okunuyor.</p>
+<p><b>Üçüncü sıra dört küçük satır.</b> Hesap, görünüm, bildirim, yasal. Dördü de 56 pt, sağ tarafında değer, tek satır. Bunlar “bir kez ayarlanır” işleri; ekranın altında ve 375 pt’de katlamanın altında kalmaları bilinçli.</p>
+<p><b>REDDEDİLDİ · “Bugünü kapat” düğmesi.</b> En cazip fikir buydu ve veri modeli buna izin vermiyor: elimizde <code>{ gün, başlangıç, bitiş, kapalıMı }</code> var — <b>haftanın günü</b>, tarih değil. “Bugünü kapat”a basan müdür bugünü değil <b>her perşembeyi</b> kapatır. Tek dokunuşta sessizce yanlış veri yazan bir düğme, olmayan bir düğmeden kötüdür. Tarih bazlı istisna (tatil, ölüm, kar) modele girene kadar çizilmiyor; kartın açtığı yüzeyde de yalnız <b>o günün</b> saatleri ve <code>Perşembe kapalı</code> anahtarı var — ikisi de haftalık olduğu açıkça yazılı.</p>
+<p><b>REDDEDİLDİ · uzun ayar listesi.</b> On iki satırlık bir liste teknik olarak doğru, pratikte işe yaramaz: hepsi aynı ağırlıkta olduğunda hiçbiri öne çıkmıyor ve müdür her seferinde okuyup arıyor. Bir kart + iki büyük satır + dört küçük satır; üç ağırlık, üç niyet.</p>
+<p><b>REDDEDİLDİ · kartvizit başlık.</b> İşletme kimliği görünüyor ama üç satır ve 74 pt: <code>PROFİL</code> etiketi, işletme adı 25 pt, altında <code>Kadıköy şubesi · Kuaför</code>. Ekranın %9’u. Monogram, kapak görseli, büyük logo yok — hem veri modelinde görsel yok, hem de sahip kendi salonunun adını tanımak için bakmıyor.</p>
+<p><b>REDDEDİLDİ · abonelik, plan, fiyat, fatura, kullanım.</b> Hiçbiri çizilmedi ve yer tutucu bile bırakılmadı. Sebep tek değil, iki: App Store 3.1.1 uygulama içinden satın almaya yönlendirmeyi yasaklıyor (kod tabanında abonelik kilidi ekranı da fiyat göstermiyor), ve bu veriler <b>elimizde yok</b> — “planınız 12 gün sonra bitiyor” yazmak uydurmak olur.</p>
+<p><b>REDDEDİLDİ · personel satırı.</b> Personel listesi salt okunur var, ama bu ekranda bir <code>Personel</code> satırı açmak düzenleme sözü verir. Kişi bazlı vardiya veri modelinde <b>yok</b>; olmayan veriyi gösteren ekran çizilmiyor. Personel salonun çalışma saatleri içinde çalışır, o kadar.</p>
+<p><b>REDDEDİLDİ · webhook, booking sayfası, dışa aktarma, entegrasyon.</b> Masaüstünde kalıyor. Salonda ayakta kimse webhook kurmaz; kurmaya kalkarsa da klavye ve pano işi.</p>
+</div>
+
+<div class="band"><span class="num">Ekran</span><h2>Profil ana ekranı</h2><p>Bir kart, iki büyük satır, dört küçük satır. Kaydırma yok — 393 pt’de her şey tek ekranda.</p></div>
+<div class="case" id="c-home"></div>
+
+<div class="band"><span class="num">Saat</span><h2>Çalışma saatleri · yedi gün ve gün düzenleme</h2><p>Tek elle, ayakta, gözlük olmadan: 60 pt satır, 60 pt basamak düğmesi, 30 pt rakam.</p></div>
+<div class="case" id="c-hours"></div>
+
+<div class="band"><span class="num">Hizmet</span><h2>Hizmet listesi ve düzenleme yüzeyi</h2><p>Fiyat boş olabilir. Boş fiyat ₺0 değildir; <code>fiyat yok</code> kelimesiyle yazılır.</p></div>
+<div class="case" id="c-serv"></div>
+
+<div class="band"><span class="num">Hesap</span><h2>Hesap · ve gerçek silme akışı</h2><p>İki dokunuş, bir basılı tutma. Ne silinir, ne kadar sürer, salonun randevularına ne olur.</p></div>
+<div class="case" id="c-acc"></div>
+
+<div class="prose">
+<p><b>Silme akışının şekli: iki dokunuş + iki saniye basılı tutma.</b> Hesap ekranındaki kırmızı satır → silme ekranı → onay kutusu → basılı tutma. Dört adım ama <b>üçü okuma</b>, biri jest; hiçbiri e-posta, kod, destek talebi ya da başka bir uygulamaya çıkış değil.</p>
+<p><b>REDDEDİLDİ · “SİL” yazdırmak.</b> Klasik koruma, burada yanlış: salonda ayakta, tek elle, gözlüksüz bir müdüre klavye açtırıyor — ve Türkçe’de büyük harf tuzağı var (<code>sil</code> → <code>SİL</code>, noktalı İ). Yazım denetimi bir güvenlik değil, bir engel.</p>
+<p><b>REDDEDİLDİ · 30 gün geri alınabilir “bekleyen silme”.</b> Bugün kod tabanında olan şey tam olarak bu ve iki kere yanlış: Apple 5.1.1(v) gerçek silme istiyor, yerel çıkış saymıyor; ve geri alma penceresi <b>ulaşılamaz</b> — oturumu kapanmış, girişi engellenmiş kullanıcı iptal düğmesine nasıl basacak? Erişilemeyen bir iptal hakkı, hak değil. Silme <b>basılı tutma bittiği anda başlar</b>, geri alınamaz; yalnız yedeklerdeki kopyaların 30 gün içinde döngüden çıkacağı yazılır — o bir <b>saklama süresi</b>, bir vazgeçme penceresi değil, ve öyle yazılıyor.</p>
+<p><b>Salonun randevularına ne olur — ekranda cevabı var.</b> İki hâl ayrı ayrı çiziliyor. <b>Tek müdür</b> (çizilen hâl): işletme müdürle birlikte gider; 312 randevu, 148 müşteri, 9 hizmet ve 2 personelin bu işletmeye erişimi silinir — personelin <b>kendi hesapları</b> durur, yalnız bu işletme listelerinden düşer. Bu yıkım onay kutusunun konusudur: kutu “hesabımı siliyorum” demiyor, <b>“işletmenin tüm verilerinin silineceğini anlıyorum”</b> diyor. <b>İkinci müdür varsa</b>: işletme, randevular ve müşteriler yerinde kalır, yalnız kişisel hesap gider; ekran o hâlde onay kutusunu <b>çizmez</b> ve silinecekler listesi iki satıra düşer. Uygulama hangi hâlde olduğunu sunucudan öğrenmeden bu ekranı açmaz — sayılar bilinmeden liste çizilmez.</p>
+</div>
+
+<div class="band"><span class="num">Uç hâl</span><h2>Boş ve uç hâller</h2><p>Altı hâl. Hepsinde kural aynı: olmayan veri çizilmez, hedefi olmayan satır çizilmez.</p></div>
+<div class="stages" id="c-edge"></div>
+
+<div class="band"><span class="num">Arka</span><h2>Geri plandaki üç yüzey</h2><p>Görünüm, bildirim ve yasal — kapsamdadır, ama ekranın altındadır.</p></div>
+<div class="stages" id="c-back"></div>
+
+<div class="band"><span class="num">Aydınlık</span><h2>Aydınlık tema · 375 pt</h2><p>Yüzeyler birbirine çok yakın: basılabilir her şeyin kenarlığı var. Katlama 375’te hesabın üstünden geçiyor.</p></div>
+<div class="case" id="c-light"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Dört an · opaklık, translate, scale</h2><p>Yükseklik, renk, yarıçap, gölge animasyonlanmıyor. Hepsi <code>useNativeDriver: true</code>.</p></div>
+<div class="mrow" id="c-motion"></div>
+
+<div class="rn wide">
+<div class="r h"><b>An</b><s>Süre · eğri</s><code>Çıkan / giren / yerinde kalan</code></div>
+<div class="r"><b>Alt sayfa · giriş</b><s>300 ms · cubic-bezier(.2,.8,.25,1)</s><code><b>Giren:</b> sayfa <code>translateY 100%→0</code>, perde <code>opacity 0→1</code> (240 ms). <b>Yerinde kalan:</b> altındaki ekranın tamamı — ölçek almıyor, kaymıyor, sararmıyor. Yükseklik animasyonu yok: sayfanın yüksekliği açılmadan önce hesaplanmış ve sabittir.</code></div>
+<div class="r"><b>Alt sayfa · çıkış</b><s>240 ms · cubic-bezier(.4,0,1,1)</s><code><code>translateY 0→100%</code> + perde <code>opacity 1→0</code>. Parmakla aşağı sürüklenirse <code>PanResponder</code> <code>translateY</code>’yi doğrudan sürer; <b>120 pt</b> ya da <b>0.5 pt/ms</b> hızda kapanır, altında kalırsa 200 ms’de geri oturur.</code></div>
+<div class="r"><b>Saat değişimi</b><s>çıkan 110 ms · giren 130 ms · 20 ms gecikme</s><code>Rakam <b>sayılmaz, takas edilir</b>: eski değer <code>opacity 1→0 + translateY 0→-7</code>, yeni değer <code>opacity 0→1 + translateY 7→0</code>. İki <code>Text</code> üst üste, kutu yüksekliği 44 pt sabit. Basılı tutma tekrarında (4/sn) geçiş <b>60 ms</b>’e iner, aksi hâlde kuyruk birikir.</code></div>
+<div class="r"><b>Anahtar (switch)</b><s>knob 180 ms · yüzey 180 ms · ease-out</s><code>Renk animasyonu yok: iki ray üst üste duruyor, açık olan <code>opacity 0→1</code> ile <b>çapraz soluyor</b>. Knob <code>translateX 0→18</code>. Yanındaki kelime (<code>Açık</code> / <code>Kapalı</code>) aynı anda çapraz solar — durum renge emanet değil.</code></div>
+<div class="r"><b>Basılı tutma · dolum</b><s>2000 ms · linear</s><code>4 pt yüksek rayın dolgusu <code>scaleX 0→1</code>, köken sol. Düğmenin kendisi <b>hiç değişmiyor</b>: ne renk, ne ölçek, ne yazı. Titreşim: başta hafif, %50’de hafif, tamamlanınca ağır.</code></div>
+<div class="r"><b>Basılı tutma · bırakma</b><s>180 ms · cubic-bezier(.4,0,1,1)</s><code><code>scaleX → 0</code>. Hiçbir şey silinmez, hiçbir şey yazılmaz, uyarı çıkmaz. Parmak düğmeden <b>kaydırılarak</b> çıkarılırsa da aynı iptal — kaçış her zaman mümkün.</code></div>
+<div class="r"><b>Kilitli düğmeye basış</b><s>160 ms · 2 çevrim</s><code>Onay kutusu işaretlenmemişken silme düğmesine basılırsa <code>translateX ±4</code> sallanma ve onay kutusu satırının <b>arkasında</b> 1 sn’lik yüzey (<code>opacity 0→1→0</code>). Sessiz reddetme yok, ama modal da yok.</code></div>
+<div class="r"><b>Ekran geçişi</b><s>300 ms · cubic-bezier(.2,.8,.25,1)</s><code>Yığın içi itme: giren ekran <code>translateX 100%→0</code>, çıkan <code>0→-40</code> + <code>opacity 1→.5</code>. <b>Devam eden eleman yok</b> — profil satırının başlığı ile alt ekranın başlığı aynı kelime ama aynı düğüm değil; paylaşımlı öge geçişi kütüphanesi projede yok.</code></div>
+<div class="r"><b>Silme · sonuç</b><s>240 ms · opacity</s><code>Sunucu 200 döndükten sonra yığın tamamen kapanır ve giriş ekranı <code>opacity 0→1</code> ile gelir, üstünde <code>Hesabınız silindi</code> bandı. Sunucu hata verirse ekran <b>yerinde kalır</b>, dolum sıfırlanır ve hata satırı yazılır — “silindi” kelimesi yalnız 200’den sonra ekrana girer.</code></div>
+<div class="r"><b>Kaydetme</b><s>—</s><code>Kaydet’e basınca düğme <code>Kaydediliyor</code> olur ve pasifleşir; alt sayfa <b>ancak sunucu onayından sonra</b> kapanır ve satır yeni değeri gösterir. Kaydedilmemiş bir değer hiçbir yerde yeni değermiş gibi çizilmez.</code></div>
+<div class="r"><b>Hareketi azalt</b><s>süreler 0</s><code>Alt sayfa ve ekran geçişi <b>tek karede</b> takas edilir; perde animasyonsuz görünür. Saat rakamı doğrudan yeni değere döner. Basılı tutma süresi <b>değişmez</b> (2000 ms bir güvenlik ölçüsü, bir efekt değil) ama dolum sürekli akmaz: <b>beş kademede</b> (0 · 25 · 50 · 75 · 100) ilerler ve yanında <code>2,0 sn</code> geri sayımı yazılır. VoiceOver açıkken basılı tutma tamamen devre dışı: düğme iki basamaklı bir uyarıya (<code>Hesabı sil</code> / <code>Vazgeç</code>) dönüşür.</code></div>
+</div>
+
+<div class="band"><span class="num">Ölçü</span><h2>Ölçü tablosu</h2><p>Değerler yukarıdaki sınıfların birebir karşılığı.</p></div>
+
+<div class="rn wide">
+<div class="r h"><b>Parça</b><s>Ölçü</s><code>Renk / not</code></div>
+<div class="r"><b>Ekran dolgusu</b><s>yan 16 · nav 52 · alt boşluk 112</s><code>112 = yüzen tab bar (66) + alt boşluk (46). İçerik camın arkasına <b>girer</b>, altında bitmez.</code></div>
+<div class="r"><b>Başlık bloğu</b><s>etiket 10.5 / 800 .22em · ad 25 / 800 -.03em · alt 13 / 600</s><code><code>PROFİL</code> metin katmanında büyük harf. Ad <code>numberOfLines 2</code>, toplam blok 74 pt.</code></div>
+<div class="r"><b>Bugün kartı</b><s>pad 14 / 15 / 13 · r22 · gap 9</s><code><code>cardfill</code> gradyanı + 1 px <code>cardrim1</code> üst kenar + <code>cardsh</code> gölge — üründeki tek kart malzemesi, Müdür 18’den birebir</code></div>
+<div class="r"><b>Kart · saat</b><s>34 / 800 · -.03em · tabular</s><code>sistem yazı tipi (<code>.n</code>). 375 pt’de 30. <code>09:00 – 20:00</code> arasındaki tire <b>en dash</b>, boşluklu.</code></div>
+<div class="r"><b>Kart · durum</b><s>nokta 7 · yazı 12.5 / 700</s><code>Açıkken <code>#5FBF64</code> + <code>Şu anda açık</code>; kapalıyken <code>tx3</code> + <code>Şu anda kapalı</code>. <b>Turuncu değil</b> — durum rengi turuncu olamaz.</code></div>
+<div class="r"><b>Kart · geri sayım</b><s>12.5 / 600, sayı 800</s><code>Sayı <code>#FF5A1F</code>: bu bir <b>zaman</b>. <code>kapanışa 10 sa 19 dk</code>. Kapalı günde bu satır <b>hiç çizilmez</b>.</code></div>
+<div class="r"><b>Büyük satır</b><s>min-h 68 · başlık 17.5 / 800 · alt 12.5 / 600</s><code>grup <code>surf</code> · 1 px <code>bd</code> kenarlık · r18 · satır arası 1 px <code>bd</code></code></div>
+<div class="r"><b>Küçük satır</b><s>min-h 56 · başlık 16 / 700 · değer 13.5 / 600</s><code>değer sağda <code>tx2</code>, chevron 20 px <code>tx3</code></code></div>
+<div class="r"><b>Gün satırı</b><s>min-h 60 · gün 17 / 700 · saat 17 / 600 tabular</s><code>Bugünün satırı: zemin <code>surf2</code> + 3 px turuncu omurga + <code>BUGÜN</code> etiketi 10 / 800. Kapalı gün: <code>Kapalı</code> 15 / 700 <code>tx3</code>.</code></div>
+<div class="r"><b>Basamak (stepper)</b><s>kutu h60 · düğme 60 × 60 · rakam 30 / 800</s><code>zemin <code>surf2</code> · 1 px <code>bd2</code> · r16 · ortada 1 px ayırıcı. Adım <b>15 dk</b>; basılı tutma 500 ms sonra 4/sn tekrar.</code></div>
+<div class="r"><b>Hizmet satırı</b><s>min-h 62 · ad 16.5 / 700 · süre 12.5 / 600 · fiyat 17 / 700</s><code>Renk <b>4 × 30 pt dikey çubuk</b>, daire değil: daire bu üründe durum demek. Fiyatı olmayan: <code>fiyat yok</code> 12.5 / 700 <code>tx3</code>, tabular değil (kelime).</code></div>
+<div class="r"><b>Hizmet rengi</b><s>6 seçenek · 44 × 44 · r13</s><code><code>#4FA3A0 #5B8FD9 #8C7BC4 #C9748F #8FA65A #7E8A96</code>. Turuncu, kırmızı, amber, yeşil <b>paletin dışında</b> — o dört renk durum taşıyor. Seçili olanın adı yanında yazılı (<code>Mor</code>).</code></div>
+<div class="r"><b>Alan (input)</b><s>h54 · r16 · 18 / 600</s><code>zemin <code>surf2</code> · 1 px <code>bd2</code>; odakta kenarlık <code>#FF5A1F</code> ve imleç turuncu (eylem). Fiyat alanı <code>decimal-pad</code>, ön ek <code>₺</code> <code>tx3</code>.</code></div>
+<div class="r"><b>Anahtar</b><s>47 × 29 · knob 23</s><code>Açık ray <code>tx</code> (nötr, yüksek kontrast), knob <code>surf</code>. <b>Hiçbir anahtarda renk yok</b> — durumu taşıyan şey knob’un yeri ve yanına yazılan kelime.</code></div>
+<div class="r"><b>Onay kutusu</b><s>26 × 26 · r8 · satır 52</s><code>işaretli: dolgu <code>tx</code>, tik <code>surf</code>. Kırmızı değil: kutu bir uyarı değil, bir beyan.</code></div>
+<div class="r"><b>Silme düğmesi</b><s>h56 · r16 · 17 / 800</s><code>kenarlık <code>rdbd</code> · zemin <code>rdfill</code> · yazı <code>#E07272</code>. Dolu kırmızı zemin <b>kullanılmadı</b>: dolu zemin bu üründe birincil eylem demek ve o turuncudur.</code></div>
+<div class="r"><b>Dolum rayı</b><s>h4 · r2</s><code>ray <code>bd</code> · dolgu <code>rd</code> · <code>scaleX</code>. Düğmenin <b>içinde</b> değil altında: kırmızı zeminde okunabilir bir etiket rengi iki temada birden yok.</code></div>
+<div class="r"><b>Amber not</b><s>pad 12 / 13 · r14</s><code>zemin <code>rgba(217,164,59,.09)</code> · kenarlık <code>.34</code> · başlık <code>#D9A43B</code> 12 / 800. Amber uyarıdır: “30 gün” bir uyarı, silme değil.</code></div>
+<div class="r"><b>Tab bar</b><s>h66 · alt 46 · yan 12 · r999</s><code>cam: <code>blur 28 / saturate 180%</code>. Üründeki üç cam yüzeyden biri; içerik kartlarında cam <b>yok</b>.</code></div>
+<div class="r"><b>Alt sayfa</b><s>r24 üst · tutamak 38 × 4 · başlık 20 / 800</s><code>gövde <b>opak</b> <code>surf</code> (cam değil) · footer 1 px <code>bd</code> üst kenar + 28 pt alt güvenli boşluk</code></div>
+<div class="r"><b>Dokunma hedefleri</b><s>en küçüğü 44</s><code>chevron’lu satırlar 56–68; nav düğmeleri 44 × 44; basamak düğmeleri 60 × 60; renk kareleri 44 × 44; anahtarın hedefi <b>satırın tamamı</b>.</code></div>
+</div>
+
+<div class="band"><span class="num">Sıkışma</span><h2>375 pt’de ne sıkışır</h2><p>Küçülen ölçü değil, görünen içerik. Sıralamanın sınavı burada.</p></div>
+
+<div class="rn wide">
+<div class="r h"><b>Yer</b><s>375 × 667’de</s><code>Kural</code></div>
+<div class="r"><b>Profil ana ekranı</b><s>kaydırma başlar (≈ 70 pt)</s><code>Kullanılabilir yükseklik 647 − nav yok − alt 112 = 535. Kart ve iki büyük satır <b>her zaman katlamanın üstünde</b>; dört küçük satırın son ikisi (bildirim, yasal) altında kalır. Sıralama tam bunun için: katlamanın altına düşen şeyler ayda bir açılanlar.</code></div>
+<div class="r"><b>Bugün kartı</b><s>saat 34 → 30 · pad aynı</s><code>Durum kelimesi ve geri sayım aynı satırda kalır; sığmazsa geri sayım <b>düşer</b>, durum kelimesi düşmez.</code></div>
+<div class="r"><b>Uzun işletme adı</b><s>iki satır, sonra kırpma</s><code><code>Güzel Saçlar Kuaför ve Güzellik Merkezi Kadıköy</code> → iki satır + <code>tail</code>. Alt satır (<code>şube · sektör</code>) <b>hiç kırpılmaz</b>: şube adı kimliğin ayırt edici parçası, ad tekrar eder.</code></div>
+<div class="r"><b>Çalışma saatleri</b><s>sığar · kaydırma yok</s><code>52 + (7 × 60) = 472 < 647. Yedi günü tek ekranda görmek bu ekranın <b>şartı</b>: müdür günleri karşılaştırarak okuyor.</code></div>
+<div class="r"><b>Gün alt sayfası</b><s>yükseklik 420 → 400 · rakam 30 → 28</s><code>Basamak düğmeleri 60 × 60 <b>küçülmez</b>. Sığmazsa kısalan şey <code>Tüm günlere uygula</code> ile Kaydet arasındaki boşluk.</code></div>
+<div class="r"><b>Hizmet listesi</b><s>≈ 9 satırın 8’i görünür</s><code>Son satır camın arkasından yarım görünür — kaydırma olduğunun işareti bu. Liste sonundaki <code>2 hizmetin fiyatı girilmemiş</code> notu kaydırınca gelir.</code></div>
+<div class="r"><b>Hizmet alt sayfası</b><s>tam boy (h 100% − 40)</s><code>375’te renk sırası ve Kaydet arasındaki boşluk 20 → 12. Klavye açıldığında gövde <b>yukarı kayar</b> (<code>KeyboardAvoidingView padding</code>), odaklı alan klavyenin 12 pt üstünde durur; renk sırası klavyenin altında kalır ve kaydırılarak gelir.</code></div>
+<div class="r"><b>Silme ekranı</b><s>kaydırma var · footer sabit</s><code>Silinecekler listesi 375’te kaydırılıyor; onay kutusu <b>listenin sonunda</b>, footer’da değil — okumadan işaretlenemesin. Footer (dolum rayı + düğme + Vazgeç) kaydırmadan bağımsız, 148 pt.</code></div>
+</div>
+
+<div class="band"><span class="num">Uygulama</span><h2>React Native notları</h2><p>Yalnız <code>Animated</code> + <code>PanResponder</code>. Reanimated ve gesture-handler yok.</p></div>
+
+<div class="rn wide">
+<div class="r h"><b>Konu</b><s>Kural</s><code>Ayrıntı</code></div>
+<div class="r"><b>Bağımlılık</b><s>RN Animated + PanResponder</s><code>Alt sayfa: <code>Modal transparent</code> + <code>Animated.View translateY</code> + <code>PanResponder</code> (sürükle-kapat). Yığın geçişi <code>@react-navigation</code>’ın kendi <code>translateX</code>’i. <code>LayoutAnimation</code> hiçbir yerde yok — bu yüzden hiçbir liste satırı yerinde açılıp kapanmıyor, her düzenleme <b>alt sayfada</b>.</code></div>
+<div class="r"><b>Native sürücü</b><s>hepsi true</s><code>Animasyonlanan özellikler yalnız <code>opacity</code>, <code>translateX/Y</code>, <code>scale/scaleX</code>. Anahtar rengi, kart yüksekliği, kenarlık rengi, gölge <b>animasyonlanmıyor</b>; renk değişimi gereken her yerde iki yüzey üst üste konup çapraz soluyor (anahtar rayı, <code>Açık</code>/<code>Kapalı</code> kelimesi, saat rakamı).</code></div>
+<div class="r"><b>Kırpma</b><s>satır satır</s><code>İşletme adı <code>numberOfLines 2</code>; şube/sektör satırı <code>1</code>. Hizmet adı <code>1</code> + <code>tail</code>; fiyat <b>hiç kırpılmaz</b> (<code>flexShrink 0</code>). Gün adı ve saat <code>flexShrink 0</code> — <code>Çarşamba</code> ile <code>09:00 – 20:00</code> ikisi de tam yazılır. E-posta <code>1</code> + <code>middle</code>.</code></div>
+<div class="r"><b>Dokunma hedefi</b><s>≥ 44</s><code>Anahtarlı satırlarda <code>Pressable</code> <b>satırın tamamı</b>; anahtar ayrı bir hedef değil (<code>pointerEvents none</code>). Basamak düğmeleri 60 × 60 ve <code>hitSlop</code> yok — yanlışlıkla 15 dk kaymasın.</code></div>
+<div class="r"><b>Erişilebilirlik · anahtar</b><s><code>role switch</code></s><code><code>accessibilityRole "switch"</code> + <code>accessibilityState {checked}</code>. Etiket: “Face ID ile giriş, açık”. Anahtarın rengi bilgi taşımıyor; kelime her hâlde ekranda.</code></div>
+<div class="r"><b>Erişilebilirlik · silme</b><s>basılı tutma yerine uyarı</s><code>VoiceOver / Switch Control açıkken <code>accessibilityRole "button"</code>, <code>accessibilityHint</code> yok — yerine iki basamaklı bir <code>Alert</code>: “Hesabı sil” / “Vazgeç”. Basılı tutma bir <b>hassasiyet</b> koruması; ekran okuyucuda yanlış basma riski zaten yok, engel olması anlamsız.</code></div>
+<div class="r"><b>Erişilebilirlik · saat</b><s>ayarlanabilir değer</s><code>Basamak kutusu <code>accessibilityRole "adjustable"</code>, <code>accessibilityValue {text:"09.00"}</code>, <code>onAccessibilityAction increment/decrement</code>. Saat sesli okumada <b>“dokuz sıfır sıfır”</b> değil “09.00” olarak, <code>Intl</code> ile yerelleştirilmiş.</code></div>
+<div class="r"><b>Türkçe büyük harf</b><s>metin katmanında</s><code><code>PROFİL</code>, <code>AÇILIŞ</code>, <code>KAPANIŞ</code>, <code>BUGÜN</code>, <code>İŞLETME</code> string sabiti olarak büyük yazılıyor. <code>textTransform: "uppercase"</code> <b>hiçbir yerde</b> kullanılmıyor — <code>i</code> harfi <code>I</code>’ya döner.</code></div>
+<div class="r"><b>Rakamlar</b><s>sistem yazı tipi</s><code>Saat, fiyat, süre, sayaç: <code>fontFamily: undefined</code> (San Francisco) + <code>fontVariant: ["tabular-nums"]</code>. Metin Hanken Grotesk. Fiyat biçimi <code>Intl.NumberFormat("tr-TR")</code> — <code>₺1.800</code>, binlik ayırıcı nokta.</code></div>
+<div class="r"><b>Boş fiyat</b><s><code>null</code> ≠ 0</s><code>Fiyat alanı boşaltılıp kaydedilirse <code>price: null</code> yazılır, <code>0</code> değil. Listede <code>fiyat yok</code>; booking sayfasında ve randevu kartında fiyat satırı <b>hiç çizilmez</b>. <code>₺0</code> yalnız gerçekten sıfır ücret alınan bir hizmet için yazılabilir — ve o hizmet bugün veri modelinde yok.</code></div>
+<div class="r"><b>Klavye</b><s>gövde yukarı çıkar</s><code>Alt sayfa gövdesi <code>ScrollView</code> + <code>KeyboardAvoidingView behavior="padding"</code>, <code>keyboardShouldPersistTaps="handled"</code> (renk karesine ilk dokunuşta seçilir). Fiyat <code>decimal-pad</code>, ad <code>default</code> + <code>autoCapitalize sentences</code>.</code></div>
+<div class="r"><b>Kaydetme</b><s>iyimser değil</s><code>Alt sayfa kapanmadan önce sunucu 200 döner. Hata: sayfa açık kalır, alan değerleri korunur, footer’da tek satır hata. <b>Hiçbir yerde “kaydedildi” yazısı sunucudan önce çizilmez.</b></code></div>
+<div class="r"><b>Silme</b><s><code>DELETE /account</code></s><code>Dolum bitince istek gider. Sunucu hesabı ve (tek müdürse) işletmeyi <b>gerçekten</b> siler; yerel “bekleyen silme” kaydı ve yerel oturum temizliği <b>silme sayılmaz</b> ve kaldırıldı. İstek başarısızsa oturum kapanmaz — kullanıcı hâlâ girişli ve durumu ekranda yazılı.</code></div>
+<div class="r"><b>Çizilmeyen satırlar</b><s>koşul yoksa satır yok</s><code>Tek işletmeli müdürde <code>İşletme değiştir</code> <b>render edilmez</b> (disabled değil). Face ID / Touch ID donanımı ya da kayıtlı biyometri yoksa o satır render edilmez. KVKK URL’i boşsa yalnız <code>Gizlilik politikası</code> satırı çizilir; grup tek satırla kalır.</code></div>
+<div class="r"><b>Hareketi azalt</b><s><code>AccessibilityInfo</code></s><code><code>isReduceMotionEnabled</code> tek bir <code>useReducedMotion</code> kancasında; süreler 0’a iner, basılı tutma süresi <b>düşmez</b>, dolum beş kademeye çevrilir. Hiçbir bilgi yalnız harekette taşınmıyor: her ekranda hangi ekranda olduğun nav başlığında yazılı.</code></div>
+</div>
+
+</div>
+<script>
+const svg=(id,w)=>`<svg class="${w||'ic20'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#${id}"/></svg>`;
+const chev=svg('i-chev'), back=svg('i-back','ic'), plus=svg('i-plus','ic'), xic=svg('i-x','ic'), chk=svg('i-check','ic16');
+const st=t=>`<div class="status">${t}<div class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>`;
+const phone=(inner,cls,lbl)=>`<div class="phone ${cls||'thm-dark'}" data-screen-label="${lbl}"><div class="glow"></div>${st('9:41')}<div class="body">${inner}</div><div class="home-ind"></div></div>`;
+const tabs=s=>`<div class="tabbar">${['i-today','i-cal','i-plus','i-cash','i-user'].map((i,x)=>`<button class="tab${x===s?' sel':''}${x===2?' plus':''}" aria-label="${['Akış','Takvim','Yeni randevu','Kasa','Profil'][x]}">${svg(i,'ic')}</button>`).join('')}</div>`;
+const nav=(t,rt)=>`<div class="nav"><button class="bk" aria-label="Geri">${back}</button><h4>${t}</h4><div class="rt">${rt||''}</div></div>`;
+const row=(o)=>`<button class="row${o.big?' big':''}${o.dgr?' dgr':''}">${o.ico?`<span class="ico">${svg(o.ico)}</span>`:''}<span class="lb"><b>${o.t}</b>${o.s?`<span>${o.s}</span>`:''}</span>${o.v?`<span class="vl">${o.v}</span>`:''}${o.sw!==undefined?`<span class="sw${o.sw?' on':''}"><i></i></span>`:''}${o.ch===false?'':`<span class="ch">${chev}</span>`}</button>`;
+
+/* ── 1 · profil ana ekranı ── */
+const today=(o={})=>`<button class="today"><span class="rim"></span>
+<span class="tdh"><span class="k">BUGÜN · PERŞEMBE</span><span class="st${o.shut?' off':''}"><s></s>${o.shut?'Şu anda kapalı':'Şu anda açık'}</span></span>
+<span class="tdb"><b class="n">09:00 – 20:00</b><span class="ch">${chev}</span></span>
+<span class="tdf">kapanışa <i class="n">10 sa 19 dk</i></span></button>`;
+
+const head=(nm)=>`<div class="pf-id"><span class="pf-t">PROFİL</span><b>${nm||'Güzel Saçlar Kuaför'}</b><span>Kadıköy şubesi · Kuaför</span></div>`;
+
+const homeScr=(nm,tm)=>`<div class="scr">${head(nm)}${today()}
+<div class="grp">${row({t:'Çalışma saatleri',s:'7 gün · Pazar kapalı',big:1})}${row({t:'Hizmetler ve fiyatlar',s:'9 hizmet · 2 fiyatsız',big:1})}</div>
+<div class="grp">${row({t:'Hesap',v:'Meltem Arda'})}${row({t:'Görünüm',v:tm||'Koyu'})}${row({t:'Bildirimler',v:'3 açık'})}${row({t:'Yasal',v:'KVKK · Gizlilik'})}</div>
+<div class="pad"></div></div>${tabs(4)}`;
+
+document.getElementById('c-home').innerHTML=phone(homeScr(),'thm-dark','Profil')+
+`<div class="side"><h3><s>MÜDÜR 27 · ANA EKRAN</s>Bir ifade, iki kapı, dört satır</h3>
+<p>Ekranın tamamı 393 pt’de <b>kaydırmasız</b> bitiyor: 74 pt kimlik, 126 pt bugün kartı, 138 pt iki büyük satır, 224 pt dört küçük satır. Geriye kalan yer camın arkasındaki 112 pt.</p>
+<div class="note"><span><b>Kart hem cümle hem kapı.</b> Üç bilgi taşıyor — hangi gün, hangi saatler, şu an açık mı — ve basıldığında bugünün alt sayfasını açıyor. Chevron saatin sağında, kartın kendi hedefi olduğunun tek işareti.</span></div>
+<div class="note"><span><b>Turuncu yalnız geri sayımda.</b> <code>10 sa 19 dk</code> bir zaman, o yüzden turuncu. Durum kelimesi (<code>Şu anda açık</code>) yeşil, kapalıyken <code>tx3</code>; ikisi de kelimeyle birlikte yazılı, hiçbiri renge emanet değil.</span></div>
+<div class="note"><span><b>Alt satırların değeri sağda yazılı.</b> <code>Meltem Arda</code>, <code>Koyu</code>, <code>3 açık</code> — satıra basmadan önce içeride ne olduğu okunuyor, ve <code>Hesap</code> satırı müdürün hesabına ilk kez bir yol açıyor.</span></div>
+<div class="note rj"><span><b>Yok:</b> arama alanı, avatar, “profilini tamamla” çubuğu, personel satırı, abonelik/plan/fatura satırı, “uygulamayı değerlendir”, sürüm numarası bandı. Sürüm bilgisi Yasal ekranının dibinde, ana ekranda değil.</span></div></div>`;
+
+/* ── 2 · çalışma saatleri ── */
+const DAYS=[['Pazartesi','09:00 – 20:00'],['Salı','09:00 – 20:00'],['Çarşamba','09:00 – 20:00'],['Perşembe','09:00 – 20:00',1],['Cuma','09:00 – 21:00'],['Cumartesi','10:00 – 21:00'],['Pazar',null]];
+const hoursScr=()=>`${nav('Çalışma saatleri')}<div class="scr">
+<div class="grp">${DAYS.map(d=>`<button class="dr${d[2]?' now':''}">${d[2]?'<span class="sp"></span>':''}<span class="dy">${d[0]}</span>${d[2]?'<span class="bg">BUGÜN</span>':''}${d[1]?`<span class="dt n">${d[1]}</span>`:'<span class="dt cl">Kapalı</span>'}<span class="ch" style="margin-left:10px;color:var(--tx3);display:flex">${chev}</span></button>`).join('')}</div>
+<div class="foot">Saatler her hafta aynı tekrar eder. Randevular kapanış saatinden sonraya alınamaz.</div>
+<div class="pad"></div></div>${tabs(4)}`;
+
+const daySheet=()=>`${nav('Çalışma saatleri')}<div class="scr" style="opacity:.5"><div class="grp">${DAYS.slice(0,4).map(d=>`<button class="dr${d[2]?' now':''}">${d[2]?'<span class="sp"></span>':''}<span class="dy">${d[0]}</span>${d[2]?'<span class="bg">BUGÜN</span>':''}<span class="dt n">${d[1]}</span></button>`).join('')}</div></div>
+<div class="scrim"></div>
+<div class="sheet" style="height:452px"><div class="sh-gr"></div>
+<div class="sh-hd"><b>Perşembe</b><button class="x" aria-label="Kapat">${xic}</button></div>
+<div class="sh-bd">
+<div class="fl"><span class="lbl">AÇILIŞ</span><div class="stp"><button aria-label="15 dakika geri">${svg('i-minus','ic')}</button><span class="dv"></span><b class="n">09:00</b><span class="dv"></span><button aria-label="15 dakika ileri">${svg('i-plus','ic')}</button></div></div>
+<div class="fl"><span class="lbl">KAPANIŞ</span><div class="stp"><button aria-label="15 dakika geri">${svg('i-minus','ic')}</button><span class="dv"></span><b class="n">20:30</b><span class="dv"></span><button aria-label="15 dakika ileri">${svg('i-plus','ic')}</button></div></div>
+<div class="grp">${row({t:'Perşembe kapalı',v:'Kapalı',sw:0,ch:false})}</div>
+<button class="btn gh" style="height:46px;font-size:15px">Bu saatleri tüm günlere uygula</button>
+</div>
+<div class="sh-ft"><button class="btn">Kaydet</button></div></div>`;
+
+document.getElementById('c-hours').innerHTML=phone(hoursScr(),'thm-dark','Çalışma saatleri')+phone(daySheet(),'thm-dark','Gün düzenleme')+
+`<div class="side"><h3><s>MÜDÜR 27 · SAAT</s>Yedi gün tek ekranda, düzenleme alt sayfada</h3>
+<p>Liste kaydırmıyor: yedi gün 420 pt, 375 pt’de bile tek ekranda. Müdür günleri <b>karşılaştırarak</b> okuyor — cumartesi neden 21:00, pazar kapalı mı — bu yüzden hiçbir gün katlamanın altına inmiyor.</p>
+<div class="note"><span><b>Satır içinde düzenleme yok.</b> <code>LayoutAnimation</code> projede olmadığı için yerinde açılan bir satır ya zıplar ya da animasyonsuz kalır. Düzenleme <b>alt sayfada</b>: yüksekliği açılmadan sabit, girişi tek bir <code>translateY</code>.</span></div>
+<div class="note"><span><b>Basamak, tekerlek değil.</b> Sistem saat tekerleği ayakta tek elle 15 dakikayı tutturmayı zorlaştırıyor ve rakamları küçük. 60 × 60 düğme, 30 pt rakam, 15 dakika adım. Basılı tutma 500 ms sonra saniyede 4 adım.</span></div>
+<div class="note"><span><b>Anahtar günün adını söylüyor:</b> <code>Perşembe kapalı</code> — <code>Bugünü kapat</code> değil. Bu anahtar <b>her perşembeyi</b> kapatır ve cümlesi bunu itiraf ediyor. Yanında durum kelimesi (<code>Kapalı</code> / <code>Açık</code>) yazılı; anahtarda renk yok.</span></div>
+<div class="note"><span><b>“Tüm günlere uygula” saatleri kopyalar, kapalı günleri açmaz.</b> Pazar kapalıysa kapalı kalır. Salonların çoğunda yedi günün altısı aynı saat; bu düğme 12 dokunuşu 1’e indiriyor.</span></div>
+<div class="note rj"><span><b>Kaydet, bir değişiklik olana kadar pasif</b> (<code>surf2</code> zemin, <code>tx3</code> yazı, <code>accessibilityState disabled</code>). Basıldığında <code>Kaydediliyor</code> olur; sayfa <b>sunucu onayından sonra</b> kapanır ve satır yeni saati gösterir.</span></div></div>`;
+
+/* ── 3 · hizmetler ── */
+const SV=[['Saç kesimi','30 dk','₺500','#4FA3A0'],['Fön','25 dk','₺250','#5B8FD9'],['Saç boyama','90 dk','₺1.800','#8C7BC4'],['Röfle','120 dk','₺2.400','#C9748F'],['Keratin bakımı','75 dk','₺1.950','#8FA65A'],['Sakal düzeltme','20 dk','₺200','#7E8A96'],['Saç yıkama','15 dk',null,'#5B8FD9'],['Kaş alma','15 dk','₺150','#C9748F'],['Gelin saçı','180 dk',null,'#8C7BC4']];
+const svRow=s=>`<button class="sv"><span class="cb" style="background:${s[3]}"></span><span class="lb"><b>${s[0]}</b><span>${s[1]}</span></span>${s[2]?`<span class="pr n">${s[2]}</span>`:'<span class="pr no">fiyat yok</span>'}<span class="ch">${chev}</span></button>`;
+const servScr=()=>`${nav('Hizmetler',`<button class="ib" aria-label="Hizmet ekle">${plus}</button>`)}<div class="scr">
+<div class="grp">${SV.map(svRow).join('')}</div>
+<div class="foot">2 hizmetin fiyatı girilmemiş. Fiyatı olmayan hizmet müşteriye fiyatsız görünür.</div>
+<div class="pad"></div></div>${tabs(4)}`;
+
+const svSheet=(kb)=>`${nav('Hizmetler',`<button class="ib" aria-label="Hizmet ekle">${plus}</button>`)}<div class="scr" style="opacity:.5"><div class="grp">${SV.slice(0,3).map(svRow).join('')}</div></div>
+<div class="scrim"></div>
+<div class="sheet" style="height:${kb?790:710}px"><div class="sh-gr"></div>
+<div class="sh-hd"><b>Saç boyama</b><button class="x" aria-label="Kapat">${xic}</button></div>
+<div class="sh-bd">
+${kb?'':`<div class="fl"><span class="lbl">HİZMET ADI</span><div class="inp">Saç boyama</div></div>`}
+<div class="fl"><span class="lbl">SÜRE</span><div class="stp"><button aria-label="5 dakika azalt">${svg('i-minus','ic')}</button><span class="dv"></span><b class="n">90 dk</b><span class="dv"></span><button aria-label="5 dakika arttır">${svg('i-plus','ic')}</button></div>
+<div class="chips"><button class="chip">30</button><button class="chip">45</button><button class="chip">60</button><button class="chip on">90</button><button class="chip">120</button></div></div>
+<div class="fl"><span class="lbl">FİYAT</span><div class="inp${kb?' foc':''}"><span class="pfx">₺</span><span class="n">1.800</span>${kb?'<span class="car"></span>':''}</div>
+<div class="foot" style="padding:0">Boş bırakılırsa fiyat müşteriye gösterilmez. <b style="color:var(--tx)">₺0</b> yazmayın — sıfır bir fiyattır, boşluk fiyat yok demektir.</div></div>
+${kb?'':`<div class="fl"><span class="lbl">TAKVİM RENGİ</span><div class="sws">${['#4FA3A0','#5B8FD9','#8C7BC4','#C9748F','#8FA65A','#7E8A96'].map((c,i)=>`<button class="swb${i===2?' on':''}" style="background:${c}" aria-label="${['Turkuaz','Mavi','Mor','Gül','Zeytin','Kurşuni'][i]}">${i===2?chk:''}</button>`).join('')}</div><span class="cnm">Mor</span></div>
+<div class="grp" style="margin-top:2px">${row({t:'Hizmeti sil',ico:'i-trash',dgr:1,ch:false})}</div>`}
+</div>
+${kb?`<div class="sh-ft" style="padding:10px 16px 10px"><button class="btn">Kaydet</button></div>
+<div class="kb">${['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>`<button class="${k?'':'bl'} n">${k}</button>`).join('')}</div>`:`<div class="sh-ft"><button class="btn">Kaydet</button></div>`}`;
+
+document.getElementById('c-serv').innerHTML=phone(servScr(),'thm-dark','Hizmet listesi')+phone(svSheet(),'thm-dark','Hizmet düzenleme')+phone(svSheet(1),'thm-dark','Hizmet düzenleme · klavye')+
+`<div class="side" style="width:100%"><h3><s>MÜDÜR 27 · HİZMET</s>Fiyat boş kalabilir; ₺0 yazılamaz</h3>
+<p>Dokuz hizmetin ikisinde fiyat yok ve bu bir eksik değil, gerçek bir hâl: <b>gelin saçı</b> müşteriye göre fiyatlanır, <b>saç yıkama</b> başka bir hizmetin içinde verilir. İkisi de <code>fiyat yok</code> yazıyor — 12.5 pt, <code>tx3</code>, tabular değil çünkü bu bir kelime. Liste sonundaki not sayıyı söylüyor: <code>2 hizmetin fiyatı girilmemiş</code>.</p>
+<div class="note"><span><b>Renk çubuk, daire değil.</b> Bu üründe daire durum demek (turuncu = zaman, yeşil = tahsil, amber = uyarı). Hizmet rengi durum değil kimlik, o yüzden 4 × 30 pt dikey çubuk. Paletin dışında turuncu, kırmızı, amber ve yeşil <b>yok</b>: dördü de anlam taşıyor.</span></div>
+<div class="note"><span><b>Seçili rengin adı yazılı.</b> Sıranın altında <code>Mor</code>. Renk körü bir müdür hangi rengi seçtiğini okuyarak biliyor; sesli okumada da kare adıyla anons ediliyor.</span></div>
+<div class="note"><span><b>Süre iki yoldan giriliyor.</b> Basamak 5 dakika adımlarla ince ayar, altındaki beş hap (30 · 45 · 60 · 90 · 120) tek dokunuşta yaygın değerler. Seçili hap nötr yüksek kontrast — renkle işaretlenmiyor.</span></div>
+<div class="note"><span><b>Klavye açılınca gövde yukarı kayıyor</b> (üçüncü telefon): hizmet adı yukarı çıkıyor, odaklı fiyat alanı klavyenin 12 pt üstünde kalıyor, renk sırası ve silme satırı klavyenin altında — kaydırılarak geliyor. Klavye açıkken alt sayfanın footer’ı klavyenin <b>üstünde</b> duruyor, Kaydet hiçbir zaman kaybolmuyor.</span></div>
+<div class="note"><span><b>Silme satırı sayfanın dibinde</b>, Kaydet’in <b>dışında</b> ve kırmızı yalnız yazıda. İkinci bir onay soruyor: “Saç boyama silinsin mi? Geçmiş randevular etkilenmez.” Silinen hizmet gelecek randevulardan düşmez — sunucu bunu reddediyorsa satır silinmez, sebebi yazılır.</span></div>
+<div class="note rj"><span><b>Yok:</b> hizmet kategorisi, personel ataması, KDV alanı, indirim, online rezervasyona açık/kapalı anahtarı, sıralama tutamacı. Hiçbiri veri modelinde yok; hizmet dört alandan oluşuyor — ad, süre, fiyat, renk.</span></div></div>`;
+
+/* ── 4 · hesap + silme ── */
+const accScr=()=>`${nav('Hesap')}<div class="scr">
+<div class="acc-id"><span class="mono">MA</span><span class="t"><b>Meltem Arda</b><span>meltem@guzelsaclar.com</span><span class="rolechip">MÜDÜR</span></span></div>
+<div class="grp">${row({t:'Şifre değiştir',ico:'i-lock'})}${row({t:'Face ID ile giriş',ico:'i-user',v:'Açık',sw:1,ch:false})}</div>
+<div class="grp">${row({t:'İşletme değiştir',ico:'i-swap',v:'2 işletme'})}</div>
+<div class="grp">${row({t:'Oturumu kapat',ico:'i-off',ch:false})}</div>
+<div class="grp">${row({t:'Hesabı sil',ico:'i-trash',dgr:1})}</div>
+<div class="foot">Hesabınız ve bu işletmenin verileri kalıcı olarak silinir.</div>
+<div class="pad"></div></div>${tabs(4)}`;
+
+const delScr=(o={})=>`<div class="nav"><button class="bk" aria-label="Kapat">${xic}</button><h4>Hesabı sil</h4></div>
+<div class="scr" style="gap:13px">
+<div class="dl-h">Bu işlem geri alınamaz.</div>
+<div class="dl-p">Güzel Saçlar Kuaför’ün <b>tek müdürü</b> sizsiniz. Hesabınız silinince işletme de silinir.</div>
+<div class="dlist">
+<div class="dli"><s></s><div><b>Hesabınız</b><span>Meltem Arda · meltem@guzelsaclar.com</span></div></div>
+<div class="dli"><s></s><div><b>Güzel Saçlar Kuaför · Kadıköy</b><span><span class="n">312</span> randevu · <span class="n">148</span> müşteri · <span class="n">9</span> hizmet · çalışma saatleri</span></div></div>
+<div class="dli"><s></s><div><b><span class="n">2</span> personelin bu işletmeye erişimi</b><span>Ece Yılmaz, Merve Ak — kendi hesapları silinmez, bu işletme listelerinden düşer</span></div></div>
+<div class="dli"><s class="k"></s><div><b>Silinmeyen</b><span>Mevzuat gereği saklanan ödeme belgeleri kalır; pazarlama için kullanılmaz.</span></div></div>
+</div>
+<div class="amn"><b>SÜRE</b><span>Silme <b style="color:var(--tx)">hemen</b> başlar; oturumunuz kapanır. Yedeklerdeki kopyalar <span class="n">30</span> gün içinde döngüden çıkar — bu bir vazgeçme süresi <b style="color:var(--tx)">değildir</b>.</span></div>
+<button class="ckr"><span class="ck${o.ck?' on':''}">${o.ck?chk:''}</span><p>İşletmenin ve içindeki tüm randevuların silineceğini anlıyorum.</p></button>
+</div>
+<div class="sh-ft" style="position:relative;border-top:1px solid var(--bd);padding:12px 16px 30px;gap:11px">
+<div class="trk"><i style="transform:scaleX(${o.p||0})"></i></div>
+${o.p?`<div class="hcap"><span>Bırakmayın</span><span class="n">1,2 sn</span></div>`:''}
+<button class="hold${o.ck?'':' dn'}">${svg('i-trash','ic')}<span>Hesabı sil — basılı tutun</span></button>
+<button class="btn gh">Vazgeç</button></div>`;
+
+document.getElementById('c-acc').innerHTML=phone(accScr(),'thm-dark','Hesap')+phone(delScr({ck:0}),'thm-dark','Hesabı sil')+phone(delScr({ck:1,p:.62}),'thm-dark','Hesabı sil · basılı tutma')+
+`<div class="side" style="width:100%"><h3><s>MÜDÜR 27 · HESAP</s>Müdürün hesabına ilk yol — ve gerçek silme</h3>
+<p>Hesap ekranı zaten yazılmıştı ve müdür rolünü tanıyordu; eksik olan tek şey <b>ona giden yol</b>du. Şimdi profil ana ekranındaki <code>Hesap</code> satırından geliyor. Kimlik üstte üç satır: monogram, ad, e-posta, <code>MÜDÜR</code> etiketi. Fotoğraf yükleme yok — veri modelinde avatar yok.</p>
+<div class="note"><span><b>Dört ayrı grup, dört ayrı ağırlık.</b> Şifre ve Face ID bir arada (giriş), işletme değiştirme tek başına (bağlam), oturum kapatma tek başına (çıkış), silme en altta ve tek başına. Aralarındaki 14 pt boşluk yanlışlıkla basmayı engelleyen tek şey — <code>Oturumu kapat</code> ile <code>Hesabı sil</code> asla komşu satır değil.</span></div>
+<div class="note"><span><b>Silme ekranı bir alt sayfa değil, tam ekran.</b> Sebep: alt sayfa aşağı sürükleyerek kapanır ve “hafif” bir şey demektir; ayrıca bu metin kaydırma istiyor. Sol üstte geri oku değil <b>×</b> var — modal, yığın değil.</span></div>
+<div class="note"><span><b>Sayılar sunucudan geliyor.</b> <code>312 randevu · 148 müşteri · 9 hizmet</code>. Sayı bilinmeden bu liste çizilmez; “tüm verileriniz” gibi belirsiz bir cümle yeterli değil — müdürün neyi kaybettiğini <b>rakamla</b> görmesi lazım.</span></div>
+<div class="note"><span><b>Yeşil noktalı satır silinmeyeni söylüyor.</b> Dürüstlük iki yönlü: ne gittiğini yazan bir ekran, ne kaldığını da yazmalı. Mevzuat gereği saklanan ödeme belgeleri kalıyor ve bunun pazarlamaya kullanılmadığı yazıyor.</span></div>
+<div class="note"><span><b>İki kapı: onay kutusu ve iki saniye.</b> Kutu işaretlenmeden düğme pasif (%38 opaklık); basılırsa 160 ms sallanır ve kutunun arkasında bir saniyelik yüzey belirir. Kutu işaretliyse basılı tutma başlıyor: altındaki 4 pt ray <code>scaleX</code> ile doluyor, yanında <code>1,2 sn</code>. Parmak kalkarsa dolum 180 ms’de sıfırlanır ve <b>hiçbir şey olmaz</b>.</span></div>
+<div class="note"><span><b>İkinci müdür varsa bu ekran değişir:</b> başlık cümlesi <code>İşletme ve randevular silinmez</code> olur, liste iki satıra düşer (hesabınız · kişisel verileriniz), onay kutusu <b>çizilmez</b> ve basılı tutma kalır. Aynı ekranın iki hâli değil — aynı ekranın iki <b>içeriği</b>.</span></div>
+<div class="note rj"><span><b>Reddedildi:</b> “SİL” yazdırmak (Türkçe büyük harf tuzağı + ayakta klavye), e-posta ile onay bağlantısı (uygulamadan çıkarır), destek talebi (Apple’ın istediği şey değil), 30 gün geri alınabilir yerel “bekleyen silme” (bugünkü hâl — ulaşılamaz bir iptal hakkı ve gerçek silme değil).</span></div></div>`;
+
+/* ── 5 · uç hâller ── */
+const edges=[
+['Hizmeti olmayan salon','liste yok, boş hâl var',`<div style="padding:0 16px">${nav('Hizmetler',`<button class="ib" aria-label="Hizmet ekle">${plus}</button>`)}<div class="empty"><b>Henüz hizmet yok</b><p>Hizmet eklemeden randevu oluşturulamaz. Ad, süre ve dilerseniz fiyat girin.</p><button class="btn" style="padding:0 20px;font-size:15.5px;height:48px">İlk hizmeti ekle</button></div></div>`],
+['KVKK bağlantısı girilmemiş','grup tek satırla kalır',`<div style="padding:0 16px"><div class="grp">${row({t:'Gizlilik politikası',v:'luera.app',ico:'i-arrow'})}</div><div class="foot" style="margin-top:10px">KVKK aydınlatma metni satırı <b style="color:var(--tx)">çizilmez</b> — pasif satır değil, yok. Metin masaüstünden girilince satır belirir.</div></div>`],
+['Tek işletmeli müdür','“işletme değiştir” yok',`<div style="padding:0 16px"><div class="grp">${row({t:'Şifre değiştir',ico:'i-lock'})}${row({t:'Face ID ile giriş',ico:'i-user',v:'Açık',sw:1,ch:false})}</div><div class="grp" style="margin-top:14px">${row({t:'Oturumu kapat',ico:'i-off',ch:false})}</div></div>`],
+['Face ID desteklemeyen cihaz','satır yok, pasif satır yok',`<div style="padding:0 16px"><div class="grp">${row({t:'Şifre değiştir',ico:'i-lock'})}</div><div class="foot" style="margin-top:10px">Donanım yoksa ya da kayıtlı biyometri yoksa satır render edilmez. Cihaz Touch ID’li ise satırın adı <b style="color:var(--tx)">Touch ID ile giriş</b> olur.</div></div>`],
+['Çok uzun işletme adı','iki satır, sonra kırpma',`<div style="padding:0 16px">${head('Güzel Saçlar Kuaför ve Güzellik Merkezi Kadıköy')}${today()}</div>`],
+['Bugün kapalı','geri sayım satırı yok',`<div style="padding:0 16px">${head()}<button class="today"><span class="rim"></span><span class="tdh"><span class="k">BUGÜN · PAZAR</span><span class="st off"><s></s>Bugün kapalı</span></span><span class="tdb"><b class="n" style="color:var(--tx2)">Kapalı</b><span class="ch">${chev}</span></span></button><div class="foot" style="margin-top:10px">Kapalı günde saat aralığı ve geri sayım <b style="color:var(--tx)">yazılmaz</b>. Kart yine bugünün alt sayfasını açar.</div></div>`]
+];
+document.getElementById('c-edge').innerHTML=edges.map(e=>`<div class="stage"><div class="scap">${e[0]}<i>${e[1]}</i></div><div class="sbox">${e[2]}</div></div>`).join('');
+
+/* ── 6 · arka yüzeyler ── */
+const backs=[
+['Görünüm','tema · üç seçenek',`<div style="padding:0 16px">${nav('Görünüm')}<div class="fl"><span class="lbl">TEMA</span><div class="seg"><button>Koyu</button><button class="on">Aydınlık</button><button>Sistem</button></div></div><div class="foot" style="margin-top:12px">Sistem seçilirse tema cihazın ayarını izler. Geçiş iki yüzeyin çapraz solmasıyla yapılır; renk animasyonu yok.</div></div>`],
+['Bildirimler','hangi olayda bildirim',`<div style="padding:0 16px">${nav('Bildirimler')}<div class="grp">${row({t:'Yeni randevu',v:'Açık',sw:1,ch:false})}${row({t:'Randevu iptali',v:'Açık',sw:1,ch:false})}${row({t:'Müşteri gelmedi',v:'Açık',sw:1,ch:false})}${row({t:'Gün sonu özeti',v:'Kapalı',sw:0,ch:false})}</div><div class="foot" style="margin-top:10px">Dördü de kapalıysa bildirim gelmez; “bildirimleri kapat” diye ayrı bir ana anahtar yok.</div></div>`],
+['Yasal','iki bağlantı, bir sürüm',`<div style="padding:0 16px">${nav('Yasal')}<div class="grp">${row({t:'KVKK aydınlatma metni',v:'guzelsaclar.com',ico:'i-arrow'})}${row({t:'Gizlilik politikası',v:'luera.app',ico:'i-arrow'})}</div><div class="foot" style="margin-top:10px">Luera <span class="n">2.4.1</span> (<span class="n">318</span>)</div></div>`],
+['Silme sonrası','giriş ekranı · sahte onay yok',`<div style="padding:0 16px 6px"><div class="banner"><b>Hesabınız silindi</b><span>Bu e-posta ile giriş yapılamaz. Verilerin yedeklerdeki kopyaları <span class="n">30</span> gün içinde silinir.</span></div><div style="height:16px"></div><div class="fl"><span class="lbl">E-POSTA</span><div class="inp"><span class="ph">ornek@salon.com</span></div></div><div style="height:12px"></div><button class="btn">Giriş yap</button><div class="foot" style="margin-top:10px">Bu bant <b style="color:var(--tx)">yalnız sunucu 200 döndükten sonra</b> çizilir. İstek başarısız olursa oturum kapanmaz ve kullanıcı silme ekranında kalır.</div></div>`]
+];
+document.getElementById('c-back').innerHTML=backs.map(e=>`<div class="stage"><div class="scap">${e[0]}<i>${e[1]}</i></div><div class="sbox">${e[2]}</div></div>`).join('');
+
+/* ── 7 · aydınlık ── */
+document.getElementById('c-light').innerHTML=phone(homeScr(null,'Aydınlık'),'sm thm-light','Profil · aydınlık 375')+phone(hoursScr(),'sm thm-light','Çalışma saatleri · aydınlık 375')+
+`<div class="side" style="width:520px"><h3><s>AYDINLIK · 375</s>Kenarlık şekli taşıyor, dolgu değil</h3>
+<p>Aydınlıkta <code>#FAF7F3</code> üstünde <code>#F0E9DF</code> ayırt edilmiyor: bu yüzden <b>basılabilir her yüzeyin 1 px kenarlığı var</b> — satır grupları, basamak kutusu, alanlar, haplar, renk kareleri, silme düğmesi. Bugün kartı ayrı: kendi gradyanı, üst kenar parlaması ve gölgesi var, kenarlığı <code>rgba(14,14,14,.13)</code>’e çıkıyor.</p>
+<div class="note"><span><b>375’te katlama hesabın üstünden geçiyor.</b> Kart ve iki büyük satır tam görünür; küçük grubun son iki satırı (bildirim, yasal) kaydırınca geliyor. Sıralama bunun için yapıldı — katlamanın altına düşenler ayda bir açılanlar.</span></div>
+<div class="note"><span><b>Yedi gün 375’te de tek ekranda.</b> 52 + 420 = 472 < 647. Gün satırı 60 pt’den <b>küçülmüyor</b>; sığmasa bile küçülmezdi, kaydırma tercih edilirdi.</span></div>
+<div class="note"><span><b>Aydınlıkta durum renkleri koyulaşıyor:</b> yeşil <code>#2D8F32</code>, amber <code>#B87A00</code>, kırmızı <code>#C94040</code>. Turuncu iki temada da <code>#FF5A1F</code> — marka rengi kaymıyor, üstündeki mürekkep değişiyor.</span></div>
+<div class="note"><span><b>Cam yalnız tab bar’da.</b> Alt sayfa gövdesi, kartlar, listeler, klavye opak. Aydınlıkta cam üstünde kenarlık zaten görünmüyor; içerik yüzeylerine bulanıklık girmiyor.</span></div></div>`;
+
+/* ── hareket ── */
+const M=[
+{t:'1 · Alt sayfa — tek translateY, sabit yükseklik',
+ d:'Sayfanın yüksekliği açılmadan hesaplanıyor ve sabit; içeride hiçbir şey büyüyüp küçülmüyor. Perde altındaki ekranı 240 ms’de karartıyor, ekranın kendisi <b>yerinde kalıyor</b> — ölçek almıyor, kaymıyor. Aşağı sürükleme <code>PanResponder</code> ile doğrudan <code>translateY</code>’yi sürüyor.',
+ s:['<b>Giren</b> 300 ms · cubic-bezier(.2,.8,.25,1) · <code>translateY 100%→0</code>','<b>Perde</b> 240 ms · <code>opacity 0→1</code>','<b>Çıkan</b> 240 ms · cubic-bezier(.4,0,1,1) · <code>translateY 0→100%</code>','<b>Sürükle-kapat</b> 120 pt ya da 0.5 pt/ms · altında kalırsa 200 ms’de geri oturur','<b>Yerinde kalan</b> altındaki ekranın tamamı','<span class="rm">Hareketi azalt: tek karede takas, perde animasyonsuz.</span>'],
+ h:`<div class="msh"><div class="sc"></div><div class="sh"><i></i></div></div>`},
+{t:'2 · Saat rakamı — sayılmaz, takas edilir',
+ d:'Basamak düğmesine basınca rakam <b>saymıyor</b>: eski değer yukarı çıkıp sönüyor, yeni değer aşağıdan gelip beliriyor. İki <code>Text</code> üst üste, kutu yüksekliği 44 pt sabit — yükseklik animasyonu gerekmiyor. Basılı tutma tekrarında geçiş 60 ms’e iniyor, yoksa kuyruk birikir.',
+ s:['<b>Çıkan</b> 110 ms · linear · <code>opacity 1→0</code> + <code>translateY 0→-7</code>','<b>Giren</b> 130 ms · 20 ms gecikme · <code>opacity 0→1</code> + <code>translateY 7→0</code>','<b>Yerinde kalan</b> kutu, kenarlık, iki düğme, ölçüler','<b>Sınır</b> açılış kapanışı geçemez; sınırda düğme pasifleşir ve rakam <b>hiç oynamaz</b>','<span class="rm">Hareketi azalt: rakam doğrudan yeni değere döner.</span>'],
+ h:`<div class="stp" style="width:230px"><button>${svg('i-minus','ic')}</button><span class="dv"></span><span class="mnum"><b class="o n">09:00</b><b class="w n">09:15</b></span><span class="dv"></span><button>${svg('i-plus','ic')}</button></div>`},
+{t:'3 · Anahtar — iki ray, çapraz solma',
+ d:'Renk animasyonlanamıyor, o yüzden iki ray üst üste duruyor: kapalı ray altta sabit, açık ray üstte <code>opacity</code> ile geliyor. Knob 18 pt <code>translateX</code>. Yanındaki kelime aynı süreyle çapraz soluyor — durum renge emanet değil, iki temada da okunuyor.',
+ s:['<b>Ray</b> 180 ms · ease-out · üstteki <code>opacity 0→1</code>','<b>Knob</b> 180 ms · <code>translateX 0→18</code>','<b>Kelime</b> 180 ms · <code>Kapalı</code> / <code>Açık</code> çapraz solma','<b>Yerinde kalan</b> satır, etiket, kenarlık','<span class="rm">Hareketi azalt: knob ve ray tek karede takas.</span>'],
+ h:`<div style="display:flex;align-items:center;gap:14px"><span style="font-size:15px;font-weight:700">Face ID ile giriş</span><span style="font-size:13px;font-weight:600;color:var(--tx2)">Açık</span><span class="mtg"><span class="on2"></span><i></i><i class="k2"></i></span></div>`},
+{t:'4 · Basılı tutma — 2000 ms scaleX, düğme kıpırdamıyor',
+ d:'Dolum düğmenin <b>altında</b>, içinde değil: kırmızı zemin üstünde iki temada da okunabilir bir etiket rengi yok. Ray 4 pt, dolgu <code>scaleX 0→1</code>, köken sol. Düğmenin kendisi hiç değişmiyor — ne renk, ne ölçek, ne yazı. Parmak kalkarsa 180 ms’de sıfırlanır ve hiçbir şey yazılmaz.',
+ s:['<b>Dolum</b> 2000 ms · linear · <code>scaleX 0→1</code>','<b>İptal</b> 180 ms · cubic-bezier(.4,0,1,1) · <code>scaleX → 0</code>','<b>Titreşim</b> başta hafif · %50’de hafif · tamamlanınca ağır','<b>Kilitliyken basış</b> 160 ms · 2 çevrim · <code>translateX ±4</code> + onay kutusu satırında 1 sn yüzey','<b>Yerinde kalan</b> düğme, kenarlık, yazı, ikon','<span class="rm">Hareketi azalt: süre aynı (2000 ms), dolum beş kademede; VoiceOver’da basılı tutma yerine iki basamaklı uyarı.</span>'],
+ h:`<div class="mhold"><div class="trk"><i></i></div><div class="hold">${svg('i-trash','ic')}<span>Hesabı sil — basılı tutun</span></div></div>`}
+];
+document.getElementById('c-motion').innerHTML=M.map(m=>`<div class="mcase"><div class="mstage">${m.h}</div><div class="mspec"><b>${m.t}</b><span>${m.d}</span>${m.s.map(x=>`<span>${x}</span>`).join('')}</div></div>`).join('');
+</script>
+</body></html>
