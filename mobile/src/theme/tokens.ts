@@ -337,6 +337,270 @@ export const authMetrics = {
 } as const;
 
 /** Hareket sözleşmesi 02'deki basma değerleri; bu setin dışına çıkılmaz. */
+/**
+ * Akıştaki müşteri balonu — adın yanındaki basılabilir baş harf yuvarlağı.
+ *
+ * Akışta müdürün müşteri kartına ulaşacağı tek kapı bu. Yuvarlak hem KİMLİK
+ * hem de "burası basılır" işareti; ayrı bir ok ya da etiket çizilmez.
+ * Turuncu DEĞİL: turuncu zaman ve eylem içindir, "Geldi" hapı turuncu.
+ */
+export const customerBubble = {
+    /** Sade akış satırında — ad tek satır, yuvarlak onu ezmemeli. */
+    size: 34,
+    sizeSmall: 31,
+    border: 1.5,
+    text: 12.5,
+    textSmall: 11.5,
+    gap: 11,
+    /** Dokunma hedefi 44'e hitSlop ile tamamlanır. */
+    hitSlop: 8,
+} as const;
+
+/**
+ * Müdür 22 — boş gün. Ölçüler tasarımın CSS'iyle birebir.
+ *
+ * Boş hâlin bloğu ekranın ALT ÜÇTE BİRİNE (852'de 568+) hiç girmez: orası
+ * başparmağın yeri, orada yalnız eylemler durur.
+ */
+export const emptyDayMetrics = {
+    /** Boş hâl bloğu levhanın altından bu kadar aşağıda başlar. */
+    topFromPlate: 46,
+    topFromStrip: 30,
+
+    /** Etiket — "İLERİDEKİ GÜN · 5 GÜN SONRA". */
+    label: 11.5,
+    labelTrack: 0.06,
+    labelGap: 7,
+    /** Yalnız bugünde ve turuncu: bugün bir zaman bilgisidir. */
+    dot: 7,
+
+    /** Başlık — kahraman rakam YOK, ölçülecek bir şey yok. */
+    title: 22,
+    titleTrack: -0.025,
+    titleLine: 1.22,
+    titleTop: 12,
+
+    /** Cümle — kırpılmaz, sarar. */
+    hint: 14.5,
+    hintLine: 1.4,
+    hintWidth: 290,
+    hintTop: 8,
+
+    /** Saat rayı — cetvelin dikey kardeşi. */
+    railTop: 30,
+    railWidth: 257,
+    railWidthSmall: 239,
+    railRow: 30,
+    railRowSmall: 28,
+    railNumber: 12,
+    railNumberWidth: 22,
+    railLine: 1,
+    railGap: 10,
+
+    /** Gün pedalı — üç bölme, hepsi 44'ün üstünde. */
+    pedalHeight: 44,
+    pedalSide: 123,
+    pedalSideSmall: 117,
+    pedalMid: 141,
+    pedalMidSmall: 133,
+    pedalText: 14,
+    pedalDividerInset: 11,
+    pedalPressFill: 'rgba(243,237,227,0.07)',
+
+    /** Birincil eylem — pedalın ÜSTÜNDE: karar veren eylem daha yukarı. */
+    actionHeight: 40,
+    actionText: 15.5,
+    actionGap: 12,
+
+    /** Jest okları — jesti öğretir, dokunulamaz. */
+    arrowTop: 436,
+    arrowSize: 20,
+    arrowOpacity: 0.36,
+    arrowInset: 14,
+
+    /** Boş günde gradyan sönmez; yüksekliği sabitlenir. */
+    glowHeight: 340,
+    glowHeightToday: 300,
+
+    padX: 18,
+} as const;
+
+/**
+ * Dört an. Hepsi yalnız `opacity` ve `translateX/Y` — yükseklik, renk,
+ * yarıçap ve gölge animasyonu YOK, çünkü hiçbiri native sürücüde çalışmaz.
+ */
+/**
+ * Yükleme iskeleti.
+ *
+ * Yükleniyor hâli boş hâl DEĞİLDİR: veri gelmeden "bugün henüz bir şey
+ * olmadı" ya da "randevu yok" yazmak yanlış cümledir ve saniyeler sonra
+ * kendini yalanlar. İskelet cümle kurmaz, yalnız yer tutar.
+ */
+export const skeletonMetrics = {
+    rows: 3,
+    height: 28,
+    gap: 12,
+    radius: 8,
+    opacity: 0.06,
+    padX: 18,
+    top: 24,
+} as const;
+
+export const emptyDayMotion = {
+    /** Dolu → boş: liste tek blok çıkar, boş hâl ve levha tek karede girer. */
+    fill: { out: 160, in: 220, delay: 60, rise: 8, plate: 240, plateRise: -8 },
+    /** Boş → boş: cümle yatay takas edilir, çapraz soldurma YOK. */
+    slide: { out: 160, in: 220, delay: 60, shift: 12, pill: 180, date: 220, dateRise: 4 },
+    /** Boş → dolu: ilk üç satır 40 ms arayla, gecikme tavanı 120 ms. */
+    rows: { out: 160, outRise: -6, in: 220, rise: 10, step: 40, cap: 120 },
+    /** Bugüne dön: mesafe hiçbir hâlde animasyona çevrilmez. */
+    home: { numbers: 220, pill: 200 },
+    /** Bırakışta yerine oturma. */
+    settle: 220,
+} as const;
+
+/**
+ * Müdür 27 — profil. Ölçüler tasarımın CSS'iyle birebir.
+ *
+ * Üç ağırlık, üç niyet: bir kart (bugünün saatleri), iki büyük satır (cepte
+ * ilk kez açılan iki kapı), dört küçük satır (bir kez ayarlanan işler).
+ */
+export const profileMetrics = {
+    padX: 16,
+    navHeight: 52,
+    /** Yüzen sekme çubuğu (66) + alt boşluk (46). İçerik camın ARKASINA girer. */
+    bottomInset: 112,
+    gap: 12,
+
+    // Başlık bloğu — toplam 74 pt, ekranın %9'u.
+    kicker: 10.5,
+    kickerTrack: 0.22,
+    headName: 25,
+    headNameTrack: -0.03,
+    headSub: 13,
+
+    // Bugün kartı — Müdür 18'in kart malzemesi.
+    cardPadTop: 14,
+    cardPadX: 15,
+    cardPadBottom: 13,
+    cardRadius: 22,
+    cardGap: 9,
+    cardKicker: 10.5,
+    cardKickerTrack: 0.16,
+    cardStatus: 12.5,
+    cardDot: 7,
+    cardHour: 34,
+    cardHourSmall: 30,
+    cardHourTrack: -0.03,
+    cardFoot: 12.5,
+
+    // Satır grupları.
+    groupRadius: 18,
+    rowHeight: 56,
+    rowBigHeight: 68,
+    rowPadX: 14,
+    rowGap: 12,
+    rowTitle: 16,
+    rowTitleBig: 17.5,
+    rowSub: 12.5,
+    rowValue: 13.5,
+    groupHead: 10.5,
+    groupHeadTrack: 0.18,
+
+    // Gün satırı.
+    dayHeight: 60,
+    dayName: 17,
+    dayTime: 17,
+    dayClosed: 15,
+    dayBadge: 10,
+    dayBadgeTrack: 0.14,
+    daySpine: 3,
+
+    // Basamak — hitSlop YOK, yanlışlıkla 15 dk kaymasın.
+    stepperHeight: 60,
+    stepperButton: 60,
+    stepperRadius: 16,
+    stepperNumber: 30,
+
+    // Hizmet satırı.
+    serviceHeight: 62,
+    serviceName: 16.5,
+    serviceMeta: 12.5,
+    servicePrice: 17,
+    servicePriceNone: 12.5,
+    serviceBar: 4,
+    serviceBarHeight: 30,
+
+    // Alanlar ve seçiciler.
+    fieldHeight: 54,
+    fieldRadius: 16,
+    fieldText: 18,
+    chipHeight: 44,
+    chipRadius: 12,
+    chipText: 15,
+    swatch: 44,
+    swatchRadius: 13,
+
+    // Anahtar — rengi bilgi taşımaz, knob'un yeri ve yanındaki kelime taşır.
+    switchWidth: 47,
+    switchHeight: 29,
+    switchKnob: 23,
+    switchTravel: 18,
+
+    // Onay kutusu — bir uyarı değil, bir beyan. Kırmızı DEĞİL.
+    checkbox: 26,
+    checkboxRadius: 8,
+    checkRowHeight: 52,
+
+    // Silme. Dolu kırmızı zemin YOK: dolu zemin bu üründe birincil eylem
+    // demek ve o turuncudur.
+    dangerHeight: 56,
+    dangerRadius: 16,
+    dangerText: 17,
+    holdBarHeight: 4,
+
+    amberPadY: 12,
+    amberPadX: 13,
+    amberRadius: 14,
+    amberLabel: 12,
+    amberLabelTrack: 0.1,
+    amberText: 13,
+
+    footText: 11.5,
+    footLine: 1.45,
+    buttonHeight: 52,
+    buttonRadius: 16,
+    buttonText: 17,
+    emptyRadius: 18,
+} as const;
+
+/**
+ * Dört an. Yükseklik, renk, yarıçap ve gölge ANİMASYONLANMAZ — hiçbiri
+ * native sürücüde çalışmaz, o yüzden hiç yok.
+ */
+export const profileMotion = {
+    sheetIn: 300,
+    sheetOut: 240,
+    /** Rakam sayılmaz, TAKAS edilir: iki Text üst üste. */
+    digitOut: 110,
+    digitIn: 130,
+    digitDelay: 20,
+    digitRise: 7,
+    /** Basılı tutma tekrarında kuyruk birikmesin diye kısalır. */
+    digitFast: 60,
+    switchMs: 180,
+    /** Basılı tutma bir güvenlik ölçüsü; süresi hareketi azaltmada da değişmez. */
+    holdMs: 2000,
+    holdRelease: 180,
+    /** Onay kutusu işaretsizken silmeye basılırsa. */
+    shakeMs: 160,
+    shakeCycles: 2,
+    shakeShift: 4,
+    /** Basamak: 500 ms sonra saniyede 4 tekrar. */
+    repeatDelay: 500,
+    repeatEvery: 250,
+} as const;
+
 export const pressMotion = {
     in: 90,
     out: 120,
@@ -2455,3 +2719,197 @@ export const customerMotion = {
     /** İsim ve monogram sönerken yukarı kayar; ölçek animasyonu yok. */
     collapseLift: 10,
 } as const;
+
+// ── Müdür 24 · Personel günü ────────────────────────────────────────────────
+//
+// Kaynak: `docs/design-reference/Luera Mobil - Mudur 24 Personel Gunu.html`.
+// Değerler o dosyanın CSS'inden BİREBİR alındı.
+
+export const staffDayMetrics = {
+    // Üst çubuk (tbar)
+    topBarHeight: 52,
+    topBarPadX: 14,
+    topBarTitle: 17,
+    topBarSub: 12.5,
+    backButtonSize: 44,
+    backChevronSize: 11,
+
+    // İsim şeridi (rail)
+    railHeight: 46,
+    railPadX: 18,
+    railGap: 12,
+    railGapSmall: 9,
+    railRingSize: 28,
+    railRingActiveSize: 30,
+    railBorder: 1.7,
+    railBorderActive: 2,
+    railText: 10.5,
+    railTextActive: 11,
+    railDimOpacity: 0.42,
+
+    // Kahraman blok (heroHead)
+    padTop: 18,
+    padX: 18,
+    heroGap: 14,
+    ringSize: 76,
+    ringBorder: 2.5,
+    ringText: 22,
+    badgeHeight: 20,
+    badgePadX: 7,
+    badgeRadius: 999,
+    badgeText: 11,
+    badgeOffset: -9,
+    nameSize: 19,
+    roleSize: 13.5,
+
+    // Damga (stamp)
+    stampHeight: 28,
+    stampPadX: 10,
+    stampRadius: 10,
+    stampText: 12,
+    stampDot: 7,
+    stampBorder: 1,
+
+    // Gömülü krem kart (panel / pnl)
+    panelPad: 14,
+    panelRadius: 18,
+    panelGap: 12,
+    panelHeightMax: 100,
+    panelHeight: 92,
+    panelMarginTop: 16,
+    panelLabel: 11.5,
+    panelLabelTrack: 0.06,
+    panelDot: 6,
+    heroText: 34,
+    heroTextTrack: -0.04,
+    heroBox: 36,
+    heroUnit: 17,
+    subText: 11.5,
+    subLine: 1.3,
+    pulsePeriod: 800,
+
+    // Liste başlığı (lhd)
+    lhdPadTop: 22,
+    lhdPadX: 18,
+    lhdPadBottom: 10,
+    lhdText: 11.5,
+    lhdTrack: 0.06,
+
+    // Liste satırı (row)
+    rowPadY: 16,
+    rowPadX: 18,
+    rowGap: 14,
+    timeWidth: 46,
+    timeSize: 13.5,
+    nameRowSize: 19,
+    serviceSize: 13.5,
+    noteSize: 13.5,
+    fadeOpacity: 0.52,
+    kebabPadY: 11,
+    kebabPadX: 6,
+    kebabDot: 3,
+
+    // Mini damga (mini)
+    miniHeight: 26,
+    miniPadX: 9,
+    miniRadius: 9,
+    miniText: 12,
+    miniDot: 6,
+
+    // Vardiya çubuğu (shift)
+    shiftMarginX: 18,
+    shiftMarginTop: 14,
+    shiftPad: 14,
+    shiftRadius: 14,
+    shiftGap: 11,
+    trackHeight: 22,
+    trackLine: 3,
+    trackRadius: 2,
+    trackDash: 1.7,
+    nowWidth: 2,
+    nowHeight: 14,
+    shiftHead: 11.5,
+    shiftRight: 12.5,
+    shiftFoot: 13.5,
+
+    // Boş hâl gövdesi (emp)
+    empPadTop: 20,
+    empPadX: 18,
+    empGap: 9,
+    empText: 15,
+    empLine: 1.45,
+
+    // Gün sonu (endday)
+    endDayPadY: 20,
+    endDayPadX: 18,
+    endDayText: 12.5,
+    endDayTrack: 0.06,
+
+    // Başparmak bölgesi (foot)
+    footPadTop: 14,
+    footPadX: 18,
+    footPadBottom: 30,
+    footPadBottomSmall: 18,
+    footGap: 10,
+    hapHeight: 40,
+    hapPadX: 18,
+    hapRadius: 999,
+    hapText: 15.5,
+    hapBorder: 1.5,
+    ghostHeight: 22,
+    ghostPadX: 4,
+    ghostText: 13.5,
+    iconSize: 17,
+    iconBorder: 1.7,
+} as const;
+
+/**
+ * Personel günü üst parıltısı — tasarımdaki `.grad`:
+ * 120 pt, turuncu %10 → saydam. Sayfanın üst çubuğu ve şeridi bunun üstünde
+ * durur; kaydırmayla sönmez, sabittir.
+ */
+export const staffDayGlow = {
+    height: 120,
+    colors: ['rgba(255,90,31,0.10)', 'rgba(255,90,31,0)'] as const,
+} as const;
+
+export const staffDayMotion = {
+    // 1 · Halkadan sayfaya
+    enter: {
+        stripOut: 160,
+        stripScale: 1.28,
+        ringIn: 220,
+        ringDelay: 60,
+        ringScaleFrom: 0.684,
+        panelIn: 220,
+        panelDelay: 60,
+        panelRise: 10,
+        listIn: 220,
+        listDelay: 180,
+        listRise: 10,
+    },
+    // 2 · Personeller arası sayfalama
+    page: {
+        settle: 220,
+        railOut: 160,
+        railIn: 220,
+    },
+    // 3 · Durum değişimi (işlemde -> müsait)
+    swap: {
+        out: 160,
+        outShift: -6,
+        badgeScale: 0.9,
+        in: 220,
+        inDelay: 60,
+        inShift: 8,
+    },
+    // 4 · Boş hâl girişi
+    empty: {
+        duration: 220,
+        steps: [60, 120, 180] as const,
+        rise: 8,
+    },
+    outCurve: [0.4, 0, 1, 1] as const,
+    inCurve: [0.2, 0.8, 0.25, 1] as const,
+} as const;
+

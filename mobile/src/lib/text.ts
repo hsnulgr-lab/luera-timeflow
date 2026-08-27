@@ -77,3 +77,15 @@ export function accusative(name: string): string {
     else if (vowel === 'ö' || vowel === 'ü') suffix = 'ü';
     return `${clean}${APOSTROPHE}${endsWithVowel(clean) ? 'y' : ''}${suffix}`;
 }
+
+/**
+ * "Deniz Aksoy" → { given: 'Deniz', family: 'Aksoy' }.
+ *
+ * Burada durur çünkü hem personel hem müşteri adları aynı biçimde yazılıyor
+ * ve `managerFlow` ile `staffDay` ikisi de buna ihtiyaç duyuyor.
+ */
+export function splitStaffName(name: string): { given: string; family: string } {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 2) return { given: words[0] ?? '', family: '' };
+    return { given: words.slice(0, -1).join(' '), family: words.at(-1) ?? '' };
+}

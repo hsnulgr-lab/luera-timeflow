@@ -8,9 +8,9 @@
  * olay akışı. Burada yalnız son üçünün verisi ve kuralları var.
  */
 
-import { todayISO } from './calendar.ts';
+import { addDaysISO, todayISO } from './calendar.ts';
 import { CURRENCY, formatAmount, waitLabel, type Pending } from './cash.ts';
-import { accusative, dative } from './text.ts';
+import { accusative, dative, splitStaffName } from './text.ts';
 
 export type StaffState = 'busy' | 'free' | 'leave' | 'off';
 
@@ -21,6 +21,22 @@ export interface StaffPresence {
     state: StaffState;
     /** Yalnız `busy` için: işlemin başlamasından bu yana geçen dakika. */
     minutes?: number;
+    /**
+     * Personelin telefonu. Bilinmiyorsa `null`/`undefined` — o zaman "Ara"
+     * düğmesi HİÇ çizilmez, uydurma numara çevrilmez.
+     */
+    phone?: string | null;
+    /**
+     * İzinli günlerin ISO tarihleri (`staff_time_off` tablosunun karşılığı).
+     *
+     * Veritabanı izni bir ARALIK olarak değil, GÜN GÜN tutuyor:
+     * `staff_time_off(staff_id, date)` ve `UNIQUE(staff_id, date)`. Yani
+     * "dönüş tarihi" diye bir kolon yok ve olmayacak — ardışık günlerden
+     * TÜRETİLİR (bkz. `returnDateISO`).
+     *
+     * Bilinmiyorsa `undefined`: o zaman dönüş tarihi yazılmaz, uydurulmaz.
+     */
+    leaveDates?: readonly string[];
 }
 
 /**
@@ -68,6 +84,12 @@ export interface FlowEvent {
     etaMinutes?: number;
     /** Baş harfler — A2 kartının yuvarlağı. Yoksa addan türetilir. */
     customerInitials?: string;
+    /**
+     * Müşteri kaydının kimliği. Balona basınca müşteri kartı BUNUNLA açılır;
+     * yalnız adla aramak aynı adlı iki müşteride yanlış kartı açardı.
+     * Bilinmiyorsa balon çizilmez — ölü daire olmaz.
+     */
+    customerId?: string;
     /** Müşteri bağlamı. Hiçbiri yoksa A1, en az biri varsa A2 çizilir. */
     context?: ApptContext;
     /** Randevunun atandığı personel; şeritteki durumla eşleşmek için. */
@@ -330,25 +352,6 @@ export function bookedEvent(appointment: {
 }
 
 /**
- * Seçilen günün boş hâli — cetvel başka bir güne kayınca.
- *
- * Bugün boşsa gün HENÜZ BAŞLAMAMIŞTIR; başka bir gün boşsa o gün gerçekten
- * boş geçmiştir. İki farklı şey, iki farklı cümle: hiçbiri "bir hata var"
- * hissi vermemeli.
- */
-export function emptyFlow(isToday: boolean, dayLabel: string): { label: string; hint: string } {
-    return isToday
-        ? {
-            label: 'Bugün henüz bir şey olmadı',
-            hint: 'Randevu geldiğinde, müşteri girdiğinde ve tahsilat alındığında burada görünür.',
-        }
-        : {
-            label: `${dayLabel} boş geçti`,
-            hint: 'O gün randevu, işlem ve tahsilat kaydı yok.',
-        };
-}
-
-/**
  * Akış GÜNDE BİTER. Sonsuz kaydırma yok: dünü görmek ayrı bir eylem.
  * Bu satır listenin sonunda görünür.
  */
@@ -526,7 +529,8 @@ export function staffConflict(
     if (!event.staffId) return null;
     const person = presence.find((p) => p.id === event.staffId);
     if (!person || person.state !== 'busy' || person.minutes == null) return null;
-    return { name: person.name, badge: durationBadge(person.minutes) };
+    // Cümlenin içinde ilk ad yeter: "Selin şu an işlemde" — soyad şişirir.
+    return { name: splitStaffName(person.name).given, badge: durationBadge(person.minutes) };
 }
 
 /** A2 kartının yuvarlağı. Veri baş harf taşımıyorsa addan türer. */
@@ -1007,12 +1011,24 @@ export const mockDay: ManagerDay = {
     dateISO: todayISO(),
     appointmentCount: 14,
     presence: [
-        { id: 'merve', initials: 'MK', name: 'Merve', state: 'busy', minutes: 24 },
-        { id: 'selin', initials: 'SD', name: 'Selin', state: 'busy', minutes: 8 },
-        { id: 'deniz', initials: 'DA', name: 'Deniz', state: 'busy', minutes: 41 },
-        { id: 'ece', initials: 'EÇ', name: 'Ece', state: 'free' },
-        { id: 'gul', initials: 'GT', name: 'Gül', state: 'leave' },
-        { id: 'kaan', initials: 'KB', name: 'Kaan', state: 'off' },
+        { id: 'merve', initials: 'MK', name: 'Merve Kaya', state: 'busy', minutes: 24, phone: '0532 118 24 07' },
+        { id: 'selin', initials: 'SD', name: 'Selin Demir', state: 'busy', minutes: 8, phone: '0532 118 24 08' },
+        { id: 'deniz', initials: 'DA', name: 'Deniz Aksoy', state: 'busy', minutes: 41, phone: '0532 118 24 09' },
+        { id: 'ece', initials: 'EÇ', name: 'Ece Çelik', state: 'free', phone: '0532 118 24 10' },
+        {
+            id: 'gul',
+            initials: 'GT',
+            name: 'Gülşah Tunç',
+            state: 'leave',
+            phone: '0532 118 24 11',
+            /*
+             * SAHTE VERİ, ama biçimi gerçeğin aynısı: `staff_time_off` izni
+             * gün gün tutuyor. Bugüne göre üretiliyor — sabit tarih yazsaydık
+             * demo her gün "geçmiş bir izin" gösterirdi.
+             */
+            leaveDates: [todayISO(), addDaysISO(todayISO(), 1)],
+        },
+        { id: 'kaan', initials: 'KB', name: 'Kaan Bulut', state: 'off', phone: '0532 118 24 12' },
     ],
     summary: { revenue: '₺8.450', occupancy: '%72' },
     events: [
@@ -1020,7 +1036,7 @@ export const mockDay: ManagerDay = {
         // olay hiçbir şey değiştirmeden A1 · gecikmiş hâline geçer.
         {
             id: 'e0', time: '12:15', kind: 'next',
-            firstName: 'Gülşah', lastName: 'Karaosmanoğlu',
+            firstName: 'Gülşah', lastName: 'Karaosmanoğlu', customerId: 'c-gulsah',
             detail: 'Keratin bakımı · 45 dk · Selin ile',
             etaMinutes: 51, durationMinutes: 45, staffId: 'selin',
             context: {
@@ -1031,7 +1047,7 @@ export const mockDay: ManagerDay = {
         },
         {
             id: 'e1', appointmentId: 'mgr-1030-selin', time: '11:30', kind: 'next',
-            firstName: 'Elif', lastName: 'Demir',
+            firstName: 'Elif', lastName: 'Demir', customerId: 'c-elif',
             detail: 'Keratin bakımı · 45 dk · Selin ile',
             etaMinutes: 6, durationMinutes: 45, staffId: 'selin',
         },
@@ -1069,7 +1085,7 @@ export const mockDay: ManagerDay = {
         },
         {
             id: 'e2', appointmentId: 'mgr-1100-merve', time: '11:24', kind: 'started',
-            firstName: 'Zeynep', lastName: 'Kaya',
+            firstName: 'Zeynep', lastName: 'Kaya', customerId: 'c-zeynep',
             detail: 'Saç boyama · 90 dk',
             elapsedSeconds: 24 * 60 + 18,
             startedAt: '11:00’de başladı',
@@ -1086,7 +1102,7 @@ export const mockDay: ManagerDay = {
         {
             // D2 · uyarı hâli — 20. dakikayı geçti.
             id: 'e10', time: '11:06', kind: 'due',
-            firstName: 'Kerem', lastName: 'Yıldız',
+            firstName: 'Kerem', lastName: 'Yıldız', customerId: 'c-kerem',
             detail: 'Sakal + kesim · Selin ile',
             amountValue: 2650, dueMinutes: 24, servedBy: 'Selin',
         },
