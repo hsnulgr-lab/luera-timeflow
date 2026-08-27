@@ -196,6 +196,14 @@ istiyorum: gecikmeli sıralı girişler, ölçek + soldurma birleşimleri, üst 
 binen katmanların ayrı hızlarda gelmesi, `translateX` ile kayan bir vurgu.
 İmkânsız bir şey tarif edersen uygulanamaz ve kart bugünkü hâlinde kalır.
 
+**Ve bir istek daha:** projenin hareket sözleşmesi bir KUMANDA için yazıldı
+(belgenin başlığı "Personel mobil"), müdür modu için yeniden türetilmedi.
+Süre tavanı 320 ms, sheet için 260. Bu kart için o tavana çarptığını
+düşünüyorsan **çarptığın yeri işaretle**: hangi an, hangi süre/eğri gerekiyor,
+neden mevcut sözlük yetmiyor. Sözleşmeyi bu turda değiştirmiyoruz; ama
+gerekçeleri topluyoruz ve sözleşmenin v2'si o listeden doğacak. Tahmin
+yürütme — yalnız bu kartta gerçekten ihtiyaç duyduğun yeri yaz.
+
 ---
 
 ## 4 · Değişmeyecekler
