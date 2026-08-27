@@ -141,68 +141,57 @@ A2'de `Selin şu an işlemde · 08 dk` satırı var ve doğru. A1'de yok — oys
 asıl kritik soru orada. Kartı büyütmeden nasıl girer? (Alt satır zaten
 `Keratin bakımı · 45 dk · Selin ile` diyor; belki cevap orada.)
 
-### D · Hareket — bu turda daha iddialı olmanı istiyorum
+### D · Hareket — SÖZLEŞMEDEN BAĞIMSIZ tasarla
 
-Kart ailesinin hareketi bugün doğru ama **temkinli**. Bu turda kaliteli
-hissettiren bir katman istiyorum. Kural basit ve pazarlığa kapalı:
+Bu bölüm bu turda özel. Projenin bir hareket sözleşmesi var ama o sözleşme
+bir KUMANDA için yazıldı (belgenin başlığı "Personel mobil") ve müdür modu
+için hiç yeniden türetilmedi. Süre tavanı 320 ms, sheet için 260; sözlükte
+"biri gider, biri gelir" dışında bir şey yok.
 
-> **Hareket DEĞİŞİMDE olur, boşta olmaz.**
+**Bu kart için o sözleşmeyi unutmanı istiyorum.** Kısıt olmasaydı bu kartın
+hareketini nasıl tasarlardın — onu tasarla. Sürekliliği, jesti, fizik
+tabanlı geçişleri, paylaşılan ögeyi kullanmakta serbestsin. Süre tavanı yok.
 
-Bu kart günde otuz kez görülüyor. Sürekli dönen, nabız atan, parlayan hiçbir
-şey olmayacak — üçüncü günde işkenceye döner. Ama bir şey **değiştiğinde** o
-değişim güzel anlatılmalı. Kalite tam olarak burada: nefes alan bir ekran
-değil, **yerine oturan** bir ekran.
+Kural tek: **hareket DEĞİŞİMDE olur, boşta olmaz.** Bu kart günde otuz kez
+görülüyor; sürekli dönen, nabız atan, parlayan hiçbir şey üçüncü günü
+çıkaramaz. Kalite nefes alan bir ekranda değil, **yerine oturan** ekranda.
 
 Tasarlamanı istediğim beş an:
 
 1. **Kart sıradaki olduğunda.** Bir önceki randevu kapanır, bu kart listenin
-   başına geçer. Bugün sessizce yerinde beliriyor. Sıralı bir giriş
-   (kimlik → panel → düğmeler) bu ana ağırlık verir. Kaç adım, kaç ms arayla?
+   başına geçer. Bugün sessizce beliriyor.
 2. **Geri sayım rakamı değiştiğinde.** `7 dk` → `6 dk`, dakikada bir, saatte
-   otuz kez. **En zor an bu:** görülmesi gerekiyor ama rahatsız etmemeli.
-   Rakam takas mı ediliyor, yerinde mi kalıyor, yalnız son hane mi oynuyor?
-   Ve son beş dakikada davranış değişmeli mi?
+   otuz kez. **En zor an bu:** görülmeli ama rahatsız etmemeli. Son beş
+   dakikada davranış değişmeli mi?
 3. **Güven satırı canlı geldiğinde.** Müşteri "geleceğim" yazdı, kart ekranda
-   duruyor. Satır nasıl beliriyor ve kartın geri kalanı bundan nasıl
-   etkileniyor?
-4. **Gecikmeye düştüğünde.** Panelin soluna 4 pt çizgi girer, etiket
-   `girmesine` → `gecikti` olur. İki yüzey çapraz solar (renk
-   animasyonlanamaz). Bu bir alarm mı, sakin bir dönüşüm mü?
-5. **"Geldi"ye basıldığında.** Kart bekleme kartına **dönüşür** — bu ailenin
+   duruyor.
+4. **Gecikmeye düştüğünde.** Panelin soluna çizgi girer, etiket `girmesine` →
+   `gecikti` olur. Alarm mı, sakin dönüşüm mü?
+5. **"Geldi"ye basıldığında.** Kart bekleme kartına DÖNÜŞÜR — bu ailenin
    kuralı: *"üç hâl aynı karttır, aralarındaki geçiş takas değil dönüşümdür."*
-   Bugünkü sözleşme: çıkan 160 ms, giren 220 ms, 60 ms gecikmeli, 6 pt kalkış.
-   Daha iyisini öneriyorsan öner ve gerekçelendir.
+   Sözleşme bu kuralı koyuyor ama aracını vermiyor; sen ver.
 
-**Elimizdeki hareket sözlüğü** (uyumlu kalsın, gerekirse genişlet):
+#### Her hareketin yanına BEDELİNİ yaz
 
-| An | Çıkan | Giren | Gecikme | Kalkış |
-|---|---|---|---|---|
-| "Geldi" basışı | 160 | 220 | 60 | 6 / 8 |
-| Bekliyor → Sürüyor | 180 | 240 | 140 | 5 / 6 |
-| Devir | 260 | 300 | 80 | 4 / 6 |
-| Tahsilat oturması | 300 | 240 | 60 | 0 / 4 |
+Serbestlik karşılıksız değil. Uygulama tarafında bugün elimizde olan:
+React Native'in kendi `Animated`'i ve `PanResponder`. Bu ikisiyle **yalnız**
+`opacity`, `translateX/Y` ve `scale` native sürücüde animasyonlanabilir;
+yükseklik, renk, yarıçap, gölge ve blur animasyonlanamaz.
+`react-native-reanimated` ve `react-native-gesture-handler` **kurulu değil**.
 
-Eğriler: çıkan `cubic-bezier(.4, 0, 1, 1)` (hızlanarak gider), giren
-`cubic-bezier(.2, .8, .25, 1)` (yavaşlayarak oturur).
+Bu yüzden tarif ettiğin her hareketi üç kutudan birine koy:
 
-**Sınırlar aynen geçerli:** yalnız `opacity`, `translateX/Y`, `scale`; hepsi
-`useNativeDriver: true`. Yükseklik, genişlik, renk, yarıçap, gölge, blur
-animasyonlanamaz — renk değişimi ancak iki yüzeyin çapraz solmasıyla olur.
-`LayoutAnimation` yok, `reanimated` yok. **Her hareketin `reduceMotion`
-karşılığı da yazılacak** (hareket yok, sonuç anında).
+- **A · Bugün yazılabilir** — yalnız opacity/translate/scale, native sürücü.
+- **B · Kütüphane ister** — hangi kütüphane, ne için. (Ör. kesintilenebilir
+  yay, parmağı takip eden geçiş, paylaşılan öge.)
+- **C · Platform işi** — yalnız native tarafta ya da hiç mümkün değil.
 
-Bu sınırların içinde iddialı olmanın yolları var ve onları kullanmanı
-istiyorum: gecikmeli sıralı girişler, ölçek + soldurma birleşimleri, üst üste
-binen katmanların ayrı hızlarda gelmesi, `translateX` ile kayan bir vurgu.
-İmkânsız bir şey tarif edersen uygulanamaz ve kart bugünkü hâlinde kalır.
+Bu etiketleme bir sansür değil, **fiyat etiketi**: A'ları hemen kurarız,
+B'lerin bedelini görüp karar veririz, C'leri bilerek bırakırız. Etiketsiz bir
+hareket listesi işe yaramaz — beğenip kuramadığımız bir tasarım olur.
 
-**Ve bir istek daha:** projenin hareket sözleşmesi bir KUMANDA için yazıldı
-(belgenin başlığı "Personel mobil"), müdür modu için yeniden türetilmedi.
-Süre tavanı 320 ms, sheet için 260. Bu kart için o tavana çarptığını
-düşünüyorsan **çarptığın yeri işaretle**: hangi an, hangi süre/eğri gerekiyor,
-neden mevcut sözlük yetmiyor. Sözleşmeyi bu turda değiştirmiyoruz; ama
-gerekçeleri topluyoruz ve sözleşmenin v2'si o listeden doğacak. Tahmin
-yürütme — yalnız bu kartta gerçekten ihtiyaç duyduğun yeri yaz.
+Her hareket için ayrıca: süre, eğri, gecikme, ve **`reduceMotion` karşılığı**
+(hareket yok, sonuç anında — bu pazarlığa kapalı, erişilebilirlik).
 
 ---
 
@@ -220,11 +209,11 @@ yürütme — yalnız bu kartta gerçekten ihtiyaç duyduğun yeri yaz.
 - **Palet:** koyu `bg #120E08` · `surf #1C1710` · `card #241E16` ·
   `tx #F3EDE3`. Açık `bg #F3ECE0` · `surf #FAF7F3` · `card #FFFDFB` ·
   `tx #0E0E0E`. Krem kart iki temada da krem: sayfanın tersi düzlemdir.
-- **Hareket sözleşmesi:** yalnız `opacity`, `translateX/Y`, `scale`; hepsi
-  `useNativeDriver: true`. Yükseklik, genişlik, renk, yarıçap, gölge
-  **animasyonlanamaz** — renk değişimi iki yüzeyin çapraz solmasıyla olur.
-  `LayoutAnimation` yok. `reanimated` ve `gesture-handler` projede **yok ve
-  kurulmayacak**. `reduceMotion` açıkken hareket yok, sonuç anında.
+- **`reduceMotion` açıkken hareket yok, sonuç anında.** Hareketin tek
+  pazarlıksız kuralı bu — erişilebilirlik, tercih değil.
+  (Hareketin geri kalanı bu turda SERBEST; bkz. §3.D. Ama her hareketin
+  yanında bedeli yazılı olacak: bugün yazılabilir mi, kütüphane mi ister,
+  yoksa hiç mümkün değil mi.)
 - **Dokunma hedefi 44 pt'nin altına inmez.** Hedef kitle 40–55 yaş, ayakta,
   tek elle, salonun gürültüsünde.
 - **Sahte veri yok, ölü kontrol yok, sahte onay yok.**
