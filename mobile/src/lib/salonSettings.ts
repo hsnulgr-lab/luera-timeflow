@@ -149,17 +149,10 @@ export async function readDeletionFacts(): Promise<DeletionFacts> {
     };
 }
 
-/**
- * Hesabı GERÇEKTEN siler.
+/*
+ * Hesap silme BURADA DEĞİL: `src/api/accountDeletion.ts`.
  *
- * Sunucuda bu uç YOK ve uydurulmadı: fonksiyon başarısız döner, ekran
- * yerinde kalır ve hata satırı yazılır. "Hesabınız silindi" bandı yalnız
- * `ok: true` dönerse çizilir — uç yazılana kadar hiç çizilmeyecek.
- *
- * Yerel bir "bekleyen silme" kaydı yazmak da bir çözüm DEĞİL: Apple
- * 5.1.1(v) gerçek silme istiyor, yerel çıkış saymıyor.
+ * Bu dosya saf karar/veri katmanı — Supabase istemcisi AsyncStorage üzerinden
+ * react-native'e bağlı ve buraya giremez. Silme bir ayar değil, bir kimlik
+ * işlemi; api katmanına ait.
  */
-export async function deleteAccount(): Promise<{ ok: boolean; reason: 'no-endpoint' | null }> {
-    await wait();
-    return { ok: false, reason: 'no-endpoint' };
-}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, Text, View } from 'react-native';
+import { Animated, Easing, Linking, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,16 +14,22 @@ import {
     ProfileRow,
 } from '../../../src/components/ProfileParts';
 import {
-    DELETE_FAILED,
+    DELETE_EXPORT_ACTION,
+    DELETE_EXPORT_BODY,
+    DELETE_EXPORT_LABEL,
+    DELETE_EXPORT_PATH,
     DELETE_KEPT_LABEL,
     DELETE_TIMING_LABEL,
     DELETE_TITLE,
     DELETE_WARN,
     canDelete,
+    deleteFailureText,
     deletionCopy,
+    type DeleteFailureReason,
     type DeletionCopy,
 } from '../../../src/lib/managerProfile';
-import { deleteAccount, readDeletionFacts } from '../../../src/lib/salonSettings';
+import { readDeletionFacts } from '../../../src/lib/salonSettings';
+import { deleteAccount } from '../../../src/api/accountDeletion';
 import { upperTR } from '../../../src/lib/text';
 import { authApi } from '../../../src/api/session';
 import { feedback } from '../../../src/lib/feedback';
@@ -54,10 +60,16 @@ export default function ManagerDeleteAccount() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
+    /**
+     * Web uygulamasının adresi. Tanımlı değilse dışa aktarma düğmesi hiç
+     * çizilmez — uydurma bir adrese götürmek ölü düğmeden kötüdür.
+     */
+    const appUrl = (process.env.EXPO_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+
     const [copy, setCopy] = useState<DeletionCopy | null>(null);
     const [consented, setConsented] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [failed, setFailed] = useState(false);
+    const [failed, setFailed] = useState<DeleteFailureReason | null>(null);
     const shake = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -179,6 +191,26 @@ export default function ManagerDeleteAccount() {
                     </Text>
                 </View>
 
+                {/*
+                  * Silmeden ÖNCE dışa aktarma uyarısı.
+                  *
+                  * Salon kendi finansal kayıtlarını saklamak zorunda; biz
+                  * hepsini siliyoruz. Dışa aktarma masaüstünde zaten var
+                  * (Ayarlar → Veri, CSV), cepte ikincisi yazılmadı — yıllık
+                  * kayıt indirmek telefonda yapılacak iş değil.
+                  *
+                  * Adres bilinmiyorsa DÜĞME ÇİZİLMEZ; cümle yine de nereye
+                  * bakılacağını söylüyor.
+                  */}
+                <AmberNote
+                    label={DELETE_EXPORT_LABEL}
+                    text={DELETE_EXPORT_BODY}
+                    action={appUrl ? {
+                        label: DELETE_EXPORT_ACTION,
+                        onPress: () => { void Linking.openURL(`${appUrl}${DELETE_EXPORT_PATH}`); },
+                    } : null}
+                />
+
                 <AmberNote label={DELETE_TIMING_LABEL} text={copy.timing} />
 
                 {/* Onay kutusu YALNIZ tek müdürde: yıkım o zaman işletmeyi
@@ -200,7 +232,7 @@ export default function ManagerDeleteAccount() {
                         fontWeight: '600',
                         lineHeight: M.rowValue * 1.45,
                     }}>
-                        {DELETE_FAILED}
+                        {deleteFailureText(failed)}
                     </Text>
                 ) : null}
 
@@ -211,13 +243,13 @@ export default function ManagerDeleteAccount() {
                     onBlocked={blocked}
                     onFire={() => {
                         setBusy(true);
-                        setFailed(false);
+                        setFailed(null);
                         void deleteAccount().then((result) => {
                             setBusy(false);
                             if (!result.ok) {
-                                // Ekran YERİNDE kalır, dolum sıfırlanır,
-                                // hata satırı yazılır. "Silindi" yazılmaz.
-                                setFailed(true);
+                                // Ekran YERİNDE kalır, dolum sıfırlanır ve
+                                // SEBEBİ yazılır. "Silindi" yazılmaz.
+                                setFailed(result.reason ?? 'server');
                                 return;
                             }
                             router.replace('/(auth)/welcome');

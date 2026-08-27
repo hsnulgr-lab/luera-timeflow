@@ -108,7 +108,8 @@ tasarımı değiştiriyor.
 
 ## Sunucu ucu bekleyenler (mobil kodu hazır)
 
-- **Hesap silme** — ekran hazır, uç yok. **App Store 5.1.1(v) yayın engeli.**
+- ~~**Hesap silme**~~ — `account-delete` edge function'ı yazıldı (27 Ağustos).
+  **Henüz DEPLOY EDİLMEDİ ve canlıda denenmedi.**
 - Salon saatleri / hizmetler / bildirim kaydı — `salonSettings.ts` sahte kaynak.
 - `visit.arrive` — "Geldi" işareti yerelde kalıyor.
 - Randevu oluşturma / güncelleme — yerel takvim kaynağına yazılıyor.

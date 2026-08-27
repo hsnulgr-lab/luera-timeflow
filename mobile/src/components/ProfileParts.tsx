@@ -832,7 +832,15 @@ export function Checkbox({ checked, label, onToggle, shake }: {
 // ── Amber not ───────────────────────────────────────────────────────────────
 
 /** Amber UYARIDIR: "30 gün" bir uyarı, silme değil. */
-export function AmberNote({ label, text }: { label: string; text: string }) {
+export function AmberNote({ label, text, action }: {
+    label: string;
+    text: string;
+    /**
+     * İsteğe bağlı eylem. `null` ise HİÇ ÇİZİLMEZ — pasif bir düğme
+     * bırakılmaz: gidilecek adres bilinmiyorsa düğme de olmaz.
+     */
+    action?: { label: string; onPress: () => void } | null;
+}) {
     const { c } = useTheme();
     return (
         <View style={{
@@ -862,6 +870,24 @@ export function AmberNote({ label, text }: { label: string; text: string }) {
             }}>
                 {text}
             </Text>
+            {action ? (
+                <Pressable
+                    accessibilityRole="link"
+                    onPress={action.onPress}
+                    hitSlop={8}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.62 : 1, paddingTop: 4 })}
+                >
+                    <Text style={{
+                        color: c.am,
+                        fontSize: M.amberText,
+                        fontFamily: font.extraBold,
+                        fontWeight: '800',
+                        textDecorationLine: 'underline',
+                    }}>
+                        {action.label}
+                    </Text>
+                </Pressable>
+            ) : null}
         </View>
     );
 }

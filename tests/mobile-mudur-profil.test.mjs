@@ -46,6 +46,9 @@ const deleteScreen = code('app/(manager-flow)/profil/hesap-sil.tsx');
 const parts = code('src/components/ProfileParts.tsx');
 const sheets = code('src/components/ProfileSheets.tsx');
 const settings = code('src/lib/salonSettings.ts');
+const lib = code('src/lib/managerProfile.ts');
+const api = code('src/api/accountDeletion.ts');
+const fn = code('../supabase/functions/account-delete/index.ts');
 
 const WEEK = [
     { day: 0, open: 9 * 60, close: 20 * 60, closed: false },
@@ -298,11 +301,39 @@ test('"SİL" yazdırma yok — Türkçede büyük harf tuzağı var', () => {
 });
 
 test('"Hesabınız silindi" SUNUCU ONAYLAMADAN ekrana girmez', () => {
-    // Sunucuda silme ucu yok: istek başarısız döner, ekran yerinde kalır.
-    assert.match(settings, /return \{ ok: false, reason: 'no-endpoint' \}/);
+    // Uç artık var (`account-delete`) ama söz aynı: başarısız her yolda ekran
+    // yerinde kalır ve hesabın DURDUĞU söylenir.
     assert.doesNotMatch(deleteScreen, /silindi/);
     assert.match(deleteScreen, /if \(!result\.ok\) \{/);
-    assert.match(deleteScreen, /setFailed\(true\)/);
+    assert.match(deleteScreen, /setFailed\(result\.reason \?\? 'server'\)/);
+    // Başarı YALNIZ sunucunun `deleted` bayrağına bağlı.
+    assert.match(api, /if \(!result\?\.deleted\)/);
+    assert.match(api, /return \{ ok: true, reason: null \}/);
+});
+
+test('silme sebebi kullanıcıya söylenir — tek bir "hata oldu" yetmez', () => {
+    // Sebepler atılacak adımı değiştiriyor: yetkisi yoksa tekrar denemenin
+    // anlamı yok, oturumu düşmüşse girmesi gerekiyor.
+    for (const reason of ['forbidden', 'no-session', 'subscription']) {
+        assert.match(lib, new RegExp(`reason === '${reason}'`));
+    }
+    // Hepsinde aynı güvence: hesap duruyor.
+    for (const line of [
+        'Bu işletmeyi yalnız sahibi silebilir. Hesabınız olduğu gibi duruyor.',
+        'Aboneliğiniz iptal edilemediği için silme yapılmadı.',
+    ]) {
+        assert.ok(lib.includes(line), `eksik cümle: ${line}`);
+    }
+});
+
+test('silmeden önce dışa aktarma yolu gösterilir', () => {
+    // Salon kendi finansal kayıtlarını saklamak zorunda; uyarmadan silmek
+    // "bütün ciro geçmişim gitti" sorumluluğunu bize bırakır.
+    assert.match(deleteScreen, /DELETE_EXPORT_LABEL/);
+    assert.match(lib, /Ayarlar → Veri/);
+    // Adres bilinmiyorsa DÜĞME ÇİZİLMEZ.
+    assert.match(deleteScreen, /action=\{appUrl \? \{/);
+    assert.match(deleteScreen, /\} : null\}/);
 });
 
 test('yerel "bekleyen silme" kaydı YAZILMAZ — Apple 5.1.1(v) gerçek silme ister', () => {
@@ -422,4 +453,55 @@ test('saat biçimi iki basamaklı', () => {
     assert.equal(hhmm(9 * 60), '09:00');
     assert.equal(hhmm(20 * 60 + 30), '20:30');
     assert.equal(hhmm(0), '00:00');
+});
+
+// ── Hesap silme ucu (sunucu) ────────────────────────────────────────────────
+
+test('silme hakkı yalnız owner\'da — admin işletmeyi yok edemez', () => {
+    assert.match(fn, /if \(role !== 'owner'\) return json\(\{ error: 'forbidden_role' \}, 403\)/);
+});
+
+test('tek sahip değilse işletme DEĞİL, yalnız üyelik silinir', () => {
+    // Bir ortağın ayrılması salonu kapatmaz: müşterileri, randevuları durur.
+    assert.match(fn, /const soleOwner = \(owners\?\.length \?\? 0\) <= 1;/);
+    assert.match(fn, /from\('organization_members'\)\s*\n\s*\.delete\(\)/);
+});
+
+test('tek sahipse organizations silinir — cascade gerisini alır', () => {
+    // Şemadaki 33 FK ON DELETE CASCADE. Elle "temizlik" sorgusu YAZILMAZ:
+    // cascade unutulan tabloyu da alır, elle yazılan liste almaz.
+    assert.match(fn, /from\('organizations'\)\.delete\(\)\.eq\('id', orgId\)/);
+});
+
+test('abonelik ÖNCE iptal edilir; iptal edilemezse silme YAPILMAZ', () => {
+    /*
+     * Sıra tersine dönerse org silinmiş ama abonelik açık kalmış bir durum
+     * doğar ve kimse fark etmez — org'u artık kimse açamayacağı için fatura
+     * sessizce kesilmeye devam eder.
+     */
+    const cancelAt = fn.indexOf('const cancelled = await cancelSubscription');
+    const deleteAt = fn.indexOf("from('organizations').delete()");
+    assert.ok(cancelAt > 0 && deleteAt > cancelAt, 'iptal silmeden önce olmalı');
+    assert.match(fn, /subscription_cancel_failed/);
+});
+
+test('iptal ANINDA — dönem sonu değil', () => {
+    // İşletme siliniyorsa hizmet de o an bitmeli; yoksa karşılığında hiçbir
+    // hizmet olmayan bir tahsilat daha döner.
+    assert.match(fn, /JSON\.stringify\(\{ status: 'cancelled' \}\)/);
+    assert.doesNotMatch(fn, /cancel_at_next_billing_date/);
+});
+
+test('auth kaydı EN SON silinir', () => {
+    // Silindiği anda JWT geçersizleşir; sonraki adımlar yetkisiz kalırdı.
+    const authAt = fn.indexOf('auth.admin.deleteUser');
+    assert.ok(authAt > fn.indexOf("from('organizations').delete()"));
+    // Auth silinemezse "silindi" DENMEZ: giriş yapabildiği sürece silinmemiştir.
+    assert.match(fn, /auth_delete_failed/);
+});
+
+test('aboneliği olmayan salon da hesabını silebilir', () => {
+    // Ödemeyen bir salonun hesabını silememesi için sebep yok.
+    assert.match(fn, /if \(!providerRef\) return \{ ok: true \}/);
+    assert.match(fn, /if \(!coreUrl \|\| !coreKey\) return \{ ok: true \}/);
 });

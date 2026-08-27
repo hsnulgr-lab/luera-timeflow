@@ -431,6 +431,26 @@ export function canDelete(copy: DeletionCopy, consented: boolean): boolean {
 export const DELETE_TITLE = 'Hesabı sil';
 export const DELETE_WARN = 'Bu işlem geri alınamaz.';
 export const DELETE_KEPT_LABEL = 'Silinmeyen';
+
+/**
+ * Silmeden ÖNCE dışa aktarma.
+ *
+ * Salon, vergi mevzuatı gereği kendi finansal kayıtlarını saklamak zorunda —
+ * ve biz onun bütün verisini siliyoruz. Uyarmadan silmek, "bütün ciro geçmişim
+ * gitti" cümlesinin sorumluluğunu bize bırakır.
+ *
+ * Dışa aktarma masaüstünde ZATEN var (Ayarlar → Veri; CSV). Cepte ikinci bir
+ * dışa aktarma yazmak yerine oraya yönlendiriliyor: yıllık kayıt indirmek
+ * telefonda yapılacak bir iş değil. Bağlantı ödeme değil veri indirme
+ * olduğu için App Store 3.1.1 kapsamına girmiyor.
+ */
+export const DELETE_EXPORT_LABEL = 'Önce kayıtlarınızı indirin';
+export const DELETE_EXPORT_BODY =
+    'Müşteri, randevu ve tahsilat kayıtlarınız silinince geri getirilemez. '
+    + 'Masaüstünde Ayarlar → Veri’den CSV olarak indirebilirsiniz.';
+export const DELETE_EXPORT_ACTION = 'Masaüstünde aç';
+/** Web uygulamasındaki dışa aktarma sekmesi. */
+export const DELETE_EXPORT_PATH = '/settings?tab=data';
 export const DELETE_TIMING_LABEL = 'SÜRE';
 export const DELETE_HOLD_HINT = 'Bırakmayın';
 
@@ -438,8 +458,35 @@ export const DELETE_HOLD_HINT = 'Bırakmayın';
  * Sunucu hatası satırı.
  *
  * "Hesabınız silindi" YALNIZ sunucu başarıyla döndükten sonra yazılır.
- * Gerçek silme ucu yazılana kadar bu akış her zaman buraya düşer — sahte
- * onay verilmez.
+ * Başarısız her yolda ekran yerinde kalır ve hesabın DURDUĞU söylenir —
+ * çünkü gerçekten duruyor.
  */
 export const DELETE_FAILED =
     'Silme tamamlanamadı. Hesabınız ve verileriniz olduğu gibi duruyor.';
+
+/**
+ * Neden başarısız olduğunu söyleyen cümle.
+ *
+ * Tek bir "bir hata oldu" yetmiyor: sebepler kullanıcının atacağı adımı
+ * değiştiriyor. Yetkisi yoksa tekrar denemenin anlamı yok; oturumu düşmüşse
+ * tekrar girmesi gerekiyor; abonelik takıldıysa sorun bizde ve tekrar denemek
+ * işe yarayabilir.
+ *
+ * Hiçbirinde teknik ayrıntı yazılmıyor ve hepsinde aynı güvence tekrarlanıyor:
+ * hesap duruyor.
+ */
+export type DeleteFailureReason =
+    'not-configured' | 'no-session' | 'forbidden' | 'subscription' | 'server';
+
+export function deleteFailureText(reason: DeleteFailureReason | null): string {
+    if (reason === 'forbidden') {
+        return 'Bu işletmeyi yalnız sahibi silebilir. Hesabınız olduğu gibi duruyor.';
+    }
+    if (reason === 'no-session') {
+        return 'Oturumunuz kapanmış. Tekrar girip deneyin. Hesabınız olduğu gibi duruyor.';
+    }
+    if (reason === 'subscription') {
+        return 'Aboneliğiniz iptal edilemediği için silme yapılmadı. Hesabınız ve verileriniz olduğu gibi duruyor.';
+    }
+    return DELETE_FAILED;
+}
