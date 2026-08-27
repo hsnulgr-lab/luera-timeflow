@@ -152,7 +152,17 @@ test('levhalar bakiye TAŞIMAZ; kalan seans ve son geliş taşır', () => {
     assert.equal(right.value, '18 Haz');
     assert.equal(right.soft, false);
     assert.equal(right.sub, '7. ziyaret · Merve ile');
-    assert.equal(right.opens, true); // Gidilecek geçmiş var
+    // OK YOK: `CustomerVisit` randevu kimliği taşımıyor, açılacak bir kart
+    // yok — ve son geliş zaten aşağıdaki listenin ilk satırı.
+    assert.equal(right.opens, false);
+});
+
+test('hiçbir levha ok çizmiyor — ölü kontrol bırakılmadı', () => {
+    for (const customer of mockCustomers) {
+        for (const plate of customerPlates(customer)) {
+            assert.equal(plate.opens, false, `${customer.id}/${plate.key} ok çiziyor`);
+        }
+    }
 });
 
 test('paket yoksa sol levha "Yok" yazar ve soft işaretlenir', () => {

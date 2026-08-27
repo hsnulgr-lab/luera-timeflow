@@ -494,3 +494,10 @@ test('iptal izi kim olduğunu UYDURMAZ', () => {
     assert.equal(traceLine({ status: 'voided' }), 'İPTAL');
     assert.match(screen, /applyVoid\(list, voidingId, null, hhmm\(nowInMinutes\(\)\)\)/);
 });
+
+test('bekleyen adisyon şeridi ÖLÜ DEĞİL — Akış\'a götürüyor', () => {
+    // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. Bekleyen
+    // adisyonların gerçek yeri Akış: her biri kendi satırında, "Tahsil et"
+    // düğmesiyle duruyor.
+    assert.match(screen, /onPress=\{\(\) => router\.navigate\('\/\(manager\)'\)\}/);
+});

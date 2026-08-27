@@ -184,14 +184,13 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
     onPick: (target: MoveTarget) => void;
 }) {
     const { c } = useTheme();
-    const [dateISO, setDateISO] = useState(appointment.date);
+    /**
+     * Sayfa randevunun KENDİ gününde kalır. Gün seçimi kaldırıldığı için
+     * değişken bir durum değil, sabit bir bağlam.
+     */
+    const dateISO = appointment.date;
     const [day, setDay] = useState<Appt[]>([]);
     const duration = durationOf(appointment);
-
-    // Sheet her açılışta randevunun kendi gününden başlar.
-    useEffect(() => {
-        if (visible) setDateISO(appointment.date);
-    }, [visible, appointment.date]);
 
     useEffect(() => {
         let alive = true;
@@ -226,7 +225,20 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
         });
     }, [day, staff, appointment, duration]);
 
-    const days = useMemo(() => dayOptions(appointment.date, 14), [appointment.date]);
+    /**
+     * Gün listesi YALNIZ başlık için.
+     *
+     * Sayfada bir zamanlar yedi günlük bir şerit vardı: "Saati değiştir"
+     * diyen müdüre önce TARİH soruyordu ve o şaşırtıyordu — saat değiştirmek
+     * isteyen kişi günü değiştirmek istemiyor. Şerit kaldırıldı; sayfa
+     * randevunun kendi gününde kalır ve yalnız saat sorar.
+     *
+     * Başka güne taşıma yolu duruyor: takvimde bloğu basılı tutup sürüklemek.
+     */
+    const dayLabel = useMemo(
+        () => dayOptions(appointment.date, 1)[0]?.label ?? null,
+        [appointment.date],
+    );
 
     return (
         <BottomSheet visible={visible} onDismiss={onDismiss} fill>
@@ -240,22 +252,8 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
             <SheetBody>
                 {mode === 'time' ? (
                     <>
-                        {/* "Aynı gün veya başka gün" — gün şeridi hep görünür. */}
-                        <Kicker label="Gün" />
-                        <Hair />
-                        {days.slice(0, 7).map((option) => (
-                            <View key={option.iso}>
-                                <PickRow
-                                    title={option.label}
-                                    subtitle={option.iso === appointment.date ? 'Şu anki gün' : option.relative ?? undefined}
-                                    right={option.iso === dateISO ? <Chosen /> : <ChevronIcon color={c.tx3} />}
-                                    onPress={() => setDateISO(option.iso)}
-                                />
-                                <Hair />
-                            </View>
-                        ))}
-
-                        <Kicker label="Boş saatler" right={days.find((d) => d.iso === dateISO)?.label} />
+                        {/* Yalnız saat. Gün başlıkta yazılı ama seçilemez. */}
+                        <Kicker label="Boş saatler" right={dayLabel ?? undefined} />
                         <Hair />
                         {rows.map((row) => (
                             <View key={row.minutes}>
@@ -272,8 +270,7 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
                                             endMinutes: row.minutes + duration,
                                             valid: true,
                                             unchanged: row.minutes === toMinutes(appointment.start_time)
-                                                && row.staff.id === appointment.staff_id
-                                                && dateISO === appointment.date,
+                                                && row.staff.id === appointment.staff_id,
                                         })}
                                     />
                                 ) : (
@@ -321,15 +318,6 @@ export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick
                 <View style={{ height: createMetrics.footBottom }} />
             </SheetBody>
         </BottomSheet>
-    );
-}
-
-function Chosen() {
-    const { c } = useTheme();
-    return (
-        <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={c.or} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-            <Path d="M5 12.5l4.5 4.5L19 7" />
-        </Svg>
     );
 }
 

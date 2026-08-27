@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet, SheetGrab } from './Sheet';
 import {
@@ -178,7 +178,34 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
     return (
         <BottomSheet visible={visible} onDismiss={onDismiss} fill>
             <SheetGrab />
-            <View style={{ flex: 1, paddingHorizontal: M.padX, paddingBottom: 14, gap: 13 }}>
+            {/*
+              * GÖVDE KAYAR — ve bu bir süs değil, kaçış yolu.
+              *
+              * Sabit bir `View` idi: hizmet adına dokununca klavye açılıyor,
+              * "Kaydet" ve "Vazgeç" klavyenin altında kalıyordu. Ne kaydetmek
+              * ne vazgeçmek mümkündü; sayfadan çıkmanın tek yolu uygulamayı
+              * tamamen kapatmaktı. Kaydırılabilir gövde ikisini de erişilebilir
+              * tutuyor.
+              *
+              * Klavye payını sayfanın kabuğu (`Sheet.tsx`, KeyboardAvoidingView)
+              * zaten veriyor; burada İKİNCİ bir pay eklenmiyor, yoksa altta
+              * boş bir şerit kalırdı. `keyboardShouldPersistTaps` ise klavye
+              * açıkken düğmeye İLK dokunuşun çalışmasını sağlıyor — yoksa ilk
+              * dokunuş yalnız klavyeyi kapatır, müdür iki kez basmak zorunda
+              * kalır.
+              */}
+            <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    paddingHorizontal: M.padX,
+                    paddingBottom: 14,
+                    gap: 13,
+                }}
+            >
                 <Text style={{
                     color: c.tx,
                     fontSize: 20,
@@ -304,7 +331,7 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
                     />
                     <GhostButton label="Vazgeç" onPress={onDismiss} />
                 </View>
-            </View>
+            </ScrollView>
         </BottomSheet>
     );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -56,6 +56,29 @@ function CreateTabBody() {
      * gelirdi.
      */
     const [runId, setRunId] = useState(0);
+
+    /**
+     * ÖN DOLU GİRİŞ AKIŞI YENİDEN KURAR.
+     *
+     * Taslak sekme değiştirince silinmiyor — bu iyi. Ama takvimdeki boş
+     * saatten, personelin gününden ya da müşteri kartından gelindiğinde akış
+     * ZATEN kurulmuş oluyor ve `key` değişmediği için yeni ön dolgu hiç
+     * uygulanmıyordu: müşteri kartındaki "Randevu ver" boş bir randevu ekranı
+     * açıyor gibi görünüyordu.
+     *
+     * Parametreler değiştiğinde akış baştan kurulur. Boş parametreyle geliş
+     * ("+" sekmesine dokunma) taslağı BOZMAZ.
+     */
+    const seedKey = [params.date, params.start, params.staff, params.customerId]
+        .map((value) => value ?? '')
+        .join('|');
+    const lastSeed = useRef(seedKey);
+    useEffect(() => {
+        if (seedKey === lastSeed.current) return;
+        lastSeed.current = seedKey;
+        // Yalnız DOLU bir ön dolgu akışı sıfırlar; temizlenen parametreler değil.
+        if (seedKey.replace(/\|/g, '')) setRunId((value) => value + 1);
+    }, [seedKey]);
     const reset = useCallback(() => {
         setRunId((value) => value + 1);
         if (params.date || params.start || params.staff || params.customerId) {

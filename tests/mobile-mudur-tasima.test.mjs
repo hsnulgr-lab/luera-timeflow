@@ -401,3 +401,19 @@ test('gövdesi KAYAN sayfa sabit yükseklik ister — liste sıfıra inmesin', (
     assert.match(body.slice(0, 300), /flexShrink: 1, minHeight: 0/);
     assert.doesNotMatch(body.slice(0, 300), /style=\{\{ flex: 1 \}\}/);
 });
+
+// ── Saati değiştir: YALNIZ saat ─────────────────────────────────────────────
+
+test('saat sayfasında gün seçimi YOK — soru "kaçta", "hangi gün" değil', () => {
+    /*
+     * Sayfada yedi günlük bir şerit vardı ve "Saati değiştir" diyen müdüre
+     * önce TARİH soruyordu. Saat değiştirmek isteyen kişi günü değiştirmek
+     * istemiyor; şerit şaşırtıyordu. Başka güne taşıma yolu duruyor: takvimde
+     * bloğu basılı tutup sürüklemek.
+     */
+    const move = read('src/components/MoveParts.tsx');
+    assert.doesNotMatch(move, /<Kicker label="Gün"/);
+    assert.doesNotMatch(move, /setDateISO/);
+    // Gün yine de YAZILI: hangi güne baktığı belirsiz kalmasın.
+    assert.match(move, /<Kicker label="Boş saatler" right=\{dayLabel/);
+});

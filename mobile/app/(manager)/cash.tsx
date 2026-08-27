@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
@@ -76,6 +77,7 @@ export default function ManagerKasa() {
     // Boş günde de bekleyen olabilir: para girmemiş ama bekleyen var — bu
     // ayrım müdür için önemli, o yüzden panel yine görünür.
     const { events, reload } = useManagerDay();
+    const router = useRouter();
     const pending = useMemo(() => pendingOf(events), [events]);
 
     /**
@@ -269,6 +271,18 @@ export default function ManagerKasa() {
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`${pendingTitle(pending)}. ${pendingSubtitle(pending)}`}
+                        /*
+                         * Şerit bir SORU soruyordu ama cevabı olan yere
+                         * götürmüyordu: sağında ok vardı, dokununca hiçbir şey
+                         * olmuyordu. Bekleyen adisyonların TEK gerçek yeri
+                         * Akış — orada her biri kendi satırında, "Tahsil et"
+                         * düğmesiyle duruyor. Şerit oraya götürüyor.
+                         *
+                         * (Yalnız bekleyenleri gösteren ayrı bir liste daha
+                         * iyi olurdu; ama olmayan bir ekrana götürmektense
+                         * var olana götürmek doğru.)
+                         */
+                        onPress={() => router.navigate('/(manager)')}
                         style={{
                             zIndex: 1,
                             elevation: cashMetrics.pendElevation,

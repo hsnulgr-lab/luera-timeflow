@@ -187,7 +187,19 @@ export function customerPlates(card: CustomerCard, short = false): [CustomerPlat
                 `${card.lastVisit.visitNo}. ziyaret`,
                 card.lastVisit.staff ? `${card.lastVisit.staff} ile` : null,
             ].filter(Boolean).join(' · '),
-            opens: true,
+            /*
+             * OK ÇİZİLMEZ.
+             *
+             * Bir süre `true` idi ve levhanın köşesinde bir ok duruyordu ama
+             * dokunulunca hiçbir şey olmuyordu — ölü kontrol. Sebebi veri:
+             * `CustomerVisit` bir randevu kimliği taşımıyor, dolayısıyla
+             * açılacak bir randevu kartı yok.
+             *
+             * Ok eklemek için veri modeline kimlik koymak da gereksiz: son
+             * gelişin kendisi hemen aşağıdaki "Son işlemler" listesinin İLK
+             * SATIRI. Ok, zaten ekranda duran bir şeye götürürdü.
+             */
+            opens: false,
         }
         : {
             key: 'lastVisit',

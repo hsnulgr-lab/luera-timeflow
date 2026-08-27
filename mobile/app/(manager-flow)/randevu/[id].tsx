@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,7 +11,7 @@ import { mockDay } from '../../../src/lib/managerFlow';
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
 } from '../../../src/lib/moveAppointment';
-import { createMetrics, useTheme } from '../../../src/theme';
+import { useTheme } from '../../../src/theme';
 import { hhmm, nowInMinutes, toMinutes, todayISO, type Appt } from '../../../src/lib/calendar';
 import type { StaffOption } from '../../../src/lib/createFlow';
 
@@ -106,7 +106,19 @@ export default function ManagerAppointment() {
         <View style={{
             flex: 1,
             backgroundColor: c.bg,
-            paddingTop: Math.max(insets.top, createMetrics.topGap),
+            /*
+             * ÜSTTE PAY YOK (iOS).
+             *
+             * Ekran `presentation: 'modal'` ile geliyor: iOS onu zaten durum
+             * çubuğunun altına, köşeleri yuvarlatılmış bir yüzey olarak
+             * yerleştiriyor. Üstüne bir de güvenli alan payı (34) eklenince
+             * tutamakla "RANDEVU" satırı arasında ~60 pt boşluk kalıyordu ve
+             * kart ekranın ortasından başlıyormuş gibi duruyordu.
+             *
+             * Tutamak (26 pt) tek başına yeterli üst nefes. Android'de modal
+             * tam ekran çizilebildiği için orada pay korunuyor.
+             */
+            paddingTop: Platform.OS === 'ios' ? 0 : insets.top,
         }}>
             {appointment ? (
                 <AppointmentDetail
