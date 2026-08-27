@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, useColorScheme, useWindowDimensions } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { dark, embed, light, SMALL_WIDTH, type EmbedPalette, type Palette } from './tokens';
@@ -25,7 +25,19 @@ interface Theme {
     reduceMotion: boolean;
     /** iOS hareket yerine çapraz solmayı tercih ediyor mu? */
     prefersCrossFade: boolean;
+    /**
+     * Uygulama içi tema tercihi (Müdür 27 · Görünüm).
+     *
+     * `system` cihazın ayarını izler. Bu olmadan Görünüm ekranı ölü bir
+     * kontrol olurdu: seçim yapılır, hiçbir şey değişmezdi.
+     */
+    themeMode: ThemeMode;
+    setThemeMode: (mode: ThemeMode) => void;
 }
+
+export type ThemeMode = 'dark' | 'light' | 'system';
+
+const THEME_KEY = 'tf.theme.mode';
 
 const Ctx = createContext<Theme>({
     c: light,
@@ -35,6 +47,8 @@ const Ctx = createContext<Theme>({
     small: false,
     reduceMotion: true,
     prefersCrossFade: true,
+    themeMode: 'system',
+    setThemeMode: () => { /* sağlayıcı dışında tercih tutulmaz */ },
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -71,7 +85,31 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         return () => { alive = false; sub.remove(); };
     }, []);
 
-    const isDark = scheme === 'dark';
+    /*
+     * Tema tercihi kalıcı: uygulama kapanıp açılınca seçim korunur. Okunana
+     * kadar `system` varsayılır — cihazın ayarı, yani bugünkü davranış.
+     */
+    const [themeMode, setMode] = useState<ThemeMode>('system');
+    useEffect(() => {
+        let alive = true;
+        void (async () => {
+            const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+            const stored = await AsyncStorage.getItem(THEME_KEY);
+            if (!alive) return;
+            if (stored === 'dark' || stored === 'light' || stored === 'system') setMode(stored);
+        })().catch(() => { /* okunamazsa sistem takip edilir */ });
+        return () => { alive = false; };
+    }, []);
+
+    const setThemeMode = useCallback((mode: ThemeMode) => {
+        setMode(mode);
+        void (async () => {
+            const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+            await AsyncStorage.setItem(THEME_KEY, mode);
+        })().catch(() => { /* yazılamazsa tercih yalnız bu oturumda yaşar */ });
+    }, []);
+
+    const isDark = themeMode === 'system' ? scheme === 'dark' : themeMode === 'dark';
     const value: Theme = {
         c: isDark ? dark : light,
         embed: isDark ? embed.dark : embed.light,
@@ -80,6 +118,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         small: width < SMALL_WIDTH,
         reduceMotion,
         prefersCrossFade,
+        themeMode,
+        setThemeMode,
     };
     return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

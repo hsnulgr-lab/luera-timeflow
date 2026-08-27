@@ -171,20 +171,29 @@ export default function AccountScreen() {
                     />
 
                     <View style={{ borderTopWidth: 1, borderTopColor: c.bd }}>
+                        {/*
+                          Müdürün şifresi e-posta bağlantısıyla değişir —
+                          kurtarma ekranının yaptığı iş bu ve satır artık
+                          oraya gidiyor. Personelin PIN satırı DEĞİŞMEDİ:
+                          hedefi hâlâ yok, ama o personel modunun işi.
+                        */}
                         <AuthAccountRow
                             title={isManager ? 'Şifreyi değiştir' : 'PIN’i değiştir'}
-                            onPress={() => undefined}
+                            onPress={isManager
+                                ? () => router.push('/(auth)/manager/recover')
+                                : () => undefined}
                         />
                         <AuthAccountRow
                             title="Face ID ile aç"
                             subtitle={biometricLabel}
                             onPress={updateBiometric}
                         />
-                        {isManager ? (
+                        {/* Tek işletmeli müdürde satır ÇİZİLMEZ — pasif değil, yok. */}
+                        {isManager && businesses.length > 1 ? (
                             <AuthAccountRow
                                 title="İşletme değiştir"
                                 subtitle={`${businesses.length} işletme`}
-                                onPress={() => undefined}
+                                onPress={() => router.push('/(auth)/manager/business')}
                             />
                         ) : null}
                     </View>
@@ -232,11 +241,19 @@ export default function AccountScreen() {
                             }}>
                                 Hesabınızı silmek geri alınamaz.
                             </Text>
+                            {/*
+                              Müdür 27 · silme kendi ekranında.
+                              Eski akış yerel bir "bekleyen silme" kaydı
+                              yazıyordu; Apple 5.1.1(v) gerçek silme istiyor
+                              ve yerel çıkış saymıyor. Yeni ekran neyin
+                              silineceğini sayarak yazıyor ve sonucu sunucuya
+                              bağlıyor.
+                            */}
                             <AuthActionButton
                                 kind="danger"
                                 label="Hesabımı sil"
                                 left={<TrashIcon color={c.rd} />}
-                                onPress={() => setDeletePhase('confirm')}
+                                onPress={() => router.push('/(manager-flow)/profil/hesap-sil')}
                             />
                         </View>
                     ) : (

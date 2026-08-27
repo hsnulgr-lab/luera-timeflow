@@ -31,6 +31,22 @@ function Shell() {
                     sayfa değil, arkası duran bir yüzey olarak çiziyor ve
                     üstündeki tutamak ancak öyle anlam taşıyor. */}
                 <Stack.Screen name="(manager-flow)/randevu/[id]" options={{ presentation: 'modal' }} />
+
+                {/* Müdür 24 — personel günü YATAY KAYMAZ: tasarım sayfanın
+                    şeritteki halkadan doğduğunu söylüyor. Yığının kendi
+                    kaydırma animasyonu o büyümeyi tamamen örterdi; ekran
+                    anında gelir, hareketi kendi içindeki halka yapar. */}
+                <Stack.Screen name="(manager-flow)/personel/[id]" options={{ animation: 'none' }} />
+
+                {/* Müdür 27 — profil alt ekranları. Yığın içi itme: giren
+                    ekran yandan gelir, çıkan hafifçe geri çekilir. Paylaşımlı
+                    öge geçişi yok; kütüphanesi projede bulunmuyor. */}
+                <Stack.Screen name="(manager-flow)/profil/saatler" />
+                <Stack.Screen name="(manager-flow)/profil/hizmetler" />
+                <Stack.Screen name="(manager-flow)/profil/gorunum" />
+                <Stack.Screen name="(manager-flow)/profil/bildirimler" />
+                <Stack.Screen name="(manager-flow)/profil/yasal" />
+                <Stack.Screen name="(manager-flow)/profil/hesap-sil" />
             </Stack>
         </>
     );
