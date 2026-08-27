@@ -494,12 +494,32 @@ function cloneAppt(appt: Appt): Appt {
     };
 }
 
+/**
+ * AYNI ANDA giden gün isteklerini tekleştirir.
+ *
+ * Ekran açılıp kapanırken aynı gün iki kez isteniyordu (geliştirme modunda
+ * efektler iki kez bağlanıyor, ayrıca iki ekran aynı günü aynı anda
+ * sorabiliyor). İkinci istek aynı cevabı ikinci kez bekletiyor ve listenin
+ * bir kez daha "yükleniyor" gibi çakmasına yol açıyordu.
+ *
+ * Yalnız UÇUŞTAKİ istek paylaşılır — önbellek DEĞİL. Cevap dönünce kayıt
+ * silinir, bir sonraki istek kaynağı yeniden okur; yoksa yeni kurulan ya da
+ * taşınan randevu görünmezdi.
+ */
+const dayInFlight = new Map<string, Promise<Appt[]>>();
+
 export const mockSource: CalendarSource = {
-    async day(date) {
-        await mockLatency();
-        // İstenen gün BUGÜN takviminde; kaynakta çapa takviminde duruyor.
-        const stored = MOCK_DAYS[shiftDay(date, -SHIFT)] ?? [];
-        return stored.map((appointment) => toToday(cloneAppt(appointment)));
+    day(date) {
+        const pending = dayInFlight.get(date);
+        if (pending) return pending;
+        const request = (async () => {
+            await mockLatency();
+            // İstenen gün BUGÜN takviminde; kaynakta çapa takviminde duruyor.
+            const stored = MOCK_DAYS[shiftDay(date, -SHIFT)] ?? [];
+            return stored.map((appointment) => toToday(cloneAppt(appointment)));
+        })().finally(() => { dayInFlight.delete(date); });
+        dayInFlight.set(date, request);
+        return request;
     },
 
     async range(from, to) {
@@ -541,6 +561,29 @@ export const mockSource: CalendarSource = {
 export function addLocalAppointment(appointment: Appt): void {
     // Kaynak ÇAPA takviminde yaşıyor; gelen randevu bugün takviminde.
     const key = shiftDay(appointment.date, -SHIFT);
+    const day = MOCK_DAYS[key] ?? (MOCK_DAYS[key] = []);
+    day.push({ ...appointment, date: key });
+    day.sort((a, b) => a.start_time.localeCompare(b.start_time));
+}
+
+/**
+ * Taşınan randevuyu SAHTE kaynağa yazar.
+ *
+ * `addLocalAppointment` ile aynı geçici katman. Bu olmadan taşıma yalnız o
+ * ekranın belleğinde yaşıyordu: müdür randevu kartında saati değiştirip
+ * kapatınca takvim onu ESKİ saatinde göstermeye devam ediyordu — değişiklik
+ * yapılmış gibi görünüp kaybolan bir işlem, hiç yapılmamış olmasından kötüdür.
+ *
+ * Kalıcı DEĞİL: uygulama kapanınca kaybolur. Uç yazıldığında bu da kalkacak.
+ */
+export function updateLocalAppointment(appointment: Appt): void {
+    const key = shiftDay(appointment.date, -SHIFT);
+    // Randevu gün değiştirmiş olabilir: eski günden çıkar, yenisine koy.
+    for (const [date, list] of Object.entries(MOCK_DAYS)) {
+        const at = list.findIndex((candidate) => candidate.id === appointment.id);
+        if (at >= 0) list.splice(at, 1);
+        if (list.length === 0 && date !== key) delete MOCK_DAYS[date];
+    }
     const day = MOCK_DAYS[key] ?? (MOCK_DAYS[key] = []);
     day.push({ ...appointment, date: key });
     day.sort((a, b) => a.start_time.localeCompare(b.start_time));

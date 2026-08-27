@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DayHeader, WeekStrip } from '../../src/components/CalendarParts';
 import { ColumnCalendar } from '../../src/components/ColumnCalendar';
 import { AppointmentMenu, MoveResultSheet, MoveSheet } from '../../src/components/MoveParts';
-import { source } from '../../src/lib/calendarSource';
+import { source, updateLocalAppointment } from '../../src/lib/calendarSource';
 import { hourRange, type ColumnStaff } from '../../src/lib/managerCalendar';
 import { mockDay } from '../../src/lib/managerFlow';
 import { applyMove, type MenuAction, type MoveResult, type MoveTarget } from '../../src/lib/moveAppointment';
@@ -54,9 +54,13 @@ export default function ManagerCalendar() {
 
     useEffect(() => {
         let alive = true;
-        source.day(selectedDate).then((list) => {
-            if (alive) setFetched(list);
-        });
+        source.day(selectedDate)
+            .then((list) => { if (alive) setFetched(list); })
+            // Okuma başarısız olursa ELDEKİ liste durur; yerine boş bir gün
+            // YAZILMAZ. Ekranda "okunamadı" diye bir hâl henüz yok (müdür
+            // modunun durum ekranları tasarlanmadı) — burada yapılan tek şey,
+            // hatanın sessizce boş güne dönüşmesini engellemek.
+            .catch(() => undefined);
         return () => { alive = false; };
     }, [selectedDate]);
 
@@ -68,6 +72,11 @@ export default function ManagerCalendar() {
         let alive = true;
         source.range(days[0]?.date ?? selectedDate, days.at(-1)?.date ?? selectedDate)
             .then((map) => { if (alive) setCounts(map); })
+            /*
+             * Sayılar okunamazsa `counts` BOŞ kalır ve şerit o günleri
+             * "bilinmiyor" diye çizer — sıfır diye değil. Eskiden ikisi aynıydı
+             * ve dolu bir hafta boş görünüyordu.
+             */
             .catch(() => undefined);
         return () => { alive = false; };
         // `days` seçili günden türüyor; ikinci bir bağımlılık gereksiz.
@@ -125,7 +134,10 @@ export default function ManagerCalendar() {
 
     /** Sürükleme ve menü AYNI yere düşer: tek taşıma yolu, tek sonuç ekranı. */
     const commitMove = useCallback((appointment: Appt, target: MoveTarget) => {
-        setMoved((current) => ({ ...current, [appointment.id]: applyMove(appointment, target) }));
+        const moved = applyMove(appointment, target);
+        setMoved((current) => ({ ...current, [appointment.id]: moved }));
+        // Kaynağa da yaz: başka ekrana gidip dönünce taşıma yerinde kalsın.
+        updateLocalAppointment(moved);
         setResult({
             appointment,
             fromStartMinutes: toMinutes(appointment.start_time),
@@ -188,12 +200,9 @@ export default function ManagerCalendar() {
                     // oluşturma açılır — müdürün en hızlı yolu. Gün, saat ve
                     // personel ön dolu gider; akış yalnız müşteri ve hizmeti
                     // sorar, sonra doğrudan özete düşer.
-                    onSlot={(staffId, minutes) => router.push({
-                        pathname: '/(manager-flow)/randevu-olustur',
-                        params: {
-                            date: selectedDate, start: String(minutes), staff: staffId,
-                            back: '/(manager)/calendar',
-                        },
+                    onSlot={(staffId, minutes) => router.navigate({
+                        pathname: '/(manager)/create',
+                        params: { date: selectedDate, start: String(minutes), staff: staffId },
                     })}
                     // Basılı tutup sürükleme (Müdür 07a/b).
                     onMove={commitMove}

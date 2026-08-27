@@ -29,8 +29,7 @@ const flow = code('src/components/CreateFlow.tsx');
 const parts = code('src/components/ApptParts.tsx');
 const lib = code('src/lib/createFlow.ts');
 const tokens = code('src/theme/tokens.ts');
-const screen = code('app/(manager-flow)/randevu-olustur.tsx');
-const tabButton = code('app/(manager)/create.tsx');
+const screen = code('app/(manager)/create.tsx');
 const calendar = code('app/(manager)/calendar.tsx');
 const design = readFileSync(
     new URL('../docs/design-reference/Luera Mobil - Mudur 15 Randevu Olustur.html', import.meta.url),
@@ -469,15 +468,32 @@ test('kahraman rakamı CSS\'in verdiği ölçüde', () => {
     assert.match(design, /\.hday b\{font-size:54px/);
 });
 
-test('akış sekmelerin DIŞINDA: sekme çubuğu yüzen çubuğu yutmuyor', () => {
-    // Sistem sekme çubuğu (NativeTabs) ekranın üstünde duruyor ve yüksekliği
-    // iOS 26'da kaydırmayla değişiyor; sabit pay verilemez. Akış kök yığında.
+test('akış SEKMENİN İÇİNDE: alt bar akış boyunca duruyor', () => {
+    // Akış bir süre kök yığındaydı ve sekme çubuğu kayboluyordu; çıkışın tek
+    // yolu X'ti, X de sekme seçimini "+"ta bıraktığı için ekran anında geri
+    // açılıyordu. Müdür içeride kilitleniyordu. Artık akış sekmenin kendisi.
     assert.ok(screen.includes('CreateFlow'));
     assert.ok(screen.includes('topInset') && screen.includes('bottomInset'));
     assert.ok(!/Yer tutucu|placeholder/i.test(screen));
-    // "+" sekmesi bir ekran değil, akışı açan bir düğme.
-    assert.ok(tabButton.includes('/(manager-flow)/randevu-olustur'));
-    assert.ok(!tabButton.includes('CreateFlow'), 'akış sekmenin içinde çizilmemeli');
+    // Odaklanınca başka ekrana ITEN bir yönlendirici DEĞİL.
+    assert.ok(!screen.includes('useFocusEffect'), 'sekme kendini başka ekrana itmemeli');
+    assert.ok(!/router\.push/.test(screen), 'akış sekmenin üstüne yığın açmamalı');
+});
+
+test('yüzen çubuk bar küçülünce zıplamıyor', () => {
+    // iOS 26'da sekme çubuğu kaydırınca küçülüyor, güvenli alan onunla
+    // değişiyor. Pay olduğu gibi kullanılsaydı çubuk her kaydırmada oynardı.
+    assert.ok(flow.includes('insetFloor'));
+    assert.match(flow, /if \(bottomInset > insetFloor\.current\)/);
+    assert.match(flow, /const barLift = \(small \? M\.barLiftSmall : M\.barLift\) \+ inset0;/);
+});
+
+test('taslak sekme değiştirince silinmiyor, X\'te siliniyor', () => {
+    // Barı geri getirmenin sebebi tam olarak bu: yarıda Takvim'e bakıp dönmek.
+    assert.ok(screen.includes('runId'), 'akış bir key ile sıfırlanmalı');
+    assert.match(screen, /const close = useCallback\(\(\) => \{\s*reset\(\);/);
+    // Eski parametreler de temizlenir; yoksa "+" eski günü geri getirirdi.
+    assert.ok(screen.includes('router.setParams'));
 });
 
 test('klavye açıkken yüzen çubuk gizleniyor', () => {
@@ -497,7 +513,7 @@ test('sayfa 1in de bir kahramanı var', () => {
 });
 
 test('takvimdeki boş saat gün, saat ve personeli taşır', () => {
-    assert.ok(calendar.includes('/(manager-flow)/randevu-olustur'));
+    assert.ok(calendar.includes('/(manager)/create'));
     for (const key of ['date:', 'start:', 'staff:']) {
         assert.ok(calendar.includes(key), `parametre eksik: ${key}`);
     }
@@ -559,10 +575,10 @@ test('yeni müşterinin numarası kayda E.164 olarak giriyor', () => {
 });
 
 test('"+" sekmesi boş bir ekran olarak kalamaz', () => {
-    // Bayrak yok: sekme her odaklanışında akışı açıyor. Görünür bir hâli
-    // olmadığı için boş kalması da mümkün değil.
-    assert.ok(!/opened|useRef/.test(tabButton));
-    assert.ok(tabButton.includes('useFocusEffect'));
+    // Sekmenin kendi içeriği var: akışın ta kendisi. Bir zamanlar burası
+    // yalnız yönlendiriciydi ve akış kapanınca boş siyah ekran kalıyordu.
+    assert.ok(screen.includes('<CreateFlow'));
+    assert.ok(!/Yer tutucu|placeholder/i.test(screen));
 });
 
 test('saatler tek kaynaktan: ekran kendi ızgarasını kurmuyor', () => {

@@ -17,6 +17,7 @@ const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url
 
 const screen = read('app/(manager)/calendar.tsx');
 const grid = read('src/components/ColumnCalendar.tsx');
+const parts = read('src/components/CalendarParts.tsx');
 
 const appt = (id, start, end, staffId) => ({
     id, customer_id: null, customer_name: 'Test Müşteri', customer_phone: null,
@@ -137,11 +138,36 @@ test('boş saate dokunmak randevu oluşturmayı açar', () => {
     assert.match(grid, /onSlot\?\.\(person\.id, dayStart \+ hourIndex \* 60\)/);
     // Ön dolgu parametreleri Müdür 09'un kendi testinde ayrıntılı kontrol
     // ediliyor; burada yalnız bağlantının kurulduğu doğrulanıyor.
-    assert.match(screen, /onSlot=\{\(staffId, minutes\) => router\.push\(/);
+    assert.match(screen, /onSlot=\{\(staffId, minutes\) => router\.navigate\(/);
 });
 
 test('canlı blok soldaki turuncu şeritle işaretlenir', () => {
     // Takvim kartındaki dille aynı.
     assert.match(grid, /isLive\(appointment\)/);
     assert.match(grid, /columnMetrics\.liveBar/);
+});
+
+// ── Bilinmeyen gün ≠ boş gün ────────────────────────────────────────────────
+
+test('sayısı okunamayan gün SIFIR diye çizilmez', () => {
+    /*
+     * `counts[gün] ?? 0` yazıyordu: `source.range()` hata verince bütün günler
+     * "randevu yok" oluyordu ve ekran müdüre olmayan bir bilgiyi söylüyordu.
+     * Sıfır bir ölçümdür, bilinmemek bir boşluktur.
+     */
+    assert.match(parts, /const count = counts\[day\.date\];/);
+    assert.match(parts, /const known = count !== undefined;/);
+    // Yorumlar eşleşmeye karışmasın: iddia gerçek koda bakmalı.
+    const partsCode = parts.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+    assert.doesNotMatch(partsCode, /counts\[[a-z]+\.date\] \?\? 0/);
+    // Ekran okuyucu da yalan söylemiyor.
+    assert.match(parts, /randevu sayısı bilinmiyor/);
+    // Nokta yalnız SAYI BİLİNİYORSA çizilir.
+    assert.match(parts, /known && count > 0 \?/);
+});
+
+test('gün listesi okunamazsa boş gün YAZILMAZ', () => {
+    // Yakalama yoksa hata sessizce yutulup ekran boş güne dönüyordu.
+    assert.match(screen, /source\.day\(selectedDate\)\s*\n\s*\.then/);
+    assert.match(screen, /\.catch\(\(\) => undefined\)/);
 });

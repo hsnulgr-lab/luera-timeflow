@@ -7,7 +7,7 @@ import {
     mockDay, sortPresence, toneOf,
 } from '../mobile/src/lib/managerFlow.ts';
 import { todayISO } from '../mobile/src/lib/calendar.ts';
-import { flowMetrics } from '../mobile/src/theme/tokens.ts';
+import { customerBubble, flowMetrics } from '../mobile/src/theme/tokens.ts';
 
 // Müdür 03 — Bugünün akışı.
 //
@@ -101,7 +101,7 @@ test('başlık sürmeyen işlemi yazmaz', () => {
 
 test('akış günde biter: sonsuz kaydırma yok', () => {
     assert.equal(FLOW_END, 'Bugünlük bu kadar');
-    assert.match(screen, /<FlowEnd label=\{FLOW_END\}/);
+    assert.match(screen, /<FlowEnd label=\{flowEndLabel\(isToday\)\}/);
     // Sayfalama ya da sonsuz yükleme yok.
     assert.doesNotMatch(screen, /onEndReached|FlatList|loadMore/);
 });
@@ -195,8 +195,10 @@ test('toplanmış hâl BUZLU CAM levha (Müdür 19)', () => {
     assert.match(screen, /<DayScrubber/);
 });
 
-test('parıltı kaydırınca söner', () => {
-    assert.match(screen, /opacity: glowOpacity/);
+test('parıltı DOLU günde kaydırınca söner, BOŞ günde hiç sönmez', () => {
+    // Boş günde kaydırma yok; sönen bir gradyan yarım yüklenmiş ekran gibi
+    // okunurdu. Orada levhanın gölgesiz kütlesi olur.
+    assert.match(screen, /opacity: isEmptyDay \? 1 : glowOpacity/);
     assert.match(screen, /useNativeDriver: true/);
 });
 
@@ -244,7 +246,8 @@ test('levha güvenli alanı da örter', () => {
 test('görünmeyen yapışkan şerit dokunuş yakalamaz', () => {
     // Açık hâlde başlığın üstünde duran şeffaf bir katman, dev başlığa
     // dokunmayı engellerdi.
-    assert.match(screen, /pointerEvents=\{collapsed \? 'auto' : 'none'\}/);
+    // Boş günde levha kalıcı; orada dokunuş YAKALAMASI gerekir (cetvel).
+    assert.match(screen, /pointerEvents=\{platePermanent \|\| collapsed \? 'auto' : 'none'\}/);
     assert.match(screen, /scrollY\.addListener/);
     assert.match(screen, /scrollY\.removeListener/);
 });
@@ -287,4 +290,88 @@ test('içerik opak; cam yalnız kabukta', () => {
 test('uygulamanın tek gradyanı: tepedeki parıltı', () => {
     assert.equal((screen.match(/LinearGradient/g) || []).length, 2);
     assert.match(screen, /colors=\{dark \? glow\.dark : glow\.light\}/);
+});
+
+// ── Müşteri balonu (Müdür 26) ───────────────────────────────────────────────
+//
+// Akışta müdürün müşteri kartına ulaşacağı TEK kapı bu balon. Kart ekranı
+// (Müdür 23) zaten vardı; eksik olan ona basacak yerdi.
+
+const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+
+test('sade akış satırında müşteri balonu çizilir', () => {
+    // Adın yanında baş harf yuvarlağı yoksa satırda basılacak hiçbir işaret yok.
+    assert.match(code('src/components/FlowParts.tsx'), /<CustomerBubble event=\{event\} onOpen=\{onOpenCustomer\}>/);
+});
+
+test('bağlamlı kartta da kimlik basılabilir — yuvarlak her yerde aynı şeyi vaat eder', () => {
+    const parts2 = code('src/components/FlowParts.tsx');
+    const card = parts2.slice(parts2.indexOf('function CustomerCard('));
+    assert.match(card.slice(0, 2600), /onPress=\{\(\) => \{ feedback\.selection\(\); onOpenCustomer\?\.\(event\); \}\}/);
+});
+
+test('geri sayım sütunu dokunma hedefinin DIŞINDA', () => {
+    // Saate bakan müdür yanlışlıkla müşteri kartını açmamalı.
+    const parts2 = code('src/components/FlowParts.tsx');
+    const card = parts2.slice(parts2.indexOf('function CustomerCard('));
+    const head = card.slice(0, card.indexOf('alignItems: \'flex-end\''));
+    assert.ok(head.includes('</Pressable>'));
+});
+
+test('müşteri kimliği yoksa balon basılmaz — ölü daire olmaz', () => {
+    const parts2 = code('src/components/FlowParts.tsx');
+    assert.match(parts2, /const openable = Boolean\(event\.customerId && onOpen\)/);
+    assert.match(parts2, /Boolean\(event\.customerId && onOpenCustomer\)/);
+});
+
+test('balon turuncu DEĞİL — turuncu zaman ve eylem içindir', () => {
+    const parts2 = code('src/components/FlowParts.tsx');
+    const start = parts2.indexOf('export function CustomerBubble');
+    // Yorumlar soyulduğu için bir sonraki export'a kadar kes.
+    const bubble = parts2.slice(start, parts2.indexOf('export function', start + 10));
+    assert.doesNotMatch(bubble, /c\.or|#FF5A1F/);
+});
+
+test('akış olayı müşteri KİMLİĞİ taşır — ada göre aramak yanlış kartı açardı', () => {
+    const gulsah = mockDay.events.find((e) => e.lastName === 'Karaosmanoğlu');
+    assert.equal(gulsah.customerId, 'c-gulsah');
+    const elif = mockDay.events.find((e) => e.lastName === 'Demir');
+    assert.equal(elif.customerId, 'c-elif');
+});
+
+test('balon müşteri kartına kimlik VE adla gider', () => {
+    const flow = code('app/(manager)/index.tsx');
+    assert.match(flow, /pathname: '\/\(staff-flow\)\/customer'/);
+    assert.match(flow, /customerId: event\.customerId/);
+    assert.match(flow, /customerName: `\$\{event\.firstName\} \$\{event\.lastName\}`/);
+    assert.match(flow, /onOpenCustomer=\{openCustomer\}/);
+});
+
+test('balonun dokunma hedefi 44 pt’ye tamamlanır', () => {
+    // Yuvarlak 34, hitSlop 8 → 34 + 16 = 50 ≥ 44.
+    assert.ok(customerBubble.size + customerBubble.hitSlop * 2 >= 44);
+    assert.ok(customerBubble.sizeSmall + customerBubble.hitSlop * 2 >= 44);
+});
+
+// ── Sekme çubuğunun küçülmesi ───────────────────────────────────────────────
+
+test('kaydırıcı ekranın İLK çocuğu — bar ancak öyle küçülüyor', () => {
+    /*
+     * iOS 26'da sekme çubuğunun kaydırınca küçülmesi (`minimizeBehavior`)
+     * UIKit'in kaydırıcıyı ilk-alt-görünüm zincirini yürüyerek bulmasına
+     * bağlı. Gradyan kökte, kaydırıcıdan önce durduğu sürece zincir ilk
+     * adımda ölüyor ve bar hiç küçülmüyordu (react-native-screens#4145).
+     *
+     * Bu yüzden köke kaydırıcıdan ÖNCE hiçbir görünüm konulamaz.
+     */
+    const open = '<View style={{ flex: 1, backgroundColor: c.bg }}>';
+    const root = screen.slice(screen.indexOf(open) + open.length);
+    const first = root.indexOf('<Animated.ScrollView');
+    assert.ok(first > 0, 'kaydırıcı bulunamadı');
+    const before = root.slice(0, first);
+    assert.doesNotMatch(before, /<(Animated\.View|LinearGradient|View)\b/,
+        'kaydırıcıdan önce görünüm var: bar küçülmez');
+    // Gradyan içeri alındı ama ekranda sabit kalıyor.
+    assert.match(screen, /transform: \[\{ translateY: scrollY \}\]/);
+    assert.doesNotMatch(screen, /zIndex: 1/);
 });

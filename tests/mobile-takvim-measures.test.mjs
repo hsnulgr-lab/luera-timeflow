@@ -130,7 +130,9 @@ test('ay ızgarası CSS ölçülerini birebir taşır', () => {
 test('ay ızgarasının yoğunluk noktaları üç kademelidir', () => {
     // 1 randevu tek soluk nokta, 2 randevu iki soluk, 3+ ÜÇ TURUNCU nokta.
     // Rakam yazılmaz: ızgarada sayı okumak yoğunluğu görmekten yavaştır.
-    assert.match(parts, /const dense = count >= 3;/);
-    assert.match(parts, /const dots = Math\.min\(3, count\);/);
+    // `known` kapısı: sayı BİLİNMİYORSA nokta hiç çizilmez (bkz. bilinmeyen
+    // gün ≠ boş gün).
+    assert.match(parts, /const dense = known && count >= 3;/);
+    assert.match(parts, /const dots = known \? Math\.min\(3, count\) : 0;/);
     assert.match(parts, /backgroundColor: dense \? c\.or : c\.tx3/);
 });

@@ -10,16 +10,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    activeCountOf, bookedEvent, emptyFlow, mockDay, pendingOf,
+    activeCountOf, bookedEvent, mockDay, pendingOf,
 } from '../mobile/src/lib/managerFlow.ts';
 import { nowInMinutes } from '../mobile/src/lib/calendar.ts';
+import {
+    emptyDayCopy, plateIsPermanent, staffStripVisible,
+} from '../mobile/src/lib/emptyDay.ts';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const flow = read('../mobile/app/(manager)/index.tsx');
 const calendar = read('../mobile/app/(manager)/calendar.tsx');
 const cash = read('../mobile/app/(manager)/cash.tsx');
 const layout = read('../mobile/app/_layout.tsx');
-const create = read('../mobile/app/(manager-flow)/randevu-olustur.tsx');
+const create = read('../mobile/app/(manager)/create.tsx');
 const store = read('../mobile/src/state/managerDay.tsx');
 
 // ── Aynı ekranda iki gerçek olmaz ───────────────────────────────────────────
@@ -66,32 +69,47 @@ test('cetvel gerçekten GÜN DEĞİŞTİRİR', () => {
     // Seçim yalnız cetvelin içinde kalıyordu: başlık da liste de bugünü
     // göstermeye devam ediyordu.
     assert.match(flow, /const isToday = selectedISO === mockDay\.dateISO/);
-    assert.match(flow, /const dayEvents = isToday \? events : \[\]/);
+    // Artık boş dizi değil: başka gün seçilince o günün randevuları okunur.
+    assert.match(flow, /source\.day\(selectedISO\)/);
     assert.match(flow, /<DayHeader dateISO=\{selectedISO\}/);
 });
 
 test('başka gün seçiliyken personel şeridi gösterilmez', () => {
     // Şerit ŞU ANIN gerçeği: "14 Ağustos" başlığı altında bugün kimin
     // işlemde olduğunu göstermek yalan olurdu.
-    assert.match(flow, /\{isToday \? \(\s*<Animated\.View style=\{\{ opacity: stripOpacity \}\}>/);
+    // Kural artık kütüphanede: şerit YALNIZ bugün — boş olsun ya da olmasın.
+    assert.match(flow, /\{staffStripVisible\(isToday\) \? \(\s*<Animated\.View style=\{\{ opacity: stripOpacity \}\}>/);
+    assert.equal(staffStripVisible(true), true);
+    assert.equal(staffStripVisible(false), false);
 });
 
-test('boş günden ÇIKIŞ var — müdür o günde kilitlenmez', () => {
-    // Cetvel yalnız toplanmış cam levhada duruyor, levha da kaydırınca
-    // geliyor; boş günde kaydıracak içerik olmadığı için levha hiç gelmiyor
-    // ve geri dönülemiyordu.
-    assert.match(flow, /action=\{isToday \? undefined : 'Bugüne dön'\}/);
-    assert.match(flow, /onAction=\{\(\) => setSelectedISO\(mockDay\.dateISO\)\}/);
+test('boş günde HER AN en az iki dokunmatik çıkış var', () => {
+    // Geçici "Bugüne dön" hapı kalktı; yerini pedalın orta bölmesi aldı.
+    // Değişmez kural: pedal ve cetvel her zaman durur, jest üçüncüsüdür.
+    assert.match(flow, /<DayPedalBar pedal=\{pedal\} onGo=\{goToDay\}/);
+    assert.match(flow, /platePermanent \? 1 : compactOpacity/);
+    assert.equal(plateIsPermanent(true, false), true);
+    // Bugün istisna: başlık ve şerit doğruyu söylüyor, levha kaydırmaya bağlı.
+    assert.equal(plateIsPermanent(true, true), false);
 });
 
-test('boş hâl bugün ile başka günü AYIRIR', () => {
-    // Bugün boşsa gün henüz başlamamıştır; başka gün boşsa gerçekten boş
-    // geçmiştir. İkisi de "bir hata var" hissi vermemeli.
-    const today = emptyFlow(true, '14 Ağustos Cuma');
-    const other = emptyFlow(false, '14 Ağustos Cuma');
-    assert.match(today.label, /Bugün henüz/);
-    assert.match(other.label, /14 Ağustos Cuma boş geçti/);
-    assert.notEqual(today.hint, other.hint);
+test('boş hâl ÜÇ günü ayırır — geçmiş, bugün, gelecek', () => {
+    // "boş geçti" yalnız geçmiş gün içindir: gelecek bir gün için geçmiş kip
+    // yanlış bilgi verir, gün henüz yaşanmadı.
+    const today = emptyDayCopy('2026-08-14', '2026-08-14');
+    const past = emptyDayCopy('2026-08-08', '2026-08-14');
+    const future = emptyDayCopy('2026-08-19', '2026-08-14');
+    assert.match(today.title, /Bugün henüz/);
+    assert.match(past.title, /boş geçti/);
+    assert.doesNotMatch(future.title, /boş geçti/);
+    assert.match(future.hint, /henüz randevu kurulmadı/);
+    // Geçmişe randevu kurulmaz — düğme HİÇ çizilmez.
+    assert.equal(past.action, null);
+    assert.ok(today.action && future.action);
+    // Nokta yalnız bugünde: bugün bir zaman bilgisidir.
+    assert.equal(today.dot, true);
+    assert.equal(past.dot, false);
+    assert.equal(future.dot, false);
 });
 
 // ── Aşağı çekip yenileme ────────────────────────────────────────────────────

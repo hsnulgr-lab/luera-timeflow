@@ -28,7 +28,15 @@ export type Page = 1 | 2;
 export type Phase = Page;
 
 /** Ön doldurulabilen alanlar. Takvimdeki boş slottan girilince üçü de dolu gelir. */
-export type LockedField = 'date' | 'slot';
+/**
+ * Ön dolu ve DEĞİŞTİRİLEMEZ alanlar.
+ *
+ * `slot` — saat ve personel birlikte geldi (takvimde boş kareye dokunuldu).
+ * `staff` — YALNIZ personel geldi (o personelin gününden "Randevu ver"e
+ *   basıldı). Saat açık kalır ama seçenekler o kişiyle sınırlıdır: müdür
+ *   oraya "kim yapacak" diye değil, "Merve'ye iş vereyim" diye geliyor.
+ */
+export type LockedField = 'date' | 'slot' | 'staff';
 
 export interface CustomerOption {
     id: string;
@@ -85,20 +93,29 @@ export function emptyDraft(prefill?: {
     dateISO?: string;
     startMinutes?: number;
     staffId?: string;
+    /**
+     * Müşteri kartından gelindiğinde kim olduğu BELLİ. Kilitlenmez: müdür
+     * yanlış karttan gelmiş olabilir, arama alanı açık kalır.
+     */
+    customer?: CustomerOption | null;
 }): Draft {
     const locked: LockedField[] = [];
     if (prefill?.dateISO) locked.push('date');
-    // Saat ve personel TEK adımda soruluyor; ikisi birden gelmedikçe adım kalır.
+    // Saat ve personel BİRLİKTE geldiyse adım tamamen kapanır.
     if (prefill?.startMinutes !== undefined && prefill.staffId) locked.push('slot');
+    // Yalnız personel geldiyse kişi sabitlenir, saat sorulmaya devam eder.
+    else if (prefill?.staffId) locked.push('staff');
+
+    const staffLocked = locked.includes('slot') || locked.includes('staff');
 
     return {
-        customer: null,
+        customer: prefill?.customer ?? null,
         newCustomerName: null,
         newCustomerPhone: null,
         service: null,
         dateISO: prefill?.dateISO ?? null,
         startMinutes: locked.includes('slot') ? prefill?.startMinutes ?? null : null,
-        staffId: locked.includes('slot') ? prefill?.staffId ?? null : null,
+        staffId: staffLocked ? prefill?.staffId ?? null : null,
         note: null,
         locked,
     };

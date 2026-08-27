@@ -73,12 +73,9 @@ export default function CustomerScreen() {
 
     const handleBook = useCallback(() => {
         if (!card) return;
-        router.push({
-            pathname: '/(manager-flow)/randevu-olustur',
-            params: {
-                customerId: card.id,
-                customerName: card.name,
-            },
+        router.navigate({
+            pathname: '/(manager)/create',
+            params: { customerId: card.id },
         });
     }, [card, router]);
 

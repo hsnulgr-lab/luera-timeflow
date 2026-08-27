@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Keyboard, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions,
 } from 'react-native';
@@ -45,7 +45,11 @@ import type { Appt } from '../lib/calendar';
 const M = apptMetrics;
 
 export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset }: {
-    prefill?: { dateISO?: string; startMinutes?: number; staffId?: string };
+    prefill?: {
+        dateISO?: string; startMinutes?: number; staffId?: string;
+        /** Müşteri kartından gelindiğinde kim olduğu belli. */
+        customerId?: string;
+    };
     /** Onay ekranı bitince ya da vazgeçilince çağrılır. */
     onClose: () => void;
     /** Randevu kuruldu — akışa da düşsün diye çağıran haberdar edilir. */
@@ -55,12 +59,37 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
     /** Sekme çubuğu da bunun içinde: yüzen çubuk buradan 12 pt yukarıda. */
     bottomInset: number;
 }) {
+    /**
+     * Alt pay GÖRÜLEN EN BÜYÜK DEĞERDE DONAR.
+     *
+     * iOS 26'da sekme çubuğu kaydırınca küçülüyor ve güvenli alan onunla
+     * birlikte değişiyor. Payı olduğu gibi kullansaydık yüzen özet çubuğu her
+     * kaydırmada aşağı-yukarı zıplardı — çubuk sayfanın bir parçası değil,
+     * sabit bir zemin. Küçülmüş barın üstünde biraz daha yüksek durur; bu,
+     * zıplamaya tercih edilir.
+     */
+    const insetFloor = useRef(bottomInset);
+    if (bottomInset > insetFloor.current) insetFloor.current = bottomInset;
+    const inset0 = insetFloor.current;
     const { c, small } = useTheme();
     const { fontScale } = useWindowDimensions();
     const ax = fontScale > M.axFontScale;
 
-    const [draft, setDraft] = useState<Draft>(() => emptyDraft(prefill));
-    const [phase, setPhase] = useState<Phase>(() => nextPhase(emptyDraft(prefill)));
+    /**
+     * Müşteri kartından gelen kimlik gerçek bir kayda çevrilir. Bulunamazsa
+     * ön dolgu YAPILMAZ: olmayan bir müşteriyi adıyla yazmak, aynı kişiden
+     * ikinci bir kayıt açardı.
+     */
+    const seed = useMemo(() => ({
+        ...prefill,
+        customer: prefill?.customerId
+            ? mockCustomers.find((item) => item.id === prefill.customerId) ?? null
+            : null,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [prefill?.dateISO, prefill?.startMinutes, prefill?.staffId, prefill?.customerId]);
+
+    const [draft, setDraft] = useState<Draft>(() => emptyDraft(seed));
+    const [phase, setPhase] = useState<Phase>(() => nextPhase(emptyDraft(seed)));
     const [query, setQuery] = useState('');
     const [noteOpen, setNoteOpen] = useState(false);
     const [keyboardUp, setKeyboardUp] = useState(false);
@@ -159,7 +188,10 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
         appointments: dayAppointments,
         staff,
         durationMinutes: duration,
-        onlyStaffId: draft.locked.includes('slot') ? draft.staffId : null,
+        // Personel sabitse saat listesi YALNIZ o kişinin boşluklarını gösterir.
+        onlyStaffId: draft.locked.includes('slot') || draft.locked.includes('staff')
+            ? draft.staffId
+            : null,
     }) : []), [dayAppointments, staff, duration, draft.dateISO, draft.locked, draft.staffId]);
 
     const sections = useMemo(() => railSections({
@@ -178,6 +210,8 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
 
     /** Kim yapacak bir sonuç; sıradaki uygun kişiye çevirmek tek dokunuş. */
     const rotateStaff = () => {
+        // Personel sabitken çevirmek yok: müdür buraya o kişi için geldi.
+        if (draft.locked.includes('staff') || draft.locked.includes('slot')) return;
         if (draft.startMinutes === null) return;
         const free = staff.filter((person) => person.available);
         if (free.length < 2) return;
@@ -392,7 +426,12 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                         onPress={() => {
                             if (draft.locked.includes('date')) return;
                             // Gün değişince saat düşer: başka günün boşluğu bu güne taşınmaz.
-                            patch({ dateISO: day.iso, startMinutes: null, staffId: null });
+                            patch({
+                                dateISO: day.iso,
+                                startMinutes: null,
+                                // Sabit personel gün değişince de sabit kalır.
+                                staffId: draft.locked.includes('staff') ? draft.staffId : null,
+                            });
                         }}
                     />
                 ))}
@@ -444,7 +483,7 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
         ];
 
     const barRadius = small ? M.barRadiusSmall : M.barRadius;
-    const barLift = (small ? M.barLiftSmall : M.barLift) + bottomInset;
+    const barLift = (small ? M.barLiftSmall : M.barLift) + inset0;
     // Pay çubuğun GERÇEK yüksekliğinden türer: son saat satırı (20:00) camın
     // altında kalmamalı.
     const inset = (summary.length > 2 ? M.barHeight : M.barHeightMini) + barLift;
@@ -461,7 +500,7 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                 price={draft.service?.price ?? null}
                 salon={SALON_NAME}
                 topInset={topInset}
-                bottomInset={bottomInset}
+                bottomInset={inset0}
                 onDone={onClose}
             />
         );

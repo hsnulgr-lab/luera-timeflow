@@ -1,23 +1,43 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Animated, PanResponder, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
-import { formatDayLong } from '../../src/lib/calendar';
+import { addDaysISO, nowInMinutes, type Appt } from '../../src/lib/calendar';
+import { source } from '../../src/lib/calendarSource';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
-    FlowDivider, FlowEmpty, FlowEnd, FlowRow, StaffStrip,
+    FlowDivider, FlowEnd, FlowRow, StaffStrip,
 } from '../../src/components/FlowParts';
 import {
     activeCountOf, applyFlowAction, applyNoshowAction, applyWaitAction, DEMO_FLOW,
-    DEMO_TICK_MS, emptyFlow, FLOW_END, headline, mockDay,
+    bookedEvent, DEMO_TICK_MS, headline, mockDay,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
+import {
+    DayPedalBar,
+    EmptyDayAction,
+    SwipeHints,
+    VoidBlock,
+    useVoidSwap,
+} from '../../src/components/EmptyDayParts';
+import {
+    dayPedal,
+    emptyDayCopy,
+    flowEndLabel,
+    pedalIsFixed,
+    pedalVisible,
+    plateIsPermanent,
+    scrollEnabledOnDay,
+    staffStripVisible,
+    swipeClaims,
+    swipeResult,
+} from '../../src/lib/emptyDay';
 import { useManagerDay } from '../../src/state/managerDay';
-import { calendarMetrics, glow, scrubberMetrics, useTheme } from '../../src/theme';
+import { calendarMetrics, emptyDayMetrics, glow, scrubberMetrics, useTheme } from '../../src/theme';
 
 /**
  * Müdür 03 / 04 — Bugünün akışı ve kaydırılmış hâli.
@@ -45,7 +65,7 @@ import { calendarMetrics, glow, scrubberMetrics, useTheme } from '../../src/them
  * uygulama iki ayrı ürün gibi hissettirir.
  */
 export default function ManagerFlow() {
-    const { c, dark, glass, small } = useTheme();
+    const { c, dark, glass, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const router = useRouter();
@@ -99,7 +119,7 @@ export default function ManagerFlow() {
         // "Yeniden randevu" da bir geçiş: düşmüş kayıt için tek yol yeni bir
         // randevu, o da kendi ekranında açılır.
         if (label === 'Yeniden randevu') {
-            router.push({ pathname: '/(manager-flow)/randevu-olustur' });
+            router.navigate({ pathname: '/(manager)/create' });
             return;
         }
         const next = event.kind === 'arrived' ? applyWaitAction(event, label)
@@ -183,7 +203,40 @@ export default function ManagerFlow() {
      * bir cümleyle söyler. Uç yazıldığında yalnız bu filtre sunucuya döner.
      */
     const isToday = selectedISO === mockDay.dateISO;
-    const dayEvents = isToday ? events : [];
+
+    /**
+     * Başka günün randevuları.
+     *
+     * Bugünün akışı canlı olay akışıdır (geldi, başladı, tahsilat); başka
+     * günün akışı ise o günün RANDEVULARIdır — henüz yaşanmamış ya da artık
+     * yaşanmış bir gün için "şu an" diye bir şey yok.
+     *
+     * Kaynak zaten güne göre sorgulanabiliyordu; ekran sormuyordu. Randevu
+     * kurulduğunda takvimde görünüp akışta görünmemesinin sebebi buydu.
+     */
+    const [otherDay, setOtherDay] = useState<Appt[]>([]);
+    const loadOtherDay = useCallback(() => {
+        if (isToday) { setOtherDay([]); return undefined; }
+        let alive = true;
+        void source.day(selectedISO).then((list) => {
+            if (alive) setOtherDay(list);
+        });
+        return () => { alive = false; };
+    }, [isToday, selectedISO]);
+
+    // Randevu kurup geri dönünce o günün listesi yeniden okunur; yoksa yeni
+    // randevu takvimde görünüp akışta görünmezdi.
+    useFocusEffect(loadOtherDay);
+
+    const dayEvents = useMemo(() => {
+        if (isToday) return events;
+        return otherDay
+            .filter((appointment) => appointment.status !== 'cancelled')
+            .map((appointment) => bookedEvent(
+                appointment,
+                day.presence.find((person) => person.id === appointment.staff_id)?.name,
+            ));
+    }, [isToday, events, otherDay, day.presence]);
 
     // Şerit ve özet ŞU ANIN gerçeği — başka bir gün seçiliyken anlamsızlar.
     // Bugünün cirosunu "14 Ağustos" başlığı altında göstermek yalan olurdu.
@@ -193,7 +246,66 @@ export default function ManagerFlow() {
     const subtitle = isToday
         ? headline(weekday, day.appointmentCount, activeCountOf(people))
         : weekday;
-    const blank = emptyFlow(isToday, formatDayLong(selectedISO));
+    /**
+     * Müdür 22 — boş gün.
+     *
+     * Boş günde levha KALICI olur (dev başlığın taşıyacağı bir şey yok),
+     * düşey kaydırma kapanır (kaydırılacak içerik yok, lastik bant sahte bir
+     * hareket üretmesin) ve gezinme başparmak bölgesine iner.
+     *
+     * Tek istisna bugün: bugün boş olsa da başlık ve şerit doğruyu söylüyor,
+     * orada levha yine kaydırmaya bağlı kalır.
+     */
+    const isEmptyDay = dayEvents.length === 0;
+    const platePermanent = plateIsPermanent(isEmptyDay, isToday);
+    const canScroll = scrollEnabledOnDay(isEmptyDay, isToday);
+    const blank = emptyDayCopy(selectedISO, mockDay.dateISO);
+    const pedal = dayPedal(selectedISO, mockDay.dateISO);
+
+    // Gün değişiminin YÖNÜ: cümle bu yöne doğru takas edilir.
+    const [slideDir, setSlideDir] = useState(0);
+    const goToDay = useCallback((iso: string) => {
+        setSlideDir(iso > selectedISO ? 1 : iso < selectedISO ? -1 : 0);
+        setSelectedISO(iso);
+    }, [selectedISO]);
+
+    const shiftDay = useCallback((step: -1 | 1) => {
+        goToDay(addDaysISO(selectedISO, step));
+    }, [goToDay, selectedISO]);
+
+    /**
+     * Yatay kaydırma — üçüncü çıkış ve YALNIZ hızlandırıcı.
+     *
+     * `react-native-gesture-handler` projede yok; jest RN'in kendi
+     * `PanResponder`'ıyla kurulur. Eşik yüksek: yanılma payı yüksek bir jestin
+     * tek çıkış olması kabul edilemezdi — o yüzden pedal var.
+     */
+    const voidSwap = useVoidSwap(selectedISO, slideDir, reduceMotion);
+
+    // Saat rayındaki "şu an" — dakikada bir tazelenir, saniye saymaz.
+    const [nowMinutes, setNowMinutes] = useState(() => nowInMinutes());
+    useEffect(() => {
+        const timer = setInterval(() => setNowMinutes(nowInMinutes()), 60_000);
+        return () => clearInterval(timer);
+    }, []);
+
+    /**
+     * Başparmak bölgesinin yüksekliği. Pedal ALTTAN hizalı, birincil eylem
+     * onun üstüne eklenir: böylece eylemi olan ve olmayan gün arasında pedal
+     * hiç kıpırdamaz.
+     */
+    const emptyFootHeight = calendarMetrics.bottomInset
+        + emptyDayMetrics.pedalHeight
+        + emptyDayMetrics.actionGap * 2
+        + (blank.action ? emptyDayMetrics.actionHeight + emptyDayMetrics.actionGap : 0);
+
+    const swipe = useMemo(() => PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => canScroll === false && swipeClaims(g.dx, g.dy),
+        onPanResponderRelease: (_e, g) => {
+            const step = swipeResult(g.dx, g.vx);
+            if (step !== 0) shiftDay(step);
+        },
+    }), [canScroll, shiftDay]);
 
     /**
      * `contentInsetAdjustmentBehavior="automatic"` verildiğinde iOS güvenli
@@ -236,23 +348,25 @@ export default function ManagerFlow() {
     // Şeritten avatara dokununca o personelin günü açılır (Müdür 05).
     const openStaff = (staffId: string) => router.push(`/personel/${staffId}`);
 
+    /**
+     * Akıştaki müşteri balonu → Müdür 23 müşteri kartı.
+     *
+     * Kimlik VE ad birlikte gider: kimlik doğru kaydı seçer, ad kayıt
+     * bulunamazsa ekranın ne arandığını söyleyebilmesi için.
+     */
+    const openCustomer = (event: FlowEvent) => {
+        if (!event.customerId) return;
+        router.push({
+            pathname: '/(staff-flow)/customer',
+            params: {
+                customerId: event.customerId,
+                customerName: `${event.firstName} ${event.lastName}`,
+            },
+        });
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
-            {/* Uygulamanın TEK gradyanı; kaydırınca söner. */}
-            <Animated.View
-                pointerEvents="none"
-                style={[
-                    StyleSheet.absoluteFill,
-                    { height: glow.height + insets.top, zIndex: 0, opacity: glowOpacity },
-                ]}
-            >
-                <LinearGradient
-                    colors={dark ? glow.dark : glow.light}
-                    locations={glow.locations}
-                    style={StyleSheet.absoluteFill}
-                />
-            </Animated.View>
-
             <Animated.ScrollView
                 collapsable={false}
                 scrollEventThrottle={16}
@@ -273,30 +387,95 @@ export default function ManagerFlow() {
                     />
                 )}
                 contentInsetAdjustmentBehavior="automatic"
-                contentContainerStyle={{ paddingBottom: calendarMetrics.bottomInset }}
-                style={{ flex: 1, zIndex: 1 }}
+                // Boş günde kaydırılacak bir şey yok; lastik bant sahte bir
+                // hareket üretmesin.
+                scrollEnabled={canScroll}
+                contentContainerStyle={{
+                    /*
+                     * Levha kalıcıyken içerik ONUN ALTINDAN başlar. Kaydırmaya
+                     * bağlı levhada içerik altından geçer (o zaten geçici bir
+                     * örtü); kalıcı levhada geçseydi ilk satırın saati ve
+                     * etiketi sürekli örtülü kalırdı.
+                     */
+                    paddingTop: platePermanent ? panelInset + insets.top : 0,
+                    paddingBottom: isEmptyDay ? emptyFootHeight : calendarMetrics.bottomInset,
+                    flexGrow: isEmptyDay ? 1 : undefined,
+                }}
+                style={{ flex: 1 }}
+                {...(isEmptyDay ? swipe.panHandlers : null)}
             >
-                <Animated.View style={{ opacity: expandedOpacity }}>
-                    <DayHeader dateISO={selectedISO} subtitle={subtitle} transparent />
+                {/**
+                 * Uygulamanın TEK gradyanı — ve KAYDIRICININ İÇİNDE.
+                 *
+                 * Ekranın kökünde, kaydırıcıdan ÖNCE duruyordu. iOS 26'da
+                 * sekme çubuğunun kaydırınca küçülmesi (`minimizeBehavior`)
+                 * UIKit'in kaydırıcıyı ilk-alt-görünüm zincirini yürüyerek
+                 * bulmasına bağlı; zincirin başında gradyan olduğu sürece
+                 * kaydırıcı hiç bulunamıyor ve bar hiç küçülmüyordu
+                 * (react-native-screens#4145).
+                 *
+                 * İçeri alındı, ama EKRANDA SABİT KALIYOR: `translateY`
+                 * kaydırma miktarını geri veriyor, yani gradyan içerikle
+                 * birlikte yukarı kaymıyor. Görünüş birebir eskisi gibi;
+                 * değişen tek şey görünümlerin sırası.
+                 */}
+                <Animated.View
+                    pointerEvents="none"
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        // Kalıcı levhada içerik aşağıdan başlıyor; gradyan
+                        // yine sayfanın en üstünden başlamalı.
+                        top: platePermanent ? -(panelInset + insets.top) : 0,
+                        // Boş günde kaydırma olmadığı için gradyan HİÇ sönmez
+                        // ve yüksekliği sabitlenir: cümle gradyanın son
+                        // diliminde, düz zemine oturur.
+                        height: isEmptyDay
+                            ? (isToday ? emptyDayMetrics.glowHeightToday : emptyDayMetrics.glowHeight) + insets.top
+                            : glow.height + insets.top,
+                        opacity: isEmptyDay ? 1 : glowOpacity,
+                        transform: [{ translateY: scrollY }],
+                    }}
+                >
+                    <LinearGradient
+                        colors={dark ? glow.dark : glow.light}
+                        locations={glow.locations}
+                        style={StyleSheet.absoluteFill}
+                    />
                 </Animated.View>
+
+                {/* Dev başlık YALNIZ bugün: başka günde söyleyebileceği tek
+                    şey gün adı, kimliği levha taşıyor. */}
+                {platePermanent ? null : (
+                    <Animated.View style={{ opacity: expandedOpacity }}>
+                        <DayHeader dateISO={selectedISO} subtitle={subtitle} transparent />
+                    </Animated.View>
+                )}
 
                 {/* Şerit kendi eşiğiyle söner (0–40) ve toplanmış hâlde
                     kaybolur; levhanın altına yapışkan bir kopya çizilmez. */}
-                {isToday ? (
+                {staffStripVisible(isToday) ? (
                     <Animated.View style={{ opacity: stripOpacity }}>
                         <StaffStrip people={people} onOpen={openStaff} />
                     </Animated.View>
                 ) : null}
 
-                {dayEvents.length === 0 ? (
-                    <FlowEmpty
-                        label={blank.label}
-                        hint={blank.hint}
-                        // Boş günde cetvel görünmüyor (levha kaydırınca geliyor,
-                        // kaydıracak içerik yok): çıkış kartın kendisinde.
-                        action={isToday ? undefined : 'Bugüne dön'}
-                        onAction={() => setSelectedISO(mockDay.dateISO)}
-                    />
+                {isEmptyDay ? (
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        paddingTop: platePermanent
+                            ? emptyDayMetrics.topFromPlate
+                            : emptyDayMetrics.topFromStrip,
+                    }}>
+                        <VoidBlock
+                            copy={blank}
+                            isToday={isToday}
+                            nowMinutes={nowMinutes}
+                            entering={voidSwap}
+                        />
+                    </View>
                 ) : null}
 
                 {dayEvents.map((event, index) => (
@@ -308,12 +487,59 @@ export default function ManagerFlow() {
                             fresh={event.id === freshId}
                             onAction={(label) => onAction(event, label)}
                             onMore={event.appointmentId ? openAppointment : undefined}
+                            onOpenCustomer={openCustomer}
                         />
                     </Fragment>
                 ))}
 
-                {dayEvents.length > 0 ? <FlowEnd label={FLOW_END} /> : null}
+                {dayEvents.length > 0 ? <FlowEnd label={flowEndLabel(isToday)} /> : null}
+
+                {/* Dolu günde pedal listenin ALTINDA, sayfayla birlikte kayar.
+                    Gezinme boş hâlin özel öğesi değil — bir yerde öğrenilen
+                    şey her yerde bulunur. */}
+                {pedalVisible(isEmptyDay, isToday) && !pedalIsFixed(isEmptyDay) ? (
+                    <View style={{ paddingTop: emptyDayMetrics.actionGap * 2 }}>
+                        <DayPedalBar pedal={pedal} onGo={goToDay} />
+                    </View>
+                ) : null}
             </Animated.ScrollView>
+
+            {/* Jest okları — jesti öğretir, dokunulamaz. Yalnız boş ekranda:
+                dolu günde düşey kaydırma var, çakışır. */}
+            {isEmptyDay ? <SwipeHints /> : null}
+
+            {/**
+             * Başparmak bölgesi. Cetvel tepede duruyor; 393 × 852'de ekranın
+             * üst 150 pt'si tek elle ulaşılmaz, o yüzden gezinme buraya iner.
+             *
+             * Pedal ALTTAN hizalı ve her boş günde AYNI y'de durur; birincil
+             * eylem onun üstüne eklenir. Geçmiş günde eylem satırı silinmez,
+             * HİÇ render edilmez — yerine boşluk da bırakılmaz.
+             */}
+            {pedalIsFixed(isEmptyDay) ? (
+                <View
+                    pointerEvents="box-none"
+                    style={{
+                        position: 'absolute',
+                        left: emptyDayMetrics.padX,
+                        right: emptyDayMetrics.padX,
+                        bottom: calendarMetrics.bottomInset,
+                        gap: emptyDayMetrics.actionGap,
+                        zIndex: 2,
+                    }}
+                >
+                    {blank.action ? (
+                        <EmptyDayAction
+                            label={blank.action}
+                            onPress={() => router.navigate({
+                                pathname: '/(manager)/create',
+                                params: { date: selectedISO },
+                            })}
+                        />
+                    ) : null}
+                    <DayPedalBar pedal={pedal} onGo={goToDay} />
+                </View>
+            ) : null}
 
             {/**
              * Müdür 13 — asılı cam levha.
@@ -339,10 +565,13 @@ export default function ManagerFlow() {
                     // Çentikler ve dikey çizgiler alt kenarda biter; hiçbir
                     // şey levhanın dışına taşmaz.
                     overflow: 'hidden',
-                    opacity: compactOpacity,
-                    transform: [{ translateY: compactTranslateY }],
+                    // Levhanın kuralı İÇERİĞE bağlı, kaydırmaya değil:
+                    // boş günde dev başlığın taşıyacağı bir şey yok, levha
+                    // doğrudan gelir ve gitmez.
+                    opacity: platePermanent ? 1 : compactOpacity,
+                    transform: [{ translateY: platePermanent ? 0 : compactTranslateY }],
                 }}
-                pointerEvents={collapsed ? 'auto' : 'none'}
+                pointerEvents={platePermanent || collapsed ? 'auto' : 'none'}
             >
                 {/**
                   * BUZLU CAM — üç katman (Müdür 19 · 01).

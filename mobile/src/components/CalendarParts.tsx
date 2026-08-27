@@ -267,13 +267,26 @@ export function WeekStrip({
         <View style={[styles.weekStrip, { borderBottomColor: c.bd }, style]}>
             {days.map((day) => {
                 const selected = day.date === selectedISO;
-                const count = counts[day.date] ?? 0;
-                const dotSize = count >= 3 ? part.weekDotDense : part.weekDot;
+                /*
+                 * BİLİNMEYEN GÜN İLE BOŞ GÜN AYRI ŞEYDİR.
+                 *
+                 * Daha önce `counts[day.date] ?? 0` yazıyordu: sayılar
+                 * okunamadığında bütün günler "sıfır randevu" oluyordu ve ekran
+                 * müdüre olmayan bir bilgiyi söylüyordu. Sıfır bir ölçümdür,
+                 * bilinmemek bir boşluktur. Anahtar yoksa nokta çizilmez ve
+                 * ekran okuyucu "randevu yok" DEMEZ.
+                 */
+                const count = counts[day.date];
+                const known = count !== undefined;
+                const dotSize = known && count >= 3 ? part.weekDotDense : part.weekDot;
                 return (
                     <Pressable
                         key={day.date}
                         accessibilityRole="button"
-                        accessibilityLabel={`${fullDate(day.date)}, ${count ? `${count} randevu` : 'randevu yok'}`}
+                        accessibilityLabel={`${fullDate(day.date)}, ${
+                            !known ? 'randevu sayısı bilinmiyor'
+                                : count ? `${count} randevu` : 'randevu yok'
+                        }`}
                         accessibilityState={{ selected }}
                         hitSlop={space.xs}
                         onPress={() => onSelect(day.date)}
@@ -311,7 +324,7 @@ export function WeekStrip({
                             {upperTR(day.label)}
                         </Text>
                         <View style={styles.weekMarker}>
-                            {count > 0 ? (
+                            {known && count > 0 ? (
                                 <View style={{
                                     width: dotSize,
                                     height: dotSize,
@@ -319,7 +332,7 @@ export function WeekStrip({
                                     backgroundColor: count >= 3 ? c.tx2 : c.tx3,
                                 }} />
                             ) : null}
-                            {count > 0 ? <View style={[styles.weekHair, { backgroundColor: c.bd }]} /> : null}
+                            {known && count > 0 ? <View style={[styles.weekHair, { backgroundColor: c.bd }]} /> : null}
                         </View>
                     </Pressable>
                 );
@@ -510,15 +523,20 @@ export function MonthGrid({
                 <View key={week[0].date} style={styles.monthRow}>
                     {week.map((cell) => {
                         const selected = cell.date === selectedISO;
-                        const count = counts[cell.date] ?? 0;
-                        const dense = count >= 3;
-                        const dots = Math.min(3, count);
+                        // Aynı kural: anahtar yoksa gün BİLİNMİYOR, boş değil.
+                        const count = counts[cell.date];
+                        const known = count !== undefined;
+                        const dense = known && count >= 3;
+                        const dots = known ? Math.min(3, count) : 0;
                         return (
                             <Pressable
                                 key={cell.date}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
-                                accessibilityLabel={`${fullDate(cell.date)}, ${count ? `${count} randevu` : 'randevu yok'}`}
+                                accessibilityLabel={`${fullDate(cell.date)}, ${
+                                    !known ? 'randevu sayısı bilinmiyor'
+                                        : count ? `${count} randevu` : 'randevu yok'
+                                }`}
                                 onPress={() => onSelect(cell.date)}
                                 style={({ pressed }) => [
                                     styles.monthCell,
