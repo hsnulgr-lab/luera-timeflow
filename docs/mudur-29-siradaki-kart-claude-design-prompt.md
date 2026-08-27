@@ -226,7 +226,7 @@ Her hareket için ayrıca: süre, eğri, gecikme, ve **`reduceMotion` karşılı
    edilir ama bağırmaz?
 2. Cevapsızlık randevu yaklaştıkça **biçim değiştirmeli mi**?
 3. Kart ekranda dururken canlı bir onay cevabı gelirse satır **nasıl
-   beliriyor**? (Yalnız opacity/translate/scale.)
+   beliriyor** — ve bu hareket hangi bedel kutusunda (A/B/C)?
 4. Eklenen satırlar kartı **kaç pt büyütüyor** ve bu bedel neyle ödeniyor?
 5. Geri sayım rakamının dakikalık değişimi **nasıl görünür ama rahatsız
    etmez**? (Saatte otuz kez oluyor.)
