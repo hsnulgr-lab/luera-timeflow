@@ -141,6 +141,61 @@ A2'de `Selin şu an işlemde · 08 dk` satırı var ve doğru. A1'de yok — oys
 asıl kritik soru orada. Kartı büyütmeden nasıl girer? (Alt satır zaten
 `Keratin bakımı · 45 dk · Selin ile` diyor; belki cevap orada.)
 
+### D · Hareket — bu turda daha iddialı olmanı istiyorum
+
+Kart ailesinin hareketi bugün doğru ama **temkinli**. Bu turda kaliteli
+hissettiren bir katman istiyorum. Kural basit ve pazarlığa kapalı:
+
+> **Hareket DEĞİŞİMDE olur, boşta olmaz.**
+
+Bu kart günde otuz kez görülüyor. Sürekli dönen, nabız atan, parlayan hiçbir
+şey olmayacak — üçüncü günde işkenceye döner. Ama bir şey **değiştiğinde** o
+değişim güzel anlatılmalı. Kalite tam olarak burada: nefes alan bir ekran
+değil, **yerine oturan** bir ekran.
+
+Tasarlamanı istediğim beş an:
+
+1. **Kart sıradaki olduğunda.** Bir önceki randevu kapanır, bu kart listenin
+   başına geçer. Bugün sessizce yerinde beliriyor. Sıralı bir giriş
+   (kimlik → panel → düğmeler) bu ana ağırlık verir. Kaç adım, kaç ms arayla?
+2. **Geri sayım rakamı değiştiğinde.** `7 dk` → `6 dk`, dakikada bir, saatte
+   otuz kez. **En zor an bu:** görülmesi gerekiyor ama rahatsız etmemeli.
+   Rakam takas mı ediliyor, yerinde mi kalıyor, yalnız son hane mi oynuyor?
+   Ve son beş dakikada davranış değişmeli mi?
+3. **Güven satırı canlı geldiğinde.** Müşteri "geleceğim" yazdı, kart ekranda
+   duruyor. Satır nasıl beliriyor ve kartın geri kalanı bundan nasıl
+   etkileniyor?
+4. **Gecikmeye düştüğünde.** Panelin soluna 4 pt çizgi girer, etiket
+   `girmesine` → `gecikti` olur. İki yüzey çapraz solar (renk
+   animasyonlanamaz). Bu bir alarm mı, sakin bir dönüşüm mü?
+5. **"Geldi"ye basıldığında.** Kart bekleme kartına **dönüşür** — bu ailenin
+   kuralı: *"üç hâl aynı karttır, aralarındaki geçiş takas değil dönüşümdür."*
+   Bugünkü sözleşme: çıkan 160 ms, giren 220 ms, 60 ms gecikmeli, 6 pt kalkış.
+   Daha iyisini öneriyorsan öner ve gerekçelendir.
+
+**Elimizdeki hareket sözlüğü** (uyumlu kalsın, gerekirse genişlet):
+
+| An | Çıkan | Giren | Gecikme | Kalkış |
+|---|---|---|---|---|
+| "Geldi" basışı | 160 | 220 | 60 | 6 / 8 |
+| Bekliyor → Sürüyor | 180 | 240 | 140 | 5 / 6 |
+| Devir | 260 | 300 | 80 | 4 / 6 |
+| Tahsilat oturması | 300 | 240 | 60 | 0 / 4 |
+
+Eğriler: çıkan `cubic-bezier(.4, 0, 1, 1)` (hızlanarak gider), giren
+`cubic-bezier(.2, .8, .25, 1)` (yavaşlayarak oturur).
+
+**Sınırlar aynen geçerli:** yalnız `opacity`, `translateX/Y`, `scale`; hepsi
+`useNativeDriver: true`. Yükseklik, genişlik, renk, yarıçap, gölge, blur
+animasyonlanamaz — renk değişimi ancak iki yüzeyin çapraz solmasıyla olur.
+`LayoutAnimation` yok, `reanimated` yok. **Her hareketin `reduceMotion`
+karşılığı da yazılacak** (hareket yok, sonuç anında).
+
+Bu sınırların içinde iddialı olmanın yolları var ve onları kullanmanı
+istiyorum: gecikmeli sıralı girişler, ölçek + soldurma birleşimleri, üst üste
+binen katmanların ayrı hızlarda gelmesi, `translateX` ile kayan bir vurgu.
+İmkânsız bir şey tarif edersen uygulanamaz ve kart bugünkü hâlinde kalır.
+
 ---
 
 ## 4 · Değişmeyecekler
@@ -168,7 +223,7 @@ asıl kritik soru orada. Kartı büyütmeden nasıl girer? (Alt satır zaten
 
 ---
 
-## 5 · Cevaplamanı istediğim dört soru
+## 5 · Cevaplamanı istediğim beş soru
 
 1. Üç güven hâlinin **görsel ağırlık sırası** ne, ve "riskli" nasıl fark
    edilir ama bağırmaz?
@@ -176,6 +231,8 @@ asıl kritik soru orada. Kartı büyütmeden nasıl girer? (Alt satır zaten
 3. Kart ekranda dururken canlı bir onay cevabı gelirse satır **nasıl
    beliriyor**? (Yalnız opacity/translate/scale.)
 4. Eklenen satırlar kartı **kaç pt büyütüyor** ve bu bedel neyle ödeniyor?
+5. Geri sayım rakamının dakikalık değişimi **nasıl görünür ama rahatsız
+   etmez**? (Saatte otuz kez oluyor.)
 
 ## 6 · Çıktı
 
