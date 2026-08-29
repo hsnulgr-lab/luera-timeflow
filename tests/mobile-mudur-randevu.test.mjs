@@ -14,6 +14,7 @@ import {
     untilLabel,
 } from '../mobile/src/lib/createFlow.ts';
 import { addDaysISO, dayNameShort, dayNumber, daysBetween, formatDayLong } from '../mobile/src/lib/calendar.ts';
+import { NO_PHONE_REASON, sendGate } from '../mobile/src/lib/apptConfirm.ts';
 
 // Müdür 15 — randevu oluştur.
 //
@@ -621,4 +622,26 @@ test('sayfa 1de hiçbir seçim yokken çubuk mini', () => {
 test('tasarım belgesi projede duruyor', () => {
     assert.ok(design.includes('Randevu oluştur'));
     assert.ok(design.includes('v2 değişiklik listesi'));
+});
+
+// ── "Numara ekle" kaldırıldı · 2026-08-30 ──────────────────────────────────
+//
+// Düğme `onDone` çağırıyordu — numara eklemiyor, ekranı kapatıyordu. Yerine
+// gerçek bir alan denendi ama bu ekranda yeri yok: blok klavyeyle birlikte
+// yükselince kartın üstüne biniyor. Numara müşteri kaydına ait; yeri müşteri
+// kartı, randevu onayı değil.
+
+test('onay ekranında ölü "Numara ekle" düğmesi yok', () => {
+    const src = readFileSync(new URL('../mobile/src/components/ConfirmScreen.tsx', import.meta.url), 'utf8');
+    // Aranan şey KODU: neden kaldırıldığını anlatan yorum da bu kelimeleri
+    // taşıyor, o kalmalı.
+    assert.equal(src.includes('label="Numara ekle"'), false, 'düğme geri gelmiş');
+    assert.equal(src.includes('onAddPhone'), false, 'yarım kalmış akış duruyor');
+});
+
+test('numarasız randevuda sebep hâlâ KELİMEYLE yazılı', () => {
+    // Düğme gitti ama bilgi gitmedi: müdür mesajın neden gidemediğini
+    // görmeye devam ediyor.
+    assert.equal(sendGate('idle', false).enabled, false);
+    assert.equal(sendGate('idle', false).reason, NO_PHONE_REASON);
 });

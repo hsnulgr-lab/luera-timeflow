@@ -6,7 +6,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Glass } from './Glass';
-import { CheckIcon, PlusIcon } from './ApptParts';
+import { CheckIcon } from './ApptParts';
 import { feedback } from '../lib/feedback';
 import {
     COUNTDOWN_MS, confirmCopy, confirmSpeech, countdownFor, countdownRuns,
@@ -310,12 +310,17 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
 
                     {gate.reason ? <WhyRow text={gate.reason} opacity={pulse} /> : null}
 
-                    {state === 'idle' && !hasPhone ? (
-                        <View style={{ flexDirection: 'row', gap: 10 }}>
-                            <SecondaryButton label="Numara ekle" filled ax={ax} onPress={onDone} icon />
-                            <SecondaryButton label="Kapat" ax={ax} onPress={onDone} />
-                        </View>
-                    ) : copy.secondary ? (
+                    {/* "NUMARA EKLE" KALDIRILDI — karar 2026-08-30.
+                        Düğme `onDone` çağırıyordu, yani numara eklemiyor
+                        ekranı kapatıyordu: yazdığını yapmayan bir kontrol.
+                        Yerine gerçek bir alan denendi ama bu ekranda yeri
+                        yok — blok klavyeyle birlikte yükselince kartın
+                        üstüne biniyor. Numara müşteri kaydına ait; onun yeri
+                        müşteri kartı, randevu onayı değil.
+
+                        Kalan tek ikincil eylem `Kapat`; özel dal da gereksiz
+                        kaldı, `copy.secondary` zaten "Kapat" döndürüyor. */}
+                    {copy.secondary ? (
                         <SecondaryButton label={copy.secondary} ax={ax} onPress={onDone} />
                     ) : null}
 
@@ -706,8 +711,15 @@ function PrimaryButton({ label, state, enabled, ax, ink, onPress }: {
     );
 }
 
-function SecondaryButton({ label, filled, ax, onPress, icon }: {
-    label: string; filled?: boolean; ax: boolean; onPress: () => void; icon?: boolean;
+/**
+ * İkincil eylem — ekranda tek tane var, o da "Kapat".
+ *
+ * `filled` ve `icon` seçenekleri "Numara ekle" düğmesi içindi; o düğme
+ * kaldırılınca ikisi de çağıran kalmadan kaldı ve silindi. Kullanılmayan
+ * seçenek, olmayan bir hâlin hâlâ mümkün olduğunu düşündürür.
+ */
+function SecondaryButton({ label, ax, onPress }: {
+    label: string; ax: boolean; onPress: () => void;
 }) {
     const { c } = useTheme();
     return (
@@ -720,14 +732,12 @@ function SecondaryButton({ label, filled, ax, onPress, icon }: {
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 height: ax ? M.secondaryHeightAx : M.secondaryHeight,
                 borderRadius: M.secondaryRadius,
-                backgroundColor: filled ? c.tint : 'transparent',
-                borderWidth: filled ? 1 : 0, borderColor: c.bd2,
+                backgroundColor: 'transparent',
                 opacity: pressed ? 0.7 : 1,
             })}
         >
-            {icon ? <PlusIcon color={c.tx} size={17} /> : null}
             <Text style={{
-                color: filled ? c.tx : c.tx2,
+                color: c.tx2,
                 fontSize: ax ? M.secondaryTextAx : M.secondaryText,
                 fontFamily: font.bold, fontWeight: '700',
             }}>
