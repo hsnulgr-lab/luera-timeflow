@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    amountSize, applyVoid, comparisonLabel, counterLine, customerCardLabel, deltaOf,
+    amountSize, applyCorrection, applyVoid, canCorrect, comparisonLabel, counterLine, customerCardLabel, deltaOf,
     emptyComparison, formatAmount, formatMoney, hasPending, isCounted, methodLabel,
     methodWord, mockEmptyPending, mockMovements, mockPending, pendingSubtitle,
-    periodLabel, PERIODS, ratioSpeech, summaryLine, totalsOf, traceLine, voidDialog,
+    parseAmount, periodLabel, PERIODS, ratioSpeech, summaryLine, totalsOf, traceLine, voidDialog,
     waitLabel, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, EMPTY_TITLE,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
@@ -500,4 +500,83 @@ test('bekleyen adisyon şeridi ÖLÜ DEĞİL — Akış\'a götürüyor', () => 
     // adisyonların gerçek yeri Akış: her biri kendi satırında, "Tahsil et"
     // düğmesiyle duruyor.
     assert.match(screen, /onPress=\{\(\) => router\.navigate\('\/\(manager\)'\)\}/);
+});
+
+// ── Düzeltme · 2026-08-30 ───────────────────────────────────────────────────
+//
+// "Düzelt" düğmesi vardı ve `onPress`i YOKTU: basılıp hiçbir şey olmuyordu.
+// Ekranın kendi cümlesi davranışı zaten tarif ediyordu; eksik olan davranıştı.
+
+test('düzeltme güncellemez — eskisi iptal, yenisi üstüne yazılır', () => {
+    const before = [
+        { id: 'm1', time: '11:34', customer: 'Merve Aydın', initials: 'MA', service: 'Kesim', staff: 'Merve', amount: 1800, method: 'card', status: 'normal' },
+    ];
+    const after = applyCorrection(before, 'm1', 1500, null, '12:02');
+    assert.equal(after.length, 2, 'iki kayıt olmalı: yeni ve iptal edilmiş eski');
+    assert.equal(after[0].amount, 1500, 'yeni tutar ÜSTTE');
+    assert.equal(after[0].status, 'corrected');
+    assert.equal(after[0].correctedFrom, 'm1', 'iz yok');
+    assert.equal(after[1].id, 'm1');
+    assert.equal(after[1].status, 'voided', 'eski kayıt iptal edilmedi');
+    assert.equal(after[1].amount, 1800, 'eski tutar DEĞİŞMEMELİ — denetim izi');
+});
+
+test('düzeltme kalemleri taşımaz — toplamı tutmayan döküm yanıltır', () => {
+    const before = [{
+        id: 'm1', time: '11:34', customer: 'A', initials: 'A', service: 'S', staff: 'M',
+        amount: 1800, method: 'cash', status: 'normal',
+        lines: [{ name: 'Kesim', amount: 1000 }, { name: 'Fön', amount: 800 }],
+    }];
+    const after = applyCorrection(before, 'm1', 1500, null, '12:02');
+    assert.equal(after[0].lines, undefined);
+    // Eskisinin dökümü DURUYOR: o kayıt hâlâ doğru.
+    assert.equal(after[1].lines.length, 2);
+});
+
+test('iptal edilmiş kayıt düzeltilmez', () => {
+    const before = [
+        { id: 'm1', time: '11:34', customer: 'A', initials: 'A', service: 'S', staff: 'M', amount: 1800, method: 'cash', status: 'voided' },
+    ];
+    assert.deepEqual(applyCorrection(before, 'm1', 1500, null, '12:02'), before);
+});
+
+test('sıfır ve aynı tutar kaydedilemez', () => {
+    // Sıfır bir tahsilat değil; öyle bir şey olduysa yapılacak şey İPTAL.
+    assert.equal(parseAmount('0'), null);
+    assert.equal(parseAmount(''), null);
+    assert.equal(parseAmount('1.500'), 1500, 'ayırıcı yazan müdür cezalandırılmaz');
+    // Aynı tutar düzeltme değildir — kasaya iki satır ekleyip hiçbir şeyi
+    // değiştirmezdi.
+    assert.equal(canCorrect('1800', 1800), false);
+    assert.equal(canCorrect('1500', 1800), true);
+});
+
+test('Düzelt düğmesi ölü değil', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
+    assert.match(sheet, /accessibilityLabel=\{ACTION_CORRECT\}[\s\S]{0,80}onPress=/);
+    assert.match(sheet, /onCorrect\?\.\(amount\)/);
+});
+
+test('kasa fişi aşağı çekilerek kapanır', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    assert.match(src, /PanResponder\.create/, 'tutamaç hâlâ dekoratif');
+    assert.match(src, /drag\.panHandlers/);
+});
+
+test('fişin boyu içerikten türer', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
+    // Sabit `height` kısa fişi de ekranın dörtte üçüne şişiriyordu.
+    assert.match(sheet, /maxHeight: sheetHeight/);
+    assert.equal(/\n\s+height: sheetHeight,/.test(sheet), false, 'boy hâlâ sabit');
+});
+
+test('düzeltme alanı klavyenin altında kalmaz', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    assert.match(src, /Keyboard\.addListener/, 'fiş klavyeyle birlikte kalkmıyor');
+    // Kaldırma, SÜRÜKLEME değerinden ayrı bir katman: parmakla çekerken ikisi
+    // aynı değeri yazsaydı fiş zıplardı.
+    assert.match(src, /transform: \[\{ translateY: y \}, \{ translateY: lift \}\]/);
+    assert.match(src, /keyboardDidShow/, 'Android olayı dinlenmiyor');
 });

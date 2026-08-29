@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
 import { MovementSheet, VoidDialog } from '../../src/components/CashSheets';
 import {
-    applyVoid, counterLine, deltaOf, emptyComparison, hasPending, mockMovements,
+    applyCorrection, applyVoid, counterLine, deltaOf, emptyComparison, hasPending, mockMovements,
     mockPrevious, periodLabel, PERIODS, ratioSpeech,
     summaryLine, totalsOf,
     DAY_END, EMPTY_TITLE, formatAmount, pendingSubtitle, pendingTitle,
@@ -395,6 +395,21 @@ export default function ManagerKasa() {
                     movement={openMovement}
                     onClose={() => setOpenId(null)}
                     onVoid={() => { setVoidingId(openMovement.id); setOpenId(null); }}
+                    onCorrect={(amount) => {
+                        /*
+                         * Düzeltme GÜNCELLEME DEĞİL: eski kayıt iptal edilir,
+                         * yenisi üstüne yazılır — ekranın kendi cümlesi
+                         * (`CORRECTION_NOTE`) bunu zaten söylüyordu, davranış
+                         * artık ona uyuyor.
+                         *
+                         * İptalle aynı gerekçe: düzelten KİŞİ uydurulmuyor,
+                         * oturumdan gelene kadar iz yalnız saati taşır.
+                         */
+                        setMovements((list) => applyCorrection(
+                            list, openMovement.id, amount, null, hhmm(nowInMinutes()),
+                        ));
+                        setOpenId(null);
+                    }}
                 />
             ) : null}
 

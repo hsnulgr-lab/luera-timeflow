@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Animated, Easing, Modal, Pressable, ScrollView, Text, useWindowDimensions, View,
+    Animated, Easing, Keyboard, Modal, PanResponder, Platform, Pressable, ScrollView,
+    Text, TextInput, useWindowDimensions, View,
     type TextStyle, type ViewStyle,
 } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
@@ -10,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chevron, Money } from './CashParts';
 import {
     ACTION_CANCEL, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, SHEET_SECTIONS,
-    customerCardLabel, formatAmount, methodLabel, voidDialog,
+    canCorrect, customerCardLabel, formatAmount, methodLabel, parseAmount, voidDialog,
     type Movement,
 } from '../lib/cash';
 import { cashInk, cashMetrics, font, useTheme } from '../theme';
@@ -50,8 +51,17 @@ function XIcon({ color }: { color: string }) {
 
 // ── 14b · hareket detayı ────────────────────────────────────────────────────
 
-export function MovementSheet({ movement, onClose, onVoid }: {
+export function MovementSheet({ movement, onClose, onVoid, onCorrect }: {
     movement: Movement; onClose: () => void; onVoid: () => void;
+    /**
+     * Tutar düzeltildi.
+     *
+     * "Düzelt" düğmesi VARDI ama `onPress`i yoktu: basılıp hiçbir şey olmayan
+     * bir düğme. Düzeltme ONAY İSTEMİYOR (bkz. `VoidDialog`'un gerekçesi —
+     * ekranda tek onay var, o da iptalde); o yüzden ikinci bir diyalog değil,
+     * eylem satırının kendi içinde açılan bir alan.
+     */
+    onCorrect?: (amount: number) => void;
 }) {
     const { c, dark, glass, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
@@ -62,6 +72,9 @@ export function MovementSheet({ movement, onClose, onVoid }: {
     const backdrop = useRef(new Animated.Value(0)).current;
     const y = useRef(new Animated.Value(sheetHeight)).current;
     const closing = useRef(false);
+    // Tutar düzeltme hâli — eylem satırının yerini alır.
+    const [correcting, setCorrecting] = useState(false);
+    const [draft, setDraft] = useState('');
 
     useEffect(() => {
         closing.current = false;
@@ -91,6 +104,72 @@ export function MovementSheet({ movement, onClose, onVoid }: {
             if (after) after(); else onClose();
         });
     }, [backdrop, onClose, reduceMotion, sheetHeight, y]);
+
+    /*
+     * TUTAMAÇ SÜRÜKLENİR.
+     *
+     * Çubuk baştan beri çizilmişti ama hiçbir jest bağlı değildi: sürüklenir
+     * görünen, sürüklenmeyen bir kontrol. Kullanıcı aşağı çekiyor, sheet
+     * duruyor. `gesture-handler` projede yok; jest RN'in kendi
+     * `PanResponder`'ıyla kuruluyor.
+     *
+     * Yukarı çekiş YOK SAYILIYOR (`Math.max(0, dy)`): sheet zaten yukarı
+     * gidemez, lastik bant sahte bir esneklik üretmesin.
+     */
+    const drag = useRef(PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => g.dy > cashMetrics.dragClaim
+            && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderGrant: () => Keyboard.dismiss(),
+        onPanResponderMove: (_e, g) => y.setValue(Math.max(0, g.dy)),
+        onPanResponderRelease: (_e, g) => {
+            // Ya YETERİNCE indi ya da HIZLA atıldı: ikisi de kapatır.
+            if (g.dy > cashMetrics.dragClose || g.vy > cashMetrics.dragFling) {
+                close();
+                return;
+            }
+            Animated.spring(y, {
+                toValue: 0, useNativeDriver: true, bounciness: 0, speed: 14,
+            }).start();
+        },
+        onPanResponderTerminate: () => {
+            Animated.spring(y, {
+                toValue: 0, useNativeDriver: true, bounciness: 0, speed: 14,
+            }).start();
+        },
+    })).current;
+
+    /*
+     * KLAVYE FİŞİ ÖRTÜYORDU.
+     *
+     * Fiş ekranın altına yaslı; düzeltme alanı açılınca klavye tam üstüne
+     * biniyor ve ne tutar ne de Kaydet görünüyordu. Fiş klavye kadar
+     * KALDIRILIYOR — yalnız `translateY`, sürükleme değerinden AYRI bir
+     * katman olarak: parmakla çekerken ikisi karışmasın.
+     */
+    const lift = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const show = Keyboard.addListener(showEvent, (event) => {
+            // Fişin alt dolgusu zaten güvenli alan kadar; iki kez sayılmasın.
+            const raise = Math.max(0, event.endCoordinates.height - insets.bottom);
+            Animated.timing(lift, {
+                toValue: -raise,
+                duration: event.duration || 250,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }).start();
+        });
+        const hide = Keyboard.addListener(hideEvent, (event) => {
+            Animated.timing(lift, {
+                toValue: 0,
+                duration: event.duration || 220,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }).start();
+        });
+        return () => { show.remove(); hide.remove(); };
+    }, [insets.bottom, lift]);
 
     const lines = movement.lines ?? [];
     const grabStyle: ViewStyle = { height: cashMetrics.grabHeight, alignItems: 'center', justifyContent: 'center' };
@@ -131,23 +210,37 @@ export function MovementSheet({ movement, onClose, onVoid }: {
                 accessibilityViewIsModal
                 style={{
                     position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 80,
-                    height: sheetHeight, overflow: 'hidden',
+                    /*
+                     * YÜKSEKLİK İÇERİKTEN TÜRER, sabit değil.
+                     *
+                     * `height` verilince kısa bir fiş bile ekranın dörtte
+                     * üçünü kaplıyor ve altında kocaman bir boşluk kalıyordu.
+                     * `maxHeight` tavanı koruyor: uzun fiş kaydırılıyor, kısa
+                     * fiş kendi boyunda duruyor.
+                     */
+                    maxHeight: sheetHeight, overflow: 'hidden',
                     borderTopLeftRadius: cashMetrics.sheetRadius,
                     borderTopRightRadius: cashMetrics.sheetRadius,
                     borderTopWidth: 1, borderTopColor: c.bd2,
                     backgroundColor: c.surf,
-                    transform: [{ translateY: y }],
+                    transform: [{ translateY: y }, { translateY: lift }],
                 }}
             >
-                {/* Cam envanteri: sheet tutamağı camın izinli olduğu iki yerden biri. */}
-                {glass
-                    ? <GlassView glassEffectStyle="regular" tintColor={c.tint} style={grabStyle}>{handle}</GlassView>
-                    : <View style={[grabStyle, { backgroundColor: c.surf }]}>{handle}</View>}
+                {/* Cam envanteri: sheet tutamağı camın izinli olduğu iki yerden biri.
+                    Jest BU KABA bağlı — çubuğun kendisi 5 pt, parmak 26 pt'lik
+                    şeridin herhangi bir yerinden tutabilmeli. */}
+                <View {...drag.panHandlers} accessibilityLabel="Aşağı çekip kapat">
+                    {glass
+                        ? <GlassView glassEffectStyle="regular" tintColor={c.tint} style={grabStyle}>{handle}</GlassView>
+                        : <View style={[grabStyle, { backgroundColor: c.surf }]}>{handle}</View>}
+                </View>
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14 }}
-                    style={{ flex: 1 }}
+                    // `flex: 1` boşluğu DOLDURUYORDU; `flexShrink` yalnız
+                    // taşarsa kısaltıyor.
+                    style={{ flexShrink: 1 }}
                 >
                     {/* Başlık: kim, ne zaman, ne kadar. */}
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingBottom: 16 }}>
@@ -238,8 +331,84 @@ export function MovementSheet({ movement, onClose, onVoid }: {
                     </View>
                 </ScrollView>
 
-                {/* İki eylem, iki biçim. Yıkıcı olan DOLGULU DEĞİL: yanlışlıkla
-                    en cazip görünen şey olmamalı. */}
+                {/* Düzeltme alanı — eylem satırının YERİNE geçer.
+                    İkinci bir katman açmıyor: sheet zaten bir katman ve
+                    düzeltme onay istemiyor. */}
+                {correcting ? (
+                    <View style={{
+                        gap: 10,
+                        paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 30,
+                        borderTopWidth: 1, borderTopColor: c.bd, backgroundColor: c.surf,
+                    }}>
+                        <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 7,
+                            height: cashMetrics.actionHeight,
+                            paddingHorizontal: 14,
+                            borderRadius: cashMetrics.actionRadius,
+                            backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd2,
+                        }}>
+                            <Txt style={{ fontFamily: font.bold, fontSize: 17, color: c.tx3 }}>₺</Txt>
+                            <TextInput
+                                value={draft}
+                                onChangeText={setDraft}
+                                autoFocus
+                                keyboardType="number-pad"
+                                selectionColor={c.or}
+                                selectTextOnFocus
+                                accessibilityLabel="Düzeltilmiş tutar"
+                                style={{
+                                    flex: 1, color: c.tx, fontSize: 17,
+                                    fontFamily: font.semiBold, fontWeight: '600',
+                                }}
+                            />
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={ACTION_CANCEL}
+                                onPress={() => setCorrecting(false)}
+                                style={{
+                                    flex: 1, alignItems: 'center', justifyContent: 'center',
+                                    height: cashMetrics.actionHeight,
+                                    borderRadius: cashMetrics.actionRadius,
+                                    borderWidth: 1, borderColor: c.bd2,
+                                }}
+                            >
+                                <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.actionFont, color: c.tx2 }}>
+                                    {ACTION_CANCEL}
+                                </Txt>
+                            </Pressable>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Düzeltmeyi kaydet"
+                                // Aynı tutar ya da geçersiz sayı KAYDEDİLMEZ:
+                                // düzeltme olmayan bir düzeltme, kasaya iki
+                                // satır ekleyip hiçbir şeyi değiştirmezdi.
+                                disabled={!canCorrect(draft, movement.amount)}
+                                accessibilityState={{ disabled: !canCorrect(draft, movement.amount) }}
+                                onPress={() => {
+                                    const amount = parseAmount(draft);
+                                    if (amount === null) return;
+                                    close(() => onCorrect?.(amount));
+                                }}
+                                style={{
+                                    flex: 1, alignItems: 'center', justifyContent: 'center',
+                                    height: cashMetrics.actionHeight,
+                                    borderRadius: cashMetrics.actionRadius,
+                                    backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd2,
+                                    opacity: canCorrect(draft, movement.amount) ? 1 : 0.4,
+                                }}
+                            >
+                                <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.actionFont, color: c.tx }}>
+                                    Kaydet
+                                </Txt>
+                            </Pressable>
+                        </View>
+                    </View>
+                ) : (
+                /* İki eylem, iki biçim. Yıkıcı olan DOLGULU DEĞİL: yanlışlıkla
+                   en cazip görünen şey olmamalı. */
                 <View style={{
                     flexDirection: 'row', gap: 10,
                     paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 30,
@@ -247,6 +416,8 @@ export function MovementSheet({ movement, onClose, onVoid }: {
                 }}>
                     <Pressable
                         accessibilityRole="button"
+                        accessibilityLabel={ACTION_CORRECT}
+                        onPress={() => { setDraft(String(movement.amount)); setCorrecting(true); }}
                         style={{
                             flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                             height: cashMetrics.actionHeight, borderRadius: cashMetrics.actionRadius,
@@ -269,6 +440,7 @@ export function MovementSheet({ movement, onClose, onVoid }: {
                         <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.actionFont, letterSpacing: -0.25, color: c.rd }}>{ACTION_VOID}</Txt>
                     </Pressable>
                 </View>
+                )}
             </Animated.View>
         </Modal>
     );

@@ -57,6 +57,8 @@ export interface Movement {
     lines?: MovementLine[];
     /** Serbest açıklama — varsa sheet'te ayrı satır. */
     note?: string;
+    /** Bu kayıt bir DÜZELTME ise: iptal edilen eski kaydın kimliği. */
+    correctedFrom?: string;
 }
 
 // ── Biçimlendirme ───────────────────────────────────────────────────────────
@@ -409,6 +411,66 @@ export function applyVoid(
             ? { ...m, status: 'voided' as CashStatus, voidedBy: by, voidedAt: at }
             : m,
     );
+}
+
+/**
+ * Düzeltme alanının okunuşu.
+ *
+ * Sıfır GEÇERSİZ: bir tahsilat sıfır lira olamaz. Öyle bir şey olduysa
+ * yapılacak şey düzeltme değil İPTAL, ve o düğme zaten yanında duruyor.
+ */
+export function parseAmount(text: string): number | null {
+    const digits = text.replace(/\D/g, '');
+    if (!digits) return null;
+    const value = Number(digits);
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** Kaydedilebilir mi? Aynı tutar düzeltme DEĞİLDİR — kayıt kalabalığı olur. */
+export function canCorrect(text: string, current: number): boolean {
+    const value = parseAmount(text);
+    return value !== null && value !== current;
+}
+
+/**
+ * Düzeltmeyi uygula — `applyVoid` ile aynı YEREL katman.
+ *
+ * Düzeltme bir GÜNCELLEME DEĞİL: eski kayıt iptal edilir, yenisi yazılır.
+ * Gerekçe denetim — bir tahsilatın tutarı sessizce değişirse kasadaki farkın
+ * ne zaman doğduğu bir daha bulunamaz. Ekranın kendi cümlesi de bunu söylüyor
+ * (`CORRECTION_NOTE`), davranış artık o cümleye uyuyor.
+ *
+ * Yeni kayıt eskisinin ÜSTÜNE giriyor: liste yeniden eskiye doğru akıyor ve
+ * düzeltme sonradan oldu.
+ *
+ * KALEMLER TAŞINMIYOR. Tutar değişti ama hangi kalemin değiştiğini bilmiyoruz;
+ * toplamı tutmayan bir döküm, dökümsüzlükten daha çok yanıltır.
+ */
+export function applyCorrection(
+    movements: readonly Movement[],
+    id: string,
+    amount: number,
+    by: string | null,
+    at: string,
+): Movement[] {
+    const old = movements.find((m) => m.id === id);
+    // İptal edilmiş kayıt düzeltilmez: düzeltilecek bir şey kalmadı.
+    if (!old || old.status === 'voided') return [...movements];
+
+    const voided = applyVoid(movements, id, by, at);
+    const fresh: Movement = {
+        ...old,
+        id: `${old.id}-d`,
+        time: at,
+        amount,
+        status: 'corrected',
+        lines: undefined,
+        voidedBy: undefined,
+        voidedAt: undefined,
+        correctedFrom: old.id,
+    };
+    const index = voided.findIndex((m) => m.id === id);
+    return [...voided.slice(0, index), fresh, ...voided.slice(index)];
 }
 
 export const EMPTY_TITLE = 'Henüz tahsilat yok. Personel kasaya gönderdikçe burada görünür.';

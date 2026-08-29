@@ -1896,6 +1896,14 @@ export const cashMetrics = {
     sheetRadius: 26,
     sheetMaxHeight: 704,
     sheetMotion: 320,
+    // Aşağı çekip kapatma eşikleri.
+    /** Jestin sheet'i devralması için gereken en küçük iniş. */
+    dragClaim: 6,
+    /** Bu kadar indiyse bırakınca kapanır. */
+    dragClose: 96,
+    /** Ya da bu hızla atıldıysa — kısa ama hızlı çekiş de kapatır. */
+    dragFling: 0.7,
+
     grabHeight: 26,
     grabBarWidth: 38,
     grabBarHeight: 5,
