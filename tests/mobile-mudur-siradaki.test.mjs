@@ -92,11 +92,16 @@ test('A1 zamanında: girmesine + saat · süre', () => {
     assert.deepEqual(panel, { label: 'girmesine', value: '6 dk', sub: '11:30 · 45 dk', late: false });
 });
 
-test('A1 gecikmiş: gecikti + bekleniyordu', () => {
+// Müdür 33 · alt satır DEĞİŞTİ. Eskiden "11:30’da bekleniyordu" yazıyordu; ama
+// saat satırın sol sütununda zaten var, cümle onu ikinci kez söylüyordu. O yer
+// toleransın geri sayımına açıldı ve kartın ALTINDAKİ tolerans rozeti böylece
+// tamamen kalktı — kart bitip altında ayrı bir şerit başlaması reddedilmişti.
+test('A1 gecikmiş: gecikti + toleransın geri sayımı', () => {
     const panel = etaPanel({ time: '11:30', etaMinutes: -8, durationMinutes: 45 });
     assert.equal(panel.label, 'gecikti');
     assert.equal(panel.value, '8 dk');
-    assert.equal(panel.sub, '11:30’da bekleniyordu');
+    assert.equal(panel.sub, '22 dk sonra düşer');
+    assert.equal(panel.sub.includes('11:30'), false, 'saat ikinci kez yazılmaz');
     assert.equal(panel.late, true);
 });
 
@@ -218,7 +223,9 @@ test('mock gün her iki kartı da gösterir', () => {
 
 test('eta istemcide sayaçla üretilmez — veriden gelir', () => {
     const elif = mockDay.events.find((e) => e.id === 'e1');
-    assert.equal(elif.etaMinutes, 6);
+    // Müdür 33: bu satır artık GECİKMİŞ (eksi eta). Eylem hapının asıl
+    // sahnesi burası — ikinci yuva `Gelmedi`den `Yönet`e takas oluyor.
+    assert.equal(elif.etaMinutes, -8);
     assert.equal(elif.durationMinutes, 45);
 });
 
@@ -271,7 +278,12 @@ test('not kutusu kartın içine ÇÖKER — kartından daha koyu', () => {
 });
 
 test('kart mürekkebi temaya bakan jeton kullanmaz', () => {
-    const card = parts.slice(parts.indexOf('function CustomerCard'), parts.indexOf('function ToleranceChip'));
+    // Sınır `ToleranceChip`ti; o rozet Müdür 33'te kaldırıldı (geri sayım
+    // artık kartın kendi alt satırında). Dilim bir sonraki tanıma kadar.
+    const start = parts.indexOf('function CustomerCard');
+    const end = parts.indexOf('function useWaitPulse');
+    assert.ok(start > 0 && end > start, 'dilimin iki ucu da bulunmalı');
+    const card = parts.slice(start, end);
     assert.ok(!/\bc\.(tx|tx2|bd|bd2|surf|or|rd|am)\b/.test(card));
 });
 

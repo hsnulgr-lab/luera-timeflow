@@ -841,6 +841,71 @@ export const nextCardMetrics = {
  * Tasarımın sert sınırı: kart 100 pt'yi geçmez. Ölçülen yükseklikler
  * C1 = 92, geri kalanı = 96 — ikincisini sağ sütun belirliyor (40 + 6 + 22).
  */
+/**
+ * Müdür 33 · eylem hapı.
+ *
+ * Kaynak: `docs/design-reference/Luera Mobil - Mudur 33 Eylem Hapi.html`.
+ * Hap bir menü değil bir ALET: tek yüzey, ayraçlarla bölünmüş gözler.
+ *
+ * ÇAPA TETİKLEYİCİDİR. Hap kartın tepesine değil, `Yönet` düğmesinin kenarına
+ * yapışır ve ok ucu ona DEĞER. Önceki turda hap kartın üstündeydi ve ok
+ * hiçbir şeyi göstermiyordu — 62 pt uzağındaki bir düğmeyi işaret ediyordu.
+ */
+export const actionPillMetrics = {
+    // `.bal{border-radius:18px}` · `.acell{width:60px;height:56px}`
+    radius: 18,
+    cell: 60,
+    height: 56,
+    /**
+     * Halka — `.aeye{width:44px;height:44px}` · `.aring{border:1.5px}`.
+     *
+     * AYRAÇ ÇİZGİSİ KALKTI: halkalar zaten ayırıyor, çizgi ikinci bir sınır
+     * çiziyordu. Halkalar arası 16 pt (60 − 44).
+     */
+    eye: 44,
+    ring: 1.5,
+    icon: 22,
+    /** Baş harf gözü — çan yerine PERSONELİN kendisi. */
+    initials: 14.5,
+    /**
+     * Dolgu diski — `.adisc{left:2.25;width:39.5}`. Halkanın içine 0,75 pt
+     * kalana kadar büyür; okunan şey halkaya kalan boşluk.
+     */
+    disc: 39.5,
+    discInset: 2.25,
+    /**
+     * Halka opaklığı. Dinlenirken %55 — ÇERÇEVE. Basılınca %100 — eylem
+     * başladı. Turuncu dolu hâline yalnız dolguyla geçiyor; dört halkanın
+     * hepsi turuncu olsaydı "hangisi acil" sorusunu soran renk susardı.
+     */
+    ringRest: 0.55,
+    ringPress: 1,
+    /** WhatsApp bağlı değil: dolgusuz halka = göndermez. */
+    ringOff: 0.4,
+
+    /** Ok ucu — `.arw{width:14px;height:6px}`. */
+    arrow: 14,
+    arrowHeight: 6,
+    /**
+     * Okun yatay yeri SABİT DEĞİL, tetikleyiciden türer:
+     * `tetikleyici genişliği / 2 - arrow / 2`. Böylece ok her genişlikte
+     * düğmenin tam ortasına bakar (ölçüldü: sapma 0,06 pt).
+     */
+    arrowInset: (triggerWidth: number) => Math.max(12, triggerWidth / 2 - 7),
+    /** Hap ile tetikleyici arasındaki boşluk — ok ucu bu boşluğu kapatır. */
+    gap: 6,
+
+    // Kelime bloğunun ölçüleri (`.ach`) 2026-08-30'da SİLİNDİ: balon
+    // kaldırıldı, ölçüleri de kalmadı. Ölü belirteç, olmayan bir şeyin
+    // hâlâ var olduğunu düşündürür.
+
+    // Perde — kartı okunmaz yapmayacak kadar hafif.
+    scrimDark: 'rgba(0,0,0,0.22)',
+    scrimLight: 'rgba(14,14,14,0.14)',
+    /** Sönük göz (`.acell.off`). */
+    offOpacity: 0.4,
+} as const;
+
 export const waitCardMetrics = {
     // `.pnl{border-radius:18px}` · `.pnl .in{gap:12px;padding:14px}`
     pad: 14,

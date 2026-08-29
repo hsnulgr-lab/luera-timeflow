@@ -181,7 +181,8 @@ test('E1/E2 · kahraman rakam tolerans sayacı, kalan yazıyla', () => {
     assert.equal(card.value, '12');
     assert.equal(card.unit, 'dk');
     assert.equal(card.spent, false);
-    assert.equal(card.sub, '11:30 randevusu · 18 dk sonra otomatik düşer');
+    // Müdür 33: saat baştan atıldı — satırın sol sütununda zaten yazılı.
+    assert.equal(card.sub, '18 dk sonra otomatik düşer');
 });
 
 test('E1 · taze basışta yalnız geri alma', () => {
@@ -192,18 +193,27 @@ test('E1 · taze basışta yalnız geri alma', () => {
 
 test('E2 · kurtarma hapı KENARLIKLI, dolu değil', () => {
     // Dolu turuncu "bastırılması gereken" demek; "Geç geldi" zorunlu değil,
-    // müşteri gelirse basılır.
-    assert.deepEqual(noshowCard(gone).actions, [{ label: 'Geç geldi', kind: 'hap' }]);
+    // müşteri gelirse basılır. Müdür 33: yanına hayalet `Yönet` geldi —
+    // müşteriye ulaşma yolu 30 dakika boyunca da açık.
+    assert.deepEqual(noshowCard(gone).actions, [
+        { label: 'Geç geldi', kind: 'hap' },
+        { label: 'Yönet', kind: 'ghost' },
+    ]);
 });
 
-test('E3 · 30. dakikada eylem yerini damgaya bırakır', () => {
+// Müdür 33 · 30. DAKİKADA AĞIRLIK DEĞİŞİR.
+// Eskiden eylemin yerinde bir damga duruyordu ("otomatik düştü") — yani kart
+// randevu öldükten sonra hiçbir şey ÖNERMİYORDU. Oysa kurtarılacak bir şey
+// kaldı: ilişki. Aynı yuva, aynı kelime, artan ağırlık — `Yönet` hayalet
+// olmaktan çıkıp hapa dönüyor, `Yeniden randevu` ikincil oluyor.
+test('E3 · 30. dakikada Yönet ağırlık kazanır', () => {
     const card = noshowCard({ ...gone, noshowMinutes: 30, droppedAt: '12:00' });
-    assert.equal(card.label, 'otomatik düştü');
+    assert.equal(card.label, 'randevu düştü');
     assert.equal(card.spent, true);
     assert.equal(card.value, '30');
-    assert.equal(card.sub, 'Müşteri kartına yazıldı · 12:00');
+    assert.equal(card.sub, 'Kayıt müşteri dosyasına yazıldı');
     assert.deepEqual(card.actions, [
-        { label: 'otomatik düştü', kind: 'stamp' },
+        { label: 'Yönet', kind: 'hap' },
         { label: 'Yeniden randevu', kind: 'ghost' },
     ]);
 });
@@ -222,6 +232,8 @@ test('tolerans 30 dakikada dolar, altında dolmaz', () => {
 
 test('düşmüş randevu satırda da başka bir şeydir', () => {
     assert.equal(noshowRowLabel(gone), 'müşteri gelmedi');
+    // Kart ve satır AYNI kelimeyi söyler — iki ayrı sözlük olmaz.
+    assert.equal(noshowCard(gone).label, noshowRowLabel(gone));
     assert.equal(noshowRowLabel({ ...gone, noshowMinutes: 30 }), 'randevu düştü');
 });
 
@@ -353,7 +365,9 @@ test('onay kartında tutar YERİNDE kalır — yalnız etrafı değişir', () =>
 });
 
 test('"Tahsil et" geri alma penceresini değil, onay penceresini açar', () => {
-    assert.ok(screen.includes("['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et'].includes(label)"));
+    // Müdür 33 · listeye 'Onayla' eklendi: onaylanan online randevu da bir
+    // saniyelik onay hâlinde durur, sonra sessizleşir.
+    assert.ok(screen.includes("['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et', 'Onayla'].includes(label)"));
 });
 
 test('dünden devredende "kim verdi" düşer — cümle sığsın', () => {

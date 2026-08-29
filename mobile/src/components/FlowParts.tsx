@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
+import { ActionPill } from './ActionPill';
+import { pillCells, pillOpens, type CellKey, type PillRecord } from '../lib/actionPill';
 import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
 import {
     actionsOf, contextRows, durationBadge, etaColumn, etaPanel, initialsOf,
-    isSettled, labelOf, nextCardKind, staffConflict, toleranceLabel, toneOf,
+    isSettled, labelOf, nextCardKind, staffConflict, toneOf,
     dueCard, dueLevel, noshowCard, noshowRowLabel, paidCard, paidLine, waitCard,
+    bookedCard, cancelledCard,
+    nextSlots, pillInputOf, pillRecordOf, overrunLine,
     type FlowEvent, type StaffPresence,
     type WaitAction, type WaitCard as WaitCardModel,
 } from '../lib/managerFlow';
 import {
-    cardSkin, cardSwap, customerBubble, dueCardMetrics, flowMetrics, font, nextCardMetrics, numeric, onAccent, panelInk,
+    actionPillMetrics, cardSkin, cardSwap, customerBubble, dueCardMetrics, flowMetrics, font, nextCardMetrics, numeric, onAccent, panelInk,
     pressMotion, radius, staffDayMotion, swapInCurve, swapOutCurve, useTheme, waitCardMetrics, type PanelInk,
 } from '../theme';
 
@@ -492,7 +496,22 @@ function LiveStrip({ event, enter = false }: {
                     {elapsed(event.elapsedSeconds ?? 0)}
                 </Num>
 
-                {event.startedAt ? (
+                {/* SÜRE AŞIMI — BİLGİ, EYLEM DEĞİL.
+                    Müdür süren bir işlemi kısaltamaz; aşımın tek gerçek sonucu
+                    SIRADAKİ müşteride ve o müşterinin kendi kartı zaten
+                    "gecikti" diyor — eylem de orada. Buraya düğme koymak
+                    tiyatro olurdu. Aşımı kelime taşıyor, rakam değil: sayaç
+                    renk değiştirmiyor, çünkü ölçtüğü şey değişmedi. */}
+                {overrunLine(event) ? (
+                    <Text numberOfLines={1} style={{
+                        color: ink.am,
+                        fontSize: flowMetrics.liveSub,
+                        fontFamily: font.semiBold,
+                        fontWeight: '600',
+                    }}>
+                        {overrunLine(event)}
+                    </Text>
+                ) : event.startedAt ? (
                     <Text style={{
                         color: ink.ink2,
                         fontSize: flowMetrics.liveSub,
@@ -607,17 +626,33 @@ function DotsButton({ onPress }: { onPress?: () => void }) {
  * kahraman panellerin HEPSİ temanın tersi. `LiveStrip` de artık `panelInk`
  * kullanıyor, `flowMetrics.liveBg/liveTx*` jetonları ölü.
  */
-function EtaPanel({ event, ink, onAction }: {
+function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
     event: FlowEvent; ink: PanelInk; onAction?: (label: string) => void;
+    onPill?: (cell: CellKey) => void; waConnected?: boolean;
 }) {
     const { c } = useTheme();
     const panel = etaPanel(event);
     const value = panel.late ? ink.red : ink.ink;
+    const slots = nextSlots(event);
+    const record = pillRecordOf(event);
+    const cells = pillCells(pillInputOf(event, waConnected));
+
+    // Hap açık mı, ve hangi yöne. Yön AÇILIŞTA BİR KEZ seçilir: kaydırırken
+    // zıplamasın. Varsayılan yukarı — aynı müşterinin kartını örtmek, başka
+    // müşterinin satırını örtmekten iyi.
+    const [open, setOpen] = useState(false);
+    const [below, setBelow] = useState(false);
+    const [triggerWidth, setTriggerWidth] = useState(nextCardMetrics.goX * 2 + 62);
 
     return (
         <View style={{
             flexDirection: 'row',
-            alignItems: 'center',
+            // ÜSTE YASLI, ortalı değil. Kayıt satırı geldiğinde sol sütun
+            // 70'ten 85'e çıkıyor; ortalı olsaydı kahraman rakam 7,5 pt
+            // yukarı kayıp geri inerdi — bir randevunun ömründe iki kez, ve
+            // yerleşim değişimi animasyonlanamaz. Şimdi etiket ve rakam 14'te
+            // çakılı, kayıt satırı boştaki 20 pt'ye AŞAĞI doğru büyüyor.
+            alignItems: 'flex-start',
             gap: nextCardMetrics.panelGap,
             padding: nextCardMetrics.panelPad,
             borderRadius: nextCardMetrics.panelRadius,
@@ -664,11 +699,44 @@ function EtaPanel({ event, ink, onAction }: {
                 }}>
                     {panel.sub}
                 </Num>
+
+                {/* Dördüncü satır — son hamle. Defter değil: yalnız SON
+                    hamle yazılı, ve bayatlayınca düşüyor. Sol sütunun boştaki
+                    20 pt'sine giriyor, kart 118'de kalıyor. */}
+                {record ? (
+                    <View style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        gap: waitCardMetrics.stampGap, height: nextCardMetrics.sub + 2.5,
+                    }}>
+                        <View style={{
+                            width: waitCardMetrics.stampDot,
+                            height: waitCardMetrics.stampDot,
+                            borderRadius: waitCardMetrics.stampDot / 2,
+                            backgroundColor: record.tone === 'warn' ? ink.red
+                                : record.tone === 'live' ? c.or : ink.ink2,
+                            opacity: record.tone === 'quiet' ? 0.7 : 1,
+                        }} />
+                        <Num size={nextCardMetrics.sub} style={{
+                            color: ink.ink2, fontWeight: '700', letterSpacing: 0,
+                        }}>
+                            {record.text}
+                        </Num>
+                    </View>
+                ) : null}
             </View>
 
             {/* Eylemler DİKEY: turuncu dolgu üstte, sessiz metin altta.
-                İkisi de 44 — ağırlık farkı boyuttan değil malzemeden. */}
-            <View style={{ gap: nextCardMetrics.actsGap }}>
+                İkisi de 44 — ağırlık farkı boyuttan değil malzemeden.
+
+                SÜTUN GERİLİR (`stretch`). İkinci yuva hayalet metinken
+                genişlik farkı görünmüyordu; `Yönet` bir KUTU ve üst üste duran
+                iki kutunun kenarları hizalanmak zorunda. Sağa yaslı olsaydı
+                9,4 pt'lik fark tamamen sol kenara binerdi.
+
+                Hapın çapası da buna dayanıyor: sütunun sağ kenarı = 
+                tetikleyicinin sağ kenarı, yani hap `right: 0` ile tam yerine
+                oturuyor. */}
+            <View style={{ gap: nextCardMetrics.actsGap, alignItems: 'stretch' }}>
                 <Pressable
                     accessibilityRole="button"
                     onPress={() => { feedback.medium(); onAction?.('Geldi'); }}
@@ -691,27 +759,142 @@ function EtaPanel({ event, ink, onAction }: {
                         Geldi
                     </Text>
                 </Pressable>
-                <Pressable
-                    accessibilityRole="button"
-                    onPress={() => { feedback.medium(); onAction?.('Gelmedi'); }}
-                    style={{
-                        height: nextCardMetrics.noHeight,
-                        paddingHorizontal: nextCardMetrics.goX,
-                        borderRadius: radius.pill,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}
-                >
-                    <Text style={{
-                        color: ink.ink3,
-                        fontSize: nextCardMetrics.noText,
-                        fontFamily: font.bold,
-                        fontWeight: '700',
-                    }}>
-                        Gelmedi
-                    </Text>
-                </Pressable>
+                {/* İKİNCİ YUVA TAKAS EDİLİR, EKLENMEZ.
+                    Zamanında `Gelmedi`; gecikince hapın tetikleyicisi. 8.
+                    dakikada `Gelmedi`ye basmak, henüz gelebilecek bir müşteriyi
+                    atmaktır — ve 30. dakikada randevu zaten kendiliğinden
+                    düşüyor. Yani gecikme penceresinde `Gelmedi`, otomatik
+                    olanın kısayolundan ibaret; hapın içinde durması yeterli. */}
+                {slots.secondary === 'undo' ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => { feedback.medium(); onAction?.('Geri al'); }}
+                        style={{
+                            height: nextCardMetrics.noHeight,
+                            paddingHorizontal: nextCardMetrics.goX,
+                            borderRadius: radius.pill,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: waitCardMetrics.hapBorder,
+                            borderColor: ink.ink,
+                        }}
+                    >
+                        <Text style={{
+                            color: ink.ink, fontSize: nextCardMetrics.noText,
+                            fontFamily: font.bold, fontWeight: '700',
+                        }}>
+                            Geri al
+                        </Text>
+                    </Pressable>
+                ) : slots.secondary === 'pill' && pillOpens(cells) ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Yönet — eylemleri aç"
+                        accessibilityState={{ expanded: open }}
+                        onLayout={(e) => setTriggerWidth(e.nativeEvent.layout.width)}
+                        onPress={() => {
+                            feedback.selection();
+                            // Yön açılışta bir kez seçilir. Kart akışın en
+                            // üstündeyse yukarıda yer yok, aşağı açılır.
+                            setBelow(event.firstInList === true);
+                            setOpen(true);
+                        }}
+                        style={{
+                            height: nextCardMetrics.noHeight,
+                            paddingHorizontal: nextCardMetrics.goX,
+                            borderRadius: radius.pill,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            borderWidth: waitCardMetrics.hapBorder,
+                            borderColor: ink.ink,
+                            backgroundColor: open ? ink.line : undefined,
+                        }}
+                    >
+                        <Text style={{
+                            color: ink.ink, fontSize: nextCardMetrics.noText,
+                            fontFamily: font.bold, fontWeight: '700',
+                        }}>
+                            Yönet
+                        </Text>
+                        <Chevron color={ink.ink} down={open ? below : false} />
+                    </Pressable>
+                ) : (
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => { feedback.medium(); onAction?.('Gelmedi'); }}
+                        style={{
+                            height: nextCardMetrics.noHeight,
+                            paddingHorizontal: nextCardMetrics.goX,
+                            borderRadius: radius.pill,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Text style={{
+                            color: ink.ink3,
+                            fontSize: nextCardMetrics.noText,
+                            fontFamily: font.bold,
+                            fontWeight: '700',
+                        }}>
+                            Gelmedi
+                        </Text>
+                    </Pressable>
+                )}
+
+                {/* Hap SÜTUNUN İÇİNDE: koordinat sistemi tetikleyicininki.
+                    Kart `overflow` almıyor, yoksa ok ucu kırpılırdı. */}
+                {open ? (
+                    <ActionPill
+                        cells={cells}
+                        below={below}
+                        triggerWidth={triggerWidth}
+                        triggerTop={nextCardMetrics.goHeight + nextCardMetrics.actsGap}
+                        triggerHeight={nextCardMetrics.noHeight}
+                        staffInitials={event.staffInitials
+                            ?? initialsOfName(event.staffName)}
+                        staffGiven={event.staffName
+                            ? splitStaffName(event.staffName).given : undefined}
+                        onPick={(cell) => { setOpen(false); onPill?.(cell); }}
+                        onDismiss={() => setOpen(false)}
+                    />
+                ) : null}
             </View>
+        </View>
+    );
+}
+
+/**
+ * Personelin baş harfleri — hapın personel gözünde duran şey.
+ *
+ * Veri `staffInitials` taşımıyorsa addan türetilir; ad da yoksa `undefined`
+ * döner ve göz baş harf yerine kendi simgesine düşer. Uydurulmuyor.
+ */
+function initialsOfName(name?: string): string | undefined {
+    const clean = name?.trim();
+    if (!clean) return undefined;
+    const { given, family } = splitStaffName(clean);
+    const first = given.charAt(0);
+    const last = family.charAt(0) || given.charAt(1) || '';
+    const pair = `${first}${last}`.toLocaleUpperCase('tr-TR');
+    return pair.length === 2 ? pair : undefined;
+}
+
+/** Tetikleyicinin yön oku. Hap aşağı açılınca 180° döner — `transform`, yasal. */
+function Chevron({ color, down }: { color: string; down: boolean }) {
+    return (
+        <View style={{ transform: [{ rotate: down ? '180deg' : '0deg' }] }}>
+            <Svg width={14} height={9} viewBox="0 0 18 12">
+                <Polyline
+                    points="3 8.5 9 3.5 15 8.5"
+                    stroke={color}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                />
+            </Svg>
         </View>
     );
 }
@@ -939,38 +1122,6 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer }: {
     );
 }
 
-/**
- * Tolerans rozeti. Gecikme yokken HİÇ ÇİZİLMEZ — boş rozet yeri bırakılmaz
- * (`.ctx:empty{display:none}`).
- */
-function ToleranceChip({ etaMinutes }: { etaMinutes?: number }) {
-    const { c, dark } = useTheme();
-    const label = toleranceLabel(etaMinutes);
-    if (!label) return null;
-    return (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: nextCardMetrics.chipGap }}>
-            <View style={{
-                height: nextCardMetrics.chipHeight,
-                paddingHorizontal: nextCardMetrics.chipX,
-                borderRadius: nextCardMetrics.chipRadius,
-                justifyContent: 'center',
-                backgroundColor: dark ? 'rgba(217,164,59,0.14)' : 'rgba(184,122,0,0.12)',
-                borderWidth: 1,
-                borderColor: dark ? 'rgba(217,164,59,0.30)' : 'rgba(184,122,0,0.28)',
-            }}>
-                <Text style={{
-                    color: c.am,
-                    fontSize: nextCardMetrics.chipText,
-                    fontFamily: font.bold,
-                    fontWeight: '700',
-                }}>
-                    {label}
-                </Text>
-            </View>
-        </View>
-    );
-}
-
 // ── Müdür 20 · bekleme ──────────────────────────────────────────────────────
 
 /**
@@ -1092,8 +1243,16 @@ function RollingHero({ value, unit, color, unitColor, unitFade }: {
 }
 
 /** Hap ve hayalet eylem — görünen 40/22, dokunulan 44 (hitSlop). */
-function WaitAct({ action, ink, onPress }: {
+function WaitAct({ action, ink, onPress, expanded, onLayout }: {
     action: WaitAction; ink: PanelInk; onPress: () => void;
+    /** Hap tetikleyicisiyse: açık mı — çevron ona göre döner. */
+    expanded?: boolean;
+    /**
+     * Düğmenin sütun içindeki KUTUSU. Yalnız genişlik yetmiyordu: hapın
+     * çapası düğmenin `y`sine ve yüksekliğine de bağlı, ikisi de kartın
+     * hâline göre değişiyor.
+     */
+    onLayout?: (box: { width: number; y: number; height: number }) => void;
 }) {
     const { c } = useTheme();
 
@@ -1143,11 +1302,16 @@ function WaitAct({ action, ink, onPress }: {
         return (
             <Pressable
                 accessibilityRole="button"
+                accessibilityState={expanded == null ? undefined : { expanded }}
                 hitSlop={{ top: waitCardMetrics.ghostSlop, bottom: waitCardMetrics.ghostSlop }}
+                onLayout={(e) => onLayout?.(e.nativeEvent.layout)}
                 onPress={onPress}
                 style={{
                     height: waitCardMetrics.ghostHeight,
                     paddingHorizontal: waitCardMetrics.ghostX,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
                     justifyContent: 'center',
                 }}
             >
@@ -1159,6 +1323,7 @@ function WaitAct({ action, ink, onPress }: {
                 }}>
                     {action.label}
                 </Text>
+                {expanded != null ? <Chevron color={ink.ink2} down={expanded} /> : null}
             </Pressable>
         );
     }
@@ -1166,12 +1331,16 @@ function WaitAct({ action, ink, onPress }: {
     return (
         <Pressable
             accessibilityRole="button"
+            accessibilityState={expanded == null ? undefined : { expanded }}
             hitSlop={{ top: waitCardMetrics.hapSlop, bottom: waitCardMetrics.hapSlop }}
+            onLayout={(e) => onLayout?.(e.nativeEvent.layout)}
             onPress={onPress}
             style={{
                 height: waitCardMetrics.hapHeight,
                 paddingHorizontal: waitCardMetrics.hapX,
                 borderRadius: radius.pill,
+                flexDirection: 'row',
+                gap: 6,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderWidth: waitCardMetrics.hapBorder,
@@ -1190,6 +1359,7 @@ function WaitAct({ action, ink, onPress }: {
             }}>
                 {action.label}
             </Text>
+            {expanded != null ? <Chevron color={filled ? onAccent : ink.ink} down={expanded} /> : null}
         </Pressable>
     );
 }
@@ -1386,7 +1556,7 @@ type Motion =
  * Eşik geçişinde İKİ KOPYASI üst üste konup çapraz soldurulur; bu yüzden
  * opaklık ve kayma da dışarıdan sürülür.
  */
-function PanelCard({ ink, warn, stripe, dot, label, labelColor, hero, sub, actions, spoken, opacity, lift }: {
+function PanelCard({ ink, warn, stripe, dot, label, labelColor, hero, sub, record, actions, spoken, opacity, lift }: {
     ink: PanelInk;
     /** Soldan uyarı çizgisi çizilsin mi. */
     warn: boolean;
@@ -1396,6 +1566,8 @@ function PanelCard({ ink, warn, stripe, dot, label, labelColor, hero, sub, actio
     labelColor: string;
     hero: ReactNode;
     sub: ReactNode;
+    /** Dördüncü satır — son hamlenin kaydı. Yoksa hiç çizilmez. */
+    record?: ReactNode;
     actions: ReactNode;
     spoken: string;
     opacity: Motion;
@@ -1459,11 +1631,14 @@ function PanelCard({ ink, warn, stripe, dot, label, labelColor, hero, sub, actio
 
                     {hero}
                     {sub}
+                    {record}
                 </Animated.View>
 
                 <Animated.View style={{
                     alignItems: 'flex-end',
-                    justifyContent: 'center',
+                    // ÜSTE YASLI: kayıt satırı geldiğinde sol sütun uzuyor;
+                    // ortalı olsaydı kahraman rakam yerinden oynardı.
+                    justifyContent: record ? 'flex-start' : 'center',
                     opacity,
                     transform: [{ translateY: lift }],
                 }}>
@@ -1958,14 +2133,165 @@ function PaidLine({ event }: { event: FlowEvent }) {
  *
  * NABIZ YOK — bekleyen bir şey yok, geçen bir şey var.
  */
-function NoshowCardView({ event, fresh, onAction }: {
+function NoshowCardView({ event, fresh, onAction, onPill, waConnected = true }: {
     event: FlowEvent;
+    fresh: boolean;
+    onAction?: (label: string) => void;
+    onPill?: (cell: CellKey) => void;
+    waConnected?: boolean;
+}) {
+    const { dark } = useTheme();
+    const ink = dark ? panelInk.dark : panelInk.light;
+    const card = noshowCard(event, fresh);
+    const cells = pillCells(pillInputOf(event, waConnected));
+    const record = pillRecordOf(event);
+    const [open, setOpen] = useState(false);
+    /**
+     * `Yönet`in SÜTUN İÇİNDEKİ kutusu — ölçülür, varsayılmaz.
+     *
+     * Düğme kartın hâline göre yer DEĞİŞTİRİYOR: randevu düşmeden önce ikinci
+     * sırada ve hayalet, düştükten sonra birinci sırada ve hap. Sabit bir
+     * `triggerTop` ikisinden birini mutlaka ıskalar, ok ucu düğmenin kenarına
+     * değmezdi.
+     */
+    const [trigger, setTrigger] = useState<{ width: number; y: number; height: number }>({
+        width: waitCardMetrics.hapX * 2 + 48,
+        y: 0,
+        height: waitCardMetrics.hapHeight,
+    });
+
+    const spoken = [
+        `${event.firstName} ${event.lastName}`,
+        card.label,
+        `${card.value} ${card.unit}`,
+        card.sub,
+    ].filter(Boolean).join(', ');
+
+    return (
+        // KIRPMA YOK. Burada `overflow: 'hidden'` vardı ve kırpacak bir şeyi
+        // yoktu — `warn` bu kartta hep `false`, yani sol çizgi hiç çizilmiyor.
+        // Kırptığı tek şey HAPIN KENDİSİYDİ: kartın üstüne açılan balonun
+        // 48 pt'si kesiliyor, ekranda halkaların alt kırıntısı kalıyordu.
+        <View style={{
+            borderRadius: waitCardMetrics.radius,
+            backgroundColor: ink.panel,
+            flexDirection: 'row',
+        }}>
+            <PanelCard
+                ink={ink}
+                warn={false}
+                stripe={ink.red}
+                dot={<PanelDot color={ink.red} />}
+                label={card.label}
+                labelColor={ink.red}
+                hero={(
+                    <RollingHero
+                        value={card.value}
+                        unit={card.unit}
+                        // Tükenmiş süre ikincil mürekkepte: ölçüm bitti, artık
+                        // bir bilgi değil bir kayıt. Tam mürekkep kalsaydı
+                        // hâlâ sayıyor gibi görünürdü.
+                        color={card.spent ? ink.ink2 : ink.ink}
+                        unitColor={ink.ink2}
+                        unitFade={1}
+                    />
+                )}
+                sub={<PanelSub ink={ink} text={card.sub} />}
+                record={record ? <PanelRecord ink={ink} record={record} /> : null}
+                actions={(
+                    <View style={{ alignItems: 'flex-end', gap: waitCardMetrics.actGap }}>
+                        {card.actions.map((action) => (
+                            <WaitAct
+                                key={action.label}
+                                action={action}
+                                ink={ink}
+                                expanded={action.label === 'Yönet' ? open : undefined}
+                                onLayout={action.label === 'Yönet' ? setTrigger : undefined}
+                                onPress={() => {
+                                    if (action.label === 'Yönet') {
+                                        if (!pillOpens(cells)) return;
+                                        feedback.selection();
+                                        setOpen(true);
+                                        return;
+                                    }
+                                    feedback.medium();
+                                    onAction?.(action.label);
+                                }}
+                            />
+                        ))}
+
+                        {/* Hap SÜTUNUN İÇİNDE — A1 paneliyle aynı yer.
+                            Dışarıda dururken koordinat sistemi KARTINDI: hap
+                            kartın sağ kenarına yaslanıyor, oysa `Yönet` 14 pt
+                            içeride; ok ucu düğmenin ortasını 14 pt kaçırıyordu.
+                            Sütunun içinde `right: 0` düğmenin kenarı demek. */}
+                        {open ? (
+                            <ActionPill
+                                cells={cells}
+                                below={event.firstInList === true}
+                                triggerWidth={trigger.width}
+                                triggerTop={trigger.y}
+                                triggerHeight={trigger.height}
+                                staffInitials={event.staffInitials
+                                    ?? initialsOfName(event.staffName)}
+                                staffGiven={event.staffName
+                                    ? splitStaffName(event.staffName).given : undefined}
+                                onPick={(cell) => { setOpen(false); onPill?.(cell); }}
+                                onDismiss={() => setOpen(false)}
+                            />
+                        ) : null}
+                    </View>
+                )}
+                spoken={spoken}
+                opacity={1}
+                lift={0}
+            />
+        </View>
+    );
+}
+
+/** Kartın dördüncü satırı — son hamle. Bayatlayınca düşer. */
+function PanelRecord({ ink, record }: { ink: PanelInk; record: PillRecord }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: waitCardMetrics.stampGap,
+        }}>
+            <View style={{
+                width: waitCardMetrics.stampDot,
+                height: waitCardMetrics.stampDot,
+                borderRadius: waitCardMetrics.stampDot / 2,
+                backgroundColor: record.tone === 'warn' ? ink.red
+                    : record.tone === 'live' ? c.or : ink.ink2,
+                opacity: record.tone === 'quiet' ? 0.7 : 1,
+            }} />
+            <Num size={waitCardMetrics.sub} style={{
+                color: ink.ink2, fontWeight: '700', letterSpacing: 0,
+            }}>
+                {record.text}
+            </Num>
+        </View>
+    );
+}
+
+
+/**
+ * Müdür 33 · iptal ve online randevu — aynı iskelet, iki farklı olay.
+ *
+ * İkisi de tek ya da iki eylemli, yani HAP AÇILMAZ: hap seçim sunmak için var,
+ * tek eylemde düz düğme doğru olan.
+ */
+function SimpleCardView({ event, kind, fresh, onAction }: {
+    event: FlowEvent;
+    kind: 'cancelled' | 'booked';
     fresh: boolean;
     onAction?: (label: string) => void;
 }) {
     const { dark } = useTheme();
     const ink = dark ? panelInk.dark : panelInk.light;
-    const card = noshowCard(event, fresh);
+    const card = kind === 'cancelled' ? cancelledCard(event) : bookedCard(event, fresh);
+    const pending = kind === 'booked' && event.pending === true;
+    const tone = kind === 'cancelled' ? ink.red : pending ? ink.am : ink.green;
 
     const spoken = [
         `${event.firstName} ${event.lastName}`,
@@ -1983,18 +2309,15 @@ function NoshowCardView({ event, fresh, onAction }: {
         }}>
             <PanelCard
                 ink={ink}
-                warn={false}
+                warn={kind === 'cancelled'}
                 stripe={ink.red}
-                dot={<PanelDot color={ink.red} />}
+                dot={<PanelDot color={kind === 'cancelled' ? ink.red : pending ? ink.amDot : ink.green} />}
                 label={card.label}
-                labelColor={ink.red}
+                labelColor={tone}
                 hero={(
                     <RollingHero
                         value={card.value}
                         unit={card.unit}
-                        // Tükenmiş süre ikincil mürekkepte: ölçüm bitti, artık
-                        // bir bilgi değil bir kayıt. Tam mürekkep kalsaydı
-                        // hâlâ sayıyor gibi görünürdü.
                         color={card.spent ? ink.ink2 : ink.ink}
                         unitColor={ink.ink2}
                         unitFade={1}
@@ -2097,9 +2420,16 @@ function HandoffRow({ event }: { event: FlowEvent }) {
     );
 }
 
-export function FlowRow({ event, onAction, onMore, onOpenCustomer, presence = [], fresh = false }: {
+export function FlowRow({
+    event, onAction, onMore, onOpenCustomer, onPill, presence = [], fresh = false,
+    waConnected = true,
+}: {
     event: FlowEvent;
     onAction?: (label: string) => void;
+    /** Eylem hapından seçilen göz. Hap yalnız A1 ve gelmedi kartlarında var. */
+    onPill?: (cell: CellKey) => void;
+    /** Salonun WhatsApp bağlantısı — `Yaz` gözünün hâlini belirler. */
+    waConnected?: boolean;
     onMore?: (event: FlowEvent) => void;
     /** Müşteri balonu buraya bağlanır; verilmezse balon basılmaz olur. */
     onOpenCustomer?: (event: FlowEvent) => void;
@@ -2152,7 +2482,9 @@ export function FlowRow({ event, onAction, onMore, onOpenCustomer, presence = []
             : event.kind === 'due' ? 'due'
                 : event.kind === 'paid' ? (holding ? 'settled' : 'paid')
                     : gone ? 'gone'
-                        : card ?? 'none';
+                        : event.kind === 'cancelled' ? 'cancelled'
+                            : event.kind === 'booked' ? 'booked'
+                                : card ?? 'none';
     // Süre ÇİFTE göre değişir; tasarım her geçişe ayrı ölçü veriyor.
     // Tahsilat kartının ince satıra dönüşü kendi ölçüsünde (300/240): kart
     // önce tamamen kaybolur, yükseklik GÖRÜNMEZKEN düşer, sonra satır belirir.
@@ -2257,7 +2589,15 @@ export function FlowRow({ event, onAction, onMore, onOpenCustomer, presence = []
                     binmesine dayanıyor. Yuvanın kimliği değişince soldurma
                     kendiliğinden başlar. */}
                 <CardSwap id={slot} timing={slotTiming}>
-                    {card === 'a1' ? <EtaPanel event={event} ink={ink} onAction={onAction} /> : null}
+                    {card === 'a1' ? (
+                        <EtaPanel
+                            event={event}
+                            ink={ink}
+                            onAction={onAction}
+                            onPill={onPill}
+                            waConnected={waConnected}
+                        />
+                    ) : null}
                     {card === 'a2' ? <CustomerCard event={event} presence={presence} onAction={onAction} onOpenCustomer={onOpenCustomer} /> : null}
                     {/* Müdür 20 — devir anında kart yerine ince satır: müdürün
                         yapacağı bir şey yok, kart yalancı aciliyet üretirdi. */}
@@ -2277,11 +2617,26 @@ export function FlowRow({ event, onAction, onMore, onOpenCustomer, presence = []
                     {slot === 'settled' ? <PaidCardView event={event} /> : null}
                     {slot === 'paid' ? <PaidLine event={event} /> : null}
                     {slot === 'gone' ? (
-                        <NoshowCardView event={event} fresh={fresh} onAction={onAction} />
+                        <NoshowCardView
+                            event={event}
+                            fresh={fresh}
+                            onAction={onAction}
+                            onPill={onPill}
+                            waConnected={waConnected}
+                        />
+                    ) : null}
+                    {slot === 'cancelled' ? (
+                        <SimpleCardView event={event} kind="cancelled" fresh={fresh} onAction={onAction} />
+                    ) : null}
+                    {slot === 'booked' ? (
+                        <SimpleCardView event={event} kind="booked" fresh={fresh} onAction={onAction} />
                     ) : null}
                 </CardSwap>
 
-                {isNext ? <ToleranceChip etaMinutes={event.etaMinutes} /> : null}
+                {/* Tolerans rozeti KALDIRILDI: geri sayım artık kartın kendi
+                    alt satırında ("22 dk sonra düşer"). Kartın ALTINDA ayrı
+                    bir şerit, kart bitip başka bir şey başlıyor gibi
+                    okunuyordu — Müdür 32 · §2.1'de reddedildi. */}
 
                 {!isNext && slot !== 'due' && slot !== 'paid' && slot !== 'settled' && slot !== 'gone'
                     && (actions.length > 0 || event.amount) ? (

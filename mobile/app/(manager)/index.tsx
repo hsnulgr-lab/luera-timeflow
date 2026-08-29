@@ -1,19 +1,23 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Linking, PanResponder, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
-import { addDaysISO, nowInMinutes, type Appt } from '../../src/lib/calendar';
+import { addDaysISO, nowInMinutes, toMinutes, type Appt } from '../../src/lib/calendar';
 import { source } from '../../src/lib/calendarSource';
+import { dialable } from '../../src/lib/phone';
+import { mockSendResult, WA_CONNECTED } from '../../src/lib/mockSend';
+import type { CellKey } from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
     FlowDivider, FlowEnd, FlowRow, StaffStrip,
 } from '../../src/components/FlowParts';
 import {
-    activeCountOf, applyFlowAction, applyNoshowAction, applyWaitAction, DEMO_FLOW,
+    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction, applySendResult,
+    applyWaitAction, DEMO_FLOW,
     bookedEvent, DEMO_TICK_MS, headline, mockDay,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
@@ -122,16 +126,86 @@ export default function ManagerFlow() {
             router.navigate({ pathname: '/(manager)/create' });
             return;
         }
+        // "Saati doldur" — boşalan saat randevu sekmesinde ÖN DOLU açılır.
+        // Bekleme listesine ayrıca sormuyoruz: iptal, sunucuda `notify-waitlist`i
+        // kendisi tetikliyor. İkinci bir düğme ikinci kez mesaj atardı.
+        if (label === 'Saati doldur') {
+            router.navigate({
+                pathname: '/(manager)/create',
+                params: {
+                    date: mockDay.dateISO,
+                    start: String(toMinutes(event.time)),
+                    staff: event.staffId ?? '',
+                },
+            });
+            return;
+        }
         const next = event.kind === 'arrived' ? applyWaitAction(event, label)
             : event.kind === 'noshow' ? applyNoshowAction(event, label)
                 : applyFlowAction(event, label);
         if (!next) return;
         // Beklemeyi ya da gelmediyi BU OTURUMDA başlatan basış geri alma
         // penceresini açar; "Geri al" onu kapatır. Kalan eylemler dokunmaz.
-        if (['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et'].includes(label)) setFreshId(event.id);
+        if (['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et', 'Onayla'].includes(label)) setFreshId(event.id);
         else if (label === 'Geri al') setFreshId((id) => (id === event.id ? null : id));
         replace(event.id, next);
     }, [router, replace]);
+
+
+    /**
+     * Eylem hapından seçilen göz.
+     *
+     * `Ara` telefonu açar — uygulamadan çıkılır, sonucu bilinmez; kart yalnız
+     * müdürün ne yaptığını yazar. `Yaz` uygulamada kalır ve 5 saniyelik
+     * pencereyi açar: istek o pencere içinde HİÇ GİTMEZ.
+     */
+    const onPill = useCallback((event: FlowEvent, cell: CellKey) => {
+        if (cell === 'waoff') {
+            // Onarım gözü — ama gidilecek ekran HENÜZ YAZILMADI. Bu göz bugün
+            // hiç çizilmiyor (`WA_CONNECTED` true) ve çizilmemeli: hedefi
+            // olmayan bir düğme, dokunulup hiçbir şey olmayan bir noktadır.
+            // Ekran yazıldığında buraya `router.navigate` gelir.
+            return;
+        }
+        if (cell === 'ara') {
+            const phone = dialable(event.customerPhone);
+            if (phone) void Linking.openURL(`tel:${phone}`);
+        }
+        const next = applyPillAction(event, cell);
+        if (!next) return;
+        if (cell === 'nox') setFreshId(event.id);
+        replace(event.id, next);
+    }, [router, replace]);
+
+    /**
+     * Gönderim penceresi — 5 saniye geri sayar, sonra gönderir.
+     *
+     * SUNUCU UCU HENÜZ YOK. Müdür modunun tamamı sahte kaynak üstünde çalışıyor
+     * ("Geldi" bile sunucuya gitmiyor); `Yaz` da aynı katmanda duruyor ve
+     * sonucu `mockSendResult` üretiyor. Uç yazıldığında değişecek tek yer o
+     * fonksiyon — pencere, damga ve beş hâlin tamamı olduğu gibi kalır.
+     */
+    useEffect(() => {
+        const sending = events.filter((event) => (event.sendingLeft ?? 0) > 0);
+        const rejecting = events.filter((event) => (event.rejectedLeft ?? 0) > 0);
+        if (sending.length === 0 && rejecting.length === 0) return;
+        const id = setTimeout(() => {
+            for (const event of sending) {
+                const left = (event.sendingLeft ?? 0) - 1;
+                replace(event.id, left > 0
+                    ? { ...event, sendingLeft: left }
+                    : applySendResult(event, mockSendResult(event)));
+            }
+            // Reddetme penceresi de aynı kalıpta: dolunca randevu iptal olur.
+            for (const event of rejecting) {
+                const left = (event.rejectedLeft ?? 0) - 1;
+                replace(event.id, left > 0
+                    ? { ...event, rejectedLeft: left }
+                    : { ...event, rejectedLeft: undefined, kind: 'cancelled' });
+            }
+        }, 1000);
+        return () => clearTimeout(id);
+    }, [events, replace]);
 
     /**
      * DEMO SAATİ — sunucu bağlanınca silinecek.
@@ -482,10 +556,12 @@ export default function ManagerFlow() {
                     <Fragment key={event.id}>
                         {index > 0 ? <FlowDivider /> : null}
                         <FlowRow
-                            event={event}
+                            event={index === 0 ? { ...event, firstInList: true } : event}
                             presence={people}
                             fresh={event.id === freshId}
                             onAction={(label) => onAction(event, label)}
+                            onPill={(cell) => onPill(event, cell)}
+                            waConnected={WA_CONNECTED}
                             onMore={event.appointmentId ? openAppointment : undefined}
                             onOpenCustomer={openCustomer}
                         />

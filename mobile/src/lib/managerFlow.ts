@@ -9,6 +9,10 @@
  */
 
 import { addDaysISO, todayISO } from './calendar.ts';
+import {
+    callRecord, recordVisible, SEND_WINDOW_SECONDS, sendingRecord, staffRecord, waRecord,
+} from './actionPill.ts';
+import type { CellKey, PillInput, PillRecord, WaResult } from './actionPill.ts';
 import { CURRENCY, formatAmount, waitLabel, type Pending } from './cash.ts';
 import { accusative, dative, splitStaffName } from './text.ts';
 
@@ -143,6 +147,45 @@ export interface FlowEvent {
     noshowMinutes?: number;
     /** Otomatik düşme anı — "Müşteri kartına yazıldı · 12:00". */
     droppedAt?: string;
+
+    // ── Müdür 33 · eylem hapı ────────────────────────────────────────────
+    /**
+     * Müşterinin telefonu. YOKSA `Ara` ve `Yaz` gözleri HİÇ ÇİZİLMEZ —
+     * sönük bırakılmaz. Numarası olmayan bir müşteriye ulaşma düğmesi
+     * göstermek, dokunulup hiçbir şey olmayan bir nokta demektir.
+     */
+    customerPhone?: string | null;
+    /**
+     * Bu müşteriye yapılan son gönderimin sonucu. `undefined` = hiç
+     * denenmedi. Sonuç gözü de değiştirir: `opt_out` ve `invalid_phone`
+     * gözü kapatır, `not_connected` onu sönük onarım gözüne çevirir.
+     */
+    waResult?: WaResult;
+    /** Hapla yapılan son hamlenin dakikası — kaydın yaşı bundan türer. */
+    actedAt?: number;
+    /** Son hamlenin hangi göz olduğu; kartın kayıt satırı bunu söyler. */
+    actedCell?: CellKey;
+    /** 5 saniyelik gönderim penceresi açık mı, kaç saniye kaldı. */
+    sendingLeft?: number;
+    /**
+     * Akışın ilk satırı mı — hapın yönünü belirler.
+     *
+     * Varsayılan yukarı: aynı müşterinin kartını örtmek, ALTTAKİ başka
+     * müşterinin satırını örtmekten iyi. Ama listenin ilk satırında yukarıda
+     * yer yok; orada aşağı açılır. Ekran doldurur, kart bilmez.
+     */
+    firstInList?: boolean;
+
+    /** İptalde bekleme listesinden kaç kişiye soruldu. Bilinmiyorsa undefined. */
+    waitlistAsked?: number;
+    /** Boşalan saati kim doldurdu — damga. */
+    filledBy?: string;
+    /** Online randevu müdürün onayını bekliyor mu (`status = 'pending'`). */
+    pending?: boolean;
+    /** Randevu kaç dakika önce alındı — kartın kahraman rakamı. */
+    bookedAgoMinutes?: number;
+    /** Reddetme penceresi: kaç saniye sonra mesaj gidecek. */
+    rejectedLeft?: number;
 }
 
 /**
@@ -463,7 +506,11 @@ export function etaPanel(event: Pick<FlowEvent, 'time' | 'etaMinutes' | 'duratio
         return {
             label: 'gecikti',
             value: minuteLabel(lateMinutes(event.etaMinutes)),
-            sub: `${atClock(event.time)} bekleniyordu`,
+            // "11:30’da bekleniyordu" DEĞİL: saat zaten satırın solundaki
+            // sütunda yazıyor, cümle onu ikinci kez söylüyordu. O satır
+            // toleransın geri sayımına açıldı — kartın ALTINDAKİ rozet de
+            // böylece ortadan kalktı (Müdür 32 · §2.2).
+            sub: `${graceLeft(event.etaMinutes)} dk sonra düşer`,
             late: true,
         };
     }
@@ -562,6 +609,20 @@ export function applyFlowAction(event: FlowEvent, label: string): FlowEvent | nu
     }
     if (event.kind === 'due' && label === 'Tahsil et') {
         return { ...event, kind: 'paid' };
+    }
+    // ── Müdür 33 · online randevu onayı ──────────────────────────────────
+    if (event.kind === 'booked' && label === 'Onayla') {
+        const { pending: _p, rejectedLeft: _r, ...rest } = event;
+        return { ...rest, pending: false };
+    }
+    if (event.kind === 'booked' && label === 'Reddet') {
+        // Reddetme MÜŞTERİYE MESAJ GÖNDERİR ve geri alınamaz. O yüzden hemen
+        // gitmiyor: 5 saniyelik pencere açılıyor, `Yaz`la aynı kalıp.
+        return { ...event, rejectedLeft: SEND_WINDOW_SECONDS };
+    }
+    if (event.kind === 'booked' && label === 'Geri al' && event.rejectedLeft != null) {
+        const { rejectedLeft: _r, ...rest } = event;
+        return rest;
     }
     return null;
 }
@@ -941,9 +1002,15 @@ export function noshowCard(event: FlowEvent, fresh = false): NoshowCard {
     const left = Math.max(0, LATE_LIMIT_MINUTES - elapsed);
 
     const actions: WaitAction[] = [];
+    // DÜŞMÜŞ önce sorulur: 30 dakika dolduysa geri dönüş yok, basış taze
+    // olsa bile. Sıra ters olsaydı düşmüş bir randevu "Geri al" gösterirdi.
     if (dropped) {
-        // Geri dönüş YOK: eylemin yerinde damga durur.
-        actions.push({ label: 'otomatik düştü', kind: 'stamp' });
+        // 30. DAKİKADA AĞIRLIK DEĞİŞİR — aynı yuva, aynı kelime, artan ağırlık.
+        //
+        // Randevu düştü; kurtarılacak tek şey İLİŞKİ. O yüzden `Yönet` hayalet
+        // olmaktan çıkıp hapa dönüyor, `Yeniden randevu` ikincil oluyor.
+        // Öncesinde tersi: müşteri hâlâ girebilir, birincil `Geç geldi`.
+        actions.push({ label: 'Yönet', kind: 'hap' });
         actions.push({ label: 'Yeniden randevu', kind: 'ghost' });
     } else if (fresh) {
         actions.push({ label: 'Geri al', kind: 'ghost' });
@@ -951,16 +1018,23 @@ export function noshowCard(event: FlowEvent, fresh = false): NoshowCard {
         // Kenarlıklı hap, dolu değil: "Geç geldi" zorunlu değil, müşteri
         // gelirse basılır. Dolu turuncu "bastırılması gereken" demek.
         actions.push({ label: 'Geç geldi', kind: 'hap' });
+        actions.push({ label: 'Yönet', kind: 'ghost' });
     }
 
     return {
-        label: dropped ? 'otomatik düştü' : 'müşteri gelmedi',
+        // "randevu düştü" — "otomatik düştü" değil: müdürün gördüğü şey
+        // randevunun ÖLDÜĞÜ, nasıl öldüğü alt satırın işi. Kelime satırın
+        // etiketiyle (`noshowRowLabel`) birebir aynı — kart ve satır iki ayrı
+        // sözlük konuşmaz.
+        label: dropped ? 'randevu düştü' : 'müşteri gelmedi',
         value: String(dropped ? LATE_LIMIT_MINUTES : elapsed),
         unit: 'dk',
         spent: dropped,
+        // Saat BAŞTAN atıldı: satırın sol sütununda zaten yazılı (A1'le aynı
+        // gerekçe). Kalan yer geri sayıma gitti.
         sub: dropped
-            ? `Müşteri kartına yazıldı${event.droppedAt ? ` · ${event.droppedAt}` : ''}`
-            : `${event.time} randevusu · ${left} dk sonra otomatik düşer`,
+            ? 'Kayıt müşteri dosyasına yazıldı'
+            : `${left} dk sonra otomatik düşer`,
         actions,
     };
 }
@@ -991,6 +1065,213 @@ export function applyNoshowAction(event: FlowEvent, label: string): FlowEvent | 
     // "Yeniden randevu" bir durum değişikliği değil, randevu oluşturma ekranına
     // geçiş. Ekran onu ayrı ele alır.
     return null;
+}
+
+
+// ── Müdür 33 · sıradaki randevunun eylemleri ────────────────────────────────
+
+export interface NextSlots {
+    /** Üst yuva — her zaman dolu turuncu, her zaman `Geldi`. */
+    primary: string;
+    /**
+     * Alt yuva. Zamanında `Gelmedi`, gecikince hapın tetikleyicisi.
+     *
+     * TAKAS, EKLEME DEĞİL: sağ sütun hiçbir zaman ikiden fazla yuva taşımaz.
+     * `Gelmedi` gecikme penceresinde kaybolmuyor, hapın içine giriyor.
+     */
+    secondary: 'gelmedi' | 'pill' | 'undo';
+}
+
+/**
+ * Gecikince neden `Gelmedi` yerine hap.
+ *
+ * 8. dakikada `Gelmedi`ye basmak, henüz gelebilecek bir müşteriyi atmaktır; ve
+ * 30. dakikada randevu zaten kendiliğinden düşüyor. Yani gecikme penceresinde
+ * `Gelmedi`, otomatik olanın kısayolundan ibaret — hapın içinde durması
+ * yeterli. Yerini müdürün gerçekten ihtiyacı olan şey alıyor: ulaşma yolu.
+ */
+export function nextSlots(event: Pick<FlowEvent, 'etaMinutes' | 'sendingLeft'>): NextSlots {
+    if (event.sendingLeft != null && event.sendingLeft > 0) {
+        return { primary: 'Geldi', secondary: 'undo' };
+    }
+    return { primary: 'Geldi', secondary: isLate(event.etaMinutes) ? 'pill' : 'gelmedi' };
+}
+
+/** Hapın girdisi olayın kendisinden türer — ekran seçmez, seçemez. */
+export function pillInputOf(
+    event: Pick<FlowEvent, 'customerPhone' | 'waResult' | 'kind'>,
+    waConnected = true,
+): PillInput {
+    return {
+        customerPhone: event.customerPhone,
+        waConnected,
+        waResult: event.waResult,
+        // Düşmüş bir randevu bir daha düşürülemez.
+        canDrop: event.kind === 'next',
+        canTellStaff: true,
+    };
+}
+
+/**
+ * Kartın kayıt satırı — son hamle, defter değil.
+ *
+ * Kart bir geçmiş listesi tutmuyor: yalnız SON hamle yazılı. Müdürün bilmesi
+ * gereken şey "ne yaptım", "neler yaptım" değil; ve dördüncü satırın yeri tek.
+ */
+export function pillRecordOf(event: FlowEvent): PillRecord | null {
+    if (event.sendingLeft != null && event.sendingLeft > 0) {
+        return sendingRecord(event.sendingLeft);
+    }
+    if (!event.actedCell || event.actedAt == null) return null;
+
+    const now = Math.max(0, Math.floor(event.waitMinutes ?? lateMinutes(event.etaMinutes)));
+    const age = Math.max(0, now - event.actedAt);
+
+    let record: PillRecord;
+    if (event.actedCell === 'ara') record = callRecord(age);
+    else if (event.actedCell === 'inf') record = staffRecord(age);
+    else if (event.waResult) record = waRecord(event.waResult, age);
+    else return null;
+
+    return recordVisible(record, age) ? record : null;
+}
+
+/**
+ * Hapın eylemleri — saf.
+ *
+ * `Yaz` doğrudan göndermiyor: 5 saniyelik pencereyi açıyor. Pencere dolunca
+ * çağıran gerçekten gönderir ve sonucu `waResult`e yazar.
+ */
+export function applyPillAction(event: FlowEvent, cell: CellKey): FlowEvent | null {
+    const now = Math.max(0, Math.floor(event.waitMinutes ?? lateMinutes(event.etaMinutes)));
+    if (cell === 'nox') {
+        const { etaMinutes: _eta, actedAt: _a, actedCell: _c, ...rest } = event;
+        return { ...rest, kind: 'noshow', noshowMinutes: now };
+    }
+    if (cell === 'ara') return { ...event, actedCell: 'ara', actedAt: now };
+    if (cell === 'inf') return { ...event, actedCell: 'inf', actedAt: now };
+    if (cell === 'wa') {
+        return { ...event, actedCell: 'wa', actedAt: now, sendingLeft: SEND_WINDOW_SECONDS };
+    }
+    // `waoff` bir gönderim değil, bir GEÇİŞ: Ayarlar → WhatsApp. Ekran onu
+    // ayrı ele alır; burada değişecek bir şey yok.
+    return null;
+}
+
+/** Gönderim penceresi doldu — sonuç yazılır, pencere kapanır. */
+export function applySendResult(event: FlowEvent, result: WaResult): FlowEvent {
+    const { sendingLeft: _s, ...rest } = event;
+    return { ...rest, waResult: result };
+}
+
+/** Pencere içinde vazgeçildi — istek HİÇ gitmedi, kayıt da kalmaz. */
+export function cancelSend(event: FlowEvent): FlowEvent {
+    const { sendingLeft: _s, actedCell: _c, actedAt: _a, ...rest } = event;
+    return rest;
+}
+
+// ── Müdür 33 · süre aşımı ───────────────────────────────────────────────────
+
+/**
+ * İşlem planlanandan ne kadar uzun sürdü.
+ *
+ * EYLEM YOK, bilinçli. Müdür süren bir işlemi kısaltamaz; aşımın tek gerçek
+ * sonucu SIRADAKİ müşteride ve o müşterinin kendi kartı zaten "gecikti"
+ * diyor — eylem de orada. Buraya düğme koymak tiyatro olurdu.
+ */
+export function overrunMinutes(
+    event: Pick<FlowEvent, 'elapsedSeconds' | 'durationMinutes'>,
+): number {
+    const planned = event.durationMinutes;
+    if (planned == null || event.elapsedSeconds == null) return 0;
+    return Math.max(0, Math.floor(event.elapsedSeconds / 60) - planned);
+}
+
+export function overrunLine(
+    event: Pick<FlowEvent, 'elapsedSeconds' | 'durationMinutes' | 'staffName'>,
+): string | null {
+    const over = overrunMinutes(event);
+    if (over <= 0) return null;
+    const who = event.staffName?.trim();
+    const head = `${event.durationMinutes} dk işlem · ${over} dk aştı`;
+    return who ? `${head} · ${splitStaffName(who).given} ile` : head;
+}
+
+
+// ── Müdür 33 · iptal, online randevu ────────────────────────────────────────
+
+export interface SimpleCard {
+    label: string;
+    value: string;
+    unit: string;
+    /** Rakam tükendi mi — ikincil mürekkebe düşer. */
+    spent: boolean;
+    sub: string;
+    actions: WaitAction[];
+}
+
+/**
+ * İptal kartı — boşalan saat.
+ *
+ * BEKLEYENE OTOMATİK SORULUYOR. İptal, sunucuda `notify-waitlist`i kendisi
+ * tetikliyor; buraya bir "Bekleyene sor" düğmesi koymak İKİNCİ KEZ mesaj
+ * atardı. O yüzden bekleme listesi kartta bir RAPOR, eylem değil.
+ *
+ * Eylem tek: boşalan saati doldurmak. Randevu sekmesi o gün/saat/personelle
+ * ön dolu açılıyor — sunucu işi sıfır.
+ */
+export function cancelledCard(event: FlowEvent): SimpleCard {
+    const asked = event.waitlistAsked;
+    // "Bekleyen yok" YAZILIR: sıfır bir ölçümdür, satır boş bırakılmaz.
+    const head = asked == null ? 'Bekleme listesi bilinmiyor'
+        : asked > 0 ? `${asked} bekleyene soruldu`
+            : 'Bekleyen yok';
+    const tail = [event.time, event.staffName?.trim() && splitStaffName(event.staffName).given]
+        .filter(Boolean).join(', ');
+
+    return {
+        label: 'randevu iptal',
+        value: String(Math.max(0, Math.floor(event.durationMinutes ?? 0))),
+        unit: 'dk',
+        spent: Boolean(event.filledBy),
+        sub: tail ? `${head} · ${tail}` : head,
+        actions: event.filledBy
+            ? [{ label: `Dolduruldu · ${event.filledBy}`, kind: 'stamp', done: true }]
+            : [{ label: 'Saati doldur', kind: 'hap' }],
+    };
+}
+
+/**
+ * Online randevu kartı.
+ *
+ * Otomatik onay KAPALIYSA randevu `pending` doğuyor ve müdürün onayını
+ * bekliyor — mobilde bunu görecek yer yoktu. Açıksa karar zaten verilmiş:
+ * düğme HİÇ ÇİZİLMEZ, kart yalnız haber verir.
+ */
+export function bookedCard(event: FlowEvent, fresh = false): SimpleCard {
+    const pending = event.pending === true;
+    const waited = Math.max(0, Math.floor(event.bookedAgoMinutes ?? 0));
+
+    if (event.rejectedLeft != null && event.rejectedLeft > 0) {
+        return {
+            label: 'reddedildi', value: String(waited), unit: 'dk', spent: true,
+            sub: `${event.detail} · mesaj ${event.rejectedLeft} sn sonra gidecek`,
+            actions: [{ label: 'Geri al', kind: 'hap' }],
+        };
+    }
+
+    return {
+        label: pending ? 'onay bekliyor' : 'onaylandı',
+        value: String(waited),
+        unit: 'dk',
+        spent: !pending,
+        sub: event.detail,
+        actions: pending
+            ? [{ label: 'Onayla', kind: 'fill' }, { label: 'Reddet', kind: 'ghost' }]
+            : fresh
+                ? [{ label: 'Onaylandı · şimdi', kind: 'stamp', done: true }]
+                : [],
+    };
 }
 
 export function initialsOf(event: Pick<FlowEvent, 'firstName' | 'lastName' | 'customerInitials'>): string {
@@ -1037,6 +1318,7 @@ export const mockDay: ManagerDay = {
         {
             id: 'e0', time: '12:15', kind: 'next',
             firstName: 'Gülşah', lastName: 'Karaosmanoğlu', customerId: 'c-gulsah',
+            customerPhone: '+905321182406',
             detail: 'Keratin bakımı · 45 dk · Selin ile',
             etaMinutes: 51, durationMinutes: 45, staffId: 'selin',
             context: {
@@ -1049,7 +1331,13 @@ export const mockDay: ManagerDay = {
             id: 'e1', appointmentId: 'mgr-1030-selin', time: '11:30', kind: 'next',
             firstName: 'Elif', lastName: 'Demir', customerId: 'c-elif',
             detail: 'Keratin bakımı · 45 dk · Selin ile',
-            etaMinutes: 6, durationMinutes: 45, staffId: 'selin',
+            // EKSİ eta = gecikme. Müdür 33'ün asıl sahnesi: ikinci yuva
+            // `Gelmedi`den `Yönet`e takas olur ve hap dört gözle açılır.
+            etaMinutes: -8, durationMinutes: 45, staffId: 'selin',
+            // Personel adı hapın baş harf gözünü besliyor: "SD" ve
+            // "Selin'e bildirim gider". Yoksa göz çan simgesine düşer.
+            staffName: 'Selin Demir', staffInitials: 'SD',
+            customerPhone: '0532 118 24 06',
         },
         // ── Bekleme hâlleri (Müdür 20) ───────────────────────────────────
         // Dördü de aynı kartın farklı seviyeleri; sunucu uçları yazılana kadar
@@ -1124,8 +1412,10 @@ export const mockDay: ManagerDay = {
         {
             // E2 · gelmedi, tolerans sürüyor → "Geç geldi" çıkar.
             id: 'e5', appointmentId: 'mgr-1000-ece', time: '10:20', kind: 'noshow',
+            customerPhone: '+905554027119',
             firstName: 'Burak', lastName: 'Şen',
             detail: 'Kesim · 30 dk · Ece ile',
+            staffId: 'ece', staffName: 'Ece Çelik', staffInitials: 'EÇ',
             noshowMinutes: 12,
         },
         {
@@ -1133,7 +1423,30 @@ export const mockDay: ManagerDay = {
             id: 'e12', time: '09:45', kind: 'noshow',
             firstName: 'Tuğba', lastName: 'Ergin',
             detail: 'Fön · 30 dk · Merve ile',
+            staffId: 'merve', staffName: 'Merve Kaya', staffInitials: 'MK',
             noshowMinutes: 30, droppedAt: '10:15',
+            customerPhone: '+905339075542',
+        },
+        // ── Müdür 33 · iptal ve online randevu ───────────────────────────
+        {
+            // C · boşalan saat. Bekleyene ZATEN soruldu (sunucu iptalde
+            // `notify-waitlist`i kendisi tetikliyor); kart onu rapor ediyor,
+            // tekrar sormuyor. Tek eylem boşluğu doldurmak.
+            id: 'e13', time: '13:00', kind: 'cancelled',
+            firstName: 'Nazlı', lastName: 'Erdem',
+            detail: 'Saç boyama · 45 dk · Selin ile',
+            durationMinutes: 45, staffId: 'selin', staffName: 'Selin Demir',
+            waitlistAsked: 3,
+        },
+        {
+            // D · onay bekleyen online randevu. Otomatik onay KAPALI olan
+            // salonlarda randevu `pending` doğuyor ve müdürü bekliyor —
+            // mobilde bunu görecek yer yoktu.
+            id: 'e14', time: '11:33', kind: 'booked',
+            firstName: 'Zeynep', lastName: 'Kaya',
+            detail: 'Yarın 14:00 · Keratin bakımı · Selin',
+            pending: true, bookedAgoMinutes: 4, staffId: 'selin',
+            customerPhone: '+905426630871',
         },
     ],
 };

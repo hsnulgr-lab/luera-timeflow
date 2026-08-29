@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 34: Eylem hapı v2 — ağırlık, hareket, simge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--am:#D9A43B;--rd:#E07272;--gr:#5FBF64;--desk:#0B0805}
+.pnl,.bal{--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pam:#8A5C00;--pamg:#D9A43B;--prd:#A82F2F;--pgr:#2E7D46;--pbd:rgba(14,14,14,.12);--pfill:rgba(14,14,14,.07);--pshd:0 12px 32px rgba(0,0,0,.34)}
+.pnl.inv,.bal.inv{--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pam:#D9A43B;--pamg:#D9A43B;--prd:#E07272;--pgr:#5FBF64;--pbd:rgba(243,237,227,.14);--pfill:rgba(243,237,227,.08);--pshd:0 12px 32px rgba(0,0,0,.20)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:#FF7A45}a:hover{color:var(--or)}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.doc{max-width:1760px;margin:0 auto;display:flex;flex-direction:column}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:880px;margin-bottom:52px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.band{display:flex;align-items:baseline;gap:16px;margin:20px 0 30px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:620px;line-height:1.5}
+.qa{display:flex;flex-direction:column;gap:20px;max-width:1180px;margin-bottom:76px}
+.q{display:flex;gap:20px;padding:20px 22px;border:1px solid var(--bd);border-radius:16px;background:var(--surf)}
+.q>s{flex:none;width:34px;text-decoration:none;font-size:22px;font-weight:800;color:var(--or);letter-spacing:-.03em;line-height:1.1}
+.q .qb{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+.q .qq{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);line-height:1.4}
+.q .qv{font-size:19px;font-weight:800;letter-spacing:-.024em;line-height:1.28;color:var(--tx)}
+.q .qv em{font-style:normal;color:var(--or)}
+.q .qd{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.q .qd b{color:var(--tx);font-weight:700}
+.q .qd+.qd{margin-top:-2px}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--surf)}
+.rn .r{display:flex;gap:16px;padding:11px 14px;border-bottom:1px solid var(--bd);font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.rn .r b{flex:none;width:158px;color:var(--tx);font-weight:700;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.rn .r.h b{color:var(--tx3);letter-spacing:.16em;padding-top:0}
+.rn .r s{flex:none;width:196px;text-decoration:none;color:var(--tx);font-weight:700;font-size:12.5px}
+.rn .r code{flex:1;font-size:11.5px;color:var(--tx2)}
+.rn .r em{font-style:normal;flex:none;width:26px;font-size:12px;font-weight:800;color:var(--gr)}
+.rn .r em.b{color:var(--am)}.rn .r em.c{color:var(--rd)}
+.prose code,.note code,.rn code,.mspec code,.q code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.55}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.case{display:flex;gap:44px;align-items:flex-start;margin-bottom:78px;flex-wrap:wrap}
+.side{width:600px;display:flex;flex-direction:column;gap:15px;padding-top:2px}
+.side h3{font-size:20px;font-weight:800;letter-spacing:-.025em;line-height:1.25}
+.side h3 s{text-decoration:none;color:var(--tx3);font-size:11px;letter-spacing:.2em;display:block;margin-bottom:8px;font-weight:700}
+.side .lead{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.6}
+.side .lead b{color:var(--tx);font-weight:700}
+.stages{flex:1;min-width:425px;display:flex;flex-wrap:wrap;gap:20px}
+.stg{width:425px;display:flex;flex-direction:column;gap:9px}
+.stg.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040;--gr:#2F7D3C}
+.stg.lt>.stgcap,.stg.lt>.dims{--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36)}
+.stgcap{display:flex;align-items:baseline;gap:9px;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.stgcap b{color:var(--or);letter-spacing:.14em}
+.stgcap i{font-style:normal;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--tx2)}
+.stgin{background:var(--bg);border:1px solid var(--bd);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.stgin.tall{padding-top:118px}
+.stgin.tallc{padding-top:70px}
+.stgin.tallb{padding-bottom:118px}
+.mline{display:flex;align-items:stretch;gap:0}
+.mline>.grow{flex:1;min-width:0}
+.brk{flex:none;width:40px;display:flex;align-items:center;gap:7px;padding-left:9px}
+.brk i{flex:none;width:1px;align-self:stretch;background:var(--bd2)}
+.brk b{font-size:10.5px;font-weight:800;color:var(--tx3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dims{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;font-weight:600;color:var(--tx3);line-height:1.45;padding-top:2px}
+.dims span b{color:var(--tx2);font-weight:700}
+/* ══ KART — Müdür 20/21 çerçevesi birebir · pad 14 · r 18 · gap 12 ══ */
+.pnl{border-radius:18px;background:var(--ps);color:var(--pk);position:relative;overflow:hidden;display:flex}
+.pnl .in{flex:1;display:flex;align-items:stretch;gap:12px;padding:14px;min-width:0}
+.pnl.stp .in{padding-left:10px}
+.pnl .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pamg)}
+.pnl.hot .stripe{background:var(--prd)}
+.pcol{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1px}
+.plbl{display:flex;align-items:center;gap:7px;height:14px;font-size:11.5px;line-height:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--pk2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plbl s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--pk2);text-decoration:none}
+.plbl.rd{color:var(--prd)}.plbl.rd s{background:var(--prd)}
+.plbl.am{color:var(--pam)}.plbl.am s{background:var(--pamg)}
+.plbl.gr s{background:var(--pgr)}
+.plbl.or s{background:var(--or)}
+.hero{display:flex;align-items:baseline;gap:5px;height:36px;font-size:34px;line-height:36px;font-weight:800;letter-spacing:-.03em}
+.hero.xl{height:40px;font-size:40px;line-height:40px;letter-spacing:-.04em}
+.hero .u{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--pk2)}
+.hero.spent{color:var(--pk2)}
+.hero.rd{color:var(--prd)}
+.psub,.prec{height:14px;font-size:11.5px;line-height:14px;font-weight:500;color:var(--pk2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prec{display:flex;align-items:center;gap:6px;font-weight:700}
+.prec s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--pk2);opacity:.7;text-decoration:none}
+.prec.warn s{background:var(--prd);opacity:1}
+.prec.live s{background:var(--or);opacity:1}
+.pact{flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:6px}
+.pact.tight{gap:2px}
+.hap{position:relative;height:40px;padding:0 18px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15.5px;font-weight:800;letter-spacing:-.01em;border:1.5px solid var(--pk);white-space:nowrap}
+.hap.fill{background:var(--or);border-color:var(--or);color:#fff}
+.hap.h44{height:44px;font-size:16px}
+.hap.open{background:var(--pfill)}
+.ghost{position:relative;height:22px;padding:0 4px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--pk2);white-space:nowrap}
+.ghost.h44{height:44px;font-size:15px;padding:0 20px}
+.ghost::after,.hap::after{content:"";position:absolute;left:-7px;right:-7px;top:-11px;bottom:-11px}
+.hap.h44::after,.ghost.h44::after{top:0;bottom:0}
+.chv{flex:none;width:14px;height:9px}
+.chv.dn{transform:rotate(180deg)}
+.stampslot{height:40px;display:flex;align-items:center;justify-content:flex-end}
+.stampslot.tall{height:68px}
+.stamp{height:28px;padding:0 10px;border-radius:10px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--pk2);border:1px solid var(--pbd);white-space:nowrap}
+.stamp s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--pgr);text-decoration:none}
+.staffpill{flex:none;height:36px;padding:0 14px 0 5px;border-radius:999px;background:var(--pk);color:var(--ps);display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.staffpill s{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--or);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;text-decoration:none;background:var(--ps);color:var(--pk)}
+/* ══ EYLEM HAPI — yüzen katman, kartın düzleminde ══ */
+.balwrap{position:relative;z-index:25}
+.bal{position:absolute;right:14px;bottom:calc(100% - var(--bt,60px) + 6px);z-index:30;background:var(--ps);color:var(--pk);border-radius:18px;box-shadow:var(--pshd);display:flex}
+.bal.below{bottom:auto;top:calc(var(--bb,104px) + 6px)}
+.bal .arw{position:absolute;right:36px;bottom:-6px;width:14px;height:6px;background:var(--ps);clip-path:polygon(0 0,100% 0,50% 100%)}
+.bal.below .arw{bottom:auto;top:-6px;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.acell{position:relative;width:60px;height:56px;flex:none;display:flex;align-items:center;justify-content:center}
+.acell:first-child{border-radius:18px 0 0 18px}
+.acell:has(+ :not(.acell)){border-radius:0 18px 18px 0}
+/* v2 · AYRAÇ KALKTI: halkalar arası 16 pt zaten ayırıyor; çizgi + halka iki ayrı
+   ayırma sistemiydi. Gözde overflow YOK — basılan göz 1,12'ye (49,3 pt), ödül
+   dalgası 1,7'ye (75 pt) çıkıyor, ikisi de gözün kutusunu aşar. Yukarıdaki köşe
+   kırpma kuralı (§0) korundu ama artık yük taşımıyor: dolgu kenara değmiyor. */
+.acell.dim{opacity:.32}
+.acell.off{opacity:.4}
+.aeye{position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;transform:scale(var(--s,1));opacity:var(--eo,1)}
+.aring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--or);opacity:var(--ro,.55)}
+.adisc{position:absolute;left:2.25px;top:2.25px;width:39.5px;height:39.5px;border-radius:50%;background:var(--or);transform:scale(var(--f,0))}
+.ahalo{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--or);transform:scale(var(--h,1));opacity:var(--ho,0)}
+.aic{position:absolute;width:22px;height:22px;display:flex}
+.aic svg{width:22px;height:22px}
+.aini{position:absolute;font-size:14.5px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.aic.cr,.aini.cr{color:var(--ps)}
+.k60{opacity:.62;transform:scale(.96)}
+.kout{opacity:.32;transform:scale(.96)}
+/* simge ızgarası */
+.igrid{display:flex;flex-wrap:wrap;gap:16px}
+.ig{width:196px;display:flex;flex-direction:column;gap:10px}
+.igbox{height:196px;border:1px solid var(--bd);border-radius:16px;display:flex;align-items:center;justify-content:center;background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);background-size:14px 14px;background-position:center}
+.igbox.out{opacity:.4}
+.igbox svg{width:168px;height:168px;stroke:var(--tx)}
+.igini{font-size:104px;font-weight:800;letter-spacing:-.05em;line-height:1}
+.igreal{width:60px;height:56px;border-radius:14px;background:#FAF3E9;color:#0E0E0E;display:flex;align-items:center;justify-content:center;--ps:#FAF3E9}
+.igreal.out{opacity:.4}
+.ignm{font-size:14px;font-weight:800;letter-spacing:-.015em}
+.igno{font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.55;text-wrap:pretty}
+.igno b{color:var(--tx);font-weight:700}
+.alab{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);min-width:100%;display:flex}
+.ach{flex:1;height:44px;padding:6px 13px;border-radius:18px 18px 0 0;background:var(--ps);box-shadow:0 -8px 24px rgba(0,0,0,.20);display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap}
+.ach b{font-size:15.5px;font-weight:800;letter-spacing:-.012em;line-height:18px}
+.ach i{font-style:normal;font-size:11.5px;font-weight:600;line-height:14px;color:var(--pk2)}
+.bal.below .alab{top:100%;bottom:auto}
+.bal.below .ach{border-radius:0 0 18px 18px;box-shadow:0 8px 24px rgba(0,0,0,.20)}
+.ach.abs{position:absolute;left:0;right:0}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.22);z-index:20}
+.stg.lt .scrim{background:rgba(14,14,14,.14)}
+/* ══ ince satır ══ */
+.thin{display:flex;align-items:center;gap:10px;height:34px;padding:0 2px;font-size:13.5px;font-weight:600;color:var(--tx2);letter-spacing:-.01em;opacity:.5}
+.thin .lb{flex:none;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3)}
+.thin s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--gr);text-decoration:none}
+.thin em{font-style:normal;color:var(--tx);font-weight:700}
+/* ══ telefon ══ */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--am:#B87A00;--rd:#C94040;--gr:#2F7D3C}
+.status{height:59px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;font-size:13px;font-weight:700}
+.status .rt{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:var(--tx);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:22px;height:11px;border:1.4px solid var(--tx);border-radius:3px;padding:1.4px;display:flex}
+.batt i{flex:1;background:var(--tx);border-radius:1px}
+.pbody{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.home-ind{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--tx);opacity:.28;z-index:40}
+.syszone{position:absolute;left:0;right:0;bottom:0;height:90px;border-top:1px dashed rgba(255,90,31,.4);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 18px 22px 0;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,90,31,.75);font-weight:600;pointer-events:none;z-index:40}
+.cal-head{flex:none;padding:6px 18px 0;display:flex;flex-direction:column;gap:5px}
+.cal-title{display:flex;align-items:flex-end}
+.cal-title .day{display:flex;align-items:flex-end;font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.cal-title .day i{flex:none;width:10px;height:10px;border-radius:50%;background:var(--or);margin:0 0 10px 6px}
+.cal-title .num{font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--tx3)}
+.cal-sub{font-size:13.5px;font-weight:500;color:var(--tx2);letter-spacing:-.01em;padding-bottom:8px}
+.feed{flex:1;display:flex;flex-direction:column;min-height:0}
+.pad-bot{flex:none;height:90px}
+.frow{flex:none;display:flex;flex-direction:column;padding:16px 18px;border-top:1px solid var(--bd)}
+.frow.up{position:relative;z-index:25;background:var(--bg)}
+.fhd{display:flex;align-items:center;gap:7px;min-height:22px}
+.fhd .ft{font-size:13px;font-weight:600;color:var(--tx2);margin-right:5px;font-variant-numeric:tabular-nums}
+.fhd s{flex:none;width:7px;height:7px;border-radius:50%;background:var(--or);text-decoration:none}
+.fhd .flb{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fhd .kebab{display:flex;flex-direction:column;gap:3px;padding:11px 4px;margin:-11px -4px -11px auto}
+.fhd .kebab i{width:3px;height:3px;border-radius:50%;background:var(--tx3)}
+.fnm{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.3;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fnm b{font-weight:800}
+.fsv{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.amber .fhd s{background:var(--am)}.amber .fhd .flb{color:var(--am)}
+.late .fhd s{background:var(--rd)}.late .fhd .flb{color:var(--rd)}
+.slot{margin:7px 0 0}
+/* ══ hareket ══ */
+.mrow{display:flex;flex-wrap:wrap;gap:34px 40px;margin-bottom:26px}
+.mcase{width:425px;display:flex;flex-direction:column;gap:12px}
+.mspec{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:500;color:var(--tx2);line-height:1.5}
+.mspec b{color:var(--tx);font-weight:700;font-size:12px}
+.mdesc{font-size:12.5px;font-weight:500;line-height:1.6;color:var(--tx2);text-wrap:pretty}
+.mdesc b{color:var(--tx);font-weight:700}
+.cost{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(95,191,100,.16);color:var(--gr);margin-right:6px}
+.cost.b{background:rgba(217,164,59,.16);color:var(--am)}
+.cost.c{background:rgba(224,114,114,.16);color:var(--rd)}
+.stack{position:relative;display:flex}
+.stack>.ly{flex:1;display:flex;min-width:0}
+.stack .pnl{flex:1}
+.stack>.ly>.ly{flex:1}
+.stack>.ly.abs{position:absolute;left:0;top:0;right:0;bottom:0}
+/* 1 · açılış · 4000 ms · hap 140 · gözler 32 ms kademe · aşım ,86 → 1,04 → 1 */
+.n1p{animation:n1p 4s linear infinite}
+@keyframes n1p{0%,10%{opacity:0;transform:scale(.92)}13.5%,80%{opacity:1;transform:scale(1)}82.75%,100%{opacity:0;transform:scale(.96)}}
+.n1e{animation:n1e 4s linear infinite}
+@keyframes n1e{0%,10%{opacity:0;transform:scale(.86)}12.75%{opacity:1;transform:scale(1.04)}13.75%,80%{opacity:1;transform:scale(1)}82%,100%{opacity:0;transform:scale(.96)}}
+.n1s{animation:n1s 4s linear infinite}
+@keyframes n1s{0%,10%{opacity:0}13%,80%{opacity:1}82.5%,100%{opacity:0}}
+.n1t{animation:n1t 4s steps(1,end) infinite}
+@keyframes n1t{0%,9.9%{opacity:0}10%,80%{opacity:1}80.1%,100%{opacity:0}}
+/* 2 · parmak indi · 2400 ms · basış 600 ms'de · dolgu 500 ms */
+.n2s{animation:n2s 2.4s linear infinite}
+@keyframes n2s{0%,25%{transform:scale(1)}30.8%,85%{transform:scale(1.12)}88%,100%{transform:scale(1)}}
+.n2n{animation:n2n 2.4s linear infinite}
+@keyframes n2n{0%,25%{transform:scale(1);opacity:1}29.2%,85%{transform:scale(.94);opacity:.32}88%,100%{transform:scale(1);opacity:1}}
+.n2r{animation:n2r 2.4s linear infinite}
+@keyframes n2r{0%,25%{opacity:.55}28.75%,85%{opacity:1}88%,100%{opacity:.55}}
+.n2f{animation:n2f 2.4s linear infinite}
+@keyframes n2f{0%,25%{transform:scale(0)}45.8%,85%{transform:scale(1)}88%,100%{transform:scale(0)}}
+.n2l{animation:n2l 2.4s linear infinite}
+@keyframes n2l{0%,25%{opacity:0;transform:translateY(4px)}28.75%,85%{opacity:1;transform:translateY(0)}88%,100%{opacity:0;transform:translateY(4px)}}
+/* 3 · simge çapraz sönmesi · 270 → 430 ms */
+.n3i{animation:n3i 2.4s linear infinite}
+@keyframes n3i{0%,36.25%{opacity:1}42.9%,85%{opacity:0}88%,100%{opacity:1}}
+.n3c{animation:n3c 2.4s linear infinite}
+@keyframes n3c{0%,36.25%{opacity:0}42.9%,85%{opacity:1}88%,100%{opacity:0}}
+/* 4 · erken bırakma · bırakma 900 ms'de · disk 200 ms'de sıfır */
+.n4f{animation:n4f 2.4s linear infinite}
+@keyframes n4f{0%,25%{transform:scale(0)}62.5%{transform:scale(.75)}70.8%,100%{transform:scale(0)}}
+.n4s{animation:n4s 2.4s linear infinite}
+@keyframes n4s{0%,25%{transform:scale(1)}30.8%,62.5%{transform:scale(1.12)}67.5%,100%{transform:scale(1)}}
+.n4n{animation:n4n 2.4s linear infinite}
+@keyframes n4n{0%,25%{transform:scale(1);opacity:1}29.2%,62.5%{transform:scale(.94);opacity:.32}67.5%,100%{transform:scale(1);opacity:1}}
+.n4r{animation:n4r 2.4s linear infinite}
+@keyframes n4r{0%,25%{opacity:.55}28.75%,62.5%{opacity:1}67.5%,100%{opacity:.55}}
+.n4l{animation:n4l 2.4s linear infinite}
+@keyframes n4l{0%,25%{opacity:0;transform:translateY(4px)}28.75%,62.5%{opacity:1;transform:translateY(0)}67.5%,100%{opacity:0;transform:translateY(4px)}}
+/* 5 · ödül · 4000 ms · basış %8 (320 ms) · dolgu biter %20,5 · ödül 220 · kapanış 110 */
+.n5p{animation:n5p 4s linear infinite}
+@keyframes n5p{0%,4%{opacity:0;transform:scale(.94)}7%,26%{opacity:1;transform:scale(1)}28.75%,100%{opacity:0;transform:scale(.97)}}
+.n5f{animation:n5f 4s linear infinite}
+@keyframes n5f{0%,8%{transform:scale(0)}20.5%{transform:scale(1)}23%{transform:scale(1.14)}26%,100%{transform:scale(1)}}
+.n5h{animation:n5h 4s linear infinite}
+@keyframes n5h{0%,20.5%{opacity:.9;transform:scale(1)}26%,100%{opacity:0;transform:scale(1.7)}}
+.n5k{animation:n5k 4s linear infinite}
+@keyframes n5k{0%,20.5%{opacity:0}23.5%,100%{opacity:1}}
+.n5i{animation:n5i 4s linear infinite}
+@keyframes n5i{0%,14.75%{opacity:1}18.75%,100%{opacity:0}}
+.n5c{animation:n5c 4s linear infinite}
+@keyframes n5c{0%,14.75%{opacity:0}18.75%,20.5%{opacity:1}23.5%,100%{opacity:0}}
+.n5d{animation:n5d 4s linear infinite}
+@keyframes n5d{0%,8%{opacity:1;transform:scale(1)}12.2%,20.5%{opacity:.32;transform:scale(.94)}23.5%,100%{opacity:0;transform:scale(.88)}}
+.n5r{animation:n5r 4s linear infinite}
+@keyframes n5r{0%,8%{opacity:.55}11.75%,100%{opacity:1}}
+.n5l1{animation:n5l1 4s linear infinite}
+@keyframes n5l1{0%,8%{opacity:0}11.75%,20.5%{opacity:1}23.5%,100%{opacity:0}}
+.n5l2{animation:n5l2 4s linear infinite}
+@keyframes n5l2{0%,20.5%{opacity:0}23.5%,100%{opacity:1}}
+.n5s{animation:n5s 4s linear infinite}
+@keyframes n5s{0%,4%{opacity:0}7%,26%{opacity:1}28.75%,100%{opacity:0}}
+/* 6 · kapanış · 110 ms · yerinde söner */
+.n6p{animation:n6p 3s linear infinite}
+@keyframes n6p{0%,30%{opacity:1;transform:scale(1)}33.7%,90%{opacity:0;transform:scale(.96)}95%,100%{opacity:1;transform:scale(1)}}
+/* 7 · kayıt zinciri · 110 + 40 + 200 */
+.n7p{animation:n7p 4.5s linear infinite}
+@keyframes n7p{0%,20%{opacity:1;transform:scale(1)}22.4%,92%{opacity:0;transform:scale(.96)}96%,100%{opacity:1;transform:scale(1)}}
+.n7r{animation:n7r 4.5s linear infinite}
+@keyframes n7r{0%,23.3%{opacity:0;transform:translateY(4px)}27.7%,92%{opacity:1;transform:translateY(0)}96%,100%{opacity:0;transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){[class*="n1"],[class*="n2"],[class*="n3"],[class*="n4"],[class*="n5"],[class*="n6"],[class*="n7"]{animation-duration:1ms!important;animation-iteration-count:1!important}}
+</style></head>
+<body>
+<div class="doc">
+
+<div class="doc-head"><span class="mark">luera<i></i></span><div class="meta">Müdür 34 · Eylem hapı v2 · halka · kademe · ödül<br/>iPhone 16 Pro 393 × 852 · koyu + aydınlık · CSS otoritedir</div></div>
+
+<div class="lede"><h1>Kutu belirmiyor, alet kuruluyor</h1>
+<p>Müdür 33’ün hapı doğru parçalardan yapılmıştı ama <b>ağırlığı yoktu</b>: dört eşit gri kontur, tek parça beliren bir kutu, parmağın altında hiçbir cevap. Ölçüler, eylemler ve yerleşim aynen duruyor. Değişen şey hapın <b>varlığı</b>.</p>
+<p>Üç hamle: her simge artık <b>ince turuncu bir halkanın</b> içinde duruyor — çerçeve, dolgu değil; gözler açılışta <b>32 ms arayla, oka en yakın olandan başlayarak</b> ve <b>0,86 → 1,04 → 1,00</b> aşımıyla giriyor; parmağın altındaki göz <b>1,12</b>’ye büyüyor, komşuları 0,94’e çekilip %32’ye soluyor. Ayraç çizgisi kalktı: halkalar arası 16 pt zaten ayırıyor.</p>
+<p>Dolgu artık alttan yükselen bir düzlem değil, halkanın içinden <b>merkezden büyüyen bir disk</b>; okunan şey halkaya kalan boşluk. 500 ms dolduğunda halkadan bir <b>dalga</b> çıkıp sönüyor, disk 1,14’e yaylanıyor, komşular sıfıra iniyor: 830 ms’lik etkileşimin karşılığı bu 220 ms’de ödeniyor. <b>Jest değişmedi</b> — kaydırarak seçme bu turda da yok (Müdür 33 §2·4’teki gerekçe geçerli).</p></div>
+
+<div class="band"><span class="num">§5</span><h2>Yedi soru, yedi cevap</h2><p>Her cevabın altında ölçü, süre ve bir cümlelik gerekçe var. Bedeller: <b>A</b> bugün yazılabilir.</p></div>
+
+<div class="qa">
+
+<div class="q"><s class="n">1</s><div class="qb">
+<div class="qq">Halka her zaman mı duruyor, yoksa yalnız parmak değince mi koyulaşıyor?</div>
+<div class="qv"><em>Her zaman</em> duruyor — <em>%55</em> turuncuda. Parmak değince <em>%100</em>’e çıkıyor, kalınlığı hiç değişmiyor.</div>
+<div class="qd"><b>Neden her zaman:</b> hapın ağırlığı dururken eksikti; yalnız dokunulunca beliren bir halka o eksiği hiç kapatmaz, çünkü müdür hapı ilk gördüğü karede henüz dokunmamıştır. Halka <b>Ø 44</b>, kontur <b>1,5</b>, simgeyle arasında <b>9,5 pt</b> nefes; iki halka arası <b>16 pt</b>.</div>
+<div class="qd"><b>Neden %55 ve neden ince:</b> dört göz birden tam güçte turuncu olsa kartın “<b>en fazla bir dolu turuncu</b>” kuralı çöker ve turuncu acil olanı söyleyen renk olmaktan çıkar. %55 bir <b>çerçeve</b> okunuyor, dolu disk bir <b>eylem</b>. Aynı dil personel şeridindeki halkalarla da konuşuyor.</div>
+<div class="qd"><b>Parmak değince halka koyulaşıyor</b> — <code>opacity</code> .55 → 1, <b>90 ms</b>. Kalınlığı animasyonlamak sözleşme dışı (<span class="cost c">C</span>); koyulaşma tek bir opaklık değeri, <span class="cost">A</span>. Onarım gözünde (WhatsApp bağlı değil) halka da %40’a düşüyor: <b>dolgusuz halka = göndermez</b>.</div>
+<div class="qd"><b>Ayraç çizgisi kalktı.</b> Halka + çizgi iki ayrı ayırma sistemiydi; halka kazandı çünkü aynı zamanda hedefi ve dolgunun kabını da tanımlıyor. Gözlerin “tek alet” olarak okunmasını hapın kendi silueti ve 16 pt’lik eşit ritim sürdürüyor. <b>60 pt’lik göz büyümedi</b> — 44’lük halka içine rahat oturuyor, yani §0’ın hap genişlikleri (240 · 180 · 120) de bozulmadı.</div>
+</div></div>
+
+<div class="q"><s class="n">2</s><div class="qb">
+<div class="qq">Dört simge — özellikle “personele bilgi ver” — nasıl çizildi, sektör bağımsız kalıyor mu?</div>
+<div class="qv">Üçü tek kalemden <em>çizim</em> (22 pt, kontur 1,7), dördüncüsü çizim değil <em>veri</em>: personelin <em>baş harfleri</em>.</div>
+<div class="qd"><b>Çan düştü.</b> Çan “bir bildirim” diyor; müdürün kafasındaki şey “Selin’e haber ver”. Kişi + giden ok geçen turda kişi-çarpıyla <b>aynı silüete düştüğü için</b> elenmişti. Baş harf o çarpışmayı bitiriyor: gözde <b>SD</b> yazıyor — randevunun personeli kim ise onun harfleri, 14,5/800.</div>
+<div class="qd"><b>Sektör bağımsız,</b> çünkü çizim değil: kuaförde Selin, diş kliniğinde Dr. Kaya. Hiçbir meslek nesnesi (önlük, makas) çizilmiyor. Ürünün kendi personel işareti de bu: <code>staffpill</code>’deki baş harfli halka. <b>Personel atanmamışsa göz hiç çizilmez</b> — “ölü kontrol yok” kuralı zaten bunu istiyor; yedek bir çan tutmuyoruz.</div>
+<div class="qd"><b>WhatsApp gözü:</b> balon + <b>giden ok</b>. Jenerik balon “mesaj” diyordu; ok “hazır metin <b>gidiyor</b>” diyor. WhatsApp’ın kendi markası çizilmiyor — başkasının işareti, ve kanalın adını kelime bloğu söylüyor. <b><code>Gelmedi</code> yumuşatıldı:</b> çarpı 4,8’den <b>3,4</b>’e indi, sağ omuzdan sağ alta geçti, gövde yayı kısaldı — sert duran şey çarpının ağırlığıydı, fikri değil.</div>
+<div class="qd"><b>Dört silüet hâlâ birbirine benzemiyor:</b> köşegen ahize · yatay balon · baş + küçük çarpı · iki harf. Izgara aşağıda: 24 kutu, 22 çizim, kontur 1,7, tek kalem.</div>
+</div></div>
+
+<div class="q"><s class="n">3</s><div class="qb">
+<div class="qq">Basılan göz nasıl cevap veriyor, komşular ne yapıyor?</div>
+<div class="qv">Basılan göz <em>1,00 → 1,12</em> (yay, 140 ms) ve halkası %100’e çıkıyor. Komşular <em>0,94</em>’e çekilip <em>%32</em>’ye soluyor (100 ms).</div>
+<div class="qd"><b>Ölçek, çünkü kalınlık ve renk animasyonlanamıyor.</b> 44 × 1,12 = <b>49,3 pt</b> — gözün 60 pt’lik kutusuna değmiyor, yani komşu hedefe taşmıyor ve hap kıpırdamıyor. Parmak zaten gözün üstünde: büyüyen şeyin görünen kısmı halkanın kenarı, ve o kenar dolgunun da kabı.</div>
+<div class="qd"><b>Komşuların küçülmesi bir bilgi:</b> tek gözün dolabileceğini söylüyor. Yalnız solmaları (geçen turun %32’si) odağı topluyordu ama aleti canlandırmıyordu; <b>0,94</b> — %6 — fark edilir ama “geri çekildi” demeyecek kadar küçük.</div>
+<div class="qd"><b>Erken bırakma:</b> disk 200 ms’de sıfırlanıyor, göz 120 ms’de 1,00’a, komşular 120 ms’de geri geliyor. Girişten dört kat hızlı; geri alma cezalandırılmaz. Kartta hiçbir kayıt kalmaz, dokunsal geri bildirim yok.</div>
+</div></div>
+
+<div class="q"><s class="n">4</s><div class="qb">
+<div class="qq">Kademeli giriş hangi yönde akıyor ve neden?</div>
+<div class="qv"><em>Oka en yakın gözden uzağa</em> — hap sağa hizalı olduğu için pratikte <em>sağdan sola</em>. Aralık <em>32 ms</em>, göz başına 150 ms, toplam <em>246 ms</em>.</div>
+<div class="qd"><b>Gerekçe tek cümle:</b> hareket, hapın büyüme noktasıyla aynı yerden doğmalı — büyüme noktası okun olduğu noktadır (§0), o hâlde ilk göz de oka en yakın olandır. Ters yön, hapın bir kenardan büyüyüp içeriğinin öteki kenardan gelmesi demek olurdu; iki ayrı olay gibi okunur.</div>
+<div class="qd"><b>Sağ değil, “ok tarafı”:</b> kural yön değiştirmiyor. Hap aşağı açıldığında ok alt kenara geçiyor ama yatay yeri aynı (tetikleyicinin merkezi), yani kademe yine aynı gözden başlıyor. Kural konumdan değil <b>çapadan</b> türediği için 2 ve 3 gözlü hâllerde de kendiliğinden çalışıyor.</div>
+<div class="qd"><b>Çıkışta ters kademe yok</b> (§Hareket · 6): kademe bir tanıtımdır. Sırayla sönen dört göz ikinci bir olay olarak okunur ve 110 ms’lik kapanışa sığmaz. Gözler hapla birlikte gidiyor.</div>
+</div></div>
+
+<div class="q"><s class="n">5</s><div class="qb">
+<div class="qq">Dolgu halkayla nasıl ilişki kuruyor — alttan mı yükseliyor, merkezden mi?</div>
+<div class="qv"><em>Merkezden</em>: halkanın içinde Ø <em>39,5</em> bir disk, <code>scale</code> 0 → 1, <em>500 ms</em>, doğrusal. Okunan şey <em>halkaya kalan boşluk</em>.</div>
+<div class="qd"><b>Alttan yükselen dolgu elendi:</b> daire içinde yükselen bir düzlem “sıvı seviyesi” olur ve halkayla ilişki kurmaz — halka onun kabı değil, arkasında kalan bir çember olur. Merkezden büyüyen disk halkayı <b>hedef</b> yapıyor: iki kenar arasındaki boşluk kapanınca iş oluyor.</div>
+<div class="qd"><b>Doğrusal, çünkü dolgu bir saat:</b> yarıçap doğrusal büyüyor, yani kapanan boşluk doğrusal azalıyor — müdürün okuduğu nicelik bu, alan değil. Disk halkanın iç kenarına <b>0,75 pt</b> kalana kadar büyüyor; halka yenmiyor, kap olarak kalıyor ve dolu göz tek bir <b>madeni para</b> gibi okunuyor.</div>
+<div class="qd"><b>Yan kazanç:</b> disk kenara değmediği için uçtaki gözlerin köşe kırpma sorunu (Müdür 33’ün düzeltmesi) ortadan kalktı — kural yerinde duruyor, ama artık yük taşımıyor. Simge, diskin kenarı üstünden geçtiği aralıkta kreme dönüyor: <b>270 → 430 ms</b>, iki simge üst üste, çapraz sönme; renk animasyonu yok.</div>
+</div></div>
+
+<div class="q"><s class="n">6</s><div class="qb">
+<div class="qq">Seçim anının ödülü ne?</div>
+<div class="qv">Halkadan çıkan bir <em>dalga</em> (1 → 1,7, %90 → 0 · 220 ms) + diskin <em>aşımı</em> (1 → 1,14 → 1 · 200 ms) + onay + komşuların <em>sıfıra</em> inmesi. Duruş <em>220 ms</em>.</div>
+<div class="qd"><b>Dalga, çünkü ödül gözün kendisinden çıkmalı:</b> aynı halkanın bir kopyası dışa doğru büyüyüp sönüyor — iki dönüşüm, iki katman, sözleşme içinde (<span class="cost">A</span>). Basılı tutmanın bütün 500 ms’si o çemberi kapatmaya gitti; ödül o çemberin <b>çözülmesi</b>.</div>
+<div class="qd"><b>Aşım, çünkü bitiş yaylı olmalı:</b> disk doluluğa varınca 1,14’e taşıp geri oturuyor. Doğrusal biten bir dolgu “süre bitti” der; yaylanan bir disk “oldu” der.</div>
+<div class="qd"><b>Komşular sıfıra iniyor</b> (%32 → 0, ölçek 0,94 → 0,88): ekranda tek bir dolu turuncu göz ve altında geçmiş zamana geçmiş bir cümle kalıyor — “Arandı · telefon açılıyor”.</div>
+<div class="qd"><b>Duruş 700’den 220’ye indi.</b> Geçen turda 220 ms gerekiyordu çünkü dolgunun bittiğini gösteren <b>başka hiçbir şey</b> yoktu. Şimdi bitişi dalga, aşım ve onay işaretliyor; ödülün kalanı <b>kartta</b> ödeniyor: kapanıştan 40 ms sonra kayıt satırı beliriyor (§Hareket · 7). Ödül tek karede değil, dikişin iki yanında.</div>
+</div></div>
+
+<div class="q"><s class="n">7</s><div class="qb">
+<div class="qq">Bütün bunlar 500 ms’ye sığıyor mu? Sığmıyorsa ne kesilir?</div>
+<div class="qv"><em>Sığıyor</em> — çünkü hiçbiri gecikmeli başlamıyor ve en uzun olan (dolgu) pencerenin kendisi. Toplam etkileşim <em>830 ms</em>: 500 + 220 + 110.</div>
+<div class="qd">Basılı tutma penceresinin bütçesi:</div>
+<div class="rn">
+<div class="r h"><b>an</b><s>ne oluyor</s><code>süre · sözleşme</code></div>
+<div class="r"><b>0 ms</b><s>halka koyulaşır · göz 1,12 · komşular 0,94 + %32 · kelime bloğu · disk başlar</s><code>90 · 140 yay · 100 · 90 · 0 gecikme — hepsi <code>opacity</code> + <code>scale</code></code></div>
+<div class="r"><b>270 → 430 ms</b><s>simge kreme döner</s><code>160 ms çapraz sönme; diskin kenarının simgeyi geçtiği aralık</code></div>
+<div class="r"><b>500 ms</b><s>disk tam · ödül başlar</s><code>dalga 220 · aşım 200 · onay 120 · komşular 120</code></div>
+<div class="r"><b>720 ms</b><s>kapanış</s><code>110 ms · yerinde söner</code></div>
+<div class="r"><b>760 → 960 ms</b><s>kartta kayıt satırı</s><code>40 boşluk + 200 giriş · kart 118’de kalır</code></div>
+</div>
+<div class="qd"><b>Kesme sırası</b> (cihaz zayıfsa ya da 500 ms tartışmaya açılırsa): <b>1)</b> simgenin çapraz sönmesi — tek karede krem’e atlar, bilgi kaybı yok; <b>2)</b> komşuların ölçeği — solmaları kalır; <b>3)</b> diskin aşımı — dalga tek başına da “oldu” der. <b>Kesilmeyecekler:</b> diskin kendisi, dalga, onay, dokunsallar.</div>
+<div class="qd"><b>Kademe pencerenin dışında</b> — 246 ms’lik açılış basılı tutmadan önce bitiyor, aynı bütçeyi paylaşmıyorlar. <b><code>reduceMotion</code>:</b> kademe, aşım ve dalga düşer; <b>disk düşmez</b> — 6 × <b>83 ms</b> kademe atar. Kalan saniye rakamı yazılmıyor: 500 ms sayılamaz, sayacın kendisi diskin altı basamağı.</div>
+</div></div>
+
+</div>
+
+<div class="band"><span class="num">§0</span><h2>Ölçülüp doğrulanmış hâl · korunanlar</h2><p>Geçen turun beş düzeltmesi ve bu turun ölçümleri. Dokunulmadı.</p></div>
+<div class="rn" style="max-width:1400px;margin-bottom:76px">
+<div class="r h"><b>konu</b><s>ölçüm</s><code>bu turda ne oldu</code></div>
+<div class="r"><b>Ok ↔ tetikleyici kenarı</b><s>0 · 15 hapın hepsinde</s><code>Aynı çapa; ok ucu <code>Yönet</code>’in kenarına değiyor. Hap 105’ten 56’ya indi, çapa formülü değişmedi.</code></div>
+<div class="r"><b>Ok merkezi ↔ tetikleyici merkezi</b><s>0,14 pt</s><code><code>tetikleyici ÷ 2 − 7</code> · <code>Yönet ˄</code> <b>101,9</b> pt → ok sağdan <b>51,0</b> · sapma 0,1 · ayraca en yakın <b>9,0</b> pt, kaydırma tetiklenmiyor.</code></div>
+<div class="r"><b>Kahraman rakamın y’si</b><s>29 · 37 karede</s><code>Kayıt satırı gelse de gitse de. Yeni kayıt metinleri (5 sonuç) aynı 14 pt’lik satırda.</code></div>
+<div class="r"><b>Sağ sütundaki iki hap</b><s>eşit genişlik, sol kenarlar çakışık</s><code><code>Gelmedi</code> hapa taşındı; yuvada yalnız tetikleyici var, hizalama kuralı aynı.</code></div>
+<div class="r"><b><code>.pnl</code></b><s><code>overflow:hidden</code></s><code>Çizgi yarıçapsız, köşeden taşmıyor. Hap <code>.pnl</code>’in dışında, <code>.balwrap</code> katmanında — kırpılmıyor.</code></div>
+<div class="r"><b>Kart yükseklikleri</b><s>118 · 96 · 94</s><code>Sapma yok. <code>Gelmedi</code>’nin çıkması sağ sütunu değiştirmedi (bkz. cevap 5).</code></div>
+<div class="r"><b>Yön kuralı</b><s>varsayılan yukarı</s><code>Yer yoksa aşağı, yön açılışta bir kez seçilir, kaydırma hapı kapatır. Aynen.</code></div>
+<div class="r"><b>Kenar sınırı</b><s>ekrandan 16 · köşeden 25</s><code>Ok, kutunun köşesine yarıçap 18 + yarım ok 7 = <b>25</b> pt’den yaklaşmaz (eski 21, yarıçap 14 içindi). En geniş hapta solda 139 pt boşluk kaldığı için kenar sınırı bu turda hiç işlemiyor.</code></div>
+<div class="r"><b>Turuncu <code>#FF5A1F</code></b><s>çerçeve %55 · dolgu %100</s><code>v2: sakin gözde artık <b>ince halka</b> olarak var (%55, kontur 1,5) — çerçeve. <b>Dolu turuncu</b> yine yalnız eylem başlayınca giriyor; kartta hâlâ en fazla bir dolu turuncu hap (<code>Geldi</code>).</code></div>
+<div class="r"><b>Dokunma hedefi</b><s>44 pt taban</s><code>Göz 60 × 56 · tetikleyici 44 · kelime bloğu 44 ama <b>hedef değil</b>, çıktı. Halka 44 çizim, hedef yine <b>gözün 60 × 56</b>’sı.</code></div>
+<div class="r"><b>Halka · v2</b><s>Ø 44 · kontur 1,5</s><code>60 pt’lik göz halkayı <b>taşıyor</b>: yatayda 8, dikeyde 6 pt kenar boşluğu, simgeye 9,5 pt nefes. Göz büyümedi, hap genişlikleri (240 · 180 · 120) korundu.</code></div>
+<div class="r"><b>Ayraç · v2</b><s>kalktı</s><code>Halkalar arası <b>16 pt</b> ayırmayı devraldı. Ölçüldü: dört halkanın merkezleri 60 pt aralıkla, sapma 0.</code></div>
+<div class="r"><b>Basılı göz · v2</b><s>1,12 → 49,3 pt</s><code>Gözün 60 pt’lik kutusuna değmiyor (10,7 pt pay), komşu hedefe taşmıyor, hap kıpırdamıyor.</code></div>
+</div>
+
+<div class="band"><span class="num">Hap</span><h2>Yedi hâl · dururken, kurulurken, basılı, dolarken, ödülde, kapanırken, <code>reduceMotion</code></h2><p>Halka her zaman duruyor (%55). Dolu turuncu yalnız parmak inince giriyor — merkezden büyüyen bir disk olarak.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Eylem hapı v2</s>240 × 56 · göz 60 · halka Ø 44 · simge 22 · dolgu 500 ms</h3>
+<div class="rn">
+<div class="r h"><b>parça</b><s>ölçü</s><code>not</code></div>
+<div class="r"><b>Kutu</b><s>240 × 56 · r 18</s><code>Genişlik = göz sayısı × 60. <b>Değişmedi</b>: halka gözün içine sığdı.</code></div>
+<div class="r"><b>Göz</b><s>60 × 56</s><code>Dokunma hedefi bu. <code>overflow</code> <b>yok</b>: basılı göz 49,3 pt, ödül dalgası 75 pt — ikisi de kutuyu aşar.</code></div>
+<div class="r"><b>Halka</b><s>Ø 44 · kontur 1,5 · %55</s><code>Her zaman orada. Parmak inince <code>opacity</code> 1’e çıkar (90 ms); kalınlık animasyonlanamaz.</code></div>
+<div class="r"><b>Halka arası</b><s>16 pt</s><code>Ayraç çizgisinin yerini aldı. Tek alet okuması hapın siluetinden ve eşit ritimden geliyor.</code></div>
+<div class="r"><b>Simge</b><s>22 pt · kontur 1,7</s><code>Halkaya 9,5 pt nefes. Dördü tek kalemden; personel gözünde çizim yerine <b>baş harf</b> (14,5/800).</code></div>
+<div class="r"><b>Kademeli giriş</b><s>32 ms · göz başına 150</s><code>Oka en yakın gözden uzağa. Aşım <b>0,86 → 1,04 → 1,00</b> (110 + 40). Toplam 246 ms.</code></div>
+<div class="r"><b>Basılı göz</b><s>1,12 · 140 ms yay</s><code>Komşular <b>0,94</b> + <b>%32</b> (100 ms). Parmağın altındaki şey büyüyor, komşular çekiliyor.</code></div>
+<div class="r"><b>Dolgu diski</b><s>Ø 39,5 · <code>scale</code> 0 → 1 · 500 ms</s><code>Merkezden, halkanın içinde, <b>doğrusal</b>: okunan nicelik halkaya kalan boşluk.</code></div>
+<div class="r"><b>Simgenin dönüşü</b><s>270 → 430 ms</s><code>Üst üste iki simge (mürekkep + krem), 160 ms çapraz sönme — diskin kenarının simgeyi geçtiği aralık.</code></div>
+<div class="r"><b>Ödül</b><s>dalga 220 · aşım 200</s><code>Halkanın kopyası 1 → 1,7 büyüyüp söner; disk 1 → 1,14 → 1 yaylanır; onay 120 ms; komşular 0’a.</code></div>
+<div class="r"><b>Duruş</b><s>220 ms</s><code>Eski 700’ün yerine: bitişi artık dalga ve aşım işaretliyor, ödülün kalanı kartta kayıt satırı olarak ödeniyor.</code></div>
+<div class="r"><b>Kelime bloğu</b><s>44 · bitişik · karşı kenar</s><code>Değişmedi. Fiil 15,5/800 + sonuç 11,5/600, genişlik <code>max(hap, içerik)</code>, yalnız basılıyken çizilir.</code></div>
+<div class="r"><b>Toplam</b><s>830 ms</s><code>500 dolgu + 220 ödül + 110 kapanış. Açılışın 250 ms’si bu bütçenin dışında.</code></div>
+</div>
+<div class="note"><span><b>Halka ince, çünkü dolu turuncu bir eylemdir.</b> Dört gözü birden doldurmak, hangisinin acil olduğunu söyleyen rengi anlamsızlaştırır ve kartın “tek dolu turuncu” kuralını çökertir. Çerçeve ile eylem arasındaki fark korunuyor: <b>%55 kontur</b> ve <b>%100 disk</b>.</span></div>
+<div class="note"><span><b>Yay çizilmedi, çünkü çizilemez.</b> Dolan halka <code>stroke-dashoffset</code> ya da konik gradyan ister (<span class="cost c">C</span>). Merkezden büyüyen disk aynı bilgiyi native sürücüde veriyor — ve halkayı bir <b>hedefe</b> çeviriyor: kapanan boşluk.</span></div>
+<div class="note"><span><b>Basılı tutma <code>PanResponder</code> istemiyor:</b> <code>Pressable</code>’ın <code>onPressIn</code> / <code>onPressOut</code>’u + <code>Animated.timing(500)</code> yeterli; kademe <code>Animated.stagger</code>, aşım ve ölçekler <code>Animated.spring</code> — üçü de bu projede zaten kullanılıyor. <b>Yeni bağımlılık yok.</b></span></div>
+</div>
+<div class="stages" id="stAct"></div>
+</div>
+
+<div class="band"><span class="num">Simge</span><h2>Dört göz, tek kalem</h2><p>Izgara 24 kutu, çizim 22, kontur 1,7. Solda ızgara ölçeğinde, altında gerçek boyutta (60 × 56 göz, Ø 44 halka).</p></div>
+<div class="igrid" id="stIcon" style="max-width:1400px;margin-bottom:26px"></div>
+<div class="note" style="max-width:1180px;margin-bottom:76px"><span><b>Dördüncüsü çizim değil:</b> baş harf, personelin adından geliyor. Bu yüzden hiçbir sektöre ait bir nesne çizmek zorunda kalmıyoruz ve “bildirim” değil “<b>Selin’e</b>” diyor. Personel atanmamışsa göz hiç çizilmez — yedek simge tutmuyoruz, çünkü hedefi olmayan bir eylem ölü kontroldür.</span></div>
+
+<div class="band"><span class="num">Cins</span><h2>Dört eylem dört ayrı cinsten</h2><p>Ayrım simgede değil: <b>kelime bloğunun ikinci satırında</b>, dolgunun varlığında ve kartın kaydında.</p></div>
+<div class="rn" style="max-width:1400px;margin-bottom:76px">
+<div class="r h"><b>eylem</b><s>kelime bloğu · 2. satır</s><code>uygulamadan çıkar · sonucu bilinir · geri alınır</code><em>dolgu</em></div>
+<div class="r"><b>Ara</b><s>“telefon açılır”</s><code><b>Evet</b>, telefon açılır · sonuç bilinmez · geri alma yok. Dönüşte <code>AppState → active</code>, kayıt satırı yazılır: “Arandı · 2 dk”.</code><em>0,5 sn</em></div>
+<div class="r"><b>WhatsApp’tan yaz</b><s>“hazır metin, salonun numarası”</s><code>Çıkmaz · <b>sonuç bilinir</b> (sunucu döner, beş sonuç) · <b>5 sn pencere</b>, kartta. Kayıt canlı: “Yazılıyor · 5” → “Yazıldı · şimdi”.</code><em>0,5 sn</em></div>
+<div class="r"><b>Gelmedi</b><s>“geri alınabilir”</s><code>Çıkmaz · sonuç bilinir · <b>geri alınır</b>, <code>⋮</code> menüsünde, süresiz. Kart <code>noshow</code>’a döner — ailenin mevcut takası.</code><em>0,5 sn</em></div>
+<div class="r"><b>Personele bilgi ver</b><s>“bildirim gider”</s><code>Çıkmaz · <b>bugün sonucu bilinmez</b> (§4) · geri alma yok. Kart teslimat iddia etmez: “Personele söylendi · 2 dk”, 10. dakikada bayatlar.</code><em>0,5 sn</em></div>
+<div class="r"><b>WhatsApp bağlı değil</b><s>“Ayarlara git”</s><code><b>Onarım gözü</b>, eylem değil: %40 mürekkep, dolgu yok, tek dokunuş → Ayarlar → WhatsApp. Kartta hiç kayıt bırakmaz.</code><em class="b">—</em></div>
+</div>
+
+<div class="band"><span class="num">Göz</span><h2>Kaç göz çizilecek · veriden gelir</h2><p>Hap daralıyor, göz genişlemiyor. Ok her hâlde tetikleyicinin merkezinde.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Göz sayısı</s>240 · 180 · 120 — ve hiç.</h3>
+<div class="rn">
+<div class="r h"><b>hâl</b><s>gözler · genişlik</s><code>neden</code></div>
+<div class="r"><b>Geciken · tam veri</b><s>4 · <b>240</b></s><code>Numara var, salonun WhatsApp’ı bağlı, müşteri opt-out değil.</code></div>
+<div class="r"><b>Randevu düşmüş (B·2)</b><s>3 · <b>180</b></s><code><code>Gelmedi</code> anlamsız — randevu zaten düştü. Kalan üç göz hâlâ işe yarıyor.</code></div>
+<div class="r"><b>Zamanında (A·0)</b><s>2 · <b>120</b></s><code>Gecikme yok: <code>Gelmedi</code> henüz gelebilecek müşteriyi atmak, <code>Personele bilgi ver</code>’in söyleyeceği bir şey yok.</code></div>
+<div class="r"><b>Numarası yok · gecikmiş</b><s>2 · <b>120</b></s><code><code>customers.phone</code> boş → iki kanal da <b>hiç çizilmez</b>. Kalan: <code>Gelmedi</code> + <code>Personele bilgi ver</code>.</code></div>
+<div class="r"><b>Müşteri opt-out</b><s>3 · <b>180</b></s><code><code>WhatsApp</code> çizilmez — sunucu <code>opt_out</code> döndürecekti, sormadan biliyoruz. <code>Ara</code> kalır.</code></div>
+<div class="r"><b>Salonun WhatsApp’ı bağlı değil</b><s>4 · <b>240</b> · biri sönük</s><code>Göz <b>kalır</b>, %40 mürekkep, dolgusuz: gidilecek gerçek bir yer var (Ayarlar → WhatsApp) ve müdürün sebebi bilmesi gerek. Silmek “bu müşteriye yazılamaz” derdi — yanlış cümle.</code></div>
+<div class="r"><b>Tek göz kalırsa</b><s>hap yok</s><code>Tek gözlü hap alet değil, düğme: o eylem doğrudan ikinci yuvaya çıkar, tetikleyici hiç çizilmez.</code></div>
+</div>
+<div class="note"><span><b>“Ölü kontrol yok” ile “sebebi bilmek” çelişmiyor:</b> ölü kontrol basıldığında <b>hiçbir şey olmayan</b> kontroldür. Onarım gözü basıldığında Ayarlar’ı açıyor — ölü değil, <em>başka bir yere</em> gidiyor. Ayırt edilmesi için mürekkebi %40 ve dolgusu yok; dolgu “gönderir” demek, o göz göndermiyor.</span></div>
+<div class="note"><span><b>Ok bir seçenek işaret etmiyor.</b> Üç genişlikte de ok en sağdaki gözün içine düşüyor; bu tesadüf, anlam değil. Anlam şurada: ok tetikleyiciye <b>değiyor</b>, yani hap o düğmeden çıkmış.</span></div>
+</div>
+<div class="stages" id="stCnt"></div>
+</div>
+
+<div class="band"><span class="num">Yaz</span><h2><code>Yaz</code> otomasyon oldu · sunucunun beş sonucu</h2><p>Mesaj salonun numarasından, tek gönderim kapısından, hazır metinle gidiyor. Müdür hiçbir şey yazmıyor, uygulamadan çıkmıyor — bu yüzden kart <b>gerçek sonucu</b> söyleyebiliyor.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Şablon metin</s>Tek cümle, salon adı, saat.</h3>
+<div class="lead">“<b>Luera’dan merhaba — 11:30 randevunuz için sizi bekliyoruz, yolda mısınız?</b>”<br/>Tek cümle, iki değişken (salon adı, saat), soru işaretiyle bitiyor: cevap isteyen bir mesaj, bildirim değil. Müdürün elle tetiklediği mesajlar <b>kota dışı</b> — kota hâli çizilmedi.</div>
+<div class="rn">
+<div class="r h"><b>sonuç</b><s>kartta ne yazıyor</s><code>müdür ne yapabilir · bayatlar mı</code></div>
+<div class="r"><b>pencere · 5 sn</b><s>“Yazılıyor · 5”</s><code>Nokta turuncu (canlı). İkinci yuva 5 sn <code>Geri al</code>’a takas — sonra <code>Yönet</code> geri gelir. Pencere içinde istek <b>hiç gitmez</b>.</code></div>
+<div class="r"><b><code>ok</code></b><s>“Yazıldı · 2 dk”</s><code>Yapılacak bir şey yok. <b>10. dakikada bayatlar</b> ve düşer — kart 118’de kalır.</code></div>
+<div class="r"><b><code>not_connected</code></b><s>“Gönderilemedi · bağlantı yok”</s><code>Nokta kırmızı. <b>Bayatlamaz</b> — bitmemiş iş düşmez. Onarım hapın sönük gözünde: Ayarlar → WhatsApp.</code></div>
+<div class="r"><b><code>opt_out</code></b><s>“Mesaj istemiyor · gönderilmedi”</s><code>Yapılacak bir şey yok, <code>Ara</code> kalır. Bu sonuçtan sonra göz hapta <b>hiç çizilmez</b>. Bayatlar (10 dk).</code></div>
+<div class="r"><b><code>invalid_phone</code></b><s>“Numara geçersiz · düzeltilmeli”</s><code>Nokta kırmızı, <b>bayatlamaz</b>. Aynı numara arama için de güvenilmez: iki kanal da sönüyor, onarım müşteri kartında.</code></div>
+<div class="r"><b><code>failed</code> / kuyruk</b><s>“Kuyrukta · bağlantı gelince gider”</s><code><b>Bayatlamaz</b>, süre yazmaz — yaş yazan bir kayıt “bitti” der. Gidince kendiliğinden “Yazıldı · şimdi” olur.</code></div>
+</div>
+<div class="note"><span><b>Damga “gönderildi” diyemediği yerde ne yaptığını söylüyor.</b> Geçen turun “teslimatı göremeyiz, sahte onay olur” gerekçesi düştü: sunucu gerçek sonucu döndürüyor. Ama bu yalnız <code>Yaz</code> için geçerli — <code>Personele bilgi ver</code>’de kanal bugün sonucu döndürmüyor, o yüzden orada kart hâlâ yalnız <b>müdürün ne yaptığını</b> söylüyor.</span></div>
+<div class="note"><span><b>Başarısızlık bayatlamıyor.</b> 10 dakika kuralı “bu bilgi yer tutmaya başladı” demek için var; gönderilemeyen bir mesaj 10 dakika sonra daha da önemli. Bayatlayan: <code>ok</code> ve <code>opt_out</code>. Bayatlamayan: <code>not_connected</code>, <code>invalid_phone</code>, kuyruk.</span></div>
+</div>
+<div class="stages" id="stWA"></div>
+</div>
+
+<div class="band"><span class="num">§4</span><h2><code>Personele bilgi ver</code> — yarım kanal, dürüst kart</h2><p>Eylem üründe zaten var (<code>arrived</code> kartında “Personele söyle”), ama bugün yalnız yerel. Push kanalı mevcut, bu eyleme bağlı değil.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Anlamı kartla değişiyor</s>“Müşterin içeride” değil, “müşterin gecikti, boştasın”.</h3>
+<div class="lead"><code>arrived</code>’da mesaj personele “müşterin bekliyor” diyor. Geciken kartta <b>tam tersi bir bilgi</b> taşıyor: o aralık boş, personel başka iş alabilir. Aynı düğme, farklı cümle — bu yüzden hapta ayrı bir göz olarak duruyor, <code>arrived</code>’dakinin kopyası olarak değil.</div>
+<div class="note"><span><b>Kart teslimat iddia etmiyor:</b> “Personele iletildi” yazamaz — <code>send-push</code> bu eyleme bağlanmadan bunu bilemez. Yazdığı en fazla şu: <b>“Personele söylendi · 2 dk”</b> — müdürün ne yaptığı ve yaşı. <b>Bayatlar:</b> 10. dakikada düşer, çünkü on dakika sonra personel ya öğrendi ya öğrenmeyecek.</span></div>
+<div class="note"><span><b>Kanal bağlanınca kartın metni değişir, tasarımı değişmez:</b> aynı satır “Personele iletildi · 2 dk” olur ve nokta yeşile döner. Bugün yazılmayan tek şey teslimat; o gelince yeni bir kalıp gerekmiyor.</span></div>
+<div class="note"><span><b>Çan neden yine de dolgulu:</b> bildirim küçük ama <b>gidiyor</b> ve geri alınamıyor — personelin telefonunda titreyen bir şey. Kaza korumasını hak ediyor.</span></div>
+</div>
+<div class="stages" id="stInf"></div>
+</div>
+
+<div class="band"><span class="num">Çapa</span><h2>Çapa, yön ve kenar · değişmedi</h2><p>Ok ucu tetikleyicinin kenarına <b>değer</b>, yatay merkezi onun merkeziyle çakışır. Yön açılışta bir kez seçilir.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Çapa</s>Hap kartın tepesine değil, düğmeye bağlı.</h3>
+<div class="lead">Hapın alt kenarı tetikleyicinin üst kenarının <b>6 pt</b> üstünde; o 6 pt’yi ok ucu doldurur. Büyüme noktası (<code>transformOrigin</code>) tam <b>okun olduğu nokta</b>. Kelime bloğu bu kenarın değil, <b>karşı</b> kenarın işi.</div>
+<div class="rn">
+<div class="r h"><b>kural</b><s>ölçü</s><code>gerekçe</code></div>
+<div class="r"><b>Dikey çapa</b><s>ok 6 · boşluk 0</s><code>Hap alt kenarı = tetikleyici üst kenarı − 6. Hap 105’ten 56’ya indi, formül aynı kaldı.</code></div>
+<div class="r"><b>Yatay hiza</b><s>sağ kenarlar çakışık</s><code>Hapın sağ kenarı tetikleyicinin sağ kenarıyla hizalı (ikisi de karttan 14). Ok merkezi = tetikleyicinin merkezi, <b>51,0 pt</b> sağdan.</code></div>
+<div class="r"><b>Yön · varsayılan</b><s>yukarı</s><code>Yukarı açılan hap <b>aynı müşterinin</b> kartını örter; aşağı açılan <b>başka bir müşterinin</b> satırını — ikincisi daha pahalı hata.</code></div>
+<div class="r"><b>Yön · aşağı</b><s>yukarıda yer yoksa</s><code>Koşul: <code>tetikleyici üstü − (100 + 6) &lt; güvenli alan + 8</code>. Eşik 111’den <b>106</b>’ya indi — hap küçüldüğü için ilk kartta bile yukarı açılma şansı arttı; yine de listenin ilk satırında aşağı açılıyor. Ok üst kenara, büyüme noktası sağ <b>üst</b> köşeye geçer, <b>kelime bloğu alta</b> iner.</code></div>
+<div class="r"><b>Yön · bir kez</b><s>açılışta</s><code>Kaydırma hapı <b>kapatır</b>, çevirmez. Açıkken yön değiştiren hap yerinden zıplamış görünür.</code></div>
+<div class="r"><b>Ok sınırı</b><s>25 pt</s><code>Yarıçap 18 + yarım ok 7. Ok kutunun köşesine bundan yakın durmaz; ayraca da 8 pt’den yakın durmaz — yakınsa <b>hap kayar, ok kaymaz</b>.</code></div>
+<div class="r"><b>Kenar</b><s>solda 139 pt boşluk</s><code>En geniş hap 240 · 393 − 14 − 240 = 139. Kenar sınırı (16) bu turda hiç işlemiyor.</code></div>
+<div class="r"><b>Kapanma</b><s>4 yol · tek çıkış</s><code>Dışına dokunma · kaydırma · Android geri · bir gözü tamamlama. İlk üçü kartta <b>hiçbir kayıt bırakmaz</b>. Tek dokunuş da bırakmaz — yarım saniye şart.</code></div>
+</div>
+<div class="note"><span><b>Hap <code>Geldi</code>’yi hâlâ örtüyor — ölçtüm: 102 × 44’ün 102 × 40’ı, <b>%91</b>.</b> Altta 4 pt turuncu şerit kalıyor. Bu geçen turun kabul edilmiş bedeli ve kabul edilmeye devam ediyor: hiçbir şeye değmeyen bir ok ucu hapın nereden çıktığını hiç söylemez, <code>Geldi</code> ise tek dokunuşla (hapın dışına) geri gelir. <b>Küçülmenin kazancı yukarıda:</b> 56 pt’lik hap kartın üst kenarını yalnız <b>2 pt</b> aşıyor — 105 pt’lik balon 51 pt aşıyordu ve üstteki satırı yiyordu.</span></div>
+<div class="note"><span><b>Kelime bloğu belirince ne kadar taşıyor:</b> 100 pt yüzen katman, kartın üst kenarını <b>46 pt</b> aşıyor — yukarıdaki satırın adının üstüne geliyor, düğmesinin üstüne gelmiyor. Yüzen katman listenin kuralına uymaz; taşma yönü hep parmağın tersi.</span></div>
+</div>
+<div class="stages" id="stDir"></div>
+</div>
+
+<div class="band"><span class="num">A</span><h2>next · gecikmiş müşteri</h2><p>Kart 118 pt. Kayıt satırı gelir gider, sağ sütun hiç oynamaz.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Kart A</s>Tetikleyici 0. dakikadan itibaren yerinde; değişen tek şey hapın göz sayısı.</h3>
+<div class="lead">Zamanında: <code>Geldi</code> + <code>Yönet</code>, hap <b>2 gözlü</b>. Gecikince etiket ve alt satır kırmızıya/geri sayıma geçiyor, hap <b>4 gözlü</b> açılıyor. Kayıt dördüncü satıra yazılıyor ve 10. dakikada düşüyor — ama <b>başarısızlıklar düşmüyor</b>.</div>
+<div class="note"><span><b>Ağırlık sırası:</b> dolu turuncu <code>Geldi</code> &gt; kenarlıklı <code>Yönet ˄</code> &gt; hapın içindeki eşit dört göz. Kartta dolu turuncu tek.</span></div>
+<div class="note"><span><b>Takas öldü, sütun sabit.</b> Geçen turun <code>Gelmedi</code> → <code>Ulaş</code> çapraz sönmesi silindi: ikinci yuva günün her anında <code>Yönet</code>. Bir hareket eksildi, bir hata kaynağı da.</span></div>
+<div class="note"><span><b>Tek istisna 5 saniyelik pencere:</b> <code>Yaz</code> tamamlanınca ikinci yuva 5 sn <code>Geri al</code> oluyor, sonra <code>Yönet</code> geri geliyor. Aynı 44 pt, aynı çapraz sönme (160/220/60), kart 118.</span></div>
+</div>
+<div class="stages" id="stA"></div>
+</div>
+
+<div class="band"><span class="num">B</span><h2>noshow · gelmemiş müşteri</h2><p>Hapın ikinci kullanıcısı, <b>3 gözle</b>: randevu düştüğü için <code>Gelmedi</code> yok.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>Kart B</s>Aynı sütun, aynı kelime, artan ağırlık.</h3>
+<div class="lead">30 dk dolmadan birincil <code>Geç geldi</code>, <code>Yönet</code> hayalet. Dolduktan sonra <code>Yönet</code> hap ağırlığına yükseliyor, <code>Yeniden randevu</code> hayalet yuvaya geçiyor. <code>Geri al</code> <code>⋮</code> menüsünde. Kart <b>96</b>, iki hâlde de.</div>
+<div class="note"><span><b>3 göz, 180 pt:</b> <code>Ara</code> · <code>WhatsApp</code> · <code>Personele bilgi ver</code>. Personel gözü burada da anlamlı — koltuk boşaldı, personel başka iş alabilir.</span></div>
+<div class="note"><span><b>Kayıt satırı alt satırın yerini alıyor</b>, dördüncü satır olmuyor: sol sütunda pay yok (66 + 15 = 81 &gt; 68). “Kayıt müşteri dosyasına yazıldı” gidiyor, “Arandı · 2 dk” geliyor.</span></div>
+</div>
+<div class="stages" id="stB"></div>
+</div>
+
+<div class="band"><span class="num">C · D · E</span><h2>Hapsız kartlar · değişmedi</h2><p>Yedi kartta ikinci yuva düz düğme. Hap yalnız üç veya daha fazla ikincil eylem olduğunda.</p></div>
+<div class="case">
+<div class="side">
+<h3><s>C · D · E</s>Bu turda dokunulmadı; ölçüler referans olarak burada.</h3>
+<div class="lead">C boşalan saat (94 pt, tek eylem) · D onay bekleyen randevu (96 pt, iki eylem, 5 saniyelik pencere kalıbının kaynağı) · E süre aşımı (94 pt, eylem yok, kelime var).</div>
+<div class="note"><span><b>D·3’ün penceresi <code>Yaz</code>’a bu turda ödünç verildi:</b> aynı mekanizma, aynı süre, aynı yuva takası. Yeni bir kalıp icat edilmedi.</span></div>
+<div class="note"><span><b>E’de eylem yok:</b> süren işlemi kısaltacak araç yok, düğme tiyatro olurdu. Aşım <b>kelimeyle</b> geçiyor ve A’daki hapı anlamlı kılıyor: geciken müşteri şimdi gelse bile koltuk 25 dk boşalmıyor.</span></div>
+</div>
+<div class="stages" id="stCDE"></div>
+</div>
+
+<div class="band"><span class="num">Akış</span><h2>Ekranın içinde · iki tema</h2><p>Hap açıkken kart perdenin üstünde: müdür hâlâ kimin kartında olduğunu okuyor.</p></div>
+<div class="case" id="phones"></div>
+
+<div class="band"><span class="num">Hareket</span><h2>Yedi an · yalnız opacity, translate, scale</h2><p>Her sahnede çıkan, giren ve yerinde kalan ayrı yazılı. Kart yüksekliği hiçbirinde değişmiyor.</p></div>
+<div class="mrow" id="motion"></div>
+<div class="rn" style="max-width:1400px;margin-bottom:26px">
+<div class="r h"><b>konu</b><s>kural</s><code>ayrıntı</code></div>
+<div class="r"><b>Ailenin ölçeği</b><s>90/120 · 160/220/60</s><code>Basış 90 giriş / 120 çıkış · kart takası 160 çıkış / 220 giriş / 60 gecikme. Bu turun süreleri aynı ölçekte: hap 140/110, kademe 32 · aşım 150, dolgu 500, geri çekme 200, ödül 220, kayıt 200.</code></div>
+<div class="r"><b>Büyüme noktası</b><s>okun olduğu nokta</s><code><code>transformOrigin: calc(100% − 51px) 100%</code>. Aşağı çevrilmiş hapta ikinci değer <code>0</code>. Merkezinden büyüyen hap havada belirmiş gibi durur.</code></div>
+<div class="r"><b>Kart kıpırdamaz</b><s>itilmez, sönmez, ölçeklenmez</s><code>Hap ayrı katman; kart perdenin üstünde kendi düzleminde. Yalnız tetikleyici anında <code>pfill</code> yüzeyine geçer.</code></div>
+<div class="r"><b>Kademeli giriş</b><s>32 ms · oka en yakından</s><code>v2: gözler <b>birbiri ardına</b> giriyor, her biri 0,86 → 1,04 → 1,00. Geçen turun “dört nesne gibi görünür” endişesini halka kapatıyor: dört göz artık aynı çerçeveyi paylaşıyor, sıra yalnız <b>kurulma</b> hissi veriyor. Çıkışta ters kademe <b>yok</b>.</code></div>
+<div class="r"><b>Geri dönüş girişten hızlı</b><s>500 → 200</s><code>Geri alma cezalandırılmaz. Kapanış da açılıştan hızlı: 140 → 110, ve kapanışta ters kademe yok.</code></div>
+<div class="r"><b>Renk yok</b><s>üst üste iki katman</s><code>Simgenin kreme dönmesi, onay işareti, etiketin kırmızıya geçmesi: hepsi çapraz sönme. <code>interpolateColor</code> yok.</code></div>
+<div class="r"><b>Dokunsal</b><s><code>selection</code> · <code>medium</code></s><code>Açılış <code>selection</code> · parmak inince <code>selection</code> · 500 ms dolunca <code>medium</code>. Erken bırakma ve kapanma <b>sessiz</b> — geri alınabilir bir şey olmadı.</code></div>
+<div class="r"><b>Dışarı dokunma / geri / kaydırma</b><s>tek çıkış yolu</s><code>Tam ekran saydam <code>Pressable</code> · <code>BackHandler</code> · <code>onScrollBeginDrag</code>. Üçü de 110 ms’lik aynı çıkışı çağırır ve kartta kayıt bırakmaz.</code></div>
+<div class="r"><b><code>reduceMotion</code></b><s>hareket durur, bilgi durmaz</s><code>Düşen: hapın ölçeklenmesi, perdenin sönmesi, bloğun 4 pt kayması, simge çapraz sönmesi. <b>Kalan:</b> disk (6 × 83 ms kademe), onay işareti, 220 ms’lik ödül duruşu, bütün dokunsallar. Rakam yazılmıyor: 500 ms sayılamaz.</code></div>
+</div>
+
+<div class="band"><span class="num">Bedel</span><h2>Fiyat etiketi</h2><p><b>A</b> bugün yazılabilir · <b>B</b> kütüphane ister · <b>C</b> mümkün değil.</p></div>
+<div class="rn" style="max-width:1400px;margin-bottom:76px">
+<div class="r h"><b>iş</b><s>ne gerekiyor</s><code>gerekçe</code><em>b</em></div>
+<div class="r"><b>Hapın kendisi</b><s><code>Modal</code> + ölçülen tetikleyici</s><code><code>measureInWindow</code> ile tetikleyicinin ekran koordinatı, üstünde <code>Modal transparent</code>. <code>transformOrigin</code> RN 0.81’de var.</code><em>A</em></div>
+<div class="r"><b>Dolgu diski</b><s>dairesel <code>View</code> + <code>scale</code></s><code><code>Animated.timing(500, useNativeDriver:true)</code>; disk halkanın içinde, kırpma gerekmiyor. Tek değer, native sürücü.</code><em>A</em></div>
+<div class="r"><b>Halka</b><s><code>borderWidth</code> + <code>opacity</code></s><code>Statik 1,5 kontur; koyulaşma tek opaklık. Kalınlık animasyonu <b>yasak</b> — gerekseydi iki halkanın çapraz sönmesi olurdu.</code><em>A</em></div>
+<div class="r"><b>Kademeli giriş</b><s><code>Animated.stagger</code></s><code>32 ms · dört <code>Animated.spring</code>. Sıra oka en yakın gözden; dizi tersten kuruluyor, ölçüm gerekmiyor.</code><em>A</em></div>
+<div class="r"><b>Aşım</b><s><code>Animated.spring</code></s><code>0,86 → 1,04 → 1,00; <code>bounciness</code> 8, <code>speed</code> 16. Projede <code>VisitSheets</code>’te aynı yay var.</code><em>A</em></div>
+<div class="r"><b>Basılı gözün ölçeği</b><s>tek <code>Animated.Value</code></s><code>1 → 1,12 yay; komşular aynı değerin tersinden (0,94) ve <code>opacity</code> 0,32. Dört değer değil, iki.</code><em>A</em></div>
+<div class="r"><b>Ödül dalgası</b><s>ikinci <code>Animated.View</code></s><code>Halkanın kopyası: <code>scale</code> 1 → 1,7 + <code>opacity</code> 0,9 → 0, 220 ms. İki dönüşüm, native sürücü.</code><em>A</em></div>
+<div class="r"><b>Baş harf gözü</b><s><code>Text</code> + veri</s><code>Randevunun personelinin baş harfleri; <code>staffpill</code> aynı veriyi zaten okuyor. Personel yoksa göz çizilmez.</code><em>A</em></div>
+<div class="r"><b>500 ms basılı tutma</b><s><code>Pressable</code> onPressIn/Out</s><code><code>gesture-handler</code> gerekmiyor. Parmak kayarsa <code>onPressOut</code> düşer, <code>Animated.timing(200)</code> geri çeker.</code><em>A</em></div>
+<div class="r"><b>Simgenin kreme dönmesi</b><s>üst üste iki <code>Animated.View</code></s><code>Çapraz sönme, 270 ms gecikmeli 160 ms — diskin kenarı simgeyi bu aralıkta geçiyor. Renk animasyonu değil.</code><em>A</em></div>
+<div class="r"><b>Kelime bloğu</b><s>mutlak konumlu <code>Animated.View</code></s><code>Hapın dışında, <code>opacity</code> + <code>translateY</code>. Hapın yüksekliği hiç animasyonlanmıyor.</code><em>A</em></div>
+<div class="r"><b>Ödül zinciri</b><s><code>Animated.parallel</code> + <code>sequence</code></s><code>Dalga ‖ aşım ‖ onay ‖ komşular → 220 ms duruş → kapanış 110 → 40 ms → kayıt girişi. Tek zincir, kesilebilir.</code><em>A</em></div>
+<div class="r"><b><code>Yaz</code>’ın sonucu kartta</b><s>sunucu yanıtı</s><code>Tek gönderim kapısı beş sonuçtan birini döndürüyor; kayıt satırı yanıttan yazılıyor. <b>Geçen turun C’si buydu, A’ya düştü:</b> uygulama dışarı çıkmadığı için teslimat istemciye dönüyor.</code><em>A</em></div>
+<div class="r"><b>5 saniyelik pencere</b><s><code>setTimeout</code> + yuva takası</s><code>D·3’ün kalıbı: pencere içinde istek hiç gitmiyor. Takas çapraz sönme, aynı 44 pt.</code><em>A</em></div>
+<div class="r"><b><code>reduceMotion</code> kademeli dolgu</b><s>6 × <code>steps(1)</code></s><code><code>Animated.timing</code> yerine 6 adımlık <code>Animated.sequence</code>; süre yine 500 (6 × 83).</code><em>A</em></div>
+<div class="r"><b>Kelime bloğunun hapı gerçekten büyütmesi</b><s>yükseklik animasyonu</s><code>Bitişik bloğun mutlak değil <b>akışta</b> olması ve hapın 56 → 100 büyümesi <code>LayoutAnimation</code> ya da <code>reanimated</code> layout animation ister. Bugünkü karar: blok mutlak, hap sabit.</code><em class="b">B</em></div>
+<div class="r"><b>Kelime bloğunun basılı göze ortalanması</b><s>ölçüm + yay</s><code>Parmak gözler arasında kayarken bloğun kayması <code>gesture-handler</code> ve düzen ölçümü ister; JS thread’de titrer. Bugün blok hapa ortalı.</code><em class="b">B</em></div>
+<div class="r"><b>Dolan yay / halka</b><s><code>svg</code> + <code>stroke-dashoffset</code></s><code>Konik gradyan ve <code>dashoffset</code> native sürücüde animasyonlanmıyor; <code>reanimated</code> + <code>react-native-svg</code> ister. Kırpılmış kutu aynı bilgiyi veriyor.</code><em class="c">C</em></div>
+<div class="r"><b><code>Personele bilgi ver</code>’in teslimatı</b><s><code>send-push</code> bağlanmalı</s><code>Kanal mevcut ama bu eyleme bağlı değil; bağlanana kadar kart teslimat iddia etmiyor. <b>Tasarım değil, iş.</b></code><em class="c">C</em></div>
+</div>
+
+<div class="band"><span class="num">Veri</span><h2>Eşikler, dayanaklar, sesli okuma</h2><p>Her satırın arkasında bugün var olan bir araç ya da kolon var.</p></div>
+<div class="rn" style="max-width:1400px">
+<div class="r h"><b>konu</b><s>kural</s><code>ayrıntı</code></div>
+<div class="r"><b>Eşikler</b><s>0,5 sn · 5 sn · 10 dk · 30 dk</s><code><b>0,5</b> basılı tutma · <b>5</b> <code>Yaz</code>’ın geri alma penceresi · <b>10</b> kayıt bayatlar (başarısızlıklar hariç) · <b>30</b> randevu otomatik düşer.</code></div>
+<div class="r"><b>Göz sayısı</b><s>veriden</s><code><code>customers.phone</code> · salonun WhatsApp bağlantısı · müşterinin opt-out’u · randevunun durumu. Sabit dört göz yok.</code></div>
+<div class="r"><b>Ara</b><s><code>Linking.openURL('tel:')</code></s><code>Dönüşte <code>AppState</code> <code>active</code> → “Arandı · 2 dk”. Numara yoksa göz çizilmez.</code></div>
+<div class="r"><b>WhatsApp’tan yaz</b><s><code>sendWA</code> · salonun numarası</s><code>Sunucudaki tek gönderim kapısı, hazır şablon. Beş sonuç: <code>ok</code> · <code>not_connected</code> · <code>opt_out</code> · <code>invalid_phone</code> · <code>failed</code>/kuyruk. Müdürün elle tetiklediği mesaj <b>kota dışı</b>.</code></div>
+<div class="r"><b>Gelmedi</b><s><code>reservations.status='noshow'</code></s><code>Kart <code>noshow</code>’a döner — mevcut kart takası. Geri alma <code>⋮</code> menüsünde, süresiz.</code></div>
+<div class="r"><b>Personele bilgi ver</b><s><code>send-push</code> · <code>push_subscriptions</code></s><code>Kanal var, bu eyleme bağlı değil. Bağlanana kadar kayıt “Personele söylendi”, teslimat iddiası yok.</code></div>
+<div class="r"><b>Kayıt metni</b><s>eylem + yaş · <b>≤ 217 pt</b></s><code>Satırın bütçesi sol sütunun genişliği: <b>217 pt</b> (11,5/700, 393 pt kart). Sığanlar: “Arandı · 2 dk” · “Yazılıyor · 5” · “Yazıldı · 1 dk” · “Gönderilemedi · bağlantı yok” · “Kuyrukta · bağlantı gelince gider” · “Mesaj istemiyor · gönderilmedi” · “Numara geçersiz · düzeltilmeli” · “Personele söylendi · 2 dk”. Bütçeyi aşan metin <code>numberOfLines={1}</code> ile kırpılır, o yüzden kırpılmayacak kadar kısa yazıldı. Okundu ve cevap — yazılmaz.</code></div>
+<div class="r"><b>Sesli okuma · tetikleyici</b><s>rol ve sonuç</s><code>“Düğme: yönet, menü açar.” Hap açılınca: “Eylem menüsü, dört seçenek. Her biri yarım saniye basılı tutulur.”</code></div>
+<div class="r"><b>Sesli okuma · göz</b><s>ad + sonuç + jest</s><code>“Ara. Telefon açılır. Yarım saniye basılı tutun.” Tamamlanınca: “Arandı.”</code></div>
+<div class="r"><b>Sesli okuma · hap</b><s><code>accessibilityViewIsModal</code></s><code>Odak hapa geçer, dışarısı okunmaz; geri hareketi “kapat” olarak duyurulur. Perde <code>accessibilityElementsHidden</code>.</code></div>
+<div class="r"><b>Dokunma hedefi</b><s>44 pt taban</s><code>Göz 60 × 56 · tetikleyici 44 · kart hayaletleri 22 görünür / 44 dokunulur. Kelime bloğu ve kayıt satırı hedef değil.</code></div>
+<div class="r"><b>Kırpma</b><s><code>numberOfLines={1}</code></s><code>Rakam, tetikleyici ve gözler <code>flexShrink:0</code>. 375 pt’de ilk kırpılan alt satır. Hap 375’te de 240.</code></div>
+</div>
+
+</div>
+<script src="v34.js"></script>
+</body></html>
