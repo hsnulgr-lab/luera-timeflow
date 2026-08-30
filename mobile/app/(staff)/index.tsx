@@ -15,6 +15,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DayHeader } from '../../src/components/CalendarParts';
+import { todayISO } from '../../src/lib/calendar';
 import { feedback } from '../../src/lib/feedback';
 import { numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
@@ -683,20 +685,10 @@ export default function Today() {
                         />
                     ) : null}
 
-                    <View style={{ paddingTop: active ? 14 : 18, paddingHorizontal: 20, paddingBottom: 12, gap: 3 }}>
-                    <Text style={{
-                        color: c.tx,
-                        fontSize: 30,
-                        lineHeight: 31.5,
-                        fontWeight: '800',
-                        letterSpacing: -1.05,
-                    }}>
-                        Bugün
-                    </Text>
-                    <Text style={{ color: c.tx2, fontSize: 14, fontWeight: '600' }}>
-                        {active ? 'Salı, 11 Ağustos · 4 randevu kaldı' : 'Salı, 11 Ağustos · 5 randevunuz var'}
-                    </Text>
-                </View>
+                    {/* GÜN BAŞLIĞI — müdürdeki `DayHeader`'ın BİREBİR aynısı.
+                        İki mod aynı ürün: aynı gün, aynı kelime, aynı ölçü.
+                        Yalnız tarih satırı; alt cümle bu ekranda verilmiyor. */}
+                    <DayHeader dateISO={todayISO()} style={{ paddingTop: active ? 14 : 18 }} />
 
                 <View style={{ paddingHorizontal: 18 }}>
                     <View style={{

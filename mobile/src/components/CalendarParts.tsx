@@ -168,7 +168,12 @@ export function DayHeader({
     style,
 }: {
     dateISO: string;
-    subtitle: string;
+    /**
+     * Başlığın altındaki cümle. VERİLMEZSE HİÇ ÇİZİLMEZ — boş dize geçip boş
+     * bir satır bırakmak, başlığın altında sebepsiz bir boşluk açardı.
+     * Personel "Bugün" ekranı yalnız tarihi istiyor.
+     */
+    subtitle?: string;
     compact?: boolean;
     transparent?: boolean;
     /** Ay ızgarası açık mı? Yalnız erişilebilirlik durumunu bildirmek için. */
@@ -186,7 +191,7 @@ export function DayHeader({
         return (
             <View
                 accessibilityRole="header"
-                accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
+                accessibilityLabel={subtitle ? `${fullDate(dateISO)}. ${subtitle}` : fullDate(dateISO)}
                 style={[
                     styles.compactHeader,
                     !transparent && { borderBottomColor: c.bd, borderBottomWidth: StyleSheet.hairlineWidth, backgroundColor: c.glass },
@@ -194,9 +199,11 @@ export function DayHeader({
                 ]}
             >
                 <Text style={[titleStyle, { color: c.tx }]}>{day}. {date.getDate()}</Text>
-                <Text numberOfLines={1} style={[type.small, styles.compactSubtitle, { color: c.tx2 }]}>
-                    {subtitle}
-                </Text>
+                {subtitle ? (
+                    <Text numberOfLines={1} style={[type.small, styles.compactSubtitle, { color: c.tx2 }]}>
+                        {subtitle}
+                    </Text>
+                ) : null}
             </View>
         );
     }
@@ -212,7 +219,9 @@ export function DayHeader({
                     {date.getDate()}
                 </Text>
             </View>
-            <Text style={[type.small, { color: c.tx2 }]}>{subtitle}</Text>
+            {subtitle ? (
+                <Text style={[type.small, { color: c.tx2 }]}>{subtitle}</Text>
+            ) : null}
         </>
     );
 
@@ -223,7 +232,7 @@ export function DayHeader({
             <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: monthOpen }}
-                accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
+                accessibilityLabel={subtitle ? `${fullDate(dateISO)}. ${subtitle}` : fullDate(dateISO)}
                 accessibilityHint={monthOpen ? 'Hafta görünümüne döner' : 'Ay görünümünü açar'}
                 onPress={onToggleMonth}
                 style={({ pressed }) => [
@@ -240,7 +249,7 @@ export function DayHeader({
     return (
         <View
             accessibilityRole="header"
-            accessibilityLabel={`${fullDate(dateISO)}. ${subtitle}`}
+            accessibilityLabel={subtitle ? `${fullDate(dateISO)}. ${subtitle}` : fullDate(dateISO)}
             style={[styles.dayHeader, { paddingHorizontal: calendarMetrics.pageX }, style]}
         >
             {body}
