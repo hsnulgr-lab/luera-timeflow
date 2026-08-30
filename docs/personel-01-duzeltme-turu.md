@@ -78,8 +78,16 @@ iki temada da tutturmak.
 
 ### B · Süren işlemin kartında **dönen turuncu parıltı**
 
-Referans video: hapın kenarında dolaşan renkli bir parıltı — bir karede sağda
-magenta, ötekinde solda yeşil. Kenarda dönen konik bir gradyan.
+Referans video kare kare çözüldü (ekteki dört görüntü). **Parıltı kartın
+ETRAFINDA dönen bir halka DEĞİL** — bu ayrım önemli:
+
+Renk, yüzeyin **İÇİNDE** yaşıyor. Koyu saydam bir hapın içinde, kenara yakın
+duran yumuşak bir aydınlanma var ve yavaşça geziniyor: bir karede magenta-mavi
+sağ kenarda, ötekinde yeşil-turkuaz sol alta kaymış. İçerik (yazı, nokta) bu
+ışığın üstünde duruyor ve ondan etkilenmiyor.
+
+Yani aranan şey **iç aurora**: kartın yuvarlak köşeleriyle kırpılan, içerikten
+geride duran, ağır ağır gezinen bir ışık lekesi.
 
 **Bizde yalnız TURUNCU.** Turuncu bu üründe zaman ve eylem rengi; parıltının
 söylediği şey "şu an bu oluyor" ve o tam olarak zaman.
@@ -89,10 +97,14 @@ parlamaz. Sonucu önemli: **işlem yokken ekranda hiçbir parıltı olmaz.** Sab
 ekranı sakin açılır, parıltı bir olay olduğunda belirir ve bir tane olur.
 
 Tasarlanacaklar:
-- Parıltı ne kadar geniş, ne kadar yumuşak, karta ne kadar taşıyor?
-- Kartın kendi kenarlığı parıltının altında mı kalıyor, yoksa parıltı onun
-  yerine mi geçiyor?
-- Turuncunun tonları: tek ton mu dolaşıyor, yoksa açıktan koyuya bir yay mı?
+- Işık lekesi ne kadar büyük, ne kadar yumuşak, kartın ne kadarını kaplıyor?
+- **Kaç leke var?** Referansta en az iki ayrı renk odağı görünüyor (biri
+  yeşil, biri magenta-mavi) ve ikisi birlikte geziniyor. Bizde tek turuncu
+  odak mı, yoksa iki farklı tonda iki odak mı?
+- Leke kenara ne kadar yakın duruyor — merkeze hiç geliyor mu?
+- Kartın kenarlığı bu ışıktan etkileniyor mu, yoksa üstünde sabit mi duruyor?
+- İçerik (saat, ad, hizmet) ışığın üstünde ve ondan **etkilenmiyor** —
+  okunurluk her karede korunmalı. En parlak anda kontrast kaç?
 - **Dönüş süresi kaç saniye?** DİKKAT — hareket sözleşmesinde yedi süre var ve
   belgenin kendi cümlesi şöyle: *"Bunların dışında sayı yok — yeni bir süre
   gerekiyorsa sözleşme değişir."* Sürekli dönüş bu yedisinin hiçbiri değil.
@@ -100,10 +112,15 @@ Tasarlanacaklar:
 - Açık temada parıltı ne oluyor? (Beyaz zeminde turuncu parıltı koyudakinden
   çok daha baskın görünür.)
 
-**Teknik kısıt — uygulanabilirliği belirliyor:** parıltı **önceden çizilmiş**
-bir katman olacak ve yalnız `transform: rotate` ile döndürülecek. Renk, gölge
-ve gradyan durağı animasyonlanamaz. Sözleşmenin `LINEAR` eğrisi zaten
-*"karartma, parıltı, renk"* için ayrılmış — bu hareket oraya ait.
+**Teknik kısıt — uygulanabilirliği belirliyor:** ışık lekesi **önceden
+çizilmiş** bir katman olacak (gradyan), kartın içine konacak ve yalnız
+`transform` ile gezdirilecek — `rotate` ya da `translate`, ikisi de yasal.
+Renk, gölge ve gradyan durağı animasyonlanamaz. Kart `overflow: hidden`
+alabilir çünkü dışarı taşan bir şey yok; bu, dışarıdaki bir halkaya göre hem
+daha ucuz hem daha güvenli.
+
+Sözleşmenin `LINEAR` eğrisi zaten *"karartma, parıltı, renk"* için ayrılmış —
+bu hareket oraya ait.
 
 **`reduceMotion` açıkken dönüş durur ama PARILTI DURMAZ.** "Bu işlem sürüyor"
 bir bilgidir; hareket kapalıyken sabit bir turuncu halka olarak kalır. Sabit
@@ -160,7 +177,7 @@ Birinci turdakilerin hepsi geçerli. Bu turda öne çıkanlar:
 1. Düz zeminde camı cam yapan **tam olarak nedir** — dolgu mu, üst kenarın
    parlaklığı mı, iç parıltı mı? Hangisi olmazsa etki çöker?
 2. Parıltının **dönüş süresi** kaç, ve neden o?
-3. Parıltı kartın kenarlığını **değiştiriyor mu**, yoksa üstüne mi biniyor?
+3. Işık kartın kenarlığını **değiştiriyor mu**, yoksa altında mı kalıyor?
 4. Kart hâlleri (geldi · sürüyor · bitti · iptal) **yüzeyle mi** ayrışıyor,
    yoksa yalnız içerikle mi? Yüzeyle ayrışıyorsa dört ayrı cam değeri gerekir.
 5. Başlat çubuğunun yeri boş mu kalıyor?
@@ -181,7 +198,7 @@ Sözleşme dışına çıkan hareket önerirsen bedelini etiketle:
 2. **Öğlen 12:36** — bir işlem sürüyor (**parıltılı kart**), bir müşteri geldi,
    ikisi bitmiş ← **ana kare**
 3. **Akşam 18:20** — hepsi bitmiş, gün sonu
-4. Parıltının **dört ayrı karesi** (dönüşün 0° · 90° · 180° · 270°'si)
+4. Işığın **dört ayrı karesi** — gezinmenin dörtte birlik anları
 5. Parıltının `reduceMotion` hâli (sabit halka)
 6. Kartın hâlleri tek tek: bekliyor · geldi · sürüyor · bitti · kasaya gitti ·
    iptal
