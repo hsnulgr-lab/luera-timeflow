@@ -505,3 +505,21 @@ test('aboneliği olmayan salon da hesabını silebilir', () => {
     assert.match(fn, /if \(!providerRef\) return \{ ok: true \}/);
     assert.match(fn, /if \(!coreUrl \|\| !coreKey\) return \{ ok: true \}/);
 });
+
+// ── Tema seçimi sisteme de işlenir · 2026-08-30 ─────────────────────────────
+//
+// Tema bu uygulamanın kendi ayarıydı ve `Appearance` hiç dokunulmuyordu: JS
+// koyu çiziyor, SİSTEM açık kalıyordu. Fark yerli bileşenlerde görünüyordu —
+// en çok alt barda, çünkü iOS 26'da o bar gerçek Liquid Glass, yani saydam ve
+// arkasındakini örnekliyor. Sekme değişiminde yeni ekran boyanana kadar arkada
+// sistemin açık zemini duruyor, bar bir kare beyaza düşüyordu.
+
+test('tema seçimi sistemin görünümüne de yazılır', () => {
+    const src = readFileSync(new URL('../mobile/src/theme/index.tsx', import.meta.url), 'utf8');
+    assert.match(src, /Appearance\.setColorScheme/);
+    // `system` seçiliyken sistem ZORLANMAZ: `null` "cihazı takip et" demek,
+    // zorlamak cihazın ayarını uygulamanın içinden kilitlerdi.
+    assert.match(src, /themeMode === 'system' \? null : themeMode/);
+    // Tercih değişince yeniden uygulanmalı; bir kez kurulup unutulamaz.
+    assert.match(src, /\}, \[themeMode\]\);/);
+});

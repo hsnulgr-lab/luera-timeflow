@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, useColorScheme, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Appearance, useColorScheme, useWindowDimensions } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { dark, embed, light, SMALL_WIDTH, type EmbedPalette, type Palette } from './tokens';
 
@@ -100,6 +100,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         })().catch(() => { /* okunamazsa sistem takip edilir */ });
         return () => { alive = false; };
     }, []);
+
+    /*
+     * SEÇİM SİSTEME DE İŞLENİR.
+     *
+     * Tema bu uygulamanın kendi ayarıydı; `Appearance` hiç dokunulmuyordu.
+     * Sonuç: JS koyu çiziyor, SİSTEM açık kalıyor ve aradaki fark yerli
+     * bileşenlerde görünüyordu.
+     *
+     * En görünür yeri alt bar: iOS 26'da gerçek Liquid Glass, yani saydam ve
+     * ARKASINDAKİNİ örnekliyor. Sekme değişiminde yeni ekran boyanana kadar
+     * arkada sistemin varsayılan zemini duruyor; sistem açık modda olduğu
+     * için bar bir kare beyazı örnekliyor, ekran koyuya boyanınca düzeliyor.
+     * Ekranda "her geçişte bir an açık moda düşüyor" diye görünen şey buydu.
+     *
+     * `null` = sistemi takip et; o zaman zaten fark yok.
+     */
+    useEffect(() => {
+        Appearance.setColorScheme(themeMode === 'system' ? null : themeMode);
+    }, [themeMode]);
 
     const setThemeMode = useCallback((mode: ThemeMode) => {
         setMode(mode);
