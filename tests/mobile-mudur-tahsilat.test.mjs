@@ -328,8 +328,10 @@ test('mock gün yedi hâlin hepsini taşır', () => {
 test('dünden devreden adisyonun SATIRI da kırmızıya döner', () => {
     // Kapanmamış bir gün bugünün akışında amber kalamaz.
     assert.ok(parts.includes("const carried = event.kind === 'due' && dueLevel(event) === 'hot'"));
-    assert.ok(parts.includes('gone || carried ? c.rd'));
-    assert.ok(parts.includes("|| carried ? 'red' : toneOf(event.kind)"));
+    // 2026-08-30: aynı koşula geciken randevu da katıldı (`overdue`) — testin
+    // koruduğu şey DEVREDEN adisyonun kırmızısı, o yerinde.
+    assert.ok(parts.includes('gone || carried || overdue ? c.rd'));
+    assert.ok(parts.includes("|| carried || overdue"));
 });
 
 // ── Onay kartı (tasarımın ikinci beat'i) ────────────────────────────────────

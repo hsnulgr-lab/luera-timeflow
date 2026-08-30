@@ -12,7 +12,7 @@ import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
 import {
     actionsOf, contextRows, durationBadge, etaColumn, etaPanel, initialsOf,
-    isSettled, labelOf, nextCardKind, staffConflict, toneOf,
+    isLate, isSettled, labelOf, nextCardKind, nextRowLabel, staffConflict, toneOf,
     dueCard, dueLevel, noshowCard, noshowRowLabel, paidCard, paidLine, waitCard,
     bookedCard, cancelledCard,
     nextSlots, pillInputOf, pillRecordOf, overrunLine,
@@ -2422,7 +2422,7 @@ function HandoffRow({ event }: { event: FlowEvent }) {
 
 export function FlowRow({
     event, onAction, onMore, onOpenCustomer, onPill, presence = [], fresh = false,
-    waConnected = true,
+    waConnected = true, inLine = false,
 }: {
     event: FlowEvent;
     onAction?: (label: string) => void;
@@ -2445,6 +2445,12 @@ export function FlowRow({
      * taze DEĞİLDİR: geri alınacak bir basış yok.
      */
     fresh?: boolean;
+    /**
+     * Zamanında giden randevular arasında SIRADA olan bu mu? Ekran hesaplar
+     * (`nextInLineId`), satır yalnız taşır — bir satır tek başına ötekilere
+     * bakıp "ben sıradayım" diyemez.
+     */
+    inLine?: boolean;
 }) {
     const { c, dark } = useTheme();
     const actions = actionsOf(event.kind);
@@ -2464,12 +2470,18 @@ export function FlowRow({
     // bugünün akışında amber kalamaz.
     const gone = event.kind === 'noshow';
     const carried = event.kind === 'due' && dueLevel(event) === 'hot';
+    // Müdür 35 — "sıradaki" bir SIRA İDDİASIDIR ve tekildir: iki satır aynı
+    // anda sıradaki olamaz. Geciken satır kartla aynı kelimeyi söyler.
+    const overdue = isNext && isLate(event.etaMinutes);
     const kindLabel = waiting ? waiting.label
         : gone ? noshowRowLabel(event)
-            : labelOf(event.kind);
+            : isNext ? nextRowLabel(event, inLine === true)
+                : labelOf(event.kind);
     const kindColor = waiting
         ? (waiting.level === 'late' ? c.rd : c.am)
-        : gone || carried ? c.rd
+        // Geciken randevu da kırmızı: kelime "GECİKTİ" derken nokta ve yazı
+        // sakin kalamaz — `arrived` ve `noshow` da böyle yapıyor.
+        : gone || carried || overdue ? c.rd
             : event.kind === 'due' ? c.am
                 : c.tx2;
 
@@ -2493,7 +2505,10 @@ export function FlowRow({
             : slot === 'paid' ? cardSwap.settle
                 : cardSwap.press;
 
-    const kindTone = (waiting && waiting.level === 'late') || carried ? 'red' : toneOf(event.kind);
+    // Nokta da kelimeyle aynı şeyi söyler: satır "GECİKTİ" derken nokta
+    // turuncu kalamazdı — turuncu bu üründe zaman ve eylem, risk değil.
+    const kindTone = (waiting && waiting.level === 'late') || carried || overdue
+        ? 'red' : toneOf(event.kind);
     const kind = useSwapped(`${kindLabel}|${kindColor}`, {
         label: kindLabel, color: kindColor, tone: kindTone,
     });

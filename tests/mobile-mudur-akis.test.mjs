@@ -107,10 +107,26 @@ test('akış günde biter: sonsuz kaydırma yok', () => {
 });
 
 test('araya araç çubuğu, filtre satırı, sekme grubu girmez', () => {
-    const body = screen.slice(screen.indexOf('<ScrollView'), screen.indexOf('</ScrollView>'));
-    // ScrollView kaydırma kabıdır, içerik değil.
-    const allowed = /ScrollView|DayHeader|StaffStrip|StatLine|FlowDivider|FlowRow|FlowEnd|Fragment/;
-    for (const tag of body.match(/<[A-Z][A-Za-z]*/g) ?? []) {
+    /*
+     * BU TEST 2026-08-30'A KADAR HİÇ ÇALIŞMADI.
+     *
+     * Dilim `'<ScrollView'` arıyordu; ekrandaki etiket ise
+     * `<Animated.ScrollView`. Hiçbiri eşleşmiyor, `indexOf` iki kez -1
+     * dönüyor ve `slice(-1, -1)` BOŞ DİZE veriyordu — döngü hiç dönmeden
+     * test geçiyordu. Sessizce ölü bir koruma.
+     *
+     * Ortaya nasıl çıktı: ekrana `useRef<ScrollView>(null)` eklendi, dize
+     * ilk kez eşleşti ve test konuşmaya başladı.
+     */
+    const open = screen.indexOf('<Animated.ScrollView');
+    const close = screen.indexOf('</Animated.ScrollView>');
+    assert.ok(open > 0 && close > open, 'kaydırma kabı bulunamadı — dilim yine ölü');
+
+    const body = screen.slice(open, close);
+    // Kap kaydırmadır, içerik değil: izinli olanlar günün başlığı, şerit,
+    // akış satırları ve kabın kendi parçaları (yenileme, gradyan, sarmalayıcı).
+    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock)$/;
+    for (const tag of body.match(/<[A-Z][A-Za-z.]*/g) ?? []) {
         assert.match(tag.slice(1), allowed, `beklenmeyen bileşen: ${tag}`);
     }
 });

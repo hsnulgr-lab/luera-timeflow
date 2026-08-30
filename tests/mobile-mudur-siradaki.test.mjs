@@ -5,7 +5,8 @@ import test from 'node:test';
 import {
     applyFlowAction, atClock, autoCancelled, minuteLabel, contextRows, etaColumn, etaPanel, graceLeft,
     hasContext, initialsOf, isLate, LATE_LIMIT_MINUTES, lateMinutes, mockDay,
-    nextCardKind, staffConflict, toleranceLabel,
+    nextCardKind, nextInLineId, nextRowLabel, nowLineIndex, sortFlow, staffConflict,
+    toleranceLabel,
 } from '../mobile/src/lib/managerFlow.ts';
 import { durationBadge } from '../mobile/src/lib/managerFlow.ts';
 import { upperTR } from '../mobile/src/lib/text.ts';
@@ -355,4 +356,105 @@ test('akış olayları gerçek randevulara bağlı', () => {
     const linked = mockDay.events.filter((e) => e.appointmentId);
     assert.equal(linked.length, 5);
     assert.ok(linked.every((e) => e.appointmentId.startsWith('mgr-')));
+});
+
+// ── Akışın sırası · 2026-08-30 ──────────────────────────────────────────────
+//
+// Karşılaştırıcı yazılmıştı ama listeye HİÇ UYGULANMIYORDU: yalnız yeni olay
+// eklenirken çalışıyor, ilk yükleme ve yenileme ham sırayı alıyordu. Solda
+// saat yazılı bir ray vardı ve sıra saate uymuyordu.
+
+test('akış kronolojik ARTAN sıralanır — zaman aşağı akar', () => {
+    // Yön kararı: bu ekran bir haber akışı değil, GÜNÜN KENDİSİ. Azalan
+    // sırada tepede 13:00'teki bir iptal duruyordu; müdür telefonu açınca
+    // günün en uzak ucunu değil şu anı görmeli.
+    const times = sortFlow(mockDay.events).map((e) => e.time);
+    const clock = times.filter((t) => /^\d{2}:\d{2}$/.test(t));
+    const sorted = [...clock].sort((a, b) => a.localeCompare(b, 'tr-TR'));
+    assert.deepEqual(clock, sorted, 'saatler artan değil');
+});
+
+test('"Dün 19:40" akışın BAŞINA düşer — en eski olan o', () => {
+    const times = sortFlow(mockDay.events).map((e) => e.time);
+    const dayPrefixed = times.filter((t) => !/^\d{2}:\d{2}$/.test(t));
+    assert.ok(dayPrefixed.length > 0, 'sınanacak gün önekli satır yok');
+    // Ayrım BİÇİMDEN geliyor, ayrı bir bayraktan değil: veri zaten söylüyor.
+    assert.deepEqual(times.slice(0, dayPrefixed.length), dayPrefixed);
+});
+
+test('şimdi-çizgisi gün önekli satırı GEÇMİŞ sayar', () => {
+    // Dün 19:40'ta kapanmamış bir adisyon, bugün 19:40'ta olacakmış gibi
+    // çizginin altına düşemez.
+    const list = sortFlow(mockDay.events);
+    assert.equal(nowLineIndex(list, 0), 1, 'gün önekli satır geleceğe düşmüş');
+    // Akşam: gelecek satır kalmaz ve bu bir hata değil.
+    assert.equal(nowLineIndex(list, 23 * 60), list.length);
+});
+
+test('akış şimdi-çizgisine kaydırılmış açılır', () => {
+    const src = readFileSync(new URL('../mobile/app/(manager)/index.tsx', import.meta.url), 'utf8');
+    assert.match(src, /nowLineIndex\(dayEvents, nowMinutes\)/);
+    // Sıçrama BİR KEZ ve yalnız bugünde: başka güne bakarken "şimdi" yok.
+    assert.match(src, /if \(jumped\.current \|\| !isToday/);
+    // Gün değişince hak yenilenir; bugüne dönünce yine şimdiye gider.
+    assert.match(src, /jumped\.current = false; \}, \[selectedISO\]/);
+});
+
+test('sıra TEK YERDEN gelir — üç okuma da aynı kuralı kullanır', () => {
+    const src = readFileSync(new URL('../mobile/src/state/managerDay.tsx', import.meta.url), 'utf8');
+    // İlk yükleme, yenileme ve ekleme: üçü de sortFlow çağırmalı.
+    assert.equal((src.match(/sortFlow\(/g) ?? []).length, 3);
+    assert.equal(/\.sort\(\(a, b\)/.test(src), false, 'sıralama yine yerelde kopyalanmış');
+});
+
+test('sıralama kararlı — aynı liste iki kez sıralanınca değişmez', () => {
+    const once = sortFlow(mockDay.events);
+    const twice = sortFlow(once);
+    assert.deepEqual(twice.map((e) => e.id), once.map((e) => e.id));
+});
+
+// ── "Sıradaki" tekildir · 2026-08-30 ────────────────────────────────────────
+//
+// Dokuz etiketten sekizi bir DURUM anlatıyor; yalnız `next` bir SIRA İDDİASI
+// taşıyordu. İki randevu aynı anda "sıradaki" olamaz ama ekranda ikisi de
+// öyle diyordu. Kusur veri kopyasından değil, kelimenin kendisinden doğdu.
+
+test('akışta yalnız BİR satır "sıradaki randevu" der', () => {
+    const list = sortFlow(mockDay.events);
+    const id = nextInLineId(list);
+    const said = list.filter((e) => (
+        e.kind === 'next' && nextRowLabel(e, e.id === id) === 'sıradaki randevu'
+    ));
+    assert.equal(said.length, 1);
+});
+
+test('geciken randevu KARTLA aynı kelimeyi söyler', () => {
+    // Kartın paneli "gecikti" diyor; satır "sıradaki randevu" diyordu.
+    const late = { etaMinutes: -8 };
+    assert.equal(nextRowLabel(late, true), 'gecikti');
+    assert.equal(nextRowLabel(late, false), 'gecikti');
+    assert.equal(etaPanel({ time: '11:30', etaMinutes: -8 }).label, 'gecikti');
+});
+
+test('sırada olan, zamanında gidenlerin EN ERKENİ', () => {
+    const events = [
+        { id: 'a', kind: 'next', time: '14:00', etaMinutes: 90 },
+        { id: 'b', kind: 'next', time: '12:15', etaMinutes: 41 },
+        // Geciken sayılmaz: onun satırı zaten "gecikti" diyor.
+        { id: 'c', kind: 'next', time: '11:30', etaMinutes: -8 },
+    ];
+    assert.equal(nextInLineId(events), 'b');
+    assert.equal(nextRowLabel(events[0], false), 'yaklaşan randevu');
+});
+
+test('zamanında randevu yoksa hiçbir satır "sıradaki" demez', () => {
+    // Sıfır bir ölçümdür: uydurma bir "sıradaki" seçilmez.
+    assert.equal(nextInLineId([{ id: 'c', kind: 'next', time: '11:30', etaMinutes: -8 }]), null);
+    assert.equal(nextInLineId([]), null);
+});
+
+test('sıra kararını EKRAN verir, satır değil', () => {
+    const src = readFileSync(new URL('../mobile/app/(manager)/index.tsx', import.meta.url), 'utf8');
+    assert.match(src, /nextInLineId\(dayEvents\)/);
+    assert.match(src, /inLine=\{event\.id === inLineId\}/);
 });

@@ -208,6 +208,12 @@ test('başka güne kurulan randevu bugünün akışına düşmez', () => {
 });
 
 test('yeni olay kendi SAATİNİN yerine oturur, listenin başına zorlanmaz', () => {
-    assert.match(store, /\[\.\.\.list, event\]\.sort/);
-    assert.match(store, /b\.time\.localeCompare/);
+    // NİYET AYNI, ADRES DEĞİŞTİ: sıralama 2026-08-30'da saf katmana taşındı
+    // (`sortFlow`). Sebebi bu testin göremediği bir kusurdu — karşılaştırıcı
+    // YALNIZ burada, ekleme yolunda çalışıyordu; ilk yükleme ve yenileme ham
+    // sırayı alıyor, ekranda saat rayı kendi sırasını tutmuyordu. Test
+    // uygulamanın yerini sınadığı için o kusuru yakalayamamıştı; artık
+    // sıralamanın ÜÇ okumada da kullanıldığını sınıyoruz.
+    assert.match(store, /sortFlow\(\[\.\.\.list, event\]\)/);
+    assert.equal((store.match(/sortFlow\(/g) ?? []).length, 3);
 });

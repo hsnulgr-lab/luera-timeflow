@@ -287,7 +287,34 @@ export function sortPresence(list: readonly StaffPresence[]): StaffPresence[] {
         }
         return a.name.localeCompare(b.name, 'tr-TR');
     });
+}/**
+ * Akışın sırası — KRONOLOJİK ARTAN: geçmiş yukarıda, gelecek aşağıda.
+ *
+ * Karşılaştırıcı zaten yazılmıştı ama listeye HİÇ UYGULANMIYORDU (yalnız yeni
+ * olay eklenirken çalışıyordu), üstelik ters yöndeydi. İki kusur birlikte şunu
+ * üretiyordu: solda saat yazılı bir ray, ve sıra
+ * 12:15 → 11:30 → … → 09:45 → 13:00 → 11:33. Göz bir zaman çizgisi bekliyor,
+ * bulamayınca listenin geri kalanına da güvenmiyor.
+ *
+ * YÖN NEDEN ARTAN: bu ekran bir haber akışı değil, GÜNÜN KENDİSİ. Müdür açınca
+ * "şu an ne var" görmeli, en uzak geleceği değil — azalan sırada tepede
+ * 13:00'teki bir iptal duruyordu. Artan sırada zaman aşağı akar (takvimin
+ * yönü), ve ekran açılışta şimdi-çizgisine kaydırılır: yukarısı olan biten,
+ * aşağısı gelecek olan.
+ *
+ * "Dün 19:40" gibi gün önekli satırlar EN BAŞA düşer — en eski olan onlar.
+ * Ayrım biçimden geliyor (`HH:MM` mi değil mi), ayrı bir bayraktan değil:
+ * veri zaten söylüyor.
+ */
+export function sortFlow(events: readonly FlowEvent[]): FlowEvent[] {
+    const clock = (value: string) => (/^\d{2}:\d{2}$/.test(value) ? 1 : 0);
+    return [...events].sort((a, b) => {
+        if (clock(a.time) !== clock(b.time)) return clock(a.time) - clock(b.time);
+        return a.time.localeCompare(b.time, 'tr-TR');
+    });
 }
+
+
 
 /**
  * "6 dk" · "51 dk" — GERİ SAYIM rakamı.
@@ -1037,6 +1064,67 @@ export function noshowCard(event: FlowEvent, fresh = false): NoshowCard {
             : `${left} dk sonra otomatik düşer`,
         actions,
     };
+}
+
+/**
+ * ŞİMDİ-ÇİZGİSİ: akışta ilk GELECEK satırın sırası.
+ *
+ * Akış artan sıralı olduğu için bu index bir sınır: üstü olan biten, altı
+ * gelecek olan. Ekran açılışta buraya kaydırılır — müdür günün en uzak
+ * ucunu değil, ŞU ANI görmeli.
+ *
+ * Gün önekli satırlar ("Dün 19:40") her zaman geçmiştir; saatleri bugünün
+ * saatiyle kıyaslanmaz, yoksa dün 19:40'ta kapanmamış bir adisyon bugün
+ * 19:40'ta olacakmış gibi çizginin altına düşerdi.
+ *
+ * Hepsi geçmişteyse uzunluk döner: akşam, gelecek satır kalmamıştır ve
+ * bu bir hata değil.
+ */
+export function nowLineIndex(events: readonly FlowEvent[], nowMinutes: number): number {
+    const index = events.findIndex((event) => {
+        if (!/^\d{2}:\d{2}$/.test(event.time)) return false;
+        const [hours, minutes] = event.time.split(':').map(Number);
+        return hours * 60 + minutes >= nowMinutes;
+    });
+    return index === -1 ? events.length : index;
+}
+
+/**
+ * Satırın üstündeki kelime — `next` için.
+ *
+ * SORUN KELİMENİN KENDİSİNDEYDİ. Dokuz etiketten sekizi bir DURUM anlatıyor
+ * ("işlem başladı", "adisyon bekliyor"); yalnız `next` bir SIRA İDDİASI
+ * taşıyordu ve sıra iddiası tanım gereği tekil. İki randevu aynı anda
+ * "sıradaki" olamaz, ama ekranda ikisi de öyle diyordu.
+ *
+ * Üç hâl:
+ *   • gecikmiş  → `gecikti`. Kart zaten bunu diyor; kodun kuralı "satır ve
+ *     kart AYNI kelimeyi söyler". Geciken randevu artık YAKLAŞAN bir randevu
+ *     olarak sunulmuyor — çözülmesi gereken bir istisna.
+ *   • zamanında ve en erken olan → `sıradaki randevu`. Liste azalan sıralı
+ *     olduğu için bu etiket ŞİMDİ-ÇİZGİSİNİ işaretliyor: üstündeki her şey
+ *     gelecek, o satır sıradaki iş.
+ *   • öteki zamanındalar → `yaklaşan randevu`. Tek başına "randevu" hiçbir
+ *     şey söylemiyor ve öteki etiketlerin iki kelimelik ritmini bozuyordu.
+ */
+export function nextRowLabel(event: Pick<FlowEvent, 'etaMinutes'>, inLine: boolean): string {
+    if (isLate(event.etaMinutes)) return 'gecikti';
+    return inLine ? 'sıradaki randevu' : 'yaklaşan randevu';
+}
+
+/**
+ * Zamanında giden randevular arasında SIRADA olanın kimliği. Yoksa `null` —
+ * o zaman hiçbir satır "sıradaki" demez ve bu doğrudur.
+ *
+ * Geciken randevular dışarıda: onların satırı zaten `gecikti` diyor.
+ */
+export function nextInLineId(events: readonly FlowEvent[]): string | null {
+    const upcoming = events.filter((e) => e.kind === 'next' && !isLate(e.etaMinutes));
+    if (upcoming.length === 0) return null;
+    // En erken SAAT sırada olandır. Eşitlikte listedeki ilk — kararlı sonuç.
+    return upcoming.reduce(
+        (soonest, e) => (e.time.localeCompare(soonest.time, 'tr-TR') < 0 ? e : soonest),
+    ).id;
 }
 
 /** Akış satırının etiketi — düşmüş randevu "gelmedi"den başka bir şeydir. */

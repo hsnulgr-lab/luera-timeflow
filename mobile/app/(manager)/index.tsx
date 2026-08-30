@@ -1,5 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Linking, PanResponder, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
+    useWindowDimensions, View,
+} from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,7 +21,7 @@ import {
 import {
     activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction, applySendResult,
     applyWaitAction, DEMO_FLOW,
-    bookedEvent, DEMO_TICK_MS, headline, mockDay,
+    bookedEvent, DEMO_TICK_MS, headline, mockDay, nextInLineId, nowLineIndex,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
 import {
@@ -330,6 +333,14 @@ export default function ManagerFlow() {
      * Tek istisna bugün: bugün boş olsa da başlık ve şerit doğruyu söylüyor,
      * orada levha yine kaydırmaya bağlı kalır.
      */
+    /*
+     * "Sıradaki" bir SIRA İDDİASIDIR ve tekildir. Kararı EKRAN verir: bir
+     * satır tek başına ötekilere bakıp "ben sıradayım" diyemez, o yüzden
+     * kimlik burada hesaplanıp aşağı iniyor.
+     */
+    const inLineId = useMemo(() => nextInLineId(dayEvents), [dayEvents]);
+
+
     const isEmptyDay = dayEvents.length === 0;
     const platePermanent = plateIsPermanent(isEmptyDay, isToday);
     const canScroll = scrollEnabledOnDay(isEmptyDay, isToday);
@@ -362,6 +373,42 @@ export default function ManagerFlow() {
         const timer = setInterval(() => setNowMinutes(nowInMinutes()), 60_000);
         return () => clearInterval(timer);
     }, []);
+
+    /*
+     * AÇILIŞ ŞİMDİ-ÇİZGİSİNDE.
+     *
+     * Akış artan sıralı: geçmiş yukarıda, gelecek aşağıda. Tepeden açılsaydı
+     * müdür sabahın ilk randevusunu görürdü; oysa telefonu açma sebebi ŞU AN.
+     *
+     * Çizgi ekranın üstüne değil, ALT ÜÇTE BİRİNE oturuyor: "şu an"ın kendisi
+     * biraz geçmişte yaşıyor — bekleyen müşteri, geciken randevu, kasada
+     * duran adisyon hep birkaç dakika önce başladı. Çizgiyi tepeye koysaydık
+     * ekran boş bir geleceği gösterip olan biteni katlardı.
+     */
+    const scroller = useRef<ScrollView>(null);
+    const rowTop = useRef(new Map<string, number>());
+    const viewport = useRef(0);
+    const jumped = useRef(false);
+
+    // Gün değişince atlama hakkı yenilenir: bugüne dönünce yine şimdiye gider.
+    useEffect(() => { jumped.current = false; }, [selectedISO]);
+
+    const jumpToNow = useCallback(() => {
+        if (jumped.current || !isToday || viewport.current === 0) return;
+        const index = nowLineIndex(dayEvents, nowMinutes);
+        // Hepsi geçmişteyse hedef son satır: akşam, gelecek satır kalmamıştır.
+        const target = dayEvents[Math.min(index, dayEvents.length - 1)];
+        if (!target) return;
+        const top = rowTop.current.get(target.id);
+        if (top == null) return;
+        jumped.current = true;
+        scroller.current?.scrollTo({
+            // `contentInsetAdjustmentBehavior="automatic"` yüzünden en üst
+            // konum 0 değil `-insets.top`; taban da o.
+            y: Math.max(-insets.top, top - viewport.current * 0.66 - insets.top),
+            animated: false,
+        });
+    }, [dayEvents, insets.top, isToday, nowMinutes]);
 
     /**
      * Başparmak bölgesinin yüksekliği. Pedal ALTTAN hizalı, birincil eylem
@@ -442,6 +489,11 @@ export default function ManagerFlow() {
     return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
             <Animated.ScrollView
+                ref={scroller}
+                onLayout={(e) => {
+                    viewport.current = e.nativeEvent.layout.height;
+                    jumpToNow();
+                }}
                 collapsable={false}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
@@ -553,19 +605,26 @@ export default function ManagerFlow() {
                 ) : null}
 
                 {dayEvents.map((event, index) => (
-                    <Fragment key={event.id}>
+                    <View
+                        key={event.id}
+                        onLayout={(e) => {
+                            rowTop.current.set(event.id, e.nativeEvent.layout.y);
+                            jumpToNow();
+                        }}
+                    >
                         {index > 0 ? <FlowDivider /> : null}
                         <FlowRow
                             event={index === 0 ? { ...event, firstInList: true } : event}
                             presence={people}
                             fresh={event.id === freshId}
+                            inLine={event.id === inLineId}
                             onAction={(label) => onAction(event, label)}
                             onPill={(cell) => onPill(event, cell)}
                             waConnected={WA_CONNECTED}
                             onMore={event.appointmentId ? openAppointment : undefined}
                             onOpenCustomer={openCustomer}
                         />
-                    </Fragment>
+                    </View>
                 ))}
 
                 {dayEvents.length > 0 ? <FlowEnd label={flowEndLabel(isToday)} /> : null}
