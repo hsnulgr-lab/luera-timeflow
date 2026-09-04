@@ -132,8 +132,10 @@ test('cam güverte kalktı — her evrenin eylemi kendi gövdesi', () => {
 
 test('sayfa kaydırılmıyor — yalnız kapanış listesi kendi içinde kayıyor', () => {
     // Tek ScrollView C evresinin kalem listesi; kadran ve eylem hep yerinde.
+    // Üçüncü kaydırıcı Personel 08 ile geldi: formül alt sayfası. Sayfanın
+    // KENDİSİ hâlâ kaymıyor — kadran ve eylem her zaman yerinde.
     const count = (screen.match(/<ScrollView/g) || []).length;
-    assert.equal(count, 2, 'yalnız kalem listesi ve katalog sayfası kayabilir');
+    assert.equal(count, 3, 'kalem listesi · katalog · formül alt sayfası');
 });
 
 test('ekranda kaç onay var: BİR', () => {
@@ -260,7 +262,7 @@ test('maske açıkken fitil yanıyor — tutar sebepsizce kaybolmuyor', () => {
     // Sayaç zaten vardı ama görünmüyordu: 6 saniye sonra tutar sebepsiz
     // kayboluyordu. Fitil o sebebi ekrana koyuyor.
     assert.ok(screen.includes('export const REVEAL_MS = 6000;'));
-    assert.ok(screen.includes('{revealed ? <Fuse runKey={runKey} big={big} /> : null}'));
+    assert.ok(screen.includes('{revealed ? <Fuse runKey={runKey} /> : null}'));
     assert.ok(screen.includes('{ scaleX: p }'), 'fitil ölçekle sürülmeli');
     assert.ok(!/duration: REVEAL_MS[\s\S]{0,120}useNativeDriver: false/.test(screen));
 });

@@ -1,5 +1,9 @@
 # Personel modu — yapılacaklar
 
+> **Güncelleme 2026-09-04:** A1 hariç A grubunun tamamı, B2, B3'ün yerine
+> geçen alerji işareti ve E1/E2'nin tamamı uygulandı. Aşağıda üstü çizili
+> olmayanlar duruyor.
+
 Tarama tarihi: **2026-09-05**. Kaynak: kumanda ekranının tasarım dosyasıyla
 (`Luera Mobil - Personel 06 Islem Kumandasi.html`) kod karşılaştırması ve
 personel modunun ekran ekran taraması.
@@ -28,7 +32,7 @@ iki satır oluyor ve ikisi de kasaya gidiyor. Adisyon gönderilene kadar her
 
 **Tasarım turu gerekmiyor.** Ölçüler HTML'de hazır.
 
-### A2 · Not düğmesindeki amber nokta sabit
+### ~~A2 · Not düğmesindeki amber nokta sabit~~ · YAPILDI
 
 `<Tool label="Not" glyph="note" dot ... />` — `dot` koşulsuz veriliyor.
 
@@ -36,7 +40,7 @@ iki satır oluyor ve ikisi de kasaya gidiyor. Adisyon gönderilene kadar her
 açılıştan sonra personel o noktaya bakmayı bırakıyor; nokta bir daha hiçbir
 şey anlatamaz. `appointment.notes` doluluğuna bağlanacak.
 
-### A3 · İki ölü düğme
+### ~~A3 · İki ölü düğme~~ · YAPILDI
 
 `Müşteriyi ara` ve `Müşteri kartı` (`kumanda.tsx:479`, `:481`) — `onPress`
 yok. Karşılıkları hazır: telefon için `src/lib/phone.ts`, kart için
@@ -67,7 +71,7 @@ der.
 mi?" sorusunun tek cevabı. Veri hazır: `src/api/staff.ts` kuyruğu tutuyor,
 `useConnectivity` çalışıyor (`app/(staff)/calendar.tsx` kullanıyor).
 
-### B2 · Para maskesinin fitili (`.fuse`)
+### ~~B2 · Para maskesinin fitili~~ · YAPILDI
 
 Tutar 6 sn sonra gizleniyor (kodda var) ama altındaki **incelen amber çizgi**
 yok. Maskenin niye kaybolduğunu açıklayan tek şey o.
@@ -83,6 +87,15 @@ kesinmiş gibi duruyor.
 Dört kademe (`.par` → `.w` → `.hot` → `.hot.zz`) doğru uygulanmış; veri
 sahte ve **tekil** — gerçekte üç komşu iş birden olabilir. Sunucuya
 bağlanınca çözülür.
+
+---
+
+## A6 · Alerji uyarısı · YAPILDI
+
+Kimlik plakasında, adın yanında, üç evrede de görünen kırmızı işaret.
+Dokununca 6 saniyelik satır açılıyor; tür maskesiz (`RİSK · ALERJİ`),
+detay maskeli. Birden fazla kural varsa işaret bölünmüyor, açılan satır
+sayıyı ve türleri söylüyor.
 
 ---
 
@@ -146,7 +159,7 @@ karşılıkları olmayan davranışlar (testleri `skip`te bekliyor):
 
 ## E · Tasarım turu gerektirenler
 
-### E1 · Müşteriler sekmesi — hiç tasarlanmadı
+### ~~E1 · Müşteriler sekmesi~~ · TASARLANDI ve YAZILDI
 
 `app/(staff)/customers.tsx` bugün 14 satırlık bir yer tutucu.
 
@@ -158,7 +171,7 @@ Bağımlılık: **renk formülü kaydı olmadan bu sekme bir telefon rehberi.**
 Kuaförün telefonunda zaten bir rehber var. Önce formülü *kaydetme*
 (kumandada), sonra *okuma* (bu sekmede).
 
-### E2 · Renk formülü kaydı
+### ~~E2 · Renk formülü kaydı~~ · TASARLANDI ve YAZILDI
 
 Araştırmanın en tekrar eden bulgusu: kolorist hizmetten sonra baz seviye,
 kod, oksidan hacmi, gram, gerçek süre ve sonucu yazıyor. Sektör hâlâ basılı
@@ -186,3 +199,31 @@ geçen para değil. "Kazanç" demek yalan.
 Ayrıca sekme `staff_can_see_revenue` ile koşullu ve **varsayılan kapalı**
 (089): çoğu personelde kabuk 4 sekme, ayarı açan işletmede 5. Tab bar
 değişken olamaz.
+
+
+---
+
+## Z · 2026-09-04'te yazılanlar
+
+- `supabase/090_visit_formula.sql` — `reservations.formula` jsonb
+- `staff-api → visit.formula` · `customers` · `customer` (geçmiş satırına
+  formül, kilit, kim yaptı)
+- `mobile/src/lib/formula.ts` · `customerBook.ts` — saf karar katmanları
+- `mobile/src/components/FormulaFields.tsx` — alt sayfa ve tam sayfanın
+  ortak gövdesi
+- `app/(staff)/customers.tsx` · `app/(staff-flow)/musteri.tsx` ·
+  `app/(staff-flow)/formul.tsx`
+- Kumanda: malzeme grubunun başlığı, pinlenen kopya, formül alt sayfası,
+  plakada alerji işareti
+
+**Cihazda doğrulandı** (iPhone 17 Pro simülatörü): alerji işareti ve fitili,
+C evresinde başlığın amberden yeşile geçişi, formül alt sayfası, müşteri
+sayfası, kilitli formül sayfası.
+
+**Yol boyunca bulunan iki hata düzeltildi:**
+1. `textTransform: 'uppercase'` dile duyarsız — `RİSK · ALERJİ` ekranda
+   `RISK · ALERJI` oluyordu. Projenin `upperTR`'si kullanıldı.
+2. Satır yüksekliği 1.02, büyük harfin üstündeki işareti kırpıyordu —
+   `Öztürk` ekranda `Oztürk` görünüyordu. CSS kırpmıyor, RN kırpıyor.
+
+**Hâlâ demo veriyle çalışıyor.** `D1` (ekranları sunucuya bağlama) duruyor.

@@ -1,14 +1,312 @@
-import { View } from 'react-native';
-import { T } from '../../src/components/ui';
-import { space, useTheme } from '../../src/theme';
+/**
+ * Personel 09 — Müşteriler.
+ *
+ * Liste bir dizin DEĞİL, cevabın kendisi. Kuaför buraya bir kişiyi bulmak
+ * için gelir ve bulduğu anda tek şey sorar: "bu müşteride ne yapmıştım?"
+ * Satır beş olguyu birlikte söylüyor — ad · ne zaman · ne yapıldı · kim
+ * yaptı · formül kaydı var mı. Vakaların çoğunda cevap satırda bitiyor;
+ * sayfa yalnız formülün İÇERİĞİ için açılıyor.
+ *
+ * "Kendi müşterilerim" bir bölüm değil, bir İŞARET: dolu disk benim, boş
+ * disk meslektaşımın baş harfleri. Bölüm listeyi ikiye kesip "hangi
+ * koşudayım" sorusunu doğuruyordu.
+ *
+ * Sıralama kontrolsüz — bkz. `sortBook`.
+ */
 
-// Yer tutucu — tasarımdaki ekran bu turda yazılmadı.
-export default function Screen() {
-    const { c } = useTheme();
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Glyph } from '../../src/components/Glyph';
+import {
+    agoLabel, demoBook, matches, mineCount, sortBook, splitName,
+    type BookCustomer,
+} from '../../src/lib/customerBook';
+import { todayISO } from '../../src/lib/calendar';
+import { feedback } from '../../src/lib/feedback';
+import { upperTR } from '../../src/lib/text';
+import { font, numeric, useTheme } from '../../src/theme';
+
+/** Tasarımın ölçüleri — `personel09.js` ve HTML'in CSS'inden. */
+const M = {
+    row: 76, rowSm: 68,
+    disc: 34, discSm: 31,
+    name: 19, nameSm: 17.5,
+    title: 32, titleSm: 27,
+    search: 50,
+    pad: 20, padSm: 16,
+    /** Sekme çubuğu içeriğin üstünde duruyor; liste onun altına akmıyor. */
+    bottom: 106, bottomSm: 88,
+} as const;
+
+export default function Customers() {
+    const { c, small } = useTheme();
+    const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const [query, setQuery] = useState('');
+
+    const today = todayISO();
+    const book = useMemo(() => sortBook(demoBook(today), today), [today]);
+    const shown = useMemo(
+        () => book.filter((customer) => matches(customer, query)),
+        [book, query],
+    );
+
+    const pad = small ? M.padSm : M.pad;
+    const searching = query.trim().length > 0;
+    const noneMine = mineCount(book) === 0;
+
     return (
-        <View style={{ flex: 1, backgroundColor: c.bg, padding: space.xl, justifyContent: 'center' }}>
-            <T v="h2">customers</T>
-            <T v="small" c={c.tx2}>Bu ekran sıradaki turda yazılacak.</T>
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <View style={{ paddingHorizontal: pad, paddingTop: 6, paddingBottom: 12, gap: 12 }}>
+                {/* Arama açıkken başlık düşüyor: ekranın üstü sonuçlara açılıyor. */}
+                {searching ? null : (
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+                        {/* Başlık TAMAMEN kalın. İnce/kalın bölünmesi ADIN
+                            muamelesi — kişiyi ayırt etmek için var. Sekmenin
+                            kendi adında ayırt edilecek bir şey yok; orada
+                            bölünme süse dönüşüyordu. */}
+                        <Text style={{
+                            fontSize: small ? M.titleSm : M.title,
+                            lineHeight: (small ? M.titleSm : M.title) * 1.18,
+                            letterSpacing: -(small ? M.titleSm : M.title) * 0.03,
+                            fontFamily: font.bold,
+                            color: c.tx,
+                        }}>
+                            Müşteriler
+                        </Text>
+                        <Text style={{
+                            marginLeft: 'auto',
+                            fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: c.tx3,
+                        }}>
+                            {book.length} KAYIT
+                        </Text>
+                    </View>
+                )}
+
+                <SearchField value={query} onChange={setQuery} />
+            </View>
+
+            {/* Üçüncü boş hâl bir ekran değil, çalışan listenin üstünde bir
+                altyazı: yeni personel boş bir ekranla karşılaşmıyor. */}
+            {noneMine && !searching ? (
+                <Text style={{
+                    paddingHorizontal: pad, paddingBottom: 10, maxWidth: 330,
+                    fontSize: 12, fontWeight: '500', lineHeight: 17.4, color: c.tx3,
+                }}>
+                    Henüz kimseye bakmadınız. İlk işlemi bitirdiğinizde o müşterinin diski dolu görünecek.
+                </Text>
+            ) : null}
+
+            {shown.length === 0 ? (
+                <Empty
+                    query={searching ? query.trim() : null}
+                    empty={book.length === 0}
+                />
+            ) : (
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{
+                        paddingHorizontal: pad,
+                        paddingBottom: (small ? M.bottomSm : M.bottom) + insets.bottom,
+                    }}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {shown.map((customer, index) => (
+                        <Row
+                            key={customer.id}
+                            customer={customer}
+                            today={today}
+                            last={index === shown.length - 1}
+                            onOpen={() => {
+                                feedback.selection();
+                                router.push({
+                                    pathname: '/(staff-flow)/musteri',
+                                    params: { customerId: customer.id, name: customer.name },
+                                });
+                            }}
+                        />
+                    ))}
+                </ScrollView>
+            )}
+        </View>
+    );
+}
+
+/**
+ * Tek kontrol. Filtre satırı, segment ya da sıralama menüsü YOK: 200 kayıtta
+ * arama tek başına yetiyor ve telefonun son dört hanesi de buradan aranıyor.
+ *
+ * Gerçek bir `TextInput` — tasarımda düğme gibi çizilmiş olması onu ölü bir
+ * kontrole çevirmez.
+ */
+function SearchField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+    const { c } = useTheme();
+    const on = value.length > 0;
+    return (
+        <View style={{
+            height: M.search,
+            borderRadius: 16,
+            paddingHorizontal: 15,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 11,
+            backgroundColor: on ? c.surf2 : c.fld,
+            borderWidth: 1,
+            borderColor: on ? c.bd2 : 'transparent',
+        }}>
+            <Glyph name="search" size={19} color={on ? c.tx2 : c.tx3} />
+            <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder="Ad ya da telefonun son 4 hanesi"
+                placeholderTextColor={c.tx3}
+                selectionColor={c.or}
+                autoCorrect={false}
+                returnKeyType="search"
+                style={{
+                    flex: 1, minWidth: 0, padding: 0,
+                    fontSize: 15.5,
+                    fontWeight: on ? '600' : '500',
+                    color: c.tx,
+                }}
+            />
+            {on ? (
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Aramayı temizle"
+                    hitSlop={12}
+                    onPress={() => onChange('')}
+                >
+                    <Glyph name="close" size={17} color={c.tx3} />
+                </Pressable>
+            ) : null}
+        </View>
+    );
+}
+
+function Row({ customer, today, last, onOpen }: {
+    customer: BookCustomer;
+    today: string;
+    last: boolean;
+    onOpen: () => void;
+}) {
+    const { c, small } = useTheme();
+    const name = splitName(customer.name);
+    const ago = customer.upcomingTime
+        ? { text: customer.upcomingTime, recent: true }
+        : agoLabel(customer.lastVisitDate, today);
+    const disc = small ? M.discSm : M.disc;
+
+    // Formülü olan ve ilk kez gelen aynı yuvayı paylaşıyor: ikisi de olgu,
+    // ikisi de uyarı değil.
+    const mark = customer.hasFormula ? 'formül' : customer.lastVisitDate ? null : 'ilk kez';
+
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${customer.name}, ${customer.lastService ?? 'randevu yok'}, ${ago.text}${
+                customer.hasFormula ? ', formül kaydı var' : ''}`}
+            onPress={onOpen}
+            style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 13,
+                minHeight: small ? M.rowSm : M.row,
+                paddingVertical: small ? 9 : 11,
+                borderBottomWidth: last ? 0 : 1,
+                borderBottomColor: c.bd,
+                opacity: pressed ? 0.6 : 1,
+            })}
+        >
+            {/* Disk: dolu ise benim müşterim, boş ise meslektaşımın baş
+                harfleri. Tek işaret, üç yerde aynı şeyi söylüyor. */}
+            <View style={{
+                width: disc, height: disc, borderRadius: disc / 2,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: customer.mine ? c.fld : 'transparent',
+                borderWidth: customer.mine ? 1 : 0,
+                borderColor: c.bd2,
+            }}>
+                <Text style={{
+                    fontSize: 10.5, fontWeight: '700', letterSpacing: 0.2,
+                    color: customer.mine ? c.tx : c.tx3,
+                }}>
+                    {customer.lastStaffInitials}
+                </Text>
+            </View>
+
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                <Text numberOfLines={1} style={{
+                    fontSize: small ? M.nameSm : M.name,
+                    lineHeight: (small ? M.nameSm : M.name) * 1.1,
+                    letterSpacing: -(small ? M.nameSm : M.name) * 0.02,
+                    fontFamily: font.extraLight,
+                    color: c.tx2,
+                }}>
+                    {name.light}
+                    <Text style={{ fontFamily: font.bold, color: c.tx }}>{name.bold}</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 7, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '500', color: c.tx2, flexShrink: 1 }}>
+                        {customer.lastService ?? 'Bugün ilk randevu'}
+                    </Text>
+                    {mark ? (
+                        <Text style={{
+                            fontSize: 9.5, fontWeight: '700', letterSpacing: 1.43,
+                            color: c.tx3,
+                            borderWidth: 1, borderColor: c.bd, borderRadius: 999,
+                            paddingHorizontal: 7, paddingTop: 2, paddingBottom: 1,
+                        }}>
+                            {upperTR(mark)}
+                        </Text>
+                    ) : null}
+                </View>
+            </View>
+
+            {/* Turuncu ZAMAN demek — bugün ve dün. Önem değil. */}
+            <Text style={[{
+                alignSelf: 'flex-start', paddingTop: 5,
+                fontSize: 10.5, fontWeight: '700', letterSpacing: 1.58,
+                color: ago.recent ? c.or : c.tx3,
+            }, numeric]}>
+                {ago.text}
+            </Text>
+        </Pressable>
+    );
+}
+
+/**
+ * İki boş hâl, iki ayrı sebep: veri hiç yok · sorgu eşleşmedi. Üçüncüsü
+ * (henüz kimseye bakılmadı) burada değil, çünkü dolu bir listeyle birlikte
+ * var olabiliyor.
+ */
+function Empty({ query, empty }: { query: string | null; empty: boolean }) {
+    const { c, small } = useTheme();
+    return (
+        <View style={{
+            flex: 1, justifyContent: 'center', gap: 8,
+            paddingHorizontal: small ? M.padSm : M.pad,
+            paddingBottom: 130,
+        }}>
+            <Text style={{
+                fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
+                fontFamily: font.extraLight, color: c.tx,
+            }}>
+                {empty ? (
+                    <>Salonda kayıtlı <Text style={{ fontFamily: font.bold }}>müşteri yok</Text>.</>
+                ) : (
+                    <><Text style={{ fontFamily: font.bold }}>«{query}»</Text> ile eşleşen kayıt yok.</>
+                )}
+            </Text>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
+                {empty
+                    ? 'Kayıt randevudan doğuyor: ilk randevu oluşturulduğunda müşteri burada görünür.'
+                    : 'Ad ya da telefonun son dört hanesiyle aranır. Arama salonun tamamında çalışır.'}
+            </Text>
         </View>
     );
 }

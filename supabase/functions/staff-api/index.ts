@@ -497,7 +497,7 @@ Deno.serve(async (req: Request) => {
         // "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
         const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
             + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
-            + 'service_ended_at, adisyon_items, is_paid';
+            + 'service_ended_at, adisyon_items, is_paid, formula';
 
         /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
         const loadOwnReservation = async (id: unknown) => {
@@ -887,6 +887,75 @@ Deno.serve(async (req: Request) => {
             return json({ ok: true, items });
         }
 
+        if (action === 'visit.formula') {
+            // Ziyaretin renk formülü — Personel 08.
+            //
+            // KİLİT VERİDEN: adisyon kasaya gittiyse (is_paid ya da
+            // completed) formül artık okunur. Ayrı bir "kilitli" bayrağı
+            // saklamıyoruz; saklanan bayrak bir gün gerçekle ayrışır.
+            //
+            // ZORUNLU DEĞİL: boş alanlarla da kaydediliyor. Uydurulmuş
+            // formül formülsüzlükten kötüdür; eksiklik kartta GÖRÜNEN bir
+            // gap olarak duruyor, engelleyen bir uyarı olarak değil.
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            if (res!.is_paid === true || res!.status === 'completed') {
+                return json({ error: 'formula_locked' }, 409);
+            }
+
+            const body_ = body as Record<string, unknown>;
+            const RATIOS = ['1:1', '1:1,5', '1:2'];
+            const RESULTS = ['tuttu', 'açık kaldı', 'koyu çıktı'];
+            const str = (v: unknown, max: number) =>
+                typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
+
+            const ratio = str(body_.ratio, 12);
+            const result = str(body_.result, 24);
+            // Serbest oran ± adımından gelebilir; listedekiler dışındakiler de
+            // meşru ama biçim doğrulanıyor — serbest metin kayda girmemeli.
+            if (ratio && !RATIOS.includes(ratio) && !/^\d{1,2}:\d{1,2}([.,]\d)?$/.test(ratio)) {
+                return json({ error: 'bad_ratio' }, 400);
+            }
+            if (result && !RESULTS.includes(result.toLocaleLowerCase('tr-TR'))) {
+                return json({ error: 'bad_result' }, 400);
+            }
+
+            const waitRaw = body_.waitMinutes;
+            const waitMinutes = typeof waitRaw === 'number' && Number.isFinite(waitRaw)
+                ? Math.max(0, Math.min(600, Math.round(waitRaw)))
+                : null;
+
+            // Malzeme YARISI adisyondan türüyor, istemciden değil: istemcinin
+            // gönderdiği listeye güvenmek, adisyonla formülün ayrışması demek.
+            const items = Array.isArray(res!.adisyon_items) ? res!.adisyon_items : [];
+            const materials = (items as Record<string, unknown>[])
+                .filter((item) => item?.kind === 'material')
+                .map((item) => ({
+                    id: item.productId ?? item.id ?? null,
+                    name: item.name ?? '',
+                    qty: typeof item.qty === 'number' ? item.qty : 1,
+                }));
+
+            const formula = {
+                materials,
+                ratio,
+                waitMinutes,
+                waitSource: body_.waitSource === 'timer' ? 'timer' : 'manual',
+                result: result ? result.toLocaleLowerCase('tr-TR') : null,
+                note: str(body_.note, 600),
+                staffId: me.id,
+                writtenAt: new Date().toISOString(),
+            };
+
+            const { data: updated, error } = await admin.from('reservations')
+                .update({ formula })
+                .eq('id', res!.id)
+                .select(RES_COLS)
+                .maybeSingle();
+            if (error) { console.error('visit.formula', error); return json({ error: 'write_failed' }, 500); }
+            return json({ ok: true, reservation: updated });
+        }
+
         if (action === 'visit.finish') {
             const { res, err } = await loadOwnReservation(body.reservationId);
             if (err) return err;
@@ -970,6 +1039,68 @@ Deno.serve(async (req: Request) => {
             return json({ ok: true, services: services ?? [], products: products ?? [] });
         }
 
+        if (action === 'customers') {
+            // Personel 09 — müşteri defterinin listesi.
+            //
+            // Kapsam: SALONUN TAMAMI (işletme kararı, takvimle aynı).
+            // Ama kolonlar dar ve TELEFON DÖNMÜYOR: ekran müşterinin gözü
+            // önünde, ve numara listesi ayrılan personelin götürebileceği en
+            // değerli şey. Arama telefonun son dört hanesiyle çalışsın diye
+            // yalnız `phoneTail` dönüyor — numaranın kendisi kartta.
+            if (!can(me.role, 'patients:view')) return json({ error: 'forbidden' }, 403);
+
+            const [{ data: people, error }, { data: visits }, { data: crew }] = await Promise.all([
+                admin.from('customers').select('id, name, phone')
+                    .eq('organization_id', me.organization_id).order('name'),
+                // Son gelişi ve son işi randevulardan türetiyoruz: müşteri
+                // tablosunda böyle bir alan yok ve olmamalı — türetilmiş veri
+                // saklanırsa bir gün gerçekle ayrışır.
+                admin.from('reservations')
+                    .select('customer_id, date, service, staff_id, formula, status')
+                    .eq('organization_id', me.organization_id)
+                    .neq('status', 'cancelled')
+                    .order('date', { ascending: false }),
+                admin.from('staff').select('id, name')
+                    .eq('organization_id', me.organization_id),
+            ]);
+            if (error) { console.error('customers', error); return json({ error: 'lookup_failed' }, 500); }
+
+            const initials = new Map<string, string>();
+            for (const person of crew ?? []) {
+                const parts = String(person.name ?? '').trim().split(/\s+/).filter(Boolean);
+                const two = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2);
+                initials.set(person.id as string, two.toLocaleUpperCase('tr-TR'));
+            }
+
+            const latest = new Map<string, Record<string, unknown>>();
+            const hasFormula = new Set<string>();
+            for (const row of visits ?? []) {
+                const cid = row.customer_id as string | null;
+                if (!cid) continue;
+                if (!latest.has(cid)) latest.set(cid, row);
+                if (row.formula) hasFormula.add(cid);
+            }
+
+            return json({
+                ok: true,
+                customers: (people ?? []).map((person: Record<string, unknown>) => {
+                    const last = latest.get(person.id as string);
+                    const staffId = last?.staff_id as string | null;
+                    return {
+                        id: person.id,
+                        name: person.name,
+                        lastVisitDate: last?.date ?? null,
+                        lastService: last?.service ?? null,
+                        hasFormula: hasFormula.has(person.id as string),
+                        // Disk işareti: son işi BU personel mi yaptı?
+                        mine: staffId === me.id,
+                        lastStaffInitials: staffId ? (initials.get(staffId) ?? '?') : '',
+                        phoneTail: String(person.phone ?? '').replace(/\D/g, '').slice(-4),
+                    };
+                }),
+            });
+        }
+
         if (action === 'customer') {
             if (!can(me.role, 'patients:view')) return json({ error: 'forbidden' }, 403);
             const cid = typeof body.customerId === 'string' ? body.customerId : '';
@@ -982,9 +1113,13 @@ Deno.serve(async (req: Request) => {
                 // motorunu iki yerde çalıştırmak ikisinin ayrışması demekti.
                 admin.from('customers').select('id, name, phone, notes, custom_fields')
                     .eq('organization_id', me.organization_id).eq('id', cid).maybeSingle(),
-                admin.from('reservations').select('id, date, service, status')
+                // Geçmiş satırı DOKUNULABİLİR (08 · 4b): formülü olan onu
+                // açıyor, olmayan yazmayı başlatıyor. O yüzden satır formülü
+                // ve kilit durumunu da taşıyor — ikinci bir istek atmamak için.
+                admin.from('reservations')
+                    .select('id, date, service, status, staff_id, formula, is_paid, adisyon_items')
                     .eq('organization_id', me.organization_id).eq('customer_id', cid)
-                    .lt('date', today).order('date', { ascending: false }).limit(10),
+                    .lte('date', today).order('date', { ascending: false }).limit(10),
                 admin.from('customer_packages').select('id, name, total_sessions, used_sessions')
                     .eq('organization_id', me.organization_id).eq('customer_id', cid),
                 admin.from('settings').select('risk_rules')
@@ -993,8 +1128,34 @@ Deno.serve(async (req: Request) => {
             if (!c) return json({ error: 'not_found' }, 404);
             // Tahsilat ve borç BİLİNÇLİ olarak dönmüyor: kumandanın işi hizmet,
             // finans değil. Kasa yetkisi olan personel masaüstünü kullanır.
+            const crewNames = new Map<string, string>();
+            {
+                const { data: crew } = await admin.from('staff').select('id, name')
+                    .eq('organization_id', me.organization_id);
+                for (const person of crew ?? []) crewNames.set(person.id as string, String(person.name ?? ''));
+            }
+
             return json({
-                ok: true, customer: c, history: past ?? [], packages: packs ?? [],
+                ok: true,
+                customer: c,
+                history: (past ?? []).map((row: Record<string, unknown>) => ({
+                    id: row.id,
+                    date: row.date,
+                    service: row.service,
+                    status: row.status,
+                    // Boya işi geçmemiş ziyarette formül BEKLENMİYOR: kesimde
+                    // eksik olan bir şey yok, o satır "formül yok" demiyor.
+                    hadMaterial: Array.isArray(row.adisyon_items)
+                        && (row.adisyon_items as Record<string, unknown>[])
+                            .some((item) => item?.kind === 'material'),
+                    formula: row.formula ?? null,
+                    // Kilit veriden geliyor: adisyon kasaya gittiyse formül
+                    // artık okunur. Ayrı bir "kilitli" bayrağı saklamıyoruz.
+                    locked: row.is_paid === true || row.status === 'completed',
+                    staffName: row.staff_id ? (crewNames.get(row.staff_id as string) ?? null) : null,
+                    mine: row.staff_id === me.id,
+                })),
+                packages: packs ?? [],
                 riskRules: rules?.risk_rules ?? [],
             });
         }

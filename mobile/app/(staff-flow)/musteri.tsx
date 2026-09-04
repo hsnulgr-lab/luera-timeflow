@@ -1,0 +1,569 @@
+/**
+ * Personel 09 — müşteri sayfası.
+ *
+ * Altı bilgi var ve hepsi aynı ağırlıkta duramaz. Üç kayıt seviyesi:
+ *
+ *   plaka         ad + ara/yaz · kabuksuz · en büyük tipografi
+ *   kapalı bilgi  risk + not · noktalı · 60 pt satır
+ *   defter        son formül · paket · geçmiş · bölüm etiketli düz satırlar
+ *
+ * Sayfada TEK KABUK var: son formül kartı. Kabuk sorunun cevabında, başka
+ * hiçbir yerde değil.
+ *
+ * Sıra sorunun sırası: kim → beni ne durdurur → ne yapmıştım → ne kaldı →
+ * ne oldu.
+ *
+ * "Önceki formüller" bölümü BİLİNÇLİ olarak yok. 08'in 4b maddesi geçmiş
+ * satırlarını dokunulabilir yapınca o bölüm aynı kayıtları ikinci kez
+ * listeleyen bir kopya hâline geldi; iki liste "hangisinden açayım"
+ * sorusunu doğuruyordu.
+ *
+ * Para hiçbir yerde yok: bu bir hizmet defteri, muhasebe değil.
+ */
+
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Glyph } from '../../src/components/Glyph';
+import { historyMark } from '../../src/lib/formula';
+import { splitName } from '../../src/lib/customerBook';
+import { feedback } from '../../src/lib/feedback';
+import { upperTR } from '../../src/lib/text';
+import { font, numeric, useTheme } from '../../src/theme';
+
+const REVEAL_MS = 6000;
+
+// ── Demo defteri ────────────────────────────────────────────────────────────
+//
+// `customer` ucu bağlanana kadar. Tasarımın verisiyle aynı, çünkü ekranı
+// onun ölçüleriyle karşılaştırıyoruz.
+
+interface HistoryRow {
+    date: string;
+    service: string;
+    /** Formül kaydı — yoksa null. */
+    formula: boolean;
+    /** Adisyonda malzeme kalemi geçti mi? Boya işi değilse formül beklenmiyor. */
+    hadMaterial: boolean;
+    status?: 'no_show';
+    locked: boolean;
+    who: string;
+    initials: string;
+    mine: boolean;
+    minutes: number;
+}
+
+const DEMO = {
+    name: 'Elif Demir',
+    phone: '0532 461 20 18',
+    lastVisit: '12 MART',
+    ago: '2 GÜN',
+    service: 'Saç boyama + fön',
+    who: 'Selin Demir',
+    initials: 'SD',
+    visits: 10,
+    formulas: 3,
+    risk: {
+        label: 'Risk · Alerji',
+        sub: '1 kural',
+        text: 'Boya alerjisi bildirildi. Kulak arkası testi şart.',
+    },
+    note: {
+        label: 'Not',
+        sub: '2 satır',
+        text: 'Kökte 7.3, uçlarda 8.1. Geçen sefer kaşınma oldu; bekleme 30 dk’yı geçmesin.',
+    },
+    formula: {
+        date: '12 Mart',
+        materials: '7.3 kumral + %6',
+        ratio: '1:1,5',
+        wait: '35 dk',
+        result: 'tuttu',
+        tone: 'gr' as const,
+        note: 'Uçlar gözenekli, son 10 dk’da erken yıkadım.',
+        who: 'Selin Demir',
+        initials: 'SD',
+        mine: true,
+    },
+    packages: [{ name: 'Keratin bakım', used: 4, total: 8, sub: 'son kullanım 12 Mart' }],
+    history: [
+        { date: '12 Mart', service: 'Saç boyama + fön', formula: true, hadMaterial: true, locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 112 },
+        { date: '28 Şubat', service: 'Kesim', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 40 },
+        { date: '14 Şubat', service: 'Fön', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 30 },
+        { date: '4 Ocak', service: 'Dip boya', formula: true, hadMaterial: true, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 95 },
+        { date: '19 Aralık', service: 'Fön', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 30 },
+        { date: '15 Kasım', service: 'Röfle', formula: true, hadMaterial: true, locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 130 },
+        { date: '2 Ekim', service: 'Röfle', formula: false, hadMaterial: true, status: 'no_show', locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 0 },
+        { date: '30 Ağustos', service: 'Keratin bakımı', formula: false, hadMaterial: true, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 95 },
+    ] as HistoryRow[],
+};
+
+export default function CustomerFile() {
+    const { c, small } = useTheme();
+    const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const params = useLocalSearchParams<{ customerId?: string; name?: string }>();
+
+    const name = splitName(params.name ?? DEMO.name);
+    const pad = small ? 16 : 20;
+
+    return (
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <Pressable
+                accessibilityRole="button"
+                onPress={() => router.back()}
+                style={({ pressed }) => ({
+                    height: 44, flexDirection: 'row', alignItems: 'center', gap: 2,
+                    paddingHorizontal: 14, opacity: pressed ? 0.55 : 1,
+                })}
+            >
+                <Glyph name="back" size={22} color={c.tx2} />
+                <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Müşteriler</Text>
+            </Pressable>
+
+            {/* ── PLAKA ── kabuksuz, en büyük tipografi ── */}
+            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingHorizontal: pad, paddingTop: 6, paddingBottom: 16 }}>
+                <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+                    {/* Satır yüksekliği tasarımda 1.02; RN'de o kadar dar bir
+                        kutu BÜYÜK HARFİN üstündeki işareti kırpıyor —
+                        "Öztürk" ekranda "Oztürk" görünüyordu. CSS kırpmıyor,
+                        RN kırpıyor: ölçü değil, taşıyıcı düzeltiliyor. */}
+                    <Text numberOfLines={1} style={{
+                        fontSize: small ? 28 : 34, lineHeight: (small ? 28 : 34) * 1.22,
+                        letterSpacing: -(small ? 28 : 34) * 0.035,
+                        fontFamily: font.extraLight, color: c.tx2,
+                    }}>
+                        {name.light}
+                        <Text style={{ fontFamily: font.bold, color: c.tx }}>{name.bold}</Text>
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
+                        <Text numberOfLines={1} style={{
+                            fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
+                            color: c.tx3,
+                        }}>
+                            {upperTR(`Son geliş ${DEMO.lastVisit}`)}
+                        </Text>
+                        <Text style={{
+                            fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
+                            color: c.tx3,
+                        }}>
+                            {upperTR(`${DEMO.ago} önce`)}
+                        </Text>
+                    </View>
+
+                    {/* Sayısal satır: kaç randevu, kaçında formül. */}
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                        <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
+                            {DEMO.visits}
+                        </Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>randevu</Text>
+                        <Text style={{ fontSize: small ? 20 : 23, fontFamily: font.extraLight, color: c.tx3 }}>·</Text>
+                        <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
+                            {DEMO.formulas}
+                        </Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>formül</Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap' }}>
+                        <Pill>{DEMO.service}</Pill>
+                        <Pill avatar={DEMO.initials}>{DEMO.who}</Pill>
+                    </View>
+                </View>
+
+                {/* Tek turuncu eylem: aramak. Yazmak ikincil. */}
+                <View style={{ gap: 8 }}>
+                    <ActionDisc
+                        label="Müşteriyi ara"
+                        glyph="phone"
+                        primary
+                        onPress={() => Linking.openURL(`tel:${DEMO.phone.replace(/\s/g, '')}`)}
+                    />
+                    <ActionDisc
+                        label="Mesaj yaz"
+                        glyph="msg"
+                        onPress={() => Linking.openURL(`sms:${DEMO.phone.replace(/\s/g, '')}`)}
+                    />
+                </View>
+            </View>
+
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingHorizontal: pad, paddingBottom: 106 + insets.bottom }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* ── KAPALI BİLGİ ── ekran müşterinin gözü önünde ── */}
+                <MaskRow data={DEMO.risk} danger />
+                <MaskRow data={DEMO.note} />
+
+                {/* ── DEFTER ── */}
+                <Section title="Son formül" note={DEMO.formula.date} />
+                <FormulaCard />
+
+                <Section title="Paket" />
+                {DEMO.packages.map((pack) => <PackageRow key={pack.name} pack={pack} />)}
+
+                <Section title="Geçmiş" note="son 10 randevu" />
+                {DEMO.history.map((row, index) => (
+                    <HistoryLine
+                        key={`${row.date}-${row.service}`}
+                        row={row}
+                        last={index === DEMO.history.length - 1}
+                        onOpen={() => {
+                            feedback.selection();
+                            router.push({
+                                pathname: '/(staff-flow)/formul',
+                                params: {
+                                    from: params.name ?? DEMO.name,
+                                    date: row.date,
+                                    service: row.service,
+                                    minutes: String(row.minutes),
+                                    who: row.who,
+                                    initials: row.initials,
+                                    mine: row.mine ? '1' : '0',
+                                    lockedAt: `${row.date} 19:40'ta kasaya`,
+                                    mode: row.locked
+                                        ? (row.formula ? 'locked' : 'lockedEmpty')
+                                        : (row.formula ? 'edit' : 'new'),
+                                    ...(row.formula ? {
+                                        ratio: DEMO.formula.ratio,
+                                        result: DEMO.formula.result,
+                                        wait: '35',
+                                        waitSpan: 'ölçüldü · 11:17 – 11:52',
+                                        note: DEMO.formula.note,
+                                    } : {}),
+                                },
+                            });
+                        }}
+                    />
+                ))}
+
+                <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, maxWidth: 300, paddingTop: 14 }}>
+                    Defter son 10 randevuyu tutuyor. Daha eskisi sunucudan gelmiyor.
+                </Text>
+            </ScrollView>
+        </View>
+    );
+}
+
+// ── Parçalar ────────────────────────────────────────────────────────────────
+
+function Pill({ children, avatar }: { children: string; avatar?: string }) {
+    const { c, small } = useTheme();
+    return (
+        <View style={{
+            height: small ? 34 : 38, borderRadius: 19, paddingHorizontal: small ? 12 : 14,
+            flexDirection: 'row', alignItems: 'center', gap: 9,
+            backgroundColor: c.fld, maxWidth: '100%',
+        }}>
+            {avatar ? (
+                <View style={{
+                    width: 24, height: 24, borderRadius: 12, marginLeft: -5,
+                    alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 1.5, borderColor: c.bd2,
+                }}>
+                    <Text style={{ fontSize: 9, fontWeight: '700', color: c.tx2 }}>{avatar}</Text>
+                </View>
+            ) : null}
+            <Text numberOfLines={1} style={{ fontSize: small ? 12.5 : 13.5, fontWeight: '600', color: c.tx }}>
+                {children}
+            </Text>
+        </View>
+    );
+}
+
+function ActionDisc({ label, glyph, primary, onPress }: {
+    label: string; glyph: 'phone' | 'msg'; primary?: boolean; onPress: () => void;
+}) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={onPress}
+            style={({ pressed }) => ({
+                width: 46, height: 46, borderRadius: 23,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: primary ? 'rgba(255,90,31,0.14)' : c.fld,
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <Glyph name={glyph} size={20} color={primary ? c.or2 : c.tx2} />
+        </Pressable>
+    );
+}
+
+function Section({ title, note }: { title: string; note?: string }) {
+    const { c, small } = useTheme();
+    return (
+        <View style={{
+            flexDirection: 'row', alignItems: 'baseline', gap: 10,
+            paddingTop: small ? 18 : 22, paddingBottom: 9,
+        }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, color: c.tx3 }}>
+                {upperTR(title)}
+            </Text>
+            {note ? (
+                <Text style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: '600', color: c.tx3 }}>{note}</Text>
+            ) : null}
+        </View>
+    );
+}
+
+/**
+ * Maske — para maskesinin ikinci veri türüne uzaması.
+ *
+ * Etiket ve sayı OKUNUR (`RİSK · ALERJİ`, `NOT · 2 SATIR`), içerik üç nokta.
+ * Alerji istisna: TÜRÜ maskesiz, çünkü müşteri kendi alerjisini zaten
+ * biliyor — gizlenmesi gereken şey salonun notu.
+ */
+function MaskRow({ data, danger }: {
+    data: { label: string; sub: string; text: string };
+    danger?: boolean;
+}) {
+    const { c, small, reduceMotion } = useTheme();
+    const [open, setOpen] = useState(false);
+    const [left, setLeft] = useState(REVEAL_MS / 1000);
+    const p = useRef(new Animated.Value(1)).current;
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+    const toggle = () => {
+        if (timer.current) clearTimeout(timer.current);
+        if (open) { setOpen(false); return; }
+        feedback.selection();
+        setOpen(true);
+        setLeft(REVEAL_MS / 1000);
+        if (!reduceMotion) {
+            p.setValue(1);
+            Animated.timing(p, { toValue: 0, duration: REVEAL_MS, easing: Easing.linear, useNativeDriver: true }).start();
+        }
+        // Telefon cebe girerken not ekranda kalmasın: satır kendi kapanıyor.
+        timer.current = setTimeout(() => setOpen(false), REVEAL_MS);
+    };
+
+    useEffect(() => {
+        if (!open || !reduceMotion) return;
+        const id = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+        return () => clearInterval(id);
+    }, [open, reduceMotion]);
+
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={open ? `${data.label}: ${data.text}` : `${data.label}, ${data.sub}. Göstermek için dokunun.`}
+            onPress={toggle}
+            style={{
+                height: small ? 56 : 60,
+                flexDirection: 'row', alignItems: 'center', gap: 14,
+                borderBottomWidth: 1, borderBottomColor: c.bd,
+                overflow: 'hidden',
+            }}
+        >
+            <View style={{ width: 112, gap: 3 }}>
+                <Text style={{
+                    fontSize: 10, fontWeight: '700', letterSpacing: 1.7,
+                    color: danger ? c.rd : c.tx2,
+                }}>
+                    {upperTR(data.label)}
+                </Text>
+                <Text style={{ fontSize: 10.5, fontWeight: '600', letterSpacing: 0.42, color: open ? c.am : c.tx3 }}>
+                    {open ? (reduceMotion ? `${left} sn` : '6 sn') : data.sub}
+                </Text>
+            </View>
+
+            <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {open ? (
+                    <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', lineHeight: 18.2, color: danger ? c.rd : c.tx }}>
+                        {data.text}
+                    </Text>
+                ) : (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {[0, 1, 2].map((index) => (
+                            <View key={index} style={{
+                                width: 6, height: 6, borderRadius: 3,
+                                backgroundColor: danger ? c.rd : c.tx3,
+                                opacity: danger ? 0.7 : 1,
+                            }} />
+                        ))}
+                    </View>
+                )}
+                <Glyph name={open ? 'eye' : 'eyeoff'} size={17} color={c.tx3} />
+            </View>
+
+            {open && !reduceMotion ? (
+                <Animated.View style={{
+                    position: 'absolute', left: 0, right: 0, bottom: 0, height: 2,
+                    backgroundColor: c.am,
+                    transform: [
+                        { translateX: p.interpolate({ inputRange: [0, 1], outputRange: [-160, 0] }) },
+                        { scaleX: p },
+                    ],
+                }} />
+            ) : null}
+        </Pressable>
+    );
+}
+
+/** Sayfadaki TEK kabuk: sorunun cevabı. */
+function FormulaCard() {
+    const { c } = useTheme();
+    const f = DEMO.formula;
+    const rows: [string, string, 'gr' | 'am' | null][] = [
+        ['malzeme', f.materials, null],
+        ['oran', f.ratio, null],
+        ['bekleme', f.wait, null],
+        ['sonuç', f.result, f.tone],
+    ];
+    return (
+        <View style={{
+            gap: 13, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 14,
+            borderRadius: 22, backgroundColor: c.surf, borderWidth: 1, borderColor: c.bd,
+        }}>
+            <View style={{ gap: 9 }}>
+                {rows.map(([key, value, tone]) => (
+                    <View key={key} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 14 }}>
+                        <Text style={{
+                            width: 78, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.52,
+                            color: c.tx3,
+                        }}>
+                            {upperTR(key)}
+                        </Text>
+                        <Text style={{
+                            flex: 1, fontSize: 15.5, fontWeight: '700', letterSpacing: -0.23,
+                            color: tone === 'gr' ? c.gr : tone === 'am' ? c.am : c.tx,
+                        }}>
+                            {value}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+            {f.note ? (
+                <Text style={{
+                    fontSize: 13, fontWeight: '500', lineHeight: 18.85, color: c.tx2,
+                    paddingTop: 2, borderTopWidth: 1, borderTopColor: c.bd,
+                }}>
+                    {f.note}
+                </Text>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View style={{
+                    width: 22, height: 22, borderRadius: 11,
+                    alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 1.5, borderColor: c.bd2,
+                    backgroundColor: f.mine ? c.fld : 'transparent',
+                }}>
+                    <Text style={{ fontSize: 8.5, fontWeight: '700', color: f.mine ? c.tx : c.tx2 }}>{f.initials}</Text>
+                </View>
+                <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.tx3 }}>
+                    {f.mine ? 'Sen yazdın' : `${f.who} yazdı`} · {f.date}
+                </Text>
+            </View>
+        </View>
+    );
+}
+
+/** Paket bir SAYIM: zaman değil, o yüzden turuncu değil. */
+function PackageRow({ pack }: { pack: { name: string; used: number; total: number; sub: string } }) {
+    const { c } = useTheme();
+    // Yirmi seanslık pakette yirmi çizgi sığmaz; sekizden sonra oran çubuğu.
+    const ticks = pack.total <= 8;
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54 }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', letterSpacing: -0.15, color: c.tx }}>
+                    {pack.name}
+                </Text>
+                <Text numberOfLines={1} style={{ fontSize: 11.5, fontWeight: '500', color: c.tx3 }}>{pack.sub}</Text>
+            </View>
+            {ticks ? (
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {Array.from({ length: pack.total }, (_, index) => (
+                        <View key={index} style={{
+                            width: 9, height: 4, borderRadius: 2,
+                            backgroundColor: index < pack.used ? c.tx2 : c.bd2,
+                        }} />
+                    ))}
+                </View>
+            ) : (
+                <View style={{ width: 88, height: 4, borderRadius: 2, backgroundColor: c.bd2, overflow: 'hidden' }}>
+                    <View style={{ width: `${(pack.used / pack.total) * 100}%`, height: 4, borderRadius: 2, backgroundColor: c.tx2 }} />
+                </View>
+            )}
+            <Text style={[{ fontSize: 13.5, fontWeight: '700', color: c.tx2, minWidth: 38, textAlign: 'right' }, numeric]}>
+                {pack.used} / {pack.total}
+            </Text>
+        </View>
+    );
+}
+
+/**
+ * Geçmiş satırı — 08 · 4b: DOKUNULABİLİR.
+ *
+ * Üç hâl: formülü olan çerçeveli hap, formülü olmayan çerçevesiz amber
+ * kelime, boya işi geçmemiş ziyaret hiçbir şey (ve düz satır, chevron yok).
+ * Yokluğun işareti varlığınkinden sessiz olduğu için liste kirlenmiyor.
+ */
+function HistoryLine({ row, last, onOpen }: {
+    row: HistoryRow; last: boolean; onOpen: () => void;
+}) {
+    const { c, small } = useTheme();
+    const mark = historyMark({ hasFormula: row.formula, hadMaterial: row.hadMaterial, status: row.status });
+
+    const body = (
+        <>
+            <Text style={[{ width: 72, fontSize: 12.5, fontWeight: '600', letterSpacing: 0.13, color: c.tx3 }, numeric]}>
+                {row.date}
+            </Text>
+            <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: '500', color: c.tx }}>
+                {row.service}
+            </Text>
+            {row.status === 'no_show' ? (
+                <Text style={{ fontSize: 9.5, fontWeight: '700', letterSpacing: 1.43, color: c.rd }}>
+                    {upperTR('gelmedi')}
+                </Text>
+            ) : null}
+            {mark ? (
+                <Text style={{
+                    fontSize: 9.5, fontWeight: '700', letterSpacing: 1.43,
+                    color: mark === 'formül' ? c.tx3 : c.am,
+                    borderWidth: mark === 'formül' ? 1 : 0,
+                    borderColor: c.bd,
+                    borderRadius: 999,
+                    paddingHorizontal: mark === 'formül' ? 7 : 0,
+                    paddingTop: 2, paddingBottom: 1,
+                }}>
+                    {upperTR(mark)}
+                </Text>
+            ) : null}
+            {mark ? <Glyph name="chev" size={17} color={c.tx3} /> : null}
+        </>
+    );
+
+    const style = {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 14,
+        minHeight: small ? 42 : 46,
+        paddingVertical: 6,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: c.bd,
+    };
+
+    // Formül beklenmeyen ziyaret DÜZ bir satır: dokunulacak bir şey yok.
+    if (!mark) return <View style={style}>{body}</View>;
+
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${row.date}, ${row.service}, ${mark}`}
+            onPress={onOpen}
+            style={({ pressed }) => ({ ...style, opacity: pressed ? 0.6 : 1 })}
+        >
+            {body}
+        </Pressable>
+    );
+}

@@ -1,4 +1,5 @@
 import {
+    HankenGrotesk_200ExtraLight,
     HankenGrotesk_400Regular,
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
@@ -54,6 +55,8 @@ function Shell() {
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
+        // 200: Personel 09'un ad muamelesi — ince ad + kalın soyad.
+        HankenGrotesk_200ExtraLight,
         HankenGrotesk_400Regular,
         HankenGrotesk_500Medium,
         HankenGrotesk_600SemiBold,

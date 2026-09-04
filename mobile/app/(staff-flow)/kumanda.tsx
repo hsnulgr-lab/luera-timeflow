@@ -13,7 +13,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+    Animated, Easing, Linking, PanResponder, Pressable, ScrollView, Text, TextInput, View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -25,8 +27,13 @@ import {
     dialA, glowTone, mmss, phaseOf, planBar, waitLevel,
 } from '../../src/lib/visitControl';
 import { formatCounter } from '../../src/lib/staffCard';
+import {
+    RATIOS, RESULTS, WAITS, groupState, summaryOf,
+    type FormulaSourceItem, type VisitFormula,
+} from '../../src/lib/formula';
 import { feedback } from '../../src/lib/feedback';
 import { Glyph } from '../../src/components/Glyph';
+import { Auto, Field, Grid, GridButton } from '../../src/components/FormulaFields';
 import { numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
 
@@ -99,10 +106,14 @@ export default function Kumanda() {
 
     /** Bekleme sayacı SUNUCUYA YAZILMIYOR — cihazda yaşıyor. */
     const [wait, setWait] = useState<{ endsAt: number; total: number; source: string } | null>(null);
-    const [sheet, setSheet] = useState<'catalog' | 'minutes' | 'note' | null>(null);
+    const [sheet, setSheet] = useState<'catalog' | 'minutes' | 'note' | 'formula' | null>(null);
     const [revealed, setRevealed] = useState(false);
     /** Her açılışta artıyor: fitil baştan yanmalı, kaldığı yerden değil. */
     const [revealKey, setRevealKey] = useState(0);
+    /** Ziyaretin formülü — sunucuya bağlanınca `visit.formula`dan gelecek. */
+    const [formula, setFormula] = useState<VisitFormula | null>(null);
+    /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
+    const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const appointment = useMemo(() => (base ? {
@@ -144,6 +155,28 @@ export default function Kumanda() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.id]);
 
+    /**
+     * Risk kuralları — işletmenin `settings.risk_rules` listesinden eşleşenler.
+     * Sunucuya bağlanınca `customer` ucundan gelecek; şimdilik demo.
+     *
+     * Kancalar erken dönüşün ÜSTÜNDE: `if (!appointment) return null` altına
+     * konursa çağrı sırası randevu bulunup bulunmamasına göre değişir.
+     */
+    const who = appointment?.customer_name ?? '';
+    const risks = useMemo(
+        () => (who === 'Ayşe Yılmaz'
+            ? [{ kind: 'Alerji', text: 'Boya alerjisi bildirildi — kulak arkası testi şart.' }]
+            : who === 'Elif Demir'
+                ? [
+                    { kind: 'Alerji', text: 'Boya alerjisi bildirildi, kulak arkası testi şart.' },
+                    { kind: 'Hassasiyet', text: 'Saç derisi hassas: amonyaklı ürün kullanılmıyor.' },
+                ]
+                : []),
+        [who],
+    );
+    /** Grup başlığının liste içindeki dikey konumu — kopya kararı bundan. */
+    const headY = useRef(0);
+
     if (!appointment) return null;
 
     // İş bittiyse sayaç durur: geçen süre bitiş damgasına kadar. Aksi hâlde
@@ -170,6 +203,13 @@ export default function Kumanda() {
         // personel kapatmayı unutabilir.
         revealTimer.current = setTimeout(() => setRevealed(false), 6000);
     };
+
+    /**
+     * Malzeme grubunun hâli. Adisyonda `material` kalem yoksa `none`:
+     * başlık ÇİZİLMİYOR. Kesimde formül alanı görmek personele "bir şey
+     * eksik bıraktım" dedirtir — kısık değil, boş değil, yok.
+     */
+    const group = groupState(lines as readonly FormulaSourceItem[], formula);
 
     const glowColor = glowTone(phase === 'running' ? 'running' : 'before', level);
 
@@ -204,7 +244,16 @@ export default function Kumanda() {
                     tail={phase === 'closing' || phase === 'closed'
                         ? `${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))} · ${Math.round(elapsedSec / 60)} dk sürdü`
                         : `${startClock} başlangıç · ${bar.label.split(' · ')[0]}`}
+                    risks={risks}
                     onNote={() => setSheet('note')}
+                    onCall={() => {
+                        if (!appointment.customer_phone) return;
+                        Linking.openURL(`tel:${appointment.customer_phone.replace(/\s/g, '')}`);
+                    }}
+                    onCard={() => router.push({
+                        pathname: '/(staff-flow)/musteri',
+                        params: { name: appointment.customer_name },
+                    })}
                 />
 
                 {/* Komşu iş: başka bir müşterinin boyası işliyor. Kahraman
@@ -308,11 +357,53 @@ export default function Kumanda() {
                 ) : null}
 
                 {phase === 'closing' || phase === 'closed' ? (
-                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                        {lines.map((line) => (
-                            <LineRow key={line.id} line={line} revealed={revealed} />
-                        ))}
-                    </ScrollView>
+                    <View style={{ flex: 1, minHeight: 0 }}>
+                        <ScrollView
+                            style={{ flex: 1 }}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: group === 'none' ? 0 : 48 }}
+                            scrollEventThrottle={32}
+                            onScroll={(e) => {
+                                // Kopya YALNIZ gerçek başlık görünmezken var.
+                                // Yapışkan başlık kaydırma boyunca kalem
+                                // satırlarını örterdi; C evresinde okunması
+                                // gereken şey liste.
+                                const { contentOffset, layoutMeasurement } = e.nativeEvent;
+                                const seen = headY.current > 0
+                                    && headY.current < contentOffset.y + layoutMeasurement.height - 8;
+                                if (seen !== headSeen) setHeadSeen(seen);
+                            }}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {/* Hizmet ve ürünler önce; malzeme kendi grubunda. */}
+                            {lines.filter((line) => line.kind !== 'material').map((line) => (
+                                <LineRow key={line.id} line={line} revealed={revealed} />
+                            ))}
+
+                            {group === 'none' ? null : (
+                                <View onLayout={(e) => { headY.current = e.nativeEvent.layout.y; }}>
+                                    <GroupHead
+                                        state={group}
+                                        summary={summaryOf(formula)}
+                                        onPress={() => { feedback.selection(); setSheet('formula'); }}
+                                    />
+                                </View>
+                            )}
+                            {lines.filter((line) => line.kind === 'material').map((line) => (
+                                <LineRow key={line.id} line={line} revealed={revealed} />
+                            ))}
+                        </ScrollView>
+
+                        {group !== 'none' && !headSeen ? (
+                            <View pointerEvents="box-none" style={{ position: 'absolute', left: 20, right: 20, bottom: 0 }}>
+                                <GroupHead
+                                    state={group}
+                                    summary={summaryOf(formula)}
+                                    pinned
+                                    onPress={() => { feedback.selection(); setSheet('formula'); }}
+                                />
+                            </View>
+                        ) : null}
+                    </View>
                 ) : null}
 
                 {/* ── EYLEM ── kabuk YOK: her evrenin eylemi kendi gövdesi ── */}
@@ -399,6 +490,19 @@ export default function Kumanda() {
                             onCancel={() => setSheet(null)}
                         />
                     ) : null}
+                    {sheet === 'formula' ? (
+                        <FormulaSheet
+                            materials={lines.filter((line) => line.kind === 'material')
+                                .map((line) => [line.name, `×${line.qty}`] as [string, string])}
+                            wait={wait ? Math.round(wait.total / 60) : null}
+                            current={formula}
+                            onSave={(next) => {
+                                feedback.medium();
+                                setFormula(next);
+                                setSheet(null);
+                            }}
+                        />
+                    ) : null}
                     {sheet === 'note' ? (
                         <NoteSheet note={appointment.notes} onClose={() => setSheet(null)} />
                     ) : null}
@@ -442,16 +546,21 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
 function Plate({
-    appointment, phase, delivered, dialKind, tail, onNote,
+    appointment, phase, delivered, dialKind, tail, risks, onNote, onCall, onCard,
 }: {
     appointment: DemoAppointment;
     phase: string;
     delivered: boolean;
     dialKind: string;
     tail: string;
+    /** İşletmenin kural listesinden eşleşenler. Boşsa işaret çizilmiyor. */
+    risks: readonly { kind: string; text: string }[];
     onNote: () => void;
+    onCall: () => void;
+    onCard: () => void;
 }) {
     const { c } = useTheme();
+    const [openRisk, setOpenRisk] = useState(false);
     const status = phase === 'running' ? { word: 'Sürüyor', tone: c.or }
         // Kapanmış iş "adisyon açık" demez: yeşil, çünkü personelden çıktı.
         : delivered ? { word: 'Kasada', tone: c.gr }
@@ -460,6 +569,7 @@ function Plate({
                     : { word: 'Bekleniyor', tone: c.tx3 };
 
     return (
+        <>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 20, paddingTop: 2, paddingBottom: 14 }}>
             <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -468,9 +578,29 @@ function Plate({
                         {upperTR(status.word)}
                     </Text>
                 </View>
-                <Text numberOfLines={1} style={{ fontSize: 20, fontWeight: '700', letterSpacing: -0.4, color: c.tx }}>
-                    {appointment.customer_name}
-                </Text>
+                {/* Alerji ADIN YANINDA, düğme sırasında değil: düğme sırası
+                    EYLEM sırası, alerji bir DURUM. Ve üç evrede de görünüyor —
+                    boyayı sürdükten sonra öğrenilen alerji öğrenilmemiş
+                    sayılır. Tür maskesiz, detay maskeli: müşteri kendi
+                    alerjisini zaten biliyor; gizlenmesi gereken salonun notu. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 20, fontWeight: '700', letterSpacing: -0.4, color: c.tx }}>
+                        {appointment.customer_name}
+                    </Text>
+                    {risks.length > 0 ? (
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={risks.length > 1
+                                ? `${risks.length} risk kuralı var`
+                                : `Risk: ${risks[0].kind}`}
+                            hitSlop={10}
+                            onPress={() => { feedback.selection(); setOpenRisk((open) => !open); }}
+                            style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <Glyph name="warn" size={21} color={c.rd} />
+                        </Pressable>
+                    ) : null}
+                </View>
                 <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: c.tx2 }}>
                     {appointment.service}
                 </Text>
@@ -481,10 +611,84 @@ function Plate({
                 </Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 6 }}>
-                <Tool label="Müşteriyi ara" glyph="phone" />
+                <Tool label="Müşteriyi ara" glyph="phone" onPress={onCall} />
                 <Tool label="Not" glyph="note" dot={Boolean(appointment.notes)} onPress={onNote} />
-                <Tool label="Müşteri kartı" glyph="user" />
+                <Tool label="Müşteri kartı" glyph="user" onPress={onCard} />
             </View>
+        </View>
+        {openRisk && risks.length > 0 ? (
+            <RiskRow risks={risks} onDone={() => setOpenRisk(false)} />
+        ) : null}
+        </>
+    );
+}
+
+/**
+ * Risk satırı — plakanın altında açılan kutu.
+ *
+ * İşaret bölünmüyor: tür ve sayı işarette değil, AÇILAN satırda. Nabız yok,
+ * çünkü nabız zamana ait bir dil (bekleme sıfırı); alerji durağan bir olgu.
+ */
+function RiskRow({ risks, onDone }: {
+    risks: readonly { kind: string; text: string }[];
+    onDone: () => void;
+}) {
+    const { c, reduceMotion } = useTheme();
+    const p = useRef(new Animated.Value(1)).current;
+    const shown = risks.slice(0, 3);
+
+    useEffect(() => {
+        if (!reduceMotion) {
+            p.setValue(1);
+            Animated.timing(p, {
+                toValue: 0, duration: REVEAL_MS, easing: Easing.linear, useNativeDriver: true,
+            }).start();
+        }
+        const id = setTimeout(onDone, REVEAL_MS);
+        return () => clearTimeout(id);
+    }, [p, reduceMotion, onDone]);
+
+    return (
+        <View style={{
+            marginHorizontal: 20, marginBottom: 12,
+            paddingHorizontal: 13, paddingTop: 10, paddingBottom: 11,
+            borderRadius: 12, gap: 6, overflow: 'hidden',
+            backgroundColor: 'rgba(224,114,114,0.12)',
+            borderWidth: 1, borderColor: 'rgba(224,114,114,0.32)',
+        }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.6, color: c.rd }}>
+                    {upperTR(risks.length > 1 ? `Risk · ${risks.length} kural` : `Risk · ${risks[0].kind}`)}
+                </Text>
+                <Text style={{ marginLeft: 'auto', fontSize: 10, fontWeight: '700', letterSpacing: 0.8, color: c.am }}>
+                    {reduceMotion ? 'açık' : '6 sn'}
+                </Text>
+            </View>
+            {shown.map((risk) => (
+                <Text key={risk.kind} style={{ fontSize: 13, fontWeight: '600', lineHeight: 17.55, color: c.rd }}>
+                    {risks.length > 1 ? (
+                        <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(224,114,114,0.72)' }}>
+                            {upperTR(risk.kind)}{'  '}
+                        </Text>
+                    ) : null}
+                    {risk.text}
+                </Text>
+            ))}
+            {risks.length > 3 ? (
+                <Text style={{ fontSize: 11.5, fontWeight: '600', color: 'rgba(224,114,114,0.72)' }}>
+                    +{risks.length - 3} kural daha · müşteri kartında
+                </Text>
+            ) : null}
+            {reduceMotion ? null : (
+                <Animated.View style={{
+                    position: 'absolute', left: 0, right: 0, bottom: 0, height: 2,
+                    backgroundColor: c.am,
+                    transform: [
+                        { translateX: p.interpolate({ inputRange: [0, 1], outputRange: [-180, 0] }) },
+                        { scaleX: p },
+                    ],
+                }} />
+            )}
         </View>
     );
 }
@@ -613,7 +817,7 @@ export const REVEAL_MS = 6000;
  * Sol kenar sabit kalsın diye ölçekle birlikte yarım fark kadar sola
  * kaydırma var; ikisi de aynı değerden türüyor, yani hep aynı karede.
  */
-function Fuse({ runKey, big }: { runKey: number; big?: boolean }) {
+function Fuse({ runKey }: { runKey: number }) {
     const { c, reduceMotion } = useTheme();
     const p = useRef(new Animated.Value(1)).current;
     const [width, setWidth] = useState(0);
@@ -682,7 +886,7 @@ function Money({ value, revealed, onReveal, runKey, big }: {
                 opacity: pressed ? 0.6 : 1,
             })}
         >
-            {revealed ? <Fuse runKey={runKey} big={big} /> : null}
+            {revealed ? <Fuse runKey={runKey} /> : null}
             {revealed ? (
                 <Text style={[{
                     fontSize: big ? 60 : 17,
@@ -775,6 +979,55 @@ function ClosingDial({ total, count, revealed, onReveal, runKey, span, minutes }
                 {minutes} dk sürdü · <Text style={{ color: c.tx, fontWeight: '700' }}>{span}</Text>
             </Text>
         </View>
+    );
+}
+
+/**
+ * Malzeme grubunun başlığı — formülün TEK girişi.
+ *
+ * Formül ayrı bir şey değil, listede zaten duran malzeme satırlarının
+ * TARİFİ: oran, bekleme ve sonuç üçü de o kalemler hakkında. Girişi de
+ * onların üstünde duruyor; gönder düğmesinin üstüne ikinci bir amber kart
+ * koymak dikkati bölüyordu.
+ *
+ * Yazıldığında içerik satırı SONUCUN KENDİSİNİ söylüyor —
+ * `1:1,5 · 35 dk · tuttu`. Sayfa açmadan "yazdım mı?" sorusunun cevabı.
+ */
+function GroupHead({ state, summary, pinned, onPress }: {
+    state: 'pending' | 'done';
+    summary: string;
+    pinned?: boolean;
+    onPress: () => void;
+}) {
+    const { c, dark } = useTheme();
+    const done = state === 'done';
+    const tone = done ? c.gr : c.am;
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={done ? `Formül yazıldı: ${summary}` : 'Formül bekliyor, yazmak için dokunun'}
+            onPress={onPress}
+            style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                minHeight: 48, paddingHorizontal: 12, borderRadius: 14,
+                marginTop: pinned ? 0 : 14, marginBottom: pinned ? 0 : 4,
+                // Pinlenen kopya saydam OLAMAZ: altındaki satır okunurdu.
+                backgroundColor: pinned
+                    ? (dark ? (done ? '#16220F' : '#241B0E') : (done ? '#E8F0E4' : '#F6ECD9'))
+                    : (done ? 'rgba(95,191,100,0.10)' : 'rgba(217,164,59,0.10)'),
+                borderWidth: 1,
+                borderColor: done ? 'rgba(95,191,100,0.28)' : 'rgba(217,164,59,0.28)',
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: tone }}>
+                {upperTR('Malzeme')}
+            </Text>
+            <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: '600', letterSpacing: -0.14, color: tone }}>
+                · {summary}
+            </Text>
+            <Glyph name={done ? 'check' : 'chev'} size={19} color={tone} />
+        </Pressable>
     );
 }
 
@@ -1019,6 +1272,123 @@ function CatalogSheet({ count, onAdd, onDone }: {
                 </View>
             </ScrollView>
             <SheetFoot label="Bitti" onPress={onDone} />
+        </>
+    );
+}
+
+/**
+ * Formül alt sayfası — C evresinin içinde, sayfa değiştirmeden.
+ *
+ * Dört alan, ikisi dolu gelir: malzeme adisyondan, bekleme sayaçtan.
+ * Personel yalnız orana ve sonuca dokunuyor — dört dokunuş, on saniye.
+ *
+ * ENGELLEMİYOR: boş alanlarla da kaydediliyor. Uydurulmuş formül
+ * formülsüzlükten kötüdür; eksiklik müşteri kartında GÖRÜNEN bir gap
+ * olarak duruyor.
+ */
+function FormulaSheet({ materials, wait, current, onSave }: {
+    materials: [string, string][];
+    wait: number | null;
+    current: VisitFormula | null;
+    onSave: (next: VisitFormula) => void;
+}) {
+    const { c } = useTheme();
+    const [ratio, setRatio] = useState<string | null>(current?.ratio ?? null);
+    const [result, setResult] = useState<string | null>(current?.result ?? null);
+    const [minutes, setMinutes] = useState<number | null>(current?.waitMinutes ?? wait);
+    const [note, setNote] = useState(current?.note ?? '');
+    const ready = Boolean(ratio && result);
+
+    return (
+        <>
+            <SheetHead title="Formül" note={ready ? '4 alan hazır' : '2 alan dolu geldi'} />
+            <ScrollView style={{ paddingHorizontal: 16 }} keyboardShouldPersistTaps="handled">
+                <Field label="kullanılan malzeme" note="adisyondan">
+                    <Auto rows={materials} />
+                </Field>
+
+                <Field label="oran">
+                    <Grid columns={4}>
+                        {RATIOS.map((value) => (
+                            <GridButton
+                                key={value} label={value} big on={ratio === value}
+                                onPress={() => { feedback.selection(); setRatio(value); }}
+                            />
+                        ))}
+                        <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
+                    </Grid>
+                </Field>
+
+                {/* Sayaç kurulmadıysa alan KALKMIYOR: dört alanın sırası her
+                    yerde aynı, ve boş bırakmak ölçülmemişle sıfırı karıştırır. */}
+                <Field label="bekleme" note={wait != null ? 'sayaçtan' : 'sayaç kurulmadı'}>
+                    {wait != null ? (
+                        <Auto rows={[[`${wait} dk`, 'ölçüldü']]} />
+                    ) : (
+                        <Grid columns={4}>
+                            {WAITS.map((value) => (
+                                <GridButton
+                                    key={value} label={String(value)} unit="dk" big on={minutes === value}
+                                    onPress={() => { feedback.selection(); setMinutes(value); }}
+                                />
+                            ))}
+                            <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
+                        </Grid>
+                    )}
+                </Field>
+
+                <Field label="sonuç">
+                    <Grid columns={3}>
+                        {RESULTS.map((option) => (
+                            <GridButton
+                                key={option.label} label={option.label} tone={option.tone}
+                                on={result === option.label}
+                                onPress={() => { feedback.selection(); setResult(option.label); }}
+                            />
+                        ))}
+                    </Grid>
+                </Field>
+
+                <Field label="serbest not" note="isteğe bağlı">
+                    <TextInput
+                        value={note}
+                        onChangeText={setNote}
+                        placeholder="Kendi cümlenle yaz…"
+                        placeholderTextColor={c.tx3}
+                        selectionColor={c.or}
+                        multiline
+                        style={{
+                            padding: 14, paddingHorizontal: 15, borderRadius: 18,
+                            backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd,
+                            minHeight: 52, fontSize: 15, fontWeight: '500', lineHeight: 21.75, color: c.tx,
+                        }}
+                    />
+                </Field>
+                <View style={{ height: 12 }} />
+            </ScrollView>
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34 }}>
+                <Pressable
+                    accessibilityRole="button"
+                    onPress={() => onSave({
+                        materials: [],
+                        ratio,
+                        waitMinutes: wait ?? minutes,
+                        waitSource: wait != null ? 'timer' : 'manual',
+                        result: result ? result.toLocaleLowerCase('tr-TR') : null,
+                        note: note.trim() || null,
+                        staffId: null,
+                        writtenAt: new Date().toISOString(),
+                    })}
+                    style={({ pressed }) => ({
+                        height: 64, borderRadius: 22, backgroundColor: c.or,
+                        alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.9 : 1,
+                    })}
+                >
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
+                        {ready ? 'Formülü kaydet' : 'Şimdilik böyle kaydet'}
+                    </Text>
+                </Pressable>
+            </View>
         </>
     );
 }

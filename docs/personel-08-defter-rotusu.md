@@ -3,6 +3,10 @@
 **Personel 07 onaylandı.** Bu tur yeniden tasarım değil: **beş düzeltme.**
 Geri kalan her şey olduğu gibi kalıyor.
 
+> **Not — 09 turundan sonra eklendi:** 4. maddeye bir alt madde (**4b**)
+> girdi. Personel 09'daki geçmiş satırları dokunulabilir değil ve bu,
+> formülü sonradan yazma yolunu kapatıyor.
+
 **Effort: High.**
 
 ---
@@ -144,6 +148,22 @@ kaçırılırsa dünyanın sonu değil, kayıt yolu kartta açık kalıyor.
 > **Sana sorum:** kasaya gitmiş bir formül kartta nasıl görünüyor —
 > düzeltilemez olduğu biçimden anlaşılıyor mu, yoksa bir cümle mi gerekiyor?
 
+### 4b · Geçmiş satırı DOKUNULABİLİR olmalı
+
+Personel 09 (müşteriler turu) geldi ve orada **geçmiş satırları düğme
+değil** — düz satırlar. Tıklanabilir olanlar yalnız *formül* satırları.
+
+Bu, yukarıdaki kararı çürütüyor: bir ziyarette formül **hiç yazılmadıysa**
+o ziyaret yalnız Geçmiş'te görünüyor ve **açılamıyor.** Yani C evresindeki
+amber satırı kaçıran kuaförün ikinci şansı kalmıyor — 1. maddedeki kaydırma
+riskini karşılayan şey de buydu.
+
+**Geçmiş satırı dokunulabilir olacak:** formülü varsa açar, yoksa yazmayı
+başlatır. İki tur birbirini ezmesin diye bu karar 09'a da işlenmeli.
+
+> **Sana sorum:** formülü olan geçmiş satırı ile olmayan, dokunmadan önce
+> ayrışıyor mu? Ayrışıyorsa "yok" işareti listeyi kirletmeden nasıl durur?
+
 ---
 
 ## 5 · Bekleme alanı boş kalabilir
@@ -192,6 +212,7 @@ Yalnız **değişenler**. 07'nin doğru kalan ekranlarını yeniden çizme.
 8. Kart — risk satırı `RİSK · ALERJİ` yeni hâliyle
 9. Formül kartı — **yazan kişi** eklenmiş
 10. Kart geçmiş satırı — formül **düzeltme** yolu
+10b. Geçmiş satırı — formülü **olan** ve **olmayan** ziyaret yan yana
 11. Formül sayfası — **kasaya gitmiş**, düzeltilemez hâl
 12. Formül sayfası — **bekleme boş** hâl
 13. Fark ekranı — bir formülde bekleme yok
@@ -223,6 +244,7 @@ Her karar için **bir cümlelik gerekçe.**
 
 1. `Luera Mobil - Personel 07 Musteri Defteri.html` — düzeltilen tur
 2. `Luera Mobil - Personel 06 Islem Kumandasi.html` — dokunulmaz kumanda
+3. `Luera Mobil - Personel 09 Musteriler.html` — 4b maddesinin kaynağı
 
 Cihaz görüntüsü **eklenmiyor**: telefondaki Expo Go SDK 57'ye güncellendi,
 proje SDK 54 — cihazda çalıştırılamıyor. C evresinin karşılığı zaten 07'nin

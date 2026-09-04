@@ -68,6 +68,21 @@ export interface CalendarBlock {
     mine: boolean;
 }
 
+/**
+ * Defter listesindeki bir müşteri. `phoneTail` yalnız ARAMA için —
+ * numaranın kendisi listede dönmüyor, kartta dönüyor.
+ */
+export interface BookRow {
+    id: string;
+    name: string;
+    lastVisitDate: string | null;
+    lastService: string | null;
+    hasFormula: boolean;
+    mine: boolean;
+    lastStaffInitials: string;
+    phoneTail: string;
+}
+
 export interface AdisyonItem {
     id: string;
     name: string;
@@ -154,6 +169,8 @@ export const api = {
     agenda: (date?: string) => call('agenda', date ? { date } : {}),
     /** Salonun günü — okuma amaçlı. Personel bakar, dokunmaz. */
     calendar: (date?: string) => call('calendar', date ? { date } : {}),
+    /** Müşteri defterinin listesi — salonun tamamı, dar kolonlar. */
+    customers: () => call('customers'),
     catalog: () => call('catalog'),
     customer: (customerId: string) => call('customer', { customerId }),
     performance: () => call('performance'),
@@ -162,6 +179,18 @@ export const api = {
     visitItems: (reservationId: string, items: AdisyonItem[]) =>
         write('visit.items', { reservationId, items }),
     visitFinish: (reservationId: string) => write('visit.finish', { reservationId }),
+    /**
+     * Ziyaretin formülü. Malzeme yarısı SUNUCUDA adisyondan türüyor — burada
+     * gönderilmiyor, çünkü istemcinin listesine güvenmek adisyonla formülün
+     * ayrışması demek.
+     */
+    visitFormula: (reservationId: string, patch: {
+        ratio?: string | null;
+        waitMinutes?: number | null;
+        waitSource?: 'timer' | 'manual';
+        result?: string | null;
+        note?: string | null;
+    }) => write('visit.formula', { reservationId, ...patch }),
 };
 
 // ── Çevrimdışı kuyruk ───────────────────────────────────────────────────────

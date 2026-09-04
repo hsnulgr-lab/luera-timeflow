@@ -1556,6 +1556,8 @@ export const space = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 } as const
 
 /** HTML referansındaki Hanken Grotesk ağırlıkları; yalnız yüklenen adlar. */
 export const font = {
+    /** Personel 09 · ad muamelesi: ince ad, kalın soyad. */
+    extraLight: 'HankenGrotesk_200ExtraLight',
     regular: 'HankenGrotesk_400Regular',
     medium: 'HankenGrotesk_500Medium',
     semiBold: 'HankenGrotesk_600SemiBold',

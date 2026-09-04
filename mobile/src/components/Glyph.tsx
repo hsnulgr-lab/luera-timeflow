@@ -14,7 +14,9 @@ export type GlyphName =
     | 'eye' | 'eyeoff' | 'timer' | 'user' | 'search' | 'check'
     | 'box' | 'cash' | 'swap' | 'cloud'
     // Personel 07 · müşteri defteri
-    | 'msg' | 'close' | 'trash' | 'arrowr';
+    | 'msg' | 'close' | 'trash' | 'arrowr'
+    // Personel 08 · plaka işareti ve formül kilidi
+    | 'warn' | 'lock';
 
 export function Glyph({ name, size = 21, color, width }: {
     name: GlyphName;
@@ -99,6 +101,16 @@ export function Glyph({ name, size = 21, color, width }: {
             {name === 'arrowr' ? (
                 <Path {...common} strokeWidth={sw} d="M4.5 12h13M12.5 7l5 5-5 5" />
             ) : null}
+            {name === 'warn' ? (
+                <>
+                    <Circle cx={12} cy={12} r={8.6} {...common} strokeWidth={sw} />
+                    <Path {...common} strokeWidth={1.9} d="M12 7.6v5.2" />
+                    <Circle cx={12} cy={16.2} r={1.05} fill={color} stroke="none" />
+                </>
+            ) : null}
+            {name === 'lock' ? (
+                <Path {...common} strokeWidth={sw} d="M6.4 10.6h11.2v9.4H6.4zM8.8 10.6V7.8a3.2 3.2 0 0 1 6.4 0v2.8" />
+            ) : null}
         </Svg>
     );
 }
@@ -107,5 +119,5 @@ const DEFAULT_WIDTH: Record<GlyphName, number> = {
     back: 1.9, chev: 1.8, arrow: 2.2, phone: 1.7, note: 1.7,
     plus: 2, minus: 2, eye: 1.6, eyeoff: 1.6, timer: 1.7, user: 1.7,
     search: 1.8, check: 2.2, box: 1.7, cash: 1.7, swap: 1.8, cloud: 1.7,
-    msg: 1.7, close: 1.8, trash: 1.7, arrowr: 1.8,
+    msg: 1.7, close: 1.8, trash: 1.7, arrowr: 1.8, warn: 1.7, lock: 1.7,
 };
