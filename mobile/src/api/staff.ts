@@ -35,10 +35,37 @@ export interface Appointment {
     status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
     staff_id: string | null;
     notes: string | null;
+    /**
+     * Müşteri SALONA GELDİ. `arrived_at` ile karıştırılmamalı: o, hizmetin
+     * başladığı an. Kartın "kapıda" hâli yalnız bu alandan çıkar.
+     */
+    customer_arrived_at: string | null;
     arrived_at: string | null;
     service_ended_at: string | null;
     adisyon_items: AdisyonItem[] | null;
     is_paid: boolean;
+}
+
+/**
+ * Takvimdeki bir blok. `Appointment`'ın DAR hâli, ayrı bir tip olması
+ * bilinçli: burada telefon, not, adisyon ve tahsilat YOK — sunucu da
+ * döndürmüyor. Aynı tipi paylaşsalardı, bir gün biri bu veriyle yazma ucu
+ * çağırır ve eksik alanları boş sanırdı.
+ */
+export interface CalendarBlock {
+    id: string;
+    customer_name: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    service: string;
+    service_color: string | null;
+    status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+    staff_id: string | null;
+    arrived_at: string | null;
+    service_ended_at: string | null;
+    /** Bu randevu BENİM mi? Kumandayı yalnız kendi randevusu açar. */
+    mine: boolean;
 }
 
 export interface AdisyonItem {
@@ -125,6 +152,8 @@ async function call(action: string, body: Record<string, unknown> = {}) {
 export const api = {
     me: () => call('me'),
     agenda: (date?: string) => call('agenda', date ? { date } : {}),
+    /** Salonun günü — okuma amaçlı. Personel bakar, dokunmaz. */
+    calendar: (date?: string) => call('calendar', date ? { date } : {}),
     catalog: () => call('catalog'),
     customer: (customerId: string) => call('customer', { customerId }),
     performance: () => call('performance'),

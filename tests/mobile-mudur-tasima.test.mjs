@@ -61,7 +61,10 @@ test('basılı tutma 250 ms; kısa dokunuş detaya gider', () => {
     assert.equal(LONG_PRESS_MS, 250);
     assert.match(grid, /delayLongPress=\{LONG_PRESS_MS\}/);
     // İki hareket birbirine karışmıyor: kısa dokunuş kendi eylemini çağırıyor.
-    assert.match(grid, /onLongPress=\{\(\) => \{ dragging\.current = false; onLift\(appointment, index\); \}\}/);
+    // `onLift?.` — çağrı isteğe bağlı hâle geldi çünkü personel takvimi aynı
+    // ızgarayı SALT OKUNUR kullanıyor: orada kaldıracak bir el yok. Müdür
+    // tarafında davranış birebir aynı.
+    assert.match(grid, /onLongPress=\{\(\) => \{ dragging\.current = false; onLift\?\.\(appointment, index\); \}\}/);
     assert.match(grid, /onPress=\{\(\) => \{ feedback\.selection\(\); onPress\(\); \}\}/);
 });
 

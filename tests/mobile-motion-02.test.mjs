@@ -11,7 +11,12 @@ const tabs = readFileSync(
     'utf8',
 );
 
-test('hareket 02 başlık eşikleri sözleşmedeki scroll aralıklarını kullanır', () => {
+// BORÇ — Personel Takvim'i sütunlu salon görünümüne geçti (işletme kararı:
+// personel salonun tamamını görür). Sütunlu ızgara kendi dikey ve yatay
+// kaydırıcılarını taşıyor; dıştaki kaydırıcıya bağlı olan bu davranışların
+// karşılıkları o ızgarada HENÜZ ÇİZİLMEDİ. Bileşenler duruyor
+// (`CalendarParts`), test siliNMEdi: hâller tasarlanınca geri açılacak.
+test.skip('hareket 02 başlık eşikleri sözleşmedeki scroll aralıklarını kullanır', () => {
     assert.match(calendar, /inputRange: \[0, 48\],[\s\S]*?outputRange: \[1, 0\]/);
     assert.match(calendar, /inputRange: \[32, 64\],[\s\S]*?outputRange: \[0, 1\]/);
     assert.match(calendar, /inputRange: \[32, 64\],[\s\S]*?outputRange: \[6, 0\]/);

@@ -491,9 +491,13 @@ Deno.serve(async (req: Request) => {
         // aynı gerçeğin iki kaydı olurdu ve ikisi bir gün ayrışırdı.
         // ════════════════════════════════════════════════════════════════════
 
+        // `customer_arrived_at` (043) ile `arrived_at` AYNI ŞEY DEĞİL: ilki
+        // müşterinin salona geldiği an (resepsiyon basar), ikincisi hizmetin
+        // başladığı an (personel basar). İkisi ayrılmadan personel kartı
+        // "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
         const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
-            + 'service, service_color, status, staff_id, notes, arrived_at, service_ended_at, '
-            + 'adisyon_items, is_paid';
+            + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
+            + 'service_ended_at, adisyon_items, is_paid';
 
         /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
         const loadOwnReservation = async (id: unknown) => {
@@ -675,6 +679,53 @@ Deno.serve(async (req: Request) => {
             const { data, error } = await q;
             if (error) { console.error('agenda', error); return json({ error: 'lookup_failed' }, 500); }
             return json({ ok: true, date, appointments: data ?? [] });
+        }
+
+        if (action === 'calendar') {
+            // Personel SALONUN TAMAMINI görür ama yalnız BAKAR.
+            //
+            // `agenda`dan ayrı bir uç olmasının sebebi bu: agenda personelin
+            // kendi günü, üstünde işlem yapılan veri. Bu ise salonun günü —
+            // okuma amaçlı, dar kolonlu, ve yazma uçlarına girdi olamaz.
+            // Aynı ucu iki işe koşmak, "kendi randevusu" kuralının bir gün
+            // yanlışlıkla gevşetilmesi demekti.
+            //
+            // KOLONLAR DAR. Ad ve hizmet dönüyor (işletmenin kararı: salon
+            // şeffaf), ama TELEFON, NOT, ADİSYON ve TAHSİLAT DÖNMÜYOR. Bunlar
+            // takvim verisi değil; telefon listesi ise ayrılan personelin
+            // cebinde götürebileceği en değerli şey.
+            const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
+                ? body.date
+                : new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+
+            const CAL_COLS = 'id, customer_name, date, start_time, end_time, '
+                + 'service, service_color, status, staff_id, arrived_at, service_ended_at';
+
+            const [{ data: rows, error }, { data: crew }] = await Promise.all([
+                admin.from('reservations').select(CAL_COLS)
+                    .eq('organization_id', me.organization_id)
+                    .eq('date', date)
+                    .neq('status', 'cancelled')
+                    .order('start_time'),
+                admin.from('staff').select('id, name, color')
+                    .eq('organization_id', me.organization_id)
+                    .eq('is_active', true)
+                    .order('name'),
+            ]);
+            if (error) { console.error('calendar', error); return json({ error: 'lookup_failed' }, 500); }
+
+            // `mine` istemcinin işini kolaylaştırmak için değil, İKİ DÜNYAYI
+            // AYIRMAK için: kendi randevusuna dokunmak kumandayı açar,
+            // meslektaşınınki yalnız görüntülenir.
+            return json({
+                ok: true,
+                date,
+                staff: crew ?? [],
+                appointments: (rows ?? []).map((r: Record<string, unknown>) => ({
+                    ...r, mine: r.staff_id === me.id,
+                })),
+                readOnly: true,
+            });
         }
 
         if (action === 'visit.start') {

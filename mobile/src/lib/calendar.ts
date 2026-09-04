@@ -163,6 +163,17 @@ export function formatDayFull(iso: string): string {
     return `${dayNameLong(iso)} ${date.getUTCDate()} ${MONTHS_TR[date.getUTCMonth()]}`;
 }
 
+/** "30 Ağustos" — gün adı YOK; başlık zaten gün adını dev punto söylüyor. */
+export function formatDayMonth(iso: string): string {
+    const date = parseISODate(iso);
+    return `${date.getUTCDate()} ${MONTHS_TR[date.getUTCMonth()]}`;
+}
+
+/** "EYL" — gün şeridinde yalnız ay sınırında çizilen kısaltma. */
+export function monthShort(iso: string): string {
+    return MONTHS_TR[parseISODate(iso).getUTCMonth()].slice(0, 3).toLocaleUpperCase('tr-TR');
+}
+
 /** İki ISO gün arasındaki tam gün farkı. Negatif = geçmiş. */
 export function daysBetween(fromISO: string, toISO: string): number {
     return Math.round((parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()) / DAY_MS);

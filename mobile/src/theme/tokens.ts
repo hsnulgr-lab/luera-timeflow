@@ -17,6 +17,14 @@ export interface Palette {
     gr: string; am: string; rd: string;
     /** Cam katman — yalnız kabukta. */
     glass: string; glassBorder: string; tint: string; sheen: string;
+    /**
+     * Doldurulmuş alan: kabuğu olmayan kontrollerin zemini.
+     *
+     * İşlem kumandasında (Personel 05/06) cam güverte kaldırıldı; kaydırma
+     * çubuğu, araç düğmeleri ve komşu iş şeridi zeminin üstünde kendi
+     * gövdeleriyle duruyor ve dolgularını buradan alıyor.
+     */
+    fld: string;
 }
 
 export const light: Palette = {
@@ -27,6 +35,7 @@ export const light: Palette = {
     gr: '#2D8F32', am: '#B87A00', rd: '#C94040',
     glass: 'rgba(250,247,243,0.72)', glassBorder: 'rgba(14,14,14,0.09)',
     tint: 'rgba(240,233,223,0.55)', sheen: 'rgba(255,255,255,0.55)',
+    fld: 'rgba(26,20,14,0.05)',
 };
 
 export const dark: Palette = {
@@ -37,6 +46,7 @@ export const dark: Palette = {
     gr: '#5FBF64', am: '#D9A43B', rd: '#E07272',
     glass: 'rgba(28,23,16,0.66)', glassBorder: 'rgba(243,237,227,0.13)',
     tint: 'rgba(37,32,21,0.50)', sheen: 'rgba(243,237,227,0.09)',
+    fld: 'rgba(243,237,227,0.07)',
 };
 
 /**

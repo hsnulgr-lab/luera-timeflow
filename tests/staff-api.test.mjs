@@ -203,3 +203,36 @@ test('müşteri kartı finans DÖNDÜRMEZ', () => {
     assert.ok(!/payments|treatment_plans|balance/.test(cust),
         'müşteri kartı borç/tahsilat sızdırmamalı');
 });
+
+// ── Salon takvimi: personel BAKAR, dokunmaz ─────────────────────────────────
+
+test('takvim ucu var ve kimliği token\'dan alıyor', () => {
+    assert.ok(api.includes("action === 'calendar'"));
+    const cal = api.slice(api.indexOf("action === 'calendar'"), api.indexOf("action === 'visit.start'"));
+    assert.ok(cal.includes('me.organization_id'), 'org token\'dan gelmeli');
+    assert.ok(!/body\.organization_id|body\.staffId/.test(cal));
+});
+
+test('takvim TELEFON, NOT, ADİSYON ve TAHSİLAT döndürmüyor', () => {
+    // Salonun şeffaf olması işletmenin kararı; ama telefon listesi ayrılan
+    // personelin cebinde götürebileceği en değerli şey ve takvim verisi değil.
+    const cal = api.slice(api.indexOf("action === 'calendar'"), api.indexOf("action === 'visit.start'"));
+    const cols = cal.slice(cal.indexOf('CAL_COLS'), cal.indexOf('const [{ data: rows'));
+    for (const leak of ['customer_phone', 'notes', 'adisyon_items', 'is_paid', 'customer_id']) {
+        assert.ok(!cols.includes(leak), `takvim ${leak} döndürmemeli`);
+    }
+    assert.ok(cols.includes('customer_name') && cols.includes('service'), 'ad ve hizmet dönmeli');
+});
+
+test('takvim her bloğa "benim mi" damgası basıyor', () => {
+    // Kendi randevusu kumandayı açar, meslektaşınınki yalnız görüntülenir.
+    // Ayrımı istemciye BIRAKMAK, iki dünyayı bir gün karıştırmak demekti.
+    const cal = api.slice(api.indexOf("action === 'calendar'"), api.indexOf("action === 'visit.start'"));
+    assert.ok(cal.includes('mine: r.staff_id === me.id'));
+    assert.ok(cal.includes('readOnly: true'));
+});
+
+test('takvim ucu bir YAZMA ucu değil', () => {
+    const cal = api.slice(api.indexOf("action === 'calendar'"), api.indexOf("action === 'visit.start'"));
+    assert.ok(!/\.update\(|\.insert\(|\.delete\(/.test(cal), 'takvim ucu veri yazmamalı');
+});

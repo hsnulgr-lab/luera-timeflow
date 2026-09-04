@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+    Animated, PanResponder, Pressable, ScrollView, Text, View,
+    type RefreshControlProps,
+} from 'react-native';
 
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
@@ -34,7 +37,7 @@ import type { Appt } from '../lib/calendar';
  * anda iki kaydırıcı da kilitleniyor, yoksa parmak hem bloğu hem sayfayı
  * çekerdi.
  */
-export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isToday, onOpen, onSlot, onMove, onMenu }: {
+export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isToday, readOnly = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
     appointments: readonly Appt[];
     staff: readonly ColumnStaff[];
     /** Görünen saat aralığı (tam saat). */
@@ -42,6 +45,19 @@ export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isTo
     to: number;
     nowMinutes: number;
     isToday: boolean;
+    /**
+     * Personel görünümü: salonun tamamı görünür ama HİÇBİR ŞEY oynatılamaz.
+     * Sadece `onMove`'u boş bırakmak yetmezdi — blok yine kalkar, sürüklenir,
+     * bırakılır ve hiçbir şey olmazdı. Ölü bir jest, ölü bir düğmeden daha
+     * kötüdür: kullanıcı denediğini sanır.
+     */
+    readOnly?: boolean;
+    /**
+     * Aşağı çekip yenileme. Dikey kaydırıcı BU bileşenin içinde yaşıyor;
+     * dışarıdan bir `ScrollView` sarmak ikisini birbiriyle yarıştırırdı.
+     * Kontrolü çağıran kurar, çünkü yenilemenin ne yaptığını o bilir.
+     */
+    refreshControl?: React.ReactElement<RefreshControlProps>;
     onOpen?: (appointment: Appt) => void;
     /** Boş saate dokunmak: o personel ve o saatle randevu oluşturma açılır. */
     onSlot?: (staffId: string, minutes: number) => void;
@@ -133,6 +149,8 @@ export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isTo
                 contentInsetAdjustmentBehavior="automatic"
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={!lifted}
+                // Blok havadayken yenileme YOK: parmak taşıma yapıyor.
+                refreshControl={lifted ? undefined : refreshControl}
                 contentContainerStyle={{ flexDirection: 'row' }}
             >
                 {/* Sabit saat sütunu. Başlık satırı kadar boşlukla başlar ki
@@ -219,7 +237,7 @@ export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isTo
                                             key={label}
                                             accessibilityRole="button"
                                             accessibilityLabel={`${person.name} · ${label} · boş`}
-                                            disabled={Boolean(lifted)}
+                                            disabled={readOnly || Boolean(lifted)}
                                             onPress={() => {
                                                 feedback.selection();
                                                 onSlot?.(person.id, dayStart + hourIndex * 60);
@@ -243,10 +261,10 @@ export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isTo
                                             lifted={lifted?.appointment.id === appointment.id}
                                             dimmed={Boolean(lifted) && lifted?.appointment.id !== appointment.id}
                                             onPress={() => onOpen?.(appointment)}
-                                            onLift={beginLift}
+                                            onLift={readOnly ? undefined : beginLift}
                                             onDragMove={dragMove}
                                             onDragEnd={endDrag}
-                                            onMenu={onMenu}
+                                            onMenu={readOnly ? undefined : onMenu}
                                         />
                                     ))}
                                 </View>
@@ -387,7 +405,8 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
     lifted: boolean;
     dimmed: boolean;
     onPress: () => void;
-    onLift: (appointment: Appt, index: number) => void;
+    /** Yoksa blok kalkmaz — personel görünümü. */
+    onLift?: (appointment: Appt, index: number) => void;
     onDragMove: (dx: number, dy: number) => void;
     onDragEnd: () => void;
     onMenu?: (appointment: Appt) => void;
@@ -452,7 +471,7 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
                 accessibilityActions={onMenu ? [{ name: 'longpress', label: 'Taşı ve düzenle' }] : undefined}
                 onAccessibilityAction={() => onMenu?.(appointment)}
                 delayLongPress={LONG_PRESS_MS}
-                onLongPress={() => { dragging.current = false; onLift(appointment, index); }}
+                onLongPress={() => { dragging.current = false; onLift?.(appointment, index); }}
                 onPressOut={() => {
                     // Kaldırdı ama kımıldatmadan bıraktı: taşıma iptal.
                     if (liftedRef.current && !dragging.current) onDragEnd();

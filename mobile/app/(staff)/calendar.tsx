@@ -1,525 +1,290 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    ActionSheetIOS,
-    Alert,
-    Animated,
-    LayoutAnimation,
-    Linking,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    View,
-} from 'react-native';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GlassView } from 'expo-glass-effect';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-    DayHeader,
-    EmptyDay,
-    MonthFooter,
-    MonthGrid,
-    OfflineBar,
-    Timeline,
-    TimelineSkeleton,
-    WeekStrip,
-    animateOfflineBar,
-    type AppointmentActions,
-} from '../../src/components/CalendarParts';
-import { headline, monthGrid, weekDays, type Appt } from '../../src/lib/calendar';
+
+import { DayHeader, OfflineBar, WeekStrip, animateOfflineBar } from '../../src/components/CalendarParts';
+import { ColumnCalendar } from '../../src/components/ColumnCalendar';
 import { source } from '../../src/lib/calendarSource';
+import { hourRange, type ColumnStaff } from '../../src/lib/managerCalendar';
+import { mockDay } from '../../src/lib/managerFlow';
+import { nowInMinutes, weekDays, type Appt } from '../../src/lib/calendar';
 import { offlineBannerText, useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
-import { calendarMetrics, glow, offlineBar, useTheme } from '../../src/theme';
-
-// Gerçek agenda bağlanana kadar “bugün” ve saat tasarım senaryosuna sabit.
-// Hafta içindeki gün seçimi ise gerçek etkileşimdir ve aynı veri kaynağını okur.
-const PREVIEW_TODAY = '2026-09-24';
-const PREVIEW_NOW_MINUTES = 11 * 60 + 24;
-const PREVIEW_LIVE_SECONDS = 24 * 60 + 18;
-
-interface DayResult {
-    date: string;
-    items: Appt[];
-    next: Appt | null;
-}
+import { glow, numeric, offlineBar, useTheme } from '../../src/theme';
 
 /**
- * Bir randevunun "değişti mi?" imzası. Yalnız kartta GÖRÜNEN alanlar sayılır;
- * görünmeyen bir alanın değişmesi satırı yanıp söndürmemeli.
+ * Personel · Takvim — SALONUN günü, salt okunur.
+ *
+ * İşletmenin kararı: personel salonun tamamını görür. Gövde müdürünkiyle
+ * AYNI bileşen (`ColumnCalendar`), çünkü ikinci bir takvim dili üretmek iki
+ * ekranın zamanla ayrışması demekti.
+ *
+ * Tek fark `readOnly`: sürükleme yok, boş saate dokunma yok, menü yok.
+ * Bunları yalnız geri çağırmayı boş bırakarak kapatmak yetmezdi — blok yine
+ * kalkar, sürüklenir, bırakılır ve hiçbir şey olmazdı. Ölü bir jest,
+ * kullanıcıya denediğini sandırır.
+ *
+ * BU EKRANDA EYLEM YOK. Kaydır-başlat, bitir, adisyon — hepsi kumandada
+ * yaşıyor. Aynı işi iki yerden başlatabilen personel, iki kez başlatır.
+ * Kendi randevusuna dokunmak kumandayı AÇAR; meslektaşınınki yalnız okunur.
+ *
+ * Sunucu tarafı `staff-api → calendar`: ad ve hizmet döner, TELEFON ve NOT
+ * dönmez. Ayrım orada, burada değil — istek elle de atılabilir.
+ *
+ * DEVRALINMAYANLAR. Bu ekranın liste hâlinde çalışan dört davranışı vardı ve
+ * sütunlu ızgarada karşılıkları henüz ÇİZİLMEDİ: ay ızgarası, çevrimdışı
+ * bandı, yüklenme iskeleti ve boş gün ekranı. Bileşenler silinmedi
+ * (`CalendarParts`), ızgaranın bu hâlleri tasarlandığında geri takılacak.
+ * Yarım çizilmiş bir hâli buraya koymak, kullanıcıya yanlış bilgi vermekti.
  */
-function signatureOf(a: Appt): string {
-    return [
-        a.start_time, a.end_time, a.service, a.status, a.customer_name,
-        a.arrived_at ?? '', a.service_ended_at ?? '', a.notes ?? '',
-        a.info?.risk ?? '', a.info?.pkg?.used ?? '', a.info?.visitNo ?? '',
-    ].join('|');
-}
 
-export default function Calendar() {
-    const { c, dark, glass, reduceMotion } = useTheme();
+/**
+ * iOS 26'nın yüzen sekme çubuğu içeriğin ÜSTÜNDE duruyor; güvenli alan onu
+ * kapsamıyor. Ölçüyü `BottomTabBarHeightContext` verirse ondan alıyoruz —
+ * `NativeTabs` o bağlamı doldurmayabilir, o zaman bu sayı devreye giriyor.
+ * Eksik kalırsa alt sayfanın son satırı çubuğun altında kalıyordu.
+ */
+const TAB_BAR_FALLBACK = 64;
+
+/** Oturumdaki personel. Sunucuya bağlanınca `me.id` buraya gelecek. */
+const ME = 'merve';
+
+export default function StaffCalendar() {
+    const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const scrollY = useRef(new Animated.Value(0)).current;
-    const scrollRef = useRef<ScrollView>(null);
-    const [selectedDate, setSelectedDate] = useState(PREVIEW_TODAY);
-    const [monthOpen, setMonthOpen] = useState(false);
-    const days = useMemo(() => weekDays(selectedDate), [selectedDate]);
-    // Nokta göstergeleri için istenen aralık: ay açıkken ızgaranın 42 hücresi,
-    // kapalıyken yalnız görünen hafta. Tek `range` çağrısı ikisini de karşılar.
-    const monthCells = useMemo(() => monthGrid(selectedDate).flat(), [selectedDate]);
-    const weekFrom = monthOpen ? monthCells[0].date : (days[0]?.date ?? selectedDate);
-    const weekTo = monthOpen ? monthCells[monthCells.length - 1].date : (days.at(-1)?.date ?? selectedDate);
-    const [dayResult, setDayResult] = useState<DayResult | null>(null);
+    /**
+     * Bugün ekranındaki gün şeridinden gelen tarih. Şeritteki dokunuş ölü
+     * olamaz: dokunulan gün burada AÇILMALI.
+     */
+    const params = useLocalSearchParams<{ date?: string }>();
+
+    const [fetched, setFetched] = useState<Appt[]>([]);
+    const [selectedDate, setSelectedDate] = useState(params.date ?? mockDay.dateISO);
     const [counts, setCounts] = useState<Record<string, number>>({});
-    const [liveSeconds, setLiveSeconds] = useState(PREVIEW_LIVE_SECONDS);
+    const [peek, setPeek] = useState<Appt | null>(null);
     const [refreshing, setRefreshing] = useState(false);
-    // Yenilemeden sonra yalnız DEĞİŞEN satırlar solarak belirir; değişmeyen
-    // satır kıpırdamaz. Karşılaştırma için bir önceki listenin imzası tutulur.
-    const [enteringIds, setEnteringIds] = useState<ReadonlySet<string>>(new Set());
-    const signatures = useRef(new Map<string, string>());
+    const days = useMemo(() => weekDays(selectedDate), [selectedDate]);
+
+    /**
+     * Çevrimdışı bandı. Bu ekran bodrum katta, kötü sinyalde açılıyor;
+     * sessizce eski veri göstermek, personelin yanlış saate güvenmesi demek.
+     * Bant indiğinde içerik aynı miktarda aşağı kayıyor — yükseklik değil
+     * DÖNÜŞÜM, ikisi de native sürücüde kalsın.
+     */
     const { offline, queued } = useConnectivity();
     const bannerText = offlineBannerText(offline, queued);
     const barProgress = useRef(new Animated.Value(0)).current;
-
     useEffect(() => {
         animateOfflineBar(barProgress, bannerText !== null, reduceMotion);
     }, [bannerText, barProgress, reduceMotion]);
-    const appointments = dayResult?.date === selectedDate ? dayResult.items : [];
-    const nextAppointment = dayResult?.date === selectedDate ? dayResult.next : null;
-    const loadingDay = dayResult?.date !== selectedDate;
-    const isToday = selectedDate === PREVIEW_TODAY;
-
-    useEffect(() => {
-        let alive = true;
-        Promise.all([
-            source.day(selectedDate),
-            source.nextAfter(selectedDate).catch(() => null),
-        ]).then(([dayAppointments, next]) => {
-            if (!alive) return;
-            // Gün değişiminde beliriş animasyonu YOK: zaten yeni bir gün, her
-            // satır yeni. Solma yalnız yenilemede anlam taşır.
-            signatures.current = new Map(dayAppointments.map((a) => [a.id, signatureOf(a)]));
-            setEnteringIds(new Set());
-            setDayResult({ date: selectedDate, items: dayAppointments, next });
-        }).catch(() => {
-            if (alive) setDayResult({ date: selectedDate, items: [], next: null });
-        });
-        return () => { alive = false; };
-    }, [selectedDate]);
 
     /**
      * Aşağı çekip yenileme. Çekme hareketi sistemin `RefreshControl`'ü —
-     * parmağı birebir takip eder, bizim eğrimiz yoktur. Bizim tanımladığımız
-     * tek şey sonrası: yalnız değişen satırlar 140 ms'de opaklıkla belirir.
+     * parmağı birebir takip eder, bizim eğrimiz yoktur. Kaydırıcı ızgaranın
+     * İÇİNDE olduğu için kontrol de oraya veriliyor.
      */
     const refresh = useCallback(async () => {
         setRefreshing(true);
         feedback.light();
         try {
-            const [dayAppointments, next, dayCounts] = await Promise.all([
+            const [day, map] = await Promise.all([
                 source.day(selectedDate),
-                source.nextAfter(selectedDate).catch(() => null),
-                source.range(weekFrom, weekTo).catch(() => null),
+                source.range(days[0]?.date ?? selectedDate, days.at(-1)?.date ?? selectedDate)
+                    .catch(() => null),
             ]);
-
-            const previous = signatures.current;
-            const changed = new Set<string>();
-            const nextSignatures = new Map<string, string>();
-            for (const appointment of dayAppointments) {
-                const signature = signatureOf(appointment);
-                nextSignatures.set(appointment.id, signature);
-                if (previous.get(appointment.id) !== signature) changed.add(appointment.id);
-            }
-
-            signatures.current = nextSignatures;
-            setEnteringIds(changed);
-            setDayResult({ date: selectedDate, items: dayAppointments, next });
-            if (dayCounts) setCounts(dayCounts);
+            setFetched(day);
+            // Sayılar okunamadıysa ELDEKİ sayılar durur; boş harita yazmak
+            // dolu bir haftayı boş gösterirdi.
+            if (map) setCounts(map);
+        } catch {
+            // Yenileme başarısızsa ekranda ne varsa o kalır. Hatanın kendisi
+            // çevrimdışı bandında zaten görünüyor.
         } finally {
             setRefreshing(false);
         }
-    }, [selectedDate, weekFrom, weekTo]);
+    }, [days, selectedDate]);
 
     useEffect(() => {
         let alive = true;
-        setCounts({});
-        source.range(weekFrom, weekTo).then((dayCounts) => {
-            if (alive) setCounts(dayCounts);
-        }).catch(() => {
-            if (alive) setCounts({});
-        });
+        // Okuma başarısız olursa ELDEKİ liste durur; yerine boş bir gün yazılmaz.
+        source.day(selectedDate).then((list) => { if (alive) setFetched(list); }).catch(() => undefined);
         return () => { alive = false; };
-    }, [weekFrom, weekTo]);
+    }, [selectedDate]);
 
     useEffect(() => {
-        const id = setInterval(() => setLiveSeconds((value) => value + 1), 1000);
+        if (params.date) setSelectedDate(params.date);
+    }, [params.date]);
+
+    useEffect(() => {
+        let alive = true;
+        // Sayılar okunamazsa `counts` BOŞ kalır ve şerit o günleri "bilinmiyor"
+        // diye çizer — sıfır diye değil.
+        source.range(days[0]?.date ?? selectedDate, days.at(-1)?.date ?? selectedDate)
+            .then((map) => { if (alive) setCounts(map); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [selectedDate]);
+
+    const staff: ColumnStaff[] = useMemo(
+        () => mockDay.presence.map((person) => ({
+            id: person.id, initials: person.initials, name: person.name,
+        })),
+        [],
+    );
+
+    const { from, to } = useMemo(() => hourRange(fetched), [fetched]);
+    const isToday = selectedDate === mockDay.dateISO;
+
+    // Şimdi çizgisi dakika başı ilerler; yalnız bugüne bakarken sayar.
+    const [nowMinutes, setNowMinutes] = useState(() => nowInMinutes());
+    useEffect(() => {
+        if (!isToday) return;
+        setNowMinutes(nowInMinutes());
+        const id = setInterval(() => setNowMinutes(nowInMinutes()), 60_000);
         return () => clearInterval(id);
-    }, []);
+    }, [isToday]);
 
-    const callCustomer = useCallback((appointment: Appt) => {
-        const dialable = appointment.customer_phone
-            ?.trim()
-            .replace(/[^\d+]/g, '')
-            .replace(/(?!^)\+/g, '');
-
-        if (!dialable) {
-            Alert.alert('Telefon numarası yok', 'Bu müşterinin kayıtlı bir telefon numarası bulunmuyor.');
-            return;
-        }
-
-        void Linking.openURL(`tel:${dialable}`).catch(() => {
-            Alert.alert('Arama başlatılamadı', 'Telefon uygulaması şu anda açılamadı.');
-        });
-    }, []);
-
-    const unavailableAction = useCallback((title: string) => {
-        Alert.alert(
-            title,
-            'Bu işlem gerçek takvim verisi ve sunucu bağlantısı tamamlandığında etkinleştirilecek.',
-        );
-    }, []);
-
-    const openAppointmentMenu = useCallback((appointment: Appt) => {
-        const menuItems = [
-            ...(appointment.customer_phone ? [{ label: 'Ara', run: () => callCustomer(appointment) }] : []),
-            { label: 'Notu düzenle', run: () => unavailableAction('Notu düzenle') },
-            { label: 'İptal talebi', run: () => unavailableAction('İptal talebi') },
-        ];
-
-        if (Platform.OS === 'ios') {
-            const cancelIndex = menuItems.length;
-            ActionSheetIOS.showActionSheetWithOptions(
-                {
-                    title: appointment.customer_name,
-                    options: [...menuItems.map((item) => item.label), 'Vazgeç'],
-                    cancelButtonIndex: cancelIndex,
-                    destructiveButtonIndex: menuItems.findIndex((item) => item.label === 'İptal talebi'),
-                },
-                (buttonIndex) => menuItems[buttonIndex]?.run(),
-            );
-            return;
-        }
-
-        Alert.alert(
-            appointment.customer_name,
-            undefined,
-            menuItems.map((item) => ({ text: item.label, onPress: item.run })),
-            { cancelable: true },
-        );
-    }, [callCustomer, unavailableAction]);
-
-    const appointmentActions = useMemo<AppointmentActions>(() => {
-        return {
-            onOpen: (appointment) => router.push({
-                pathname: '/appointment',
-                params: { reservationId: appointment.id, date: appointment.date },
-            }),
-            onCall: callCustomer,
-            onMore: openAppointmentMenu,
-            onCustomer: (appointment) => {
-                if (!appointment.customer_id) {
-                    Alert.alert('Müşteri kartı bulunamadı');
-                    return;
-                }
-                router.push({
-                    pathname: '/customer',
-                    params: {
-                        customerId: appointment.customer_id,
-                        customerName: appointment.customer_name,
-                        reservationId: appointment.id,
-                        date: appointment.date,
-                    },
-                });
-            },
-            onStart: (appointment) => router.push({
-                pathname: '/visit',
-                params: { reservationId: appointment.id, date: appointment.date },
-            }),
-            onResume: (appointment) => router.push({
-                pathname: '/visit',
-                params: { reservationId: appointment.id, date: appointment.date },
-            }),
-        };
-    }, [callCustomer, openAppointmentMenu, router]);
-
-    const elapsedSecondsById = useMemo(() => {
-        if (!isToday) return {};
-        const live = appointments.find((appointment) => (
-            appointment.arrived_at && !appointment.service_ended_at
-        ));
-        return live ? { [live.id]: liveSeconds } : {};
-    }, [appointments, isToday, liveSeconds]);
-
-    const expandedOpacity = scrollY.interpolate({
-        inputRange: [0, 48],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-    });
-    const compactOpacity = scrollY.interpolate({
-        inputRange: [32, 64],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-    });
-    const compactTranslateY = scrollY.interpolate({
-        inputRange: [32, 64],
-        outputRange: [6, 0],
-        extrapolate: 'clamp',
-    });
-    const compactChromeOpacity = scrollY.interpolate({
-        inputRange: [0, 24],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-    });
-    const glowOpacity = scrollY.interpolate({
-        inputRange: [0, 64],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-    });
-
-    const compactSubtitle = useMemo(() => {
-        const [, month] = selectedDate.split('-').map(Number);
-        const monthName = [
-            'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-            'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
-        ][month - 1] ?? '';
-        const count = appointments.length === 0 ? 'randevu yok' : `${appointments.length} randevu`;
-        return `${monthName} · ${loadingDay ? 'Yükleniyor…' : count}`;
-    }, [appointments.length, loadingDay, selectedDate]);
-
-    const expandedSubtitle = useMemo(() => {
-        const [year, month] = selectedDate.split('-').map(Number);
-        const monthName = [
-            'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-            'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
-        ][month - 1] ?? '';
-        // Ay açıkken alt satır günü değil GÖRÜNÜMÜ anlatır; gün sayısı zaten
-        // ızgarada. Tasarım: "Eylül 2026 · ay görünümü".
-        if (monthOpen) return `${monthName} ${year} · ay görünümü`;
-        if (!loadingDay) return headline(selectedDate, PREVIEW_TODAY, appointments);
-        return `${monthName} ${year} · yükleniyor…`;
-    }, [appointments, loadingDay, monthOpen, selectedDate]);
-
-    const selectDay = useCallback((dateISO: string) => {
-        if (dateISO === selectedDate) return;
-        feedback.selection();
-        setSelectedDate(dateISO);
-        scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotion });
-    }, [reduceMotion, selectedDate]);
-
-    /**
-     * Ay ızgarasının açılıp kapanması. Hareket sözleşmesi 08: 260 ms
-     * easeInEaseOut, tek `LayoutAnimation`. Yükseklik animasyonu burada
-     * kaçınılmaz — sözleşme bunu bilerek `LayoutAnimation`'a devrediyor.
-     * "Hareketi azalt" açıkken `configureNext` hiç çağrılmaz.
-     */
-    const setMonthOpenAnimated = useCallback((open: boolean) => {
-        if (!reduceMotion) {
-            LayoutAnimation.configureNext({
-                duration: 260,
-                create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-                update: { type: LayoutAnimation.Types.easeInEaseOut },
-                delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-            });
-        }
-        setMonthOpen(open);
-    }, [reduceMotion]);
-
-    const toggleMonth = useCallback(() => {
-        feedback.selection();
-        setMonthOpenAnimated(!monthOpen);
-        scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotion });
-    }, [monthOpen, reduceMotion, setMonthOpenAnimated]);
-
-    /** Izgaradan gün seçmek ızgarayı kapatır: seçim yapıldı, şerit o haftaya kayar. */
-    const selectFromMonth = useCallback((dateISO: string) => {
-        feedback.selection();
-        setSelectedDate(dateISO);
-        setMonthOpenAnimated(false);
-        scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotion });
-    }, [reduceMotion, setMonthOpenAnimated]);
+    // Müdür "6 personel" der; personelin sorusu farklı: bu günün kaçı bende?
+    const mine = fetched.filter((appointment) => appointment.staff_id === ME).length;
+    const subtitle = `${fetched.length} randevu · ${mine} tanesi sizin`;
 
     return (
-        <View
-            collapsable={false}
-            style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}
-        >
-            <Animated.ScrollView
-                ref={scrollRef}
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
+            <LinearGradient
+                colors={dark ? glow.dark : glow.light}
+                locations={glow.locations}
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { height: glow.height + insets.top }]}
+            />
+
+            <Animated.View
+                // Yalnız dönüşüm taşıyan bir görünüm: RN onu ELEYEBİLİR ve
+                // dönüşüm de onunla birlikte düşer.
+                collapsable={false}
                 style={{
-                    flex: 1,
-                    zIndex: 1,
-                    // Bant indiğinde içerik aynı miktarda aşağı kayar. Yükseklik
-                    // değil DÖNÜŞÜM: ikisi de native sürücüde kalsın.
-                    transform: [{
-                        translateY: barProgress.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, offlineBar.height],
-                        }),
-                    }],
+                flex: 1,
+                zIndex: 1,
+                paddingTop: insets.top,
+                transform: [{
+                    translateY: barProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, offlineBar.height],
+                    }),
+                }],
                 }}
-                contentContainerStyle={{
-                    paddingBottom: calendarMetrics.bottomInset + offlineBar.height,
-                }}
-                showsVerticalScrollIndicator={false}
-                scrollEventThrottle={16}
-                refreshControl={(
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={refresh}
-                        tintColor={c.tx2}
-                        colors={[c.or]}
-                        progressBackgroundColor={c.surf}
-                    />
-                )}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                    { useNativeDriver: true },
-                )}
             >
-                <Animated.View style={{ opacity: expandedOpacity }}>
-                    <DayHeader
-                        dateISO={selectedDate}
-                        subtitle={expandedSubtitle}
-                        monthOpen={monthOpen}
-                        onToggleMonth={toggleMonth}
-                    />
-                </Animated.View>
+                <DayHeader dateISO={selectedDate} subtitle={subtitle} transparent />
 
-                {monthOpen ? (
-                    <>
-                        <MonthGrid
-                            anchorISO={selectedDate}
-                            selectedISO={selectedDate}
-                            counts={counts}
-                            onSelect={selectFromMonth}
-                        />
-                        <MonthFooter onClose={toggleMonth} />
-                        {/* Tasarımdaki `.hairfull`: ızgarayı listeden ayıran tam
-                            genişlik saç teli. Hafta şeridinde bu çizgi şeridin
-                            kendi alt kenarlığıdır; ay görünümünde ayrı durur. */}
-                        <View style={{
-                            marginTop: calendarMetrics.cardGap,
-                            height: StyleSheet.hairlineWidth,
-                            backgroundColor: c.bd,
-                        }} />
-                    </>
-                ) : (
-                    <WeekStrip
-                        days={days}
-                        selectedISO={selectedDate}
-                        counts={counts}
-                        onSelect={selectDay}
-                    />
-                )}
+                <WeekStrip
+                    days={days}
+                    selectedISO={selectedDate}
+                    counts={counts}
+                    onSelect={setSelectedDate}
+                />
 
-                <View>
-                    {loadingDay ? (
-                        <TimelineSkeleton />
-                    ) : appointments.length > 0 ? (
-                        <Timeline
-                            appointments={appointments}
-                            nowMinutes={PREVIEW_NOW_MINUTES}
-                            isToday={isToday}
-                            elapsedSecondsById={elapsedSecondsById}
-                            actions={appointmentActions}
-                            enteringIds={enteringIds}
-                        />
-                    ) : (
-                        <EmptyDay
-                            dateISO={selectedDate}
-                            nextAppointment={nextAppointment}
-                            onGoNext={(appointment) => selectDay(appointment.date)}
+                <View style={{ height: 1, backgroundColor: c.bd }} />
+
+                <ColumnCalendar
+                    appointments={fetched}
+                    staff={staff}
+                    from={from}
+                    to={to}
+                    nowMinutes={nowMinutes}
+                    isToday={isToday}
+                    readOnly
+                    refreshControl={(
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={refresh}
+                            tintColor={c.tx2}
+                            colors={[c.or]}
+                            progressBackgroundColor={c.surf}
                         />
                     )}
-                </View>
-            </Animated.ScrollView>
-
-            <Animated.View
-                pointerEvents="none"
-                style={{
-                    position: 'absolute',
-                    zIndex: 0,
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: glow.height + insets.top,
-                    opacity: glowOpacity,
-                }}
-            >
-                <LinearGradient
-                    colors={dark ? glow.dark : glow.light}
-                    locations={glow.locations}
-                    style={StyleSheet.absoluteFill}
+                    onOpen={(appointment) => {
+                        if (appointment.staff_id === ME) {
+                            router.push({ pathname: '/(staff-flow)/kumanda', params: { id: appointment.id } });
+                            return;
+                        }
+                        setPeek(appointment);
+                    }}
                 />
             </Animated.View>
 
-            <Animated.View
-                pointerEvents="none"
-                style={{
-                    position: 'absolute',
-                    zIndex: 29,
-                    top: insets.top,
-                    left: 0,
-                    right: 0,
-                    height: 52,
-                    opacity: compactChromeOpacity,
-                }}
-            >
-                {glass ? (
-                    <GlassView
-                        glassEffectStyle="regular"
-                        tintColor={c.tint}
-                        style={StyleSheet.absoluteFill}
-                    />
-                ) : (
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: c.surf }]} />
-                )}
-                <View style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: StyleSheet.hairlineWidth,
-                    backgroundColor: c.bd,
-                }} />
-            </Animated.View>
-
-            <Animated.View
-                pointerEvents="none"
-                style={{
-                    position: 'absolute',
-                    zIndex: 30,
-                    top: insets.top,
-                    left: 0,
-                    right: 0,
-                    opacity: compactOpacity,
-                    transform: [{ translateY: compactTranslateY }],
-                }}
-            >
-                <DayHeader
-                    compact
-                    transparent
-                    dateISO={selectedDate}
-                    subtitle={compactSubtitle}
-                />
-            </Animated.View>
-
-            {/* Bant en üstte: toplanmış başlık da dâhil her şeyin önünde durur,
-                çünkü söylediği şey ekranın tamamını ilgilendiriyor. */}
+            {/* Bant en üstte: söylediği şey ekranın tamamını ilgilendiriyor. */}
             <OfflineBar
                 text={bannerText}
                 progress={barProgress}
-                style={{
-                    position: 'absolute',
-                    zIndex: 40,
-                    top: insets.top,
-                    left: 0,
-                    right: 0,
-                }}
+                style={{ position: 'absolute', zIndex: 40, top: insets.top, left: 0, right: 0 }}
             />
 
+            {peek ? <Peek appointment={peek} staff={staff} onClose={() => setPeek(null)} /> : null}
+        </View>
+    );
+}
+
+/**
+ * Meslektaşın randevusu — okunur, dokunulmaz.
+ *
+ * Boş bir dokunuş bırakmamak için var: blok basılabiliyorsa bir şey
+ * söylemeli. Söylediği, takvimde zaten yazandan fazlası değil; telefon, not
+ * ve adisyon YOK, çünkü sunucu da göndermiyor.
+ */
+function Peek({ appointment, staff, onClose }: {
+    appointment: Appt;
+    staff: readonly ColumnStaff[];
+    onClose: () => void;
+}) {
+    const { c } = useTheme();
+    const insets = useSafeAreaInsets();
+    const tabBar = useContext(BottomTabBarHeightContext) ?? TAB_BAR_FALLBACK;
+    const owner = staff.find((person) => person.id === appointment.staff_id)?.name ?? 'Personel';
+
+    return (
+        // İçerik katmanı `zIndex: 1` taşıyor (bant onun da üstünde, 40).
+        // Buraya bir sıra verilmezse kart varsayılan sıfırda kalıyor ve
+        // TAKVİM KARTIN ÜSTÜNE çiziliyor: perde kararmıyor, saatler yazının
+        // içinden geçiyordu. Ağaçta sonra gelmek yetmiyor.
+        <View style={{ position: 'absolute', zIndex: 60, top: 0, left: 0, right: 0, bottom: 0 }}>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Kapat"
+                onPress={onClose}
+                style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' }}
+            />
+            <View style={{
+                position: 'absolute', left: 0, right: 0, bottom: 0,
+                backgroundColor: c.card,
+                borderTopWidth: 1, borderTopColor: c.bd2,
+                borderTopLeftRadius: 30, borderTopRightRadius: 30,
+                paddingHorizontal: 22, paddingTop: 22,
+                paddingBottom: insets.bottom + tabBar + 16,
+                gap: 5,
+            }}>
+                <Text style={[{ fontSize: 13, fontWeight: '700', color: c.tx3, letterSpacing: 1.2 }, numeric]}>
+                    {appointment.start_time.slice(0, 5)} – {appointment.end_time.slice(0, 5)}
+                </Text>
+                <Text style={{ fontSize: 24, fontWeight: '800', letterSpacing: -0.7, color: c.tx }}>
+                    {appointment.customer_name}
+                </Text>
+                <Text style={{ fontSize: 15.5, fontWeight: '600', color: c.tx2 }}>
+                    {appointment.service}
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: c.tx3, paddingTop: 10 }}>
+                    {owner} · bu randevu sizin değil
+                </Text>
+                <Pressable
+                    accessibilityRole="button"
+                    onPress={onClose}
+                    style={({ pressed }) => ({ height: 50, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}
+                >
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx2 }}>Kapat</Text>
+                </Pressable>
+            </View>
         </View>
     );
 }
