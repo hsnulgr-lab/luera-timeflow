@@ -28,6 +28,24 @@ function Shell() {
                     // Cam kabuk kendi ekranında; yığın başlığı kullanılmıyor.
                 }}
             >
+                {/* İKİ KABUK DA GERİ KAYDIRMAZ. Kabuk bir sayfa değil,
+                    uygulamanın kendisi: arkasında geri dönülecek yer yok.
+                    Jest açıkken müdür profilinden sağa kaydırınca alttan
+                    personel profili çıkıyordu — telefonda görüldü.
+                    Geçmişin kendisi `src/lib/enterShell.ts` ile siliniyor;
+                    bu satır jestin kalıntı bir girdiyi bulmasını da kapatıyor. */}
+                <Stack.Screen name="mudur" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="personel" options={{ gestureEnabled: false }} />
+
+                {/* Personel 06 — kumanda YATAY JESTİ KAPATIYOR. "Kaydır ve
+                    başlat" tutamağı çubuğun solunda, ekranın geri-kaydırma
+                    şeridinin (~30 pt) içinde duruyor: parmak sağa gittiğinde
+                    yerli jest kazanıyor ve sayfa geri çıkıyordu. Simülatörde
+                    farede görünmüyor, telefonda her seferinde oluyor.
+                    Geri yolu KAPANMIYOR — başlıktaki "‹ Bugün" düğmesi duruyor;
+                    kapanan yalnız kazayla tetiklenen jest. */}
+                <Stack.Screen name="(staff-flow)/kumanda" options={{ gestureEnabled: false }} />
+
                 {/* Müdür 25 — randevu kartı ALTTAN gelir: tasarım onu bir
                     sayfa değil, arkası duran bir yüzey olarak çiziyor ve
                     üstündeki tutamak ancak öyle anlam taşıyor. */}
@@ -44,9 +62,9 @@ function Shell() {
                     öge geçişi yok; kütüphanesi projede bulunmuyor. */}
                 <Stack.Screen name="(manager-flow)/profil/saatler" />
                 <Stack.Screen name="(manager-flow)/profil/hizmetler" />
-                <Stack.Screen name="(manager-flow)/profil/gorunum" />
+                <Stack.Screen name="(ortak)/profil/gorunum" />
                 <Stack.Screen name="(manager-flow)/profil/bildirimler" />
-                <Stack.Screen name="(manager-flow)/profil/yasal" />
+                <Stack.Screen name="(ortak)/profil/yasal" />
                 <Stack.Screen name="(manager-flow)/profil/hesap-sil" />
             </Stack>
         </>

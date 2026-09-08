@@ -1,0 +1,72 @@
+import { Redirect } from 'expo-router';
+import { View } from 'react-native';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useActorGate } from '../../src/lib/roleGate';
+import { useShellIsRoot } from '../../src/lib/shellRoot';
+import { useTheme } from '../../src/theme';
+
+// Personel sekme seti — tasarım: "Kabuk 01 — Tab bar · personel seti".
+//
+// NativeTabs kullanılıyor, kendi tab bar'ımızı çizmiyoruz: iOS 26'da bu
+// bileşen gerçek Liquid Glass materyalini, iOS 18'de klasik tab bar'ı,
+// Android'de Material 3'ü kendiliğinden veriyor. Taklit etmek, üç platformda
+// üç kez yanlış yapmak olurdu.
+//
+// ETİKETLER KALIYOR. Instagram sekmelerini etiketsiz bırakabiliyor çünkü
+// milyarlarca insan o ikonları ezbere biliyor; "Performans" ikonunu kimse
+// bilmiyor ve kitlemiz 40–55 yaş.
+//
+// Tab bar her zaman tam, etiketli iOS kabuğu olarak kalır.
+
+export default function StaffTabs() {
+    const { c } = useTheme();
+    // Kabuk kök yığının TEK girdisi olur: altında geri dönülecek bir
+    // ekran kalmıyor. Bkz. `src/lib/shellRoot.ts`.
+    useShellIsRoot('personel');
+    // Ve yanlış rolün oturumuyla açıldıysa sekmeler hiç çizilmeden
+    // geri gönderiliyor. Bkz. `src/lib/roleGate.ts`.
+    const gate = useActorGate('staff');
+    if (gate === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+    if (gate === 'wrong') return <Redirect href="/mudur" />;
+    return (
+        <NativeTabs
+            minimizeBehavior="never"
+            tintColor={c.or}
+            labelVisibilityMode="labeled"
+        >
+            <NativeTabs.Trigger name="index">
+                <NativeTabs.Trigger.Icon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
+                <NativeTabs.Trigger.Label>Bugün</NativeTabs.Trigger.Label>
+            </NativeTabs.Trigger>
+
+            <NativeTabs.Trigger name="calendar">
+                <NativeTabs.Trigger.Icon sf="calendar" />
+                <NativeTabs.Trigger.Label>Takvim</NativeTabs.Trigger.Label>
+            </NativeTabs.Trigger>
+
+            <NativeTabs.Trigger name="customers">
+                <NativeTabs.Trigger.Icon sf="person.2" />
+                <NativeTabs.Trigger.Label>Müşteriler</NativeTabs.Trigger.Label>
+            </NativeTabs.Trigger>
+
+            {/* KAZANÇ SEKMESİ KALKTI (2026-09-05, kullanıcı kararı).
+                Ekran duruyor ama sekme çubuğunda değil: `(staff-flow)/kazanc`.
+
+                İki sebep üst üste bindi. Birincisi, gösterdiği tutar
+                personelin ELİNE GEÇEN para değil, yaptığı işlerin salon
+                cirosu — `008_staff.sql`'de prim diye bir alan yok, yani
+                "Kazanç" başlığı yalan. İkincisi, sekme
+                `staff_can_see_revenue` ile koşulluydu ve varsayılan KAPALI:
+                çoğu salonda kabuk dört sekme, ayarı açanda beş oluyordu.
+                Sekme çubuğu değişken olamaz.
+
+                Prim kararı verilince (bkz. `docs/personel-yapilacaklar.md`
+                E3) ekran Profil'de "İşlerim" satırı olarak geri gelir. */}
+
+            <NativeTabs.Trigger name="profile">
+                <NativeTabs.Trigger.Icon sf="person.crop.circle" />
+                <NativeTabs.Trigger.Label>Profil</NativeTabs.Trigger.Label>
+            </NativeTabs.Trigger>
+        </NativeTabs>
+    );
+}
