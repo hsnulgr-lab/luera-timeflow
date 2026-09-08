@@ -63,7 +63,8 @@
         {
           "faceIDPermission": "Luera TimeFlow, oturumunuzu PIN girmeden açmak için Face ID kullanır."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "scheme": "luera"
   }
