@@ -47,7 +47,7 @@ Malzeme kodda hazır ve çalışıyor: `OfflineBar`, `animateOfflineBar`,
 takvimine ve auth ekranlarına bağlı; **müdür ekranlarının hiçbirinde yok.**
 
 **Gerçek uçlara bağlanınca patlayacak yer:**
-[calendar.tsx:71](../mobile/app/(manager)/calendar.tsx:71) — `.catch(() =>
+[calendar.tsx:71](../mobile/app/mudur/calendar.tsx:71) — `.catch(() =>
 undefined)`. Gün sayıları okunamazsa şeritteki bütün günler **sıfır randevu**
 görünüyor; okunamamış gün ile boş gün ekranda aynı. Aynı sebeple akış ekranı
 "bugün boş" plakasını çiziyor — dolu bir salonda müdüre salonun boş olduğunu

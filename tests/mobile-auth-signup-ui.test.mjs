@@ -27,7 +27,9 @@ test('Giriş 11–13 üç ayrı signup rotasıdır ve sırayla gezilir', () => {
     assert.match(welcome, /\/(?:\(auth\)\/)?signup\/account/);
     assert.match(account, /\/(?:\(auth\)\/)?signup\/business/);
     assert.match(business, /\/(?:\(auth\)\/)?signup\/ready/);
-    assert.match(ready, /\/(?:\(staff\))|\/(?:\(manager\))/);
+    // Son adım kabuğa `enterShell` ile giriyor: adres tek yerde,
+    // `src/lib/enterShell.ts` içinde, ve giriş yığını boşaltıyor.
+    assert.match(ready, /enterShell\('manager'\)/);
 });
 
 test('yeni işletme akışının tek veri dikişi authApi.signup olur', () => {

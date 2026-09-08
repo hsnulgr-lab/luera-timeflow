@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+
+import { enterShell } from '../../src/lib/enterShell';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -39,8 +41,9 @@ export default function BiometricOffer() {
             router.replace('/(auth)/welcome');
             return;
         }
-        const destination = result.data.actor === 'manager' ? '/(manager)' : '/(staff)';
-        router.replace(destination);
+        // Kabuğa girerken geçmiş siliniyor: aksi hâlde bir önceki oturumun
+        // kabuğu yığında kalıyor ve geri kaydırınca öteki rol çıkıyor.
+        enterShell(result.data.actor);
     };
 
     const enable = async () => {

@@ -72,10 +72,15 @@ export function Auto({ rows, long }: { rows?: [string, string][]; long?: string 
 }
 
 /**
- * Izgara — sütun sayısı çocuk sayısından geliyor. `columns` yalnız çağıranın
- * niyetini okunur kılıyor; RN'de eşit paylaşımı `flex: 1` yapıyor.
+ * Izgara — sütun sayısı ÇOCUK SAYISINDAN geliyor, eşit paylaşımı `flex: 1`
+ * yapıyor.
+ *
+ * `columns` propu kaldırıldı: hiçbir zaman okunmuyordu ve `±` düğmeleri
+ * gidince `columns={4}` yazan üç ızgarada üç çocuk kaldı — yani prop artık
+ * yanlış bir sayı da ilan ediyordu. Okunmayan bir propun yanlış olması
+ * görünmez; ölçüyü çocuk sayısının söylemesi ise her zaman doğru.
  */
-export function Grid({ children }: { columns?: 3 | 4; children: React.ReactNode }) {
+export function Grid({ children }: { children: React.ReactNode }) {
     // `Children.toArray` DÜZLEŞTİRİYOR: çağıran `{LIST.map(...)}` ile tek bir
     // düğmeyi yan yana veriyor ve dizi olduğu gibi sarılırsa üç düğme tek
     // sütunda üst üste biniyordu.

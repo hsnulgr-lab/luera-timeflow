@@ -25,7 +25,7 @@ const tokens = read('../mobile/src/theme/tokens.ts');
 const waitTokens = tokens.slice(tokens.indexOf('export const waitCardMetrics'));
 const px = (key) => Number(new RegExp(`\\b${key}: ([\\d.]+)`).exec(waitTokens)[1]);
 const parts = read('../mobile/src/components/FlowParts.tsx');
-const screen = read('../mobile/app/(manager)/index.tsx');
+const screen = read('../mobile/app/mudur/index.tsx');
 
 const base = {
     id: 'w', time: '11:30', kind: 'arrived',

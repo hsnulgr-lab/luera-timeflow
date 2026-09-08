@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+
+import { enterShell } from '../../src/lib/enterShell';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -37,8 +39,8 @@ export default function ResumeSignIn() {
     const biometricFailures = useRef(0);
 
     const enterApp = (next: AuthSession) => {
-        const destination = next.actor === 'manager' ? '/(manager)' : '/(staff)';
-        router.replace(destination);
+        // Geçmişi silerek: bkz. `src/lib/enterShell.ts`.
+        enterShell(next.actor);
     };
 
     const openFallback = async () => {

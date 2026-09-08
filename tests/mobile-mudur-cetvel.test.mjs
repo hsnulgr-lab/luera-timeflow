@@ -21,7 +21,7 @@ const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url
 const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 
 const rail = code('src/components/DayScrubber.tsx');
-const screen = code('app/(manager)/index.tsx');
+const screen = code('app/mudur/index.tsx');
 const tokens = read('src/theme/tokens.ts');
 
 const TODAY = '2026-08-13';
@@ -191,7 +191,7 @@ test('cetvel şimdilik akışı değiştirmiyor ve bunu iddia etmiyor', () => {
     // Sunucuda "o günün olayları" ucu yok; sahte bir gün üretmek çalışıyor
     // izlenimi verirdi.
     assert.match(screen, /onSelect=\{setSelectedISO\}/);
-    assert.match(read('app/(manager)/index.tsx'), /Sunucuda "o günün\s+\/\/ olayları" diye bir uç yok/);
+    assert.match(read('app/mudur/index.tsx'), /Sunucuda "o günün\s+\/\/ olayları" diye bir uç yok/);
 });
 
 test('turuncu yalnız bugün işaretinde', () => {

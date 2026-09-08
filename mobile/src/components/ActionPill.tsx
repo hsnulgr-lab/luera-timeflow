@@ -480,11 +480,11 @@ export function ActionPill({
                     kimin kartında olduğunu görüyor. Artık BÜTÜN ekranı
                     dinliyor: dışarıya dokunmak hapı kapatır. */}
                 <Animated.View
-                    style={{
-                        ...StyleSheet.absoluteFillObject,
+                    // RN 0.86: `absoluteFillObject` kalktı, `absoluteFill` duruyor.
+                    style={[StyleSheet.absoluteFill, {
                         backgroundColor: dark ? M.scrimDark : M.scrimLight,
                         opacity: shell,
-                    }}
+                    }]}
                 >
                     <Pressable accessibilityLabel="Kapat" onPress={onDismiss} style={{ flex: 1 }} />
                 </Animated.View>

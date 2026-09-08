@@ -18,11 +18,11 @@ import {
 } from '../mobile/src/lib/emptyDay.ts';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const flow = read('../mobile/app/(manager)/index.tsx');
-const calendar = read('../mobile/app/(manager)/calendar.tsx');
-const cash = read('../mobile/app/(manager)/cash.tsx');
+const flow = read('../mobile/app/mudur/index.tsx');
+const calendar = read('../mobile/app/mudur/calendar.tsx');
+const cash = read('../mobile/app/mudur/cash.tsx');
 const layout = read('../mobile/app/_layout.tsx');
-const create = read('../mobile/app/(manager)/create.tsx');
+const create = read('../mobile/app/mudur/create.tsx');
 const store = read('../mobile/src/state/managerDay.tsx');
 
 // ── Aynı ekranda iki gerçek olmaz ───────────────────────────────────────────

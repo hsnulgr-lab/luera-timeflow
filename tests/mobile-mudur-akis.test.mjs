@@ -18,7 +18,7 @@ import { customerBubble, flowMetrics } from '../mobile/src/theme/tokens.ts';
 
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
 
-const screen = read('app/(manager)/index.tsx');
+const screen = read('app/mudur/index.tsx');
 const parts = read('src/components/FlowParts.tsx');
 
 // ── Personel şeridi ─────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ test('mock gün BUGÜNDÜR — cihazın günüyle ayrışmaz', () => {
 // (`CalendarParts`), test siliNMEdi: hâller tasarlanınca geri açılacak.
 test.skip('toplanma eşikleri Takvim ekranıyla birebir aynı', () => {
     // İki ekran farklı hızda toplanırsa uygulama iki ayrı ürün gibi hisseder.
-    const calendar = read('app/(staff)/calendar.tsx');
+    const calendar = read('app/personel/calendar.tsx');
     const ranges = (src) => [...src.matchAll(/inputRange: \[(\d+), (\d+)\],\s*outputRange: \[([\d.]+), ([\d.]+)\]/g)]
         .map((m) => m.slice(1).join(','));
     for (const range of ['0,48,1,0', '32,64,0,1', '32,64,6,0', '0,24,0,1', '0,64,1,0']) {
@@ -230,7 +230,7 @@ test('personel şeridi toplanınca kaybolur', () => {
     assert.equal(screen.match(/<StaffStrip/g)?.length, 1);
     assert.ok(!/StaffStrip[^>]*compact/.test(screen), 'yapışkan şerit kopyası kalmış');
     assert.match(screen, /opacity: stripOpacity/);
-    const calendar = read('app/(staff)/calendar.tsx');
+    const calendar = read('app/personel/calendar.tsx');
     assert.doesNotMatch(calendar, /stickyHeaderIndices/);
 });
 
@@ -293,8 +293,8 @@ test('eşikler güvenli alandan bağımsız kalır', () => {
 test('müdür barı kaydırınca daralır, personel barı daralmaz', () => {
     // Kumandanın tek büyük butonu her an erişilebilir kalmalı; müdür uzun
     // akış kaydırıyor, barın küçülmesi ekranı ona geri veriyor.
-    assert.match(read('app/(manager)/_layout.tsx'), /minimizeBehavior="onScrollDown"/);
-    assert.match(read('app/(staff)/_layout.tsx'), /minimizeBehavior="never"/);
+    assert.match(read('app/mudur/_layout.tsx'), /minimizeBehavior="onScrollDown"/);
+    assert.match(read('app/personel/_layout.tsx'), /minimizeBehavior="never"/);
 });
 
 test('içerik opak; cam yalnız kabukta', () => {
@@ -361,7 +361,7 @@ test('akış olayı müşteri KİMLİĞİ taşır — ada göre aramak yanlış 
 });
 
 test('balon müşteri kartına kimlik VE adla gider', () => {
-    const flow = code('app/(manager)/index.tsx');
+    const flow = code('app/mudur/index.tsx');
     assert.match(flow, /pathname: '\/\(staff-flow\)\/customer'/);
     assert.match(flow, /customerId: event\.customerId/);
     assert.match(flow, /customerName: `\$\{event\.firstName\} \$\{event\.lastName\}`/);

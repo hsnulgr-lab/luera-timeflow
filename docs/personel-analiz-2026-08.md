@@ -1,6 +1,6 @@
 # Personel kumandası · envanter, boşluklar ve yol haritası
 
-Tarih: 2026-08-30. Kaynak: `staff-api` (987 satır) ve `app/(staff)*` (4096
+Tarih: 2026-08-30. Kaynak: `staff-api` (987 satır) ve `app/personel*` (4096
 satır) taraması, `mobile/src/api/staff.ts`, şema (076 · 082 · 089 · 090 · 091).
 
 ---

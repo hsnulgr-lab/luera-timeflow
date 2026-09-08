@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    RATIOS, RESULTS, WAITS, groupState, hasMaterial, historyMark,
-    isComplete, isLocked, materialsOf, modeOf, summaryOf,
+    RATIOS, RESULTS, TONES, WAITS, debtLine, fieldCompare, groupState,
+    hasMaterial, historyMark, historyState, isComplete, isLocked, materialsOf,
+    modeOf, offList, ratioLabel, ratioValue, saveLabel, sendWarning, stepRatio,
+    stepWait, summaryOf,
 } from '../mobile/src/lib/formula.ts';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -13,6 +15,8 @@ const kumanda = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
 const page = code(read('../mobile/app/(staff-flow)/formul.tsx'));
 const file = code(read('../mobile/app/(staff-flow)/musteri.tsx'));
 const fields = code(read('../mobile/src/components/FormulaFields.tsx'));
+// Personel 12: dört alanın gövdesi iki yüzeyden çıkıp TEK bileşene taşındı.
+const bodyc = code(read('../mobile/src/components/FormulaBody.tsx'));
 const api = code(read('../supabase/functions/staff-api/index.ts'));
 const sql = read('../supabase/090_visit_formula.sql');
 
@@ -108,8 +112,12 @@ test('formül girişi malzeme grubunun BAŞLIĞI — ayrı bir kart değil', () 
     // Formül listede zaten duran satırların tarifi; gönder düğmesinin üstüne
     // ikinci bir amber kart koymak dikkati bölüyordu.
     assert.ok(kumanda.includes('function GroupHead('));
-    assert.ok(kumanda.includes("line.kind !== 'material'"), 'hizmet ve ürünler önce');
-    assert.ok(kumanda.includes("line.kind === 'material'"), 'malzeme kendi grubunda');
+    // Gruplar artık `groupsOf` ile diziliyor (Personel 13): üç tür karışmıyor
+    // ve sıra sabit — EK HİZMET · ÜRÜN · MALZEME. Malzemenin başlığı ayrı
+    // çiziliyor, çünkü o aynı zamanda formülün kapısı.
+    assert.ok(kumanda.includes('groupsOf(lines)'), 'gruplar sabit sırada değil');
+    assert.ok(kumanda.includes("group.kind !== 'material'"), 'hizmet ve ürünler önce');
+    assert.ok(kumanda.includes("g.kind === 'material'"), 'malzeme kendi grubunda');
 });
 
 test('başlık YAPIŞKAN değil, pinlenen kopya', () => {
@@ -168,17 +176,33 @@ test('alt sayfa ile tam sayfa AYNI gövdeyi kullanıyor', () => {
 test('bekleme sayaç kurulmamışsa alan KALKMIYOR', () => {
     // Kaldırmak dört alanın sabit sırasını bozar; boş bırakmak ölçülmemişle
     // sıfırı karıştırır.
-    assert.ok(page.includes("'sayaç kurulmadı'"));
-    assert.ok(kumanda.includes("'sayaç kurulmadı'"));
-    assert.ok(kumanda.includes("waitSource: wait != null ? 'timer' : 'manual'"));
+    //
+    // Cümle artık iki ekranda değil, ORTAK GÖVDEDE (Personel 12): iki yüzey
+    // altı yerde ayrışmıştı ve aynı formül iki farklı söz veriyordu. Test
+    // gevşetilmedi, taşındı — tek yerde aranıyor çünkü tek yerde yazılı.
+    assert.match(bodyc, /Sayaç kurulmadı/);
+    assert.match(kumanda, /waitSource: timerRan \? 'timer' : 'manual'/);
 });
 
 test('klavye yalnız serbest notta', () => {
-    // Oran dört kutu (üçü + adım), sonuç üç kelime — hepsi `.map` ile
-    // çiziliyor, o yüzden kaynakta beş `<GridButton` görünüyor.
-    const grids = (page.match(/<GridButton/g) ?? []).length;
-    assert.ok(grids >= 4, 'oran ve sonuç hazır seçenek');
-    assert.equal((page.match(/<TextInput/g) ?? []).length, 1, 'tek metin alanı');
+    // Üç alan hazır seçenek: oran · bekleme · sonuç. Üçü de `.map` ile
+    // çiziliyor, o yüzden kaynakta ÜÇ `<GridButton` çağrısı görünüyor.
+    //
+    // Sayı beşti: iki fazlası, `.map` dışında tek tek yazılmış `± adım`
+    // düğmeleriydi ve ikisi de ölüydü (A2). Eşik onları da saydığı için
+    // `>= 4` yazıyordu; düğmeler kalkınca bu test kırıldı. Beklenti
+    // düşürülmedi, DÜZELTİLDİ: ölçülen şey "kaç düğme var" değil, "her
+    // alan hazır seçenekle mi çiziliyor".
+    //
+    // Personel 12 ile ızgaralar ortak gövdeye taşındı; sayım orada yapılıyor.
+    const grids = (bodyc.match(/<GridButton/g) ?? []).length;
+    assert.equal(grids, 3, 'oran, bekleme ve sonuç hazır seçenek');
+    // Klavye TEK yerde: notun kendi adımında. Eskiden not alanı gövdenin
+    // içindeydi ve 375 pt'lik telefonda kaydet düğmesiyle birlikte klavyenin
+    // altında kalıyordu.
+    assert.equal((bodyc.match(/<TextInput/g) ?? []).length, 1, 'tek metin alanı');
+    assert.equal((page.match(/<TextInput/g) ?? []).length, 0, 'sayfada klavye yok');
+    assert.match(bodyc, /NoteStep/);
 });
 
 // ── Müşteri sayfası ─────────────────────────────────────────────────────────
@@ -265,4 +289,169 @@ test('büyük ad satırı Ö ve Ş işaretlerini KIRPMIYOR', () => {
     assert.ok(!/lineHeight: \(small \? 28 : 34\) \* 1\.02/.test(file));
     assert.ok(file.includes('* 1.22'), 'ad satırı nefes almalı');
     assert.ok(page.includes('* 1.22'));
+});
+
+// ── Kasadaki boşluk ─────────────────────────────────────────────────────────
+
+test('kilitli ve boş ziyaret "bekliyor" DEMİYOR', () => {
+    const items = [{ id: 'm1', name: 'Boya', kind: 'material' }];
+    // Adisyon açıkken davet: amber, yazılabilir.
+    assert.equal(groupState(items, null, false), 'pending');
+    assert.equal(summaryOf(null, false), 'formül bekliyor');
+    // Kasaya gittiğinde kapı kapandı: "bekliyor" artık yalan.
+    assert.equal(groupState(items, null, true), 'missed');
+    assert.equal(summaryOf(null, true), 'formül yazılmadı');
+    // Yazılmış formül kilitliyken de kendi içeriğini söylüyor.
+    const written = { ratio: '1:1,5', waitMinutes: 35, result: 'tuttu' };
+    assert.equal(groupState(items, written, true), 'done');
+    assert.match(summaryOf(written, true), /1:1,5/);
+});
+
+test('kasadaki boş formül dört tire değil, bir cümle gösteriyor', () => {
+    assert.match(kumanda, /locked && !written/);
+    assert.match(kumanda, /kasada · yazılmadı/);
+    // Cümle TEK ve iki yüzeyde AYNI. Eskiden iki dosyada birbirinden hafifçe
+    // farklı yazılmıştı — aynı olgu iki türlü anlatılıyordu.
+    const one = 'Bu ziyarette formül yazılmadı.';
+    assert.ok(kumanda.includes(one), 'kumanda kararlaştırılan cümleyi yazmıyor');
+    assert.ok(page.includes(one), 'sayfa kararlaştırılan cümleyi yazmıyor');
+    for (const src of [kumanda, page]) {
+        assert.match(src, /oran · bekleme · sonuç girilmedi/);
+    }
+});
+
+test('kaçırılmış formül AMBER değil — amber "hâlâ yapılabilir" der', () => {
+    assert.match(kumanda, /missed \? c\.tx3 : c\.am/);
+});
+
+// ── A2 · "± adım" düğmeleri kaldırıldı ──────────────────────────────────────
+//
+// Dört adet vardı: `formul.tsx`'te ikisi, kumandanın `FormulaSheet`'inde
+// ikisi. Hepsi `onPress={() => feedback.selection()}` idi — yani yalnız
+// titriyorlardı. Dokunan personel değeri girdiğini sanıyordu; bu ölü bir
+// kontrolden kötü, çünkü titreşim bir onay sesi.
+
+test('formül ızgaralarında ölü "± adım" düğmesi yok', () => {
+    for (const [name, src] of [['formul.tsx', page], ['kumanda.tsx', kumanda]]) {
+        assert.ok(!src.includes('±'), `${name}: ± düğmesi geri gelmiş`);
+        assert.ok(!/sub="adım"/.test(src), `${name}: "adım" düğmesi geri gelmiş`);
+    }
+});
+
+test('hiçbir GridButton yalnız titreşim için var değil', () => {
+    // `feedback.selection()` tek başına bir eylem değildir: yanında bir
+    // durum değişikliği olmalı. Bu kalıp aynı hatayı her biçimde yakalar.
+    for (const [name, src] of [['formul.tsx', page], ['kumanda.tsx', kumanda]]) {
+        const dead = src.match(/onPress=\{\(\) => feedback\.\w+\(\)\}/g) ?? [];
+        assert.deepEqual(dead, [], `${name}: yalnız titreyen düğme var`);
+    }
+});
+
+test('ızgaranın genişliği çocuk sayısından geliyor, ölü bir proptan değil', () => {
+    // `columns` hiçbir zaman okunmuyordu; ± gidince yazdığı sayı da yanlıştı.
+    assert.ok(!fields.includes('columns'), 'Grid ölü columns propunu geri almış');
+    assert.ok(!page.includes('Grid columns'), 'formul.tsx columns yazıyor');
+    assert.ok(!kumanda.includes('Grid columns'), 'kumanda.tsx columns yazıyor');
+});
+
+test('liste dışı değer KAYDA giriyor, serbest nota değil', () => {
+    // Bu testin öncülü değişti ve değişmesi turun ASIL kazancı.
+    //
+    // A2'de ± düğmeleri ölü olduğu için kaldırılmıştı ve liste dışı değerin
+    // kaçış kapısı serbest nottu. Ama karşılaştırma `formula.ratio`'yu
+    // okuyor: nota yazılan `1:2,5`, bir sonraki ziyarette "geçen sefer 1:2"
+    // diye görünüyordu — üstelik tam da hatırlanmaya en değer ziyarette.
+    //
+    // Personel 12 bunu adım satırıyla çözdü: gerçek değer alanın kendisine
+    // giriyor. Serbest not asıl işine döndü, etiketinden "liste dışı oran
+    // buraya" kalktı.
+    assert.match(bodyc, /stepRatio/);
+    assert.match(bodyc, /− 0,5/);
+    assert.ok(!bodyc.includes('liste dışı oran buraya'), 'not hâlâ oranın deposu');
+    assert.ok(!page.includes('liste dışı oran buraya'));
+});
+
+// ── Personel 12 · karşılaştırma, adım ve eksiğin dili ───────────────────────
+
+test('oran adımı ikinci terimi 0,5 ile yürütüyor ve sınırda duruyor', () => {
+    assert.equal(ratioValue('1:1,5'), 1.5);
+    assert.equal(ratioLabel(2), '1:2');
+    assert.equal(ratioLabel(2.5), '1:2,5');
+    assert.equal(stepRatio('1:2', 1), '1:2,5');
+    assert.equal(stepRatio('1:1,5', -1), '1:1');
+    // Sınırda null: çağıran düğmeyi SÖNDÜRÜYOR, gizlemiyor — kaybolan bir
+    // düğme yerleşimi her basışta oynatırdı.
+    assert.equal(stepRatio('1:1', -1), null);
+    assert.equal(stepRatio('1:3', 1), null);
+});
+
+test('liste dışı oran KAYDA giriyor — turun asıl kazancı', () => {
+    // Karşılaştırma `formula.ratio`yu okuyor. Değer serbest notta kalsaydı
+    // bir sonraki ziyaret "geçen sefer 1:2" derdi; oysa 1:2,5'ti.
+    assert.equal(offList.ratio('1:2,5'), true);
+    assert.equal(offList.ratio('1:2'), false);
+    assert.equal(offList.wait(40), true);
+    assert.equal(offList.wait(30), false);
+});
+
+test('bekleme adımı 5 dakika — sayacın gerçek çözünürlüğü', () => {
+    assert.equal(stepWait(35, 1), 40);
+    assert.equal(stepWait(5, -1), null);
+    assert.equal(stepWait(90, 1), null);
+});
+
+test('karşılaştırma: seçim yapılana kadar MUTLAK, sonra fark', () => {
+    // "+5 dk" demek için ikinci bir değer gerekiyor.
+    assert.deepEqual(fieldCompare('var', '35 dk', null), { text: 'geçen sefer 35 dk', strong: false });
+    assert.deepEqual(fieldCompare('var', '35 dk', '40 dk'), { text: '35 dk → 40 dk', strong: true });
+    // Tekrar da bir karardır.
+    assert.deepEqual(fieldCompare('var', '35 dk', '35 dk'), { text: 'geçen seferle aynı', strong: true });
+});
+
+test('üç yokluk üç ayrı cümle — boş etiket "veri gelmedi" diye okunur', () => {
+    assert.equal(historyState(null, false), 'ilk');
+    assert.equal(historyState(null, true), 'yok');
+    assert.equal(historyState({ ratio: '1:2' }, true), 'var');
+    assert.equal(fieldCompare('ilk', null, null).text, 'ilk ziyaret');
+    assert.equal(fieldCompare('yok', null, null).text, 'karşılaştırma yok');
+});
+
+test('sayaç satırı GERÇEKTEN sayıyor', () => {
+    // Eskiden "2 alan dolu geldi" sabitti: sayaç kurulmadığında bile 2 diyordu.
+    assert.equal(debtLine({}, false), 'üç alan kaldı');
+    assert.equal(debtLine({}, true), 'iki alan kaldı', 'sayaç kurulduysa bekleme sayılmıyor');
+    assert.equal(debtLine({ ratio: '1:2', result: 'tuttu' }, true), 'dört alan hazır');
+    assert.equal(debtLine({ ratio: '1:2', result: 'tuttu', wait: 30 }, false), 'dört alan hazır');
+});
+
+test('"Şimdilik" gitti: etiket olgu, alt satır imkân', () => {
+    const eksik = saveLabel(false, {}, false);
+    assert.equal(eksik.label, 'Eksik hâliyle kaydet');
+    assert.match(eksik.note, /Kasaya gitmeden düzeltilebilir/);
+    assert.ok(!eksik.label.includes('Şimdilik'), 'tutulamayan söz geri gelmiş');
+    assert.equal(saveLabel(false, { ratio: '1:2', result: 'tuttu' }, true).note, null);
+    assert.equal(saveLabel(true, {}, false).label, 'Düzeltmeyi kaydet');
+});
+
+test('gönderme uyarısı window boyunca durur, going\'de düşer', () => {
+    const mat = [{ id: 'm', name: 'Boya', kind: 'material' }];
+    // O altı saniyede hiçbir şey gönderilmedi ve "Geri al" ekranda: cümle
+    // hâlâ doğru ve hâlâ eyleme çevrilebilir.
+    assert.match(sendWarning('idle', null, mat), /kalıcı olur/);
+    assert.match(sendWarning('window', null, mat), /kalıcı olur/);
+    assert.equal(sendWarning('going', null, mat), null, 'karar verildi');
+    assert.equal(sendWarning('sealed', null, mat), null);
+    // Formül tamsa uyarı yok; malzeme yoksa zaten formül beklenmiyor.
+    assert.equal(sendWarning('idle', { ratio: '1:2', result: 'tuttu' }, mat), null);
+    assert.equal(sendWarning('idle', null, [{ id: 'k', name: 'Kesim', kind: 'extra' }]), null);
+});
+
+test('sonucun ikinci ekseni AYRI alan — result kirletilmiyor', () => {
+    // "tuttu · turuncu" diye tek alana yazılsaydı kayıt tekrar açıldığında
+    // hangi kelimenin seçili olduğu bulunamazdı.
+    assert.deepEqual([...TONES], ['turuncu', 'eşitsiz']);
+    assert.match(bodyc, /tags/);
+    assert.match(kumanda, /tags: draft\.tags/);
+    // Ve yalnız sonuç seçildikten SONRA çiziliyor: varsayılan yerleşimde yok.
+    assert.match(bodyc, /draft\.result \? \(\s*<ToneRow/);
 });

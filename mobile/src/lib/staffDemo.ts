@@ -102,3 +102,52 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
         },
     ];
 }
+
+/**
+ * BAŞKA BİR GÜNÜN sahte listesi.
+ *
+ * "Bugün" ekranı artık şeritteki her güne bakabiliyor; bugün dışındaki
+ * günlerde saatler `now`a göre değil SABİT üretiliyor, çünkü orada bir "şimdi"
+ * yok — şimdi çizgisi de çizilmiyor.
+ *
+ * Geçmiş gün bitmiş, gelecek gün henüz başlamamış gösteriliyor: kartın evresi
+ * damgalardan okunduğu için başka türlü "geçen salı hâlâ sürüyor" gibi
+ * imkânsız bir hâl çıkardı.
+ *
+ * Sunucuya bağlanınca `agenda` ucu tarihi parametre alacak ve bu fonksiyon
+ * tamamen gidecek.
+ */
+export function demoAgendaFor(dateISO: string, currentISO: string): DemoAppointment[] {
+    const past = dateISO < currentISO;
+    const base = {
+        date: dateISO,
+        status: 'confirmed' as const,
+        customer_phone: '+90...',
+        notes: null as string | null,
+    };
+    // Gün başına değişen ama SABİT bir kesit: aynı güne iki kez bakınca aynı
+    // liste geliyor. Rastgele üretim, ekranı her açılışta başka gösterirdi.
+    const seed = Number(dateISO.slice(-2)) % 4;
+    const plan = [
+        { id: 'w1', at: '10:00', until: '10:45', name: 'Selin Boz', service: 'Kesim + fön' },
+        { id: 'w2', at: '11:30', until: '13:30', name: 'Deniz Aksoy', service: 'Saç boyama + fön' },
+        { id: 'w3', at: '14:00', until: '14:30', name: 'Buse Yıldırım', service: 'Fön' },
+        { id: 'w4', at: '16:00', until: '17:00', name: 'Zeynep Kaya', service: 'Röfle' },
+    ].slice(0, [0, 2, 3, 4][seed]);
+
+    return plan.map((item) => ({
+        ...base,
+        id: `${dateISO}-${item.id}`,
+        start_time: item.at,
+        end_time: item.until,
+        customer_name: item.name,
+        service: item.service,
+        // Geçmiş gün: geldi, yapıldı, kasaya gitti. Gelecek gün: hiçbir damga
+        // yok — olmayan bir şeyin damgası uydurulmuyor.
+        customer_arrived_at: past ? `${dateISO}T${item.at}:00.000Z` : null,
+        arrived_at: past ? `${dateISO}T${item.at}:00.000Z` : null,
+        service_ended_at: past ? `${dateISO}T${item.until}:00.000Z` : null,
+        adisyon_items: past ? [{ id: 'a1' }] : null,
+        is_paid: past,
+    }));
+}

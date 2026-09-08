@@ -28,12 +28,30 @@ import {
 } from '../../src/lib/visitControl';
 import { formatCounter } from '../../src/lib/staffCard';
 import {
-    RATIOS, RESULTS, WAITS, groupState, summaryOf,
+    debtLine, groupState, historyState, saveLabel, sendWarning, summaryOf,
     type FormulaSourceItem, type VisitFormula,
 } from '../../src/lib/formula';
+import { SendToCash } from '../../src/components/SendToCash';
+import {
+    SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
+    type SendState,
+} from '../../src/lib/sendToCash';
 import { feedback } from '../../src/lib/feedback';
 import { Glyph } from '../../src/components/Glyph';
-import { Auto, Field, Grid, GridButton } from '../../src/components/FormulaFields';
+import { Auto, Field } from '../../src/components/FormulaFields';
+import { AdisyonRow, DeleteWindow } from '../../src/components/AdisyonRow';
+import { CatalogSearch } from '../../src/components/CatalogSearch';
+import {
+    DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, freeItem,
+    groupsOf,
+    frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
+    markDelete, money, setQty, stripOf, totalOf, undoDelete,
+    type AdisyonLine, type CatalogItem, type UsageRow,
+} from '../../src/lib/adisyon';
+import {
+    FormulaBody, HistoryLine, NoteStep, emptyDraft,
+    type FormulaDraft, type FormulaPrevious,
+} from '../../src/components/FormulaBody';
 import { numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
 
@@ -45,36 +63,70 @@ import { upperTR } from '../../src/lib/text';
 const SHEET_FALLBACK_H = 720;
 
 /** Kalem ekleme sayfasındaki sık kullanılanlar — sıklık sırasına göre. */
-const FREQUENT: { name: string; kind: 'material' | 'product' | 'extra'; price?: number }[] = [
-    { name: 'Boya · 7.3 kumral', kind: 'material' },
-    { name: 'Oksidan %6', kind: 'material' },
-    { name: 'Şampuan 300 ml', kind: 'product', price: 320 },
-    { name: 'Saç bakım yağı', kind: 'product', price: 640 },
-    { name: 'Kaş alma', kind: 'extra', price: 180 },
-    { name: 'Fön', kind: 'extra', price: 350 },
+/**
+ * Salonun kataloğu. `api.catalog()` bağlanana kadar sahte — ama YAKIN
+ * KODLARLA, çünkü bu ekranın asıl sınavı `7.3` ile `7.31`i ayırt ettirmek.
+ * Altısı kutuda duruyor, kalanı aramada.
+ */
+const CATALOG: CatalogItem[] = [
+    { id: 'c1', name: 'Boya · 7.3 kumral', kind: 'material', usedHere: true },
+    { id: 'c2', name: 'Boya · 7.31 küllü kumral', kind: 'material' },
+    { id: 'c3', name: 'Boya · 7.34 bakır kumral', kind: 'material' },
+    { id: 'c4', name: 'Boya · 8.3 açık kumral', kind: 'material' },
+    { id: 'c5', name: 'Boya · 6.3 koyu kumral', kind: 'material' },
+    { id: 'c6', name: 'Oksidan %6', kind: 'material', usedHere: true },
+    { id: 'c7', name: 'Oksidan %9', kind: 'material' },
+    { id: 'c8', name: 'Şampuan 300 ml', kind: 'product', price: 320 },
+    { id: 'c9', name: 'Saç bakım yağı', kind: 'product', price: 640 },
+    { id: 'c10', name: 'Keratin serum', kind: 'product', price: 880 },
+    { id: 'c11', name: 'Kaş alma', kind: 'extra', price: 180 },
+    { id: 'c12', name: 'Fön', kind: 'extra', price: 350 },
+    { id: 'c13', name: 'Saç kesimi', kind: 'extra', price: 450 },
 ];
 
-const KIND_LABEL: Record<string, string> = {
-    extra: 'EK HİZMET',
-    product: 'ÜRÜN',
-    material: 'MALZEME',
-};
+/**
+ * Geçmiş adisyonlar — sıklığın girdisi. `api.catalog()` ve geçmiş uçları
+ * bağlanınca sunucudan gelecek; uydurulan bir eşik yok, sayılar kayıttan
+ * türüyor.
+ */
+const USAGE: UsageRow[] = [
+    { name: 'Boya · 7.3 kumral', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-01', count: 14 },
+    { name: 'Oksidan %6', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-01', count: 13 },
+    { name: 'Fön', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-02', count: 9 },
+    { name: 'Şampuan 300 ml', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-02', count: 6 },
+    { name: 'Boya · 7.31 küllü kumral', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 5 },
+    { name: 'Saç bakım yağı', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 3 },
+    { name: 'Keratin serum', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
+    // Salonun kaydı: personelin kendi verisi yoksa buradan kuruluyor.
+    { name: 'Oksidan %9', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 7 },
+    { name: 'Boya · 8.3 açık kumral', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 5 },
+];
+
+/** Oturumdaki personel. Sunucuya bağlanınca `me.id` buraya gelecek. */
+const ME = 'merve';
 
 /** Bekleme sayacının hazır süreleri. */
 const MINUTES = [20, 25, 30, 35, 45, 60];
 
-interface Line {
-    id: string;
-    name: string;
-    kind: 'material' | 'product' | 'extra';
-    price?: number;
-    qty: number;
-}
+/**
+ * Geçen seferin formülü — karşılaştırmanın kaynağı.
+ *
+ * `customer` ucu bağlanana kadar sahte. Sunucu tarafı hazır:
+ * `090_visit_formula.sql` müşterinin formül geçmişi için
+ * `(organization_id, customer_id, date DESC) WHERE formula IS NOT NULL`
+ * indeksini zaten açtı; eksik olan yalnız uç.
+ */
+const DEMO_PREVIOUS: FormulaPrevious = {
+    dateLabel: '12 Mart',
+    initials: 'MK',
+    ratio: '1:1,5',
+    waitMinutes: 35,
+    result: 'açık kaldı',
+};
 
-const money = (value: number) => `₺${value.toLocaleString('tr-TR')}`;
 
 export default function Kumanda() {
-    const { c, small } = useTheme();
+    const { c, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const params = useLocalSearchParams<{ id?: string }>();
@@ -93,21 +145,41 @@ export default function Kumanda() {
     /** Jestlerin yerel sonuçları — sunucuya bağlanınca bunlar oradan gelecek. */
     const [startedAt, setStartedAt] = useState<string | null>(null);
     const [endedAt, setEndedAt] = useState<string | null>(null);
-    const [sent, setSent] = useState(false);
+    /**
+     * Gönderme, tek bir bayrak DEĞİL, yedi hâlli bir makine. Sebebi Personel
+     * 11'in kararı: bastıktan sonraki 6 saniye boyunca istek gönderilmiyor,
+     * o aralıkta geri alınabiliyor. "Gönderildi" ile "sıraya alındı" da ayrı
+     * hâller — ikincisi birincinin kısık hâli değil.
+     */
+    const [send, setSend] = useState<SendState>('idle');
+    const [sentAt, setSentAt] = useState<string | null>(null);
+    /** Geri alındıktan sonra 2.6 sn duran şerit. */
+    const [undone, setUndone] = useState(false);
+    const sent = isSealed(send);
 
-    const DEFAULT_LINES: Line[] = [
+    const DEFAULT_LINES: AdisyonLine[] = [
         { id: 'k1', name: 'Kaş alma', kind: 'extra', price: 180, qty: 1 },
         { id: 'k2', name: 'Saç bakım yağı', kind: 'product', price: 640, qty: 2 },
         { id: 'k3', name: 'Boya · 7.3 kumral', kind: 'material', qty: 2 },
         { id: 'k4', name: 'Oksidan %6', kind: 'material', qty: 1 },
     ];
-    const [lines, setLines] = useState<Line[]>(DEFAULT_LINES);
+    const [lines, setLines] = useState<AdisyonLine[]>(DEFAULT_LINES);
     const [lastAdded, setLastAdded] = useState('Boya · 7.3 kumral');
 
     /** Bekleme sayacı SUNUCUYA YAZILMIYOR — cihazda yaşıyor. */
     const [wait, setWait] = useState<{ endsAt: number; total: number; source: string } | null>(null);
-    const [sheet, setSheet] = useState<'catalog' | 'minutes' | 'note' | 'formula' | null>(null);
+    const [sheet, setSheet] = useState<'catalog' | 'search' | 'minutes' | 'note' | 'formula' | null>(null);
     const [revealed, setRevealed] = useState(false);
+    /** Açık olan satır — aynı anda YALNIZ BİRİ. */
+    const [openRow, setOpenRow] = useState<string | null>(null);
+    /** Katalog aramasının sorgusu — alt sayfanın ikinci yüzü. */
+    const [query, setQuery] = useState('');
+    /**
+     * Silme penceresi. Satır listede duruyor ve yeri korunuyor; pencere
+     * kapanana kadar `visit.items` çağrılmıyor, yani geri alma bir sunucu ucu
+     * istemiyor — Personel 11'in kasaya göndermesiyle aynı dil.
+     */
+    const [pending, setPending] = useState<{ id: string; at: number } | null>(null);
     /** Her açılışta artıyor: fitil baştan yanmalı, kaldığı yerden değil. */
     const [revealKey, setRevealKey] = useState(0);
     /** Ziyaretin formülü — sunucuya bağlanınca `visit.formula`dan gelecek. */
@@ -123,6 +195,19 @@ export default function Kumanda() {
         adisyon_items: sent ? lines : base.adisyon_items,
     } : null), [base, startedAt, endedAt, sent, lines]);
 
+    /**
+     * Kutudaki altı kalem. Ölçek YERLEŞİME değil buraya biniyor: 40 kalemli
+     * salonda da 400 kalemlide de ekran birebir aynı, değişen kutuların içi.
+     */
+    const frequent = useMemo(
+        () => frequentFor(CATALOG, usageAsOf(USAGE, dateISO), {
+            service: (appointment?.service ?? '').split(' + ')[0] || 'Saç boyama',
+            staffId: ME,
+            limit: FREQUENT_COUNT,
+        }),
+        [appointment?.service, dateISO],
+    );
+
     const phase = appointment ? phaseOf(appointment, now) : 'before';
     const running = phase === 'running';
     /** Adisyon zaten kasada: bu oturumda gönderildi ya da veri öyle diyor. */
@@ -136,6 +221,50 @@ export default function Kumanda() {
     useEffect(() => () => { if (revealTimer.current) clearTimeout(revealTimer.current); }, []);
 
     /**
+     * Gönderme zinciri.
+     *
+     * `window` → 6 sn sonra `going`: pencere boyunca İSTEK YOK, o yüzden
+     * geri alma bir sunucu ucu gerektirmiyor.
+     * `going` → sonuç: bugün demo, sunucuya bağlanınca `staff.visit.finish`
+     * cevabı buraya düşecek (`{ queued: true }` → `queued`, `ApiError` →
+     * `error`).
+     * `sent` → 2.6 sn sonra `sealed`: yeşil dolgu sönük mühre dönüyor.
+     */
+    useEffect(() => {
+        if (send === 'window') {
+            const id = setTimeout(() => setSend('going'), WINDOW_MS);
+            return () => clearTimeout(id);
+        }
+        if (send === 'going') {
+            const id = setTimeout(() => {
+                setSentAt(clockOf(Date.now()));
+                setSend('sent');
+            }, 900);
+            return () => clearTimeout(id);
+        }
+        if (send === 'sent') {
+            const id = setTimeout(() => setSend('sealed'), SEAL_MS);
+            return () => clearTimeout(id);
+        }
+        return undefined;
+    }, [send]);
+
+    useEffect(() => {
+        if (!pending) return undefined;
+        const id = setTimeout(() => {
+            setLines((current) => commitDelete(current, pending.id));
+            setPending(null);
+        }, Math.max(0, DELETE_MS - (Date.now() - pending.at)));
+        return () => clearTimeout(id);
+    }, [pending]);
+
+    useEffect(() => {
+        if (!undone) return undefined;
+        const id = setTimeout(() => setUndone(false), UNDO_NOTE_MS);
+        return () => clearTimeout(id);
+    }, [undone]);
+
+    /**
      * Randevu değişince yerel durum SIFIRLANIR.
      *
      * expo-router aynı rotayı yeniden kullanabiliyor: bileşen yeniden
@@ -146,12 +275,17 @@ export default function Kumanda() {
     useEffect(() => {
         setStartedAt(null);
         setEndedAt(null);
-        setSent(false);
+        setSend('idle');
+        setSentAt(null);
+        setUndone(false);
         setWait(null);
         setLines(DEFAULT_LINES);
         setLastAdded('Boya · 7.3 kumral');
         setRevealed(false);
         setSheet(null);
+        setOpenRow(null);
+        setPending(null);
+        setQuery('');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.id]);
 
@@ -192,7 +326,9 @@ export default function Kumanda() {
     const level = wait ? waitLevel(remaining) : null;
     const dial = dialA(appointment, now);
 
-    const total = lines.reduce((sum, line) => sum + (line.price ?? 0), 0);
+    // Toplam artık MİKTARI da çarpıyor. Eskiden `qty` her zaman 1 olduğu için
+    // fark etmiyordu; ikinci dokunuş ×2 yapmaya başlayınca fark etmeye başladı.
+    const total = totalOf(lines);
     const startClock = appointment.start_time.slice(0, 5);
 
     const reveal = () => {
@@ -209,9 +345,45 @@ export default function Kumanda() {
      * başlık ÇİZİLMİYOR. Kesimde formül alanı görmek personele "bir şey
      * eksik bıraktım" dedirtir — kısık değil, boş değil, yok.
      */
-    const group = groupState(lines as readonly FormulaSourceItem[], formula);
+    const group = groupState(lines as readonly FormulaSourceItem[], formula, delivered);
 
     const glowColor = glowTone(phase === 'running' ? 'running' : 'before', level);
+
+
+    /**
+     * Kalem satırı. Silinmek üzere olan satır YERİNDE kalıyor ve yerine
+     * pencere çiziliyor: liste zıplamıyor, geri alınan satır aynı yere
+     * dönüyor, kalan satırlar hiç yer değiştirmiyor.
+     */
+    const renderLine = (line: AdisyonLine) => (line.pendingDelete ? (
+        <DeleteWindow
+            key={line.id}
+            line={line}
+            notice={deleteNotice(line, formula != null)}
+            startedAt={pending?.at ?? Date.now()}
+            reduceMotion={reduceMotion}
+            onUndo={() => {
+                setLines((current) => undoDelete(current, line.id));
+                setPending(null);
+            }}
+        />
+    ) : (
+        <AdisyonRow
+            key={line.id}
+            line={line}
+            revealed={revealed}
+            open={openRow === line.id}
+            locked={delivered}
+            onToggle={() => setOpenRow((current) => (current === line.id ? null : line.id))}
+            onQty={(next) => setLines((current) => setQty(current, line.id, next))}
+            onRemove={() => {
+                setOpenRow(null);
+                setLines((current) => markDelete(current, line.id));
+                setPending({ id: line.id, at: Date.now() });
+            }}
+            onReveal={reveal}
+        />
+    ));
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -240,6 +412,7 @@ export default function Kumanda() {
                     appointment={appointment}
                     phase={phase}
                     delivered={delivered}
+                    send={send}
                     dialKind={dial.kind}
                     tail={phase === 'closing' || phase === 'closed'
                         ? `${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))} · ${Math.round(elapsedSec / 60)} dk sürdü`
@@ -334,7 +507,7 @@ export default function Kumanda() {
                 {phase === 'closing' || phase === 'closed' ? (
                     <ClosingDial
                         total={total}
-                        count={lines.length}
+                        count={liveLines(lines).length}
                         revealed={revealed}
                         onReveal={reveal}
                         runKey={revealKey}
@@ -343,16 +516,40 @@ export default function Kumanda() {
                     />
                 ) : null}
 
+                {/* Kuyruk şeridi ve "geri alındı" notu: ikisi de aynı yuvada,
+                    ikisi de amber, ikisi de geçici bir gerçeği söylüyor. */}
+                {send === 'queued' ? (
+                    <Band label="Sırada 3 yazma" note="sinyal yok" />
+                ) : undone ? (
+                    <Band label="Gönderilmedi · adisyon açık" note={clockOf(now)} />
+                ) : null}
+
                 {/* ── ADİSYON ── */}
                 {phase === 'running' ? (
                     <Strip
-                        count={lines.length}
-                        last={lastAdded}
+                        strip={stripOf(lines, lastAdded)}
                         total={total}
                         revealed={revealed}
                         onReveal={reveal}
                         runKey={revealKey}
                         onAdd={() => setSheet('catalog')}
+                    />
+                ) : null}
+
+                {phase === 'closing' || phase === 'closed' ? (
+                    <Strip
+                        strip={stripOf(lines, lastAdded)}
+                        total={total}
+                        revealed={revealed}
+                        onReveal={reveal}
+                        runKey={revealKey}
+                        onAdd={() => setSheet('catalog')}
+                        // Tutar bir üstteki kadranda; iki maske iki ayrı sır
+                        // gibi görünüyordu.
+                        money={false}
+                        // Mühürlüyken şerit bir YÜZEY değil, bir etiket:
+                        // dolu bir yüzey "buraya dokunulur" der.
+                        sealed={delivered}
                     />
                 ) : null}
 
@@ -375,29 +572,55 @@ export default function Kumanda() {
                             showsVerticalScrollIndicator={false}
                         >
                             {/* Hizmet ve ürünler önce; malzeme kendi grubunda. */}
-                            {lines.filter((line) => line.kind !== 'material').map((line) => (
-                                <LineRow key={line.id} line={line} revealed={revealed} />
-                            ))}
+                            {/* SIFIR: boş satır iskeleti değil, iki satır
+                                cümle. Yapılacak iş tam olarak yukarıdaki
+                                kutularda — liste onu tekrarlamıyor. */}
+                            {lines.length === 0 ? (
+                                <View style={{ paddingTop: 18, gap: 6 }}>
+                                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx }}>
+                                        Bu ziyarette henüz kalem yok
+                                    </Text>
+                                    <Text style={{ fontSize: 12.5, fontWeight: '500', lineHeight: 18, color: c.tx3, maxWidth: 320 }}>
+                                        Şeritteki artıya dokunup sık kullanılanlardan birini seçin ya da
+                                        katalogda arayın.
+                                    </Text>
+                                </View>
+                            ) : null}
+                            {/* ÜÇ TÜR KARIŞMIYOR ve sıra sabit:
+                                EK HİZMET · ÜRÜN · MALZEME. Malzemenin başlığı
+                                aşağıda ayrı çiziliyor çünkü o aynı zamanda
+                                formülün kapısı — sağında özet duruyor. */}
+                            {groupsOf(lines)
+                                .filter((group) => group.kind !== 'material')
+                                .map((group) => (
+                                    <View key={group.kind}>
+                                        <Text style={{
+                                            fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68,
+                                            color: c.tx3, paddingTop: 14, paddingBottom: 2,
+                                        }}>
+                                            {group.label}
+                                        </Text>
+                                        {group.items.map(renderLine)}
+                                    </View>
+                                ))}
 
                             {group === 'none' ? null : (
                                 <View onLayout={(e) => { headY.current = e.nativeEvent.layout.y; }}>
                                     <GroupHead
                                         state={group}
-                                        summary={summaryOf(formula)}
+                                        summary={summaryOf(formula, delivered)}
                                         onPress={() => { feedback.selection(); setSheet('formula'); }}
                                     />
                                 </View>
                             )}
-                            {lines.filter((line) => line.kind === 'material').map((line) => (
-                                <LineRow key={line.id} line={line} revealed={revealed} />
-                            ))}
+                            {groupsOf(lines).find((g) => g.kind === 'material')?.items.map(renderLine) ?? null}
                         </ScrollView>
 
                         {group !== 'none' && !headSeen ? (
                             <View pointerEvents="box-none" style={{ position: 'absolute', left: 20, right: 20, bottom: 0 }}>
                                 <GroupHead
                                     state={group}
-                                    summary={summaryOf(formula)}
+                                    summary={summaryOf(formula, delivered)}
                                     pinned
                                     onPress={() => { feedback.selection(); setSheet('formula'); }}
                                 />
@@ -430,29 +653,49 @@ export default function Kumanda() {
                         }} />
                     ) : null}
 
+                    {/* UYARI GÜVERTENİN İÇİNDE, düğmenin ÜSTÜNDE.
+                        Yazarken söylenen cümle bir İMKÂN ("kasaya gitmeden
+                        düzeltilebilir"); buradaki bir SONUÇ ("kalıcı olur").
+                        İkisini tek yere koymak ya yazarken gereksiz korkutmak
+                        ya da gönderirken sessiz kalmak olurdu — kapı burada.
+
+                        Engelleme ve ikinci onay YOK: boşluk bazı ziyaretlerde
+                        meşru, kapalı olan kapı ise haber verilmeli. Modal da
+                        yok; ekran müşterinin gözü önünde ve modal bir onay
+                        müşteriye "bir şey ters gitti" der.
+
+                        Hangi hâllerde durduğu `sendWarning`da: `idle` ve
+                        `window`. O altı saniyede hiçbir şey gönderilmedi ve
+                        "Geri al" ekranda, yani cümle hâlâ eyleme çevrilebilir.
+                        `going`de düşüyor — karar verildi. */}
+                    {phase === 'closing' || phase === 'closed' ? (() => {
+                        const warning = sendWarning(send, formula, lines);
+                        return warning ? (
+                            <View style={{
+                                alignSelf: 'stretch', flexDirection: 'row', gap: 9,
+                                paddingHorizontal: 4,
+                            }}>
+                                <Glyph name="warn" size={16} color={c.am} />
+                                <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 18, color: c.am }}>
+                                    <Text style={{ fontWeight: '700' }}>Formül eksik.</Text>
+                                    {' '}Oran ve sonuç yazılmadı; kasaya gidince bu boşluk kalıcı olur.
+                                </Text>
+                            </View>
+                        ) : null;
+                    })() : null}
+
                     {phase === 'closing' || phase === 'closed' ? (
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Adisyonu kasaya gönder"
-                            disabled={delivered}
-                            onPress={() => { feedback.medium(); setSent(true); }}
-                            style={({ pressed }) => ({
-                                alignSelf: 'stretch',
-                                height: 64,
-                                borderRadius: 22,
-                                backgroundColor: delivered ? c.gr : c.or,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 10,
-                                opacity: pressed ? 0.9 : 1,
-                            })}
-                        >
-                            <Glyph name={delivered ? 'check' : 'cash'} size={21} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                                {delivered ? 'Kasaya gönderildi' : 'Adisyonu kasaya gönder'}
-                            </Text>
-                        </Pressable>
+                        <SendToCash
+                            state={send}
+                            at={sentAt ?? undefined}
+                            errorWord={errorLine(null)}
+                            small={small}
+                            reduceMotion={reduceMotion}
+                            onSend={() => setSend('window')}
+                            // Geri alma bir sunucu ucu İSTEMİYOR: pencere
+                            // boyunca istek hiç gönderilmedi.
+                            onUndo={() => { setSend('idle'); setUndone(true); }}
+                        />
                     ) : null}
                 </View>
             </View>
@@ -461,19 +704,42 @@ export default function Kumanda() {
                 <Sheet onClose={() => setSheet(null)}>
                     {sheet === 'catalog' ? (
                         <CatalogSheet
-                            count={lines.length}
+                            count={liveLines(lines).length}
                             onAdd={(item) => {
                                 feedback.light();
-                                setLines((current) => [...current, {
-                                    id: `n${current.length + 1}`,
-                                    name: item.name,
-                                    kind: item.kind,
-                                    price: item.price,
-                                    qty: 1,
-                                }]);
+                                // İkinci dokunuş ×2 yapıyor, ikinci satır
+                                // AÇMIYOR: aynı kalemin iki ayrı satırı altı ay
+                                // sonra okuyan kişiye hata gibi görünür.
+                                setLines((current) => addLine(current, item, `n${Date.now()}`));
                                 setLastAdded(item.name);
                             }}
+                            frequent={frequent}
+                            resultOf={(item) => addResult(lines, item)}
+                            onSearch={() => setSheet('search')}
                             onDone={() => setSheet(null)}
+                        />
+                    ) : null}
+                    {sheet === 'search' ? (
+                        <CatalogSearch
+                            query={query}
+                            results={searchCatalog(CATALOG, query)}
+                            frequent={frequent.items}
+                            onQuery={setQuery}
+                            onPick={(item) => {
+                                feedback.light();
+                                setLines((current) => addLine(current, item, `n${Date.now()}`));
+                                setLastAdded(item.name);
+                                setQuery('');
+                                setSheet('catalog');
+                            }}
+                            onFree={(name, kind) => {
+                                const item = freeItem(name, kind);
+                                setLines((current) => addLine(current, item, `n${Date.now()}`));
+                                setLastAdded(item.name);
+                                setQuery('');
+                                setSheet('catalog');
+                            }}
+                            onBack={() => { setQuery(''); setSheet('catalog'); }}
                         />
                     ) : null}
                     {sheet === 'minutes' ? (
@@ -496,6 +762,20 @@ export default function Kumanda() {
                                 .map((line) => [line.name, `×${line.qty}`] as [string, string])}
                             wait={wait ? Math.round(wait.total / 60) : null}
                             current={formula}
+                            /* Adisyon kasaya gittiyse formül OKUNUR. Kilit
+                               veriden geliyor, saklanan bir bayraktan değil —
+                               `formul.tsx` ile aynı kural. Kasadaki ziyarette
+                               düzenlenebilir ızgara göstermek sahte bir yetki
+                               vaadiydi: kaydet düğmesi gidecek yer bulamazdı. */
+                            locked={delivered}
+                            /* Geçen seferin formülü. `customer` ucu bağlanınca
+                               buraya oradan gelecek — `090_visit_formula.sql`
+                               müşterinin formül geçmişi için indeksi açtı. */
+                            previous={DEMO_PREVIOUS}
+                            /* Malzeme yanlışsa düzeltme ADİSYONDA: alt sayfa
+                               kapanıyor, personel unuttuğu ürünü ekliyor. Yol
+                               varsa yol gösteriliyor, yoksa sebep. */
+                            onMaterial={() => setSheet('catalog')}
                             onSave={(next) => {
                                 feedback.medium();
                                 setFormula(next);
@@ -546,11 +826,13 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
 function Plate({
-    appointment, phase, delivered, dialKind, tail, risks, onNote, onCall, onCard,
+    appointment, phase, delivered, send, dialKind, tail, risks, onNote, onCall, onCard,
 }: {
     appointment: DemoAppointment;
     phase: string;
     delivered: boolean;
+    /** Kilitli hâlin hangi türü: kasada mı, kuyrukta mı. */
+    send: SendState;
     dialKind: string;
     tail: string;
     /** İşletmenin kural listesinden eşleşenler. Boşsa işaret çizilmiyor. */
@@ -563,7 +845,7 @@ function Plate({
     const [openRisk, setOpenRisk] = useState(false);
     const status = phase === 'running' ? { word: 'Sürüyor', tone: c.or }
         // Kapanmış iş "adisyon açık" demez: yeşil, çünkü personelden çıktı.
-        : delivered ? { word: 'Kasada', tone: c.gr }
+        : delivered ? { word: plateWord(send).word, tone: plateWord(send).tone === 'gr' ? c.gr : c.am }
             : phase === 'closing' ? { word: 'Adisyon açık', tone: c.am }
                 : dialKind === 'waiting' ? { word: 'Kapıda', tone: c.am }
                     : { word: 'Bekleniyor', tone: c.tx3 };
@@ -911,38 +1193,68 @@ function Money({ value, revealed, onReveal, runKey, big }: {
     );
 }
 
-function Strip({ count, last, total, revealed, onReveal, runKey, onAdd }: {
-    count: number; last: string; total: number;
+function Strip({ strip, total, revealed, onReveal, runKey, onAdd, money: showMoney = true, sealed = false }: {
+    /** İki satırın metni `stripOf`tan geliyor — sıfırın kendi cümlesi var. */
+    strip: { count: number; head: string; tail: string; money: boolean };
+    total: number;
     revealed: boolean; onReveal: () => void; runKey: number; onAdd: () => void;
+    /**
+     * Tutar şeritte GÖSTERİLİYOR mu?
+     *
+     * B evresinde şerit tutarı taşıyan tek yer. C evresinde tutarı kadran
+     * söylüyor ve maskeyi iki kez çizmek onu iki ayrı sır gibi gösteriyordu —
+     * biri açılıp öteki kapalı kalabiliyordu.
+     */
+    money?: boolean;
+    /**
+     * Mühürlü adisyon: şerit çerçevesini ve dolgusunu BIRAKIYOR. Dolu bir
+     * yüzey bu üründe "buraya dokunulur" demek; mühürlü adisyonun başlığı bir
+     * yüzey değil, bir etiket. Kalan tek işaret sönük kilit ikonu.
+     */
+    sealed?: boolean;
 }) {
     const { c } = useTheme();
     return (
         <View style={{
             marginHorizontal: 20,
-            marginBottom: 12,
+            marginBottom: sealed ? 6 : 12,
             paddingLeft: 16,
-            paddingRight: 8,
-            paddingVertical: 8,
+            paddingRight: sealed ? 12 : 8,
+            paddingVertical: sealed ? 4 : 8,
             borderRadius: 20,
-            backgroundColor: c.surf,
+            backgroundColor: sealed ? 'transparent' : c.surf,
             borderWidth: 1,
-            borderColor: c.bd,
+            borderColor: sealed ? 'transparent' : c.bd,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 10,
         }}>
-            <Pressable onPress={onAdd} style={{ flex: 1, minWidth: 0, gap: 1 }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
                 <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.76, color: c.tx3 }}>
-                    {upperTR(`Adisyon · ${count} kalem`)}
+                    {upperTR(strip.head)}
                 </Text>
                 {/* Son eklenen kalem: "boyayı ekledim mi?" sorusu bir sayfa
-                    açtırmamalı. */}
-                <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: '600', letterSpacing: -0.15, color: c.tx }}>
-                    <Text style={{ color: c.tx3, fontWeight: '700' }}>son </Text>
-                    {last}
+                    açtırmamalı. Mühürlüyken yerini kilidin cümlesi alıyor. */}
+                <Text numberOfLines={1} style={{
+                    fontSize: sealed ? 13 : 14.5, fontWeight: '600',
+                    letterSpacing: -0.15, color: sealed ? c.tx3 : c.tx,
+                }}>
+                    {sealed ? 'mühürlü · değiştirilemez' : strip.count === 0 ? strip.tail : (
+                        <>
+                            <Text style={{ color: c.tx3, fontWeight: '700' }}>son </Text>
+                            {strip.tail}
+                        </>
+                    )}
                 </Text>
-            </Pressable>
-            <Money value={total} revealed={revealed} onReveal={onReveal} runKey={runKey} />
+            </View>
+            {sealed ? (
+                <Glyph name="lock" size={17} color={c.tx3} />
+            ) : showMoney && strip.money ? (
+                <Money value={total} revealed={revealed} onReveal={onReveal} runKey={runKey} />
+            ) : null}
+            {/* "Kalem ekle" mühürlüyken KISIK DEĞİL, YOK: yapılamayan
+                kontrol ekranda durmuyor. */}
+            {sealed ? null : (
             <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Kalem ekle"
@@ -960,6 +1272,7 @@ function Strip({ count, last, total, revealed, onReveal, runKey, onAdd }: {
             >
                 <Glyph name="plus" size={26} color={c.or2} />
             </Pressable>
+            )}
         </View>
     );
 }
@@ -993,19 +1306,34 @@ function ClosingDial({ total, count, revealed, onReveal, runKey, span, minutes }
  * Yazıldığında içerik satırı SONUCUN KENDİSİNİ söylüyor —
  * `1:1,5 · 35 dk · tuttu`. Sayfa açmadan "yazdım mı?" sorusunun cevabı.
  */
+/**
+ * Üç hâl, üç ağırlık:
+ *
+ *   pending — amber, chevron: yazılabilir ve yazılmalı. Bir DAVET.
+ *   done    — yeşil, tik: yazıldı, içeriği başlıkta.
+ *   missed  — sönük, chevron: adisyon kasaya gitti, formül yazılmadı.
+ *             Amber DEĞİL, çünkü amber "hâlâ yapılabilir" diyor ve kilit
+ *             düştüğü an o kapı kapandı. Kayıttaki boşluk bir davet değil,
+ *             bir olgu; satır yine dokunulabilir çünkü SEBEBİ okunabilir.
+ */
 function GroupHead({ state, summary, pinned, onPress }: {
-    state: 'pending' | 'done';
+    state: 'pending' | 'done' | 'missed';
     summary: string;
     pinned?: boolean;
     onPress: () => void;
 }) {
     const { c, dark } = useTheme();
     const done = state === 'done';
-    const tone = done ? c.gr : c.am;
+    const missed = state === 'missed';
+    const tone = done ? c.gr : missed ? c.tx3 : c.am;
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={done ? `Formül yazıldı: ${summary}` : 'Formül bekliyor, yazmak için dokunun'}
+            accessibilityLabel={done
+                ? `Formül yazıldı: ${summary}`
+                : missed
+                    ? 'Bu ziyarette formül yazılmadı, sebebini okumak için dokunun'
+                    : 'Formül bekliyor, yazmak için dokunun'}
             onPress={onPress}
             style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -1013,10 +1341,14 @@ function GroupHead({ state, summary, pinned, onPress }: {
                 marginTop: pinned ? 0 : 14, marginBottom: pinned ? 0 : 4,
                 // Pinlenen kopya saydam OLAMAZ: altındaki satır okunurdu.
                 backgroundColor: pinned
-                    ? (dark ? (done ? '#16220F' : '#241B0E') : (done ? '#E8F0E4' : '#F6ECD9'))
-                    : (done ? 'rgba(95,191,100,0.10)' : 'rgba(217,164,59,0.10)'),
+                    ? (dark
+                        ? (done ? '#16220F' : missed ? c.surf2 : '#241B0E')
+                        : (done ? '#E8F0E4' : missed ? c.surf2 : '#F6ECD9'))
+                    : (done ? 'rgba(95,191,100,0.10)' : missed ? 'transparent' : 'rgba(217,164,59,0.10)'),
                 borderWidth: 1,
-                borderColor: done ? 'rgba(95,191,100,0.28)' : 'rgba(217,164,59,0.28)',
+                borderColor: done
+                    ? 'rgba(95,191,100,0.28)'
+                    : missed ? c.bd : 'rgba(217,164,59,0.28)',
                 opacity: pressed ? 0.7 : 1,
             })}
         >
@@ -1031,44 +1363,34 @@ function GroupHead({ state, summary, pinned, onPress }: {
     );
 }
 
-function LineRow({ line, revealed }: { line: Line; revealed: boolean }) {
+/**
+ * Şerit — kuyruk ve geri alma notu.
+ *
+ * İkisi de aynı yuvada yaşıyor çünkü ikisi de aynı şeyi söylüyor: ekranda
+ * gördüğün hâl HENÜZ kalıcı değil. Kuyruk kendiliğinden çözülüyor, geri
+ * alma notu 2.6 saniyede kayboluyor.
+ */
+function Band({ label, note }: { label: string; note: string }) {
     const { c } = useTheme();
     return (
         <View style={{
+            marginHorizontal: 20,
+            marginBottom: 10,
+            paddingVertical: 9,
+            paddingHorizontal: 13,
+            borderRadius: 12,
+            backgroundColor: 'rgba(217,164,59,0.11)',
+            borderWidth: 1,
+            borderColor: 'rgba(217,164,59,0.32)',
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 12,
-            minHeight: 56,
-            paddingVertical: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: c.bd,
+            gap: 9,
         }}>
-            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                <Text numberOfLines={1} style={{ fontSize: 15.5, fontWeight: '600', letterSpacing: -0.23, color: c.tx }}>
-                    {line.name}
-                </Text>
-                <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.47, color: c.tx3 }}>
-                    {KIND_LABEL[line.kind]}
-                </Text>
-            </View>
-            {line.qty > 1 ? (
-                <Text style={[{ fontSize: 13.5, fontWeight: '700', color: c.tx2 }, numeric]}>×{line.qty}</Text>
-            ) : null}
-            {line.price == null ? (
-                <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.26, color: c.tx3, minWidth: 70, textAlign: 'right' }}>
-                    {upperTR('stoktan düşer')}
-                </Text>
-            ) : revealed ? (
-                <Text style={[{ fontSize: 15.5, fontWeight: '700', color: c.tx, minWidth: 70, textAlign: 'right' }, numeric]}>
-                    {money(line.price)}
-                </Text>
-            ) : (
-                <View style={{ flexDirection: 'row', gap: 5, minWidth: 70, justifyContent: 'flex-end' }}>
-                    {[0, 1, 2].map((index) => (
-                        <View key={index} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.tx3 }} />
-                    ))}
-                </View>
-            )}
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.am }} />
+            <Text style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.69, color: c.am }}>
+                {upperTR(label)}
+            </Text>
+            <Text style={[{ fontSize: 12, fontWeight: '600', color: c.tx3 }, numeric]}>{note}</Text>
         </View>
     );
 }
@@ -1207,40 +1529,86 @@ function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     );
 }
 
-function CatalogSheet({ count, onAdd, onDone }: {
+function CatalogSheet({ count, frequent, onAdd, resultOf, onSearch, onDone }: {
     count: number;
-    onAdd: (item: typeof FREQUENT[number]) => void;
+    /** Altı kutu ve nereden geldikleri — bkz. `frequentFor`. */
+    frequent: { items: CatalogItem[]; source: 'staff' | 'salon' | 'none'; label: string };
+    onSearch: () => void;
+    onAdd: (item: CatalogItem) => void;
+    /** Dokunuşun sonucu: yeni satır mı, miktar artışı mı? */
+    resultOf: (item: CatalogItem) => { merged: boolean; qty: number };
     onDone: () => void;
 }) {
     const { c } = useTheme();
-    const [added, setAdded] = useState<string | null>(null);
+    /**
+     * Onay İKİ KANALLI. Kutudaki "Eklendi" 900 ms sonra sönüyor ve tek başına
+     * kanıt değil — asıl kanıt listede beliren KALICI satır. Ama ikinci
+     * dokunuş bir satır açmıyor, miktarı artırıyor: kutu bunu söylemek
+     * zorunda, yoksa personel dokunuşun işlediğini bilemez.
+     */
+    const [added, setAdded] = useState<{ name: string; word: string } | null>(null);
     return (
         <>
             <SheetHead title="Kalem ekle" note={`${count} kalem`} />
             <ScrollView style={{ paddingHorizontal: 16 }}>
-                <View style={{
-                    height: 50, borderRadius: 16, backgroundColor: c.surf2,
-                    borderWidth: 1, borderColor: c.bd, paddingHorizontal: 14,
-                    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10,
-                }}>
+                {/* ARTIK ÖLÜ DEĞİL. Burası `Text` içeren bir `View`di: giriş
+                    alanı gibi çizilmiş, dokunulunca hiçbir şey yapmayan bir
+                    yüzey — ölü düğmeden kötü, çünkü klavye bekleniyordu.
+                    Şimdi alt sayfanın ikinci yüzünü açıyor. */}
+                <Pressable
+                    accessibilityRole="search"
+                    accessibilityLabel="Katalogda ara"
+                    onPress={() => { feedback.selection(); onSearch(); }}
+                    style={({ pressed }) => ({
+                        height: 50, borderRadius: 16, backgroundColor: c.surf2,
+                        borderWidth: 1, borderColor: c.bd, paddingHorizontal: 14,
+                        flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10,
+                        opacity: pressed ? 0.7 : 1,
+                    })}
+                >
                     <Glyph name="search" size={19} color={c.tx3} />
                     <Text style={{ fontSize: 15.5, fontWeight: '600', color: c.tx3 }}>Katalogda ara</Text>
-                </View>
-                <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.89, color: c.tx3, paddingVertical: 8 }}>
-                    {upperTR('Sık kullanılanlar')}
-                </Text>
+                </Pressable>
+                {/* Başlık kaynağı SÖYLÜYOR. Yeni başlayan personelin geçmişi
+                    yok, salonun var: kutu sayısı, ölçüsü ve yeri değişmiyor —
+                    yalnız hangi veriden geldiği okunuyor. Personelin kendi
+                    verisi biriktikçe etiket sessizce kısalıyor. */}
+                {frequent.source === 'none' ? null : (
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.89, color: c.tx3, paddingVertical: 8 }}>
+                        {upperTR(`Sık kullanılanlar · ${frequent.label}`)}
+                    </Text>
+                )}
+                {/* SIFIR: salonun da geçmişi yok. Altı boş kutu ölü
+                    kontroldür — çizilmiyor, yerini iki satır cümle alıyor ve
+                    arama alanı ekranın tamamı oluyor. Kurulumun ilk günü
+                    dışında bu hâl görünmüyor. */}
+                {frequent.source === 'none' ? (
+                    <View style={{ paddingTop: 6, gap: 6 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: c.tx }}>
+                            Sık kullanılanlar henüz yok
+                        </Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '500', lineHeight: 18, color: c.tx3, maxWidth: 320 }}>
+                            Altı kutu ilk adisyonlar yazıldıkça kendiliğinden doluyor. Şimdilik
+                            katalogda arayın.
+                        </Text>
+                    </View>
+                ) : (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {FREQUENT.map((item) => {
-                        const on = added === item.name;
+                    {frequent.items.map((item) => {
+                        const on = added?.name === item.name;
                         return (
                             <Pressable
                                 key={item.name}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${item.name}, ${KIND_LABEL[item.kind]}`}
                                 onPress={() => {
+                                    const result = resultOf(item);
                                     onAdd(item);
-                                    setAdded(item.name);
-                                    setTimeout(() => setAdded(null), 700);
+                                    setAdded({
+                                        name: item.name,
+                                        word: result.merged ? `×${result.qty} oldu` : 'Eklendi',
+                                    });
+                                    setTimeout(() => setAdded(null), 900);
                                 }}
                                 style={{
                                     width: '48%',
@@ -1255,7 +1623,7 @@ function CatalogSheet({ count, onAdd, onDone }: {
                                 }}
                             >
                                 <Text numberOfLines={1} style={{ fontSize: 15.5, fontWeight: '700', letterSpacing: -0.23, color: on ? c.gr : c.tx }}>
-                                    {on ? 'Eklendi' : item.name}
+                                    {on ? added.word : item.name}
                                 </Text>
                                 <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.1, color: c.tx3 }}>
                                     {KIND_LABEL[item.kind]}
@@ -1264,6 +1632,7 @@ function CatalogSheet({ count, onAdd, onDone }: {
                         );
                     })}
                 </View>
+                )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 12 }}>
                     <Glyph name="box" size={15} color={c.tx3} />
                     <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '600', color: c.tx3, lineHeight: 16 }}>
@@ -1279,103 +1648,118 @@ function CatalogSheet({ count, onAdd, onDone }: {
 /**
  * Formül alt sayfası — C evresinin içinde, sayfa değiştirmeden.
  *
- * Dört alan, ikisi dolu gelir: malzeme adisyondan, bekleme sayaçtan.
- * Personel yalnız orana ve sonuca dokunuyor — dört dokunuş, on saniye.
+ * GÖVDE ARTIK BURADA DEĞİL: `FormulaBody` hem bu alt sayfayı hem müşteri
+ * kartındaki tam sayfayı çiziyor. İki yüzey altı yerde ayrışmıştı ve aynı
+ * formül iki farklı söz veriyordu; ayrışma kabuğun dışına taşındı.
  *
- * ENGELLEMİYOR: boş alanlarla da kaydediliyor. Uydurulmuş formül
- * formülsüzlükten kötüdür; eksiklik müşteri kartında GÖRÜNEN bir gap
- * olarak duruyor.
+ * Bu kabuğa kalan üç şey var: tutamak, "Formül" başlığı ve BORÇ SAYACI.
+ * Kimlik burada tekrarlanmıyor — arkadaki plaka ve süre satırı görünmeye
+ * devam ediyor, alt sayfanın bir kısıt olmasının sebebi de bu.
  */
-function FormulaSheet({ materials, wait, current, onSave }: {
+function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, onSave, onMaterial }: {
     materials: [string, string][];
     wait: number | null;
+    waitSpan?: string;
     current: VisitFormula | null;
+    locked: boolean;
+    previous: FormulaPrevious | null;
     onSave: (next: VisitFormula) => void;
+    onMaterial: () => void;
 }) {
     const { c } = useTheme();
-    const [ratio, setRatio] = useState<string | null>(current?.ratio ?? null);
-    const [result, setResult] = useState<string | null>(current?.result ?? null);
-    const [minutes, setMinutes] = useState<number | null>(current?.waitMinutes ?? wait);
-    const [note, setNote] = useState(current?.note ?? '');
-    const ready = Boolean(ratio && result);
+    const [draft, setDraft] = useState<FormulaDraft>(() => emptyDraft(current));
+    const [fixing, setFixing] = useState(false);
+    const [noteStep, setNoteStep] = useState(false);
+    /** Kilitli sayfanın iki yüzü var: yazılmış formül ve YAZILMAMIŞ boşluk. */
+    const written = Boolean(current);
+    const timerRan = wait != null && !fixing;
+    const history = historyState(previous ? {
+        materials: [], ratio: previous.ratio, waitMinutes: previous.waitMinutes,
+        waitSource: 'manual', result: previous.result, note: null,
+        staffId: null, writtenAt: null,
+    } : null, true);
+    const save = saveLabel(written, draft, timerRan);
+
+    // Not AYRI ADIM: klavye gövdenin üstüne değil yerine geliyor ve bu adımda
+    // kaydet düğmesi hiç çizilmiyor — klavyenin altında kalan bir kontrol yok.
+    if (noteStep) {
+        return (
+            <>
+                <SheetHead title="Serbest not" note="liste dışı ayrıntı buraya" />
+                <NoteStep
+                    value={draft.note}
+                    onChange={(note) => setDraft({ ...draft, note })}
+                    onDone={() => setNoteStep(false)}
+                />
+            </>
+        );
+    }
 
     return (
         <>
-            <SheetHead title="Formül" note={ready ? '4 alan hazır' : '2 alan dolu geldi'} />
+            {/* Sayaç satırı personelin BORCUNU sayıyor. Eskiden "2 alan dolu
+                geldi" yazıyordu ve sabitti: sayaç kurulmadığında bile 2 diyordu. */}
+            <SheetHead
+                title="Formül"
+                note={locked
+                    ? (written ? 'kasada · okunur' : 'kasada · yazılmadı')
+                    : debtLine(draft, timerRan)}
+            />
             <ScrollView style={{ paddingHorizontal: 16 }} keyboardShouldPersistTaps="handled">
-                <Field label="kullanılan malzeme" note="adisyondan">
-                    <Auto rows={materials} />
-                </Field>
-
-                <Field label="oran">
-                    <Grid columns={4}>
-                        {RATIOS.map((value) => (
-                            <GridButton
-                                key={value} label={value} big on={ratio === value}
-                                onPress={() => { feedback.selection(); setRatio(value); }}
-                            />
-                        ))}
-                        <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
-                    </Grid>
-                </Field>
-
-                {/* Sayaç kurulmadıysa alan KALKMIYOR: dört alanın sırası her
-                    yerde aynı, ve boş bırakmak ölçülmemişle sıfırı karıştırır. */}
-                <Field label="bekleme" note={wait != null ? 'sayaçtan' : 'sayaç kurulmadı'}>
-                    {wait != null ? (
-                        <Auto rows={[[`${wait} dk`, 'ölçüldü']]} />
-                    ) : (
-                        <Grid columns={4}>
-                            {WAITS.map((value) => (
-                                <GridButton
-                                    key={value} label={String(value)} unit="dk" big on={minutes === value}
-                                    onPress={() => { feedback.selection(); setMinutes(value); }}
-                                />
-                            ))}
-                            <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
-                        </Grid>
-                    )}
-                </Field>
-
-                <Field label="sonuç">
-                    <Grid columns={3}>
-                        {RESULTS.map((option) => (
-                            <GridButton
-                                key={option.label} label={option.label} tone={option.tone}
-                                on={result === option.label}
-                                onPress={() => { feedback.selection(); setResult(option.label); }}
-                            />
-                        ))}
-                    </Grid>
-                </Field>
-
-                <Field label="serbest not" note="isteğe bağlı">
-                    <TextInput
-                        value={note}
-                        onChangeText={setNote}
-                        placeholder="Kendi cümlenle yaz…"
-                        placeholderTextColor={c.tx3}
-                        selectionColor={c.or}
-                        multiline
-                        style={{
-                            padding: 14, paddingHorizontal: 15, borderRadius: 18,
-                            backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd,
-                            minHeight: 52, fontSize: 15, fontWeight: '500', lineHeight: 21.75, color: c.tx,
-                        }}
-                    />
-                </Field>
+                {locked && !written ? (
+                    <>
+                        <Field label="kullanılan malzeme" note="adisyondan · kilitli">
+                            <Auto rows={materials} />
+                        </Field>
+                        {/* Kilitli-boş hâlin TEK kararlaştırılmış cümlesi —
+                            `formul.tsx` birebir aynısını yazıyor. */}
+                        <Text style={{
+                            fontSize: 11.5, fontWeight: '500', lineHeight: 17.25,
+                            color: c.tx2, maxWidth: 320, paddingTop: 10, paddingBottom: 6,
+                        }}>
+                            <Text style={{ fontWeight: '700' }}>Bu ziyarette formül yazılmadı.</Text>
+                            {' '}Malzeme geçti, oran · bekleme · sonuç girilmedi; adisyon kasaya
+                            gittiğinde boşluk kayda böyle düştü.
+                        </Text>
+                    </>
+                ) : (
+                    <>
+                        {locked ? null : <HistoryLine state={history} previous={previous} />}
+                        <FormulaBody
+                            materials={materials}
+                            draft={draft}
+                            locked={locked}
+                            written={written}
+                            history={locked ? 'ilk' : history}
+                            previous={previous}
+                            measured={wait}
+                            waitSpan={waitSpan}
+                            fixing={fixing}
+                            onFix={() => setFixing(true)}
+                            onChange={setDraft}
+                            onNote={() => setNoteStep(true)}
+                            // Malzeme yanlışsa düzeltme ADİSYONDA: yol var, o
+                            // yüzden satır dokunulabilir ve etiket yolu söylüyor.
+                            materialNote={locked ? 'adisyondan · kilitli' : 'adisyondan · düzeltme adisyonda'}
+                            onMaterial={locked ? undefined : onMaterial}
+                        />
+                    </>
+                )}
                 <View style={{ height: 12 }} />
             </ScrollView>
-            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34 }}>
+            {/* Kilitliyken kısık bir düğme DEĞİL, hiç düğme yok. */}
+            {locked ? null : (
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34, gap: 8 }}>
                 <Pressable
                     accessibilityRole="button"
                     onPress={() => onSave({
                         materials: [],
-                        ratio,
-                        waitMinutes: wait ?? minutes,
-                        waitSource: wait != null ? 'timer' : 'manual',
-                        result: result ? result.toLocaleLowerCase('tr-TR') : null,
-                        note: note.trim() || null,
+                        ratio: draft.ratio,
+                        waitMinutes: timerRan ? wait : draft.wait,
+                        waitSource: timerRan ? 'timer' : 'manual',
+                        result: draft.result ? draft.result.toLocaleLowerCase('tr-TR') : null,
+                        tags: draft.tags,
+                        note: draft.note.trim() || null,
                         staffId: null,
                         writtenAt: new Date().toISOString(),
                     })}
@@ -1385,10 +1769,16 @@ function FormulaSheet({ materials, wait, current, onSave }: {
                     })}
                 >
                     <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                        {ready ? 'Formülü kaydet' : 'Şimdilik böyle kaydet'}
+                        {save.label}
                     </Text>
                 </Pressable>
+                {save.note ? (
+                    <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
+                        {save.note}
+                    </Text>
+                ) : null}
             </View>
+            )}
         </>
     );
 }

@@ -114,10 +114,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
      * için bar bir kare beyazı örnekliyor, ekran koyuya boyanınca düzeliyor.
      * Ekranda "her geçişte bir an açık moda düşüyor" diye görünen şey buydu.
      *
-     * `null` = sistemi takip et; o zaman zaten fark yok.
+     * `'unspecified'` = sistemi takip et; o zaman zaten fark yok. (RN 0.86'ya
+     * kadar bunun adı `null`'dı.)
      */
     useEffect(() => {
-        Appearance.setColorScheme(themeMode === 'system' ? null : themeMode);
+        Appearance.setColorScheme(themeMode === 'system' ? 'unspecified' : themeMode);
     }, [themeMode]);
 
     const setThemeMode = useCallback((mode: ThemeMode) => {

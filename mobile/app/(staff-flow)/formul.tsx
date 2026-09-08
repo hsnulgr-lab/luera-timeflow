@@ -1,9 +1,14 @@
 /**
- * Personel 08 — ziyaretin formül sayfası.
+ * Personel 08/12 — ziyaretin formül SAYFASI.
  *
- * Dört alan, SABİT SIRA: malzeme · oran · bekleme · sonuç. Sıra her yerde
- * aynı — yazarken, kartta, farkta — çünkü karşılaştırmayı mümkün kılan şey
- * sabit hiza.
+ * Gövde artık burada değil: dört alan, sıra, etiket dili ve kaydet kuralı
+ * `src/components/FormulaBody.tsx` içinde ve kumandadaki alt sayfayla AYNI
+ * bileşen. İki yüzey altı yerde ayrışmıştı; ayrışma kabuğun dışına taşındı.
+ *
+ * Bu kabuğun taşıdığı fazlalık tarih · hizmet · imza: müşteri kartından
+ * açıldığında ekranda başka hiçbir kimlik yok, kaydın kime ve hangi güne ait
+ * olduğunu sayfanın kendisi söylemek zorunda. Alt sayfada o üç bilgi arkadaki
+ * plakada duruyor, o yüzden orada tekrarlanmıyor.
  *
  * Dört mod, hepsi aynı gövde:
  *   edit        formül var, adisyon açık → düzeltilebilir
@@ -11,27 +16,43 @@
  *   locked      adisyon kasada, formül var → yalnız okunur
  *   lockedEmpty adisyon kasada, formül yok → boşluk kayda böyle düştü
  *
- * KİLİT VERİDEN geliyor (`isLocked`), saklanan bir bayraktan değil. Kısık
- * bir "düzelt" düğmesi YOK: yapılamayan görünmüyor, sebebi görünüyor.
- *
- * Klavye yalnız serbest notta açılıyor. Oran ve sonuç hazır seçenek, çünkü
- * eller boyalı ve eldivenli — klavye bu kullanıcı için düşmanca.
+ * KİLİT VERİDEN geliyor (`isLocked`), saklanan bir bayraktan değil. Kısık bir
+ * "düzelt" düğmesi YOK: yapılamayan görünmüyor, sebebi görünüyor.
  */
 
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
+import { F, LockLine, Signature } from '../../src/components/FormulaFields';
 import {
-    Auto, F, Field, Grid, GridButton, LockLine, Signature,
-} from '../../src/components/FormulaFields';
-import { RATIOS, RESULTS, WAITS, type FormulaMode } from '../../src/lib/formula';
+    FormulaBody, HistoryLine, NoteStep, emptyDraft,
+    type FormulaDraft, type FormulaPrevious,
+} from '../../src/components/FormulaBody';
+import { historyState, saveLabel, type FormulaMode } from '../../src/lib/formula';
 import { feedback } from '../../src/lib/feedback';
 import { font, useTheme } from '../../src/theme';
 
 const PAD = 20;
+
+/**
+ * `customer` ucu bağlanana kadar sahte. Malzeme ve geçen seferin formülü
+ * sunucudan gelecek — `090_visit_formula.sql` müşterinin formül geçmişi için
+ * indeksi zaten açtı.
+ */
+const DEMO_MATERIALS: [string, string][] = [
+    ['Boya · 7.3 kumral', '×2'],
+    ['Oksidan %6', '×1'],
+];
+const DEMO_PREVIOUS: FormulaPrevious = {
+    dateLabel: '12 Mart',
+    initials: 'MK',
+    ratio: '1:1,5',
+    waitMinutes: 35,
+    result: 'açık kaldı',
+};
 
 type Params = {
     /** Ziyaret kimliği — sunucuya bağlanınca formül buradan yüklenecek. */
@@ -61,15 +82,42 @@ export default function FormulaScreen() {
 
     const mode: FormulaMode = params.mode ?? 'new';
     const locked = mode === 'locked' || mode === 'lockedEmpty';
+    const written = mode === 'edit' || mode === 'locked';
     const measured = params.wait ? Number(params.wait) : null;
 
-    const [ratio, setRatio] = useState<string | null>(params.ratio ?? null);
-    const [result, setResult] = useState<string | null>(params.result ?? null);
-    const [wait, setWait] = useState<number | null>(measured);
-    const [note, setNote] = useState(params.note ?? '');
+    const [draft, setDraft] = useState<FormulaDraft>(() => ({
+        ...emptyDraft(),
+        ratio: params.ratio ?? null,
+        result: params.result ?? null,
+        wait: measured,
+        note: params.note ?? '',
+    }));
+    const [fixing, setFixing] = useState(false);
+    const [noteStep, setNoteStep] = useState(false);
 
     const pad = small ? 16 : PAD;
     const dateParts = (params.date ?? '').split(' ');
+    const history = historyState(
+        // Kilitli-boş hâlde karşılaştırma çizilmiyor: ortada karar yok, belge var.
+        mode === 'lockedEmpty' ? null : { ...emptyDraft(), materials: [], waitSource: 'manual', staffId: null, writtenAt: null, ratio: DEMO_PREVIOUS.ratio, waitMinutes: DEMO_PREVIOUS.waitMinutes, result: DEMO_PREVIOUS.result, note: null },
+        true,
+    );
+    const save = saveLabel(written, draft, measured != null && !fixing);
+
+    if (noteStep) {
+        return (
+            <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: pad, height: 52 }}>
+                    <Text style={{ flex: 1, fontSize: 20, fontWeight: '800', color: c.tx }}>Serbest not</Text>
+                </View>
+                <NoteStep
+                    value={draft.note}
+                    onChange={(note) => setDraft({ ...draft, note })}
+                    onDone={() => setNoteStep(false)}
+                />
+            </View>
+        );
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -121,123 +169,44 @@ export default function FormulaScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* 1 · MALZEME — her modda okunur, adisyondan geliyor. */}
-                <Field label="kullanılan malzeme" note="adisyondan">
-                    <Auto rows={[['Boya · 7.3 kumral', '×2'], ['Oksidan %6', '×1']]} />
-                </Field>
-
                 {mode === 'lockedEmpty' ? (
                     <>
                         <Text style={{
                             fontSize: 11.5, fontWeight: '500', lineHeight: 17.25,
                             color: c.tx2, maxWidth: 320, paddingTop: 10,
                         }}>
-                            <Text style={{ fontWeight: '700' }}>Oran, bekleme ve sonuç girilmemiş.</Text>
-                            {' '}Bu ziyarette malzeme geçmiş ama formül yazılmamış; boşluk kayda böyle
-                            düşüyor ve artık doldurulamıyor.
+                            {/* Kilitli-boş hâlin TEK kararlaştırılmış cümlesi —
+                                kumandadaki alt sayfa da birebir aynısını yazıyor. */}
+                            <Text style={{ fontWeight: '700' }}>Bu ziyarette formül yazılmadı.</Text>
+                            {' '}Malzeme geçti, oran · bekleme · sonuç girilmedi; adisyon kasaya
+                            gittiğinde boşluk kayda böyle düştü.
                         </Text>
                         <LockLine at={params.lockedAt} />
                     </>
                 ) : (
                     <>
-                        {/* 2 · ORAN — klavye yok, hazır seçenek. */}
-                        <Field label="oran">
-                            {locked ? <Auto rows={[[ratio ?? '—', '']]} /> : (
-                                <Grid columns={4}>
-                                    {RATIOS.map((value) => (
-                                        <GridButton
-                                            key={value}
-                                            label={value}
-                                            big
-                                            on={ratio === value}
-                                            onPress={() => { feedback.selection(); setRatio(value); }}
-                                        />
-                                    ))}
-                                    <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
-                                </Grid>
-                            )}
-                        </Field>
-
-                        {/* 3 · BEKLEME — sayaçtan geldiyse okunur, gelmediyse elle.
-                            Alan HER İKİ hâlde de çiziliyor: kaldırmak dört alanın
-                            sabit sırasını bozardı, boş bırakmak ölçülmemişle sıfırı
-                            karıştırırdı. */}
-                        <Field
-                            label="bekleme"
-                            note={measured != null ? 'sayaçtan' : locked ? '' : 'sayaç kurulmadı'}
-                        >
-                            {locked || measured != null ? (
-                                <Auto rows={[[`${wait ?? measured} dk`, params.waitSpan ?? '']]} />
-                            ) : (
-                                <Grid columns={4}>
-                                    {WAITS.map((value) => (
-                                        <GridButton
-                                            key={value}
-                                            label={String(value)}
-                                            unit="dk"
-                                            big
-                                            on={wait === value}
-                                            onPress={() => { feedback.selection(); setWait(value); }}
-                                        />
-                                    ))}
-                                    <GridButton label="±" sub="adım" big on={false} onPress={() => feedback.selection()} />
-                                </Grid>
-                            )}
-                        </Field>
-
-                        {/* 4 · SONUÇ — ölçek değil, üç kelime. */}
-                        <Field label="sonuç">
-                            {locked ? <Auto rows={[[result ?? '—', '']]} /> : (
-                                <Grid columns={3}>
-                                    {RESULTS.map((option) => (
-                                        <GridButton
-                                            key={option.label}
-                                            label={option.label}
-                                            on={result === option.label}
-                                            tone={option.tone}
-                                            onPress={() => { feedback.selection(); setResult(option.label); }}
-                                        />
-                                    ))}
-                                </Grid>
-                            )}
-                        </Field>
-
-                        {/* Klavyenin açıldığı TEK alan — ve en sonda. */}
-                        <Field label="serbest not" note={locked ? 'yazıldığı gibi' : 'isteğe bağlı'}>
-                            {locked ? (
-                                <Auto long={note || '—'} />
-                            ) : (
-                                <TextInput
-                                    value={note}
-                                    onChangeText={setNote}
-                                    placeholder="Kendi cümlenle yaz…"
-                                    placeholderTextColor={c.tx3}
-                                    selectionColor={c.or}
-                                    multiline
-                                    style={{
-                                        padding: 14, paddingHorizontal: 15,
-                                        borderRadius: F.radius,
-                                        backgroundColor: c.surf2,
-                                        borderWidth: 1, borderColor: c.bd,
-                                        minHeight: 52,
-                                        fontSize: 15, fontWeight: '500', lineHeight: 21.75,
-                                        color: c.tx,
-                                    }}
-                                />
-                            )}
-                        </Field>
-
-                        {!locked && measured == null ? (
-                            <Text style={{
-                                fontSize: 11.5, fontWeight: '500', lineHeight: 17.25,
-                                color: c.am, maxWidth: 320, paddingTop: 10,
-                            }}>
-                                Sayaç kurulmadığı için bekleme ölçülmedi. Alan çizilmeye devam ediyor —
-                                dört alanın sırası her yerde aynı — ama tek dokunuşla elle giriliyor ve
-                                kayda <Text style={{ fontWeight: '700' }}>elle</Text> düşüyor.
-                            </Text>
-                        ) : null}
-
+                        {locked ? null : (
+                            <View style={{ paddingBottom: 2 }}>
+                                <HistoryLine state={history} previous={DEMO_PREVIOUS} />
+                            </View>
+                        )}
+                        <FormulaBody
+                            materials={DEMO_MATERIALS}
+                            draft={draft}
+                            locked={locked}
+                            written={written}
+                            history={locked ? 'ilk' : history}
+                            previous={DEMO_PREVIOUS}
+                            measured={measured}
+                            waitSpan={params.waitSpan}
+                            fixing={fixing}
+                            onFix={() => setFixing(true)}
+                            onChange={setDraft}
+                            onNote={() => setNoteStep(true)}
+                            // Kart bağlamında adisyona inecek bir yol YOK: satır
+                            // dokunulmaz ve etiket sebebini söylüyor.
+                            materialNote={locked ? 'adisyondan · kilitli' : 'adisyondan'}
+                        />
                         {locked ? <LockLine at={params.lockedAt} /> : null}
                     </>
                 )}
@@ -246,7 +215,7 @@ export default function FormulaScreen() {
             {/* Kaydet düğmesi yalnız açık adisyonda. Kilitliyken kısık bir
                 düğme DEĞİL, hiç düğme yok: ölü kontrol yok. */}
             {locked ? null : (
-                <View style={{ paddingHorizontal: pad, paddingTop: 14, paddingBottom: 30 + insets.bottom }}>
+                <View style={{ paddingHorizontal: pad, paddingTop: 14, paddingBottom: 30 + insets.bottom, gap: 8 }}>
                     <Pressable
                         accessibilityRole="button"
                         onPress={() => { feedback.medium(); router.back(); }}
@@ -258,14 +227,18 @@ export default function FormulaScreen() {
                         })}
                     >
                         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                            {mode === 'new'
-                                ? 'Formülü yaz'
-                                : ratio && result ? 'Düzeltmeyi kaydet' : 'Şimdilik böyle kaydet'}
+                            {save.label}
                         </Text>
                     </Pressable>
+                    {/* "Şimdilik" kaldırıldı: tutulamayan sözü etiketin kendisi
+                        veriyordu. Alt satır imkânı söylüyor, tehdit etmiyor. */}
+                    {save.note ? (
+                        <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
+                            {save.note}
+                        </Text>
+                    ) : null}
                 </View>
             )}
         </View>
     );
 }
-

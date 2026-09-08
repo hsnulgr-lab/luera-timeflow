@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { authApi } from '../../../src/api/session';
+import { enterShell } from '../../../src/lib/enterShell';
 import {
     AuthActionButton,
     AuthBanner,
@@ -60,7 +61,7 @@ export default function SignupReady() {
     }, [router]);
 
     const startApp = () => {
-        router.replace('/(manager)');
+        enterShell('manager');
     };
 
     const finishOnDesktop = () => {

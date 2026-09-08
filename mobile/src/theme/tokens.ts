@@ -525,6 +525,12 @@ export const profileMetrics = {
     dayBadge: 10,
     dayBadgeTrack: 0.14,
     daySpine: 3,
+    /**
+     * Personel 10: gün adının yanındaki tarih. Personelin ızgarası her hafta
+     * tekrar eden bir ŞABLON değil, BU HAFTA — çünkü izinler tarihe bağlı.
+     * Müdürünkinde yok, orada gerçekten şablon çiziliyor.
+     */
+    dayDate: 13,
 
     // Basamak — hitSlop YOK, yanlışlıkla 15 dk kaymasın.
     stepperHeight: 60,

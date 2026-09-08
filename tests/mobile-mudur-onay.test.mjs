@@ -21,7 +21,7 @@ const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 const screen = code('src/components/ConfirmScreen.tsx');
 const flow = code('src/components/CreateFlow.tsx');
 const tokens = code('src/theme/tokens.ts');
-const route = code('app/(manager)/create.tsx');
+const route = code('app/mudur/create.tsx');
 const design = readFileSync(
     new URL('../docs/design-reference/Luera Mobil - Mudur 16 Randevu Onayi.html', import.meta.url),
     'utf8',
@@ -230,7 +230,7 @@ test('onay akışın son karesi; sonra Akış', () => {
     assert.ok(flow.includes('setCreated(appointment)'));
     assert.ok(!flow.includes("onClose({ dateISO"));
     // Kapanışta Akış'a.
-    assert.ok(route.includes("'/(manager)'"));
+    assert.ok(route.includes("'/mudur'"));
 });
 
 test('sayaç arka planda durur, ekran kendi kapanmaz', () => {

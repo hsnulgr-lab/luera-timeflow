@@ -17,7 +17,7 @@ import { dayNameShort, monthShort } from '../mobile/src/lib/calendar.ts';
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** Yorumlar elenir: dosya başlığı kaldırılan tasarımı ANLATIYOR, taşımıyor. */
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-const screen = code(read('../mobile/app/(staff)/index.tsx'));
+const screen = code(read('../mobile/app/personel/index.tsx'));
 const card = code(read('../mobile/src/components/AppointmentCard.tsx'));
 
 const DATE = '2026-08-30';
@@ -173,10 +173,27 @@ test('şeritte bugün ile seçili gün AYRI işaretler', () => {
     assert.ok(strip.includes('selected ? 38 : 34'), 'seçili gün rakamı çevrelemeli');
 });
 
-test('şeritteki dokunuş ölü değil — Takvim o günle açılır', () => {
-    assert.ok(screen.includes("pathname: '/(staff)/calendar'"));
-    const calendar = code(read('../mobile/app/(staff)/calendar.tsx'));
-    assert.ok(calendar.includes('useLocalSearchParams'), 'takvim tarihi parametreden okumalı');
+test('şeritteki gün BU EKRANDA açılır, Takvim sekmesine atlamaz', () => {
+    // Önceki karar başka günü Takvim'e devrediyordu. Sahada personel şeride
+    // "yarın kaç işim var" diye bakıyor ve sekme değiştirmek o soruyu üç
+    // dokunuşa çıkarıyordu. Bölüşme duruyor ama gün seçiminde değil:
+    // şeridin işi bu hafta, Takvim'in işi salonun tamamı ve ayın tamamı.
+    assert.ok(!screen.includes("pathname: '/personel/calendar'"), 'şerit hâlâ sekme değiştiriyor');
+    assert.ok(screen.includes('onSelect={setDateISO}'), 'gün seçimi yerinde açılmalı');
+    // Bugün ile seçili gün AYRI: şeridin turuncu işareti seçime kaymaz.
+    assert.ok(screen.includes('todayISO={today}') && screen.includes('selectedISO={dateISO}'));
+});
+
+test('şimdi çizgisi yalnız bugün çizilir', () => {
+    // Başka günde "şimdi" diye bir yer yok; çizgi orada rastgele bir noktayı
+    // işaretlerdi.
+    assert.ok(screen.includes('isToday ? nowLineAfter(agenda, now) : -2'));
+});
+
+test('gün cümlesi güne göre değişir — "kaldı" bugünün ölçüsü', () => {
+    // Geçmiş günde kalan iş yok, gelecek günde bitmiş iş yok.
+    assert.ok(screen.includes('iş yapıldı'), 'geçmiş gün kendi cümlesini kurmalı');
+    assert.ok(screen.includes('randevu yok'), 'boş gün kendi cümlesini kurmalı');
 });
 
 test('bilinmeyen gün ile boş gün aynı şey değil', () => {
@@ -194,13 +211,21 @@ test('dönen halka yalnız koltuktaki işte, süs olduğu için bilgi taşımaz'
     assert.ok(card.includes('width: 3,'), 'durum hattı kaldırılmış');
 });
 
-test('halka reanimated KULLANMAZ — proje o paketi yasaklıyor', () => {
+test('halka RN Animated ile çiziliyor — kart reanimated\'e taşınmadı', () => {
+    // 2026-09-05: `react-native-reanimated` kullanıcı kararıyla projeye
+    // GİRDİ; gerekçesi kasaya gönderme anının hareket kısıtı dışına
+    // çıkarılması (bkz. `docs/personel-11-kasaya-gonderme.md`).
+    //
+    // Paketin bulunması, yazılmış ekranların ona taşınacağı anlamına
+    // GELMİYOR: çalışan bir animasyonu yeniden yazmanın kazancı yok, riski
+    // var. Bu dosya kartın kendi çizimini koruyor.
     const raw = read('../mobile/src/components/AppointmentCard.tsx');
     assert.ok(!raw.includes('react-native-reanimated'));
     assert.ok(!raw.includes('react-native-gesture-handler'));
+    // `gesture-handler` HÂLÂ kurulu değil: jest kütüphanesi ayrı bir karar.
     const pkg = JSON.parse(read('../mobile/package.json'));
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    assert.ok(!deps['react-native-reanimated'], 'reanimated bağımlılığa girmiş');
+    assert.ok(!deps['react-native-gesture-handler'], 'gesture-handler bağımlılığa girmiş');
 });
 
 test('dönen katman KARE ve köşegen kadar — yüzde ölçü kenarı açıkta bırakırdı', () => {
@@ -328,8 +353,12 @@ test('şimdi çizgisi yuvadan yuvaya taşınıyor — geçilen kart tepkisiz', (
     assert.ok(!screen.includes('<NowLine time'), 'çizgi hâlâ koşullu çiziliyor');
 });
 
-test('açılışta hiçbir kart "yeni" sayılmaz — liste canlanmıyor', () => {
-    assert.ok(screen.includes('if (before == null) return new Set<string>()'));
+test('açılışta ve gün değişiminde hiçbir kart "yeni" sayılmaz', () => {
+    // Gün değişince liste baştan aşağı değişiyor ama bu "randevu düştü"
+    // demek değil, "başka güne baktın" demek. Bütün kartların yuva açarak
+    // belirmesi yalan bir olay anlatırdı.
+    assert.ok(screen.includes('before.day !== dateISO'), 'gün değişimi tazelik saymamalı');
+    assert.ok(screen.includes('before == null'), 'ilk çizimde de canlanmamalı');
 });
 
 test('gece yarısını aşan randevu "0 dk" demez', () => {
@@ -347,7 +376,7 @@ test('gece yarısını aşan randevu "0 dk" demez', () => {
 // ── Personel takvimi: salonun günü, salt okunur ─────────────────────────────
 
 test('personel takvimi müdürün ızgarasını SALT OKUNUR kullanıyor', () => {
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
     assert.ok(cal.includes('<ColumnCalendar'), 'gövde müdürünkiyle aynı bileşen');
     assert.ok(cal.includes('readOnly'), 'sürükleme ve boş saat kapalı');
     assert.ok(!cal.includes('onMove='), 'taşıma geri çağrısı bağlanmamalı');
@@ -356,7 +385,7 @@ test('personel takvimi müdürün ızgarasını SALT OKUNUR kullanıyor', () => 
 
 test('kendi randevusu kumandayı açar, meslektaşınınki açmaz', () => {
     // Aynı işi iki yerden başlatabilen personel, iki kez başlatır.
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
     assert.ok(cal.includes("appointment.staff_id === ME"));
     assert.ok(cal.includes("pathname: '/(staff-flow)/kumanda'"));
     assert.ok(cal.includes('setPeek(appointment)'), 'başkasının randevusu okunur bir kart açmalı');
@@ -372,16 +401,18 @@ test('ızgara salt okunurken blok KALKMIYOR', () => {
 test('okunur kart sekme çubuğunun altında kalmıyor', () => {
     // iOS 26'nın yüzen sekme çubuğu içeriğin ÜSTÜNDE duruyor; güvenli alan
     // onu kapsamıyor. "Kapat" satırı çubuğun altında kalıyordu.
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
-    assert.ok(cal.includes('BottomTabBarHeightContext'), 'ölçü bağlamdan okunmalı');
-    assert.ok(cal.includes('?? TAB_BAR_FALLBACK'), 'bağlam boşsa yedek sayı');
-    assert.ok(cal.includes('paddingBottom: insets.bottom + tabBar + 16'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
+    // Ölçü SABİT: `NativeTabs` gerçek yüksekliği bir bağlama yazmıyor ve SDK
+    // 57 ile `@react-navigation/bottom-tabs` expo-router'ın içine gömüldü.
+    // Yanlış bir yerden okumaktansa tek yerde tutuluyor.
+    assert.ok(cal.includes('const TAB_BAR = 64;'));
+    assert.ok(cal.includes('paddingBottom: insets.bottom + TAB_BAR + 16'));
 });
 
 test('personel takviminde çevrimdışı bandı ve yenileme var', () => {
     // Bu ekran bodrum katta, kötü sinyalde açılıyor: sessizce eski veri
     // göstermek, personelin yanlış saate güvenmesi demek.
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
     assert.ok(cal.includes('<OfflineBar'), 'bant çizilmeli');
     assert.ok(cal.includes('animateOfflineBar(barProgress'), 'bant sözleşmedeki süreyle inmeli');
     assert.ok(cal.includes('<RefreshControl'), 'aşağı çekip yenileme');
@@ -394,7 +425,7 @@ test('personel takviminde çevrimdışı bandı ve yenileme var', () => {
 });
 
 test('yenileme başarısızsa ekrandaki gün SİLİNMİYOR', () => {
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
     assert.ok(cal.includes('if (map) setCounts(map)'), 'okunamayan sayılar boş harita yazmamalı');
     assert.ok(cal.includes('} finally {'), 'yenileme bayrağı her hâlde düşmeli');
 });
@@ -402,6 +433,18 @@ test('yenileme başarısızsa ekrandaki gün SİLİNMİYOR', () => {
 test('okunur kart takvimin ÜSTÜNDE duruyor', () => {
     // İçerik katmanı zIndex:1 taşıyor; kart sıfırda kalınca takvim onun
     // üstüne çiziliyordu — perde kararmıyor, saatler yazının içinden geçiyordu.
-    const cal = code(read('../mobile/app/(staff)/calendar.tsx'));
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
     assert.ok(cal.includes("position: 'absolute', zIndex: 60"), 'kart bandın da üstünde olmalı');
+});
+
+test('personel sekmesi DÖRT: Kazanç kalktı', () => {
+    const layout = code(read('../mobile/app/personel/_layout.tsx'));
+    const names = [...layout.matchAll(/NativeTabs\.Trigger name="([a-z]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(names, ['index', 'calendar', 'customers', 'profile']);
+    // Sekme `staff_can_see_revenue` ile koşulluydu ve varsayılan KAPALI:
+    // çoğu salonda dört, ayarı açanda beş sekme oluyordu. Sekme çubuğu
+    // değişken olamaz.
+    assert.ok(!layout.includes('Kazanç'), 'Kazanç sekmesi geri gelmiş');
+    // Ekran silinmedi, sekme çubuğunun dışına alındı.
+    assert.ok(read('../mobile/app/(staff-flow)/kazanc.tsx').length > 0);
 });

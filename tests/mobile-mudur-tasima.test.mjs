@@ -23,7 +23,7 @@ const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 
 const grid = code('src/components/ColumnCalendar.tsx');
 const parts = code('src/components/MoveParts.tsx');
-const calendar = code('app/(manager)/calendar.tsx');
+const calendar = code('app/mudur/calendar.tsx');
 const staffDay = code('src/components/StaffDay.tsx');
 const detail = code('app/(manager-flow)/randevu/[id].tsx');
 
@@ -365,7 +365,7 @@ test('detaydaki jetonlar taşımayı açar', () => {
 });
 
 test('sunucuda güncelleme ucu olmadığı yazılı, sahte başarı yok', () => {
-    assert.match(read('app/(manager)/calendar.tsx'), /Sunucuda randevu güncelleme ucu YOK/);
+    assert.match(read('app/mudur/calendar.tsx'), /Sunucuda randevu güncelleme ucu YOK/);
     assert.ok(!/Kaydedildi|başarıyla/i.test(calendar + parts));
 });
 

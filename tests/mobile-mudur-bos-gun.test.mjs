@@ -37,8 +37,8 @@ import { emptyDayMetrics, emptyDayMotion } from '../mobile/src/theme/tokens.ts';
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
 const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 
-const flow = read('app/(manager)/index.tsx');
-const flowCode = code('app/(manager)/index.tsx');
+const flow = read('app/mudur/index.tsx');
+const flowCode = code('app/mudur/index.tsx');
 const parts = code('src/components/EmptyDayParts.tsx');
 
 const TODAY = '2026-08-14';

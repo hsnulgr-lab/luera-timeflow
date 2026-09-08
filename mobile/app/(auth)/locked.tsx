@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { enterShell } from '../../src/lib/enterShell';
+
 import { authApi, type AuthSession } from '../../src/api/session';
 import {
     AuthActionButton,
@@ -61,8 +63,9 @@ export default function SubscriptionLocked() {
         setBusy(true);
         const result = await authApi.resume.get();
         setBusy(false);
-        if (result.ok) router.replace(result.data.actor === 'manager' ? '/(manager)' : '/(staff)');
-    }, [busy, router]);
+        if (result.ok) enterShell(result.data.actor);
+        // `enterShell` yönlendiriciyi modülden alıyor; bağımlılık kalmadı.
+    }, [busy]);
 
     const signOut = useCallback(async () => {
         await authApi.resume.signOut();

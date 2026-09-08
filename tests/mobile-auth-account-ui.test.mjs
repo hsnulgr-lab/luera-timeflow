@@ -7,7 +7,7 @@ function source(path) {
     return existsSync(url) ? readFileSync(url, 'utf8') : '';
 }
 
-const profile = source('mobile/app/(staff)/profile.tsx');
+const profile = source('mobile/app/personel/profile.tsx');
 const nestedAccount = source('mobile/app/(staff-flow)/account.tsx');
 const account = nestedAccount || profile;
 const authStub = source('mobile/src/api/authStub.ts');

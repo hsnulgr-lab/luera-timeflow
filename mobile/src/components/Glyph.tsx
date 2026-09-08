@@ -16,7 +16,9 @@ export type GlyphName =
     // Personel 07 · müşteri defteri
     | 'msg' | 'close' | 'trash' | 'arrowr'
     // Personel 08 · plaka işareti ve formül kilidi
-    | 'warn' | 'lock';
+    | 'warn' | 'lock'
+    // Personel 11 · kasaya gönderme anı
+    | 'undo' | 'queue';
 
 export function Glyph({ name, size = 21, color, width }: {
     name: GlyphName;
@@ -111,6 +113,15 @@ export function Glyph({ name, size = 21, color, width }: {
             {name === 'lock' ? (
                 <Path {...common} strokeWidth={sw} d="M6.4 10.6h11.2v9.4H6.4zM8.8 10.6V7.8a3.2 3.2 0 0 1 6.4 0v2.8" />
             ) : null}
+            {/* Geri alma oku: sola dönen yay. Yön ÖNEMLİ — sağa dönen ok bu
+                üründe "ilerle" demek. */}
+            {name === 'undo' ? (
+                <Path {...common} strokeWidth={sw} d="M4.4 6.6v5h5M4.9 11.2A7.6 7.6 0 1 1 12 20" />
+            ) : null}
+            {/* Kuyruk: üç satır ve yukarı bakan bir ok — "bekliyor, gidecek". */}
+            {name === 'queue' ? (
+                <Path {...common} strokeWidth={sw} d="M4 7.4h16M4 12h16M4 16.6h9M15.6 19.4l2.6-2.8 2.6 2.8" />
+            ) : null}
         </Svg>
     );
 }
@@ -120,4 +131,5 @@ const DEFAULT_WIDTH: Record<GlyphName, number> = {
     plus: 2, minus: 2, eye: 1.6, eyeoff: 1.6, timer: 1.7, user: 1.7,
     search: 1.8, check: 2.2, box: 1.7, cash: 1.7, swap: 1.8, cloud: 1.7,
     msg: 1.7, close: 1.8, trash: 1.7, arrowr: 1.8, warn: 1.7, lock: 1.7,
+    undo: 1.9, queue: 1.75,
 };

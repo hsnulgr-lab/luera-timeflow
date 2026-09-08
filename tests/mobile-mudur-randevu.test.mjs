@@ -30,8 +30,8 @@ const flow = code('src/components/CreateFlow.tsx');
 const parts = code('src/components/ApptParts.tsx');
 const lib = code('src/lib/createFlow.ts');
 const tokens = code('src/theme/tokens.ts');
-const screen = code('app/(manager)/create.tsx');
-const calendar = code('app/(manager)/calendar.tsx');
+const screen = code('app/mudur/create.tsx');
+const calendar = code('app/mudur/calendar.tsx');
 const design = readFileSync(
     new URL('../docs/design-reference/Luera Mobil - Mudur 15 Randevu Olustur.html', import.meta.url),
     'utf8',
@@ -514,7 +514,7 @@ test('sayfa 1in de bir kahramanı var', () => {
 });
 
 test('takvimdeki boş saat gün, saat ve personeli taşır', () => {
-    assert.ok(calendar.includes('/(manager)/create'));
+    assert.ok(calendar.includes('/mudur/create'));
     for (const key of ['date:', 'start:', 'staff:']) {
         assert.ok(calendar.includes(key), `parametre eksik: ${key}`);
     }

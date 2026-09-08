@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet, SheetGrab } from './Sheet';
 import {
@@ -14,6 +14,7 @@ import {
     SwitchRow,
     TrashIcon,
 } from './ProfileParts';
+import { feedback } from '../lib/feedback';
 import { upperTR } from '../lib/text';
 import {
     DURATION_CHIPS,
@@ -369,5 +370,153 @@ export function ServiceRow({ service, first, onPress }: {
                 </Text>
             )}
         />
+    );
+}
+
+// ── Personel 10 · Oturumu kapat ─────────────────────────────────────────────
+
+/**
+ * Geri dönüşü PAHALI bir çıkış: personel çıkarsa telefonu yeniden bağlamak
+ * için işletmeden yeni bir kod istemesi gerekiyor, eski kod çalışmıyor.
+ *
+ * Bu yüzden uyarı iki ağırlıkta yaşıyor — kısa hâli satırın altında (dokunmadan
+ * önce bilinmeli), tam hâli burada. Bugün yalnız alt ekranda küçük gri bir
+ * cümle olarak duruyordu; kimse okumadan basıyordu.
+ *
+ * Onay düğmesi kırmızı ama DOLU ZEMİN DEĞİL: dolu zemin birincil eylem demek
+ * ve o turuncudur. Çıkış birincil eylem değil, kaçış yolu.
+ */
+export function LogoutSheet({ visible, businessName, onDismiss, onConfirm }: {
+    visible: boolean;
+    businessName: string;
+    onDismiss: () => void;
+    onConfirm: () => Promise<void> | void;
+}) {
+    const { c } = useTheme();
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => { if (visible) setBusy(false); }, [visible]);
+
+    return (
+        <BottomSheet visible={visible} onDismiss={onDismiss}>
+            <SheetGrab />
+            <View style={{ paddingHorizontal: M.padX, paddingBottom: 14, gap: 13 }}>
+                <Text style={{
+                    color: c.tx,
+                    fontSize: 20,
+                    fontFamily: font.extraBold,
+                    fontWeight: '800',
+                    letterSpacing: 20 * -0.025,
+                }}>
+                    Oturumu kapat
+                </Text>
+
+                <Text style={{
+                    color: c.tx2,
+                    fontSize: 14,
+                    fontFamily: font.semiBold,
+                    fontWeight: '600',
+                    lineHeight: 21,
+                }}>
+                    Bu telefon <Strong>{businessName}</Strong> bağlantısını kaybeder. Geri dönmek için
+                    işletmeden <Strong>yeni bir bağlantı kodu</Strong> istemeniz gerekir; eski kod çalışmaz.
+                </Text>
+
+                {/* Ne kaybedilmediği de söyleniyor: korku değil, ölçü. */}
+                <View style={{
+                    borderWidth: 1,
+                    borderColor: c.bd,
+                    borderRadius: 16,
+                    backgroundColor: c.surf,
+                    padding: 12,
+                    paddingHorizontal: 14,
+                    flexDirection: 'row',
+                    gap: 10,
+                }}>
+                    <View style={{
+                        width: 5, height: 5, borderRadius: 3, marginTop: 8,
+                        backgroundColor: c.gr,
+                    }} />
+                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <Text style={{
+                            color: c.tx, fontSize: 14.5,
+                            fontFamily: font.bold, fontWeight: '700',
+                            letterSpacing: 14.5 * -0.015,
+                        }}>
+                            Silinmeyen
+                        </Text>
+                        <Text style={{
+                            color: c.tx2, fontSize: 12.5,
+                            fontFamily: font.semiBold, fontWeight: '600', lineHeight: 17.5,
+                        }}>
+                            Randevularınız ve müşteri geçmişi işletmede kalır.
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={{
+                borderTopWidth: 1,
+                borderColor: c.bd,
+                paddingHorizontal: M.padX,
+                paddingTop: 10,
+                paddingBottom: 28,
+                gap: 9,
+            }}>
+                <DangerButton
+                    label="Oturumu kapat"
+                    busy={busy}
+                    onPress={async () => { setBusy(true); await onConfirm(); }}
+                />
+                <GhostButton label="Vazgeç" onPress={onDismiss} />
+            </View>
+        </BottomSheet>
+    );
+}
+
+function Strong({ children }: { children: ReactNode }) {
+    const { c } = useTheme();
+    return (
+        <Text style={{ color: c.tx, fontFamily: font.extraBold, fontWeight: '800' }}>
+            {children}
+        </Text>
+    );
+}
+
+/** `GhostButton`'ın kırmızı hâli. Dolu zemin YOK — o birincil eyleme ait. */
+function DangerButton({ label, busy, onPress }: {
+    label: string;
+    busy: boolean;
+    onPress: () => void;
+}) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={busy}
+            onPress={() => { feedback.medium(); onPress(); }}
+            style={({ pressed }) => ({
+                height: M.buttonHeight,
+                borderRadius: M.buttonRadius,
+                borderWidth: 1,
+                // Tasarımın `--rdbd` / `--rdfill` değerleri. Jeton yok;
+                // projede bu iki değer başka yerlerde de düz yazılıyor.
+                borderColor: 'rgba(224,114,114,0.50)',
+                backgroundColor: 'rgba(224,114,114,0.10)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed || busy ? 0.6 : 1,
+            })}
+        >
+            <Text style={{
+                color: c.rd,
+                fontSize: M.buttonText,
+                fontFamily: font.bold,
+                fontWeight: '700',
+            }}>
+                {busy ? 'Kapatılıyor' : label}
+            </Text>
+        </Pressable>
     );
 }

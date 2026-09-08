@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const calendar = readFileSync(
-    new URL('../mobile/app/(staff)/calendar.tsx', import.meta.url),
+    new URL('../mobile/app/personel/calendar.tsx', import.meta.url),
     'utf8',
 );
 const parts = readFileSync(

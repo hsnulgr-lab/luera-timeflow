@@ -39,7 +39,7 @@ import { profileMetrics, profileMotion } from '../mobile/src/theme/tokens.ts';
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
 const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 
-const home = code('app/(manager)/profile.tsx');
+const home = code('app/mudur/profile.tsx');
 const hoursScreen = code('app/(manager-flow)/profil/saatler.tsx');
 const servicesScreen = code('app/(manager-flow)/profil/hizmetler.tsx');
 const deleteScreen = code('app/(manager-flow)/profil/hesap-sil.tsx');
@@ -222,7 +222,7 @@ test('tema tercihi GERÇEKTEN uygulanır — ölü kontrol değil', () => {
     const theme = code('src/theme/index.tsx');
     assert.match(theme, /themeMode === 'system' \? scheme === 'dark' : themeMode === 'dark'/);
     assert.match(theme, /setThemeMode/);
-    assert.match(code('app/(manager-flow)/profil/gorunum.tsx'), /setThemeMode\(option\.key\)/);
+    assert.match(code('app/(ortak)/profil/gorunum.tsx'), /setThemeMode\(option\.key\)/);
     assert.equal(themeLabel('system'), 'Sistem');
 });
 
@@ -243,7 +243,7 @@ test('KVKK bağlantısı yoksa satır PASİF DEĞİL, HİÇ ÇİZİLMEZ', () => 
 
 test('sürüm bandı Yasal ekranının dibinde, ana ekranda DEĞİL', () => {
     assert.doesNotMatch(home, /expoConfig|version/);
-    assert.match(code('app/(manager-flow)/profil/yasal.tsx'), /expoConfig/);
+    assert.match(code('app/(ortak)/profil/yasal.tsx'), /expoConfig/);
 });
 
 // ── Hesap silme ─────────────────────────────────────────────────────────────
@@ -517,9 +517,10 @@ test('aboneliği olmayan salon da hesabını silebilir', () => {
 test('tema seçimi sistemin görünümüne de yazılır', () => {
     const src = readFileSync(new URL('../mobile/src/theme/index.tsx', import.meta.url), 'utf8');
     assert.match(src, /Appearance\.setColorScheme/);
-    // `system` seçiliyken sistem ZORLANMAZ: `null` "cihazı takip et" demek,
-    // zorlamak cihazın ayarını uygulamanın içinden kilitlerdi.
-    assert.match(src, /themeMode === 'system' \? null : themeMode/);
+    // `system` seçiliyken sistem ZORLANMAZ: "cihazı takip et" demek, zorlamak
+    // cihazın ayarını uygulamanın içinden kilitlerdi. RN 0.86'ya kadar bunun
+    // adı `null`'dı; artık `'unspecified'`.
+    assert.match(src, /themeMode === 'system' \? 'unspecified' : themeMode/);
     // Tercih değişince yeniden uygulanmalı; bir kez kurulup unutulamaz.
     assert.match(src, /\}, \[themeMode\]\);/);
 });

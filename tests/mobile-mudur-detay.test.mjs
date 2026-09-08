@@ -515,7 +515,7 @@ test('not sayfası klavyenin altında kalmaz', () => {
 test('taşıma KAYNAĞA yazılır — kartı kapatınca eski saate dönmez', () => {
     const detail = code('app/(manager-flow)/randevu/[id].tsx');
     assert.match(detail, /updateLocalAppointment\(moved\)/);
-    const calendar = code('app/(manager)/calendar.tsx');
+    const calendar = code('app/mudur/calendar.tsx');
     assert.match(calendar, /updateLocalAppointment\(moved\)/);
 });
 

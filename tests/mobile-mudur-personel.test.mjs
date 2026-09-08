@@ -33,7 +33,7 @@ const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
 const screenCode = code('app/(manager-flow)/personel/[id].tsx');
 const staffDayComponent = code('src/components/StaffDay.tsx');
 const partsComponent = code('src/components/StaffDayParts.tsx');
-const flow = read('app/(manager)/index.tsx');
+const flow = read('app/mudur/index.tsx');
 
 const mockPresence = [
     { id: 'deniz', initials: 'DA', name: 'Deniz Aksoy', state: 'busy', minutes: 41 },
@@ -318,7 +318,7 @@ test('ekran sekme grubunun DIŞINDADIR', () => {
         catch { return false; }
     };
     assert.ok(exists('app/(manager-flow)/personel/[id].tsx'), 'yeni yolda değil');
-    assert.ok(!exists('app/(manager)/staff/[id].tsx'), 'hâlâ sekme grubunun içinde');
+    assert.ok(!exists('app/mudur/staff/[id].tsx'), 'hâlâ sekme grubunun içinde');
 });
 
 test('şeritten avatara dokununca personelin günü açılır', () => {

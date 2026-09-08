@@ -50,7 +50,7 @@ test('AÇIK ENGEL — müdür hesabını silemiyor (5.1.1(v))', { skip: 'Müdür
     // Hesap silme ekranı YALNIZ personel Profil'inden erişilebiliyor, ama silme
     // fonksiyonu `session.actor === 'manager'` istiyor. Kapalı döngü.
     // Müdür Profil ekranı yazıldığında bu test açılacak ve şunu beklemeli:
-    const profile = read('app/(manager)/profile.tsx');
+    const profile = read('app/mudur/profile.tsx');
     assert.match(profile, /account/);
     assert.match(profile, /signOut/);
 });

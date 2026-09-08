@@ -162,7 +162,12 @@ test('kaydırma eşiği %72 ve bitirme 900 ms', () => {
 
 test('adisyon şeridi son eklenen kalemi söylüyor', () => {
     // "Boyayı ekledim mi?" sorusu bir sayfa açtırmamalı.
-    assert.ok(screen.includes('last={lastAdded}'));
+    //
+    // Şeridin iki satırı artık `stripOf`tan geliyor (Personel 13): sıfır
+    // kalemde "son eklenen kalem" satırının söyleyeceği bir şey olmadığı
+    // için satır cümleye dönüyor. Test gevşetilmedi — ölçülen şey aynı,
+    // metni üreten yer değişti.
+    assert.ok(screen.includes('strip={stripOf(lines, lastAdded)}'));
     assert.ok(screen.includes('setLastAdded'));
 });
 
@@ -180,11 +185,18 @@ test('not ucu yok — ölü kontrol değil, bekleyen iş olarak yazılı', () =>
 });
 
 test('malzeme kalemi fiyat yerine stok hareketi söylüyor', () => {
-    assert.ok(screen.includes('stoktan düşer'));
+    // Satır ortak bileşene taşındı (alt sayfa + tam sayfa aynı satır).
+    //
+    // Metin de BİRLEŞTİ: satır "stoktan düşer", katalog sayfası "depodan
+    // düşer" diyordu — aynı olgu iki kelimeyle anlatılıyordu. Tasarımın
+    // seçtiği "depodan" kaldı.
+    const row = code(read('../mobile/src/components/AdisyonRow.tsx'));
+    assert.ok(row.includes('depodan düşer'));
+    assert.ok(!screen.includes('stoktan düşer'), 'iki ayrı kelime geri gelmiş');
 });
 
 test('kart artık dört ekrana değil tek kumandaya gidiyor', () => {
-    const today = code(read('../mobile/app/(staff)/index.tsx'));
+    const today = code(read('../mobile/app/personel/index.tsx'));
     assert.ok(today.includes("pathname: '/(staff-flow)/kumanda'"));
     assert.ok(!today.includes("'/visit'"), 'eski iki rota kalmamalı');
     assert.ok(!today.includes("'/appointment'"));
@@ -208,9 +220,16 @@ test('randevu değişince yerel durum sıfırlanıyor', () => {
     assert.ok(screen.includes('setLines(DEFAULT_LINES)'));
 });
 
-test('kasaya gitmiş iş "adisyon açık" demiyor', () => {
-    assert.ok(screen.includes("delivered ? { word: 'Kasada'"));
-    assert.ok(screen.includes('disabled={delivered}'), 'gönder düğmesi tekrar basılamamalı');
+test('kasaya gitmiş iş "adisyon açık" demiyor — ve KUYRUKTAKİ "kasada" demiyor', () => {
+    // Personel 11: kilitli hâlin iki türü var. Kuyruktaki adisyon kasada
+    // DEĞİL, telefonda bekliyor; plaka bunu ayırmak zorunda.
+    assert.ok(screen.includes('plateWord(send)'));
+    const lib = code(read('../mobile/src/lib/sendToCash.ts'));
+    assert.match(lib, /'queued'\) return \{ word: 'Sırada'/);
+    assert.match(lib, /word: 'Kasada', tone: 'gr'/);
+    // Gönder düğmesi tekrar basılamıyor: `idle` dışında Pressable hiç yok.
+    const send = code(read('../mobile/src/components/SendToCash.tsx'));
+    assert.match(send, /state === 'idle' \? \(\s*<Pressable/);
 });
 
 test('ikonlar tasarımın kendi yolları — View taklidi değil', () => {

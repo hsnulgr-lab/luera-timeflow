@@ -23,8 +23,8 @@ import { cashInk, cashMetrics } from '../mobile/src/theme/tokens.ts';
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
 const code = (path) => read(path).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
 
-const screen = code('app/(manager)/cash.tsx');
-const screenDoc = read('app/(manager)/cash.tsx');
+const screen = code('app/mudur/cash.tsx');
+const screenDoc = read('app/mudur/cash.tsx');
 const parts = code('src/components/CashParts.tsx');
 const lib = code('src/lib/cash.ts');
 
@@ -499,7 +499,7 @@ test('bekleyen adisyon şeridi ÖLÜ DEĞİL — Akış\'a götürüyor', () => 
     // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. Bekleyen
     // adisyonların gerçek yeri Akış: her biri kendi satırında, "Tahsil et"
     // düğmesiyle duruyor.
-    assert.match(screen, /onPress=\{\(\) => router\.navigate\('\/\(manager\)'\)\}/);
+    assert.match(screen, /onPress=\{\(\) => router\.navigate\('\/mudur'\)\}/);
 });
 
 // ── Düzeltme · 2026-08-30 ───────────────────────────────────────────────────

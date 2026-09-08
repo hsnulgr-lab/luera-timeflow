@@ -8,7 +8,7 @@ import {
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-const screen = code(read('../mobile/app/(staff)/customers.tsx'));
+const screen = code(read('../mobile/app/personel/customers.tsx'));
 const api = code(read('../supabase/functions/staff-api/index.ts'));
 
 // ── Zaman etiketi ───────────────────────────────────────────────────────────
@@ -137,4 +137,34 @@ test('son geliş TÜRETİLİYOR, saklanmıyor', () => {
     const cut = api.slice(api.indexOf("action === 'customers'"), api.indexOf("action === 'customer'"));
     assert.ok(cut.includes("from('reservations')"));
     assert.ok(cut.includes('mine: staffId === me.id'));
+});
+
+// ── Klavye ──────────────────────────────────────────────────────────────────
+
+test('klavye takılıp kalmıyor: her iki hâlde de sürüklenerek kapanıyor', () => {
+    // Arama alanının dışında dokunulacak yer yok — satıra dokunmak sayfa
+    // açıyor. Kapanma yolu listeyi sürüklemek; iOS'un kendi sözlüğü de bu.
+    const hits = screen.match(/keyboardDismissMode="on-drag"/g) ?? [];
+    assert.equal(hits.length, 2, 'liste ve boş hâl ayrı ayrı sürüklenebilmeli');
+    // Boş hâlde eskiden düz bir View vardı: sonuç çıkmayınca klavyenin
+    // kapanacağı hiçbir yer kalmıyordu.
+    assert.match(screen, /flexGrow: 1, justifyContent: 'center'/);
+});
+
+test('liste klavyenin ALTINDA kalmıyor', () => {
+    const hits = screen.match(/automaticallyAdjustKeyboardInsets/g) ?? [];
+    assert.equal(hits.length, 2);
+});
+
+test('müşteri açılırken klavye kapanıyor', () => {
+    assert.match(screen, /Keyboard\.dismiss\(\)/);
+});
+
+test('başlık arama sırasında DÜŞMÜYOR — sayfa sıçramıyor', () => {
+    // Düşerse arama alanı ve liste 44 pt yukarı sıçrıyor ve yazılar üst üste
+    // binmiş gibi görünüyor. Kazanılan yer klavye açıkken bir satır bile
+    // göstermiyor.
+    assert.doesNotMatch(screen, /searching \? null : \(/);
+    // Başlık durduğuna göre sağdaki sayı da aramaya uymalı.
+    assert.match(screen, /searching \? `\$\{shown\.length\} SONUÇ`/);
 });

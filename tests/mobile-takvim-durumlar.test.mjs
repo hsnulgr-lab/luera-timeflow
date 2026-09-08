@@ -6,7 +6,7 @@ import { offlineBannerText } from '../mobile/src/lib/offline.ts';
 import { offlineBar, skeleton } from '../mobile/src/theme/tokens.ts';
 
 const calendar = readFileSync(
-    new URL('../mobile/app/(staff)/calendar.tsx', import.meta.url),
+    new URL('../mobile/app/personel/calendar.tsx', import.meta.url),
     'utf8',
 );
 const parts = readFileSync(

@@ -23,7 +23,7 @@ const tokens = read('../mobile/src/theme/tokens.ts');
 const dueTokens = tokens.slice(tokens.indexOf('export const dueCardMetrics'));
 const px = (key) => Number(new RegExp(`\\b${key}: ([\\d.]+)`).exec(dueTokens)[1]);
 const parts = read('../mobile/src/components/FlowParts.tsx');
-const screen = read('../mobile/app/(manager)/index.tsx');
+const screen = read('../mobile/app/mudur/index.tsx');
 
 const due = {
     id: 'd', time: '11:18', kind: 'due',
@@ -271,7 +271,7 @@ test('"Geri al" gelmediyi sıradaki randevuya döndürür', () => {
 test('"Yeniden randevu" durum değiştirmez — ekranda geçiş yapar', () => {
     assert.equal(applyNoshowAction({ ...gone, noshowMinutes: 30 }, 'Yeniden randevu'), null);
     assert.ok(screen.includes("label === 'Yeniden randevu'"));
-    assert.ok(screen.includes('/(manager)/create'));
+    assert.ok(screen.includes('/mudur/create'));
 });
 
 test('gelmedi eylemleri yalnız gelmedi satırında çalışır', () => {

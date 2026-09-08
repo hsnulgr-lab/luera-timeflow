@@ -345,7 +345,7 @@ test('kart butonları ÖLÜ DEĞİL — dördü de eylem taşıyor', () => {
 });
 
 test('⋮ randevusu olmayan olayda çizilmez', () => {
-    const screen = readFileSync(new URL('../mobile/app/(manager)/index.tsx', import.meta.url), 'utf8');
+    const screen = readFileSync(new URL('../mobile/app/mudur/index.tsx', import.meta.url), 'utf8');
     assert.match(screen, /onMore=\{event\.appointmentId \? openAppointment : undefined\}/);
     // Gülşah uydurma bir olay; gerçek bir randevusu yok, ⋮'sı da olmamalı.
     const e0 = mockDay.events.find((e) => e.id === 'e0');
@@ -392,7 +392,7 @@ test('şimdi-çizgisi gün önekli satırı GEÇMİŞ sayar', () => {
 });
 
 test('akış şimdi-çizgisine kaydırılmış açılır', () => {
-    const src = readFileSync(new URL('../mobile/app/(manager)/index.tsx', import.meta.url), 'utf8');
+    const src = readFileSync(new URL('../mobile/app/mudur/index.tsx', import.meta.url), 'utf8');
     assert.match(src, /nowLineIndex\(dayEvents, nowMinutes\)/);
     // Sıçrama BİR KEZ ve yalnız bugünde: başka güne bakarken "şimdi" yok.
     assert.match(src, /if \(jumped\.current \|\| !isToday/);
@@ -454,7 +454,7 @@ test('zamanında randevu yoksa hiçbir satır "sıradaki" demez', () => {
 });
 
 test('sıra kararını EKRAN verir, satır değil', () => {
-    const src = readFileSync(new URL('../mobile/app/(manager)/index.tsx', import.meta.url), 'utf8');
+    const src = readFileSync(new URL('../mobile/app/mudur/index.tsx', import.meta.url), 'utf8');
     assert.match(src, /nextInLineId\(dayEvents\)/);
     assert.match(src, /inLine=\{event\.id === inLineId\}/);
 });

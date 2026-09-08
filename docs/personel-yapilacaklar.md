@@ -46,30 +46,37 @@ açılıştan sonra personel o noktaya bakmayı bırakıyor; nokta bir daha hiç
 yok. Karşılıkları hazır: telefon için `src/lib/phone.ts`, kart için
 `app/(staff-flow)/customer.tsx` (müdür tarafında kullanılıyor).
 
-### A4 · Profildeki ölü satırlar
+### ~~A4 · Profildeki ölü satırlar~~ · YAPILDI
 
-`app/(staff)/profile.tsx` → `Tema`, `Yazı boyutu`, `Şifremi değiştir`,
-`Yardım`. Dördü de `Pressable`, dördünde de ok işareti, hiçbirinde `onPress`
-yok. Ya bağlanacak ya ok işareti kalkacak.
+Personel 10 uygulandı (2026-09-05). `Görünüm` ve `Yasal` ortak gruba taşınan
+gerçek ekranlara bağlandı (`app/(ortak)/profil/`); `Yazı boyutu`,
+`Şifremi değiştir` ve `Yardım` **kaldırıldı** — pasif bırakılmadı.
 
-### A5 · Bildirim anahtarları hiçbir şey yapmıyor
+### ~~A5 · Bildirim anahtarları hiçbir şey yapmıyor~~ · YAPILDI
 
-`profile.tsx` → üç anahtar (yeni randevu · iptal · günün özeti).
-`expo-notifications` **kurulu değil**. Ya paket kurulacak (bkz. C1) ya da
-anahtarlar kaldırılacak. Ortası yok.
+Üç anahtar da **kaldırıldı** (2026-09-05); yerine tek bir `Foot` cümlesi
+geldi ve nereye bakılacağını söylüyor: *"Bildirimler henüz gelmiyor. Yeni
+randevularınızı Bugün sekmesinde görürsünüz."*
+
+Kapalı-kısık bırakmak seçilmedi: anahtar yine hiçbir şey yapmazdı ve ekran
+müşterinin gözü önünde açılabiliyor — kapalı duran bir "Randevu iptali"
+anahtarı, iptallerin bildirilebildiği ama personelin kapattığı izlenimi
+verirdi. `expo-notifications` girdiğinde (C1) cümlenin yerine üç **gerçek**
+anahtar gelir; grubun yeri hazır.
 
 ---
 
 ## B · Tasarımda var, kodda yok
 
-### B1 · Çevrimdışı kuyruk şeridi (`.qb`)
+### ~~B1 · Çevrimdışı kuyruk şeridi (`.qb`)~~ · TASARLANDI ve YAZILDI
 
-Amber şerit: **"SIRADA 2 YAZMA"**, gönderilince yeşile dönüp "gönderildi"
-der.
+Personel 11 uygulandı (2026-09-05). Ağ yokken düğme artık yeşile DÖNMÜYOR:
+"Sırada · gönderilmedi", amber çerçeve, dolgu yok, üstünde kuyruk şeridi ve
+plakada `SIRADA`. `queued` hâli `sent`in kısık hâli değil.
 
-**Neden:** bodrum katta çalışan personel için "işlemi başlattım ama gitti
-mi?" sorusunun tek cevabı. Veri hazır: `src/api/staff.ts` kuyruğu tutuyor,
-`useConnectivity` çalışıyor (`app/(staff)/calendar.tsx` kullanıyor).
+**Bağlanma borcu:** hâlâ demo. `staff.visit.finish` çağrısı yapılınca
+`{ queued: true }` → `queued`, `ApiError` → `error` olarak bağlanacak; yer
+`kumanda.tsx`'teki gönderme zincirinde hazır.
 
 ### ~~B2 · Para maskesinin fitili~~ · YAPILDI
 
@@ -80,6 +87,27 @@ yok. Maskenin niye kaybolduğunu açıklayan tek şey o.
 
 Kadranın büyük sayısının altına noktalı çizgi koyan hâl. Şu an her sayı
 kesinmiş gibi duruyor.
+
+### B5 · Vardiya ve izin — EKRAN VAR, uç yok
+
+Veri iki tabloda duruyor ve ikisi de canlı:
+
+    staff.working_hours   (008)  jsonb  { day, start, end, isOff }[]  · NULL = salonunki
+    staff_time_off        (012)  (staff_id, date, reason) · UNIQUE(staff_id, date)
+
+Ekranlar yazıldı (2026-09-05): vardiya kartı `personel/profile.tsx`'te,
+yedi günlük ızgara `(staff-flow)/vardiyam.tsx`'te, karar katmanı
+`src/lib/staffShift.ts`'te. **`staff-api` ikisini de hâlâ döndürmüyor** —
+ekran `demoSource` ile çalışıyor. Uç yazıldığında değişecek tek şey o
+fonksiyonun yerini alan çağrı.
+
+**Neden:** kuaförde vardiya haftalık sorulan bir soru; cevabı bugün yalnız
+müdürün ekranında. Tasarımı `docs/personel-10-profil.md` §2–§3'e girdi;
+yedi günlük ızgara müdürün `profil/saatler.tsx`'inden devralınıyor, uç o
+turdan sonra yazılacak.
+
+Not: personel bunları **değiştiremez** — izin talebi için ne uç var ne
+onay akışı. Ekran okunur olacak.
 
 ### B4 · Komşu iş uydurma
 
@@ -100,6 +128,14 @@ sayıyı ve türleri söylüyor.
 ---
 
 ## C · Paket gerektirenler
+
+> **2026-09-05:** `react-native-reanimated` (4.5.1) ve `react-native-worklets`
+> kullanıcı kararıyla projeye girdi — gerekçesi kasaya gönderme anının hareket
+> kısıtı dışına çıkarılması. `expo-doctor` 21/21 geçiyor, Expo Go içinde hazır
+> geliyor, özel build gerekmiyor. **Yazılmış ekranlar taşınmıyor:** çalışan bir
+> animasyonu yeniden yazmanın kazancı yok. `react-native-gesture-handler`
+> HÂLÂ kurulu değil — o ayrı bir karar.
+
 
 ### C1 · `expo-notifications`
 
@@ -128,7 +164,7 @@ onu kullanan **tek bir ekran yok**. Bugün `demoAgenda`'dan, Takvim
 `mockDay`'den, Kazanç sabit dizilerden okuyor.
 
 Bağlanınca üç şey birden çözülür: Takvim ile kumandanın kimlikleri uyuşur,
-`app/(staff)/calendar.tsx` içindeki `ME = 'merve'` sabiti gerçek oturuma
+`app/personel/calendar.tsx` içindeki `ME = 'merve'` sabiti gerçek oturuma
 döner, çevrimdışı kuyruğu anlam kazanır (B1).
 
 ### D2 · 1592 satır ölü ekran
@@ -161,7 +197,7 @@ karşılıkları olmayan davranışlar (testleri `skip`te bekliyor):
 
 ### ~~E1 · Müşteriler sekmesi~~ · TASARLANDI ve YAZILDI
 
-`app/(staff)/customers.tsx` bugün 14 satırlık bir yer tutucu.
+`app/personel/customers.tsx` bugün 14 satırlık bir yer tutucu.
 
 Kapsam kararı verildi: **rehber değil, defter.** Personelin kendi baktığı
 müşteriler; her satırda son geliş, son hizmet, formül işareti. Bakiye ve
@@ -183,7 +219,21 @@ Eksik olan: **oran, süre, sonuç.**
 Not: `visit.note` ucu da yok; not yazılıyor ama kaydolmuyor
 (`kumanda.tsx:1046` bunu ekranda dürüstçe söylüyor).
 
-### E3 · Kazanç sekmesinin geleceği
+### E3 · Kazanç sekmesi · **SEKME KALDIRILDI**, karar duruyor
+
+Kullanıcı kararı (2026-09-05): **sekme çubuğundan kalktı.** Ekran silinmedi,
+`app/(staff-flow)/kazanc.tsx`'e taşındı ve şu an HİÇBİR YERDEN erişilmiyor —
+park edilmiş kod, ölü kontrol değil (hiçbir düğme oraya bakmıyor).
+
+İki sebep üst üste bindi: gösterdiği tutar personelin eline geçen para değil
+salon cirosu, ve sekme `staff_can_see_revenue` ile koşulluydu (varsayılan
+KAPALI) — kabuk çoğu salonda dört, ayarı açanda beş sekme oluyordu. Sekme
+çubuğu değişken olamaz.
+
+**Hâlâ açık olan karar:** prim/komisyon sisteme girecek mi? Girmeyecekse
+ekran Profil'de **"İşlerim"** satırı olarak geri gelir. Girecekse `staff`
+tablosuna oran alanı gerekir ve `performance` ucu ona göre kurulur.
+
 
 Bekleyen karar: **prim/komisyon sisteme girecek mi?**
 
@@ -203,6 +253,18 @@ değişken olamaz.
 
 ---
 
+## Y · 2026-09-05'te yazılanlar
+
+- `react-native-reanimated` 4.5.1 projeye girdi (yalnız Personel 11 için)
+- `src/lib/sendToCash.ts` — yedi hâlli gönderme makinesi, 6 sn'lik pencere
+- `src/components/SendToCash.tsx` — reanimated'in projedeki İLK kullanımı
+- `src/lib/staffShift.ts` · `(staff-flow)/vardiyam.tsx` — Personel 10 vardiya
+- `personel/profile.tsx` yeniden kuruldu (`ProfileParts` üstünde)
+- `(ortak)/profil/` — Görünüm ve Yasal iki moda da açıldı
+- Rota çakışması kapatıldı: `(manager)`/`(staff)` → `mudur`/`personel`
+- `enterShell` · `roleGate` · `shellRoot` — rol sızıntısının dört kilidi
+- Bugün ekranı şeritteki günü kendi içinde açıyor
+
 ## Z · 2026-09-04'te yazılanlar
 
 - `supabase/090_visit_formula.sql` — `reservations.formula` jsonb
@@ -211,7 +273,7 @@ değişken olamaz.
 - `mobile/src/lib/formula.ts` · `customerBook.ts` — saf karar katmanları
 - `mobile/src/components/FormulaFields.tsx` — alt sayfa ve tam sayfanın
   ortak gövdesi
-- `app/(staff)/customers.tsx` · `app/(staff-flow)/musteri.tsx` ·
+- `app/personel/customers.tsx` · `app/(staff-flow)/musteri.tsx` ·
   `app/(staff-flow)/formul.tsx`
 - Kumanda: malzeme grubunun başlığı, pinlenen kopya, formül alt sayfası,
   plakada alerji işareti

@@ -15,7 +15,7 @@ import {
 
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
 
-const screen = read('app/(manager)/calendar.tsx');
+const screen = read('app/mudur/calendar.tsx');
 const grid = read('src/components/ColumnCalendar.tsx');
 const parts = read('src/components/CalendarParts.tsx');
 

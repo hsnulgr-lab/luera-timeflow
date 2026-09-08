@@ -194,6 +194,12 @@ export function TodayCard({ card, onPress }: {
         open: boolean;
         statusWord: string;
         countdown: string | null;
+        /**
+         * Personel 10: izinli günde büyük alanda saat değil KELİME duruyor
+         * ("İzinli"). Kelime saatin mürekkebiyle yazılırsa bir ölçüm gibi
+         * okunuyor; sönük hâli onu bir duruma çeviriyor.
+         */
+        dim?: boolean;
     };
     onPress: () => void;
 }) {
@@ -253,7 +259,7 @@ export function TodayCard({ card, onPress }: {
                 <Num
                     size={small ? M.cardHourSmall : M.cardHour}
                     style={{
-                        color: cardSkin.tx,
+                        color: card.dim ? cardSkin.tx2 : cardSkin.tx,
                         fontWeight: '800',
                         letterSpacing: (small ? M.cardHourSmall : M.cardHour) * M.cardHourTrack,
                     }}
@@ -892,7 +898,14 @@ export function AmberNote({ label, text, action }: {
     );
 }
 
-export function Foot({ children }: { children: string }) {
+/**
+ * Personel 10: `children` artık `ReactNode`. Bu ekranın en zor üç bilgisi
+ * Foot'ta yaşıyor (izin aralığı · NULL'ın anlamı · yetkinin kimde olduğu) ve
+ * üçünde de cümlenin bir parçası kalın. Metni ekranda kesip kalınlaştırmak,
+ * cümle değişince sessizce yanlış yeri vurgulardı — parça `staffShift.ts`ten
+ * yapılı geliyor.
+ */
+export function Foot({ children }: { children: ReactNode }) {
     const { c } = useTheme();
     return (
         <Text style={{
