@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text, TextInput,
+    Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
     View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -29,8 +29,9 @@ import {
 } from '../../src/lib/visitControl';
 import { formatCounter } from '../../src/lib/staffCard';
 import {
-    debtLine, groupState, historyState, saveLabel, sendWarning, summaryOf,
-    type FormulaSourceItem, type VisitFormula,
+    debtLine, formulaDoor, historyState, mixDebtLine, mixSaveLabel,
+    saveLabel, sendWarning,
+    type FormulaDoor, type VisitFormula,
 } from '../../src/lib/formula';
 import { SendToCash } from '../../src/components/SendToCash';
 import {
@@ -43,6 +44,7 @@ import { Glyph } from '../../src/components/Glyph';
 import { Auto, Field } from '../../src/components/FormulaFields';
 import { AdisyonRow, DeleteWindow } from '../../src/components/AdisyonRow';
 import { CatalogSearch } from '../../src/components/CatalogSearch';
+import { FormulaDoorRow } from '../../src/components/FormulaDoorRow';
 import {
     DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, freeItem,
     groupsOf,
@@ -136,7 +138,7 @@ const DEMO_PREVIOUS: FormulaPrevious = {
 
 
 export default function Kumanda() {
-    const { c, small, reduceMotion } = useTheme();
+    const { c, dark, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const params = useLocalSearchParams<{ id?: string }>();
@@ -222,6 +224,23 @@ export default function Kumanda() {
     const running = phase === 'running';
     /** Adisyon zaten kasada: bu oturumda gönderildi ya da veri öyle diyor. */
     const delivered = sent || phase === 'closed';
+
+    /**
+     * Formülün kapısı — MALZEMEYE asılı, evreye değil.
+     *
+     * `washed` yıkamanın geçtiğini söylüyor: sonuç ancak o zaman biliniyor.
+     * Karıştırma evresinde gövde bekleme ve sonuç alanlarını ızgara değil
+     * SATIR çiziyor — değerleri henüz yok.
+     */
+    const door = formulaDoor(lines, formula, {
+        washed: phase !== 'running' && phase !== 'before',
+        locked: delivered,
+        waitRunning: Boolean(wait),
+        measured: wait ? Math.round(wait.total / 60) : null,
+        previousResult: DEMO_PREVIOUS.result,
+    });
+    /** Karıştırma anı: işlem sürüyor ve yıkama daha geçilmedi. */
+    const mixing = phase === 'running';
 
     useEffect(() => {
         const id = setInterval(() => setNow(Date.now()), running || wait ? 1000 : 20_000);
@@ -355,7 +374,6 @@ export default function Kumanda() {
      * başlık ÇİZİLMİYOR. Kesimde formül alanı görmek personele "bir şey
      * eksik bıraktım" dedirtir — kısık değil, boş değil, yok.
      */
-    const group = groupState(lines as readonly FormulaSourceItem[], formula, delivered);
 
     const glowColor = glowTone(phase === 'running' ? 'running' : 'before', level);
 
@@ -537,6 +555,8 @@ export default function Kumanda() {
                 {/* ── ADİSYON ── */}
                 {phase === 'running' ? (
                     <Strip
+                        door={door}
+                        onDoor={() => { feedback.selection(); setSheet('formula'); }}
                         strip={stripOf(lines, lastAdded)}
                         total={total}
                         revealed={revealed}
@@ -567,7 +587,7 @@ export default function Kumanda() {
                     <View style={{ flex: 1, minHeight: 0 }}>
                         <ScrollView
                             style={{ flex: 1 }}
-                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: group === 'none' ? 0 : 48 }}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: door ? 48 : 0 }}
                             scrollEventThrottle={32}
                             onScroll={(e) => {
                                 // Kopya YALNIZ gerçek başlık görünmezken var.
@@ -614,24 +634,38 @@ export default function Kumanda() {
                                     </View>
                                 ))}
 
-                            {group === 'none' ? null : (
+                            {/* MALZEME başlığının YERİNDE aynı kapı — tek
+                                kapı, üç yüzey. Personel 13 bu şeridi bilerek
+                                boş bırakmıştı. */}
+                            {door ? (
                                 <View onLayout={(e) => { headY.current = e.nativeEvent.layout.y; }}>
-                                    <GroupHead
-                                        state={group}
-                                        summary={summaryOf(formula, delivered)}
+                                    <FormulaDoorRow
+                                        door={door}
+                                        head={`MALZEME · ${groupsOf(lines).find((g) => g.kind === 'material')?.count ?? 0}`}
                                         onPress={() => { feedback.selection(); setSheet('formula'); }}
                                     />
                                 </View>
-                            )}
+                            ) : null}
                             {groupsOf(lines).find((g) => g.kind === 'material')?.items.map(renderLine) ?? null}
                         </ScrollView>
 
-                        {group !== 'none' && !headSeen ? (
-                            <View pointerEvents="box-none" style={{ position: 'absolute', left: 20, right: 20, bottom: 0 }}>
-                                <GroupHead
-                                    state={group}
-                                    summary={summaryOf(formula, delivered)}
-                                    pinned
+                        {/* Kopya da AYNI kapı: iki farklı bileşen çizmek, aynı
+                            şeyin iki dili olması demekti. Zemin saydam DEĞİL —
+                            altındaki satır okunuyordu. */}
+                        {door && !headSeen ? (
+                            <View
+                                pointerEvents="box-none"
+                                style={{
+                                    position: 'absolute', left: 20, right: 20, bottom: 0,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 16,
+                                    backgroundColor: dark ? '#241B0E' : '#F0E9DF',
+                                    borderWidth: 1, borderColor: c.bd,
+                                }}
+                            >
+                                <FormulaDoorRow
+                                    door={door}
+                                    head={`MALZEME · ${groupsOf(lines).find((g) => g.kind === 'material')?.count ?? 0}`}
                                     onPress={() => { feedback.selection(); setSheet('formula'); }}
                                 />
                             </View>
@@ -726,12 +760,22 @@ export default function Kumanda() {
                             frequent={frequent}
                             rows={groupsOf(lines).map((group) => (
                                 <View key={group.kind}>
-                                    <Text style={{
-                                        fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68,
-                                        color: c.tx3, paddingTop: 10, paddingBottom: 2,
-                                    }}>
-                                        {group.label}
-                                    </Text>
+                                    {/* MALZEME başlığının yerinde KAPI — aynı
+                                        satır, aynı kelimeler, üçüncü yüzey. */}
+                                    {group.kind === 'material' && door ? (
+                                        <FormulaDoorRow
+                                            door={door}
+                                            head={`${group.label} · ${group.count}`}
+                                            onPress={() => { feedback.selection(); setSheet('formula'); }}
+                                        />
+                                    ) : (
+                                        <Text style={{
+                                            fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68,
+                                            color: c.tx3, paddingTop: 10, paddingBottom: 2,
+                                        }}>
+                                            {group.label}
+                                        </Text>
+                                    )}
                                     {group.items.map(renderLine)}
                                 </View>
                             ))}
@@ -789,6 +833,11 @@ export default function Kumanda() {
                                düzenlenebilir ızgara göstermek sahte bir yetki
                                vaadiydi: kaydet düğmesi gidecek yer bulamazdı. */
                             locked={delivered}
+                            /* Karıştırma evresi: bekleme ve sonuç ızgara
+                               değil satır, kaydet düğmesi "Karıştırmayı
+                               kaydet", sayaç satırı sayı değil ad. */
+                            mixing={mixing}
+                            waitRunning={Boolean(wait)}
                             /* Geçen seferin formülü. `customer` ucu bağlanınca
                                buraya oradan gelecek — `090_visit_formula.sql`
                                müşterinin formül geçmişi için indeksi açtı. */
@@ -1214,7 +1263,14 @@ function Money({ value, revealed, onReveal, runKey, big }: {
     );
 }
 
-function Strip({ strip, total, revealed, onReveal, runKey, onAdd, money: showMoney = true, sealed = false }: {
+function Strip({ strip, total, revealed, onReveal, runKey, onAdd, door, onDoor, money: showMoney = true, sealed = false }: {
+    /**
+     * Formülün kapısı — şeridin ALTINDA, ayrı bir kart değil. Ekran yeni bir
+     * bölge kazanmıyor: şerit iki satırdan üçe çıkıyor, kadranın yuvası o
+     * kadar daralıyor. Zaman hâlâ ekrandaki en büyük sayı.
+     */
+    door?: FormulaDoor | null;
+    onDoor?: () => void;
     /** İki satırın metni `stripOf`tan geliyor — sıfırın kendi cümlesi var. */
     strip: { count: number; head: string; tail: string; money: boolean };
     total: number;
@@ -1239,13 +1295,15 @@ function Strip({ strip, total, revealed, onReveal, runKey, onAdd, money: showMon
         <View style={{
             marginHorizontal: 20,
             marginBottom: sealed ? 6 : 12,
-            paddingLeft: 16,
-            paddingRight: sealed ? 12 : 8,
-            paddingVertical: sealed ? 4 : 8,
             borderRadius: 20,
             backgroundColor: sealed ? 'transparent' : c.surf,
             borderWidth: 1,
             borderColor: sealed ? 'transparent' : c.bd,
+        }}>
+        <View style={{
+            paddingLeft: 16,
+            paddingRight: sealed ? 12 : 8,
+            paddingVertical: sealed ? 4 : 8,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 10,
@@ -1295,6 +1353,12 @@ function Strip({ strip, total, revealed, onReveal, runKey, onAdd, money: showMon
             </Pressable>
             )}
         </View>
+        {door && onDoor && !sealed ? (
+            <View style={{ paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: c.bd }}>
+                <FormulaDoorRow door={door} onPress={onDoor} />
+            </View>
+        ) : null}
+        </View>
     );
 }
 
@@ -1337,53 +1401,6 @@ function ClosingDial({ total, count, revealed, onReveal, runKey, span, minutes }
  *             düştüğü an o kapı kapandı. Kayıttaki boşluk bir davet değil,
  *             bir olgu; satır yine dokunulabilir çünkü SEBEBİ okunabilir.
  */
-function GroupHead({ state, summary, pinned, onPress }: {
-    state: 'pending' | 'done' | 'missed';
-    summary: string;
-    pinned?: boolean;
-    onPress: () => void;
-}) {
-    const { c, dark } = useTheme();
-    const done = state === 'done';
-    const missed = state === 'missed';
-    const tone = done ? c.gr : missed ? c.tx3 : c.am;
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={done
-                ? `Formül yazıldı: ${summary}`
-                : missed
-                    ? 'Bu ziyarette formül yazılmadı, sebebini okumak için dokunun'
-                    : 'Formül bekliyor, yazmak için dokunun'}
-            onPress={onPress}
-            style={({ pressed }) => ({
-                flexDirection: 'row', alignItems: 'center', gap: 10,
-                minHeight: 48, paddingHorizontal: 12, borderRadius: 14,
-                marginTop: pinned ? 0 : 14, marginBottom: pinned ? 0 : 4,
-                // Pinlenen kopya saydam OLAMAZ: altındaki satır okunurdu.
-                backgroundColor: pinned
-                    ? (dark
-                        ? (done ? '#16220F' : missed ? c.surf2 : '#241B0E')
-                        : (done ? '#E8F0E4' : missed ? c.surf2 : '#F6ECD9'))
-                    : (done ? 'rgba(95,191,100,0.10)' : missed ? 'transparent' : 'rgba(217,164,59,0.10)'),
-                borderWidth: 1,
-                borderColor: done
-                    ? 'rgba(95,191,100,0.28)'
-                    : missed ? c.bd : 'rgba(217,164,59,0.28)',
-                opacity: pressed ? 0.7 : 1,
-            })}
-        >
-            <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: tone }}>
-                {upperTR('Malzeme')}
-            </Text>
-            <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: '600', letterSpacing: -0.14, color: tone }}>
-                · {summary}
-            </Text>
-            <Glyph name={done ? 'check' : 'chev'} size={19} color={tone} />
-        </Pressable>
-    );
-}
-
 /**
  * Şerit — kuyruk ve geri alma notu.
  *
@@ -1742,13 +1759,19 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
  * Kimlik burada tekrarlanmıyor — arkadaki plaka ve süre satırı görünmeye
  * devam ediyor, alt sayfanın bir kısıt olmasının sebebi de bu.
  */
-function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, onSave, onMaterial }: {
+function FormulaSheet({
+    materials, wait, waitSpan, current, locked, previous, mixing, waitRunning,
+    onSave, onMaterial,
+}: {
     materials: [string, string][];
     wait: number | null;
     waitSpan?: string;
     current: VisitFormula | null;
     locked: boolean;
     previous: FormulaPrevious | null;
+    /** Karıştırma anı — üçüncü hâlin dili buradan geliyor. */
+    mixing: boolean;
+    waitRunning: boolean;
     onSave: (next: VisitFormula) => void;
     onMaterial: () => void;
 }) {
@@ -1764,7 +1787,14 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
         waitSource: 'manual', result: previous.result, note: null,
         staffId: null, writtenAt: null,
     } : null, true);
-    const save = saveLabel(written, draft, timerRan);
+    /**
+     * Karıştırma anında "Eksik hâliyle kaydet" YANLIŞ: eksik bir şey yok,
+     * sonuç henüz OLMAMIŞ. Düğme yapılan işi adıyla kaydediyor ve oran
+     * yoksa hiç çizilmiyor — kaydedilecek değer yokken kaydet düğmesi sahte
+     * bir onay olurdu.
+     */
+    const mixSave = mixing ? mixSaveLabel(draft, waitRunning) : null;
+    const save = mixing ? mixSave : saveLabel(written, draft, timerRan);
 
     // Not AYRI ADIM: klavye gövdenin üstüne değil yerine geliyor ve bu adımda
     // kaydet düğmesi hiç çizilmiyor — klavyenin altında kalan bir kontrol yok.
@@ -1789,7 +1819,7 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
                 title="Formül"
                 note={locked
                     ? (written ? 'kasada · okunur' : 'kasada · yazılmadı')
-                    : debtLine(draft, timerRan)}
+                    : mixing ? mixDebtLine(draft) : debtLine(draft, timerRan)}
             />
             <ScrollView style={{ paddingHorizontal: 16 }} keyboardShouldPersistTaps="handled">
                 {locked && !written ? (
@@ -1827,6 +1857,8 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
                             // Malzeme yanlışsa düzeltme ADİSYONDA: yol var, o
                             // yüzden satır dokunulabilir ve etiket yolu söylüyor.
                             materialNote={locked ? 'adisyondan · kilitli' : 'adisyondan · düzeltme adisyonda'}
+                            stage={mixing ? 'mixing' : 'closing'}
+                            waitRunning={waitRunning}
                             onMaterial={locked ? undefined : onMaterial}
                         />
                     </>
@@ -1834,7 +1866,7 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
                 <View style={{ height: 12 }} />
             </ScrollView>
             {/* Kilitliyken kısık bir düğme DEĞİL, hiç düğme yok. */}
-            {locked ? null : (
+            {locked || (mixing && !save) ? null : (
             <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 8 }}>
                 <Pressable
                     accessibilityRole="button"
@@ -1855,10 +1887,10 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
                     })}
                 >
                     <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                        {save.label}
+                        {save?.label}
                     </Text>
                 </Pressable>
-                {save.note ? (
+                {save?.note ? (
                     <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
                         {save.note}
                     </Text>

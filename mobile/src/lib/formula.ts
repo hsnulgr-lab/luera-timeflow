@@ -323,6 +323,144 @@ export function sendWarning(
 ): string | null {
     if (sendState !== 'idle' && sendState !== 'window') return null;
     if (!hasMaterial(items)) return null;
-    if (isComplete(formula)) return null;
-    return 'Formül eksik. Oran ve sonuç yazılmadı; kasaya gidince bu boşluk kalıcı olur.';
+    const missing = missingFields(formula);
+    if (!missing) return null;
+    // Cümlenin ŞEKLİ sabit, yalnız alan listesi değişiyor: oran karıştırırken
+    // yazıldıysa eksik olan tek şey sonuç ve cümle ikisini birden saymamalı —
+    // yazılanı ikinci kez aratmak, doğru yapılan işi hata gibi gösterir.
+    return `${missing} yazılmadı. Kasaya gidince bu boşluk kalıcı olur.`;
+}
+
+// ── Personel 14 · formül ne zaman yazılıyor ─────────────────────────────────
+//
+// Bir renk işi tek bir olay değil. Dört alan ÜÇ ayrı anda biliniyor:
+// karıştırma (malzeme + oran) · bekleme (sayaç ölçüyor) · yıkama sonrası
+// (sonuç). Aralarında bir buçuk saat var.
+//
+// Kapı eskiden yalnız işlem BİTTİKTEN sonra açılıyordu; oran o zaman
+// hatırlanmaya çalışılıyordu ve Personel 12'nin karşılaştırması karar
+// uygulandıktan sonra ekrana düşüyordu — artık hiçbir şeyi değiştiremez.
+
+/** Kapının üç tonu: yazılabilir · sırası gelecek · tamam. */
+export type DoorTone = 'am' | 'mid' | 'ok';
+
+export interface FormulaDoor {
+    tone: DoorTone;
+    /** Kapının kalın kısmı — ya çağrı ya değerin kendisi. */
+    value: string;
+    /** İnce kuyruk: gerekçe ya da sıra. Boş olabilir. */
+    tail: string;
+    done: boolean;
+}
+
+/**
+ * Formülün kapısı — MALZEMEYE asılı.
+ *
+ * Malzemeyi gösteren her yüzeyde aynı satır, aynı kelimeler: kumandada
+ * adisyon şeridinin altında, adisyonda ve sayfada MALZEME grup başlığının
+ * yerinde. Personel 13 iki yeri de bilerek boş bırakmıştı.
+ *
+ * BELİRME KURALI VERİDEN: adisyonda `kind: 'material'` bir kalem varsa kapı
+ * var. Uydurulmuş bir eşik yok — kesim işine sonradan boya eklenirse kapı o
+ * an beliriyor, ek bir hâl gerekmiyor.
+ *
+ * KENDİLİĞİNDEN AÇILMIYOR. Ekran müşterinin gözü önünde ve kendiliğinden
+ * açılan bir sayfa hem "bir şey ters gitti" der hem bir iptal dokunuşu
+ * doğurur.
+ */
+export function formulaDoor(
+    items: readonly FormulaSourceItem[] | null | undefined,
+    formula: VisitFormula | null | undefined,
+    ctx: {
+        /** Yıkama geçildi mi — sonuç artık yazılabilir. */
+        washed: boolean;
+        /** Adisyon kasaya gitti mi. Kilitliyken kapı ÇAĞRI YAPMAZ. */
+        locked?: boolean;
+        /** Bekleme sayacı şu an koşuyor mu. */
+        waitRunning?: boolean;
+        /** Ölçülmüş bekleme, varsa. */
+        measured?: number | null;
+        /** Geçen seferin sonucu — gerekçe olarak kapıda duruyor. */
+        previousResult?: string | null;
+    },
+): FormulaDoor | null {
+    if (!hasMaterial(items)) return null;
+
+    // Tamam: 08'in mühür satırı — değerin kendisi, tebrik değil.
+    if (isComplete(formula)) {
+        return { tone: 'ok', value: summaryOf(formula), tail: '', done: true };
+    }
+
+    /**
+     * KİLİTLİYKEN AMBER YOK. Amber "hâlâ yapılabilir" diyor; oysa adisyon
+     * kasaya gittiği an o kapı kapandı. Kayıtta bir boşluk var ve kapı bunu
+     * bir davet değil, bir OLGU olarak söylüyor — `groupState`'in `missed`
+     * hâliyle aynı kural.
+     */
+    if (ctx.locked && !isComplete(formula)) {
+        return { tone: 'mid', value: summaryOf(formula, true), tail: '', done: false };
+    }
+
+    const wait = formula?.waitMinutes ?? ctx.measured ?? null;
+
+    // Oran yazıldı, sonuç bekliyor: bu evre bitti, sıra sende değil.
+    if (formula?.ratio) {
+        const value = [formula.ratio, wait != null ? `${wait} dk` : null].filter(Boolean).join(' · ');
+        return {
+            tone: 'mid',
+            value,
+            tail: ctx.waitRunning ? 'bekleme sayaçta' : 'sonuç yıkandıktan sonra',
+            done: false,
+        };
+    }
+
+    // Oran yok. Yıkandıysa borç gerçekten sonuç DEĞİL, ikisi birden.
+    return {
+        tone: 'am',
+        value: ctx.washed ? 'formül yazılmadı' : 'oran yazılabilir',
+        tail: ctx.previousResult ? `geçen sefer ${ctx.previousResult}` : 'bu müşterinin ilk formülü',
+        done: false,
+    };
+}
+
+/**
+ * Karıştırma evresinin sayaç satırı — SAYI değil AD.
+ *
+ * `bir alan kaldı` bir BORÇ ima ediyor; oysa karıştırma anında eksik bir şey
+ * yok, sonuç henüz olmamış. Sayı orada yalan söylüyor.
+ */
+export function mixDebtLine(sel: { ratio?: string | null }): string {
+    return sel.ratio ? 'karıştırma tamam · sonuç sonra' : 'oran kaldı';
+}
+
+/**
+ * Karıştırma evresinin kaydet düğmesi — üçüncü hâlin dili.
+ *
+ * Ne "eksik" (eksik bir şey yok), ne "şimdilik" (Personel 12'de tutulamayan
+ * bir söz olduğu için yasaklandı). Düğme yapılan işi ADIYLA kaydediyor.
+ *
+ * Oran yoksa düğme ÇİZİLMİYOR: malzemeyi adisyon zaten biliyor, kaydedilecek
+ * bir değer yokken kaydet düğmesi sahte bir onay olurdu.
+ */
+export function mixSaveLabel(
+    sel: { ratio?: string | null },
+    waitRunning: boolean,
+): { label: string; note: string } | null {
+    if (!sel.ratio) return null;
+    return {
+        label: 'Karıştırmayı kaydet',
+        note: waitRunning
+            ? 'Sonuç yıkandıktan sonra, bekleme sayaçtan yazılıyor.'
+            : 'Sonuç yıkandıktan sonra yazılıyor.',
+    };
+}
+
+/** Gönderme uyarısının eksik alan listesi. Şekil sabit, liste değişken. */
+export function missingFields(formula: VisitFormula | null | undefined): string | null {
+    const noRatio = !formula?.ratio;
+    const noResult = !formula?.result;
+    if (noRatio && noResult) return 'Oran ve sonuç';
+    if (noResult) return 'Sonuç';
+    if (noRatio) return 'Oran';
+    return null;
 }

@@ -5,7 +5,8 @@ import test from 'node:test';
 import {
     RATIOS, RESULTS, TONES, WAITS, debtLine, fieldCompare, groupState,
     hasMaterial, historyMark, historyState, isComplete, isLocked, materialsOf,
-    modeOf, offList, ratioLabel, ratioValue, saveLabel, sendWarning, stepRatio,
+    formulaDoor, missingFields, mixDebtLine, mixSaveLabel, modeOf, offList,
+    ratioLabel, ratioValue, saveLabel, sendWarning, stepRatio,
     stepWait, summaryOf,
 } from '../mobile/src/lib/formula.ts';
 
@@ -111,7 +112,13 @@ test('sonuç bir ÖLÇEK değil — kaydırmalı ölçek sahte hassasiyet', () =
 test('formül girişi malzeme grubunun BAŞLIĞI — ayrı bir kart değil', () => {
     // Formül listede zaten duran satırların tarifi; gönder düğmesinin üstüne
     // ikinci bir amber kart koymak dikkati bölüyordu.
-    assert.ok(kumanda.includes('function GroupHead('));
+    //
+    // Personel 14: başlık artık KAPI. `GroupHead` kaldırıldı çünkü aynı şeyi
+    // çizen iki bileşen, aynı şeyin iki dili demekti — kapı üç yüzeyde de
+    // (kumanda şeridi · adisyon sayfası · işlem bitmiş liste) aynı satır.
+    assert.ok(!kumanda.includes('function GroupHead('), 'ikinci bileşen geri gelmiş');
+    assert.ok(kumanda.includes('<FormulaDoorRow'));
+    assert.match(kumanda, /head=\{`MALZEME · \$/);
     // Gruplar artık `groupsOf` ile diziliyor (Personel 13): üç tür karışmıyor
     // ve sıra sabit — EK HİZMET · ÜRÜN · MALZEME. Malzemenin başlığı ayrı
     // çiziliyor, çünkü o aynı zamanda formülün kapısı.
@@ -124,11 +131,16 @@ test('başlık YAPIŞKAN değil, pinlenen kopya', () => {
     // Yapışkan başlık kaydırma boyunca kalem satırlarını örterdi.
     assert.ok(kumanda.includes('!headSeen'), 'kopya yalnız gerçek başlık görünmezken');
     assert.ok(kumanda.includes('headY.current'), 'başlığın konumu ölçülüyor');
-    assert.ok(kumanda.includes('pinned'), 'kopya ayrı bir hâl');
+    // `pinned` propu gitti: kopya da AYNI kapı, farkı yalnız zeminin opak
+    // olması. İki ayrı bileşen çizmek aynı şeyin iki dili olurdu.
+    // Dört çizim yeri, üç YÜZEY: kumanda şeridi · adisyon alt sayfası ·
+    // işlem bitmiş liste — artı o listenin pinlenen kopyası.
+    assert.equal((kumanda.match(/<FormulaDoorRow/g) ?? []).length, 4, 'tek kapı, dört çizim');
 });
 
 test('pinlenen kopya SAYDAM değil — altındaki satır okunurdu', () => {
-    assert.ok(kumanda.includes("'#241B0E'") && kumanda.includes("'#16220F'"));
+    // Tek zemin yetiyor: renk artık kapının TONUNDA, zeminde değil.
+    assert.ok(kumanda.includes("'#241B0E'") && kumanda.includes("'#F0E9DF'"));
 });
 
 // ── Kumanda: alerji ─────────────────────────────────────────────────────────
@@ -321,7 +333,13 @@ test('kasadaki boş formül dört tire değil, bir cümle gösteriyor', () => {
 });
 
 test('kaçırılmış formül AMBER değil — amber "hâlâ yapılabilir" der', () => {
-    assert.match(kumanda, /missed \? c\.tx3 : c\.am/);
+    // Karar `GroupHead`ten `formulaDoor`a taşındı: adisyon kasaya gittiği an
+    // kapı kapandı, amber bir çağrı yalan olurdu.
+    const locked = formulaDoor(MAT, null, { washed: true, locked: true });
+    assert.equal(locked.tone, 'mid', 'kilitli kapı amber');
+    assert.equal(locked.value, 'formül yazılmadı');
+    // Kilitli değilken aynı veri amber: hâlâ yazılabilir.
+    assert.equal(formulaDoor(MAT, null, { washed: true }).tone, 'am');
 });
 
 // ── A2 · "± adım" düğmeleri kaldırıldı ──────────────────────────────────────
@@ -454,4 +472,91 @@ test('sonucun ikinci ekseni AYRI alan — result kirletilmiyor', () => {
     assert.match(kumanda, /tags: draft\.tags/);
     // Ve yalnız sonuç seçildikten SONRA çiziliyor: varsayılan yerleşimde yok.
     assert.match(bodyc, /draft\.result \? \(\s*<ToneRow/);
+});
+
+// ── Personel 14 · formül ne zaman yazılıyor ─────────────────────────────────
+
+test('kapı MALZEMEYE asılı — boya işi yoksa kapı YOK', () => {
+    // Kural moddan değil VERİDEN: kesim işine sonradan boya eklenirse kapı o
+    // an beliriyor, ek bir hâl gerekmiyor.
+    assert.equal(formulaDoor(CUT, null, { washed: false }), null);
+    assert.ok(formulaDoor(MAT, null, { washed: false }));
+});
+
+test('kapının üç tonu üç ayrı şey söylüyor', () => {
+    // amber = şimdi yazılabilir · nötr = sıra sende değil · yeşil = tamam
+    const call = formulaDoor(MAT, null, { washed: false, previousResult: 'açık kaldı' });
+    assert.equal(call.tone, 'am');
+    assert.equal(call.value, 'oran yazılabilir');
+    assert.equal(call.tail, 'geçen sefer açık kaldı');
+
+    // Oran yazıldı: bu evre bitti, bekleyişin rengi YOK.
+    const mixed = formulaDoor(MAT, { ratio: '1:1,5' }, { washed: false });
+    assert.equal(mixed.tone, 'mid');
+    assert.equal(mixed.tail, 'sonuç yıkandıktan sonra');
+    assert.equal(formulaDoor(MAT, { ratio: '1:1,5' }, { washed: false, waitRunning: true }).tail,
+        'bekleme sayaçta');
+
+    const done = formulaDoor(MAT, { ratio: '1:1,5', waitMinutes: 35, result: 'tuttu' }, { washed: true });
+    assert.equal(done.tone, 'ok');
+    assert.equal(done.done, true);
+    assert.equal(done.value, '1:1,5 · 35 dk · tuttu');
+});
+
+test('karşılaştırması olmayan müşteride kapı bunu söylüyor', () => {
+    assert.equal(formulaDoor(MAT, null, { washed: false }).tail, 'bu müşterinin ilk formülü');
+});
+
+test('ölçülen bekleme kapıya KENDİLİĞİNDEN düşüyor', () => {
+    // Haber toast'la değil kapının kendi satırında: ekran müşterinin gözünde.
+    const door = formulaDoor(MAT, { ratio: '1:1,5' }, { washed: false, measured: 35 });
+    assert.equal(door.value, '1:1,5 · 35 dk');
+});
+
+test('karıştırma anında sayaç SAYI değil AD', () => {
+    // "bir alan kaldı" bir BORÇ ima ediyor; oysa eksik bir şey yok, sonuç
+    // henüz olmamış.
+    assert.equal(mixDebtLine({}), 'oran kaldı');
+    assert.equal(mixDebtLine({ ratio: '1:2' }), 'karıştırma tamam · sonuç sonra');
+});
+
+test('üçüncü hâlin dili: ne "eksik", ne "şimdilik"', () => {
+    // Karıştırma anında eksik bir şey YOK. Düğme yapılan işi adıyla
+    // kaydediyor.
+    const save = mixSaveLabel({ ratio: '1:2' }, false);
+    assert.equal(save.label, 'Karıştırmayı kaydet');
+    assert.match(save.note, /Sonuç yıkandıktan sonra yazılıyor/);
+    assert.match(mixSaveLabel({ ratio: '1:2' }, true).note, /bekleme sayaçtan/);
+    // Oran yoksa düğme HİÇ çizilmiyor: kaydedilecek değer yokken kaydet
+    // düğmesi sahte bir onay olurdu.
+    assert.equal(mixSaveLabel({}, false), null);
+    assert.match(kumanda, /locked \|\| \(mixing && !save\) \? null/);
+});
+
+test('gönderme uyarısı eksik alanları ADLANDIRIYOR', () => {
+    // Oran karıştırırken yazıldıysa eksik olan tek şey sonuç; ikisini birden
+    // saymak, doğru yapılan işi hata gibi gösterir.
+    assert.equal(missingFields(null), 'Oran ve sonuç');
+    assert.equal(missingFields({ ratio: '1:2' }), 'Sonuç');
+    assert.equal(missingFields({ result: 'tuttu' }), 'Oran');
+    assert.equal(missingFields({ ratio: '1:2', result: 'tuttu' }), null);
+    assert.match(sendWarning('idle', { ratio: '1:2' }, MAT), /^Sonuç yazılmadı\./);
+    // Metin idle ve window'da AYNI: fitil koşarken kelime değişmez.
+    assert.equal(sendWarning('idle', null, MAT), sendWarning('window', null, MAT));
+});
+
+test('karıştırma evresinde bekleme ve sonuç IZGARA DEĞİL satır', () => {
+    // Kısık ızgara ölü kontrol, boş ızgara yanlış cevabı davet eder.
+    assert.match(bodyc, /stage === 'mixing'/);
+    assert.match(bodyc, /Yıkandıktan sonra yazılıyor/);
+    assert.match(bodyc, /Sayaç kurulunca kendiliğinden yazılıyor/);
+    assert.match(bodyc, /sayaç koşuyor · bitince yazılıyor/);
+});
+
+test('kendiliğinden açılan sayfa YOK, dırdır YOK', () => {
+    // Ekran müşterinin gözü önünde: kendiliğinden açılan bir sayfa hem "bir
+    // şey ters gitti" der hem bir iptal dokunuşu doğurur.
+    assert.ok(!/setSheet\('formula'\)[^)]*useEffect/.test(kumanda));
+    assert.ok(!kumanda.includes('Alert.alert'), 'uyarı kutusu girmiş');
+    assert.ok(!/rozet|badge/i.test(kumanda.split('function FormulaSheet')[0]));
 });

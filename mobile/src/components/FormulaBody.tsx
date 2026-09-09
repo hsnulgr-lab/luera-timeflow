@@ -205,9 +205,33 @@ function cmpNote(state: HistoryState, previous: string | null, current: string |
     return fieldCompare(state, previous, current);
 }
 
+/**
+ * "Değeri henüz yok, ne zaman geleceğini kendisi söylüyor" satırı.
+ *
+ * Karıştırma anında bekleme ve sonuç için ızgara çizmek iki türlü de yanlış
+ * olurdu: kısık bir ızgara ölü kontrol, açık bir ızgara ise yanlış cevabı
+ * davet ederdi — renk daha ortada yok.
+ */
+function Await({ text, value }: { text: string; value?: string }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            minHeight: 44, justifyContent: 'center', gap: 2,
+            paddingVertical: 11, paddingHorizontal: 14,
+            borderRadius: F.radius, backgroundColor: c.fld,
+        }}>
+            {value ? (
+                <Text style={[{ fontSize: 15, fontWeight: '600', color: c.tx }, numeric]}>{value}</Text>
+            ) : null}
+            <Text style={{ fontSize: 12.5, fontWeight: '500', color: c.tx3 }}>{text}</Text>
+        </View>
+    );
+}
+
 export function FormulaBody({
     materials, draft, locked, written, history, previous, missText,
     measured, waitSpan, fixing, onFix, onChange, onNote, materialNote, onMaterial,
+    stage = 'closing', waitRunning = false,
 }: {
     /** Adisyondan gelen malzeme — personelin girdisi DEĞİL. */
     materials: [string, string][];
@@ -229,6 +253,13 @@ export function FormulaBody({
     materialNote: string;
     /** Malzeme yanlışsa düzeltme adisyonda. Yol yoksa satır dokunulmaz. */
     onMaterial?: () => void;
+    /**
+     * KARIŞTIRMA evresinde bekleme ve sonuç ızgara DEĞİL, satır: değerleri
+     * henüz yok ve ne zaman geleceğini kendileri söylüyor. Kısık bir ızgara
+     * ölü kontrol, boş bir ızgara yalan olurdu.
+     */
+    stage?: 'mixing' | 'closing';
+    waitRunning?: boolean;
 }) {
     const { c } = useTheme();
     const set = (patch: Partial<FormulaDraft>) => onChange({ ...draft, ...patch });
@@ -330,7 +361,13 @@ export function FormulaBody({
                         ? { text: `${prevWait} → ${draft.wait} dk · liste dışı`, strong: true }
                         : cmpNote(history, prevWait, draft.wait != null ? `${draft.wait} dk` : null))}
 
-                {locked || waitRead ? (
+                {stage === 'mixing' ? (
+                    /* Bekleme daha YAŞANMADI. Sayaç koşuyorsa değeri var ama
+                       ölçüm bitmedi; kayıt bunu önceden söylüyor. */
+                    waitRunning
+                        ? <Await value={measured != null ? `${measured} dk` : undefined} text="sayaç koşuyor · bitince yazılıyor" />
+                        : <Await text="Sayaç kurulunca kendiliğinden yazılıyor." />
+                ) : locked || waitRead ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <View style={{ flex: 1 }}>
                             <Auto rows={[[
@@ -401,7 +438,11 @@ export function FormulaBody({
             {/* 4 · SONUÇ — üç kelime, artı isteğe bağlı ikinci eksen. */}
             <View style={{ gap: 8, paddingTop: 8, paddingHorizontal: 2 }}>
                 {label('sonuç', locked ? { text: '', strong: false } : cmpNote(history, prevResult, draft.result))}
-                {locked ? (
+                {stage === 'mixing' ? (
+                    /* Renk daha ortada yok: seçilebilir bırakmak yanlış cevabı
+                       davet ederdi, kısık bırakmak ölü kontrol olurdu. */
+                    <Await text="Yıkandıktan sonra yazılıyor." />
+                ) : locked ? (
                     <Auto rows={[[
                         [draft.result, ...draft.tags].filter(Boolean).join(' · ') || '—', '',
                     ]]} />
