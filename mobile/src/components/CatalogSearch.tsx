@@ -18,7 +18,7 @@
  *   · kararı veren işaret "bu müşteride": kuaför aynı saça aynı kodu sürüyor
  */
 
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import {
     KIND_ORDER, KIND_LABEL, emphasise, searchState, splitCode,
@@ -86,7 +86,7 @@ export function CatalogSearch({ query, results, frequent, onQuery, onPick, onFre
                 </View>
                 <Pressable
                     accessibilityRole="button"
-                    onPress={() => { feedback.selection(); onBack(); }}
+                    onPress={() => { feedback.selection(); Keyboard.dismiss(); onBack(); }}
                     style={({ pressed }) => ({ height: 50, justifyContent: 'center', paddingHorizontal: 4, opacity: pressed ? 0.6 : 1 })}
                 >
                     <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx2 }}>Kapat</Text>
@@ -162,7 +162,7 @@ function ResultRow({ item, query, onPick }: {
         <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${item.name}, ${KIND_LABEL[item.kind]}${item.usedHere ? ', bu müşteride daha önce kullanıldı' : ''}`}
-            onPress={() => { feedback.light(); onPick(); }}
+            onPress={() => { feedback.light(); Keyboard.dismiss(); onPick(); }}
             style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', gap: 12,
                 minHeight: ROW_H, paddingVertical: 8,

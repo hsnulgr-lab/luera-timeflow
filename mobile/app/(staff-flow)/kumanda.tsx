@@ -14,7 +14,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated, Easing, Linking, PanResponder, Pressable, ScrollView, Text, TextInput, View,
+    Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text, TextInput,
+    View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +38,7 @@ import {
     type SendState,
 } from '../../src/lib/sendToCash';
 import { feedback } from '../../src/lib/feedback';
+import { useKeyboardInset } from '../../src/lib/keyboardInset';
 import { Glyph } from '../../src/components/Glyph';
 import { Auto, Field } from '../../src/components/FormulaFields';
 import { AdisyonRow, DeleteWindow } from '../../src/components/AdisyonRow';
@@ -97,6 +99,14 @@ const USAGE: UsageRow[] = [
     { name: 'Boya · 7.31 küllü kumral', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 5 },
     { name: 'Saç bakım yağı', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 3 },
     { name: 'Keratin serum', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
+    // Kesim de kendi kutularını taşıyor: hizmet başına ayrı sıralama demek,
+    // her hizmette veri olması demek.
+    { name: 'Fön', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-02', count: 11 },
+    { name: 'Şampuan 300 ml', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-02', count: 7 },
+    { name: 'Saç bakım yağı', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-03', count: 4 },
+    { name: 'Kaş alma', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-03', count: 3 },
+    { name: 'Keratin serum', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
+    { name: 'Saç kesimi', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
     // Salonun kaydı: personelin kendi verisi yoksa buradan kuruluyor.
     { name: 'Oksidan %9', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 7 },
     { name: 'Boya · 8.3 açık kumral', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 5 },
@@ -714,6 +724,17 @@ export default function Kumanda() {
                                 setLastAdded(item.name);
                             }}
                             frequent={frequent}
+                            rows={groupsOf(lines).map((group) => (
+                                <View key={group.kind}>
+                                    <Text style={{
+                                        fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68,
+                                        color: c.tx3, paddingTop: 10, paddingBottom: 2,
+                                    }}>
+                                        {group.label}
+                                    </Text>
+                                    {group.items.map(renderLine)}
+                                </View>
+                            ))}
                             resultOf={(item) => addResult(lines, item)}
                             onSearch={() => setSheet('search')}
                             onDone={() => setSheet(null)}
@@ -1412,6 +1433,30 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
     const height = useRef(0);
     const closing = useRef(false);
     const [h, setH] = useState(0);
+    /**
+     * Klavye açıkken sayfa onun ÜSTÜNE çıkıyor. Eskiden `bottom: 0`da
+     * duruyordu ve klavye üstüne biniyordu: katalog aramasında sonuçların
+     * yarısı görünmüyordu. Telefonda görüldü.
+     */
+    const kb = useKeyboardInset();
+    const { height: winH } = useWindowDimensions();
+    /**
+     * Klavye açıkken tavan YÜZDE OLAMAZ.
+     *
+     * Sayfa artık klavyenin üstünden başlıyor; `%92` ise ekranın tamamının
+     * yüzdesi. İkisi üst üste gelince sayfa ekranın ÜSTÜNDEN taşıyordu —
+     * arama alanı ve sonuç sayısı adacığın altında kalıyordu. Telefonda
+     * görüldü.
+     *
+     * Kalan yer piksel olarak hesaplanıyor: ekran − klavye − çentik.
+     */
+    const roof = kb > 0
+        ? Math.max(260, winH - kb - insets.top - 8)
+        // Klavye kapalıyken de PİKSEL: yüzde, arkada ne kaldığını söylemiyor.
+        // Üstte bırakılan 108 pt tam olarak plakanın dört satırı — "‹ Bugün",
+        // durum, müşterinin adı ve hizmet. Personel işlemin ortasında ve
+        // kimliği kaybetmemeli; onun altındaki her şey sayfaya veriliyor.
+        : Math.max(320, winH - insets.top - 108);
 
     /** Ölçülmeden önce sayfa kendi boyu kadar aşağıda: ekranda hiç görünmüyor. */
     const fall = enter.interpolate({ inputRange: [0, 1], outputRange: [h || SHEET_FALLBACK_H, 0] });
@@ -1419,6 +1464,9 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
     const shut = () => {
         if (closing.current) return;
         closing.current = true;
+        // Klavye sayfayla BİRLİKTE kapanıyor. Kapanmazsa ekranda tek başına
+        // kalıyordu: arkadaki kumanda görünüyor, altında klavye duruyor.
+        Keyboard.dismiss();
         if (reduceMotion) { onClose(); return; }
         Animated.timing(drag, {
             toValue: Math.max(height.current, SHEET_FALLBACK_H),
@@ -1478,14 +1526,15 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
                 onLayout={(e) => measure(e.nativeEvent.layout.height)}
                 style={{
                     position: 'absolute',
-                    left: 0, right: 0, bottom: 0,
-                    maxHeight: '76%',
+                    left: 0, right: 0,
+                    bottom: kb,
+                    maxHeight: roof,
                     backgroundColor: c.card,
                     borderTopWidth: 1,
                     borderTopColor: c.bd2,
                     borderTopLeftRadius: 30,
                     borderTopRightRadius: 30,
-                    paddingBottom: insets.bottom,
+                    paddingBottom: kb > 0 ? 0 : insets.bottom,
                     transform: [{ translateY: Animated.add(fall, drag) }],
                 }}
             >
@@ -1494,6 +1543,10 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
                     accessibilityRole="button"
                     accessibilityLabel="Sayfayı kapat"
                     onAccessibilityTap={shut}
+                    // 44 pt KALIYOR. Tasarımın maketi 32 diyor ama burada 32
+                    // denendi ve ıslak/eldivenli parmakla tutulmadı; ayrıca
+                    // şerit ekran okuyucuya DÜĞME olarak açık ve 44 bizim
+                    // tabanımız. Maketteki piksel, bu ürünün ellerini bilmiyor.
                     style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}
                 >
                     <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.22 }} />
@@ -1514,10 +1567,15 @@ function SheetHead({ title, note }: { title: string; note: string }) {
     );
 }
 
+/**
+ * Alt dolgu 34'tü ve alt sayfa AYRICA `insets.bottom` ekliyor: aynı boşluk
+ * iki kez sayılıyordu ve "Bitti"nin altında 68 pt ölü alan kalıyordu. Ev
+ * göstergesinin payını kabuk veriyor; ayak yalnız kendi nefesini alıyor.
+ */
 function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     const { c } = useTheme();
     return (
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
             <Pressable
                 accessibilityRole="button"
                 onPress={onPress}
@@ -1529,8 +1587,14 @@ function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     );
 }
 
-function CatalogSheet({ count, frequent, onAdd, resultOf, onSearch, onDone }: {
+function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone }: {
     count: number;
+    /**
+     * Adisyonun KENDİ satırları. Sayfanın adı bu yüzden "Kalem ekle" değil
+     * "Adisyon": işlem sürerken yanlış eklenen bir kalemi görmek ve
+     * düzeltmek için Bitir'e basmak gerekmiyor.
+     */
+    rows: React.ReactNode;
     /** Altı kutu ve nereden geldikleri — bkz. `frequentFor`. */
     frequent: { items: CatalogItem[]; source: 'staff' | 'salon' | 'none'; label: string };
     onSearch: () => void;
@@ -1549,7 +1613,7 @@ function CatalogSheet({ count, frequent, onAdd, resultOf, onSearch, onDone }: {
     const [added, setAdded] = useState<{ name: string; word: string } | null>(null);
     return (
         <>
-            <SheetHead title="Kalem ekle" note={`${count} kalem`} />
+            <SheetHead title="Adisyon" note={count > 0 ? `${count} kalem` : 'boş'} />
             <ScrollView style={{ paddingHorizontal: 16 }}>
                 {/* ARTIK ÖLÜ DEĞİL. Burası `Text` içeren bir `View`di: giriş
                     alanı gibi çizilmiş, dokunulunca hiçbir şey yapmayan bir
@@ -1562,7 +1626,7 @@ function CatalogSheet({ count, frequent, onAdd, resultOf, onSearch, onDone }: {
                     style={({ pressed }) => ({
                         height: 50, borderRadius: 16, backgroundColor: c.surf2,
                         borderWidth: 1, borderColor: c.bd, paddingHorizontal: 14,
-                        flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10,
+                        flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8,
                         opacity: pressed ? 0.7 : 1,
                     })}
                 >
@@ -1633,6 +1697,28 @@ function CatalogSheet({ count, frequent, onAdd, resultOf, onSearch, onDone }: {
                     })}
                 </View>
                 )}
+                {/* KALEMLER — eklenenler aynı sayfada, ızgaranın hemen
+                    altında. Eklemenin kalıcı kanıtı bu liste: kutudaki 900
+                    ms'lik onay sönüyor ve neyin eklendiğini söylemiyor. */}
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingTop: 12, paddingBottom: 8 }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.89, color: c.tx3 }}>
+                        {upperTR('Kalemler')}
+                    </Text>
+                    <Text style={{ marginLeft: 'auto', fontSize: 11, fontWeight: '600', color: c.tx3 }}>
+                        {count > 0 ? `${count} satır` : 'boş'}
+                    </Text>
+                </View>
+                {count > 0 ? rows : (
+                    <View style={{ paddingTop: 8, gap: 6 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: c.tx }}>
+                            Bu ziyarette henüz kalem yok
+                        </Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '500', lineHeight: 18, color: c.tx3, maxWidth: 320 }}>
+                            Yukarıdaki kutulardan birine dokunun ya da katalogda arayın.
+                        </Text>
+                    </View>
+                )}
+
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 12 }}>
                     <Glyph name="box" size={15} color={c.tx3} />
                     <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '600', color: c.tx3, lineHeight: 16 }}>
@@ -1749,7 +1835,7 @@ function FormulaSheet({ materials, wait, waitSpan, current, locked, previous, on
             </ScrollView>
             {/* Kilitliyken kısık bir düğme DEĞİL, hiç düğme yok. */}
             {locked ? null : (
-            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34, gap: 8 }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 8 }}>
                 <Pressable
                     accessibilityRole="button"
                     onPress={() => onSave({

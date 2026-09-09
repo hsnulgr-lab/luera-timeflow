@@ -23,7 +23,7 @@ import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import { Glyph } from './Glyph';
 import {
-    DELETE_MS, KIND_LABEL, money, secondsLeft, stepQty, type AdisyonLine,
+    DELETE_MS, KIND_LABEL, KIND_NAME, money, secondsLeft, stepQty, type AdisyonLine,
 } from '../lib/adisyon';
 import { feedback } from '../lib/feedback';
 import { upperTR } from '../lib/text';
@@ -81,8 +81,11 @@ export function AdisyonRow({
                 <Text numberOfLines={1} style={{ fontSize: 15.5, fontWeight: '600', letterSpacing: -0.23, color: c.tx }}>
                     {line.name}
                 </Text>
-                <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.47, color: c.tx3 }}>
-                    {KIND_LABEL[line.kind]}
+                {/* Cümle harfi: üstteki grup başlığı zaten büyük harfle
+                    aynı kelimeyi söylüyor. İkisi aynı sesle yazılınca satır
+                    kendini tekrar ediyordu. */}
+                <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.tx3 }}>
+                    {KIND_NAME[line.kind]}
                 </Text>
             </View>
             {line.qty > 1 ? (

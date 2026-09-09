@@ -293,3 +293,56 @@ test('salonun da geçmişi yoksa ızgara ÇİZİLMİYOR — altı boş kutu öl�
 test('boş adisyonun kendi cümlesi var — boş satır iskeleti yok', () => {
     assert.match(screen, /Bu ziyarette henüz kalem yok/);
 });
+
+// ── Klavye · alt sayfa onun ÜSTÜNE çıkıyor ──────────────────────────────────
+
+test('alt sayfa klavyenin ÜSTÜNE çıkıyor — liste altında kalmıyor', () => {
+    // Telefonda görüldü: katalog aramasında sekiz sonucun üçü görünüyordu,
+    // kalanı klavyenin altındaydı. Sayfa `bottom: 0`da duruyordu.
+    const kbd = code(read('../mobile/src/lib/keyboardInset.ts'));
+    assert.match(kbd, /keyboardWillChangeFrame/, 'iOS klavyeyle BİRLİKTE kalkmalı');
+    assert.match(kbd, /endCoordinates\?\.height/, 'yükseklik ölçülüyor, sabit yazılmıyor');
+    assert.match(screen, /bottom: kb,/);
+    // Tavan klavye açıkken YÜZDE OLAMAZ: sayfa artık klavyenin üstünden
+    // başlıyor, yüzde ise ekranın tamamının. İkisi üst üste gelince sayfa
+    // ekranın ÜSTÜNDEN taşıyordu — arama alanı adacığın altında kalıyordu.
+    assert.match(screen, /winH - kb - insets\.top/);
+    assert.match(screen, /maxHeight: roof,/);
+    // Güvenli alan dolgusu klavye açıkken klavyenin altında kalıyordu.
+    assert.match(screen, /paddingBottom: kb > 0 \? 0 : insets\.bottom/);
+});
+
+test('klavye sayfayla BİRLİKTE kapanıyor', () => {
+    // Kapanmazsa ekranda tek başına kalıyordu: arkada kumanda, altında klavye.
+    assert.match(screen, /Keyboard\.dismiss\(\);/);
+    assert.match(search, /Keyboard\.dismiss\(\); onBack\(\)/);
+    assert.match(search, /Keyboard\.dismiss\(\); onPick\(\)/);
+});
+
+test('eklenen kalemler EKLEME SAYFASINDA görünüyor', () => {
+    // İşlem sürerken ekranda yalnız şerit vardı: "son Saç kesimi". Yanlış
+    // eklenen bir kalemi görmek ve düzeltmek için Bitir'e basmak gerekiyordu.
+    // Sayfanın adı bu yüzden "Kalem ekle" değil "Adisyon".
+    assert.match(screen, /title="Adisyon"/);
+    assert.ok(!screen.includes('title="Kalem ekle"'), 'eski başlık duruyor');
+    assert.match(screen, /upperTR\('Kalemler'\)/);
+    assert.match(screen, /rows=\{groupsOf\(lines\)\.map/);
+    // Sıfırda satır iskeleti değil, cümle.
+    assert.match(screen, /Bu ziyarette henüz kalem yok/);
+});
+
+test('alt sayfanın alt dolgusu İKİ KEZ sayılmıyor', () => {
+    // `SheetFoot` sabit 34 taşıyordu ve kabuk ayrıca `insets.bottom` ekliyor:
+    // "Bitti"nin altında 68 pt ölü alan kalıyordu. Ev göstergesinin payını
+    // kabuk veriyor.
+    assert.ok(!screen.includes('paddingBottom: 34'), 'sabit 34 geri gelmiş');
+    assert.match(screen, /paddingBottom: kb > 0 \? 0 : insets\.bottom/);
+});
+
+test('alt sayfanın tavanı YÜZDE değil piksel — arkada ne kaldığı belli', () => {
+    // Yüzde, arkada ne kaldığını söylemiyor. Üstte bırakılan 108 pt tam
+    // olarak plakanın dört satırı: "‹ Bugün", durum, müşterinin adı ve
+    // hizmet. Personel işlemin ortasında ve kimliği kaybetmemeli.
+    assert.match(screen, /winH - insets\.top - 108/);
+    assert.ok(!screen.includes("'76%'"), 'yüzde tavan geri gelmiş');
+});

@@ -31,10 +31,25 @@ export interface AdisyonLine {
 /** Sıra sabit ve her yerde aynı; tür bir kategori, bir hâl değil. */
 export const KIND_ORDER: readonly LineKind[] = ['extra', 'product', 'material'];
 
+/** Grup BAŞLIĞI — büyük harf, aralıklı. */
 export const KIND_LABEL: Record<LineKind, string> = {
     extra: 'EK HİZMET',
     product: 'ÜRÜN',
     material: 'MALZEME',
+};
+
+/**
+ * Satırın altındaki tür — cümle harfi.
+ *
+ * Başlıkla aynı register'da yazılınca ekranda aynı kelime iki kez ve aynı
+ * sesle görünüyordu: "EK HİZMET" başlığının altında yine "EK HİZMET".
+ * Tekrar kaldırılmıyor (satır grubundan koparıldığında da türünü söylemeli)
+ * ama SESİ düşüyor: başlık bağırıyor, satır fısıldıyor.
+ */
+export const KIND_NAME: Record<LineKind, string> = {
+    extra: 'Ek hizmet',
+    product: 'Ürün',
+    material: 'Malzeme',
 };
 
 /**
