@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
+import type { VisitFormula } from '../lib/formula';
+
 // staff-api istemcisi.
 //
 // Personel cihazında Supabase oturumu YOKTUR. Elindeki tek şey iki token:
@@ -44,6 +46,18 @@ export interface Appointment {
     service_ended_at: string | null;
     adisyon_items: AdisyonItem[] | null;
     is_paid: boolean;
+    /**
+     * Ziyaretin renk formülü. Sunucu (`RES_COLS`) bunu HER okumada
+     * gönderiyordu ama tip bilmiyordu: kumanda formülü kendi yerel
+     * durumunda tutup randevudan hiç okumuyordu.
+     */
+    formula: VisitFormula | null;
+    /**
+     * Sürüm damgası — `visit.items` iyimser kilidinin dayanağı (092).
+     * İstemci en son gördüğü damgayı `expectedUpdatedAt` olarak geri
+     * gönderdiğinde, arada başkası yazmışsa yazma reddediliyor.
+     */
+    updated_at: string | null;
 }
 
 /**
@@ -189,6 +203,13 @@ export const api = {
         waitMinutes?: number | null;
         waitSource?: 'timer' | 'manual';
         result?: string | null;
+        /**
+         * Sonucun ikinci ekseni (`formula.TONES`). Ekran bunu üretiyordu ve
+         * sunucu 092'den beri kabul ediyor, ama BURADA yoktu: istek gövdesine
+         * hiç girmiyordu. Uç bağlandığında personelin seçtiği etiket sessizce
+         * kaybolacaktı.
+         */
+        tags?: string[];
         note?: string | null;
     }) => write('visit.formula', { reservationId, ...patch }),
 };
