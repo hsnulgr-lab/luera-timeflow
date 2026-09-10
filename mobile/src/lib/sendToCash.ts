@@ -120,6 +120,39 @@ export function barFoot(state: SendState): string | null {
     }
 }
 
+/**
+ * Gönderimin sonucu — hangi hâle düşüyoruz.
+ *
+ * Ekran bunu KENDİ BAŞINA karar veremezdi ve vermiyordu da: 900 ms sonra
+ * koşulsuz `sent` yazıyordu. `queued` ve `error` hâlleri tasarlanmış,
+ * yazılmış, test edilmişti ama hiçbir yerden tetiklenemiyordu — yani ekran
+ * her zaman "gönderildi" diyordu, adisyon gerçekten gitmemiş olsa bile.
+ *
+ * Sıra ÖNEMLİ. Sunucu konuştuysa kuyruk devreye girmez: 403 ve 409 tekrar
+ * denemekle düzelmez, kuyrukta sonsuza kadar dönerdi. Aynı kural istemcinin
+ * yazma katmanında da yazılı (`api/staff.ts` · write()).
+ */
+export function sendOutcome(input: {
+    offline: boolean;
+    /** Sunucunun hata kodu. Varsa sunucuya ULAŞILDI demektir. */
+    serverCode?: string | null;
+}): { state: 'sent' | 'queued' | 'error'; code: string | null } {
+    if (input.serverCode) return { state: 'error', code: input.serverCode };
+    if (input.offline) return { state: 'queued', code: null };
+    return { state: 'sent', code: null };
+}
+
+/**
+ * Kuyruk şeridinin cümlesi.
+ *
+ * Sayı UYDURULMUYOR: ekranda sabit "Sırada 3 yazma" yazıyordu. Gerçek kuyruk
+ * boşken bir sayı yazmak, olmayan işleri varmış gibi göstermek olurdu — ama
+ * "bu adisyon sırada" her hâlde doğru.
+ */
+export function queuedBandLabel(queueLength: number): string {
+    return queueLength > 0 ? `Sırada ${queueLength} yazma` : 'Bu adisyon sırada';
+}
+
 /** Sunucunun hayırını personelin diline çeviren tek yer. */
 export function errorLine(code: string | null | undefined): string {
     switch (code) {

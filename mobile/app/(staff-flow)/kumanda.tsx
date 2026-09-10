@@ -36,9 +36,12 @@ import {
 import { SendToCash } from '../../src/components/SendToCash';
 import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
+    queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
 import { saveVisitFormula, visitFormulaOf } from '../../src/lib/formulaStore';
+import { mockCashResult } from '../../src/lib/mockCash';
+import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
 import { useKeyboardInset } from '../../src/lib/keyboardInset';
 import { Glyph } from '../../src/components/Glyph';
@@ -165,6 +168,10 @@ export default function Kumanda() {
      * hâller — ikincisi birincinin kısık hâli değil.
      */
     const [send, setSend] = useState<SendState>('idle');
+    /** Sunucunun hayırının KODU — ekranın cümlesi bundan türüyor. */
+    const [sendCode, setSendCode] = useState<string | null>(null);
+    /** Gerçek bağlantı ve gerçek kuyruk uzunluğu — uydurulmuyor. */
+    const { offline, queued: queueLength } = useConnectivity();
     const [sentAt, setSentAt] = useState<string | null>(null);
     /** Geri alındıktan sonra 2.6 sn duran şerit. */
     const [undone, setUndone] = useState(false);
@@ -276,8 +283,18 @@ export default function Kumanda() {
         }
         if (send === 'going') {
             const id = setTimeout(() => {
-                setSentAt(clockOf(Date.now()));
-                setSend('sent');
+                // Sonuç ARTIK koşulsuz değil. Eskiden burada doğrudan `sent`
+                // yazılıyordu: uçak modunda bile ekran "Kasaya gönderildi"
+                // diyordu. Adisyonun gitmediğini söylemek kötü haberdir;
+                // gitmediği hâlde gitti demek YALANdır.
+                const result = sendOutcome({
+                    offline,
+                    serverCode: mockCashResult(base?.id),
+                });
+                setSendCode(result.code);
+                // Damga yalnız GERÇEKTEN gidince atılıyor.
+                if (result.state === 'sent') setSentAt(clockOf(Date.now()));
+                setSend(result.state);
             }, 900);
             return () => clearTimeout(id);
         }
@@ -286,7 +303,7 @@ export default function Kumanda() {
             return () => clearTimeout(id);
         }
         return undefined;
-    }, [send]);
+    }, [send, offline, base?.id]);
 
     useEffect(() => {
         if (!pending) return undefined;
@@ -315,6 +332,7 @@ export default function Kumanda() {
         setStartedAt(null);
         setEndedAt(null);
         setSend('idle');
+        setSendCode(null);
         setSentAt(null);
         setUndone(false);
         setWait(null);
@@ -563,7 +581,7 @@ export default function Kumanda() {
                 {/* Kuyruk şeridi ve "geri alındı" notu: ikisi de aynı yuvada,
                     ikisi de amber, ikisi de geçici bir gerçeği söylüyor. */}
                 {send === 'queued' ? (
-                    <Band label="Sırada 3 yazma" note="sinyal yok" />
+                    <Band label={queuedBandLabel(queueLength)} note="sinyal yok" />
                 ) : undone ? (
                     <Band label="Gönderilmedi · adisyon açık" note={clockOf(now)} />
                 ) : null}
@@ -748,7 +766,7 @@ export default function Kumanda() {
                         <SendToCash
                             state={send}
                             at={sentAt ?? undefined}
-                            errorWord={errorLine(null)}
+                            errorWord={errorLine(sendCode)}
                             small={small}
                             reduceMotion={reduceMotion}
                             onSend={() => setSend('window')}
