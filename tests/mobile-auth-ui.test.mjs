@@ -126,12 +126,20 @@ test('Giriş 05 işletme verisini stubdan alır ve tasarım metnini korur', () =
     assert.match(ui, /minHeight:\s*authMetrics\.selectionRowHeight/);
 });
 
-test('Giriş 03 hata hareketi yalnız dönüşümle, tek sözleşme değeriyle çalışır', () => {
-    assert.match(signIn, /authMotion\.errorShake/);
-    assert.match(signIn, /authMotion\.errorOffset/);
-    assert.match(signIn, /translateX/);
-    assert.match(signIn, /useNativeDriver:\s*true/);
-    assert.match(signIn, /if\s*\(reduceMotion\)\s*return/);
+// Giriş v3: şifre formundan SARSINTI KALDIRILDI. Gerekçe tasarımda yazılı ve
+// hedef kitleye dayanıyor — 40–55 yaş için sarsılan bir alan "hata" değil
+// "arıza" gibi görünüyor. Yerine geleni bu test kilitliyor: kenar kırmızıya
+// geçer (AuthField error → GlassPlate) ve bant açılır. Sarsıntı Face ID
+// halkasında DURUYOR; orası bir alan değil bir cevap (bkz. FaceRing).
+test('Giriş 03 hatası sarsmadan anlatılır: kenar kırmızı, bant açık', () => {
+    assert.doesNotMatch(signIn, /translateX/);
+    assert.doesNotMatch(signIn, /errorShake/);
+    assert.match(signIn, /error=\{Boolean\(error\)\}/);
+    assert.match(signIn, /AuthBanner kind="error"/);
+    // `reduceMotion` kapısı da kalktı: kalan hareket yok. Kenar rengi bir
+    // GEÇİŞ değil bir hâl, bant `entering` ile açılıyor ve reanimated
+    // erişilebilirlik ayarını kendisi biliyor.
+    assert.doesNotMatch(signIn, /Animated\.sequence/);
     assert.doesNotMatch(signIn, /Animated\.(?:timing|spring)[\s\S]{0,220}\b(?:height|backgroundColor|borderRadius|shadow)/);
 });
 

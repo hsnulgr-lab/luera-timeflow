@@ -17,6 +17,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
+import RAnimated, { type AnimatedStyle } from 'react-native-reanimated';
+import { GlassPlate } from './GlassPlate';
+import { LightField } from './LightField';
 import { GlassView } from 'expo-glass-effect';
 import { offlineGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
@@ -158,18 +161,34 @@ function runRowPress(value: Animated.Value, pressed: boolean) {
 }
 
 /** Giriş 01'in iki eşit kapısı; turuncu birincil/ikincil ayrımı yapmaz. */
-export function AuthChoiceButton({ title, subtitle, onPress }: {
+/**
+ * Giriş v3 · iki kapı.
+ *
+ * Aynı yükseklik, aynı cam, aynı tipografi, aynı beyaz. Ayrım SICAKLIKTA:
+ * üst kapının simgesi kor, alt kapının simgesi teal — ve ışık alanı iki
+ * kapının arkasına farklı kütle gönderiyor.
+ *
+ * Bu ekranda turuncu birincil düğme YOK ve olmayacak: iki kapıdan biri
+ * "doğru cevap" gibi görünmemeli. Personel bu ürünün ikinci sınıf kullanıcısı
+ * değil — kumandası ürünün en özenli parçası.
+ */
+export function AuthChoiceButton({ title, subtitle, onPress, glyph }: {
     title: string;
     subtitle: string;
     onPress: () => void;
+    glyph?: 'shop' | 'person';
 }) {
-    const { c, reduceMotion, small } = useTheme();
+    const { c, dark, reduceMotion, small } = useTheme();
     const press = usePressValue();
     const height = small ? authMetrics.choiceHeightSmall : authMetrics.choiceHeight;
     const titleSize = small ? authMetrics.welcomeChoiceTitleSmall : authMetrics.welcomeChoiceTitle;
     const subtitleSize = small
         ? authMetrics.welcomeChoiceSubtitleSmall
         : authMetrics.welcomeChoiceSubtitle;
+    const cool = glyph === 'person';
+    const tint = cool
+        ? (dark ? '#5FD3C8' : '#0C6E67')
+        : c.or2;
 
     return (
         <Pressable
@@ -180,18 +199,6 @@ export function AuthChoiceButton({ title, subtitle, onPress }: {
             onPressOut={() => runPress(press, false, reduceMotion)}
         >
             <Animated.View style={{
-                height,
-                justifyContent: 'center',
-                gap: authMetrics.welcomeChoiceInnerGap,
-                paddingHorizontal: small
-                    ? authMetrics.welcomeChoiceXSmall
-                    : authMetrics.welcomeChoiceX,
-                borderRadius: small
-                    ? authMetrics.welcomeChoiceRadiusSmall
-                    : authMetrics.welcomeChoiceRadius,
-                borderWidth: 1,
-                borderColor: c.bd2,
-                backgroundColor: c.card,
                 opacity: press.interpolate({
                     inputRange: [0, 1],
                     outputRange: [
@@ -206,26 +213,86 @@ export function AuthChoiceButton({ title, subtitle, onPress }: {
                     }),
                 }],
             }}>
-                <Text style={{
-                    color: c.tx,
-                    fontSize: titleSize,
-                    fontFamily: font.extraBold,
-                    fontWeight: '800',
-                    letterSpacing: titleSize * -0.025,
-                }}>
-                    {title}
-                </Text>
-                <Text style={{
-                    color: c.tx2,
-                    fontSize: subtitleSize,
-                    fontFamily: font.medium,
-                    lineHeight: subtitleSize * 1.35,
-                    fontWeight: '500',
-                }}>
-                    {subtitle}
-                </Text>
+                <GlassPlate
+                    radius={small
+                        ? authMetrics.welcomeChoiceRadiusSmall
+                        : authMetrics.welcomeChoiceRadius}
+                >
+                    <View style={{
+                        height,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 14,
+                        paddingHorizontal: small
+                            ? authMetrics.welcomeChoiceXSmall
+                            : authMetrics.welcomeChoiceX,
+                    }}>
+                        {glyph ? (
+                            <View style={{
+                                width: 40, height: 40, borderRadius: 13,
+                                alignItems: 'center', justifyContent: 'center',
+                                backgroundColor: cool
+                                    ? 'rgba(20,150,140,0.18)'
+                                    : 'rgba(255,90,31,0.16)',
+                                borderWidth: 1,
+                                borderColor: cool
+                                    ? 'rgba(20,150,140,0.34)'
+                                    : 'rgba(255,90,31,0.30)',
+                            }}>
+                                <DoorGlyph kind={glyph} color={tint} />
+                            </View>
+                        ) : null}
+                        <View style={{
+                            flex: 1, minWidth: 0,
+                            gap: authMetrics.welcomeChoiceInnerGap,
+                        }}>
+                            <Text style={{
+                                color: c.tx,
+                                fontSize: titleSize,
+                                fontFamily: font.extraBold,
+                                fontWeight: '800',
+                                letterSpacing: titleSize * -0.025,
+                            }}>
+                                {title}
+                            </Text>
+                            <Text style={{
+                                color: c.tx2,
+                                fontSize: subtitleSize,
+                                fontFamily: font.medium,
+                                lineHeight: subtitleSize * 1.35,
+                                fontWeight: '500',
+                            }}>
+                                {subtitle}
+                            </Text>
+                        </View>
+                    </View>
+                </GlassPlate>
             </Animated.View>
         </Pressable>
+    );
+}
+
+function DoorGlyph({ kind, color }: { kind: 'shop' | 'person'; color: string }) {
+    return (
+        <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+            {kind === 'shop' ? (
+                <Path
+                    d="M4 9.5 5.4 5h13.2L20 9.5M4 9.5h16M4 9.5V19h16V9.5M9.5 19v-5h5v5"
+                    stroke={color}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            ) : (
+                <Path
+                    d="M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM5 19.5c0-3.2 3.1-5 7-5s7 1.8 7 5"
+                    stroke={color}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            )}
+        </Svg>
     );
 }
 
@@ -316,9 +383,15 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
                 borderRadius: primary && small ? authMetrics.smallPrimaryRadius : radius.lg,
                 borderWidth: secondary || danger ? 1 : 0,
                 borderColor: danger ? `${c.rd}57` : secondary ? c.bd : 'transparent',
-                backgroundColor: primary ? c.or : secondary ? c.surf2 : 'transparent',
+                // Devre dışı turuncu SOLDURULMUYOR. Işık alanının üstünde %40
+                // opak bir turuncu çamurlu bir kahveye dönüyordu — kırık bir
+                // renk gibi. Yerine nötr bir yüzey: "henüz değil" demenin
+                // dürüst yolu, ve hangi zeminde olursa olsun aynı okunuyor.
+                backgroundColor: disabled && primary
+                    ? c.surf2
+                    : primary ? c.or : secondary ? c.surf2 : 'transparent',
                 opacity: disabled
-                    ? 0.4
+                    ? (primary ? 1 : 0.4)
                     : press.interpolate({
                         inputRange: [0, 1],
                         outputRange: [
@@ -342,7 +415,8 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
             }}>
                 {left}
                 <Text style={{
-                    color: primary ? '#FFFFFF' : danger ? c.rd : secondary ? c.tx : c.tx2,
+                    color: disabled && primary ? c.tx3
+                        : primary ? '#FFFFFF' : danger ? c.rd : secondary ? c.tx : c.tx2,
                     fontSize: textSize,
                     fontFamily: primary || secondary || danger ? font.extraBold : font.bold,
                     fontWeight: primary || secondary || danger ? '800' : '700',
@@ -356,10 +430,22 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
 }
 
 /** Klavye ile güvenli alanı tek yerde yöneten düz giriş kabuğu. */
-export function AuthPage({ children, contentStyle, scrollProps }: {
+/**
+ * Giriş v3: bütün auth ekranları ışık alanının üstünde duruyor.
+ *
+ * Tasarım dört ekranı çiziyor (karşılama · müdür girişi · personel girişi ·
+ * dönüş), ama alanı yalnız onlara verip kayıt akışını düz zeminde bırakmak
+ * aynı akış içinde iki ayrı ürün gibi görünürdü. Kuralın kendisi zaten
+ * kapsayıcı: **cam ve alan, içeriğin olmadığı ekranlarda serbest** — kayıt
+ * akışında da okunacak bir tutar, saat ya da isim yok.
+ */
+export function AuthPage({ children, contentStyle, scrollProps, keyboard, field = true }: {
     children: ReactNode;
     contentStyle?: StyleProp<ViewStyle>;
     scrollProps?: Omit<ScrollViewProps, 'contentContainerStyle'>;
+    /** Klavye açık: alan durmaz, bir kademe daha geriye çekilir. */
+    keyboard?: boolean;
+    field?: boolean;
 }) {
     const insets = useSafeAreaInsets();
     const { c } = useTheme();
@@ -368,6 +454,7 @@ export function AuthPage({ children, contentStyle, scrollProps }: {
             style={{ flex: 1, backgroundColor: c.bg }}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            {field ? <LightField profile="form" keyboard={keyboard} /> : null}
             <ScrollView
                 {...scrollProps}
                 style={{ flex: 1 }}
@@ -377,7 +464,10 @@ export function AuthPage({ children, contentStyle, scrollProps }: {
                 ]}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"
-                automaticallyAdjustKeyboardInsets
+                // `automaticallyAdjustKeyboardInsets` KALDIRILDI: dıştaki
+                // `KeyboardAvoidingView` zaten klavyeyi telafi ediyordu ve
+                // ikisi üst üste binince içerik iki kez yukarı kayıyor —
+                // başlık durum çubuğunun altına giriyordu. Telafi tek yerde.
                 contentInsetAdjustmentBehavior="never"
             >
                 {children}
@@ -617,13 +707,18 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
             }}>
                 {upperTR(label)}
             </Text>
+            {/* Alan da cam — ama plakadan KALIN (blur 14, dolgu .58): içine
+                yazı yazılacak ve ışık alanının hareketi imlecin arkasında
+                görünürse dikkat dağıtıyor. */}
+            <GlassPlate
+                kind="input"
+                focus={focused && !error}
+                error={error}
+                radius={small ? authMetrics.smallFieldRadius : authMetrics.fieldRadius}
+            >
             <View style={{
                 height: fieldHeight,
                 paddingHorizontal: authMetrics.fieldX,
-                borderRadius: small ? authMetrics.smallFieldRadius : authMetrics.fieldRadius,
-                borderWidth: 1,
-                borderColor: error ? c.rd : success ? `${c.gr}80` : focused ? c.or : c.bd2,
-                backgroundColor: c.surf,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: authMetrics.fieldInnerGap,
@@ -671,6 +766,7 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
                     </Pressable>
                 ) : null}
             </View>
+            </GlassPlate>
         </View>
     );
 });
@@ -912,7 +1008,7 @@ export function AuthBanner({ children, kind = 'info', inset = true, style }: {
     inset?: boolean;
     style?: StyleProp<ViewStyle>;
 }) {
-    const { c } = useTheme();
+    const { c, dark } = useTheme();
     const error = kind === 'error';
     return (
         <View style={[{
@@ -921,8 +1017,10 @@ export function AuthBanner({ children, kind = 'info', inset = true, style }: {
             paddingHorizontal: authMetrics.bannerX,
             borderRadius: authMetrics.bannerRadius,
             borderWidth: 1,
-            borderColor: error ? `${c.rd}42` : c.bd,
-            backgroundColor: error ? `${c.rd}1C` : c.surf2,
+            borderColor: error ? `${c.rd}5C` : c.bd,
+            // OPAK. Kural: bilgi taşıyan renk camdan geçmez. Cam arkasındaki
+            // alanın rengini içeri alıyor; kırmızının kırmızı kalması gerek.
+            backgroundColor: error ? (dark ? '#3A1414' : '#FBE7E7') : c.surf2,
         }, style]}>
             <Text style={{
                 color: error ? c.rd : c.tx2,
@@ -1230,6 +1328,7 @@ export function AuthStatusScreen({
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <LightField profile="form" />
             {identity ? (
                 <View style={{
                     height: authMetrics.topBarHeight,
@@ -1519,12 +1618,18 @@ export function AuthIdentityBar({ title, subtitle, onBack, contentGap = authMetr
     ) : <View style={barStyle}>{content}</View>;
 }
 
-/** Giriş 07 personel satırı; basma anında yalnız yüzey solar. */
+/**
+ * Giriş v3 · personel satırı — 74 pt CAM PLAKA.
+ *
+ * Dört satır arka arkaya dururken aralarındaki 10 pt boşluktan ışık alanı
+ * görünüyor: liste "yüzen plakalar" gibi okunuyor, tek bir kart bloğu gibi
+ * değil. Eski hâlinde satırlar alt kenarlıkla birbirine dikilmişti.
+ */
 export function AuthStaffRow({ member, onPress }: {
     member: { initials: string; name: string; role: string };
     onPress: () => void;
 }) {
-    const { c } = useTheme();
+    const { c, dark } = useTheme();
     const press = usePressValue();
     return (
         <Pressable
@@ -1534,19 +1639,18 @@ export function AuthStaffRow({ member, onPress }: {
             onPressIn={() => runRowPress(press, true)}
             onPressOut={() => runRowPress(press, false)}
         >
+            <GlassPlate radius={18}>
             <View style={{
                 minHeight: authMetrics.selectionRowHeight,
                 paddingHorizontal: authMetrics.selectionRowX,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: authMetrics.selectionRowGap,
-                borderBottomWidth: 1,
-                borderBottomColor: c.bd,
             }}>
                 <Animated.View pointerEvents="none" style={{
                     position: 'absolute',
                     inset: 0,
-                    backgroundColor: c.surf2,
+                    backgroundColor: dark ? 'rgba(18,14,8,0.28)' : 'rgba(255,255,255,0.30)',
                     opacity: press,
                 }} />
                 <View style={{
@@ -1589,6 +1693,7 @@ export function AuthStaffRow({ member, onPress }: {
                 </View>
                 <ChevronIcon color={c.tx3} />
             </View>
+            </GlassPlate>
         </Pressable>
     );
 }
@@ -1658,7 +1763,14 @@ export function AuthPinDots({ length, error = false }: { length: number; error?:
 }
 
 /** Concept 08 marka işareti. Nokta bu turda hareket etmez. */
-export function LueraMark({ staff = false, resume = false }: { staff?: boolean; resume?: boolean }) {
+export function LueraMark({ staff = false, resume = false, dotStyle, glow = false }: {
+    staff?: boolean;
+    resume?: boolean;
+    /** Giriş v3: nokta markadan AYRI geliyor — 300 ms'de, hafif taşarak. */
+    dotStyle?: StyleProp<AnimatedStyle<ViewStyle>>;
+    /** Işık alanının üstünde nokta kendi ışığını taşıyor. */
+    glow?: boolean;
+}) {
     const { c, small } = useTheme();
     const plain = staff || resume;
     const size = resume
@@ -1685,7 +1797,7 @@ export function LueraMark({ staff = false, resume = false }: { staff?: boolean; 
             }}>
                 luera
             </Text>
-            <View style={{
+            <RAnimated.View style={[{
                 width: dot,
                 height: dot,
                 marginLeft: size * (staff
@@ -1698,7 +1810,15 @@ export function LueraMark({ staff = false, resume = false }: { staff?: boolean; 
                     : authMetrics.brandDotBottomRatio),
                 borderRadius: radius.pill,
                 backgroundColor: c.or,
-            }} />
+            }, glow ? {
+                // 32 px turuncu ışıma. Android'de renkli gölge yok (yalnız
+                // `elevation`); orada nokta ışımasız duruyor ve bu kabul —
+                // ışıma markanın parçası değil, alanın üstündeki okunurluk payı.
+                shadowColor: c.or,
+                shadowOpacity: 1,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 0 },
+            } : null, dotStyle]} />
         </View>
     );
 }
@@ -1825,16 +1945,17 @@ function AuthCodeDigit({ value, error }: { value?: string; error: boolean }) {
     }, [opacity, reduceMotion, scale, value]);
 
     return (
-        <Animated.View style={{
-            flex: 1,
+        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+        <GlassPlate
+            kind="key"
+            radius={authMetrics.codeRadius}
+            error={error}
+            focus={Boolean(value) && !error}
+        >
+        <View style={{
             height: authMetrics.codeHeight,
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: authMetrics.codeRadius,
-            borderWidth: 1,
-            borderColor: error ? c.rd : value ? c.or : c.bd2,
-            backgroundColor: value ? c.card : c.surf,
-            transform: [{ scale }],
         }}>
             <Animated.Text style={[{
                 color: c.tx,
@@ -1846,6 +1967,8 @@ function AuthCodeDigit({ value, error }: { value?: string; error: boolean }) {
             }, numeric]}>
                 {value ?? ''}
             </Animated.Text>
+        </View>
+        </GlassPlate>
         </Animated.View>
     );
 }
@@ -1891,19 +2014,7 @@ function AuthKeypadKey({ value, onPress, disabled }: {
             style={{ flex: 1 }}
         >
             <Animated.View style={{
-                height: small ? authMetrics.keypadKeyHeightSmall : authMetrics.keypadKeyHeight,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: authMetrics.keypadRadius,
-                borderWidth: blank ? 0 : 1,
-                borderColor: blank ? 'transparent' : c.bd,
-                backgroundColor: blank ? 'transparent' : c.surf,
-                opacity: disabled
-                    ? 0.4
-                    : press.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, pressMotion.ghostOpacity],
-                    }),
+                opacity: disabled ? 0.4 : 1,
                 transform: [{
                     scale: press.interpolate({
                         inputRange: [0, 1],
@@ -1911,6 +2022,7 @@ function AuthKeypadKey({ value, onPress, disabled }: {
                     }),
                 }],
             }}>
+            <KeyShell blank={blank} press={press}>
                 {value === 'backspace' ? <DeleteIcon color={c.tx} /> : blank ? null : (
                     <Text style={[{
                         color: c.tx,
@@ -1923,8 +2035,39 @@ function AuthKeypadKey({ value, onPress, disabled }: {
                         {value}
                     </Text>
                 )}
+            </KeyShell>
             </Animated.View>
         </Pressable>
+    );
+}
+
+/**
+ * On iki plaka aynı alanın üstünde yüzüyor. Basılan tuş dolgusunu .52'den
+ * .66'ya açıyor — sönmüyor, AYDINLANIYOR: cam bir yüzeyin sönmesi onu
+ * arkasındaki alanla karıştırıyordu.
+ */
+function KeyShell({ blank, press, children }: {
+    blank: boolean;
+    press: Animated.Value;
+    children: ReactNode;
+}) {
+    const { dark, small } = useTheme();
+    const height = small ? authMetrics.keypadKeyHeightSmall : authMetrics.keypadKeyHeight;
+    if (blank) return <View style={{ height }} />;
+    return (
+        <GlassPlate kind="key" radius={authMetrics.keypadRadius}>
+            <Animated.View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: dark ? 'rgba(18,14,8,0.28)' : 'rgba(255,255,255,0.28)',
+                    opacity: press,
+                }}
+            />
+            <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
+                {children}
+            </View>
+        </GlassPlate>
     );
 }
 

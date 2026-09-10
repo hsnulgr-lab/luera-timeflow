@@ -12,7 +12,6 @@ import {
     AuthKeypad,
     AuthScanButton,
     AuthTextLink,
-    LueraMark,
     AuthOfflineScreen,
     AuthStatusScreen,
 } from '../../../src/components/ui';
@@ -20,6 +19,8 @@ import { expiredPairCode } from '../../../src/lib/authCopy';
 import { formatPairingCode } from '../../../src/lib/authValidation';
 import { feedback } from '../../../src/lib/feedback';
 import { authMetrics, authMotion, font, radius, type, useTheme } from '../../../src/theme';
+import { LightField } from '../../../src/components/LightField';
+import { LueraTimeflowMark } from '../../../src/components/BrandMark';
 
 const HELP_STEPS = [
     'İşletme sahibi bilgisayarda Luera’yı açar.',
@@ -242,6 +243,7 @@ export default function PairDevice() {
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <LightField profile="form" />
             <TextInput
                 value={code}
                 onChangeText={updateCode}
@@ -265,7 +267,7 @@ export default function PairDevice() {
                 paddingHorizontal: authMetrics.staffHeroX,
                 gap: authMetrics.staffHeroGap,
             }}>
-                <LueraMark staff />
+                <LueraTimeflowMark size={authMetrics.welcomeBrandSizeSmall} animate />
                 <View style={{ gap: authMetrics.codeGap }}>
                     <Text style={{
                         color: c.tx,

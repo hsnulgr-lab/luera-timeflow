@@ -13,7 +13,8 @@ const authStub = source('mobile/src/api/authStub.ts');
 const ui = source('mobile/src/components/ui.tsx');
 const tokens = source('mobile/src/theme/tokens.ts');
 const packageJson = source('mobile/package.json');
-const resumeUiBundle = `${resume}\n${ui}`;
+const faceRing = source('mobile/src/components/FaceRing.tsx');
+const resumeUiBundle = `${resume}\n${ui}\n${faceRing}`;
 
 const realAuth = readFileSync(
     new URL('../mobile/src/api/auth.ts', import.meta.url),
@@ -56,7 +57,12 @@ test('dönüş ekranında sabit kimlik, e-posta, PIN veya personel listesi bulun
     );
     assert.doesNotMatch(resume, /['"](?:1234|123456)['"]/);
     assert.doesNotMatch(resume, /\bTextInput\b|AuthStaffRow|\.map\s*\(/);
-    assert.doesNotMatch(resume, /(?:profile|staff|business)(?:Id|Name)?\s*[:=]\s*['"][^'"]+['"]/i);
+    // `profile="lock"` ışık alanının katmanı, bir kimlik değil — testin
+    // aradığı şey sabitlenmiş bir kişi/işletme adı olduğu için dışarıda.
+    assert.doesNotMatch(
+        resume,
+        /(?:profileName|staffName|businessName|staffId|businessId)\s*[:=]\s*['"][^'"]+['"]/i,
+    );
 });
 
 test('Face ID ve yedek giriş kararlarının tamamı session dikişinden geçer', () => {
@@ -86,7 +92,8 @@ test('Face ID kapalıysa boş halka gösterilmez; kişi doğru yedek girişe gö
 });
 
 test('Face ID halkası dokunulabilir SVG olur; dolgu değil yalnız okuma kenarı turunculaşır', () => {
-    assert.match(resume, /accessibilityLabel=["']Face ID ile gir["']/);
+    // Halka `FaceRing.tsx`'e taşındı; erişilebilirlik etiketi onunla gitti.
+    assert.match(faceRing, /accessibilityLabel="Face ID ile gir"/);
     assert.match(resume, /onPress=\{authenticate\}/);
     assert.match(resumeUiBundle, /react-native-svg/);
     assert.match(resumeUiBundle, /function\s+(?:Auth)?FaceIdIcon/);
@@ -94,9 +101,14 @@ test('Face ID halkası dokunulabilir SVG olur; dolgu değil yalnız okuma kenar�
     assert.match(resumeUiBundle, /strokeWidth=\{authMetrics\.iconStroke\}/);
     assert.match(resumeUiBundle, /strokeLinecap=["']round["']/);
     assert.match(resumeUiBundle, /strokeLinejoin=["']round["']/);
-    assert.match(resume, /borderColor:\s*busy\s*\?\s*c\.or\s*:\s*c\.bd2/);
-    assert.match(resume, /backgroundColor:\s*c\.surf/);
-    assert.doesNotMatch(resume, /backgroundColor:\s*`?\$\{?c\.or/);
+    // Giriş v3: halka `FaceRing`'e taşındı ve CAM oldu. Kenar rengi artık üç
+    // hâl taşıyor (nötr nefes · turuncu tanınma · kırmızı başarısızlık), o
+    // yüzden tek satırlık `busy ? c.or : c.bd2` koşulu yerini bir duruma
+    // bıraktı. Değişmeyen kural burada: DOLGU turunculaşmıyor, yalnız KENAR.
+    assert.match(resume, /<FaceRing[\s\S]{0,200}state=\{face\}/);
+    assert.match(faceRing, /borderColor:\s*border/);
+    assert.match(faceRing, /backgroundColor:\s*g\.fill/);
+    assert.doesNotMatch(faceRing, /backgroundColor:\s*`?\$\{?c\.or/);
 });
 
 test('iki başarısız Face ID denemesinden sonra yedek giriş kendiliğinden açılır', () => {
@@ -130,7 +142,7 @@ test('Giriş 10 ortak UI kitini, tema jetonlarını ve HTML ölçülerini kullan
     assert.match(tokens, /resumeNameSize:\s*24/);
     assert.match(tokens, /resumeBusinessSize:\s*14\.5/);
     assert.match(tokens, /resumePromptSize:\s*15\.5/);
-    assert.match(resume, /authMetrics\.faceIdRing/);
+    assert.match(faceRing, /authMetrics\.faceIdRing/);
     assert.match(resume, /authMetrics\.resumeAvatar/);
 });
 

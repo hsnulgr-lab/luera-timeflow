@@ -19,6 +19,7 @@ import {
 import { lockCountdownText, remainingAttemptText } from '../../../src/lib/authCopy';
 import { feedback } from '../../../src/lib/feedback';
 import { authMetrics, authMotion, font, radius, useTheme } from '../../../src/theme';
+import { LightField } from '../../../src/components/LightField';
 
 interface PendingIdentity {
     business: AuthBusiness;
@@ -153,6 +154,7 @@ export default function StaffPin() {
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <LightField profile="form" />
             {identity ? (
                 <AuthIdentityBar
                     title={identity.member.name}

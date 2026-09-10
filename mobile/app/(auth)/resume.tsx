@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { enterShell } from '../../src/lib/enterShell';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { authApi, type AuthSession } from '../../src/api/session';
 import { AuthActionButton, LueraMark } from '../../src/components/ui';
-import { authMetrics, font, glow, radius, useTheme } from '../../src/theme';
+import { authMetrics, font, radius, useTheme } from '../../src/theme';
+import { FaceRing, type FaceState } from '../../src/components/FaceRing';
+import { LightField } from '../../src/components/LightField';
 
 function FaceIdIcon({ color }: { color: string }) {
     return (
@@ -30,12 +31,33 @@ function FaceIdIcon({ color }: { color: string }) {
     );
 }
 
+/** Tanınma anında yüzün yerini alan onay. */
+function TickIcon({ color }: { color: string }) {
+    return (
+        <Svg
+            width={authMetrics.faceIdIcon}
+            height={authMetrics.faceIdIcon}
+            viewBox="0 0 24 24"
+            fill="none"
+        >
+            <Path
+                d="m5 12.5 4.5 4.5L19 7.5"
+                stroke={color}
+                strokeWidth={authMetrics.iconStroke}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </Svg>
+    );
+}
+
 export default function ResumeSignIn() {
-    const { c, dark } = useTheme();
+    const { c } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [session, setSession] = useState<AuthSession | null>(null);
     const [busy, setBusy] = useState(false);
+    const [face, setFace] = useState<FaceState>('idle');
     const biometricFailures = useRef(0);
 
     const enterApp = (next: AuthSession) => {
@@ -86,11 +108,18 @@ export default function ResumeSignIn() {
         setBusy(false);
         if (result.ok) {
             biometricFailures.current = 0;
-            enterApp(result.data);
+            // Kutlama alanda yaşıyor, arayüzde değil — ve 200 ms'yi geçmiyor.
+            // Geçtiği an kutlama değil gecikme olur.
+            setFace('ok');
+            setTimeout(() => enterApp(result.data), 200);
             return;
         }
+        setFace('bad');
         biometricFailures.current += 1;
-        if (biometricFailures.current >= 2) await openFallback();
+        if (biometricFailures.current >= 2) { await openFallback(); return; }
+        // Halka iki saniye sonra kendiliğinden nötre döner: hata bir hâl,
+        // bir damga değil.
+        setTimeout(() => setFace('idle'), 2000);
     };
 
     const changeAccount = async () => {
@@ -118,12 +147,8 @@ export default function ResumeSignIn() {
             ),
             backgroundColor: c.bg,
         }}>
-            <LinearGradient
-                pointerEvents="none"
-                colors={dark ? glow.dark : glow.light}
-                locations={glow.locations}
-                style={[StyleSheet.absoluteFill, { height: glow.height + insets.top }]}
-            />
+            {/* Kilit ekranı: iki kütle, iki buçuk kat yavaş, bulanıklık 76. */}
+            <LightField profile="lock" />
 
             <View style={{
                 flex: 0,
@@ -188,40 +213,32 @@ export default function ResumeSignIn() {
                     </Text>
                 </View>
 
-                <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Face ID ile gir"
-                    accessibilityState={{ disabled: busy }}
+                <FaceRing
+                    state={face}
                     disabled={busy}
                     onPress={authenticate}
-                    style={({ pressed }) => ({
-                        marginTop: authMetrics.resumeFaceTop,
-                        width: authMetrics.faceIdRing,
-                        height: authMetrics.faceIdRing,
-                        borderRadius: radius.pill,
-                        borderWidth: authMetrics.iconStroke,
-                        borderColor: busy ? c.or : c.bd2,
-                        backgroundColor: c.surf,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: busy ? 0.4 : pressed ? 0.6 : 1,
-                    })}
                 >
-                    <FaceIdIcon color={c.tx} />
-                </Pressable>
+                    {face === 'ok'
+                        ? <TickIcon color={c.or} />
+                        : <FaceIdIcon color={face === 'bad' ? c.rd : c.tx} />}
+                </FaceRing>
                 <Text style={{
-                    color: c.tx2,
+                    color: face === 'bad' ? c.rd : c.tx2,
                     fontSize: authMetrics.resumePromptSize,
                     fontFamily: font.medium,
                     fontWeight: '500',
                 }}>
-                    Girmek için bakın
+                    {face === 'ok' ? 'Hoş geldiniz'
+                        : face === 'bad' ? 'Tanınmadı. Halkaya dokunup tekrar deneyin.'
+                        : 'Girmek için bakın'}
                 </Text>
             </View>
 
             <View style={{
                 paddingHorizontal: authMetrics.actionsX,
                 gap: authMetrics.actionsGap,
+                // 90 → 200 ms: ekran devredilirken alt eylemler geri çekilir.
+                opacity: face === 'ok' ? 0.35 : 1,
             }}>
                 <AuthActionButton
                     kind="secondary"

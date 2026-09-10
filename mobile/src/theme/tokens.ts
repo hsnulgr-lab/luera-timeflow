@@ -100,6 +100,8 @@ export const authMetrics = {
     keypadKeyHeight: 62,
     keypadKeyHeightSmall: 52,
     selectionRowHeight: 74,
+    /** Giriş v3: plakalar arası boşluk — aradan ışık alanı görünsün diye. */
+    staffRowGap: 10,
     welcomeBrandSize: 44,
     welcomeBrandSizeSmall: 34,
     welcomeBrandTop: 44,
@@ -112,7 +114,7 @@ export const authMetrics = {
     welcomeChoiceGap: 12,
     welcomeChoiceGapSmall: 10,
     welcomeBottom: 30,
-    welcomeBottomSmall: 18,
+    welcomeBottomSmall: 24,
     welcomeChoiceTitle: 19,
     welcomeChoiceTitleSmall: 18,
     welcomeChoiceSubtitle: 13.5,

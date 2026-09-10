@@ -15,6 +15,7 @@ import {
     AuthStaffRow,
 } from '../../../src/components/ui';
 import { authMetrics, useTheme } from '../../../src/theme';
+import { LightField } from '../../../src/components/LightField';
 
 interface RosterView {
     business: AuthBusiness;
@@ -54,6 +55,7 @@ export default function ChooseStaff() {
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            <LightField profile="form" />
             {roster ? (
                 <AuthIdentityBar
                     title={roster.business.name}
@@ -69,7 +71,11 @@ export default function ChooseStaff() {
             >
                 <AuthHeader selection title="Siz kimsiniz?" body="Listeden kendinizi seçin" />
                 {roster ? (
-                    <View style={{ borderTopWidth: 1, borderTopColor: c.bd }}>
+                    // Plakalar arası 10 pt: aradan ışık alanı görünsün diye.
+                    <View style={{
+                        paddingHorizontal: authMetrics.selectionRowX,
+                        gap: authMetrics.staffRowGap,
+                    }}>
                         {roster.staff.map((member) => (
                             <AuthStaffRow
                                 key={member.id}

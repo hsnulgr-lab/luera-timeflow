@@ -15,6 +15,7 @@ import {
     AuthStepIndicator,
 } from '../../../src/components/ui';
 import { authMetrics, glow, useTheme } from '../../../src/theme';
+import { LightField } from '../../../src/components/LightField';
 
 const READY_ITEMS = [
     'Hizmetlerinizi ekleyin',
@@ -83,6 +84,7 @@ export default function SignupReady() {
             ),
             backgroundColor: c.bg,
         }}>
+            <LightField profile="form" />
             <Stack.Screen options={{ gestureEnabled: false }} />
             <LinearGradient
                 pointerEvents="none"

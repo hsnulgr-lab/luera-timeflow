@@ -9,6 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { authApi, type AuthResult, type AuthSession } from '../../src/api/session';
 import { AuthActionButton } from '../../src/components/ui';
 import { authMetrics, font, radius, type, useTheme } from '../../src/theme';
+import { LightField } from '../../src/components/LightField';
 
 function FaceIdIcon({ color }: { color: string }) {
     return (
@@ -65,6 +66,7 @@ export default function BiometricOffer() {
             paddingBottom: Math.max(insets.bottom, authMetrics.biometricActionsBottom),
             backgroundColor: c.bg,
         }}>
+            <LightField profile="form" />
             <View style={{
                 flex: 1,
                 alignItems: 'center',

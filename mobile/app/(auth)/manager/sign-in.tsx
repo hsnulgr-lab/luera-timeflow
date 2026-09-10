@@ -1,12 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    Animated,
-    Easing,
-    Keyboard,
-    TextInput,
-    View,
-} from 'react-native';
+import { Keyboard, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../../src/api/session';
 import {
@@ -19,20 +13,30 @@ import {
     AuthPage,
 } from '../../../src/components/ui';
 import { lockCountdownText, remainingAttemptText } from '../../../src/lib/authCopy';
-import { authMetrics, authMotion, useTheme } from '../../../src/theme';
+import { authMetrics, useTheme } from '../../../src/theme';
 
 interface LoginError {
     message: string;
     lockedUntil?: number;
 }
 
+/**
+ * Giriş v3: **sarsıntı kalktı.**
+ *
+ * Hedef kitle 40–55 yaş; sarsılan bir alan onlar için "hata" değil
+ * "arıza" gibi görünüyor. Yerine gelen: şifre alanının kenarı 160 ms'de
+ * kırmızıya geçiyor (`GlassPlate error`) ve hata bandı `entering` ile
+ * yüksekliğini açıyor. Bilgi aynı, ton farklı.
+ *
+ * Face ID'de sarsıntı DURUYOR — orada "tanımadım" demek gerekiyor ve
+ * halka bir alan değil bir cevap.
+ */
 export default function ManagerSignIn() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { c, reduceMotion, small } = useTheme();
+    const { c, small } = useTheme();
     const emailRef = useRef<TextInput>(null);
     const passwordRef = useRef<TextInput>(null);
-    const shake = useRef(new Animated.Value(0)).current;
     const [ready, setReady] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -77,38 +81,6 @@ export default function ManagerSignIn() {
         : 0, [error?.lockedUntil, now]);
     const locked = Boolean(error?.lockedUntil && lockedSeconds > 0);
 
-    const runShake = () => {
-        if (reduceMotion) return;
-        shake.stopAnimation();
-        shake.setValue(0);
-        const step = authMotion.errorShake / 4;
-        Animated.sequence([
-            Animated.timing(shake, {
-                toValue: 1,
-                duration: step,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            }),
-            Animated.timing(shake, {
-                toValue: -1,
-                duration: step,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            }),
-            Animated.timing(shake, {
-                toValue: 1,
-                duration: step,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            }),
-            Animated.timing(shake, {
-                toValue: 0,
-                duration: step,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    };
 
     const submit = async () => {
         if (busy || locked || !email || !password) return;
@@ -128,7 +100,6 @@ export default function ManagerSignIn() {
                 message: remainingAttemptText('manager', remaining),
                 lockedUntil: result.lockedUntil,
             });
-            requestAnimationFrame(runShake);
             return;
         }
 
@@ -158,7 +129,10 @@ export default function ManagerSignIn() {
     }
 
     return (
-        <AuthPage contentStyle={{ paddingBottom: Math.max(insets.bottom, authMetrics.noSafeAreaBottom) }}>
+        <AuthPage
+            keyboard={keyboardOpen}
+            contentStyle={{ paddingBottom: Math.max(insets.bottom, authMetrics.noSafeAreaBottom) }}
+        >
             <AuthBackBar onPress={() => router.back()} />
             <AuthHeader
                 title="Hesabınıza girin"
@@ -183,15 +157,7 @@ export default function ManagerSignIn() {
                     onSubmitEditing={() => passwordRef.current?.focus()}
                     blurOnSubmit={false}
                 />
-                <Animated.View style={{
-                    gap: authMetrics.formGap,
-                    transform: [{
-                        translateX: shake.interpolate({
-                            inputRange: [-1, 1],
-                            outputRange: [-authMotion.errorOffset, authMotion.errorOffset],
-                        }),
-                    }],
-                }}>
+                <View style={{ gap: authMetrics.formGap }}>
                     <AuthField
                         ref={passwordRef}
                         label="Şifre"
@@ -209,7 +175,7 @@ export default function ManagerSignIn() {
                             {error.message}
                         </AuthBanner>
                     ) : null}
-                </Animated.View>
+                </View>
                 <View style={{ marginTop: authMetrics.buttonTop }}>
                     <AuthActionButton
                         label={locked ? lockCountdownText(lockedSeconds) : error ? 'Yeniden dene' : 'Gir'}
