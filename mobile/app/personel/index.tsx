@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,9 @@ import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import { formatDayMonth, todayISO } from '../../src/lib/calendar';
 import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
+import { useAgenda } from '../../src/lib/agendaSource';
+import { LIVE_AUTH } from '../../src/api/session';
+import { feedback } from '../../src/lib/feedback';
 import { font, glow, useTheme } from '../../src/theme';
 
 /**
@@ -65,10 +68,10 @@ export default function Today() {
     const isToday = dateISO === today;
 
     const [now, setNow] = useState(() => Date.now());
-    const agenda = useMemo(
-        () => (isToday ? demoAgenda(now, dateISO) : demoAgendaFor(dateISO, today)),
-        [dateISO, isToday, today], // eslint-disable-line react-hooks/exhaustive-deps
-    );
+    // Liste artık SENKRON DEĞİL. Sahte kaynak anında dönüyordu; gerçek sunucu
+    // dönmeyebilir de. "Okunamadı" ile "randevu yok" ayrı hâller ve ikincisi
+    // personelin gününü kapatmasına yol açardı.
+    const { state: agendaState, rows: agenda, reload } = useAgenda(dateISO, today);
 
     const rows = useMemo(
         () => agenda.map((appointment) => ({ appointment, state: cardState(appointment, now) })),
@@ -87,7 +90,20 @@ export default function Today() {
     const lineAfter = isToday ? nowLineAfter(agenda, now) : -2;
     const days = useMemo(() => stripDays(today), [today]);
     const todayCount = useMemo(() => demoAgenda(now, today).length, [today]); // eslint-disable-line react-hooks/exhaustive-deps
-    const counts = useMemo(() => demoCounts(days, today, todayCount), [days, today, todayCount]);
+    /**
+     * Şeridin gün sayıları.
+     *
+     * Sunucuda ARALIK ucu yok — `agenda` tek gün dönüyor. Canlıda sahte
+     * sayıları çizmek düpedüz yalan olurdu; onun yerine YALNIZ okunan gün
+     * sayı taşıyor. Şerit eksik günü "bilinmiyor" diye çiziyor, sıfır diye
+     * değil (`personel/calendar.tsx` ile aynı kural).
+     */
+    const counts = useMemo(
+        () => (LIVE_AUTH
+            ? (agendaState === 'ok' ? { [dateISO]: agenda.length } : {})
+            : demoCounts(days, today, todayCount)),
+        [agendaState, agenda.length, dateISO, days, today, todayCount],
+    );
 
     /**
      * Listeye YENİ düşen randevular. Müdür gün içinde randevu ekleyebiliyor;
@@ -169,7 +185,53 @@ export default function Today() {
                     taşınıyor. */}
                 <NowLineSlot active={lineAfter < 0} time={clockOf(now)} />
 
-                {rows.length === 0 ? (
+                {agendaState === 'error' ? (
+                    /* OKUNAMADI — "randevu yok" DEĞİL. Ayrı bir görsel
+                       icat edilmiyor: aynı yerleşim, ayrı cümle ve tek bir
+                       eylem. Durum ekranlarının kendi turu (Müdür 28) hâlâ
+                       rafta; burada yapılan tek şey, hatanın boş bir gün
+                       gibi okunmasını engellemek. */
+                    <View style={{ paddingHorizontal: 16, paddingTop: 26, gap: 7 }}>
+                        <Text style={{
+                            color: c.tx,
+                            fontSize: 19,
+                            lineHeight: 22.8,
+                            letterSpacing: -0.38,
+                            fontFamily: font.extraLight,
+                        }}>
+                            Bu günü <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
+                        </Text>
+                        <Text style={{
+                            color: c.tx2,
+                            fontSize: 13.5,
+                            lineHeight: 20.25,
+                            fontWeight: '500',
+                            maxWidth: 310,
+                        }}>
+                            Randevunuz olmadığı anlamına gelmez. Bağlantınızı kontrol edip
+                            tekrar deneyin.
+                        </Text>
+                        <Pressable
+                            accessibilityRole="button"
+                            onPress={() => { feedback.selection(); reload(); }}
+                            style={({ pressed }) => ({
+                                alignSelf: 'flex-start', marginTop: 6,
+                                paddingHorizontal: 16, height: 40, borderRadius: 20,
+                                alignItems: 'center', justifyContent: 'center',
+                                backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
+                            <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>
+                                Tekrar dene
+                            </Text>
+                        </Pressable>
+                    </View>
+                ) : agendaState === 'loading' ? (
+                    /* Yükleniyor SESSİZ: iskelet ya da dönen çark yok. Liste
+                       çoğu zaman bir saniyeden kısa sürede geliyor ve o kadar
+                       kısa süre için ekranı doldurmak, gelen listeyi zıplatır. */
+                    null
+                ) : rows.length === 0 ? (
                     /* Randevusuz gün artık ULAŞILABİLİR bir hâl: şerit her
                        güne açıyor. Boş bir liste bırakmak "yüklenmedi mi,
                        yok mu" sorusunu doğururdu. */
