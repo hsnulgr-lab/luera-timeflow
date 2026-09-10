@@ -33,6 +33,12 @@ export default function ManagerAppointment() {
     const [day, setDay] = useState<Appt[]>([]);
     const [appointment, setAppointment] = useState<Appt | null>(null);
     const [loaded, setLoaded] = useState(false);
+    /**
+     * Okuma BAŞARISIZ mı oldu. `loaded` ile ayrı tutuluyor çünkü "gün okundu,
+     * randevu içinde yok" ile "gün hiç okunamadı" ayrı şeyler ve ikincisi
+     * müdüre "randevu silinmiş" diye görünüyordu.
+     */
+    const [failed, setFailed] = useState(false);
     const [moveMode, setMoveMode] = useState<'time' | 'staff' | null>(null);
     const [result, setResult] = useState<MoveResult | null>(null);
 
@@ -53,9 +59,15 @@ export default function ManagerAppointment() {
                 if (!alive) return;
                 setDay(list);
                 setAppointment(list.find((item) => item.id === params.id) ?? null);
+                // Önceki denemede hata olmuş olabilir; okundu artık.
+                setFailed(false);
                 setLoaded(true);
             })
-            .catch(() => { if (alive) setLoaded(true); });
+            .catch(() => {
+                if (!alive) return;
+                setFailed(true);
+                setLoaded(true);
+            });
         return () => { alive = false; };
     }, [dateISO, params.id]);
 
@@ -99,7 +111,7 @@ export default function ManagerAppointment() {
 
     const close = useCallback(() => {
         if (router.canGoBack()) router.back();
-        else router.replace('/(manager)/calendar');
+        else router.replace('/mudur/calendar');
     }, [router]);
 
     return (
@@ -146,6 +158,19 @@ export default function ManagerAppointment() {
                     }}
                     onCancel={() => setAppointment({ ...appointment, status: 'cancelled' })}
                     onDelete={close}
+                />
+            ) : failed ? (
+                /*
+                 * Okunamayan gün "randevu silinmiş" DEĞİL. Aynı bileşen, ayrı
+                 * cümle: değişen tek şey söylenen söz. Ayrı bir "okunamadı"
+                 * görseli (tekrar dene düğmesi vb.) müdür modunun durum
+                 * ekranlarına ait ve o tur henüz yapılmadı — burada yapılan
+                 * tek şey, hatanın silinmiş bir randevu gibi okunmasını
+                 * engellemek.
+                 */
+                <Empty
+                    title="Randevu okunamadı"
+                    hint="Bağlantı kesilmiş olabilir. Geri dönüp tekrar açın."
                 />
             ) : loaded ? (
                 <Empty title="Randevu bulunamadı" hint="Silinmiş ya da başka bir güne taşınmış olabilir." />

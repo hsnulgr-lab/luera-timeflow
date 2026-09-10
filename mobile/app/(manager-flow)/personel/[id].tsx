@@ -43,7 +43,7 @@ export default function ManagerStaffDay() {
      * gitmeli, yoksa yarınki randevu bugüne yazılırdı.
      */
     const createAppointment = (staffId: string, dateISO: string) => router.navigate({
-        pathname: '/(manager)/create',
+        pathname: '/mudur/create',
         params: { staff: staffId, date: dateISO },
     });
 

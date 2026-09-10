@@ -51,7 +51,7 @@ export default function CustomerScreen() {
 
     const close = useCallback(() => {
         if (router.canGoBack()) router.back();
-        else router.replace('/(manager)/calendar');
+        else router.replace('/mudur/calendar');
     }, [router]);
 
     const handleCall = useCallback(() => {
@@ -74,7 +74,7 @@ export default function CustomerScreen() {
     const handleBook = useCallback(() => {
         if (!card) return;
         router.navigate({
-            pathname: '/(manager)/create',
+            pathname: '/mudur/create',
             params: { customerId: card.id },
         });
     }, [card, router]);

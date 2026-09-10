@@ -550,3 +550,24 @@ test('aydınlık temada yüzeyler kenarlıkla ayrışır', () => {
     const tiles = parts.slice(parts.indexOf('export function ChangeTiles'));
     assert.match(tiles.slice(0, 2000), /backgroundColor: c\.surf2,[\s\S]{0,120}borderColor: c\.bd/);
 });
+
+// ── Hata ≠ boş ──────────────────────────────────────────────────────────────
+
+test('okunamayan gün "randevu silinmiş" DEMİYOR', () => {
+    // `.catch(() => setLoaded(true))` ile hata, "bulunamadı" ekranına
+    // dönüşüyordu: ağ kesintisi müdüre randevunun SİLİNDİĞİNİ söylüyordu.
+    // İkisi ayrı hâl ve ayrı cümle; aynı bileşen, değişen tek şey söz.
+    const screen = code('app/(manager-flow)/randevu/[id].tsx');
+    assert.doesNotMatch(screen, /\.catch\(\(\) => \{ if \(alive\) setLoaded\(true\); \}\)/);
+    assert.match(screen, /setFailed\(true\);\s*setLoaded\(true\);/);
+    assert.match(screen, /\) : failed \? \(/);
+    assert.match(screen, /title="Randevu okunamadı"/);
+    // "Bulunamadı" hâli KALIYOR — gerçekten silinmiş randevu için doğru cevap.
+    assert.match(screen, /title="Randevu bulunamadı"/);
+});
+
+test('başarılı okuma önceki hatayı TEMİZLİYOR', () => {
+    // Kalsaydı, hata sonrası bulunamayan bir randevu "okunamadı" derdi.
+    const screen = code('app/(manager-flow)/randevu/[id].tsx');
+    assert.match(screen, /setFailed\(false\);\s*setLoaded\(true\);/);
+});
