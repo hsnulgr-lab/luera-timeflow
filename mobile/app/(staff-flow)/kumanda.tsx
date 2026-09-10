@@ -38,6 +38,7 @@ import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
     type SendState,
 } from '../../src/lib/sendToCash';
+import { saveVisitFormula, visitFormulaOf } from '../../src/lib/formulaStore';
 import { feedback } from '../../src/lib/feedback';
 import { useKeyboardInset } from '../../src/lib/keyboardInset';
 import { Glyph } from '../../src/components/Glyph';
@@ -194,8 +195,17 @@ export default function Kumanda() {
     const [pending, setPending] = useState<{ id: string; at: number } | null>(null);
     /** Her açılışta artıyor: fitil baştan yanmalı, kaldığı yerden değil. */
     const [revealKey, setRevealKey] = useState(0);
-    /** Ziyaretin formülü — sunucuya bağlanınca `visit.formula`dan gelecek. */
-    const [formula, setFormula] = useState<VisitFormula | null>(null);
+    /**
+     * Ziyaretin formülü — sunucuya bağlanınca `visit.formula`dan gelecek.
+     * O güne kadar yerel depodan: kumanda kapanıp yeniden açıldığında az önce
+     * yazılan formül DURMALI, yoksa kaydetmenin bir anlamı kalmıyor.
+     */
+    const [formula, setFormula] = useState<VisitFormula | null>(
+        // `params.id` DEĞİL `base.id`: adres eşleşmediğinde kaynak listenin
+        // ikinci randevusuna düşüyor ve yazma o kimliğe yapılıyor. İkisi
+        // ayrılırsa yazılan formül geri okunamazdı.
+        () => visitFormulaOf(base?.id),
+    );
     /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
     const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -854,6 +864,10 @@ export default function Kumanda() {
                             onMaterial={() => setSheet('catalog')}
                             onSave={(next) => {
                                 feedback.medium();
+                                // Ekran durumu TEK BAŞINA yetmiyordu: kumanda
+                                // kapanınca formül kayboluyordu. Müşteri
+                                // sayfası da aynı depodan okuyor.
+                                saveVisitFormula(appointment.id, next);
                                 setFormula(next);
                                 setSheet(null);
                             }}

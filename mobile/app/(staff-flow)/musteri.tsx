@@ -21,9 +21,9 @@
  * Para hiçbir yerde yok: bu bir hizmet defteri, muhasebe değil.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
@@ -52,10 +52,16 @@ export default function CustomerFile() {
     // Sayfa KİMLİKTEN okunuyor. Ekran daha önce `customerId`'yi hiç
     // kullanmıyordu ve gövdesinin tamamı tek bir sabitten geliyordu: hangi
     // müşteriye basılırsa basılsın aynı kişinin alerjisi görünüyordu.
-    const file = useMemo(
+    // Sayfa TÜRETİLMİYOR, OKUNUYOR — ve formül sayfasından dönüldüğünde
+    // yeniden okunuyor: kaydedilen formül geçmiş satırında ve kartta
+    // görünmeli, yoksa "Kaydet" yine hiçbir şey yapmamış gibi olur.
+    // `mudur/profile.tsx` ile aynı desen: durum + `useFocusEffect(load)`.
+    const load = useCallback(
         () => demoCustomerFile({ id: params.customerId, name: params.name }, todayISO()),
         [params.customerId, params.name],
     );
+    const [file, setFile] = useState<CustomerFile | null>(load);
+    useFocusEffect(useCallback(() => { setFile(load()); }, [load]));
 
     const back = (
         <Pressable
@@ -221,6 +227,9 @@ export default function CustomerFile() {
                             router.push({
                                 pathname: '/(staff-flow)/formul',
                                 params: {
+                                    // Kimlik olmadan formül sayfası neye
+                                    // yazacağını bilemiyordu.
+                                    id: row.id,
                                     from: file.name,
                                     date: row.date,
                                     service: row.service,

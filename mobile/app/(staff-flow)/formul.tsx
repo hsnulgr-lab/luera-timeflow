@@ -32,6 +32,7 @@ import {
     type FormulaDraft, type FormulaPrevious,
 } from '../../src/components/FormulaBody';
 import { historyState, saveLabel, type FormulaMode } from '../../src/lib/formula';
+import { saveVisitFormula } from '../../src/lib/formulaStore';
 import { feedback } from '../../src/lib/feedback';
 import { font, useTheme } from '../../src/theme';
 
@@ -218,7 +219,28 @@ export default function FormulaScreen() {
                 <View style={{ paddingHorizontal: pad, paddingTop: 14, paddingBottom: 30 + insets.bottom, gap: 8 }}>
                     <Pressable
                         accessibilityRole="button"
-                        onPress={() => { feedback.medium(); router.back(); }}
+                        onPress={() => {
+                            // Eskiden burada YALNIZ haptik ve `router.back()`
+                            // vardı: personel formülü yazdığını sanıp gidiyor,
+                            // ertesi ay aynı müşteride hiçbir şey bulamıyordu.
+                            //
+                            // Malzeme GÖNDERİLMİYOR: o yarı adisyondan türüyor
+                            // (staff-api · visit.formula). İstemcinin listesine
+                            // güvenmek, adisyonla formülün ayrışması demek.
+                            saveVisitFormula(params.id, {
+                                materials: [],
+                                ratio: draft.ratio,
+                                waitMinutes: draft.wait,
+                                waitSource: measured !== null ? 'timer' : 'manual',
+                                result: draft.result ? draft.result.toLocaleLowerCase('tr-TR') : null,
+                                tags: draft.tags,
+                                note: draft.note.trim() || null,
+                                staffId: null,
+                                writtenAt: new Date().toISOString(),
+                            });
+                            feedback.medium();
+                            router.back();
+                        }}
                         style={({ pressed }) => ({
                             height: F.button, borderRadius: F.buttonRadius,
                             backgroundColor: c.or,

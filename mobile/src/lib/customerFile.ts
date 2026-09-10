@@ -22,6 +22,8 @@
 
 import { agoLabel, demoBook, type BookCustomer } from './customerBook.ts';
 import { addDaysISO, formatDayMonth } from './calendar.ts';
+import { visitFormulaOf } from './formulaStore.ts';
+import type { VisitFormula } from './formula.ts';
 
 /** Maskeli satır: risk ya da not. Etiket ve sayı okunur, metin gizli. */
 export interface FileMask {
@@ -43,6 +45,12 @@ export interface FileFormulaDetail {
 }
 
 export interface FileHistoryRow {
+    /**
+     * Ziyaretin (rezervasyonun) kimliği. Formül sayfası bunsuz KAYDEDEMEZ:
+     * neye yazacağını bilmiyor. Sunucunun `customer` ucu bunu zaten dönüyor
+     * (`history[].id`); demo katmanı onu birebir taklit ediyor.
+     */
+    id: string;
     /** "12 Mart" */
     date: string;
     service: string;
@@ -187,10 +195,15 @@ const DEMO_EXTRAS: Record<string, DemoExtra> = {
         ],
     },
     // Ne riski ne formülü var; yalnız geçmişi. Kartsız sayfanın hâli.
+    //
+    // Ve tek AÇIK ziyaret burada: bugün, malzeme geçmiş, formül HENÜZ
+    // yazılmamış. Bu birleşim olmadan formül sayfasının `new` modu hiçbir
+    // yerden açılamıyordu — "olmayan formülü yaz" yolu demo içinde
+    // ulaşılamaz kalıyordu ve tam da kaydetmenin sınandığı yol o.
     c3: {
         phone: '05331667741',
         visits: [
-            { daysAgo: 1, service: 'Dip boya', minutes: 88, who: 'Selin Demir', initials: 'SD', mine: false, hadMaterial: true },
+            { daysAgo: 0, service: 'Dip boya', minutes: 88, who: 'Selin Demir', initials: 'SD', mine: false, hadMaterial: true },
             { daysAgo: 33, service: 'Kesim + fön', minutes: 55, who: 'Selin Demir', initials: 'SD', mine: false, hadMaterial: false },
         ],
     },
@@ -231,11 +244,17 @@ function visitsFromBook(row: BookCustomer, todayISO: string): DemoVisit[] {
     }];
 }
 
-function toRow(visit: DemoVisit, todayISO: string): FileHistoryRow {
+function toRow(customerId: string, visit: DemoVisit, todayISO: string): FileHistoryRow {
+    // Yerel depoya bu ziyaret için formül yazıldıysa O geçerli: personel az
+    // önce kaydettiyse satır formüllü görünmeli. Yoksa "Kaydet" hiçbir şeyi
+    // değiştirmemiş gibi olurdu — düzeltmeye çalıştığımız şeyin ta kendisi.
+    const id = `${customerId}-v${visit.daysAgo}`;
+    const saved = visitFormulaOf(id);
     return {
+        id,
         date: formatDayMonth(addDaysISO(todayISO, -visit.daysAgo)),
         service: visit.service,
-        formula: Boolean(visit.formula) || visit.hasFormula === true,
+        formula: Boolean(saved) || Boolean(visit.formula) || visit.hasFormula === true,
         hadMaterial: visit.hadMaterial,
         ...(visit.status ? { status: visit.status } : {}),
         // Geçmişteki her ziyaret kasaya gitmiş sayılır; bugünkü henüz değil.
@@ -244,7 +263,22 @@ function toRow(visit: DemoVisit, todayISO: string): FileHistoryRow {
         initials: visit.initials,
         mine: visit.mine,
         minutes: visit.minutes,
-        detail: visit.formula ?? null,
+        detail: saved ? detailOf(saved) : visit.formula ?? null,
+    };
+}
+
+/** Kaydedilmiş formülü satırın taşıdığı ayrıntıya çevirir. */
+function detailOf(formula: VisitFormula): FileFormulaDetail {
+    return {
+        materials: formula.materials.map((item) => item.name).filter(Boolean).join(' + ') || '—',
+        ratio: formula.ratio ?? '—',
+        wait: formula.waitMinutes === null ? '—' : `${formula.waitMinutes} dk`,
+        waitSpan: formula.waitSource === 'timer' ? 'ölçüldü' : null,
+        result: formula.result ?? '—',
+        // Renk KARARDAN çıkıyor, kaydın kendisinden değil: "tuttu" yeşil,
+        // ötekiler amber. Saklanan bir renk bir gün metinle ayrışırdı.
+        tone: formula.result === 'tuttu' ? 'gr' : 'am',
+        note: formula.note,
     };
 }
 
@@ -274,14 +308,17 @@ export function demoCustomerFile(
 
     const extra = DEMO_EXTRAS[row.id] ?? {};
     const visits = extra.visits ?? visitsFromBook(row, todayISO);
-    const history = visits.map((visit) => toRow(visit, todayISO));
+    const history = visits.map((visit) => toRow(row.id, visit, todayISO));
 
     // Kart AYRINTI ister; yalnız "formülü var" diyen bir satırdan kart
-    // çizilemez. O satır geçmişte formüllü görünmeye devam ediyor.
-    const newest = visits.find((visit) => visit.formula);
-    const formula: FileFormula | null = newest?.formula
+    // çizilemez. O satır geçmişte formüllü görünmeye devam ediyor. Depoya az
+    // önce yazılan formül de buraya giriyor — `toRow` onu satıra koyuyor.
+    const at = history.findIndex((line) => line.detail !== null);
+    const newest = at >= 0 ? visits[at] : null;
+    const detail = at >= 0 ? history[at].detail : null;
+    const formula: FileFormula | null = newest && detail
         ? {
-            ...newest.formula,
+            ...detail,
             date: formatDayMonth(addDaysISO(todayISO, -newest.daysAgo)),
             who: newest.who,
             initials: newest.initials,

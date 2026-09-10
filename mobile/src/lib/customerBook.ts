@@ -132,7 +132,7 @@ export function demoBook(todayISO: string): BookCustomer[] {
     return [
         { id: 'c1', name: 'Sibel Arda', lastVisitDate: at(0), lastService: 'Keratin bakımı', hasFormula: true, mine: true, lastStaffInitials: 'MK', phoneTail: '4120' },
         { id: 'c2', name: 'Ayşe Yılmaz', lastVisitDate: at(0), lastService: 'Saç boyama + fön', hasFormula: true, mine: true, lastStaffInitials: 'MK', phoneTail: '2018' },
-        { id: 'c3', name: 'Zeynep Kaya', lastVisitDate: at(1), lastService: 'Dip boya', hasFormula: true, mine: false, lastStaffInitials: 'SD', phoneTail: '7741' },
+        { id: 'c3', name: 'Zeynep Kaya', lastVisitDate: at(0), lastService: 'Dip boya', hasFormula: true, mine: false, lastStaffInitials: 'SD', phoneTail: '7741' },
         { id: 'c4', name: 'Elif Demir', lastVisitDate: at(2), lastService: 'Saç boyama + fön', hasFormula: true, mine: true, lastStaffInitials: 'MK', phoneTail: '9033' },
         { id: 'c5', name: 'Buse Yıldırım', lastVisitDate: at(3), lastService: 'Ombre', hasFormula: true, mine: false, lastStaffInitials: 'SD', phoneTail: '5514' },
         { id: 'c6', name: 'Nazlı Koç', lastVisitDate: at(6), lastService: 'Manikür', hasFormula: false, mine: false, lastStaffInitials: 'AT', phoneTail: '4062' },
