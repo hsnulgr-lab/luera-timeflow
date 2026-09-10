@@ -451,9 +451,15 @@ export default function Kumanda() {
                         if (!appointment.customer_phone) return;
                         Linking.openURL(`tel:${appointment.customer_phone.replace(/\s/g, '')}`);
                     }}
+                    // Kimlik de gidiyor: sayfa artık kimlikten okuyor ve ad
+                    // yalnız köprü. Yalnız ad göndermek, aynı adlı iki
+                    // müşteride yanlış defteri açma riski taşırdı.
                     onCard={() => router.push({
                         pathname: '/(staff-flow)/musteri',
-                        params: { name: appointment.customer_name },
+                        params: {
+                            ...(appointment.customer_id ? { customerId: appointment.customer_id } : {}),
+                            name: appointment.customer_name,
+                        },
                     })}
                 />
 

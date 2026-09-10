@@ -18,6 +18,9 @@ const file = code(read('../mobile/app/(staff-flow)/musteri.tsx'));
 const fields = code(read('../mobile/src/components/FormulaFields.tsx'));
 // Personel 12: dört alanın gövdesi iki yüzeyden çıkıp TEK bileşene taşındı.
 const bodyc = code(read('../mobile/src/components/FormulaBody.tsx'));
+// Sayfanın verisi ekrandan çıkıp saf karar katmanına taşındı; sabit gövde
+// silindi ve yerini kimlikten okuyan `demoCustomerFile` aldı.
+const fileData = code(read('../mobile/src/lib/customerFile.ts'));
 const api = code(read('../supabase/functions/staff-api/index.ts'));
 const sql = read('../supabase/090_visit_formula.sql');
 
@@ -240,8 +243,57 @@ test('kartta para YOK', () => {
 });
 
 test('maske alerjinin TÜRÜNÜ söylüyor, detayını değil', () => {
-    assert.ok(file.includes("label: 'Risk · Alerji'"));
+    // Kural aynı, YERİ değişti: risk metni artık ekranda gömülü değil,
+    // müşteriye ait veri katmanında.
+    assert.ok(fileData.includes("label: 'Risk · Alerji'"));
     assert.ok(file.includes('danger'));
+});
+
+test('sayfa KİMLİKTEN okuyor — sahte gövde yok', () => {
+    // Ekran `customerId`'yi hiç kullanmıyordu: hangi müşteriye basılırsa
+    // basılsın aynı kişinin alerjisi ve telefonu görünüyordu.
+    assert.ok(!/\bconst DEMO = \{/.test(file), 'ekranda sabit müşteri gövdesi kalmamalı');
+    assert.ok(file.includes('demoCustomerFile({ id: params.customerId, name: params.name }'));
+});
+
+test('bulunamayan müşteride UYDURMA değil boşluk', () => {
+    assert.ok(file.includes('if (!file) {'));
+    assert.ok(file.includes('title="Müşteri bulunamadı"'));
+});
+
+test('risk ve not kaydı YOKSA satır hiç çizilmiyor', () => {
+    // Boş bir "RİSK" satırı, her müşteride bir risk varmış izlenimi verirdi.
+    assert.ok(file.includes('{file.risk ? <MaskRow data={file.risk} danger /> : null}'));
+    assert.ok(file.includes('{file.note ? <MaskRow data={file.note} /> : null}'));
+});
+
+test('geçmiş satırı KENDİ formülünü taşıyor', () => {
+    // Önceden hangi satır açılırsa açılsın tek bir formülün oranı ve sonucu
+    // gidiyordu — 4 Ocak'taki dip boya, 12 Mart'ın formülüyle açılıyordu.
+    assert.ok(file.includes('ratio: row.detail.ratio'));
+    assert.ok(file.includes('result: row.detail.result'));
+});
+
+test('ad EŞSİZ değilse müşteri seçilmiyor', () => {
+    // İki "Elif Demir"den birini seçmek, düzeltilen hatanın ta kendisi olurdu.
+    assert.ok(fileData.includes('row = hits.length === 1 ? hits[0] : null;'));
+});
+
+test('numara yoksa arama düğmesi GÖRÜNÜR biçimde sönük', () => {
+    // Sessizce hiçbir şey yapmayan bir düğme ölü kontroldür.
+    assert.ok(file.includes('const off = !onPress;'));
+    assert.ok(file.includes('disabled={off}'));
+});
+
+test('randevusu olan müşteri defterde BULUNABİLİYOR', () => {
+    // Ajandadaki kişi defterde yoksa kumandadan kartına geçilemiyordu.
+    const demo = code(read('../mobile/src/lib/staffDemo.ts'));
+    const book = code(read('../mobile/src/lib/customerBook.ts'));
+    const ids = [...demo.matchAll(/customer_id: '([^']+)'/g)].map((m) => m[1]);
+    assert.ok(ids.length >= 5, 'sahte ajanda müşteri kimliği taşımalı');
+    for (const id of new Set(ids)) {
+        assert.ok(book.includes(`id: '${id}'`), `${id} defterde yok`);
+    }
 });
 
 test('paket 8 seansı aşınca çizgi değil oran çubuğu', () => {

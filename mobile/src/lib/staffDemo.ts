@@ -15,6 +15,12 @@ import type { StaffCardSource } from './staffCard.ts';
 
 export interface DemoAppointment extends StaffCardSource {
     id: string;
+    /**
+     * Müşteri defterindeki kimlik (`customerBook.demoBook`). Kart sayfası
+     * bunu istiyor: yalnız adla açılan bir kart, aynı adlı iki müşteride
+     * yanlış defteri açardı.
+     */
+    customer_id: string | null;
     customer_name: string;
     customer_phone: string | null;
     service: string;
@@ -45,6 +51,7 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
             id: 'd1',
             start_time: at(-156),
             end_time: at(-111),
+            customer_id: 'c11',
             customer_name: 'Merve Aydın',
             service: 'Kesim + fön',
             customer_arrived_at: stamp(-160),
@@ -58,6 +65,7 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
             id: 'd2',
             start_time: at(-66),
             end_time: at(54),
+            customer_id: 'c2',
             customer_name: 'Ayşe Yılmaz',
             service: 'Saç boyama + fön',
             notes: 'Kökte 7.3, uçlarda 8.1. Geçen sefer kaşınma oldu — bekleme 30 dk\'yı geçmesin.',
@@ -71,6 +79,7 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
             id: 'd3',
             start_time: at(-6),
             end_time: at(24),
+            customer_id: 'c4',
             customer_name: 'Elif Demir',
             service: 'Kesim',
             customer_arrived_at: stamp(-6),
@@ -83,6 +92,7 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
             id: 'd4',
             start_time: at(144),
             end_time: at(164),
+            customer_id: 'c12',
             customer_name: 'Nur Aksoy',
             service: 'Kaş alma',
             arrived_at: null,
@@ -94,6 +104,7 @@ export function demoAgenda(nowMs: number, dateISO: string): DemoAppointment[] {
             id: 'd5',
             start_time: at(264),
             end_time: at(324),
+            customer_id: 'c13',
             customer_name: 'Hakan Toprak',
             service: 'Saç bakım maskesi',
             arrived_at: null,
@@ -128,11 +139,15 @@ export function demoAgendaFor(dateISO: string, currentISO: string): DemoAppointm
     // Gün başına değişen ama SABİT bir kesit: aynı güne iki kez bakınca aynı
     // liste geliyor. Rastgele üretim, ekranı her açılışta başka gösterirdi.
     const seed = Number(dateISO.slice(-2)) % 4;
+    // Adlar DEFTERDEN (`customerBook.demoBook`) ve kimlikleri taşıyorlar:
+    // randevusu olan müşteri defterde bulunabilmeli. Buradaki iki ad
+    // ("Selin Boz", "Deniz Aksoy") aslında PERSONEL listesinde de geçiyordu
+    // (authStub, managerFlow) — aynı kişi hem çalışan hem müşteri görünüyordu.
     const plan = [
-        { id: 'w1', at: '10:00', until: '10:45', name: 'Selin Boz', service: 'Kesim + fön' },
-        { id: 'w2', at: '11:30', until: '13:30', name: 'Deniz Aksoy', service: 'Saç boyama + fön' },
-        { id: 'w3', at: '14:00', until: '14:30', name: 'Buse Yıldırım', service: 'Fön' },
-        { id: 'w4', at: '16:00', until: '17:00', name: 'Zeynep Kaya', service: 'Röfle' },
+        { id: 'w1', at: '10:00', until: '10:45', cid: 'c1', name: 'Sibel Arda', service: 'Kesim + fön' },
+        { id: 'w2', at: '11:30', until: '13:30', cid: 'c7', name: 'Meryem Aksoy', service: 'Saç boyama + fön' },
+        { id: 'w3', at: '14:00', until: '14:30', cid: 'c5', name: 'Buse Yıldırım', service: 'Fön' },
+        { id: 'w4', at: '16:00', until: '17:00', cid: 'c3', name: 'Zeynep Kaya', service: 'Röfle' },
     ].slice(0, [0, 2, 3, 4][seed]);
 
     return plan.map((item) => ({
@@ -140,6 +155,7 @@ export function demoAgendaFor(dateISO: string, currentISO: string): DemoAppointm
         id: `${dateISO}-${item.id}`,
         start_time: item.at,
         end_time: item.until,
+        customer_id: item.cid,
         customer_name: item.name,
         service: item.service,
         // Geçmiş gün: geldi, yapıldı, kasaya gitti. Gelecek gün: hiçbir damga

@@ -140,5 +140,12 @@ export function demoBook(todayISO: string): BookCustomer[] {
         { id: 'c8', name: 'Hatice Şen', lastVisitDate: at(31), lastService: 'Kesim + fön', hasFormula: false, mine: false, lastStaffInitials: 'AT', phoneTail: '1290' },
         { id: 'c9', name: 'Zeynep Arslan', lastVisitDate: at(124), lastService: 'Kesim', hasFormula: false, mine: true, lastStaffInitials: 'MK', phoneTail: '6741' },
         { id: 'c10', name: 'Zeyneb Öztürk', lastVisitDate: null, upcomingTime: '16:00', lastService: 'Kesim + fön', hasFormula: false, mine: true, lastStaffInitials: 'MK', phoneTail: '3315' },
+        // Bugünün ajandasındaki kişiler (`staffDemo.demoAgenda`). Defterde
+        // YOKLARDI: kumandadan kartlarına geçilince "müşteri bulunamadı"
+        // çıkıyordu. Ajandada randevusu olan birinin defterde bulunmaması
+        // gerçek veride olamaz — sahte veride de olmamalı.
+        { id: 'c11', name: 'Merve Aydın', lastVisitDate: at(5), lastService: 'Fön', hasFormula: false, mine: true, lastStaffInitials: 'MK', phoneTail: '7208' },
+        { id: 'c12', name: 'Nur Aksoy', lastVisitDate: at(9), lastService: 'Kesim + fön', hasFormula: false, mine: true, lastStaffInitials: 'MK', phoneTail: '5561' },
+        { id: 'c13', name: 'Hakan Toprak', lastVisitDate: at(20), lastService: 'Sakal + kesim', hasFormula: false, mine: false, lastStaffInitials: 'AT', phoneTail: '8834' },
     ];
 }

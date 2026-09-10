@@ -21,84 +21,25 @@
  * Para hiçbir yerde yok: bu bir hizmet defteri, muhasebe değil.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
+import { Empty } from '../../src/components/ui';
 import { historyMark } from '../../src/lib/formula';
 import { splitName } from '../../src/lib/customerBook';
+import { todayISO } from '../../src/lib/calendar';
+import {
+    demoCustomerFile,
+    type CustomerFile, type FileFormula, type FileHistoryRow, type FilePackage,
+} from '../../src/lib/customerFile';
 import { feedback } from '../../src/lib/feedback';
 import { upperTR } from '../../src/lib/text';
 import { font, numeric, useTheme } from '../../src/theme';
 
 const REVEAL_MS = 6000;
-
-// ── Demo defteri ────────────────────────────────────────────────────────────
-//
-// `customer` ucu bağlanana kadar. Tasarımın verisiyle aynı, çünkü ekranı
-// onun ölçüleriyle karşılaştırıyoruz.
-
-interface HistoryRow {
-    date: string;
-    service: string;
-    /** Formül kaydı — yoksa null. */
-    formula: boolean;
-    /** Adisyonda malzeme kalemi geçti mi? Boya işi değilse formül beklenmiyor. */
-    hadMaterial: boolean;
-    status?: 'no_show';
-    locked: boolean;
-    who: string;
-    initials: string;
-    mine: boolean;
-    minutes: number;
-}
-
-const DEMO = {
-    name: 'Elif Demir',
-    phone: '0532 461 20 18',
-    lastVisit: '12 MART',
-    ago: '2 GÜN',
-    service: 'Saç boyama + fön',
-    who: 'Selin Demir',
-    initials: 'SD',
-    visits: 10,
-    formulas: 3,
-    risk: {
-        label: 'Risk · Alerji',
-        sub: '1 kural',
-        text: 'Boya alerjisi bildirildi. Kulak arkası testi şart.',
-    },
-    note: {
-        label: 'Not',
-        sub: '2 satır',
-        text: 'Kökte 7.3, uçlarda 8.1. Geçen sefer kaşınma oldu; bekleme 30 dk’yı geçmesin.',
-    },
-    formula: {
-        date: '12 Mart',
-        materials: '7.3 kumral + %6',
-        ratio: '1:1,5',
-        wait: '35 dk',
-        result: 'tuttu',
-        tone: 'gr' as const,
-        note: 'Uçlar gözenekli, son 10 dk’da erken yıkadım.',
-        who: 'Selin Demir',
-        initials: 'SD',
-        mine: true,
-    },
-    packages: [{ name: 'Keratin bakım', used: 4, total: 8, sub: 'son kullanım 12 Mart' }],
-    history: [
-        { date: '12 Mart', service: 'Saç boyama + fön', formula: true, hadMaterial: true, locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 112 },
-        { date: '28 Şubat', service: 'Kesim', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 40 },
-        { date: '14 Şubat', service: 'Fön', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 30 },
-        { date: '4 Ocak', service: 'Dip boya', formula: true, hadMaterial: true, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 95 },
-        { date: '19 Aralık', service: 'Fön', formula: false, hadMaterial: false, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 30 },
-        { date: '15 Kasım', service: 'Röfle', formula: true, hadMaterial: true, locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 130 },
-        { date: '2 Ekim', service: 'Röfle', formula: false, hadMaterial: true, status: 'no_show', locked: true, who: 'Selin Demir', initials: 'SD', mine: true, minutes: 0 },
-        { date: '30 Ağustos', service: 'Keratin bakımı', formula: false, hadMaterial: true, locked: true, who: 'Merve Kaya', initials: 'MK', mine: false, minutes: 95 },
-    ] as HistoryRow[],
-};
 
 export default function CustomerFile() {
     const { c, small } = useTheme();
@@ -106,22 +47,49 @@ export default function CustomerFile() {
     const router = useRouter();
     const params = useLocalSearchParams<{ customerId?: string; name?: string }>();
 
-    const name = splitName(params.name ?? DEMO.name);
     const pad = small ? 16 : 20;
+
+    // Sayfa KİMLİKTEN okunuyor. Ekran daha önce `customerId`'yi hiç
+    // kullanmıyordu ve gövdesinin tamamı tek bir sabitten geliyordu: hangi
+    // müşteriye basılırsa basılsın aynı kişinin alerjisi görünüyordu.
+    const file = useMemo(
+        () => demoCustomerFile({ id: params.customerId, name: params.name }, todayISO()),
+        [params.customerId, params.name],
+    );
+
+    const back = (
+        <Pressable
+            accessibilityRole="button"
+            onPress={() => router.back()}
+            style={({ pressed }) => ({
+                height: 44, flexDirection: 'row', alignItems: 'center', gap: 2,
+                paddingHorizontal: 14, opacity: pressed ? 0.55 : 1,
+            })}
+        >
+            <Glyph name="back" size={22} color={c.tx2} />
+            <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Müşteriler</Text>
+        </Pressable>
+    );
+
+    // Bulunamadıysa UYDURULMUŞ bir gövde değil, boşluk. Yanlış kişinin
+    // alerjisini göstermek hiç göstermemekten kötüdür.
+    if (!file) {
+        return (
+            <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+                {back}
+                <Empty
+                    title="Müşteri bulunamadı"
+                    hint="Kayıt silinmiş ya da başka bir deftere taşınmış olabilir."
+                />
+            </View>
+        );
+    }
+
+    const name = splitName(file.name);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-            <Pressable
-                accessibilityRole="button"
-                onPress={() => router.back()}
-                style={({ pressed }) => ({
-                    height: 44, flexDirection: 'row', alignItems: 'center', gap: 2,
-                    paddingHorizontal: 14, opacity: pressed ? 0.55 : 1,
-                })}
-            >
-                <Glyph name="back" size={22} color={c.tx2} />
-                <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Müşteriler</Text>
-            </Pressable>
+            {back}
 
             {/* ── PLAKA ── kabuksuz, en büyük tipografi ── */}
             <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingHorizontal: pad, paddingTop: 6, paddingBottom: 16 }}>
@@ -139,52 +107,75 @@ export default function CustomerFile() {
                         <Text style={{ fontFamily: font.bold, color: c.tx }}>{name.bold}</Text>
                     </Text>
 
+                    {/* Hiç gelmemiş müşteride "son geliş" satırı YAZILMAZ —
+                        boş bir tarih, olmayan bir ziyareti ima ederdi. */}
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-                        <Text numberOfLines={1} style={{
-                            fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
-                            color: c.tx3,
-                        }}>
-                            {upperTR(`Son geliş ${DEMO.lastVisit}`)}
-                        </Text>
-                        <Text style={{
-                            fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
-                            color: c.tx3,
-                        }}>
-                            {upperTR(`${DEMO.ago} önce`)}
-                        </Text>
+                        {file.lastVisit ? (
+                            <>
+                                <Text numberOfLines={1} style={{
+                                    fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
+                                    color: c.tx3,
+                                }}>
+                                    {upperTR(`Son geliş ${file.lastVisit}`)}
+                                </Text>
+                                <Text style={{
+                                    fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
+                                    color: c.tx3,
+                                }}>
+                                    {upperTR(`${file.ago} önce`)}
+                                </Text>
+                            </>
+                        ) : (
+                            <Text style={{
+                                fontSize: 11, fontWeight: '600', letterSpacing: 1.76,
+                                color: c.tx3,
+                            }}>
+                                {upperTR('İlk randevusu')}
+                            </Text>
+                        )}
                     </View>
 
                     {/* Sayısal satır: kaç randevu, kaçında formül. */}
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                         <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
-                            {DEMO.visits}
+                            {file.visits}
                         </Text>
                         <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>randevu</Text>
                         <Text style={{ fontSize: small ? 20 : 23, fontFamily: font.extraLight, color: c.tx3 }}>·</Text>
                         <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
-                            {DEMO.formulas}
+                            {file.formulas}
                         </Text>
                         <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>formül</Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap' }}>
-                        <Pill>{DEMO.service}</Pill>
-                        <Pill avatar={DEMO.initials}>{DEMO.who}</Pill>
+                        {file.lastService ? <Pill>{file.lastService}</Pill> : null}
+                        {/* Adı bilinmiyorsa pil hiç çizilmiyor: baş harf bir
+                            ad değildir ve "MK" yazan bir pil bilgi vermez. */}
+                        {file.lastStaff ? (
+                            <Pill avatar={file.lastStaffInitials}>{file.lastStaff}</Pill>
+                        ) : null}
                     </View>
                 </View>
 
-                {/* Tek turuncu eylem: aramak. Yazmak ikincil. */}
+                {/* Tek turuncu eylem: aramak. Yazmak ikincil.
+                    Numara yoksa düğmeler GÖRÜNÜR biçimde sönük — sessizce
+                    hiçbir şey yapmayan bir düğme ölü kontroldür. */}
                 <View style={{ gap: 8 }}>
                     <ActionDisc
                         label="Müşteriyi ara"
                         glyph="phone"
                         primary
-                        onPress={() => Linking.openURL(`tel:${DEMO.phone.replace(/\s/g, '')}`)}
+                        onPress={file.phone
+                            ? () => Linking.openURL(`tel:${file.phone!.replace(/\s/g, '')}`)
+                            : undefined}
                     />
                     <ActionDisc
                         label="Mesaj yaz"
                         glyph="msg"
-                        onPress={() => Linking.openURL(`sms:${DEMO.phone.replace(/\s/g, '')}`)}
+                        onPress={file.phone
+                            ? () => Linking.openURL(`sms:${file.phone!.replace(/\s/g, '')}`)
+                            : undefined}
                     />
                 </View>
             </View>
@@ -194,45 +185,62 @@ export default function CustomerFile() {
                 contentContainerStyle={{ paddingHorizontal: pad, paddingBottom: 106 + insets.bottom }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── KAPALI BİLGİ ── ekran müşterinin gözü önünde ── */}
-                <MaskRow data={DEMO.risk} danger />
-                <MaskRow data={DEMO.note} />
+                {/* ── KAPALI BİLGİ ── ekran müşterinin gözü önünde ──
+                    Kaydı olmayan satır HİÇ çizilmiyor. Boş bir "RİSK" satırı
+                    her müşteride bir risk varmış izlenimi verirdi. */}
+                {file.risk ? <MaskRow data={file.risk} danger /> : null}
+                {file.note ? <MaskRow data={file.note} /> : null}
 
                 {/* ── DEFTER ── */}
-                <Section title="Son formül" note={DEMO.formula.date} />
-                <FormulaCard />
+                {file.formula ? (
+                    <>
+                        <Section title="Son formül" note={file.formula.date} />
+                        <FormulaCard formula={file.formula} />
+                    </>
+                ) : null}
 
-                <Section title="Paket" />
-                {DEMO.packages.map((pack) => <PackageRow key={pack.name} pack={pack} />)}
+                {file.packages.length > 0 ? (
+                    <>
+                        <Section title="Paket" />
+                        {file.packages.map((pack) => <PackageRow key={pack.name} pack={pack} />)}
+                    </>
+                ) : null}
 
-                <Section title="Geçmiş" note="son 10 randevu" />
-                {DEMO.history.map((row, index) => (
+                <Section title="Geçmiş" note={file.history.length > 0 ? 'son 10 randevu' : undefined} />
+                {file.history.length === 0 ? (
+                    <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 19, color: c.tx3, paddingTop: 2 }}>
+                        Henüz geçmiş yok.
+                    </Text>
+                ) : file.history.map((row, index) => (
                     <HistoryLine
                         key={`${row.date}-${row.service}`}
                         row={row}
-                        last={index === DEMO.history.length - 1}
+                        last={index === file.history.length - 1}
                         onOpen={() => {
                             feedback.selection();
                             router.push({
                                 pathname: '/(staff-flow)/formul',
                                 params: {
-                                    from: params.name ?? DEMO.name,
+                                    from: file.name,
                                     date: row.date,
                                     service: row.service,
                                     minutes: String(row.minutes),
                                     who: row.who,
                                     initials: row.initials,
                                     mine: row.mine ? '1' : '0',
-                                    lockedAt: `${row.date} 19:40'ta kasaya`,
+                                    lockedAt: `${row.date} kasaya gitti`,
                                     mode: row.locked
                                         ? (row.formula ? 'locked' : 'lockedEmpty')
                                         : (row.formula ? 'edit' : 'new'),
-                                    ...(row.formula ? {
-                                        ratio: DEMO.formula.ratio,
-                                        result: DEMO.formula.result,
-                                        wait: '35',
-                                        waitSpan: 'ölçüldü · 11:17 – 11:52',
-                                        note: DEMO.formula.note,
+                                    // Ayrıntı O SATIRIN kendi formülünden.
+                                    // Önceden hangi satır açılırsa açılsın tek
+                                    // bir formülün oranı ve sonucu gidiyordu.
+                                    ...(row.detail ? {
+                                        ratio: row.detail.ratio,
+                                        result: row.detail.result,
+                                        wait: String(parseInt(row.detail.wait, 10) || 0),
+                                        ...(row.detail.waitSpan ? { waitSpan: row.detail.waitSpan } : {}),
+                                        ...(row.detail.note ? { note: row.detail.note } : {}),
                                     } : {}),
                                 },
                             });
@@ -240,9 +248,11 @@ export default function CustomerFile() {
                     />
                 ))}
 
-                <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, maxWidth: 300, paddingTop: 14 }}>
-                    Defter son 10 randevuyu tutuyor. Daha eskisi sunucudan gelmiyor.
-                </Text>
+                {file.history.length > 0 ? (
+                    <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, maxWidth: 300, paddingTop: 14 }}>
+                        Defter son 10 randevuyu tutuyor. Daha eskisi sunucudan gelmiyor.
+                    </Text>
+                ) : null}
             </ScrollView>
         </View>
     );
@@ -274,23 +284,33 @@ function Pill({ children, avatar }: { children: string; avatar?: string }) {
     );
 }
 
+/**
+ * `onPress` YOKSA düğme devre dışı ve GÖRÜNÜR biçimde sönük.
+ *
+ * Numarası olmayan müşteride eskiden düğme normal görünüyor ve dokununca
+ * hiçbir şey olmuyordu. Sessizce çalışmayan bir kontrol, kullanıcıya
+ * uygulamanın bozuk olduğunu düşündürür.
+ */
 function ActionDisc({ label, glyph, primary, onPress }: {
-    label: string; glyph: 'phone' | 'msg'; primary?: boolean; onPress: () => void;
+    label: string; glyph: 'phone' | 'msg'; primary?: boolean; onPress?: () => void;
 }) {
     const { c } = useTheme();
+    const off = !onPress;
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={off ? `${label} — numara kayıtlı değil` : label}
+            accessibilityState={{ disabled: off }}
+            disabled={off}
             onPress={onPress}
             style={({ pressed }) => ({
                 width: 46, height: 46, borderRadius: 23,
                 alignItems: 'center', justifyContent: 'center',
-                backgroundColor: primary ? 'rgba(255,90,31,0.14)' : c.fld,
-                opacity: pressed ? 0.7 : 1,
+                backgroundColor: off ? c.fld : primary ? 'rgba(255,90,31,0.14)' : c.fld,
+                opacity: off ? 0.38 : pressed ? 0.7 : 1,
             })}
         >
-            <Glyph name={glyph} size={20} color={primary ? c.or2 : c.tx2} />
+            <Glyph name={glyph} size={20} color={off ? c.tx3 : primary ? c.or2 : c.tx2} />
         </Pressable>
     );
 }
@@ -409,9 +429,9 @@ function MaskRow({ data, danger }: {
 }
 
 /** Sayfadaki TEK kabuk: sorunun cevabı. */
-function FormulaCard() {
+function FormulaCard({ formula }: { formula: FileFormula }) {
     const { c } = useTheme();
-    const f = DEMO.formula;
+    const f = formula;
     const rows: [string, string, 'gr' | 'am' | null][] = [
         ['malzeme', f.materials, null],
         ['oran', f.ratio, null],
@@ -467,7 +487,7 @@ function FormulaCard() {
 }
 
 /** Paket bir SAYIM: zaman değil, o yüzden turuncu değil. */
-function PackageRow({ pack }: { pack: { name: string; used: number; total: number; sub: string } }) {
+function PackageRow({ pack }: { pack: FilePackage }) {
     const { c } = useTheme();
     // Yirmi seanslık pakette yirmi çizgi sığmaz; sekizden sonra oran çubuğu.
     const ticks = pack.total <= 8;
@@ -508,7 +528,7 @@ function PackageRow({ pack }: { pack: { name: string; used: number; total: numbe
  * Yokluğun işareti varlığınkinden sessiz olduğu için liste kirlenmiyor.
  */
 function HistoryLine({ row, last, onOpen }: {
-    row: HistoryRow; last: boolean; onOpen: () => void;
+    row: FileHistoryRow; last: boolean; onOpen: () => void;
 }) {
     const { c, small } = useTheme();
     const mark = historyMark({ hasFormula: row.formula, hadMaterial: row.hadMaterial, status: row.status });
