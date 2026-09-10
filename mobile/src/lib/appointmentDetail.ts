@@ -16,18 +16,10 @@
  */
 
 import { maskPhone, mockServices } from './createFlow.ts';
+import { initialsOf } from './text.ts';
 import {
     dayNameShort, formatDayFull, hhmm, toMinutes, todayISO, type Appt,
 } from './calendar.ts';
-
-/** Baş harfler — Türkçe büyütmeyle ("i" → "İ"). */
-export function initialsOf(name: string): string {
-    const words = name.trim().split(/\s+/).filter(Boolean);
-    return [words[0], words.length > 1 ? words.at(-1) : null]
-        .filter(Boolean)
-        .map((word) => (word ?? '').slice(0, 1).toLocaleUpperCase('tr-TR'))
-        .join('');
-}
 
 /** "Elif" + "Demir" — ilk ad ince, soyad kalın yazılır. */
 export function splitName(name: string): { given: string; family: string } {

@@ -79,6 +79,30 @@ export function accusative(name: string): string {
 }
 
 /**
+ * Baş harfler — "Ayşe Demir" → "AD".
+ *
+ * TEK TANIM. Üç ayrı uygulama vardı ve üçü ayrı davranıyordu:
+ *   • `ApptParts`         ilk İKİ kelime  → "Ayşe Nur Demir" = "AN"
+ *   • `appointmentDetail` ilk + SON       → "Ayşe Nur Demir" = "AD"
+ *   • `customerBook`      ilk + son, tek kelimede İKİ HARF → "Deniz" = "DE"
+ * Aynı kişi ekrandan ekrana farklı iki harfle görünüyordu.
+ *
+ * Kazanan `customerBook`'unki, çünkü SUNUCU onu yapıyor: `staff-api` müşteri
+ * defterini dönerken baş harfi aynı kuralla üretiyor (`customers` ucu). Ayrı
+ * bir kural seçmek, sunucudan gelen baş harfle yerelde türetilenin
+ * ayrışması demekti — ve aynı listede ikisi yan yana duruyor.
+ *
+ * Boş ad "?" veriyor: baş harf uydurulmuyor ama yuvarlak da boş kalmıyor.
+ */
+export function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    // Tek kelimede iki harf: "D" tek başına bir kişiyi ayırt etmiyor.
+    if (parts.length === 1) return parts[0].slice(0, 2).toLocaleUpperCase('tr-TR');
+    return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase('tr-TR');
+}
+
+/**
  * "Deniz Aksoy" → { given: 'Deniz', family: 'Aksoy' }.
  *
  * Burada durur çünkü hem personel hem müşteri adları aynı biçimde yazılıyor

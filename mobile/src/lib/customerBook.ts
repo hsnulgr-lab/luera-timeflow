@@ -70,14 +70,6 @@ export function splitName(name: string): { light: string; bold: string } {
     return { light: `${parts.join(' ')} `, bold };
 }
 
-/** Baş harfler — disk işareti için, sunucu göndermezse yedek. */
-export function initialsOf(name: string): string {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0].slice(0, 2).toLocaleUpperCase('tr-TR');
-    return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase('tr-TR');
-}
-
 /**
  * Arama: ad ya da telefonun son dört hanesi.
  *

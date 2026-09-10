@@ -16,7 +16,7 @@ import {
     APPT_SELECTED_DAY_LABEL, apptInk, apptMetrics, font, numeric, useTheme,
     type ApptInk, type Palette,
 } from '../theme';
-import { upperTR } from '../lib/text';
+import { initialsOf, upperTR } from '../lib/text';
 
 /**
  * Müdür 15 — randevu oluşturmanın görsel parçaları.
@@ -783,11 +783,6 @@ export function Initials({ text, size, textSize, color }: {
             </Text>
         </View>
     );
-}
-
-/** Ada göre baş harfler: "Ayşe Demir" → "AD". */
-export function initialsOf(name: string): string {
-    return name.trim().split(/\s+/).slice(0, 2).map((w) => w.slice(0, 1).toLocaleUpperCase('tr')).join('');
 }
 
 /**

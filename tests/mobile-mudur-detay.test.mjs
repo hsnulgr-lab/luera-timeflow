@@ -14,10 +14,12 @@ import test from 'node:test';
 import {
     CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG, NOTE_HINT,
     applyNote, applyService, changeRows, changeTiles, confirmCopy,
-    destructiveOptions, destructiveTitle, durationMinutes, identityOf, initialsOf,
+    destructiveOptions, destructiveTitle, durationMinutes, identityOf,
     isEditable, priceOfService, serviceChoices, serviceSheetSubtitle,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
 } from '../mobile/src/lib/appointmentDetail.ts';
+// Baş harf üç ayrı yerden tek yere taşındı — bkz. `text.initialsOf`.
+import { initialsOf } from '../mobile/src/lib/text.ts';
 import { NOTE_MAX, NOTE_WARN } from '../mobile/src/theme/tokens.ts';
 
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
@@ -60,7 +62,11 @@ test('gün artık başlıkta, satırın içinde saklı değil', () => {
     assert.equal(identity.from, '10:30');
     assert.equal(identity.to, '11:15');
     assert.equal(identity.duration, 45);
-    assert.equal(identity.initials, 'S');
+    // Tek kelimelik adda İKİ harf: baş harf tek yere taşındı ve kural
+    // sunucununkiyle eşitlendi (bkz. `text.initialsOf`). Tek bir "S" bir
+    // kişiyi ayırt etmiyor ve aynı liste sunucudan gelen baş harflerle
+    // yan yana duruyor.
+    assert.equal(identity.initials, 'SE');
 });
 
 test('başka gün "Bugün" rozeti almaz', () => {
@@ -223,7 +229,7 @@ test('jeton NE OLDUĞUNU söyler, vaat etmez', () => {
     assert.equal(time.kicker, 'Saati değiştir');
     assert.equal(time.value, 'Cmt 10:30');
     assert.equal(staff.value, 'Selin');
-    assert.equal(staff.initials, 'S');
+    assert.equal(staff.initials, 'SE');
     assert.equal(changeTiles(base, null)[1].value, 'Atanmamış');
     assert.equal(changeTiles(base, null)[1].initials, undefined);
 });

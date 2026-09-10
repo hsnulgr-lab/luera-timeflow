@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    agoLabel, demoBook, initialsOf, matches, mineCount, normalize, sortBook, splitName,
+    agoLabel, demoBook, matches, mineCount, normalize, sortBook, splitName,
 } from '../mobile/src/lib/customerBook.ts';
+// Baş harf üç ayrı yerden tek yere taşındı — bkz. `text.initialsOf`.
+import { initialsOf } from '../mobile/src/lib/text.ts';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
