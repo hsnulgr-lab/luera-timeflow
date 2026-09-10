@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { useActorGate } from '../../src/lib/roleGate';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
 import { useTheme } from '../../src/theme';
@@ -44,8 +45,11 @@ export default function ManagerLayout() {
     // Ve yanlış rolün oturumuyla açıldıysa sekmeler hiç çizilmeden
     // geri gönderiliyor. Bkz. `src/lib/roleGate.ts`.
     const gate = useActorGate('manager');
-    if (gate === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
-    if (gate === 'wrong') return <Redirect href="/personel" />;
+    if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+    if (gate.state === 'wrong') return <Redirect href="/personel" />;
+    // Okunamayan oturum ÖTEKİ KABUĞA gönderilmiyor: personel kabuğu da aynı
+    // hatayı alır ve ikisi birbirine yönlendirip döngüye girerdi.
+    if (gate.state === 'unreadable') return <AuthSessionErrorScreen onRetry={gate.retry} />;
     return (
         <NativeTabs
             // Tasarım: kaydırınca bar 66 → 52 pt'ye daralır. Personel

@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { useActorGate } from '../../src/lib/roleGate';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
 import { useTheme } from '../../src/theme';
@@ -26,8 +27,10 @@ export default function StaffTabs() {
     // Ve yanlış rolün oturumuyla açıldıysa sekmeler hiç çizilmeden
     // geri gönderiliyor. Bkz. `src/lib/roleGate.ts`.
     const gate = useActorGate('staff');
-    if (gate === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
-    if (gate === 'wrong') return <Redirect href="/mudur" />;
+    if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+    if (gate.state === 'wrong') return <Redirect href="/mudur" />;
+    // Bkz. müdür kabuğu: okunamayan oturum yönlendirilmez, görünür durur.
+    if (gate.state === 'unreadable') return <AuthSessionErrorScreen onRetry={gate.retry} />;
     return (
         <NativeTabs
             minimizeBehavior="never"

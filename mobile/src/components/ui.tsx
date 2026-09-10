@@ -21,7 +21,7 @@ import RAnimated, { type AnimatedStyle } from 'react-native-reanimated';
 import { GlassPlate } from './GlassPlate';
 import { LightField } from './LightField';
 import { GlassView } from 'expo-glass-effect';
-import { offlineGate } from '../lib/authCopy';
+import { offlineGate, sessionGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
 import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, radius, space, type, useTheme } from '../theme';
 import { upperTR } from '../lib/text';
@@ -1434,6 +1434,28 @@ export function AuthOfflineScreen({ onRetry, busy = false }: {
         <AuthStatusScreen tone="amber" title={offlineGate.title} body={offlineGate.body}>
             <AuthActionButton
                 label={offlineGate.action}
+                onPress={onRetry}
+                disabled={busy}
+                left={<AuthRefreshIcon color={onAccent} />}
+            />
+        </AuthStatusScreen>
+    );
+}
+
+/**
+ * Oturum okunamadı — rol kapısının kapalı hâli (`roleGate`).
+ *
+ * Bağlantı ekranıyla aynı iskelet ama AYRI metin ve AYRI ikon: sorun
+ * internette değil, cihazda. `lock` ikonu bunu söylüyor.
+ */
+export function AuthSessionErrorScreen({ onRetry, busy = false }: {
+    onRetry: () => void;
+    busy?: boolean;
+}) {
+    return (
+        <AuthStatusScreen tone="amber" icon="lock" title={sessionGate.title} body={sessionGate.body}>
+            <AuthActionButton
+                label={sessionGate.action}
                 onPress={onRetry}
                 disabled={busy}
                 left={<AuthRefreshIcon color={onAccent} />}

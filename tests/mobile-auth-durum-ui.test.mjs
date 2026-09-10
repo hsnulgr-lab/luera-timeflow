@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { expiredPairCode, offlineGate, subscriptionLocked } from '../mobile/src/lib/authCopy.ts';
+import { expiredPairCode, offlineGate, sessionGate, subscriptionLocked } from '../mobile/src/lib/authCopy.ts';
 import { authMetrics } from '../mobile/src/theme/tokens.ts';
 
 const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url), 'utf8');
@@ -57,10 +57,25 @@ test('halka amber; kırmızı değil, çünkü arıza değil', () => {
 });
 
 test('tek eylem var: tekrar dene', () => {
+    // Sınır `ChevronIcon`dı; araya oturum hatası ekranı girdi. Kural aynı:
+    // bağlantı ekranında TEK eylem var.
     const start = ui.indexOf('export function AuthOfflineScreen');
-    const screen = ui.slice(start, ui.indexOf('function ChevronIcon'));
+    const screen = ui.slice(start, ui.indexOf('export function AuthSessionErrorScreen'));
     assert.equal((screen.match(/<AuthActionButton/g) || []).length, 1);
     assert.match(screen, /label=\{offlineGate\.action\}/);
+});
+
+test('oturum okunamadı ekranı bağlantı ekranından AYRI', () => {
+    // Sorun internette değil cihazda; bağlantı metnini ödünç almak yanlış
+    // yönlendirirdi ("Wi-Fi'yi açın" deyip sorunu çözmezdi).
+    const start = ui.indexOf('export function AuthSessionErrorScreen');
+    const screen = ui.slice(start, ui.indexOf('function ChevronIcon'));
+    assert.equal((screen.match(/<AuthActionButton/g) || []).length, 1);
+    assert.match(screen, /label=\{sessionGate\.action\}/);
+    assert.match(screen, /icon="lock"/);
+    // Metin de ayrı olmalı, yalnız ekran değil.
+    assert.notEqual(sessionGate.title, offlineGate.title);
+    assert.notEqual(sessionGate.body, offlineGate.body);
 });
 
 // ── Kapı: sunucuya giden her çağrının önünde ────────────────────────────────

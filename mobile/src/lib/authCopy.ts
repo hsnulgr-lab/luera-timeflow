@@ -55,6 +55,19 @@ export const offlineGate = {
 } as const;
 
 /**
+ * Oturum OKUNAMADI — "oturum yok" değil.
+ *
+ * İkisi ayrı şeydir ve ayrı metin ister: oturumu olmayan kullanıcı girişe
+ * gider, oturumu okunamayan kullanıcı bir daha denemelidir. Bağlantı metnini
+ * ödünç almak yanlış olurdu — sorun internette değil, cihazın kendisinde.
+ */
+export const sessionGate = {
+    title: 'Oturum bilgisi\nokunamadı',
+    body: 'Kim olduğunuzu cihazdan okuyamadık. Bu genelde geçicidir — tekrar deneyin. Sürerse çıkış yapıp yeniden girin.',
+    action: 'Tekrar dene',
+} as const;
+
+/**
  * Giriş 15c. "Eşleşmedi" ile "süresi doldu" bilerek AYRI metinlerdir.
  *
  * Birincisi kullanıcının düzeltebileceği bir yazım hatası — aynı ekranda kalır.
