@@ -499,6 +499,28 @@ Deno.serve(async (req: Request) => {
             }
         }
 
+        // ── Acil durum vanası (093) ─────────────────────────────────────
+        //
+        // `MOBILE_WRITES_ENABLED='off'` bütün yazma uçlarını kapatır. Mobil
+        // ilk kez gerçek veriye yazarken elimizdeki tek geri dönüş yolu bu:
+        // deploy beklemeden, tek bir UPDATE ile.
+        //
+        // KAPININ ARDINDA: idempotens kapısı ÖNCE çalıştı. Zaten uygulanmış
+        // bir işin yanıtını dönmek yazma değil, geçmişi tekrar okumaktır ve
+        // vana kapalıyken de doğru cevaptır.
+        //
+        // 503 SEÇİLDİ, 403 değil: istemcinin kader ayrımı 5xx'i GEÇİCİ
+        // sayıyor, iş telefonun kuyruğunda bekliyor ve vana açılınca
+        // kendiliğinden gidiyor. 403 olsaydı iş kalıcı sayılıp ATILIRDI.
+        if (WRITE_ACTIONS.has(action)) {
+            const flag = await getSecret(admin, 'MOBILE_WRITES_ENABLED');
+            // Satır yoksa AÇIK: unutulmuş bir satır bütün salonu durdurmasın.
+            // Yalnız açık 'off' kapatıyor.
+            if (String(flag ?? 'on').trim().toLowerCase() === 'off') {
+                return json({ error: 'writes_disabled' }, 503);
+            }
+        }
+
         /**
          * Başarılı bir yazmanın yanıtı — kütüğe işlenir ve döner.
          *

@@ -192,3 +192,35 @@ test('müşteri defteri org geçmişinin TAMAMINI taramıyor', () => {
     assert.match(c, /const bookFrom = new Date\(Date\.now\(\) \+ 3 \* 3600_000 - 730 \* 86_400_000\)/);
     assert.match(c, /\.gte\('date', bookFrom\)/);
 });
+
+// ── Acil durum vanası (093) ────────────────────────────────────────────────
+
+test('vana YALNIZ yazma uçlarını kapatıyor', () => {
+    // Okuma kapanırsa personel gününü göremez; vananın işi yazmayı durdurmak.
+    const mig = readFileSync(
+        new URL('../supabase/093_mobile_writes_flag.sql', import.meta.url), 'utf8');
+    assert.match(mig, /MOBILE_WRITES_ENABLED/);
+    assert.match(api, /if \(WRITE_ACTIONS\.has\(action\)\) \{\s*const flag = await getSecret\(admin, 'MOBILE_WRITES_ENABLED'\)/);
+});
+
+test('vana 503 dönüyor — 403 DEĞİL', () => {
+    // İstemcinin kader ayrımı 5xx'i GEÇİCİ sayıyor: iş telefonun kuyruğunda
+    // bekler ve vana açılınca kendiliğinden gider. 403 olsaydı `fateOf` onu
+    // kalıcı sayar ve iş ATILIRDI — vana kapatmak değil silmek olurdu.
+    assert.match(api, /return json\(\{ error: 'writes_disabled' \}, 503\);/);
+    assert.doesNotMatch(api, /'writes_disabled' \}, 4\d\d\)/);
+});
+
+test('satır yoksa vana AÇIK', () => {
+    // Ters kurgu daha güvenli görünür ama anahtar adındaki bir yazım hatası
+    // ya da unutulmuş bir satır bütün salonu durdururdu.
+    assert.match(api, /String\(flag \?\? 'on'\)\.trim\(\)\.toLowerCase\(\) === 'off'/);
+});
+
+test('vana idempotens kapısının ARDINDA', () => {
+    // Zaten uygulanmış bir işin yanıtını dönmek yazma değil, geçmişi tekrar
+    // okumaktır — vana kapalıyken de doğru cevap odur.
+    const gate = api.indexOf('const rawKey = body.idempotencyKey;');
+    const valve = api.indexOf("getSecret(admin, 'MOBILE_WRITES_ENABLED')");
+    assert.ok(gate > 0 && valve > gate, 'vana kapıdan önce gelmemeli');
+});
