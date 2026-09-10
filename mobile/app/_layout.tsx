@@ -11,6 +11,7 @@ import {
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useBackgroundSync } from '../src/lib/backgroundSync';
 import { ManagerDayProvider } from '../src/state/managerDay';
 import { ThemeProvider, useTheme } from '../src/theme';
 
@@ -18,6 +19,9 @@ import { ThemeProvider, useTheme } from '../src/theme';
 
 function Shell() {
     const { c, dark } = useTheme();
+    // Kuyruğun boşalması ve token'ın tazelenmesi. Kök kabukta çünkü ekran
+    // değil UYGULAMA seviyesinde bir iş: hangi sayfada olunduğu fark etmiyor.
+    useBackgroundSync();
     return (
         <>
             <StatusBar style={dark ? 'light' : 'dark'} />

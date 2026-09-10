@@ -81,7 +81,9 @@ test('kütük hatası isteği DÜŞÜRMÜYOR', () => {
 test('istemci aynı anahtarı tekrar gönderiyor — kapının varlık sebebi', () => {
     // Kuyruk `job.key`i saklayıp aynı anahtarla yeniden deniyor. Anahtar her
     // denemede yeniden üretilseydi kapı hiçbir işe yaramazdı.
-    assert.match(client, /q\.push\(\{ key, action, body, at: Date\.now\(\) \}\)/);
+    // Kuyruk Faz 2'de yeniden yazıldı (deneme sayacı, üssel bekleme, sıra
+    // kilidi); değişmeyen şey ANAHTARIN saklanması ve aynısıyla gönderilmesi.
+    assert.match(client, /enqueue\(\{\s*key,/);
     assert.match(client, /call\(job\.action, \{ \.\.\.job\.body, idempotencyKey: job\.key \}\)/);
 });
 

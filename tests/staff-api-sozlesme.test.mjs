@@ -20,6 +20,15 @@ const api = readFileSync(
     new URL('../supabase/functions/staff-api/index.ts', import.meta.url), 'utf8');
 const client = readFileSync(
     new URL('../mobile/src/api/staff.ts', import.meta.url), 'utf8');
+/** Yorumlar elenir: kural KODA ait, açıklama metnine değil. */
+const stripComments = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+const sync = readFileSync(
+    new URL('../mobile/src/lib/backgroundSync.ts', import.meta.url), 'utf8');
+const root = readFileSync(
+    new URL('../mobile/app/_layout.tsx', import.meta.url), 'utf8');
 
 // ── Ayıklama ────────────────────────────────────────────────────────────────
 
@@ -118,23 +127,45 @@ test('RES_COLS ile Appointment tipi AYNI alanları taşıyor', () => {
 // maddeyi kaldır" demiş oluyor. Sessizce kapanan bir boşluk, açık kalan
 // kadar tehlikeli — kimse ötekini haberdar etmiyor.
 
-test('BOŞLUK · kuyruk hâlâ hiçbir yerden boşaltılmıyor (Faz 2)', () => {
-    const calls = [...client.matchAll(/flushQueue\(/g)].length;
-    assert.equal(calls, 1, 'flushQueue artık çağrılıyor — Faz 2 maddesi kapandı, testi güncelle');
+test('KAPANDI · kuyruk gerçekten boşaltılıyor (Faz 2)', () => {
+    // Faz 1'de bu bir BOŞLUK testiydi: `flushQueue` yazılmış ama hiçbir
+    // yerden çağrılmıyordu. Şimdi kök kabuktan çağrılıyor ve iki gerçek olay
+    // tetikliyor — bağlantının geri gelmesi ve uygulamanın öne dönmesi.
+    assert.match(sync, /await flushQueue\(\)/);
+    assert.match(sync, /AppState\.addEventListener\('change'/);
+    assert.match(sync, /Network\.addNetworkStateListener/);
+    assert.match(root, /useBackgroundSync\(\)/, 'kök kabukta çağrılmalı');
 });
 
-test('BOŞLUK · istekte zaman aşımı yok (Faz 2)', () => {
-    assert.doesNotMatch(client, /AbortSignal|signal:/,
-        'timeout eklendi — Faz 2 maddesi kapandı, testi güncelle');
+test('KAPANDI · istekte zaman aşımı var (Faz 2)', () => {
+    // Zaman aşımı olmadan zayıf sinyalde istek ne kuyruğa giriyor ne hata
+    // veriyordu: ekran sonsuza kadar "gönderiliyor" diyordu.
+    // `AbortSignal.timeout()` KULLANILAMAZ: React Native `AbortSignal`i
+    // `abort-controller` paketiyle polyfill ediyor ve o pakette bu statik
+    // metot yok — çağırmak telefonda HER İSTEKTE çökerdi. Tarayıcıda ve
+    // Node'da çalıştığı için kolayca gözden kaçıyor; test onu kapatıyor.
+    assert.doesNotMatch(stripComments(client), /AbortSignal\.timeout/);
+    assert.match(client, /const controller = new AbortController\(\);/);
+    assert.match(client, /setTimeout\(\(\) => controller\.abort\(\), REQUEST_TIMEOUT_MS\)/);
+    assert.match(client, /clearTimeout\(timer\);/, 'sayaç sönmezse her istek için birikir');
 });
 
-test('BOŞLUK · istemcide session.refresh yolu yok (Faz 2)', () => {
-    // Sunucuda VAR (`staff-api` · action === 'session.refresh'); personel
-    // token'ı 12 saatte ölüyor ve istemci yenileyemediği için kullanıcı PIN
-    // yerine YENİDEN EŞLEŞTİRMEYE düşüyor.
+test('KAPANDI · token DOLMADAN ÖNCE tazeleniyor (Faz 2)', () => {
+    // `session.refresh` ucu da geçerli token istiyor (kimlik doğrulamasından
+    // SONRA geliyor): süresi dolmuş bir token kendini yenileyemez. O yüzden
+    // yenileme öne dönüşte ve saatte bir yapılıyor.
     assert.match(api, /action === 'me' \|\| action === 'session\.refresh'/);
-    assert.doesNotMatch(client, /session\.refresh/,
-        'yenileme eklendi — Faz 2 maddesi kapandı, testi güncelle');
+    assert.match(client, /call\('session\.refresh'\)/);
+    assert.match(sync, /await refreshIfStale\(now\);\s*await flushQueue\(\);/,
+        'kuyruk ölü token\'la boşaltılırsa her iş 401 alır ve KALICI sayılıp atılır');
+});
+
+test('KAPANDI · yenilenemeyen oturum PIN ekranına düşüyor (Faz 2)', () => {
+    // Personel token'ı ölünce kullanıcı YENİDEN EŞLEŞTİRMEYE düşüyordu;
+    // cihaz eşleşmesi ayrı bir belge ve durmalı, yoksa her vardiya başında
+    // işletme sahibinin gelip telefonu yeniden eşlemesi gerekirdi.
+    assert.match(client, /if \(e instanceof ApiError && e\.status === 401\) await tokens\.clearStaff\(\);/);
+    assert.doesNotMatch(client, /clearDevice\(\) *;? *\n *\} *catch/);
 });
 
 test('BOŞLUK · iyimser kilit sunucuda hazır, istemci damga göndermiyor (Faz 4)', () => {
@@ -143,10 +174,12 @@ test('BOŞLUK · iyimser kilit sunucuda hazır, istemci damga göndermiyor (Faz 
         'istemci damgayı göndermeye başladı — Faz 4 maddesi kapandı, testi güncelle');
 });
 
-test('BOŞLUK · ApiError sunucunun gövdesini taşımıyor (Faz 2)', () => {
+test('KAPANDI · ApiError sunucunun gövdesini taşıyor (Faz 2)', () => {
     // Sunucu `remaining`, `minutes` ve `until` dönüyor; istemci yalnız kodu
-    // alıyor. "3 hakkınız kaldı" ekranı bu yüzden ölü kod.
+    // alıyordu ve yazılmış "3 hakkınız kaldı" ekranı ölü koddu.
     assert.match(api, /error: 'invalid_credentials', remaining:/);
-    assert.match(client, /new ApiError\(String\(data\?\.error \?\? 'server_error'\), res\.status\)/,
-        'ApiError zenginleşti — Faz 2 maddesi kapandı, testi güncelle');
+    assert.match(client, /public body: Record<string, unknown> = \{\}/);
+    for (const field of ['remaining', 'minutes', 'until']) {
+        assert.match(client, new RegExp(`get ${field}\\(`), `ApiError.${field} yok`);
+    }
 });

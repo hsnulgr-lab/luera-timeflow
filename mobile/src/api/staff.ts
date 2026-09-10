@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 import type { VisitFormula } from '../lib/formula';
+import {
+    backoffMs, fateOf, shouldRetry, QUEUE_LIMIT,
+} from '../lib/retry';
 
 // staff-api istemcisi.
 //
@@ -107,23 +110,79 @@ export interface AdisyonItem {
     qty?: number;
 }
 
+/**
+ * Sunucunun hayırı.
+ *
+ * Gövde de TAŞINIYOR. Eskiden yalnız `code` ve `status` alınıyordu; oysa
+ * sunucu "kaç hakkın kaldı" (`remaining`), "kaç dakika kilitli" (`minutes`)
+ * ve "ne zamana kadar" (`until`) bilgisini gönderiyor. Onları atmak,
+ * yazılmış "3 hakkınız kaldı" ekranını ölü koda çeviriyordu.
+ */
 export class ApiError extends Error {
-    constructor(public code: string, public status: number) {
+    constructor(
+        public code: string,
+        public status: number,
+        public body: Record<string, unknown> = {},
+    ) {
         super(code);
+    }
+
+    get remaining(): number | null {
+        return typeof this.body.remaining === 'number' ? this.body.remaining : null;
+    }
+
+    get minutes(): number | null {
+        return typeof this.body.minutes === 'number' ? this.body.minutes : null;
+    }
+
+    get until(): string | null {
+        return typeof this.body.until === 'string' ? this.body.until : null;
     }
 }
 
+/**
+ * Bir isteğin en fazla bekleyeceği süre.
+ *
+ * Zaman aşımı OLMADAN, zayıf sinyalde istek ne kuyruğa giriyor ne hata
+ * veriyordu: ekran sonsuza kadar "gönderiliyor" diyordu. 15 saniye, kötü
+ * bağlantıda geçen ama umutsuz olmayan bir istek için üst sınır.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function raw(action: string, body: Record<string, unknown> = {}, token?: string | null) {
-    const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'x-staff-token': token } : {}),
-        },
-        body: JSON.stringify({ action, ...body }),
-    });
+    // `AbortSignal.timeout()` KULLANILMIYOR: React Native `AbortSignal`i
+    // `abort-controller` paketiyle polyfill ediyor (Libraries/Core/setUpXHR)
+    // ve o pakette bu statik metot YOK. Çağırmak telefonda her istekte
+    // "AbortSignal.timeout is not a function" demekti — tarayıcıda ve
+    // Node'da çalıştığı için kolayca gözden kaçar.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+        res = await fetch(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'x-staff-token': token } : {}),
+            },
+            body: JSON.stringify({ action, ...body }),
+            // Zaman aşımı bir AĞ hatası gibi düşüyor (`ApiError` değil) ve bu
+            // doğru: sunucuya ulaşılamadı, iş kuyruğa girmeli.
+            signal: controller.signal,
+        });
+    } finally {
+        // İstek bittiğinde sayaç mutlaka söner; yoksa 15 saniye boyunca
+        // sönmeyen bir zamanlayıcı her istek için birikirdi.
+        clearTimeout(timer);
+    }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(String(data?.error ?? 'server_error'), res.status);
+    if (!res.ok) {
+        throw new ApiError(
+            String(data?.error ?? 'server_error'),
+            res.status,
+            (data && typeof data === 'object') ? data as Record<string, unknown> : {},
+        );
+    }
     return data;
 }
 
@@ -180,6 +239,33 @@ async function call(action: string, body: Record<string, unknown> = {}) {
 
 export const api = {
     me: () => call('me'),
+    /**
+     * Personel token'ını tazeler.
+     *
+     * DOLMADAN ÖNCE çağrılmalı: `session.refresh` ucu da geçerli bir token
+     * istiyor (sunucuda kimlik doğrulamasından SONRA geliyor), yani süresi
+     * dolmuş bir token kendini yenileyemez. Token 12 saat yaşıyor; uygulama
+     * öne her dönüşünde saatte bir tazeleniyor (`backgroundSync`).
+     *
+     * Yenilenemezse personel token'ı SİLİNİYOR ve kullanıcı PIN ekranına
+     * düşüyor. Cihaz eşleşmesi ayrı bir belge ve duruyor — aksi hâlde
+     * vardiya başında işletme sahibinin gelip telefonu yeniden eşlemesi
+     * gerekirdi.
+     */
+    refresh: async (): Promise<boolean> => {
+        try {
+            const data = await call('session.refresh');
+            const fresh = (data as { token?: unknown })?.token;
+            if (typeof fresh === 'string' && fresh) {
+                await tokens.setStaff(fresh);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            if (e instanceof ApiError && e.status === 401) await tokens.clearStaff();
+            return false;
+        }
+    },
     agenda: (date?: string) => call('agenda', date ? { date } : {}),
     /** Salonun günü — okuma amaçlı. Personel bakar, dokunmaz. */
     calendar: (date?: string) => call('calendar', date ? { date } : {}),
@@ -221,52 +307,156 @@ interface QueuedJob {
     action: string;
     body: Record<string, unknown>;
     at: number;
+    /** Kaç kez denendi. Üssel beklemenin ve pes etmenin girdisi. */
+    attempts: number;
+    /** Bu zamandan önce yeniden denenmiyor (üssel bekleme). */
+    nextAt: number;
+    /** Son hatanın kodu — "gönderilemedi" listesinde gösterilecek. */
+    lastError?: string;
 }
 
 async function readQueue(): Promise<QueuedJob[]> {
-    try { return JSON.parse((await AsyncStorage.getItem(K_QUEUE)) || '[]'); } catch { return []; }
+    try {
+        const list = JSON.parse((await AsyncStorage.getItem(K_QUEUE)) || '[]');
+        if (!Array.isArray(list)) return [];
+        // Eski sürümden kalan işlerde sayaçlar yok; okurken tamamlanıyorlar.
+        return list.map((job: QueuedJob) => ({
+            ...job,
+            attempts: typeof job.attempts === 'number' ? job.attempts : 0,
+            nextAt: typeof job.nextAt === 'number' ? job.nextAt : 0,
+        }));
+    } catch {
+        return [];
+    }
 }
-async function writeQueue(q: QueuedJob[]) {
-    await AsyncStorage.setItem(K_QUEUE, JSON.stringify(q.slice(-50)));
+
+async function writeQueue(queue: QueuedJob[]) {
+    await AsyncStorage.setItem(K_QUEUE, JSON.stringify(queue));
 }
 
 /**
- * Yazma isteği. Ağ hatasında kuyruğa alınır ve `{ queued: true }` döner —
- * çağıran arayüz bunu görüp "sıraya alındı" der.
+ * Kuyruk yazımı TEK SIRADA.
  *
- * SUNUCU HATASI KUYRUĞA GİRMEZ: 403/409 tekrar denemeyle düzelmez, kuyrukta
- * sonsuza kadar dönerdi. Yalnız AĞ hatası (fetch reddi) kuyruğa alınır.
+ * Oku-değiştir-yaz üç ayrı `await`; iki `write()` aynı anda çalışırsa ikincisi
+ * birincinin eklediği işi görmeden yazıyor ve o iş KAYBOLUYORDU. Kilit yerine
+ * söz zinciri: her iş bir öncekinin bitmesini bekliyor.
+ */
+let queueChain: Promise<unknown> = Promise.resolve();
+
+function inQueueOrder<T>(work: () => Promise<T>): Promise<T> {
+    const next = queueChain.then(work, work);
+    // Zincir HATAYLA kırılmamalı: bir iş patlarsa sonrakiler yine sıraya girer.
+    queueChain = next.then(() => undefined, () => undefined);
+    return next;
+}
+
+/** Kuyruğa alınamayan iş oldu mu — kullanıcıya söylenecek. */
+export interface QueueOutcome {
+    queued: boolean;
+    /** Kuyruk doldu ve iş HİÇ alınamadı. Sessiz kırpma yapılmıyor. */
+    overflow?: boolean;
+}
+
+async function enqueue(job: QueuedJob): Promise<QueueOutcome> {
+    return inQueueOrder(async () => {
+        const queue = await readQueue();
+        // Sınır aşıldığında ESKİLERİ ATMIYORUZ: eski iş, yenisinden daha az
+        // değerli değil ve sessizce kırpmak veri kaybının ta kendisi.
+        // Yenisi alınmıyor ve çağıran bunu öğreniyor.
+        if (queue.length >= QUEUE_LIMIT) return { queued: false, overflow: true };
+        queue.push(job);
+        await writeQueue(queue);
+        return { queued: true };
+    });
+}
+
+/**
+ * Yazma isteği.
+ *
+ * KADER `retry.fateOf` ile veriliyor. Eski kural "sunucu konuştuysa kuyruğa
+ * girme" idi; 403 için doğru ama 500 de sunucunun konuşmasıdır ve o tekrar
+ * denenmeli. O kuralla sunucunun bir dakikalık aksaması, personelin yazdığı
+ * adisyonu kaybettiriyordu.
  */
 async function write(action: string, body: Record<string, unknown>) {
     const key = `${action}:${body.reservationId}:${Date.now()}`;
     try {
         return await call(action, { ...body, idempotencyKey: key });
     } catch (e) {
-        if (e instanceof ApiError) throw e;   // sunucu konuştu, kuyruk çözmez
-        const q = await readQueue();
-        q.push({ key, action, body, at: Date.now() });
-        await writeQueue(q);
-        return { ok: false, queued: true };
+        const status = e instanceof ApiError ? e.status : null;
+        if (fateOf({ status }) === 'permanent') throw e;
+        const outcome = await enqueue({
+            key,
+            action,
+            body,
+            at: Date.now(),
+            attempts: 0,
+            nextAt: 0,
+            ...(e instanceof ApiError ? { lastError: e.code } : {}),
+        });
+        return { ok: false, ...outcome };
     }
 }
 
-/** Bağlantı gelince çağrılır. Sırayla dener, ilk ağ hatasında durur. */
-export async function flushQueue(): Promise<{ sent: number; left: number }> {
-    const q = await readQueue();
-    let sent = 0;
-    while (q.length > 0) {
-        const job = q[0];
-        try {
-            await call(job.action, { ...job.body, idempotencyKey: job.key });
-            q.shift(); sent++;
-        } catch (e) {
-            // Sunucu reddettiyse bu iş asla geçmeyecek: kuyruğu tıkamasın, at.
-            if (e instanceof ApiError) { q.shift(); continue; }
-            break;  // ağ hâlâ yok
+/** `flushQueue` sonucunda kullanıcıya söylenecek olanlar. */
+export interface FlushResult {
+    sent: number;
+    left: number;
+    /** Kalıcı olarak başarısız olup ATILAN işler. Sessizce kaybolmuyorlar. */
+    dropped: { key: string; action: string; error: string }[];
+}
+
+/**
+ * Kuyruğu boşaltır. Bağlantı gelince ve uygulama öne dönünce çağrılıyor.
+ *
+ * ESKİ HÂLİ VERİ KAYBEDİYORDU: her `ApiError`ü kalıcı sayıp işi siliyordu,
+ * yani sunucudan 500 alan bir adisyon kuyruktan atılıyordu. Artık yalnız
+ * KALICI hata atıyor ve atılan iş sessizce kaybolmuyor — çağırana bildiriliyor.
+ */
+export async function flushQueue(): Promise<FlushResult> {
+    return inQueueOrder(async () => {
+        const queue = await readQueue();
+        const dropped: FlushResult['dropped'] = [];
+        const now = Date.now();
+        let sent = 0;
+
+        while (queue.length > 0) {
+            const job = queue[0];
+            // Üssel bekleme dolmadıysa sıra BEKLİYOR: sıradaki iş de aynı
+            // sunucuya gidecek, atlayıp denemek onu da yakmak olurdu.
+            if (job.nextAt > now) break;
+
+            try {
+                await call(job.action, { ...job.body, idempotencyKey: job.key });
+                queue.shift();
+                sent++;
+                continue;
+            } catch (e) {
+                const status = e instanceof ApiError ? e.status : null;
+                const code = e instanceof ApiError ? e.code : 'network';
+
+                if (fateOf({ status }) === 'permanent') {
+                    queue.shift();
+                    dropped.push({ key: job.key, action: job.action, error: code });
+                    continue;
+                }
+
+                job.attempts += 1;
+                job.lastError = code;
+                if (!shouldRetry(job.attempts)) {
+                    queue.shift();
+                    dropped.push({ key: job.key, action: job.action, error: code });
+                    continue;
+                }
+                job.nextAt = now + backoffMs(job.attempts, Math.random());
+                // Ağ hâlâ yoksa sıradakini denemenin anlamı yok.
+                break;
+            }
         }
-    }
-    await writeQueue(q);
-    return { sent, left: q.length };
+
+        await writeQueue(queue);
+        return { sent, left: queue.length, dropped };
+    });
 }
 
 export async function queueLength(): Promise<number> {
