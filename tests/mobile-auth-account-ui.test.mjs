@@ -79,7 +79,10 @@ test('müdür varyantı Hesap başlığını ve üç ayar satırını eksiksiz t
 test('personel varyantı PIN ve yeniden eşleştirme sonucunu söyler; silme yetkisi vermez', () => {
     for (const copy of [
         'Profil',
-        'PIN’i değiştir',
+        // "PIN'i değiştir" KALDIRILDI, pasif bırakılmadı: hedef ekranı ve
+        // sunucu tarafı yok, dokununca hiçbir şey olmuyordu. Aynı kararı
+        // `personel/profile.tsx` zaten vermişti ("Pasif bırakılmadı,
+        // kaldırıldı"); burası o kararın atlanmış hâliydi.
         'Face ID ile aç',
         'Kapalı',
         'Oturumu kapat',

@@ -177,12 +177,17 @@ export default function AccountScreen() {
                           oraya gidiyor. Personelin PIN satırı DEĞİŞMEDİ:
                           hedefi hâlâ yok, ama o personel modunun işi.
                         */}
-                        <AuthAccountRow
-                            title={isManager ? 'Şifreyi değiştir' : 'PIN’i değiştir'}
-                            onPress={isManager
-                                ? () => router.push('/(auth)/manager/recover')
-                                : () => undefined}
-                        />
+                        {/* Personelin PIN satırı KALDIRILDI, pasif bırakılmadı.
+                            Hedef ekranı ve sunucu tarafı yok; dokununca hiçbir
+                            şey olmuyordu. `personel/profile.tsx` aynı kararı
+                            zaten vermişti ("Pasif bırakılmadı, kaldırıldı"),
+                            burası o kararın atlanmış hâliydi. */}
+                        {isManager ? (
+                            <AuthAccountRow
+                                title="Şifreyi değiştir"
+                                onPress={() => router.push('/(auth)/manager/recover')}
+                            />
+                        ) : null}
                         <AuthAccountRow
                             title="Face ID ile aç"
                             subtitle={biometricLabel}

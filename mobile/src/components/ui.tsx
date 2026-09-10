@@ -1845,25 +1845,6 @@ export function LueraMark({ staff = false, resume = false, dotStyle, glow = fals
     );
 }
 
-function ScanIcon({ color }: { color: string }) {
-    return (
-        <Svg
-            width={authMetrics.scanIcon}
-            height={authMetrics.scanIcon}
-            viewBox="0 0 24 24"
-            fill="none"
-        >
-            <Path
-                d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"
-                stroke={color}
-                strokeWidth={authMetrics.iconStroke}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </Svg>
-    );
-}
-
 function DeleteIcon({ color }: { color: string }) {
     return (
         <Svg
@@ -1886,50 +1867,6 @@ function DeleteIcon({ color }: { color: string }) {
                 strokeLinecap="round"
             />
         </Svg>
-    );
-}
-
-/** Giriş 06'nın kare kod eylemi; kamera bu UI turunda bağlanmaz. */
-export function AuthScanButton({ onPress }: { onPress: () => void }) {
-    const { c, reduceMotion } = useTheme();
-    const press = usePressValue();
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Kare kodu okut"
-            onPress={onPress}
-            onPressIn={() => runPress(press, true, reduceMotion)}
-            onPressOut={() => runPress(press, false, reduceMotion)}
-            style={{ alignSelf: 'flex-start' }}
-        >
-            <Animated.View style={{
-                height: authMetrics.scanHeight,
-                paddingHorizontal: authMetrics.scanX,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: authMetrics.scanGap,
-                borderRadius: radius.md,
-                borderWidth: 1,
-                borderColor: c.bd,
-                backgroundColor: c.surf2,
-                opacity: press.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1, pressMotion.ghostOpacity],
-                }),
-            }}>
-                <ScanIcon color={c.tx} />
-                <Text style={{
-                    color: c.tx,
-                    fontSize: authMetrics.scanTextSize,
-                    fontFamily: font.bold,
-                    fontWeight: '700',
-                    letterSpacing: authMetrics.scanTextSize * -0.01,
-                }}>
-                    Kare kodu okut
-                </Text>
-            </Animated.View>
-        </Pressable>
     );
 }
 

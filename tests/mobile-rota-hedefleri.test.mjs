@@ -30,9 +30,19 @@ function walk(dir) {
 
 const files = walk(APP);
 
-/** Grup segmentleri (`(auth)` gibi) adrese girmez — iki tarafta da atılıyor. */
+/**
+ * Adresi karşılaştırılabilir hâle getirir.
+ *
+ * İki şey eleniyor: grup segmentleri (`(auth)` gibi — adrese girmiyorlar) ve
+ * değişken segmentin ADI. `/personel/[id]` ile `` `/personel/${staffId}` ``
+ * aynı rotadır; ad üzerinden karşılaştırmak, dosyadaki parametreyi yeniden
+ * adlandıran birini kırık rota sanmak olurdu.
+ */
 const normalize = (path) => {
-    const kept = path.split('/').filter((part) => part && !/^\(.*\)$/.test(part));
+    const kept = path
+        .split('/')
+        .filter((part) => part && !/^\(.*\)$/.test(part))
+        .map((part) => (/^\[.*\]$/.test(part) || /^\$\{.*\}$/.test(part) ? '[*]' : part));
     return `/${kept.join('/')}`;
 };
 
@@ -46,8 +56,14 @@ for (const full of files) {
     routes.add(normalize(withoutIndex) || '/');
 }
 
-/** Kodda geçen adres literalleri. */
-const LITERAL = /(?:pathname:\s*|router\.(?:push|replace|navigate)\(\s*)'(\/[^']*)'/g;
+/**
+ * Kodda geçen adres literalleri.
+ *
+ * `href` de sayılıyor: giriş akışı `<Redirect href="…" />` ile geziyor ve o
+ * yol atlanırsa hem kırık bir Redirect görünmez kalır hem de giriş ekranları
+ * "hiçbir yerden gidilmiyor" sanılır.
+ */
+const LITERAL = /(?:pathname:\s*|href=\{?\s*|router\.(?:push|replace|navigate)\(\s*)['"`](\/[^'"`]*)['"`]/g;
 const targets = new Map();
 for (const full of [...files, ...walk(fileURLToPath(new URL('../mobile/src', import.meta.url)))]) {
     const src = readFileSync(full, 'utf8');
@@ -79,4 +95,34 @@ test('eski GRUP adları hiçbir adreste kalmadı', () => {
     for (const target of targets.keys()) {
         assert.doesNotMatch(target, /\((manager|staff)\)/, `${target} eski grup adını taşıyor`);
     }
+});
+
+// ── Öksüz ekran ─────────────────────────────────────────────────────────────
+
+test('gidilmeyen bir ekran dosyada DURMUYOR', () => {
+    // `appointment → visit → finish → sent` zinciri 1592 satırdı ve hiçbir
+    // yerden açılmıyordu: `kumanda.tsx` aynı işi devralmıştı. Ama deep-link
+    // ile hâlâ açılıyor ve SAHTE veri çiziyordu.
+    //
+    // Muafiyet listesi bilinçli: kabuk dosyaları, girişin kendi akışı
+    // (kendi içinde `Redirect` ile geziliyor) ve ürün kararı bekleyen
+    // `kazanc` (sekmeden çıkarıldı ama silinmedi — Faz 7).
+    // Sekme ekranlarına `router.push` ile gidilmiyor: onları NativeTabs
+    // çiziyor. Kabuk düzenlerindeki tetikleyici adları da "gidiliyor" sayılır.
+    const tabs = new Set();
+    for (const shell of ['mudur', 'personel']) {
+        const layout = readFileSync(join(APP, shell, '_layout.tsx'), 'utf8');
+        for (const m of layout.matchAll(/NativeTabs\.Trigger name="([a-z]+)"/g)) {
+            tabs.add(m[1] === 'index' ? `/${shell}` : `/${shell}/${m[1]}`);
+        }
+    }
+    assert.ok(tabs.size >= 8, `sekme adları okunamadı (${tabs.size})`);
+
+    // Açılış ekranı ve ürün kararı bekleyen `kazanc` (sekmeden çıkarıldı ama
+    // SİLİNMEDİ — Faz 7) dışarıda.
+    const EXEMPT = /^\/$|^\/kazanc$/;
+    const reached = new Set([...targets.keys()].map((t) => normalize(t.split('?')[0]) || '/'));
+    for (const tab of tabs) reached.add(tab);
+    const orphans = [...routes].filter((r) => !reached.has(r) && !EXEMPT.test(r));
+    assert.deepEqual(orphans, [], `hiçbir yerden gidilmeyen ekran:\n  ${orphans.join('\n  ')}`);
 });

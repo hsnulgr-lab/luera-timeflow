@@ -10,7 +10,6 @@ import {
     AuthCodeBoxes,
     AuthDetailList,
     AuthKeypad,
-    AuthScanButton,
     AuthTextLink,
     AuthOfflineScreen,
     AuthStatusScreen,
@@ -297,7 +296,6 @@ export default function PairDevice() {
                         Bu kod eşleşmedi. Rakamları bir daha kontrol edip yeniden yazın.
                     </AuthBanner>
                 ) : null}
-                <AuthScanButton onPress={() => undefined} />
             </View>
 
             <AuthKeypad onKey={keyPress} disabled={submitting} />

@@ -85,7 +85,9 @@ test('Giriş 06 kod ekranı tasarım metnini ve altı hane kapısını korur', (
         'Bu telefonu',
         'işletmeye bağlayın',
         'Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın. Kodu işletme sahibi verir.',
-        'Kare kodu okut',
+        // "Kare kodu okut" KALDIRILDI. Canlı bir ekranda duruyordu, dokununca
+        // hiçbir şey olmuyordu ve `expo-camera` kurulu bile değil. Görünen
+        // ama çalışmayan bir özellik App Store 2.1'in doğrudan konusu.
         'Devam',
         'Kodum yok',
         'Bu kod eşleşmedi. Rakamları bir daha kontrol edip yeniden yazın.',
@@ -195,6 +197,8 @@ test('kod ve PIN hatası sözleşmedeki tek ±6 px / 180 ms sarsıntıyı kullan
 test('özel tuş takımının simgeleri metin karakteri değil SVG olur', () => {
     assert.match(ui, /react-native-svg/);
     assert.match(ui, /function\s+DeleteIcon/);
-    assert.match(ui, /function\s+ScanIcon/);
+    // `ScanIcon` düğmesiyle birlikte kalktı — kullanılmayan bir simge.
+    assert.doesNotMatch(ui, /function\s+ScanIcon/);
+    assert.doesNotMatch(ui, /AuthScanButton/);
     assert.doesNotMatch(staffUiBundle, /⌫|☎|↗|•••/);
 });
