@@ -191,7 +191,12 @@ test('eski product kalemi kimliksizse finish kilitlenmez, canonical material kil
 });
 
 test('ciro görünürlüğü ayara bağlı ve varsayılan KAPALI', () => {
-    assert.match(api, /staff_can_see_revenue !== true\) return json\(\{ error: 'disabled' \}/);
+    // 092: ayar okuması `orgSettings()` yardımcısına taşındı — `settings`
+    // satırı org SAHİBİNİNKİ olmalı, rastgele bir üyeninki değil. Kalıp
+    // değişti, KURAL aynı: `true` değilse 403 `disabled`.
+    assert.match(api, /staff_can_see_revenue !== true\) \{\s*return json\(\{ error: 'disabled' \}, 403\);/);
+    // Ve okunamayan ayar "kapalı" sayılmamalı: hata ayrı yoldan dönmeli.
+    assert.match(api, /if \(stErr\) \{[^}]*return json\(\{ error: 'lookup_failed' \}, 500\); \}/);
     const mig = readFileSync(
         new URL('../supabase/089_staff_revenue_visibility.sql', import.meta.url), 'utf8');
     assert.match(mig, /staff_can_see_revenue BOOLEAN NOT NULL DEFAULT false/);

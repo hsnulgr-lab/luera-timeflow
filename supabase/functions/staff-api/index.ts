@@ -50,8 +50,11 @@ type Action =
     | 'agenda'         // bugünün kendi randevuları
     | 'visit.start'    // işleme başla
     | 'visit.items'    // adisyon kalemleri (hizmet / malzeme / ekstra)
+    | 'visit.formula'  // ziyaretin renk formülü
     | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
+    | 'calendar'       // salonun günü — okuma amaçlı
     | 'catalog'        // hizmet + ürün listesi (tek turda)
+    | 'customers'      // müşteri defterinin listesi
     | 'customer'       // müşteri kartı
     | 'performance';   // kendi cirosu
 
@@ -460,6 +463,65 @@ Deno.serve(async (req: Request) => {
         if (!me || !me.is_active) return json({ error: 'revoked' }, 401);
         if ((me.session_epoch ?? 1) !== claims.epoch) return json({ error: 'revoked' }, 401);
 
+        // ── İdempotens kapısı (092) ─────────────────────────────────────────
+        //
+        // Telefon her yazma isteğine bir anahtar koyuyor ve çevrimdışı kuyruk
+        // AYNI anahtarla tekrar gönderiyor (mobile/src/api/staff.ts). Bu kapı
+        // olmadan kuyruğu devreye almak, aynı işi iki kez uygulamak demekti.
+        //
+        // YALNIZ BAŞARILI yazmalar kütüğe giriyor. Hata dönen bir istek satırı
+        // değiştirmedi; tekrar denenmesi zararsız, hatta doğru — kalıcı bir
+        // 500'ü kütüğe yazsaydık o iş sonsuza kadar başarısız donardı.
+        const WRITE_ACTIONS = new Set(['visit.start', 'visit.items', 'visit.formula', 'visit.finish']);
+        let idemKey: string | null = null;
+        if (WRITE_ACTIONS.has(action)) {
+            const rawKey = body.idempotencyKey;
+            if (typeof rawKey === 'string' && rawKey.trim()) {
+                idemKey = rawKey.trim().slice(0, 200);
+                const { data: prior, error: priorErr } = await admin.from('staff_write_log')
+                    .select('staff_id, action, status, response')
+                    .eq('organization_id', me.organization_id)
+                    .eq('idempotency_key', idemKey)
+                    .maybeSingle();
+                if (priorErr) {
+                    console.error('staff-api write log read', priorErr);
+                    return json({ error: 'lookup_failed' }, 500);
+                }
+                if (prior) {
+                    // Aynı anahtar başka personelden ya da başka eylemden
+                    // gelemez. Gelirse bu bir tekrar değil, çakışmadır — ve
+                    // kayıtlı yanıtı dönmek başkasının verisini sızdırırdı.
+                    if (prior.staff_id !== me.id || prior.action !== action) {
+                        return json({ error: 'idempotency_key_reused' }, 409);
+                    }
+                    return json(prior.response, prior.status as number);
+                }
+            }
+        }
+
+        /**
+         * Başarılı bir yazmanın yanıtı — kütüğe işlenir ve döner.
+         *
+         * Yarışta ikinci istek 23505 alır: iş iki kez uygulanmış olabilir ama
+         * bu, kapının değil eşzamanlılığın işi (visit.items iyimser kilidi o
+         * durumu ayrıca yakalıyor). Kütük hatası isteği DÜŞÜRMEZ — yazma
+         * zaten gerçekleşti, geri alınamaz.
+         */
+        const done = async (payload: Record<string, unknown>, status = 200) => {
+            if (idemKey) {
+                const { error } = await admin.from('staff_write_log').insert({
+                    organization_id: me.organization_id,
+                    idempotency_key: idemKey,
+                    staff_id: me.id,
+                    action,
+                    status,
+                    response: payload,
+                });
+                if (error && error.code !== '23505') console.error('staff-api write log', error);
+            }
+            return json(payload, status);
+        };
+
         if (action === 'me' || action === 'session.refresh') {
             const fresh = action === 'session.refresh'
                 ? await mintStaffToken({
@@ -497,7 +559,36 @@ Deno.serve(async (req: Request) => {
         // "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
         const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
             + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
-            + 'service_ended_at, adisyon_items, is_paid, formula';
+            + 'service_ended_at, adisyon_items, is_paid, formula, updated_at';
+
+        /**
+         * Organizasyonun ayar satırı.
+         *
+         * `settings.user_id` TEKİL, `organization_id` değil: çok üyeli bir
+         * org'da birden çok satır olur. Buradaki eski `.limit(1)` hangisinin
+         * geleceğini SÖYLEMİYORDU — `staff_can_see_revenue` ve `risk_rules`
+         * rastgele bir üyenin satırından okunuyordu.
+         *
+         * Doğru satır org SAHİBİNİNKİ. Sahibin satırı yoksa (elle taşınmış
+         * veri) en eskiye düşüyoruz: yanlış olabilir ama en azından KARARLI.
+         */
+        const orgSettings = async (cols: string) => {
+            const { data: org } = await admin.from('organizations')
+                .select('owner_id').eq('id', me.organization_id).maybeSingle();
+            if (org?.owner_id) {
+                const { data, error } = await admin.from('settings').select(cols)
+                    .eq('organization_id', me.organization_id)
+                    .eq('user_id', org.owner_id)
+                    .maybeSingle();
+                if (error) return { data: null, error };
+                if (data) return { data, error: null };
+            }
+            const { data, error } = await admin.from('settings').select(cols)
+                .eq('organization_id', me.organization_id)
+                .order('created_at', { ascending: true })
+                .limit(1).maybeSingle();
+            return { data, error };
+        };
 
         /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
         const loadOwnReservation = async (id: unknown) => {
@@ -753,13 +844,13 @@ Deno.serve(async (req: Request) => {
                     if (latest.err) return latest.err;
                     if (latest.res!.status === 'completed') return json({ error: 'already_finished' }, 409);
                     await audit(me.organization_id, me.id, 'visit.start');
-                    return json({ ok: true, reservation: latest.res });
+                    return await done({ ok: true, reservation: latest.res });
                 }
                 await audit(me.organization_id, me.id, 'visit.start');
-                return json({ ok: true, reservation: updated });
+                return await done({ ok: true, reservation: updated });
             }
             await audit(me.organization_id, me.id, 'visit.start');
-            return json({ ok: true, reservation: { ...res, ...patch } });
+            return await done({ ok: true, reservation: { ...res, ...patch } });
         }
 
         if (action === 'visit.items') {
@@ -869,22 +960,49 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
-            const { data: updated, error } = await admin.from('reservations')
+            // ── İYİMSER KİLİT (092) ─────────────────────────────────────
+            //
+            // Adisyon EZEREK yazılıyor — liste komple değiştiriliyor. Kasiyer
+            // masaüstünden, personel telefondan aynı randevuda çalışırsa biri
+            // ötekinin kalemini yok eder ve KİMSE GÖRMEZ. Çare, istemcinin
+            // gördüğü sürümü söylemesi: damga uymuyorsa yazma reddedilir ve
+            // güncel liste geri döner.
+            //
+            // İSTEĞE BAĞLI: damga göndermeyen istemci eskisi gibi çalışır.
+            // Zorunlu kılmak, bugün sahada olan sürümü kırardı.
+            const expected = typeof body.expectedUpdatedAt === 'string' && body.expectedUpdatedAt
+                ? body.expectedUpdatedAt
+                : null;
+
+            let write = admin.from('reservations')
                 .update({ adisyon_items: items })
                 .eq('id', res!.id)
                 .eq('organization_id', me.organization_id)
                 .neq('status', 'cancelled')
-                .neq('status', 'completed')
-                .select('id, status')
+                .neq('status', 'completed');
+            if (expected) write = write.eq('updated_at', expected);
+
+            const { data: updated, error } = await write
+                .select('id, status, updated_at')
                 .maybeSingle();
             if (error) { console.error('visit.items', error); return json({ error: 'write_failed' }, 500); }
             if (!updated) {
                 const latest = await loadOwnReservation(res!.id);
                 if (latest.err) return latest.err;
                 if (latest.res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+                // Satır duruyor ve tamamlanmamış ama yazma tutmadı → aradaki
+                // fark damga. İstemciye SUÇLAMA değil GÜNCEL LİSTE dönüyor:
+                // kullanıcı kendi kalemini yeniden ekleyebilsin diye.
+                if (expected && latest.res!.updated_at !== expected) {
+                    return json({
+                        error: 'items_stale',
+                        items: Array.isArray(latest.res!.adisyon_items) ? latest.res!.adisyon_items : [],
+                        updatedAt: latest.res!.updated_at ?? null,
+                    }, 409);
+                }
                 return json({ error: 'state_conflict' }, 409);
             }
-            return json({ ok: true, items });
+            return await done({ ok: true, items, updatedAt: updated.updated_at ?? null });
         }
 
         if (action === 'visit.formula') {
@@ -920,6 +1038,20 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'bad_result' }, 400);
             }
 
+            // Sonucun İKİNCİ ekseni (FormulaBody · ToneRow). Telefon bunu
+            // gönderiyordu, sunucu okumuyordu — kayda hiç girmedi.
+            //
+            // Bilinmeyen etiket REDDEDİLMİYOR, ELENİYOR: bu alan isteğe bağlı
+            // ikincil bir nitelik. Katı doğrulama, listeye bir kelime ekleyen
+            // yeni bir sürümde FORMÜLÜN TAMAMINI kaydedilemez yapardı — oysa
+            // kaybedilecek olan tek bir yan etiket. Birincil eksen (`result`)
+            // katı doğrulanmaya devam ediyor.
+            const TONES = ['turuncu', 'eşitsiz'];
+            const tags = Array.isArray(body_.tags)
+                ? [...new Set((body_.tags as unknown[])
+                    .filter((t): t is string => typeof t === 'string' && TONES.includes(t)))]
+                : [];
+
             const waitRaw = body_.waitMinutes;
             const waitMinutes = typeof waitRaw === 'number' && Number.isFinite(waitRaw)
                 ? Math.max(0, Math.min(600, Math.round(waitRaw)))
@@ -942,6 +1074,7 @@ Deno.serve(async (req: Request) => {
                 waitMinutes,
                 waitSource: body_.waitSource === 'timer' ? 'timer' : 'manual',
                 result: result ? result.toLocaleLowerCase('tr-TR') : null,
+                tags,
                 note: str(body_.note, 600),
                 staffId: me.id,
                 writtenAt: new Date().toISOString(),
@@ -953,7 +1086,7 @@ Deno.serve(async (req: Request) => {
                 .select(RES_COLS)
                 .maybeSingle();
             if (error) { console.error('visit.formula', error); return json({ error: 'write_failed' }, 500); }
-            return json({ ok: true, reservation: updated });
+            return await done({ ok: true, reservation: updated });
         }
 
         if (action === 'visit.finish') {
@@ -1015,7 +1148,7 @@ Deno.serve(async (req: Request) => {
                 s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
             if (!alreadyFinished) await audit(me.organization_id, me.id, 'visit.finish');
             const stockWarning = stock.ok ? undefined : stock.warning;
-            return json({
+            return await done({
                 ok: true,
                 ...(alreadyFinished ? { alreadyFinished: true } : {}),
                 reservation: finalized,
@@ -1030,13 +1163,65 @@ Deno.serve(async (req: Request) => {
         if (action === 'catalog') {
             // Hizmet ve ürün TEK turda: kötü sinyalde iki ayrı istek, ikisinden
             // birinin düşmesi demek. Kumanda sık sık bodrum katında açılıyor.
-            const [{ data: services }, { data: products }] = await Promise.all([
-                admin.from('services').select('id, name, duration, price, color')
+            // Kumandanın "sık kullanılan altı kutu" ızgarası GEÇMİŞTEN
+            // besleniyor (adisyon.ts · frequentFor). O geçmiş bugüne kadar
+            // yalnız demo sabitindeydi; uç onu hiç dönmüyordu.
+            const usageFrom = new Date(Date.now() + 3 * 3600_000 - 60 * 86_400_000)
+                .toISOString().slice(0, 10);
+
+            const [
+                { data: services, error: svcErr },
+                { data: products, error: prodErr },
+                { data: history, error: histErr },
+            ] = await Promise.all([
+                admin.from('services').select('id, name, duration, price, color, tags')
                     .eq('organization_id', me.organization_id).order('name'),
                 admin.from('products').select('id, name, price, unit, kind, tracks_stock')
                     .eq('organization_id', me.organization_id).eq('is_active', true).order('name'),
+                admin.from('reservations')
+                    .select('date, service, staff_id, adisyon_items')
+                    .eq('organization_id', me.organization_id)
+                    .eq('status', 'completed')
+                    .gte('date', usageFrom)
+                    .not('adisyon_items', 'is', null),
             ]);
-            return json({ ok: true, services: services ?? [], products: products ?? [] });
+            // Sorgu hatası BOŞ KATALOG gibi görünüyordu: personel altı boş kutu
+            // ve hizmetsiz bir liste görüp "salonda hiçbir şey yok" sanıyordu.
+            if (svcErr || prodErr) {
+                console.error('catalog', svcErr ?? prodErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            // Geçmiş İKİNCİL: düşerse katalog yine de dönmeli, yalnız ızgara
+            // çizilmez. Onun için bu hata isteği düşürmüyor.
+            if (histErr) console.error('catalog usage', histErr);
+
+            // (ad · hizmet · personel · gün) başına toplanıyor — ham satırlar
+            // kötü sinyalde gereksiz büyük bir gövde olurdu.
+            const tally = new Map<string, Record<string, unknown>>();
+            for (const row of history ?? []) {
+                const lines = Array.isArray(row.adisyon_items) ? row.adisyon_items : [];
+                for (const item of lines as Record<string, unknown>[]) {
+                    if (item?.kind !== 'material' && item?.kind !== 'product') continue;
+                    const name = String(item.name ?? '').trim();
+                    if (!name) continue;
+                    const service = String(row.service ?? '');
+                    const staffId = (row.staff_id as string | null) ?? null;
+                    const dateISO = String(row.date ?? '');
+                    const key = `${name}\u0000${service}\u0000${staffId ?? ''}\u0000${dateISO}`;
+                    const qty = Number(item.qty);
+                    const add = Number.isFinite(qty) && qty > 0 ? qty : 1;
+                    const prior = tally.get(key);
+                    if (prior) prior.count = (prior.count as number) + add;
+                    else tally.set(key, { name, service, staffId, dateISO, count: add });
+                }
+            }
+
+            return json({
+                ok: true,
+                services: services ?? [],
+                products: products ?? [],
+                usage: [...tally.values()],
+            });
         }
 
         if (action === 'customers') {
@@ -1049,16 +1234,25 @@ Deno.serve(async (req: Request) => {
             // yalnız `phoneTail` dönüyor — numaranın kendisi kartta.
             if (!can(me.role, 'patients:view')) return json({ error: 'forbidden' }, 403);
 
+            const bookFrom = new Date(Date.now() + 3 * 3600_000 - 730 * 86_400_000)
+                .toISOString().slice(0, 10);
+
             const [{ data: people, error }, { data: visits }, { data: crew }] = await Promise.all([
                 admin.from('customers').select('id, name, phone')
                     .eq('organization_id', me.organization_id).order('name'),
                 // Son gelişi ve son işi randevulardan türetiyoruz: müşteri
                 // tablosunda böyle bir alan yok ve olmamalı — türetilmiş veri
                 // saklanırsa bir gün gerçekle ayrışır.
+                // TARİH SINIRI (092): sorgu org'un TÜM geçmişini tarıyordu.
+                // Üçüncü yılında bu, her defter açılışında on binlerce satır
+                // demek. 24 ay, "son gelişi" için fazlasıyla geniş — o kadar
+                // süredir gelmeyen müşteri zaten kayıp sayılır ve kartta
+                // "son geliş yok" görünmesi doğru bilgidir.
                 admin.from('reservations')
                     .select('customer_id, date, service, staff_id, formula, status')
                     .eq('organization_id', me.organization_id)
                     .neq('status', 'cancelled')
+                    .gte('date', bookFrom)
                     .order('date', { ascending: false }),
                 admin.from('staff').select('id, name')
                     .eq('organization_id', me.organization_id),
@@ -1122,8 +1316,7 @@ Deno.serve(async (req: Request) => {
                     .lte('date', today).order('date', { ascending: false }).limit(10),
                 admin.from('customer_packages').select('id, name, total_sessions, used_sessions')
                     .eq('organization_id', me.organization_id).eq('customer_id', cid),
-                admin.from('settings').select('risk_rules')
-                    .eq('organization_id', me.organization_id).limit(1).maybeSingle(),
+                orgSettings('risk_rules'),
             ]);
             if (!c) return json({ error: 'not_found' }, 404);
             // Tahsilat ve borç BİLİNÇLİ olarak dönmüyor: kumandanın işi hizmet,
@@ -1148,6 +1341,16 @@ Deno.serve(async (req: Request) => {
                     hadMaterial: Array.isArray(row.adisyon_items)
                         && (row.adisyon_items as Record<string, unknown>[])
                             .some((item) => item?.kind === 'material'),
+                    // Geçen sefer NE KULLANILDI. Kumandadaki `usedHere`
+                    // işaretinin kaynağı bu: kutudaki kalem bu müşteride daha
+                    // önce kullanıldıysa işaretleniyor. Bugüne kadar yalnız
+                    // "malzeme geçti mi" bilgisi dönüyordu, hangisi değil.
+                    itemsUsed: Array.isArray(row.adisyon_items)
+                        ? [...new Set((row.adisyon_items as Record<string, unknown>[])
+                            .filter((item) => item?.kind === 'material' || item?.kind === 'product')
+                            .map((item) => String(item.name ?? '').trim())
+                            .filter(Boolean))]
+                        : [],
                     formula: row.formula ?? null,
                     // Kilit veriden geliyor: adisyon kasaya gittiyse formül
                     // artık okunur. Ayrı bir "kilitli" bayrağı saklamıyoruz.
@@ -1164,30 +1367,70 @@ Deno.serve(async (req: Request) => {
             // Personelin kendi cirosunu görmesi AYARLANABİLİR: bazı işletme
             // sahipleri personeller arası kıyas istemiyor. Kapalıysa uç 403
             // döner ve arayüz sekmeyi hiç göstermez.
-            const { data: st } = await admin.from('settings')
-                .select('staff_can_see_revenue')
-                .eq('organization_id', me.organization_id).limit(1).maybeSingle();
-            if (st?.staff_can_see_revenue !== true) return json({ error: 'disabled' }, 403);
+            const { data: st, error: stErr } = await orgSettings('staff_can_see_revenue');
+            // Ayar OKUNAMADIYSA "kapalı" demiyoruz: kapalı bir yetki ile
+            // okunamayan bir ayar aynı şey değil, ve ikincisi arayüzde sekmeyi
+            // sessizce yok ederdi.
+            if (stErr) { console.error('performance settings', stErr); return json({ error: 'lookup_failed' }, 500); }
+            if ((st as Record<string, unknown> | null)?.staff_can_see_revenue !== true) {
+                return json({ error: 'disabled' }, 403);
+            }
 
             const now = new Date(Date.now() + 3 * 3600_000);
             const today = now.toISOString().slice(0, 10);
             const weekAgo = new Date(now.getTime() - 6 * 86_400_000).toISOString().slice(0, 10);
-            const { data: done } = await admin.from('reservations')
-                .select('date, service, adisyon_items')
+            const { data: finished, error: perfErr } = await admin.from('reservations')
+                .select('date, service, adisyon_items, arrived_at, service_ended_at')
                 .eq('organization_id', me.organization_id).eq('staff_id', me.id)
                 .eq('status', 'completed').gte('date', weekAgo).lte('date', today);
+            // Sorgu hatası SIFIR CİRO gibi görünüyordu — personel emeğinin
+            // karşılığını sıfır sanıyordu. Sıfır ile okunamadı ayrı şeyler.
+            if (perfErr) { console.error('performance', perfErr); return json({ error: 'lookup_failed' }, 500); }
 
-            const rows = done ?? [];
+            const rows = finished ?? [];
             const sumOf = (r: Record<string, unknown>) => {
                 const items = Array.isArray(r.adisyon_items) ? r.adisyon_items : [];
                 return items.reduce((s: number, i: Record<string, unknown>) =>
                     s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
             };
             const todayRows = rows.filter((r) => r.date === today);
+
+            // Haftanın YEDİ GÜNÜ, boş günler dâhil. Yalnız iş görülen günleri
+            // dönmek, çizilen şeridi yanıltıcı yapardı: izinli salı ile ciro
+            // yapılmamış salı aynı görünürdü.
+            const byDay = new Map<string, { count: number; total: number }>();
+            for (let back = 6; back >= 0; back--) {
+                const iso = new Date(now.getTime() - back * 86_400_000).toISOString().slice(0, 10);
+                byDay.set(iso, { count: 0, total: 0 });
+            }
+            for (const r of rows) {
+                const slot = byDay.get(String(r.date));
+                if (!slot) continue;
+                slot.count += 1;
+                slot.total += sumOf(r);
+            }
+
+            // Ortalama süre YALNIZ iki damgası da olan ziyaretlerden. Eksik
+            // damgayı sıfır saymak ortalamayı aşağı çeker ve personelin işini
+            // olduğundan hızlı gösterirdi.
+            const spans: number[] = [];
+            for (const r of rows) {
+                if (!r.arrived_at || !r.service_ended_at) continue;
+                const minutes = (new Date(r.service_ended_at as string).getTime()
+                    - new Date(r.arrived_at as string).getTime()) / 60_000;
+                if (Number.isFinite(minutes) && minutes > 0 && minutes < 12 * 60) spans.push(minutes);
+            }
+            const avgMinutes = spans.length > 0
+                ? Math.round(spans.reduce((a, b) => a + b, 0) / spans.length)
+                : null;
+
             return json({
                 ok: true,
                 today: { count: todayRows.length, total: todayRows.reduce((s, r) => s + sumOf(r), 0) },
                 week: { count: rows.length, total: rows.reduce((s, r) => s + sumOf(r), 0) },
+                days: [...byDay.entries()].map(([date, v]) => ({ date, ...v })),
+                avgMinutes,
+                avgSampleCount: spans.length,
             });
         }
 
