@@ -118,10 +118,16 @@ test('iki başarısız Face ID denemesinden sonra yedek giriş kendiliğinden a�
 });
 
 test('hesap değiştirme müdür oturumunu, telefon değişimi personel eşleştirmesini doğru temizler', () => {
+    // Kural aynı — personel yolu eşleşmeyi siler ve eşleştirme ekranına
+    // gider. Değişen tek şey ARAYA ONAY GİRMESİ: geri alınamayan bu işlem
+    // tek dokunuşta duruyordu. O yüzden zincir artık tek blokta değil;
+    // parçaları ayrı ayrı doğrulanıyor.
+    assert.match(resume, /session\.actor === 'staff'[\s\S]{0,800}Alert\.alert\(/);
     assert.match(
         resume,
-        /session\.actor\s*===\s*['"]staff['"][\s\S]{0,220}authApi\.staff\.unlinkDevice\s*\([\s\S]{0,220}staff\/pair/,
+        /const unlinkPhone = async \(\) => \{[\s\S]{0,200}authApi\.staff\.unlinkDevice\(\)[\s\S]{0,120}staff\/pair/,
     );
+    assert.match(resume, /onPress: \(\) => \{ void unlinkPhone\(\); \}/);
     assert.match(
         resume,
         /authApi\.resume\.signOut\s*\([\s\S]{0,220}(?:\(auth\)\/)?welcome/,
@@ -154,4 +160,16 @@ test('Giriş 10 basma geri bildirimini hareket sözleşmesinden alır', () => {
         resume,
         /Animated\.(?:timing|spring)[\s\S]{0,220}\b(?:height|width|backgroundColor|borderRadius|shadow)/,
     );
+});
+
+test('telefonu işletmeden çıkarmak ONAY istiyor', () => {
+    // "Bu telefon benim değil" eşleşmeyi siliyor ve geri dönmek için işletme
+    // sahibinden yeni kod gerekiyor. Geri alınamayan bu işlem tek dokunuşta
+    // duruyordu; uygulamayı denerken defalarca kazayla basıldı.
+    const screen = readFileSync(new URL('../mobile/app/(auth)/resume.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /Alert\.alert\(\s*'Bu telefonu işletmeden çıkaralım mı\?'/);
+    assert.match(screen, /style: 'destructive'/);
+    assert.match(screen, /text: 'Vazgeç', style: 'cancel'/);
+    // Onaysız yol kapandı.
+    assert.doesNotMatch(screen, /if \(session\.actor === 'staff'\) \{\s*await authApi\.staff\.unlinkDevice\(\)/);
 });

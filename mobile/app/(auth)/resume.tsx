@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { enterShell } from '../../src/lib/enterShell';
@@ -122,14 +122,33 @@ export default function ResumeSignIn() {
         setTimeout(() => setFace('idle'), 2000);
     };
 
+    const unlinkPhone = async () => {
+        setBusy(true);
+        await authApi.staff.unlinkDevice();
+        router.replace('/(auth)/staff/pair');
+    };
+
     const changeAccount = async () => {
         if (!session || busy) return;
-        setBusy(true);
         if (session.actor === 'staff') {
-            await authApi.staff.unlinkDevice();
-            router.replace('/(auth)/staff/pair');
+            // ONAY İSTİYOR. "Bu telefon benim değil" telefonu işletmeden
+            // ÇIKARIYOR: eşleşme siliniyor ve geri dönmek için işletme
+            // sahibinden yeni bir kod almak gerekiyor. Geri alınamayan bir
+            // işlem tek dokunuşta duruyordu ve kazayla basılıyordu —
+            // uygulamayı denerken defalarca buna takıldık.
+            //
+            // Etiket doğru, eylem doğru; eksik olan SORMAKTI.
+            Alert.alert(
+                'Bu telefonu işletmeden çıkaralım mı?',
+                'Bağlantı silinir ve geri dönmek için işletme sahibinden yeni bir kod istemeniz gerekir. Yalnız oturumu kapatmak istiyorsanız bunu seçmeyin.',
+                [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    { text: 'Telefonu çıkar', style: 'destructive', onPress: () => { void unlinkPhone(); } },
+                ],
+            );
             return;
         }
+        setBusy(true);
         await authApi.resume.signOut();
         router.replace('/(auth)/welcome');
     };
