@@ -202,3 +202,14 @@ test('özel tuş takımının simgeleri metin karakteri değil SVG olur', () => 
     assert.doesNotMatch(ui, /AuthScanButton/);
     assert.doesNotMatch(staffUiBundle, /⌫|☎|↗|•••/);
 });
+
+test('kadro okunamazsa EŞLEŞTİRME ekranına atılmıyor', () => {
+    // Her başarısızlık oraya atıyordu: ağ hatası, zaman aşımı, sunucu
+    // hıçkırığı. Telefon pekâlâ işletmeye bağlıyken "bu telefonu işletmeye
+    // bağlayın" ekranı açılıyor ve kullanıcı yeni bir kod aramaya gidiyordu.
+    assert.match(who, /if \(result\.error === 'not_paired'\) \{\s*router\.replace\('\/\(auth\)\/staff\/pair'\)/);
+    assert.doesNotMatch(who, /if \(!result\.ok\) \{\s*router\.replace\('\/\(auth\)\/staff\/pair'\)/);
+    // Ve okunamadığı SÖYLENİYOR, sessizce boş liste bırakılmıyor.
+    assert.match(who, /setListError\(true\)/);
+    assert.match(who, /Telefonunuz işletmeye BAĞLI/);
+});

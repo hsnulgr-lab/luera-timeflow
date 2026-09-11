@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import {
     type StaffRosterMember,
 } from '../../../src/api/session';
 import {
+    AuthActionButton,
     AuthBackBar,
     AuthBanner,
     AuthHeader,
@@ -30,22 +31,32 @@ export default function ChooseStaff() {
     const [roster, setRoster] = useState<RosterView | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [failed, setFailed] = useState(false);
+    /** Kadro okunamadı — eşleşme sorunu DEĞİL, okuma sorunu. */
+    const [listError, setListError] = useState(false);
 
-    useEffect(() => {
-        let alive = true;
+    const load = useCallback(() => {
         authApi.staff.roster().then((result) => {
-            if (!alive) return;
-            if (!result.ok) {
+            if (result.ok) {
+                setRoster({ business: result.data.business, staff: result.data.staff });
+                setListError(false);
+                return;
+            }
+            // YALNIZ "cihaz eşleşmemiş" eşleştirme ekranına gönderiyor.
+            //
+            // Eskiden HER başarısızlık oraya atıyordu: ağ hatası, zaman
+            // aşımı, sunucu hıçkırığı. Telefon pekâlâ işletmeye bağlıyken
+            // "bu telefonu işletmeye bağlayın" ekranı açılıyor ve kullanıcı
+            // yeni bir kod aramaya gidiyordu. "Okuyamadım"dan "eşleşmemişsin"
+            // sonucu çıkarmak, gecenin tekrar eden hatası.
+            if (result.error === 'not_paired') {
                 router.replace('/(auth)/staff/pair');
                 return;
             }
-            setRoster({
-                business: result.data.business,
-                staff: result.data.staff,
-            });
-        });
-        return () => { alive = false; };
+            setListError(true);
+        }).catch(() => setListError(true));
     }, [router]);
+
+    useEffect(() => { load(); }, [load]);
 
     const choose = async (staffId: string) => {
         if (busyId) return;
@@ -97,6 +108,23 @@ export default function ChooseStaff() {
                                 onPress={() => choose(member.id)}
                             />
                         ))}
+                    </View>
+                ) : null}
+                {listError ? (
+                    <View style={{
+                        paddingHorizontal: authMetrics.selectionRowX,
+                        gap: authMetrics.staffRowGap,
+                    }}>
+                        <AuthBanner kind="error" inset={false}>
+                            Personel listesi okunamadı. Telefonunuz işletmeye BAĞLI —
+                            yeni bir kod gerekmiyor. Bağlantınızı kontrol edip tekrar deneyin.
+                        </AuthBanner>
+                        <AuthActionButton
+                            label="Tekrar dene"
+                            // Sıfırlama OLAY İŞLEYİCİSİNDE: efektin içinde
+                            // senkron `setState` zincirleme render tetikliyor.
+                            onPress={() => { setListError(false); load(); }}
+                        />
                     </View>
                 ) : null}
                 {failed ? (
