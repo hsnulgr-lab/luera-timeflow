@@ -81,6 +81,7 @@ export default function ChooseStaff() {
                 yalnız yer kaplar. */}
             {roster?.business.name ? (
                 <AuthIdentityBar
+                    overField
                     title={roster.business.name}
                     subtitle={roster.business.location}
                     onBack={() => router.back()}

@@ -1636,8 +1636,13 @@ export function AuthIdentityBar({
             </View>
         </>
     );
-    // Alanın üstünde ne dolgu ne çizgi: ikisi de alanı keser.
-    const bare = overField && !glass;
+    // Alanın üstünde ne dolgu, ne çizgi, NE DE CAM.
+    //
+    // İlk yazımda `overField && !glass` idi — yani yalnız cam yokken saydam.
+    // Yanlıştı: cam VARKEN de bant bir yüzey çiziyor ve ışık alanının üstünde
+    // gri bir levha gibi duruyor. Alanın işi arkada görünmek; üstüne konan
+    // her yüzey onu keser, cam olsa bile.
+    const bare = overField;
     const barStyle: ViewStyle = {
         height: authMetrics.topBarHeight,
         paddingLeft: authMetrics.topBarX,
@@ -1649,7 +1654,7 @@ export function AuthIdentityBar({
         borderBottomColor: glass ? c.glassBorder : c.bd2,
         backgroundColor: glass || bare ? 'transparent' : c.surf,
     };
-    return glass ? (
+    return glass && !bare ? (
         <GlassView glassEffectStyle="regular" tintColor={c.tint} style={barStyle}>
             {content}
         </GlassView>

@@ -262,3 +262,16 @@ test('çevrimdışı yanlış PIN sayılmaz', () => {
         'offline dalı kalan deneme metninden ÖNCE dönmeli',
     );
 });
+
+test('ışık alanının üstündeki bant CAM VARKEN de çizilmiyor', () => {
+    // İlk düzeltme `overField && !glass` idi: yalnız cam yokken saydam.
+    // Yanlıştı — cam VARKEN de bant bir yüzey çiziyor ve alanın üstünde gri
+    // bir levha gibi duruyor. Alanın işi arkada görünmek.
+    assert.match(ui, /const bare = overField;/);
+    assert.match(ui, /return glass && !bare \?/);
+    // Alanı olan iki giriş ekranı bunu istiyor, `account.tsx` istemiyor.
+    for (const path of ['app/(auth)/staff/pin.tsx', 'app/(auth)/staff/who.tsx']) {
+        assert.match(read(path), /<AuthIdentityBar\s+overField/, `${path} overField vermeli`);
+    }
+    assert.doesNotMatch(read('app/(staff-flow)/account.tsx'), /<AuthIdentityBar\s+overField/);
+});
