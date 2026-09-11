@@ -115,6 +115,14 @@ export default function Today() {
     // Karşılaştırma ÇİZİMDE değil, çizimden sonra yapılıyor: `seen` bir ref ve
     // render sırasında yazılması React'in kendi kuralını çiğniyordu.
     useEffect(() => {
+        // Liste HENÜZ OKUNMADIYSA karşılaştırma yapılmıyor.
+        //
+        // Kaynak asenkron olunca ilk tur boş listeyle çalışıyordu; gerçek
+        // liste gelince "aynı gün, önceki liste boştu" görünüyor ve BÜTÜN
+        // kartlar yeni sayılıyordu. Her açılışta hepsi yuva açarak beliriyor,
+        // üstelik halka kendini kart büyürken ölçüp degradeyi kaymış
+        // oturtuyordu. İlk okuma bir olay değil, başlangıç durumudur.
+        if (agendaState !== 'ok') return;
         const ids = new Set(agenda.map((item) => item.id));
         const before = seen.current;
         seen.current = { day: dateISO, ids };
@@ -124,7 +132,7 @@ export default function Today() {
         setFresh(before == null || before.day !== dateISO
             ? new Set<string>()
             : new Set([...ids].filter((id) => !before.ids.has(id))));
-    }, [agenda, dateISO]);
+    }, [agenda, dateISO, agendaState]);
 
     const done = rows.filter((row) => row.state.dim > 0 || row.state.kind === 'unbilled').length;
     const left = rows.length - done;

@@ -69,3 +69,13 @@ test('son okuma ANI taşınıyor', () => {
     assert.match(source, /at: number \| null;/);
     assert.match(source, /setAt\(Date\.now\(\)\)/);
 });
+
+test('İLK okuma "yeni kart" sayılmıyor', () => {
+    // Kaynak asenkron olunca karşılaştırma önce BOŞ listeyle çalışıyordu;
+    // gerçek liste gelince bütün kartlar yeni sayılıyor ve hepsi yuva açarak
+    // beliriyordu. Üstelik halka kendini kart büyürken ölçüp dönen degradeyi
+    // kaymış oturtuyordu. İlk okuma bir olay değil, başlangıç durumudur.
+    const cut = screen.slice(screen.indexOf('const seen = useRef'), screen.indexOf('}, [agenda, dateISO, agendaState]);'));
+    assert.match(cut, /if \(agendaState !== 'ok'\) return;/);
+    assert.match(screen, /\}, \[agenda, dateISO, agendaState\]\);/);
+});
