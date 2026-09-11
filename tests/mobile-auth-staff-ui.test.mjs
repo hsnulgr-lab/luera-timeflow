@@ -213,3 +213,14 @@ test('kadro okunamazsa EŞLEŞTİRME ekranına atılmıyor', () => {
     assert.match(who, /setListError\(true\)/);
     assert.match(who, /Telefonunuz işletmeye BAĞLI/);
 });
+
+test('seçilen personel YENİDEN YÜKLEMEYE dayanıyor', () => {
+    // `pendingStaffId` bir MODÜL DEĞİŞKENİ: uygulama yeniden yüklenince
+    // kayboluyor. Seçim yalnız diske yazılınca `startStaffSession` onu
+    // göremiyor, PIN her seferinde `staff_not_found` alıyor ve ekran kadroya
+    // geri dönüyordu — kullanıcı için sonsuz döngü.
+    const live = readFileSync(new URL('../mobile/src/api/auth.ts', import.meta.url), 'utf8');
+    assert.match(live, /pendingStaffId = staffId;\s*await writePending\(member\)/);
+    assert.match(live, /async function resolvePendingStaffId\(\)/);
+    assert.match(live, /const staffId = await resolvePendingStaffId\(\);\s*if \(!staffId\) return fail\('staff_not_found'\)/);
+});

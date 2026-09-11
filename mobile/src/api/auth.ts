@@ -203,9 +203,10 @@ async function staffRoster(): Promise<AuthResult<{
 async function startStaffSession(pin: string): Promise<AuthResult<AuthSession>> {
     const device = await tokens.device();
     if (!device) return fail('not_paired');
-    if (!pendingStaffId) return fail('staff_not_found');
+    const staffId = await resolvePendingStaffId();
+    if (!staffId) return fail('staff_not_found');
     try {
-        const data = await staffApi.start(device, pendingStaffId, pin);
+        const data = await staffApi.start(device, staffId, pin);
         await tokens.setStaff(String(data.token));
         const profile: AuthProfile = {
             id: String(data.staff.id),
@@ -278,8 +279,27 @@ async function selectStaffMember(staffId: string): Promise<AuthResult<StaffRoste
     if (!list.ok) return list;
     const member = list.data.staff.find((candidate) => candidate.id === staffId);
     if (!member) return fail('staff_not_found');
+    // HER İKİSİ de yazılıyor. `pendingStaffId` bir MODÜL DEĞİŞKENİ ve
+    // uygulama yeniden yüklenince kayboluyor; `startStaffSession` onu
+    // okuduğu için yalnız diske yazmak yetmiyordu — PIN her seferinde
+    // `staff_not_found` alıyor ve ekran kadroya geri dönüyordu.
+    pendingStaffId = staffId;
     await writePending(member);
     return done(member);
+}
+
+/**
+ * Seçili personelin kimliği — önce bellekten, yoksa diskten.
+ *
+ * Bellek yeniden yüklemede sıfırlanıyor ama seçim DURUYOR: kullanıcı
+ * açısından "kim olduğumu zaten söyledim" hâli uygulamanın yeniden
+ * yüklenmesiyle kaybolmamalı.
+ */
+async function resolvePendingStaffId(): Promise<string | null> {
+    if (pendingStaffId) return pendingStaffId;
+    const stored = await readPending();
+    if (stored) pendingStaffId = stored.id;
+    return pendingStaffId;
 }
 
 async function pendingStaffMember(): Promise<AuthResult<{
@@ -288,6 +308,9 @@ async function pendingStaffMember(): Promise<AuthResult<{
     if (!(await tokens.device())) return fail('not_paired');
     const member = await readPending();
     if (!member) return fail('staff_not_found');
+    // PIN ekranı açılırken de bellek tazeleniyor: yeniden yüklemeden sonra
+    // ilk çağrılan yer burası.
+    pendingStaffId = member.id;
     return done({ business: businessFrom({ id: '', name: '', slug: null }), member });
 }
 
