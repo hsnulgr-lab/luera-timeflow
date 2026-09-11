@@ -245,6 +245,52 @@ async function getLaunchState(): Promise<LaunchState> {
     return (await tokens.device()) ? { target: 'staffRoster' } : { target: 'welcome' };
 }
 
+/**
+ * Seçilen personel — PIN ekranı kimin PIN'ini istediğini buradan biliyor.
+ *
+ * CANLI SÜRÜMÜ YOKTU ve istek stub'a düşüyordu: stub `pairedDevice` diye bir
+ * JSON arıyor, canlıda ise cihaz token'ı Keychain'de duruyor. Sonuç
+ * `not_paired` ve `who.tsx` sessizce hiçbir şey yapmıyordu — personel ada
+ * dokunuyor, ekran duruyordu.
+ *
+ * İşletme bilgisi TAŞINMIYOR: sunucunun `roster` ucu onu dönmüyor ve
+ * olmayan bir adı uydurmaktansa hiç söylememek doğru.
+ */
+const K_PENDING = 'tf.auth.pending-staff';
+
+async function writePending(member: StaffRosterMember): Promise<void> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    await AsyncStorage.setItem(K_PENDING, JSON.stringify(member));
+}
+
+async function readPending(): Promise<StaffRosterMember | null> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    try {
+        const raw = await AsyncStorage.getItem(K_PENDING);
+        return raw ? JSON.parse(raw) as StaffRosterMember : null;
+    } catch {
+        return null;
+    }
+}
+
+async function selectStaffMember(staffId: string): Promise<AuthResult<StaffRosterMember>> {
+    const list = await staffRoster();
+    if (!list.ok) return list;
+    const member = list.data.staff.find((candidate) => candidate.id === staffId);
+    if (!member) return fail('staff_not_found');
+    await writePending(member);
+    return done(member);
+}
+
+async function pendingStaffMember(): Promise<AuthResult<{
+    business: AuthBusiness; member: StaffRosterMember;
+}>> {
+    if (!(await tokens.device())) return fail('not_paired');
+    const member = await readPending();
+    if (!member) return fail('staff_not_found');
+    return done({ business: businessFrom({ id: '', name: '', slug: null }), member });
+}
+
 async function resumeSession(): Promise<AuthResult<AuthSession>> {
     const stored = await readProfile();
     if (!stored) return fail('no_session');
@@ -306,6 +352,8 @@ export const auth = {
     staff: {
         pair: pairStaffDevice,
         roster: staffRoster,
+        select: selectStaffMember,
+        pending: pendingStaffMember,
         start: startStaffSession,
         /** Telefonu işletmeden çıkarır; yeniden bağlamak için yeni kod gerekir. */
         unlinkDevice: async () => {

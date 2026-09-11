@@ -9,6 +9,7 @@ import {
     type StaffRosterMember,
 } from '../../../src/api/session';
 import {
+    AuthBackBar,
     AuthBanner,
     AuthHeader,
     AuthIdentityBar,
@@ -28,6 +29,7 @@ export default function ChooseStaff() {
     const router = useRouter();
     const [roster, setRoster] = useState<RosterView | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -48,21 +50,33 @@ export default function ChooseStaff() {
     const choose = async (staffId: string) => {
         if (busyId) return;
         setBusyId(staffId);
+        setFailed(false);
         const result = await authApi.staff.select(staffId);
         setBusyId(null);
-        if (result.ok) router.push('/(auth)/staff/pin');
+        // Başarısızlıkta eskiden HİÇBİR ŞEY olmuyordu: personel adına
+        // dokunuyor, ekran duruyordu. Sessizce çalışmayan bir kontrol,
+        // kullanıcıya uygulamanın bozuk olduğunu düşündürür.
+        if (!result.ok) { setFailed(true); return; }
+        router.push('/(auth)/staff/pin');
     };
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
             <LightField profile="form" />
-            {roster ? (
+            {/* İşletme adı YOKSA kimlik bandı çizilmiyor, yalnız geri düğmesi.
+                Sunucunun `roster` ucu işletme bilgisi dönmüyor ve istemci onu
+                boş bir nesneyle dolduruyordu: ekranın tepesinde adı ve yeri
+                olmayan boş bir şerit kalıyordu. Boş bir bant bilgi vermez,
+                yalnız yer kaplar. */}
+            {roster?.business.name ? (
                 <AuthIdentityBar
                     title={roster.business.name}
                     subtitle={roster.business.location}
                     onBack={() => router.back()}
                 />
-            ) : <View style={{ height: authMetrics.topBarHeight }} />}
+            ) : (
+                <AuthBackBar onPress={() => router.back()} />
+            )}
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -84,6 +98,11 @@ export default function ChooseStaff() {
                             />
                         ))}
                     </View>
+                ) : null}
+                {failed ? (
+                    <AuthBanner kind="error" style={{ marginTop: authMetrics.businessInfoTop }}>
+                        Seçim kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.
+                    </AuthBanner>
                 ) : null}
                 <AuthBanner style={{ marginTop: authMetrics.businessInfoTop }}>
                     Listede yoksanız işletme sahibi sizi eklemeli.

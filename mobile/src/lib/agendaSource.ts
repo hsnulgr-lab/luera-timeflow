@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LIVE_AUTH } from '../api/session';
 import { api, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
+import { clockText } from './calendar.ts';
 
 /**
  * Personel 01 — "Bugün" ekranının veri kaynağı.
@@ -53,8 +54,11 @@ function toRow(appointment: Appointment): AgendaRow {
         service: appointment.service,
         notes: appointment.notes,
         date: appointment.date,
-        start_time: appointment.start_time,
-        end_time: appointment.end_time,
+        // Sunucu "13:00:00" gönderiyor, ekran "13:00" bekliyor. Sınırda
+        // indirgeniyor ki aşağıdaki hiçbir bileşen iki biçim bilmek zorunda
+        // kalmasın.
+        start_time: clockText(appointment.start_time),
+        end_time: clockText(appointment.end_time),
         status: appointment.status,
         customer_arrived_at: appointment.customer_arrived_at ?? null,
         arrived_at: appointment.arrived_at,

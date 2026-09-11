@@ -157,6 +157,7 @@ export default function StaffPin() {
             <LightField profile="form" />
             {identity ? (
                 <AuthIdentityBar
+                    overField
                     title={identity.member.name}
                     subtitle={identity.member.role}
                     onBack={() => router.back()}

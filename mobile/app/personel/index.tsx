@@ -139,7 +139,15 @@ export default function Today() {
     // Cümle güne göre değişiyor: "bitti / kaldı" bugünün ölçüsü. Geçmiş günde
     // kalan iş yok, gelecek günde bitmiş iş yok — ikisinde de o cümle yalan.
     const subtitle = `${formatDayMonth(dateISO)} · ${
-        rows.length === 0
+        // Liste OKUNAMADIYSA sayıdan söz edilmiyor. Başlık `rows.length`e
+        // bakıyordu ve hata hâlinde onu sıfır görüp "randevu yok" yazıyordu:
+        // gövde "okuyamadık" derken başlık "yok" diyordu. Aynı ekranda iki
+        // farklı gerçek, ikisinden biri yalan.
+        agendaState === 'error'
+            ? 'okunamadı'
+            : agendaState === 'loading'
+                ? '…'
+                : rows.length === 0
             ? 'randevu yok'
             : isToday
                 ? `${done} iş bitti, ${left} kaldı`

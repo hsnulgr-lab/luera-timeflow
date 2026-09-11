@@ -1563,11 +1563,25 @@ export function AuthBusinessRow({ business, onPress }: {
 }
 
 /** Giriş 07–08'in kimliği stub cevabından alan cam üst çubuğu. */
-export function AuthIdentityBar({ title, subtitle, onBack, contentGap = authMetrics.topBarGap }: {
+export function AuthIdentityBar({
+    title, subtitle, onBack, contentGap = authMetrics.topBarGap, overField = false,
+}: {
     title: string;
     subtitle: string;
     onBack: () => void;
     contentGap?: number;
+    /**
+     * Bant IŞIK ALANININ üstünde mi duruyor.
+     *
+     * Liquid Glass yoksa bant opak `c.surf` boyuyordu; ışık alanlı giriş
+     * ekranlarında bu, tepeye yapışmış gri bir dikiş demekti — alan bandın
+     * altında kesiliyordu. Cam varken zaten saydam; yokken de saydam olmalı,
+     * çünkü arkasında gösterilecek bir şey VAR.
+     *
+     * Varsayılan `false`: `account.tsx` gibi alanı olmayan ekranlarda opak
+     * yüzey doğru — orada bandın işi içeriği kaydırmadan ayırmak.
+     */
+    overField?: boolean;
 }) {
     const { c, glass, reduceMotion } = useTheme();
     const press = usePressValue();
@@ -1622,6 +1636,8 @@ export function AuthIdentityBar({ title, subtitle, onBack, contentGap = authMetr
             </View>
         </>
     );
+    // Alanın üstünde ne dolgu ne çizgi: ikisi de alanı keser.
+    const bare = overField && !glass;
     const barStyle: ViewStyle = {
         height: authMetrics.topBarHeight,
         paddingLeft: authMetrics.topBarX,
@@ -1629,9 +1645,9 @@ export function AuthIdentityBar({ title, subtitle, onBack, contentGap = authMetr
         flexDirection: 'row',
         alignItems: 'center',
         gap: contentGap,
-        borderBottomWidth: 1,
+        borderBottomWidth: bare ? 0 : 1,
         borderBottomColor: glass ? c.glassBorder : c.bd2,
-        backgroundColor: glass ? 'transparent' : c.surf,
+        backgroundColor: glass || bare ? 'transparent' : c.surf,
     };
     return glass ? (
         <GlassView glassEffectStyle="regular" tintColor={c.tint} style={barStyle}>

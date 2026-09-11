@@ -196,6 +196,24 @@ export function toMinutes(t: string): number {
 }
 
 /** Gün içi dakikayı sıfır dolgulu 24 saatlik saate çevirir. */
+/**
+ * Sunucudan gelen saati EKRANIN biçimine indirger: "13:00:00" → "13:00".
+ *
+ * Postgres `time` kolonu saniyeyi de gönderiyor; sahte veri `HH:MM` üretiyordu
+ * ve sözleşmede hangisinin geçerli olduğu hiç yazmamıştı. Kart saati ham
+ * bastığı için ekranda "13:00:" / "00" diye ikiye kırılıyordu.
+ *
+ * Çözülemeyen değer OLDUĞU GİBİ dönüyor: tanımadığımız bir biçimi kırpmak,
+ * yanlış bir saati doğru gibi göstermek olurdu.
+ */
+export function clockText(value: string): string {
+    try {
+        return hhmm(toMinutes(value));
+    } catch {
+        return value;
+    }
+}
+
 export function hhmm(min: number): string {
     const whole = Math.floor(min);
     const inDay = ((whole % 1440) + 1440) % 1440;

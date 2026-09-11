@@ -30,7 +30,9 @@ test('okunamadı ile randevusuz AYRI çiziliyor', () => {
 });
 
 test('hata ekranında TEK eylem: tekrar dene', () => {
-    const cut = screen.slice(screen.indexOf("agendaState === 'error'"), screen.indexOf("agendaState === 'loading'"));
+    // JSX'e demirleniyor: aynı koşul artık başlıkta da geçiyor ve metinsel
+    // ilk eşleşme oraya düşüyordu.
+    const cut = screen.slice(screen.indexOf("agendaState === 'error' ? ("), screen.indexOf("agendaState === 'loading' ? ("));
     assert.equal((cut.match(/<Pressable/g) ?? []).length, 1);
     assert.match(cut, /reload\(\)/);
 });
@@ -78,4 +80,18 @@ test('İLK okuma "yeni kart" sayılmıyor', () => {
     const cut = screen.slice(screen.indexOf('const seen = useRef'), screen.indexOf('}, [agenda, dateISO, agendaState]);'));
     assert.match(cut, /if \(agendaState !== 'ok'\) return;/);
     assert.match(screen, /\}, \[agenda, dateISO, agendaState\]\);/);
+});
+
+test('sunucunun saati EKRANIN biçimine indirgeniyor', () => {
+    // Postgres `time` kolonu "13:00:00" gönderiyor, sahte veri "13:00"
+    // üretiyordu ve sözleşmede hangisinin geçerli olduğu yazmamıştı. Kart
+    // saati ham bastığı için ekranda "13:00:" / "00" diye ikiye kırılıyordu.
+    assert.match(source, /start_time: clockText\(appointment\.start_time\)/);
+    assert.match(source, /end_time: clockText\(appointment\.end_time\)/);
+});
+
+test('başlık hata hâlinde "randevu yok" DEMİYOR', () => {
+    // Gövde "okuyamadık" derken başlık "randevu yok" diyordu: aynı ekranda
+    // iki farklı gerçek, ikisinden biri yalan.
+    assert.match(screen, /agendaState === 'error'\s*\?\s*'okunamadı'/);
 });
