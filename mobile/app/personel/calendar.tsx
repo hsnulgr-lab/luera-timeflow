@@ -207,6 +207,7 @@ export default function StaffCalendar() {
                 <ColumnCalendar
                     appointments={fetched}
                     staff={staff}
+                    mine={mine}
                     from={from}
                     to={to}
                     nowMinutes={nowMinutes}

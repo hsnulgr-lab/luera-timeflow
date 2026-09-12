@@ -456,3 +456,62 @@ test('personel sekmesi DÖRT: Kazanç kalktı', () => {
     // Ekran silinmedi, sekme çubuğunun dışına alındı.
     assert.ok(read('../mobile/app/(staff-flow)/kazanc.tsx').length > 0);
 });
+
+
+// ── Sahiplik görsel dili ────────────────────────────────────────────────────
+
+test('blok İKİ şeyi AYRI kanaldan söylüyor: kimin ve hangi hâlde', () => {
+    // Eskiden şerit de kenarlık da yalnız `live` demekti; sahiplik hiçbir
+    // kanalda yoktu. Turuncu bu üründe EYLEM demek ve meslektaşın süren
+    // işlemi turuncu bir şerit çiziyordu — dokunulduğunda hiçbir şey
+    // başlamayan bir eylem işareti.
+    const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
+    // ŞERİT = senin.
+    assert.ok(grid.includes('const bar = ownership ? owned : live;'));
+    // Rengi HÂLİ söylüyor.
+    assert.ok(grid.includes('const barColor = live ? c.or : c.tx3;'));
+    assert.ok(grid.includes('backgroundColor: barColor,'));
+    // KENARLIK = işlem sürüyor; sahiplikten bağımsız, HERKESTE.
+    assert.ok(grid.includes('borderColor: lifted ? c.or : live ? `${c.or}70` : c.bd2'));
+});
+
+test('müdür görünümünde sahiplik diye bir soru YOK', () => {
+    // Aynı bileşen iki ekranda. Müdürde "kimin randevusu" sorusu anlamsız ve
+    // oradaki davranış hiç değişmemeli: şerit yalnız `live`de çizilir.
+    const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
+    assert.ok(grid.includes('owned={mine ? mine.has(appointment.id) : null}'));
+    assert.ok(grid.includes('const ownership = owned !== null;'));
+    // `undefined` (soru yok) ile boş küme (hiçbiri senin değil) AYRI cevaplar.
+    assert.ok(grid.includes('mine?: ReadonlySet<string>;'));
+    const mgr = code(read('../mobile/app/mudur/calendar.tsx'));
+    assert.ok(!mgr.includes('mine='), 'müdür ekranı sahiplik geçmemeli');
+});
+
+test('meslektaşın randevusu okunur kalıyor — yalnız ağırlığını bırakıyor', () => {
+    // Salonun şeffaflığı işletmenin kararı: personel herkesin gününü GÖRÜR.
+    // Geri çekilme boyuttan değil ağırlık ve renkten geliyor.
+    const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
+    assert.ok(grid.includes('const faded = ownership && !owned;'));
+    assert.ok(grid.includes('color: faded ? c.tx2 : c.tx,'));
+    assert.ok(grid.includes('fontFamily: faded ? font.bold : font.extraBold,'));
+    // Boyut KOŞULSUZ: küçültmek okunurluğu bozardı.
+    assert.ok(grid.includes('fontSize: columnMetrics.blockName,'));
+});
+
+test('aynı bilgi ekran okuyucuya da gidiyor', () => {
+    // Görsel bir ayrım, yalnız görenlere verilen bir ayrım değildir.
+    const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
+    assert.ok(grid.includes("faded ? ' · meslektaşınızın randevusu' : ''"));
+});
+
+test('şeridin açtığı iç boşluk ŞERİDE bağlı, `live`e değil', () => {
+    // Şerit artık `live` olmadan da çizilebiliyor; boşluk eski koşulda
+    // kalsaydı metin şeridin altına girerdi.
+    const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
+    assert.ok(grid.includes('paddingLeft: bar ? columnMetrics.blockLiveX : columnMetrics.blockX,'));
+});
+
+test('personel takvimi sahipliği ızgaraya GEÇİRİYOR', () => {
+    const cal = code(read('../mobile/app/personel/calendar.tsx'));
+    assert.ok(cal.includes('mine={mine}'));
+});

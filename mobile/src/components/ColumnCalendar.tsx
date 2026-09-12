@@ -37,9 +37,21 @@ import type { Appt } from '../lib/calendar';
  * anda iki kaydırıcı da kilitleniyor, yoksa parmak hem bloğu hem sayfayı
  * çekerdi.
  */
-export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isToday, readOnly = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
+export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes, isToday, readOnly = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
     appointments: readonly Appt[];
     staff: readonly ColumnStaff[];
+    /**
+     * KENDİ randevularının id'leri.
+     *
+     * `undefined` "sahiplik diye bir soru yok" demek — müdür görünümü böyle ve
+     * orada davranış hiç değişmiyor. Boş küme ise "hiçbiri senin değil" demek;
+     * ikisi ayrı cevaplar ve aynı şeye indirgenemez.
+     *
+     * Neden gerekli: personel takviminde kendi randevusuna dokunmak KUMANDAYI
+     * açıyor, meslektaşınınki yalnız okunur bir kart. Farklı davranan iki şey
+     * aynı görünüyordu; kullanıcı bunu ancak dokunduktan sonra öğreniyordu.
+     */
+    mine?: ReadonlySet<string>;
     /** Görünen saat aralığı (tam saat). */
     from: number;
     to: number;
@@ -260,6 +272,7 @@ export function ColumnCalendar({ appointments, staff, from, to, nowMinutes, isTo
                                             pan={pan}
                                             lifted={lifted?.appointment.id === appointment.id}
                                             dimmed={Boolean(lifted) && lifted?.appointment.id !== appointment.id}
+                                            owned={mine ? mine.has(appointment.id) : null}
                                             onPress={() => onOpen?.(appointment)}
                                             onLift={readOnly ? undefined : beginLift}
                                             onDragMove={dragMove}
@@ -396,7 +409,7 @@ function MoveBanner({ text, tone }: { text: string; tone: 'neutral' | 'orange' |
  * Basılı tutunca kalkar: kenarlık turuncuya döner, %4 büyür ve parmağı
  * izler; diğer bloklar geri çekilir.
  */
-function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, onLift, onDragMove, onDragEnd, onMenu }: {
+function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, onPress, onLift, onDragMove, onDragEnd, onMenu }: {
     appointment: Appt;
     index: number;
     top: number;
@@ -404,6 +417,8 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
     pan: Animated.ValueXY;
     lifted: boolean;
     dimmed: boolean;
+    /** `null`: sahiplik sorusu sorulmuyor (müdür). Bkz. ColumnCalendar · mine. */
+    owned: boolean | null;
     onPress: () => void;
     /** Yoksa blok kalkmaz — personel görünümü. */
     onLift?: (appointment: Appt, index: number) => void;
@@ -415,6 +430,28 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
     const detail = blockDetail(height);
     const live = isLive(appointment);
     const done = Boolean(appointment.service_ended_at) || appointment.status === 'completed';
+
+    /**
+     * Blok İKİ şey söylüyor ve ikisi AYRI kanalda.
+     *
+     *   SOL ŞERİT  → bu randevu SENİN. Rengi hâli söylüyor: işlem sürüyorsa
+     *                turuncu, sürmüyorsa nötr.
+     *   KENARLIK   → işlem sürüyor. Herkeste, sahiplikten bağımsız; meslektaşın
+     *                çalıştığını görmek salonun şeffaflığının kendisi.
+     *
+     * Eskiden şerit de kenarlık da yalnız `live` demekti: sahiplik hiçbir
+     * kanalda yoktu. Turuncu bu üründe EYLEM demek ve meslektaşın süren
+     * işlemi turuncu bir şerit çiziyordu — dokunulduğunda hiçbir şey
+     * başlamayan bir eylem işareti.
+     *
+     * Müdür görünümünde (`owned === null`) sahiplik diye bir soru yok:
+     * şerit eskisi gibi yalnız `live`de çiziliyor.
+     */
+    const ownership = owned !== null;
+    const bar = ownership ? owned : live;
+    const barColor = live ? c.or : c.tx3;
+    /** Meslektaşın randevusu: okunur kalıyor ama BAŞLIK ağırlığını bırakıyor. */
+    const faded = ownership && !owned;
 
     // Parmak kımıldadıysa kalkış bırakma sayılmaz; `onPressOut` sürüklemeyi
     // iptal etmemeli.
@@ -464,7 +501,7 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
         >
             <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${appointment.start_time.slice(0, 5)} · ${appointment.customer_name} · ${appointment.service}`}
+                accessibilityLabel={`${appointment.start_time.slice(0, 5)} · ${appointment.customer_name} · ${appointment.service}${faded ? ' · meslektaşınızın randevusu' : ''}`}
                 // Sürükleme ıslak parmakla, ayakta, tek elle yapılamaz.
                 // Menü her koşulda çalışan yol; erişilebilirlik eylemi olarak
                 // da veriliyor.
@@ -484,15 +521,15 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
                     borderWidth: lifted ? LIFT_BORDER : 1,
                     borderColor: lifted ? c.or : live ? `${c.or}70` : c.bd2,
                     paddingVertical: columnMetrics.blockY,
-                    paddingLeft: live ? columnMetrics.blockLiveX : columnMetrics.blockX,
+                    paddingLeft: bar ? columnMetrics.blockLiveX : columnMetrics.blockX,
                     paddingRight: columnMetrics.blockX,
                     gap: 1,
                     overflow: 'hidden',
                     opacity: done && !lifted ? columnMetrics.doneOpacity : lifted ? DRAG_OPACITY : 1,
                 }}
             >
-                {/* Canlı işlem: soldaki turuncu şerit. Takvim kartındaki dille aynı. */}
-                {live ? (
+                {/* Soldaki şerit: SENİN. Turuncu olması işlemin sürdüğünü söyler. */}
+                {bar ? (
                     <View style={{
                         position: 'absolute',
                         left: 0,
@@ -500,7 +537,7 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
                         bottom: 0,
                         width: columnMetrics.liveBar,
                         borderRadius: columnMetrics.liveBar,
-                        backgroundColor: c.or,
+                        backgroundColor: barColor,
                     }} />
                 ) : null}
 
@@ -515,10 +552,12 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, onPress, 
                 ) : null}
 
                 <Text numberOfLines={1} style={{
-                    color: c.tx,
+                    // Boyut AYNI kalıyor, yalnız ağırlık ve renk geri çekiliyor:
+                    // meslektaşın günü okunur olmalı, sadece öne çıkmamalı.
+                    color: faded ? c.tx2 : c.tx,
                     fontSize: columnMetrics.blockName,
-                    fontFamily: font.extraBold,
-                    fontWeight: '800',
+                    fontFamily: faded ? font.bold : font.extraBold,
+                    fontWeight: faded ? '700' : '800',
                     letterSpacing: columnMetrics.blockName * -0.03,
                 }}>
                     {appointment.customer_name.split(' ')[0]}
