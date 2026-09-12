@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import { LIVE_AUTH } from '../api/session';
 import { api, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
 import { clockText } from './calendar.ts';
+import { POLL_MS } from './freshness.ts';
 // Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
 // olduğu için testten çağrılamıyor, orası çağrılabiliyor.
-export { isStale, STALE_AFTER_MS } from './freshness.ts';
+export { isStale, POLL_MS, STALE_AFTER_MS } from './freshness.ts';
 
 /**
  * Personel 01 — "Bugün" ekranının veri kaynağı.
@@ -97,24 +100,71 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     /** Geç dönen bir cevap, sonra seçilen günün listesini EZMESİN. */
     const wanted = useRef(dateISO);
 
-    useEffect(() => {
-        let alive = true;
-        wanted.current = dateISO;
-        fetchAgenda(dateISO, todayISO, Date.now())
+    /**
+     * Tek okuma yolu, iki ses tonu.
+     *
+     * `visible` okumalar kullanıcının istediği okumalar: açılış ve "tekrar
+     * dene". Başarısızlıkları GÖRÜNÜR, çünkü kullanıcı bir cevap bekliyor.
+     *
+     * `visible` OLMAYAN okumalar arka planda dönen yoklama. Başarısızlıkları
+     * YUTULUYOR: elde bayat ama doğru bir liste varken onu "okuyamadık"
+     * ekranıyla değiştirmek, çalışan bir ekranı bozmak olurdu. Zaten bayatlık
+     * kendini "son güncelleme" satırında söylüyor — bir yoklama turu sessizce
+     * kaçtığında görünen şey tam olarak o satır.
+     */
+    const read = useCallback((visible: boolean) => {
+        const target = dateISO;
+        wanted.current = target;
+        // Zincir BİLEREK `async/await` değil. `await`li bir sürümde derleyici
+        // ilk okumayı "efektin içinde senkron setState" sayıp reddediyor
+        // (react-hooks/set-state-in-effect); `.then` içindeki aynı yazma
+        // kurala uygun, çünkü gerçekten de bir geri çağırmada oluyor.
+        return fetchAgenda(target, todayISO, Date.now())
             .then((next) => {
-                if (!alive || wanted.current !== dateISO) return;
+                if (wanted.current !== target) return;
                 setRows(next);
                 setAt(Date.now());
                 setState('ok');
             })
             .catch(() => {
-                if (!alive || wanted.current !== dateISO) return;
-                // ELDEKİ liste DURUYOR: okunamayan bir gün, boş bir gün
-                // değildir. Hata ayrı bir hâl olarak söyleniyor.
-                setState('error');
+                if (wanted.current !== target) return;
+                // ELDEKİ liste her hâlde DURUYOR: okunamayan bir gün, boş bir
+                // gün değildir.
+                if (visible) setState('error');
             });
-        return () => { alive = false; };
-    }, [dateISO, todayISO, attempt]);
+    }, [dateISO, todayISO]);
+
+    useEffect(() => {
+        void read(true);
+    }, [read, attempt]);
+
+    /**
+     * Yoklama. Uygulama ARKA PLANDAYSA istek gitmiyor: cebindeki telefonun
+     * salonun takvimini saniye saniye çekmesi için bir sebep yok, öne
+     * dönüldüğünde zaten bir kez okunuyor (aşağıdaki dinleyici).
+     */
+    useEffect(() => {
+        const id = setInterval(() => {
+            if (AppState.currentState !== 'active') return;
+            void read(false);
+        }, POLL_MS);
+        return () => clearInterval(id);
+    }, [read]);
+
+    /** Öne dönüş. Arka planda geçen süre yoklamadan uzun olabilir. */
+    useEffect(() => {
+        const sub = AppState.addEventListener('change', (next) => {
+            if (next === 'active') void read(false);
+        });
+        return () => sub.remove();
+    }, [read]);
+
+    /**
+     * Sekmeye dönüş. Yoklama bunu 25 saniye içinde zaten yakalardı; ama
+     * sekme değiştirip dönen personel listeye BAKTIĞI anda taze olmasını
+     * bekliyor, 25 saniye sonra değil.
+     */
+    useFocusEffect(useCallback(() => { void read(false); }, [read]));
 
     // Sıfırlama efektin İÇİNDE değil: orada senkron `setState` zincirleme
     // render tetikliyor (react-hooks/set-state-in-effect).

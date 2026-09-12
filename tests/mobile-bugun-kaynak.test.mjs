@@ -48,8 +48,12 @@ test('hata ELDEKİ listeyi silmiyor', () => {
 test('geç dönen cevap BAŞKA GÜNÜN listesini ezmiyor', () => {
     // Şeritte hızlı gezinirken önceki günün cevabı sonra dönebiliyor.
     assert.match(source, /const wanted = useRef\(dateISO\)/);
+    // İstenen gün okumanın BAŞINDA yakalanıyor: `read` artık dört yerden
+    // çağrılıyor (açılış, yoklama, öne dönüş, sekmeye dönüş) ve her biri
+    // kendi anındaki günü soruyor.
+    assert.match(source, /const target = dateISO;/);
     // HER İKİ dalda da: başarı da hata da geç dönebilir.
-    const guards = (source.match(/if \(!alive \|\| wanted\.current !== dateISO\) return;/g) ?? []).length;
+    const guards = (source.match(/if \(wanted\.current !== target\) return;/g) ?? []).length;
     assert.equal(guards, 2, 'koruma hem .then hem .catch dalında olmalı');
 });
 
@@ -103,7 +107,7 @@ test('son başarılı okumanın anı TÜKETİLİYOR, yalnız üretilmiyor', () =
     // `at` alanı yazılmıştı ama ekran onu destructure bile etmiyordu: kaynak
     // "son güncelleme"yi biliyor, kullanıcı bilmiyordu.
     assert.match(source, /setAt\(Date\.now\(\)\);/);
-    assert.match(source, /export \{ isStale, STALE_AFTER_MS \} from '\.\/freshness\.ts';/);
+    assert.match(source, /export \{ isStale, POLL_MS, STALE_AFTER_MS \} from '\.\/freshness\.ts';/);
     assert.match(screen, /at: readAt/);
     assert.match(screen, /Son güncelleme \{clockOf\(readAt as number\)\}/);
 });
@@ -141,4 +145,41 @@ test('taze veride satır ÇİZİLMİYOR, bayatta hem satır hem yenileme var', (
     assert.match(band, /onPress=\{\(\) => \{ feedback\.selection\(\); reload\(\); \}\}/);
     assert.match(band, /Yenile/);
     assert.match(band, /accessibilityRole="button"/);
+});
+
+
+// ── Yoklama ─────────────────────────────────────────────────────────────────
+
+test('yoklama aralığı bayatlık eşiğinin ALTINDA — sözleşme, tesadüf değil', async () => {
+    const { POLL_MS, STALE_AFTER_MS } = await import('../mobile/src/lib/freshness.ts');
+    assert.equal(POLL_MS, 25_000);
+    assert.ok(POLL_MS < STALE_AFTER_MS, 'yoklama eşikten sık olmalı');
+    // Sonuç: yoklama çalıştığı sürece "son güncelleme" satırı HİÇ görünmüyor.
+    // Satırın belirmesi tek bir şey anlatıyor — yoklama cevap alamıyor.
+});
+
+test('uygulama ARKA PLANDAYKEN yoklama istek atmıyor', () => {
+    // Cebindeki telefonun salonun takvimini saniye saniye çekmesi için bir
+    // sebep yok; öne dönüldüğünde zaten bir kez okunuyor.
+    assert.match(source, /if \(AppState\.currentState !== 'active'\) return;/);
+    assert.match(source, /setInterval\([\s\S]{0,220}POLL_MS\)/);
+});
+
+test('öne dönüş ve sekmeye dönüş ayrı ayrı okuyor', () => {
+    // Arka planda geçen süre yoklama aralığından uzun olabilir; sekme
+    // değiştirip dönen personel de 25 saniye beklemek istemiyor.
+    assert.match(source, /AppState\.addEventListener\('change'[\s\S]{0,160}next === 'active'[\s\S]{0,60}read\(false\)/);
+    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+});
+
+test('SESSİZ yenilemenin hatası çalışan ekranı BOZMUYOR', () => {
+    // Elde bayat ama doğru bir liste varken onu "okuyamadık" ekranıyla
+    // değiştirmek, çalışan bir ekranı bozmak olurdu. Görünür okumalar
+    // (açılış, "tekrar dene") hatayı söylemeye devam ediyor.
+    assert.match(source, /if \(visible\) setState\('error'\);/);
+    assert.match(source, /void read\(true\);/);
+    assert.match(source, /read\(false\)/);
+    // Yoklama başarısızken ELDEKİ satırlar silinmiyor.
+    const fail = source.slice(source.indexOf('.catch(() => {'), source.indexOf('}, [dateISO, todayISO]);'));
+    assert.doesNotMatch(fail, /setRows\(/);
 });
