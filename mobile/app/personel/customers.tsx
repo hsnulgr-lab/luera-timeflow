@@ -21,9 +21,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
 import {
-    agoLabel, demoBook, matches, mineCount, sortBook, splitName,
+    agoLabel, matches, mineCount, sortBook, splitName,
     type BookCustomer,
 } from '../../src/lib/customerBook';
+import { useBook } from '../../src/lib/bookSource';
 import { todayISO } from '../../src/lib/calendar';
 import { feedback } from '../../src/lib/feedback';
 import { upperTR } from '../../src/lib/text';
@@ -48,7 +49,13 @@ export default function Customers() {
     const [query, setQuery] = useState('');
 
     const today = todayISO();
-    const book = useMemo(() => sortBook(demoBook(today), today), [today]);
+    /**
+     * Defter artık SENKRON DEĞİL. Sahte kaynak anında dönüyordu; gerçek sunucu
+     * dönmeyebilir de — ve okunamayan bir defterin "müşteri yok" gibi
+     * görünmesi, olmayan bir gerçeği söylemek olurdu.
+     */
+    const { state: bookState, rows, reload } = useBook(today);
+    const book = useMemo(() => sortBook(rows, today), [rows, today]);
     const shown = useMemo(
         () => book.filter((customer) => matches(customer, query)),
         [book, query],
@@ -56,7 +63,7 @@ export default function Customers() {
 
     const pad = small ? M.padSm : M.pad;
     const searching = query.trim().length > 0;
-    const noneMine = mineCount(book) === 0;
+    const noneMine = bookState === 'ok' && mineCount(book) === 0;
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -89,7 +96,12 @@ export default function Customers() {
                         marginLeft: 'auto',
                         fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: c.tx3,
                     }}>
-                        {searching ? `${shown.length} SONUÇ` : `${book.length} KAYIT`}
+                        {/* Okunamadıysa sayıdan söz edilmiyor: `book.length`
+                            sıfır görünüyordu ve başlık "0 KAYIT" derken gövde
+                            "okuyamadık" diyordu — aynı ekranda iki gerçek. */}
+                        {bookState === 'error' ? '—'
+                            : bookState === 'loading' ? '…'
+                                : searching ? `${shown.length} SONUÇ` : `${book.length} KAYIT`}
                     </Text>
                 </View>
 
@@ -107,7 +119,14 @@ export default function Customers() {
                 </Text>
             ) : null}
 
-            {shown.length === 0 ? (
+            {bookState === 'error' ? (
+                <Unread onRetry={() => { feedback.selection(); void reload(); }} />
+            ) : bookState === 'loading' ? (
+                /* Yükleniyor SESSİZ — `personel/index.tsx` ile aynı gerekçe:
+                   liste çoğu zaman bir saniyeden kısa sürede geliyor ve o
+                   kadar kısa süre için ekranı doldurmak, geleni zıplatır. */
+                <View style={{ flex: 1 }} />
+            ) : shown.length === 0 ? (
                 <Empty
                     query={searching ? query.trim() : null}
                     empty={book.length === 0}
@@ -292,6 +311,42 @@ function Row({ customer, today, last, onOpen }: {
                 {ago.text}
             </Text>
         </Pressable>
+    );
+}
+
+/**
+ * OKUNAMADI — boş defterle aynı şey DEĞİL.
+ *
+ * "Salonda kayıtlı müşteri yok" cümlesi, okuyamadığımız bir listeyi yok
+ * saymak demek. Ayrı görsel icat edilmiyor: aynı yerleşim, ayrı cümle ve tek
+ * bir eylem (`personel/index.tsx` · hata dalıyla aynı dil).
+ */
+function Unread({ onRetry }: { onRetry: () => void }) {
+    const { c, small } = useTheme();
+    return (
+        <View style={{ flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: small ? M.padSm : M.pad, paddingBottom: 130 }}>
+            <Text style={{
+                fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
+                fontFamily: font.extraLight, color: c.tx,
+            }}>
+                Defteri <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
+            </Text>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
+                Müşteriniz olmadığı anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.
+            </Text>
+            <Pressable
+                accessibilityRole="button"
+                onPress={onRetry}
+                style={({ pressed }) => ({
+                    alignSelf: 'flex-start', marginTop: 6,
+                    paddingHorizontal: 16, height: 40, borderRadius: 20,
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                })}
+            >
+                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
+            </Pressable>
+        </View>
     );
 }
 

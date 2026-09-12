@@ -87,7 +87,9 @@ test('sıralama son gelişe göre azalan, kontrolsüz', () => {
 
 test('kendi müşterilerimin sayısı üçüncü boş hâli sürüyor', () => {
     assert.equal(mineCount(demoBook('2026-09-04')) > 0, true);
-    assert.ok(screen.includes('const noneMine = mineCount(book) === 0;'));
+    // Altyazı artık yalnız OKUNMUŞ defterde çiziliyor: okunamayan bir
+    // defterde "henüz kimseye bakmadınız" demek, bilinmeyeni sıfır saymaktı.
+    assert.ok(screen.includes("const noneMine = bookState === 'ok' && mineCount(book) === 0;"));
     assert.ok(screen.includes('Henüz kimseye bakmadınız'));
 });
 
@@ -169,4 +171,61 @@ test('başlık arama sırasında DÜŞMÜYOR — sayfa sıçramıyor', () => {
     assert.doesNotMatch(screen, /searching \? null : \(/);
     // Başlık durduğuna göre sağdaki sayı da aramaya uymalı.
     assert.match(screen, /searching \? `\$\{shown\.length\} SONUÇ`/);
+});
+
+// ── Defter CANLI ────────────────────────────────────────────────────────────
+
+const source = code(read('../mobile/src/lib/bookSource.ts'));
+
+test('defter kendi ucundan besleniyor, sahte kaynak ekrandan çıktı', () => {
+    assert.match(source, /api\.customers\(\)/);
+    assert.ok(!screen.includes('demoBook'), 'ekran sahte defteri çağırmamalı');
+    assert.match(screen, /useBook\(today\)/);
+    // Sahte kaynak SİLİNMEDİ: `AUTH_MODE=live` verilmeden geliştirme akışı
+    // sürüyor ve canlıya geçiş tek değişkenle geri alınabiliyor.
+    assert.match(source, /if \(!LIVE_AUTH\) return demoBook\(todayISO\)/);
+});
+
+test('okunamayan defter "müşteri yok" DEMİYOR', () => {
+    // Ekranın iki boş hâli var (kayıt yok · arama eşleşmedi) ve okunamayan bir
+    // defterin ikisine de benzemesi, olmayan bir gerçeği söylemek olurdu.
+    assert.match(screen, /bookState === 'error' \? \(/);
+    assert.match(screen, /<Unread onRetry=/);
+    assert.match(screen, /Defteri <Text[^>]*>okuyamadık<\/Text>/);
+    assert.match(screen, /Müşteriniz olmadığı anlamına gelmez/);
+    // Başlıktaki sayı da susuyor: "0 KAYIT" derken gövde "okuyamadık" diyordu.
+    assert.match(screen, /bookState === 'error' \? '—'/);
+    // "Henüz kimseye bakmadınız" altyazısı da yalnız OKUNMUŞ defterde.
+    assert.match(screen, /bookState === 'ok' && mineCount\(book\) === 0/);
+});
+
+test('defterde YOKLAMA yok — ve bu bilinçli', () => {
+    // Ajanda gün içinde değişiyor; defter yalnız yeni bir randevudan doğuyor.
+    // Saniye saniye çekmek hiçbir soruyu daha iyi cevaplamadan pil harcardı.
+    assert.ok(!source.includes('POLL_MS'), 'defter yoklamamalı');
+    assert.ok(!source.includes('setInterval'), 'defterde sayaç olmamalı');
+    // Ama okuma ÜÇ anda oluyor: açılış, sekmeye dönüş, öne dönüş.
+    assert.match(source, /void read\(true\);/);
+    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    assert.match(source, /AppState\.addEventListener\('change'/);
+});
+
+test('sunucunun satırı ekranın beklediği beş olguyu karşılıyor', () => {
+    // Satır beş olgu taşıyor: ad · ne zaman · ne yapıldı · kim yaptı · formül.
+    for (const field of ['lastVisitDate', 'lastService', 'hasFormula', 'mine', 'lastStaffInitials']) {
+        assert.ok(source.includes(field), `istemci ${field} okumalı`);
+        assert.ok(api.includes(field), `sunucu ${field} göndermeli`);
+    }
+    // Telefon TAM hâliyle inmiyor: liste müşterinin gözü önünde ve numara
+    // listesi ayrılan personelin götürebileceği en değerli şey.
+    assert.match(source, /phoneTail: String\(row\.phoneTail \?\? ''\)/);
+    assert.ok(!source.includes('phone:'), 'defterde tam numara olmamalı');
+});
+
+test('sunucuda karşılığı olmayan alan UYDURULMUYOR', () => {
+    // `upcomingTime` (bugünün bekleyen randevusunun saati) `customers` ucunda
+    // yok. Uydurulmuş bir saat, olmayan bir randevuyu varmış gibi gösterirdi.
+    assert.ok(!source.includes('upcomingTime'), 'olmayan alan taşınmamalı');
+    // Alan boşken satır son gelişin etiketini gösteriyor ve bu doğru cevap.
+    assert.match(source, /toBookCustomer/);
 });
