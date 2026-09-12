@@ -144,22 +144,90 @@ test('süresi dolmuş kod geçersiz koddan AYRI bir hâldir', () => {
     assert.match(stub, /\| 'expired_pair_code'/);
 });
 
+/** Bir `submit` dalını, yorumları atarak yalnız ÇALIŞAN satırlarıyla verir. */
+function branchOf(source, from, to) {
+    const start = source.indexOf(from);
+    const end = source.indexOf(to, start + from.length);
+    assert.ok(start >= 0 && end > start, `dal bulunamadı: ${from}`);
+    return source.slice(start, end)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+}
+
 test('süresi dolan kod banner değil kendi ekranını açar', () => {
     const pair = read('app/(auth)/staff/pair.tsx');
     assert.match(pair, /result\.error === 'expired_pair_code'/);
     assert.match(pair, /icon="clock"/);
     // Çözüm kullanıcıda değil: sarsıntı ve kırmızı kutu YOK.
-    const branch = pair.slice(pair.indexOf("result.error === 'expired_pair_code'"), pair.indexOf('feedback.warning();\n        setInvalid'));
+    const branch = branchOf(pair, "result.error === 'expired_pair_code'", "result.error === 'locked'");
     assert.doesNotMatch(branch, /setInvalid\(true\)|runPairErrorShake/);
 });
 
-test('süresi dolan kod ekranı kodu üretecek kişiyi gösterir ve arattırır', () => {
+test('süresi dolan kod ekranı kişiyi ancak GERÇEKTEN biliyorsa gösterir', () => {
     const pair = read('app/(auth)/staff/pair.tsx');
     assert.match(pair, /<AuthDetailList rows=\{\[\{/);
     assert.match(pair, /status: expiredPairCode\.ownerStatus/);
-    assert.match(pair, /Linking\.openURL\(`tel:\$\{expired\.phone\}`\)/);
+    assert.match(pair, /Linking\.openURL\(`tel:\$\{expired\.owner\?\.phone \?\? ''\}`\)/);
     assert.equal(expiredPairCode.retype, 'Yeni kodu yaz');
     assert.equal(expiredPairCode.call, 'İşletme sahibini ara');
+
+    // Kart da arama düğmesi de KOŞULLU. `authApi.staff.owner()` canlıda
+    // karşılığı olmayan bir uç: `auth.ts`'in staff yüzeyinde yok, çağrı
+    // sahte katmana düşüyor ve UYDURMA bir ad ile UYDURMA bir telefon
+    // dönüyor. Koşulsuz çizilen bir "İşletme sahibini ara" düğmesi canlıda
+    // tanımadığı birini arardı.
+    assert.match(pair, /detail=\{expired\.owner \? \(/);
+    assert.match(pair, /\{expired\.owner \? \([\s\S]{0,400}expiredPairCode\.call/);
+});
+
+test('sahibin kartı canlı kipte hiç okunmuyor', () => {
+    const pair = read('app/(auth)/staff/pair.tsx');
+    // Tek kapı: ekran `owner()` ucunu DOĞRUDAN çağırmıyor.
+    assert.doesNotMatch(pair, /await authApi\.staff\.owner\(\)/);
+    assert.match(pair, /async function ownerOrNull\(\)[\s\S]{0,200}if \(LIVE_AUTH\) return null;/);
+    assert.match(pair, /setExpired\(\{ owner: await ownerOrNull\(\) \}\)/);
+});
+
+// ── Eşleştirme KİLİDİ ───────────────────────────────────────────────────────
+
+test('kilit kendi hâli: kod eşleşmedi denmiyor, sarsıntı da yok', () => {
+    // `staff-api` on yanlış denemeden sonra IP'yi 15 dakika kilitliyor ve o
+    // andan itibaren koda HİÇ BAKMIYOR — doğru kod da reddediliyor. Ekran
+    // bunu "bu kod eşleşmedi" diye gösteriyordu: kişi doğru kodu yeniden
+    // yazıyor, her deneme kilidi besliyordu.
+    const pair = read('app/(auth)/staff/pair.tsx');
+    assert.match(pair, /result\.error === 'locked'/);
+    const branch = branchOf(pair, "result.error === 'locked'", 'setInvalid(true)');
+    assert.doesNotMatch(branch, /setInvalid\(true\)|runPairErrorShake/);
+    assert.match(branch, /setLocked\(\{ until: result\.lockedUntil \?\? null/);
+});
+
+test('kilit ekranı süreyi gösteriyor ve süre dolunca KENDİ açılıyor', () => {
+    const pair = read('app/(auth)/staff/pair.tsx');
+    assert.match(pair, /icon="lock"/);
+    assert.match(pair, /lockWaitText\(waiting\)/);
+    // Kişiyi "bitti mi acaba" diye denemeye zorlamak, her denemesi kilidi
+    // uzatan bir uçta yapılmaması gereken şey.
+    assert.match(pair, /if \(next >= until\) setLocked\(null\)/);
+});
+
+test('süre BİLİNMİYORSA sahte bir geri sayım çizilmiyor', () => {
+    // Sunucu `minutes` ya da `until` göndermezse uydurulmuş bir sayaç biter,
+    // kilit bitmez — kişi "şimdi olur" diye denemeye devam eder.
+    const pair = read('app/(auth)/staff/pair.tsx');
+    assert.match(pair, /locked\.until \? lockWaitText\(waiting\) : pairLocked\.hint/);
+    assert.match(pair, /extra=\{locked\.until \? \(/);
+});
+
+test('kilidin bitiş anı sunucudan TAŞINIYOR — iki ayrı biçimden tek biçime', () => {
+    const auth = read('src/api/auth.ts');
+    // PIN kilidinde mutlak an (`until`), eşleştirme kilidinde süre (`minutes`).
+    assert.match(auth, /function lockDeadline\(e: ApiError\)/);
+    assert.match(auth, /const until = e\.until \? Date\.parse\(e\.until\) : Number\.NaN;/);
+    assert.match(auth, /minutes \* 60_000/);
+    assert.match(auth, /case 'pair_locked': return fail\('locked', lockDeadline\(e\)\);/);
+    // Hiçbiri gelmediyse alan BOŞ — uydurulmuyor.
+    assert.match(auth, /if \(minutes !== null && minutes > 0\)[\s\S]{0,120}return \{\};/);
 });
 
 test('“yeni kodu yaz” alanı temizler', () => {

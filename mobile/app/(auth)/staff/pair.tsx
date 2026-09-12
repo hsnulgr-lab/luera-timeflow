@@ -3,7 +3,7 @@ import { Animated, Easing, Linking, Pressable, Text, TextInput, View } from 'rea
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { authApi } from '../../../src/api/session';
+import { authApi, LIVE_AUTH } from '../../../src/api/session';
 import {
     AuthActionButton,
     AuthBanner,
@@ -14,12 +14,31 @@ import {
     AuthOfflineScreen,
     AuthStatusScreen,
 } from '../../../src/components/ui';
-import { expiredPairCode } from '../../../src/lib/authCopy';
+import { expiredPairCode, lockWaitText, pairLocked } from '../../../src/lib/authCopy';
 import { formatPairingCode } from '../../../src/lib/authValidation';
 import { feedback } from '../../../src/lib/feedback';
 import { authMetrics, authMotion, font, radius, type, useTheme } from '../../../src/theme';
 import { LightField } from '../../../src/components/LightField';
 import { LueraTimeflowMark } from '../../../src/components/BrandMark';
+
+interface PairOwner { name: string; title: string; phone: string }
+
+/**
+ * İşletme sahibinin kartı — YALNIZ sahte katmanda.
+ *
+ * `authApi.staff.owner()` canlıda karşılığı olmayan bir uç: `auth.ts`'in
+ * `staff` yüzeyinde yok, o yüzden çağrı sessizce sahte katmana düşüyor ve
+ * UYDURMA bir ad ile UYDURMA bir telefon dönüyor. "İşletme sahibini ara"
+ * düğmesi canlıda tanımadığı birini arardı.
+ *
+ * Sunucu bu bilgiyi veremez de: eşleştirme başarısızken telefonun hiçbir
+ * kimliği yok — hangi işletmeye ait olduğu bilinmiyor ki sahibi söylensin.
+ * Doğru davranış kartı ÇİZMEMEK; ekran onsuz da tam anlamlı.
+ */
+async function ownerOrNull(): Promise<PairOwner | null> {
+    if (LIVE_AUTH) return null;
+    return authApi.staff.owner();
+}
 
 const HELP_STEPS = [
     'İşletme sahibi bilgisayarda Luera’yı açar.',
@@ -161,10 +180,33 @@ export default function PairDevice() {
     const [submitting, setSubmitting] = useState(false);
     const [offline, setOffline] = useState(false);
     const [invalid, setInvalid] = useState(false);
-    const [expired, setExpired] = useState<{ name: string; title: string; phone: string } | null>(null);
+    const [expired, setExpired] = useState<{ owner: PairOwner | null } | null>(null);
+    /**
+     * Kilidin bitiş anı. `owner` ayrı tutuluyor çünkü kilit ekranı onsuz da
+     * çizilebilmeli: sahibin bilgisi okunamazsa kişi en azından ne kadar
+     * bekleyeceğini görsün.
+     */
+    const [locked, setLocked] = useState<{ until: number | null; owner: PairOwner | null } | null>(null);
+    const [now, setNow] = useState(() => Date.now());
     const [helpOpen, setHelpOpen] = useState(false);
     const shake = useRef(new Animated.Value(0)).current;
     const complete = code.length === 6;
+
+    /**
+     * Sayaç. Kilit BİTİNCE ekran kendiliğinden açılıyor: kişiyi "bitti mi
+     * acaba" diye denemeye zorlamak, her denemesi kilidi uzatan bir uçta
+     * tam olarak yapılmaması gereken şey.
+     */
+    useEffect(() => {
+        const until = locked?.until;
+        if (!until) return;
+        const id = setInterval(() => {
+            const next = Date.now();
+            setNow(next);
+            if (next >= until) setLocked(null);
+        }, 1000);
+        return () => clearInterval(id);
+    }, [locked?.until]);
 
     const updateCode = (next: string) => {
         setInvalid(false);
@@ -193,7 +235,21 @@ export default function PairDevice() {
         // sahibi üretebilir. Bu yüzden banner değil, kendi ekranı.
         if (result.error === 'expired_pair_code') {
             feedback.warning();
-            setExpired(await authApi.staff.owner());
+            setExpired({ owner: await ownerOrNull() });
+            return;
+        }
+        /*
+         * KİLİT — kodu suçlamıyor.
+         *
+         * On yanlış denemeden sonra sunucu koda BAKMIYOR; doğru kod da
+         * reddediliyor. Buradaki eski davranış kodu suçlayan kırmızı banttı:
+         * kişi aynı doğru kodu yeniden yazıyor, her yazışı kilidi besliyordu.
+         * Sarsıntı da yok — sarsıntı "yanlış yazdın" demek.
+         */
+        if (result.error === 'locked') {
+            feedback.warning();
+            setNow(Date.now());
+            setLocked({ until: result.lockedUntil ?? null, owner: await ownerOrNull() });
             return;
         }
 
@@ -202,6 +258,47 @@ export default function PairDevice() {
         runPairErrorShake(shake, reduceMotion);
     };
 
+    if (locked) {
+        const waiting = locked.until ? Math.max(0, (locked.until - now) / 1000) : 0;
+        return (
+            <AuthStatusScreen
+                tone="amber"
+                icon="lock"
+                align="top"
+                title={pairLocked.title}
+                body={pairLocked.body}
+                detail={(
+                    <AuthBanner inset={false}>
+                        {locked.until ? lockWaitText(waiting) : pairLocked.hint}
+                    </AuthBanner>
+                )}
+                extra={locked.until ? (
+                    <Text style={{
+                        color: c.tx2,
+                        textAlign: 'center',
+                        fontSize: authMetrics.pairLockHintSize,
+                        lineHeight: authMetrics.pairLockHintSize * 1.5,
+                        fontFamily: font.medium,
+                        fontWeight: '500',
+                    }}>
+                        {pairLocked.hint}
+                    </Text>
+                ) : undefined}
+            >
+                {/* Düğme YOK denecek kadar az: kilitliyken yapılabilecek tek
+                    şey beklemek, ikincisi de sahibi aramak. "Tekrar dene"
+                    çizmek, denenebilirmiş gibi göstermek olurdu. */}
+                {locked.owner ? (
+                    <AuthActionButton
+                        kind="ghost"
+                        label={pairLocked.call}
+                        onPress={() => { void Linking.openURL(`tel:${locked.owner?.phone ?? ''}`); }}
+                    />
+                ) : null}
+            </AuthStatusScreen>
+        );
+    }
+
     if (expired) {
         return (
             <AuthStatusScreen
@@ -209,24 +306,26 @@ export default function PairDevice() {
                 icon="clock"
                 title={expiredPairCode.title}
                 body={expiredPairCode.body}
-                detail={(
+                detail={expired.owner ? (
                     <AuthDetailList rows={[{
-                        title: expired.name,
-                        subtitle: expired.title,
+                        title: expired.owner.name,
+                        subtitle: expired.owner.title,
                         status: expiredPairCode.ownerStatus,
                     }]} />
-                )}
+                ) : undefined}
             >
                 <AuthActionButton
                     kind="secondary"
                     label={expiredPairCode.retype}
                     onPress={() => { setExpired(null); updateCode(''); }}
                 />
-                <AuthActionButton
-                    kind="ghost"
-                    label={expiredPairCode.call}
-                    onPress={() => { void Linking.openURL(`tel:${expired.phone}`); }}
-                />
+                {expired.owner ? (
+                    <AuthActionButton
+                        kind="ghost"
+                        label={expiredPairCode.call}
+                        onPress={() => { void Linking.openURL(`tel:${expired.owner?.phone ?? ''}`); }}
+                    />
+                ) : null}
             </AuthStatusScreen>
         );
     }

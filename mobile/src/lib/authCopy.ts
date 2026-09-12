@@ -12,20 +12,46 @@ function nonNegativeInteger(value: number): number {
     return Math.max(0, Math.floor(value));
 }
 
-/** Yanlış e-posta ile yanlış şifreyi birbirinden ayırmadan güvenli hata metni üretir. */
+/**
+ * Yanlış e-posta ile yanlış şifreyi birbirinden ayırmadan güvenli hata metni üretir.
+ *
+ * ── Sayı BİLİNMİYORSA yazılmıyor ────────────────────────────────────────────
+ * `remainingAttempts` artık `null` olabiliyor ve bu "sıfır" DEĞİL. Müdür
+ * yolunda kimliği doğrulayan katman kalan deneme diye bir şey bildirmiyor;
+ * ekran `?? 0` yazdığı için ilk yanlış şifrede "0 denemeniz kaldı; sonra hesap
+ * kapanır" diyordu. Hesap kapanmıyordu — uydurulmuş bir sayı, uydurulmuş bir
+ * tehdit üretiyordu.
+ *
+ * Personel yolunda sayı GERÇEK: sunucu yanlış PIN'de kalan hakkı gönderiyor ve
+ * kimlik katmanı onu taşıyor.
+ *
+ * ── Eşik sayısı da yazılmıyor ───────────────────────────────────────────────
+ * Metin "Üç kere yanlış girilirse" diyordu. Sunucudaki sınır BEŞ
+ * (`PIN_MAX_ATTEMPTS`); üç, yalnız sahte katmanın sayısıydı. Canlıya geçince
+ * cümle yanlış oldu, o yüzden sabit sayı kalktı.
+ *
+ * "İşletme sahibine haber gider" cümlesi de kalktı: kilitlenme bir denetim
+ * satırı yazıyor, kimseye haber GİTMİYOR. Verilmeyen bir söz, eksik bilgiden
+ * kötü.
+ */
 export function remainingAttemptText(
     kind: AuthKind,
-    remainingAttempts: number,
+    remainingAttempts: number | null,
     lockMinutes = 15,
 ): string {
-    const remaining = nonNegativeInteger(remainingAttempts);
     const minutes = nonNegativeInteger(lockMinutes);
+    const known = typeof remainingAttempts === 'number' && Number.isFinite(remainingAttempts);
+    const remaining = known ? nonNegativeInteger(remainingAttempts as number) : null;
 
     if (kind === 'manager') {
-        return `E-posta ve şifre eşleşmedi. ${remaining} denemeniz kaldı; sonra hesap ${minutes} dakika kapanır.`;
+        return remaining === null
+            ? `E-posta ve şifre eşleşmedi. Üst üste yanlış denemeden sonra hesap ${minutes} dakika kapanır.`
+            : `E-posta ve şifre eşleşmedi. ${remaining} denemeniz kaldı; sonra hesap ${minutes} dakika kapanır.`;
     }
 
-    return `Şifre yanlış. ${remaining} denemeniz kaldı. Üç kere yanlış girilirse bu telefon ${minutes} dakika kilitlenir ve işletme sahibine haber gider.`;
+    return remaining === null
+        ? `Şifre yanlış. Üst üste yanlış denemeden sonra bu telefon ${minutes} dakika kilitlenir.`
+        : `Şifre yanlış. ${remaining} denemeniz kaldı; sonra bu telefon ${minutes} dakika kilitlenir.`;
 }
 
 /** Kilitli düğmenin içinde gösterilecek, yukarı yuvarlanmış dakika:saniye sayacı. */
@@ -81,6 +107,35 @@ export const expiredPairCode = {
     retype: 'Yeni kodu yaz',
     call: 'İşletme sahibini ara',
 } as const;
+
+/**
+ * Eşleştirme KİLİDİ — "kod yanlış"tan ayrı, çünkü çözümü farklı.
+ *
+ * `staff-api` on yanlış denemeden sonra IP'yi 15 dakika kilitliyor
+ * (`PAIR_MAX_ATTEMPTS`) ve o andan itibaren kodu HİÇ BAKMADAN reddediyor.
+ * Ekran bunu "bu kod eşleşmedi" diye gösteriyordu: kişi doğru kodu tekrar
+ * tekrar yazıyor, her deneme kilidi besliyor ve ekran hep kodu suçluyordu.
+ *
+ * İkinci gerçek: kilit 15 dakika, kod 10 dakika geçerli. Yani kilit
+ * açıldığında eldeki kodun süresi KESİNLİKLE dolmuş oluyor. Beklemeyi
+ * söyleyip yeni kod istemeyi söylememek, kişiyi bir kez daha duvara
+ * sürerdi — o yüzden ikisi aynı cümlede.
+ */
+export const pairLocked = {
+    title: 'Çok fazla\ndeneme yapıldı',
+    body: 'Güvenlik için eşleştirme 15 dakika kapatıldı. Kodunuz yanlış olmayabilir — bu süre boyunca hiçbir kod kabul edilmiyor.',
+    hint: 'Beklerken işletme sahibinden yeni bir kod isteyin: kodlar 10 dakika geçerli, elinizdeki kodun süresi bu arada dolacak.',
+    call: 'İşletme sahibini ara',
+    retry: 'Yeni kodu yaz',
+} as const;
+
+/** Kilit bitişine kalan süre — "12 dakika" / "40 saniye". */
+export function lockWaitText(secondsRemaining: number): string {
+    const seconds = nonNegativeInteger(Math.ceil(secondsRemaining));
+    if (seconds === 0) return 'Şimdi deneyebilirsiniz';
+    if (seconds < 60) return `${seconds} saniye sonra tekrar deneyebilirsiniz`;
+    return `${Math.ceil(seconds / 60)} dakika sonra tekrar deneyebilirsiniz`;
+}
 
 /**
  * Giriş 15d ve 15e. İki varyant, iki farklı sorumluluk.

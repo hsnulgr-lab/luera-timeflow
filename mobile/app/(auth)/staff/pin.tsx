@@ -119,7 +119,11 @@ export default function StaffPin() {
             setErrorMessage('Bu telefon 15 dakika kilitlendi. İşletme sahibinden yardım isteyin.');
             return;
         }
-        const remainingAttempts = result.remainingAttempts ?? 0;
+        // Personel yolunda sayı GERÇEK: yanlış PIN'de kalan hak bildiriliyor
+        // ve kimlik katmanı onu buraya taşıyor. Ama gelmediği durum da var
+        // (beklenmeyen bir hata kodu) ve o zaman sıfır yazmak "son hakkınız"
+        // demek olurdu. Bilinmeyen sayı YAZILMIYOR.
+        const remainingAttempts = result.remainingAttempts ?? null;
         setErrorMessage(remainingAttemptText('staff', remainingAttempts));
     };
 

@@ -10,6 +10,8 @@ import {
 import {
     accountDeletionItems,
     lockCountdownText,
+    lockWaitText,
+    pairLocked,
     remainingAttemptText,
 } from '../mobile/src/lib/authCopy.ts';
 
@@ -71,8 +73,56 @@ test('müdür hatası hesap varlığını sızdırmadan kalan denemeyi söyler',
 test('personel hatası kalan denemeyi ve telefon kilidini birlikte söyler', () => {
     assert.equal(
         remainingAttemptText('staff', 2),
-        'Şifre yanlış. 2 denemeniz kaldı. Üç kere yanlış girilirse bu telefon 15 dakika kilitlenir ve işletme sahibine haber gider.',
+        'Şifre yanlış. 2 denemeniz kaldı; sonra bu telefon 15 dakika kilitlenir.',
     );
+});
+
+test('metin sunucuda karşılığı olmayan HİÇBİR sayı ya da söz vermez', () => {
+    // "Üç kere yanlış girilirse" sahte katmanın sayısıydı; sunucudaki sınır
+    // BEŞ (PIN_MAX_ATTEMPTS). Canlıya geçince cümle yanlış oldu.
+    const staff = remainingAttemptText('staff', 2);
+    assert.doesNotMatch(staff, /Üç kere|üç kere|\b3 kere\b/);
+    // Kilitlenme yalnız bir denetim satırı yazıyor; kimseye haber GİTMİYOR.
+    assert.doesNotMatch(staff, /haber gider|bildirilir/);
+});
+
+test('kalan deneme BİLİNMİYORSA sayı yazılmıyor — sıfır yazılmıyor', () => {
+    // Müdür yolunda sunucu kalan deneme göndermiyor. Ekran `?? 0` yazdığı
+    // için ilk yanlış şifrede "0 denemeniz kaldı" çıkıyordu: uydurma sayı,
+    // uydurma tehdit.
+    const manager = remainingAttemptText('manager', null);
+    assert.doesNotMatch(manager, /\d+ denemeniz kaldı/);
+    assert.match(manager, /E-posta ve şifre eşleşmedi\./);
+    assert.match(manager, /15 dakika kapanır\./);
+
+    const staff = remainingAttemptText('staff', null);
+    assert.doesNotMatch(staff, /\d+ denemeniz kaldı/);
+    assert.match(staff, /15 dakika kilitlenir\./);
+
+    // SIFIR hâlâ geçerli bir sayı: "son hakkınızı da kullandınız" demek.
+    assert.match(remainingAttemptText('manager', 0), /0 denemeniz kaldı/);
+});
+
+test('kilit bekleme metni dakikayı YUKARI yuvarlar, biteni saklamaz', () => {
+    assert.equal(lockWaitText(900), '15 dakika sonra tekrar deneyebilirsiniz');
+    // 14:01 → "15 dakika" değil ama "14 dakika" da değil: yukarı yuvarlanıyor
+    // ki kişi erken deneyip kilidi beslemesin.
+    assert.equal(lockWaitText(841), '15 dakika sonra tekrar deneyebilirsiniz');
+    assert.equal(lockWaitText(60), '1 dakika sonra tekrar deneyebilirsiniz');
+    assert.equal(lockWaitText(59), '59 saniye sonra tekrar deneyebilirsiniz');
+    assert.equal(lockWaitText(0), 'Şimdi deneyebilirsiniz');
+    assert.equal(lockWaitText(-5), 'Şimdi deneyebilirsiniz');
+});
+
+test('eşleştirme kilidi metni KODU suçlamıyor ve yeni kod istemeyi söylüyor', () => {
+    // Kilit 15 dakika, kod 10 dakika geçerli: kilit açıldığında eldeki kodun
+    // süresi KESİNLİKLE dolmuş oluyor. Beklemeyi söyleyip yeni kod istemeyi
+    // söylememek, kişiyi ikinci kez duvara sürerdi.
+    const all = `${pairLocked.title} ${pairLocked.body} ${pairLocked.hint}`;
+    assert.doesNotMatch(all, /eşleşmedi|yanlış yazd|rakamları/i);
+    assert.match(pairLocked.body, /15 dakika/);
+    assert.match(pairLocked.body, /hiçbir kod kabul edilmiyor/);
+    assert.match(pairLocked.hint, /yeni bir kod/);
 });
 
 test('kilit sayacı düğmenin içinde dakika ve saniyeyi sıfır dolgulu gösterir', () => {

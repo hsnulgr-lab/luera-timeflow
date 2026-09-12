@@ -35,6 +35,25 @@ const fail = (error: AuthFailure['error'], extra: Partial<AuthFailure> = {}): Au
     ({ ok: false, error, ...extra });
 const done = <T>(data: T): AuthResult<T> => ({ ok: true, data });
 
+/**
+ * Kilidin BİTİŞ ANI.
+ *
+ * Sunucu aynı şeyi iki ağızdan söylüyor: PIN kilidinde mutlak an (`until`),
+ * eşleştirme kilidinde kalan süre (`minutes`). Ekranların ikisini de bilmesi
+ * gerekmiyor — sınırda tek biçime, bitiş anına indirgeniyor.
+ *
+ * Hiçbiri gelmediyse alan BOŞ bırakılıyor, uydurulmuyor: ekran o zaman sayaç
+ * çizmeyip yalnız "kilitlendi" der. Yanlış bir geri sayım, hiç sayaç
+ * olmamasından kötüdür — biter ve kilit bitmez.
+ */
+function lockDeadline(e: ApiError): Partial<AuthFailure> {
+    const until = e.until ? Date.parse(e.until) : Number.NaN;
+    if (Number.isFinite(until)) return { lockedUntil: until };
+    const minutes = e.minutes;
+    if (minutes !== null && minutes > 0) return { lockedUntil: Date.now() + minutes * 60_000 };
+    return {};
+}
+
 /** Ağ hatası mı, sunucunun konuştuğu bir hata mı? İkisi farklı ekranlar açar. */
 function mapError(e: unknown): AuthFailure {
     if (!(e instanceof ApiError)) return fail('offline');
@@ -45,8 +64,12 @@ function mapError(e: unknown): AuthFailure {
         case 'device_token_required':
         case 'invalid_token': return fail('not_paired');
         case 'staff_not_found': return fail('staff_not_found');
+        // Kilit SÜRESİYLE birlikte taşınıyor. Süre atıldığında ekranlar
+        // kilitli hâli sıradan bir başarısızlıktan ayıramıyordu: eşleştirme
+        // "bu kod eşleşmedi" diyordu (kod doğruyken), PIN ekranı ise geri
+        // sayımı hiç çizemiyordu çünkü `lockedUntil` her zaman boştu.
         case 'locked':
-        case 'pair_locked': return fail('locked');
+        case 'pair_locked': return fail('locked', lockDeadline(e));
         case 'invalid_credentials': return fail('invalid_pin');
         default: return fail('invalid_credentials');
     }

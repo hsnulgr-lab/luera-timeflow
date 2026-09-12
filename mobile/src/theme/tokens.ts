@@ -186,6 +186,8 @@ export const authMetrics = {
     noteCardBody: 14.5,
     statusTopHeroTop: 44,
     statusExtraTop: 22,
+    /** Kilit ekranının ikinci cümlesi — gövdeden bir kademe küçük. */
+    pairLockHintSize: 13.5,
     questionTitle: 15,
     questionSubtitle: 12.5,
     actionsX: 18,

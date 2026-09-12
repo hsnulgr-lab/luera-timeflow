@@ -95,7 +95,12 @@ export default function ManagerSignIn() {
         }
 
         if (!result.ok) {
-            const remaining = result.remainingAttempts ?? 0;
+            // `?? 0` DEĞİL. Müdür yolunda kimliği doğrulayan katman kalan
+            // deneme sayısı diye bir şey bildirmiyor; alan her zaman boş
+            // geliyor. Sıfıra düşürmek ilk yanlış şifrede "0 denemeniz kaldı;
+            // sonra hesap kapanır" yazdırıyordu — sayı da uydurmaydı, ardından
+            // gelen tehdit de. Bilinmeyen sayı YAZILMIYOR.
+            const remaining = result.remainingAttempts ?? null;
             setError({
                 message: remainingAttemptText('manager', remaining),
                 lockedUntil: result.lockedUntil,
