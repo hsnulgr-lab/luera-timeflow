@@ -386,7 +386,11 @@ test('personel takvimi müdürün ızgarasını SALT OKUNUR kullanıyor', () => 
 test('kendi randevusu kumandayı açar, meslektaşınınki açmaz', () => {
     // Aynı işi iki yerden başlatabilen personel, iki kez başlatır.
     const cal = code(read('../mobile/app/personel/calendar.tsx'));
-    assert.ok(cal.includes("appointment.staff_id === ME"));
+    // Karar SUNUCUDAN geliyor. Ekranda sabit bir `ME = 'merve'` duruyordu:
+    // canlıda herkesin takvimi ya "hepsi benim" ya "hiçbiri benim değil"
+    // diye okunurdu ve kendi randevusuna dokunmak kumandayı açmazdı.
+    assert.ok(cal.includes('mine.has(appointment.id)'));
+    assert.ok(!cal.includes("=== ME"), 'sabit kimlik kalmamalı');
     assert.ok(cal.includes("pathname: '/(staff-flow)/kumanda'"));
     assert.ok(cal.includes('setPeek(appointment)'), 'başkasının randevusu okunur bir kart açmalı');
 });
@@ -425,9 +429,13 @@ test('personel takviminde çevrimdışı bandı ve yenileme var', () => {
 });
 
 test('yenileme başarısızsa ekrandaki gün SİLİNMİYOR', () => {
-    const cal = code(read('../mobile/app/personel/calendar.tsx'));
-    assert.ok(cal.includes('if (map) setCounts(map)'), 'okunamayan sayılar boş harita yazmamalı');
-    assert.ok(cal.includes('} finally {'), 'yenileme bayrağı her hâlde düşmeli');
+    // Kural aynı, yeri değişti: okuma ekrandan `salonDay.ts`'e indi.
+    const src = code(read('../mobile/src/lib/salonDay.ts'));
+    const fail = src.slice(src.indexOf('.catch(() => {'), src.indexOf('}, [dateISO]);'));
+    assert.ok(!fail.includes('setDay('), 'hata eldeki günü yazmamalı');
+    // Sayılar BİRİKİYOR: tek günlük haritayı ezmek, az önce okunan günü
+    // şeritte "bilinmiyor"a düşürürdü.
+    assert.ok(src.includes('counts: { ...current.counts, ...next.counts }'));
 });
 
 test('okunur kart takvimin ÜSTÜNDE duruyor', () => {

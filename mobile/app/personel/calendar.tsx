@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,10 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader, OfflineBar, WeekStrip, animateOfflineBar } from '../../src/components/CalendarParts';
 import { ColumnCalendar } from '../../src/components/ColumnCalendar';
-import { source } from '../../src/lib/calendarSource';
 import { hourRange, type ColumnStaff } from '../../src/lib/managerCalendar';
-import { mockDay } from '../../src/lib/managerFlow';
-import { nowInMinutes, weekDays, type Appt } from '../../src/lib/calendar';
+import { useSalonDay } from '../../src/lib/salonDay';
+import { clockOf } from '../../src/lib/staffDemo';
+import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
 import { offlineBannerText, useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
 import { glow, numeric, offlineBar, useTheme } from '../../src/theme';
@@ -51,9 +51,6 @@ import { glow, numeric, offlineBar, useTheme } from '../../src/theme';
  */
 const TAB_BAR = 64;
 
-/** Oturumdaki personel. Sunucuya bağlanınca `me.id` buraya gelecek. */
-const ME = 'merve';
-
 export default function StaffCalendar() {
     const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
@@ -64,12 +61,39 @@ export default function StaffCalendar() {
      */
     const params = useLocalSearchParams<{ date?: string }>();
 
-    const [fetched, setFetched] = useState<Appt[]>([]);
-    const [selectedDate, setSelectedDate] = useState(params.date ?? mockDay.dateISO);
-    const [counts, setCounts] = useState<Record<string, number>>({});
+    const today = todayISO();
+    /**
+     * Seçili gün — parametreyi state'e AYNALAMADAN.
+     *
+     * Eskiden `params.date` bir efektle state'e kopyalanıyordu; derleyici bunu
+     * "efektin içinde senkron setState" diye reddediyor ve haklı: bir kopya
+     * daha tutmak, iki gerçeğin ayrışabileceği bir yer açmak demek.
+     *
+     * Seçim, hangi parametrenin üstüne yapıldığını da saklıyor. Böylece
+     * Bugün'ün şeridinden YENİ bir gün gelince kullanıcının eski seçimi
+     * kendiliğinden düşüyor — parametre değişti, seçim artık ona ait değil.
+     */
+    const [pick, setPick] = useState<{ over: string | undefined; date: string } | null>(null);
+    const selectedDate = pick && pick.over === params.date
+        ? pick.date
+        : params.date ?? today;
+    const selectDay = useCallback(
+        (date: string) => setPick({ over: params.date, date }),
+        [params.date],
+    );
     const [peek, setPeek] = useState<Appt | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const days = useMemo(() => weekDays(selectedDate), [selectedDate]);
+
+    /**
+     * Salonun günü. Kaynak `agendaSource` ile AYNI deseni taşıyor: üç hâl,
+     * sessiz yoklama, öne dönüş, sekmeye dönüş. Ekranda üç şey değişti —
+     * sütunlar, "kimin randevusu" kararı ve şerit sayıları artık SUNUCUDAN
+     * geliyor; üçü de sahte sabitlerdi.
+     */
+    const {
+        state: dayState, rows: fetched, crew, mine, counts, at: readAt, stale, reload,
+    } = useSalonDay(selectedDate);
 
     /**
      * Çevrimdışı bandı. Bu ekran bodrum katta, kötü sinyalde açılıyor;
@@ -79,7 +103,11 @@ export default function StaffCalendar() {
      */
     const { offline, queued } = useConnectivity();
     const bannerText = offlineBannerText(offline, queued);
-    const barProgress = useRef(new Animated.Value(0)).current;
+    // `useRef(new Animated.Value(0)).current` DEĞİL: derleyici ref'in çizim
+    // sırasında okunmasını reddediyor (react-hooks/refs) ve bu değer tam da
+    // çizimde, `transform` içinde okunuyor. Durum başlatıcısı aynı kalıcılığı
+    // veriyor — değer bir kez kuruluyor ve bir daha değişmiyor.
+    const [barProgress] = useState(() => new Animated.Value(0));
     useEffect(() => {
         animateOfflineBar(barProgress, bannerText !== null, reduceMotion);
     }, [bannerText, barProgress, reduceMotion]);
@@ -92,67 +120,53 @@ export default function StaffCalendar() {
     const refresh = useCallback(async () => {
         setRefreshing(true);
         feedback.light();
-        try {
-            const [day, map] = await Promise.all([
-                source.day(selectedDate),
-                source.range(days[0]?.date ?? selectedDate, days.at(-1)?.date ?? selectedDate)
-                    .catch(() => null),
-            ]);
-            setFetched(day);
-            // Sayılar okunamadıysa ELDEKİ sayılar durur; boş harita yazmak
-            // dolu bir haftayı boş gösterirdi.
-            if (map) setCounts(map);
-        } catch {
-            // Yenileme başarısızsa ekranda ne varsa o kalır. Hatanın kendisi
-            // çevrimdışı bandında zaten görünüyor.
-        } finally {
-            setRefreshing(false);
-        }
-    }, [days, selectedDate]);
+        // Hata YUTULMUYOR ama ayrı da çizilmiyor: `reload` başarısızlığı
+        // ekranın kendi `error` hâline yazıyor ve kaydırıcı orada duruyor.
+        await reload();
+        setRefreshing(false);
+    }, [reload]);
 
-    useEffect(() => {
-        let alive = true;
-        // Okuma başarısız olursa ELDEKİ liste durur; yerine boş bir gün yazılmaz.
-        source.day(selectedDate).then((list) => { if (alive) setFetched(list); }).catch(() => undefined);
-        return () => { alive = false; };
-    }, [selectedDate]);
-
-    useEffect(() => {
-        if (params.date) setSelectedDate(params.date);
-    }, [params.date]);
-
-    useEffect(() => {
-        let alive = true;
-        // Sayılar okunamazsa `counts` BOŞ kalır ve şerit o günleri "bilinmiyor"
-        // diye çizer — sıfır diye değil.
-        source.range(days[0]?.date ?? selectedDate, days.at(-1)?.date ?? selectedDate)
-            .then((map) => { if (alive) setCounts(map); })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [selectedDate]);
-
-    const staff: ColumnStaff[] = useMemo(
-        () => mockDay.presence.map((person) => ({
-            id: person.id, initials: person.initials, name: person.name,
-        })),
-        [],
-    );
+    const staff: ColumnStaff[] = crew;
 
     const { from, to } = useMemo(() => hourRange(fetched), [fetched]);
-    const isToday = selectedDate === mockDay.dateISO;
+    const isToday = selectedDate === today;
 
-    // Şimdi çizgisi dakika başı ilerler; yalnız bugüne bakarken sayar.
+    /**
+     * Şimdi çizgisi dakika başı ilerler.
+     *
+     * Sayaç artık `isToday`e BAĞLI DEĞİL. Bağlıyken, başka günden bugüne
+     * dönüldüğünde çizgi 60 saniyeye kadar eski dakikada kalıyordu; bunu
+     * önleyen "hemen bir kez ayarla" satırı ise efektin içinde senkron bir
+     * setState'ti ve derleyici onu reddediyor. Sayacı sürekli döndürmek, o
+     * satırı da `isToday` bağımlılığını da gereksiz kılıyor — değer zaten
+     * yalnız bugüne bakarken ÇİZİLİYOR.
+     */
     const [nowMinutes, setNowMinutes] = useState(() => nowInMinutes());
     useEffect(() => {
-        if (!isToday) return;
-        setNowMinutes(nowInMinutes());
         const id = setInterval(() => setNowMinutes(nowInMinutes()), 60_000);
         return () => clearInterval(id);
-    }, [isToday]);
+    }, []);
 
-    // Müdür "6 personel" der; personelin sorusu farklı: bu günün kaçı bende?
-    const mine = fetched.filter((appointment) => appointment.staff_id === ME).length;
-    const subtitle = `${fetched.length} randevu · ${mine} tanesi sizin`;
+    /**
+     * Başlığın cümlesi. Müdür "6 personel" der; personelin sorusu farklı:
+     * bu günün kaçı bende?
+     *
+     * OKUNAMADIYSA sayıdan söz edilmiyor. Eskiden `fetched.length` yazıyordu
+     * ve hata hâlinde onu sıfır görüp "0 randevu" diyordu — okuyamadığı bir
+     * günü BOŞ bir gün gibi göstermek, personelin gününü kapatmasına yol
+     * açar (`personel/index.tsx` ile aynı kural).
+     *
+     * BAYATSA sayının yerini saat alıyor. Yoklama sessizce cevap alamıyorsa
+     * ızgara donuyor ve bunun tek izi bu satır: "kaçı sizin"i kaybetmek,
+     * bayat bir saate güvenmekten iyi.
+     */
+    const subtitle = dayState === 'error'
+        ? 'okunamadı'
+        : dayState === 'loading'
+            ? '…'
+            : stale && readAt
+                ? `${fetched.length} randevu · son güncelleme ${clockOf(readAt)}`
+                : `${fetched.length} randevu · ${mine.size} tanesi sizin`;
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -185,7 +199,7 @@ export default function StaffCalendar() {
                     days={days}
                     selectedISO={selectedDate}
                     counts={counts}
-                    onSelect={setSelectedDate}
+                    onSelect={selectDay}
                 />
 
                 <View style={{ height: 1, backgroundColor: c.bd }} />
@@ -208,7 +222,10 @@ export default function StaffCalendar() {
                         />
                     )}
                     onOpen={(appointment) => {
-                        if (appointment.staff_id === ME) {
+                        // Karar SUNUCUDAN: sabit bir 'merve' duruyordu ve
+                        // canlıda herkesin takvimi ya "hepsi benim" ya
+                        // "hiçbiri benim değil" diye okunurdu.
+                        if (mine.has(appointment.id)) {
                             router.push({ pathname: '/(staff-flow)/kumanda', params: { id: appointment.id } });
                             return;
                         }
