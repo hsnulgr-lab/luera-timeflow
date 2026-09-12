@@ -34,14 +34,38 @@ export interface ServerFile {
  * (`BeautyCustomersPage` · riskOf): kuralın anahtarı müşteride doluysa kural
  * işliyor. Motoru sunucuya taşımak, iki tarafın bir gün ayrışması demekti.
  */
+/** Tek bir risk kuralının okunabilir hâli. */
+export interface RiskLine { kind: string; text: string }
+
+/**
+ * İşleyen risk kuralları — kumandanın uyarı satırları bundan doğuyor.
+ *
+ * `riskMask` ile AYNI kaynaktan: müşteri sayfası bunları tek bir maskede
+ * topluyor, kumanda ayrı satırlar hâlinde gösteriyor. İki ekran aynı kuralı
+ * iki ayrı yerden türetseydi bir gün biri alerji der öteki demezdi.
+ */
+export function riskList(
+    rules: readonly { key?: string; label?: string; note?: string | null }[],
+    fields: Record<string, unknown> | null | undefined,
+): RiskLine[] {
+    return rules
+        .filter((rule) => rule.key && Boolean(fields?.[rule.key]))
+        .map((rule) => ({
+            kind: String(rule.label ?? '').trim() || 'Risk',
+            // Notu olmayan kural etiketini tekrar ediyor: boş bir uyarı
+            // satırı, uyarının kendisinden kötü.
+            text: String(rule.note ?? '').trim() || String(rule.label ?? '').trim(),
+        }));
+}
+
 export function riskMask(
     rules: readonly { key?: string; label?: string; note?: string | null }[],
     fields: Record<string, unknown> | null | undefined,
 ): FileMask | null {
-    const active = rules.filter((rule) => rule.key && Boolean(fields?.[rule.key]));
+    const active = riskList(rules, fields);
     if (active.length === 0) return null;
-    const labels = active.map((rule) => String(rule.label ?? '').trim()).filter(Boolean);
-    const notes = active.map((rule) => String(rule.note ?? '').trim()).filter(Boolean);
+    const labels = active.map((line) => line.kind).filter(Boolean);
+    const notes = active.map((line) => line.text).filter(Boolean);
     return {
         label: labels.length > 0 ? `Risk · ${labels.join(' · ')}` : 'Risk',
         sub: `${active.length} kural`,

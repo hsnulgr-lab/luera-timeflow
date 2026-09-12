@@ -149,7 +149,7 @@ test('OKUNAMADI ile BULUNAMADI ayrı cümleler', () => {
     assert.match(screen, /Kayıt silinmiş anlamına gelmez/);
     assert.match(screen, /title="Müşteri bulunamadı"/);
     // 404 KAYIT YOK demek; ötekiler OKUYAMADIK.
-    assert.match(source, /if \(status === 404\) \{ setFile\(null\); setState\('missing'\); return; \}/);
+    assert.match(source, /if \(status === 404\) \{ setFile\(null\); setRisks\(\[\]\); setState\('missing'\); return; \}/);
 });
 
 test('geçmiş TAVANA dayandıysa sayı "+" ile yazılıyor', () => {
@@ -169,5 +169,6 @@ test('odağa dönüşte YENİDEN okunuyor', () => {
     assert.ok(!screen.includes('demoCustomerFile'), 'ekran sahte dosyayı çağırmamalı');
     assert.match(screen, /useCustomerFile\(/);
     // Sahte kaynak SİLİNMEDİ: canlıya geçiş tek değişkenle geri alınabiliyor.
-    assert.match(source, /!LIVE_AUTH\s*\n?\s*\? Promise\.resolve\(demoCustomerFile/);
+    assert.match(source, /!LIVE_AUTH\s*\n?\s*\? Promise\.resolve\(\(\(\) => \{/);
+    assert.match(source, /demoCustomerFile\(\{ id: customerId, name \}, today\)/);
 });

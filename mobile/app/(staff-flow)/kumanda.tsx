@@ -22,7 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     HoldToFinish, SlideToStart, WaitRing, WarmGlow,
 } from '../../src/components/VisitControls';
-import { clockOf, demoAgenda, type DemoAppointment } from '../../src/lib/staffDemo';
+import { clockOf, type DemoAppointment } from '../../src/lib/staffDemo';
+import { useVisit } from '../../src/lib/visitSource';
+import { useCustomerFile } from '../../src/lib/fileSource';
 import { todayISO } from '../../src/lib/calendar';
 import {
     dialA, glowTone, mmss, phaseOf, planBar, waitLevel,
@@ -60,7 +62,7 @@ import {
     FormulaBody, HistoryLine, NoteStep, emptyDraft,
     type FormulaDraft, type FormulaPrevious,
 } from '../../src/components/FormulaBody';
-import { numeric, useTheme } from '../../src/theme';
+import { font, numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
 
 /**
@@ -147,14 +149,15 @@ export default function Kumanda() {
     const router = useRouter();
     const params = useLocalSearchParams<{ id?: string }>();
 
-    // Sahte gün mount anında donuyor: her saniye yeniden üretilirse randevu
-    // saatleri kayar ve sayaç yerinde saymaya başlar.
-    const [anchor] = useState(() => Date.now());
     const dateISO = todayISO();
-    const base = useMemo<DemoAppointment | undefined>(() => {
-        const list = demoAgenda(anchor, dateISO);
-        return list.find((item) => item.id === params.id) ?? list[1];
-    }, [anchor, dateISO, params.id]);
+    /*
+     * Randevu KİMLİKTEN okunuyor ve bulunamazsa BOŞ dönüyor.
+     *
+     * Eskiden sahte ajandada aranıyor, bulunamazsa listenin İKİNCİ randevusu
+     * açılıyordu (`?? list[1]`). Canlıda bu yanlış müşterinin kartını açmak
+     * demek: adisyon o kişiye yazılır, formül o kişinin dosyasına düşerdi.
+     */
+    const { state: visitState, visit: base, reload: reloadVisit } = useVisit(params.id);
 
     const [now, setNow] = useState(() => Date.now());
 
@@ -353,22 +356,79 @@ export default function Kumanda() {
      * Kancalar erken dönüşün ÜSTÜNDE: `if (!appointment) return null` altına
      * konursa çağrı sırası randevu bulunup bulunmamasına göre değişir.
      */
-    const who = appointment?.customer_name ?? '';
-    const risks = useMemo(
-        () => (who === 'Ayşe Yılmaz'
-            ? [{ kind: 'Alerji', text: 'Boya alerjisi bildirildi — kulak arkası testi şart.' }]
-            : who === 'Elif Demir'
-                ? [
-                    { kind: 'Alerji', text: 'Boya alerjisi bildirildi, kulak arkası testi şart.' },
-                    { kind: 'Hassasiyet', text: 'Saç derisi hassas: amonyaklı ürün kullanılmıyor.' },
-                ]
-                : []),
-        [who],
-    );
+    /*
+     * Risk satırları MÜŞTERİDEN okunuyor.
+     *
+     * Eskiden müşterinin ADINA bakarak uyduruluyordu: "Ayşe Yılmaz" ise alerji,
+     * "Elif Demir" ise alerji + hassasiyet. Gerçek bir salonda adaşı olan
+     * birine olmayan bir alerji yazardı — ve tersi daha kötü: alerjisi OLAN
+     * ama adı tutmayan müşteri hiç uyarı almazdı.
+     *
+     * Kaynak müşteri sayfasıyla AYNI (`fileSource` · riskList): iki ekran aynı
+     * kuralı iki ayrı yerden türetseydi bir gün biri alerji der öteki demezdi.
+     */
+    const { risks } = useCustomerFile(appointment?.customer_id ?? undefined, undefined);
     /** Grup başlığının liste içindeki dikey konumu — kopya kararı bundan. */
     const headY = useRef(0);
 
-    if (!appointment) return null;
+    /*
+     * BOŞ EKRAN YOK.
+     *
+     * Burada eskiden `return null` vardı: randevu bulunamazsa kumanda
+     * bomboş bir zemin çiziyordu ve kullanıcı uygulamanın donduğunu
+     * sanıyordu. Üç hâl ayrı ayrı söyleniyor — okunuyor · okunamadı ·
+     * gerçekten yok.
+     */
+    if (!appointment) {
+        return (
+            <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Kapat"
+                    onPress={() => router.back()}
+                    style={({ pressed }) => ({
+                        height: 44, alignSelf: 'flex-start',
+                        flexDirection: 'row', alignItems: 'center', gap: 2,
+                        paddingHorizontal: 14, opacity: pressed ? 0.55 : 1,
+                    })}
+                >
+                    <Glyph name="back" size={22} color={c.tx2} />
+                    <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Geri</Text>
+                </Pressable>
+                {visitState === 'loading' ? null : (
+                    <View style={{ paddingHorizontal: 20, paddingTop: 30, gap: 8 }}>
+                        <Text style={{
+                            fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
+                            fontFamily: font.extraLight, color: c.tx,
+                        }}>
+                            {visitState === 'error'
+                                ? <>Randevuyu <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.</>
+                                : <>Bu <Text style={{ fontFamily: font.bold }}>randevu bulunamadı</Text>.</>}
+                        </Text>
+                        <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
+                            {visitState === 'error'
+                                ? 'Randevu silinmiş anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.'
+                                : 'Randevu iptal edilmiş ya da başka bir güne taşınmış olabilir.'}
+                        </Text>
+                        {visitState === 'error' ? (
+                            <Pressable
+                                accessibilityRole="button"
+                                onPress={() => { feedback.selection(); void reloadVisit(); }}
+                                style={({ pressed }) => ({
+                                    alignSelf: 'flex-start', marginTop: 6,
+                                    paddingHorizontal: 16, height: 40, borderRadius: 20,
+                                    alignItems: 'center', justifyContent: 'center',
+                                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
+                )}
+            </View>
+        );
+    }
 
     // İş bittiyse sayaç durur: geçen süre bitiş damgasına kadar. Aksi hâlde
     // sabah biten bir randevu akşam "156 dk sürdü" derdi.

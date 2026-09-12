@@ -30,14 +30,26 @@ import { todayISO } from './calendar.ts';
 import { demoCustomerFile, type CustomerFile } from './customerFile.ts';
 // Saf eşleme yaprakta: burası React'e bağlı olduğu için testten çağrılamıyor,
 // orası çağrılabiliyor (`freshness.ts` ile aynı gerekçe).
-import { HISTORY_LIMIT, toCustomerFile, type ServerFile } from './customerFileMap.ts';
-export { noteMask, riskMask, toCustomerFile, HISTORY_LIMIT } from './customerFileMap.ts';
+import {
+    HISTORY_LIMIT, riskList, toCustomerFile,
+    type RiskLine, type ServerFile,
+} from './customerFileMap.ts';
+export { noteMask, riskList, riskMask, toCustomerFile, HISTORY_LIMIT } from './customerFileMap.ts';
 
 export type FileState = 'loading' | 'ok' | 'missing' | 'error';
 
 export interface FileSnapshot {
     state: FileState;
     file: CustomerFile | null;
+    /**
+     * İşleyen risk kuralları, satır satır.
+     *
+     * Dosya sayfası bunları tek maskede topluyor, kumanda ayrı satırlar
+     * hâlinde gösteriyor — ama İKİSİ DE buradan okuyor. Kumanda kendi
+     * listesini müşterinin ADINA bakarak uyduruyordu; gerçek bir salonda
+     * adaşı olan birine olmayan bir alerji yazardı.
+     */
+    risks: RiskLine[];
     reload: () => Promise<void>;
 }
 
@@ -47,6 +59,7 @@ export function useCustomerFile(
 ): FileSnapshot & { capped: boolean } {
     const [state, setState] = useState<FileState>('loading');
     const [file, setFile] = useState<CustomerFile | null>(null);
+    const [risks, setRisks] = useState<RiskLine[]>([]);
 
     const read = useCallback((visible: boolean) => {
         const today = todayISO();
@@ -57,21 +70,37 @@ export function useCustomerFile(
          * aynı fonksiyonun bir dalda senkron, ötekinde asenkron davranması
          * çağıranı iki ayrı zamanlama bilmeye zorlardı.
          */
-        const load: Promise<CustomerFile | null> = !LIVE_AUTH
-            ? Promise.resolve(demoCustomerFile({ id: customerId, name }, today))
+        type Read = { file: CustomerFile | null; risks: RiskLine[] };
+        const load: Promise<Read> = !LIVE_AUTH
+            ? Promise.resolve((() => {
+                const demo = demoCustomerFile({ id: customerId, name }, today);
+                // Sahte katmanda kural listesi yok; maskeden TEK satır
+                // türetiliyor ki kumanda sahte kipte de bir şey gösterebilsin.
+                return {
+                    file: demo,
+                    risks: demo?.risk ? [{ kind: demo.risk.label, text: demo.risk.text }] : [],
+                };
+            })())
             : customerId
-                ? api.customer(customerId).then((data) => toCustomerFile(data as ServerFile, today))
-                : Promise.resolve(null);
+                ? api.customer(customerId).then((raw) => {
+                    const data = raw as ServerFile;
+                    return {
+                        file: toCustomerFile(data, today),
+                        risks: riskList(data.riskRules ?? [], data.customer?.custom_fields),
+                    };
+                })
+                : Promise.resolve({ file: null, risks: [] });
         return load
             .then((next) => {
-                setFile(next);
-                setState(next ? 'ok' : 'missing');
+                setFile(next.file);
+                setRisks(next.risks);
+                setState(next.file ? 'ok' : 'missing');
             })
             .catch((cause: unknown) => {
                 // 404 KAYIT YOK demek; ötekiler OKUYAMADIK. İkisini aynı
                 // ekrana düşürmek, duran bir kaydı silinmiş gibi gösterirdi.
                 const status = (cause as { status?: number } | null)?.status;
-                if (status === 404) { setFile(null); setState('missing'); return; }
+                if (status === 404) { setFile(null); setRisks([]); setState('missing'); return; }
                 if (visible) setState('error');
             });
     }, [customerId, name]);
@@ -94,5 +123,5 @@ export function useCustomerFile(
         return read(true);
     }, [read]);
 
-    return { state, file, capped: (file?.history.length ?? 0) >= HISTORY_LIMIT, reload };
+    return { state, file, risks, capped: (file?.history.length ?? 0) >= HISTORY_LIMIT, reload };
 }
