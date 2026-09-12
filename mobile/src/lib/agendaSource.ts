@@ -4,6 +4,9 @@ import { LIVE_AUTH } from '../api/session';
 import { api, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
 import { clockText } from './calendar.ts';
+// Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
+// olduğu için testten çağrılamıyor, orası çağrılabiliyor.
+export { isStale, STALE_AFTER_MS } from './freshness.ts';
 
 /**
  * Personel 01 — "Bugün" ekranının veri kaynağı.

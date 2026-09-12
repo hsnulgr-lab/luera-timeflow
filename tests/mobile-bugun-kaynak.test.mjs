@@ -17,7 +17,7 @@ const screen = read('app/personel/index.tsx');
 
 test('ekran artık DOĞRUDAN sahte veriyi çağırmıyor', () => {
     assert.doesNotMatch(screen, /const agenda = useMemo\(\s*\(\) => \(isToday \? demoAgenda/);
-    assert.match(screen, /const \{ state: agendaState, rows: agenda, reload \} = useAgenda\(dateISO, today\)/);
+    assert.match(screen, /const \{ state: agendaState, rows: agenda, at: readAt, reload \} = useAgenda\(dateISO, today\)/);
 });
 
 test('okunamadı ile randevusuz AYRI çiziliyor', () => {
@@ -94,4 +94,51 @@ test('başlık hata hâlinde "randevu yok" DEMİYOR', () => {
     // Gövde "okuyamadık" derken başlık "randevu yok" diyordu: aynı ekranda
     // iki farklı gerçek, ikisinden biri yalan.
     assert.match(screen, /agendaState === 'error'\s*\?\s*'okunamadı'/);
+});
+
+
+// ── Bayat liste ─────────────────────────────────────────────────────────────
+
+test('son başarılı okumanın anı TÜKETİLİYOR, yalnız üretilmiyor', () => {
+    // `at` alanı yazılmıştı ama ekran onu destructure bile etmiyordu: kaynak
+    // "son güncelleme"yi biliyor, kullanıcı bilmiyordu.
+    assert.match(source, /setAt\(Date\.now\(\)\);/);
+    assert.match(source, /export \{ isStale, STALE_AFTER_MS \} from '\.\/freshness\.ts';/);
+    assert.match(screen, /at: readAt/);
+    assert.match(screen, /Son güncelleme \{clockOf\(readAt as number\)\}/);
+});
+
+test('bayatlık eşiği saf ve tek yerde', async () => {
+    const { isStale, STALE_AFTER_MS } = await import('../mobile/src/lib/freshness.ts');
+    assert.equal(STALE_AFTER_MS, 120_000);
+
+    const now = 1_700_000_000_000;
+    assert.equal(isStale(now, now), false);
+    assert.equal(isStale(now - 119_000, now), false);
+    assert.equal(isStale(now - 120_000, now), true);
+    assert.equal(isStale(now - 3_600_000, now), true);
+});
+
+test('hiç okunmamış liste BAYAT değil — o ayrı bir hâl', () => {
+    // "Bilinmiyor"u "eski" diye göstermek iki gerçeği aynı cümleye sıkıştırır;
+    // okunmamışlığın kendi hâlleri var: loading ve error.
+    return import('../mobile/src/lib/freshness.ts').then(({ isStale }) => {
+        assert.equal(isStale(null, Date.now()), false);
+    });
+});
+
+test('taze veride satır ÇİZİLMİYOR, bayatta hem satır hem yenileme var', () => {
+    // Okumanın üstünden bir saniye geçmişken "son güncelleme 09:14" yazmak
+    // bilgi değil gürültü; gürültü uyarıyı öldürür.
+    assert.match(screen, /agendaState === 'ok' && isStale\(readAt, now\) \? \(/);
+    // Satır aynı zamanda tek elle yenileme yolu: `reload` bugüne kadar
+    // YALNIZ hata ekranındaki düğmeye bağlıydı, başarılı bir listeyi
+    // tazelemenin hiçbir yolu yoktu.
+    const band = screen.slice(
+        screen.indexOf("agendaState === 'ok' && isStale(readAt, now)"),
+        screen.indexOf('<NowLineSlot active={lineAfter < 0}'),
+    );
+    assert.match(band, /onPress=\{\(\) => \{ feedback\.selection\(\); reload\(\); \}\}/);
+    assert.match(band, /Yenile/);
+    assert.match(band, /accessibilityRole="button"/);
 });

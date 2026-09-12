@@ -23,7 +23,7 @@ import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import { formatDayMonth, todayISO } from '../../src/lib/calendar';
 import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
-import { useAgenda } from '../../src/lib/agendaSource';
+import { isStale, useAgenda } from '../../src/lib/agendaSource';
 import { LIVE_AUTH } from '../../src/api/session';
 import { feedback } from '../../src/lib/feedback';
 import { font, glow, useTheme } from '../../src/theme';
@@ -71,7 +71,7 @@ export default function Today() {
     // Liste artık SENKRON DEĞİL. Sahte kaynak anında dönüyordu; gerçek sunucu
     // dönmeyebilir de. "Okunamadı" ile "randevu yok" ayrı hâller ve ikincisi
     // personelin gününü kapatmasına yol açardı.
-    const { state: agendaState, rows: agenda, reload } = useAgenda(dateISO, today);
+    const { state: agendaState, rows: agenda, at: readAt, reload } = useAgenda(dateISO, today);
 
     const rows = useMemo(
         () => agenda.map((appointment) => ({ appointment, state: cardState(appointment, now) })),
@@ -194,6 +194,47 @@ export default function Today() {
                     marginBottom: 12,
                     backgroundColor: c.bd,
                 }} />
+
+                {/* SON GÜNCELLEME — yalnız bayatken.
+                    Liste tek sefer okunuyor; yoklama da yok, ön plana dönünce
+                    yenileme de. Sabah açılan ekran öğlene kadar donuk kalıyor
+                    ve bugüne kadar bunun ekranda hiçbir izi yoktu: personel
+                    iki saatlik bir listeye bakıp "boş" diye karar verebilirdi.
+
+                    Taze veride satır ÇİZİLMİYOR. Okumanın üstünden bir saniye
+                    geçmişken "son güncelleme 09:14" yazmak bilgi değil gürültü;
+                    kişi zaten listenin geldiğini gördü. Satır, ancak bilgi
+                    taşıdığı an beliriyor.
+
+                    Aynı satır yenileme yolu da: başarılı bir listeyi elle
+                    tazelemenin BAŞKA yolu yok — `reload` yalnız hata
+                    ekranındaki düğmeye bağlıydı. */}
+                {agendaState === 'ok' && isStale(readAt, now) ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Liste ${clockOf(readAt as number)}'ten beri yenilenmedi. Yenilemek için dokunun.`}
+                        onPress={() => { feedback.selection(); reload(); }}
+                        style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            alignSelf: 'flex-start',
+                            marginLeft: 16,
+                            marginBottom: 12,
+                            opacity: pressed ? 0.6 : 1,
+                        })}
+                    >
+                        <View style={{
+                            width: 5, height: 5, borderRadius: 2.5, backgroundColor: c.am,
+                        }} />
+                        <Text style={{ color: c.tx2, fontSize: 12.5, fontWeight: '500' }}>
+                            Son güncelleme {clockOf(readAt as number)}
+                        </Text>
+                        <Text style={{ color: c.tx, fontSize: 12.5, fontWeight: '700' }}>
+                            Yenile
+                        </Text>
+                    </Pressable>
+                ) : null}
 
                 {/* Çizgi listenin başında da durabilir: gün henüz başlamadıysa
                     ilk kartın üstünde. Yuva her konumda var, yalnız biri açık —
