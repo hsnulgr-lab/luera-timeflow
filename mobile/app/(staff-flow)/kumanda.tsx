@@ -24,6 +24,8 @@ import {
 } from '../../src/components/VisitControls';
 import { clockOf, type DemoAppointment } from '../../src/lib/staffDemo';
 import { useVisit } from '../../src/lib/visitSource';
+import { useCatalog } from '../../src/lib/catalogSource';
+import { useMyStaffId } from '../../src/lib/me';
 import { useCustomerFile } from '../../src/lib/fileSource';
 import { todayISO } from '../../src/lib/calendar';
 import {
@@ -56,7 +58,7 @@ import {
     groupsOf,
     frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
     markDelete, money, setQty, stripOf, totalOf, undoDelete,
-    type AdisyonLine, type CatalogItem, type UsageRow,
+    type AdisyonLine, type CatalogItem,
 } from '../../src/lib/adisyon';
 import {
     FormulaBody, HistoryLine, NoteStep, emptyDraft,
@@ -71,57 +73,6 @@ import { upperTR } from '../../src/lib/text';
  * açılırken bir an sırıtmasına yol açardı.
  */
 const SHEET_FALLBACK_H = 720;
-
-/** Kalem ekleme sayfasındaki sık kullanılanlar — sıklık sırasına göre. */
-/**
- * Salonun kataloğu. `api.catalog()` bağlanana kadar sahte — ama YAKIN
- * KODLARLA, çünkü bu ekranın asıl sınavı `7.3` ile `7.31`i ayırt ettirmek.
- * Altısı kutuda duruyor, kalanı aramada.
- */
-const CATALOG: CatalogItem[] = [
-    { id: 'c1', name: 'Boya · 7.3 kumral', kind: 'material', usedHere: true },
-    { id: 'c2', name: 'Boya · 7.31 küllü kumral', kind: 'material' },
-    { id: 'c3', name: 'Boya · 7.34 bakır kumral', kind: 'material' },
-    { id: 'c4', name: 'Boya · 8.3 açık kumral', kind: 'material' },
-    { id: 'c5', name: 'Boya · 6.3 koyu kumral', kind: 'material' },
-    { id: 'c6', name: 'Oksidan %6', kind: 'material', usedHere: true },
-    { id: 'c7', name: 'Oksidan %9', kind: 'material' },
-    { id: 'c8', name: 'Şampuan 300 ml', kind: 'product', price: 320 },
-    { id: 'c9', name: 'Saç bakım yağı', kind: 'product', price: 640 },
-    { id: 'c10', name: 'Keratin serum', kind: 'product', price: 880 },
-    { id: 'c11', name: 'Kaş alma', kind: 'extra', price: 180 },
-    { id: 'c12', name: 'Fön', kind: 'extra', price: 350 },
-    { id: 'c13', name: 'Saç kesimi', kind: 'extra', price: 450 },
-];
-
-/**
- * Geçmiş adisyonlar — sıklığın girdisi. `api.catalog()` ve geçmiş uçları
- * bağlanınca sunucudan gelecek; uydurulan bir eşik yok, sayılar kayıttan
- * türüyor.
- */
-const USAGE: UsageRow[] = [
-    { name: 'Boya · 7.3 kumral', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-01', count: 14 },
-    { name: 'Oksidan %6', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-01', count: 13 },
-    { name: 'Fön', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-02', count: 9 },
-    { name: 'Şampuan 300 ml', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-02', count: 6 },
-    { name: 'Boya · 7.31 küllü kumral', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 5 },
-    { name: 'Saç bakım yağı', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-03', count: 3 },
-    { name: 'Keratin serum', service: 'Saç boyama', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
-    // Kesim de kendi kutularını taşıyor: hizmet başına ayrı sıralama demek,
-    // her hizmette veri olması demek.
-    { name: 'Fön', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-02', count: 11 },
-    { name: 'Şampuan 300 ml', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-02', count: 7 },
-    { name: 'Saç bakım yağı', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-03', count: 4 },
-    { name: 'Kaş alma', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-03', count: 3 },
-    { name: 'Keratin serum', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
-    { name: 'Saç kesimi', service: 'Kesim', staffId: 'merve', dateISO: '2026-09-04', count: 2 },
-    // Salonun kaydı: personelin kendi verisi yoksa buradan kuruluyor.
-    { name: 'Oksidan %9', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 7 },
-    { name: 'Boya · 8.3 açık kumral', service: 'Röfle', staffId: null, dateISO: '2026-09-01', count: 5 },
-];
-
-/** Oturumdaki personel. Sunucuya bağlanınca `me.id` buraya gelecek. */
-const ME = 'merve';
 
 /** Bekleme sayacının hazır süreleri. */
 const MINUTES = [20, 25, 30, 35, 45, 60];
@@ -227,17 +178,52 @@ export default function Kumanda() {
         adisyon_items: sent ? lines : base.adisyon_items,
     } : null), [base, startedAt, endedAt, sent, lines]);
 
+    /*
+     * Risk satırları MÜŞTERİDEN okunuyor.
+     *
+     * Eskiden müşterinin ADINA bakarak uyduruluyordu: "Ayşe Yılmaz" ise alerji,
+     * "Elif Demir" ise alerji + hassasiyet. Gerçek bir salonda adaşı olan
+     * birine olmayan bir alerji yazardı — ve tersi daha kötü: alerjisi OLAN
+     * ama adı tutmayan müşteri hiç uyarı almazdı.
+     *
+     * Kaynak müşteri sayfasıyla AYNI (`fileSource` · riskList): iki ekran aynı
+     * kuralı iki ayrı yerden türetseydi bir gün biri alerji der öteki demezdi.
+     */
+    const { risks, usedItems } = useCustomerFile(appointment?.customer_id ?? undefined, undefined);
+
+    /**
+     * Salonun kataloğu ve kullanım geçmişi — tek turda.
+     *
+     * `usedHere` işareti KATALOGDAN değil MÜŞTERİDEN geliyor: "bu kalem bu
+     * müşteride daha önce kullanıldı" sorusunun cevabı salonun listesinde
+     * değil, o kişinin geçmişinde. Sunucu bunu `customer` ucunda `itemsUsed`
+     * olarak zaten gönderiyor.
+     */
+    const { items: catalogItems, usage } = useCatalog();
+    const catalog = useMemo(
+        () => catalogItems.map((item) => (usedItems.has(item.name)
+            ? { ...item, usedHere: true }
+            : item)),
+        [catalogItems, usedItems],
+    );
+
     /**
      * Kutudaki altı kalem. Ölçek YERLEŞİME değil buraya biniyor: 40 kalemli
      * salonda da 400 kalemlide de ekran birebir aynı, değişen kutuların içi.
+     *
+     * Sıklık ÖNCE kişinin kendi geçmişinden kuruluyor. Kimlik sabit bir
+     * `'merve'`ydi ve canlıda hiçbir kullanım satırıyla eşleşmediği için
+     * ızgara sessizce salon moduna düşüyordu — kişinin kendi alışkanlığı hiç
+     * görünmüyordu.
      */
+    const myStaffId = useMyStaffId();
     const frequent = useMemo(
-        () => frequentFor(CATALOG, usageAsOf(USAGE, dateISO), {
+        () => frequentFor(catalog, usageAsOf(usage, dateISO), {
             service: (appointment?.service ?? '').split(' + ')[0] || 'Saç boyama',
-            staffId: ME,
+            staffId: myStaffId ?? '',
             limit: FREQUENT_COUNT,
         }),
-        [appointment?.service, dateISO],
+        [appointment?.service, catalog, dateISO, myStaffId, usage],
     );
 
     const phase = appointment ? phaseOf(appointment, now) : 'before';
@@ -356,18 +342,6 @@ export default function Kumanda() {
      * Kancalar erken dönüşün ÜSTÜNDE: `if (!appointment) return null` altına
      * konursa çağrı sırası randevu bulunup bulunmamasına göre değişir.
      */
-    /*
-     * Risk satırları MÜŞTERİDEN okunuyor.
-     *
-     * Eskiden müşterinin ADINA bakarak uyduruluyordu: "Ayşe Yılmaz" ise alerji,
-     * "Elif Demir" ise alerji + hassasiyet. Gerçek bir salonda adaşı olan
-     * birine olmayan bir alerji yazardı — ve tersi daha kötü: alerjisi OLAN
-     * ama adı tutmayan müşteri hiç uyarı almazdı.
-     *
-     * Kaynak müşteri sayfasıyla AYNI (`fileSource` · riskList): iki ekran aynı
-     * kuralı iki ayrı yerden türetseydi bir gün biri alerji der öteki demezdi.
-     */
-    const { risks } = useCustomerFile(appointment?.customer_id ?? undefined, undefined);
     /** Grup başlığının liste içindeki dikey konumu — kopya kararı bundan. */
     const headY = useRef(0);
 
@@ -881,7 +855,7 @@ export default function Kumanda() {
                     {sheet === 'search' ? (
                         <CatalogSearch
                             query={query}
-                            results={searchCatalog(CATALOG, query)}
+                            results={searchCatalog(catalog, query)}
                             frequent={frequent.items}
                             onQuery={setQuery}
                             onPick={(item) => {

@@ -50,6 +50,15 @@ export interface FileSnapshot {
      * adaşı olan birine olmayan bir alerji yazardı.
      */
     risks: RiskLine[];
+    /**
+     * Bu müşteride DAHA ÖNCE kullanılmış kalemlerin adları.
+     *
+     * Kumandadaki `usedHere` işaretinin kaynağı: "bu boya bu kişide
+     * kullanıldı mı" sorusunun cevabı salonun kataloğunda değil, o kişinin
+     * geçmişinde. Sunucu `customer` ucunda `itemsUsed` olarak zaten
+     * gönderiyor; bugüne kadar hiç okunmuyordu.
+     */
+    usedItems: Set<string>;
     reload: () => Promise<void>;
 }
 
@@ -60,6 +69,7 @@ export function useCustomerFile(
     const [state, setState] = useState<FileState>('loading');
     const [file, setFile] = useState<CustomerFile | null>(null);
     const [risks, setRisks] = useState<RiskLine[]>([]);
+    const [usedItems, setUsedItems] = useState<Set<string>>(() => new Set());
 
     const read = useCallback((visible: boolean) => {
         const today = todayISO();
@@ -70,7 +80,7 @@ export function useCustomerFile(
          * aynı fonksiyonun bir dalda senkron, ötekinde asenkron davranması
          * çağıranı iki ayrı zamanlama bilmeye zorlardı.
          */
-        type Read = { file: CustomerFile | null; risks: RiskLine[] };
+        type Read = { file: CustomerFile | null; risks: RiskLine[]; used: Set<string> };
         const load: Promise<Read> = !LIVE_AUTH
             ? Promise.resolve((() => {
                 const demo = demoCustomerFile({ id: customerId, name }, today);
@@ -79,6 +89,8 @@ export function useCustomerFile(
                 return {
                     file: demo,
                     risks: demo?.risk ? [{ kind: demo.risk.label, text: demo.risk.text }] : [],
+                    // Sahte katmanda geçmiş kalem listesi yok.
+                    used: new Set<string>(),
                 };
             })())
             : customerId
@@ -87,20 +99,24 @@ export function useCustomerFile(
                     return {
                         file: toCustomerFile(data, today),
                         risks: riskList(data.riskRules ?? [], data.customer?.custom_fields),
+                        used: new Set((data.history ?? []).flatMap((row) => (
+                            Array.isArray(row.itemsUsed) ? row.itemsUsed.map(String) : []
+                        ))),
                     };
                 })
-                : Promise.resolve({ file: null, risks: [] });
+                : Promise.resolve({ file: null, risks: [], used: new Set<string>() });
         return load
             .then((next) => {
                 setFile(next.file);
                 setRisks(next.risks);
+                setUsedItems(next.used);
                 setState(next.file ? 'ok' : 'missing');
             })
             .catch((cause: unknown) => {
                 // 404 KAYIT YOK demek; ötekiler OKUYAMADIK. İkisini aynı
                 // ekrana düşürmek, duran bir kaydı silinmiş gibi gösterirdi.
                 const status = (cause as { status?: number } | null)?.status;
-                if (status === 404) { setFile(null); setRisks([]); setState('missing'); return; }
+                if (status === 404) { setFile(null); setRisks([]); setUsedItems(new Set()); setState('missing'); return; }
                 if (visible) setState('error');
             });
     }, [customerId, name]);
@@ -123,5 +139,5 @@ export function useCustomerFile(
         return read(true);
     }, [read]);
 
-    return { state, file, risks, capped: (file?.history.length ?? 0) >= HISTORY_LIMIT, reload };
+    return { state, file, risks, usedItems, capped: (file?.history.length ?? 0) >= HISTORY_LIMIT, reload };
 }

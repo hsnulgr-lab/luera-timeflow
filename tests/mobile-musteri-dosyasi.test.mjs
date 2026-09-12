@@ -149,7 +149,10 @@ test('OKUNAMADI ile BULUNAMADI ayrı cümleler', () => {
     assert.match(screen, /Kayıt silinmiş anlamına gelmez/);
     assert.match(screen, /title="Müşteri bulunamadı"/);
     // 404 KAYIT YOK demek; ötekiler OKUYAMADIK.
-    assert.match(source, /if \(status === 404\) \{ setFile\(null\); setRisks\(\[\]\); setState\('missing'\); return; \}/);
+    assert.match(source, /if \(status === 404\) \{[\s\S]{0,120}setState\('missing'\); return; \}/);
+    // 404'te risk ve geçmiş kalem listesi de TEMİZLENİYOR: önceki müşterinin
+    // uyarısı ekranda kalırsa yanlış kişiye ait bir alerji görünür.
+    assert.match(source, /setRisks\(\[\]\); setUsedItems\(new Set\(\)\);/);
 });
 
 test('geçmiş TAVANA dayandıysa sayı "+" ile yazılıyor', () => {

@@ -44,7 +44,7 @@ test('alerji uyarısı ADA göre UYDURULMUYOR', () => {
     // tersi daha kötü: alerjisi OLAN ama adı tutmayan müşteri hiç uyarı almaz.
     assert.ok(!screen.includes("who === 'Ayşe Yılmaz'"), 'ada göre risk kalmamalı');
     assert.ok(!screen.includes("who === 'Elif Demir'"));
-    assert.match(screen, /const \{ risks \} = useCustomerFile\(appointment\?\.customer_id \?\? undefined, undefined\)/);
+    assert.match(screen, /const \{ risks, usedItems \} = useCustomerFile\(appointment\?\.customer_id \?\? undefined, undefined\)/);
 });
 
 test('risk kuralı İKİ ekranda da TEK kaynaktan', () => {
@@ -91,4 +91,89 @@ test('saat biçimi SINIRDA indirgeniyor', () => {
     // `agendaSource.toRow` ile aynı indirgeme.
     assert.match(visit, /start_time: clockText\(row\.start_time\)/);
     assert.match(visit, /end_time: clockText\(row\.end_time\)/);
+});
+
+// ── Katalog ─────────────────────────────────────────────────────────────────
+
+const catalogSrc = code(read('../mobile/src/lib/catalogSource.ts'));
+const api = code(read('../supabase/functions/staff-api/index.ts'));
+
+test('katalog TEK turda geliyor', () => {
+    // Kumanda sık sık bodrum katında açılıyor; kötü sinyalde iki ayrı istek,
+    // ikisinden birinin düşmesi demek.
+    assert.match(catalogSrc, /api\.catalog\(\)/);
+    assert.ok(!screen.includes('const CATALOG:'), 'ekranda sahte katalog kalmamalı');
+    assert.ok(!screen.includes('const USAGE:'), 'ekranda sahte geçmiş kalmamalı');
+    assert.match(screen, /useCatalog\(\)/);
+    // Sunucu üçünü birlikte dönüyor.
+    assert.match(api, /services: services \?\? \[\],/);
+    assert.match(api, /products: products \?\? \[\],/);
+    assert.match(api, /usage: \[\.\.\.tally\.values\(\)\],/);
+});
+
+test('ürün türü YAZMA yolunun beklediğiyle aynı eşleşiyor', async () => {
+    const { lineKindOf, toCatalog } = await import('../mobile/src/lib/catalogMap.ts');
+    // Veritabanı: 'consumable' (sarf) · 'retail' (satılan).
+    assert.equal(lineKindOf('consumable'), 'material');
+    assert.equal(lineKindOf('retail'), 'product');
+    // Türü OKUNAMAYAN ürünü sarf saymak, onu sessizce depodan düşürüp
+    // müşteriye hiç yazmamak olurdu. Varsayılan `retail` (075).
+    assert.equal(lineKindOf(null), 'product');
+    assert.equal(lineKindOf(undefined), 'product');
+
+    const items = toCatalog({
+        services: [{ id: 's1', name: 'Fön', price: 350 }],
+        products: [
+            { id: 'p1', name: 'Oksidan %6', kind: 'consumable', price: 90 },
+            { id: 'p2', name: 'Şampuan', kind: 'retail', price: 320 },
+        ],
+    });
+    assert.deepEqual(items[0], { id: 's1', name: 'Fön', kind: 'extra', price: 350 });
+    // Malzemenin FİYATI YOK: depodan düşüyor, müşteriye yazılmıyor.
+    assert.deepEqual(items[1], { id: 'p1', name: 'Oksidan %6', kind: 'material' });
+    assert.deepEqual(items[2], { id: 'p2', name: 'Şampuan', kind: 'product', price: 320 });
+    // Sunucu `extra` gelirse HİZMET kataloğunda, ötekiler için ÜRÜN
+    // kataloğunda arıyor; eşleme ayrışırsa kalem "bulunamadı" diye reddedilir.
+    assert.match(api, /if \(kind === 'extra'\) serviceIds\.push\(catalogId\);/);
+});
+
+test('adsız ya da sıfır sayılı kullanım satırı ELENİYOR', async () => {
+    const { toUsage } = await import('../mobile/src/lib/catalogMap.ts');
+    const rows = toUsage({
+        usage: [
+            { name: 'Boya', service: 'Saç boyama', staffId: 'x', dateISO: '2026-09-01', count: 3 },
+            { name: '', service: 'Saç boyama', staffId: 'x', dateISO: '2026-09-01', count: 9 },
+            { name: 'Fön', service: 'Kesim', staffId: null, dateISO: '2026-09-01', count: 0 },
+        ],
+    });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].name, 'Boya');
+    assert.equal(rows[0].staffId, 'x');
+});
+
+test('"bu müşteride kullanıldı" işareti MÜŞTERİDEN geliyor', () => {
+    // Sorunun cevabı salonun kataloğunda değil, o kişinin geçmişinde.
+    // Sunucu `customer` ucunda `itemsUsed` olarak zaten gönderiyordu;
+    // bugüne kadar hiç okunmuyordu.
+    assert.match(api, /itemsUsed: Array\.isArray\(row\.adisyon_items\)/);
+    assert.match(file, /Array\.isArray\(row\.itemsUsed\) \? row\.itemsUsed\.map\(String\) : \[\]/);
+    assert.match(screen, /usedItems\.has\(item\.name\)\s*\n?\s*\? \{ \.\.\.item, usedHere: true \}/);
+});
+
+test('sıklık ızgarası KİŞİNİN kendi geçmişinden kuruluyor', () => {
+    // Sabit `ME = 'merve'` canlıda hiçbir kullanım satırıyla eşleşmiyordu ve
+    // ızgara sessizce salon moduna düşüyordu.
+    assert.ok(!screen.includes("const ME = 'merve'"), 'sabit kimlik kalmamalı');
+    assert.match(screen, /staffId: myStaffId \?\? ''/);
+    const me = code(read('../mobile/src/lib/me.ts'));
+    assert.match(me, /authApi\.resume\.get\(\)/);
+    assert.match(me, /setId\(result\.data\.profile\.id\)/);
+});
+
+test('katalog okunamazsa BOŞ katalog gösterilmiyor', () => {
+    // Boş bir katalog "salonda hiçbir şey yok" demek olurdu ve personel kalem
+    // ekleyemediğini sanardı — oysa sorun listede değil, bağlantıda.
+    assert.match(catalogSrc, /if \(visible\) setState\('error'\);/);
+    const fail = catalogSrc.slice(catalogSrc.indexOf('.catch(() => {'), catalogSrc.length);
+    assert.ok(!fail.includes('setItems('), 'hata eldeki kataloğu silmemeli');
 });
