@@ -253,7 +253,10 @@ test('sayfa KİMLİKTEN okuyor — sahte gövde yok', () => {
     // Ekran `customerId`'yi hiç kullanmıyordu: hangi müşteriye basılırsa
     // basılsın aynı kişinin alerjisi ve telefonu görünüyordu.
     assert.ok(!/\bconst DEMO = \{/.test(file), 'ekranda sabit müşteri gövdesi kalmamalı');
-    assert.ok(file.includes('demoCustomerFile({ id: params.customerId, name: params.name }'));
+    // Kimlik artık kaynağa geçiyor: ekran `customerId`'yi `useCustomerFile`'a
+    // veriyor, o da canlıda `customer` ucunu çağırıyor.
+    assert.ok(file.includes('useCustomerFile(\n        params.customerId,'));
+    assert.ok(!file.includes('demoCustomerFile'), 'ekran sahte dosyayı doğrudan çağırmamalı');
 });
 
 test('bulunamayan müşteride UYDURMA değil boşluk', () => {

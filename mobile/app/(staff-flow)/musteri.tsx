@@ -21,20 +21,19 @@
  * Para hiçbir yerde yok: bu bir hizmet defteri, muhasebe değil.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
 import { Empty } from '../../src/components/ui';
 import { historyMark } from '../../src/lib/formula';
 import { splitName } from '../../src/lib/customerBook';
-import { todayISO } from '../../src/lib/calendar';
 import {
-    demoCustomerFile,
-    type CustomerFile, type FileFormula, type FileHistoryRow, type FilePackage,
+    type FileFormula, type FileHistoryRow, type FilePackage,
 } from '../../src/lib/customerFile';
+import { useCustomerFile } from '../../src/lib/fileSource';
 import { feedback } from '../../src/lib/feedback';
 import { upperTR } from '../../src/lib/text';
 import { font, numeric, useTheme } from '../../src/theme';
@@ -56,12 +55,10 @@ export default function CustomerFile() {
     // yeniden okunuyor: kaydedilen formül geçmiş satırında ve kartta
     // görünmeli, yoksa "Kaydet" yine hiçbir şey yapmamış gibi olur.
     // `mudur/profile.tsx` ile aynı desen: durum + `useFocusEffect(load)`.
-    const load = useCallback(
-        () => demoCustomerFile({ id: params.customerId, name: params.name }, todayISO()),
-        [params.customerId, params.name],
+    const { state: fileState, file, capped, reload } = useCustomerFile(
+        params.customerId,
+        params.name,
     );
-    const [file, setFile] = useState<CustomerFile | null>(load);
-    useFocusEffect(useCallback(() => { setFile(load()); }, [load]));
 
     const back = (
         <Pressable
@@ -76,6 +73,50 @@ export default function CustomerFile() {
             <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Müşteriler</Text>
         </Pressable>
     );
+
+    /*
+     * OKUNAMADI ile BULUNAMADI ayrı hâller ve ayrı cümleler.
+     *
+     * "Kayıt silinmiş olabilir" cümlesini bir ağ hatasında söylemek, duran bir
+     * kaydı silinmiş gibi göstermek olurdu — personel müşteriyi yeniden
+     * kaydetmeye kalkardı. Sunucu 404 dediğinde kayıt GERÇEKTEN yok; geri
+     * kalan her şey "okuyamadık".
+     */
+    if (fileState === 'error') {
+        return (
+            <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+                {back}
+                <View style={{ padding: pad, gap: 8, paddingTop: 40 }}>
+                    <Text style={{
+                        fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
+                        fontFamily: font.extraLight, color: c.tx,
+                    }}>
+                        Dosyayı <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
+                    </Text>
+                    <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
+                        Kayıt silinmiş anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.
+                    </Text>
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => { feedback.selection(); void reload(); }}
+                        style={({ pressed }) => ({
+                            alignSelf: 'flex-start', marginTop: 6,
+                            paddingHorizontal: 16, height: 40, borderRadius: 20,
+                            alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                        })}
+                    >
+                        <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
+                    </Pressable>
+                </View>
+            </View>
+        );
+    }
+
+    // Yükleniyor SESSİZ — listelerle aynı gerekçe.
+    if (fileState === 'loading') {
+        return <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>{back}</View>;
+    }
 
     // Bulunamadıysa UYDURULMUŞ bir gövde değil, boşluk. Yanlış kişinin
     // alerjisini göstermek hiç göstermemekten kötüdür.
@@ -144,12 +185,15 @@ export default function CustomerFile() {
                     {/* Sayısal satır: kaç randevu, kaçında formül. */}
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                         <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
-                            {file.visits}
+                            {/* Sunucu son 10 ziyareti dönüyor. Tam onsa daha
+                                fazlası olabilir ve "10 randevu" yazmak makul
+                                bir yalan olurdu. */}
+                            {file.visits}{capped ? '+' : ''}
                         </Text>
                         <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>randevu</Text>
                         <Text style={{ fontSize: small ? 20 : 23, fontFamily: font.extraLight, color: c.tx3 }}>·</Text>
                         <Text style={[{ fontSize: small ? 20 : 23, fontWeight: '700', letterSpacing: -0.58, color: c.tx }, numeric]}>
-                            {file.formulas}
+                            {file.formulas}{capped ? '+' : ''}
                         </Text>
                         <Text style={{ fontSize: 14, fontWeight: '500', color: c.tx3 }}>formül</Text>
                     </View>
@@ -233,7 +277,10 @@ export default function CustomerFile() {
                                     from: file.name,
                                     date: row.date,
                                     service: row.service,
-                                    minutes: String(row.minutes),
+                                    // Süre BİLİNMİYORSA hiç geçilmiyor:
+                                    // formül sayfası "· 0 dk" yazardı ve o
+                                    // uydurma bir ölçüm olurdu.
+                                    ...(row.minutes > 0 ? { minutes: String(row.minutes) } : {}),
                                     who: row.who,
                                     initials: row.initials,
                                     mine: row.mine ? '1' : '0',

@@ -48,12 +48,12 @@ test('kumanda da AYNI depoya yazıyor ve ondan okuyor', () => {
 test('müşteri sayfası DÖNÜŞTE yeniden okuyor', () => {
     // Okunmazsa kaydedilen formül geçmiş satırında görünmez ve "Kaydet"
     // yine hiçbir şey yapmamış gibi olur.
-    // `mudur/profile.tsx` ile aynı desen: durum + `useFocusEffect(load)`.
-    // Önce bir "tazeleme sayacı" denendi; lint haklı olarak takıldı —
-    // kullanılmayan bir bağımlılık, useMemo'nun ne zaman yeniden çalıştığını
-    // okunamaz yapıyordu.
-    assert.match(card, /const \[file, setFile\] = useState<CustomerFile \| null>\(load\)/);
-    assert.match(card, /useFocusEffect\(useCallback\(\(\) => \{ setFile\(load\(\)\); \}, \[load\]\)\)/);
+    // Kural aynı, yeri değişti: okuma ekrandan `fileSource.ts`'e indi ve
+    // `useFocusEffect` orada. Sunucuya bağlandıktan sonra kaydedilen formül
+    // zaten sunucuda; dönüşteki okuma onu geri getiriyor.
+    assert.match(card, /useCustomerFile\(/);
+    const source = read('src/lib/fileSource.ts');
+    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
 });
 
 // ── Davranış ────────────────────────────────────────────────────────────────

@@ -268,7 +268,7 @@ function toRow(customerId: string, visit: DemoVisit, todayISO: string): FileHist
 }
 
 /** Kaydedilmiş formülü satırın taşıdığı ayrıntıya çevirir. */
-function detailOf(formula: VisitFormula): FileFormulaDetail {
+export function detailOf(formula: VisitFormula): FileFormulaDetail {
     return {
         materials: formula.materials.map((item) => item.name).filter(Boolean).join(' + ') || '—',
         ratio: formula.ratio ?? '—',
