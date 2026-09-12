@@ -25,7 +25,7 @@ test('bulunamayan randevu BAŞKA randevu açmıyor', () => {
     assert.ok(!screen.includes('demoAgenda('), 'ekran sahte ajandayı çağırmamalı');
     assert.match(screen, /useVisit\(params\.id\)/);
     assert.match(visit, /const row = list\.find\(\(item\) => item\.id === id\);/);
-    assert.match(visit, /return row \? toVisit\(row\) : null;/);
+    assert.match(visit, /row: row \? toVisit\(row\) : null/);
 });
 
 test('randevu yoksa BOŞ EKRAN değil, cümle çiziliyor', () => {
@@ -249,4 +249,54 @@ test('kumanda SABİT dört kalemle açılmıyor', () => {
     for (const call of calls) {
         assert.match(call, /\{ \.\.\.item, catalogId: item\.id \}/, `kimliksiz çağrı: ${call}`);
     }
+});
+
+// ── YAZMA ───────────────────────────────────────────────────────────────────
+
+const writeSrc = code(read('../mobile/src/lib/visitWrite.ts'));
+
+test('işleme başlamak SUNUCUYA yazıyor', () => {
+    // Jest yalnız yerel damga koyuyordu: kumanda içinde "SÜRÜYOR" görünüyor
+    // ama sunucuda `arrived_at` yok, Bugün kartı "GECİKTİ" demeye devam
+    // ediyordu — ve geri çıkıp girince damga kayboluyordu.
+    assert.match(screen, /void startVisit\(appointment\.id\)/);
+    assert.match(writeSrc, /api\.visitStart\(reservationId\)/);
+});
+
+test('damga ÖNCE ekrana, sonra sunucuya — kalıcı ret geri alıyor', () => {
+    // İş gerçekten başladı; sayacın ağ cevabını beklemesi için sebep yok.
+    // Ama sunucu KALICI reddederse damga bir yalana dönüşüyor.
+    assert.match(screen, /setStartedAt\(new Date\(\)\.toISOString\(\)\);[\s\S]{0,200}void startVisit/);
+    assert.match(screen, /if \(!out\.code\) return;\s*setStartedAt\(null\);/);
+    assert.match(screen, /<Band label=\{errorLine\(startCode\)\} note="başlatılmadı" \/>/);
+});
+
+test('gönderim İKİ yazma: önce kalemler, sonra kapanış', () => {
+    // Tek uçta birleştirmek, kalemleri yazıp kapanışta takılan bir isteği
+    // "hiç olmamış" gibi göstermek olurdu.
+    const order = writeSrc.indexOf('api.visitItems') < writeSrc.indexOf('api.visitFinish');
+    assert.ok(order, 'kalemler kapanıştan ÖNCE yazılmalı');
+    // Kalemler kuyruktayken kapanış GÖNDERİLMİYOR: sunucuda BOŞ bir
+    // adisyonun kapanması demek olurdu.
+    assert.match(writeSrc, /if \(queued\) return \{ code: null, queued: true \};/);
+});
+
+test('YARIM adisyon gönderilmiyor', () => {
+    // Kimliksiz satırı atıp gerisini göndermek, kasaya EKSİK hesap düşürmek
+    // demek — müşteri az öder ve kimse fark etmez.
+    assert.match(writeSrc, /if \(skipped > 0\) return \{ code: 'items_unsendable', queued: false \};/);
+});
+
+test('kuyruk kararı YAZMA katmanından, bağlantı bayrağından değil', () => {
+    // Sinyal "var" görünürken de istek düşebiliyor ve o iş yine kuyruğa
+    // giriyor; yalnız `offline`a bakmak onu "gönderildi" sayardı.
+    assert.match(screen, /offline: offline \|\| out\.queued,/);
+    assert.match(screen, /serverCode: out\.code,/);
+    assert.ok(!screen.includes('mockCashResult'), 'sahte cevap üreteci kalmamalı');
+});
+
+test('gönderim tuttuysa ELDEKİ kopya tazeleniyor', () => {
+    // Yoksa iyimser kilit eski damgayla çalışır ve kendi yazdığımıza
+    // takılırdık.
+    assert.match(screen, /if \(result\.state === 'sent'\) void reloadVisit\(\);/);
 });

@@ -44,7 +44,7 @@ import {
     type SendState,
 } from '../../src/lib/sendToCash';
 import { saveVisitFormula, visitFormulaOf } from '../../src/lib/formulaStore';
-import { mockCashResult } from '../../src/lib/mockCash';
+import { sendVisitToCash, startVisit } from '../../src/lib/visitWrite';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
 import { useKeyboardInset } from '../../src/lib/keyboardInset';
@@ -108,7 +108,9 @@ export default function Kumanda() {
      * açılıyordu (`?? list[1]`). Canlıda bu yanlış müşterinin kartını açmak
      * demek: adisyon o kişiye yazılır, formül o kişinin dosyasına düşerdi.
      */
-    const { state: visitState, visit: base, reload: reloadVisit } = useVisit(params.id);
+    const {
+        state: visitState, visit: base, updatedAt, reload: reloadVisit,
+    } = useVisit(params.id);
 
     const [now, setNow] = useState(() => Date.now());
 
@@ -124,6 +126,8 @@ export default function Kumanda() {
     const [send, setSend] = useState<SendState>('idle');
     /** Sunucunun hayırının KODU — ekranın cümlesi bundan türüyor. */
     const [sendCode, setSendCode] = useState<string | null>(null);
+    /** Başlatma sunucuda KALICI olarak reddedildi — damga geri alındı. */
+    const [startCode, setStartCode] = useState<string | null>(null);
     /** Gerçek bağlantı ve gerçek kuyruk uzunluğu — uydurulmuyor. */
     const { offline, queued: queueLength } = useConnectivity();
     const [sentAt, setSentAt] = useState<string | null>(null);
@@ -273,27 +277,38 @@ export default function Kumanda() {
             return () => clearTimeout(id);
         }
         if (send === 'going') {
-            const id = setTimeout(() => {
-                // Sonuç ARTIK koşulsuz değil. Eskiden burada doğrudan `sent`
-                // yazılıyordu: uçak modunda bile ekran "Kasaya gönderildi"
-                // diyordu. Adisyonun gitmediğini söylemek kötü haberdir;
-                // gitmediği hâlde gitti demek YALANdır.
+            if (!base?.id) return undefined;
+            let alive = true;
+            void sendVisitToCash(base.id, lines, updatedAt).then((out) => {
+                if (!alive) return;
+                // Sonuç ARTIK koşulsuz değil ve UYDURMA da değil. Eskiden
+                // burada doğrudan `sent` yazılıyordu: uçak modunda bile ekran
+                // "Kasaya gönderildi" diyordu. Adisyonun gitmediğini söylemek
+                // kötü haberdir; gitmediği hâlde gitti demek YALANdır.
                 const result = sendOutcome({
-                    offline,
-                    serverCode: mockCashResult(base?.id),
+                    // Kuyruk KARARI yazma katmanından geliyor, bağlantı
+                    // bayrağından değil: sinyal "var" görünürken de istek
+                    // düşebiliyor ve o iş yine kuyruğa giriyor.
+                    offline: offline || out.queued,
+                    serverCode: out.code,
                 });
                 setSendCode(result.code);
                 // Damga yalnız GERÇEKTEN gidince atılıyor.
                 if (result.state === 'sent') setSentAt(clockOf(Date.now()));
                 setSend(result.state);
-            }, 900);
-            return () => clearTimeout(id);
+                // Sunucu yazdıysa ELDEKİ kopya bayat: bir sonraki okuma
+                // güncel damgayı getirsin, yoksa iyimser kilit eski damgayla
+                // çalışır ve kendi yazdığımıza takılırdık.
+                if (result.state === 'sent') void reloadVisit();
+            });
+            return () => { alive = false; };
         }
         if (send === 'sent') {
             const id = setTimeout(() => setSend('sealed'), SEAL_MS);
             return () => clearTimeout(id);
         }
         return undefined;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [send, offline, base?.id]);
 
     useEffect(() => {
@@ -324,6 +339,7 @@ export default function Kumanda() {
         setEndedAt(null);
         setSend('idle');
         setSendCode(null);
+        setStartCode(null);
         setSentAt(null);
         setUndone(false);
         setWait(null);
@@ -623,7 +639,9 @@ export default function Kumanda() {
 
                 {/* Kuyruk şeridi ve "geri alındı" notu: ikisi de aynı yuvada,
                     ikisi de amber, ikisi de geçici bir gerçeği söylüyor. */}
-                {send === 'queued' ? (
+                {startCode ? (
+                    <Band label={errorLine(startCode)} note="başlatılmadı" />
+                ) : send === 'queued' ? (
                     <Band label={queuedBandLabel(queueLength)} note="sinyal yok" />
                 ) : undone ? (
                     <Band label="Gönderilmedi · adisyon açık" note={clockOf(now)} />
@@ -760,8 +778,25 @@ export default function Kumanda() {
                     {phase === 'before' ? (
                         <View style={{ alignSelf: 'stretch' }}>
                             <SlideToStart onStart={() => {
+                                /*
+                                 * Damga ÖNCE ekrana, sonra sunucuya.
+                                 *
+                                 * İş gerçekten başladı ve sayacın ağ cevabını
+                                 * beklemesi için bir sebep yok. Geçici hatalar
+                                 * kuyruğa giriyor, damga duruyor. Ama sunucu
+                                 * KALICI olarak reddederse (403,
+                                 * `already_finished`) damga bir yalana
+                                 * dönüşüyor ve geri alınıyor.
+                                 */
                                 setStartedAt(new Date().toISOString());
                                 setNow(Date.now());
+                                setStartCode(null);
+                                void startVisit(appointment.id).then((out) => {
+                                    if (!out.code) return;
+                                    setStartedAt(null);
+                                    setStartCode(out.code);
+                                    feedback.warning();
+                                });
                             }} />
                         </View>
                     ) : null}

@@ -157,8 +157,14 @@ export function queuedBandLabel(queueLength: number): string {
 export function errorLine(code: string | null | undefined): string {
     switch (code) {
         case 'already_open': return 'Kasadaki adisyon açıldı';
+        case 'already_finished': return 'Bu ziyaret kasada zaten kapandı';
         case 'forbidden': return 'Bu adisyonu gönderme yetkiniz yok';
         case 'formula_locked': return 'Bu ziyaret kasada kilitli';
+        // İyimser kilit: arada başka bir cihaz aynı adisyona yazdı. Kullanıcı
+        // SUÇLANMIYOR — listeyi tazeleyip kalemini yeniden eklemesi gerekiyor.
+        case 'items_stale': return 'Adisyon başka bir cihazda değişti';
+        case 'items_unsendable': return 'Bir kalem gönderilemiyor · listeyi tazeleyin';
+        case 'writes_disabled': return 'Telefondan gönderim şu an kapalı';
         default: return 'Bu adisyon kasada zaten açık';
     }
 }

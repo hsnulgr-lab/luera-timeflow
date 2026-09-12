@@ -30,6 +30,15 @@ export type VisitState = 'loading' | 'ok' | 'missing' | 'error';
 export interface VisitSnapshot {
     state: VisitState;
     visit: DemoAppointment | null;
+    /**
+     * Satırın son GÖRÜLEN damgası — iyimser kilidin girdisi.
+     *
+     * Ekranın çizdiği hiçbir şeyde kullanılmıyor; yalnız yazarken geri
+     * gönderiliyor ki sunucu "sen bunu okuduktan sonra başkası yazdı mı"
+     * sorusunu cevaplayabilsin. `DemoAppointment`a eklenmedi: ekranın
+     * modeline ait değil, yazma yolunun taşıdığı bir dip not.
+     */
+    updatedAt: string | null;
     reload: () => Promise<void>;
 }
 
@@ -57,6 +66,7 @@ function toVisit(row: Appointment): DemoAppointment {
 export function useVisit(id: string | undefined): VisitSnapshot {
     const [state, setState] = useState<VisitState>('loading');
     const [visit, setVisit] = useState<DemoAppointment | null>(null);
+    const [updatedAt, setUpdatedAt] = useState<string | null>(null);
     /**
      * Sahte günün çapası — bkz. dosya başı. `useRef(Date.now())` DEĞİL:
      * o çağrı çizim sırasında oluyor ve derleyici saf olmayan çağrıyı
@@ -66,19 +76,21 @@ export function useVisit(id: string | undefined): VisitSnapshot {
 
     const read = useCallback((visible: boolean) => {
         const today = todayISO();
-        const load: Promise<DemoAppointment | null> = LIVE_AUTH
+        const load: Promise<{ row: DemoAppointment | null; stamp: string | null }> = LIVE_AUTH
             ? api.agenda(today).then((data) => {
                 const list = (data as { appointments?: Appointment[] }).appointments ?? [];
                 const row = list.find((item) => item.id === id);
-                return row ? toVisit(row) : null;
+                return { row: row ? toVisit(row) : null, stamp: row?.updated_at ?? null };
             })
-            : Promise.resolve(
-                demoAgenda(anchor, today).find((item) => item.id === id) ?? null,
-            );
+            : Promise.resolve({
+                row: demoAgenda(anchor, today).find((item) => item.id === id) ?? null,
+                stamp: null,
+            });
         return load
             .then((next) => {
-                setVisit(next);
-                setState(next ? 'ok' : 'missing');
+                setVisit(next.row);
+                setUpdatedAt(next.stamp);
+                setState(next.row ? 'ok' : 'missing');
             })
             .catch(() => {
                 // ELDEKİ kart DURUYOR: okunamayan bir randevu, olmayan bir
@@ -103,5 +115,5 @@ export function useVisit(id: string | undefined): VisitSnapshot {
         return read(true);
     }, [read]);
 
-    return { state, visit, reload };
+    return { state, visit, updatedAt, reload };
 }

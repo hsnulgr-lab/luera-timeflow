@@ -100,6 +100,20 @@ export interface BookRow {
     phoneTail: string;
 }
 
+/**
+ * Telefonun GÖNDERDİĞİ kalem — okuduğundan DAR.
+ *
+ * Sunucu adı ve fiyatı kendi kataloğundan çözüyor; istemciden yalnız katalog
+ * kimliği ve miktar alıyor. Tipi `AdisyonItem`la aynı tutmak, gönderilmeyen
+ * (ve gönderilse bile yok sayılan) alanları zorunlu kılardı.
+ */
+export interface AdisyonItemRequest {
+    kind: 'product' | 'material' | 'extra';
+    productId?: string;
+    serviceId?: string;
+    qty: number;
+}
+
 export interface AdisyonItem {
     id: string;
     name: string;
@@ -276,8 +290,19 @@ export const api = {
     performance: () => call('performance'),
     // Yazma uçları kuyruğa düşebilir — aşağıya bakın.
     visitStart: (reservationId: string) => write('visit.start', { reservationId }),
-    visitItems: (reservationId: string, items: AdisyonItem[]) =>
-        write('visit.items', { reservationId, items }),
+    /**
+     * Adisyonun kalemleri.
+     *
+     * `expected` son GÖRÜLEN `updated_at`. Sunucu yazmayı ona bağlıyor
+     * (`.eq('updated_at', expected)`); arada başka bir cihaz yazmışsa
+     * `409 items_stale` dönüyor ve GÜNCEL listeyi veriyor. Bu alan
+     * gönderilmezse kilit hiç kurulmuyor ve son yazan kazanıyor — masaüstüyle
+     * telefon aynı adisyonda çalışırken biri ötekinin kalemini yok ederdi.
+     */
+    // Alan adı SUNUCUNUN okuduğu ad: `expectedUpdatedAt`. `null` göndermek
+    // göndermemekle aynı: sunucu dizge olmayanı kilitsiz sayıyor.
+    visitItems: (reservationId: string, items: AdisyonItemRequest[], expected?: string | null) =>
+        write('visit.items', { reservationId, items, expectedUpdatedAt: expected ?? null }),
     visitFinish: (reservationId: string) => write('visit.finish', { reservationId }),
     /**
      * Ziyaretin formülü. Malzeme yarısı SUNUCUDA adisyondan türüyor — burada

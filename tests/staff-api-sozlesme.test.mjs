@@ -55,9 +55,18 @@ function clientSends() {
         // ilk eşleşmede tüketildiği için `b` hiç görünmüyor ve karşılaştırma
         // sessizce boşa düşüyordu.
         const inner = [...m[2].matchAll(/\{([^{}]*)\}/g)].map((g) => g[1]).join(',');
+        // KÖR NOKTA kapatıldı: eskiden yalnız KISAYOL alanlar (`{ items }`)
+        // sayılıyordu. `{ expectedUpdatedAt: expected ?? null }` gibi açık
+        // yazılmış her alan görünmezdi — yani istemcinin gönderdiği bir alanın
+        // sunucuda okunmadığını bu dosya HİÇ yakalayamazdı.
         const keys = new Set(inner.split(',')
             .map((piece) => piece.trim())
-            .filter((piece) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(piece)));
+            .map((piece) => (
+                /^[a-zA-Z_][a-zA-Z0-9_]*$/.exec(piece)?.[0]
+                ?? /^([a-zA-Z_][a-zA-Z0-9_]*)\s*:/.exec(piece)?.[1]
+                ?? null
+            ))
+            .filter((key) => key !== null));
         // `...patch` yayılıyorsa alanları imzadaki tipten geliyor.
         if (/\.\.\.patch/.test(m[2])) {
             const sig = client.slice(client.lastIndexOf('patch: {', m.index), m.index);
@@ -75,7 +84,10 @@ test('ayıklama GERÇEKTEN çalışıyor', () => {
     // Desen boşa düşerse bu dosya hiçbir şeyi karşılaştırmaz.
     assert.ok(reads.size >= 10, `sunucudan yalnız ${reads.size} eylem okundu`);
     assert.ok(sends.size >= 7, `istemciden yalnız ${sends.size} eylem okundu`);
-    assert.deepEqual([...(sends.get('visit.items') ?? [])].sort(), ['items', 'reservationId']);
+    // `expectedUpdatedAt` İYİMSER KİLİDİN girdisi: gönderilmezse kilit hiç
+    // kurulmuyor ve son yazan kazanıyor.
+    assert.deepEqual([...(sends.get('visit.items') ?? [])].sort(),
+        ['expectedUpdatedAt', 'items', 'reservationId']);
     assert.ok(reads.get('visit.formula')?.has('tags'), 'sunucu tags okumalı');
 });
 
@@ -168,10 +180,17 @@ test('KAPANDI · yenilenemeyen oturum PIN ekranına düşüyor (Faz 2)', () => {
     assert.doesNotMatch(client, /clearDevice\(\) *;? *\n *\} *catch/);
 });
 
-test('BOŞLUK · iyimser kilit sunucuda hazır, istemci damga göndermiyor (Faz 4)', () => {
+test('KAPANDI · iyimser kilit iki uçta da bağlı (Faz 4)', () => {
+    // Sunucu damgayı 092'den beri okuyordu ama istemci HİÇ göndermiyordu:
+    // kilit kurulu görünüp hiç çalışmıyordu ve son yazan kazanıyordu.
     assert.ok(reads.get('visit.items')?.has('expectedUpdatedAt'), 'sunucu damgayı okumalı');
-    assert.ok(!sends.get('visit.items')?.has('expectedUpdatedAt'),
-        'istemci damgayı göndermeye başladı — Faz 4 maddesi kapandı, testi güncelle');
+    assert.ok(sends.get('visit.items')?.has('expectedUpdatedAt'), 'istemci damgayı göndermeli');
+    // Damga OKUMADAN geliyor: ekranın çizdiği bir şey değil, yazarken geri
+    // gönderilen bir dip not.
+    const visit = readFileSync(new URL('../mobile/src/lib/visitSource.ts', import.meta.url), 'utf8');
+    assert.match(visit, /stamp: row\?\.updated_at \?\? null/);
+    const write = readFileSync(new URL('../mobile/src/lib/visitWrite.ts', import.meta.url), 'utf8');
+    assert.match(write, /api\.visitItems\(reservationId, items, expectedUpdatedAt\)/);
 });
 
 test('KAPANDI · ApiError sunucunun gövdesini taşıyor (Faz 2)', () => {

@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { sendOutcome, queuedBandLabel, errorLine } from '../mobile/src/lib/sendToCash.ts';
-import { mockCashResult } from '../mobile/src/lib/mockCash.ts';
 
 /**
  * Gönderim makinesi HER ZAMAN başarılı değil.
@@ -49,13 +48,17 @@ test('kuyruk şeridi SAYI UYDURMUYOR', () => {
     assert.equal(queuedBandLabel(3), 'Sırada 3 yazma');
 });
 
-test('sahte sunucu cevabı KARARLI ve tek randevuya bağlı', () => {
-    // Rastgele dağıtılsaydı normal akışta hata gibi okunurdu.
-    assert.equal(mockCashResult('d5'), 'already_open');
-    assert.equal(mockCashResult('d5'), 'already_open');
-    for (const id of ['d1', 'd2', 'd3', 'd4', null, undefined]) {
-        assert.equal(mockCashResult(id), null, `${id} reddedilmemeli`);
-    }
+test('sunucunun hayırı personelin diline çevriliyor', () => {
+    // Sahte cevap üreteci (`mockCash`) KALKTI: sonuç artık gerçek yazmadan
+    // geliyor. Çeviri tablosu kaldı ve genişledi.
+    assert.equal(errorLine('already_open'), 'Kasadaki adisyon açıldı');
+    assert.equal(errorLine('already_finished'), 'Bu ziyaret kasada zaten kapandı');
+    assert.equal(errorLine('forbidden'), 'Bu adisyonu gönderme yetkiniz yok');
+    // İyimser kilit: kullanıcı SUÇLANMIYOR, ne yapacağı söyleniyor.
+    assert.equal(errorLine('items_stale'), 'Adisyon başka bir cihazda değişti');
+    assert.equal(errorLine('items_unsendable'), 'Bir kalem gönderilemiyor · listeyi tazeleyin');
+    // Vana kapalıyken gelen cevap da kendi cümlesini alıyor.
+    assert.equal(errorLine('writes_disabled'), 'Telefondan gönderim şu an kapalı');
 });
 
 // ── Ekran ───────────────────────────────────────────────────────────────────
@@ -63,7 +66,11 @@ test('sahte sunucu cevabı KARARLI ve tek randevuya bağlı', () => {
 test('ekran ARTIK koşulsuz gönderildi yazmıyor', () => {
     assert.doesNotMatch(kumanda, /setSentAt\(clockOf\(Date\.now\(\)\)\);\s*setSend\('sent'\);/,
         'koşulsuz sent — düzeltilen davranış');
-    assert.match(kumanda, /const result = sendOutcome\(\{\s*offline,\s*serverCode: mockCashResult\(base\?\.id\),\s*\}\);/);
+    assert.match(kumanda, /sendVisitToCash\(base\.id, lines, updatedAt\)/);
+    // Kuyruk KARARI yazma katmanından geliyor, bağlantı bayrağından değil:
+    // sinyal "var" görünürken de istek düşebiliyor.
+    assert.match(kumanda, /offline: offline \|\| out\.queued,/);
+    assert.match(kumanda, /serverCode: out\.code,/);
     assert.match(kumanda, /setSend\(result\.state\)/);
 });
 
