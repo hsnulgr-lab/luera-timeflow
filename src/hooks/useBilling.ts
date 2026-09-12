@@ -27,7 +27,11 @@ export function useBilling() {
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const refresh = useCallback(async (): Promise<BillingSubscription | null> => {
-        const { data, error } = await supabase.functions.invoke('billing-status');
+        // Fırlatan çağrı da `{ error }` dönen çağrı gibi ele alınıyor: çağıran
+        // taraf ikisini ayırt etmek zorunda kalmasın.
+        const { data, error } = await supabase.functions
+            .invoke('billing-status')
+            .catch((cause: unknown) => ({ data: null, error: cause }));
         if (error) {
             console.error('billing-status:', error);
             return null;
@@ -40,8 +44,17 @@ export function useBilling() {
     useEffect(() => {
         (async () => {
             setLoading(true);
-            await refresh();
-            setLoading(false);
+            // `finally` ŞART. `refresh` normalde hatayı `{error}` olarak
+            // döndürüyor ama her zaman değil: ağ kopması, CORS ve fonksiyonun
+            // hiç dağıtılmamış olması `invoke`u FIRLATIYOR. Fırlatınca
+            // `setLoading(false)` hiç çalışmıyordu ve ekran "Abonelik
+            // bilgileri yükleniyor…" yazısında SONSUZA KADAR asılı kalıyordu —
+            // ödeme sayfasına giden tek yol da o ekranın altındaydı.
+            try {
+                await refresh();
+            } finally {
+                setLoading(false);
+            }
         })();
         return () => {
             if (pollRef.current) clearInterval(pollRef.current);

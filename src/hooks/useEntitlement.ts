@@ -14,6 +14,24 @@ import { computeAccess, type Access, type EntitlementRow } from '@shared/entitle
 // RLS'te (has_timeflow_access) ve edge fonksiyonlarında; buradaki iş
 // kullanıcıyı çalışmayan bir uygulamanın içinde dolaştırmamak.
 
+/**
+ * Arayüz kapısı AÇIK mı?
+ *
+ * Sunucu tarafındaki kapı `ENTITLEMENT_ENFORCE` bayrağına bakıyor ve kapalıyken
+ * satıra HİÇ bakmadan herkesi geçiriyor (`_shared/entitlement.ts` · checkAccess).
+ * Tarayıcı kapısı o bayrağı hiç tanımıyordu: sunucu "gölge kipteyim, kimseyi
+ * durdurmuyorum" derken tarayıcı kullanıcıyı `/abonelik`e atıyordu. Gölge kip
+ * gölge değildi — uygulamanın tamamı kapalıydı.
+ *
+ * Bayrak `app_secrets`te ve orayı yalnız service_role okuyabiliyor (doğrusu da
+ * bu). O yüzden tarayıcı tarafında derleme zamanı bir eş var.
+ *
+ * VARSAYILAN KAPALI. Değişkeni koymayı unutan bir dağıtım, bütün müşterileri
+ * kilitlemek yerine kapıyı açık bırakır. Yanlış tarafta hata yapmanın ucuz
+ * olanı bu: gerçek kapı zaten RLS'te ve edge fonksiyonlarında.
+ */
+const ENFORCE = String(import.meta.env.VITE_ENTITLEMENT_ENFORCE ?? '').trim() === 'true';
+
 export interface Entitlement extends Access {
     loading: boolean;
     /** Kapı kapalı — /abonelik'e yönlendirilmeli. */
@@ -74,8 +92,8 @@ export function useEntitlement(): Entitlement {
         plan: loaded?.row?.plan ?? null,
         cycle: loaded?.row?.cycle ?? null,
         loading,
-        // Yalnız satır GERÇEKTEN okunduysa kilitlenir.
-        locked: !loading && loaded !== null && !access.ok,
+        // Yalnız satır GERÇEKTEN okunduysa VE kapı açıksa kilitlenir.
+        locked: ENFORCE && !loading && loaded !== null && !access.ok,
         refresh,
     };
 }

@@ -332,3 +332,28 @@ test('aboneliği kullanıcı kendi yazamaz', () => {
     assert.ok(!/FOR (INSERT|UPDATE|ALL) TO authenticated/.test(sql),
         'org_entitlement kullanıcıya yazdırılmamalı');
 });
+
+// ── Tarayıcı kapısı ─────────────────────────────────────────────────────────
+
+test('tarayıcı kapısı sunucudaki ENFORCE bayrağını tanıyor', () => {
+    // Sunucu tarafı gölge kipteyken (`ENTITLEMENT_ENFORCE` != 'true') satıra
+    // HİÇ bakmadan herkesi geçiriyor. Tarayıcı kapısı o bayrağı tanımıyordu:
+    // sunucu "kimseyi durdurmuyorum" derken tarayıcı kullanıcıyı /abonelik'e
+    // atıyordu ve uygulamanın tamamı kapalı kalıyordu.
+    const hook = readFileSync(new URL('../src/hooks/useEntitlement.ts', import.meta.url), 'utf8');
+    assert.match(hook, /VITE_ENTITLEMENT_ENFORCE/);
+    assert.match(hook, /locked: ENFORCE && !loading && loaded !== null && !access\.ok/);
+    // VARSAYILAN KAPALI: değişkeni koymayı unutan bir dağıtım bütün
+    // müşterileri kilitlemek yerine kapıyı açık bırakır.
+    assert.match(hook, /\?\?\s*''\)\.trim\(\) === 'true'/);
+});
+
+test('faturalandırma sekmesi FIRLAYAN bir istekte asılı kalmıyor', () => {
+    // `invoke` ağ kopmasında, CORS'ta ve fonksiyon hiç dağıtılmamışsa
+    // FIRLATIYOR. `setLoading(false)` hiç çalışmıyordu ve ekran "Abonelik
+    // bilgileri yükleniyor…" yazısında sonsuza kadar asılı kalıyordu —
+    // ödeme sayfasına giden tek yol da o ekranın altındaydı.
+    const hook = readFileSync(new URL('../src/hooks/useBilling.ts', import.meta.url), 'utf8');
+    assert.match(hook, /try \{\s*await refresh\(\);\s*\} finally \{\s*setLoading\(false\);\s*\}/);
+    assert.match(hook, /\.catch\(\(cause: unknown\) => \(\{ data: null, error: cause \}\)\)/);
+});
