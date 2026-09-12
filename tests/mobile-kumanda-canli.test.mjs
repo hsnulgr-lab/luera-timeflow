@@ -177,3 +177,76 @@ test('katalog okunamazsa BOŞ katalog gösterilmiyor', () => {
     const fail = catalogSrc.slice(catalogSrc.indexOf('.catch(() => {'), catalogSrc.length);
     assert.ok(!fail.includes('setItems('), 'hata eldeki kataloğu silmemeli');
 });
+
+// ── Adisyon satırı katalog kimliğini taşıyor ────────────────────────────────
+
+test('satır ADI değil KİMLİĞİ taşıyor', async () => {
+    const { addLine, linesFromItems, sendableOf } = await import('../mobile/src/lib/adisyon.ts');
+    // Sunucu adı ve fiyatı KENDİ kataloğundan çözüyor; istemcinin
+    // gönderdiğine güvenmek, elle atılan bir isteğin kasadaki toplamı
+    // değiştirebilmesi demek.
+    const lines = addLine([], { name: 'Fön', kind: 'extra', price: 350, catalogId: 'u1' }, 'n1');
+    assert.equal(lines[0].catalogId, 'u1');
+
+    // Aynı adı taşıyan İKİ AYRI katalog kalemi tek satırda birleşmemeli:
+    // bir salonun iki tedarikçiden aynı boyası ayrı kalemler.
+    const two = addLine(lines, { name: 'Fön', kind: 'extra', price: 350, catalogId: 'u2' }, 'n2');
+    assert.equal(two.length, 2);
+    // Aynı kimlik ise MİKTAR artıyor, ikinci satır açılmıyor.
+    const merged = addLine(lines, { name: 'Fön', kind: 'extra', price: 350, catalogId: 'u1' }, 'n3');
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].qty, 2);
+    void linesFromItems; void sendableOf;
+});
+
+test('sunucudan gelen adisyon satırlara çevriliyor', async () => {
+    const { linesFromItems } = await import('../mobile/src/lib/adisyon.ts');
+    const lines = linesFromItems([
+        { id: 'a', name: 'Fön', kind: 'extra', price: 350, serviceId: 's1', qty: 2 },
+        // Fiyat SUNUCUDAN geliyor ama malzemede taşınmamalı; alanı boş
+        // bırakırsak kural hiç sınanmaz.
+        { id: 'b', name: 'Oksidan', kind: 'material', price: 90, productId: 'p1', qty: 3 },
+        { id: 'c', name: 'Şampuan', kind: 'product', price: 320, productId: 'p2' },
+        { id: 'd', name: '', kind: 'product', productId: 'p3', qty: 1 },
+        { id: 'e', name: 'Bilinmeyen', kind: 'baska', qty: 1 },
+    ]);
+    assert.equal(lines.length, 3);
+    assert.equal(lines[0].catalogId, 's1');
+    assert.equal(lines[0].qty, 2);
+    // Malzemenin fiyatı taşınmıyor: depodan düşüyor, müşteriye yazılmıyor.
+    assert.equal(lines[1].price, undefined);
+    assert.equal(lines[1].catalogId, 'p1');
+    // Miktarı olmayan satır BİR sayılıyor, sıfır değil.
+    assert.equal(lines[2].qty, 1);
+    assert.deepEqual(linesFromItems(null), []);
+});
+
+test('gönderilemeyen satır SESSİZCE ATILMIYOR', async () => {
+    const { sendableOf } = await import('../mobile/src/lib/adisyon.ts');
+    const out = sendableOf([
+        { id: '1', catalogId: 's1', name: 'Fön', kind: 'extra', qty: 1 },
+        { id: '2', catalogId: 'p1', name: 'Oksidan', kind: 'material', qty: 2 },
+        // Kimliksiz eski satır: sunucu `invalid_catalog_item` ile TÜM isteği
+        // reddederdi. Çağıran taraf kaç satırın gidemediğini ÖĞRENİYOR.
+        { id: '3', name: 'Eski kalem', kind: 'product', qty: 1 },
+        // Silinmek üzere işaretli satır da gitmiyor: pencere kapanmadan
+        // gönderilen bir silme, geri almayı anlamsız kılardı.
+        { id: '4', catalogId: 'p2', name: 'Silinen', kind: 'product', qty: 1, pendingDelete: true },
+    ]);
+    assert.equal(out.skipped, 1);
+    assert.equal(out.items.length, 2);
+    assert.deepEqual(out.items[0], { kind: 'extra', serviceId: 's1', qty: 1 });
+    assert.deepEqual(out.items[1], { kind: 'material', productId: 'p1', qty: 2 });
+});
+
+test('kumanda SABİT dört kalemle açılmıyor', () => {
+    assert.ok(!screen.includes('DEFAULT_LINES'), 'sabit adisyon kalmamalı');
+    assert.match(screen, /setLines\(linesFromItems\(base\?\.adisyon_items\)\)/);
+    // HER çağrı yeri kimlik taşımalı: biri unutulursa o kutudan eklenen
+    // kalem sunucuya gidemez ve sessizce düşerdi.
+    const calls = screen.match(/addLine\(current,[^)]*/g) ?? [];
+    assert.ok(calls.length >= 3, 'kalem ekleme yolları sayılmalı');
+    for (const call of calls) {
+        assert.match(call, /\{ \.\.\.item, catalogId: item\.id \}/, `kimliksiz çağrı: ${call}`);
+    }
+});

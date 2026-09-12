@@ -16,6 +16,19 @@ export type LineKind = 'extra' | 'product' | 'material';
 
 export interface AdisyonLine {
     id: string;
+    /**
+     * Kalemin KATALOGTAKİ kimliği — sunucuya gidecek olan tek şey.
+     *
+     * Sunucu adı ve fiyatı kendi kataloğundan çözüyor; istemcinin
+     * gönderdiğine güvenmek, elle atılan bir isteğin kasadaki toplamı
+     * değiştirebilmesi demek (`staff-api` · visit.items). O yüzden satır
+     * ADI DEĞİL kimliği taşımak zorunda.
+     *
+     * İsteğe bağlı, çünkü sunucudan gelen eski adisyon satırlarında kimlik
+     * olmayabiliyor. Kimliksiz satır gönderilemez ve çağıran taraf bunu
+     * bilmek zorunda — sessizce atılmıyor.
+     */
+    catalogId?: string;
     name: string;
     kind: LineKind;
     /** Malzemenin fiyatı YOK: depodan düşüyor, müşteriye yazılmıyor. */
@@ -26,6 +39,65 @@ export interface AdisyonLine {
      * alınca liste zıplamasın ve kalan satırlar hiç yer değiştirmesin.
      */
     pendingDelete?: boolean;
+}
+
+/**
+ * Sunucudan gelen adisyonu ekranın satırlarına çevirir.
+ *
+ * Kumanda bugüne kadar SABİT dört kalemle açılıyordu (`DEFAULT_LINES`): hangi
+ * randevu açılırsa açılsın aynı kaş alma, aynı saç bakım yağı. Canlıda o,
+ * müşterinin adisyonuna girmediği kalemleri göstermek demek.
+ *
+ * Kimlik `productId`/`serviceId`ten alınıyor — sunucunun yazdığı şekil bu.
+ * Kimliksiz eski satırlar da okunuyor ama GÖNDERİLEMİYOR; ayrımı `sendableOf`
+ * yapıyor.
+ */
+export function linesFromItems(items: unknown): AdisyonLine[] {
+    if (!Array.isArray(items)) return [];
+    return items.flatMap((raw, index) => {
+        const item = raw as Record<string, unknown>;
+        const kind = item.kind;
+        if (kind !== 'extra' && kind !== 'product' && kind !== 'material') return [];
+        const name = String(item.name ?? '').trim();
+        if (!name) return [];
+        const catalogId = kind === 'extra' ? item.serviceId : item.productId;
+        const qty = Number(item.qty);
+        return [{
+            id: String(item.id ?? `s${index}`),
+            ...(typeof catalogId === 'string' && catalogId ? { catalogId } : {}),
+            name,
+            kind,
+            // Malzemenin fiyatı taşınmıyor: depodan düşüyor, müşteriye yazılmıyor.
+            ...(kind !== 'material' && typeof item.price === 'number' ? { price: item.price } : {}),
+            qty: Number.isFinite(qty) && qty > 0 ? Math.min(QTY_MAX, Math.round(qty)) : 1,
+        }];
+    });
+}
+
+/**
+ * Sunucuya gidecek kalemler — ve GİDEMEYENLER.
+ *
+ * Sunucu kalemi yalnız katalog kimliğinden çözüyor; kimliği olmayan bir satır
+ * `invalid_catalog_item` ile TÜM isteği reddediyor. O yüzden ayrım burada
+ * yapılıyor ve çağıran taraf kaç satırın gidemediğini ÖĞRENİYOR — sessizce
+ * atmak, personelin yazdığı kalemin kaybolması demek.
+ *
+ * Silinmek üzere işaretli satır da gitmiyor: pencere kapanmadan gönderilen
+ * bir silme, geri almayı anlamsız kılardı.
+ */
+export function sendableOf(lines: readonly AdisyonLine[]): {
+    items: { kind: LineKind; productId?: string; serviceId?: string; qty: number }[];
+    skipped: number;
+} {
+    const live = lines.filter((line) => !line.pendingDelete);
+    const items = live.filter((line) => line.catalogId).map((line) => ({
+        kind: line.kind,
+        ...(line.kind === 'extra'
+            ? { serviceId: line.catalogId as string }
+            : { productId: line.catalogId as string }),
+        qty: line.qty,
+    }));
+    return { items, skipped: live.length - items.length };
 }
 
 /** Sıra sabit ve her yerde aynı; tür bir kategori, bir hâl değil. */
@@ -68,8 +140,12 @@ export const QTY_MIN = 1;
 export const QTY_MAX = 20;
 
 /** İki kalem AYNI mı? Ad ve tür eşleşiyorsa aynı satırdır. */
-function same(line: AdisyonLine, item: { name: string; kind: LineKind }): boolean {
-    return line.kind === item.kind && line.name === item.name;
+function same(line: AdisyonLine, item: { name: string; kind: LineKind; catalogId?: string }): boolean {
+    if (line.kind !== item.kind) return false;
+    // Kimlik VARSA o karar veriyor: aynı adı taşıyan iki ayrı katalog kalemi
+    // (bir salonun iki tedarikçiden aynı boyası) tek satırda birleşmemeli.
+    if (line.catalogId && item.catalogId) return line.catalogId === item.catalogId;
+    return line.name === item.name;
 }
 
 /**
@@ -84,7 +160,7 @@ function same(line: AdisyonLine, item: { name: string; kind: LineKind }): boolea
  */
 export function addLine(
     lines: readonly AdisyonLine[],
-    item: { name: string; kind: LineKind; price?: number },
+    item: { name: string; kind: LineKind; price?: number; catalogId?: string },
     id: string,
 ): AdisyonLine[] {
     const at = lines.findIndex((line) => same(line, item) && !line.pendingDelete);
@@ -93,13 +169,20 @@ export function addLine(
         next[at] = { ...next[at], qty: Math.min(QTY_MAX, next[at].qty + 1) };
         return next;
     }
-    return [...lines, { id, name: item.name, kind: item.kind, price: item.price, qty: 1 }];
+    return [...lines, {
+        id,
+        ...(item.catalogId ? { catalogId: item.catalogId } : {}),
+        name: item.name,
+        kind: item.kind,
+        price: item.price,
+        qty: 1,
+    }];
 }
 
 /** Eklemenin sonucu: satır yeni mi açıldı, yoksa miktarı mı arttı? */
 export function addResult(
     lines: readonly AdisyonLine[],
-    item: { name: string; kind: LineKind },
+    item: { name: string; kind: LineKind; catalogId?: string },
 ): { merged: boolean; qty: number } {
     const found = lines.find((line) => same(line, item) && !line.pendingDelete);
     return found

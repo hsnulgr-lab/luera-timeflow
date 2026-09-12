@@ -216,8 +216,14 @@ test('bitmiş randevunun sayacı DURUYOR — akşam "156 dk sürdü" demiyor', (
 test('randevu değişince yerel durum sıfırlanıyor', () => {
     // expo-router aynı rotayı yeniden kullanabiliyor; sıfırlama olmadan bir
     // önceki randevunun "bitti" damgası sonrakine sızıyordu.
-    assert.ok(/\}, \[params\.id\]\);/.test(screen));
-    assert.ok(screen.includes('setLines(DEFAULT_LINES)'));
+    // Bağımlılık `params.id` DEĞİL `base?.id`: randevu asenkron geliyor ve
+    // ilk çizimde boş. Parametreye bağlı kalsaydı adisyon sunucudan
+    // geldiğinde hiç yüklenmezdi.
+    assert.ok(/\}, \[base\?\.id\]\);/.test(screen));
+    // Sabit dört kalem GİTTİ: hangi randevu açılırsa açılsın aynı kaş alma,
+    // aynı saç bakım yağı görünüyordu.
+    assert.ok(!screen.includes('DEFAULT_LINES'), 'sabit adisyon kalmamalı');
+    assert.ok(screen.includes('setLines(linesFromItems(base?.adisyon_items))'));
 });
 
 test('kasaya gitmiş iş "adisyon açık" demiyor — ve KUYRUKTAKİ "kasada" demiyor', () => {

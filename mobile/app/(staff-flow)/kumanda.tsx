@@ -57,7 +57,7 @@ import {
     DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, freeItem,
     groupsOf,
     frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
-    markDelete, money, setQty, stripOf, totalOf, undoDelete,
+    linesFromItems, markDelete, money, setQty, stripOf, totalOf, undoDelete,
     type AdisyonLine, type CatalogItem,
 } from '../../src/lib/adisyon';
 import {
@@ -131,14 +131,16 @@ export default function Kumanda() {
     const [undone, setUndone] = useState(false);
     const sent = isSealed(send);
 
-    const DEFAULT_LINES: AdisyonLine[] = [
-        { id: 'k1', name: 'Kaş alma', kind: 'extra', price: 180, qty: 1 },
-        { id: 'k2', name: 'Saç bakım yağı', kind: 'product', price: 640, qty: 2 },
-        { id: 'k3', name: 'Boya · 7.3 kumral', kind: 'material', qty: 2 },
-        { id: 'k4', name: 'Oksidan %6', kind: 'material', qty: 1 },
-    ];
-    const [lines, setLines] = useState<AdisyonLine[]>(DEFAULT_LINES);
-    const [lastAdded, setLastAdded] = useState('Boya · 7.3 kumral');
+    /**
+     * Adisyon SUNUCUDAN açılıyor.
+     *
+     * Buraya sabit dört kalem yazılıydı: hangi randevu açılırsa açılsın aynı
+     * kaş alma, aynı saç bakım yağı. Canlıda o, müşterinin adisyonuna hiç
+     * girmediği kalemleri göstermek — ve üstüne "kasaya gönder" demek.
+     */
+    const [lines, setLines] = useState<AdisyonLine[]>([]);
+    /** Son eklenen kalemin adı — şeritte vurgulanıyor. Açılışta HİÇBİRİ. */
+    const [lastAdded, setLastAdded] = useState('');
 
     /** Bekleme sayacı SUNUCUYA YAZILMIYOR — cihazda yaşıyor. */
     const [wait, setWait] = useState<{ endsAt: number; total: number; source: string } | null>(null);
@@ -325,15 +327,22 @@ export default function Kumanda() {
         setSentAt(null);
         setUndone(false);
         setWait(null);
-        setLines(DEFAULT_LINES);
-        setLastAdded('Boya · 7.3 kumral');
+        setLines(linesFromItems(base?.adisyon_items));
+        setLastAdded('');
         setRevealed(false);
         setSheet(null);
         setOpenRow(null);
         setPending(null);
         setQuery('');
+        // Bağımlılık `params.id` DEĞİL `base?.id`: randevu artık asenkron
+        // geliyor ve ilk çizimde `base` boş. Parametreye bağlı kalsaydı
+        // adisyon sunucudan geldiğinde hiç yüklenmezdi.
+        //
+        // Sonraki okumalarda kimlik değişmiyor, yani tazeleme yerel
+        // düzenlemeleri EZMİYOR: personel kalem eklerken arka planda dönen
+        // bir okuma yazdığını silseydi, ekran kendi kendine geri alırdı.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [params.id]);
+    }, [base?.id]);
 
     /**
      * Risk kuralları — işletmenin `settings.risk_rules` listesinden eşleşenler.
@@ -822,7 +831,7 @@ export default function Kumanda() {
                                 // İkinci dokunuş ×2 yapıyor, ikinci satır
                                 // AÇMIYOR: aynı kalemin iki ayrı satırı altı ay
                                 // sonra okuyan kişiye hata gibi görünür.
-                                setLines((current) => addLine(current, item, `n${Date.now()}`));
+                                setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
                                 setLastAdded(item.name);
                             }}
                             frequent={frequent}
@@ -860,14 +869,14 @@ export default function Kumanda() {
                             onQuery={setQuery}
                             onPick={(item) => {
                                 feedback.light();
-                                setLines((current) => addLine(current, item, `n${Date.now()}`));
+                                setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
                                 setLastAdded(item.name);
                                 setQuery('');
                                 setSheet('catalog');
                             }}
                             onFree={(name, kind) => {
                                 const item = freeItem(name, kind);
-                                setLines((current) => addLine(current, item, `n${Date.now()}`));
+                                setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
                                 setLastAdded(item.name);
                                 setQuery('');
                                 setSheet('catalog');
