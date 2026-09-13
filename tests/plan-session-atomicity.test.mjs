@@ -56,14 +56,37 @@ test('tüketim hak defterine yazılır', () => {
 
 test('her yüzün kendi rolü var, çekirdeğin hiç yok', () => {
     // Çekirdek yetki KONTROL ETMİYOR; o yüzden hiçbir role açılmamalı.
-    assert.match(migration, /revoke all on function public\.consume_plan_session_core\(uuid, uuid, uuid\) from public/);
     assert.doesNotMatch(migration, /grant execute on function public\.consume_plan_session_core/);
 
     assert.match(migration, /grant execute on function public\.consume_plan_session\(uuid, uuid\) to authenticated/);
+
     // Personel yüzü YALNIZ service_role: org'u çağıran bildiriyor ve o anahtar
     // yalnız edge function'da.
     assert.match(migration, /grant execute on function public\.consume_plan_session_for_staff\(uuid, uuid, uuid\) to service_role/);
     assert.doesNotMatch(migration, /consume_plan_session_for_staff\(uuid, uuid, uuid\) to authenticated/);
+});
+
+test('iptal ADLI ROLLERİ de kapsıyor — `from public` yetmiyor', () => {
+    /*
+     * İlk sürüm yalnız `from public` yazıyordu ve delik buydu: Supabase'in
+     * varsayılan ayrıcalıkları `public` şemasındaki YENİ fonksiyonlara
+     * `anon, authenticated, service_role` için AÇIK grant veriyor ve o
+     * grantlar PUBLIC iptalinden sağ çıkıyor.
+     *
+     * Sonuç: yetki kontrolü HİÇ YAPMAYAN çekirdek, tarayıcıda açıkta duran
+     * anon anahtarıyla çağrılabiliyordu — ve `security definer` olduğu için
+     * sahibin yetkisiyle.
+     *
+     * Bu test o sürümü geri sızarsa kırılır.
+     */
+    const revokes = migration.match(/revoke all on function[\s\S]*?;/g) ?? [];
+    assert.equal(revokes.length, 3, 'üç fonksiyonun da iptali olmalı');
+    for (const line of revokes) {
+        for (const role of ['public', 'anon', 'authenticated', 'service_role']) {
+            assert.match(line, new RegExp(`\\b${role}\\b`),
+                `iptal ${role} rolünü kapsamıyor:\n${line}`);
+        }
+    }
 });
 
 test('gövde KOPYALANMADI — tek çekirdek', () => {

@@ -119,7 +119,31 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_plan_session_core(uuid, uuid, uuid) from public;
+-- ── YETKİ: `from public` TEK BAŞINA YETMİYOR ────────────────────────────────
+--
+-- `revoke ... from public` yalnız PUBLIC sözde-rolünü kaldırıyor. Supabase'in
+-- varsayılan ayrıcalıkları `public` şemasındaki YENİ fonksiyonlara
+-- `anon, authenticated, service_role` için AÇIK grant veriyor ve o grantlar
+-- PUBLIC iptalinden sağ çıkıyor.
+--
+-- İlk sürümde yalnız `from public` yazılmıştı ve sonuç şuydu: yetki kontrolü
+-- HİÇ YAPMAYAN çekirdek, anon anahtarıyla çağrılabiliyordu. Anon anahtarı
+-- tarayıcıda açıkta duruyor — yani plan ve randevu kimliğini bilen herkes
+-- istediği org'un paket hakkını düşürebilirdi. `security definer` olduğu için
+-- de sahibin yetkisiyle.
+--
+-- 078 aynı deseni kullanıyor ama orada gövde `auth_user_org_ids()` kontrol
+-- ediyor; anon çağırsa bile `forbidden` alıyor. Çekirdekte o kontrol YOK —
+-- kapı yalnız GRANT.
+--
+-- Doğrulama:
+--   select proname, proacl from pg_proc p join pg_namespace n
+--     on n.oid = p.pronamespace
+--    where n.nspname = 'public' and proname like 'consume_plan_session%';
+--   → çekirdeğin `proacl`i yalnız sahibin satırını taşımalı.
+
+revoke all on function public.consume_plan_session_core(uuid, uuid, uuid)
+    from public, anon, authenticated, service_role;
 
 -- ── Masaüstü yüzü ───────────────────────────────────────────────────────────
 --
@@ -154,7 +178,8 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_plan_session(uuid, uuid) from public;
+revoke all on function public.consume_plan_session(uuid, uuid)
+    from public, anon, authenticated, service_role;
 grant execute on function public.consume_plan_session(uuid, uuid) to authenticated;
 
 -- ── Personel (staff-api) yüzü ───────────────────────────────────────────────
@@ -182,7 +207,8 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_plan_session_for_staff(uuid, uuid, uuid) from public;
+revoke all on function public.consume_plan_session_for_staff(uuid, uuid, uuid)
+    from public, anon, authenticated, service_role;
 grant execute on function public.consume_plan_session_for_staff(uuid, uuid, uuid) to service_role;
 
 notify pgrst, 'reload schema';
