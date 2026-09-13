@@ -105,8 +105,13 @@ test('geçici hata işi SİLMİYOR, kalıcı hata bildiriliyor', () => {
 });
 
 test('atılan iş SESSİZCE kaybolmuyor', () => {
-    // Kullanıcı neyin gitmediğini öğrenebilmeli.
-    assert.match(client, /dropped: \{ key: string; action: string; error: string \}\[\]/);
+    // Şeklin VAR OLMASI yetmiyordu ve bu test tam olarak onu ölçüyordu:
+    // `dropped` yazılmıştı, tek çağıran (`backgroundSync`) onu hiç okumuyordu
+    // ve kayıp pratikte sessizdi. Ölçü artık kaybın KULLANICIYA ULAŞMASI —
+    // ayrıntısı `mobile-gonderilemeyenler.test.mjs`te.
+    assert.match(client, /dropped: \{ key: string; action: string; error: string; reservationId: string \| null \}\[\]/);
+    // Liste DİSKE yazılıyor: arka plan turu sırasında ekranda kimse olmayabilir.
+    assert.match(client, /AsyncStorage\.setItem\(K_FAILED/);
 });
 
 test('bekleme dolmadıysa sıra BEKLİYOR', () => {

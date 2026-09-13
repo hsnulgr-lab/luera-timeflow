@@ -5,6 +5,7 @@ import type { VisitFormula } from '../lib/formula';
 import {
     backoffMs, fateOf, shouldRetry, QUEUE_LIMIT,
 } from '../lib/retry';
+import { mergeFailures, type WriteFailure } from '../lib/writeFailure';
 
 // staff-api istemcisi.
 //
@@ -24,6 +25,8 @@ const ENDPOINT = `${BASE}/functions/v1/staff-api`;
 const K_DEVICE = 'tf.device.token';
 const K_STAFF = 'tf.staff.token';
 const K_QUEUE = 'tf.queue';
+/** Kalıcı olarak reddedilip ATILAN işler — kullanıcıya söylenene kadar durur. */
+const K_FAILED = 'tf.queue.failed';
 
 export interface StaffMe { id: string; name: string; color: string | null; role: string }
 
@@ -434,8 +437,17 @@ async function write(action: string, body: Record<string, unknown>) {
 export interface FlushResult {
     sent: number;
     left: number;
-    /** Kalıcı olarak başarısız olup ATILAN işler. Sessizce kaybolmuyorlar. */
-    dropped: { key: string; action: string; error: string }[];
+    /**
+     * Kalıcı olarak başarısız olup ATILAN işler. Sessizce kaybolmuyorlar:
+     * aynı liste diske de yazılıyor (`readFailures`), çünkü bu sonucu okuyan
+     * tek yer arka plan turu ve o sırada ekranda kimse olmayabilir.
+     */
+    dropped: { key: string; action: string; error: string; reservationId: string | null }[];
+}
+
+/** Kuyruk işinin hangi ziyarete ait olduğu — yazma gövdelerinin ortak alanı. */
+function reservationOf(body: Record<string, unknown>): string | null {
+    return typeof body.reservationId === 'string' ? body.reservationId : null;
 }
 
 /**
@@ -451,6 +463,22 @@ export async function flushQueue(): Promise<FlushResult> {
         const dropped: FlushResult['dropped'] = [];
         const now = Date.now();
         let sent = 0;
+
+        /*
+         * OTURUM YOKSA KUYRUĞA HİÇ DOKUNULMUYOR.
+         *
+         * `call()` token olmadan `no_session` (401) fırlatıyor ve `fateOf`
+         * 401'i KALICI sayıyor. Yani token ölmüşken bir tur, kuyruğu
+         * boşaltmıyor SİLİYORDU — hem de topluca. Token da kolayca ölüyor:
+         * `api.refresh` 401 alınca onu kendisi temizliyor ve `syncNow`
+         * hemen ardından buraya giriyor.
+         *
+         * İşler duruyor. Personel PIN'iyle geri girince kuyruk olduğu gibi
+         * orada ve bir sonraki turda gidiyor.
+         */
+        if (queue.length > 0 && !(await tokens.staff())) {
+            return { sent: 0, left: queue.length, dropped: [] };
+        }
 
         while (queue.length > 0) {
             const job = queue[0];
@@ -469,7 +497,7 @@ export async function flushQueue(): Promise<FlushResult> {
 
                 if (fateOf({ status }) === 'permanent') {
                     queue.shift();
-                    dropped.push({ key: job.key, action: job.action, error: code });
+                    dropped.push({ key: job.key, action: job.action, error: code, reservationId: reservationOf(job.body) });
                     continue;
                 }
 
@@ -477,7 +505,7 @@ export async function flushQueue(): Promise<FlushResult> {
                 job.lastError = code;
                 if (!shouldRetry(job.attempts)) {
                     queue.shift();
-                    dropped.push({ key: job.key, action: job.action, error: code });
+                    dropped.push({ key: job.key, action: job.action, error: code, reservationId: reservationOf(job.body) });
                     continue;
                 }
                 job.nextAt = now + backoffMs(job.attempts, Math.random());
@@ -487,10 +515,45 @@ export async function flushQueue(): Promise<FlushResult> {
         }
 
         await writeQueue(queue);
+        // Kayıp DİSKE yazılıyor: çağıran okumasa bile duruyor, ve uygulama
+        // kapanıp açılınca hâlâ orada.
+        if (dropped.length > 0) {
+            const failures: WriteFailure[] = dropped.map((job) => ({
+                key: job.key,
+                action: job.action,
+                error: job.error,
+                at: Date.now(),
+                reservationId: job.reservationId,
+            }));
+            const merged = mergeFailures(await readFailures(), failures);
+            await AsyncStorage.setItem(K_FAILED, JSON.stringify(merged));
+        }
         return { sent, left: queue.length, dropped };
     });
 }
 
 export async function queueLength(): Promise<number> {
     return (await readQueue()).length;
+}
+
+// ── Gönderilemeyenler ───────────────────────────────────────────────────────
+//
+// Atılan iş SESSİZCE kaybolmuyordu — `flushQueue` onu `dropped` ile
+// bildiriyordu. Ama tek çağıran o listeyi hiç okumuyordu, yani pratikte
+// kayboluyordu. Liste artık DİSKTE: kayıp, personel ekranı açana kadar
+// beklemek zorunda ve uygulama kapanınca unutulmamalı.
+
+export async function readFailures(): Promise<WriteFailure[]> {
+    try {
+        const raw = await AsyncStorage.getItem(K_FAILED);
+        const list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list) ? list as WriteFailure[] : [];
+    } catch {
+        return [];
+    }
+}
+
+/** Kullanıcı gördü ve kabul etti. */
+export async function clearFailures(): Promise<void> {
+    await AsyncStorage.removeItem(K_FAILED);
 }

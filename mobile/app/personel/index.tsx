@@ -23,6 +23,8 @@ import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import { formatDayMonth, todayISO } from '../../src/lib/calendar';
 import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
+import { useFailedWrites } from '../../src/lib/failedWrites';
+import { failureAdvice, failureLine, failureTitle } from '../../src/lib/writeFailure';
 import { isStale, useAgenda } from '../../src/lib/agendaSource';
 import { LIVE_AUTH } from '../../src/api/session';
 import { feedback } from '../../src/lib/feedback';
@@ -195,6 +197,20 @@ export default function Today() {
                     backgroundColor: c.bd,
                 }} />
 
+                {/* GÖNDERİLEMEYENLER — listenin üstünde, çünkü günü okumadan
+                    önce bilinmesi gereken şey bu.
+
+                    Kayıp ARKA PLANDA doğuyor: kuyruk sinyal gelince ya da
+                    uygulama öne dönünce boşalıyor ve o an personel başka bir
+                    ekranda olabilir. Bu yüzden geçici bir bildirim değil,
+                    KABUL EDİLENE KADAR duran bir blok — ve diskte yaşıyor,
+                    uygulama kapansa da duruyor.
+
+                    Bugün ekranı seçildi çünkü personelin yaşadığı yer burası;
+                    kumandaya koymak, kaybı yalnız o ziyarete dönen kişiye
+                    göstermek olurdu. */}
+                <FailedWrites />
+
                 {/* SON GÜNCELLEME — yalnız bayatken.
                     Liste tek sefer okunuyor; yoklama da yok, ön plana dönünce
                     yenileme de. Sabah açılan ekran öğlene kadar donuk kalıyor
@@ -341,3 +357,62 @@ export default function Today() {
         </View>
     );
 }
+
+/**
+ * Gönderilemeyen yazmalar.
+ *
+ * Amber ve kabul düğmeli. Kapatılabilir olması şart: kalıcı bir uyarı bir
+ * süre sonra görülmeyen bir şeye dönüşür. Ama KENDİLİĞİNDEN kapanmıyor —
+ * personel kaybı görmeden gün geçmemeli.
+ */
+function FailedWrites() {
+    const { c } = useTheme();
+    const { items, accept } = useFailedWrites();
+    if (items.length === 0) return null;
+
+    const advice = failureAdvice(items);
+    return (
+        <View
+            accessible
+            accessibilityLabel={[failureTitle(items.length), ...items.map(failureLine), advice]
+                .filter(Boolean).join('. ')}
+            style={{
+                marginHorizontal: 16, marginBottom: 14,
+                padding: 14, gap: 7, borderRadius: 14,
+                backgroundColor: 'rgba(217,164,59,0.12)',
+                borderWidth: 1, borderColor: 'rgba(217,164,59,0.30)',
+            }}
+        >
+            <Text style={{ color: c.tx, fontSize: 14, fontWeight: '800', letterSpacing: -0.28 }}>
+                {failureTitle(items.length)}
+            </Text>
+            {/* Her kayıp AYRI satır: "bazı kayıtlar" demek üç kaybı bir kayıp
+                gibi okutur ve personel kaç adisyonu yeniden gireceğini
+                bilemez. */}
+            {items.map((item) => (
+                <Text key={item.key} style={{ color: c.tx2, fontSize: 12.5, fontWeight: '500', lineHeight: 18 }}>
+                    {failureLine(item)}
+                </Text>
+            ))}
+            {advice ? (
+                <Text style={{ color: c.tx2, fontSize: 12.5, fontWeight: '700', lineHeight: 18 }}>
+                    {advice}
+                </Text>
+            ) : null}
+            <Pressable
+                accessibilityRole="button"
+                onPress={() => { feedback.selection(); accept(); }}
+                style={({ pressed }) => ({
+                    alignSelf: 'flex-start', marginTop: 2,
+                    paddingHorizontal: 14, height: 34, borderRadius: 17,
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                })}
+            >
+                <Text style={{ color: c.tx, fontSize: 13, fontWeight: '700' }}>Anladım</Text>
+            </Pressable>
+        </View>
+    );
+}
+
+
