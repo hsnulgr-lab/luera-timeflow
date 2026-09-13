@@ -15,7 +15,7 @@ import { useTableReservations } from '@/hooks/useTableReservations';
 import { MENU_CATEGORIES, adisyonTotal, adisyonSummary } from '@/utils/masaAdisyon';
 import { todayISO } from '@/utils/date';
 import type { Payment, PaymentMethod, PaymentType, Reservation } from '@/types';
-import { reservationPrice } from '@/utils/reservationServices';
+import { adisyonNames, reservationTotal } from '@/utils/reservationServices';
 
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('tr-TR');
@@ -93,7 +93,13 @@ export const KasaPage = () => {
     // Tahsil bekleyen tamamlanmış randevular
     const unpaid = useMemo(() => reservations.filter(r => r.status === 'completed' && !r.isPaid), [reservations]);
     // Çoklu hizmetli seansta ücret custom_fields'tan gelir (bkz. reservationServices)
-    const priceOf = (r: Reservation) => reservationPrice(r, settings.services);
+    // TAHSİL EDİLECEK TUTAR = hizmet + adisyon.
+    //
+    // Burası `reservationPrice` kullanıyordu ve o yalnız katalog hizmet
+    // ücretini okuyor: işlem sırasında eklenen ürün ve ek hizmetler tahsilata
+    // HİÇ girmiyordu. Telefon üretime yazmaya başlayınca (Faz 4) bu, personelin
+    // adisyona eklediği her kalemin ücretsiz gitmesi demek oldu.
+    const priceOf = (r: Reservation) => reservationTotal(r, settings.services);
 
     // Garson "Adisyonu Kasaya Gönder" dedi (status→completed, isPaid=false — 049)
     // — masa akışındaki eşdeğeri, hizmet bills'i ile aynı desen.
@@ -189,7 +195,11 @@ export const KasaPage = () => {
             setSheetOpen(true);
             return;
         }
-        const res = await collectAllocated(addPayment, { amount: amt, type: 'service', method: 'cash', description: r.service, customerId: r.customerId || undefined, reservationId: r.id }, { allocate: isDental });
+        // Açıklama kalemleri de taşıyor: belgede yalnız "Saç boyama" yazarken
+        // tutarın hizmet ücretinden yüksek olması, kasayı okuyan kişiye
+        // açıklanamayan bir fark bırakırdı.
+        const extras = adisyonNames(r.adisyonItems);
+        const res = await collectAllocated(addPayment, { amount: amt, type: 'service', method: 'cash', description: extras ? `${r.service} · ${extras}` : r.service, customerId: r.customerId || undefined, reservationId: r.id }, { allocate: isDental });
         if (res) { await updateReservation(r.id, { isPaid: true }); toast.success(`${r.customerName} — ${fmt(amt)} ₺ tahsil edildi`); }
     };
 
@@ -302,7 +312,7 @@ export const KasaPage = () => {
                             {unpaid.map(r => (
                                 <div className="txn" key={r.id} style={focusedReservationId === r.id ? { border: '2px solid var(--orange)', boxShadow: '0 0 0 4px rgba(255,90,31,.10)' } : undefined}>
                                     <div className="txn-ico"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2.5 7.5h15" stroke="currentColor" strokeWidth="1.5" /></svg></div>
-                                    <div className="txn-body"><div className="txn-name">{r.customerName}</div><div className="txn-meta">{r.service} · {r.date}</div></div>
+                                    <div className="txn-body"><div className="txn-name">{r.customerName}</div><div className="txn-meta">{r.service}{adisyonNames(r.adisyonItems) ? ` · ${adisyonNames(r.adisyonItems)}` : ''} · {r.date}</div></div>
                                     <div className={`txn-amt${priceOf(r) <= 0 ? ' zero' : ''}`}>
                                         {priceOf(r) > 0 ? `${fmt(priceOf(r))} ₺` : 'Fiyat yok'}
                                     </div>

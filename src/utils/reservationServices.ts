@@ -1,4 +1,4 @@
-import type { Reservation, Service } from '@/types';
+import type { AdisyonItem, Reservation, Service } from '@/types';
 
 // Bir randevunun hizmet kalemleri — tek kaynak.
 //
@@ -54,4 +54,54 @@ export function reservationServiceLines(r: Reservation, services: Service[] = []
 /** Randevunun katalog ücreti (indirim/kapora hariç). */
 export function reservationPrice(r: Reservation, services: Service[] = []): number {
     return reservationServiceLines(r, services).reduce((sum, l) => sum + l.price, 0);
+}
+
+// ── Adisyon ─────────────────────────────────────────────────────────────────
+//
+// Randevunun tahsil edilecek tutarı İKİ parçadan oluşuyor:
+//
+//   1. hizmetin katalog ücreti          (`reservationPrice`)
+//   2. işlem sırasında eklenen kalemler (`adisyonItems`)
+//
+// İkincisi Kasa'da HİÇ okunmuyordu. Telefon hiçbir şey yazmadığı sürece bu
+// uykudaydı; mobil kumanda üretime yazmaya başlayınca (Faz 4) uyandı:
+// personel boya + ürün + ek hizmet ekliyor, kasiyer "tahsil et" diyor ve
+// YALNIZ hizmet ücreti tahsil ediliyordu. Eklenen her kalem ücretsiz gidiyor
+// ve kimse fark etmiyordu.
+//
+// Formül burada tek yerde duruyor; `BeautyCashRegister` aynı toplamı kendi
+// içinde kuruyor ve masa akışı `adisyonTotal` kullanıyor — üçünün bir gün
+// ayrışmaması için tahsilat yolu buraya bağlandı.
+
+/**
+ * Adisyon kalemlerinin tutarı.
+ *
+ * MALZEME kendiliğinden düşüyor: sunucu onu `price: 0` yazıyor
+ * (`staff-api` · visit.items), çünkü sarf depodan düşer, müşteriye yazılmaz.
+ * Ayrı bir tür süzgeci koymak, fiyatın nerede kararlaştırıldığını ikinci bir
+ * yere kopyalamak olurdu.
+ *
+ * `qty ?? 1`: miktar yalnız sarf satırlarında yazılıyor ama varsayılanı
+ * atlamak, ileride adetli bir satır geldiğinde tutarı SESSİZCE eksiltirdi.
+ */
+export function adisyonExtras(items: AdisyonItem[] | undefined): number {
+    return (items || []).reduce((sum, it) => sum + (it.price || 0) * (it.qty ?? 1), 0);
+}
+
+/** Randevunun tahsil edilecek TOPLAMI — hizmet + adisyon. */
+export function reservationTotal(r: Reservation, services: Service[] = []): number {
+    return reservationPrice(r, services) + adisyonExtras(r.adisyonItems);
+}
+
+/**
+ * Kasa açıklamasının kalem dökümü: "Saç boyama · Saç bakım yağı, Fön".
+ *
+ * Fiyatsız satırlar (sarf) yazılmıyor: müşteriye kesilen belgede ücreti
+ * olmayan bir kalem, ödenmemiş bir şey ödenmiş gibi görünür.
+ */
+export function adisyonNames(items: AdisyonItem[] | undefined): string {
+    return (items || [])
+        .filter((it) => (it.price || 0) > 0)
+        .map((it) => ((it.qty ?? 1) > 1 ? `${it.qty}× ${it.name}` : it.name))
+        .join(', ');
 }
