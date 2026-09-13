@@ -1166,6 +1166,55 @@ Deno.serve(async (req: Request) => {
             // Stok düşümü BURADA, kalem eklenirken değil. Hata hizmetin gerçek
             // tamamlanmasını geri almaz; fakat yanıt uyarıyı açıkça taşır.
             const stock = await reconcileUsageStock(finalized as Record<string, unknown>);
+
+            /*
+             * PAKET HAKKI — telefondan bitirilende de düşüyor.
+             *
+             * Masaüstü bunu 078'den beri yapıyordu; mobil `visit.finish` HİÇ
+             * yapmıyordu. Yani personel işlemi telefondan bitirdiğinde randevu
+             * kapanıyor, stok düşüyor, adisyon kasaya gidiyor — ama müşterinin
+             * 10 seanslık paketi hiç azalmıyordu.
+             *
+             * Plan bağı randevunun `custom_fields.paket_plan_id` alanında
+             * (masaüstündeki `BeautySessionModal` kuruyor). `RES_COLS`a
+             * EKLENMEDİ: telefonun çizdiği hiçbir şeyde yok, yalnız burada
+             * okunuyor — ve o kolonu sözleşmeye sokmak, istemci tipini de
+             * taşımaya zorlardı.
+             *
+             * Stokla aynı kural: başarısızlık hizmetin tamamlanmasını GERİ
+             * ALMAZ, ama yanıt uyarıyı açıkça taşır. Sessizce yutmak, hakkı
+             * düşmemiş bir paketi düşmüş sanmak demek.
+             */
+            let planWarning: string | undefined;
+            {
+                const { data: cf, error: cfErr } = await admin.from('reservations')
+                    .select('custom_fields')
+                    .eq('id', finalized.id)
+                    .eq('organization_id', me.organization_id)
+                    .maybeSingle();
+                if (cfErr) {
+                    console.error('visit.finish plan lookup', cfErr);
+                    planWarning = 'Paket hakkı kontrol edilemedi';
+                } else {
+                    const fields = (cf?.custom_fields ?? {}) as Record<string, unknown>;
+                    const planId = typeof fields.paket_plan_id === 'string' ? fields.paket_plan_id : null;
+                    // Bayrak zaten basılıysa RPC'ye hiç gitmiyoruz: fonksiyon
+                    // no-op dönerdi ama her bitirişte bir tur daha atmanın
+                    // kazancı yok.
+                    const counted = String(fields.paket_sayildi ?? '') === 'true';
+                    if (planId && !counted) {
+                        const { error: planErr } = await admin.rpc('consume_plan_session_for_staff', {
+                            p_plan_id: planId,
+                            p_reservation_id: finalized.id,
+                            p_org_id: me.organization_id,
+                        });
+                        if (planErr) {
+                            console.error('visit.finish plan session', planErr);
+                            planWarning = 'Paket hakkı düşülemedi';
+                        }
+                    }
+                }
+            }
             const items = Array.isArray(finalized.adisyon_items) ? finalized.adisyon_items : [];
             const total = items.reduce((s: number, i: Record<string, unknown>) =>
                 s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
@@ -1179,7 +1228,12 @@ Deno.serve(async (req: Request) => {
                 itemCount: items.length,
                 endedAt: finalized.service_ended_at || now,
                 stock: { ok: stock.ok, appliedCount: stock.appliedCount },
-                ...(stockWarning ? { stockWarning, warnings: [stockWarning] } : {}),
+                // Uyarılar TEK listede toplanıyor: ikisi birden olabilir ve
+                // istemcinin iki ayrı alan bilmesi için sebep yok.
+                ...(stockWarning ? { stockWarning } : {}),
+                ...(stockWarning || planWarning
+                    ? { warnings: [stockWarning, planWarning].filter(Boolean) }
+                    : {}),
             });
         }
 
