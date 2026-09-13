@@ -56,6 +56,7 @@ type Action =
     | 'catalog'        // hizmet + ürün listesi (tek turda)
     | 'customers'      // müşteri defterinin listesi
     | 'customer'       // müşteri kartı
+    | 'shift'          // kendi vardiyası ve izinleri
     | 'performance';   // kendi cirosu
 
 interface StaffRow {
@@ -1472,6 +1473,79 @@ Deno.serve(async (req: Request) => {
                 days: [...byDay.entries()].map(([date, v]) => ({ date, ...v })),
                 avgMinutes,
                 avgSampleCount: spans.length,
+            });
+        }
+
+        if (action === 'shift') {
+            // Personel 10 — KENDİ vardiyası ve izinleri.
+            //
+            // Yalnız `me.id`: personel kendi saatini görüyor, kadronunkini
+            // değil. Başkasının izin takvimi bu uçtan okunamaz.
+            //
+            // İki ayrı kavram, iki ayrı tablo ve BİRBİRİNE KARIŞTIRILMAZ:
+            //
+            //   staff.working_hours  (008)  haftanın günü · şablon · tekrar eder
+            //   staff_time_off       (012)  TARİH · o güne özel · gün gün
+            //
+            // Bir gün ikisine birden girebiliyor: "normalde perşembeleri
+            // çalışırım ama bu perşembe izinliyim". İzin şablonu EZMİYOR,
+            // ÜSTÜNE biniyor; o yüzden ikisi ayrı alanda dönüyor.
+            const now = new Date(Date.now() + 3 * 3600_000);
+            const today = now.toISOString().slice(0, 10);
+            const iso = (days: number) =>
+                new Date(now.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+            // Pencere SINIRLI ve bu bilinçli: izin listesi sınırsız taranmaz.
+            // Geriye bir hafta (bu haftanın pazartesisi her hâlde içeride),
+            // ileriye dört ay. İstemcinin "dönüş günü" hesabı zaten yalnız
+            // BİLİNEN son izne kadar konuşuyor (`returnDateISO` · horizon):
+            // pencerenin ötesine taşan bir izinde tarih uydurmuyor, susuyor.
+            const from = iso(-7);
+            const to = iso(120);
+
+            const [{ data: mine, error: mineErr }, { data: st, error: stErr }, { data: off, error: offErr }] =
+                await Promise.all([
+                    admin.from('staff').select('working_hours')
+                        .eq('organization_id', me.organization_id).eq('id', me.id).maybeSingle(),
+                    orgSettings('working_hours'),
+                    admin.from('staff_time_off').select('date, reason')
+                        .eq('organization_id', me.organization_id).eq('staff_id', me.id)
+                        .gte('date', from).lte('date', to).order('date', { ascending: true }),
+                ]);
+
+            // ÜÇÜ DE okunabilmek zorunda ve hiçbiri sessizce boş geçilemez.
+            //
+            // `staffHours: null` "ayrı saati yok, salonunkini kullanıyor"
+            // DEMEK — okunamadı demek değil. Hata yutulursa ekran, ayrı
+            // saati olan personele salonun saatlerini yazardı.
+            //
+            // İzin listesi boş dönerse personel izinli gününü çalışma günü
+            // sanır ve işe gelir. Sıfır izin ile okunamayan izin listesi
+            // aynı şey değil.
+            if (mineErr || stErr || offErr) {
+                console.error('shift', mineErr ?? stErr ?? offErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+
+            return json({
+                ok: true,
+                today,
+                // Ham şekil DB'nin şekli: `{ day, start, end, isOff }` ve
+                // `day` PAZARdan sayıyor (0 = Pazar). Mobilin şeması
+                // PAZARTESİden sayıyor. Çevirme İSTEMCİDE ve saf bir
+                // katmanda (`shiftMap.ts`), çünkü bir gün kayması bütün
+                // haftayı yanlış gösterir ve bu kararın gerçekten
+                // ÇALIŞTIRILARAK sınanması gerekiyor — Deno fonksiyonunu
+                // Node testleri çağıramıyor. `riskList` ile aynı gerekçe.
+                staffHours: (mine as Record<string, unknown> | null)?.working_hours ?? null,
+                salonHours: (st as Record<string, unknown> | null)?.working_hours ?? null,
+                timeOff: (off ?? []).map((row: Record<string, unknown>) => ({
+                    date: String(row.date),
+                    reason: row.reason ? String(row.reason) : null,
+                })),
+                // Pencere DÖNÜYOR: istemci listenin nerede bittiğini bilmeli.
+                // Bilmezse, pencerenin son gününde biten bir izni gerçekten
+                // biten bir izin sanar.
+                window: { from, to },
             });
         }
 

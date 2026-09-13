@@ -287,6 +287,13 @@ export const api = {
     customers: () => call('customers'),
     catalog: () => call('catalog'),
     customer: (customerId: string) => call('customer', { customerId }),
+    /**
+     * Kendi vardiyası ve izinleri.
+     *
+     * Kadronun DEĞİL: uç yalnız token'ın sahibini okuyor. Başkasının izin
+     * takvimi personelin bilmesi gereken bir şey değil.
+     */
+    shift: () => call('shift'),
     performance: () => call('performance'),
     // Yazma uçları kuyruğa düşebilir — aşağıya bakın.
     visitStart: (reservationId: string) => write('visit.start', { reservationId }),
