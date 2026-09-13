@@ -36,8 +36,9 @@ import { authApi, type AuthSession } from '../../src/api/session';
 import { nowInMinutes, todayISO } from '../../src/lib/calendar';
 import { legalSummary, themeLabel } from '../../src/lib/managerProfile';
 import { readKvkkUrl } from '../../src/lib/salonSettings';
+import { useShift } from '../../src/lib/shiftSource';
 import {
-    demoSource, mondayOf, NOTIFICATION_FOOT, shiftCard, weekRows, weekSummary,
+    mondayOf, NOTIFICATION_FOOT, shiftCard, weekRows, weekSummary,
 } from '../../src/lib/staffShift';
 import { upperTR } from '../../src/lib/text';
 import { profileMetrics as M, useTheme } from '../../src/theme';
@@ -65,10 +66,23 @@ export default function StaffProfile() {
     useFocusEffect(load);
 
     const today = todayISO();
-    // `staff-api` henüz `working_hours` da `staff_time_off` da döndürmüyor;
-    // tablolar canlı, eksik olan yalnız uç.
-    const source = useMemo(() => demoSource(today), [today]);
-    const rows = useMemo(() => weekRows(source, mondayOf(today), today), [source, today]);
+    /*
+     * Vardiya SUNUCUDAN (`staff-api` · shift).
+     *
+     * Buraya sabit bir hafta yazılıydı: herkese 10:00–19:00 ve herkese
+     * PERŞEMBE–CUMA İZİNLİ. Personel kendi profilini açıp olmayan bir izin
+     * görüyordu.
+     *
+     * Sayfanın GERİ KALANI buna bağlı DEĞİL: ad, hesap, görünüm ve cihaz
+     * satırları oturumdan geliyor ve vardiya okunamasa da doğru. Bu yüzden
+     * ekran bütünüyle bekletilmiyor, yalnız kart ve özet kendi hâlini
+     * söylüyor.
+     */
+    const { state: shiftState, source } = useShift();
+    const rows = useMemo(
+        () => (source ? weekRows(source, mondayOf(today), today) : []),
+        [source, today],
+    );
 
     const [minutes, setMinutes] = useState(() => nowInMinutes());
     useEffect(() => {
@@ -82,7 +96,7 @@ export default function StaffProfile() {
         return (new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).getUTCDay() + 6) % 7;
     }, [today]);
     const card = useMemo(
-        () => shiftCard(source, today, weekday, minutes),
+        () => (source ? shiftCard(source, today, weekday, minutes) : null),
         [source, today, weekday, minutes],
     );
 
@@ -112,15 +126,25 @@ export default function StaffProfile() {
 
                 {/* Kart dokunulabilir ve yalan değil: gittiği yer bir düzenleyici
                     değil, bu haftanın yedi günü. Ok işareti "burayı değiştir"
-                    demiyor, "devamı var" diyor. */}
-                <TodayCard card={card} onPress={openShift} />
+                    demiyor, "devamı var" diyor.
+
+                    Okunamadıysa kart HİÇ çizilmiyor. Sönük ya da boş bir kart
+                    "bugün izinlisin" gibi okunur — saat yerine kelime duran
+                    hâl zaten izinli hâli. Satır sebebi söylüyor ve yol
+                    gösteriyor; dokunulunca açılan sayfa da aynı hatayı
+                    tekrar deniyor. */}
+                {card ? <TodayCard card={card} onPress={openShift} /> : null}
 
                 <Group>
                     <ProfileRow
                         first
                         big
                         title="Vardiyam"
-                        sub={weekSummary(rows)}
+                        sub={source
+                            ? weekSummary(rows)
+                            : shiftState === 'error'
+                                ? 'Okunamadı · dokunup tekrar deneyin'
+                                : 'Okunuyor…'}
                         onPress={openShift}
                     />
                 </Group>

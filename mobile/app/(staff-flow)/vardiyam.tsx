@@ -20,16 +20,18 @@
  */
 
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Foot, Group, ProfileNav } from '../../src/components/ProfileParts';
 import { Num } from '../../src/components/ui';
 import { todayISO } from '../../src/lib/calendar';
+import { feedback } from '../../src/lib/feedback';
 import {
-    demoSource, mondayOf, weekFoot, weekRows, type WeekRow,
+    mondayOf, weekFoot, weekRows, type WeekRow,
 } from '../../src/lib/staffShift';
+import { useShift } from '../../src/lib/shiftSource';
 import { upperTR } from '../../src/lib/text';
 import { font, profileMetrics as M, useTheme } from '../../src/theme';
 
@@ -39,10 +41,22 @@ export default function StaffShift() {
     const insets = useSafeAreaInsets();
 
     const today = todayISO();
-    // `staff-api` henüz `working_hours` da `staff_time_off` da döndürmüyor.
-    const source = useMemo(() => demoSource(today), [today]);
-    const rows = useMemo(() => weekRows(source, mondayOf(today), today), [source, today]);
-    const foot = useMemo(() => weekFoot(source, rows, today), [source, rows, today]);
+    /*
+     * Vardiya SUNUCUDAN (`staff-api` · shift).
+     *
+     * Buraya sabit bir hafta yazılıydı: herkese 10:00–19:00 ve herkese
+     * PERŞEMBE–CUMA İZİNLİ. Personel kendi vardiyasını açıp olmayan bir izin
+     * görüyordu — ve izne göre plan yapılır.
+     */
+    const { state, source, reload } = useShift();
+    const rows = useMemo(
+        () => (source ? weekRows(source, mondayOf(today), today) : []),
+        [source, today],
+    );
+    const foot = useMemo(
+        () => (source ? weekFoot(source, rows, today) : []),
+        [source, rows, today],
+    );
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -58,23 +72,70 @@ export default function StaffShift() {
                     gap: 10,
                 }}
             >
-                <Group>
-                    {rows.map((row, index) => (
-                        <DayRow key={row.dateISO} row={row} first={index === 0} />
-                    ))}
-                </Group>
+                {/* Okunamayan hafta BOŞ HAFTA gibi çizilmiyor: yedi kapalı
+                    satır "bu hafta hiç çalışmıyorsun" der ve o cümle bir arıza
+                    hâlinde yalan olur. Yükleniyorken de iskelet yok — sahte
+                    saatler bir an bile görünmemeli. */}
+                {source ? (
+                    <>
+                        <Group>
+                            {rows.map((row, index) => (
+                                <DayRow key={row.dateISO} row={row} first={index === 0} />
+                            ))}
+                        </Group>
 
-                <Foot>
-                    {foot.map((span, index) => (
-                        <Text
-                            key={index}
-                            style={span.strong ? { color: c.tx, fontFamily: font.extraBold, fontWeight: '800' } : undefined}
-                        >
-                            {span.text}
-                        </Text>
-                    ))}
-                </Foot>
+                        <Foot>
+                            {foot.map((span, index) => (
+                                <Text
+                                    key={index}
+                                    style={span.strong ? { color: c.tx, fontFamily: font.extraBold, fontWeight: '800' } : undefined}
+                                >
+                                    {span.text}
+                                </Text>
+                            ))}
+                        </Foot>
+                    </>
+                ) : state === 'error' ? (
+                    <Unread onRetry={() => { feedback.selection(); void reload(); }} />
+                ) : null}
             </ScrollView>
+        </View>
+    );
+}
+
+/**
+ * Okunamayan hafta. `customers.tsx`teki kardeşiyle AYNI dil: ne olmadığını
+ * söylüyor, suçlamıyor, ve tek bir yol gösteriyor.
+ *
+ * Cümlenin ikinci satırı kritik: boş bir hafta "bu hafta çalışmıyorsun"
+ * demek ve personel ona göre plan yapar.
+ */
+function Unread({ onRetry }: { onRetry: () => void }) {
+    const { c } = useTheme();
+    return (
+        <View style={{ gap: 8, paddingTop: 24 }}>
+            <Text style={{
+                fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
+                fontFamily: font.extraLight, color: c.tx,
+            }}>
+                Vardiyanızı <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
+            </Text>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
+                Çalışma gününüz olmadığı anlamına gelmez. Bağlantınızı kontrol edip
+                tekrar deneyin.
+            </Text>
+            <Pressable
+                accessibilityRole="button"
+                onPress={onRetry}
+                style={({ pressed }) => ({
+                    alignSelf: 'flex-start', marginTop: 6,
+                    paddingHorizontal: 16, height: 40, borderRadius: 20,
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                })}
+            >
+                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
+            </Pressable>
         </View>
     );
 }

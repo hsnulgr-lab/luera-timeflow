@@ -195,10 +195,17 @@ test('Görünüm ve Yasal ortak gruptan açılıyor, müdür klasöründen deği
 });
 
 test('ızgara satırları dokunulamaz: Pressable değil, chevron yok', () => {
-    assert.doesNotMatch(week, /Pressable/);
-    assert.doesNotMatch(week, /Chevron/);
+    // Kural SATIRIN kuralı, dosyanın değil. Dosya geneline bakmak, ekrana
+    // eklenen her düğmede patlıyordu — "Tekrar dene" bir gün satırı değil ve
+    // onu yasaklamak, okunamayan haftayı çıkışsız bırakırdı.
+    const row = week.slice(week.indexOf('function DayRow'));
+    assert.doesNotMatch(row, /Pressable/);
+    assert.doesNotMatch(row, /Chevron/);
     // Ekran okuyucu da düğme diye okumamalı.
-    assert.doesNotMatch(week, /accessibilityRole="button"[\s\S]{0,80}dayHeight/);
+    assert.doesNotMatch(row, /accessibilityRole="button"/);
+    // Izgaranın KENDİSİ de dokunulabilir bir kapsayıcıya sarılmamalı.
+    const grid = week.slice(week.indexOf('<Group>'), week.indexOf('</Group>'));
+    assert.doesNotMatch(grid, /Pressable|onPress/);
 });
 
 test('ızgara müdürün ölçülerini koruyor', () => {

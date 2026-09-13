@@ -182,3 +182,56 @@ test('uç sözleşmede ve istemcide KAYITLI', () => {
     const cut = api.slice(api.indexOf("if (action === 'shift')"));
     assert.match(cut.slice(0, 4000), /window: \{ from, to \}/);
 });
+
+// ── Ekranlar ────────────────────────────────────────────────────────────────
+
+const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const profile = code(readFileSync(
+    new URL('../mobile/app/personel/profile.tsx', import.meta.url), 'utf8'));
+const shiftPage = code(readFileSync(
+    new URL('../mobile/app/(staff-flow)/vardiyam.tsx', import.meta.url), 'utf8'));
+const source = code(readFileSync(
+    new URL('../mobile/src/lib/shiftSource.ts', import.meta.url), 'utf8'));
+
+test('iki ekran da SAHTE haftadan koptu', () => {
+    // `demoSource` herkese 10:00–19:00 ve PERŞEMBE–CUMA İZİNLİ veriyordu.
+    for (const [name, src] of [['profile', profile], ['vardiyam', shiftPage]]) {
+        assert.doesNotMatch(src, /demoSource/, `${name} hâlâ sahte haftaya bakıyor`);
+        assert.match(src, /useShift\(\)/, `${name} canlı kaynağa bağlanmalı`);
+    }
+    // Sahte hafta YALNIZ kaynağın içinde, `LIVE_AUTH` kapısının ardında.
+    assert.match(source, /LIVE_AUTH\s*\n?\s*\?\s*api\.shift\(\)/);
+});
+
+test('okunamayan hafta BOŞ HAFTA gibi çizilmiyor', () => {
+    // Yedi kapalı satır "bu hafta hiç çalışmıyorsun" der ve o cümle bir arıza
+    // hâlinde yalan olur — personel ona göre plan yapar.
+    assert.match(shiftPage, /source \? \(/);
+    assert.match(shiftPage, /<Unread onRetry=/);
+    assert.match(shiftPage, /Çalışma gününüz olmadığı anlamına gelmez/);
+    // Kaynak boş hafta ÜRETMİYOR.
+    assert.match(source, /source: ShiftSource \| null;/);
+});
+
+test('vardiya kartı okunamayınca HİÇ çizilmiyor', () => {
+    // Sönük ya da boş bir kart "bugün izinlisin" gibi okunur: saat yerine
+    // kelime duran hâl zaten izinli hâli.
+    assert.match(profile, /\{card \? <TodayCard card=\{card\} onPress=\{openShift\} \/> : null\}/);
+    // Satır sebebini SÖYLÜYOR — üç hâl ayrı.
+    assert.match(profile, /Okunamadı · dokunup tekrar deneyin/);
+    assert.match(profile, /Okunuyor…/);
+});
+
+test('sayfanın GERİ KALANI vardiyaya bağlı değil', () => {
+    // Ad, hesap, görünüm ve cihaz satırları oturumdan geliyor ve vardiya
+    // okunamasa da doğru. Ekranı bütünüyle bekletmek, doğru bilgiyi de
+    // saklamak olurdu.
+    assert.match(profile, /if \(!session\) return/);
+    assert.doesNotMatch(profile, /if \(!source\) return/);
+});
+
+test('odağa dönüşte YENİDEN okunuyor', () => {
+    // İzin bugün girilmişse personel onu telefonu bir dahaki açışında görmeli.
+    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    assert.match(source, /AppState\.addEventListener/);
+});
