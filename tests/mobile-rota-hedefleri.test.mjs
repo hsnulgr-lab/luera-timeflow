@@ -104,9 +104,9 @@ test('gidilmeyen bir ekran dosyada DURMUYOR', () => {
     // yerden açılmıyordu: `kumanda.tsx` aynı işi devralmıştı. Ama deep-link
     // ile hâlâ açılıyor ve SAHTE veri çiziyordu.
     //
-    // Muafiyet listesi bilinçli: kabuk dosyaları, girişin kendi akışı
-    // (kendi içinde `Redirect` ile geziliyor) ve ürün kararı bekleyen
-    // `kazanc` (sekmeden çıkarıldı ama silinmedi — Faz 7).
+    // Muafiyet listesi bilinçli: kabuk dosyaları ve girişin kendi akışı
+    // (kendi içinde `Redirect` ile geziliyor). `kazanc` BURADAN ÇIKTI —
+    // dosya silindi, yani kural artık onu da kapsıyor.
     // Sekme ekranlarına `router.push` ile gidilmiyor: onları NativeTabs
     // çiziyor. Kabuk düzenlerindeki tetikleyici adları da "gidiliyor" sayılır.
     const tabs = new Set();
@@ -118,9 +118,8 @@ test('gidilmeyen bir ekran dosyada DURMUYOR', () => {
     }
     assert.ok(tabs.size >= 8, `sekme adları okunamadı (${tabs.size})`);
 
-    // Açılış ekranı ve ürün kararı bekleyen `kazanc` (sekmeden çıkarıldı ama
-    // SİLİNMEDİ — Faz 7) dışarıda.
-    const EXEMPT = /^\/$|^\/kazanc$/;
+    // Yalnız açılış ekranı dışarıda: kendisi bir hedef değil, dağıtıcı.
+    const EXEMPT = /^\/$/;
     const reached = new Set([...targets.keys()].map((t) => normalize(t.split('?')[0]) || '/'));
     for (const tab of tabs) reached.add(tab);
     const orphans = [...routes].filter((r) => !reached.has(r) && !EXEMPT.test(r));

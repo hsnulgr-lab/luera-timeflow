@@ -453,8 +453,14 @@ test('personel sekmesi DÖRT: Kazanç kalktı', () => {
     // çoğu salonda dört, ayarı açanda beş sekme oluyordu. Sekme çubuğu
     // değişken olamaz.
     assert.ok(!layout.includes('Kazanç'), 'Kazanç sekmesi geri gelmiş');
-    // Ekran silinmedi, sekme çubuğunun dışına alındı.
-    assert.ok(read('../mobile/app/(staff-flow)/kazanc.tsx').length > 0);
+    // Ekran SİLİNDİ. Sekmeden çıkarıldıktan sonra bir süre dosyada durdu ve
+    // deep-link ile hâlâ açılıyordu — içi baştan sona uydurma (`₺4.010`,
+    // sabit çubuklar). Prim kararı gelince "İşlerim" canlı `performance`
+    // ucuyla yeniden yazılacak; bu dosya taslaktı, geri dönüştürülmeyecekti.
+    assert.throws(
+        () => read('../mobile/app/(staff-flow)/kazanc.tsx'),
+        'kazanc.tsx silinmiş olmalı',
+    );
 });
 
 

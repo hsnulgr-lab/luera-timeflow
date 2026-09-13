@@ -52,8 +52,13 @@ export default function StaffTabs() {
                 <NativeTabs.Trigger.Label>Müşteriler</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
 
-            {/* KAZANÇ SEKMESİ KALKTI (2026-09-05, kullanıcı kararı).
-                Ekran duruyor ama sekme çubuğunda değil: `(staff-flow)/kazanc`.
+            {/* KAZANÇ SEKMESİ KALKTI (2026-09-05, kullanıcı kararı) ve ekran
+                2026-09-14'te SİLİNDİ.
+
+                Sekmeden çıktıktan sonra dosya bir süre durdu; deep-link ile
+                hâlâ açılıyor ve baştan sona uydurma veri çiziyordu (`₺4.010`,
+                sabit çubuklar). Geçmişte duruyor, gerektiğinde `git show`
+                geri getirir.
 
                 İki sebep üst üste bindi. Birincisi, gösterdiği tutar
                 personelin ELİNE GEÇEN para değil, yaptığı işlerin salon
