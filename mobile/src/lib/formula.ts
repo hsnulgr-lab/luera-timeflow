@@ -464,3 +464,82 @@ export function missingFields(formula: VisitFormula | null | undefined): string 
     if (noRatio) return 'Oran';
     return null;
 }
+
+// ── Yazma yolu · saf karar ──────────────────────────────────────────────────
+//
+// Formülün sunucuya gitmesi üç karar taşıyor ve üçü de burada, React'ten
+// uzakta: ne GÖNDERİLİYOR, cevap NE ANLAMA geliyor, hayır nasıl SÖYLENİYOR.
+// `visitWrite.ts` bu kararları uygulayan ince kabuk; oraya koymak Node
+// testlerinin erişemeyeceği bir yere koymak olurdu (api katmanı react-native
+// taşıyor).
+
+/**
+ * İstemcinin GÖNDERDİĞİ formül — okuduğundan DAR.
+ *
+ * Üç alan bilerek YOK:
+ *
+ *   materials  adisyondan türüyor. İstemcinin listesine güvenmek, adisyonla
+ *              formülün ayrışması demek: personel ürünü adisyondan silse bile
+ *              formülde durmaya devam ederdi.
+ *   staffId    imza. Gönderen kendi imzasını atamaz; sunucu token'dan yazıyor.
+ *   writtenAt  damga. Telefonun saati yanlış olabilir ve o yanlış saat kayda
+ *              geçerdi.
+ *
+ * Üçü de sunucunun cevabında DOLU dönüyor — `formulaOutcome` onu geri alıyor.
+ */
+export interface FormulaPatch {
+    ratio: string | null;
+    waitMinutes: number | null;
+    waitSource: 'timer' | 'manual';
+    result: string | null;
+    tags: string[];
+    note: string | null;
+}
+
+export function formulaPatch(formula: VisitFormula): FormulaPatch {
+    return {
+        ratio: formula.ratio,
+        waitMinutes: formula.waitMinutes,
+        waitSource: formula.waitSource === 'timer' ? 'timer' : 'manual',
+        // Sunucu küçük harf bekliyor (`RESULTS` listesi öyle) ve iki yüzey
+        // bunu ayrı ayrı yapıyordu; biri unutulsa `bad_result` dönerdi.
+        result: formula.result ? formula.result.toLocaleLowerCase('tr-TR') : null,
+        tags: formula.tags ?? [],
+        note: formula.note,
+    };
+}
+
+/**
+ * Sunucunun cevabı ne dedi.
+ *
+ * İki yol var ve KARIŞTIRILMAMALI: yazma gerçekten gittiyse cevap ziyaretin
+ * kendisini taşıyor ve EKRANIN ELİNDEKİNİ DEĞİŞTİRİYOR — malzeme, imza ve
+ * damga artık gerçek. Kuyruğa girdiyse ortada sunucu formülü yok; ekranın
+ * elindeki taslak duruyor ama kaydedilmiş SAYILMIYOR.
+ */
+export function formulaOutcome(response: unknown): { queued: boolean; saved: VisitFormula | null } {
+    const body = (response ?? {}) as { queued?: boolean; reservation?: { formula?: VisitFormula | null } };
+    if (body.queued === true) return { queued: true, saved: null };
+    return { queued: false, saved: body.reservation?.formula ?? null };
+}
+
+/**
+ * Sunucunun hayırını personelin diline çeviren tek yer — formül yolu için.
+ *
+ * `sendToCash.errorLine`den AYRI: oradaki varsayılan "Bu adisyon kasada zaten
+ * açık" ve formül yolunda bu cümle uydurma olurdu. Bilinmeyen kod burada
+ * bilinmediğini SÖYLÜYOR; bir sebep icat etmek, personeli olmayan bir sorunu
+ * çözmeye gönderir.
+ */
+export function formulaErrorLine(code: string | null | undefined): string {
+    switch (code) {
+        case 'formula_locked': return 'Bu ziyaret kasaya gitti · formül artık okunur';
+        case 'forbidden': return 'Bu ziyaretin formülünü yazma yetkiniz yok';
+        case 'not_found': return 'Bu ziyaret bulunamadı';
+        case 'bad_ratio': return 'Oran kaydedilemedi · biçimi tanınmadı';
+        case 'bad_result': return 'Sonuç kaydedilemedi · seçenek tanınmadı';
+        case 'writes_disabled': return 'Telefondan kayıt şu an kapalı';
+        case 'no_session': return 'Oturum kapandı · PIN ile girin';
+        default: return 'Formül kaydedilemedi';
+    }
+}

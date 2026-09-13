@@ -22,7 +22,6 @@
 
 import { agoLabel, demoBook, type BookCustomer } from './customerBook.ts';
 import { addDaysISO, formatDayMonth } from './calendar.ts';
-import { visitFormulaOf } from './formulaStore.ts';
 import type { VisitFormula } from './formula.ts';
 
 /** Maskeli satır: risk ya da not. Etiket ve sayı okunur, metin gizli. */
@@ -245,16 +244,16 @@ function visitsFromBook(row: BookCustomer, todayISO: string): DemoVisit[] {
 }
 
 function toRow(customerId: string, visit: DemoVisit, todayISO: string): FileHistoryRow {
-    // Yerel depoya bu ziyaret için formül yazıldıysa O geçerli: personel az
-    // önce kaydettiyse satır formüllü görünmeli. Yoksa "Kaydet" hiçbir şeyi
-    // değiştirmemiş gibi olurdu — düzeltmeye çalıştığımız şeyin ta kendisi.
+    // Burada bir YEREL DEPO katmanı vardı: "Kaydet" hiçbir yere yazmadığı
+    // için, az önce yazılan formülü satırda göstermek üzere. Kayıt artık
+    // sunucuya gidiyor ve dosya onu sunucudan okuyor; ikinci bir kaynak
+    // tutmak, ikisinin bir gün ayrışması demekti.
     const id = `${customerId}-v${visit.daysAgo}`;
-    const saved = visitFormulaOf(id);
     return {
         id,
         date: formatDayMonth(addDaysISO(todayISO, -visit.daysAgo)),
         service: visit.service,
-        formula: Boolean(saved) || Boolean(visit.formula) || visit.hasFormula === true,
+        formula: Boolean(visit.formula) || visit.hasFormula === true,
         hadMaterial: visit.hadMaterial,
         ...(visit.status ? { status: visit.status } : {}),
         // Geçmişteki her ziyaret kasaya gitmiş sayılır; bugünkü henüz değil.
@@ -263,7 +262,7 @@ function toRow(customerId: string, visit: DemoVisit, todayISO: string): FileHist
         initials: visit.initials,
         mine: visit.mine,
         minutes: visit.minutes,
-        detail: saved ? detailOf(saved) : visit.formula ?? null,
+        detail: visit.formula ?? null,
     };
 }
 

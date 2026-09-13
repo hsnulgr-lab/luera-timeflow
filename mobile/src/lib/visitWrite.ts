@@ -1,14 +1,22 @@
 /**
  * Personel 05/11 — ziyaretin YAZMA yolu.
  *
- * Ekranın karar katmanı `sendToCash.ts`te ve saf; burası o kararların
- * sunucuya dönüşmesi. Ayrı durmasının sebebi, gönderimin TEK bir uç değil iki
- * yazma olması: önce kalemler, sonra kapanış. Ekranın bu sırayı bilmesi
- * gerekmiyor.
+ * Ekranın karar katmanı saf dosyalarda (`sendToCash.ts`, `formula.ts`); burası
+ * o kararların sunucuya dönüşmesi. Üç yazma var: başlatma, gönderim ve formül.
+ *
+ * Ayrı durmasının sebebi, gönderimin TEK bir uç değil İKİ yazma olması —
+ * önce kalemler, sonra kapanış. Ekranın bu sırayı bilmesi gerekmiyor.
+ *
+ * Burada KARAR verilmiyor: ne gönderileceği (`formulaPatch`), cevabın ne
+ * anlama geldiği (`formulaOutcome`) ve hayırın nasıl söyleneceği
+ * (`formulaErrorLine`) saf katmanda duruyor. Bu dosya react-native taşıyan
+ * api katmanına bağlı, yani Node testleri onu ÇALIŞTIRAMIYOR; kararlar
+ * burada olsaydı yalnız kaynak metni olarak sınanabilirlerdi.
  */
 
 import { ApiError, api } from '../api/staff';
 import { sendableOf, type AdisyonLine } from './adisyon.ts';
+import { formulaOutcome, formulaPatch, type VisitFormula } from './formula.ts';
 
 export interface WriteOutcome {
     /** Sunucunun hayırının kodu. `null` ise sunucu konuşmadı. */
@@ -82,5 +90,38 @@ export async function startVisit(reservationId: string): Promise<WriteOutcome> {
         return { code: null, queued: false };
     } catch (cause) {
         return { code: codeOf(cause), queued: false };
+    }
+}
+
+/**
+ * Ziyaretin formülü.
+ *
+ * ── Neden dönen formül GEÇERLİ olan ─────────────────────────────────────────
+ * Ekranın elindeki taslak üç alanı UYDURUYOR: `materials: []`, `staffId:
+ * null`, `writtenAt: <telefonun saati>`. Sunucu üçünü de kendi doğrusuyla
+ * dolduruyor — malzemeyi adisyondan, imzayı token'dan, damgayı kendi
+ * saatinden. Ekranın taslağını saklamak, malzemesi boş ve imzasız bir formül
+ * göstermek olurdu; oysa kayıtta ikisi de var.
+ *
+ * ── Kuyruk KAYDEDİLMİŞ SAYILMIYOR ───────────────────────────────────────────
+ * Sinyal yokken iş kuyruğa giriyor ve gerçekten gidecek. Ama o ana kadar
+ * müşterinin dosyasında formül YOK: personel sayfayı kapatıp geçmişe baksa
+ * satırı boş görürdü. `queued` bunu çağırana söylüyor ki ekran "gitti"
+ * diyemesin.
+ */
+export interface FormulaWriteOutcome extends WriteOutcome {
+    /** Sunucunun kaydettiği formül. Kuyrukta ya da hatada `null`. */
+    saved: VisitFormula | null;
+}
+
+export async function writeVisitFormula(
+    reservationId: string,
+    draft: VisitFormula,
+): Promise<FormulaWriteOutcome> {
+    try {
+        const out = await api.visitFormula(reservationId, formulaPatch(draft));
+        return { code: null, ...formulaOutcome(out) };
+    } catch (cause) {
+        return { code: codeOf(cause), queued: false, saved: null };
     }
 }

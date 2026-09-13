@@ -60,6 +60,10 @@ function toVisit(row: Appointment): DemoAppointment {
         service_ended_at: row.service_ended_at,
         adisyon_items: row.adisyon_items,
         is_paid: row.is_paid,
+        // Formül SUNUCUDAN taşınıyor. `RES_COLS` onu her okumada gönderiyordu
+        // ama buradan geçmiyordu: kumanda formülü yerel bir depoda tutuyor ve
+        // uygulama kapanınca kaybediyordu.
+        formula: row.formula,
     };
 }
 

@@ -33,7 +33,7 @@ import {
 } from '../../src/lib/visitControl';
 import { formatCounter } from '../../src/lib/staffCard';
 import {
-    debtLine, formulaDoor, historyState, mixDebtLine, mixSaveLabel,
+    debtLine, formulaDoor, formulaErrorLine, historyState, mixDebtLine, mixSaveLabel,
     saveLabel, sendWarning,
     type FormulaDoor, type VisitFormula,
 } from '../../src/lib/formula';
@@ -43,8 +43,7 @@ import {
     queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
-import { saveVisitFormula, visitFormulaOf } from '../../src/lib/formulaStore';
-import { sendVisitToCash, startVisit } from '../../src/lib/visitWrite';
+import { sendVisitToCash, startVisit, writeVisitFormula } from '../../src/lib/visitWrite';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
 import { useKeyboardInset } from '../../src/lib/keyboardInset';
@@ -163,16 +162,22 @@ export default function Kumanda() {
     /** Her açılışta artıyor: fitil baştan yanmalı, kaldığı yerden değil. */
     const [revealKey, setRevealKey] = useState(0);
     /**
-     * Ziyaretin formülü — sunucuya bağlanınca `visit.formula`dan gelecek.
-     * O güne kadar yerel depodan: kumanda kapanıp yeniden açıldığında az önce
-     * yazılan formül DURMALI, yoksa kaydetmenin bir anlamı kalmıyor.
+     * Ziyaretin formülü — SUNUCUDAN.
+     *
+     * Buradaki yerel depo kalktı: uygulama kapanınca boşalıyordu ve kaydedilen
+     * formül ikinci açılışta yoktu. Randevu onu zaten taşıyor (`RES_COLS` ·
+     * `formula`), yani okuma ve yazma aynı gerçeğe bakıyor.
+     *
+     * `saved` yalnız SUNUCUNUN YANKISI: yazma dönerken gelen kayıt. Ekranın
+     * taslağı buraya hiç girmiyor — o taslak malzemeyi boş, imzayı null
+     * bırakıyor ve onu saklamak formülü eksik göstermek olurdu. Bir sonraki
+     * okumada `base.formula` aynı şeyi getiriyor, o yüzden ikisi ayrışmıyor.
      */
-    const [formula, setFormula] = useState<VisitFormula | null>(
-        // `params.id` DEĞİL `base.id`: adres eşleşmediğinde kaynak listenin
-        // ikinci randevusuna düşüyor ve yazma o kimliğe yapılıyor. İkisi
-        // ayrılırsa yazılan formül geri okunamazdı.
-        () => visitFormulaOf(base?.id),
-    );
+    const [saved, setSaved] = useState<VisitFormula | null>(null);
+    const formula = saved ?? base?.formula ?? null;
+    /** Formül yazmanın hâli ve sunucunun hayırının kodu. */
+    const [formulaWrite, setFormulaWrite] = useState<'idle' | 'busy' | 'queued' | 'error'>('idle');
+    const [formulaCode, setFormulaCode] = useState<string | null>(null);
     /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
     const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -958,14 +963,34 @@ export default function Kumanda() {
                                kapanıyor, personel unuttuğu ürünü ekliyor. Yol
                                varsa yol gösteriliyor, yoksa sebep. */
                             onMaterial={() => setSheet('catalog')}
+                            write={formulaWrite}
+                            errorWord={formulaCode ? formulaErrorLine(formulaCode) : null}
                             onSave={(next) => {
+                                // Ekran durumu TEK BAŞINA yetmiyordu, yerel
+                                // depo da yetmiyordu: ikisi de uygulama
+                                // kapanınca kayboluyordu. Artık kayıt
+                                // SUNUCUYA gidiyor ve müşteri sayfası onu
+                                // oradan okuyor.
+                                setFormulaWrite('busy');
+                                setFormulaCode(null);
                                 feedback.medium();
-                                // Ekran durumu TEK BAŞINA yetmiyordu: kumanda
-                                // kapanınca formül kayboluyordu. Müşteri
-                                // sayfası da aynı depodan okuyor.
-                                saveVisitFormula(appointment.id, next);
-                                setFormula(next);
-                                setSheet(null);
+                                void writeVisitFormula(appointment.id, next).then((out) => {
+                                    if (out.code) {
+                                        setFormulaCode(out.code);
+                                        setFormulaWrite('error');
+                                        feedback.warning();
+                                        return;
+                                    }
+                                    // Alt sayfa YALNIZ kayıt gerçekten
+                                    // gidince kapanıyor. Kuyruktayken kapatıp
+                                    // kapıyı "formül yazıldı" yapmak, henüz
+                                    // sunucuda olmayan bir şeyi olmuş gibi
+                                    // göstermek olurdu.
+                                    if (out.queued) { setFormulaWrite('queued'); return; }
+                                    setSaved(out.saved);
+                                    setFormulaWrite('idle');
+                                    setSheet(null);
+                                });
                             }}
                         />
                     ) : null}
@@ -1877,7 +1902,7 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
  */
 function FormulaSheet({
     materials, wait, waitSpan, current, locked, previous, mixing, waitRunning,
-    onSave, onMaterial,
+    write, errorWord, onSave, onMaterial,
 }: {
     materials: [string, string][];
     wait: number | null;
@@ -1888,6 +1913,10 @@ function FormulaSheet({
     /** Karıştırma anı — üçüncü hâlin dili buradan geliyor. */
     mixing: boolean;
     waitRunning: boolean;
+    /** Yazmanın hâli — düğmenin sözünü sunucunun cevabına bağlayan şey. */
+    write: 'idle' | 'busy' | 'queued' | 'error';
+    /** Sunucunun hayırı, personelin diliyle. Yoksa null. */
+    errorWord: string | null;
     onSave: (next: VisitFormula) => void;
     onMaterial: () => void;
 }) {
@@ -1986,12 +2015,17 @@ function FormulaSheet({
             <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 8 }}>
                 <Pressable
                     accessibilityRole="button"
+                    accessibilityState={{ disabled: write === 'busy' }}
+                    disabled={write === 'busy'}
                     onPress={() => onSave({
                         materials: [],
                         ratio: draft.ratio,
                         waitMinutes: timerRan ? wait : draft.wait,
                         waitSource: timerRan ? 'timer' : 'manual',
-                        result: draft.result ? draft.result.toLocaleLowerCase('tr-TR') : null,
+                        // Küçük harfe çevirme TEK YERDE (`formulaPatch`):
+                        // iki yüzey bunu ayrı ayrı yapıyordu ve biri unutulsa
+                        // sunucu `bad_result` derdi.
+                        result: draft.result,
                         tags: draft.tags,
                         note: draft.note.trim() || null,
                         staffId: null,
@@ -1999,14 +2033,24 @@ function FormulaSheet({
                     })}
                     style={({ pressed }) => ({
                         height: 64, borderRadius: 22, backgroundColor: c.or,
-                        alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.9 : 1,
+                        alignItems: 'center', justifyContent: 'center',
+                        opacity: pressed || write === 'busy' ? 0.9 : 1,
                     })}
                 >
                     <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                        {save?.label}
+                        {write === 'busy' ? 'Kaydediliyor…' : save?.label}
                     </Text>
                 </Pressable>
-                {save?.note ? (
+                {/* Sunucunun cevabı, alt satırın YERİNE geçiyor: aynı anda hem
+                    imkânı hem hayırı yazmak ikisini de okutmaz. */}
+                {write === 'error' || write === 'queued' ? (
+                    <Text style={{
+                        fontSize: 11.5, fontWeight: '700', lineHeight: 17.25,
+                        color: write === 'error' ? c.am : c.tx2, textAlign: 'center',
+                    }}>
+                        {write === 'error' ? errorWord : 'Sırada · sinyal gelince gidecek'}
+                    </Text>
+                ) : save?.note ? (
                     <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
                         {save.note}
                     </Text>

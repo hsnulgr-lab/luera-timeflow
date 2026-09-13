@@ -11,6 +11,7 @@
  */
 
 import { hhmm } from './calendar.ts';
+import type { VisitFormula } from './formula.ts';
 import type { StaffCardSource } from './staffCard.ts';
 
 export interface DemoAppointment extends StaffCardSource {
@@ -25,6 +26,15 @@ export interface DemoAppointment extends StaffCardSource {
     customer_phone: string | null;
     service: string;
     notes: string | null;
+    /**
+     * Ziyaretin renk formülü — SUNUCUDAN.
+     *
+     * Kumanda bunu yerel bir depodan okuyordu ve depo uygulama kapanınca
+     * boşalıyordu: kaydedilen formül ikinci açılışta yoktu. Sunucu onu her
+     * okumada zaten gönderiyor (`RES_COLS`), yalnız buraya taşınmıyordu.
+     * Sahte ajandada yok — orada formül yazılmaz.
+     */
+    formula?: VisitFormula | null;
 }
 
 const MIN = 60_000;

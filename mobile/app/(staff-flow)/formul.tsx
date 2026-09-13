@@ -31,8 +31,10 @@ import {
     FormulaBody, HistoryLine, NoteStep, emptyDraft,
     type FormulaDraft, type FormulaPrevious,
 } from '../../src/components/FormulaBody';
-import { historyState, saveLabel, type FormulaMode } from '../../src/lib/formula';
-import { saveVisitFormula } from '../../src/lib/formulaStore';
+import {
+    formulaErrorLine, historyState, saveLabel, type FormulaMode,
+} from '../../src/lib/formula';
+import { writeVisitFormula } from '../../src/lib/visitWrite';
 import { feedback } from '../../src/lib/feedback';
 import { font, useTheme } from '../../src/theme';
 
@@ -95,6 +97,15 @@ export default function FormulaScreen() {
     }));
     const [fixing, setFixing] = useState(false);
     const [noteStep, setNoteStep] = useState(false);
+    /**
+     * Yazmanın hâli. `idle` dışındaki üçü de EKRANDA KALIYOR: sayfa yalnız
+     * kayıt gerçekten sunucuya düştüğünde kapanıyor.
+     *
+     * `queued` bir başarı DEĞİL, bir söz. Sayfayı kapatıp "kaydedildi" demek,
+     * personeli geçmiş satırında hiçbir şey bulamayacağı bir yere gönderirdi.
+     */
+    const [write, setWrite] = useState<'idle' | 'busy' | 'queued' | 'error'>('idle');
+    const [code, setCode] = useState<string | null>(null);
 
     const pad = small ? 16 : PAD;
     const dateParts = (params.date ?? '').split(' ');
@@ -215,46 +226,78 @@ export default function FormulaScreen() {
 
             {/* Kaydet düğmesi yalnız açık adisyonda. Kilitliyken kısık bir
                 düğme DEĞİL, hiç düğme yok: ölü kontrol yok. */}
-            {locked ? null : (
+            {locked ? null : !params.id ? (
+                /* Kimlik yoksa kaydedilecek bir yer de yok. Düğmeyi çizip
+                   sessizce hiçbir şey yapmamak, düzeltmeye çalıştığımız
+                   davranışın ta kendisi olurdu. */
+                <View style={{ paddingHorizontal: pad, paddingTop: 14, paddingBottom: 30 + insets.bottom }}>
+                    <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
+                        Bu ziyaret tanınmadı · formül yazılamıyor.
+                    </Text>
+                </View>
+            ) : (
                 <View style={{ paddingHorizontal: pad, paddingTop: 14, paddingBottom: 30 + insets.bottom, gap: 8 }}>
                     <Pressable
                         accessibilityRole="button"
+                        accessibilityState={{ disabled: write === 'busy' }}
+                        disabled={write === 'busy'}
                         onPress={() => {
                             // Eskiden burada YALNIZ haptik ve `router.back()`
-                            // vardı: personel formülü yazdığını sanıp gidiyor,
-                            // ertesi ay aynı müşteride hiçbir şey bulamıyordu.
+                            // vardı, sonra da yalnız bir YEREL depo: personel
+                            // formülü yazdığını sanıp gidiyor, ertesi ay aynı
+                            // müşteride hiçbir şey bulamıyordu.
                             //
-                            // Malzeme GÖNDERİLMİYOR: o yarı adisyondan türüyor
-                            // (staff-api · visit.formula). İstemcinin listesine
-                            // güvenmek, adisyonla formülün ayrışması demek.
-                            saveVisitFormula(params.id, {
+                            // Malzeme · imza · damga GÖNDERİLMİYOR; üçünü de
+                            // sunucu kendi doğrusuyla yazıyor (`formulaPatch`).
+                            setWrite('busy');
+                            setCode(null);
+                            feedback.medium();
+                            void writeVisitFormula(params.id as string, {
                                 materials: [],
                                 ratio: draft.ratio,
                                 waitMinutes: draft.wait,
                                 waitSource: measured !== null ? 'timer' : 'manual',
-                                result: draft.result ? draft.result.toLocaleLowerCase('tr-TR') : null,
+                                result: draft.result,
                                 tags: draft.tags,
                                 note: draft.note.trim() || null,
                                 staffId: null,
                                 writtenAt: new Date().toISOString(),
+                            }).then((out) => {
+                                if (out.code) {
+                                    setCode(out.code);
+                                    setWrite('error');
+                                    feedback.warning();
+                                    return;
+                                }
+                                // Kuyruk da sayfayı KAPATMIYOR: kayıt henüz
+                                // sunucuda yok ve geçmiş satırı onu göstermez.
+                                if (out.queued) { setWrite('queued'); return; }
+                                router.back();
                             });
-                            feedback.medium();
-                            router.back();
                         }}
                         style={({ pressed }) => ({
                             height: F.button, borderRadius: F.buttonRadius,
                             backgroundColor: c.or,
                             alignItems: 'center', justifyContent: 'center',
-                            opacity: pressed ? 0.9 : 1,
+                            opacity: pressed || write === 'busy' ? 0.9 : 1,
                         })}
                     >
                         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
-                            {save.label}
+                            {write === 'busy' ? 'Kaydediliyor…' : save.label}
                         </Text>
                     </Pressable>
-                    {/* "Şimdilik" kaldırıldı: tutulamayan sözü etiketin kendisi
-                        veriyordu. Alt satır imkânı söylüyor, tehdit etmiyor. */}
-                    {save.note ? (
+                    {/* Sunucunun cevabı, alt satırın yerine geçiyor: aynı anda
+                        hem imkânı hem hayırı yazmak ikisini de okutmaz. */}
+                    {write === 'error' || write === 'queued' ? (
+                        <Text style={{
+                            fontSize: 11.5, fontWeight: '700', lineHeight: 17.25,
+                            color: write === 'error' ? c.am : c.tx2, textAlign: 'center',
+                        }}>
+                            {write === 'error'
+                                ? formulaErrorLine(code)
+                                : 'Sırada · sinyal gelince gidecek'}
+                        </Text>
+                    ) : save.note ? (
                         <Text style={{ fontSize: 11.5, fontWeight: '500', lineHeight: 17.25, color: c.tx3, textAlign: 'center' }}>
                             {save.note}
                         </Text>
