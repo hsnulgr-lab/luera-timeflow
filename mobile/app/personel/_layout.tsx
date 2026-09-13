@@ -62,8 +62,16 @@ export default function StaffTabs() {
 
                 İki sebep üst üste bindi. Birincisi, gösterdiği tutar
                 personelin ELİNE GEÇEN para değil, yaptığı işlerin salon
-                cirosu — `008_staff.sql`'de prim diye bir alan yok, yani
-                "Kazanç" başlığı yalan. İkincisi, sekme
+                cirosuydu ve ekran onu "Kazanç" diye adlandırıyordu.
+
+                DÜZELTME (2026-09-14): "prim alanı yok" diye yazılıydı, YANLIŞ.
+                `073_staff_commission.sql` `staff.commission_rate`i açmış
+                (0–100, varsayılan 0) ve `027` ile `payments.staff_id` de var.
+                Yani ekranı öldüren gerekçe teknik değil: oran GİRİLİ DEĞİLSE
+                gösterilecek bir prim yok. "İşlerim" geri geldiğinde payı
+                yalnız oran > 0 iken çizmeli; sıfırda o satır hiç kurulmamalı.
+
+                İkincisi, sekme
                 `staff_can_see_revenue` ile koşulluydu ve varsayılan KAPALI:
                 çoğu salonda kabuk dört sekme, ayarı açanda beş oluyordu.
                 Sekme çubuğu değişken olamaz.

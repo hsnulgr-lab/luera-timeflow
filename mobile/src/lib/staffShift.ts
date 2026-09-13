@@ -296,8 +296,13 @@ export const NOTIFICATION_FOOT =
 
 // ── Demo kaynağı ────────────────────────────────────────────────────────────
 //
-// `staff-api` henüz `working_hours` da `staff_time_off` da döndürmüyor.
-// Tablolar canlı; eksik olan yalnız uç.
+// Uç ARTIK VAR (`staff-api` · shift, 2026-09-14) ve ekranlar ondan besleniyor
+// (`shiftSource.ts`). Buradaki sahte hafta yalnız `AUTH_MODE=stub` yedeği:
+// canlıya geçiş tek değişkenle geri alınabilir kalsın diye duruyor.
+//
+// Ekranlardan çağrılmıyor — çağrılırsa herkese 10:00–19:00 ve herkese
+// PERŞEMBE–CUMA İZİNLİ yazar. Bunu bir test kilitliyor
+// (`mobile-vardiya-ucu` · "iki ekran da SAHTE haftadan koptu").
 
 const H = (day: number, open: number, close: number): DaySchedule =>
     ({ day, open, close, closed: false });
