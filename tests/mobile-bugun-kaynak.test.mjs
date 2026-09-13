@@ -38,10 +38,15 @@ test('hata ekranında TEK eylem: tekrar dene', () => {
 });
 
 test('hata ELDEKİ listeyi silmiyor', () => {
-    // `setRows` hata dalında çağrılmamalı: okunamayan bir gün, boş bir gün
-    // değildir ve ekranda duran liste bayat da olsa yoktan iyidir.
+    // Kural: okunamayan bir gün BOŞ bir gün değildir. Eskiden bu "hata dalında
+    // `setRows` hiç çağrılmasın" diye ölçülüyordu; çevrimdışı kopya geldiğinde
+    // o dal artık `setRows(hit.rows)` çağırıyor — liste SİLİNMİYOR, tersine
+    // dolduruluyor. Ölçü kuralın kendisine çevrildi.
     const cut = source.slice(source.indexOf('.catch(()'), source.indexOf('return () => { alive = false; };'));
-    assert.doesNotMatch(cut, /setRows\(/);
+    // Boşaltan hiçbir yazma yok.
+    assert.doesNotMatch(cut, /setRows\(\[\]\)/);
+    // Ve hata dalı asla "okuduk" demiyor.
+    assert.doesNotMatch(cut, /setState\('ok'\)/);
     assert.match(cut, /setState\('error'\)/);
 });
 
@@ -52,9 +57,16 @@ test('geç dönen cevap BAŞKA GÜNÜN listesini ezmiyor', () => {
     // çağrılıyor (açılış, yoklama, öne dönüş, sekmeye dönüş) ve her biri
     // kendi anındaki günü soruyor.
     assert.match(source, /const target = dateISO;/);
-    // HER İKİ dalda da: başarı da hata da geç dönebilir.
-    const guards = (source.match(/if \(wanted\.current !== target\) return;/g) ?? []).length;
-    assert.equal(guards, 2, 'koruma hem .then hem .catch dalında olmalı');
+    // ASKIYA GİREN her dalda koruma olmak zorunda: başarı, hata ve çevrimdışı
+    // kopyanın diskten okunması — üçü de geç dönebilir. Sayı sabitlenmiyor,
+    // çünkü yeni bir dal eklendiğinde testin patlaması değil KAPSAMASI
+    // gerekiyor; ölçü `.then(`/`.catch(` başına düşen koruma.
+    const chain = source.slice(source.indexOf('return fetchAgenda('), source.indexOf('}, [dateISO, todayISO]);'));
+    const branches = (chain.match(/\.then\(|\.catch\(/g) ?? []).length;
+    const guards = (chain.match(/if \(wanted\.current [!=]== target\)/g) ?? []).length;
+    assert.ok(branches >= 2, `zincir okunamadı (${branches})`);
+    assert.ok(guards >= branches - 1,
+        `${branches} dal var ama yalnız ${guards} koruma — geç dönen cevap başka günü ezebilir`);
 });
 
 test('canlıya geçiş TEK değişkenle geri alınabiliyor', () => {
@@ -73,7 +85,10 @@ test('son okuma ANI taşınıyor', () => {
     // Bayat veriye bakıp karar vermek, hiç veri görmemekten tehlikeli.
     // Etiketin kendisi Müdür 28'in turuna ait; taşıyıcı hazır.
     assert.match(source, /at: number \| null;/);
-    assert.match(source, /setAt\(Date\.now\(\)\)/);
+    assert.match(source, /setAt\(now\)/, 'canlı okumada okumanın anı');
+    // Çevrimdışı kopyada damga ŞİMDİ DEĞİL, kopyanın kendi anı — yoksa
+    // diskten gelen liste taze görünürdü.
+    assert.match(source, /setAt\(hit\.at\)/);
 });
 
 test('İLK okuma "yeni kart" sayılmıyor', () => {
@@ -106,7 +121,7 @@ test('başlık hata hâlinde "randevu yok" DEMİYOR', () => {
 test('son başarılı okumanın anı TÜKETİLİYOR, yalnız üretilmiyor', () => {
     // `at` alanı yazılmıştı ama ekran onu destructure bile etmiyordu: kaynak
     // "son güncelleme"yi biliyor, kullanıcı bilmiyordu.
-    assert.match(source, /setAt\(Date\.now\(\)\);/);
+    assert.match(source, /setAt\(now\);/);
     assert.match(source, /export \{ isStale, POLL_MS, STALE_AFTER_MS \} from '\.\/freshness\.ts';/);
     assert.match(screen, /at: readAt/);
     assert.match(screen, /Son güncelleme \{clockOf\(readAt as number\)\}/);
@@ -176,10 +191,21 @@ test('SESSİZ yenilemenin hatası çalışan ekranı BOZMUYOR', () => {
     // Elde bayat ama doğru bir liste varken onu "okuyamadık" ekranıyla
     // değiştirmek, çalışan bir ekranı bozmak olurdu. Görünür okumalar
     // (açılış, "tekrar dene") hatayı söylemeye devam ediyor.
-    assert.match(source, /if \(visible\) setState\('error'\);/);
+    // Kural aynı, yazımı değişti: eskiden tek satırdı (`if (visible)
+    // setState('error')`), şimdi sessiz okuma daha en başta dönüyor — çünkü
+    // görünür başarısızlığın arkasında artık çevrimdışı kopya araması var ve
+    // arka plan turu ona da girmemeli.
     assert.match(source, /void read\(true\);/);
     assert.match(source, /read\(false\)/);
-    // Yoklama başarısızken ELDEKİ satırlar silinmiyor.
+    // Sessiz dalda HİÇBİR durum yazması yok.
+    const quiet = source.slice(source.indexOf('if (!visible) return;'));
+    assert.ok(source.indexOf('if (!visible) return;') < source.indexOf("setState('error')", source.indexOf('.catch(() => {')),
+        'sessiz dönüş, hata yazmasından ÖNCE olmalı');
+    assert.ok(quiet.length > 0);
+    // Yoklama başarısızken hiçbir şeye DOKUNULMUYOR: kopyaya düşme bile
+    // yalnız görünür okumada oluyor, çünkü elde canlı liste duruyor ve onu
+    // diskteki kopyayla değiştirmek çalışan ekranı geriye almak olurdu.
     const fail = source.slice(source.indexOf('.catch(() => {'), source.indexOf('}, [dateISO, todayISO]);'));
-    assert.doesNotMatch(fail, /setRows\(/);
+    assert.match(fail, /if \(!visible\) return;/);
+    assert.doesNotMatch(fail, /setRows\(\[\]\)/);
 });

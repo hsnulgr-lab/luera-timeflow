@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 
 import { LIVE_AUTH } from '../api/session';
@@ -7,6 +8,7 @@ import { api, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
 import { clockText } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
+import { AGENDA_CACHE_KEY, cachePayload, parseCache } from './agendaCache.ts';
 // Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
 // olduğu için testten çağrılamıyor, orası çağrılabiliyor.
 export { isStale, POLL_MS, STALE_AFTER_MS } from './freshness.ts';
@@ -21,10 +23,15 @@ export { isStale, POLL_MS, STALE_AFTER_MS } from './freshness.ts';
  * bağlandığı gün okunamayan bir gün, RANDEVUSUZ bir gün gibi görünecekti.
  * O yanlış, personelin gününü kapatmasına yol açar.
  *
- * ── Üç hâl AYRI ─────────────────────────────────────────────────────────────
+ * ── DÖRT hâl AYRI ───────────────────────────────────────────────────────────
  *   loading  henüz bilmiyoruz
- *   error    okuyamadık — "randevu yok" DEĞİL
+ *   error    okuyamadık ve elde kopya da yok — "randevu yok" DEĞİL
+ *   cached   sunucuya ulaşamadık, DİSKTEKİ kopyayı çiziyoruz
  *   ok       okuduk; liste boş olabilir ve o zaman gerçekten boştur
+ *
+ * `cached` ile `ok` bilerek ayrı. Diskten gelen listeyi "okuduk" diye
+ * göstermek, iptal edilmiş bir randevuyu duruyor gibi göstermek demek —
+ * ekran bunun canlı olmadığını ve NE ZAMAN okunduğunu söylemek zorunda.
  *
  * ── Anahtar ─────────────────────────────────────────────────────────────────
  * `EXPO_PUBLIC_AUTH_MODE=live` verilmeden sahte kaynak sürüyor. Böylece
@@ -35,7 +42,7 @@ export { isStale, POLL_MS, STALE_AFTER_MS } from './freshness.ts';
 /** Ekranın bir randevudan istediği alanlar. Sahte ve gerçek kaynak ikisi de bunu karşılıyor. */
 export type AgendaRow = DemoAppointment;
 
-export type AgendaState = 'loading' | 'ok' | 'error';
+export type AgendaState = 'loading' | 'ok' | 'cached' | 'error';
 
 export interface AgendaSnapshot {
     state: AgendaState;
@@ -44,6 +51,9 @@ export interface AgendaSnapshot {
      * Son BAŞARILI okumanın anı. Ekranda "son güncelleme HH:MM" olarak
      * gösterilecek: bayat veriye bakıp karar vermek, hiç veri görmemekten
      * tehlikeli.
+     *
+     * `cached` hâlinde bu DİSKTEKİ kaydın damgası — yani listenin gerçekten
+     * ne zaman doğru olduğu. Şimdiyi yazmak, kopyayı taze göstermek olurdu.
      */
     at: number | null;
     /** Aynı günü yeniden okur — aşağı çekip yenileme ve "tekrar dene" için. */
@@ -122,15 +132,40 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
         return fetchAgenda(target, todayISO, Date.now())
             .then((next) => {
                 if (wanted.current !== target) return;
+                const now = Date.now();
                 setRows(next);
-                setAt(Date.now());
+                setAt(now);
                 setState('ok');
+                // Disk kopyası HER başarılı okumada tazeleniyor. Yazma
+                // başarısızlığı yutuluyor: önbellek bir kolaylık, ekranın
+                // çalışması ona bağlı değil.
+                const body = cachePayload(target, todayISO, now, next);
+                if (body) void AsyncStorage.setItem(AGENDA_CACHE_KEY, body).catch(() => undefined);
             })
             .catch(() => {
                 if (wanted.current !== target) return;
                 // ELDEKİ liste her hâlde DURUYOR: okunamayan bir gün, boş bir
                 // gün değildir.
-                if (visible) setState('error');
+                if (!visible) return;
+                /*
+                 * Sunucuya ulaşamadık. Diskte BU GÜNE ait bir kopya varsa onu
+                 * çiziyoruz — ama `ok` demeden.
+                 *
+                 * Kopya elde olan listeyi de EZEBİLİR ve bu doğru: kopya zaten
+                 * son başarılı okumanın kendisi, yani satırlar aynı. Değişen
+                 * tek şey damganın şimdiye değil O ANA işaret etmesi — "tazeleyemedik,
+                 * bu 09:14'ten" demenin tek dürüst yolu bu.
+                 */
+                void AsyncStorage.getItem(AGENDA_CACHE_KEY)
+                    .then((raw) => {
+                        if (wanted.current !== target) return;
+                        const hit = parseCache<AgendaRow>(raw, target);
+                        if (!hit) { setState('error'); return; }
+                        setRows(hit.rows);
+                        setAt(hit.at);
+                        setState('cached');
+                    })
+                    .catch(() => { if (wanted.current === target) setState('error'); });
             });
     }, [dateISO, todayISO]);
 

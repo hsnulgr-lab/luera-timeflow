@@ -149,6 +149,9 @@ export default function Today() {
             ? 'okunamadı'
             : agendaState === 'loading'
                 ? '…'
+                // `cached`te sayılar UYDURMA DEĞİL: kopyanın çekildiği anda
+                // gerçekti. Şerit ne zaman çekildiğini söylüyor; başlıkta
+                // ikinci bir uyarı kurmak aynı şeyi iki kez söylemek olurdu.
                 : rows.length === 0
             ? 'randevu yok'
             : isToday
@@ -225,6 +228,14 @@ export default function Today() {
                     Aynı satır yenileme yolu da: başarılı bir listeyi elle
                     tazelemenin BAŞKA yolu yok — `reload` yalnız hata
                     ekranındaki düğmeye bağlıydı. */}
+                {/* ÇEVRİMDIŞI KOPYA — canlı liste değil ve bunu söylemek
+                    zorunda. Aşağıdaki "son güncelleme" satırının YERİNE
+                    geçiyor: ikisi de amber ve ikisi de tazelikten söz ediyor,
+                    yan yana durmaları hangisinin ne dediğini bulandırırdı. */}
+                {agendaState === 'cached' && readAt !== null ? (
+                    <CachedBand at={readAt} onRetry={() => { feedback.selection(); reload(); }} />
+                ) : null}
+
                 {agendaState === 'ok' && isStale(readAt, now) ? (
                     <Pressable
                         accessibilityRole="button"
@@ -365,6 +376,43 @@ export default function Today() {
  * süre sonra görülmeyen bir şeye dönüşür. Ama KENDİLİĞİNDEN kapanmıyor —
  * personel kaybı görmeden gün geçmemeli.
  */
+/**
+ * Diskten çizilen gün.
+ *
+ * Sessiz bir satır değil, BLOK: personel bu listeye bakarak kimin geleceğine
+ * karar veriyor ve liste iptal edilmiş bir randevuyu hâlâ gösteriyor olabilir.
+ * "Son güncelleme" satırının fısıltısı burada yetmiyor.
+ *
+ * Saat UYDURULMUYOR: damga kopyanın çekildiği an, şimdi değil.
+ */
+function CachedBand({ at, onRetry }: { at: number; onRetry: () => void }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            marginHorizontal: 16, marginBottom: 12,
+            paddingVertical: 10, paddingHorizontal: 13,
+            borderRadius: 12,
+            backgroundColor: 'rgba(217,164,59,0.11)',
+            borderWidth: 1, borderColor: 'rgba(217,164,59,0.32)',
+            flexDirection: 'row', alignItems: 'center', gap: 9,
+        }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.am }} />
+            <Text style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: '600', color: c.tx2 }}>
+                <Text style={{ fontWeight: '800', color: c.tx }}>Çevrimdışı liste</Text>
+                {` · ${clockOf(at)}'te okundu`}
+            </Text>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Listeyi yenile"
+                onPress={onRetry}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 4, paddingVertical: 4 })}
+            >
+                <Text style={{ color: c.tx, fontSize: 12.5, fontWeight: '700' }}>Yenile</Text>
+            </Pressable>
+        </View>
+    );
+}
+
 function FailedWrites() {
     const { c } = useTheme();
     const { items, accept } = useFailedWrites();
