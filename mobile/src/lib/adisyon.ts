@@ -477,3 +477,34 @@ export function frequentFor(
     }
     return { items: [], source: 'none', label: '' };
 }
+
+/**
+ * Ekrandaki liste, sunucudan gelenden FARKLI mı?
+ *
+ * Kumandanın "adisyon başka bir cihazda değişti" uyarısı, personele
+ * tazelemenin NEYE mal olacağını söylemek zorunda: göndermediği kalemler
+ * varsa onlar gidecek. "Bir şey kaybetmeyeceksin" ile "yazdıklarını yeniden
+ * gir" aynı cümle olamaz.
+ *
+ * Karşılaştırma SİLİNMEYİ BEKLEYENİ de sayıyor: satır ekranda duruyor ama
+ * personel onu kaldırmaya karar vermiş; tazeleme o kararı da geri alır.
+ *
+ * Sıra ÖNEMSİZ, kimlik önemli: sunucu kalemleri kendi sırasıyla dönebiliyor
+ * ve sırf sıra değişti diye "yerel düzenlemen var" demek yanlış alarm olurdu.
+ */
+export function linesDiffer(
+    local: readonly AdisyonLine[],
+    server: readonly AdisyonLine[],
+): boolean {
+    const key = (line: AdisyonLine) => `${line.kind}:${line.catalogId ?? line.name}:${line.qty}`;
+    // Silinmeyi bekleyen satır SAYILMIYOR — çünkü personel onu kaldırmaya
+    // karar verdi ve tazeleme o kararı geri alacak. Ayrı bir kontrol gerekmez:
+    // satır listeden düştüğü an uzunluklar ayrışıyor ve fark zaten görülüyor.
+    // (Ayrı bir `pendingDelete` kapısı yazılmıştı; mutasyon onun hiçbir yeni
+    // durum yakalamadığını gösterdi — sunucuda olmayan bir satırın silinmesi
+    // zaten hiçbir şey kaybettirmiyor.)
+    const mine = local.filter((line) => !line.pendingDelete).map(key).sort();
+    const theirs = server.map(key).sort();
+    if (mine.length !== theirs.length) return true;
+    return mine.some((value, index) => value !== theirs[index]);
+}

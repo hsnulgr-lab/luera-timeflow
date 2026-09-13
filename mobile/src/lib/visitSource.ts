@@ -14,6 +14,25 @@
  * üretilirse randevu saatleri kayıyor ve sayaç yerinde saymaya başlıyor; o
  * yüzden çapa kancanın içinde bir kez donduruluyor. Canlıda böyle bir sorun
  * yok: saatler sunucudan geliyor ve değişmiyor.
+ *
+ * ── OKUMAK ile BENİMSEMEK ayrı ──────────────────────────────────────────────
+ * Bu ayrım olmadan iyimser kilit SESSİZCE ÇÖZÜLÜYORDU.
+ *
+ * Kilit şunu söylüyor: "bu adisyonu S damgasındaki hâline bakarak yazıyorum."
+ * Yani damga, ekrandaki kalemlerin TÜRETİLDİĞİ okumaya ait olmak zorunda.
+ * Oysa odağa her dönüşte tam bir okuma yapılıyor ve `updatedAt` ilerliyordu —
+ * kumandadaki kalemler ise yerelde, eski hâlinden türemiş hâlde duruyordu
+ * (sıfırlama `base?.id`ye bağlı, bilerek). Sonuç:
+ *
+ *   1. personel kalem ekler
+ *   2. kasiyer masaüstünden adisyona dokunur → sunucunun damgası ilerler
+ *   3. personel Müşteriler'e geçip geri döner → damga YENİLENİR
+ *   4. personel gönderir → kilit uyar ve KASİYERİN EKLEDİĞİ SİLİNİR
+ *
+ * Kilidin engellemek için var olduğu şeyin ta kendisi. Artık okuma iki
+ * çeşit: BENİMSEME (ilk açılış ve personelin kendi tazelemesi) damgayı da
+ * kalemleri de tazeliyor; GÖZLEM (yoklama, odak, öne dönüş) yalnız sunucunun
+ * damgasına bakıyor ve değiştiyse söylüyor. Gözlem hiçbir şeyi ezmiyor.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -23,6 +42,7 @@ import { useFocusEffect } from 'expo-router';
 import { LIVE_AUTH } from '../api/session';
 import { api, type Appointment } from '../api/staff';
 import { clockText, todayISO } from './calendar.ts';
+import { POLL_MS } from './freshness.ts';
 import { demoAgenda, type DemoAppointment } from './staffDemo.ts';
 
 export type VisitState = 'loading' | 'ok' | 'missing' | 'error';
@@ -39,6 +59,21 @@ export interface VisitSnapshot {
      * modeline ait değil, yazma yolunun taşıdığı bir dip not.
      */
     updatedAt: string | null;
+    /**
+     * Sunucudaki kopya, BENİMSEDİĞİMİZDEN beri değişti mi.
+     *
+     * Değiştiyse yazma `409 items_stale` alacak — ama asıl mesele o değil:
+     * personel 40 dakikalık boya beklemesi boyunca ekranda kalıyor ve
+     * masaüstündeki değişiklikten haberi olmuyor. Kaybı sonradan bildirmek
+     * yerine önce haber vermek, kaybı hiç doğurmuyor.
+     */
+    changed: boolean;
+    /**
+     * Kaçıncı BENİMSEME. Ekran kendi türettiği kalemleri buna bakarak
+     * yeniliyor: sayı artmadan hiçbir arka plan okuması yerel listeye
+     * dokunamaz.
+     */
+    version: number;
     reload: () => Promise<void>;
 }
 
@@ -70,7 +105,11 @@ function toVisit(row: Appointment): DemoAppointment {
 export function useVisit(id: string | undefined): VisitSnapshot {
     const [state, setState] = useState<VisitState>('loading');
     const [visit, setVisit] = useState<DemoAppointment | null>(null);
+    /** BENİMSENEN damga — yazarken sunucuya geri gidecek olan. */
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+    /** Sunucuda EN SON görülen damga. Benimsenmiş olmak zorunda değil. */
+    const [serverAt, setServerAt] = useState<string | null>(null);
+    const [version, setVersion] = useState(0);
     /**
      * Sahte günün çapası — bkz. dosya başı. `useRef(Date.now())` DEĞİL:
      * o çağrı çizim sırasında oluyor ve derleyici saf olmayan çağrıyı
@@ -78,7 +117,12 @@ export function useVisit(id: string | undefined): VisitSnapshot {
      */
     const [anchor] = useState(() => Date.now());
 
-    const read = useCallback((visible: boolean) => {
+    /**
+     * `adopt` false ise bu bir GÖZLEM: ekranda hiçbir şey değişmiyor, yalnız
+     * sunucunun damgası not ediliyor. Yerel kalemlerin altından liste
+     * çekilmiyor ve kilit sessizce yeni damgaya kaymıyor.
+     */
+    const read = useCallback((visible: boolean, adopt: boolean) => {
         const today = todayISO();
         const load: Promise<{ row: DemoAppointment | null; stamp: string | null }> = LIVE_AUTH
             ? api.agenda(today).then((data) => {
@@ -92,8 +136,17 @@ export function useVisit(id: string | undefined): VisitSnapshot {
             });
         return load
             .then((next) => {
+                setServerAt(next.stamp);
+                if (!adopt) {
+                    // Randevu BULUNAMADIYSA bu bir gözlem değil bir olgu:
+                    // silinmiş ya da başka personele geçmiş. Elde tutmak,
+                    // olmayan bir ziyarete yazdırmak olurdu.
+                    if (!next.row) setState('missing');
+                    return;
+                }
                 setVisit(next.row);
                 setUpdatedAt(next.stamp);
+                setVersion((n) => n + 1);
                 setState(next.row ? 'ok' : 'missing');
             })
             .catch(() => {
@@ -103,21 +156,47 @@ export function useVisit(id: string | undefined): VisitSnapshot {
             });
     }, [anchor, id]);
 
-    useEffect(() => { void read(true); }, [read]);
+    useEffect(() => { void read(true, true); }, [read]);
+
+    /*
+     * YOKLAMA — yalnız damgaya bakıyor ve yalnız uygulama öndeyken.
+     *
+     * Kalemleri düzenlerken listeyi altından çekmek, düzeltmeye çalıştığımız
+     * kayıptan daha kötü olurdu; o yüzden yoklama BENİMSEMİYOR. Kumandada
+     * geçirilen süre uzun (boya beklemesi 30–40 dk) ve bu süre boyunca
+     * ekranın hiçbir şey bilmemesi kabul edilebilir değil.
+     */
+    useEffect(() => {
+        const id2 = setInterval(() => {
+            if (AppState.currentState !== 'active') return;
+            void read(false, false);
+        }, POLL_MS);
+        return () => clearInterval(id2);
+    }, [read]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void read(false);
+            if (next === 'active') void read(false, false);
         });
         return () => sub.remove();
     }, [read]);
 
-    useFocusEffect(useCallback(() => { void read(false); }, [read]));
+    useFocusEffect(useCallback(() => { void read(false, false); }, [read]));
 
+    /** Personelin kendi tazelemesi — TEK benimseme yolu (açılış dışında). */
     const reload = useCallback(() => {
         setState('loading');
-        return read(true);
+        return read(true, true);
     }, [read]);
 
-    return { state, visit, updatedAt, reload };
+    return {
+        state,
+        visit,
+        updatedAt,
+        // İkisi de doluyken karşılaştırılıyor: damga henüz okunmamışken
+        // "değişti" demek, bilinmezliği değişiklik gibi göstermek olurdu.
+        changed: updatedAt !== null && serverAt !== null && serverAt !== updatedAt,
+        version,
+        reload,
+    };
 }

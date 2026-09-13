@@ -56,7 +56,7 @@ import {
     DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, freeItem,
     groupsOf,
     frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
-    linesFromItems, markDelete, money, setQty, stripOf, totalOf, undoDelete,
+    linesDiffer, linesFromItems, markDelete, money, setQty, stripOf, totalOf, undoDelete,
     type AdisyonLine, type CatalogItem,
 } from '../../src/lib/adisyon';
 import {
@@ -93,7 +93,7 @@ export default function Kumanda() {
      * demek: adisyon o kişiye yazılır, formül o kişinin dosyasına düşerdi.
      */
     const {
-        state: visitState, visit: base, updatedAt, reload: reloadVisit,
+        state: visitState, visit: base, updatedAt, changed, version, reload: reloadVisit,
     } = useVisit(params.id);
 
     const [now, setNow] = useState(() => Date.now());
@@ -244,6 +244,17 @@ export default function Kumanda() {
     const delivered = sent || phase === 'closed';
 
     /**
+     * Ekranda GÖNDERİLMEMİŞ düzenleme var mı.
+     *
+     * Tazelemenin bedelini söyleyen şey bu: "bir şey kaybetmeyeceksin" ile
+     * "yazdıklarını yeniden gir" aynı cümle olamaz.
+     */
+    const dirty = useMemo(
+        () => linesDiffer(lines, linesFromItems(base?.adisyon_items)),
+        [lines, base?.adisyon_items],
+    );
+
+    /**
      * Formülün kapısı — MALZEMEYE asılı, evreye değil.
      *
      * `washed` yıkamanın geçtiğini söylüyor: sonuç ancak o zaman biliniyor.
@@ -331,6 +342,26 @@ export default function Kumanda() {
         const id = setTimeout(() => setUndone(false), UNDO_NOTE_MS);
         return () => clearTimeout(id);
     }, [undone]);
+
+    /**
+     * BENİMSEME olunca kalemler yeniden türetiliyor — ve YALNIZ kalemler.
+     *
+     * Aşağıdaki büyük sıfırlama burada çalıştırılamaz: sayacı, bekleme
+     * halkasını ve gönderme penceresini de silerdi. Personel listeyi
+     * tazelediğinde işlemin kendisi durmuyor, yalnız adisyon sunucudaki
+     * hâline dönüyor.
+     *
+     * `version` DIŞINDA hiçbir arka plan okuması buraya giremiyor: yoklama ve
+     * odak benimsemiyor, yani personel kalem eklerken listesi altından
+     * çekilmiyor.
+     */
+    const adopted = useRef(0);
+    useEffect(() => {
+        if (version === adopted.current) return;
+        adopted.current = version;
+        setLines(linesFromItems(base?.adisyon_items));
+        setLastAdded('');
+    }, [version, base?.adisyon_items]);
 
     /**
      * Randevu değişince yerel durum SIFIRLANIR.
@@ -645,6 +676,16 @@ export default function Kumanda() {
 
                 {/* Kuyruk şeridi ve "geri alındı" notu: ikisi de aynı yuvada,
                     ikisi de amber, ikisi de geçici bir gerçeği söylüyor. */}
+                {/* ADİSYON BAŞKA BİR CİHAZDA DEĞİŞTİ.
+                    Kasada duran adisyonda anlamı yok: orada yazılacak bir şey
+                    kalmadı ve şerit yalnız gürültü olurdu. */}
+                {changed && !delivered ? (
+                    <ChangedBand
+                        dirty={dirty}
+                        onRefresh={() => { feedback.selection(); void reloadVisit(); }}
+                    />
+                ) : null}
+
                 {startCode ? (
                     <Band label={errorLine(startCode)} note="başlatılmadı" />
                 ) : send === 'queued' ? (
@@ -1555,6 +1596,65 @@ function ClosingDial({ total, count, revealed, onReveal, runKey, span, minutes }
  * gördüğün hâl HENÜZ kalıcı değil. Kuyruk kendiliğinden çözülüyor, geri
  * alma notu 2.6 saniyede kayboluyor.
  */
+/**
+ * Adisyon başka bir cihazda değişti.
+ *
+ * ── Neden ayrı bir şerit ────────────────────────────────────────────────────
+ * Ötekiler OLMUŞ bir şeyi bildiriyor; bu, OLACAK bir şeyi engelliyor. Personel
+ * boya beklemesi boyunca (30–40 dk) kumandada kalıyor ve masaüstündeki
+ * kasiyerin adisyona dokunduğunu bilmiyordu. Göndermeye kalkınca `409
+ * items_stale` alıyor, kalemleri gidemiyor ve kayıp ancak SONRADAN
+ * söyleniyordu.
+ *
+ * ── Neden bir düğme ─────────────────────────────────────────────────────────
+ * Kendiliğinden tazelemek, personelin yazdığı kalemleri altından çekmek
+ * olurdu. Karar onun: ne olduğunu söylüyoruz, ne kaybedeceğini söylüyoruz,
+ * dokunmayı ona bırakıyoruz.
+ */
+function ChangedBand({ dirty, onRefresh }: { dirty: boolean; onRefresh: () => void }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            marginHorizontal: 20,
+            marginBottom: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 13,
+            borderRadius: 12,
+            backgroundColor: 'rgba(217,164,59,0.11)',
+            borderWidth: 1,
+            borderColor: 'rgba(217,164,59,0.32)',
+            gap: 7,
+        }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.am }} />
+                <Text style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.69, color: c.am }}>
+                    {upperTR('Adisyon başka bir cihazda değişti')}
+                </Text>
+            </View>
+            {/* Bedel AÇIKÇA yazılıyor. Yerel düzenleme yoksa o cümle hiç
+                kurulmuyor: olmayan bir kayıptan söz etmek, dokunmayı gereksiz
+                yere korkutucu yapardı. */}
+            <Text style={{ fontSize: 12, fontWeight: '500', lineHeight: 18, color: c.tx2 }}>
+                {dirty
+                    ? 'Tazelerseniz göndermediğiniz kalemleri yeniden girmeniz gerekir.'
+                    : 'Listeniz sunucudaki hâline dönecek.'}
+            </Text>
+            <Pressable
+                accessibilityRole="button"
+                onPress={onRefresh}
+                style={({ pressed }) => ({
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 14, height: 34, borderRadius: 17,
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
+                })}
+            >
+                <Text style={{ color: c.tx, fontSize: 13, fontWeight: '700' }}>Listeyi tazele</Text>
+            </Pressable>
+        </View>
+    );
+}
+
 function Band({ label, note }: { label: string; note: string }) {
     const { c } = useTheme();
     return (
