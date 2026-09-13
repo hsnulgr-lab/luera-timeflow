@@ -540,7 +540,9 @@ test('kapı MALZEMEYE asılı — boya işi yoksa kapı YOK', () => {
 
 test('kapının üç tonu üç ayrı şey söylüyor', () => {
     // amber = şimdi yazılabilir · nötr = sıra sende değil · yeşil = tamam
-    const call = formulaDoor(MAT, null, { washed: false, previousResult: 'açık kaldı' });
+    const call = formulaDoor(MAT, null, {
+        washed: false, previous: { state: 'var', result: 'açık kaldı' },
+    });
     assert.equal(call.tone, 'am');
     assert.equal(call.value, 'oran yazılabilir');
     assert.equal(call.tail, 'geçen sefer açık kaldı');
@@ -558,8 +560,20 @@ test('kapının üç tonu üç ayrı şey söylüyor', () => {
     assert.equal(done.value, '1:1,5 · 35 dk · tuttu');
 });
 
-test('karşılaştırması olmayan müşteride kapı bunu söylüyor', () => {
-    assert.equal(formulaDoor(MAT, null, { washed: false }).tail, 'bu müşterinin ilk formülü');
+test('kapının kuyruğu DÖRT hâli ayırıyor', () => {
+    const tail = (previous) => formulaDoor(MAT, null, { washed: false, previous }).tail;
+
+    // İlk ziyaret: karşılaştıracak bir geçmiş YOK.
+    assert.equal(tail({ state: 'ilk', result: null }), 'bu müşterinin ilk formülü');
+    // Geçmiş VAR ama formül yazılmamış — "ilk formülü" demek onu silerdi.
+    assert.equal(tail({ state: 'yok', result: null }), 'geçen sefer formül yazılmadı');
+    assert.equal(tail({ state: 'var', result: 'tuttu' }), 'geçen sefer tuttu');
+
+    // DÖRDÜNCÜ hâl, en sinsi olanı: müşterinin dosyası HENÜZ OKUNMADI.
+    // Burada "bu müşterinin ilk formülü" demek, okumadığımız bir geçmiş
+    // hakkında iddia olurdu — kapı sessiz kalıyor.
+    assert.equal(tail(null), '');
+    assert.equal(formulaDoor(MAT, null, { washed: false }).tail, '');
 });
 
 test('ölçülen bekleme kapıya KENDİLİĞİNDEN düşüyor', () => {

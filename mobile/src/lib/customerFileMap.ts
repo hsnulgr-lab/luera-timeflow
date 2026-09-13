@@ -8,7 +8,7 @@
  * durunca gerçekten ÇALIŞTIRARAK sınanabiliyor.
  */
 
-import type { VisitFormula } from './formula.ts';
+import type { FormulaPrevious, HistoryState, VisitFormula } from './formula.ts';
 import { formatDayMonth } from './calendar.ts';
 import { agoLabel } from './customerBook.ts';
 import {
@@ -116,6 +116,17 @@ function toHistoryRow(row: Record<string, unknown>): FileHistoryRow {
         // yazmıyor — "0 dk" uydurma bir ölçüm olurdu.
         minutes: 0,
         detail: formula ? detailOf(formula) : null,
+        saved: formula,
+        // Sunucu bu alanı GÖNDERMİYORSA boş kalıyor ve `hadMaterial` ile
+        // birlikte "okunamadı" anlamına geliyor — uydurma bir liste değil.
+        materials: Array.isArray(row.materials)
+            ? (row.materials as Record<string, unknown>[])
+                .map((item) => ({
+                    name: String(item?.name ?? '').trim(),
+                    qty: typeof item?.qty === 'number' ? item.qty : 1,
+                }))
+                .filter((item) => item.name)
+            : [],
     };
 }
 
@@ -162,3 +173,83 @@ export function toCustomerFile(data: ServerFile, today: string): CustomerFile | 
  */
 export const HISTORY_LIMIT = 10;
 
+
+// ── Karşılaştırma · saf karar ───────────────────────────────────────────────
+//
+// "Geçen sefer bu saça ne yapmıştım?" — Personel 12'nin dayandığı tek soru.
+// Cevabı bugüne kadar SABİTTİ: `12 Mart · MK · 1:1,5 · 35 dk · açık kaldı`,
+// hangi müşteri açılırsa açılsın aynı. Uydurma bir geçmiş, hiç geçmiş
+// olmamasından kötü: kolorist bir sonraki karışımı ona bakarak ayarlıyor.
+
+/** Karşılaştırma satırının girdisi — değer ve hangi hâlde olduğu. */
+export interface Comparison {
+    previous: FormulaPrevious | null;
+    state: HistoryState;
+}
+
+/**
+ * Açık olan ziyaretin karşılaştırması — müşterinin kendi geçmişinden.
+ *
+ * ── "Geçen sefer" hangi ziyaret ─────────────────────────────────────────────
+ * Bakılan ziyaretten ESKİ, formülü OLAN ilk ziyaret. Aradaki kesimler
+ * atlanıyor: formülsüz bir kesim karşılaştırılacak bir değer taşımıyor ve onu
+ * "geçen sefer" saymak, gerçekten karşılaştırılabilir olanı gizlerdi.
+ *
+ * ── Üç hâl ──────────────────────────────────────────────────────────────────
+ *   var  eski bir formül bulundu
+ *   yok  daha eski ziyaret VAR ama hiçbirinde formül yazılmamış
+ *   ilk  daha eski ziyaret YOK — bu müşterinin ilk formülü
+ *
+ * "Geçmiş yok" ile "geçmişte formül yazılmamış" aynı şey değil ve ikisi de
+ * boş bir satır olamaz.
+ *
+ * ── Bakılan ziyaret listede yoksa ───────────────────────────────────────────
+ * Sunucu son 10 ziyareti dönüyor; daha eski bir kayda bakılıyorsa `visitId`
+ * listede bulunmuyor. O zaman karşılaştırma yapılmıyor (`ilk` DEĞİL, `yok`
+ * da değil — hiçbiri doğru olmazdı): listenin en yenisini "geçen sefer" diye
+ * göstermek, GELECEKTEKİ bir ziyareti geçmiş gibi okutmak olurdu.
+ */
+export function comparisonFor(
+    history: readonly FileHistoryRow[],
+    visitId: string | null | undefined,
+): Comparison {
+    // Liste sunucudan YENİDEN ESKİYE geliyor (`order('date', desc)`), yani
+    // "daha eski" demek "dizide daha sonra" demek.
+    const at = visitId ? history.findIndex((row) => row.id === visitId) : -1;
+    if (at < 0) return { previous: null, state: 'ilk' };
+
+    const older = history.slice(at + 1);
+    const found = older.find((row) => row.saved !== null);
+    if (!found) return { previous: null, state: older.length > 0 ? 'yok' : 'ilk' };
+
+    const formula = found.saved!;
+    return {
+        previous: {
+            dateLabel: found.date,
+            // İmzası okunamayan ziyaret pil ÇİZMİYOR — baş harfi uydurmak,
+            // formülü yazmayan kişiyi yazmış gibi göstermek olurdu.
+            initials: found.initials,
+            ratio: formula.ratio,
+            waitMinutes: formula.waitMinutes,
+            result: formula.result,
+        },
+        state: 'var',
+    };
+}
+
+/**
+ * Malzeme alanının ÜÇ hâli.
+ *
+ * `bilinmiyor` sessizce `yok` gibi çizilemez: personele adisyonunda olmayan
+ * bir boşluk göstermek, adisyonu yeniden açtırır.
+ */
+export function materialField(row: {
+    materials: readonly { name: string; qty: number }[];
+    hadMaterial: boolean;
+} | null | undefined): { rows: [string, string][]; unknown: boolean } {
+    const list = row?.materials ?? [];
+    if (list.length > 0) {
+        return { rows: list.map((item) => [item.name, `×${item.qty}`] as [string, string]), unknown: false };
+    }
+    return { rows: [], unknown: row?.hadMaterial === true };
+}

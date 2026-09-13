@@ -33,9 +33,9 @@ import {
 } from '../../src/lib/visitControl';
 import { formatCounter } from '../../src/lib/staffCard';
 import {
-    debtLine, formulaDoor, formulaErrorLine, historyState, mixDebtLine, mixSaveLabel,
+    debtLine, formulaDoor, formulaErrorLine, mixDebtLine, mixSaveLabel,
     saveLabel, sendWarning,
-    type FormulaDoor, type VisitFormula,
+    type FormulaDoor, type HistoryState, type VisitFormula,
 } from '../../src/lib/formula';
 import { SendToCash } from '../../src/components/SendToCash';
 import {
@@ -63,6 +63,7 @@ import {
     FormulaBody, HistoryLine, NoteStep, emptyDraft,
     type FormulaDraft, type FormulaPrevious,
 } from '../../src/components/FormulaBody';
+import { comparisonFor } from '../../src/lib/customerFileMap';
 import { font, numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
 
@@ -75,22 +76,6 @@ const SHEET_FALLBACK_H = 720;
 
 /** Bekleme sayacının hazır süreleri. */
 const MINUTES = [20, 25, 30, 35, 45, 60];
-
-/**
- * Geçen seferin formülü — karşılaştırmanın kaynağı.
- *
- * `customer` ucu bağlanana kadar sahte. Sunucu tarafı hazır:
- * `090_visit_formula.sql` müşterinin formül geçmişi için
- * `(organization_id, customer_id, date DESC) WHERE formula IS NOT NULL`
- * indeksini zaten açtı; eksik olan yalnız uç.
- */
-const DEMO_PREVIOUS: FormulaPrevious = {
-    dateLabel: '12 Mart',
-    initials: 'MK',
-    ratio: '1:1,5',
-    waitMinutes: 35,
-    result: 'açık kaldı',
-};
 
 
 export default function Kumanda() {
@@ -200,7 +185,23 @@ export default function Kumanda() {
      * Kaynak müşteri sayfasıyla AYNI (`fileSource` · riskList): iki ekran aynı
      * kuralı iki ayrı yerden türetseydi bir gün biri alerji der öteki demezdi.
      */
-    const { risks, usedItems } = useCustomerFile(appointment?.customer_id ?? undefined, undefined);
+    const { file, risks, usedItems } = useCustomerFile(appointment?.customer_id ?? undefined, undefined);
+
+    /**
+     * Geçen seferin formülü — müşterinin KENDİ geçmişinden.
+     *
+     * Buraya sabit bir formül yazılıydı: `12 Mart · MK · 1:1,5 · 35 dk · açık
+     * kaldı`, hangi müşteri açılırsa açılsın aynı. Uydurma bir geçmiş, hiç
+     * geçmiş olmamasından kötü — kolorist bir sonraki karışımı ona bakarak
+     * ayarlıyor.
+     *
+     * Dosya HENÜZ OKUNMADIYSA `null`: kapı ve satır o hâlde hiçbir iddiada
+     * bulunmuyor. "Bu müşterinin ilk formülü" demek de bir iddia.
+     */
+    const comparison = useMemo(
+        () => (file ? comparisonFor(file.history, appointment?.id ?? null) : null),
+        [appointment?.id, file],
+    );
 
     /**
      * Salonun kataloğu ve kullanım geçmişi — tek turda.
@@ -254,7 +255,7 @@ export default function Kumanda() {
         locked: delivered,
         waitRunning: Boolean(wait),
         measured: wait ? Math.round(wait.total / 60) : null,
-        previousResult: DEMO_PREVIOUS.result,
+        previous: comparison && { state: comparison.state, result: comparison.previous?.result ?? null },
     });
     /** Karıştırma anı: işlem sürüyor ve yıkama daha geçilmedi. */
     const mixing = phase === 'running';
@@ -955,10 +956,15 @@ export default function Kumanda() {
                                kaydet", sayaç satırı sayı değil ad. */
                             mixing={mixing}
                             waitRunning={Boolean(wait)}
-                            /* Geçen seferin formülü. `customer` ucu bağlanınca
-                               buraya oradan gelecek — `090_visit_formula.sql`
-                               müşterinin formül geçmişi için indeksi açtı. */
-                            previous={DEMO_PREVIOUS}
+                            /* Geçen seferin formülü — müşterinin kendi
+                               geçmişinden. Hangi ziyaretle karşılaştırıldığı
+                               `comparisonFor`un kararı: formülsüz kesimler
+                               atlanıyor, çünkü karşılaştırılacak değer
+                               taşımıyorlar. */
+                            previous={comparison?.previous ?? null}
+                            /* Dosya okunmadıysa hâl de BİLİNMİYOR: satır
+                               "ilk formül" diye bir iddiada bulunamaz. */
+                            historyState={comparison?.state ?? null}
                             /* Malzeme yanlışsa düzeltme ADİSYONDA: alt sayfa
                                kapanıyor, personel unuttuğu ürünü ekliyor. Yol
                                varsa yol gösteriliyor, yoksa sebep. */
@@ -1901,8 +1907,8 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
  * devam ediyor, alt sayfanın bir kısıt olmasının sebebi de bu.
  */
 function FormulaSheet({
-    materials, wait, waitSpan, current, locked, previous, mixing, waitRunning,
-    write, errorWord, onSave, onMaterial,
+    materials, wait, waitSpan, current, locked, previous, historyState: state,
+    mixing, waitRunning, write, errorWord, onSave, onMaterial,
 }: {
     materials: [string, string][];
     wait: number | null;
@@ -1910,6 +1916,15 @@ function FormulaSheet({
     current: VisitFormula | null;
     locked: boolean;
     previous: FormulaPrevious | null;
+    /**
+     * Karşılaştırmanın hâli — `null` HENÜZ BİLİNMİYOR demek.
+     *
+     * Eskiden burada `historyState(previous ? ... : null, true)` vardı ve o
+     * `true` sabitti: "bu müşteri daha önce geldi" her zaman doğru sayılıyordu.
+     * Geçmişi olmayan müşteride satır "son ziyarette formül yazılmadı" diyordu
+     * — olmayan bir ziyaret hakkında.
+     */
+    historyState: HistoryState | null;
     /** Karıştırma anı — üçüncü hâlin dili buradan geliyor. */
     mixing: boolean;
     waitRunning: boolean;
@@ -1927,11 +1942,8 @@ function FormulaSheet({
     /** Kilitli sayfanın iki yüzü var: yazılmış formül ve YAZILMAMIŞ boşluk. */
     const written = Boolean(current);
     const timerRan = wait != null && !fixing;
-    const history = historyState(previous ? {
-        materials: [], ratio: previous.ratio, waitMinutes: previous.waitMinutes,
-        waitSource: 'manual', result: previous.result, note: null,
-        staffId: null, writtenAt: null,
-    } : null, true);
+    // Hâl DIŞARIDAN: müşterinin geçmişini bu bileşen görmüyor.
+    const history = state;
     /**
      * Karıştırma anında "Eksik hâliyle kaydet" YANLIŞ: eksik bir şey yok,
      * sonuç henüz OLMAMIŞ. Düğme yapılan işi adıyla kaydediyor ve oran

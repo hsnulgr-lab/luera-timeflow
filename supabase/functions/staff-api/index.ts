@@ -1373,6 +1373,25 @@ Deno.serve(async (req: Request) => {
                             .map((item) => String(item.name ?? '').trim())
                             .filter(Boolean))]
                         : [],
+                    // Ziyaretin MALZEMESİ — adı ve miktarıyla.
+                    //
+                    // `itemsUsed`ten ayrı ve ondan türetilemez: orası ürünü de
+                    // sayıyor, tekilleştiriyor ve miktarı atıyor. Formül
+                    // sayfası "bu ziyarette ne kullanıldı" diye soruyor ve
+                    // cevabı ×2 ile ×1 arasındaki fark taşıyor.
+                    //
+                    // Formülü OLMAYAN ziyaretin tek malzeme kaynağı bu:
+                    // `formula.materials` yalnız kayıt yazıldığında doluyor,
+                    // oysa malzeme alanı formül YAZILIRKEN okunmak zorunda.
+                    materials: Array.isArray(row.adisyon_items)
+                        ? (row.adisyon_items as Record<string, unknown>[])
+                            .filter((item) => item?.kind === 'material')
+                            .map((item) => ({
+                                name: String(item.name ?? '').trim(),
+                                qty: typeof item.qty === 'number' ? item.qty : 1,
+                            }))
+                            .filter((item) => item.name)
+                        : [],
                     formula: row.formula ?? null,
                     // Kilit veriden geliyor: adisyon kasaya gittiyse formül
                     // artık okunur. Ayrı bir "kilitli" bayrağı saklamıyoruz.

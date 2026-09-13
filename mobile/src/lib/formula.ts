@@ -33,6 +33,21 @@ export interface VisitFormula {
     writtenAt: string | null;
 }
 
+/**
+ * Geçen seferin formülü — karşılaştırmanın kaynağı.
+ *
+ * Şekil BURADA, çizen bileşende değil: onu geçmişten türeten kod
+ * (`customerFileMap.comparisonFor`) saf olmak zorunda, yoksa "hangi ziyaretle
+ * karşılaştırılıyor" kararı yalnız kaynak metni olarak sınanabilirdi.
+ */
+export interface FormulaPrevious {
+    dateLabel: string;
+    initials: string;
+    ratio: string | null;
+    waitMinutes: number | null;
+    result: string | null;
+}
+
 /** Adisyon kalemi — formülün malzeme yarısı buradan türüyor. */
 export interface FormulaSourceItem {
     id: string;
@@ -258,10 +273,13 @@ export function historyState(previous: VisitFormula | null | undefined, everVisi
  * demek için ikinci bir değer gerekiyor.
  */
 export function fieldCompare(
-    state: HistoryState,
+    state: HistoryState | null,
     previous: string | null,
     current: string | null,
 ): { text: string; strong: boolean } {
+    // Hâl BİLİNMİYOR: müşterinin dosyası daha okunmadı. Etiket sessiz kalıyor;
+    // "ilk ziyaret" demek okumadığımız bir geçmiş hakkında iddia olurdu.
+    if (state === null) return { text: '', strong: false };
     if (state === 'ilk') return { text: 'ilk ziyaret', strong: false };
     if (state === 'yok') return { text: 'karşılaştırma yok', strong: false };
     if (!previous) return { text: '', strong: false };
@@ -354,6 +372,21 @@ export interface FormulaDoor {
 }
 
 /**
+ * Kapının kuyruğu — karşılaştırmanın DÖRT hâli.
+ *
+ * Dördüncüsü uzun süre yoktu ve en sinsi olan o: BİLİNMİYOR. Kapı eskiden
+ * sabit bir "geçen sefer açık kaldı" taşıyordu; o kalkınca yerine düşen
+ * `bu müşterinin ilk formülü` de bir iddia — dosya daha okunmamışken
+ * söylenirse ikinci kez uydurma olurdu.
+ */
+function doorTail(previous?: { state: HistoryState; result: string | null } | null): string {
+    if (!previous) return '';
+    if (previous.state === 'ilk') return 'bu müşterinin ilk formülü';
+    if (previous.state === 'yok') return 'geçen sefer formül yazılmadı';
+    return previous.result ? `geçen sefer ${previous.result}` : '';
+}
+
+/**
  * Formülün kapısı — MALZEMEYE asılı.
  *
  * Malzemeyi gösteren her yüzeyde aynı satır, aynı kelimeler: kumandada
@@ -380,8 +413,14 @@ export function formulaDoor(
         waitRunning?: boolean;
         /** Ölçülmüş bekleme, varsa. */
         measured?: number | null;
-        /** Geçen seferin sonucu — gerekçe olarak kapıda duruyor. */
-        previousResult?: string | null;
+        /**
+         * Geçen seferin karşılaştırması — gerekçe olarak kapıda duruyor.
+         *
+         * `null`/verilmemiş = HENÜZ BİLİNMİYOR (müşterinin dosyası okunmadı
+         * ya da okunamadı). O hâlde kuyruk BOŞ kalıyor: "bu müşterinin ilk
+         * formülü" demek, okumadığımız bir geçmiş hakkında iddia olurdu.
+         */
+        previous?: { state: HistoryState; result: string | null } | null;
     },
 ): FormulaDoor | null {
     if (!hasMaterial(items)) return null;
@@ -418,7 +457,7 @@ export function formulaDoor(
     return {
         tone: 'am',
         value: ctx.washed ? 'formül yazılmadı' : 'oran yazılabilir',
-        tail: ctx.previousResult ? `geçen sefer ${ctx.previousResult}` : 'bu müşterinin ilk formülü',
+        tail: doorTail(ctx.previous),
         done: false,
     };
 }

@@ -29,37 +29,29 @@ import { Glyph } from '../../src/components/Glyph';
 import { F, LockLine, Signature } from '../../src/components/FormulaFields';
 import {
     FormulaBody, HistoryLine, NoteStep, emptyDraft,
-    type FormulaDraft, type FormulaPrevious,
+    type FormulaDraft,
 } from '../../src/components/FormulaBody';
-import {
-    formulaErrorLine, historyState, saveLabel, type FormulaMode,
-} from '../../src/lib/formula';
+import { comparisonFor, materialField } from '../../src/lib/customerFileMap';
+import { useCustomerFile } from '../../src/lib/fileSource';
+import { formulaErrorLine, saveLabel, type FormulaMode } from '../../src/lib/formula';
 import { writeVisitFormula } from '../../src/lib/visitWrite';
 import { feedback } from '../../src/lib/feedback';
 import { font, useTheme } from '../../src/theme';
 
 const PAD = 20;
 
-/**
- * `customer` ucu bağlanana kadar sahte. Malzeme ve geçen seferin formülü
- * sunucudan gelecek — `090_visit_formula.sql` müşterinin formül geçmişi için
- * indeksi zaten açtı.
- */
-const DEMO_MATERIALS: [string, string][] = [
-    ['Boya · 7.3 kumral', '×2'],
-    ['Oksidan %6', '×1'],
-];
-const DEMO_PREVIOUS: FormulaPrevious = {
-    dateLabel: '12 Mart',
-    initials: 'MK',
-    ratio: '1:1,5',
-    waitMinutes: 35,
-    result: 'açık kaldı',
-};
-
 type Params = {
-    /** Ziyaret kimliği — sunucuya bağlanınca formül buradan yüklenecek. */
+    /** Ziyaret kimliği — kayıt buraya yazılıyor. */
     id?: string;
+    /**
+     * Müşteri kimliği — KARŞILAŞTIRMANIN kaynağı.
+     *
+     * Bu sayfa "geçen sefer ne yapmıştım" sorusuna cevap veriyor ve cevabı
+     * kişinin kendi geçmişinde. Kimlik geçmezse sayfa sabit bir formül
+     * gösteriyordu: `12 Mart · MK · 1:1,5 · 35 dk · açık kaldı`, herkes için
+     * aynı.
+     */
+    customerId?: string;
     from?: string;
     mode?: FormulaMode;
     date?: string;
@@ -109,11 +101,20 @@ export default function FormulaScreen() {
 
     const pad = small ? 16 : PAD;
     const dateParts = (params.date ?? '').split(' ');
-    const history = historyState(
-        // Kilitli-boş hâlde karşılaştırma çizilmiyor: ortada karar yok, belge var.
-        mode === 'lockedEmpty' ? null : { ...emptyDraft(), materials: [], waitSource: 'manual', staffId: null, writtenAt: null, ratio: DEMO_PREVIOUS.ratio, waitMinutes: DEMO_PREVIOUS.waitMinutes, result: DEMO_PREVIOUS.result, note: null },
-        true,
-    );
+
+    /**
+     * Müşterinin dosyası — karşılaştırmanın ve malzemenin TEK kaynağı.
+     *
+     * Buraya iki sabit yazılıydı: her ziyarette aynı iki malzeme ve herkes
+     * için aynı "geçen sefer". İkisi de kolorist için karar girdisi; uydurma
+     * bir geçmiş, hiç geçmiş olmamasından kötü.
+     */
+    const { file } = useCustomerFile(params.customerId, undefined);
+    const comparison = file ? comparisonFor(file.history, params.id ?? null) : null;
+    /** Bu ziyaretin kendi satırı — malzeme oradan okunuyor. */
+    const visitRow = file?.history.find((row) => row.id === params.id) ?? null;
+    const material = materialField(visitRow);
+
     const save = saveLabel(written, draft, measured != null && !fixing);
 
     if (noteStep) {
@@ -199,25 +200,35 @@ export default function FormulaScreen() {
                     <>
                         {locked ? null : (
                             <View style={{ paddingBottom: 2 }}>
-                                <HistoryLine state={history} previous={DEMO_PREVIOUS} />
+                                <HistoryLine
+                                    state={comparison?.state ?? null}
+                                    previous={comparison?.previous ?? null}
+                                />
                             </View>
                         )}
                         <FormulaBody
-                            materials={DEMO_MATERIALS}
+                            materials={material.rows}
                             draft={draft}
                             locked={locked}
                             written={written}
-                            history={locked ? 'ilk' : history}
-                            previous={DEMO_PREVIOUS}
+                            history={locked ? 'ilk' : comparison?.state ?? null}
+                            previous={comparison?.previous ?? null}
                             measured={measured}
                             waitSpan={params.waitSpan}
                             fixing={fixing}
                             onFix={() => setFixing(true)}
                             onChange={setDraft}
                             onNote={() => setNoteStep(true)}
-                            // Kart bağlamında adisyona inecek bir yol YOK: satır
-                            // dokunulmaz ve etiket sebebini söylüyor.
-                            materialNote={locked ? 'adisyondan · kilitli' : 'adisyondan'}
+                            /* Kart bağlamında adisyona inecek bir yol YOK: satır
+                               dokunulmaz ve etiket sebebini söylüyor.
+
+                               ÜÇÜNCÜ hâl: malzeme geçmiş ama listesi gelmiyorsa
+                               (eski sunucu dağıtımı) "malzeme geçmedi" gibi
+                               çizmek, personele adisyonunda olmayan bir boşluk
+                               göstermek olurdu. */
+                            materialNote={material.unknown
+                                ? 'adisyondan · okunamadı'
+                                : locked ? 'adisyondan · kilitli' : 'adisyondan'}
                         />
                         {locked ? <LockLine at={params.lockedAt} /> : null}
                     </>

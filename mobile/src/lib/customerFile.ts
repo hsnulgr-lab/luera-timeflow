@@ -62,6 +62,28 @@ export interface FileHistoryRow {
     mine: boolean;
     minutes: number;
     detail: FileFormulaDetail | null;
+    /**
+     * Ziyaretin KAYITLI formülü, ham hâliyle.
+     *
+     * `detail` ekranın okuduğu METİN ('35 dk', bilinmiyorsa '—'); karşılaştırma
+     * ise SAYI istiyor. İkisini tek alandan türetmek '—' → null çevirmesi
+     * demekti ve o çeviri bir gün "bekleme yazılmadı" ile "bekleme sıfır
+     * dakika"yı karıştırırdı.
+     *
+     * `formula` bayrağı duruyor çünkü liste onu ÜÇ yerde okuyor ve boolean
+     * olarak okuyor; ikisi `toHistoryRow`ta tek kaynaktan doğuyor.
+     */
+    saved: VisitFormula | null;
+    /**
+     * Bu ziyarette geçen MALZEME — adı ve miktarıyla, adisyondan.
+     *
+     * `hadMaterial` ile birlikte okunuyor ve üçüncü bir hâl taşıyorlar:
+     * malzeme geçmiş ama liste boşsa BİLİNMİYOR demek (sunucu o alanı
+     * göndermiyor — eski dağıtım). "Malzeme geçmedi" ile "okunamadı" ayrı
+     * şeyler ve ikincisini birincisi gibi çizmek, personele adisyonunda
+     * olmayan bir boşluk gösterirdi.
+     */
+    materials: { name: string; qty: number }[];
 }
 
 /** "Son formül" kartı — geçmişteki EN YENİ formüllü ziyaretten türer. */
@@ -263,6 +285,10 @@ function toRow(customerId: string, visit: DemoVisit, todayISO: string): FileHist
         mine: visit.mine,
         minutes: visit.minutes,
         detail: visit.formula ?? null,
+        // Sahte defter ham formül TUTMUYOR (yalnız ekranın okuduğu metni), o
+        // yüzden karşılaştırma sahte kipte çalışmıyor ve bunu SÖYLÜYOR.
+        saved: null,
+        materials: [],
     };
 }
 

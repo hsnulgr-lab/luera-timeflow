@@ -26,8 +26,13 @@ import { Glyph } from './Glyph';
 import {
     RATIOS, RESULTS, TONES, WAITS,
     fieldCompare, offList, stepRatio, stepWait,
-    type HistoryState, type VisitFormula,
+    type FormulaPrevious, type HistoryState, type VisitFormula,
 } from '../lib/formula';
+
+// Şekil SAF katmana taşındı (`formula.ts`): karşılaştırmayı geçmişten türeten
+// kod Node testlerinden çağrılabilmeli ve bu dosya react-native taşıyor.
+// Eski içe aktarmaları kırmamak için buradan da veriliyor.
+export type { FormulaPrevious };
 import { feedback } from '../lib/feedback';
 import { numeric, useTheme } from '../theme';
 
@@ -38,15 +43,6 @@ export interface FormulaDraft {
     result: string | null;
     tags: string[];
     note: string;
-}
-
-/** Geçen seferin formülü — karşılaştırmanın kaynağı. */
-export interface FormulaPrevious {
-    dateLabel: string;
-    initials: string;
-    ratio: string | null;
-    waitMinutes: number | null;
-    result: string | null;
 }
 
 export const emptyDraft = (from?: VisitFormula | null): FormulaDraft => ({
@@ -68,7 +64,8 @@ export const emptyDraft = (from?: VisitFormula | null): FormulaDraft => ({
  * şey değil ve ikisi de boş bir alan olamaz — sıfır bir ölçümdür.
  */
 export function HistoryLine({ state, previous, missText }: {
-    state: HistoryState;
+    /** `null` = HENÜZ BİLİNMİYOR — satır hiç çizilmiyor, bkz. aşağısı. */
+    state: HistoryState | null;
     previous?: FormulaPrevious | null;
     /** `yok` hâlinde hangi ziyaret olduğunu söyleyen cümle. */
     missText?: string;
@@ -85,6 +82,10 @@ export function HistoryLine({ state, previous, missText }: {
         </View>
     );
 
+    // Dosya okunmadan HİÇBİR cümle doğru değil: "ilk formülü" de bir iddia.
+    // Satır bir an sonra, gerçek cevabıyla beliriyor — yerinde yanlış bir
+    // cümle tutmaktansa boş durması yeğ.
+    if (state === null) return null;
     if (state === 'ilk') {
         return flat('Bu müşterinin ilk formülü', 'Karşılaştırma bir sonraki ziyarette başlıyor.');
     }
@@ -201,7 +202,7 @@ function ToneRow({ tags, onToggle }: { tags: string[]; onToggle: (tag: string) =
 }
 
 /** Alanın etiketi — sağında karşılaştırma. Fark burada okunuyor. */
-function cmpNote(state: HistoryState, previous: string | null, current: string | null) {
+function cmpNote(state: HistoryState | null, previous: string | null, current: string | null) {
     return fieldCompare(state, previous, current);
 }
 
@@ -238,7 +239,8 @@ export function FormulaBody({
     draft: FormulaDraft;
     locked: boolean;
     written: boolean;
-    history: HistoryState;
+    /** `null` = karşılaştırma HENÜZ BİLİNMİYOR; etiketler sessiz kalıyor. */
+    history: HistoryState | null;
     previous?: FormulaPrevious | null;
     missText?: string;
     /** Sayaçtan ölçülen bekleme. Doluysa alan okunur ve "Düzelt" çıkıyor. */

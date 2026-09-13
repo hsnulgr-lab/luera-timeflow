@@ -274,6 +274,11 @@ export default function CustomerFile() {
                                     // Kimlik olmadan formül sayfası neye
                                     // yazacağını bilemiyordu.
                                     id: row.id,
+                                    // Müşteri kimliği KARŞILAŞTIRMA için:
+                                    // sayfa "geçen sefer ne yapmıştım"a cevap
+                                    // veriyor ve cevap kişinin geçmişinde.
+                                    // Geçmezse sabit bir formül gösteriyordu.
+                                    customerId: file.id,
                                     from: file.name,
                                     date: row.date,
                                     service: row.service,

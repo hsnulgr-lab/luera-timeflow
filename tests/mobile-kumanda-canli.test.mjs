@@ -44,7 +44,7 @@ test('alerji uyarısı ADA göre UYDURULMUYOR', () => {
     // tersi daha kötü: alerjisi OLAN ama adı tutmayan müşteri hiç uyarı almaz.
     assert.ok(!screen.includes("who === 'Ayşe Yılmaz'"), 'ada göre risk kalmamalı');
     assert.ok(!screen.includes("who === 'Elif Demir'"));
-    assert.match(screen, /const \{ risks, usedItems \} = useCustomerFile\(appointment\?\.customer_id \?\? undefined, undefined\)/);
+    assert.match(screen, /const \{ file, risks, usedItems \} = useCustomerFile\(appointment\?\.customer_id \?\? undefined, undefined\)/);
 });
 
 test('risk kuralı İKİ ekranda da TEK kaynaktan', () => {
