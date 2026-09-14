@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
 import { Empty } from '../../src/components/ui';
+import { DurumUnread } from '../../src/components/Durum';
 import { historyMark } from '../../src/lib/formula';
 import { splitName } from '../../src/lib/customerBook';
 import {
@@ -86,29 +87,15 @@ export default function CustomerFile() {
         return (
             <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
                 {back}
-                <View style={{ padding: pad, gap: 8, paddingTop: 40 }}>
-                    <Text style={{
-                        fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
-                        fontFamily: font.extraLight, color: c.tx,
-                    }}>
-                        Dosyayı <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
-                    </Text>
-                    <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
-                        Kayıt silinmiş anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.
-                    </Text>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => { feedback.selection(); void reload(); }}
-                        style={({ pressed }) => ({
-                            alignSelf: 'flex-start', marginTop: 6,
-                            paddingHorizontal: 16, height: 40, borderRadius: 20,
-                            alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                        })}
-                    >
-                        <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
-                    </Pressable>
-                </View>
+                {/* "Kayıt" kelimesi kalktı — tur onu yasaklıyor
+                    (`Durumlar.html` · Ortak kurallar). Gövde de beş ekranda
+                    tekrarlanan koddan tek bileşene indi. */}
+                <DurumUnread
+                    what="Dosyayı"
+                    notMeaning="Dosya silinmiş"
+                    onRetry={() => { void reload(); }}
+                    style={{ paddingHorizontal: pad }}
+                />
             </View>
         );
     }

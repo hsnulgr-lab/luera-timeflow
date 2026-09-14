@@ -65,16 +65,19 @@ export function lostThing(action: string): string {
         case 'visit.finish': return 'Kasaya gönderme';
         case 'visit.formula': return 'Formül';
         case 'visit.start': return 'İşleme başlama damgası';
-        default: return 'Bir kayıt';
+        default: return 'Bir işlem';
     }
 }
 
 /**
  * NEDEN gitmedi.
  *
- * Bilinmeyen kod SEBEP UYDURMUYOR. "Sunucu kabul etmedi" az şey söylüyor ama
+ * Bilinmeyen kod SEBEP UYDURMUYOR. "Kabul edilmedi" az şey söylüyor ama
  * yanlış bir şey söylemiyor; personeli olmayan bir sorunu çözmeye göndermek
  * kaybın kendisinden daha çok zaman yakar.
+ *
+ * "Sunucu" demiyor: tur teknik sözlüğü yasaklıyor ve zaten personelin
+ * yapabileceği bir şey değil.
  */
 export function failureReason(code: string): string {
     switch (code) {
@@ -84,9 +87,9 @@ export function failureReason(code: string): string {
         case 'reservation_cancelled': return 'randevu iptal edilmiş';
         case 'formula_locked': return 'ziyaret kasaya gitmişti';
         case 'already_open': return 'adisyon kasada zaten açıktı';
-        case 'idempotency_key_reused': return 'aynı iş başka bir kayıtla çakıştı';
+        case 'idempotency_key_reused': return 'aynı iş başka bir işlemle çakıştı';
         case 'no_session': return 'oturum kapanmıştı';
-        default: return 'sunucu kabul etmedi';
+        default: return 'kabul edilmedi';
     }
 }
 
@@ -98,11 +101,16 @@ export function failureLine(failure: WriteFailure): string {
 /**
  * Başlığın sayısı GERÇEK sayı.
  *
- * "Bazı kayıtlar" demek, üç kaybı bir kayıp gibi okutur. Personel kaç
+ * "Bazı işlemler" demek, üç kaybı bir kayıp gibi okutur. Personel kaç
  * adisyonu yeniden gireceğini bilmek zorunda.
+ *
+ * KELİME: "kayıt" DEĞİL "işlem". Tur teknik sözlüğü açıkça yasaklıyor
+ * (`Durumlar.html` · Ortak kurallar: "senkronize", "kayıt", "sunucu",
+ * "hata kodu") ve burada ilk yazımda tam o kelime kullanılmıştı. Turun kendi
+ * dili de "işlem": "İşleminiz kaybolmadı, telefonda duruyor."
  */
 export function failureTitle(count: number): string {
-    return count === 1 ? 'Bir kayıt gönderilemedi' : `${count} kayıt gönderilemedi`;
+    return count === 1 ? 'Bir işlem gönderilemedi' : `${count} işlem gönderilemedi`;
 }
 
 /**

@@ -24,17 +24,23 @@ test('okunamadı ile randevusuz AYRI çiziliyor', () => {
     // İkisi aynı görünürse personel gününü kapatır.
     assert.match(screen, /agendaState === 'error' \? \(/);
     assert.match(screen, /okuyamadık/);
-    assert.match(screen, /Randevunuz olmadığı anlamına gelmez/);
+    // Cümle `DurumUnread`e taşındı: beş ekranda birebir aynı kod yazılıydı.
+    // Şekli orada, ÖZNESİ burada.
+    assert.match(screen, /notMeaning="Randevunuz olmadığı"/);
+    assert.match(read('../mobile/src/components/Durum.tsx'), /anlamına gelmez/);
     // "Randevunuz yok" hâli DURUYOR — gerçekten boş gün için doğru cevap.
     assert.match(screen, /randevunuz yok/);
 });
 
 test('hata ekranında TEK eylem: tekrar dene', () => {
-    // JSX'e demirleniyor: aynı koşul artık başlıkta da geçiyor ve metinsel
-    // ilk eşleşme oraya düşüyordu.
+    // Kural: hata hâlinde TEK çıkış. Gövde `DurumUnread`e taşındığı için
+    // sayım artık orada — ekranda kalan tek şey öznesi ve `reload`.
     const cut = screen.slice(screen.indexOf("agendaState === 'error' ? ("), screen.indexOf("agendaState === 'loading' ? ("));
-    assert.equal((cut.match(/<Pressable/g) ?? []).length, 1);
-    assert.match(cut, /reload\(\)/);
+    assert.match(cut, /<DurumUnread/);
+    assert.match(cut, /onRetry=\{reload\}/);
+    const durum = read('../mobile/src/components/Durum.tsx');
+    const unread = durum.slice(durum.indexOf('export function DurumUnread'));
+    assert.equal((unread.match(/<DurumAction/g) ?? []).length, 1, 'tek eylem');
 });
 
 test('hata ELDEKİ listeyi silmiyor', () => {

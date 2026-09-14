@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../src/components/Glyph';
+import { DurumUnread } from '../../src/components/Durum';
 import {
     agoLabel, matches, mineCount, sortBook, splitName,
     type BookCustomer,
@@ -120,7 +121,7 @@ export default function Customers() {
             ) : null}
 
             {bookState === 'error' ? (
-                <Unread onRetry={() => { feedback.selection(); void reload(); }} />
+                <DurumUnread what="Defteri" notMeaning="Müşteriniz olmadığı" onRetry={() => { void reload(); }} style={{ flex: 1, paddingHorizontal: small ? M.padSm : M.pad }} />
             ) : bookState === 'loading' ? (
                 /* Yükleniyor SESSİZ — `personel/index.tsx` ile aynı gerekçe:
                    liste çoğu zaman bir saniyeden kısa sürede geliyor ve o
@@ -321,34 +322,6 @@ function Row({ customer, today, last, onOpen }: {
  * saymak demek. Ayrı görsel icat edilmiyor: aynı yerleşim, ayrı cümle ve tek
  * bir eylem (`personel/index.tsx` · hata dalıyla aynı dil).
  */
-function Unread({ onRetry }: { onRetry: () => void }) {
-    const { c, small } = useTheme();
-    return (
-        <View style={{ flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: small ? M.padSm : M.pad, paddingBottom: 130 }}>
-            <Text style={{
-                fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
-                fontFamily: font.extraLight, color: c.tx,
-            }}>
-                Defteri <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
-            </Text>
-            <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
-                Müşteriniz olmadığı anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.
-            </Text>
-            <Pressable
-                accessibilityRole="button"
-                onPress={onRetry}
-                style={({ pressed }) => ({
-                    alignSelf: 'flex-start', marginTop: 6,
-                    paddingHorizontal: 16, height: 40, borderRadius: 20,
-                    alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                })}
-            >
-                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
-            </Pressable>
-        </View>
-    );
-}
 
 /**
  * İki boş hâl, iki ayrı sebep: veri hiç yok · sorgu eşleşmedi. Üçüncüsü

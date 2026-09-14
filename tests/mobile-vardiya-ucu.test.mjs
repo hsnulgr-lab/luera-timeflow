@@ -207,8 +207,8 @@ test('okunamayan hafta BOŞ HAFTA gibi çizilmiyor', () => {
     // Yedi kapalı satır "bu hafta hiç çalışmıyorsun" der ve o cümle bir arıza
     // hâlinde yalan olur — personel ona göre plan yapar.
     assert.match(shiftPage, /source \? \(/);
-    assert.match(shiftPage, /<Unread onRetry=/);
-    assert.match(shiftPage, /Çalışma gününüz olmadığı anlamına gelmez/);
+    assert.match(shiftPage, /<DurumUnread/);
+    assert.match(shiftPage, /notMeaning="Çalışma gününüz olmadığı"/);
     // Kaynak boş hafta ÜRETMİYOR.
     assert.match(source, /source: ShiftSource \| null;/);
 });

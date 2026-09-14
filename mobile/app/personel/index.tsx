@@ -23,6 +23,7 @@ import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import { formatDayMonth, todayISO } from '../../src/lib/calendar';
 import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
+import { DurumBand, DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { useFailedWrites } from '../../src/lib/failedWrites';
 import { failureAdvice, failureLine, failureTitle } from '../../src/lib/writeFailure';
 import { isStale, useAgenda } from '../../src/lib/agendaSource';
@@ -233,7 +234,7 @@ export default function Today() {
                     geçiyor: ikisi de amber ve ikisi de tazelikten söz ediyor,
                     yan yana durmaları hangisinin ne dediğini bulandırırdı. */}
                 {agendaState === 'cached' && readAt !== null ? (
-                    <CachedBand at={readAt} onRetry={() => { feedback.selection(); reload(); }} />
+                    <CachedBand at={readAt} onRetry={reload} />
                 ) : null}
 
                 {agendaState === 'ok' && isStale(readAt, now) ? (
@@ -270,46 +271,17 @@ export default function Today() {
                 <NowLineSlot active={lineAfter < 0} time={clockOf(now)} />
 
                 {agendaState === 'error' ? (
-                    /* OKUNAMADI — "randevu yok" DEĞİL. Ayrı bir görsel
-                       icat edilmiyor: aynı yerleşim, ayrı cümle ve tek bir
-                       eylem. Durum ekranlarının kendi turu (Müdür 28) hâlâ
-                       rafta; burada yapılan tek şey, hatanın boş bir gün
-                       gibi okunmasını engellemek. */
-                    <View style={{ paddingHorizontal: 16, paddingTop: 26, gap: 7 }}>
-                        <Text style={{
-                            color: c.tx,
-                            fontSize: 19,
-                            lineHeight: 22.8,
-                            letterSpacing: -0.38,
-                            fontFamily: font.extraLight,
-                        }}>
-                            Bu günü <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
-                        </Text>
-                        <Text style={{
-                            color: c.tx2,
-                            fontSize: 13.5,
-                            lineHeight: 20.25,
-                            fontWeight: '500',
-                            maxWidth: 310,
-                        }}>
-                            Randevunuz olmadığı anlamına gelmez. Bağlantınızı kontrol edip
-                            tekrar deneyin.
-                        </Text>
-                        <Pressable
-                            accessibilityRole="button"
-                            onPress={() => { feedback.selection(); reload(); }}
-                            style={({ pressed }) => ({
-                                alignSelf: 'flex-start', marginTop: 6,
-                                paddingHorizontal: 16, height: 40, borderRadius: 20,
-                                alignItems: 'center', justifyContent: 'center',
-                                backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                            })}
-                        >
-                            <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>
-                                Tekrar dene
-                            </Text>
-                        </Pressable>
-                    </View>
+                    /* OKUNAMADI — "randevu yok" DEĞİL. Gövde beş ekranda
+                       tekrarlanan koddan tek bileşene indi (`DurumUnread`) ve
+                       düğme turun ölçüsüne çıktı: 40 → 52 pt. Durum
+                       ekranlarının kendi turu (`Durumlar.html`) artık
+                       uygulanıyor. */
+                    <DurumUnread
+                        what="Bu günü"
+                        notMeaning="Randevunuz olmadığı"
+                        onRetry={reload}
+                        style={{ paddingHorizontal: 16 }}
+                    />
                 ) : agendaState === 'loading' ? (
                     /* Yükleniyor SESSİZ: iskelet ya da dönen çark yok. Liste
                        çoğu zaman bir saniyeden kısa sürede geliyor ve o kadar
@@ -370,96 +342,49 @@ export default function Today() {
 }
 
 /**
- * Gönderilemeyen yazmalar.
- *
- * Amber ve kabul düğmeli. Kapatılabilir olması şart: kalıcı bir uyarı bir
- * süre sonra görülmeyen bir şeye dönüşür. Ama KENDİLİĞİNDEN kapanmıyor —
- * personel kaybı görmeden gün geçmemeli.
- */
-/**
  * Diskten çizilen gün.
  *
- * Sessiz bir satır değil, BLOK: personel bu listeye bakarak kimin geleceğine
- * karar veriyor ve liste iptal edilmiş bir randevuyu hâlâ gösteriyor olabilir.
- * "Son güncelleme" satırının fısıltısı burada yetmiyor.
+ * ŞERİT, blok değil: ortada karar yok, yalnız bir olgu var — "bu liste canlı
+ * değil, şu saatte okundu". Turun çevrimdışı bandıyla aynı model
+ * (`Durumlar.html`): tamamı dokunulabilir, ayrı bir düğme taşımıyor. 30 pt'lik
+ * bir şeride 56 pt'lik düğme sokmak turu yanlış okumak olurdu.
  *
  * Saat UYDURULMUYOR: damga kopyanın çekildiği an, şimdi değil.
  */
 function CachedBand({ at, onRetry }: { at: number; onRetry: () => void }) {
-    const { c } = useTheme();
     return (
-        <View style={{
-            marginHorizontal: 16, marginBottom: 12,
-            paddingVertical: 10, paddingHorizontal: 13,
-            borderRadius: 12,
-            backgroundColor: 'rgba(217,164,59,0.11)',
-            borderWidth: 1, borderColor: 'rgba(217,164,59,0.32)',
-            flexDirection: 'row', alignItems: 'center', gap: 9,
-        }}>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.am }} />
-            <Text style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: '600', color: c.tx2 }}>
-                <Text style={{ fontWeight: '800', color: c.tx }}>Çevrimdışı liste</Text>
-                {` · ${clockOf(at)}'te okundu`}
-            </Text>
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Listeyi yenile"
-                onPress={onRetry}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 4, paddingVertical: 4 })}
-            >
-                <Text style={{ color: c.tx, fontSize: 12.5, fontWeight: '700' }}>Yenile</Text>
-            </Pressable>
-        </View>
+        <DurumBand
+            label="Çevrimdışı liste"
+            tail={`${clockOf(at)}'te okundu`}
+            hint="Yenilemek için dokunun"
+            onPress={onRetry}
+        />
     );
 }
 
+/**
+ * Gönderilemeyen işlemler.
+ *
+ * TON KIRMIZI, amber değil. Turun kuralı: "Amber — iş durmuyor demek.
+ * Kırmızı — yalnız gerçekten başarısız olan işlemde." Bu iş gerçekten
+ * başarısız oldu; kuyrukta bekleyen değil ATILMIŞ bir iş. İlk yazımda amberdi
+ * ve öteki amber şeritlerden ayırt edilemiyordu.
+ *
+ * Kapatılabilir olması şart: kalıcı bir uyarı bir süre sonra görülmeyen bir
+ * şeye dönüşür. Ama KENDİLİĞİNDEN kapanmıyor — personel kaybı görmeden gün
+ * geçmemeli.
+ */
 function FailedWrites() {
-    const { c } = useTheme();
     const { items, accept } = useFailedWrites();
     if (items.length === 0) return null;
-
-    const advice = failureAdvice(items);
     return (
-        <View
-            accessible
-            accessibilityLabel={[failureTitle(items.length), ...items.map(failureLine), advice]
-                .filter(Boolean).join('. ')}
-            style={{
-                marginHorizontal: 16, marginBottom: 14,
-                padding: 14, gap: 7, borderRadius: 14,
-                backgroundColor: 'rgba(217,164,59,0.12)',
-                borderWidth: 1, borderColor: 'rgba(217,164,59,0.30)',
-            }}
-        >
-            <Text style={{ color: c.tx, fontSize: 14, fontWeight: '800', letterSpacing: -0.28 }}>
-                {failureTitle(items.length)}
-            </Text>
-            {/* Her kayıp AYRI satır: "bazı kayıtlar" demek üç kaybı bir kayıp
-                gibi okutur ve personel kaç adisyonu yeniden gireceğini
-                bilemez. */}
-            {items.map((item) => (
-                <Text key={item.key} style={{ color: c.tx2, fontSize: 12.5, fontWeight: '500', lineHeight: 18 }}>
-                    {failureLine(item)}
-                </Text>
-            ))}
-            {advice ? (
-                <Text style={{ color: c.tx2, fontSize: 12.5, fontWeight: '700', lineHeight: 18 }}>
-                    {advice}
-                </Text>
-            ) : null}
-            <Pressable
-                accessibilityRole="button"
-                onPress={() => { feedback.selection(); accept(); }}
-                style={({ pressed }) => ({
-                    alignSelf: 'flex-start', marginTop: 2,
-                    paddingHorizontal: 14, height: 34, borderRadius: 17,
-                    alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                })}
-            >
-                <Text style={{ color: c.tx, fontSize: 13, fontWeight: '700' }}>Anladım</Text>
-            </Pressable>
-        </View>
+        <DurumBlock
+            tone="red"
+            title={failureTitle(items.length)}
+            lines={items.map(failureLine)}
+            note={failureAdvice(items)}
+            actions={[{ label: 'Anladım', onPress: accept }]}
+        />
     );
 }
 

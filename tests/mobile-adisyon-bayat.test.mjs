@@ -70,7 +70,12 @@ test('kumanda değişikliği GÖSTERİYOR ve kararı personele bırakıyor', () 
     assert.match(screen, /Listeyi tazele/);
     // Kendiliğinden tazelemek, personelin yazdığı kalemleri altından çekmek
     // olurdu: şerit bir DÜĞME taşıyor.
-    assert.match(screen, /onRefresh=\{\(\) => \{ feedback\.selection\(\); void reloadVisit\(\); \}\}/);
+    // Dokunuş geri bildirimi artık `DurumBlock`un içinde (tek yerde), o yüzden
+    // çağrı yerinde `feedback` yok. Kural aynı: şerit bir DÜĞME taşıyor ve
+    // tazeleme kendiliğinden olmuyor.
+    assert.match(screen, /onRefresh=\{\(\) => \{ void reloadVisit\(\); \}\}/);
+    const band = screen.slice(screen.indexOf('function ChangedBand'));
+    assert.match(band.slice(0, 1200), /actions=\{\[\{ label: 'Listeyi tazele', onPress: onRefresh \}\]\}/);
 });
 
 test('kasadaki adisyonda şerit ÇIKMIYOR', () => {
@@ -90,7 +95,10 @@ test('tazeleme YALNIZ kalemleri yeniliyor, sayacı değil', () => {
 test('yerel düzenleme YOKSA kayıp cümlesi kurulmuyor', () => {
     const server = linesFromItems([item()]);
     assert.equal(linesDiffer(server, server), false);
-    assert.match(screen, /Listeniz sunucudaki hâline dönecek\./);
+    // "sunucu" kelimesi KALKTI — durum turu teknik sözlüğü yasaklıyor
+    // (`Durumlar.html` · Ortak kurallar). Cümlenin işi aynı.
+    assert.match(screen, /Listeniz salonun güncel hâline dönecek\./);
+    assert.doesNotMatch(screen, /sunucudaki hâline/);
 });
 
 test('eklenen kalem düzenleme SAYILIYOR', () => {

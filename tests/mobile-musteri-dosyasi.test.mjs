@@ -145,8 +145,16 @@ test('OKUNAMADI ile BULUNAMADI ayrı cümleler', () => {
     // kaydı silinmiş gibi göstermek olurdu — personel müşteriyi yeniden
     // kaydetmeye kalkardı.
     assert.match(screen, /fileState === 'error'/);
-    assert.match(screen, /Dosyayı <Text[^>]*>okuyamadık<\/Text>/);
-    assert.match(screen, /Kayıt silinmiş anlamına gelmez/);
+    // Gövde `DurumUnread`e indi (beş ekranda birebir aynı koddu); ekranda
+    // kalan yalnız cümlenin ÖZNESİ. "Kayıt" kelimesi de kalktı — turun
+    // yasaklı sözlüğü.
+    assert.match(screen, /what="Dosyayı"/);
+    assert.match(screen, /notMeaning="Dosya silinmiş"/);
+    // "Kayıt silinmiş" HATA hâlinden kalktı. BULUNAMADI hâlinde hâlâ duruyor
+    // ve o Personel 09 turunun onaylanmış metni — tek başıma yeniden
+    // yazmıyorum (bkz. `mobile-durum-dili` · KNOWN listesi).
+    const errorBlock = screen.slice(screen.indexOf("fileState === 'error'"), screen.indexOf('if (!file)'));
+    assert.doesNotMatch(errorBlock, /Kayıt silinmiş/);
     assert.match(screen, /title="Müşteri bulunamadı"/);
     // 404 KAYIT YOK demek; ötekiler OKUYAMADIK.
     assert.match(source, /if \(status === 404\) \{[\s\S]{0,120}setState\('missing'\); return; \}/);

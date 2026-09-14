@@ -190,9 +190,9 @@ test('okunamayan defter "müşteri yok" DEMİYOR', () => {
     // Ekranın iki boş hâli var (kayıt yok · arama eşleşmedi) ve okunamayan bir
     // defterin ikisine de benzemesi, olmayan bir gerçeği söylemek olurdu.
     assert.match(screen, /bookState === 'error' \? \(/);
-    assert.match(screen, /<Unread onRetry=/);
-    assert.match(screen, /Defteri <Text[^>]*>okuyamadık<\/Text>/);
-    assert.match(screen, /Müşteriniz olmadığı anlamına gelmez/);
+    assert.match(screen, /<DurumUnread/);
+    assert.match(screen, /what="Defteri"/);
+    assert.match(screen, /notMeaning="Müşteriniz olmadığı"/);
     // Başlıktaki sayı da susuyor: "0 KAYIT" derken gövde "okuyamadık" diyordu.
     assert.match(screen, /bookState === 'error' \? '—'/);
     // "Henüz kimseye bakmadınız" altyazısı da yalnız OKUNMUŞ defterde.

@@ -20,14 +20,14 @@
  */
 
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Foot, Group, ProfileNav } from '../../src/components/ProfileParts';
+import { DurumUnread } from '../../src/components/Durum';
 import { Num } from '../../src/components/ui';
 import { todayISO } from '../../src/lib/calendar';
-import { feedback } from '../../src/lib/feedback';
 import {
     mondayOf, weekFoot, weekRows, type WeekRow,
 } from '../../src/lib/staffShift';
@@ -96,49 +96,18 @@ export default function StaffShift() {
                         </Foot>
                     </>
                 ) : state === 'error' ? (
-                    <Unread onRetry={() => { feedback.selection(); void reload(); }} />
+                    <DurumUnread
+                        what="Vardiyanızı"
+                        notMeaning="Çalışma gününüz olmadığı"
+                        onRetry={() => { void reload(); }}
+                        style={{ paddingHorizontal: 0 }}
+                    />
                 ) : null}
             </ScrollView>
         </View>
     );
 }
 
-/**
- * Okunamayan hafta. `customers.tsx`teki kardeşiyle AYNI dil: ne olmadığını
- * söylüyor, suçlamıyor, ve tek bir yol gösteriyor.
- *
- * Cümlenin ikinci satırı kritik: boş bir hafta "bu hafta çalışmıyorsun"
- * demek ve personel ona göre plan yapar.
- */
-function Unread({ onRetry }: { onRetry: () => void }) {
-    const { c } = useTheme();
-    return (
-        <View style={{ gap: 8, paddingTop: 24 }}>
-            <Text style={{
-                fontSize: 19, lineHeight: 22.8, letterSpacing: -0.38,
-                fontFamily: font.extraLight, color: c.tx,
-            }}>
-                Vardiyanızı <Text style={{ fontFamily: font.bold }}>okuyamadık</Text>.
-            </Text>
-            <Text style={{ fontSize: 13.5, fontWeight: '500', lineHeight: 20.25, color: c.tx2, maxWidth: 310 }}>
-                Çalışma gününüz olmadığı anlamına gelmez. Bağlantınızı kontrol edip
-                tekrar deneyin.
-            </Text>
-            <Pressable
-                accessibilityRole="button"
-                onPress={onRetry}
-                style={({ pressed }) => ({
-                    alignSelf: 'flex-start', marginTop: 6,
-                    paddingHorizontal: 16, height: 40, borderRadius: 20,
-                    alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                })}
-            >
-                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
-            </Pressable>
-        </View>
-    );
-}
 
 /**
  * Tek satır, üç hâl, üstünde bir katman. Dokunulamaz olduğu için

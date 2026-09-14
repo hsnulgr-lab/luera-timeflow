@@ -112,7 +112,10 @@ test('kayıp EYLEM adıyla değil, kaybedilen ŞEYLE anlatılıyor', () => {
 });
 
 test('bilinmeyen kod SEBEP UYDURMUYOR', () => {
-    assert.equal(failureReason('bir_sey'), 'sunucu kabul etmedi');
+    // "Sunucu" KALKTI: durum turu teknik sözlüğü yasaklıyor ve zaten
+    // personelin yapabileceği bir şey değil.
+    assert.equal(failureReason('bir_sey'), 'kabul edilmedi');
+    assert.doesNotMatch(failureReason('bir_sey'), /sunucu/i);
     // Az şey söylüyor ama YANLIŞ bir şey söylemiyor.
     assert.doesNotMatch(failureReason('bir_sey'), /adisyon|randevu|yetki|oturum/);
     assert.match(failureReason('items_stale'), /başka bir cihazda/);
@@ -122,8 +125,11 @@ test('bilinmeyen kod SEBEP UYDURMUYOR', () => {
 test('başlık GERÇEK sayıyı söylüyor', () => {
     // "Bazı kayıtlar" demek üç kaybı bir kayıp gibi okutur; personel kaç
     // adisyonu yeniden gireceğini bilmek zorunda.
-    assert.equal(failureTitle(1), 'Bir kayıt gönderilemedi');
-    assert.equal(failureTitle(3), '3 kayıt gönderilemedi');
+    // KELİME "kayıt" DEĞİL "işlem": turun yasaklı sözlüğü. Turun kendi dili
+    // de böyle — "İşleminiz kaybolmadı, telefonda duruyor."
+    assert.equal(failureTitle(1), 'Bir işlem gönderilemedi');
+    assert.equal(failureTitle(3), '3 işlem gönderilemedi');
+    assert.doesNotMatch(failureTitle(3), /kayıt/);
     assert.doesNotMatch(failureTitle(3), /bazı/i);
 });
 
@@ -148,14 +154,18 @@ test('Bugün ekranı kaybı GÖSTERİYOR', () => {
     assert.match(today, /<FailedWrites \/>/);
     assert.match(today, /useFailedWrites\(\)/);
     assert.match(today, /if \(items\.length === 0\) return null;/);
-    // Her kayıp AYRI satır.
-    assert.match(today, /items\.map\(\(item\) => \(/);
+    // Her kayıp AYRI satır — çizim `DurumBlock`ta, liste burada kuruluyor.
+    assert.match(today, /lines=\{items\.map\(failureLine\)\}/);
+    const durum = read('src/components/Durum.tsx');
+    assert.match(durum, /lines\.map\(\(line\) =>/);
+    // TON KIRMIZI: gerçekten başarısız olan tek durum bu.
+    assert.match(today, /tone="red"/);
 });
 
 test('blok KABUL EDİLENE kadar duruyor', () => {
     // Geçici bir bildirim olamaz: kayıp arka planda doğuyor ve o an personel
     // başka bir ekranda olabilir. Ama kendiliğinden de kapanmıyor.
-    assert.match(today, /accept\(\);/);
+    assert.match(today, /onPress: accept/);
     assert.match(today, /Anladım/);
     const hook = code(read('src/lib/failedWrites.ts'));
     assert.match(hook, /setItems\(\[\]\);/);

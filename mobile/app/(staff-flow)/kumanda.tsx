@@ -64,6 +64,7 @@ import {
     type FormulaDraft, type FormulaPrevious,
 } from '../../src/components/FormulaBody';
 import { comparisonFor } from '../../src/lib/customerFileMap';
+import { DurumAction, DurumBlock } from '../../src/components/Durum';
 import { font, numeric, useTheme } from '../../src/theme';
 import { upperTR } from '../../src/lib/text';
 
@@ -446,19 +447,12 @@ export default function Kumanda() {
                                 ? 'Randevu silinmiş anlamına gelmez. Bağlantınızı kontrol edip tekrar deneyin.'
                                 : 'Randevu iptal edilmiş ya da başka bir güne taşınmış olabilir.'}
                         </Text>
+                        {/* Düğme ölçüsü TURDAN (`Durumlar.html`): 52–60 pt,
+                            başparmak bölgesinde. Eskiden 40 pt'ti ve ıslak elle
+                            zordu. Bulunamayan randevuda düğme YOK — tekrar
+                            denemek onu geri getirmez. */}
                         {visitState === 'error' ? (
-                            <Pressable
-                                accessibilityRole="button"
-                                onPress={() => { feedback.selection(); void reloadVisit(); }}
-                                style={({ pressed }) => ({
-                                    alignSelf: 'flex-start', marginTop: 6,
-                                    paddingHorizontal: 16, height: 40, borderRadius: 20,
-                                    alignItems: 'center', justifyContent: 'center',
-                                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                                })}
-                            >
-                                <Text style={{ color: c.tx, fontSize: 14, fontWeight: '700' }}>Tekrar dene</Text>
-                            </Pressable>
+                            <DurumAction label="Tekrar dene" onPress={() => { void reloadVisit(); }} />
                         ) : null}
                     </View>
                 )}
@@ -680,10 +674,7 @@ export default function Kumanda() {
                     Kasada duran adisyonda anlamı yok: orada yazılacak bir şey
                     kalmadı ve şerit yalnız gürültü olurdu. */}
                 {changed && !delivered ? (
-                    <ChangedBand
-                        dirty={dirty}
-                        onRefresh={() => { feedback.selection(); void reloadVisit(); }}
-                    />
+                    <ChangedBand dirty={dirty} onRefresh={() => { void reloadVisit(); }} />
                 ) : null}
 
                 {startCode ? (
@@ -1599,59 +1590,27 @@ function ClosingDial({ total, count, revealed, onReveal, runKey, span, minutes }
 /**
  * Adisyon başka bir cihazda değişti.
  *
- * ── Neden ayrı bir şerit ────────────────────────────────────────────────────
- * Ötekiler OLMUŞ bir şeyi bildiriyor; bu, OLACAK bir şeyi engelliyor. Personel
- * boya beklemesi boyunca (30–40 dk) kumandada kalıyor ve masaüstündeki
- * kasiyerin adisyona dokunduğunu bilmiyordu. Göndermeye kalkınca `409
- * items_stale` alıyor, kalemleri gidemiyor ve kayıp ancak SONRADAN
- * söyleniyordu.
+ * ── Neden şerit değil BLOK ──────────────────────────────────────────────────
+ * Ötekiler OLMUŞ bir şeyi bildiriyor; bu, OLACAK bir şeyi engelliyor ve
+ * personelin KARAR vermesi gerekiyor — tazelemek yazdığı kalemleri siler.
+ * Turun kuralı: blok ne olduğunu ve ne yapılacağını söyler, en fazla iki
+ * eylem verir.
  *
- * ── Neden bir düğme ─────────────────────────────────────────────────────────
- * Kendiliğinden tazelemek, personelin yazdığı kalemleri altından çekmek
- * olurdu. Karar onun: ne olduğunu söylüyoruz, ne kaybedeceğini söylüyoruz,
- * dokunmayı ona bırakıyoruz.
+ * TON AMBER: iş durmuyor, kayıp da yok — yalnız iki kopya ayrıştı.
+ *
+ * Bedel açıkça yazılıyor. Yerel düzenleme yoksa o cümle hiç kurulmuyor:
+ * olmayan bir kayıptan söz etmek, dokunmayı gereksiz yere korkutucu yapardı.
  */
 function ChangedBand({ dirty, onRefresh }: { dirty: boolean; onRefresh: () => void }) {
-    const { c } = useTheme();
     return (
-        <View style={{
-            marginHorizontal: 20,
-            marginBottom: 10,
-            paddingVertical: 10,
-            paddingHorizontal: 13,
-            borderRadius: 12,
-            backgroundColor: 'rgba(217,164,59,0.11)',
-            borderWidth: 1,
-            borderColor: 'rgba(217,164,59,0.32)',
-            gap: 7,
-        }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.am }} />
-                <Text style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.69, color: c.am }}>
-                    {upperTR('Adisyon başka bir cihazda değişti')}
-                </Text>
-            </View>
-            {/* Bedel AÇIKÇA yazılıyor. Yerel düzenleme yoksa o cümle hiç
-                kurulmuyor: olmayan bir kayıptan söz etmek, dokunmayı gereksiz
-                yere korkutucu yapardı. */}
-            <Text style={{ fontSize: 12, fontWeight: '500', lineHeight: 18, color: c.tx2 }}>
-                {dirty
-                    ? 'Tazelerseniz göndermediğiniz kalemleri yeniden girmeniz gerekir.'
-                    : 'Listeniz sunucudaki hâline dönecek.'}
-            </Text>
-            <Pressable
-                accessibilityRole="button"
-                onPress={onRefresh}
-                style={({ pressed }) => ({
-                    alignSelf: 'flex-start',
-                    paddingHorizontal: 14, height: 34, borderRadius: 17,
-                    alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: c.fld, opacity: pressed ? 0.7 : 1,
-                })}
-            >
-                <Text style={{ color: c.tx, fontSize: 13, fontWeight: '700' }}>Listeyi tazele</Text>
-            </Pressable>
-        </View>
+        <DurumBlock
+            title="Adisyon başka bir cihazda değişti"
+            lines={[dirty
+                ? 'Tazelerseniz göndermediğiniz kalemleri yeniden girmeniz gerekir.'
+                : 'Listeniz salonun güncel hâline dönecek.']}
+            actions={[{ label: 'Listeyi tazele', onPress: onRefresh }]}
+            style={{ marginHorizontal: 20, marginBottom: 10 }}
+        />
     );
 }
 
