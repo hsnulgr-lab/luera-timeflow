@@ -418,8 +418,8 @@ export function LogoutSheet({ visible, businessName, onDismiss, onConfirm }: {
                     fontWeight: '600',
                     lineHeight: 21,
                 }}>
-                    Bu telefon <Strong>{businessName}</Strong> bağlantısını kaybeder. Geri dönmek için
-                    işletmeden <Strong>yeni bir bağlantı kodu</Strong> istemeniz gerekir; eski kod çalışmaz.
+                    Bu telefon <Strong>{businessName}</Strong> işletmesine <Strong>bağlı kalır</Strong>.
+                    Geri dönünce yalnız şifreniz sorulur; yeni kod gerekmez.
                 </Text>
 
                 {/* Ne kaybedilmediği de söyleniyor: korku değil, ölçü. */}
@@ -449,7 +449,7 @@ export function LogoutSheet({ visible, businessName, onDismiss, onConfirm }: {
                             color: c.tx2, fontSize: 12.5,
                             fontFamily: font.semiBold, fontWeight: '600', lineHeight: 17.5,
                         }}>
-                            Randevularınız ve müşteri geçmişi işletmede kalır.
+                            Randevularınız, müşteri geçmişi ve telefonun bağlantısı.
                         </Text>
                     </View>
                 </View>

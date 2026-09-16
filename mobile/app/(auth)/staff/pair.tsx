@@ -14,7 +14,7 @@ import {
     AuthOfflineScreen,
     AuthStatusScreen,
 } from '../../../src/components/ui';
-import { expiredPairCode, lockWaitText, pairLocked } from '../../../src/lib/authCopy';
+import { expiredPairCode, lockWaitText, pairLocked, usedPairCode } from '../../../src/lib/authCopy';
 import { formatPairingCode } from '../../../src/lib/authValidation';
 import { feedback } from '../../../src/lib/feedback';
 import { authMetrics, authMotion, font, radius, type, useTheme } from '../../../src/theme';
@@ -40,10 +40,14 @@ async function ownerOrNull(): Promise<PairOwner | null> {
     return authApi.staff.owner();
 }
 
+/*
+ * EKİP KODU (099): tek kod, bütün ekip. Kod ister masaüstünden ister müdürün
+ * telefonundan üretilir; personel yazdıktan sonra listeden kendini seçer.
+ */
 const HELP_STEPS = [
-    'İşletme sahibi bilgisayarda Luera’yı açar.',
-    'Personel listesinde adınızın yanındaki Telefon bağla’ya basar.',
-    'Ekranda çıkan altı haneli kodu size söyler. Kod 10 dakika geçerlidir.',
+    'Müdür Luera’da Personel ekranını açar — bilgisayarda ya da kendi telefonunda.',
+    'Telefon bağla’ya basar; ekranda altı haneli kod çıkar.',
+    'Kodu buraya yazıp listeden kendinizi seçin. Kod 15 dakika geçerli, bütün ekip aynı kodu kullanır.',
 ] as const;
 
 function PairHelp({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
@@ -149,22 +153,14 @@ function PairHelp({ visible, onDismiss }: { visible: boolean; onDismiss: () => v
                                 fontWeight: '500',
                                 lineHeight: authMetrics.helpStepText * authMetrics.helpStepLine,
                             }}>
-                                {index === 1 ? (
-                                    <>
-                                        Personel listesinde adınızın yanındaki{' '}
-                                        <Text style={{ color: c.tx, fontFamily: font.bold, fontWeight: '700' }}>
-                                            Telefon bağla
-                                        </Text>
-                                        ’ya basar.
-                                    </>
-                                ) : step}
+                                {step}
                             </Text>
                         </View>
                     ))}
                 </View>
 
                 <AuthBanner inset={false}>
-                    Kodu yalnız işletme sahibi üretebilir. Uygulamadan istek gönderemezsiniz.
+                    Kodu yalnız müdür üretebilir. Uygulamadan istek gönderemezsiniz.
                 </AuthBanner>
                 <AuthActionButton label="Anladım" kind="secondary" onPress={close} />
             </Animated.View>
@@ -180,7 +176,7 @@ export default function PairDevice() {
     const [submitting, setSubmitting] = useState(false);
     const [offline, setOffline] = useState(false);
     const [invalid, setInvalid] = useState(false);
-    const [expired, setExpired] = useState<{ owner: PairOwner | null } | null>(null);
+    const [expired, setExpired] = useState<{ owner: PairOwner | null; used?: boolean } | null>(null);
     /**
      * Kilidin bitiş anı. `owner` ayrı tutuluyor çünkü kilit ekranı onsuz da
      * çizilebilmeli: sahibin bilgisi okunamazsa kişi en azından ne kadar
@@ -227,21 +223,40 @@ export default function PairDevice() {
         const result = await authApi.staff.pair(code);
         setSubmitting(false);
         if (result.ok) {
+            /*
+             * Kod BİR PERSONELE bağlıysa (masaüstü Personel sayfasının "Telefon
+             * bağla"sı hep böyle üretiyor) "Siz kimsiniz?" adımı ATLANIR —
+             * sunucu da bunu söylüyordu, istemci dinlemiyordu. Seçim tutmazsa
+             * (ör. personelin PIN'i yok) liste ekranı sebebi söyler.
+             */
+            if (result.data.staffId) {
+                const chosen = await authApi.staff.select(result.data.staffId);
+                if (chosen.ok) { router.push('/(auth)/staff/pin'); return; }
+            }
             router.push('/(auth)/staff/who');
             return;
         }
         if (result.error === 'offline') { setOffline(true); return; }
+        /*
+         * ABONELİK — kod DOĞRUYDU. Eskiden bu da "Bu kod eşleşmedi" bandına
+         * düşüyordu: kişi doğru kodu tekrar tekrar yazıyor, her deneme kilit
+         * sayacını besliyordu. PIN ekranıyla aynı yere gidiyor.
+         */
+        if (result.error === 'subscription_inactive') {
+            router.replace('/(auth)/locked');
+            return;
+        }
         // Süresi dolmuş kod aynı ekranda çözülemez: yeni kodu ancak işletme
         // sahibi üretebilir. Bu yüzden banner değil, kendi ekranı.
-        if (result.error === 'expired_pair_code') {
+        if (result.error === 'expired_pair_code' || result.error === 'used_pair_code') {
             feedback.warning();
-            setExpired({ owner: await ownerOrNull() });
+            setExpired({ owner: await ownerOrNull(), used: result.error === 'used_pair_code' });
             return;
         }
         /*
          * KİLİT — kodu suçlamıyor.
          *
-         * On yanlış denemeden sonra sunucu koda BAKMIYOR; doğru kod da
+         * Yirmi yanlış denemeden sonra (099, önce on) sunucu koda BAKMIYOR; doğru kod da
          * reddediliyor. Buradaki eski davranış kodu suçlayan kırmızı banttı:
          * kişi aynı doğru kodu yeniden yazıyor, her yazışı kilidi besliyordu.
          * Sarsıntı da yok — sarsıntı "yanlış yazdın" demek.
@@ -304,8 +319,8 @@ export default function PairDevice() {
             <AuthStatusScreen
                 tone="amber"
                 icon="clock"
-                title={expiredPairCode.title}
-                body={expiredPairCode.body}
+                title={expired.used ? usedPairCode.title : expiredPairCode.title}
+                body={expired.used ? usedPairCode.body : expiredPairCode.body}
                 detail={expired.owner ? (
                     <AuthDetailList rows={[{
                         title: expired.owner.name,

@@ -86,7 +86,9 @@ test('personel varyantı PIN ve yeniden eşleştirme sonucunu söyler; silme yet
         'Face ID ile aç',
         'Kapalı',
         'Oturumu kapat',
-        'Çıkarsanız bu telefonu yeniden bağlamak için işletmeden yeni bir kod istemeniz gerekir.',
+        // 099 · çıkış eşleşmeyi SİLMEZ (müdür kararı): cümle de öyle söylüyor.
+        'Telefon işletmeye bağlı kalır; sonraki girişte yalnız şifreniz sorulur.',
+        'Şifreyi değiştir',
         'Bilgileriniz işletmenin kaydında tutuluyor. Çıkarılmak isterseniz işletme sahibiyle konuşun.',
     ]) {
         assert.ok(accountCopyBundle.includes(copy), `Giriş 14 personel metni eksik: ${copy}`);

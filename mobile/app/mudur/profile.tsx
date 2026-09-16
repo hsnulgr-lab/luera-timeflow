@@ -137,6 +137,13 @@ export default function ManagerProfile() {
                         sub={services.length > 0 ? servicesSummary(services) : undefined}
                         onPress={() => router.push('/(manager-flow)/profil/hizmetler')}
                     />
+                    {/* 099 · telefon bağla (ekip kodu) + şifre sıfırlama. */}
+                    <ProfileRow
+                        big
+                        title="Personel"
+                        sub="Telefon bağla · giriş durumu"
+                        onPress={() => router.push('/(manager-flow)/profil/personel')}
+                    />
                 </Group>
 
                 <Group>

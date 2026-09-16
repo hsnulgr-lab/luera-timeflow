@@ -234,7 +234,13 @@ export const tokens = {
      *  vardiya değişiminde org sahibinin gelip cihazı yeniden eşlemesi
      *  gerekirdi. */
     clearStaff: () => SecureStore.deleteItemAsync(K_STAFF, secureOptions),
-    /** Telefonu işletmeden çıkarır: yeniden bağlamak için yeni kod gerekir. */
+    /**
+     * Telefonu işletmeden çıkarır: yeniden bağlamak için yeni kod gerekir.
+     *
+     * YALNIZ "Bu telefonu işletmeden çıkar" çağırır (099). Oturumu kapatmak
+     * bunu ÇAĞIRMAZ: personel çıkınca telefon bağlı kalır, sonraki girişte
+     * yalnız şifre sorulur — müdür kararı.
+     */
     clearDevice: () => SecureStore.deleteItemAsync(K_DEVICE, secureOptions),
 };
 
@@ -245,6 +251,9 @@ export const auth = {
     roster: (deviceToken: string) => raw('roster', {}, deviceToken),
     start: (deviceToken: string, staffId: string, pin: string) =>
         raw('session.start', { staffId, pin }, deviceToken),
+    /** Şifresi olmayan personel İLK şifresini belirler ve girer (099). */
+    pinSetup: (deviceToken: string, staffId: string, pin: string) =>
+        raw('pin.setup', { staffId, pin }, deviceToken),
 };
 
 /** Kimlikli çağrı: personel token'ı ile. */
@@ -256,6 +265,8 @@ async function call(action: string, body: Record<string, unknown> = {}) {
 
 export const api = {
     me: () => call('me'),
+    /** Kendi şifresini değiştirir; cevap YENİ kuşakla basılmış token taşır (099). */
+    pinChange: (currentPin: string, pin: string) => call('pin.change', { currentPin, pin }),
     /**
      * Personel token'ını tazeler.
      *

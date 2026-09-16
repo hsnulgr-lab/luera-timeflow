@@ -277,6 +277,8 @@ export const authMetrics = {
     pinTop: 30,
     pinGap: 24,
     pinErrorBottom: 16,
+    /** Şifre belirleme alt satırı (099) — başlığın altında, noktaların üstünde. */
+    pinSetupHint: 14,
     pinHelpTop: 10,
     pinHelpBottom: 44,
     staffListBottom: 46,
@@ -755,12 +757,15 @@ export const flowMetrics = {
     liveDot: 6,
     liveCounter: 34,
     liveSub: 11.5,
+    // Müdür 29 v2 · `.staffpill{height:36;padding:0 14px 0 5px;gap:9px}`
+    // `.staffpill s{26×26;border:2px or;font:11/800;bg:--ps;color:--pk}`
     whoHeight: 36,
     whoX: 14,
-    whoGap: 8,
+    whoLeft: 5,
+    whoGap: 9,
     whoText: 14.5,
     whoAvatar: 26,
-    whoAvatarText: 10.5,
+    whoAvatarText: 11,
     whoBg: '#1C1710',
     whoTx: '#F3EDE3',
     whoAvatarBg: 'rgba(243,237,227,0.13)',

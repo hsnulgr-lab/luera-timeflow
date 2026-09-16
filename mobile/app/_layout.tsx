@@ -69,6 +69,9 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/bildirimler" />
                 <Stack.Screen name="(ortak)/profil/yasal" />
                 <Stack.Screen name="(manager-flow)/profil/hesap-sil" />
+                {/* 099 — personelin telefonu: ekip kodu ve şifre. */}
+                <Stack.Screen name="(manager-flow)/profil/personel" />
+                <Stack.Screen name="(staff-flow)/sifre" />
             </Stack>
         </>
     );

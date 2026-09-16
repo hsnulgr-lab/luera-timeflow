@@ -52,11 +52,22 @@ export default function ChooseStaff() {
                 router.replace('/(auth)/staff/pair');
                 return;
             }
+            // Abonelik: "bağlantınızı kontrol edin" demek yalan olurdu.
+            if (result.error === 'subscription_inactive') {
+                router.replace('/(auth)/locked');
+                return;
+            }
             setListError(true);
         }).catch(() => setListError(true));
     }, [router]);
 
     useEffect(() => { load(); }, [load]);
+
+    // Açılış doğrudan buraya yönlendirdiyse geri gidilecek ekran yok.
+    const leave = () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(auth)/welcome');
+    };
 
     const choose = async (staffId: string) => {
         if (busyId) return;
@@ -84,10 +95,10 @@ export default function ChooseStaff() {
                     overField
                     title={roster.business.name}
                     subtitle={roster.business.location}
-                    onBack={() => router.back()}
+                    onBack={leave}
                 />
             ) : (
-                <AuthBackBar onPress={() => router.back()} />
+                <AuthBackBar onPress={leave} />
             )}
 
             <ScrollView
@@ -105,10 +116,34 @@ export default function ChooseStaff() {
                         {roster.staff.map((member) => (
                             <AuthStaffRow
                                 key={member.id}
-                                member={member}
+                                // Şifresi olmayan personel LİSTEDE (099): seçince
+                                // şifresini kendisi belirler. Alt satır bunu söylüyor.
+                                member={member.hasPin === false
+                                    ? { ...member, role: [member.role, 'İlk giriş'].filter(Boolean).join(' · ') }
+                                    : member}
                                 onPress={() => choose(member.id)}
                             />
                         ))}
+                    </View>
+                ) : null}
+                {roster && roster.staff.length === 0 ? (
+                    /*
+                     * BOŞ LİSTE — çıkmaz sokak değil. Liste bütün aktif
+                     * personeli gösteriyor (099); boşsa işletmede kimse
+                     * eklenmemiş demek. Ekran eskiden yalnız başlık çiziyordu.
+                     */
+                    <View style={{
+                        paddingHorizontal: authMetrics.selectionRowX,
+                        gap: authMetrics.staffRowGap,
+                    }}>
+                        <AuthBanner kind="error" inset={false}>
+                            Telefon işletmeye bağlandı, ama listede kimse yok.
+                            Müdür önce Personel sayfasından sizi eklemeli.
+                        </AuthBanner>
+                        <AuthActionButton
+                            label="Tekrar dene"
+                            onPress={() => { setRoster(null); load(); }}
+                        />
                     </View>
                 ) : null}
                 {listError ? (
@@ -134,7 +169,7 @@ export default function ChooseStaff() {
                     </AuthBanner>
                 ) : null}
                 <AuthBanner style={{ marginTop: authMetrics.businessInfoTop }}>
-                    Listede yoksanız işletme sahibi sizi eklemeli.
+                    Listede yoksanız müdür sizi Personel sayfasından eklemeli.
                 </AuthBanner>
             </ScrollView>
         </View>

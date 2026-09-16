@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Personelin telefonunu işletmeye bağlamak için tek kullanımlık kod.
+ * EKİP KODU — personelin telefonunu işletmeye bağlamak için (099).
  *
- * Neden bu var: `device.pair` cihazın başına SAHİBİN geçmesini istiyor — ortak
- * tablet için doğru, kişisel telefon için değil. Sahibin beş personelin
- * telefonunda tek tek oturum açması, şifresini beş kişinin yanında girmesi
- * demek. Kod bu boşluğu kapatıyor: sahip burada üretir, personel telefonuna
- * yazar.
+ * Müdür kararı: tek kod, bütün ekip. Kod 15 dakika geçerli; personel yazar,
+ * telefonda listeden kendini seçer ve şifresini KENDİSİ belirler. Eskiden kod
+ * kişi başına ve tek kullanımlıktı: beş personel = beş ayrı kod.
+ *
+ * Aynı kod müdürün telefonundan da üretilebiliyor (Profil → Personel); yenisi
+ * hangi cihazdan üretilirse üretilsin eskisini kapatır.
  *
  * Kod sunucuda AÇIK SAKLANMAZ; yalnız bu cevapta bir kez görünür. Ekrandan
  * kaybolursa yenisi üretilir — saklamaya çalışmaktan iyidir.
@@ -20,22 +21,17 @@ export interface PairCode {
 
 const FN = 'staff-api';
 
-export function useDevicePairing(staffId: string | null) {
+async function errorCodeOf(fnError: unknown): Promise<string | null> {
+    const context = (fnError as { context?: { json?: () => Promise<unknown> } } | null)?.context;
+    const body = context?.json ? await context.json().catch(() => null) : null;
+    return (body as { error?: string } | null)?.error ?? null;
+}
+
+export function useDevicePairing() {
     const [code, setCode] = useState<PairCode | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [now, setNow] = useState(() => Date.now());
-    const owner = useRef(staffId);
-
-    // Başka bir personele geçilince önceki kod ekranda kalmasın: yanlış kişiye
-    // okunan kod, o kişinin telefonunu başkasının adına bağlar.
-    useEffect(() => {
-        if (owner.current !== staffId) {
-            owner.current = staffId;
-            setCode(null);
-            setError(null);
-        }
-    }, [staffId]);
 
     useEffect(() => {
         if (!code) return undefined;
@@ -47,15 +43,16 @@ export function useDevicePairing(staffId: string | null) {
     const expired = Boolean(code) && secondsLeft === 0;
 
     const create = useCallback(async () => {
-        if (!staffId || busy) return;
+        if (busy) return;
         setBusy(true);
         setError(null);
         try {
             const { data, error: fnError } = await supabase.functions.invoke(FN, {
-                body: { action: 'device.code.create', staffId },
+                body: { action: 'device.code.create' },
             });
             if (fnError || !data?.ok) {
-                setError(data?.error === 'owner_required'
+                const reason = data?.error ?? await errorCodeOf(fnError);
+                setError(reason === 'owner_required'
                     ? 'Kod üretmek için işletme sahibi olmanız gerekiyor.'
                     : 'Kod üretilemedi. Tekrar deneyin.');
                 return;
@@ -67,9 +64,32 @@ export function useDevicePairing(staffId: string | null) {
         } finally {
             setBusy(false);
         }
-    }, [busy, staffId]);
+    }, [busy]);
 
     const clear = useCallback(() => { setCode(null); setError(null); }, []);
 
     return { code, secondsLeft, expired, busy, error, create, clear };
+}
+
+/**
+ * Personelin şifresini SIFIRLA (099) — müdür yeni şifre yazmıyor; personel bir
+ * sonraki girişte yenisini telefonundan kendisi belirliyor. Açık oturumları
+ * anında düşer (082 tetikleyicisi).
+ */
+export async function resetStaffPin(staffId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+    try {
+        const { data, error: fnError } = await supabase.functions.invoke(FN, {
+            body: { action: 'staff.pin.reset', staffId },
+        });
+        if (!fnError && data?.ok) return { ok: true };
+        const reason = data?.error ?? await errorCodeOf(fnError);
+        return {
+            ok: false,
+            message: reason === 'owner_required'
+                ? 'Şifreyi yalnız işletme sahibi sıfırlayabilir.'
+                : 'Şifre sıfırlanamadı. Tekrar deneyin.',
+        };
+    } catch {
+        return { ok: false, message: 'Şifre sıfırlanamadı. Bağlantınızı kontrol edin.' };
+    }
 }

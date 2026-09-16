@@ -145,7 +145,11 @@ test('PIN doğrulama SUNUCUDA yapılır ve hash asla dönmez', () => {
 
 test('var olmayan personel ile yanlış PIN aynı cevabı verir', () => {
     // Aksi hâlde uç, salonda kimlerin çalıştığını sızdıran bir sorguya dönüşür.
-    assert.match(api, /if \(!member \|\| !member\.is_active \|\| !member\.pin\)[\s\S]{0,80}invalid_credentials/);
+    assert.match(api, /if \(!member \|\| !member\.is_active\) \{\s*return json\(\{ error: 'invalid_credentials' \}, 401\);/);
+    // 099: şifresi OLMAYAN aktif personel ayrı cevap alır — şifre belirleme
+    // ekranı açılsın. Sızıntı değil: `roster` aynı bilgiyi (`hasPin`) zaten veriyor.
+    assert.match(api, /if \(!member\.pin\) return json\(\{ error: 'pin_not_set' \}, 409\);/);
+    assert.match(api, /hasPin: Boolean\(s\.pin\)/);
 });
 
 test('deneme limiti ve kilit sunucuda uygulanır', () => {

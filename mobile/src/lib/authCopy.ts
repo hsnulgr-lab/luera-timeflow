@@ -102,7 +102,7 @@ export const sessionGate = {
  */
 export const expiredPairCode = {
     title: 'Bu kodun\nsüresi doldu',
-    body: 'Kodlar 10 dakika geçerli. İşletme sahibi bilgisayardaki Luera ekranından yeni bir kod üretebilir; yeni kodu alınca buraya yazın.',
+    body: 'Kodlar 15 dakika geçerli. Müdür Luera’da Personel ekranından yeni bir kod üretebilir; yeni kodu alınca buraya yazın.',
     ownerStatus: 'Kodu o üretir',
     retype: 'Yeni kodu yaz',
     call: 'İşletme sahibini ara',
@@ -111,7 +111,7 @@ export const expiredPairCode = {
 /**
  * Eşleştirme KİLİDİ — "kod yanlış"tan ayrı, çünkü çözümü farklı.
  *
- * `staff-api` on yanlış denemeden sonra IP'yi 15 dakika kilitliyor
+ * `staff-api` yirmi yanlış denemeden sonra (099, önce on) IP'yi 15 dakika kilitliyor
  * (`PAIR_MAX_ATTEMPTS`) ve o andan itibaren kodu HİÇ BAKMADAN reddediyor.
  * Ekran bunu "bu kod eşleşmedi" diye gösteriyordu: kişi doğru kodu tekrar
  * tekrar yazıyor, her deneme kilidi besliyor ve ekran hep kodu suçluyordu.
@@ -121,10 +121,20 @@ export const expiredPairCode = {
  * söyleyip yeni kod istemeyi söylememek, kişiyi bir kez daha duvara
  * sürerdi — o yüzden ikisi aynı cümlede.
  */
+/**
+ * KAPANMIŞ kod (099) — doğru yazıldı ama artık geçerli değil: müdür yeni kod
+ * üretti ya da tek kişilik kod kullanıldı. "Eşleşmedi" DEĞİL: kişi rakamları
+ * kontrol etmeye değil, yeni kod istemeye yönlendirilmeli.
+ */
+export const usedPairCode = {
+    title: 'Bu kod artık\ngeçerli değil',
+    body: 'Müdür yeni bir kod üretmiş olabilir. Ekrandaki güncel kodu isteyip buraya yazın.',
+} as const;
+
 export const pairLocked = {
     title: 'Çok fazla\ndeneme yapıldı',
     body: 'Güvenlik için eşleştirme 15 dakika kapatıldı. Kodunuz yanlış olmayabilir — bu süre boyunca hiçbir kod kabul edilmiyor.',
-    hint: 'Beklerken işletme sahibinden yeni bir kod isteyin: kodlar 10 dakika geçerli, elinizdeki kodun süresi bu arada dolacak.',
+    hint: 'Beklerken müdürden yeni bir kod isteyin: kodlar 15 dakika geçerli, elinizdeki kodun süresi bu arada dolabilir.',
     call: 'İşletme sahibini ara',
     retry: 'Yeni kodu yaz',
 } as const;

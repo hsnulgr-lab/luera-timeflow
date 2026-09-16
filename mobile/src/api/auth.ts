@@ -2,13 +2,14 @@ import * as LocalAuthentication from 'expo-local-authentication';
 
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import {
-    ApiError, auth as staffApi, tokens,
+    ApiError, api as staffCalls, auth as staffApi, tokens,
 } from './staff';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
     AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
-    AuthSession, LaunchState, StaffRosterMember,
+    AuthSession, LaunchState, StaffEntry, StaffRosterMember,
 } from './authStub';
+import { pinProblem } from '../lib/pinRules.ts';
 import { deleteAccount } from './accountDeletion';
 import {
     businessesOf, type OrgRow, type SettingsSectorRow,
@@ -65,6 +66,13 @@ function mapError(e: unknown): AuthFailure {
     switch (e.code) {
         case 'expired_pair_code': return fail('expired_pair_code');
         case 'invalid_pair_code': return fail('invalid_pair_code');
+        case 'used_pair_code': return fail('used_pair_code');
+        case 'pin_not_set': return fail('pin_not_set');
+        case 'pin_already_set': return fail('pin_already_set');
+        case 'weak_pin': return fail('weak_pin');
+        case 'same_pin': return fail('same_pin');
+        // Oturum başka yerden düştü (şifre sıfırlandı, personel pasif).
+        case 'revoked': return fail('no_session');
         case 'subscription_inactive': return fail('subscription_inactive');
         case 'device_token_required':
         case 'invalid_token': return fail('not_paired');
@@ -210,14 +218,17 @@ async function recoverManagerPassword(email: string): Promise<AuthResult<{
 
 let pendingStaffId: string | null = null;
 
-async function pairStaffDevice(code: string): Promise<AuthResult<{ business: AuthBusiness }>> {
+async function pairStaffDevice(code: string): Promise<AuthResult<{ business: AuthBusiness; staffId: string | null }>> {
     try {
         const data = await staffApi.redeem(code);
         await tokens.setDevice(String(data.deviceToken));
+        // Yeni bağlantı: önceki kişinin kaydı bu telefonda kalmasın.
+        await clearPending();
         // Kod bir personele bağlıysa "kendini seç" adımı düşer.
         pendingStaffId = data.staffId ? String(data.staffId) : null;
         return done({
             business: businessFrom({ id: String(data.orgId), name: '', slug: null }),
+            staffId: pendingStaffId,
         });
     } catch (e) {
         return mapError(e);
@@ -231,21 +242,56 @@ async function staffRoster(): Promise<AuthResult<{
     if (!device) return fail('not_paired');
     try {
         const data = await staffApi.roster(device);
+        /*
+         * BÜTÜN aktif personel (099). Eskiden şifresi olmayan süzülüyordu ve
+         * o kişi listede hiç görünmüyordu — giremiyor, sebebini de bilemiyordu.
+         * Şimdi seçince şifresini kendisi belirliyor.
+         */
         const staff: StaffRosterMember[] = (data.staff ?? [])
-            .filter((row: { hasPin?: boolean }) => row.hasPin !== false)
-            .map((row: { id: string; name: string; role: string | null }) => ({
+            .map((row: { id: string; name: string; role: string | null; hasPin?: boolean }) => ({
                 id: row.id,
                 initials: initials(row.name),
                 name: row.name,
                 role: row.role ?? '',
+                hasPin: row.hasPin !== false,
             }));
+        // İşletme adı (099): "Siz kimsiniz? · Studio Ayla". Eski sunucu
+        // dönmüyorsa boş kalır, uydurulmaz.
+        const businessName = typeof data.business?.name === 'string' ? data.business.name : '';
         return done({
-            business: businessFrom({ id: '', name: '', slug: null }),
+            business: businessFrom({ id: '', name: businessName, slug: null }),
             staff,
         });
     } catch (e) {
         return mapError(e);
     }
+}
+
+/** Sunucunun giriş cevabı → oturum. `session.start`, `pin.setup`, `pin.change` aynı. */
+async function finishStaffLogin(data: {
+    token: unknown; staff: { id: unknown; name: unknown; role?: string | null };
+}): Promise<AuthSession> {
+    await tokens.setStaff(String(data.token));
+    const previous = await readProfile();
+    const pending = await readPending();
+    const profile: AuthProfile = {
+        id: String(data.staff.id),
+        actor: 'staff',
+        initials: initials(String(data.staff.name)),
+        name: String(data.staff.name),
+        title: data.staff.role ?? undefined,
+        business: businessFrom({ id: '', name: pending?.businessName ?? '', slug: null }),
+    };
+    await saveProfile(profile, previous?.biometricEnabled ?? false);
+    return sessionOf(profile, previous?.biometricEnabled ?? false);
+}
+
+/** Kalan hak sunucudan geliyorsa hataya taşınır. */
+function withRemaining(e: unknown, mapped: AuthFailure): AuthFailure {
+    if (e instanceof ApiError && e.remaining !== null) {
+        return { ...mapped, remainingAttempts: e.remaining };
+    }
+    return mapped;
 }
 
 async function startStaffSession(pin: string): Promise<AuthResult<AuthSession>> {
@@ -255,26 +301,63 @@ async function startStaffSession(pin: string): Promise<AuthResult<AuthSession>> 
     if (!staffId) return fail('staff_not_found');
     try {
         const data = await staffApi.start(device, staffId, pin);
-        await tokens.setStaff(String(data.token));
-        const profile: AuthProfile = {
-            id: String(data.staff.id),
-            actor: 'staff',
-            initials: initials(String(data.staff.name)),
-            name: String(data.staff.name),
-            title: data.staff.role ?? undefined,
-            business: businessFrom({ id: '', name: '', slug: null }),
-        };
-        const previous = await readProfile();
-        await saveProfile(profile, previous?.biometricEnabled ?? false);
-        return done(sessionOf(profile, previous?.biometricEnabled ?? false));
+        return done(await finishStaffLogin(data));
     } catch (e) {
         const mapped = mapError(e);
-        // Sunucu kalan deneme ve kilit süresini gönderiyor; ekran onu yazıyor.
-        if (e instanceof ApiError && 'remaining' in (e as object)) {
-            return { ...mapped, remainingAttempts: Number((e as { remaining?: number }).remaining) };
-        }
+        // Şifre sıfırlandıysa bekleyen kaydın bilgisi de düzelsin: ekran
+        // şifre BELİRLEME hâline geçecek.
+        if (mapped.error === 'pin_not_set') await markPendingPin(false);
+        return withRemaining(e, mapped);
+    }
+}
+
+/**
+ * İlk şifre (099) — şifresi olmayan personel kendisi belirler ve girer.
+ *
+ * Kural telefonda da kontrol ediliyor (kullanıcı ağ beklemesin) ama karar
+ * sunucunun: `pinRules.ts` iki tarafta aynı.
+ */
+async function setupStaffPin(pin: string): Promise<AuthResult<AuthSession>> {
+    const problem = pinProblem(pin);
+    if (problem) return fail(problem === 'weak' ? 'weak_pin' : 'invalid_pin');
+    const device = await tokens.device();
+    if (!device) return fail('not_paired');
+    const staffId = await resolvePendingStaffId();
+    if (!staffId) return fail('staff_not_found');
+    try {
+        const data = await staffApi.pinSetup(device, staffId, pin);
+        await markPendingPin(true);
+        return done(await finishStaffLogin(data));
+    } catch (e) {
+        const mapped = mapError(e);
+        if (mapped.error === 'pin_already_set') await markPendingPin(true);
         return mapped;
     }
+}
+
+/** Personel kendi şifresini değiştirir (099). Oturum yeni token'la sürer. */
+async function changeStaffPin(currentPin: string, nextPin: string): Promise<AuthResult<AuthSession>> {
+    const problem = pinProblem(nextPin);
+    if (problem) return fail(problem === 'weak' ? 'weak_pin' : 'invalid_pin');
+    if (currentPin === nextPin) return fail('same_pin');
+    try {
+        const data = await staffCalls.pinChange(currentPin, nextPin);
+        return done(await finishStaffLogin(data));
+    } catch (e) {
+        const mapped = mapError(e);
+        return withRemaining(e, mapped.error === 'invalid_credentials' ? { ...mapped, error: 'invalid_pin' } : mapped);
+    }
+}
+
+/**
+ * "Burada çalışıyorum" kapısı nereye açılıyor (099).
+ *
+ * Eskiden HER ZAMAN kod ekranına gidiyordu — telefon bağlı olsa bile. Personel
+ * çıkış yapıp geri geldiğinde yeniden kod istenmesinin sebebi buydu.
+ */
+async function staffEntry(): Promise<StaffEntry> {
+    if (!(await tokens.device())) return 'pair';
+    return (await readPending()) ? 'pin' : 'who';
 }
 
 // ── Oturum ──────────────────────────────────────────────────────────────────
@@ -291,7 +374,9 @@ async function getLaunchState(): Promise<LaunchState> {
             : Boolean((await supabase.auth.getSession()).data.session);
         if (live) return { target: 'resume', session: sessionOf(stored.profile, stored.biometricEnabled) };
     }
-    return (await tokens.device()) ? { target: 'staffRoster' } : { target: 'welcome' };
+    if (!(await tokens.device())) return { target: 'welcome' };
+    // Telefon bağlı ve kim olduğu biliniyor → yalnız şifre (099, müdür kararı).
+    return (await readPending()) ? { target: 'staffPin' } : { target: 'staffRoster' };
 }
 
 /**
@@ -307,19 +392,40 @@ async function getLaunchState(): Promise<LaunchState> {
  */
 const K_PENDING = 'tf.auth.pending-staff';
 
-async function writePending(member: StaffRosterMember): Promise<void> {
+/**
+ * Bu telefonun personeli — ÇIKIŞTA SİLİNMİYOR (099).
+ *
+ * Kişisel telefonda "kim olduğumu" her vardiyada yeniden söylemek anlamsız:
+ * çıkış yapan personel geri geldiğinde doğrudan kendi şifre ekranına düşüyor.
+ * Başka biriyse şifre ekranındaki "Ben değilim" listeye götürüyor.
+ */
+type PendingMember = StaffRosterMember & { businessName?: string };
+
+async function writePending(member: PendingMember): Promise<void> {
     const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.setItem(K_PENDING, JSON.stringify(member));
 }
 
-async function readPending(): Promise<StaffRosterMember | null> {
+async function readPending(): Promise<PendingMember | null> {
     const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     try {
         const raw = await AsyncStorage.getItem(K_PENDING);
-        return raw ? JSON.parse(raw) as StaffRosterMember : null;
+        return raw ? JSON.parse(raw) as PendingMember : null;
     } catch {
         return null;
     }
+}
+
+/** Şifre belirlendi/sıfırlandı — bekleyen kaydın `hasPin`i ekranı yönetiyor. */
+async function markPendingPin(hasPin: boolean): Promise<void> {
+    const pending = await readPending();
+    if (pending) await writePending({ ...pending, hasPin });
+}
+
+async function clearPending(): Promise<void> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    await AsyncStorage.removeItem(K_PENDING);
+    pendingStaffId = null;
 }
 
 async function selectStaffMember(staffId: string): Promise<AuthResult<StaffRosterMember>> {
@@ -332,7 +438,7 @@ async function selectStaffMember(staffId: string): Promise<AuthResult<StaffRoste
     // okuduğu için yalnız diske yazmak yetmiyordu — PIN her seferinde
     // `staff_not_found` alıyor ve ekran kadroya geri dönüyordu.
     pendingStaffId = staffId;
-    await writePending(member);
+    await writePending({ ...member, businessName: list.data.business.name });
     return done(member);
 }
 
@@ -359,7 +465,7 @@ async function pendingStaffMember(): Promise<AuthResult<{
     // PIN ekranı açılırken de bellek tazeleniyor: yeniden yüklemeden sonra
     // ilk çağrılan yer burası.
     pendingStaffId = member.id;
-    return done({ business: businessFrom({ id: '', name: '', slug: null }), member });
+    return done({ business: businessFrom({ id: '', name: member.businessName ?? '', slug: null }), member });
 }
 
 async function resumeSession(): Promise<AuthResult<AuthSession>> {
@@ -466,7 +572,8 @@ async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
     const stored = await readProfile();
     if (!stored) return fail('no_session');
     if (stored.profile.actor === 'staff') {
-        await tokens.clearDevice();
+        // ÇIKIŞ EŞLEŞMEYİ SİLMEZ (099, müdür kararı). Eskiden bu satır telefonu
+        // işletmeden çıkarıyordu: her çıkıştan sonra müdürden yeni kod.
         await tokens.clearStaff();
         await clearProfile();
         return done({ target: 'welcome' });
@@ -510,10 +617,14 @@ export const auth = {
         pending: pendingStaffMember,
         start: startStaffSession,
         /** Telefonu işletmeden çıkarır; yeniden bağlamak için yeni kod gerekir. */
+        setupPin: setupStaffPin,
+        changePin: changeStaffPin,
+        entry: staffEntry,
         unlinkDevice: async () => {
             await tokens.clearDevice();
             await tokens.clearStaff();
             await clearProfile();
+            await clearPending();
             return done({ target: 'welcome' as const });
         },
     },

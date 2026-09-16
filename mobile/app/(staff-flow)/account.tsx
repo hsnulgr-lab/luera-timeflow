@@ -122,7 +122,8 @@ export default function AccountScreen() {
             setBusy(false);
             return;
         }
-        router.replace('/(auth)/welcome');
+        // Personelde telefon bağlı kalır (099): sonraki giriş yalnız şifre.
+        router.replace(isManager ? '/(auth)/welcome' : '/(auth)/staff/pin');
     };
 
     const requestDeletion = async () => {
@@ -174,21 +175,16 @@ export default function AccountScreen() {
                     <View style={{ borderTopWidth: 1, borderTopColor: c.bd }}>
                         {/*
                           Müdürün şifresi e-posta bağlantısıyla değişir —
-                          kurtarma ekranının yaptığı iş bu ve satır artık
-                          oraya gidiyor. Personelin PIN satırı DEĞİŞMEDİ:
-                          hedefi hâlâ yok, ama o personel modunun işi.
+                          kurtarma ekranının yaptığı iş bu. Personelin şifresi
+                          (099) `pin.change` ile telefondan değişir; hedef ekran
+                          ve sunucu tarafı artık VAR.
                         */}
-                        {/* Personelin PIN satırı KALDIRILDI, pasif bırakılmadı.
-                            Hedef ekranı ve sunucu tarafı yok; dokununca hiçbir
-                            şey olmuyordu. `personel/profile.tsx` aynı kararı
-                            zaten vermişti ("Pasif bırakılmadı, kaldırıldı"),
-                            burası o kararın atlanmış hâliydi. */}
-                        {isManager ? (
-                            <AuthAccountRow
-                                title="Şifreyi değiştir"
-                                onPress={() => router.push('/(auth)/manager/recover')}
-                            />
-                        ) : null}
+                        <AuthAccountRow
+                            title="Şifreyi değiştir"
+                            onPress={() => router.push(isManager
+                                ? '/(auth)/manager/recover'
+                                : '/(staff-flow)/sifre')}
+                        />
                         <AuthAccountRow
                             title="Face ID ile aç"
                             subtitle={biometricLabel}
@@ -225,7 +221,7 @@ export default function AccountScreen() {
                                 fontFamily: font.medium,
                                 fontWeight: '500',
                             }}>
-                                Çıkarsanız bu telefonu yeniden bağlamak için işletmeden yeni bir kod istemeniz gerekir.
+                                Telefon işletmeye bağlı kalır; sonraki girişte yalnız şifreniz sorulur.
                             </Text>
                         ) : null}
                     </View>

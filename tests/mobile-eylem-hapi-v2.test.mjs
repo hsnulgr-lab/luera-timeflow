@@ -204,3 +204,19 @@ test('sürüyor kartı ham damga BASMIYOR — "18:57’de başladı"', async () 
     assert.equal(event.startedAt, '21:57’de başladı');
     assert.doesNotMatch(event.startedAt, /T\d{2}:/);
 });
+
+// ── Sürüyor kartının personel hapı · Müdür 29 v2 ────────────────────────────
+
+test('personel hapı DOLU: baş harfler krem diskte, yanında yalnız ad', () => {
+    const parts = read('mobile/src/components/FlowParts.tsx');
+    const strip = parts.slice(parts.indexOf('function LiveStrip'), parts.indexOf('function DotsButton'));
+    // Canlı veri `staffInitials` taşımıyor — addan türetiliyor, halka boş kalmıyor.
+    assert.match(strip, /\{event\.staffInitials \?\? initialsOfName\(event\.staffName\)\}/);
+    assert.match(strip, /backgroundColor: ink\.pillInk,/);
+    assert.match(strip, /color: ink\.pill,/);
+    assert.match(strip, /\{splitStaffName\(event\.staffName\)\.given\}/);
+    assert.match(strip, /paddingLeft: flowMetrics\.whoLeft,\s*paddingRight: flowMetrics\.whoX,/);
+
+    const tokens = read('mobile/src/theme/tokens.ts');
+    assert.match(tokens, /whoLeft: 5,\s*whoGap: 9,\s*whoText: 14\.5,\s*whoAvatar: 26,\s*whoAvatarText: 11,/);
+});

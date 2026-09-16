@@ -31,9 +31,16 @@ const block = (name) => {
 test('kod üretmek cihaz yetkilendirmenin uzaktan hâlidir: personel üretemez', () => {
     // device.pair ile aynı kapı. Personel kendine kod üretebilseydi,
     // eşleştirmenin sahibe bağlı olmasının anlamı kalmazdı.
+    // 099: sahip kapısı tek yerde (`ownerOf`) — kod üretimi, ekip durumu ve
+    // şifre sıfırlama aynı kapıdan geçiyor.
     const create = block('device.code.create');
-    assert.match(create, /admin\.auth\.getUser\(jwt\)/);
-    assert.match(create, /resolved\.role === 'member'.*owner_required/s);
+    assert.match(create, /const owner = await ownerOf\(\);\s*if \(owner instanceof Response\) return owner;/);
+    const gate = api.slice(api.indexOf('const ownerOf = async'), api.indexOf('const loginResponse = async'));
+    assert.match(gate, /admin\.auth\.getUser\(jwt\)/);
+    assert.match(gate, /resolved\.role === 'member'.*owner_required/s);
+    for (const action of ['team.status', 'staff.pin.reset']) {
+        assert.match(block(action), /const owner = await ownerOf\(\);\s*if \(owner instanceof Response\) return owner;/);
+    }
 });
 
 test('kod açık saklanmaz', () => {
@@ -69,7 +76,7 @@ test('personele bağlı kod "kendini seç" adımını düşürür', () => {
 
 test('kod yalnız aktif personele üretilir', () => {
     const create = block('device.code.create');
-    assert.match(create, /\.eq\('organization_id', resolved\.orgId\)/);
+    assert.match(create, /\.eq\('organization_id', owner\.orgId\)/);
     assert.match(create, /!member \|\| !member\.is_active/);
     assert.match(create, /UUID_RE\.test\(staffId\)/);
 });
@@ -119,7 +126,8 @@ test('kimlik yokken sayaç IP adresinde tutulur', () => {
     // PIN'de kimin denendiği belli (staff satırında sayaç), burada henüz kimlik yok.
     assert.match(migration, /create table if not exists public\.staff_pair_attempts/);
     assert.match(migration, /ip text primary key/);
-    assert.match(api, /const PAIR_MAX_ATTEMPTS = 10;/);
+    // 099: ekip kodu aynı salon IP'sinden yazılıyor → 20.
+    assert.match(api, /const PAIR_MAX_ATTEMPTS = 20;/);
     assert.match(api, /const PAIR_LOCK_MINUTES = 15;/);
 });
 
@@ -156,8 +164,8 @@ test('deneme tablosuna istemci hiç erişemez', () => {
 test('eşleştirme denetim izine yazılır', () => {
     // "Bu telefon ne zaman, kim tarafından bağlandı" sorusunun tek cevabı.
     assert.match(migration, /'pair_code_created', 'paired', 'failed_pair', 'pair_locked'/);
-    assert.match(block('device.code.create'), /audit\([^)]*'pair_code_created'\)/);
-    assert.match(block('device.code.redeem'), /audit\([^)]*'paired'\)/);
+    assert.match(block('device.code.create'), /audit\([^)]*'pair_code_created'/);
+    assert.match(block('device.code.redeem'), /audit\([^)]*'paired'/);
 });
 
 test('denetim kısıtı önceki migrationların olaylarını düşürmez', () => {

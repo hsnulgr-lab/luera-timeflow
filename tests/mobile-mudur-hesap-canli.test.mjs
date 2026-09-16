@@ -46,10 +46,17 @@ test('hesap özeti işletmeyi sunucudan tazeliyor; okunamazsa müdürü dışar�
     assert.match(fn, /if \(fresh\) await saveProfile\(profile, stored\.biometricEnabled\);/);
 });
 
-test('personelde "oturumu kapat" telefonu işletmeden çıkarıyor — stub ile aynı', () => {
+test('personelde "oturumu kapat" telefonu işletmeden ÇIKARMIYOR (099) — stub ile aynı', () => {
+    // Müdür kararı: çıkış eşleşmeyi silmez, sonraki girişte yalnız şifre.
+    // Eskiden bu satır telefonu işletmeden çıkarıyordu: her çıkıştan sonra
+    // müdürden yeni kod — "personel sürekli eşleşemiyor"un bir sebebi.
     const fn = live.slice(live.indexOf('async function accountSignOut'), live.indexOf('async function accountRequestDeletion'));
-    assert.match(fn, /tokens\.clearDevice\(\);[\s\S]*tokens\.clearStaff\(\);[\s\S]*clearProfile\(\);/);
+    assert.doesNotMatch(fn, /tokens\.clearDevice\(\)/);
+    assert.match(fn, /tokens\.clearStaff\(\);[\s\S]*clearProfile\(\);/);
     assert.match(fn, /return signOut\(\);/);
+    const stub = read('mobile/src/api/authStub.ts');
+    const stubFn = stub.slice(stub.indexOf('async function accountSignOut'), stub.indexOf('async function requestAccountDeletion'));
+    assert.doesNotMatch(stubFn.slice(0, stubFn.indexOf('// Müdür çıkışından')), /unlinkStaffDevice|pairedDevice/);
 });
 
 test('şifreyle silme: şifre SUNUCUYA soruluyor, silme gerçek uca gidiyor', () => {

@@ -536,7 +536,8 @@ function LiveStrip({ event, enter = false }: {
                         }),
                     }],
                     height: flowMetrics.whoHeight,
-                    paddingHorizontal: flowMetrics.whoX,
+                    paddingLeft: flowMetrics.whoLeft,
+                    paddingRight: flowMetrics.whoX,
                     borderRadius: radius.pill,
                     backgroundColor: ink.pill,
                     flexDirection: 'row',
@@ -549,17 +550,20 @@ function LiveStrip({ event, enter = false }: {
                         borderRadius: radius.pill,
                         borderWidth: flowMetrics.ringBorder,
                         borderColor: c.or,
-                        backgroundColor: ink.pillAvatarBg,
+                        // DOLU disk (Müdür 29 v2): krem zemin, koyu harf. Eskiden
+                        // yarı saydam zemin + canlı veride hiç gelmeyen
+                        // `staffInitials` yüzünden halka İÇİ BOŞ görünüyordu.
+                        backgroundColor: ink.pillInk,
                         alignItems: 'center',
                         justifyContent: 'center',
                     }}>
                         <Text style={{
-                            color: ink.pillInk,
+                            color: ink.pill,
                             fontSize: flowMetrics.whoAvatarText,
                             fontFamily: font.extraBold,
                             fontWeight: '800',
                         }}>
-                            {event.staffInitials}
+                            {event.staffInitials ?? initialsOfName(event.staffName)}
                         </Text>
                     </View>
                     <Text style={{
@@ -567,9 +571,10 @@ function LiveStrip({ event, enter = false }: {
                         fontSize: flowMetrics.whoText,
                         fontFamily: font.bold,
                         fontWeight: '700',
-                        letterSpacing: flowMetrics.whoText * -0.02,
+                        letterSpacing: flowMetrics.whoText * -0.01,
                     }}>
-                        {event.staffName}
+                        {/* Tasarımda yalnız ADI: "Merve", "Nisanur Özer" değil. */}
+                        {splitStaffName(event.staffName).given}
                     </Text>
                 </Animated.View>
             ) : null}

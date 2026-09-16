@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { authApi } from '../../src/api/session';
 import { AuthChoiceButton, AuthTextLink, T } from '../../src/components/ui';
 import { LueraTimeflowMark } from '../../src/components/BrandMark';
 import { AView, useEntrance } from '../../src/components/Entrance';
@@ -100,7 +101,16 @@ export default function Welcome() {
                             glyph="person"
                             title="Burada çalışıyorum"
                             subtitle="İşletmeden aldığınız kodla girin"
-                            onPress={() => router.push('/(auth)/staff/pair')}
+                            // Telefon ZATEN bağlıysa kod istenmez (099): çıkış
+                            // yapıp geri gelen personel her seferinde kod
+                            // ekranına düşüyordu — "sürekli eşleşmiyor"un sebebi.
+                            onPress={() => {
+                                void authApi.staff.entry().then((entry) => {
+                                    router.push(entry === 'pin'
+                                        ? '/(auth)/staff/pin'
+                                        : entry === 'who' ? '/(auth)/staff/who' : '/(auth)/staff/pair');
+                                });
+                            }}
                         />
                     </AView>
                     <AView style={foot}>

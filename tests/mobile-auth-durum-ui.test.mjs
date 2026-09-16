@@ -82,7 +82,8 @@ test('oturum okunamadı ekranı bağlantı ekranından AYRI', () => {
 
 test('bağlantı yokken kimlik doğrulaması DENENMEZ', () => {
     // Kimliği yalnız sunucu doğrulayabilir; yarım açık form bırakmak yalan olurdu.
-    assert.equal((stub.match(/if \(await offline\(\)\) return failure\('offline'\);/g) || []).length, 5);
+    // 099: şifre değiştirme de sunucuya soruyor → altı yer.
+    assert.equal((stub.match(/if \(await offline\(\)\) return failure\('offline'\);/g) || []).length, 6);
 });
 
 test('bilinmeyen ağ durumu çevrimdışı sayılmaz', () => {
@@ -139,7 +140,8 @@ test('süresi dolmuş kod geçersiz koddan AYRI bir hâldir', () => {
     // Aynı metni vermek kullanıcıyı aynı kodu üç kez yazmaya iterdi.
     assert.notEqual(expiredPairCode.title, undefined);
     assert.equal(expiredPairCode.title, 'Bu kodun\nsüresi doldu');
-    assert.match(expiredPairCode.body, /10 dakika geçerli/);
+    // 099 · ekip kodu 15 dakika.
+    assert.match(expiredPairCode.body, /15 dakika geçerli/);
     assert.match(stub, /if \(digits === DEMO_EXPIRED_CODE\) return failure\('expired_pair_code'\);/);
     assert.match(stub, /\| 'expired_pair_code'/);
 });
@@ -185,7 +187,7 @@ test('sahibin kartı canlı kipte hiç okunmuyor', () => {
     // Tek kapı: ekran `owner()` ucunu DOĞRUDAN çağırmıyor.
     assert.doesNotMatch(pair, /await authApi\.staff\.owner\(\)/);
     assert.match(pair, /async function ownerOrNull\(\)[\s\S]{0,200}if \(LIVE_AUTH\) return null;/);
-    assert.match(pair, /setExpired\(\{ owner: await ownerOrNull\(\) \}\)/);
+    assert.match(pair, /setExpired\(\{ owner: await ownerOrNull\(\), used: result\.error === 'used_pair_code' \}\)/);
 });
 
 // ── Eşleştirme KİLİDİ ───────────────────────────────────────────────────────

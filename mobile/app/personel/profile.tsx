@@ -14,8 +14,9 @@
  *            söylüyor. Kapalı-kısık bir anahtar yine hiçbir şey yapmaz ve
  *            müşterinin gözü önünde "iptaller bildirilebiliyor ama personel
  *            kapatmış" izlenimi verirdi.
- *   düşen  · "PIN'i değiştir" — hedef ekran yok, sunucu tarafı yok. Pasif
- *            bırakılmadı, kaldırıldı.
+ *   gelen  · "Şifreyi değiştir" (099) — 2026-08'de hedef ekranı ve sunucu
+ *            tarafı olmadığı için kaldırılmıştı; ikisi de artık var
+ *            (`(staff-flow)/sifre.tsx` · `pin.change`).
  *   gelen  · Vardiyam
  *   gelen  · Cihaz — personel modunun müdürde karşılığı olmayan tek bölümü
  *
@@ -156,6 +157,11 @@ export default function StaffProfile() {
                         value={profile.name}
                         onPress={() => router.push('/(staff-flow)/account')}
                     />
+                    {/* 099 · şifreyi personel kendisi belirliyor ve değiştiriyor. */}
+                    <ProfileRow
+                        title="Şifreyi değiştir"
+                        onPress={() => router.push('/(staff-flow)/sifre')}
+                    />
                     <ProfileRow
                         title="Görünüm"
                         value={themeLabel(themeMode)}
@@ -185,7 +191,7 @@ export default function StaffProfile() {
                     <ProfileRow
                         chevron={false}
                         title="Oturumu kapat"
-                        sub="Yeniden bağlanmak için işletmeden kod gerekir"
+                        sub="Telefon bağlı kalır · sonraki girişte yalnız şifreniz sorulur"
                         onPress={() => setLeaving(true)}
                     />
                 </Group>
@@ -198,7 +204,8 @@ export default function StaffProfile() {
                 onConfirm={async () => {
                     await authApi.resume.signOut();
                     setLeaving(false);
-                    router.replace('/(auth)/welcome');
+                    // Telefon bağlı (099): karşılamaya değil, şifre ekranına.
+                    router.replace('/(auth)/staff/pin');
                 }}
             />
         </View>

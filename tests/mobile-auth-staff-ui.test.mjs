@@ -116,11 +116,11 @@ test('Giriş 06 kod alanı tek gizli girdidir; OTP, yapıştırma ve özel tuş 
 test('Giriş 06b ayrı rota değil, kodu koruyan tek cevaplık alt sayfadır', () => {
     for (const copy of [
         'Kodu nereden alacaksınız?',
-        'İşletme sahibi bilgisayarda Luera’yı açar.',
-        'Personel listesinde adınızın yanındaki',
-        'Telefon bağla',
-        'Ekranda çıkan altı haneli kodu size söyler. Kod 10 dakika geçerlidir.',
-        'Kodu yalnız işletme sahibi üretebilir. Uygulamadan istek gönderemezsiniz.',
+        // 099 · ekip kodu: masaüstü ya da müdür telefonu, tek kod, 15 dakika.
+        'Müdür Luera’da Personel ekranını açar — bilgisayarda ya da kendi telefonunda.',
+        'Telefon bağla’ya basar; ekranda altı haneli kod çıkar.',
+        'Kodu buraya yazıp listeden kendinizi seçin. Kod 15 dakika geçerli, bütün ekip aynı kodu kullanır.',
+        'Kodu yalnız müdür üretebilir. Uygulamadan istek gönderemezsiniz.',
         'Anladım',
     ]) {
         assert.ok(staffUiBundle.includes(copy), `Giriş 06b metni eksik: ${copy}`);
@@ -135,7 +135,7 @@ test('Giriş 07 personeli ve işletmeyi yalnız roster cevabından gösterir', (
     for (const copy of [
         'Siz kimsiniz?',
         'Listeden kendinizi seçin',
-        'Listede yoksanız işletme sahibi sizi eklemeli.',
+        'Listede yoksanız müdür sizi Personel sayfasından eklemeli.',
     ]) {
         assert.ok(who.includes(copy), `Giriş 07 metni eksik: ${copy}`);
     }
@@ -220,7 +220,7 @@ test('seçilen personel YENİDEN YÜKLEMEYE dayanıyor', () => {
     // göremiyor, PIN her seferinde `staff_not_found` alıyor ve ekran kadroya
     // geri dönüyordu — kullanıcı için sonsuz döngü.
     const live = readFileSync(new URL('../mobile/src/api/auth.ts', import.meta.url), 'utf8');
-    assert.match(live, /pendingStaffId = staffId;\s*await writePending\(member\)/);
+    assert.match(live, /pendingStaffId = staffId;\s*await writePending\(\{ \.\.\.member, businessName: list\.data\.business\.name \}\)/);
     assert.match(live, /async function resolvePendingStaffId\(\)/);
     assert.match(live, /const staffId = await resolvePendingStaffId\(\);\s*if \(!staffId\) return fail\('staff_not_found'\)/);
 });

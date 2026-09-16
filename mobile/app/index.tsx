@@ -44,5 +44,7 @@ export default function Index() {
     if (!launch) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (launch.target === 'resume') return <Redirect href="/(auth)/resume" />;
     if (launch.target === 'staffRoster') return <Redirect href="/(auth)/staff/who" />;
+    // Telefon bağlı ve kim olduğu biliniyor: yalnız şifre (099).
+    if (launch.target === 'staffPin') return <Redirect href="/(auth)/staff/pin" />;
     return <Redirect href="/(auth)/welcome" />;
 }

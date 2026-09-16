@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 
 import { isValidEmail, normalizeEmail, passwordRuleState } from '../lib/authValidation';
+import { pinProblem } from '../lib/pinRules';
 
 export type AuthActor = 'manager' | 'staff';
 
@@ -65,11 +66,21 @@ export interface StaffRosterMember {
     initials: string;
     name: string;
     role: string;
+    /**
+     * Şifresi var mı (099). `false` ise giriş yerine şifre BELİRLEME açılır.
+     * Yoksa (eski kayıt) `true` sayılır.
+     */
+    hasPin?: boolean;
 }
+
+/** "Burada çalışıyorum" kapısı nereye açılıyor (099). */
+export type StaffEntry = 'pin' | 'who' | 'pair';
 
 export type LaunchState =
     | { target: 'welcome' }
     | { target: 'staffRoster' }
+    /** Telefon bağlı ve kim olduğu biliniyor: yalnız şifre (099). */
+    | { target: 'staffPin' }
     | { target: 'resume'; session: AuthSession };
 
 export type AuthErrorCode =
@@ -86,7 +97,18 @@ export type AuthErrorCode =
     | 'no_session'
     | 'not_paired'
     | 'staff_not_found'
-    | 'subscription_inactive';
+    | 'subscription_inactive'
+    // 099 · ekip kodu ve personelin kendi şifresi
+    /** Kod doğru yazıldı ama kapanmış (kullanıldı ya da yenisi üretildi). */
+    | 'used_pair_code'
+    /** Bu personelin şifresi yok — şifre belirleme ekranı açılır. */
+    | 'pin_not_set'
+    /** Şifre belirlenirken başkası (başka telefon) önce davrandı. */
+    | 'pin_already_set'
+    /** 0000, 1234 gibi herkesin ilk denediği şifre. */
+    | 'weak_pin'
+    /** Yeni şifre eskisiyle aynı. */
+    | 'same_pin';
 
 export interface AuthFailure {
     ok: false;
@@ -452,7 +474,7 @@ async function pairOwnerContact(): Promise<{ name: string; title: string; phone:
     return { name: owner.name, title: 'İşletme sahibi', phone: DEMO_OWNER_PHONE };
 }
 
-async function pairStaffDevice(code: string): Promise<AuthResult<{ business: AuthBusiness }>> {
+async function pairStaffDevice(code: string): Promise<AuthResult<{ business: AuthBusiness; staffId: string | null }>> {
     if (await offline()) return failure('offline');
     const digits = code.replace(/\D/g, '');
     // Süresi dolmuş kod, yanlış koddan AYRI bir hâldir: çözümü kullanıcıda değil,
@@ -467,7 +489,8 @@ async function pairStaffDevice(code: string): Promise<AuthResult<{ business: Aut
 
     await writeJson(storageKeys.pairedDevice, device);
     await AsyncStorage.removeItem(storageKeys.pendingStaff);
-    return success({ business });
+    // Demo kodu işletmeye bağlıdır, personele değil: liste adımı çalışır.
+    return success({ business, staffId: null });
 }
 
 async function staffRoster(): Promise<AuthResult<{
@@ -548,6 +571,35 @@ async function startStaffSession(pin: string): Promise<AuthResult<AuthSession>> 
     await AsyncStorage.removeItem(storageKeys.pendingStaff);
     if (business.subscriptionStatus === 'expired') return failure('subscription_inactive');
     return success(session);
+}
+
+/**
+ * Stub'da her demo personelin şifresi var: ilk şifre akışı canlıda gerçek.
+ * Burada yalnız kural ve giriş çalışıyor — tasarım turu için yeterli.
+ */
+async function setupStaffPin(pin: string): Promise<AuthResult<AuthSession>> {
+    const problem = pinProblem(pin);
+    if (problem) return failure(problem === 'weak' ? 'weak_pin' : 'invalid_pin');
+    return failure('pin_already_set');
+}
+
+async function changeStaffPin(currentPin: string, nextPin: string): Promise<AuthResult<AuthSession>> {
+    if (await offline()) return failure('offline');
+    const problem = pinProblem(nextPin);
+    if (problem) return failure(problem === 'weak' ? 'weak_pin' : 'invalid_pin');
+    if (currentPin === nextPin) return failure('same_pin');
+    const session = await readSession();
+    if (!session || session.actor !== 'staff') return failure('no_session');
+    const member = (staffByBusiness[session.profile.business.id] ?? [])
+        .find((candidate) => candidate.id === session.profile.id);
+    if (!member || member.pin !== currentPin) return failure('invalid_pin');
+    return success(session);
+}
+
+async function staffEntry(): Promise<StaffEntry> {
+    const device = await readJson<PairedDevice>(storageKeys.pairedDevice);
+    if (!device) return 'pair';
+    return (await readJson<PendingStaff>(storageKeys.pendingStaff)) ? 'pin' : 'who';
 }
 
 async function setBiometric(enabled: boolean): Promise<AuthResult<AuthSession>> {
@@ -650,7 +702,8 @@ async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
     if (!session) return failure('no_session');
 
     if (session.actor === 'staff') {
-        await unlinkStaffDevice();
+        // Çıkış eşleşmeyi SİLMEZ (099): canlıyla aynı kural.
+        await AsyncStorage.removeItem(storageKeys.session);
         return success({ target: 'welcome' });
     }
 
@@ -837,6 +890,9 @@ export const authStub = {
         select: selectStaff,
         pending: pendingStaff,
         start: startStaffSession,
+        setupPin: setupStaffPin,
+        changePin: changeStaffPin,
+        entry: staffEntry,
         unlinkDevice: unlinkStaffDevice,
     },
     biometric: {

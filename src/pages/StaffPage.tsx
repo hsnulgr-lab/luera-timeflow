@@ -14,7 +14,7 @@ import { useLabels, useStaffRoles } from '@/hooks/useLabels';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { commissionFor, monthRange } from '@/lib/staffCommission';
-import { useDevicePairing } from '@/hooks/useDevicePairing';
+import { resetStaffPin, useDevicePairing } from '@/hooks/useDevicePairing';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -140,7 +140,23 @@ export const StaffPage = () => {
   const openPanel  = (id: string) => { setSelId(id); setPanelOpen(true); };
   const closePanel = () => { setPanelOpen(false); setTimeout(() => setSelId(null), 300); };
   const selMember  = staff.find(s => s.id === selId) ?? null;
-  const pairing    = useDevicePairing(selMember?.id ?? null);
+  // 099 · EKİP KODU: tek kod, bütün ekip. Kişi başına kod kalktı.
+  const pairing    = useDevicePairing();
+  // Sıfırlanan şifreler — liste yeniden okunana kadar panel doğruyu söylesin.
+  const [pinResetIds, setPinResetIds] = useState<Set<string>>(() => new Set());
+  const hasPin = (m: Staff) => Boolean(m.pin) && !pinResetIds.has(m.id);
+  const handlePinReset = async (m: Staff) => {
+    if (!(await confirmDialog({
+      title: `${m.name} şifresi sıfırlansın mı?`,
+      description: 'Şifre silinir ve telefondaki açık oturumu kapanır. Bir sonraki girişte yeni şifresini telefonundan kendisi belirler.',
+      danger: true,
+      confirmLabel: 'Şifreyi sıfırla',
+    }))) return;
+    const result = await resetStaffPin(m.id);
+    if (!result.ok) { toast.error(result.message); return; }
+    setPinResetIds(prev => new Set(prev).add(m.id));
+    toast.success('Şifre sıfırlandı');
+  };
 
   // ── Modal ──────────────────────────────────────────────────────────────────
   const openAdd  = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
@@ -154,7 +170,9 @@ export const StaffPage = () => {
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Personel adı gerekli'); return; }
     setSaving(true);
-    // PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut PIN korunur
+    // PIN sadece girildiyse güncellenir (hash'lenir); boşsa mevcut PIN korunur.
+    // Telefon tuş takımı DÖRT hane (099): 5-6 haneli PIN telefonda hiç girilemezdi.
+    if (form.pin.trim() && form.pin.trim().length !== 4) { setSaving(false); toast.error('PIN 4 haneli olmalı'); return; }
     const pinHash = form.pin.trim() ? await hashPin(form.pin.trim()) : undefined;
     const payload = { name:form.name.trim(), role:form.role, specialty:form.specialty.trim()||undefined,
       phone:form.phone.trim()||undefined, email:form.email.trim()||undefined,
@@ -216,13 +234,50 @@ export const StaffPage = () => {
             <div style={{ fontSize:'11.5px', color:T.muted, marginTop:'2px' }}>{staff.length} aktif çalışan</div>
           </div>
         </div>
-        <button onClick={openAdd}
-          style={{ display:'flex', alignItems:'center', gap:'7px', background:avatarBg, color:avatarFg, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
-          onMouseEnter={e=>(e.currentTarget.style.background= dark?'#363028':'#2a2a2a')}
-          onMouseLeave={e=>(e.currentTarget.style.background=avatarBg)}>
-          <Plus size={13} strokeWidth={2.5}/> {staffWord} Ekle
-        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+          {/* 099 · Telefon bağla — TEK EKİP KODU. Aynı kod müdürün telefonundan
+              da üretilebilir (Profil → Personel); yenisi eskisini kapatır. */}
+          <button onClick={pairing.create} disabled={pairing.busy}
+            style={{ display:'flex', alignItems:'center', gap:'7px', background:T.surface2, color:T.ink, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 14px', fontSize:'13px', fontWeight:650, cursor:pairing.busy?'wait':'pointer', fontFamily:'inherit' }}>
+            <Smartphone size={13}/> {pairing.busy ? 'Kod üretiliyor…' : pairing.code && !pairing.expired ? 'Yeni kod' : 'Telefon bağla'}
+          </button>
+          <button onClick={openAdd}
+            style={{ display:'flex', alignItems:'center', gap:'7px', background:avatarBg, color:avatarFg, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'9px 16px', fontSize:'13px', fontWeight:650, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
+            onMouseEnter={e=>(e.currentTarget.style.background= dark?'#363028':'#2a2a2a')}
+            onMouseLeave={e=>(e.currentTarget.style.background=avatarBg)}>
+            <Plus size={13} strokeWidth={2.5}/> {staffWord} Ekle
+          </button>
+        </div>
       </div>
+
+      {/* ── Ekip kodu ── */}
+      {(pairing.code || pairing.error) && (
+        <div style={{ marginBottom:'18px', border:`1px solid ${pairing.code && !pairing.expired ? T.orange : T.border}`, borderRadius:T.r, background:T.surface, padding:'16px 20px', display:'flex', alignItems:'center', gap:'20px', flexWrap:'wrap' }}>
+          {pairing.code && !pairing.expired ? (
+            <>
+              <div style={{ fontSize:'38px', fontWeight:900, letterSpacing:'.18em', color:T.ink, fontFamily:"'JetBrains Mono',monospace" }}>
+                {pairing.code.code.slice(0,3)} {pairing.code.code.slice(3)}
+              </div>
+              <div style={{ flex:1, minWidth:'220px' }}>
+                <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>Bütün ekip bu kodu telefonundaki Luera'ya yazabilir.</div>
+                <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px', lineHeight:1.45 }}>Personel kodu yazar, listeden kendini seçer ve şifresini kendisi belirler. Şifresi olan yalnız şifresini girer.</div>
+              </div>
+              <span style={{ fontSize:'13px', fontWeight:800, color:pairing.secondsLeft <= 60 ? T.orange : T.muted, fontFamily:"'JetBrains Mono',monospace" }}>
+                {Math.floor(pairing.secondsLeft / 60)}:{String(pairing.secondsLeft % 60).padStart(2,'0')} geçerli
+              </span>
+              <button onClick={pairing.clear}
+                style={{ border:'none', background:'none', cursor:'pointer', fontSize:'12px', fontWeight:700, color:T.muted2, padding:'2px 4px' }}>
+                Kapat
+              </button>
+            </>
+          ) : pairing.expired ? (
+            <div style={{ fontSize:'12.5px', color:T.muted }}>Kodun süresi doldu. Personel henüz yazmadıysa yeni bir kod üretin.</div>
+          ) : null}
+          {pairing.error && (
+            <div style={{ fontSize:'12.5px', color:'#C94040', fontWeight:650 }}>{pairing.error}</div>
+          )}
+        </div>
+      )}
 
       {/* ── Stat bar ── */}
       <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)', gap:'10px', marginBottom:'18px' }}>
@@ -414,50 +469,26 @@ export const StaffPage = () => {
               ))}
             </div>
 
-            {/* Telefon bağla — personelin kendi telefonu için tek kullanımlık kod.
-                Kod sunucuda açık saklanmaz; ekrandan kaybolursa yenisi üretilir. */}
+            {/* Telefon girişi (099) — şifreyi personel kendisi belirliyor; burada
+                yalnız durumu görülür ve gerekirse SIFIRLANIR. Kod başlıkta: tek
+                ekip kodu. */}
             <div style={{ marginBottom:'18px' }}>
               <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'9px', fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:T.muted, marginBottom:'10px' }}>
-                <Smartphone size={11}/> Telefon Bağla
+                <Smartphone size={11}/> Telefon Girişi
               </div>
-
-              {pairing.code && !pairing.expired ? (
-                <div style={{ border:`1px solid ${T.orange}`, borderRadius:T.rSm, overflow:'hidden' }}>
-                  <div style={{ padding:'14px 12px', textAlign:'center', background:T.surface2 }}>
-                    <div style={{ fontSize:'30px', fontWeight:900, letterSpacing:'.22em', color:T.ink, fontFamily:"'JetBrains Mono',monospace", paddingLeft:'.22em' }}>
-                      {pairing.code.code}
-                    </div>
-                    <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>
-                      {selMember.name} bu kodu telefonundaki Luera uygulamasına yazsın.
-                    </div>
-                  </div>
-                  <div style={{ padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', borderTop:`1px solid ${T.border}` }}>
-                    <span style={{ fontSize:'11px', fontWeight:700, color:pairing.secondsLeft <= 60 ? T.orange : T.muted }}>
-                      {Math.floor(pairing.secondsLeft / 60)}:{String(pairing.secondsLeft % 60).padStart(2,'0')} geçerli
-                    </span>
-                    <button onClick={pairing.clear}
-                      style={{ border:'none', background:'none', cursor:'pointer', fontSize:'11px', fontWeight:700, color:T.muted2, padding:'2px 4px' }}>
-                      Kapat
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <button onClick={pairing.create} disabled={pairing.busy}
-                    style={{ width:'100%', padding:'10px 12px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'12.5px', fontWeight:700, fontFamily:'inherit', cursor:pairing.busy?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px' }}>
-                    <Smartphone size={13}/>
-                    {pairing.busy ? 'Kod üretiliyor…' : pairing.expired ? 'Yeni kod üret' : 'Telefon bağla'}
-                  </button>
-                  <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px', lineHeight:1.45 }}>
-                    {pairing.expired
-                      ? 'Kodun süresi doldu. Personel henüz yazmadıysa yeni bir kod üretin.'
-                      : 'Altı haneli kod üretilir, 10 dakika geçerlidir ve bir kez kullanılır. Personel kodu yazınca telefonu bu işletmeye bağlanır; girişi yine kendi PIN’iyle yapar.'}
-                  </div>
-                </>
-              )}
-
-              {pairing.error && (
-                <div style={{ fontSize:'11.5px', color:'#C94040', marginTop:'8px', fontWeight:650 }}>{pairing.error}</div>
+              <div style={{ fontSize:'12.5px', fontWeight:650, color:T.ink }}>
+                {hasPin(selMember) ? 'Şifresi var' : 'Henüz şifre belirlemedi'}
+              </div>
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'4px', lineHeight:1.45 }}>
+                {hasPin(selMember)
+                  ? 'Unuttuysa sıfırlayın; bir sonraki girişte yenisini telefonundan kendisi belirler.'
+                  : 'Başlıktaki Telefon bağla kodunu yazıp listeden kendini seçince şifresini kendisi belirleyecek.'}
+              </div>
+              {hasPin(selMember) && (
+                <button onClick={() => { void handlePinReset(selMember); }}
+                  style={{ marginTop:'10px', width:'100%', padding:'9px 12px', borderRadius:T.rXs, border:`1px solid ${T.border2}`, background:T.surface2, color:T.ink, fontSize:'12.5px', fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
+                  Şifreyi sıfırla
+                </button>
               )}
             </div>
 
@@ -618,13 +649,13 @@ export const StaffPage = () => {
 
             {/* PIN — Personel Modu girişi */}
             <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel PIN</label>
-              <input type="text" inputMode="numeric" maxLength={6} placeholder={editing?'Değiştirmek için yeni PIN':'4 haneli PIN (ör. 1234)'}
+              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel PIN · isteğe bağlı</label>
+              <input type="text" inputMode="numeric" maxLength={4} placeholder={editing?'Değiştirmek için yeni PIN':'Boş bırakabilirsiniz'}
                 value={form.pin} onChange={e=>setForm(p=>({...p,pin:e.target.value.replace(/\D/g,'')}))}
                 style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', letterSpacing:'.3em' }}
                 onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
                 onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
-              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Personel bu PIN ile "Personel Modu"na girer. {editing?'Boş bırakılırsa mevcut PIN korunur.':''}</div>
+              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Boş bırakırsanız personel ilk girişte şifresini telefonundan kendisi belirler. {editing?'Boş bırakılırsa mevcut PIN korunur.':''}</div>
             </div>
 
             {/* Color picker */}

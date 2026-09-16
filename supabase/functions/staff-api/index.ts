@@ -7,6 +7,7 @@ import {
     hashPin, mintStaffToken, safeEqual, verifyStaffToken,
     DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS,
 } from '../_shared/staffToken.ts';
+import { pinProblem } from '../_shared/pinRules.ts';
 
 /**
  * Dar personel API'si — personel cihazının veriye TEK yolu.
@@ -46,6 +47,12 @@ const corsHeaders = {
 type Action =
     | 'device.pair' | 'device.code.create' | 'device.code.redeem'
     | 'roster' | 'session.start' | 'session.refresh' | 'me'
+    // ── Personelin kendi şifresi (099) ──────────────────────────────────────
+    | 'pin.setup'        // cihaz: şifresi olmayan personel İLK şifresini belirler
+    | 'pin.change'       // personel: kendi şifresini değiştirir
+    // ── Sahip uçları (Supabase oturumu) ─────────────────────────────────────
+    | 'team.status'      // ekibin giriş durumu: şifre var mı, son giriş
+    | 'staff.pin.reset'  // şifreyi sıfırla → personel yenisini kendisi belirler
     // ── Kumanda (mobil personel modu) ────────────────────────────────────────
     | 'agenda'         // bugünün kendi randevuları
     | 'visit.start'    // işleme başla
@@ -97,8 +104,21 @@ function catalogPrice(value: unknown): number {
 const PAIR_CODE_LENGTH = 6;
 /** On dakika: sahip kodu söyleyip personel yazana kadar yeter, fazlası pencere açar. */
 const PAIR_CODE_TTL_MINUTES = 10;
-/** Bir milyon kombinasyona karşı IP başına deneme sınırı. */
-const PAIR_MAX_ATTEMPTS = 10;
+/**
+ * Ekip kodu (099) on beş dakika: bütün ekip aynı kodu yazıyor, kimi kahvesini
+ * bitiriyor. Uzun tutulmadı — kod süresince bir personel kimliği değil,
+ * "bu işletmenin telefonu olabilirsin" iznidir; asıl kapı şifre.
+ */
+const TEAM_CODE_TTL_MINUTES = 15;
+/**
+ * Bir milyon kombinasyona karşı IP başına deneme sınırı.
+ *
+ * 20 (099, önce 10): ekip kodunu bütün salon AYNI Wi‑Fi'dan yazıyor ve sayaç
+ * IP'ye bağlı — beş kişinin ikişer yazım hatası salonun tamamını 15 dakika
+ * kilitliyordu. 20 deneme / 15 dk ile bir milyonluk uzayda doğru kodu bulmak ortalama ~6000 saat.
+ * Kapanmış (kullanılmış/süresi dolmuş) kodu yazmak sayaca hiç girmiyor.
+ */
+const PAIR_MAX_ATTEMPTS = 20;
 const PAIR_LOCK_MINUTES = 15;
 
 type Admin = ReturnType<typeof createClient>;
@@ -116,9 +136,30 @@ async function issuePairCode(
     orgId: string,
     staffId: string | null,
     createdBy: string,
+    team = false,
 ): Promise<{ code: string; expiresAt: string } | null> {
     const span = 10 ** PAIR_CODE_LENGTH;
     const limit = Math.floor(0xffffffff / span) * span;
+    const ttl = team ? TEAM_CODE_TTL_MINUTES : PAIR_CODE_TTL_MINUTES;
+    const now = new Date().toISOString();
+
+    // Süresi dolmuş ama hiç kullanılmamış kodlar tekil indeksin İÇİNDE kalıyor
+    // (091: `where used_at is null`). Kapatılmazlarsa bir gün aynı altı hane
+    // yeniden çekildiğinde ekleme boş yere reddedilir.
+    await admin.from('staff_device_codes')
+        .update({ used_at: now })
+        .is('used_at', null)
+        .lte('expires_at', now);
+
+    // Yeni ekip kodu eskisini KAPATIR: ekranda tek geçerli kod dursun. Müdür
+    // "yeni kod" dediyse eskisinin nerede kaldığını bilmiyor demektir.
+    if (team) {
+        await admin.from('staff_device_codes')
+            .update({ used_at: now })
+            .eq('organization_id', orgId)
+            .eq('multi_use', true)
+            .is('used_at', null);
+    }
 
     // Aynı anda açık duran bir kodla çakışma olasılığı düşük ama sıfır değil;
     // benzersiz kısmi indeks çakışmayı yazmaya bırakmadan reddeder.
@@ -126,7 +167,7 @@ async function issuePairCode(
         const buf = new Uint32Array(1);
         do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
         const code = String(buf[0] % span).padStart(PAIR_CODE_LENGTH, '0');
-        const expiresAt = new Date(Date.now() + PAIR_CODE_TTL_MINUTES * 60_000).toISOString();
+        const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
 
         const { error } = await admin.from('staff_device_codes').insert({
             organization_id: orgId,
@@ -134,6 +175,7 @@ async function issuePairCode(
             code_hash: await hashPin(code),
             expires_at: expiresAt,
             created_by: createdBy,
+            multi_use: team,
         });
         if (!error) return { code, expiresAt };
     }
@@ -205,10 +247,43 @@ Deno.serve(async (req: Request) => {
         const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
         const userAgent = req.headers.get('user-agent')?.slice(0, 200) || null;
 
-        const audit = (organizationId: string, staffId: string | null, event: string) =>
+        const audit = (organizationId: string, staffId: string | null, event: string, detail: string | null = null) =>
             admin.from('staff_auth_log').insert({
-                organization_id: organizationId, staff_id: staffId, event, ip, user_agent: userAgent,
+                organization_id: organizationId, staff_id: staffId, event, ip, user_agent: userAgent, detail,
             });
+
+        /**
+         * Sahip uçlarının kapısı — Supabase oturumu + üye olmayan rol.
+         *
+         * Kod üretmek ve şifre sıfırlamak cihaz yetkilendirmenin uzaktan
+         * hâlidir: personel rolündeki bir üye kendine kod üretemesin, başkasının
+         * şifresini sıfırlayamasın.
+         */
+        const ownerOf = async (): Promise<{ orgId: string; userId: string } | Response> => {
+            const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+            if (!jwt) return json({ error: 'unauthorized' }, 401);
+            const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+            if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
+            const resolved = await resolveOrg(admin, userData.user.id, body.orgId ?? null);
+            if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+            if (resolved.role === 'member') return json({ error: 'owner_required' }, 403);
+            return { orgId: resolved.orgId, userId: userData.user.id };
+        };
+
+        /** Başarılı giriş — `session.start` ve `pin.setup` aynı cevabı döner. */
+        const loginResponse = async (member: StaffRow) => {
+            const token = await mintStaffToken({
+                sub: member.id,
+                org: member.organization_id,
+                role: member.role || 'staff',
+                epoch: member.session_epoch ?? 1,
+            }, secret);
+            return json({
+                ok: true,
+                token,
+                staff: { id: member.id, name: member.name, color: member.color, role: member.role || 'staff' },
+            });
+        };
 
         // ── device.pair — kurulumda BİR kez, org sahibi ──────────────────────
         if (action === 'device.pair') {
@@ -239,20 +314,12 @@ Deno.serve(async (req: Request) => {
         // oturum açması, şifresini beş kişinin yanında girmesi demek. Kod bu
         // boşluğu kapatıyor: sahip kendi bilgisayarında üretir, personel yazar.
         if (action === 'device.code.create') {
-            const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-            if (!jwt) return json({ error: 'unauthorized' }, 401);
-            const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
-            if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
+            const owner = await ownerOf();
+            if (owner instanceof Response) return owner;
 
-            const resolved = await resolveOrg(admin, userData.user.id, body.orgId ?? null);
-            if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
-            // device.pair ile aynı kapı: kod üretmek, cihaz yetkilendirmenin
-            // uzaktan hâlidir. Personel kendine kod üretemesin.
-            if (resolved.role === 'member') return json({ error: 'owner_required' }, 403);
-
-            // Kod bir personele bağlanabilir (kişisel telefon: "kendini seç"
-            // adımı düşer, kadro listesi telefona hiç inmez) ya da yalnız
-            // işletmeye (ortak tablet). İkincisinde staffId gelmez.
+            // staffId YOKSA EKİP KODU (099, müdür kararı): tek kod, 15 dakika,
+            // bütün ekip aynı kodu yazar ve listeden kendini seçer.
+            // staffId varsa eski tek kişilik, tek kullanımlık kod (geriye uyum).
             const staffId = body.staffId ? String(body.staffId) : null;
             if (staffId && !UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
             if (staffId) {
@@ -260,23 +327,99 @@ Deno.serve(async (req: Request) => {
                     .from('staff')
                     .select('id, is_active')
                     .eq('id', staffId)
-                    .eq('organization_id', resolved.orgId)
+                    .eq('organization_id', owner.orgId)
                     .maybeSingle();
                 if (!member || !member.is_active) return json({ error: 'invalid_staff' }, 400);
             }
 
-            const code = await issuePairCode(admin, resolved.orgId, staffId, userData.user.id);
+            const team = !staffId;
+            const code = await issuePairCode(admin, owner.orgId, staffId, owner.userId, team);
             if (!code) return json({ error: 'code_unavailable' }, 503);
 
-            await audit(resolved.orgId, staffId, 'pair_code_created');
+            await audit(owner.orgId, staffId, 'pair_code_created', team ? 'team' : 'single');
             // Kod TEK BU CEVAPTA açık geçer; veritabanında yalnız hash'i var.
             // Sahip okuyamazsa yeniden üretir — saklamaktan iyidir.
             return json({
                 ok: true,
                 code: code.code,
                 expiresAt: code.expiresAt,
-                expiresInMinutes: PAIR_CODE_TTL_MINUTES,
+                expiresInMinutes: team ? TEAM_CODE_TTL_MINUTES : PAIR_CODE_TTL_MINUTES,
+                team,
             });
+        }
+
+        // ── team.status — müdürün Personel ekranı: kim girebilir, kim girdi ──
+        // Şifre hash'i istemciye İNMİYOR: yalnız "var mı". Son giriş ve şifrenin
+        // ne zaman belirlendiği, müdürün "Fatma kendi şifresini belirledi mi"
+        // sorusunun cevabı — ve yanlış kişi belirlediyse fark etmesinin yolu.
+        if (action === 'team.status') {
+            const owner = await ownerOf();
+            if (owner instanceof Response) return owner;
+            const { data: members, error: membersErr } = await admin
+                .from('staff')
+                .select('id, name, role, color, pin, last_login_at, pin_locked_until')
+                .eq('organization_id', owner.orgId)
+                .eq('is_active', true)
+                .order('name');
+            if (membersErr) {
+                console.error('staff-api team.status', membersErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            const { data: pinEvents } = await admin
+                .from('staff_auth_log')
+                .select('staff_id, event, created_at')
+                .eq('organization_id', owner.orgId)
+                .in('event', ['pin_set', 'pin_reset'])
+                .order('created_at', { ascending: false })
+                .limit(500);
+            const lastPinEvent = new Map<string, { event: string; at: string }>();
+            for (const row of pinEvents ?? []) {
+                if (row.staff_id && !lastPinEvent.has(row.staff_id)) {
+                    lastPinEvent.set(row.staff_id, { event: row.event, at: row.created_at });
+                }
+            }
+            return json({
+                ok: true,
+                staff: (members ?? []).map((m: StaffRow & { last_login_at: string | null }) => {
+                    const pinEvent = lastPinEvent.get(m.id);
+                    return {
+                        id: m.id,
+                        name: m.name,
+                        role: m.role,
+                        color: m.color,
+                        hasPin: Boolean(m.pin),
+                        lastLoginAt: m.last_login_at,
+                        pinSetAt: pinEvent?.event === 'pin_set' ? pinEvent.at : null,
+                        lockedUntil: m.pin_locked_until && new Date(m.pin_locked_until) > new Date()
+                            ? m.pin_locked_until : null,
+                    };
+                }),
+            });
+        }
+
+        // ── staff.pin.reset — müdür şifreyi siler; personel yenisini belirler ─
+        // Şifre SIFIRLANIR, müdür yeni şifre YAZMAZ (müdür kararı: şifreyi
+        // personel kendisi belirler). `pin` değişince 082 tetikleyicisi
+        // session_epoch'u artırır → o personelin açık oturumları anında düşer.
+        if (action === 'staff.pin.reset') {
+            const owner = await ownerOf();
+            if (owner instanceof Response) return owner;
+            const staffId = String(body.staffId ?? '');
+            if (!UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
+            const { data: reset, error: resetErr } = await admin
+                .from('staff')
+                .update({ pin: null })
+                .eq('id', staffId)
+                .eq('organization_id', owner.orgId)
+                .select('id')
+                .maybeSingle();
+            if (resetErr) {
+                console.error('staff-api staff.pin.reset', resetErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!reset) return json({ error: 'invalid_staff' }, 400);
+            await audit(owner.orgId, staffId, 'pin_reset');
+            return json({ ok: true });
         }
 
         // ── device.code.redeem — personel kodu cihaz token'ına çevirir ────────
@@ -289,15 +432,38 @@ Deno.serve(async (req: Request) => {
                 await failedPairAttempt(admin, ip);
                 return json({ error: 'invalid_pair_code' }, 401);
             }
+            const codeHash = await hashPin(digits);
 
             const { data: row } = await admin
                 .from('staff_device_codes')
-                .select('id, organization_id, staff_id, expires_at, used_at')
-                .eq('code_hash', await hashPin(digits))
+                .select('id, organization_id, staff_id, expires_at, used_at, multi_use, use_count')
+                .eq('code_hash', codeHash)
                 .is('used_at', null)
                 .maybeSingle();
 
             if (!row) {
+                /*
+                 * KULLANILMIŞ KOD YANLIŞ KOD DEĞİLDİR (099). Eskiden ikisi aynı
+                 * cevabı veriyordu: telefon kodu kullanıp cevabı alamadıysa
+                 * (zaman aşımı, uygulama yeniden yüklendi) personel DOĞRU kodu
+                 * tekrar yazıyor ve "eşleşmedi" okuyordu. Kapanmış bir kodun
+                 * varlığını söylemek bir şey sızdırmıyor: o kod artık hiçbir
+                 * işe yaramıyor. Deneme sayacı da artmıyor — tahmin değil.
+                 */
+                const { data: closed } = await admin
+                    .from('staff_device_codes')
+                    .select('organization_id, expires_at')
+                    .eq('code_hash', codeHash)
+                    .not('used_at', 'is', null)
+                    .gt('created_at', new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (closed) {
+                    const expired = new Date(closed.expires_at) <= new Date();
+                    await audit(closed.organization_id, null, 'failed_pair', expired ? 'expired' : 'used');
+                    return json({ error: expired ? 'expired_pair_code' : 'used_pair_code' }, 401);
+                }
                 await failedPairAttempt(admin, ip);
                 return json({ error: 'invalid_pair_code' }, 401);
             }
@@ -306,24 +472,41 @@ Deno.serve(async (req: Request) => {
             // eskidi. Çözümü de başka — yenisini işletme sahibi üretecek. Aynı
             // hatayı vermek onu aynı kodu tekrar yazmaya iterdi.
             if (new Date(row.expires_at) <= new Date()) {
+                await audit(row.organization_id, row.staff_id, 'failed_pair', 'expired');
                 return json({ error: 'expired_pair_code' }, 401);
             }
 
             const access = await checkAccess(admin, row.organization_id);
-            if (!access.ok) return json({ error: 'subscription_inactive' }, 403);
+            if (!access.ok) {
+                await audit(row.organization_id, row.staff_id, 'failed_pair', 'subscription');
+                return json({ error: 'subscription_inactive' }, 403);
+            }
 
-            // Tek kullanımlık: koşullu güncelleme yarışı da çözüyor. İki telefon
-            // aynı kodu aynı anda yazarsa yalnız biri satırı işaretleyebilir.
-            const { data: claimed } = await admin
-                .from('staff_device_codes')
-                .update({ used_at: new Date().toISOString(), used_ip: ip })
-                .eq('id', row.id)
-                .is('used_at', null)
-                .select('id')
-                .maybeSingle();
-            if (!claimed) {
-                await failedPairAttempt(admin, ip);
-                return json({ error: 'invalid_pair_code' }, 401);
+            if (row.multi_use) {
+                // EKİP KODU: süresince her telefon bağlanır; kod kapanmaz.
+                // Sayaç bilgi amaçlı — yarışta bir artış kaybolabilir, kapı değil.
+                await admin
+                    .from('staff_device_codes')
+                    .update({
+                        use_count: (Number(row.use_count) || 0) + 1,
+                        last_used_at: new Date().toISOString(),
+                        used_ip: ip,
+                    })
+                    .eq('id', row.id);
+            } else {
+                // Tek kullanımlık: koşullu güncelleme yarışı da çözüyor. İki telefon
+                // aynı kodu aynı anda yazarsa yalnız biri satırı işaretleyebilir.
+                const { data: claimed } = await admin
+                    .from('staff_device_codes')
+                    .update({ used_at: new Date().toISOString(), used_ip: ip })
+                    .eq('id', row.id)
+                    .is('used_at', null)
+                    .select('id')
+                    .maybeSingle();
+                if (!claimed) {
+                    await audit(row.organization_id, row.staff_id, 'failed_pair', 'used');
+                    return json({ error: 'used_pair_code' }, 401);
+                }
             }
 
             await clearPairAttempts(admin, ip);
@@ -333,9 +516,10 @@ Deno.serve(async (req: Request) => {
                 undefined,
                 DEVICE_TOKEN_TTL_SEC,
             );
-            await audit(row.organization_id, row.staff_id, 'paired');
+            await audit(row.organization_id, row.staff_id, 'paired', row.multi_use ? 'team' : 'single');
 
-            // staffId dönüyorsa arayüz "kendini seç" adımını atlar.
+            // staffId dönüyorsa arayüz "kendini seç" adımını atlar. Ekip
+            // kodunda boş: personel listeden kendini seçer.
             return json({
                 ok: true,
                 deviceToken: token,
@@ -370,10 +554,18 @@ Deno.serve(async (req: Request) => {
                 console.error('staff-api roster error', error);
                 return json({ error: 'lookup_failed' }, 500);
             }
-            // `hasPin` gönderiyoruz, hash'i DEĞİL. Giriş ekranının bilmesi
-            // gereken tek şey o personelin giriş yapabilir olduğu.
+            // İşletmenin adı "Siz kimsiniz?" başlığının altında (099): personel
+            // doğru salona bağlandığını görsün. Okunamazsa boş — liste yine gelir.
+            const { data: org } = await admin
+                .from('organizations')
+                .select('name')
+                .eq('id', claims.org)
+                .maybeSingle();
+            // `hasPin` gönderiyoruz, hash'i DEĞİL. Şifresi olmayan personel
+            // listede KALIR (099) ve seçince şifresini kendisi belirler.
             return json({
                 ok: true,
+                business: { name: org?.name ?? '' },
                 staff: (data || []).map((s: StaffRow) => ({
                     id: s.id, name: s.name, color: s.color, role: s.role, hasPin: Boolean(s.pin),
                 })),
@@ -400,9 +592,16 @@ Deno.serve(async (req: Request) => {
             const member = data as StaffRow | null;
             // Var olmayan personel ile yanlış PIN AYNI cevabı verir: aksi hâlde
             // uç, kimlerin çalıştığını sızdıran bir sorgu hâline gelir.
-            if (!member || !member.is_active || !member.pin) {
+            if (!member || !member.is_active) {
                 return json({ error: 'invalid_credentials' }, 401);
             }
+            /*
+             * ŞİFRESİ YOK (099) — personel henüz belirlemedi ya da müdür
+             * sıfırladı. Bu bir "yanlış şifre" DEĞİL: telefon şifre belirleme
+             * ekranına geçer. Sızıntı yok — `roster` aynı bilgiyi (`hasPin`)
+             * cihaz token'ı taşıyana zaten veriyor.
+             */
+            if (!member.pin) return json({ error: 'pin_not_set' }, 409);
 
             const lockedUntil = member.pin_locked_until ? new Date(member.pin_locked_until) : null;
             if (lockedUntil && lockedUntil > new Date()) {
@@ -430,19 +629,61 @@ Deno.serve(async (req: Request) => {
                 pin_attempts: 0, pin_locked_until: null, last_login_at: new Date().toISOString(),
             }).eq('id', member.id);
             await audit(claims.org, member.id, 'login');
+            return loginResponse(member);
+        }
 
-            const token = await mintStaffToken({
-                sub: member.id,
-                org: member.organization_id,
-                role: member.role || 'staff',
-                epoch: member.session_epoch ?? 1,
-            }, secret);
+        // ── pin.setup — personel İLK şifresini kendisi belirler (099) ──────────
+        //
+        // Müdür kararı: şifreyi personel belirler, değiştirmek isterse
+        // ayarlardan değiştirir. Yalnız şifresi BOŞ olan personel için çalışır:
+        // koşullu güncelleme (`pin is null`) iki telefonun aynı anda aynı
+        // kişiyi sahiplenmesini de çözüyor — ikincisi `pin_already_set` alır.
+        //
+        // Tahmin saldırısı yok: şifre yoksa denenecek bir şey yok, şifre
+        // varsa bu uç hiçbir şey yapmıyor. Kapı cihaz token'ı (ekip kodu).
+        // Yanlış kişinin sahiplenmesine karşı: müdürün Personel ekranı "şifresini
+        // belirledi · saat" gösteriyor ve tek dokunuşla sıfırlanıyor.
+        if (action === 'pin.setup') {
+            if (!isDevice) return json({ error: 'device_token_required' }, 403);
+            const staffId = String(body.staffId || '');
+            const pin = String(body.pin || '');
+            if (!UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
+            const problem = pinProblem(pin);
+            if (problem) return json({ error: problem === 'weak' ? 'weak_pin' : 'invalid_pin_format' }, 400);
 
-            return json({
-                ok: true,
-                token,
-                staff: { id: member.id, name: member.name, color: member.color, role: member.role || 'staff' },
-            });
+            // `pin` değişince 082 tetikleyicisi session_epoch'u artırıyor —
+            // token dönen satırın YENİ kuşağıyla basılmalı.
+            const { data: claimed, error: claimErr } = await admin
+                .from('staff')
+                .update({
+                    pin: await hashPin(pin),
+                    pin_attempts: 0,
+                    pin_locked_until: null,
+                    last_login_at: new Date().toISOString(),
+                })
+                .eq('id', staffId)
+                .eq('organization_id', claims.org)
+                .eq('is_active', true)
+                .is('pin', null)
+                .select('id, organization_id, name, color, role, is_active, pin, session_epoch, pin_attempts, pin_locked_until')
+                .maybeSingle();
+            if (claimErr) {
+                console.error('staff-api pin.setup', claimErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!claimed) {
+                const { data: existing } = await admin
+                    .from('staff')
+                    .select('id, is_active, pin')
+                    .eq('id', staffId)
+                    .eq('organization_id', claims.org)
+                    .maybeSingle();
+                if (!existing || !existing.is_active) return json({ error: 'invalid_credentials' }, 401);
+                return json({ error: 'pin_already_set' }, 409);
+            }
+            await audit(claims.org, staffId, 'pin_set');
+            await audit(claims.org, staffId, 'login', 'pin_set');
+            return loginResponse(claimed as StaffRow);
         }
 
         // ── Buradan sonrası PERSONEL token'ı ister ───────────────────────────
@@ -544,6 +785,71 @@ Deno.serve(async (req: Request) => {
             }
             return json(payload, status);
         };
+
+        // ── pin.change — personel kendi şifresini değiştirir (099) ────────────
+        //
+        // Eski şifre SORULUYOR: açık bırakılmış bir telefonu eline alan başkası
+        // şifreyi değiştirip personeli dışarıda bırakamasın. Yanlış eski şifre
+        // girişteki aynı sayaca yazılıyor — bu uç ikinci bir tahmin kapısı
+        // açmıyor.
+        //
+        // Şifre değişince 082 tetikleyicisi session_epoch'u artırır: BU telefonun
+        // token'ı da ölür. Cevap yeni kuşakla basılmış token taşıyor; diğer
+        // cihazlardaki oturumlar düşer — doğrusu bu.
+        if (action === 'pin.change') {
+            const currentPin = String(body.currentPin || '');
+            const nextPin = String(body.pin || '');
+            const problem = pinProblem(nextPin);
+            if (problem) return json({ error: problem === 'weak' ? 'weak_pin' : 'invalid_pin_format' }, 400);
+            if (currentPin === nextPin) return json({ error: 'same_pin' }, 400);
+
+            const { data: row, error: rowErr } = await admin
+                .from('staff')
+                .select('id, organization_id, name, color, role, is_active, pin, session_epoch, pin_attempts, pin_locked_until')
+                .eq('id', me.id)
+                .eq('organization_id', me.organization_id)
+                .maybeSingle();
+            if (rowErr || !row) {
+                if (rowErr) console.error('staff-api pin.change lookup', rowErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            const member = row as StaffRow;
+            const lockedUntil = member.pin_locked_until ? new Date(member.pin_locked_until) : null;
+            if (lockedUntil && lockedUntil > new Date()) {
+                return json({ error: 'locked', until: member.pin_locked_until }, 429);
+            }
+            if (!member.pin || !safeEqual(await hashPin(currentPin), member.pin)) {
+                const attempts = (member.pin_attempts || 0) + 1;
+                const lock = attempts >= PIN_MAX_ATTEMPTS;
+                await admin.from('staff').update({
+                    pin_attempts: lock ? 0 : attempts,
+                    pin_locked_until: lock
+                        ? new Date(Date.now() + PIN_LOCK_MINUTES * 60_000).toISOString()
+                        : null,
+                }).eq('id', member.id);
+                await audit(me.organization_id, member.id, lock ? 'locked' : 'failed_pin', 'pin.change');
+                return lock
+                    ? json({ error: 'locked', minutes: PIN_LOCK_MINUTES }, 429)
+                    : json({ error: 'invalid_credentials', remaining: PIN_MAX_ATTEMPTS - attempts }, 401);
+            }
+
+            const { data: changed, error: changeErr } = await admin
+                .from('staff')
+                .update({ pin: await hashPin(nextPin), pin_attempts: 0, pin_locked_until: null })
+                .eq('id', member.id)
+                .eq('pin', member.pin)
+                .select('id, organization_id, name, color, role, is_active, pin, session_epoch, pin_attempts, pin_locked_until')
+                .maybeSingle();
+            if (changeErr) {
+                console.error('staff-api pin.change', changeErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            // Arada müdür sıfırladıysa ya da başka cihaz değiştirdiyse yazma
+            // tutmaz — eski şifreyle yeni şifre yazılmıyor.
+            if (!changed) return json({ error: 'revoked' }, 401);
+            await audit(me.organization_id, member.id, 'pin_changed');
+            return loginResponse(changed as StaffRow);
+        }
 
         if (action === 'me' || action === 'session.refresh') {
             const fresh = action === 'session.refresh'
