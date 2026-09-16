@@ -399,7 +399,7 @@ export default function PairDevice() {
                         fontWeight: '500',
                         lineHeight: type.body.fontSize * authMetrics.staffBodyLine,
                     }}>
-                        Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın. Kodu işletme sahibi verir.
+                        Müdürün ekranındaki altı haneli kodu yazın — bilgisayarda ya da müdürün telefonunda çıkar.
                     </Text>
                 </View>
                 <Animated.View style={{ transform: [{ translateX: shake }] }}>

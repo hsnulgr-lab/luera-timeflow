@@ -84,7 +84,8 @@ test('Giriş 06 kod ekranı tasarım metnini ve altı hane kapısını korur', (
     for (const copy of [
         'Bu telefonu',
         'işletmeye bağlayın',
-        'Bilgisayardaki Luera ekranında görünen altı haneli kodu yazın. Kodu işletme sahibi verir.',
+        // 099 · kod müdürün telefonunda da üretiliyor.
+        'Müdürün ekranındaki altı haneli kodu yazın — bilgisayarda ya da müdürün telefonunda çıkar.',
         // "Kare kodu okut" KALDIRILDI. Canlı bir ekranda duruyordu, dokununca
         // hiçbir şey olmuyordu ve `expo-camera` kurulu bile değil. Görünen
         // ama çalışmayan bir özellik App Store 2.1'in doğrudan konusu.
