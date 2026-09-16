@@ -307,7 +307,7 @@ test('akışın okuması adisyonları kuruyor ve sağlayıcı onları akışa ve
     assert.match(day, /fetchOpenTicketRows\(dateISO\)/);
     // Katalog `services` TABLOSUNDAN — `settings`te öyle bir kolon yok.
     assert.match(day, /fetchServices\(\),/);
-    assert.match(day, /fetchOrgSettings\('sector'\)/);
+    assert.match(day, /fetchOrgSettings\('sector, business_name'\)/);
     assert.doesNotMatch(strip(read('mobile/src/lib/managerCash.ts')) + day, /settings\?\.services|'services'\)|, services,? sector/);
     assert.match(source, /from\('services'\)\s*\.select\('id, name, duration, price, color'\)\s*\.eq\('organization_id', organizationId\)/);
     assert.match(day, /ticketsOf\(open\.rows, open\.payments, services, packagesEnabled\)/);

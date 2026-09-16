@@ -92,6 +92,7 @@ export default function ManagerStaffDay() {
                     presence={data.presence}
                     appointments={appointments}
                     onCommitMove={commit}
+                    openHours={data.open}
                     // Gün okunmadan boş hâl çizilmez — yanlış cümle görünmesin.
                     loading={state === 'loading'}
                     onBack={() => router.back()}

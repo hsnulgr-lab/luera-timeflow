@@ -44,12 +44,14 @@ export interface ManagerFlowDay {
     openMinutes: number | null;
     serverNow: number | null;
     deviceAt: number | null;
+    /** Salonun adı — WhatsApp hazır metninin "{Salon}’dan merhaba"sı. */
+    businessName: string;
 }
 
 const EMPTY: ManagerFlowDay = {
     dateISO: '', rows: [], payments: [], crew: [], presence: [],
     context: new Map(), stamps: new Map(), toleranceMin: null, tickets: [], openMinutes: null,
-    serverNow: null, deviceAt: null,
+    serverNow: null, deviceAt: null, businessName: '',
 };
 
 const LEAVE_WINDOW_DAYS = 14;
@@ -68,7 +70,7 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
             fetchCrew(),
             fetchLeave(dateISO, addDaysISO(dateISO, LEAVE_WINDOW_DAYS)),
             fetchArrivalTolerance(),
-            fetchOrgSettings('sector'),
+            fetchOrgSettings('sector, business_name'),
             fetchOpenMinutes(dateISO),
             fetchServerNow(),
             fetchOpenTicketRows(dateISO),
@@ -112,6 +114,7 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
             toleranceMin: tolerance,
             tickets: [...grouped, ...singles],
             openMinutes,
+            businessName: String(settings?.business_name ?? '').trim(),
             serverNow,
             deviceAt,
         };

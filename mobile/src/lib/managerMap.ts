@@ -15,6 +15,7 @@
  */
 
 import { clockText, type Appt } from './calendar.ts';
+import { withOwnStamps } from './dayStamp.ts';
 
 /**
  * Randevu satırının okunan alanları.
@@ -70,6 +71,16 @@ export function chooseOrg(stored: string | null, readable: readonly string[]): O
 
 /** Veritabanı satırını takvimin beklediği şekle çevirir. */
 export function toAppt(row: Record<string, unknown>): Appt {
+    /*
+     * Randevunun KENDİ gününe ait olmayan "geldi / başladı" damgası burada
+     * düşüyor (`withOwnStamps`). Taşınmış bir randevu eski günün damgasını
+     * taşıyabiliyordu; takvim, personel günü ve kart onu "1143 saattir
+     * işlemde" diye okurdu. Tek okuma noktası, tek kural.
+     */
+    return withOwnStamps(toApptRaw(row), String(row.date));
+}
+
+function toApptRaw(row: Record<string, unknown>): Appt {
     return {
         id: String(row.id),
         customer_id: (row.customer_id as string | null) ?? null,

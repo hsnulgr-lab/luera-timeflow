@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated, PanResponder, Pressable, ScrollView, Text, View,
+    Animated, Dimensions, PanResponder, Pressable, ScrollView, Text, View,
+    type NativeScrollEvent, type NativeSyntheticEvent,
     type RefreshControlProps,
 } from 'react-native';
 
@@ -8,7 +9,7 @@ import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { isLive } from '../lib/calendar';
 import {
-    blockDetail, columnize, COLUMN_GAP, COLUMN_WIDTH, HOUR_HEIGHT, HOURS_WIDTH,
+    blockDetail, columnize, COLUMN_GAP, COLUMN_WIDTH, DRAG_BANNER_RESERVE, edgeStep, HOUR_HEIGHT, HOURS_WIDTH,
     hourLabels, nowLineTop,
     type ColumnStaff,
 } from '../lib/managerCalendar';
@@ -99,34 +100,132 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
     // ortasında el değiştiren bir tutamak.
     const targetRef = useRef<MoveTarget | null>(null);
 
+    /*
+     * KENARDA KAYDIRMA için ölçüler. Hepsi ref: sürükleme karede bir kez
+     * okuyor ve hiçbiri çizimi değiştirmiyor.
+     */
+    const rootRef = useRef<View>(null);
+    const vScrollRef = useRef<ScrollView>(null);
+    const hScrollRef = useRef<ScrollView>(null);
+    const metrics = useRef({ vOffset: 0, hOffset: 0, rootX: 0, rootY: 0 });
+    /**
+     * Parmağın son hâli ve kalkıştaki kaydırma. Blok içeriğin İÇİNDE çiziliyor:
+     * ızgara S kadar kayınca parmağın altında kalması için öteleme de S kadar
+     * artmalı — hem çizimde hem hedef hesabında.
+     */
+    const drag = useRef({ dx: 0, dy: 0, pageX: Number.NaN, pageY: Number.NaN, vStart: 0, hStart: 0 });
+    const loop = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    /*
+     * SÜRÜKLEME BOYUNCA TUTAMAK DEĞİŞMEMELİ.
+     *
+     * Hedef hesabı günün randevularına ve kadroya bakıyor. Bunlar bağımlılık
+     * olsaydı, sürükleme sırasında takvim yenilendiğinde (25 sn yoklama,
+     * ekrana dönüş) bütün taşıma zinciri yeniden kurulurdu: bloğun
+     * `PanResponder`ı parmağın altında el değiştirir, jest sıfırdan başlar ve
+     * blok zıplar ya da düşerdi. Girdiler ref'ten okunuyor; tutamak hiç
+     * değişmiyor, hesap her zaman en güncel veriyle yapılıyor.
+     */
+    const inputs = useRef({ appointments, staff, dayStart, dayEnd, onMove });
+    useEffect(() => {
+        inputs.current = { appointments, staff, dayStart, dayEnd, onMove };
+    }, [appointments, staff, dayStart, dayEnd, onMove]);
+
+    /** Parmağın ve kaydırmanın birleşik hâlinden hedef — tek hesap. */
+    const applyDrag = useCallback(() => {
+        const current = liveState.current;
+        if (!current) return;
+        const m = metrics.current;
+        const d = drag.current;
+        const input = inputs.current;
+        const dx = d.dx + (m.hOffset - d.hStart);
+        const dy = d.dy + (m.vOffset - d.vStart);
+        pan.setValue({ x: dx, y: dy });
+        const next = resolveTarget({
+            appointment: current.appointment,
+            appointments: input.appointments,
+            staff: input.staff,
+            fromIndex: current.index,
+            dx,
+            dy,
+            dayStartMinutes: input.dayStart,
+            dayEndMinutes: input.dayEnd,
+        });
+        const before = targetRef.current;
+        targetRef.current = next;
+        // Kaydırma karede bir tetikliyor; hedef DEĞİŞMEDİYSE yeniden çizim yok.
+        if (before?.startMinutes === next?.startMinutes
+            && before?.staffId === next?.staffId
+            && before?.valid === next?.valid) return;
+        setTarget(next);
+    }, [pan]);
+
+    /**
+     * Bir kare: parmak kenardaysa kaydırmayı İSTE.
+     *
+     * ── Neden yalnız istiyor, hesaplamıyor ──────────────────────────────────
+     * İlk sürüm içerik yüksekliğini ve kaydırıcının ekrandaki yerini kendisi
+     * ölçüyordu (`onContentSizeChange`, `measureInWindow`). İkisinden biri
+     * gelmeyince "kaydırılacak yer yok" sanıp hiç kaydırmıyordu: blok parmağı
+     * izliyor, ızgara yerinde duruyordu (2026-09-17, telefon).
+     *
+     * Şimdi iki şey kurulu RN'e bırakılıyor (`RCTScrollViewComponentView`):
+     *   • SINIR — `scrollTo` hedefi içerik + sekme çubuğu payıyla kendisi
+     *     kırpıyor; kilitli (`scrollEnabled=false`) kaydırıcıda da çalışıyor.
+     *   • KONUM — her programlı kaydırmada `onScroll` yayıyor. Bloğun
+     *     ötelemesi o olayla güncelleniyor (`onVScroll`), tahminle değil.
+     *
+     * Kenarlar da ölçüme bağlı değil: alt kenar turuncu bandın üstü, ekranın
+     * kendisinden; sağ kenar ekranın sağı. Yalnız üst ve sol kenar ölçülüyor
+     * ve ölçüm gelmezse o yön kapalı kalıyor — aşağı ve sağa kaydırma yine
+     * çalışıyor.
+     */
+    const edgeTick = useCallback(() => {
+        if (!liveState.current) return;
+        const m = metrics.current;
+        const d = drag.current;
+        const screen = Dimensions.get('window');
+        const vStep = edgeStep(
+            d.pageY,
+            m.rootY,
+            screen.height - calendarMetrics.bottomInset - DRAG_BANNER_RESERVE,
+        );
+        const hStep = edgeStep(d.pageX, m.rootX + HOURS_WIDTH, screen.width);
+        if (vStep !== 0) vScrollRef.current?.scrollTo({ y: Math.max(0, m.vOffset + vStep), animated: false });
+        if (hStep !== 0) hScrollRef.current?.scrollTo({ x: Math.max(0, m.hOffset + hStep), animated: false });
+    }, []);
+
+    const stopLoop = useCallback(() => {
+        if (loop.current) clearInterval(loop.current);
+        loop.current = null;
+    }, []);
+    useEffect(() => stopLoop, [stopLoop]);
+
     const beginLift = useCallback((appointment: Appt, index: number) => {
         feedback.medium();
         pan.setValue({ x: 0, y: 0 });
         liveState.current = { appointment, index };
         targetRef.current = null;
+        const m = metrics.current;
+        drag.current = { dx: 0, dy: 0, pageX: Number.NaN, pageY: Number.NaN, vStart: m.vOffset, hStart: m.hOffset };
+        rootRef.current?.measureInWindow((x, y) => {
+            m.rootX = Number.isFinite(x) ? x : 0;
+            m.rootY = Number.isFinite(y) ? y : 0;
+        });
+        stopLoop();
+        loop.current = setInterval(edgeTick, 16);
         setLifted({ appointment, index });
         setTarget(null);
-    }, [pan]);
+    }, [pan, edgeTick, stopLoop]);
 
-    const dragMove = useCallback((dx: number, dy: number) => {
-        const current = liveState.current;
-        if (!current) return;
-        pan.setValue({ x: dx, y: dy });
-        const next = resolveTarget({
-            appointment: current.appointment,
-            appointments,
-            staff,
-            fromIndex: current.index,
-            dx,
-            dy,
-            dayStartMinutes: dayStart,
-            dayEndMinutes: dayEnd,
-        });
-        targetRef.current = next;
-        setTarget(next);
-    }, [appointments, staff, dayStart, dayEnd, pan]);
+    const dragMove = useCallback((dx: number, dy: number, pageX: number, pageY: number) => {
+        if (!liveState.current) return;
+        drag.current = { ...drag.current, dx, dy, pageX, pageY };
+        applyDrag();
+    }, [applyDrag]);
 
     const endDrag = useCallback(() => {
+        stopLoop();
         const current = liveState.current;
         const landing = targetRef.current;
         liveState.current = null;
@@ -142,13 +241,29 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
             return;
         }
         feedback.success();
-        onMove?.(current.appointment, landing);
-    }, [pan, onMove]);
+        inputs.current.onMove?.(current.appointment, landing);
+    }, [pan, stopLoop]);
+
+    /*
+     * Kaydırıcının BİLDİRDİĞİ konum tek doğru. Blok havadaysa öteleme ve hedef
+     * aynı olayda yeniden hesaplanıyor: ızgara kaydığı karede blok parmağın
+     * altında kalıyor.
+     */
+    const onVScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        metrics.current.vOffset = event.nativeEvent.contentOffset.y;
+        if (liveState.current) applyDrag();
+    }, [applyDrag]);
+    const onHScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        metrics.current.hOffset = event.nativeEvent.contentOffset.x;
+        if (liveState.current) applyDrag();
+    }, [applyDrag]);
 
     const banner = lifted ? moveBanner(lifted.appointment, target) : null;
 
     return (
-        <View style={{ flex: 1 }}>
+        // `collapsable={false}`: yeni mimari düzen amaçlı görünümü
+        // düzleştirebiliyor; ölçülecek görünüm gerçekten var olmalı.
+        <View ref={rootRef} collapsable={false} style={{ flex: 1 }}>
             {/**
              * Dikey kaydırma dışta: saat sütunu ve ızgara BİRLİKTE kaymalı,
              * yoksa saatler yerinde kalıp bloklarla hizası bozulur. Onbir
@@ -158,12 +273,30 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
              * `automatic`: sistemin bu kaydırıcıyı birincil sayması için.
              */}
             <ScrollView
+                ref={vScrollRef}
                 contentInsetAdjustmentBehavior="automatic"
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={!lifted}
+                /*
+                 * iOS kaydırıcısı, içindeki bir dokunuşu kaydırmaya çevirmek
+                 * için İPTAL edebiliyor. Blok havadayken bu, sürüklemenin
+                 * yarıda düşmesi demekti. Blok kalkınca iptal kapanıyor.
+                 */
+                canCancelContentTouches={!lifted}
+                // Kenarda kaydırma kaydırıcının NEREDE olduğunu bilmeli.
+                onScroll={onVScroll}
+                scrollEventThrottle={16}
                 // Blok havadayken yenileme YOK: parmak taşıma yapıyor.
                 refreshControl={lifted ? undefined : refreshControl}
-                contentContainerStyle={{ flexDirection: 'row' }}
+                /*
+                 * ALTTA SEKME ÇUBUĞU KADAR PAY.
+                 *
+                 * Çubuk ızgaranın üstünde yüzüyor. Pay yokken en sona
+                 * kaydırılmış gün bile son saatlerini çubuğun ARKASINDA
+                 * bırakıyordu: 17:00 görünmüyor, oraya ne dokunulabiliyor ne
+                 * randevu taşınabiliyordu. Artık son saat çubuğun üstüne çıkıyor.
+                 */
+                contentContainerStyle={{ flexDirection: 'row', paddingBottom: calendarMetrics.bottomInset }}
             >
                 {/* Sabit saat sütunu. Başlık satırı kadar boşlukla başlar ki
                     ilk saat ilk ızgara çizgisiyle hizalansın. */}
@@ -187,9 +320,13 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                 </View>
 
                 <ScrollView
+                    ref={hScrollRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     scrollEnabled={!lifted}
+                    canCancelContentTouches={!lifted}
+                    onScroll={onHScroll}
+                    scrollEventThrottle={16}
                     contentContainerStyle={{ paddingRight: columnMetrics.gridPadRight }}
                 >
                     <View>
@@ -422,7 +559,8 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
     onPress: () => void;
     /** Yoksa blok kalkmaz — personel görünümü. */
     onLift?: (appointment: Appt, index: number) => void;
-    onDragMove: (dx: number, dy: number) => void;
+    /** `pageX/Y`: parmağın EKRAN konumu — kenarda kaydırma buna bakıyor. */
+    onDragMove: (dx: number, dy: number, pageX: number, pageY: number) => void;
     onDragEnd: () => void;
     onMenu?: (appointment: Appt) => void;
 }) {
@@ -478,7 +616,22 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
             dragging.current = true;
             return true;
         },
-        onPanResponderMove: (_event, gesture) => onDragMove(gesture.dx, gesture.dy),
+        // Yakalama aşaması bir sebeple atlanırsa kabarcık aşaması da alıyor.
+        onMoveShouldSetPanResponder: () => {
+            if (!liftedRef.current) return false;
+            dragging.current = true;
+            return true;
+        },
+        /*
+         * Blok havadayken SAHİPLİK BIRAKILMIYOR.
+         *
+         * Varsayılan cevap "evet"ti: kaydırıcı ya da üst bir görünüm dokunuşu
+         * istediğinde blok onu veriyor, sürükleme parmak ekrandayken bitiyor ve
+         * blok bırakılmış gibi düşüyordu. Müdürün "stabil çalışmıyor" dediği
+         * şeyin bir parçası buydu.
+         */
+        onPanResponderTerminationRequest: () => !liftedRef.current,
+        onPanResponderMove: (_event, gesture) => onDragMove(gesture.dx, gesture.dy, gesture.moveX, gesture.moveY),
         onPanResponderRelease: () => { dragging.current = false; onDragEnd(); },
         onPanResponderTerminate: () => { dragging.current = false; onDragEnd(); },
     }), [onDragMove, onDragEnd]);
@@ -508,7 +661,19 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                 accessibilityActions={onMenu ? [{ name: 'longpress', label: 'Taşı ve düzenle' }] : undefined}
                 onAccessibilityAction={() => onMenu?.(appointment)}
                 delayLongPress={LONG_PRESS_MS}
-                onLongPress={() => { dragging.current = false; onLift?.(appointment, index); }}
+                onLongPress={() => {
+                    dragging.current = false;
+                    if (!onLift) return;
+                    /*
+                     * Bayrak BURADA, hemen kalkıyor — bir sonraki çizimi
+                     * beklemiyor. Beklerse titreşimden hemen sonra kıpırdayan
+                     * parmak için blok henüz "havada" değildi: sürüklemeyi
+                     * üstlenemiyor, dokunuş kaydırıcıya gidiyor ve blok
+                     * düşüyordu.
+                     */
+                    liftedRef.current = true;
+                    onLift(appointment, index);
+                }}
                 onPressOut={() => {
                     // Kaldırdı ama kımıldatmadan bıraktı: taşıma iptal.
                     if (liftedRef.current && !dragging.current) onDragEnd();

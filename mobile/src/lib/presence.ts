@@ -15,6 +15,7 @@
 import type { CrewMember } from './managerMap.ts';
 import type { StaffPresence, StaffState } from './managerFlow.ts';
 import { initialsOf } from './text.ts';
+import { ownDayStamp } from './dayStamp.ts';
 
 /**
  * Personel ŞU AN bir işlemin içinde mi, ve ne zamandır?
@@ -32,13 +33,17 @@ export interface PresenceRow {
     service_ended_at: string | null;
 }
 
-function busySince(rows: readonly PresenceRow[], staffId: string): number | null {
+function busySince(rows: readonly PresenceRow[], staffId: string, dateISO: string): number | null {
     let earliest: number | null = null;
     for (const row of rows) {
         if (row.staff_id !== staffId) continue;
         if (row.status === 'cancelled') continue;
-        if (!row.arrived_at || row.service_ended_at) continue;
-        const at = Date.parse(row.arrived_at);
+        // Başka bir güne ait "başladı" damgası bugün personeli meşgul
+        // göstermiyor — akışla AYNI kural (`ownDayStamp`). Yoksa şerit
+        // "1143 saattir işlemde" derdi.
+        const started = ownDayStamp(row.arrived_at, dateISO);
+        if (!started || row.service_ended_at) continue;
+        const at = Date.parse(started);
         if (!Number.isFinite(at)) continue;
         // Aynı anda iki işlem açık kalmışsa EN ESKİSİ sayılıyor: personel
         // gerçekten o kadardır ayakta.
@@ -74,7 +79,7 @@ export function presenceOf(
     return crew.map((person) => {
         const days = leave.get(person.id) ?? [];
         const onLeave = days.includes(dateISO);
-        const since = onLeave ? null : busySince(rows, person.id);
+        const since = onLeave ? null : busySince(rows, person.id, dateISO);
         const busy = since !== null;
         return {
             id: person.id,

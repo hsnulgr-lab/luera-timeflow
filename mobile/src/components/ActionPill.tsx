@@ -95,10 +95,13 @@ function Glyph({ cell, color, initials }: {
 
 /** Basılı olmayan gözlerin dolgusu — tek örnek, her karede yeniden kurulmaz. */
 const ZERO = new Animated.Value(0);
+const NO_CELLS: readonly CellKey[] = [];
 const ONE = new Animated.Value(1);
 
-function Cell({ cell, ink, orange, initials, staffGiven, enter, active, dimmed, done, progress, pop, halo, onStart, onEnd }: {
+function Cell({ cell, offCell = false, ink, orange, initials, staffGiven, enter, active, dimmed, done, progress, pop, halo, onStart, onEnd }: {
     cell: CellKey;
+    /** Sönük göz — numara kullanılamıyor. Basılı tutma yok, dokunuş yönlendirir. */
+    offCell?: boolean;
     /** Personelin adı — yalnız sesli etiketi kişiselleştirmek için. */
     staffGiven?: string;
     ink: PanelInk;
@@ -118,7 +121,7 @@ function Cell({ cell, ink, orange, initials, staffGiven, enter, active, dimmed, 
     onEnd: () => void;
 }) {
     const { reduceMotion } = useTheme();
-    const off = cell === 'waoff';
+    const off = cell === 'waoff' || offCell;
     const spec = cellSpec(cell, staffGiven);
 
     /*
@@ -275,6 +278,8 @@ function Cell({ cell, ink, orange, initials, staffGiven, enter, active, dimmed, 
 
 export interface ActionPillProps {
     cells: readonly CellKey[];
+    /** Sönük çizilecek gözler (`pillOff`). */
+    offCells?: readonly CellKey[];
     /** Hap tetikleyicinin üstünde mi açılıyor, altında mı. */
     below?: boolean;
     /** Tetikleyicinin genişliği — okun yeri bundan türer. */
@@ -290,7 +295,7 @@ export interface ActionPillProps {
 }
 
 export function ActionPill({
-    cells, below = false, triggerWidth, triggerTop, triggerHeight,
+    cells, offCells = NO_CELLS, below = false, triggerWidth, triggerTop, triggerHeight,
     staffInitials, staffGiven, onPick, onDismiss,
 }: ActionPillProps) {
     const { c, dark, reduceMotion } = useTheme();
@@ -396,7 +401,7 @@ export function ActionPill({
     }, [halo, onPick, pop]);
 
     const start = useCallback((cell: CellKey) => {
-        if (cell === 'waoff') { onPick(cell); return; }
+        if (cell === 'waoff' || offCells.includes(cell)) { feedback.selection(); onPick(cell); return; }
         feedback.selection();
         setHeld(cell);
         setStep(0);
@@ -409,7 +414,7 @@ export function ActionPill({
         });
         running.current = animation;
         animation.start(({ finished }) => { if (finished) complete(cell); });
-    }, [complete, onPick, pop, progress, reduceMotion]);
+    }, [complete, offCells, onPick, pop, progress, reduceMotion]);
 
     // `reduceMotion` açıkken dolgu KADEMELİ ilerler ama DURMAZ: müdüre daha ne
     // kadar tutması gerektiğini söyleyen tek şey o. Rakam yazılmıyor — 500 ms
@@ -530,6 +535,7 @@ export function ActionPill({
                             <Cell
                                 key={cell}
                                 cell={cell}
+                                offCell={offCells.includes(cell)}
                                 ink={ink}
                                 orange={c.or}
                                 initials={cellGlyph(cell, staffInitials)}

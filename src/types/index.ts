@@ -27,6 +27,7 @@ export interface Reservation {
     source?: 'manual' | 'booking' | 'leadflow';
     isPaid?: boolean;
     customerArrivedAt?: string;   // Resepsiyon "Müşteri Geldi" dedi — personele push gider, hizmet başlamaz
+    noShowAt?: string;   // Müdür "Gelmedi" dedi (098) — geldi damgası yoksa randevu gelmedi sayılır
     arrivedAt?: string;   // "Başladı" zaman damgası (confirmed → hizmette); süre başlangıcı
     serviceEndedAt?: string;   // "Bitti" zaman damgası — süre durdu, adisyon kontrol/kasa aşaması
     adisyonItems?: AdisyonItem[];   // Hizmet sırasında canlı eklenen kalemler (malzeme/ürün/ek hizmet)

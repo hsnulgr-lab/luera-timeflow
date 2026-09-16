@@ -379,19 +379,29 @@ const HISTORY_LIMIT = 50;
 
 /** Akışın ihtiyacı olan ek sütunlar — `is_paid` randevunun tahsil hâli. */
 const FLOW_COLS = `${RES_COLS}, is_paid, updated_at`;
+/** Müdürün "Gelmedi" kararı (098). Ayrı, çünkü sütun 098 çalışana kadar YOK. */
+const FLOW_NO_SHOW_COL = 'no_show_at';
 
 /** Günün randevuları, akışın beklediği ham şekilde. */
 export async function fetchFlowRows(
     dateISO: string,
 ): Promise<{ rows: FlowRow[]; stamps: Map<string, string> }> {
     const organizationId = await orgIdOrThrow();
-    const { data, error } = await supabase
+    const query = (cols: string) => supabase
         .from('reservations')
-        .select(FLOW_COLS)
+        .select(cols)
         .eq('organization_id', organizationId)
         .eq('date', dateISO)
         .order('start_time')
         .returns<Record<string, unknown>[]>();
+    /*
+     * OLMAYAN KOLON DERSİ: `no_show_at` 098 çalıştırılana kadar yok ve
+     * PostgREST bilinmeyen kolonda BÜTÜN sorguyu reddediyor — akış
+     * "okunamadı"ya düşerdi. Yalnız o hata (42703) yakalanıp sütunsuz
+     * okunuyor; öteki her hata aynen fırlatılıyor.
+     */
+    let { data, error } = await query(`${FLOW_COLS}, ${FLOW_NO_SHOW_COL}`);
+    if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(FLOW_COLS));
     if (error) throw error;
     /*
      * Kilit damgaları AYRI bir haritada: akış satırı bir görünüm modeli ve
@@ -416,6 +426,7 @@ export async function fetchFlowRows(
         customer_arrived_at: (row.customer_arrived_at as string | null) ?? null,
         arrived_at: (row.arrived_at as string | null) ?? null,
         service_ended_at: (row.service_ended_at as string | null) ?? null,
+        no_show_at: (row.no_show_at as string | null) ?? null,
         is_paid: row.is_paid === true,
     }));
     return { rows, stamps };

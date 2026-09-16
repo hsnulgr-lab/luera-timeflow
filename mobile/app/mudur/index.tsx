@@ -17,14 +17,15 @@ import { WA_CONNECTED } from '../../src/lib/mockSend';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
-import type { CellKey } from '../../src/lib/actionPill';
+import { sendWaNudge } from '../../src/lib/managerWrite';
+import { numberUsable, waNudgeText, type CellKey } from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
     FlowDivider, FlowEnd, FlowRow, StaffStrip,
 } from '../../src/components/FlowParts';
 import {
-    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction,
-    applyWaitAction, bookedEvent, cancelSend, headline, nextInLineId, nowLineIndex,
+    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction, applySendResult,
+    applyWaitAction, bookedEvent, cancelSend, headline, isLate, nextInLineId, nowLineIndex,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
 import {
@@ -103,18 +104,17 @@ export default function ManagerFlow() {
      * Akış olayları SUNUCUDAN.
      *
      * Veritabanında karşılığı olan dokunuşlar GERÇEKTEN yazılıyor: "Geldi",
-     * "Geç geldi", geri alması, "Onayla", "Reddet". Karşılığı OLMAYANLAR
-     * yazıyormuş gibi yapmıyor:
-     *   • "Tahsil et" artık sahte bir ödeme üretmiyor — Kasa'yı açıyor.
-     *     Tahsilat para hareketi; ekranda "tahsil edildi" deyip Kasa'da
-     *     bekleyen bir adisyon bırakmak çift tahsilata davetiye olurdu.
-     *   • "Gelmedi"nin masaüstünde de kaydı yok — orada da süreden
-     *     türetiliyor. Burada müdürün kendi ekranındaki bir işaret olarak
-     *     kalıyor ve yenilemede sıfırlanıyor.
+     * "Geç geldi", "Gelmedi" (098), geri almaları, "Onayla", "Reddet".
+     * Karşılığı OLMAYAN hiçbir düğme yazıyormuş gibi yapmıyor:
+     *   • Adisyon bekleyen kartta EYLEM YOK — tahsilat telefondan yapılmıyor
+     *     (müdür kararı, 2026-09-17). Müdür tutarı ve bilgileri görür.
+     *   • "Personele söyle" gizli — personele giden bir kanal yok; bildirim
+     *     ayrı turda kurulacak (`STAFF_NUDGE_READY`).
+     *   • "Beklemeye al" kaldırıldı — kimsenin okumadığı yerel bir işaretti.
      */
     const {
         events, replace, reload, write, stampNow, state, refusal, stale, at: readAt,
-        presence, appointmentCount,
+        presence, appointmentCount, businessName,
     } = useManagerDay();
 
     /**
@@ -166,6 +166,16 @@ export default function ManagerFlow() {
     const [freshId, setFreshId] = useState<string | null>(null);
 
     const onAction = useCallback((event: FlowEvent, label: string) => {
+        /*
+         * "Yaz" penceresinde VAZGEÇMEK. Bu düğme çiziliyordu ama hiçbir şey
+         * yapmıyordu: pencereyi kapatan `cancelSend` hiç çağrılmıyordu ve
+         * mesaj beş saniye dolunca yine gidiyordu. İstek pencere içinde HİÇ
+         * gitmediği için kapatmak iz bırakmıyor.
+         */
+        if (label === 'Geri al' && (event.sendingLeft ?? 0) > 0) {
+            replace(event.id, cancelSend(event));
+            return;
+        }
         // "Karşılamayı aç" bir durum değişikliği değil, bir geçiş: randevuyu
         // açar. Masaüstünde de aynı kelime aynı işi yapıyor.
         if (label === 'Karşılamayı aç') {
@@ -197,17 +207,6 @@ export default function ManagerFlow() {
             });
             return;
         }
-        /*
-         * TAHSİLAT KASADA.
-         *
-         * Burada yerel olarak "tahsil edildi"ye çevirmek, veritabanında hiçbir
-         * ödeme yokken müdüre parayı almış gibi göstermekti — ve Kasa aynı
-         * adisyonu bekleyen olarak göstermeye devam ederdi.
-         */
-        if (event.kind === 'due' && label === 'Tahsil et') {
-            router.navigate({ pathname: '/mudur/cash' });
-            return;
-        }
         const next = event.kind === 'arrived' ? applyWaitAction(event, label)
             : event.kind === 'noshow' ? applyNoshowAction(event, label)
                 : applyFlowAction(event, label);
@@ -219,12 +218,32 @@ export default function ManagerFlow() {
         };
 
         // ── Veritabanında karşılığı OLAN dokunuşlar ──────────────────────────
-        const arrivedNow = (event.kind === 'next' && label === 'Geldi')
-            || (event.kind === 'noshow' && label === 'Geç geldi');
-        if (arrivedNow) {
+        if (event.kind === 'next' && label === 'Geldi') {
             // Damga SUNUCU saatiyle: cihazın saati yanlışsa bekleme süresi
             // de yanlış hesaplanırdı.
             void commit(event, next, { customer_arrived_at: stampNow() }).then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+        if (event.kind === 'noshow' && label === 'Geç geldi') {
+            // Geldi damgası + "gelmedi" kararı temizleniyor (098). Geldi damgası
+            // tek başına da yeterdi (okuma kuralı onu önce soruyor), ama
+            // kalan bir karar masaüstünün kayıt geçmişinde yanlış okunurdu.
+            void commit(event, next, { customer_arrived_at: stampNow(), no_show_at: null })
+                .then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+        /*
+         * "GELMEDİ" ARTIK BİR DAMGA (098).
+         *
+         * Eskiden yalnız telefonda bir işaretti: yenileyince randevu yeniden
+         * "sıradaki" oluyor, masaüstü "Onaylandı" demeye devam ediyordu.
+         */
+        if (event.kind === 'next' && label === 'Gelmedi') {
+            void commit(event, next, { no_show_at: stampNow() }).then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+        if (event.kind === 'noshow' && label === 'Geri al') {
+            void commit(event, next, { no_show_at: null }).then((ok) => { if (ok) markFresh(); });
             return;
         }
         if (event.kind === 'arrived' && label === 'Geri al') {
@@ -236,13 +255,20 @@ export default function ManagerFlow() {
             return;
         }
 
-        // ── Karşılığı OLMAYANLAR — müdürün kendi ekranında kalıyor ────────────
-        // "Gelmedi" · "Reddet" penceresi · "Personele söyle" · "Beklemeye al".
-        // Reddetmenin YAZMASI pencere dolunca yapılıyor (aşağıda).
+        // ── Yazması SONRA yapılanlar ─────────────────────────────────────────
+        // "Reddet": 5 sn'lik pencere açılıyor, yazma pencere dolunca (aşağıda).
         markFresh();
         replace(event.id, next);
     }, [router, replace, commit, stampNow]);
 
+
+    const openAppointment = useCallback((event: FlowEvent) => {
+        if (!event.appointmentId) return;
+        router.push({
+            pathname: '/randevu/[id]',
+            params: { id: event.appointmentId, date: todayISO() },
+        });
+    }, [router]);
 
     /**
      * Eylem hapından seçilen göz.
@@ -259,25 +285,34 @@ export default function ManagerFlow() {
             // Ekran yazıldığında buraya `router.navigate` gelir.
             return;
         }
+        if ((cell === 'ara' || cell === 'wa') && !numberUsable(event.customerPhone, event.waResult)) {
+            // SÖNÜK göz: numara yok/geçersiz. Telefondan düzeltilmiyor; randevu
+            // kartı numarayı ve müşteriyi gösteriyor.
+            openAppointment(event);
+            return;
+        }
         if (cell === 'ara') {
             const phone = dialable(event.customerPhone);
             if (phone) void Linking.openURL(`tel:${phone}`);
         }
         const next = applyPillAction(event, cell);
         if (!next) return;
-        if (cell === 'nox') setFreshId(event.id);
+        if (cell === 'nox') {
+            // Haptaki "Gelmedi" de kartınkiyle AYNI yazma (098).
+            void commit(event, next, { no_show_at: stampNow() }).then((ok) => { if (ok) setFreshId(event.id); });
+            return;
+        }
         replace(event.id, next);
-    }, [router, replace]);
+    }, [replace, commit, stampNow, openAppointment]);
 
     /**
-     * Gönderim penceresi — 5 saniye geri sayar, sonra WhatsApp'ı açar.
+     * Gönderim penceresi — 5 saniye geri sayar, sonra SALONUN numarasından
+     * hazır metni gönderir (Müdür 34 · v2).
      *
-     * Müdürün mesaj GÖNDEREN bir ucu henüz yok. Pencere dolunca eskiden
-     * `mockSendResult` bir SONUÇ uyduruyordu ("iletildi", "kuyrukta") — canlı
-     * veride bu, gerçek bir müşteriye gitmemiş bir mesajı gitmiş gibi
-     * göstermekti. Artık pencere dolunca telefonun kendi WhatsApp'ı o
-     * müşteriyle açılıyor: tıpkı "Ara"nın telefonu açması gibi gerçek bir
-     * eylem, uydurma bir sonuç YOK. Beş saniyelik vazgeçme payı olduğu gibi.
+     * Pencere içinde istek HİÇ GİTMEZ; "Geri al" onu iz bırakmadan kapatır.
+     * Pencere dolunca eskiden müdürün kendi WhatsApp'ı metinsiz açılıyordu:
+     * müdür uygulamadan çıkıyor, mesajı elle yazıyor ve kart sonucu bilmiyordu.
+     * Şimdi sunucunun GERÇEK sonucu kartın kayıt satırına yazılıyor.
      */
     useEffect(() => {
         const sending = events.filter((event) => (event.sendingLeft ?? 0) > 0);
@@ -287,10 +322,23 @@ export default function ManagerFlow() {
             for (const event of sending) {
                 const left = (event.sendingLeft ?? 0) - 1;
                 if (left > 0) { replace(event.id, { ...event, sendingLeft: left }); continue; }
-                const digits = dialable(event.customerPhone)?.replace(/\D/g, '');
-                if (digits) void Linking.openURL(`https://wa.me/${digits}`);
-                // Pencere kapanıyor, SONUÇ YAZILMIYOR: sonucu bilen yok.
-                replace(event.id, cancelSend(event));
+                /*
+                 * ÖNCE pencere kapanıyor, SONRA istek gidiyor. Ters sırada
+                 * cevap beklenirken sayaç bir kez daha dönerdi ve aynı mesaj
+                 * müşteriye İKİ KEZ giderdi.
+                 */
+                const inFlight = { ...event, sendingLeft: undefined };
+                replace(event.id, inFlight);
+                const text = waNudgeText({
+                    salon: businessName,
+                    time: event.time,
+                    late: event.kind === 'noshow' || isLate(event.etaMinutes),
+                });
+                void sendWaNudge({
+                    phone: event.customerPhone ?? '',
+                    text,
+                    customerId: event.customerId ?? null,
+                }).then((result) => replace(event.id, applySendResult(inFlight, result)));
             }
             /*
              * Reddetme penceresi dolunca randevu GERÇEKTEN iptal ediliyor.
@@ -309,7 +357,7 @@ export default function ManagerFlow() {
             }
         }, 1000);
         return () => clearTimeout(id);
-    }, [events, replace, commit]);
+    }, [events, replace, commit, businessName]);
 
 
     /**
@@ -343,13 +391,6 @@ export default function ManagerFlow() {
     }, [reload]);
 
     /** ⋮ — o olayın randevusunu açar. Randevusu olmayan olayda çizilmez. */
-    const openAppointment = useCallback((event: FlowEvent) => {
-        if (!event.appointmentId) return;
-        router.push({
-            pathname: '/randevu/[id]',
-            params: { id: event.appointmentId, date: todayISO() },
-        });
-    }, [router]);
     // Cetvelin seçtiği gün. Bugün canlı olay akışı, başka gün o günün
     // randevuları — ikisi de veritabanından.
     const [selectedISO, setSelectedISO] = useState(() => todayISO());

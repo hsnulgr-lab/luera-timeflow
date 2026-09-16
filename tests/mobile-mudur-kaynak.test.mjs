@@ -28,7 +28,11 @@ test('managerMap hiçbir çalışma zamanı bağımlılığı taşımıyor', () 
     // Node testleri bu dosyayı DOĞRUDAN içe aktarıyor. React, react-native ya
     // da supabase girdiği an testler hiç çalışmaz hâle gelir.
     const imports = [...map.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-    assert.deepEqual(imports, ['./calendar.ts']);
+    // `dayStamp`: taşınmış randevunun eski damgası okuma noktasında düşüyor.
+    assert.deepEqual(imports, ['./calendar.ts', './dayStamp.ts']);
+    // Ve o dosya da SAF kalmalı — hiç içe aktarımı yok.
+    const dayStamp = read('src/lib/dayStamp.ts');
+    assert.deepEqual([...dayStamp.matchAll(/from '([^']+)'/g)], []);
 });
 
 // ── Hangi org ───────────────────────────────────────────────────────────────

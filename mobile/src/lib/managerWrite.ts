@@ -13,6 +13,7 @@
  */
 
 import { supabase } from './supabase';
+import { waResultOf, type WaResult } from './actionPill.ts';
 import { outcomeOf, type WriteOutcome } from './managerWriteMap.ts';
 import { forgetOrg, OrgError } from './managerSource';
 import { resolveOrg } from './managerSource';
@@ -267,6 +268,41 @@ export async function sendConfirmation(input: {
         return { ok: false, reason: body.reason ?? null };
     } catch {
         return { ok: false, reason: null };
+    }
+}
+
+/**
+ * Akıştaki "Yaz" — Müdür 34 · v2.
+ *
+ * Mesaj SALONUN numarasından, sunucunun tek gönderim kapısından gidiyor
+ * (`whatsapp-proxy` → `sendWA`). Eskiden müdürün kendi WhatsApp'ı metinsiz
+ * açılıyordu: müdür uygulamadan çıkıyor, mesajı elle yazıyor, kart sonucu
+ * hiç bilmiyordu.
+ *
+ * `kind: 'manual'` — müdürün elle tetiklediği mesaj; kota dışı
+ * (`_shared/wa.ts · UNMETERED`), onay anahtarına da bağlı değil.
+ *
+ * Sonuç HİÇBİR ZAMAN fırlatılmıyor: kart her hâlde bir satır yazabilmeli.
+ */
+export async function sendWaNudge(input: {
+    phone: string; text: string; customerId: string | null;
+}): Promise<WaResult> {
+    try {
+        const choice = await resolveOrg();
+        const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+            body: {
+                action: 'send',
+                phone: input.phone,
+                text: input.text,
+                kind: 'manual',
+                customerId: input.customerId,
+                orgId: choice.ok ? choice.id : undefined,
+            },
+        });
+        if (error) return 'failed';
+        return waResultOf(data as { ok?: boolean; reason?: string; queued?: boolean } | null);
+    } catch {
+        return 'failed';
     }
 }
 

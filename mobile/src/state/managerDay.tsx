@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import {
     buildFlow, occupancyOf, revenueOf,
 } from '../lib/flowBuild';
-import { sortFlow, type FlowEvent, type FlowKind, type StaffPresence } from '../lib/managerFlow';
+import { mergeLocal, sortFlow, type FlowEvent, type FlowKind, type StaffPresence } from '../lib/managerFlow';
 import type { OrgRefusal } from '../lib/managerMap';
 import type { ManagerReadState } from '../lib/managerRead';
 import { useManagerFlowDay } from '../lib/managerFlowDay';
@@ -63,6 +63,8 @@ export interface ManagerDayValue {
     revenue: number;
     /** Doluluk yüzdesi. Salonun saati bilinmiyorsa `null` — uydurulmuyor. */
     occupancy: number | null;
+    /** Salonun adı — hazır mesaj metni için. Bilinmiyorsa boş. */
+    businessName: string;
 }
 
 const ManagerDayContext = createContext<ManagerDayValue | null>(null);
@@ -118,7 +120,9 @@ export function ManagerDayProvider({ children }: { children: ReactNode }) {
             const local = overlay.get(event.id);
             // Yerel dokunuş YALNIZ sunucu hâlâ aynı yerdeyken geçerli. Sunucu
             // ilerlediyse (bizim yazmamız ya da başka bir cihaz) gerçek o.
-            return local && local.basedOn === event.kind ? local.event : event;
+            // Tür değiştirmeyen dokunuşta kart SUNUCUDAN gelir, yalnız hapın
+            // yerel alanları dokunuştan (`mergeLocal`) — sayaç donmasın.
+            return local && local.basedOn === event.kind ? mergeLocal(event, local.event) : event;
         });
         const known = new Set(serverEvents.map((event) => event.appointmentId));
         // Yerel eklenen, sunucuya ulaştığı an kendiliğinden düşüyor.
@@ -194,10 +198,11 @@ export function ManagerDayProvider({ children }: { children: ReactNode }) {
         appointmentCount,
         revenue,
         occupancy,
+        businessName: data.businessName,
     }), [
         events, replace, add, reload, write, stampNow,
         snapshot.state, snapshot.refusal, snapshot.at, snapshot.stale,
-        data.dateISO, presence, appointmentCount, revenue, occupancy,
+        data.dateISO, presence, appointmentCount, revenue, occupancy, data.businessName,
     ]);
     return <ManagerDayContext.Provider value={value}>{children}</ManagerDayContext.Provider>;
 }

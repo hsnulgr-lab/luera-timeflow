@@ -279,6 +279,7 @@ export default function ManagerAppointment() {
                     mode={moveMode}
                     appointment={appointment}
                     day={data.dayRows}
+                    hours={data.open}
                     staff={staffOptions}
                     onDismiss={() => setMoveMode(null)}
                     onPick={(target) => {

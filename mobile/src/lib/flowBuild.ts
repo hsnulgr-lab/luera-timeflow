@@ -20,6 +20,10 @@ import { addDaysISO, clockText, formatDayMonth, toMinutes } from './calendar.ts'
 import type { CashTicket } from './cashBuild.ts';
 import type { ApptContext, FlowEvent, FlowKind } from './managerFlow.ts';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
+import { withOwnStamps } from './dayStamp.ts';
+import { clockLocative } from './text.ts';
+
+export { ownDayStamp, STAMP_DAY_MARGIN_HOURS, withOwnStamps } from './dayStamp.ts';
 
 export interface FlowRow {
     id: string;
@@ -34,6 +38,11 @@ export interface FlowRow {
     customer_arrived_at: string | null;
     arrived_at: string | null;
     service_ended_at: string | null;
+    /**
+     * Müdür "Gelmedi" dedi (098). İsteğe bağlı: sütun okunamazsa (098 henüz
+     * çalıştırılmamış) akış yine açılıyor, yalnız elle verilen karar görünmüyor.
+     */
+    no_show_at?: string | null;
     is_paid: boolean;
 }
 
@@ -92,11 +101,13 @@ export { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
  * farklı bekleyen adisyon sayısı.
  */
 export function kindOf(
-    row: FlowRow,
+    raw: FlowRow,
     dateISO: string,
     nowMs: number,
     toleranceMin: number = DEFAULT_ARRIVAL_TOLERANCE_MIN,
 ): FlowKind {
+    // Başka bir güne ait damga bu günün hâlini belirlemiyor (`ownDayStamp`).
+    const row = withOwnStamps(raw, dateISO);
     if (row.status === 'cancelled') return 'cancelled';
     // Onay bekleyen randevu bir OLAYDIR: müdürün yapacağı bir şey var.
     if (row.status === 'pending') return 'booked';
@@ -104,6 +115,11 @@ export function kindOf(
     if (row.arrived_at) return 'started';
     // Salona girdiyse ne kadar gecikmiş olursa olsun "gelmedi" DEĞİL.
     if (row.customer_arrived_at) return 'arrived';
+    /*
+     * Müdür "Gelmedi" dedi — toleransı beklemeden (098). Masaüstünün
+     * `apptPhase`i aynı sırayla okuyor: geldi damgası bunu her zaman yener.
+     */
+    if (row.no_show_at) return 'noshow';
     /*
      * "Gelmedi" TÜRETİLİYOR, bir damgası yok — masaüstünde de yok.
      * Eşik salonun kendi toleransı: randevu saati + tolerans geçti ve kimse
@@ -165,7 +181,10 @@ export function buildFlow(input: BuildInput): FlowEvent[] {
         for (const id of ticket.ids) ticketOf.set(id, ticket);
     }
 
-    const today = input.rows.map((row) => {
+    const today = input.rows.map((raw) => {
+        // Saat, bekleme ve sayaç da AYNI süzülmüş damgadan — hâl ile rakam
+        // ayrı damgaya bakarsa "sıradaki" kartında 1143 saatlik sayaç çıkar.
+        const row = withOwnStamps(raw, input.dateISO);
         const kind = kindOf(row, input.dateISO, input.nowMs, input.toleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN);
         const staffName = row.staff_id ? (input.crew.get(row.staff_id) ?? null) : null;
         const [first = '', ...rest] = row.customer_name.trim().split(/\s+/);
@@ -209,7 +228,10 @@ export function buildFlow(input: BuildInput): FlowEvent[] {
             const since = Date.parse(row.arrived_at ?? '');
             if (Number.isFinite(since)) {
                 event.elapsedSeconds = Math.max(0, Math.floor((input.nowMs - since) / 1000));
-                event.startedAt = row.arrived_at ?? undefined;
+                // Kartın okuduğu CÜMLE ("18:57’de başladı"), ham damga değil.
+                // Eskiden ISO metni olduğu gibi ekrana basılıyordu.
+                const clock = clockOf(row.arrived_at);
+                if (clock) event.startedAt = `${clockLocative(clock)} başladı`;
             }
         }
         if (kind === 'due') {

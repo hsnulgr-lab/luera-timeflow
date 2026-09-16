@@ -269,7 +269,7 @@ export function isSettled(kind: FlowKind): boolean {
 
 /**
  * Kartın içindeki eylemler. Üç nokta menüsüne gömülmez — Instagram'da beğeni
- * kartın içindedir, bizde de "Geldi" ve "Tahsil et" öyle.
+ * kartın içindedir, bizde de "Geldi" öyle.
  */
 export interface FlowAction {
     label: string;
@@ -283,7 +283,12 @@ export function actionsOf(kind: FlowKind): FlowAction[] {
             { label: 'Gelmedi', kind: 'secondary' },
         ];
     }
-    if (kind === 'due') return [{ label: 'Tahsil et', kind: 'primary' }];
+    /*
+     * Adisyon bekliyor: EYLEM YOK. Tahsilat telefondan yapılmıyor (müdür
+     * kararı, 2026-09-17) — müdür tutarı, kimin verdiğini ve ne zamandır
+     * beklediğini GÖRÜR. "Tahsil et" Kasa'ya götürüyordu, Kasa salt okunur ve
+     * bekleyeni yine Akış'a yolluyordu: basılan düğme bir döngüydü.
+     */
     return [];
 }
 
@@ -671,9 +676,6 @@ export function applyFlowAction(event: FlowEvent, label: string): FlowEvent | nu
         const { etaMinutes: _eta, ...rest } = event;
         return { ...rest, kind: 'noshow' };
     }
-    if (event.kind === 'due' && label === 'Tahsil et') {
-        return { ...event, kind: 'paid' };
-    }
     // ── Müdür 33 · online randevu onayı ──────────────────────────────────
     if (event.kind === 'booked' && label === 'Onayla') {
         const { pending: _p, rejectedLeft: _r, ...rest } = event;
@@ -699,6 +701,14 @@ export function applyFlowAction(event: FlowEvent, label: string): FlowEvent | nu
 //
 // İki damga ayrı: `customer_arrived_at` = geldi, `arrived_at` = hizmet başladı.
 // Aradaki boşluk bu dosyada `kind:'arrived'` + `waitMinutes` ile modellenir.
+
+/**
+ * Müdürden personele "müşteri bekliyor" bildirimi HAZIR MI.
+ *
+ * Değil: kanal yok. Açılmadan önce bildirimin personelin telefonuna
+ * GERÇEKTEN ulaştığı kanıtlanmalı — yoksa düğme yine yalnız bir damga olur.
+ */
+export const STAFF_NUDGE_READY = false;
 
 /** Müşteri bu kadar dakikadır bekliyorsa müdür karşılamaya yönlendirilir. */
 export const WAIT_WARN_MINUTES = 5;
@@ -831,15 +841,21 @@ export function waitCard(
     //
     // Çok kişili resepsiyon senaryosu için geri gelebilir — ama o zaman kaydı
     // OKUYAN bir yerle birlikte (personel ekranı ya da müşteri kartı).
+    //
+    // "Personele söyle" GİZLİ (2026-09-17): basınca yalnız telefonda bir
+    // damga kalıyordu, personele HİÇBİR ŞEY gitmiyordu. Bildirim kanalı ayrı
+    // bir turda kurulacak; o gün `STAFF_NUDGE_READY` açılır.
+    //
+    // "Beklemeye al" KALDIRILDI (2026-09-17): yalnız telefonda bir işaretti,
+    // yenileyince kayboluyordu; ne masaüstü ne personel okuyordu.
     const actions: WaitAction[] = [];
     if (fresh) actions.push({ label: 'Geri al', kind: 'ghost' });
-    else if (level === 'late') {
+    else if (level === 'late' && STAFF_NUDGE_READY) {
         actions.push(stamp(since(event.remindedAt), 'Personele')
             ?? { label: 'Personele söyle', kind: 'fill' });
-    } else if (level === 'warn') {
+    } else if (level !== 'calm') {
+        // Beklemesi uzayan müşteri için gerçek tek hamle: randevuyu açmak.
         actions.push({ label: 'Karşılamayı aç', kind: 'ghost' });
-    } else if (!event.parked) {
-        actions.push({ label: 'Beklemeye al', kind: 'hap' });
     }
 
     return {
@@ -872,7 +888,6 @@ export function applyWaitAction(event: FlowEvent, label: string): FlowEvent | nu
     // Damga saat değil, beklemenin KAÇINCI DAKİKASI olduğunu saklıyor.
     const now = Math.max(0, Math.floor(event.waitMinutes ?? 0));
     if (label === 'Personele söyle') return { ...event, remindedAt: now };
-    if (label === 'Beklemeye al') return { ...event, parked: true };
     // "Karşılamayı aç" bir durum değişikliği değil, bir GEÇİŞ: randevu detayını
     // açar. Ekran onu ayrı ele alır; burada değişecek bir şey yok.
     return null;
@@ -946,8 +961,9 @@ export function dueCard(event: FlowEvent): DueCard {
         currency: CURRENCY,
         value: formatAmount(event.amountValue ?? 0),
         sub: withServed ? `${served} verdi · ${aging}` : aging,
-        // Tek eylem, o da dolu hap: ikinci bir KARAR yok. Kart bir kapı.
-        actions: [{ label: 'Tahsil et', kind: 'fill' }],
+        // EYLEM YOK: tahsilat telefondan yapılmıyor (bkz. `actionsOf`). Kart
+        // bilgi taşıyor — tutar, kim verdi, ne zamandır bekliyor.
+        actions: [],
     };
 }
 
@@ -1150,49 +1166,45 @@ export interface NextSlots {
     /** Üst yuva — her zaman dolu turuncu, her zaman `Geldi`. */
     primary: string;
     /**
-     * Alt yuva. Zamanında `Gelmedi`, gecikince hapın tetikleyicisi.
+     * Alt yuva — Müdür 34 · v2: GÜNÜN HER ANINDA `Yönet`.
      *
-     * TAKAS, EKLEME DEĞİL: sağ sütun hiçbir zaman ikiden fazla yuva taşımaz.
-     * `Gelmedi` gecikme penceresinde kaybolmuyor, hapın içine giriyor.
+     * "Takas öldü, sütun sabit." Geçen tur zamanında `Gelmedi` düğmesi
+     * gösterip gecikince hapa takas ediyordu; bir hareket ve bir hata kaynağı
+     * fazlaydı. `Gelmedi` artık yalnız gecikince, hapın İÇİNDE.
+     *
+     * Tek istisna 5 sn'lik gönderim penceresi: yuva `Geri al` olur.
      */
-    secondary: 'gelmedi' | 'pill' | 'undo';
+    secondary: 'pill' | 'undo';
 }
 
-/**
- * Gecikince neden `Gelmedi` yerine hap.
- *
- * 8. dakikada `Gelmedi`ye basmak, henüz gelebilecek bir müşteriyi atmaktır; ve
- * 30. dakikada randevu zaten kendiliğinden düşüyor. Yani gecikme penceresinde
- * `Gelmedi`, otomatik olanın kısayolundan ibaret — hapın içinde durması
- * yeterli. Yerini müdürün gerçekten ihtiyacı olan şey alıyor: ulaşma yolu.
- */
 export function nextSlots(event: Pick<FlowEvent, 'etaMinutes' | 'sendingLeft'>): NextSlots {
     if (event.sendingLeft != null && event.sendingLeft > 0) {
         return { primary: 'Geldi', secondary: 'undo' };
     }
-    return { primary: 'Geldi', secondary: isLate(event.etaMinutes) ? 'pill' : 'gelmedi' };
+    return { primary: 'Geldi', secondary: 'pill' };
 }
 
 /** Hapın girdisi olayın kendisinden türer — ekran seçmez, seçemez. */
 export function pillInputOf(
-    event: Pick<FlowEvent, 'customerPhone' | 'waResult' | 'kind'>,
+    event: Pick<FlowEvent, 'customerPhone' | 'waResult' | 'kind' | 'etaMinutes' | 'staffName'>,
     waConnected = true,
 ): PillInput {
     return {
         customerPhone: event.customerPhone,
         waConnected,
         waResult: event.waResult,
-        // Düşmüş bir randevu bir daha düşürülemez.
-        canDrop: event.kind === 'next',
         /*
-         * "Personele bilgi ver" GİZLİ (2026-09-15).
-         *
-         * Gözün açıklaması "bildirim gider" diyor ama müdürden personele
-         * bildirim gönderen bir yol YOK — basınca yalnız telefonda bir damga
-         * kalıyordu. Müdür personelin haberdar olduğunu sanabilirdi. Kanal
-         * yazıldığında bu satır `true`ya döner; göz, kaydı ve metni hazır.
+         * `Gelmedi` YALNIZ GECİKİNCE (Müdür 34 · v2): zamanında basmak henüz
+         * gelebilecek bir müşteriyi atmak. Düşmüş randevu bir daha düşürülemez.
          */
-        canTellStaff: false,
+        canDrop: event.kind === 'next' && isLate(event.etaMinutes),
+        /*
+         * Personel gözü (SD) GÖRÜNÜR — müdür kararı 2026-09-16: "görünsün,
+         * basınca yalnız kayıt". Personele bildirim GİTMİYOR (kanal bildirim
+         * turunda); kart yalnız "Personele söylendi" kaydını tutar.
+         * Tasarım: personel atanmamışsa göz hiç çizilmez.
+         */
+        canTellStaff: Boolean(event.staffName?.trim()),
     };
 }
 
@@ -1240,6 +1252,38 @@ export function applyPillAction(event: FlowEvent, cell: CellKey): FlowEvent | nu
     // `waoff` bir gönderim değil, bir GEÇİŞ: Ayarlar → WhatsApp. Ekran onu
     // ayrı ele alır; burada değişecek bir şey yok.
     return null;
+}
+
+/**
+ * Hapın ve pencerelerin YEREL alanları — sunucuda karşılığı yok, kartta kalıyor.
+ */
+export const LOCAL_CARD_FIELDS = [
+    'actedCell', 'actedAt', 'sendingLeft', 'waResult', 'rejectedLeft',
+] as const;
+
+/**
+ * Yerel dokunuş ile sunucunun güncel satırını birleştirir.
+ *
+ * ── Neden ───────────────────────────────────────────────────────────────────
+ * Yerel dokunuş KARTIN TAMAMINI o anki hâliyle saklıyordu. Türü değiştirmeyen
+ * bir dokunuşta ("Ara", "Yaz", "Reddet" penceresi) sunucu satırı bir daha hiç
+ * görünmüyordu: gecikme sayacı donuyor, "Arandı · şimdi" hiç yaşlanmıyor ve
+ * tasarımın "10. dakikada düşer" kuralı hiç çalışmıyordu.
+ *
+ * Tür DEĞİŞTİYSE ("Geldi", "Gelmedi") yerel kart sunucu yetişene kadar
+ * olduğu gibi gösteriliyor — o dokunuş kartın kendisini değiştirdi.
+ * Değişmediyse kart SUNUCUDAN, yalnız yerel alanlar dokunuştan geliyor.
+ */
+export function mergeLocal(server: FlowEvent, local: FlowEvent): FlowEvent {
+    if (local.kind !== server.kind) return local;
+    const next: FlowEvent = { ...server };
+    const bag = next as unknown as Record<string, unknown>;
+    const from = local as unknown as Record<string, unknown>;
+    for (const key of LOCAL_CARD_FIELDS) {
+        if (from[key] === undefined) delete bag[key];
+        else bag[key] = from[key];
+    }
+    return next;
 }
 
 /** Gönderim penceresi doldu — sonuç yazılır, pencere kapanır. */

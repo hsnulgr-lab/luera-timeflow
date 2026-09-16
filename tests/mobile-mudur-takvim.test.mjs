@@ -74,13 +74,25 @@ test('bloklar sütun içinde saate göre sıralı', () => {
     assert.deepEqual(map.get('merve').map((b) => b.appointment.id), ['erken', 'gec']);
 });
 
-test('görünen saat aralığı randevulara göre daralır', () => {
-    // Salonun çalışmadığı saatleri çizmek ekranın yarısını boş ızgaraya harcardı.
-    const { from, to } = hourRange([appt('a', '10:00', '11:00'), appt('b', '13:00', '14:30')]);
-    assert.equal(from, 9);
-    assert.equal(to, 16);
-    // Randevu yoksa makul bir varsayılan.
+test('görünen saat aralığı SALONUN günü — randevulara göre daralmıyor', () => {
+    /*
+     * Eskiden randevulara göre daralıyordu: tek randevulu günde ızgara
+     * 07:00–09:00'a iniyor, randevuyu ileri bir saate sürükleyecek yer
+     * kalmıyordu (2026-09-17, müdürün telefonu).
+     */
+    const one = [appt('a', '08:30', '09:00')];
+    // Salon saati bilinmiyor: varsayılan gün, tek randevu onu DARALTMIYOR.
+    assert.deepEqual(hourRange(one), { from: 8 - 1, to: 20 });
+    assert.deepEqual(hourRange([appt('a', '10:00', '11:00')]), { from: 9, to: 20 });
     assert.deepEqual(hourRange([]), { from: 9, to: 20 });
+    // Salonun saati biliniyorsa O: 08:00–22:00.
+    assert.deepEqual(hourRange([appt('a', '10:00', '11:00')], { from: 8 * 60, to: 22 * 60 }), { from: 8, to: 22 });
+    // Yarım saatlik açılış tam saate yuvarlanıyor, içeride kalıyor.
+    assert.deepEqual(hourRange([], { from: 8 * 60 + 30, to: 19 * 60 + 30 }), { from: 8, to: 20 });
+    // Dışarı taşan randevu aralığı bir saat nefesle genişletiyor.
+    assert.deepEqual(hourRange([appt('a', '07:15', '08:00'), appt('b', '21:30', '22:15')], { from: 9 * 60, to: 20 * 60 }), { from: 6, to: 24 });
+    // Kapalı gün de çiziliyor: müdür kapalı güne taşıyabilmeli.
+    assert.deepEqual(hourRange([], null), { from: 9, to: 20 });
 });
 
 test('saat etiketleri iki haneli', () => {

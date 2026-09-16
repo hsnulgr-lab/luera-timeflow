@@ -73,9 +73,9 @@ test('D1 · sakin hâl Kasa ekranının kelimesini kullanır', () => {
     assert.equal(card.sub, 'Merve verdi · 12 dk bekliyor');
 });
 
-test('D1 · tek eylem, o da dolu hap — ikinci bir KARAR yok', () => {
-    // Ödeme yöntemi, indirim ve kalem listesi Kasa ekranının işi; kart bir kapı.
-    assert.deepEqual(dueCard(due).actions, [{ label: 'Tahsil et', kind: 'fill' }]);
+test('D1 · EYLEM YOK — müdür tutarı ve bilgileri görür, tahsil etmez', () => {
+    // Müdür kararı (2026-09-17): telefondan tahsilat yapılmaz.
+    assert.deepEqual(dueCard(due).actions, []);
 });
 
 test('D2 · yaşlanma etikette ve cümlede', () => {
@@ -287,11 +287,9 @@ test('gelmedi eylemleri yalnız gelmedi satırında çalışır', () => {
     assert.equal(applyNoshowAction(due, 'Geri al'), null);
 });
 
-test('"Tahsil et" adisyonu tahsilata çevirir', () => {
-    assert.equal(applyFlowAction(due, 'Tahsil et').kind, 'paid');
+test('"Tahsil et" yerel "tahsil edildi" ÜRETMİYOR', () => {
+    assert.equal(applyFlowAction(due, 'Tahsil et'), null);
 });
-
-// ── Damga ───────────────────────────────────────────────────────────────────
 
 test('damga DOLU DEĞİL — saydam zemin, ince kenarlık', () => {
     // Dolu zemin damgayı düğmeye benzetirdi; damga bir eylem değil bir kayıt.
@@ -375,16 +373,12 @@ test('onay kartında tutar YERİNDE kalır — yalnız etrafı değişir', () =>
     assert.ok(body.includes('<PanelDot color={ink.green} />'));
 });
 
-test('"Tahsil et" SAHTE ödeme üretmiyor — Kasa’yı açıyor', () => {
+test('ekranda tahsilata giden hiçbir yol yok', () => {
     /*
-     * Akış canlı veriye bağlandı. Yerel olarak "tahsil edildi"ye çevirmek,
-     * veritabanında hiçbir ödeme yokken müdüre parayı almış gibi göstermekti
-     * — ve Kasa aynı adisyonu bekleyen olarak göstermeye devam ederdi. Çift
-     * tahsilata davetiye.
+     * Önce yerel "tahsil edildi" sahte bir ödemeydi, sonra Kasa'ya giden bir
+     * döngüydü. Karar: telefondan tahsilat yapılmaz.
      */
-    assert.match(screen, /if \(event\.kind === 'due' && label === 'Tahsil et'\) \{\s*\n\s*router\.navigate\(\{ pathname: '\/mudur\/cash' \}\);\s*\n\s*return;/);
-    // Onay penceresi listesinde artık yok — bir ödeme olmadan "onaylandı"
-    // damgası da yok.
+    assert.doesNotMatch(screen, /'Tahsil et'/);
     assert.ok(screen.includes("['Geldi', 'Gelmedi', 'Geç geldi', 'Onayla'].includes(label)"));
 });
 

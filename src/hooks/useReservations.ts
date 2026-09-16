@@ -74,6 +74,7 @@ function mapDbReservation(row: any): Reservation {
         isPaid: row.is_paid ?? false,
         arrivedAt: row.arrived_at || undefined,
         customerArrivedAt: row.customer_arrived_at || undefined,
+        noShowAt: row.no_show_at || undefined,
         serviceEndedAt: row.service_ended_at || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
         groupId: row.group_id || undefined,

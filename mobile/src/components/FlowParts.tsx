@@ -7,7 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { ActionPill } from './ActionPill';
-import { pillCells, pillOpens, type CellKey, type PillRecord } from '../lib/actionPill';
+import { pillCells, pillOff, pillOpens, type CellKey, type PillRecord } from '../lib/actionPill';
 import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
 import {
@@ -484,6 +484,7 @@ function LiveStrip({ event, enter = false }: {
                 </View>
 
                 <Num
+                    fit
                     size={flowMetrics.liveCounter}
                     style={{
                         color: ink.ink,
@@ -635,7 +636,9 @@ function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
     const value = panel.late ? ink.red : ink.ink;
     const slots = nextSlots(event);
     const record = pillRecordOf(event);
-    const cells = pillCells(pillInputOf(event, waConnected));
+    const pillIn = pillInputOf(event, waConnected);
+    const cells = pillCells(pillIn);
+    const offCells = pillOff(pillIn);
 
     // Hap açık mı, ve hangi yöne. Yön AÇILIŞTA BİR KEZ seçilir: kaydırırken
     // zıplamasın. Varsayılan yukarı — aynı müşterinin kartını örtmek, başka
@@ -759,12 +762,11 @@ function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
                         Geldi
                     </Text>
                 </Pressable>
-                {/* İKİNCİ YUVA TAKAS EDİLİR, EKLENMEZ.
-                    Zamanında `Gelmedi`; gecikince hapın tetikleyicisi. 8.
-                    dakikada `Gelmedi`ye basmak, henüz gelebilecek bir müşteriyi
-                    atmaktır — ve 30. dakikada randevu zaten kendiliğinden
-                    düşüyor. Yani gecikme penceresinde `Gelmedi`, otomatik
-                    olanın kısayolundan ibaret; hapın içinde durması yeterli. */}
+                {/* İKİNCİ YUVA GÜNÜN HER ANINDA `Yönet` (Müdür 34 · v2).
+                    "Takas öldü, sütun sabit": zamanında hap Ara · Yaz,
+                    gecikince + Gelmedi. Zamanında `Gelmedi` henüz gelebilecek
+                    bir müşteriyi atmak olurdu. Tek istisna 5 sn'lik gönderim
+                    penceresi: yuva `Geri al` olur. */}
                 {slots.secondary === 'undo' ? (
                     <Pressable
                         accessibilityRole="button"
@@ -820,34 +822,14 @@ function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
                         </Text>
                         <Chevron color={ink.ink} down={open ? below : false} />
                     </Pressable>
-                ) : (
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => { feedback.medium(); onAction?.('Gelmedi'); }}
-                        style={{
-                            height: nextCardMetrics.noHeight,
-                            paddingHorizontal: nextCardMetrics.goX,
-                            borderRadius: radius.pill,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Text style={{
-                            color: ink.ink3,
-                            fontSize: nextCardMetrics.noText,
-                            fontFamily: font.bold,
-                            fontWeight: '700',
-                        }}>
-                            Gelmedi
-                        </Text>
-                    </Pressable>
-                )}
+                ) : null}
 
                 {/* Hap SÜTUNUN İÇİNDE: koordinat sistemi tetikleyicininki.
                     Kart `overflow` almıyor, yoksa ok ucu kırpılırdı. */}
                 {open ? (
                     <ActionPill
                         cells={cells}
+                        offCells={offCells}
                         below={below}
                         triggerWidth={triggerWidth}
                         triggerTop={nextCardMetrics.goHeight + nextCardMetrics.actsGap}
@@ -907,11 +889,27 @@ function Chevron({ color, down }: { color: string; down: boolean }) {
  *
  * Yarıçap eşmerkezli: 22 − 12 (dolgu) = 10 → not kutusu 10.
  */
-function CustomerCard({ event, presence, onAction, onOpenCustomer }: {
+function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waConnected = true }: {
     event: FlowEvent; presence: readonly StaffPresence[]; onAction?: (label: string) => void;
     onOpenCustomer?: (event: FlowEvent) => void;
+    onPill?: (cell: CellKey) => void; waConnected?: boolean;
 }) {
     const column = etaColumn(event);
+    /*
+     * YÖNET BU KARTTA DA (Müdür 34 · v2: "ikinci yuva günün her anında Yönet").
+     *
+     * A2 eskiden yalnız "Geldi · Gelmedi" taşıyordu ve gecikince de A2
+     * kalıyordu: paketi ya da uyarısı olan GECİKMİŞ müşteriyi aramanın, ona
+     * yazmanın hiçbir yolu yoktu. Tetikleyici, hap ve kayıt satırı A1'in
+     * aynısı — aynı ailede ikinci bir dil yok.
+     */
+    const pillIn = pillInputOf(event, waConnected);
+    const cells = pillCells(pillIn);
+    const offCells = pillOff(pillIn);
+    const record = pillRecordOf(event);
+    const slots = nextSlots(event);
+    const [open, setOpen] = useState(false);
+    const [triggerWidth, setTriggerWidth] = useState(0);
     const openable = Boolean(event.customerId && onOpenCustomer);
     const rows = contextRows(event.context);
     const conflict = staffConflict(event, presence);
@@ -1103,21 +1101,83 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer }: {
                         Geldi
                     </Text>
                 </Pressable>
-                <Pressable
-                    accessibilityRole="button"
-                    onPress={() => { feedback.medium(); onAction?.('Gelmedi'); }}
-                    style={{ height: nextCardMetrics.ghostHeight, justifyContent: 'center' }}
-                >
-                    <Text style={{
-                        color: cardSkin.tx2,
-                        fontSize: nextCardMetrics.ghostText,
-                        fontFamily: font.bold,
-                        fontWeight: '700',
-                    }}>
-                        Gelmedi
-                    </Text>
-                </Pressable>
+                {slots.secondary === 'undo' ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => { feedback.medium(); onAction?.('Geri al'); }}
+                        style={{ height: nextCardMetrics.ghostHeight, justifyContent: 'center' }}
+                    >
+                        <Text style={{
+                            color: cardSkin.tx, fontSize: nextCardMetrics.ghostText,
+                            fontFamily: font.bold, fontWeight: '700',
+                        }}>
+                            Geri al
+                        </Text>
+                    </Pressable>
+                ) : pillOpens(cells) ? (
+                    // Hap bu kutunun İÇİNDE: `right: 0` tetikleyicinin kenarı.
+                    <View>
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Yönet — eylemleri aç"
+                            accessibilityState={{ expanded: open }}
+                            onLayout={(e) => setTriggerWidth(e.nativeEvent.layout.width)}
+                            onPress={() => { feedback.selection(); setOpen(true); }}
+                            style={{
+                                height: nextCardMetrics.ghostHeight,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                            }}
+                        >
+                            <Text style={{
+                                color: cardSkin.tx2, fontSize: nextCardMetrics.ghostText,
+                                fontFamily: font.bold, fontWeight: '700',
+                            }}>
+                                Yönet
+                            </Text>
+                            <Chevron color={cardSkin.tx2} down={open && event.firstInList === true} />
+                        </Pressable>
+                        {open ? (
+                            <ActionPill
+                                cells={cells}
+                                offCells={offCells}
+                                below={event.firstInList === true}
+                                triggerWidth={triggerWidth}
+                                triggerTop={0}
+                                triggerHeight={nextCardMetrics.ghostHeight}
+                                staffInitials={event.staffInitials ?? initialsOfName(event.staffName)}
+                                staffGiven={event.staffName ? splitStaffName(event.staffName).given : undefined}
+                                onPick={(cell) => { setOpen(false); onPill?.(cell); }}
+                                onDismiss={() => setOpen(false)}
+                            />
+                        ) : null}
+                    </View>
+                ) : null}
             </View>
+
+            {/* Son hamle — A1'in kayıt satırıyla aynı söz ("Arandı · 2 dk",
+                "Yazıldı · şimdi"); bayatlayan düşer, bitmemiş iş kalır. */}
+            {record ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: nextCardMetrics.confGap }}>
+                    <View style={{
+                        width: nextCardMetrics.confDot,
+                        height: nextCardMetrics.confDot,
+                        borderRadius: nextCardMetrics.confDot / 2,
+                        backgroundColor: record.tone === 'warn' ? cardSkin.rd
+                            : record.tone === 'live' ? cardSkin.or : cardSkin.tx2,
+                    }} />
+                    <Text style={{
+                        flex: 1,
+                        color: cardSkin.tx2,
+                        fontSize: nextCardMetrics.confText,
+                        fontFamily: font.semiBold,
+                        fontWeight: '600',
+                    }}>
+                        {record.text}
+                    </Text>
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -1203,12 +1263,15 @@ function RollingHero({ value, unit, color, unitColor, unitFade }: {
             alignItems: 'baseline',
             gap: waitCardMetrics.heroGap,
             height: waitCardMetrics.heroBox,
+            // Sütunun genişliğini AŞMIYOR: uzun bir değer ("11 sa 40") kırılıp
+            // alttaki satırın üstüne binmek yerine küçülüyor.
+            minWidth: 0,
         }}>
             {/* Sarmalayıcının TEK akıştaki çocuğu yer tutucu: birim "dk" onun
                 temel çizgisine oturur (Yoga baseline'ı ilk çocuktan alır). */}
-            <View>
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
                 {/* Yer tutucu: iki katman mutlak konumlu, kutuyu bu belirler. */}
-                <Num size={waitCardMetrics.hero} style={[numStyle, { opacity: 0 }]}>
+                <Num fit size={waitCardMetrics.hero} style={[numStyle, { opacity: 0 }]}>
                     {pair.to}
                 </Num>
                 <Animated.View style={{
@@ -1216,17 +1279,19 @@ function RollingHero({ value, unit, color, unitColor, unitFade }: {
                     opacity: roll.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
                     transform: [{ translateY: roll.interpolate({ inputRange: [0, 1], outputRange: [0, -shift] }) }],
                 }}>
-                    <Num size={waitCardMetrics.hero} style={numStyle}>{pair.from}</Num>
+                    <Num fit size={waitCardMetrics.hero} style={numStyle}>{pair.from}</Num>
                 </Animated.View>
                 <Animated.View style={{
                     position: 'absolute', left: 0, right: 0,
                     opacity: roll,
                     transform: [{ translateY: roll.interpolate({ inputRange: [0, 1], outputRange: [shift, 0] }) }],
                 }}>
-                    <Num size={waitCardMetrics.hero} style={numStyle}>{pair.to}</Num>
+                    <Num fit size={waitCardMetrics.hero} style={numStyle}>{pair.to}</Num>
                 </Animated.View>
             </View>
-            <Text style={{
+            <Text numberOfLines={1} style={{
+                // Birim hiçbir zaman sıkışmıyor; küçülen rakam oluyor.
+                flexShrink: 0,
                 // Sakin hâlde birim ikincil mürekkep; gecikmede rakamla aynı
                 // kırmızıya döner ve hafifçe geri çekilir (tasarım: opacity .72).
                 color: unitColor,
@@ -2143,7 +2208,9 @@ function NoshowCardView({ event, fresh, onAction, onPill, waConnected = true }: 
     const { dark } = useTheme();
     const ink = dark ? panelInk.dark : panelInk.light;
     const card = noshowCard(event, fresh);
-    const cells = pillCells(pillInputOf(event, waConnected));
+    const pillIn = pillInputOf(event, waConnected);
+    const cells = pillCells(pillIn);
+    const offCells = pillOff(pillIn);
     const record = pillRecordOf(event);
     const [open, setOpen] = useState(false);
     /**
@@ -2200,25 +2267,32 @@ function NoshowCardView({ event, fresh, onAction, onPill, waConnected = true }: 
                 record={record ? <PanelRecord ink={ink} record={record} /> : null}
                 actions={(
                     <View style={{ alignItems: 'flex-end', gap: waitCardMetrics.actGap }}>
-                        {card.actions.map((action) => (
-                            <WaitAct
-                                key={action.label}
-                                action={action}
-                                ink={ink}
-                                expanded={action.label === 'Yönet' ? open : undefined}
-                                onLayout={action.label === 'Yönet' ? setTrigger : undefined}
-                                onPress={() => {
-                                    if (action.label === 'Yönet') {
-                                        if (!pillOpens(cells)) return;
-                                        feedback.selection();
-                                        setOpen(true);
-                                        return;
-                                    }
-                                    feedback.medium();
-                                    onAction?.(action.label);
-                                }}
-                            />
-                        ))}
+                        {card.actions.flatMap((action) => {
+                            /*
+                             * `Yönet` açılamıyorsa ÇİZİLMİYOR (hiç göz yoksa).
+                             * Numarasız müşteride Ara ve Yaz sönük durur,
+                             * dokununca randevu kartı açılır (Müdür 34 · v2).
+                             */
+                            if (action.label === 'Yönet' && !pillOpens(cells)) return [];
+                            return [(
+                                <WaitAct
+                                    key={action.label}
+                                    action={action}
+                                    ink={ink}
+                                    expanded={action.label === 'Yönet' ? open : undefined}
+                                    onLayout={action.label === 'Yönet' ? setTrigger : undefined}
+                                    onPress={() => {
+                                        if (action.label === 'Yönet') {
+                                            feedback.selection();
+                                            setOpen(true);
+                                            return;
+                                        }
+                                        feedback.medium();
+                                        onAction?.(action.label);
+                                    }}
+                                />
+                            )];
+                        })}
 
                         {/* Hap SÜTUNUN İÇİNDE — A1 paneliyle aynı yer.
                             Dışarıda dururken koordinat sistemi KARTINDI: hap
@@ -2228,6 +2302,7 @@ function NoshowCardView({ event, fresh, onAction, onPill, waConnected = true }: 
                         {open ? (
                             <ActionPill
                                 cells={cells}
+                                offCells={offCells}
                                 below={event.firstInList === true}
                                 triggerWidth={trigger.width}
                                 triggerTop={trigger.y}
@@ -2613,7 +2688,7 @@ export function FlowRow({
                             waConnected={waConnected}
                         />
                     ) : null}
-                    {card === 'a2' ? <CustomerCard event={event} presence={presence} onAction={onAction} onOpenCustomer={onOpenCustomer} /> : null}
+                    {card === 'a2' ? <CustomerCard event={event} presence={presence} onAction={onAction} onOpenCustomer={onOpenCustomer} onPill={onPill} waConnected={waConnected} /> : null}
                     {/* Müdür 20 — devir anında kart yerine ince satır: müdürün
                         yapacağı bir şey yok, kart yalancı aciliyet üretirdi. */}
                     {waiting && event.handoff ? <HandoffRow event={event} /> : null}

@@ -71,7 +71,8 @@ test('her olay türünün kelimesi var', () => {
 
 test('eylem satırın içinde, üç nokta menüsünde değil', () => {
     assert.deepEqual(actionsOf('next').map((a) => a.label), ['Geldi', 'Gelmedi']);
-    assert.deepEqual(actionsOf('due').map((a) => a.label), ['Tahsil et']);
+    // Adisyon bekliyor: eylem YOK — tahsilat telefondan yapılmıyor.
+    assert.deepEqual(actionsOf('due'), []);
     // Olmuş bitmiş olayda eylem yok.
     assert.deepEqual(actionsOf('paid'), []);
 });
@@ -153,7 +154,9 @@ test('canlı işlem şeridi gömülü ve SAYFANIN TERSİ', () => {
     assert.equal(flowMetrics.liveCounter, 34);
     assert.doesNotMatch(parts, /embed:/);
     // Sayaç tabular; rakamlar saniyede zıplamasın.
-    assert.match(parts, /<Num\s+size=\{flowMetrics\.liveCounter\}/);
+    // `fit`: sayı ne kadar büyürse büyüsün tek satırda kalır ("1143:40:31"
+    // iki satıra kırılıp alttaki metnin üstüne binmişti).
+    assert.match(parts, /<Num\s+fit\s+size=\{flowMetrics\.liveCounter\}/);
     assert.match(parts, /elapsed\(event\.elapsedSeconds \?\? 0\)/);
     // Kimin işlemi olduğu panelin TERSİ renkte hapta yazar.
     assert.match(parts, /backgroundColor: ink\.pill/);

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { normalizePhone, hasWa, dialable, waLink } from '../mobile/src/lib/phone.ts';
 import {
-    pillCells, pillOpens, cellSpec, crossFade, reducedFill,
+    pillCells, pillOff, pillOpens, cellSpec, crossFade, reducedFill,
     waRecord, callRecord, staffRecord, recordVisible, recordAge,
     RECORD_STALE_MINUTES, SEND_WINDOW_SECONDS, sendingRecord, pillMotion,
 } from '../mobile/src/lib/actionPill.ts';
@@ -41,9 +41,15 @@ test('arama ve wa.me aynı normalizasyondan geçer', () => {
 
 // ── Hapın gözleri ───────────────────────────────────────────────────────────
 
-test('numara yoksa iki kanal da HİÇ çizilmez', () => {
-    const cells = pillCells({ canDrop: true, canTellStaff: true });
-    assert.deepEqual(cells, ['nox', 'inf']);
+test('numara yoksa Ara ve Yaz YERİNDE, ama sönük (müdür kararı 2026-09-16)', () => {
+    const input = { canDrop: true, canTellStaff: true };
+    assert.deepEqual(pillCells(input), ['ara', 'wa', 'nox', 'inf']);
+    assert.deepEqual(pillOff(input), ['ara', 'wa']);
+    // Kullanıcının test salonundaki "1234567" de böyle.
+    assert.deepEqual(pillCells({ customerPhone: '1234567' }), ['ara', 'wa']);
+    assert.deepEqual(pillOff({ customerPhone: '1234567' }), ['ara', 'wa']);
+    // Geçerli numarada hiçbir göz sönük değil.
+    assert.deepEqual(pillOff({ customerPhone: '0532 118 24 06' }), []);
 });
 
 test('tam veri dört göz verir ve sıra sabittir', () => {
@@ -67,7 +73,8 @@ test('geçersiz numara İKİ kanalı birden düşürür — aynı numara', () =>
         customerPhone: '0532 118 24 06', waResult: 'invalid_phone',
         canDrop: true, canTellStaff: true,
     });
-    assert.deepEqual(cells, ['nox', 'inf']);
+    assert.deepEqual(cells, ['ara', 'wa', 'nox', 'inf']);
+    assert.deepEqual(pillOff({ customerPhone: '0532 118 24 06', waResult: 'invalid_phone' }), ['ara', 'wa']);
 });
 
 test('WhatsApp bağlı değilse göz SİLİNMEZ, onarıma döner', () => {
@@ -79,9 +86,10 @@ test('WhatsApp bağlı değilse göz SİLİNMEZ, onarıma döner', () => {
     assert.equal(cellSpec('waoff').hint, 'Ayarlara git');
 });
 
-test('tek gözlü hap açılmaz — hap seçim sunmak için var', () => {
-    assert.equal(pillOpens(['nox']), false);
+test('v2 sütun sabit: tek gözlü hap da AÇILIR, gözsüz hap açılmaz', () => {
+    assert.equal(pillOpens(['nonum']), true);
     assert.equal(pillOpens(['ara', 'nox']), true);
+    assert.equal(pillOpens([]), false);
 });
 
 test('düşmüş randevuda Gelmedi gözü çizilmez', () => {
@@ -91,21 +99,24 @@ test('düşmüş randevuda Gelmedi gözü çizilmez', () => {
     assert.equal(cells.includes('nox'), false);
 });
 
-test('"Personele bilgi ver" gözü GİZLİ — bildirim kanalı yok', () => {
-    // Açıklaması "bildirim gider" diyordu ama müdürden personele bildirim
-    // gönderen bir yol yok; basınca yalnız telefonda bir damga kalıyordu.
-    // Göz, kaydı ve metni hazır — kanal yazılınca `canTellStaff` true'ya döner.
+test('personel gözü (SD) görünür, ama BİLDİRİM SÖZÜ VERMEZ', () => {
+    // Müdür kararı 2026-09-16: "görünsün, basınca yalnız kayıt". Kanal yok;
+    // göz kartta "Personele söylendi" kaydı bırakır.
     for (const kind of ['next', 'noshow']) {
-        const input = pillInputOf({ kind, customerPhone: '0532 118 24 06' });
-        assert.equal(input.canTellStaff, false);
-        assert.equal(pillCells(input).includes('inf'), false);
+        const input = pillInputOf({ kind, customerPhone: '0532 118 24 06', staffName: 'Selin Demir' });
+        assert.equal(input.canTellStaff, true);
+        assert.equal(pillCells(input).at(-1), 'inf');
     }
+    // Tasarım: personel atanmamışsa göz hiç çizilmez.
+    assert.equal(pillInputOf({ kind: 'next', customerPhone: '0532 118 24 06' }).canTellStaff, false);
+    assert.doesNotMatch(cellSpec('inf').hint, /bildirim/);
 });
 
 // ── İkinci yuvanın takası ───────────────────────────────────────────────────
 
-test('zamanında Gelmedi, gecikince hap — TAKAS, ekleme değil', () => {
-    assert.equal(nextSlots({ etaMinutes: 6 }).secondary, 'gelmedi');
+test('v2: takas öldü — ikinci yuva günün her anında hap', () => {
+    // Müdür 34 · v2: "sütun sabit". Zamanında hap Ara · Yaz, gecikince + Gelmedi.
+    assert.equal(nextSlots({ etaMinutes: 6 }).secondary, 'pill');
     assert.equal(nextSlots({ etaMinutes: -8 }).secondary, 'pill');
     // Birincil hiç değişmez.
     assert.equal(nextSlots({ etaMinutes: -8 }).primary, 'Geldi');
@@ -467,12 +478,12 @@ test('personel gözünde SİMGE değil, personelin baş harfleri var', () => {
 });
 
 test('personel gözünün cümlesi personelin adını söyler', () => {
-    assert.equal(cellSpec('inf', 'Selin').hint, 'Selin’e bildirim gider');
-    assert.equal(cellSpec('inf', 'Merve').hint, 'Merve’ye bildirim gider');
-    assert.equal(cellSpec('inf', 'Kaan').hint, 'Kaan’a bildirim gider');
-    assert.equal(cellSpec('inf', 'Gülşah').hint, 'Gülşah’a bildirim gider');
+    assert.equal(cellSpec('inf', 'Selin').hint, 'Selin’e söylendiği kaydedilir');
+    assert.equal(cellSpec('inf', 'Merve').hint, 'Merve’ye söylendiği kaydedilir');
+    assert.equal(cellSpec('inf', 'Kaan').hint, 'Kaan’a söylendiği kaydedilir');
+    assert.equal(cellSpec('inf', 'Gülşah').hint, 'Gülşah’a söylendiği kaydedilir');
     // Ad yoksa cümle jenerik hâline düşer, uydurulmaz.
-    assert.equal(cellSpec('inf').hint, 'bildirim gider');
+    assert.equal(cellSpec('inf').hint, 'kartta kayıt kalır');
 });
 
 test('açılış kademesi okun doğduğu noktadan uzağa akar', () => {

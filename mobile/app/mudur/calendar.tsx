@@ -109,7 +109,8 @@ export default function ManagerCalendar() {
         [data.columns, data.onLeave],
     );
 
-    const { from, to } = useMemo(() => hourRange(appointments), [appointments]);
+    // Aralık SALONUN günü; randevular yalnız dışarı taşarsa genişletiyor.
+    const { from, to } = useMemo(() => hourRange(appointments, data.open), [appointments, data.open]);
     const isToday = selectedDate === todayISO();
     // "Şimdi" çizgisi cihazın saatinden gelir ve DAKİKA BAŞI ilerler. Sabit
     // bir sayı duruyordu; çizgi kıpırdamayınca ekran donmuş görünüyordu.
@@ -327,6 +328,7 @@ export default function ManagerCalendar() {
                     mode={moveMode}
                     appointment={menuFor}
                     day={appointments}
+                    hours={data.open}
                     staff={staffOptions}
                     onDismiss={() => { setMoveMode(null); setMenuFor(null); }}
                     onPick={(target) => {

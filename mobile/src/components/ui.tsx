@@ -47,10 +47,23 @@ export function T({ v = 'body', c: color, style, children, numberOfLines }: {
 }
 
 /** Tutar ve sayaç — rakamlar zıplamasın diye tabular. */
-export function Num({ children, style, size = 15.5 }: { children: ReactNode; style?: StyleProp<TextStyle>; size?: number }) {
+export function Num({ children, style, size = 15.5, fit = false }: {
+    children: ReactNode; style?: StyleProp<TextStyle>; size?: number;
+    /**
+     * Rakam TEK SATIRDA kalır; sığmazsa küçülür, asla alt satıra kırılmaz.
+     * Kahraman rakamlar için: "1143:40:31" iki satıra bölünüp alttaki metnin
+     * üstüne binmişti. Beklenmedik uzunluk kartın düzenini bozmamalı.
+     */
+    fit?: boolean;
+}) {
     const { c } = useTheme();
     return (
-        <Text style={[{ color: c.tx, fontSize: size, fontWeight: '800', letterSpacing: -0.4 }, numeric, style]}>
+        <Text
+            numberOfLines={fit ? 1 : undefined}
+            adjustsFontSizeToFit={fit}
+            minimumFontScale={fit ? 0.5 : undefined}
+            style={[{ color: c.tx, fontSize: size, fontWeight: '800', letterSpacing: -0.4 }, numeric, style]}
+        >
             {children}
         </Text>
     );

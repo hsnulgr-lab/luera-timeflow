@@ -76,20 +76,93 @@ export const COLUMN_GAP = 8;
 /** Sol saat sütunu: yana kaydırmada SABİT kalır, sütunlar altından geçer. */
 export const HOURS_WIDTH = 62;
 
+/** Salonun saati BİLİNMİYORSA çizilen gün — saat cinsinden. */
+export const DEFAULT_DAY_HOURS = { from: 9, to: 20 } as const;
+
 /**
- * Görünen saat aralığı. Salonun çalışma saatleri dışını çizmek, ekranın
- * yarısını boş ızgaraya harcamak olurdu.
+ * Görünen saat aralığı — SALONUN O GÜNKÜ ÇALIŞMA SAATLERİ, dakika cinsinden
+ * `open` (`createLive.dayWindowOf`: salonun ve personelin saatlerinin
+ * birleşimi).
+ *
+ * ── Eskiden randevulara göre DARALIYORDU ────────────────────────────────────
+ * Tek randevulu bir günde ızgara 07:00–09:00'a iniyordu: randevuyu ileri bir
+ * saate sürükleyecek YER kalmıyordu ve boş saate dokunup randevu vermek de
+ * mümkün değildi. Müdürün takvimi randevuların değil salonun gününü çizer.
+ *
+ * Randevu çalışma saatinin DIŞINA taşıyorsa (erken açılış, geç kalan işlem)
+ * aralık o tarafa bir saat nefesle genişliyor: randevu hiçbir zaman
+ * ızgaranın dışında kalmıyor.
+ *
+ * Kapalı gün (`null`) ya da bilinmeyen saat (`undefined`) varsayılanı
+ * çiziyor — müdür kapalı güne de randevu taşıyabilmeli.
  */
-export function hourRange(appointments: readonly Appt[]): { from: number; to: number } {
-    if (appointments.length === 0) return { from: 9, to: 20 };
-    let min = 24 * 60;
-    let max = 0;
+export function hourRange(
+    appointments: readonly Appt[],
+    open?: { from: number; to: number } | null,
+): { from: number; to: number } {
+    let from = open ? Math.floor(open.from / 60) : DEFAULT_DAY_HOURS.from;
+    let to = open ? Math.ceil(open.to / 60) : DEFAULT_DAY_HOURS.to;
     for (const appointment of appointments) {
-        min = Math.min(min, toMinutes(appointment.start_time));
-        max = Math.max(max, toMinutes(appointment.end_time));
+        const start = toMinutes(appointment.start_time);
+        const end = toMinutes(appointment.end_time);
+        // Kenarlarda birer saat nefes: dışarıdaki randevu tam kenara yapışmasın.
+        if (start < from * 60) from = Math.floor(start / 60) - 1;
+        if (end > to * 60) to = Math.ceil(end / 60) + 1;
     }
-    // Kenarlarda birer saat nefes: ilk randevu tam tepeye yapışmasın.
-    return { from: Math.max(0, Math.floor(min / 60) - 1), to: Math.min(24, Math.ceil(max / 60) + 1) };
+    return { from: Math.max(0, from), to: Math.min(24, to) };
+}
+
+// ── Sürüklerken kenarda kaydırma ────────────────────────────────────────────
+
+/**
+ * Parmak ekranın kenarına bu kadar yaklaşınca ızgara kendiliğinden kayar (pt).
+ *
+ * ── Neden ───────────────────────────────────────────────────────────────────
+ * Blok kalkınca iki kaydırıcı da kilitleniyor (parmak hem bloğu hem sayfayı
+ * çekmesin diye). Ama 09–20 arası bir gün 814 pt ve ekrana sığmıyor: sabahki
+ * randevu akşama, ya da ekran dışındaki beşinci personelin sütununa TEK
+ * hamlede taşınamıyordu. Müdür bloğu kenara götürünce ızgara onu takip
+ * etmeli.
+ */
+export const DRAG_EDGE_ZONE = 96;
+
+/**
+ * Sürüklerken alt kenar sekme çubuğunun değil, TURUNCU BANDIN üstü (pt).
+ *
+ * Bant ("hasan ulger · İmplant → 15:15 · Kemal. Bırakın, taşıyalım.") sekme
+ * çubuğunun hemen üstünde, iki satır metinle yaklaşık bu kadar yer tutuyor.
+ * İlk sürümde bölge bandın ALTINDAYDI: müdür parmağını okunacak tek metnin
+ * üstüne koymuyor, bandın üstünde bekliyordu — ve bölgeye hiç girmiyordu
+ * (2026-09-17, telefon). Bandın üstü ve altı artık en hızlı kaydırma.
+ */
+export const DRAG_BANNER_RESERVE = 72;
+/** Kare başına en fazla kaydırma (pt). Kenara ne kadar yakınsa o kadar hızlı. */
+export const DRAG_EDGE_MAX_STEP = 14;
+
+/**
+ * Bu karede ne kadar kaydırılacak: eksi geriye (yukarı / sola), artı ileriye.
+ *
+ * `start`–`end` görünür alanın ekran koordinatları. Hız bölgenin derinliğiyle
+ * doğrusal artıyor; bölgeye yeni giren parmak yavaş başlıyor, kenara dayanan
+ * en hızlı gidiyor. Bilinmeyen konum (`NaN`, henüz kıpırdanmadı) kaydırmıyor.
+ */
+export function edgeStep(
+    position: number,
+    start: number,
+    end: number,
+    zone: number = DRAG_EDGE_ZONE,
+    max: number = DRAG_EDGE_MAX_STEP,
+): number {
+    if (!Number.isFinite(position) || !(end - start > zone * 2)) return 0;
+    if (position < start + zone) {
+        const depth = Math.min(1, (start + zone - position) / zone);
+        return -Math.max(1, Math.round(max * depth));
+    }
+    if (position > end - zone) {
+        const depth = Math.min(1, (position - (end - zone)) / zone);
+        return Math.max(1, Math.round(max * depth));
+    }
+    return 0;
 }
 
 export function hourLabels(from: number, to: number): string[] {

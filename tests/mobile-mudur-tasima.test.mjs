@@ -64,7 +64,9 @@ test('basılı tutma 250 ms; kısa dokunuş detaya gider', () => {
     // `onLift?.` — çağrı isteğe bağlı hâle geldi çünkü personel takvimi aynı
     // ızgarayı SALT OKUNUR kullanıyor: orada kaldıracak bir el yok. Müdür
     // tarafında davranış birebir aynı.
-    assert.match(grid, /onLongPress=\{\(\) => \{ dragging\.current = false; onLift\?\.\(appointment, index\); \}\}/);
+    const long = grid.slice(grid.indexOf('onLongPress={() => {'), grid.indexOf('onPressOut='));
+    assert.match(long, /dragging\.current = false;\s*\n\s*if \(!onLift\) return;/);
+    assert.match(long, /onLift\(appointment, index\);/);
     assert.match(grid, /onPress=\{\(\) => \{ feedback\.selection\(\); onPress\(\); \}\}/);
 });
 

@@ -18,10 +18,11 @@ import { columnsFor, type CrewMember } from './managerMap.ts';
 import { presenceOf } from './presence.ts';
 import type { StaffPresence } from './managerFlow.ts';
 import type { ServiceOption } from './createFlow.ts';
-import { serviceOptionsOf } from './createLive.ts';
+import { dayWindowOf, serviceOptionsOf, type OpenWindow } from './createLive.ts';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
-    apiSource, fetchAppointment, fetchCrew, fetchCustomerContext, fetchLeave, fetchServerNow, fetchServices,
+    apiSource, fetchAppointment, fetchCrew, fetchCustomerContext, fetchHoursRow, fetchLeave, fetchServerNow,
+    fetchServices, fetchStaffSchedules,
 } from './managerSource';
 
 export interface ManagerAppointmentData {
@@ -45,11 +46,13 @@ export interface ManagerAppointmentData {
     /** Sunucu saati ve aynı andaki cihaz saati — damgalar bundan yazılıyor. */
     serverNow: number | null;
     deviceAt: number | null;
+    /** Salonun randevu günündeki açık aralığı — taşıma menüsünün saatleri. */
+    open: OpenWindow | null | undefined;
 }
 
 const EMPTY: ManagerAppointmentData = {
     appointment: null, updatedAt: null, dayRows: [],
-    columns: [], presence: [], onLeave: new Set(), services: [], serverNow: null, deviceAt: null,
+    columns: [], presence: [], onLeave: new Set(), services: [], serverNow: null, deviceAt: null, open: undefined,
 };
 
 const LEAVE_WINDOW_DAYS = 14;
@@ -64,7 +67,7 @@ export function useManagerAppointment(
         if (!row) return { ...EMPTY, updatedAt: null };
 
         const dateISO = row.date;
-        const [dayRows, crew, leave, nowMs, context, catalog] = await Promise.all([
+        const [dayRows, crew, leave, nowMs, context, catalog, hours, schedules] = await Promise.all([
             apiSource.day(dateISO),
             fetchCrew(),
             fetchLeave(dateISO, addDaysISO(dateISO, LEAVE_WINDOW_DAYS)),
@@ -73,6 +76,9 @@ export function useManagerAppointment(
             // müşteride yanlış kişinin geçmişini göstermek olurdu.
             row.customer_id ? fetchCustomerContext(row.customer_id) : Promise.resolve(null),
             fetchServices(),
+            // Saat okunamazsa kart DÜŞMÜYOR; menü varsayılan günü listeler.
+            fetchHoursRow().catch(() => null),
+            fetchStaffSchedules().catch(() => new Map<string, unknown>()),
         ]);
 
         const deviceAt = Date.now();
@@ -101,6 +107,11 @@ export function useManagerAppointment(
             services: serviceOptionsOf(catalog),
             serverNow: nowMs,
             deviceAt,
+            open: dayWindowOf(
+                crew.map((member) => ({ active: member.active, workingHours: schedules.get(member.id) ?? null })),
+                hours?.raw ?? null,
+                dateISO,
+            ),
         };
     }, [id]);
 

@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
+    STAFF_NUDGE_READY,
     applyFlowAction, applyWaitAction, labelOf, mockDay, toneOf,
     stampAge, STAMP_FRESH_MINUTES, waitCard, waitHero, waitLevel,
     WAIT_LATE_MINUTES, WAIT_WARN_MINUTES,
@@ -179,14 +180,17 @@ test('C3b · 10. dakikada masaüstünün cümlesi birebir kurulur', () => {
     assert.equal(card.sub, 'Elif 10 dakikadır bekliyor');
 });
 
-test('C3b · tek dolu hap 10. dakikada çıkar, başka hiçbir hâlde yok', () => {
-    const late = waitCard({ ...base, waitMinutes: 12 }, []);
-    // "Hatırlat" DEĞİL: uygulama kimseye haber vermiyor, düğme müdürün kendi
-    // yaptığı sözlü işin kaydı. Kelimesi de bunu söylüyor.
-    assert.deepEqual(late.actions[0], { label: 'Personele söyle', kind: 'fill' });
-    for (const minutes of [0, 3, 5, 9]) {
+test('C3b · dolu hap YOK — "Personele söyle" kanal kurulana kadar gizli', () => {
+    /*
+     * Düğme yalnız telefonda bir damga bırakıyordu; personele hiçbir şey
+     * gitmiyordu (2026-09-17). Bildirim ayrı turda kurulunca
+     * `STAFF_NUDGE_READY` açılır ve bu test o turda yeniden yazılır.
+     */
+    assert.equal(STAFF_NUDGE_READY, false);
+    for (const minutes of [0, 3, 5, 9, 12, 40]) {
         const card = waitCard({ ...base, waitMinutes: minutes }, []);
         assert.ok(!card.actions.some((a) => a.kind === 'fill'), `${minutes} dk`);
+        assert.ok(!card.actions.some((a) => a.label === 'Personele söyle'), `${minutes} dk`);
     }
 });
 
@@ -230,54 +234,22 @@ test('"Geri al" biriken işaretleri de temizler', () => {
     assert.equal(back.parked, undefined);
 });
 
-test('sakin kartta tek eylem: beklemeyi kabul etmek', () => {
-    // "Müşteriye söyle" KALDIRILDI — kaydı okuyan hiçbir yer yoktu ve müdürün
-    // ihtiyacı olan cümle zaten kartta yazılı.
-    assert.deepEqual(waitCard({ ...base, waitMinutes: 3 }, []).actions, [
-        { label: 'Beklemeye al', kind: 'hap' },
-    ]);
+test('sakin kartta EYLEM YOK — "Beklemeye al" kaldırıldı', () => {
+    // Yalnız telefonda bir işaretti; yenileyince kayboluyor, ne masaüstü ne
+    // personel okuyordu (müdür kararı, 2026-09-17).
+    assert.deepEqual(waitCard({ ...base, waitMinutes: 3 }, []).actions, []);
+    assert.equal(applyWaitAction({ ...base, waitMinutes: 3 }, 'Beklemeye al'), null);
 });
 
-test('uzun beklemede de tek eylem kalır', () => {
+test('uzun beklemede tek eylem: randevuyu açmak', () => {
     assert.deepEqual(waitCard({ ...base, waitMinutes: 12 }, []).actions, [
-        { label: 'Personele söyle', kind: 'fill' },
+        { label: 'Karşılamayı aç', kind: 'ghost' },
     ]);
-});
-
-test('"Personele söyle" DAMGAYA dönüşür ve YAŞINI taşır', () => {
-    const after = applyWaitAction({ ...base, waitMinutes: 12 }, 'Personele söyle');
-    // Boole değil, beklemenin kaçıncı dakikası: saat tutulmuyor.
-    assert.equal(after.remindedAt, 12);
-    const card = waitCard(after, []);
-    assert.deepEqual(card.actions[0], { label: 'Personele · şimdi', kind: 'stamp' });
-    assert.ok(!card.actions.some((a) => a.label === 'Personele söyle'));
-});
-
-test('damga dakika geçtikçe yaşlanır', () => {
-    const after = applyWaitAction({ ...base, waitMinutes: 11 }, 'Personele söyle');
-    assert.equal(waitCard({ ...after, waitMinutes: 14 }, []).actions[0].label, 'Personele · 3 dk');
-});
-
-test('damga 5 dakikada SÖNER, düğme geri gelir — kart ölmez', () => {
-    // 6 dakika önce söylenmiş söz bayattır; müşteri hâlâ bekliyorsa
-    // yenilenmelidir.
-    assert.equal(STAMP_FRESH_MINUTES, 5);
-    const after = applyWaitAction({ ...base, waitMinutes: 11 }, 'Personele söyle');
-    const stale = waitCard({ ...after, waitMinutes: 17 }, []);
-    assert.deepEqual(stale.actions, [{ label: 'Personele söyle', kind: 'fill' }]);
 });
 
 test('yaş yazısı sıfırda "şimdi" der', () => {
     assert.equal(stampAge(0), 'şimdi');
     assert.equal(stampAge(3), '3 dk');
-});
-
-test('"Beklemeye al" eşik tırmanışını susturur', () => {
-    const after = applyWaitAction({ ...base, waitMinutes: 12 }, 'Beklemeye al');
-    const card = waitCard(after, []);
-    assert.equal(card.level, 'calm');
-    assert.equal(card.sub, 'Beklemeye alındı · Selin’i bekliyor');
-    assert.ok(!card.actions.some((a) => a.label === 'Beklemeye al'));
 });
 
 test('"Karşılamayı aç" durum değiştirmez — ekranda geçiş yapar', () => {
@@ -487,7 +459,7 @@ test('kartlar tek yuvada durur — geçişte iki kart üst üste biner', () => {
     const idx = parts.indexOf('<CardSwap id={slot}');
     assert.ok(idx > 0);
     // Beş kart da aynı yuvanın içinde: ayrı ayrı takılıp sökülmezler.
-    const slot = parts.slice(idx, idx + 1200);
+    const slot = parts.slice(idx, idx + 1600);
     for (const card of ['EtaPanel', 'CustomerCard', 'HandoffRow', 'WaitCardView', 'LiveStrip']) {
         assert.ok(slot.includes(`<${card}`), card);
     }

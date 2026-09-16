@@ -63,6 +63,40 @@ export function dative(name: string): string {
 }
 
 /**
+ * Ayrılma hâli: "Studio Ayla’dan", "Kemal Kuaför’den", "Güzel Saç’tan".
+ *
+ * Dört ekli (da/de/ta/te): kalınlık ünlüden, sertlik son sessizden
+ * ("fıstıkçı şahap" — f s t k ç ş h p). Ünlüyle biten ada kaynaştırma
+ * girmiyor: "Ayla’dan", "Ayla’ydan" değil.
+ */
+export function ablative(name: string): string {
+    const clean = name.trim();
+    if (!clean) return clean;
+    const vowel = lastVowel(clean);
+    const back = Boolean(vowel && BACK_VOWELS.includes(vowel));
+    const last = lowerTR(clean).at(-1) ?? '';
+    const hard = 'fstkçşhp'.includes(last);
+    return `${clean}${APOSTROPHE}${hard ? 't' : 'd'}${back ? 'an' : 'en'}`;
+}
+
+/**
+ * Saatin bulunma hâli: "11:00’de", "21:30’da", "18:57’de", "09:40’ta".
+ *
+ * Ek, SÖYLENEN son sayıya uyar: dakika sıfırsa saat ("on bir"), değilse
+ * dakika ("elli yedi"). Biçim dışı metin eksiz döner — ek uydurulmaz.
+ */
+export function clockLocative(time: string): string {
+    const match = /^(\d{2}):(\d{2})$/.exec(time);
+    if (!match) return time;
+    const minute = Number(match[2]);
+    const n = minute === 0 ? Number(match[1]) : minute;
+    const units = ['da', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da'];
+    const tens = ['da', 'da', 'de', 'da', 'ta', 'de'];
+    const suffix = n % 10 === 0 ? tens[n / 10] : units[n % 10];
+    return `${time}${APOSTROPHE}${suffix}`;
+}
+
+/**
  * Belirtme hâli: "Selin’i", "Merve’yi", "Kaan’ı", "Gül’ü".
  *
  * Dört ekli (ı/i/u/ü) — hem kalınlık hem düzlük sorulur.

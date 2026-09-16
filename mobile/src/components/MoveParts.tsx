@@ -180,12 +180,18 @@ export function AppointmentMenu({ visible, appointment, staffName, onDismiss, on
  * İki çağıranın da o günün gerçek listesi zaten elinde; ikinci bir okuma
  * yapmaya değil, eldekini vermeye ihtiyaç vardı.
  */
-export function MoveSheet({ visible, mode, appointment, day, staff, onDismiss, onPick }: {
+export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDismiss, onPick }: {
     visible: boolean;
     mode: 'time' | 'staff';
     appointment: Appt;
     /** Randevunun KENDİ gününün randevuları — çakışmanın tek dayanağı. */
     day: readonly Appt[];
+    /**
+     * Salonun o günkü açık aralığı (`dayWindowOf`). Verilmezse varsayılan
+     * 09–20 listelenirdi: 22:00'ye kadar açık bir salonda akşam saatleri
+     * menüde hiç görünmüyordu.
+     */
+    hours?: { from: number; to: number } | null;
     staff: readonly StaffOption[];
     onDismiss: () => void;
     onPick: (target: MoveTarget) => void;
@@ -199,7 +205,8 @@ export function MoveSheet({ visible, mode, appointment, day, staff, onDismiss, o
         durationMinutes: duration,
         onlyStaffId: appointment.staff_id ?? undefined,
         excludeId: appointment.id,
-    }), [day, staff, duration, appointment]);
+        hours,
+    }), [day, staff, duration, appointment, hours]);
 
     // Personel değiştirme: saat sabit, kim müsait sorusu.
     const staffRows = useMemo(() => {

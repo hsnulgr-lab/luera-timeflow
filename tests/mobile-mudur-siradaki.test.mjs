@@ -331,9 +331,9 @@ test('"Gelmedi" müşteri gelmediye çevirir', () => {
     assert.equal(next.kind, 'noshow');
 });
 
-test('"Tahsil et" adisyonu tahsilata çevirir', () => {
-    const next = applyFlowAction({ id: 'x', time: '11:18', kind: 'due', firstName: 'M', lastName: 'A', detail: '' }, 'Tahsil et');
-    assert.equal(next.kind, 'paid');
+test('"Tahsil et" artık bir geçiş DEĞİL — adisyon telefondan tahsil edilmiyor', () => {
+    const due = { id: 'x', time: '11:18', kind: 'due', firstName: 'M', lastName: 'A', detail: '' };
+    assert.equal(applyFlowAction(due, 'Tahsil et'), null);
 });
 
 test('yanlış eylem yanlış türe uygulanmaz', () => {
@@ -350,7 +350,9 @@ test('saat uydurulmaz — olayın anı sunucudan gelecek', () => {
 test('kart butonları ÖLÜ DEĞİL — dördü de eylem taşıyor', () => {
     // Titreşim tek başına geri bildirim değildir; proje kuralı "ölü buton yok".
     assert.equal((parts.match(/onAction\?\.\('Geldi'\)/g) ?? []).length, 2);
-    assert.equal((parts.match(/onAction\?\.\('Gelmedi'\)/g) ?? []).length, 2);
+    // v2: "Gelmedi" artık düz buton değil, hapın içinde (gecikince).
+    assert.equal((parts.match(/onAction\?\.\('Gelmedi'\)/g) ?? []).length, 0);
+    assert.equal((parts.match(/<ActionPill/g) ?? []).length >= 2, true);
     assert.ok(!/onPress=\{\(\) => \{ feedback\.medium\(\); \}\}/.test(parts));
 });
 

@@ -94,6 +94,8 @@ export interface StaffDayProps {
      * — kilit damgaları orada okunuyor (`useMoveWriter`).
      */
     onCommitMove: (appointment: Appt, next: Appt, staffName?: string | null) => Promise<boolean>;
+    /** Salonun o günkü açık aralığı — taşıma menüsünün saatleri (`dayWindowOf`). */
+    openHours?: { from: number; to: number } | null;
     onBack: () => void;
     onOpenAppointment: (appointment: Appt) => void;
     onCreateAppointment?: (staffId: string, dateISO: string) => void;
@@ -105,6 +107,7 @@ export function StaffDay({
     appointments,
     loading = false,
     onCommitMove,
+    openHours,
     onBack,
     onOpenAppointment,
     onCreateAppointment,
@@ -288,6 +291,7 @@ export function StaffDay({
                     mode={moveFor.mode}
                     appointment={moveFor.appointment}
                     day={appointments}
+                    hours={openHours}
                     staff={staffOptions}
                     onDismiss={() => setMoveFor(null)}
                     onPick={(target) => {

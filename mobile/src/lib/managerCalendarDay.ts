@@ -19,8 +19,10 @@ import { presenceOf } from './presence.ts';
 import type { StaffPresence } from './managerFlow.ts';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
-    apiSource, fetchCrew, fetchDayWithStamps, fetchLeave, fetchServerNow,
+    apiSource, fetchCrew, fetchDayWithStamps, fetchHoursRow, fetchLeave, fetchServerNow,
+    fetchStaffSchedules,
 } from './managerSource';
+import { dayWindowOf, type OpenWindow } from './createLive.ts';
 
 export interface ManagerCalendarDay {
     rows: Appt[];
@@ -39,10 +41,16 @@ export interface ManagerCalendarDay {
     onLeave: ReadonlySet<string>;
     /** Hafta şeridinin gün sayıları. Okunan her gün var, okunmayan yok. */
     counts: Record<string, number>;
+    /**
+     * Salonun o gün AÇIK olduğu aralık (dakika) — ızgaranın saat aralığı
+     * buradan. `null` kapalı gün, `undefined` bilinmiyor.
+     */
+    open: OpenWindow | null | undefined;
 }
 
 const EMPTY: ManagerCalendarDay = {
     rows: [], stamps: new Map(), columns: [], unassigned: 0, presence: [], onLeave: new Set(), counts: {},
+    open: undefined,
 };
 
 /**
@@ -61,12 +69,19 @@ export function useManagerCalendarDay(dateISO: string): ManagerSnapshot<ManagerC
         const from = week[0]?.date ?? dateISO;
         const to = week[week.length - 1]?.date ?? dateISO;
         // Dördü PARALEL: sırayla beklemek dört gidiş-dönüş demekti.
-        const [day, crew, leave, counts, nowMs] = await Promise.all([
+        const [day, crew, leave, counts, nowMs, hours, schedules] = await Promise.all([
             fetchDayWithStamps(dateISO),
             fetchCrew(),
             fetchLeave(dateISO, addDaysISO(dateISO, LEAVE_WINDOW_DAYS)),
             apiSource.range(from, to),
             fetchServerNow(),
+            /*
+             * Saatler okunamazsa takvim "okunamadı"ya DÜŞMÜYOR: aralık yalnız
+             * ızgaranın ne kadar uzun çizileceği, günün randevuları değil.
+             * Bilinmeyen saatte varsayılan gün çiziliyor (`hourRange`).
+             */
+            fetchHoursRow().catch(() => null),
+            fetchStaffSchedules().catch(() => new Map<string, unknown>()),
         ]);
         const { rows, stamps } = day;
         const { columns, unassigned } = columnsFor(crew, rows);
@@ -74,7 +89,14 @@ export function useManagerCalendarDay(dateISO: string): ManagerSnapshot<ManagerC
         const onLeave = new Set(
             presence.filter((person) => person.state === 'leave').map((person) => person.id),
         );
-        return { rows, stamps, columns, unassigned, presence, onLeave, counts };
+        // Salonun ve çalışan personelin saatlerinin birleşimi — randevu
+        // oluşturmanın boş saat hesabıyla AYNI kaynak.
+        const open = dayWindowOf(
+            crew.map((member) => ({ active: member.active, workingHours: schedules.get(member.id) ?? null })),
+            hours?.raw ?? null,
+            dateISO,
+        );
+        return { rows, stamps, columns, unassigned, presence, onLeave, counts, open };
     }, [dateISO]);
 
     return useManagerRead(read, EMPTY);

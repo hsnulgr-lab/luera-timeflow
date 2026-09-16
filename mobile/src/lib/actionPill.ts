@@ -9,6 +9,7 @@
 // react-native ve Expo import ETMEZ (saf katman kuralı).
 
 import { hasWa } from './phone.ts';
+import { ablative } from './text.ts';
 
 /**
  * Gözün kimliği.
@@ -30,10 +31,14 @@ export interface CellSpec {
 
 const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     ara: { label: 'Ara', hint: 'telefon açılır' },
+    // Müdür 34 · v2: mesaj salonun numarasından, hazır metinle gidiyor
+    // (`whatsapp-proxy`, `kind: 'manual'`). Açıklama bunu söylüyor ve doğru.
     wa: { label: 'WhatsApp’tan yaz', hint: 'hazır metin, salonun numarası' },
     waoff: { label: 'WhatsApp bağlı değil', hint: 'Ayarlara git' },
     nox: { label: 'Gelmedi', hint: 'geri alınabilir' },
-    inf: { label: 'Personele bilgi ver', hint: 'bildirim gider' },
+    // Bildirim kanalı YOK (bildirim turu): göz yalnız kartta kayıt bırakır.
+    // Sesli okuma da söz vermiyor.
+    inf: { label: 'Personele bilgi ver', hint: 'kartta kayıt kalır' },
 };
 
 /**
@@ -47,7 +52,7 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
 export function cellSpec(key: CellKey, staffGiven?: string): CellSpec {
     const spec = SPECS[key];
     if (key === 'inf' && staffGiven?.trim()) {
-        return { key, label: spec.label, hint: `${dative(staffGiven.trim())} bildirim gider` };
+        return { key, label: spec.label, hint: `${dative(staffGiven.trim())} söylendiği kaydedilir` };
     }
     return { key, ...spec };
 }
@@ -75,8 +80,49 @@ export function cellGlyph(key: CellKey, staffInitials?: string): string | null {
     return initials && initials.length === 2 ? initials : null;
 }
 
-/** Sunucunun gönderim sonucu — `sendWA`nın tanımlı çıktıları. */
-export type WaResult = 'ok' | 'not_connected' | 'opt_out' | 'invalid_phone' | 'failed';
+/**
+ * Sunucunun gönderim sonucu — `sendWA`nın tanımlı çıktıları.
+ *
+ * `queued` AYRI: tasarım "failed / kuyruk"u tek satırda topluyordu ama sunucu
+ * yalnız GEÇİCİ hatayı kuyruğa alıyor (`queued: true`). Kalıcı hatada mesaj
+ * hiç gitmiyor; kartın ona "Kuyrukta · bağlantı gelince gider" demesi gitmeyecek
+ * bir mesajı gidecekmiş gibi göstermek olurdu.
+ */
+export type WaResult = 'ok' | 'not_connected' | 'opt_out' | 'invalid_phone' | 'queued' | 'failed';
+
+/**
+ * `whatsapp-proxy` cevabı → kartın sonucu.
+ *
+ * `quota` telefonda oluşmamalı: müdürün elle tetiklediği mesaj (`manual`)
+ * kota dışı (`_shared/wa.ts · UNMETERED`). Yine de gelirse "gönderilemedi" —
+ * bilinmeyen bir sebebi başarı saymıyoruz.
+ */
+export function waResultOf(body: { ok?: boolean; reason?: string | null; queued?: boolean } | null): WaResult {
+    if (body?.ok === true) return 'ok';
+    if (body?.reason === 'not_connected' || body?.reason === 'opt_out' || body?.reason === 'invalid_phone') {
+        return body.reason;
+    }
+    if (body?.reason === 'failed' && body.queued === true) return 'queued';
+    return 'failed';
+}
+
+/**
+ * Hazır metin — Müdür 34 · v2.
+ *
+ * Tasarımın TEK cümlesi gecikme için: "{Salon}’dan merhaba — 11:30 randevunuz
+ * için sizi bekliyoruz, yolda mısınız?" Cevap isteyen bir mesaj, bildirim değil.
+ *
+ * Zamanında randevu için tasarımda ayrı bir metin YOK ve aynı cümle orada
+ * yanlış: iki saat önce "yolda mısınız?" demek. `onTime` cümlesi bu yüzden
+ * ayrı ve müdürün onayına açık (2026-09-17).
+ */
+export function waNudgeText(input: { salon: string; time: string; late: boolean }): string {
+    const salon = input.salon.trim();
+    const hello = salon ? `${ablative(salon)} merhaba` : 'Merhaba';
+    return input.late
+        ? `${hello} — ${input.time} randevunuz için sizi bekliyoruz, yolda mısınız?`
+        : `${hello} — bugün ${input.time} randevunuzu hatırlatmak istedik, görüşmek üzere.`;
+}
 
 export interface PillInput {
     /** Müşterinin telefonu. Yoksa iki kanal da çizilmez. */
@@ -99,25 +145,31 @@ export interface PillInput {
  * kas hafızası bozulmasın.
  */
 export function pillCells(input: PillInput): CellKey[] {
-    const cells: CellKey[] = [];
-    const phone = hasWa(input.customerPhone);
-
-    // Numara geçersizse ARAMA da güvenilmez: aynı numara. İki kanal birlikte
-    // düşer, onarım müşteri kartındadır.
-    const badNumber = input.waResult === 'invalid_phone';
-    if (phone && !badNumber) cells.push('ara');
-
-    if (phone && !badNumber) {
-        // Müşteri mesaj istemiyorsa göz BİR DAHA çizilmez — bu, onarılabilir
-        // bir hata değil, müşterinin kararı.
-        if (input.waResult !== 'opt_out') {
-            cells.push(input.waConnected === false ? 'waoff' : 'wa');
-        }
+    /*
+     * Müdür 34 · v2 "butonlar hazırda": Ara ve Yaz HEP çizilir. Numara yok ya
+     * da geçersizse ikisi SÖNÜK durur (`pillOff`) — yazı yok; dokununca
+     * randevu kartı açılır. Kural müdür kararı, 2026-09-16.
+     */
+    const cells: CellKey[] = ['ara'];
+    const usable = numberUsable(input.customerPhone, input.waResult);
+    // Müşteri mesaj istemiyorsa göz BİR DAHA çizilmez — bu, onarılabilir
+    // bir hata değil, müşterinin kararı.
+    if (!(usable && input.waResult === 'opt_out')) {
+        cells.push(usable && input.waConnected === false ? 'waoff' : 'wa');
     }
-
     if (input.canDrop) cells.push('nox');
     if (input.canTellStaff) cells.push('inf');
     return cells;
+}
+
+/** Numara aranabilir/yazılabilir mi. Geçersiz sonucu dönmüş numara da DEĞİL. */
+export function numberUsable(phone?: string | null, waResult?: WaResult): boolean {
+    return hasWa(phone) && waResult !== 'invalid_phone';
+}
+
+/** Sönük çizilecek gözler — numara kullanılamıyorsa Ara ve Yaz. */
+export function pillOff(input: PillInput): CellKey[] {
+    return numberUsable(input.customerPhone, input.waResult) ? [] : ['ara', 'wa'];
 }
 
 /**
@@ -128,7 +180,8 @@ export function pillCells(input: PillInput): CellKey[] {
  * yalnız sayı söyleniyor.
  */
 export function pillOpens(cells: readonly CellKey[]): boolean {
-    return cells.length >= 2;
+    // Müdür 34 · v2 "sütun sabit": işlem başlamadan önce `Yönet` HEP yerinde.
+    return cells.length >= 1;
 }
 
 // ── Kartın kayıt satırı ─────────────────────────────────────────────────────
@@ -169,8 +222,11 @@ export function waRecord(result: WaResult, minutes: number): PillRecord {
             return { text: 'Mesaj istemiyor · gönderilmedi', tone: 'quiet', stales: true };
         case 'invalid_phone':
             return { text: 'Numara geçersiz · düzeltilmeli', tone: 'warn', stales: false };
-        case 'failed':
+        case 'queued':
             return { text: 'Kuyrukta · bağlantı gelince gider', tone: 'quiet', stales: false };
+        case 'failed':
+            // Bitmemiş iş: bayatlamıyor. Göz yerinde, yeniden denenebilir.
+            return { text: 'Gönderilemedi · tekrar deneyin', tone: 'warn', stales: false };
     }
 }
 

@@ -142,7 +142,7 @@ test('ciro TAHSİLATTAN, doluluk bilinmeyen paydayla hesaplanmıyor', () => {
 
 test('yerel dokunuş YALNIZ sunucu aynı yerdeyken geçerli', () => {
     // Sunucu ilerlediyse — bizim yazmamız ya da başka bir cihaz — gerçek o.
-    assert.match(store, /return local && local\.basedOn === event\.kind \? local\.event : event;/);
+    assert.match(store, /return local && local\.basedOn === event\.kind \? mergeLocal\(event, local\.event\) : event;/);
     // Efektle değil türetmeyle.
     for (const block of store.split('useEffect(').slice(1)) {
         assert.doesNotMatch(block.slice(0, block.indexOf('}, [')), /setOverlay/);
@@ -209,24 +209,24 @@ test('reddetme yazmazsa randevu OLDUĞU gibi kalıyor', () => {
     assert.match(screen, /if \(!ok\) replace\(event\.id, cleared\);/);
 });
 
-test('"Yaz" SONUÇ UYDURMUYOR', () => {
+test('"Yaz" SONUÇ UYDURMUYOR — sonuç sunucunun cevabı', () => {
     // `mockSendResult` gerçek bir müşteriye gitmemiş mesajı "iletildi"
-    // gösteriyordu. Pencere dolunca telefonun kendi WhatsApp'ı açılıyor.
-    assert.match(screen, /Linking\.openURL\(`https:\/\/wa\.me\/\$\{digits\}`\)/);
+    // gösteriyordu. v2: pencere dolunca salonun hattından GERÇEKTEN gönderiliyor
+    // ve kayıt satırı whatsapp-proxy'nin cevabını yazıyor.
+    assert.doesNotMatch(screen, /mockSendResult/);
     assert.match(screen, /replace\(event\.id, cancelSend\(event\)\);/);
-    assert.doesNotMatch(screen, /applySendResult/);
+    assert.match(screen, /const inFlight = \{ \.\.\.event, sendingLeft: undefined \};\s*replace\(event\.id, inFlight\);/);
+    assert.match(screen, /\.then\(\(result\) => replace\(event\.id, applySendResult\(inFlight, result\)\)\)/);
 });
 
-test('"Tahsil et" dalı Kasa’yı açıp ÇIKIYOR — yerel ödemeye düşmüyor', () => {
-    // Dönüş olmazsa akış `applyFlowAction`a iner ve adisyonu yine yerel
-    // olarak "tahsil edildi"ye çevirir: sahte ödeme geri gelir.
-    const branch = screen.slice(screen.indexOf("if (event.kind === 'due' && label === 'Tahsil et')"));
-    // Dal gövdesi: nesne parantezleri de `}` taşıdığı için ilk `}`de
-    // kesmek gövdeyi yarıda bırakıyordu — sabit bir pencere alınıyor.
-    const body = branch.slice(0, 160);
-    assert.match(body, /router\.navigate\(\{ pathname: '\/mudur\/cash' \}\);\s*\n\s*return;/);
-    // Ve bu dal türetmeden ÖNCE: sonra olsaydı yerel geçiş çoktan yapılmış olurdu.
-    assert.ok(screen.indexOf("label === 'Tahsil et')") < screen.indexOf('applyFlowAction(event, label)'));
+test('adisyon bekleyen kartta tahsilat YOK — müdür görür, telefondan tahsil etmez', () => {
+    /*
+     * Müdür kararı (2026-09-17): telefondan tahsilat yapılmaz. "Tahsil et"
+     * Kasa'ya götürüyordu; Kasa salt okunur ve bekleyeni Akış'a geri
+     * yolluyordu — basılan düğme bir döngüydü.
+     */
+    assert.doesNotMatch(screen, /label === 'Tahsil et'/);
+    assert.doesNotMatch(screen, /pathname: '\/mudur\/cash'/);
 });
 
 test('sıradaki kartın geri sayımı SALONUN toleransıyla', () => {

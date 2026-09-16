@@ -4,22 +4,27 @@ import { reservationPrice } from '../utils/reservationServices.ts';
 // Randevu yaşam döngüsü — tek kaynak. Tüm yüzeyler (mobil personel, mobil
 // düzenle sheet, masaüstü rezervasyon/takvim) bu mantığı paylaşır ki
 // "şu an ne yapmalıyım?" her yerde aynı olsun.
-// 'missed' (Gelmedi) TÜRETİLMİŞ bir durumdur — DB'ye yazılmaz, saat geçince
-// kendiliğinden görünür ve hasta geç gelirse (arrivedAt/customerArrivedAt)
-// kendini düzeltir. Böylece koltuktaki hasta yanlış damgalanmaz.
+// 'missed' (Gelmedi) iki yoldan gelir: saat + tolerans geçince TÜRETİLİR, ya
+// da müdür telefondan "Gelmedi" dediyse `noShowAt` damgasından (098). İkisinde
+// de hasta geç gelirse (arrivedAt/customerArrivedAt) kendini düzeltir — geldi
+// damgası her zaman yener. Böylece koltuktaki hasta yanlış damgalanmaz.
 export type ApptPhase = 'pending' | 'upcoming' | 'inService' | 'done' | 'cancelled' | 'missed';
 
 // Geç-kalma toleransı (dk) — klinik Ayarlar'dan değiştirebilir, varsayılan 2 saat.
 export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
 
 export function apptPhase(
-    r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'>,
+    r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'> & Pick<Partial<Reservation>, 'noShowAt'>,
     opts?: { now?: Date; toleranceMin?: number },
 ): ApptPhase {
     if (r.status === 'cancelled') return 'cancelled';
     if (r.status === 'completed') return 'done';
     if (r.status === 'pending') return 'pending';
     if (r.arrivedAt) return 'inService';
+    // Müdür "Gelmedi" dedi (098) — toleransı beklemeden. Geldi damgası varsa
+    // SAYILMAZ: geç gelen müşteri "gelmedi" değildir. Telefonun `kindOf`u ile
+    // aynı sıra.
+    if (r.noShowAt && !r.customerArrivedAt) return 'missed';
     // Onaylı ama hizmete başlanmadı: randevu saati + tolerans geçtiyse ve hasta
     // hiç gelmediyse 'missed'. Geldi işaretliyse (customerArrivedAt) 'missed' olmaz.
     if (r.date && r.startTime && !r.customerArrivedAt) {
