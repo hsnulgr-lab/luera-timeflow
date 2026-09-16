@@ -137,9 +137,20 @@ export function cardState(appointment: StaffCardSource, nowMs: number = Date.now
         return { ...base, kind: 'paid', word: 'Tahsil edildi', tone: 'gr', dim: 2 };
     }
 
-    // Adisyon gönderilmiş ama tahsil edilmemiş: yeşil "benden çıktı" demek,
-    // "ödendi" demek DEĞİL — tahsilat kasanın işi, kart bunu iddia etmiyor.
-    if (appointment.adisyon_items != null && appointment.adisyon_items.length > 0) {
+    /*
+     * Kasaya gönderilmiş ama tahsil edilmemiş: yeşil "benden çıktı" demek,
+     * "ödendi" demek DEĞİL — tahsilat kasanın işi, kart bunu iddia etmiyor.
+     *
+     * ── Karar DURUMDAN, kalem sayısından değil (2026-09-15) ───────────────
+     * Eskiden "adisyonda kalem var mı"ya bakılıyordu ve iki yönde yanlıştı:
+     *   • Kalemsiz gönderilen ziyaret (yalnız hizmet) kasada duruyordu ama
+     *     kart sarı "Adisyon gönderilmedi" diyordu.
+     *   • Kalemler yazılıp kapanış takılınca ziyaret kasada DEĞİLDİ ama kart
+     *     yeşil "Kasada" diyordu.
+     * Masaüstü Kasa'nın bekleyen listesi `status === 'completed' && !isPaid`;
+     * `visit.finish` de tam olarak `completed` yazıyor. Tanım artık o.
+     */
+    if (appointment.status === 'completed') {
         return { ...base, kind: 'atcash', word: 'Kasada', tone: 'gr', dim: 1 };
     }
 

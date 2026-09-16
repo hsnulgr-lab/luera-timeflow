@@ -28,7 +28,8 @@ import {
     type DeleteFailureReason,
     type DeletionCopy,
 } from '../../../src/lib/managerProfile';
-import { readDeletionFacts } from '../../../src/lib/salonSettings';
+import { fetchDeletionFacts } from '../../../src/lib/managerSource';
+import { DurumUnread } from '../../../src/components/Durum';
 import { deleteAccount } from '../../../src/api/accountDeletion';
 import { upperTR } from '../../../src/lib/text';
 import { authApi } from '../../../src/api/session';
@@ -51,9 +52,14 @@ import {
  * gerçek silme istiyor, ve geri alma penceresi zaten ulaşılamaz — oturumu
  * kapanmış kullanıcı iptal düğmesine nasıl basacak?
  *
- * SUNUCU UCU HENÜZ YOK. "Hesabınız silindi" cümlesi yalnız istek başarıyla
- * dönerse ekrana girer; bugün her zaman hata dalına düşer ve hesap olduğu
- * gibi durur. Sahte onay verilmez.
+ * CANLI (müdür planı 9. adım). Sayılar sayılıyor (`fetchDeletionFacts`),
+ * silme `account-delete`e bu cihazda seçili SALONLA gidiyor. "Hesabınız
+ * silindi" yalnız sunucu gerçekten silerse; aksi hâlde ekran yerinde kalır ve
+ * sebebi yazar. Sahte onay verilmez.
+ *
+ * SAHİP OLMAYAN müdür: sunucu silmeyi reddediyor (`forbidden_role`). Ekran
+ * bunu basılı tutmadan ÖNCE söylüyor ve düğme çalışmıyor — iki saniye basılı
+ * tutturup sonra "yapamazsınız" demek, müdürü boşuna uğraştırmaktı.
  */
 export default function ManagerDeleteAccount() {
     const { c, reduceMotion } = useTheme();
@@ -70,15 +76,22 @@ export default function ManagerDeleteAccount() {
     const [consented, setConsented] = useState(false);
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState<DeleteFailureReason | null>(null);
+    const [orgId, setOrgId] = useState<string | null>(null);
+    const [ownerOnly, setOwnerOnly] = useState(false);
+    const [unread, setUnread] = useState(false);
+    const [attempt, setAttempt] = useState(0);
     const shake = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         let alive = true;
-        void Promise.all([authApi.account.get(), readDeletionFacts()])
+        void Promise.all([authApi.account.get(), fetchDeletionFacts()])
             .then(([account, facts]) => {
                 if (!alive) return;
                 if (!account.ok) { router.replace('/(auth)/welcome'); return; }
                 const { profile } = account.data.session;
+                setOrgId(profile.business.id);
+                setOwnerOnly(!facts.canDeleteRole);
+                setUnread(false);
                 // Sayılar bilinmeden liste çizilmez — "312 randevu" uydurulamaz.
                 setCopy(deletionCopy({
                     businessName: profile.business.name,
@@ -92,9 +105,10 @@ export default function ManagerDeleteAccount() {
                     staff: facts.staff,
                 }));
             })
-            .catch(() => { /* okunamazsa ekran boş kalır, liste uydurulmaz */ });
+            // Okunamazsa liste UYDURULMUYOR; "okuyamadık" ve tekrar dene.
+            .catch(() => { if (alive) setUnread(true); });
         return () => { alive = false; };
-    }, [router]);
+    }, [router, attempt]);
 
     /** Sessiz reddetme yok, ama modal da yok: sallanma + kutunun vurgulanması. */
     const blocked = () => {
@@ -112,9 +126,25 @@ export default function ManagerDeleteAccount() {
         ]).start();
     };
 
-    if (!copy) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+    if (!copy) {
+        return (
+            <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+                <View style={{ paddingHorizontal: M.padX - 2 }}>
+                    <ProfileNav title={DELETE_TITLE} onBack={() => router.back()} />
+                </View>
+                {unread ? (
+                    <DurumUnread
+                        what="Silinecekleri"
+                        notMeaning="Silinecek bir şey olmadığı"
+                        onRetry={() => { setUnread(false); setAttempt((value) => value + 1); }}
+                        style={{ paddingHorizontal: M.padX }}
+                    />
+                ) : null}
+            </View>
+        );
+    }
 
-    const ready = canDelete(copy, consented);
+    const ready = !ownerOnly && canDelete(copy, consented);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -224,6 +254,18 @@ export default function ManagerDeleteAccount() {
                     />
                 ) : null}
 
+                {ownerOnly ? (
+                    <Text style={{
+                        color: c.rd,
+                        fontSize: M.rowValue,
+                        fontFamily: font.semiBold,
+                        fontWeight: '600',
+                        lineHeight: M.rowValue * 1.45,
+                    }}>
+                        {deleteFailureText('forbidden')}
+                    </Text>
+                ) : null}
+
                 {failed ? (
                     <Text style={{
                         color: c.rd,
@@ -244,7 +286,7 @@ export default function ManagerDeleteAccount() {
                     onFire={() => {
                         setBusy(true);
                         setFailed(null);
-                        void deleteAccount().then((result) => {
+                        void deleteAccount(orgId).then((result) => {
                             setBusy(false);
                             if (!result.ok) {
                                 // Ekran YERİNDE kalır, dolum sıfırlanır ve

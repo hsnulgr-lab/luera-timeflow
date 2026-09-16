@@ -8,6 +8,7 @@ import {
     authApi,
     type AuthAccountOverview,
 } from '../../src/api/session';
+import { businessLine } from '../../src/lib/accountMap';
 import { accountDeletionItems } from '../../src/lib/authCopy';
 import {
     AuthAccountRow,
@@ -167,7 +168,7 @@ export default function AccountScreen() {
                         title={isManager ? 'Hesap' : 'Profil'}
                         body={isManager
                             ? profile.email ?? ''
-                            : `${profile.business.name} — ${profile.business.location}`}
+                            : businessLine(profile.business, ' — ')}
                     />
 
                     <View style={{ borderTopWidth: 1, borderTopColor: c.bd }}>

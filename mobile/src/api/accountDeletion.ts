@@ -26,19 +26,39 @@ export type DeleteFailure =
     | 'subscription'
     | 'server';
 
-export async function deleteAccount(): Promise<{ ok: boolean; reason: DeleteFailure | null }> {
+export async function deleteAccount(
+    /**
+     * Silinecek hesabın BU cihazda seçili salonu. Birden çok salona üye bir
+     * müdürde sunucu salonu tahmin etmiyor (`org_id_required`) — gönderilmezse
+     * silme her seferinde "sunucu" hatasına düşüyordu.
+     */
+    orgId?: string | null,
+): Promise<{ ok: boolean; reason: DeleteFailure | null }> {
     if (!supabaseConfigured) return { ok: false, reason: 'not-configured' };
 
     const { data: session } = await supabase.auth.getSession();
     if (!session.session) return { ok: false, reason: 'no-session' };
 
-    const { data, error } = await supabase.functions.invoke('account-delete', { body: {} });
+    const { data, error } = await supabase.functions.invoke('account-delete', {
+        body: orgId ? { orgId } : {},
+    });
+    /*
+     * 4xx/5xx GÖVDESİ `error.context`te. Sunucu "sahibi değil" (403) ve
+     * "abonelik iptal edilemedi" (502) derken durum kodu hata olduğu için
+     * `data` boş geliyor; gövde okunmadan ikisi de "sunucu hatası"na
+     * düşüyordu ve ekran müdüre yanlış sebep yazıyordu.
+     */
+    let body = data as { deleted?: boolean; error?: string } | null;
     if (error) {
-        console.warn('account-delete failed', error);
-        return { ok: false, reason: 'server' };
+        const context = (error as { context?: Response }).context;
+        try { body = (await context?.clone().json()) ?? null; } catch { body = null; }
+        if (!body) {
+            console.warn('account-delete failed', error);
+            return { ok: false, reason: 'server' };
+        }
     }
 
-    const result = data as { deleted?: boolean; error?: string } | null;
+    const result = body;
     if (!result?.deleted) {
         if (result?.error === 'forbidden_role') return { ok: false, reason: 'forbidden' };
         if (result?.error === 'subscription_cancel_failed') return { ok: false, reason: 'subscription' };

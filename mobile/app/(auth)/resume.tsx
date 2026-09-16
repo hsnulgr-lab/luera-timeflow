@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { authApi, type AuthSession } from '../../src/api/session';
+import { businessLine } from '../../src/lib/accountMap';
 import { AuthActionButton, LueraMark } from '../../src/components/ui';
 import { authMetrics, font, radius, useTheme } from '../../src/theme';
 import { FaceRing, type FaceState } from '../../src/components/FaceRing';
@@ -228,7 +229,7 @@ export default function ResumeSignIn() {
                             fontWeight: '500',
                         }}
                     >
-                        {profile.business.name} · {profile.business.location}
+                        {businessLine(profile.business)}
                     </Text>
                 </View>
 

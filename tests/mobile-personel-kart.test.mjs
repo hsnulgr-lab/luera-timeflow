@@ -88,10 +88,28 @@ test('06 · adisyon gönderilmemiş iş SÖNÜKLEŞMEZ — personelin işi bitme
 });
 
 test('07 · kasada yeşildir ama "ödendi" demez', () => {
-    const s = cardState({ ...base, service_ended_at: ago(60), adisyon_items: [{ id: 'x' }] }, NOW);
+    const s = cardState({ ...base, status: 'completed', service_ended_at: ago(60), adisyon_items: [{ id: 'x' }] }, NOW);
     assert.equal(s.kind, 'atcash');
     assert.equal(s.word, 'Kasada');
     assert.equal(s.dim, 1);
+});
+
+/*
+ * 07b/07c · KASADA KARARI DURUMDAN (telefonda bulundu, 2026-09-15).
+ *
+ * Karar eskiden "adisyonda kalem var mı"ydı ve iki yönde yanlıştı. Masaüstü
+ * Kasa'nın bekleyen listesi `status === 'completed' && !isPaid`; tanım o.
+ */
+test('07b · KALEMSİZ gönderilen ziyaret de kasada — "gönderilmedi" DEMİYOR', () => {
+    const s = cardState({ ...base, status: 'completed', service_ended_at: ago(60), adisyon_items: [] }, NOW);
+    assert.equal(s.kind, 'atcash');
+    assert.equal(s.word, 'Kasada');
+});
+
+test('07c · kalemler yazıldı ama kapanış TAKILDI — "kasada" DEMİYOR', () => {
+    const s = cardState({ ...base, arrived_at: ago(120), service_ended_at: ago(60), adisyon_items: [{ id: 'x' }] }, NOW);
+    assert.notEqual(s.kind, 'atcash', 'masaüstü Kasa bu ziyareti listelemiyor');
+    assert.equal(s.kind, 'unbilled');
 });
 
 test('08 · tahsil edilmiş randevu GECİKTİ görünmez', () => {

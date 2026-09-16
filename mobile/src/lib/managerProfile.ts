@@ -249,6 +249,18 @@ export function parsePrice(text: string): number | null {
 
 export type NotificationKey = 'booked' | 'cancelled' | 'noshow' | 'daily';
 
+/**
+ * MÜDÜRE BİLDİRİM YOLU YOK — satır ve ekran GİZLİ (kullanıcı kararı,
+ * 2026-09-16).
+ *
+ * Dört anahtarın veritabanında karşılığı yok ve 046 "yöneticiye telefon
+ * bildirimi gönderilmez" diyor. Anahtarlar yalnız telefonun belleğinde
+ * duruyordu: müdür "Yeni randevu"yu açıyor, hiçbir bildirim gelmiyordu.
+ * Kod silinmedi; tercih tablosu, cihaz jetonu ve tetikleyici yazıldığında bu
+ * bayrak açılır.
+ */
+export const MANAGER_NOTIFICATIONS_READY = false;
+
 export const NOTIFICATIONS: { key: NotificationKey; label: string }[] = [
     { key: 'booked', label: 'Yeni randevu' },
     { key: 'cancelled', label: 'Randevu iptali' },
@@ -370,7 +382,9 @@ export interface DeletionCopy {
  * vazgeçme penceresi değil, ve öyle yazılır.
  */
 export function deletionCopy(input: DeletionInput): DeletionCopy {
-    const business = `${input.businessName} · ${input.businessLocation}`;
+    // Konum boşsa sonda yalnız bir ayraç kalmasın.
+    const business = [input.businessName, input.businessLocation]
+        .map((part) => part.trim()).filter(Boolean).join(' · ');
     const account: DeletionLine = {
         title: 'Hesabınız',
         detail: input.managerEmail

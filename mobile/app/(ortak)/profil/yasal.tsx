@@ -11,7 +11,7 @@ import {
     ProfileRow,
 } from '../../../src/components/ProfileParts';
 import { legalLinks } from '../../../src/lib/managerProfile';
-import { readKvkkUrl } from '../../../src/lib/salonSettings';
+import { readKvkkUrl } from '../../../src/lib/legalSource';
 import { font, profileMetrics as M, useTheme } from '../../../src/theme';
 
 /**

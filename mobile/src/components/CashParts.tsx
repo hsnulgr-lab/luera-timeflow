@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
-    amountSize, formatAmount, methodLabel, movementSpeech, traceLine,
+    amountSize, formatAmount, methodLabel, movementSpeech, staffLine, traceLine,
     type CashMethod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { cashInk, cashMetrics, font, numeric, useTheme, type CashInk, type MethodInk } from '../theme';
@@ -90,7 +90,11 @@ export function Chevron({ size, color }: { size: number; color: string }) {
  * kadar büyürse panel ekranı yutuyor; kullanıcı metni büyütürken listeyi
  * okumak istiyor.
  */
-export function HeroAmount({ value, size }: { value: number; size: number }) {
+/**
+ * `value: null` — dönem henüz okunmadı ya da okunamadı. Rakamın yerine çizgi:
+ * "₺0" yazmak, okunamayan günü parasız bir gün gibi gösterirdi.
+ */
+export function HeroAmount({ value, size }: { value: number | null; size: number }) {
     const style: TextStyle = {
         fontSize: size,
         fontWeight: '300',
@@ -106,7 +110,7 @@ export function HeroAmount({ value, size }: { value: number; size: number }) {
             {/* Tasarımda `.money s{margin-right:.04em}` — işaret rakama
                 yapışmıyor ama boyu, ağırlığı ve rengi rakamla aynı. */}
             <Money style={[style, { marginRight: size * cashMetrics.currencyGap }]}>₺</Money>
-            <Money style={style}>{formatAmount(value)}</Money>
+            <Money style={style}>{value === null ? '—' : formatAmount(value)}</Money>
         </View>
     );
 }
@@ -181,6 +185,7 @@ export function MovementCard({ movement, largest, onPress }: {
     const voided = movement.status === 'voided';
     const corrected = movement.status === 'corrected';
     const trace = traceLine(movement);
+    const who = staffLine(movement);
 
     const tone = corrected
         ? { from: ink.correctedFrom, to: ink.correctedTo, border: ink.correctedBorder }
@@ -235,9 +240,9 @@ export function MovementCard({ movement, largest, onPress }: {
                     }}>
                         <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.chipFont, letterSpacing: 0.95, color: c.am }}>DÜZELTİLDİ</Txt>
                     </View>
-                ) : (
-                    <Txt style={{ fontFamily: font.semiBold, fontSize: cashMetrics.whoFont, color: c.tx3 }}>{movement.staff} aldı</Txt>
-                )}
+                ) : who ? (
+                    <Txt style={{ fontFamily: font.semiBold, fontSize: cashMetrics.whoFont, color: c.tx3 }}>{who}</Txt>
+                ) : null}
             </View>
 
             <View style={{ alignItems: 'flex-end', gap: 4 }}>

@@ -340,7 +340,7 @@ test('geri al’ın ömrü 8 saniye ve sheet KENDİLİĞİNDEN KAPANMAZ', () => 
 
 test('iki yol da aynı taşımaya düşer', () => {
     // Sürükleme hızlı yol, menü güvenilir yol; ikisi de `applyMove`.
-    assert.match(calendar, /onMove=\{commitMove\}/);
+    assert.match(calendar, /onMove=\{\(appointment, target\) => \{ void commitMove\(appointment, target\); \}\}/);
     assert.match(calendar, /applyMove\(appointment, target\)/);
     assert.match(calendar, /commitMove\(appointment, target\)/);
 });
@@ -364,9 +364,21 @@ test('detaydaki jetonlar taşımayı açar', () => {
     assert.ok(!/onChange=\{\(\) => undefined\}/.test(detail));
 });
 
-test('sunucuda güncelleme ucu olmadığı yazılı, sahte başarı yok', () => {
-    assert.match(read('app/mudur/calendar.tsx'), /Sunucuda randevu güncelleme ucu YOK/);
+test('taşıma YAZILMADAN sonuç ekranı açılmıyor', () => {
+    /*
+     * Asıl kural: müdürün yapılmış sandığı ve aslında yapılmamış bir işlemi
+     * olmamalı. Eskiden takvim ve personel günü taşımayı yalnız ekranda
+     * yapıyor, sonuç sayfası yine de "taşındı" diyordu.
+     *
+     * Şimdi üç ekran da sunucunun cevabını bekliyor; reddedilen taşıma sonuç
+     * sayfası değil, durum bloğu açıyor.
+     */
     assert.ok(!/Kaydedildi|başarıyla/i.test(calendar + parts));
+    for (const file of [calendar, staffDay]) {
+        assert.match(file, /if \(!ok\) return;/);
+    }
+    // Ve reddin ekranda bir karşılığı var — sessiz geçmiyor.
+    assert.match(calendar, /title=\{\s*\n?\s*refused\.kind === 'stale' \? STALE_TITLE/);
 });
 
 test('el değiştirirken taşıma kendi kendini iptal etmiyor', () => {

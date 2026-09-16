@@ -12,7 +12,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useBackgroundSync } from '../src/lib/backgroundSync';
-import { ManagerDayProvider } from '../src/state/managerDay';
 import { ThemeProvider, useTheme } from '../src/theme';
 
 // Kök kabuk. Tema ve güvenli alan burada; rota grupları altta.
@@ -90,11 +89,10 @@ export default function RootLayout() {
     return (
         <SafeAreaProvider>
             <ThemeProvider>
-                {/* Müdür günü KÖKTE: randevu oluşturma sekmelerin dışında
-                    yaşıyor ve kurduğu randevunun akışa düşmesi gerekiyor. */}
-                <ManagerDayProvider>
-                    <Shell />
-                </ManagerDayProvider>
+                {/* Müdür günü artık KÖKTE DEĞİL — bkz. `app/mudur/_layout.tsx`.
+                    Canlı okuma burada dursaydı personel telefonu da müdür
+                    sorgusu atardı. */}
+                <Shell />
             </ThemeProvider>
         </SafeAreaProvider>
     );

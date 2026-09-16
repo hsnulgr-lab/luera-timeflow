@@ -343,8 +343,13 @@ test('yerel "bekleyen silme" kaydı YAZILMAZ — Apple 5.1.1(v) gerçek silme is
 
 test('sayılar bilinmeden liste çizilmez', () => {
     // "312 randevu silinecek" cümlesi uydurulamaz.
-    assert.match(deleteScreen, /if \(!copy\) return/);
-    assert.match(settings, /readDeletionFacts/);
+    // Liste yalnız sayılar gelince çiziliyor; gelmezse "okuyamadık".
+    assert.match(deleteScreen, /if \(!copy\) \{/);
+    assert.match(deleteScreen, /<DurumUnread\s*what="Silinecekleri"/);
+    assert.ok(deleteScreen.indexOf('if (!copy) {') < deleteScreen.indexOf('copy.lines.map'));
+    // Sayılar SAYILIYOR (9. adım) — sahte kaynaktan değil.
+    assert.match(deleteScreen, /fetchDeletionFacts\(\)/);
+    assert.doesNotMatch(deleteScreen, /readDeletionFacts/);
 });
 
 // ── Hareket sözleşmesi ──────────────────────────────────────────────────────

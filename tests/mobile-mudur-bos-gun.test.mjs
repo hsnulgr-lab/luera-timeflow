@@ -354,7 +354,9 @@ test('akış SEÇİLİ günü okur — başka güne kurulan randevu akışta da 
     // Eskiden liste `isToday ? events : []` idi: randevu takvimde görünüyor,
     // akışta hiç görünmüyordu. Kaynak zaten güne göre sorgulanabiliyordu.
     assert.doesNotMatch(flowCode, /const dayEvents = isToday \? events : \[\]/);
-    assert.match(flowCode, /source\.day\(selectedISO\)/);
+    // Veritabanından — sahte kaynaktan değil.
+    assert.match(flowCode, /apiSource\.day\(selectedISO\)/);
+    assert.doesNotMatch(flowCode, /calendarSource/);
     assert.match(flowCode, /\.map\(\(appointment\) => bookedEvent\(/);
 });
 
@@ -379,9 +381,12 @@ test('gün okunmadan boş hâlin cümlesi YAZILMAZ', () => {
     // "sayfa iki kez yüklendi" diye görüyor.
     const staffDay = code('src/components/StaffDay.tsx');
     assert.match(staffDay, /if \(loading\) \{[\s\S]{0,160}<DaySkeleton \/>/);
+    // Kural aynı, yeri değişti: yükleme hâli artık ortak okuma katmanından
+    // (`useManagerRead`) geliyor, ekranın kendi bayrağından değil.
     const route = code('app/(manager-flow)/personel/[id].tsx');
-    assert.match(route, /loading=\{loading\}/);
-    assert.match(route, /setLoading\(false\)/);
+    assert.match(route, /loading=\{state === 'loading'\}/);
+    // Ekran kendi yükleme bayrağını TUTMUYOR — iki kaynak iki gerçek demekti.
+    assert.doesNotMatch(route, /setLoading/);
 });
 
 test('iskelet hiçbir şey iddia etmez — cümle taşımaz', () => {

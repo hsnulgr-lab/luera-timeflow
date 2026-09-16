@@ -37,8 +37,14 @@ test('arka plan okuması damgayı İLERLETMİYOR', () => {
     // İlerlerse kilit, personelin görmediği bir hâli onaylamış olur.
     assert.match(source, /const read = useCallback\(\(visible: boolean, adopt: boolean\) => \{/);
     assert.match(source, /if \(!adopt\) \{/);
-    // Gözlemde YALNIZ sunucunun damgası not ediliyor.
-    assert.match(source, /setServerAt\(next\.stamp\);\s*\n\s*if \(!adopt\)/);
+    // Gözlemde YALNIZ sunucunun gördüğümüz hâli (damga + kalemler) not ediliyor;
+    // benimsenen damga (`updatedAt`) yalnız gözlem dalından SONRA yazılıyor.
+    const body = source.slice(source.indexOf('const read = useCallback'));
+    const observeAt = body.indexOf('if (!adopt) {');
+    assert.ok(body.indexOf('setSeen(') < observeAt, 'gözlem not edilmeden dal ayrılıyor');
+    assert.ok(body.indexOf('setUpdatedAt(') > observeAt, 'benimsenen damga gözlemde ilerliyor');
+    // Geç dönen yoklama arada benimsenen YENİ damgayı ezmiyor.
+    assert.match(source, /isNewer\(observed\.stamp, current\?\.stamp\) \? observed : current/);
 });
 
 test('yoklama ve odak BENİMSEMİYOR, açılış ve tazeleme benimsiyor', () => {
@@ -53,7 +59,7 @@ test('yoklama ve odak BENİMSEMİYOR, açılış ve tazeleme benimsiyor', () => 
 test('değişiklik iki damga da BİLİNİYORKEN söyleniyor', () => {
     // Damga henüz okunmamışken "değişti" demek, bilinmezliği değişiklik gibi
     // göstermek olurdu.
-    assert.match(source, /changed: updatedAt !== null && serverAt !== null && serverAt !== updatedAt/);
+    assert.match(source, /changed: updatedAt !== null && seen !== null && seen\.stamp !== updatedAt/);
 });
 
 test('gözlem randevu KAYBOLDUYSA susmuyor', () => {
@@ -80,7 +86,10 @@ test('kumanda değişikliği GÖSTERİYOR ve kararı personele bırakıyor', () 
 
 test('kasadaki adisyonda şerit ÇIKMIYOR', () => {
     // Orada yazılacak bir şey kalmadı; şerit yalnız gürültü olurdu.
-    assert.match(screen, /\{changed && !delivered \? \(/);
+    // Ve YALNIZ adisyona gerçekten başkası dokunduysa: damganın değişmesi tek
+    // başına yetmiyor — işlemi başlatmak da damgayı ilerletiyor (bkz.
+    // `mobile-kendi-yazmasi.test.mjs`).
+    assert.match(screen, /\{foreignChange && !delivered \? \(/);
 });
 
 test('tazeleme YALNIZ kalemleri yeniliyor, sayacı değil', () => {

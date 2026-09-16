@@ -101,6 +101,12 @@ export interface FlowEvent {
     /** Hizmet süresi — A1 panelinin alt satırı ("11:30 · 45 dk"). */
     durationMinutes?: number;
     /**
+     * Salonun gecikme toleransı (dk) — `settings.arrival_tolerance_min`.
+     * Yoksa masaüstünün varsayılanı. Geri sayım BUNA bakıyor; ayrı bir sayı
+     * tutmak aynı müşteriyi iki ekranda iki farklı sürede "gelmedi" yapardı.
+     */
+    toleranceMinutes?: number;
+    /**
      * Bu olayın işaret ettiği randevu. Varsa satırın ⋮ düğmesi detayı açar;
      * YOKSA düğme HİÇ ÇİZİLMEZ — dokunulup hiçbir şey olmayan bir nokta,
      * olmayan bir noktadan kötüdür.
@@ -139,6 +145,14 @@ export interface FlowEvent {
     dueMinutes?: number;
     /** Dünden devreden adisyon — bekleme saatle yazılır. */
     carriedOver?: boolean;
+    /**
+     * Adisyonun kimliği (`group:<id>` · `reservation:<id>`).
+     *
+     * Grup randevusu (aynı müşteri, iki personel) akışta iki satır ama kasada
+     * TEK adisyon. Bekleyen sayısı ve tutarı bu anahtarla bir kez sayılıyor;
+     * yoksa Kasa'nın paneli masaüstünün kuyruğundan fazlasını söylerdi.
+     */
+    ticketKey?: string;
     /** Hizmeti kim verdi. Personel hapı değil CÜMLE: "Merve verdi". */
     servedBy?: string;
     /** Tahsilatın alındığı saat — D3 satırı. */
@@ -362,7 +376,14 @@ export interface ManagerDay {
  * gerçek söylüyordu; müdür hangisine inanacağını bilemez.
  */
 export function pendingOf(events: readonly FlowEvent[]): Pending {
-    const dues = events.filter((event) => event.kind === 'due');
+    const seen = new Set<string>();
+    const dues = events.filter((event) => {
+        if (event.kind !== 'due') return false;
+        const key = event.ticketKey ?? event.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
     const oldest = dues.reduce((max, event) => Math.max(max, event.dueMinutes ?? 0), 0);
     return {
         count: dues.length,
@@ -439,15 +460,21 @@ export const FLOW_END = 'Bugünlük bu kadar';
 // içerik kadar uzar, boş kutu bırakmaz.
 
 /**
- * Gecikme toleransı. Müşteri randevu saatinden bu kadar dakika sonra hâlâ
- * gelmediyse rezervasyon otomatik düşer.
+ * Gecikme toleransının VARSAYILANI — masaüstüyle aynı sayı
+ * (`src/lib/appointmentFlow.ts · DEFAULT_ARRIVAL_TOLERANCE_MIN`).
  *
- * DİKKAT — burada yalnız EŞİK var, düşürme işi yok. Randevuyu gerçekten iptal
- * edip müşteri kartına yazacak sunucu işi (cron ya da uç) HENÜZ YAZILMADI.
- * `autoCancelled` istemcide yalnız GÖRÜNÜMÜ değiştirir; sunucu bunu doğrulayana
- * kadar kalıcı bir şey olmaz.
+ * ── "Otomatik düşer" KALKTI (2026-09-15) ────────────────────────────────────
+ * Eskiden burada 30 yazıyordu ve kartlar "22 dk sonra düşer", "randevu
+ * düştü · kayıt müşteri dosyasına yazıldı" diyordu. Hiçbiri olmuyordu:
+ * randevuyu düşüren bir iş ne sunucuda ne masaüstünde var. Masaüstünün
+ * mantığı tek: randevu saati + salonun toleransı geçti ve müşteri gelmediyse
+ * "Gelmedi". Randevu AÇIK kalıyor; müşteri gelirse "Geç geldi" basılıyor.
+ * Kartlar artık yalnız bunu söylüyor.
  */
-export const LATE_LIMIT_MINUTES = 30;
+export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
+
+/** Eski ad — yeni kod `DEFAULT_ARRIVAL_TOLERANCE_MIN` kullanıyor. */
+export const LATE_LIMIT_MINUTES = DEFAULT_ARRIVAL_TOLERANCE_MIN;
 
 /** Bağlamdan en az biri dolu mu? Boş dize bağlam sayılmaz. */
 export function hasContext(context?: ApptContext): boolean {
@@ -475,16 +502,19 @@ export function isLate(etaMinutes?: number): boolean {
     return lateMinutes(etaMinutes) > 0;
 }
 
-/** Otomatik düşmeye kalan dakika. Gecikme yoksa tolerans da tükenmiyor. */
-export function graceLeft(etaMinutes?: number): number {
+/** "Gelmedi" sayılmaya kalan dakika. Gecikme yoksa tolerans da tükenmiyor. */
+export function graceLeft(etaMinutes?: number, tolerance: number = DEFAULT_ARRIVAL_TOLERANCE_MIN): number {
     const late = lateMinutes(etaMinutes);
-    if (late === 0) return LATE_LIMIT_MINUTES;
-    return Math.max(0, LATE_LIMIT_MINUTES - late);
+    if (late === 0) return tolerance;
+    return Math.max(0, tolerance - late);
 }
 
-/** Tolerans doldu mu? 30 dakika ve üstü. */
-export function autoCancelled(etaMinutes?: number): boolean {
-    return lateMinutes(etaMinutes) >= LATE_LIMIT_MINUTES;
+/**
+ * Tolerans doldu mu? Doluysa akış o randevuyu zaten "gelmedi" diye çiziyor
+ * (`flowBuild.kindOf`). Adı eski — randevu İPTAL EDİLMİYOR.
+ */
+export function autoCancelled(etaMinutes?: number, tolerance: number = DEFAULT_ARRIVAL_TOLERANCE_MIN): boolean {
+    return lateMinutes(etaMinutes) >= tolerance;
 }
 
 // ── Türkçe saat çekimi ──────────────────────────────────────────────────────
@@ -527,7 +557,9 @@ export interface EtaPanel {
     late: boolean;
 }
 
-export function etaPanel(event: Pick<FlowEvent, 'time' | 'etaMinutes' | 'durationMinutes'>): EtaPanel {
+export function etaPanel(
+    event: Pick<FlowEvent, 'time' | 'etaMinutes' | 'durationMinutes' | 'toleranceMinutes'>,
+): EtaPanel {
     const late = isLate(event.etaMinutes);
     if (late) {
         return {
@@ -537,7 +569,9 @@ export function etaPanel(event: Pick<FlowEvent, 'time' | 'etaMinutes' | 'duratio
             // sütunda yazıyor, cümle onu ikinci kez söylüyordu. O satır
             // toleransın geri sayımına açıldı — kartın ALTINDAKİ rozet de
             // böylece ortadan kalktı (Müdür 32 · §2.2).
-            sub: `${graceLeft(event.etaMinutes)} dk sonra düşer`,
+            // "düşer" DEĞİL: hiçbir şey düşürülmüyor. Tolerans dolunca randevu
+            // "gelmedi" sayılıyor — masaüstünün de söylediği tam olarak bu.
+            sub: `${graceLeft(event.etaMinutes, event.toleranceMinutes)} dk sonra gelmedi sayılır`,
             late: true,
         };
     }
@@ -583,10 +617,13 @@ export function contextRows(context?: ApptContext): ContextRow[] {
  * geri sayımı randevunun değil KURALIN ölçüsü. Ayrı düzlemde durur.
  * Gecikme yokken hiç çizilmez.
  */
-export function toleranceLabel(etaMinutes?: number): string | null {
+export function toleranceLabel(
+    etaMinutes?: number,
+    tolerance: number = DEFAULT_ARRIVAL_TOLERANCE_MIN,
+): string | null {
     if (!isLate(etaMinutes)) return null;
-    if (autoCancelled(etaMinutes)) return 'otomatik düştü';
-    return `${graceLeft(etaMinutes)} dk sonra düşer`;
+    if (autoCancelled(etaMinutes, tolerance)) return 'gelmedi sayıldı';
+    return `${graceLeft(etaMinutes, tolerance)} dk sonra gelmedi sayılır`;
 }
 
 /**
@@ -841,49 +878,6 @@ export function applyWaitAction(event: FlowEvent, label: string): FlowEvent | nu
     return null;
 }
 
-// ── DEMO SÜRÜCÜSÜ ───────────────────────────────────────────────────────────
-//
-// SİLİNECEK. Tasarımın iki hareketi — eşik geçişi (5 → 10 dk) ve
-// BEKLİYOR → SÜRÜYOR dönüşümü — canlı veriye bağlı: biri dakikanın akmasını,
-// öteki personelin işlemi başlatmasını bekliyor. `visit.arrive` ucu ve gündem
-// yoklaması yazılana kadar ikisi de cihazda hiç görülemezdi.
-//
-// Bu yüzden burada bir SAAT TAKLİDİ var. Sunucu bağlandığında:
-//   1) `DEMO_FLOW` false olur,
-//   2) `waitMinutes` sunucudan gelmeye başlar,
-//   3) bu blok tamamen silinir.
-// Animasyonların kendisi bileşende; onlara dokunulmayacak.
-
-/** Sunucu bağlanınca false yapılacak, sonra bu blokla birlikte silinecek. */
-export const DEMO_FLOW = true;
-
-/** Bir "dakika" bu kadar sürer. Gerçek dakika değil — eşikleri görmek için. */
-export const DEMO_TICK_MS = 2500;
-
-/** Sayaç buraya kadar çıkar; demo sonsuza kadar tırmanmasın. */
-const DEMO_CEILING = 14;
-
-/** Devir satırı bu dakikada işleme dönüşür — iki tik, yaklaşık beş saniye. */
-const DEMO_HANDOFF_AT = 6;
-
-export function demoTick(event: FlowEvent): FlowEvent {
-    if (!DEMO_FLOW || event.kind !== 'arrived') return event;
-    const minutes = Math.max(0, Math.floor(event.waitMinutes ?? 0));
-
-    // Devir anı işleme dönüşür: kart yerinde kalır, içerik dönüşür.
-    if (event.handoff && minutes >= DEMO_HANDOFF_AT) {
-        const { handoff: _h, waitMinutes: _w, walkin: _k, remindedAt: _r, parked: _p, ...rest } = event;
-        return {
-            ...rest,
-            kind: 'started',
-            elapsedSeconds: 4,
-            startedAt: `${atClock(event.time)} başladı`,
-        };
-    }
-    if (minutes >= DEMO_CEILING) return event;
-    return { ...event, waitMinutes: minutes + 1 };
-}
-
 // ── Müdür 21 · tahsilat ─────────────────────────────────────────────────────
 //
 // Tasarım: docs/design-reference/Luera Mobil - Mudur 21 Tahsilat ve Gelmedi
@@ -1010,36 +1004,34 @@ export interface NoshowCard {
     label: string;
     value: string;
     unit: string;
-    /** Süre tükendi (30 dk doldu): rakam ikincil mürekkepte, artık ölçüm değil kayıt. */
+    /**
+     * Rakam artık bir ölçüm değil mi. Otomatik düşürme olmadığı için HİÇBİR
+     * gelmedi kartı "tükenmiş" değil — alan tasarım bileşeni için duruyor ve
+     * hep `false`.
+     */
     spent: boolean;
     sub: string;
     actions: WaitAction[];
 }
 
 /**
- * Gelmedi kartı.
+ * Gelmedi kartı — MASAÜSTÜNÜN MANTIĞIYLA.
  *
- * Kahraman rakam PARA DEĞİL, tolerans sayacı: müdürün tek zamanlı kararı
- * 30 dakika içinde müşteri gelirse kaydın kurtulması. Rakam KIRMIZI DEĞİL —
- * kırmızı etikette ve noktada, yani "ne oldu"da; rakam yalnız ölçüm.
+ * Kart eskiden iki evreliydi: 30 dakikalık "kurtarma penceresi", sonra
+ * "randevu düştü · kayıt müşteri dosyasına yazıldı". İkinci evrenin
+ * arkasında hiçbir şey yoktu — randevu iptal edilmiyor, müşteri dosyasına
+ * bir şey yazılmıyor. Canlı veride her kart ikinci evrede açılacaktı, çünkü
+ * "gelmedi" artık salonun toleransı (vars. 120 dk) dolunca çıkıyor.
+ *
+ * Doğru olan: randevu AÇIK. Müşteri gelirse birincil eylem "Geç geldi".
+ * Kahraman rakam kaç dakika geçtiği; kırmızı değil — kırmızı etikette.
  */
 export function noshowCard(event: FlowEvent, fresh = false): NoshowCard {
     const elapsed = Math.max(0, Math.floor(event.noshowMinutes ?? 0));
-    const dropped = elapsed >= LATE_LIMIT_MINUTES;
-    const left = Math.max(0, LATE_LIMIT_MINUTES - elapsed);
+    const hero = waitHero(elapsed);
 
     const actions: WaitAction[] = [];
-    // DÜŞMÜŞ önce sorulur: 30 dakika dolduysa geri dönüş yok, basış taze
-    // olsa bile. Sıra ters olsaydı düşmüş bir randevu "Geri al" gösterirdi.
-    if (dropped) {
-        // 30. DAKİKADA AĞIRLIK DEĞİŞİR — aynı yuva, aynı kelime, artan ağırlık.
-        //
-        // Randevu düştü; kurtarılacak tek şey İLİŞKİ. O yüzden `Yönet` hayalet
-        // olmaktan çıkıp hapa dönüyor, `Yeniden randevu` ikincil oluyor.
-        // Öncesinde tersi: müşteri hâlâ girebilir, birincil `Geç geldi`.
-        actions.push({ label: 'Yönet', kind: 'hap' });
-        actions.push({ label: 'Yeniden randevu', kind: 'ghost' });
-    } else if (fresh) {
+    if (fresh) {
         actions.push({ label: 'Geri al', kind: 'ghost' });
     } else {
         // Kenarlıklı hap, dolu değil: "Geç geldi" zorunlu değil, müşteri
@@ -1049,19 +1041,12 @@ export function noshowCard(event: FlowEvent, fresh = false): NoshowCard {
     }
 
     return {
-        // "randevu düştü" — "otomatik düştü" değil: müdürün gördüğü şey
-        // randevunun ÖLDÜĞÜ, nasıl öldüğü alt satırın işi. Kelime satırın
-        // etiketiyle (`noshowRowLabel`) birebir aynı — kart ve satır iki ayrı
-        // sözlük konuşmaz.
-        label: dropped ? 'randevu düştü' : 'müşteri gelmedi',
-        value: String(dropped ? LATE_LIMIT_MINUTES : elapsed),
-        unit: 'dk',
-        spent: dropped,
-        // Saat BAŞTAN atıldı: satırın sol sütununda zaten yazılı (A1'le aynı
-        // gerekçe). Kalan yer geri sayıma gitti.
-        sub: dropped
-            ? 'Kayıt müşteri dosyasına yazıldı'
-            : `${left} dk sonra otomatik düşer`,
+        label: 'müşteri gelmedi',
+        value: hero.value,
+        unit: hero.unit,
+        spent: false,
+        // Randevunun gerçek hâli: kimse onu kapatmadı.
+        sub: 'Randevu açık · gelirse "Geç geldi"',
         actions,
     };
 }
@@ -1127,11 +1112,14 @@ export function nextInLineId(events: readonly FlowEvent[]): string | null {
     ).id;
 }
 
-/** Akış satırının etiketi — düşmüş randevu "gelmedi"den başka bir şeydir. */
-export function noshowRowLabel(event: FlowEvent): string {
-    return Math.max(0, Math.floor(event.noshowMinutes ?? 0)) >= LATE_LIMIT_MINUTES
-        ? 'randevu düştü'
-        : 'müşteri gelmedi';
+/**
+ * Akış satırının etiketi — kartın etiketiyle BİREBİR.
+ *
+ * "randevu düştü" hâli kalktı: randevuyu düşüren bir iş yok. Kart ve satır iki
+ * ayrı sözlük konuşmuyor.
+ */
+export function noshowRowLabel(): string {
+    return 'müşteri gelmedi';
 }
 
 /**
@@ -1196,7 +1184,15 @@ export function pillInputOf(
         waResult: event.waResult,
         // Düşmüş bir randevu bir daha düşürülemez.
         canDrop: event.kind === 'next',
-        canTellStaff: true,
+        /*
+         * "Personele bilgi ver" GİZLİ (2026-09-15).
+         *
+         * Gözün açıklaması "bildirim gider" diyor ama müdürden personele
+         * bildirim gönderen bir yol YOK — basınca yalnız telefonda bir damga
+         * kalıyordu. Müdür personelin haberdar olduğunu sanabilirdi. Kanal
+         * yazıldığında bu satır `true`ya döner; göz, kaydı ve metni hazır.
+         */
+        canTellStaff: false,
     };
 }
 

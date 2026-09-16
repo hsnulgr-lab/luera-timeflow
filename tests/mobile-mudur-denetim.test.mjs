@@ -68,9 +68,10 @@ test('şimdi sayacı dakika başı ilerler ve yalnız bugün çalışır', () =>
 test('cetvel gerçekten GÜN DEĞİŞTİRİR', () => {
     // Seçim yalnız cetvelin içinde kalıyordu: başlık da liste de bugünü
     // göstermeye devam ediyordu.
-    assert.match(flow, /const isToday = selectedISO === mockDay\.dateISO/);
-    // Artık boş dizi değil: başka gün seçilince o günün randevuları okunur.
-    assert.match(flow, /source\.day\(selectedISO\)/);
+    // "Bugün" cihazın günü — sahte günün değil.
+    assert.match(flow, /const isToday = selectedISO === todayISO\(\)/);
+    // Başka gün seçilince o günün randevuları VERİTABANINDAN okunur.
+    assert.match(flow, /apiSource\.day\(selectedISO\)/);
     assert.match(flow, /<DayHeader dateISO=\{selectedISO\}/);
 });
 
@@ -135,9 +136,17 @@ test('Akış ve Kasa AYNI kaynaktan okur', () => {
     // duymuyordu: aynı salonun iki ekranı iki farklı gerçek söylüyordu.
     assert.match(flow, /useManagerDay\(\)/);
     assert.match(cash, /useManagerDay\(\)/);
-    // Sağlayıcı KÖKTE: randevu oluşturma sekmelerin dışında yaşıyor ve
-    // kurduğu randevunun akışa düşmesi gerekiyor.
-    assert.match(layout, /<ManagerDayProvider>/);
+    /*
+     * Sağlayıcı artık KÖKTE DEĞİL — müdür sekmelerinin içinde, rol kapısının
+     * ARKASINDA. Kökteyken personel telefonunu da sarıyordu; canlı okumayla
+     * her personel cihazı yirmi beş saniyede bir müdür sorgusu atardı.
+     * Akış, Kasa ve randevu oluşturma üçü de bu sekmelerin içinde.
+     */
+    assert.doesNotMatch(layout, /<ManagerDayProvider>/);
+    const tabs = readFileSync(new URL('../mobile/app/mudur/_layout.tsx', import.meta.url), 'utf8');
+    assert.match(tabs, /<ManagerDayProvider>/);
+    // Kapıdan SONRA: yanlış rol hiç okuma başlatmıyor.
+    assert.ok(tabs.indexOf("gate.state === 'wrong'") < tabs.indexOf('<ManagerDayProvider>'));
 });
 
 test('sağlayıcı yoksa sessizce boş güne DÜŞMEZ', () => {
@@ -172,7 +181,8 @@ test('menüdeki yıkıcı satırlar üç noktayla biter', () => {
 
 test('kasa iptali kim yaptığını uydurmaz', () => {
     assert.doesNotMatch(cash, /'Ayla', '11:42'/);
-    assert.match(cash, /applyVoid\(list, voidingId, null, hhmm\(nowInMinutes\(\)\)\)/);
+    // Kasa artık salt okunur: yerel iptal izi hiç üretilmiyor.
+    assert.doesNotMatch(cash, /applyVoid\(/);
 });
 
 // ── Kurulan randevu ─────────────────────────────────────────────────────────
@@ -204,7 +214,9 @@ test('personel bilinmiyorsa "ile" cümlesi kurulmaz', () => {
 });
 
 test('başka güne kurulan randevu bugünün akışına düşmez', () => {
-    assert.match(create, /if \(appointment\.date !== mockDay\.dateISO\) return;/);
+    // Bugün AKIŞIN günü — sahte takvimin günü değil.
+    assert.match(create, /if \(appointment\.date !== flowDay\) return;/);
+    assert.doesNotMatch(create, /mockDay/);
 });
 
 test('yeni olay kendi SAATİNİN yerine oturur, listenin başına zorlanmaz', () => {
@@ -214,6 +226,13 @@ test('yeni olay kendi SAATİNİN yerine oturur, listenin başına zorlanmaz', ()
     // sırayı alıyor, ekranda saat rayı kendi sırasını tutmuyordu. Test
     // uygulamanın yerini sınadığı için o kusuru yakalayamamıştı; artık
     // sıralamanın ÜÇ okumada da kullanıldığını sınıyoruz.
-    assert.match(store, /sortFlow\(\[\.\.\.list, event\]\)/);
-    assert.equal((store.match(/sortFlow\(/g) ?? []).length, 3);
+    /*
+     * İKİNCİ ADRES DEĞİŞİKLİĞİ: sağlayıcı artık sunucudan besleniyor ve
+     * olaylar TEK bir türetmeden geçiyor — sunucu kaydı, yerel dokunuşlar ve
+     * yerel eklenenler aynı `sortFlow` çağrısında birleşiyor. Üç ayrı çağrı
+     * yok çünkü üç ayrı liste yok; eklenen olay listenin başına değil kendi
+     * saatine iniyor, çünkü birleştirme sıralamadan ÖNCE yapılıyor.
+     */
+    assert.match(store, /return sortFlow\(\[\.\.\.merged, \.\.\.pendingAdds\]\);/);
+    assert.equal((store.match(/sortFlow\(/g) ?? []).length, 1);
 });

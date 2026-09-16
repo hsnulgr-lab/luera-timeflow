@@ -63,17 +63,23 @@ test('eta yoksa gecikme yok — veri gelmemişse kart suçlamaz', () => {
     assert.equal(isLate(undefined), false);
 });
 
-test('tolerans 30 dakika', () => {
-    assert.equal(LATE_LIMIT_MINUTES, 30);
-    assert.equal(graceLeft(-8), 22);
-    assert.equal(graceLeft(-29), 1);
+// ── "OTOMATİK DÜŞER" KALKTI (2026-09-15, kullanıcı onayıyla) ─────────────────
+// Kartlar "22 dk sonra düşer", "randevu düştü · kayıt müşteri dosyasına
+// yazıldı" diyordu; randevuyu düşüren bir iş ne sunucuda ne masaüstünde var.
+// Masaüstünün mantığı: randevu saati + salonun toleransı (vars. 120) geçti ve
+// müşteri gelmediyse "Gelmedi"; randevu açık kalır. Eşik de masaüstüyle aynı.
+test('tolerans MASAÜSTÜNÜN varsayılanı — salonun ayarı verilirse o', () => {
+    assert.equal(LATE_LIMIT_MINUTES, 120);
+    assert.equal(graceLeft(-8), 112);
+    assert.equal(graceLeft(-8, 30), 22, 'salon 30 dk seçtiyse o geçerli');
 });
 
-test('30 dakikada otomatik düşer, altında düşmez', () => {
-    assert.equal(autoCancelled(-29), false);
-    assert.equal(autoCancelled(-30), true);
-    assert.equal(autoCancelled(-45), true);
-    assert.equal(graceLeft(-45), 0);
+test('tolerans dolunca "gelmedi" sayılır, altında sayılmaz', () => {
+    assert.equal(autoCancelled(-119), false);
+    assert.equal(autoCancelled(-120), true);
+    assert.equal(autoCancelled(-29, 30), false);
+    assert.equal(autoCancelled(-30, 30), true);
+    assert.equal(graceLeft(-45, 30), 0);
 });
 
 test('gecikme yokken tolerans rozeti hiç çizilmez', () => {
@@ -82,8 +88,10 @@ test('gecikme yokken tolerans rozeti hiç çizilmez', () => {
 });
 
 test('tolerans rozeti kalan dakikayı söyler', () => {
-    assert.equal(toleranceLabel(-8), '22 dk sonra düşer');
-    assert.equal(toleranceLabel(-30), 'otomatik düştü');
+    assert.equal(toleranceLabel(-8, 30), '22 dk sonra gelmedi sayılır');
+    assert.equal(toleranceLabel(-30, 30), 'gelmedi sayıldı');
+    // "düşer" / "düştü" hiçbir hâlde yok: düşüren bir iş yok.
+    assert.doesNotMatch(String(toleranceLabel(-8)), /düş/);
 });
 
 // ── A1 paneli ───────────────────────────────────────────────────────────────
@@ -98,10 +106,12 @@ test('A1 zamanında: girmesine + saat · süre', () => {
 // toleransın geri sayımına açıldı ve kartın ALTINDAKİ tolerans rozeti böylece
 // tamamen kalktı — kart bitip altında ayrı bir şerit başlaması reddedilmişti.
 test('A1 gecikmiş: gecikti + toleransın geri sayımı', () => {
-    const panel = etaPanel({ time: '11:30', etaMinutes: -8, durationMinutes: 45 });
+    const panel = etaPanel({ time: '11:30', etaMinutes: -8, durationMinutes: 45, toleranceMinutes: 30 });
     assert.equal(panel.label, 'gecikti');
     assert.equal(panel.value, '8 dk');
-    assert.equal(panel.sub, '22 dk sonra düşer');
+    assert.equal(panel.sub, '22 dk sonra gelmedi sayılır');
+    // Tolerans verilmezse masaüstünün varsayılanı.
+    assert.equal(etaPanel({ time: '11:30', etaMinutes: -8 }).sub, '112 dk sonra gelmedi sayılır');
     assert.equal(panel.sub.includes('11:30'), false, 'saat ikinci kez yazılmaz');
     assert.equal(panel.late, true);
 });
@@ -402,8 +412,10 @@ test('akış şimdi-çizgisine kaydırılmış açılır', () => {
 
 test('sıra TEK YERDEN gelir — üç okuma da aynı kuralı kullanır', () => {
     const src = readFileSync(new URL('../mobile/src/state/managerDay.tsx', import.meta.url), 'utf8');
-    // İlk yükleme, yenileme ve ekleme: üçü de sortFlow çağırmalı.
-    assert.equal((src.match(/sortFlow\(/g) ?? []).length, 3);
+    // İlk yükleme, yenileme ve ekleme: üçü de AYNI türetmeden geçiyor ve o
+    // türetme tek bir sortFlow çağrısında bitiyor. Sayı 3'ten 1'e indi çünkü
+    // artık üç ayrı liste yok — kural hâlâ tek.
+    assert.equal((src.match(/sortFlow\(/g) ?? []).length, 1);
     assert.equal(/\.sort\(\(a, b\)/.test(src), false, 'sıralama yine yerelde kopyalanmış');
 });
 

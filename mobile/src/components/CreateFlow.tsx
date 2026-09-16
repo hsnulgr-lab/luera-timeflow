@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Keyboard, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions,
 } from 'react-native';
@@ -11,19 +11,23 @@ import {
     KeyValueGrid, NoteRow, PhoneField, RailBlock, SearchIcon, SectionHead,
     ServiceRow, SolidButton, type KeyValue,
 } from './ApptParts';
+import { DurumBlock, DurumUnread } from './Durum';
 import { feedback } from '../lib/feedback';
-import { addLocalAppointment, source } from '../lib/calendarSource';
-import { mockDay } from '../lib/managerFlow';
 import { apptMetrics, font, useTheme } from '../theme';
 import {
     FLOW_TITLE, actionLabel, backPhase, customerName, dayOptions, emptyDraft,
     filterCustomers, formatPrice, formatRange, isValidNewCustomer, maskPhone,
-    draftToAppointment, formatPhoneInput, mockCustomers, mockServices, nextPhase,
-    pageName, phoneNote, railSections, recentCustomers, slotRows, stepLabel,
-    type CustomerOption, type Draft, type Phase, type StaffOption,
+    formatPhoneInput, nextPhase,
+    pageName, phoneNote, railSections, slotRows, stepLabel,
+    type CustomerOption, type Draft, type Phase,
 } from '../lib/createFlow';
-import { SALON_NAME } from '../lib/apptConfirm';
-import type { Appt } from '../lib/calendar';
+import {
+    confirmationText, dayWindowOf, localClock, recentOf, refusalCopy, staffOptionsOf, staffWorksAt,
+    type CreateOutcome, type NewAppointment, type WaFailReason,
+} from '../lib/createLive';
+import type { CreateContext } from '../lib/managerCreate';
+import { useCreateDay } from '../lib/managerCreate';
+import type { CreatedAppointment } from '../lib/managerWrite';
 
 /**
  * Müdür 15 — randevu oluştur.
@@ -38,22 +42,42 @@ import type { Appt } from '../lib/calendar';
  * yazar. Cam kullanılamadığında (iOS 26 altı, Expo Go, "saydamlığı azalt")
  * `Glass` opak yüzeye düşer; yerleşim ve ölçüler değişmez.
  *
- * SUNUCUDA RANDEVU OLUŞTURMA UCU YOK. "Randevuyu oluştur" yerel duruma yazıp
- * akışı kapatır; sahte bir onay yüzeyi eklenmedi.
+ * VERİ CANLI (müdür planı 7. adım). Hizmetler, kadro, müşteri defteri ve
+ * salonun saatleri `useCreateContext`ten (üst ekran okuyor ve bu bileşen
+ * YALNIZ okuma bitince çiziliyor — ön dolgu kaybolmasın diye). Seçilen günün
+ * dolu saatleri burada, `useCreateDay` ile okunuyor ve yoklanıyor.
+ *
+ * "Randevuyu oluştur" GERÇEKTEN yazıyor (`onCreate`). Ray hızlı geri bildirim;
+ * son söz sunucunun — reddederse randevu oluşmaz ve blok ne yapılacağını
+ * söyler. Onay ekranı ancak satır yazıldıktan sonra açılıyor.
  */
 
 const M = apptMetrics;
 
-export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset }: {
+export function CreateFlow({
+    prefill, context, onCreate, onSend, onRefusal, onClose, onCreated, topInset, bottomInset,
+}: {
     prefill?: {
         dateISO?: string; startMinutes?: number; staffId?: string;
         /** Müşteri kartından gelindiğinde kim olduğu belli. */
         customerId?: string;
     };
+    /** Okunmuş bağlam: hizmetler, kadro, müşteri defteri, ayarlar, saat. */
+    context: CreateContext;
+    /** Randevuyu yazar. Sonuç gelene kadar düğme kilitli. */
+    onCreate: (input: NewAppointment, staffName: string | null) => Promise<{
+        outcome: CreateOutcome; row: CreatedAppointment | null;
+    }>;
+    /** Onay mesajını gönderir. */
+    onSend: (input: { phone: string; text: string; customerId: string | null }) => Promise<
+        { ok: true } | { ok: false; reason: WaFailReason | null }
+    >;
+    /** Günün okuması org reddiyle döndü — üst ekranın durum bloğu devralır. */
+    onRefusal: (reason: NonNullable<ReturnType<typeof useCreateDay>['refusal']>) => void;
     /** Onay ekranı bitince ya da vazgeçilince çağrılır. */
     onClose: () => void;
     /** Randevu kuruldu — akışa da düşsün diye çağıran haberdar edilir. */
-    onCreated?: (appointment: Appt, staffName: string | null) => void;
+    onCreated?: (appointment: CreatedAppointment, staffName: string | null) => void;
     /** Kahraman levha üst güvenli alanı KENDİ örtüyor. */
     topInset: number;
     /** Sekme çubuğu da bunun içinde: yüzen çubuk buradan 12 pt yukarıda. */
@@ -83,7 +107,7 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
     const seed = useMemo(() => ({
         ...prefill,
         customer: prefill?.customerId
-            ? mockCustomers.find((item) => item.id === prefill.customerId) ?? null
+            ? context.customers.find((item) => item.id === prefill.customerId) ?? null
             : null,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [prefill?.dateISO, prefill?.startMinutes, prefill?.staffId, prefill?.customerId]);
@@ -94,7 +118,12 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
     const [noteOpen, setNoteOpen] = useState(false);
     const [keyboardUp, setKeyboardUp] = useState(false);
     /** Randevu kuruldu: akışın son karesi (Müdür 16) devralıyor. */
-    const [created, setCreated] = useState<Appt | null>(null);
+    const [created, setCreated] = useState<CreatedAppointment | null>(null);
+    /** Yazma sürüyor — ikinci dokunuş ikinci randevu açmasın. */
+    const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
+    /** Sunucu randevuyu KURMADI; sebebi ve yapılacak iş. */
+    const [refused, setRefused] = useState<Exclude<CreateOutcome, { ok: true }> | null>(null);
     /** Yeni müşteri az önce eklendiyse telefon alanı klavyeyle açılır. */
     const [justAdded, setJustAdded] = useState(false);
 
@@ -119,32 +148,35 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
         );
         return () => { show.remove(); hide.remove(); };
     }, []);
-    const [dayAppointments, setDayAppointments] = useState<Appt[]>([]);
-
-    // Demo verisinin günü. Sunucu ucu geldiğinde burası cihazın günü olacak;
-    // şimdi sahte takvimin günü, yoksa şerit boş bir güne bakar.
-    const today = mockDay.dateISO;
+    // Gün SUNUCU saatinden: telefonun takvimi yanlışsa şerit yanlış günden
+    // başlamasın.
+    const today = context.todayISO;
     const days = useMemo(() => dayOptions(today, 14), [today]);
 
-    // Personel havuzu akış ekranıyla AYNI kaynaktan; izinli ve çalışmayanlar
-    // listede kalır ama seçilemez — "neden Merve yok" sorusu doğmasın.
-    const staff: StaffOption[] = useMemo(() => mockDay.presence.map((person) => ({
-        id: person.id,
-        initials: person.initials,
-        name: person.name,
-        available: person.state === 'busy' || person.state === 'free',
-        reason: person.state === 'leave' ? 'izinli' : person.state === 'off' ? 'çalışmıyor' : undefined,
-    })), []);
-
-    // Sayfa 2'nin saatleri o günün GERÇEK randevularından çıkar.
+    /*
+     * ŞİMDİ — sunucu saati + geçen cihaz süresi. Otuz saniyede bir ilerliyor:
+     * rayın "geçti" kutuları müdür ekrandayken de doğru kalsın.
+     */
+    const [clock, setClock] = useState(() => Date.now());
     useEffect(() => {
-        if (!draft.dateISO) return;
-        let alive = true;
-        source.day(draft.dateISO)
-            .then((list) => { if (alive) setDayAppointments(list); })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [draft.dateISO]);
+        const id = setInterval(() => setClock(Date.now()), 30_000);
+        return () => clearInterval(id);
+    }, []);
+    const nowMs = context.serverNow + Math.max(0, clock - context.deviceAt);
+
+    // Sayfa 2'nin saatleri SEÇİLEN günün gerçek randevularından çıkar.
+    const day = useCreateDay(draft.dateISO);
+    /** Elde duran gün SEÇİLİ gün mü? Başka günün boşlukları bu güne yazılmaz. */
+    const dayKnown = draft.dateISO !== null && day.data.dateISO === draft.dateISO;
+    useEffect(() => {
+        if (day.refusal) onRefusal(day.refusal);
+    }, [day.refusal, onRefusal]);
+
+    // Kadro salonun GERÇEK kadrosu; izinli olan listede kalır ama seçilemez.
+    const staff = useMemo(
+        () => staffOptionsOf(context.crew, dayKnown ? day.data.leave : new Map(), draft.dateISO ?? today),
+        [context.crew, dayKnown, day.data.leave, draft.dateISO, today],
+    );
 
     const patch = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }));
 
@@ -164,35 +196,90 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
             setPhase(2);
             return;
         }
-        /**
-         * Sunucuda oluşturma ucu YOK. Sahte bir "kaydedildi" mesajı vermek
-         * yerine randevuyu yerel takvim kaynağına yazıyoruz: müdür akıştan
-         * çıkınca randevuyu TAKVİMDE, kendi gününde ve saatinde görüyor.
-         * Onay bir cümle değil, randevunun kendisi.
+        if (savingRef.current) return;
+        if (!draft.service || !draft.dateISO || draft.startMinutes === null || !draft.staffId) return;
+        const staffName = staff.find((person) => person.id === draft.staffId)?.name ?? null;
+        const input: NewAppointment = {
+            customerId: draft.customer?.id ?? null,
+            customerName: customerName(draft),
+            customerPhone: draft.customer?.phone ?? draft.newCustomerPhone,
+            dateISO: draft.dateISO,
+            startMinutes: draft.startMinutes,
+            service: draft.service,
+            staffId: draft.staffId,
+            note: draft.note,
+        };
+        /*
+         * TEK UÇUŞ. Ref, düğmenin kilidini çizimi beklemeden koyuyor: iki hızlı
+         * dokunuş iki randevu açardı — ve ikincisi 060'a takılsa bile ilk
+         * müşteri kaydını ikinci kez aramaya giderdi.
          */
-        const appointment = draftToAppointment(draft, staff, `local-${Date.now()}`);
-        if (!appointment) return;
-        addLocalAppointment(appointment);
-        // Randevu Takvim'e düşüyordu ama AKIŞA düşmüyordu: müdür onayı görüp
-        // Akış'a dönüyor ve randevu orada yoktu. Uygulama yaptığını söylediği
-        // şeyi göstermiyordu.
-        onCreated?.(appointment, staff.find((p) => p.id === appointment.staff_id)?.name ?? null);
-        feedback.success();
-        setCreated(appointment);
+        savingRef.current = true;
+        setSaving(true);
+        setRefused(null);
+        void onCreate(input, staffName).then(({ outcome, row }) => {
+            savingRef.current = false;
+            setSaving(false);
+            if (outcome.ok && row) {
+                // Randevu Takvim'e düşüyordu ama AKIŞA düşmüyordu; akış da
+                // haberdar ediliyor.
+                onCreated?.(row, staffName);
+                feedback.success();
+                setCreated(row);
+                return;
+            }
+            feedback.warning();
+            setRefused(outcome.ok ? { ok: false, kind: 'failed' } : outcome);
+            // Dolu saat ya da kapanmış bir gün: ray güncel hâli göstersin.
+            if (!outcome.ok && (outcome.kind === 'conflict' || outcome.kind === 'past')) {
+                void day.reload();
+            }
+        });
     };
+
+    const onRefusedMove = useCallback((move: ReturnType<typeof refusalCopy>['action']['move']) => {
+        setRefused(null);
+        if (move === 'reslot') {
+            setDraft((current) => (current.locked.includes('slot')
+                ? current
+                : { ...current, startMinutes: null }));
+        } else if (move === 'service') {
+            setPhase(1);
+        } else if (move === 'retry') {
+            // Seçimler duruyor; müdür yeniden basacak. Kendiliğinden tekrar
+            // YAZMIYORUZ — bağlantı dönmediyse ikinci red, dönse bile müdürün
+            // bilgisi dışında bir randevu olurdu.
+        }
+    }, []);
 
     const selectedDay = days.find((day) => day.iso === draft.dateISO) ?? days[0];
     const duration = draft.service?.minutes ?? 30;
 
-    const rows = useMemo(() => (draft.dateISO ? slotRows({
-        appointments: dayAppointments,
+    const nowClock = localClock(nowMs);
+    const rows = useMemo(() => (draft.dateISO && dayKnown ? slotRows({
+        appointments: day.data.appointments,
         staff,
         durationMinutes: duration,
         // Personel sabitse saat listesi YALNIZ o kişinin boşluklarını gösterir.
         onlyStaffId: draft.locked.includes('slot') || draft.locked.includes('staff')
             ? draft.staffId
             : null,
-    }) : []), [dayAppointments, staff, duration, draft.dateISO, draft.locked, draft.staffId]);
+        // Salonun o günkü saatleri (personelin kendi saati aşıyorsa
+        // genişletilmiş); kapalı gün bütün kutuları kapatır.
+        hours: dayWindowOf(context.crew, context.settings.workingHours, draft.dateISO),
+        // Personelin KENDİ saati: o gün çalışmayana kutu verilmiyor.
+        worksAt: (staffId, from, to) => {
+            const member = context.crew.find((person) => person.id === staffId);
+            return member
+                ? staffWorksAt(member, context.settings.workingHours, draft.dateISO ?? today, from, to)
+                : false;
+        },
+        // Bugünse geçmiş kutular seçilemez.
+        nowMinutes: draft.dateISO === nowClock.dateISO ? nowClock.minutes : null,
+    }) : []), [
+        day.data.appointments, dayKnown, staff, duration, draft.dateISO, draft.locked, draft.staffId,
+        context.settings.workingHours, context.crew, today, nowClock.dateISO, nowClock.minutes,
+    ]);
 
     const sections = useMemo(() => railSections({
         rows,
@@ -212,8 +299,16 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
     const rotateStaff = () => {
         // Personel sabitken çevirmek yok: müdür buraya o kişi için geldi.
         if (draft.locked.includes('staff') || draft.locked.includes('slot')) return;
-        if (draft.startMinutes === null) return;
-        const free = staff.filter((person) => person.available);
+        if (draft.startMinutes === null || !draft.dateISO) return;
+        const from = draft.startMinutes;
+        const to = from + duration;
+        const date = draft.dateISO;
+        // Çevrilecek kişi o saatte ÇALIŞIYOR olmalı — kendi haftalık saatiyle.
+        const free = staff.filter((person) => {
+            if (!person.available) return false;
+            const member = context.crew.find((candidate) => candidate.id === person.id);
+            return member ? staffWorksAt(member, context.settings.workingHours, date, from, to) : false;
+        });
         if (free.length < 2) return;
         const at = free.findIndex((person) => person.id === draft.staffId);
         patch({ staffId: free[(at + 1) % free.length].id });
@@ -225,8 +320,8 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
             ? { name: draft.newCustomerName, phone: null }
             : null;
 
-    const results = query.trim() ? filterCustomers(mockCustomers, query) : [];
-    const recents = recentCustomers(mockCustomers, 6);
+    const results = query.trim() ? filterCustomers(context.customers, query) : [];
+    const recents = useMemo(() => recentOf(context.customers, 6), [context.customers]);
 
     // ── Sayfa 1 · kim ve ne ────────────────────────────────────────────────
     //
@@ -313,7 +408,7 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                     <>
                         <EmptyResult
                             title={`"${query.trim()}" kayıtlı değil`}
-                            body={`Kayıtlı ${mockCustomers.length} müşteride bu ad geçmiyor. Aynı ekrandan ekleyebilirsin.`}
+                            body={`Kayıtlı ${context.customers.length} müşteride bu ad geçmiyor. Aynı ekrandan ekleyebilirsin.`}
                         />
                         <SolidButton label={`"${query.trim()}" adıyla ekle`} onPress={addNewCustomer} />
                         <Hint>Yalnız ad yeter. Telefon, randevu kurulduktan sonra müşteri kartından eklenir.</Hint>
@@ -354,8 +449,11 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                 </>
             ) : null}
 
-            <SectionHead title="Hizmet" count={String(mockServices.length)} size={ax ? M.secTitleAx : M.secTitle} />
-            {mockServices.map((service) => (
+            <SectionHead title="Hizmet" count={String(context.services.length)} size={ax ? M.secTitleAx : M.secTitle} />
+            {context.services.length === 0 ? (
+                <Hint>Salonda tanımlı hizmet yok. Hizmetler masaüstündeki ayarlardan eklenir.</Hint>
+            ) : null}
+            {context.services.map((service) => (
                 <ServiceRow
                     key={service.id}
                     service={service}
@@ -439,8 +537,28 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
         </>
     );
 
+    const refusal = refused ? refusalCopy(refused) : null;
     const page2Body = (
         <>
+            {refusal ? (
+                <DurumBlock
+                    tone={refusal.tone}
+                    title={refusal.title}
+                    lines={refusal.lines}
+                    actions={[{ label: refusal.action.label, onPress: () => onRefusedMove(refusal.action.move) }]}
+                    style={{ marginHorizontal: small ? M.railXSmall : M.railX, marginBottom: 12 }}
+                />
+            ) : null}
+            {/* Gün okunamadıysa ray ÇİZİLMİYOR: boş bir ray "her saat boş"
+                demek olurdu. */}
+            {!dayKnown && day.state === 'error' && !day.refusal ? (
+                <DurumUnread
+                    what="Bu günün saatlerini"
+                    notMeaning="Her saatin boş olduğu"
+                    onRetry={() => { void day.reload(); }}
+                    style={{ paddingHorizontal: small ? M.railXSmall : M.railX }}
+                />
+            ) : null}
             {sections.map((section) => (
                 <RailBlock
                     key={section.section.key}
@@ -479,7 +597,12 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                 numeric: draft.startMinutes !== null,
             },
             { label: 'Hizmet', value: draft.service?.name ?? '—' },
-            { label: 'Tutar', value: draft.service ? formatPrice(draft.service.price) : '—', numeric: true },
+            {
+                label: 'Tutar',
+                // Fiyatı yazılmamış hizmette "₺0" DEĞİL: çizgi.
+                value: draft.service && draft.service.price !== null ? formatPrice(draft.service.price) : '—',
+                numeric: Boolean(draft.service && draft.service.price !== null),
+            },
         ];
 
     const barRadius = small ? M.barRadiusSmall : M.barRadius;
@@ -492,13 +615,32 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
     // levha ve iki sayfa yok; tek yüzey.
     if (created) {
         const person = staff.find((candidate) => candidate.id === created.staff_id);
+        /*
+         * Gidecek metnin KENDİSİ — masaüstünün onay şablonu. Önizleme de bu:
+         * müdür neyi gönderdiğini görür.
+         */
+        const message = confirmationText({
+            customerName: created.customer_name,
+            dateISO: created.date,
+            startTime: created.start_time,
+            service: created.service,
+            businessName: context.settings.businessName,
+            staffName: person?.name ?? null,
+            mapsUrl: context.settings.mapsUrl,
+            sector: context.settings.sector,
+        });
         return (
             <ConfirmScreen
                 appointment={created}
                 staffName={person?.name ?? '—'}
                 staffInitials={person?.initials ?? '—'}
                 price={draft.service?.price ?? null}
-                salon={SALON_NAME}
+                message={message}
+                onSend={() => onSend({
+                    phone: created.customer_phone ?? '',
+                    text: message,
+                    customerId: created.customer_id ?? null,
+                })}
                 topInset={topInset}
                 bottomInset={inset0}
                 onDone={onClose}
@@ -568,8 +710,8 @@ export function CreateFlow({ prefill, onClose, onCreated, topInset, bottomInset 
                     >
                         {summary.length > 0 ? <KeyValueGrid rows={summary} ax={ax} /> : null}
                         <ApptCta
-                            label={action.label}
-                            enabled={action.enabled}
+                            label={saving ? 'Oluşturuluyor' : action.label}
+                            enabled={action.enabled && !saving}
                             ax={ax}
                             onPress={advance}
                             right={phase === 1 ? <ArrowIcon color="#FFF9F5" size={20} /> : null}

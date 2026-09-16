@@ -10,12 +10,13 @@ import { CheckIcon } from './ApptParts';
 import { feedback } from '../lib/feedback';
 import {
     COUNTDOWN_MS, confirmCopy, confirmSpeech, countdownFor, countdownRuns,
-    durationText, messageText, phoneText, priceText, rangeText, secondsLeft,
+    durationText, previewText, phoneText, priceText, rangeText, secondsLeft,
     sendGate, stillBookedLine, type ConfirmState,
 } from '../lib/apptConfirm';
 import { formatDayLong, type Appt } from '../lib/calendar';
 import { confirmInk, confirmMetrics, font, numeric, useTheme, type ConfirmInk } from '../theme';
 import { upperTR } from '../lib/text';
+import { waRetryable, type WaFailReason } from '../lib/createLive';
 
 /**
  * Müdür 16 — randevu oluşturuldu onayı.
@@ -34,12 +35,20 @@ import { upperTR } from '../lib/text';
 
 const M = confirmMetrics;
 
-export function ConfirmScreen({ appointment, staffName, staffInitials, price, salon, topInset, bottomInset, onDone }: {
+export function ConfirmScreen({
+    appointment, staffName, staffInitials, price, message, onSend, topInset, bottomInset, onDone,
+}: {
     appointment: Appt;
     staffName: string;
     staffInitials: string;
     price: number | null;
-    salon: string;
+    /** Müşteriye GİDECEK metnin kendisi (`createLive.confirmationText`). */
+    message: string;
+    /**
+     * Gönderim. Sonuç gelene kadar ekran "gönderiliyor"da bekler; başarısızsa
+     * sebebi taşır. Uydurma bir "gönderildi" yok.
+     */
+    onSend: () => Promise<{ ok: true } | { ok: false; reason: WaFailReason | null }>;
     topInset: number;
     bottomInset: number;
     onDone: () => void;
@@ -51,6 +60,7 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
     const short = small || height < M.shortHeight;
 
     const [state, setState] = useState<ConfirmState>('idle');
+    const [failReason, setFailReason] = useState<WaFailReason | null>(null);
     const [reduceMotion, setReduceMotion] = useState(true);
     const [screenReader, setScreenReader] = useState(false);
     const [foreground, setForeground] = useState(true);
@@ -58,7 +68,7 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
 
     const phone = phoneText(appointment);
     const hasPhone = !phone.missing;
-    const copy = confirmCopy(state, hasPhone);
+    const copy = confirmCopy(state, hasPhone, failReason);
 
     // ── Erişilebilirlik tercihleri ─────────────────────────────────────────
     useEffect(() => {
@@ -161,8 +171,28 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
             return;
         }
         feedback.selection();
-        setState(state === 'failed' ? 'sending' : 'sending');
+        setState('sending');
+        void onSend().then((result) => {
+            if (result.ok) {
+                feedback.success();
+                setFailReason(null);
+                setState('sent');
+                return;
+            }
+            feedback.warning();
+            setFailReason(result.reason);
+            setState('failed');
+        });
     };
+
+    /*
+     * Birincil düğmenin işi hâle göre: gönderildiyse "Bitti" KAPATIR (eskiden
+     * yeniden göndermeye çalışıp pasif kalıyordu), kalıcı bir sebeple
+     * gönderilemediyse "Tamam" kapatır. Geri kalanında gönderir.
+     */
+    const primary = state === 'sent' || (state === 'failed' && !waRetryable(failReason))
+        ? onDone
+        : send;
 
     const dockStyle: ViewStyle = {
         position: 'absolute',
@@ -256,7 +286,8 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
                     {state === 'sent' ? (
                         <MessagePreview
                             to={appointment.customer_name}
-                            text={messageText(appointment, staffName, salon)}
+                            text={previewText(message)}
+                            lines={short ? 7 : 11}
                         />
                     ) : null}
 
@@ -302,10 +333,10 @@ export function ConfirmScreen({ appointment, staffName, staffInitials, price, sa
                     <PrimaryButton
                         label={copy.primary}
                         state={state}
-                        enabled={gate.enabled}
+                        enabled={primary === onDone || gate.enabled}
                         ax={ax}
                         ink={ink}
-                        onPress={send}
+                        onPress={primary}
                     />
 
                     {gate.reason ? <WhyRow text={gate.reason} opacity={pulse} /> : null}
@@ -620,7 +651,7 @@ paddingTop: 2,
 
 // ── D · mesaj önizlemesi · E · randevu duruyor ──────────────────────────────
 
-function MessagePreview({ to, text }: { to: string; text: string }) {
+function MessagePreview({ to, text, lines }: { to: string; text: string; lines: number }) {
     const { c } = useTheme();
     return (
         <View style={{
@@ -636,7 +667,9 @@ function MessagePreview({ to, text }: { to: string; text: string }) {
                 letterSpacing: M.msgLabel * 0.12,            }}>
                 {upperTR(`${to}’ya giden`)}
             </Text>
-            <Text style={{
+            {/* Satır sınırı küçük ekranda kartı dock'un altına itmemek için;
+                kesilen metin "…" ile biter, gizlenmiş gibi durmaz. */}
+            <Text numberOfLines={lines} style={{
                 color: c.tx, fontSize: M.msgText, fontFamily: font.semiBold,
                 fontWeight: '600', lineHeight: M.msgText * 1.45,
             }}>

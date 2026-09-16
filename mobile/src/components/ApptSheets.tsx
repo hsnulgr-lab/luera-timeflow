@@ -17,6 +17,7 @@ import {
     font, radius, useTheme, type Curve,
 } from '../theme';
 import type { Appt } from '../lib/calendar';
+import type { ServiceOption } from '../lib/createFlow';
 
 
 /** Eğriyi `Easing.bezier`'e uygular — üçlü koşulda demet tipi kaybolmasın. */
@@ -94,17 +95,19 @@ function SheetSub({ text }: { text: string }) {
 
 // ── B · Hizmeti değiştir ────────────────────────────────────────────────────
 
-export function ServiceSheet({ visible, appointment, dayAppointments, staffName, onDismiss, onPick }: {
+export function ServiceSheet({ visible, appointment, dayAppointments, services, staffName, onDismiss, onPick }: {
     visible: boolean;
     appointment: Appt;
     dayAppointments: readonly Appt[];
+    /** Salonun GERÇEK kataloğu. */
+    services: readonly ServiceOption[];
     staffName?: string | null;
     onDismiss: () => void;
     onPick: (choice: ServiceChoice) => void;
 }) {
     const { c } = useTheme();
     const [picked, setPicked] = useState<string | null>(null);
-    const choices = serviceChoices(appointment, dayAppointments, staffName);
+    const choices = serviceChoices(appointment, dayAppointments, staffName, services);
     const chosen = choices.find((choice) => choice.id === picked) ?? null;
 
     useEffect(() => { if (!visible) setPicked(null); }, [visible]);
@@ -135,7 +138,7 @@ export function ServiceSheet({ visible, appointment, dayAppointments, staffName,
                                 key={choice.id}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
-                                accessibilityLabel={`${choice.name}, ${choice.minutes} dakika, ${choice.price} lira${choice.clash ? `. ${choice.clash}` : ''}`}
+                                accessibilityLabel={`${choice.name}, ${choice.minutes} dakika${choice.price === null ? '' : `, ${choice.price} lira`}${choice.clash ? `. ${choice.clash}` : ''}`}
                                 onPress={() => { feedback.selection(); setPicked(choice.id); }}
                                 style={({ pressed }) => ({
                                     flexDirection: 'row',
@@ -166,13 +169,15 @@ export function ServiceSheet({ visible, appointment, dayAppointments, staffName,
                                         }}>
                                             {`${choice.minutes} dk`}
                                         </Num>
-                                        <Num size={apptCardMetrics.optMeta} style={{
-                                            color: c.tx2,
-                                            fontFamily: font.medium,
-                                            fontWeight: '500',
-                                        }}>
-                                            {`· ₺${choice.price.toLocaleString('tr-TR')}`}
-                                        </Num>
+                                        {choice.price === null ? null : (
+                                            <Num size={apptCardMetrics.optMeta} style={{
+                                                color: c.tx2,
+                                                fontFamily: font.medium,
+                                                fontWeight: '500',
+                                            }}>
+                                                {`· ₺${choice.price.toLocaleString('tr-TR')}`}
+                                            </Num>
+                                        )}
                                     </View>
                                     {/* Çakışan seçenek ENGELLENMEZ: müdür bilerek
                                         çakıştırabilir, engellemek onu uygulamanın

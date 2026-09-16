@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, Money } from './CashParts';
 import {
-    ACTION_CANCEL, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, SHEET_SECTIONS,
+    ACTION_CANCEL, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, READ_ONLY_NOTE, SHEET_SECTIONS, STAFF_ROW_LABEL,
     canCorrect, customerCardLabel, formatAmount, methodLabel, parseAmount, voidDialog,
     type Movement,
 } from '../lib/cash';
@@ -51,8 +51,19 @@ function XIcon({ color }: { color: string }) {
 
 // ── 14b · hareket detayı ────────────────────────────────────────────────────
 
-export function MovementSheet({ movement, onClose, onVoid, onCorrect }: {
-    movement: Movement; onClose: () => void; onVoid: () => void;
+export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCustomer }: {
+    movement: Movement; onClose: () => void;
+    /**
+     * İptal. VERİLMEZSE fiş salt okunur: eylem şeridi çizilmiyor, yerinde
+     * `READ_ONLY_NOTE` duruyor. Kasa bugün böyle açılıyor — veritabanında
+     * iptal izi yok (bkz. `cash.READ_ONLY_NOTE`).
+     */
+    onVoid?: () => void;
+    /**
+     * Müşteri kartı. VERİLMEZSE bağlantı satırı hiç çizilmiyor: satır basılır
+     * görünüyordu ama `onPress`i yoktu. Müdürün müşteri ekranı henüz yok.
+     */
+    onOpenCustomer?: () => void;
     /**
      * Tutar düzeltildi.
      *
@@ -300,9 +311,14 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect }: {
                                 {methodLabel(movement.method)}
                             </Txt>
                         </Row>
-                        <Row label="Alan">
-                            <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, color: c.tx }}>{movement.staff}</Txt>
-                        </Row>
+                        {/* "Alan" DEĞİL: `staff_id` hizmeti vereni tutuyor,
+                            parayı alanı değil (`cash.staffLine`). Bilinmiyorsa
+                            satır hiç çizilmiyor. */}
+                        {movement.staff.trim() ? (
+                            <Row label={STAFF_ROW_LABEL}>
+                                <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, color: c.tx }}>{movement.staff}</Txt>
+                            </Row>
+                        ) : null}
                         {movement.note ? (
                             <Row label="Açıklama">
                                 <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, color: c.tx }}>{movement.note}</Txt>
@@ -310,24 +326,34 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect }: {
                         ) : null}
                     </Section>
 
-                    <Pressable
-                        accessibilityRole="button"
-                        style={{
-                            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                            minHeight: 48, borderTopWidth: 1, borderTopColor: c.bd,
-                        }}
-                    >
-                        <Txt style={{ fontFamily: font.bold, fontSize: 15.5, letterSpacing: -0.23, color: c.tx }}>
-                            {customerCardLabel(movement.customer)}
-                        </Txt>
-                        <Chevron size={18} color={c.tx3} />
-                    </Pressable>
+                    {onOpenCustomer ? (
+                        <Pressable
+                            accessibilityRole="button"
+                            onPress={() => close(onOpenCustomer)}
+                            style={{
+                                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                minHeight: 48, borderTopWidth: 1, borderTopColor: c.bd,
+                            }}
+                        >
+                            <Txt style={{ fontFamily: font.bold, fontSize: 15.5, letterSpacing: -0.23, color: c.tx }}>
+                                {customerCardLabel(movement.customer)}
+                            </Txt>
+                            <Chevron size={18} color={c.tx3} />
+                        </Pressable>
+                    ) : null}
 
                     {/* Dürüstlük notu eylemlerin ÜSTÜNDE: müdür butona basmadan
-                        önce ne olacağını okusun. */}
-                    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: c.bd }}>
+                        önce ne olacağını okusun. Salt okunur fişte aynı yerde
+                        eylemlerin NEREDE olduğu yazıyor. */}
+                    <View style={{
+                        flexDirection: 'row', gap: 8, paddingTop: 12,
+                        paddingBottom: onVoid ? 12 : insets.bottom + 30,
+                        borderTopWidth: 1, borderTopColor: c.bd,
+                    }}>
                         <View style={{ width: 13, height: 1, marginTop: 8, backgroundColor: c.tx3 }} />
-                        <Txt style={{ flex: 1, fontSize: 12, lineHeight: 18, color: c.tx3 }}>{CORRECTION_NOTE}</Txt>
+                        <Txt style={{ flex: 1, fontSize: 12, lineHeight: 18, color: c.tx3 }}>
+                            {onVoid ? CORRECTION_NOTE : READ_ONLY_NOTE}
+                        </Txt>
                     </View>
                 </ScrollView>
 
@@ -406,7 +432,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect }: {
                             </Pressable>
                         </View>
                     </View>
-                ) : (
+                ) : !onVoid ? null : (
                 /* İki eylem, iki biçim. Yıkıcı olan DOLGULU DEĞİL: yanlışlıkla
                    en cazip görünen şey olmamalı. */
                 <View style={{

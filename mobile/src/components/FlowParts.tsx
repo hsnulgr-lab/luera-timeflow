@@ -2474,7 +2474,7 @@ export function FlowRow({
     // anda sıradaki olamaz. Geciken satır kartla aynı kelimeyi söyler.
     const overdue = isNext && isLate(event.etaMinutes);
     const kindLabel = waiting ? waiting.label
-        : gone ? noshowRowLabel(event)
+        : gone ? noshowRowLabel()
             : isNext ? nextRowLabel(event, inLine === true)
                 : labelOf(event.kind);
     const kindColor = waiting

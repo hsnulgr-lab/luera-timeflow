@@ -64,6 +64,17 @@ test('plaka kuyruktakine KASADA demiyor', () => {
     assert.deepEqual(plateWord('queued'), { word: 'Sırada', tone: 'am' });
     assert.deepEqual(plateWord('sealed'), { word: 'Kasada', tone: 'gr' });
     assert.deepEqual(plateWord('window'), { word: 'Adisyon açık', tone: 'am' });
+    // Kumanda BUGÜN KARTIYLA AYNI (kullanıcı kararı, 2026-09-15): yeniden
+    // açılan kasadaki ziyaret "Adisyon açık" DEMİYOR, ödenmişse "Tahsil edildi".
+    assert.deepEqual(plateWord('idle', 'atcash'), { word: 'Kasada', tone: 'gr' });
+    assert.deepEqual(plateWord('idle', 'paid'), { word: 'Tahsil edildi', tone: 'gr' });
+    // Ödenmiş ziyaret her şeyin üstünde; sunucuda kapanmamışsa eski davranış.
+    assert.deepEqual(plateWord('queued', 'paid'), { word: 'Tahsil edildi', tone: 'gr' });
+    assert.deepEqual(plateWord('idle', null), { word: 'Adisyon açık', tone: 'am' });
+    // Kelimeler Bugün kartıyla BİREBİR.
+    const card = code(read('../mobile/src/lib/staffCard.ts'));
+    assert.match(card, /word: 'Kasada', tone: 'gr'/);
+    assert.match(card, /word: 'Tahsil edildi', tone: 'gr'/);
 });
 
 test('hata kuyruğa GİRMİYOR ve tekrar dene düğmesi yok', () => {

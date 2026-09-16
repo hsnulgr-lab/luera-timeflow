@@ -12,20 +12,18 @@ import {
 import {
     hoursSummary,
     legalSummary,
+    MANAGER_NOTIFICATIONS_READY,
     notificationsSummary,
     servicesSummary,
     themeLabel,
     todayCard,
-    type DaySchedule,
     type NotificationKey,
-    type SalonService,
 } from '../../src/lib/managerProfile';
-import {
-    readHours,
-    readKvkkUrl,
-    readNotifications,
-    readServices,
-} from '../../src/lib/salonSettings';
+import { readNotifications } from '../../src/lib/salonSettings';
+import { readKvkkUrl } from '../../src/lib/legalSource';
+import { useManagerRead } from '../../src/lib/managerRead';
+import { fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
+import { salonServicesOf, schedulesOf } from '../../src/lib/settingsMap';
 import { nowInMinutes } from '../../src/lib/calendar';
 import { authApi } from '../../src/api/session';
 import type { AuthSession } from '../../src/api/authStub';
@@ -49,31 +47,41 @@ export default function ManagerProfile() {
     const insets = useSafeAreaInsets();
 
     const [session, setSession] = useState<AuthSession | null>(null);
-    const [hours, setHours] = useState<DaySchedule[]>([]);
-    const [services, setServices] = useState<SalonService[]>([]);
     const [notify, setNotify] = useState<Record<NotificationKey, boolean> | null>(null);
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
+
+    /*
+     * Saatler ve hizmetler CANLI (8. adım). Okunamazsa özet satırı YAZILMAZ
+     * ve bugün kartı çizilmez — yanlış bir saati göstermektense hiç
+     * göstermemek. Odağa dönüşte kanca kendisi tazeliyor: alt ekranda
+     * değiştirilen saat buraya da yansıyor.
+     */
+    const readSalon = useCallback(async () => {
+        const [row, catalog] = await Promise.all([fetchHoursRow(), fetchServices()]);
+        return {
+            hours: row ? schedulesOf(row.raw) ?? [] : [],
+            services: salonServicesOf(catalog),
+        };
+    }, []);
+    const salon = useManagerRead(readSalon, { hours: [], services: [] }, { poll: false });
+    const { hours, services } = salon.data;
 
     const load = useCallback(() => {
         let alive = true;
         void Promise.all([
             authApi.account.get(),
-            readHours(),
-            readServices(),
             readNotifications(),
             readKvkkUrl(),
-        ]).then(([account, dayList, serviceList, notifications, url]) => {
+        ]).then(([account, notifications, url]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
-            setHours(dayList);
-            setServices(serviceList);
             setNotify(notifications);
             setKvkkUrl(url);
         }).catch(() => { /* okunamazsa satırlar özet yazmaz */ });
         return () => { alive = false; };
     }, []);
 
-    // Alt ekranlardan dönünce özetler tazelenir; yoksa satır eski saati yazar.
+    // Alt ekranlardan dönünce hesap özetleri tazelenir.
     useFocusEffect(load);
 
     const [nowMinutes, setNow] = useState(() => nowInMinutes());
@@ -144,11 +152,15 @@ export default function ManagerProfile() {
                         value={themeLabel(themeMode)}
                         onPress={() => router.push('/(ortak)/profil/gorunum')}
                     />
-                    <ProfileRow
-                        title="Bildirimler"
-                        value={notify ? notificationsSummary(notify) : undefined}
-                        onPress={() => router.push('/(manager-flow)/profil/bildirimler')}
-                    />
+                    {/* Müdüre bildirim yolu yok — satır gizli
+                        (`MANAGER_NOTIFICATIONS_READY`). */}
+                    {MANAGER_NOTIFICATIONS_READY ? (
+                        <ProfileRow
+                            title="Bildirimler"
+                            value={notify ? notificationsSummary(notify) : undefined}
+                            onPress={() => router.push('/(manager-flow)/profil/bildirimler')}
+                        />
+                    ) : null}
                     <ProfileRow
                         title="Yasal"
                         value={legalSummary(kvkkUrl)}

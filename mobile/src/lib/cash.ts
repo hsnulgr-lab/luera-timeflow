@@ -37,7 +37,7 @@ export interface Movement {
     initials: string;
     /** "Kesim + fön" */
     service: string;
-    /** Tahsilatı alan personelin adı. */
+    /** Hizmeti VEREN personelin adı (`payments.staff_id`); bilinmiyorsa boş. */
     staff: string;
     amount: number;
     method: CashMethod;
@@ -308,10 +308,30 @@ export function ratioSpeech(totals: CashTotals): string {
 export function movementSpeech(movement: Movement): string {
     const head = movement.status === 'voided' ? 'İptal edildi. ' : '';
     const chip = movement.status === 'corrected' ? ' Düzeltildi.' : '';
+    const who = staffLine(movement);
     return `${head}${movement.customer}, ${movement.service}, ${movement.time}, `
-        + `${formatAmount(movement.amount)} lira, ${methodWord(movement.method)}, `
-        + `${movement.staff} aldı.${chip}`;
+        + `${formatAmount(movement.amount)} lira, ${methodWord(movement.method)}`
+        + `${who ? `, ${who}` : ''}.${chip}`;
 }
+
+/**
+ * "Merve verdi" — kartın üçüncü satırı.
+ *
+ * "aldı" DEĞİL: masaüstü `payments.staff_id`e randevunun personelini yazıyor,
+ * yani hizmeti vereni; parayı kasada alan kişi orada yok. "Merve aldı"
+ * demek, kasayı hiç açmamış birine para teslim ettirmek olurdu. Akış da aynı
+ * fiili kullanıyor ("Merve verdi · 12 dk bekliyor").
+ *
+ * Personel bilinmiyorsa (serbest ürün satışı) satır HİÇ yazılmıyor — boş bir
+ * " verdi" çizilmiyor.
+ */
+export function staffLine(movement: Pick<Movement, 'staff'>): string | null {
+    const name = movement.staff.trim();
+    return name ? `${name} verdi` : null;
+}
+
+/** Sheet'teki satırın adı — `staffLine` ile aynı gerekçe. */
+export const STAFF_ROW_LABEL = 'Hizmeti veren';
 
 // ── Sheet · iptal · boş gün ─────────────────────────────────────────────────
 
@@ -333,6 +353,18 @@ export const SHEET_SECTIONS = {
 export const CORRECTION_NOTE =
     'Düzeltme kaydı güncellemez: eski kayıt iptal edilir, yenisi yazılır. '
     + 'Listede ikisi de görünür — üstte yeni tutar, altında üstü çizili eski.';
+
+/**
+ * Salt okunur sheet'in son satırı — eylem şeridinin YERİNDE.
+ *
+ * Veritabanında iptal ya da düzeltme izi yok (`022_payments.sql`: ne `status`
+ * ne `voided_at`) ve masaüstü tahsilatı silerek geri alıyor. Telefonda
+ * "İptal et" basıldığında yalnız cihazda bir işaret kalıyordu; sayfa
+ * yenilenince tahsilat geri geliyor ve toplam hiç düşmemiş oluyordu.
+ * Kullanıcının kararı (2026-09-16): Kasa telefonda salt okunur. Eylemler
+ * silinmedi; iz kaydı yazıldığında sheet onları yeniden çizer.
+ */
+export const READ_ONLY_NOTE = 'Düzeltme ve iptal masaüstündeki Kasa\'dan yapılır.';
 
 export const ACTION_CORRECT = 'Düzelt';
 export const ACTION_VOID = 'İptal et';
@@ -473,7 +505,12 @@ export function applyCorrection(
     return [...voided.slice(0, index), fresh, ...voided.slice(index)];
 }
 
-export const EMPTY_TITLE = 'Henüz tahsilat yok. Personel kasaya gönderdikçe burada görünür.';
+/**
+ * Boş dönem. "Personel kasaya gönderdikçe" DEĞİL: kasaya gönderilen adisyon
+ * burada görünmüyor, turuncu panelde bekliyor. Hareket listesine düşen şey
+ * masaüstünde TAHSİL EDİLEN para.
+ */
+export const EMPTY_TITLE = 'Henüz tahsilat yok. Kasada tahsil edildikçe burada görünür.';
 
 /** Boş günde değişim hapı çıkmaz; yerine sakin bir karşılaştırma satırı. */
 export function emptyComparison(period: CashPeriod): string {
@@ -481,11 +518,12 @@ export function emptyComparison(period: CashPeriod): string {
     return `${when} de ₺0`;
 }
 
-// ── Sahte veri ──────────────────────────────────────────────────────────────
+// ── Test örnekleri ──────────────────────────────────────────────────────────
 //
-// Müdür modu için sunucu ucu HENÜZ YOK (`staff-api` yalnız personel modunu
-// besliyor). Ekran bu yüzden sahte veriyle çalışıyor ve bunu gizlemiyor: uç
-// yazıldığında yalnız bu blok gidecek, ekranın geri kalanı değişmeyecek.
+// Ekran artık bunları OKUMUYOR: hareketler `cashBuild.toMovements`, bekleyen
+// adisyonlar akışın canlı olaylarından geliyor. Blok, kuralları sabit
+// sayılarla sınayan testlerin örneği olarak duruyor; bir ekran buraya geri
+// bağlanırsa `tests/mobile-mudur-kasa-canli.test.mjs` yakalar.
 
 export const mockMovements: readonly Movement[] = [
     { id: 'p1', time: '11:34', customer: 'Merve Aydın', initials: 'MA', service: 'Kesim + fön', staff: 'Merve', amount: 1800, method: 'card', status: 'normal' },

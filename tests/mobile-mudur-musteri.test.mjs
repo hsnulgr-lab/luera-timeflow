@@ -286,7 +286,10 @@ test('alt eylem çubuğu scroll dışında sabittir (hiç toplanmaz)', () => {
 
 test('customer rotasında Zeynep Kaya sessiz yedeği GEÇMEMELİ', () => {
     assert.ok(!/Zeynep Kaya/.test(customerRoute));
-    assert.match(customerRoute, /if\s*\(!query\.id\s*&&\s*!query\.name\)\s*\{\s*return null;\s*\}/);
+    // Kimlik yoksa hiçbir kayıt aranmıyor — adla bile (canlı kart, aynı adlı
+    // başka birinin kartını açmasın).
+    assert.match(customerRoute, /if \(!customerId\) return null;/);
+    assert.doesNotMatch(customerRoute, /findCustomer\(/);
 });
 
 test('randevu rotasındaki onCustomer push çağrısı customerId ve customerName params taşır', () => {

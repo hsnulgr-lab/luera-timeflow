@@ -15,7 +15,7 @@
  * Kaynak: `docs/design-reference/Luera Mobil - Mudur 25 Randevu Karti.html`.
  */
 
-import { maskPhone, mockServices } from './createFlow.ts';
+import { maskPhone, type ServiceOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
 import {
     dayNameShort, formatDayFull, hhmm, toMinutes, todayISO, type Appt,
@@ -277,9 +277,15 @@ export interface ChangeTile {
     initials?: string;
 }
 
-/** Hizmetin ücreti — listede yoksa `null`, ve o zaman satırda yazılmaz. */
-export function priceOfService(name: string): number | null {
-    return mockServices.find((service) => service.name === name)?.price ?? null;
+/**
+ * Hizmetin ücreti — salonun GERÇEK kataloğundan. Listede yoksa ya da fiyatı
+ * yazılmamışsa `null`, ve o zaman satırda yazılmaz.
+ *
+ * Bir süre sahte katalogdan (`mockServices`) okunuyordu: kart, salonun
+ * hiç koymadığı bir fiyatı gösteriyordu.
+ */
+export function priceOfService(name: string, services: readonly ServiceOption[]): number | null {
+    return services.find((service) => service.name === name)?.price ?? null;
 }
 
 /** Saat ve personel günde onlarca kez değişir: jeton, h84, değeri büyük. */
@@ -309,8 +315,8 @@ export interface ChangeRow {
 }
 
 /** Hizmet ve not ayda birkaç kez değişir: normal satır, h62. */
-export function changeRows(appointment: Appt): ChangeRow[] {
-    const price = priceOfService(appointment.service);
+export function changeRows(appointment: Appt, services: readonly ServiceOption[]): ChangeRow[] {
+    const price = priceOfService(appointment.service, services);
     return [
         {
             action: 'service',
@@ -334,7 +340,10 @@ export interface ServiceChoice {
     id: string;
     name: string;
     minutes: number;
-    price: number;
+    /** `null` — katalogda fiyat yok; satırda yazılmaz. */
+    price: number | null;
+    /** Hizmetin rengi — randevu bloğu değişen hizmetin rengini alsın. */
+    color: string;
     selected: boolean;
     /** Süre uzuyor mu — rakam kalınlaşır, değişimin yönü okunur. */
     longer: boolean;
@@ -366,12 +375,17 @@ export function serviceSheetSubtitle(appointment: Appt, staffName?: string | nul
 export function serviceChoices(
     appointment: Appt,
     dayAppointments: readonly Appt[],
-    staffName?: string | null,
+    staffName: string | null | undefined,
+    /**
+     * Salonun kataloğu. Sahte katalogdan seçilen bir hizmet GERÇEK randevuya
+     * yazılıyordu — salonun hiç tanımlamadığı bir ad ve süreyle.
+     */
+    services: readonly ServiceOption[],
 ): ServiceChoice[] {
     const current = durationMinutes(appointment);
     const start = toMinutes(appointment.start_time);
 
-    return mockServices.map((service) => {
+    return services.map((service) => {
         const end = start + service.minutes;
         const blocking = dayAppointments.find((other) => (
             other.id !== appointment.id
@@ -385,6 +399,7 @@ export function serviceChoices(
             name: service.name,
             minutes: service.minutes,
             price: service.price,
+            color: service.color,
             selected: service.name === appointment.service,
             longer: service.minutes > current,
             clash: blocking
@@ -399,6 +414,10 @@ export function applyService(appointment: Appt, choice: ServiceChoice): Appt {
     return {
         ...appointment,
         service: choice.name,
+        // Renk de hizmetle birlikte değişiyor — masaüstünün düzenleme
+        // penceresi gibi. Eski renkte kalan blok takvimde yanlış hizmeti
+        // işaret ederdi.
+        service_color: choice.color,
         end_time: `${hhmm(toMinutes(appointment.start_time) + choice.minutes)}:00`,
     };
 }

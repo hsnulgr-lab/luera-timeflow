@@ -91,6 +91,17 @@ test('düşmüş randevuda Gelmedi gözü çizilmez', () => {
     assert.equal(cells.includes('nox'), false);
 });
 
+test('"Personele bilgi ver" gözü GİZLİ — bildirim kanalı yok', () => {
+    // Açıklaması "bildirim gider" diyordu ama müdürden personele bildirim
+    // gönderen bir yol yok; basınca yalnız telefonda bir damga kalıyordu.
+    // Göz, kaydı ve metni hazır — kanal yazılınca `canTellStaff` true'ya döner.
+    for (const kind of ['next', 'noshow']) {
+        const input = pillInputOf({ kind, customerPhone: '0532 118 24 06' });
+        assert.equal(input.canTellStaff, false);
+        assert.equal(pillCells(input).includes('inf'), false);
+    }
+});
+
 // ── İkinci yuvanın takası ───────────────────────────────────────────────────
 
 test('zamanında Gelmedi, gecikince hap — TAKAS, ekleme değil', () => {
@@ -107,8 +118,8 @@ test('gönderim penceresi açıkken ikinci yuva Geri al olur', () => {
 // ── Kartın alt satırı ───────────────────────────────────────────────────────
 
 test('gecikince alt satır geri sayıma döner — saat ikinci kez yazılmaz', () => {
-    const panel = etaPanel({ time: '11:30', etaMinutes: -8, durationMinutes: 45 });
-    assert.equal(panel.sub, '22 dk sonra düşer');
+    const panel = etaPanel({ time: '11:30', etaMinutes: -8, durationMinutes: 45, toleranceMinutes: 30 });
+    assert.equal(panel.sub, '22 dk sonra gelmedi sayılır');
     assert.equal(panel.sub.includes('11:30'), false);
 });
 

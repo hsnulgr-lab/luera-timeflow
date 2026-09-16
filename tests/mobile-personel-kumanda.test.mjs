@@ -47,11 +47,23 @@ test('evre VERİDEN okunuyor, çağıran seçmiyor', () => {
     assert.equal(
         phaseOf({
             ...BASE,
+            status: 'completed',
             arrived_at: '2026-09-03T10:00:00',
             service_ended_at: '2026-09-03T11:52:00',
             adisyon_items: [{ id: 'x' }],
         }, at('12:00')),
         'closed',
+    );
+    // Kapanış DURUMDAN: kalem yazılıp kapanış takılmışsa ziyaret hâlâ
+    // kapanışta — personel yeniden gönderebilmeli.
+    assert.equal(
+        phaseOf({
+            ...BASE,
+            arrived_at: '2026-09-03T10:00:00',
+            service_ended_at: '2026-09-03T11:52:00',
+            adisyon_items: [{ id: 'x' }],
+        }, at('12:00')),
+        'closing',
     );
 });
 
@@ -229,7 +241,12 @@ test('randevu değişince yerel durum sıfırlanıyor', () => {
 test('kasaya gitmiş iş "adisyon açık" demiyor — ve KUYRUKTAKİ "kasada" demiyor', () => {
     // Personel 11: kilitli hâlin iki türü var. Kuyruktaki adisyon kasada
     // DEĞİL, telefonda bekliyor; plaka bunu ayırmak zorunda.
-    assert.ok(screen.includes('plateWord(send)'));
+    // Plaka sunucunun kapanış türünü de okuyor: yeniden açılan ziyaret
+    // oturumda gönderilmemiş olsa bile Bugün kartıyla aynı kelimeyi söylüyor.
+    // Kelime DE renk DE aynı kaynaktan: birinde sunucu kapanışı unutulursa
+    // plaka yeşil "Adisyon açık" gibi çelişkili bir şey söylerdi.
+    assert.equal((screen.match(/plateWord\(send, closedCard\)/g) ?? []).length, 2);
+    assert.doesNotMatch(screen, /plateWord\(send\)/);
     const lib = code(read('../mobile/src/lib/sendToCash.ts'));
     assert.match(lib, /'queued'\) return \{ word: 'Sırada'/);
     assert.match(lib, /word: 'Kasada', tone: 'gr'/);

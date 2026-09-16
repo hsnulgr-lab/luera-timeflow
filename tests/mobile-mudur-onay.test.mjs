@@ -83,11 +83,13 @@ test('sayaç yalnız doğru hâllerde işler', () => {
 // ── Dürüstlük ───────────────────────────────────────────────────────────────
 
 test('gönderilmemiş mesaj "gönderildi" diye gösterilmiyor', () => {
-    // Mobilde müdür API'si yok: buton pasif ve SEBEBİNİ söylüyor.
-    assert.equal(MESSAGING_READY, false);
-    assert.deepEqual(sendGate('idle', true), {
-        enabled: false, reason: MESSAGING_PENDING_REASON,
-    });
+    // Gönderim BAĞLI (7. adım): düğme basılabilir; "gönderildi" ancak proxy
+    // `ok: true` dönünce çiziliyor.
+    assert.equal(MESSAGING_READY, true);
+    assert.deepEqual(sendGate('idle', true), { enabled: true, reason: null });
+    assert.equal(typeof MESSAGING_PENDING_REASON, 'string');
+    assert.match(screen, /void onSend\(\)\.then\(\(result\) => \{\s*if \(result\.ok\) \{/);
+    assert.match(screen, /setFailReason\(result\.reason\);\s*setState\('failed'\);/);
     // Numara yoksa sebep numaradır — uç sebebi onun yerine geçmez.
     assert.deepEqual(sendGate('idle', false), { enabled: false, reason: NO_PHONE_REASON });
     // Hata hâlinde "tekrar dene" her zaman basılabilir.
@@ -227,7 +229,9 @@ test('ölçüler tasarımın CSS dosyasından', () => {
 test('onay akışın son karesi; sonra Akış', () => {
     assert.ok(flow.includes('ConfirmScreen'));
     // Randevu kurulunca ekran kapanmıyor, onay devralıyor.
-    assert.ok(flow.includes('setCreated(appointment)'));
+    // Onay ancak satır YAZILDIKTAN sonra: `row` sunucudan dönen randevu.
+    assert.ok(flow.includes('setCreated(row)'));
+    assert.match(flow, /if \(outcome\.ok && row\) \{/);
     assert.ok(!flow.includes("onClose({ dateISO"));
     // Kapanışta Akış'a.
     assert.ok(route.includes("'/mudur'"));

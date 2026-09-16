@@ -21,6 +21,7 @@ import RAnimated, { type AnimatedStyle } from 'react-native-reanimated';
 import { GlassPlate } from './GlassPlate';
 import { LightField } from './LightField';
 import { GlassView } from 'expo-glass-effect';
+import { businessMeta } from '../lib/accountMap';
 import { offlineGate, sessionGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
 import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, radius, space, type, useTheme } from '../theme';
@@ -1498,7 +1499,7 @@ export function AuthBusinessRow({ business, onPress }: {
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${business.name}, ${business.location}, ${business.staffCount} personel`}
+            accessibilityLabel={[business.name, business.location, `${business.staffCount} personel`].filter(Boolean).join(', ')}
             onPress={onPress}
             onPressIn={() => runRowPress(press, true)}
             onPressOut={() => runRowPress(press, false)}
@@ -1553,7 +1554,8 @@ export function AuthBusinessRow({ business, onPress }: {
                         fontFamily: font.medium,
                         fontWeight: '500',
                     }}>
-                        {business.location} · {business.staffCount} personel
+                        {/* Konum yoksa baştaki ayraç çizilmiyor. */}
+                        {businessMeta(business)}
                     </Text>
                 </View>
                 <ChevronIcon color={c.tx3} />

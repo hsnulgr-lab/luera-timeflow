@@ -45,8 +45,11 @@ test('Giriş 10 müdür ve personel kopyalarını aynı kimlik kabuğunda eksiks
     assert.match(resume, /session\.actor\s*===\s*['"]manager['"]/);
     assert.match(resume, /profile\.initials/);
     assert.match(resume, /profile\.name/);
-    assert.match(resume, /profile\.business\.name/);
-    assert.match(resume, /profile\.business\.location/);
+    // Konum boşsa sonda ayraç kalmasın diye satır tek yardımcıdan kuruluyor;
+    // yardımcı adı VE konumu taşıyor.
+    assert.match(resume, /businessLine\(profile\.business\)/);
+    const map = readFileSync(new URL('../mobile/src/lib/accountMap.ts', import.meta.url), 'utf8');
+    assert.match(map, /\[business\.name, business\.location\]/);
 });
 
 test('dönüş ekranında sabit kimlik, e-posta, PIN veya personel listesi bulunmaz', () => {

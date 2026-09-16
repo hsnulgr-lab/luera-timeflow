@@ -44,6 +44,7 @@ import { api, type Appointment } from '../api/staff';
 import { clockText, todayISO } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
 import { demoAgenda, type DemoAppointment } from './staffDemo.ts';
+import { isNewer, type StampObservation } from './visitStamp.ts';
 
 export type VisitState = 'loading' | 'ok' | 'missing' | 'error';
 
@@ -68,6 +69,21 @@ export interface VisitSnapshot {
      * yerine önce haber vermek, kaybı hiç doğurmuyor.
      */
     changed: boolean;
+    /** Sunucuda en son görülen damga — benimsenmiş olmak zorunda değil. */
+    serverAt: string | null;
+    /** O damgayla birlikte görülen kalemler. */
+    seenItems: unknown;
+    /** Kumandanın son BAŞARIYLA yazdığı kalemler; benimsemede sıfırlanır. */
+    ownItems: unknown;
+    /**
+     * Kumandanın KENDİ yazmasının cevabını gözlem olarak işler.
+     *
+     * Yazma cevabı sunucunun yeni damgasını taşıyor. İşlenmezse yirmi beş
+     * saniye sonraki yoklama o damgayı "başka biri değiştirdi" diye okuyordu
+     * (bkz. `visitStamp.ts`). `own` yalnız kalem yazmasında doğru: yazılan
+     * liste kumandanın kendi listesi.
+     */
+    observe: (observation: StampObservation | null | undefined, own?: boolean) => void;
     /**
      * Kaçıncı BENİMSEME. Ekran kendi türettiği kalemleri buna bakarak
      * yeniliyor: sayı artmadan hiçbir arka plan okuması yerel listeye
@@ -107,8 +123,15 @@ export function useVisit(id: string | undefined): VisitSnapshot {
     const [visit, setVisit] = useState<DemoAppointment | null>(null);
     /** BENİMSENEN damga — yazarken sunucuya geri gidecek olan. */
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-    /** Sunucuda EN SON görülen damga. Benimsenmiş olmak zorunda değil. */
-    const [serverAt, setServerAt] = useState<string | null>(null);
+    /**
+     * Sunucuda EN SON görülen damga ve o anki kalemler — TEK durum.
+     *
+     * İkisi ayrı tutulsaydı biri güncellenip öteki eski kalabilirdi: yeni
+     * damga eski kalemlerle karşılaştırılır ve yabancı değişiklik kararı
+     * yanlış verilirdi.
+     */
+    const [seen, setSeen] = useState<StampObservation | null>(null);
+    const [ownItems, setOwnItems] = useState<unknown>(null);
     const [version, setVersion] = useState(0);
     /**
      * Sahte günün çapası — bkz. dosya başı. `useRef(Date.now())` DEĞİL:
@@ -136,7 +159,9 @@ export function useVisit(id: string | undefined): VisitSnapshot {
             });
         return load
             .then((next) => {
-                setServerAt(next.stamp);
+                const observed = next.stamp ? { stamp: next.stamp, items: next.row?.adisyon_items ?? [] } : null;
+                // Geç dönen yoklama, arada benimsenmiş YENİ damgayı ezmiyor.
+                if (observed) setSeen((current) => (isNewer(observed.stamp, current?.stamp) ? observed : current));
                 if (!adopt) {
                     // Randevu BULUNAMADIYSA bu bir gözlem değil bir olgu:
                     // silinmiş ya da başka personele geçmiş. Elde tutmak,
@@ -146,6 +171,9 @@ export function useVisit(id: string | undefined): VisitSnapshot {
                 }
                 setVisit(next.row);
                 setUpdatedAt(next.stamp);
+                // Benimseme her şeyi SIFIRLIYOR: artık temel liste sunucununki.
+                setSeen(observed);
+                setOwnItems(null);
                 setVersion((n) => n + 1);
                 setState(next.row ? 'ok' : 'missing');
             })
@@ -183,6 +211,12 @@ export function useVisit(id: string | undefined): VisitSnapshot {
 
     useFocusEffect(useCallback(() => { void read(false, false); }, [read]));
 
+    const observe = useCallback((observation: StampObservation | null | undefined, own = false) => {
+        if (!observation) return;
+        setSeen((current) => (isNewer(observation.stamp, current?.stamp) ? observation : current));
+        if (own) setOwnItems(observation.items);
+    }, []);
+
     /** Personelin kendi tazelemesi — TEK benimseme yolu (açılış dışında). */
     const reload = useCallback(() => {
         setState('loading');
@@ -195,7 +229,11 @@ export function useVisit(id: string | undefined): VisitSnapshot {
         updatedAt,
         // İkisi de doluyken karşılaştırılıyor: damga henüz okunmamışken
         // "değişti" demek, bilinmezliği değişiklik gibi göstermek olurdu.
-        changed: updatedAt !== null && serverAt !== null && serverAt !== updatedAt,
+        changed: updatedAt !== null && seen !== null && seen.stamp !== updatedAt,
+        serverAt: seen?.stamp ?? null,
+        seenItems: seen?.items ?? null,
+        ownItems,
+        observe,
         version,
         reload,
     };

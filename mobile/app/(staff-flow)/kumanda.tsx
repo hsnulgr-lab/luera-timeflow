@@ -31,6 +31,7 @@ import { todayISO } from '../../src/lib/calendar';
 import {
     dialA, glowTone, mmss, phaseOf, planBar, waitLevel,
 } from '../../src/lib/visitControl';
+import { cardState } from '../../src/lib/staffCard';
 import { formatCounter } from '../../src/lib/staffCard';
 import {
     debtLine, formulaDoor, formulaErrorLine, mixDebtLine, mixSaveLabel,
@@ -44,6 +45,7 @@ import {
     type SendState,
 } from '../../src/lib/sendToCash';
 import { sendVisitToCash, startVisit, writeVisitFormula } from '../../src/lib/visitWrite';
+import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
 import { useKeyboardInset } from '../../src/lib/keyboardInset';
@@ -95,6 +97,7 @@ export default function Kumanda() {
      */
     const {
         state: visitState, visit: base, updatedAt, changed, version, reload: reloadVisit,
+        serverAt, seenItems, ownItems, observe,
     } = useVisit(params.id);
 
     const [now, setNow] = useState(() => Date.now());
@@ -109,12 +112,21 @@ export default function Kumanda() {
      * hâller — ikincisi birincinin kısık hâli değil.
      */
     const [send, setSend] = useState<SendState>('idle');
+    /** Süren bir gönderim var mı — ikinci isteğin kapısı. */
+    const sendingRef = useRef(false);
     /** Sunucunun hayırının KODU — ekranın cümlesi bundan türüyor. */
     const [sendCode, setSendCode] = useState<string | null>(null);
     /** Başlatma sunucuda KALICI olarak reddedildi — damga geri alındı. */
     const [startCode, setStartCode] = useState<string | null>(null);
     /** Gerçek bağlantı ve gerçek kuyruk uzunluğu — uydurulmuyor. */
     const { offline, queued: queueLength } = useConnectivity();
+    /**
+     * Bağlantı REFERANSTAN okunuyor: gönderim etkisinin bağımlılığı olsaydı,
+     * istek sürerken değişen ağ durumu etkiyi yeniden çalıştırıp adisyonu
+     * ikinci kez gönderirdi.
+     */
+    const offlineRef = useRef(offline);
+    useEffect(() => { offlineRef.current = offline; }, [offline]);
     const [sentAt, setSentAt] = useState<string | null>(null);
     /** Geri alındıktan sonra 2.6 sn duran şerit. */
     const [undone, setUndone] = useState(false);
@@ -240,9 +252,38 @@ export default function Kumanda() {
     );
 
     const phase = appointment ? phaseOf(appointment, now) : 'before';
+    /**
+     * Sunucunun söylediği KAPANIŞ türü — Bugün kartının kendi kararı.
+     *
+     * Plaka bunu okuyor ki kasaya gönderilmiş bir ziyaret yeniden açılınca
+     * "Adisyon açık" demesin ve tahsil edilmişse Bugün kartıyla aynı
+     * "Tahsil edildi" kelimesini söylesin. Aynı fonksiyon (`cardState`) iki
+     * ekranı da çizdiği için ikisi tanım gereği ayrışamıyor.
+     */
+    const cardKind = appointment ? cardState(appointment, now).kind : null;
+    const closedCard = cardKind === 'paid' || cardKind === 'atcash' ? cardKind : null;
     const running = phase === 'running';
     /** Adisyon zaten kasada: bu oturumda gönderildi ya da veri öyle diyor. */
     const delivered = sent || phase === 'closed';
+
+    /*
+     * KİLİT DAMGASI ve YABANCI DEĞİŞİKLİK — ikisi de TÜRETİLİYOR.
+     *
+     * Damganın değişmesi tek başına "başkası yazdı" demek değil: işlemi
+     * başlatmak ya da formül yazmak da damgayı ilerletiyor. Uyarı yalnız
+     * ADİSYONA başkası dokunduysa çıkıyor; yoksa yeni damga sessizce kilide
+     * geçiyor ve gönderim kendi yazmamıza takılmıyor. Kural `visitStamp.ts`.
+     */
+    const lockInput = {
+        adopted: updatedAt,
+        seen: serverAt,
+        baseItems: base?.adisyon_items,
+        seenItems,
+        ownItems,
+        lines,
+    };
+    const foreignChange = changed && isForeignChange(lockInput);
+    const lockStamp = lockStampOf(lockInput);
 
     /**
      * Ekranda GÖNDERİLMEMİŞ düzenleme var mı.
@@ -296,8 +337,23 @@ export default function Kumanda() {
         }
         if (send === 'going') {
             if (!base?.id) return undefined;
+            /*
+             * TEK UÇUŞ.
+             *
+             * Etki eskiden `offline`a da bağlıydı. Zayıf sinyalde iOS ağ
+             * durumunu istek SÜRERKEN değiştiriyor; etki yeniden çalışıyor ve
+             * adisyon İKİNCİ KEZ gönderiliyordu. İlki kasaya düşüyor, ikincisi
+             * "zaten kapandı" alıyor ve ekranda o görünüyordu — adisyon kasada
+             * dururken "gönderilemedi". Bağlantı artık bir referanstan
+             * okunuyor ve süren bir istek varken ikincisi başlamıyor.
+             */
+            if (sendingRef.current) return undefined;
+            sendingRef.current = true;
             let alive = true;
-            void sendVisitToCash(base.id, lines, updatedAt).then((out) => {
+            void sendVisitToCash(base.id, lines, lockStamp).then((out) => {
+                sendingRef.current = false;
+                // Damga ekran kapanmış olsa bile işleniyor: iş sunucuda oldu.
+                observe(out.observation, out.ownItems === true);
                 if (!alive) return;
                 // Sonuç ARTIK koşulsuz değil ve UYDURMA da değil. Eskiden
                 // burada doğrudan `sent` yazılıyordu: uçak modunda bile ekran
@@ -307,7 +363,7 @@ export default function Kumanda() {
                     // Kuyruk KARARI yazma katmanından geliyor, bağlantı
                     // bayrağından değil: sinyal "var" görünürken de istek
                     // düşebiliyor ve o iş yine kuyruğa giriyor.
-                    offline: offline || out.queued,
+                    offline: offlineRef.current || out.queued,
                     serverCode: out.code,
                 });
                 setSendCode(result.code);
@@ -327,7 +383,7 @@ export default function Kumanda() {
         }
         return undefined;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [send, offline, base?.id]);
+    }, [send, base?.id]);
 
     useEffect(() => {
         if (!pending) return undefined;
@@ -559,6 +615,7 @@ export default function Kumanda() {
                     phase={phase}
                     delivered={delivered}
                     send={send}
+                    closedCard={closedCard}
                     dialKind={dial.kind}
                     tail={phase === 'closing' || phase === 'closed'
                         ? `${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))} · ${Math.round(elapsedSec / 60)} dk sürdü`
@@ -673,7 +730,7 @@ export default function Kumanda() {
                 {/* ADİSYON BAŞKA BİR CİHAZDA DEĞİŞTİ.
                     Kasada duran adisyonda anlamı yok: orada yazılacak bir şey
                     kalmadı ve şerit yalnız gürültü olurdu. */}
-                {changed && !delivered ? (
+                {foreignChange && !delivered ? (
                     <ChangedBand dirty={dirty} onRefresh={() => { void reloadVisit(); }} />
                 ) : null}
 
@@ -830,6 +887,9 @@ export default function Kumanda() {
                                 setNow(Date.now());
                                 setStartCode(null);
                                 void startVisit(appointment.id).then((out) => {
+                                    // Başlatma damgayı ilerletti; işlenmezse
+                                    // yoklama bunu yabancı değişiklik sanıyordu.
+                                    observe(out.observation);
                                     if (!out.code) return;
                                     setStartedAt(null);
                                     setStartCode(out.code);
@@ -1013,6 +1073,7 @@ export default function Kumanda() {
                                 setFormulaCode(null);
                                 feedback.medium();
                                 void writeVisitFormula(appointment.id, next).then((out) => {
+                                    observe(out.observation);
                                     if (out.code) {
                                         setFormulaCode(out.code);
                                         setFormulaWrite('error');
@@ -1075,9 +1136,11 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
 function Plate({
-    appointment, phase, delivered, send, dialKind, tail, risks, onNote, onCall, onCard,
+    appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard,
 }: {
     appointment: DemoAppointment;
+    /** Sunucuya göre kasada mı, tahsil edildi mi — Bugün kartının kararı. */
+    closedCard: 'atcash' | 'paid' | null;
     phase: string;
     delivered: boolean;
     /** Kilitli hâlin hangi türü: kasada mı, kuyrukta mı. */
@@ -1094,7 +1157,7 @@ function Plate({
     const [openRisk, setOpenRisk] = useState(false);
     const status = phase === 'running' ? { word: 'Sürüyor', tone: c.or }
         // Kapanmış iş "adisyon açık" demez: yeşil, çünkü personelden çıktı.
-        : delivered ? { word: plateWord(send).word, tone: plateWord(send).tone === 'gr' ? c.gr : c.am }
+        : delivered ? { word: plateWord(send, closedCard).word, tone: plateWord(send, closedCard).tone === 'gr' ? c.gr : c.am }
             : phase === 'closing' ? { word: 'Adisyon açık', tone: c.am }
                 : dialKind === 'waiting' ? { word: 'Kapıda', tone: c.am }
                     : { word: 'Bekleniyor', tone: c.tx3 };

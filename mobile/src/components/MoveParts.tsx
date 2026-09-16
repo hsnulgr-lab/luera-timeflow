@@ -10,7 +10,6 @@ import {
 } from './CreateParts';
 import { upperTR } from '../lib/text';
 import { feedback } from '../lib/feedback';
-import { source } from '../lib/calendarSource';
 import { dayOptions, slotRows, type StaffOption } from '../lib/createFlow';
 import {
     UNDO_MS, conflictAt, conflictReason, durationOf, menuRows, menuSubtitle,
@@ -174,31 +173,25 @@ export function AppointmentMenu({ visible, appointment, staffName, onDismiss, on
  *
  * Taşınan randevunun kendi yeri dolu sayılmıyor — "12:00 dolu" derken sebebi
  * taşımaya çalıştığın randevunun kendisi olamaz.
+ *
+ * ── Gün listesi ÇAĞIRANDAN geliyor ──────────────────────────────────────────
+ * Sayfa günü kendisi okuyordu ve okuduğu yer `calendarSource` — yani SAHTE
+ * takvim. Canlı kipte müdüre gerçekte dolu bir saat "müsait" görünüyordu.
+ * İki çağıranın da o günün gerçek listesi zaten elinde; ikinci bir okuma
+ * yapmaya değil, eldekini vermeye ihtiyaç vardı.
  */
-export function MoveSheet({ visible, mode, appointment, staff, onDismiss, onPick }: {
+export function MoveSheet({ visible, mode, appointment, day, staff, onDismiss, onPick }: {
     visible: boolean;
     mode: 'time' | 'staff';
     appointment: Appt;
+    /** Randevunun KENDİ gününün randevuları — çakışmanın tek dayanağı. */
+    day: readonly Appt[];
     staff: readonly StaffOption[];
     onDismiss: () => void;
     onPick: (target: MoveTarget) => void;
 }) {
     const { c } = useTheme();
-    /**
-     * Sayfa randevunun KENDİ gününde kalır. Gün seçimi kaldırıldığı için
-     * değişken bir durum değil, sabit bir bağlam.
-     */
-    const dateISO = appointment.date;
-    const [day, setDay] = useState<Appt[]>([]);
     const duration = durationOf(appointment);
-
-    useEffect(() => {
-        let alive = true;
-        source.day(dateISO)
-            .then((list) => { if (alive) setDay(list); })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [dateISO]);
 
     const rows = useMemo(() => slotRows({
         appointments: day,

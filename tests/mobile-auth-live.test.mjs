@@ -94,10 +94,13 @@ test('varsayılan stub: sunucu dağıtılmadan canlıya geçilmez', () => {
 });
 
 test('sunucu tarafı olmayan akışlar açıkça stub kalır', () => {
-    // Kayıt ve hesap silme: mobilden org açacak uç yok, hesap silecek uç yok.
-    assert.match(session, /STUB_PARTS = \['signup', 'account', 'subscription'\]/);
+    // Kayıt: mobilden org açacak uç yok — stub. Hesap 9. adımda CANLIYA geçti:
+    // stub'da kaldığı sürece canlı kipte Hesap ekranı müdürü karşılamaya
+    // atıyordu. Silme gerçek uca (`account-delete`) gidiyor.
+    assert.match(session, /STUB_PARTS = \['signup', 'subscription'\]/);
+    assert.match(session, /account: \{ \.\.\.authStub\.account, \.\.\.live\.account \}/);
     assert.doesNotMatch(live, /signup|createSignupAccount/);
-    assert.doesNotMatch(live, /confirmDeletion|requestDeletion/);
+    assert.match(live, /const result = await deleteAccount\(stored\.profile\.business\.id\);/);
 });
 
 test('ekranlar kimliğe yalnız tek dikişten ulaşır', () => {

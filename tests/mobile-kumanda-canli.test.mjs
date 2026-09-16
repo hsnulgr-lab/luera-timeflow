@@ -290,7 +290,7 @@ test('YARIM adisyon gönderilmiyor', () => {
 test('kuyruk kararı YAZMA katmanından, bağlantı bayrağından değil', () => {
     // Sinyal "var" görünürken de istek düşebiliyor ve o iş yine kuyruğa
     // giriyor; yalnız `offline`a bakmak onu "gönderildi" sayardı.
-    assert.match(screen, /offline: offline \|\| out\.queued,/);
+    assert.match(screen, /offline: offlineRef\.current \|\| out\.queued,/);
     assert.match(screen, /serverCode: out\.code,/);
     assert.ok(!screen.includes('mockCashResult'), 'sahte cevap üreteci kalmamalı');
 });

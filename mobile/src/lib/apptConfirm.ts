@@ -11,6 +11,7 @@
 // Uzantı AÇIK: kök testleri bu dosyayı Node ile doğrudan içe aktarıyor.
 import { formatDayLong, toMinutes, type Appt } from './calendar.ts';
 import { formatPrice, maskPhone } from './createFlow.ts';
+import { waFailLine, waRetryable, type WaFailReason } from './createLive.ts';
 
 /** Onay ekranının hâlleri. Tasarımın A/B/C/D/E harfleriyle aynı. */
 export type ConfirmState = 'idle' | 'sending' | 'sent' | 'failed';
@@ -82,7 +83,17 @@ export interface ConfirmCopy {
     note: string | null;
 }
 
-export function confirmCopy(state: ConfirmState, hasPhone: boolean): ConfirmCopy {
+/**
+ * `reason` — gönderilemeyen mesajın sebebi (`createLive.waFailLine`). Kalıcı
+ * bir sebepte (WhatsApp bağlı değil, müşteri mesaj istemiyor, numara geçersiz)
+ * "Tekrar dene" YALAN olurdu: aynı düğme aynı cevabı alır. O zaman birincil
+ * düğme ekranı kapatıyor.
+ */
+export function confirmCopy(
+    state: ConfirmState,
+    hasPhone: boolean,
+    reason: WaFailReason | null = null,
+): ConfirmCopy {
     switch (state) {
         case 'sending':
             return {
@@ -101,13 +112,21 @@ export function confirmCopy(state: ConfirmState, hasPhone: boolean): ConfirmCopy
                 note: '3 saniye sonra Akış’a döner.',
             };
         case 'failed':
-            return {
-                title: 'Mesaj gönderilemedi',
-                subtitle: 'Bağlantı kurulamadı. Mesaj gitmedi.',
-                primary: 'Tekrar dene',
-                secondary: 'Sonra',
-                note: 'Bu ekran kendi kapanmaz.',
-            };
+            return waRetryable(reason)
+                ? {
+                    title: 'Mesaj gönderilemedi',
+                    subtitle: waFailLine(reason),
+                    primary: 'Tekrar dene',
+                    secondary: 'Sonra',
+                    note: 'Bu ekran kendi kapanmaz.',
+                }
+                : {
+                    title: 'Mesaj gönderilemedi',
+                    subtitle: waFailLine(reason),
+                    primary: 'Tamam',
+                    secondary: '',
+                    note: 'Randevu kuruldu; yalnız mesaj gitmedi.',
+                };
         default:
             return {
                 title: 'Randevu oluşturuldu',
@@ -125,16 +144,14 @@ export function confirmCopy(state: ConfirmState, hasPhone: boolean): ConfirmCopy
 export const NO_PHONE_REASON = 'Numara yok, mesaj gönderilemez.';
 
 /**
- * MESAJ GÖNDERME HENÜZ BAĞLI DEĞİL.
+ * MESAJ GÖNDERME BAĞLI (müdür planı 7. adım).
  *
- * Mesaj sunucudan gidecek; mobilde müdür API'si yok. Buton bu yüzden pasif
- * ve sebebini söylüyor. Basıp hiçbir şey olmaması ya da sahte bir
- * "gönderildi" ekranı göstermek yerine ekran ne olduğunu yazıyor.
- *
- * Uç yazıldığında burası `true` olacak; C, D ve E hâlleri zaten tasarlandı ve
- * uygulandı, başka hiçbir şey değişmeyecek.
+ * Masaüstüyle aynı yol: `whatsapp-proxy` · `send` · tür `confirmation`.
+ * Otomatik değil — kullanıcı kararı: müdür metni görüp düğmeye basıyor.
+ * Pasif hâl ve sebebi (`MESSAGING_PENDING_REASON`) duruyor: vana bir gün
+ * kapatılırsa ekran yine yalan söylemesin.
  */
-export const MESSAGING_READY = false;
+export const MESSAGING_READY = true;
 export const MESSAGING_PENDING_REASON = 'Mesaj gönderme henüz açık değil.';
 
 /** Birincil buton basılabilir mi, ve değilse sebebi ne? */
@@ -154,7 +171,19 @@ export function sendGate(state: ConfirmState, hasPhone: boolean): {
  */
 export const SALON_NAME = 'Luera Kuaför';
 
-/** Müşteriye gidecek metnin önizlemesi. Ekranda ne yazdığını müdür görür. */
+/**
+ * Gönderilen metnin EKRAN hâli: WhatsApp'ın kalın işaretleri (`*…*`) ve
+ * paragraf boşlukları atılıyor. Sözcükler aynı — müdür gidenin kendisini okur.
+ */
+export function previewText(text: string): string {
+    return text.replace(/\*([^*\n]+)\*/g, '$1').replace(/\n{2,}/g, '\n').trim();
+}
+
+/**
+ * ESKİ önizleme cümlesi — yalnız sahte kaynağın günlerinden kalan testler
+ * okuyor. Ekran artık gerçekten gönderilen metni gösteriyor
+ * (`createLive.confirmationText` → `previewText`).
+ */
 export function messageText(appointment: Appt, staffName: string, salon: string): string {
     const day = formatDayLong(appointment.date);
     const start = appointment.start_time.slice(0, 5);

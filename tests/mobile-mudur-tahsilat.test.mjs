@@ -175,14 +175,22 @@ test('bitmiş tahsilat soluklaşır, gelmedi ASLA', () => {
 
 // ── Gelmedi ─────────────────────────────────────────────────────────────────
 
-test('E1/E2 · kahraman rakam tolerans sayacı, kalan yazıyla', () => {
+// ── "OTOMATİK DÜŞER" KALKTI (2026-09-15, kullanıcı onayıyla) ─────────────────
+// Kartlar "22 dk sonra düşer", "randevu düştü · kayıt müşteri dosyasına
+// yazıldı" diyordu; randevuyu düşüren bir iş ne sunucuda ne masaüstünde var.
+// Masaüstünün mantığı: randevu saati + salonun toleransı (vars. 120) geçti ve
+// müşteri gelmediyse "Gelmedi"; randevu açık kalır. Eşik de masaüstüyle aynı.
+test('E1/E2 · kahraman rakam geçen süre, alt satır randevunun GERÇEK hâli', () => {
     const card = noshowCard(gone);
     assert.equal(card.label, 'müşteri gelmedi');
     assert.equal(card.value, '12');
     assert.equal(card.unit, 'dk');
     assert.equal(card.spent, false);
     // Müdür 33: saat baştan atıldı — satırın sol sütununda zaten yazılı.
-    assert.equal(card.sub, '18 dk sonra otomatik düşer');
+    assert.equal(card.sub, 'Randevu açık · gelirse "Geç geldi"');
+    assert.doesNotMatch(card.sub, /düş/);
+    // Canlıda kart ancak tolerans (vars. 120) dolunca çıkıyor: rakam saatle.
+    assert.deepEqual([noshowCard({ ...gone, noshowMinutes: 124 }).value, noshowCard({ ...gone, noshowMinutes: 124 }).unit], ['2 sa 4', 'dk']);
 });
 
 test('E1 · taze basışta yalnız geri alma', () => {
@@ -201,40 +209,40 @@ test('E2 · kurtarma hapı KENARLIKLI, dolu değil', () => {
     ]);
 });
 
-// Müdür 33 · 30. DAKİKADA AĞIRLIK DEĞİŞİR.
-// Eskiden eylemin yerinde bir damga duruyordu ("otomatik düştü") — yani kart
-// randevu öldükten sonra hiçbir şey ÖNERMİYORDU. Oysa kurtarılacak bir şey
-// kaldı: ilişki. Aynı yuva, aynı kelime, artan ağırlık — `Yönet` hayalet
-// olmaktan çıkıp hapa dönüyor, `Yeniden randevu` ikincil oluyor.
-test('E3 · 30. dakikada Yönet ağırlık kazanır', () => {
-    const card = noshowCard({ ...gone, noshowMinutes: 30, droppedAt: '12:00' });
-    assert.equal(card.label, 'randevu düştü');
-    assert.equal(card.spent, true);
-    assert.equal(card.value, '30');
-    assert.equal(card.sub, 'Kayıt müşteri dosyasına yazıldı');
-    assert.deepEqual(card.actions, [
-        { label: 'Yönet', kind: 'hap' },
-        { label: 'Yeniden randevu', kind: 'ghost' },
-    ]);
+// Müdür 33 · 30. dakikadaki "randevu düştü" evresi KALDIRILDI (bkz. yukarı):
+// randevu hiçbir dakikada ölmüyor, o yüzden "Geç geldi" hiçbir dakikada
+// kaybolmuyor.
+test('E3 · hiçbir dakikada "randevu düştü" YOK', () => {
+    for (const minutes of [30, 45, 120, 300]) {
+        const card = noshowCard({ ...gone, noshowMinutes: minutes, droppedAt: '12:00' });
+        assert.equal(card.label, 'müşteri gelmedi');
+        assert.equal(card.spent, false);
+        assert.doesNotMatch(card.sub, /dosyasına yazıldı|düş/);
+        assert.deepEqual(card.actions, [
+            { label: 'Geç geldi', kind: 'hap' },
+            { label: 'Yönet', kind: 'ghost' },
+        ]);
+    }
 });
 
-test('E3 geri dönüşsüz — "Geç geldi" ve "Geri al" render EDİLMEZ', () => {
+test('taze basışta ne kadar geçmiş olursa olsun GERİ AL sunuluyor', () => {
+    // Eskiden 30. dakikadan sonra "geri dönüşsüz" sayılıyordu. Randevu hiç
+    // kapanmadığı için müdürün kendi "Gelmedi" işaretini geri alması her
+    // zaman mümkün.
     const card = noshowCard({ ...gone, noshowMinutes: 41 }, true);
-    const labels = card.actions.map((a) => a.label);
-    assert.ok(!labels.includes('Geç geldi'));
-    assert.ok(!labels.includes('Geri al'));
+    assert.deepEqual(card.actions, [{ label: 'Geri al', kind: 'ghost' }]);
 });
 
-test('tolerans 30 dakikada dolar, altında dolmaz', () => {
+test('gelmedi kartı hiçbir zaman "tükenmiş" değil', () => {
     assert.equal(noshowCard({ ...gone, noshowMinutes: 29 }).spent, false);
-    assert.equal(noshowCard({ ...gone, noshowMinutes: LATE_LIMIT_MINUTES }).spent, true);
+    assert.equal(noshowCard({ ...gone, noshowMinutes: LATE_LIMIT_MINUTES }).spent, false);
 });
 
 test('düşmüş randevu satırda da başka bir şeydir', () => {
     assert.equal(noshowRowLabel(gone), 'müşteri gelmedi');
     // Kart ve satır AYNI kelimeyi söyler — iki ayrı sözlük olmaz.
     assert.equal(noshowCard(gone).label, noshowRowLabel(gone));
-    assert.equal(noshowRowLabel({ ...gone, noshowMinutes: 30 }), 'randevu düştü');
+    assert.equal(noshowRowLabel({ ...gone, noshowMinutes: 300 }), 'müşteri gelmedi');
 });
 
 test('gelmedi rakamı KIRMIZI DEĞİL — kırmızı "ne oldu"da', () => {
@@ -321,8 +329,9 @@ test('mock gün yedi hâlin hepsini taşır', () => {
     assert.ok(levels.includes('hot'));
     assert.ok(mockDay.events.some((e) => e.kind === 'paid' && e.amountValue));
     const noshows = mockDay.events.filter((e) => e.kind === 'noshow');
-    assert.ok(noshows.some((e) => !noshowCard(e).spent));
-    assert.ok(noshows.some((e) => noshowCard(e).spent));
+    // "Tükenmiş" gelmedi kartı artık yok (bkz. düşürme kararı).
+    assert.ok(noshows.length > 0);
+    assert.ok(noshows.every((e) => !noshowCard(e).spent));
 });
 
 test('dünden devreden adisyonun SATIRI da kırmızıya döner', () => {
@@ -366,10 +375,17 @@ test('onay kartında tutar YERİNDE kalır — yalnız etrafı değişir', () =>
     assert.ok(body.includes('<PanelDot color={ink.green} />'));
 });
 
-test('"Tahsil et" geri alma penceresini değil, onay penceresini açar', () => {
-    // Müdür 33 · listeye 'Onayla' eklendi: onaylanan online randevu da bir
-    // saniyelik onay hâlinde durur, sonra sessizleşir.
-    assert.ok(screen.includes("['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et', 'Onayla'].includes(label)"));
+test('"Tahsil et" SAHTE ödeme üretmiyor — Kasa’yı açıyor', () => {
+    /*
+     * Akış canlı veriye bağlandı. Yerel olarak "tahsil edildi"ye çevirmek,
+     * veritabanında hiçbir ödeme yokken müdüre parayı almış gibi göstermekti
+     * — ve Kasa aynı adisyonu bekleyen olarak göstermeye devam ederdi. Çift
+     * tahsilata davetiye.
+     */
+    assert.match(screen, /if \(event\.kind === 'due' && label === 'Tahsil et'\) \{\s*\n\s*router\.navigate\(\{ pathname: '\/mudur\/cash' \}\);\s*\n\s*return;/);
+    // Onay penceresi listesinde artık yok — bir ödeme olmadan "onaylandı"
+    // damgası da yok.
+    assert.ok(screen.includes("['Geldi', 'Gelmedi', 'Geç geldi', 'Onayla'].includes(label)"));
 });
 
 test('dünden devredende "kim verdi" düşer — cümle sığsın', () => {

@@ -167,7 +167,19 @@ test('sayısı okunamayan gün SIFIR diye çizilmez', () => {
 });
 
 test('gün listesi okunamazsa boş gün YAZILMAZ', () => {
-    // Yakalama yoksa hata sessizce yutulup ekran boş güne dönüyordu.
-    assert.match(screen, /source\.day\(selectedDate\)\s*\n\s*\.then/);
-    assert.match(screen, /\.catch\(\(\) => undefined\)/);
+    /*
+     * Kural aynı, yeri değişti: okuma artık `useManagerCalendarDay` üzerinden
+     * geliyor ve hatada ELDEKİ veri duruyor (`useManagerRead`). Ekran ayrıca
+     * boş ızgara çizmiyor — okunamadı bloğu çiziyor.
+     *
+     * Eskiden ikisi de aynı görünüyordu ve müdür salonun boş olduğunu
+     * sanabiliyordu.
+     */
+    assert.match(screen, /useManagerCalendarDay\(selectedDate\)/);
+    // Boş gün ile okunamayan gün AYRI çizim.
+    assert.match(screen, /state === 'error' \? \(\s*\n\s*<DurumUnread/);
+    // Alt başlık da ayırıyor: hata hâlinde sayı YAZMIYOR.
+    assert.match(screen, /state === 'error'\s*\n\s*\? 'okunamadı'/);
+    // Ekran artık sahte kaynağı hiç çağırmıyor.
+    assert.doesNotMatch(screen, /source\.(day|range|nextAfter)\(/);
 });

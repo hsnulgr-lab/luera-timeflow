@@ -935,7 +935,7 @@ export function ServiceRow({ service, selected, onPress }: {
             onPress={() => { feedback.selection(); onPress(); }}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${service.name}, ${service.minutes} dakika, ${service.price} lira`}
+            accessibilityLabel={`${service.name}, ${service.minutes} dakika${service.price === null ? '' : `, ${service.price} lira`}`}
             style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', gap: M.rowGap,
                 minHeight: M.rowHeight,
@@ -960,7 +960,10 @@ export function ServiceRow({ service, selected, onPress }: {
                 marginLeft: 'auto', color: c.tx2, fontSize: M.serviceMeta,
                 fontFamily: font.semiBold, fontWeight: '600',
             }}>
-                {`${service.minutes} dk · ₺${service.price.toLocaleString('tr-TR')}`}
+                {/* Fiyatı yazılmamış hizmette "₺0" DEĞİL: yalnız süre. */}
+                {service.price === null
+                    ? `${service.minutes} dk`
+                    : `${service.minutes} dk · ₺${service.price.toLocaleString('tr-TR')}`}
             </N>
             {selected ? (
                 <View style={{

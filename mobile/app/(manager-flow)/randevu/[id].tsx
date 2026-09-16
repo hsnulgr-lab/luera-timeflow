@@ -5,14 +5,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppointmentDetail } from '../../../src/components/AppointmentDetail';
 import { MoveResultSheet, MoveSheet } from '../../../src/components/MoveParts';
+import { DurumBlock, DurumUnread } from '../../../src/components/Durum';
 import { Empty } from '../../../src/components/ui';
-import { source, updateLocalAppointment } from '../../../src/lib/calendarSource';
-import { mockDay } from '../../../src/lib/managerFlow';
+import { useManagerAppointment } from '../../../src/lib/managerAppointment';
+import { orgDurum } from '../../../src/lib/managerDurum';
+import { deleteAppointment, updateAppointment } from '../../../src/lib/managerWrite';
+import {
+    STALE_LINE, STALE_TITLE, writablePatch, type WriteOutcome,
+} from '../../../src/lib/managerWriteMap';
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
 } from '../../../src/lib/moveAppointment';
 import { useTheme } from '../../../src/theme';
-import { hhmm, nowInMinutes, toMinutes, todayISO, type Appt } from '../../../src/lib/calendar';
+import { nowInMinutes, toMinutes, todayISO, type Appt } from '../../../src/lib/calendar';
+import { initialsOf } from '../../../src/lib/text';
 import type { StaffOption } from '../../../src/lib/createFlow';
 
 /**
@@ -22,27 +28,52 @@ import type { StaffOption } from '../../../src/lib/createFlow';
  * dönüşüyor (Müdür 05'te aynı hatayla karşılaşılmıştı). Buraya takvimdeki
  * bloktan, akıştan ve personelin gününden geliniyor.
  *
- * Yol `/randevu/{id}`; gün parametre olarak taşınıyor çünkü kaynakta
- * "id ile randevu getir" diye bir uç yok, gün listesi var.
+ * ── Randevu artık KİMLİĞİYLE geliyor ────────────────────────────────────────
+ * Ekran günün tamamını okuyup içinden id arıyordu, çünkü sahte kaynakta "id
+ * ile getir" diye bir yol yoktu. Yol parametresindeki gün yanlışsa kart
+ * "randevu bulunamadı" diyordu — var olan bir randevu için.
+ *
+ * ── Müdürün İLK yazma ekranı burası ─────────────────────────────────────────
+ * Taşıma, hizmet, not, "geldi" damgası ve iptal artık gerçekten yazılıyor.
+ * Üç koruma birden devrede: org süzgeci, iyimser kilit (092) ve sunucudaki
+ * çakışma tetikleyicisi (060).
  */
 export default function ManagerAppointment() {
     const { c } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const params = useLocalSearchParams<{ id?: string; date?: string }>();
-    const [day, setDay] = useState<Appt[]>([]);
-    const [appointment, setAppointment] = useState<Appt | null>(null);
-    const [loaded, setLoaded] = useState(false);
-    /**
-     * Okuma BAŞARISIZ mı oldu. `loaded` ile ayrı tutuluyor çünkü "gün okundu,
-     * randevu içinde yok" ile "gün hiç okunamadı" ayrı şeyler ve ikincisi
-     * müdüre "randevu silinmiş" diye görünüyordu.
-     */
-    const [failed, setFailed] = useState(false);
+    const params = useLocalSearchParams<{ id?: string }>();
+    const {
+        state, data, refusal, reload,
+    } = useManagerAppointment(params.id);
+
     const [moveMode, setMoveMode] = useState<'time' | 'staff' | null>(null);
     const [result, setResult] = useState<MoveResult | null>(null);
+    /**
+     * Yazma sonrası yerel hâl.
+     *
+     * Sunucu kabul ettiği an ekran yeni hâli gösteriyor; bir sonraki okumayı
+     * beklemiyor. Beklemek, müdürün dokunduğu şeyin bir saniye boyunca eski
+     * hâlinde durması demekti.
+     *
+     * `from` yazmanın DAYANDIĞI damga, `to` sunucunun döndürdüğü yeni damga.
+     * İkisi birlikte "sunucu bizi yakaladı mı" sorusunu efekt kurmadan
+     * cevaplıyor — efekt içinde `setState` bu projede sert hata ve haklı
+     * olarak: çizim sırasında durum sıfırlamak basamaklı çizime yol açıyor.
+     */
+    const [local, setLocal] = useState<{ row: Appt; from: string | null; to: string | null } | null>(null);
+    /** Reddedilen yazmanın ekrandaki karşılığı. */
+    const [refused, setRefused] = useState<WriteOutcome | null>(null);
 
-    const dateISO = params.date ?? mockDay.dateISO;
+    /*
+     * Sunucu HÂLÂ bizim yazmadan önceki damgayı gösteriyorsa yerel hâl
+     * kullanılıyor. Damga değiştiği an — ister bizim yazmamız yüzünden, ister
+     * başka bir cihaz yüzünden — sunucununki geçerli. İki gerçek tutmanın
+     * anlamı yok; güncel olan sunucununki.
+     */
+    const usesLocal = local !== null && data.updatedAt === local.from;
+    const appointment = usesLocal && local ? local.row : data.appointment;
+    const updatedAt = usesLocal && local ? local.to : data.updatedAt;
 
     // Şimdi çizgisi cihazın saatinden gelir; sabit bir saat "10 dk sonra"
     // derken aslında geçmişte olabilirdi.
@@ -52,67 +83,119 @@ export default function ManagerAppointment() {
         return () => clearInterval(timer);
     }, []);
 
-    useEffect(() => {
-        let alive = true;
-        source.day(dateISO)
-            .then((list) => {
-                if (!alive) return;
-                setDay(list);
-                setAppointment(list.find((item) => item.id === params.id) ?? null);
-                // Önceki denemede hata olmuş olabilir; okundu artık.
-                setFailed(false);
-                setLoaded(true);
-            })
-            .catch(() => {
-                if (!alive) return;
-                setFailed(true);
-                setLoaded(true);
-            });
-        return () => { alive = false; };
-    }, [dateISO, params.id]);
-
-    // Sütun başlıkları ve akış aynı personel kaynağını kullanıyor; detay da
-    // oradan okuyor ki üç ekranda aynı ad görünsün.
     const staffName = useMemo(
-        () => mockDay.presence.find((person) => person.id === appointment?.staff_id)?.name ?? null,
-        [appointment?.staff_id],
+        () => data.columns.find((person) => person.id === appointment?.staff_id)?.name ?? null,
+        [data.columns, appointment?.staff_id],
     );
 
     const staffOptions: StaffOption[] = useMemo(
-        () => mockDay.presence.map((person) => ({
+        () => data.columns.map((person) => ({
             id: person.id,
-            initials: person.initials,
+            initials: initialsOf(person.name),
             name: person.name,
-            available: person.state === 'busy' || person.state === 'free',
-            reason: person.state === 'leave' ? 'izinli' : person.state === 'off' ? 'çalışmıyor' : undefined,
+            color: person.color ?? undefined,
+            available: person.active && !data.onLeave.has(person.id),
+            reason: data.onLeave.has(person.id) ? 'izinli' : undefined,
         })),
-        [],
+        [data.columns, data.onLeave],
     );
 
     /**
-     * Taşıma bu ekranda da yapılabiliyor (jetonlar). Sunucuda güncelleme ucu
-     * olmadığı için yeni hâl şimdilik ekranda yaşıyor; takvim ekranındakiyle
-     * aynı geçici katman ve aynı `applyMove`.
+     * Tek yazma yolu.
+     *
+     * Beş eylem de (taşıma, hizmet, not, geldi, iptal) buradan geçiyor: kilit,
+     * çakışma ve vana kontrolü beş kez yazılmasın. Bir tanesini atlamak, o
+     * eylemin sessizce ezmesi demek olurdu.
      */
+    const commit = useCallback(async (next: Appt, targetStaffName?: string | null) => {
+        if (!appointment || !updatedAt) return false;
+        setRefused(null);
+        const base = updatedAt;
+        // İyimserlik ÖNCE: müdür dokunduğu şeyin cevabını beklemesin.
+        setLocal({ row: next, from: data.updatedAt, to: base });
+        const outcome = await updateAppointment(
+            appointment.id, base, writablePatch(next), targetStaffName ?? staffName,
+        ).catch(() => ({ ok: false, kind: 'failed' } as WriteOutcome));
+        if (outcome.ok) {
+            // Yeni damga taşınıyor: ikinci değişiklik kendi ilk yazmasına
+            // takılmasın.
+            setLocal({ row: next, from: data.updatedAt, to: outcome.updatedAt });
+            return true;
+        }
+        // Reddedildi: YEREL HÂL GERİ ALINIYOR. Bırakmak, yapılmamış bir
+        // değişikliği yapılmış gibi göstermek olurdu.
+        setLocal(null);
+        setRefused(outcome);
+        // Bayat kilitte güncel hâl getiriliyor — müdür neye baktığını bilsin.
+        if (outcome.kind === 'stale') void reload();
+        return false;
+    }, [appointment, updatedAt, data.updatedAt, staffName, reload]);
+
     const commitMove = useCallback((target: MoveTarget) => {
         if (!appointment) return;
-        setResult({
-            appointment,
-            fromStartMinutes: toMinutes(appointment.start_time),
-            fromStaffName: staffName,
-            toStartMinutes: target.startMinutes,
-            toStaffName: target.staffName,
-        });
         const moved = applyMove(appointment, target);
-        setAppointment(moved);
-        // Kaynağa da yaz: kartı kapatınca takvim yeni saati göstersin.
-        updateLocalAppointment(moved);
-    }, [appointment, staffName]);
+        void commit(moved, target.staffName).then((ok) => {
+            // Sonuç sayfası YALNIZ gerçekten taşındıysa açılıyor: reddedilmiş
+            // bir taşıma için "geri al" sunmak anlamsız.
+            if (!ok || !appointment) return;
+            setResult({
+                appointment,
+                fromStartMinutes: toMinutes(appointment.start_time),
+                fromStaffName: staffName,
+                toStartMinutes: target.startMinutes,
+                toStaffName: target.staffName,
+            });
+        });
+    }, [appointment, commit, staffName]);
 
     const close = useCallback(() => {
         if (router.canGoBack()) router.back();
         else router.replace('/mudur/calendar');
     }, [router]);
+
+    /**
+     * SİLME — kartı kapatmak değil, randevuyu kaldırmak.
+     *
+     * Basılı tutulan "Sil" bugüne kadar YALNIZ kartı kapatıyordu: müdür
+     * sildiğini sanıyor, randevu takvimde duruyordu. İptalden ayrı bir iş —
+     * iptal edilen randevu kayıtta kalır, silinen kalmaz — ve masaüstündeki
+     * `deleteReservation` ile aynı işlem.
+     *
+     * Kart silme başarılıysa KAPANIYOR: silinmiş bir randevunun kartında
+     * durmak, olmayan bir şeye bakmak olurdu.
+     */
+    const remove = useCallback(async () => {
+        if (!appointment) return;
+        // Damgasız randevu SİLİNMİYOR ve bu sessiz kalmıyor: kilitsiz silmek,
+        // arka planda değişmiş bir randevuyu görmeden kaldırmak olurdu.
+        if (!updatedAt) { setRefused({ ok: false, kind: 'failed' }); return; }
+        setRefused(null);
+        const outcome = await deleteAppointment(appointment.id, updatedAt)
+            .catch(() => ({ ok: false, kind: 'failed' } as WriteOutcome));
+        if (outcome.ok) { close(); return; }
+        setRefused(outcome);
+        if (outcome.kind === 'stale') void reload();
+    }, [appointment, updatedAt, close, reload]);
+
+    const refusedBlock = refused && !refused.ok ? (
+        <DurumBlock
+            tone={refused.kind === 'stale' ? 'amber' : 'red'}
+            title={
+                refused.kind === 'stale' ? STALE_TITLE
+                    : refused.kind === 'conflict' ? 'O saate taşınamadı'
+                        : refused.kind === 'paused' ? 'Değişiklik şimdilik alınmıyor'
+                            : 'Değişiklik uygulanmadı'
+            }
+            lines={[
+                refused.kind === 'stale' ? STALE_LINE
+                    : refused.kind === 'conflict' ? refused.message
+                        : refused.kind === 'paused' ? 'Kısa bir süre sonra tekrar deneyin.'
+                            : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+            ]}
+            actions={[{ label: 'Anladım', onPress: () => setRefused(null) }]}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+        />
+    ) : null;
 
     return (
         <View style={{
@@ -132,11 +215,22 @@ export default function ManagerAppointment() {
              */
             paddingTop: Platform.OS === 'ios' ? 0 : insets.top,
         }}>
-            {appointment ? (
+            {refusedBlock}
+
+            {refusal ? (
+                <DurumBlock
+                    tone={orgDurum(refusal).tone}
+                    title={orgDurum(refusal).title}
+                    lines={orgDurum(refusal).lines}
+                    actions={[{ label: 'Geri dön', onPress: close }]}
+                    style={{ marginHorizontal: 16 }}
+                />
+            ) : appointment ? (
                 <AppointmentDetail
                     appointment={appointment}
                     staffName={staffName}
-                    dayAppointments={day}
+                    dayAppointments={data.dayRows}
+                    services={data.services}
                     nowMinutes={now}
                     onClose={close}
                     onCustomer={() => router.push({
@@ -147,32 +241,35 @@ export default function ManagerAppointment() {
                         },
                     })}
                     onMove={(mode) => setMoveMode(mode)}
-                    // Hizmet ve not artık GERÇEKTEN değişiyor; satırlar
-                    // chevron gösterip hiçbir şey açmıyordu.
-                    onUpdate={(next) => setAppointment(next)}
+                    onUpdate={(next) => { void commit(next); }}
                     onAttendance={(arrived) => {
                         if (!arrived) { close(); return; }
-                        // Müşteri SALONA geldi. Hizmeti personel başlatır;
-                        // `arrived_at` müdürün basacağı damga değil.
-                        setAppointment({ ...appointment, customer_arrived_at: `${hhmm(now)}:00` });
+                        /*
+                         * Müşteri SALONA geldi. Hizmeti personel başlatır;
+                         * `arrived_at` müdürün basacağı damga değil.
+                         *
+                         * Damga TAM ZAMAN ve SUNUCU saatiyle. Eskiden yalnız
+                         * "HH:MM:00" yazılıyordu — saat dilimsiz bir metin.
+                         * Cihaz saatiyle yazmak da yetmezdi: telefon kırk
+                         * dakika ileriyse bekleme süresi kırk dakika şişerdi.
+                         * Akış ekranı da aynı damgayı aynı saatten yazıyor.
+                         */
+                        const stamp = data.serverNow !== null && data.deviceAt !== null
+                            ? new Date(data.serverNow + (Date.now() - data.deviceAt)).toISOString()
+                            : new Date().toISOString();
+                        void commit({ ...appointment, customer_arrived_at: stamp });
                     }}
-                    onCancel={() => setAppointment({ ...appointment, status: 'cancelled' })}
-                    onDelete={close}
+                    onCancel={() => { void commit({ ...appointment, status: 'cancelled' }); }}
+                    onDelete={() => { void remove(); }}
                 />
-            ) : failed ? (
-                /*
-                 * Okunamayan gün "randevu silinmiş" DEĞİL. Aynı bileşen, ayrı
-                 * cümle: değişen tek şey söylenen söz. Ayrı bir "okunamadı"
-                 * görseli (tekrar dene düğmesi vb.) müdür modunun durum
-                 * ekranlarına ait ve o tur henüz yapılmadı — burada yapılan
-                 * tek şey, hatanın silinmiş bir randevu gibi okunmasını
-                 * engellemek.
-                 */
-                <Empty
-                    title="Randevu okunamadı"
-                    hint="Bağlantı kesilmiş olabilir. Geri dönüp tekrar açın."
+            ) : state === 'error' ? (
+                <DurumUnread
+                    what="Randevuyu"
+                    notMeaning="Silinmiş olduğu"
+                    onRetry={() => { void reload(); }}
+                    style={{ flex: 1, paddingHorizontal: 16 }}
                 />
-            ) : loaded ? (
+            ) : state === 'ok' ? (
                 <Empty title="Randevu bulunamadı" hint="Silinmiş ya da başka bir güne taşınmış olabilir." />
             ) : null}
 
@@ -181,6 +278,7 @@ export default function ManagerAppointment() {
                     visible
                     mode={moveMode}
                     appointment={appointment}
+                    day={data.dayRows}
                     staff={staffOptions}
                     onDismiss={() => setMoveMode(null)}
                     onPick={(target) => {
@@ -195,7 +293,7 @@ export default function ManagerAppointment() {
                 result={result}
                 nowMinutes={now}
                 today={todayISO()}
-                onUndo={(moved) => { setAppointment(undoMove(moved)); setResult(null); }}
+                onUndo={(moved) => { void commit(undoMove(moved)); setResult(null); }}
                 onCall={(phone) => { void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`); }}
                 onDone={() => setResult(null)}
             />

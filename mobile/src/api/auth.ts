@@ -5,9 +5,14 @@ import {
     ApiError, auth as staffApi, tokens,
 } from './staff';
 import type {
-    AuthBusiness, AuthFailure, AuthProfile, AuthResult, AuthSession,
-    LaunchState, StaffRosterMember,
+    AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
+    AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
+    AuthSession, LaunchState, StaffRosterMember,
 } from './authStub';
+import { deleteAccount } from './accountDeletion';
+import {
+    businessesOf, type OrgRow, type SettingsSectorRow,
+} from '../lib/accountMap.ts';
 
 /**
  * Gerçek kimlik katmanı — `authStub`'ın yerini alır.
@@ -119,13 +124,33 @@ function businessFrom(row: { id: string; name: string; slug?: string | null }): 
 
 // ── Müdür ───────────────────────────────────────────────────────────────────
 
+/**
+ * Müdürün salonları — ad, KONUM (adresten), aktif personel SAYISI, sektör.
+ *
+ * Önce `slug` konum diye yazılıyordu ve personel sayısı her salonda 0'dı:
+ * salon seçme ekranı "studio-ayla-kadikoy · 0 personel" diyordu. Üç sorgu
+ * RLS'in açtığı org'larla sınırlı; biri okunamazsa liste UYDURULMUYOR.
+ */
 async function managerBusinesses(): Promise<AuthResult<AuthBusiness[]>> {
     const { data, error } = await supabase
         .from('organizations')
-        .select('id, name, slug')
-        .order('name');
+        .select('id, name, address, owner_id')
+        .order('name')
+        .returns<OrgRow[]>();
     if (error) return fail('offline');
-    return done((data ?? []).map(businessFrom));
+    const orgs = data ?? [];
+    const ids = orgs.map((org) => org.id);
+    if (ids.length === 0) return done([]);
+    const [staff, settings] = await Promise.all([
+        supabase.from('staff').select('organization_id')
+            .in('organization_id', ids).eq('is_active', true)
+            .returns<{ organization_id: string }[]>(),
+        supabase.from('settings').select('organization_id, user_id, sector, created_at')
+            .in('organization_id', ids)
+            .returns<SettingsSectorRow[]>(),
+    ]);
+    if (staff.error || settings.error) return fail('offline');
+    return done(businessesOf(orgs, staff.data ?? [], settings.data ?? []));
 }
 
 async function managerStart(email: string, password: string): Promise<AuthResult<{
@@ -387,6 +412,89 @@ async function authenticateBiometric(): Promise<AuthResult<AuthSession>> {
     return done(sessionOf(stored.profile, stored.biometricEnabled));
 }
 
+// ── Hesap ───────────────────────────────────────────────────────────────────
+//
+// CANLI SÜRÜMÜ YOKTU (`STUB_PARTS` içindeydi): canlı kipte "Hesap" satırı
+// stub'a gidiyor, stub başka bir depolama anahtarında oturum arıyor, bulamayıp
+// müdürü KARŞILAMA EKRANINA atıyordu. Hesap silme ekranı da aynı yoldan
+// açıldığı için oraya hiç ulaşılamıyordu — App Store 5.1.1(v)'nin istediği
+// ekran.
+
+/**
+ * Hesabın özeti. İşletme bilgisi SUNUCUDAN tazeleniyor ve cihazdaki profile
+ * yazılıyor: salon masaüstünde yeniden adlandırıldıysa telefon eski adı
+ * söylemesin. Tazeleme okunamazsa cihazdaki bilgiyle devam ediliyor — sinyal
+ * boşluğu müdürü hesabından atmasın.
+ */
+async function accountOverview(): Promise<AuthResult<AuthAccountOverview>> {
+    const stored = await readProfile();
+    if (!stored) return fail('no_session');
+    if (stored.profile.actor !== 'manager') {
+        return done({
+            session: sessionOf(stored.profile, stored.biometricEnabled),
+            businesses: [stored.profile.business],
+        });
+    }
+    const list = await managerBusinesses();
+    if (!list.ok) {
+        return done({
+            session: sessionOf(stored.profile, stored.biometricEnabled),
+            businesses: [stored.profile.business],
+        });
+    }
+    const fresh = list.data.find((business) => business.id === stored.profile.business.id);
+    const profile = fresh ? { ...stored.profile, business: fresh } : stored.profile;
+    if (fresh) await saveProfile(profile, stored.biometricEnabled);
+    return done({ session: sessionOf(profile, stored.biometricEnabled), businesses: list.data });
+}
+
+async function accountBusinessSwitch(): Promise<AuthResult<AuthAccountBusinessSwitch>> {
+    const stored = await readProfile();
+    if (!stored || stored.profile.actor !== 'manager') return fail('no_session');
+    const list = await managerBusinesses();
+    if (!list.ok) return list;
+    if (list.data.length === 0) return fail('invalid_business');
+    return done({ businesses: list.data });
+}
+
+/**
+ * Oturumu kapat. Personelde bu TELEFONU İŞLETMEDEN ÇIKARMAK demek (hesap
+ * ekranının kendi cümlesi: "yeniden bağlamak için yeni kod gerekir") — stub'ın
+ * davranışıyla aynı.
+ */
+async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
+    const stored = await readProfile();
+    if (!stored) return fail('no_session');
+    if (stored.profile.actor === 'staff') {
+        await tokens.clearDevice();
+        await tokens.clearStaff();
+        await clearProfile();
+        return done({ target: 'welcome' });
+    }
+    return signOut();
+}
+
+async function accountRequestDeletion(): Promise<AuthResult<AuthAccountDeletionRequest>> {
+    const stored = await readProfile();
+    if (!stored || stored.profile.actor !== 'manager') return fail('no_session');
+    return done({ reauthRequired: true });
+}
+
+/**
+ * Şifreyle yeniden doğrulayıp GERÇEKTEN siler. Şifre sunucuya soruluyor,
+ * cihazda karşılaştırılmıyor; silme `account-delete`in kararı.
+ */
+async function accountConfirmDeletion(password: string): Promise<AuthResult<AuthAccountDeletionConfirmation>> {
+    const stored = await readProfile();
+    if (!stored || stored.profile.actor !== 'manager' || !stored.profile.email) return fail('no_session');
+    const { error } = await supabase.auth.signInWithPassword({ email: stored.profile.email, password });
+    if (error) return fail('invalid_credentials');
+    const result = await deleteAccount(stored.profile.business.id);
+    if (!result.ok) return fail(result.reason === 'no-session' ? 'no_session' : 'offline');
+    await clearProfile();
+    return done({ target: 'welcome' });
+}
+
 export const auth = {
     getLaunchState,
     manager: {
@@ -416,4 +524,12 @@ export const auth = {
         authenticate: authenticateBiometric,
     },
     resume: { get: resumeSession, signOut },
+    account: {
+        get: accountOverview,
+        prepareBusinessSwitch: accountBusinessSwitch,
+        setBiometric,
+        signOut: accountSignOut,
+        requestDeletion: accountRequestDeletion,
+        confirmDeletion: accountConfirmDeletion,
+    },
 } as const;

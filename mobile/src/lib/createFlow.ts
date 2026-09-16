@@ -43,8 +43,13 @@ export interface CustomerOption {
     name: string;
     /** E.164. Ekranda asla ham gösterilmez. */
     phone: string;
-    /** "son 2 Ağu" ya da "Bugün 11:00 · Saç boyama" */
+    /** "son 2 Ağu" ya da "Bugün 11:00 · Saç boyama"; hiç gelmediyse boş. */
     hint: string;
+    /**
+     * Son görüldüğü an ("2026-09-16 11:00:00") — "Son gelenler"in sırası.
+     * Hiç randevusu yoksa yok.
+     */
+    seen?: string;
     /** Hizmet türü rengi — avatar kenarlığı. */
     color?: string;
 }
@@ -53,8 +58,11 @@ export interface ServiceOption {
     id: string;
     name: string;
     minutes: number;
-    /** Kuruş değil, tam TL. */
-    price: number;
+    /**
+     * Kuruş değil, tam TL. `null` — katalogda fiyat YAZILMAMIŞ. Sıfır
+     * değil: "₺0" bedava bir hizmet söylerdi.
+     */
+    price: number | null;
     color: string;
 }
 
@@ -336,8 +344,29 @@ export function slotRows(input: {
     onlyStaffId?: string | null;
     /** Taşınan randevu: kendi yerini dolu saymaz. */
     excludeId?: string;
+    /**
+     * Salonun o günkü açık aralığı (`createLive.openWindowOf`).
+     * `undefined` — bilinmiyor, varsayılan 09–20 taranır.
+     * `null` — o gün KAPALI: bütün satırlar kapalı, sebebi yazılı.
+     */
+    hours?: { from: number; to: number } | null;
+    /**
+     * Seçilen gün BUGÜNSE şimdiki dakika. Tamamen geçmiş kutu seçilemez.
+     * Başlamış kutu (09:30 kutusu, saat 09:40) seçilebilir: randevusuz gelen
+     * müşteri böyle yazılıyor ve masaüstü de tolerans kadar geriye izin veriyor.
+     */
+    nowMinutes?: number | null;
+    /**
+     * Personel bu aralıkta ÇALIŞIYOR mu (`createLive.staffWorksAt`). Verilmezse
+     * herkes açık sayılır. Çalışmayan personel o kutuya atanmıyor; kimse
+     * çalışmıyorsa kutu kapalı ve sebebi yazılı.
+     */
+    worksAt?: (staffId: string, from: number, to: number) => boolean;
 }): SlotRow[] {
     const { appointments, durationMinutes, onlyStaffId, excludeId } = input;
+    const openFrom = input.hours ? input.hours.from : OPEN_FROM;
+    const openTo = input.hours ? input.hours.to : OPEN_TO;
+    const now = input.nowMinutes ?? null;
     const pool = onlyStaffId
         ? input.staff.filter((person) => person.id === onlyStaffId)
         : input.staff;
@@ -352,16 +381,36 @@ export function slotRows(input: {
     const rows: SlotRow[] = [];
     const duration = Math.max(SLOT_STEP, durationMinutes);
 
-    for (let minutes = OPEN_FROM; minutes + duration <= OPEN_TO; minutes += SLOT_STEP) {
+    for (let minutes = openFrom; minutes + duration <= openTo; minutes += SLOT_STEP) {
         const time = hhmm(minutes);
         const end = minutes + duration;
+
+        if (input.hours === null) {
+            rows.push({ kind: 'closed', minutes, time, reason: 'Salon bu gün kapalı' });
+            continue;
+        }
+        if (now !== null && minutes + SLOT_STEP <= now) {
+            rows.push({ kind: 'closed', minutes, time, reason: 'Geçti' });
+            continue;
+        }
+
+        const onShift = input.worksAt
+            ? workable.filter((person) => input.worksAt!(person.id, minutes, end))
+            : workable;
 
         if (workable.length === 0) {
             rows.push({ kind: 'closed', minutes, time, reason: closedReason || 'Salon kapalı' });
             continue;
         }
+        if (onShift.length === 0) {
+            rows.push({
+                kind: 'closed', minutes, time,
+                reason: onlyStaffId ? `${pool[0]?.name ?? 'Personel'} bu saatte çalışmıyor` : 'Bu saatte çalışan yok',
+            });
+            continue;
+        }
 
-        const free = workable.find((person) => !appointments.some((appointment) => (
+        const free = onShift.find((person) => !appointments.some((appointment) => (
             appointment.staff_id === person.id && overlaps(appointment, minutes, end, excludeId)
         )));
 
@@ -371,7 +420,7 @@ export function slotRows(input: {
         }
 
         // Herkes dolu: ilk kişinin çakışan randevusunu gerekçe olarak yaz.
-        const first = workable[0];
+        const first = onShift[0];
         const blocking = appointments.find((appointment) => (
             appointment.staff_id === first.id && overlaps(appointment, minutes, end, excludeId)
         ));
@@ -440,7 +489,7 @@ export function summaryRows(draft: Draft, staff: readonly StaffOption[]): Summar
     if (person) {
         rows.push({ label: 'Kişi', value: person.name, initials: person.initials, color: person.color });
     }
-    if (draft.service) {
+    if (draft.service && draft.service.price !== null) {
         rows.push({ label: 'Tutar', value: formatPrice(draft.service.price), emphasis: true });
     }
     return rows;

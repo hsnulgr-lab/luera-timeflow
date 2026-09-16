@@ -9,19 +9,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
-import { addDaysISO, nowInMinutes, toMinutes, type Appt } from '../../src/lib/calendar';
-import { source } from '../../src/lib/calendarSource';
+import { addDaysISO, nowInMinutes, todayISO, toMinutes, type Appt } from '../../src/lib/calendar';
+import { apiSource, forgetOrg } from '../../src/lib/managerSource';
+import { authApi } from '../../src/api/session';
 import { dialable } from '../../src/lib/phone';
-import { mockSendResult, WA_CONNECTED } from '../../src/lib/mockSend';
+import { WA_CONNECTED } from '../../src/lib/mockSend';
+import { DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { orgDurum } from '../../src/lib/managerDurum';
+import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
 import type { CellKey } from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
     FlowDivider, FlowEnd, FlowRow, StaffStrip,
 } from '../../src/components/FlowParts';
 import {
-    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction, applySendResult,
-    applyWaitAction, DEMO_FLOW,
-    bookedEvent, DEMO_TICK_MS, headline, mockDay, nextInLineId, nowLineIndex,
+    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction,
+    applyWaitAction, bookedEvent, cancelSend, headline, nextInLineId, nowLineIndex,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
 import {
@@ -71,6 +74,12 @@ import { calendarMetrics, emptyDayMetrics, glow, scrubberMetrics, useTheme } fro
  * Eşikler Takvim ekranıyla birebir aynı — iki ekran farklı hızda toplanırsa
  * uygulama iki ayrı ürün gibi hissettirir.
  */
+/** Damganın saati — "son güncelleme 11:36". */
+const clockAt = (ms: number) => {
+    const at = new Date(ms);
+    return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+};
+
 export default function ManagerFlow() {
     const { c, dark, glass, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
@@ -90,19 +99,64 @@ export default function ManagerFlow() {
         return () => scrollY.removeListener(id);
     }, [insets.top, scrollY]);
 
-    const day = mockDay;
     /**
-     * Akış olayları YEREL durumda.
+     * Akış olayları SUNUCUDAN.
      *
-     * "Geldi", "Gelmedi" ve "Tahsil et" sunucuya gitmiyor — müdür ucu henüz
-     * yazılmadı. Ama butonlar da ÖLÜ DEĞİL: dokununca olayın türü gerçekten
-     * değişiyor, satır kendi rengini ve eylemlerini yeniden kuruyor. Sahte bir
-     * "kaydedildi" mesajı YOK; değişen şey ekranda görünen şeyin ta kendisi.
-     *
-     * Uç yazıldığında bu state sunucudan beslenecek ve `applyFlowAction`
-     * iyimser güncelleme katmanına dönüşecek.
+     * Veritabanında karşılığı olan dokunuşlar GERÇEKTEN yazılıyor: "Geldi",
+     * "Geç geldi", geri alması, "Onayla", "Reddet". Karşılığı OLMAYANLAR
+     * yazıyormuş gibi yapmıyor:
+     *   • "Tahsil et" artık sahte bir ödeme üretmiyor — Kasa'yı açıyor.
+     *     Tahsilat para hareketi; ekranda "tahsil edildi" deyip Kasa'da
+     *     bekleyen bir adisyon bırakmak çift tahsilata davetiye olurdu.
+     *   • "Gelmedi"nin masaüstünde de kaydı yok — orada da süreden
+     *     türetiliyor. Burada müdürün kendi ekranındaki bir işaret olarak
+     *     kalıyor ve yenilemede sıfırlanıyor.
      */
-    const { events, replace, reload, tick } = useManagerDay();
+    const {
+        events, replace, reload, write, stampNow, state, refusal, stale, at: readAt,
+        presence, appointmentCount,
+    } = useManagerDay();
+
+    /**
+     * Reddedilen yazmanın ekrandaki karşılığı — kart kapanmıyor, müdür neyin
+     * olmadığını görüyor.
+     */
+    const [refused, setRefused] = useState<WriteOutcome | null>(null);
+
+    /**
+     * Reddin tek hamlesi — takvim ekranıyla AYNI karar: salon seçmesi gereken
+     * müdürün oturumu DURUYOR, erişimi kaldırılmış müdürün oturumu kapanıyor.
+     */
+    const onRefusalAction = useCallback(async () => {
+        if (refusal === 'ambiguous') {
+            forgetOrg();
+            router.push('/(auth)/manager/business');
+            return;
+        }
+        await authApi.resume.signOut().catch(() => undefined);
+        forgetOrg();
+        router.replace('/(auth)/welcome');
+    }, [refusal, router]);
+
+    /**
+     * Yazmayı dener; tutarsa yerel hâli uygular, tutmazsa HİÇBİR ŞEY
+     * değişmez ve sebep söylenir. Önce yerel, sonra yazma DEĞİL: reddedilmiş
+     * bir "Geldi"yi bir an için bile göstermek, personele gitmemiş bir
+     * bildirimi gitmiş gibi gösterirdi.
+     */
+    const commit = useCallback(async (
+        event: FlowEvent, next: FlowEvent, patch: Record<string, unknown>,
+    ) => {
+        if (!event.appointmentId) return false;
+        setRefused(null);
+        const outcome = await write(event.appointmentId, patch);
+        if (!outcome.ok) {
+            setRefused(outcome);
+            return false;
+        }
+        replace(event.id, next);
+        return true;
+    }, [write, replace]);
 
     /**
      * "Geldi"ye BU OTURUMDA basılan satır. Bekleme kartı yalnız o satırda geri
@@ -118,7 +172,7 @@ export default function ManagerFlow() {
             if (event.appointmentId) {
                 router.push({
                     pathname: '/randevu/[id]',
-                    params: { id: event.appointmentId, date: mockDay.dateISO },
+                    params: { id: event.appointmentId, date: todayISO() },
                 });
             }
             return;
@@ -136,23 +190,58 @@ export default function ManagerFlow() {
             router.navigate({
                 pathname: '/mudur/create',
                 params: {
-                    date: mockDay.dateISO,
+                    date: todayISO(),
                     start: String(toMinutes(event.time)),
                     staff: event.staffId ?? '',
                 },
             });
             return;
         }
+        /*
+         * TAHSİLAT KASADA.
+         *
+         * Burada yerel olarak "tahsil edildi"ye çevirmek, veritabanında hiçbir
+         * ödeme yokken müdüre parayı almış gibi göstermekti — ve Kasa aynı
+         * adisyonu bekleyen olarak göstermeye devam ederdi.
+         */
+        if (event.kind === 'due' && label === 'Tahsil et') {
+            router.navigate({ pathname: '/mudur/cash' });
+            return;
+        }
         const next = event.kind === 'arrived' ? applyWaitAction(event, label)
             : event.kind === 'noshow' ? applyNoshowAction(event, label)
                 : applyFlowAction(event, label);
         if (!next) return;
-        // Beklemeyi ya da gelmediyi BU OTURUMDA başlatan basış geri alma
-        // penceresini açar; "Geri al" onu kapatır. Kalan eylemler dokunmaz.
-        if (['Geldi', 'Gelmedi', 'Geç geldi', 'Tahsil et', 'Onayla'].includes(label)) setFreshId(event.id);
-        else if (label === 'Geri al') setFreshId((id) => (id === event.id ? null : id));
+
+        const markFresh = () => {
+            if (['Geldi', 'Gelmedi', 'Geç geldi', 'Onayla'].includes(label)) setFreshId(event.id);
+            else if (label === 'Geri al') setFreshId((id) => (id === event.id ? null : id));
+        };
+
+        // ── Veritabanında karşılığı OLAN dokunuşlar ──────────────────────────
+        const arrivedNow = (event.kind === 'next' && label === 'Geldi')
+            || (event.kind === 'noshow' && label === 'Geç geldi');
+        if (arrivedNow) {
+            // Damga SUNUCU saatiyle: cihazın saati yanlışsa bekleme süresi
+            // de yanlış hesaplanırdı.
+            void commit(event, next, { customer_arrived_at: stampNow() }).then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+        if (event.kind === 'arrived' && label === 'Geri al') {
+            void commit(event, next, { customer_arrived_at: null }).then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+        if (event.kind === 'booked' && label === 'Onayla') {
+            void commit(event, next, { status: 'confirmed' }).then((ok) => { if (ok) markFresh(); });
+            return;
+        }
+
+        // ── Karşılığı OLMAYANLAR — müdürün kendi ekranında kalıyor ────────────
+        // "Gelmedi" · "Reddet" penceresi · "Personele söyle" · "Beklemeye al".
+        // Reddetmenin YAZMASI pencere dolunca yapılıyor (aşağıda).
+        markFresh();
         replace(event.id, next);
-    }, [router, replace]);
+    }, [router, replace, commit, stampNow]);
 
 
     /**
@@ -181,12 +270,14 @@ export default function ManagerFlow() {
     }, [router, replace]);
 
     /**
-     * Gönderim penceresi — 5 saniye geri sayar, sonra gönderir.
+     * Gönderim penceresi — 5 saniye geri sayar, sonra WhatsApp'ı açar.
      *
-     * SUNUCU UCU HENÜZ YOK. Müdür modunun tamamı sahte kaynak üstünde çalışıyor
-     * ("Geldi" bile sunucuya gitmiyor); `Yaz` da aynı katmanda duruyor ve
-     * sonucu `mockSendResult` üretiyor. Uç yazıldığında değişecek tek yer o
-     * fonksiyon — pencere, damga ve beş hâlin tamamı olduğu gibi kalır.
+     * Müdürün mesaj GÖNDEREN bir ucu henüz yok. Pencere dolunca eskiden
+     * `mockSendResult` bir SONUÇ uyduruyordu ("iletildi", "kuyrukta") — canlı
+     * veride bu, gerçek bir müşteriye gitmemiş bir mesajı gitmiş gibi
+     * göstermekti. Artık pencere dolunca telefonun kendi WhatsApp'ı o
+     * müşteriyle açılıyor: tıpkı "Ara"nın telefonu açması gibi gerçek bir
+     * eylem, uydurma bir sonuç YOK. Beş saniyelik vazgeçme payı olduğu gibi.
      */
     useEffect(() => {
         const sending = events.filter((event) => (event.sendingLeft ?? 0) > 0);
@@ -195,41 +286,38 @@ export default function ManagerFlow() {
         const id = setTimeout(() => {
             for (const event of sending) {
                 const left = (event.sendingLeft ?? 0) - 1;
-                replace(event.id, left > 0
-                    ? { ...event, sendingLeft: left }
-                    : applySendResult(event, mockSendResult(event)));
+                if (left > 0) { replace(event.id, { ...event, sendingLeft: left }); continue; }
+                const digits = dialable(event.customerPhone)?.replace(/\D/g, '');
+                if (digits) void Linking.openURL(`https://wa.me/${digits}`);
+                // Pencere kapanıyor, SONUÇ YAZILMIYOR: sonucu bilen yok.
+                replace(event.id, cancelSend(event));
             }
-            // Reddetme penceresi de aynı kalıpta: dolunca randevu iptal olur.
+            /*
+             * Reddetme penceresi dolunca randevu GERÇEKTEN iptal ediliyor.
+             * Masaüstündeki iptalle aynı yazma: sunucu tarafındaki bekleme
+             * listesi bildirimi de oradan tetikleniyor.
+             */
             for (const event of rejecting) {
                 const left = (event.rejectedLeft ?? 0) - 1;
-                replace(event.id, left > 0
-                    ? { ...event, rejectedLeft: left }
-                    : { ...event, rejectedLeft: undefined, kind: 'cancelled' });
+                if (left > 0) { replace(event.id, { ...event, rejectedLeft: left }); continue; }
+                const cleared = { ...event, rejectedLeft: undefined };
+                void commit(event, { ...cleared, kind: 'cancelled' }, { status: 'cancelled' })
+                    .then((ok) => {
+                        // Yazma tutmadıysa pencere kapanıp randevu OLDUĞU gibi kalıyor.
+                        if (!ok) replace(event.id, cleared);
+                    });
             }
         }, 1000);
         return () => clearTimeout(id);
-    }, [events, replace]);
+    }, [events, replace, commit]);
 
-    /**
-     * DEMO SAATİ — sunucu bağlanınca silinecek.
-     *
-     * Tasarımın iki hareketi canlı veriye bağlıydı: eşik geçişi dakikanın
-     * akmasını, BEKLİYOR → SÜRÜYOR dönüşümü personelin işlemi başlatmasını
-     * bekliyor. `visit.arrive` ucu yazılana kadar ikisi de cihazda hiç
-     * görülemezdi; bu sayaç onları görülebilir kılıyor.
-     */
-    useEffect(() => {
-        if (!DEMO_FLOW) return;
-        const id = setInterval(tick, DEMO_TICK_MS);
-        return () => clearInterval(id);
-    }, [tick]);
 
     /**
      * Bekleyen bir satır işleme dönüştüğünde onu "taze" işaretler — canlı kart
      * o zaman dönüşerek girer. Diff burada yapılıyor çünkü `setEvents`
      * güncelleyicisi saf kalmalı: React onu iki kez çağırabilir.
      */
-    const kinds = useRef(new Map(mockDay.events.map((event) => [event.id, event.kind])));
+    const kinds = useRef(new Map<string, FlowEvent['kind']>());
     useEffect(() => {
         for (const event of events) {
             if (kinds.current.get(event.id) === 'arrived' && event.kind === 'started') {
@@ -243,9 +331,8 @@ export default function ManagerFlow() {
      * Aşağı çekip yenileme.
      *
      * Müdür telefonu açtığında refleksle aşağı çeker; hiçbir şey olmaması
-     * uygulamanın donduğu izlenimi verir. Uç yazılana kadar tek kaynağımız
-     * `mockDay` — yenileme onu gerçekten yeniden okur, yani yerel dokunuşlar
-     * sıfırlanır. Sahte bir bekleme animasyonu YOK.
+     * uygulamanın donduğu izlenimi verir. Yenileme sunucuyu gerçekten yeniden
+     * okur; müdürün kendi ekranındaki işaretler ("Gelmedi") sıfırlanır.
      */
     const [refreshing, setRefreshing] = useState(false);
     const onRefresh = useCallback(() => {
@@ -260,14 +347,13 @@ export default function ManagerFlow() {
         if (!event.appointmentId) return;
         router.push({
             pathname: '/randevu/[id]',
-            params: { id: event.appointmentId, date: mockDay.dateISO },
+            params: { id: event.appointmentId, date: todayISO() },
         });
     }, [router]);
-    // Cetvelin seçtiği gün. Akış listesi BU DEĞERE BAĞLI DEĞİL: sunucuda
-    // "o günün olayları" ucu yok, sahte bir gün üretmek çalışıyor izlenimi
-    // verirdi. Uç yazıldığında liste buradan beslenecek.
-    const [selectedISO, setSelectedISO] = useState(mockDay.dateISO);
-    const people = useMemo(() => sortPresence(day.presence), [day.presence]);
+    // Cetvelin seçtiği gün. Bugün canlı olay akışı, başka gün o günün
+    // randevuları — ikisi de veritabanından.
+    const [selectedISO, setSelectedISO] = useState(() => todayISO());
+    const people = useMemo(() => sortPresence(presence), [presence]);
 
     /**
      * Cetvel gerçekten GÜN DEĞİŞTİRİR.
@@ -279,7 +365,7 @@ export default function ManagerFlow() {
      * Elimizde tek gün var; başka güne geçince liste boş çıkar ve bunu dürüst
      * bir cümleyle söyler. Uç yazıldığında yalnız bu filtre sunucuya döner.
      */
-    const isToday = selectedISO === mockDay.dateISO;
+    const isToday = selectedISO === todayISO();
 
     /**
      * Başka günün randevuları.
@@ -295,9 +381,10 @@ export default function ManagerFlow() {
     const loadOtherDay = useCallback(() => {
         if (isToday) { setOtherDay([]); return undefined; }
         let alive = true;
-        void source.day(selectedISO).then((list) => {
-            if (alive) setOtherDay(list);
-        });
+        apiSource.day(selectedISO)
+            .then((list) => { if (alive) setOtherDay(list); })
+            // Okunamayan gün ELDEKİ listeyi bozmuyor; boş güne çevrilmiyor.
+            .catch(() => undefined);
         return () => { alive = false; };
     }, [isToday, selectedISO]);
 
@@ -311,18 +398,26 @@ export default function ManagerFlow() {
             .filter((appointment) => appointment.status !== 'cancelled')
             .map((appointment) => bookedEvent(
                 appointment,
-                day.presence.find((person) => person.id === appointment.staff_id)?.name,
+                presence.find((person) => person.id === appointment.staff_id)?.name,
             ));
-    }, [isToday, events, otherDay, day.presence]);
+    }, [isToday, events, otherDay, presence]);
 
     // Şerit ve özet ŞU ANIN gerçeği — başka bir gün seçiliyken anlamsızlar.
     // Bugünün cirosunu "14 Ağustos" başlığı altında göstermek yalan olurdu.
     const weekday = new Date(`${selectedISO}T00:00:00Z`)
         .toLocaleDateString('tr-TR', { weekday: 'long', timeZone: 'UTC' });
     // "Kaç işlem sürüyor" ŞERİTTEN türer, ayrı tutulmaz.
-    const subtitle = isToday
-        ? headline(weekday, day.appointmentCount, activeCountOf(people))
-        : weekday;
+    /*
+     * Bugünün alt başlığı ÜÇ hâli ayırıyor. Okunamayan bir gün
+     * "0 randevu" diye yazılsaydı müdür salonun boş olduğunu sanardı.
+     * Bayatsa sayının yerini son okumanın saati alıyor.
+     */
+    const subtitle = !isToday ? weekday
+        : state === 'error' ? `${weekday} · okunamadı`
+            : state === 'loading' && events.length === 0 ? weekday
+                : stale && readAt !== null
+                    ? `${weekday} · son güncelleme ${clockAt(readAt)}`
+                    : headline(weekday, appointmentCount, activeCountOf(people));
     /**
      * Müdür 22 — boş gün.
      *
@@ -341,11 +436,19 @@ export default function ManagerFlow() {
     const inLineId = useMemo(() => nextInLineId(dayEvents), [dayEvents]);
 
 
-    const isEmptyDay = dayEvents.length === 0;
+    /*
+     * BUGÜN BİLİNMİYORSA boş gün DEĞİL.
+     *
+     * Veri gelmeden olay listesi boş ve ekran bunu Müdür 22'nin "boş gün"
+     * tasarımıyla çiziyordu — okunamayan ya da henüz okunmamış bir günü boş
+     * gün diye göstermek. Bilinmeyen gün boş gün düzenine hiç girmiyor.
+     */
+    const todayUnknown = isToday && state !== 'ok' && events.length === 0;
+    const isEmptyDay = !todayUnknown && dayEvents.length === 0;
     const platePermanent = plateIsPermanent(isEmptyDay, isToday);
     const canScroll = scrollEnabledOnDay(isEmptyDay, isToday);
-    const blank = emptyDayCopy(selectedISO, mockDay.dateISO);
-    const pedal = dayPedal(selectedISO, mockDay.dateISO);
+    const blank = emptyDayCopy(selectedISO, todayISO());
+    const pedal = dayPedal(selectedISO, todayISO());
 
     // Gün değişiminin YÖNÜ: cümle bu yöne doğru takas edilir.
     const [slideDir, setSlideDir] = useState(0);
@@ -467,7 +570,15 @@ export default function ManagerFlow() {
     const panelInset = scrubberInset(small);
 
     // Şeritten avatara dokununca o personelin günü açılır (Müdür 05).
-    const openStaff = (staffId: string) => router.push(`/personel/${staffId}`);
+    /*
+     * GÜN de taşınıyor. Taşınmayınca personel günü ekranı hep BUGÜNÜ
+     * çiziyordu: müdür şeritte yarını seçip bir avatara dokunduğunda bugünün
+     * randevularını görüyor ve farkı anlamıyordu.
+     */
+    const openStaff = (staffId: string) => router.push({
+        pathname: '/personel/[id]',
+        params: { id: staffId, date: selectedISO },
+    });
 
     /**
      * Akıştaki müşteri balonu → Müdür 23 müşteri kartı.
@@ -585,6 +696,58 @@ export default function ManagerFlow() {
                     <Animated.View style={{ opacity: stripOpacity }}>
                         <StaffStrip people={people} onOpen={openStaff} />
                     </Animated.View>
+                ) : null}
+
+                {/*
+                  * BUGÜN BİLİNMİYORSA söyleniyor — boş gün çizilmiyor.
+                  * Sıra önemli: red, okunamamadan ÖNCE. Birinde beklemek bir
+                  * seçenek, ötekinde değil.
+                  */}
+                {isToday && refusal ? (
+                    <DurumBlock
+                        tone={orgDurum(refusal).tone}
+                        title={orgDurum(refusal).title}
+                        lines={orgDurum(refusal).lines}
+                        actions={[{
+                            label: orgDurum(refusal).action.label,
+                            onPress: () => { void onRefusalAction(); },
+                        }]}
+                        style={{ marginHorizontal: 16, marginBottom: 16 }}
+                    />
+                ) : todayUnknown && state === 'error' ? (
+                    <DurumUnread
+                        what="Bugünün akışını"
+                        notMeaning="Salonun boş olduğu"
+                        onRetry={reload}
+                        style={{ paddingHorizontal: 16 }}
+                    />
+                ) : null}
+
+                {/* Tutmayan yazma: hiçbir şey değişmedi, sebebi burada. */}
+                {refused && !refused.ok ? (
+                    <DurumBlock
+                        tone={refused.kind === 'stale' ? 'amber' : 'red'}
+                        title={
+                            refused.kind === 'stale' ? STALE_TITLE
+                                : refused.kind === 'paused' ? 'Değişiklik şimdilik alınmıyor'
+                                    : 'Değişiklik uygulanmadı'
+                        }
+                        lines={[
+                            refused.kind === 'stale' ? STALE_LINE
+                                : refused.kind === 'conflict' ? refused.message
+                                    : refused.kind === 'paused' ? 'Kısa bir süre sonra tekrar deneyin.'
+                                        : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                        ]}
+                        actions={[{
+                            label: 'Anladım',
+                            onPress: () => {
+                                setRefused(null);
+                                // Bayat kilitte güncel hâl getiriliyor.
+                                if (refused.kind === 'stale') reload();
+                            },
+                        }]}
+                        style={{ marginHorizontal: 16, marginBottom: 16 }}
+                    />
                 ) : null}
 
                 {isEmptyDay ? (
@@ -759,7 +922,7 @@ export default function ManagerFlow() {
                 <View style={{ flex: 1, paddingTop: insets.top + topGap }}>
                     <DayScrubber
                         selectedISO={selectedISO}
-                        todayISO={day.dateISO}
+                        todayISO={todayISO()}
                         width={panelWidth}
                         // Cetvel ŞİMDİLİK yalnız görünüş: seçili gün değişiyor
                         // ama akış listesi aynı kalıyor. Sunucuda "o günün

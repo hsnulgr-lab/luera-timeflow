@@ -321,8 +321,12 @@ test('ekran sekme grubunun DIŞINDADIR', () => {
     assert.ok(!exists('app/mudur/staff/[id].tsx'), 'hâlâ sekme grubunun içinde');
 });
 
-test('şeritten avatara dokununca personelin günü açılır', () => {
-    assert.match(flow, /const openStaff = \(staffId: string\) => router\.push\(`\/personel\/\$\{staffId\}`\)/);
+test('şeritten avatara dokununca personelin günü SEÇİLİ GÜNLE açılır', () => {
+    // Gün taşınmayınca ekran hep BUGÜNÜ çiziyordu: müdür şeritte yarını seçip
+    // bir avatara dokunduğunda bugünün randevularını görüyor ve farkı
+    // anlamıyordu.
+    assert.match(flow, /pathname: '\/personel\/\[id\]'/);
+    assert.match(flow, /params: \{ id: staffId, date: selectedISO \}/);
 });
 
 test('hareket sözleşmesi: staffDayMotion süre ve eğrileri tasarımla birebir', () => {
@@ -439,7 +443,8 @@ test('randevu akışına doğru parametreler gider: staff + date', () => {
     // `staffId` diye gönderilirse akış ön dolgusu sessizce boş kalır.
     assert.ok(!/params: \{ staffId \}/.test(route));
     assert.ok(/staff: staffId/.test(route));
-    assert.ok(/date: dateISO/.test(route));
+    // Tarih adı değişebilir; TAŞINDIĞI değişemez.
+    assert.ok(/date: \w+/.test(route));
 });
 
 test('uydurma telefon numarası çevrilmez', () => {

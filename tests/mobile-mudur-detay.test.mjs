@@ -18,6 +18,7 @@ import {
     isEditable, priceOfService, serviceChoices, serviceSheetSubtitle,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
 } from '../mobile/src/lib/appointmentDetail.ts';
+import { mockServices as CATALOG } from '../mobile/src/lib/createFlow.ts';
 // Baş harf üç ayrı yerden tek yere taşındı — bkz. `text.initialsOf`.
 import { initialsOf } from '../mobile/src/lib/text.ts';
 import { NOTE_MAX, NOTE_WARN } from '../mobile/src/theme/tokens.ts';
@@ -163,8 +164,11 @@ test('Geldi/Gelmedi yalnız bekleyende ÇİZİLİR, ötekilerde YOK', () => {
 
 test('"Geldi" müşterinin GELİŞİNİ damgalar, hizmeti başlatmaz', () => {
     // Hizmeti personel başlatır; `arrived_at` müdürün basacağı damga değil.
-    assert.match(route, /customer_arrived_at: `\$\{hhmm\(now\)\}:00`/);
-    assert.ok(!/arrived_at: `\$\{hhmm/.test(route.replace(/customer_arrived_at/g, '')));
+    //
+    // Damga artık TAM ZAMAN: "HH:MM:00" bir saat değil, saat dilimsiz bir
+    // metindi ve sunucu onu tarihsiz okuyup bekleme süresini hesaplayamazdı.
+    assert.match(route, /customer_arrived_at: stamp \}/);
+    assert.ok(!/[^_]arrived_at:/.test(route.replace(/customer_arrived_at:/g, '')));
 });
 
 // ── Müşteri özeti: iki anatomi ──────────────────────────────────────────────
@@ -216,7 +220,7 @@ test('paket varsa ilerleme gösterilir', () => {
 
 test('dört eşit satır İKİYE ayrıldı', () => {
     const tiles = changeTiles(base, 'Selin');
-    const rows = changeRows(base);
+    const rows = changeRows(base, CATALOG);
     assert.deepEqual(tiles.map((tile) => tile.action), ['time', 'staff']);
     assert.deepEqual(rows.map((row) => row.action), ['service', 'note']);
     // Jeton h84, satır h62 — hiyerarşi tek bakışta okunur.
@@ -235,17 +239,21 @@ test('jeton NE OLDUĞUNU söyler, vaat etmez', () => {
 });
 
 test('satır değeri ücreti taşır, ücret kırpılmaz', () => {
-    const [service, note] = changeRows(base);
+    // Katalog testin ÖRNEĞİ; kart salonun gerçek kataloğunu alıyor (aşağıda).
+    const [service, note] = changeRows(base, CATALOG);
     assert.equal(service.value, 'Keratin bakımı · ₺1.800');
     assert.equal(note.value, 'Not yok');
-    assert.equal(priceOfService('Keratin bakımı'), 1800);
-    assert.equal(priceOfService('Olmayan hizmet'), null);
-    assert.equal(changeRows({ ...base, service: 'Olmayan hizmet' })[0].value, 'Olmayan hizmet');
+    assert.equal(priceOfService('Keratin bakımı', CATALOG), 1800);
+    assert.equal(priceOfService('Olmayan hizmet', CATALOG), null);
+    assert.equal(changeRows({ ...base, service: 'Olmayan hizmet' }, CATALOG)[0].value, 'Olmayan hizmet');
+    // Fiyatı yazılmamış hizmet ₺0 DEĞİL: satırda yalnız ad.
+    const noPrice = [{ id: 'k', name: 'Keratin bakımı', minutes: 45, price: null, color: '#8FA98C' }];
+    assert.equal(changeRows(base, noPrice)[0].value, 'Keratin bakımı');
     assert.match(parts, /ellipsizeMode="tail"/);
 });
 
 test('dolu not önizleme olarak görünür', () => {
-    assert.equal(changeRows({ ...base, notes: 'Saç boyası alerjisi var' })[1].value, 'Saç boyası alerjisi var');
+    assert.equal(changeRows({ ...base, notes: 'Saç boyası alerjisi var' }, CATALOG)[1].value, 'Saç boyası alerjisi var');
 });
 
 test('her chevron gerçekten bir şey açıyor', () => {
@@ -262,7 +270,7 @@ test('çakışma SEÇMEDEN ÖNCE yazılı ve engellemiyor', () => {
     const blocking = {
         ...base, id: 'a2', start_time: '11:00:00', end_time: '12:30:00', service: 'Saç boyama',
     };
-    const choices = serviceChoices(base, [base, blocking], 'Selin');
+    const choices = serviceChoices(base, [base, blocking], 'Selin', CATALOG);
     const boya = choices.find((choice) => choice.name === 'Saç boyama');
     assert.equal(boya.clash, 'Selin · 11:00–12:30 ile çakışır');
     // Engellenmiyor: müdür bilerek çakıştırabilir.
@@ -272,16 +280,18 @@ test('çakışma SEÇMEDEN ÖNCE yazılı ve engellemiyor', () => {
 });
 
 test('uzayan süre işaretli, seçili hizmet işaretli', () => {
-    const choices = serviceChoices(base, [base], 'Selin');
+    const choices = serviceChoices(base, [base], 'Selin', CATALOG);
     assert.equal(choices.find((choice) => choice.name === 'Keratin bakımı').selected, true);
     assert.equal(choices.find((choice) => choice.name === 'Saç boyama').longer, true);
     assert.equal(choices.find((choice) => choice.name === 'Kaş alma').longer, false);
 });
 
 test('hizmet değişince BLOK UZAR', () => {
-    const boya = serviceChoices(base, [base], 'Selin').find((choice) => choice.name === 'Saç boyama');
+    const boya = serviceChoices(base, [base], 'Selin', CATALOG).find((choice) => choice.name === 'Saç boyama');
     const next = applyService(base, boya);
     assert.equal(next.service, 'Saç boyama');
+    // Renk de hizmetle birlikte değişiyor.
+    assert.equal(next.service_color, boya.color);
     assert.equal(next.end_time, '12:00:00');
     assert.equal(next.start_time, '10:30:00');
 });
@@ -519,10 +529,38 @@ test('not sayfası klavyenin altında kalmaz', () => {
 });
 
 test('taşıma KAYNAĞA yazılır — kartı kapatınca eski saate dönmez', () => {
+    /*
+     * Artık GERÇEK kaynağa: sahte katman kalktı, taşıma veritabanına yazılıyor
+     * ve iyimser kilitle korunuyor. Kartı kapatınca eski saate dönmemesinin
+     * sebebi artık yerel bir kopya değil, yazmanın kendisi.
+     */
     const detail = code('app/(manager-flow)/randevu/[id].tsx');
-    assert.match(detail, /updateLocalAppointment\(moved\)/);
+    assert.doesNotMatch(detail, /updateLocalAppointment/);
+    assert.doesNotMatch(detail, /calendarSource/);
+    assert.match(detail, /const moved = applyMove\(appointment, target\);/);
+    assert.match(detail, /void commit\(moved, target\.staffName\)/);
+});
+
+test('CANLI takvimde taşıma SUNUCUYA yazılıyor', () => {
+    /*
+     * Takvim bir zamanlar taşımayı yalnız yerel bir katmana yazıyordu ve
+     * sonuç sayfası "taşındı" diyordu: ekran yenilenince randevu eski yerine
+     * dönüyor, masaüstü hiçbir şey görmüyordu. Müdürün en pahalı hatası bu
+     * olurdu — yapılmış sandığı ve aslında hiç yapılmamış bir işlem.
+     *
+     * Artık randevu kartıyla AYNI yoldan yazılıyor; kural `useMoveWriter`da.
+     */
     const calendar = code('app/mudur/calendar.tsx');
-    assert.match(calendar, /updateLocalAppointment\(moved\)/);
+    assert.doesNotMatch(calendar, /updateLocalAppointment/);
+    assert.doesNotMatch(calendar, /from '\.\.\/\.\.\/src\/lib\/calendarSource'/);
+    assert.match(calendar, /useMoveWriter\(data\.rows, data\.stamps, reload\)/);
+    assert.match(calendar, /await commit\(appointment, applyMove\(appointment, target\), target\.staffName\)/);
+    // Sonuç sayfası yalnız sunucu KABUL ettiyse açılıyor.
+    assert.match(calendar, /if \(!ok\) return;/);
+    // Ve yazma iyimser kilide dayanıyor — damgasız satır taşınmıyor.
+    const writer = code('src/lib/managerMove.ts');
+    assert.match(writer, /updateAppointment\(\s*\n?\s*appointment\.id, base, writablePatch\(next\), staffName,/);
+    assert.match(writer, /if \(!base\) \{ setRefused\(\{ ok: false, kind: 'failed' \}\); return false; \}/);
 });
 
 test('taşınan randevu eski gününde KALMAZ', () => {
@@ -563,17 +601,36 @@ test('okunamayan gün "randevu silinmiş" DEMİYOR', () => {
     // `.catch(() => setLoaded(true))` ile hata, "bulunamadı" ekranına
     // dönüşüyordu: ağ kesintisi müdüre randevunun SİLİNDİĞİNİ söylüyordu.
     // İkisi ayrı hâl ve ayrı cümle; aynı bileşen, değişen tek şey söz.
+    // Kural aynı, yeri değişti: hâller ortak okuma katmanından geliyor.
     const screen = code('app/(manager-flow)/randevu/[id].tsx');
-    assert.doesNotMatch(screen, /\.catch\(\(\) => \{ if \(alive\) setLoaded\(true\); \}\)/);
-    assert.match(screen, /setFailed\(true\);\s*setLoaded\(true\);/);
-    assert.match(screen, /\) : failed \? \(/);
-    assert.match(screen, /title="Randevu okunamadı"/);
-    // "Bulunamadı" hâli KALIYOR — gerçekten silinmiş randevu için doğru cevap.
-    assert.match(screen, /title="Randevu bulunamadı"/);
+    assert.doesNotMatch(screen, /setLoaded/);
+    // Okunamadı: durum dilinin ortak bloğu, "silinmiş" DEMEYEN cümlesiyle.
+    assert.match(screen, /state === 'error' \? \(/);
+    assert.match(screen, /notMeaning="Silinmiş olduğu"/);
+    // "Bulunamadı" hâli KALIYOR — gerçekten silinmiş randevu için doğru
+    // cevap. Ama YALNIZ okuma başarılıyken.
+    assert.match(screen, /state === 'ok' \? \(\s*\n\s*<Empty title="Randevu bulunamadı"/);
 });
 
 test('başarılı okuma önceki hatayı TEMİZLİYOR', () => {
     // Kalsaydı, hata sonrası bulunamayan bir randevu "okunamadı" derdi.
-    const screen = code('app/(manager-flow)/randevu/[id].tsx');
-    assert.match(screen, /setFailed\(false\);\s*setLoaded\(true\);/);
+    // Kural artık ortak katmanda ve her müdür ekranı için geçerli.
+    const hook = code('src/lib/managerRead.ts');
+    assert.match(hook, /setState\('ok'\);/);
+    assert.match(hook, /setRefusal\(null\);/);
+});
+
+test('kart salonun GERÇEK kataloğunu kullanıyor — sahte katalog yok', () => {
+    // "Hizmeti değiştir" sahte katalogdan besleniyordu: seçilen hizmet gerçek
+    // randevuya salonun hiç tanımlamadığı ad ve süreyle yazılıyordu.
+    const lib = code('src/lib/appointmentDetail.ts');
+    assert.doesNotMatch(lib, /mockServices/);
+    assert.match(lib, /return services\.map\(\(service\) =>/);
+    assert.match(page, /changeRows\(appointment, services\)/);
+    assert.match(page, /services=\{services\}/);
+    assert.match(sheets, /serviceChoices\(appointment, dayAppointments, staffName, services\)/);
+    assert.match(route, /services=\{data\.services\}/);
+    const hook = code('src/lib/managerAppointment.ts');
+    assert.match(hook, /fetchServices\(\),/);
+    assert.match(hook, /services: serviceOptionsOf\(catalog\),/);
 });

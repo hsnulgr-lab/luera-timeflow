@@ -15,14 +15,23 @@
  */
 
 import { ApiError, api } from '../api/staff';
-import { sendableOf, type AdisyonLine } from './adisyon.ts';
+import { linesDiffer, linesFromItems, sendableOf, type AdisyonLine } from './adisyon.ts';
 import { formulaOutcome, formulaPatch, type VisitFormula } from './formula.ts';
+import { todayISO } from './calendar.ts';
+import { observationOf, type StampObservation } from './visitStamp.ts';
 
 export interface WriteOutcome {
     /** Sunucunun hayırının kodu. `null` ise sunucu konuşmadı. */
     code: string | null;
     /** İş kuyruğa girdi — sinyal yok, sonra gidecek. */
     queued: boolean;
+    /**
+     * Sunucunun cevabındaki YENİ damga ve kalemler. Kumanda bunu gözlem
+     * olarak işlemezse kendi yazmasını yabancı değişiklik sanıyordu.
+     */
+    observation?: StampObservation | null;
+    /** Kalem yazmasından mı geldi — kumandanın kendi listesi mi. */
+    ownItems?: boolean;
 }
 
 function codeOf(cause: unknown): string {
@@ -53,12 +62,27 @@ export async function sendVisitToCash(
     if (skipped > 0) return { code: 'items_unsendable', queued: false };
 
     let queued = false;
+    let observation: StampObservation | null = null;
     try {
         const written = await api.visitItems(reservationId, items, expectedUpdatedAt);
         // Kuyruğa giren yazma `{ ok: false, queued: true }` dönüyor.
         if ((written as { queued?: boolean } | null)?.queued) queued = true;
+        observation = observationOf(written, items);
     } catch (cause) {
-        return { code: codeOf(cause), queued: false };
+        const code = codeOf(cause);
+        /*
+         * "ZATEN KAPANDI" HER ZAMAN BİR HATA DEĞİL.
+         *
+         * Zayıf sinyalde ilk istek sunucuya ulaşıp adisyonu kasaya düşürüyor
+         * ama cevabı telefona dönmüyor ya da gönderim ikinci kez tetikleniyor.
+         * Sonraki deneme `already_finished` alıyor ve ekran "gönderilemedi"
+         * diyordu — adisyon kasada dururken. Sunucudaki kalemler bizim
+         * gönderdiklerimizle AYNIYSA iş gerçekten gitmiş demek.
+         */
+        if (code === 'already_finished' && (await landedAsSent(reservationId, lines))) {
+            return { code: null, queued: false };
+        }
+        return { code, queued: false };
     }
 
     // Kalemler kuyrukta beklerken kapanışı göndermek, sunucuda BOŞ bir
@@ -68,11 +92,32 @@ export async function sendVisitToCash(
 
     try {
         const closed = await api.visitFinish(reservationId);
-        if ((closed as { queued?: boolean } | null)?.queued) return { code: null, queued: true };
+        if ((closed as { queued?: boolean } | null)?.queued) return { code: null, queued: true, observation, ownItems: true };
     } catch (cause) {
-        return { code: codeOf(cause), queued: false };
+        // Kalemler YAZILDI; kapanış takıldı. Damga yine de işlenmeli, yoksa
+        // bir sonraki deneme kendi kalem yazmamıza takılırdı.
+        return { code: codeOf(cause), queued: false, observation, ownItems: true };
     }
-    return { code: null, queued: false };
+    return { code: null, queued: false, observation, ownItems: true };
+}
+
+/**
+ * Sunucudaki ziyaret kapanmış ve kalemleri bizim gönderdiklerimiz mi?
+ *
+ * Okunamazsa `false`: emin olmadan "gitti" demek, gitmemiş bir adisyonu
+ * gitmiş gibi göstermek olurdu — asıl kaçınılan şey o.
+ */
+async function landedAsSent(reservationId: string, lines: readonly AdisyonLine[]): Promise<boolean> {
+    try {
+        const data = await api.agenda(todayISO()) as {
+            appointments?: { id: string; status?: string; adisyon_items?: unknown }[];
+        };
+        const row = (data.appointments ?? []).find((item) => item.id === reservationId);
+        if (!row || row.status !== 'completed') return false;
+        return !linesDiffer(lines, linesFromItems(row.adisyon_items));
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -87,7 +132,7 @@ export async function startVisit(reservationId: string): Promise<WriteOutcome> {
     try {
         const started = await api.visitStart(reservationId);
         if ((started as { queued?: boolean } | null)?.queued) return { code: null, queued: true };
-        return { code: null, queued: false };
+        return { code: null, queued: false, observation: observationOf(started) };
     } catch (cause) {
         return { code: codeOf(cause), queued: false };
     }
@@ -120,7 +165,7 @@ export async function writeVisitFormula(
 ): Promise<FormulaWriteOutcome> {
     try {
         const out = await api.visitFormula(reservationId, formulaPatch(draft));
-        return { code: null, ...formulaOutcome(out) };
+        return { code: null, ...formulaOutcome(out), observation: observationOf(out) };
     } catch (cause) {
         return { code: codeOf(cause), queued: false, saved: null };
     }

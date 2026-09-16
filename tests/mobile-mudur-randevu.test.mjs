@@ -478,7 +478,10 @@ test('akış SEKMENİN İÇİNDE: alt bar akış boyunca duruyor', () => {
     assert.ok(!/Yer tutucu|placeholder/i.test(screen));
     // Odaklanınca başka ekrana ITEN bir yönlendirici DEĞİL.
     assert.ok(!screen.includes('useFocusEffect'), 'sekme kendini başka ekrana itmemeli');
-    assert.ok(!/router\.push/.test(screen), 'akış sekmenin üstüne yığın açmamalı');
+    // Tek istisna: org reddinde salon seçimine gitmek — akışın değil oturumun
+    // işi (takvim ve Kasa ile aynı blok).
+    const withoutRefusal = screen.replace(/const onRefusalAction = useCallback\([\s\S]*?\}, \[refusal, router\]\);/, '');
+    assert.ok(!/router\.push/.test(withoutRefusal), 'akış sekmenin üstüne yığın açmamalı');
 });
 
 test('yüzen çubuk bar küçülünce zıplamıyor', () => {
@@ -521,12 +524,12 @@ test('takvimdeki boş saat gün, saat ve personeli taşır', () => {
 });
 
 test('randevu gerçekten kaydediliyor, sonra onay ekranı devralıyor', () => {
-    // Sunucuda oluşturma ucu YOK. Sahte bir "kaydedildi" mesajı da yok:
-    // randevu yerel takvim kaynağına yazılıyor, sonra Müdür 16 onay ekranı
-    // sonucu gösteriyor.
+    // Randevu VERİTABANINA yazılıyor (7. adım); yerel sahte kaynak yok.
+    // Onay ekranı yalnız yazma başarılıysa açılıyor.
     assert.ok(!/başarıyla|Kaydedildi/i.test(flow));
-    assert.ok(flow.includes('addLocalAppointment'));
-    assert.ok(flow.includes('draftToAppointment'));
+    assert.ok(!flow.includes('addLocalAppointment'));
+    assert.ok(!flow.includes('draftToAppointment'));
+    assert.match(flow, /void onCreate\(input, staffName\)\.then/);
     assert.ok(flow.includes('feedback.success()'));
     assert.ok(flow.includes('ConfirmScreen'));
 });

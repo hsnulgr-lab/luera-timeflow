@@ -5,7 +5,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreateFlow } from '../../src/components/CreateFlow';
-import { bookedEvent, mockDay } from '../../src/lib/managerFlow';
+import { DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { authApi } from '../../src/api/session';
+import { useCreateContext } from '../../src/lib/managerCreate';
+import { orgDurum } from '../../src/lib/managerDurum';
+import { bookedEvent } from '../../src/lib/managerFlow';
+import type { OrgRefusal } from '../../src/lib/managerMap';
+import { forgetOrg } from '../../src/lib/managerSource';
+import {
+    createAppointment, fireCreatedWebhook, sendConfirmation,
+} from '../../src/lib/managerWrite';
 import { useManagerDay } from '../../src/state/managerDay';
 import { useTheme } from '../../src/theme';
 
@@ -29,6 +38,12 @@ import { useTheme } from '../../src/theme';
  * elle yazmamıza gerek kalmaz. (Kaydırırken bar küçülüp sayı düştüğünde
  * çubuk zıplamasın diye `CreateFlow` payı gördüğü en büyük değerde dondurur.)
  *
+ * VERİ CANLI (müdür planı 7. adım). Bağlam burada okunuyor ve akış YALNIZ
+ * okuma bittikten sonra kuruluyor: müşteri kartından gelen ön dolgu,
+ * defter gelmeden kurulan bir akışta kaybolurdu. Okunamazsa akış hiç
+ * açılmıyor — boş bir hizmet listesiyle randevu kurdurmak yerine sebep
+ * yazıyor.
+ *
  * TASLAK SEKME DEĞİŞTİRİNCE SİLİNMEZ. Müdür yarıda Takvim'e bakıp geri
  * dönebilmeli — barı geri getirmenin sebebi bu. Taslak yalnız iki yerde
  * sıfırlanır: randevu kurulduğunda ve X'e basıldığında.
@@ -45,7 +60,21 @@ function CreateTabBody() {
     const { c } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { add } = useManagerDay();
+    const { add, dateISO: flowDay } = useManagerDay();
+    const ctx = useCreateContext();
+    /** Günün okumasından gelen red de aynı bloğa düşer. */
+    const [dayRefusal, setDayRefusal] = useState<OrgRefusal | null>(null);
+    const refusal = ctx.refusal ?? dayRefusal;
+    const onRefusalAction = useCallback(async () => {
+        if (refusal === 'ambiguous') {
+            forgetOrg();
+            router.push('/(auth)/manager/business');
+            return;
+        }
+        await authApi.resume.signOut().catch(() => undefined);
+        forgetOrg();
+        router.replace('/(auth)/welcome');
+    }, [refusal, router]);
     const params = useLocalSearchParams<{
         date?: string; start?: string; staff?: string; customerId?: string;
     }>();
@@ -98,8 +127,47 @@ function CreateTabBody() {
         <View style={{ flex: 1, backgroundColor: c.bg }}>
             {/* Kahraman levha her iki temada da koyu. */}
             <StatusBar style="light" />
+            {refusal ? (
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                    <DurumBlock
+                        tone={orgDurum(refusal).tone}
+                        title={orgDurum(refusal).title}
+                        lines={orgDurum(refusal).lines}
+                        actions={[{
+                            label: orgDurum(refusal).action.label,
+                            onPress: () => { void onRefusalAction(); },
+                        }]}
+                    />
+                </View>
+            ) : ctx.data === null ? (
+                ctx.state === 'error' ? (
+                    <View style={{ flex: 1, paddingTop: insets.top + 24 }}>
+                        <DurumUnread
+                            what="Randevu bilgilerini"
+                            notMeaning="Hizmet ya da müşteri olmadığı"
+                            onRetry={() => { void ctx.reload(); }}
+                        />
+                    </View>
+                ) : null
+            ) : (
             <CreateFlow
                 key={runId}
+                context={ctx.data}
+                onCreate={(input, staffName) => createAppointment(input, staffName, {
+                    nowMs: ctx.data
+                        ? ctx.data.serverNow + Math.max(0, Date.now() - ctx.data.deviceAt)
+                        : Date.now(),
+                    toleranceMin: ctx.data?.toleranceMin ?? 120,
+                }).then((result) => {
+                    // Masaüstünün "randevu kuruldu" haberi — adres yoksa hiç gitmez,
+                    // sonucu beklenmez.
+                    if (result.outcome.ok && result.row) {
+                        fireCreatedWebhook(ctx.data?.settings.webhookUrl ?? null, result.row, staffName);
+                    }
+                    return result;
+                })}
+                onSend={sendConfirmation}
+                onRefusal={setDayRefusal}
                 topInset={insets.top}
                 bottomInset={insets.bottom}
                 prefill={{
@@ -114,10 +182,13 @@ function CreateTabBody() {
                 // bugünün olayı değil. O gün cetvelden seçilince akış onu
                 // kaynaktan okur (Müdür 03 · başka günün randevuları).
                 onCreated={(appointment, staffName) => {
-                    if (appointment.date !== mockDay.dateISO) return;
+                    if (appointment.date !== flowDay) return;
                     add(bookedEvent(appointment, staffName));
+                    // Bağlamdaki müşteri defteri yeni müşteriyi de görsün.
+                    void ctx.reload();
                 }}
             />
+            )}
         </View>
     );
 }

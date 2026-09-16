@@ -20,6 +20,7 @@ import {
     apptInCurve, apptCardMetrics, apptMotion, apptOutCurve, font, hit, useTheme,
 } from '../theme';
 import type { Appt } from '../lib/calendar';
+import type { ServiceOption } from '../lib/createFlow';
 
 /**
  * Müdür 25 — randevu kartı.
@@ -35,13 +36,15 @@ import type { Appt } from '../lib/calendar';
  *   • "Hizmeti değiştir" ve "Notu düzenle" artık gerçekten bir şey açıyor.
  */
 export function AppointmentDetail({
-    appointment, staffName, dayAppointments = [], nowMinutes,
+    appointment, staffName, dayAppointments = [], services, nowMinutes,
     onClose, onCustomer, onMove, onUpdate, onAttendance, onCancel, onDelete,
 }: {
     appointment: Appt;
     staffName?: string | null;
     /** Hizmet süresi uzayınca çakışma AYNI GÜNÜN bloklarında aranır. */
     dayAppointments?: readonly Appt[];
+    /** Salonun hizmet kataloğu — fiyat satırı ve "Hizmeti değiştir" listesi. */
+    services: readonly ServiceOption[];
     nowMinutes: number;
     onClose: () => void;
     onCustomer?: () => void;
@@ -61,7 +64,7 @@ export function AppointmentDetail({
     const line = useMemo(() => stateLine(appointment, nowMinutes), [appointment, nowMinutes]);
     const summary = useMemo(() => visitSummary(appointment), [appointment]);
     const tiles = useMemo(() => changeTiles(appointment, staffName), [appointment, staffName]);
-    const rows = useMemo(() => changeRows(appointment), [appointment]);
+    const rows = useMemo(() => changeRows(appointment, services), [appointment, services]);
     const name = splitName(appointment.customer_name);
     const editable = isEditable(appointment);
     const cancelled = stateOf(appointment) === 'cancelled';
@@ -204,6 +207,7 @@ export function AppointmentDetail({
                 visible={sheet === 'service'}
                 appointment={appointment}
                 dayAppointments={dayAppointments}
+                services={services}
                 staffName={staffName}
                 onDismiss={() => setSheet(null)}
                 onPick={(choice) => { setSheet(null); onUpdate?.(applyService(appointment, choice)); }}

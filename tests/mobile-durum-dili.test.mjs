@@ -42,6 +42,28 @@ function screens() {
     return out;
 }
 
+/**
+ * MÜDÜRÜN gördüğü her dosya.
+ *
+ * Personelden AYRI bir liste, çünkü ikisinin boşluk durumu ayrı: personel
+ * tarafında Personel 09 turundan gelen beş metin biliniyor ve hoş görülüyor
+ * (aşağıdaki `KNOWN`), müdür tarafında ise BİR TANE BİLE yok.
+ *
+ * Tarama müdür ekranlarına, oraya tek bir durum metni yazılmadan ÖNCE
+ * açıldı. Sebep basit: boşluksuz bir liste temiz tutulur, boşluklu bir liste
+ * büyür.
+ */
+function managerScreens() {
+    const out = [];
+    for (const dir of ['app/mudur', 'app/(manager-flow)', 'app/(auth)/manager', 'app/(ortak)/profil']) {
+        for (const f of readdirSync(join(MOBILE, dir), { recursive: true })) {
+            if (String(f).endsWith('.tsx')) out.push(`${dir}/${f}`);
+        }
+    }
+    out.push('src/lib/managerDurum.ts');
+    return out;
+}
+
 // ── Yasaklı sözlük ──────────────────────────────────────────────────────────
 
 test('yasaklı sözlük turun listesiyle AYNI', () => {
@@ -194,4 +216,41 @@ test('sekiz kopya TEK aileye indi', () => {
     }
     assert.equal(handmade, EXPECTED,
         `${handmade} elle çizilmiş amber kutu — beklenen ${EXPECTED} (Chip + Personel 11 Band)`);
+});
+
+
+// ── Müdür tarafı: boşluk YOK ────────────────────────────────────────────────
+
+test('HİÇBİR müdür ekranı yasaklı kelime göstermiyor — istisnasız', () => {
+    /*
+     * Personel tarafındaki `KNOWN` listesinin müdür karşılığı YOK ve olmasın.
+     *
+     * Bu tarama müdür ekranlarına, oraya tek bir durum metni yazılmadan önce
+     * açıldı; o an hepsi temizdi. Yani buradaki her düşüş YENİ bir ihlaldir
+     * ve hoş görülecek bir geçmişi yok.
+     */
+    const found = [];
+    for (const file of managerScreens()) {
+        const src = code(read(file));
+        const texts = [
+            ...(src.match(/'[^'\n]{4,}'/g) ?? []),
+            ...(src.match(/`[^`\n]{4,}`/g) ?? []),
+            ...(src.match(/>[^<>{}\n]{4,}</g) ?? []),
+            ...(src.match(/"[^"\n]{4,}"/g) ?? []),
+        ];
+        for (const t of texts) {
+            for (const word of bannedIn(t)) found.push(`${file}  ${word}  →  ${t.trim()}`);
+        }
+    }
+    assert.deepEqual(found, []);
+});
+
+test('müdür taraması GERÇEKTEN dosya okuyor', () => {
+    // Boş bir liste her zaman geçer. Tarama yanlış klasöre bakıyorsa yukarıdaki
+    // test sessizce yeşil kalırdı — tam olarak fark edilmeyecek türden bir arıza.
+    const files = managerScreens();
+    assert.ok(files.length >= 12, `müdür tarafında ${files.length} dosya bulundu`);
+    assert.ok(files.some((f) => f.includes('mudur/index')));
+    assert.ok(files.some((f) => f.includes('randevu/')));
+    assert.ok(files.some((f) => f.includes('profil/')));
 });

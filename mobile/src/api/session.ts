@@ -24,9 +24,14 @@ import { authStub } from './authStub';
 export const LIVE_AUTH = process.env.EXPO_PUBLIC_AUTH_MODE === 'live';
 
 /** Gerçek sunucuya bağlı olan parçalar. */
-export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'getLaunchState'] as const;
-/** Hâlâ sahte olan parçalar — sunucu tarafı yazılmadı. */
-export const STUB_PARTS = ['signup', 'account', 'subscription'] as const;
+export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'getLaunchState'] as const;
+/**
+ * Hâlâ sahte olan parçalar — sunucu tarafı yazılmadı.
+ *
+ * `account` 2026-09-16'da çıktı (müdür planı 9. adım): stub'da kaldığı sürece
+ * canlı kipte Hesap ekranı müdürü karşılama ekranına atıyordu.
+ */
+export const STUB_PARTS = ['signup', 'subscription'] as const;
 
 export const authApi = LIVE_AUTH
     ? {
@@ -36,6 +41,7 @@ export const authApi = LIVE_AUTH
         staff: { ...authStub.staff, ...live.staff },
         biometric: { ...authStub.biometric, ...live.biometric },
         resume: { ...authStub.resume, ...live.resume },
+        account: { ...authStub.account, ...live.account },
     }
     : authStub;
 

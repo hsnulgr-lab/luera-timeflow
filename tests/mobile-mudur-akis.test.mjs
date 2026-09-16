@@ -125,7 +125,12 @@ test('araya araç çubuğu, filtre satırı, sekme grubu girmez', () => {
     const body = screen.slice(open, close);
     // Kap kaydırmadır, içerik değil: izinli olanlar günün başlığı, şerit,
     // akış satırları ve kabın kendi parçaları (yenileme, gradyan, sarmalayıcı).
-    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock)$/;
+    //
+    // `DurumBlock` / `DurumUnread` EKLENDİ (2026-09-15) ve bu bir araç
+    // çubuğu değil: `Durumlar.html` turunun onaylanmış durum dili. Akış canlıya
+    // bağlanınca okunamayan gün ilk kez gerçekten mümkün oldu ve onu boş gün
+    // tasarımıyla çizmek, müdüre salonun boş olduğunu söylemekti.
+    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock|DurumBlock|DurumUnread)$/;
     for (const tag of body.match(/<[A-Z][A-Za-z.]*/g) ?? []) {
         assert.match(tag.slice(1), allowed, `beklenmeyen bileşen: ${tag}`);
     }

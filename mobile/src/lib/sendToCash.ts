@@ -60,10 +60,27 @@ export function canUndo(state: SendState): boolean {
     return state === 'window';
 }
 
-/** Kimlik plakasının hâl kelimesi. `queued` KASADA demez: orada değil. */
-export function plateWord(state: SendState): { word: string; tone: 'am' | 'gr' } {
+/**
+ * Kimlik plakasının hâl kelimesi. `queued` KASADA demez: orada değil.
+ *
+ * ── Bugün kartıyla AYNI (kullanıcı kararı, 2026-09-15) ──────────────────────
+ * İki kaynaktan bakıyor: bu oturumdaki gönderim (`state`) ve sunucunun
+ * söylediği (`card` — Bugün kartını çizen `cardState`in türü). Kasaya
+ * gönderilmiş bir ziyaret yeniden açılınca oturumda gönderim YOK (`idle`);
+ * eskiden plaka o yüzden sarı "Adisyon açık" diyordu, hemen altında
+ * "mühürlü · değiştirilemez" yazarken.
+ *
+ * Tahsil edilmişse "Tahsil edildi": Bugün kartı da öyle diyor. Tutar
+ * GÖSTERİLMİYOR — yalnız ödendiği bilgisi.
+ */
+export function plateWord(
+    state: SendState,
+    card?: 'atcash' | 'paid' | null,
+): { word: string; tone: 'am' | 'gr' } {
+    // Ödenmiş ziyaret her şeyin üstünde: sunucu tahsilatı kesin biliyor.
+    if (card === 'paid') return { word: 'Tahsil edildi', tone: 'gr' };
     if (state === 'queued') return { word: 'Sırada', tone: 'am' };
-    if (state === 'sent' || state === 'sealed') return { word: 'Kasada', tone: 'gr' };
+    if (state === 'sent' || state === 'sealed' || card === 'atcash') return { word: 'Kasada', tone: 'gr' };
     return { word: 'Adisyon açık', tone: 'am' };
 }
 

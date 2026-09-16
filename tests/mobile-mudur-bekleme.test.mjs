@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    applyFlowAction, applyWaitAction, demoTick, labelOf, mockDay, toneOf,
+    applyFlowAction, applyWaitAction, labelOf, mockDay, toneOf,
     stampAge, STAMP_FRESH_MINUTES, waitCard, waitHero, waitLevel,
     WAIT_LATE_MINUTES, WAIT_WARN_MINUTES,
 } from '../mobile/src/lib/managerFlow.ts';
@@ -306,7 +306,7 @@ test('satır ve kart aynı kelimeyi söyler — iki sözlük olmaz', () => {
     // Bekleme seviyeden, düşmüş randevu kendi etiketinden konuşur; ikisi de
     // satıra kartla AYNI kelimeyi veriyor.
     assert.ok(parts.includes('const kindLabel = waiting ? waiting.label'));
-    assert.ok(parts.includes('gone ? noshowRowLabel(event)'));
+    assert.ok(parts.includes('gone ? noshowRowLabel()'));
 });
 
 test('mock gün dört bekleme seviyesini de taşır', () => {
@@ -436,41 +436,11 @@ test('birim sakin hâlde ikincil mürekkep, gecikmede kırmızı', () => {
     assert.ok(parts.includes('unitFade={hot ? 0.72 : 1}'));
 });
 
-// ── Eşik geçişi ve dönüşüm (demo sürücüsü) ──────────────────────────────────
-// İkisi de canlı veriye bağlıydı; sunucu gelene kadar cihazda görülebilsin
-// diye bir saat taklidi var. Animasyonlar bileşende, sürücü ayrı — sunucu
-// bağlanınca yalnız sürücü silinecek.
-
-test('demo saati bekleme dakikasını yürütür', () => {
-    const one = demoTick({ ...base, waitMinutes: 4 });
-    assert.equal(one.waitMinutes, 5);
-    // Beşinci dakika: kart uyarı hâline geçer, çapraz soldurma burada çalışır.
-    assert.equal(waitLevel(one.waitMinutes), 'warn');
-});
-
-test('demo saati sonsuza kadar tırmanmaz', () => {
-    let event = { ...base, waitMinutes: 13 };
-    for (let i = 0; i < 5; i += 1) event = demoTick(event);
-    assert.ok(event.waitMinutes <= 14);
-});
-
-test('demo saati yalnız bekleyen satıra dokunur', () => {
-    const started = { ...base, kind: 'started', elapsedSeconds: 60 };
-    assert.equal(demoTick(started), started);
-    const next = { ...base, kind: 'next', etaMinutes: 6 };
-    assert.equal(demoTick(next), next);
-});
-
-test('devir satırı işleme dönüşür ve bekleme izleri silinir', () => {
-    let event = { ...base, waitMinutes: 4, handoff: true, staffInitials: 'SL' };
-    for (let i = 0; i < 3; i += 1) event = demoTick(event);
-    assert.equal(event.kind, 'started');
-    assert.equal(event.handoff, undefined);
-    assert.equal(event.waitMinutes, undefined);
-    // Sayaç sıfırdan başlar ve saat uydurulmaz: satırın kendi saati kullanılır.
-    assert.ok(event.elapsedSeconds > 0);
-    assert.ok(event.startedAt.startsWith('11:30'));
-});
+// ── Demo sürücüsü SÖKÜLDÜ (2026-09-15) ──────────────────────────────────────
+// Eşik geçişi ve BEKLİYOR → SÜRÜYOR dönüşümü için bir saat taklidi vardı;
+// kodun kendi yorumu "sunucu bağlanınca bu blok tamamen silinir" diyordu.
+// Akış artık sunucudan besleniyor: bekleme dakikası sunucu saatinden türüyor,
+// dönüşüm personelin gerçek "başlat" damgasıyla geliyor.
 
 test('eşik geçişi iki yüzeyin çapraz soldurulmasıyla yapılır', () => {
     // Renk değeri animasyona girmez; eski yüz üstte kalıp söner.
@@ -560,11 +530,16 @@ test('dönüşüm yalnız taze satırda oynar', () => {
     assert.ok(screen.includes("kinds.current.get(event.id) === 'arrived' && event.kind === 'started'"));
 });
 
-test('demo sürücüsü tek bayrakla kapanır ve silinecek yeri belli', () => {
+test('demo sürücüsü GERÇEKTEN söküldü — ne kütüphanede ne ekranda', () => {
+    // Yarım sökülen bir taklit en kötüsü: canlı verinin üstünde saati
+    // kendiliğinden ilerleten bir sayaç, gerçek bekleme süresini bozardı.
     const lib = read('../mobile/src/lib/managerFlow.ts');
-    assert.ok(lib.includes('export const DEMO_FLOW = true'));
-    assert.ok(lib.includes('DEMO SÜRÜCÜSÜ'));
-    assert.ok(screen.includes('if (!DEMO_FLOW) return;'));
+    assert.ok(!lib.includes('DEMO_FLOW'));
+    assert.ok(!lib.includes('demoTick'));
+    assert.ok(!screen.includes('DEMO_FLOW'));
+    assert.ok(!screen.includes('tick'));
+    const store = read('../mobile/src/state/managerDay.tsx');
+    assert.ok(!store.includes('demoTick'));
 });
 
 test('satır etiketi de yumuşak değişir — kart soldururken zıplamaz', () => {

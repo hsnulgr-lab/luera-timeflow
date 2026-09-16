@@ -47,6 +47,7 @@ import {
 } from '../lib/calendar';
 import {
     applyMove,
+    undoMove,
     type MoveResult,
     type MoveTarget,
 } from '../lib/moveAppointment';
@@ -84,6 +85,15 @@ export interface StaffDayProps {
      * kendini yalanlar — ekran iki kez yükleniyormuş gibi görünür.
      */
     loading?: boolean;
+    /**
+     * Taşımayı SUNUCUYA yazar; `true` dönerse yazıldı.
+     *
+     * Ekran bunu kendisi yapmıyordu: taşıma yalnız yerel bir katmana
+     * düşüyor, sonuç sayfası "taşındı" diyordu ve ekrandan çıkınca randevu
+     * eski yerine dönüyordu. Yazma yolu sayfanın değil, onu açan ekranın işi
+     * — kilit damgaları orada okunuyor (`useMoveWriter`).
+     */
+    onCommitMove: (appointment: Appt, next: Appt, staffName?: string | null) => Promise<boolean>;
     onBack: () => void;
     onOpenAppointment: (appointment: Appt) => void;
     onCreateAppointment?: (staffId: string, dateISO: string) => void;
@@ -94,6 +104,7 @@ export function StaffDay({
     presence,
     appointments,
     loading = false,
+    onCommitMove,
     onBack,
     onOpenAppointment,
     onCreateAppointment,
@@ -147,11 +158,6 @@ export function StaffDay({
     const [menuFor, setMenuFor] = useState<Appt | null>(null);
     const [moveFor, setMoveFor] = useState<{ appointment: Appt; mode: 'time' | 'staff' } | null>(null);
     const [result, setResult] = useState<MoveResult | null>(null);
-    const [moved, setMoved] = useState<Record<string, Appt>>({});
-
-    const allAppointments = useMemo(() => {
-        return appointments.map((a) => moved[a.id] ?? a);
-    }, [appointments, moved]);
 
     const staffOptions: StaffOption[] = useMemo(
         () => presence.map((candidate) => ({
@@ -164,9 +170,11 @@ export function StaffDay({
         [presence],
     );
 
-    const commitMove = (appointment: Appt, target: MoveTarget) => {
+    const commitMove = async (appointment: Appt, target: MoveTarget) => {
         const currentPerson = presence[activeIndex] ?? presence[0];
-        setMoved((current) => ({ ...current, [appointment.id]: applyMove(appointment, target) }));
+        const ok = await onCommitMove(appointment, applyMove(appointment, target), target.staffName);
+        // Sonuç sayfası YALNIZ gerçekten taşındıysa açılıyor.
+        if (!ok) return;
         setResult({
             appointment,
             fromStartMinutes: toMinutes(appointment.start_time),
@@ -228,7 +236,7 @@ export function StaffDay({
             >
                 {presence.map((person, index) => {
                     const isCurrentPage = index === activeIndex;
-                    const staffAppts = allAppointments.filter((a) => a.staff_id === person.id);
+                    const staffAppts = appointments.filter((a) => a.staff_id === person.id);
 
                     return (
                         <View key={person.id} style={{ width: screenWidth, flex: 1 }}>
@@ -279,12 +287,13 @@ export function StaffDay({
                     visible
                     mode={moveFor.mode}
                     appointment={moveFor.appointment}
+                    day={appointments}
                     staff={staffOptions}
                     onDismiss={() => setMoveFor(null)}
                     onPick={(target) => {
                         const { appointment } = moveFor;
                         setMoveFor(null);
-                        if (!target.unchanged) commitMove(appointment, target);
+                        if (!target.unchanged) void commitMove(appointment, target);
                     }}
                 />
             ) : null}
@@ -294,12 +303,10 @@ export function StaffDay({
                 result={result}
                 nowMinutes={nowMinutes}
                 today={todayISO()}
-                onUndo={(movedItem) => {
-                    setMoved((current) => {
-                        const next = { ...current };
-                        delete next[movedItem.appointment.id];
-                        return next;
-                    });
+                onUndo={(done) => {
+                    // Geri al da bir YAZMA: yerel katmanı silmek randevuyu
+                    // sunucuda eski saatine döndürmezdi.
+                    void onCommitMove(done.appointment, undoMove(done), done.fromStaffName);
                     setResult(null);
                 }}
                 onCall={(phone) => { void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`); }}

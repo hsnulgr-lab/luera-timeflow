@@ -66,10 +66,11 @@ test('sunucunun hayırı personelin diline çevriliyor', () => {
 test('ekran ARTIK koşulsuz gönderildi yazmıyor', () => {
     assert.doesNotMatch(kumanda, /setSentAt\(clockOf\(Date\.now\(\)\)\);\s*setSend\('sent'\);/,
         'koşulsuz sent — düzeltilen davranış');
-    assert.match(kumanda, /sendVisitToCash\(base\.id, lines, updatedAt\)/);
+    // Kilit damgası TÜRETİLMİŞ olan: kendi başlatmamızın damgasına takılmıyor.
+    assert.match(kumanda, /sendVisitToCash\(base\.id, lines, lockStamp\)/);
     // Kuyruk KARARI yazma katmanından geliyor, bağlantı bayrağından değil:
     // sinyal "var" görünürken de istek düşebiliyor.
-    assert.match(kumanda, /offline: offline \|\| out\.queued,/);
+    assert.match(kumanda, /offline: offlineRef\.current \|\| out\.queued,/);
     assert.match(kumanda, /serverCode: out\.code,/);
     assert.match(kumanda, /setSend\(result\.state\)/);
 });
@@ -82,8 +83,17 @@ test('damga YALNIZ gerçekten gidince atılıyor', () => {
 
 test('bağlantı GERÇEK kaynaktan okunuyor', () => {
     assert.match(kumanda, /const \{ offline, queued: queueLength \} = useConnectivity\(\);/);
-    assert.match(kumanda, /\}, \[send, offline, base\?\.id\]\)/,
-        'bağlantı değişimi karara girmeli');
+    /*
+     * Bağlantı karara GİRİYOR ama etkinin BAĞIMLILIĞI OLARAK DEĞİL.
+     *
+     * Bu test eskiden `[send, offline, base?.id]` bağımlılığını ZORUNLU
+     * kılıyordu ("bağlantı değişimi karara girmeli"). Zayıf sinyalde iOS ağ
+     * durumunu istek sürerken değiştiriyor; etki yeniden çalışıp adisyonu
+     * İKİNCİ KEZ gönderiyordu (telefonda bulundu, 2026-09-15). Test hatanın
+     * sebebini koruyordu. Bağlantı artık referanstan okunuyor.
+     */
+    assert.match(kumanda, /\}, \[send, base\?\.id\]\)/);
+    assert.match(kumanda, /useEffect\(\(\) => \{ offlineRef\.current = offline; \}, \[offline\]\);/);
 });
 
 test('ekran hata KODUNU gösteriyor, sabit cümleyi değil', () => {

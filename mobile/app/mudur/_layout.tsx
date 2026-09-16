@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { AuthSessionErrorScreen } from '../../src/components/ui';
+import { ManagerDayProvider } from '../../src/state/managerDay';
 import { useActorGate } from '../../src/lib/roleGate';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
 import { useTheme } from '../../src/theme';
@@ -50,7 +51,16 @@ export default function ManagerLayout() {
     // Okunamayan oturum ÖTEKİ KABUĞA gönderilmiyor: personel kabuğu da aynı
     // hatayı alır ve ikisi birbirine yönlendirip döngüye girerdi.
     if (gate.state === 'unreadable') return <AuthSessionErrorScreen onRetry={gate.retry} />;
+    /*
+     * Günün canlı verisi YALNIZ burada, rol kapısının ARKASINDA.
+     *
+     * Kökteyken personel telefonunu da sarıyordu: canlı okumayla her personel
+     * cihazı yirmi beş saniyede bir, oturumu olmadığı için reddedilecek bir
+     * müdür sorgusu atardı. Akış, Kasa ve randevu oluşturma üçü de bu
+     * sekmelerin içinde — ortak veri onlara yetiyor.
+     */
     return (
+        <ManagerDayProvider>
         <NativeTabs
             // Tasarım: kaydırınca bar 66 → 52 pt'ye daralır. Personel
             // tarafında bilerek "never" — orada kumandanın tek büyük butonu
@@ -87,5 +97,6 @@ export default function ManagerLayout() {
                 <NativeTabs.Trigger.Label>Profil</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
         </NativeTabs>
+        </ManagerDayProvider>
     );
 }

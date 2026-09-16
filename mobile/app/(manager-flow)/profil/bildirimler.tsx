@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -10,6 +10,7 @@ import {
     SwitchRow,
 } from '../../../src/components/ProfileParts';
 import {
+    MANAGER_NOTIFICATIONS_READY,
     NOTIFICATIONS,
     NOTIFICATION_FOOT,
     type NotificationKey,
@@ -36,6 +37,12 @@ export default function ManagerNotifications() {
         void readNotifications().then((value) => { if (alive) setState(value); });
         return () => { alive = false; };
     }, []);
+
+    /*
+     * Yol KAPALI: bu anahtarların arkasında bildirim yok. Satır profilde
+     * gizli; bir bağlantıyla doğrudan gelinirse de ekran açılmıyor.
+     */
+    if (!MANAGER_NOTIFICATIONS_READY) return <Redirect href="/mudur/profile" />;
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>

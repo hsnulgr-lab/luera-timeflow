@@ -127,7 +127,8 @@ test('₺ rakamla eşit: aynı boy, aynı ağırlık, aynı renk', () => {
     // Tek bir `style` iki Text'e de veriliyor; küçültme/soluklaştırma yok.
     // ₺ ile rakam TEK stili paylaşıyor; işarete yalnız sağ boşluk ekleniyor.
     assert.match(hero, /<Money style=\{\[style, \{ marginRight: size \* cashMetrics\.currencyGap \}\]\}>₺<\/Money>/);
-    assert.match(hero, /<Money style=\{style\}>\{formatAmount\(value\)\}<\/Money>/);
+    // Okunmamış dönemde rakamın yerine çizgi — AYNI stil, ₺0 değil.
+    assert.match(hero, /<Money style=\{style\}>\{value === null \? '—' : formatAmount\(value\)\}<\/Money>/);
     // Küçültme, soluklaştırma ya da ayrı bir renk yok.
     assert.doesNotMatch(hero, /fontSize: size \* 0\.|opacity/);
 });
@@ -275,7 +276,7 @@ test('özet satırı EKRANDA yazmaz, sesli okumada durur', () => {
     // bitiyor, hemen ardından oran çubuğu geliyor. Bilgi yine de kaybolmuyor —
     // sayaç kahraman etiketin sesli okuma cümlesinde yaşıyor.
     assert.doesNotMatch(screen, /<Text[^>]*>\s*\{summaryLine\(totals\)\}/);
-    assert.match(screen, /accessibilityLabel=\{`\$\{periodLabel\(period\)\}[^`]*\$\{summaryLine\(totals\)\}`\}/);
+    assert.match(screen, /`\$\{periodLabel\(period\)\}: \$\{formatAmount\(totals\.total\)\} lira\. \$\{summaryLine\(totals\)\}`/);
 });
 
 test('gölge ve kırpma AYRI katmanlarda', () => {
@@ -385,10 +386,14 @@ test('yıkıcı eylem ÜSTTE, vazgeçme altta', () => {
     assert.match(dialog, /font\.bold, fontSize: 17[^}]*color: c\.tx2/);
 });
 
-test('ekrandaki TEK onay diyaloğu iptal için', () => {
+test('salt okunur ekran onay diyaloğu da açmıyor', () => {
     // Düzeltme, dönem değişimi, sheet kapama, gün sonu — hiçbiri onay istemez.
-    assert.equal((screen.match(/VoidDialog/g) || []).length, 2); // import + kullanım
+    // İptal diyaloğu bileşen olarak DURUYOR (iz kaydı gelince geri bağlanır)
+    // ama ekran onu çizmiyor: arkasında iptal yoksa "Bu işlem geri alınamaz"
+    // demek yalan olurdu.
+    assert.doesNotMatch(screen, /VoidDialog/);
     assert.doesNotMatch(screen, /Alert\.alert/);
+    assert.match(sheets, /export function VoidDialog/);
 });
 
 test('iptal kaydı SİLMEZ, durumunu değiştirir', () => {
@@ -406,16 +411,22 @@ test('iptal kaydı SİLMEZ, durumunu değiştirir', () => {
     assert.equal(twice.find((m) => m.id === target.id).voidedBy, 'Ayla');
 });
 
-test('iptal sunucuya yazıldığını iddia etmiyor', () => {
-    // Sunucuda müdür ucu yok; sahte "kaydedildi" mesajı üretilmiyor.
+test('iptal yapılmış gibi görünmüyor — Kasa salt okunur', () => {
+    // Veritabanında iptal izi yok; "İptal et" yalnız cihazda işaret bırakıp
+    // yenilenince geri geliyordu. Kullanıcının kararı: telefonda salt okunur.
     assert.doesNotMatch(screen, /kaydedildi|başarıyla|gönderildi/i);
-    assert.match(screenDoc, /sunucuda müdür ucu yok/i);
+    assert.match(screenDoc, /SALT OKUNUR/);
+    const sheet = screen.slice(screen.indexOf('<MovementSheet'), screen.indexOf('/>', screen.indexOf('<MovementSheet')));
+    assert.doesNotMatch(sheet, /onVoid|onCorrect/);
+    assert.doesNotMatch(screen, /applyVoid|applyCorrection|setMovements/);
 });
 
 // ── 14d · boş gün ───────────────────────────────────────────────────────────
 
 test('boş gün suçlayıcı değil, ne olacağını söylüyor', () => {
-    assert.equal(EMPTY_TITLE, 'Henüz tahsilat yok. Personel kasaya gönderdikçe burada görünür.');
+    // "Personel kasaya gönderdikçe" DEĞİL: gönderilen adisyon turuncu
+    // panelde bekliyor, listeye tahsil edilen para düşüyor.
+    assert.equal(EMPTY_TITLE, 'Henüz tahsilat yok. Kasada tahsil edildikçe burada görünür.');
     assert.match(screen, /EMPTY_TITLE/);
 });
 
@@ -492,7 +503,9 @@ test('iptal izi kim olduğunu UYDURMAZ', () => {
     assert.equal(traceLine({ status: 'voided', voidedAt: '11:42' }), 'İPTAL · 11:42');
     assert.equal(traceLine({ status: 'voided', voidedBy: 'Ayla', voidedAt: '11:42' }), 'İPTAL · AYLA, 11:42');
     assert.equal(traceLine({ status: 'voided' }), 'İPTAL');
-    assert.match(screen, /applyVoid\(list, voidingId, null, hhmm\(nowInMinutes\(\)\)\)/);
+    // Ekran iptal İZİ de uydurmuyor: veritabanında iz yokken yerel bir
+    // "İPTAL · 11:42" satırı çizmek, hiç olmamış bir iptali göstermekti.
+    assert.doesNotMatch(screen, /applyVoid\(/);
 });
 
 test('bekleyen adisyon şeridi ÖLÜ DEĞİL — Akış\'a götürüyor', () => {

@@ -35,7 +35,7 @@ import {
 import { authApi, type AuthSession } from '../../src/api/session';
 import { nowInMinutes, todayISO } from '../../src/lib/calendar';
 import { legalSummary, themeLabel } from '../../src/lib/managerProfile';
-import { readKvkkUrl } from '../../src/lib/salonSettings';
+import { readKvkkUrl } from '../../src/lib/legalSource';
 import { useShift } from '../../src/lib/shiftSource';
 import {
     mondayOf, NOTIFICATION_FOOT, shiftCard, weekRows, weekSummary,

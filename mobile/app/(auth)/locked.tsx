@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { enterShell } from '../../src/lib/enterShell';
 
 import { authApi, type AuthSession } from '../../src/api/session';
+import { businessLine } from '../../src/lib/accountMap';
 import {
     AuthActionButton,
     AuthBanner,
@@ -112,7 +113,7 @@ export default function SubscriptionLocked() {
             icon="lock"
             identity={{
                 title: `${profile.name.split(' ')[0]} · ${profile.title ?? ''}`.trim(),
-                subtitle: `${profile.business.name} — ${profile.business.location}`,
+                subtitle: businessLine(profile.business, ' — '),
             }}
             title={copy.title}
             body={copy.body}

@@ -8,16 +8,21 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
-import { MovementSheet, VoidDialog } from '../../src/components/CashSheets';
+import { MovementSheet } from '../../src/components/CashSheets';
+import { DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { authApi } from '../../src/api/session';
 import {
-    applyCorrection, applyVoid, counterLine, deltaOf, emptyComparison, hasPending, mockMovements,
-    mockPrevious, periodLabel, PERIODS, ratioSpeech,
+    counterLine, deltaOf, emptyComparison, hasPending,
+    periodLabel, PERIODS, ratioSpeech,
     summaryLine, totalsOf,
     DAY_END, EMPTY_TITLE, formatAmount, pendingSubtitle, pendingTitle,
     type CashPeriod, type Movement,
 } from '../../src/lib/cash';
-import { hhmm, nowInMinutes } from '../../src/lib/calendar';
+import { hhmm } from '../../src/lib/calendar';
+import { useManagerCash } from '../../src/lib/managerCash';
+import { orgDurum } from '../../src/lib/managerDurum';
 import { pendingOf } from '../../src/lib/managerFlow';
+import { forgetOrg } from '../../src/lib/managerSource';
 import { useManagerDay } from '../../src/state/managerDay';
 import { cashMetrics, font, useTheme } from '../../src/theme';
 
@@ -50,28 +55,43 @@ import { cashMetrics, font, useTheme } from '../../src/theme';
  * Gün cetveli (Müdür 13) BU EKRANDA YOK: müdür paraya bakarken bugünü,
  * haftayı ve ayı soruyor, rastgele bir günü değil.
  *
- * Veri sahte: müdür modu için sunucu ucu henüz yazılmadı. Uç geldiğinde yalnız
- * `mockMovements` bloğu gidecek.
+ * VERİ CANLI (müdür planı 6. adım): hareketler `useManagerCash`, bekleyen
+ * adisyonlar akışın ortak gün verisinden. Toplamların ölçüsü masaüstü Kasa —
+ * kural `cashBuild.ts`in başında yazılı.
+ *
+ * SALT OKUNUR. Veritabanında iptal ya da düzeltme izi yok; "İptal et" yalnız
+ * cihazda bir işaret bırakıyordu ve sayfa yenilenince tahsilat geri geliyordu.
+ * Kullanıcının kararı: düzeltme ve iptal masaüstündeki Kasa'dan yapılır.
  */
+
+/** Okunmamış dönemin listesi — her çizimde yeni bir dizi üretmesin. */
+const NO_MOVEMENTS: readonly Movement[] = [];
+
+/** Damganın saati — "son güncelleme 11:42". */
+const clockAt = (ms: number) => {
+    const at = new Date(ms);
+    return hhmm(at.getHours() * 60 + at.getMinutes());
+};
 export default function ManagerKasa() {
     const { c, dark, small } = useTheme();
     const insets = useSafeAreaInsets();
     const { fontScale } = useWindowDimensions();
     const [period, setPeriod] = useState<CashPeriod>('today');
 
-    /**
-     * Hareketler YEREL durumda tutuluyor: sunucuda müdür ucu yok, iptal
-     * cihazda yaşıyor. Sahte bir "kaydedildi" mesajı verilmiyor — uç
-     * yazıldığında yalnız bu state sunucudan beslenecek.
+    const cash = useManagerCash(period);
+    /*
+     * BİLİNEN veri yalnız SEÇİLİ döneme ait olan. Şerit "Bu ay"a çevrildiğinde
+     * bugünün hareketleri yenisi gelene kadar elde duruyor; onları "BU AY
+     * GİREN" başlığının altına yazmak yanlış bir rakam göstermek olurdu.
      */
-    const [movements, setMovements] = useState<Movement[]>(() => [...mockMovements]);
-    /** Açık sheet ve açık onay diyaloğu — ikisi de tek bir kaydı işaret eder. */
+    const known = cash.data.period === period;
+    const movements = known ? cash.data.movements : NO_MOVEMENTS;
+    /** Açık sheet — tek bir kaydı işaret eder. */
     const [openId, setOpenId] = useState<string | null>(null);
-    const [voidingId, setVoidingId] = useState<string | null>(null);
 
     const totals = useMemo(() => totalsOf(movements), [movements]);
-    const delta = deltaOf(totals.total, mockPrevious[period], period);
-    const empty = totals.count === 0;
+    const delta = known ? deltaOf(totals.total, cash.data.previousTotal, period) : null;
+    const empty = known && totals.count === 0;
     // Bekleyen adisyonlar AKIŞTAKİ satırlardan türer. Kasa kendi sabit
     // sayısını taşıyordu ve iki ekran iki farklı gerçek söylüyordu.
     // Boş günde de bekleyen olabilir: para girmemiş ama bekleyen var — bu
@@ -85,26 +105,42 @@ export default function ManagerKasa() {
      * İki ekranda farklı davranan bir jest, uygulamayı iki ayrı ürün yapar.
      */
     const [refreshing, setRefreshing] = useState(false);
+    const reloadCash = cash.reload;
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        setMovements([...mockMovements]);
-        reload();
-        setRefreshing(false);
-    }, [reload]);
+        // Çark iki okuma da bitene kadar dönüyor: hemen durdurmak, müdüre
+        // "yenilendi" deyip eski rakamı göstermek olurdu.
+        void Promise.all([reloadCash(), reload()]).finally(() => setRefreshing(false));
+    }, [reload, reloadCash]);
 
     const openMovement = movements.find((m) => m.id === openId) ?? null;
-    const voidingMovement = movements.find((m) => m.id === voidingId) ?? null;
 
-    const confirmVoid = () => {
-        if (!voidingId) return;
-        // Kayıt SİLİNMİYOR, durumu değişiyor: kart yerinde kalır, tonu
-        // kırmızıya döner, tutarı üstü çizilir, izi altına yazılır.
-        // İptali YAPAN ve ANI uydurulmuyordu: sabit "Ayla · 11:42" yazıyordu.
-        // An cihazın saati (iptal şu anda oluyor); kim olduğu ise oturumdan
-        // gelecek — gelene kadar iz yalnız saati taşır, sahte bir isim değil.
-        setMovements((list) => applyVoid(list, voidingId, null, hhmm(nowInMinutes())));
-        setVoidingId(null);
-    };
+    /*
+     * Red üç yere çıkar ama AYNI yere değil: erişimi kaldırılmış müdürün
+     * oturumu kapanır, salon seçmesi gerekenin oturumu durur (takvimle aynı).
+     */
+    const refusal = cash.refusal;
+    const onRefusalAction = useCallback(async () => {
+        if (refusal === 'ambiguous') {
+            forgetOrg();
+            router.push('/(auth)/manager/business');
+            return;
+        }
+        await authApi.resume.signOut().catch(() => undefined);
+        forgetOrg();
+        router.replace('/(auth)/welcome');
+    }, [refusal, router]);
+
+    /*
+     * Başlıktaki sayaç okumanın hâlini de taşıyor: "okunamadı" ile "0 işlem"
+     * aynı şey değil. Bayatsa saat ekleniyor — yoklama sessizce cevap
+     * alamıyorsa rakam donuyor ve bunun tek izi bu satır.
+     */
+    const counter = !known
+        ? cash.state === 'error' ? 'okunamadı' : '…'
+        : cash.stale && cash.at !== null
+            ? `${counterLine(totals)} · son güncelleme ${clockAt(cash.at)}`
+            : counterLine(totals);
     // Erişilebilirlik eşiği: bunun üstünde yatay düzenler dikeye yığılıyor.
     const ax = fontScale > cashMetrics.axFontScale;
     const moneySize = ax ? cashMetrics.moneyAx : small ? cashMetrics.moneySmall : cashMetrics.money;
@@ -223,9 +259,12 @@ export default function ManagerKasa() {
                         accessible
                         // Ekranda yazmayan sayaç sesli okumada duruyor: görsel
                         // sadelik uğruna bilgi kaybedilmiyor.
-                        accessibilityLabel={`${periodLabel(period)}: ${formatAmount(totals.total)} lira. ${summaryLine(totals)}`}
+                        accessibilityLabel={known
+                            ? `${periodLabel(period)}: ${formatAmount(totals.total)} lira. ${summaryLine(totals)}`
+                            : `${periodLabel(period)}: ${cash.state === 'error' ? 'okunamadı' : 'okunuyor'}`}
                     >
-                        <HeroAmount value={totals.total} size={moneySize} />
+                        {/* Okunmamış dönem ₺0 DEĞİL: rakamın yerinde çizgi. */}
+                        <HeroAmount value={known ? totals.total : null} size={moneySize} />
                     </View>
 
                     {delta ? (
@@ -345,7 +384,7 @@ export default function ManagerKasa() {
                     HAREKETLER
                 </Text>
                 <Money style={{ fontFamily: font.bold, fontSize: cashMetrics.counterFont, fontWeight: '700', color: c.tx3 }}>
-                    {counterLine(totals)}
+                    {counter}
                 </Money>
             </View>
 
@@ -360,7 +399,25 @@ export default function ManagerKasa() {
                     paddingBottom: cashMetrics.padBottom,
                 }}
             >
-                {movements.length === 0 ? (
+                {refusal ? (
+                    <DurumBlock
+                        tone={orgDurum(refusal).tone}
+                        title={orgDurum(refusal).title}
+                        lines={orgDurum(refusal).lines}
+                        actions={[{
+                            label: orgDurum(refusal).action.label,
+                            onPress: () => { void onRefusalAction(); },
+                        }]}
+                        style={{ marginHorizontal: 0, marginBottom: 0 }}
+                    />
+                ) : !known && cash.state === 'error' ? (
+                    <DurumUnread
+                        what="Kasayı"
+                        notMeaning="Tahsilat olmadığı"
+                        onRetry={() => { void reloadCash(); }}
+                        style={{ paddingHorizontal: 0 }}
+                    />
+                ) : !known ? null : movements.length === 0 ? (
                     <Text style={{ fontFamily: font.medium, fontSize: 13.5, color: c.tx2, lineHeight: 20 }}>
                         {EMPTY_TITLE}
                     </Text>
@@ -391,33 +448,14 @@ export default function ManagerKasa() {
             </ScrollView>
 
             {openMovement ? (
+                /*
+                 * SALT OKUNUR fiş: eylem vermeden açılıyor. `onVoid` ve
+                 * `onCorrect` verilmediğinde fiş eylem şeridinin yerine
+                 * `READ_ONLY_NOTE`u çiziyor.
+                 */
                 <MovementSheet
                     movement={openMovement}
                     onClose={() => setOpenId(null)}
-                    onVoid={() => { setVoidingId(openMovement.id); setOpenId(null); }}
-                    onCorrect={(amount) => {
-                        /*
-                         * Düzeltme GÜNCELLEME DEĞİL: eski kayıt iptal edilir,
-                         * yenisi üstüne yazılır — ekranın kendi cümlesi
-                         * (`CORRECTION_NOTE`) bunu zaten söylüyordu, davranış
-                         * artık ona uyuyor.
-                         *
-                         * İptalle aynı gerekçe: düzelten KİŞİ uydurulmuyor,
-                         * oturumdan gelene kadar iz yalnız saati taşır.
-                         */
-                        setMovements((list) => applyCorrection(
-                            list, openMovement.id, amount, null, hhmm(nowInMinutes()),
-                        ));
-                        setOpenId(null);
-                    }}
-                />
-            ) : null}
-
-            {voidingMovement ? (
-                <VoidDialog
-                    movement={voidingMovement}
-                    onConfirm={confirmVoid}
-                    onCancel={() => setVoidingId(null)}
                 />
             ) : null}
         </View>
