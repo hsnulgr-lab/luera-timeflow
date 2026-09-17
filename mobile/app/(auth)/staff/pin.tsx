@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,32 +10,48 @@ import {
 } from '../../../src/api/session';
 import {
     AuthActionButton,
-    AuthBanner,
     AuthIdentityBar,
     AuthKeypad,
-    AuthPinDots,
     AuthOfflineScreen,
     AuthTextLink,
 } from '../../../src/components/ui';
-import { lockCountdownText, remainingAttemptText } from '../../../src/lib/authCopy';
-import { pinProblem } from '../../../src/lib/pinRules';
+import {
+    BottomPlate, HintSlot, InfoBand, PinDotRow, StepBar, SwapTitle,
+    type DotTone, type HintTone,
+} from '../../../src/components/PinParts';
+import { lockWaitText, remainingAttemptText } from '../../../src/lib/authCopy';
 import { feedback } from '../../../src/lib/feedback';
-import { authMetrics, authMotion, font, radius, useTheme } from '../../../src/theme';
+import { pinProblem } from '../../../src/lib/pinRules';
+import { authMetrics, font, radius, useTheme } from '../../../src/theme';
 import { LightField } from '../../../src/components/LightField';
+
+/**
+ * Personel · şifre ekranı — Personel Girişi 099 tasarımı (§P3 · §P4).
+ *
+ * Üç hâl, tek kabuk:
+ *   enter   · şifresi olan personel girer (her vardiya — sakin alan `lock`)
+ *   create  · şifresi olmayan personel İLK şifresini yazar (müdür kararı)
+ *   confirm · aynı şifre bir kez daha
+ *
+ * Tasarımın dört kararı burada:
+ *   1. Adım değişince noktalar 4→1 SÖNEREK boşalır, başlık kayar, adım çubuğu
+ *      dolar — eskiden ekran birebir aynı kalıyor, kişi ikinci kez yazdığını
+ *      ilk kez sanıyordu.
+ *   2. Hata ALTTAKİ BANTTA değil, noktaların 18 pt altındaki 40 pt'lik yuvada:
+ *      dördüncü haneye basıldığında göz noktalarda.
+ *   3. Şifre ekranlarında SARSINTI YOK — renk var. Zayıf şifre amber (riskli
+ *      seçim), aynı olmayan iki şifre ve yanlış şifre kırmızı.
+ *   4. Uyarı pencereleri (Alert) yerine alttan yükselen cam plaka.
+ *
+ * Koddan düzeltilen tasarım iddiası: kilit TELEFONA değil KİŞİYE ait (sunucu
+ * `staff.pin_locked_until`) ve müdür şifreyi sıfırlayınca kilit de kalkıyor.
+ */
 
 interface PendingIdentity {
     business: AuthBusiness;
     member: StaffRosterMember;
 }
 
-/**
- * Şifre ekranının üç hâli (099).
- *
- *   enter   · şifresi olan personel girer
- *   create  · şifresi olmayan personel İLK şifresini yazar (müdür kararı:
- *             şifreyi personel kendisi belirler)
- *   confirm · aynı şifreyi ikinci kez — yazım hatasıyla kendini kilitlemesin
- */
 type PinMode = 'enter' | 'create' | 'confirm';
 
 const PIN_TITLE: Record<PinMode, string> = {
@@ -44,25 +60,38 @@ const PIN_TITLE: Record<PinMode, string> = {
     confirm: 'Şifrenizi tekrar girin',
 };
 
+const PIN_HINT: Record<PinMode, string | null> = {
+    enter: null,
+    create: '4 hane · girişte yalnız siz kullanacaksınız',
+    confirm: 'Aynı dört haneyi bir kez daha',
+};
+
+/** "Şifreniz hazır" ne kadar ekranda: tasarımın kutlama bütçesi 220 ms. */
+const READY_MS = 220;
+/** Dördüncü hane yazıldıktan sonra adım geçişine kadar — nokta dolu görünür. */
+const SETTLE_MS = 120;
+
 export default function StaffPin() {
-    const { c, reduceMotion } = useTheme();
+    const { c, small } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [identity, setIdentity] = useState<PendingIdentity | null>(null);
     const [mode, setMode] = useState<PinMode>('enter');
+    /** Adım geçişi sayacı — noktaların boşalarak sönmesini tetikler. */
+    const [stepKey, setStepKey] = useState(0);
     /** İlk yazılan şifre — yalnız `confirm` hâlinde dolu, ekrandan hiç okunmaz. */
     const firstPin = useRef('');
-    /** Hata değil, bilgi: "şifreniz sıfırlanmış" gibi. Kırmızı çizilmez. */
-    const [notice, setNotice] = useState<string | null>(null);
+    /** Kalıcı bilgi bandı: "şifreniz sıfırlanmış". Şifre belirlenince gider. */
+    const [resetBand, setResetBand] = useState(false);
+    const [plate, setPlate] = useState<'forgot' | 'taken' | null>(null);
     const [pin, setPin] = useState('');
     const [verifying, setVerifying] = useState(false);
+    const [ready, setReady] = useState(false);
     const [offline, setOffline] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [hint, setHint] = useState<{ text: string; tone: HintTone } | null>(null);
     const [lockedUntil, setLockedUntil] = useState<number | undefined>();
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
     const verifyingRef = useRef(false);
-    const shake = useRef(new Animated.Value(0)).current;
-    const reveal = useRef(new Animated.Value(0)).current;
     const complete = pin.length === 4;
 
     useEffect(() => {
@@ -81,18 +110,47 @@ export default function StaffPin() {
         return () => { alive = false; };
     }, [router]);
 
-    // Açılış doğrudan buraya yönlendirdiyse geri gidilecek ekran yok.
+    // Kilit bitince ekran kendiliğinden açılır.
+    useEffect(() => {
+        if (!lockedUntil) return;
+        const interval = setInterval(() => {
+            const next = Date.now();
+            setNow(next);
+            if (next >= lockedUntil) {
+                setLockedUntil(undefined);
+                setHint(null);
+                setPin('');
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [lockedUntil]);
+
     const notMe = () => { router.replace('/(auth)/staff/who'); };
-    const leave = () => {
+
+    const goStep = (next: PinMode) => {
+        setMode(next);
+        setPin('');
+        setStepKey((k) => k + 1);
+    };
+
+    /** Baştan belirleme — ilk şifre silinir (sessizce saklamak ikinci adımı bozar). */
+    const startOver = (message: { text: string; tone: HintTone } | null) => {
+        firstPin.current = '';
+        goStep('create');
+        setHint(message);
+    };
+
+    // Geri: 2. adımda 1. adıma döner ve ilk şifreyi siler (tasarım §P3).
+    const back = () => {
+        if (mode === 'confirm') { startOver(null); return; }
         if (router.canGoBack()) router.back();
         else notMe();
     };
 
-    const startOver = (message: string | null) => {
-        firstPin.current = '';
-        setMode('create');
-        setPin('');
-        setErrorMessage(message);
+    const enterApp = () => {
+        feedback.success();
+        setReady(true);
+        setTimeout(() => router.replace('/(auth)/biometric'), READY_MS);
     };
 
     /** İlk şifre: iki kez yazıldı ve aynı → sunucuya. */
@@ -100,57 +158,32 @@ export default function StaffPin() {
         if (verifyingRef.current) return;
         verifyingRef.current = true;
         setVerifying(true);
+        setHint({ text: 'Kaydediliyor…', tone: 'quiet' });
+        const slow = setTimeout(() => setHint({ text: 'Bağlantı yavaş, bekliyoruz.', tone: 'quiet' }), 1200);
         const result = await authApi.staff.setupPin(nextPin);
+        clearTimeout(slow);
         verifyingRef.current = false;
         setVerifying(false);
 
-        if (result.ok) {
-            router.replace('/(auth)/biometric');
-            return;
-        }
-        if (result.error === 'offline') { setOffline(true); setPin(''); setMode('confirm'); return; }
+        if (result.ok) { setHint(null); setResetBand(false); enterApp(); return; }
+        if (result.error === 'offline') { setHint(null); setOffline(true); setPin(''); return; }
         if (result.error === 'subscription_inactive') { router.replace('/(auth)/locked'); return; }
         if (result.error === 'not_paired') { router.replace('/(auth)/staff/pair'); return; }
         if (result.error === 'staff_not_found' || result.error === 'invalid_credentials') { notMe(); return; }
-        // Başka bir telefon bu kişi için az önce şifre belirledi. Yarışı
-        // kaybeden ekran GİRİŞE döner: şifreyi bilen kendisiyse girer.
+        // Başka bir telefon bu kişi için az önce şifre belirledi. Hata değil,
+        // BİLGİ — ama "şifreniz" denmiyor: belirleyen başkası olabilir.
         if (result.error === 'pin_already_set') {
             firstPin.current = '';
-            setMode('enter');
-            setPin('');
-            setErrorMessage(null);
-            setNotice('Bu kişi için şifre az önce belirlendi. Şifreyi biliyorsanız girin; bilmiyorsanız müdürden sıfırlamasını isteyin.');
+            setHint(null);
+            setResetBand(false);
+            setPlate('taken');
             return;
         }
         feedback.warning();
-        runPinErrorShake(shake, reduceMotion);
         startOver(result.error === 'weak_pin'
-            ? 'Bu şifre çok kolay tahmin edilir. Başka bir şifre seçin.'
-            : 'Şifre kaydedilemedi. Baştan belirleyin.');
+            ? { text: 'Bu şifre çok kolay tahmin edilir. Başka dört hane seçin.', tone: 'warn' }
+            : { text: 'Şifre kaydedilemedi. Dört haneyi baştan yazın.', tone: 'error' });
     };
-
-    useEffect(() => {
-        if (!lockedUntil) return;
-        const tick = () => {
-            const next = Date.now();
-            setNow(next);
-            if (next >= lockedUntil) {
-                setLockedUntil(undefined);
-                setErrorMessage(null);
-                setPin('');
-            }
-        };
-        const interval = setInterval(tick, 1000);
-        return () => clearInterval(interval);
-    }, [lockedUntil]);
-
-    useEffect(() => {
-        if (!errorMessage) {
-            reveal.setValue(0);
-            return;
-        }
-        revealPinError(reveal, reduceMotion);
-    }, [errorMessage, reduceMotion, reveal]);
 
     const verify = async (nextPin: string) => {
         if (verifyingRef.current) return;
@@ -160,62 +193,51 @@ export default function StaffPin() {
         verifyingRef.current = false;
         setVerifying(false);
 
-        if (result.ok) {
-            router.replace('/(auth)/biometric');
-            return;
-        }
-        // Çevrimdışı bir "yanlış PIN" değil: sayaç artmaz, nokta kızarmaz.
-        // Aksi hâlde metroda uygulamayı açan personel kendini kilitlerdi.
-        if (result.error === 'offline') {
-            setOffline(true);
-            setPin('');
-            return;
-        }
-        // Abonelik bitmişse PIN doğruydu: sayaç artmaz, sarsıntı olmaz.
-        if (result.error === 'subscription_inactive') {
-            router.replace('/(auth)/locked');
-            return;
-        }
+        if (result.ok) { enterApp(); return; }
+        // Çevrimdışı bir "yanlış şifre" değil: sayaç artmaz, nokta kızarmaz.
+        if (result.error === 'offline') { setOffline(true); setPin(''); return; }
+        if (result.error === 'subscription_inactive') { router.replace('/(auth)/locked'); return; }
         if (result.error === 'not_paired' || result.error === 'staff_not_found') {
-            router.replace(result.error === 'not_paired'
-                ? '/(auth)/staff/pair'
-                : '/(auth)/staff/who');
+            router.replace(result.error === 'not_paired' ? '/(auth)/staff/pair' : '/(auth)/staff/who');
             return;
         }
-        // Müdür şifreyi sıfırladı (099): yanlış şifre DEĞİL — yenisi belirlenir.
+        // Müdür şifreyi sıfırladı: yanlış şifre DEĞİL — ekran belirlemeye döner.
         if (result.error === 'pin_not_set') {
+            setResetBand(true);
             startOver(null);
-            setNotice('Şifreniz sıfırlanmış. Yeni şifrenizi belirleyin.');
             return;
         }
 
         feedback.warning();
-        runPinErrorShake(shake, reduceMotion);
-        if (result.error === 'locked' && result.lockedUntil) {
-            setLockedUntil(result.lockedUntil);
+        if (result.error === 'locked') {
             setNow(Date.now());
-            setErrorMessage('Bu telefon 15 dakika kilitlendi. İşletme sahibinden yardım isteyin.');
+            setLockedUntil(result.lockedUntil ?? Date.now() + 15 * 60_000);
+            setPin('');
             return;
         }
-        // Personel yolunda sayı GERÇEK: yanlış PIN'de kalan hak bildiriliyor
-        // ve kimlik katmanı onu buraya taşıyor. Ama gelmediği durum da var
-        // (beklenmeyen bir hata kodu) ve o zaman sıfır yazmak "son hakkınız"
-        // demek olurdu. Bilinmeyen sayı YAZILMIYOR.
-        const remainingAttempts = result.remainingAttempts ?? null;
-        setErrorMessage(remainingAttemptText('staff', remainingAttempts));
+        // Kalan hak GERÇEK: sayaç bu kişinin. Bilinmeyen sayı yazılmıyor.
+        setHint({ text: remainingAttemptText('staff', result.remainingAttempts ?? null), tone: 'error' });
+    };
+
+    /** Adım geçişinden önce dolu dört noktanın görüldüğü kısa an. */
+    const settling = useRef(false);
+    const settle = (then: () => void) => {
+        settling.current = true;
+        setTimeout(() => { settling.current = false; then(); }, SETTLE_MS);
     };
 
     const keyPress = (key: string) => {
-        if (verifying || lockedUntil) return;
+        if (verifying || lockedUntil || ready || settling.current) return;
         if (key === 'backspace') {
             if (!pin.length) return;
-            setErrorMessage(null);
+            if (hint?.tone !== 'quiet') setHint(null);
             setPin((current) => current.slice(0, -1));
             return;
         }
 
-        const next = errorMessage ? key : `${pin}${key}`.slice(0, 4);
-        setErrorMessage(null);
+        const failed = hint !== null && hint.tone !== 'quiet';
+        const next = failed ? key : `${pin}${key}`.slice(0, 4);
+        if (failed) setHint(null);
         setPin(next);
         if (next.length < 4) return;
 
@@ -224,50 +246,63 @@ export default function StaffPin() {
             // Kural telefonda da: kişi ağ beklemeden hemen duysun.
             if (pinProblem(next) === 'weak') {
                 feedback.warning();
-                runPinErrorShake(shake, reduceMotion);
-                startOver('Bu şifre çok kolay tahmin edilir. Başka bir şifre seçin.');
+                startOver({ text: 'Bu şifre çok kolay tahmin edilir. Başka dört hane seçin.', tone: 'warn' });
                 return;
             }
             firstPin.current = next;
-            setNotice(null);
-            setMode('confirm');
-            setPin('');
+            // Dördüncü nokta önce DOLU görünsün, sonra alan boşalsın (tasarım
+            // 02b · 0 ms karesi). Aradaki tuşlar yutulur.
+            settle(() => goStep('confirm'));
             return;
         }
         if (next !== firstPin.current) {
             feedback.warning();
-            runPinErrorShake(shake, reduceMotion);
-            startOver('İki şifre aynı değil. Baştan belirleyin.');
+            settle(() => startOver({ text: 'İki şifre aynı olmadı. Dört haneyi baştan yazın.', tone: 'error' }));
             return;
         }
         void createPin(next);
     };
 
-    const secondsRemaining = lockedUntil
-        ? Math.max(0, Math.ceil((lockedUntil - now) / 1000))
-        : 0;
+    const secondsRemaining = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
     const locked = Boolean(lockedUntil && secondsRemaining > 0);
 
     if (offline) {
         return (
             <AuthOfflineScreen
                 busy={verifying}
-                onRetry={() => { setOffline(false); }}
+                onRetry={() => {
+                    setOffline(false);
+                    // Belirlemenin ortasında bağlantı gittiyse ikinci adımdan devam.
+                    if (mode === 'confirm' && firstPin.current) setPin('');
+                }}
             />
         );
     }
 
+    const setting = mode !== 'enter';
+    const dotTone: DotTone = ready ? 'ok' : hint?.tone === 'error' ? 'error' : 'normal';
+    const hintText = ready
+        ? (setting ? 'Bundan sonra girişte yalnız bu dört haneyi yazacaksınız.' : null)
+        : hint?.text ?? PIN_HINT[mode];
+    const title = ready ? (setting ? 'Şifreniz hazır' : PIN_TITLE.enter) : PIN_TITLE[mode];
+    const avatar = small ? authMetrics.staffAvatarSmall : authMetrics.staffAvatar;
+
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-            <LightField profile="form" />
+            {/* Her vardiya görülen giriş SAKİN (`lock`), ilk şifre `form`. */}
+            <LightField profile={setting ? 'form' : 'lock'} />
             {identity ? (
                 <AuthIdentityBar
                     overField
                     title={identity.member.name}
                     subtitle={identity.member.role}
-                    onBack={leave}
+                    onBack={back}
                 />
             ) : <View style={{ height: authMetrics.topBarHeight }} />}
+            {setting ? <StepBar count={2} done={mode === 'confirm' || ready ? 2 : 1} /> : null}
+            {resetBand ? (
+                <InfoBand>Müdürünüz şifrenizi sıfırladı. Yenisini şimdi siz belirleyeceksiniz.</InfoBand>
+            ) : null}
 
             <TextInput
                 value={pin}
@@ -287,136 +322,108 @@ export default function StaffPin() {
             />
 
             <View style={{ flex: 1, minHeight: 0 }}>
-                <View style={{
-                    flex: 1,
-                    minHeight: 0,
-                    paddingTop: authMetrics.pinTop,
-                    gap: authMetrics.pinGap,
-                    alignItems: 'center',
-                }}>
-                    {identity ? (
-                        <View style={{
-                            width: authMetrics.staffAvatar,
-                            height: authMetrics.staffAvatar,
-                            borderRadius: radius.pill,
-                            borderWidth: authMetrics.selectionAvatarBorder,
-                            borderColor: `${c.or}57`,
-                            backgroundColor: `${c.or}24`,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <Text style={{
-                                color: c.or2,
-                                fontSize: authMetrics.staffAvatarText,
-                                fontFamily: font.extraBold,
-                                fontWeight: '800',
-                                letterSpacing: authMetrics.staffAvatarText * -0.02,
-                            }}>
-                                {identity.member.initials}
-                            </Text>
-                        </View>
-                    ) : null}
-                    <Text style={{
-                        color: c.tx,
-                        fontSize: authMetrics.staffPinTitle,
-                        fontFamily: font.extraBold,
-                        fontWeight: '800',
-                        letterSpacing: authMetrics.staffPinTitle * -0.03,
-                    }}>
-                        {PIN_TITLE[mode]}
-                    </Text>
-                    {mode !== 'enter' ? (
+                {locked ? (
+                    /*
+                     * KİLİT — kişiye ait (sunucu `staff.pin_locked_until`). Tuş
+                     * takımı yok: yapılacak iş yazmak değil, beklemek ya da
+                     * müdüre gitmek. O yüzden "Şifremi hatırlamıyorum" burada
+                     * sessiz bağlantı değil, düğme.
+                     */
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: authMetrics.pinLockX, gap: authMetrics.pinLockGap }}>
                         <Text style={{
-                            color: c.tx2,
-                            fontSize: authMetrics.pinSetupHint,
-                            fontFamily: font.medium,
-                            fontWeight: '500',
-                            textAlign: 'center',
+                            color: c.tx, fontSize: authMetrics.pinLockTitle, fontFamily: font.extraBold, fontWeight: '800',
+                            letterSpacing: authMetrics.pinLockTitle * -0.03, textAlign: 'center',
                         }}>
-                            {mode === 'create'
-                                ? '4 hane · girişte yalnız siz kullanacaksınız'
-                                : 'Aynı dört haneyi bir kez daha'}
+                            Şifre girişi 15 dakika kilitli
                         </Text>
-                    ) : null}
-                    <Animated.View style={{ transform: [{ translateX: shake }] }}>
-                        <AuthPinDots length={pin.length} error={Boolean(errorMessage)} />
-                    </Animated.View>
-                </View>
-
-                {notice && !errorMessage ? (
-                    <View style={{ marginBottom: authMetrics.pinErrorBottom }}>
-                        <AuthBanner>{notice}</AuthBanner>
+                        <Text style={{
+                            color: c.tx, fontSize: authMetrics.pinLockCount, fontFamily: font.extraBold, fontWeight: '800',
+                            letterSpacing: authMetrics.pinLockCount * -0.04, fontVariant: ['tabular-nums'],
+                        }}>
+                            {`${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, '0')}`}
+                        </Text>
+                        <Text style={{
+                            color: c.tx2, fontSize: authMetrics.pinLockBody, lineHeight: authMetrics.pinLockBody * 1.45, fontFamily: font.medium,
+                            fontWeight: '500', textAlign: 'center',
+                        }}>
+                            {lockWaitText(secondsRemaining)}. Beklemek istemiyorsanız müdürünüz şifrenizi sıfırlayabilir; sıfırlayınca kilit de kalkar.
+                        </Text>
+                        <View style={{ alignSelf: 'stretch', marginTop: authMetrics.pinLockActionTop }}>
+                            <AuthActionButton kind="secondary" label="Şifremi hatırlamıyorum" onPress={() => setPlate('forgot')} />
+                        </View>
                     </View>
-                ) : null}
-                {errorMessage ? (
-                    <Animated.View style={{
-                        marginBottom: authMetrics.pinErrorBottom,
-                        opacity: reveal,
-                        transform: [{
-                            translateY: reveal.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: reduceMotion ? [0, 0] : [4, 0],
-                            }),
-                        }],
-                    }}>
-                        <AuthBanner kind="error">
-                            {locked
-                                ? `${errorMessage} ${lockCountdownText(secondsRemaining)}`
-                                : errorMessage}
-                        </AuthBanner>
-                    </Animated.View>
-                ) : null}
+                ) : (
+                    <>
+                        <View style={{
+                            flex: 1,
+                            minHeight: 0,
+                            paddingTop: small ? authMetrics.pinTopSmall : authMetrics.pinTop,
+                            alignItems: 'center',
+                        }}>
+                            {identity && !(small && resetBand) ? (
+                                <View style={{
+                                    width: avatar,
+                                    height: avatar,
+                                    borderRadius: radius.pill,
+                                    borderWidth: authMetrics.selectionAvatarBorder,
+                                    borderColor: `${c.or}57`,
+                                    backgroundColor: `${c.or}24`,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: small ? authMetrics.pinAvatarBottomSmall : authMetrics.pinAvatarBottom,
+                                }}>
+                                    <Text style={{
+                                        color: c.or2,
+                                        fontSize: authMetrics.staffAvatarText,
+                                        fontFamily: font.extraBold,
+                                        fontWeight: '800',
+                                        letterSpacing: authMetrics.staffAvatarText * -0.02,
+                                    }}>
+                                        {identity.member.initials}
+                                    </Text>
+                                </View>
+                            ) : null}
+                            <SwapTitle text={title} slide={!ready} />
+                            <View style={{ marginTop: small ? authMetrics.pinGapSmall : authMetrics.pinGap }}>
+                                <PinDotRow length={pin.length} tone={dotTone} drainKey={String(stepKey)} />
+                            </View>
+                            <HintSlot text={hintText} tone={ready ? 'quiet' : hint?.tone ?? 'quiet'} />
+                        </View>
 
-                <AuthKeypad onKey={keyPress} disabled={verifying || locked} />
+                        <View style={{ opacity: verifying || ready ? authMetrics.pinKeypadDim : 1 }}>
+                            <AuthKeypad onKey={keyPress} disabled={verifying || ready} />
+                        </View>
+                    </>
+                )}
+
                 <View style={{
                     paddingTop: authMetrics.pinHelpTop,
                     paddingHorizontal: authMetrics.keypadX,
-                    paddingBottom: Math.max(insets.bottom, authMetrics.pinHelpBottom),
+                    paddingBottom: Math.max(insets.bottom, small ? authMetrics.pinHelpBottomSmall : authMetrics.pinHelpBottom),
+                    alignItems: 'center',
                 }}>
-                    {mode === 'enter' ? (
-                        <AuthActionButton
-                            kind="ghost"
-                            label="Şifremi hatırlamıyorum"
-                            onPress={() => Alert.alert(
-                                'Müdürden sıfırlamasını isteyin',
-                                'Müdür Luera’da Personel ekranından şifrenizi sıfırlar. Sonra buradan yeni şifrenizi kendiniz belirlersiniz.',
-                            )}
-                        />
+                    {mode === 'enter' && !locked ? (
+                        <AuthTextLink quiet label="Şifremi hatırlamıyorum" onPress={() => setPlate('forgot')} />
                     ) : null}
-                    {/* Kişisel telefon başkasının eline geçtiyse ya da yanlış
-                        kişi seçildiyse: liste. Telefon bağlı KALIR. */}
-                    <AuthTextLink quiet label="Ben değilim" onPress={notMe} />
+                    {/* Yanlış satıra basan ya da telefonu değişen kişi için: liste.
+                        Telefon işletmeye bağlı KALIR. */}
+                    <AuthTextLink label="Ben değilim" onPress={notMe} />
                 </View>
             </View>
+
+            <BottomPlate
+                visible={plate === 'forgot'}
+                title="Müdürünüz sıfırlayabilir"
+                body="Müdürünüz Luera’da Personel ekranından şifrenizi sıfırlar. Sonra bu ekranda yeni şifrenizi kendiniz belirlersiniz. Telefonunuz işletmeye bağlı kalır; yeni kod gerekmez."
+                onDismiss={() => setPlate(null)}
+            />
+            <BottomPlate
+                visible={plate === 'taken'}
+                tone="teal"
+                title="Bu kişinin şifresi az önce belirlendi"
+                body="Başka bir telefonda bu kişi için şifre belirlendi. Siz belirlediyseniz o şifreyle girin; siz değilseniz müdürünüze söyleyin."
+                onDismiss={() => { setPlate(null); goStep('enter'); }}
+            />
         </View>
     );
-}
-
-function revealPinError(reveal: Animated.Value, reduceMotion: boolean) {
-    reveal.setValue(0);
-    Animated.timing(reveal, {
-        toValue: 1,
-        duration: reduceMotion ? authMotion.statusReduced : authMotion.statusIn,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-        isInteraction: false,
-    }).start();
-}
-
-function runPinErrorShake(shake: Animated.Value, reduceMotion: boolean) {
-    if (reduceMotion) return;
-    const leg = authMotion.errorShake / 3;
-    Animated.sequence([
-        Animated.timing(shake, {
-            toValue: -authMotion.errorOffset,
-            duration: leg,
-            useNativeDriver: true,
-        }),
-        Animated.timing(shake, {
-            toValue: authMotion.errorOffset,
-            duration: leg,
-            useNativeDriver: true,
-        }),
-        Animated.timing(shake, { toValue: 0, duration: leg, useNativeDriver: true }),
-    ]).start();
 }

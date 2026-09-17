@@ -1684,22 +1684,30 @@ export function AuthIdentityBar({
  * değil. Eski hâlinde satırlar alt kenarlıkla birbirine dikilmişti.
  */
 export function AuthStaffRow({ member, onPress }: {
-    member: { initials: string; name: string; role: string };
+    member: { initials: string; name: string; role: string; hasPin?: boolean };
     onPress: () => void;
 }) {
     const { c, dark } = useTheme();
+    /*
+     * İLK GİRİŞ (099 tasarımı §P2): rolün yanına ek değil, altına üçüncü satır
+     * — ve o satır kişiyi değil DOKUNUNCA OLACAK ŞEYİ anlatıyor. Teal bu üründe
+     * durum değil kimlik rengi (karşılamadaki personel kapısı); rozet, ünlem,
+     * "şifresiz" yok.
+     */
+    const first = member.hasPin === false;
+    const teal = dark ? '#5FD3C8' : '#0C6E67';
     const press = usePressValue();
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${member.name}, ${member.role}`}
+            accessibilityLabel={`${member.name}, ${member.role}${first ? ', ilk giriş' : ''}`}
             onPress={onPress}
             onPressIn={() => runRowPress(press, true)}
             onPressOut={() => runRowPress(press, false)}
         >
             <GlassPlate radius={18}>
             <View style={{
-                minHeight: authMetrics.selectionRowHeight,
+                minHeight: first ? authMetrics.selectionRowHeightTall : authMetrics.selectionRowHeight,
                 paddingHorizontal: authMetrics.selectionRowX,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -1717,7 +1725,7 @@ export function AuthStaffRow({ member, onPress }: {
                     borderRadius: radius.pill,
                     backgroundColor: c.surf2,
                     borderWidth: authMetrics.selectionAvatarBorder,
-                    borderColor: c.bd2,
+                    borderColor: first ? teal : c.bd2,
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
@@ -1748,6 +1756,16 @@ export function AuthStaffRow({ member, onPress }: {
                     }}>
                         {member.role}
                     </Text>
+                    {first ? (
+                        <Text numberOfLines={1} style={{
+                            color: teal,
+                            fontSize: authMetrics.selectionFirstLine,
+                            fontFamily: font.bold,
+                            fontWeight: '700',
+                        }}>
+                            İlk giriş · şifrenizi siz belirleyeceksiniz
+                        </Text>
+                    ) : null}
                 </View>
                 <ChevronIcon color={c.tx3} />
             </View>
@@ -1990,10 +2008,11 @@ const AUTH_DIGITS = [
     ['', '0', 'backspace'],
 ] as const;
 
-function AuthKeypadKey({ value, onPress, disabled }: {
+function AuthKeypadKey({ value, onPress, disabled, opaque = false }: {
     value: string;
     onPress: () => void;
     disabled: boolean;
+    opaque?: boolean;
 }) {
     const { c, reduceMotion, small } = useTheme();
     const press = usePressValue();
@@ -2017,7 +2036,7 @@ function AuthKeypadKey({ value, onPress, disabled }: {
                     }),
                 }],
             }}>
-            <KeyShell blank={blank} press={press}>
+            <KeyShell blank={blank} press={press} opaque={opaque}>
                 {value === 'backspace' ? <DeleteIcon color={c.tx} /> : blank ? null : (
                     <Text style={[{
                         color: c.tx,
@@ -2041,14 +2060,29 @@ function AuthKeypadKey({ value, onPress, disabled }: {
  * .66'ya açıyor — sönmüyor, AYDINLANIYOR: cam bir yüzeyin sönmesi onu
  * arkasındaki alanla karıştırıyordu.
  */
-function KeyShell({ blank, press, children }: {
+function KeyShell({ blank, press, children, opaque = false }: {
     blank: boolean;
     press: Animated.Value;
     children: ReactNode;
+    opaque?: boolean;
 }) {
-    const { dark, small } = useTheme();
+    const { c, dark, small } = useTheme();
     const height = small ? authMetrics.keypadKeyHeightSmall : authMetrics.keypadKeyHeight;
     if (blank) return <View style={{ height }} />;
+    // Uygulama İÇİNDE tuş takımı opak (099 §P5): cam yalnız yüzen katmanlarda.
+    if (opaque) {
+        return (
+            <View style={{ borderRadius: authMetrics.keypadRadius, borderWidth: 1, borderColor: c.bd, backgroundColor: c.surf2, overflow: 'hidden' }}>
+                <Animated.View
+                    pointerEvents="none"
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.bd, opacity: press }}
+                />
+                <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
+                    {children}
+                </View>
+            </View>
+        );
+    }
     return (
         <GlassPlate kind="key" radius={authMetrics.keypadRadius}>
             <Animated.View
@@ -2067,9 +2101,11 @@ function KeyShell({ blank, press, children }: {
 }
 
 /** Giriş 06 ve 08'in tek ortak sayısal tuş takımı. */
-export function AuthKeypad({ onKey, disabled = false }: {
+export function AuthKeypad({ onKey, disabled = false, opaque = false }: {
     onKey: (key: string) => void;
     disabled?: boolean;
+    /** Uygulama içi (Şifreyi değiştir): cam değil opak yüzey. */
+    opaque?: boolean;
 }) {
     return (
         <View style={{
@@ -2084,6 +2120,7 @@ export function AuthKeypad({ onKey, disabled = false }: {
                             key={`${rowIndex}-${keyIndex}`}
                             value={value}
                             disabled={disabled}
+                            opaque={opaque}
                             onPress={() => {
                                 if (!value || disabled) return;
                                 feedback.key();

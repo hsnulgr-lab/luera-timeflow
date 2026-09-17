@@ -38,7 +38,24 @@ export default function SignupAccount() {
         setBusy(false);
         if (!result.ok && result.error === 'offline') { setOffline(true); return; }
         if (!result.ok) {
-            setError('Bu e-posta zaten kullanılıyor. Bunun yerine giriş yapabilirsiniz.');
+            /*
+             * HATANIN SEBEBİ SÖYLENİYOR. Ekran eskiden HER başarısızlığa "bu
+             * e-posta zaten kullanılıyor" diyordu: sunucu e-posta doğrulaması
+             * istediğinde de, şifre reddedildiğinde de aynı cümle. Kişi
+             * olmayan bir hesabı aramaya gidiyordu.
+             */
+            setError(
+                result.error === 'email_confirmation_required'
+                    // Doğrulama açıkken sunucu, zaten kayıtlı bir e-postayı da
+                    // aynı biçimde cevaplıyor (hesap sızdırmamak için) —
+                    // metin ikisini de kapsıyor.
+                    ? 'E-postanıza bir doğrulama bağlantısı gönderdik. Bağlantıya dokunduktan sonra buradan giriş yapabilirsiniz.'
+                    : result.error === 'email_in_use'
+                        ? 'Bu e-posta zaten kullanılıyor. Bunun yerine giriş yapabilirsiniz.'
+                        : result.error === 'locked'
+                            ? 'Çok fazla deneme oldu. Birkaç dakika sonra tekrar deneyin.'
+                            : 'Hesap açılamadı. Bilgileri kontrol edip yeniden deneyin.',
+            );
             return;
         }
         router.push('/(auth)/signup/business');

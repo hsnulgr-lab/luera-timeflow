@@ -46,5 +46,8 @@ export default function Index() {
     if (launch.target === 'staffRoster') return <Redirect href="/(auth)/staff/who" />;
     // Telefon bağlı ve kim olduğu biliniyor: yalnız şifre (099).
     if (launch.target === 'staffPin') return <Redirect href="/(auth)/staff/pin" />;
+    // Müdürün oturumu duruyor, profil kaydı yok: salon ekranı onu oturumdan
+    // kurar. Şifre yeniden sorulmaz.
+    if (launch.target === 'managerBusiness') return <Redirect href="/(auth)/manager/business" />;
     return <Redirect href="/(auth)/welcome" />;
 }

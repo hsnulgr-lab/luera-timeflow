@@ -28,9 +28,19 @@ function failureOf(cause: unknown): TeamFailure {
     return message === 'owner_required' || message === 'offline' ? message : 'failed';
 }
 
-/** Ekibin giriş durumu. Okunamazsa FIRLATIR — okuma kancası hâli çiziyor. */
-export async function fetchTeamStatus(): Promise<TeamMember[]> {
-    const data = await call('team.status');
+/**
+ * Ekibin giriş durumu. Okunamazsa FIRLATIR — okuma kancası hâli çiziyor.
+ * İşletme sahibi olmayan kullanıcıda `'owner_required'` DÖNER: bu bir okuma
+ * hatası değil, ekranın söylemesi gereken bir olgu.
+ */
+export async function fetchTeamStatus(): Promise<TeamMember[] | 'owner_required'> {
+    let data: Record<string, unknown>;
+    try {
+        data = await call('team.status');
+    } catch (cause) {
+        if (cause instanceof Error && cause.message === 'owner_required') return 'owner_required';
+        throw cause;
+    }
     const rows = Array.isArray(data.staff) ? data.staff as Record<string, unknown>[] : [];
     return rows.map((row) => ({
         id: String(row.id),
@@ -69,4 +79,25 @@ export async function resetStaffPin(staffId: string): Promise<{ ok: true } | { o
         if (cause instanceof OrgError) throw cause;
         return { ok: false, reason: failureOf(cause) };
     }
+}
+
+// ── Açık kod — ekranlar arası ───────────────────────────────────────────────
+//
+// Kod yalnız üretildiği cevapta açık geçiyor ve sunucuda okunamıyor. Profil'in
+// "Personel · Kod açık · 14:32" satırı kodun SÜRESİNİ bilmek için bu hafızaya
+// bakıyor — kodun kendisini değil. Uygulama kapanınca unutulur; doğrusu bu.
+
+let activeCode: TeamCode | null = null;
+
+export function rememberTeamCode(code: TeamCode | null): void {
+    activeCode = code;
+}
+
+/** Hâlâ geçerli açık kodun bitiş anı; yoksa null. */
+export function activeTeamCodeExpiry(nowMs: number): number | null {
+    return activeCode && activeCode.expiresAt > nowMs ? activeCode.expiresAt : null;
+}
+
+export function activeTeamCode(nowMs: number): TeamCode | null {
+    return activeCode && activeCode.expiresAt > nowMs ? activeCode : null;
 }

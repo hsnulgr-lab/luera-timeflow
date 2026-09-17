@@ -13,6 +13,7 @@ const read = (path) => readFileSync(new URL(`../mobile/${path}`, import.meta.url
 
 const live = read('src/api/auth.ts');
 const session = read('src/api/session.ts');
+const stub = read('src/api/authStub.ts');
 const staffClient = read('src/api/staff.ts');
 const packageJson = read('package.json');
 
@@ -94,13 +95,48 @@ test('varsayılan stub: sunucu dağıtılmadan canlıya geçilmez', () => {
 });
 
 test('sunucu tarafı olmayan akışlar açıkça stub kalır', () => {
-    // Kayıt: mobilden org açacak uç yok — stub. Hesap 9. adımda CANLIYA geçti:
-    // stub'da kaldığı sürece canlı kipte Hesap ekranı müdürü karşılamaya
-    // atıyordu. Silme gerçek uca (`account-delete`) gidiyor.
-    assert.match(session, /STUB_PARTS = \['signup', 'subscription'\]/);
+    // Geriye YALNIZ abonelik kaldı ve mobilde kalacak da: uygulamada fiyat,
+    // plan ya da satın alma çağrısı geçmiyor (App Store 3.1.3(f)).
+    assert.match(session, /STUB_PARTS = \['subscription'\]/);
     assert.match(session, /account: \{ \.\.\.authStub\.account, \.\.\.live\.account \}/);
-    assert.doesNotMatch(live, /signup|createSignupAccount/);
     assert.match(live, /const result = await deleteAccount\(stored\.profile\.business\.id\);/);
+});
+
+test('kayıt GERÇEKTEN salon açıyor', () => {
+    /*
+     * Telefondan "kaydol" diyen kişi bütün ekranları geziyor, sonunda "hazır"
+     * yazısını görüyor ve HİÇBİR ŞEY oluşmuyordu (App Store Yönerge 2.1).
+     */
+    assert.match(session, /signup: \{ \.\.\.authStub\.signup, \.\.\.live\.signup \}/);
+    assert.match(live, /await supabase\.auth\.signUp\(\{/);
+    // Salonun adı ve sektörü sunucuya YAZILIYOR — taslakta kalmıyor.
+    assert.match(live, /from\('organizations'\)\.update\(\{ name \}\)/);
+    assert.match(live, /update\(\{ sector: chosen\.id \}\)/);
+    // Şifre cihazda SAKLANMIYOR: taslakta yalnız e-posta, ad ve sektör var.
+    const draft = live.slice(live.indexOf('async function writeSignupDraft'), live.indexOf('async function ownedOrg'));
+    assert.doesNotMatch(draft, /password/);
+    // Oturum gelmediyse "hazır" denmiyor: doğrulama açık demek.
+    assert.match(live, /if \(!data\.session\) return fail\('email_confirmation_required'\);/);
+    // Kurulumun sonu GİRİŞLE aynı yoldan geçiyor; profil uydurulmuyor.
+    assert.match(live, /const session = await selectManagerBusiness\(org\.id\);/);
+});
+
+test('sektör anahtarları masaüstünün anahtarları', () => {
+    /*
+     * Mobil bir süre `klinik`, `dovme`, `diger` yazıyordu. Masaüstü bunları
+     * tanımıyor ve `genel` panele düşürüyor: telefondan kaydolan kliniğin
+     * bilgisayarda YANLIŞ ekranı görmesi demekti.
+     */
+    const profiles = readFileSync(new URL('../src/lib/sectorProfiles.ts', import.meta.url), 'utf8');
+    for (const key of ['kuafor', 'guzellik', 'dis', 'saglik', 'tattoo', 'restoran', 'genel']) {
+        assert.match(live, new RegExp(`id: '${key}'`), `canlı sektör eksik: ${key}`);
+        assert.match(stub, new RegExp(`id: '${key}'`), `stub sektör eksik: ${key}`);
+        assert.match(profiles, new RegExp(`^    ${key}: \\{`, 'm'), `masaüstü tanımıyor: ${key}`);
+    }
+    for (const dead of ['klinik', 'dovme', 'diger']) {
+        assert.doesNotMatch(live, new RegExp(`id: '${dead}'`));
+        assert.doesNotMatch(stub, new RegExp(`id: '${dead}'`));
+    }
 });
 
 test('ekranlar kimliğe yalnız tek dikişten ulaşır', () => {

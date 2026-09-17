@@ -176,3 +176,39 @@ test('telefonu işletmeden çıkarmak ONAY istiyor', () => {
     // Onaysız yol kapandı.
     assert.doesNotMatch(screen, /if \(session\.actor === 'staff'\) \{\s*await authApi\.staff\.unlinkDevice\(\)/);
 });
+
+// ── Müdürün oturumu profil yuvasından BAĞIMSIZ ──────────────────────────────
+
+test('profil kaydı silinse de müdür şifresini yeniden yazmıyor', () => {
+    /*
+     * Profil tek yuvada duruyor (`tf.auth.profile`): aynı telefonda personel
+     * girişi yapılınca müdürünkinin üzerine yazılıyor, personel çıkınca yuva
+     * siliniyor. Supabase oturumu ise yerinde. Açılış yalnız yuvaya baktığı
+     * için müdür her seferinde e-posta ve şifre yazmak zorunda kalıyordu.
+     */
+    const launch = realAuth.slice(
+        realAuth.indexOf('async function getLaunchState'),
+        realAuth.indexOf('async function pendingStaffMember'),
+    );
+    assert.match(launch, /supabaseConfigured && \(await supabase\.auth\.getSession\(\)\)\.data\.session/);
+    assert.match(launch, /return \{ target: 'managerBusiness' \};/);
+    // 099 KARARI KORUNUYOR: telefon personele bağlıysa oraya gidilir, müdür
+    // oturumu o kapıyı kapatmaz.
+    assert.ok(launch.indexOf('tokens.device()') < launch.indexOf("target: 'managerBusiness'"));
+    assert.match(authStub, /\| \{ target: 'managerBusiness' \}/);
+    assert.match(index, /launch\.target === 'managerBusiness'[\s\S]{0,140}\/\(auth\)\/manager\/business/);
+});
+
+test('geri düğmesi geçmiş yoksa ölü kalmıyor', () => {
+    // `replace` ile gelinen ekranda `back()` hiçbir şey yapmadan
+    // "GO_BACK was not handled" uyarısı bırakıyordu: kapısı olmayan bir düğme.
+    for (const path of [
+        'mobile/app/(auth)/manager/sign-in.tsx',
+        'mobile/app/(auth)/manager/business.tsx',
+        'mobile/app/(auth)/manager/recover.tsx',
+    ]) {
+        const screen = source(path);
+        assert.match(screen, /if \(router\.canGoBack\(\)\) router\.back\(\);/, path);
+        assert.match(screen, /else router\.replace\('\/\(auth\)\/welcome'\);/, path);
+    }
+});

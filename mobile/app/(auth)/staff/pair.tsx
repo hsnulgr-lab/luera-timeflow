@@ -45,9 +45,9 @@ async function ownerOrNull(): Promise<PairOwner | null> {
  * telefonundan üretilir; personel yazdıktan sonra listeden kendini seçer.
  */
 const HELP_STEPS = [
-    'Müdür Luera’da Personel ekranını açar — bilgisayarda ya da kendi telefonunda.',
-    'Telefon bağla’ya basar; ekranda altı haneli kod çıkar.',
-    'Kodu buraya yazıp listeden kendinizi seçin. Kod 15 dakika geçerli, bütün ekip aynı kodu kullanır.',
+    'Müdür Luera’yı açar — telefondan Profil › Personel, bilgisayardan Personel sayfası.',
+    'Telefon bağla’ya basar; altı haneli kod 15 dakika boyunca ekranda durur.',
+    'Bütün ekip aynı kodu kendi telefonuna yazar. Kod bir kişiye özel değil.',
 ] as const;
 
 function PairHelp({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
@@ -116,7 +116,7 @@ function PairHelp({ visible, onDismiss }: { visible: boolean; onDismiss: () => v
                     fontWeight: '800',
                     letterSpacing: authMetrics.helpSheetTitle * -0.03,
                 }}>
-                    Kodu nereden alacaksınız?
+                    Kod nereden gelir
                 </Text>
 
                 <View style={{ gap: authMetrics.helpStepGap }}>
@@ -160,9 +160,9 @@ function PairHelp({ visible, onDismiss }: { visible: boolean; onDismiss: () => v
                 </View>
 
                 <AuthBanner inset={false}>
-                    Kodu yalnız müdür üretebilir. Uygulamadan istek gönderemezsiniz.
+                    Kodu yalnız müdür üretebilir. Uygulamadan kod isteği gönderilmez — yanınızdaki müdüre sorun.
                 </AuthBanner>
-                <AuthActionButton label="Anladım" kind="secondary" onPress={close} />
+                <AuthActionButton label="Kod ekranına dön" kind="secondary" onPress={close} />
             </Animated.View>
         </View>
     );
@@ -407,7 +407,7 @@ export default function PairDevice() {
                 </Animated.View>
                 {invalid ? (
                     <AuthBanner inset={false} kind="error">
-                        Bu kod eşleşmedi. Rakamları bir daha kontrol edip yeniden yazın.
+                        Bu kod eşleşmedi. Müdürün ekranındaki kodu bir daha kontrol edin.
                     </AuthBanner>
                 ) : null}
             </View>

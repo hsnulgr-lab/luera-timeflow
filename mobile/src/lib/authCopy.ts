@@ -50,8 +50,8 @@ export function remainingAttemptText(
     }
 
     return remaining === null
-        ? `Şifre yanlış. Üst üste yanlış denemeden sonra bu telefon ${minutes} dakika kilitlenir.`
-        : `Şifre yanlış. ${remaining} denemeniz kaldı; sonra bu telefon ${minutes} dakika kilitlenir.`;
+        ? `Şifre yanlış. Üst üste yanlış denemeden sonra şifre girişi ${minutes} dakika kilitlenir.`
+        : `Şifre yanlış. ${remaining} denemeniz kaldı; sonra şifre girişi ${minutes} dakika kilitlenir.`;
 }
 
 /** Kilitli düğmenin içinde gösterilecek, yukarı yuvarlanmış dakika:saniye sayacı. */
@@ -102,9 +102,10 @@ export const sessionGate = {
  */
 export const expiredPairCode = {
     title: 'Bu kodun\nsüresi doldu',
-    body: 'Kodlar 15 dakika geçerli. Müdür Luera’da Personel ekranından yeni bir kod üretebilir; yeni kodu alınca buraya yazın.',
+    // 099 tasarımı §P1: kod YAŞLANDI, kimse yeni kod üretmedi — müdürün üretmesi gerekiyor.
+    body: 'Kodlar 15 dakika geçerli. Müdürünüzden yeni bir kod üretmesini isteyin; bu ekranda kaldığınız yerden devam edeceksiniz.',
     ownerStatus: 'Kodu o üretir',
-    retype: 'Yeni kodu yaz',
+    retype: 'Yeni kodu yazacağım',
     call: 'İşletme sahibini ara',
 } as const;
 
@@ -128,13 +129,15 @@ export const expiredPairCode = {
  */
 export const usedPairCode = {
     title: 'Bu kod artık\ngeçerli değil',
-    body: 'Müdür yeni bir kod üretmiş olabilir. Ekrandaki güncel kodu isteyip buraya yazın.',
+    // Doğru kod şu anda salonda: üretilecek değil, BULUNACAK.
+    body: 'Müdürünüz daha yeni bir kod üretti. Güncel kod şu anda onun ekranında görünüyor; yeni kodu sorun.',
 } as const;
 
 export const pairLocked = {
-    title: 'Çok fazla\ndeneme yapıldı',
-    body: 'Güvenlik için eşleştirme 15 dakika kapatıldı. Kodunuz yanlış olmayabilir — bu süre boyunca hiçbir kod kabul edilmiyor.',
-    hint: 'Beklerken müdürden yeni bir kod isteyin: kodlar 15 dakika geçerli, elinizdeki kodun süresi bu arada dolabilir.',
+    title: 'Çok fazla\nyanlış deneme',
+    // Sayaç BAĞLANTIYA ait (IP), işletmeye değil: aynı Wi‑Fi'daki herkes aynı bütçeyi harcıyor.
+    body: 'Bu bağlantıdan kod girişi 15 dakika kapandı. Süre dolunca bu ekran kendiliğinden açılır; bir şey yapmanız gerekmiyor.',
+    hint: 'Aynı Wi‑Fi’daki herkes aynı sayacı kullanır. Beklerken müdürünüzden güncel kodu isteyin.',
     call: 'İşletme sahibini ara',
     retry: 'Yeni kodu yaz',
 } as const;

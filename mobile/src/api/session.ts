@@ -8,9 +8,9 @@ import { authStub } from './authStub';
  *
  *   authStub — hepsi sahte ama TAMAM. Sunucu olmadan bütün akış gezilebiliyor;
  *              tasarım turları bunun üstünde yapıldı.
- *   auth     — gerçek. Müdür Supabase oturumu, personel cihaz kodu + PIN.
- *              Kayıt ve hesap silme YOK: ikisinin de sunucu tarafı yazılmadı
- *              (mobilden org açacak uç yok, hesap silecek uç yok).
+ *   auth     — gerçek. Müdür Supabase oturumu, personel cihaz kodu + PIN,
+ *              yeni salon kaydı, hesap silme. Abonelik YOK ve olmayacak:
+ *              uygulamada fiyat ya da satın alma çağrısı geçmiyor.
  *
  * Bu yüzden karışık bir yüzey sunuluyor: gerçeği olan gerçekten, olmayan
  * stub'dan. Hangi parçanın sahte olduğu aşağıda tek tek yazılı — "çalışıyor
@@ -24,14 +24,15 @@ import { authStub } from './authStub';
 export const LIVE_AUTH = process.env.EXPO_PUBLIC_AUTH_MODE === 'live';
 
 /** Gerçek sunucuya bağlı olan parçalar. */
-export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'getLaunchState'] as const;
+export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'signup', 'getLaunchState'] as const;
 /**
  * Hâlâ sahte olan parçalar — sunucu tarafı yazılmadı.
  *
- * `account` 2026-09-16'da çıktı (müdür planı 9. adım): stub'da kaldığı sürece
- * canlı kipte Hesap ekranı müdürü karşılama ekranına atıyordu.
+ * `account` 2026-09-16'da, `signup` 2026-09-18'de çıktı. Kayıt stub'da
+ * kaldığı sürece telefondan "kaydol" diyen kişi bütün ekranları geziyor,
+ * "hazır" yazısını görüyor ve hiçbir şey oluşmuyordu.
  */
-export const STUB_PARTS = ['signup', 'subscription'] as const;
+export const STUB_PARTS = ['subscription'] as const;
 
 export const authApi = LIVE_AUTH
     ? {
@@ -42,6 +43,7 @@ export const authApi = LIVE_AUTH
         biometric: { ...authStub.biometric, ...live.biometric },
         resume: { ...authStub.resume, ...live.resume },
         account: { ...authStub.account, ...live.account },
+        signup: { ...authStub.signup, ...live.signup },
     }
     : authStub;
 

@@ -73,7 +73,8 @@ test('personel ekranları ortak giriş parçalarını ve tema jetonlarını kull
     assert.match(pair, /AuthCodeBoxes/);
     assert.match(pair, /AuthKeypad/);
     assert.match(who, /AuthStaffRow/);
-    assert.match(pin, /AuthPinDots/);
+    // 099: noktalar adım geçişinde boşalarak söndüğü için kendi bileşeninde.
+    assert.match(pin, /PinDotRow/);
     assert.match(pin, /AuthKeypad/);
     assert.match(tokens, /keypadKeyHeight:\s*62/);
     assert.match(tokens, /keypadKeyHeightSmall:\s*52/);
@@ -91,7 +92,9 @@ test('Giriş 06 kod ekranı tasarım metnini ve altı hane kapısını korur', (
         // ama çalışmayan bir özellik App Store 2.1'in doğrudan konusu.
         'Devam',
         'Kodum yok',
-        'Bu kod eşleşmedi. Rakamları bir daha kontrol edip yeniden yazın.',
+        // 099 · doğru kod müdürün EKRANINDA duruyor; kişiyi aynı rakamları
+        // tekrar yazmaya değil, kaynağa bakmaya yönlendiriyoruz.
+        'Bu kod eşleşmedi. Müdürün ekranındaki kodu bir daha kontrol edin.',
     ]) {
         assert.ok(staffUiBundle.includes(copy), `Giriş 06 metni eksik: ${copy}`);
     }
@@ -116,13 +119,14 @@ test('Giriş 06 kod alanı tek gizli girdidir; OTP, yapıştırma ve özel tuş 
 
 test('Giriş 06b ayrı rota değil, kodu koruyan tek cevaplık alt sayfadır', () => {
     for (const copy of [
-        'Kodu nereden alacaksınız?',
+        'Kod nereden gelir',
         // 099 · ekip kodu: masaüstü ya da müdür telefonu, tek kod, 15 dakika.
-        'Müdür Luera’da Personel ekranını açar — bilgisayarda ya da kendi telefonunda.',
-        'Telefon bağla’ya basar; ekranda altı haneli kod çıkar.',
-        'Kodu buraya yazıp listeden kendinizi seçin. Kod 15 dakika geçerli, bütün ekip aynı kodu kullanır.',
-        'Kodu yalnız müdür üretebilir. Uygulamadan istek gönderemezsiniz.',
-        'Anladım',
+        'Müdür Luera’yı açar — telefondan Profil › Personel, bilgisayardan Personel sayfası.',
+        'Telefon bağla’ya basar; altı haneli kod 15 dakika boyunca ekranda durur.',
+        'Bütün ekip aynı kodu kendi telefonuna yazar. Kod bir kişiye özel değil.',
+        'Kodu yalnız müdür üretebilir. Uygulamadan kod isteği gönderilmez — yanınızdaki müdüre sorun.',
+        // Alt sayfa kodu KORUYOR: kapanınca yazılan haneler yerinde kalır.
+        'Kod ekranına dön',
     ]) {
         assert.ok(staffUiBundle.includes(copy), `Giriş 06b metni eksik: ${copy}`);
     }
@@ -169,14 +173,18 @@ test('Giriş 08 PIN girdisi güvenli kalır; kilit sunucu süresini izler ve tu�
     assert.match(pinInputBundle, /maxLength\s*=\s*\{?4\}?/);
     assert.match(pin, /lockedUntil/);
     assert.match(pin, /Date\.now\s*\(/);
-    assert.match(pin, /disabled\s*=\s*\{[^}]*locked/);
+    // 099: kilitliyken tuş takımı hiç çizilmiyor — yerinde geri sayım var.
+    assert.match(pin, /\{locked \? \([\s\S]*Şifre girişi 15 dakika kilitli[\s\S]*\) : \([\s\S]*<AuthKeypad/);
     assert.match(pin, /setInterval\s*\(/);
 });
 
 test('kod ve PIN hatası sözleşmedeki tek ±6 px / 180 ms sarsıntıyı kullanır', () => {
+    // 099 tasarımı: ŞİFRE ekranında sarsıntı yok (40–55 yaş için sarsılan alan
+    // arıza gibi görünüyor), renk var. Sarsıntı yalnız KOD ekranında kaldı.
+    assert.doesNotMatch(pin, /errorShake|translateX: shake/);
+    assert.match(pin, /tone=\{dotTone\}/);
     for (const [name, screen] of [
         ['pair', pair],
-        ['pin', pin],
     ]) {
         assert.match(screen, /authMotion\.errorShake/, `${name} 180 ms jetonunu kullanmalı`);
         assert.match(screen, /authMotion\.errorOffset/, `${name} ±6 px jetonunu kullanmalı`);
@@ -212,7 +220,8 @@ test('kadro okunamazsa EŞLEŞTİRME ekranına atılmıyor', () => {
     assert.doesNotMatch(who, /if \(!result\.ok\) \{\s*router\.replace\('\/\(auth\)\/staff\/pair'\)/);
     // Ve okunamadığı SÖYLENİYOR, sessizce boş liste bırakılmıyor.
     assert.match(who, /setListError\(true\)/);
-    assert.match(who, /Telefonunuz işletmeye BAĞLI/);
+    // Ve "eşleşmen bozuldu" DENMİYOR: kodu yeniden yazmak gerekmiyor.
+    assert.match(who, /Telefonun\s*\n?\s*bağlantısı bozulmadı; kodu yeniden yazmanız gerekmiyor\./);
 });
 
 test('seçilen personel YENİDEN YÜKLEMEYE dayanıyor', () => {

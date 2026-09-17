@@ -150,7 +150,9 @@ test('slug artık konum değil; kart sorguları sayfalı değil ama org süzgeç
     assert.match(fn, /select\('id, name, address, owner_id'\)/);
     assert.doesNotMatch(fn, /slug/);
     assert.match(fn, /from\('staff'\)\.select\('organization_id'\)\s*\.in\('organization_id', ids\)\.eq\('is_active', true\)/);
-    assert.match(fn, /from\('settings'\)\.select\('organization_id, user_id, sector, created_at'\)\s*\.in\('organization_id', ids\)/);
+    // `business_name` de okunuyor: salonun ADI ayar satırında, org satırında
+    // e-posta duruyor (bkz. accountMap · businessesOf).
+    assert.match(fn, /from\('settings'\)\.select\('organization_id, user_id, sector, created_at, business_name'\)\s*\.in\('organization_id', ids\)/);
     assert.match(fn, /if \(staff\.error \|\| settings\.error\) return fail\('offline'\);/);
 });
 
@@ -207,4 +209,29 @@ test('saf katman React, Expo ve Supabase taşımıyor', () => {
     const pure = read('mobile/src/lib/accountMap.ts');
     assert.doesNotMatch(pure, /from 'react|from 'expo|supabase\./);
     assert.match(pure, /^import type \{ AuthBusiness \}/m);
+});
+
+test('salonun adı ayar satırından okunuyor, e-posta gösterilmiyor', () => {
+    /*
+     * `organizations.name`'i YALNIZ kayıt tetikleyicisi yazıyor ve oraya
+     * e-postayı koyuyor (migration 006). Masaüstünde salon adı değişince
+     * `settings.business_name` güncelleniyor, org satırına dokunulmuyor —
+     * canlı veritabanındaki üç salonun üçünde de org adı e-posta.
+     * Telefon org satırını okuduğu için müdür kendi salonunu
+     * "furkan@..." diye görüyordu.
+     */
+    const rows = [{ id: 'o1', name: 'furkan@luera.ai', address: 'Bebek', owner_id: 'u1' }];
+    const settings = [{
+        organization_id: 'o1', user_id: 'u1', sector: 'kuafor',
+        created_at: '2026-01-01', business_name: 'Studio Ayla',
+    }];
+    const [business] = businessesOf(rows, [], settings);
+    assert.equal(business.name, 'Studio Ayla');
+    assert.equal(business.initials, 'SA');
+
+    // Ayar satırı okunamazsa org adına düşülür: adsız salon çizmektense.
+    const [fallback] = businessesOf(rows, [], [
+        { organization_id: 'o1', user_id: 'u1', sector: null, created_at: '2026-01-01', business_name: '   ' },
+    ]);
+    assert.equal(fallback.name, 'furkan@luera.ai');
 });

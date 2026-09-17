@@ -81,6 +81,11 @@ export type LaunchState =
     | { target: 'staffRoster' }
     /** Telefon bağlı ve kim olduğu biliniyor: yalnız şifre (099). */
     | { target: 'staffPin' }
+    /**
+     * Müdürün Supabase oturumu cihazda DURUYOR ama profil kaydı yok — salon
+     * ekranı oturumdan profili yeniden kurar, şifre sorulmaz.
+     */
+    | { target: 'managerBusiness' }
     | { target: 'resume'; session: AuthSession };
 
 export type AuthErrorCode =
@@ -88,6 +93,11 @@ export type AuthErrorCode =
     | 'biometric_unavailable'
     | 'email_in_use'
     | 'incomplete_signup'
+    /**
+     * Kullanıcı açıldı ama oturum gelmedi: sunucu e-posta doğrulaması
+     * istiyor. Kişi postasındaki bağlantıya dokunmadan içeri giremez.
+     */
+    | 'email_confirmation_required'
     | 'invalid_business'
     | 'invalid_credentials'
     | 'expired_pair_code'
@@ -250,14 +260,19 @@ const demoDevice: PairedDevice = {
     businessId: 'studio-ayla-kadikoy',
 };
 
+/*
+ * Anahtarlar MASAÜSTÜNÜN anahtarları (`src/lib/sectorProfiles.ts`). Burada bir
+ * süre `klinik`, `dovme`, `diger` yazıyordu; masaüstü bunları tanımıyor ve
+ * `genel` panele düşürüyor. Etiket kullanıcının dilinde, anahtar sistemin.
+ */
 const signupSectors: SignupSector[] = [
     { id: 'kuafor', label: 'Kuaför' },
     { id: 'guzellik', label: 'Güzellik' },
     { id: 'dis', label: 'Diş' },
-    { id: 'klinik', label: 'Klinik' },
-    { id: 'dovme', label: 'Dövme' },
+    { id: 'saglik', label: 'Klinik' },
+    { id: 'tattoo', label: 'Dövme' },
     { id: 'restoran', label: 'Restoran' },
-    { id: 'diger', label: 'Diğer' },
+    { id: 'genel', label: 'Diğer' },
 ];
 
 const success = <T>(data: T): AuthResult<T> => ({ ok: true, data });

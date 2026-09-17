@@ -141,7 +141,7 @@ export default function ResumeSignIn() {
             // Etiket doğru, eylem doğru; eksik olan SORMAKTI.
             Alert.alert(
                 'Bu telefonu işletmeden çıkaralım mı?',
-                'Bağlantı silinir ve geri dönmek için işletme sahibinden yeni bir kod istemeniz gerekir. Yalnız oturumu kapatmak istiyorsanız bunu seçmeyin.',
+                'Bağlantı silinir ve geri dönmek için müdürünüzden yeni bir kod istemeniz gerekir. Yalnız oturumu kapatmak istiyorsanız bunu seçmeyin.',
                 [
                     { text: 'Vazgeç', style: 'cancel' },
                     { text: 'Telefonu çıkar', style: 'destructive', onPress: () => { void unlinkPhone(); } },

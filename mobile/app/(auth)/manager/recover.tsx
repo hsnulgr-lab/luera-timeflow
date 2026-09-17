@@ -79,7 +79,10 @@ export default function ManagerRecover() {
             requestAnimationFrame(() => emailRef.current?.focus());
             return;
         }
-        router.back();
+        // Geçmiş boşsa (bu ekrana `replace` ile gelinmiş olabilir) geri düğmesi
+        // sessizce ölü kalmasın: karşılama ekranı her zaman var.
+        if (router.canGoBack()) router.back();
+        else router.replace('/(auth)/welcome');
     };
 
     if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;

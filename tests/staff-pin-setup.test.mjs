@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { pinProblem as serverRule, PIN_LENGTH } from '../supabase/functions/_shared/pinRules.ts';
 import { pinProblem as phoneRule } from '../mobile/src/lib/pinRules.ts';
 import {
-    countdown, memberLine, spacedCode, teamSummary, when,
+    countdown, isFreshPin, memberLine, sortTeam, spacedCode, teamHeadline, when,
 } from '../mobile/src/lib/teamAccessView.ts';
 
 /**
@@ -203,17 +203,22 @@ test('liste ŞİFRESİ OLMAYANI da gösteriyor', () => {
     const roster = live.slice(live.indexOf('async function staffRoster'), live.indexOf('async function finishStaffLogin'));
     assert.doesNotMatch(roster, /\.filter\(/);
     assert.match(roster, /hasPin: row\.hasPin !== false,/);
-    assert.match(read('mobile/app/(auth)/staff/who.tsx'), /member\.hasPin === false\s*\? \{ \.\.\.member, role: \[member\.role, 'İlk giriş'\]/);
+    // "İlk giriş" artık satırın KENDİSİNDE (tasarım §P2): who.tsx üyeyi
+    // olduğu gibi veriyor, ayrımı AuthStaffRow çiziyor.
+    assert.match(read('mobile/app/(auth)/staff/who.tsx'), /<AuthStaffRow\s*key=\{member\.id\}/);
+    assert.match(read('mobile/src/components/ui.tsx'), /İlk giriş · şifrenizi siz belirleyeceksiniz/);
 });
 
 test('şifre ekranı: belirle → tekrar → sunucu; sıfırlanmışsa belirlemeye geçiyor', () => {
     const pin = read('mobile/app/(auth)/staff/pin.tsx');
     assert.match(pin, /type PinMode = 'enter' \| 'create' \| 'confirm';/);
     assert.match(pin, /if \(result\.data\.member\.hasPin === false\) setMode\('create'\);/);
-    assert.match(pin, /if \(next !== firstPin\.current\) \{[\s\S]{0,160}startOver\('İki şifre aynı değil/);
+    assert.match(pin, /if \(next !== firstPin\.current\) \{[\s\S]{0,160}startOver\(\{ text: 'İki şifre aynı olmadı/);
     assert.match(pin, /void createPin\(next\);/);
-    assert.match(pin, /if \(result\.error === 'pin_not_set'\) \{\s*startOver\(null\);/);
-    assert.match(pin, /if \(result\.error === 'pin_already_set'\) \{[\s\S]{0,80}setMode\('enter'\);/);
+    assert.match(pin, /if \(result\.error === 'pin_not_set'\) \{\s*setResetBand\(true\);\s*startOver\(null\);/);
+    // Yarışı kaybeden ekran "şifreniz" DEMİYOR — belirleyen başkası olabilir.
+    assert.match(pin, /if \(result\.error === 'pin_already_set'\) \{[\s\S]{0,160}setPlate\('taken'\);/);
+    assert.match(pin, /siz değilseniz müdürünüze söyleyin/);
     assert.match(pin, /label="Ben değilim" onPress=\{notMe\}/);
 });
 
@@ -228,12 +233,16 @@ test('personel şifresini ayarlardan değiştiriyor', () => {
 // ── Müdür: Profil → Personel ────────────────────────────────────────────────
 
 test('müdür telefonunda Profil → Personel → Telefon bağla', () => {
-    assert.match(read('mobile/app/mudur/profile.tsx'), /title="Personel"[\s\S]{0,120}router\.push\('\/\(manager-flow\)\/profil\/personel'\)/);
+    assert.match(read('mobile/app/mudur/profile.tsx'), /title="Personel"[\s\S]{0,600}router\.push\('\/\(manager-flow\)\/profil\/personel'\)/);
     const screen = read('mobile/app/(manager-flow)/profil/personel.tsx');
-    assert.match(screen, /label=\{codeBusy \? 'Kod üretiliyor…' : expired \? 'Yeni kod üret' : 'Telefon bağla'\}/);
+    // Kod kapalıyken tek düğme "Telefon bağla"; kod açıkken kartın içinde
+    // "Yeni kod üret" — ikisi de aynı kapıyı açar, ikisi de üretirken söyler.
+    assert.match(screen, /label=\{codeBusy \? 'Üretiliyor…' : 'Telefon bağla'\}/);
+    assert.match(screen, /label=\{codeBusy \? 'Üretiliyor…' : 'Yeni kod üret'\}/);
     assert.match(screen, /\{spacedCode\(code\.code\)\}/);
-    assert.match(screen, /\{countdown\(secondsLeft\)\} geçerli/);
-    assert.match(screen, /resetStaffPin\(member\.id\)/);
+    assert.match(screen, /\$\{countdown\(secondsLeft\)\} geçerli/);
+    // Sıfırlama onay sayfasından geçiyor: seçilen kişi `resetting`.
+    assert.match(screen, /await resetStaffPin\(resetting\.id\)/);
     const access = read('mobile/src/lib/teamAccess.ts');
     assert.match(access, /call\('device\.code\.create'\)/);
     // Müdür telefonu da KİŞİYE değil EKİBE kod üretiyor.
@@ -253,8 +262,20 @@ test('görünüm yardımcıları', () => {
     assert.match(memberLine({ ...base, hasPin: false }, now).text, /^Henüz girmedi/);
     assert.equal(memberLine({ ...base, pinSetAt: new Date(2026, 8, 17, 9, 5).toISOString(), lastLoginAt: new Date(2026, 8, 17, 9, 5).toISOString() }, now).text, 'Şifresini belirledi · bugün 09:05');
     assert.equal(memberLine({ ...base, pinSetAt: new Date(2026, 8, 10, 9, 0).toISOString(), lastLoginAt: new Date(2026, 8, 17, 11, 0).toISOString() }, now).text, 'Son giriş · bugün 11:00');
-    assert.equal(memberLine({ ...base, lockedUntil: new Date(now + 60_000).toISOString() }, now).tone, 'warn');
-    assert.equal(teamSummary([base, { ...base, id: 'b', hasPin: false }]), '2 kişi · 1 kişi henüz girmedi');
+    assert.equal(memberLine({ ...base, lockedUntil: new Date(now + 60_000).toISOString() }, now).tone, 'error');
+    // Başlık ÖZETİ: kilitli > henüz girmedi > hepsi girdi (tek bilgi taşır).
+    assert.equal(teamHeadline([base, { ...base, id: 'b', hasPin: false }], now), '1 kişi henüz girmedi');
+    assert.equal(teamHeadline([base], now), 'hepsi girdi');
+    assert.equal(
+        teamHeadline([{ ...base, lockedUntil: new Date(now + 60_000).toISOString() }], now),
+        '1 kişi kilitli',
+    );
+    // Şifresini YENİ belirleyen 12 saat boyunca taze sayılır ve listenin başına geçer.
+    assert.equal(isFreshPin({ ...base, pinSetAt: new Date(now - 60_000).toISOString() }, now), true);
+    assert.equal(isFreshPin({ ...base, pinSetAt: new Date(now - 13 * 3_600_000).toISOString() }, now), false);
+    const fresh = { ...base, id: 'c', name: 'Zeynep', pinSetAt: new Date(now - 60_000).toISOString() };
+    const sorted = sortTeam([{ ...base, name: 'Ahmet' }, fresh], now);
+    assert.deepEqual(sorted.map((m) => m.name), ['Zeynep', 'Ahmet']);
 });
 
 // ── Masaüstü ────────────────────────────────────────────────────────────────

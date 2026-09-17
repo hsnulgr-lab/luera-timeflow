@@ -28,6 +28,6 @@ test('personele bağlı kod listeyi ATLIYOR — doğrudan PIN', () => {
 test('boş kadro çıkmaz sokak değil — sebebi ve yolu söylüyor', () => {
     assert.match(who, /roster && roster\.staff\.length === 0 \?/);
     // 099: liste bütün aktif personeli gösteriyor; boşsa kimse eklenmemiş.
-    assert.match(who, /Müdür önce Personel sayfasından sizi eklemeli/);
+    assert.match(who, /müdürünüz sizi\s*\n?\s*Personel sayfasından ekledikten sonra bu listede görüneceksiniz\./);
     assert.match(who, /label="Tekrar dene"\s*onPress=\{\(\) => \{ setRoster\(null\); load\(\); \}\}/);
 });

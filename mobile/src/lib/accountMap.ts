@@ -79,6 +79,7 @@ export interface SettingsSectorRow {
     user_id: string | null;
     sector: string | null;
     created_at: string | null;
+    business_name?: string | null;
 }
 
 /**
@@ -104,11 +105,23 @@ export function businessesOf(
         const rows = settings.filter((row) => row.organization_id === org.id);
         const owner = rows.find((row) => org.owner_id && row.user_id === org.owner_id);
         const oldest = [...rows].sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))[0];
+        /*
+         * SALONUN ADI `settings.business_name`'den.
+         *
+         * `organizations.name`'i yalnız kayıt tetikleyicisi yazıyor ve oraya
+         * E-POSTAYI koyuyor (migration 006); masaüstünde salon adı
+         * değiştirildiğinde ayar satırı güncelleniyor, org satırına
+         * dokunulmuyor. Telefon org satırını okuduğu için müdür kendi
+         * salonunu "furkan@..." diye görüyordu. Ayar satırı okunamazsa org
+         * adına düşülür — adsız bir salon çizmektense e-posta bile yeğdir.
+         */
+        const stored = (owner ?? oldest)?.business_name;
+        const name = String(stored ?? '').trim() || org.name;
         const business: AuthBusiness = {
             id: org.id,
-            name: org.name,
+            name,
             location: locationOf(org.address),
-            initials: initialsOfBusiness(org.name),
+            initials: initialsOfBusiness(name),
             staffCount: counts.get(org.id) ?? 0,
             subscriptionStatus: 'active',
         };

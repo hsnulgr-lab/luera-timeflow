@@ -26,6 +26,8 @@ import { fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf, schedulesOf } from '../../src/lib/settingsMap';
 import { nowInMinutes } from '../../src/lib/calendar';
 import { authApi } from '../../src/api/session';
+import { activeTeamCodeExpiry, fetchTeamStatus } from '../../src/lib/teamAccess';
+import { profileTeamLine, type TeamMember } from '../../src/lib/teamAccessView';
 import type { AuthSession } from '../../src/api/authStub';
 import { profileMetrics as M, useTheme } from '../../src/theme';
 
@@ -49,6 +51,9 @@ export default function ManagerProfile() {
     const [session, setSession] = useState<AuthSession | null>(null);
     const [notify, setNotify] = useState<Record<NotificationKey, boolean> | null>(null);
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
+    /** 099 · Personel satırının canlı özeti. Okunamazsa satır özetsiz kalır. */
+    const [team, setTeam] = useState<TeamMember[] | null>(null);
+    const [clock, setClock] = useState(() => Date.now());
 
     /*
      * Saatler ve hizmetler CANLI (8. adım). Okunamazsa özet satırı YAZILMAZ
@@ -72,11 +77,14 @@ export default function ManagerProfile() {
             authApi.account.get(),
             readNotifications(),
             readKvkkUrl(),
-        ]).then(([account, notifications, url]) => {
+            fetchTeamStatus().catch(() => null),
+        ]).then(([account, notifications, url, members]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
             setNotify(notifications);
             setKvkkUrl(url);
+            setTeam(Array.isArray(members) ? members : null);
+            setClock(Date.now());
         }).catch(() => { /* okunamazsa satırlar özet yazmaz */ });
         return () => { alive = false; };
     }, []);
@@ -89,6 +97,15 @@ export default function ManagerProfile() {
         const timer = setInterval(() => setNow(nowInMinutes()), 60_000);
         return () => clearInterval(timer);
     }, []);
+
+    // Kod açıkken satırın geri sayımı saniyede bir; kapalıyken sayaç yok.
+    const codeExpiry = activeTeamCodeExpiry(clock);
+    useEffect(() => {
+        if (!codeExpiry) return undefined;
+        const id = setInterval(() => setClock(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [codeExpiry]);
+    const teamLine = profileTeamLine(team, codeExpiry ? Math.ceil((codeExpiry - clock) / 1000) : 0, clock);
 
     const profile = session?.profile ?? null;
     const business = profile?.business ?? null;
@@ -141,7 +158,10 @@ export default function ManagerProfile() {
                     <ProfileRow
                         big
                         title="Personel"
-                        sub="Telefon bağla · giriş durumu"
+                        // Tasarım §M2: tek canlı özet — kod açıksa süresi, yoksa
+                        // kilitli/girmeyen sayısı. Kodun KENDİSİ yazılmaz.
+                        sub={teamLine?.text ?? 'Telefon bağla · giriş durumu'}
+                        subAccent={teamLine?.accent ?? false}
                         onPress={() => router.push('/(manager-flow)/profil/personel')}
                     />
                 </Group>

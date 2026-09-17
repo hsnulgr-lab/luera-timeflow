@@ -133,12 +133,25 @@ export default function ManagerSignIn() {
         );
     }
 
+    /*
+     * Geri düğmesi GİDİLECEK YER OLDUĞUNDA geri gider.
+     *
+     * Bu ekrana `replace` ile de gelinebiliyor (açılış yönlendirmesi, salon
+     * okunamayınca girişe düşme): o durumda geçmiş boş olur ve `back()`
+     * hiçbir şey yapmadan "GO_BACK was not handled" uyarısı bırakır — yani
+     * ekranda kapısı olmayan bir düğme durur. Karşılama ekranı her zaman var.
+     */
+    const leave = () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(auth)/welcome');
+    };
+
     return (
         <AuthPage
             keyboard={keyboardOpen}
             contentStyle={{ paddingBottom: Math.max(insets.bottom, authMetrics.noSafeAreaBottom) }}
         >
-            <AuthBackBar onPress={() => router.back()} />
+            <AuthBackBar onPress={leave} />
             <AuthHeader
                 title="Hesabınıza girin"
                 body="Bilgisayarda kullandığınız e-posta ve şifre."

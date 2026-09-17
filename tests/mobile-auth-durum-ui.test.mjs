@@ -129,7 +129,9 @@ test('geçersiz kod aynı ekranda çözülür', () => {
     // Yeni kod istemesi gerekmiyor — çözüm elinde.
     const pair = read('app/(auth)/staff/pair.tsx');
     assert.match(pair, /<AuthCodeBoxes code=\{code\} error=\{invalid\} \/>/);
-    assert.match(pair, /Bu kod eşleşmedi\. Rakamları bir daha kontrol edip yeniden yazın\./);
+    // 099 · doğru kod müdürün EKRANINDA duruyor; "rakamları yeniden yaz" demek
+    // kişiyi aynı yanlış kodu tekrar yazmaya itiyordu.
+    assert.match(pair, /Bu kod eşleşmedi\. Müdürün ekranındaki kodu bir daha kontrol edin\./);
     assert.match(pair, /runPairErrorShake/);
     assert.match(pair, /label=\{invalid \? 'Yeniden dene' : 'Devam'\}/);
 });
@@ -170,7 +172,7 @@ test('süresi dolan kod ekranı kişiyi ancak GERÇEKTEN biliyorsa gösterir', (
     assert.match(pair, /<AuthDetailList rows=\{\[\{/);
     assert.match(pair, /status: expiredPairCode\.ownerStatus/);
     assert.match(pair, /Linking\.openURL\(`tel:\$\{expired\.owner\?\.phone \?\? ''\}`\)/);
-    assert.equal(expiredPairCode.retype, 'Yeni kodu yaz');
+    assert.equal(expiredPairCode.retype, 'Yeni kodu yazacağım');
     assert.equal(expiredPairCode.call, 'İşletme sahibini ara');
 
     // Kart da arama düğmesi de KOŞULLU. `authApi.staff.owner()` canlıda
@@ -310,9 +312,11 @@ test('abonelik dönüş girişinde tekrar denetlenir', () => {
 test('abonelik bitmişse PIN yanlış sayılmaz', () => {
     const pin = read('app/(auth)/staff/pin.tsx');
     const verify = pin.slice(pin.indexOf('const verify = async'), pin.indexOf('const keyPress'));
+    // 099 tasarımı: şifre ekranında sarsıntı yok; yanlışın işareti uyarı
+    // titreşimi ve kırmızı yuva. Abonelik dalı ikisinden de ÖNCE dönmeli.
     assert.ok(
-        verify.indexOf("result.error === 'subscription_inactive'") < verify.indexOf('runPinErrorShake'),
-        'abonelik dalı sarsıntıdan ÖNCE dönmeli',
+        verify.indexOf("result.error === 'subscription_inactive'") < verify.indexOf('feedback.warning()'),
+        'abonelik dalı yanlış-şifre geri bildiriminden ÖNCE dönmeli',
     );
 });
 
@@ -324,8 +328,8 @@ test('çevrimdışı yanlış PIN sayılmaz', () => {
     const offlineBranch = verify.indexOf("result.error === 'offline'");
     assert.ok(offlineBranch > 0, 'offline dalı yok');
     assert.ok(
-        offlineBranch < verify.indexOf('runPinErrorShake'),
-        'offline dalı sarsıntıdan ÖNCE dönmeli',
+        offlineBranch < verify.indexOf('feedback.warning()'),
+        'offline dalı yanlış-şifre geri bildiriminden ÖNCE dönmeli',
     );
     assert.ok(
         offlineBranch < verify.indexOf('remainingAttemptText'),

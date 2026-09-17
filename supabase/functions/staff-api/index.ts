@@ -558,14 +558,29 @@ Deno.serve(async (req: Request) => {
             // doğru salona bağlandığını görsün. Okunamazsa boş — liste yine gelir.
             const { data: org } = await admin
                 .from('organizations')
-                .select('name')
+                .select('name, owner_id')
                 .eq('id', claims.org)
                 .maybeSingle();
+            // Sektör (099): rol ANAHTARI ("doctor") yerine sektörün adı
+            // ("Kuaför", "Hekim") gösterilsin. Sahibin ayar satırından.
+            const { data: ownerSettings } = org?.owner_id
+                ? await admin.from('settings').select('sector, business_name')
+                    .eq('organization_id', claims.org).eq('user_id', org.owner_id).maybeSingle()
+                : { data: null };
+            /*
+             * SALONUN ADI ayar satırından. `organizations.name`'i yalnız kayıt
+             * tetikleyicisi yazıyor ve oraya E-POSTAYI koyuyor (migration 006);
+             * masaüstünde ad değiştirilince ayar satırı güncelleniyor, org
+             * satırına dokunulmuyor. Personel bu yüzden "siz kimsiniz?"
+             * ekranında salonun adı yerine müdürün e-postasını görüyordu.
+             */
+            const businessName = String(ownerSettings?.business_name ?? '').trim()
+                || String(org?.name ?? '');
             // `hasPin` gönderiyoruz, hash'i DEĞİL. Şifresi olmayan personel
             // listede KALIR (099) ve seçince şifresini kendisi belirler.
             return json({
                 ok: true,
-                business: { name: org?.name ?? '' },
+                business: { name: businessName, sector: ownerSettings?.sector ?? null },
                 staff: (data || []).map((s: StaffRow) => ({
                     id: s.id, name: s.name, color: s.color, role: s.role, hasPin: Boolean(s.pin),
                 })),

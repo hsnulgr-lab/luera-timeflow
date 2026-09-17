@@ -326,6 +326,7 @@ export function Group({ head, children }: { head?: string; children: ReactNode }
 export function ProfileRow({
     title,
     sub,
+    subAccent = false,
     value,
     big = false,
     danger = false,
@@ -337,6 +338,8 @@ export function ProfileRow({
 }: {
     title: string;
     sub?: string;
+    /** Alt yazı turuncu — yalnız zaman taşıyan canlı özet ("Kod açık · 14:32"). */
+    subAccent?: boolean;
     value?: string;
     big?: boolean;
     danger?: boolean;
@@ -364,7 +367,7 @@ export function ProfileRow({
                 </Text>
                 {sub ? (
                     <Text numberOfLines={1} style={{
-                        color: c.tx2,
+                        color: subAccent ? c.or2 : c.tx2,
                         fontSize: M.rowSub,
                         fontFamily: font.semiBold,
                         fontWeight: '600',

@@ -7,9 +7,11 @@ import {
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
     AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
-    AuthSession, LaunchState, StaffEntry, StaffRosterMember,
+    AuthSession, LaunchState, SignupDraft, SignupSector, StaffEntry, StaffRosterMember,
 } from './authStub';
+import { isValidEmail, passwordRuleState } from '../lib/authValidation.ts';
 import { pinProblem } from '../lib/pinRules.ts';
+import { staffRoleLabel } from '../lib/staffRoleLabel.ts';
 import { deleteAccount } from './accountDeletion';
 import {
     businessesOf, type OrgRow, type SettingsSectorRow,
@@ -32,9 +34,9 @@ import {
  * arayüz "kendi randevuların" gösterse bile.
  *
  * ── Bu dosyada OLMAYANLAR ────────────────────────────────────────────────────
- * Yeni işletme kaydı ve hesap silme burada yok: ikisinin de sunucu tarafı
- * yazılmadı (mobilden org açacak uç yok, hesap silecek uç yok). O akışlar
- * `authStub` üzerinde kalmaya devam ediyor ve gerçek değildir.
+ * Abonelik akışı burada yok ve mobilde OLMAYACAK: uygulamada fiyat, plan ya
+ * da satın alma çağrısı geçmiyor (App Store 3.1.3(f) — ücretli web aracının
+ * ücretsiz refakatçisi). O parça `authStub` üzerinde duruyor.
  */
 
 const fail = (error: AuthFailure['error'], extra: Partial<AuthFailure> = {}): AuthFailure =>
@@ -153,7 +155,7 @@ async function managerBusinesses(): Promise<AuthResult<AuthBusiness[]>> {
         supabase.from('staff').select('organization_id')
             .in('organization_id', ids).eq('is_active', true)
             .returns<{ organization_id: string }[]>(),
-        supabase.from('settings').select('organization_id, user_id, sector, created_at')
+        supabase.from('settings').select('organization_id, user_id, sector, created_at, business_name')
             .in('organization_id', ids)
             .returns<SettingsSectorRow[]>(),
     ]);
@@ -247,12 +249,14 @@ async function staffRoster(): Promise<AuthResult<{
          * o kişi listede hiç görünmüyordu — giremiyor, sebebini de bilemiyordu.
          * Şimdi seçince şifresini kendisi belirliyor.
          */
+        const sector = typeof data.business?.sector === 'string' ? data.business.sector : null;
         const staff: StaffRosterMember[] = (data.staff ?? [])
             .map((row: { id: string; name: string; role: string | null; hasPin?: boolean }) => ({
                 id: row.id,
                 initials: initials(row.name),
                 name: row.name,
-                role: row.role ?? '',
+                // Anahtar ("doctor") değil, sektörün adı ("Kuaför").
+                role: staffRoleLabel(row.role, sector),
                 hasPin: row.hasPin !== false,
             }));
         // İşletme adı (099): "Siz kimsiniz? · Studio Ayla". Eski sunucu
@@ -279,7 +283,8 @@ async function finishStaffLogin(data: {
         actor: 'staff',
         initials: initials(String(data.staff.name)),
         name: String(data.staff.name),
-        title: data.staff.role ?? undefined,
+        // Rol adı listeden (sektörlü) — sunucunun ham anahtarı değil.
+        title: pending?.role || staffRoleLabel(data.staff.role, null),
         business: businessFrom({ id: '', name: pending?.businessName ?? '', slug: null }),
     };
     await saveProfile(profile, previous?.biometricEnabled ?? false);
@@ -374,9 +379,27 @@ async function getLaunchState(): Promise<LaunchState> {
             : Boolean((await supabase.auth.getSession()).data.session);
         if (live) return { target: 'resume', session: sessionOf(stored.profile, stored.biometricEnabled) };
     }
-    if (!(await tokens.device())) return { target: 'welcome' };
-    // Telefon bağlı ve kim olduğu biliniyor → yalnız şifre (099, müdür kararı).
-    return (await readPending()) ? { target: 'staffPin' } : { target: 'staffRoster' };
+    if (await tokens.device()) {
+        // Telefon bağlı ve kim olduğu biliniyor → yalnız şifre (099, müdür kararı).
+        return (await readPending()) ? { target: 'staffPin' } : { target: 'staffRoster' };
+    }
+    /*
+     * MÜDÜRÜN OTURUMU DURUYOR AMA PROFİL KAYDI YOK.
+     *
+     * Profil tek yuvada tutuluyor (`tf.auth.profile`): aynı telefonda personel
+     * girişi yapılınca müdürünkinin üzerine yazılıyor, personel çıkış yapınca
+     * da yuva siliniyor. Supabase oturumu ise yerinde duruyor — ama açılış
+     * yalnız yuvaya baktığı için müdür her seferinde e-posta ve şifre yazmak
+     * zorunda kalıyordu.
+     *
+     * Salon ekranı profili oturumdan yeniden kuruyor (tek salonsa kendiliğinden
+     * seçip geçiyor). Oturum gerçekten ölmüşse o ekran girişe yönlendirir —
+     * yani burada "giriş var" diye bir varsayımda BULUNULMUYOR.
+     */
+    if (supabaseConfigured && (await supabase.auth.getSession()).data.session) {
+        return { target: 'managerBusiness' };
+    }
+    return { target: 'welcome' };
 }
 
 /**
@@ -602,8 +625,188 @@ async function accountConfirmDeletion(password: string): Promise<AuthResult<Auth
     return done({ target: 'welcome' });
 }
 
+// ── Kayıt · yeni salon ──────────────────────────────────────────────────────
+/*
+ * KAYIT ARTIK GERÇEK. Bu akış bugüne kadar `authStub` üzerindeydi: telefondan
+ * "kaydol" diyen kişi bütün ekranları geziyor, sonunda "hazır" yazısını
+ * görüyor ve HİÇBİR ŞEY oluşmuyordu. App Store Yönerge 2.1'in de doğrudan
+ * konusu (kaydolunamayan uygulama "tamamlanmamış" sayılıyor).
+ *
+ * Sunucuda yeni bir uç YAZILMADI, çünkü gerek yok: masaüstü de aynı yoldan
+ * geçiyor. `supabase.auth.signUp` bir kullanıcı açıyor, veritabanındaki
+ * `handle_new_user` tetikleyicisi (migration 006) org + üyelik + ayar
+ * satırını kendisi kuruyor. Mobilin fazladan yaptığı tek şey, salonun ADINI
+ * ve SEKTÖRÜNÜ sormak — tetikleyici adı e-postadan türetiyor.
+ *
+ * Hesap İLK ADIMDA açılıyor (müdür kararı): "bu e-posta zaten kullanılıyor"
+ * uyarısı ancak böyle DOĞRU olabiliyor. Bedeli, kişi işletme adını yazmadan
+ * çıkarsa adı e-posta olan yarım bir salonun kalması; o da masaüstünden
+ * düzeltilebilir bir şey.
+ */
+
+/**
+ * Sektör anahtarları MASAÜSTÜNÜN anahtarlarıdır (`src/lib/sectorProfiles.ts`).
+ *
+ * Mobil bir süre kendi adlarını yazıyordu — `klinik`, `dovme`, `diger`.
+ * Masaüstü bunları tanımıyor ve `genel` panele düşürüyor: telefondan kaydolan
+ * bir kliniğin bilgisayarda yanlış ekranı görmesi demekti. Etiketler
+ * kullanıcının dilinde, anahtarlar sistemin dilinde.
+ */
+const SIGNUP_SECTORS: SignupSector[] = [
+    { id: 'kuafor', label: 'Kuaför' },
+    { id: 'guzellik', label: 'Güzellik' },
+    { id: 'dis', label: 'Diş' },
+    { id: 'saglik', label: 'Klinik' },
+    { id: 'tattoo', label: 'Dövme' },
+    { id: 'restoran', label: 'Restoran' },
+    { id: 'genel', label: 'Diğer' },
+];
+
+const K_SIGNUP = 'tf.auth.signup-draft';
+
+/**
+ * Taslak CİHAZDA tutuluyor, şifre TUTULMUYOR.
+ *
+ * Sunucudan okunamazdı: tetikleyici salona e-postadan bir ad veriyor, yani
+ * "adı var" ile "kullanıcı adını yazdı" sunucuda ayırt edilemiyor. Ekran da
+ * bu ayrıma göre hangi adımda duracağına karar veriyor.
+ */
+async function readSignupDraft(): Promise<SignupDraft | null> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    try {
+        const raw = await AsyncStorage.getItem(K_SIGNUP);
+        return raw ? JSON.parse(raw) as SignupDraft : null;
+    } catch {
+        return null;
+    }
+}
+
+async function writeSignupDraft(next: SignupDraft): Promise<void> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    await AsyncStorage.setItem(K_SIGNUP, JSON.stringify(next));
+}
+
+async function clearSignupDraft(): Promise<void> {
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    await AsyncStorage.removeItem(K_SIGNUP);
+}
+
+/** Kaydolan kişinin kendi salonu — tetikleyici `owner_id` ile açıyor. */
+async function ownedOrg(): Promise<{ id: string; name: string } | null> {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return null;
+    const { data } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('owner_id', userData.user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+    return data ? { id: String(data.id), name: String(data.name ?? '') } : null;
+}
+
+async function createSignupAccount(email: string, password: string): Promise<AuthResult<{ email: string }>> {
+    if (!supabaseConfigured) return fail('offline');
+    const normalized = email.trim().toLocaleLowerCase('tr-TR');
+    if (!isValidEmail(normalized) || !passwordRuleState(password).valid) {
+        return fail('incomplete_signup');
+    }
+    const { data, error } = await supabase.auth.signUp({
+        email: normalized,
+        password,
+        // Tetikleyici salonun ilk adını buradan alıyor; kişi bir sonraki
+        // adımda kendi adını yazınca üzerine yazılır.
+        options: { data: { name: normalized.split('@')[0] } },
+    });
+    if (error) {
+        const message = error.message ?? '';
+        if (/already|registered|exists/i.test(message)) return fail('email_in_use');
+        if (/password/i.test(message)) return fail('incomplete_signup');
+        if (/rate|too many/i.test(message)) return fail('locked');
+        return fail('offline');
+    }
+    /*
+     * OTURUM GELMEDİYSE e-posta doğrulaması açık demektir: kullanıcı var ama
+     * içeri giremiyor, dolayısıyla salonun adını da yazamayız. "Kaydın
+     * tamamlandı" demek yalan olurdu — akış burada DURUR ve ekran kişiye
+     * postasına bakmasını söyler.
+     *
+     * GoTrue bu kipte, zaten kayıtlı bir e-postayı da aynı biçimde
+     * cevaplıyor (hesap sızdırmamak için). İkisini ayırt edemediğimiz için
+     * metin ikisini de kapsıyor.
+     */
+    if (!data.session) return fail('email_confirmation_required');
+    await writeSignupDraft({ email: normalized });
+    return done({ email: normalized });
+}
+
+async function saveSignupBusiness(businessName: string): Promise<AuthResult<{ businessName: string }>> {
+    const name = businessName.trim();
+    if (!name) return fail('incomplete_signup');
+    const org = await ownedOrg();
+    if (!org) return fail('no_session');
+    const { error } = await supabase.from('organizations').update({ name }).eq('id', org.id);
+    if (error) return fail('offline');
+    // Ayar satırındaki ad masaüstünün başlıklarında görünüyor; ikisi ayrışırsa
+    // aynı salon iki farklı adla anılır.
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user) {
+        await supabase.from('settings').update({ business_name: name })
+            .eq('user_id', userData.user.id).eq('organization_id', org.id);
+    }
+    const draft = await readSignupDraft();
+    await writeSignupDraft({ ...draft, businessName: name });
+    return done({ businessName: name });
+}
+
+async function selectSignupSector(sector: string): Promise<AuthResult<{ sector: string }>> {
+    const chosen = SIGNUP_SECTORS.find((candidate) => candidate.id === sector);
+    if (!chosen) return fail('incomplete_signup');
+    const org = await ownedOrg();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!org || !userData?.user) return fail('no_session');
+    const { error } = await supabase.from('settings').update({ sector: chosen.id })
+        .eq('user_id', userData.user.id).eq('organization_id', org.id);
+    if (error) return fail('offline');
+    const draft = await readSignupDraft();
+    await writeSignupDraft({ ...draft, sector: chosen.id });
+    return done({ sector: chosen.id });
+}
+
+/**
+ * Kurulumun sonu — oturumu profile çevirir.
+ *
+ * Girişteki salon seçimiyle AYNI yoldan geçiyor: salonun konumu, personel
+ * sayısı ve sektörü orada sunucudan okunuyor. Kayıt akışı kendi profilini
+ * uydursaydı, ilk açılışta gördüğü salon ikinci açılışta değişirdi.
+ */
+async function completeSignup(): Promise<AuthResult<AuthSession>> {
+    const org = await ownedOrg();
+    if (!org) return fail('no_session');
+    const session = await selectManagerBusiness(org.id);
+    if (session.ok) await clearSignupDraft();
+    return session;
+}
+
+async function signupDraft(): Promise<AuthResult<SignupDraft>> {
+    const draft = await readSignupDraft();
+    return draft?.email ? done(draft) : fail('incomplete_signup');
+}
+
+async function availableSignupSectors(): Promise<SignupSector[]> {
+    return SIGNUP_SECTORS.map((sector) => ({ ...sector }));
+}
+
 export const auth = {
     getLaunchState,
+    signup: {
+        draft: signupDraft,
+        sectors: availableSignupSectors,
+        account: createSignupAccount,
+        business: saveSignupBusiness,
+        sector: selectSignupSector,
+        complete: completeSignup,
+    },
     manager: {
         start: managerStart,
         businesses: managerBusinesses,

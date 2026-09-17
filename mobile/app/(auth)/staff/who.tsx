@@ -116,11 +116,9 @@ export default function ChooseStaff() {
                         {roster.staff.map((member) => (
                             <AuthStaffRow
                                 key={member.id}
-                                // Şifresi olmayan personel LİSTEDE (099): seçince
-                                // şifresini kendisi belirler. Alt satır bunu söylüyor.
-                                member={member.hasPin === false
-                                    ? { ...member, role: [member.role, 'İlk giriş'].filter(Boolean).join(' · ') }
-                                    : member}
+                                // Şifresi olmayan personel LİSTEDE (099): satır kendi
+                                // üçüncü satırıyla "ilk giriş"i söylüyor.
+                                member={member}
                                 onPress={() => choose(member.id)}
                             />
                         ))}
@@ -137,8 +135,8 @@ export default function ChooseStaff() {
                         gap: authMetrics.staffRowGap,
                     }}>
                         <AuthBanner kind="error" inset={false}>
-                            Telefon işletmeye bağlandı, ama listede kimse yok.
-                            Müdür önce Personel sayfasından sizi eklemeli.
+                            Bu işletmede henüz personel yok. Telefon bağlandı — müdürünüz sizi
+                            Personel sayfasından ekledikten sonra bu listede görüneceksiniz.
                         </AuthBanner>
                         <AuthActionButton
                             label="Tekrar dene"
@@ -152,8 +150,8 @@ export default function ChooseStaff() {
                         gap: authMetrics.staffRowGap,
                     }}>
                         <AuthBanner kind="error" inset={false}>
-                            Personel listesi okunamadı. Telefonunuz işletmeye BAĞLI —
-                            yeni bir kod gerekmiyor. Bağlantınızı kontrol edip tekrar deneyin.
+                            Listeyi alamadık. Bağlantıyı kontrol edip tekrar deneyin. Telefonun
+                            bağlantısı bozulmadı; kodu yeniden yazmanız gerekmiyor.
                         </AuthBanner>
                         <AuthActionButton
                             label="Tekrar dene"

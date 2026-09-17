@@ -184,8 +184,13 @@ test('ölü satırlar kalktı: PIN ve Yardım pasif bırakılmadı, silindi', ()
 test('cihaz satırı bir beyan: gidilecek yer yoksa chevron da yok', () => {
     assert.match(profile, /title="Bu telefon"/);
     assert.match(profile, /chevron=\{false\}[\s\S]{0,200}title="Bu telefon"/);
-    // Oturum kapatma satırı KIRMIZI DEĞİL: listede kırmızı satır silme demek.
-    assert.doesNotMatch(profile, /danger/);
+    // Oturum kapatma satırı KIRMIZI DEĞİL: kırmızı "geri dönüşü zor" demek,
+    // oysa çıkış yapan kişi telefonu bağlı kalarak şifresiyle geri giriyor.
+    const head = profile.indexOf('title="Bu telefon"');
+    const device = profile.slice(head, profile.indexOf('</Group>', head));
+    assert.doesNotMatch(device, /danger/);
+    // Kırmızı YALNIZ eşleşmeyi bozan satırda — o gerçekten geri dönüşü zor.
+    assert.match(profile, /danger[\s\S]{0,120}title="Bu telefonu işletmeden çıkar"/);
 });
 
 test('Görünüm ve Yasal ortak gruptan açılıyor, müdür klasöründen değil', () => {

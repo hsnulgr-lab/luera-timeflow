@@ -73,7 +73,7 @@ test('müdür hatası hesap varlığını sızdırmadan kalan denemeyi söyler',
 test('personel hatası kalan denemeyi ve telefon kilidini birlikte söyler', () => {
     assert.equal(
         remainingAttemptText('staff', 2),
-        'Şifre yanlış. 2 denemeniz kaldı; sonra bu telefon 15 dakika kilitlenir.',
+        'Şifre yanlış. 2 denemeniz kaldı; sonra şifre girişi 15 dakika kilitlenir.',
     );
 });
 
@@ -121,8 +121,10 @@ test('eşleştirme kilidi metni KODU suçlamıyor ve yeni kod istemeyi söylüyo
     const all = `${pairLocked.title} ${pairLocked.body} ${pairLocked.hint}`;
     assert.doesNotMatch(all, /eşleşmedi|yanlış yazd|rakamları/i);
     assert.match(pairLocked.body, /15 dakika/);
-    assert.match(pairLocked.body, /hiçbir kod kabul edilmiyor/);
-    assert.match(pairLocked.hint, /yeni bir kod/);
+    // 099 · sayaç BAĞLANTIYA ait, işletmeye değil; ekran süre dolunca kendi açılır.
+    assert.match(pairLocked.body, /Bu bağlantıdan/);
+    assert.match(pairLocked.body, /kendiliğinden açılır/);
+    assert.match(pairLocked.hint, /güncel kodu isteyin/);
 });
 
 test('kilit sayacı düğmenin içinde dakika ve saniyeyi sıfır dolgulu gösterir', () => {

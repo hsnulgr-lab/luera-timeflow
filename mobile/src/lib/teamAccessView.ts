@@ -45,25 +45,74 @@ export function when(iso: string, nowMs: number): string {
     return `${at.getDate()} ${TR_MONTHS[at.getMonth()]} ${clock}`;
 }
 
-/**
- * Personel satırının alt yazısı — müdürün bilmesi gereken TEK şey:
- * bu kişi girebilir mi, girdiyse ne zaman.
- */
-export function memberLine(member: TeamMember, nowMs: number): { text: string; tone: 'quiet' | 'warn' | 'ok' } {
-    if (member.lockedUntil && Date.parse(member.lockedUntil) > nowMs) {
-        return { text: 'Çok yanlış deneme · kilitli', tone: 'warn' };
-    }
-    if (!member.hasPin) return { text: 'Henüz girmedi · ilk girişte şifresini belirleyecek', tone: 'quiet' };
-    if (member.pinSetAt && (!member.lastLoginAt || Date.parse(member.pinSetAt) >= Date.parse(member.lastLoginAt) - 60_000)) {
-        return { text: `Şifresini belirledi · ${when(member.pinSetAt, nowMs)}`, tone: 'ok' };
-    }
-    if (member.lastLoginAt) return { text: `Son giriş · ${when(member.lastLoginAt, nowMs)}`, tone: 'quiet' };
-    return { text: 'Şifresi var · telefondan henüz girmedi', tone: 'quiet' };
+/** "Şifresini belirledi" satırı bu kadar süre öne çıkar — bir vardiya (tasarım §M1). */
+export const FRESH_PIN_HOURS = 12;
+
+export function isFreshPin(member: TeamMember, nowMs: number): boolean {
+    if (!member.hasPin || !member.pinSetAt) return false;
+    const at = Date.parse(member.pinSetAt);
+    return Number.isFinite(at) && nowMs - at < FRESH_PIN_HOURS * 60 * 60_000;
 }
 
-/** Grup başlığının altındaki özet — "8 kişi · 3'ü henüz girmedi". */
-export function teamSummary(members: readonly TeamMember[]): string {
+export function lockMinutesLeft(member: TeamMember, nowMs: number): number {
+    const until = member.lockedUntil ? Date.parse(member.lockedUntil) : Number.NaN;
+    return Number.isFinite(until) && until > nowMs ? Math.ceil((until - nowMs) / 60_000) : 0;
+}
+
+export type LineTone = 'quiet' | 'ok' | 'error';
+
+/**
+ * Personel satırının alt yazısı — müdürün bilmesi gereken TEK şey:
+ * bu kişi girebilir mi, girdiyse ne zaman. Renkler tasarımdan:
+ *   yeşil + nokta  · şifresini yeni belirledi (12 saat)
+ *   kırmızı + nokta · kilitli (dakika hassasiyetinde)
+ *   nötr            · diğerleri — "henüz girmedi" bir uyarı değil
+ */
+export function memberLine(member: TeamMember, nowMs: number): { text: string; tone: LineTone; dot: boolean } {
+    const lock = lockMinutesLeft(member, nowMs);
+    if (lock > 0) return { text: `Çok yanlış deneme · ${lock} dk kilitli`, tone: 'error', dot: true };
+    if (!member.hasPin) return { text: 'Henüz girmedi · ilk girişte şifresini belirleyecek', tone: 'quiet', dot: false };
+    if (isFreshPin(member, nowMs)) {
+        return { text: `Şifresini belirledi · ${when(member.pinSetAt as string, nowMs)}`, tone: 'ok', dot: true };
+    }
+    if (member.lastLoginAt) return { text: `Son giriş · ${when(member.lastLoginAt, nowMs)}`, tone: 'quiet', dot: false };
+    return { text: 'Şifresi var · telefondan henüz girmedi', tone: 'quiet', dot: false };
+}
+
+/** Yeni şifre belirleyen öne; geri kalanı alfabetik (Türkçe). */
+export function sortTeam(members: readonly TeamMember[], nowMs: number): TeamMember[] {
+    return [...members].sort((a, b) => {
+        const fa = isFreshPin(a, nowMs) ? 0 : 1;
+        const fb = isFreshPin(b, nowMs) ? 0 : 1;
+        if (fa !== fb) return fa - fb;
+        return a.name.localeCompare(b.name, 'tr');
+    });
+}
+
+/**
+ * Grup başlığının sağındaki TEK özet — iki bilgi taşıyan başlık sıfır bilgi
+ * taşıyor. Öncelik: kilitli → henüz girmedi → hepsi girdi.
+ */
+export function teamHeadline(members: readonly TeamMember[], nowMs: number): string {
+    const locked = members.filter((m) => lockMinutesLeft(m, nowMs) > 0).length;
+    if (locked > 0) return `${locked} kişi kilitli`;
     const waiting = members.filter((m) => !m.hasPin).length;
-    const head = `${members.length} kişi`;
-    return waiting > 0 ? `${head} · ${waiting} kişi henüz girmedi` : head;
+    if (waiting > 0) return `${waiting} kişi henüz girmedi`;
+    return members.length > 0 ? 'hepsi girdi' : '';
+}
+
+/**
+ * Müdür Profil'deki "Personel" satırının alt yazısı (tasarım §M2) — tek bilgi.
+ * Kod açıksa kodun KENDİSİ değil yalnız süresi yazılır.
+ */
+export function profileTeamLine(
+    members: readonly TeamMember[] | null,
+    codeSecondsLeft: number,
+    nowMs: number,
+): { text: string; accent: boolean } | null {
+    if (codeSecondsLeft > 0) return { text: `Kod açık · ${countdown(codeSecondsLeft)}`, accent: true };
+    if (!members) return null;
+    const head = teamHeadline(members, nowMs);
+    if (head === 'hepsi girdi') return { text: `${members.length} kişi · hepsi girdi`, accent: false };
+    return head ? { text: head, accent: false } : null;
 }

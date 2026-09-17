@@ -25,11 +25,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LogoutSheet } from '../../src/components/ProfileSheets';
+import { LogoutSheet, UnlinkSheet } from '../../src/components/ProfileSheets';
 import {
     Foot, Group, ProfileHead, ProfileRow, TodayCard,
 } from '../../src/components/ProfileParts';
@@ -52,6 +52,7 @@ export default function StaffProfile() {
     const [session, setSession] = useState<AuthSession | null>(null);
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
     const [leaving, setLeaving] = useState(false);
+    const [unlinking, setUnlinking] = useState(false);
 
     const load = useCallback(() => {
         let alive = true;
@@ -195,6 +196,18 @@ export default function StaffProfile() {
                         onPress={() => setLeaving(true)}
                     />
                 </Group>
+
+                {/* 099 · geri dönüşsüz iş AYRI grupta, en altta, kırmızı — yanlış
+                    olana basılmasın diye "Oturumu kapat"ın yanında durmuyor. */}
+                <Group>
+                    <ProfileRow
+                        first
+                        danger
+                        chevron={false}
+                        title="Bu telefonu işletmeden çıkar"
+                        onPress={() => setUnlinking(true)}
+                    />
+                </Group>
             </ScrollView>
 
             <LogoutSheet
@@ -206,6 +219,16 @@ export default function StaffProfile() {
                     setLeaving(false);
                     // Telefon bağlı (099): karşılamaya değil, şifre ekranına.
                     router.replace('/(auth)/staff/pin');
+                }}
+            />
+            <UnlinkSheet
+                visible={unlinking}
+                businessName={profile.business.name}
+                onDismiss={() => setUnlinking(false)}
+                onConfirm={async () => {
+                    await authApi.staff.unlinkDevice();
+                    setUnlinking(false);
+                    router.replace('/(auth)/welcome');
                 }}
             />
         </View>

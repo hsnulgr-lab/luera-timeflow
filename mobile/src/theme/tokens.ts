@@ -100,6 +100,9 @@ export const authMetrics = {
     keypadKeyHeight: 62,
     keypadKeyHeightSmall: 52,
     selectionRowHeight: 74,
+    /** İlk girişli satır (099): üç satır metin — listenin EN BÜYÜK satırı, en sönüğü değil. */
+    selectionRowHeightTall: 88,
+    selectionFirstLine: 12.5,
     /** Giriş v3: plakalar arası boşluk — aradan ışık alanı görünsün diye. */
     staffRowGap: 10,
     welcomeBrandSize: 44,
@@ -279,6 +282,22 @@ export const authMetrics = {
     pinErrorBottom: 16,
     /** Şifre belirleme alt satırı (099) — başlığın altında, noktaların üstünde. */
     pinSetupHint: 14,
+    // Personel Girişi 099 · şifre ekranı (§P3 · §P4 · §11 375×667)
+    pinTopSmall: 16,
+    pinGapSmall: 18,
+    staffAvatarSmall: 56,
+    pinAvatarBottom: 18,
+    pinAvatarBottomSmall: 12,
+    pinHelpBottomSmall: 22,
+    /** Kilit hâli: başlık 24 · geri sayım 40 · gövde 14,5 · aralık 14 · yan 28. */
+    pinLockTitle: 24,
+    pinLockCount: 40,
+    pinLockBody: 14.5,
+    pinLockGap: 14,
+    pinLockX: 28,
+    pinLockActionTop: 10,
+    /** Kaydederken ve "hazır" anında tuş takımı sönükleşir. */
+    pinKeypadDim: 0.38,
     pinHelpTop: 10,
     pinHelpBottom: 44,
     staffListBottom: 46,
