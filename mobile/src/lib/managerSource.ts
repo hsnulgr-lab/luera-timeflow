@@ -493,12 +493,35 @@ export async function fetchServices(): Promise<CatalogService[]> {
  */
 export const VISIT_WINDOW_DAYS = 730;
 
+/**
+ * Defterin ziyaret satırı — `VisitRecord`'un müdüre bakan hâli.
+ *
+ * `staff_id` müşterinin KİMDE olduğunu, `no_show_at` kaç kez gelmediğini
+ * söylüyor (098 damgası). Randevu kurma ekranı bu iki alanı okumuyor;
+ * fazladan alan taşımak, ikinci bir sorgu açmaktan ucuz.
+ */
+export type BookVisitRow = VisitRecord & {
+    staff_id: string | null;
+    no_show_at: string | null;
+};
+
 export async function fetchCustomerBook(todayISO: string): Promise<{
     people: CustomerRecord[];
-    visits: VisitRecord[];
+    visits: BookVisitRow[];
 }> {
     const organizationId = await orgIdOrThrow();
     const since = addDaysISO(todayISO, -VISIT_WINDOW_DAYS);
+    const visitQuery = (cols: string) => readAll((from, to) => supabase.from('reservations')
+        .select(cols)
+        .eq('organization_id', organizationId)
+        .not('customer_id', 'is', null)
+        .neq('status', 'cancelled')
+        .gte('date', since)
+        .lte('date', todayISO)
+        .order('date', { ascending: false }).order('id')
+        .range(from, to)
+        .returns<Record<string, unknown>[]>());
+    const BOOK_COLS = 'customer_id, date, start_time, service, status, staff_id';
     const [people, visits] = await Promise.all([
         readAll((from, to) => supabase.from('customers').select('id, name, phone')
             .eq('organization_id', organizationId)
@@ -506,16 +529,19 @@ export async function fetchCustomerBook(todayISO: string): Promise<{
             .order('name').order('id')
             .range(from, to)
             .returns<Record<string, unknown>[]>()),
-        readAll((from, to) => supabase.from('reservations')
-            .select('customer_id, date, start_time, service, status')
-            .eq('organization_id', organizationId)
-            .not('customer_id', 'is', null)
-            .neq('status', 'cancelled')
-            .gte('date', since)
-            .lte('date', todayISO)
-            .order('date', { ascending: false }).order('id')
-            .range(from, to)
-            .returns<Record<string, unknown>[]>()),
+        /*
+         * OLMAYAN KOLON: `no_show_at` 098 çalıştırılana kadar yok ve
+         * PostgREST bilinmeyen kolonda BÜTÜN sorguyu reddediyor — defter
+         * "okunamadı"ya düşerdi. Sütunsuz okuma gelmedi sayısını sıfırlar,
+         * defteri kapatmaz (bkz. `fetchFlowRows` · aynı ders).
+         */
+        visitQuery(`${BOOK_COLS}, no_show_at`)
+            .catch((cause: unknown) => {
+                if ((cause as { code?: string } | null)?.code === UNDEFINED_COLUMN) {
+                    return visitQuery(BOOK_COLS);
+                }
+                throw cause;
+            }),
     ]);
     return {
         people: people.map((row) => ({
@@ -529,6 +555,8 @@ export async function fetchCustomerBook(todayISO: string): Promise<{
             start_time: String(row.start_time ?? ''),
             service: String(row.service ?? ''),
             status: String(row.status ?? ''),
+            staff_id: (row.staff_id as string | null) ?? null,
+            no_show_at: (row.no_show_at as string | null) ?? null,
         })),
     };
 }
@@ -740,6 +768,29 @@ export async function fetchDeletionFacts() {
         services: services.count ?? 0,
         staff: (staff.data ?? []).map((row) => String(row.name ?? '').trim()).filter(Boolean),
     });
+}
+
+/**
+ * Defterin büyüklüğü — Profil'deki "Müşteriler" satırının alt yazısı.
+ *
+ * `head: true, count: 'exact'`: satırlar telefona İNMİYOR, yalnız sayı.
+ * Profil her açılışta okunuyor; oraya bütün defteri çekmek, bir satırlık
+ * özet için yüzlerce kaydı taşımak olurdu.
+ *
+ * Okunamazsa HATA atılır ve çağıran satırı özetsiz bırakır; sıfır YAZILMAZ.
+ * "0 kişi" diyen bir satır, okunamayan bir defteri boş defter gibi gösterir.
+ */
+export async function fetchCustomerCount(): Promise<number> {
+    const organizationId = await orgIdOrThrow();
+    const { count, error } = await supabase.from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('is_active', true);
+    // Hata ATILIYOR, sıfıra çevrilmiyor: "0 kişi" diyen bir satır, okunamayan
+    // defteri boş defter gibi gösterirdi. Satırı özetsiz bırakma kararı
+    // çağıranın (bkz. `mudur/profile.tsx`).
+    if (error) throw error;
+    return count ?? 0;
 }
 
 /** Salonun KVKK aydınlatma metni adresi (081). Boşsa `null` — satır çizilmez. */

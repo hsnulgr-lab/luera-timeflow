@@ -97,9 +97,16 @@ test('kendi müşterilerimin sayısı üçüncü boş hâli sürüyor', () => {
 
 test('arama ÖLÜ bir kontrol değil', () => {
     // Tasarımda düğme gibi çizilmiş olması onu ölü kontrole çevirmez.
-    assert.ok(screen.includes('<TextInput'), 'gerçek metin alanı');
-    assert.ok(screen.includes('onChangeText={onChange}'));
-    assert.ok(screen.includes('Aramayı temizle'));
+    //
+    // Alan artık ORTAK (`components/SearchField`): müdürün defteri de aynı
+    // kontrolü kullanıyor. İki kopya, aynı arama kuralının iki yerde
+    // ayrışması demekti.
+    const field = readFileSync(
+        new URL('../mobile/src/components/SearchField.tsx', import.meta.url), 'utf8');
+    assert.ok(screen.includes('<SearchField'), 'defter ortak alanı kullanmalı');
+    assert.ok(field.includes('<TextInput'), 'gerçek metin alanı');
+    assert.ok(field.includes('onChangeText={onChange}'));
+    assert.ok(field.includes('Aramayı temizle'));
 });
 
 test('kendi müşterim BÖLÜM değil, disk işareti', () => {

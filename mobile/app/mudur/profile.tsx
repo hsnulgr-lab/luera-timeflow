@@ -22,7 +22,7 @@ import {
 import { readNotifications } from '../../src/lib/salonSettings';
 import { readKvkkUrl } from '../../src/lib/legalSource';
 import { useManagerRead } from '../../src/lib/managerRead';
-import { fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
+import { fetchCustomerCount, fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf, schedulesOf } from '../../src/lib/settingsMap';
 import { nowInMinutes } from '../../src/lib/calendar';
 import { authApi } from '../../src/api/session';
@@ -53,6 +53,8 @@ export default function ManagerProfile() {
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
     /** 099 · Personel satırının canlı özeti. Okunamazsa satır özetsiz kalır. */
     const [team, setTeam] = useState<TeamMember[] | null>(null);
+    /** Defterin büyüklüğü — yalnız SAYI iniyor, kayıtlar değil. */
+    const [customers, setCustomers] = useState<number | null>(null);
     const [clock, setClock] = useState(() => Date.now());
 
     /*
@@ -78,12 +80,15 @@ export default function ManagerProfile() {
             readNotifications(),
             readKvkkUrl(),
             fetchTeamStatus().catch(() => null),
-        ]).then(([account, notifications, url, members]) => {
+            // Okunamazsa satır özetsiz kalıyor — kaynak hatayı yutmuyor.
+            fetchCustomerCount().catch(() => null),
+        ]).then(([account, notifications, url, members, customerCount]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
             setNotify(notifications);
             setKvkkUrl(url);
             setTeam(Array.isArray(members) ? members : null);
+            setCustomers(typeof customerCount === 'number' ? customerCount : null);
             setClock(Date.now());
         }).catch(() => { /* okunamazsa satırlar özet yazmaz */ });
         return () => { alive = false; };
@@ -155,6 +160,15 @@ export default function ManagerProfile() {
                         onPress={() => router.push('/(manager-flow)/profil/hizmetler')}
                     />
                     {/* 099 · telefon bağla (ekip kodu) + şifre sıfırlama. */}
+                    {/*
+                      * MÜŞTERİLER buraya, Personel'in altına.
+                      *
+                      * Altıncı sekme açılmadı: iOS'ta beş sekme sınır ve
+                      * altıncısı "Randevu"nun ortadaki eylem olma niteliğini
+                      * bozardı. Bu grup zaten ayar değil, İŞLETMENİN
+                      * KAYITLARI — saatler, hizmetler, personel. Müşteriler
+                      * aynı cinsten.
+                      */}
                     <ProfileRow
                         big
                         title="Personel"
@@ -163,6 +177,14 @@ export default function ManagerProfile() {
                         sub={teamLine?.text ?? 'Telefon bağla · giriş durumu'}
                         subAccent={teamLine?.accent ?? false}
                         onPress={() => router.push('/(manager-flow)/profil/personel')}
+                    />
+                    <ProfileRow
+                        big
+                        title="Müşteriler"
+                        // Okunamazsa özet YAZILMAZ: "0 kişi" diyen bir satır,
+                        // okunamayan defteri boş defter gibi gösterirdi.
+                        sub={customers === null ? undefined : `${customers} kişi`}
+                        onPress={() => router.push('/(manager-flow)/musteriler')}
                     />
                 </Group>
 
