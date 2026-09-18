@@ -4,8 +4,8 @@ import { resolveOrg } from '../_shared/org.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { can, canTouchReservation } from '../_shared/staffPerms.ts';
 import {
-    hashPin, mintStaffToken, safeEqual, verifyStaffToken,
-    DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS,
+    hashPin, mintRingToken, mintStaffToken, safeEqual, verifyStaffToken,
+    DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS, RING_TOKEN_TTL_SEC,
 } from '../_shared/staffToken.ts';
 import { pinProblem } from '../_shared/pinRules.ts';
 
@@ -47,6 +47,8 @@ const corsHeaders = {
 type Action =
     | 'device.pair' | 'device.code.create' | 'device.code.redeem'
     | 'roster' | 'session.start' | 'session.refresh' | 'me'
+    // ── Canlı zil (100) ─────────────────────────────────────────────────────
+    | 'realtime.token'   // personel: "salonda bir şey değişti" kanalının jetonu
     // ── Personelin kendi şifresi (099) ──────────────────────────────────────
     | 'pin.setup'        // cihaz: şifresi olmayan personel İLK şifresini belirler
     | 'pin.change'       // personel: kendi şifresini değiştirir
@@ -864,6 +866,34 @@ Deno.serve(async (req: Request) => {
             if (!changed) return json({ error: 'revoked' }, 401);
             await audit(me.organization_id, member.id, 'pin_changed');
             return loginResponse(changed as StaffRow);
+        }
+
+        /*
+         * ZİL JETONU (100) — telefon "salonda bir şey değişti" kanalını
+         * dinleyebilsin diye.
+         *
+         * Jeton VERİYE AÇILMIYOR: rolü `staff_rt` ve o rolün hiçbir tabloda
+         * yetkisi yok. Zili duyan telefon veriyi yine buradan, kendi personel
+         * token'ıyla çekiyor — izin kontrolü hiç yer değiştirmiyor.
+         *
+         * `org` talebini SUNUCU yazıyor: telefon hangi salonun zilini
+         * dinleyeceğini seçemiyor.
+         */
+        if (action === 'realtime.token') {
+            const jwtSecret = await getSecret(admin, 'JWT_SECRET')
+                ?? await getSecret(admin, 'SUPABASE_JWT_SECRET');
+            if (!jwtSecret) {
+                // Sır yoksa ZİL YOK — ama uygulama çalışmaya devam ediyor:
+                // telefon yoklamaya düşüyor, kimse bir şey kaybetmiyor.
+                console.error('staff-api: JWT_SECRET yok — zil kapalı (100)');
+                return json({ error: 'realtime_unavailable' }, 503);
+            }
+            return json({
+                ok: true,
+                token: await mintRingToken(me.id, me.organization_id, jwtSecret),
+                topic: `org:${me.organization_id}`,
+                expiresIn: RING_TOKEN_TTL_SEC,
+            });
         }
 
         if (action === 'me' || action === 'session.refresh') {

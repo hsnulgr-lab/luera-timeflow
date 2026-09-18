@@ -23,6 +23,7 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { isStale, POLL_MS } from './freshness.ts';
+import { useLiveSignal } from './liveSignal';
 import type { OrgRefusal } from './managerMap.ts';
 import { OrgError } from './managerSource';
 
@@ -136,6 +137,15 @@ export function useManagerRead<T>(
     }, [run]);
 
     useFocusEffect(useCallback(() => { void run(false); }, [run]));
+
+    /*
+     * CANLI SİNYAL — yoklamanın yerine değil, ÜSTÜNE.
+     *
+     * Masaüstünden bir randevu oluşturulduğunda 25 saniye beklemek yerine
+     * saniyesinde tazeleniyor. Sessiz tur (`run(false)`): çalışan bir ekranı
+     * "yükleniyor"a düşürmek, sinyali gürültüye çevirirdi.
+     */
+    useLiveSignal(useCallback(() => { void run(false); }, [run]));
 
     useEffect(() => {
         const id = setInterval(() => {

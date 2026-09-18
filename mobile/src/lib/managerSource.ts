@@ -111,6 +111,21 @@ async function orgIdOrThrow(): Promise<string> {
  */
 export function forgetOrg(): void {
     cached = null;
+    for (const hook of forgetHooks) hook();
+}
+
+/*
+ * Org kararı unutulunca haber verilecek yerler.
+ *
+ * Canlı sinyal kanalı org'a bağlı (`live:<org>`): salon değişince eski salonun
+ * kanalı açık kalırsa telefon YANLIŞ salonun hareketiyle tazelenir. Kanal
+ * katmanı buraya kaydoluyor; ters yönde bir içe aktarma (managerSource →
+ * liveSignal) döngü yaratırdı.
+ */
+const forgetHooks = new Set<() => void>();
+
+export function onForgetOrg(hook: () => void): void {
+    forgetHooks.add(hook);
 }
 
 // ── Okuma ───────────────────────────────────────────────────────────────────

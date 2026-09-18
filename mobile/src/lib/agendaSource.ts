@@ -8,6 +8,7 @@ import { api, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
 import { clockText } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
+import { useLiveSignal } from './liveSignal';
 import { AGENDA_CACHE_KEY, cachePayload, parseCache } from './agendaCache.ts';
 // Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
 // olduğu için testten çağrılamıyor, orası çağrılabiliyor.
@@ -200,6 +201,15 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
      * bekliyor, 25 saniye sonra değil.
      */
     useFocusEffect(useCallback(() => { void read(false); }, [read]));
+
+    /*
+     * CANLI ZİL (100) — yoklamanın yerine değil, ÜSTÜNE.
+     *
+     * Masaüstünden ya da müdürün telefonundan bir randevu değiştiğinde 25
+     * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
+     * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
+     */
+    useLiveSignal(useCallback(() => { void read(false); }, [read]));
 
     // Sıfırlama efektin İÇİNDE değil: orada senkron `setState` zincirleme
     // render tetikliyor (react-hooks/set-state-in-effect).

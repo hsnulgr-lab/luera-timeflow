@@ -60,6 +60,21 @@ async function key(secret: string): Promise<CryptoKey> {
     );
 }
 
+/**
+ * HS256 imzalayıcı.
+ *
+ * İki ayrı jeton bunu kullanıyor ve İKİSİ AYRI SIRLA imzalanıyor: personel
+ * token'ı `STAFF_TOKEN_SECRET` ile (yalnız staff-api doğruluyor), zil jetonu
+ * Supabase'in `JWT_SECRET`i ile (Realtime doğruluyor). Sırları karıştırmak,
+ * personel token'ını Supabase'in her yerinde geçerli kılardı.
+ */
+export async function signHs256(payload: Record<string, unknown>, secret: string): Promise<string> {
+    const head = b64urlJson({ alg: 'HS256', typ: 'JWT' });
+    const body = b64urlJson(payload);
+    const sig = await crypto.subtle.sign('HMAC', await key(secret), enc.encode(`${head}.${body}`));
+    return `${head}.${body}.${b64url(new Uint8Array(sig))}`;
+}
+
 export async function mintStaffToken(
     claims: Omit<StaffClaims, 'iat' | 'exp'>,
     secret: string,
@@ -67,10 +82,38 @@ export async function mintStaffToken(
     ttlSec = STAFF_TOKEN_TTL_SEC,
 ): Promise<string> {
     const payload: StaffClaims = { ...claims, iat: nowSec, exp: nowSec + ttlSec };
-    const head = b64urlJson({ alg: 'HS256', typ: 'JWT' });
-    const body = b64urlJson(payload);
-    const sig = await crypto.subtle.sign('HMAC', await key(secret), enc.encode(`${head}.${body}`));
-    return `${head}.${body}.${b64url(new Uint8Array(sig))}`;
+    return signHs256(payload as unknown as Record<string, unknown>, secret);
+}
+
+/** Zil jetonu bir saat yaşıyor; telefon süresi dolmadan yenisini alıyor. */
+export const RING_TOKEN_TTL_SEC = 60 * 60;
+
+/**
+ * ZİL JETONU — yalnız "salonda bir şey değişti" haberini dinlemeye yarar.
+ *
+ * Rolü `staff_rt` ve o rolün hiçbir tabloda yetkisi YOK (migration 100).
+ * `authenticated` kullanılamazdı: aynı sırla imzalanmış öyle bir jeton
+ * PostgREST'e de geçerli gelir ve RLS org seviyesinde olduğu için salonun
+ * bütün verisini açardı. Bu jeton PostgREST'e götürülse bile okuyabileceği
+ * tek satır yok.
+ *
+ * `org` talebini SUNUCU yazıyor: telefon hangi salonun zilini dinleyeceğini
+ * kendisi seçemiyor.
+ */
+export function mintRingToken(
+    staffId: string,
+    orgId: string,
+    secret: string,
+    nowSec = Math.floor(Date.now() / 1000),
+    ttlSec = RING_TOKEN_TTL_SEC,
+): Promise<string> {
+    return signHs256({
+        sub: staffId,
+        org: orgId,
+        role: 'staff_rt',
+        iat: nowSec,
+        exp: nowSec + ttlSec,
+    }, secret);
 }
 
 export type VerifyResult =

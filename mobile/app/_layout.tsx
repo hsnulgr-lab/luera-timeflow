@@ -1,3 +1,14 @@
+/*
+ * `URL` YAMASI — Supabase'in React Native kurulumunun ilk adımı.
+ *
+ * Paket kuruluydu ama hiçbir yerden içe aktarılmıyordu; REST çağrıları
+ * yamasız da çalıştığı için bu bugüne kadar görünmedi. Realtime websocket'i
+ * adresi `URL` ile kuruyor ve RN'in kendi `URL`i eksik: yamayı unutmak,
+ * kanalın telefonda SESSİZCE bağlanmaması demek. En üstte, çünkü yamanın her
+ * şeyden önce yüklenmesi gerekiyor.
+ */
+import 'react-native-url-polyfill/auto';
+
 import {
     HankenGrotesk_200ExtraLight,
     HankenGrotesk_400Regular,

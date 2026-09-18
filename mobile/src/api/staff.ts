@@ -265,6 +265,18 @@ async function call(action: string, body: Record<string, unknown> = {}) {
 
 export const api = {
     me: () => call('me'),
+    /**
+     * ZİL JETONU (100) — "salonda bir şey değişti" kanalının anahtarı.
+     *
+     * Jeton VERİYE AÇILMIYOR: rolü `staff_rt` ve o rolün hiçbir tabloda
+     * yetkisi yok. Telefon zili duyunca veriyi yine buradan, personel
+     * token'ıyla çekiyor.
+     *
+     * Sunucuda sır tanımlı değilse 503 `realtime_unavailable` dönüyor ve
+     * telefon sessizce yoklamaya devam ediyor — zil bir hızlandırıcı, uygulama
+     * onsuz da çalışır.
+     */
+    realtimeToken: () => call('realtime.token'),
     /** Kendi şifresini değiştirir; cevap YENİ kuşakla basılmış token taşır (099). */
     pinChange: (currentPin: string, pin: string) => call('pin.change', { currentPin, pin }),
     /**

@@ -43,6 +43,7 @@ import { LIVE_AUTH } from '../api/session';
 import { api, type Appointment } from '../api/staff';
 import { clockText, todayISO } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
+import { useLiveSignal } from './liveSignal';
 import { demoAgenda, type DemoAppointment } from './staffDemo.ts';
 import { isNewer, type StampObservation } from './visitStamp.ts';
 
@@ -210,6 +211,15 @@ export function useVisit(id: string | undefined): VisitSnapshot {
     }, [read]);
 
     useFocusEffect(useCallback(() => { void read(false, false); }, [read]));
+
+    /*
+     * CANLI ZİL (100) — yoklamanın yerine değil, ÜSTÜNE.
+     *
+     * Masaüstünden ya da müdürün telefonundan bir randevu değiştiğinde 25
+     * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
+     * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
+     */
+    useLiveSignal(useCallback(() => { void read(false, false); }, [read]));
 
     const observe = useCallback((observation: StampObservation | null | undefined, own = false) => {
         if (!observation) return;
