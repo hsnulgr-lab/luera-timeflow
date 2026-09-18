@@ -224,3 +224,10 @@ test('demo kaynağı sunucu ucu gelene kadar; tablolar canlı', () => {
     assert.equal(source.timeOff.length, 2);
     assert.equal(usesSalonHours(source), false);
 });
+
+test('başlık satırında sahipsiz virgül kalmıyor', () => {
+    // Konum boşken "Uzman · Luera TimeFlow," yazıyordu: ad ile konum elle
+    // birleştiriliyordu ve boş parçayı görmüyordu. `businessLine` boşları atıyor.
+    assert.match(profile, /businessLine\(profile\.business, ', '\)/);
+    assert.doesNotMatch(profile, /\$\{profile\.business\.name\}, \$\{profile\.business\.location\}/);
+});

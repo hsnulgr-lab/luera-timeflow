@@ -13,10 +13,10 @@ import { accountDeletionItems } from '../../src/lib/authCopy';
 import {
     AuthAccountRow,
     AuthActionButton,
+    AuthBackBar,
     AuthBanner,
     AuthDeleteDialog,
     AuthHeader,
-    AuthIdentityBar,
 } from '../../src/components/ui';
 import { authMetrics, font, useTheme } from '../../src/theme';
 
@@ -94,9 +94,6 @@ export default function AccountScreen() {
     const { profile } = session;
     const isManager = session.actor === 'manager';
     const biometricLabel = session.biometricEnabled ? 'Açık' : 'Kapalı';
-    const topBarSubtitle = isManager
-        ? `${profile.business.name} · Hesap`
-        : `${profile.business.name} · ${profile.title ?? ''}`;
 
     const closeDelete = () => {
         setDeletePhase('closed');
@@ -148,12 +145,19 @@ export default function AccountScreen() {
 
     return (
         <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
-            <AuthIdentityBar
-                title={profile.name}
-                subtitle={topBarSubtitle}
-                contentGap={authMetrics.accountTopBarGap}
-                onBack={() => router.back()}
-            />
+            {/*
+              * KİMLİK BANDI KALDIRILDI.
+              *
+              * Bant kişinin adını ve altında e-postasını yazıyordu; hemen
+              * altındaki başlık da aynı iki şeyi söylüyordu. Aynı ekranda iki
+              * kez yazılan bir bilgi, ikinci kez hiçbir şey anlatmıyor — yalnız
+              * 64 pt yer kaplıyor ve sayfanın asıl başlığını aşağı itiyordu.
+              *
+              * Girişteki kullanımları DURUYOR (`staff/pin`, `staff/who`): orada
+              * bant gerçekten bilgi taşıyor — hangi salona bağlandığını
+              * söylüyor ve o bilgi ekranda başka yerde yok.
+              */}
+            <AuthBackBar onPress={() => router.back()} />
             <View style={{ flex: 1 }}>
                 <ScrollView
                     style={{ flex: 1 }}

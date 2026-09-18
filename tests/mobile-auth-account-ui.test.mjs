@@ -154,7 +154,19 @@ test('Giriş 14 ortak UI kitini, tema jetonlarını ve SVG ikonlarını kullanı
 
     assert.match(account, /src\/components\/ui/);
     assert.match(account, /src\/theme/);
-    assert.match(account, /\bAuthIdentityBar\b/);
+    /*
+     * KİMLİK BANDI YOK, yalnız geri düğmesi.
+     *
+     * Bant kişinin adını ve altında e-postasını yazıyordu; hemen altındaki
+     * başlık da aynı iki şeyi söylüyordu. Aynı ekranda iki kez yazılan bilgi
+     * ikinci kez hiçbir şey anlatmıyor — yalnız yer kaplıyor ve sayfanın asıl
+     * başlığını aşağı itiyordu (kullanıcı kararı, 2026-09-18).
+     *
+     * Girişteki kullanımları DURUYOR: orada bant hangi salona bağlanıldığını
+     * söylüyor ve o bilgi ekranda başka yerde yok.
+     */
+    assert.match(account, /\bAuthBackBar\b/);
+    assert.doesNotMatch(account, /\bAuthIdentityBar\b/);
     assert.match(account, /\bAuthActionButton\b/);
     assert.match(account, /\bAuthAccountRow\b/);
     assert.match(account, /\bAuthDeleteDialog\b/);

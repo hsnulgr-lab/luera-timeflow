@@ -36,6 +36,7 @@ import {
 import { authApi, type AuthSession } from '../../src/api/session';
 import { nowInMinutes, todayISO } from '../../src/lib/calendar';
 import { legalSummary, themeLabel } from '../../src/lib/managerProfile';
+import { businessLine } from '../../src/lib/accountMap';
 import { readKvkkUrl } from '../../src/lib/legalSource';
 import { useShift } from '../../src/lib/shiftSource';
 import {
@@ -120,9 +121,12 @@ export default function StaffProfile() {
                     gap: M.gap,
                 }}
             >
+                {/* Salonun adı ve konumu `businessLine`dan: konum BOŞKEN
+                    "Luera TimeFlow," diye sahipsiz bir virgül kalıyordu —
+                    ad ile konumu elle birleştirmek boş parçayı görmüyordu. */}
                 <ProfileHead
                     name={profile.name}
-                    sub={[profile.title, `${profile.business.name}, ${profile.business.location}`]
+                    sub={[profile.title, businessLine(profile.business, ', ')]
                         .filter(Boolean).join(' · ')}
                 />
 
