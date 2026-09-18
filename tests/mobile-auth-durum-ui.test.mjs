@@ -252,32 +252,36 @@ test('hiçbir varyantta fiyat, plan ya da ödeme yok', () => {
     assert.doesNotMatch(locked.replace(/\/\*[\s\S]*?\*\//g, ''), words);
 });
 
-test('müdür varyantı yenilemenin nerede yapıldığını söyler', () => {
-    const copy = subscriptionLocked.manager;
-    assert.equal(copy.title, 'Aboneliğiniz bitti');
-    assert.match(copy.cardLabel, /bilgisayardan yapılır/);
-    assert.match(copy.retention, /90 gün saklanır/);
-    // Tek somut eylem: yenileyip dönünce basılacak buton.
-    assert.equal(copy.retry, 'Yeniledim, tekrar dene');
+test('müdür varyantı açmanın nerede yapıldığını söyler (Apple Eşiği · C)', () => {
+    const copy = subscriptionLocked;
+    assert.equal(copy.title, 'Uygulama şu an kapalı');
+    assert.equal(copy.manager.cardLabel, 'Devam etmek için');
+    assert.match(copy.manager.cardBody, /Telefonda yapılamıyor/);
+    // Doğrulanmamış "90 gün saklanır" sözü KALKTI; doğru olan cümle kaldı.
+    assert.doesNotMatch(JSON.stringify(copy), /90 gün/);
+    assert.match(copy.manager.kept, /hiçbir kayıt silinmedi/);
+    // "Tekrar dene" değil — kapı kapalı olması bir başarısızlık değil.
+    assert.equal(copy.refresh, 'Durumu yenile');
     assert.equal(copy.signOut, 'Oturumu kapat');
 });
 
 test('personel varyantı sorumluluğu personele yüklemez', () => {
     const copy = subscriptionLocked.staff;
-    assert.equal(copy.title, 'Uygulama şu an\nkullanılamıyor');
-    assert.match(copy.body, /Bu bir hata değil ve sizinle ilgili değil/);
-    // "Yetkiniz yok" denmiyor; sebep yazılıyor ve tek somut eylem veriliyor.
-    assert.doesNotMatch(copy.body, /yetki/i);
-    assert.equal(copy.call, 'İşletme sahibini ara');
+    assert.match(copy.kept, /Bu sizin hesabınızla ilgili değil/);
+    assert.doesNotMatch(copy.kept, /yetki/i);
+    // Sahibin adını/numarasını veren uç yok: "ara" düğmesi çizilmiyor.
+    const locked = read('app/(auth)/locked.tsx').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(locked, /tel:/);
 });
 
-test('kilit ayrı bir rotadır, çünkü ileri gidilemez', () => {
-    const locked = read('app/(auth)/locked.tsx');
-    assert.match(locked, /session\.actor === 'manager'/);
-    assert.match(locked, /icon="lock"/);
-    // Müdürde kart ve bant var, o yüzden hero üstten hizalı.
-    assert.match(locked, /align="top"/);
-    assert.match(locked, /<AuthNoteCard/);
+test('kapalı kapı hata değil: cam dili, durum rengi yok', () => {
+    const locked = read('app/(auth)/locked.tsx').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.match(locked, /door\.actor === 'manager'/);
+    assert.match(locked, /<LightField profile="lock" \/>/);
+    assert.match(locked, /<GlassPlate/);
+    assert.doesNotMatch(locked, /c\.rd|c\.am|tone="amber"|AuthStatusScreen/);
+    // Açıldıysa kararı ilk ekran veriyor.
+    assert.match(locked, /if \(result\.ok && result\.data\.open\) \{ router\.replace\('\/'\); return; \}/);
 });
 
 test('dört giriş yolunun hepsi kilide düşer', () => {

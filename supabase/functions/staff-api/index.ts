@@ -541,6 +541,30 @@ Deno.serve(async (req: Request) => {
         // aboneliği bittiyse personel tableti de çalışmamalı — aksi hâlde
         // salon panelsiz ama tabletli çalışmaya devam ederdi.
         const staffAccess = await checkAccess(admin, claims.org);
+
+        // ── access — kapalı kapı ekranının bilgisi (Apple Eşiği · C) ───────
+        // KAPIDAN ÖNCE, çünkü bu ucu tam da kapı kapalıyken soran telefon
+        // çağırıyor. Döndürdüğü şey salonun adı ve erişimin bittiği an —
+        // plan, tutar, ödeme YOK (App Store 3.1.3(f): telefon satış ekranı
+        // değil). "Durumu yenile" de bu uçla soruyor: açıldıysa `ok: true`.
+        if (action === 'access') {
+            const { data: org } = await admin
+                .from('organizations')
+                .select('name, owner_id')
+                .eq('id', claims.org)
+                .maybeSingle();
+            const { data: ownerSettings } = org?.owner_id
+                ? await admin.from('settings').select('business_name')
+                    .eq('organization_id', claims.org).eq('user_id', org.owner_id).maybeSingle()
+                : { data: null };
+            return json({
+                ok: staffAccess.ok,
+                businessName: String(ownerSettings?.business_name ?? '').trim() || String(org?.name ?? ''),
+                // Süresiz ya da hiç satırı olmayan org'da tarih YOK — uydurulmaz.
+                until: staffAccess.ok ? null : staffAccess.until,
+            });
+        }
+
         if (!staffAccess.ok) return json({ error: 'subscription_inactive' }, 403);
 
         // ── roster — giriş ekranının listesi. PIN ASLA dönmez ────────────────

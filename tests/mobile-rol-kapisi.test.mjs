@@ -64,7 +64,7 @@ test('tekrar dene GERÇEKTEN yeniden okuyor', () => {
 test('ilk ekran okuma hatasında SONSUZA KADAR boş kalmıyor', () => {
     // `.catch` yoktu: `launch` hep null kalıyor ve uygulamanın ilk ekranı
     // kalıcı boş zemin oluyordu — kullanıcı için "açılmıyor".
-    assert.match(index, /\.catch\(\(\) => \{\s*if \(alive\) setFailed\(true\);\s*\}\)/);
+    assert.match(index, /\.catch\(\(\) => \{\s*clearTimeout\(timer\);\s*if \(alive\) setFailed\(true\);\s*\}\)/);
     assert.match(index, /if \(failed\) \{/);
     assert.match(index, /<AuthSessionErrorScreen\s+onRetry=\{\(\) => \{ setFailed\(false\); setAttempt/);
 });

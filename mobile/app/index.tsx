@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { AuthSessionErrorScreen } from '../src/components/ui';
 import { authApi, type LaunchState } from '../src/api/session';
+import { dropSplashHandoff } from '../src/lib/splashHandoff';
 import { useTheme } from '../src/theme';
 
 /**
@@ -17,6 +18,8 @@ import { useTheme } from '../src/theme';
  * hata GÖRÜNÜR ve tekrar denenebilir — rol kapısıyla aynı ekran, aynı arıza
  * (`src/lib/roleGate.ts`).
  */
+const LAUNCH_TIMEOUT_MS = 5000;
+
 export default function Index() {
     const { c } = useTheme();
     const [launch, setLaunch] = useState<LaunchState | null>(null);
@@ -25,13 +28,25 @@ export default function Index() {
 
     useEffect(() => {
         let alive = true;
+        // 5 sn'de okuma bırakılıyor: sistem karesinin arkasında sonsuza kadar
+        // beklemek, uygulamanın "açılmıyor" olması demek. Sessizce karşılamaya
+        // düşülmüyor — hata ekranı tekrar denemeyi sunuyor.
+        const timer = setTimeout(() => { if (alive) setFailed(true); }, LAUNCH_TIMEOUT_MS);
         authApi.getLaunchState().then((next) => {
+            clearTimeout(timer);
             if (alive) setLaunch(next);
         }).catch(() => {
+            clearTimeout(timer);
             if (alive) setFailed(true);
         });
-        return () => { alive = false; };
+        return () => { alive = false; clearTimeout(timer); };
     }, [attempt]);
+
+    // Karşılama DIŞINDAKİ her yol sistem karesini doğrudan kaldırıyor;
+    // karşılama ise onu devralıp hapı açıyor (`splashHandoff.ts`).
+    useEffect(() => {
+        if (failed || (launch && launch.target !== 'welcome')) dropSplashHandoff();
+    }, [failed, launch]);
 
     if (failed) {
         // Sıfırlama efektte değil burada — bkz. `roleGate.ts` · retry.

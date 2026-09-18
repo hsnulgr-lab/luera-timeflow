@@ -64,7 +64,29 @@
           "faceIDPermission": "Luera TimeFlow, oturumunuzu PIN girmeden açmak için Face ID kullanır."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-light.png",
+          "backgroundColor": "#F3ECE0",
+          "dark": {
+            "image": "./assets/splash-dark.png",
+            "backgroundColor": "#120E08"
+          },
+          "resizeMode": "cover",
+          "ios": {
+            "enableFullScreenImage_legacy": true,
+            "resizeMode": "cover",
+            "image": "./assets/splash-light.png",
+            "backgroundColor": "#F3ECE0",
+            "dark": {
+              "image": "./assets/splash-dark.png",
+              "backgroundColor": "#120E08"
+            }
+          }
+        }
+      ]
     ],
     "scheme": "luera"
   }

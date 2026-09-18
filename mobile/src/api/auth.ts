@@ -7,7 +7,7 @@ import {
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
     AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
-    AuthSession, LaunchState, SignupDraft, SignupSector, StaffEntry, StaffRosterMember,
+    AuthSession, LaunchState, LockedDoor, SignupDraft, SignupSector, StaffEntry, StaffRosterMember,
 } from './authStub';
 import { isValidEmail, passwordRuleState } from '../lib/authValidation.ts';
 import { pinProblem } from '../lib/pinRules.ts';
@@ -797,6 +797,63 @@ async function availableSignupSectors(): Promise<SignupSector[]> {
     return SIGNUP_SECTORS.map((sector) => ({ ...sector }));
 }
 
+// ── Kapalı kapı (Apple Eşiği · C) ───────────────────────────────────────────
+
+/**
+ * Kapalı kapı ekranının bilgisi — CANLI.
+ *
+ * Önceden stub'dan okunuyordu: canlıda stub'ın oturumu olmadığı için ekran
+ * açılır açılmaz karşılamaya atıyordu. Abonelik kontrolü açıldığı gün personel
+ * kapıya düşecek ve kapıyı hiç görmeyecekti.
+ *
+ * Personel: `staff-api · access` (kapıdan önce, token'la). Müdür: kendi
+ * oturumuyla `org_entitlement` satırı (RLS üyeye açık) ve kararın tek kaynağı
+ * `has_timeflow_access`. Hiçbiri yoksa kapının kime ait olduğu bilinmiyor —
+ * ekran karşılamaya döner.
+ */
+async function lockedDoor(): Promise<AuthResult<LockedDoor>> {
+    const staffToken = (await tokens.staff()) ?? (await tokens.device());
+    const stored = await readProfile();
+    if (staffToken && stored?.profile.actor !== 'manager') {
+        try {
+            const data = await staffApi.access(staffToken);
+            return done({
+                actor: 'staff',
+                businessName: String(data.businessName ?? stored?.profile.business.name ?? ''),
+                until: typeof data.until === 'string' ? data.until : null,
+                open: data.ok === true,
+            });
+        } catch (e) {
+            return mapError(e);
+        }
+    }
+
+    if (!supabaseConfigured) return fail('no_session');
+    const { data: auth } = await supabase.auth.getSession();
+    const orgId = stored?.profile.actor === 'manager' ? stored.profile.business.id : null;
+    if (!auth.session || !orgId) return fail('no_session');
+
+    const [row, gate] = await Promise.all([
+        supabase.from('org_entitlement')
+            .select('state, expires_at, grace_until')
+            .eq('organization_id', orgId)
+            .maybeSingle(),
+        supabase.rpc('has_timeflow_access', { p_org: orgId }),
+    ]);
+    // Karar okunamadıysa kapıyı AÇIK sanmıyoruz ama tarih de uydurmuyoruz.
+    if (gate.error) return fail('offline');
+    const entitlement = row.data as { state?: string; expires_at?: string | null; grace_until?: string | null } | null;
+    const until = entitlement
+        ? (entitlement.state === 'grace' ? entitlement.grace_until : entitlement.expires_at) ?? null
+        : null;
+    return done({
+        actor: 'manager',
+        businessName: stored?.profile.business.name ?? '',
+        until: gate.data === true ? null : until,
+        open: gate.data === true,
+    });
+}
+
 export const auth = {
     getLaunchState,
     signup: {
@@ -838,6 +895,7 @@ export const auth = {
         authenticate: authenticateBiometric,
     },
     resume: { get: resumeSession, signOut },
+    subscription: { locked: lockedDoor },
     account: {
         get: accountOverview,
         prepareBusinessSwitch: accountBusinessSwitch,

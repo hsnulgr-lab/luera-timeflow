@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Linking, ScrollView, Text, View } from 'react-native';
+import { Animated, Easing, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +19,7 @@ import {
     DELETE_EXPORT_LABEL,
     DELETE_EXPORT_PATH,
     DELETE_KEPT_LABEL,
+    DELETE_TALLY_LABEL,
     DELETE_TIMING_LABEL,
     DELETE_TITLE,
     DELETE_WARN,
@@ -27,7 +28,9 @@ import {
     deletionCopy,
     type DeleteFailureReason,
     type DeletionCopy,
+    type DeletionTally,
 } from '../../../src/lib/managerProfile';
+import { goneParam } from '../../../src/lib/deletedNotice';
 import { fetchDeletionFacts } from '../../../src/lib/managerSource';
 import { DurumUnread } from '../../../src/components/Durum';
 import { deleteAccount } from '../../../src/api/accountDeletion';
@@ -77,6 +80,7 @@ export default function ManagerDeleteAccount() {
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState<DeleteFailureReason | null>(null);
     const [orgId, setOrgId] = useState<string | null>(null);
+    const [businessName, setBusinessName] = useState('');
     const [ownerOnly, setOwnerOnly] = useState(false);
     const [unread, setUnread] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -90,6 +94,7 @@ export default function ManagerDeleteAccount() {
                 if (!account.ok) { router.replace('/(auth)/welcome'); return; }
                 const { profile } = account.data.session;
                 setOrgId(profile.business.id);
+                setBusinessName(profile.business.name);
                 setOwnerOnly(!facts.canDeleteRole);
                 setUnread(false);
                 // Sayılar bilinmeden liste çizilmez — "312 randevu" uydurulamaz.
@@ -156,12 +161,15 @@ export default function ManagerDeleteAccount() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                     paddingHorizontal: M.padX,
-                    paddingBottom: 28,
+                    paddingBottom: 20,
                     gap: 13,
                 }}
             >
+                {/* Apple Eşiği · B — KIRMIZI BU LİSTEDE YOK. Ekranın işi
+                    okutmak; kırmızı bir liste kullanıcıyı okumadan korkutuyor.
+                    Kırmızı yalnız son dokunuşta: basılı tutulan düğmede. */}
                 <Text style={{
-                    color: c.rd,
+                    color: c.tx,
                     fontSize: 13,
                     fontFamily: font.extraBold,
                     fontWeight: '800',
@@ -191,6 +199,15 @@ export default function ManagerDeleteAccount() {
                         />
                     ))}
                 </Group>
+
+                {/* Ciddiyet renkten değil SAYIDAN geliyor. */}
+                {copy.tally.length > 0 ? (
+                    <Group head={DELETE_TALLY_LABEL}>
+                        {copy.tally.map((row, index) => (
+                            <TallyRow key={row.label} row={row} first={index === 0} />
+                        ))}
+                    </Group>
+                ) : null}
 
                 {/* Silinmeyen — başlıksız bir satır değil, kendi bloğu. */}
                 <View style={{
@@ -229,6 +246,10 @@ export default function ManagerDeleteAccount() {
                   * (Ayarlar → Veri, CSV), cepte ikincisi yazılmadı — yıllık
                   * kayıt indirmek telefonda yapılacak iş değil.
                   *
+                  * Claude Design (Apple Eşiği) bu satırı "dışa aktarma hiçbir
+                  * yerde yok" diye kaldırmayı önerdi; öncül yanlıştı —
+                  * masaüstünde `DataTab` duruyor. Satır kalıyor.
+                  *
                   * Adres bilinmiyorsa DÜĞME ÇİZİLMEZ; cümle yine de nereye
                   * bakılacağını söylüyor.
                   */}
@@ -243,6 +264,25 @@ export default function ManagerDeleteAccount() {
 
                 <AmberNote label={DELETE_TIMING_LABEL} text={copy.timing} />
 
+                <Foot>
+                    Silme tamamlandığında oturumunuz kapanır ve bu e-posta ile giriş yapılamaz.
+                </Foot>
+            </ScrollView>
+
+            {/* ── Onay ALTA SABİT ─────────────────────────────────────────────
+                375 × 667'de liste uzun: kutu ve düğme kaydırmanın dibinde
+                kalınca kullanıcı onayın nerede olduğunu bilmiyordu. Kısaltmak
+                yerine alt blok sabitlendi; liste onun altından kayıyor.
+                Hiçbir cümle kısalmadı. */}
+            <View style={{
+                paddingHorizontal: M.padX,
+                paddingTop: 12,
+                paddingBottom: Math.max(insets.bottom, 20),
+                gap: 10,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderColor: c.bd2,
+                backgroundColor: c.bg,
+            }}>
                 {/* Onay kutusu YALNIZ tek müdürde: yıkım o zaman işletmeyi
                     kapsıyor. Kutu "hesabımı siliyorum" demiyor. */}
                 {copy.consent ? (
@@ -290,21 +330,71 @@ export default function ManagerDeleteAccount() {
                             setBusy(false);
                             if (!result.ok) {
                                 // Ekran YERİNDE kalır, dolum sıfırlanır ve
-                                // SEBEBİ yazılır. "Silindi" yazılmaz.
+                                // SEBEBİ yazılır. Sonuç cümlesi yazılmaz.
                                 setFailed(result.reason ?? 'server');
                                 return;
                             }
-                            router.replace('/(auth)/welcome');
+                            // Olan biteni karşılamadaki cam plaka söylüyor —
+                            // hesabı olmayan birini ona ait bir ekranda tutmak
+                            // sahte olurdu (`deletedNotice`).
+                            router.replace({
+                                pathname: '/(auth)/welcome',
+                                params: { gone: goneParam(copy.soleManager, businessName) },
+                            });
                         });
                     }}
                 />
 
                 <GhostButton label={copy.cancel} onPress={() => router.back()} />
+            </View>
+        </View>
+    );
+}
 
-                <Foot>
-                    Silme tamamlandığında oturumunuz kapanır ve bu e-posta ile giriş yapılamaz.
-                </Foot>
-            </ScrollView>
+/** Etiket solda, sayı sağda ve iri — tabular, satırlar hizalı dursun. */
+function TallyRow({ row, first }: { row: DeletionTally; first: boolean }) {
+    const { c } = useTheme();
+    return (
+        <View
+            accessible
+            accessibilityLabel={`${row.label}, ${row.count}, ${row.detail}`}
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: M.rowGap,
+                minHeight: 56,
+                paddingHorizontal: M.rowPadX,
+                borderTopWidth: first ? 0 : 1,
+                borderColor: c.bd,
+            }}
+        >
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text numberOfLines={1} style={{
+                    color: c.tx,
+                    fontSize: M.rowTitle,
+                    fontFamily: font.bold,
+                    fontWeight: '700',
+                }}>
+                    {row.label}
+                </Text>
+                <Text numberOfLines={1} style={{
+                    color: c.tx2,
+                    fontSize: M.rowSub,
+                    fontFamily: font.semiBold,
+                    fontWeight: '600',
+                }}>
+                    {row.detail}
+                </Text>
+            </View>
+            <Text style={{
+                color: c.tx,
+                fontSize: 19,
+                fontFamily: font.extraBold,
+                fontWeight: '800',
+                fontVariant: ['tabular-nums'],
+            }}>
+                {row.count}
+            </Text>
         </View>
     );
 }

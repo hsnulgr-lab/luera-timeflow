@@ -161,24 +161,73 @@ export function lockWaitText(secondsRemaining: number): string {
  * dışında satılıyor; App Store kuralı 3.1.1 uygulama içinden satın almaya
  * yönlendirmeye izin vermiyor.
  */
+/**
+ * Apple Eşiği · C — kapalı kapı.
+ *
+ * Hata değil, kapalı bir kapı: durum rengi yok, "tekrar dene" yok. Metinde
+ * GEÇMEYENLER: abonelik, plan, paket, fiyat, tutar, "yükselt", satın alma
+ * anlamında "yenile", deneme süresi. Geçen tek şey durum ve nereden
+ * açılacağı (App Store 3.1.3(f)).
+ *
+ * Eski metin "Bilgileriniz 90 gün saklanır" diyordu; bunu söyleyen bir
+ * kural hiçbir yerde YOK (087 okumaya dokunmuyor, hiçbir iş silmiyor). Doğru
+ * olan cümle kaldı: hiçbir kayıt silinmedi.
+ */
 export const subscriptionLocked = {
+    title: 'Uygulama şu an kapalı',
     manager: {
-        title: 'Aboneliğiniz bitti',
-        body: 'Uygulama şu an randevu göstermiyor ve yeni randevu almıyor. Randevularınız ve müşteri bilgileriniz olduğu gibi duruyor.',
-        cardLabel: 'Yenileme bilgisayardan yapılır',
-        cardBody: 'Bilgisayarınızda Luera’yı açın ve hesabınıza girin. Aboneliğinizi orada yenileyebilirsiniz; yenilendikten sonra uygulama kendiliğinden açılır.',
-        retention: 'Bilgileriniz 90 gün saklanır. Bu süre içinde yenilerseniz hiçbir şey kaybolmaz.',
-        retry: 'Yeniledim, tekrar dene',
-        signOut: 'Oturumu kapat',
+        cardLabel: 'Devam etmek için',
+        cardTitle: (host: string | null) => (host ? `Bilgisayardan ${host}` : 'Bilgisayardan Luera'),
+        cardBody: 'Hesabınızla girip erişimi oradan açabilirsiniz. Telefonda yapılamıyor.',
+        kept: 'Randevular, müşteriler ve kasa geçmişi olduğu gibi duruyor — hiçbir kayıt silinmedi.',
     },
     staff: {
-        title: 'Uygulama şu an\nkullanılamıyor',
-        body: 'İşletmenin Luera aboneliği bitti. Bu bir hata değil ve sizinle ilgili değil — işletme sahibi yeniledikten sonra uygulama kendiliğinden açılır.',
-        ownerStatus: 'Bilgilendirildi',
-        call: 'İşletme sahibini ara',
-        retry: 'Tekrar dene',
+        kept: 'Bu sizin hesabınızla ilgili değil — randevularınız ve müşteri kayıtları olduğu gibi duruyor. Erişimi işletme sahibi açabilir.',
     },
+    refresh: 'Durumu yenile',
+    stillClosed: (hhmm: string) => `Hâlâ kapalı. ${hhmm}’de kontrol edildi.`,
+    signOut: 'Oturumu kapat',
 } as const;
+
+const MONTHS_TR = [
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+] as const;
+
+/** Bulunma eki ayın adına göre: Ocak'ta, Nisan'da, Eylül'de… (ünlü uyumu + sertleşme). */
+const MONTH_SUFFIX = ['ta', 'ta', 'ta', 'da', 'ta', 'da', 'da', 'ta', 'de', 'de', 'da', 'ta'] as const;
+/** Yılın okunuşunun son kelimesi: bir, iki, üç, dört, beş, altı, yedi, sekiz, dokuz. */
+const ONES_SUFFIX = ['', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da'] as const;
+/** on, yirmi, otuz, kırk, elli, altmış, yetmiş, seksen, doksan. */
+const TENS_SUFFIX = ['', 'da', 'de', 'da', 'ta', 'de', 'ta', 'te', 'de', 'da'] as const;
+
+/** 2025'te, 2026'da, 2030'da, 2000'de — okunuşun son kelimesine göre. */
+function yearSuffix(year: number): string {
+    const ones = year % 10;
+    if (ones) return ONES_SUFFIX[ones];
+    const tens = Math.floor(year / 10) % 10;
+    if (tens) return TENS_SUFFIX[tens];
+    return 'de'; // yüz → yüzde, bin → binde
+}
+
+/**
+ * "Studio Ayla için Luera erişimi 12 Eylül’de sona erdi."
+ *
+ * Tarih bilinmiyorsa tarih YAZILMIYOR — uydurulmuyor. Ad bilinmiyorsa "Bu
+ * işletme". İsme ek getirilmiyor ("için"): salon adının son sesini bilmeden
+ * yazılan ek, hiç ekten kötü duruyor.
+ */
+export function lockedLead(businessName: string, until: string | null, now: Date = new Date()): string {
+    const who = businessName.trim() ? `${businessName.trim()} için` : 'Bu işletme için';
+    const at = until ? new Date(until) : null;
+    if (!at || Number.isNaN(at.getTime())) return `${who} Luera erişimi sona erdi.`;
+    const month = at.getMonth();
+    const sameYear = at.getFullYear() === now.getFullYear();
+    const date = sameYear
+        ? `${at.getDate()} ${MONTHS_TR[month]}’${MONTH_SUFFIX[month]}`
+        : `${at.getDate()} ${MONTHS_TR[month]} ${at.getFullYear()}’${yearSuffix(at.getFullYear())}`;
+    return `${who} Luera erişimi ${date} sona erdi.`;
+}
 
 function turkishList(values: readonly string[]): string {
     if (values.length === 1) return values[0];

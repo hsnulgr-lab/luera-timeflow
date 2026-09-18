@@ -359,11 +359,31 @@ export interface DeletionLine {
     detail: string;
 }
 
+/**
+ * Apple Eşiği · B — silinecek kayıtların SAYIYLA listesi.
+ *
+ * Ciddiyet renkten değil sayıdan geliyor: "612 müşteri" hiçbir kırmızıdan
+ * daha ağır. Sayılar işletmenin kendi kaydından okunuyor (`fetchDeletionFacts`);
+ * okunamazsa liste hiç çizilmiyor — "0 randevu" yanlış bir güven verirdi.
+ */
+export interface DeletionTally {
+    label: string;
+    detail: string;
+    count: string;
+}
+
+/** 1248 → "1.248". Hermes'in `Intl` desteğine güvenilmiyor. */
+export function tallyNumber(value: number): string {
+    return String(Math.max(0, Math.round(value))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 export interface DeletionCopy {
     /** Tek müdürse işletme de gider; ikinci müdür varsa yalnız kişisel hesap. */
     soleManager: boolean;
     lead: string;
     lines: DeletionLine[];
+    /** Yalnız tek müdürde dolu — ortak ayrılınca kayıtlar yerinde kalıyor. */
+    tally: DeletionTally[];
     /** Onay kutusu YALNIZ tek müdürde çizilir — yıkım o zaman işletmeyi kapsıyor. */
     consent: string | null;
     kept: string;
@@ -400,6 +420,7 @@ export function deletionCopy(input: DeletionInput): DeletionCopy {
                 account,
                 { title: 'Bu işletmedeki yetkiniz', detail: business },
             ],
+            tally: [],
             consent: null,
             kept: 'Mevzuat gereği saklanan ödeme belgeleri kalır; pazarlama için kullanılmaz.',
             timing: 'Silme hemen başlar; oturumunuz kapanır. Yedeklerdeki kopyalar 30 gün içinde döngüden çıkar — bu bir vazgeçme süresi değildir.',
@@ -412,8 +433,13 @@ export function deletionCopy(input: DeletionInput): DeletionCopy {
         account,
         {
             title: business,
-            detail: `${input.appointments} randevu · ${input.customers} müşteri · ${input.services} hizmet · çalışma saatleri`,
+            detail: 'Çalışma saatleri, ayarlar ve aşağıdaki kayıtlarla',
         },
+    ];
+    const tally: DeletionTally[] = [
+        { label: 'Randevu', detail: 'geçmiş ve gelecek', count: tallyNumber(input.appointments) },
+        { label: 'Müşteri', detail: 'notlar ve geçmişleriyle', count: tallyNumber(input.customers) },
+        { label: 'Hizmet', detail: 'süre ve fiyatlarıyla', count: tallyNumber(input.services) },
     ];
     if (input.staff.length > 0) {
         lines.push({
@@ -426,6 +452,7 @@ export function deletionCopy(input: DeletionInput): DeletionCopy {
         soleManager: true,
         lead: `${input.businessName}'ün tek müdürü sizsiniz. Hesabınız silinince işletme de silinir.`,
         lines,
+        tally,
         consent: 'İşletmenin ve içindeki tüm randevuların silineceğini anlıyorum.',
         kept: 'Mevzuat gereği saklanan ödeme belgeleri kalır; pazarlama için kullanılmaz.',
         timing: 'Silme hemen başlar; oturumunuz kapanır. Yedeklerdeki kopyalar 30 gün içinde döngüden çıkar — bu bir vazgeçme süresi değildir.',
@@ -445,6 +472,7 @@ export function canDelete(copy: DeletionCopy, consented: boolean): boolean {
 export const DELETE_TITLE = 'Hesabı sil';
 export const DELETE_WARN = 'Bu işlem geri alınamaz.';
 export const DELETE_KEPT_LABEL = 'Silinmeyen';
+export const DELETE_TALLY_LABEL = 'Silinecek kayıtlar';
 
 /**
  * Silmeden ÖNCE dışa aktarma.

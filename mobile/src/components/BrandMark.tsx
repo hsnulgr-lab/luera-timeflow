@@ -46,8 +46,21 @@ export const BRAND_STEPS = {
     text: { at: 1920, ms: 350 },
 } as const;
 
-export function LueraTimeflowMark({ size, animate = true, align = 'flex-start' }: {
+/**
+ * Sistem açılış karesinden devralınca: kelime ve nokta ZATEN ekranda
+ * (splash onları çizdi), hikâye hapla devam ediyor. Hap, devir solması
+ * (240 ms) bittikten kısa süre sonra açılır; hap ile yazı arasındaki 560 ms
+ * aynı kalır.
+ */
+export const BRAND_STEPS_FROM_DOT = {
+    pill: { at: 360, ms: BRAND_STEPS.pill.ms },
+    text: { at: 360 + (BRAND_STEPS.text.at - BRAND_STEPS.pill.at), ms: BRAND_STEPS.text.ms },
+} as const;
+
+export function LueraTimeflowMark({ size, animate = true, align = 'flex-start', from = 'start' }: {
     size: number;
+    /** `dot`: splash'tan devralındı — kelime ve nokta hazır, yalnız hap açılır. */
+    from?: 'start' | 'dot';
     /** Kapalıysa hap açık ve hareketsiz durur — marka aynı, gösteri yok. */
     animate?: boolean;
     align?: 'flex-start' | 'center';
@@ -114,14 +127,25 @@ export function LueraTimeflowMark({ size, animate = true, align = 'flex-start' }
     const still = reduceMotion || !animate;
     const ready = textW != null;
 
-    const word = useSharedValue(still ? 1 : 0);
-    const pop = useSharedValue(still ? 1 : 0.3);
+    // Devirde ilk kare splash'la aynı olmalı: kelime ve nokta ölçüm
+    // gelmeden bile görünür.
+    const word = useSharedValue(still || from === 'dot' ? 1 : 0);
+    const pop = useSharedValue(still || from === 'dot' ? 1 : 0.3);
     const open = useSharedValue(still ? 1 : 0);
     const label = useSharedValue(still ? 1 : 0);
 
     useEffect(() => {
         if (!ready) return;
         if (still) { word.value = 1; pop.value = 1; open.value = 1; label.value = 1; return; }
+        if (from === 'dot') {
+            word.value = 1; pop.value = 1; open.value = 0; label.value = 0;
+            const D = BRAND_STEPS_FROM_DOT;
+            open.value = withDelay(D.pill.at,
+                withTiming(1, { duration: D.pill.ms, easing: EASE_PILL }));
+            label.value = withDelay(D.text.at,
+                withTiming(1, { duration: D.text.ms, easing: EASE_WORD }));
+            return;
+        }
         word.value = 0; pop.value = 0.3; open.value = 0; label.value = 0;
         const S = BRAND_STEPS;
         word.value = withDelay(S.word.at,
@@ -132,7 +156,7 @@ export function LueraTimeflowMark({ size, animate = true, align = 'flex-start' }
             withTiming(1, { duration: S.pill.ms, easing: EASE_PILL }));
         label.value = withDelay(S.text.at,
             withTiming(1, { duration: S.text.ms, easing: EASE_WORD }));
-    }, [ready, still, word, pop, open, label]);
+    }, [ready, still, from, word, pop, open, label]);
 
     const wordStyle = useAnimatedStyle(() => ({
         opacity: word.value,

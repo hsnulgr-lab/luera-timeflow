@@ -254,6 +254,12 @@ export const auth = {
     /** Şifresi olmayan personel İLK şifresini belirler ve girer (099). */
     pinSetup: (deviceToken: string, staffId: string, pin: string) =>
         raw('pin.setup', { staffId, pin }, deviceToken),
+    /**
+     * Kapalı kapının bilgisi (Apple Eşiği · C): salonun adı, erişimin bittiği
+     * an, açık mı. Sunucuda abonelik kapısından ÖNCE — kapı kapalıyken de
+     * cevap veriyor. Personel ya da cihaz token'ı kabul ediyor.
+     */
+    access: (token: string) => raw('access', {}, token),
 };
 
 /** Kimlikli çağrı: personel token'ı ile. */

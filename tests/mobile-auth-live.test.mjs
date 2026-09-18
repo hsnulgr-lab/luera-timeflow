@@ -94,10 +94,11 @@ test('varsayılan stub: sunucu dağıtılmadan canlıya geçilmez', () => {
     assert.match(session, /export const authApi = LIVE_AUTH/);
 });
 
-test('sunucu tarafı olmayan akışlar açıkça stub kalır', () => {
-    // Geriye YALNIZ abonelik kaldı ve mobilde kalacak da: uygulamada fiyat,
-    // plan ya da satın alma çağrısı geçmiyor (App Store 3.1.3(f)).
-    assert.match(session, /STUB_PARTS = \['subscription'\]/);
+test('stub parçası KALMADI — kapalı kapı da canlı', () => {
+    // Abonelik kapısının DURUMU canlı okunuyor; telefonda hâlâ fiyat, plan ya
+    // da satın alma çağrısı geçmiyor (App Store 3.1.3(f)).
+    assert.match(session, /STUB_PARTS = \[\] as const/);
+    assert.match(session, /subscription: \{ \.\.\.authStub\.subscription, \.\.\.live\.subscription \}/);
     assert.match(session, /account: \{ \.\.\.authStub\.account, \.\.\.live\.account \}/);
     assert.match(live, /const result = await deleteAccount\(stored\.profile\.business\.id\);/);
 });

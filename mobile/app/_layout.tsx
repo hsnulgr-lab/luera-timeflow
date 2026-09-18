@@ -8,6 +8,8 @@
  * şeyden önce yüklenmesi gerekiyor.
  */
 import 'react-native-url-polyfill/auto';
+// Sistem açılış karesi yazı tipleri ve oturum okunurken yerinde kalsın.
+import '../src/lib/splashHandoff';
 
 import {
     HankenGrotesk_200ExtraLight,

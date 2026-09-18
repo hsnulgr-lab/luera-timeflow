@@ -24,15 +24,18 @@ import { authStub } from './authStub';
 export const LIVE_AUTH = process.env.EXPO_PUBLIC_AUTH_MODE === 'live';
 
 /** Gerçek sunucuya bağlı olan parçalar. */
-export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'signup', 'getLaunchState'] as const;
+export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'signup', 'subscription', 'getLaunchState'] as const;
 /**
  * Hâlâ sahte olan parçalar — sunucu tarafı yazılmadı.
  *
  * `account` 2026-09-16'da, `signup` 2026-09-18'de çıktı. Kayıt stub'da
  * kaldığı sürece telefondan "kaydol" diyen kişi bütün ekranları geziyor,
- * "hazır" yazısını görüyor ve hiçbir şey oluşmuyordu.
+ * "hazır" yazısını görüyor ve hiçbir şey oluşmuyordu. `subscription` aynı
+ * gün çıktı: kapalı kapı canlıda stub'ın oturumunu arıyor, bulamıyor ve
+ * karşılamaya atıyordu. Telefonda hâlâ fiyat, plan ya da satın alma YOK —
+ * canlı olan yalnız kapının DURUMU.
  */
-export const STUB_PARTS = ['subscription'] as const;
+export const STUB_PARTS = [] as const;
 
 export const authApi = LIVE_AUTH
     ? {
@@ -44,6 +47,7 @@ export const authApi = LIVE_AUTH
         resume: { ...authStub.resume, ...live.resume },
         account: { ...authStub.account, ...live.account },
         signup: { ...authStub.signup, ...live.signup },
+        subscription: { ...authStub.subscription, ...live.subscription },
     }
     : authStub;
 

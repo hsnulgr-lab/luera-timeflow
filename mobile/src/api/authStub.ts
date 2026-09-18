@@ -38,6 +38,20 @@ export interface AuthSession {
     biometricEnabled: boolean;
 }
 
+/**
+ * Apple Eşiği · C — kapalı kapının bilgisi.
+ *
+ * Yalnız DURUM ve AD: plan, tutar, ödeme yok (App Store 3.1.3(f)). `until`
+ * sunucu biliyorsa dolu; süresiz ya da satırı olmayan işletmede `null` ve
+ * ekran tarih YAZMIYOR. `open` "Durumu yenile"nin cevabı.
+ */
+export interface LockedDoor {
+    actor: AuthActor;
+    businessName: string;
+    until: string | null;
+    open: boolean;
+}
+
 export interface AuthAccountOverview {
     session: AuthSession;
     businesses: AuthBusiness[];
@@ -643,13 +657,15 @@ async function resumeSession(): Promise<AuthResult<AuthSession>> {
 }
 
 /** Giriş 15d/15e için kimlik: oturum açıldı ama kapı inik. */
-async function lockedSubscription(): Promise<AuthResult<{
-    session: AuthSession;
-    owner: { name: string; title: string; phone: string };
-}>> {
+async function lockedSubscription(): Promise<AuthResult<LockedDoor>> {
     const session = await readSession();
     if (!session) return failure('no_session');
-    return success({ session, owner: await pairOwnerContact() });
+    return success({
+        actor: session.actor,
+        businessName: session.profile.business.name,
+        until: null,
+        open: session.profile.business.subscriptionStatus !== 'expired',
+    });
 }
 
 async function prepareResumeFallback(): Promise<AuthResult<{ actor: AuthActor }>> {
