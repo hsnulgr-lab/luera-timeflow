@@ -7,6 +7,8 @@
  * ya da ay ızgarasını bir gün kaydırmaz.
  */
 
+import { awaitsApproval } from './approval.ts';
+
 export interface ApptInfo {
     risk: string | null;
     pkg: { name: string; used: number; total: number } | null;
@@ -307,9 +309,9 @@ function localEndTime(a: Appt): number {
 /** Kart açıklamasında yalnız sapan durumları kelimeyle belirtir. */
 export function statusWord(a: Appt): 'gelmedi' | 'iptal' | 'onay bekliyor' | null {
     if (a.status === 'cancelled') return 'iptal';
-    if (a.status === 'pending') return 'onay bekliyor';
+    if (awaitsApproval(a.status)) return 'onay bekliyor';
     if (
-        a.status === 'confirmed'
+        (a.status === 'confirmed' || a.status === 'pending')
         && !a.arrived_at
         && !a.service_ended_at
         && localEndTime(a) < Date.now()

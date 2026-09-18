@@ -22,6 +22,7 @@ import type { ApptContext, FlowEvent, FlowKind } from './managerFlow.ts';
 import { NO_SHOW_AFTER_MIN } from './managerFlow.ts';
 import { withOwnStamps } from './dayStamp.ts';
 import { clockLocative } from './text.ts';
+import { awaitsApproval } from './approval.ts';
 
 export { ownDayStamp, STAMP_DAY_MARGIN_HOURS, withOwnStamps } from './dayStamp.ts';
 
@@ -110,7 +111,9 @@ export function kindOf(
     const row = withOwnStamps(raw, dateISO);
     if (row.status === 'cancelled') return 'cancelled';
     // Onay bekleyen randevu bir OLAYDIR: müdürün yapacağı bir şey var.
-    if (row.status === 'pending') return 'booked';
+    // Onay akışı RAFTA (`approval.ts`): kapalıyken beklemedeki randevu
+    // onaylı gibi aşağıdaki sıradan geçiyor.
+    if (awaitsApproval(row.status)) return 'booked';
     if (row.status === 'completed') return row.is_paid ? 'paid' : 'due';
     if (row.arrived_at) return 'started';
     // Salona girdiyse ne kadar gecikmiş olursa olsun "gelmedi" DEĞİL.

@@ -92,7 +92,7 @@ test('05b · gelmedi: saatten 30 dk sonra düşer — müdür Akış\'ıyla ayn�
     const later = cardState({ ...base, start_time: '12:00', end_time: '12:30', customer_arrived_at: ago(5) }, NOW);
     assert.equal(later.kind, 'waiting', 'geç gelen müşteri kendini düzeltir');
     const pending = cardState({ ...base, status: 'pending', start_time: '12:00', end_time: '12:30' }, NOW);
-    assert.equal(pending.kind, 'late', 'onay bekleyen gelmedi sayılmaz');
+    assert.equal(pending.kind, 'noshow', 'onay akışı rafta: beklemede = onaylı (approval.ts)');
 });
 
 test('05c · personel başlığı gelmeyeni "bitti" saymaz', () => {
@@ -395,8 +395,10 @@ test('açılışta ve gün değişiminde hiçbir kart "yeni" sayılmaz', () => {
     // Gün değişince liste baştan aşağı değişiyor ama bu "randevu düştü"
     // demek değil, "başka güne baktın" demek. Bütün kartların yuva açarak
     // belirmesi yalan bir olay anlatırdı.
-    assert.ok(screen.includes('before.day !== dateISO'), 'gün değişimi tazelik saymamalı');
-    assert.ok(screen.includes('before == null'), 'ilk çizimde de canlanmamalı');
+    // Karar `useLiveList`te: kapsam GÜN, ilk model hareketsiz.
+    assert.ok(screen.includes('scope: dateISO'), 'gün değişimi tazelik saymamalı');
+    const hook = readFileSync(new URL('../mobile/src/lib/useLiveList.ts', import.meta.url), 'utf8');
+    assert.match(hook, /useState<Model<T>>\(\(\) => still\(items\)\)/, 'ilk çizimde de canlanmamalı');
 });
 
 test('gece yarısını aşan randevu "0 dk" demez', () => {

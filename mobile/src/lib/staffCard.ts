@@ -14,6 +14,7 @@
 
 import { addDaysISO, toMinutes } from './calendar.ts';
 import { NO_SHOW_AFTER_MIN } from './managerFlow.ts';
+import { awaitsApproval } from './approval.ts';
 
 export type StaffCardKind =
     | 'upcoming'    // 01 · gelecek randevu
@@ -220,9 +221,10 @@ export function cardState(appointment: StaffCardSource, nowMs: number = Date.now
      * Eskiden bu hâl yoktu ve kart gün boyu "Gecikti 741 dk" diye büyüyordu;
      * müdürün ekranında düşmüş randevu personelde hâlâ bekleniyordu.
      * Kapanmış sayılır (dim 2): personelin bu karta dönmesine gerek yok.
-     * Onay bekleyen randevu kurulmamış bile — gelmedi sayılmaz.
+     * Onay bekleyen randevu kurulmamış bile — gelmedi sayılmaz (onay akışı
+     * açıksa; RAFTA iken beklemede = onaylı, bkz. `approval.ts`).
      */
-    if (lateMin > NO_SHOW_AFTER_MIN && appointment.status !== 'pending') {
+    if (lateMin > NO_SHOW_AFTER_MIN && !awaitsApproval(appointment.status)) {
         return { ...base, kind: 'noshow', word: 'Gelmedi', tone: 'rd', dim: 2 };
     }
     if (lateMin > 0) {

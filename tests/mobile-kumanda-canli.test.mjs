@@ -157,7 +157,8 @@ test('"bu müşteride kullanıldı" işareti MÜŞTERİDEN geliyor', () => {
     // bugüne kadar hiç okunmuyordu.
     assert.match(api, /itemsUsed: Array\.isArray\(row\.adisyon_items\)/);
     assert.match(file, /Array\.isArray\(row\.itemsUsed\) \? row\.itemsUsed\.map\(String\) : \[\]/);
-    assert.match(screen, /usedItems\.has\(item\.name\)\s*\n?\s*\? \{ \.\.\.item, usedHere: true \}/);
+    assert.match(screen, /const usedHere = usedItems\.has\(item\.name\);/);
+    assert.match(screen, /usedHere \|\| inBooking \? \{ \.\.\.item, usedHere, inBooking \} : item/);
 });
 
 test('sıklık ızgarası KİŞİNİN kendi geçmişinden kuruluyor', () => {

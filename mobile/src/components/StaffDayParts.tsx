@@ -14,6 +14,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { upperTR } from '../lib/text';
+import { awaitsApproval } from '../lib/approval';
 import { toMinutes, type Appt } from '../lib/calendar';
 import type { StaffPresence } from '../lib/managerFlow';
 import {
@@ -982,7 +983,7 @@ export function StaffAppointmentRow({
         miniStamp = { label: 'iptal', tone: 'rd' };
     } else if (appointment.status === 'completed' || Boolean(appointment.service_ended_at)) {
         miniStamp = { label: 'tamamlandı', tone: 'gr' };
-    } else if (appointment.status === 'pending') {
+    } else if (awaitsApproval(appointment.status)) {
         miniStamp = { label: 'onay bekliyor', tone: 'am' };
     } else if (isNoShow(appointment, nowMinutes)) {
         miniStamp = { label: 'gelmedi', tone: 'rd' };

@@ -55,8 +55,8 @@ import { AdisyonRow, DeleteWindow } from '../../src/components/AdisyonRow';
 import { CatalogSearch } from '../../src/components/CatalogSearch';
 import { FormulaDoorRow } from '../../src/components/FormulaDoorRow';
 import {
-    DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, freeItem,
-    groupsOf,
+    DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, bookedServiceNames, freeItem,
+    groupsOf, isBooked,
     frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
     linesDiffer, linesFromItems, markDelete, money, setQty, stripOf, totalOf, undoDelete,
     type AdisyonLine, type CatalogItem,
@@ -225,12 +225,30 @@ export default function Kumanda() {
      * olarak zaten gönderiyor.
      */
     const { items: catalogItems, usage } = useCatalog();
+    /** Randevunun KENDİ hizmetleri — Kasa bunları adisyondan ayrı sayıyor. */
+    const booked = useMemo(() => bookedServiceNames(appointment?.service), [appointment?.service]);
     const catalog = useMemo(
-        () => catalogItems.map((item) => (usedItems.has(item.name)
-            ? { ...item, usedHere: true }
-            : item)),
-        [catalogItems, usedItems],
+        () => catalogItems.map((item) => {
+            const usedHere = usedItems.has(item.name);
+            const inBooking = isBooked(item, booked);
+            return usedHere || inBooking ? { ...item, usedHere, inBooking } : item;
+        }),
+        [catalogItems, usedItems, booked],
     );
+    /**
+     * Randevuda zaten olan hizmet eklenirken BİR KEZ soruluyor. Engel değil:
+     * aynı işlem gerçekten iki kez yapılmış olabilir. Ama sessizce eklenince
+     * Kasa aynı hizmeti iki kez sayıyordu.
+     */
+    const [dup, setDup] = useState<{ item: CatalogItem; commit: () => void } | null>(null);
+    const guardAdd = (item: CatalogItem, commit: () => void) => {
+        if (isBooked(item, booked)) {
+            feedback.warning();
+            setDup({ item, commit });
+            return;
+        }
+        commit();
+    };
 
     /**
      * Kutudaki altı kalem. Ölçek YERLEŞİME değil buraya biniyor: 40 kalemli
@@ -795,7 +813,10 @@ export default function Kumanda() {
                             {/* SIFIR: boş satır iskeleti değil, iki satır
                                 cümle. Yapılacak iş tam olarak yukarıdaki
                                 kutularda — liste onu tekrarlamıyor. */}
-                            {lines.length === 0 ? (
+                            {/* RANDEVU — Kasa bunları ayrıca sayıyor; personel
+                                neyin zaten yazılı olduğunu görmeli. */}
+                            <BookedGroup names={booked} />
+                            {lines.length === 0 && booked.length === 0 ? (
                                 <View style={{ paddingTop: 18, gap: 6 }}>
                                     <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx }}>
                                         Bu ziyarette henüz kalem yok
@@ -959,15 +980,16 @@ export default function Kumanda() {
                     {sheet === 'catalog' ? (
                         <CatalogSheet
                             count={liveLines(lines).length}
-                            onAdd={(item) => {
+                            onAdd={(item) => guardAdd(item, () => {
                                 feedback.light();
                                 // İkinci dokunuş ×2 yapıyor, ikinci satır
                                 // AÇMIYOR: aynı kalemin iki ayrı satırı altı ay
                                 // sonra okuyan kişiye hata gibi görünür.
                                 setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
                                 setLastAdded(item.name);
-                            }}
+                            })}
                             frequent={frequent}
+                            booked={booked}
                             rows={groupsOf(lines).map((group) => (
                                 <View key={group.kind}>
                                     {/* MALZEME başlığının yerinde KAPI — aynı
@@ -1000,13 +1022,13 @@ export default function Kumanda() {
                             results={searchCatalog(catalog, query)}
                             frequent={frequent.items}
                             onQuery={setQuery}
-                            onPick={(item) => {
+                            onPick={(item) => guardAdd(item, () => {
                                 feedback.light();
                                 setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
                                 setLastAdded(item.name);
                                 setQuery('');
                                 setSheet('catalog');
-                            }}
+                            })}
                             onFree={(name, kind) => {
                                 const item = freeItem(name, kind);
                                 setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
@@ -1095,6 +1117,13 @@ export default function Kumanda() {
                     ) : null}
                     {sheet === 'note' ? (
                         <NoteSheet note={appointment.notes} onClose={() => setSheet(null)} />
+                    ) : null}
+                    {dup ? (
+                        <DupConfirm
+                            name={dup.item.name}
+                            onCancel={() => { feedback.selection(); setDup(null); }}
+                            onConfirm={() => { const go = dup.commit; setDup(null); go(); }}
+                        />
                     ) : null}
                 </Sheet>
             ) : null}
@@ -1873,8 +1902,10 @@ function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     );
 }
 
-function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone }: {
+function CatalogSheet({ count, frequent, rows, booked, onAdd, resultOf, onSearch, onDone }: {
     count: number;
+    /** Randevunun kendi hizmetleri — adisyon satırlarının üstünde. */
+    booked: readonly string[];
     /**
      * Adisyonun KENDİ satırları. Sayfanın adı bu yüzden "Kalem ekle" değil
      * "Adisyon": işlem sürerken yanlış eklenen bir kalemi görmek ve
@@ -1950,8 +1981,11 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
                             <Pressable
                                 key={item.name}
                                 accessibilityRole="button"
-                                accessibilityLabel={`${item.name}, ${KIND_LABEL[item.kind]}`}
+                                accessibilityLabel={`${item.name}, ${item.inBooking ? 'randevuda zaten var' : KIND_LABEL[item.kind]}`}
                                 onPress={() => {
+                                    // Randevudaki hizmet önce soruluyor: "Eklendi"
+                                    // yanıp sönmesin, henüz eklenmedi.
+                                    if (item.inBooking) { onAdd(item); return; }
                                     const result = resultOf(item);
                                     onAdd(item);
                                     setAdded({
@@ -1975,8 +2009,8 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
                                 <Text numberOfLines={1} style={{ fontSize: 15.5, fontWeight: '700', letterSpacing: -0.23, color: on ? c.gr : c.tx }}>
                                     {on ? added.word : item.name}
                                 </Text>
-                                <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.1, color: c.tx3 }}>
-                                    {KIND_LABEL[item.kind]}
+                                <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.1, color: item.inBooking ? c.am : c.tx3 }}>
+                                    {item.inBooking ? 'RANDEVUDA' : KIND_LABEL[item.kind]}
                                 </Text>
                             </Pressable>
                         );
@@ -1994,7 +2028,8 @@ function CatalogSheet({ count, frequent, rows, onAdd, resultOf, onSearch, onDone
                         {count > 0 ? `${count} satır` : 'boş'}
                     </Text>
                 </View>
-                {count > 0 ? rows : (
+                <BookedGroup names={booked} />
+                {count > 0 ? rows : booked.length > 0 ? null : (
                     <View style={{ paddingTop: 8, gap: 6 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: c.tx }}>
                             Bu ziyarette henüz kalem yok
@@ -2288,5 +2323,96 @@ function NoteSheet({ note, onClose }: { note: string | null; onClose: () => void
             </View>
             <SheetFoot label="Kapat" onPress={onClose} />
         </>
+    );
+}
+
+/**
+ * RANDEVU — randevunun kendi hizmetleri. Silinemez ve düzenlenemez: masaüstünde
+ * randevuyla birlikte yazıldılar ve Kasa onları adisyon kalemlerinden AYRI
+ * sayıyor. Burada görünmezlerse personel aynı işi EK HİZMET olarak ekliyor ve
+ * hizmet iki kez tahsil ediliyor. Tutar yazılmıyor: personelin ciro görme izni
+ * adisyon satırlarının kendi kuralında.
+ */
+function BookedGroup({ names }: { names: readonly string[] }) {
+    const { c } = useTheme();
+    if (names.length === 0) return null;
+    return (
+        <View accessible accessibilityLabel={`Randevudaki hizmetler: ${names.join(', ')}. Kasada zaten sayılıyor.`}>
+            <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: c.tx3, paddingTop: 14, paddingBottom: 2 }}>
+                RANDEVU
+            </Text>
+            {names.map((name, index) => (
+                <View
+                    key={`${name}-${index}`}
+                    style={{
+                        minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10,
+                        borderBottomWidth: 1, borderColor: c.bd,
+                    }}
+                >
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 15.5, fontWeight: '600', color: c.tx2 }}>
+                        {name}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.1, color: c.tx3 }}>
+                        RANDEVUDA
+                    </Text>
+                </View>
+            ))}
+            <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.tx3, paddingTop: 6, lineHeight: 16 }}>
+                Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin.
+            </Text>
+        </View>
+    );
+}
+
+/**
+ * Randevudaki bir hizmet ek hizmet olarak eklenirken tek soru. Engel değil —
+ * aynı işlem gerçekten iki kez yapılmış olabilir — ama iki kez tahsil
+ * edileceği söyleniyor.
+ */
+function DupConfirm({ name, onCancel, onConfirm }: { name: string; onCancel: () => void; onConfirm: () => void }) {
+    const { c } = useTheme();
+    return (
+        <View
+            accessibilityViewIsModal
+            accessibilityLiveRegion="assertive"
+            // Sayfanın ALTINA çapalı ve opak: katalog uzunken kaydırmanın
+            // dibinde kaybolmasın, altındaki satırlar içinden okunmasın.
+            style={{
+                position: 'absolute', left: 16, right: 16, bottom: 16, zIndex: 10,
+                padding: 14, gap: 10,
+                borderRadius: 16, borderWidth: 1, borderColor: c.am, backgroundColor: c.surf,
+            }}
+        >
+            <Text style={{ fontSize: 15, fontWeight: '800', color: c.tx }}>
+                {name} randevuda zaten var
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '500', lineHeight: 19, color: c.tx2 }}>
+                Kasa randevunun hizmetini ayrıca sayıyor. Ek hizmet olarak eklerseniz iki kez tahsil edilir. İkinci kez mi yapıldı?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Vazgeç"
+                    onPress={onCancel}
+                    style={({ pressed }) => ({
+                        flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: c.or, opacity: pressed ? 0.85 : 1,
+                    })}
+                >
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>Vazgeç</Text>
+                </Pressable>
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Yine de ekle"
+                    onPress={onConfirm}
+                    style={({ pressed }) => ({
+                        flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+                        borderWidth: 1, borderColor: c.bd2, opacity: pressed ? 0.7 : 1,
+                    })}
+                >
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx }}>Yine de ekle</Text>
+                </Pressable>
+            </View>
+        </View>
     );
 }

@@ -12,8 +12,8 @@
  * dokunulur şey YOK. `LayoutAnimation` da bu ekrandan bu turda çıktı.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,35 @@ import { isStale, useAgenda } from '../../src/lib/agendaSource';
 import { LIVE_AUTH } from '../../src/api/session';
 import { feedback } from '../../src/lib/feedback';
 import { font, glow, useTheme } from '../../src/theme';
+import { LiveRow } from '../../src/components/LiveRow';
+import { useLiveList } from '../../src/lib/useLiveList';
+import type { StaffCardState } from '../../src/lib/staffCard';
+
+/** Canlı liste için kimlik ve biçim — modül düzeyinde: sabit referans. */
+type StaffRow = {
+    appointment: { id: string; start_time: string; customer_name: string; service: string };
+    state: StaffCardState;
+};
+const staffRowId = (row: StaffRow) => row.appointment.id;
+const staffRowShape = (row: StaffRow) => row.state.kind;
+
+/** "Yeni randevu, 15:30, Deniz Arslan, cilt bakımı" — üçten fazlası sayıyla. */
+function staffNewsText(added: readonly StaffRow[], removed: readonly StaffRow[]): string {
+    const line = ({ appointment: a }: StaffRow) => [a.start_time.slice(0, 5), a.customer_name, a.service]
+        .map((part) => part?.trim()).filter(Boolean).join(', ');
+    const parts: string[] = [];
+    if (added.length > 0) {
+        parts.push(added.length <= 2
+            ? added.map((row) => `Yeni randevu, ${line(row)}`).join('. ')
+            : `${added.length} yeni randevu`);
+    }
+    if (removed.length > 0) {
+        parts.push(removed.length <= 2
+            ? removed.map((row) => `Randevu listeden çıktı, ${line(row)}`).join('. ')
+            : `${removed.length} randevu listeden çıktı`);
+    }
+    return parts.join('. ');
+}
 
 /**
  * Şeridin yoğunluk noktaları.
@@ -54,7 +83,7 @@ function demoCounts(
 }
 
 export default function Today() {
-    const { c, dark } = useTheme();
+    const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const today = todayISO();
@@ -91,6 +120,8 @@ export default function Today() {
 
     // Şimdi çizgisi YALNIZ bugün çizilir: başka günde "şimdi" diye bir yer yok.
     const lineAfter = isToday ? nowLineAfter(agenda, now) : -2;
+    // Şimdi çizgisi KİMLİĞE bağlı: gösterilen listede sönen bir kart araya girebilir.
+    const lineAfterId = lineAfter >= 0 ? agenda[lineAfter]?.id ?? null : null;
     const days = useMemo(() => stripDays(today), [today]);
     const todayCount = useMemo(() => demoAgenda(now, today).length, [today]); // eslint-disable-line react-hooks/exhaustive-deps
     /**
@@ -110,32 +141,28 @@ export default function Today() {
 
     /**
      * Listeye YENİ düşen randevular. Müdür gün içinde randevu ekleyebiliyor;
-     * o kart yuva açarak yerinde beliriyor. İlk çizimde hiçbir kart "yeni"
-     * sayılmaz — açılışta liste canlanmıyor, zaten oradaydı.
+     * o kart yuva açarak yerinde beliriyor (kartın kendi hareketi). İlk
+     * çizimde hiçbir kart "yeni" sayılmaz, gün değişince de sayılmaz.
+     *
+     * CANLI DEĞİŞİM (B-canli-degisim): aynı karar artık `useLiveList`te —
+     * tek tazelemede 4+ değişiklik varsa hiçbiri hareket etmez, parmak
+     * ekrandayken yükseklik değiştiren tazeleme bekler, giden kart söner.
+     * Liste OKUNMADAN karşılaştırma yapılmıyor: asenkron ilk tur boş listeyle
+     * çalışıyordu ve gerçek liste gelince BÜTÜN kartlar yeni sayılıyordu.
      */
-    const seen = useRef<{ day: string; ids: Set<string> } | null>(null);
-    const [fresh, setFresh] = useState<Set<string>>(() => new Set());
-    // Karşılaştırma ÇİZİMDE değil, çizimden sonra yapılıyor: `seen` bir ref ve
-    // render sırasında yazılması React'in kendi kuralını çiğniyordu.
+    const live = useLiveList(rows, {
+        scope: dateISO,
+        idOf: staffRowId,
+        shapeOf: staffRowShape,
+        reduceMotion,
+        enabled: agendaState === 'ok',
+    });
+
+    // Sesli okuma: gelen ve giden kart BİR KEZ duyurulur.
     useEffect(() => {
-        // Liste HENÜZ OKUNMADIYSA karşılaştırma yapılmıyor.
-        //
-        // Kaynak asenkron olunca ilk tur boş listeyle çalışıyordu; gerçek
-        // liste gelince "aynı gün, önceki liste boştu" görünüyor ve BÜTÜN
-        // kartlar yeni sayılıyordu. Her açılışta hepsi yuva açarak beliriyor,
-        // üstelik halka kendini kart büyürken ölçüp degradeyi kaymış
-        // oturtuyordu. İlk okuma bir olay değil, başlangıç durumudur.
-        if (agendaState !== 'ok') return;
-        const ids = new Set(agenda.map((item) => item.id));
-        const before = seen.current;
-        seen.current = { day: dateISO, ids };
-        // GÜN DEĞİŞTİYSE hiçbir kart yeni sayılmaz: liste baştan aşağı
-        // değişiyor ama bu "randevu düştü" demek değil, "başka güne baktın"
-        // demek. Bütün kartların yuva açarak belirmesi yalan bir olay anlatırdı.
-        setFresh(before == null || before.day !== dateISO
-            ? new Set<string>()
-            : new Set([...ids].filter((id) => !before.ids.has(id))));
-    }, [agenda, dateISO, agendaState]);
+        const text = staffNewsText(live.news.added, live.news.removed);
+        if (text) AccessibilityInfo.announceForAccessibility(text);
+    }, [live.news]);
 
     // Gelmeyen müşteri ne "bitti" ne "kaldı": ayrı sayılır, yoksa düşmüş iki
     // randevu "2 iş bitti" diye sayılırdı.
@@ -187,8 +214,11 @@ export default function Today() {
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingTop: insets.top + 2, paddingBottom: 122 }}
                 showsVerticalScrollIndicator={false}
+                // Üste eklenen kart parmağın altındaki kartı oynatmaz.
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                {...live.touchProps}
             >
-                <DayHeader dateISO={dateISO} subtitle={subtitle} transparent />
+                <DayHeader dateISO={dateISO} subtitle={subtitle} transparent fadeSubtitle />
 
                 <StaffWeekStrip
                     days={days}
@@ -323,12 +353,12 @@ export default function Today() {
                     </View>
                 ) : null}
 
-                {rows.map(({ appointment, state }, index) => (
-                    <View key={appointment.id}>
+                {live.shown.map(({ appointment, state }) => (
+                    <LiveRow key={appointment.id} mode={live.leaving.has(appointment.id) ? 'leave' : 'still'}>
                         <AppointmentCard
                             appointment={appointment}
                             state={state}
-                            entering={fresh.has(appointment.id)}
+                            entering={live.entering.has(appointment.id)}
                             // Dört ekran (appointment · visit · finish · sent)
                             // tek kumandaya indi; evreyi o sayfa kendi
                             // verisinden okuyor.
@@ -337,8 +367,8 @@ export default function Today() {
                                 params: { id: appointment.id },
                             })}
                         />
-                        <NowLineSlot active={index === lineAfter} time={clockOf(now)} />
-                    </View>
+                        <NowLineSlot active={appointment.id === lineAfterId} time={clockOf(now)} />
+                    </LiveRow>
                 ))}
             </ScrollView>
         </View>

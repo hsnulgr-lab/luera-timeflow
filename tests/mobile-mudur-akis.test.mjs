@@ -135,7 +135,9 @@ test('araya araç çubuğu, filtre satırı, sekme grubu girmez', () => {
     // çubuğu değil: `Durumlar.html` turunun onaylanmış durum dili. Akış canlıya
     // bağlanınca okunamayan gün ilk kez gerçekten mümkün oldu ve onu boş gün
     // tasarımıyla çizmek, müdüre salonun boş olduğunu söylemekti.
-    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock|DurumBlock|DurumUnread)$/;
+    // `LiveRow` (2026-09-18) satırın canlı değişim sarmalayıcısı — görünür
+    // bir parça değil, yalnız belirme/sönme taşıyor.
+    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock|DurumBlock|DurumUnread|LiveRow)$/;
     for (const tag of body.match(/<[A-Z][A-Za-z.]*/g) ?? []) {
         assert.match(tag.slice(1), allowed, `beklenmeyen bileşen: ${tag}`);
     }

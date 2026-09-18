@@ -632,6 +632,15 @@ function DotsButton({ onPress }: { onPress?: () => void }) {
  * kahraman panellerin HEPSİ temanın tersi. `LiveStrip` de artık `panelInk`
  * kullanıyor, `flowMetrics.liveBg/liveTx*` jetonları ölü.
  */
+/** Geri sayımda birimin rakama oranı — "0 dk" kartlarındaki birimle aynı his. */
+const ETA_UNIT_SCALE = 0.45;
+
+/** "10 sa 43 dk" → [{n:'10',u:'sa'},{n:'43',u:'dk'}]. Kalıp tutmazsa tek parça. */
+function etaParts(value: string): { n: string; u: string }[] {
+    const parts = [...value.matchAll(/(\d+)\s*(sa|dk)/g)].map((m) => ({ n: m[1], u: m[2] }));
+    return parts.length > 0 ? parts : [{ n: value, u: '' }];
+}
+
 function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
     event: FlowEvent; ink: PanelInk; onAction?: (label: string) => void;
     onPill?: (cell: CellKey) => void; waConnected?: boolean;
@@ -692,13 +701,31 @@ function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
                 }}>
                     {upperTR(panel.label)}
                 </Text>
-                <Num size={nextCardMetrics.eta} style={{
+                {/*
+                  * Rakam büyük, birim küçük — öteki durum kartlarının "0 dk"
+                  * diliyle aynı. Tek satır: "10 sa 43 dk" her şeyi 40 pt'de
+                  * yazınca iki satıra kırılıp kartı büyütüyordu. Yine
+                  * sığmazsa satır kırılmaz, küçülür (`fit`).
+                  */}
+                <Num fit size={nextCardMetrics.eta} style={{
                     color: value,
                     fontWeight: '800',
                     letterSpacing: nextCardMetrics.eta * -0.04,
                     lineHeight: nextCardMetrics.eta,
                 }}>
-                    {panel.value}
+                    {etaParts(panel.value).map((part, index) => (
+                        <Text key={index}>
+                            {index > 0 ? ' ' : ''}
+                            {part.n}
+                            <Text style={{
+                                fontSize: nextCardMetrics.eta * ETA_UNIT_SCALE,
+                                letterSpacing: 0,
+                                color: panel.late ? ink.red : ink.ink2,
+                            }}>
+                                {` ${part.u}`}
+                            </Text>
+                        </Text>
+                    ))}
                 </Num>
                 <Num size={nextCardMetrics.sub} style={{
                     color: ink.ink2,

@@ -327,6 +327,27 @@ export interface CatalogItem {
     price?: number;
     /** Bu müşteride daha önce kullanıldı — kararı veren tek işaret. */
     usedHere?: boolean;
+    /** Bu hizmet RANDEVUNUN kendisinde var — adisyona zaten sayılıyor. */
+    inBooking?: boolean;
+}
+
+// ── Randevunun kendi hizmetleri ─────────────────────────────────────────────
+//
+// Kasa bir ziyareti RANDEVUNUN hizmetleri + adisyon kalemleri olarak topluyor.
+// Kumanda randevunun hizmetlerini hiç göstermiyordu: adisyon "henüz kalem yok"
+// diyor, personel yaptığı işi katalogdan EK HİZMET olarak ekliyor ve Kasa aynı
+// hizmeti iki kez sayıyordu (2026-09-19, 3 hizmet → ₺246.000 yerine ₺123.000).
+
+/** "Gençlik aşısı + Mezo terapi" → iki ad. Masaüstünün birleşik adı. */
+export function bookedServiceNames(service: string | null | undefined): string[] {
+    return (service ?? '').split(' + ').map((name) => name.trim()).filter(Boolean);
+}
+
+/** Katalogdaki bu hizmet randevuda zaten var mı? Yalnız EK HİZMET için. */
+export function isBooked(item: Pick<CatalogItem, 'kind' | 'name'>, booked: readonly string[]): boolean {
+    if (item.kind !== 'extra') return false;
+    const name = item.name.trim().toLocaleLowerCase('tr-TR');
+    return booked.some((entry) => entry.toLocaleLowerCase('tr-TR') === name);
 }
 
 /**

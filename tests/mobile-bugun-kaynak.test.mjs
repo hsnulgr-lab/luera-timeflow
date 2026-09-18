@@ -102,9 +102,11 @@ test('İLK okuma "yeni kart" sayılmıyor', () => {
     // gerçek liste gelince bütün kartlar yeni sayılıyor ve hepsi yuva açarak
     // beliriyordu. Üstelik halka kendini kart büyürken ölçüp dönen degradeyi
     // kaymış oturtuyordu. İlk okuma bir olay değil, başlangıç durumudur.
-    const cut = screen.slice(screen.indexOf('const seen = useRef'), screen.indexOf('}, [agenda, dateISO, agendaState]);'));
-    assert.match(cut, /if \(agendaState !== 'ok'\) return;/);
-    assert.match(screen, /\}, \[agenda, dateISO, agendaState\]\);/);
+    // Karar artık `useLiveList`te (canlı değişim): liste okunmadan
+    // karşılaştırma kapalı, açılınca ilk liste başlangıç sayılıyor.
+    assert.match(screen, /enabled: agendaState === 'ok'/);
+    const hook = readFileSync(new URL('../mobile/src/lib/useLiveList.ts', import.meta.url), 'utf8');
+    assert.match(hook, /if \(seen\.scope !== scope \|\| !enabled\) \{[\s\S]*?setModel\(still\(items\)\);/);
 });
 
 test('sunucunun saati EKRANIN biçimine indirgeniyor', () => {

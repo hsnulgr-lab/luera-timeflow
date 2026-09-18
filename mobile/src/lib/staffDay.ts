@@ -13,6 +13,7 @@
 import { addDaysISO, formatDayFull, todayISO, toMinutes, type Appt } from './calendar.ts';
 import { splitStaffName } from './text.ts';
 import type { StaffPresence, StaffState } from './managerFlow.ts';
+import { awaitsApproval } from './approval.ts';
 
 export { splitStaffName };
 
@@ -187,7 +188,8 @@ export function isNoShow(
 ): boolean {
     if (appointment.status === 'cancelled' || appointment.status === 'completed') return false;
     // Onay bekleyen randevu gelmemiş sayılmaz: henüz kurulmuş bile değil.
-    if (appointment.status === 'pending') return false;
+    // Onay akışı RAFTA (`approval.ts`): kapalıyken beklemede = onaylı.
+    if (awaitsApproval(appointment.status)) return false;
     // İşlem başladıysa ya da bitti ise gelmiş demektir.
     if (appointment.service_ended_at || appointment.arrived_at) return false;
     // MÜŞTERİ SALONA GELDİYSE gelmemiş sayılmaz — hizmet henüz başlamamış

@@ -529,8 +529,9 @@ test('"gelmedi" türetimi WEB ile birebir — aynı müşteri iki yüzeyde ayrı
     // MÜŞTERİ SALONA GELDİYSE asla gelmemiş sayılmaz — koltuktaki müşteri
     // yanlış damgalanmasın.
     assert.equal(isNoShow({ ...base, customer_arrived_at: '10:05' }, 14 * 60), false);
-    // Onay bekleyen randevu da gelmemiş sayılmaz.
-    assert.equal(isNoShow({ ...base, status: 'pending' }, 14 * 60), false);
+    // Onay akışı RAFTA (approval.ts): beklemedeki randevu onaylı gibi —
+    // masaüstü elle açılan randevuyu da `pending` yazıyor.
+    assert.equal(isNoShow({ ...base, status: 'pending' }, 14 * 60), true);
     // İptal ayrı bir şeydir.
     assert.equal(isNoShow({ ...base, status: 'cancelled' }, 14 * 60), false);
 

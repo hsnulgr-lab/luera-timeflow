@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
     Animated,
     Easing,
@@ -7,6 +7,7 @@ import {
     Text,
     View,
     type StyleProp,
+    type TextStyle,
     type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -158,6 +159,42 @@ function appointmentLabel(appointment: Appt, state: CardState, seconds: number) 
     ].filter(Boolean).join(', ');
 }
 
+/**
+ * Metin değişince eskisi 200 ms'de söner, yenisi aynı anda belirir — yalnız
+ * opacity, native. Yer ve yazı tipi aynı; sayı sayılmıyor. Hareketi azalt
+ * açıkken tek karede takas.
+ */
+function CrossfadeText({ text, style }: { text: string; style: StyleProp<TextStyle> }) {
+    const { reduceMotion } = useTheme();
+    const [pair, setPair] = useState<{ now: string; was: string | null }>({ now: text, was: null });
+    const [fade] = useState(() => new Animated.Value(1));
+    if (pair.now !== text) setPair({ now: text, was: reduceMotion ? null : pair.now });
+    useEffect(() => {
+        if (pair.was == null) return undefined;
+        fade.setValue(0);
+        const run = Animated.timing(fade, { toValue: 1, duration: 200, easing: Easing.linear, useNativeDriver: true });
+        run.start(({ finished }) => { if (finished) setPair((current) => ({ ...current, was: null })); });
+        return () => run.stop();
+    }, [pair.now, pair.was, fade]);
+    return (
+        <View>
+            <Animated.Text style={[style, { opacity: pair.was == null ? 1 : fade }]}>{pair.now}</Animated.Text>
+            {pair.was != null ? (
+                <Animated.Text
+                    importantForAccessibility="no"
+                    accessibilityElementsHidden
+                    style={[style, {
+                        position: 'absolute', left: 0, right: 0, top: 0,
+                        opacity: fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                    }]}
+                >
+                    {pair.was}
+                </Animated.Text>
+            ) : null}
+        </View>
+    );
+}
+
 export function DayHeader({
     dateISO,
     subtitle,
@@ -166,6 +203,7 @@ export function DayHeader({
     monthOpen,
     onToggleMonth,
     style,
+    fadeSubtitle = false,
 }: {
     dateISO: string;
     /**
@@ -181,6 +219,11 @@ export function DayHeader({
     /** Verilirse başlık ay ızgarasını açıp kapatan düğmeye dönüşür. */
     onToggleMonth?: () => void;
     style?: StyleProp<ViewStyle>;
+    /**
+     * Alt cümle değişince 200 ms'de çapraz sönsün (B-canli-degisim · B5 "gün
+     * özeti"). Yalnız personel Bugün istiyor; rakamlar sayılmıyor, tek takas.
+     */
+    fadeSubtitle?: boolean;
 }) {
     const { c, small } = useTheme();
     const date = dateFromISO(dateISO);
@@ -220,7 +263,9 @@ export function DayHeader({
                 </Text>
             </View>
             {subtitle ? (
-                <Text style={[type.small, { color: c.tx2 }]}>{subtitle}</Text>
+                fadeSubtitle
+                    ? <CrossfadeText text={subtitle} style={[type.small, { color: c.tx2 }]} />
+                    : <Text style={[type.small, { color: c.tx2 }]}>{subtitle}</Text>
             ) : null}
         </>
     );

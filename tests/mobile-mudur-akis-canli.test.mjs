@@ -76,7 +76,10 @@ test('"adisyon bekliyor" KASA’nın süzgeciyle aynı', () => {
 test('sıra kural: tahsil edilmiş randevu hiçbir saatte "gelmedi" olmuyor', () => {
     assert.equal(kindOf(row({ status: 'completed', is_paid: true }), GUN, at('23:00')), 'paid');
     assert.equal(kindOf(row({ status: 'cancelled' }), GUN, at('23:00')), 'cancelled');
-    assert.equal(kindOf(row({ status: 'pending' }), GUN, at('23:00')), 'booked');
+    // Onay akışı RAFTA (approval.ts, 2026-09-19): beklemedeki randevu onaylı
+    // gibi yaşar — saati geçince gelmedi. Açılırsa yine "booked".
+    assert.equal(kindOf(row({ status: 'pending' }), GUN, at('23:00')), 'noshow');
+    assert.equal(kindOf(row({ status: 'pending' }), GUN, at('09:00')), 'next');
 });
 
 // ── Saat ────────────────────────────────────────────────────────────────────

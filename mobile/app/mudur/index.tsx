@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
-    useWindowDimensions, View,
+    AccessibilityInfo, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
+    useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -48,6 +48,9 @@ import {
     swipeResult,
 } from '../../src/lib/emptyDay';
 import { useManagerDay } from '../../src/state/managerDay';
+import { LiveRow, type LiveMode } from '../../src/components/LiveRow';
+import { useLiveList } from '../../src/lib/useLiveList';
+import type { LiveDiff } from '../../src/lib/liveMotion';
 import { calendarMetrics, emptyDayMetrics, glow, scrubberMetrics, useTheme } from '../../src/theme';
 
 /**
@@ -80,6 +83,28 @@ const clockAt = (ms: number) => {
     const at = new Date(ms);
     return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 };
+
+/** Canlı liste için satırın kimliği ve biçimi — modül düzeyinde: sabit referans. */
+const flowIdOf = (event: FlowEvent) => event.id;
+const flowShapeOf = (event: FlowEvent) => event.kind;
+
+/** "Yeni randevu, 15:30, Deniz Arslan, cilt bakımı" — üçten fazlası sayıyla. */
+function flowNewsText(added: readonly FlowEvent[], removed: readonly FlowEvent[]): string {
+    const line = (event: FlowEvent) => [event.time, `${event.firstName} ${event.lastName}`.trim(), event.detail.split(' · ')[0]]
+        .filter(Boolean).join(', ');
+    const parts: string[] = [];
+    if (added.length > 0) {
+        parts.push(added.length <= 2
+            ? added.map((event) => `Yeni randevu, ${line(event)}`).join('. ')
+            : `${added.length} yeni randevu`);
+    }
+    if (removed.length > 0) {
+        parts.push(removed.length <= 2
+            ? removed.map((event) => `Randevu listeden çıktı, ${line(event)}`).join('. ')
+            : `${removed.length} randevu listeden çıktı`);
+    }
+    return parts.join('. ');
+}
 
 export default function ManagerFlow() {
     const { c, dark, glass, small, reduceMotion } = useTheme();
@@ -486,6 +511,62 @@ export default function ManagerFlow() {
      */
     const todayUnknown = isToday && state !== 'ok' && events.length === 0;
     const isEmptyDay = !todayUnknown && dayEvents.length === 0;
+
+    /*
+     * CANLI DEĞİŞİM (B-canli-degisim, yalnız hareket ve güvenlik kısmı).
+     * Yalnız BUGÜN ve liste okunmuşken: başka gün canlı değil, ilk okuma
+     * bir olay değil. Biçim = kart türü; türü değişen satırın yüksekliği
+     * değişebilir, o yüzden parmak ekrandayken bekletilir.
+     */
+    const rowTop = useRef(new Map<string, number>());
+    const rowBottom = useRef(new Map<string, number>());
+    /** Görünen alanın üst kenarı, içerik koordinatında (B2 kararı için). */
+    const offsetY = useRef(0);
+    /*
+     * B2 · Değişen her satır görünen alanın ÜSTÜNDEyse parmak ekrandayken de
+     * beklemeden girer: kaydırma sabitleme onu aynı karede düzeltiyor.
+     * Eklenen satırın yeri, listede ondan sonra gelen (zaten çizilmiş) satır.
+     */
+    const trackOffset = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        offsetY.current = e.nativeEvent.contentOffset.y;
+    }, []);
+    const aboveView = useCallback((diff: LiveDiff, next: readonly FlowEvent[]) => {
+        const top = offsetY.current;
+        for (const id of [...diff.removed, ...diff.reshaped]) {
+            const bottom = rowBottom.current.get(id);
+            if (bottom == null || bottom > top) return false;
+        }
+        for (const id of diff.added) {
+            const at = next.findIndex((event) => event.id === id);
+            const after = next.slice(at + 1).find((event) => !diff.added.has(event.id) && rowTop.current.has(event.id));
+            const y = after ? rowTop.current.get(after.id) : undefined;
+            if (y == null || y > top) return false;
+        }
+        return true;
+    }, []);
+    const live = useLiveList(dayEvents, {
+        scope: selectedISO,
+        idOf: flowIdOf,
+        shapeOf: flowShapeOf,
+        reduceMotion,
+        enabled: isToday && state === 'ok',
+        safeWhileTouching: aboveView,
+    });
+
+    // Sesli okuma: gelen ve giden satır BİR KEZ duyurulur; alan değişiklikleri
+    // sessiz — art arda konuşma ekran okuyucuyu kullanılmaz yapar.
+    useEffect(() => {
+        const text = flowNewsText(live.news.added, live.news.removed);
+        if (text) AccessibilityInfo.announceForAccessibility(text);
+    }, [live.news]);
+    const modeOf = (event: FlowEvent): LiveMode => (
+        live.leaving.has(event.id) ? 'leave'
+            : live.entering.has(event.id) ? 'enter'
+                // Elle basılan "Gelmedi" 5 sn kartıyla kalıyor; o anın kendi
+                // hareketi var. Takas yalnız kendiliğinden düşen randevuda.
+                : live.reshaped.has(event.id) && event.kind === 'noshow' && event.id !== freshId ? 'swap'
+                    : 'still'
+    );
     const platePermanent = plateIsPermanent(isEmptyDay, isToday);
     const canScroll = scrollEnabledOnDay(isEmptyDay, isToday);
     const blank = emptyDayCopy(selectedISO, todayISO());
@@ -530,7 +611,6 @@ export default function ManagerFlow() {
      * ekran boş bir geleceği gösterip olan biteni katlardı.
      */
     const scroller = useRef<ScrollView>(null);
-    const rowTop = useRef(new Map<string, number>());
     const viewport = useRef(0);
     const jumped = useRef(false);
 
@@ -546,12 +626,12 @@ export default function ManagerFlow() {
         const top = rowTop.current.get(target.id);
         if (top == null) return;
         jumped.current = true;
-        scroller.current?.scrollTo({
-            // `contentInsetAdjustmentBehavior="automatic"` yüzünden en üst
-            // konum 0 değil `-insets.top`; taban da o.
-            y: Math.max(-insets.top, top - viewport.current * 0.66 - insets.top),
-            animated: false,
-        });
+        // `contentInsetAdjustmentBehavior="automatic"` yüzünden en üst konum
+        // 0 değil `-insets.top`; taban da o.
+        const y = Math.max(-insets.top, top - viewport.current * 0.66 - insets.top);
+        // Programla kaydırma sürükleme olayı üretmiyor; B2 konumu burada da tutuluyor.
+        offsetY.current = y;
+        scroller.current?.scrollTo({ y, animated: false });
     }, [dayEvents, insets.top, isToday, nowMinutes]);
 
     /**
@@ -653,6 +733,11 @@ export default function ManagerFlow() {
                     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                     { useNativeDriver: true },
                 )}
+                // B2 kararı için kaydırma konumu: parmak bir kartın üstünde
+                // dururken geçerli olan, son kaydırmanın bittiği yer.
+                onScrollBeginDrag={trackOffset}
+                onScrollEndDrag={trackOffset}
+                onMomentumScrollEnd={trackOffset}
                 // Sistemin bu kaydırıcıyı birincil sayması için: güvenli alanı
                 // iOS ekliyor, biz elle doldurmuyoruz. Tab bar'ın daralması
                 // buna bağlı.
@@ -680,6 +765,13 @@ export default function ManagerFlow() {
                     flexGrow: isEmptyDay ? 1 : undefined,
                 }}
                 style={{ flex: 1 }}
+                /*
+                 * KAYDIRMA SABİTLEME: görünen alanın ÜSTÜNE eklenen satır,
+                 * eklendiği karede kaydırma konumuna eklenir — parmağın
+                 * altındaki kart 0 pt oynar. Bir hareket değil, bir düzeltme.
+                 */
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                {...live.touchProps}
                 {...(isEmptyDay ? swipe.panHandlers : null)}
             >
                 {/**
@@ -808,11 +900,14 @@ export default function ManagerFlow() {
                     </View>
                 ) : null}
 
-                {dayEvents.map((event, index) => (
-                    <View
+                {live.shown.map((event, index) => (
+                    <LiveRow
                         key={event.id}
+                        mode={modeOf(event)}
                         onLayout={(e) => {
-                            rowTop.current.set(event.id, e.nativeEvent.layout.y);
+                            const { y, height } = e.nativeEvent.layout;
+                            rowTop.current.set(event.id, y);
+                            rowBottom.current.set(event.id, y + height);
                             jumpToNow();
                         }}
                     >
@@ -828,7 +923,7 @@ export default function ManagerFlow() {
                             onMore={event.appointmentId ? openAppointment : undefined}
                             onOpenCustomer={openCustomer}
                         />
-                    </View>
+                    </LiveRow>
                 ))}
 
                 {dayEvents.length > 0 ? <FlowEnd label={flowEndLabel(isToday)} /> : null}

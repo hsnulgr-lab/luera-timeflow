@@ -101,7 +101,8 @@ test('nowLineAfter listenin üstünü, arasını ve sonunu doğru işaretler', (
 });
 
 test('statusWord yalnız sapan durumları söyler, tamamlanan sessizdir', () => {
-    assert.equal(statusWord(appt('pending', '10:00', { status: 'pending' })), 'onay bekliyor');
+    // Onay akışı RAFTA (approval.ts): "onay bekliyor" kelimesi çizilmiyor.
+    assert.equal(statusWord(appt('pending', '10:00', { status: 'pending' })), null);
     assert.equal(statusWord(appt('cancelled', '10:00', { status: 'cancelled' })), 'iptal');
     assert.equal(statusWord(appt('missed', '10:00', { date: '2000-01-01' })), 'gelmedi');
     assert.equal(statusWord(appt('done', '10:00', { status: 'completed' })), null);
