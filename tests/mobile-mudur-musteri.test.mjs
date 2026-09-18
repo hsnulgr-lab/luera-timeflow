@@ -262,26 +262,10 @@ test('toplanma eşikleri [0, 24, 32, 48, 64] olarak tanımlıdır', () => {
     assert.match(tokensFile, /collapse:\s*\[0,\s*24,\s*32,\s*48,\s*64\]/);
 });
 
-test('cam yalnız kroma satırı, levhalar ve asılı levhada kullanılır', () => {
-    assert.match(partsComponent, /HeroGlass/);
-    assert.match(partsComponent, /kind="plate"/);
-    assert.match(cardComponent, /<HeroGlass[\s\S]*?kind="hang"/);
-});
-
 test('risk satırında numberOfLines yoktur (metin sarar)', () => {
     const rawParts = read('src/components/CustomerParts.tsx');
     assert.match(rawParts, /numberOfLines YOK/);
     assert.match(partsComponent, /fontSize:\s*customerMetrics\.warnText[\s\S]*?\{warn\.text\}/);
-});
-
-test('gömülü yaklaşan randevu kartı tema değişimine uygundur', () => {
-    assert.match(cardComponent, /UpcomingEmbedCard/);
-    assert.match(cardComponent, /panelInk/);
-});
-
-test('alt eylem çubuğu scroll dışında sabittir (hiç toplanmaz)', () => {
-    // Tray, ScrollView'ın dışında yer alır
-    assert.match(cardComponent, /<\/Animated\.ScrollView>[\s\S]*?{TRAY_MAIN}/);
 });
 
 test('customer rotasında Zeynep Kaya sessiz yedeği GEÇMEMELİ', () => {
@@ -305,41 +289,6 @@ test('parametre verilmediğinde findCustomer null döner ve rota Empty gösterir
 });
 
 
-// ── Yerleşim kapısı: levhalar uyarı satırının üstüne binmemeli ───────────────
-
-test('levhalar kahraman alanın DOĞRUDAN çocuğu — araya sarmalayıcı View girmez', () => {
-    const screen = code('src/components/CustomerCard.tsx');
-    // <Plates> bir opacity sarmalayıcısının içinde olsaydı, mutlak konumu o
-    // sarmalayıcıya göre çözülür ve akışın bittiği yere — uyarı satırının
-    // üstüne — düşerdi. Sönüm bu yüzden prop olarak geçer.
-    assert.ok(/<Plates[\s\S]{0,200}opacity=\{platesOpacity\}/.test(screen));
-    assert.ok(!/<Animated\.View style=\{\{ opacity: platesOpacity \}\}/.test(screen));
-});
-
-test('kahraman alanın kendisinde dolgu yok — dolgu iç akış katmanında', () => {
-    const screen = code('src/components/CustomerCard.tsx');
-    const hero = screen.slice(screen.indexOf('height: heroHeight'));
-    const heroBox = hero.slice(0, hero.indexOf('<HeroGradient'));
-    // Mutlak konumlu levha/monogram/gradyan alanın gerçek kenarlarından
-    // ölçülsün diye kutunun kendisi dolgusuz kalır.
-    assert.ok(!/padding/.test(heroBox));
-    assert.ok(/paddingBottom: customerMetrics\.heroPadBottom/.test(screen));
-});
-
-test('uyarı varsa kahraman alan uzar — levhaya yer açılır', () => {
-    const screen = code('src/components/CustomerCard.tsx');
-    assert.ok(/heroGrows\(card\)/.test(screen));
-    assert.ok(/customerMetrics\.heroHeightWarn\b/.test(screen));
-    // 76 dolgu + 44 taşma: levhanın üstü akışın altından ayrı durur.
-    assert.equal(customerMetricsBottomGap(), 14);
-});
-
-function customerMetricsBottomGap() {
-    const tokens = read('src/theme/tokens.ts');
-    // Aynı adlar başka token bloklarında da geçiyor — yalnız customerMetrics.
-    const block = tokens.slice(tokens.indexOf('export const customerMetrics'));
-    const pick = (key) => Number(new RegExp(`${key}: (-?\\d+)`).exec(block)[1]);
-    // Levhanın üstü: alanın alt kenarından (plateHeight + plateBottom) yukarıda.
-    // Akışın altı:   alanın alt kenarından heroPadBottom yukarıda.
-    return pick('heroPadBottom') - (pick('plateHeight') + pick('plateBottom'));
-}
+// ── v1 yerleşim kapıları KALKTI (2026-09-18) ───────────────────────────────
+// Kahraman alan, cam levhalar, gömülü krem kart ve alt eylem çubuğu Müdür 23
+// v2'de yok. Yerini alan sözleşmeler: `tests/mobil-musteri-karti-v2.test.mjs`.

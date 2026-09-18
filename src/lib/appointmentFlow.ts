@@ -10,8 +10,15 @@ import { reservationPrice } from '../utils/reservationServices.ts';
 // damgası her zaman yener. Böylece koltuktaki hasta yanlış damgalanmaz.
 export type ApptPhase = 'pending' | 'upcoming' | 'inService' | 'done' | 'cancelled' | 'missed';
 
-// Geç-kalma toleransı (dk) — klinik Ayarlar'dan değiştirebilir, varsayılan 2 saat.
+// Geçmişe randevu sınırı (dk): şimdi gelen müşteriyi geç kaydetmek için bu kadar
+// geriye izin verilir (useReservations). Varsayılan 2 saat.
 export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
+
+// "Gelmedi" eşiği (dk) — randevu saatinden 30 dk sonra müşteri gelmediyse
+// randevu DÜŞER (2026-09-18, müdür kararı). Telefonla aynı sayı
+// (`mobile/src/lib/managerFlow.ts · NO_SHOW_AFTER_MIN`). Eskiden iki kural
+// aynı 120'yi paylaşıyordu; eşik inince geç kayıt sınırı da inerdi.
+export const NO_SHOW_AFTER_MIN = 30;
 
 export function apptPhase(
     r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'> & Pick<Partial<Reservation>, 'noShowAt'>,
@@ -29,7 +36,7 @@ export function apptPhase(
     // hiç gelmediyse 'missed'. Geldi işaretliyse (customerArrivedAt) 'missed' olmaz.
     if (r.date && r.startTime && !r.customerArrivedAt) {
         const start = new Date(`${r.date}T${r.startTime}:00`);
-        const tol = opts?.toleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN;
+        const tol = opts?.toleranceMin ?? NO_SHOW_AFTER_MIN;
         const now = opts?.now ?? new Date();
         if (!Number.isNaN(start.getTime()) && now.getTime() > start.getTime() + tol * 60_000) {
             return 'missed';

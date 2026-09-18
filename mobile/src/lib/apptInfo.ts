@@ -18,6 +18,22 @@ export interface PackageRow {
     name: string;
     total_sessions: number;
     used_sessions: number;
+    /** Kimin paketi — gün bağlamı birden çok müşteriyi tek turda okuyor. */
+    customer_id?: string;
+    /**
+     * `treatment_plans` kimliği; eski `customer_packages` satırında `null`.
+     * Kart yeni satılan paketi bununla tanıyor.
+     */
+    plan_id?: string | null;
+    /**
+     * Bu pakete kalan ödeme: bedel − O PAKETE BAĞLI tahsilatlar. Eski tabloda
+     * para yok → `null` (bilinmeyen yazılmaz). Müşterinin toplam borcu DEĞİL:
+     * o masaüstünün `patientBalance`ında ve salonda serbest hizmet ödemesini
+     * de paketten düşüyor (2026-09-18 kararı: telefon yalnız paketin kendi
+     * kalanını söyler).
+     */
+    owed?: number | null;
+    created_at?: string;
 }
 
 export interface HistoryRow {
@@ -31,7 +47,7 @@ export interface RiskRule { key?: string; label?: string; note?: string | null }
 /**
  * Gösterilecek paket.
  *
- * Birden çok paket olabiliyor (`customer_packages` müşteri başına çok satır).
+ * Birden çok paket olabiliyor (`treatment_plans` + eski `customer_packages`).
  * HAKKI KALAN ilk paket seçiliyor — bitmiş bir paketi kartın kahraman
  * rakamına koymak, müdüre "8/8" diye tükenmiş bir şey göstermek olurdu.
  */

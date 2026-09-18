@@ -73,11 +73,31 @@ test('04 · uzadı: sayaç turuncu kalır, uzama KELİMEYLE söylenir', () => {
     assert.ok(s.counter, 'uzayan işlemde de sayaç sürüyor');
 });
 
-test('05 · gecikti: hiç damga yoksa ve saat geçtiyse', () => {
-    const s = cardState({ ...base, start_time: '12:00', end_time: '12:30' }, NOW);
+test('05 · gecikti: hiç damga yoksa ve saat geçtiyse (ilk 30 dk)', () => {
+    const s = cardState({ ...base, start_time: '12:16', end_time: '12:46' }, NOW);
     assert.equal(s.kind, 'late');
-    assert.equal(s.suffix, '36 dk');
+    assert.equal(s.suffix, '20 dk');
     assert.equal(s.tone, 'rd');
+});
+
+test('05b · gelmedi: saatten 30 dk sonra düşer — müdür Akış\'ıyla aynı kural', () => {
+    const edge = cardState({ ...base, start_time: '12:06', end_time: '12:36' }, NOW);
+    assert.equal(edge.kind, 'late', 'tam 30. dakikada henüz düşmedi');
+    const s = cardState({ ...base, start_time: '12:00', end_time: '12:30' }, NOW);
+    assert.equal(s.kind, 'noshow');
+    assert.equal(s.word, 'Gelmedi');
+    assert.equal(s.dim, 2, 'personelin dönmesine gerek yok');
+    assert.equal(s.suffix, null, 'büyüyen sayaç yok');
+    assert.equal(s.beatKey, null, 'nabız yok');
+    const later = cardState({ ...base, start_time: '12:00', end_time: '12:30', customer_arrived_at: ago(5) }, NOW);
+    assert.equal(later.kind, 'waiting', 'geç gelen müşteri kendini düzeltir');
+    const pending = cardState({ ...base, status: 'pending', start_time: '12:00', end_time: '12:30' }, NOW);
+    assert.equal(pending.kind, 'late', 'onay bekleyen gelmedi sayılmaz');
+});
+
+test('05c · personel başlığı gelmeyeni "bitti" saymaz', () => {
+    assert.match(screen, /state\.kind === 'noshow'/);
+    assert.match(screen, /gelmedi/);
 });
 
 test('06 · adisyon gönderilmemiş iş SÖNÜKLEŞMEZ — personelin işi bitmedi', () => {
@@ -154,7 +174,7 @@ test('eski kahraman kart ve morph ekrandan kalktı', () => {
 
 test('gün başlığının alt satırı sayılardan türer, yazılı değildir', () => {
     assert.ok(!screen.includes('4 kaldı"'), 'sabit metin kalmış');
-    assert.ok(screen.includes('iş bitti, ${left} kaldı'), 'alt satır sayılardan kurulmalı');
+    assert.ok(screen.includes('`${done} iş bitti`') && screen.includes('`${left} kaldı`'), 'alt satır sayılardan kurulmalı');
 });
 
 test('customer_arrived_at sunucudan geliyor — yoksa KAPIDA hâli ölü doğar', () => {

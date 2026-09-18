@@ -22,6 +22,8 @@ import type { Appt } from './calendar.ts';
 import type { FlowRow, PaymentRow } from './flowBuild.ts';
 import type { ApptContext } from './managerFlow.ts';
 import { riskList } from './customerFileMap.ts';
+import type { EligibilityRule } from './eligibility.ts';
+import type { PackageRow } from './apptInfo.ts';
 import { catalogOf, type CashPaymentRow, type CashReservationRow, type CatalogService } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
@@ -328,7 +330,7 @@ export async function fetchDayWithStamps(
 
 export interface CustomerContext {
     customFields: Record<string, unknown> | null;
-    packages: { name: string; total_sessions: number; used_sessions: number }[];
+    packages: PackageRow[];
     history: { date: string; service: string | null; status: string }[];
     riskRules: { key?: string; label?: string; note?: string | null }[];
 }
@@ -353,9 +355,7 @@ export async function fetchCustomerContext(customerId: string): Promise<Customer
              * açık randevusu hâlâ gerçek; risk notu kartta görünmeli.
              */
             .maybeSingle().returns<Record<string, unknown> | null>(),
-        supabase.from('customer_packages').select('name, total_sessions, used_sessions')
-            .eq('organization_id', organizationId).eq('customer_id', customerId)
-            .order('created_at').returns<Record<string, unknown>[]>(),
+        fetchPackageRows(organizationId, [customerId]),
         supabase.from('reservations').select('date, service, status')
             .eq('organization_id', organizationId).eq('customer_id', customerId)
             .order('date', { ascending: false }).limit(HISTORY_LIMIT)
@@ -363,15 +363,10 @@ export async function fetchCustomerContext(customerId: string): Promise<Customer
         fetchOrgSettings('risk_rules'),
     ]);
     if (customer.error) throw customer.error;
-    if (packages.error) throw packages.error;
     if (history.error) throw history.error;
     return {
         customFields: (customer.data?.custom_fields as Record<string, unknown> | null) ?? null,
-        packages: (packages.data ?? []).map((row) => ({
-            name: String(row.name ?? ''),
-            total_sessions: Number(row.total_sessions ?? 0),
-            used_sessions: Number(row.used_sessions ?? 0),
-        })),
+        packages,
         history: (history.data ?? []).map((row) => ({
             date: String(row.date),
             service: (row.service as string | null) ?? null,
@@ -484,11 +479,17 @@ export async function fetchPayments(dateISO: string): Promise<PaymentRow[]> {
  */
 export async function fetchServices(): Promise<CatalogService[]> {
     const organizationId = await orgIdOrThrow();
-    const { data, error } = await supabase.from('services')
-        .select('id, name, duration, price, color')
+    const read = (cols: string) => supabase.from('services')
+        .select(cols)
         .eq('organization_id', organizationId)
         .order('created_at')
         .returns<Record<string, unknown>[]>();
+    // `tags` 076'da geldi. Kolon yoksa katalog KAPANMIYOR — yalnız kapalı
+    // hizmet kararı ad desenine düşüyor (masaüstünün etiketsiz yolu).
+    let { data, error } = await read('id, name, duration, price, color, tags');
+    if (error && (error as { code?: string }).code === UNDEFINED_COLUMN) {
+        ({ data, error } = await read('id, name, duration, price, color'));
+    }
     if (error) throw error;
     return catalogOf(data ?? []);
 }
@@ -538,7 +539,7 @@ export async function fetchCustomerBook(todayISO: string): Promise<{
         .returns<Record<string, unknown>[]>());
     const BOOK_COLS = 'customer_id, date, start_time, service, status, staff_id';
     const [people, visits] = await Promise.all([
-        readAll((from, to) => supabase.from('customers').select('id, name, phone')
+        readAll((from, to) => supabase.from('customers').select('id, name, phone, custom_fields')
             .eq('organization_id', organizationId)
             .eq('is_active', true)
             .order('name').order('id')
@@ -563,6 +564,10 @@ export async function fetchCustomerBook(todayISO: string): Promise<{
             id: String(row.id),
             name: String(row.name ?? ''),
             phone: String(row.phone ?? ''),
+            // Randevuda kapalı hizmet kararı için (Müdür 23 v2).
+            fields: row.custom_fields && typeof row.custom_fields === 'object' && !Array.isArray(row.custom_fields)
+                ? row.custom_fields as Record<string, unknown>
+                : null,
         })),
         visits: visits.map((row) => ({
             customer_id: (row.customer_id as string | null) ?? null,
@@ -582,6 +587,8 @@ export interface CreateSettings {
     workingHours: unknown;
     webhookUrl: string | null;
     mapsUrl: string | null;
+    /** Sektörün kontrendikasyon kuralları (076) — kapalı hizmet kararı. */
+    riskRules: EligibilityRule[];
 }
 
 /**
@@ -595,7 +602,7 @@ export interface CreateSettings {
 export async function fetchCreateSettings(): Promise<CreateSettings> {
     const organizationId = await orgIdOrThrow();
     const [settings, org] = await Promise.all([
-        fetchOrgSettings('business_name, sector, working_hours, webhook_url'),
+        fetchOrgSettings('business_name, sector, working_hours, webhook_url, risk_rules'),
         supabase.from('organizations').select('maps_url').eq('id', organizationId).maybeSingle()
             .returns<{ maps_url?: string | null } | null>(),
     ]);
@@ -607,6 +614,7 @@ export async function fetchCreateSettings(): Promise<CreateSettings> {
         workingHours: settings?.working_hours ?? null,
         webhookUrl: /^https?:\/\//i.test(hook) ? hook : null,
         mapsUrl: org.data?.maps_url?.trim() || null,
+        riskRules: Array.isArray(settings?.risk_rules) ? settings.risk_rules as EligibilityRule[] : [],
     };
 }
 
@@ -662,6 +670,139 @@ export async function fetchHoursRow(): Promise<HoursRow | null> {
     };
 }
 
+// ── Paketler ───────────────────────────────────────────────────────────────
+
+/**
+ * Müşterilerin paketleri — İKİ kaynaktan.
+ *
+ * Güzellik/kuaför paketi `treatment_plans`ta (tür `paket`, 077): masaüstünün
+ * satış çekmecesi oraya yazıyor, seans tükenince `sessions_done` artıyor.
+ * Telefon bir süre yalnız eski `customer_packages`ı okudu ve masaüstünde
+ * satılan paketi HİÇ göstermedi. Eski tablo gitmedi — fizyoterapinin ticari
+ * hakkı orada — o yüzden ikisi birleşiyor.
+ *
+ * İptal edilen plan paket değil. Kalan ödeme yalnız O PAKETE bağlı
+ * tahsilatlardan (`payments.treatment_plan_id`) hesaplanıyor.
+ */
+export async function fetchPackageRows(
+    organizationId: string,
+    customerIds: readonly string[],
+): Promise<PackageRow[]> {
+    const ids = [...new Set(customerIds)].filter(Boolean);
+    if (ids.length === 0) return [];
+    const plansOf = (onlyPackages: boolean) => {
+        let query = supabase.from('treatment_plans')
+            .select('id, customer_id, title, total_amount, status, session_count, sessions_done, created_at')
+            .eq('organization_id', organizationId).in('customer_id', ids)
+            .neq('status', 'cancelled');
+        // 077 yoksa tür kolonu yok: süzgeçsiz okunuyor (masaüstünün düşüşü).
+        if (onlyPackages) query = query.eq('plan_kind', 'paket');
+        return query.order('created_at').returns<Record<string, unknown>[]>();
+    };
+    const [firstPlans, legacy] = await Promise.all([
+        plansOf(true),
+        supabase.from('customer_packages').select('customer_id, name, total_sessions, used_sessions, created_at')
+            .eq('organization_id', organizationId).in('customer_id', ids)
+            .order('created_at').returns<Record<string, unknown>[]>(),
+    ]);
+    let plans = firstPlans;
+    if ((plans.error as { code?: string } | null)?.code === UNDEFINED_COLUMN) plans = await plansOf(false);
+    if (plans.error) throw plans.error;
+    if (legacy.error) throw legacy.error;
+
+    const planIds = (plans.data ?? []).map((row) => String(row.id));
+    const paidByPlan = new Map<string, number>();
+    if (planIds.length > 0) {
+        const paid = await supabase.from('payments').select('treatment_plan_id, amount')
+            .eq('organization_id', organizationId).in('treatment_plan_id', planIds)
+            .returns<{ treatment_plan_id: string | null; amount: number | null }[]>();
+        if (paid.error) throw paid.error;
+        for (const row of paid.data ?? []) {
+            if (!row.treatment_plan_id) continue;
+            paidByPlan.set(row.treatment_plan_id, (paidByPlan.get(row.treatment_plan_id) ?? 0) + (Number(row.amount) || 0));
+        }
+    }
+
+    const rows: PackageRow[] = [
+        ...(plans.data ?? []).map((row) => {
+            const id = String(row.id);
+            const amount = Number(row.total_amount ?? 0) || 0;
+            return {
+                name: String(row.title ?? ''),
+                total_sessions: Math.max(1, Number(row.session_count ?? 1) || 1),
+                used_sessions: Math.max(0, Number(row.sessions_done ?? 0) || 0),
+                customer_id: String(row.customer_id),
+                plan_id: id,
+                owed: Math.max(0, amount - (paidByPlan.get(id) ?? 0)),
+                created_at: String(row.created_at ?? ''),
+            };
+        }),
+        ...(legacy.data ?? []).map((row) => ({
+            name: String(row.name ?? ''),
+            total_sessions: Number(row.total_sessions ?? 0),
+            used_sessions: Number(row.used_sessions ?? 0),
+            customer_id: String(row.customer_id),
+            plan_id: null,
+            owed: null,
+            created_at: String(row.created_at ?? ''),
+        })),
+    ];
+    return rows.sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+}
+
+/**
+ * Müdür 35 · Paket sat ekranının ham parçaları.
+ *
+ * Şablonlar `package_templates`tan (069), yalnız aktif olanlar. Tablo yoksa
+ * (42P01) liste boş — ekran hizmetlerden satışa düşer, kapanmaz.
+ */
+export async function fetchPackageSaleRows(customerId: string) {
+    const organizationId = await orgIdOrThrow();
+    const [customer, templates, services, settings, packages] = await Promise.all([
+        supabase.from('customers').select('id, name, phone, custom_fields')
+            .eq('organization_id', organizationId).eq('id', customerId).maybeSingle()
+            .returns<Record<string, unknown> | null>(),
+        supabase.from('package_templates').select('id, name, session_count, price, color')
+            .eq('organization_id', organizationId).eq('is_active', true)
+            .order('created_at').returns<Record<string, unknown>[]>(),
+        fetchServices(),
+        fetchOrgSettings('risk_rules, sector'),
+        fetchPackageRows(organizationId, [customerId]),
+    ]);
+    if (customer.error) throw customer.error;
+    if (templates.error && (templates.error as { code?: string }).code !== '42P01') throw templates.error;
+    if (!customer.data) return null;
+    const fields = customer.data.custom_fields;
+    return {
+        customer: {
+            id: String(customer.data.id),
+            name: String(customer.data.name ?? ''),
+            phone: (customer.data.phone as string | null) ?? null,
+            fields: fields && typeof fields === 'object' && !Array.isArray(fields)
+                ? fields as Record<string, unknown>
+                : null,
+        },
+        templates: (templates.error ? [] : templates.data ?? []).map((row) => ({
+            id: String(row.id),
+            name: String(row.name ?? ''),
+            sessionCount: Number(row.session_count ?? 1) || 1,
+            price: Number(row.price ?? 0) || 0,
+            color: (row.color as string | null) ?? null,
+        })),
+        services: services.filter((svc) => svc.id && svc.name).map((svc) => ({
+            id: String(svc.id),
+            name: svc.name,
+            duration: Number(svc.duration) || 0,
+            price: Number(svc.price) || 0,
+            color: svc.color ?? null,
+            tags: svc.tags ?? null,
+        })),
+        riskRules: (settings?.risk_rules as EligibilityRule[] | null) ?? [],
+        sector: (settings?.sector as string | null) ?? null,
+        packages,
+    };
+}
+
 // ── Müşteri kartı ───────────────────────────────────────────────────────────
 
 /** Kartın randevu penceresi — son geliş, yaklaşan ve tahsilat satırlarının adı. */
@@ -680,13 +821,11 @@ const CARD_VISIT_LIMIT = 120;
  */
 export async function fetchCustomerCardRows(customerId: string, todayISO: string) {
     const organizationId = await orgIdOrThrow();
-    const [customer, packages, visits, pastCount, payments, settings, crew] = await Promise.all([
-        supabase.from('customers').select('id, name, phone, notes, custom_fields')
+    const [customer, packages, visits, pastCount, payments, settings, crew, paidRows, firstVisit] = await Promise.all([
+        supabase.from('customers').select('id, name, phone, notes, custom_fields, created_at')
             .eq('organization_id', organizationId).eq('id', customerId).maybeSingle()
             .returns<Record<string, unknown> | null>(),
-        supabase.from('customer_packages').select('name, total_sessions, used_sessions')
-            .eq('organization_id', organizationId).eq('customer_id', customerId)
-            .order('created_at').returns<Record<string, unknown>[]>(),
+        fetchPackageRows(organizationId, [customerId]),
         supabase.from('reservations').select('id, date, start_time, service, status, staff_id')
             .eq('organization_id', organizationId).eq('customer_id', customerId)
             .order('date', { ascending: false }).order('start_time', { ascending: false })
@@ -698,10 +837,24 @@ export async function fetchCustomerCardRows(customerId: string, todayISO: string
             .eq('organization_id', organizationId).eq('customer_id', customerId)
             .order('paid_at', { ascending: false }).limit(20)
             .returns<Record<string, unknown>[]>(),
-        fetchOrgSettings('risk_rules'),
+        fetchOrgSettings('risk_rules, sector'),
         fetchCrew(),
+        /*
+         * TOPLAM ÖDENEN (Müdür 23 v2): yalnız tutar sütunu, pencere yok. Kart
+         * satırlarının 20'lik penceresinden toplamak sadık bir müşteride
+         * yanlış bir rakam yazardı.
+         */
+        supabase.from('payments').select('amount')
+            .eq('organization_id', organizationId).eq('customer_id', customerId)
+            .limit(5000).returns<{ amount: number | null }[]>(),
+        // İlk ziyaret — sıklığın başlangıcı; 120'lik pencereden bağımsız.
+        supabase.from('reservations').select('date')
+            .eq('organization_id', organizationId).eq('customer_id', customerId)
+            .neq('status', 'cancelled').lt('date', todayISO)
+            .order('date', { ascending: true }).limit(1)
+            .returns<{ date: string }[]>(),
     ]);
-    for (const result of [customer, packages, visits, pastCount, payments]) {
+    for (const result of [customer, visits, pastCount, payments]) {
         if (result.error) throw result.error;
     }
     if (!customer.data) return null;
@@ -716,13 +869,19 @@ export async function fetchCustomerCardRows(customerId: string, todayISO: string
             custom_fields: fields && typeof fields === 'object' && !Array.isArray(fields)
                 ? fields as Record<string, unknown>
                 : null,
+            created_at: (row.created_at as string | null) ?? null,
         },
-        riskRules: (settings?.risk_rules as { key?: string; label?: string; note?: string | null }[] | null) ?? [],
-        packages: (packages.data ?? []).map((pack) => ({
-            name: String(pack.name ?? ''),
-            total_sessions: Number(pack.total_sessions ?? 0),
-            used_sessions: Number(pack.used_sessions ?? 0),
-        })),
+        riskRules: (settings?.risk_rules as {
+            key?: string; label?: string; note?: string | null;
+            blocks?: string[] | null; legacyNamePattern?: string | null;
+        }[] | null) ?? [],
+        sector: (settings?.sector as string | null) ?? null,
+        // Okunamadıysa `null`: kart "TOPLAM ÖDENEN" hücresini çizmez.
+        totalPaid: paidRows.error
+            ? null
+            : (paidRows.data ?? []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+        firstVisitISO: firstVisit.error ? null : firstVisit.data?.[0]?.date ?? null,
+        packages,
         visits: (visits.data ?? []).map((visit) => ({
             id: String(visit.id),
             date: String(visit.date ?? ''),
@@ -738,6 +897,48 @@ export async function fetchCustomerCardRows(customerId: string, todayISO: string
             amount: Number(payment.amount ?? 0),
             paid_at: String(payment.paid_at ?? ''),
             description: (payment.description as string | null) ?? null,
+        })),
+        staff: new Map(crew.map((person) => [person.id, person.name])),
+    };
+}
+
+/**
+ * Müdür 23 v2 · "Tüm geçmişi aç" — müşterinin BÜTÜN ziyaretleri.
+ *
+ * Kartın 120'lik penceresi burada yok: liste sayfa sayfa okunuyor. İptal
+ * ziyaret sayılmıyor (kartın sayımıyla aynı kural). Tutar randevuya bağlı
+ * tahsilatların toplamı; bağlı tahsilat yoksa `null` — "₺0" yazılmaz.
+ */
+export async function fetchCustomerHistory(customerId: string, todayISO: string) {
+    const organizationId = await orgIdOrThrow();
+    const [visits, payments, crew] = await Promise.all([
+        readAll((from, to) => supabase.from('reservations')
+            .select('id, date, start_time, service, staff_id')
+            .eq('organization_id', organizationId).eq('customer_id', customerId)
+            .neq('status', 'cancelled').lte('date', todayISO)
+            .order('date', { ascending: false }).order('start_time', { ascending: false }).order('id')
+            .range(from, to)
+            .returns<Record<string, unknown>[]>()),
+        readAll((from, to) => supabase.from('payments')
+            .select('reservation_id, amount')
+            .eq('organization_id', organizationId).eq('customer_id', customerId)
+            .not('reservation_id', 'is', null)
+            .order('id')
+            .range(from, to)
+            .returns<Record<string, unknown>[]>()),
+        fetchCrew(),
+    ]);
+    return {
+        visits: visits.map((row) => ({
+            id: String(row.id),
+            date: String(row.date ?? ''),
+            start_time: String(row.start_time ?? ''),
+            service: String(row.service ?? ''),
+            staff_id: (row.staff_id as string | null) ?? null,
+        })),
+        payments: payments.map((row) => ({
+            reservation_id: String(row.reservation_id),
+            amount: Number(row.amount ?? 0),
         })),
         staff: new Map(crew.map((person) => [person.id, person.name])),
     };
@@ -1036,13 +1237,10 @@ export async function fetchDayContext(
         supabase.from('customers').select('id, custom_fields')
             .eq('organization_id', organizationId).in('id', ids)
             .returns<Record<string, unknown>[]>(),
-        supabase.from('customer_packages').select('customer_id, name, total_sessions, used_sessions')
-            .eq('organization_id', organizationId).in('customer_id', ids)
-            .order('created_at').returns<Record<string, unknown>[]>(),
+        fetchPackageRows(organizationId, ids),
         fetchOrgSettings('risk_rules'),
     ]);
     if (customers.error) throw customers.error;
-    if (packages.error) throw packages.error;
     const rules = (settings?.risk_rules as Parameters<typeof riskList>[0] | null) ?? [];
 
     for (const row of customers.data ?? []) {
@@ -1050,15 +1248,15 @@ export async function fetchDayContext(
         if (risks.length === 0) continue;
         out.set(String(row.id), { note: risks.map((line) => line.text).join(' · ') });
     }
-    for (const row of packages.data ?? []) {
-        const total = Number(row.total_sessions ?? 0);
-        const used = Number(row.used_sessions ?? 0);
+    for (const row of packages) {
+        const total = row.total_sessions;
+        const used = row.used_sessions;
         // HAKKI KALAN paket gösteriliyor; tükenmiş olan bir bilgi taşımıyor.
-        if (used >= total) continue;
-        const id = String(row.customer_id);
+        if (used >= total || !row.customer_id) continue;
+        const id = row.customer_id;
         const current = out.get(id) ?? {};
         if (current.package) continue;
-        out.set(id, { ...current, package: `${String(row.name ?? '')} · ${used}/${total}` });
+        out.set(id, { ...current, package: `${row.name} · ${used}/${total}` });
     }
     return out;
 }

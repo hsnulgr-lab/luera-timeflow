@@ -63,6 +63,23 @@ export function dative(name: string): string {
 }
 
 /**
+ * İlgi hâli: "Ayşe’nin", "Kemal’in", "Nur’un", "Gül’ün", "Kaan’ın".
+ *
+ * Dört ekli (ın/in/un/ün): ek son ünlünün hem kalınlığına hem düzlüğüne
+ * uyar. Ünlüyle biten ada kaynaştırma "n"si girer.
+ */
+export function genitive(name: string): string {
+    const clean = name.trim();
+    if (!clean) return clean;
+    const vowel = lastVowel(clean);
+    const suffix = !vowel || 'ei'.includes(vowel) ? 'in'
+        : 'ou'.includes(vowel) ? 'un'
+            : 'öü'.includes(vowel) ? 'ün'
+                : 'ın';
+    return `${clean}${APOSTROPHE}${endsWithVowel(clean) ? 'n' : ''}${suffix}`;
+}
+
+/**
  * Ayrılma hâli: "Studio Ayla’dan", "Kemal Kuaför’den", "Güzel Saç’tan".
  *
  * Dört ekli (da/de/ta/te): kalınlık ünlüden, sertlik son sessizden

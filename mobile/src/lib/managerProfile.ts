@@ -310,6 +310,10 @@ export interface LegalLink {
  * işleyendir. Metin salonun kendi beyanıdır. URL boşsa satır PASİF DEĞİL,
  * HİÇ ÇİZİLMEZ — masaüstünden girilince belirir.
  */
+/** Web'deki sayfalar: `public/gizlilik.html`, `public/destek.html`. */
+export const PRIVACY_URL = 'https://timeflow.lueratech.com/gizlilik.html';
+export const SUPPORT_URL = 'https://timeflow.lueratech.com/destek.html';
+
 export function legalLinks(kvkkUrl: string | null): LegalLink[] {
     const links: LegalLink[] = [];
     if (kvkkUrl && kvkkUrl.trim()) {
@@ -320,11 +324,16 @@ export function legalLinks(kvkkUrl: string | null): LegalLink[] {
             url: kvkkUrl,
         });
     }
+    /*
+     * Luera'nın kendi gizlilik sayfası — App Store'a verilen adresin AYNISI.
+     * `luera.app/gizlilik` bir süre burada duruyordu ve alan adı hiç
+     * çözülmüyordu: satır ölü bir sayfaya açılıyordu.
+     */
     links.push({
         key: 'privacy',
         label: 'Gizlilik politikası',
-        host: 'luera.app',
-        url: 'https://luera.app/gizlilik',
+        host: 'timeflow.lueratech.com',
+        url: PRIVACY_URL,
     });
     return links;
 }

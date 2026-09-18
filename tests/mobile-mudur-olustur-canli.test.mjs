@@ -264,7 +264,7 @@ test('müşteri ipucu randevulardan: bugün, son geliş, iptal ve gelecek sayıl
 
 test('defter: aktif müşteriler, 24 aylık geliş penceresi, sayfalı okuma', () => {
     const fn = source.slice(source.indexOf('export async function fetchCustomerBook'), source.indexOf('export interface CreateSettings'));
-    assert.match(fn, /from\('customers'\)\.select\('id, name, phone'\)[\s\S]*?\.eq\('is_active', true\)/);
+    assert.match(fn, /from\('customers'\)\.select\('id, name, phone, custom_fields'\)[\s\S]*?\.eq\('is_active', true\)/);
     assert.match(fn, /\.neq\('status', 'cancelled'\)[\s\S]*?\.gte\('date', since\)[\s\S]*?\.lte\('date', todayISO\)/);
     assert.equal((fn.match(/readAll\(/g) ?? []).length, 2);
     assert.match(source, /export const VISIT_WINDOW_DAYS = 730;/);
@@ -274,7 +274,7 @@ test('defter: aktif müşteriler, 24 aylık geliş penceresi, sayfalı okuma', (
 
 test('ayarlar ada göre isteniyor — PIN taşıyan satırın tamamı değil', () => {
     const fn = source.slice(source.indexOf('export async function fetchCreateSettings'), source.indexOf('export async function fetchCustomerById'));
-    assert.match(fn, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url'\)/);
+    assert.match(fn, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url, risk_rules'\)/);
     assert.doesNotMatch(source, /fetchOrgSettings\('\*'\)/);
     assert.match(fn, /\/\^https\?:\\\/\\\/\/i\.test\(hook\)/);
 });

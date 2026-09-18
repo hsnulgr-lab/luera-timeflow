@@ -1752,7 +1752,7 @@ Deno.serve(async (req: Request) => {
             const cid = typeof body.customerId === 'string' ? body.customerId : '';
             if (!cid) return json({ error: 'customer_required' }, 400);
             const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
-            const [{ data: c }, { data: past }, { data: packs }, { data: rules }] = await Promise.all([
+            const [{ data: c }, { data: past }, { data: legacyPacks }, { data: rules }, plansRes] = await Promise.all([
                 // Risk bayrakları AYRI bir kolonda değil, custom_fields
                 // içinde yaşıyor (076); kuralların kendisi settings.risk_rules'ta.
                 // İkisini de dönüyoruz, eşlemeyi istemci yapıyor — kural
@@ -1769,7 +1769,23 @@ Deno.serve(async (req: Request) => {
                 admin.from('customer_packages').select('id, name, total_sessions, used_sessions')
                     .eq('organization_id', me.organization_id).eq('customer_id', cid),
                 orgSettings('risk_rules'),
+                // Güzellik/kuaför paketi treatment_plans'ta (077, tür paket);
+                // eski tablo yalnız fizyoterapinin ticari hakkını taşıyor.
+                // Yalnız eski tablo okunuyordu ve masaüstünde satılan paket
+                // personelin kartında hiç görünmüyordu. Para dönmüyor.
+                admin.from('treatment_plans').select('id, title, session_count, sessions_done')
+                    .eq('organization_id', me.organization_id).eq('customer_id', cid)
+                    .eq('plan_kind', 'paket').neq('status', 'cancelled').order('created_at'),
             ]);
+            const packs = [
+                ...((plansRes.error ? [] : plansRes.data) ?? []).map((row: Record<string, unknown>) => ({
+                    id: row.id,
+                    name: row.title,
+                    total_sessions: Number(row.session_count ?? 1) || 1,
+                    used_sessions: Number(row.sessions_done ?? 0) || 0,
+                })),
+                ...(legacyPacks ?? []),
+            ];
             if (!c) return json({ error: 'not_found' }, 404);
             // Tahsilat ve borç BİLİNÇLİ olarak dönmüyor: kumandanın işi hizmet,
             // finans değil. Kasa yetkisi olan personel masaüstünü kullanır.
@@ -1829,7 +1845,7 @@ Deno.serve(async (req: Request) => {
                     staffName: row.staff_id ? (crewNames.get(row.staff_id as string) ?? null) : null,
                     mine: row.staff_id === me.id,
                 })),
-                packages: packs ?? [],
+                packages: packs,
                 riskRules: rules?.risk_rules ?? [],
             });
         }

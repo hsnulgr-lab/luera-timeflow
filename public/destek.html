@@ -1,0 +1,357 @@
+<!doctype html>
+<!--
+  Luera TimeFlow · Gizlilik ve Destek — App Store'un istediği iki herkese açık adres.
+  Kaynak: Claude Design "C-gizlilik-destek.html". Yer tutucular ([ … ]) YAYINDAN ÖNCE
+  doldurulmalı; liste: docs/gizlilik-destek-yer-tutucular.md. İki dosya AYNI içerik:
+  gizlilik.html gizlilikten, destek.html destekten açılır. Birini değiştiren ötekini de değiştirir
+  (tests/gizlilik-destek-sayfasi.test.mjs).
+-->
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Destek — Luera TimeFlow</title>
+<meta name="description" content="Luera TimeFlow gizlilik politikası ve destek sayfası."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{color-scheme:light dark}
+html{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#EFE7DB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.62);--tx3:rgba(14,14,14,.42);--bd:rgba(14,14,14,.12);--bd2:rgba(14,14,14,.22);--or:#FF5A1F;--orl:#D8420E;--veil:rgba(243,236,224,.50);--ph:rgba(14,14,14,.06);--fsat:150%;--ma:.40;--mb:.30;--mc:.30;--md:.26;--me:.26}
+@media (prefers-color-scheme:dark){html:not([data-theme]){--bg:#120E08;--surf:#1A150F;--surf2:#231D15;--tx:#F3EDE3;--tx2:rgba(243,237,227,.66);--tx3:rgba(243,237,227,.42);--bd:rgba(243,237,227,.13);--bd2:rgba(243,237,227,.22);--orl:#FF7A45;--veil:rgba(18,14,8,.46);--ph:rgba(243,237,227,.07);--fsat:145%;--ma:.62;--mb:.48;--mc:.46;--md:.42;--me:.34}}
+html[data-theme="dark"]{--bg:#120E08;--surf:#1A150F;--surf2:#231D15;--tx:#F3EDE3;--tx2:rgba(243,237,227,.66);--tx3:rgba(243,237,227,.42);--bd:rgba(243,237,227,.13);--bd2:rgba(243,237,227,.22);--orl:#FF7A45;--veil:rgba(18,14,8,.46);--ph:rgba(243,237,227,.07);--fsat:145%;--ma:.62;--mb:.48;--mc:.46;--md:.42;--me:.34}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);color:var(--tx);font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-size:17.5px;line-height:1.62;font-weight:450}
+a{color:var(--orl);text-decoration:none;border-bottom:1px solid rgba(255,90,31,.38)}
+a:hover{color:var(--or);border-bottom-color:var(--or)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.n{font-family:-apple-system,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1000px;margin:0 auto;padding:0 28px}
+/* ── marka ── */
+.lock{display:inline-flex;align-items:center;gap:10px}
+.lock .lu{display:inline-flex;align-items:flex-end;font-weight:800;font-size:27px;letter-spacing:-.05em;line-height:.82;color:var(--tx)}
+.lock .lu i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.lock .tf{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:999px;background:var(--or);color:#fff;font-size:13px;font-weight:700;letter-spacing:.01em}
+/* ── ışık alanı · yalnız başlık bölgesi ── */
+.head{position:relative;overflow:hidden;border-bottom:1px solid var(--bd)}
+.field{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.field .fb{position:absolute;inset:-90px;filter:blur(58px) saturate(var(--fsat))}
+.field i{position:absolute;border-radius:50%;display:block}
+.field .veil{position:absolute;inset:0;background:var(--veil)}
+.m1{width:620px;height:620px;left:-130px;top:10%;background:radial-gradient(circle at 50% 50%,rgba(255,90,31,var(--ma)) 0%,rgba(255,90,31,calc(var(--ma)*.5)) 42%,rgba(255,90,31,0) 70%);animation:m1 34s cubic-bezier(.45,0,.55,1) infinite}
+.m2{width:520px;height:520px;right:-140px;top:-120px;background:radial-gradient(circle at 50% 50%,rgba(42,64,168,var(--mb)) 0%,rgba(42,64,168,calc(var(--mb)*.45)) 44%,rgba(42,64,168,0) 70%);animation:m2 27s cubic-bezier(.42,0,.58,1) infinite}
+.m3{width:480px;height:480px;right:-60px;top:36%;background:radial-gradient(circle at 50% 50%,rgba(150,52,120,var(--mc)) 0%,rgba(150,52,120,calc(var(--mc)*.45)) 46%,rgba(150,52,120,0) 72%);animation:m3 41s cubic-bezier(.4,0,.6,1) infinite}
+.m4{width:430px;height:430px;left:26%;bottom:-180px;background:radial-gradient(circle at 50% 50%,rgba(20,150,140,var(--md)) 0%,rgba(20,150,140,calc(var(--md)*.45)) 46%,rgba(20,150,140,0) 72%);animation:m4 23s cubic-bezier(.44,0,.56,1) infinite}
+.m5{width:380px;height:380px;left:6%;top:-60px;background:radial-gradient(circle at 50% 50%,rgba(255,214,170,var(--me)) 0%,rgba(255,214,170,calc(var(--me)*.4)) 48%,rgba(255,214,170,0) 74%);animation:m5 19s cubic-bezier(.46,0,.54,1) infinite}
+@keyframes m1{0%{transform:translate(-4%,10%) scale(1)}25%{transform:translate(20%,-6%) scale(1.2)}50%{transform:translate(8%,-24%) scale(.92)}75%{transform:translate(-18%,-8%) scale(1.12)}100%{transform:translate(-4%,10%) scale(1)}}
+@keyframes m2{0%{transform:translate(6%,-4%) scale(1)}33%{transform:translate(-18%,16%) scale(1.24)}66%{transform:translate(-4%,42%) scale(.96)}100%{transform:translate(6%,-4%) scale(1)}}
+@keyframes m3{0%{transform:translate(4%,0) scale(1.06)}30%{transform:translate(-22%,-18%) scale(1.3)}60%{transform:translate(-10%,18%) scale(.9)}100%{transform:translate(4%,0) scale(1.06)}}
+@keyframes m4{0%{transform:translate(0,4%) scale(1)}40%{transform:translate(-24%,-26%) scale(1.22)}70%{transform:translate(16%,-10%) scale(.94)}100%{transform:translate(0,4%) scale(1)}}
+@keyframes m5{0%{transform:translate(0,0) scale(1)}35%{transform:translate(26%,24%) scale(1.28)}70%{transform:translate(40%,-6%) scale(.9)}100%{transform:translate(0,0) scale(1)}}
+@media (prefers-reduced-motion:reduce){.field i{animation:none}}
+.topbar{position:relative;z-index:2;display:flex;align-items:center;gap:16px;padding:22px 0 0}
+.topbar .sp{flex:1}
+.tbtn{display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border:1px solid var(--bd2);border-radius:999px;font-size:14px;font-weight:600;color:var(--tx2);background:var(--surf)}
+.tbtn:hover{color:var(--tx)}
+.tbtn s{width:9px;height:9px;border-radius:50%;background:var(--or);text-decoration:none}
+.nav{position:relative;z-index:2;display:flex;gap:8px;padding:26px 0 0}
+.nav a{height:42px;display:flex;align-items:center;padding:0 16px;border-radius:999px;border:1px solid transparent;font-size:15px;font-weight:700;color:var(--tx2)}
+.nav a[aria-current="page"]{border-color:var(--bd2);background:var(--surf);color:var(--tx)}
+.hero{position:relative;z-index:2;padding:52px 0 60px}
+.hero h1{font-size:clamp(38px,6.4vw,62px);font-weight:800;letter-spacing:-.035em;line-height:1.02;max-width:17ch;text-wrap:balance}
+.hero p{margin-top:18px;font-size:19px;color:var(--tx2);max-width:60ch;text-wrap:pretty}
+.hero .upd{margin-top:22px;font-size:14px;font-weight:600;letter-spacing:.06em;color:var(--tx3)}
+/* ── gövde ── */
+main{padding:52px 0 40px}
+.cols{display:grid;grid-template-columns:230px minmax(0,1fr);gap:56px;align-items:start}
+.toc{position:sticky;top:26px;display:flex;flex-direction:column;gap:2px;font-size:15px}
+.toc .lb{font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--tx3);padding:0 0 10px}
+.toc a{display:block;padding:7px 0;color:var(--tx2);font-weight:600;border:0;line-height:1.35}
+.toc a:hover{color:var(--or)}
+article{max-width:68ch}
+section{padding-bottom:40px}
+section+section{border-top:1px solid var(--bd);padding-top:36px}
+h2{font-size:27px;font-weight:800;letter-spacing:-.025em;line-height:1.18;margin-bottom:14px;scroll-margin-top:24px;text-wrap:balance}
+h2 s{display:block;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.18em;color:var(--tx3);margin-bottom:9px}
+h3{font-size:19px;font-weight:800;letter-spacing:-.015em;margin:26px 0 8px}
+p{color:var(--tx2);margin-bottom:14px;text-wrap:pretty}
+p strong,li strong{color:var(--tx);font-weight:700}
+ul{margin:0 0 16px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+ul li{position:relative;padding-left:20px;color:var(--tx2)}
+ul li::before{content:"";position:absolute;left:2px;top:.72em;width:6px;height:6px;border-radius:50%;background:var(--or);opacity:.5}
+.box{border:1px solid var(--bd2);border-radius:16px;background:var(--surf);padding:20px 22px;margin:22px 0}
+.box b{display:block;font-size:17px;font-weight:800;margin-bottom:6px;letter-spacing:-.01em}
+.box p{margin:0;color:var(--tx2)}
+.box .path{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:16px;font-weight:700;color:var(--tx)}
+.box .path span{display:inline-flex;align-items:center;height:34px;padding:0 12px;border-radius:9px;background:var(--surf2);border:1px solid var(--bd)}
+.box .path i{font-style:normal;color:var(--tx3)}
+.ph{display:inline-block;padding:1px 8px;border-radius:7px;background:var(--ph);border:1px dashed var(--bd2);font-size:.94em;font-weight:600;color:var(--tx2);overflow-wrap:anywhere}
+.pair{display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px 20px;margin:0 0 18px;font-size:16.5px}
+.pair dt{font-weight:700;color:var(--tx)}
+.pair dd{color:var(--tx2)}
+.qa{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--bd)}
+.qa details{border-bottom:1px solid var(--bd)}
+.qa summary{list-style:none;cursor:pointer;padding:20px 40px 20px 0;font-size:19px;font-weight:700;letter-spacing:-.015em;position:relative;color:var(--tx)}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary::after{content:"";position:absolute;right:8px;top:29px;width:10px;height:10px;border-right:2px solid var(--tx3);border-bottom:2px solid var(--tx3);transform:rotate(45deg);transition:transform 180ms ease}
+.qa details[open] summary::after{transform:rotate(-135deg)}
+.qa .ans{padding:0 0 22px}
+.qa .ans p:last-child{margin-bottom:0}
+.mail{display:inline-flex;align-items:center;height:52px;padding:0 22px;border-radius:14px;background:var(--or);color:#fff;font-size:17px;font-weight:800;border:0;letter-spacing:-.01em}
+.mail:hover{color:#fff;background:var(--orl);border:0}
+.contact{display:flex;flex-wrap:wrap;gap:16px 26px;align-items:center;margin:22px 0 8px}
+.contact .meta{font-size:15.5px;color:var(--tx2)}
+footer{border-top:1px solid var(--bd);padding:34px 0 60px;margin-top:20px}
+.foot{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;font-size:15px;color:var(--tx3)}
+.foot a{color:var(--tx2);border-bottom-color:var(--bd2)}
+.foot .sp{flex:1}
+.page{display:none}
+.page.on{display:block}
+/* ── yayın öncesi notu · sayfanın parçası değil ── */
+.draft{margin:0 0 70px;border:1px dashed var(--bd2);border-radius:18px;background:var(--surf);padding:26px 26px 22px}
+.draft h4{font-size:13px;font-weight:800;letter-spacing:.18em;color:var(--or);margin-bottom:6px}
+.draft>p{font-size:15px;margin-bottom:18px}
+.draft table{width:100%;border-collapse:collapse;font-size:15px}
+.draft td{padding:9px 12px 9px 0;border-top:1px solid var(--bd);vertical-align:top;color:var(--tx2)}
+.draft td:first-child{width:250px;color:var(--tx);font-weight:700;white-space:nowrap}
+@media (max-width:900px){
+.cols{grid-template-columns:1fr;gap:26px}
+.toc{position:static;border:1px solid var(--bd);border-radius:16px;background:var(--surf);padding:16px 18px}
+.toc .lb{padding-bottom:6px}
+.toc a{padding:9px 0;border-bottom:1px solid var(--bd)}
+.toc a:last-child{border-bottom:0}
+.pair{grid-template-columns:1fr;gap:4px 0}
+.pair dd{margin-bottom:12px}
+.draft td:first-child{width:auto}
+.draft table,.draft tbody,.draft tr,.draft td{display:block;width:100%}
+.draft td{border-top:0;padding:2px 0}
+.draft tr{display:block;border-top:1px solid var(--bd);padding:10px 0}
+}
+@media (max-width:520px){
+body{font-size:17px}
+.wrap{padding:0 18px}
+.hero{padding:36px 0 44px}
+.hero p{font-size:17.5px}
+.nav{flex-wrap:wrap}
+.box{padding:17px 18px}
+.mail{width:100%;justify-content:center}
+}
+</style></head>
+<body data-start="D">
+
+<div class="head">
+<div class="field" aria-hidden="true"><div class="fb"><i class="m1"></i><i class="m2"></i><i class="m3"></i><i class="m4"></i><i class="m5"></i></div><div class="veil"></div></div>
+<div class="wrap">
+<div class="topbar">
+<span class="lock"><span class="lu">luera<i></i></span><span class="tf">timeflow</span></span>
+<span class="sp"></span>
+<button class="tbtn" id="themeBtn"><s></s><span>Tema</span></button>
+</div>
+<nav class="nav"><a href="#gizlilik" id="navG" aria-current="page">Gizlilik</a><a href="#destek" id="navD">Destek</a></nav>
+<div class="hero" id="heroG">
+<h1>Bu uygulamadaki müşteri bilgilerinin sahibi salonunuzdur.</h1>
+<p>Luera TimeFlow, salonların randevu ve müşteri kayıtlarını tuttuğu bir uygulamadır. Kayıtları hangi amaçla topladığına ve ne kadar saklayacağına <strong>salon karar verir</strong>; Luera bu kayıtları yalnızca salon adına işler.</p>
+<div class="upd">SON GÜNCELLEME · <span class="ph">[tarih]</span></div>
+</div>
+<div class="hero" id="heroD" style="display:none">
+<h1>Bir sorunuz mu var? Tek adres yeter.</h1>
+<p>Kurulum, personel girişi, cihaz değişikliği ve hesap silme için aşağıdaki sorulara bakın. Cevabı bulamazsanız yazın — aynı ekibe ulaşıyorsunuz.</p>
+<div class="upd">DÖNÜŞ SÜRESİ · <span class="ph">[ … ]</span></div>
+</div>
+</div>
+</div>
+
+<main class="wrap">
+
+<!-- ══════════ GİZLİLİK ══════════ -->
+<div class="page on" id="pageG">
+<div class="cols">
+<nav class="toc" aria-label="İçindekiler">
+<span class="lb">İÇİNDEKİLER</span>
+<a href="#g1">1 · Kim sorumlu</a>
+<a href="#g2">2 · Hangi veriler</a>
+<a href="#g3">3 · Ne için</a>
+<a href="#g4">4 · Kiminle paylaşılır</a>
+<a href="#g5">5 · Ne kadar saklanır</a>
+<a href="#g6">6 · Haklarınız ve başvuru</a>
+<a href="#g7">7 · Değişiklikler</a>
+</nav>
+<article>
+
+<section><h2 id="g1"><s>BÖLÜM 1</s>Kim sorumlu</h2>
+<p><strong>Veri sorumlusu, uygulamayı kullanan salonun kendisidir.</strong> Müşteri adını, telefonunu, randevusunu ve notunu kaydeden, saklayan ve silen taraf salondur. Bir müşteri olarak kayıtlarınızla ilgili talebinizi önce hizmet aldığınız salona iletmeniz gerekir.</p>
+<p><strong>Luera veri işleyendir.</strong> Salonun girdiği kayıtları, salonun talimatı doğrultusunda ve yalnızca uygulamanın çalışması için işler: saklar, cihazlar arasında eşler, salonun başlattığı mesajları iletir. Luera bu kayıtları kendi amaçları için kullanmaz, satmaz ve reklam için işlemez.</p>
+<dl class="pair">
+<dt>Veri sorumlusu</dt><dd><span class="ph">[salon unvanı — her salon kendi bilgisini yazar]</span></dd>
+<dt>Veri işleyen</dt><dd><span class="ph">[Luera şirket unvanı]</span> · <span class="ph">[adres]</span></dd>
+<dt>İletişim</dt><dd><span class="ph">[destek e-postası]</span></dd>
+</dl>
+<div class="box"><b>Uygulama ücretsizdir</b><p>Luera TimeFlow, salonun kullandığı Luera hesabını tamamlayan ücretsiz bir uygulamadır. Uygulama içinden satın alma yapılmaz.</p></div>
+</section>
+
+<section><h2 id="g2"><s>BÖLÜM 2</s>Hangi veriler işlenir</h2>
+<h3>Salonun kendi hesabı</h3>
+<ul>
+<li>Salon adı, salonun çalışma saatleri ve hizmet listesi</li>
+<li>Personel kayıtları: ad, rol, giriş bilgileri</li>
+<li>Oturum açma ve cihaz kayıtları <span class="ph">[toplanan alanların listesi]</span></li>
+</ul>
+<h3>Müşteri kayıtları</h3>
+<p>Bu kayıtları salon girer; müşteri salonun çevrimiçi randevu sayfasından ya da WhatsApp üzerinden randevu alırken adını ve telefonunu kendisi de girebilir.</p>
+<ul>
+<li>Ad, telefon numarası</li>
+<li>Randevular: tarih, saat, hizmet, ilgilenen personel</li>
+<li>Paketler ve hak kullanımı, hesap bakiyesi, tahsilat kayıtları</li>
+<li>Salonun yazdığı serbest notlar ve müşteri bilgileri (örneğin cilt tipi, ürün hassasiyeti, tercihler)</li>
+</ul>
+<h3>Özel nitelikli olabilecek notlar</h3>
+<p>Salon, hizmetin verilip verilemeyeceğini belirleyen sağlık notları girebilir (örneğin hamilelik). Bu notlar <strong>sağlıkla ilgili kişisel veri</strong> sayılabilir; bunları girmek, gerekli rızayı almak ve doğru tutmak <strong>salonun sorumluluğundadır</strong>. Luera bu alanları yalnızca salonun girdiği biçimde saklar ve gösterir.</p>
+<p>Uygulama <strong>konum verisi toplamaz</strong> ve müşteri kayıtlarını reklam amacıyla kullanmaz.</p>
+</section>
+
+<section><h2 id="g3"><s>BÖLÜM 3</s>Ne için işlenir</h2>
+<ul>
+<li><strong>Randevuyu yürütmek:</strong> günün listesini göstermek, gecikmeyi ve gelmeyen müşteriyi işaretlemek, hizmeti kaydetmek</li>
+<li><strong>Hesabı takip etmek:</strong> paket haklarını, borcu ve tahsilatı kaydetmek</li>
+<li><strong>Müşteriyle iletişim:</strong> salonun başlattığı arama ve hatırlatma mesajları</li>
+<li><strong>Uygulamayı çalıştırmak ve güvenliğini sağlamak:</strong> oturum yönetimi, hata kayıtları <span class="ph">[tutulan kayıtların süresi]</span></li>
+</ul>
+<p>Hukuki dayanak, salonun kendi aydınlatma metninde belirttiği sebeplerdir; sağlıkla ilgili notlar için <strong>açık rıza</strong> gerekebilir. Bu dayanakları belirlemek ve müşteriye bildirmek salona aittir.</p>
+</section>
+
+<section><h2 id="g4"><s>BÖLÜM 4</s>Kiminle paylaşılır</h2>
+<p>Kayıtlar başka salonlarla paylaşılmaz; her salon yalnızca kendi verisini görür. Uygulamanın çalışması için şu hizmet sağlayıcılar devrededir:</p>
+<dl class="pair">
+<dt>Barındırma ve veritabanı</dt><dd><span class="ph">[sağlayıcı adı ve sunucu konumu]</span></dd>
+<dt>Mesaj gönderimi</dt><dd>Salonun bağladığı WhatsApp hesabı üzerinden: salonun gönderdiği mesajlar ve salonun açtığı otomatik randevu hatırlatmaları</dd>
+<dt>Bildirim gönderimi</dt><dd><span class="ph">[bildirim sağlayıcısı]</span></dd>
+<dt>Hata ve kullanım kayıtları</dt><dd><span class="ph">[varsa sağlayıcı; yoksa bu satır silinir]</span></dd>
+</dl>
+<p>Yetkili kamu kurumlarının mevzuata dayalı talepleri dışında kayıtlar üçüncü taraflara aktarılmaz.</p>
+</section>
+
+<section><h2 id="g5"><s>BÖLÜM 5</s>Ne kadar saklanır</h2>
+<p>Kayıtlar, salonun hesabı açık olduğu sürece saklanır. Salon bir müşteri kaydını masaüstünden <strong>arşivleyebilir</strong>: arşivlenen kayıt listelerden kalkar ama silinmez. Tek bir müşteri kaydının kalıcı silinmesi için <span class="ph">[kalıcı silme talebi yolu]</span>. <span class="ph">[mevzuat gereği saklanması gereken kayıtlar]</span> için süre salonun kendi yükümlülüğüne bağlıdır.</p>
+<div class="box"><b>Hesabınızı nasıl silersiniz</b>
+<p>Silme işlemi uygulamanın içinden yapılır; e-posta göndermeniz gerekmez.</p>
+<div class="path"><span>Profil</span><i>→</i><span>Hesap</span><i>→</i><span>Hesabımı sil</span></div>
+</div>
+<p><strong>Silme hemen başlar.</strong> Hesap ve kayıtlar canlı sistemden kaldırılır; yedeklerde kalan kopyalar <strong>30 gün içinde</strong> yedek döngüsünden çıkar ve geri getirilemez.</p>
+</section>
+
+<section><h2 id="g6"><s>BÖLÜM 6</s>Haklarınız ve başvuru</h2>
+<p>KVKK md. 11 uyarınca herkes, kendisiyle ilgili olarak:</p>
+<ul>
+<li>Kişisel verisinin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme</li>
+<li>İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme</li>
+<li>Yurt içinde veya yurt dışında verilerin aktarıldığı üçüncü kişileri bilme</li>
+<li>Eksik veya yanlış işlenmişse düzeltilmesini isteme</li>
+<li>Kanundaki şartlar çerçevesinde silinmesini veya yok edilmesini isteme</li>
+<li>Düzeltme, silme ve yok etme işlemlerinin aktarılan üçüncü kişilere bildirilmesini isteme</li>
+<li>Otomatik sistemlerle analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme</li>
+<li>Kanuna aykırı işleme nedeniyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
+</ul>
+<p><strong>Başvuruyu hizmet aldığınız salona yaparsınız</strong> — veri sorumlusu odur. Salon, talebi yerine getirmek için Luera'nın teknik desteğine ihtiyaç duyarsa <span class="ph">[destek e-postası]</span> adresinden ulaşır. Luera'ya doğrudan ulaşan müşteri talepleri ilgili salona yönlendirilir.</p>
+</section>
+
+<section><h2 id="g7"><s>BÖLÜM 7</s>Değişiklikler</h2>
+<p>Bu metin değişirse yeni sürüm bu adreste yayımlanır ve yukarıdaki güncelleme tarihi değişir. Önemli değişikliklerde salonlara <span class="ph">[bildirim yolu]</span> ile bilgi verilir.</p>
+<p>Sorularınız için: <span class="ph">[destek e-postası]</span></p>
+</section>
+
+</article>
+</div>
+</div>
+
+<!-- ══════════ DESTEK ══════════ -->
+<div class="page" id="pageD">
+<div class="cols">
+<nav class="toc" aria-label="İçindekiler">
+<span class="lb">BU SAYFADA</span>
+<a href="#d1">İletişim</a>
+<a href="#d2">Sık sorulanlar</a>
+<a href="#gizlilik" id="tocPriv">Gizlilik politikası</a>
+</nav>
+<article>
+
+<section><h2 id="d1"><s>İLETİŞİM</s>Tek yol: e-posta</h2>
+<p>Telefon desteği ve sohbet penceresi yok; hepsi tek adrese düşüyor, böylece hiçbir soru arada kaybolmuyor. Yazarken salon adınızı ve varsa ekran görüntüsünü ekleyin.</p>
+<div class="contact">
+<a class="mail" href="mailto:">[destek e-postası]</a>
+<span class="meta">Dönüş süresi: <span class="ph">[ … ]</span> · Çalışma saatleri: <span class="ph">[ … ]</span></span>
+</div>
+</section>
+
+<section><h2 id="d2"><s>SIK SORULANLAR</s>Beş soru</h2>
+<div class="qa">
+
+<details open><summary>Personelimi nasıl bağlarım?</summary><div class="ans">
+<p>Personel kendi telefonuna Luera TimeFlow'u kurar ve uygulamayı açar. Giriş üç adımdır: <strong>ekip kodu</strong>, listeden <strong>kendi adı</strong>, sonra kendi belirlediği <strong>şifre</strong>. Personel bundan sonra yalnız şifresiyle girer.</p>
+<p>Ekip kodunu işletme sahibi üretir: telefonda <strong>Profil → Personel</strong>, masaüstünde <strong>Personel</strong> sayfası. Kod 15 dakika geçerlidir; o süre içinde bütün ekip aynı kodu kullanır.</p>
+</div></details>
+
+<details><summary>Personel şifresini unuttu, ne yapacağız?</summary><div class="ans">
+<p>Şifre kimseye görünmez; <strong>sıfırlanır</strong>. İşletme sahibi <strong>Profil → Personel</strong> ekranında personelin satırına dokunup <strong>Şifreyi sıfırla</strong>'ya basar. Personel bir sonraki girişte yeni şifresini kendisi belirler; telefonu işletmeye bağlı kalır, yeni kod gerekmez.</p>
+<p>Çok kez yanlış şifre girilirse giriş bir süre kilitlenir; sıfırlama kilidi de kaldırır. Personel listede kendini bulamıyorsa kaydını masaüstündeki <strong>Personel</strong> sayfasından kontrol edin.</p>
+</div></details>
+
+<details><summary>Telefonumu kaybettim veya değiştirdim.</summary><div class="ans">
+<p>Kayıtlar telefonda değil hesapta durur; yeni telefona uygulamayı kurup aynı bilgilerle giriş yapınca her şey yerinde olur.</p>
+<p>Kaybolan telefonla ilgili adımlar için <span class="ph">[destek e-postası]</span> adresine yazın.</p>
+</div></details>
+
+<details><summary>Hesabımı nasıl silerim?</summary><div class="ans">
+<p>Uygulamanın içinden: <strong>Profil → Hesap → Hesabımı sil</strong>. Silme hemen başlar; yedeklerdeki kopyalar 30 gün içinde döngüden çıkar.</p>
+<p>Ayrıntı için <a href="#gizlilik" data-go="G">gizlilik politikasının 5. bölümüne</a> bakın.</p>
+</div></details>
+
+<details><summary>Masaüstünde yaptığım değişiklik telefonda görünmüyor.</summary><div class="ans">
+<p>Ekranlar canlıdır: masaüstünde bir randevu eklendiğinde telefon birkaç saniye içinde kendiliğinden günceller, listeyi kapatıp açmanız gerekmez.</p>
+<p>Görünmüyorsa sırayla: telefonun internet bağlantısını kontrol edin; müdür Akış ekranında listeyi aşağı çekerek yenileyin (personel ekranı uygulamaya her dönüşte kendini yeniler); doğru güne ve doğru salona baktığınızdan emin olun. Sürerse <span class="ph">[destek e-postası]</span> adresine salon adınızı, randevunun saatini ve ekran görüntüsünü yazın.</p>
+</div></details>
+
+</div>
+</section>
+
+<section><h2><s>AYRICA</s>Gizlilik</h2>
+<p>Hangi verilerin işlendiğini, kimin sorumlu olduğunu ve saklama sürelerini <a href="#gizlilik" data-go="G">gizlilik politikasında</a> bulabilirsiniz.</p>
+</section>
+
+</article>
+</div>
+</div>
+
+</main>
+
+<footer><div class="wrap"><div class="foot">
+<span class="lock"><span class="lu" style="font-size:20px">luera<i></i></span><span class="tf" style="height:22px;font-size:11.5px">timeflow</span></span>
+<a href="#gizlilik" data-go="G">Gizlilik</a>
+<a href="#destek" data-go="D">Destek</a>
+<span class="sp"></span>
+<span><span class="ph">[Luera şirket unvanı]</span> · <span class="ph">[yıl]</span></span>
+</div></div></footer>
+
+
+
+<script>
+var btn=document.getElementById('themeBtn'),root=document.documentElement;
+btn.addEventListener('click',function(){
+ var cur=root.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+ root.dataset.theme=cur==='dark'?'light':'dark';
+});
+function go(p,push){
+ var g=p==='G';
+ document.getElementById('pageG').classList.toggle('on',g);
+ document.getElementById('pageD').classList.toggle('on',!g);
+ document.getElementById('heroG').style.display=g?'':'none';
+ document.getElementById('heroD').style.display=g?'none':'';
+ document.getElementById('navG').setAttribute('aria-current',g?'page':'false');
+ document.getElementById('navD').setAttribute('aria-current',g?'false':'page');
+ document.title=(g?'Gizlilik':'Destek')+' — Luera TimeFlow';
+ if(push)history.replaceState(null,'',g?'#gizlilik':'#destek');
+}
+document.addEventListener('click',function(e){
+ var a=e.target.closest('a[href^="#"]');if(!a)return;
+ var h=a.getAttribute('href');
+ if(h==='#gizlilik'||h==='#destek'){e.preventDefault();go(h==='#gizlilik'?'G':'D',1);window.scrollTo({top:0,behavior:'smooth'})}
+});
+if(location.hash==='#destek'||(document.body.dataset.start==='D'&&location.hash!=='#gizlilik'))go('D',0);
+</script>
+</body></html>

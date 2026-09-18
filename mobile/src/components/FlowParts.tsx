@@ -2573,7 +2573,10 @@ export function FlowRow({
         : waiting ? (event.handoff ? 'hand' : 'wait')
             : event.kind === 'due' ? 'due'
                 : event.kind === 'paid' ? (holding ? 'settled' : 'paid')
-                    : gone ? 'gone'
+                    // Düşen randevu (2026-09-18) kartsız, soluk bir satır.
+                    // Kart yalnız elle basılan "Gelmedi"nin 5 sn'lik "Geri al"
+                    // penceresinde duruyor.
+                    : gone ? (fresh ? 'gone' : 'none')
                         : event.kind === 'cancelled' ? 'cancelled'
                             : event.kind === 'booked' ? 'booked'
                                 : card ?? 'none';
@@ -2602,7 +2605,7 @@ export function FlowRow({
             // Alınmış tahsilat akışın geri kalanından daha sönük (0.5 · 0.62):
             // tasarımın gerekçesi, bekleyen adisyonların yanında sıradanlaşması.
             opacity: event.kind === 'paid' ? dueCardMetrics.paidOpacity
-                : isSettled(event.kind) ? flowMetrics.settledOpacity : 1,
+                : isSettled(event.kind) && !(gone && fresh) ? flowMetrics.settledOpacity : 1,
         }}>
             <Num size={flowMetrics.timeSize} style={{
                 width: flowMetrics.timeWidth,

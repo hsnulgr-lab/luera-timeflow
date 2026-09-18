@@ -24,6 +24,7 @@ import {
 } from './createLive.ts';
 import { RES_COLS, toAppt } from './managerMap.ts';
 import type { CatalogService } from './cashBuild.ts';
+import { clampSessions, type PackageSaleInput, type PackageSaleOutcome } from './packageSale.ts';
 import type { DaySchedule, SalonService } from './managerProfile.ts';
 import { fetchServices, type HoursRow } from './managerSource';
 import {
@@ -437,6 +438,85 @@ export async function deleteSalonService(id: string): Promise<SettingsOutcome<Ca
             .eq('organization_id', organizationId);
         if (error) return { ok: false, kind: 'failed' };
         return { ok: true, value: await fetchServices() };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, kind: 'failed' };
+    }
+}
+
+// ── Müşteri notu (Müdür 23 v2) ──────────────────────────────────────────────
+
+export type NoteOutcome = { ok: true } | { ok: false; kind: 'paused' | 'stale' | 'failed' };
+
+/**
+ * Müşterinin notunu yaz — `customers.notes`, masaüstünün okuduğu alanın
+ * AYNISI. Kart birden çok paragrafı ayrı satır gösteriyor ama kayıt tek metin;
+ * sayfa ham metni açıp ham metni yazıyor.
+ *
+ * Başarısızsa kart eski notu gösterir ve sayfa açık kalır; "kaydedildi"
+ * denmez. Satır yoksa (başka cihaz müşteriyi sildi) `stale`.
+ */
+export async function saveCustomerNotes(customerId: string, text: string): Promise<NoteOutcome> {
+    if (await writesPaused()) return { ok: false, kind: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const clean = text.trim();
+        const { data, error } = await supabase.from('customers')
+            .update({ notes: clean || null })
+            .eq('id', customerId)
+            .eq('organization_id', organizationId)
+            .select('id')
+            .returns<{ id: string }[]>();
+        if (error) return { ok: false, kind: 'failed' };
+        if (!data || data.length === 0) return { ok: false, kind: 'stale' };
+        return { ok: true };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, kind: 'failed' };
+    }
+}
+
+// ── Paket sat (Müdür 35) ─────────────────────────────────────────────────────
+
+/**
+ * Paketi yazar — masaüstünün `useOrgPackages.addPackage`iyle AYNI satır.
+ *
+ * ÇİFT OLUŞTURMA: kimlik istemcide üretiliyor. Cevap kaybolur ve "Yeniden
+ * dene"ye basılırsa aynı kimlik ikinci kez yazılamıyor (23505); o durumda
+ * satırın gerçekten orada olduğu okunup BAŞARI sayılıyor.
+ *
+ * Para satırı YAZILMIYOR: peşinat ve taksit masaüstünün işi.
+ */
+export async function createPackage(input: PackageSaleInput): Promise<PackageSaleOutcome> {
+    if (await writesPaused()) return { ok: false, kind: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const payload: Record<string, unknown> = {
+            id: input.id,
+            organization_id: organizationId,
+            customer_id: input.customerId,
+            title: input.title.trim(),
+            total_amount: Math.max(0, Math.round(input.totalAmount)),
+            session_count: clampSessions(input.sessionCount),
+            sessions_done: 0,
+            status: 'active',
+            plan_kind: 'paket',
+        };
+        let { error } = await supabase.from('treatment_plans').insert(payload);
+        // 077 yoksa tür kolonu yok — kolonsuz yeniden (masaüstünün düşüşü).
+        if (error && `${error.message ?? ''} ${error.details ?? ''}`.includes('plan_kind')) {
+            delete payload.plan_kind;
+            ({ error } = await supabase.from('treatment_plans').insert(payload));
+        }
+        if (!error) return { ok: true };
+        if (error.code === '23505') {
+            const { data } = await supabase.from('treatment_plans').select('id')
+                .eq('id', input.id).eq('organization_id', organizationId).maybeSingle();
+            return data ? { ok: true } : { ok: false, kind: 'failed' };
+        }
+        // Müşteri silinmiş: yabancı anahtar tutmuyor.
+        if (error.code === '23503') return { ok: false, kind: 'stale' };
+        return { ok: false, kind: 'failed' };
     } catch (cause) {
         if (cause instanceof OrgError) { forgetOrg(); throw cause; }
         return { ok: false, kind: 'failed' };

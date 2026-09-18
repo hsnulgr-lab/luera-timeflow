@@ -52,6 +52,8 @@ export interface CustomerOption {
     seen?: string;
     /** Hizmet türü rengi — avatar kenarlığı. */
     color?: string;
+    /** `custom_fields` — açık risk bayrağı hizmet kapatır (Müdür 23 v2). */
+    fields?: Record<string, unknown> | null;
 }
 
 export interface ServiceOption {
@@ -64,6 +66,8 @@ export interface ServiceOption {
      */
     price: number | null;
     color: string;
+    /** Uygunluk etiketleri (076). */
+    tags?: string[];
 }
 
 export interface StaffOption {

@@ -43,6 +43,7 @@ export function serviceOptionsOf(catalog: readonly CatalogService[]): ServiceOpt
             minutes: service.duration ?? DEFAULT_SERVICE_MINUTES,
             price: service.price ?? null,
             color: service.color ?? DEFAULT_SERVICE_COLOR,
+            tags: service.tags ?? [],
         }));
 }
 
@@ -52,6 +53,8 @@ export interface CustomerRecord {
     id: string;
     name: string;
     phone: string;
+    /** `custom_fields` — kapalı hizmet kararı (Müdür 23 v2). */
+    fields?: Record<string, unknown> | null;
 }
 
 export interface VisitRecord {
@@ -106,6 +109,7 @@ export function customerOptionsOf(
             seen = `${before.date} ${before.start_time}`;
         }
         const option: CustomerOption = { id: person.id, name: person.name, phone: person.phone, hint };
+        if (person.fields) option.fields = person.fields;
         if (seen) option.seen = seen;
         return option;
     });

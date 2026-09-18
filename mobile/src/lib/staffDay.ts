@@ -176,9 +176,9 @@ export function resolveStaffStateKind(
  *
  * Kural web ile BİREBİR aynı olmalı, yoksa aynı müşteri masaüstünde "geldi",
  * cepte "gelmedi" görünür: randevu saati + geç-kalma toleransı (varsayılan
- * 120 dk, salon ayarından değişir).
+ * 30 dk — `managerFlow.NO_SHOW_AFTER_MIN`; 2026-09-18'e kadar 120'ydi).
  */
-export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
+export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 30;
 
 export function isNoShow(
     appointment: Appt,

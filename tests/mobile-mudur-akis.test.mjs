@@ -77,12 +77,16 @@ test('eylem satırın içinde, üç nokta menüsünde değil', () => {
     assert.deepEqual(actionsOf('paid'), []);
 });
 
-test('bitmiş olaylar soluk; "gelmedi" soluk DEĞİL', () => {
+test('bitmiş olaylar soluk; düşen "gelmedi" de soluk (2026-09-18)', () => {
     assert.equal(isSettled('finished'), true);
     assert.equal(isSettled('paid'), true);
     assert.equal(isSettled('cancelled'), true);
-    // Müdürün görmesi gereken bir şey: soluklaştırılmaz.
-    assert.equal(isSettled('noshow'), false);
+    // Randevu 30. dakikada düşüyor: saatlerce büyüyen sayaçlı kart yerine
+    // kartsız, soluk satır. Yalnız elle basılanın "Geri al" penceresi kartlı.
+    assert.equal(isSettled('noshow'), true);
+    const parts = read('src/components/FlowParts.tsx');
+    assert.match(parts, /: gone \? \(fresh \? 'gone' : 'none'\)/);
+    assert.match(parts, /isSettled\(event\.kind\) && !\(gone && fresh\)/);
     assert.equal(isSettled('due'), false);
 });
 

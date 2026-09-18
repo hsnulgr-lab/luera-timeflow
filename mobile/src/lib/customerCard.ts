@@ -66,6 +66,42 @@ export interface CustomerCard {
     upcoming: CustomerUpcoming | null;
     history: CustomerHistoryRow[];
     notes: string[];
+    // ── Müdür 23 v2 ─────────────────────────────────────────────────────────
+    // Alanların hepsi SEÇİMLİ: sahte müşteriler (testler, stub) onları
+    // taşımıyor ve kart her bölümü kendi verisinin varlığına bağlıyor.
+    /** Açık risk bayrakları — kural motoru masaüstünün yazdığı `risk_rules`. */
+    flags?: { label: string; note: string }[];
+    /** "BU MÜŞTERİYE VERİLEMEZ" çipleri: bayrakların kapattığı gruplar. */
+    closed?: string[];
+    /** Sektör alanları, yalnız dolu olanlar; bayrak üreten alan tekrarlanmaz. */
+    fields?: { label: string; value: string }[];
+    /** Bütün paketler; kapalıysa sebebi (bayrak kapatıyorsa). */
+    packages?: {
+        name: string;
+        total: number;
+        used: number;
+        closedBy: string | null;
+        /** `treatment_plans` kimliği; eski tabloda `null`. */
+        planId?: string | null;
+        /** Bu pakete kalan ödeme; bilinmiyorsa `null`, ödenmişse 0. */
+        owed?: number | null;
+    }[];
+    /** Müdür 35 · "Paket sat" kapısı açık mı (güzellik/kuaför). */
+    canSellPackage?: boolean;
+    /** "Mart 2023'ten beri" · "Bugün kaydedildi". Bilinmiyorsa `null`. */
+    since?: string | null;
+    /** Bugünden önceki iptal olmayan ziyaret sayısı. */
+    visitCount?: number;
+    /** Bütün tahsilatların toplamı. Okunamadıysa `null` — "₺0" yazılmaz. */
+    totalPaid?: number | null;
+    /** "26 günde bir" — iki ziyaretten azsa `null`: bir ziyaretten sıklık çıkmaz. */
+    frequency?: string | null;
+    /** En çok alınan hizmet; ziyaret yoksa `null`. */
+    topService?: string | null;
+    /** Yaklaşan randevunun kimliği — satır Müdür 25 randevu kartını açar. */
+    upcomingId?: string | null;
+    /** Notun HAM metni — düzenleme sayfası bunu açar, paragraflara bölünmüş hâlini değil. */
+    notesText?: string;
 }
 
 /** Baş harfler — en fazla iki, Türkçe büyütmeyle ("i" → "İ"). */

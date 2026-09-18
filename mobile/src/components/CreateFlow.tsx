@@ -9,7 +9,7 @@ import {
     ApptCta, ApptDayHero, ApptHero, ApptPageTitle, ApptPlate, ApptTopBar, ArrowIcon,
     CloseIcon, CustomerRow, DayChip, EmptyResult, HeroDot, HeroSubText, Hint,
     KeyValueGrid, NoteRow, PhoneField, RailBlock, SearchIcon, SectionHead,
-    ServiceRow, SolidButton, type KeyValue,
+    ClosedServiceRow, ServiceRow, SolidButton, type KeyValue,
 } from './ApptParts';
 import { DurumBlock, DurumUnread } from './Durum';
 import { feedback } from '../lib/feedback';
@@ -25,6 +25,7 @@ import {
     confirmationText, dayWindowOf, localClock, recentOf, refusalCopy, staffOptionsOf, staffWorksAt,
     type CreateOutcome, type NewAppointment, type WaFailReason,
 } from '../lib/createLive';
+import { closedBy, closedReason } from '../lib/eligibility';
 import type { CreateContext } from '../lib/managerCreate';
 import { useCreateDay } from '../lib/managerCreate';
 import type { CreatedAppointment } from '../lib/managerWrite';
@@ -453,20 +454,36 @@ export function CreateFlow({
             {context.services.length === 0 ? (
                 <Hint>Salonda tanımlı hizmet yok. Hizmetler masaüstündeki ayarlardan eklenir.</Hint>
             ) : null}
-            {context.services.map((service) => (
-                <ServiceRow
-                    key={service.id}
-                    service={service}
-                    selected={draft.service?.id === service.id}
-                    onPress={() => patch({ service: draft.service?.id === service.id ? null : service })}
-                />
-            ))}
+            {context.services.map((service) => {
+                // Müdür 23 v2: müşterinin açık bayrağı bu hizmeti kapatıyorsa
+                // satır basılamaz ve sebebini söyler. Son söz yine sunucunun
+                // (guard_reservation_eligibility).
+                const reason = draft.customer
+                    ? closedBy(context.settings.riskRules, draft.customer.fields, service)
+                    : null;
+                return reason ? (
+                    <ClosedServiceRow key={service.id} service={service} reason={closedReason(reason)} />
+                ) : (
+                    <ServiceRow
+                        key={service.id}
+                        service={service}
+                        selected={draft.service?.id === service.id}
+                        onPress={() => patch({ service: draft.service?.id === service.id ? null : service })}
+                    />
+                );
+            })}
         </>
     );
 
     function selectCustomer(customer: CustomerOption) {
         setQuery('');
-        patch({ customer, newCustomerName: null });
+        // Seçili hizmet bu müşteriye kapalıysa seçim DÜŞER: kapalı bir hizmetle
+        // ilerleyip sunucunun reddiyle karşılaşmak, söz verildikten sonra
+        // geri almak demek.
+        const blocked = draft.service
+            ? closedBy(context.settings.riskRules, customer.fields, draft.service)
+            : null;
+        patch(blocked ? { customer, newCustomerName: null, service: null } : { customer, newCustomerName: null });
     }
 
     function addNewCustomer() {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    buildFlow, DEFAULT_ARRIVAL_TOLERANCE_MIN, etaFor, kindOf, occupancyOf, revenueOf,
+    buildFlow, DEFAULT_ARRIVAL_TOLERANCE_MIN, NO_SHOW_AFTER_MIN, etaFor, kindOf, occupancyOf, revenueOf,
 } from '../mobile/src/lib/flowBuild.ts';
 
 /**
@@ -43,13 +43,18 @@ test('varsayılan tolerans MASAÜSTÜYLE aynı sayı', () => {
     const m = /DEFAULT_ARRIVAL_TOLERANCE_MIN = (\d+)/.exec(desktop);
     assert.ok(m, 'masaüstü sabiti bulunamadı');
     assert.equal(DEFAULT_ARRIVAL_TOLERANCE_MIN, Number(m[1]));
+    // "Gelmedi" eşiği de iki yüzeyde aynı sayı (2026-09-18: 30 dk).
+    const n = /NO_SHOW_AFTER_MIN = (\d+)/.exec(desktop);
+    assert.ok(n, 'masaüstü gelmedi eşiği bulunamadı');
+    assert.equal(NO_SHOW_AFTER_MIN, Number(n[1]));
 });
 
 test('"gelmedi" SALONUN toleransıyla', () => {
     const r = row();
-    assert.equal(kindOf(r, GUN, at('11:45')), 'next', 'varsayılanla 45 dk henüz gelmedi değil');
-    assert.equal(kindOf(r, GUN, at('13:01')), 'noshow');
-    assert.equal(kindOf(r, GUN, at('11:45'), 30), 'noshow', 'salonun 30 dk ayarı geçerli');
+    // Varsayılan eşik 30 dk (2026-09-18): randevu 11:00 → 11:30'a kadar açık.
+    assert.equal(kindOf(r, GUN, at('11:29')), 'next', 'varsayılanla 29 dk henüz gelmedi değil');
+    assert.equal(kindOf(r, GUN, at('11:31')), 'noshow', '30. dakikadan sonra düşer');
+    assert.equal(kindOf(r, GUN, at('11:45'), 60), 'next', 'salonun 60 dk ayarı geçerli');
 });
 
 test('salona GİRMİŞ müşteri ne kadar geç kalsa da "gelmedi" değil', () => {
@@ -171,7 +176,10 @@ test('müşteri bağlamı TEK turda', () => {
     const src = strip(read('mobile/src/lib/managerSource.ts'));
     const fn = src.slice(src.indexOf('export async function fetchDayContext'));
     assert.match(fn.slice(0, 900), /\.in\('id', ids\)/);
-    assert.match(fn.slice(0, 900), /\.in\('customer_id', ids\)/);
+    // Paketler de tek turda: ortak okuyucu kimlik listesini `.in` ile soruyor.
+    assert.match(fn.slice(0, 900), /fetchPackageRows\(organizationId, ids\)/);
+    const pk = src.slice(src.indexOf('export async function fetchPackageRows'));
+    assert.match(pk.slice(0, 1800), /\.in\('customer_id', ids\)/);
 });
 
 // ── Ekran ───────────────────────────────────────────────────────────────────
@@ -241,11 +249,19 @@ test('sıradaki kartın geri sayımı SALONUN toleransıyla', () => {
         rows: [row()], payments: [], crew: new Map(), context: new Map(),
         dateISO: GUN, nowMs: at('11:10'),
     });
-    assert.equal(fallback.toleranceMinutes, DEFAULT_ARRIVAL_TOLERANCE_MIN);
+    assert.equal(fallback.toleranceMinutes, NO_SHOW_AFTER_MIN);
+    assert.equal(NO_SHOW_AFTER_MIN, 30);
 });
 
 test('varsayılan tolerans TEK yerde — kart ile türetme aynı sayıyı okuyor', () => {
     const src = read('mobile/src/lib/flowBuild.ts');
-    assert.match(src, /export \{ DEFAULT_ARRIVAL_TOLERANCE_MIN \} from '\.\/managerFlow\.ts';/);
-    assert.doesNotMatch(src, /DEFAULT_ARRIVAL_TOLERANCE_MIN = \d+/);
+    assert.match(src, /export \{ DEFAULT_ARRIVAL_TOLERANCE_MIN, NO_SHOW_AFTER_MIN \} from '\.\/managerFlow\.ts';/);
+    assert.doesNotMatch(src, /(DEFAULT_ARRIVAL_TOLERANCE_MIN|NO_SHOW_AFTER_MIN) = \d+/);
+    // Gelmedi eşiği ile geç kayıt sınırı AYRI: eşik inince geçmişe kayıt kapanmasın.
+    const flow = read('mobile/src/lib/managerFlow.ts');
+    assert.match(flow, /export const NO_SHOW_AFTER_MIN = 30;/);
+    assert.match(flow, /export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;/);
+    const web = read('src/lib/appointmentFlow.ts');
+    assert.match(web, /export const NO_SHOW_AFTER_MIN = 30;/);
+    assert.match(web, /const tol = opts\?\.toleranceMin \?\? NO_SHOW_AFTER_MIN;/);
 });

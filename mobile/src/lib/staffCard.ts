@@ -13,6 +13,7 @@
  */
 
 import { addDaysISO, toMinutes } from './calendar.ts';
+import { NO_SHOW_AFTER_MIN } from './managerFlow.ts';
 
 export type StaffCardKind =
     | 'upcoming'    // 01 · gelecek randevu
@@ -20,6 +21,7 @@ export type StaffCardKind =
     | 'running'     // 03 · sürüyor
     | 'over'        // 04 · uzadı
     | 'late'        // 05 · gecikti
+    | 'noshow'      // 05b · gelmedi (saat + 30 dk, hiç damga yok)
     | 'unbilled'    // 06 · bitti, adisyon gönderilmedi
     | 'atcash'      // 07 · bitti, kasaya gitti
     | 'paid'        // 08 · tahsil edildi
@@ -212,6 +214,17 @@ export function cardState(appointment: StaffCardSource, nowMs: number = Date.now
 
     const startMs = localStamp(appointment.date, appointment.start_time);
     const lateMin = Math.floor((nowMs - startMs) / 60000);
+    /*
+     * GELMEDİ — müdür Akış'ı ve masaüstüyle AYNI kural: saatten 30 dk sonra
+     * hiç damga yoksa randevu düşer (`managerFlow.NO_SHOW_AFTER_MIN`).
+     * Eskiden bu hâl yoktu ve kart gün boyu "Gecikti 741 dk" diye büyüyordu;
+     * müdürün ekranında düşmüş randevu personelde hâlâ bekleniyordu.
+     * Kapanmış sayılır (dim 2): personelin bu karta dönmesine gerek yok.
+     * Onay bekleyen randevu kurulmamış bile — gelmedi sayılmaz.
+     */
+    if (lateMin > NO_SHOW_AFTER_MIN && appointment.status !== 'pending') {
+        return { ...base, kind: 'noshow', word: 'Gelmedi', tone: 'rd', dim: 2 };
+    }
     if (lateMin > 0) {
         return {
             ...base,

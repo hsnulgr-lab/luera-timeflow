@@ -210,7 +210,7 @@ test('arşivlenmiş müşterinin açık randevusu künyesiz kalmıyor', () => {
     // Bir süre burada o isteniyordu — okuma 42703 ile düşerdi.
     assert.doesNotMatch(source, /deleted_at/);
     const context = source.slice(source.indexOf('export async function fetchCustomerContext'));
-    assert.doesNotMatch(context.slice(0, context.indexOf("from('customer_packages')")), /is_active/);
+    assert.doesNotMatch(context.slice(0, context.indexOf('fetchPackageRows(organizationId, [customerId])')), /is_active/);
 });
 
 test('risk kuralları SAHİBİN ayar satırından — staff-api ile aynı', () => {

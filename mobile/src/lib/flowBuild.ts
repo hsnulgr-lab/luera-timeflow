@@ -19,7 +19,7 @@
 import { addDaysISO, clockText, formatDayMonth, toMinutes } from './calendar.ts';
 import type { CashTicket } from './cashBuild.ts';
 import type { ApptContext, FlowEvent, FlowKind } from './managerFlow.ts';
-import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
+import { NO_SHOW_AFTER_MIN } from './managerFlow.ts';
 import { withOwnStamps } from './dayStamp.ts';
 import { clockLocative } from './text.ts';
 
@@ -84,7 +84,7 @@ export function etaFor(dateISO: string, startTime: string, nowMs: number): numbe
 }
 
 // Varsayılan tolerans TEK yerde: kartların geri sayımı da aynı sayıya bakıyor.
-export { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
+export { DEFAULT_ARRIVAL_TOLERANCE_MIN, NO_SHOW_AFTER_MIN } from './managerFlow.ts';
 
 
 /**
@@ -104,7 +104,7 @@ export function kindOf(
     raw: FlowRow,
     dateISO: string,
     nowMs: number,
-    toleranceMin: number = DEFAULT_ARRIVAL_TOLERANCE_MIN,
+    toleranceMin: number = NO_SHOW_AFTER_MIN,
 ): FlowKind {
     // Başka bir güne ait damga bu günün hâlini belirlemiyor (`ownDayStamp`).
     const row = withOwnStamps(raw, dateISO);
@@ -185,7 +185,7 @@ export function buildFlow(input: BuildInput): FlowEvent[] {
         // Saat, bekleme ve sayaç da AYNI süzülmüş damgadan — hâl ile rakam
         // ayrı damgaya bakarsa "sıradaki" kartında 1143 saatlik sayaç çıkar.
         const row = withOwnStamps(raw, input.dateISO);
-        const kind = kindOf(row, input.dateISO, input.nowMs, input.toleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN);
+        const kind = kindOf(row, input.dateISO, input.nowMs, input.toleranceMin ?? NO_SHOW_AFTER_MIN);
         const staffName = row.staff_id ? (input.crew.get(row.staff_id) ?? null) : null;
         const [first = '', ...rest] = row.customer_name.trim().split(/\s+/);
         const payment = paidBy.get(row.id);
@@ -217,7 +217,7 @@ export function buildFlow(input: BuildInput): FlowEvent[] {
         if (kind === 'next') {
             event.etaMinutes = etaFor(input.dateISO, row.start_time, input.nowMs);
             // Kartın geri sayımı salonun GERÇEK toleransına baksın.
-            event.toleranceMinutes = input.toleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN;
+            event.toleranceMinutes = input.toleranceMin ?? NO_SHOW_AFTER_MIN;
         }
         if (kind === 'booked') event.pending = true;
         if (kind === 'arrived') {

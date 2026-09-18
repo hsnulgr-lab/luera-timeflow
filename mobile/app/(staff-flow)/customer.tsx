@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { CustomerCard } from '../../src/components/CustomerCard';
+import { CustomerNoteSheet } from '../../src/components/CustomerNoteSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { Empty } from '../../src/components/ui';
 import { authApi } from '../../src/api/session';
@@ -14,6 +15,8 @@ import { localClock } from '../../src/lib/createLive';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCustomerCardRows, forgetOrg } from '../../src/lib/managerSource';
+import { createPackage } from '../../src/lib/managerWrite';
+import { saleFailureText, saleMemo, type PackageSaleInput } from '../../src/lib/packageSale';
 import { useTheme } from '../../src/theme';
 
 type CustomerRouteParams = {
@@ -65,6 +68,44 @@ export default function CustomerScreen() {
     }, [customerId]);
     const snap = useManagerRead<CardData | null>(read, null, { poll: false });
     const card = snap.data;
+    const [noting, setNoting] = useState(false);
+
+    /*
+     * Müdür 35 · satıştan dönüş. Satış sayfası sonucu bellekte bırakıyor;
+     * kart ona odaklanınca bir kez okuyor. Başarı → yeni satır bir kez
+     * belirir. Başarısızlık → sebep + "Yeniden dene" (aynı kimlikle: ikinci
+     * paket doğmaz).
+     */
+    const [freshPlanId, setFreshPlanId] = useState<string | null>(null);
+    const [failed, setFailed] = useState<{ input: PackageSaleInput; text: string } | null>(null);
+    const [retrying, setRetrying] = useState(false);
+    useFocusEffect(useCallback(() => {
+        if (!customerId) return;
+        const memo = saleMemo.peek(customerId);
+        if (!memo) return;
+        if (memo.kind === 'created') {
+            saleMemo.clear(customerId);
+            setFailed(null);
+            setFreshPlanId(memo.planId);
+        } else {
+            setFailed({ input: memo.input, text: saleFailureText(memo.reason) });
+        }
+    }, [customerId]));
+    const retrySale = useCallback(async () => {
+        if (!failed || retrying || !customerId) return;
+        setRetrying(true);
+        const outcome = await createPackage(failed.input).catch(() => ({ ok: false, kind: 'failed' } as const));
+        setRetrying(false);
+        if (outcome.ok) {
+            saleMemo.clear(customerId);
+            setFailed(null);
+            setFreshPlanId(failed.input.id);
+            void snap.reload();
+            return;
+        }
+        saleMemo.failed(customerId, failed.input, outcome.kind);
+        setFailed({ input: failed.input, text: saleFailureText(outcome.kind) });
+    }, [failed, retrying, customerId, snap]);
 
     const onRefusalAction = useCallback(async () => {
         if (snap.refusal === 'ambiguous') {
@@ -171,12 +212,33 @@ export default function CustomerScreen() {
     }
 
     return (
-        <CustomerCard
-            card={card}
-            onBack={close}
-            onCall={dialPhone(card) ? handleCall : undefined}
-            onWhatsApp={dialPhone(card) ? handleWhatsApp : undefined}
-            onBook={handleBook}
-        />
+        <>
+            <CustomerCard
+                card={card}
+                onBack={close}
+                onCall={dialPhone(card) ? handleCall : undefined}
+                onWhatsApp={dialPhone(card) ? handleWhatsApp : undefined}
+                onBook={handleBook}
+                onOpenUpcoming={(id) => router.push({ pathname: '/randevu/[id]', params: { id } })}
+                onEditNote={() => setNoting(true)}
+                onOpenHistory={() => router.push({
+                    pathname: '/(manager-flow)/musteri-gecmis',
+                    params: { customerId: card.id, customerName: card.name },
+                })}
+                onSellPackage={() => router.push({
+                    pathname: '/(manager-flow)/paket-sat',
+                    params: { customerId: card.id },
+                })}
+                sale={{ freshPlanId, failure: failed?.text ?? null, retrying }}
+                onRetrySale={() => { void retrySale(); }}
+            />
+            <CustomerNoteSheet
+                visible={noting}
+                customerId={card.id}
+                initial={card.notesText ?? card.notes.join('\n\n')}
+                onDismiss={() => setNoting(false)}
+                onSaved={() => { setNoting(false); void snap.reload(); }}
+            />
+        </>
     );
 }

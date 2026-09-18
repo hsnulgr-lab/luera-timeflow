@@ -116,7 +116,7 @@ test('paket: hakkı kalan ilk paket; risk kural motorundan; not paragraflara bö
 
 test('okuma kimlikle, org süzgeçli; adla arama yok', () => {
     const fn = source.slice(source.indexOf('export async function fetchCustomerCardRows'), source.indexOf('export async function fetchDeletionFacts'));
-    assert.match(fn, /from\('customers'\)\.select\('id, name, phone, notes, custom_fields'\)\s*\.eq\('organization_id', organizationId\)\.eq\('id', customerId\)/);
+    assert.match(fn, /from\('customers'\)\.select\('id, name, phone, notes, custom_fields, created_at'\)\s*\.eq\('organization_id', organizationId\)\.eq\('id', customerId\)/);
     const froms = fn.match(/\.from\('\w+'\)/g) ?? [];
     const orgs = fn.match(/\.eq\('organization_id', organizationId\)/g) ?? [];
     assert.equal(orgs.length, froms.length);

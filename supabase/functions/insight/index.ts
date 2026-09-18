@@ -10,7 +10,8 @@ const corsHeaders = {
 
 const TZ_OFFSET_MIN = 3 * 60; // Türkiye UTC+3
 const DAYS_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
+// "Gelmedi" eşiği — uygulamayla aynı (appointmentFlow · NO_SHOW_AFTER_MIN).
+const DEFAULT_ARRIVAL_TOLERANCE_MIN = 30;
 const DEFAULT_OPEN_DAY_INDEXES = [1, 2, 3, 4, 5, 6];
 const SECTOR_LABELS: Record<string, string> = {
     genel: 'randevulu hizmet işletmesi',

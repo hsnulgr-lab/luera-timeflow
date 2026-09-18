@@ -137,8 +137,12 @@ export default function Today() {
             : new Set([...ids].filter((id) => !before.ids.has(id))));
     }, [agenda, dateISO, agendaState]);
 
-    const done = rows.filter((row) => row.state.dim > 0 || row.state.kind === 'unbilled').length;
-    const left = rows.length - done;
+    // Gelmeyen müşteri ne "bitti" ne "kaldı": ayrı sayılır, yoksa düşmüş iki
+    // randevu "2 iş bitti" diye sayılırdı.
+    const noshow = rows.filter((row) => row.state.kind === 'noshow').length;
+    const done = rows.filter((row) => row.state.kind !== 'noshow'
+        && (row.state.dim > 0 || row.state.kind === 'unbilled')).length;
+    const left = rows.length - done - noshow;
     // Cümle güne göre değişiyor: "bitti / kaldı" bugünün ölçüsü. Geçmiş günde
     // kalan iş yok, gelecek günde bitmiş iş yok — ikisinde de o cümle yalan.
     const subtitle = `${formatDayMonth(dateISO)} · ${
@@ -156,7 +160,7 @@ export default function Today() {
                 : rows.length === 0
             ? 'randevu yok'
             : isToday
-                ? `${done} iş bitti, ${left} kaldı`
+                ? [`${done} iş bitti`, noshow > 0 ? `${noshow} gelmedi` : null, `${left} kaldı`].filter(Boolean).join(', ')
                 : dateISO < today
                     ? `${rows.length} iş yapıldı`
                     : `${rows.length} randevu`

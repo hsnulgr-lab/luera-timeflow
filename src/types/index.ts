@@ -122,7 +122,7 @@ export interface Settings {
     loyaltyReward?: string;      // Ödül metni (vars. "Ücretsiz hizmet")
     rebookEnabled?: boolean;     // Sıradaki randevu otomasyonu açık mı
     rebookNote?: string;         // Teşvik satırı (ör. "%10 erken rezervasyon indirimi")
-    arrivalToleranceMin?: number; // Geç-kalma toleransı (dk) — sonrası 'Gelmedi' (vars. 120)
+    arrivalToleranceMin?: number; // "Gelmedi" eşiği (dk) — sonrası 'Gelmedi' (vars. 30, NO_SHOW_AFTER_MIN)
 }
 
 export interface Staff {

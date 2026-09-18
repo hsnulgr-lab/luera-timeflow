@@ -309,7 +309,10 @@ test('akışın okuması adisyonları kuruyor ve sağlayıcı onları akışa ve
     assert.match(day, /fetchServices\(\),/);
     assert.match(day, /fetchOrgSettings\('sector, business_name'\)/);
     assert.doesNotMatch(strip(read('mobile/src/lib/managerCash.ts')) + day, /settings\?\.services|'services'\)|, services,? sector/);
-    assert.match(source, /from\('services'\)\s*\.select\('id, name, duration, price, color'\)\s*\.eq\('organization_id', organizationId\)/);
+    // `tags` (076) okunuyor; kolon yoksa etiketsiz okumaya düşülüyor, katalog kapanmıyor.
+    assert.match(source, /from\('services'\)\s*\.select\(cols\)\s*\.eq\('organization_id', organizationId\)/);
+    assert.match(source, /await read\('id, name, duration, price, color, tags'\)/);
+    assert.match(source, /\(\{ data, error \} = await read\('id, name, duration, price, color'\)\);/);
     assert.match(day, /ticketsOf\(open\.rows, open\.payments, services, packagesEnabled\)/);
     assert.match(day, /tickets: \[\.\.\.grouped, \.\.\.singles\]/);
     assert.match(store, /tickets: data\.tickets,/);

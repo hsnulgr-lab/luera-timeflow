@@ -522,9 +522,9 @@ test('"gelmedi" türetimi WEB ile birebir — aynı müşteri iki yüzeyde ayrı
         status: 'confirmed', notes: null, arrived_at: null,
         customer_arrived_at: null, service_ended_at: null, info: null,
     };
-    // Randevu saati + tolerans (120 dk) geçmeden gelmemiş sayılmaz.
-    assert.equal(isNoShow(base, 11 * 60), false);
-    assert.equal(isNoShow(base, 12 * 60 + 1), true);
+    // Randevu saati + eşik (30 dk) geçmeden gelmemiş sayılmaz.
+    assert.equal(isNoShow(base, 10 * 60 + 30), false);
+    assert.equal(isNoShow(base, 10 * 60 + 31), true);
 
     // MÜŞTERİ SALONA GELDİYSE asla gelmemiş sayılmaz — koltuktaki müşteri
     // yanlış damgalanmasın.
@@ -534,9 +534,9 @@ test('"gelmedi" türetimi WEB ile birebir — aynı müşteri iki yüzeyde ayrı
     // İptal ayrı bir şeydir.
     assert.equal(isNoShow({ ...base, status: 'cancelled' }, 14 * 60), false);
 
-    // Tolerans salon ayarından gelir.
-    assert.equal(DEFAULT_ARRIVAL_TOLERANCE_MIN, 120);
-    assert.equal(isNoShow(base, 10 * 60 + 31, 30), true);
+    // Eşik 30 dk (2026-09-18) — müdürün akışıyla aynı sayı; salon ayarı gelirse o.
+    assert.equal(DEFAULT_ARRIVAL_TOLERANCE_MIN, 30);
+    assert.equal(isNoShow(base, 10 * 60 + 45, 60), false);
 });
 
 test('personelin gününden randevu verilince O PERSONEL sabitlenir', () => {

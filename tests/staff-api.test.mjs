@@ -205,8 +205,12 @@ test('ciro görünürlüğü ayara bağlı ve varsayılan KAPALI', () => {
 test('müşteri kartı finans DÖNDÜRMEZ', () => {
     // Kumandanın işi hizmet, finans değil.
     const cust = api.slice(api.indexOf("action === 'customer'"), api.indexOf("action === 'performance'"));
-    assert.ok(!/payments|treatment_plans|balance/.test(cust),
+    assert.ok(!/payments|balance|total_amount/.test(cust),
         'müşteri kartı borç/tahsilat sızdırmamalı');
+    // Paket HAKKI okunuyor (masaüstünde satılan paket), bedeli değil.
+    const plans = /from\('treatment_plans'\)\.select\('([^']+)'\)/.exec(cust);
+    assert.ok(plans, 'paketler treatment_plans\'tan');
+    assert.deepEqual(plans[1].split(', ').sort(), ['id', 'session_count', 'sessions_done', 'title']);
 });
 
 // ── Salon takvimi: personel BAKAR, dokunmaz ─────────────────────────────────

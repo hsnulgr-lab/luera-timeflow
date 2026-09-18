@@ -977,6 +977,58 @@ export function ServiceRow({ service, selected, onPress }: {
     );
 }
 
+/**
+ * Müdür 23 v2 · KAPALI hizmet satırı — randevu anı kartın sözünü tutuyor.
+ *
+ * Basılabilir DEĞİL: `Pressable` hiç sarmıyor ("disabled" bir düğme de değil
+ * — ölü kontrol yasağının ekran okuyucu karşılığı düz metin). Kırmızı zemin,
+ * KAPALI etiketi ve altında SEBEP: sebep satırı olmadan yasak keyfi görünür;
+ * müdür sebebi bilirse müşteriye açıklayabilir. Kart ile aynı kaynak
+ * (`eligibility.closedBy`), aynı kelime: kapalı.
+ */
+export function ClosedServiceRow({ service, reason }: { service: ServiceOption; reason: string }) {
+    const { c, dark } = useTheme();
+    return (
+        <View
+            accessible
+            accessibilityLabel={`${service.name}, kapalı. ${reason}.`}
+            style={{
+                flexDirection: 'row', alignItems: 'center', gap: M.rowGap,
+                minHeight: 56,
+                marginHorizontal: M.secX, marginBottom: M.serviceGap,
+                paddingHorizontal: M.servicePadX, paddingVertical: 10,
+                borderRadius: M.serviceRadius,
+                backgroundColor: dark ? 'rgba(224,114,114,0.10)' : 'rgba(201,64,64,0.07)',
+                borderWidth: 1, borderColor: c.bd,
+            }}
+        >
+            <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+                    <Text numberOfLines={1} style={{
+                        color: c.tx3, fontSize: M.rowName, fontFamily: font.bold, fontWeight: '700',
+                    }}>
+                        {service.name}
+                    </Text>
+                    <View style={{
+                        height: 22, paddingHorizontal: 8, borderRadius: 6, justifyContent: 'center',
+                        borderWidth: 1, borderColor: dark ? 'rgba(224,114,114,0.44)' : 'rgba(201,64,64,0.40)',
+                    }}>
+                        <Text style={{
+                            color: c.rd, fontSize: 10.5, fontFamily: font.extraBold, fontWeight: '800',
+                            letterSpacing: 10.5 * 0.1,
+                        }}>
+                            KAPALI
+                        </Text>
+                    </View>
+                </View>
+                <Text style={{ color: c.rd, fontSize: 12.5, fontFamily: font.medium, fontWeight: '500' }}>
+                    {reason}
+                </Text>
+            </View>
+        </View>
+    );
+}
+
 // ── Not · boş sonuç · nötr buton ────────────────────────────────────────────
 
 /**

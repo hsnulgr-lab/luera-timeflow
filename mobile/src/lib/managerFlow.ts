@@ -261,10 +261,15 @@ export function labelOf(kind: FlowKind): string {
 
 /**
  * Olmuş bitmiş olaylar soluk gösterilir; yapılacak bir şey kalmadı.
- * "Gelmedi" SOLUK DEĞİL: müdürün görmesi gereken bir şey.
+ *
+ * "Gelmedi" de artık yerleşmiş (2026-09-18): randevu 30. dakikada DÜŞÜYOR ve
+ * saatlerce büyüyen bir sayaçla akışta açık bir iş gibi durmuyor. Müdürün
+ * görmesi gereken şey satırın kendisi — kırmızı nokta ve kelime yerinde.
+ * Yalnız az önce elle basılan "Gelmedi" (5 sn "Geri al" penceresi) kartıyla
+ * durur; o pencere kapanınca o da iner.
  */
 export function isSettled(kind: FlowKind): boolean {
-    return kind === 'finished' || kind === 'paid' || kind === 'cancelled';
+    return kind === 'finished' || kind === 'paid' || kind === 'cancelled' || kind === 'noshow';
 }
 
 /**
@@ -477,6 +482,24 @@ export const FLOW_END = 'Bugünlük bu kadar';
  * Kartlar artık yalnız bunu söylüyor.
  */
 export const DEFAULT_ARRIVAL_TOLERANCE_MIN = 120;
+
+/**
+ * "Gelmedi" eşiği — randevu saatinden 30 dk sonra, müşteri gelmediyse
+ * randevu DÜŞER (2026-09-18, müdür kararı).
+ *
+ * Kural, bir iş değil: masaüstü (`src/lib/appointmentFlow.ts ·
+ * NO_SHOW_AFTER_MIN`) ve telefon aynı eşiği aynı anda hesaplıyor, sunucuya
+ * zamanlanmış bir iş eklenmiyor. "Düşmek" veritabanına yazılmıyor; düşen
+ * randevu akışta SOLUK bir satıra iner (`isSettled`). Müşteri sonradan
+ * gelirse randevu kartındaki "Geldi" onu düzeltir — geldi damgası her zaman
+ * yener.
+ *
+ * 120'lik tolerans AYRI bir kural olarak duruyor: geçmişe en fazla ne kadar
+ * geriye randevu yazılabileceği (şimdi gelen müşteriyi geç kaydetmek). İki
+ * kural aynı sayıyı paylaşıyordu; eşik 30'a inince "40 dk önce gelen
+ * müşteriyi kaydet" de kapanırdı.
+ */
+export const NO_SHOW_AFTER_MIN = 30;
 
 /** Eski ad — yeni kod `DEFAULT_ARRIVAL_TOLERANCE_MIN` kullanıyor. */
 export const LATE_LIMIT_MINUTES = DEFAULT_ARRIVAL_TOLERANCE_MIN;

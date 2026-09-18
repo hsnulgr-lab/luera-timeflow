@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { apptPhase, DEFAULT_ARRIVAL_TOLERANCE_MIN } from '@/lib/appointmentFlow';
+import { apptPhase, NO_SHOW_AFTER_MIN } from '@/lib/appointmentFlow';
 import { Search, CheckCircle2, XCircle, Clock, Trash2, Edit2, MessageCircle, MoreHorizontal, Plus, Stethoscope, ChevronDown, History } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { useLabels } from '@/hooks/useLabels';
@@ -57,8 +57,8 @@ function initials(name: string) {
 export const ReservationsPage = () => {
   const { reservations, updateReservation, deleteReservation, settings } = useReservations();
   const { t, sector } = useLabels();
-  // Geç-kalma toleransı (dk) — Ayarlar'dan gelirse onu kullan, yoksa varsayılan 2s
-  const toleranceMin = settings.arrivalToleranceMin ?? DEFAULT_ARRIVAL_TOLERANCE_MIN;
+  // "Gelmedi" eşiği (dk) — Ayarlar'dan gelirse onu kullan, yoksa 30 dk
+  const toleranceMin = settings.arrivalToleranceMin ?? NO_SHOW_AFTER_MIN;
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { dark } = useTheme();

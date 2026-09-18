@@ -72,6 +72,8 @@ export interface CatalogService {
     /** Dakika. */
     duration?: number;
     color?: string;
+    /** Uygunluk etiketleri (076): `lazer`, `medikal`… Kapalı hizmet kararı bunlarla. */
+    tags?: string[];
 }
 
 // ── Katalog ─────────────────────────────────────────────────────────────────
@@ -110,6 +112,9 @@ export function catalogOf(raw: unknown): CatalogService[] {
             price: Number.isFinite(price) ? price : undefined,
             duration: Number.isFinite(duration) && duration > 0 ? duration : undefined,
             color: typeof row.color === 'string' && row.color ? row.color : undefined,
+            ...(Array.isArray(row.tags)
+                ? { tags: row.tags.filter((tag): tag is string => typeof tag === 'string' && tag.length > 0) }
+                : null),
         });
     }
     return out;

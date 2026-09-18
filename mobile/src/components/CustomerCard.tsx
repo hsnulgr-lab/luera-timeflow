@@ -1,37 +1,53 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-    Animated, Pressable, Text, View,
+    Animated, Easing, Pressable, ScrollView, Text, View,
+    type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Num } from './ui';
 import { feedback } from '../lib/feedback';
-import { upperTR } from '../lib/text';
 import {
-    displayPhone, dialPhone, hangRisk, heroGrows, heroWarns, historyEmpty,
-    monogramOf, nameLines, customerPlates, trayReminder, upcomingSub,
-    NOTES_EMPTY, TRAY_MAIN, TRAY_GHOST,
-    type CustomerCard as CustomerCardType, type CustomerPlate, type CustomerUpcoming,
+    displayPhone, formatTRY, nameLines,
+    type CustomerCard as CustomerCardType,
 } from '../lib/customerCard';
-import {
-    ChromeRow, HeroGlass, HeroGradient, HistoryEmptyBlock, HistoryRow,
-    Monogram, NoteRow, Plates, Section, WarnRow, usePlateEntry, useWarnEntry,
-} from './CustomerParts';
-import {
-    customerHero, customerMetrics, customerMotion, font, panelInk, radius, useTheme,
-} from '../theme';
+import { font, onAccent, useTheme } from '../theme';
 
 /**
- * Müdür 23 — Müşteri kartı.
+ * Müdür 23 v2 — Müşteri kartı, sıfırdan.
  *
- * Ekran tek bir soruya cevap verir: "bu müşteri kim ve ona nasıl davranmalıyım?"
- * Kimlik baş harflerden gelir; fotoğraf yok, yer tutucu yok.
+ * Kart bir belge değil, bir CEVAP. İlk sorusu: bu hizmeti bu kişiye verebilir
+ * miyim? v1'in kahraman alanı 852 pt'lik ekranda ~440 pt harcıyor ve
+ * karşılığında ad, telefon ve tek satır uyarı veriyordu. v2'de kimlik 123
+ * pt'lik bir başlık: gradyan yok, monogram yok. Kazanılan yer iki soruya
+ * gidiyor — bu kişide bilmem gereken ne var, bu kişiye ne veremem.
  *
- * Kahraman alan uygulamanın TEK gradyanını taşır.
- * Toplanma: scrollY.interpolate ile 0 · 24 · 32 · 48 · 64 eşiklerinde.
+ * ── Risk bir BLOK, borç bir SATIR ───────────────────────────────────────────
+ * Risk kartın en üstünde, kendi yüzeyi, 4 pt kırmızı omurgası ve kapalı
+ * hizmetleri taşıyan alt bölmesiyle. Borç Hesap bölümünde bir satır: yüzey
+ * yok, omurga yok. Para kaybı geri alınabilir, zarar geri alınamaz.
  *
- * Kaynak: `docs/design-reference/Luera Mobil - Mudur 23 Musteri Karti.html`.
+ * ── Ölü kontrol sayımı: sıfır ───────────────────────────────────────────────
+ * Her hedef bir yere gidiyor: Ara · WhatsApp (çubukta) · yaklaşan randevu
+ * satırı → randevu kartı · Randevu ver · Not ekle/düzenle → not sayfası ·
+ * Tüm geçmişi aç → geçmiş listesi. Tahsilat YOK: para tek yerde, Kasa'da.
+ *
+ * ── Müdür 35 · iki kapı ─────────────────────────────────────────────────────
+ * • "Randevu ver" kimliğin ve risk bloğunun HEMEN ALTINDA, 48 pt, kartın tek
+ *   dolu turuncu yüzeyi: kaydırmasız, yaklaşan randevu olsun olmasın aynı
+ *   yerde. Müdür düğmeye basmadan önce neyin kapalı olduğunu okumuş olur.
+ * • "Paket sat" Hesap bölümünün eylemi — yalnız güzellik/kuaför (masaüstü de
+ *   çekmeceyi yalnız orada açıyor).
+ *
+ * ── Borç: müşterinin toplamı DEĞİL, paketin kendi kalanı ────────────────────
+ * Tasarım (A3) ayrı bir "borç" satırı çiziyor. Masaüstünün toplam formülü
+ * (`patientBalance.ts`) salonda serbest hizmet ödemesini de paket borcundan
+ * düşüyor — 500 ₺'lik saç kesimi 9.000 ₺'lik ödenmemiş paketi 8.500 ₺ gösterir.
+ * Kullanıcı kararı (2026-09-18): her paket satırı KENDİ kalanını söyler
+ * (bedel − o pakete bağlı tahsilat). Toplam borç satırı ve "Borç yok" YOK.
+ *
+ * Kaynak: `Downloads/123/Luera Mobil - Mudur 23 Musteri Karti v2.html` ·
+ * `Downloads/finalssooo/A-paket-sat.html`.
  */
 
 export interface CustomerCardProps {
@@ -40,628 +56,762 @@ export interface CustomerCardProps {
     onCall?: () => void;
     onWhatsApp?: () => void;
     onBook?: () => void;
-    onAddNote?: () => void;
-    onOpenHistoryAll?: () => void;
-    onOpenPlate?: (key: CustomerPlate['key']) => void;
-    onChangeUpcoming?: (upcoming: CustomerUpcoming) => void;
+    /** Yaklaşan randevu satırı → Müdür 25 randevu kartı. */
+    onOpenUpcoming?: (id: string) => void;
+    /** Not sayfası — ham metni düzenler. */
+    onEditNote?: () => void;
+    onOpenHistory?: () => void;
+    /** Müdür 35 · Paket sat sayfası. */
+    onSellPackage?: () => void;
+    /**
+     * Son satışın izi: yeni satır bir kez belirir; yazılamadıysa sebep ve
+     * "Yeniden dene". Onay mesajı YOK — satırın kendisi onay.
+     */
+    sale?: { freshPlanId: string | null; failure: string | null; retrying: boolean };
+    onRetrySale?: () => void;
 }
+
+/** Hareket sözlüğü — tasarımın "Hareket" tablosu. */
+const EASE = Easing.bezier(0.215, 0.61, 0.355, 1);
+const RISK_IN = { ms: 180, delay: 60, lift: 8 };
+const CHIP_IN = { ms: 140, delays: [50, 90], lift: 6 };
+const TITLE_FADE_MS = 140;
 
 export function CustomerCard({
-    card,
-    onBack,
-    onCall,
-    onWhatsApp,
-    onBook,
-    onAddNote,
-    onOpenHistoryAll,
-    onOpenPlate,
-    onChangeUpcoming,
+    card, onBack, onCall, onWhatsApp, onBook, onOpenUpcoming, onEditNote, onOpenHistory,
+    onSellPackage, sale, onRetrySale,
 }: CustomerCardProps) {
-    const { c, reduceMotion, small } = useTheme();
+    const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
 
-    const scrollY = useRef(new Animated.Value(0)).current;
-
-    const initials = useMemo(() => monogramOf(card.name), [card.name]);
     const { given, family } = useMemo(() => nameLines(card.name), [card.name]);
     const phone = useMemo(() => displayPhone(card), [card]);
-    const rawPhone = useMemo(() => dialPhone(card), [card]);
-    const warns = useMemo(() => heroWarns(card), [card]);
-    const hasRisk = warns.some((w) => w.kind === 'risk');
-    const grows = heroGrows(card);
-    const plates = useMemo(() => customerPlates(card, small), [card, small]);
-    const reminder = useMemo(() => trayReminder(card), [card]);
-    const riskText = useMemo(() => hangRisk(card), [card]);
-    const isRiskyHang = Boolean(riskText);
+    const flags = card.flags ?? [];
+    const closed = card.closed ?? [];
+    const fields = card.fields ?? [];
+    const packages = card.packages ?? [];
+    const visits = card.visitCount ?? 0;
 
-    // Kahraman alan yüksekliği ANİMASYONLU DEĞİL: mount yerleşimi.
-    const heroHeight = grows
-        ? (small ? customerMetrics.heroHeightWarnSmall : customerMetrics.heroHeightWarn)
-        : (small ? customerMetrics.heroHeightSmall : customerMetrics.heroHeight);
+    // ── Kaydırınca çubuk başlığı ────────────────────────────────────────────
+    // Kimlik bloğunun alt kenarı çubuğun altına geçince ad çubukta belirir.
+    // 8 pt histerezis: sınırda titremez.
+    const [identityBottom, setIdentityBottom] = useState(0);
+    const [scrolled, setScrolled] = useState(false);
+    const titleFade = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        Animated.timing(titleFade, {
+            toValue: scrolled ? 1 : 0,
+            duration: reduceMotion ? 0 : TITLE_FADE_MS,
+            easing: Easing.linear,
+            useNativeDriver: true,
+        }).start();
+    }, [scrolled, reduceMotion, titleFade]);
+    const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (identityBottom <= 0) return;
+        const y = event.nativeEvent.contentOffset.y;
+        if (!scrolled && y > identityBottom + 4) setScrolled(true);
+        else if (scrolled && y < identityBottom - 4) setScrolled(false);
+    };
 
-    const hangHeight = isRiskyHang ? customerMetrics.hangHeightRisk : customerMetrics.hangHeight;
+    // ── Risk bloğu girişi: bir kez, nabız yok ───────────────────────────────
+    const riskIn = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+    const chipIn = useRef([0, 1].map(() => new Animated.Value(reduceMotion ? 1 : 0))).current;
+    useEffect(() => {
+        if (reduceMotion || flags.length === 0) {
+            riskIn.setValue(1);
+            chipIn.forEach((value) => value.setValue(1));
+            return;
+        }
+        Animated.parallel([
+            Animated.timing(riskIn, {
+                toValue: 1, duration: RISK_IN.ms, delay: RISK_IN.delay, easing: EASE, useNativeDriver: true,
+            }),
+            ...chipIn.map((value, index) => Animated.timing(value, {
+                toValue: 1,
+                duration: CHIP_IN.ms,
+                delay: RISK_IN.delay + CHIP_IN.delays[index],
+                easing: EASE,
+                useNativeDriver: true,
+            })),
+        ]).start();
+    // Kart bellekte kalıyor; blok dönüşte yeniden OYNAMAZ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const collapse = customerMotion.collapse; // [0, 24, 32, 48, 64]
+    const riskFill = dark ? 'rgba(224,114,114,0.10)' : 'rgba(201,64,64,0.07)';
+    const riskEdge = dark ? 'rgba(224,114,114,0.30)' : 'rgba(201,64,64,0.30)';
+    const riskDivider = dark ? 'rgba(224,114,114,0.22)' : 'rgba(201,64,64,0.20)';
+    const chipEdge = dark ? 'rgba(224,114,114,0.44)' : 'rgba(201,64,64,0.40)';
 
-    // 0→24 tam · 24→32 kroma ve telefon söner
-    const chromeOpacity = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [1, 1, 0, 0, 0],
-        extrapolate: 'clamp',
-    });
+    const riskSpeech = flags.length > 0
+        ? [
+            'Uyarı, hizmet kapalı.',
+            ...flags.map((flag) => (flag.note ? `${flag.label}, ${flag.note}.` : `${flag.label}.`)),
+            closed.length > 0 ? `Bu müşteriye verilemez: ${closed.join(', ')}.` : '',
+        ].filter(Boolean).join(' ')
+        : '';
 
-    // 32→48 isim ve monogram söner + translateY 0→-10
-    const identityOpacity = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [1, 1, 1, 0, 0],
-        extrapolate: 'clamp',
-    });
+    const metrics = [
+        card.frequency ? { label: 'SIKLIK', value: card.frequency, num: false } : null,
+        card.totalPaid != null && visits > 0
+            ? { label: 'TOPLAM ÖDENEN', value: `₺${formatTRY(card.totalPaid)}`, num: true }
+            : null,
+        card.topService ? { label: 'EN ÇOK', value: card.topService, num: false } : null,
+    ].filter((cell): cell is { label: string; value: string; num: boolean } => cell !== null);
 
-    const identityTranslateY = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [0, 0, 0, -customerMotion.collapseLift, -customerMotion.collapseLift],
-        extrapolate: 'clamp',
-    });
-
-    // 48→64 levhalar YALNIZ söner (kaymaz, sınırın üstündeki yer sabittir)
-    const platesOpacity = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [1, 1, 1, 1, 0],
-        extrapolate: 'clamp',
-    });
-
-    // 48→64 asılı cam levha girer: translateY -hangHeight→0, opacity 0→1
-    const hangOpacity = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [0, 0, 0, 0, 1],
-        extrapolate: 'clamp',
-    });
-
-    const hangTranslateY = scrollY.interpolate({
-        inputRange: [collapse[0], collapse[1], collapse[2], collapse[3], collapse[4]],
-        outputRange: [-hangHeight, -hangHeight, -hangHeight, -hangHeight, 0],
-        extrapolate: 'clamp',
-    });
-
-    const plateEntry = usePlateEntry(reduceMotion);
-    const warnEntry = useWarnEntry(hasRisk, reduceMotion);
-
-    return (
-        <View style={{ flex: 1, backgroundColor: c.bg }}>
-            {/* Toplanmış asılı cam levha — mutlak üst katman */}
-            <HangingBar
-                card={card}
-                onBack={onBack}
-                onCall={rawPhone && onCall ? onCall : undefined}
-                hangOpacity={hangOpacity}
-                hangTranslateY={hangTranslateY}
-            />
-
-            <Animated.ScrollView
-                showsVerticalScrollIndicator={false}
-                scrollEventThrottle={16}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                    { useNativeDriver: true },
-                )}
-                contentContainerStyle={{ flexGrow: 1 }}
-            >
-                {/* ══ KAHRAMAN ALAN ══ */}
-                <View style={{
-                    height: heroHeight,
-                    position: 'relative',
-                }}>
-                    <HeroGradient radiusBottom={customerMetrics.heroRadius} />
-
-                    {/*
-                      Akış katmanı. Dolgu kahraman alanın KENDİSİNE değil bu
-                      iç kaba verilir: mutlak konumlu levhalar ve gradyan,
-                      alanın gerçek kenarlarına göre yerleşsin diye.
-                    */}
-                    <View style={{
-                        flex: 1,
-                        paddingTop: Math.max(insets.top, small ? 20 : 59),
-                        paddingHorizontal: customerMetrics.padX,
-                        paddingBottom: customerMetrics.heroPadBottom,
-                    }}>
-
-                        {/* Kroma satırı — toplanmada 24→32 söner */}
-                        <Animated.View style={{ opacity: chromeOpacity }}>
-                            <ChromeRow
-                                onBack={onBack}
-                                onCall={rawPhone && onCall ? onCall : undefined}
-                                onWhatsApp={rawPhone && onWhatsApp ? onWhatsApp : undefined}
-                            />
-                        </Animated.View>
-
-                        {/* İsim ve telefon bloğu — toplanmada 32→48 söner ve yukarı kayar */}
-                        <Animated.View style={{
-                            marginTop: 'auto',
-                            maxWidth: small ? customerMetrics.nameWidthSmall : customerMetrics.nameWidth,
-                            opacity: identityOpacity,
-                            transform: [{ translateY: identityTranslateY }],
-                        }}>
-                            {given ? (
-                                <Text numberOfLines={1} style={{
-                                    color: customerHero.ink2,
-                                    fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                                    lineHeight: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                                    fontFamily: font.medium,
-                                    fontWeight: '500',
-                                    letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
-                                }}>
-                                    {given}
-                                </Text>
-                            ) : null}
-                            <Text numberOfLines={1} style={{
-                                color: customerHero.ink,
-                                fontSize: small ? customerMetrics.nameTextSmall : customerMetrics.nameText,
-                                lineHeight: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * 1.06,
-                                fontFamily: font.extraBold,
-                                fontWeight: '800',
-                                letterSpacing: (small ? customerMetrics.nameTextSmall : customerMetrics.nameText) * -0.03,
-                            }}>
-                                {family}
-                            </Text>
-                            {phone ? (
-                                <Num size={customerMetrics.phoneText} style={{
-                                    marginTop: customerMetrics.phoneTop,
-                                    color: customerHero.ink3,
-                                    fontFamily: font.semiBold,
-                                    fontWeight: '600',
-                                }}>
-                                    {phone}
-                                </Num>
-                            ) : null}
-                        </Animated.View>
-
-                        {/* Risk / Borç satırları */}
-                        {warns.map((w, idx) => (
-                            <WarnRow
-                                key={`${w.kind}-${idx}`}
-                                warn={w}
-                                entering={w.kind === 'risk' ? warnEntry : undefined}
-                            />
-                        ))}
-
-                    </View>
-
-                    {/*
-                      Monogram — akış katmanının DIŞINDA: sağ 18 / üst 116
-                      kahraman alanın kendi kenarlarından ölçülür, dolgu
-                      üzerine ikinci kez binmesin diye.
-                    */}
-                    <Monogram
-                        initials={initials}
-                        style={{
-                            opacity: identityOpacity,
-                            transform: [{ translateY: identityTranslateY }],
-                        }}
-                    />
-
-                    {/* İki Levha — sınırın üstünde, toplanmada 48→64 yalnız söner */}
-                    <Plates
-                        plates={plates}
-                        entry={plateEntry}
-                        onOpen={onOpenPlate}
-                        opacity={platesOpacity}
-                    />
-                </View>
-
-                {/* ══ İÇERİK — sakin, koyu, camsız ══ */}
-                <View style={{
-                    paddingTop: customerMetrics.contentTop,
-                    paddingBottom: 24,
-                }}>
-                    {/* Gömülü krem kart (yaklaşan randevu) */}
-                    {card.upcoming ? (
-                        <UpcomingEmbedCard
-                            upcoming={card.upcoming}
-                            onChange={onChangeUpcoming}
-                        />
-                    ) : null}
-
-                    {/* Son İşlemler */}
-                    <Section
-                        label="Son İşlemler"
-                        action={card.history.length > 0 ? 'Tümü' : undefined}
-                        onAction={card.history.length > 0 ? onOpenHistoryAll : undefined}
-                    />
-                    {card.history.length > 0 ? (
-                        card.history.map((row, idx) => (
-                            <HistoryRow key={row.id || String(idx)} row={row} first={idx === 0} />
-                        ))
-                    ) : (
-                        <HistoryEmptyBlock
-                            title={historyEmpty().title}
-                            hint={historyEmpty().hint}
-                        />
-                    )}
-
-                    {/* Notlar */}
-                    <Section label="Notlar" />
-                    {card.notes.length > 0 ? (
-                        card.notes.map((note, idx) => (
-                            <NoteRow key={String(idx)} text={note} first={idx === 0} />
-                        ))
-                    ) : (
-                        <NoteRow text={NOTES_EMPTY} quiet first />
-                    )}
-                </View>
-            </Animated.ScrollView>
-
-            {/* ══ ALT EYLEM ÇUBUĞU — BAŞPARMAK BÖLGESİ (Hiç toplanmaz) ══ */}
-            <View style={{
-                paddingTop: customerMetrics.trayPadTop,
-                paddingHorizontal: customerMetrics.padX,
-                paddingBottom: Math.max(insets.bottom, customerMetrics.trayPadBottom),
-                borderTopWidth: 1,
-                borderTopColor: c.bd,
-                backgroundColor: c.bg,
-                gap: customerMetrics.trayGap,
-            }}>
-                {reminder ? (
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                    }}>
-                        <View style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: 7,
-                            backgroundColor: c.am,
-                        }} />
-                        <Text numberOfLines={1} style={{
-                            flex: 1,
-                            color: c.am,
-                            fontSize: customerMetrics.trayRemind,
-                            fontFamily: font.semiBold,
-                            fontWeight: '600',
-                            lineHeight: customerMetrics.trayRemind * 1.3,
-                        }}>
-                            {reminder}
-                        </Text>
-                    </View>
-                ) : null}
-
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                }}>
-                    {onAddNote ? (
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={TRAY_GHOST}
-                            hitSlop={6}
-                            onPress={() => { feedback.selection(); onAddNote(); }}
-                            style={({ pressed }) => ({
-                                height: customerMetrics.trayMainHeight,
-                                paddingHorizontal: 4,
-                                justifyContent: 'center',
-                                opacity: pressed ? 0.6 : 1,
-                            })}
-                        >
-                            <Text style={{
-                                color: c.tx2,
-                                fontSize: customerMetrics.trayGhost,
-                                fontFamily: font.bold,
-                                fontWeight: '700',
-                            }}>
-                                {TRAY_GHOST}
-                            </Text>
-                        </Pressable>
-                    ) : null}
-
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={TRAY_MAIN}
-                        hitSlop={2}
-                        onPress={() => { feedback.selection(); onBook?.(); }}
-                        style={({ pressed }) => ({
-                            flex: 1,
-                            height: customerMetrics.trayMainHeight,
-                            borderRadius: radius.pill,
-                            backgroundColor: c.or,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: pressed ? 0.85 : 1,
-                        })}
-                    >
-                        <Text style={{
-                            color: '#FFFFFF',
-                            fontSize: customerMetrics.trayMainText,
-                            fontFamily: font.extraBold,
-                            fontWeight: '800',
-                            letterSpacing: customerMetrics.trayMainText * -0.01,
-                        }}>
-                            {TRAY_MAIN}
-                        </Text>
-                    </Pressable>
-                </View>
-            </View>
-        </View>
-    );
-}
-
-// ── Gömülü Kart: Yaklaşan Randevu ───────────────────────────────────────────
-
-function UpcomingEmbedCard({
-    upcoming,
-    onChange,
-}: {
-    upcoming: CustomerUpcoming;
-    onChange?: (upcoming: CustomerUpcoming) => void;
-}) {
-    const { c, dark } = useTheme();
-    // Koyu temada krem kart (#FAF3E9 / #0E0E0E), aydınlık temada tersine döner (#1C1710 / #F3EDE3)
-    const ink = dark ? panelInk.dark : panelInk.light;
+    const canSell = Boolean(card.canSellPackage && onSellPackage);
+    const failure = sale?.failure ?? null;
+    const hasAccount = packages.length > 0 || canSell || Boolean(failure);
 
     return (
-        <View style={{
-            marginHorizontal: customerMetrics.padX,
-            marginBottom: 6,
-            borderRadius: customerMetrics.embedRadius,
-            backgroundColor: ink.panel,
-            overflow: 'hidden',
-        }}>
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+            {/* ── Kabuk çubuğu — opak, camsız ────────────────────────────── */}
             <View style={{
+                height: 44,
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: customerMetrics.embedGap,
-                padding: customerMetrics.embedPadding,
+                gap: 8,
+                paddingLeft: 4,
+                paddingRight: 10,
+                backgroundColor: c.bg,
             }}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 7,
-                    }}>
-                        <View style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: 7,
-                            backgroundColor: c.or,
-                        }} />
-                        <Text style={{
-                            color: ink.ink2,
-                            fontSize: customerMetrics.embedLabel,
-                            fontFamily: font.bold,
-                            fontWeight: '700',
-                            letterSpacing: customerMetrics.embedLabel * 0.06,
-                        }}>
-                            {upperTR('Yaklaşan Randevu')}
-                        </Text>
-                    </View>
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Geri"
+                    onPress={() => { feedback.selection(); onBack(); }}
+                    style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+                >
+                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                        <Path d="M15 5l-7 7 7 7" stroke={c.tx} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                </Pressable>
+                <Animated.Text
+                    numberOfLines={1}
+                    importantForAccessibility="no"
+                    style={{
+                        flex: 1,
+                        minWidth: 0,
+                        opacity: titleFade,
+                        color: c.tx,
+                        fontSize: 15.5,
+                        fontFamily: font.extraBold,
+                        fontWeight: '800',
+                        letterSpacing: 15.5 * -0.02,
+                    }}
+                >
+                    {card.name}
+                </Animated.Text>
+                {/* Telefon yoksa haplar HİÇ çizilmez; yokluğu kimlik söylüyor. */}
+                {phone && onCall ? <Tap label="Ara" onPress={onCall} /> : null}
+                {phone && onWhatsApp ? <Tap label="WhatsApp" onPress={onWhatsApp} /> : null}
+                {/* Alt kenarlık ayrı bir katman olarak solar — renk animasyonu yok. */}
+                <Animated.View
+                    pointerEvents="none"
+                    style={{
+                        position: 'absolute', left: 0, right: 0, bottom: 0, height: 1,
+                        backgroundColor: c.bd, opacity: titleFade,
+                    }}
+                />
+            </View>
 
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'baseline',
-                        gap: 5,
-                        height: customerMetrics.embedHeroHeight,
-                        marginTop: 2,
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={onScroll}
+                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 8 }}
+            >
+                {/* ── Kimlik ───────────────────────────────────────────────── */}
+                <View
+                    onLayout={(event) => {
+                        const { y, height } = event.nativeEvent.layout;
+                        setIdentityBottom(y + height);
+                    }}
+                    accessible
+                    accessibilityLabel={[card.name, phone ?? 'telefon yok', card.since].filter(Boolean).join(', ')}
+                    style={{ paddingTop: 6, paddingHorizontal: 16, paddingBottom: 13, gap: 3 }}
+                >
+                    <Text style={{
+                        color: c.tx,
+                        fontSize: 26,
+                        fontFamily: font.extraBold,
+                        fontWeight: '800',
+                        letterSpacing: 26 * -0.03,
+                        lineHeight: 26 * 1.1,
                     }}>
-                        <Num size={customerMetrics.embedHero} style={{
-                            color: ink.ink,
-                            fontFamily: font.extraBold,
-                            fontWeight: '800',
-                            letterSpacing: customerMetrics.embedHero * -0.03,
-                            lineHeight: customerMetrics.embedHeroHeight,
-                        }}>
-                            {upcoming.date}
-                        </Num>
-                        <Num size={customerMetrics.embedUnit} style={{
-                            color: ink.ink2,
-                            fontFamily: font.bold,
-                            fontWeight: '700',
-                        }}>
-                            {upcoming.time}
-                        </Num>
-                    </View>
-
-                    <Text numberOfLines={1} style={{
-                        color: ink.ink2,
-                        fontSize: customerMetrics.embedSub,
-                        fontFamily: font.medium,
-                        fontWeight: '500',
-                        lineHeight: customerMetrics.embedSub * 1.22,
-                        marginTop: 2,
-                    }}>
-                        {upcomingSub(upcoming)}
+                        {given ? (
+                            <Text style={{ color: c.tx2, fontFamily: font.medium, fontWeight: '500' }}>
+                                {given}{' '}
+                            </Text>
+                        ) : null}
+                        {family}
                     </Text>
+                    <Text style={{
+                        color: phone ? c.tx2 : c.tx3,
+                        fontSize: phone ? 13 : 12,
+                        fontFamily: font.semiBold,
+                        fontWeight: '600',
+                        fontVariant: ['tabular-nums'],
+                    }}>
+                        {phone ?? 'telefon yok'}
+                    </Text>
+                    {card.since ? (
+                        <Text style={{ color: c.tx3, fontSize: 12, fontFamily: font.semiBold, fontWeight: '600' }}>
+                            {card.since}
+                            {visits > 0 ? ` · ${visits} ziyaret` : ''}
+                        </Text>
+                    ) : null}
                 </View>
 
-                {onChange ? (
+                {/* ── Risk bloğu — okunmadan geçilemeyecek yerde ───────────── */}
+                {flags.length > 0 ? (
+                    <Animated.View
+                        accessible
+                        accessibilityLabel={riskSpeech}
+                        style={{
+                            marginTop: 1,
+                            marginHorizontal: 16,
+                            marginBottom: 14,
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: riskEdge,
+                            backgroundColor: riskFill,
+                            flexDirection: 'row',
+                            overflow: 'hidden',
+                            opacity: riskIn,
+                            transform: [{
+                                translateY: riskIn.interpolate({ inputRange: [0, 1], outputRange: [RISK_IN.lift, 0] }),
+                            }],
+                        }}
+                    >
+                        <View style={{ width: 4, backgroundColor: c.rd }} />
+                        <View style={{ flex: 1, minWidth: 0, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 11, gap: 9 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                                <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: c.rd }} />
+                                <Caps color={c.rd}>UYARI · HİZMET KAPALI</Caps>
+                            </View>
+                            {flags.map((flag) => (
+                                <View key={flag.label} style={{ gap: 2 }}>
+                                    <Text style={{
+                                        color: c.tx, fontSize: 15.5, fontFamily: font.extraBold, fontWeight: '800',
+                                        letterSpacing: 15.5 * -0.02, lineHeight: 15.5 * 1.2,
+                                    }}>
+                                        {flag.label}
+                                    </Text>
+                                    {flag.note ? (
+                                        <Text style={{
+                                            color: c.tx2, fontSize: 13, fontFamily: font.medium, fontWeight: '500',
+                                            lineHeight: 13 * 1.35,
+                                        }}>
+                                            {flag.note}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            ))}
+                            {closed.length > 0 ? (
+                                <>
+                                    <View style={{ height: 1, backgroundColor: riskDivider }} />
+                                    <View style={{ gap: 7 }}>
+                                        <Caps color={c.tx3}>BU MÜŞTERİYE VERİLEMEZ</Caps>
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                            {closed.map((label, index) => {
+                                                // Basamak yalnız ilk iki çipte; ötekiler ikinciye biner.
+                                                const value = chipIn[Math.min(index, 1)];
+                                                return (
+                                                    <Animated.View
+                                                        key={label}
+                                                        style={{
+                                                            height: 30,
+                                                            paddingHorizontal: 10,
+                                                            borderRadius: 8,
+                                                            borderWidth: 1,
+                                                            borderColor: chipEdge,
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            gap: 6,
+                                                            opacity: value,
+                                                            transform: [{
+                                                                translateY: value.interpolate({
+                                                                    inputRange: [0, 1], outputRange: [CHIP_IN.lift, 0],
+                                                                }),
+                                                            }],
+                                                        }}
+                                                    >
+                                                        <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                                                            <Path d="M6 6l12 12M18 6L6 18" stroke={c.rd} strokeWidth={3.4} strokeLinecap="round" />
+                                                        </Svg>
+                                                        <Text style={{
+                                                            color: c.tx, fontSize: 13, fontFamily: font.bold, fontWeight: '700',
+                                                        }}>
+                                                            {label}
+                                                        </Text>
+                                                    </Animated.View>
+                                                );
+                                            })}
+                                        </View>
+                                    </View>
+                                </>
+                            ) : null}
+                        </View>
+                    </Animated.View>
+                ) : null}
+
+                {/* ── Randevu ver — kimlik ve riskin altında, tek dolu turuncu ── */}
+                {onBook ? <BookButton onPress={onBook} /> : null}
+
+                {/* ── Yaklaşan randevu → randevu kartı ─────────────────────── */}
+                {card.upcoming ? (
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Yaklaşan randevuyu değiştir"
-                        hitSlop={4}
-                        onPress={() => { feedback.selection(); onChange(upcoming); }}
+                        accessibilityLabel={`Yaklaşan randevu, ${card.upcoming.date} ${card.upcoming.time}, ${card.upcoming.service}`}
+                        disabled={!card.upcomingId || !onOpenUpcoming}
+                        onPress={() => {
+                            if (!card.upcomingId || !onOpenUpcoming) return;
+                            feedback.selection();
+                            onOpenUpcoming(card.upcomingId);
+                        }}
                         style={({ pressed }) => ({
-                            height: customerMetrics.embedPillHeight,
-                            paddingHorizontal: customerMetrics.embedPillX,
-                            borderRadius: radius.pill,
-                            borderWidth: customerMetrics.embedPillBorder,
-                            borderColor: ink.ink,
+                            minHeight: 52,
+                            paddingVertical: 9,
+                            paddingHorizontal: 16,
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: pressed ? 0.7 : 1,
+                            gap: 11,
+                            borderTopWidth: 1,
+                            borderBottomWidth: 1,
+                            borderColor: c.bd,
+                            backgroundColor: pressed ? c.surf2 : 'transparent',
                         })}
                     >
-                        <Text style={{
-                            color: ink.ink,
-                            fontSize: customerMetrics.embedPillText,
-                            fontFamily: font.extraBold,
-                            fontWeight: '800',
-                            letterSpacing: customerMetrics.embedPillText * -0.01,
-                        }}>
-                            Değiştir
-                        </Text>
+                        <Dot color={c.or} />
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                            <Text style={{
+                                color: c.or, fontSize: 15, fontFamily: font.extraBold, fontWeight: '800',
+                                letterSpacing: 15 * -0.02, fontVariant: ['tabular-nums'],
+                            }}>
+                                {card.upcoming.date} · {card.upcoming.time}
+                            </Text>
+                            <Sub>
+                                {[card.upcoming.service, card.upcoming.staff ? `${card.upcoming.staff} ile` : null]
+                                    .filter(Boolean).join(' · ')}
+                            </Sub>
+                        </View>
+                        {card.upcomingId && onOpenUpcoming ? <Chevron color={c.tx3} /> : null}
                     </Pressable>
                 ) : null}
-            </View>
+
+                {/* ── Hesap: paketler; her satır kendi kalanını söyler (bkz. başlık) ── */}
+                {hasAccount ? (
+                    <>
+                        <SectionHead title="HESAP" />
+                        {failure ? (
+                            <>
+                                <FadeIn>
+                                    <View
+                                        accessible
+                                        accessibilityLiveRegion="polite"
+                                        accessibilityLabel={`Paket oluşturulamadı, ${failure}`}
+                                        style={{
+                                            minHeight: 52, paddingVertical: 9, paddingHorizontal: 16,
+                                            flexDirection: 'row', alignItems: 'center', gap: 11,
+                                        }}
+                                    >
+                                        <Dot color={c.rd} />
+                                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                                            <Title>Paket oluşturulamadı</Title>
+                                            <Text style={{
+                                                color: c.rd, fontSize: 12.5, fontFamily: font.medium, fontWeight: '500',
+                                                lineHeight: 12.5 * 1.3,
+                                            }}>
+                                                {failure}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </FadeIn>
+                                {onRetrySale ? (
+                                    <Act
+                                        label={sale?.retrying ? 'Deneniyor…' : 'Yeniden dene'}
+                                        onPress={() => { if (!sale?.retrying) onRetrySale(); }}
+                                        style={{ marginBottom: 10 }}
+                                    />
+                                ) : null}
+                            </>
+                        ) : null}
+                        {packages.map((pack, index) => {
+                            const left = Math.max(0, pack.total - pack.used);
+                            const owed = pack.owed != null && pack.owed > 0 ? pack.owed : null;
+                            const row = (
+                                <View
+                                    accessible
+                                    accessibilityLabel={[
+                                        pack.name,
+                                        `${left} seans kaldı`,
+                                        owed != null ? `${formatTRY(owed)} lira ödenmedi` : null,
+                                        pack.closedBy ? `kapalı, ${pack.closedBy}` : null,
+                                    ].filter(Boolean).join(', ')}
+                                    style={{
+                                        minHeight: 52, paddingVertical: 9, paddingHorizontal: 16,
+                                        flexDirection: 'row', alignItems: 'center', gap: 11,
+                                        borderTopWidth: index === 0 && !failure ? 0 : 1, borderColor: c.bd,
+                                    }}
+                                >
+                                    <Dot color={owed != null ? c.am : c.tx3} />
+                                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+                                            <Title>{pack.name}</Title>
+                                            {/* Parası ödenmiş bir hak: satır silinmiyor, KAPALI yazıyor. */}
+                                            {pack.closedBy ? <ClosedTag edge={chipEdge} /> : null}
+                                        </View>
+                                        <Sub>
+                                            {left} seans kaldı
+                                            {owed != null ? (
+                                                <Text style={{ color: c.am, fontFamily: font.semiBold, fontWeight: '600' }}>
+                                                    {` · ₺${formatTRY(owed)} ödenmedi`}
+                                                </Text>
+                                            ) : null}
+                                        </Sub>
+                                    </View>
+                                    <Amount>{pack.used}/{pack.total}</Amount>
+                                </View>
+                            );
+                            const key = pack.planId ?? `${pack.name}-${index}`;
+                            return pack.planId && pack.planId === sale?.freshPlanId
+                                ? <FadeIn key={key}>{row}</FadeIn>
+                                : <View key={key}>{row}</View>;
+                        })}
+                        {packages.some((pack) => pack.owed != null && pack.owed > 0) ? (
+                            <Quiet>Tahsilat Kasa’dan yapılır</Quiet>
+                        ) : null}
+                        {canSell && onSellPackage ? (
+                            <Act label="Paket sat" plus onPress={onSellPackage} style={{ marginTop: 6, marginBottom: 16 }} />
+                        ) : null}
+                    </>
+                ) : null}
+
+                {/* ── Sektör alanları — veri kadar hücre, sıfırsa başlık da yok ── */}
+                {fields.length > 0 ? (
+                    <>
+                        <SectionHead title="MÜŞTERİ BİLGİLERİ" />
+                        <View style={{
+                            flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 12,
+                            paddingTop: 3, paddingHorizontal: 16, paddingBottom: 14,
+                        }}>
+                            {fields.map((cell) => (
+                                <View key={cell.label} style={{ width: '47%', flexGrow: 1, gap: 2, minWidth: 0 }}>
+                                    <Caps color={c.tx3}>{cell.label.toLocaleUpperCase('tr-TR')}</Caps>
+                                    <Text style={{
+                                        color: c.tx, fontSize: 14.5, fontFamily: font.semiBold, fontWeight: '600',
+                                        letterSpacing: 14.5 * -0.01, lineHeight: 14.5 * 1.25,
+                                    }}>
+                                        {cell.value}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                ) : null}
+
+                {/* ── Notlar ───────────────────────────────────────────────── */}
+                <SectionHead title="NOTLAR" />
+                {card.notes.length > 0 ? (
+                    <View style={{ paddingTop: 2, paddingHorizontal: 16, paddingBottom: 12, gap: 8 }}>
+                        {card.notes.map((note, index) => (
+                            <Text key={index} style={{
+                                color: c.tx, fontSize: 14, fontFamily: font.medium, fontWeight: '500',
+                                lineHeight: 14 * 1.45,
+                            }}>
+                                {note}
+                            </Text>
+                        ))}
+                    </View>
+                ) : null}
+                {onEditNote ? (
+                    <Act
+                        label={card.notes.length > 0 ? 'Notu düzenle' : 'Not ekle'}
+                        plus={card.notes.length === 0}
+                        onPress={onEditNote}
+                        style={{ marginBottom: 16 }}
+                    />
+                ) : null}
+
+                {/* ── Geçmiş ───────────────────────────────────────────────── */}
+                <SectionHead title="GEÇMİŞ" count={visits > 0 ? `${visits} ziyaret` : undefined} />
+                {visits === 0 && card.history.length === 0 ? (
+                    <Quiet>Henüz ziyaret yok</Quiet>
+                ) : (
+                    <>
+                        {metrics.length > 0 ? (
+                            <View style={{ flexDirection: 'row', gap: 10, paddingTop: 2, paddingHorizontal: 16, paddingBottom: 12 }}>
+                                {metrics.map((cell) => (
+                                    <View key={cell.label} style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                                        <Caps color={c.tx3}>{cell.label}</Caps>
+                                        <Text numberOfLines={1} style={{
+                                            color: c.tx, fontSize: 15.5, fontFamily: font.extraBold, fontWeight: '800',
+                                            letterSpacing: 15.5 * -0.025,
+                                            fontVariant: cell.num ? ['tabular-nums'] : undefined,
+                                        }}>
+                                            {cell.value}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : null}
+                        {card.history.slice(0, 3).map((row, index) => (
+                            <View
+                                key={row.id || String(index)}
+                                accessible
+                                accessibilityLabel={`${row.service}, ${row.date}${row.staff ? `, ${row.staff} ile` : ''}, ${formatTRY(row.amount)} lira`}
+                                style={{
+                                    minHeight: 52, paddingVertical: 9, paddingHorizontal: 16,
+                                    flexDirection: 'row', alignItems: 'center', gap: 11,
+                                    borderTopWidth: 1, borderColor: c.bd,
+                                }}
+                            >
+                                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                                    <Title>{row.service}</Title>
+                                    <Sub numberOfLines={1}>
+                                        {[row.date, row.staff ? `${row.staff} ile` : null].filter(Boolean).join(' · ')}
+                                    </Sub>
+                                </View>
+                                <Amount>₺{formatTRY(row.amount)}</Amount>
+                            </View>
+                        ))}
+                        {/* Açılacak geçmiş yoksa düğme YOK — ölü olurdu. */}
+                        {visits > 0 && onOpenHistory ? (
+                            <Act label="Tüm geçmişi aç" onPress={onOpenHistory} style={{ marginTop: 8, marginBottom: 16 }} />
+                        ) : null}
+                    </>
+                )}
+            </ScrollView>
         </View>
     );
 }
 
-// ── Toplanmış Asılı Levha ───────────────────────────────────────────────────
+// ── Parçalar ────────────────────────────────────────────────────────────────
 
-function HangingBar({
-    card,
-    onBack,
-    onCall,
-    hangOpacity,
-    hangTranslateY,
-}: {
-    card: CustomerCardType;
-    onBack: () => void;
-    onCall?: () => void;
-    hangOpacity: Animated.AnimatedInterpolation<number>;
-    hangTranslateY: Animated.AnimatedInterpolation<number>;
+/**
+ * Yeni satır ve başarısızlık satırı: 40 ms sonra, 200 ms, yalnız opacity.
+ * Yükseklik animasyonlanmıyor — hiçbir şey aşağı kaymıyor (A3).
+ */
+function FadeIn({ children }: { children: ReactNode }) {
+    const { reduceMotion } = useTheme();
+    const value = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+    useEffect(() => {
+        if (reduceMotion) { value.setValue(1); return; }
+        Animated.timing(value, {
+            toValue: 1, duration: 200, delay: 40, easing: Easing.linear, useNativeDriver: true,
+        }).start();
+    // Bir kez: satır yeniden çizilince tekrar oynamaz.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return <Animated.View style={{ opacity: value }}>{children}</Animated.View>;
+}
+
+/** Müdür 35 · A4 — 48 pt, tam genişlik, kartın tek dolu turuncu yüzeyi. */
+function BookButton({ onPress }: { onPress: () => void }) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Randevu ver"
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={({ pressed }) => ({
+                marginTop: 8,
+                marginHorizontal: 16,
+                marginBottom: 14,
+                height: 48,
+                borderRadius: 12,
+                backgroundColor: c.or,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: pressed ? 0.92 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+        >
+            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                <Path d="M3 8a3 3 0 013-3h12a3 3 0 013 3v10a3 3 0 01-3 3H6a3 3 0 01-3-3V8zM8 3v4M16 3v4M3 11h18"
+                    stroke={onAccent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <Text style={{ color: onAccent, fontSize: 16, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 16 * -0.01 }}>
+                Randevu ver
+            </Text>
+        </Pressable>
+    );
+}
+
+/** Büyük harf METİN KATMANINDA — `textTransform` Türkçe i → İ'yi bozuyor. */
+function Caps({ children, color }: { children: ReactNode; color: string }) {
+    return (
+        <Text style={{
+            color, fontSize: 10.5, fontFamily: font.extraBold, fontWeight: '800',
+            letterSpacing: 10.5 * 0.14, lineHeight: 12,
+        }}>
+            {children}
+        </Text>
+    );
+}
+
+function SectionHead({ title, count }: { title: string; count?: string }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            flexDirection: 'row', alignItems: 'baseline', gap: 9,
+            paddingTop: 15, paddingHorizontal: 16, paddingBottom: 7,
+        }}>
+            <Caps color={c.tx3}>{title}</Caps>
+            {count ? (
+                <Text style={{
+                    marginLeft: 'auto', color: c.tx2, fontSize: 11.5, fontFamily: font.semiBold, fontWeight: '600',
+                    fontVariant: ['tabular-nums'],
+                }}>
+                    {count}
+                </Text>
+            ) : null}
+        </View>
+    );
+}
+
+function Title({ children }: { children: ReactNode }) {
+    const { c } = useTheme();
+    return (
+        <Text style={{
+            color: c.tx, fontSize: 15, fontFamily: font.semiBold, fontWeight: '600',
+            letterSpacing: 15 * -0.01, lineHeight: 15 * 1.25,
+        }}>
+            {children}
+        </Text>
+    );
+}
+
+function Sub({ children, numberOfLines }: { children: ReactNode; numberOfLines?: number }) {
+    const { c } = useTheme();
+    return (
+        <Text numberOfLines={numberOfLines} style={{
+            color: c.tx2, fontSize: 12.5, fontFamily: font.medium, fontWeight: '500', lineHeight: 12.5 * 1.3,
+        }}>
+            {children}
+        </Text>
+    );
+}
+
+/** Tutar hiç kırpılmaz: sayı kırpmak yalan üretir. */
+function Amount({ children }: { children: ReactNode }) {
+    const { c } = useTheme();
+    return (
+        <Text style={{
+            flexShrink: 0, color: c.tx, fontSize: 16, fontFamily: font.extraBold, fontWeight: '800',
+            letterSpacing: 16 * -0.02, fontVariant: ['tabular-nums'],
+        }}>
+            {children}
+        </Text>
+    );
+}
+
+function Quiet({ children }: { children: ReactNode }) {
+    const { c } = useTheme();
+    return (
+        <Text style={{
+            paddingTop: 4, paddingHorizontal: 16, paddingBottom: 10,
+            color: c.tx3, fontSize: 12.5, fontFamily: font.semiBold, fontWeight: '600',
+        }}>
+            {children}
+        </Text>
+    );
+}
+
+function Dot({ color }: { color: string }) {
+    return <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />;
+}
+
+function Chevron({ color }: { color: string }) {
+    return (
+        <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+            <Path d="M9 5l7 7-7 7" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+    );
+}
+
+function ClosedTag({ edge }: { edge: string }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            height: 22, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: edge,
+            justifyContent: 'center',
+        }}>
+            <Text style={{
+                color: c.rd, fontSize: 10.5, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 10.5 * 0.1,
+            }}>
+                KAPALI
+            </Text>
+        </View>
+    );
+}
+
+/** Kabuk çubuğundaki hap: 36 çizilir, `hitSlop` ile 44 dokunur. */
+function Tap({ label, onPress }: { label: string; onPress: () => void }) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            hitSlop={{ top: 4, bottom: 4 }}
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={({ pressed }) => ({
+                height: 36,
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: c.bd2,
+                backgroundColor: pressed ? c.surf2 : c.surf,
+                justifyContent: 'center',
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+        >
+            <Text style={{ color: c.tx, fontSize: 14, fontFamily: font.bold, fontWeight: '700', letterSpacing: 14 * -0.01 }}>
+                {label}
+            </Text>
+        </Pressable>
+    );
+}
+
+/** Bölüm eylemi — 44 pt, çerçeveli, nötr. */
+function Act({ label, plus = false, onPress, style }: {
+    label: string;
+    plus?: boolean;
+    onPress: () => void;
+    style?: { marginTop?: number; marginBottom?: number };
 }) {
     const { c } = useTheme();
-    const insets = useSafeAreaInsets();
-    const { given, family } = useMemo(() => nameLines(card.name), [card.name]);
-    const riskText = hangRisk(card);
-    const rawPhone = dialPhone(card);
-
     return (
-        <Animated.View
-            pointerEvents="box-none"
-            style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                top: 0,
-                zIndex: 10,
-                opacity: hangOpacity,
-                transform: [{ translateY: hangTranslateY }],
-            }}
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={({ pressed }) => ({
+                marginHorizontal: 16,
+                marginTop: style?.marginTop ?? 2,
+                marginBottom: style?.marginBottom ?? 6,
+                height: 44,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: c.bd2,
+                backgroundColor: pressed ? c.surf2 : c.surf,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
         >
-            <HeroGlass
-                kind="hang"
-                style={{
-                    borderBottomLeftRadius: customerMetrics.hangRadius,
-                    borderBottomRightRadius: customerMetrics.hangRadius,
-                    borderTopLeftRadius: 0,
-                    borderTopRightRadius: 0,
-                    borderBottomWidth: 1,
-                    paddingTop: Math.max(insets.top, 20) + customerMetrics.hangPadTop,
-                    paddingHorizontal: customerMetrics.padX,
-                    paddingBottom: customerMetrics.hangPadBottom,
-                    gap: customerMetrics.hangGap,
-                }}
-            >
-                <View style={{
-                    height: customerMetrics.hangRowHeight,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                }}>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Geri"
-                        hitSlop={4}
-                        onPress={() => { feedback.selection(); onBack(); }}
-                        style={({ pressed }) => ({
-                            width: customerMetrics.hangButton,
-                            height: customerMetrics.hangButton,
-                            borderRadius: radius.pill,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: customerMetrics.hangButtonFill,
-                            borderWidth: 1,
-                            borderColor: customerMetrics.hangButtonBorder,
-                            opacity: pressed ? 0.7 : 1,
-                        })}
-                    >
-                        <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke={customerHero.ink} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                            <Path d="M12 4l-6 6 6 6" />
-                        </Svg>
-                    </Pressable>
-
-                    <View style={{
-                        flex: 1,
-                        minWidth: 0,
-                        flexDirection: 'row',
-                        alignItems: 'baseline',
-                        gap: 6,
-                    }}>
-                        {given ? (
-                            <Text numberOfLines={1} style={{
-                                color: customerHero.ink2,
-                                fontSize: customerMetrics.hangName,
-                                fontFamily: font.medium,
-                                fontWeight: '500',
-                                letterSpacing: customerMetrics.hangName * -0.02,
-                            }}>
-                                {given}
-                            </Text>
-                        ) : null}
-                        <Text numberOfLines={1} style={{
-                            color: customerHero.ink,
-                            fontSize: customerMetrics.hangName,
-                            fontFamily: font.extraBold,
-                            fontWeight: '800',
-                            letterSpacing: customerMetrics.hangName * -0.02,
-                        }}>
-                            {family}
-                        </Text>
-                    </View>
-
-                    {rawPhone && onCall ? (
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Müşteriyi ara"
-                            hitSlop={4}
-                            onPress={() => { feedback.selection(); onCall(); }}
-                            style={({ pressed }) => ({
-                                width: customerMetrics.hangButton,
-                                height: customerMetrics.hangButton,
-                                borderRadius: radius.pill,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: customerMetrics.hangButtonFill,
-                                borderWidth: 1,
-                                borderColor: customerMetrics.hangButtonBorder,
-                                opacity: pressed ? 0.7 : 1,
-                            })}
-                        >
-                            <Svg width={18} height={18} viewBox="0 0 20 20" fill="none" stroke={customerHero.ink} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                                <Path d="M6.2 3.2h-2c-.7 0-1.2.6-1.1 1.3.3 3 1.6 5.8 3.7 7.9 2.1 2.1 4.9 3.4 7.9 3.7.7.1 1.3-.4 1.3-1.1v-2c0-.6-.4-1.1-1-1.2l-1.9-.3c-.5-.1-1 .1-1.3.5l-.7.9C9.3 12 8 10.7 7.1 9.1l.9-.7c.4-.3.6-.8.5-1.3L8.2 5.2c-.1-.6-.6-1-1.2-1z" />
-                            </Svg>
-                        </Pressable>
-                    ) : null}
-                </View>
-
-                {/* Risk satırı — Borç YOK, yalnız risk! */}
-                {riskText ? (
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        paddingBottom: 2,
-                    }}>
-                        <View style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: 7,
-                            backgroundColor: c.rd,
-                        }} />
-                        <Text style={{
-                            flex: 1,
-                            color: c.rd,
-                            fontSize: customerMetrics.hangRisk,
-                            fontFamily: font.bold,
-                            fontWeight: '700',
-                            lineHeight: customerMetrics.hangRisk * 1.25,
-                        }}>
-                            {riskText}
-                        </Text>
-                    </View>
-                ) : null}
-            </HeroGlass>
-        </Animated.View>
+            {plus ? (
+                <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                    <Path d="M12 5v14M5 12h14" stroke={c.tx} strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+            ) : null}
+            <Text style={{ color: c.tx, fontSize: 14.5, fontFamily: font.bold, fontWeight: '700', letterSpacing: 14.5 * -0.01 }}>
+                {label}
+            </Text>
+        </Pressable>
     );
 }
