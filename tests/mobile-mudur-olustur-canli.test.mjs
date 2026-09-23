@@ -268,8 +268,9 @@ test('defter: aktif müşteriler, 24 aylık geliş penceresi, sayfalı okuma', (
     assert.match(fn, /\.neq\('status', 'cancelled'\)[\s\S]*?\.gte\('date', since\)[\s\S]*?\.lte\('date', todayISO\)/);
     assert.equal((fn.match(/readAll\(/g) ?? []).length, 2);
     assert.match(source, /export const VISIT_WINDOW_DAYS = 730;/);
-    // Defter yarım dakikada bir çekilmiyor.
-    assert.match(hooks, /useManagerRead<CreateContext \| null>\(read, null, \{ poll: false \}\)/);
+    // Defter yarım dakikada bir çekilmiyor. (101'den sonra çağrıda tablo
+    // süzgeci de var; korunan şey yoklamanın KAPALI olması.)
+    assert.match(hooks, /useManagerRead<CreateContext \| null>\(read, null,\s*\{ poll: false,/);
 });
 
 test('ayarlar ada göre isteniyor — PIN taşıyan satırın tamamı değil', () => {

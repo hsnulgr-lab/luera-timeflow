@@ -12,7 +12,7 @@
  * çağırır.
  */
 
-import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
+import type { DaySchedule, SalonService } from './managerProfile.ts';
 import { mockServices } from './createFlow.ts';
 
 const LATENCY_MS = 220;
@@ -42,15 +42,7 @@ let SERVICES: SalonService[] = mockServices.map((service) => ({
     name: service.name,
     minutes: service.minutes,
     price: service.price ?? null,
-    color: service.color,
-}));
-
-let NOTIFY: Record<NotificationKey, boolean> = {
-    booked: true,
-    cancelled: true,
-    noshow: true,
-    daily: false,
-};
+    color: service.color }));
 
 /** Org başına KVKK aydınlatma metni adresi. Boşsa o satır HİÇ çizilmez. */
 let KVKK_URL: string | null = null;
@@ -67,10 +59,6 @@ export async function readServices(): Promise<SalonService[]> {
     return SERVICES.map((service) => ({ ...service }));
 }
 
-export async function readNotifications(): Promise<Record<NotificationKey, boolean>> {
-    await wait();
-    return { ...NOTIFY };
-}
 
 export async function readKvkkUrl(): Promise<string | null> {
     await wait();
@@ -115,14 +103,6 @@ export async function deleteService(id: string): Promise<SaveResult<SalonService
     return { ok: true, value: SERVICES.map((item) => ({ ...item })) };
 }
 
-export async function setNotification(
-    key: NotificationKey,
-    value: boolean,
-): Promise<SaveResult<Record<NotificationKey, boolean>>> {
-    await wait();
-    NOTIFY = { ...NOTIFY, [key]: value };
-    return { ok: true, value: { ...NOTIFY } };
-}
 
 // ── Hesap silme ─────────────────────────────────────────────────────────────
 
@@ -145,8 +125,7 @@ export async function readDeletionFacts(): Promise<DeletionFacts> {
         appointments: 312,
         customers: 148,
         services: SERVICES.length,
-        staff: ['Ece Yılmaz', 'Merve Ak'],
-    };
+        staff: ['Ece Yılmaz', 'Merve Ak'] };
 }
 
 /*

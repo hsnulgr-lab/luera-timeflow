@@ -188,7 +188,11 @@ test('"Burada çalışıyorum" bağlı telefonda kod İSTEMİYOR', () => {
 test('çıkış eşleşmeyi silmiyor; YALNIZ "telefonu çıkar" siliyor', () => {
     const clears = [...live.matchAll(/tokens\.clearDevice\(\)/g)].length;
     assert.equal(clears, 1, 'clearDevice tek yerde: unlinkDevice');
-    assert.match(live, /unlinkDevice: async \(\) => \{\s*await tokens\.clearDevice\(\);/);
+    // 103: arada bildirim aboneliğinin koparılması var; korunan şey
+    // `clearDevice`in YALNIZ bu akışta olması.
+    assert.match(live, /unlinkDevice: async \(\) => \{[\s\S]{0,400}await tokens\.clearDevice\(\);/);
+    assert.match(live, /unlinkDevice: async \(\) => \{[\s\S]{0,200}await unregisterPush\(\)/,
+        'cihaz koparılınca bildirim aboneliği de gider');
     assert.match(read('mobile/app/personel/profile.tsx'), /router\.replace\('\/\(auth\)\/staff\/pin'\);/);
     assert.match(read('mobile/app/(staff-flow)/account.tsx'), /router\.replace\(isManager \? '\/\(auth\)\/welcome' : '\/\(auth\)\/staff\/pin'\);/);
     assert.doesNotMatch(read('mobile/src/components/ProfileSheets.tsx'), /yeni bir bağlantı kodu/);

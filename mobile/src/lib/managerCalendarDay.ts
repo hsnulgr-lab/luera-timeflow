@@ -17,6 +17,7 @@ import { addDaysISO, weekDays, type Appt } from './calendar.ts';
 import { columnsFor, type CrewMember } from './managerMap.ts';
 import { presenceOf } from './presence.ts';
 import type { StaffPresence } from './managerFlow.ts';
+import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
     apiSource, fetchCrew, fetchDayWithStamps, fetchHoursRow, fetchLeave, fetchServerNow,
@@ -99,5 +100,5 @@ export function useManagerCalendarDay(dateISO: string): ManagerSnapshot<ManagerC
         return { rows, stamps, columns, unassigned, presence, onLeave, counts, open };
     }, [dateISO]);
 
-    return useManagerRead(read, EMPTY);
+    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });
 }

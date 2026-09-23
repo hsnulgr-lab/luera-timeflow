@@ -660,6 +660,33 @@ export interface HoursRow {
     stamp: string | null;
 }
 
+/** Bildirim tercihleri satırı — `HoursRow` ile aynı şekil (105). */
+export interface PrefsRow {
+    raw: unknown;
+    userId: string;
+    stamp: string | null;
+}
+
+/**
+ * Müdürün bildirim tercihleri satırı (105).
+ *
+ * `HoursRow` ile aynı şekil: ham değer + sahibin kimliği + damga. Damga
+ * iyimser kilit için — iki telefon aynı anda anahtar değiştirirse ikincisi
+ * `stale` alır ve okuduğu hâli ezmez.
+ *
+ * Satır yoksa `null`: ekran bunu "hepsi kapalı" diye çizmiyor, okunamadı
+ * diye çiziyor.
+ */
+export async function fetchNotificationPrefs(): Promise<PrefsRow | null> {
+    const row = await fetchOrgSettings('user_id, notification_prefs, updated_at');
+    if (!row?.user_id) return null;
+    return {
+        raw: row.notification_prefs ?? null,
+        userId: String(row.user_id),
+        stamp: (row.updated_at as string | null) ?? null,
+    };
+}
+
 export async function fetchHoursRow(): Promise<HoursRow | null> {
     const row = await fetchOrgSettings('user_id, working_hours, updated_at');
     if (!row?.user_id) return null;

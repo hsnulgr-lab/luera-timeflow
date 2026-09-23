@@ -214,8 +214,11 @@ test('hizmeti olmayan salon boş hâl görür, boş liste değil', () => {
 // ── Bildirimler ve görünüm ──────────────────────────────────────────────────
 
 test('hiçbiri açık değilse KELİME yazılır, "0 açık" değil', () => {
-    assert.equal(notificationsSummary({ booked: false, cancelled: false, noshow: false, daily: false }), 'Kapalı');
-    assert.equal(notificationsSummary({ booked: true, cancelled: true, noshow: true, daily: false }), '3 açık');
+    // Liste 106'da ÜÇE indi: `noshow` ve `daily` çıkarıldı çünkü sunucuda
+    // karşılıkları yok (gelmeme telefonda hesaplanıyor, gün özeti zamanlayıcı
+    // istiyor). Karşılığı olmayan anahtar çizilmez.
+    assert.equal(notificationsSummary({ booked: false, cancelled: false, cash: false }), 'Kapalı');
+    assert.equal(notificationsSummary({ booked: true, cancelled: true, cash: false }), '2 açık');
 });
 
 test('tema tercihi GERÇEKTEN uygulanır — ölü kontrol değil', () => {

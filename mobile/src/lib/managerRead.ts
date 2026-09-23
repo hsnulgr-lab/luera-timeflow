@@ -23,7 +23,7 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { isStale, POLL_MS } from './freshness.ts';
-import { useLiveSignal } from './liveSignal';
+import { useLiveSignal, type LiveTable } from './liveSignal';
 import type { OrgRefusal } from './managerMap.ts';
 import { OrgError } from './managerSource';
 
@@ -64,7 +64,15 @@ export function useManagerRead<T>(
      * ekran açıkken yarım dakikada bir çekmek, değişmeyen bir listeye bant
      * genişliği harcamaktı.
      */
-    options: { poll?: boolean } = {},
+    options: {
+        poll?: boolean;
+        /**
+         * Yalnız bu tablolar değişince tazele (101). VERİLMEZSE her zil
+         * uyandırır — bu kanca yedi ekranın ortak yolu ve neyin okunduğunu
+         * bilmiyor, o yüzden varsayılan bilerek "fazla tazele".
+         */
+        tables?: readonly LiveTable[];
+    } = {},
 ): ManagerSnapshot<T> {
     const poll = options.poll !== false;
     const [state, setState] = useState<ManagerReadState>('loading');
@@ -145,7 +153,7 @@ export function useManagerRead<T>(
      * saniyesinde tazeleniyor. Sessiz tur (`run(false)`): çalışan bir ekranı
      * "yükleniyor"a düşürmek, sinyali gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void run(false); }, [run]));
+    useLiveSignal(useCallback(() => { void run(false); }, [run]), true, options.tables);
 
     useEffect(() => {
         const id = setInterval(() => {

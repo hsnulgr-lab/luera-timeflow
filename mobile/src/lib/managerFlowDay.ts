@@ -23,6 +23,7 @@ import type { FlowRow, PaymentRow } from './flowBuild.ts';
 import type { ApptContext, StaffPresence } from './managerFlow.ts';
 import { columnsFor, type CrewMember } from './managerMap.ts';
 import { presenceOf } from './presence.ts';
+import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
     fetchArrivalTolerance, fetchCrew, fetchDayContext, fetchFlowRows, fetchLeave, fetchOpenMinutes,
@@ -120,5 +121,5 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
         };
     }, []);
 
-    return useManagerRead(read, EMPTY);
+    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });
 }

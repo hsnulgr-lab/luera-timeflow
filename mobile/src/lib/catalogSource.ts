@@ -30,6 +30,7 @@ import type { CatalogItem, UsageRow } from './adisyon.ts';
 import { demoCatalog, demoUsage } from './catalogDemo.ts';
 // Saf eşleme yaprakta — `customerFileMap.ts` ile aynı gerekçe.
 import { toCatalog, toUsage, type ServerCatalog } from './catalogMap.ts';
+import { useLiveSignal } from './liveSignal';
 export { lineKindOf, toCatalog, toUsage } from './catalogMap.ts';
 
 export type CatalogState = 'loading' | 'ok' | 'error';
@@ -40,6 +41,14 @@ export interface CatalogSnapshot {
     usage: UsageRow[];
     reload: () => Promise<void>;
 }
+
+/**
+ * Kataloğu besleyen tablolar (101). `reservations` BİLEREK YOK: oradan
+ * yalnız "son günlerde ne kullanıldı" sıralaması geliyor ve her randevu
+ * hareketinde kataloğu yeniden okumak, yavaş değişen bir sıralama için
+ * gürültü olurdu. O sıralama odağa dönüşte tazeleniyor.
+ */
+const LIVE_TABLES = ['services', 'products'] as const;
 
 export function useCatalog(): CatalogSnapshot {
     const [state, setState] = useState<CatalogState>('loading');
@@ -74,6 +83,14 @@ export function useCatalog(): CatalogSnapshot {
     }, [read]);
 
     useFocusEffect(useCallback(() => { void read(false); }, [read]));
+
+    /*
+     * CANLI ZİL (101). Müdür masaüstünden yeni bir hizmet eklediğinde ya da
+     * fiyatı değiştirdiğinde personelin açık kumandası anında görüyor.
+     * Eskiden ekranı kapatıp açmak gerekiyordu ve personel olmayan bir
+     * hizmeti arayıp duruyordu.
+     */
+    useLiveSignal(useCallback(() => { void read(false); }, [read]), true, LIVE_TABLES);
 
     const reload = useCallback(() => {
         setState('loading');

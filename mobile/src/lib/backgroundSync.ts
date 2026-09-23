@@ -3,6 +3,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
 
 import { api, flushQueue, tokens } from '../api/staff';
+import { myActor, myStaffId } from './me.ts';
+import { syncManagerPush, syncPush } from './push.ts';
 
 /**
  * Uygulamanın arka plan işleri — kuyruğu boşaltmak ve token'ı tazelemek.
@@ -43,12 +45,23 @@ async function refreshIfStale(now: number): Promise<void> {
     await api.refresh();
 }
 
-/** Bir tur: önce token tazelenir, sonra kuyruk boşaltılır. */
+/** Bir tur: önce token tazelenir, sonra kuyruk boşaltılır, sonra bildirim. */
 export async function syncNow(now = Date.now()): Promise<void> {
     // SIRA ÖNEMLİ: kuyruk ölü bir token'la boşaltılırsa her iş 401 alır ve
     // `fateOf` onları KALICI sayıp atar — kuyruğu boşaltmak değil, silmek olur.
     await refreshIfStale(now);
     await flushQueue();
+    /*
+     * BİLDİRİM JETONU (103) — turun SONUNDA, kullanıcının işini geciktirmeden.
+     *
+     * Öne dönüş bu iş için doğru an: telefon cepteyken jeton dönmüş, izin
+     * ayarlardan kapatılmış ya da ORTAK TELEFONDA başka personel girmiş
+     * olabilir. Kendi hatasını yutuyor — bildirim bir hızlandırıcı, uygulamanın
+     * çalışması ona bağlı değil.
+     */
+    const actor = await myActor().catch(() => null);
+    if (actor === 'manager') await syncManagerPush().catch(() => undefined);
+    else await syncPush(await myStaffId()).catch(() => undefined);
 }
 
 export function useBackgroundSync(): void {

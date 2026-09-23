@@ -50,7 +50,8 @@ export default function ManagerHours() {
     const [refused, setRefused] = useState<'stale' | 'paused' | 'failed' | null>(null);
 
     const read = useCallback(() => fetchHoursRow(), []);
-    const snap = useManagerRead<HoursRow | null>(read, null, { poll: false });
+    const snap = useManagerRead<HoursRow | null>(read, null,
+        { poll: false, tables: ['settings'] });
     /*
      * YAZILAN satır, okuma yetişene kadar. `from` yazmadan önceki damga:
      * sunucu yeni damgayı döndürdüğü an yerel kopya kendiliğinden düşüyor.

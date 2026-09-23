@@ -49,6 +49,9 @@ type Action =
     | 'roster' | 'session.start' | 'session.refresh' | 'me'
     // ── Canlı zil (100) ─────────────────────────────────────────────────────
     | 'realtime.token'   // personel: "salonda bir şey değişti" kanalının jetonu
+    // ── Bildirim (103) ──────────────────────────────────────────────────────
+    | 'push.register'    // personel: bu cihazın Expo jetonunu bağla
+    | 'push.unregister'  // bu cihazın aboneliğini kopar (CİHAZ token'ı da geçer)
     // ── Personelin kendi şifresi (099) ──────────────────────────────────────
     | 'pin.setup'        // cihaz: şifresi olmayan personel İLK şifresini belirler
     | 'pin.change'       // personel: kendi şifresini değiştirir
@@ -60,6 +63,7 @@ type Action =
     | 'visit.start'    // işleme başla
     | 'visit.items'    // adisyon kalemleri (hizmet / malzeme / ekstra)
     | 'visit.formula'  // ziyaretin renk formülü
+    | 'visit.note'     // randevunun serbest notu (müşteri görmez)
     | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
     | 'calendar'       // salonun günü — okuma amaçlı
     | 'catalog'        // hizmet + ürün listesi (tek turda)
@@ -727,6 +731,34 @@ Deno.serve(async (req: Request) => {
             return loginResponse(claimed as StaffRow);
         }
 
+        /*
+         * BİLDİRİM ABONELİĞİNİ KOPAR (103) — personel kapısının ÖNÜNDE.
+         *
+         * Çıkışta `push.unregister` çağrılıyor ama ağ yoksa düşüyor ve iş
+         * bekleyen olarak saklanıyor. O tekrar denendiğinde personel token'ı
+         * ARTIK YOK (çıkışta silindi); elde yalnız cihaz token'ı var. Bu uç
+         * cihaz token'ını da kabul etmezse silme hiç tamamlanamaz ve ORTAK
+         * TELEFONDA ayrılan personelin bildirimleri yeni personelin elinde
+         * çalmaya devam eder.
+         *
+         * `staff_id`'ye BAKILMIYOR, bilerek: çıkışın anlamı "bu telefon artık
+         * kimsenin değil". Kapsam org ile sınırlı ve `deviceId` cihazın kendi
+         * sırrı (SecureStore) — kötüye kullanım yüzeyi yok.
+         */
+        if (action === 'push.unregister') {
+            const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
+            if (!deviceId) return json({ error: 'invalid_device_id' }, 400);
+            const { error } = await admin.from('push_subscriptions').delete()
+                .eq('organization_id', claims.org)
+                .eq('kind', 'expo')
+                .eq('device_id', deviceId);
+            if (error) {
+                console.error('push.unregister', error);
+                return json({ error: 'delete_failed' }, 500);
+            }
+            return json({ ok: true });
+        }
+
         // ── Buradan sonrası PERSONEL token'ı ister ───────────────────────────
         if (isDevice) return json({ error: 'staff_token_required' }, 403);
 
@@ -755,7 +787,7 @@ Deno.serve(async (req: Request) => {
         // YALNIZ BAŞARILI yazmalar kütüğe giriyor. Hata dönen bir istek satırı
         // değiştirmedi; tekrar denenmesi zararsız, hatta doğru — kalıcı bir
         // 500'ü kütüğe yazsaydık o iş sonsuza kadar başarısız donardı.
-        const WRITE_ACTIONS = new Set(['visit.start', 'visit.items', 'visit.formula', 'visit.finish']);
+        const WRITE_ACTIONS = new Set(['visit.start', 'visit.items', 'visit.formula', 'visit.note', 'visit.finish']);
         let idemKey: string | null = null;
         if (WRITE_ACTIONS.has(action)) {
             const rawKey = body.idempotencyKey;
@@ -903,6 +935,66 @@ Deno.serve(async (req: Request) => {
          * `org` talebini SUNUCU yazıyor: telefon hangi salonun zilini
          * dinleyeceğini seçemiyor.
          */
+        /*
+         * BİLDİRİM JETONUNU BAĞLA (103).
+         *
+         * Personelin Supabase oturumu yok, o yüzden `push-subscribe` (JWT ister)
+         * bu telefondan çağrılamıyor. Kayıt buradan geçiyor ve kimlik GÖVDEDEN
+         * OKUNMUYOR: `me.id` ve `me.organization_id` sunucunun kendi
+         * doğruladığı satırdan geliyor. Telefon kimin adına kaydolacağını
+         * seçemiyor.
+         *
+         * Cihaz token'ıyla gelen istek yukarıdaki kapıda zaten 403 alıyor:
+         * `staff_id`'ye 'device' yazılmaya çalışılsaydı uuid hatası olurdu ve
+         * istemcideki `.catch()` onu yutup hiçbir şey olmamış gibi gösterirdi.
+         */
+        if (action === 'push.register') {
+            const token = typeof body.token === 'string' ? body.token.trim() : '';
+            const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
+            const platform = body.platform === 'ios' || body.platform === 'android' ? body.platform : null;
+            // Biçim burada denetleniyor ki cevap açık bir 400 olsun; DB kısıtı
+            // ikinci savunma hattı, hata mesajı olarak okunamaz.
+            if (!/^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
+                return json({ error: 'invalid_push_token' }, 400);
+            }
+            if (!deviceId) return json({ error: 'invalid_device_id' }, 400);
+
+            /*
+             * ÖNCE bu FİZİKSEL cihazın eski jetonu siliniyor. Jeton döndüğünde
+             * (yeniden kurulum, yedekten dönüş) iki satır kalırdı ve ölü olan
+             * ancak ilk başarısız gönderimde budanırdı — arada "abone var" gibi
+             * görünürdü.
+             *
+             * Tek `upsert`e sıkıştırılamaz: tabloda İKİ ayrı tekillik kısıtı var
+             * (`endpoint` ve kısmi `(org, device_id)`) ve `on conflict` yalnız
+             * birini hedefleyebiliyor.
+             */
+            await admin.from('push_subscriptions').delete()
+                .eq('organization_id', me.organization_id)
+                .eq('kind', 'expo')
+                .eq('device_id', deviceId)
+                .neq('endpoint', token);
+
+            const { error } = await admin.from('push_subscriptions').upsert({
+                organization_id: me.organization_id,
+                staff_id: me.id,
+                role: 'staff',
+                kind: 'expo',
+                endpoint: token,
+                p256dh: null,
+                auth: null,
+                platform,
+                device_id: deviceId,
+                user_agent: `expo/${platform ?? 'bilinmiyor'}`,
+                last_seen_at: new Date().toISOString(),
+            }, { onConflict: 'endpoint' });
+            if (error) {
+                console.error('push.register', error);
+                return json({ error: 'save_failed' }, 500);
+            }
+            return json({ ok: true });
+        }
+
         if (action === 'realtime.token') {
             const jwtSecret = await getSecret(admin, 'JWT_SECRET')
                 ?? await getSecret(admin, 'SUPABASE_JWT_SECRET');
@@ -1249,6 +1341,37 @@ Deno.serve(async (req: Request) => {
             }
             await audit(me.organization_id, me.id, 'visit.start');
             return await done({ ok: true, reservation: { ...res, ...patch } });
+        }
+
+        if (action === 'visit.note') {
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            if (res!.status === 'completed') return json({ error: 'already_finished' }, 409);
+            // Aynı sütunu masaüstü ve müdür telefonu da yazıyor
+            // (`usePayments`'ın komşusu değil — `reservations.notes`,
+            // `BeautyCashRegister.submitNote` / `managerWriteMap.writablePatch`).
+            // Üçü de TAM DEĞİŞTİRİYOR, ekleme yapmıyor — personel de aynı
+            // kurala uyuyor: ikinci bir "kumanda notu" sütunu açmak aynı
+            // gerçeğin iki kaydı olurdu.
+            const note = typeof body.note === 'string' ? body.note.trim().slice(0, 2000) : '';
+            const { data: updated, error } = await admin.from('reservations')
+                .update({ notes: note || null })
+                .eq('id', res!.id)
+                .eq('organization_id', me.organization_id)
+                .neq('status', 'cancelled')
+                .neq('status', 'completed')
+                .select(RES_COLS).maybeSingle();
+            if (error) { console.error('visit.note', error); return json({ error: 'write_failed' }, 500); }
+            if (!updated) {
+                const latest = await loadOwnReservation(res!.id);
+                if (latest.err) return latest.err;
+                return json({ error: 'already_finished' }, 409);
+            }
+            // `visit.items`/`visit.formula` gibi bir İÇERİK yazması —
+            // `staff_auth_log`a girmiyor: o kütük oturum/güvenlik olayları
+            // için (099'un kısıtı `visit.note`yu tanımıyor, eklerse 23514
+            // patlar). İz zaten `updated_at` ve idempotens kütüğünde var.
+            return await done({ ok: true, reservation: updated });
         }
 
         if (action === 'visit.items') {

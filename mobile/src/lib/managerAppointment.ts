@@ -19,6 +19,7 @@ import { presenceOf } from './presence.ts';
 import type { StaffPresence } from './managerFlow.ts';
 import type { ServiceOption } from './createFlow.ts';
 import { dayWindowOf, serviceOptionsOf, type OpenWindow } from './createLive.ts';
+import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
     apiSource, fetchAppointment, fetchCrew, fetchCustomerContext, fetchHoursRow, fetchLeave, fetchServerNow,
@@ -115,5 +116,5 @@ export function useManagerAppointment(
         };
     }, [id]);
 
-    return useManagerRead(read, EMPTY);
+    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });
 }

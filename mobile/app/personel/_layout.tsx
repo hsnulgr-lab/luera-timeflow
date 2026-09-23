@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { useActorGate } from '../../src/lib/roleGate';
+import { usePushIntent } from '../../src/lib/pushSetup';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
 import { useTheme } from '../../src/theme';
 
@@ -27,6 +28,13 @@ export default function StaffTabs() {
     // Ve yanlış rolün oturumuyla açıldıysa sekmeler hiç çizilmeden
     // geri gönderiliyor. Bkz. `src/lib/roleGate.ts`.
     const gate = useActorGate('staff');
+    /*
+     * Bildirime dokunulduysa hedefi aç — ama ancak kapı geçildikten SONRA
+     * (103). Oturum okunurken gidilen hedef, `roleGate`in yönlendirmesiyle
+     * ve `useShellIsRoot`un sıfırlamasıyla kayboluyordu; bu yüzden hedef
+     * bekletiliyor. Kanca koşulsuz çağrılmalı, etkinliği parametreyle.
+     */
+    usePushIntent('staff', gate.state === 'allowed');
     if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (gate.state === 'wrong') return <Redirect href="/mudur" />;
     // Bkz. müdür kabuğu: okunamayan oturum yönlendirilmez, görünür durur.

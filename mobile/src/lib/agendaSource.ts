@@ -103,6 +103,13 @@ export async function fetchAgenda(
     return (data.appointments ?? []).map(toRow);
 }
 
+/**
+ * Personelin kendi günü YALNIZ `reservations`'tan geliyor — `agenda` ucu
+ * başka tabloya bakmıyor (ad ve hizmet satırın üstünde duruyor). Hizmet
+ * fiyatı ya da kadro değişince bu listeyi tazelemek boşuna istekti.
+ */
+const LIVE_TABLES = ['reservations'] as const;
+
 export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     const [state, setState] = useState<AgendaState>('loading');
     const [rows, setRows] = useState<AgendaRow[]>([]);
@@ -209,7 +216,7 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
      * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
      * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void read(false); }, [read]));
+    useLiveSignal(useCallback(() => { void read(false); }, [read]), true, LIVE_TABLES);
 
     // Sıfırlama efektin İÇİNDE değil: orada senkron `setState` zincirleme
     // render tetikliyor (react-hooks/set-state-in-effect).

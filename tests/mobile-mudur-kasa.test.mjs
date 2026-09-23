@@ -6,7 +6,7 @@ import {
     amountSize, applyCorrection, applyVoid, canCorrect, comparisonLabel, counterLine, customerCardLabel, deltaOf,
     emptyComparison, formatAmount, formatMoney, hasPending, isCounted, methodLabel,
     methodWord, mockEmptyPending, mockMovements, mockPending, pendingSubtitle,
-    parseAmount, periodLabel, PERIODS, ratioSpeech, summaryLine, totalsOf, traceLine, voidDialog,
+    parseAmount, periodLabel, periodSummaryTitle, PERIODS, ratioSpeech, summaryLine, totalsOf, traceLine, voidDialog,
     waitLabel, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, EMPTY_TITLE,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
@@ -592,4 +592,38 @@ test('düzeltme alanı klavyenin altında kalmaz', () => {
     // aynı değeri yazsaydı fiş zıplardı.
     assert.match(src, /transform: \[\{ translateY: y \}, \{ translateY: lift \}\]/);
     assert.match(src, /keyboardDidShow/, 'Android olayı dinlenmiyor');
+});
+
+// ── Gün sonu / dönem özeti ───────────────────────────────────────────────────
+//
+// Envanter borcuydu: "Gün sonu özeti" düğmesi çizili duruyordu ama basınca
+// hiçbir şey olmuyordu. Yeni sunucu ucu gerekmedi — ekran zaten seçili
+// dönemin `totals`ını hesaplamıştı, düğme onu bir sayfada dökmeye başladı.
+
+test('başlık seçili döneme göre değişir', () => {
+    assert.equal(periodSummaryTitle('today'), 'Gün sonu özeti');
+    assert.equal(periodSummaryTitle('week'), 'Hafta özeti');
+    assert.equal(periodSummaryTitle('month'), 'Ay özeti');
+});
+
+test('Gün sonu düğmesi artık ölü değil', () => {
+    assert.match(screen, /setDayEndOpen\(true\)/, 'düğmenin onPress\'i yok');
+    // Dönem henüz okunmadıysa (yükleniyor/hata) açılmıyor: `totals` o an boş
+    // dizinin toplamı olur, "tahsilat yok" sahte bir sonuç olurdu — "okunamadı"
+    // ile "yok" bu ekranda da karışmamalı.
+    assert.match(screen, /disabled=\{!known\}[\s\S]{0,400}setDayEndOpen\(true\)/);
+});
+
+test('özet sayfası ekrana bağlı ve aynı totals\'ı kullanıyor', () => {
+    assert.match(screen, /<DayEndSheet/);
+    assert.match(screen, /visible=\{dayEndOpen\}/);
+    assert.match(screen, /totals=\{totals\}/, 'ikinci bir hesap açılmış olabilir — tek kaynak totalsOf olmalı');
+});
+
+test('özet sayfası salt okunur — Yazdır/Paylaş yok, yalnız arka plana dokunarak kapanır', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    const dayEnd = src.slice(src.indexOf('export function DayEndSheet('), src.indexOf('function Section('));
+    assert.match(dayEnd, /BottomSheet/, 'genel sheet kabuğu kullanılmıyor');
+    assert.doesNotMatch(dayEnd, /Yazdır|Paylaş|Share\./, 'kullanıcı kararı: hiçbir aksiyon yok');
+    assert.doesNotMatch(dayEnd, /accessibilityRole="button"/, 'kendine özgü bir Kapat düğmesi eklenmemeli');
 });

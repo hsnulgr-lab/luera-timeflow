@@ -14,6 +14,7 @@ import { useCallback } from 'react';
 
 import type { CashPeriod, Movement } from './cash.ts';
 import { periodRange, sumBetween, toMovements } from './cashBuild.ts';
+import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import { fetchCashPayments, fetchCrew, fetchServices } from './managerSource';
 
@@ -53,5 +54,5 @@ export function useManagerCash(period: CashPeriod): ManagerSnapshot<ManagerCash>
         };
     }, [period]);
 
-    return useManagerRead(read, EMPTY);
+    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });
 }

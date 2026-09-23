@@ -290,9 +290,20 @@ function weekdayOf(iso: string): number {
     return (new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).getUTCDay() + 6) % 7;
 }
 
-/** Bildirim satırlarının yerine geçen cümle. Nereye bakılacağını söylüyor. */
+/**
+ * Bildirim satırının altındaki cümle.
+ *
+ * ── Neden olay başına anahtar YOK ───────────────────────────────────────────
+ * Personele giden dört bildirimin (atama, müşteri geldi, iptal, saat değişti)
+ * hepsi KENDİ randevusuyla ilgili ve hepsi iş. "İptalleri duymak istemiyorum"
+ * diye bir istek yok; seçmeli kapatmak personeli kendi gününe karşı
+ * körleştirirdi. Tek kapı işletim sisteminin izni — dürüst ve tek.
+ *
+ * Eski hâli "Bildirimler henüz gelmiyor" diyordu ve doğruydu: `expo-
+ * notifications` kurulu değildi (103 ile geldi).
+ */
 export const NOTIFICATION_FOOT =
-    'Bildirimler henüz gelmiyor. Yeni randevularınızı Bugün sekmesinde görürsünüz.';
+    'Randevun değişince telefonun haber verir. Hepsi Bugün sekmesinde de görünür.';
 
 // ── Demo kaynağı ────────────────────────────────────────────────────────────
 //

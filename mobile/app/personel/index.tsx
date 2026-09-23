@@ -24,6 +24,7 @@ import { formatDayMonth, todayISO } from '../../src/lib/calendar';
 import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
 import { DurumBand, DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { PushPrompt } from '../../src/components/PushPrompt';
 import { useFailedWrites } from '../../src/lib/failedWrites';
 import { failureAdvice, failureLine, failureTitle } from '../../src/lib/writeFailure';
 import { isStale, useAgenda } from '../../src/lib/agendaSource';
@@ -248,6 +249,11 @@ export default function Today() {
                     kumandaya koymak, kaybı yalnız o ziyarete dönen kişiye
                     göstermek olurdu. */}
                 <FailedWrites />
+
+                {/* Bildirim izni — kaybın ALTINDA, çünkü gönderilemeyen bir iş
+                    bugünün gerçeği, bildirim ise yarının kolaylığı. Yalnız
+                    izin hiç sorulmamışken çıkıyor ve bir kez kapatılıyor. */}
+                <PushPrompt />
 
                 {/* SON GÜNCELLEME — yalnız bayatken.
                     Liste tek sefer okunuyor; yoklama da yok, ön plana dönünce

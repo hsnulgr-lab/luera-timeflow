@@ -58,7 +58,8 @@ export default function ManagerStaffAccess() {
     const insets = useSafeAreaInsets();
 
     const read = useCallback(() => fetchTeamStatus(), []);
-    const snap = useManagerRead<TeamMember[] | 'owner_required' | null>(read, null, { poll: false });
+    const snap = useManagerRead<TeamMember[] | 'owner_required' | null>(read, null,
+        { poll: false, tables: ['staff', 'staff_time_off'] });
 
     const [code, setCode] = useState<TeamCode | null>(() => activeTeamCode(Date.now()));
     const [codeBusy, setCodeBusy] = useState(false);

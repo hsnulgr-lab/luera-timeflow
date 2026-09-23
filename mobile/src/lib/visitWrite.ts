@@ -170,3 +170,26 @@ export async function writeVisitFormula(
         return { code: codeOf(cause), queued: false, saved: null };
     }
 }
+
+export interface NoteWriteOutcome extends WriteOutcome {
+    /** Sunucunun kaydettiği not. Kuyrukta ya da hatada `null`. */
+    saved: string | null;
+}
+
+/**
+ * Randevunun serbest notu.
+ *
+ * Formülden farklı: iyimser kilit yok, `reservation.updated_at`i bir gözlem
+ * olarak işlemiyoruz — not adisyonun kilidine dahil değil, çakışsa da
+ * kaydeden kazanır (masaüstü ve müdür telefonuyla aynı kural).
+ */
+export async function writeVisitNote(reservationId: string, note: string): Promise<NoteWriteOutcome> {
+    try {
+        const out = await api.visitNote(reservationId, note) as
+            { queued?: boolean; reservation?: { notes?: string | null } | null } | null;
+        if (out?.queued) return { code: null, queued: true, saved: null };
+        return { code: null, queued: false, saved: out?.reservation?.notes ?? null };
+    } catch (cause) {
+        return { code: codeOf(cause), queued: false, saved: null };
+    }
+}

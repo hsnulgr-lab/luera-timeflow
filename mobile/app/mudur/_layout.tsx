@@ -5,6 +5,7 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { ManagerDayProvider } from '../../src/state/managerDay';
 import { useActorGate } from '../../src/lib/roleGate';
+import { usePushIntent } from '../../src/lib/pushSetup';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
 import { useTheme } from '../../src/theme';
 
@@ -46,6 +47,9 @@ export default function ManagerLayout() {
     // Ve yanlış rolün oturumuyla açıldıysa sekmeler hiç çizilmeden
     // geri gönderiliyor. Bkz. `src/lib/roleGate.ts`.
     const gate = useActorGate('manager');
+    // Bkz. personel kabuğu: hedef kapı geçilene kadar bekliyor (103).
+    // Müdüre bildirim Tur 2'de açılıyor; yol şimdiden doğru kurulu.
+    usePushIntent('manager', gate.state === 'allowed');
     if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (gate.state === 'wrong') return <Redirect href="/personel" />;
     // Okunamayan oturum ÖTEKİ KABUĞA gönderilmiyor: personel kabuğu da aynı

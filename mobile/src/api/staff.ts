@@ -283,6 +283,29 @@ export const api = {
      * onsuz da çalışır.
      */
     realtimeToken: () => call('realtime.token'),
+    /**
+     * BİLDİRİM JETONU (103) — bu cihazı personelin aboneliğine bağlar.
+     *
+     * `write()` DEĞİL `call()`: çevrimdışı kuyruğa giren bir kayıt saatler
+     * sonra boşalırsa, o arada ÇIKIŞ YAPMIŞ personelin jetonunu diriltir ve
+     * bildirimler yanlış kişiye gider. Kayıt zaten kendi kendini iyileştiriyor
+     * — başarısız olursa bir sonraki öne dönüşte yeniden deneniyor.
+     *
+     * Kimlik gövdeden gitmiyor: sunucu `staff_id`yi token'dan çözüyor.
+     */
+    pushRegister: (token: string, platform: 'ios' | 'android', deviceId: string) =>
+        call('push.register', { token, platform, deviceId }),
+    /**
+     * Aboneliği koparır. PERSONEL token'ı yoksa CİHAZ token'ıyla deneniyor:
+     * çıkışta personel token'ı siliniyor ve bekleyen bir silme işi ancak böyle
+     * tamamlanabiliyor. Ortak telefonda ayrılan personelin bildirimlerinin
+     * yenisinin elinde çalması, kabul edilebilir bir sonuç değil.
+     */
+    pushUnregister: async (deviceId: string) => {
+        const t = (await tokens.staff()) ?? (await tokens.device());
+        if (!t) throw new ApiError('no_session', 401);
+        return raw('push.unregister', { deviceId }, t);
+    },
     /** Kendi şifresini değiştirir; cevap YENİ kuşakla basılmış token taşır (099). */
     pinChange: (currentPin: string, pin: string) => call('pin.change', { currentPin, pin }),
     /**
@@ -343,6 +366,13 @@ export const api = {
     visitItems: (reservationId: string, items: AdisyonItemRequest[], expected?: string | null) =>
         write('visit.items', { reservationId, items, expectedUpdatedAt: expected ?? null }),
     visitFinish: (reservationId: string) => write('visit.finish', { reservationId }),
+    /**
+     * Randevunun serbest notu — müşteri görmez. Aynı sütunu masaüstü ve
+     * müdür telefonu da yazıyor (`reservations.notes`), üçü de TAM
+     * DEĞİŞTİRİR, ekleme yapmaz — kaydeden son kazanır. İkinci bir "kumanda
+     * notu" sütunu açılmadı: aynı gerçeğin iki kaydı olurdu.
+     */
+    visitNote: (reservationId: string, note: string) => write('visit.note', { reservationId, note }),
     /**
      * Ziyaretin formülü. Malzeme yarısı SUNUCUDA adisyondan türüyor — burada
      * gönderilmiyor, çünkü istemcinin listesine güvenmek adisyonla formülün

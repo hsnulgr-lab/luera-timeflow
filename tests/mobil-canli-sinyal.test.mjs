@@ -20,20 +20,32 @@ test('sinyal VERİ taşımıyor — yalnız haber', () => {
     /*
      * Kanaldan salon verisi geçseydi izin kontrolü de oraya taşınmış olurdu.
      * Ekran haberi duyup veriyi HER ZAMANKİ yoldan çekiyor: müdür RLS ile,
-     * personel staff-api ile. Dinleyicinin imzası bu yüzden argümansız.
+     * personel staff-api ile. Dinleyiciye VERİ geçilmiyor: çağrı argümansız.
+     *
+     * 101'de gövdeye tablo ADI girdi (süzgeç için). Bu bir istisna değil —
+     * tablo adı salon verisi değil. Aşağıdaki iddia gövdeden BAŞKA hiçbir
+     * alanın okunmadığını kilitliyor.
      */
-    assert.match(signal, /type Listener = \(\) => void;/);
-    assert.match(signal, /for \(const listener of \[\.\.\.listeners\]\) listener\(\);/);
-    // Olayın gövdesi (`payload`) hiç okunmuyor.
-    assert.doesNotMatch(signal, /payload/);
+    assert.match(signal, /interface Listener \{/);
+    assert.match(signal, /fn: \(\) => void;/);
+    assert.match(signal, /if \(wakes\(listener, turn\)\) listener\.fn\(\);/);
+
+    const fields = [...new Set(signal.match(/body\?\.\w+/g) ?? [])];
+    assert.deepEqual(fields, ['body?.t'], 'gövdeden yalnız tablo adı okunuyor');
 });
 
 test('abonelik ORG SÜZGEÇLİ', () => {
     // RLS üye olunan BÜTÜN org'ları açıyor: süzgeçsiz bir abonelik başka
     // salonun hareketiyle tazelerdi.
+    //
+    // 101'den sonra bu ESKİ YOL: müdür de personelle aynı özel yayın kanalına
+    // katılıyor, tutmazsa buraya düşüyor. İkisi de org'a kapalı olmalı.
     const filters = signal.match(/filter: `organization_id=eq\.\$\{orgId\}`/g) ?? [];
     assert.equal(filters.length, 2, 'reservations ve payments, ikisi de süzgeçli');
     assert.match(signal, /\.channel\(`live:\$\{orgId\}`\)/);
+    // Ana yol: konu org'un kendisi, kanal özel.
+    assert.match(signal, /const topic = `org:\$\{orgId\}`;/);
+    assert.match(signal, /\.channel\(topic, \{ config: \{ private: true \} \}\)/);
 });
 
 test('org başına TEK kanal; son dinleyici gidince kapanıyor', () => {
@@ -72,7 +84,7 @@ test('YOKLAMA KALKMIYOR — sinyal garanti değil', () => {
      * Sinyale güvenip yoklamayı kapatmak, sessizce bayatlayan bir ekran
      * üretirdi.
      */
-    assert.match(hook, /useLiveSignal\(useCallback\(\(\) => \{ void run\(false\); \}, \[run\]\)\);/);
+    assert.match(hook, /useLiveSignal\(useCallback\(\(\) => \{ void run\(false\); \}, \[run\]\), true, options\.tables\);/);
     assert.match(hook, /const id = setInterval\(\(\) => \{[\s\S]{0,160}\}, POLL_MS\);/);
     // Sessiz tur: çalışan bir ekranı "yükleniyor"a düşürmek sinyali gürültüye
     // çevirirdi.
@@ -197,7 +209,7 @@ test('jeton süresi DOLMADAN yenileniyor', () => {
 test('personel token’ı varsa zil, yoksa müdürün kanalı', () => {
     assert.match(signal, /const staff = await tokens\.staff\(\)\.catch\(\(\) => null\);/);
     assert.match(signal, /staff\s*\?\s*await openStaffRing/);
-    assert.match(signal, /:\s*await openManagerChannel/);
+    assert.match(signal, /:\s*await openManagerRing/);
 });
 
 test('personel ekranları da zili dinliyor', () => {

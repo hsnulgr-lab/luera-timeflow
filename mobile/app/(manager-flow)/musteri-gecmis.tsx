@@ -40,7 +40,8 @@ export default function CustomerHistory() {
         const rows = await fetchCustomerHistory(customerId, today);
         return fullHistoryOf({ ...rows, todayISO: today });
     }, [customerId]);
-    const snap = useManagerRead<Groups | null>(read, null, { poll: false });
+    const snap = useManagerRead<Groups | null>(read, null,
+        { poll: false, tables: ['reservations', 'payments'] });
     const groups = snap.data;
     const total = groups?.reduce((sum, group) => sum + group.rows.length, 0) ?? 0;
 

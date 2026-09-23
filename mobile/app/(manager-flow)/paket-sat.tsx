@@ -50,7 +50,8 @@ export default function PackageSale() {
         if (!customerId) return null;
         return fetchPackageSaleRows(customerId);
     }, [customerId]);
-    const snap = useManagerRead<Rows | null>(read, null, { poll: false });
+    const snap = useManagerRead<Rows | null>(read, null,
+        { poll: false, tables: ['customers', 'package_templates', 'services', 'settings'] });
     const rows = snap.data;
 
     const [step, setStep] = useState<1 | 2>(1);

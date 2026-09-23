@@ -25,7 +25,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,6 +42,9 @@ import { useShift } from '../../src/lib/shiftSource';
 import {
     mondayOf, NOTIFICATION_FOOT, shiftCard, weekRows, weekSummary,
 } from '../../src/lib/staffShift';
+import { askPushPermission, readPushState, syncPush } from '../../src/lib/push';
+import { myStaffId } from '../../src/lib/me';
+import { opensSettings, permissionText, shouldAsk, type PushState } from '../../src/lib/pushPermission';
 import { upperTR } from '../../src/lib/text';
 import { profileMetrics as M, useTheme } from '../../src/theme';
 
@@ -53,6 +56,9 @@ export default function StaffProfile() {
     const [session, setSession] = useState<AuthSession | null>(null);
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
     const [leaving, setLeaving] = useState(false);
+    // Bildirim izni (103). Odağa her dönüşte okunuyor: kullanıcı telefon
+    // ayarlarından değiştirip geri gelmiş olabilir ve satır yalan söylememeli.
+    const [push, setPush] = useState<PushState>('error');
     const [unlinking, setUnlinking] = useState(false);
 
     const load = useCallback(() => {
@@ -67,6 +73,30 @@ export default function StaffProfile() {
     }, [router]);
 
     useFocusEffect(load);
+
+    /*
+     * İzin durumu odağa her dönüşte okunuyor: kullanıcı telefon ayarlarından
+     * kapatıp geri gelmiş olabilir. Satırın "açık" demesi, gerçekten açık
+     * olmasına bağlı.
+     */
+    useFocusEffect(useCallback(() => {
+        let alive = true;
+        void readPushState().then((state) => { if (alive) setPush(state); });
+        return () => { alive = false; };
+    }, []));
+
+    /**
+     * Satıra dokunulunca: hiç sorulmadıysa OS diyaloğunu aç, reddedilmişse
+     * telefonun ayarlarına gönder. Başka hiçbir hâlde satır dokunulabilir
+     * değil — gidecek yeri olmayan bir satır çizilmez.
+     */
+    const onPush = useCallback(async () => {
+        if (opensSettings(push)) { await Linking.openSettings().catch(() => undefined); return; }
+        if (!shouldAsk(push)) return;
+        const next = await askPushPermission();
+        setPush(next);
+        if (next === 'granted') await syncPush(await myStaffId());
+    }, [push]);
 
     const today = todayISO();
     /*
@@ -176,6 +206,22 @@ export default function StaffProfile() {
                         title="Yasal"
                         value={legalSummary(kvkkUrl)}
                         onPress={() => router.push('/(ortak)/profil/yasal')}
+                    />
+                    {/*
+                      * BİLDİRİM — anahtar değil, DURUM satırı.
+                      *
+                      * Anahtar, kapatma yetkisi olduğunu söyler; oysa tek kapı
+                      * işletim sisteminin izni. Kendi çizdiğimiz bir anahtarın
+                      * "açık" görünüp bildirimin gelmemesi mümkün olurdu ve
+                      * ekranın yalan söylemesi buradan başlardı.
+                      */}
+                    <ProfileRow
+                        title="Bildirimler"
+                        value={permissionText(push)}
+                        chevron={shouldAsk(push) || opensSettings(push)}
+                        onPress={shouldAsk(push) || opensSettings(push)
+                            ? () => { void onPush(); }
+                            : undefined}
                     />
                 </Group>
 

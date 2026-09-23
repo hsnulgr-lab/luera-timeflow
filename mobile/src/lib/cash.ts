@@ -96,6 +96,19 @@ export function periodLabel(period: CashPeriod): string {
     }
 }
 
+/**
+ * "Gün sonu özeti" düğmesinin başlığı — seçili sekmeye göre değişir (2026-09-22
+ * kararı). Masaüstünde bu ekran sabit BUGÜN'dür; mobilde zaten yüklü olan
+ * dönem verisi tekrar kullanılıyor, o yüzden isim de dönemi takip ediyor.
+ */
+export function periodSummaryTitle(period: CashPeriod): string {
+    switch (period) {
+        case 'week': return 'Hafta özeti';
+        case 'month': return 'Ay özeti';
+        default: return 'Gün sonu özeti';
+    }
+}
+
 /** Karşılaştırmanın adı da dönemle değişir. */
 export function comparisonLabel(period: CashPeriod): string {
     switch (period) {
@@ -557,4 +570,3 @@ export const mockPrevious: Record<CashPeriod, number> = {
     month: 148000,
 };
 
-export const DAY_END = 'Gün sonu özeti';

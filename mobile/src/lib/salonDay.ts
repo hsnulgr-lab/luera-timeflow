@@ -27,6 +27,7 @@ import { LIVE_AUTH } from '../api/session';
 import { api } from '../api/staff';
 import { clockText, type Appt } from './calendar.ts';
 import { isStale, POLL_MS } from './freshness.ts';
+import { useLiveSignal } from './liveSignal';
 import { type ColumnStaff } from './managerCalendar.ts';
 import { mockDay } from './managerFlow.ts';
 import { mockSource } from './calendarSource.ts';
@@ -149,6 +150,13 @@ const MOCK_ME = 'merve';
  */
 const STALE_TICK_MS = 30_000;
 
+/**
+ * Bu ekranı ilgilendiren tablolar (101). `calendar` ucu YALNIZ bu ikisini
+ * okuyor: günün randevuları ve aktif kadro. Bir hizmetin fiyatı değişince
+ * salon takvimini tazelemek boşuna istek olurdu.
+ */
+const LIVE_TABLES = ['reservations', 'staff'] as const;
+
 export function useSalonDay(dateISO: string): SalonDaySnapshot {
     const [state, setState] = useState<SalonDayState>('loading');
     const [day, setDay] = useState<DayRead>(() => ({
@@ -207,6 +215,15 @@ export function useSalonDay(dateISO: string): SalonDaySnapshot {
     }, [read]);
 
     useFocusEffect(useCallback(() => { void read(false); }, [read]));
+
+    /*
+     * CANLI ZİL (101) — yoklamanın yerine değil, ÜSTÜNE.
+     *
+     * Meslektaşının randevusu masaüstünden değişince personel bunu 25
+     * saniye beklemeden görüyor. Sessiz tur: çalışan bir takvimi
+     * "yükleniyor"a düşürmek zili gürültüye çevirirdi.
+     */
+    useLiveSignal(useCallback(() => { void read(false); }, [read]), true, LIVE_TABLES);
 
     /** Bayatlık saati. Bkz. `SalonDaySnapshot.stale`. */
     useEffect(() => {

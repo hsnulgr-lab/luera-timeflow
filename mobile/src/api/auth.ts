@@ -4,6 +4,9 @@ import { supabase, supabaseConfigured } from '../lib/supabase';
 import {
     ApiError, api as staffCalls, auth as staffApi, tokens,
 } from './staff';
+import { forgetIntent } from '../lib/pushIntent.ts';
+import { forgetDeviceId } from '../lib/pushDevice.ts';
+import { unregisterManagerPush, unregisterPush } from '../lib/push.ts';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
     AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
@@ -499,6 +502,19 @@ async function resumeSession(): Promise<AuthResult<AuthSession>> {
 
 async function signOut(): Promise<AuthResult<{ target: 'welcome' }>> {
     const stored = await readProfile();
+    /*
+     * BİLDİRİM ABONELİĞİ ÖNCE KOPARILIYOR (103) — token silinmeden.
+     *
+     * Sıra şart: `api.pushUnregister` personel token'ını istiyor. Sonraya
+     * bırakılsaydı çağrı kimliksiz kalır ve bekleyen işe düşerdi.
+     *
+     * ORTAK TELEFONUN kuralı bu: satır kalırsa ayrılan personelin bildirimleri
+     * yeni personelin elinde çalmaya devam eder. Başarısız olursa iş bekliyor
+     * ve cihaz token'ıyla tekrar deneniyor.
+     */
+    if (stored?.profile.actor === 'staff') await unregisterPush().catch(() => undefined);
+    else if (stored?.profile.actor === 'manager') await unregisterManagerPush().catch(() => undefined);
+    forgetIntent();
     if (stored?.profile.actor === 'manager') await supabase.auth.signOut().catch(() => undefined);
     else await tokens.clearStaff();
     await clearProfile();
@@ -881,6 +897,11 @@ export const auth = {
         changePin: changeStaffPin,
         entry: staffEntry,
         unlinkDevice: async () => {
+            // Cihaz koparılıyor: bildirim aboneliği de gitmeli, yoksa bu telefon
+            // artık salonun olmadığı hâlde bildirim almaya devam eder.
+            await unregisterPush().catch(() => undefined);
+            forgetIntent();
+            await forgetDeviceId();
             await tokens.clearDevice();
             await tokens.clearStaff();
             await clearProfile();

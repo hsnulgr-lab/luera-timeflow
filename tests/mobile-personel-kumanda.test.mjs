@@ -192,8 +192,24 @@ test('bekleme sayacının sunucuya yazılmadığı personele SÖYLENİYOR', () =
     assert.ok(screen.includes('ses çalmaz'), 'bildirim yokluğu gizlenmemeli');
 });
 
-test('not ucu yok — ölü kontrol değil, bekleyen iş olarak yazılı', () => {
-    assert.ok(screen.includes('Sunucuda not ucu henüz yok'));
+// Sunucuda not ucu YOKTU, `NoteSheet` salt okunurdu ve bunu itiraf ediyordu
+// ("Sunucuda not ucu henüz yok"). 2026-09-22'de `visit.note` açıldı — sayfa
+// artık yazıyor, o yüzden eski itiraf da kalkmalı: hâlâ duruyorsa uç yine
+// bağlanmamış demektir.
+
+test('not artık yazılabiliyor — eski "ucu yok" itirafı kalkmış', () => {
+    assert.ok(!screen.includes('Sunucuda not ucu henüz yok'), 'itiraf hâlâ duruyor — uç bağlanmamış olabilir');
+    assert.ok(screen.includes('writeVisitNote'), 'kaydet yolunu bulamadım');
+    assert.ok(screen.includes('TextInput'), 'NoteSheet hâlâ salt okunur görünüyor');
+});
+
+test('not sunucuya YALNIZ metin gerçekten değiştiyse gidiyor', () => {
+    const note = screen.slice(screen.indexOf('function NoteSheet('));
+    assert.match(note, /disabled=\{busy \|\| !changed\}/, 'dokunulmamış not tekrar gönderilebiliyor olabilir');
+});
+
+test('not kuyruğa düşerse sayfa "gitti" demiyor, kapanmıyor', () => {
+    assert.match(screen, /if \(out\.queued\) \{ setNoteWrite\('queued'\); return; \}/);
 });
 
 test('malzeme kalemi fiyat yerine stok hareketi söylüyor', () => {

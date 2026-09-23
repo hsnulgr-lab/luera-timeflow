@@ -119,6 +119,9 @@ function toVisit(row: Appointment): DemoAppointment {
     };
 }
 
+/** Kumandanın ziyareti de `agenda` ucundan besleniyor: tek tablo. */
+const LIVE_TABLES = ['reservations'] as const;
+
 export function useVisit(id: string | undefined): VisitSnapshot {
     const [state, setState] = useState<VisitState>('loading');
     const [visit, setVisit] = useState<DemoAppointment | null>(null);
@@ -219,7 +222,7 @@ export function useVisit(id: string | undefined): VisitSnapshot {
      * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
      * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void read(false, false); }, [read]));
+    useLiveSignal(useCallback(() => { void read(false, false); }, [read]), true, LIVE_TABLES);
 
     const observe = useCallback((observation: StampObservation | null | undefined, own = false) => {
         if (!observation) return;

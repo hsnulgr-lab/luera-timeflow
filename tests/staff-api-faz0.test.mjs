@@ -40,7 +40,9 @@ test('kütük sonsuza kadar büyümüyor', () => {
 // ── İdempotens kapısı ───────────────────────────────────────────────────────
 
 test('kapı YALNIZ yazma uçlarında', () => {
-    assert.match(api, /const WRITE_ACTIONS = new Set\(\['visit\.start', 'visit\.items', 'visit\.formula', 'visit\.finish'\]\)/);
+    // `visit.note` (2026-09-22) kütüğe kütüğe de idempotens kapısına da
+    // girdi — içerik yazması, `visit.items`/`visit.formula`nın komşusu.
+    assert.match(api, /const WRITE_ACTIONS = new Set\(\['visit\.start', 'visit\.items', 'visit\.formula', 'visit\.note', 'visit\.finish'\]\)/);
 });
 
 test('kapı, kimlik doğrulandıktan SONRA', () => {
@@ -64,10 +66,10 @@ test('kütüğe YALNIZ başarılı yazma giriyor', () => {
     }
 });
 
-test('dört yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
+test('beş yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
     const writes = api.slice(api.indexOf("action === 'visit.start'"), api.indexOf("action === 'catalog'"));
-    assert.equal((writes.match(/return await done\(/g) ?? []).length, 6,
-        'visit.start 3 + visit.items 1 + visit.formula 1 + visit.finish 1');
+    assert.equal((writes.match(/return await done\(/g) ?? []).length, 7,
+        'visit.start 3 + visit.note 1 + visit.items 1 + visit.formula 1 + visit.finish 1');
     assert.doesNotMatch(writes, /return json\(\{\s*ok: true/,
         'yazma ucunda kütükten geçmeyen bir başarı yanıtı kalmamalı');
 });

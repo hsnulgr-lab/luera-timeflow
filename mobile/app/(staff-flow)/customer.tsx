@@ -66,7 +66,8 @@ export default function CustomerScreen() {
         const mm = String(now.minutes % 60).padStart(2, '0');
         return customerCardOf({ ...rows, todayISO: now.dateISO, nowClock: `${hh}:${mm}` });
     }, [customerId]);
-    const snap = useManagerRead<CardData | null>(read, null, { poll: false });
+    const snap = useManagerRead<CardData | null>(read, null,
+        { poll: false, tables: ['customers', 'reservations', 'payments', 'treatment_plans', 'customer_packages'] });
     const card = snap.data;
     const [noting, setNoting] = useState(false);
 

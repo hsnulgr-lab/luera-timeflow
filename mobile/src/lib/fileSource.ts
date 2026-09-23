@@ -28,6 +28,7 @@ import { LIVE_AUTH } from '../api/session';
 import { api } from '../api/staff';
 import { todayISO } from './calendar.ts';
 import { demoCustomerFile, type CustomerFile } from './customerFile.ts';
+import { useLiveSignal } from './liveSignal';
 // Saf eşleme yaprakta: burası React'e bağlı olduğu için testten çağrılamıyor,
 // orası çağrılabiliyor (`freshness.ts` ile aynı gerekçe).
 import {
@@ -61,6 +62,12 @@ export interface FileSnapshot {
     usedItems: Set<string>;
     reload: () => Promise<void>;
 }
+
+/**
+ * Bu dosyayı besleyen tablolar (101). `customer` ucu bunları okuyor:
+ * müşterinin kendisi, geçmiş randevuları ve iki paket kaynağı.
+ */
+const LIVE_TABLES = ['customers', 'reservations', 'customer_packages', 'treatment_plans'] as const;
 
 export function useCustomerFile(
     customerId: string | undefined,
@@ -133,6 +140,17 @@ export function useCustomerFile(
     // Odağa dönüşte OKUNUYOR: formül sayfasından dönen personel kaydettiğini
     // geçmiş satırında görmeli.
     useFocusEffect(useCallback(() => { void read(false); }, [read]));
+
+    /*
+     * CANLI ZİL (101). Burada yoklama YOK — zil, odağa dönüşün yanındaki
+     * ikinci yol. Müdür masaüstünden müşteriye hamilelik bayrağı eklediğinde
+     * personelin AÇIK duran dosyası bunu anında gösteriyor; eskiden ekranı
+     * kapatıp açmak gerekiyordu.
+     *
+     * `staff` süzgeçte YOK: dosyada yalnız personel ADI geçiyor ve ad
+     * değişimi odağa dönüşte yakalanacak kadar seyrek.
+     */
+    useLiveSignal(useCallback(() => { void read(false); }, [read]), Boolean(customerId), LIVE_TABLES);
 
     const reload = useCallback(() => {
         setState('loading');

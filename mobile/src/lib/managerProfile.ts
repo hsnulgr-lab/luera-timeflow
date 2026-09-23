@@ -247,35 +247,49 @@ export function parsePrice(text: string): number | null {
 
 // ── Bildirimler ─────────────────────────────────────────────────────────────
 
-export type NotificationKey = 'booked' | 'cancelled' | 'noshow' | 'daily';
+export type NotificationKey = 'booked' | 'cancelled' | 'cash';
 
 /**
- * MÜDÜRE BİLDİRİM YOLU YOK — satır ve ekran GİZLİ (kullanıcı kararı,
- * 2026-09-16).
+ * MÜDÜRE BİLDİRİM AÇIK (106, kullanıcı kararı 2026-09-23).
  *
- * Dört anahtarın veritabanında karşılığı yok ve 046 "yöneticiye telefon
- * bildirimi gönderilmez" diyor. Anahtarlar yalnız telefonun belleğinde
- * duruyordu: müdür "Yeni randevu"yu açıyor, hiçbir bildirim gelmiyordu.
- * Kod silinmedi; tercih tablosu, cihaz jetonu ve tetikleyici yazıldığında bu
- * bayrak açılır.
+ * Bayrak 2026-09-16'dan 2026-09-23'e kadar KAPALIYDI ve doğru karardı:
+ * anahtarların veritabanında karşılığı yoktu, yalnız telefonun belleğinde
+ * duruyorlardı. Müdür "Yeni randevu"yu açıyor, hiçbir bildirim gelmiyordu.
+ *
+ * Üçü de yazıldı ve bayrak o yüzden açıldı:
+ *   • tercih tablosu — `settings.notification_prefs` (105)
+ *   • cihaz jetonu   — `push_subscriptions.kind='expo'` (103)
+ *   • tetikleyici    — müdür olayları geri geldi (106)
  */
-export const MANAGER_NOTIFICATIONS_READY = false;
+export const MANAGER_NOTIFICATIONS_READY = true;
 
+/**
+ * Üç anahtar — ve YALNIZ üçü.
+ *
+ * Liste bir zamanlar dörttü; `noshow` ve `daily` çıkarıldı çünkü SUNUCUDA
+ * KARŞILIKLARI YOK:
+ *   • "Müşteri gelmedi" telefonda saatten hesaplanıyor — gönderilecek bir AN
+ *     yok, yani tetiklenecek bir olay da yok.
+ *   • "Gün sonu özeti" dış zamanlayıcı istiyor; projede `pg_cron` yok.
+ *
+ * Karşılığı olmayan anahtar çizilmez: açıldığında hiçbir şey olmayan bir
+ * anahtar, ekranın söyleyebileceği en sessiz yalan.
+ */
 export const NOTIFICATIONS: { key: NotificationKey; label: string }[] = [
-    { key: 'booked', label: 'Yeni randevu' },
+    { key: 'booked', label: 'Yeni randevu talebi' },
     { key: 'cancelled', label: 'Randevu iptali' },
-    { key: 'noshow', label: 'Müşteri gelmedi' },
-    { key: 'daily', label: 'Gün sonu özeti' },
+    { key: 'cash', label: 'Adisyon kasada' },
 ];
 
-/** "3 açık" — hiçbiri açık değilse de kelime yazılır. */
+/** "2 açık" — hiçbiri açık değilse de kelime yazılır. */
 export function notificationsSummary(state: Record<NotificationKey, boolean>): string {
     const on = NOTIFICATIONS.filter((item) => state[item.key]).length;
     return on === 0 ? 'Kapalı' : `${on} açık`;
 }
 
 export const NOTIFICATION_FOOT =
-    'Dördü de kapalıysa bildirim gelmez; ayrı bir ana anahtar yok.';
+    'Üçü de kapalıysa bildirim gelmez; ayrı bir ana anahtar yok. '
+    + 'Personel kendi bildirimlerini kendi telefonundan yönetir.';
 
 // ── Görünüm ─────────────────────────────────────────────────────────────────
 

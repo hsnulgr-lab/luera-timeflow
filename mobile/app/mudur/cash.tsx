@@ -8,14 +8,14 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
-import { MovementSheet } from '../../src/components/CashSheets';
+import { DayEndSheet, MovementSheet } from '../../src/components/CashSheets';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { authApi } from '../../src/api/session';
 import {
     counterLine, deltaOf, emptyComparison, hasPending,
-    periodLabel, PERIODS, ratioSpeech,
+    periodLabel, periodSummaryTitle, PERIODS, ratioSpeech,
     summaryLine, totalsOf,
-    DAY_END, EMPTY_TITLE, formatAmount, pendingSubtitle, pendingTitle,
+    EMPTY_TITLE, formatAmount, pendingSubtitle, pendingTitle,
     type CashPeriod, type Movement,
 } from '../../src/lib/cash';
 import { hhmm } from '../../src/lib/calendar';
@@ -88,6 +88,8 @@ export default function ManagerKasa() {
     const movements = known ? cash.data.movements : NO_MOVEMENTS;
     /** Açık sheet — tek bir kaydı işaret eder. */
     const [openId, setOpenId] = useState<string | null>(null);
+    /** Gün sonu / dönem özeti sayfası. */
+    const [dayEndOpen, setDayEndOpen] = useState(false);
 
     const totals = useMemo(() => totalsOf(movements), [movements]);
     const delta = known ? deltaOf(totals.total, cash.data.previousTotal, period) : null;
@@ -435,17 +437,31 @@ export default function ManagerKasa() {
                 <View style={{ alignItems: 'center', paddingTop: cashMetrics.dayEndTop }}>
                     <Pressable
                         accessibilityRole="button"
+                        // Seçili dönem henüz okunmadıysa (yükleniyor/hata) özeti
+                        // AÇMA: `totals` o anda boş dizinin toplamı olur ve
+                        // "tahsilat yok" sahte bir sonuç gösterirdi — "okunamadı"
+                        // ile "yok" burada da karışmamalı.
+                        disabled={!known}
+                        onPress={() => setDayEndOpen(true)}
                         style={{
                             height: cashMetrics.dayEndHeight, paddingHorizontal: 16, borderRadius: 14,
                             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            opacity: known ? 1 : 0.4,
                         }}
                     >
                         <Text style={{ fontFamily: font.bold, fontSize: cashMetrics.dayEndFont, letterSpacing: -0.15, color: c.tx2 }}>
-                            {DAY_END}
+                            {periodSummaryTitle(period)}
                         </Text>
                     </Pressable>
                 </View>
             </ScrollView>
+
+            <DayEndSheet
+                visible={dayEndOpen}
+                period={period}
+                totals={totals}
+                onDismiss={() => setDayEndOpen(false)}
+            />
 
             {openMovement ? (
                 /*

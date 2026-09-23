@@ -185,11 +185,61 @@ test('yazılamayan değişiklik söyleniyor; başka cihaz değiştirdiyse günce
     }
 });
 
-test('bildirimler GİZLİ — arkasında bildirim yolu yok (kullanıcı kararı)', () => {
-    assert.equal(MANAGER_NOTIFICATIONS_READY, false);
+test('bildirimler AÇIK — ve arkasında gerçekten bir yol var (106)', () => {
+    /*
+     * BARİYER KALKMADI, YÖN DEĞİŞTİRDİ.
+     *
+     * 2026-09-16'dan 2026-09-23'e kadar bu test ekranın GİZLİ olduğunu
+     * koruyordu ve haklıydı: anahtarların arkasında hiçbir şey yoktu, yalnız
+     * telefonun belleğinde duruyorlardı. Bayrağı açmak tek başına o ekranı
+     * yeniden yalancı yapardı — bu yüzden test artık ÜÇ ŞEYİN de yerinde
+     * olduğunu doğruluyor.
+     */
+    assert.equal(MANAGER_NOTIFICATIONS_READY, true);
     assert.match(profile, /\{MANAGER_NOTIFICATIONS_READY \? \(\s*<ProfileRow\s*title="Bildirimler"/);
+    // Ekran hâlâ bayrağa bakıyor: kapatılmak istenirse tek satır yeter.
     assert.match(notifyScreen, /if \(!MANAGER_NOTIFICATIONS_READY\) return <Redirect href="\/mudur\/profile" \/>;/);
-    assert.match(read('supabase/046_push_only_staff.sql'), /GÖNDERİLMEZ/i);
+
+    // 1) Tercih satırı — sunucuda gerçek bir kolon
+    assert.match(read('supabase/105_bildirim_tercihleri.sql'), /add column if not exists notification_prefs jsonb/);
+    // 2) Tetikleyici — müdür hedefli üç olay
+    const sql106 = read('supabase/106_mudur_push_geri.sql');
+    for (const pref of ['booked', 'cancelled', 'cash']) {
+        assert.match(sql106, new RegExp(`'pref',\\s+'${pref}'`), pref);
+    }
+    // 3) Cihaz jetonu — müdür kanalı
+    assert.match(read('supabase/functions/push-subscribe/index.ts'), /role: 'manager',\s*\n\s*kind: 'expo'/);
+
+    // 046 yerinde duruyor ama artık GEÇERSİZ; 106 onu neden geri aldığını yazıyor.
+    assert.match(sql106, /046/);
+    assert.match(sql106, /geçerliliğini yitirdi/i);
+});
+
+test('ekran GERÇEK kaynağa bağlı — sahte bellek kaynağı silindi', () => {
+    // `salonSettings.ts` bunları bellekte tutuyordu: müdür "Yeni randevu"yu
+    // açıyor, uygulama kapanınca ayar kayboluyordu.
+    const fake = read('mobile/src/lib/salonSettings.ts');
+    assert.doesNotMatch(fake, /readNotifications|setNotification\b|NOTIFY/);
+    assert.match(notifyScreen, /fetchNotificationPrefs/);
+    assert.match(notifyScreen, /saveNotificationPref/);
+    // Yazma kapısı her yazmanın ilk satırı.
+    const write = read('mobile/src/lib/managerWrite.ts');
+    const fn = write.slice(write.indexOf('export async function saveNotificationPref'));
+    assert.match(fn.slice(0, 400), /if \(await writesPaused\(\)\) return \{ ok: false, kind: 'paused' \};/);
+});
+
+test('İZİN ile TERCİH ayrı çiziliyor — açık anahtar tek başına söz vermiyor', () => {
+    /*
+     * İkisi farklı kapı: anahtar açıkken OS izni kapalıysa bildirim GELMEZ.
+     * Ekran bunu söylemezse, açık bir anahtar yerine getirilmeyen bir söz olur.
+     */
+    assert.match(notifyScreen, /head="TELEFON İZNİ"/);
+    assert.match(notifyScreen, /permissionText\(push\)/);
+    assert.match(notifyScreen, /!isLive\(push\)/);
+});
+
+test('okunamayan tercih "kapalı" diye çizilmiyor', () => {
+    assert.match(notifyScreen, /<DurumUnread[\s\S]{0,160}notMeaning="Bildirimlerin kapalı olduğu"/);
 });
 
 test('saf katman React, Expo ve Supabase taşımıyor', () => {

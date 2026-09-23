@@ -8,11 +8,12 @@ import { GlassView } from 'expo-glass-effect';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomSheet, SheetGrab } from './Sheet';
 import { Chevron, Money } from './CashParts';
 import {
     ACTION_CANCEL, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, READ_ONLY_NOTE, SHEET_SECTIONS, STAFF_ROW_LABEL,
-    canCorrect, customerCardLabel, formatAmount, methodLabel, parseAmount, voidDialog,
-    type Movement,
+    canCorrect, counterLine, customerCardLabel, formatAmount, methodLabel, parseAmount, periodSummaryTitle, voidDialog,
+    type CashPeriod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { cashInk, cashMetrics, font, useTheme } from '../theme';
 import { upperTR } from '../lib/text';
@@ -469,6 +470,78 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                 )}
             </Animated.View>
         </Modal>
+    );
+}
+
+// ── Gün sonu / dönem özeti ───────────────────────────────────────────────────
+
+/**
+ * "Gün sonu özeti" düğmesinin sayfası — masaüstündeki `dayEnd` modalının
+ * mobil karşılığı. YENİ SUNUCU UCU YOK: ekran zaten seçili dönemin
+ * hareketlerini okumuş, `totals` bunlardan türemiş (`totalsOf`, `cash.tsx`).
+ * Bu sayfa aynı veriyi yöntem bazında döküyor, hiçbir şey yeniden çekmiyor.
+ *
+ * Kapsam SEÇİLİ SEKMEYE göre değişir (2026-09-22 kararı): Bugün'deyken gün
+ * sonu, Bu ay'dayken ay özeti — masaüstünün sabit "bugün" davranışından
+ * BİLEREK ayrılıyor, mobilde zaten üç sekme var.
+ *
+ * Salt okunur, aksiyon YOK (kullanıcı kararı — "Yazdır"ın telefon karşılığı
+ * istenmedi). Kapatma yalnız arka plana dokunarak; `MovementSheet`'in salt
+ * okunur hâliyle aynı, kendine özgü bir "Kapat" düğmesi eklemiyor.
+ */
+export function DayEndSheet({ visible, period, totals, onDismiss }: {
+    visible: boolean;
+    period: CashPeriod;
+    totals: CashTotals;
+    onDismiss: () => void;
+}) {
+    const { c } = useTheme();
+
+    return (
+        <BottomSheet visible={visible} onDismiss={onDismiss}>
+            <SheetGrab />
+            <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+                <Text style={{ fontFamily: font.extraBold, fontSize: 19, letterSpacing: -0.4, color: c.tx }}>
+                    {periodSummaryTitle(period)}
+                </Text>
+                <Text style={{ fontFamily: font.medium, fontSize: 13, color: c.tx2, marginTop: 2 }}>
+                    {counterLine(totals)}
+                </Text>
+
+                <View style={{ alignItems: 'center', paddingVertical: 14 }}>
+                    <Money style={{ fontFamily: font.extraBold, fontSize: 34, fontWeight: '800', letterSpacing: -0.6, color: c.tx }}>
+                        ₺{formatAmount(totals.total)}
+                    </Money>
+                </View>
+
+                {totals.shares.length === 0 ? (
+                    <Text style={{ fontFamily: font.medium, fontSize: 13.5, color: c.tx2, textAlign: 'center', paddingVertical: 12 }}>
+                        Bu dönemde tahsilat yok.
+                    </Text>
+                ) : (
+                    <Section title="Yönteme göre" color={c.tx3} border={c.bd}>
+                        {totals.shares.map((s) => (
+                            <View key={s.method} style={{
+                                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                minHeight: cashMetrics.sheetRowHeight,
+                            }}>
+                                <Text style={{ fontFamily: font.medium, fontSize: cashMetrics.sheetRowFont, color: c.tx2 }}>
+                                    {methodLabel(s.method)}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                                    <Text style={{ fontFamily: font.medium, fontSize: 12, color: c.tx3 }}>
+                                        %{Math.round(s.percent)}
+                                    </Text>
+                                    <Money style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, fontWeight: '700', color: c.tx }}>
+                                        ₺{formatAmount(s.amount)}
+                                    </Money>
+                                </View>
+                            </View>
+                        ))}
+                    </Section>
+                )}
+            </View>
+        </BottomSheet>
     );
 }
 

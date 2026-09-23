@@ -35,7 +35,35 @@ import { supabase, supabaseConfigured } from './supabase';
 import { onForgetOrg, resolveOrg } from './managerSource';
 import { api, tokens } from '../api/staff';
 
-type Listener = () => void;
+/**
+ * Zilin gövdesi: hangi tablo değişti (101). Dinleyici yalnız ilgilendiği
+ * tabloları isteyebiliyor — zil dokuz tabloda çaldığı için süzgeçsiz bir
+ * ekran, ilgisiz bir değişiklikte de kendini yeniliyordu.
+ */
+export type LiveTable = string;
+
+/**
+ * Randevu dünyasının tabloları — müdürün beş ana ekranı (Akış, Takvim,
+ * Kasa, randevu kartı, randevu oluştur) bunları okuyor.
+ *
+ * 101 zili on bir tabloya taktı. Süzgeç olmadan bir paket satışı ya da bir
+ * ürün fiyatı değişimi de bu beş ekranı tazeliyordu — hiçbiri o veriyi
+ * göstermiyor. Listede OLMAYANLAR bilinçli: `treatment_plans`,
+ * `package_templates`, `customer_packages`, `products`.
+ *
+ * Şüphede kalınca tablo listeye EKLENİR: kaçırılan bir değişiklik,
+ * gereksiz bir okumadan pahalı.
+ */
+export const BOOKING_TABLES = [
+    'reservations', 'payments', 'staff', 'staff_time_off',
+    'settings', 'services', 'customers',
+] as const;
+
+interface Listener {
+    fn: () => void;
+    /** Boşsa HER zil bu dinleyiciyi uyandırır. */
+    tables?: readonly LiveTable[];
+}
 
 /**
  * Dinleyiciler KANALDAN BAĞIMSIZ.
@@ -47,6 +75,15 @@ type Listener = () => void;
  * bir hızlandırıcı, hiç olmayanından kötü.
  */
 const listeners = new Set<Listener>();
+
+/** Zil bu turda hangi tablolarda çaldı — süzgeç için toplanıyor. */
+function wakes(listener: Listener, rung: ReadonlySet<LiveTable>): boolean {
+    if (!listener.tables || listener.tables.length === 0) return true;
+    // Tablo adı BİLİNMİYORSA (eski sunucu, süzgeçsiz kanal) herkes uyanır:
+    // kaçırılan bir tazeleme, gereksiz bir tazelemeden pahalı.
+    if (rung.size === 0) return true;
+    return listener.tables.some((table) => rung.has(table));
+}
 
 interface Channel {
     orgId: string;
@@ -66,19 +103,37 @@ let opening = false;
  */
 const COALESCE_MS = 300;
 
+/** Müdürün zili bu kadar sürede katılmazsa eski yola düşülüyor. */
+const JOIN_TIMEOUT_MS = 4000;
+
+/** `openManagerRing` içindeki kanalın geçici tutamağı. */
+let managerRing: ReturnType<typeof supabase.channel> | null = null;
+
 /** Art arda gelen olayları tek tazelemeye indiren tetikleyici. */
-function ringer(): { ring: () => void; stop: () => void } {
+function ringer(): { ring: (table?: LiveTable) => void; stop: () => void } {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let rung = new Set<LiveTable>();
     return {
-        ring: () => {
+        ring: (table?: LiveTable) => {
+            if (table) rung.add(table);
             if (timer) return;
             timer = setTimeout(() => {
                 timer = null;
-                for (const listener of [...listeners]) listener();
+                const turn = rung;
+                rung = new Set<LiveTable>();
+                for (const listener of [...listeners]) {
+                    if (wakes(listener, turn)) listener.fn();
+                }
             }, COALESCE_MS);
         },
         stop: () => { if (timer) clearTimeout(timer); },
     };
+}
+
+/** Yayın gövdesinden tablo adı: `{ payload: { t: 'reservations' } }`. */
+function tableOf(message: unknown): LiveTable | undefined {
+    const body = (message as { payload?: { t?: unknown } } | null)?.payload;
+    return typeof body?.t === 'string' ? body.t : undefined;
 }
 
 /**
@@ -95,7 +150,7 @@ function ringer(): { ring: () => void; stop: () => void } {
  *
  * Jeton bir saat yaşıyor; kanal açık kaldıkça süresi dolmadan yenileniyor.
  */
-async function openStaffRing(ring: () => void): Promise<Channel | null> {
+async function openStaffRing(ring: (table?: LiveTable) => void): Promise<Channel | null> {
     const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
     const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
     if (!url || !anonKey) return null;
@@ -118,7 +173,7 @@ async function openStaffRing(ring: () => void): Promise<Channel | null> {
 
     const live = client
         .channel(first.topic, { config: { private: true } })
-        .on('broadcast', { event: 'changed' }, ring)
+        .on('broadcast', { event: 'changed' }, (message) => ring(tableOf(message)))
         .subscribe((status, error) => {
             /*
              * Katılım sonucu SESSİZ KALMIYOR. Zil bir hızlandırıcı olduğu için
@@ -156,28 +211,61 @@ async function openStaffRing(ring: () => void): Promise<Channel | null> {
 }
 
 /**
- * MÜDÜRÜN KANALI — kendi Supabase oturumuyla, masaüstündekinin aynısı
- * (`src/hooks/useReservations.ts`).
+ * MÜDÜRÜN KANALI — personelinkiyle AYNI zil (101).
  *
- * Süzgeç org: RLS üye olunan bütün org'ları açıyor, süzgeçsiz bir abonelik
- * başka salonun hareketini de duyardı.
+ * Müdür de `org:<id>` özel konusunu dinliyor: 100'ün "müdür kendi salonunun
+ * zilini duyar" kuralı üyelikten geçiyor. Böylece dokuz tablonun tetikleyicisi
+ * iki kimliğe de tek yoldan ulaşıyor ve tablo adı gövdede geliyor.
+ *
+ * Tutmazsa ESKİ YOL: `postgres_changes` (randevu + tahsilat). Jeton kanala
+ * uygulanamazsa ya da kural tutmazsa zil hiç çalmaz; o hâlde en azından iki
+ * tablo canlı kalsın, kalanı yoklama taşısın.
  */
-async function openManagerChannel(ring: () => void): Promise<Channel | null> {
+async function openManagerRing(ring: (table?: LiveTable) => void): Promise<Channel | null> {
     const choice = await resolveOrg().catch(() => null);
     if (!choice?.ok) return null;
     const orgId = choice.id;
+    const topic = `org:${orgId}`;
 
+    const joined = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (ok: boolean) => { if (!settled) { settled = true; resolve(ok); } };
+        const live = supabase
+            .channel(topic, { config: { private: true } })
+            .on('broadcast', { event: 'changed' }, (message) => ring(tableOf(message)))
+            .subscribe((status, error) => {
+                if (status === 'SUBSCRIBED') { managerRing = live; finish(true); return; }
+                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    console.warn('müdür zili kapandı', status, error?.message ?? '');
+                    void supabase.removeChannel(live);
+                    finish(false);
+                }
+            });
+        // Cevapsız kalırsa eski yola düş: kanal sessizce ölü kalmasın.
+        setTimeout(() => finish(Boolean(managerRing)), JOIN_TIMEOUT_MS);
+    });
+
+    if (joined && managerRing) {
+        const open = managerRing;
+        managerRing = null;
+        return { orgId, close: () => { void supabase.removeChannel(open); } };
+    }
+    return openManagerChanges(orgId, ring);
+}
+
+/** Zil tutmazsa: 100 öncesinin yolu — yalnız randevu ve tahsilat. */
+function openManagerChanges(orgId: string, ring: (table?: LiveTable) => void): Channel {
     const live = supabase
         .channel(`live:${orgId}`)
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'reservations', filter: `organization_id=eq.${orgId}` },
-            ring,
+            () => ring('reservations'),
         )
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'payments', filter: `organization_id=eq.${orgId}` },
-            ring,
+            () => ring('payments'),
         )
         .subscribe();
 
@@ -198,7 +286,7 @@ async function ensure(): Promise<void> {
         const staff = await tokens.staff().catch(() => null);
         const opened = staff
             ? await openStaffRing(beat.ring).catch(() => null)
-            : await openManagerChannel(beat.ring).catch(() => null);
+            : await openManagerRing(beat.ring).catch(() => null);
 
         // Dinleyici bu arada gitmiş olabilir: boşa kanal açık kalmasın.
         if (!opened) return;
@@ -221,17 +309,29 @@ function closeChannel(): void {
  * `onChange` ÇAĞIRAN TARAFTA sabitlenmeli (`useCallback`), yoksa her çizimde
  * abonelik kurulup yıkılır.
  */
-export function useLiveSignal(onChange: () => void, enabled = true): void {
+export function useLiveSignal(
+    onChange: () => void,
+    enabled = true,
+    /**
+     * Yalnız bu tablolar değişince uyan. VERİLMEZSE her zil uyandırır —
+     * varsayılan bilerek "fazla tazele": kaçırılan bir değişiklik,
+     * gereksiz bir okumadan pahalı.
+     */
+    tables?: readonly LiveTable[],
+): void {
+    // Dizi her çizimde yeni olabiliyor; abonelik ADLARA bakıyor.
+    const key = tables ? tables.join(',') : '';
     useEffect(() => {
         if (!enabled) return undefined;
-        listeners.add(onChange);
+        const listener: Listener = { fn: onChange, tables: key ? key.split(',') : undefined };
+        listeners.add(listener);
         void ensure();
         return () => {
-            listeners.delete(onChange);
+            listeners.delete(listener);
             // Son dinleyici gitti: websocket boşuna açık durmasın.
             if (listeners.size === 0) closeChannel();
         };
-    }, [onChange, enabled]);
+    }, [onChange, enabled, key]);
 }
 
 /**

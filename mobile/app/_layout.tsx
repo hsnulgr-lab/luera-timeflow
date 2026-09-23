@@ -10,6 +10,11 @@
 import 'react-native-url-polyfill/auto';
 // Sistem açılış karesi yazı tipleri ve oturum okunurken yerinde kalsın.
 import '../src/lib/splashHandoff';
+/*
+ * Bildirim işleyicisi ve Android kanalı (103). Burada, çünkü uygulama
+ * AÇIKKEN gelen ilk bildirim işleyici kurulmadan düşerse sessizce yutulur.
+ */
+import '../src/lib/pushSetup';
 
 import {
     HankenGrotesk_200ExtraLight,

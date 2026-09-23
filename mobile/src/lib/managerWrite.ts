@@ -25,8 +25,9 @@ import {
 import { RES_COLS, toAppt } from './managerMap.ts';
 import type { CatalogService } from './cashBuild.ts';
 import { clampSessions, type PackageSaleInput, type PackageSaleOutcome } from './packageSale.ts';
-import type { DaySchedule, SalonService } from './managerProfile.ts';
-import { fetchServices, type HoursRow } from './managerSource';
+import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
+import { prefsPatchOf } from './notificationPrefs.ts';
+import { fetchServices, type HoursRow, type PrefsRow } from './managerSource';
 import {
     servicePatchOf, workingHoursOf, type SettingsOutcome,
 } from './settingsMap.ts';
@@ -348,6 +349,54 @@ export function fireCreatedWebhook(url: string | null, row: CreatedAppointment, 
  * masaüstünde az önce değiştirilmiş başka bir ayarı geri almaya açıktı —
  * `working_hours` dışında hiçbir kolona dokunulmuyor.
  */
+/**
+ * Bir bildirim anahtarını yazar (105).
+ *
+ * `saveWorkingHours` ile birebir aynı desen: yazma kapısı, iyimser kilit,
+ * dönen satırın kendisi. İki ayrı davranış öğrenmesin diye.
+ *
+ * Yazılan şey TEK ANAHTAR değil, birleştirilmiş nesne (`prefsPatchOf`):
+ * bilinmeyen anahtarlar korunuyor. Gövdeyi sıfırdan kurmak, ileride eklenen
+ * bir anahtarı sessizce silmek olurdu.
+ */
+export async function saveNotificationPref(
+    key: NotificationKey,
+    value: boolean,
+    row: PrefsRow,
+): Promise<SettingsOutcome<PrefsRow>> {
+    if (await writesPaused()) return { ok: false, kind: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const next = prefsPatchOf(row.raw, key, value);
+        const stampedAt = new Date().toISOString();
+        let query = supabase.from('settings')
+            .update({ notification_prefs: next, updated_at: stampedAt })
+            .eq('organization_id', organizationId)
+            .eq('user_id', row.userId);
+        query = row.stamp === null ? query.is('updated_at', null) : query.eq('updated_at', row.stamp);
+        const { data, error } = await query
+            .select('user_id, notification_prefs, updated_at')
+            .returns<Record<string, unknown>[]>();
+        if (error) return { ok: false, kind: 'failed' };
+        const saved = data?.[0];
+        // Hata yok ama satır da yok: başka bir cihaz az önce değiştirmiş.
+        // Kontrol edilmezse yazma "başarılı" görünür ve müdür yapılmamış bir
+        // değişikliği yapılmış sanar — kilidin hiç olmamasından kötü.
+        if (!saved) return { ok: false, kind: 'stale' };
+        return {
+            ok: true,
+            value: {
+                raw: saved.notification_prefs ?? next,
+                userId: String(saved.user_id ?? row.userId),
+                stamp: (saved.updated_at as string | null) ?? stampedAt,
+            },
+        };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, kind: 'failed' };
+    }
+}
+
 export async function saveWorkingHours(
     schedules: readonly DaySchedule[],
     row: HoursRow,

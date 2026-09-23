@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
-    View, useWindowDimensions,
+    TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,7 +44,7 @@ import {
     queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
-import { sendVisitToCash, startVisit, writeVisitFormula } from '../../src/lib/visitWrite';
+import { sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote } from '../../src/lib/visitWrite';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
@@ -176,6 +176,15 @@ export default function Kumanda() {
     /** Formül yazmanın hâli ve sunucunun hayırının kodu. */
     const [formulaWrite, setFormulaWrite] = useState<'idle' | 'busy' | 'queued' | 'error'>('idle');
     const [formulaCode, setFormulaCode] = useState<string | null>(null);
+    /**
+     * Randevunun serbest notu — SUNUCUDAN, `arrived_at`/`adisyon_items` ile
+     * aynı desen (aşağıdaki `appointment` birleşimi). `undefined` "henüz
+     * yazılmadı" demek; o zaman `base.notes` geçerli. `null` ya da metin ise
+     * az önce kaydedilenin yankısı — bir sonraki okumada `base.notes` zaten
+     * aynı şeyi getirecek, ikisi ayrışmaz.
+     */
+    const [noteSaved, setNoteSaved] = useState<string | null | undefined>(undefined);
+    const [noteWrite, setNoteWrite] = useState<'idle' | 'busy' | 'queued' | 'error'>('idle');
     /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
     const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,7 +194,8 @@ export default function Kumanda() {
         arrived_at: startedAt ?? base.arrived_at,
         service_ended_at: endedAt ?? base.service_ended_at,
         adisyon_items: sent ? lines : base.adisyon_items,
-    } : null), [base, startedAt, endedAt, sent, lines]);
+        notes: noteSaved !== undefined ? noteSaved : base.notes,
+    } : null), [base, startedAt, endedAt, sent, lines, noteSaved]);
 
     /*
      * Risk satırları MÜŞTERİDEN okunuyor.
@@ -1116,7 +1126,28 @@ export default function Kumanda() {
                         />
                     ) : null}
                     {sheet === 'note' ? (
-                        <NoteSheet note={appointment.notes} onClose={() => setSheet(null)} />
+                        <NoteSheet
+                            note={appointment.notes}
+                            write={noteWrite}
+                            onClose={() => setSheet(null)}
+                            onSave={(text) => {
+                                setNoteWrite('busy');
+                                feedback.medium();
+                                void writeVisitNote(appointment.id, text).then((out) => {
+                                    if (out.code) {
+                                        setNoteWrite('error');
+                                        feedback.warning();
+                                        return;
+                                    }
+                                    // Formülle aynı kural: alt sayfa yalnız
+                                    // kayıt GERÇEKTEN gidince kapanıyor.
+                                    if (out.queued) { setNoteWrite('queued'); return; }
+                                    setNoteSaved(out.saved);
+                                    setNoteWrite('idle');
+                                    setSheet(null);
+                                });
+                            }}
+                        />
                     ) : null}
                     {dup ? (
                         <DupConfirm
@@ -2284,44 +2315,84 @@ function MinutesSheet({ onPick, onCancel }: { onPick: (m: number) => void; onCan
     );
 }
 
-function NoteSheet({ note, onClose }: { note: string | null; onClose: () => void }) {
+/**
+ * Not — artık düzenlenebilir (2026-09-22). Sunucu ucu `visit.note`; kaydeden
+ * KAZANIR, masaüstü ve müdür telefonunun `reservations.notes`iyle aynı kural
+ * (ekleme değil TAM DEĞİŞTİRME). Kaydet yalnız metin GERÇEKTEN değiştiyse
+ * aktif — dokunulmamış bir notu yeniden göndermenin anlamı yok.
+ */
+function NoteSheet({ note, write, onClose, onSave }: {
+    note: string | null;
+    write: 'idle' | 'busy' | 'queued' | 'error';
+    onClose: () => void;
+    onSave: (text: string) => void;
+}) {
     const { c } = useTheme();
+    const [draft, setDraft] = useState(note ?? '');
+    const busy = write === 'busy';
+    const changed = draft.trim() !== (note ?? '').trim();
+
+    const failure = write === 'error'
+        ? 'Not kaydedilemedi. Metin burada duruyor — tekrar deneyin.'
+        : write === 'queued'
+            ? 'Sinyal yok — not kuyrukta, sinyal gelince gidecek.'
+            : null;
+
     return (
         <>
             <SheetHead title="Not" note="müşteri görmez" />
-            <View style={{ paddingHorizontal: 16 }}>
-                <View style={{
-                    padding: 15,
-                    borderRadius: 18,
-                    backgroundColor: c.surf2,
-                    borderWidth: 1,
-                    borderColor: c.bd,
-                    minHeight: 132,
-                }}>
-                    <Text style={{ fontSize: 16, fontWeight: '500', lineHeight: 24, color: note ? c.tx : c.tx3 }}>
-                        {note ?? 'Bu randevuda not yok.'}
+            <View style={{ paddingHorizontal: 16, gap: 10 }}>
+                <TextInput
+                    value={draft}
+                    onChangeText={setDraft}
+                    multiline
+                    editable={!busy}
+                    placeholder="Bu randevu için not ekleyin"
+                    placeholderTextColor={c.tx3}
+                    accessibilityLabel="Randevu notu"
+                    style={{
+                        minHeight: 132,
+                        maxHeight: 260,
+                        padding: 15,
+                        borderRadius: 18,
+                        borderWidth: 1,
+                        borderColor: write === 'error' ? c.rd : c.bd,
+                        backgroundColor: c.surf2,
+                        color: c.tx,
+                        fontSize: 16,
+                        fontWeight: '500',
+                        lineHeight: 24,
+                        textAlignVertical: 'top',
+                    }}
+                />
+                {failure ? (
+                    <Text accessibilityLiveRegion="polite" style={{
+                        fontSize: 12.5, fontWeight: '600', lineHeight: 17,
+                        color: write === 'error' ? c.rd : c.tx3,
+                    }}>
+                        {failure}
                     </Text>
-                </View>
-                {/* Sunucuda not ucu YOK. Ölü kontrol değil, bekleyen iş. */}
-                <View style={{
-                    marginTop: 10,
-                    padding: 12,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderStyle: 'dashed',
-                    borderColor: c.bd2,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                }}>
-                    <Glyph name="cloud" size={15} color={c.tx3} />
-                    <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '600', color: c.tx3, lineHeight: 16 }}>
-                        Sunucuda not ucu henüz yok: yazılan not cihazda duruyor ve
-                        uç açıldığında gönderilecek.
-                    </Text>
-                </View>
+                ) : null}
             </View>
-            <SheetFoot label="Kapat" onPress={onClose} />
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 8 }}>
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Kaydet"
+                    accessibilityState={{ disabled: busy || !changed }}
+                    disabled={busy || !changed}
+                    onPress={() => onSave(draft.trim())}
+                    style={({ pressed }) => ({
+                        height: 64, borderRadius: 22, backgroundColor: c.or,
+                        alignItems: 'center', justifyContent: 'center',
+                        opacity: busy || !changed ? 0.45 : pressed ? 0.9 : 1,
+                    })}
+                >
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.36 }}>
+                        {busy ? 'Kaydediliyor…' : 'Kaydet'}
+                    </Text>
+                </Pressable>
+            </View>
+            <SheetFoot label="Vazgeç" onPress={onClose} />
         </>
     );
 }

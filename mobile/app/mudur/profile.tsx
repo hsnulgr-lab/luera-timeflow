@@ -13,13 +13,15 @@ import {
     hoursSummary,
     legalSummary,
     MANAGER_NOTIFICATIONS_READY,
+    NOTIFICATIONS,
     notificationsSummary,
     servicesSummary,
     themeLabel,
     todayCard,
     type NotificationKey,
 } from '../../src/lib/managerProfile';
-import { readNotifications } from '../../src/lib/salonSettings';
+import { fetchNotificationPrefs } from '../../src/lib/managerSource';
+import { prefsOf } from '../../src/lib/notificationPrefs';
 import { readKvkkUrl } from '../../src/lib/legalSource';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCustomerCount, fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
@@ -70,14 +72,17 @@ export default function ManagerProfile() {
             services: salonServicesOf(catalog),
         };
     }, []);
-    const salon = useManagerRead(readSalon, { hours: [], services: [] }, { poll: false });
+    const salon = useManagerRead(readSalon, { hours: [], services: [] },
+        { poll: false, tables: ['settings', 'services'] });
     const { hours, services } = salon.data;
 
     const load = useCallback(() => {
         let alive = true;
         void Promise.all([
             authApi.account.get(),
-            readNotifications(),
+            // Özet satırı GERÇEK tercihten (105). Okunamazsa satır özetsiz
+            // kalıyor — "Kapalı" yazmak, bilmediğimizi bilgi gibi göstermekti.
+            fetchNotificationPrefs().catch(() => null),
             readKvkkUrl(),
             fetchTeamStatus().catch(() => null),
             // Okunamazsa satır özetsiz kalıyor — kaynak hatayı yutmuyor.
@@ -85,7 +90,9 @@ export default function ManagerProfile() {
         ]).then(([account, notifications, url, members, customerCount]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
-            setNotify(notifications);
+            setNotify(notifications
+                ? prefsOf(notifications.raw, NOTIFICATIONS.map((item) => item.key))
+                : null);
             setKvkkUrl(url);
             setTeam(Array.isArray(members) ? members : null);
             setCustomers(typeof customerCount === 'number' ? customerCount : null);

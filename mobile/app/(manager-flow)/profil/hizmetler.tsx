@@ -47,7 +47,8 @@ export default function ManagerServices() {
     const [refused, setRefused] = useState<'stale' | 'paused' | 'failed' | null>(null);
 
     const read = useCallback(() => fetchServices(), []);
-    const snap = useManagerRead<CatalogService[] | null>(read, null, { poll: false });
+    const snap = useManagerRead<CatalogService[] | null>(read, null,
+        { poll: false, tables: ['services'] });
     /*
      * Yazmanın döndürdüğü katalog, sonraki okumaya kadar. Yazma zaten
      * yazdıktan SONRA kataloğu okuyor; bu kopya o okumanın sonucu, tahmin

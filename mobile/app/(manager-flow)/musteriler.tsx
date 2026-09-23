@@ -68,7 +68,8 @@ export default function ManagerCustomers() {
     }, [today]);
     // Yoklama KAPALI: defter saniyede değişen bir şey değil, ve arama
     // yazarken listenin altından değişmesi kullanıcıyı şaşırtır.
-    const snap = useManagerRead<ManagerBookRow[] | null>(read, null, { poll: false });
+    const snap = useManagerRead<ManagerBookRow[] | null>(read, null,
+        { poll: false, tables: ['customers', 'reservations'] });
 
     const rows = useMemo(
         () => (snap.data ? sortManagerBook(snap.data, today) : []),

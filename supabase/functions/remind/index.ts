@@ -503,7 +503,9 @@ Deno.serve(async (req: Request) => {
                             target: { staffId: r.staff_id },
                             payload: {
                                 title: 'Sıradaki randevun yaklaşıyor',
-                                body: `${r.customer_name || 'Müşteri'} · ${r.service || ''} · ${String(r.start_time).slice(0, 5)}`,
+                                // YALNIZ İLK AD — kilit ekranı salonda herkese açık
+                                // (104 ile tetikleyicilerde de aynı kural).
+                                body: `${firstName(r.customer_name)} · ${r.service || ''} · ${String(r.start_time).slice(0, 5)}`,
                                 url: '/calendar',
                                 tag: `soon-${r.id}`,
                             },
@@ -852,4 +854,9 @@ async function aiOrTemplate(
         if (ai) return ai;
     }
     return fallback();
+}
+
+/** Bildirim gövdesi için ilk ad. Bkz. `supabase/104_push_ilk_ad.sql`. */
+function firstName(full: string | null | undefined): string {
+    return (full ?? '').trim().split(/\s+/)[0] || 'Müşteri';
 }

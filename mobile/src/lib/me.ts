@@ -15,6 +15,32 @@ import { useEffect, useState } from 'react';
 
 import { authApi } from '../api/session';
 
+/**
+ * Kanca olmayan yol — arka plan işleri için (`backgroundSync` · bildirim jetonu).
+ *
+ * MÜDÜR OTURUMUNDA `null` DÖNER, bilerek: müdürün `profile.id`si bir Supabase
+ * kullanıcı kimliği, `staff.id` DEĞİL. Onu personel jetonuna kaydetmek, o
+ * cihaza başka birinin bildirimlerini göndermek demekti.
+ */
+export async function myActor(): Promise<'manager' | 'staff' | null> {
+    try {
+        const result = await authApi.resume.get();
+        return result.ok ? result.data.actor : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function myStaffId(): Promise<string | null> {
+    try {
+        const result = await authApi.resume.get();
+        if (!result.ok || result.data.actor !== 'staff') return null;
+        return result.data.profile.id;
+    } catch {
+        return null;
+    }
+}
+
 export function useMyStaffId(): string | null {
     const [id, setId] = useState<string | null>(null);
 

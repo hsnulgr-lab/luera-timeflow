@@ -19,6 +19,7 @@ import {
     customerOptionsOf, serviceOptionsOf, type CrewRecord,
 } from './createLive.ts';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
+import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
     apiSource, fetchArrivalTolerance, fetchCreateSettings, fetchCrew, fetchCustomerBook,
@@ -65,7 +66,7 @@ export function useCreateContext(): ManagerSnapshot<CreateContext | null> {
             deviceAt,
         };
     }, []);
-    return useManagerRead<CreateContext | null>(read, null, { poll: false });
+    return useManagerRead<CreateContext | null>(read, null, { poll: false, tables: BOOKING_TABLES });
 }
 
 export interface CreateDay {
@@ -86,5 +87,5 @@ export function useCreateDay(dateISO: string | null): ManagerSnapshot<CreateDay>
         ]);
         return { dateISO, appointments, leave };
     }, [dateISO]);
-    return useManagerRead(read, NO_DAY);
+    return useManagerRead(read, NO_DAY, { tables: BOOKING_TABLES });
 }
