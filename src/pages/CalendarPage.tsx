@@ -253,6 +253,11 @@ export const CalendarPage = () => {
     // hızlı-bakış popup'ı (AdisyonModal) kaldırıldı: tık doğrudan müşteri
     // kartını açar (müşterisiz walk-in'de müşteri listesine düşer). Diğer
     // sektörlerde eski davranış — modalı açar.
+    //
+    // O kaldırma Düzenle ve İPTAL'i de beraberinde götürmüştü: güzellikte
+    // randevu iptal edecek hiçbir yol kalmamıştı (2026-09-24'te fark edildi).
+    // Tık davranışı bilinçli, ona dokunulmadı; modal artık karttaki ⋯
+    // düğmesinden açılıyor (openReservationDetail).
     const openReservation = useCallback((r: Reservation) => {
         if (settings.sector === 'guzellik') {
             routerNavigate(r.customerId ? `/beauty-customer/${r.customerId}` : '/customers');
@@ -260,6 +265,9 @@ export const CalendarPage = () => {
         }
         setAdisyonRes(r);
     }, [settings.sector, routerNavigate]);
+
+    /** Karttaki ⋯ — sektör ne olursa olsun randevu detayını açar. */
+    const openReservationDetail = useCallback((r: Reservation) => setAdisyonRes(r), []);
 
     // Seçili (kilitli) müşterinin tam kaydı — modal içinde bağlam göstermek için
     // (medikal uyarı, son ziyaret, kontrol tarihi, diş şeması kısayolu)
@@ -952,6 +960,7 @@ export const CalendarPage = () => {
                                     resourceTypeLabel={resourceTypeLabel}
                                     workingHours={settings.workingHours || []}
                                     onOpen={(r) => openReservation(r)}
+                                    onDetail={openReservationDetail}
                                     onAddAt={(hour, columnId, groupBy) => {
                                         const startTime = `${String(hour).padStart(2, '0')}:00`;
                                         setSelectedDate(toISODate(currentDate));

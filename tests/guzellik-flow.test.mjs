@@ -123,3 +123,51 @@ test('güzellik sektörünün recall periyodu ve kabin kaynağı tanımlı', () 
     assert.deepEqual(p.resourceTypes, ['Kabin']);
     assert.ok(p.riskFlags?.some((f) => f.key === 'hamilelik'));
 });
+
+// ── Randevu iptali · güzellikte kapısı yoktu ────────────────────────────────
+//
+// 2026-09-24: güzellik salonunda masaüstünden bir randevuyu İPTAL ETMEK
+// mümkün değildi. Sebep tek bir satırdı — takvimde tık AdisyonModal yerine
+// müşteri kartına gidiyor ("hızlı-bakış popup'ı kaldırıldı") ve iptal
+// düğmesi o modalın içindeydi. Popup gidince Düzenle ve İptal de gitmiş,
+// kimse fark etmemişti. Ekranda "İptal" filtresi duruyordu — hiçbir zaman
+// ulaşılamayacak bir durumu süzen bir filtre.
+
+const agendaGrid = read('../src/components/reservations/DayAgendaGrid.tsx');
+const calendarPage = read('../src/pages/CalendarPage.tsx');
+const adisyonModal = read('../src/components/reservations/AdisyonModal.tsx');
+
+test('güzellikte tık müşteri kartına gider — bu bilinçli, korunuyor', () => {
+    assert.match(calendarPage, /settings\.sector === 'guzellik'[\s\S]{0,160}beauty-customer/);
+});
+
+test('ama randevu detayına ULAŞILABİLİR bir kapı var', () => {
+    // Kapı ızgaradaki ⋯ düğmesi. `onDetail` bağlı değilse düğme çizilmez ve
+    // güzellik yine iptalsiz kalır — bu yüzden bağlantı da denetleniyor.
+    assert.match(agendaGrid, /onDetail\?: \(r: Reservation\) => void;/);
+    assert.match(agendaGrid, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); setHover\(null\); onDetail\(r\); \}\}/);
+    assert.match(calendarPage, /onDetail=\{openReservationDetail\}/);
+    assert.match(calendarPage, /const openReservationDetail = useCallback\(\(r: Reservation\) => setAdisyonRes\(r\), \[\]\)/);
+});
+
+test('detay modalı SEKTÖRE GÖRE kapatılmamış', () => {
+    // Modal zaten her sektöre çiziliyordu; eksik olan yalnızca onu açan
+    // kapıydı. Buraya bir sektör koşulu girerse iptal yine kaybolur.
+    assert.match(calendarPage, /\{adisyonRes && \(\s*<AdisyonModal/);
+});
+
+test('modalın içinde iptal GERİ ALINABİLİR', () => {
+    /*
+     * İptal edilen randevu bütün görünümlerden düşüyor (hepsi
+     * `status !== 'cancelled'` süzüyor). Geri alma şeridi olmadan yanlışlıkla
+     * basılan bir iptal, randevunun sessizce yok olması demek olurdu.
+     */
+    assert.match(adisyonModal, /status: 'cancelled'/);
+    assert.match(adisyonModal, /toast\('Randevu iptal edildi', \{ action: \{ label: 'Geri Al'/);
+});
+
+test('ızgaradaki iki köşe düğmesi de KLAVYEYLE görünür oluyor', () => {
+    // opacity-0 odağı engellemiyor; focus-within olmadan klavyeyle gezen
+    // biri görünmeyen bir düğmeye odaklanırdı.
+    assert.match(agendaGrid, /group-hover\/appt:opacity-100 group-focus-within\/appt:opacity-100/);
+});

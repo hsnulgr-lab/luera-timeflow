@@ -68,6 +68,10 @@ interface DayAgendaGridProps {
     workingHours: WorkingHours[];
     /** Karttaki ↗ — müşteri kartı / adisyon */
     onOpen: (r: Reservation) => void;
+    /** Karttaki ⋯ — randevu detayı: Düzenle · Onayla · İptal · adisyon.
+     *  Güzellikte tık müşteri kartına gidiyor ve bu işlemlerin başka kapısı
+     *  yok; iptal buradan ulaşılıyor. Vermeyen çağıran için düğme çizilmez. */
+    onDetail?: (r: Reservation) => void;
     /** Boş saate tıklama — yeni seans */
     onAddAt: (hour: number, columnId: string | null, groupBy: 'resource' | 'staff') => void;
     /** Faz ilerletme — çubuktaki Geldi / Başladı / Bitti */
@@ -75,7 +79,7 @@ interface DayAgendaGridProps {
 
 export function DayAgendaGrid({
     dateStr, today, reservations, resources, staff, resourceTypeLabel,
-    workingHours, onOpen, onAddAt,
+    workingHours, onOpen, onDetail, onAddAt,
 }: DayAgendaGridProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -383,12 +387,19 @@ export function DayAgendaGrid({
                                             )}
 
                                             {/* Hover köşe aksiyonları */}
-                                            <div className="absolute top-[7px] right-[7px] flex gap-0.5 opacity-0 group-hover/appt:opacity-100 transition-opacity">
+                                            <div className="absolute top-[7px] right-[7px] flex gap-0.5 opacity-0 group-hover/appt:opacity-100 group-focus-within/appt:opacity-100 transition-opacity">
                                                 <button type="button" title="Müşteri kartı" aria-label={`${r.customerName} · müşteri kartı`}
                                                     onClick={(e) => { e.stopPropagation(); setHover(null); onOpen(r); }}
                                                     className="w-[22px] h-[22px] rounded-md grid place-items-center text-[var(--dc-muted)] bg-[var(--dc-surface)]/70 backdrop-blur-[2px] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
                                                     <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M7 5h8v8M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                                 </button>
+                                                {onDetail && (
+                                                    <button type="button" title="Randevu detayı" aria-label={`${r.customerName} · randevu detayı`}
+                                                        onClick={(e) => { e.stopPropagation(); setHover(null); onDetail(r); }}
+                                                        className="w-[22px] h-[22px] rounded-md grid place-items-center text-[var(--dc-muted)] bg-[var(--dc-surface)]/70 backdrop-blur-[2px] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
+                                                        <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="4.6" cy="10" r="1.45" fill="currentColor" /><circle cx="10" cy="10" r="1.45" fill="currentColor" /><circle cx="15.4" cy="10" r="1.45" fill="currentColor" /></svg>
+                                                    </button>
+                                                )}
                                             </div>
                                             {/* Süre tutamağı (görsel) */}
                                             {tier === 'full' && (
