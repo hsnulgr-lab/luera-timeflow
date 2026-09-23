@@ -212,6 +212,32 @@ test('personel token’ı varsa zil, yoksa müdürün kanalı', () => {
     assert.match(signal, /:\s*await openManagerRing/);
 });
 
+test('müdür kanalı KENDİNİ BESLEYEN döngüye girmiyor', () => {
+    /*
+     * Telefonda yaşandı (2026-09-23, geliştirme derlemesinin ilk açılışı):
+     * `removeChannel` kanalı senkron kapatıyor ve aynı geri çağrıyı CLOSED
+     * ile yeniden çağırıyor. Koruma olmadan yüzlerce uyarı ve
+     * `RangeError: Maximum call stack size exceeded`.
+     *
+     * `settled` yetmiyor — o yalnız sözü koruyor, temizliği değil.
+     */
+    assert.match(signal, /let disposed = false;/);
+    assert.match(signal, /if \(disposed\) return;\s*\n\s*disposed = true;/);
+    const guard = signal.indexOf('if (disposed) return;');
+    const remove = signal.indexOf('void supabase.removeChannel(live);');
+    assert.ok(guard > 0 && guard < remove, 'koruma removeChannel\'dan ÖNCE olmalı');
+});
+
+test('müdür kanalı da JETON UYGULANMADAN katılmıyor', () => {
+    // Personel yolundaki dersin aynısı: kimliksiz katılan kanal özel konuya
+    // alınmıyor ve CLOSED dönüyor — ekran çalışır, zil hiç çalmaz.
+    const fn = signal.slice(signal.indexOf('async function openManagerRing'));
+    const auth = fn.indexOf('supabase.realtime.setAuth(token)');
+    const sub = fn.indexOf('.subscribe((status, error)');
+    assert.ok(auth > 0, 'müdür kanalında setAuth yok');
+    assert.ok(auth < sub, 'setAuth subscribe\'dan ÖNCE olmalı');
+});
+
 test('personel ekranları da zili dinliyor', () => {
     for (const path of ['src/lib/agendaSource.ts', 'src/lib/visitSource.ts']) {
         const source = read(path);

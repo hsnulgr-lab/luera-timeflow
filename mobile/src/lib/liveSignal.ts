@@ -227,8 +227,23 @@ async function openManagerRing(ring: (table?: LiveTable) => void): Promise<Chann
     const orgId = choice.id;
     const topic = `org:${orgId}`;
 
+    /*
+     * JETON ÖNCE UYGULANIYOR — personel yolundaki dersin aynısı.
+     *
+     * Özel kanal kimlik istiyor. Oturum jetonu realtime istemcisine
+     * verilmeden `subscribe` çağrılırsa kanal kimliksiz katılıyor, sunucu onu
+     * özel konuya almıyor ve kanal CLOSED ile geri dönüyor. Telefonda tam
+     * olarak bu oldu: ekran çalışmaya devam etti (yoklama emniyet ağı),
+     * yalnız zil hiç çalmadı.
+     */
+    const session = await supabase.auth.getSession().catch(() => null);
+    const token = session?.data.session?.access_token;
+    if (token) await supabase.realtime.setAuth(token);
+
     const joined = await new Promise<boolean>((resolve) => {
         let settled = false;
+        /** Temizlik TEK KEZ — aşağıdaki gerekçe. */
+        let disposed = false;
         const finish = (ok: boolean) => { if (!settled) { settled = true; resolve(ok); } };
         const live = supabase
             .channel(topic, { config: { private: true } })
@@ -236,6 +251,17 @@ async function openManagerRing(ring: (table?: LiveTable) => void): Promise<Chann
             .subscribe((status, error) => {
                 if (status === 'SUBSCRIBED') { managerRing = live; finish(true); return; }
                 if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    /*
+                     * `removeChannel` kanalı SENKRON kapatıyor ve bu geri
+                     * çağrıyı CLOSED ile YENİDEN çağırıyor. Koruma olmadan
+                     * kendi kendini besleyen bir döngü oluyor: telefonda
+                     * yüzlerce "müdür zili kapandı" uyarısı ve ardından
+                     * `RangeError: Maximum call stack size exceeded`.
+                     *
+                     * `settled` bunu engellemiyordu — o yalnız sözü koruyor.
+                     */
+                    if (disposed) return;
+                    disposed = true;
                     console.warn('müdür zili kapandı', status, error?.message ?? '');
                     void supabase.removeChannel(live);
                     finish(false);
