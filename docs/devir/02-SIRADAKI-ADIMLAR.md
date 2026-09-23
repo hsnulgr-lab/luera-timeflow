@@ -135,7 +135,7 @@ Sırayla, telefonda:
    Gövde **yalnız ilk adı** yazmalı ("Ayşe · Saç kesimi · 14:30")
 5. Sunucu logunda: `push org=… expo=1/1 pruned=0`
    ```bash
-   ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker logs --tail 40 $(docker ps --filter name=edge -q)'
+   ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker logs --tail 40 supabase-edge-functions-t6yi63jbebvj6c7oo7yjofnt'
    ```
 6. **Bildirime dokun** → `/personel/calendar` açılmalı
 7. **Uygulamayı kapat**, masaüstünden randevuyu iptal et → bildirim düşmeli →
@@ -158,7 +158,7 @@ Sırayla, telefonda:
 Personel doğrulaması geçtikten sonra, **müdür oturumuyla**:
 
 12. Profil → **Bildirimler** satırı artık görünmeli (eskiden gizliydi)
-13. Ekranda üç anahtar: Yeni randevu talebi · Randevu iptali · Adisyon kasada.
+13. Ekranda üç anahtar: Yeni randevu · Randevu iptali · Adisyon kasada.
     **`Müşteri gelmedi` ve `Gün sonu özeti` OLMAMALI** — sunucuda karşılıkları yok
 14. İlk anahtarı aç → izin sorulmalı → izin ver → altta "TELEFON İZNİ" grubu
     "Bildirimler açık" demeli

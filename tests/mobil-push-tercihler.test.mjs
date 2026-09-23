@@ -189,3 +189,57 @@ test('105 boş nesneyle başlıyor — hepsi açık', () => {
     assert.match(sql105, /notification_prefs jsonb not null default '\{\}'::jsonb/);
     assert.match(sql105, /Eksik anahtar AÇIK demek/);
 });
+
+// ── 107 · "Yeni randevu" doğru şeye bakıyor ─────────────────────────────────
+//
+// 2026-09-24, telefonda: anahtar açıktı, izin verilmişti, satır yazılmıştı —
+// ve hiçbir bildirim gelmedi. Sebep bir hata değil, YANLIŞ SORUYDU:
+// tetikleyici "onay bekliyor mu" diye soruyordu, oysa sorulması gereken
+// "bunu müşteri mi yaptı" idi. `booking_auto_confirm` salonların çoğunda
+// açık ve açıkken `pending` hiç oluşmuyor.
+
+const sql107 = read('supabase/107_mudur_yeni_randevu.sql');
+
+test('KOŞUL KAYNAĞA BAKIYOR — `status` değil `source`', () => {
+    assert.match(sql107, /IF TG_OP = 'INSERT' AND COALESCE\(NEW\.source, 'manual'\) <> 'manual' THEN/);
+    // Eski koşul geri gelirse otomatik onaylı salonlar yine sessiz kalır.
+    assert.doesNotMatch(sql107, /IF TG_OP = 'INSERT' AND NEW\.status = 'pending' THEN/);
+});
+
+test('MÜDÜRÜN KENDİ YAZDIĞI randevu bildirim üretmiyor', () => {
+    /*
+     * `manual` = panelden işletme oluşturdu. Müdüre az önce kendi girdiği
+     * randevuyu haber vermek, bildirimi gürültüye çevirir ve asıl olanları
+     * görünmez kılar. 015'in üç kaynağından yalnız bu biri susuyor.
+     */
+    assert.match(read('supabase/015_reservation_source.sql'),
+        /CHECK \(source IN \('manual','booking','leadflow'\)\)/);
+    assert.match(sql107, /<> 'manual'/);
+});
+
+test('başlık duruma göre değişiyor — onay akışı kullananlar kaybetmiyor', () => {
+    // Onay akışı açık olan salonlar azınlık ama var; onlara hâlâ doğru
+    // cümle gidiyor.
+    assert.match(sql107, /CASE WHEN NEW\.status = 'pending'[\s\S]{0,120}'Onay bekleyen randevu'[\s\S]{0,60}'Yeni randevu' END/);
+});
+
+test('ekrandaki ad da "talep" demiyor', () => {
+    // Ekran ile sunucu ayrışırsa, müdür onaylı bir randevu için "talep"
+    // bildirimi alır ve onaylamaya çalışır — onaylanacak bir şey yokken.
+    const entry = NOTIFICATIONS.find((n) => n.key === 'booked');
+    assert.equal(entry.label, 'Yeni randevu');
+});
+
+test('107 yalnız OLAY 1i değiştirdi — kalan altısı 106 ile aynı', () => {
+    /*
+     * Fonksiyon bütün olarak değiştiriliyor, yani bir kopyalama hatası
+     * personelin dört olayını sessizce düşürebilirdi.
+     */
+    const count = (s) => (s.match(/PERFORM net\.http_post/g) || []).length;
+    assert.equal(count(sql107), count(sql106), 'olay sayısı değişmiş');
+    const staff107 = sql107.split('PERSONEL OLAYLARI')[1];
+    assert.doesNotMatch(staff107, /'pref'/, 'personel olayları pref taşımamalı');
+    for (const tag of ['assign-', 'arrived-', 'cancel-', 'moved-']) {
+        assert.match(staff107, new RegExp(`'${tag}'`), tag);
+    }
+});

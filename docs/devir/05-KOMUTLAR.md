@@ -70,7 +70,7 @@ cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh
 
 Sunucu logu:
 ```bash
-ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker logs --tail 60 $(docker ps --filter name=edge -q)'
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker logs --tail 60 supabase-edge-functions-t6yi63jbebvj6c7oo7yjofnt'
 ```
 
 ---

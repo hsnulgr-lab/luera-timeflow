@@ -276,7 +276,11 @@ export const MANAGER_NOTIFICATIONS_READY = true;
  * anahtar, ekranın söyleyebileceği en sessiz yalan.
  */
 export const NOTIFICATIONS: { key: NotificationKey; label: string }[] = [
-    { key: 'booked', label: 'Yeni randevu talebi' },
+    // "talep" DEĞİL: `booking_auto_confirm` salonların çoğunda açık ve o
+    // zaman onay diye bir adım yok — her randevu onaylı geliyor. Anahtar
+    // artık kaynağa bakıyor (107): müşteri aldıysa haber verir, müdür kendi
+    // yazdıysa susar. Ad da onu anlatmalı.
+    { key: 'booked', label: 'Yeni randevu' },
     { key: 'cancelled', label: 'Randevu iptali' },
     { key: 'cash', label: 'Adisyon kasada' },
 ];

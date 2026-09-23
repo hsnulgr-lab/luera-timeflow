@@ -18,7 +18,7 @@ kapatabilsin**, ve kapattığı gerçekten gitmesin.
 
 | Olay | Tetik | Ayar anahtarı |
 |---|---|---|
-| Yeni randevu talebi | `INSERT`, `status='pending'` | `booked` |
+| Yeni randevu | `INSERT`, `source <> 'manual'` (107) | `booked` |
 | Randevu iptal edildi | `UPDATE` → `cancelled` | `cancelled` |
 | Adisyon kasada | `service_ended_at` ilk kez dolu + `is_paid=false` | `cash` |
 
