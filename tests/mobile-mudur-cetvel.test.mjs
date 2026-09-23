@@ -177,8 +177,16 @@ test('personel şeridi toplanınca kaybolur', () => {
 });
 
 test('açık hâl bozulmadı', () => {
-    // Zil ve mod değiştirici EKLENMEDİ — tasarım belgesi öneriyordu, istenmedi.
-    assert.ok(!/bell|Bildirim|modeswap|ModeSwitch/i.test(screen));
+    // Zil DÜĞMESİ ve mod değiştirici EKLENMEDİ — tasarım belgesi öneriyordu,
+    // istenmedi.
+    //
+    // Süzgeç DARALTILDI (2026-09-24). Eskiden çıplak `Bildirim` aranıyordu ve
+    // ekrana "Personele söyle tutmadı" uyarısı girince kırıldı — oysa o uyarı
+    // tam olarak testin koruduğu şeyin tersi: bir zil değil, gitmeyen bir
+    // bildirimin dürüst açıklaması. Kelime aramak, korunan kavramın ADINI
+    // taşıyan her cümleyi de yasaklıyordu. Artık DÜĞMENİN kendisi aranıyor.
+    assert.ok(!/\bbell\b|🔔|modeswap|ModeSwitch/i.test(screen), 'zil düğmesi');
+    assert.ok(!/profil\/bildirimler/.test(screen), 'başlıktan bildirim ekranına geçiş');
     // Dev başlık, parıltı, akış yerinde. Özet şeridi (ciro · doluluk ·
     // adisyon) KALDIRILDI: aynı sayılar Kasa'da zaten var ve akış ekranında
     // randevuların yerini yiyordu.

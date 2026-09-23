@@ -15,6 +15,7 @@
 import { supabase } from './supabase';
 import { waResultOf, type WaResult } from './actionPill.ts';
 import { outcomeOf, type WriteOutcome } from './managerWriteMap.ts';
+import type { NudgeResult } from './actionPill.ts';
 import { forgetOrg, OrgError } from './managerSource';
 import { resolveOrg } from './managerSource';
 import type { Appt } from './calendar.ts';
@@ -303,6 +304,41 @@ export async function sendWaNudge(input: {
         });
         if (error) return 'failed';
         return waResultOf(data as { ok?: boolean; reason?: string; queued?: boolean } | null);
+    } catch {
+        return 'failed';
+    }
+}
+
+/**
+ * Akıştaki "Personele söyle" — müdürden personele KASITLI bildirim.
+ *
+ * Personel zaten olay anında bildirim alıyor (atama, müşteri geldi, iptal,
+ * saat değişti). Bu düğme YENİ BİR OLAY DUYURMUYOR: müdür, personelin
+ * kaçırdığını düşündüğü kartı kasten yeniden gönderiyor — telefon cepte,
+ * sessizde, kabinde olabilir. Sunucu başlığı bu yüzden `Müdür:` ile açıyor.
+ *
+ * METNİ SUNUCU KURUYOR. Telefon yalnız HANGİ randevu ve HANGİ kart olduğunu
+ * söylüyor; ad, hizmet ve saat veritabanından okunuyor. Telefonun elindeki
+ * kopya bayat olabilir ve personele bayat bilgi göndermek, hiç göndermemekten
+ * kötü.
+ *
+ * Sonuç fırlatılmıyor ama YUTULMUYOR da: kart "söylendi" damgasını ancak
+ * gerçekten gönderildiyse basabilmeli. `no_staff` ayrı duruyor — personeli
+ * olmayan randevuda gönderilecek kimse yok ve bu bir hata değil.
+ */
+export async function sendStaffNudge(input: {
+    reservationId: string; kind: string;
+}): Promise<NudgeResult> {
+    try {
+        const { data, error } = await supabase.functions.invoke('staff-nudge', {
+            body: { reservationId: input.reservationId, kind: input.kind },
+        });
+        if (error) return 'failed';
+        const body = (data ?? {}) as { sent?: number; note?: string; error?: string };
+        if (body.note === 'no_staff') return 'no_staff';
+        // `sent: 0` abonelik yok demek — personelin telefonunda bildirim
+        // kapalı. Damga basılmamalı; olmayan bir teslimatı iddia ederdi.
+        return typeof body.sent === 'number' && body.sent > 0 ? 'ok' : 'failed';
     } catch {
         return 'failed';
     }

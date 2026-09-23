@@ -180,17 +180,25 @@ test('C3b · 10. dakikada masaüstünün cümlesi birebir kurulur', () => {
     assert.equal(card.sub, 'Elif 10 dakikadır bekliyor');
 });
 
-test('C3b · dolu hap YOK — "Personele söyle" kanal kurulana kadar gizli', () => {
+test('C3b · "Personele söyle" AÇILDI, ama yalnız uzun beklemede', () => {
     /*
-     * Düğme yalnız telefonda bir damga bırakıyordu; personele hiçbir şey
-     * gitmiyordu (2026-09-17). Bildirim ayrı turda kurulunca
-     * `STAFF_NUDGE_READY` açılır ve bu test o turda yeniden yazılır.
+     * 2026-09-17'de gizlenmişti: düğme yalnız telefonda bir damga bırakıyor,
+     * personele hiçbir şey gitmiyordu. Bayrağın kabul ölçütü "bildirimin
+     * personelin telefonuna GERÇEKTEN ulaştığı kanıtlanmalı" idi ve 2026-09-24
+     * gecesi gerçek bir telefonda uçtan uca doğrulandı (`staff-nudge`).
+     *
+     * Seviye kuralı DEĞİŞMEDİ: müşteri daha yeni beklemeye başlamışken
+     * personelin telefonunu öttürmek, müdürün kendi sabırsızlığını bildirime
+     * çevirmek olurdu. Düğme ancak bekleme UZAYINCA çıkıyor.
      */
-    assert.equal(STAFF_NUDGE_READY, false);
-    for (const minutes of [0, 3, 5, 9, 12, 40]) {
+    assert.equal(STAFF_NUDGE_READY, true);
+    for (const minutes of [0, 3, 5, 9]) {
         const card = waitCard({ ...base, waitMinutes: minutes }, []);
-        assert.ok(!card.actions.some((a) => a.kind === 'fill'), `${minutes} dk`);
-        assert.ok(!card.actions.some((a) => a.label === 'Personele söyle'), `${minutes} dk`);
+        assert.ok(!card.actions.some((a) => a.label === 'Personele söyle'), `${minutes} dk erken`);
+    }
+    for (const minutes of [12, 40]) {
+        const card = waitCard({ ...base, waitMinutes: minutes }, []);
+        assert.deepEqual(card.actions, [{ label: 'Personele söyle', kind: 'fill' }], `${minutes} dk`);
     }
 });
 
@@ -241,8 +249,18 @@ test('sakin kartta EYLEM YOK — "Beklemeye al" kaldırıldı', () => {
     assert.equal(applyWaitAction({ ...base, waitMinutes: 3 }, 'Beklemeye al'), null);
 });
 
-test('uzun beklemede tek eylem: randevuyu açmak', () => {
+test('uzun beklemede tek eylem: PERSONELE SÖYLEMEK', () => {
+    /*
+     * Kanal yokken buradaki tek hamle randevuyu açmaktı — yapılabilecek
+     * gerçek bir şey olmadığı için. Artık var: on dakikadır bekleyen bir
+     * müşteride müdürün istediği şey personeli çağırmak, kartı okumak değil.
+     * "Her seviyede TEK eylem" kuralı duruyor, eylemin kendisi değişti.
+     */
     assert.deepEqual(waitCard({ ...base, waitMinutes: 12 }, []).actions, [
+        { label: 'Personele söyle', kind: 'fill' },
+    ]);
+    // Orta seviyede hâlâ randevuyu açmak.
+    assert.deepEqual(waitCard({ ...base, waitMinutes: 5 }, []).actions, [
         { label: 'Karşılamayı aç', kind: 'ghost' },
     ]);
 });

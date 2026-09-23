@@ -17,15 +17,15 @@ import { WA_CONNECTED } from '../../src/lib/mockSend';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
-import { sendWaNudge } from '../../src/lib/managerWrite';
+import { sendStaffNudge, sendWaNudge } from '../../src/lib/managerWrite';
 import { numberUsable, waNudgeText, type CellKey } from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
     FlowDivider, FlowEnd, FlowRow, StaffStrip,
 } from '../../src/components/FlowParts';
 import {
-    activeCountOf, applyFlowAction, applyNoshowAction, applyPillAction, applySendResult,
-    applyWaitAction, bookedEvent, cancelSend, headline, isLate, nextInLineId, nowLineIndex,
+    activeCountOf, applyFlowAction, applyNoshowAction, applyNudgeResult, applyPillAction, applySendResult,
+    applyWaitAction, bookedEvent, cancelSend, headline, isLate, isNudgeLabel, nextInLineId, nowLineIndex,
     sortPresence, type FlowEvent,
 } from '../../src/lib/managerFlow';
 import {
@@ -133,8 +133,9 @@ export default function ManagerFlow() {
      * Karşılığı OLMAYAN hiçbir düğme yazıyormuş gibi yapmıyor:
      *   • Adisyon bekleyen kartta EYLEM YOK — tahsilat telefondan yapılmıyor
      *     (müdür kararı, 2026-09-17). Müdür tutarı ve bilgileri görür.
-     *   • "Personele söyle" gizli — personele giden bir kanal yok; bildirim
-     *     ayrı turda kurulacak (`STAFF_NUDGE_READY`).
+     *   • "Personele söyle" ARTIK GERÇEKTEN GÖNDERİYOR (2026-09-24):
+     *     `staff-nudge` ucu personelin telefonuna bildirim düşürüyor ve damga
+     *     ancak gönderim tuttuysa basılıyor.
      *   • "Beklemeye al" kaldırıldı — kimsenin okumadığı yerel bir işaretti.
      */
     const {
@@ -147,6 +148,8 @@ export default function ManagerFlow() {
      * olmadığını görüyor.
      */
     const [refused, setRefused] = useState<WriteOutcome | null>(null);
+
+
 
     /**
      * Reddin tek hamlesi — takvim ekranıyla AYNI karar: salon seçmesi gereken
@@ -182,6 +185,28 @@ export default function ManagerFlow() {
         replace(event.id, next);
         return true;
     }, [write, replace]);
+
+    /**
+     * "Personele söyle" — `commit`in bildirim karşılığı ve AYNI kuralı izliyor:
+     * önce gönder, tutarsa damgayı bas.
+     *
+     * Metni sunucu kuruyor; buradan yalnız hangi randevu ve hangi kart olduğu
+     * gidiyor. Telefondaki kopya bayat olabilir ve personele bayat bilgi
+     * göndermek, hiç göndermemekten kötü.
+     */
+    const nudge = useCallback(async (event: FlowEvent, next: FlowEvent) => {
+        if (!event.appointmentId) return;
+        // Basış önce eski hatayı siliyor: kart, sonuç gelene kadar nötr durur.
+        replace(event.id, next);
+        const result = await sendStaffNudge({
+            reservationId: event.appointmentId,
+            kind: event.kind,
+        });
+        // Sonuç KARTIN KENDİ kayıt satırına yazılıyor. Ekranın tepesindeki bir
+        // uyarı, listede aşağıdaki bir karta basan müdürün göremeyeceği yerde
+        // kalırdı — damga basılmaz, sebep de görünmezdi.
+        replace(event.id, applyNudgeResult(next, result));
+    }, [replace]);
 
     /**
      * "Geldi"ye BU OTURUMDA basılan satır. Bekleme kartı yalnız o satırda geri
@@ -280,11 +305,19 @@ export default function ManagerFlow() {
             return;
         }
 
+        // ── Personele bildirim ───────────────────────────────────────────────
+        // Damga ancak GERÇEKTEN gönderildiyse basılıyor. Önce basıp sonra
+        // göndermek, gitmemiş bir bildirimi "söylendi" diye göstermek olurdu.
+        if (isNudgeLabel(label)) {
+            void nudge(event, next);
+            return;
+        }
+
         // ── Yazması SONRA yapılanlar ─────────────────────────────────────────
         // "Reddet": 5 sn'lik pencere açılıyor, yazma pencere dolunca (aşağıda).
         markFresh();
         replace(event.id, next);
-    }, [router, replace, commit, stampNow]);
+    }, [router, replace, commit, stampNow, nudge]);
 
 
     const openAppointment = useCallback((event: FlowEvent) => {
@@ -327,8 +360,14 @@ export default function ManagerFlow() {
             void commit(event, next, { no_show_at: stampNow() }).then((ok) => { if (ok) setFreshId(event.id); });
             return;
         }
+        if (cell === 'inf') {
+            // Bekleme kartındaki "Personele söyle" ile AYNI kanal ve aynı
+            // dürüstlük kuralı: damga gönderim başarılıysa.
+            void nudge(event, next);
+            return;
+        }
         replace(event.id, next);
-    }, [replace, commit, stampNow, openAppointment]);
+    }, [replace, commit, stampNow, openAppointment, nudge]);
 
     /**
      * Gönderim penceresi — 5 saniye geri sayar, sonra SALONUN numarasından

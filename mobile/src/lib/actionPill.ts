@@ -36,9 +36,10 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     wa: { label: 'WhatsApp’tan yaz', hint: 'hazır metin, salonun numarası' },
     waoff: { label: 'WhatsApp bağlı değil', hint: 'Ayarlara git' },
     nox: { label: 'Gelmedi', hint: 'geri alınabilir' },
-    // Bildirim kanalı YOK (bildirim turu): göz yalnız kartta kayıt bırakır.
-    // Sesli okuma da söz vermiyor.
-    inf: { label: 'Personele bilgi ver', hint: 'kartta kayıt kalır' },
+    // Kanal AÇILDI (2026-09-24 · `staff-nudge`): göz artık personelin
+    // telefonuna gerçekten bildirim düşürüyor. Açıklama bunu söyleyebilir —
+    // ve damga yalnız gönderim tuttuysa basıldığı için söz tutuluyor.
+    inf: { label: 'Personele bilgi ver', hint: 'telefonuna bildirim gider' },
 };
 
 /**
@@ -52,7 +53,7 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
 export function cellSpec(key: CellKey, staffGiven?: string): CellSpec {
     const spec = SPECS[key];
     if (key === 'inf' && staffGiven?.trim()) {
-        return { key, label: spec.label, hint: `${dative(staffGiven.trim())} söylendiği kaydedilir` };
+        return { key, label: spec.label, hint: `${dative(staffGiven.trim())} bildirim gider` };
     }
     return { key, ...spec };
 }
@@ -230,6 +231,15 @@ export function waRecord(result: WaResult, minutes: number): PillRecord {
     }
 }
 
+/**
+ * "Personele söyle" SONUCU — `WaResult`un bildirim karşılığı.
+ *
+ * `no_staff` ayrı duruyor çünkü bir hata değil: randevuya personel
+ * atanmamışsa gönderilecek kimse yok ve müdürün yapacağı şey de farklı
+ * (tekrar denemek değil, personel atamak).
+ */
+export type NudgeResult = 'ok' | 'no_staff' | 'failed';
+
 /** Aramanın kaydı. Sonucu bilinmez — yalnız müdürün ne yaptığı yazılır. */
 export function callRecord(minutes: number): PillRecord {
     return { text: `Arandı · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
@@ -241,8 +251,21 @@ export function callRecord(minutes: number): PillRecord {
  * "İletildi" DEĞİL: bildirim kanalı bu eyleme henüz bağlı değil. Kalıp doğru,
  * metin kanal bağlanınca değişir.
  */
-export function staffRecord(minutes: number): PillRecord {
-    return { text: `Personele söylendi · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
+export function staffRecord(result: NudgeResult, minutes: number): PillRecord {
+    /*
+     * Kanal kurulmadan önce burada TEK bir satır vardı ve hep aynı şeyi
+     * yazıyordu, çünkü gönderim diye bir şey yoktu. Artık sonuç var ve
+     * kart onu söylüyor — `waRecord` ile aynı kural: bitmemiş iş
+     * BAYATLAMIYOR (`stales: false`), göz yerinde kalıyor, yeniden denenebilir.
+     */
+    switch (result) {
+        case 'ok':
+            return { text: `Personele söylendi · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
+        case 'no_staff':
+            return { text: 'Personel atanmamış · gönderilmedi', tone: 'warn', stales: false };
+        case 'failed':
+            return { text: 'Gönderilemedi · tekrar deneyin', tone: 'warn', stales: false };
+    }
 }
 
 /** Kayıt hâlâ çiziliyor mu? Bayatlayan düşer, bitmemiş iş kalır. */

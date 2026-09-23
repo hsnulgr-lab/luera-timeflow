@@ -63,6 +63,11 @@ ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db
 cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh send-push staff-api remind
 ```
 
+`staff-nudge` (2026-09-24, müdürden personele "Personele söyle"):
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-nudge
+```
+
 Argümansız çalıştırmak **hepsini** gönderir:
 ```bash
 cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh

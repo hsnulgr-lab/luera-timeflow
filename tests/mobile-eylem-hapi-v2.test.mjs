@@ -3,7 +3,10 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
 import { pillCells, pillOff, numberUsable, pillOpens, waResultOf, waNudgeText, waRecord, cellSpec } from '../mobile/src/lib/actionPill.ts';
-import { pillInputOf, mergeLocal, LOCAL_CARD_FIELDS, nextSlots } from '../mobile/src/lib/managerFlow.ts';
+import {
+    LOCAL_CARD_FIELDS, applyFlowAction, applyNudgeResult, applyPillAction, applySendResult,
+    mergeLocal, nextSlots, pillInputOf,
+} from '../mobile/src/lib/managerFlow.ts';
 import { ablative } from '../mobile/src/lib/text.ts';
 
 /**
@@ -146,7 +149,46 @@ test('tür değiştiren dokunuş olduğu gibi kalıyor', () => {
 });
 
 test('yerel alan listesi hapın bütün izlerini kapsıyor', () => {
-    assert.deepEqual([...LOCAL_CARD_FIELDS].sort(), ['actedAt', 'actedCell', 'rejectedLeft', 'sendingLeft', 'waResult']);
+    /*
+     * Bu test bir zamanlar listenin FOTOĞRAFINI çekiyordu ve tam da bu
+     * yüzden işe yaramadı: `remindedAt` ("Personele söyle" damgası) listeye
+     * hiç girmemişti, fotoğraf da onu beklemediği için yeşil kaldı. Hata
+     * 2026-09-24'te telefonda ortaya çıktı — düğmeye basılıyor, yalnız
+     * titreşim oluyor, kart hiç değişmiyordu. `replace` durumu yazıyor,
+     * sonraki çizimde `mergeLocal` listede olmayan alanı siliyordu.
+     *
+     * Artık KURAL denetleniyor: bir dokunuşun sunucu satırına EKLEDİĞİ her
+     * alan listede olmalı, yoksa o dokunuş ekranda hiç görünmez.
+     */
+    const server = {
+        id: 'e', appointmentId: 'r1', time: '11:30', kind: 'next',
+        firstName: 'Elif', lastName: 'Demir', detail: 'x', staffName: 'Selin',
+        etaMinutes: -12, waitMinutes: 12,
+    };
+
+    const touches = [
+        ['Ara', applyPillAction(server, 'ara')],
+        ['Yaz', applyPillAction(server, 'wa')],
+        ['gönderim sonucu', applySendResult({ ...server, sendingLeft: 0 }, 'ok')],
+        ['Personele söyle · gitti', applyNudgeResult(server, 'ok')],
+        ['Personele söyle · gitmedi', applyNudgeResult(server, 'failed')],
+        ['Personele söyle · bekleme kartı', applyNudgeResult({ ...server, kind: 'arrived' }, 'ok')],
+        ['Reddet', applyFlowAction({ ...server, kind: 'booked' }, 'Reddet')],
+    ];
+
+    for (const [name, local] of touches) {
+        assert.ok(local, `${name}: dokunuş null döndü`);
+        const added = Object.keys(local).filter(
+            (key) => local[key] !== undefined && server[key] === undefined,
+        );
+        for (const key of added) {
+            assert.ok(LOCAL_CARD_FIELDS.includes(key),
+                `${name}: "${key}" LOCAL_CARD_FIELDS'te yok — ekranda hiç görünmez`);
+        }
+        // Ve gerçekten hayatta kalıyor: kural soyut kalmasın.
+        const merged = mergeLocal({ ...server, kind: local.kind }, local);
+        for (const key of added) assert.equal(merged[key], local[key], `${name}: ${key} silindi`);
+    }
 });
 
 // ── Yönet görünürlüğü ───────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import { addDaysISO, todayISO } from './calendar.ts';
 import {
     callRecord, recordVisible, SEND_WINDOW_SECONDS, sendingRecord, staffRecord, waRecord,
 } from './actionPill.ts';
-import type { CellKey, PillInput, PillRecord, WaResult } from './actionPill.ts';
+import type { CellKey, NudgeResult, PillInput, PillRecord, WaResult } from './actionPill.ts';
 import { CURRENCY, formatAmount, waitLabel, type Pending } from './cash.ts';
 import { accusative, dative, splitStaffName } from './text.ts';
 
@@ -98,6 +98,12 @@ export interface FlowEvent {
     context?: ApptContext;
     /** Randevunun atandığı personel; şeritteki durumla eşleşmek için. */
     staffId?: string;
+    /**
+     * "Personele söyle"nin SONUCU. Gönderim tutmadıysa kart bunu kendi kayıt
+     * satırında söylüyor — ekranın tepesindeki bir uyarı, aşağıdaki bir karta
+     * basan müdürün göremeyeceği yerde kalırdı.
+     */
+    nudgeResult?: NudgeResult;
     /** Hizmet süresi — A1 panelinin alt satırı ("11:30 · 45 dk"). */
     durationMinutes?: number;
     /**
@@ -728,10 +734,56 @@ export function applyFlowAction(event: FlowEvent, label: string): FlowEvent | nu
 /**
  * Müdürden personele "müşteri bekliyor" bildirimi HAZIR MI.
  *
- * Değil: kanal yok. Açılmadan önce bildirimin personelin telefonuna
- * GERÇEKTEN ulaştığı kanıtlanmalı — yoksa düğme yine yalnız bir damga olur.
+ * AÇILDI (2026-09-24). Bayrağın kabul ölçütü "bildirimin personelin telefonuna
+ * GERÇEKTEN ulaştığı kanıtlanmalı" idi; o gece gerçek bir telefonda uçtan uca
+ * doğrulandı (izin → jeton → olay → kilit ekranı → doğru ekran).
+ *
+ * Kanal: `staff-nudge` ucu müdürün oturumunu doğrular, randevunun onun
+ * salonuna ait olduğunu doğrular, metni VERİTABANINDAN kurar ve `send-push`'a
+ * devreder. Damga ancak `sent > 0` dönerse basılıyor — gönderilmemiş bir
+ * bildirimi "söylendi" diye göstermek, düğmenin gizlendiği günkü hatanın
+ * aynısı olurdu.
  */
-export const STAFF_NUDGE_READY = false;
+export const STAFF_NUDGE_READY = true;
+
+/** Bekleme kartındaki düğmenin adı — ekran bunu sabitle tanıyor, metinle değil. */
+export const NUDGE_LABEL = 'Personele söyle';
+
+/**
+ * Tutmayan gönderimin düğme üstündeki karşılığı.
+ *
+ * İki sebep iki cümle: `no_staff` bir hata değil ve tekrar denemek işe
+ * yaramaz — müdürün yapması gereken şey randevuya personel atamak.
+ */
+export function nudgeLabel(result: NudgeResult): string {
+    if (result === 'no_staff') return 'Personel atanmamış';
+    if (result === 'failed') return 'Gönderilemedi · tekrar dene';
+    return NUDGE_LABEL;
+}
+
+/** Bu etiket "personele söyle" hamlesi mi — başarısızlık hâlleri dahil. */
+export function isNudgeLabel(label: string): boolean {
+    return label === NUDGE_LABEL
+        || label === nudgeLabel('failed')
+        || label === nudgeLabel('no_staff');
+}
+
+/**
+ * Gönderim sonucunu karta yazar — `applySendResult`in bildirim karşılığı.
+ *
+ * SAF: gönderimi çağıran yapar, burada yalnız sonucun kartta nasıl göründüğü
+ * kararlaştırılır. Damga (`remindedAt` / `actedCell`) YALNIZ `ok` hâlinde
+ * basılıyor; tersi, gitmemiş bir bildirimi "söylendi" diye göstermek olurdu.
+ */
+export function applyNudgeResult(event: FlowEvent, result: NudgeResult): FlowEvent {
+    if (result !== 'ok') return { ...event, nudgeResult: result };
+    const now = Math.max(0, Math.floor(event.waitMinutes ?? lateMinutes(event.etaMinutes)));
+    // İki yüzey iki ayrı damga tutuyor: bekleme kartı `remindedAt`, hap
+    // `actedCell`. Kart türü hangisinin çizildiğini zaten belirliyor.
+    return event.kind === 'arrived'
+        ? { ...event, remindedAt: now, nudgeResult: 'ok' }
+        : { ...event, actedCell: 'inf', actedAt: now, nudgeResult: 'ok' };
+}
 
 /** Müşteri bu kadar dakikadır bekliyorsa müdür karşılamaya yönlendirilir. */
 export const WAIT_WARN_MINUTES = 5;
@@ -874,8 +926,15 @@ export function waitCard(
     const actions: WaitAction[] = [];
     if (fresh) actions.push({ label: 'Geri al', kind: 'ghost' });
     else if (level === 'late' && STAFF_NUDGE_READY) {
-        actions.push(stamp(since(event.remindedAt), 'Personele')
-            ?? { label: 'Personele söyle', kind: 'fill' });
+        /*
+         * Tutmayan gönderim DÜĞMENİN ÜSTÜNDE yazıyor ve düğme basılabilir
+         * kalıyor: müdürün yapacağı şey yeniden denemek ve o hamle parmağının
+         * altında olmalı. Damga yalnız gerçekten gittiyse basılıyor.
+         */
+        const failed = event.nudgeResult && event.nudgeResult !== 'ok';
+        actions.push(failed ? { label: nudgeLabel(event.nudgeResult!), kind: 'fill' }
+            : stamp(since(event.remindedAt), 'Personele')
+            ?? { label: NUDGE_LABEL, kind: 'fill' });
     } else if (level !== 'calm') {
         // Beklemesi uzayan müşteri için gerçek tek hamle: randevuyu açmak.
         actions.push({ label: 'Karşılamayı aç', kind: 'ghost' });
@@ -895,10 +954,10 @@ export function waitCard(
 /**
  * Bekleme kartının eylemleri — saf.
  *
- * DİKKAT: hiçbiri sunucuya gitmiyor. `visit.arrive` ucu ve Expo bildirim kanalı
- * henüz yazılmadı; bu ekran `mockDay` üstünde çalışıyor ve buradaki geçişler
- * yalnız YEREL. Bu yüzden hiçbir eylem teslimat iddia eden bir metin üretmiyor:
- * "Hatırlat" hapı kendini tüketir, "bildirim gönderildi" yazmaz.
+ * Bu fonksiyon SAF: yalnız kartın yerel durumunu döndürür. "Personele söyle"
+ * gerçekten gönderiyor (`sendStaffNudge`) ama gönderimi ÇAĞIRAN yapar ve
+ * damgayı ancak sonuç `ok` gelirse bastırır. Buradaki dönüş bir teslimat
+ * iddiası değil, kartın yeni hâli.
  */
 export function applyWaitAction(event: FlowEvent, label: string): FlowEvent | null {
     if (event.kind !== 'arrived') return null;
@@ -908,9 +967,15 @@ export function applyWaitAction(event: FlowEvent, label: string): FlowEvent | nu
         const { waitMinutes: _w, remindedAt: _r, parked: _p, ...rest } = event;
         return { ...rest, kind: 'next' };
     }
-    // Damga saat değil, beklemenin KAÇINCI DAKİKASI olduğunu saklıyor.
-    const now = Math.max(0, Math.floor(event.waitMinutes ?? 0));
-    if (label === 'Personele söyle') return { ...event, remindedAt: now };
+    /*
+     * Damgayı burası BASMIYOR. Gönderim çağıranda yapılıyor ve damgayı
+     * `applyNudgeResult` yalnız sonuç `ok` gelirse basıyor — bu yüzden
+     * beklemenin kaçıncı dakikası olduğu da orada hesaplanıyor.
+     *
+     * Buradaki tek iş ESKİ HATAYI silmek: kart, yeni sonuç gelene kadar
+     * nötr durur, bir önceki denemenin kırmızısıyla değil.
+     */
+    if (isNudgeLabel(label)) return { ...event, nudgeResult: undefined };
     // "Karşılamayı aç" bir durum değişikliği değil, bir GEÇİŞ: randevu detayını
     // açar. Ekran onu ayrı ele alır; burada değişecek bir şey yok.
     return null;
@@ -1248,7 +1313,7 @@ export function pillRecordOf(event: FlowEvent): PillRecord | null {
 
     let record: PillRecord;
     if (event.actedCell === 'ara') record = callRecord(age);
-    else if (event.actedCell === 'inf') record = staffRecord(age);
+    else if (event.actedCell === 'inf') record = staffRecord(event.nudgeResult ?? 'ok', age);
     else if (event.waResult) record = waRecord(event.waResult, age);
     else return null;
 
@@ -1282,6 +1347,12 @@ export function applyPillAction(event: FlowEvent, cell: CellKey): FlowEvent | nu
  */
 export const LOCAL_CARD_FIELDS = [
     'actedCell', 'actedAt', 'sendingLeft', 'waResult', 'rejectedLeft',
+    // "Personele söyle"nin iki alanı (2026-09-24). Listede olmayan bir yerel
+    // alan, `replace` çağrıldıktan SONRAKİ İLK ÇİZİMDE siliniyor — yoklamayı
+    // bile beklemiyor. `remindedAt` baştan beri eksikti ama düğme bayrak
+    // arkasında gizli olduğu için kimse görmemişti: basılıyor, hiçbir şey
+    // olmuyordu.
+    'remindedAt', 'nudgeResult',
 ] as const;
 
 /**

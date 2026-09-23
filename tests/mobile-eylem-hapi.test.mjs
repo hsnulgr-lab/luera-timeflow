@@ -99,9 +99,15 @@ test('düşmüş randevuda Gelmedi gözü çizilmez', () => {
     assert.equal(cells.includes('nox'), false);
 });
 
-test('personel gözü (SD) görünür, ama BİLDİRİM SÖZÜ VERMEZ', () => {
-    // Müdür kararı 2026-09-16: "görünsün, basınca yalnız kayıt". Kanal yok;
-    // göz kartta "Personele söylendi" kaydı bırakır.
+test('personel gözü (SD) görünür ve ARTIK BİLDİRİM GÖNDERİYOR', () => {
+    /*
+     * 2026-09-16'da bu göz "görünsün, basınca yalnız kayıt" diye açılmıştı ve
+     * açıklaması bilerek "bildirim" demiyordu — kanal yoktu, söz verilemezdi.
+     *
+     * 2026-09-24: kanal kuruldu (`staff-nudge`) ve gerçek bir telefonda
+     * doğrulandı. Açıklama artık teslimat söylüyor, ÇÜNKÜ teslimat var ve
+     * damga yalnız gönderim tuttuysa basılıyor.
+     */
     for (const kind of ['next', 'noshow']) {
         const input = pillInputOf({ kind, customerPhone: '0532 118 24 06', staffName: 'Selin Demir' });
         assert.equal(input.canTellStaff, true);
@@ -109,7 +115,7 @@ test('personel gözü (SD) görünür, ama BİLDİRİM SÖZÜ VERMEZ', () => {
     }
     // Tasarım: personel atanmamışsa göz hiç çizilmez.
     assert.equal(pillInputOf({ kind: 'next', customerPhone: '0532 118 24 06' }).canTellStaff, false);
-    assert.doesNotMatch(cellSpec('inf').hint, /bildirim/);
+    assert.match(cellSpec('inf').hint, /bildirim/);
 });
 
 // ── İkinci yuvanın takası ───────────────────────────────────────────────────
@@ -162,10 +168,18 @@ test('bayatlayan kayıt 10. dakikada düşer', () => {
     assert.equal(recordVisible(record, RECORD_STALE_MINUTES), false);
 });
 
-test('personel kaydı TESLİMAT İDDİA ETMEZ', () => {
-    const text = staffRecord(2).text;
-    assert.equal(text, 'Personele söylendi · 2 dk');
-    assert.equal(/iletildi|gönderildi/i.test(text), false);
+test('personel kaydı ARTIK gerçek sonucu söylüyor', () => {
+    /*
+     * Bu test "TESLİMAT İDDİA ETMEZ" diye yazılmıştı ve o gün haklıydı:
+     * kanal yoktu, kayıt yalnız müdürün ne yaptığını söyleyebilirdi. Kanal
+     * kurulunca (2026-09-24) kayıt sonucu taşıyabilir hâle geldi — ve
+     * taşımak ZORUNDA, yoksa tutmayan gönderim sessizce başarı gibi durur.
+     */
+    assert.equal(staffRecord('ok', 2).text, 'Personele söylendi · 2 dk');
+    assert.equal(staffRecord('ok', 2).stales, true);
+    // Bitmemiş iş bayatlamıyor — `waRecord` ile aynı kural.
+    assert.equal(staffRecord('failed', 40).stales, false);
+    assert.equal(staffRecord('no_staff', 40).tone, 'warn');
 });
 
 // ── Eylemler ────────────────────────────────────────────────────────────────
@@ -478,12 +492,14 @@ test('personel gözünde SİMGE değil, personelin baş harfleri var', () => {
 });
 
 test('personel gözünün cümlesi personelin adını söyler', () => {
-    assert.equal(cellSpec('inf', 'Selin').hint, 'Selin’e söylendiği kaydedilir');
-    assert.equal(cellSpec('inf', 'Merve').hint, 'Merve’ye söylendiği kaydedilir');
-    assert.equal(cellSpec('inf', 'Kaan').hint, 'Kaan’a söylendiği kaydedilir');
-    assert.equal(cellSpec('inf', 'Gülşah').hint, 'Gülşah’a söylendiği kaydedilir');
+    // Yönelme eki son SESLİYE göre; tablo değişmedi, yalnız fiil değişti
+    // ("kaydedilir" → "gider"), çünkü artık gerçekten gidiyor.
+    assert.equal(cellSpec('inf', 'Selin').hint, 'Selin’e bildirim gider');
+    assert.equal(cellSpec('inf', 'Merve').hint, 'Merve’ye bildirim gider');
+    assert.equal(cellSpec('inf', 'Kaan').hint, 'Kaan’a bildirim gider');
+    assert.equal(cellSpec('inf', 'Gülşah').hint, 'Gülşah’a bildirim gider');
     // Ad yoksa cümle jenerik hâline düşer, uydurulmaz.
-    assert.equal(cellSpec('inf').hint, 'kartta kayıt kalır');
+    assert.equal(cellSpec('inf').hint, 'telefonuna bildirim gider');
 });
 
 test('açılış kademesi okun doğduğu noktadan uzağa akar', () => {
