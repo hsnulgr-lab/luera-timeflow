@@ -239,7 +239,14 @@ export default function CustomerFile() {
                 {file.packages.length > 0 ? (
                     <>
                         <Section title="Paket" />
-                        {file.packages.map((pack) => <PackageRow key={pack.name} pack={pack} />)}
+                        {/*
+                          * Ada göre anahtar ÇAKIŞIR: müşteri aynı paketi ikinci
+                          * kez almışsa iki satır aynı adı taşır. `FilePackage`in
+                          * kimliği yok, sıra da değişmiyor — ad + sıra yeterli.
+                          */}
+                        {file.packages.map((pack, index) => (
+                            <PackageRow key={`${pack.name}-${index}`} pack={pack} />
+                        ))}
                     </>
                 ) : null}
 
@@ -249,8 +256,15 @@ export default function CustomerFile() {
                         Henüz geçmiş yok.
                     </Text>
                 ) : file.history.map((row, index) => (
+                    /*
+                     * Anahtar `${row.date}-${row.service}` idi ve ÇAKIŞIYORDU:
+                     * aynı gün aynı hizmetten iki randevu olabiliyor (müşteri
+                     * defterinde "24 Eylül botox" iki kez). React ikisini tek
+                     * satır sanıp birini düşürüyordu — defter eksik gösteriyordu.
+                     * `row.id` rezervasyonun kimliği, benzersiz.
+                     */
                     <HistoryLine
-                        key={`${row.date}-${row.service}`}
+                        key={row.id}
                         row={row}
                         last={index === file.history.length - 1}
                         onOpen={() => {

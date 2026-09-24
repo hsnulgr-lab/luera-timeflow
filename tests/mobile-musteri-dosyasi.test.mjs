@@ -183,3 +183,28 @@ test('odağa dönüşte YENİDEN okunuyor', () => {
     assert.match(source, /!LIVE_AUTH\s*\n?\s*\? Promise\.resolve\(\(\(\) => \{/);
     assert.match(source, /demoCustomerFile\(\{ id: customerId, name \}, today\)/);
 });
+
+// ── Liste anahtarları ───────────────────────────────────────────────────────
+
+test('geçmiş satırı REZERVASYON KİMLİĞİYLE anahtarlanıyor', () => {
+    /*
+     * 2026-09-24, telefonda: "Encountered two children with the same key,
+     * `.5:$24 Eylül-botox`". Anahtar `${row.date}-${row.service}` idi ve aynı
+     * gün aynı hizmetten iki randevu olabiliyor — defterde "24 Eylül botox"
+     * iki kez duruyordu. React ikisini TEK satır sayıp birini düşürüyor, yani
+     * müşteri defteri eksik gösteriyordu. Görünürde bir uyarı, aslında
+     * kayıp veri.
+     */
+    const screen = readFileSync(
+        new URL('../mobile/app/(staff-flow)/musteri.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /<HistoryLine\s*\n\s*key=\{row\.id\}/);
+    assert.doesNotMatch(screen, /key=\{`\$\{row\.date\}-\$\{row\.service\}`\}/);
+});
+
+test('paket satırı da çakışmıyor — aynı paket iki kez alınabilir', () => {
+    // `FilePackage`in kimliği yok; ad TEK BAŞINA yetmiyor çünkü müşteri aynı
+    // paketi ikinci kez alabilir. Sıra değişmediği için ad + sıra güvenli.
+    const screen = readFileSync(
+        new URL('../mobile/app/(staff-flow)/musteri.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /key=\{`\$\{pack\.name\}-\$\{index\}`\}/);
+});

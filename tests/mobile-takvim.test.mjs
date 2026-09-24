@@ -101,11 +101,27 @@ test('nowLineAfter listenin üstünü, arasını ve sonunu doğru işaretler', (
 });
 
 test('statusWord yalnız sapan durumları söyler, tamamlanan sessizdir', () => {
+    /*
+     * SAATE BAĞLI — tarih AÇIKÇA veriliyor.
+     *
+     * "gelmedi" kuralı `localEndTime(a) < Date.now()` ile çalışıyor, yani
+     * sonuç duvardaki saate bağlı. Bu test sabit `2026-09-24` fikstürünü
+     * kullanıyordu ve o tarih BUGÜN olunca saat 11:00'de kendiliğinden
+     * kırmızıya döndü: 10:00–11:00 randevusu geçmişe düştü ve kod doğru
+     * biçimde "gelmedi" demeye başladı.
+     *
+     * Zamana bağlı bir iddia, zamanı KENDİ İÇİNDE söylemeli. Geçmemiş
+     * randevu için gelecek bir tarih, geçmiş için eski bir tarih.
+     */
+    const future = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+
     // Onay akışı RAFTA (approval.ts): "onay bekliyor" kelimesi çizilmiyor.
-    assert.equal(statusWord(appt('pending', '10:00', { status: 'pending' })), null);
-    assert.equal(statusWord(appt('cancelled', '10:00', { status: 'cancelled' })), 'iptal');
+    assert.equal(statusWord(appt('pending', '10:00', { status: 'pending', date: future })), null);
+    // İptal saatten ÖNCE karara bağlanıyor; tarih ne olursa olsun "iptal".
+    assert.equal(statusWord(appt('cancelled', '10:00', { status: 'cancelled', date: future })), 'iptal');
     assert.equal(statusWord(appt('missed', '10:00', { date: '2000-01-01' })), 'gelmedi');
-    assert.equal(statusWord(appt('done', '10:00', { status: 'completed' })), null);
+    // Tamamlanan randevu geçmişte olsa da sessiz — sapma değil.
+    assert.equal(statusWord(appt('done', '10:00', { status: 'completed', date: '2000-01-01' })), null);
 });
 
 test('weekDays pazartesiden başlar ve ay sonunu doğru geçer', () => {
