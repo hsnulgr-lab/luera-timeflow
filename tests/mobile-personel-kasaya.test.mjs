@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, barFoot, barTitle, canUndo, errorLine,
+    SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, barFoot, barTitle, barView, canUndo, errorLine,
     isSealed, plateWord, secondsLeft, windowLine,
 } from '../mobile/src/lib/sendToCash.ts';
 
@@ -162,11 +162,18 @@ test('para maskesi C evresinde bir kez çiziliyor', () => {
 });
 
 test('turuncu YALNIZ basılmayı bekleyen düğmede', () => {
-    // Turuncu bu üründe EYLEM demek. `going` (istek yolda) ve `sealed`
-    // (mühür) bir zamanlar sessizce turuncuya düşüyordu; ikisinde de
-    // yapılacak bir şey yok.
+    /*
+     * Turuncu bu üründe EYLEM demek. `going` (istek yolda) ve `sealed`
+     * (mühür) bir zamanlar sessizce turuncuya düşüyordu; ikisinde de
+     * yapılacak bir şey yok.
+     *
+     * 2026-09-24'te `paid` de bu kümeye katıldı: tahsil edilmiş ziyarette
+     * de yapılacak bir şey yok. Koşul artık ÇÖZÜLMÜŞ hâle (`view`) bakıyor,
+     * ham `state`e değil — ikisi ayrışırsa çubuk sunucunun bildiğini
+     * görmez.
+     */
     assert.match(bar, /const stopOf = windowOpen \|\| going \? STOP\.window/);
-    assert.match(bar, /if \(state === 'sealed'\)/);
+    assert.match(bar, /if \(view === 'sealed' \|\| view === 'paid'\)/);
 });
 
 test('mühür yeşil DOLGU değil, sönük çerçeve', () => {
@@ -181,4 +188,54 @@ test('istek yoldayken halka değil, üç nokta', () => {
     // Üç nokta, 1200 ms'lik nefes: 600 + 600.
     assert.match(bar, /duration: 600/);
     assert.match(bar, /\[0, 160, 320\]/);
+});
+
+// ── Sunucu gerçeği yerel makineyi yener ─────────────────────────────────────
+//
+// 2026-09-24, telefonda: tahsil edilmiş bir ziyaretin kartında çubuk hâlâ
+// "Adisyonu kasaya gönder" diyordu ve BASILABİLİRDİ. Ekranın üstündeki plaka
+// "TAHSİL EDİLDİ", adisyon "mühürlü · değiştirilemez" derken altı gönderim
+// teklif ediyordu.
+//
+// Sebep: `SendState` YEREL bir makine ve kart her açılışta `idle` başlıyor.
+// Plaka sunucunun kapanış türünü okuyordu (`plateWord(send, closedCard)`),
+// çubuk okumuyordu. Aynı ekranın iki parçası iki farklı gerçek söylüyordu.
+
+test('TAHSİL EDİLMİŞ ziyarette çubuk gönderim teklif etmiyor', () => {
+    assert.equal(barView('idle', 'paid'), 'paid');
+    assert.equal(barTitle('paid'), 'Tahsil edildi');
+    assert.notEqual(barTitle('paid'), 'Adisyonu kasaya gönder');
+    // Çubuk artık bir düğme değil, bir cümle.
+    assert.match(barFoot('paid'), /Tahsilat tamamlandı/);
+});
+
+test('KASADAKİ ziyaret yeniden açılınca "mühürlü" görünüyor', () => {
+    // Sunucu "bu adisyon kasada" diyorsa, oturumda gönderilmemiş olması
+    // ekranın onu yeniden göndermeyi teklif etmesi için sebep değil.
+    assert.equal(barView('idle', 'atcash'), 'sealed');
+    assert.equal(barTitle(barView('idle', 'atcash'), '14:30'), '14:30’te kasaya gönderildi');
+});
+
+test('YOLDAKİ İŞ sunucu okumasıyla EZİLMİYOR', () => {
+    /*
+     * `window` (geri alma penceresi açık) ve `going` (istek yolda) saniyeler
+     * sürüyor. Araya giren bir yenileme bunları ezseydi, kullanıcı "Geri al"
+     * düğmesine bakarken düğme elinin altından kaybolurdu.
+     */
+    for (const kapali of ['paid', 'atcash', null]) {
+        assert.equal(barView('window', kapali), 'window', String(kapali));
+        assert.equal(barView('going', kapali), 'going', String(kapali));
+    }
+});
+
+test('sunucu bir şey demiyorsa YEREL makine aynen geçiyor', () => {
+    // Kapanış türü yoksa çözümleyici hiçbir şeye karışmamalı.
+    for (const state of ['idle', 'window', 'going', 'sent', 'sealed', 'queued', 'error']) {
+        assert.equal(barView(state, null), state, state);
+    }
+});
+
+test('ekran kapanış türünü çubuğa GERÇEKTEN veriyor', () => {
+    // Çözümleyici doğru olsa da bağlanmamışsa hata aynen sürerdi.
+    assert.match(screen, /<SendToCash[\s\S]{0,260}closedCard=\{closedCard\}/);
 });

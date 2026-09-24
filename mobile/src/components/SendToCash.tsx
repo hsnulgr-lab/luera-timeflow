@@ -33,7 +33,8 @@ import Animated, {
 import { Glyph } from './Glyph';
 import { feedback } from '../lib/feedback';
 import {
-    WINDOW_MS, barFoot, barTitle, canUndo, secondsLeft, windowLine,
+    WINDOW_MS, barFoot, barTitle, barView, canUndo, secondsLeft, windowLine,
+    type BarView,
     type SendState,
 } from '../lib/sendToCash';
 import { font, numeric, useTheme } from '../theme';
@@ -49,8 +50,14 @@ const M = {
 /** Renk geçişinin kaynağı: her hâlin kendi durağı. */
 const STOP = { idle: 0, window: 1, done: 2 } as const;
 
-export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, onUndo }: {
+export function SendToCash({ state, closedCard, at, errorWord, small, reduceMotion, onSend, onUndo }: {
     state: SendState;
+    /**
+     * Sunucunun ziyaret hakkındaki gerçeği. `state` yerel ve her açılışta
+     * `idle` başladığı için tek başına yeterli değil: tahsil edilmiş bir
+     * ziyarette çubuk yine "Adisyonu kasaya gönder" derdi.
+     */
+    closedCard?: 'atcash' | 'paid' | null;
     /** `sealed` hâlinde başlıkta yazan saat. */
     at?: string;
     errorWord?: string;
@@ -63,9 +70,13 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
     const height: number = small ? M.heightSm : M.height;
     const open: number = small ? M.openSm : M.open;
 
-    const windowOpen = state === 'window';
-    const going = state === 'going';
-    const done = state === 'sent';
+    // Bundan sonrası YALNIZ çözülmüş hâle bakıyor; ham `state` bir daha
+    // okunmuyor ki ikisi ayrışmasın.
+    const view = barView(state, closedCard ?? null);
+
+    const windowOpen = view === 'window';
+    const going = view === 'going';
+    const done = view === 'sent';
     /**
      * Renk durağı HÂLDEN türüyor.
      *
@@ -145,11 +156,11 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
 
     const fuseStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: fuse.value }] }));
 
-    const foot = barFoot(state);
+    const foot = barFoot(view);
 
     // ── Gövde ──────────────────────────────────────────────────────────────
-    if (state === 'queued' || state === 'error') {
-        return <Frozen state={state} at={at} errorWord={errorWord} small={small} foot={foot} />;
+    if (view === 'queued' || view === 'error') {
+        return <Frozen state={view} at={at} errorWord={errorWord} small={small} foot={foot} />;
     }
 
     /*
@@ -158,7 +169,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
      * sönük çerçeve ve küçük punto. İkisi aynı yeşille çizilseydi ekran
      * saatlerce "az önce oldu" demeye devam ederdi.
      */
-    if (state === 'sealed') {
+    if (view === 'sealed' || view === 'paid') {
         return (
             <View style={{ alignSelf: 'stretch', gap: 9 }}>
                 <View style={{
@@ -174,7 +185,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
                 }}>
                     <Glyph name="check" size={16} color={c.gr} />
                     <Text style={{ color: c.gr, fontSize: 15, fontFamily: font.bold, fontWeight: '700' }}>
-                        {barTitle(state, at)}
+                        {barTitle(view, at)}
                     </Text>
                 </View>
                 {foot ? <Foot tone="tx3">{foot}</Foot> : null}
@@ -187,7 +198,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
             {windowOpen ? (
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                     <Text style={{ color: c.am, fontSize: 17.5, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: -0.35 }}>
-                        {barTitle(state)}
+                        {barTitle(view)}
                     </Text>
                     <Text style={{ color: c.tx2, fontSize: 12.5, fontFamily: font.semiBold, fontWeight: '600' }}>
                         {windowLine(left, reduceMotion, small).split(String(left)).map((part, index, all) => (
@@ -206,14 +217,14 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
                 <>
                     <Pulse reduceMotion={reduceMotion} />
                     <Text style={{ color: c.am, fontSize: small ? 17 : 18, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: -0.36 }}>
-                        {barTitle(state)}
+                        {barTitle(view)}
                     </Text>
                 </>
             ) : (
                 <>
                     <Glyph name={done ? 'check' : 'cash'} size={21} color="#fff" />
                     <Text style={{ color: '#fff', fontSize: small ? 17 : 18, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: -0.36 }}>
-                        {barTitle(state, at)}
+                        {barTitle(view, at)}
                     </Text>
                 </>
             )}
@@ -238,7 +249,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
                     overflow: 'hidden',
                 }, skin]}
             >
-                {state === 'idle' ? (
+                {view === 'idle' ? (
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Adisyonu kasaya gönder"
@@ -259,7 +270,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
                     </Pressable>
                 ) : body}
 
-                {canUndo(state) ? (
+                {canUndo(view) ? (
                     <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(100)}>
                         <Pressable
                             accessibilityRole="button"
@@ -315,7 +326,7 @@ export function SendToCash({ state, at, errorWord, small, reduceMotion, onSend, 
  * kutu, cümlenin kendisinden daha az şey anlatıyor.
  */
 function Frozen({ state, at, errorWord, small, foot }: {
-    state: SendState;
+    state: BarView;
     at?: string;
     errorWord?: string;
     small: boolean;

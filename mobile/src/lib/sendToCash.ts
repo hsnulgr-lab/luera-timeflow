@@ -100,9 +100,34 @@ export function windowLine(seconds: number, reduceMotion: boolean, small = false
     return `${seconds} sn içinde geri alabilirsiniz`;
 }
 
+/**
+ * Çubuğun ÇİZİLECEK hâli — sunucu gerçeği yerel makineyi yener.
+ *
+ * `SendState` yerel bir makine ve kart her açılışta `idle` başlıyor. Ziyaret
+ * zaten tahsil edilmişse ya da kasadaysa yalnız ona bakmak, olmuş bitmiş bir
+ * işi yeniden teklif etmek demekti: 2026-09-24'te kullanıcı tahsil edilmiş
+ * bir kartta "Adisyonu kasaya gönder" düğmesini basılabilir buldu. Plakanın
+ * üstü "Tahsil edildi" derken altı gönderim teklif ediyordu.
+ *
+ * YOLDAKİ İŞ İSTİSNA: `window` (geri alma penceresi açık) ve `going` (istek
+ * yolda) hâllerinde yerel makine kazanıyor. O iki hâl saniyeler sürüyor ve
+ * araya giren bir sunucu okuması kullanıcının elindeki işi ezmemeli.
+ */
+export type BarView = SendState | 'paid';
+
+export function barView(state: SendState, closed: 'atcash' | 'paid' | null): BarView {
+    if (state === 'window' || state === 'going') return state;
+    if (closed === 'paid') return 'paid';
+    if (closed === 'atcash' && state === 'idle') return 'sealed';
+    return state;
+}
+
 /** Düğmenin üstündeki başlık. */
-export function barTitle(state: SendState, at?: string): string {
+export function barTitle(state: BarView, at?: string): string {
     switch (state) {
+        // Tahsil edilmiş ziyarette gönderilecek bir şey yok; çubuk artık bir
+        // düğme değil, bir cümle.
+        case 'paid': return 'Tahsil edildi';
         case 'idle': return 'Adisyonu kasaya gönder';
         case 'window': return 'Kasaya gidiyor';
         case 'going': return 'Gönderiliyor';
@@ -120,8 +145,10 @@ export function barTitle(state: SendState, at?: string): string {
  * çizilmedi çünkü sunucuda karşılığı yok. Ölü bir düğme yerine nereye
  * söyleneceğini yazan bir satır duruyor.
  */
-export function barFoot(state: SendState): string | null {
+export function barFoot(state: BarView): string | null {
     switch (state) {
+        case 'paid':
+            return 'Tahsilat tamamlandı ve adisyon kapandı.';
         case 'window':
             return 'Pencere kapanana kadar istek gönderilmiyor.';
         case 'sent':

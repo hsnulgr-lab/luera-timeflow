@@ -267,8 +267,11 @@ test('kasaya gitmiş iş "adisyon açık" demiyor — ve KUYRUKTAKİ "kasada" de
     assert.match(lib, /'queued'\) return \{ word: 'Sırada'/);
     assert.match(lib, /word: 'Kasada', tone: 'gr'/);
     // Gönder düğmesi tekrar basılamıyor: `idle` dışında Pressable hiç yok.
+    // Koşul ÇÖZÜLMÜŞ hâle bakıyor (2026-09-24): ham `state` yerel ve her
+    // açılışta `idle` başlıyordu, yani tahsil edilmiş bir ziyarette düğme
+    // yine basılabilir çiziliyordu.
     const send = code(read('../mobile/src/components/SendToCash.tsx'));
-    assert.match(send, /state === 'idle' \? \(\s*<Pressable/);
+    assert.match(send, /view === 'idle' \? \(\s*<Pressable/);
 });
 
 test('ikonlar tasarımın kendi yolları — View taklidi değil', () => {

@@ -972,6 +972,9 @@ export default function Kumanda() {
                     {phase === 'closing' || phase === 'closed' ? (
                         <SendToCash
                             state={send}
+                            // Sunucu gerçeği: tahsil edilmiş ya da kasadaki
+                            // bir ziyarette çubuk gönderim TEKLİF ETMEMELİ.
+                            closedCard={closedCard}
                             at={sentAt ?? undefined}
                             errorWord={errorLine(sendCode)}
                             small={small}
