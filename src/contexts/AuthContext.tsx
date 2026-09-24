@@ -17,7 +17,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-    signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+    signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>;
     logout: () => Promise<void>;
 }
 
@@ -93,15 +93,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const signup = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+    /*
+     * OTURUM DÖNDÜ MÜ — bu ayrım yapılmıyordu.
+     *
+     * Eskiden yalnız `error`a bakılıyor, `data` atılıyordu: e-posta doğrulaması
+     * açıkken sunucu kullanıcıyı AÇIYOR ama oturum VERMİYOR. Hata olmadığı için
+     * ekran "Hesabınız oluşturuldu! Giriş yapabilirsiniz." diyordu ve kişi
+     * giremiyordu. Mobil bu ayrımı baştan yapıyor
+     * (mobile/src/api/auth.ts → `if (!data.session) ... email_confirmation_required`);
+     * masaüstü yapmıyordu.
+     *
+     * Not: GoTrue bu kipte ZATEN KAYITLI bir e-postayı da oturumsuz cevaplıyor
+     * (hesap sızdırmamak için). İkisi ayırt edilemiyor, metin ikisini de kapsar.
+     */
+    const signup = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }> => {
         try {
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: { data: { name } },
             });
             if (error) return { success: false, error: error.message };
-            return { success: true };
+            return { success: true, needsConfirmation: !data.session };
         } catch {
             return { success: false, error: 'Kayıt olurken bir hata oluştu' };
         }

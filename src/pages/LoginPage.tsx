@@ -191,6 +191,8 @@ export const LoginPage = () => {
   const [isSignup, setIsSignup]     = useState(() => params.get('mode') === 'signup');
   const [error, setError]           = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  // Hesap açıldı ama giriş için bir adım daha var — başarı DEĞİL, bekleyen iş.
+  const [pendingMsg, setPendingMsg] = useState('');
   const [shake, setShake]           = useState(false);
   const [mounted, setMounted]       = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
@@ -214,7 +216,7 @@ export const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSuccessMsg('');
+    setError(''); setSuccessMsg(''); setPendingMsg('');
     if (!email || !password || (isSignup && !name)) {
       triggerShake(); setError('Tüm alanları doldurun'); return;
     }
@@ -223,7 +225,13 @@ export const LoginPage = () => {
       const result = await signup(email, password, name);
       setIsLoading(false);
       if (result.success) {
-        setSuccessMsg('Hesabınız oluşturuldu! Giriş yapabilirsiniz.');
+        if (result.needsConfirmation) {
+          // Oturum gelmedi: kullanıcı var, giremiyor. "Giriş yapabilirsiniz"
+          // demek yalan olurdu. Metin mobildekiyle aynı ayrımı yapıyor.
+          setPendingMsg('E-postanıza bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra buradan giriş yapabilirsiniz.');
+        } else {
+          setSuccessMsg('Hesabınız oluşturuldu! Giriş yapabilirsiniz.');
+        }
         setIsSignup(false); setName('');
       } else {
         setError(result.error || 'Kayıt başarısız'); triggerShake();
@@ -344,6 +352,11 @@ export const LoginPage = () => {
             {successMsg && (
               <div style={{ padding: '11px 14px', borderRadius: 10, background: 'rgba(122,211,160,0.1)', border: '1px solid rgba(122,211,160,0.25)', fontSize: 13, color: T.success }}>
                 {successMsg}
+              </div>
+            )}
+            {pendingMsg && (
+              <div style={{ padding: '11px 14px', borderRadius: 10, background: 'rgba(255,90,31,0.10)', border: '1px solid rgba(255,90,31,0.25)', fontSize: 13, color: T.orange }}>
+                {pendingMsg}
               </div>
             )}
 
