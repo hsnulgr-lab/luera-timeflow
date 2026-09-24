@@ -1,10 +1,25 @@
 <!doctype html>
 <!--
   Luera TimeFlow · Gizlilik ve Destek — App Store'un istediği iki herkese açık adres.
-  Kaynak: Claude Design "C-gizlilik-destek.html". Yer tutucular ([ … ]) YAYINDAN ÖNCE
-  doldurulmalı; liste: docs/gizlilik-destek-yer-tutucular.md. İki dosya AYNI içerik:
-  gizlilik.html gizlilikten, destek.html destekten açılır. Birini değiştiren ötekini de değiştirir
-  (tests/gizlilik-destek-sayfasi.test.mjs).
+  Kaynak: Claude Design "C-gizlilik-destek.html".
+
+  YER TUTUCULARIN HEPSİ DOLDURULDU (2026-09-24). İki sayfa AYNI belgedir;
+  yalnız <title> ve açılış sekmesi farklı — birini değiştiren ötekini de
+  değiştirmek zorunda.
+
+  AVUKAT ONAYI BEKLEYEN ÜÇ CÜMLE (sayfada yer tutucu YOK, ama hukuki
+  değerlendirme yapılmadı):
+    1. Yurt dışına aktarım (Bölüm 4) — KVKK md. 9 dayanağı belirlenmedi.
+       Sayfa yalnız OLGUYU söylüyor: sunucular Frankfurt'ta.
+    2. "Salonun mevzuat gereği saklamak zorunda olduğu kayıtlar" (Bölüm 5) —
+       hangi kayıtlar ve ne kadar, belirlenmedi.
+    3. Sağlık notlarında "açık rıza gerekebilir" (Bölüm 3) — "gerekebilir"
+       bilerek; kesin hüküm kurulmadı.
+
+  DOĞRULANMIŞ OLGULAR: barındırma Hostinger/Frankfurt (ipinfo, 2026-09-24) ·
+  işlem kayıtları 30 gün (prune_staff_write_log, gecelik cron) · yedekler
+  30 gün (scripts/vps-backup.sh) · bildirim Expo + APNs · uygulama içi
+  satın alma yok.
 -->
 <html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Gizlilik — Luera TimeFlow</title>
@@ -148,12 +163,12 @@ body{font-size:17px}
 <div class="hero" id="heroG">
 <h1>Bu uygulamadaki müşteri bilgilerinin sahibi salonunuzdur.</h1>
 <p>Luera TimeFlow, salonların randevu ve müşteri kayıtlarını tuttuğu bir uygulamadır. Kayıtları hangi amaçla topladığına ve ne kadar saklayacağına <strong>salon karar verir</strong>; Luera bu kayıtları yalnızca salon adına işler.</p>
-<div class="upd">SON GÜNCELLEME · <span class="ph">[tarih]</span></div>
+<div class="upd">SON GÜNCELLEME · 24 EYLÜL 2026</div>
 </div>
 <div class="hero" id="heroD" style="display:none">
 <h1>Bir sorunuz mu var? Tek adres yeter.</h1>
 <p>Kurulum, personel girişi, cihaz değişikliği ve hesap silme için aşağıdaki sorulara bakın. Cevabı bulamazsanız yazın — aynı ekibe ulaşıyorsunuz.</p>
-<div class="upd">DÖNÜŞ SÜRESİ · <span class="ph">[ … ]</span></div>
+<div class="upd">DÖNÜŞ SÜRESİ · 24 SAAT İÇİNDE</div>
 </div>
 </div>
 </div>
@@ -179,9 +194,9 @@ body{font-size:17px}
 <p><strong>Veri sorumlusu, uygulamayı kullanan salonun kendisidir.</strong> Müşteri adını, telefonunu, randevusunu ve notunu kaydeden, saklayan ve silen taraf salondur. Bir müşteri olarak kayıtlarınızla ilgili talebinizi önce hizmet aldığınız salona iletmeniz gerekir.</p>
 <p><strong>Luera veri işleyendir.</strong> Salonun girdiği kayıtları, salonun talimatı doğrultusunda ve yalnızca uygulamanın çalışması için işler: saklar, cihazlar arasında eşler, salonun başlattığı mesajları iletir. Luera bu kayıtları kendi amaçları için kullanmaz, satmaz ve reklam için işlemez.</p>
 <dl class="pair">
-<dt>Veri sorumlusu</dt><dd><span class="ph">[salon unvanı — her salon kendi bilgisini yazar]</span></dd>
-<dt>Veri işleyen</dt><dd><span class="ph">[Luera şirket unvanı]</span> · <span class="ph">[adres]</span></dd>
-<dt>İletişim</dt><dd><span class="ph">[destek e-postası]</span></dd>
+<dt>Veri sorumlusu</dt><dd>Uygulamayı kullanan salonun kendisi — unvanı ve iletişim bilgisi için hizmet aldığınız salona başvurun</dd>
+<dt>Veri işleyen</dt><dd>Furkan Ülger (Luera TimeFlow)</dd>
+<dt>İletişim</dt><dd><a href="mailto:info@lueratech.com">info@lueratech.com</a></dd>
 </dl>
 <div class="box"><b>Uygulama ücretsizdir</b><p>Luera TimeFlow, salonun kullandığı Luera hesabını tamamlayan ücretsiz bir uygulamadır. Uygulama içinden satın alma yapılmaz.</p></div>
 </section>
@@ -191,8 +206,10 @@ body{font-size:17px}
 <ul>
 <li>Salon adı, salonun çalışma saatleri ve hizmet listesi</li>
 <li>Personel kayıtları: ad, rol, giriş bilgileri</li>
-<li>Oturum açma ve cihaz kayıtları <span class="ph">[toplanan alanların listesi]</span></li>
+<li>Oturum açma ve cihaz kayıtları: cihaz kimliği, bildirim jetonu, son görülme zamanı, IP adresi ve cihaz/tarayıcı bilgisi</li>
 </ul>
+<h3>Tarayıcıda ve telefonda tutulanlar</h3>
+<p>Oturumun açık kalması için tarayıcının yerel depolamasında bir oturum anahtarı, telefonda ise cihaz kimliği ve bildirim jetonu saklanır. Bunlar uygulamanın çalışması için gereklidir. <strong>Reklam ya da izleme amaçlı çerez kullanılmaz.</strong></p>
 <h3>Müşteri kayıtları</h3>
 <p>Bu kayıtları salon girer; müşteri salonun çevrimiçi randevu sayfasından ya da WhatsApp üzerinden randevu alırken adını ve telefonunu kendisi de girebilir.</p>
 <ul>
@@ -211,7 +228,7 @@ body{font-size:17px}
 <li><strong>Randevuyu yürütmek:</strong> günün listesini göstermek, gecikmeyi ve gelmeyen müşteriyi işaretlemek, hizmeti kaydetmek</li>
 <li><strong>Hesabı takip etmek:</strong> paket haklarını, borcu ve tahsilatı kaydetmek</li>
 <li><strong>Müşteriyle iletişim:</strong> salonun başlattığı arama ve hatırlatma mesajları</li>
-<li><strong>Uygulamayı çalıştırmak ve güvenliğini sağlamak:</strong> oturum yönetimi, hata kayıtları <span class="ph">[tutulan kayıtların süresi]</span></li>
+<li><strong>Uygulamayı çalıştırmak ve güvenliğini sağlamak:</strong> oturum yönetimi ve işlem kayıtları — işlem kayıtları 30 gün sonra silinir</li>
 </ul>
 <p>Hukuki dayanak, salonun kendi aydınlatma metninde belirttiği sebeplerdir; sağlıkla ilgili notlar için <strong>açık rıza</strong> gerekebilir. Bu dayanakları belirlemek ve müşteriye bildirmek salona aittir.</p>
 </section>
@@ -219,16 +236,16 @@ body{font-size:17px}
 <section><h2 id="g4"><s>BÖLÜM 4</s>Kiminle paylaşılır</h2>
 <p>Kayıtlar başka salonlarla paylaşılmaz; her salon yalnızca kendi verisini görür. Uygulamanın çalışması için şu hizmet sağlayıcılar devrededir:</p>
 <dl class="pair">
-<dt>Barındırma ve veritabanı</dt><dd><span class="ph">[sağlayıcı adı ve sunucu konumu]</span></dd>
+<dt>Barındırma ve veritabanı</dt><dd>Hostinger · sunucular Frankfurt, Almanya</dd>
 <dt>Mesaj gönderimi</dt><dd>Salonun bağladığı WhatsApp hesabı üzerinden: salonun gönderdiği mesajlar ve salonun açtığı otomatik randevu hatırlatmaları</dd>
-<dt>Bildirim gönderimi</dt><dd><span class="ph">[bildirim sağlayıcısı]</span></dd>
-<dt>Hata ve kullanım kayıtları</dt><dd><span class="ph">[varsa sağlayıcı; yoksa bu satır silinir]</span></dd>
+<dt>Bildirim gönderimi</dt><dd>Expo (Expo Push) ve Apple (APNs)</dd>
 </dl>
 <p>Yetkili kamu kurumlarının mevzuata dayalı talepleri dışında kayıtlar üçüncü taraflara aktarılmaz.</p>
+<p><strong>Kayıtlar Türkiye dışında saklanır.</strong> Barındırma sağlayıcısı Hostinger ve sunucular Frankfurt (Almanya) konumunda. Bu bir yurt dışına aktarımdır; salon, kendi aydınlatma metninde bunu müşterilerine bildirmek ve gereken hukuki dayanağı belirlemekle yükümlüdür.</p>
 </section>
 
 <section><h2 id="g5"><s>BÖLÜM 5</s>Ne kadar saklanır</h2>
-<p>Kayıtlar, salonun hesabı açık olduğu sürece saklanır. Salon bir müşteri kaydını masaüstünden <strong>arşivleyebilir</strong>: arşivlenen kayıt listelerden kalkar ama silinmez. Tek bir müşteri kaydının kalıcı silinmesi için <span class="ph">[kalıcı silme talebi yolu]</span>. <span class="ph">[mevzuat gereği saklanması gereken kayıtlar]</span> için süre salonun kendi yükümlülüğüne bağlıdır.</p>
+<p>Kayıtlar, salonun hesabı açık olduğu sürece saklanır. Salon bir müşteri kaydını masaüstünden <strong>arşivleyebilir</strong>: arşivlenen kayıt listelerden kalkar ama silinmez. Tek bir müşteri kaydının kalıcı silinmesi için salonunuz <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine talep iletir. Salonun mevzuat gereği saklamak zorunda olduğu kayıtlar için süre salonun kendi yükümlülüğüne bağlıdır.</p>
 <div class="box"><b>Hesabınızı nasıl silersiniz</b>
 <p>Silme işlemi uygulamanın içinden yapılır; e-posta göndermeniz gerekmez.</p>
 <div class="path"><span>Profil</span><i>→</i><span>Hesap</span><i>→</i><span>Hesabımı sil</span></div>
@@ -248,12 +265,12 @@ body{font-size:17px}
 <li>Otomatik sistemlerle analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme</li>
 <li>Kanuna aykırı işleme nedeniyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
 </ul>
-<p><strong>Başvuruyu hizmet aldığınız salona yaparsınız</strong> — veri sorumlusu odur. Salon, talebi yerine getirmek için Luera'nın teknik desteğine ihtiyaç duyarsa <span class="ph">[destek e-postası]</span> adresinden ulaşır. Luera'ya doğrudan ulaşan müşteri talepleri ilgili salona yönlendirilir.</p>
+<p><strong>Başvuruyu hizmet aldığınız salona yaparsınız</strong> — veri sorumlusu odur. Salon, talebi yerine getirmek için Luera'nın teknik desteğine ihtiyaç duyarsa <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresinden ulaşır. Luera'ya doğrudan ulaşan müşteri talepleri ilgili salona yönlendirilir.</p>
 </section>
 
 <section><h2 id="g7"><s>BÖLÜM 7</s>Değişiklikler</h2>
-<p>Bu metin değişirse yeni sürüm bu adreste yayımlanır ve yukarıdaki güncelleme tarihi değişir. Önemli değişikliklerde salonlara <span class="ph">[bildirim yolu]</span> ile bilgi verilir.</p>
-<p>Sorularınız için: <span class="ph">[destek e-postası]</span></p>
+<p>Bu metin değişirse yeni sürüm bu adreste yayımlanır ve yukarıdaki güncelleme tarihi değişir. Önemli değişikliklerde salonlara uygulama içinden ve destek e-postasıyla bilgi verilir.</p>
+<p>Sorularınız için: <a href="mailto:info@lueratech.com">info@lueratech.com</a></p>
 </section>
 
 </article>
@@ -274,8 +291,8 @@ body{font-size:17px}
 <section><h2 id="d1"><s>İLETİŞİM</s>Tek yol: e-posta</h2>
 <p>Telefon desteği ve sohbet penceresi yok; hepsi tek adrese düşüyor, böylece hiçbir soru arada kaybolmuyor. Yazarken salon adınızı ve varsa ekran görüntüsünü ekleyin.</p>
 <div class="contact">
-<a class="mail" href="mailto:">[destek e-postası]</a>
-<span class="meta">Dönüş süresi: <span class="ph">[ … ]</span> · Çalışma saatleri: <span class="ph">[ … ]</span></span>
+<a class="mail" href="mailto:info@lueratech.com">info@lueratech.com</a>
+<span class="meta">Dönüş süresi: 24 saat içinde · E-posta 7/24 açık</span>
 </div>
 </section>
 
@@ -294,7 +311,7 @@ body{font-size:17px}
 
 <details><summary>Telefonumu kaybettim veya değiştirdim.</summary><div class="ans">
 <p>Kayıtlar telefonda değil hesapta durur; yeni telefona uygulamayı kurup aynı bilgilerle giriş yapınca her şey yerinde olur.</p>
-<p>Kaybolan telefonla ilgili adımlar için <span class="ph">[destek e-postası]</span> adresine yazın.</p>
+<p>Kaybolan telefonla ilgili adımlar için <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine yazın.</p>
 </div></details>
 
 <details><summary>Hesabımı nasıl silerim?</summary><div class="ans">
@@ -304,7 +321,7 @@ body{font-size:17px}
 
 <details><summary>Masaüstünde yaptığım değişiklik telefonda görünmüyor.</summary><div class="ans">
 <p>Ekranlar canlıdır: masaüstünde bir randevu eklendiğinde telefon birkaç saniye içinde kendiliğinden günceller, listeyi kapatıp açmanız gerekmez.</p>
-<p>Görünmüyorsa sırayla: telefonun internet bağlantısını kontrol edin; müdür Akış ekranında listeyi aşağı çekerek yenileyin (personel ekranı uygulamaya her dönüşte kendini yeniler); doğru güne ve doğru salona baktığınızdan emin olun. Sürerse <span class="ph">[destek e-postası]</span> adresine salon adınızı, randevunun saatini ve ekran görüntüsünü yazın.</p>
+<p>Görünmüyorsa sırayla: telefonun internet bağlantısını kontrol edin; müdür Akış ekranında listeyi aşağı çekerek yenileyin (personel ekranı uygulamaya her dönüşte kendini yeniler); doğru güne ve doğru salona baktığınızdan emin olun. Sürerse <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine salon adınızı, randevunun saatini ve ekran görüntüsünü yazın.</p>
 </div></details>
 
 </div>
@@ -325,7 +342,7 @@ body{font-size:17px}
 <a href="#gizlilik" data-go="G">Gizlilik</a>
 <a href="#destek" data-go="D">Destek</a>
 <span class="sp"></span>
-<span><span class="ph">[Luera şirket unvanı]</span> · <span class="ph">[yıl]</span></span>
+<span>Luera TimeFlow · 2026</span>
 </div></div></footer>
 
 
