@@ -252,11 +252,29 @@ test('hiçbir varyantta fiyat, plan ya da ödeme yok', () => {
     assert.doesNotMatch(locked.replace(/\/\*[\s\S]*?\*\//g, ''), words);
 });
 
-test('müdür varyantı açmanın nerede yapıldığını söyler (Apple Eşiği · C)', () => {
+test('müdür varyantı HİÇBİR YERE YÖNLENDİRMİYOR (App Store 3.1.3(f))', () => {
+    /*
+     * Test bir zamanlar "açmanın NEREDE yapıldığını söyler" diyordu ve metin
+     * "Bilgisayardan <adres> — erişimi oradan açabilirsiniz" idi. Dayanak
+     * 3.1.3(f) olarak yazılmıştı; dayanak doğru, KOŞULU atlanmıştı.
+     *
+     * 3.1.3(f) ücretli bir web hizmetinin ücretsiz yardımcı uygulamasını IAP
+     * zorunluluğundan muaf tutuyor — "uygulama içinde satın alma YA DA
+     * uygulama dışında satın almaya ÇAĞRI olmaması" şartıyla. Adres yazmak
+     * muafiyetin kendisini riske atıyordu.
+     *
+     * Bu test artık tersini kilitliyor: metin bir DURUM söylüyor, bir YER
+     * değil.
+     */
     const copy = subscriptionLocked;
     assert.equal(copy.title, 'Uygulama şu an kapalı');
-    assert.equal(copy.manager.cardLabel, 'Devam etmek için');
-    assert.match(copy.manager.cardBody, /Telefonda yapılamıyor/);
+    assert.equal(copy.manager.cardLabel, 'Sorularınız için');
+    assert.equal(copy.manager.cardTitle, 'info@lueratech.com');
+    // Dışarıda satın almaya çağrı olabilecek hiçbir kelime geçmiyor.
+    const hepsi = JSON.stringify(copy);
+    for (const yasak of ['Bilgisayardan', 'oradan açabilir', 'lueratech.com/', 'http', 'abonelik', 'satın al', 'plan', 'fiyat', 'ödeme']) {
+        assert.ok(!hepsi.toLocaleLowerCase('tr').includes(yasak.toLocaleLowerCase('tr')), `yasak ifade: ${yasak}`);
+    }
     // Doğrulanmamış "90 gün saklanır" sözü KALKTI; doğru olan cümle kaldı.
     assert.doesNotMatch(JSON.stringify(copy), /90 gün/);
     assert.match(copy.manager.kept, /hiçbir kayıt silinmedi/);

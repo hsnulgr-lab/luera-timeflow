@@ -25,8 +25,9 @@ import { authMetrics, font, useTheme } from '../../src/theme';
  * ── Tasarımdan ALINMAYANLAR — veri yok, uydurulmadı ────────────────────────
  * • Personelde işletme sahibinin adı ve "ara" düğmesi: sahibin adını ya da
  *   numarasını veren bir uç yok. Çalışmayan düğme çizilmedi.
- * • "luera.ai" adresi: doğrulanmış bir adres değil. Adres yalnız
- *   `EXPO_PUBLIC_APP_URL` tanımlıysa yazılıyor.
+ * • ADRES HİÇ YAZILMIYOR (2026-09-24): bir adres göstermek, App Store
+ *   3.1.3(f) muafiyetinin koşulunu ("uygulama dışında satın almaya çağrı
+ *   olmaması") deliyordu. Yerine destek e-postası duruyor.
  * • Bitiş tarihi YALNIZ sunucu biliyorsa yazılıyor (`org_entitlement`).
  *
  * Veri canlı: `authApi.subscription.locked()` (bkz. `api/auth.ts` ·
@@ -39,12 +40,6 @@ export default function SubscriptionLocked() {
     const [door, setDoor] = useState<LockedDoor | null>(null);
     const [busy, setBusy] = useState(false);
     const [checkedAt, setCheckedAt] = useState<string | null>(null);
-
-    const host = (() => {
-        const raw = (process.env.EXPO_PUBLIC_APP_URL ?? '').trim();
-        if (!raw) return null;
-        try { return new URL(raw).host; } catch { return null; }
-    })();
 
     useEffect(() => {
         let alive = true;
@@ -138,7 +133,7 @@ export default function SubscriptionLocked() {
                             fontFamily: font.extraBold,
                             fontWeight: '800',
                         }}>
-                            {copy.manager.cardTitle(host)}
+                            {copy.manager.cardTitle}
                         </Text>
                         <Text style={{
                             color: c.tx2,

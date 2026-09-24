@@ -166,8 +166,19 @@ export function lockWaitText(secondsRemaining: number): string {
  *
  * Hata değil, kapalı bir kapı: durum rengi yok, "tekrar dene" yok. Metinde
  * GEÇMEYENLER: abonelik, plan, paket, fiyat, tutar, "yükselt", satın alma
- * anlamında "yenile", deneme süresi. Geçen tek şey durum ve nereden
- * açılacağı (App Store 3.1.3(f)).
+ * anlamında "yenile", deneme süresi.
+ *
+ * ── "NEREDEN AÇILACAĞI" DA ÇIKARILDI (2026-09-24) ───────────────────────────
+ * Metin bir zamanlar "Bilgisayardan <adres> — hesabınızla girip erişimi
+ * oradan açabilirsiniz" diyordu ve dayanağı 3.1.3(f) olarak yazılmıştı.
+ * Dayanak DOĞRU, koşulu atlanmıştı: 3.1.3(f) ücretli bir web hizmetinin
+ * ücretsiz yardımcı uygulamasını IAP zorunluluğundan muaf tutuyor — ancak
+ * "uygulama içinde satın alma YA DA uygulama dışında satın almaya ÇAĞRI
+ * olmaması" şartıyla. Adresi ve "oradan açabilirsiniz"i yazmak tam olarak o
+ * çağrıydı; muafiyetin kendisini riske atıyordu.
+ *
+ * Yerine destek adresi kondu. Bir destek e-postası satın alma yolu değil;
+ * müdür yine ne yapacağını biliyor, uygulama ise hiçbir yere yönlendirmiyor.
  *
  * Eski metin "Bilgileriniz 90 gün saklanır" diyordu; bunu söyleyen bir
  * kural hiçbir yerde YOK (087 okumaya dokunmuyor, hiçbir iş silmiyor). Doğru
@@ -176,9 +187,12 @@ export function lockWaitText(secondsRemaining: number): string {
 export const subscriptionLocked = {
     title: 'Uygulama şu an kapalı',
     manager: {
-        cardLabel: 'Devam etmek için',
-        cardTitle: (host: string | null) => (host ? `Bilgisayardan ${host}` : 'Bilgisayardan Luera'),
-        cardBody: 'Hesabınızla girip erişimi oradan açabilirsiniz. Telefonda yapılamıyor.',
+        cardLabel: 'Sorularınız için',
+        // Adres ALMIYOR: bir zamanlar `host` yazıyordu ve o, dışarıda satın
+        // almaya çağrıydı. İmza sabit kalsın diye parametre korunmadı —
+        // çağıran yerde de kalmasın istiyoruz.
+        cardTitle: 'info@lueratech.com',
+        cardBody: 'Hesabınızın durumu hakkında buradan bilgi alabilirsiniz.',
         kept: 'Randevular, müşteriler ve kasa geçmişi olduğu gibi duruyor — hiçbir kayıt silinmedi.',
     },
     staff: {

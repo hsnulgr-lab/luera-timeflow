@@ -122,7 +122,11 @@ test('Giriş 11 hesap metni, nötr şifre kuralı ve koşul satırı eksiksizdir
         'Kullanım Koşulları',
         'Gizlilik Politikası',
         'Devam',
-        'Abonelik daha sonra bilgisayardan seçilir. Şimdi ödeme yapmıyorsunuz.',
+        // "Abonelik daha sonra BİLGİSAYARDAN seçilir" 2026-09-24'te çıkarıldı:
+        // uygulama dışında satın almaya çağrıydı ve App Store 3.1.3(f)
+        // muafiyetinin koşulunu deliyordu. Kalan cümle güven veriyor,
+        // yönlendirmiyor — ve IAP olmadığını açıkça söylüyor.
+        'Şimdi ödeme yapmıyorsunuz. Uygulama içinden satın alma yoktur.',
     ]) {
         assert.ok(accountUiBundle.includes(copy), `Giriş 11 metni eksik: ${copy}`);
     }

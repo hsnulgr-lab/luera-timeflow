@@ -150,7 +150,13 @@ export default function SignupAccount() {
             <View style={{ flex: 1 }} />
             {valid ? (
                 <AuthBanner style={{ marginBottom: Math.max(insets.bottom, authMetrics.noSafeAreaBottom) }}>
-                    Abonelik daha sonra bilgisayardan seçilir. Şimdi ödeme yapmıyorsunuz.
+                    {/*
+                      * "Abonelik daha sonra BİLGİSAYARDAN seçilir" yazıyordu ve bu,
+                      * uygulama dışında satın almaya çağrıydı — 3.1.3(f)
+                      * muafiyetinin koşulunu deliyordu. Kalan cümle güven
+                      * veriyor ve hiçbir yere yönlendirmiyor.
+                      */}
+                    Şimdi ödeme yapmıyorsunuz. Uygulama içinden satın alma yoktur.
                 </AuthBanner>
             ) : null}
         </AuthPage>
