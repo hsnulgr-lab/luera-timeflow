@@ -1,5 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import {
     ApiError, api as staffCalls, auth as staffApi, tokens,
@@ -105,12 +107,10 @@ const initials = (name: string) => name
 const K_PROFILE = 'tf.auth.profile';
 
 async function saveProfile(profile: AuthProfile, biometricEnabled: boolean): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.setItem(K_PROFILE, JSON.stringify({ profile, biometricEnabled }));
 }
 
 async function readProfile(): Promise<{ profile: AuthProfile; biometricEnabled: boolean } | null> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     try {
         const raw = await AsyncStorage.getItem(K_PROFILE);
         return raw ? JSON.parse(raw) : null;
@@ -120,7 +120,6 @@ async function readProfile(): Promise<{ profile: AuthProfile; biometricEnabled: 
 }
 
 async function clearProfile(): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.removeItem(K_PROFILE);
 }
 
@@ -428,12 +427,10 @@ const K_PENDING = 'tf.auth.pending-staff';
 type PendingMember = StaffRosterMember & { businessName?: string };
 
 async function writePending(member: PendingMember): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.setItem(K_PENDING, JSON.stringify(member));
 }
 
 async function readPending(): Promise<PendingMember | null> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     try {
         const raw = await AsyncStorage.getItem(K_PENDING);
         return raw ? JSON.parse(raw) as PendingMember : null;
@@ -449,7 +446,6 @@ async function markPendingPin(hasPin: boolean): Promise<void> {
 }
 
 async function clearPending(): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.removeItem(K_PENDING);
     pendingStaffId = null;
 }
@@ -620,6 +616,42 @@ async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
     return signOut();
 }
 
+/**
+ * Giriş yapmış müdürün şifresi — E-POSTASIZ (2026-09-25).
+ *
+ * "Şifreyi değiştir" satırı kurtarma ekranına gidiyordu: e-postaya bağlantı.
+ * Sunucuda SMTP yok, bağlantı hiç gitmiyordu ama ekran "gönderdik" diyordu.
+ * Oturumu açık kişinin kimliği zaten biliniyor; e-postaya gerek yok.
+ *
+ * ÖNCE mevcut şifre sunucuya soruluyor: açık bırakılmış bir telefonu eline
+ * alan başkası şifreyi değiştirip müdürü dışarıda bırakamasın (personelin
+ * `pin.change`iyle aynı ilke). Sonra `updateUser`.
+ *
+ * Kural istemcide de denetleniyor ama son söz sunucunun: `weak_password` ve
+ * `same_password` ayrı ayrı taşınıyor, ekran ne olduğunu söyleyebilsin.
+ */
+async function changeManagerPassword(current: string, next: string): Promise<AuthResult<{ changed: true }>> {
+    const stored = await readProfile();
+    if (!stored || stored.profile.actor !== 'manager' || !stored.profile.email) return fail('no_session');
+    if (!passwordRuleState(next).valid) return fail('weak_password');
+    if (current === next) return fail('same_password');
+
+    const check = await supabase.auth.signInWithPassword({ email: stored.profile.email, password: current });
+    if (check.error) {
+        if (isAuthRetryableFetchError(check.error)) return fail('offline');
+        return fail(/rate|too many/i.test(check.error.message) ? 'locked' : 'invalid_credentials');
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: next });
+    if (!error) return done({ changed: true });
+    if (isAuthRetryableFetchError(error)) return fail('offline');
+    if (error.code === 'same_password') return fail('same_password');
+    if (error.code === 'weak_password') return fail('weak_password');
+    // `reauthentication_needed` ve ötesi: sunucu değişikliği yapmadı. Ekran
+    // bunu "değişmedi" diye söylüyor; başarı UYDURULMUYOR.
+    return fail('no_session');
+}
+
 async function accountRequestDeletion(): Promise<AuthResult<AuthAccountDeletionRequest>> {
     const stored = await readProfile();
     if (!stored || stored.profile.actor !== 'manager') return fail('no_session');
@@ -668,11 +700,19 @@ async function accountConfirmDeletion(password: string): Promise<AuthResult<Auth
  * bir kliniğin bilgisayarda yanlış ekranı görmesi demekti. Etiketler
  * kullanıcının dilinde, anahtarlar sistemin dilinde.
  */
+/*
+ * DİŞ ve KLİNİK telefondan kaydolmada SUNULMUYOR (2026-09-25).
+ *
+ * App Store 5.1.1(ix): sağlık gibi düzenlenmiş alanlarda hizmet veren
+ * uygulamalar şirket hesabından gönderilmeli; Luera'nın geliştirici hesabı
+ * BİREYSEL. Mobil sürüm salon/güzellik odaklı yayımlanıyor. Klinikler
+ * web'den kaydoluyor ve telefona MEVCUT hesaplarıyla giriyor — onlar için
+ * hiçbir şey kapanmadı, yalnız bu listeden iki seçenek çıktı. Şirket hesabı
+ * açılınca iki satır geri gelir (`sectorProfiles.ts` onları hâlâ tanıyor).
+ */
 const SIGNUP_SECTORS: SignupSector[] = [
     { id: 'kuafor', label: 'Kuaför' },
     { id: 'guzellik', label: 'Güzellik' },
-    { id: 'dis', label: 'Diş' },
-    { id: 'saglik', label: 'Klinik' },
     { id: 'tattoo', label: 'Dövme' },
     { id: 'restoran', label: 'Restoran' },
     { id: 'genel', label: 'Diğer' },
@@ -688,7 +728,6 @@ const K_SIGNUP = 'tf.auth.signup-draft';
  * bu ayrıma göre hangi adımda duracağına karar veriyor.
  */
 async function readSignupDraft(): Promise<SignupDraft | null> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     try {
         const raw = await AsyncStorage.getItem(K_SIGNUP);
         return raw ? JSON.parse(raw) as SignupDraft : null;
@@ -698,12 +737,10 @@ async function readSignupDraft(): Promise<SignupDraft | null> {
 }
 
 async function writeSignupDraft(next: SignupDraft): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.setItem(K_SIGNUP, JSON.stringify(next));
 }
 
 async function clearSignupDraft(): Promise<void> {
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.removeItem(K_SIGNUP);
 }
 
@@ -922,6 +959,7 @@ export const auth = {
         prepareBusinessSwitch: accountBusinessSwitch,
         setBiometric,
         signOut: accountSignOut,
+        changePassword: changeManagerPassword,
         requestDeletion: accountRequestDeletion,
         confirmDeletion: accountConfirmDeletion,
     },

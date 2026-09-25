@@ -35,8 +35,22 @@ export default function Index() {
         authApi.getLaunchState().then((next) => {
             clearTimeout(timer);
             if (alive) setLaunch(next);
-        }).catch(() => {
+        }).catch((err) => {
             clearTimeout(timer);
+            /*
+             * SESSİZ YUTMAK PAHALIYA MAL OLDU (2026-09-25).
+             *
+             * Burada boş bir `catch` vardı. Üretim paketinde açılışı tamamen
+             * kıran bir hata (dinamik `import()` — RN'de `location` yok)
+             * yalnızca "Oturum bilgisi okunamadı" ekranı olarak görünüyordu;
+             * SEBEBİ hiçbir yere yazılmadığı için `--no-dev` ile elle
+             * kazılana kadar bulunamadı. Aynı hata App Store derlemesinde de
+             * olurdu.
+             *
+             * Sentry yok (bilinen borç). En azından konsola düşsün: bir daha
+             * aynı körlükte kalmayalım.
+             */
+            console.error('[açılış] getLaunchState başarısız:', err);
             if (alive) setFailed(true);
         });
         return () => { alive = false; clearTimeout(timer); };

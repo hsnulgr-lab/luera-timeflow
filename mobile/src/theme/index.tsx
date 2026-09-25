@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AccessibilityInfo, Appearance, useColorScheme, useWindowDimensions } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { dark, embed, light, SMALL_WIDTH, type EmbedPalette, type Palette } from './tokens';
@@ -93,7 +94,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let alive = true;
         void (async () => {
-            const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
             const stored = await AsyncStorage.getItem(THEME_KEY);
             if (!alive) return;
             if (stored === 'dark' || stored === 'light' || stored === 'system') setMode(stored);
@@ -124,7 +124,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const setThemeMode = useCallback((mode: ThemeMode) => {
         setMode(mode);
         void (async () => {
-            const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
             await AsyncStorage.setItem(THEME_KEY, mode);
         })().catch(() => { /* yazılamazsa tercih yalnız bu oturumda yaşar */ });
     }, []);

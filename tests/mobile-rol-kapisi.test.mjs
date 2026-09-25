@@ -64,7 +64,12 @@ test('tekrar dene GERÇEKTEN yeniden okuyor', () => {
 test('ilk ekran okuma hatasında SONSUZA KADAR boş kalmıyor', () => {
     // `.catch` yoktu: `launch` hep null kalıyor ve uygulamanın ilk ekranı
     // kalıcı boş zemin oluyordu — kullanıcı için "açılmıyor".
-    assert.match(index, /\.catch\(\(\) => \{\s*clearTimeout\(timer\);\s*if \(alive\) setFailed\(true\);\s*\}\)/);
+    //
+    // 2026-09-25: `catch` artık hatayı ALIYOR ve yazıyor. Boş `catch`
+    // yüzünden üretim paketini kıran bir hata (dinamik import) haftalarca
+    // görünmedi; şekil değişti, niyet aynı — ekran kilitlenmiyor.
+    assert.match(index, /\.catch\(\(err\) => \{[\s\S]*?clearTimeout\(timer\);[\s\S]*?if \(alive\) setFailed\(true\);\s*\}\)/);
+    assert.match(index, /console\.error\('\[açılış\] getLaunchState başarısız:', err\)/);
     assert.match(index, /if \(failed\) \{/);
     assert.match(index, /<AuthSessionErrorScreen\s+onRetry=\{\(\) => \{ setFailed\(false\); setAttempt/);
 });
