@@ -14,7 +14,6 @@
         "dark": "./assets/icon-dark.png",
         "tinted": "./assets/icon-tinted.png"
       },
-      "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -77,7 +76,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Luera TimeFlow, oturumunuzu PIN girmeden açmak için Face ID kullanır."
+          "faceIDPermission": "TimeFlow, oturumunuzu PIN girmeden açmak için Face ID kullanır."
         }
       ],
       "expo-status-bar",

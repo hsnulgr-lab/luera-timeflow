@@ -52,10 +52,34 @@ test('uygulamanın dili TÜRKÇE ilan ediliyor — mağaza "English" demiyor', (
     assert.ok(Object.values(tr.ios).every((v) => !v.includes('"')));
 });
 
-test('ihracat uyumluluğu ve build numarası tanımlı', () => {
+test('ihracat uyumluluğu tanımlı, derleme numarası app.json\'da DEĞİL', () => {
     assert.equal(app.ios.config.usesNonExemptEncryption, false);
-    assert.ok(app.ios.buildNumber, 'buildNumber olmadan ikinci yükleme yapılamaz');
     assert.ok(app.ios.bundleIdentifier);
+
+    // Bu iddia 2026-09-26'da TERSİNE çevrildi. Eskiden `ios.buildNumber`ın
+    // VAR olması şart koşuluyordu; gerekçesi "ikinci yükleme yapılamaz"dı.
+    // Gerekçe yanlıştı: `eas.json` `appVersionSource: "remote"` diyor, yani
+    // numarayı EAS tutuyor ve her derlemede kendisi artırıyor (1 → 2 oldu).
+    //
+    // app.json'daki değer YOK SAYILIYOR ama manifeste yazılmaya devam
+    // ediyordu. Yasal ekranı onu okuduğu için paket 2 iken ekranda "1"
+    // yazıyordu — ve fark her derlemede büyüyecekti. EAS'in kendi uyarısı da
+    // bunu söylüyor: "It's recommended to remove this value from app config."
+    assert.equal(app.ios.buildNumber, undefined,
+        'ios.buildNumber geri geldi. EAS onu yok sayıyor ama manifeste '
+        + 'yazıyor; ekran donmuş bir sayı gösterir. Sürüm expo-application '
+        + 'ile PAKETTEN okunuyor.');
+});
+
+test('sürüm satırı paketten okunuyor, yapılandırmadan değil', () => {
+    const yasal = read('app/(ortak)/profil/yasal.tsx');
+    assert.match(yasal, /import \* as Application from 'expo-application';/);
+    assert.match(yasal, /Application\.nativeBuildVersion/,
+        'Derleme numarası yeniden `Constants.expoConfig`ten okunuyor: EAS '
+        + 'uzaktan artırdığı için o değer donuk kalır.');
+    // Uygulama kendine "TimeFlow" der. "Luera TimeFlow" YALNIZ mağaza adıdır.
+    assert.doesNotMatch(yasal, /`Luera \$\{version\}/);
+    assert.match(yasal, /`TimeFlow \$\{version\}/);
 });
 
 test('ölü bağlantı yok — gizlilik bağlantısı GERÇEK, var olmayan koşullara atıf yok', () => {
