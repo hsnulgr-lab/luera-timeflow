@@ -119,8 +119,9 @@ test('Giriş 11 hesap metni, nötr şifre kuralı ve koşul satırı eksiksizdir
         'E-posta',
         'Şifre',
         'En az 8 karakter olsun, içinde bir rakam bulunsun.',
-        'Kullanım Koşulları',
+        // "Kullanım Koşulları" 2026-09-25'te çıkarıldı: öyle bir sayfa yok.
         'Gizlilik Politikası',
+        '’nı okuduğunuzu kabul ediyorsunuz.',
         'Devam',
         // "Abonelik daha sonra BİLGİSAYARDAN seçilir" 2026-09-24'te çıkarıldı:
         // uygulama dışında satın almaya çağrıydı ve App Store 3.1.3(f)
@@ -156,7 +157,10 @@ test('Giriş 11 klavye, güçlü şifre, otomatik doldurma ve yapıştırma söz
     assert.doesNotMatch(accountInputBundle, /contextMenuHidden/);
 });
 
-test('Giriş 12 işletme adı ve yedi sektör seçeneğini tasarımdaki sırayla taşır', () => {
+// Tasarım yedi sektör çiziyordu; Diş ve Klinik 2026-09-25'te mobil kayıttan
+// çıktı (App Store 5.1.1(ix), bireysel geliştirici hesabı — bkz. auth.ts).
+// Kalan beşin sırası tasarımdaki gibi.
+test('Giriş 12 işletme adı ve beş sektör seçeneğini tasarımdaki sırayla taşır', () => {
     const sectorCatalog = authStub.match(
         /const signupSectors:[\s\S]*?\n\];/,
     )?.[0] ?? '';
@@ -169,8 +173,6 @@ test('Giriş 12 işletme adı ve yedi sektör seçeneğini tasarımdaki sırayla
         'Hizmet listesi, süreler ve kayıt alanları buna göre kurulur.',
         'Kuaför',
         'Güzellik',
-        'Diş',
-        'Klinik',
         'Dövme',
         'Restoran',
         'Diğer',
@@ -180,7 +182,7 @@ test('Giriş 12 işletme adı ve yedi sektör seçeneğini tasarımdaki sırayla
         assert.ok(businessDataBundle.includes(copy), `Giriş 12 metni eksik: ${copy}`);
     }
 
-    const order = ['Kuaför', 'Güzellik', 'Diş', 'Klinik', 'Dövme', 'Restoran', 'Diğer'];
+    const order = ['Kuaför', 'Güzellik', 'Dövme', 'Restoran', 'Diğer'];
     let cursor = -1;
     for (const sector of order) {
         const next = businessDataBundle.indexOf(sector);

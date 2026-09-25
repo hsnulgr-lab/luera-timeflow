@@ -129,7 +129,7 @@ test('sektör anahtarları masaüstünün anahtarları', () => {
      * bilgisayarda YANLIŞ ekranı görmesi demekti.
      */
     const profiles = readFileSync(new URL('../src/lib/sectorProfiles.ts', import.meta.url), 'utf8');
-    for (const key of ['kuafor', 'guzellik', 'dis', 'saglik', 'tattoo', 'restoran', 'genel']) {
+    for (const key of ['kuafor', 'guzellik', 'tattoo', 'restoran', 'genel']) {
         assert.match(live, new RegExp(`id: '${key}'`), `canlı sektör eksik: ${key}`);
         assert.match(stub, new RegExp(`id: '${key}'`), `stub sektör eksik: ${key}`);
         assert.match(profiles, new RegExp(`^    ${key}: \\{`, 'm'), `masaüstü tanımıyor: ${key}`);
@@ -138,6 +138,30 @@ test('sektör anahtarları masaüstünün anahtarları', () => {
         assert.doesNotMatch(live, new RegExp(`id: '${dead}'`));
         assert.doesNotMatch(stub, new RegExp(`id: '${dead}'`));
     }
+});
+
+test('Diş ve Klinik telefondan kaydolmada SUNULMUYOR — masaüstü onları hâlâ tanıyor', () => {
+    /*
+     * App Store 5.1.1(ix): sağlık gibi düzenlenmiş alanlarda hizmet veren
+     * uygulamalar şirket hesabından gönderilmeli; Luera'nın geliştirici
+     * hesabı BİREYSEL (2026-09-25). Mobil sürüm salon odaklı yayımlanıyor.
+     * Klinikler web'den kaydoluyor, telefona mevcut hesaplarıyla giriyor.
+     * Şirket hesabı açılınca bu test değişir ve iki satır geri gelir.
+     */
+    const liste = (src, ad) => src.match(new RegExp(`const ${ad}: SignupSector\\[\\] = \\[[\\s\\S]*?\\n\\];`))?.[0] ?? '';
+    const canli = liste(live, 'SIGNUP_SECTORS');
+    const sahte = liste(stub, 'signupSectors');
+    assert.ok(canli && sahte, 'sektör listeleri okunamadı');
+    for (const key of ['dis', 'saglik']) {
+        assert.doesNotMatch(canli, new RegExp(`id: '${key}'`), `mobil kayıt yine ${key} sunuyor`);
+        assert.doesNotMatch(sahte, new RegExp(`id: '${key}'`), `stub kayıt yine ${key} sunuyor`);
+    }
+    const profiles = readFileSync(new URL('../src/lib/sectorProfiles.ts', import.meta.url), 'utf8');
+    assert.match(profiles, /^    dis: \{/m, 'masaüstü Diş sektörünü kaybetti');
+    assert.match(profiles, /^    saglik: \{/m, 'masaüstü Klinik sektörünü kaybetti');
+    // Eski taslakta kalmış sektör seçili sayılmıyor — kaydedilemezdi.
+    const business = readFileSync(new URL('../mobile/app/(auth)/signup/business.tsx', import.meta.url), 'utf8');
+    assert.match(business, /const kept = sectorChoices\.some\(\(choice\) => choice\.id === draft\.sector\);/);
 });
 
 test('ekranlar kimliğe yalnız tek dikişten ulaşır', () => {

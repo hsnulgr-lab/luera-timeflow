@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Linking, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +16,7 @@ import {
     AuthOfflineScreen,
 } from '../../../src/components/ui';
 import { isValidEmail, passwordRuleState } from '../../../src/lib/authValidation';
+import { PRIVACY_URL } from '../../../src/lib/managerProfile';
 import { authMetrics, font, useTheme } from '../../../src/theme';
 
 export default function SignupAccount() {
@@ -127,14 +128,24 @@ export default function SignupAccount() {
                         fontWeight: '500',
                         lineHeight: authMetrics.termsSize * authMetrics.termsLine,
                     }}>
-                        {/* ALTI ÇİZİLİ DEĞİL, DOKUNULABİLİR DEĞİL.
-                            Metinler bağlantı gibi görünüyordu ama `onPress`
-                            yoktu — dokunan herkes bozuk sanıyordu ve App Store
-                            incelemesi ölü bağlantıyı reddeder. Luera'nın
-                            yayımlanmış bir gizlilik politikası URL'si henüz
-                            yok; URL geldiğinde bu iki metin `Linking.openURL`
-                            ile bağlanacak ve altı çizili hâline dönecek. */}
-                        Devam ederek Kullanım Koşulları ve Gizlilik Politikası’nı kabul ediyorsunuz.
+                        {/* ÖLÜ BAĞLANTI YOK — iki yönden.
+                            Bir zamanlar metin bağlantı gibi görünüp `onPress`
+                            taşımıyordu; sonra URL gelene kadar düz metne
+                            çevrildi. URL geldi (`public/gizlilik.html`,
+                            2026-09-24): Gizlilik Politikası artık GERÇEK bir
+                            bağlantı. "Kullanım Koşulları" ÇIKARILDI — öyle bir
+                            sayfa yok ve var olmayan bir metne onay istemek
+                            hukuken boş bir cümle (2026-09-25). Koşullar
+                            yazılırsa buraya aynı biçimle bağlanır. */}
+                        Devam ederek{' '}
+                        <Text
+                            accessibilityRole="link"
+                            onPress={() => { void Linking.openURL(PRIVACY_URL); }}
+                            style={{ color: c.tx, textDecorationLine: 'underline' }}
+                        >
+                            Gizlilik Politikası
+                        </Text>
+                        ’nı okuduğunuzu kabul ediyorsunuz.
                     </Text>
                 ) : null}
 

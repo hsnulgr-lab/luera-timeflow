@@ -43,7 +43,11 @@ export default function SignupBusiness() {
                 }
                 const draft = draftResult.data;
                 setName(draft.businessName ?? '');
-                setSelectedSector(draft.sector ?? null);
+                // Taslaktaki sektör listede artık yoksa (Diş/Klinik, 5.1.1(ix))
+                // seçili SAYILMAZ: kaydedilemeyen bir seçim "Sektör
+                // kaydedilemedi" hatasına düşerdi.
+                const kept = sectorChoices.some((choice) => choice.id === draft.sector);
+                setSelectedSector(kept ? draft.sector ?? null : null);
                 setSectors(sectorChoices);
                 setStage(draft.businessName ? 'sector' : 'name');
                 setLoading(false);
