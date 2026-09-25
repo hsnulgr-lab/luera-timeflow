@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    AccessibilityInfo, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
+    AccessibilityInfo, Alert, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
     useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -10,15 +10,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
 import { addDaysISO, nowInMinutes, todayISO, toMinutes, type Appt } from '../../src/lib/calendar';
-import { apiSource, forgetOrg } from '../../src/lib/managerSource';
+import { apiSource, fetchWaConnected, forgetOrg } from '../../src/lib/managerSource';
 import { authApi } from '../../src/api/session';
 import { dialable } from '../../src/lib/phone';
-import { WA_CONNECTED } from '../../src/lib/mockSend';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
 import { sendStaffNudge, sendWaNudge } from '../../src/lib/managerWrite';
-import { numberUsable, waNudgeText, type CellKey } from '../../src/lib/actionPill';
+import {
+    numberUsable, WA_OFF_BODY, WA_OFF_TITLE, waNudgeText, type CellKey,
+} from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
     FlowDivider, FlowEnd, FlowRow, StaffStrip,
@@ -149,7 +150,28 @@ export default function ManagerFlow() {
      */
     const [refused, setRefused] = useState<WriteOutcome | null>(null);
 
-
+    /**
+     * Salonun WhatsApp hattı — SUNUCUDAN (2026-09-25).
+     *
+     * Eskiden `mockSend.WA_CONNECTED = true` sabitiydi: hattı hiç bağlanmamış
+     * salonda da "Yaz" gözü çiziliyor, 5 saniyelik pencereden sonra "bağlı
+     * değil" hatası dönüyordu. App Store hakemi demo salonda tam bunu görürdü.
+     *
+     * `null` = henüz okunmadı ya da okunamadı. O zaman göz `wa` kalıyor ve
+     * gönderimin sonucu yine sunucudan geliyor — okunamamak, çalışan bir hattı
+     * söndürmek için sebep değil. Yalnız KESİN "bağlı değil" gözü onarım
+     * hâline çeviriyor. Odakta tazeleniyor: masaüstünde QR okutulup geri
+     * dönülünce göz kendiliğinden yanıyor.
+     */
+    const [waLine, setWaLine] = useState<boolean | null>(null);
+    useFocusEffect(useCallback(() => {
+        let alive = true;
+        fetchWaConnected().then(
+            (ready) => { if (alive) setWaLine(ready); },
+            () => { /* okunamadı — bilinmiyor kalır, göz sönmez */ },
+        );
+        return () => { alive = false; };
+    }, []));
 
     /**
      * Reddin tek hamlesi — takvim ekranıyla AYNI karar: salon seçmesi gereken
@@ -337,10 +359,10 @@ export default function ManagerFlow() {
      */
     const onPill = useCallback((event: FlowEvent, cell: CellKey) => {
         if (cell === 'waoff') {
-            // Onarım gözü — ama gidilecek ekran HENÜZ YAZILMADI. Bu göz bugün
-            // hiç çizilmiyor (`WA_CONNECTED` true) ve çizilmemeli: hedefi
-            // olmayan bir düğme, dokunulup hiçbir şey olmayan bir noktadır.
-            // Ekran yazıldığında buraya `router.navigate` gelir.
+            // Onarım gözü artık ÇİZİLİYOR (durum sunucudan) ve ölü değil:
+            // telefonda gidilecek bir ayar ekranı yok — hat masaüstünde QR ile
+            // bağlanıyor — o yüzden göz sebebi ve yeri SÖYLÜYOR.
+            Alert.alert(WA_OFF_TITLE, WA_OFF_BODY);
             return;
         }
         if ((cell === 'ara' || cell === 'wa') && !numberUsable(event.customerPhone, event.waResult)) {
@@ -958,7 +980,7 @@ export default function ManagerFlow() {
                             inLine={event.id === inLineId}
                             onAction={(label) => onAction(event, label)}
                             onPill={(cell) => onPill(event, cell)}
-                            waConnected={WA_CONNECTED}
+                            waConnected={waLine ?? true}
                             onMore={event.appointmentId ? openAppointment : undefined}
                             onOpenCustomer={openCustomer}
                         />

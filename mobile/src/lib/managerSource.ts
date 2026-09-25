@@ -27,6 +27,7 @@ import type { PackageRow } from './apptInfo.ts';
 import { catalogOf, type CashPaymentRow, type CashReservationRow, type CatalogService } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
+import { waLineReady } from './actionPill.ts';
 
 /**
  * Org çözülemediğinde atılan hata.
@@ -1045,6 +1046,25 @@ export async function fetchKvkkUrl(): Promise<string | null> {
     if (error) throw error;
     const url = data?.kvkk_url?.trim() ?? '';
     return /^https?:\/\//i.test(url) ? url : null;
+}
+
+/**
+ * Salonun WhatsApp hattı gönderime hazır mı — `org_whatsapp` (070).
+ *
+ * Masaüstünün okuduğu satırın AYNISI (`src/hooks/useWhatsApp.ts`); okuma
+ * RLS'te org üyelerine açık, yazma yalnız sunucuda. Satır hiç yoksa hat
+ * hiç bağlanmamış demektir → `false`.
+ *
+ * Okunamazsa HATA atılır: çağıran durumu "bilinmiyor" bırakır ve gözü
+ * söndürmez. Bir okuma hatası çalışan bir hattı "bağlı değil" gösterirdi.
+ */
+export async function fetchWaConnected(): Promise<boolean> {
+    const organizationId = await orgIdOrThrow();
+    const { data, error } = await supabase.from('org_whatsapp').select('status')
+        .eq('organization_id', organizationId).maybeSingle()
+        .returns<{ status?: string | null } | null>();
+    if (error) throw error;
+    return waLineReady(data?.status);
 }
 
 // ── Kasa ────────────────────────────────────────────────────────────────────

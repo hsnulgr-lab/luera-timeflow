@@ -83,7 +83,8 @@ test('WhatsApp bağlı değilse göz SİLİNMEZ, onarıma döner', () => {
         canDrop: true, canTellStaff: true,
     });
     assert.deepEqual(cells, ['ara', 'waoff', 'nox', 'inf']);
-    assert.equal(cellSpec('waoff').hint, 'Ayarlara git');
+    // Telefonda ayar ekranı yok; hat masaüstünde bağlanıyor (2026-09-25).
+    assert.equal(cellSpec('waoff').hint, 'masaüstünden bağlanır');
 });
 
 test('v2 sütun sabit: tek gözlü hap da AÇILIR, gözsüz hap açılmaz', () => {

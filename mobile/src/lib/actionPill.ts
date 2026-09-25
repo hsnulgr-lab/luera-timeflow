@@ -34,7 +34,9 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     // Müdür 34 · v2: mesaj salonun numarasından, hazır metinle gidiyor
     // (`whatsapp-proxy`, `kind: 'manual'`). Açıklama bunu söylüyor ve doğru.
     wa: { label: 'WhatsApp’tan yaz', hint: 'hazır metin, salonun numarası' },
-    waoff: { label: 'WhatsApp bağlı değil', hint: 'Ayarlara git' },
+    // Telefonda Ayarlar ekranı YOK: hat masaüstünde QR ile bağlanıyor.
+    // "Ayarlara git" gidilemeyen bir yeri vaat ediyordu (2026-09-25).
+    waoff: { label: 'WhatsApp bağlı değil', hint: 'masaüstünden bağlanır' },
     nox: { label: 'Gelmedi', hint: 'geri alınabilir' },
     // Kanal AÇILDI (2026-09-24 · `staff-nudge`): göz artık personelin
     // telefonuna gerçekten bildirim düşürüyor. Açıklama bunu söyleyebilir —
@@ -124,6 +126,27 @@ export function waNudgeText(input: { salon: string; time: string; late: boolean 
         ? `${hello} — ${input.time} randevunuz için sizi bekliyoruz, yolda mısınız?`
         : `${hello} — bugün ${input.time} randevunuzu hatırlatmak istedik, görüşmek üzere.`;
 }
+
+/**
+ * Salonun hattı gönderime HAZIR mı — `org_whatsapp.status` (070).
+ *
+ * Yalnız `connected` hazır. `connecting` QR yarıda kalmış bir hat: sunucu
+ * oradan göndermiyor (`sendWA` → `not_connected`), göz de gönderim vaat
+ * etmemeli. Okunamayan durum burada DEĞİL, çağıranda ele alınıyor —
+ * bilinmeyeni "bağlı değil" saymak çalışan bir hattın gözünü söndürürdü.
+ */
+export function waLineReady(status: unknown): boolean {
+    return status === 'connected';
+}
+
+/**
+ * Sönük göze dokununca çıkan açıklama. Göz ölü kalmıyor: neden ve nerede
+ * düzeltileceği söyleniyor. Bağlantı telefondan kurulmuyor — QR masaüstünde
+ * okutuluyor (Ayarlar → WhatsApp).
+ */
+export const WA_OFF_TITLE = 'WhatsApp bağlı değil';
+export const WA_OFF_BODY = 'Salonun WhatsApp hattı masaüstünde Ayarlar → WhatsApp’tan bağlanır. '
+    + 'Bağlandığında müşteriye buradan hazır mesaj gönderebilirsiniz.';
 
 export interface PillInput {
     /** Müşterinin telefonu. Yoksa iki kanal da çizilmez. */
