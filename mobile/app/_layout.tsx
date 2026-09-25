@@ -26,11 +26,46 @@ import {
     HankenGrotesk_900Black,
     useFonts,
 } from '@expo-google-fonts/hanken-grotesk';
-import { Stack } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthCrashScreen } from '../src/components/ui';
 import { useBackgroundSync } from '../src/lib/backgroundSync';
+import { dropSplashHandoff } from '../src/lib/splashHandoff';
 import { ThemeProvider, useTheme } from '../src/theme';
+
+/**
+ * KÖK ÇÖKME AĞI — App Store 2.1.
+ *
+ * Bu olmadan yakalanmamış bir çizim hatası üretim derlemesinde uygulamayı
+ * KAPATIR: geliştirmedeki kırmızı ekran mağazada yok. Hakemin gördüğü çökme
+ * en sık ret sebebi; bu ekran onu "Tekrar dene"ye çeviriyor.
+ *
+ * `RootLayout`un YERİNE çiziliyor, yani onun sağlayıcıları bunu SARMIYOR —
+ * tema ve güvenli alan burada yeniden kuruluyor. Sağlayıcısız `useTheme`
+ * varsayılan açık temaya düşerdi ve koyu modda kullanıcı bembeyaz bir
+ * ekranla karşılaşırdı.
+ *
+ * Sistem açılış karesi burada HEMEN kalkıyor: hata açılışta olduysa kare
+ * 6 saniyelik emniyete kadar hata ekranının önünde dururdu.
+ *
+ * Yalnız ÇİZİM hatalarını yakalar. Olay işleyicisindeki ve `await`teki
+ * hatalar sınırlara ulaşmaz; onlar kendi `catch`lerinde ele alınıyor.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+    useEffect(() => {
+        dropSplashHandoff();
+        console.error('[kök hata sınırı]', error);
+    }, [error]);
+    return (
+        <SafeAreaProvider>
+            <ThemeProvider>
+                <AuthCrashScreen onRetry={() => { void retry(); }} />
+            </ThemeProvider>
+        </SafeAreaProvider>
+    );
+}
 
 // Kök kabuk. Tema ve güvenli alan burada; rota grupları altta.
 
@@ -87,6 +122,8 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/bildirimler" />
                 <Stack.Screen name="(ortak)/profil/yasal" />
                 <Stack.Screen name="(manager-flow)/profil/hesap-sil" />
+                {/* Müdürün şifresi — telefondan, e-postasız (2026-09-25). */}
+                <Stack.Screen name="(manager-flow)/profil/sifre" />
                 {/* 099 — personelin telefonu: ekip kodu ve şifre. */}
                 <Stack.Screen name="(manager-flow)/profil/personel" />
                 <Stack.Screen name="(staff-flow)/sifre" />

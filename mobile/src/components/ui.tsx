@@ -22,7 +22,7 @@ import { GlassPlate } from './GlassPlate';
 import { LightField } from './LightField';
 import { GlassView } from 'expo-glass-effect';
 import { businessMeta } from '../lib/accountMap';
-import { offlineGate, sessionGate } from '../lib/authCopy';
+import { crashGate, offlineGate, sessionGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
 import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, radius, space, type, useTheme } from '../theme';
 import { upperTR } from '../lib/text';
@@ -1151,6 +1151,21 @@ function OfflineIcon({ color, size }: { color: string; size: number }) {
     );
 }
 
+/** Ünlem — uygulamanın kendi hatası. Ne bağlantı ne kilit ikonu bunu söylüyor. */
+function AlertIcon({ color, size }: { color: string; size: number }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Path
+                d="M12 7.4v6M12 17.2h.01"
+                stroke={color}
+                strokeWidth={authMetrics.iconStroke}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </Svg>
+    );
+}
+
 function LockIcon({ color, size }: { color: string; size: number }) {
     return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -1322,7 +1337,7 @@ export function AuthStatusScreen({
     children,
 }: {
     tone: 'amber' | 'red';
-    icon?: 'offline' | 'clock' | 'lock';
+    icon?: 'offline' | 'clock' | 'lock' | 'alert';
     /** 'top': altında okunacak başka bölüm var (kart, bant). 'center': tek cümle. */
     align?: 'center' | 'top';
     identity?: { title: string; subtitle: string };
@@ -1337,7 +1352,10 @@ export function AuthStatusScreen({
     const accent = tone === 'amber' ? c.am : c.rd;
     const ring = small ? authMetrics.heroRingSmall : authMetrics.heroRing;
     const titleSize = small ? authMetrics.heroTitleSmall : authMetrics.heroTitle;
-    const Glyph = icon === 'clock' ? ClockIcon : icon === 'lock' ? LockIcon : OfflineIcon;
+    const Glyph = icon === 'clock' ? ClockIcon
+        : icon === 'lock' ? LockIcon
+        : icon === 'alert' ? AlertIcon
+        : OfflineIcon;
     const top = align === 'top';
 
     return (
@@ -1472,6 +1490,25 @@ export function AuthSessionErrorScreen({ onRetry, busy = false }: {
                 label={sessionGate.action}
                 onPress={onRetry}
                 disabled={busy}
+                left={<AuthRefreshIcon color={onAccent} />}
+            />
+        </AuthStatusScreen>
+    );
+}
+
+/**
+ * Uygulamanın kendi hatası — kök `ErrorBoundary`nin ekranı (App Store 2.1).
+ *
+ * Aynı iskelet, AYRI metin ve ünlem ikonu: sorun ne bağlantıda ne oturumda.
+ * Kırmızı değil kehribar, çünkü kalıcı bir kayıp yok; "Tekrar dene" ağacı
+ * baştan çiziyor ve çoğu zaman yeter.
+ */
+export function AuthCrashScreen({ onRetry }: { onRetry: () => void }) {
+    return (
+        <AuthStatusScreen tone="amber" icon="alert" title={crashGate.title} body={crashGate.body}>
+            <AuthActionButton
+                label={crashGate.action}
+                onPress={onRetry}
                 left={<AuthRefreshIcon color={onAccent} />}
             />
         </AuthStatusScreen>

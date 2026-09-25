@@ -68,8 +68,9 @@ test('tek eylem var: tekrar dene', () => {
 test('oturum okunamadı ekranı bağlantı ekranından AYRI', () => {
     // Sorun internette değil cihazda; bağlantı metnini ödünç almak yanlış
     // yönlendirirdi ("Wi-Fi'yi açın" deyip sorunu çözmezdi).
+    // Sınır `ChevronIcon`dı; araya kök çökme ekranı girdi (2026-09-25).
     const start = ui.indexOf('export function AuthSessionErrorScreen');
-    const screen = ui.slice(start, ui.indexOf('function ChevronIcon'));
+    const screen = ui.slice(start, ui.indexOf('export function AuthCrashScreen'));
     assert.equal((screen.match(/<AuthActionButton/g) || []).length, 1);
     assert.match(screen, /label=\{sessionGate\.action\}/);
     assert.match(screen, /icon="lock"/);
