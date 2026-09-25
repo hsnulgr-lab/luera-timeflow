@@ -132,7 +132,12 @@ export type AuthErrorCode =
     /** 0000, 1234 gibi herkesin ilk denediği şifre. */
     | 'weak_pin'
     /** Yeni şifre eskisiyle aynı. */
-    | 'same_pin';
+    | 'same_pin'
+    // Müdürün e-posta şifresi — uygulama içinden değiştirme (2026-09-25)
+    /** Yeni şifre eskisiyle aynı (Supabase `same_password`). */
+    | 'same_password'
+    /** Sunucu yeni şifreyi zayıf buldu (Supabase `weak_password`). */
+    | 'weak_password';
 
 export interface AuthFailure {
     ok: false;
@@ -279,11 +284,10 @@ const demoDevice: PairedDevice = {
  * süre `klinik`, `dovme`, `diger` yazıyordu; masaüstü bunları tanımıyor ve
  * `genel` panele düşürüyor. Etiket kullanıcının dilinde, anahtar sistemin.
  */
+// Diş ve Klinik çıkarıldı — gerekçe `auth.ts · SIGNUP_SECTORS`te (5.1.1(ix)).
 const signupSectors: SignupSector[] = [
     { id: 'kuafor', label: 'Kuaför' },
     { id: 'guzellik', label: 'Güzellik' },
-    { id: 'dis', label: 'Diş' },
-    { id: 'saglik', label: 'Klinik' },
     { id: 'tattoo', label: 'Dövme' },
     { id: 'restoran', label: 'Restoran' },
     { id: 'genel', label: 'Diğer' },
@@ -759,6 +763,22 @@ async function requestAccountDeletion(): Promise<AuthResult<AuthAccountDeletionR
     return success({ reauthRequired: true });
 }
 
+/**
+ * Müdürün şifresi — sahte kipte YALNIZ doğrular, kalıcı yazmaz. Gerçek yazma
+ * `auth.ts`te (Supabase `updateUser`); buradaki sözleşme onunla aynı.
+ */
+async function changeManagerPassword(
+    current: string,
+    next: string,
+): Promise<AuthResult<{ changed: true }>> {
+    const session = await readSession();
+    if (!session || session.actor !== 'manager') return failure('no_session');
+    const manager = await managerById(session.profile.id);
+    if (!manager || manager.password !== current) return failure('invalid_credentials');
+    if (next === current) return failure('same_password');
+    return success({ changed: true });
+}
+
 async function confirmAccountDeletion(
     password: string,
 ): Promise<AuthResult<AuthAccountDeletionConfirmation>> {
@@ -944,6 +964,7 @@ export const authStub = {
         prepareBusinessSwitch: prepareAccountBusinessSwitch,
         setBiometric,
         signOut: accountSignOut,
+        changePassword: changeManagerPassword,
         requestDeletion: requestAccountDeletion,
         confirmDeletion: confirmAccountDeletion,
     },

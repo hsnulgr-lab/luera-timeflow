@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Linking, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../../src/api/session';
 import {
@@ -12,7 +12,9 @@ import {
     AuthPage,
     AuthSentHero,
     AuthOfflineScreen,
+    AuthStatusScreen,
 } from '../../../src/components/ui';
+import { EMAIL_RECOVERY_READY, recoveryUnavailable } from '../../../src/lib/authCopy';
 import { authMetrics, useTheme } from '../../../src/theme';
 
 type RecoverPhase = 'form' | 'sent';
@@ -84,6 +86,33 @@ export default function ManagerRecover() {
         if (router.canGoBack()) router.back();
         else router.replace('/(auth)/welcome');
     };
+
+    /*
+     * E-POSTA GİDEMİYOR — form hiç gösterilmiyor (2026-09-25).
+     *
+     * Sunucuda SMTP yok. Form bağlantıyı "gönderiyor", sonra "Bağlantıyı
+     * gönderdik" diyordu; hiçbir e-posta gitmiyordu ve kişi bunu bilmeden
+     * gelen kutusunu bekliyordu. Şimdi durumu söylüyor ve iki gerçek yol
+     * veriyor. SMTP gelince `EMAIL_RECOVERY_READY` açılır, aşağıdaki akış
+     * olduğu gibi geri gelir.
+     */
+    if (!EMAIL_RECOVERY_READY) {
+        return (
+            <AuthStatusScreen
+                tone="amber"
+                icon="lock"
+                title={recoveryUnavailable.title}
+                body={recoveryUnavailable.body}
+            >
+                <AuthActionButton
+                    label={recoveryUnavailable.action}
+                    // Posta uygulaması yoksa açılamaz; adres metinde yazılı.
+                    onPress={() => { void Linking.openURL(recoveryUnavailable.mailto).catch(() => undefined); }}
+                />
+                <AuthActionButton label={recoveryUnavailable.back} kind="ghost" onPress={back} />
+            </AuthStatusScreen>
+        );
+    }
 
     if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
 

@@ -94,6 +94,71 @@ export const sessionGate = {
 } as const;
 
 /**
+ * Uygulamanın İÇİNDE beklenmedik bir hata — kök `ErrorBoundary`.
+ *
+ * Bağlantı ve oturum ekranlarından AYRI metin: sorun ne internette ne
+ * cihazda, uygulamanın kendisinde. Kullanıcıyı suçlamıyor ve veriyi tehdit
+ * etmiyor — sunucuya yazılmış hiçbir şey bu ekran yüzünden kaybolmaz,
+ * gönderilemeyenler kuyruğu da cihazda durur.
+ */
+export const crashGate = {
+    title: 'Bir şey ters\ngitti',
+    body: 'Bu ekranı açarken beklenmedik bir hata oldu. Kayıtlı bilgileriniz yerinde — tekrar deneyin.',
+    action: 'Tekrar dene',
+} as const;
+
+/**
+ * E-postayla şifre sıfırlama AÇIK MI.
+ *
+ * Sunucuda SMTP yok (2026-09-25): kurtarma bağlantısı hiç gitmiyordu ama
+ * ekran "Bağlantıyı gönderdik" diyordu. Şifresini unutan kişi bir daha
+ * giremezdi ve bunu bilmezdi. SMTP kurulup bir e-posta gerçekten ulaştığında
+ * `true` yapılır; form ve "gönderdik" ekranı olduğu gibi geri gelir.
+ */
+export const EMAIL_RECOVERY_READY = false;
+
+/** Sıfırlama e-postası gidemezken kurtarma ekranının dürüst hâli. */
+export const recoveryUnavailable = {
+    title: 'Şifre bağlantısı\nşu an gönderilemiyor',
+    body: 'E-posta gönderimimiz henüz açık değil. Bilgisayarda girişiniz açıksa şifrenizi orada değiştirebilirsiniz. '
+        + 'Değilse hesabınızın e-postasıyla info@lueratech.com adresine yazın, şifrenizi birlikte yenileyelim.',
+    action: 'E-posta yaz',
+    back: 'Girişe dön',
+    mailto: 'mailto:info@lueratech.com?subject=' + encodeURIComponent('Şifre yenileme'),
+} as const;
+
+/**
+ * Müdür · Profil › Hesap › Şifreyi değiştir (2026-09-25).
+ *
+ * Giriş yapmış kişi e-postasız değiştiriyor. Önce ŞU ANKİ şifre soruluyor:
+ * açık kalmış telefonu eline alan başkası müdürü dışarıda bırakamasın.
+ */
+export const passwordChange = {
+    title: 'Şifreyi değiştir',
+    current: 'Şu anki şifre',
+    next: 'Yeni şifre',
+    action: 'Şifreyi değiştir',
+    busy: 'Kaydediliyor…',
+    done: 'Şifreniz değişti.',
+    note: 'Yeni şifre bilgisayardaki girişiniz için de geçerli.',
+} as const;
+
+/**
+ * Hatanın cümlesi. Her biri şifrenin DEĞİŞMEDİĞİNİ ya da neyin değişmesi
+ * gerektiğini söylüyor — kişi eski şifresinin hâlâ geçerli olduğunu bilmeli.
+ */
+export function passwordChangeProblem(error: string): string {
+    switch (error) {
+        case 'invalid_credentials': return 'Şu anki şifreniz bu değil. Şifreniz değişmedi.';
+        case 'same_password': return 'Yeni şifre eskisiyle aynı. Farklı bir şifre seçin.';
+        case 'weak_password': return 'Bu şifre yeterince güçlü değil. En az 8 karakter olsun, içinde bir rakam bulunsun.';
+        case 'offline': return 'Bağlantı yok. Şifreniz değişmedi.';
+        case 'locked': return 'Çok fazla deneme yapıldı. Biraz bekleyip tekrar deneyin.';
+        default: return 'Şifreniz değişmedi. Çıkış yapıp yeniden girin, sonra tekrar deneyin.';
+    }
+}
+
+/**
  * Giriş 15c. "Eşleşmedi" ile "süresi doldu" bilerek AYRI metinlerdir.
  *
  * Birincisi kullanıcının düzeltebileceği bir yazım hatası — aynı ekranda kalır.

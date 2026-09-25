@@ -178,16 +178,21 @@ export default function AccountScreen() {
 
                     <View style={{ borderTopWidth: 1, borderTopColor: c.bd }}>
                         {/*
-                          Müdürün şifresi e-posta bağlantısıyla değişir —
-                          kurtarma ekranının yaptığı iş bu. Personelin şifresi
-                          (099) `pin.change` ile telefondan değişir; hedef ekran
-                          ve sunucu tarafı artık VAR.
+                          İKİ ROL DE TELEFONDAN, E-POSTASIZ değiştiriyor.
+                          Müdür eskiden kurtarma ekranına gidiyordu (e-posta
+                          bağlantısı) — sunucuda SMTP yok, bağlantı hiç
+                          gitmiyordu (2026-09-25). Oturumu açık kişiye e-posta
+                          gerekmiyor: `profil/sifre` şu anki şifreyi sorup
+                          yenisini yazıyor. Personelin şifresi (099)
+                          `pin.change` ile.
                         */}
                         <AuthAccountRow
                             title="Şifreyi değiştir"
-                            onPress={() => router.push(isManager
-                                ? '/(auth)/manager/recover'
-                                : '/(staff-flow)/sifre')}
+                            // İki adres ayrı `router.push`: rota testi yalnız
+                            // doğrudan yazılmış adresi "gidiliyor" sayıyor.
+                            onPress={() => (isManager
+                                ? router.push('/(manager-flow)/profil/sifre')
+                                : router.push('/(staff-flow)/sifre'))}
                         />
                         <AuthAccountRow
                             title="Face ID ile aç"
