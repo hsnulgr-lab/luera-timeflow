@@ -65,12 +65,34 @@ export async function getOrgWa(admin: Admin, orgId: string): Promise<OrgWa | nul
 }
 
 /** Bağlı org'ları döner — remind gibi toplu işler bunun üzerinde döner. */
-export async function connectedOrgs(admin: Admin): Promise<OrgWa[]> {
+/**
+ * Hattı OLAN org'lar — yalnız bağlı olanlar DEĞİL.
+ *
+ * Eskiden burada `.eq('status', 'connected')` vardı ve bu kendi kendini
+ * sürdüren bir tuzak kuruyordu:
+ *
+ *   1. Eşleştirme başlatılınca `whatsapp-proxy` durumu 'connecting' yazıyor.
+ *   2. QR okutulmazsa durum orada kalıyor.
+ *   3. 'connecting' bu süzgece takılmadığı için `remind` o org'a HİÇ uğramıyor.
+ *   4. Uğramadığı için `verifyConnection` çalışmıyor — oysa durumu düzeltecek
+ *      olan tek şey o.
+ *   5. Durum sonsuza kadar 'connecting' kalıyor.
+ *
+ * 2026-09-25'te canlıda yakalandı: bir salon 7 HAFTA boyunca "bağlanıyor"
+ * gösterdi, Evolution ise aynı süre boyunca `state: close` diyordu. Ekran
+ * olmayan bir durumu gösterdi ve kimse müdahale etmedi — "bağlanıyor" umut
+ * veren bir kelime.
+ *
+ * Genişletmek GÖNDERİM AÇMAZ: `remind` her org için önce `verifyConnection`
+ * çağırıyor; hat `open` değilse `markDisconnected` yazılıp org atlanıyor.
+ * Yani buradan geçen ölü hat mesaj almaz, yalnız GERÇEĞİ kaydedilir.
+ */
+export async function linkedOrgs(admin: Admin): Promise<OrgWa[]> {
     const { data } = await admin
         .from('org_whatsapp')
         .select('organization_id, instance, status, webhook_secret, features')
         .not('instance', 'is', null)
-        .eq('status', 'connected');
+        .in('status', ['connected', 'connecting']);
     return data ?? [];
 }
 

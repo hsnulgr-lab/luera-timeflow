@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    connectedOrgs, drainOutbox, featureOn, getOrgWa, getSecret, sendWA, verifyConnection,
+    drainOutbox, featureOn, getOrgWa, getSecret, linkedOrgs, sendWA, verifyConnection,
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
@@ -145,10 +145,14 @@ Deno.serve(async (req: Request) => {
             return deny(401, 'Bu uç yalnız zamanlayıcı tarafından çağrılabilir', corsHeaders);
         }
 
-        // Bağlı organizasyonlar — org başına TEK satır (org_whatsapp, 070).
+        // Hattı OLAN organizasyonlar — org başına TEK satır (org_whatsapp, 070).
         // Eskiden settings satırları üzerinde dönülüyordu; settings kullanıcı
         // başına tek satır olduğu için 3 üyeli org 3 kez işleniyordu.
-        const orgList = await connectedOrgs(supabase);
+        //
+        // 'connecting' de DAHİL (bkz. wa.ts · linkedOrgs): aşağıdaki
+        // `verifyConnection` gönderimden önce kapı tutuyor, dolayısıyla ölü
+        // hatta mesaj gitmez — ama takılı kalmış durum böylece düzelir.
+        const orgList = await linkedOrgs(supabase);
         const orgIds = orgList.map((o) => o.organization_id);
 
         // Bekleyen kuyruk ÖNCE boşaltılır (079): geciken hatırlatma yeni
