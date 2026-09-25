@@ -125,6 +125,20 @@ Apple'ın 2025 anketinde her soruya **Yok / Hayır**:
 | Reklam | Hayır | reklam SDK'sı yok |
 | Ebeveyn denetimi · yaş doğrulama | Hayır | |
 
+> 🆕 **Sosyal medya soruları — Eylül 2026'dan beri ZORUNLU.** Apple ankete yeni
+> bir grup ekledi ve App Store Connect ana sayfasında uyarı gösteriyor. Soru
+> cevaplanmadan form kapanmıyor. Bizim cevabımız her birine **hayır**:
+>
+> | Yetenek | Cevap | Gerekçe |
+> |---|---|---|
+> | Kullanıcı profili / herkese açık içerik paylaşımı | Hayır | Kayıtlar yalnız işletmenin kendi ekibine görünür |
+> | Kullanıcılar arası mesajlaşma ya da sohbet | Hayır | Müşteriye giden mesaj salonun hazır bildirimi; karşılıklı sohbet yok |
+> | Yabancılarla etkileşim / keşfet akışı | Hayır | Böyle bir yüzey yok |
+>
+> "Evet" işaretlenen uygulama **"Social Media" tanımlayıcısı** ve **Time
+> Allowances** kategorisi alıyor. Bizde olmaması doğru beyan — uydurmuyoruz,
+> gerçekten yok.
+
 ### Fiyat, bölge, sürüm
 
 | Alan | Değer | Neden |

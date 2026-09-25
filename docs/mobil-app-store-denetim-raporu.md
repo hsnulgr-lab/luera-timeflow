@@ -69,8 +69,13 @@ görüntüleri, derleme, hakem notu eksikleri.
 - `supportsTablet: false` olduğu için iPad görüntüsü gerekmiyor.
 - Demo tohumu 10:30–17:00 arasında çalıştırılmalı, yoksa akış boş görünür.
 
-**K3 · Üretim derlemesi ve TestFlight yapılmadı.**
-- 20 dosya commit edilmemiş, 2 commit push edilmemiş.
+**K3 · Üretim derlemesi ve TestFlight yapılmadı.** → ✅ 2026-09-26 00:48.
+- Commit borcu kapandı: 9 commit, push edildi.
+- Derleme 2 (sürüm 1.0.0) EAS'te üretildi ve App Store Connect'e yüklendi.
+  ASC App ID **6816258771**; dahili TestFlight grubu EAS tarafından kuruldu.
+- ⚠️ Derleme 2, aynı gün yapılan sürüm satırı düzeltmesinden (O8) ÖNCE
+  derlendi. **Gönderim adayı derleme 3 olacak**; derleme 2 yalnız hattı ve
+  telefonda gerçek paketi denemek için.
 
 **K4 · Hakem notunda üç eksik** (`docs/app-store-connect-metinleri.md`):
 - **Personel modu anlatılmıyor.** Karşılama ekranında "Burada çalışıyorum"
@@ -88,13 +93,13 @@ görüntüleri, derleme, hakem notu eksikleri.
 
 ### 🟠 Yüksek — ret riski ya da yanlış bilgi
 
-**Y1 · Kök düzende ErrorBoundary yok.**
+**Y1 · Kök düzende ErrorBoundary yok.** → ✅ 2026-09-25 (0336998).
 - `app/` ve `src/` içinde tek bir `ErrorBoundary` yok.
 - Üretimde yakalanmamış bir çizim hatası, "Bir şey ters gitti" ekranı yerine
   uygulamayı kapatır. Apple'ın 1 numaralı ret sebebi çökme (2.1).
 - Ucuz bir sigorta: tek dosya ve bir test.
 
-**Y2 · "Şifremi unuttum" ölü ama "gönderildi" diyor.**
+**Y2 · "Şifremi unuttum" ölü ama "gönderildi" diyor.** → ✅ 2026-09-25 (4e91d73): iki yol da dürüst; SMTP hâlâ yok, karar bilinçli.
 - Sunucuda SMTP yok, e-posta gitmiyor.
 - `recoverManagerPassword` hesap sızdırmamak için her durumda başarı dönüyor
   (`src/api/auth.ts:212`).
@@ -102,7 +107,7 @@ görüntüleri, derleme, hakem notu eksikleri.
   giremez.
 - **Karar senin:** SMTP kurmak (tavsiye) ya da dürüst bir ekran koymak.
 
-**Y3 · WhatsApp bağlantısı kodda sabit `true`.**
+**Y3 · WhatsApp bağlantısı kodda sabit `true`.** → ✅ 2026-09-25 (564b545): durum `org_whatsapp`tan okunuyor.
 - `src/lib/mockSend.ts:28` `WA_CONNECTED = true`.
 - "Yaz" gözü her salonda çiziliyor, bağlı hattı olmayanda 5 saniye sonra hata
   veriyor.
@@ -110,7 +115,7 @@ görüntüleri, derleme, hakem notu eksikleri.
 - Durum sunucudan okunmalı (`whatsapp-proxy` `state`/`health`), bağlı değilse
   göz gizlenmeli.
 
-**Y4 · Kayıt ekranında bağlantısız hukuk metni.**
+**Y4 · Kayıt ekranında bağlantısız hukuk metni.** → ✅ 2026-09-25 (214aea3).
 - `signup/account.tsx:137`: "Devam ederek **Kullanım Koşulları** ve
   **Gizlilik Politikası**'nı kabul ediyorsunuz."
 - Kod içindeki not "URL henüz yok" diyor, ama gizlilik sayfası artık canlıda.
@@ -132,24 +137,37 @@ görüntüleri, derleme, hakem notu eksikleri.
   - 5.1.1(ix) reddi gelirse şirket hesabına geçilir.
   - Kilit: `mobile-auth-live.test.mjs`.
 
-**Y6 · Canlıdaki fonksiyonların depoyla aynı olduğu doğrulanmadı.**
+**Y6 · Canlıdaki fonksiyonların depoyla aynı olduğu doğrulanmadı.** → ✅ 2026-09-26: 38 dosyanın özeti birebir. Tek fark bilerek ertelenen `_shared/wa.ts` + `remind/index.ts`. Sunucudaki fazladan `hello/` ve `main/` Supabase'in kendi yönlendiricisi.
 - Hafızada `staff-api` için iki ayrı "deploy bekliyor" notu var (Apple
   Eşiği, Paket sat · Müdür 35).
 - Personel modunun tamamı `staff-api`'ye bağlı. Mobil yeni bir uç çağırıp
   sunucu eskiyse, hakem personel modunda hata görür.
 - Komut §6'da (salt okunur).
 
+**Y7 · Yaş derecelendirme anketindeki sosyal medya soruları.** 🆕 2026-09-26
+- Apple bu soruları **Eylül 2026'dan itibaren zorunlu** kıldı; App Store
+  Connect ana sayfası da uyarı gösteriyor. Bu rapor yazıldığında bilinmiyordu;
+  `app-store-review-skill` taramasında çıktı ve ASC ekranında teyit edildi.
+- Sosyal akışı olan uygulamalar "Social Media" tanımlayıcısı ve Time
+  Allowances kategorisi alıyor.
+- **Bizde sosyal akış yok** — cevap hayır. Ama soru cevaplanmadan form
+  kapanmıyor, yani gönderim günü sürpriz olmasın.
+- `app-store-connect-metinleri.md` §0 yaş derecelendirme tablosu bu soruları
+  içermiyor; doldururken ekrandan cevaplanacak.
+
 ### 🟡 Orta — ilk güncellemede
 
 | # | Bulgu | Neden önemli |
 |---|---|---|
 | O1 | 13 Expo paketi yama sürümü geride (expo 57.0.20→.25, router .19→.23 …) | Hata düzeltmeleri; derleme zaten sıfırdan yapılacak |
-| O2 | Müdür oturumu şifresiz AsyncStorage'da (`src/lib/supabase.ts`); personel anahtarları Keychain'de | Müdür anahtarı bütün salona, sağlık notları dahil, erişiyor |
-| O3 | Uygulama dili App Store'da **"English"** görünecek (`CFBundleDevelopmentRegion` en, tr yerelleştirme yok) | Arayüz tamamen Türkçe; mağaza sayfası yanıltıcı olur |
+| O2 | Müdür oturumu şifresiz AsyncStorage'da (`src/lib/supabase.ts:25`); personel anahtarları Keychain'de | Müdür anahtarı bütün salona, sağlık notları dahil, erişiyor. **2026-09-26'da `app-store-review-skill` taraması bunu bağımsız olarak doğruladı** (1.6). Ret riski düşük — Supabase'in kendi RN dokümanı bu kurulumu öneriyor. Düzeltmesi: SecureStore adaptörü, 2048 bayt sınırı yüzünden parçalama gerekir |
+| O3 | ✅ **KAPANDI** 2026-09-25 — `CFBundleDevelopmentRegion: tr`, `CFBundleLocalizations: [tr]`, `locales/tr.json` | Arayüz tamamen Türkçe; mağaza sayfası artık doğru dili ilan ediyor |
 | O4 | Çökme/hata görünürlüğü yok (Sentry yok) | Mağazadaki kullanıcıda çıkan JS hatasını kimse görmez |
 | O5 | Demo müşteri telefonları gerçek hat biçiminde (`0532 100 00 00` …) | Hakem "Ara"ya basabilir; WhatsApp bağlanırsa hatırlatma gerçek numaraya gider |
 | O6 | `ENTITLEMENT_ENFORCE` açılınca mobilden kaydolan kişi ödeme yapmadan kullanamayan bir hesaba düşer | Sonraki sürüm incelemelerinde 3.1 sorusu doğabilir; strateji kararı |
 | O7 | Hesap silme Core'a ulaşamazsa 502 ile durur (`account-delete`) | Core bir kez erişilemez olmuştu (billing hafızası); o an hakem silemez |
+
+| O8 | ✅ **AYNI GÜN KAPANDI** 2026-09-26 (2d40f73) — Yasal ekranı derleme numarasını `app.json`'dan okuyordu; EAS numarayı uzaktan artırdığı için paket 2 iken ekran "1" diyordu. Artık `expo-application` ile PAKETTEN okunuyor | Fark her derlemede büyürdü ve destek için işe yaramaz hâle gelirdi. EAS'in kendi uyarısıyla ortaya çıktı |
 
 ### ⚪ Düşük
 
