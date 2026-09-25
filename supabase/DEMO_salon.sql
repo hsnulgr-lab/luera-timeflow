@@ -40,9 +40,20 @@ DECLARE
     v_slug     TEXT;
     v_count    INT;
     v_today    DATE := (now() AT TIME ZONE 'Europe/Istanbul')::date;
-    -- Bugünün seansları SAATE göre konumlanıyor. Çapa mesai içine kıstırılıyor:
-    -- tohum gece 01:00'de çalıştırılırsa "2 saat önce" dünü gösterirdi.
-    v_anchor   TIME := greatest(TIME '11:00', least(TIME '15:30', (now() AT TIME ZONE 'Europe/Istanbul')::time));
+    -- Bugünün seansları SAATE göre konumlanıyor.
+    --
+    -- İKİ KİP VAR ve bu bilerek böyle. Çapayı mesai içine kıstırmak tek başına
+    -- YETMİYOR: gece 02:00'de çalıştırıldığında seanslar 09:20'ye yazılıyor ama
+    -- "geldi/başladı/bitti" damgaları `now()`a bağlı olduğu için 01:30'u
+    -- gösteriyordu — yani randevu BAŞLAMADAN ÖNCE bitmiş görünüyordu.
+    -- Ekran yalan söylemez kuralı demo verisi için de geçerli.
+    --
+    --   MESAİ İÇİNDE (10:30–17:00) → çapa = şu an; aşamalar gerçekten yaşanır
+    --   MESAİ DIŞINDA              → çapa = 11:00; HİÇBİR aşama damgası yazılmaz,
+    --                                altı seans da "yaklaşan" olarak durur
+    v_saat     TIME := (now() AT TIME ZONE 'Europe/Istanbul')::time;
+    v_canli    BOOLEAN := v_saat BETWEEN TIME '10:30' AND TIME '17:00';
+    v_anchor   TIME := CASE WHEN v_canli THEN v_saat ELSE TIME '11:00' END;
 
     v_s1 UUID; v_s2 UUID; v_s3 UUID;   -- personel
     v_c  UUID;                          -- müşteri (döngüde)
@@ -236,13 +247,13 @@ BEGIN
             v_anchor + ((v_i - 2) * INTERVAL '50 minutes'),
             v_anchor + ((v_i - 2) * INTERVAL '50 minutes') + (s.duration * INTERVAL '1 minute'),
             s.name, s.color,
-            CASE WHEN v_i <= 1 THEN 'completed' ELSE 'confirmed' END,
+            CASE WHEN v_canli AND v_i <= 1 THEN 'completed' ELSE 'confirmed' END,
             'manual',
-            (v_i = 0),                                   -- yalnız ilki ödendi
+            (v_canli AND v_i = 0),                       -- yalnız ilki ödendi
             '',
-            CASE WHEN v_i <= 3 THEN now() - ((4 - v_i) * INTERVAL '35 minutes') END,
-            CASE WHEN v_i <= 2 THEN now() - ((3 - v_i) * INTERVAL '35 minutes') END,
-            CASE WHEN v_i <= 1 THEN now() - ((2 - v_i) * INTERVAL '30 minutes') END
+            CASE WHEN v_canli AND v_i <= 3 THEN now() - ((4 - v_i) * INTERVAL '35 minutes') END,
+            CASE WHEN v_canli AND v_i <= 2 THEN now() - ((3 - v_i) * INTERVAL '35 minutes') END,
+            CASE WHEN v_canli AND v_i <= 1 THEN now() - ((2 - v_i) * INTERVAL '30 minutes') END
         FROM customers c, services s
         WHERE c.id = v_c
           AND s.organization_id = v_org
@@ -252,5 +263,11 @@ BEGIN
 
     SELECT count(*) INTO v_count FROM reservations WHERE organization_id = v_org;
     RAISE NOTICE 'Demo salon hazır — % randevu (6''sı bugün), 3 personel, 7 hizmet, 3 paket, 20 müşteri.', v_count;
+    IF v_canli THEN
+        RAISE NOTICE 'CANLI KİP: bugünün seansları şu ana göre yerleşti — Bekliyor/İşlemde/Kasada dolu.';
+    ELSE
+        RAISE NOTICE 'SAKİN KİP: mesai dışındasın (%), aşama damgası YAZILMADI — altı seans da yaklaşan.', v_saat;
+        RAISE NOTICE 'Ekran görüntüsü için 10:30-17:00 arasında YENİDEN çalıştır.';
+    END IF;
     RAISE NOTICE 'Rezervasyon sayfası: https://timeflow.lueratech.com/book/demo-luera';
 END $$;
