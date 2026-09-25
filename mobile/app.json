@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Luera TimeFlow",
+    "name": "TimeFlow",
     "slug": "luera-timeflow",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,20 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ai.luera.timeflow",
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      },
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "tr",
+        "CFBundleLocalizations": [
+          "tr"
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -44,7 +55,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#120E08",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -102,6 +113,9 @@
         }
       ]
     ],
+    "locales": {
+      "tr": "./locales/tr.json"
+    },
     "scheme": "luera",
     "extra": {
       "router": {},

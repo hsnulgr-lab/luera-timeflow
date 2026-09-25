@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "TimeFlow",
+    "NSFaceIDUsageDescription": "Luera TimeFlow, oturumunuzu PIN girmeden açmak için Face ID kullanır."
+  }
+}
