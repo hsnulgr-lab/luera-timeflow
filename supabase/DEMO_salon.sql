@@ -51,7 +51,12 @@ DECLARE
     --   MESAİ İÇİNDE (10:30–17:00) → çapa = şu an; aşamalar gerçekten yaşanır
     --   MESAİ DIŞINDA              → çapa = 11:00; HİÇBİR aşama damgası yazılmaz,
     --                                altı seans da "yaklaşan" olarak durur
-    v_saat     TIME := (now() AT TIME ZONE 'Europe/Istanbul')::time;
+    -- DAKİKAYA YUVARLANIYOR. `now()::time` mikrosaniye taşıyor
+    -- ("11:46:10.873715") ve bu değer start_time'a aynen yazılıyordu.
+    -- Mobildeki `toMinutes` yalnız HH:MM ve HH:MM:SS tanıyor, kesirli
+    -- saniyede RangeError atıyor: Takvim ekranı çöktü (2026-09-26).
+    -- Sakin kipte çapa TIME '11:00' sabiti olduğu için bu hiç görülmemişti.
+    v_saat     TIME := date_trunc('minute', (now() AT TIME ZONE 'Europe/Istanbul'))::time;
     v_canli    BOOLEAN := v_saat BETWEEN TIME '10:30' AND TIME '17:00';
     v_anchor   TIME := CASE WHEN v_canli THEN v_saat ELSE TIME '11:00' END;
 
@@ -134,8 +139,13 @@ BEGIN
         last_event = 'demo_manual', updated_at = now();
 
     -- ── Temizlik — YALNIZ demo org ──────────────────────────────────────
-    -- Sıra FK'lere göre: paket hareketleri → paketler → randevular → müşteriler.
-    -- Hepsi org bazlı; genel DELETE yok.
+    -- Sıra FK'lere göre: tahsilatlar → paket hareketleri → paketler →
+    -- randevular → müşteriler. Hepsi org bazlı; genel DELETE yok.
+    --
+    -- payments ÖNCE siliniyor: customer_id ve reservation_id "ON DELETE SET
+    -- NULL" olduğu için, silinmezse sahipsiz tahsilat satırları kalır ve
+    -- Kasa'da bir daha eşleşmeyen tutarlar olarak birikirdi.
+    DELETE FROM payments              WHERE organization_id = v_org;
     DELETE FROM package_rights_ledger WHERE organization_id = v_org;
     DELETE FROM customer_packages     WHERE organization_id = v_org;
     DELETE FROM package_templates     WHERE organization_id = v_org;
@@ -260,6 +270,23 @@ BEGIN
           AND s.name = (ARRAY['Cilt Bakımı','Lazer Epilasyon','Aromaterapi Masajı',
                               'Manikür & Pedikür','Kaş Tasarımı','Ağda'])[v_i + 1];
     END LOOP;
+
+    -- ── Tahsilat ────────────────────────────────────────────────────────
+    -- `is_paid` tek başına YETMİYOR. Kasa günün cirosunu payments'tan
+    -- topluyor; satır olmayınca Akış "TAHSİL EDİLDİ ₺0" diyordu ve Kasa
+    -- ekranı bomboş çıkıyordu (2026-09-26, ekran görüntüsü turunda görüldü).
+    -- Ekran yalan söylemez: "tahsil edildi" yazıyorsa bir tutar olmalı.
+    --
+    -- Yalnız CANLI kipte iş görür — `is_paid` başka türlü zaten yazılmıyor.
+    INSERT INTO payments (organization_id, customer_id, reservation_id,
+                          type, description, amount, method, paid_at)
+    SELECT v_org, r.customer_id, r.id, 'service', r.service, s.price, 'card',
+           coalesce(r.service_ended_at, now())
+      FROM reservations r
+      JOIN services s ON s.organization_id = v_org AND s.name = r.service
+     WHERE r.organization_id = v_org
+       AND r.date = v_today
+       AND r.is_paid;
 
     SELECT count(*) INTO v_count FROM reservations WHERE organization_id = v_org;
     RAISE NOTICE 'Demo salon hazır — % randevu (6''sı bugün), 3 personel, 7 hizmet, 3 paket, 20 müşteri.', v_count;

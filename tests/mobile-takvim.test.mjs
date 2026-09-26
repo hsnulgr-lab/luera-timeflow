@@ -37,6 +37,25 @@ test('saat yardımcıları saniyeli sunucu değerini kabul eder', () => {
     assert.equal(hhmm(545), '09:05');
 });
 
+test('KESİRLİ SANİYE uygulamayı çökertmez', () => {
+    // 2026-09-26 üretim çökmesi. PostgreSQL'in `time` sütunu mikrosaniye
+    // taşıyabiliyor ve PostgREST onu aynen döndürüyor; `now()::time` yazan
+    // HERHANGİ bir yol "10:06:10.873715" üretiyor. Düzenli ifade bunu
+    // tanımayınca RangeError atıyordu, Takvim ekranı çöküyordu ve kök hata
+    // sınırı bütün müdür akışını "Bir şey ters gitti" ekranına çeviriyordu.
+    //
+    // Sunucudan gelen GEÇERLİ bir saat biçimi uygulamayı kapatamaz.
+    assert.equal(toMinutes('10:06:10.873715'), 606);
+    assert.equal(toMinutes('09:05:59.1'), 545);
+    assert.equal(toMinutes(' 23:59:59.999999 '), 1439);
+
+    // Bozuk girdi hâlâ reddediliyor — gevşetme yalnız kesirli saniye için.
+    assert.throws(() => toMinutes('10:06:10.'), RangeError);
+    assert.throws(() => toMinutes('abc'), RangeError);
+    assert.throws(() => toMinutes('24:00'), RangeError);
+    assert.throws(() => toMinutes('10:60'), RangeError);
+});
+
 test('live varken hiçbir kart due olmaz; en erken başlayan live olur', () => {
     const rows = [
         appt('due-adayi', '10:00'),

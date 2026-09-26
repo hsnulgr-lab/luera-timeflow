@@ -181,9 +181,20 @@ export function daysBetween(fromISO: string, toISO: string): number {
     return Math.round((parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()) / DAY_MS);
 }
 
-/** "HH:MM" ve "HH:MM:SS" değerlerini gün içi tam dakikaya çevirir. */
+/**
+ * "HH:MM", "HH:MM:SS" ve "HH:MM:SS.ffffff" değerlerini gün içi tam dakikaya
+ * çevirir.
+ *
+ * KESİRLİ SANİYE 2026-09-26'da eklendi ve bir üretim çökmesinin bedeliydi.
+ * PostgreSQL'in `time` sütunu mikrosaniye taşıyabiliyor, PostgREST de onu
+ * aynen döndürüyor: `now()::time` yazan HERHANGİ bir yol "10:06:10.873715"
+ * üretiyor. Düzenli ifade bunu tanımayınca `RangeError` atıyordu ve Takvim
+ * ekranı — dolayısıyla sekmeler yüklenirken bütün müdür akışı — çöküyordu.
+ * Demo tohumu düzeltildi ama asıl kusur burasıydı: sunucudan gelen geçerli
+ * bir saat biçimi uygulamayı kapatamamalı.
+ */
 export function toMinutes(t: string): number {
-    const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t.trim());
+    const match = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(t.trim());
     if (!match) throw new RangeError(`Geçersiz saat: ${t}`);
 
     const hour = Number(match[1]);

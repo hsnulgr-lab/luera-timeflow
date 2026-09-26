@@ -20,11 +20,24 @@ Bu dosya üç şey içeriyor:
 
 ### Alt başlık (30)
 
-| Öneri | Uzunluk | Not |
+**KARAR (2026-09-26): `Randevu takip ve gün yönetimi`** — 29/30.
+
+Kullanıcı daha genel bir konumlandırma seçti. Alt başlık artık sektör adı
+taşımıyor; taşıdığı kelimeler **randevu · takip · yönetim**.
+
+Bunun bir bedeli var ve anahtar kelimelerde telafi edildi: uygulama adı
+(`Luera TimeFlow`) hiç Türkçe kelime içermiyor, yani alt başlıktan çıkan bir
+kelime mağaza indeksinde HİÇBİR yerde kalmıyor. "kuaför" ve "salon" bu yüzden
+anahtar kelime listesine alındı (aşağı bkz.).
+
+Değerlendirilen diğer seçenekler:
+
+| Öneri | Uzunluk | Taşıdığı |
 |---|---|---|
-| **`Kuaför ve salon randevu takibi`** | 30/30 | **Tavsiye.** Arama kelimesi taşıyor: kuaför, salon, randevu |
-| `Salon randevu ve gün yönetimi` | 29/30 | Daha genel |
-| `Salonunuzun günü, cebinizde` | 27/30 | Daha sıcak ama arama kelimesi az |
+| `Randevu takip ve gün yönetimi` | 29/30 | **seçilen** — randevu, takip, yönetim |
+| `Kuaför, salon randevu programı` | 30/30 | dört kelime birden; en yüksek arama değeri ama dar konumlandırma |
+| `Kuaför ve salon randevu takibi` | 30/30 | ilk öneri; "program" kelimesini kaçırıyordu |
+| `Salonunuzun günü, cebinizde` | 27/30 | sıcak ama arama kelimesi yok |
 
 ### Tanıtım metni (170)
 
@@ -36,12 +49,18 @@ Günün akışı, takvim ve kasa tek uygulamada. Müşteri geldiğinde ekibiniz 
 
 ### Anahtar kelimeler (100)
 
-93 karakter / 98 bayt; form hangisini sayarsa saysın sığar. Ad ve alt
-başlıktaki kelimeler (luera, timeflow, kuaför, salon, randevu) tekrar
-edilmedi. Apple onları zaten indeksliyor, tekrar boşa yer harcar.
+99/100 karakter. Alt başlıkta olan kelimeler (randevu, takip, yönetim) ve ad
+(luera, timeflow) tekrar EDİLMEZ — Apple onları zaten indeksliyor.
+
+2026-09-26'da iki değişiklik yapıldı:
+- **`kuaför` ve `salon` eklendi.** Alt başlık genel bir ifadeye dönünce bu iki
+  kelime indeksten tamamen düşüyordu.
+- **`ajanda` ve `vardiya` çıktı, `program` girdi.** Ajanda'yı `takvim` zaten
+  karşılıyor. `program`, yanındaki `kuaför`/`salon` ile birleşip Türkiye'de
+  gerçekten yazılan ifadelerle eşleşiyor: "kuaför programı", "salon programı".
 
 ```
-güzellik,berber,ajanda,takvim,personel,müşteri,adisyon,kasa,işletme,dövme,rezervasyon,vardiya
+kuaför,salon,güzellik,berber,takvim,personel,müşteri,adisyon,kasa,işletme,dövme,rezervasyon,program
 ```
 
 ### Açıklama (4000)
@@ -148,12 +167,18 @@ Apple'ın 2025 anketinde her soruya **Yok / Hayır**:
 | İçerik hakları | "Üçüncü taraf içerik yok" | |
 | Yayın | **Elle yayımla** (Manually release) | Onaydan sonra ne zaman çıkacağına sen karar verirsin |
 
-### Ekran görüntüleri — iPhone Air ile
+### Ekran görüntüleri — iPhone 16 Plus ile
 
-iPhone Air, Apple'ın zorunlu **6.9″ grubunda** ve **1260×2736** çözünürlüğü
-kabul ediliyor (resmi tablo doğrulandı, 2026-09-25). Doğrudan telefondan
-çekilir; simülatör gerekmiyor. En az 3, en çok 10 görüntü yüklenebilir. İlk
-üçü arama sonuçlarında görünür.
+**KARAR DEĞİŞTİ (2026-09-26).** Önce iPhone Air planlanmıştı; App Store
+Connect'in yükleme kutusuna bakınca 1260×2736'nın hiçbir yuvaya birebir
+oturmadığı görüldü, ölçekleme gerekecekti.
+
+**iPhone 16 Plus 1290×2796 üretiyor** ve bu, 6.9″ yuvasının kabul ettiği iki
+boyuttan biri (diğeri 1320×2868). Ölçekleme YOK — telefondan çıkan kare
+doğrudan yükleniyor.
+
+Doğrudan telefondan çekilir; simülatör gerekmiyor. En az 3, en çok 10 görüntü
+yüklenebilir. İlk üçü arama sonuçlarında görünür.
 
 | Sıra | Ekran | Neden |
 |---|---|---|
