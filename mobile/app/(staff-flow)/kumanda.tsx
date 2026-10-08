@@ -29,7 +29,7 @@ import { useMyStaffId } from '../../src/lib/me';
 import { useCustomerFile } from '../../src/lib/fileSource';
 import { todayISO } from '../../src/lib/calendar';
 import {
-    dialA, glowTone, mmss, phaseOf, planBar, waitLevel,
+    dialA, glowTone, phaseOf, planBar, waitLevel,
 } from '../../src/lib/visitControl';
 import { cardState } from '../../src/lib/staffCard';
 import { formatCounter } from '../../src/lib/staffCard';
@@ -666,9 +666,25 @@ export default function Kumanda() {
                     })}
                 />
 
-                {/* Komşu iş: başka bir müşterinin boyası işliyor. Kahraman
-                    olmuyor ama fısıldamıyor da. */}
-                {phase !== 'closing' && phase !== 'closed' ? <Neighbour /> : null}
+                {/*
+                  * KOMŞU İŞ ŞERİDİ KALDIRILDI (2026-10-08).
+                  *
+                  * Fikir doğruydu: boya işlerken başka işe başlayan personele
+                  * "arkada 24 dakikan var" demek, bildirim ve ses olmadığı
+                  * için ekranın tek güvence olduğu bir üründe değerli.
+                  *
+                  * Ama ÇİZİLEN ŞEY SAHTEYDİ. Müşteri adı ("Zeynep Kaya"),
+                  * hizmet ("boya") ve süre (24 dk) koda yazılıydı; sayaç her
+                  * açılışta 24'ten geri sayıyordu ve `Pressable`ın `onPress`i
+                  * hiç yoktu — ekran okuyucuya "düğme" diyip hiçbir şey
+                  * yapmıyordu. Mağazadaki uygulamada personel, var olmayan bir
+                  * müşteri için dönen bir sayaç görüyordu.
+                  *
+                  * Gerçeği türetilebilir: aynı personelin BUGÜN için
+                  * `arrived_at` dolu, `service_ended_at` boş olan BAŞKA bir
+                  * randevusu. Özellik olarak planlanınca geri gelir; o zaman
+                  * `onPress` de bir yere gider. Kusur listesi §5.13 · B4.
+                  */}
 
                 <View style={{ height: 1, marginHorizontal: 20, backgroundColor: c.bd }} />
 
@@ -1377,59 +1393,6 @@ function Tool({ label, glyph, dot, onPress }: {
                     width: 6, height: 6, borderRadius: 3, backgroundColor: c.am,
                 }} />
             ) : null}
-        </Pressable>
-    );
-}
-
-/**
- * Komşu iş. Uygulamada bildirim ve ses YOK — ekran tek güvence, o yüzden bu
- * şerit kalan süreyi taşıyor ve süre azaldıkça sesini yükseltiyor.
- */
-function Neighbour() {
-    const { c } = useTheme();
-    const [left, setLeft] = useState(24 * 60);
-    useEffect(() => {
-        const id = setInterval(() => setLeft((value) => Math.max(0, value - 1)), 1000);
-        return () => clearInterval(id);
-    }, []);
-
-    const hot = left <= 300;
-    const warn = !hot && left <= 900;
-    const zero = left <= 0;
-    const tone = hot ? c.rd : warn ? c.am : c.tx3;
-
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Ayrıca sürüyor: Zeynep Kaya, boya, ${Math.ceil(left / 60)} dakika kaldı`}
-            style={({ pressed }) => ({
-                marginHorizontal: 20,
-                marginBottom: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                minHeight: hot ? 42 : 34,
-                borderRadius: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 9,
-                backgroundColor: hot ? 'rgba(224,114,114,0.13)' : warn ? 'rgba(217,164,59,0.10)' : c.fld,
-                borderWidth: 1,
-                borderColor: hot ? 'rgba(224,114,114,0.36)' : warn ? 'rgba(217,164,59,0.28)' : 'transparent',
-                opacity: pressed ? 0.7 : 1,
-            })}
-        >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tone }} />
-            <Text numberOfLines={1} style={{ flex: 1, fontSize: 12.5, fontWeight: '700', color: hot ? c.rd : warn ? c.am : c.tx2 }}>
-                Zeynep Kaya · boya
-            </Text>
-            <Text style={[{
-                fontSize: zero ? 17 : hot ? 21 : warn ? 17 : 15,
-                fontWeight: '800',
-                letterSpacing: zero ? 1.36 : -0.17,
-                color: hot ? c.rd : warn ? c.am : c.tx2,
-            }, numeric]}>
-                {zero ? 'YIKA' : hot ? mmss(left) : `${Math.ceil(left / 60)} dk`}
-            </Text>
         </Pressable>
     );
 }

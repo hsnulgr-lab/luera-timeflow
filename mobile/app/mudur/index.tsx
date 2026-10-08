@@ -31,6 +31,7 @@ import {
 } from '../../src/lib/managerFlow';
 import {
     DayPedalBar,
+    DaySkeleton,
     EmptyDayAction,
     SwipeHints,
     VoidBlock,
@@ -504,14 +505,32 @@ export default function ManagerFlow() {
      * Kaynak zaten güne göre sorgulanabiliyordu; ekran sormuyordu. Randevu
      * kurulduğunda takvimde görünüp akışta görünmemesinin sebebi buydu.
      */
-    const [otherDay, setOtherDay] = useState<Appt[]>([]);
+    /**
+     * Başka günün satırları, HANGİ GÜNE ait olduğuyla BİRLİKTE.
+     *
+     * Eskiden yalnız dizi tutuluyordu ve gün değişince TEMİZLENMİYORDU
+     * (`setOtherDay([])` yalnız bugüne dönüşte çalışıyordu). 9 Ekim'den 10
+     * Ekim'e geçildiğinde, 10'un verisi gelene kadar ekranda 9'un randevuları
+     * duruyor, başlık ise 10 Ekim diyordu. O pencerede bir karta dokunmak
+     * YANLIŞ GÜNÜN randevusunu açıyordu.
+     *
+     * Günü veriyle birlikte tutmak yarışı imkânsız kılıyor: `iso` seçili güne
+     * eşit değilse o veri bu güne ait değildir.
+     *
+     * `rows: null` OKUNAMADI demek ve boş diziden farklıdır — boş dizi
+     * "randevu yok" der, `null` "bilmiyorum" der. İkisini aynı saymak, bu
+     * dosyanın baştan beri kaçındığı yalan.
+     */
+    const [otherDay, setOtherDay] = useState<{ iso: string; rows: Appt[] | null } | null>(null);
     const loadOtherDay = useCallback(() => {
-        if (isToday) { setOtherDay([]); return undefined; }
+        if (isToday) return undefined;
         let alive = true;
+        // `selectedISO` kapanışta sabit: aynı turun okuması ve damgası aynı
+        // güne ait, ayrı bir yerel değişkene gerek yok.
         apiSource.day(selectedISO)
-            .then((list) => { if (alive) setOtherDay(list); })
-            // Okunamayan gün ELDEKİ listeyi bozmuyor; boş güne çevrilmiyor.
-            .catch(() => undefined);
+            .then((list) => { if (alive) setOtherDay({ iso: selectedISO, rows: list }); })
+            // Okunamayan gün BOŞ diye çizilmiyor; bilinmiyor olarak kalıyor.
+            .catch(() => { if (alive) setOtherDay({ iso: selectedISO, rows: null }); });
         return () => { alive = false; };
     }, [isToday, selectedISO]);
 
@@ -519,15 +538,24 @@ export default function ManagerFlow() {
     // randevu takvimde görünüp akışta görünmezdi.
     useFocusEffect(loadOtherDay);
 
+    /**
+     * SEÇİLİ güne ait satırlar. Üç hâl, üçü ayrı:
+     *   `undefined` — henüz okunmadı (ya da elde başka günün verisi var)
+     *   `null`      — okunamadı
+     *   `Appt[]`    — okundu
+     */
+    const otherRows = !isToday && otherDay?.iso === selectedISO ? otherDay.rows : undefined;
+
     const dayEvents = useMemo(() => {
         if (isToday) return events;
-        return otherDay
+        if (!otherRows) return [];
+        return otherRows
             .filter((appointment) => appointment.status !== 'cancelled')
             .map((appointment) => bookedEvent(
                 appointment,
                 presence.find((person) => person.id === appointment.staff_id)?.name,
             ));
-    }, [isToday, events, otherDay, presence]);
+    }, [isToday, events, otherRows, presence]);
 
     // Şerit ve özet ŞU ANIN gerçeği — başka bir gün seçiliyken anlamsızlar.
     // Bugünün cirosunu "14 Ağustos" başlığı altında göstermek yalan olurdu.
@@ -571,7 +599,11 @@ export default function ManagerFlow() {
      * gün diye göstermek. Bilinmeyen gün boş gün düzenine hiç girmiyor.
      */
     const todayUnknown = isToday && state !== 'ok' && events.length === 0;
-    const isEmptyDay = !todayUnknown && dayEvents.length === 0;
+    /** Başka gün HENÜZ okunmadı — iskelet çizilir. */
+    const otherLoading = !isToday && otherRows === undefined;
+    /** Başka gün OKUNAMADI — "boş" değil, sebebi söylenir. */
+    const otherFailed = !isToday && otherRows === null;
+    const isEmptyDay = !todayUnknown && !otherLoading && !otherFailed && dayEvents.length === 0;
 
     /*
      * CANLI DEĞİŞİM (B-canli-degisim, yalnız hareket ve güvenlik kısmı).
@@ -915,6 +947,15 @@ export default function ManagerFlow() {
                         onRetry={reload}
                         style={{ paddingHorizontal: 16 }}
                     />
+                ) : otherFailed ? (
+                    // Başka gün de aynı dürüstlüğü hak ediyor: okunamayan gün
+                    // "boş gün" diye çizilmez, sebebi yazılır.
+                    <DurumUnread
+                        what="Bu günün randevularını"
+                        notMeaning="Salonun boş olduğu"
+                        onRetry={() => { loadOtherDay(); }}
+                        style={{ paddingHorizontal: 16 }}
+                    />
                 ) : null}
 
                 {/* Tutmayan yazma: hiçbir şey değişmedi, sebebi burada. */}
@@ -943,6 +984,19 @@ export default function ManagerFlow() {
                         style={{ marginHorizontal: 16, marginBottom: 16 }}
                     />
                 ) : null}
+
+                {/*
+                  * YÜKLENİYOR ≠ BOŞ (ev kuralı — `StaffDay` ve personel
+                  * detayında zaten uygulanıyordu, bu ekran dışarıda kalmıştı).
+                  *
+                  * Veri gelmeden boş hâlin cümlesi çizilirse ekran önce
+                  * "randevu yok" diyor, saniyeler sonra kendini yalanlıyor.
+                  * İskelet hiçbir şey iddia etmez, yalnız yer tutar.
+                  *
+                  * Okunamayan gün iskelet DEĞİL: orada beklenecek bir şey yok,
+                  * yukarıdaki blok sebebi söylüyor.
+                  */}
+                {(todayUnknown && state !== 'error') || otherLoading ? <DaySkeleton /> : null}
 
                 {isEmptyDay ? (
                     <View style={{
@@ -1121,11 +1175,13 @@ export default function ManagerFlow() {
                         selectedISO={selectedISO}
                         todayISO={todayISO()}
                         width={panelWidth}
-                        // Cetvel ŞİMDİLİK yalnız görünüş: seçili gün değişiyor
-                        // ama akış listesi aynı kalıyor. Sunucuda "o günün
-                        // olayları" diye bir uç yok; sahte bir gün üretmek
-                        // çalışıyor izlenimi verirdi.
-                        onSelect={setSelectedISO}
+                        // `setSelectedISO` DEĞİL `goToDay`: yön bilgisi de
+                        // taşınmalı. Pedal ve yatay kaydırma `goToDay`
+                        // kullanıyordu, cetvel kullanmıyordu — boş gün cümlesi
+                        // cetvelden geçişte ya hiç kaymıyor ya bir önceki
+                        // hareketten kalma yanlış yöne kayıyordu. Aynı işi
+                        // yapan üç kontrol aynı davranmalı.
+                        onSelect={goToDay}
                     />
                 </View>
             </Animated.View>

@@ -387,6 +387,31 @@ test('gün okunmadan boş hâlin cümlesi YAZILMAZ', () => {
     assert.match(route, /loading=\{state === 'loading'\}/);
     // Ekran kendi yükleme bayrağını TUTMUYOR — iki kaynak iki gerçek demekti.
     assert.doesNotMatch(route, /setLoading/);
+
+    /*
+     * MÜDÜRÜN AKIŞI DA (2026-10-08). Kural personel ekranlarında vardı,
+     * müdürün ANA ekranı dışarıda kalmıştı: gün okunurken hiçbir şey
+     * çizilmiyordu — iskelet değil, boş hâl de değil, bomboş siyah. Açılışta
+     * en çok görülen ekran buydu ve kullanıcı bunu "uygulama yavaş/donuk"
+     * diye okuyordu.
+     */
+    assert.match(flowCode, /\{\(todayUnknown && state !== 'error'\) \|\| otherLoading \? <DaySkeleton \/> : null\}/);
+    // Okunamayan gün iskelet DEĞİL — beklenecek bir şey yok, sebep yazılır.
+    assert.match(flowCode, /\) : otherFailed \? \([\s\S]{0,200}<DurumUnread/);
+});
+
+test('başka günün satırları HANGİ GÜNE ait olduğuyla tutulur', () => {
+    /*
+     * Eskiden yalnız dizi tutuluyordu ve gün değişince temizlenmiyordu:
+     * 9 Ekim'den 10 Ekim'e geçildiğinde, 10'un verisi gelene kadar ekranda
+     * 9'un randevuları duruyor, başlık ise 10 Ekim diyordu. O pencerede bir
+     * karta dokunmak YANLIŞ GÜNÜN randevusunu açıyordu.
+     */
+    assert.match(flowCode, /useState<\{ iso: string; rows: Appt\[\] \| null \} \| null>\(null\)/);
+    // Veri ancak günü seçili günle EŞLEŞİRSE kullanılıyor.
+    assert.match(flowCode, /otherDay\?\.iso === selectedISO \? otherDay\.rows : undefined/);
+    // Eski, gün değişince temizlenmeyen hâl geri gelmesin.
+    assert.doesNotMatch(flowCode, /useState<Appt\[\]>\(\[\]\)/);
 });
 
 test('iskelet hiçbir şey iddia etmez — cümle taşımaz', () => {

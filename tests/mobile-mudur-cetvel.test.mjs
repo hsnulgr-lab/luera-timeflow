@@ -195,11 +195,31 @@ test('açık hâl bozulmadı', () => {
     }
 });
 
-test('cetvel şimdilik akışı değiştirmiyor ve bunu iddia etmiyor', () => {
-    // Sunucuda "o günün olayları" ucu yok; sahte bir gün üretmek çalışıyor
-    // izlenimi verirdi.
-    assert.match(screen, /onSelect=\{setSelectedISO\}/);
-    assert.match(read('app/mudur/index.tsx'), /Sunucuda "o günün\s+\/\/ olayları" diye bir uç yok/);
+test('cetvel gün değiştirmeyi PEDAL ve KAYDIRMAYLA aynı yoldan yapar', () => {
+    /*
+     * BU TEST TERSİNİ SÖYLÜYORDU (2026-10-08'e kadar).
+     *
+     * Adı "cetvel şimdilik akışı değiştirmiyor ve bunu iddia etmiyor" idi ve
+     * `onSelect={setSelectedISO}` ile kaynaktaki "sunucuda o günün olayları
+     * diye bir uç yok" yorumunu koruyordu. İkisi de bayatlamıştı: uç yazıldı,
+     * `apiSource.day(selectedISO)` başka günü gerçekten okuyor ve
+     * `mobile-mudur-denetim.test.mjs` bunu "cetvel gerçekten GÜN DEĞİŞTİRİR"
+     * diye doğruluyordu. Aynı takımda birbirinin tersini söyleyen iki test
+     * vardı; kod ikincisini uyguluyordu.
+     *
+     * Kalan kusur: cetvel ham `setSelectedISO` çağırıyordu, yani `slideDir`
+     * güncellenmiyordu. Pedal ve yatay kaydırma `goToDay` kullandığı için boş
+     * gün cümlesi onlardan geçince doğru yöne kayıyor, cetvelden geçince ya
+     * hiç kaymıyor ya bir önceki hareketten kalma YANLIŞ yöne kayıyordu.
+     * Aynı işi yapan üç kontrol aynı davranmalı.
+     */
+    assert.match(screen, /onSelect=\{goToDay\}/);
+    assert.doesNotMatch(screen, /onSelect=\{setSelectedISO\}/);
+    // Üçü de tek kapıdan: yön bilgisi hiçbirinde düşmüyor.
+    assert.match(screen, /<DayPedalBar pedal=\{pedal\} onGo=\{goToDay\} \/>/);
+    assert.match(screen, /const shiftDay = useCallback\(\(step: -1 \| 1\) => \{\s*\n\s*goToDay\(/);
+    // Ve bayat yorum da gitti.
+    assert.doesNotMatch(read('app/mudur/index.tsx'), /Sunucuda "o günün/);
 });
 
 test('turuncu yalnız bugün işaretinde', () => {

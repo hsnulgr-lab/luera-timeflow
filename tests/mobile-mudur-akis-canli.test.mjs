@@ -195,7 +195,16 @@ test('ekran mockDay’den TAMAMEN koptu', () => {
 
 test('bilinmeyen bugün BOŞ GÜN diye çizilmiyor', () => {
     assert.match(screen, /const todayUnknown = isToday && state !== 'ok' && events\.length === 0;/);
-    assert.match(screen, /const isEmptyDay = !todayUnknown && dayEvents\.length === 0;/);
+    /*
+     * BAŞKA GÜN de bilinmeyen olabilir (2026-10-08). Önce yalnız BUGÜN
+     * sorulurdu; başka güne geçildiğinde veri gelene kadar `dayEvents` boş
+     * olduğu için "bu gün boş" çiziliyordu — iskeletin önlemek için var
+     * olduğu yalanın ta kendisi.
+     */
+    assert.match(screen, /const isEmptyDay = !todayUnknown && !otherLoading && !otherFailed && dayEvents\.length === 0;/);
+    // Yükleniyor ≠ okunamadı: biri iskelet, öteki sebep.
+    assert.match(screen, /const otherLoading = !isToday && otherRows === undefined;/);
+    assert.match(screen, /const otherFailed = !isToday && otherRows === null;/);
     assert.match(screen, /todayUnknown && state === 'error' \? \(\s*\n\s*<DurumUnread/);
     assert.match(screen, /notMeaning="Salonun boş olduğu"/);
 });

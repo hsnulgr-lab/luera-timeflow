@@ -137,7 +137,10 @@ test('araya araç çubuğu, filtre satırı, sekme grubu girmez', () => {
     // tasarımıyla çizmek, müdüre salonun boş olduğunu söylemekti.
     // `LiveRow` (2026-09-18) satırın canlı değişim sarmalayıcısı — görünür
     // bir parça değil, yalnız belirme/sönme taşıyor.
-    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock|DurumBlock|DurumUnread|LiveRow)$/;
+    // `DaySkeleton` (2026-10-08) araç çubuğu değil, YOKLUĞUN karşılığı: gün
+    // okunana kadar yer tutuyor. Olmadığında ekran bomboş siyah kalıyordu ve
+    // kullanıcı bunu "uygulama donmuş" diye okuyordu.
+    const allowed = /^(Animated\.(ScrollView|View)|View|RefreshControl|LinearGradient|DayHeader|DayScrubber|DayPedalBar|StaffStrip|FlowDivider|FlowRow|FlowEnd|VoidBlock|DaySkeleton|DurumBlock|DurumUnread|LiveRow)$/;
     for (const tag of body.match(/<[A-Z][A-Za-z.]*/g) ?? []) {
         assert.match(tag.slice(1), allowed, `beklenmeyen bileşen: ${tag}`);
     }
