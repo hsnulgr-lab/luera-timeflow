@@ -49,20 +49,56 @@ DECLARE
     -- Ekran yalan söylemez kuralı demo verisi için de geçerli.
     --
     --   MESAİ İÇİNDE (10:30–17:00) → çapa = şu an; aşamalar gerçekten yaşanır
-    --   MESAİ DIŞINDA              → çapa = 11:00; HİÇBİR aşama damgası yazılmaz,
+    --   MESAİ DIŞINDA              → 10:00–17:30'a yayılır; HİÇBİR aşama damgası yazılmaz,
     --                                altı seans da "yaklaşan" olarak durur
     -- DAKİKAYA YUVARLANIYOR. `now()::time` mikrosaniye taşıyor
     -- ("11:46:10.873715") ve bu değer start_time'a aynen yazılıyordu.
     -- Mobildeki `toMinutes` yalnız HH:MM ve HH:MM:SS tanıyor, kesirli
     -- saniyede RangeError atıyor: Takvim ekranı çöktü (2026-09-26).
     -- Sakin kipte çapa TIME '11:00' sabiti olduğu için bu hiç görülmemişti.
+    --
+    -- ── MESAİ KAPISINI ZORLA (2026-09-27) ───────────────────────────────
+    -- Normalde false: yukarıdaki iki kip aynen işler.
+    --
+    -- true yapılırsa 10:30–17:00 penceresi ATLANIR ve gün sunucunun GERÇEK
+    -- saatine göre canlı kurulur. App Store hakem videosunu mesai dışında
+    -- çekmek gerektiğinde var.
+    --
+    -- SAHTE SAAT YOK ve olamaz: uygulama sayaçları `server_now()`tan
+    -- okuyup cihazın sapmasını düzeltiyor (`managerFlowDay.ts`). Telefonun
+    -- saatini değiştirmek bu korumayı aşmaz — aşmasın diye yazılmış.
+    -- Tek yol, günü sunucunun gerçek anına oturtmak.
+    --
+    -- PENCERE: seanslar çapadan 100 dk öncesine ve 150 dk sonrasına
+    -- yayılıyor. Gün sınırını aşarlarsa saatler ertesi güne taşar ve
+    -- sıralama bozulur; alttaki kapı bunu yazmadan durdurur.
+    v_zorla    BOOLEAN := false;
+
     v_saat     TIME := date_trunc('minute', (now() AT TIME ZONE 'Europe/Istanbul'))::time;
-    v_canli    BOOLEAN := v_saat BETWEEN TIME '10:30' AND TIME '17:00';
-    v_anchor   TIME := CASE WHEN v_canli THEN v_saat ELSE TIME '11:00' END;
+    v_canli    BOOLEAN := v_zorla OR (v_saat BETWEEN TIME '10:30' AND TIME '17:00');
+    v_anchor   TIME := CASE WHEN v_canli THEN v_saat ELSE TIME '13:00' END;
+    -- Sakin kipte seanslar güne YAYILIYOR (10:00–17:30). Eskiden 50 dk
+    -- arayla 09:20–13:30'a sıkışıyordu: öğleden sonra açan hakem altı
+    -- "Gelmedi" görüyordu (2026-09-29'da tam olarak bu oldu). Canlı kipte
+    -- aralık 50 kalıyor — aşama damgalarının hesabı ona dayanıyor.
+    v_aralik   INTERVAL := CASE WHEN v_canli THEN INTERVAL '50 minutes'
+                                ELSE INTERVAL '90 minutes' END;
+    v_d        INT;                     -- ileri gün (döngüde)
+
+    -- Damgaların dayandığı an. HER ZAMAN gerçek `now()` — uygulamanın
+    -- sunucudan okuduğu saatle aynı olmak zorunda.
+    v_simdi    TIMESTAMPTZ := now();
 
     v_s1 UUID; v_s2 UUID; v_s3 UUID;   -- personel
     v_c  UUID;                          -- müşteri (döngüde)
 BEGIN
+    -- ── KAPI 0 · zorla kipinde gün sınırı ───────────────────────────────
+    IF v_zorla AND (v_anchor < TIME '01:40' OR v_anchor > TIME '21:29') THEN
+        RAISE EXCEPTION
+            'DURDURULDU: zorla kipi % saatinde çalışmaz. Seanslar çapadan 100 dk öncesine ve 150 dk sonrasına yayılıyor; gün sınırını aşarlar. Geçerli aralık 01:40-21:29.',
+            v_anchor;
+    END IF;
+
     -- ── KAPI 1 · kullanıcı ──────────────────────────────────────────────
     SELECT id INTO v_user FROM auth.users WHERE lower(email) = lower(v_email);
     IF v_user IS NULL THEN
@@ -254,16 +290,16 @@ BEGIN
             v_user, v_org, v_c, c.name, c.phone,
             (ARRAY[v_s1, v_s2, v_s3])[(v_i % 3) + 1],
             v_today,
-            v_anchor + ((v_i - 2) * INTERVAL '50 minutes'),
-            v_anchor + ((v_i - 2) * INTERVAL '50 minutes') + (s.duration * INTERVAL '1 minute'),
+            v_anchor + ((v_i - 2) * v_aralik),
+            v_anchor + ((v_i - 2) * v_aralik) + (s.duration * INTERVAL '1 minute'),
             s.name, s.color,
             CASE WHEN v_canli AND v_i <= 1 THEN 'completed' ELSE 'confirmed' END,
             'manual',
             (v_canli AND v_i = 0),                       -- yalnız ilki ödendi
             '',
-            CASE WHEN v_canli AND v_i <= 3 THEN now() - ((4 - v_i) * INTERVAL '35 minutes') END,
-            CASE WHEN v_canli AND v_i <= 2 THEN now() - ((3 - v_i) * INTERVAL '35 minutes') END,
-            CASE WHEN v_canli AND v_i <= 1 THEN now() - ((2 - v_i) * INTERVAL '30 minutes') END
+            CASE WHEN v_canli AND v_i <= 3 THEN v_simdi - ((4 - v_i) * INTERVAL '35 minutes') END,
+            CASE WHEN v_canli AND v_i <= 2 THEN v_simdi - ((3 - v_i) * INTERVAL '35 minutes') END,
+            CASE WHEN v_canli AND v_i <= 1 THEN v_simdi - ((2 - v_i) * INTERVAL '30 minutes') END
         FROM customers c, services s
         WHERE c.id = v_c
           AND s.organization_id = v_org
@@ -271,27 +307,90 @@ BEGIN
                               'Manikür & Pedikür','Kaş Tasarımı','Ağda'])[v_i + 1];
     END LOOP;
 
+    -- ── YARIN VE ÖBÜR GÜN (2026-10-04) ──────────────────────────────────
+    -- Hakemin uygulamayı ne zaman açacağı bilinmiyor ve tohum her gün elle
+    -- çalıştırılamıyor. Eskiden bugünden sonraki her güne TEK randevu
+    -- düşüyordu (yukarıdaki döngü): ertesi gün Akış "1 randevu" diyordu.
+    -- Şimdi bugünü izleyen iki gün de dolu kuruluyor — tohum üç gün yetiyor.
+    --
+    -- Damga YOK: bunlar gelecek, olmamış bir gelişi yazmayız. Saatler güne
+    -- yayılıyor (10:00–17:30, 90 dk ara) ki gün ilerledikçe hepsi birden
+    -- "Gelmedi"ye düşmesin.
+    --
+    -- Müşteriler geçmiş döngünün müşterileri: gerçek salonda müşteri döner,
+    -- kartlarına da geçmiş yazılmış olur.
+    --
+    -- Personel (seans + gün) ile dönüyor: yukarıdaki döngü yarın 16:00'ya
+    -- ikinci personelin randevusunu yazıyor. Aynı kişiyi aynı saate koymak
+    -- 060'ın çakışma kapısına takılır ve BÜTÜN tohum geri alınır.
+    FOR v_d IN 1..2 LOOP
+        FOR v_i IN 0..5 LOOP
+            SELECT id INTO v_c FROM customers
+             WHERE organization_id = v_org
+               AND name = (ARRAY['Ayşe Yıldız','Zeynep Arslan','Burak Koç','Deniz Şahin','Ece Polat',
+                                 'Fatih Öztürk','Gizem Ünal','Hakan Er','İrem Duran','Kaan Yavuz',
+                                 'Leyla Acar','Murat Tekin','Nazlı Güler','Onur Bilgin'])[((v_d * 6 + v_i) % 14) + 1]
+             LIMIT 1;
+
+            INSERT INTO reservations (
+                user_id, organization_id, customer_id, customer_name, customer_phone,
+                staff_id, date, start_time, end_time, service, service_color,
+                status, source, is_paid, notes
+            )
+            SELECT
+                v_user, v_org, v_c, c.name, c.phone,
+                (ARRAY[v_s1, v_s2, v_s3])[((v_i + v_d) % 3) + 1],
+                v_today + v_d,
+                TIME '10:00' + (v_i * INTERVAL '90 minutes'),
+                TIME '10:00' + (v_i * INTERVAL '90 minutes') + (s.duration * INTERVAL '1 minute'),
+                s.name, s.color,
+                'confirmed', 'manual', false, ''
+            FROM customers c, services s
+            WHERE c.id = v_c
+              AND s.organization_id = v_org
+              AND s.name = (ARRAY['Cilt Bakımı','Lazer Epilasyon','Aromaterapi Masajı',
+                                  'Manikür & Pedikür','Kaş Tasarımı','Ağda'])[v_i + 1];
+        END LOOP;
+    END LOOP;
+
     -- ── Tahsilat ────────────────────────────────────────────────────────
-    -- `is_paid` tek başına YETMİYOR. Kasa günün cirosunu payments'tan
-    -- topluyor; satır olmayınca Akış "TAHSİL EDİLDİ ₺0" diyordu ve Kasa
-    -- ekranı bomboş çıkıyordu (2026-09-26, ekran görüntüsü turunda görüldü).
+    -- `is_paid` tek başına YETMİYOR. Kasa ciroyu payments'tan topluyor;
+    -- satır olmayınca Akış "TAHSİL EDİLDİ ₺0" diyordu ve Kasa ekranı bomboş
+    -- çıkıyordu (2026-09-26, ekran görüntüsü turunda görüldü).
     -- Ekran yalan söylemez: "tahsil edildi" yazıyorsa bir tutar olmalı.
     --
-    -- Yalnız CANLI kipte iş görür — `is_paid` başka türlü zaten yazılmıyor.
+    -- GEÇMİŞ GÜNLER DE DAHİL (2026-09-27). Önceki hâli yalnız `v_today`
+    -- satırlarını yazıyordu; oysa yedi günlük geçmişin altı randevusu da
+    -- `completed` + `is_paid` kuruluyor ve o döngünün kendi yorumu
+    -- "Kasa'da gerçek ciro görünür" diyordu. Görünmüyordu: Kasa'nın
+    -- "Bu hafta" ve "Bu ay" sekmeleri ₺0'dı. Aynı dersin ikinci kez
+    -- öğrenilmesi.
+    --
+    -- `paid_at`: canlı seansta hizmetin bittiği an; geçmiş günde o
+    -- randevunun kendi bitiş saati. Sabit bir "şimdi" yazmak bütün haftanın
+    -- cirosunu tek güne yığardı.
     INSERT INTO payments (organization_id, customer_id, reservation_id,
                           type, description, amount, method, paid_at)
-    SELECT v_org, r.customer_id, r.id, 'service', r.service, s.price, 'card',
-           coalesce(r.service_ended_at, now())
+    SELECT v_org, r.customer_id, r.id, 'service', r.service, s.price,
+           CASE WHEN r.date = v_today THEN 'card'
+                WHEN (extract(day FROM r.date)::int % 3) = 0 THEN 'cash'
+                ELSE 'card' END,
+           coalesce(r.service_ended_at,
+                    (r.date + r.end_time) AT TIME ZONE 'Europe/Istanbul')
       FROM reservations r
       JOIN services s ON s.organization_id = v_org AND s.name = r.service
      WHERE r.organization_id = v_org
-       AND r.date = v_today
        AND r.is_paid;
 
     SELECT count(*) INTO v_count FROM reservations WHERE organization_id = v_org;
-    RAISE NOTICE 'Demo salon hazır — % randevu (6''sı bugün), 3 personel, 7 hizmet, 3 paket, 20 müşteri.', v_count;
+    RAISE NOTICE 'Demo salon hazır — % randevu (6''şar bugün, yarın ve öbür gün), 3 personel, 7 hizmet, 3 paket, 20 müşteri.', v_count;
+    IF v_zorla THEN
+        RAISE NOTICE 'ZORLA KİP: mesai penceresi atlandı, gün sunucunun GERÇEK saatine (%) oturdu.', v_saat;
+        RAISE NOTICE 'Telefonun saatine DOKUNMA — otomatik kalsın, yoksa gün strip''i başka günü gösterir.';
+        RAISE NOTICE 'Video bittikten sonra v_zorla := false yap.';
+    END IF;
     IF v_canli THEN
-        RAISE NOTICE 'CANLI KİP: bugünün seansları şu ana göre yerleşti — Bekliyor/İşlemde/Kasada dolu.';
+        RAISE NOTICE 'CANLI KİP: bugünün seansları çapaya göre yerleşti — Bekliyor/İşlemde/Kasada dolu.';
     ELSE
         RAISE NOTICE 'SAKİN KİP: mesai dışındasın (%), aşama damgası YAZILMADI — altı seans da yaklaşan.', v_saat;
         RAISE NOTICE 'Ekran görüntüsü için 10:30-17:00 arasında YENİDEN çalıştır.';
