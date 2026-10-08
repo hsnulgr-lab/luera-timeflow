@@ -1,0 +1,71 @@
+All six items are answered below, and the same information has been added
+to the Notes field of the App Review Information section.
+
+1. SCREEN RECORDING
+Attached to this version in the Attachment field of the App Review
+Information section (timeflow-review-small.mp4, 3 min 49 s), recorded on a
+physical iPhone from the submitted build 1.0.0 (4). It begins with
+launching the app from the Home screen and covers, in one take: sign-in
+with the demo account; the daily flow, calendar, creating an appointment,
+the till and the customer book; sign-out; REGISTRATION of a new account;
+and DELETION of that account, including the confirmation screen and the
+"your account has been deleted" result.
+
+Deletion is shown with a new account rather than the demo account because
+the demo account is the sole owner of the demo salon, so deleting it would
+remove the salon and the data you need. The code path is identical.
+
+The recording was made at 00:50 local time, before the salon's 09:00
+opening, so the day is still ahead and the till's "Today" tab correctly
+reads 0; the month's takings are on the "This month" tab.
+
+There is no user-generated content that is published or shared between
+users (see item 4), so there is no reporting or blocking mechanism to show.
+There is no paid content and no in-app purchase.
+
+2. PURPOSE AND AUDIENCE
+An appointment and day-management app for small appointment-based
+businesses: hair and beauty salons, barbers, nail and tattoo studios. They
+still run the day on a paper book at the reception desk, so anyone not
+standing there cannot see what is happening - which causes double bookings,
+missed arrivals and unrecorded payments. The app gives the owner that same
+day live in their pocket, and gives employees a simpler mode showing only
+their own work. It is publicly available: any salon owner in Turkey can
+download it and create a business account from inside the app. It is not
+built for one company and is not an internal or employee-only tool.
+
+3. SETUP AND ACCESS
+Credentials for the demo manager account are in the Sign-In Information
+field of this submission. That account is pre-loaded with a demo salon and
+a permanently active subscription, so no paywall appears. Bottom tabs: Akis
+(day flow), Takvim (calendar), Randevu (new appointment), Kasa (till),
+Profil. Customer book: Profil > Musteriler. Staff: Profil > Personel.
+Delete account: Profil > Hesap > "Hesabimi sil". The second account type
+(staff mode) is reached from the welcome screen with "Burada calisiyorum";
+step-by-step instructions are in the Notes field. Public booking page used
+by end customers, no login: https://timeflow.lueratech.com/book/demo-luera
+
+4. EXTERNAL SERVICES
+Self-hosted Supabase on our own VPS (database, authentication, server
+functions); Expo Push / Apple APNs for notifications only; self-hosted
+Evolution API for WhatsApp reminders sent from the salon's own line,
+server-side only; Dodo Payments for the web subscription, which is not
+reachable from the app. No analytics, no advertising, no tracking and no AI
+service. The only free-text fields are private notes a salon writes about
+its own appointments and customers, visible only inside that salon's own
+account and never published or shared between businesses.
+
+5. REGIONAL DIFFERENCES
+None. Single Turkish interface, offered only in Turkey, identical behaviour
+for every user.
+
+6. REGULATED INDUSTRY AND THIRD-PARTY MATERIAL
+Not a regulated industry: no medical or health service, no health claim,
+not a medical device. Dental and clinical sectors are excluded from
+sign-up. Our App Privacy declaration includes "Health & Fitness" only
+because a salon's free-text customer note may contain a product allergy;
+there is no health screen or field anywhere in the app. No third-party protected material: all text, icons and
+illustrations are our own, and the typeface is Hanken Grotesk under the SIL
+Open Font License.
+
+Please let us know if anything above needs expanding.

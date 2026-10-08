@@ -1,0 +1,46 @@
+APP REVIEW DURUM SORUSU — FORMA GÖRE HAZIR
+==========================================
+
+YOL: developer.apple.com/contact → App Review → App Review Status → Email
+     (Expedited App Review Request DEĞİL.)
+
+ALANLAR
+───────
+Name                     : HASAN ULGER            (hazır geliyor, dokunma)
+Apple Account            : furkanhasanulger@...   (hazır geliyor, dokunma)
+App name                 : Luera TimeFlow
+Apple Account of the App : 6816258771
+Related Apps             : BOŞ BIRAK
+Platform                 : iOS
+Message                  : aşağıdaki metin
+
+Formda sürüm ve gönderim kimliği için ayrı alan YOK — o yüzden ikisi de
+mesajın içinde duruyor. Submission ID'yi silme, destek tarafının gönderimi
+bulmasını sağlayan tek şey o.
+
+Uygulama hakkında bu metne yeni bilgi EKLEME. 2.1 cevabını genişleten her
+cümle yeni inceleme yüzeyi açar.
+
+────────────────── MESSAGE (olduğu gibi yapıştır) ──────────────────
+
+Hello,
+
+I would like to ask about the current status of our submission.
+
+Version: 1.0.0 (build 4)
+Submission ID: b1a7f029-c73f-4355-b29a-f43f98023991
+Date submitted: September 28, 2026
+
+This is our first release. On September 27 we received a message from
+App Review requesting additional information under Guideline 2.1. We
+provided the requested information on September 28, and the submission
+has remained in "Waiting for Review" since then.
+
+We are not requesting an expedited review. We would simply like to
+confirm that our reply was received and that no further action is
+needed from us at this stage.
+
+Thank you for your time.
+
+Kind regards,
+Furkan Hasan Ülger
