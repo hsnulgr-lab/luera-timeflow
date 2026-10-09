@@ -141,6 +141,7 @@ export default function ManagerProfile() {
             >
                 {business ? (
                     <ProfileHead
+                        kicker={solo ? 'İşletme' : 'Profil'}
                         name={business.name}
                         sub={[business.location, business.sector].filter(Boolean).join(' · ')}
                     />

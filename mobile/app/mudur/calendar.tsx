@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader, WeekStrip } from '../../src/components/CalendarParts';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { ColumnCalendar } from '../../src/components/ColumnCalendar';
 import { AppointmentMenu, MoveResultSheet, MoveSheet } from '../../src/components/MoveParts';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
@@ -45,6 +46,8 @@ const clockAt = (ms: number) => {
 };
 
 export default function ManagerCalendar() {
+    /** 108 · bu ekran tek kişilik kabukta da çiziliyor. */
+    const solo = useInSoloShell();
     const { c, dark } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
@@ -139,7 +142,14 @@ export default function ManagerCalendar() {
             ? '…'
             : stale && readAt !== null
                 ? `${appointments.length} randevu · son güncelleme ${clockAt(readAt)}`
-                : `${appointments.length} randevu · ${staff.length} personel${orphanTail(data.unassigned)}`;
+                /*
+                 * TEK KİŞİLİKTE PERSONEL SAYILMIYOR (108). "1 personel"
+                 * cevabı olmayan bir soruya cevap: ekrana bakan kişi o tek
+                 * personelin kendisi.
+                 */
+                : solo
+                    ? `${appointments.length} randevu${orphanTail(data.unassigned)}`
+                    : `${appointments.length} randevu · ${staff.length} personel${orphanTail(data.unassigned)}`;
 
     /*
      * ATANMAMIŞ randevu ızgarada GÖRÜNMÜYOR — sütunu yok.

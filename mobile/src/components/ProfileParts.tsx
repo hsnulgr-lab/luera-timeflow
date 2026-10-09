@@ -144,7 +144,16 @@ export function ProfileNav({ title, onBack, right }: {
  * monogram, kapak görseli, büyük logo yok — hem veri modelinde görsel yok,
  * hem de sahip kendi salonunun adını tanımak için bakmıyor.
  */
-export function ProfileHead({ name, sub }: { name: string; sub: string }) {
+export function ProfileHead({ name, sub, kicker = 'Profil' }: {
+    name: string;
+    sub: string;
+    /**
+     * Üstteki küçük başlık. Tek kişilik kabukta sekme "İşletme" (108) ve
+     * ekranın kendisi de "Profil" demiyor: içindeki satırların tamamı
+     * işletmeye ait, kişiye değil.
+     */
+    kicker?: string;
+}) {
     const { c } = useTheme();
     return (
         <View style={{ gap: 3 }}>
@@ -155,7 +164,7 @@ export function ProfileHead({ name, sub }: { name: string; sub: string }) {
                 fontWeight: '800',
                 letterSpacing: M.kicker * M.kickerTrack,
             }}>
-                {upperTR('Profil')}
+                {upperTR(kicker)}
             </Text>
             <Text numberOfLines={2} style={{
                 color: c.tx,
