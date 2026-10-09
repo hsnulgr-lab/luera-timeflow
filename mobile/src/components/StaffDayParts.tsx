@@ -677,7 +677,27 @@ export function StaffSwapStack({
     );
 }
 
-export function StaffHeroPanelCard({ panel, flush = false }: { panel: StaffHeroPanel; flush?: boolean }) {
+/**
+ * Kartın eylemi — YALNIZ tek kişilik kabukta (108).
+ *
+ * `tone`: `go` sunucuya yazan işi açıyor (başlat, tahsil et), `calm` yalnız
+ * bir ekran açıyor (kumandayı aç). İkisi aynı renkte olsaydı, para yazan
+ * düğme ile ekran açan düğme aynı ağırlıkta görünürdü.
+ */
+export interface StaffPanelAction {
+    label: string;
+    tone: 'go' | 'calm';
+    onPress: () => void;
+}
+
+export function StaffHeroPanelCard({ panel, flush = false, action }: {
+    panel: StaffHeroPanel;
+    flush?: boolean;
+    /**
+     * Verilmezse kart eskisi gibi salt bilgi — müdür tarafı etkilenmiyor.
+     */
+    action?: StaffPanelAction;
+}) {
     const { c, dark, reduceMotion } = useTheme();
     const ink = dark ? panelInk.dark : panelInk.light;
 
@@ -708,17 +728,35 @@ export function StaffHeroPanelCard({ panel, flush = false }: { panel: StaffHeroP
         return () => loop.stop();
     }, [panel.hasPulse, reduceMotion, pulseAnim]);
 
+    /*
+     * EYLEM VARSA KARTIN TAMAMI DOKUNULABİLİR.
+     *
+     * Hap küçük bir hedef; kartın kendisi 92 pt. Elleri boyalı bir insandan
+     * 37 pt'lik bir hapı ıskalamamasını beklemek yerine bütün kart aynı işi
+     * yapıyor. Hap o zaman düğme değil, ne olacağının ADI oluyor.
+     */
+    const Card = action ? Pressable : View;
+
     return (
-        <View style={{
-            marginTop: flush ? 0 : staffDayMetrics.panelMarginTop,
-            borderRadius: staffDayMetrics.panelRadius,
-            backgroundColor: ink.panel,
-            overflow: 'hidden',
-        }}>
+        <Card
+            {...(action ? { onPress: action.onPress, accessibilityRole: 'button' as const } : {})}
+            style={{
+                marginTop: flush ? 0 : staffDayMetrics.panelMarginTop,
+                borderRadius: staffDayMetrics.panelRadius,
+                backgroundColor: ink.panel,
+                overflow: 'hidden',
+            }}
+        >
             <View style={{
                 padding: staffDayMetrics.panelPad,
                 gap: 3,
             }}>
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: staffDayMetrics.pillGap,
+                }}>
+                <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                 {/* Etiket */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                     {panel.hasPulse ? (
@@ -770,6 +808,30 @@ export function StaffHeroPanelCard({ panel, flush = false }: { panel: StaffHeroP
                     ) : null}
                 </View>
 
+                </View>
+
+                {action ? (
+                    <View style={{
+                        height: staffDayMetrics.pillHeight,
+                        paddingHorizontal: staffDayMetrics.pillPadX,
+                        borderRadius: radius.pill,
+                        backgroundColor: action.tone === 'go' ? c.or : ink.ink,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <Text numberOfLines={1} style={{
+                            color: action.tone === 'go' ? '#FFFFFF' : ink.panel,
+                            fontSize: staffDayMetrics.pillText,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: staffDayMetrics.pillText * staffDayMetrics.pillTrack,
+                        }}>
+                            {action.label}
+                        </Text>
+                    </View>
+                ) : null}
+                </View>
+
                 {/* Alt Metin — bilinmiyorsa satır hiç çizilmez */}
                 {panel.subText ? (
                     <Text numberOfLines={1} style={{
@@ -783,7 +845,7 @@ export function StaffHeroPanelCard({ panel, flush = false }: { panel: StaffHeroP
                     </Text>
                 ) : null}
             </View>
-        </View>
+        </Card>
     );
 }
 

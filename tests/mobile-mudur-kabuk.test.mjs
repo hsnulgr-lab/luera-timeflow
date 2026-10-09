@@ -126,7 +126,6 @@ test('tek kişilik ekranlar KOPYA değil, müdür ekranının kendisi', () => {
     // Ayrı dosya açmak her düzeltmeyi iki yerde yapmak olurdu; biri er geç
     // unutulur ve iki kabuk ayrışırdı.
     const map = {
-        'app/tek/index.tsx': '../mudur/index',
         'app/tek/calendar.tsx': '../mudur/calendar',
         'app/tek/create.tsx': '../mudur/create',
         'app/tek/cash.tsx': '../mudur/cash',
@@ -134,5 +133,20 @@ test('tek kişilik ekranlar KOPYA değil, müdür ekranının kendisi', () => {
     };
     for (const [path, source] of Object.entries(map)) {
         assert.match(read(path), new RegExp(`export \\{ default \\} from '${source}'`), path);
+    }
+
+    /*
+     * GÜN İSTİSNA — kendi ekranı (Faz 2).
+     *
+     * Dördü müdür ekranının kendisi, çünkü aralarındaki fark birkaç satırın
+     * çizilip çizilmemesi. Gün öyle değil: başlık, şerit ve kart düzeni
+     * müdür Akış'ından TAMAMEN farklı ve üç ayrı ekranın harmanı. Yeniden
+     * dışa aktarımla ifade edilemez.
+     */
+    const gun = read('app/tek/index.tsx');
+    assert.doesNotMatch(gun, /export \{ default \} from/);
+    // Yine de yeni bileşen İCAT ETMİYOR: parçalar mevcut iki ekrandan.
+    for (const part of ['DayHeader', 'WeekStrip', 'StaffHeroPanelCard', 'StaffAppointmentRow', 'buildStaffDayState']) {
+        assert.match(gun, new RegExp(part), `Gün ekranı ${part} kullanmalı`);
     }
 });

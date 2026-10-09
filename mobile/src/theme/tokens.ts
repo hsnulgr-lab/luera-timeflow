@@ -2907,6 +2907,20 @@ export const staffDayMetrics = {
     subLine: 1.3,
     pulsePeriod: 800,
 
+    /*
+     * Hâl kartının eylem hapı (108 · tek kişilik Gün).
+     *
+     * Müdürde bu kart yalnız BİLGİ: şeritten bir personele bakılıyor ve onun
+     * işine uzaktan karışılmıyor. Tek kişilikte bakan kişi işi yapan kişi,
+     * yani kartın söylediği şeyin eylemi de ona ait — hap o yüzden burada.
+     * Ölçü `Luera Mobil - Tek Kisilik v4.html` · `.ppill`.
+     */
+    pillHeight: 37,
+    pillPadX: 17,
+    pillText: 15.5,
+    pillTrack: -0.01,
+    pillGap: 12,
+
     // Liste başlığı (lhd)
     lhdPadTop: 22,
     lhdPadX: 18,
