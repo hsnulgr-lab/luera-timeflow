@@ -181,7 +181,7 @@ export function CreateFlow({
 
     const patch = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }));
 
-    const action = actionLabel(phase, draft);
+    const action = actionLabel(phase, draft, context.crew.length === 0);
 
     const goBack = () => {
         const target = backPhase(phase);
@@ -451,8 +451,18 @@ export function CreateFlow({
             ) : null}
 
             <SectionHead title="Hizmet" count={String(context.services.length)} size={ax ? M.secTitleAx : M.secTitle} />
+            {/*
+              * BU CÜMLE YANLIŞTI: "masaüstündeki ayarlardan eklenir" diyordu.
+              * Hizmet eklemek TELEFONDA çalışıyor — `profil/hizmetler`
+              * ekranının başlığında "+" var ve `saveSalonService`e bağlı.
+              * Bilgisayarı olmayan kullanıcıyı olmayan bir yere yolluyordu.
+              *
+              * Sekmenin adı iki kabukta farklı (müdürde Profil, tek kişilikte
+              * İşletme), o yüzden sekme değil SAYFA adı söyleniyor; ikisinde
+              * de doğru.
+              */}
             {context.services.length === 0 ? (
-                <Hint>Salonda tanımlı hizmet yok. Hizmetler masaüstündeki ayarlardan eklenir.</Hint>
+                <Hint>Salonda tanımlı hizmet yok. Hizmetler ve fiyatlar sayfasından ekleyebilirsiniz.</Hint>
             ) : null}
             {context.services.map((service) => {
                 // Müdür 23 v2: müşterinin açık bayrağı bu hizmeti kapatıyorsa

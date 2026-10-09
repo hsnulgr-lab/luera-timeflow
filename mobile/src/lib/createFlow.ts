@@ -165,7 +165,16 @@ export function pageName(phase: Phase): string {
  * Alt çubuğun butonu ne diyor. Eksik seçim varsa buton PASİF ve neyin eksik
  * olduğunu söyler — "Devam" deyip hiçbir şey yapmaz gibi durmaz.
  */
-export function actionLabel(phase: Phase, draft: Draft): { label: string; enabled: boolean } {
+export function actionLabel(
+    phase: Phase,
+    draft: Draft,
+    /**
+     * Salonda HİÇ personel yok mu? Bağlam ekrana gelmeden okunuyor
+     * (`create.tsx` `ctx.data === null` iken `CreateFlow` çizmiyor), yani
+     * boş liste "henüz okunmadı" değil, gerçekten boş demek.
+     */
+    crewEmpty = false,
+): { label: string; enabled: boolean } {
     if (phase === 1) {
         // Yarım girilmiş numarayla devam edilmez: ya boş ya tam.
         if (draft.newCustomerPhone && !isValidPhone(draft.newCustomerPhone)) {
@@ -177,6 +186,22 @@ export function actionLabel(phase: Phase, draft: Draft): { label: string; enable
         if (!draft.service) missing.push('hizmet');
         return { label: `${missing.join(' ve ')} seçin`, enabled: false };
     }
+    /*
+     * SESSİZ KİLİT YERİNE SEBEP.
+     *
+     * Personeli olmayan salonda saat listesi hiç çizilmiyor — dokunulacak bir
+     * satır yok, dolayısıyla `staffId` hiç dolmuyor ve düğme "Saat seçin"de
+     * SONSUZA KADAR kapalı kalıyordu. Yeni kaydolan herkesin gördüğü ilk
+     * duvar buydu ve neden kapalı olduğu hiçbir yerde yazmıyordu.
+     *
+     * Gün seçmeden ÖNCE söyleniyor: personel yoksa gün seçmek de bir yere
+     * çıkmıyor, kullanıcıyı sonu olmayan bir yola sokmanın anlamı yok.
+     *
+     * Düğme hâlâ kapalı, çünkü personel eklemek bugün telefondan yapılamıyor
+     * (`profil/personel.tsx` masaüstüne yolluyor). Ama artık sebebini
+     * söylüyor. Duvarın kendisini kaldırmak ayrı bir iş.
+     */
+    if (crewEmpty) return { label: 'Önce personel ekleyin', enabled: false };
     if (!draft.dateISO) return { label: 'Gün seçin', enabled: false };
     if (draft.startMinutes === null || !draft.staffId) return { label: 'Saat seçin', enabled: false };
     return { label: 'Randevuyu oluştur', enabled: true };

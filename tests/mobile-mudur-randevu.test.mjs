@@ -98,6 +98,25 @@ test('pasif buton neyin eksik olduğunu söyler', () => {
     const onDay = { ...ready1, dateISO: '2026-08-13' };
     assert.deepEqual(actionLabel(2, onDay), { label: 'Saat seçin', enabled: false });
 
+    /*
+     * PERSONELSİZ SALONDA SEBEP YAZILIYOR.
+     *
+     * Saat listesi hiç çizilmediği için `staffId` dolmuyordu ve düğme
+     * "Saat seçin"de sonsuza kadar kapalı kalıyordu — yeni kaydolan herkesin
+     * gördüğü ilk duvar, sebepsiz. Sebep gün seçiminden ÖNCE geliyor:
+     * personel yoksa gün seçmek de bir yere çıkmıyor.
+     */
+    assert.deepEqual(
+        actionLabel(2, onDay, true),
+        { label: 'Önce personel ekleyin', enabled: false },
+    );
+    assert.deepEqual(
+        actionLabel(2, { ...onDay, dateISO: null }, true),
+        { label: 'Önce personel ekleyin', enabled: false },
+    );
+    // Varsayılan davranış DEĞİŞMİYOR: parametresiz çağrı eskisi gibi.
+    assert.deepEqual(actionLabel(2, onDay, false), { label: 'Saat seçin', enabled: false });
+
     const done = { ...onDay, startMinutes: 11 * 60, staffId: 'merve' };
     assert.deepEqual(actionLabel(2, done), { label: 'Randevuyu oluştur', enabled: true });
     assert.ok(canCreate(done));
