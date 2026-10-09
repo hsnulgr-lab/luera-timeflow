@@ -149,7 +149,21 @@ async function managerBusinesses(): Promise<AuthResult<AuthBusiness[]>> {
         .select('id, name, address, owner_id, solo')
         .order('name')
         .returns<OrgRow[]>();
-    if (error) return fail('offline');
+    if (error) {
+        /*
+         * SEBEP KONSOLA DÜŞÜYOR — bu yol müdür girişinin ANA yolu.
+         *
+         * Her hata burada `offline`a çevriliyor ve ekran "bağlantı yok"
+         * diyor. Ağ gerçekten yoksa doğru; ama şema eksikse (örneğin 108
+         * göçü çalıştırılmadan bu sürüm açılırsa) `solo` kolonu bulunamaz,
+         * PostgREST 400 döner ve kullanıcı ONLINE olduğu hâlde "bağlantı
+         * yok" görür. Sebep hiçbir yere yazılmazsa `--no-dev` ile elle
+         * kazılana kadar bulunamaz — 2026-09-25'te tam bu olmuştu
+         * (bkz. `app/index.tsx`).
+         */
+        console.error('[giriş] salon listesi okunamadı:', error.message);
+        return fail('offline');
+    }
     const orgs = data ?? [];
     const ids = orgs.map((org) => org.id);
     if (ids.length === 0) return done([]);

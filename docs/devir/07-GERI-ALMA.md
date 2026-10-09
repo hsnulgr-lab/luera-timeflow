@@ -149,6 +149,17 @@ Göç çalıştıktan sonra bile, uygulama `set_business_mode`'u çağırmadığ
 sürece hiçbir şey değişmiyor. Yani **göç tek başına geri alınmayı bile
 gerektirmez**; geri alınacak şey, fonksiyonun açtığı satırlardır.
 
+## SIRA: ÖNCE GÖÇ, SONRA UYGULAMA
+
+Göç tek başına hiçbir davranışı değiştirmiyor ama **uygulama göçsüz
+çalışamıyor.** `managerBusinesses()` org satırını `solo` kolonuyla okuyor ve
+o işlev müdür girişinin ANA yolunda: kolon yoksa PostgREST 400 döner, giriş
+"bağlantı yok" der ve kullanıcı ONLINE olduğu hâlde içeri giremez.
+
+Yani `tek-kisilik` dalını canlı veritabanına karşı açmadan önce göç
+çalışmalı. (Sebep artık konsola da düşüyor — `[giriş] salon listesi
+okunamadı: column organizations.solo does not exist`.)
+
 ## Göçten ÖNCE — yedek
 
 ```bash
