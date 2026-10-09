@@ -29,6 +29,15 @@ export default function SignupReady() {
     const [businessName, setBusinessName] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState(false);
+    /**
+     * Karşılamadaki "Solo" kapısından gelindiyse mod SORULMUYOR (108).
+     *
+     * `null` henüz okunmadı demek; ekran o aralıkta hiçbir şey çizmiyor
+     * (aşağıdaki `businessName` kapısı zaten bekletiyor). Verilmiş bir
+     * cevabı yeniden sormak, kullanıcının az önce bastığı düğmeyi
+     * duymamak olurdu.
+     */
+    const [intentSolo, setIntentSolo] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -39,6 +48,9 @@ export default function SignupReady() {
                 return;
             }
             setBusinessName(sessionResult.data.profile.business.name);
+            void authApi.signup.draft().then((draft) => {
+                if (alive && draft.ok) setIntentSolo(draft.data.solo === true);
+            });
         });
         return () => { alive = false; };
     }, [router]);
@@ -99,7 +111,9 @@ export default function SignupReady() {
                 <AuthHeader
                     ready
                     title={`${businessName} hazır`}
-                    body="Son bir soru: bu işletmede işi kim yapıyor? Uygulama cevabınıza göre açılır, sonradan değiştirebilirsiniz."
+                    body={intentSolo
+                        ? 'Tek kişilik işletme olarak kuruluyor. Sonradan İşletme ekranından ekip ekleyebilirsiniz.'
+                        : 'Son bir soru: bu işletmede işi kim yapıyor? Uygulama cevabınıza göre açılır, sonradan değiştirebilirsiniz.'}
                 />
                 <AuthReadyChecklist items={READY_ITEMS} />
                 {failed ? (
@@ -114,17 +128,27 @@ export default function SignupReady() {
                 paddingHorizontal: authMetrics.actionsX,
                 gap: authMetrics.actionsGap,
             }}>
-                <AuthActionButton
-                    label="Yalnız ben"
-                    disabled={busy}
-                    onPress={() => { void answer(true); }}
-                />
-                <AuthActionButton
-                    kind="secondary"
-                    label="Ekibim var"
-                    disabled={busy}
-                    onPress={() => { void answer(false); }}
-                />
+                {intentSolo ? (
+                    <AuthActionButton
+                        label="Uygulamayı kullanmaya başla"
+                        disabled={busy}
+                        onPress={() => { void answer(true); }}
+                    />
+                ) : (
+                    <>
+                        <AuthActionButton
+                            label="Yalnız ben"
+                            disabled={busy}
+                            onPress={() => { void answer(true); }}
+                        />
+                        <AuthActionButton
+                            kind="secondary"
+                            label="Ekibim var"
+                            disabled={busy}
+                            onPress={() => { void answer(false); }}
+                        />
+                    </>
+                )}
             </View>
         </View>
     );

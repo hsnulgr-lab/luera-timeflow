@@ -889,6 +889,18 @@ async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> 
     return selectManagerBusiness(org.id);
 }
 
+/**
+ * Karşılamadaki kapının niyetini taslağa yazar (108).
+ *
+ * Kaydın HENÜZ BAŞI: hesap yok, oturum yok, sunucuya yazacak bir şey de yok.
+ * Niyet cihazda duruyor ve `set_business_mode` ancak kaydın sonunda, gerçek
+ * bir oturumla çağrılıyor.
+ */
+async function markSignupIntent(solo: boolean): Promise<void> {
+    const draft = await readSignupDraft();
+    await writeSignupDraft({ ...(draft ?? {}), solo });
+}
+
 async function signupDraft(): Promise<AuthResult<SignupDraft>> {
     const draft = await readSignupDraft();
     return draft?.email ? done(draft) : fail('incomplete_signup');
@@ -965,6 +977,7 @@ export const auth = {
         sector: selectSignupSector,
         complete: completeSignup,
         mode: setBusinessMode,
+        intent: markSignupIntent,
     },
     manager: {
         start: managerStart,

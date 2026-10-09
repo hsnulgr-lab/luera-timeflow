@@ -189,6 +189,8 @@ interface PendingSignup {
     password?: string;
     businessName?: string;
     sector?: string;
+    /** Karşılamadaki "Solo" kapısından gelindi mi (108). */
+    solo?: boolean;
 }
 
 interface PendingAccountDeletion {
@@ -200,6 +202,15 @@ export interface SignupDraft {
     email?: string;
     businessName?: string;
     sector?: string;
+    /**
+     * Karşılamadaki "Solo" kapısından gelindi mi (108).
+     *
+     * Niyet KAYDIN BAŞINDA biliniyor ve sonuna kadar taşınıyor; kaydın
+     * sonunda aynı şeyi bir kez daha sormak, kullanıcının verdiği cevabı
+     * duymamak olurdu. Rota parametresi yerine taslakta duruyor: uygulama
+     * kayıt ortasında kapanıp açılsa da cevap kaybolmuyor.
+     */
+    solo?: boolean;
 }
 
 export interface SignupSector {
@@ -935,12 +946,19 @@ async function completeSignup(): Promise<AuthResult<AuthSession>> {
     return success(session);
 }
 
+/** Karşılamadaki kapının niyeti (108) — stub karşılığı. */
+async function markSignupIntent(solo: boolean): Promise<void> {
+    const pending = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    await writeJson(storageKeys.pendingSignup, { ...(pending ?? {}), solo });
+}
+
 async function signupDraft(): Promise<AuthResult<SignupDraft>> {
     const pending = await readJson<PendingSignup>(storageKeys.pendingSignup);
     return pending ? success({
         email: pending.email,
         businessName: pending.businessName,
         sector: pending.sector,
+        solo: pending.solo,
     }) : failure('incomplete_signup');
 }
 
@@ -1003,5 +1021,6 @@ export const authStub = {
         sector: selectSignupSector,
         complete: completeSignup,
         mode: setBusinessMode,
+        intent: markSignupIntent,
     },
 } as const;

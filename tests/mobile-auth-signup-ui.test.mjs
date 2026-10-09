@@ -36,6 +36,38 @@ test('Giriş 11–13 üç ayrı signup rotasıdır ve sırayla gezilir', () => {
     assert.match(ready, /enterShell\(result\.data\.actor, result\.data\.profile\.business\.solo\)/);
 });
 
+test('karşılamada ÜÇ kapı var ve üçüncüsü niyeti yazmadan gezmiyor', () => {
+    /*
+     * İlk ikisi "kimsin" diye soruyor: işletmesini yöneten ve orada çalışan.
+     * Üçüncüsü aynı cinsten — kendi işletmesi olan ve tek başına çalışan.
+     *
+     * Giriş DEĞİL, yeni işletme kuruyor: hesabı olan solo bir sahip ilk
+     * kapıdan giriyor ve doğru kabuğa kendiliğinden düşüyor (kabuk
+     * işletmenin moduna bakıyor, hangi düğmeye basıldığına değil). Girişe
+     * bağlasaydık ilk kapının kopyası olurdu.
+     */
+    for (const title of ['İşletmemi yönetiyorum', 'Burada çalışıyorum', 'Solo']) {
+        assert.ok(welcome.includes(title), `karşılamada eksik kapı: ${title}`);
+    }
+    // Niyet gezinmeden ÖNCE yazılıyor: sonra yazılsaydı kayıt ekranı
+    // taslağı niyet henüz yokken okuyabilirdi.
+    assert.match(
+        welcome,
+        /authApi\.signup\.intent\(true\)[\s\S]{0,120}router\.push\([\s\S]{0,60}signup\/account/,
+    );
+});
+
+test('Solo kapısından gelene mod BİR DAHA sorulmuyor', () => {
+    // Verilmiş bir cevabı tekrar sormak, kullanıcının az önce bastığı
+    // düğmeyi duymamak olurdu.
+    assert.match(ready, /authApi\.signup\.draft\(\)[\s\S]{0,160}draft\.data\.solo === true/);
+    // Soru yerine tek düğme; iki cevap `else` dalında kalıyor.
+    assert.match(ready, /intentSolo \?[\s\S]{0,200}["']Uygulamayı kullanmaya başla["']/);
+    assert.match(ready, /intentSolo \?[\s\S]{0,900}["']Yalnız ben["']/);
+    // Gövde metni de değişiyor: soru sorulmuyorsa soru cümlesi yazılmıyor.
+    assert.match(ready, /intentSolo\s*\n?\s*\? 'Tek kişilik işletme olarak kuruluyor/);
+});
+
 test('yeni işletme akışının tek veri dikişi authApi.signup olur', () => {
     for (const [name, screen] of [
         ['account', account],

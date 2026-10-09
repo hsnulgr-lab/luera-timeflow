@@ -231,6 +231,36 @@ export default function Welcome() {
                             }}
                         />
                     </AView>
+                    {/*
+                      * ÜÇÜNCÜ KAPI · SOLO (108).
+                      *
+                      * İlk ikisi "kimsin" diye soruyor: işletmesini yöneten
+                      * ve orada çalışan. Üçüncüsü aynı cinsten — kendi
+                      * işletmesi olan ve tek başına çalışan kişi.
+                      *
+                      * YENİ İŞLETME kuruyor, giriş yapmıyor. Zaten hesabı
+                      * olan solo bir sahip ilk kapıdan giriyor ve doğru
+                      * kabuğa kendiliğinden düşüyor (kabuk işletmenin
+                      * moduna bakıyor, hangi düğmeye basıldığına değil).
+                      * Üçüncü kapıyı da girişe bağlasaydık ilk kapının
+                      * kopyası olurdu: aynı forma çıkan iki düğme.
+                      *
+                      * Niyet taslağa yazılıyor; kaydın sonunda mod bir daha
+                      * SORULMUYOR — verilmiş bir cevabı tekrar sormak onu
+                      * duymamak olurdu.
+                      */}
+                    <AView style={door2}>
+                        <AuthChoiceButton
+                            glyph="person"
+                            title="Solo"
+                            subtitle="Tek kişilik işletme kurun"
+                            onPress={() => {
+                                void authApi.signup.intent(true).then(() => {
+                                    router.push('/(auth)/signup/account');
+                                });
+                            }}
+                        />
+                    </AView>
                     <AView style={foot}>
                         <Text style={{
                             color: c.tx3,
