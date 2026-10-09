@@ -214,8 +214,18 @@ export function scrollEnabledOnDay(isEmpty: boolean, isToday: boolean): boolean 
  * Personel şeridi YALNIZ bugün çizilir — boş olsun ya da olmasın.
  * Şerit "şu an kim işlemde"yi söyler; başka günün başlığı altında yalan olur.
  */
-export function staffStripVisible(isToday: boolean): boolean {
-    return isToday;
+export function staffStripVisible(isToday: boolean, solo = false): boolean {
+    /*
+     * TEK KİŞİLİK İŞLETMEDE ŞERİT YOK (108).
+     *
+     * Şeridin cevapladığı soru "kim müsait". Tek kişide o soru yok: cevap
+     * her zaman aynı kişi ve o da ekrana bakan kişinin kendisi. Tek avatarlı
+     * bir şerit bilgi taşımıyor, yalnız günün ilk üçte birini yiyor.
+     *
+     * Varsayılan `false`: parametre verilmeyen her çağrı eskisi gibi
+     * davranıyor, yani müdür kabuğu etkilenmiyor.
+     */
+    return isToday && !solo;
 }
 
 // ── Saat rayı ───────────────────────────────────────────────────────────────

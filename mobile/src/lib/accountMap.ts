@@ -72,6 +72,8 @@ export interface OrgRow {
     name: string;
     address?: string | null;
     owner_id?: string | null;
+    /** 108 · tek kişilik mod. Kolon yoksa (eski şema) `undefined` gelir. */
+    solo?: boolean | null;
 }
 
 export interface SettingsSectorRow {
@@ -124,6 +126,10 @@ export function businessesOf(
             initials: initialsOfBusiness(name),
             staffCount: counts.get(org.id) ?? 0,
             subscriptionStatus: 'active',
+            // Org satırı OKUNDU, yani cevabı biliyoruz: `null`/eksik kolon da
+            // "tek kişilik değil" demek. Burada `undefined` bırakmak, bilinen
+            // bir şeyi bilinmiyor gibi göstermek olurdu.
+            solo: Boolean(org.solo),
         };
         const sector = sectorLabel((owner ?? oldest)?.sector);
         if (sector) business.sector = sector;

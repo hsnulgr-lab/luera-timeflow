@@ -49,6 +49,7 @@ import {
     swipeClaims,
     swipeResult,
 } from '../../src/lib/emptyDay';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { useManagerDay } from '../../src/state/managerDay';
 import { LiveRow, type LiveMode } from '../../src/components/LiveRow';
 import { useLiveList } from '../../src/lib/useLiveList';
@@ -110,6 +111,12 @@ function flowNewsText(added: readonly FlowEvent[], removed: readonly FlowEvent[]
 
 export default function ManagerFlow() {
     const { c, dark, glass, small, reduceMotion } = useTheme();
+    /*
+     * BU EKRAN İKİ KABUKTA ÇİZİLİYOR (108): müdürde Akış, tek kişilikte Gün.
+     * Tek fark personel şeridinin olmaması — ayrı bir dosya açmak her
+     * düzeltmeyi iki yerde yapmak olurdu.
+     */
+    const solo = useInSoloShell();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const router = useRouter();
@@ -918,7 +925,7 @@ export default function ManagerFlow() {
 
                 {/* Şerit kendi eşiğiyle söner (0–40) ve toplanmış hâlde
                     kaybolur; levhanın altına yapışkan bir kopya çizilmez. */}
-                {staffStripVisible(isToday) ? (
+                {staffStripVisible(isToday, solo) ? (
                     <Animated.View style={{ opacity: stripOpacity }}>
                         <StaffStrip people={people} onOpen={openStaff} />
                     </Animated.View>

@@ -52,6 +52,19 @@ export default function ManagerLayout() {
     usePushIntent('manager', gate.state === 'allowed');
     if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (gate.state === 'wrong') return <Redirect href="/personel" />;
+    /*
+     * TEK KİŞİLİK İŞLETME BURAYA DÜŞMEZ (108).
+     *
+     * Rol aynı — tek kişi de org sahibi, yani `manager`. Ayıran şey
+     * işletmenin modu. `enterShell` doğru kabuğa gönderiyor ama tek kapı
+     * yetmez: bildirime dokunma, derin bağlantı ve eski bir yığın bu adrese
+     * doğrudan düşebiliyor. Kabuk çizilmeden geri gönderiliyor.
+     *
+     * `undefined` burada YÖNLENDİRMİYOR: oturum okunamadıysa modu bilmiyoruz
+     * ve bilmediğimiz bir şeye dayanarak kullanıcıyı başka kabuğa atmak,
+     * `unreadable` hâlinin çözdüğü sorunu geri getirirdi.
+     */
+    if (gate.solo === true) return <Redirect href="/tek" />;
     // Okunamayan oturum ÖTEKİ KABUĞA gönderilmiyor: personel kabuğu da aynı
     // hatayı alır ve ikisi birbirine yönlendirip döngüye girerdi.
     if (gate.state === 'unreadable') return <AuthSessionErrorScreen onRetry={gate.retry} />;

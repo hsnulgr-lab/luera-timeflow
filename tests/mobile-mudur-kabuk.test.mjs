@@ -69,14 +69,66 @@ test('rol eve karar verir: müdür müdür moduna gider', () => {
     // Hedefi artık `enterShell` seçiyor. Doğrudan `router.replace` yığının
     // yalnız en üstünü değiştiriyordu; altta bir önceki oturumun kabuğu
     // kalınca müdür profilinden geri kaydırınca personel profili çıkıyordu.
+    //
+    // İkinci argüman 108'le geldi: rol artık tek başına yetmiyor, çünkü
+    // müdür ve tek kişilik kabuk AYNI rolü paylaşıyor. Mod da OTURUMDAN
+    // okunmalı — sabit bir değer geçmek, her girişte aynı kabuğu açardı.
     for (const path of ['app/(auth)/biometric.tsx', 'app/(auth)/resume.tsx']) {
-        assert.match(read(path), /enterShell\((?:result\.data|next)\.actor\)/, path);
+        assert.match(
+            read(path),
+            /enterShell\((result\.data|next)\.actor, \1\.profile\.business\.solo\)/,
+            path,
+        );
     }
     // Yeni işletme açan kişi müdürdür.
     assert.match(read('app/(auth)/signup/ready.tsx'), /enterShell\('manager'\)/);
-    // Eşleme tek yerde: rol → kabuk adresi.
+    // Eşleme tek yerde: rol + mod → kabuk adresi.
     const shell = read('src/lib/enterShell.ts');
-    assert.match(shell, /actor === 'manager' \? '\/mudur' : '\/personel'/);
+    assert.match(shell, /if \(actor !== 'manager'\) return '\/personel'/);
+    assert.match(shell, /return solo \? '\/tek' : '\/mudur'/);
     assert.match(shell, /router\.canDismiss\(\)/);
     assert.match(shell, /router\.dismissAll\(\)/);
+});
+
+// ── Üçüncü kabuk · 108 ──────────────────────────────────────────────────────
+
+test('tek kişilik kabuk müdür setiyle aynı biçimde', () => {
+    const solo = read('app/tek/_layout.tsx');
+    const order = [...solo.matchAll(/name="([a-z]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(order, ['index', 'calendar', 'create', 'cash', 'isletme']);
+    // Etiketler müdür ve personelde olduğu gibi AÇIK: kitle 40-55 yaş ve bu
+    // ikonlar ezbere bilinmiyor.
+    assert.match(solo, /labelVisibilityMode="labeled"/);
+    // Kendi tab bar'ını çizmiyor; NativeTabs iOS 26'da gerçek materyali veriyor.
+    assert.match(solo, /<NativeTabs/);
+    assert.doesNotMatch(solo, /BlurView/);
+});
+
+test('iki kabuk birbirini MODA göre geri gönderiyor', () => {
+    const solo = read('app/tek/_layout.tsx');
+    const manager = read('app/mudur/_layout.tsx');
+    // Rol aynı (`manager`); ayıran şey `solo`. Kapı olmasaydı bildirime
+    // dokunma ya da eski bir yığın kullanıcıyı yanlış kabuğa düşürürdü.
+    assert.match(solo, /useActorGate\('manager'\)/);
+    assert.match(solo, /gate\.solo === false.*Redirect href="\/mudur"/s);
+    assert.match(manager, /gate\.solo === true.*Redirect href="\/tek"/s);
+    // `undefined` YÖNLENDİRMEZ: oturum okunamadığında mod bilinmiyor ve iki
+    // kapı birbirine atıp sonsuz döngü üretirdi. Kesin karşılaştırma şart.
+    assert.doesNotMatch(solo, /gate\.solo \?/);
+    assert.doesNotMatch(manager, /!gate\.solo/);
+});
+
+test('tek kişilik ekranlar KOPYA değil, müdür ekranının kendisi', () => {
+    // Ayrı dosya açmak her düzeltmeyi iki yerde yapmak olurdu; biri er geç
+    // unutulur ve iki kabuk ayrışırdı.
+    const map = {
+        'app/tek/index.tsx': '../mudur/index',
+        'app/tek/calendar.tsx': '../mudur/calendar',
+        'app/tek/create.tsx': '../mudur/create',
+        'app/tek/cash.tsx': '../mudur/cash',
+        'app/tek/isletme.tsx': '../mudur/profile',
+    };
+    for (const [path, source] of Object.entries(map)) {
+        assert.match(read(path), new RegExp(`export \\{ default \\} from '${source}'`), path);
+    }
 });

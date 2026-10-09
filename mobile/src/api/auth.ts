@@ -146,7 +146,7 @@ function businessFrom(row: { id: string; name: string; slug?: string | null }): 
 async function managerBusinesses(): Promise<AuthResult<AuthBusiness[]>> {
     const { data, error } = await supabase
         .from('organizations')
-        .select('id, name, address, owner_id')
+        .select('id, name, address, owner_id, solo')
         .order('name')
         .returns<OrgRow[]>();
     if (error) return fail('offline');

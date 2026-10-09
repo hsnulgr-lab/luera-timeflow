@@ -19,6 +19,15 @@ export interface AuthBusiness {
     staffCount: number;
     subscriptionStatus: 'active' | 'expired';
     sector?: string;
+    /**
+     * Tek kişilik işletme — uygulama `app/tek/` kabuğunu açar.
+     *
+     * İsteğe bağlı, çünkü her yol org satırını OKUMUYOR: personel eşleşmesi
+     * yalnız salonun adını alıyor ve orada modun bir anlamı da yok. Okuyan
+     * yol (müdür girişi) değeri her zaman yazıyor, yani `undefined` "bu yolda
+     * sorulmadı" demek — "hayır" demek değil.
+     */
+    solo?: boolean;
 }
 
 export interface AuthProfile {

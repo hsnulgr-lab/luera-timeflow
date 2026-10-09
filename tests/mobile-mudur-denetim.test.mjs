@@ -79,9 +79,14 @@ test('başka gün seçiliyken personel şeridi gösterilmez', () => {
     // Şerit ŞU ANIN gerçeği: "14 Ağustos" başlığı altında bugün kimin
     // işlemde olduğunu göstermek yalan olurdu.
     // Kural artık kütüphanede: şerit YALNIZ bugün — boş olsun ya da olmasın.
-    assert.match(flow, /\{staffStripVisible\(isToday\) \? \(\s*<Animated\.View style=\{\{ opacity: stripOpacity \}\}>/);
+    assert.match(flow, /\{staffStripVisible\(isToday, solo\) \? \(\s*<Animated\.View style=\{\{ opacity: stripOpacity \}\}>/);
     assert.equal(staffStripVisible(true), true);
     assert.equal(staffStripVisible(false), false);
+    // 108 · ikinci koşul tek kişilik kabuk. Şeridin cevapladığı soru "kim
+    // müsait"; tek kişide cevap hep aynı kişi ve o da ekrana bakan kişinin
+    // kendisi. Varsayılan `false`, yani müdür kabuğu etkilenmiyor.
+    assert.equal(staffStripVisible(true, true), false);
+    assert.equal(staffStripVisible(true, false), true);
 });
 
 test('boş günde HER AN en az iki dokunmatik çıkış var', () => {

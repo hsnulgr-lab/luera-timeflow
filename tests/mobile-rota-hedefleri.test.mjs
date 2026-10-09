@@ -109,14 +109,18 @@ test('gidilmeyen bir ekran dosyada DURMUYOR', () => {
     // dosya silindi, yani kural artık onu da kapsıyor.
     // Sekme ekranlarına `router.push` ile gidilmiyor: onları NativeTabs
     // çiziyor. Kabuk düzenlerindeki tetikleyici adları da "gidiliyor" sayılır.
+    // Kabuk listesi ELLE yazılı, dosya ağacından türetilmiyor: yeni bir
+    // kabuk eklendiğinde bu testin düşmesi İSTENEN davranış. Düşünce iki
+    // soru sorulmuş oluyor — kabuk gerçekten gerekli mi, ve sekmeleri
+    // gerçekten sekme mi (yoksa hiçbir yerden açılmayan bir ekran mı).
     const tabs = new Set();
-    for (const shell of ['mudur', 'personel']) {
+    for (const shell of ['mudur', 'personel', 'tek']) {
         const layout = readFileSync(join(APP, shell, '_layout.tsx'), 'utf8');
         for (const m of layout.matchAll(/NativeTabs\.Trigger name="([a-z]+)"/g)) {
             tabs.add(m[1] === 'index' ? `/${shell}` : `/${shell}/${m[1]}`);
         }
     }
-    assert.ok(tabs.size >= 8, `sekme adları okunamadı (${tabs.size})`);
+    assert.ok(tabs.size >= 13, `sekme adları okunamadı (${tabs.size})`);
 
     // Yalnız açılış ekranı dışarıda: kendisi bir hedef değil, dağıtıcı.
     const EXEMPT = /^\/$/;

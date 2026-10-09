@@ -63,7 +63,7 @@ export default function ResumeSignIn() {
 
     const enterApp = (next: AuthSession) => {
         // Geçmişi silerek: bkz. `src/lib/enterShell.ts`.
-        enterShell(next.actor);
+        enterShell(next.actor, next.profile.business.solo);
     };
 
     const openFallback = async () => {

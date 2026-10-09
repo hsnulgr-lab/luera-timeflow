@@ -44,7 +44,7 @@ export default function BiometricOffer() {
         }
         // Kabuğa girerken geçmiş siliniyor: aksi hâlde bir önceki oturumun
         // kabuğu yığında kalıyor ve geri kaydırınca öteki rol çıkıyor.
-        enterShell(result.data.actor);
+        enterShell(result.data.actor, result.data.profile.business.solo);
     };
 
     const enable = async () => {

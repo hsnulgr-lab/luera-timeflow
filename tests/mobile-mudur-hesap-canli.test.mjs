@@ -138,7 +138,10 @@ test('işletme kartı: konum ADRESTEN, personel sayısı gerçek, sektör sahibi
     );
     assert.deepEqual(studio, {
         id: 'o1', name: 'Studio Ayla', location: 'Kadıköy', initials: 'SA', staffCount: 2,
-        subscriptionStatus: 'active', sector: 'Kuaför',
+        // 108 · org satırı OKUNDUĞU için mod biliniyor; eksik kolon da
+        // "tek kişilik değil" demek. `undefined` bırakmak, bilinen bir şeyi
+        // bilinmiyor gibi göstermek olurdu.
+        subscriptionStatus: 'active', sector: 'Kuaför', solo: false,
     });
     assert.equal(bare.location, '');
     assert.equal(bare.staffCount, 1);
@@ -147,7 +150,8 @@ test('işletme kartı: konum ADRESTEN, personel sayısı gerçek, sektör sahibi
 
 test('slug artık konum değil; kart sorguları sayfalı değil ama org süzgeçli', () => {
     const fn = live.slice(live.indexOf('async function managerBusinesses'), live.indexOf('async function managerStart'));
-    assert.match(fn, /select\('id, name, address, owner_id'\)/);
+    // `solo` 108'le eklendi: kabuğu seçen bilgi bu ve giriş anında okunmalı.
+    assert.match(fn, /select\('id, name, address, owner_id, solo'\)/);
     assert.doesNotMatch(fn, /slug/);
     assert.match(fn, /from\('staff'\)\.select\('organization_id'\)\s*\.in\('organization_id', ids\)\.eq\('is_active', true\)/);
     // `business_name` de okunuyor: salonun ADI ayar satırında, org satırında

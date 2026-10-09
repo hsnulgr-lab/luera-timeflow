@@ -14,7 +14,7 @@
  */
 
 import { useEffect } from 'react';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useSegments } from 'expo-router';
 
 /**
  * `reset` React Navigation'ın kök parametre listesine göre tipleniyor ve o
@@ -27,7 +27,24 @@ type RootNav = {
 };
 
 /** Kök yığındaki kabuk rotalarının adları — `app/_layout.tsx` ile aynı. */
-export type ShellName = 'mudur' | 'personel';
+export type ShellName = 'mudur' | 'personel' | 'tek';
+
+/**
+ * Ekran TEK KİŞİLİK kabukta mı çiziliyor (108)?
+ *
+ * Birkaç ekran iki kabukta ortak: müdürün Akış'ı tek kişilikte Gün, Profil'i
+ * İşletme oluyor. Aralarındaki fark birkaç satırın çizilip çizilmemesi; ayrı
+ * dosya açmak her düzeltmeyi iki yerde yapmak olurdu.
+ *
+ * Cevap OTURUMDAN DEĞİL ADRESTEN okunuyor. İkisi de doğruyu söyler ama
+ * adres hemen söyler: oturumu yeniden okusaydık ilk karede mod bilinmezdi
+ * ve ekip satırları bir an görünüp kaybolurdu. Kabuk zaten `solo` bayrağına
+ * bakan bir kapının arkasında — yani "tek kabuktayım" demek, "bu işletme
+ * tek kişilik" demenin ta kendisi.
+ */
+export function useInSoloShell(): boolean {
+    return useSegments()[0] === 'tek';
+}
 
 export function useShellIsRoot(shell: ShellName): void {
     // '/' kök düzeni: kabuklar onun çocukları.

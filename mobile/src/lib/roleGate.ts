@@ -32,8 +32,22 @@ export type GateState =
     /** Oturum OKUNAMADI. Yönlendirme değil, görünür bir duraklama. */
     | 'unreadable';
 
-export function useActorGate(expected: AuthActor): { state: GateState; retry: () => void } {
+/**
+ * `solo` KAPIYLA BİRLİKTE dönüyor, ayrı bir okumayla değil.
+ *
+ * Müdür ve tek kişilik kabuk aynı rolü paylaşıyor (`manager`); ikisini
+ * ayıran şey işletmenin modu. Kapı oturumu zaten okuyor — modu ikinci bir
+ * okumayla almak, aynı anda iki farklı cevap alabileceğimiz bir aralık
+ * açardı: kapı "izin var" derken mod henüz bilinmiyor olurdu ve kabuk bir
+ * kare yanlış çizilirdi.
+ *
+ * Oturum okunamadıysa `solo` da `undefined` kalır — "hayır" değil, "bilmiyorum".
+ */
+export function useActorGate(expected: AuthActor): {
+    state: GateState; solo: boolean | undefined; retry: () => void;
+} {
     const [state, setState] = useState<GateState>('checking');
+    const [solo, setSolo] = useState<boolean | undefined>(undefined);
     /** Artınca etki yeniden çalışır — "tekrar dene" düğmesinin tek işi bu. */
     const [attempt, setAttempt] = useState(0);
 
@@ -42,6 +56,7 @@ export function useActorGate(expected: AuthActor): { state: GateState; retry: ()
         authApi.resume.get().then((result) => {
             if (!alive) return;
             if (result.ok) {
+                setSolo(Boolean(result.data.profile.business.solo));
                 setState(result.data.actor === expected ? 'allowed' : 'wrong');
                 return;
             }
@@ -64,5 +79,5 @@ export function useActorGate(expected: AuthActor): { state: GateState; retry: ()
         setAttempt((n) => n + 1);
     };
 
-    return { state, retry };
+    return { state, solo, retry };
 }

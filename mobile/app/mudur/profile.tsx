@@ -23,6 +23,7 @@ import {
 import { fetchNotificationPrefs } from '../../src/lib/managerSource';
 import { prefsOf } from '../../src/lib/notificationPrefs';
 import { readKvkkUrl } from '../../src/lib/legalSource';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCustomerCount, fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf, schedulesOf } from '../../src/lib/settingsMap';
@@ -51,6 +52,8 @@ export default function ManagerProfile() {
     const insets = useSafeAreaInsets();
 
     const [session, setSession] = useState<AuthSession | null>(null);
+    /** 108 · tek kişilik modda ekip satırları çizilmiyor. */
+    const solo = useInSoloShell();
     const [notify, setNotify] = useState<Record<NotificationKey, boolean> | null>(null);
     const [kvkkUrl, setKvkkUrl] = useState<string | null>(null);
     /** 099 · Personel satırının canlı özeti. Okunamazsa satır özetsiz kalır. */
@@ -176,15 +179,35 @@ export default function ManagerProfile() {
                       * KAYITLARI — saatler, hizmetler, personel. Müşteriler
                       * aynı cinsten.
                       */}
-                    <ProfileRow
-                        big
-                        title="Personel"
-                        // Tasarım §M2: tek canlı özet — kod açıksa süresi, yoksa
-                        // kilitli/girmeyen sayısı. Kodun KENDİSİ yazılmaz.
-                        sub={teamLine?.text ?? 'Telefon bağla · giriş durumu'}
-                        subAccent={teamLine?.accent ?? false}
-                        onPress={() => router.push('/(manager-flow)/profil/personel')}
-                    />
+                    {/*
+                      * TEK KİŞİLİK MODDA PERSONEL SATIRI ÇİZİLMİYOR (108).
+                      *
+                      * Ekran iki kabukta ortak: müdürde Profil, tek kişilikte
+                      * İşletme. Kopyalamak yerine tek satır gizleniyor —
+                      * ikinci bir dosya açsaydık her düzeltme iki yerde
+                      * yapılacaktı ve biri er geç unutulurdu.
+                      *
+                      * Satırın gittiği yer (`profil/personel`) bugün "Personeli
+                      * bilgisayardan ekleyin" diyor; tek kişinin bilgisayarı yok
+                      * ve ekibi de yok. Satır onun için bir duvar, bilgi değil.
+                      *
+                      * Yerine gelecek olan "Tek kişilik çalışıyorsunuz · Ekip
+                      * ekle" kapısı Faz 3'te: önkoşulu telefondan personel
+                      * eklemek ve o yol henüz yok. Olmayan bir kapıyı şimdiden
+                      * çizmek, dokunulduğunda hiçbir şey yapmayan bir kontrol
+                      * olurdu.
+                      */}
+                    {solo ? null : (
+                        <ProfileRow
+                            big
+                            title="Personel"
+                            // Tasarım §M2: tek canlı özet — kod açıksa süresi, yoksa
+                            // kilitli/girmeyen sayısı. Kodun KENDİSİ yazılmaz.
+                            sub={teamLine?.text ?? 'Telefon bağla · giriş durumu'}
+                            subAccent={teamLine?.accent ?? false}
+                            onPress={() => router.push('/(manager-flow)/profil/personel')}
+                        />
+                    )}
                     <ProfileRow
                         big
                         title="Müşteriler"

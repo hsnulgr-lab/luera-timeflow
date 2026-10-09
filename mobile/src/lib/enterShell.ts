@@ -18,12 +18,28 @@
 import { router } from 'expo-router';
 import type { AuthActor } from '../api/session';
 
-export const shellHref = (actor: AuthActor): '/mudur' | '/personel' =>
-    (actor === 'manager' ? '/mudur' : '/personel');
+export type ShellHref = '/mudur' | '/personel' | '/tek';
 
-export function enterShell(actor: AuthActor): void {
+/**
+ * Üçüncü kabuk ROLDEN değil, işletmenin modundan geliyor.
+ *
+ * Tek kişilik işletmenin sahibi veritabanında da müdür: org sahibi,
+ * `organization_members.role = 'owner'`, RLS aynı. `AuthActor`a üçüncü bir
+ * değer eklemek rol kapısını, bildirim kaydını ve oturum okumasını birden
+ * etkilerdi — hepsi iki değeri varsayıyor. Mod ayrı bir bayrak olarak
+ * taşınıyor: `actor = 'manager'` + `solo = true`.
+ *
+ * `solo` YALNIZ müdürde bakılıyor. Personelin org'u tek kişilik olsa bile
+ * (olamaz, ama veri öyle görünebilir) personelin kabuğu değişmez.
+ */
+export const shellHref = (actor: AuthActor, solo?: boolean): ShellHref => {
+    if (actor !== 'manager') return '/personel';
+    return solo ? '/tek' : '/mudur';
+};
+
+export function enterShell(actor: AuthActor, solo?: boolean): void {
     // `canDismiss` yığında kapatılacak bir şey kalmadığında false döner;
     // koşulsuz `dismissAll` orada hata atardı.
     if (router.canDismiss()) router.dismissAll();
-    router.replace(shellHref(actor));
+    router.replace(shellHref(actor, solo));
 }
