@@ -57,22 +57,32 @@ Gerçek segment (grup değil) — yoksa `tests/mobile-rota-cakismasi.test.mjs` p
 | `gun.tsx` | **`StaffDay`** bileşeni, sahibin kendi `staff` satırıyla. Müdür 24'ün ta kendisi; çalışıyor |
 | `calendar.tsx` · `cash.tsx` · `isletme.tsx` · `create.tsx` | Müdür ekranlarını yeniden dışa aktar |
 
-### 1.4 · Tek kişiye göre kısmalar
-- `İşletme`de **Personel** satırı render edilmiyor
-- `CreateFlow`: salonda **tek** personel varsa `staffId` kendiliğinden seçiliyor
-  → `createFlow.ts:181` kilidi düşüyor. (Bu, tek moda özel değil; tek personelli
-  her salonu düzeltiyor)
-- `CreateFlow.tsx:455`'teki yanlış "masaüstünden" cümlesi düzeliyor
+### 1.4 · Tek kişiye göre kısmalar ✅
+- Akış'ta personel şeridi çizilmiyor, Profil'de "Personel" satırı çizilmiyor.
+  İkisi de ekranın İÇİNDE, `useInSoloShell` ile — ayrı dosya yok
+- `CreateFlow.tsx:455`'teki yanlış "masaüstünden" cümlesi düzeldi
 
-### 1.5 · Mod sorusu
-`signup/ready.tsx`'teki **"Kurulumu bilgisayardan tamamla"** düğmesi kalkıyor,
-yerine iki seçenek: **Yalnız ben** / **Ekibim var** → `organizations.solo`
-yazılıyor → `enterShell`.
+> **Plandan sapma — kilit tek personelde değil, SIFIR personelde.** Plan
+> "tek personel varsa `staffId` kendiliğinden seçilsin" diyordu; kodu okuyunca
+> gereksiz olduğu görüldü: saate dokunmak `staffId`yi zaten yazıyor
+> (`CreateFlow.tsx:296`). Gerçek duvar personeli HİÇ OLMAYAN salon — saat
+> listesi çizilmiyor, dokunulacak satır yok, düğme sonsuza kadar kapalı ve
+> sebebi hiçbir yerde yazmıyor. Düğme artık "Önce personel ekleyin" diyor.
+> Hâlâ kapalı (personel eklemek telefonda yok) ama sessiz değil.
 
-### 1.6 · Testler
-- Rota çakışması testi yeşil kalmalı
-- Yeni: `solo` kullanıcı `/mudur`a düşmez, `/tek`e gider
-- Yeni: tek personelli salonda "Saat seçin" kilidi açılır
+### 1.5 · Mod sorusu ✅
+`ready.tsx` artık soruyor: **Yalnız ben** / **Ekibim var**. Cevap sunucuya
+yazılıyor, kabuk ancak yazma tuttuysa açılıyor. "Kurulumu bilgisayardan
+tamamla" düğmesi kalktı.
+
+### 1.6 · Testler ✅
+2699 geçti, 0 kırık. Üç yeni test (sekme seti, karşılıklı kapılar, ekranların
+kopya olmaması) ve yedi mevcut testin yeni sözleşmeye taşınması.
+
+Yedisi de DÜŞMESİ GEREKTİĞİ için düştü; hiçbiri gevşetilmedi. En öğretici
+olanı `rota-hedefleri`: yeni kabuğun sekmelerini "hiçbir yerden gidilmeyen
+ekran" saydı. Kabuk listesi orada elle yazılı KALIYOR — yeni bir kabukta
+testin düşmesi, "bu kabuk gerçekten gerekli mi" sorusunu sorduruyor.
 
 ---
 
