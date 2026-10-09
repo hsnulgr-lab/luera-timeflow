@@ -128,3 +128,98 @@ sessizce `RETURN NEW` yapıyor).
 -- En büyük kapı. Geri açmak için değeri yeniden yazmak yeterli.
 delete from public.app_secrets where key = 'PUSH_TRIGGER_SECRET';
 ```
+
+---
+
+# 108 · Tek kişilik kabuk — geri alma
+
+**Bu bölüm göç YAZILMADAN ÖNCE yazıldı** (2026-10-09). Amaç: dönüş yolu,
+gidiş yolundan önce var olsun.
+
+`108_tek_kisilik.sql` üç şey yapıyor ve üçünün de geri dönüşü ayrı:
+
+| Ne yapıyor | Risk | Geri alma |
+|---|---|---|
+| `organizations.solo` kolonu ekliyor | Yok — yeni kolon, varsayılan `false` | Kolonu düşür |
+| `handle_new_user()`'ı değiştiriyor | **Yüksek** — üretimdeki KAYIT akışı | `006`'yı yeniden çalıştır |
+| Personelsiz org'lara sahip satırı açıyor | Orta — yeni satırlar | Yalnız **kullanılmamış** olanları sil |
+
+## Göçten ÖNCE — yedek
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt pg_dump -U supabase_admin -d postgres --no-owner | gzip' > ~/Desktop/timeflow_tek-oncesi.sql.gz
+```
+
+Doğrula — **dosya var demek yedek var demek değil**:
+
+```bash
+gzip -t ~/Desktop/timeflow_tek-oncesi.sql.gz && gunzip -c ~/Desktop/timeflow_tek-oncesi.sql.gz | grep -c '^CREATE TABLE'
+```
+
+Tablo sayısı **90'ın altındaysa durun** — 2026-09-24'te 91 tabloydu.
+
+Cron yedeklerinin yaşadığını da gör:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'ls -lht /root/yedek/timeflow/ | head -5'
+```
+
+## 1 · Kayıt akışını geri al (en acil olan bu)
+
+Yeni kayıtlar bozulursa önce bunu çalıştır; tek başına yeterli ve
+`solo` kolonuna dokunmuyor:
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && cat supabase/006_handle_new_user_safe.sql | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -f -'
+```
+
+`006` idempotent ve `CREATE OR REPLACE` kullanıyor — fonksiyon eski hâline
+döner, tetikleyici yerinde kalır.
+
+## 2 · Açılan personel satırlarını geri al
+
+**Hepsini silme.** Göçten sonra bir randevu ya da tahsilat o satıra
+bağlanmış olabilir; onu silmek veri koparır. Yalnız hiç kullanılmamış
+olanlar:
+
+```sql
+begin;
+
+-- Göçün açtığı satırlar: org'un sahibiyle aynı ada sahip ve hiçbir yerde
+-- kullanılmamış olanlar.
+delete from public.staff s
+where not exists (select 1 from public.reservations r where r.staff_id = s.id)
+  and not exists (select 1 from public.payments    p where p.staff_id = s.id)
+  and s.created_at >= '2026-10-09';
+
+-- Kaç satır kaldı: kullanılan varsa onlar DURUYOR, bilerek.
+select count(*) as kalan_sahip_satiri from public.staff where created_at >= '2026-10-09';
+
+commit;
+```
+
+Tarihi göçü çalıştırdığın güne göre düzelt.
+
+## 3 · Kolonu düşür
+
+En son, ve yalnız kod da geri alındıysa — uygulama `solo`yu okuyorsa
+kolonsuz kalınca okuma hata verir.
+
+```sql
+alter table public.organizations drop column if exists solo;
+notify pgrst, 'reload schema';
+```
+
+## Kod tarafı
+
+```bash
+git checkout main          # uygulama öncesi hâl
+```
+
+Dönüş noktası: **`tek-oncesi`** etiketi (`b4bc585`, testler 2696 geçti).
+Tek dosya geri almak için: `git checkout tek-oncesi -- <dosya>`.
+
+## Sıra önemli
+
+Kod önce, veritabanı sonra. Uygulama `solo` okuyorken kolonu düşürmek
+"okunamadı" ekranı üretir; önce kodu eski hâline al, sonra şemayı.
