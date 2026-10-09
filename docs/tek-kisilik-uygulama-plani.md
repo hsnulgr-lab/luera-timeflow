@@ -28,17 +28,19 @@ bir bayrak olarak taşınıyor: `actor = 'manager'` + `solo = true`.
 Hedef: tek kişilik hesap açılıyor, kendi kabuğunda açılıyor, randevu kurup
 günü görebiliyor. Telefonda Expo Go ile doğrulanabilir.
 
-### 1.1 · Göç · `supabase/108_tek_kisilik.sql`
-- `organizations` → `solo BOOLEAN NOT NULL DEFAULT false`
-- `handle_new_user()` → org/üyelik/settings'e ek olarak **sahibe bir `staff`
-  satırı** açıyor (`name = display_name`, `is_active = true`)
-- Geri doldurma: **hiç personeli olmayan** org'lara sahibin satırı açılıyor.
-  Randevular `staff_id` tutmadığı için bu satır hiçbir veriyi taşımıyor.
-  `solo` **kendiliğinden true yapılmıyor** — mevcut hesapların kabuğu değişmez.
-- `NOTIFY pgrst, 'reload schema'`
+### 1.1 · Göç · `supabase/108_tek_kisilik.sql` ✅ yazıldı
+- `organizations.solo BOOLEAN NOT NULL DEFAULT false`
+- `set_business_mode(p_solo, p_name)` — bayrağı yazıyor ve tek moda geçerken
+  **hiç personeli yoksa** sahibe bir `staff` satırı açıyor. Tek işlem: ikisi
+  birlikte olur ya hiç olmaz. SECURITY INVOKER, yani RLS aynen geçerli
+- `GRANT EXECUTE` açıkça veriliyor (096 dersi)
 
-> Bu göç üretimdeki **kayıt akışına** dokunuyor. Önce yerelde, sonra sakin
-> saatte. Deploy'u kullanıcı çalıştırıyor.
+> **`handle_new_user` DEĞİŞMİYOR.** İlk plan her kayıtta sahibe personel satırı
+> açmayı öngörüyordu; vazgeçildi. Birincisi o tetikleyici üretimdeki kayıt
+> akışı ve bozulduğunu ancak biri kaydolmaya çalışınca öğreniriz. İkincisi
+> kayıt anında mod bilinmiyor — soru kaydın sonunda. Satır artık "Yalnız ben"
+> denildiği an açılıyor. **Mevcut hiçbir hesap etkilenmiyor; göç tek başına
+> hiçbir davranışı değiştirmiyor.**
 
 ### 1.2 · Oturum ve yönlendirme
 - Oturum profiline `solo?: boolean`; girişte ve `resume`da org'dan okunuyor
@@ -92,6 +94,16 @@ Tahsilat, Kasa düzeltme, telefondan personel ekleme, Ekip ekle kapısı. Bunlar
 sunucu tarafında yeni yazma yolu istiyor; Faz 3.
 
 ## Karar bekleyen tek şey
-Faz 1'in göçü, brief §5 karar 3'ü uyguluyor: **sahip kayıtta sessizce bir
-personel satırına bağlanıyor.** Onaylanmazsa `staff_id` boş kalır ve takvim,
-çakışma kontrolü, raporlar ikinci bir dal kazanır. Öneri: onaylansın.
+
+Brief §5 karar 3: **sahip bir personel satırına bağlanıyor.** Artık yalnız
+"Yalnız ben" diyen hesapta ve yalnız o an oluyor — ekibi olan hiçbir salonu
+etkilemiyor. Onaylanmazsa `staff_id` boş kalır ve takvim, çakışma kontrolü ve
+raporlar ikinci bir dal kazanır; hatalar o dalda saklanır. Öneri: onaylansın.
+
+## Göçün doğrulanması
+
+Yerelde postgres yok, bu yüzden SQL **çalıştırılarak denenmedi.** Buna karşı
+tek savunma göçün kendi yapısı: dosya `BEGIN`/`COMMIT` arasında ve yalnız
+`ADD COLUMN IF NOT EXISTS` ile `CREATE OR REPLACE FUNCTION` içeriyor. Sözdizimi
+hatası olursa işlem geri sarılır ve **hiçbir şey değişmez**; mevcut veriye
+dokunan tek satır yok.

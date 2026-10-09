@@ -133,16 +133,21 @@ delete from public.app_secrets where key = 'PUSH_TRIGGER_SECRET';
 
 # 108 · Tek kişilik kabuk — geri alma
 
-**Bu bölüm göç YAZILMADAN ÖNCE yazıldı** (2026-10-09). Amaç: dönüş yolu,
-gidiş yolundan önce var olsun.
-
-`108_tek_kisilik.sql` üç şey yapıyor ve üçünün de geri dönüşü ayrı:
+**Göç yazılmadan önce taslaklandı, yazıldıktan sonra DARALTILDI** (2026-10-09).
+İlk taslak `handle_new_user`'ı değiştirmeyi ve geri doldurma yapmayı
+öngörüyordu; ikisinden de vazgeçildi (gerekçe göç dosyasının başında). Kalan
+yüzey çok küçük:
 
 | Ne yapıyor | Risk | Geri alma |
 |---|---|---|
-| `organizations.solo` kolonu ekliyor | Yok — yeni kolon, varsayılan `false` | Kolonu düşür |
-| `handle_new_user()`'ı değiştiriyor | **Yüksek** — üretimdeki KAYIT akışı | `006`'yı yeniden çalıştır |
-| Personelsiz org'lara sahip satırı açıyor | Orta — yeni satırlar | Yalnız **kullanılmamış** olanları sil |
+| `organizations.solo` kolonu | Yok — yeni kolon, varsayılan `false` | Kolonu düşür |
+| `set_business_mode()` fonksiyonu | Düşük — yeni fonksiyon, kimse çağırmazsa etkisiz | Fonksiyonu düşür |
+| Kayıt akışı (`handle_new_user`) | **Dokunulmuyor** | — |
+| Mevcut hesaplar | **Dokunulmuyor** — hiçbiri `solo` olmuyor | — |
+
+Göç çalıştıktan sonra bile, uygulama `set_business_mode`'u çağırmadığı
+sürece hiçbir şey değişmiyor. Yani **göç tek başına geri alınmayı bile
+gerektirmez**; geri alınacak şey, fonksiyonun açtığı satırlardır.
 
 ## Göçten ÖNCE — yedek
 
@@ -156,7 +161,7 @@ Doğrula — **dosya var demek yedek var demek değil**:
 gzip -t ~/Desktop/timeflow_tek-oncesi.sql.gz && gunzip -c ~/Desktop/timeflow_tek-oncesi.sql.gz | grep -c '^CREATE TABLE'
 ```
 
-Tablo sayısı **90'ın altındaysa durun** — 2026-09-24'te 91 tabloydu.
+Tablo sayısı **90'ın altındaysa durun**. 2026-10-09'da 91'di.
 
 Cron yedeklerinin yaşadığını da gör:
 
@@ -164,48 +169,46 @@ Cron yedeklerinin yaşadığını da gör:
 ssh -i ~/.ssh/luera_vps root@76.13.4.164 'ls -lht /root/yedek/timeflow/ | head -5'
 ```
 
-## 1 · Kayıt akışını geri al (en acil olan bu)
+## 1 · Bir hesabı tek moddan çıkar (en hafif müdahale)
 
-Yeni kayıtlar bozulursa önce bunu çalıştır; tek başına yeterli ve
-`solo` kolonuna dokunmuyor:
+Kabuk yanlış açılıyorsa önce bunu dene. Veri silmiyor:
 
-```bash
-cd /Users/furkanulger/Projects/luera-timeflow && cat supabase/006_handle_new_user_safe.sql | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -f -'
+```sql
+update public.organizations set solo = false where id = '<org_id>';
 ```
 
-`006` idempotent ve `CREATE OR REPLACE` kullanıyor — fonksiyon eski hâline
-döner, tetikleyici yerinde kalır.
+Uygulama bir sonraki açılışta müdür kabuğuna döner. Açılmış personel satırı
+yerinde kalır ve müdür kabuğunda normal bir personel olarak görünür —
+zararsız, hatta doğru: sahip de çalışıyor.
 
-## 2 · Açılan personel satırlarını geri al
+## 2 · Açılan personel satırını geri al
 
-**Hepsini silme.** Göçten sonra bir randevu ya da tahsilat o satıra
-bağlanmış olabilir; onu silmek veri koparır. Yalnız hiç kullanılmamış
-olanlar:
+**Toplu silme yok.** Satıra bir randevu ya da tahsilat bağlanmış olabilir;
+silmek veri koparır. Yalnız hiç kullanılmamış olanlar:
 
 ```sql
 begin;
 
--- Göçün açtığı satırlar: org'un sahibiyle aynı ada sahip ve hiçbir yerde
--- kullanılmamış olanlar.
 delete from public.staff s
 where not exists (select 1 from public.reservations r where r.staff_id = s.id)
   and not exists (select 1 from public.payments    p where p.staff_id = s.id)
   and s.created_at >= '2026-10-09';
 
--- Kaç satır kaldı: kullanılan varsa onlar DURUYOR, bilerek.
-select count(*) as kalan_sahip_satiri from public.staff where created_at >= '2026-10-09';
+-- Kullanılanlar DURUYOR, bilerek. Kaç tane kaldığını gör:
+select count(*) as kullanimda_kalan from public.staff where created_at >= '2026-10-09';
 
 commit;
 ```
 
 Tarihi göçü çalıştırdığın güne göre düzelt.
 
-## 3 · Kolonu düşür
+## 3 · Fonksiyonu ve kolonu düşür
 
-En son, ve yalnız kod da geri alındıysa — uygulama `solo`yu okuyorsa
-kolonsuz kalınca okuma hata verir.
+En son, ve yalnız **kod da geri alındıysa** — uygulama `solo` okuyorken
+kolonu düşürmek "okunamadı" ekranı üretir.
 
 ```sql
+drop function if exists public.set_business_mode(boolean, text);
 alter table public.organizations drop column if exists solo;
 notify pgrst, 'reload schema';
 ```
@@ -221,5 +224,5 @@ Tek dosya geri almak için: `git checkout tek-oncesi -- <dosya>`.
 
 ## Sıra önemli
 
-Kod önce, veritabanı sonra. Uygulama `solo` okuyorken kolonu düşürmek
-"okunamadı" ekranı üretir; önce kodu eski hâline al, sonra şemayı.
+**Kod önce, veritabanı sonra.** Uygulama `solo` okuyorken kolonu düşürmek
+okuma hatası üretir; önce kodu eski hâline al, sonra şemayı.
