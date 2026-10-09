@@ -29,7 +29,11 @@ test('Giriş 11–13 üç ayrı signup rotasıdır ve sırayla gezilir', () => {
     assert.match(business, /\/(?:\(auth\)\/)?signup\/ready/);
     // Son adım kabuğa `enterShell` ile giriyor: adres tek yerde,
     // `src/lib/enterShell.ts` içinde, ve giriş yığını boşaltıyor.
-    assert.match(ready, /enterShell\('manager'\)/);
+    //
+    // 108 · hedef artık SABİT DEĞİL. Kayıt sonundaki soru işletmenin modunu
+    // belirliyor ve kabuk ona göre seçiliyor; `enterShell('manager')` yazmak
+    // her yeni hesabı müdür kabuğuna sokardı.
+    assert.match(ready, /enterShell\(result\.data\.actor, result\.data\.profile\.business\.solo\)/);
 });
 
 test('yeni işletme akışının tek veri dikişi authApi.signup olur', () => {
@@ -202,18 +206,32 @@ test('Giriş 12 aynı rotada ad ve sektör hâllerini yönetir; veri stub tasla�
     assert.match(ui, /function\s+(?:Auth)?CheckIcon/);
 });
 
-test('Giriş 13 hazır ekranı tamamlanmış oturumdan işletme adını alır ve sıradaki işleri söyler', () => {
+test('Giriş 13 hazır ekranı tamamlanmış oturumdan işletme adını alır ve MODU SORAR', () => {
     for (const copy of [
         'hazır',
-        'Randevu almaya bugün başlayabilirsiniz. Üç şey eklendiğinde uygulama tam çalışır:',
+        'Son bir soru: bu işletmede işi kim yapıyor?',
         'Hizmetlerinizi ekleyin',
         'Personelinizi ekleyin',
         'Çalışma saatlerini girin',
-        'Ayrıntılı kurulum bilgisayarda daha hızlı: hizmet listesini, fiyatları ve saatleri orada topluca girersiniz.',
-        'Uygulamayı kullanmaya başla',
-        'Kurulumu bilgisayardan tamamla',
+        'Yalnız ben',
+        'Ekibim var',
     ]) {
         assert.ok(ready.includes(copy), `Giriş 13 metni eksik: ${copy}`);
+    }
+
+    /*
+     * BİLGİSAYARA YÖNLENDİREN YOL KALKTI (108).
+     *
+     * "Kurulumu bilgisayardan tamamla" düğmesi ve onu öven kutu, tek kişilik
+     * işletme sahibi için bir duvardı: o kişinin bilgisayarı yok. Yerine
+     * modu soran iki cevap geldi; adım sayısı aynı kaldı.
+     */
+    for (const gone of [
+        'Kurulumu bilgisayardan tamamla',
+        'Ayrıntılı kurulum bilgisayarda daha hızlı',
+        'DesktopIcon',
+    ]) {
+        assert.ok(!ready.includes(gone), `Giriş 13'te kalmamalıydı: ${gone}`);
     }
 
     assert.match(ready, /(?:session|result)(?:Result)?\.data\.(?:profile\.)?business\.name/);
@@ -221,13 +239,23 @@ test('Giriş 13 hazır ekranı tamamlanmış oturumdan işletme adını alır ve
     assert.doesNotMatch(ready, /Tebrik|Konfeti|confetti|✅/i);
 });
 
-test('Giriş 12 oturumu sektör seçildikten sonra tamamlar; Giriş 13 iki ayrı yol sunar', () => {
+test('Giriş 12 oturumu sektör seçildikten sonra tamamlar; Giriş 13 MODU yazar', () => {
     assert.match(
         business,
         /authApi\.signup\.sector\s*\([\s\S]{0,700}authApi\.signup\.complete\s*\([\s\S]{0,700}router\.(?:replace|push)\s*\([\s\S]{0,120}signup\/ready/,
     );
-    assert.match(ready, /(?:startApp|useApp|openApp|finishInApp)/);
-    assert.match(ready, /(?:finishOnDesktop|desktopSetup|openDesktop|continueOnDesktop)/);
+    // İki cevap da aynı işlevden geçiyor: tek yazma yolu, tek hata yolu.
+    assert.match(ready, /answer\(true\)/);
+    assert.match(ready, /answer\(false\)/);
+    /*
+     * CEVAP ÖNCE SUNUCUYA, SONRA KABUK.
+     *
+     * Sıra tersine çevrilemez: "Yalnız ben" diyen kişi için sunucu bayrağı
+     * yazmanın yanında sahibe bir personel satırı da açıyor. Yazma tutmadan
+     * kabuğu açsaydık kullanıcı tek kişilik modda ama personelsiz kalır ve
+     * hiç randevu kuramazdı.
+     */
+    assert.match(ready, /authApi\.signup\.mode\([\s\S]{0,200}if \(!result\.ok\)[\s\S]{0,200}enterShell/);
     assert.match(ready, /router\.(?:replace|push)\s*\(/);
 });
 

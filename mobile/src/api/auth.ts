@@ -841,6 +841,40 @@ async function completeSignup(): Promise<AuthResult<AuthSession>> {
     return session;
 }
 
+/**
+ * İŞLETMENİN MODU — tek kişilik mi, ekibi mi var (108).
+ *
+ * Kaydın son adımında soruluyor ve cevap SUNUCUYA yazılıyor; kabuğu seçen
+ * bilgi bu ve telefonun hafızasında tutulsaydı başka telefonda kaybolurdu.
+ *
+ * ── Neden tek çağrı ─────────────────────────────────────────────────────────
+ * "Yalnız ben" iki şey gerektiriyor: bayrağı yazmak ve sahibe bir personel
+ * satırı açmak (salonda hiç personel yoksa). İkisi ayrı yazma olsaydı
+ * ikincisi düştüğünde kullanıcı tek kişilik moda geçmiş ama RANDEVU
+ * KURAMAZ hâlde kalırdı — randevu bir personele bağlanmak zorunda
+ * (`createFlow.ts`). Sunucu fonksiyonu ikisini tek işlemde yapıyor.
+ *
+ * ── Dönüşte profil YENİDEN okunuyor ────────────────────────────────────────
+ * `selectManagerBusiness` org satırını `solo` ile yeniden okuyup saklı
+ * profili güncelliyor. Bu şart: `enterShell` kabuğu profildeki bayrağa göre
+ * seçiyor ve bayat bir profil kullanıcıyı yanlış kabuğa sokardı.
+ */
+async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> {
+    const org = await ownedOrg();
+    if (!org) return fail('no_session');
+    /*
+     * Personel satırının adı salonun adı oluyor. Kayıt akışı KİŞİNİN adını
+     * hiç sormuyor (yalnız e-posta, şifre, işletme adı) ve uydurmak doğru
+     * değil. Tek modda bu ad hiçbir yerde görünmüyor; göründüğü tek an
+     * ekibe geçiş ve adı orada sormak gerekecek.
+     */
+    const stored = await readProfile();
+    const name = stored?.profile.business.name ?? org.name;
+    const { error } = await supabase.rpc('set_business_mode', { p_solo: solo, p_name: name });
+    if (error) return fail('offline');
+    return selectManagerBusiness(org.id);
+}
+
 async function signupDraft(): Promise<AuthResult<SignupDraft>> {
     const draft = await readSignupDraft();
     return draft?.email ? done(draft) : fail('incomplete_signup');
@@ -916,6 +950,7 @@ export const auth = {
         business: saveSignupBusiness,
         sector: selectSignupSector,
         complete: completeSignup,
+        mode: setBusinessMode,
     },
     manager: {
         start: managerStart,

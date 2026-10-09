@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { authApi } from '../../../src/api/session';
 import { enterShell } from '../../../src/lib/enterShell';
@@ -23,30 +22,13 @@ const READY_ITEMS = [
     'Çalışma saatlerini girin',
 ] as const;
 
-function DesktopIcon({ color }: { color: string }) {
-    return (
-        <Svg
-            width={authMetrics.desktopIcon}
-            height={authMetrics.desktopIcon}
-            viewBox="0 0 24 24"
-            fill="none"
-        >
-            <Path
-                d="M3.6 4.6h16.8v11.2H3.6zM8.6 19.4h6.8M12 15.8v3.6"
-                stroke={color}
-                strokeWidth={authMetrics.iconStroke}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </Svg>
-    );
-}
-
 export default function SignupReady() {
     const { c, dark } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [businessName, setBusinessName] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -61,15 +43,29 @@ export default function SignupReady() {
         return () => { alive = false; };
     }, [router]);
 
-    const startApp = () => {
-        enterShell('manager');
-    };
-
-    const finishOnDesktop = () => {
-        Alert.alert(
-            'Bilgisayardan kurulum',
-            'Bilgisayarda Luera’yı açıp aynı hesapla giriş yapın. Hizmetleri, fiyatları ve çalışma saatlerini oradan topluca ekleyebilirsiniz.',
-        );
+    /**
+     * Cevap önce SUNUCUYA gidiyor, sonra kabuk açılıyor (108).
+     *
+     * Sıra tersine çevrilemez. "Yalnız ben" diyen kişi için sunucu iki şey
+     * yapıyor: bayrağı yazmak ve sahibe bir personel satırı açmak. Yazma
+     * tutmadan kabuğu açsaydık kullanıcı tek kişilik modda ama personelsiz
+     * kalırdı — randevu bir personele bağlanmak zorunda, yani hiç randevu
+     * kuramazdı.
+     *
+     * Red hâlinde HİÇBİR ŞEY değişmiyor: ekran yerinde duruyor, sebep
+     * düğmelerin üstünde yazıyor ve iki cevap da yeniden denenebiliyor.
+     */
+    const answer = async (solo: boolean) => {
+        if (busy) return;
+        setBusy(true);
+        setFailed(false);
+        const result = await authApi.signup.mode(solo);
+        if (!result.ok) {
+            setBusy(false);
+            setFailed(true);
+            return;
+        }
+        enterShell(result.data.actor, result.data.profile.business.solo);
     };
 
     if (!businessName) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
@@ -103,12 +99,14 @@ export default function SignupReady() {
                 <AuthHeader
                     ready
                     title={`${businessName} hazır`}
-                    body="Randevu almaya bugün başlayabilirsiniz. Üç şey eklendiğinde uygulama tam çalışır:"
+                    body="Son bir soru: bu işletmede işi kim yapıyor? Uygulama cevabınıza göre açılır, sonradan değiştirebilirsiniz."
                 />
                 <AuthReadyChecklist items={READY_ITEMS} />
-                <AuthBanner style={{ marginTop: authMetrics.readyInfoTop }}>
-                    Ayrıntılı kurulum bilgisayarda daha hızlı: hizmet listesini, fiyatları ve saatleri orada topluca girersiniz.
-                </AuthBanner>
+                {failed ? (
+                    <AuthBanner style={{ marginTop: authMetrics.readyInfoTop }}>
+                        Cevabınız kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.
+                    </AuthBanner>
+                ) : null}
                 <View style={{ flex: 1 }} />
             </ScrollView>
 
@@ -117,14 +115,15 @@ export default function SignupReady() {
                 gap: authMetrics.actionsGap,
             }}>
                 <AuthActionButton
-                    label="Uygulamayı kullanmaya başla"
-                    onPress={startApp}
+                    label="Yalnız ben"
+                    disabled={busy}
+                    onPress={() => { void answer(true); }}
                 />
                 <AuthActionButton
                     kind="secondary"
-                    label="Kurulumu bilgisayardan tamamla"
-                    left={<DesktopIcon color={c.tx} />}
-                    onPress={finishOnDesktop}
+                    label="Ekibim var"
+                    disabled={busy}
+                    onPress={() => { void answer(false); }}
                 />
             </View>
         </View>

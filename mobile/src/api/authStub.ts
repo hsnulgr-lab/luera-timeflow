@@ -880,6 +880,24 @@ function initialsFor(label: string): string {
         .join('');
 }
 
+/**
+ * İşletmenin modu (108) — stub karşılığı.
+ *
+ * Canlıda bu bir sunucu fonksiyonu: bayrağı yazıyor ve gerekirse sahibe bir
+ * personel satırı açıyor. Burada yalnız saklı oturumdaki bayrak çevriliyor;
+ * stub'ın personel tablosu yok ve olmayan bir satırı varmış gibi göstermek,
+ * stub'ı canlıdan daha iyimser yapardı.
+ */
+async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> {
+    const session = await readSession();
+    if (!session) return failure('no_session');
+    const profile: AuthProfile = {
+        ...session.profile,
+        business: { ...session.profile.business, solo },
+    };
+    return success(await saveSession(profile));
+}
+
 async function completeSignup(): Promise<AuthResult<AuthSession>> {
     const pending = await readJson<PendingSignup>(storageKeys.pendingSignup);
     if (!pending?.email || !pending.password || !pending.businessName || !pending.sector) {
@@ -984,5 +1002,6 @@ export const authStub = {
         business: saveSignupBusiness,
         sector: selectSignupSector,
         complete: completeSignup,
+        mode: setBusinessMode,
     },
 } as const;

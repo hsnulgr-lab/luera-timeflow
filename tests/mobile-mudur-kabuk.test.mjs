@@ -80,8 +80,12 @@ test('rol eve karar verir: müdür müdür moduna gider', () => {
             path,
         );
     }
-    // Yeni işletme açan kişi müdürdür.
-    assert.match(read('app/(auth)/signup/ready.tsx'), /enterShell\('manager'\)/);
+    // Yeni işletme açan kişi müdürdür — ama HANGİ kabuğa gideceğini kaydın
+    // sonundaki mod sorusu belirliyor (108), sabit bir adres değil.
+    assert.match(
+        read('app/(auth)/signup/ready.tsx'),
+        /enterShell\(result\.data\.actor, result\.data\.profile\.business\.solo\)/,
+    );
     // Eşleme tek yerde: rol + mod → kabuk adresi.
     const shell = read('src/lib/enterShell.ts');
     assert.match(shell, /if \(actor !== 'manager'\) return '\/personel'/);
