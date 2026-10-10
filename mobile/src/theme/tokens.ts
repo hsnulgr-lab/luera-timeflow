@@ -2997,6 +2997,73 @@ export const staffDayMetrics = {
 } as const;
 
 /**
+ * Tek kişilik Gün — randevu KARTI (108).
+ *
+ * Personel Bugün satır listesi burada karta dönüyor: saat kartın DIŞINDA
+ * solda, kart içinde ad ve sağda süre, altında hizmet ve durum. Sebep, bu
+ * modda listenin gövdenin tamamı olması — araya ayırıcı çizgi koyulan bir
+ * liste yerine, her işin kendi yüzeyi var ve durum şeridi o yüzeyin kenarına
+ * yazılabiliyor.
+ *
+ * Her sayı `docs/design-reference/Luera Mobil - Tek Kisilik v4.html` ·
+ * `.gl` / `.gc` / `.gk` / `.nowp` kurallarından birebir.
+ */
+export const soloDayMetrics = {
+    // Liste gövdesi (gl)
+    listPadX: 18,
+    listPadTop: 8,
+    listGap: 10,
+
+    // Satır (gc) — saat kartın dışında
+    rowGap: 14,
+    timeWidth: 36,
+    timeSize: 14,
+    /*
+     * Saat kartın İLK SATIRIYLA hizalanıyor, kartın tepesiyle değil: göz
+     * saati adın yanında arıyor. 16 = kartın üst dolgusu (13) + adın
+     * satır yüksekliğiyle taban çizgisi arasındaki fark.
+     */
+    timePadTop: 16,
+
+    // Kart (gk)
+    cardRadius: 20,
+    cardPadTop: 13,
+    cardPadX: 16,
+    cardPadBottom: 14,
+    cardGapX: 10,
+    cardGapY: 3,
+    nameSize: 19,
+    nameTrack: -0.02,
+    nameLine: 1.25,
+    durationSize: 15,
+    serviceSize: 14.5,
+
+    // Durum (stl) — hizmet satırının devamı, ayrı satır DEĞİL
+    stampGap: 6,
+    stampDot: 6,
+
+    /*
+     * Biten işin kenar şeridi (gk.bar) — kartın sağ kenarında.
+     *
+     * Kart solmuyor, YALNIZ AD soluyor (0.72). Bütün kartı soldurmak hizmet
+     * satırını ve durumu da okunmaz yapardı; oysa "tamamlandı" biten işin
+     * tek bilgisi.
+     */
+    barWidth: 3,
+    barRadius: 2,
+    barRight: 15,
+    barInset: 14,
+    barPadRight: 32,
+    doneNameOpacity: 0.72,
+
+    // Şimdi çizgisi (nowp) — turuncu hap, kartların arasında
+    nowPillHeight: 22,
+    nowPillPadX: 10,
+    nowPillText: 15,
+    nowGap: 10,
+} as const;
+
+/**
  * Personel günü üst parıltısı — tasarımdaki `.grad`:
  * 120 pt, turuncu %10 → saydam. Sayfanın üst çubuğu ve şeridi bunun üstünde
  * durur; kaydırmayla sönmez, sabittir.

@@ -5,19 +5,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader, WeekStrip } from '../../src/components/CalendarParts';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { VoidBlock } from '../../src/components/EmptyDayParts';
+import { SoloAppointmentCard, SoloNowLine } from '../../src/components/SoloDayParts';
 import {
-    StaffAppointmentRow,
-    StaffEmptyNoteView,
     StaffHeroPanelCard,
     StaffListHeaderView,
-    StaffNowLineView,
 } from '../../src/components/StaffDayParts';
 import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { soloDaySubtitle } from '../../src/lib/soloDay';
+import { soloDaySubtitle, soloEmptyCopy } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
-import { staffDayMetrics, useTheme } from '../../src/theme';
+import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
 /**
  * Tek kişilik · GÜN (108).
@@ -25,9 +24,13 @@ import { staffDayMetrics, useTheme } from '../../src/theme';
  * Üç mevcut ekranın harmanı, yeni bir tasarım değil:
  *
  *   • Başlık ve hafta şeridi — personel "Bugün" (`DayHeader`, `WeekStrip`)
- *   • Hâl kartı ve randevu kartları — Müdür 24 "bir personelin günü"
- *     (`StaffHeroPanelCard`, `StaffAppointmentRow`)
+ *   • Hâl kartı — Müdür 24 "bir personelin günü" (`StaffHeroPanelCard`)
+ *   • Boş gün — Müdür 22 boş hâl gövdesi (`VoidBlock`), cümlesi tek kişilik
  *   • Gün hesabı — `buildStaffDayState`, personel günüyle AYNI işlev
+ *
+ * Tek YENİ parça randevu kartı (`SoloAppointmentCard`): Müdür 24'ün ayırıcı
+ * çizgili satırı burada kart oluyor, çünkü orada listenin payı ekranın alt
+ * şeridiydi, burada gövdenin tamamı. Gerekçesi bileşenin başında.
  *
  * Tasarım: `docs/design-reference/Luera Mobil - Tek Kisilik v4.html` · G1–G4
  *
@@ -95,6 +98,18 @@ export default function SoloDay() {
         [me, mine, data.presence, nowMinutes, selectedISO],
     );
 
+    /*
+     * GÜN GERÇEKTEN BOŞ MU?
+     *
+     * `dayKnown` olmadan sorulmuyor: okunmamış bir günü boş göstermek, en
+     * pahalı yalan. Üç kova birlikte bakılıyor — süren iş listede değil
+     * kartta duruyor ve yalnız listeye bakmak dolu bir günü boş sayardı.
+     */
+    const dayEmpty = dayKnown
+        && !dayState?.runningAppointment
+        && (dayState?.upcomingAppointments.length ?? 0) === 0
+        && (dayState?.pastAppointments.length ?? 0) === 0;
+
     const subtitle = soloDaySubtitle(
         selectedISO,
         dayKnown && dayState
@@ -149,41 +164,67 @@ export default function SoloDay() {
                     />
                 ) : null}
 
-                {dayState?.panel ? (
+                {/*
+                  * BOŞ GÜNDE KART ÇİZİLMİYOR (v4 · B1).
+                  *
+                  * Hâl kartı günün o anki SATIRININ eylem kartı; satır yokken
+                  * üzerinde iş yapılacak bir şey de yok. Boş günün eylemi
+                  * sekme çubuğundaki Randevu, ekranın ortasındaki bir düğme
+                  * değil.
+                  *
+                  * Müdür 24'ün `emptyNote`u da burada çizilmiyor: o cümleler
+                  * salonu DIŞARIDAN anlatıyor ("Derya bugün hiç randevu
+                  * almadı") ve bu modda muhatap Derya'nın kendisi.
+                  */}
+                {dayEmpty ? (
+                    <VoidBlock
+                        copy={soloEmptyCopy(selectedISO, todayISO(), data.open)}
+                        isToday={isToday}
+                        nowMinutes={nowMinutes}
+                    />
+                ) : null}
+
+                {!dayEmpty && dayState?.panel ? (
                     <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
                         <StaffHeroPanelCard panel={dayState.panel} />
                     </View>
                 ) : null}
 
-                {dayState?.emptyNote ? <StaffEmptyNoteView note={dayState.emptyNote} /> : null}
-
-                {dayState?.listTitle ? <StaffListHeaderView title={dayState.listTitle} /> : null}
-
-                {dayState?.pastAppointments.map((appointment, index) => (
-                    <StaffAppointmentRow
-                        key={appointment.id}
-                        appointment={appointment}
-                        nowMinutes={nowMinutes}
-                        first={index === 0}
-                        fade
-                        onOpen={openAppointment}
-                    />
-                ))}
-
-                {/* Şimdi çizgisi YALNIZ bugün: başka günün altında yalan olur. */}
-                {dayState?.showNowLine && isToday ? (
-                    <StaffNowLineView time={dayState.nowLineTime} />
+                {!dayEmpty && dayState?.listTitle ? (
+                    <StaffListHeaderView title={dayState.listTitle} />
                 ) : null}
 
-                {dayState?.upcomingAppointments.map((appointment, index) => (
-                    <StaffAppointmentRow
-                        key={appointment.id}
-                        appointment={appointment}
-                        nowMinutes={nowMinutes}
-                        first={index === 0 && dayState.pastAppointments.length === 0}
-                        onOpen={openAppointment}
-                    />
-                ))}
+                {/* Liste gövdesi (.gl): kartlar ve şimdi hapı tek ritimde. */}
+                {dayEmpty ? null : (
+                    <View style={{
+                        paddingHorizontal: soloDayMetrics.listPadX,
+                        paddingTop: soloDayMetrics.listPadTop,
+                        gap: soloDayMetrics.listGap,
+                    }}>
+                        {dayState?.pastAppointments.map((appointment) => (
+                            <SoloAppointmentCard
+                                key={appointment.id}
+                                appointment={appointment}
+                                nowMinutes={nowMinutes}
+                                onOpen={openAppointment}
+                            />
+                        ))}
+
+                        {/* Şimdi hapı YALNIZ bugün: başka günün altında yalan olur. */}
+                        {dayState?.showNowLine && isToday ? (
+                            <SoloNowLine time={dayState.nowLineTime} />
+                        ) : null}
+
+                        {dayState?.upcomingAppointments.map((appointment) => (
+                            <SoloAppointmentCard
+                                key={appointment.id}
+                                appointment={appointment}
+                                nowMinutes={nowMinutes}
+                                onOpen={openAppointment}
+                            />
+                        ))}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );

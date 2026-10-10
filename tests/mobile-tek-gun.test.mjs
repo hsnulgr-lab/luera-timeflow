@@ -5,10 +5,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { soloDaySubtitle } from '../mobile/src/lib/soloDay.ts';
+import {
+    soloApptDuration,
+    soloApptStamp,
+    soloDaySubtitle,
+    soloEmptyCopy,
+} from '../mobile/src/lib/soloDay.ts';
 
 const read = (p) => readFileSync(new URL(`../mobile/${p}`, import.meta.url), 'utf8');
 const gun = read('app/tek/index.tsx');
+
+/** En az alan: damga ve süre yalnız bunlara bakıyor. */
+const appt = (over = {}) => ({
+    id: 'a1',
+    customer_id: null,
+    customer_name: 'Sibel Karaca',
+    customer_phone: null,
+    date: '2026-10-09',
+    start_time: '10:30',
+    end_time: '11:00',
+    service: 'Lazer Epilasyon',
+    service_color: null,
+    status: 'confirmed',
+    notes: null,
+    arrived_at: null,
+    service_ended_at: null,
+    ...over,
+});
 
 test('alt başlık personel dilinde sayıyor, müdür dilinde değil', () => {
     // "6 randevu · 3 personel" müdürün sorusu. Bu modda ekrana bakan kişi
@@ -52,4 +75,98 @@ test('okunamadı, boş günden AYRI çiziliyor', () => {
 test('dokunulduğunda hiçbir şey yapmayan hap ÇİZİLMİYOR', () => {
     // Kart `action`a hazır ama kumanda yolu bağlanmadan hap konmuyor.
     assert.doesNotMatch(gun, /action=\{/);
+});
+
+
+// ── Kartın durumu ───────────────────────────────────────────────────────────
+
+test('biten iş "tahsil edildi" DEĞİL "tamamlandı" diyor', () => {
+    /*
+     * Tasarım (v4 · G1) bu yuvada "tahsil edildi" yazıyor. Yazılmıyor, çünkü
+     * randevu satırında ödeme diye bir alan yok — para kaydı `cash.ts`'te ve
+     * bu ekran onu okumuyor. "İş bitti"yi "para alındı" diye yazmak en pahalı
+     * yalan olurdu: kullanıcı tahsil ettiğini sanıp günü kapatır.
+     */
+    assert.deepEqual(
+        soloApptStamp(appt({ service_ended_at: '2026-10-09T11:02:00Z' }), 700),
+        { label: 'tamamlandı', tone: 'gr' },
+    );
+    assert.deepEqual(soloApptStamp(appt({ status: 'completed' }), 700), { label: 'tamamlandı', tone: 'gr' });
+});
+
+test('iptal ile gelmedi AYRI kalıyor', () => {
+    // İptali kullanıcı yazar, gelmemeyi müşteri yapar. Tek rozete toplamak
+    // yarına taşınacak satırı gizlerdi.
+    assert.deepEqual(soloApptStamp(appt({ status: 'cancelled' }), 700), { label: 'iptal', tone: 'rd' });
+    // 10:30 randevu, saat 12:00 ve kimse gelmemiş.
+    assert.deepEqual(soloApptStamp(appt(), 720), { label: 'gelmedi', tone: 'rd' });
+});
+
+test('sıradaki randevuda damga YOK', () => {
+    // Henüz olmamış bir şeyin durumu yazılmaz; kartın kenar şeridi de çıkmaz.
+    assert.equal(soloApptStamp(appt(), 600), null);
+});
+
+test('süre hesaplanamıyorsa yazılmıyor', () => {
+    assert.equal(soloApptDuration(appt()), '30 dk');
+    // Bozuk aralık "0 dk" diye bir iş üretmiyor.
+    assert.equal(soloApptDuration(appt({ end_time: '10:30' })), null);
+});
+
+// ── Boş günün cümlesi ───────────────────────────────────────────────────────
+
+test('boş gün İKİNCİ ŞAHISTAN konuşuyor', () => {
+    // `emptyDayCopy` salonu dışarıdan anlatıyor ("Salon 09:00'da açıldı");
+    // bu modda muhatap salonun kendisi.
+    const copy = soloEmptyCopy('2026-10-09', '2026-10-09', { from: 540, to: 1140 });
+    assert.equal(copy.title, 'Bugün randevunuz yok.');
+    assert.equal(copy.hint, 'Çalışma saatiniz 09:00 – 19:00.');
+    assert.equal(copy.label, 'BUGÜN · CUMA');
+});
+
+test('kapalı gün boş gün DEĞİL, ayrı cümle ve ray yok', () => {
+    const copy = soloEmptyCopy('2026-10-11', '2026-10-11', null);
+    assert.equal(copy.title, 'Bugün kapalısınız.');
+    assert.match(copy.hint, /Pazar, çalışma saatlerinizde kapalı gün/);
+    // Ray çalışma saatlerinin cetveli; o gün çalışma saati yok.
+    assert.equal(copy.rail, false);
+    // Nokta sakin: turuncu "şu an burada bir şey oluyor" derdi.
+    assert.equal(copy.dotTone, 'calm');
+});
+
+test('çalışma saati BİLİNMİYORSA uydurulmuyor', () => {
+    // `undefined` = okunamadı. "09:00 – 19:00" yazmak varsayılanı gerçek gibi
+    // göstermek olurdu.
+    const copy = soloEmptyCopy('2026-10-09', '2026-10-09', undefined);
+    assert.doesNotMatch(copy.hint, /\d{2}:\d{2}/);
+    assert.match(copy.hint, /Randevu/);
+});
+
+test('boş günde ekranın ortasına düğme çizilmiyor', () => {
+    // Boş günün eylemi sekme çubuğundaki Randevu (v4 · B1).
+    for (const iso of ['2026-10-09', '2026-10-15', '2026-10-01']) {
+        assert.equal(soloEmptyCopy(iso, '2026-10-09', { from: 540, to: 1140 }).action, null);
+    }
+});
+
+test('okunmamış gün BOŞ gösterilmiyor', () => {
+    // `dayKnown` olmadan "randevunuz yok" denmiyor: gün dolu olabilir.
+    assert.match(gun, /const dayEmpty = dayKnown/);
+});
+
+// ── Takvim · tek sütun ──────────────────────────────────────────────────────
+
+test('tek kişilikte sütun başlığı çizilmiyor ve sütun genişliyor', () => {
+    /*
+     * Telefonda görünen buydu: tek sütunun üstünde kullanıcının kendi adı
+     * yazıyor ve ızgaradan 44 pt alıyordu. 95 pt genişlik beş kişiyi yan yana
+     * sığdırmak için seçilmişti; tek sütunda o kısıt yok.
+     */
+    const grid = read('src/components/ColumnCalendar.tsx');
+    assert.match(grid, /soloColumn \? null : \(/);
+    assert.match(grid, /const headerHeight = soloColumn \? 0 : columnMetrics\.headerHeight/);
+    assert.match(grid, /width: columnWidth/);
+    // Sürükleme hedefi de aynı genişlikte — yoksa vurgu bloğun yarısını gösterirdi.
+    assert.match(grid, /columnWidth=\{columnWidth\}/);
+    assert.match(read('app/mudur/calendar.tsx'), /soloColumn=\{solo\}/);
 });

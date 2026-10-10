@@ -38,7 +38,7 @@ import type { Appt } from '../lib/calendar';
  * anda iki kaydırıcı da kilitleniyor, yoksa parmak hem bloğu hem sayfayı
  * çekerdi.
  */
-export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes, isToday, readOnly = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
+export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes, isToday, readOnly = false, soloColumn = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
     appointments: readonly Appt[];
     staff: readonly ColumnStaff[];
     /**
@@ -66,6 +66,21 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      */
     readOnly?: boolean;
     /**
+     * TEK SÜTUN kipi — tek kişilik işletme (108).
+     *
+     * İki şey değişiyor: sütun başlıkları çizilmiyor ve kalan tek sütun
+     * ekranı dolduruyor.
+     *
+     * Başlık çıkıyor çünkü orada yazan şey "bu sütun kimin" ve tek sütunlu
+     * bir takvimde o sorunun cevabı zaten tek: ekrana bakan kişi. Avatar ve
+     * ad, 44 pt'yi ızgaradan alıp hiçbir şey söylemeyen bir satıra veriyordu.
+     *
+     * Sütun genişliyor çünkü 95 pt beş kişiyi yan yana sığdırmak için
+     * seçilmişti. Tek sütunda o kısıt yok ve genişleyen blokta hizmet adı
+     * kırpılmadan sığıyor. Tasarım: v4 · T1.
+     */
+    soloColumn?: boolean;
+    /**
      * Aşağı çekip yenileme. Dikey kaydırıcı BU bileşenin içinde yaşıyor;
      * dışarıdan bir `ScrollView` sarmak ikisini birbiriyle yarıştırırdı.
      * Kontrolü çağıran kurar, çünkü yenilemenin ne yaptığını o bilir.
@@ -87,6 +102,22 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
     const byStaff = columnize(appointments, staff, dayStart);
     const nowTop = nowLineTop(nowMinutes, dayStart);
     const showNow = isToday && nowTop >= 0 && nowTop <= gridHeight;
+
+    /*
+     * Sütun genişliği — tek sütunda ekranın kalanı.
+     *
+     * `Dimensions` çağrılıyor, `onLayout` ölçümü DEĞİL: genişlik ilk karede
+     * gerekiyor ve ölçümü beklemek ızgaranın bir kare 95 pt çizilip sonra
+     * atlamasına yol açardı. Döndürmede yeniden hesaplanmıyor; bu ekran
+     * dikey ve telefon.
+     *
+     * `Math.max` emniyet: dar bir cihazda sütun 95'in altına inmiyor,
+     * blok içindeki ad ve saat o genişlik için yazılmış.
+     */
+    const columnWidth = soloColumn
+        ? Math.max(COLUMN_WIDTH, Dimensions.get('window').width - HOURS_WIDTH - columnMetrics.gridPadRight)
+        : COLUMN_WIDTH;
+    const headerHeight = soloColumn ? 0 : columnMetrics.headerHeight;
 
     const [lifted, setLifted] = useState<{ appointment: Appt; index: number } | null>(null);
     const [target, setTarget] = useState<MoveTarget | null>(null);
@@ -301,7 +332,8 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                 {/* Sabit saat sütunu. Başlık satırı kadar boşlukla başlar ki
                     ilk saat ilk ızgara çizgisiyle hizalansın. */}
                 <View style={{ width: HOURS_WIDTH, paddingLeft: columnMetrics.hoursX }}>
-                    <View style={{ height: columnMetrics.headerHeight }} />
+                    {/* Başlık satırı kadar pay; tek sütunda başlık yok, pay da yok. */}
+                    <View style={{ height: headerHeight }} />
                     {hours.map((label) => (
                         <Num
                             key={label}
@@ -330,7 +362,9 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                     contentContainerStyle={{ paddingRight: columnMetrics.gridPadRight }}
                 >
                     <View>
-                        {/* Sütun başlıkları: avatar + ad. Kenarlık hizmet türünü söyler. */}
+                        {/* Sütun başlıkları: avatar + ad. Kenarlık hizmet türünü söyler.
+                            Tek sütunda hiç çizilmiyor — bkz. `soloColumn`. */}
+                        {soloColumn ? null : (
                         <View style={{
                             flexDirection: 'row',
                             gap: COLUMN_GAP,
@@ -339,7 +373,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                         }}>
                             {staff.map((person) => (
                                 <View key={person.id} style={{
-                                    width: COLUMN_WIDTH,
+                                    width: columnWidth,
                                     flexDirection: 'row',
                                     alignItems: 'center',
                                     gap: columnMetrics.headerGap,
@@ -377,10 +411,11 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                 </View>
                             ))}
                         </View>
+                        )}
 
                         <View style={{ flexDirection: 'row', gap: COLUMN_GAP, height: gridHeight }}>
                             {staff.map((person, index) => (
-                                <View key={person.id} style={{ width: COLUMN_WIDTH }}>
+                                <View key={person.id} style={{ width: columnWidth }}>
                                     {hours.map((label, hourIndex) => (
                                         <Pressable
                                             key={label}
@@ -427,6 +462,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                     target={target}
                                     staff={staff}
                                     dayStartMinutes={dayStart}
+                                    columnWidth={columnWidth}
                                 />
                             ) : null}
 
@@ -459,10 +495,12 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
 }
 
 /** Hedef slotun turuncu vurgusu ve "13:30 · Deniz" etiketi. */
-function TargetSlot({ target, staff, dayStartMinutes }: {
+function TargetSlot({ target, staff, dayStartMinutes, columnWidth }: {
     target: MoveTarget;
     staff: readonly ColumnStaff[];
     dayStartMinutes: number;
+    /** Izgaranınkiyle AYNI genişlik; tek sütunda 95 değil. */
+    columnWidth: number;
 }) {
     const { c } = useTheme();
     const index = staff.findIndex((person) => person.id === target.staffId);
@@ -474,8 +512,8 @@ function TargetSlot({ target, staff, dayStartMinutes }: {
             pointerEvents="none"
             style={{
                 position: 'absolute',
-                left: index * (COLUMN_WIDTH + COLUMN_GAP),
-                width: COLUMN_WIDTH,
+                left: index * (columnWidth + COLUMN_GAP),
+                width: columnWidth,
                 top: (target.startMinutes - dayStartMinutes) * perMinute,
                 height: (target.endMinutes - target.startMinutes) * perMinute,
                 borderRadius: moveMetrics.targetRadius,

@@ -145,8 +145,27 @@ test('tek kişilik ekranlar KOPYA değil, müdür ekranının kendisi', () => {
      */
     const gun = read('app/tek/index.tsx');
     assert.doesNotMatch(gun, /export \{ default \} from/);
-    // Yine de yeni bileşen İCAT ETMİYOR: parçalar mevcut iki ekrandan.
-    for (const part of ['DayHeader', 'WeekStrip', 'StaffHeroPanelCard', 'StaffAppointmentRow', 'buildStaffDayState']) {
+    // Yine de gövdesini mevcut ekranlardan kuruyor: başlık ve şerit personel
+    // "Bugün"den, hâl kartı ve liste başlığı Müdür 24'ten, boş hâl Müdür
+    // 22'den, gün hesabı personel günüyle AYNI işlevden.
+    for (const part of [
+        'DayHeader', 'WeekStrip', 'StaffHeroPanelCard', 'StaffListHeaderView',
+        'VoidBlock', 'buildStaffDayState',
+    ]) {
         assert.match(gun, new RegExp(part), `Gün ekranı ${part} kullanmalı`);
     }
+
+    /*
+     * TEK YENİ PARÇA randevu kartı — ve o da ekranın içine GÖMÜLMÜYOR.
+     *
+     * v4 tasarımı listeyi karta çeviriyor (saat kartın dışında, durum kartın
+     * kenarında); Müdür 24'ün ayırıcı çizgili satırı bunu ifade edemiyor.
+     * Gerekçe `SoloDayParts.tsx`'in başında yazılı.
+     *
+     * Kartın kendi dosyasında olması şart: ekrana gömülü bir yüzey test
+     * edilemez ve ölçüsü sessizce kayar. Ekran ondan BAŞKA bir randevu satırı
+     * da çizmiyor — iki ayrı kart dili aynı listede olmaz.
+     */
+    assert.match(gun, /from '\.\.\/\.\.\/src\/components\/SoloDayParts'/);
+    assert.doesNotMatch(gun, /StaffAppointmentRow/);
 });

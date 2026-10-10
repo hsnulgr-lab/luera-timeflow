@@ -76,6 +76,18 @@ export function shortDayLabel(iso: string): string {
     return `${WEEKDAYS_SHORT[p.weekday]} ${p.day}`;
 }
 
+/**
+ * Yalnız günün adı: "Salı".
+ *
+ * Tek kişilik Gün'ün boş hâl etiketi bunu istiyor ("BUGÜN · SALI", kapalı
+ * günde tek başına "PAZAR"). `longDayLabel` sayıyı da yazıyor ve o etikette
+ * sayı iki kez geçerdi — başlıkta zaten dev puntoyla duruyor.
+ */
+export function weekdayName(iso: string): string {
+    const p = parts(iso);
+    return p ? WEEKDAYS[p.weekday] : '';
+}
+
 /** Erişilebilirlik cümlesi için tam gün: "13 Perşembe". */
 export function longDayLabel(iso: string): string {
     const p = parts(iso);
@@ -90,6 +102,22 @@ export interface EmptyDayCopy {
     label: string;
     /** Yalnız bugünde ve TURUNCU: bugün bir zaman bilgisidir. */
     dot: boolean;
+    /**
+     * Noktanın tonu. Varsayılan turuncu — "bugün"ün rengi.
+     *
+     * `'calm'` yalnız KAPALI GÜN için (108 · tek kişilik, v4 B2): o gün de
+     * bir zaman bilgisi, ama turuncu "şu an burada bir şey oluyor" diyor ve
+     * kapalı günde olan bir şey yok. Nokta tek başına anlam taşımıyor,
+     * kelime yanında yazılı.
+     */
+    dotTone?: 'or' | 'calm';
+    /**
+     * Saat rayı çizilsin mi. Varsayılan evet — boşluğun ölçüsü.
+     *
+     * Kapalı günde `false`: ray çalışma saatlerinin cetveli ve o gün
+     * çalışma saati YOK. Boş bir cetvel, kapalı günü boş gün gibi gösterirdi.
+     */
+    rail?: boolean;
     /** İki satıra kadar; ortalı. Kahraman rakam YOK — ölçülecek bir şey yok. */
     title: string;
     /** Kırpılmaz, sarar. */

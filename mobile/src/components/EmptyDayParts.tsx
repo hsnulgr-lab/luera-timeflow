@@ -97,7 +97,8 @@ export function VoidBlock({ copy, isToday, nowMinutes, entering }: {
                         width: emptyDayMetrics.dot,
                         height: emptyDayMetrics.dot,
                         borderRadius: radius.pill,
-                        backgroundColor: c.or,
+                        // Kapalı günün noktası sakin: bkz. `EmptyDayCopy.dotTone`.
+                        backgroundColor: copy.dotTone === 'calm' ? c.tx3 : c.or,
                     }} />
                 ) : null}
                 <Text style={{
@@ -138,7 +139,8 @@ export function VoidBlock({ copy, isToday, nowMinutes, entering }: {
                 {copy.hint}
             </Text>
 
-            <HourRail isToday={isToday} nowMinutes={nowMinutes} />
+            {/* Kapalı günde ray YOK: o günün çalışma saati yok, cetveli de. */}
+            {copy.rail === false ? null : <HourRail isToday={isToday} nowMinutes={nowMinutes} />}
         </Animated.View>
     );
 }

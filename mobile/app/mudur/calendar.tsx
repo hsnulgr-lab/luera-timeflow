@@ -301,6 +301,15 @@ export default function ManagerCalendar() {
                     to={to}
                     nowMinutes={nowMinutes}
                     isToday={isToday}
+                    /*
+                     * TEK KİŞİLİKTE SÜTUN BAŞLIĞI YOK (108 · v4 T1).
+                     *
+                     * Telefonda görünen buydu: tek sütunun üstünde "DT Derya
+                     * Toprak" yazıyordu — ekrana bakan kişinin kendi adı,
+                     * ızgaradan 44 pt alarak. Bayrak adresten okunuyor
+                     * (`useInSoloShell`), oturumdan değil: ilk karede doğru.
+                     */
+                    soloColumn={solo}
                     // Bloğa dokunmak randevu detayını açar (Müdür 08).
                     onOpen={(appointment) => router.push({
                         pathname: '/randevu/[id]',
