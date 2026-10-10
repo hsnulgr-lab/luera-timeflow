@@ -360,3 +360,22 @@ test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
 test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
     assert.match(gun, /!dayEmpty && isToday && dayState\?\.panel/);
 });
+
+
+test('EKRANIN SICAKLIĞI — uygulamanın tek gradyanı Gün\'de de var', () => {
+    /*
+     * Telefonda görülen (2026-10-11): Gün'ün üstü düz siyahtı, yanındaki
+     * Takvim ise sıcak. İki ekran aynı üründen değilmiş gibi duruyordu.
+     * v4'te Gün `{glow:1}` ile çiziliyor.
+     *
+     * Jeton PAYLAŞILIYOR: müdür Takvim'i ve personel Bugün'ü de aynı
+     * `glow`u kullanıyor — üç ekranın sıcaklığı tanım gereği ayrışamıyor.
+     */
+    assert.match(gun, /colors=\{dark \? glow\.dark : glow\.light\}/);
+    assert.match(gun, /locations=\{glow\.locations\}/);
+    // Güvenli alanın ÜSTÜNDEN başlıyor; yoksa başlığın altında şerit gibi durur.
+    assert.match(gun, /height: glow\.height \+ insets\.top/);
+
+    const takvim = read('app/mudur/calendar.tsx');
+    assert.match(takvim, /height: glow\.height \+ insets\.top/);
+});

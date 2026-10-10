@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,7 +21,7 @@ import {
     SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloPanelAction,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
-import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
+import { glow, soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
 /**
  * Tek kişilik · GÜN (108).
@@ -56,7 +57,7 @@ import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
  * yanlış dakikadan başlatması kabul edilemezdi. Tasarım da böyle (v4 · G1).
  */
 export default function SoloDay() {
-    const { c } = useTheme();
+    const { c, dark } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
 
@@ -192,7 +193,27 @@ export default function SoloDay() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
+            {/*
+              * EKRANIN SICAKLIĞI (v4 · Gün `{glow:1}` ile çiziliyor).
+              *
+              * Uygulamanın TEK gradyanı; müdür Takvim'i ve personel Bugün'ü
+              * de aynı jetonu kullanıyor. Bu ekranda eksikti ve telefonda
+              * görülen buydu: üstü düz siyah bir Gün, yanındaki Takvim ise
+              * sıcak. İki ekran aynı üründen değilmiş gibi duruyordu.
+              *
+              * Güvenli alanın ÜSTÜNDEN başlıyor: durum çubuğunun arkası da
+              * ısınmalı, yoksa parıltı başlığın altında bir şerit gibi
+              * görünür.
+              */}
+            <LinearGradient
+                pointerEvents="none"
+                colors={dark ? glow.dark : glow.light}
+                locations={glow.locations}
+                style={[StyleSheet.absoluteFill, { height: glow.height + insets.top }]}
+            />
+
+            <View style={{ flex: 1, paddingTop: insets.top }}>
             <DayHeader dateISO={selectedISO} subtitle={subtitle} transparent />
             <WeekStrip
                 days={days}
@@ -318,6 +339,7 @@ export default function SoloDay() {
                     </View>
                 )}
             </ScrollView>
+            </View>
         </View>
     );
 }
