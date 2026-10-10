@@ -55,7 +55,6 @@ AS $$
 DECLARE
     v_org_id UUID;
     v_staff_count INT;
-    v_staff_id UUID;
 BEGIN
     -- Yalnız SAHİBİ olunan org. Üyelik yetmez: modu değiştirmek sahibin işi.
     SELECT id INTO v_org_id
@@ -77,8 +76,7 @@ BEGIN
         SELECT count(*) INTO v_staff_count FROM staff WHERE organization_id = v_org_id;
         IF v_staff_count = 0 THEN
             INSERT INTO staff (organization_id, name)
-            VALUES (v_org_id, COALESCE(NULLIF(btrim(p_name), ''), 'Ben'))
-            RETURNING id INTO v_staff_id;
+            VALUES (v_org_id, COALESCE(NULLIF(btrim(p_name), ''), 'Ben'));
         END IF;
     END IF;
 
