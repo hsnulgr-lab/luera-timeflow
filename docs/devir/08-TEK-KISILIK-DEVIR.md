@@ -1,0 +1,529 @@
+# DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
+
+**Tarih:** 2026-10-11 · **Dal:** `tek-kisilik` · **Baş commit:** `7f7b5f1`
+**Testler:** 2771 geçti / 0 kırık / 7 atlandı · `tsc` temiz
+
+Bu belge tek başına yeterli olmak için yazıldı. Yeni oturum bunu okuyunca
+projeyi, kararları ve sıradaki işi bilmeli; önceki konuşmayı aramaya
+ihtiyaç duymamalı.
+
+---
+
+## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
+
+1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
+2. **İki deploy borcunu kullanıcıya hatırlat** (§6). Kod yazıldı, sunucuda
+   yok. Bunlar gitmeden tahsilat telefonda ÇALIŞMAZ.
+3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
+   Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
+
+---
+
+## 1 · KULLANICININ DURAN EMRİ
+
+Kelimesi kelimesine, çünkü her tur bundan sapma riski taşıyor:
+
+> *"ben bu html dosyasındaki ekran tasarımlarını birebir aynısını istiyorum
+> a-z ye eksiksiz bazıları uygulanmamış bunları uygula"*
+
+Ve test turunda:
+
+> *"1 ve 2nci fotoğraftaki görseller canlı olan 3 ve 4 deki de html de
+> tasarlanan ben birebir aynısını istiyorum çünkü farklı duruyor telefondaki"*
+
+**Ne demek:** v4'teki her ekran, telefonda birebir aynı görünecek. Kullanıcı
+canlı ekranın fotoğrafını çekip tasarımın yanına koyuyor ve farkı soruyor.
+"Yaklaşık aynı" kabul edilmiyor. Ölçüler v4 CSS'inden tarayıcıda JS ile
+ölçülerek alındı — göz kararı değil.
+
+### Tasarımın yönetici cümlesi
+
+> **Bu yeni bir tasarım değil, var olanın yeniden derlenmesi.**
+
+Üçüncü kabuk, var olan müdür + personel ekranlarından kuruluyor. Tek kişilik
+bir işletme, bilgisayarı olmadan, tek telefondan yönetilecek. Yeni bileşen
+yazmak son seçenek; ilk seçenek var olanı yeniden dizmek. `tek4-ekranlar.js`
+her ekranın `from:` alanında hangi canlı ekrandan türediğini yazıyor — ona
+uyun.
+
+### Tasarım bel kemiği (proje geneli kuralı)
+
+Doğru veri + bozuk görünüm = **iş bitmemiş.** Bu kullanıcının açık kararı
+(bkz. hafıza: `tasarim_bel_kemigi`).
+
+---
+
+## 2 · PROJE GERÇEĞİ (kısa)
+
+**Luera TimeFlow** — çok kiracılı (multi-tenant) salon/klinik SaaS. Masaüstü
+web + Expo/RN mobil. Mobilde **üç kabuk** var:
+
+| Kabuk | Dizin | Kim |
+|---|---|---|
+| Müdür | `mobile/app/mudur/` | işletme sahibi, ekibi olan |
+| Personel | `mobile/app/personel/` | çalışan · "kumanda" |
+| **Tek kişilik** | `mobile/app/tek/` | **bu devrin konusu** |
+
+### Mod bir BAYRAK, rol değil
+
+`AuthActor` hâlâ `'manager' | 'staff'`. Üçüncü bir rol YOK. Üçüncü kabuğu
+açan şey `organizations.solo = true` (göç 108). Sebep: rol eklemek RLS,
+çakışma kontrolü, raporlar ve bildirim kanallarının hepsinde ikinci bir dal
+açardı ve hatalar o dalda saklanırdı.
+
+`useInSoloShell()` kabuğu **rotadan** okuyor (`useSegments()[0] === 'tek'`).
+⚠️ `app/(staff-flow)/kumanda.tsx` içinde ÇALIŞMAZ — o ekran farklı bir
+segment. Orada `from` parametresi kullanılıyor (`params.from === 'tek'`).
+
+### Teknik zemin
+
+- Expo SDK **57** (`expo ~57.0.20`, `expo-router ~57.0.19`, RN 0.86.3,
+  React 19.2.3). `mobile/AGENTS.md` bağlayıcı — okumadan kod yazma.
+- `NativeTabs` → `expo-router/unstable-native-tabs`; `Icon`/`Label` artık
+  `NativeTabs.Trigger` altında.
+- **`react-native-gesture-handler` YOK ve kurulmayacak.** Jest =
+  `PanResponder`.
+- reanimated 4.5.1 kurulu ama **eski ekranlar taşınmıyor**; yazılmış
+  animasyonlar RN `Animated`'de kalıyor.
+- Supabase **kendi VPS'imizde** (Coolify). Edge function deploy'u
+  `./scripts/deploy-functions.sh <ad>` — `supabase functions deploy`
+  **KULLANILMAZ** (o Cloud için).
+
+### Ev kuralları (kaynak metni eşleyen testler koruyor)
+
+1. **"Ekran yalan söylemez."** Sunucu kabul etmeden ekran değişmez.
+2. **"Dokunulan her kontrol bir iş yapar."** Süs düğme yok.
+3. **"Yazma önce sunucuya gider."** İyimser yazma yok.
+
+---
+
+## 3 · BU DALDA NE YAPILDI
+
+### Dosyalar — yeni
+
+| Dosya | Satır | Ne |
+|---|---|---|
+| `mobile/app/tek/_layout.tsx` | 117 | 5 sekme + solo oturum takması |
+| `mobile/app/tek/index.tsx` | 345 | **Gün** ekranı (v4 G1–G3, B1–B4) |
+| `mobile/app/tek/calendar.tsx` | 7 | Takvim (T1) — müdür takvimini tek sütunla sarıyor |
+| `mobile/app/tek/create.tsx` | 7 | Yeni randevu (R1/R2) — müdür akışını sarıyor |
+| `mobile/app/tek/cash.tsx` | 7 | Kasa (C1) — müdür Kasa'sını sarıyor |
+| `mobile/app/tek/isletme.tsx` | 13 | İşletme (P1) — müdür Profil'ini sarıyor |
+| `mobile/src/lib/soloDay.ts` | 352 | Gün ekranının tüm karar katmanı (saf) |
+| `mobile/src/lib/soloSession.ts` | 130 | Sahibin personel jetonunu basma köprüsü |
+| `mobile/src/lib/collect.ts` | 98 | Tahsilat karar katmanı (saf) |
+| `mobile/src/components/SoloDayParts.tsx` | 304 | v4 `.gc`/`.gk` kartı, şimdi hapı, iskelet |
+| `mobile/src/components/CollectBar.tsx` | 207 | v4 K3/K4 tahsilat güvertesi |
+
+**7 satırlık dosyalar süs değil:** sarmalayıcı olmaları kasıtlı. Aynı ekranı
+iki kez yazmak, iki kez bozmak demekti.
+
+### Göçler
+
+| Göç | Ne | Durum |
+|---|---|---|
+| `108_tek_kisilik.sql` | `organizations.solo` + `set_business_mode()` | ✅ **üretimde** |
+| `109_staff_auth_log_eksik_olaylar.sql` | (gerekçesi YANLIŞTI — bkz. §8) | ⚠️ **üretimde, zararsız** |
+| `110_staff_auth_log_tahsilat.sql` | `visit.collect` olayı + `pair_locked` geri | ❌ **BEKLİYOR** |
+
+### Sunucu — `supabase/functions/staff-api/index.ts`
+
+**`solo.session`** (satır ~466) — sahip KENDİ kumandasını açıyor.
+Dört kapı sırayla: sahip oturumu (`ownerOf`) → org `solo` mu → tam olarak
+**bir** aktif personel var mı → abonelik (`checkAccess`). Hepsi geçerse
+`loginResponse(crew[0])` ile personel jetonu basıyor ve
+`audit(org, staff.id, 'login', 'solo')` yazıyor.
+⚠️ `x-staff-token` kapısından **ÖNCE** duruyor — çünkü jetonu o basıyor.
+**Durum: deploy EDİLDİ** (canlıda doğrulandı: bilinmeyen eylem
+`invalid_token`, bu uç `unauthorized` dönüyor).
+
+**`visit.collect`** (satır ~1859) — adisyonu tahsil et.
+Yöntem doğrulaması → `loadOwnReservation` → `status !== 'completed'` ise
+409 `not_finished` → var olan ödeme sorgusu → **tutarı SUNUCU hesaplıyor** →
+`payments` satırı → sonra `is_paid` bayrağı → `audit(…, 'visit.collect', method)`.
+`WRITE_ACTIONS` listesinde (idempotens).
+**Durum: deploy EDİLMEDİ.** → §6
+
+### İstemci — `mobile/src/api/staff.ts`
+
+Takılabilir jeton tazeleyici eklendi. **Bilinçli olarak `supabase`'i import
+etmiyor** (dairesel bağımlılık ve personel kabuğunun müdür oturumuna
+bulaşması):
+
+```ts
+type TokenRefresher = () => Promise<boolean>;
+export function setStaffTokenRefresher(fn: TokenRefresher | null): void
+const needsFreshToken = (code) => code === 'no_session' || code === 'invalid_token';
+// call() BİR kez yeniden deniyor: if (!fresh || fresh === t) throw cause;
+```
+
+`visitCollect` → `call` kullanıyor, **`write` DEĞİL**: para çevrimdışı kuyruğa
+girmez (§7'de sebebi).
+
+---
+
+## 4 · v4 EKRAN ENVANTERİ — 23 EKRAN
+
+`docs/design-reference/tek4-ekranlar.js` içindeki `spec({id:…})` sırası.
+
+| Kod | Başlık | Durum |
+|---|---|---|
+| G1 | Boşta · sıradaki 19 dk sonra | ✅ |
+| G2 | Sürüyor | ✅ |
+| G3 | Beklemede · krem | ✅ |
+| **G4** | **Adisyon açık · "₺4.500 · Tahsil et"** | ❌ **SIRADAKİ** |
+| K1 | Kumanda · bekleniyor | ✅ (var olan kumanda) |
+| K2 | Kumanda · işlemde | ✅ (var olan kumanda) |
+| K3 | Adisyon · tahsilat | ✅ `CollectBar` · deploy bekliyor |
+| K4 | Tahsilat · sunucu reddetti | ✅ `CollectBar` · deploy bekliyor |
+| P1 | İşletme | ✅ |
+| **P2** | **Ekip ekle kapısı** | ❌ |
+| C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) |
+| **C2** | **Hareket satırı → Düzelt / Geri al** | ❌ |
+| **C3** | **Tahsilatı düzelt** | ❌ |
+| R1 | Yeni randevu 1/2 | ✅ |
+| R2 | Yeni randevu 2/2 | ✅ |
+| T1 | Takvim · tek sütun | ✅ |
+| B1 | Gerçekten boş | ✅ |
+| B2 | Kapalı gün | ✅ |
+| B3 | Yükleniyor (iskelet) | ✅ |
+| B4 | Okunamadı | ✅ |
+| S1 | Mod sorusu | ✅ |
+| S2 | İlk gün | ✅ |
+| S3 | İlk randevu · yeni hesap | ✅ |
+
+**Kalan dört ekran: G4, P2, C2, C3.** Hepsi Faz 3 ("para ve ekip").
+
+---
+
+## 5 · SIRADAKİ İŞ · G4 (adım adım)
+
+v4'te Gün ekranının **dördüncü** hâl kartı:
+
+```
+ADİSYON AÇIK        (bar:1, dot:1, am:1 — kehribar)
+₺4.500
+[Tahsil et]  (go)
+Tuğçe Erden · Kalıcı Makyaj · 16:02'de bitti
+alt başlık: "9 Ekim · 3 iş bitti, 2 kaldı"
+listedeki kart: st:OPEN
+```
+
+### Neden henüz yok — tesisat eksiği
+
+`mobile/src/lib/soloDay.ts:229` kendi yorumunda yazıyor:
+*"`buildStaffDayState` ödeme diye bir şey bilmiyor."* Durum şu:
+
+| Katman | `is_paid` var mı |
+|---|---|
+| Veritabanı `reservations.is_paid` | ✅ |
+| `staff-api` → `RES_COLS` (satır 1135) | ✅ |
+| `managerSource.FLOW_COLS` (Akış okuması) | ✅ (satır 392) |
+| `RES_COLS` → `managerMap.ts:28` (gün okuması) | ❌ |
+| `Appt` arayüzü (`mobile/src/lib/calendar.ts:26`) | ❌ |
+| `buildStaffDayState` | ❌ dal yok |
+| `soloPanelAction` | ❌ üçüncü dal yok |
+
+Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzden
+`is_paid` oraya ulaşmıyor.
+
+### Yapılacaklar sırası
+
+1. `Appt`'a `is_paid?: boolean | null` ekle — **isteğe bağlı**, aynı
+   `staff_id` gibi; personel tarafındaki çağrıları bozmamak için.
+2. Gün okumasına sütunu geçir. İki yol var, **birincisi tercih**:
+   - (a) `fetchDayWithStamps` (`managerSource.ts:313`) `${RES_COLS}, updated_at`
+     seçiyor; oraya `is_paid` ekle → tek satır. ⚠️ `RES_COLS`
+     (`managerMap.ts:28`) **paylaşılan** bir sabit; onu değiştirmek bütün
+     okumaları etkiler. Sütunu sabite değil, **o çağrının kendi listesine**
+     ekle.
+   - (b) Gün ekranını `fetchFlowRows`'a geçir → daha büyük değişiklik, müdür
+     Akış'ının varsayımlarını taşır. Önerilmez.
+3. `buildStaffDayState`'e "adisyon açık" dalı: `status === 'completed' &&
+   !is_paid`. ⚠️ **Bu fonksiyonu müdür de kullanıyor** — yeni dal mevcut
+   davranışı değiştirmemeli; en güvenlisi yeni bir alan döndürmek
+   (`openTicket: Appt | null`) ve var olan alanlara dokunmamak.
+4. `soloPanelAction`'a üçüncü dal: açık adisyon varsa
+   `{ label: 'Tahsil et', tone: 'go', appointmentId }`. **Sıra önemli:**
+   süren iş > açık adisyon > sıradaki. Sebep: süren işin dakikası akıyor.
+5. Kart tutarı: `cashBuild`'in `serviceLines` + adisyon kalemleri formülü
+   zaten var; `visit.collect`'in sunucudaki hesabıyla **aynı** olmalı
+   (kalem = `price × qty`, kullanıcı kararı).
+6. Listedeki kartın `st:OPEN` damgası → `soloApptStamp`'e yeni ton.
+   Bugün "tamamlandı" yazıyor; v4 "tahsil edildi" / "adisyon açık" ayrımı
+   yapıyor. `is_paid` gelince bu ayrım da yapılabilir hâle geliyor (§8'de
+   "bilinçli ayrışma" olarak duruyordu — G4 onu kapatır).
+7. `soloDay.ts:229`'daki "üçüncü hâl neden yok" yorumunu **sil ve yerine
+   olanı yaz**. O yorum artık yanlış olacak.
+8. Test: `tests/mobile-tek-gun.test.mjs`'e G4 dalı; hapın sırası ve tutarın
+   sunucuyla aynı formülden geldiği kilitlenmeli.
+
+---
+
+## 6 · KULLANICININ BORÇLU OLDUĞU İKİ KOMUT
+
+**Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
+çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin. İkisi birlikte
+yapılmalı (`visit.collect` denetim olayı 110'a bağlı).
+
+### 1) staff-api deploy'u — `visit.collect` canlıya
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api
+```
+
+### 2) Göç 110
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && cat supabase/110_staff_auth_log_tahsilat.sql | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -f -'
+```
+
+**Sıra:** göç önce, deploy sonra. Tersi olursa `visit.collect` çalışır ama
+denetim satırı kısıta takılır — ve `insert()` fırlatmadığı için **sessizce**
+düşer (§8'deki ders).
+
+### Deploy'suz ne olur
+
+Telefonda tahsilat düğmesine basılınca sunucu `invalid_action` döner.
+`CollectBar` bunu "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." diye
+gösterir — yani yalan söylemez, ama iş de yapmaz.
+
+---
+
+## 7 · PARA YAZAN AKIŞIN KURALLARI (dokunmadan önce oku)
+
+Bunlar `tests/tek-tahsilat.test.mjs` ile kilitli. Gevşetmek isteyeceksen önce
+testin yorumunu oku; her birinin bir sebebi var.
+
+1. **Tutarı sunucu hesaplar.** İstemci rakam göndermez. Gövdeden almak, ele
+   geçmiş bir jetonla kasaya istenen rakamı yazdırmaktı.
+2. **Yöntem seçilmeden düğme kapalı.** Varsayılan yöntem koymak, nakit alınan
+   işi karta yazmanın en kolay yoluydu.
+3. **Düğme yöntemle birlikte adlanır** — "Kartla tahsil et", "Tahsil et"
+   değil. Hangi yoldan para alındığı kaydın kendisi kadar önemli ve dokunmadan
+   ÖNCE görünmeli.
+4. **İki başarısızlık AYNI DEĞİL:**
+   - `send_failed` → "Kasaya bir şey yazılmadı."
+   - `collect_failed` → "Adisyon kasada açık kaldı; tekrar deneyebilirsiniz."
+   İkisine aynı cümleyi yazmak, ikincisinde yalan söylemekti — kullanıcı
+   parayı ikinci kez almaya kalkardı.
+5. **Para çevrimdışı kuyruğa GİRMEZ.** `write` değil `call`. Kuyruk saatler
+   sonra boşalır: kullanıcı "olmadı" görüp nakit alır, akşam kasada ikinci bir
+   kart tahsilatı belirir.
+6. **Para kaydı önce, `is_paid` sonra.** Bayrak kaydın türevi. Ters sırada
+   bayrak basılıp kayıt düşerse Kasa, tahsil edilmiş görünen ama parası
+   olmayan bir randevu gösterir. Bayrak hatası isteği düşürmez (loglanır).
+7. **İki kapı, tek tahsilat:** idempotens anahtarı + randevunun var olan
+   ödeme sorgusu. Anahtar aynı dokunuşu yakalar; sorgu, ekranı kapatıp
+   yeniden açan kullanıcıyı yakalar.
+8. **Sıfır tutarda "tekrar dene" denmez** — aynı sonuç çıkar. Söylenmesi
+   gereken, eksiğin ne olduğu.
+9. **Tahsilat gönderimden SONRA.** `visit.collect` sunucuda
+   `status = 'completed'` istiyor; randevuyu kapatan şey gönderimin içindeki
+   `visit.finish`.
+10. **Kuyruğa giren gönderim "olmuş" sayılmaz.** İş telefonun kuyruğunda,
+    sunucuda değil.
+
+---
+
+## 8 · HATALAR VE DERSLER (tekrar etmemek için)
+
+### 🔴 Göç 109'un gerekçesi YANLIŞTI — ve kullanıcı onu zaten uygulamıştı
+
+Kullanıcıya "altı denetim olayı sessizce düşüyor" dedim. **Düşmüyorlardı:**
+091 ve 099 kısıtı zaten genişletmişti. `grep` çıktısı `head` ile kesilmiş,
+yalnız 082 ve 090 görülmüştü. 109 etkisiz bir göç oldu ve üstüne
+`pair_locked`'ı düşürdü (zararsız: o değer koda hiç yazılmıyor, yalnız
+istemciye dönen bir hata kodu). 110 geri koyuyor.
+
+**Ders:** bir kısıtı/listeyi "eksik" ilan etmeden önce onu değiştiren
+**bütün** göçleri bul. Çıktının kesilmediğini doğrula.
+
+Dosyanın SQL gövdesi **olduğu gibi duruyor** — üretimde koşan o. Yalnız
+başlığı düzeltildi; tarihi değiştirmek veritabanıyla depo arasındaki tek
+doğru kaydı bozardı.
+
+### `supabase-js` `insert()` FIRLATMAZ
+
+`{ error }` döndürür. Kontrol edilmeyen insert sessizce düşer. Denetim kaydı
+böyle kaybolur ve kaybolan şey bir para kaydının izi olur.
+
+### `DO $$ … $$;` tek bir ifadedir
+
+İçindeki herhangi bir hata **her şeyi** geri sarar. Tohum betiklerinde
+bölerek yazın.
+
+### Dev-only çökme · `transform: undefined`
+
+`AuthPasswordRule`, bir şifre kuralı true→false olunca kayıt ekranını
+çöküyordu. RN Fabric kaldırılan stil anahtarını `null` yapıyor ve
+`_validateTransforms` (yalnız `__DEV__`) fırlatıyor. Çözüm: **her zaman bir
+dizi geçir** (`[{ translateY: 0 }]`). `VoidBlock`'ta aynı desen düzeltildi.
+
+Bu, üretim paketi dersinin **tersi**: Expo Go'da çöküyor, mağaza
+derlemesinde çökmüyor. İkisi de var; ikisi de test edilmeli.
+
+### `myStaffId()` değiştirilmemeli (var olan test yakaladı)
+
+Async `myStaffId()`'yi solo personel kimliğini de döndürecek şekilde
+değiştirmiştim. `mobil-push-baglanti` testi yakaladı: o fonksiyon `syncPush`'u
+besliyor; kimlik dönerse solo sahibin cihazı **hem müdür hem personel**
+bildirim kanalına kayıt olur → mükerrer bildirim. Geri alındı; yalnız
+`useMyStaffId()` kancası değişti. Ayrışma iki fonksiyonun da yorumunda yazılı.
+
+### `maskPhone` yanlış hane gösteriyordu
+
+Yalnız `^90` soyuyordu; masaüstü `0532…` biçimini yazıyor (bunu
+`phoneVariants`'ın kendi yorumu söylüyor). `0532 111 03 01` →
+`0053 ••• 10 30`. `phoneDigits` kullanılarak düzeltildi. Eski test yalnız
+`+90…` biçimini kapsıyordu.
+
+### Demo tohumu · iki tuzak
+
+1. `reservations_source_check` (göç 015) `source`'u
+   `manual|booking|leadflow` ile sınırlıyor. Ben yalnız `init_database.sql`'e
+   bakıp "kısıt yok" demiştim. İşaret `custom_fields @> '{"demo_tek": true}'`
+   olarak taşındı.
+2. Müşteri işareti `notes`'tan çıkarıldı — `CustomerCard` onu gösteriyor.
+
+### Sıralama/"şimdi" hataları (kullanıcının fotoğraflarından çıktı)
+
+- İptal edilmiş 11:15, 09:30'un üstünde çiziliyordu: `buildStaffDayState`
+  iptalleri saate bakmadan "geçmiş" kovasına atıyor (Müdür 24 için doğru,
+  solo tek liste için yanlış).
+- Hâl kartı geçmiş günde "ŞU AN BOŞ · 9 sa 16 dk" diyordu.
+- Alt başlık geçmiş günde "1 iş bitti, 7 kaldı" diyordu.
+
+Hepsi `soloDayList` + `isToday` kapısıyla düzeltildi. **`buildStaffDayState`
+elle tutulmadı** — müdür onu kullanıyor.
+
+### Gün ekranının sıcaklığı eksikti
+
+Uygulamanın **tek** gradyanı bir jeton: `glow` (298 pt, v4'ün `--glow`'uyla
+birebir). Yedi ekran kullanıyor (müdür Bugün + Takvim, personel Bugün +
+Takvim, kumanda, kayıt sonu); `app/tek/index.tsx`'e koymayı atlamışım. Yan
+sekme sıcak, Gün düz siyahtı.
+
+Jetonu paylaşmak işin özü: üç ekran artık **tanım gereği** ayrışamıyor.
+Gradyan güvenli alanın **üstünden** başlıyor, yoksa başlığın altında bir
+şerit gibi görünür.
+
+### Testler taşındı, GEVŞETİLMEDİ
+
+`StaffAppointmentRow` → yeni sözleşme · `WRITE_ACTIONS` düz metin yerine
+ayrıştırılmış küme + okuma uçlarının dışlanması · `done()` sayımı 7 → 9 ·
+`router.push` yasağının kapsamı daraltıldı (tek istisna adresine kilitli) ·
+099'a sabitlenmiş kısıt testi → **tüm zinciri tarayan** test, 109 adlı
+istisna ve bir uç-durum kapsama kuralıyla.
+
+---
+
+## 9 · BİLİNÇLİ AYRIŞMALAR (kullanıcıya söylendi, kapatılmadı)
+
+Bunlar hata değil, **karar**. Yeniden "bulup" düzeltmeye kalkma; kullanıcı
+biliyor.
+
+| Ayrışma | Sebep |
+|---|---|
+| Kart "tamamlandı" diyor, v4 "tahsil edildi" | `Appt`'ta ödeme alanı yok → **G4 bunu kapatacak** |
+| Takvim sahipsiz randevuyu çizmiyor, Gün çiziyor | `columnize` `staff_id` boş satırı süzüyor; düzeltmesi müdür takvimini de etkiler. Fark alt başlıkta **söyleniyor**, sessiz değil |
+| `VoidBlock` yatay dolgu 18, v4'te 26 | Paylaşılan bileşen; 8 pt için çatallanmaz |
+| `DayHeader` 42 pt, v4'te 44 | aynı sebep |
+| "Yeni hizmet ekle" dönüşte hizmeti seçmiyor | Hizmetler ekranının geri bildirmesi gerekiyor |
+| Masaüstü `cashBuild.adisyonLines` adetle çarpmıyor, telefon çarpıyor | **Kullanıcı kararı:** ekranda görünen (fiyat × adet) tahsil edilir. Masaüstünün kendi borcu |
+
+### 🟡 Kullanıcının kararını bekleyen tek madde
+
+`hourRange` **kapalı günü** (`null`) **bilinmeyen günle** (`undefined`) aynı
+sayıyor. Sonuç: kapalı pazarda Takvim normal 09:00–17:00 ızgarasını çiziyor,
+Gün ekranı ise "Bugün kapalısınız." diyor. **Müdür takvimini de etkiliyor.**
+Kullanıcıya sunuldu, cevap gelmedi. Sorulmadan dokunma.
+
+---
+
+## 10 · DEĞİŞMEZ KISITLAR (kullanıcının kararları)
+
+- 🔴 **VPS root SSH şifre sertleştirmesi: kullanıcı YAPMAMA kararı verdi
+  (2026-10-08). Yeniden gündeme getirme, görev listesine ekleme.**
+- **ssh/deploy komutlarını kullanıcı çalıştırır.** Sen komutu verirsin.
+- **Mobil doğrulama = fiziksel telefonda Expo Go. Simülatör YASAK.** Xcode
+  yalnız açık yayın emriyle.
+- **Yayın öncesi `--no-dev` üretim paketi testi ZORUNLU** (bir kez mağaza
+  derlemesi açılmaz hâle geldi).
+- **Claude Design'a `Luera Mobil - Durumlar.html` ve
+  `Luera Mobil - Hareket Sözleşmesi.html` VERİLMEZ** (2026-10-08).
+- **Şifre sıfırlama ÖLÜ** (SMTP yok) ve uygulama "gönderildi" diyor. Yeni test
+  hesabının şifresi mutlaka kaydedilir.
+- Proje `~/Projects`'te durmalı — Masaüstü iCloud'da ve Expo açılmıyor.
+
+---
+
+## 11 · GERİ ALMA
+
+Doğrulanmış dönüş noktası: **`tek-oncesi` etiketi (`b4bc585`)**, `origin`'de.
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && git checkout tek-oncesi
+```
+
+`108`'i geri almak: `organizations.solo` sütununu düşürmek yeterli ama
+**gerekmez** — `DEFAULT false` ve kimse `true` yazmadıysa kabuk hiç açılmaz.
+Mod bayrağını kapatmak tek satır:
+
+```sql
+update public.organizations set solo = false where id = '<org-id>';
+```
+
+Demo satırları: `supabase/DEMO_tek_kisilik_geri_al.sql`. Tohumun hedefi
+`8418f10d-8182-4224-b334-c9acc775acee` ("Fu Ni" org'u) ve satırlar **hâlâ
+canlıda**.
+
+---
+
+## 12 · AÇIK UÇLAR (bu daldan bağımsız, uzun süreli)
+
+- `info@lueratech.com` doğrulaması (site formları buna bağlı)
+- Sentry kurulumu
+- SMTP (şifre sıfırlamayı diriltir)
+- Demo satırları "Fu Ni" org'unda duruyor
+- Core entegrasyon borcu (3 eksik) — 10. müşteriden önce
+- WhatsApp `connecting` süzgeci düzeltildi ama **deploy bekliyor**
+
+---
+
+## 13 · ÇALIŞTIRMA
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && npm test
+```
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow/mobile && npx tsc --noEmit
+```
+
+Metro (Expo Go, fiziksel telefon):
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow/mobile && npx expo start --go
+```
+
+Yalnız bu dalın testleri:
+
+```bash
+cd /Users/furkanulger/Projects/luera-timeflow && node --test tests/tek-*.test.mjs tests/mobile-tek-gun.test.mjs
+```
+
+---
+
+## 14 · OKUMA SIRASI (yeni oturum için)
+
+1. Bu belge
+2. `docs/design-reference/Luera Mobil - Tek Kisilik v4.html` ← **tasarım
+   doğruluğunun tek kaynağı**
+3. `docs/brief-tek-kisilik-isletme.md` — modun niçin var olduğu
+4. `docs/tek-kisilik-uygulama-plani.md` — fazlar ve neyin bilerek dışarıda
+   bırakıldığı
+5. `docs/tek-kisilik-revizyon-v3.md` — tasarım turlarının evrimi
+6. `mobile/AGENTS.md` — **kod yazmadan önce zorunlu**
+7. `mobile/src/lib/soloDay.ts` — kararların gerekçeleri yorumlarda
+8. `tests/tek-tahsilat.test.mjs` — para akışının kuralları, sebepleriyle

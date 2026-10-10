@@ -1,5 +1,16 @@
 # BAŞLA BURADAN — Luera TimeFlow devir paketi
 
+> ## ⚠️ BU PAKET EYLÜL 2026'YA AİT (dal: `chore/expo-57`)
+>
+> Aktif iş artık **`tek-kisilik`** dalında, **üçüncü kabuk** (tek kişilik
+> işletme) üzerinde. Yeni oturum **önce şunu okusun:**
+>
+> ### → [`08-TEK-KISILIK-DEVIR.md`](08-TEK-KISILIK-DEVIR.md)
+>
+> Aşağıdaki 00–07 dosyaları tarihsel kayıt olarak duruyor. Mimari, kurallar
+> ve komutlar bölümleri hâlâ geçerli; **dal adı, sıradaki adımlar ve borç
+> defteri ise bayat.** Çelişki olursa 08 kazanır.
+
 **Tarih:** 2026-09-23
 **Neden:** Önceki oturumun kullanım limiti doldu. Bu paket, işin ikinci bir
 Claude hesabından kesintisiz devam etmesi için yazıldı.
@@ -18,6 +29,7 @@ Claude hesabından kesintisiz devam etmesi için yazıldı.
 | **05-KOMUTLAR.md** | Bütün komutlar tek yerde |
 | **06-BORC-DEFTERI.md** | Ertelenenler ve bilinen hatalar |
 | **07-GERI-ALMA.md** | Bir şey ters giderse — migration ve kod geri alma |
+| **08-TEK-KISILIK-DEVIR.md** | ⭐ **AKTİF İŞ** — üçüncü kabuk, `tek-kisilik` dalı (2026-10-11) |
 
 > **Bu klasör hem `~/Desktop/Luera TimeFlow - Devir Paketi/` hem de depo
 > içinde `docs/devir/` altında duruyor.** Claude Code çalışma dizininin
