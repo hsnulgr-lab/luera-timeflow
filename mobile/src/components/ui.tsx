@@ -852,6 +852,20 @@ export function AuthPasswordRule({ valid, message }: { valid: boolean; message: 
         }).start();
     }, [reduceMotion, statusProgress, valid]);
 
+    /*
+     * DİZİ HER ZAMAN VAR — `undefined` DEĞİL. Bu bir çökme düzeltmesi.
+     *
+     * Kural sağlanıp sonra bozulunca (kullanıcı doğru şifreden bir harf
+     * silince) `transform` dizi iken yok oluyordu. RN Fabric kalkan stil
+     * anahtarını `null`'a çeviriyor ve `processTransform`'a öyle veriyor;
+     * `_validateTransforms` null'u karşılamıyor ve `null.forEach` atıyor.
+     * Telefonda görülen buydu: kayıt ekranı şifre yazarken kök hata
+     * sınırına düşüyordu.
+     *
+     * __DEV__'e özel bir doğrulama olduğu için mağaza derlemesinde
+     * çökmüyordu — yani Expo Go'da her gün görülen, yayında görünmeyen bir
+     * hata. Düzeltme anahtarı hiç kaldırmamak: hareket yokken birim dönüşüm.
+     */
     const statusTransform = valid && !reduceMotion
         ? [{
             translateY: statusProgress.interpolate({
@@ -859,7 +873,7 @@ export function AuthPasswordRule({ valid, message }: { valid: boolean; message: 
                 outputRange: [authMetrics.passwordHintCircleTop * 2, 0],
             }),
         }]
-        : undefined;
+        : [{ translateY: 0 }];
 
     return (
         <View style={{

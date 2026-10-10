@@ -82,7 +82,10 @@ export function VoidBlock({ copy, isToday, nowMinutes, entering }: {
                 alignItems: 'center',
                 paddingHorizontal: emptyDayMetrics.padX,
                 opacity: entering?.opacity ?? 1,
-                transform: entering ? [{ translateX: entering.translateX }] : undefined,
+                // Dizi her zaman var: `undefined`'a düşerse RN Fabric anahtarı
+                // `null` yapıp `processTransform`'a verir ve __DEV__ çöker.
+                // Aynı hata `AuthPasswordRule`'da yaşandı; gerekçesi orada.
+                transform: [{ translateX: entering?.translateX ?? 0 }],
             }}
         >
             {/* Etiket — günü sınıflar. Renk ve nokta TEK BAŞINA anlam taşımaz;
