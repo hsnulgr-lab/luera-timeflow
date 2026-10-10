@@ -42,13 +42,10 @@ export interface Movement {
     amount: number;
     method: CashMethod;
     status: CashStatus;
-    /**
-     * Yalnız iptal edilmiş kayıtta: kim ve ne zaman iptal etti.
-     * Denetim izinin taşıyıcısı.
-     */
-    /** İptali yapan. Oturumdan gelir; bilinmiyorsa izde HİÇ yazılmaz. */
-    voidedBy?: string | null;
+    /** Geri alınmış kayıtta: geri alma saati (HH:MM). İzin taşıyıcısı. */
     voidedAt?: string;
+    /** Tahsilatın bağlı olduğu randevu; yoksa serbest satış. */
+    reservationId?: string | null;
     /** "13 Ağustos 2026, 11:12" — sheet'in başlığındaki tam zaman. */
     dateLabel?: string;
     /** "10:15–11:10" — tahsilatın bağlı olduğu randevunun aralığı. */
@@ -57,8 +54,12 @@ export interface Movement {
     lines?: MovementLine[];
     /** Serbest açıklama — varsa sheet'te ayrı satır. */
     note?: string;
-    /** Bu kayıt bir DÜZELTME ise: iptal edilen eski kaydın kimliği. */
+    /** Bu kayıt bir DÜZELTME ise: damgalanan eski kaydın kimliği. */
     correctedFrom?: string;
+    /** Düzeltmenin KENDİ saati (HH:MM) — tahsilatınki değil. */
+    correctedAt?: string;
+    /** Düzeltmeden önceki tutar; iz "önce ₺1.200" diye yazıyor. */
+    correctedFromAmount?: number;
 }
 
 // ── Biçimlendirme ───────────────────────────────────────────────────────────
@@ -288,18 +289,20 @@ export function hasPending(pending: Pending | null): pending is Pending {
 // ── Denetim izi ─────────────────────────────────────────────────────────────
 
 /**
- * "İPTAL · AYLA, 11:42" — kaydın listede bıraktığı iz.
+ * Geri alınmış kaydın altındaki iz — "geri alındı 15:40" (v4 · C2).
  *
- * Kim iptal ettiği BİLİNMİYORSA yazılmaz: iz "İPTAL · 11:42" olur. Eskiden
- * boş isim yüzünden "İPTAL · , 11:42" gibi sakat bir satır çıkabiliyordu ve
- * uydurma bir isim koymak denetim izini yalanlardı.
+ * Satır listeden KAYBOLMUYOR: "Düzeltme ve geri alma Kasa'da saatiyle
+ * görünür." Kaybolsaydı, gün toplamının neden düştüğü bir daha
+ * açıklanamazdı. Tutar toplama girmiyor (`isCounted`), ama kayıt duruyor.
+ *
+ * Kimin yaptığı YAZILMIYOR. Tek kişilik modda cevap her zaman "sen"; ekip
+ * modunda bu satır zaten çizilmiyor (Kasa orada salt okunur). Boş bir isim
+ * uydurmaktansa hiç yazmamak doğru.
  */
 export function traceLine(movement: Movement): string | null {
     if (movement.status !== 'voided') return null;
-    const who = (movement.voidedBy ?? '').trim().toLocaleUpperCase('tr');
     const when = (movement.voidedAt ?? '').trim();
-    const parts = [who, when].filter(Boolean);
-    return parts.length > 0 ? `İPTAL · ${parts.join(', ')}` : 'İPTAL';
+    return when ? `geri alındı ${when}` : 'geri alındı';
 }
 
 // ── Sesli okuma ─────────────────────────────────────────────────────────────
@@ -319,7 +322,7 @@ export function ratioSpeech(totals: CashTotals): string {
 
 /** Kart tek düğüm; iptal kartı "iptal edildi" ile BAŞLAR. */
 export function movementSpeech(movement: Movement): string {
-    const head = movement.status === 'voided' ? 'İptal edildi. ' : '';
+    const head = movement.status === 'voided' ? 'Geri alındı. ' : '';
     const chip = movement.status === 'corrected' ? ' Düzeltildi.' : '';
     const who = staffLine(movement);
     return `${head}${movement.customer}, ${movement.service}, ${movement.time}, `
@@ -356,31 +359,50 @@ export const SHEET_SECTIONS = {
 } as const;
 
 /**
- * Sheet'teki dürüstlük notu.
+ * Sheet'teki dürüstlük notu — DÜZELTME alanının altında (v4 · C3).
  *
- * Veritabanında ödeme güncelleme yolu yok. "Düzelt" arkada eski kaydı iptal
- * edip yenisini yazar; kullanıcı bunu tek eylem olarak görür ama sonucu
- * listede iki satır olur. Bunu gizlemek, müdürün ertesi gün listede
- * anlamadığı bir çift görmesi demekti.
+ * Düzeltme bir GÜNCELLEME DEĞİL. `payments`te tutarı değiştiren bir yol yok
+ * ve olmamalı: bir tahsilatın tutarı sessizce değişirse kasadaki farkın ne
+ * zaman doğduğu bir daha bulunamaz. Sunucu eskiyi damgalar, yenisini yazar
+ * (`111 · correct_payment`).
+ *
+ * Kullanıcı bunu TEK eylem olarak görüyor ve Kasa da tek satır çiziyor —
+ * ama satırın altındaki iz iki kaydın var olduğunu söylüyor.
  */
-export const CORRECTION_NOTE =
-    'Düzeltme kaydı güncellemez: eski kayıt iptal edilir, yenisi yazılır. '
-    + 'Listede ikisi de görünür — üstte yeni tutar, altında üstü çizili eski.';
+export const CORRECTION_NOTE = 'Eski kayıt silinmez; yanına düzeltme kaydı yazılır.';
 
 /**
- * Salt okunur sheet'in son satırı — eylem şeridinin YERİNDE.
+ * Eylem satırlarının altındaki not (v4 · C2).
  *
- * Veritabanında iptal ya da düzeltme izi yok (`022_payments.sql`: ne `status`
- * ne `voided_at`) ve masaüstü tahsilatı silerek geri alıyor. Telefonda
- * "İptal et" basıldığında yalnız cihazda bir işaret kalıyordu; sayfa
- * yenilenince tahsilat geri geliyor ve toplam hiç düşmemiş oluyordu.
- * Kullanıcının kararı (2026-09-16): Kasa telefonda salt okunur. Eylemler
- * silinmedi; iz kaydı yazıldığında sheet onları yeniden çizer.
+ * `CORRECTION_NOTE`tan ayrı, çünkü burada henüz hangi eylemin seçileceği
+ * belli değil: cümle ikisini birden kapsıyor.
+ */
+export const ACTIONS_NOTE =
+    'Eski kayıt silinmez. Düzeltme ve geri alma Kasa\'da saatiyle görünür.';
+
+/**
+ * Eylemlerin YERİNDEKİ eski cümle — artık YALNIZ ekip modunda.
+ *
+ * Ekibi olan salonun müdürü masaüstüne sahip; telefonda düzeltme yapmaması
+ * bir eksiklik değil, iş bölümü. Tek kişilik işletmede masaüstü YOK ve bu
+ * cümle bir çıkmaz sokak olurdu — v4 onun yerine iki eylem satırı koyuyor
+ * (C2). Kabuk ayrımı `useInSoloShell` ile ekranda yapılıyor.
  */
 export const READ_ONLY_NOTE = 'Düzeltme ve iptal masaüstündeki Kasa\'dan yapılır.';
 
+/**
+ * İki eylem, iki satır (v4 · C2).
+ *
+ * Alt yazılar süs değil: "Düzelt" neyin düzeltilebildiğini (yalnız tutar ve
+ * yöntem), "Geri al" ise sonucunu söylüyor. Geri alma yıkıcı görünmeli ama
+ * dolgulu OLMAMALI — yanlışlıkla en cazip görünen şey olmamalı.
+ */
 export const ACTION_CORRECT = 'Düzelt';
-export const ACTION_VOID = 'İptal et';
+export const ACTION_CORRECT_SUB = 'Tutar ya da yöntem';
+/** v4 "İptal et" demiyor: olan şey paranın geri alınması ve adisyonun açılması. */
+export const ACTION_VOID = 'Geri al';
+export const ACTION_VOID_SUB = 'Adisyon yeniden açılır';
+export const ACTION_SAVE = 'Düzeltmeyi kaydet';
 export const ACTION_CANCEL = 'Vazgeç';
 
 /**
@@ -418,51 +440,39 @@ export function customerCardLabel(name: string): string {
  */
 export interface VoidDialogCopy {
     title: string;
-    /** Alıntı kutusu: neyin iptal edildiği. */
-    who: string;
-    what: string;
-    warning: string;
+    /** Tek cümle: ne geri alınıyor ve sonucu ne. */
+    message: string;
     confirm: string;
     cancel: string;
 }
 
+/**
+ * "Geri al" SİSTEM UYARISIYLA onaylanıyor (v4 · C2 notu).
+ *
+ * Özel bir diyalog değil: yıkıcı onay için uygulamanın kendi kalıbı zaten
+ * `Alert.alert` + `style: 'destructive'` (hesap silme). Para geri alan bir
+ * eylemin, sistemin tanıdık uyarısını kullanması kullanıcıyı yavaşlatır —
+ * istenen de bu.
+ *
+ * "Adisyon yeniden açılır" YALNIZ randevuya bağlı tahsilatta yazılıyor.
+ * Serbest ürün satışının adisyonu yok; o cümleyi orada da yazmak, olmayan
+ * bir şeyin açılacağını söylemekti.
+ */
 export function voidDialog(movement: Movement): VoidDialogCopy {
+    const what = `${formatMoney(movement.amount)} ${methodWord(movement.method)} tahsilatı geri alınsın mı?`;
     return {
-        title: 'Tahsilatı iptal et',
-        who: movement.customer,
-        what: `${formatMoney(movement.amount)} ${methodWord(movement.method)} · ${movement.time} · ${movement.staff} aldı`,
-        warning: 'Tutar gün toplamından düşer. Kayıt silinmez, listede iptal izi '
-            + 'olarak kalır. Bu işlem geri alınamaz.',
+        title: 'Tahsilatı geri al',
+        message: movement.reservationId ? `${what} Adisyon yeniden açılır.` : what,
         confirm: ACTION_VOID,
         cancel: ACTION_CANCEL,
     };
 }
 
 /**
- * İptali uygula — YEREL katman.
- *
- * Sunucuda müdür ucu yok; bu değişiklik cihazda yaşıyor ve öyle olduğunu
- * gizlemiyoruz. Kayıt SİLİNMİYOR, durumu değişiyor: kart yerinde kalır, tonu
- * kırmızıya döner, tutarı üstü çizilir, izi altına yazılır.
- */
-export function applyVoid(
-    movements: readonly Movement[],
-    id: string,
-    by: string | null,
-    at: string,
-): Movement[] {
-    return movements.map((m) =>
-        m.id === id && m.status !== 'voided'
-            ? { ...m, status: 'voided' as CashStatus, voidedBy: by, voidedAt: at }
-            : m,
-    );
-}
-
-/**
  * Düzeltme alanının okunuşu.
  *
  * Sıfır GEÇERSİZ: bir tahsilat sıfır lira olamaz. Öyle bir şey olduysa
- * yapılacak şey düzeltme değil İPTAL, ve o düğme zaten yanında duruyor.
+ * yapılacak şey düzeltme değil GERİ ALMA, ve o satır zaten yanında duruyor.
  */
 export function parseAmount(text: string): number | null {
     const digits = text.replace(/\D/g, '');
@@ -471,51 +481,46 @@ export function parseAmount(text: string): number | null {
     return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-/** Kaydedilebilir mi? Aynı tutar düzeltme DEĞİLDİR — kayıt kalabalığı olur. */
-export function canCorrect(text: string, current: number): boolean {
+/**
+ * Kaydedilebilir mi?
+ *
+ * v4 düzeltmeyi İKİ alana açıyor: tutar ve yöntem (C3). Yalnız yöntemi
+ * değiştirmek geçerli bir düzeltme — nakit alınan iş yanlışlıkla karta
+ * yazılmış olabilir ve gün sonunda kasa tutmaz.
+ *
+ * Hiçbiri değişmediyse kaydedilmiyor: sunucu da `no_change` ile reddediyor
+ * (`111 · correct_payment`), ama kullanıcıyı oraya kadar götürmeye gerek yok.
+ */
+export function canCorrect(
+    text: string,
+    current: number,
+    method?: CashMethod | null,
+    currentMethod?: CashMethod,
+): boolean {
     const value = parseAmount(text);
-    return value !== null && value !== current;
+    if (value === null) return false;
+    if (value !== current) return true;
+    // Tutar aynı: yöntem değiştiyse hâlâ bir düzeltme var.
+    return method != null && currentMethod != null && method !== currentMethod;
 }
 
 /**
- * Düzeltmeyi uygula — `applyVoid` ile aynı YEREL katman.
+ * Kasa satırının altındaki DÜZELTME İZİ — "düzeltildi 15:40 · önce ₺1.200"
+ * (v4 · C1).
  *
- * Düzeltme bir GÜNCELLEME DEĞİL: eski kayıt iptal edilir, yenisi yazılır.
- * Gerekçe denetim — bir tahsilatın tutarı sessizce değişirse kasadaki farkın
- * ne zaman doğduğu bir daha bulunamaz. Ekranın kendi cümlesi de bunu söylüyor
- * (`CORRECTION_NOTE`), davranış artık o cümleye uyuyor.
+ * Yeri tesadüf değil: tek kişilik modda "Elif Demir verdi" satırı kalkıyor
+ * (parayı veren hep kullanıcının kendisi) ve boşalan yuvaya bu iz giriyor.
  *
- * Yeni kayıt eskisinin ÜSTÜNE giriyor: liste yeniden eskiye doğru akıyor ve
- * düzeltme sonradan oldu.
- *
- * KALEMLER TAŞINMIYOR. Tutar değişti ama hangi kalemin değiştiğini bilmiyoruz;
- * toplamı tutmayan bir döküm, dökümsüzlükten daha çok yanıltır.
+ * Saat düzeltmenin KENDİ saati, tahsilatınki değil: tahsilat 13:05'te alındı
+ * ve satır hâlâ 13:05 diyor. İkisini karıştırmak, paranın ne zaman girdiğini
+ * yanlış göstermekti.
  */
-export function applyCorrection(
-    movements: readonly Movement[],
-    id: string,
-    amount: number,
-    by: string | null,
-    at: string,
-): Movement[] {
-    const old = movements.find((m) => m.id === id);
-    // İptal edilmiş kayıt düzeltilmez: düzeltilecek bir şey kalmadı.
-    if (!old || old.status === 'voided') return [...movements];
-
-    const voided = applyVoid(movements, id, by, at);
-    const fresh: Movement = {
-        ...old,
-        id: `${old.id}-d`,
-        time: at,
-        amount,
-        status: 'corrected',
-        lines: undefined,
-        voidedBy: undefined,
-        voidedAt: undefined,
-        correctedFrom: old.id,
-    };
-    const index = voided.findIndex((m) => m.id === id);
-    return [...voided.slice(0, index), fresh, ...voided.slice(index)];
+export function correctionTrace(movement: Movement): string | null {
+    if (!movement.correctedAt) return null;
+    const before = typeof movement.correctedFromAmount === 'number'
+        ? ` · önce ${formatMoney(movement.correctedFromAmount)}`
+        : '';
+    return `düzeltildi ${movement.correctedAt}${before}`;
 }
 
 /**
@@ -553,7 +558,7 @@ export const mockMovements: readonly Movement[] = [
     },
     { id: 'p3', time: '10:48', customer: 'Elif Demir', initials: 'ED', service: 'Keratin bakımı', staff: 'Selin', amount: 1950, method: 'card', status: 'normal' },
     { id: 'p4', time: '10:20', customer: 'Buket Şen', initials: 'BŞ', service: 'Kaş alma', staff: 'Ece', amount: 700, method: 'cash', status: 'normal' },
-    { id: 'p5', time: '10:05', customer: 'Sevil Kanat', initials: 'SK', service: 'Kesim + fön', staff: 'Ece', amount: 1200, method: 'cash', status: 'voided', voidedBy: 'Ayla', voidedAt: '11:42' },
+    { id: 'p5', time: '10:05', customer: 'Sevil Kanat', initials: 'SK', service: 'Kesim + fön', staff: 'Ece', amount: 1200, method: 'cash', status: 'voided', voidedAt: '11:42' },
     { id: 'p6', time: '09:52', customer: 'Hale Toprak', initials: 'HT', service: 'Saç bakımı + ürün', staff: 'Deniz', amount: 800, method: 'transfer', status: 'normal' },
     { id: 'p7', time: '09:30', customer: 'Nihan Arı', initials: 'NA', service: 'Kesim', staff: 'Deniz', amount: 800, method: 'card', status: 'normal' },
 ];
