@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { Glyph } from './Glyph';
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import type { DayPedal, EmptyDayCopy } from '../lib/emptyDay';
@@ -12,6 +13,7 @@ import {
     font,
     radius,
     skeletonMetrics,
+    staffDayMetrics,
     useTheme,
 } from '../theme';
 
@@ -65,11 +67,21 @@ export function useVoidSwap(key: string, direction: number, reduceMotion: boolea
     };
 }
 
-export function VoidBlock({ copy, isToday, nowMinutes, entering }: {
+export function VoidBlock({ copy, isToday, nowMinutes, entering, action }: {
     copy: EmptyDayCopy;
     isToday: boolean;
     nowMinutes: number;
     entering?: { opacity: Animated.AnimatedInterpolation<number>; translateX: Animated.AnimatedInterpolation<number> };
+    /**
+     * Cümlenin altındaki KENARLIKLI hap (108 · v4 B4 "Tekrar dene").
+     *
+     * Dolu turuncu `EmptyDayAction` DEĞİL: o, pedalın üstünde duran ve günü
+     * ileriye taşıyan birincil eylem ("Randevu kur"). Burada yapılacak iş
+     * bir şey kurmak değil, OKUMAYI TEKRARLAMAK — ikisini aynı ağırlıkta
+     * çizmek, hata ekranını bir davet gibi gösterirdi. Biçim Müdür 24'ün
+     * kenarlıklı hapı.
+     */
+    action?: { label: string; onPress: () => void };
 }) {
     const { c } = useTheme();
 
@@ -144,7 +156,43 @@ export function VoidBlock({ copy, isToday, nowMinutes, entering }: {
 
             {/* Kapalı günde ray YOK: o günün çalışma saati yok, cetveli de. */}
             {copy.rail === false ? null : <HourRail isToday={isToday} nowMinutes={nowMinutes} />}
+
+            {action ? <VoidAction label={action.label} onPress={action.onPress} /> : null}
         </Animated.View>
+    );
+}
+
+/** v4 `.hap` — Müdür 24'ün kenarlıklı hapı, ölçüleri `staffDayMetrics`te. */
+function VoidAction({ label, onPress }: { label: string; onPress: () => void }) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={({ pressed }) => ({
+                marginTop: emptyDayMetrics.hintTop * 2.5,
+                height: staffDayMetrics.hapHeight,
+                paddingHorizontal: staffDayMetrics.hapPadX,
+                borderRadius: staffDayMetrics.hapRadius,
+                borderWidth: staffDayMetrics.hapBorder,
+                borderColor: c.tx,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <Glyph name="refresh" size={18} color={c.tx} />
+            <Text style={{
+                color: c.tx,
+                fontSize: staffDayMetrics.hapText,
+                fontFamily: font.extraBold,
+                fontWeight: '800',
+            }}>
+                {label}
+            </Text>
+        </Pressable>
     );
 }
 

@@ -85,7 +85,18 @@ export default function Kumanda() {
     const { c, dark, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const params = useLocalSearchParams<{ id?: string }>();
+    const params = useLocalSearchParams<{ id?: string; from?: string }>();
+    /*
+     * GERİ OKUNUN YAZISI, DÖNÜLECEK SEKMENİN ADI (108 · v4 K1 notu).
+     *
+     * Personel kabuğunda o sekme "Bugün", tek kişilikte "Gün". Burada
+     * `useInSoloShell()` İŞE YARAMAZ: bu ekran `(staff-flow)` segmentinde
+     * yaşıyor, `tek` değil. Cevabı çağıran taraf biliyor ve söylüyor.
+     *
+     * Kapalı küme: parametreden gelen metin doğrudan ekrana yazılmıyor,
+     * yalnız iki bilinen değerden biri seçiliyor.
+     */
+    const backLabel = params.from === 'tek' ? 'Gün' : 'Bugün';
 
     const dateISO = todayISO();
     /*
@@ -623,7 +634,7 @@ export default function Kumanda() {
                 {/* Geri TEK kontrol: bu ekranda gezinilecek yer yok. */}
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Bugün listesine dön"
+                    accessibilityLabel={`${backLabel} listesine dön`}
                     onPress={() => router.back()}
                     style={({ pressed }) => ({
                         height: 44,
@@ -635,7 +646,7 @@ export default function Kumanda() {
                     })}
                 >
                     <Glyph name="back" size={22} color={c.tx2} />
-                    <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>Bugün</Text>
+                    <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>{backLabel}</Text>
                 </Pressable>
 
                 <Plate

@@ -18,7 +18,9 @@ export type GlyphName =
     // Personel 08 · plaka işareti ve formül kilidi
     | 'warn' | 'lock'
     // Personel 11 · kasaya gönderme anı
-    | 'undo' | 'queue';
+    | 'undo' | 'queue'
+    // Tek kişilik v4 · B4 "Tekrar dene"
+    | 'refresh';
 
 export function Glyph({ name, size = 21, color, width }: {
     name: GlyphName;
@@ -38,6 +40,8 @@ export function Glyph({ name, size = 21, color, width }: {
     return (
         <Svg width={size} height={size} viewBox="0 0 24 24">
             {name === 'back' ? <Path {...common} strokeWidth={sw} d="M15 5l-7 7 7 7" /> : null}
+            {/* Yol v4'ün `<defs>` bloğundan birebir (`i-refresh`). */}
+            {name === 'refresh' ? <Path {...common} strokeWidth={sw} d="M4 12a8 8 0 0 1 13.6-5.7M20 12a8 8 0 0 1-13.6 5.7M17.6 3.4v3.2h-3.2M6.4 20.6v-3.2h3.2" /> : null}
             {name === 'chev' ? <Path {...common} strokeWidth={sw} d="M9 5l7 7-7 7" /> : null}
             {name === 'arrow' ? <Path {...common} strokeWidth={sw} d="M4 12h15M13 6l6 6-6 6" /> : null}
             {name === 'phone' ? (
@@ -131,5 +135,5 @@ const DEFAULT_WIDTH: Record<GlyphName, number> = {
     plus: 2, minus: 2, eye: 1.6, eyeoff: 1.6, timer: 1.7, user: 1.7,
     search: 1.8, check: 2.2, box: 1.7, cash: 1.7, swap: 1.8, cloud: 1.7,
     msg: 1.7, close: 1.8, trash: 1.7, arrowr: 1.8, warn: 1.7, lock: 1.7,
-    undo: 1.9, queue: 1.75,
+    undo: 1.9, queue: 1.75, refresh: 1.7,
 };

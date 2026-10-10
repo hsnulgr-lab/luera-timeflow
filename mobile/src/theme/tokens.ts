@@ -3065,6 +3065,32 @@ export const soloDayMetrics = {
      */
     voidTop: 44,
 
+    /*
+     * Yükleniyor iskeleti (v4 · B3).
+     *
+     * Ölçüler GERÇEK KARTIN geometrisinde: içerik gelince hiçbir şey
+     * kaymıyor. Jenerik çubuk listesi bunu veremez — kart yüksekliği,
+     * saatin genişliği ve satır arası birebir tutmak zorunda.
+     *
+     * Kayan ışık YOK (tasarımın kendi notu): parlayan bir iskelet, yavaş
+     * bağlantıda ekranın canlı olduğu izlenimi verip beklemeyi uzatıyor.
+     */
+    skPanelHeight: 100,
+    skTimeWidth: 36,
+    skTimeHeight: 15,
+    skCardGap: 8,
+    skNameWidth: 170,
+    skNameHeight: 20,
+    skServiceWidth: 110,
+    skServiceHeight: 14,
+    skHeadWidth: 150,
+    skHeadHeight: 12,
+    skSubWidth: 120,
+    skSubHeight: 13,
+    skRadius: 9,
+    skRadiusSmall: 5,
+    skRows: 3,
+
     // Şimdi çizgisi (nowp) — turuncu hap, kartların arasında
     nowPillHeight: 22,
     nowPillPadX: 10,

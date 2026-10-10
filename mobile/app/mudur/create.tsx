@@ -168,6 +168,17 @@ function CreateTabBody() {
                 })}
                 onSend={sendConfirmation}
                 onRefusal={setDayRefusal}
+                /*
+                 * "Yeni hizmet ekle" (v4 · R1) — gezinme EKRANIN işi.
+                 *
+                 * `push`, `navigate` değil: randevu akışı ÜSTTE kalıyor ve
+                 * geri dönünce yarıda bırakılan müşteri/saat seçimi yerinde
+                 * duruyor. `navigate` olsaydı akış sıfırlanırdı.
+                 *
+                 * Dönüşte liste kendi tazeleniyor (`useManagerRead` odakta
+                 * yeniden okuyor).
+                 */
+                onAddService={() => router.push('/(manager-flow)/profil/hizmetler')}
                 topInset={insets.top}
                 bottomInset={insets.bottom}
                 prefill={{

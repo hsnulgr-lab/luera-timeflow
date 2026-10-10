@@ -75,6 +75,14 @@ export function BackChevron({ color, size = 22 }: { color: string; size?: number
     );
 }
 
+export function ForwardChevron({ color, size = 20 }: { color: string; size?: number }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+            <Path d="M9.5 5.5 16 12l-6.5 6.5" stroke={color} {...stroke} />
+        </Svg>
+    );
+}
+
 export function SearchIcon({ color, size = 22 }: { color: string; size?: number }) {
     return (
         <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -973,6 +981,56 @@ export function ServiceRow({ service, selected, onPress }: {
                     <CheckIcon color={c.bg} />
                 </View>
             ) : null}
+        </Pressable>
+    );
+}
+
+/**
+ * "Yeni hizmet ekle" — hizmet listesinin SONUNDAKİ satır (v4 · R1).
+ *
+ * ── Neden bir ipucu cümlesi yetmiyordu ──────────────────────────────────────
+ * Eskiden liste boşken "Hizmetler ve fiyatlar sayfasından ekleyebilirsiniz."
+ * yazıyordu ve dolu listede hiçbir şey yazmıyordu. İkisi de kullanıcıyı
+ * ekranın DIŞINA yolluyor: randevu kurmayı yarıda bırak, başka sekmeye git,
+ * orada "+" ara, dön ve baştan başla. Bilgisayarı olmayan kişi için bu bir
+ * duvar; v4 bunu "her modda geçerli kusur düzeltmesi" diye işaretliyor.
+ *
+ * Satır LİSTENİN SONUNDA, çünkü asıl iş var olan bir hizmeti seçmek; ekleme
+ * ara sıra olan iş. Başta olsaydı her randevuda gözün önünden geçerdi.
+ *
+ * Dönüşte liste kendi kendine tazeleniyor: `useManagerRead` odağa dönüşte
+ * yeniden okuyor ve `services` canlı zilin tablolarında. Yeni hizmet
+ * KENDİLİĞİNDEN SEÇİLMİYOR — tasarım notu öyle diyor ama onun için hizmet
+ * ekranının yeni kaydın kimliğini geri bildirmesi gerekiyor; o yol yok ve
+ * uydurma bir seçim yanlış hizmetle randevu kurdurabilirdi.
+ */
+export function AddServiceRow({ onPress }: { onPress: () => void }) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            onPress={() => { feedback.selection(); onPress(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Yeni hizmet ekle"
+            accessibilityHint="Hizmetler ve fiyatlar sayfasını açar"
+            style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: M.rowGap,
+                minHeight: M.rowHeight,
+                marginHorizontal: M.secX, marginBottom: M.serviceGap,
+                paddingHorizontal: M.servicePadX,
+                borderRadius: M.serviceRadius,
+                backgroundColor: c.card,
+                borderWidth: 1, borderColor: c.bd,
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <PlusIcon color={c.or} size={20} />
+            <Text numberOfLines={1} style={{
+                flex: 1,
+                color: c.tx, fontSize: M.rowName, fontFamily: font.bold, fontWeight: '700',
+            }}>
+                Yeni hizmet ekle
+            </Text>
+            <ForwardChevron color={c.tx3} />
         </Pressable>
     );
 }

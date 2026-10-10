@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
+    SOLO_UNREAD_COPY,
     soloApptDuration,
     soloApptStamp,
     soloDaySubtitle,
@@ -68,9 +69,38 @@ test('şimdi çizgisi YALNIZ bugün çiziliyor', () => {
     assert.match(gun, /showNowLine && isToday/);
 });
 
-test('okunamadı, boş günden AYRI çiziliyor', () => {
-    // Hiç veri yokken "randevunuz yok" demek yanlış cümle: gün dolu olabilir.
-    assert.match(gun, /state === 'error' && !dayKnown[\s\S]{0,200}DurumUnread/);
+test('okunamadı, boş günden AYRI CÜMLE — ama aynı çerçevede', () => {
+    /*
+     * Hiç veri yokken "randevunuz yok" demek yanlış cümle: gün dolu olabilir.
+     * Cümle ayrı (`SOLO_UNREAD_COPY`), çerçeve ortak (`VoidBlock`): dört boş
+     * hâl yan yana görülüyor ve biri ötekilere benzemezse ekran hata ânında
+     * başka bir uygulamaya dönüşüyor (v4 · B4).
+     */
+    assert.match(gun, /state === 'error' && !dayKnown[\s\S]{0,400}SOLO_UNREAD_COPY/);
+    assert.match(gun, /action=\{\{ label: 'Tekrar dene'/);
+    // Müdürün sola yaslı kalıbı bu ekranda artık KULLANILMIYOR. Yorumlar
+    // ayıklanıyor: gerekçe metninde adı geçiyor ve metinde arayan bir iddia
+    // onu kodun parçası sanardı.
+    const code = gun.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /DurumUnread/);
+});
+
+test('okunamayan gün için SAAT RAYI çizilmiyor', () => {
+    // Ray çalışma saatlerinin cetveli; günü okuyamadıysak onu da bilmiyoruz.
+    assert.equal(SOLO_UNREAD_COPY.rail, false);
+    assert.equal(SOLO_UNREAD_COPY.dot, false);
+});
+
+test('"kendiliğinden yenilenir" bir SÖZ ve tutuluyor', () => {
+    /*
+     * `useManagerCalendarDay` yoklamayı açık bırakıyor (`poll` varsayılan),
+     * bağlantı gelince okuma kendisi başarıya dönüyor. Kapatılırsa bu cümle
+     * yalana döner — test o yüzden ikisini birbirine bağlıyor.
+     */
+    assert.match(SOLO_UNREAD_COPY.hint, /kendiliğinden yenilenir/);
+    const day = read('src/lib/managerCalendarDay.ts');
+    assert.match(day, /useManagerRead\(read, EMPTY, \{ tables: BOOKING_TABLES \}\)/);
+    assert.doesNotMatch(day, /poll: false/);
 });
 
 // ── Hâl kartının eylem hapı (Faz 2b) ────────────────────────────────────────

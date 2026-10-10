@@ -209,3 +209,27 @@ export function soloPanelAction(
     if (next) return { label: 'Başlat', tone: 'go', appointmentId: next.id };
     return null;
 }
+
+/**
+ * OKUNAMADI (v4 · B4) — boş günün değil, bilinmeyenin cümlesi.
+ *
+ * Dört boş hâl (gerçekten boş, kapalı gün, yükleniyor, okunamadı) aynı
+ * çerçevede duruyor: tasarımın kendi başlığı "dört ayrı cümle". Müdürün
+ * `DurumUnread`u sola yaslı ve kendi cümle kalıbı var; burada dördü yan yana
+ * görülüyor ve biri ötekilere benzemezse ekran hata ânında başka bir
+ * uygulamaya dönüşüyor.
+ *
+ * "Kendiliğinden yenilenir" bir SÖZ ve tutuluyor: `useManagerCalendarDay`
+ * yoklamayı açık bırakıyor (`poll` varsayılan), bağlantı gelince okuma
+ * kendisi başarıya dönüyor. Tutulamayacak olsaydı cümle yazılmazdı.
+ */
+export const SOLO_UNREAD_COPY: EmptyDayCopy = {
+    label: upperTR('Okunamadı'),
+    dot: false,
+    title: 'Gününüz şu an gösterilemiyor.',
+    hint: 'Randevularınız yerinde. Bağlantı gelince bu ekran kendiliğinden yenilenir.',
+    action: null,
+    // Ray çalışma saatlerinin cetveli; günü okuyamadıysak onu da bilmiyoruz.
+    rail: false,
+    spoken: 'Gününüz şu an gösterilemiyor. Randevularınız yerinde. Bağlantı gelince bu ekran kendiliğinden yenilenir.',
+};

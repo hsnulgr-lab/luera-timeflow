@@ -512,10 +512,37 @@ test('akış SEKMENİN İÇİNDE: alt bar akış boyunca duruyor', () => {
     assert.ok(!/Yer tutucu|placeholder/i.test(screen));
     // Odaklanınca başka ekrana ITEN bir yönlendirici DEĞİL.
     assert.ok(!screen.includes('useFocusEffect'), 'sekme kendini başka ekrana itmemeli');
-    // Tek istisna: org reddinde salon seçimine gitmek — akışın değil oturumun
-    // işi (takvim ve Kasa ile aynı blok).
+    /*
+     * İKİ İSTİSNA — ikisi de akışı DEĞİL, akışın dışındaki bir sayfayı açıyor.
+     *
+     * Kuralın koruduğu şey "akış kendi üstüne yığın açmasın": sekme çubuğunu
+     * kaybedip çıkışsız kalan oydu. Kendi geri oku olan bir alt sayfa o
+     * tuzağı kurmuyor ve dönüşte akışın taslağı yerinde kalıyor (`push`
+     * ekranı söküp yeniden kurmuyor, `key={runId}` değişmiyor).
+     *
+     *   1. org reddinde salon seçimi — akışın değil oturumun işi
+     *   2. "Yeni hizmet ekle" (v4 · R1) — hizmet sayfasının "+" formu
+     */
     const withoutRefusal = screen.replace(/const onRefusalAction = useCallback\([\s\S]*?\}, \[refusal, router\]\);/, '');
-    assert.ok(!/router\.push/.test(withoutRefusal), 'akış sekmenin üstüne yığın açmamalı');
+    const withoutAddService = withoutRefusal.replace(/onAddService=\{\(\) => router\.push\('[^']+'\)\}/, '');
+    assert.ok(!/router\.push/.test(withoutAddService), 'akış sekmenin üstüne yığın açmamalı');
+
+    // İstisna SABİT bir adrese gidiyor: sessizce başka bir yere dönemesin.
+    assert.match(screen, /onAddService=\{\(\) => router\.push\('\/\(manager-flow\)\/profil\/hizmetler'\)\}/);
+});
+
+test('"Yeni hizmet ekle" satırı DOKUNULDUĞUNDA bir iş yapıyor', () => {
+    /*
+     * Eskiden boş listede "Hizmetler ve fiyatlar sayfasından ekleyebilirsiniz"
+     * yazıyordu: kullanıcıyı ekranın dışına yollayan bir cümle, dolu listede
+     * ise hiçbir şey. Bilgisayarı olmayan kişi için duvar.
+     *
+     * Satır bileşene gömülü DEĞİL: gezinmeyi ekran veriyor. Verilmezse satır
+     * hiç çizilmiyor — dokunulduğunda hiçbir şey yapmayan kontrol konmuyor.
+     */
+    const flow = read('src/components/CreateFlow.tsx');
+    assert.match(flow, /\{onAddService \? <AddServiceRow onPress=\{onAddService\} \/> : null\}/);
+    assert.doesNotMatch(flow, /Hizmetler ve fiyatlar sayfasından/);
 });
 
 test('yüzen çubuk bar küçülünce zıplamıyor', () => {

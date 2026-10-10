@@ -5,7 +5,7 @@ import { feedback } from '../lib/feedback';
 import { type Appt } from '../lib/calendar';
 import { soloApptDuration, soloApptStamp } from '../lib/soloDay';
 import { splitStaffName } from '../lib/staffDay';
-import { font, radius, soloDayMetrics as M, useTheme } from '../theme';
+import { font, radius, soloDayMetrics as M, staffDayMetrics, useTheme } from '../theme';
 
 /**
  * Tek kişilik Gün — randevu kartı ve şimdi hapı (108).
@@ -218,6 +218,87 @@ export function SoloNowLine({ time }: { time: string }) {
                 </Num>
             </View>
             <View style={{ flex: 1, height: 1, backgroundColor: c.or }} />
+        </View>
+    );
+}
+
+// ── Yükleniyor iskeleti ─────────────────────────────────────────────────────
+
+/** `.sk` — tek bir yer tutucu çubuk. Kayan ışık YOK. */
+function Bar({ w, h, r = M.skRadius }: { w: number; h: number; r?: number }) {
+    const { c } = useTheme();
+    return <View style={{ width: w, height: h, borderRadius: r, backgroundColor: c.fld }} />;
+}
+
+/**
+ * Gün yüklenirken (v4 · B3).
+ *
+ * ── Neden Müdür 22'nin `DaySkeleton`ı kullanılmadı ──────────────────────────
+ * O üç tane 28 pt'lik düz çubuk — müdür Akış'ının satır yüksekliği. Burada
+ * liste KART ve kartın yüksekliği başka. Tasarımın kendi kuralı: "iskelet
+ * gerçek kartın geometrisinde; içerik gelince hiçbir şey kaymaz." Yanlış
+ * ölçüde bir iskelet o sözü bozar ve ekran veri gelince zıplar — bekleyen
+ * kullanıcının gözünde en rahatsız edici hareket budur.
+ *
+ * Hâl kartının yerinde de bir blok var: o yuva veri gelince dolacak ve
+ * boş bırakılırsa liste yukarıdan aşağı kayar.
+ */
+export function SoloDaySkeleton() {
+    const { c } = useTheme();
+
+    return (
+        <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+        >
+            {/* Hâl kartının yuvası — ölçüsü `staffDayMetrics` ile aynı. */}
+            <View style={{
+                marginTop: staffDayMetrics.panelMarginTop,
+                marginHorizontal: staffDayMetrics.padX,
+                height: M.skPanelHeight,
+                borderRadius: staffDayMetrics.panelRadius,
+                backgroundColor: c.fld,
+            }} />
+
+            {/* Liste başlığı: yazı iskelet, çizgi gerçek. */}
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingTop: staffDayMetrics.lhdPadTop,
+                paddingHorizontal: staffDayMetrics.lhdPadX,
+                paddingBottom: staffDayMetrics.lhdPadBottom,
+            }}>
+                <Bar w={M.skHeadWidth} h={M.skHeadHeight} r={M.skRadiusSmall} />
+                <View style={{ flex: 1, height: 1, backgroundColor: c.bd }} />
+            </View>
+
+            <View style={{
+                paddingHorizontal: M.listPadX,
+                paddingTop: M.listPadTop,
+                gap: M.listGap,
+            }}>
+                {Array.from({ length: M.skRows }, (_, index) => (
+                    <View key={index} style={{ flexDirection: 'row', gap: M.rowGap, alignItems: 'flex-start' }}>
+                        {/* Saat kartın dışında — gerçek satırdaki yerinde. */}
+                        <View style={{ marginTop: M.timePadTop }}>
+                            <Bar w={M.skTimeWidth} h={M.skTimeHeight} r={M.skRadiusSmall} />
+                        </View>
+                        <View style={{
+                            flex: 1,
+                            backgroundColor: c.card,
+                            borderRadius: M.cardRadius,
+                            paddingTop: M.cardPadTop,
+                            paddingHorizontal: M.cardPadX,
+                            paddingBottom: M.cardPadBottom,
+                            gap: M.skCardGap,
+                        }}>
+                            <Bar w={M.skNameWidth} h={M.skNameHeight} />
+                            <Bar w={M.skServiceWidth} h={M.skServiceHeight} />
+                        </View>
+                    </View>
+                ))}
+            </View>
         </View>
     );
 }

@@ -4,9 +4,9 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader, WeekStrip } from '../../src/components/CalendarParts';
-import { DurumBlock, DurumUnread } from '../../src/components/Durum';
+import { DurumBlock } from '../../src/components/Durum';
 import { VoidBlock } from '../../src/components/EmptyDayParts';
-import { SoloAppointmentCard, SoloNowLine } from '../../src/components/SoloDayParts';
+import { SoloAppointmentCard, SoloDaySkeleton, SoloNowLine } from '../../src/components/SoloDayParts';
 import {
     StaffHeroPanelCard,
     StaffListHeaderView,
@@ -14,7 +14,7 @@ import {
 import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { soloDaySubtitle, soloEmptyCopy, soloPanelAction } from '../../src/lib/soloDay';
+import { SOLO_UNREAD_COPY, soloDaySubtitle, soloEmptyCopy, soloPanelAction } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
@@ -166,19 +166,39 @@ export default function SoloDay() {
                 refreshControl={<RefreshControl refreshing={false} onRefresh={() => { void reload(); }} tintColor={c.tx3} />}
             >
                 {/*
-                  * OKUNAMADI, BOŞ GÜNDEN AYRI ÇİZİLİYOR.
+                  * OKUNAMADI, BOŞ GÜNDEN AYRI CÜMLE — ama AYNI ÇERÇEVEDE
+                  * (v4 · B4).
                   *
                   * Elde veri varken sessizce bayat göstermek doğru (`stale`),
                   * ama hiç veri yokken "randevunuz yok" demek yanlış cümle:
                   * gün dolu olabilir ve ekran onu yok sayıyor olabilir.
+                  *
+                  * Müdürün sola yaslı `DurumUnread`u yerine boş hâl gövdesi:
+                  * dört hâl (boş, kapalı, yükleniyor, okunamadı) aynı
+                  * çerçevede duruyor ve biri ötekilere benzemezse ekran hata
+                  * ânında başka bir uygulamaya dönüşüyor.
                   */}
                 {state === 'error' && !dayKnown ? (
-                    <DurumUnread
-                        what="Gününüzü"
-                        notMeaning="Randevunuz olmadığı"
-                        onRetry={() => { void reload(); }}
-                    />
+                    <View style={{ paddingTop: soloDayMetrics.voidTop }}>
+                        <VoidBlock
+                            copy={SOLO_UNREAD_COPY}
+                            isToday={isToday}
+                            nowMinutes={nowMinutes}
+                            action={{ label: 'Tekrar dene', onPress: () => { void reload(); } }}
+                        />
+                    </View>
                 ) : null}
+
+                {/*
+                  * YÜKLENİYOR — HENÜZ HİÇBİR ŞEY İDDİA ETMİYORUZ (v4 · B3).
+                  *
+                  * Tarih ve şerit gerçek (cihazdan biliniyor); özet sayısı,
+                  * doluluk noktaları, hâl kartı ve kartlar iskelet. Veri
+                  * gelmeden boş hâlin cümlesini çizmek, ekranın önce
+                  * "randevu yok" deyip saniyeler sonra kendini yalanlaması
+                  * olurdu.
+                  */}
+                {state === 'loading' && !dayKnown ? <SoloDaySkeleton /> : null}
 
                 {/*
                   * BOŞ GÜNDE KART ÇİZİLMİYOR (v4 · B1).
@@ -211,7 +231,10 @@ export default function SoloDay() {
                                 tone: panelAction.tone,
                                 onPress: () => router.push({
                                     pathname: '/(staff-flow)/kumanda',
-                                    params: { id: panelAction.appointmentId },
+                                    // `from`: kumandanın geri okunun yazısı.
+                                    // Orada `useInSoloShell()` çalışmıyor —
+                                    // o ekran `(staff-flow)` segmentinde.
+                                    params: { id: panelAction.appointmentId, from: 'tek' },
                                 }),
                             } : undefined}
                         />

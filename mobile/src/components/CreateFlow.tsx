@@ -9,7 +9,7 @@ import {
     ApptCta, ApptDayHero, ApptHero, ApptPageTitle, ApptPlate, ApptTopBar, ArrowIcon,
     CloseIcon, CustomerRow, DayChip, EmptyResult, HeroDot, HeroSubText, Hint,
     KeyValueGrid, NoteRow, PhoneField, RailBlock, SearchIcon, SectionHead,
-    ClosedServiceRow, ServiceRow, SolidButton, type KeyValue,
+    AddServiceRow, ClosedServiceRow, ServiceRow, SolidButton, type KeyValue,
 } from './ApptParts';
 import { DurumBlock, DurumUnread } from './Durum';
 import { feedback } from '../lib/feedback';
@@ -56,7 +56,7 @@ import type { CreatedAppointment } from '../lib/managerWrite';
 const M = apptMetrics;
 
 export function CreateFlow({
-    prefill, context, onCreate, onSend, onRefusal, onClose, onCreated, topInset, bottomInset,
+    prefill, context, onCreate, onSend, onRefusal, onClose, onCreated, onAddService, topInset, bottomInset,
 }: {
     prefill?: {
         dateISO?: string; startMinutes?: number; staffId?: string;
@@ -77,6 +77,16 @@ export function CreateFlow({
     onRefusal: (reason: NonNullable<ReturnType<typeof useCreateDay>['refusal']>) => void;
     /** Onay ekranı bitince ya da vazgeçilince çağrılır. */
     onClose: () => void;
+    /**
+     * "Yeni hizmet ekle" satırına dokunuldu (v4 · R1).
+     *
+     * Gezinmeyi EKRAN yapıyor, bu bileşen değil: `CreateFlow` iki kabuktan
+     * birden çiziliyor ve hedef sayfanın adresi ikisinde de aynı olsa bile,
+     * bir bileşenin kendi başına yığına sayfa itmesi onu çağrıldığı yere
+     * bağımlı kılar. Verilmezse satır HİÇ çizilmiyor — dokunulduğunda
+     * hiçbir şey yapmayan bir kontrol konmuyor.
+     */
+    onAddService?: () => void;
     /** Randevu kuruldu — akışa da düşsün diye çağıran haberdar edilir. */
     onCreated?: (appointment: CreatedAppointment, staffName: string | null) => void;
     /** Kahraman levha üst güvenli alanı KENDİ örtüyor. */
@@ -431,6 +441,17 @@ export function CreateFlow({
                             onPress={() => selectCustomer(customer)}
                         />
                     ))}
+                    {/*
+                      * DEFTER BOŞSA BAŞLIK TEK BAŞINA KALMIYOR (v4 · S3).
+                      *
+                      * Yeni hesapta "Son gelenler · 0" yazan bir başlık ve
+                      * altında hiçbir şey duruyordu: boş liste "yok" demez,
+                      * sessiz kalır. İlk randevusunu kuran kişi orada
+                      * arama kutusunun ne işe yaradığını bilmiyor.
+                      */}
+                    {recents.length === 0 ? (
+                        <Hint>Henüz müşteri yok. Adını yukarıya yazın; yeni müşteri olarak eklenir.</Hint>
+                    ) : null}
                 </>
             )}
 
@@ -462,7 +483,7 @@ export function CreateFlow({
               * de doğru.
               */}
             {context.services.length === 0 ? (
-                <Hint>Salonda tanımlı hizmet yok. Hizmetler ve fiyatlar sayfasından ekleyebilirsiniz.</Hint>
+                <Hint>Salonda tanımlı hizmet yok. Aşağıdan ekleyebilirsiniz.</Hint>
             ) : null}
             {context.services.map((service) => {
                 // Müdür 23 v2: müşterinin açık bayrağı bu hizmeti kapatıyorsa
@@ -482,6 +503,8 @@ export function CreateFlow({
                     />
                 );
             })}
+            {/* Listenin SONUNDA: asıl iş var olanı seçmek, ekleme ara sıra. */}
+            {onAddService ? <AddServiceRow onPress={onAddService} /> : null}
         </>
     );
 
