@@ -23,7 +23,7 @@ DECLARE
     -- ⬇️ Tohumu hangi org'a attıysan onun kimliği. Boş bırakılırsa tek solo
     --    org aranır; birden çoksa komut durur ve adayları listeler.
     --    `DEMO_tek_kisilik.sql`deki `v_hedef_org` ile AYNI değer olmalı.
-    v_hedef_org UUID := NULL;
+    v_hedef_org UUID := '8418f10d-8182-4224-b334-c9acc775acee';
 
     v_org   UUID;
     v_name  TEXT;

@@ -57,7 +57,7 @@ DECLARE
     -- ⬇️ Birden çok solo org varsa HANGİSİ olduğunu buraya yaz.
     --    Boş bırakılırsa tek solo org aranır. Komut hata verirken adayları
     --    kimlikleriyle listeliyor; oradan kopyala.
-    v_hedef_org UUID := NULL;
+    v_hedef_org UUID := '8418f10d-8182-4224-b334-c9acc775acee';
 
     v_org      UUID;
     v_liste    TEXT;
