@@ -1,7 +1,11 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-11 · **Dal:** `tek-kisilik` · **Baş commit:** `7f7b5f1`
-**Testler:** 2771 geçti / 0 kırık / 7 atlandı · `tsc` temiz
+**Tarih:** 2026-10-11 · **Dal:** `tek-kisilik` = `main` (birleşti, push edildi) · **Kod commit'i:** `7386ba1`
+**Testler:** 2784 geçti / 0 kırık / 7 atlandı · `tsc` temiz
+
+> **2026-10-11 akşam turu (§15):** 111 yeniden yazıldı ve yerelde gerçek
+> Postgres'te sınandı. Kasa arayüz taslağı `tek-kasa` dalına alındı.
+> `tek-kisilik` `main`'e ileri sarıldı. **Yeni deploy borcu var** (§6).
 
 Bu belge tek başına yeterli olmak için yazıldı. Yeni oturum bunu okuyunca
 projeyi, kararları ve sıradaki işi bilmeli; önceki konuşmayı aramaya
@@ -12,8 +16,9 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu KALMADI** (§6, 2026-10-11). Göç 110, `staff-api` ve
-   `remind` canlıda. Tahsilatın telefonda denenmesi gerekiyor.
+2. **Deploy borcu: 111 + `staff-api` + `whatsapp-booking`** (§6). Sıra
+   zorunlu: önce kuru koşu, sonra göç, en son deploy. Tahsilatın telefonda
+   denenmesi de hâlâ bekliyor.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -125,6 +130,7 @@ iki kez yazmak, iki kez bozmak demekti.
 | `108_tek_kisilik.sql` | `organizations.solo` + `set_business_mode()` | ✅ **üretimde** |
 | `109_staff_auth_log_eksik_olaylar.sql` | (gerekçesi YANLIŞTI — bkz. §8) | ⚠️ **üretimde, zararsız** |
 | `110_staff_auth_log_tahsilat.sql` | `visit.collect` olayı + `pair_locked` geri | ✅ **üretimde** (2026-10-11) |
+| `111_kasa_duzeltme_izi.sql` | Düzelt / Geri al izi + damgalı satırı gizleyen politikalar (§15) | ⏳ **yazıldı, UYGULANMADI** |
 
 ### Sunucu — `supabase/functions/staff-api/index.ts`
 
@@ -179,8 +185,8 @@ girmez (§7'de sebebi).
 | P1 | İşletme | ✅ |
 | **P2** | **Ekip ekle kapısı** | ❌ |
 | C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) |
-| **C2** | **Hareket satırı → Düzelt / Geri al** | ❌ |
-| **C3** | **Tahsilatı düzelt** | ❌ |
+| **C2** | **Hareket satırı → Düzelt / Geri al** | ⏳ sunucu hazır (111), arayüz `tek-kasa` dalında, bağlanmadı |
+| **C3** | **Tahsilatı düzelt** | ⏳ aynı |
 | R1 | Yeni randevu 1/2 | ✅ |
 | R2 | Yeni randevu 2/2 | ✅ |
 | T1 | Takvim · tek sütun | ✅ |
@@ -260,10 +266,50 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 
 ---
 
-## 6 · DEPLOY DURUMU — ✅ HEPSİ YAPILDI (2026-10-11)
+## 6 · DEPLOY DURUMU
 
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
+
+### ⏳ BEKLEYEN (2026-10-11 akşam) — 111 + iki fonksiyon
+
+Sıra zorunlu. Ters sırada `visit.collect` olmayan `voided_at` sütununu sorar
+ve **her tahsilat `lookup_failed` ile düşer.** Komutlar `main`'den, sakin
+bir saatte (göç `payments`i bir an kilitliyor).
+
+**0 · Ön kontrol** — 111 daha önce uygulanmamış olmalı, sonuç `0`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select count(*) from information_schema.columns where table_schema='public' and table_name='payments' and column_name='voided_at'\""
+```
+
+**1 · Kuru koşu** — göç + davranış testi TEK işlemde, sonunda hepsi geri
+sarılır. Son satırlar `kasa düzeltme regression: ok` ve `ROLLBACK` olmalı:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/111_kasa_duzeltme_izi.sql; sed -e '/^BEGIN;$/d' supabase/tests/kasa_duzeltme_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/111_kasa_duzeltme_izi.sql
+```
+
+**3 · Deploy** (`_shared` değişmedi, adla deploy güvenli):
+
+```bash
+cd ~/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api whatsapp-booking
+```
+
+**4 · Doğrulama** — ikisi de `200` dönmeli (Claude çalıştırabilir; olmayan
+bir fonksiyon adı aynı istekte 500 "boot error" döndüğü için ölçüm geçerli):
+
+```bash
+for f in staff-api whatsapp-booking; do curl -s -o /dev/null -w "$f %{http_code}\n" -X OPTIONS https://supabase.timeflow.lueratech.com/functions/v1/$f; done
+```
+
+### ✅ Önceki tur (2026-10-11 öğlen) — hepsi yapıldı
 
 | İş | Durum |
 |---|---|
@@ -554,3 +600,85 @@ cd /Users/furkanulger/Projects/luera-timeflow && node --test tests/tek-*.test.mj
 6. `mobile/AGENTS.md` — **kod yazmadan önce zorunlu**
 7. `mobile/src/lib/soloDay.ts` — kararların gerekçeleri yorumlarda
 8. `tests/tek-tahsilat.test.mjs` — para akışının kuralları, sebepleriyle
+9. `supabase/111_kasa_duzeltme_izi.sql` başlığı + `tests/tek-kasa-izi.test.mjs`
+   — düzeltme / geri alma izinin kuralları
+
+---
+
+## 15 · 2026-10-11 AKŞAM TURU — RİSK VE KIRIK KAPANDI
+
+Bir denetim üç kırmızı madde buldu; kullanıcı "ilk olarak bunu düzeltelim"
+dedi. Üçü de kapandı.
+
+### Dallar
+
+| Dal | Ne | Durum |
+|---|---|---|
+| `main` | `tek-kisilik` ile AYNI (ileri sarıldı) | GitHub'da |
+| `tek-kisilik` | çalışma dalı | GitHub'da |
+| `tek-kasa` | C2/C3 arayüz taslağı — tek `wip(tek)` commit'i, `tek-kisilik`in üstünde, **bağlanmadı** | GitHub'da |
+
+**Neden `main`'e birleşti** (kullanıcı kararı): canlıdaki `staff-api` ve
+108–110 yalnız bu daldaydı; biri `main`'den `staff-api` deploy etse tahsilat
+ve tek kişilik oturum canlıdan silinirdi. Masaüstü etkilenmedi (dal `src/`a
+dokunmuyor, Coolify elle tetikleniyor). ⚠️ Bundan sonra `main`'den alınan bir
+mağaza derlemesi tek kişilik modu ve kayıttaki "Yalnız ben / Ekibim var"
+sorusunu İÇERİR.
+
+**`tek-kasa`da bilerek açık bırakılan:** `tests/mobile-mudur-kasa.test.mjs`
+ve `mobile-mudur-kasa-canli.test.mjs` (1 test) eski davranışı bekliyor —
+yerel iptal katmanı ve salt okunur fiş. C2/C3 bağlanırken YENİ davranışa
+taşınacaklar, gevşetilmeyecekler. Veri katmanı (`voided_payments` okuması,
+`correct_payment` / `revert_payment` çağrıları) ve `mudur/cash.tsx`
+bağlantısı da o turun işi. Tip denetimi orada temiz.
+
+### 111 — dört sorun, dördü kapandı
+
+1. **Düzeltme taksit bağını düşürüyordu** (elle sütun listesi
+   `installment_id`yi unutmuştu) → yeni satır artık eskisinin TAM KOPYASI
+   (`to_jsonb` → `jsonb_populate_record`), üzerine yazılan alanlar sabit küme.
+2. **061 damgalı satırı sayıyordu** (tetikleyiciler SECURITY DEFINER, RLS'i
+   görmüyor) → üç fonksiyon 111'de yeniden kuruldu: 061'in birebir kopyası +
+   `-- 111` işaretli 7 süzgeç + damgalı satırın tavana girmemesi için erken
+   dönüş. Test işaretleri söküp 061 ile karşılaştırıyor.
+3. **Geri alınan adisyon tekrar tahsil edilemiyordu** → `visit.collect` ve
+   `whatsapp-booking · my_balance` damgalı satırı süzüyor.
+4. **Okuyucular damgayı bilmiyordu** → kullanıcı kararı "veritabanında
+   gizle": `authenticated` için dört KISITLAYICI politika. Masaüstü, telefon
+   ve eski uygulama sürümleri koda dokunmadan doğru topluyor. İz yalnız
+   `voided_payments(org, from, to)`tan okunuyor.
+
+**Bilinen sınır:** açık bir masaüstü sekmesi damga olayını canlı almıyor
+(gizlenen satırın değişikliği realtime abonelerine gitmiyor); yenileyince
+doğru. Düzeltme yalnız tek kişilik modda yapılıyor, o modun masaüstü yok.
+
+### Dersler
+
+- **Kopyalayan fonksiyonda sütunları elle yazma.** Tablo büyüdükçe liste
+  geride kalır ve sessizce sütun düşürür. `to_jsonb(eski) || {değişenler}`.
+- **SECURITY DEFINER olan her şey RLS'i atlar** — tetikleyiciler dahil. Bir
+  satırı RLS ile gizlemek, DEFINER fonksiyonların ve service_role okuyucuların
+  onu görmeye devam ettiği anlamına gelir. `tests/tek-kasa-izi.test.mjs` edge
+  function okumalarını tarıyor; yeni bir okuma süzgeçsiz eklenirse düşer.
+- **Kısıtlayıcı SELECT politikası + aynı satırı gizleyen UPDATE = ret.**
+  Postgres güncellenen satırın YENİ hâlini de SELECT politikasına sokuyor
+  ("new row violates row-level security policy"). Damgayı yalnız DEFINER
+  fonksiyon basabilir; bu bir hata değil, tasarımın kendisi.
+- **Davranış testi önce DÜŞMELİ.** Her süzgeç tek tek söküldüğünde
+  regresyon testi doğru hatayla düştü; düşmeseydi test bir şey kanıtlamıyor
+  olurdu.
+
+### Yerel Postgres (gelecek göçler için)
+
+Makinede Docker ve psql yok, ama npm önbelleğinde **PGlite 0.3.15** var
+(gerçek Postgres 17, WASM). İnternetsiz kurulur:
+
+```bash
+mkdir -p /tmp/pglite-pkg && cd /tmp/pglite-pkg && npm init -y >/dev/null && npm install --offline @electric-sql/pglite@0.3.15
+```
+
+Roller (`SET ROLE authenticated`), RLS ve DEFINER fonksiyonlar çalışıyor.
+111 böyle sınandı: Supabase'in ilgili kısmının taslağı (auth.users +
+`handle_new_user`, `auth.uid()`, `auth_user_org_ids`, tablolar, politikalar,
+fonksiyonlara açık varsayılan EXECUTE) + 061'in GERÇEK fonksiyonları + 111 +
+regresyon testi. Taslak üretim değil: son söz her zaman §6'daki kuru koşu.
