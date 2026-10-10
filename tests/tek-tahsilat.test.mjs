@@ -163,3 +163,50 @@ test('denetim olayı kısıta UYGUN', () => {
     assert.match(endpoint, /audit\(me\.organization_id, me\.id, 'visit\.collect', method\)/);
     assert.match(read('supabase/110_staff_auth_log_tahsilat.sql'), /'visit\.collect'/);
 });
+
+// ── Kumandadaki yer ─────────────────────────────────────────────────────────
+
+const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
+
+test('tahsilat güvertesi YALNIZ tek kişilik modda', () => {
+    // Ekip modunda son adım "Adisyonu kasaya gönder" olarak kalıyor: orada
+    // parayı başkası alıyor ve personelin kasaya erişimi yok.
+    assert.match(kumanda, /params\.from === 'tek' \? \(\s*<CollectBar/);
+    assert.match(kumanda, /\) : phase === 'closing' \|\| phase === 'closed' \? \(\s*<SendToCash/);
+});
+
+test('tahsilat GÖNDERİMDEN SONRA — sıra zorunlu', () => {
+    /*
+     * `visit.collect` sunucuda `status = 'completed'` istiyor ve randevuyu
+     * kapatan şey gönderimin içindeki `visit.finish`. Tersi sırada sunucu
+     * `not_finished` derdi.
+     */
+    const effect = kumanda.slice(
+        kumanda.indexOf("if (collectStage !== 'sending'"),
+        kumanda.indexOf('}, [collectStage, send, sendCode'),
+    );
+    assert.match(effect, /if \(send === 'going' \|\| send === 'window'\) return undefined;/);
+    assert.match(effect, /if \(send !== 'sent' && send !== 'sealed'\) \{/);
+});
+
+test('KUYRUĞA GİREN gönderim "olmuş" sayılmıyor', () => {
+    // İş telefonun kuyruğunda, sunucuda değil. Üstüne para kaydı atmak,
+    // olmamış bir kapanışın parasını yazmaktı.
+    assert.match(kumanda, /send === 'queued' \? 'offline' : null/);
+});
+
+test('tahsilat isteği TEK kez gidiyor', () => {
+    // Etki `send` değiştikçe yeniden koşuyor; koruma olmadan ikinci bir para
+    // kaydı yazılabilirdi.
+    assert.match(kumanda, /if \(collectingRef\.current\) return undefined;\s*collectingRef\.current = true;/);
+});
+
+test('İKİNCİ bir gönderim yolu YAZILMADI', () => {
+    /*
+     * Var olan yol iyimser kilidi, kuyruğu, "zaten kapandı" dalını ve
+     * tek-uçuş korumasını yıllarca biriktirdi. İkisi de aynı makineyi
+     * kullanıyor; "Sonra tahsil et" yalnız sonrasını atlıyor.
+     */
+    assert.equal((kumanda.match(/sendVisitToCash\(/g) ?? []).length, 1);
+    assert.match(kumanda, /onLater=\{\(\) => \{[\s\S]{0,220}setCollectStage\('pending'\)/);
+});

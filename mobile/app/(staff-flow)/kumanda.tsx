@@ -38,7 +38,10 @@ import {
     saveLabel, sendWarning,
     type FormulaDoor, type HistoryState, type VisitFormula,
 } from '../../src/lib/formula';
+import { ApiError, api } from '../../src/api/staff';
+import { CollectBar } from '../../src/components/CollectBar';
 import { SendToCash } from '../../src/components/SendToCash';
+import type { CollectMethod, CollectStage } from '../../src/lib/collect';
 import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
     queuedBandLabel, sendOutcome,
@@ -141,6 +144,24 @@ export default function Kumanda() {
     const [sentAt, setSentAt] = useState<string | null>(null);
     /** Geri alındıktan sonra 2.6 sn duran şerit. */
     const [undone, setUndone] = useState(false);
+
+    /*
+     * ── TAHSİLAT (108 · v4 K3/K4), YALNIZ TEK KİŞİLİK MODDA ─────────────────
+     *
+     * Gönderim makinesi OLDUĞU GİBİ kullanılıyor: "Kartla tahsil et" de
+     * "Sonra tahsil et" de `send`i `going`e alıyor ve adisyon her iki
+     * durumda da aynı yoldan kasaya gidiyor. Ayrışma yalnız sonrasında —
+     * biri para kaydı yazıyor, öteki yazmıyor.
+     *
+     * İkinci bir gönderim yolu YAZILMADI: o yol iyimser kilidi, kuyruğu,
+     * "zaten kapandı" dalını ve tek-uçuş korumasını yıllarca biriktirdi.
+     * Kopyası sessizce ayrışırdı.
+     */
+    const [collectMethod, setCollectMethod] = useState<CollectMethod | null>(null);
+    const [collectStage, setCollectStage] = useState<CollectStage>('idle');
+    const [collectCode, setCollectCode] = useState<string | null>(null);
+    /** Tahsilat isteği TEK kez gider — etki yeniden koşsa bile. */
+    const collectingRef = useRef(false);
     const sent = isSealed(send);
 
     /**
@@ -423,6 +444,60 @@ export default function Kumanda() {
         return undefined;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [send, base?.id]);
+
+    /*
+     * ── TAHSİLAT, GÖNDERİM BİTTİKTEN SONRA (v4 · K3) ────────────────────────
+     *
+     * Sıra zorunlu: `visit.collect` sunucuda `status = 'completed'` istiyor ve
+     * randevuyu kapatan şey gönderimin içindeki `visit.finish`. Tersi sırada
+     * sunucu `not_finished` derdi.
+     *
+     * Üç dal, üçü de AYRI bir gerçek:
+     *   gönderim sürüyor  → bekle
+     *   gönderim düştü    → `send_failed`; kasaya hiçbir şey yazılmadı
+     *   gönderim oldu     → tahsil et
+     *
+     * `queued` de DÜŞMÜŞ sayılıyor: iş telefonun kuyruğunda, sunucuda değil.
+     * Üstüne para kaydı atmak, olmamış bir kapanışın parasını yazmaktı.
+     */
+    useEffect(() => {
+        if (collectStage !== 'sending' || !base?.id || !collectMethod) return undefined;
+        if (send === 'going' || send === 'window') return undefined;
+
+        if (send !== 'sent' && send !== 'sealed') {
+            setCollectStage('send_failed');
+            setCollectCode(sendCode ?? (send === 'queued' ? 'offline' : null));
+            return undefined;
+        }
+
+        if (collectingRef.current) return undefined;
+        collectingRef.current = true;
+        let alive = true;
+        void api.visitCollect(base.id, collectMethod)
+            .then(() => {
+                collectingRef.current = false;
+                if (!alive) return;
+                setCollectStage('done');
+                setCollectCode(null);
+                // Sunucu yazdı: eldeki kopya bayat. `is_paid` döndüğünde
+                // plaka "Tahsil edildi" diyebilsin.
+                void reloadVisit();
+            })
+            .catch((cause: unknown) => {
+                collectingRef.current = false;
+                if (!alive) return;
+                /*
+                 * GÖNDERİM OLDU, TAHSİLAT OLMADI. Ayrı bir hâl: adisyon
+                 * kasada AÇIK duruyor ve cümlesi bunu söylüyor. Aynı hatayı
+                 * `send_failed` saymak kullanıcıya "hiçbir şey yazılmadı"
+                 * dedirtir ve parayı ikinci kez almaya kalkardı.
+                 */
+                setCollectStage('collect_failed');
+                setCollectCode(cause instanceof ApiError ? cause.code : 'offline');
+            });
+        return () => { alive = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [collectStage, send, sendCode, base?.id, collectMethod]);
 
     useEffect(() => {
         if (!pending) return undefined;
@@ -996,7 +1071,38 @@ export default function Kumanda() {
                         ) : null;
                     })() : null}
 
-                    {phase === 'closing' || phase === 'closed' ? (
+                    {/*
+                      * SON ADIM MODA GÖRE (v4 · K3).
+                      *
+                      * Ekip modunda "Adisyonu kasaya gönder": personel işi
+                      * kapatır, parayı başkası alır. Tek kişilikte o başkası
+                      * yok — aynı kişi hem bitiriyor hem tahsil ediyor.
+                      *
+                      * Kabuk `from` parametresinden biliniyor: bu ekran
+                      * `(staff-flow)` segmentinde yaşıyor ve `useInSoloShell()`
+                      * burada çalışmıyor.
+                      */}
+                    {(phase === 'closing' || phase === 'closed') && params.from === 'tek' ? (
+                        <CollectBar
+                            method={collectMethod}
+                            stage={collectStage}
+                            errorCode={collectCode}
+                            onPick={setCollectMethod}
+                            onCollect={() => {
+                                setCollectCode(null);
+                                setCollectStage('sending');
+                                // Gönderim yapılmadıysa önce o: `visit.collect`
+                                // kapanmış randevu istiyor. Yapıldıysa etki
+                                // doğrudan tahsilata geçiyor.
+                                if (send === 'idle' || send === 'window') setSend('going');
+                            }}
+                            onLater={() => {
+                                // v4: "adisyon açık kalır, Gün'de kart G4 olur".
+                                setCollectStage('pending');
+                                if (send === 'idle' || send === 'window') setSend('going');
+                            }}
+                        />
+                    ) : phase === 'closing' || phase === 'closed' ? (
                         <SendToCash
                             state={send}
                             // Sunucu gerçeği: tahsil edilmiş ya da kasadaki

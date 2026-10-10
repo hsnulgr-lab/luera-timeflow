@@ -3091,6 +3091,34 @@ export const soloDayMetrics = {
     skRadiusSmall: 5,
     skRows: 3,
 
+    /*
+     * TAHSİLAT GÜVERTESİ (v4 · K3/K4) — kumandanın son adımı tek modda.
+     * Ölçüler `.kfoot` / `.seg` / `.kbtn` / `.kgh` / `.kerr`.
+     */
+    collectPadX: 11,
+    collectPadBottom: 18,
+    collectGap: 10,
+    segPad: 4,
+    segGap: 2,
+    segRadius: 14,
+    segItemHeight: 38,
+    segItemRadius: 10,
+    segText: 15,
+    payHeight: 59,
+    payRadius: 26,
+    payText: 19,
+    payTrack: -0.02,
+    payGap: 10,
+    payIcon: 22,
+    payBorder: 1.5,
+    ghostHeight: 34,
+    ghostText: 15,
+    errGap: 8,
+    errPadX: 9,
+    errText: 13.5,
+    errLine: 1.4,
+    errIcon: 18,
+
     // Şimdi çizgisi (nowp) — turuncu hap, kartların arasında
     nowPillHeight: 22,
     nowPillPadX: 10,
