@@ -10,6 +10,7 @@ import {
     soloApptStamp,
     soloDaySubtitle,
     soloEmptyCopy,
+    soloPanelAction,
 } from '../mobile/src/lib/soloDay.ts';
 
 const read = (p) => readFileSync(new URL(`../mobile/${p}`, import.meta.url), 'utf8');
@@ -72,9 +73,39 @@ test('okunamadı, boş günden AYRI çiziliyor', () => {
     assert.match(gun, /state === 'error' && !dayKnown[\s\S]{0,200}DurumUnread/);
 });
 
-test('dokunulduğunda hiçbir şey yapmayan hap ÇİZİLMİYOR', () => {
-    // Kart `action`a hazır ama kumanda yolu bağlanmadan hap konmuyor.
-    assert.doesNotMatch(gun, /action=\{/);
+// ── Hâl kartının eylem hapı (Faz 2b) ────────────────────────────────────────
+
+test('hap SÜREN işi, yoksa SIRADAKİNİ hedefliyor', () => {
+    // Süren iş önce: o anda yapılacak tek şey o.
+    assert.deepEqual(
+        soloPanelAction(appt({ id: 'r1' }), appt({ id: 'r2' })),
+        { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'r1' },
+    );
+    assert.deepEqual(
+        soloPanelAction(null, appt({ id: 'r2' })),
+        { label: 'Başlat', tone: 'go', appointmentId: 'r2' },
+    );
+});
+
+test('üzerinde iş yapılacak satır yoksa hap ÇİZİLMİYOR', () => {
+    // Boş gün ya da günün sonu: kart bilgi olarak kalıyor, hapsız.
+    assert.equal(soloPanelAction(null, null), null);
+});
+
+test('hap KUMANDAYI AÇIYOR, işi kendisi BAŞLATMIYOR', () => {
+    /*
+     * Başlatmak `started_at` yazıyor ve geri alınamaz; listede yanlışlıkla
+     * dokunulan bir hapın günün sayacını yanlış dakikadan başlatması kabul
+     * edilemezdi. Hap bir kapı, iş kumandada yapılıyor (v4 · G1 notu).
+     */
+    assert.match(gun, /pathname: '\/\(staff-flow\)\/kumanda'/);
+    assert.doesNotMatch(gun, /startVisit|visit\.start/);
+});
+
+test('hap YALNIZ bugün ve gün OKUNDUYSA', () => {
+    // Başka günün kartında "Başlat" yalan söylerdi; okunmamış günde ise
+    // hangi randevuyu açacağını bilmiyoruz.
+    assert.match(gun, /dayKnown && isToday && dayState/);
 });
 
 

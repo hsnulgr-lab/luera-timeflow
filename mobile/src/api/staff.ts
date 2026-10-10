@@ -262,11 +262,56 @@ export const auth = {
     access: (token: string) => raw('access', {}, token),
 };
 
+/**
+ * JETONU TAZELEYEN TARAF — varsayılan YOK (108).
+ *
+ * Personel cihazında jeton PIN'le alınır ve kendiliğinden tazelenemez:
+ * kimliği bilen tek şey kullanıcının parmağı. Tek kişilik işletmede ise
+ * sahibin elinde Supabase oturumu var ve sunucu ondan jeton basabiliyor
+ * (`solo.session`) — yani orada tazeleme sessizce yapılabilir.
+ *
+ * Bu dosya `supabase`i İTHAL ETMİYOR, bilerek: dosyanın başındaki kural
+ * "personel cihazında Supabase kimliği YOKTUR" ve o kuralı bir ithalle
+ * gevşetmek, yarın birinin buradan org oturumuna uzanmasının kapısı olurdu.
+ * Onun yerine kabuk kendi tazeleyicisini TAKIYOR; takılı değilse davranış
+ * eskisinin aynısı.
+ *
+ * Dönüşü `true` ise yeni bir jeton saklanmıştır ve çağrı bir kez tekrar
+ * denenir.
+ */
+type TokenRefresher = () => Promise<boolean>;
+let refreshStaffToken: TokenRefresher | null = null;
+
+export function setStaffTokenRefresher(fn: TokenRefresher | null): void {
+    refreshStaffToken = fn;
+}
+
+/** Jeton yok ya da sunucu reddetti — tazeleyici varsa bir kez denenir. */
+const needsFreshToken = (code: string) => code === 'no_session' || code === 'invalid_token';
+
 /** Kimlikli çağrı: personel token'ı ile. */
 async function call(action: string, body: Record<string, unknown> = {}) {
     const t = await tokens.staff();
-    if (!t) throw new ApiError('no_session', 401);
-    return raw(action, body, t);
+    if (!t) {
+        if (!refreshStaffToken || !(await refreshStaffToken())) throw new ApiError('no_session', 401);
+        const fresh = await tokens.staff();
+        if (!fresh) throw new ApiError('no_session', 401);
+        return raw(action, body, fresh);
+    }
+    try {
+        return await raw(action, body, t);
+    } catch (cause) {
+        /*
+         * BİR KEZ. Döngü yok: tazeleme başarısızsa ya da yeni jeton da
+         * reddedilirse hata olduğu gibi yukarı çıkıyor. Jeton 12 saat
+         * yaşıyor ve bu dal günde bir kez, sessizce çalışıyor.
+         */
+        if (!(cause instanceof ApiError) || !needsFreshToken(cause.code)) throw cause;
+        if (!refreshStaffToken || !(await refreshStaffToken())) throw cause;
+        const fresh = await tokens.staff();
+        if (!fresh || fresh === t) throw cause;
+        return raw(action, body, fresh);
+    }
 }
 
 export const api = {

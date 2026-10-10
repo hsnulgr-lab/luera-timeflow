@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -7,6 +8,7 @@ import { ManagerDayProvider } from '../../src/state/managerDay';
 import { useActorGate } from '../../src/lib/roleGate';
 import { usePushIntent } from '../../src/lib/pushSetup';
 import { useShellIsRoot } from '../../src/lib/shellRoot';
+import { attachSoloTokenRefresher } from '../../src/lib/soloSession';
 import { useTheme } from '../../src/theme';
 
 /**
@@ -42,6 +44,24 @@ export default function SoloLayout() {
     useShellIsRoot('tek');
     const gate = useActorGate('manager');
     usePushIntent('manager', gate.state === 'allowed');
+
+    /*
+     * KUMANDANIN ANAHTARI BU KABUKTA TAKILI (108 · Faz 2b).
+     *
+     * Kumanda dar personel API'si üzerinde ve o API `x-staff-token` istiyor;
+     * sahibin elinde yalnız Supabase oturumu var. Tazeleyici takılıyken
+     * `src/api/staff.ts` jeton yokken ya da eskidiğinde sunucudan sessizce
+     * yenisini alıyor (`solo.session`).
+     *
+     * Burada, ekranda değil: Gün kumandayı açıyor ama Kasa ve ileride
+     * tahsilat da aynı jetonu kullanacak. Sökülmesi şart — aynı uygulama
+     * oturumunda kabuk değişebiliyor ve takılı kalan tazeleyici personel
+     * kabuğundaki bir 401'de org oturumuna uzanmaya çalışırdı.
+     *
+     * Kapılardan ÖNCE çalışıyor ve bu zararsız: tazeleyici yalnız bir
+     * istek 401 alınca çağrılıyor, kendi başına hiçbir şey yapmıyor.
+     */
+    useEffect(() => attachSoloTokenRefresher(), []);
 
     if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (gate.state === 'wrong') return <Redirect href="/personel" />;

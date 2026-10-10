@@ -14,7 +14,7 @@ import {
 import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { soloDaySubtitle, soloEmptyCopy } from '../../src/lib/soloDay';
+import { soloDaySubtitle, soloEmptyCopy, soloPanelAction } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
@@ -40,20 +40,16 @@ import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
  * izlemeye ait; burada bakan kişi ile bakılan kişi aynı. Kendi adını ve
  * mesleğini okumanın bir karşılığı yok, "Ara" düğmesi kendini arardı.
  *
- * ── Henüz YOK: hâl kartının eylem hapı ──────────────────────────────────────
- * Hap "Başlat · Kumandayı aç" diyecek. Kart buna hazır
- * (`StaffHeroPanelCard`'ın `action`ı), ama hap ÇİZİLMİYOR — çünkü kumanda
- * bu oturumda AÇILAMIYOR ve sebebi tasarım değil, kimlik:
+ * ── Eylem hapı ve kumanda (Faz 2b) ──────────────────────────────────────────
+ * Hap kumandayı açıyor. Uzun süre çizilemedi çünkü kumanda dar personel
+ * API'si üzerinde ve o API `x-staff-token` istiyor; sahibin elinde yalnız
+ * Supabase oturumu var. Duvar sunucuda aşıldı (`solo.session`): sahip kendi
+ * personel satırı için jeton alıyor, jetonu kabuk sessizce tazeliyor
+ * (`src/lib/soloSession.ts`).
  *
- * `app/(staff-flow)/kumanda.tsx` baştan sona personel API'si üzerinde
- * (`src/api/staff.ts`) ve o API'nin kimliği `x-staff-token` — cihaz token'ı
- * artı PIN ile alınıyor. Solo sahibin elinde Supabase MÜDÜR oturumu var,
- * personel token'ı yok; `call()` daha ilk istekte `no_session` (401) atıyor.
- *
- * Yani hapı şimdi çizmek, dokunulduğunda hata ekranı açan bir kontrol
- * koymak olurdu. Çözümü ya sahibin kendi telefonunu kendi personel satırına
- * bağlaması ya da sunucunun müdür JWT'sini kabul etmesi; ikisi de Faz 3,
- * gerekçesi `docs/tek-kisilik-uygulama-plani.md`.
+ * Hap İŞİ BAŞLATMIYOR, kumandayı açıyor. Başlatmak `started_at` yazıyor ve
+ * bu geri alınamaz; listede yanlışlıkla dokunulan bir hapın günün sayacını
+ * yanlış dakikadan başlatması kabul edilemezdi. Tasarım da böyle (v4 · G1).
  */
 export default function SoloDay() {
     const { c } = useTheme();
@@ -129,6 +125,17 @@ export default function SoloDay() {
             : null,
     );
 
+    /*
+     * Hap neyin üstünde çalışacak: süren iş, yoksa sıradaki.
+     * Hiçbiri yoksa `null` ve kart hapsız kalıyor.
+     */
+    const panelAction = useMemo(
+        () => (dayKnown && isToday && dayState
+            ? soloPanelAction(dayState.runningAppointment, dayState.upcomingAppointments[0] ?? null)
+            : null),
+        [dayKnown, isToday, dayState],
+    );
+
     const openAppointment = useCallback((appointment: Appt) => {
         router.push({ pathname: '/(manager-flow)/randevu/[id]', params: { id: appointment.id } });
     }, [router]);
@@ -197,7 +204,17 @@ export default function SoloDay() {
 
                 {!dayEmpty && dayState?.panel ? (
                     <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
-                        <StaffHeroPanelCard panel={dayState.panel} />
+                        <StaffHeroPanelCard
+                            panel={dayState.panel}
+                            action={panelAction ? {
+                                label: panelAction.label,
+                                tone: panelAction.tone,
+                                onPress: () => router.push({
+                                    pathname: '/(staff-flow)/kumanda',
+                                    params: { id: panelAction.appointmentId },
+                                }),
+                            } : undefined}
+                        />
                     </View>
                 ) : null}
 

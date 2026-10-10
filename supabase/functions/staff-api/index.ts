@@ -58,6 +58,7 @@ type Action =
     // ── Sahip uçları (Supabase oturumu) ─────────────────────────────────────
     | 'team.status'      // ekibin giriş durumu: şifre var mı, son giriş
     | 'staff.pin.reset'  // şifreyi sıfırla → personel yenisini kendisi belirler
+    | 'solo.session'     // tek kişilik sahibi KENDİ kumandasını açar (108)
     // ── Kumanda (mobil personel modu) ────────────────────────────────────────
     | 'agenda'         // bugünün kendi randevuları
     | 'visit.start'    // işleme başla
@@ -426,6 +427,81 @@ Deno.serve(async (req: Request) => {
             if (!reset) return json({ error: 'invalid_staff' }, 400);
             await audit(owner.orgId, staffId, 'pin_reset');
             return json({ ok: true });
+        }
+
+        /*
+         * ── solo.session — TEK KİŞİLİK sahibi kendi kumandasını açar (108) ───
+         *
+         * ── Çözdüğü duvar ────────────────────────────────────────────────────
+         * Kumanda (`app/(staff-flow)/kumanda.tsx`) baştan sona bu API'nin
+         * personel token'ıyla çalışıyor ve o token cihaz eşleme + PIN ile
+         * alınıyor. Tek kişilik işletmenin sahibinin elinde Supabase MÜDÜR
+         * oturumu var, personel token'ı yok — `call()` ilk istekte
+         * `no_session` atıyordu ve işi başlatma/bitirme/adisyon yolu tek
+         * kişilik kabukta hiç açılamıyordu.
+         *
+         * Öteki yol, sahibin kendi telefonunu kendi personel satırına
+         * eşlemesiydi (kod üret, kodu yaz, PIN belirle). Çalışırdı ama tek
+         * kişilik modun bütün amacı adımı azaltmak; kendi telefonuna kendine
+         * kod yazdırmak o amacın tam tersi.
+         *
+         * ── Neden yetki GENİŞLEMİYOR ─────────────────────────────────────────
+         * Org sahibi bu salonun her satırını Supabase oturumuyla zaten
+         * okuyup yazabiliyor (RLS org bazlı). Burada verilen jeton onun
+         * yapabileceklerinin ALT KÜMESİ: dar personel API'si, tek org, tek
+         * personel satırı, 12 saat. Yani bu uç yeni bir kapı açmıyor, var
+         * olan kapıya dar bir koridor veriyor.
+         *
+         * ── Üç kapı ──────────────────────────────────────────────────────────
+         *   1. `ownerOf()` — geçerli Supabase oturumu, `member` rolü DEĞİL
+         *   2. org gerçekten `solo` olmalı — ekibi olan salonun sahibi bir
+         *      personelin kimliğine bürünemesin
+         *   3. TEK aktif personel olmalı — birden fazlaysa "hangisi" sorusunun
+         *      cevabı yok ve sunucu tahmin etmez
+         *
+         * Abonelik de burada bakılıyor. Jeton verip her isteği 403'e düşürmek
+         * teknik olarak aynı kapı, ama kullanıcıya "çalıştı sandım" dedirtir.
+         */
+        if (action === 'solo.session') {
+            const owner = await ownerOf();
+            if (owner instanceof Response) return owner;
+
+            const { data: org, error: orgErr } = await admin
+                .from('organizations')
+                .select('id, solo')
+                .eq('id', owner.orgId)
+                .maybeSingle();
+            if (orgErr) {
+                console.error('staff-api solo.session org', orgErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!org?.solo) return json({ error: 'not_solo' }, 403);
+
+            const access = await checkAccess(admin, owner.orgId);
+            if (!access.ok) return json({ error: 'subscription_inactive' }, 403);
+
+            // `limit(2)`: "tek mi" sorusunun cevabı için iki satır yeter,
+            // kadronun tamamını çekmeye gerek yok.
+            const { data: crew, error: crewErr } = await admin
+                .from('staff')
+                .select('id, organization_id, name, color, role, is_active, session_epoch')
+                .eq('organization_id', owner.orgId)
+                .eq('is_active', true)
+                .order('created_at')
+                .limit(2);
+            if (crewErr) {
+                console.error('staff-api solo.session staff', crewErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!crew || crew.length === 0) return json({ error: 'no_staff' }, 409);
+            if (crew.length > 1) return json({ error: 'not_solo' }, 409);
+
+            // Olay adı `login`, çünkü OLAN BU: sahip kendi kumandasına
+            // giriyor. Ayrımı `detail` taşıyor. Yeni bir ad uydurmak
+            // `staff_auth_log_event_check`e takılırdı ve supabase-js
+            // `insert()` fırlatmadığı için kayıt SESSİZCE düşerdi.
+            await audit(owner.orgId, crew[0].id, 'login', 'solo');
+            return loginResponse(crew[0] as StaffRow);
         }
 
         // ── device.code.redeem — personel kodu cihaz token'ına çevirir ────────

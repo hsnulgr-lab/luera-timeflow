@@ -170,3 +170,42 @@ export function soloEmptyCopy(
         spoken: `${title} ${hint}`,
     };
 }
+
+// ── Hâl kartının eylem hapı ─────────────────────────────────────────────────
+
+export interface SoloPanelAction {
+    label: string;
+    /** `go` sunucuya yazan işe götürür, `calm` yalnız ekranı açar. */
+    tone: 'go' | 'calm';
+    /** Kumandanın açılacağı randevu. */
+    appointmentId: string;
+}
+
+/**
+ * Kartın sağındaki hap: kumandada yapılacak İLK İŞİN adı (v4 · G1–G3).
+ *
+ * ── Hap neden "başlatmıyor" ─────────────────────────────────────────────────
+ * "Başlat" kumandayı BEKLENİYOR hâlinde açıyor; işi başlatan oradaki "Kaydır
+ * ve başlat". Tasarım da böyle diyor ve sebebi var: başlatmak `started_at`
+ * yazıyor, yani sunucuya giden geri alınamaz bir iş. Listede yanlışlıkla
+ * dokunulan bir hapın bunu yapması, günün sayacını yanlış dakikadan
+ * başlatırdı. Hap bir kapı, kumanda ise o işin yapıldığı yer.
+ *
+ * ── Üçüncü hâl neden yok ────────────────────────────────────────────────────
+ * v4'te dördüncü bir kart var: ADİSYON AÇIK → "Tahsil et". O hâl bu ekranda
+ * hiç oluşmuyor, çünkü `buildStaffDayState` ödeme diye bir şey bilmiyor —
+ * randevu satırında öyle bir alan yok. Tahsilat Faz 3; o geldiğinde buraya
+ * üçüncü bir dal eklenir.
+ *
+ * `null`: üzerinde iş yapılacak satır yok (boş gün ya da günün sonu). Kart
+ * bilgi olarak kalıyor, hapsız.
+ */
+export function soloPanelAction(
+    running: Appt | null,
+    next: Appt | null,
+): SoloPanelAction | null {
+    // Süren iş ÖNCE: o anda yapılacak tek şey o.
+    if (running) return { label: 'Kumandayı aç', tone: 'calm', appointmentId: running.id };
+    if (next) return { label: 'Başlat', tone: 'go', appointmentId: next.id };
+    return null;
+}
