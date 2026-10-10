@@ -1873,6 +1873,12 @@ Deno.serve(async (req: Request) => {
                 .select('id, amount, method, paid_at')
                 .eq('organization_id', me.organization_id)
                 .eq('reservation_id', res!.id)
+                // GERİ ALINMIŞ tahsilat "zaten alındı" DEĞİL (111 ·
+                // revert_payment). Süzgeçsiz bu sorgu damgalı kaydı bulup
+                // `alreadyCollected` derdi: yeniden açılan adisyonda "Tahsil
+                // et" kasaya hiçbir şey yazmadan başarılı görünürdü.
+                // service_role RLS'ten geçmiyor; süzgeç o yüzden burada.
+                .is('voided_at', null)
                 .order('paid_at', { ascending: true })
                 .limit(1)
                 .maybeSingle();

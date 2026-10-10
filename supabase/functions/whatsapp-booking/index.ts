@@ -707,7 +707,10 @@ Deno.serve(async (req: Request) => {
                     admin.from('treatment_plans').select('id, total_amount, status')
                         .eq('organization_id', orgId).eq('customer_id', known!.id),
                     admin.from('payments').select('amount, treatment_plan_id, type')
-                        .eq('organization_id', orgId).eq('customer_id', known!.id),
+                        .eq('organization_id', orgId).eq('customer_id', known!.id)
+                        // Düzeltilen ya da geri alınan eski kayıt para değil
+                        // (111); service_role RLS'ten geçmiyor, süzgeç burada.
+                        .is('voided_at', null),
                 ]);
                 // Hesap src/lib/patientBalance.ts ile AYNI formülden geçer
                 // (finance.ts aynası); üç ekranın üç farklı rakam göstermesi
