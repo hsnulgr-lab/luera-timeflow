@@ -12,10 +12,17 @@
 -- ── ÜÇ KAPI ────────────────────────────────────────────────────────────────
 -- Üretim veritabanında çalışıyor. Gerçek bir salonun verisine dokunmasının
 -- bedeli geri alınamaz, o yüzden hiçbiri geçilmeden tek satır yazılmıyor:
---   1. `solo = true` olan org sayısı TAM OLARAK BİR olmalı
---   2. O org'un sahibi (`owner_id`) çözülebilmeli
---   3. Hedef org'un adı ve kimliği EKRANA YAZILIR — yanlış org'a düşerse
---      çıktıdan görürsün
+--   1. Hedef org BELLİ olmalı — ya `solo = true` olan tek bir org vardır, ya
+--      da aşağıdaki `v_hedef_org`a hangisi olduğunu yazarsın
+--   2. Hedef org GERÇEKTEN solo olmalı (elle yazılan kimlik de denetlenir)
+--   3. Hedef org'un adı, kimliği ve sahibinin e-postası EKRANA YAZILIR —
+--      yanlış org'a düşerse çıktıdan görürsün
+--
+-- Birden çok solo org varsa komut DURUYOR ve adayları kimlikleriyle
+-- listeliyor; listeden kopyaladığını `v_hedef_org`a yazıp tekrar çalıştır.
+-- Org'un `solo` bayrağını kapatmak da bir çözüm ama BEDELİ VAR: o hesap bir
+-- dahaki açılışında müdür kabuğuna düşer. Tohum için veri değiştirmeye gerek
+-- yok.
 --
 -- Silme HER ZAMAN `organization_id = <solo org>` ile sınırlı ve yalnız bu
 -- dosyanın yazdığı satırları kaldırıyor: randevuda `source = 'demo-tek'`,
@@ -47,7 +54,13 @@
 
 DO $$
 DECLARE
+    -- ⬇️ Birden çok solo org varsa HANGİSİ olduğunu buraya yaz.
+    --    Boş bırakılırsa tek solo org aranır. Komut hata verirken adayları
+    --    kimlikleriyle listeliyor; oradan kopyala.
+    v_hedef_org UUID := NULL;
+
     v_org      UUID;
+    v_liste    TEXT;
     v_user     UUID;
     v_name     TEXT;
     v_count    INT;
@@ -70,20 +83,49 @@ DECLARE
     v_suruyor  INT;
     v_sirada   INT;
 BEGIN
-    -- ── KAPI 1 · tek bir solo org ───────────────────────────────────────
+    -- ── KAPI 1 · hedef belli mi ─────────────────────────────────────────
     SELECT count(*) INTO v_count FROM organizations WHERE solo IS TRUE;
     IF v_count = 0 THEN
         RAISE EXCEPTION
             'DURDURULDU: solo = true olan org yok. Önce uygulamadan kayıt olup "Yalnız ben" de, ya da: UPDATE organizations SET solo = true WHERE id = ''...'';';
     END IF;
-    IF v_count > 1 THEN
+
+    IF v_hedef_org IS NULL AND v_count > 1 THEN
+        -- Hata mesajı adayları KENDİSİ listeliyor: ayrı bir sorgu çalıştırıp
+        -- kimlikleri aramak zorunda kalma, kopyalayacağın satır burada.
+        SELECT string_agg(
+                   format(E'\n    %s   %s   %s   %s randevu%s',
+                          o.id,
+                          rpad(coalesce(nullif(btrim(o.name), ''), '(adsız)'), 24),
+                          rpad(coalesce(u.email, '(sahipsiz)'), 28),
+                          (SELECT count(*) FROM reservations r WHERE r.organization_id = o.id),
+                          CASE WHEN EXISTS (SELECT 1 FROM reservations r
+                                             WHERE r.organization_id = o.id AND r.source = 'demo-tek')
+                               THEN '  [bu tohum daha once buraya yazmis]' ELSE '' END),
+                   '' ORDER BY o.created_at)
+          INTO v_liste
+          FROM organizations o
+          LEFT JOIN auth.users u ON u.id = o.owner_id
+         WHERE o.solo IS TRUE;
+
         RAISE EXCEPTION
-            'DURDURULDU: solo = true olan % org var. Hangisine yazacağımı bilemem; fazlasını false yap.', v_count;
+            E'DURDURULDU: solo = true olan % org var, hangisi olduğunu bilemem.\n\nADAYLAR:%\n\nDosyanın başındaki v_hedef_org satırına yukarıdaki kimliklerden birini yaz:\n    v_hedef_org UUID := ''...'';\n',
+            v_count, v_liste;
     END IF;
 
-    -- ── KAPI 2 · sahibi ─────────────────────────────────────────────────
+    -- ── KAPI 2 · hedef gerçekten solo ve sahibi var ─────────────────────
     SELECT id, owner_id, name INTO v_org, v_user, v_name
-      FROM organizations WHERE solo IS TRUE;
+      FROM organizations
+     WHERE solo IS TRUE
+       AND (v_hedef_org IS NULL OR id = v_hedef_org);
+
+    -- Elle yazılan kimlik de denetleniyor: yanlış yazılmış bir UUID gerçek
+    -- bir salona düşmesin diye. Solo olmayan org buraya hiç gelmiyor.
+    IF v_org IS NULL THEN
+        RAISE EXCEPTION
+            'DURDURULDU: % kimlikli bir SOLO org yok. Ya kimlik yanlış ya da o org solo değil; v_hedef_org''u boşalt ve adayları gör.',
+            v_hedef_org;
+    END IF;
     IF v_user IS NULL THEN
         RAISE EXCEPTION 'DURDURULDU: org %''un owner_id''si boş. Bu hesap kayıt akışından geçmemiş olabilir.', v_org;
     END IF;

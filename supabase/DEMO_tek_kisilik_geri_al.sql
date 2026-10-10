@@ -20,18 +20,50 @@
 
 DO $$
 DECLARE
+    -- ⬇️ Tohumu hangi org'a attıysan onun kimliği. Boş bırakılırsa tek solo
+    --    org aranır; birden çoksa komut durur ve adayları listeler.
+    --    `DEMO_tek_kisilik.sql`deki `v_hedef_org` ile AYNI değer olmalı.
+    v_hedef_org UUID := NULL;
+
     v_org   UUID;
     v_name  TEXT;
+    v_liste TEXT;
     v_count INT;
     v_r     INT;
     v_c     INT;
     v_p     INT;
 BEGIN
     SELECT count(*) INTO v_count FROM organizations WHERE solo IS TRUE;
-    IF v_count <> 1 THEN
-        RAISE EXCEPTION 'DURDURULDU: solo = true olan org sayısı % (1 bekleniyordu).', v_count;
+    IF v_count = 0 THEN
+        RAISE EXCEPTION 'DURDURULDU: solo = true olan org yok.';
     END IF;
-    SELECT id, name INTO v_org, v_name FROM organizations WHERE solo IS TRUE;
+
+    IF v_hedef_org IS NULL AND v_count > 1 THEN
+        -- Yalnız DEMO SATIRI OLAN org'lar işaretleniyor: silinecek bir şeyi
+        -- olmayan org'u seçmek boşuna, ve yanlış org'a dokunmanın önüne geçer.
+        SELECT string_agg(
+                   format(E'\n    %s   %s   %s demo randevu',
+                          o.id,
+                          rpad(coalesce(nullif(btrim(o.name), ''), '(adsız)'), 24),
+                          (SELECT count(*) FROM reservations r
+                            WHERE r.organization_id = o.id AND r.source = 'demo-tek')),
+                   '' ORDER BY o.created_at)
+          INTO v_liste
+          FROM organizations o
+         WHERE o.solo IS TRUE;
+
+        RAISE EXCEPTION
+            E'DURDURULDU: solo = true olan % org var.\n\nADAYLAR:%\n\nSilinecek olanın kimliğini v_hedef_org satırına yaz.\n',
+            v_count, v_liste;
+    END IF;
+
+    SELECT id, name INTO v_org, v_name
+      FROM organizations
+     WHERE solo IS TRUE AND (v_hedef_org IS NULL OR id = v_hedef_org);
+
+    IF v_org IS NULL THEN
+        RAISE EXCEPTION 'DURDURULDU: % kimlikli bir SOLO org yok.', v_hedef_org;
+    END IF;
     RAISE NOTICE 'HEDEF ORG: %  (%)', coalesce(v_name, '(adsız)'), v_org;
 
     -- Sıra FK'lere göre: tahsilat → randevu → müşteri.
