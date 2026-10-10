@@ -25,10 +25,22 @@ import { upperTR } from './text.ts';
  */
 export function soloDaySubtitle(
     dateISO: string,
-    counts: { done: number; left: number } | null,
+    counts: { done: number; left: number } | { total: number } | null,
 ): string {
     const day = formatDayMonth(dateISO);
     if (!counts) return day;
+
+    /*
+     * BUGÜN OLMAYAN GÜN yalnız SAYAR (2026-10-11 düzeltmesi).
+     *
+     * "2 iş bitti, 3 kaldı" ŞU ANIN cümlesi. Dün seçiliyken telefonda
+     * "1 iş bitti, 7 kaldı" yazıyordu: o gün çoktan bitti ve "kaldı" diye
+     * bir şeyi yok. İleriki günde de yanlış — hiçbiri daha olmadı.
+     */
+    if ('total' in counts) {
+        return counts.total === 0 ? `${day} · randevu yok` : `${day} · ${counts.total} randevu`;
+    }
+
     // Gerçekten boş gün: sayı saymak yerine durumu söylüyor. "0 iş bitti,
     // 0 kaldı" teknik olarak doğru ama kimsenin kurmayacağı bir cümle.
     if (counts.done === 0 && counts.left === 0) return `${day} · randevu yok`;
@@ -255,3 +267,86 @@ export const SOLO_UNREAD_COPY: EmptyDayCopy = {
     rail: false,
     spoken: 'Gününüz şu an gösterilemiyor. Randevularınız yerinde. Bağlantı gelince bu ekran kendiliğinden yenilenir.',
 };
+
+// ── Gün listesinin kuruluşu ─────────────────────────────────────────────────
+
+export interface SoloDayList {
+    /** Çizilecek kartlar, SAAT SIRASINDA. */
+    rows: Appt[];
+    /** Şimdi hapının hangi kartın ÜSTÜNE gireceği; `null` çizilmiyor. */
+    nowIndex: number | null;
+    /** Liste başlığı; `null` başlık yok. */
+    title: string | null;
+}
+
+const byStart = (a: Appt, b: Appt) => toMinutes(a.start_time) - toMinutes(b.start_time);
+
+/**
+ * Gün listesi — v4'ün iki ayrı kuralı, artı bugün olmayan gün.
+ *
+ * ── Telefonda görülen iki kusur (2026-10-11) ────────────────────────────────
+ * 1. İPTAL EDİLEN RANDEVU LİSTENİN BAŞINA ÇIKIYORDU. `buildStaffDayState`
+ *    iptali saatine bakmadan "geçmiş" kovasına atıyor (Müdür 24'te doğru: o
+ *    ekran "olmuş/olacak" diye ikiye ayırıyor) ve ekran geçmiş kovasını önce
+ *    çiziyordu. Sonuç: 11:15 iptal, 09:30'un üstünde.
+ *
+ * 2. BUGÜN OLMAYAN GÜNDE "ŞU AN" HESABI YAPILIYORDU. Dün seçiliyken kart
+ *    "ŞU AN BOŞ · 9 sa 16 dk · 09:30'a kadar" diyordu — o gün çoktan yaşandı
+ *    ve "şu an" diye bir şeyi yok.
+ *
+ * ── v4'ün kuralı ────────────────────────────────────────────────────────────
+ * Tasarımda iki liste var ve ikisi de SAAT SIRASINDA:
+ *
+ *   müsait (G1, G4) → "BUGÜN · 5 RANDEVU", günün TAMAMI, şimdi hapı araya
+ *   süren iş (G2, G3) → "SIRADAKİ · 2 RANDEVU", yalnız bekleyenler, hap yok
+ *
+ * İkincisinde bitenler listede YOK: süren iş kartta duruyor ve ekranın
+ * cevaplaması gereken soru "sırada ne var".
+ *
+ * Bugün olmayan günde ikisi de geçerli değil: tek liste, saat sırasında,
+ * hapsız. Başlık sayıyı söylüyor çünkü "BUGÜN" yazamaz.
+ */
+export function soloDayList(
+    state: {
+        kind: string;
+        listTitle: string | null;
+        showNowLine: boolean;
+        runningAppointment: Appt | null;
+        pastAppointments: readonly Appt[];
+        upcomingAppointments: readonly Appt[];
+    } | null,
+    all: readonly Appt[],
+    isToday: boolean,
+    nowMinutes: number,
+): SoloDayList {
+    if (!isToday) {
+        const rows = [...all].sort(byStart);
+        return {
+            rows,
+            nowIndex: null,
+            title: rows.length > 0 ? `${rows.length} randevu` : null,
+        };
+    }
+
+    if (!state) return { rows: [], nowIndex: null, title: null };
+
+    // Süren ya da beklemedeki iş: liste yalnız SIRADAKİLER.
+    if (state.runningAppointment) {
+        return {
+            rows: [...state.upcomingAppointments].sort(byStart),
+            nowIndex: null,
+            title: state.listTitle,
+        };
+    }
+
+    const rows = [...state.pastAppointments, ...state.upcomingAppointments].sort(byStart);
+    /*
+     * Hap, saati ŞİMDİDEN SONRA olan ilk kartın üstüne giriyor. Kovaya göre
+     * değil saate göre: iptal edilen bir randevu "geçmiş" kovasında ama
+     * saati ileride olabilir ve hap onun altına düşerse liste yalan söyler.
+     */
+    const firstAhead = rows.findIndex((row) => toMinutes(row.start_time) >= nowMinutes);
+    const nowIndex = state.showNowLine && firstAhead > 0 ? firstAhead : null;
+
+    return { rows, nowIndex, title: state.listTitle };
+}

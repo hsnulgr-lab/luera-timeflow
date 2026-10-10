@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import {
     SOLO_UNREAD_COPY,
     soloApptDuration,
+    soloDayList,
     soloApptStamp,
     soloDaySubtitle,
     soloEmptyCopy,
@@ -35,10 +36,34 @@ const appt = (over = {}) => ({
     ...over,
 });
 
+const at = (id, time, over = {}) => appt({ id, start_time: time, end_time: time, ...over });
+
+const state = (over = {}) => ({
+    kind: 'free',
+    listTitle: 'Bugün · 4 randevu',
+    showNowLine: true,
+    runningAppointment: null,
+    pastAppointments: [],
+    upcomingAppointments: [],
+    ...over,
+});
+
 test('alt başlık personel dilinde sayıyor, müdür dilinde değil', () => {
     // "6 randevu · 3 personel" müdürün sorusu. Bu modda ekrana bakan kişi
     // işi YAPAN kişi: kaçının bittiği onun sorusu.
     assert.equal(soloDaySubtitle('2026-10-09', { done: 2, left: 3 }), '9 Ekim · 2 iş bitti, 3 kaldı');
+});
+
+test('BUGÜN OLMAYAN gün yalnız SAYIYOR, "kaldı" demiyor', () => {
+    /*
+     * "2 iş bitti, 3 kaldı" şu anın cümlesi. Telefonda dün seçiliyken
+     * "1 iş bitti, 7 kaldı" yazıyordu: o gün çoktan bitti ve "kaldı" diye
+     * bir şeyi yok. İleriki günde de yanlış — hiçbiri daha olmadı.
+     */
+    assert.equal(soloDaySubtitle('2026-10-09', { total: 8 }), '9 Ekim · 8 randevu');
+    assert.equal(soloDaySubtitle('2026-10-09', { total: 0 }), '9 Ekim · randevu yok');
+    // Ekran "bitti/kaldı" biçimini YALNIZ bugün gönderiyor.
+    assert.match(gun, /isToday && dayState\s*\?\s*\{\s*done:/);
 });
 
 test('okunmamış gün sayı UYDURMUYOR', () => {
@@ -64,9 +89,18 @@ test('sahipsiz randevu da bu kişinin gününde', () => {
     assert.match(gun, /!row\.staff_id \|\| row\.staff_id === me\?\.id/);
 });
 
-test('şimdi çizgisi YALNIZ bugün çiziliyor', () => {
-    // Başka günün altında "şimdi" diye bir çizgi yalan söyler.
-    assert.match(gun, /showNowLine && isToday/);
+test('şimdi hapı YALNIZ bugün çiziliyor', () => {
+    /*
+     * Başka günün altında "şimdi" diye bir çizgi yalan söyler. Kural artık
+     * ekrana gömülü değil `soloDayList`te — orada test edilebiliyor ve
+     * sıralamayla birlikte tek yerde duruyor.
+     */
+    assert.equal(
+        soloDayList(state({ pastAppointments: [at('a', '09:30')] }), [at('a', '09:30')], false, 600).nowIndex,
+        null,
+    );
+    // Ekran hapı yalnız bu karardan çiziyor; kendi koşulu yok.
+    assert.match(gun, /index === list\.nowIndex \? \(/);
 });
 
 test('okunamadı, boş günden AYRI CÜMLE — ama aynı çerçevede', () => {
@@ -256,4 +290,73 @@ test('tek kişilikte sütun başlığı çizilmiyor ve sütun genişliyor', () =
     // Sürükleme hedefi de aynı genişlikte — yoksa vurgu bloğun yarısını gösterirdi.
     assert.match(grid, /columnWidth=\{columnWidth\}/);
     assert.match(read('app/mudur/calendar.tsx'), /soloColumn=\{solo\}/);
+});
+
+
+// ── Listenin kuruluşu (telefonda görülen iki kusur, 2026-10-11) ─────────────
+
+
+test('İPTAL EDİLEN randevu listenin başına çıkmıyor', () => {
+    /*
+     * `buildStaffDayState` iptali saatine bakmadan "geçmiş" kovasına atıyor
+     * (Müdür 24'te doğru: o ekran olmuş/olacak diye ayırıyor) ve ekran
+     * geçmiş kovasını önce çiziyordu. Telefonda 11:15 iptal, 09:30'un
+     * üstünde duruyordu.
+     */
+    const iptal = at('x', '11:15', { status: 'cancelled' });
+    const list = soloDayList(
+        state({ pastAppointments: [iptal], upcomingAppointments: [at('a', '09:30'), at('b', '12:30')] }),
+        [], true, 600,
+    );
+    assert.deepEqual(list.rows.map((r) => r.id), ['a', 'x', 'b']);
+});
+
+test('şimdi hapı SAATE göre araya giriyor, kovaya göre değil', () => {
+    // 10:00 (600 dk): 09:30 geride, 11:15 ve 12:30 ileride.
+    const list = soloDayList(
+        state({
+            pastAppointments: [at('x', '11:15', { status: 'cancelled' })],
+            upcomingAppointments: [at('a', '09:30'), at('b', '12:30')],
+        }),
+        [], true, 600,
+    );
+    assert.equal(list.nowIndex, 1, 'hap 09:30 ile 11:15 arasında olmalı');
+});
+
+test('süren iş varken liste YALNIZ sıradakiler', () => {
+    // v4 · G2/G3: biten işler listede yok, süren iş kartta duruyor ve
+    // ekranın cevapladığı soru "sırada ne var".
+    const list = soloDayList(
+        state({
+            kind: 'running',
+            listTitle: 'Sıradaki · 2 randevu',
+            runningAppointment: at('live', '14:00'),
+            pastAppointments: [at('p', '10:30', { status: 'completed' })],
+            upcomingAppointments: [at('b', '17:30'), at('a', '16:30')],
+        }),
+        [], true, 900,
+    );
+    assert.deepEqual(list.rows.map((r) => r.id), ['a', 'b']);
+    assert.equal(list.nowIndex, null, 'süren işte hap çizilmiyor');
+    assert.equal(list.title, 'Sıradaki · 2 randevu');
+});
+
+test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
+    /*
+     * Dün seçiliyken kart "ŞU AN BOŞ · 9 sa 16 dk · 09:30'a kadar" diyordu —
+     * o gün çoktan yaşandı ve ekranın anlattığı an hiç var olmadı. Liste tek
+     * parça, saat sırasında, hapsız.
+     */
+    const list = soloDayList(
+        state({ pastAppointments: [at('x', '11:15')], upcomingAppointments: [at('a', '09:30')] }),
+        [at('b', '12:30'), at('a', '09:30'), at('x', '11:15')],
+        false, 600,
+    );
+    assert.deepEqual(list.rows.map((r) => r.id), ['a', 'x', 'b']);
+    assert.equal(list.nowIndex, null);
+    assert.equal(list.title, '3 randevu');
+});
+
+test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
+    assert.match(gun, /!dayEmpty && isToday && dayState\?\.panel/);
 });

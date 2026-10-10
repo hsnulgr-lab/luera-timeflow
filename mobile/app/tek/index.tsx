@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,9 @@ import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { SOLO_UNREAD_COPY, soloDaySubtitle, soloEmptyCopy, soloPanelAction } from '../../src/lib/soloDay';
+import {
+    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloPanelAction,
+} from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
@@ -139,14 +141,30 @@ export default function SoloDay() {
         return () => { alive = false; };
     }, [dayEmpty, serviceCount]);
 
+    /*
+     * Liste v4'ün kuralıyla kuruluyor: saat sırasında, süren iş varken
+     * yalnız sıradakiler, bugün olmayan günde tek liste. Gerekçeler
+     * `soloDayList`in başında.
+     */
+    const list = useMemo(
+        () => soloDayList(dayState, mine, isToday, nowMinutes),
+        [dayState, mine, isToday, nowMinutes],
+    );
+
+    /*
+     * Alt başlık: bugün "bitti/kaldı", başka gün yalnız SAYI.
+     * Gerekçesi `soloDaySubtitle`in içinde.
+     */
     const subtitle = soloDaySubtitle(
         selectedISO,
-        dayKnown && dayState
-            ? {
-                done: dayState.pastAppointments.length,
-                left: dayState.upcomingAppointments.length + (dayState.runningAppointment ? 1 : 0),
-            }
-            : null,
+        !dayKnown
+            ? null
+            : isToday && dayState
+                ? {
+                    done: dayState.pastAppointments.length,
+                    left: dayState.upcomingAppointments.length + (dayState.runningAppointment ? 1 : 0),
+                }
+                : { total: mine.length },
     );
 
     /*
@@ -246,7 +264,15 @@ export default function SoloDay() {
                     </View>
                 ) : null}
 
-                {!dayEmpty && dayState?.panel ? (
+                {/*
+                  * HÂL KARTI YALNIZ BUGÜN (v4 · G1–G4 hepsi bugünün ekranı).
+                  *
+                  * Kart "ŞU AN BOŞ", "SÜRÜYOR", "BEKLEMEDE" diyor; üçü de
+                  * ŞU ANIN cümlesi. Dün seçiliyken "şu an boş, 9 sa 16 dk,
+                  * 09:30'a kadar" yazıyordu — o gün çoktan yaşandı ve
+                  * ekranın anlattığı an hiç var olmadı.
+                  */}
+                {!dayEmpty && isToday && dayState?.panel ? (
                     <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
                         <StaffHeroPanelCard
                             panel={dayState.panel}
@@ -265,8 +291,8 @@ export default function SoloDay() {
                     </View>
                 ) : null}
 
-                {!dayEmpty && dayState?.listTitle ? (
-                    <StaffListHeaderView title={dayState.listTitle} />
+                {!dayEmpty && list.title ? (
+                    <StaffListHeaderView title={list.title} />
                 ) : null}
 
                 {/* Liste gövdesi (.gl): kartlar ve şimdi hapı tek ritimde. */}
@@ -276,27 +302,18 @@ export default function SoloDay() {
                         paddingTop: soloDayMetrics.listPadTop,
                         gap: soloDayMetrics.listGap,
                     }}>
-                        {dayState?.pastAppointments.map((appointment) => (
-                            <SoloAppointmentCard
-                                key={appointment.id}
-                                appointment={appointment}
-                                nowMinutes={nowMinutes}
-                                onOpen={openAppointment}
-                            />
-                        ))}
-
-                        {/* Şimdi hapı YALNIZ bugün: başka günün altında yalan olur. */}
-                        {dayState?.showNowLine && isToday ? (
-                            <SoloNowLine time={dayState.nowLineTime} />
-                        ) : null}
-
-                        {dayState?.upcomingAppointments.map((appointment) => (
-                            <SoloAppointmentCard
-                                key={appointment.id}
-                                appointment={appointment}
-                                nowMinutes={nowMinutes}
-                                onOpen={openAppointment}
-                            />
+                        {list.rows.map((appointment, index) => (
+                            <Fragment key={appointment.id}>
+                                {/* Hap SAATE göre araya giriyor, kovaya göre değil. */}
+                                {index === list.nowIndex ? (
+                                    <SoloNowLine time={dayState?.nowLineTime ?? ''} />
+                                ) : null}
+                                <SoloAppointmentCard
+                                    appointment={appointment}
+                                    nowMinutes={nowMinutes}
+                                    onOpen={openAppointment}
+                                />
+                            </Fragment>
                         ))}
                     </View>
                 )}
