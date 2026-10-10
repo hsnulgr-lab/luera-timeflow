@@ -107,6 +107,16 @@ export function soloEmptyCopy(
     selectedISO: string,
     todayISO: string,
     open: OpenWindow | null | undefined,
+    /**
+     * Salonun hizmet sayısı — `null` BİLİNMİYOR (v4 · S2).
+     *
+     * Yalnız sıfırken cümleyi değiştiriyor: yeni hesabın ilk gününde
+     * "çalışma saatiniz şu" demek doğru ama işe yaramaz; o kişinin önündeki
+     * ilk adım hizmetini tanımlamak. Bilinmiyorsa normal cümle yazılıyor —
+     * okunamayan bir sayıya dayanıp "hizmetiniz yok" demek, hizmetleri olan
+     * birine onları yokmuş gibi göstermekti.
+     */
+    serviceCount: number | null = null,
 ): EmptyDayCopy {
     const position = dayPosition(selectedISO, todayISO);
     const distance = dayDistance(selectedISO, todayISO);
@@ -132,10 +142,22 @@ export function soloEmptyCopy(
 
     if (isToday) {
         const title = 'Bugün randevunuz yok.';
-        // Saat BİLİNMİYORSA yazılmıyor; yerine her koşulda doğru olan yol.
-        const hint = open
-            ? `Çalışma saatiniz ${windowText(open)}.`
-            : 'İlk randevuyu alttaki Randevu’dan kurabilirsiniz.';
+        /*
+         * Üç cümle, üç ayrı durum:
+         *   hizmet yok   → önündeki ilk adım o (v4 · S2)
+         *   saat biliniyor → günün çerçevesi
+         *   saat bilinmiyor → her koşulda doğru olan yol
+         *
+         * "Hizmetlerinizi orada da ekleyebilirsiniz" artık DOĞRU bir cümle:
+         * randevu kurma ekranındaki "Yeni hizmet ekle" satırı (v4 · R1) o
+         * yolu açtı. Satır yokken bu cümle kullanıcıyı olmayan bir yere
+         * yollardı.
+         */
+        const hint = serviceCount === 0
+            ? 'İlk randevuyu alttaki Randevu’dan kurun. Hizmetlerinizi orada da ekleyebilirsiniz.'
+            : open
+                ? `Çalışma saatiniz ${windowText(open)}.`
+                : 'İlk randevuyu alttaki Randevu’dan kurabilirsiniz.';
         return {
             label: upperTR(`Bugün · ${weekday}`),
             dot: true,

@@ -203,6 +203,32 @@ test('çalışma saati BİLİNMİYORSA uydurulmuyor', () => {
     assert.match(copy.hint, /Randevu/);
 });
 
+test('hizmeti olmayan yeni hesaba İLK ADIM söyleniyor', () => {
+    /*
+     * v4 · S2. "Çalışma saatiniz 09:00 – 19:00" doğru ama işe yaramaz: o
+     * kişinin önündeki ilk adım hizmetini tanımlamak. Cümle ancak R1'den
+     * sonra DOĞRU oldu — randevu kurma ekranındaki "Yeni hizmet ekle"
+     * satırı o yolu açtı.
+     */
+    const copy = soloEmptyCopy('2026-10-09', '2026-10-09', { from: 540, to: 1140 }, 0);
+    assert.match(copy.hint, /Hizmetlerinizi orada da ekleyebilirsiniz/);
+});
+
+test('hizmet sayısı BİLİNMİYORSA normal cümle yazılıyor', () => {
+    // Okunamayan bir sayıya dayanıp "hizmetiniz yok" demek, hizmetleri olan
+    // birine onları yokmuş gibi göstermekti.
+    const bilinmiyor = soloEmptyCopy('2026-10-09', '2026-10-09', { from: 540, to: 1140 }, null);
+    assert.equal(bilinmiyor.hint, 'Çalışma saatiniz 09:00 – 19:00.');
+    const varsa = soloEmptyCopy('2026-10-09', '2026-10-09', { from: 540, to: 1140 }, 7);
+    assert.equal(varsa.hint, 'Çalışma saatiniz 09:00 – 19:00.');
+});
+
+test('hizmet sayısı TEMBEL okunuyor — dolu günde hiç sorulmuyor', () => {
+    // En çok bakılan ekrana her odakta dördüncü bir sorgu eklemek, bir
+    // cümle için ağır bir bedel olurdu.
+    assert.match(gun, /if \(!dayEmpty \|\| serviceCount !== null\) return undefined;/);
+});
+
 test('boş günde ekranın ortasına düğme çizilmiyor', () => {
     // Boş günün eylemi sekme çubuğundaki Randevu (v4 · B1).
     for (const iso of ['2026-10-09', '2026-10-15', '2026-10-01']) {

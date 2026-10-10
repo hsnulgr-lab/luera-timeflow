@@ -13,6 +13,8 @@ import {
 } from '../../src/components/StaffDayParts';
 import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
+import { fetchServices } from '../../src/lib/managerSource';
+import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { SOLO_UNREAD_COPY, soloDaySubtitle, soloEmptyCopy, soloPanelAction } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
@@ -115,6 +117,28 @@ export default function SoloDay() {
         && (dayState?.upcomingAppointments.length ?? 0) === 0
         && (dayState?.pastAppointments.length ?? 0) === 0;
 
+    /*
+     * HİZMET SAYISI — TEMBEL ve BİR KEZ (v4 · S2).
+     *
+     * Yalnız boş günün cümlesini değiştiriyor, o yüzden yalnız gün boş
+     * çıkınca okunuyor: dolu bir günde hiç sorulmuyor ve ilk cevaptan sonra
+     * bir daha sorulmuyor. Uygulamanın en çok bakılan ekranına her odakta
+     * dördüncü bir sorgu eklemek, bir cümle için ağır bir bedel olurdu.
+     *
+     * `null` kalırsa (okunamadı) normal cümle yazılıyor — okunamayan bir
+     * sayıya dayanıp "hizmetiniz yok" demek, hizmetleri olan birine onları
+     * yokmuş gibi göstermekti.
+     */
+    const [serviceCount, setServiceCount] = useState<number | null>(null);
+    useEffect(() => {
+        if (!dayEmpty || serviceCount !== null) return undefined;
+        let alive = true;
+        void fetchServices()
+            .then((catalog) => { if (alive) setServiceCount(salonServicesOf(catalog).length); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [dayEmpty, serviceCount]);
+
     const subtitle = soloDaySubtitle(
         selectedISO,
         dayKnown && dayState
@@ -215,7 +239,7 @@ export default function SoloDay() {
                 {dayEmpty ? (
                     <View style={{ paddingTop: soloDayMetrics.voidTop }}>
                         <VoidBlock
-                            copy={soloEmptyCopy(selectedISO, todayISO(), data.open)}
+                            copy={soloEmptyCopy(selectedISO, todayISO(), data.open, serviceCount)}
                             isToday={isToday}
                             nowMinutes={nowMinutes}
                         />
