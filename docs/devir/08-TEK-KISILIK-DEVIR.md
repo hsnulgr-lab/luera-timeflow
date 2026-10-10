@@ -12,8 +12,8 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **İki deploy borcunu kullanıcıya hatırlat** (§6). Kod yazıldı, sunucuda
-   yok. Bunlar gitmeden tahsilat telefonda ÇALIŞMAZ.
+2. **Deploy borcu KALMADI** (§6, 2026-10-11). Göç 110, `staff-api` ve
+   `remind` canlıda. Tahsilatın telefonda denenmesi gerekiyor.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -124,7 +124,7 @@ iki kez yazmak, iki kez bozmak demekti.
 |---|---|---|
 | `108_tek_kisilik.sql` | `organizations.solo` + `set_business_mode()` | ✅ **üretimde** |
 | `109_staff_auth_log_eksik_olaylar.sql` | (gerekçesi YANLIŞTI — bkz. §8) | ⚠️ **üretimde, zararsız** |
-| `110_staff_auth_log_tahsilat.sql` | `visit.collect` olayı + `pair_locked` geri | ❌ **BEKLİYOR** |
+| `110_staff_auth_log_tahsilat.sql` | `visit.collect` olayı + `pair_locked` geri | ✅ **üretimde** (2026-10-11) |
 
 ### Sunucu — `supabase/functions/staff-api/index.ts`
 
@@ -142,7 +142,7 @@ Yöntem doğrulaması → `loadOwnReservation` → `status !== 'completed'` ise
 409 `not_finished` → var olan ödeme sorgusu → **tutarı SUNUCU hesaplıyor** →
 `payments` satırı → sonra `is_paid` bayrağı → `audit(…, 'visit.collect', method)`.
 `WRITE_ACTIONS` listesinde (idempotens).
-**Durum: deploy EDİLMEDİ.** → §6
+**Durum: deploy EDİLDİ** (2026-10-11); telefonda denenmedi. → §6
 
 ### İstemci — `mobile/src/api/staff.ts`
 
@@ -174,8 +174,8 @@ girmez (§7'de sebebi).
 | **G4** | **Adisyon açık · "₺4.500 · Tahsil et"** | ❌ **SIRADAKİ** |
 | K1 | Kumanda · bekleniyor | ✅ (var olan kumanda) |
 | K2 | Kumanda · işlemde | ✅ (var olan kumanda) |
-| K3 | Adisyon · tahsilat | ✅ `CollectBar` · deploy bekliyor |
-| K4 | Tahsilat · sunucu reddetti | ✅ `CollectBar` · deploy bekliyor |
+| K3 | Adisyon · tahsilat | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor |
+| K4 | Tahsilat · sunucu reddetti | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor |
 | P1 | İşletme | ✅ |
 | **P2** | **Ekip ekle kapısı** | ❌ |
 | C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) |
@@ -260,33 +260,58 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 
 ---
 
-## 6 · KULLANICININ BORÇLU OLDUĞU İKİ KOMUT
+## 6 · DEPLOY DURUMU — ✅ HEPSİ YAPILDI (2026-10-11)
 
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
-çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin. İkisi birlikte
-yapılmalı (`visit.collect` denetim olayı 110'a bağlı).
+çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### 1) staff-api deploy'u — `visit.collect` canlıya
+| İş | Durum |
+|---|---|
+| Göç `110_staff_auth_log_tahsilat.sql` | ✅ uygulandı (BEGIN/ALTER/ALTER/NOTIFY/COMMIT) |
+| `staff-api` deploy (`visit.collect`) | ✅ edildi |
+| `remind` deploy | ✅ edildi — aşağıdaki kazayı kapattı |
+
+**Sıra neden önemliydi:** göç önce, deploy sonra. Tersi olsaydı
+`visit.collect` çalışır ama denetim satırı kısıta takılırdı — ve `insert()`
+fırlatmadığı için **sessizce** düşerdi (§8'deki ders).
+
+Geriye kalan tek doğrulama **telefonda**: `visit.collect` jeton kapısının
+arkasında olduğu için dışarıdan probe ile bilinmeyen bir eylemden ayırt
+edilemiyor (ikisi de `invalid_token` döner).
+
+### 🔴 Bu deploy turunda ortaya çıkan üretim kazası
+
+`staff-api` deploy'unun logu `remind`'in **boot edemediğini** gösterdi:
+
+    worker boot error: The requested module '../_shared/wa.ts'
+    does not provide an export named 'connectedOrgs'
+
+25 Eylül'deki `9726fc3` (WhatsApp "connecting" süzgeci) `_shared/wa.ts` ile
+`remind/index.ts`'i BİRLİKTE değiştirmişti: `connectedOrgs` → `linkedOrgs`.
+Ama `deploy-functions.sh` **her koşuda `_shared`'ı kopyalıyor**, fonksiyonları
+yalnız adı verilirse. Başka bir iş için yapılan her deploy sunucuya yeni
+`wa.ts` gönderdi; `remind` eski kaldı ve var olmayan bir adı istedi.
+
+`./scripts/deploy-functions.sh remind` ile kapatıldı. **Doğrulama şekli
+önemli:** `docker restart` log geçmişini silmiyor, bu yüzden deploy sonrası
+log tail'i hâlâ eski hata satırlarını gösteriyor (izolat kimlikleri bile
+aynı). Düzeldiğini anlamanın yolu **ucu çağırmak**:
 
 ```bash
-cd /Users/furkanulger/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api
+curl -s -X POST https://supabase.timeflow.lueratech.com/functions/v1/remind -H 'Content-Type: application/json' -d '{}'
 ```
 
-### 2) Göç 110
+Kendi 401 metnini dönüyorsa ("Bu uç yalnız zamanlayıcı tarafından
+çağrılabilir") boot ediyor demektir.
 
-```bash
-cd /Users/furkanulger/Projects/luera-timeflow && cat supabase/110_staff_auth_log_tahsilat.sql | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -f -'
-```
+**İki ders:**
+1. **Paylaşılan modül değişince tek fonksiyon deploy etme.** Betiğin kendi
+   başlığı söylüyor: `_shared` değişince argümansız koş.
+2. **Deploy sonrası log tail'i kanıt değildir.** Ucu çağır.
 
-**Sıra:** göç önce, deploy sonra. Tersi olursa `visit.collect` çalışır ama
-denetim satırı kısıta takılır — ve `insert()` fırlatmadığı için **sessizce**
-düşer (§8'deki ders).
-
-### Deploy'suz ne olur
-
-Telefonda tahsilat düğmesine basılınca sunucu `invalid_action` döner.
-`CollectBar` bunu "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." diye
-gösterir — yani yalan söylemez, ama iş de yapmaz.
+⚠️ Hafızadaki `dental_sales_prep` `whatsapp-booking` için de bekleyen bir
+deploy olduğunu söylüyor. Aynı kayma orada da olabilir; kimse o fonksiyonu
+çağırmadığı için logda görünmemiş olabilir. **Tam süpürme konuşulmadı.**
 
 ---
 
@@ -487,7 +512,9 @@ canlıda**.
 - SMTP (şifre sıfırlamayı diriltir)
 - Demo satırları "Fu Ni" org'unda duruyor
 - Core entegrasyon borcu (3 eksik) — 10. müşteriden önce
-- WhatsApp `connecting` süzgeci düzeltildi ama **deploy bekliyor**
+- WhatsApp hattı **QR ile eşleştirilmeli** — hiçbir hat bağlı değil, yani
+  hatırlatma WhatsApp'ları gitmiyor. (Süzgeç düzeltmesi 2026-10-11'de
+  deploy edildi; kalan iş eşleştirme.)
 
 ---
 
