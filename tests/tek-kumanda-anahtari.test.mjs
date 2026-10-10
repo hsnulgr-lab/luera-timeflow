@@ -20,6 +20,7 @@ const fn = read('supabase/functions/staff-api/index.ts');
 const session = read('mobile/src/lib/soloSession.ts');
 const client = read('mobile/src/api/staff.ts');
 const shell = read('mobile/app/tek/_layout.tsx');
+const me = read('mobile/src/lib/me.ts');
 
 /** Ucun gövdesi — kapıların hepsi bu aralıkta olmalı. */
 const endpoint = (() => {
@@ -127,4 +128,46 @@ test('sunucu 200 deyip jeton göndermezse SESSİZ GEÇİLMİYOR', () => {
     // Sessiz geçmek, bir sonraki isteğin anlaşılmaz bir 401'le düşmesi
     // demekti.
     assert.match(session, /jetonsuz cevap döndü/);
+});
+
+
+// ── Kimlik ──────────────────────────────────────────────────────────────────
+
+test('sunucunun söylediği personel kimliği SAKLANIYOR', () => {
+    /*
+     * Sahip müdür oturumuyla bağlı ve `profile.id`si bir Supabase KULLANICI
+     * kimliği — `staff.id` değil. Kumandadaki "sık kullandıkların" ızgarası
+     * kişinin kendi geçmişini bu kimlikle arıyor; yanlışıyla hiçbir satır
+     * tutmaz ve ızgara sessizce salon moduna düşer.
+     */
+    assert.match(session, /tokens\.setSoloStaffId\(staffId\)/);
+    assert.match(client, /soloStaffId: \(\) => readSecure\(K_SOLO_STAFF\)/);
+});
+
+test('kimlik jetonla BİRLİKTE düşüyor', () => {
+    // Ardında bırakmak, başka bir hesapla girildiğinde önceki salonun
+    // personel kimliğini taşımaktı.
+    const clearStaff = client.slice(client.indexOf('clearStaff:'), client.indexOf('clearDevice:'));
+    assert.match(clearStaff, /K_SOLO_STAFF/);
+});
+
+test('KANCA ile FONKSİYON ayrışıyor — bildirim yanlış kanala yazılmasın', () => {
+    /*
+     * `myStaffId()`yi bildirim kaydı çağırıyor (`syncPush`). Orada müdür
+     * oturumunda bir kimlik döndürmek, tek kişilik sahibin cihazını hem
+     * müdür hem personel kanalına kaydetmek olurdu — aynı bildirimi iki kez
+     * alırdı. Kanca ise yalnız bir ARAMA ANAHTARI besliyor.
+     */
+    // Yorumlar ayıklanıyor: kancanın gerekçe bloğu iki tanımın ARASINDA
+    // duruyor ve içinde `soloStaffId` geçiyor — metinde arayan bir iddia
+    // onu kodun bir parçası sanardı.
+    const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const fnBody = code(me.slice(me.indexOf('export async function myStaffId'),
+                                 me.indexOf('export function useMyStaffId')));
+    assert.match(fnBody, /result\.data\.actor !== 'staff'\) return null;/);
+    assert.doesNotMatch(fnBody, /soloStaffId/);
+
+    const hookBody = me.slice(me.indexOf('export function useMyStaffId'));
+    assert.match(hookBody, /tokens\.soloStaffId\(\)/);
+    assert.match(hookBody, /result\.data\.actor === 'staff'/);
 });

@@ -53,7 +53,17 @@ test('eşleşme yedekle başka cihaza geçmez', () => {
 test('çıkış ile telefonu çıkarma ayrı iki iştir', () => {
     // Oturumu kapatmak cihaz eşleşmesini düşürmez; aksi hâlde her vardiya
     // değişiminde yeni kod istenirdi.
-    assert.match(staffClient, /clearStaff: \(\) => SecureStore\.deleteItemAsync\(K_STAFF/);
+    const clearStaff = staffClient.slice(
+        staffClient.indexOf('clearStaff:'),
+        staffClient.indexOf('clearDevice:'),
+    );
+    assert.match(clearStaff, /deleteItemAsync\(K_STAFF/);
+    // Tek kişilikte jetonun yanında bir de kimlik var (108) ve o da BERABER
+    // düşüyor: ardında bırakmak, başka bir hesapla girildiğinde önceki
+    // salonun personel kimliğini taşımaktı.
+    assert.match(clearStaff, /deleteItemAsync\(K_SOLO_STAFF/);
+    // Asıl kural: cihaz eşleşmesine DOKUNMUYOR.
+    assert.doesNotMatch(clearStaff, /K_DEVICE/);
     assert.match(staffClient, /clearDevice: \(\) => SecureStore\.deleteItemAsync\(K_DEVICE/);
 });
 

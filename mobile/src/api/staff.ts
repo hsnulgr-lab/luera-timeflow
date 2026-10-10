@@ -24,6 +24,15 @@ const ENDPOINT = `${BASE}/functions/v1/staff-api`;
 
 const K_DEVICE = 'tf.device.token';
 const K_STAFF = 'tf.staff.token';
+/**
+ * Tek kişilik modda sahibin KENDİ personel satırının kimliği (108).
+ *
+ * Personel cihazında buna gerek yok: orada kimlik oturumun kendisinde
+ * (`profile.id` zaten `staff.id`). Sahip ise müdür oturumuyla bağlı ve onun
+ * `profile.id`si bir Supabase KULLANICI kimliği — `staff.id` değil. Sunucu
+ * jetonu basarken doğru kimliği de söylüyor; burada o saklanıyor.
+ */
+const K_SOLO_STAFF = 'tf.solo.staffId';
 const K_QUEUE = 'tf.queue';
 /** Kalıcı olarak reddedilip ATILAN işler — kullanıcıya söylenene kadar durur. */
 const K_FAILED = 'tf.queue.failed';
@@ -230,10 +239,18 @@ export const tokens = {
     staff: () => readSecure(K_STAFF),
     setDevice: (t: string) => SecureStore.setItemAsync(K_DEVICE, t, secureOptions),
     setStaff: (t: string) => SecureStore.setItemAsync(K_STAFF, t, secureOptions),
+    /** Tek kişilik modda sahibin personel satırı — bkz. `K_SOLO_STAFF`. */
+    soloStaffId: () => readSecure(K_SOLO_STAFF),
+    setSoloStaffId: (id: string) => SecureStore.setItemAsync(K_SOLO_STAFF, id, secureOptions),
     /** Çıkış: personel oturumu düşer, CİHAZ EŞLEŞMESİ KALIR. Aksi hâlde her
      *  vardiya değişiminde org sahibinin gelip cihazı yeniden eşlemesi
      *  gerekirdi. */
-    clearStaff: () => SecureStore.deleteItemAsync(K_STAFF, secureOptions),
+    clearStaff: async () => {
+        await SecureStore.deleteItemAsync(K_STAFF, secureOptions);
+        // Jetonla BİRLİKTE düşüyor: kimliği ardında bırakmak, başka bir
+        // hesapla girildiğinde önceki salonun personel kimliğini taşımaktı.
+        await SecureStore.deleteItemAsync(K_SOLO_STAFF, secureOptions);
+    },
     /**
      * Telefonu işletmeden çıkarır: yeniden bağlamak için yeni kod gerekir.
      *

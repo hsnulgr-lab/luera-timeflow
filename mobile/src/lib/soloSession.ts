@@ -83,6 +83,18 @@ export async function openSoloSession(): Promise<void> {
     }
 
     await tokens.setStaff(token);
+
+    /*
+     * KİMLİK DE SAKLANIYOR.
+     *
+     * Sahip müdür oturumuyla bağlı ve onun `profile.id`si bir Supabase
+     * KULLANICI kimliği — `staff.id` değil. Kumandadaki "sık kullandıkların"
+     * ızgarası kişinin kendi geçmişini bu kimlikle arıyor; yanlış kimlikle
+     * hiçbir satır tutmuyor ve ızgara sessizce salon moduna düşüyor.
+     * Sunucu doğru kimliği zaten söylüyor, atmanın anlamı yok.
+     */
+    const staffId = (data as { staff?: { id?: unknown } } | null)?.staff?.id;
+    if (typeof staffId === 'string' && staffId.length > 0) await tokens.setSoloStaffId(staffId);
 }
 
 /**
