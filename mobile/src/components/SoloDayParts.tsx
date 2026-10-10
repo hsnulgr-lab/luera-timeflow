@@ -211,7 +211,9 @@ export function SoloNowLine({ time }: { time: string }) {
                 backgroundColor: c.or,
                 justifyContent: 'center',
             }}>
-                <Num size={M.nowPillText} style={{ color: '#FFFFFF', letterSpacing: -0.15 }}>
+                {/* `Num`un varsayılan -0.4 aralığı burada sıfırlanıyor: v4'te
+                    `.nowp b` aralık tanımlamıyor ve hap beş karakter. */}
+                <Num size={M.nowPillText} style={{ color: '#FFFFFF', letterSpacing: 0 }}>
                     {time}
                 </Num>
             </View>
