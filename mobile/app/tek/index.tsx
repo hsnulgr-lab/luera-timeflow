@@ -40,11 +40,20 @@ import { soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
  * izlemeye ait; burada bakan kişi ile bakılan kişi aynı. Kendi adını ve
  * mesleğini okumanın bir karşılığı yok, "Ara" düğmesi kendini arardı.
  *
- * ── Henüz YOK ───────────────────────────────────────────────────────────────
- * Hâl kartının eylem hapı (Başlat · Kumandayı aç). Kart dokunulabilir
- * olmasına hazır (`StaffHeroPanelCard`'ın `action`ı), ama kumanda yolu
- * bağlanmadan hap çizilmiyor: dokunulduğunda hiçbir şey yapmayan bir
- * kontrol, olmayan bir kontrolden kötü.
+ * ── Henüz YOK: hâl kartının eylem hapı ──────────────────────────────────────
+ * Hap "Başlat · Kumandayı aç" diyecek. Kart buna hazır
+ * (`StaffHeroPanelCard`'ın `action`ı), ama hap ÇİZİLMİYOR — çünkü kumanda
+ * bu oturumda AÇILAMIYOR ve sebebi tasarım değil, kimlik:
+ *
+ * `app/(staff-flow)/kumanda.tsx` baştan sona personel API'si üzerinde
+ * (`src/api/staff.ts`) ve o API'nin kimliği `x-staff-token` — cihaz token'ı
+ * artı PIN ile alınıyor. Solo sahibin elinde Supabase MÜDÜR oturumu var,
+ * personel token'ı yok; `call()` daha ilk istekte `no_session` (401) atıyor.
+ *
+ * Yani hapı şimdi çizmek, dokunulduğunda hata ekranı açan bir kontrol
+ * koymak olurdu. Çözümü ya sahibin kendi telefonunu kendi personel satırına
+ * bağlaması ya da sunucunun müdür JWT'sini kabul etmesi; ikisi de Faz 3,
+ * gerekçesi `docs/tek-kisilik-uygulama-plani.md`.
  */
 export default function SoloDay() {
     const { c } = useTheme();

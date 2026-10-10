@@ -86,10 +86,45 @@ testin düşmesi, "bu kabuk gerçekten gerekli mi" sorusunu sorduruyor.
 
 ---
 
-## Faz 2 · Gün ekranının gerçek tasarımı
-v4'teki G1–G4: gün başlığı, hafta şeridi, kart satırlar, hâl kartı ve
-dokunulabilir eylem düğmesi (Başlat · Kumandayı aç). Kumanda katmanı personel
-kumandasına bağlanıyor.
+## Faz 2 · Gün ekranının gerçek tasarımı ✅ (hap hariç)
+v4'teki G1–G4: gün başlığı, hafta şeridi, kart satırlar, hâl kartı.
+
+Bitenler: Gün ekranı (`app/tek/index.tsx`), v4 randevu kartı
+(`SoloDayParts.tsx` · `.gc`/`.gk`), şimdi hapı, Takvim'in tek sütunu
+(`ColumnCalendar`'ın `soloColumn`'u), boş gün (`VoidBlock` + ikinci şahıs
+cümlesi), Takvim ve İşletme'deki müdür dili.
+
+### Kalan tek madde: hâl kartının eylem hapı — ve NEDEN Faz 2'de değil
+
+Hap "Başlat / Kumandayı aç" diyecek, yani kumandayı açacak. Kumanda
+AÇILAMIYOR ve sebebi tasarım değil, kimlik:
+
+`app/(staff-flow)/kumanda.tsx` baştan sona **personel API'si** üzerinde
+çalışıyor (`src/api/staff.ts`). O API'nin kimliği `x-staff-token`: cihaz
+token'ı + PIN ile alınıyor. Solo sahibin elinde Supabase **müdür** oturumu
+var, personel token'ı YOK — `call()` daha ilk istekte `no_session` (401)
+atıyor. `useMyStaffId()` de müdür oturumunda `staff.id` değil Supabase
+kullanıcı kimliği döndürüyor.
+
+Yani hapı çizmek, ekranı açılmayan bir kapıya bağlamak olurdu. İki gerçek yol
+var, ikisi de sunucuya dokunuyor:
+
+1. Solo sahip kendi telefonunu kendi personel satırına bağlar (var olan
+   "telefon bağla" akışı, kendine) — uygulama tarafı, ama kurulumda bir adım
+   daha demek.
+2. Personel API'si org sahibinin Supabase JWT'sini kendi `staff` satırı için
+   kabul eder — temiz çözüm, ama sunucu değişikliği ve deploy.
+
+Karar ve uygulama **Faz 3**'e geçti; tahsilat da aynı kapının arkasında.
+
+### Faz 2'den bilerek çıkan ikisi
+- **v4 S2**'nin "hizmetlerinizi de buradan ekleyebilirsiniz" cümlesi: hizmet
+  sayısı bu ekranda okunmuyor ve en çok bakılan ekrana dördüncü bir sorgu
+  eklemiyor.
+- **Takvim sahipsiz randevuyu çizmiyor** (`columnize` `staff_id` boş satırı
+  süzüyor), Gün çiziyor. Fark alt başlıktaki sayıyla SÖYLENİYOR, sessiz
+  değil. Düzeltmesi `columnize`'ı değiştirmek, yani müdür takvimini de
+  etkilemek.
 
 ## Faz 3 · Para ve ekip
 - Tahsilat (BİTİR sonrası) + Kasa'da **düzelt / geri al** — yeni yazma yolları,
