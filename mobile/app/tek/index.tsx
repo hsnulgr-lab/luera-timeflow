@@ -186,11 +186,13 @@ export default function SoloDay() {
                   * almadı") ve bu modda muhatap Derya'nın kendisi.
                   */}
                 {dayEmpty ? (
-                    <VoidBlock
-                        copy={soloEmptyCopy(selectedISO, todayISO(), data.open)}
-                        isToday={isToday}
-                        nowMinutes={nowMinutes}
-                    />
+                    <View style={{ paddingTop: soloDayMetrics.voidTop }}>
+                        <VoidBlock
+                            copy={soloEmptyCopy(selectedISO, todayISO(), data.open)}
+                            isToday={isToday}
+                            nowMinutes={nowMinutes}
+                        />
+                    </View>
                 ) : null}
 
                 {!dayEmpty && dayState?.panel ? (

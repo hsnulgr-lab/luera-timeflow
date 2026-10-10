@@ -3056,6 +3056,15 @@ export const soloDayMetrics = {
     barPadRight: 32,
     doneNameOpacity: 0.72,
 
+    /*
+     * Boş hâl gövdesinin şeritten uzaklığı (v4 · .void `padding-top:44px`).
+     *
+     * `emptyDayMetrics.topFromStrip` 30 — o Müdür 22'nin kendi yerleşiminden
+     * ölçülmüş ve orada şeridin altında başka bir şey daha var. Burada blok
+     * doğrudan hafta şeridini takip ediyor.
+     */
+    voidTop: 44,
+
     // Şimdi çizgisi (nowp) — turuncu hap, kartların arasında
     nowPillHeight: 22,
     nowPillPadX: 10,
