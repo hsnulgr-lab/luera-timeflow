@@ -6,8 +6,11 @@
 -- kalır: silme iki işarete bağlı ve ikisi de yalnız o dosyanın ürettiği
 -- satırlarda var —
 --
---   reservations.source = 'demo-tek'
---   customers.notes     = 'demo-tek'
+--   reservations.custom_fields @> '{"demo_tek": true}'
+--   customers.custom_fields    @> '{"demo_tek": true}'
+--
+-- İşaret `source`ta DEĞİL: o kolonun CHECK'i yalnız manual/booking/leadflow
+-- kabul ediyor (015). `notes`ta da değil: o alan kullanıcıya görünüyor.
 --
 -- ── DOKUNULMAYAN İKİSİ ─────────────────────────────────────────────────────
 -- • Çalışma saatleri: tohum pazarı kapalı, kalanını 09:00–19:00 yapmıştı.
@@ -46,7 +49,8 @@ BEGIN
                           o.id,
                           rpad(coalesce(nullif(btrim(o.name), ''), '(adsız)'), 24),
                           (SELECT count(*) FROM reservations r
-                            WHERE r.organization_id = o.id AND r.source = 'demo-tek')),
+                            WHERE r.organization_id = o.id
+                              AND r.custom_fields @> '{"demo_tek": true}'::jsonb)),
                    '' ORDER BY o.created_at)
           INTO v_liste
           FROM organizations o
@@ -70,13 +74,16 @@ BEGIN
     DELETE FROM payments
      WHERE organization_id = v_org
        AND reservation_id IN (SELECT id FROM reservations
-                               WHERE organization_id = v_org AND source = 'demo-tek');
+                               WHERE organization_id = v_org
+                                 AND custom_fields @> '{"demo_tek": true}'::jsonb);
     GET DIAGNOSTICS v_p = ROW_COUNT;
 
-    DELETE FROM reservations WHERE organization_id = v_org AND source = 'demo-tek';
+    DELETE FROM reservations WHERE organization_id = v_org
+                               AND custom_fields @> '{"demo_tek": true}'::jsonb;
     GET DIAGNOSTICS v_r = ROW_COUNT;
 
-    DELETE FROM customers WHERE organization_id = v_org AND notes = 'demo-tek';
+    DELETE FROM customers WHERE organization_id = v_org
+                            AND custom_fields @> '{"demo_tek": true}'::jsonb;
     GET DIAGNOSTICS v_c = ROW_COUNT;
 
     RAISE NOTICE 'Silindi — % tahsilat, % randevu, % müşteri.', v_p, v_r, v_c;

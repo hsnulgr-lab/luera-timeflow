@@ -25,9 +25,23 @@
 -- yok.
 --
 -- Silme HER ZAMAN `organization_id = <solo org>` ile sınırlı ve yalnız bu
--- dosyanın yazdığı satırları kaldırıyor: randevuda `source = 'demo-tek'`,
--- müşteride `notes = 'demo-tek'`. Senin elle kurduğun randevulara
--- DOKUNMUYOR. Geri alma: `DEMO_tek_kisilik_geri_al.sql`.
+-- dosyanın yazdığı satırları kaldırıyor: randevuda
+-- hem randevuda hem müşteride `custom_fields @> '{"demo_tek": true}'`.
+-- Senin elle kurduğun randevulara DOKUNMUYOR.
+-- Geri alma: `DEMO_tek_kisilik_geri_al.sql`.
+--
+-- ── Neden işaret `source` DEĞİL ────────────────────────────────────────────
+-- İlk hâli `source = 'demo-tek'` yazıyordu ve 015'teki CHECK reddetti:
+-- o kolon yalnız `manual | booking | leadflow` kabul ediyor. Kısıtı
+-- genişletmedim — `source` gerçek bir iş alanı (booking rozeti, istatistikte
+-- kaynak kırılımı) ve demo için üretim şemasına değer eklemek onu kirletirdi.
+-- `custom_fields` ise bu işin tam yeri: serbest JSONB, mobil yalnız bildiği
+-- anahtarları okuyor (`hizmetler`, `paket_plan_id`, `paket_sayildi`),
+-- tanımadığı anahtar hiçbir yerde çizilmiyor.
+--
+-- `notes` kullanılmadı: o alan hem randevu kartında hem müşteri kartında
+-- KULLANICIYA GÖRÜNÜYOR (`CustomerCard` notları çiziyor); her demo
+-- müşterisinin altında "demo-tek" yazardı.
 --
 -- ── DURUMLAR UYDURULMUYOR, SAATTEN TÜRÜYOR ─────────────────────────────────
 -- `DEMO_salon.sql`de iki kip var (mesai içi / dışı) çünkü orada seanslar
@@ -100,7 +114,8 @@ BEGIN
                           rpad(coalesce(u.email, '(sahipsiz)'), 28),
                           (SELECT count(*) FROM reservations r WHERE r.organization_id = o.id),
                           CASE WHEN EXISTS (SELECT 1 FROM reservations r
-                                             WHERE r.organization_id = o.id AND r.source = 'demo-tek')
+                                             WHERE r.organization_id = o.id
+                                               AND r.custom_fields @> '{"demo_tek": true}'::jsonb)
                                THEN '  [bu tohum daha once buraya yazmis]' ELSE '' END),
                    '' ORDER BY o.created_at)
           INTO v_liste
@@ -201,13 +216,16 @@ BEGIN
     DELETE FROM payments
      WHERE organization_id = v_org
        AND reservation_id IN (SELECT id FROM reservations
-                               WHERE organization_id = v_org AND source = 'demo-tek');
-    DELETE FROM reservations WHERE organization_id = v_org AND source = 'demo-tek';
-    DELETE FROM customers    WHERE organization_id = v_org AND notes  = 'demo-tek';
+                               WHERE organization_id = v_org
+                                 AND custom_fields @> '{"demo_tek": true}'::jsonb);
+    DELETE FROM reservations WHERE organization_id = v_org
+                               AND custom_fields @> '{"demo_tek": true}'::jsonb;
+    DELETE FROM customers    WHERE organization_id = v_org
+                               AND custom_fields @> '{"demo_tek": true}'::jsonb;
 
     -- ── Müşteriler ──────────────────────────────────────────────────────
-    INSERT INTO customers (user_id, organization_id, name, phone, notes)
-    SELECT v_user, v_org, t.ad, t.tel, 'demo-tek'
+    INSERT INTO customers (user_id, organization_id, name, phone, notes, custom_fields)
+    SELECT v_user, v_org, t.ad, t.tel, '', '{"demo_tek": true}'::jsonb
       FROM (VALUES
             ('Sibel Karaca',  '0532 900 0001'),
             ('Pınar Aksoy',   '0532 900 0002'),
@@ -249,7 +267,9 @@ BEGIN
                OR s.baslangic IN (TIME '10:30', TIME '14:00', TIME '16:30')
         LOOP
             SELECT id INTO v_c FROM customers
-             WHERE organization_id = v_org AND notes = 'demo-tek' AND name = v_slot.musteri
+             WHERE organization_id = v_org
+               AND custom_fields @> '{"demo_tek": true}'::jsonb
+               AND name = v_slot.musteri
              LIMIT 1;
 
             v_start := v_slot.baslangic;
@@ -269,7 +289,7 @@ BEGIN
             INSERT INTO reservations (
                 user_id, organization_id, customer_id, customer_name, customer_phone,
                 staff_id, date, start_time, end_time, service, service_color,
-                status, source, is_paid, notes,
+                status, source, is_paid, notes, custom_fields,
                 customer_arrived_at, arrived_at, service_ended_at
             )
             SELECT
@@ -278,10 +298,13 @@ BEGIN
                 CASE WHEN v_slot.iptal THEN 'cancelled'
                      WHEN v_past       THEN 'completed'
                      ELSE 'confirmed' END,
-                'demo-tek',
+                -- `source` GERÇEĞİ söylüyor: bu satırlar panelden kurulmuş gibi
+                -- davranıyor. Demo işareti ayrı alanda, bkz. dosya başı.
+                'manual',
                 -- İptal edilen iş tahsil edilmez; para kaydı da yazılmaz.
                 (v_past AND NOT v_slot.iptal),
                 '',
+                '{"demo_tek": true}'::jsonb,
                 -- Damgalar yalnız gerçekten olmuş şeyler için.
                 CASE WHEN (v_past OR v_running) AND NOT v_slot.iptal
                      THEN ((v_today + v_gun.ofset) + v_start) AT TIME ZONE 'Europe/Istanbul' END,
@@ -308,12 +331,13 @@ BEGIN
       FROM reservations r
       JOIN services s ON s.organization_id = v_org AND s.name = r.service
      WHERE r.organization_id = v_org
-       AND r.source = 'demo-tek'
+       AND r.custom_fields @> '{"demo_tek": true}'::jsonb
        AND r.is_paid;
 
     -- ── Özet ────────────────────────────────────────────────────────────
     SELECT count(*) INTO v_count
-      FROM reservations WHERE organization_id = v_org AND source = 'demo-tek';
+      FROM reservations WHERE organization_id = v_org
+                          AND custom_fields @> '{"demo_tek": true}'::jsonb;
     RAISE NOTICE 'Tek kişilik demo hazır — % randevu.', v_count;
 
     SELECT
@@ -323,7 +347,9 @@ BEGIN
         count(*) FILTER (WHERE arrived_at IS NULL AND status <> 'cancelled')
       INTO v_count, v_bitti, v_suruyor, v_sirada
       FROM reservations
-     WHERE organization_id = v_org AND source = 'demo-tek' AND date = v_today;
+     WHERE organization_id = v_org
+       AND custom_fields @> '{"demo_tek": true}'::jsonb
+       AND date = v_today;
 
     RAISE NOTICE 'Bugün: % randevu (biten %, süren %, sıradaki %).',
         v_count, v_bitti, v_suruyor, v_sirada;
