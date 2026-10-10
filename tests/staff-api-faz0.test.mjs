@@ -40,9 +40,26 @@ test('kütük sonsuza kadar büyümüyor', () => {
 // ── İdempotens kapısı ───────────────────────────────────────────────────────
 
 test('kapı YALNIZ yazma uçlarında', () => {
-    // `visit.note` (2026-09-22) kütüğe kütüğe de idempotens kapısına da
-    // girdi — içerik yazması, `visit.items`/`visit.formula`nın komşusu.
-    assert.match(api, /const WRITE_ACTIONS = new Set\(\['visit\.start', 'visit\.items', 'visit\.formula', 'visit\.note', 'visit\.finish'\]\)/);
+    /*
+     * `visit.note` (2026-09-22) hem kütüğe hem idempotens kapısına girdi —
+     * içerik yazması, `visit.items`/`visit.formula`nın komşusu.
+     * `visit.collect` (108, 2026-10-11) PARA yazması: kuyruğa girmiyor ama
+     * kapıya giriyor, çünkü kullanıcının iki kez dokunması kuyruktan
+     * bağımsız bir risk.
+     *
+     * Küme SATIR SATIR yazılı okunuyor: listenin kendisi sözleşme ve bir
+     * uç sessizce eklenip kapının dışında kalmamalı.
+     */
+    const block = api.slice(api.indexOf('const WRITE_ACTIONS'), api.indexOf(']);', api.indexOf('const WRITE_ACTIONS')));
+    const actions = [...block.matchAll(/'([a-z.]+)'/g)].map((m) => m[1]);
+    assert.deepEqual(actions.sort(), [
+        'visit.collect', 'visit.finish', 'visit.formula', 'visit.items', 'visit.note', 'visit.start',
+    ]);
+    // Okuma uçları kapıya GİRMEMELİ: kayıtlı bir yanıtı dönmek, bayat veriyi
+    // taze gibi göstermek olurdu.
+    for (const readAction of ['agenda', 'calendar', 'catalog', 'customers', 'shift', 'performance']) {
+        assert.ok(!actions.includes(readAction), readAction);
+    }
 });
 
 test('kapı, kimlik doğrulandıktan SONRA', () => {
@@ -66,10 +83,11 @@ test('kütüğe YALNIZ başarılı yazma giriyor', () => {
     }
 });
 
-test('beş yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
+test('altı yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
     const writes = api.slice(api.indexOf("action === 'visit.start'"), api.indexOf("action === 'catalog'"));
-    assert.equal((writes.match(/return await done\(/g) ?? []).length, 7,
-        'visit.start 3 + visit.note 1 + visit.items 1 + visit.formula 1 + visit.finish 1');
+    assert.equal((writes.match(/return await done\(/g) ?? []).length, 9,
+        'visit.start 3 + visit.note 1 + visit.items 1 + visit.formula 1 + visit.finish 1 '
+        + '+ visit.collect 2 (yeni kayıt ve "zaten tahsil edilmiş")');
     assert.doesNotMatch(writes, /return json\(\{\s*ok: true/,
         'yazma ucunda kütükten geçmeyen bir başarı yanıtı kalmamalı');
 });

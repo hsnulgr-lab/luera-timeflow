@@ -1,34 +1,27 @@
 -- ============================================================
--- TimeFlow Migration 109: Denetim kaydındaki ALTI SESSİZ KAYIP
+-- TimeFlow Migration 109: (GEÇERSİZ GEREKÇE — bkz. 110)
 -- ============================================================
--- Idempotent. Yalnız bir CHECK kısıtını genişletiyor; veri taşımıyor.
+-- ⚠️  BU GÖÇ ÜRETİMDE ÇALIŞTI (2026-10-10) ve zararsız oldu, ama YAZILIŞ
+--     SEBEBİ YANLIŞTI. Dosya olduğu gibi duruyor: üretimde koşan SQL bu ve
+--     tarihi değiştirmek, veritabanıyla depo arasındaki tek doğru kaydı
+--     bozardı.
 --
--- ── Bulgu ───────────────────────────────────────────────────────────────────
--- `staff_auth_log.event` kısıtı 082'de dört değerle başladı, 090 ziyaret
--- olaylarını ekleyip yediye çıkardı. Ama `staff-api` o tarihten beri ALTI
--- olay daha yazıyor ve hiçbiri listede yok:
+-- ── Ne iddia etmişti ──────────────────────────────────────────────────────
+-- "`staff_auth_log.event` kısıtı altı olayı kabul etmiyor, o insertler
+-- sessizce düşüyor." Bu DOĞRU DEĞİLDİ: 091 ve 099 kısıtı zaten
+-- genişletmişti ve altısı da listedeydi.
 --
---   failed_pair · paired · pair_code_created · pin_set · pin_reset · pin_changed
+-- ── Hata nasıl oldu ───────────────────────────────────────────────────────
+-- Kısıtı değiştiren göçler aranırken çıktı kesildi ve yalnız 082 ile 090
+-- görüldü; 091 ile 099 hiç okunmadı. Yani "eksik" sanılan şey eksik değildi.
 --
--- Bu insertler HATA VERMİYOR, sessizce düşüyor. Sebebi supabase-js:
--- `admin.from(...).insert(...)` fırlatmaz, `{ data, error }` döner ve
--- `staff-api`deki `audit()` yardımcısı dönen değere bakmıyor. 090'ın kendi
--- yorumu bunu zaten söylemişti — "kısıt genişletilmezse bu insertler sessizce
--- başarısız olur" — ama yalnız o turun olayları eklendi.
+-- ── Sonucu ────────────────────────────────────────────────────────────────
+-- Eklediği altı değer zaten vardı → etkisiz. Düşürdüğü tek değer
+-- `pair_locked` ise koda hiç yazılmıyor (yalnız istemciye dönen bir hata
+-- kodu) → kayıp yok. 110 onu geri koyuyor.
 --
--- ── Neden önemli ────────────────────────────────────────────────────────────
--- Kayıp olanlar tam da GÜVENLİKLE İLGİLİ olanlar: cihaz eşleştirme kodu
--- üretildi mi, kim eşleşti, başarısız eşleşme denemesi oldu mu, şifre kim
--- tarafından sıfırlandı. Yani tablonun var oluş sebebi. Giriş ve ziyaret
--- olayları yazılıyor, kapı olayları yazılmıyordu.
---
--- Geçmiş kayıtlar GERİ GELMİYOR; bu göç yalnız bundan sonrasını yazdırıyor.
---
--- ── Neden listeye `solo` eklenmedi ──────────────────────────────────────────
--- 108'in `solo.session` ucu da bu tabloya yazıyor ama olay adı olarak
--- `'login'` kullanıyor: olan şey zaten bir giriş, ayrımı `detail = 'solo'`
--- taşıyor. Her uca yeni bir olay adı uydurmak bu kısıtı sürekli peşinden
--- koşulan bir yere çevirirdi.
+-- Doğru ders: kısıtı değiştiren bütün göçleri BULMADAN önceki listeyi tam
+-- sayma.
 -- ============================================================
 
 BEGIN;

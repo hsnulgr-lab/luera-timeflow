@@ -66,6 +66,7 @@ type Action =
     | 'visit.formula'  // ziyaretin renk formülü
     | 'visit.note'     // randevunun serbest notu (müşteri görmez)
     | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
+    | 'visit.collect'  // adisyonu TAHSİL ET → kasaya para kaydı (108 · v4 K3)
     | 'calendar'       // salonun günü — okuma amaçlı
     | 'catalog'        // hizmet + ürün listesi (tek turda)
     | 'customers'      // müşteri defterinin listesi
@@ -863,7 +864,13 @@ Deno.serve(async (req: Request) => {
         // YALNIZ BAŞARILI yazmalar kütüğe giriyor. Hata dönen bir istek satırı
         // değiştirmedi; tekrar denenmesi zararsız, hatta doğru — kalıcı bir
         // 500'ü kütüğe yazsaydık o iş sonsuza kadar başarısız donardı.
-        const WRITE_ACTIONS = new Set(['visit.start', 'visit.items', 'visit.formula', 'visit.note', 'visit.finish']);
+        const WRITE_ACTIONS = new Set([
+            'visit.start', 'visit.items', 'visit.formula', 'visit.note', 'visit.finish',
+            // Tahsilat kuyruğa GİRMİYOR (istemci `call` ile gönderiyor) ama
+            // idempotens kapısı yine de şart: kötü sinyalde kullanıcı iki kez
+            // dokunabilir ve ikinci dokunuş ikinci bir para kaydı yazardı.
+            'visit.collect',
+        ]);
         let idemKey: string | null = null;
         if (WRITE_ACTIONS.has(action)) {
             const rawKey = body.idempotencyKey;
@@ -1809,6 +1816,172 @@ Deno.serve(async (req: Request) => {
                     ? { warnings: [stockWarning, planWarning].filter(Boolean) }
                     : {}),
             });
+        }
+
+        /*
+         * ── visit.collect — ADİSYONU TAHSİL ET (108 · v4 K3) ─────────────────
+         *
+         * `visit.finish` işi KAPATIYOR ama para yazmıyor: adisyon Kasa'da
+         * "tahsil edilmedi" şeridinde bekliyor. Tek kişilik işletmede o
+         * şeridi boşaltacak kimse yok — sahip aynı kişi ve bilgisayarı yok.
+         * Bu uç o son adımı telefona getiriyor.
+         *
+         * ── TUTARI SUNUCU HESAPLIYOR ─────────────────────────────────────────
+         * İstemci rakam GÖNDERMİYOR, yalnız yöntemi söylüyor. Tutarı gövdeden
+         * almak, telefona "bu işin kaç lira olduğuna sen karar ver" demekti;
+         * ele geçmiş bir jetonla kasaya istenen rakam yazılabilirdi.
+         *
+         * Hesap iki parçadan: randevunun hizmet ücreti + adisyonun ücretli
+         * kalemleri. İkincisi `fiyat × adet` (kullanıcı kararı 2026-10-10):
+         * kumanda satırı ekranda `price * qty` gösteriyor ve gösterilen neyse
+         * o tahsil edilmeli. Masaüstünün Kasa hareket satırı bugün çarpmıyor
+         * (`cashBuild.adisyonLines`) — o ayrışma masaüstünün kendi borcu ve
+         * ayrıca düzeltilecek; buradaki kural EKRANLA uyumlu olan.
+         *
+         * Hizmet ücreti `cashBuild.serviceLines`in aynısı: çoklu hizmetli
+         * seansta `service` birleşik bir ad ("Kaş + Cilt bakımı") ve katalogda
+         * öyle bir kayıt yok; ücret `custom_fields.hizmetler`den okunuyor.
+         * Doğrudan adla aramak o seansları ₺0 gösterirdi.
+         *
+         * ── İKİ KEZ TAHSİL ETMEME ────────────────────────────────────────────
+         * İki kapı var ve ikisi de gerekli. İdempotens kütüğü AYNI isteğin
+         * tekrarını yakalıyor (aynı anahtar). Ama kullanıcı ekranı kapatıp
+         * yeniden açar ve bir daha dokunursa anahtar YENİ olur — o yüzden
+         * randevunun var olan tahsilatı ayrıca sorgulanıyor ve varsa yeni
+         * kayıt YAZILMIYOR, mevcut olan dönüyor.
+         *
+         * ── SIFIR GEÇERSİZ ───────────────────────────────────────────────────
+         * Bir tahsilat sıfır lira olamaz (`cash.ts` · `parseAmount` aynı
+         * kuralı koyuyor). Hesap sıfır çıkıyorsa ya hizmetin fiyatı
+         * yazılmamış ya adisyon boş; ikisi de kullanıcının düzeltmesi gereken
+         * bir eksik, sessizce ₺0 kaydı açmak değil.
+         */
+        if (action === 'visit.collect') {
+            const method = String(body.method ?? '');
+            if (method !== 'cash' && method !== 'card' && method !== 'transfer') {
+                return json({ error: 'invalid_method' }, 400);
+            }
+
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+
+            // İŞ BİTMEDEN PARA ALINMAZ. Süren bir işin tutarı henüz belli
+            // değil: adisyona kalem eklenebilir, bekleme kurulabilir.
+            if (res!.status !== 'completed') return json({ error: 'not_finished' }, 409);
+
+            const { data: existing, error: exErr } = await admin.from('payments')
+                .select('id, amount, method, paid_at')
+                .eq('organization_id', me.organization_id)
+                .eq('reservation_id', res!.id)
+                .order('paid_at', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            if (exErr) {
+                console.error('visit.collect existing payment', exErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (existing) {
+                return await done({ ok: true, alreadyCollected: true, payment: existing });
+            }
+
+            // Hizmet ücreti için katalog ve `custom_fields` — ikisi tek turda.
+            const [
+                { data: catalog, error: catErr },
+                { data: cfRow, error: cfErr },
+            ] = await Promise.all([
+                admin.from('services').select('id, name, price')
+                    .eq('organization_id', me.organization_id),
+                admin.from('reservations').select('custom_fields')
+                    .eq('id', res!.id).eq('organization_id', me.organization_id).maybeSingle(),
+            ]);
+            if (catErr || cfErr) {
+                console.error('visit.collect amount lookup', catErr ?? cfErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+
+            const services = (catalog ?? []) as { id: string; name: string; price: number | null }[];
+            const priceOfName = (name: string) =>
+                Number(services.find((row) => row.name === name)?.price ?? 0) || 0;
+
+            let serviceAmount = 0;
+            const fields = (cfRow?.custom_fields ?? {}) as Record<string, unknown>;
+            const rawLines = fields.hizmetler;
+            let parsedLines: unknown = null;
+            if (typeof rawLines === 'string' && rawLines.trim()) {
+                try { parsedLines = JSON.parse(rawLines); } catch { parsedLines = null; }
+            }
+            if (Array.isArray(parsedLines) && parsedLines.length > 0) {
+                for (const raw of parsedLines) {
+                    const line = (raw ?? {}) as Record<string, unknown>;
+                    // Sıra `cashBuild.serviceLines`in aynısı: kaydın kendi
+                    // fiyatı → katalogda kimliğiyle → katalogda adıyla → 0.
+                    // Para kodunda zincir TEK ANLAMA gelmeli; `||` yığını
+                    // burada okunmuyordu.
+                    if (typeof line.price === 'number') {
+                        serviceAmount += line.price;
+                        continue;
+                    }
+                    const byId = typeof line.id === 'string'
+                        ? services.find((row) => row.id === line.id)
+                        : undefined;
+                    if (byId) {
+                        serviceAmount += Number(byId.price ?? 0) || 0;
+                        continue;
+                    }
+                    serviceAmount += priceOfName(typeof line.name === 'string' ? line.name : '');
+                }
+            } else {
+                // Birleşik ad: "Kaş + Cilt bakımı" → iki ayrı katalog kaydı.
+                for (const name of String(res!.service ?? '').split(' + ')) {
+                    const trimmed = name.trim();
+                    if (trimmed) serviceAmount += priceOfName(trimmed);
+                }
+            }
+
+            const items = Array.isArray(res!.adisyon_items) ? res!.adisyon_items : [];
+            const itemsAmount = (items as Record<string, unknown>[]).reduce(
+                (sum, item) => sum + (Number(item?.price) || 0) * (Number(item?.qty) || 1),
+                0,
+            );
+
+            const amount = Math.round((serviceAmount + itemsAmount) * 100) / 100;
+            if (!(amount > 0)) return json({ error: 'zero_amount' }, 409);
+
+            const { data: payment, error: payErr } = await admin.from('payments').insert({
+                organization_id: me.organization_id,
+                customer_id: res!.customer_id,
+                reservation_id: res!.id,
+                type: 'service',
+                description: res!.service,
+                amount,
+                method,
+            }).select('id, amount, method, paid_at').maybeSingle();
+            if (payErr || !payment) {
+                console.error('visit.collect payment', payErr);
+                return json({ error: 'write_failed' }, 500);
+            }
+
+            /*
+             * `is_paid` PARA KAYDINDAN SONRA ve hatası isteği DÜŞÜRMÜYOR.
+             *
+             * Sıra bilerek böyle: para kaydı asıl gerçek, `is_paid` onun
+             * türevi. Tersi olsaydı bayrak basılıp kayıt düşebilir ve Kasa
+             * tahsil edilmiş görünen ama parası olmayan bir randevu
+             * gösterirdi. Bu sırada en kötü ihtimal, bayrağı basılmamış bir
+             * ödenmiş randevu — bir sonraki çağrı `existing` görüp düzeltir.
+             */
+            const { error: flagErr } = await admin.from('reservations')
+                .update({ is_paid: true })
+                .eq('id', res!.id)
+                .eq('organization_id', me.organization_id);
+            if (flagErr) console.error('visit.collect is_paid', flagErr);
+
+            // Olay adı GERÇEĞİ söylüyor. `visit.finish` yazıp detaya
+            // "collect" koymak denetim kaydını okunmaz yapardı: iş bitirme
+            // ile para alma ayrı iki olay ve biri ötekinin yerine geçemez.
+            // Kısıt 110 ile genişletildi.
+            await audit(me.organization_id, me.id, 'visit.collect', method);
+            return await done({ ok: true, payment, amount });
         }
 
         if (action === 'catalog') {

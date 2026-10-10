@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { pinProblem as serverRule, PIN_LENGTH } from '../supabase/functions/_shared/pinRules.ts';
 import { pinProblem as phoneRule } from '../mobile/src/lib/pinRules.ts';
@@ -66,19 +68,65 @@ test('099: ekip kodu kolonları ve sebep kaydı', () => {
     assert.match(body, /set used_at = expires_at\s+where used_at is null\s+and expires_at <= now\(\)/);
 });
 
-test('099 olay listesi öncekileri DÜŞÜRMÜYOR, yenilerini ekliyor', () => {
+test('olay listesi hiçbir göçte DARALMIYOR, ve sunucunun yazdığı her olayı kapsıyor', () => {
+    /*
+     * İddia 099'a SABİTLENMİŞTİ ve bu bir tuzaktı: 109 kısıtı yeniden
+     * yazdığında test 099'a bakmaya devam etti, daralmayı görmedi
+     * (`pair_locked` düştü, 2026-10-10). Artık zincirin TAMAMI taranıyor —
+     * yeni bir göç eklendiğinde kendiliğinden kapsama giriyor.
+     *
+     * Kural iki parçalı:
+     *   1. Hiçbir göç kendinden öncekinin kabul ettiği bir olayı düşürmez.
+     *      Kullanılmayan bir değer bile: düşürmenin kazancı yok, riski var.
+     *   2. Sunucunun `audit()` ile yazdığı her olay SON listede olmalı —
+     *      supabase-js `insert()` fırlatmadığı için olmayan bir ad sessizce
+     *      düşer ve kimse fark etmez.
+     */
     const events = (sql) => {
-        const start = sql.lastIndexOf('add constraint staff_auth_log_event_check');
+        const start = sql.toLowerCase().lastIndexOf('add constraint staff_auth_log_event_check');
         const check = sql.slice(start, sql.indexOf('));', start));
         return new Set([...check.replace(/--.*$/gm, '').matchAll(/'([a-z_.]+)'/g)].map((m) => m[1]));
     };
-    const before = events(read('supabase/091_staff_device_codes.sql'));
-    const after = events(migration);
-    for (const event of before) assert.ok(after.has(event), `099, ${event} olayını düşürüyor`);
-    for (const event of ['pin_set', 'pin_changed', 'pin_reset']) assert.ok(after.has(event), event);
-    // Sunucunun yazdığı her olay listede.
+
+    const dir = fileURLToPath(new URL('../supabase', import.meta.url));
+    const chain = readdirSync(dir)
+        .filter((name) => /^\d{3}_.*\.sql$/.test(name)
+            && readFileSync(join(dir, name), 'utf8').includes('staff_auth_log_event_check'))
+        .sort();
+    assert.ok(chain.length >= 4, `kısıt zinciri bulunamadı: ${chain.join(', ')}`);
+
+    /*
+     * 109 BİLİNEN İSTİSNA. `pair_locked`ı düşürerek yazıldı, üretimde koştu
+     * ve geri alınamaz — dosya tarihin kaydı olarak duruyor, gerekçesi
+     * kendi başlığında. 110 değeri geri koyuyor.
+     *
+     * İstisna ADIYLA yazılı: yeni bir daralma sessizce bu listeye
+     * sığmasın.
+     */
+    const KNOWN_NARROWING = new Set(['109_staff_auth_log_eksik_olaylar.sql']);
+
+    let previous = new Set();
+    const everAllowed = new Set();
+    for (const name of chain) {
+        const current = events(readFileSync(join(dir, name), 'utf8'));
+        if (!KNOWN_NARROWING.has(name)) {
+            for (const event of previous) {
+                assert.ok(current.has(event), `${name}, '${event}' olayını DÜŞÜRÜYOR`);
+            }
+        }
+        for (const event of current) everAllowed.add(event);
+        previous = current;
+    }
+
+    // SON hâl, bir zamanlar kabul edilmiş HER olayı kapsamalı: geçici bir
+    // daralma affedilebilir, kalıcısı affedilmez.
+    for (const event of everAllowed) {
+        assert.ok(previous.has(event), `son kısıt '${event}' olayını kalıcı olarak düşürmüş`);
+    }
+
+    for (const event of ['pin_set', 'pin_changed', 'pin_reset']) assert.ok(previous.has(event), event);
     for (const [, event] of api.matchAll(/audit\([^)]*?'([a-z_.]+)'/g)) {
-        assert.ok(after.has(event), `staff-api '${event}' yazıyor ama 099 kabul etmiyor`);
+        assert.ok(previous.has(event), `staff-api '${event}' yazıyor ama son kısıt kabul etmiyor`);
     }
 });
 

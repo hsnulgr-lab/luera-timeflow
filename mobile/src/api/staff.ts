@@ -429,6 +429,28 @@ export const api = {
         write('visit.items', { reservationId, items, expectedUpdatedAt: expected ?? null }),
     visitFinish: (reservationId: string) => write('visit.finish', { reservationId }),
     /**
+     * TAHSİLAT (108 · v4 K3) — `call`, `write` DEĞİL.
+     *
+     * `write` başarısız yazmayı çevrimdışı kuyruğa alıyor ve saatler sonra
+     * boşaltıyor. Para kaydı için bu YANLIŞ: kullanıcı "olmadı" görüp nakit
+     * alır, akşam kuyruk boşalır ve kasada ikinci bir kart tahsilatı belirir.
+     * Tasarımın kendi cümlesi de bu — "para kaydı çevrimdışı sıraya
+     * alınmaz: ya sunucuda var ya yok" (v4 · K4).
+     *
+     * `idempotencyKey` yine de gidiyor: kuyruk yok ama kullanıcının iki kez
+     * dokunması var.
+     *
+     * TUTAR GÖNDERİLMİYOR. Sunucu adisyondan ve randevunun hizmetinden
+     * kendisi hesaplıyor; telefona "bu iş kaç lira" dedirtmek, ele geçmiş
+     * bir jetonla kasaya istenen rakamı yazdırmak olurdu.
+     */
+    visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer') =>
+        call('visit.collect', {
+            reservationId,
+            method,
+            idempotencyKey: `visit.collect:${reservationId}:${method}`,
+        }),
+    /**
      * Randevunun serbest notu — müşteri görmez. Aynı sütunu masaüstü ve
      * müdür telefonu da yazıyor (`reservations.notes`), üçü de TAM
      * DEĞİŞTİRİR, ekleme yapmaz — kaydeden son kazanır. İkinci bir "kumanda
