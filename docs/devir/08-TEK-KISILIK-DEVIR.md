@@ -5,7 +5,8 @@
 
 > **2026-10-11 akşam turu (§15):** 111 yeniden yazıldı ve yerelde gerçek
 > Postgres'te sınandı. Kasa arayüz taslağı `tek-kasa` dalına alındı.
-> `tek-kisilik` `main`'e ileri sarıldı. **Yeni deploy borcu var** (§6).
+> `tek-kisilik` `main`'e ileri sarıldı. **111 canlıda; `staff-api` ve
+> `whatsapp-booking` deploy edildi ve doğrulandı** (§6). Deploy borcu yok.
 
 Bu belge tek başına yeterli olmak için yazıldı. Yeni oturum bunu okuyunca
 projeyi, kararları ve sıradaki işi bilmeli; önceki konuşmayı aramaya
@@ -16,9 +17,9 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu: 111 + `staff-api` + `whatsapp-booking`** (§6). Sıra
-   zorunlu: önce kuru koşu, sonra göç, en son deploy. Tahsilatın telefonda
-   denenmesi de hâlâ bekliyor.
+2. **Deploy borcu YOK** (§6, 2026-10-11 akşam). 111 canlıda; `staff-api`
+   ve `whatsapp-booking` `main`'den deploy edildi. Tahsilatın telefonda
+   denenmesi hâlâ bekliyor.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -130,7 +131,7 @@ iki kez yazmak, iki kez bozmak demekti.
 | `108_tek_kisilik.sql` | `organizations.solo` + `set_business_mode()` | ✅ **üretimde** |
 | `109_staff_auth_log_eksik_olaylar.sql` | (gerekçesi YANLIŞTI — bkz. §8) | ⚠️ **üretimde, zararsız** |
 | `110_staff_auth_log_tahsilat.sql` | `visit.collect` olayı + `pair_locked` geri | ✅ **üretimde** (2026-10-11) |
-| `111_kasa_duzeltme_izi.sql` | Düzelt / Geri al izi + damgalı satırı gizleyen politikalar (§15) | ⏳ **yazıldı, UYGULANMADI** |
+| `111_kasa_duzeltme_izi.sql` | Düzelt / Geri al izi + damgalı satırı gizleyen politikalar (§15) | ✅ **üretimde** (2026-10-11 akşam, kuru koşu geçti) |
 
 ### Sunucu — `supabase/functions/staff-api/index.ts`
 
@@ -185,7 +186,7 @@ girmez (§7'de sebebi).
 | P1 | İşletme | ✅ |
 | **P2** | **Ekip ekle kapısı** | ❌ |
 | C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) |
-| **C2** | **Hareket satırı → Düzelt / Geri al** | ⏳ sunucu hazır (111), arayüz `tek-kasa` dalında, bağlanmadı |
+| **C2** | **Hareket satırı → Düzelt / Geri al** | ⏳ sunucu CANLIDA (111), arayüz `tek-kasa` dalında, bağlanmadı |
 | **C3** | **Tahsilatı düzelt** | ⏳ aynı |
 | R1 | Yeni randevu 1/2 | ✅ |
 | R2 | Yeni randevu 2/2 | ✅ |
@@ -271,11 +272,30 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### ⏳ BEKLEYEN (2026-10-11 akşam) — 111 + iki fonksiyon
+### ✅ YAPILDI (2026-10-11 akşam) — 111 + iki fonksiyon
 
-Sıra zorunlu. Ters sırada `visit.collect` olmayan `voided_at` sütununu sorar
-ve **her tahsilat `lookup_failed` ile düşer.** Komutlar `main`'den, sakin
-bir saatte (göç `payments`i bir an kilitliyor).
+Kullanıcı dört adımı sırayla çalıştırdı: ön kontrol `0`; kuru koşu
+`kasa düzeltme regression: ok` + `ROLLBACK` (üretim şemasında, iz yok); göç
+`COMMIT`; deploy (`main` = `75f1ac1`).
+
+**Doğrulama (Claude, yan etkisiz istekler):**
+- 18/18 edge function `OPTIONS` → 200; olmayan bir ad → 500 "boot error".
+- PostgREST, anon anahtarıyla: `correct_payment`, `revert_payment`,
+  `voided_payments` → `42501 permission denied` — üçü de şema önbelleğinde
+  VAR ve anon'a KAPALI. Olmayan bir RPC → `PGRST202` (ölçüm ayırt ediyor).
+- `staff-api`: `visit.collect` → `invalid_token` (jeton kapısı),
+  `solo.session` → `unauthorized` (uç yerinde).
+
+**Yan sonuç:** `whatsapp-booking` artık `main`'in en son koduyla çalışıyor.
+Hafızadaki "remind + whatsapp-booking deploy'u bekliyor" (2026-08-02) borcu
+böylece kapandı: `remind` öğlen, `whatsapp-booking` akşam gitti. Hiçbir
+WhatsApp hattı bağlı olmadığı için bugün kimseye etkisi yok; hat eşleşince
+asistan bayrağı (varsayılan kapalı) devrede.
+
+Aşağıdaki komutlar sonraki göçler için kalıp olarak duruyor. Sıra zorunluydu:
+ters sırada `visit.collect` olmayan `voided_at` sütununu sorar ve **her
+tahsilat `lookup_failed` ile düşerdi.** Sakin bir saatte (göç `payments`i bir
+an kilitliyor).
 
 **0 · Ön kontrol** — 111 daha önce uygulanmamış olmalı, sonuç `0`:
 
@@ -355,9 +375,11 @@ Kendi 401 metnini dönüyorsa ("Bu uç yalnız zamanlayıcı tarafından
    başlığı söylüyor: `_shared` değişince argümansız koş.
 2. **Deploy sonrası log tail'i kanıt değildir.** Ucu çağır.
 
-⚠️ Hafızadaki `dental_sales_prep` `whatsapp-booking` için de bekleyen bir
-deploy olduğunu söylüyor. Aynı kayma orada da olabilir; kimse o fonksiyonu
-çağırmadığı için logda görünmemiş olabilir. **Tam süpürme konuşulmadı.**
+~~⚠️ Hafızadaki `dental_sales_prep` `whatsapp-booking` için de bekleyen bir
+deploy olduğunu söylüyor.~~ **KAPANDI (2026-10-11 akşam):** `whatsapp-booking`
+`main`'den deploy edildi. 18 fonksiyonun 18'i açılıyor (boot). Kalan tek
+bilinmeyen MANTIK kayması: öteki fonksiyonların sunucudaki kodu `main` ile
+aynı mı — dosya özetleri karşılaştırılmadı.
 
 ---
 
