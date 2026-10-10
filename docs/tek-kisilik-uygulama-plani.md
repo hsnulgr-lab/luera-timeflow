@@ -94,7 +94,21 @@ Bitenler: Gün ekranı (`app/tek/index.tsx`), v4 randevu kartı
 (`ColumnCalendar`'ın `soloColumn`'u), boş gün (`VoidBlock` + ikinci şahıs
 cümlesi), Takvim ve İşletme'deki müdür dili.
 
-### Kalan tek madde: hâl kartının eylem hapı — ve NEDEN Faz 2'de değil
+### Faz 2b ✅ — kumanda açıldı (2026-10-10)
+
+Aşağıdaki duvar **aşıldı, 2. yolla**. Metin tarih kaydı olarak duruyor;
+yapılan iş `solo.session` ucu, mobil jeton köprüsü ve hâl kartının hapı.
+
+- Sunucu: `supabase/functions/staff-api/index.ts` → `solo.session`
+  (dört kapı: sahip oturumu, org `solo`, tek aktif personel, abonelik)
+- Mobil: `src/lib/soloSession.ts` + `src/api/staff.ts`in takılabilir
+  tazeleyicisi + `app/tek/_layout.tsx`in takması
+- Hap: `soloPanelAction` → "Kumandayı aç" / "Başlat"; işi kendisi yapmıyor
+- Test: `tests/tek-kumanda-anahtari.test.mjs`
+
+**Deploy gerekiyor: `staff-api`.** Göç gerekmiyor.
+
+### Duvarın kendisi (tarihsel kayıt)
 
 Hap "Başlat / Kumandayı aç" diyecek, yani kumandayı açacak. Kumanda
 AÇILAMIYOR ve sebebi tasarım değil, kimlik:
@@ -115,7 +129,11 @@ var, ikisi de sunucuya dokunuyor:
 2. Personel API'si org sahibinin Supabase JWT'sini kendi `staff` satırı için
    kabul eder — temiz çözüm, ama sunucu değişikliği ve deploy.
 
-Karar ve uygulama **Faz 3**'e geçti; tahsilat da aynı kapının arkasında.
+Seçilen: **2**. Sebep, 1'in tek kişilik modun amacına ters düşmesi — kendi
+telefonuna kendine kod yazdırmak adım azaltmıyor, artırıyor.
+
+Tahsilat hâlâ Faz 3, ama artık aynı kapının arkasında değil: kumanda açık,
+eksik olan yalnız ödeme adımının kendisi.
 
 ### Faz 2'den bilerek çıkan ikisi
 - **v4 S2**'nin "hizmetlerinizi de buradan ekleyebilirsiniz" cümlesi: hizmet
