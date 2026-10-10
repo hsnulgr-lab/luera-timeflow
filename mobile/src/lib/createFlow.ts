@@ -217,9 +217,25 @@ export function trLower(value: string): string {
     return value.replace(/I/g, 'ı').replace(/İ/g, 'i').toLowerCase();
 }
 
-/** Telefonu ekranda maskeler: "+905321110301" → "0532 ••• 11 03". */
+/**
+ * Telefonu ekranda maskeler: "+905321110301" → "0532 ••• 03 01".
+ *
+ * BAŞTAKİ SIFIR DA ATILIYOR — bu bir düzeltme.
+ *
+ * Eski hâli yalnız `^90`yi atıyordu ve numaranın "5321110301" biçiminde
+ * geldiğini varsayıyordu. Oysa veritabanında TEK BİÇİM YOK: `phoneVariants`
+ * kendi yorumunda yazıyor — masaüstü "0532…" yazıyor, çevrim içi randevu
+ * geldiği gibi, eski kayıtlar "+90…" ya da "90…".
+ *
+ * "0532 111 03 01" girdisinde sonuç "0053 ••• 10 30" oluyordu: hem önek hem
+ * son dört hane YANLIŞ. Ekranda okunan numara müşteriyi aramak için orada
+ * duruyor; yanlış hane göstermek, hiç göstermemekten kötü.
+ *
+ * Telefonda 2026-10-10'da görüldü. Mevcut test yalnız "+90…" biçimini
+ * deniyordu, o yüzden hiç düşmemişti.
+ */
 export function maskPhone(phone: string): string {
-    const digits = phone.replace(/\D/g, '').replace(/^90/, '');
+    const digits = phoneDigits(phone);
     if (digits.length < 10) return phone;
     return `0${digits.slice(0, 3)} ••• ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
 }

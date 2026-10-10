@@ -372,6 +372,21 @@ test('adın başından tutan eşleşme öne geçer', () => {
 test('telefon ekranda ham gösterilmez', () => {
     assert.equal(maskPhone('+905321111290'), '0532 ••• 12 90');
     assert.ok(!maskPhone('+905321111290').includes('1111'));
+
+    /*
+     * VERİTABANINDA TEK BİÇİM YOK.
+     *
+     * `phoneVariants` kendi yorumunda sayıyor: masaüstü "0532…" yazıyor,
+     * çevrim içi randevu geldiği gibi, eski kayıtlar "+90…" ya da "90…".
+     * Maske yalnız sonuncusunu tanıyordu; "0532 111 12 90" girdisinde
+     * "0053 ••• 11 12" üretiyordu — hem önek hem son dört hane yanlış.
+     * Telefonda 2026-10-10'da görüldü; test yalnız "+90…" denediği için
+     * hiç düşmemişti.
+     */
+    for (const yazim of ['+905321111290', '905321111290', '5321111290',
+                         '0532 111 12 90', '0532 111 1290', '05321111290']) {
+        assert.equal(maskPhone(yazim), '0532 ••• 12 90', yazim);
+    }
 });
 
 test('bulunamayan müşteri aynı ekrandan eklenir', () => {
