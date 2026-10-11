@@ -67,6 +67,7 @@ type Action =
     | 'visit.note'     // randevunun serbest notu (müşteri görmez)
     | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
     | 'visit.collect'  // adisyonu TAHSİL ET → kasaya para kaydı (108 · v4 K3)
+    | 'visit.wait'     // bekleme kur / kaldır → Gün'ün BEKLEMEDE kartı (112 · v4 G3)
     | 'calendar'       // salonun günü — okuma amaçlı
     | 'catalog'        // hizmet + ürün listesi (tek turda)
     | 'customers'      // müşteri defterinin listesi
@@ -870,6 +871,9 @@ Deno.serve(async (req: Request) => {
             // idempotens kapısı yine de şart: kötü sinyalde kullanıcı iki kez
             // dokunabilir ve ikinci dokunuş ikinci bir para kaydı yazardı.
             'visit.collect',
+            // Bekleme de kuyruğa girmiyor (bkz. `visit.wait`); kapı aynı
+            // isteğin iki kez gelip bitişi kaydırmaması için.
+            'visit.wait',
         ]);
         let idemKey: string | null = null;
         if (WRITE_ACTIONS.has(action)) {
@@ -1130,9 +1134,11 @@ Deno.serve(async (req: Request) => {
         // müşterinin salona geldiği an (resepsiyon basar), ikincisi hizmetin
         // başladığı an (personel basar). İkisi ayrılmadan personel kartı
         // "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
+        // `wait_ends_at` / `wait_minutes` 112 ile geldi: göç uygulanmadan bu
+        // sürüm deploy edilirse HER ajanda okuması düşer. Sıra: önce göç.
         const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
             + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
-            + 'service_ended_at, adisyon_items, is_paid, formula, updated_at';
+            + 'service_ended_at, adisyon_items, is_paid, formula, updated_at, wait_ends_at, wait_minutes';
 
         /**
          * Organizasyonun ayar satırı.
@@ -1424,6 +1430,52 @@ Deno.serve(async (req: Request) => {
             }
             await audit(me.organization_id, me.id, 'visit.start');
             return await done({ ok: true, reservation: { ...res, ...patch } });
+        }
+
+        /*
+         * ── visit.wait — BEKLEME KUR / KALDIR (112 · v4 G3) ──────────────────
+         *
+         * Kumandanın "Bekleme kur"u bugüne kadar yalnız telefonda yaşıyordu;
+         * Gün ekranı onu göremiyordu ve kumandaya dönen kişi beklemeyi
+         * kaybolmuş buluyordu.
+         *
+         * BİTİŞİ SUNUCU YAZAR (`şimdi + dakika`), telefonun saati değil: yanlış
+         * ayarlı bir telefon beklemeyi kırk dakika kaydırmasın. Telefon cevabı
+         * alınca bu bitişi benimsiyor.
+         *
+         * `minutes: null` beklemeyi kaldırır ve her durumda kabul edilir —
+         * kaldırmak zararsız. Kurmak YALNIZ süren işte: başlamamış ya da
+         * bitmiş işin beklemesi olmaz.
+         *
+         * Kuyruğa girmiyor (istemci `call` kullanıyor): saatler sonra boşalan
+         * bir kuyruk, çoktan bitmiş bir beklemeyi "şimdi + 35 dk" diye yeniden
+         * kurardı.
+         */
+        if (action === 'visit.wait') {
+            const raw = body.minutes;
+            const minutes = raw === null || raw === undefined ? null : Number(raw);
+            if (minutes !== null && !(Number.isInteger(minutes) && minutes >= 1 && minutes <= 240)) {
+                return json({ error: 'invalid_minutes' }, 400);
+            }
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+            if (minutes !== null && (
+                !res!.arrived_at || res!.service_ended_at
+                || res!.status === 'completed' || res!.status === 'cancelled'
+            )) {
+                return json({ error: 'not_running' }, 409);
+            }
+            const patch = minutes === null
+                ? { wait_ends_at: null, wait_minutes: null }
+                : { wait_ends_at: new Date(Date.now() + minutes * 60_000).toISOString(), wait_minutes: minutes };
+            const { data: updated, error } = await admin.from('reservations').update(patch)
+                .eq('id', res!.id)
+                .eq('organization_id', me.organization_id)
+                .select(RES_COLS)
+                .maybeSingle();
+            if (error) { console.error('visit.wait', error); return json({ error: 'write_failed' }, 500); }
+            if (!updated) return json({ error: 'not_found' }, 404);
+            return await done({ ok: true, reservation: updated });
         }
 
         if (action === 'visit.note') {
@@ -1725,7 +1777,11 @@ Deno.serve(async (req: Request) => {
             }
             if (!alreadyFinished) {
                 const { data: updated, error } = await admin.from('reservations')
-                    .update({ status: 'completed', service_ended_at: now, ...(res!.arrived_at ? {} : { arrived_at: now }) })
+                    // Bitmiş iş beklemede olamaz (112): bekleme kapanışla düşer.
+                    .update({
+                        status: 'completed', service_ended_at: now, wait_ends_at: null, wait_minutes: null,
+                        ...(res!.arrived_at ? {} : { arrived_at: now }),
+                    })
                     .eq('id', res!.id)
                     .eq('organization_id', me.organization_id)
                     .neq('status', 'cancelled')

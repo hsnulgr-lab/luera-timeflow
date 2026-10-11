@@ -73,6 +73,13 @@ export interface Appointment {
      * gönderdiğinde, arada başkası yazmışsa yazma reddediliyor.
      */
     updated_at: string | null;
+    /**
+     * Süren işin beklemesi (112 · v4 G3). Bitiş SUNUCUNUN saati; kumanda onu
+     * benimsiyor, Gün ekranı BEKLEMEDE kartını bundan çiziyor. İkisi birlikte
+     * var olur. 112'den önceki sunucudan gelen kayıtta alan YOK sayılır.
+     */
+    wait_ends_at?: string | null;
+    wait_minutes?: number | null;
 }
 
 /**
@@ -457,6 +464,22 @@ export const api = {
      * notu" sütunu açılmadı: aynı gerçeğin iki kaydı olurdu.
      */
     visitNote: (reservationId: string, note: string) => write('visit.note', { reservationId, note }),
+    /**
+     * BEKLEME (112 · v4 G3) — `call`, `write` DEĞİL.
+     *
+     * Bekleme bir saat: kuyruğa girip saatler sonra boşalsaydı, çoktan bitmiş
+     * bir beklemeyi "şimdi + 35 dk" diye yeniden kurardı. Sinyal yoksa
+     * kumandanın halkası yine telefonda dönüyor (bugünkü gibi); yalnız Gün
+     * ekranı onu sunucudan öğrenemiyor.
+     *
+     * `minutes: null` beklemeyi kaldırır.
+     */
+    visitWait: (reservationId: string, minutes: number | null) =>
+        call('visit.wait', {
+            reservationId,
+            minutes,
+            idempotencyKey: `visit.wait:${reservationId}:${minutes ?? 'off'}:${Date.now()}`,
+        }),
     /**
      * Ziyaretin formülü. Malzeme yarısı SUNUCUDA adisyondan türüyor — burada
      * gönderilmiyor, çünkü istemcinin listesine güvenmek adisyonla formülün

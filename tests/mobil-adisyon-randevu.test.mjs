@@ -37,10 +37,14 @@ test('yalnız EK HİZMET randevuda sayılır; ürün ve malzeme sayılmaz', () =
 
 test('kumanda: RANDEVU grubu görünür, boş hâl yalnız gerçekten boşken', () => {
     const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
-    assert.match(screen, /<BookedGroup names=\{booked\} \/>/);
+    // İki yerde de çiziliyor: kumandanın gövdesi ve katalog sayfası.
+    assert.match(screen, /<BookedGroup names=\{booked\} solo=\{params\.from === 'tek'\} \/>/);
+    assert.match(screen, /<BookedGroup names=\{booked\} solo=\{solo\} \/>/);
     assert.match(screen, /lines\.length === 0 && booked\.length === 0 \?/);
     assert.match(screen, /count > 0 \? rows : booked\.length > 0 \? null :/, 'sayfadaki boş hâl de');
     assert.match(screen, /Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin\./);
+    // Tek kişilikte "kasaya gönderme" yok, tahsilat var: cümle o yolu anlatıyor.
+    assert.match(screen, /solo\s*\?\s*'Bu hizmetler tahsilata randevuyla birlikte giriyor; yeniden eklemeyin\.'/);
 });
 
 test('kumanda: randevudaki hizmet eklenmeden önce soruluyor — engel değil', () => {

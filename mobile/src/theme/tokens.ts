@@ -343,6 +343,25 @@ export const authMetrics = {
     readyRowGap: 13,
     readyNumberCircle: 26,
     readyNumberSize: 13,
+    /**
+     * Tek Kişilik v4 · S1 — kayıttaki mod sorusu ("Bu işletmede işi kim
+     * yapıyor?"). Düzen kit'teki giriş çatallanması: marka, soru, gövde ve
+     * alt üçte birde iki EŞİT ikincil düğme (`AuthActionButton kind="tall"`).
+     */
+    modeTop: 44,
+    modeX: 24,
+    modeMarkSize: 44,
+    modeTitleTop: 34,
+    modeTitleSize: 29,
+    modeTitleTrack: -0.035,
+    modeTitleLine: 1.1,
+    modeBodyTop: 12,
+    modeBodySize: 17,
+    modeBodyLine: 1.45,
+    modeBodyWidth: 310,
+    modeChoiceGap: 12,
+    modeBottom: 44,
+    modeChoiceRadius: 22,
     desktopIcon: 20,
     actionIconGap: 10,
     accountPageTitleTop: 14,

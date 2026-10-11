@@ -146,7 +146,14 @@ export type AuthErrorCode =
     /** Yeni şifre eskisiyle aynı (Supabase `same_password`). */
     | 'same_password'
     /** Sunucu yeni şifreyi zayıf buldu (Supabase `weak_password`). */
-    | 'weak_password';
+    | 'weak_password'
+    // Ekibe geçiş (113 · v4 P2)
+    /** Çalışanın adı boş. */
+    | 'name_required'
+    /** Çalışanın adı 80 karakteri aşıyor. */
+    | 'name_too_long'
+    /** İşletme zaten ekip düzeninde — bu kapı yalnız tek kişilik işletmenin. */
+    | 'already_team';
 
 export interface AuthFailure {
     ok: false;
@@ -850,7 +857,9 @@ async function createSignupAccount(email: string, _password: string): Promise<Au
     if (managers.some((manager) => manager.email === normalizedEmail)
         || created?.email === normalizedEmail) return failure('email_in_use');
 
-    const next: PendingSignup = { email: normalizedEmail, password: _password };
+    // Karşılamadaki kapının niyeti (108) korunuyor — canlıdaki kuralın aynısı.
+    const previous = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    const next: PendingSignup = { email: normalizedEmail, password: _password, solo: previous?.solo };
     await writeJson(storageKeys.pendingSignup, next);
     return success({ email: normalizedEmail });
 }
@@ -866,6 +875,7 @@ async function saveSignupBusiness(businessName: string): Promise<AuthResult<{ bu
         email: pending.email,
         password: pending.password,
         businessName: normalizedName,
+        solo: pending.solo,
     };
     await writeJson(storageKeys.pendingSignup, next);
     return success({ businessName: normalizedName });
@@ -906,7 +916,29 @@ async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> 
         ...session.profile,
         business: { ...session.profile.business, solo },
     };
-    return success(await saveSession(profile));
+    const saved = await saveSession(profile);
+    // Kaydın gerçek sonu (canlıdaki gibi): taslak niyetiyle birlikte şimdi siliniyor.
+    await AsyncStorage.removeItem(storageKeys.pendingSignup);
+    return success(saved);
+}
+
+/**
+ * Ekibe geçiş (113 · v4 P2) — stub karşılığı.
+ *
+ * Canlıda personel satırı ve mod bayrağı tek işlemde yazılıyor. Stub'ın
+ * personel tablosu yok: bayrak çevriliyor, sayı bir artıyor — kabuk
+ * değişimi bütün akışıyla gezilebilsin diye.
+ */
+async function startTeam(name: string): Promise<AuthResult<AuthSession>> {
+    if (!name.trim()) return failure('name_required');
+    const session = await readSession();
+    if (!session) return failure('no_session');
+    if (!session.profile.business.solo) return failure('already_team');
+    const business = session.profile.business;
+    return success(await saveSession({
+        ...session.profile,
+        business: { ...business, solo: false, staffCount: business.staffCount + 1 },
+    }));
 }
 
 async function completeSignup(): Promise<AuthResult<AuthSession>> {
@@ -942,7 +974,7 @@ async function completeSignup(): Promise<AuthResult<AuthSession>> {
         businessIds: [business.id],
         businesses: [business],
     } satisfies StoredManager);
-    await AsyncStorage.removeItem(storageKeys.pendingSignup);
+    // Taslak SİLİNMİYOR: niyeti mod sorusu okuyacak (bkz. `setBusinessMode`).
     return success(session);
 }
 
@@ -1022,5 +1054,8 @@ export const authStub = {
         complete: completeSignup,
         mode: setBusinessMode,
         intent: markSignupIntent,
+    },
+    team: {
+        start: startTeam,
     },
 } as const;

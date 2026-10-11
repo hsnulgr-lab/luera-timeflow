@@ -541,7 +541,11 @@ test('"Yeni hizmet ekle" satırı DOKUNULDUĞUNDA bir iş yapıyor', () => {
      * hiç çizilmiyor — dokunulduğunda hiçbir şey yapmayan kontrol konmuyor.
      */
     const flow = read('src/components/CreateFlow.tsx');
-    assert.match(flow, /\{onAddService \? <AddServiceRow onPress=\{onAddService\} \/> : null\}/);
+    assert.match(flow, /\{addService \? <AddServiceRow onPress=\{addService\} \/> : null\}/);
+    // Satır gezinmeden ÖNCE o anki hizmetleri not ediyor: dönüşte yeni
+    // eklenen hizmet seçili gelsin (v4 S3). Gezinme yine ekranın.
+    assert.match(flow, /const addService = onAddService\s*\?\s*\(\) => \{\s*addingFrom\.current = \{ ids: new Set\(context\.services\.map\(\(service\) => service\.id\)\), at: Date\.now\(\) \};\s*onAddService\(\);/);
+    assert.match(flow, /: undefined;/);
     assert.doesNotMatch(flow, /Hizmetler ve fiyatlar sayfasından/);
 });
 

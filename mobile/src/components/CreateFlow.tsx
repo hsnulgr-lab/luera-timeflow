@@ -55,8 +55,12 @@ import type { CreatedAppointment } from '../lib/managerWrite';
 
 const M = apptMetrics;
 
+/** "Yeni hizmet ekle"den dönüşte yeni hizmetin seçilmesi için tanınan süre. */
+const ADD_SERVICE_WINDOW_MS = 10 * 60_000;
+
 export function CreateFlow({
     prefill, context, onCreate, onSend, onRefusal, onClose, onCreated, onAddService, topInset, bottomInset,
+    solo = false,
 }: {
     prefill?: {
         dateISO?: string; startMinutes?: number; staffId?: string;
@@ -93,6 +97,12 @@ export function CreateFlow({
     topInset: number;
     /** Sekme çubuğu da bunun içinde: yüzen çubuk buradan 12 pt yukarıda. */
     bottomInset: number;
+    /**
+     * Tek kişilik kabuk (v4 · R2): "kim yapacak" yok — rayda kişi adı, seçili
+     * bloğun "… yapacak · Değiştir" satırı ve sesli okumadaki ad çıkıyor.
+     * Kişi yine yazılıyor (tek personel satırı), yalnız SORULMUYOR.
+     */
+    solo?: boolean;
 }) {
     /**
      * Alt pay GÖRÜLEN EN BÜYÜK DEĞERDE DONAR.
@@ -191,7 +201,44 @@ export function CreateFlow({
 
     const patch = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }));
 
-    const action = actionLabel(phase, draft, context.crew.length === 0);
+    /*
+     * YENİ EKLENEN HİZMET DÖNÜŞTE SEÇİLİ GELİR (v4 · S3: "Eklenince burada
+     * seçili gelir").
+     *
+     * "Yeni hizmet ekle"ye basılınca o anki hizmetler not ediliyor. Dönüşte
+     * liste kendiliğinden tazeleniyor (`useManagerRead` odakta okuyor) ve
+     * listede TEK bir yeni hizmet belirdiyse o seçiliyor. Birden çok yeni
+     * hizmet varsa hangisinin istendiği bilinmiyor — hiçbiri seçilmiyor.
+     * Hizmetler ekranına bir şey sordurmuyor: o ekran yalnız ekliyor.
+     *
+     * Not on dakikada BAYATLIYOR: geri dönüp hiç eklemeyen kişiye, çok sonra
+     * başka biri bir hizmet eklediğinde o hizmet sessizce seçilmesin.
+     */
+    const addingFrom = useRef<{ ids: Set<string>; at: number } | null>(null);
+    const addService = onAddService
+        ? () => {
+            addingFrom.current = { ids: new Set(context.services.map((service) => service.id)), at: Date.now() };
+            onAddService();
+        }
+        : undefined;
+    useEffect(() => {
+        const mark = addingFrom.current;
+        if (!mark) return;
+        if (Date.now() - mark.at > ADD_SERVICE_WINDOW_MS) {
+            addingFrom.current = null;
+            return;
+        }
+        const fresh = context.services.filter((service) => !mark.ids.has(service.id));
+        if (fresh.length === 0) return;
+        addingFrom.current = null;
+        if (fresh.length > 1) return;
+        const added = fresh[0];
+        setDraft((current) => (
+            current.customer && closedBy(context.settings.riskRules, current.customer.fields, added)
+                ? current
+                : { ...current, service: added }
+        ));
+    }, [context.services, context.settings.riskRules]);
 
     const goBack = () => {
         const target = backPhase(phase);
@@ -291,6 +338,20 @@ export function CreateFlow({
         day.data.appointments, dayKnown, staff, duration, draft.dateISO, draft.locked, draft.staffId,
         context.settings.workingHours, context.crew, today, nowClock.dateISO, nowClock.minutes,
     ]);
+
+    /*
+     * Düğmenin cümlesi rayı BİLİYOR: seçili günde hiç boş kutu yoksa "Saat
+     * seçin" değil "Bu gün 60 dk’lık boş yer yok" (v4 · R2). Gün henüz
+     * okunmadıysa ray bilinmiyor ve bu soru sorulmuyor.
+     */
+    const action = actionLabel(
+        phase,
+        draft,
+        context.crew.length === 0,
+        draft.dateISO && dayKnown
+            ? { durationMinutes: duration, anyFree: rows.some((row) => row.kind === 'free') }
+            : null,
+    );
 
     const sections = useMemo(() => railSections({
         rows,
@@ -482,8 +543,8 @@ export function CreateFlow({
               * İşletme), o yüzden sekme değil SAYFA adı söyleniyor; ikisinde
               * de doğru.
               */}
-            {context.services.length === 0 ? (
-                <Hint>Salonda tanımlı hizmet yok. Aşağıdan ekleyebilirsiniz.</Hint>
+            {context.services.length === 0 && !addService ? (
+                <Hint>Salonda tanımlı hizmet yok.</Hint>
             ) : null}
             {context.services.map((service) => {
                 // Müdür 23 v2: müşterinin açık bayrağı bu hizmeti kapatıyorsa
@@ -504,7 +565,14 @@ export function CreateFlow({
                 );
             })}
             {/* Listenin SONUNDA: asıl iş var olanı seçmek, ekleme ara sıra. */}
-            {onAddService ? <AddServiceRow onPress={onAddService} /> : null}
+            {addService ? <AddServiceRow onPress={addService} /> : null}
+            {/*
+              * İLK HİZMET (v4 · S3): satırın ALTINDA ne isteneceği ve sonra ne
+              * olacağı. "Seçili gelir" bir söz ve tutuluyor (`addingFrom`).
+              */}
+            {addService && context.services.length === 0 ? (
+                <Hint>Ad, süre ve fiyat. Eklenince burada seçili gelir.</Hint>
+            ) : null}
         </>
     );
 
@@ -613,7 +681,12 @@ export function CreateFlow({
                 <RailBlock
                     key={section.section.key}
                     data={section}
-                    serviceName={draft.service?.name ?? ''}
+                    /* Tek kişilikte seçili blok "kim" yerine KİMİN İÇİN
+                       olduğunu söylüyor: "Gizem Ünal · Cilt Bakımı" (v4 · R2). */
+                    serviceName={solo && customerName(draft)
+                        ? `${customerName(draft)} · ${draft.service?.name ?? ''}`
+                        : draft.service?.name ?? ''}
+                    solo={solo}
                     x={small ? M.railXSmall : M.railX}
                     ax={ax}
                     onPick={pickSlot}

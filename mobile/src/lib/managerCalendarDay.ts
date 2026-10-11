@@ -23,7 +23,7 @@ import {
     apiSource, fetchCrew, fetchDayWithStamps, fetchHoursRow, fetchLeave, fetchServerNow,
     fetchStaffSchedules,
 } from './managerSource';
-import { dayWindowOf, type OpenWindow } from './createLive.ts';
+import { dayWindowOf, nextOpenAfter, type OpenWindow } from './createLive.ts';
 
 export interface ManagerCalendarDay {
     rows: Appt[];
@@ -47,11 +47,29 @@ export interface ManagerCalendarDay {
      * buradan. `null` kapalı gün, `undefined` bilinmiyor.
      */
     open: OpenWindow | null | undefined;
+    /**
+     * Haftanın KAPALI günleri — `open` ile aynı kaynaktan, şeridin soluk
+     * günleri (v4 · G1, T1). Saatler okunamadıysa BOŞ: bilinmeyen gün
+     * "kapalı" çizilmez.
+     */
+    offDays: string[];
+    /**
+     * Seçili günden SONRA salonun ilk açık olduğu an — kapalı günün "Yarın
+     * 09:00’da açıksınız" cümlesi (v4 · B2). `null` iki hafta içinde açık
+     * gün yok, `undefined` saatler bilinmiyor.
+     */
+    nextOpen: { dateISO: string; from: number } | null | undefined;
+    /**
+     * Sunucu saati − cihaz saati (ms), okuma anında. Gün'ün sayacı cihaz
+     * saatiyle değil bununla ilerliyor (v4 · "sunucu farkıyla"): yanlış
+     * ayarlı bir telefon işlemi kırk dakika sürüyormuş gibi göstermesin.
+     */
+    clockOffset: number;
 }
 
 const EMPTY: ManagerCalendarDay = {
     rows: [], stamps: new Map(), columns: [], unassigned: 0, presence: [], onLeave: new Set(), counts: {},
-    open: undefined,
+    open: undefined, offDays: [], nextOpen: undefined, clockOffset: 0,
 };
 
 /**
@@ -84,6 +102,9 @@ export function useManagerCalendarDay(dateISO: string): ManagerSnapshot<ManagerC
             fetchHoursRow().catch(() => null),
             fetchStaffSchedules().catch(() => new Map<string, unknown>()),
         ]);
+        // Fark okuma ANINDA: sonraki her saniye cihazın kendi ilerleyişiyle
+        // ama bu farkla düzeltilmiş olarak sayılıyor.
+        const clockOffset = nowMs - Date.now();
         const { rows, stamps } = day;
         const { columns, unassigned } = columnsFor(crew, rows);
         const presence = presenceOf(columns, rows, leave, dateISO, nowMs);
@@ -92,12 +113,14 @@ export function useManagerCalendarDay(dateISO: string): ManagerSnapshot<ManagerC
         );
         // Salonun ve çalışan personelin saatlerinin birleşimi — randevu
         // oluşturmanın boş saat hesabıyla AYNI kaynak.
-        const open = dayWindowOf(
-            crew.map((member) => ({ active: member.active, workingHours: schedules.get(member.id) ?? null })),
-            hours?.raw ?? null,
-            dateISO,
-        );
-        return { rows, stamps, columns, unassigned, presence, onLeave, counts, open };
+        const members = crew.map((member) => ({ active: member.active, workingHours: schedules.get(member.id) ?? null }));
+        const windowOn = (iso: string) => dayWindowOf(members, hours?.raw ?? null, iso);
+        const open = windowOn(dateISO);
+        const offDays = week.map((day) => day.date).filter((iso) => windowOn(iso) === null);
+        return {
+            rows, stamps, columns, unassigned, presence, onLeave, counts, open, offDays,
+            nextOpen: nextOpenAfter(dateISO, windowOn), clockOffset,
+        };
     }, [dateISO]);
 
     return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });

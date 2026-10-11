@@ -181,24 +181,28 @@ export default function ManagerProfile() {
                       * aynı cinsten.
                       */}
                     {/*
-                      * TEK KİŞİLİK MODDA PERSONEL SATIRI ÇİZİLMİYOR (108).
+                      * TEK KİŞİLİK MODDA PERSONEL SATIRININ YERİNDE "EKİP EKLE"
+                      * (v4 P1 · 113).
                       *
                       * Ekran iki kabukta ortak: müdürde Profil, tek kişilikte
-                      * İşletme. Kopyalamak yerine tek satır gizleniyor —
+                      * İşletme. Kopyalamak yerine tek satır değişiyor —
                       * ikinci bir dosya açsaydık her düzeltme iki yerde
                       * yapılacaktı ve biri er geç unutulurdu.
                       *
-                      * Satırın gittiği yer (`profil/personel`) bugün "Personeli
-                      * bilgisayardan ekleyin" diyor; tek kişinin bilgisayarı yok
-                      * ve ekibi de yok. Satır onun için bir duvar, bilgi değil.
-                      *
-                      * Yerine gelecek olan "Tek kişilik çalışıyorsunuz · Ekip
-                      * ekle" kapısı Faz 3'te: önkoşulu telefondan personel
-                      * eklemek ve o yol henüz yok. Olmayan bir kapıyı şimdiden
-                      * çizmek, dokunulduğunda hiçbir şey yapmayan bir kontrol
-                      * olurdu.
+                      * Personel sayfası tek kişi için bir duvardı: ekibi yok,
+                      * kod üretecek kimsesi yok. Aynı satır biçiminde başlık
+                      * dokununca ne olacağını, alt satır bugünkü durumu
+                      * söylüyor; öbür satırlar da böyle. Kapı telefondan
+                      * personel ekleyip ekip düzenine geçiyor (`start_team`).
                       */}
-                    {solo ? null : (
+                    {solo ? (
+                        <ProfileRow
+                            big
+                            title="Ekip ekle"
+                            sub="Tek kişilik çalışıyorsunuz"
+                            onPress={() => router.push('/(manager-flow)/profil/ekip-ekle')}
+                        />
+                    ) : (
                         <ProfileRow
                             big
                             title="Personel"

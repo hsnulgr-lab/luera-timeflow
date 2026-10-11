@@ -427,13 +427,15 @@ function timeStyle(c: Palette, muted: boolean, size: number): TextStyle {
 }
 
 /** Boş satır: ince, sessiz. Yalnız hairline ve saat — az mürekkep. */
-function FreeSlot({ item, onPress, ax }: { item: RailItem & { kind: 'free' }; onPress: () => void; ax: boolean }) {
+function FreeSlot({ item, onPress, ax, solo = false }: {
+    item: RailItem & { kind: 'free' }; onPress: () => void; ax: boolean; solo?: boolean;
+}) {
     const { c } = useTheme();
     return (
         <Pressable
             onPress={() => { feedback.selection(); onPress(); }}
             accessibilityRole="button"
-            accessibilityLabel={slotSpeech(item)}
+            accessibilityLabel={slotSpeech(item, !solo)}
             style={({ pressed }) => ({
                 flexDirection: ax ? 'column' : 'row',
                 alignItems: 'flex-start',
@@ -567,8 +569,14 @@ function BusySlot({ item, ax }: { item: RailItem & { kind: 'busy' }; ax: boolean
  */
 type PickItem = (RailItem & { kind: 'pick' }) & { serviceName: string };
 
-function PickSlot({ item, onChangeStaff, ax, ink }: {
+function PickSlot({ item, onChangeStaff, ax, ink, solo = false }: {
     item: PickItem; onChangeStaff: () => void; ax: boolean; ink: ApptInk;
+    /**
+     * Tek kişilik kip (v4 · R2): "… yapacak · Değiştir" satırı ÇİZİLMİYOR.
+     * Değiştirilecek ikinci bir kişi yok; satır kullanıcıya kendi adını
+     * okuturdu.
+     */
+    solo?: boolean;
 }) {
     const { c } = useTheme();
     const labels = blockLabels(item.minutes, item.durationMinutes);
@@ -582,7 +590,7 @@ function PickSlot({ item, onChangeStaff, ax, ink }: {
     return (
         <View
             accessible
-            accessibilityLabel={slotSpeech(item)}
+            accessibilityLabel={slotSpeech(item, !solo)}
             style={{
                 flexDirection: ax ? 'column' : 'row',
                 alignItems: 'flex-start',
@@ -681,64 +689,69 @@ function PickSlot({ item, onChangeStaff, ax, ink }: {
                     )}
                 </View>
 
-                <View style={{
-                    flex: single ? 1 : undefined,
-                    marginTop: ax || single ? 0 : 'auto',
-                    flexDirection: ax ? 'column' : 'row',
-                    alignItems: ax ? 'flex-start' : 'center',
-                    gap: ax ? 8 : 9,
-                }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
-                        <View style={{
-                            width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2,
-                            alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd2,
-                        }}>
-                            <Text style={{
-                                color: c.tx, fontSize: tight ? M.avatarTextTight : M.avatarText,
-                                fontFamily: font.extraBold, fontWeight: '800',
+                {/* KİŞİ SATIRI — tek kişilik kipte YOK (v4 · R2). */}
+                {solo ? null : (
+                    <View style={{
+                        flex: single ? 1 : undefined,
+                        marginTop: ax || single ? 0 : 'auto',
+                        flexDirection: ax ? 'column' : 'row',
+                        alignItems: ax ? 'flex-start' : 'center',
+                        gap: ax ? 8 : 9,
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
+                            <View style={{
+                                width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2,
+                                alignItems: 'center', justifyContent: 'center',
+                                backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd2,
                             }}>
-                                {item.staff?.initials.slice(0, 1) ?? '—'}
+                                <Text style={{
+                                    color: c.tx, fontSize: tight ? M.avatarTextTight : M.avatarText,
+                                    fontFamily: font.extraBold, fontWeight: '800',
+                                }}>
+                                    {item.staff?.initials.slice(0, 1) ?? '—'}
+                                </Text>
+                            </View>
+                            <Text numberOfLines={1} style={{
+                                color: c.tx,
+                                fontSize: ax ? 17 : tight ? M.whoNameTight : M.whoName,
+                                fontFamily: font.bold, fontWeight: '700',
+                            }}>
+                                {item.staff ? `${item.staff.name} yapacak` : 'Kişi atanmadı'}
                             </Text>
                         </View>
-                        <Text numberOfLines={1} style={{
-                            color: c.tx,
-                            fontSize: ax ? 17 : tight ? M.whoNameTight : M.whoName,
-                            fontFamily: font.bold, fontWeight: '700',
-                        }}>
-                            {item.staff ? `${item.staff.name} yapacak` : 'Kişi atanmadı'}
-                        </Text>
+                        <Pressable
+                            onPress={() => { feedback.selection(); onChangeStaff(); }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Yapacak kişiyi değiştir"
+                            hitSlop={8}
+                            style={{
+                                marginLeft: ax ? 0 : 'auto',
+                                flexDirection: 'row', alignItems: 'center', gap: 5,
+                                height: single ? 30 : M.gbtn, paddingLeft: ax ? 0 : 8,
+                            }}
+                        >
+                            <Text style={{
+                                color: c.tx2,
+                                fontSize: ax ? 17 : tight ? M.whoAction - 0.5 : M.whoAction,
+                                fontFamily: font.bold, fontWeight: '700',
+                            }}>
+                                Değiştir
+                            </Text>
+                            <SwapIcon color={c.tx2} size={tight ? 14 : 15} />
+                        </Pressable>
                     </View>
-                    <Pressable
-                        onPress={() => { feedback.selection(); onChangeStaff(); }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Yapacak kişiyi değiştir"
-                        hitSlop={8}
-                        style={{
-                            marginLeft: ax ? 0 : 'auto',
-                            flexDirection: 'row', alignItems: 'center', gap: 5,
-                            height: single ? 30 : M.gbtn, paddingLeft: ax ? 0 : 8,
-                        }}
-                    >
-                        <Text style={{
-                            color: c.tx2,
-                            fontSize: ax ? 17 : tight ? M.whoAction - 0.5 : M.whoAction,
-                            fontFamily: font.bold, fontWeight: '700',
-                        }}>
-                            Değiştir
-                        </Text>
-                        <SwapIcon color={c.tx2} size={tight ? 14 : 15} />
-                    </Pressable>
-                </View>
+                )}
             </View>
         </View>
     );
 }
 
 /** Bir bölümün başlığı + satırları. */
-export function RailBlock({ data, serviceName, onPick, onChangeStaff, ax, x }: {
+export function RailBlock({ data, serviceName, onPick, onChangeStaff, ax, x, solo = false }: {
     data: RailSection; serviceName: string;
     onPick: (minutes: number) => void; onChangeStaff: () => void; ax: boolean; x: number;
+    /** Tek kişilik kip — rayda kişi adı yok (v4 · R2). */
+    solo?: boolean;
 }) {
     const { dark } = useTheme();
     const ink = dark ? apptInk.dark : apptInk.light;
@@ -752,7 +765,7 @@ export function RailBlock({ data, serviceName, onPick, onChangeStaff, ax, x }: {
             <View style={{ paddingHorizontal: x }}>
                 {data.items.map((item) => {
                     if (item.kind === 'free') {
-                        return <FreeSlot key={item.minutes} item={item} ax={ax} onPress={() => onPick(item.minutes)} />;
+                        return <FreeSlot key={item.minutes} item={item} ax={ax} solo={solo} onPress={() => onPick(item.minutes)} />;
                     }
                     if (item.kind === 'closed') return <ClosedSlot key={item.minutes} item={item} ax={ax} />;
                     if (item.kind === 'busy') return <BusySlot key={item.minutes} item={item} ax={ax} />;
@@ -762,6 +775,7 @@ export function RailBlock({ data, serviceName, onPick, onChangeStaff, ax, x }: {
                             item={{ ...item, serviceName }}
                             ink={ink}
                             ax={ax}
+                            solo={solo}
                             onChangeStaff={onChangeStaff}
                         />
                     );

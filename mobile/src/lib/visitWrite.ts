@@ -171,6 +171,34 @@ export async function writeVisitFormula(
     }
 }
 
+/**
+ * BEKLEME (112 · v4 G3).
+ *
+ * Kumandanın halkası bu yazmayı BEKLEMİYOR: sayaç telefonda hemen dönüyor,
+ * bugüne kadar olduğu gibi internetsiz de. Yazmanın işi beklemeyi Gün
+ * ekranına ve kumandaya geri dönüşe taşımak. Sunucu kabul edince onun bitişi
+ * benimseniyor — telefonun saati yanlış olabilir, sunucununki değil.
+ */
+export interface WaitWriteOutcome extends WriteOutcome {
+    /** Sunucunun yazdığı bitiş. Hatada ya da kaldırmada `null`. */
+    endsAt: string | null;
+}
+
+export async function writeVisitWait(reservationId: string, minutes: number | null): Promise<WaitWriteOutcome> {
+    try {
+        const out = await api.visitWait(reservationId, minutes) as
+            { reservation?: { wait_ends_at?: string | null } | null } | null;
+        return {
+            code: null,
+            queued: false,
+            observation: observationOf(out),
+            endsAt: out?.reservation?.wait_ends_at ?? null,
+        };
+    } catch (cause) {
+        return { code: codeOf(cause), queued: false, endsAt: null };
+    }
+}
+
 export interface NoteWriteOutcome extends WriteOutcome {
     /** Sunucunun kaydettiği not. Kuyrukta ya da hatada `null`. */
     saved: string | null;

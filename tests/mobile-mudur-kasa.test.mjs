@@ -508,11 +508,20 @@ test('iptal izi kim olduğunu UYDURMAZ', () => {
     assert.doesNotMatch(screen, /applyVoid\(/);
 });
 
-test('bekleyen adisyon şeridi ÖLÜ DEĞİL — Akış\'a götürüyor', () => {
-    // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. Bekleyen
-    // adisyonların gerçek yeri Akış: her biri kendi satırında, "Tahsil et"
-    // düğmesiyle duruyor.
-    assert.match(screen, /onPress=\{\(\) => router\.navigate\('\/mudur'\)\}/);
+test('bekleyen adisyon şeridi ÖLÜ DEĞİL — ekipte Akış\'a, tek kişilikte tahsilata götürüyor', () => {
+    // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. Ekipte
+    // bekleyen adisyonların gerçek yeri Akış: her biri kendi satırında,
+    // "Tahsil et" düğmesiyle duruyor.
+    assert.match(screen, /onPress=\{onPendingPress\}/);
+    assert.match(screen, /if \(!solo\) \{\s*router\.navigate\('\/mudur'\);/);
+    // Tek kişilikte Akış YOK (v4 C1): `/mudur` kapısı kişiyi geri atardı.
+    // Tek adisyon doğrudan kumandanın tahsilat adımında; birden çoksa önce liste.
+    assert.match(screen, /if \(tickets\.length === 1\) openTicket\(tickets\[0\]\);\s*else setTicketsOpen\(true\);/);
+    assert.match(screen, /pathname: '\/\(staff-flow\)\/kumanda'/);
+    assert.match(screen, /from: 'tek',/);
+    // Dünden kalan adisyon bugünün ajandasında yok: kumanda onu kendi gününde açıyor.
+    assert.match(screen, /\.\.\.\(ticket\.dateISO \? \{ date: ticket\.dateISO \} : \{\}\)/);
+    assert.match(screen, /<PendingTicketsSheet[\s\S]{0,200}onPick=\{openTicket\}/);
 });
 
 // ── Düzeltme · 2026-08-30 ───────────────────────────────────────────────────

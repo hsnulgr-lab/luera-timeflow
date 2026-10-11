@@ -14,7 +14,7 @@ import {
 } from './actionPill.ts';
 import type { CellKey, NudgeResult, PillInput, PillRecord, WaResult } from './actionPill.ts';
 import { CURRENCY, formatAmount, waitLabel, type Pending } from './cash.ts';
-import { accusative, dative, splitStaffName } from './text.ts';
+import { accusative, clockLocative, dative, splitStaffName } from './text.ts';
 
 export type StaffState = 'busy' | 'free' | 'leave' | 'off';
 
@@ -118,6 +118,14 @@ export interface FlowEvent {
      * olmayan bir noktadan kötüdür.
      */
     appointmentId?: string;
+    /**
+     * Bekleyen adisyonun hizmeti ve GÜNÜ (`kind === 'due'`). Kasa'nın tek
+     * kişilik listesi bunları ayrı istiyor: `detail` "Selin ile" taşıyor ve o
+     * kipte kişi adı yazılmıyor (v4 karar 3); dünden kalan adisyonu açmak
+     * için de günü gerekiyor (v4 · C1).
+     */
+    service?: string;
+    dateISO?: string;
 
     // ── Müdür 20 · bekleme kartı ─────────────────────────────────────────
     /**
@@ -385,6 +393,37 @@ export interface ManagerDay {
 }
 
 /**
+ * Tahsil edilmeyen adisyonların KENDİSİ — sayısı `pendingOf`ta.
+ *
+ * Aynı adisyon (`ticketKey`) birden çok satırda görünebiliyor: bölünmüş
+ * hizmet, devreden gün. Tek sayılıyor; sayı ile liste ayrışmasın diye ikisi
+ * de bu süzgeçten geçiyor.
+ */
+export function pendingTickets(events: readonly FlowEvent[]): FlowEvent[] {
+    const seen = new Set<string>();
+    return events.filter((event) => {
+        if (event.kind !== 'due') return false;
+        const key = event.ticketKey ?? event.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+/**
+ * Bekleyen adisyon satırının ikinci satırı: "Kalıcı Makyaj · 16:02’de bitti",
+ * dünden kalanda "Dün 16:02’de bitti". Kişi adı YOK — liste tek kişilik
+ * kipin listesi (v4 karar 3).
+ */
+export function pendingTicketLine(event: FlowEvent): string {
+    const parts = event.time.trim().split(/\s+/);
+    const clock = parts.pop() ?? '';
+    const day = parts.join(' ');
+    const ended = `${day ? `${day} ` : ''}${clockLocative(clock)} bitti`;
+    return event.service ? `${event.service} · ${ended}` : ended;
+}
+
+/**
  * Kasada bekleyen adisyonların TOPLAMI — akıştaki `due` satırlarından türer.
  *
  * Kasa ekranı kendi sabit sayısını taşıyordu (`cash.mockPending`, 2 adisyon /
@@ -392,14 +431,7 @@ export interface ManagerDay {
  * gerçek söylüyordu; müdür hangisine inanacağını bilemez.
  */
 export function pendingOf(events: readonly FlowEvent[]): Pending {
-    const seen = new Set<string>();
-    const dues = events.filter((event) => {
-        if (event.kind !== 'due') return false;
-        const key = event.ticketKey ?? event.id;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
+    const dues = pendingTickets(events);
     const oldest = dues.reduce((max, event) => Math.max(max, event.dueMinutes ?? 0), 0);
     return {
         count: dues.length,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,16 +12,34 @@ import {
     AuthHeader,
     AuthReadyChecklist,
     AuthStepIndicator,
+    LueraMark,
 } from '../../../src/components/ui';
-import { authMetrics, glow, useTheme } from '../../../src/theme';
+import { authMetrics, font, glow, useTheme } from '../../../src/theme';
 import { LightField } from '../../../src/components/LightField';
 
-const READY_ITEMS = [
+/**
+ * Solo kapısından gelenin listesi. Personel maddesi YOK: tek kişilik
+ * işletmenin ekleyecek personeli yok; ekibe geçmek isterse yolu İşletme'de.
+ */
+const SOLO_READY_ITEMS = [
     'Hizmetlerinizi ekleyin',
-    'Personelinizi ekleyin',
     'Çalışma saatlerini girin',
 ] as const;
 
+/**
+ * Giriş 13 — kaydın son adımı.
+ *
+ * İki hâli var:
+ *   • MOD SORUSU (Tek Kişilik v4 · S1): "Bu işletmede işi kim yapıyor?" Düzen
+ *     kit'teki giriş çatallanması — marka, soru, gövde ve alt üçte birde iki
+ *     eşit cevap. Biri turuncu değil: soru tarafsız. "Kurulumu bilgisayardan
+ *     tamamla" hiç çıkmıyor; adım sayısı aynı.
+ *   • SOLO KAPISINDAN GELİNDİYSE soru sorulmuyor (108): karşılamada verilmiş
+ *     bir cevabı yeniden sormak, kullanıcının az önce bastığı düğmeyi duymamak
+ *     olurdu. Onun yerine "hazır" ekranı ve tek düğme.
+ *
+ * Yalnız ben → tek kişilik kabuk. Ekibim var → müdür kabuğu.
+ */
 export default function SignupReady() {
     const { c, dark } = useTheme();
     const insets = useSafeAreaInsets();
@@ -30,27 +48,26 @@ export default function SignupReady() {
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState(false);
     /**
-     * Karşılamadaki "Solo" kapısından gelindiyse mod SORULMUYOR (108).
+     * Karşılamadaki "Solo" kapısından mı gelindi (108).
      *
-     * `null` henüz okunmadı demek; ekran o aralıkta hiçbir şey çizmiyor
-     * (aşağıdaki `businessName` kapısı zaten bekletiyor). Verilmiş bir
-     * cevabı yeniden sormak, kullanıcının az önce bastığı düğmeyi
-     * duymamak olurdu.
+     * `null` henüz okunmadı demek ve ekran o aralıkta hiçbir şey çizmiyor:
+     * önce soruyu çizip sonra "hazır" ekranına atlamak, cevabı verilmiş
+     * kişiye bir an için soruyu yeniden göstermek olurdu.
      */
-    const [intentSolo, setIntentSolo] = useState(false);
+    const [intentSolo, setIntentSolo] = useState<boolean | null>(null);
 
     useEffect(() => {
         let alive = true;
-        authApi.resume.get().then((sessionResult) => {
+        authApi.resume.get().then(async (sessionResult) => {
             if (!alive) return;
             if (!sessionResult.ok) {
                 router.replace('/(auth)/signup/account');
                 return;
             }
+            const draft = await authApi.signup.draft();
+            if (!alive) return;
+            setIntentSolo(draft.ok && draft.data.solo === true);
             setBusinessName(sessionResult.data.profile.business.name);
-            void authApi.signup.draft().then((draft) => {
-                if (alive && draft.ok) setIntentSolo(draft.data.solo === true);
-            });
         });
         return () => { alive = false; };
     }, [router]);
@@ -80,16 +97,22 @@ export default function SignupReady() {
         enterShell(result.data.actor, result.data.profile.business.solo);
     };
 
-    if (!businessName) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+    if (!businessName || intentSolo === null) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+
+    /** Ekranın alt payı — giriş paketinin kuralı: güvenli alan + boşluk. */
+    const bottomPad = Math.max(insets.bottom + authMetrics.actionsGap, authMetrics.noSafeAreaBottom);
+
+    const failure = failed ? (
+        <AuthBanner style={{ marginTop: authMetrics.readyInfoTop }}>
+            Cevabınız kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.
+        </AuthBanner>
+    ) : null;
 
     return (
         <View style={{
             flex: 1,
             paddingTop: insets.top,
-            paddingBottom: Math.max(
-                insets.bottom + authMetrics.actionsGap,
-                authMetrics.noSafeAreaBottom,
-            ),
+            paddingBottom: bottomPad,
             backgroundColor: c.bg,
         }}>
             <LightField profile="form" />
@@ -101,55 +124,90 @@ export default function SignupReady() {
                 style={[StyleSheet.absoluteFill, { height: glow.height + insets.top }]}
             />
 
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{ flexGrow: 1 }}
-                showsVerticalScrollIndicator={false}
-                contentInsetAdjustmentBehavior="never"
-            >
-                <AuthStepIndicator step={3} />
-                <AuthHeader
-                    ready
-                    title={`${businessName} hazır`}
-                    body={intentSolo
-                        ? 'Tek kişilik işletme olarak kuruluyor. Sonradan İşletme ekranından ekip ekleyebilirsiniz.'
-                        : 'Son bir soru: bu işletmede işi kim yapıyor? Uygulama cevabınıza göre açılır, sonradan değiştirebilirsiniz.'}
-                />
-                <AuthReadyChecklist items={READY_ITEMS} />
-                {failed ? (
-                    <AuthBanner style={{ marginTop: authMetrics.readyInfoTop }}>
-                        Cevabınız kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.
-                    </AuthBanner>
-                ) : null}
-                <View style={{ flex: 1 }} />
-            </ScrollView>
+            {intentSolo ? (
+                <>
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ flexGrow: 1 }}
+                        showsVerticalScrollIndicator={false}
+                        contentInsetAdjustmentBehavior="never"
+                    >
+                        <AuthStepIndicator step={3} />
+                        <AuthHeader
+                            ready
+                            title={`${businessName} hazır`}
+                            body="Tek kişilik işletme olarak kuruluyor. Sonradan İşletme ekranından ekip ekleyebilirsiniz."
+                        />
+                        <AuthReadyChecklist items={SOLO_READY_ITEMS} />
+                        {failure}
+                        <View style={{ flex: 1 }} />
+                    </ScrollView>
 
-            <View style={{
-                paddingHorizontal: authMetrics.actionsX,
-                gap: authMetrics.actionsGap,
-            }}>
-                {intentSolo ? (
-                    <AuthActionButton
-                        label="Uygulamayı kullanmaya başla"
-                        disabled={busy}
-                        onPress={() => { void answer(true); }}
-                    />
-                ) : (
-                    <>
+                    <View style={{ paddingHorizontal: authMetrics.actionsX }}>
                         <AuthActionButton
+                            label="Uygulamayı kullanmaya başla"
+                            disabled={busy}
+                            onPress={() => { void answer(true); }}
+                        />
+                    </View>
+                </>
+            ) : (
+                /* v4 · S1 — mod sorusu. Kaydırma yok: üç satır metin ve iki
+                   düğme en küçük ekrana da sığıyor. */
+                <View style={{
+                    flex: 1,
+                    paddingTop: authMetrics.modeTop,
+                    paddingHorizontal: authMetrics.modeX,
+                    // Düğmelerin altı ekranın kenarından tasarımın 44 pt'si:
+                    // dış pay zaten verildi, kalanı burada.
+                    paddingBottom: Math.max(authMetrics.modeBottom - bottomPad, 0),
+                }}>
+                    <LueraMark size={authMetrics.modeMarkSize} />
+                    <Text
+                        accessibilityRole="header"
+                        style={{
+                            marginTop: authMetrics.modeTitleTop,
+                            color: c.tx,
+                            fontSize: authMetrics.modeTitleSize,
+                            lineHeight: authMetrics.modeTitleSize * authMetrics.modeTitleLine,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: authMetrics.modeTitleSize * authMetrics.modeTitleTrack,
+                        }}
+                    >
+                        Bu işletmede işi kim yapıyor?
+                    </Text>
+                    <Text style={{
+                        marginTop: authMetrics.modeBodyTop,
+                        maxWidth: authMetrics.modeBodyWidth,
+                        color: c.tx2,
+                        fontSize: authMetrics.modeBodySize,
+                        lineHeight: authMetrics.modeBodySize * authMetrics.modeBodyLine,
+                        fontFamily: font.medium,
+                        fontWeight: '500',
+                    }}>
+                        Uygulama cevabınıza göre açılır. Sonradan İşletme’den değiştirebilirsiniz.
+                    </Text>
+                    {failure}
+
+                    <View style={{ flex: 1 }} />
+
+                    <View style={{ gap: authMetrics.modeChoiceGap }}>
+                        <AuthActionButton
+                            kind="tall"
                             label="Yalnız ben"
                             disabled={busy}
                             onPress={() => { void answer(true); }}
                         />
                         <AuthActionButton
-                            kind="secondary"
+                            kind="tall"
                             label="Ekibim var"
                             disabled={busy}
                             onPress={() => { void answer(false); }}
                         />
-                    </>
-                )}
-            </View>
+                    </View>
+                </View>
+            )}
         </View>
     );
 }

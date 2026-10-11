@@ -803,7 +803,13 @@ async function createSignupAccount(email: string, password: string): Promise<Aut
      * metin ikisini de kapsıyor.
      */
     if (!data.session) return fail('email_confirmation_required');
-    await writeSignupDraft({ email: normalized });
+    /*
+     * KARŞILAMADAKİ KAPININ NİYETİ KORUNUYOR (108). Taslak burada sıfırdan
+     * yazılıyordu ve "Solo" kapısının yazdığı `solo` siliniyordu: kayıt
+     * sonunda mod yeniden soruluyordu — verilmiş bir cevabı duymamak.
+     */
+    const intent = (await readSignupDraft())?.solo;
+    await writeSignupDraft(intent === undefined ? { email: normalized } : { email: normalized, solo: intent });
     return done({ email: normalized });
 }
 
@@ -850,9 +856,13 @@ async function selectSignupSector(sector: string): Promise<AuthResult<{ sector: 
 async function completeSignup(): Promise<AuthResult<AuthSession>> {
     const org = await ownedOrg();
     if (!org) return fail('no_session');
-    const session = await selectManagerBusiness(org.id);
-    if (session.ok) await clearSignupDraft();
-    return session;
+    /*
+     * Taslak burada SİLİNMİYOR (108): içinde karşılamadaki kapının niyeti
+     * (`solo`) var ve onu okuyan adım — mod sorusu — bundan SONRA geliyor.
+     * Silme modun yazıldığı yere taşındı (`setBusinessMode`); kaydın gerçek
+     * sonu orası.
+     */
+    return selectManagerBusiness(org.id);
 }
 
 /**
@@ -880,13 +890,84 @@ async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> 
      * Personel satırının adı salonun adı oluyor. Kayıt akışı KİŞİNİN adını
      * hiç sormuyor (yalnız e-posta, şifre, işletme adı) ve uydurmak doğru
      * değil. Tek modda bu ad hiçbir yerde görünmüyor; göründüğü tek an
-     * ekibe geçiş ve adı orada sormak gerekecek.
+     * ekibe geçiş (113) ve v4'ün P2 ekranı onu SORMUYOR — ekip takviminde
+     * sahibin sütunu salonun adını taşır. Açık konu (devir notunda).
      */
     const stored = await readProfile();
     const name = stored?.profile.business.name ?? org.name;
     const { error } = await supabase.rpc('set_business_mode', { p_solo: solo, p_name: name });
     if (error) return fail('offline');
+    const session = await selectManagerBusiness(org.id);
+    // Kaydın gerçek sonu: taslak, niyetiyle birlikte ancak şimdi siliniyor.
+    if (session.ok) await clearSignupDraft();
+    return session;
+}
+
+/** `start_team`in kendi hayırları — `raise exception` metni (P0001). */
+const TEAM_REFUSALS = ['name_required', 'name_too_long', 'already_team'] as const;
+
+/**
+ * EKİBE GEÇİŞ (113 · v4 P2) — ilk çalışanı ekler, işletmeyi ekip düzenine alır.
+ *
+ * Tek kişilik işletmenin "Ekip ekle" kapısı. Personel satırı ile mod bayrağı
+ * sunucuda TEK işlemde yazılıyor: biri düşüp öteki kalsaydı kullanıcı ya
+ * ekipsiz bir ekip düzeninde ya da iki personelli bir tek kişilik kabukta
+ * kalırdı (gerekçesi 113'te).
+ *
+ * ── "ZATEN EKİP" HER ZAMAN BİR HATA DEĞİL ──────────────────────────────────
+ * Zayıf sinyalde ilk istek sunucuya ulaşıp işi yapıyor ama cevabı telefona
+ * dönmüyor; kişi yeniden dokununca sunucu `already_team` diyor. Çalışan o
+ * durumda GERÇEKTEN eklendi ve "eklenemedi" demek yalan olurdu. Aynı adla
+ * bir çalışan kadroda duruyorsa iş gitmiş sayılıyor — `sendVisitToCash`in
+ * `already_finished` kuralının aynısı.
+ *
+ * ── Dönüşte profil YENİDEN okunuyor ────────────────────────────────────────
+ * `setBusinessMode` ile aynı gerekçe: kabuğu profildeki bayrak seçiyor.
+ * Gerçek bir `already_team`de de okunuyor — saklı profil bayat demek ve bir
+ * sonraki açılış doğru kabuğa gitmeli.
+ *
+ * Kumandanın tek kişilik jetonu düşürülüyor: sunucu onu artık yenilemez
+ * (`solo.session` → `not_solo`) ve ardında bırakılan bir taşıyıcı belge
+ * kimsenin işine yaramaz.
+ */
+async function startTeam(name: string, specialty: string): Promise<AuthResult<AuthSession>> {
+    const cleanName = name.trim();
+    if (!cleanName) return fail('name_required');
+    const org = await ownedOrg();
+    if (!org) return fail('no_session');
+
+    const { error } = await supabase.rpc('start_team', {
+        p_name: cleanName,
+        p_specialty: specialty.trim() || null,
+    });
+    if (error) {
+        const message = error.message ?? '';
+        const refusal = TEAM_REFUSALS.find((code) => message.includes(code));
+        const landed = refusal === 'already_team' && (await teamMemberExists(org.id, cleanName));
+        if (!landed) {
+            if (refusal === 'already_team') await selectManagerBusiness(org.id);
+            if (refusal) return fail(refusal);
+            if (message.includes('org_not_found')) return fail('no_session');
+            // Personel tablosunun yazma kapısı aboneliğe bağlı (087).
+            if (error.code === '42501') return fail('subscription_inactive');
+            return fail('offline');
+        }
+    }
+
+    await tokens.clearStaff();
     return selectManagerBusiness(org.id);
+}
+
+/** Bu adla aktif bir çalışan var mı. Okunamazsa `false` — emin olmadan "eklendi" denmez. */
+async function teamMemberExists(orgId: string, name: string): Promise<boolean> {
+    const { data, error } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('name', name)
+        .eq('is_active', true)
+        .limit(1);
+    return !error && (data?.length ?? 0) > 0;
 }
 
 /**
@@ -978,6 +1059,9 @@ export const auth = {
         complete: completeSignup,
         mode: setBusinessMode,
         intent: markSignupIntent,
+    },
+    team: {
+        start: startTeam,
     },
     manager: {
         start: managerStart,

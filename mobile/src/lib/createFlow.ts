@@ -174,6 +174,11 @@ export function actionLabel(
      * boş liste "henüz okunmadı" değil, gerçekten boş demek.
      */
     crewEmpty = false,
+    /**
+     * Seçili günün rayı okunduysa: hizmetin süresi ve rayda HİÇ boş kutu var
+     * mı. `null` gün henüz okunmadı — o zaman "boş yer yok" denmez.
+     */
+    room: { durationMinutes: number; anyFree: boolean } | null = null,
 ): { label: string; enabled: boolean } {
     if (phase === 1) {
         // Yarım girilmiş numarayla devam edilmez: ya boş ya tam.
@@ -203,6 +208,14 @@ export function actionLabel(
      */
     if (crewEmpty) return { label: 'Önce personel ekleyin', enabled: false };
     if (!draft.dateISO) return { label: 'Gün seçin', enabled: false };
+    /*
+     * GÜN SIĞMIYORSA SEBEBİ (v4 · R2: "Gün hiç sığmıyorsa: 'Bu gün 60 dk'lık
+     * boş yer yok'"). Rayda seçilebilecek tek kutu yokken "Saat seçin" demek,
+     * olmayan bir saati aratmaktı.
+     */
+    if (room && !room.anyFree && draft.startMinutes === null) {
+        return { label: `Bu gün ${room.durationMinutes} dk’lık boş yer yok`, enabled: false };
+    }
     if (draft.startMinutes === null || !draft.staffId) return { label: 'Saat seçin', enabled: false };
     return { label: 'Randevuyu oluştur', enabled: true };
 }
@@ -831,12 +844,19 @@ export function freeLabel(count: number): string {
 // Dolu ve kapalı kutular RENKLE ayrışmıyor, kelimeyle de ayrışıyor: sebep
 // cümlenin içinde geçmeli.
 
-export function slotSpeech(item: RailItem): string {
+export function slotSpeech(
+    item: RailItem,
+    /**
+     * Kişinin adı okunsun mu? Tek kişilik kipte HAYIR (v4 · R2 "kim yapacak"
+     * yok, karar 3): tek kişi var ve o, dinleyenin kendisi.
+     */
+    withStaff = true,
+): string {
     switch (item.kind) {
-        case 'free': return `${item.time} boş, ${item.staff.name}`;
+        case 'free': return withStaff ? `${item.time} boş, ${item.staff.name}` : `${item.time} boş`;
         case 'closed': return `${item.time} kapalı, ${item.reason}`;
         case 'busy': return `${item.time} dolu, ${item.title}${item.until ? `, ${item.until}` : ''}`;
-        default: return `${item.range} seçili${item.staff ? `, ${item.staff.name} yapacak` : ''}`;
+        default: return `${item.range} seçili${withStaff && item.staff ? `, ${item.staff.name} yapacak` : ''}`;
     }
 }
 

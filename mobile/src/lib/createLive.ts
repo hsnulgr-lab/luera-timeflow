@@ -298,6 +298,28 @@ export function dayWindowOf(
     return { from, to };
 }
 
+/** Kapalı günün ardından açılışı ararken bakılan ufuk. */
+const NEXT_OPEN_DAYS = 14;
+
+/**
+ * Seçili günden sonraki ilk AÇIK gün ve açılış dakikası.
+ *
+ * Yolda bilinmeyen bir güne rastlanırsa cevap da bilinmiyor (`undefined`):
+ * "Salı açıksınız" demek için arada okunamayan bir pazartesi olmamalı.
+ */
+export function nextOpenAfter(
+    dateISO: string,
+    windowOn: (iso: string) => OpenWindow | null | undefined,
+): { dateISO: string; from: number } | null | undefined {
+    for (let step = 1; step <= NEXT_OPEN_DAYS; step += 1) {
+        const iso = addDaysISO(dateISO, step);
+        const window = windowOn(iso);
+        if (window === undefined) return undefined;
+        if (window) return { dateISO: iso, from: window.from };
+    }
+    return null;
+}
+
 /**
  * Geçmişe randevu sınırı — masaüstünün kuralı.
  *

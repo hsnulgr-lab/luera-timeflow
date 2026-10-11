@@ -306,12 +306,18 @@ export function WeekStrip({
     days,
     selectedISO,
     counts,
+    offDays,
     onSelect,
     style,
 }: {
     days: CalendarWeekDay[];
     selectedISO: string;
     counts: Record<string, number>;
+    /**
+     * Salonun KAPALI günleri — rakam soluk, nokta yok (v4 · T1: "Pazar kapalı
+     * gün, noktasız"). Verilmezse şerit eskisi gibi; müdür takvimi vermiyor.
+     */
+    offDays?: readonly string[];
     onSelect: (dateISO: string) => void;
     style?: StyleProp<ViewStyle>;
 }) {
@@ -330,16 +336,20 @@ export function WeekStrip({
                  * bilinmemek bir boşluktur. Anahtar yoksa nokta çizilmez ve
                  * ekran okuyucu "randevu yok" DEMEZ.
                  */
+                const off = offDays?.includes(day.date) ?? false;
                 const count = counts[day.date];
-                const known = count !== undefined;
+                // Kapalı günün noktası yok: nokta yoğunluk söylüyor ve kapalı
+                // gün yoğunlukla değil kapalılığıyla anlatılıyor.
+                const known = count !== undefined && !off;
                 const dotSize = known && count >= 3 ? part.weekDotDense : part.weekDot;
                 return (
                     <Pressable
                         key={day.date}
                         accessibilityRole="button"
                         accessibilityLabel={`${fullDate(day.date)}, ${
-                            !known ? 'randevu sayısı bilinmiyor'
-                                : count ? `${count} randevu` : 'randevu yok'
+                            off ? 'kapalı gün'
+                                : !known ? 'randevu sayısı bilinmiyor'
+                                    : count ? `${count} randevu` : 'randevu yok'
                         }`}
                         accessibilityState={{ selected }}
                         hitSlop={space.xs}
@@ -365,7 +375,9 @@ export function WeekStrip({
                             <Text style={[
                                 styles.weekNumberText,
                                 numeric,
-                                { color: selected ? c.tx : c.tx2 },
+                                // Kapalı gün seçiliyken de soluk: kapalı olduğu
+                                // seçildiğinde de okunmalı.
+                                { color: off ? c.tx3 : selected ? c.tx : c.tx2 },
                             ]}>
                                 {day.num}
                             </Text>

@@ -6,11 +6,11 @@
  */
 
 import { awaitsApproval } from './approval.ts';
-import { formatDayMonth, toMinutes, type Appt } from './calendar.ts';
+import { formatDayMonth, hhmm, toMinutes, type Appt } from './calendar.ts';
 import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
-import { isNoShow } from './staffDay.ts';
-import { upperTR } from './text.ts';
+import { isNoShow, type StaffHeroPanel } from './staffDay.ts';
+import { clockLocative, upperTR } from './text.ts';
 
 /**
  * Başlığın altındaki satır: "9 Ekim · 2 iş bitti, 3 kaldı".
@@ -103,6 +103,30 @@ function windowText(open: OpenWindow): string {
 }
 
 /**
+ * "Yarın 09:00’da açıksınız." — kapalı günün ikinci cümlesi (v4 · B2).
+ *
+ * "Yarın" yalnız BUGÜN seçiliyken ve açılış ertesi günse: başka bir güne
+ * bakarken "yarın" bakılan günün değil bugünün yarını olurdu. Öteki durumda
+ * gün adıyla; bir haftadan uzaksa tarihiyle.
+ *
+ * Açılış bilinmiyorsa (saatler okunamadı) ya da iki hafta içinde yoksa cümle
+ * YAZILMIYOR — uydurulmuyor.
+ */
+export function openingSentence(
+    selectedISO: string,
+    todayISO: string,
+    nextOpen: { dateISO: string; from: number } | null | undefined,
+): string | null {
+    if (!nextOpen) return null;
+    const gap = dayDistance(nextOpen.dateISO, selectedISO);
+    const name = weekdayName(nextOpen.dateISO);
+    const when = selectedISO === todayISO && gap === 1
+        ? 'Yarın'
+        : gap <= 6 ? name : `${formatDayMonth(nextOpen.dateISO)} ${name}`;
+    return `${when} ${clockLocative(hhmm(nextOpen.from))} açıksınız.`;
+}
+
+/**
  * Boş günün cümlesi — müdürünki DEĞİL.
  *
  * `emptyDayCopy` salonu dışarıdan anlatıyor: "Salon 09:00'da açıldı · ilk
@@ -129,6 +153,11 @@ export function soloEmptyCopy(
      * birine onları yokmuş gibi göstermekti.
      */
     serviceCount: number | null = null,
+    /**
+     * Seçili günden sonraki ilk açılış (v4 · B2 · "Yarın 09:00’da
+     * açıksınız"). `undefined` bilinmiyor ve cümle YAZILMIYOR.
+     */
+    nextOpen: { dateISO: string; from: number } | null | undefined = undefined,
 ): EmptyDayCopy {
     const position = dayPosition(selectedISO, todayISO);
     const distance = dayDistance(selectedISO, todayISO);
@@ -140,15 +169,18 @@ export function soloEmptyCopy(
     // olduğu çalışma saatlerinden okunuyor; ekran kendi başına "kapalı" demez.
     if (open === null) {
         const title = isToday ? 'Bugün kapalısınız.' : `${day} kapalı gün.`;
+        // Geçmiş bir kapalı gün için "açıksınız" bir şey söylemiyor.
+        const opens = position === 'past' ? null : openingSentence(selectedISO, todayISO, nextOpen);
+        const hint = [`${weekday}, çalışma saatlerinizde kapalı gün.`, opens].filter(Boolean).join(' ');
         return {
             label: upperTR(weekday),
             dot: true,
             dotTone: 'calm',
             title,
-            hint: `${weekday}, çalışma saatlerinizde kapalı gün.`,
+            hint,
             action: null,
             rail: false,
-            spoken: `${title} ${weekday}, çalışma saatlerinizde kapalı gün.`,
+            spoken: `${title} ${hint}`,
         };
     }
 
@@ -202,6 +234,42 @@ export function soloEmptyCopy(
         hint,
         action: null,
         spoken: `${title} ${hint}`,
+    };
+}
+
+// ── BEKLEMEDE kartı ─────────────────────────────────────────────────────────
+
+/**
+ * Süren işin beklemesi sürüyorsa hâl kartı BEKLEMEDE (v4 · G3).
+ *
+ * Kart SÜRÜYOR'un yerini alıyor: o an olan şey beklemek, ve büyük sayı
+ * beklemenin KALANI (`wait_ends_at`). Bekleme bitince bu fonksiyon `null`
+ * veriyor ve kart kendiliğinden SÜRÜYOR'a dönüyor.
+ *
+ * Etiket yalnız "BEKLEMEDE". Tasarım "BEKLEMEDE · KREM" yazıyor ama kumanda
+ * neyin beklendiğini bilmiyor — yalnız süre soruyor. Kullanıcı kararı
+ * (2026-10-11): ad uydurulmaz.
+ *
+ * Bitiş saati telefonun saat diliminde yazılıyor: "bekleme 14:33’te biter".
+ */
+export function soloWaitPanel(
+    running: Appt | null,
+    wait: { endsAt: number } | null,
+    nowMs: number,
+): StaffHeroPanel | null {
+    if (!running || !wait) return null;
+    const leftMs = wait.endsAt - nowMs;
+    if (!(leftMs > 0)) return null;
+    const ends = new Date(wait.endsAt);
+    const clock = hhmm(ends.getHours() * 60 + ends.getMinutes());
+    return {
+        label: 'Beklemede',
+        tone: 'am',
+        hasPulse: false,
+        // Son dakika "0 dk" değil "1 dk": bekleme henüz bitmedi.
+        heroValue: String(Math.max(1, Math.ceil(leftMs / 60_000))),
+        heroUnit: 'dk',
+        subText: `${running.customer_name} · ${running.service} · bekleme ${clockLocative(clock)} biter`,
     };
 }
 

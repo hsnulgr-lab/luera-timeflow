@@ -759,7 +759,17 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                 <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                 {/* Etiket */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                    {panel.hasPulse ? (
+                    {/* Kehribar (BEKLEMEDE · v4 G3): nokta NABIZSIZ. Nabız
+                        geçen sürenin dili; beklemede akan şey kalan süre ve
+                        onu büyük sayı söylüyor. */}
+                    {panel.tone === 'am' ? (
+                        <View style={{
+                            width: staffDayMetrics.panelDot,
+                            height: staffDayMetrics.panelDot,
+                            borderRadius: radius.pill,
+                            backgroundColor: ink.amDot,
+                        }} />
+                    ) : panel.hasPulse ? (
                         <Animated.View style={{
                             width: staffDayMetrics.panelDot,
                             height: staffDayMetrics.panelDot,
@@ -769,7 +779,7 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                         }} />
                     ) : null}
                     <Text style={{
-                        color: ink.ink2,
+                        color: panel.tone === 'am' ? ink.am : ink.ink2,
                         fontSize: staffDayMetrics.panelLabel,
                         fontFamily: font.bold,
                         fontWeight: '700',

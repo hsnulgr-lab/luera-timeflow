@@ -392,7 +392,10 @@ test('ekran sahte veriyi OKUMUYOR', () => {
 
 test('başka döneme ait veri seçili dönemin başlığı altına yazılmıyor', () => {
     assert.match(screen, /const known = cash\.data\.period === period;/);
-    assert.match(screen, /const movements = known \? cash\.data\.movements : NO_MOVEMENTS;/);
+    assert.match(screen, /const read = known \? cash\.data\.movements : NO_MOVEMENTS;/);
+    // Tek kişilikte satırlar kişi adını taşımıyor (v4 C1 · karar 3): parayı
+    // alan da işi yapan da kullanıcının kendisi. Ad YALNIZ ekranda boşalıyor.
+    assert.match(screen, /return solo \? read\.map\(\(movement\) => \(\{ \.\.\.movement, staff: '' \}\)\) : read;/);
     assert.match(screen, /const delta = known \? deltaOf\(totals\.total, cash\.data\.previousTotal, period\) : null;/);
     assert.match(screen, /<HeroAmount value=\{known \? totals\.total : null\}/);
 });

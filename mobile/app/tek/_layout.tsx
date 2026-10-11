@@ -85,8 +85,11 @@ export default function SoloLayout() {
             // kitle 40–55 yaş ve bu ikonlar ezbere bilinmiyor.
             labelVisibilityMode="labeled"
         >
+            {/* GÜNEŞ, akış değil (v4 · sekme seti): "Gün'ün ikonu personel
+                Bugün'ün güneşi — Takvim'in yanında ikinci bir takvim olmasın."
+                Personel kabuğundaki sembolün aynısı. */}
             <NativeTabs.Trigger name="index">
-                <NativeTabs.Trigger.Icon renderingMode="template" src={require('../../assets/tabs/akis.png')} />
+                <NativeTabs.Trigger.Icon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
                 <NativeTabs.Trigger.Label>Gün</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
 
@@ -106,7 +109,8 @@ export default function SoloLayout() {
             </NativeTabs.Trigger>
 
             {/* Müdürde "Profil", burada "İşletme": ekran aynı, satırların
-                tamamı işletmeye ait ve "Personel" satırı çizilmiyor. */}
+                tamamı işletmeye ait ve "Personel" satırının yerinde
+                "Ekip ekle" kapısı var (v4 P1). */}
             <NativeTabs.Trigger name="isletme">
                 <NativeTabs.Trigger.Icon renderingMode="template" src={require('../../assets/tabs/profil.png')} />
                 <NativeTabs.Trigger.Label>İşletme</NativeTabs.Trigger.Label>

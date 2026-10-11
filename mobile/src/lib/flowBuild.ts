@@ -240,6 +240,9 @@ export function buildFlow(input: BuildInput): FlowEvent[] {
         if (kind === 'due') {
             const waiting = minutesSince(row.service_ended_at, input.nowMs);
             if (waiting !== null) event.dueMinutes = waiting;
+            event.service = row.service;
+            // Akışın satırları akışın gününe ait; günü satır taşımıyor.
+            event.dateISO = input.dateISO;
             if (staffName) event.servedBy = staffName;
             /*
              * TUTAR adisyondan. Önce hiç yazılmıyordu ve kart "₺0 tahsil
@@ -307,6 +310,8 @@ function carriedEvents(input: BuildInput): FlowEvent[] {
             amountValue: ticket.balance,
             ticketKey: ticket.key,
             carriedOver: true,
+            service: row.service,
+            dateISO: row.date,
         };
         const waiting = minutesSince(ended, input.nowMs);
         if (waiting !== null) event.dueMinutes = waiting;

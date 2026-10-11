@@ -351,7 +351,12 @@ export function AuthTextLink({ label, onPress, quiet = false }: {
     );
 }
 
-type AuthActionKind = 'primary' | 'secondary' | 'ghost' | 'danger';
+/**
+ * `tall` — Tek Kişilik v4 · S1'in tarafsız çatallanması: iki EŞİT cevap,
+ * 66 pt, yüzey zemin ve çizgi. Kit'teki giriş çatallanmasında biri turuncuydu;
+ * mod sorusunda ikisi de ikincil, çünkü soru tarafsız.
+ */
+type AuthActionKind = 'primary' | 'secondary' | 'tall' | 'ghost' | 'danger';
 
 /** Giriş paketinin 66 / 60 / 52 pt eylemleri. */
 export function AuthActionButton({ label, onPress, kind = 'primary', disabled = false, compact = false, left }: {
@@ -366,13 +371,16 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
     const press = usePressValue();
     const primary = kind === 'primary';
     const secondary = kind === 'secondary';
+    const tall = kind === 'tall';
     const danger = kind === 'danger';
-    const height = primary
+    /** Çizgili, yüzeyli ikincil biçim — `secondary` ve `tall` ortak. */
+    const outlined = secondary || tall;
+    const height = primary || tall
         ? compact || small ? authMetrics.smallPrimaryHeight : hit.action
         : secondary ? hit.actionSm : danger ? hit.actionSm : authMetrics.secondaryActionHeight;
     const textSize = primary
         ? compact ? authMetrics.actionTextSize : authMetrics.primaryTextSize
-        : secondary || danger ? authMetrics.actionTextSize : authMetrics.ghostTextSize;
+        : outlined || danger ? authMetrics.actionTextSize : authMetrics.ghostTextSize;
 
     return (
         <Pressable
@@ -394,16 +402,18 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
                 justifyContent: 'center',
                 flexDirection: 'row',
                 gap: left ? authMetrics.actionIconGap : 0,
-                borderRadius: primary && small ? authMetrics.smallPrimaryRadius : radius.lg,
-                borderWidth: secondary || danger ? 1 : 0,
-                borderColor: danger ? `${c.rd}57` : secondary ? c.bd : 'transparent',
+                borderRadius: tall
+                    ? authMetrics.modeChoiceRadius
+                    : primary && small ? authMetrics.smallPrimaryRadius : radius.lg,
+                borderWidth: outlined || danger ? 1 : 0,
+                borderColor: danger ? `${c.rd}57` : tall ? c.bd2 : secondary ? c.bd : 'transparent',
                 // Devre dışı turuncu SOLDURULMUYOR. Işık alanının üstünde %40
                 // opak bir turuncu çamurlu bir kahveye dönüyordu — kırık bir
                 // renk gibi. Yerine nötr bir yüzey: "henüz değil" demenin
                 // dürüst yolu, ve hangi zeminde olursa olsun aynı okunuyor.
                 backgroundColor: disabled && primary
                     ? c.surf2
-                    : primary ? c.or : secondary ? c.surf2 : 'transparent',
+                    : primary ? c.or : tall ? c.surf : secondary ? c.surf2 : 'transparent',
                 opacity: disabled
                     ? (primary ? 1 : 0.4)
                     : press.interpolate({
@@ -430,10 +440,10 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
                 {left}
                 <Text style={{
                     color: disabled && primary ? c.tx3
-                        : primary ? '#FFFFFF' : danger ? c.rd : secondary ? c.tx : c.tx2,
+                        : primary ? '#FFFFFF' : danger ? c.rd : outlined ? c.tx : c.tx2,
                     fontSize: textSize,
-                    fontFamily: primary || secondary || danger ? font.extraBold : font.bold,
-                    fontWeight: primary || secondary || danger ? '800' : '700',
+                    fontFamily: primary || outlined || danger ? font.extraBold : font.bold,
+                    fontWeight: primary || outlined || danger ? '800' : '700',
                     letterSpacing: textSize * -0.02,
                 }}>
                     {label}
@@ -1890,21 +1900,27 @@ export function AuthPinDots({ length, error = false }: { length: number; error?:
 }
 
 /** Concept 08 marka işareti. Nokta bu turda hareket etmez. */
-export function LueraMark({ staff = false, resume = false, dotStyle, glow = false }: {
+export function LueraMark({ staff = false, resume = false, size: fixedSize, dotStyle, glow = false }: {
     staff?: boolean;
     resume?: boolean;
+    /**
+     * Sade markanın ÖLÇÜSÜ — kayıttaki mod sorusu (Tek Kişilik v4 · S1, 44).
+     * Verilince geometri personel ve devam ekranlarınınki: 800 ağırlık, sıkı
+     * satır, 0.2 nokta. Karşılamanın ağır markası (900) orada çizilmiyor.
+     */
+    size?: number;
     /** Giriş v3: nokta markadan AYRI geliyor — 300 ms'de, hafif taşarak. */
     dotStyle?: StyleProp<AnimatedStyle<ViewStyle>>;
     /** Işık alanının üstünde nokta kendi ışığını taşıyor. */
     glow?: boolean;
 }) {
     const { c, small } = useTheme();
-    const plain = staff || resume;
-    const size = resume
+    const plain = staff || resume || fixedSize !== undefined;
+    const size = fixedSize ?? (resume
         ? authMetrics.resumeMarkSize
         : staff
         ? authMetrics.staffMarkSize
-        : small ? authMetrics.welcomeBrandSizeSmall : authMetrics.welcomeBrandSize;
+        : small ? authMetrics.welcomeBrandSizeSmall : authMetrics.welcomeBrandSize);
     const dot = size * (plain
         ? authMetrics.staffMarkDotRatio
         : authMetrics.brandDotRatio);
@@ -1927,12 +1943,10 @@ export function LueraMark({ staff = false, resume = false, dotStyle, glow = fals
             <RAnimated.View style={[{
                 width: dot,
                 height: dot,
-                marginLeft: size * (staff
-                    || resume
+                marginLeft: size * (plain
                     ? authMetrics.staffMarkDotLeftRatio
                     : authMetrics.brandDotLeftRatio),
-                marginBottom: size * (staff
-                    || resume
+                marginBottom: size * (plain
                     ? authMetrics.staffMarkDotBottomRatio
                     : authMetrics.brandDotBottomRatio),
                 borderRadius: radius.pill,

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
 import { DayEndSheet, MovementSheet } from '../../src/components/CashSheets';
+import { PendingTicketsSheet } from '../../src/components/PendingTicketsSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { authApi } from '../../src/api/session';
 import {
@@ -21,7 +22,8 @@ import {
 import { hhmm } from '../../src/lib/calendar';
 import { useManagerCash } from '../../src/lib/managerCash';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { pendingOf } from '../../src/lib/managerFlow';
+import { pendingOf, pendingTickets, type FlowEvent } from '../../src/lib/managerFlow';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { forgetOrg } from '../../src/lib/managerSource';
 import { useManagerDay } from '../../src/state/managerDay';
 import { cashMetrics, font, useTheme } from '../../src/theme';
@@ -85,7 +87,20 @@ export default function ManagerKasa() {
      * GİREN" başlığının altına yazmak yanlış bir rakam göstermek olurdu.
      */
     const known = cash.data.period === period;
-    const movements = known ? cash.data.movements : NO_MOVEMENTS;
+    const solo = useInSoloShell();
+    /*
+     * TEK KİŞİLİKTE KİŞİ ADI GÖRÜNMÜYOR (v4 karar 3 · C1: "Kalkan tek satır
+     * 'Elif Demir verdi': parayı veren hep kullanıcının kendisi").
+     *
+     * Ad EKRANA gelirken boşaltılıyor, veride değil. Satır, fiş ("Hizmeti
+     * veren") ve sesli okuma üçü de boş adı "yazma" diye okuyor — bilinmeyen
+     * personelde zaten böyle davranıyorlardı. Üç bileşene ayrı ayrı "tek
+     * kişilik mi" sordurmak üç yerde aynı kuralı tutmak olurdu.
+     */
+    const movements = useMemo(() => {
+        const read = known ? cash.data.movements : NO_MOVEMENTS;
+        return solo ? read.map((movement) => ({ ...movement, staff: '' })) : read;
+    }, [known, cash.data.movements, solo]);
     /** Açık sheet — tek bir kaydı işaret eder. */
     const [openId, setOpenId] = useState<string | null>(null);
     /** Gün sonu / dönem özeti sayfası. */
@@ -101,6 +116,38 @@ export default function ManagerKasa() {
     const { events, reload } = useManagerDay();
     const router = useRouter();
     const pending = useMemo(() => pendingOf(events), [events]);
+    const tickets = useMemo(() => pendingTickets(events), [events]);
+    const [ticketsOpen, setTicketsOpen] = useState(false);
+
+    /*
+     * Turuncu şerit TEK KİŞİLİKTE tahsilat adımını açıyor (v4 · C1): kumanda,
+     * adisyonun kendi gününde, "Kasa" geri etiketiyle. Ekipte şerit Akış'a
+     * gidiyor — bekleyenlerin orada kendi "Tahsil et"leri var; tek kişilikte
+     * Akış yok.
+     */
+    const openTicket = useCallback((ticket: FlowEvent) => {
+        setTicketsOpen(false);
+        if (!ticket.appointmentId) return;
+        router.push({
+            pathname: '/(staff-flow)/kumanda',
+            params: {
+                id: ticket.appointmentId,
+                from: 'tek',
+                // Geri oku "Kasa" diyor: dönülen yer burası.
+                back: 'kasa',
+                ...(ticket.dateISO ? { date: ticket.dateISO } : {}),
+            },
+        });
+    }, [router]);
+    const onPendingPress = useCallback(() => {
+        if (!solo) {
+            router.navigate('/mudur');
+            return;
+        }
+        // Tek adisyon: doğrudan tahsilat. Birden çok: önce liste.
+        if (tickets.length === 1) openTicket(tickets[0]);
+        else setTicketsOpen(true);
+    }, [solo, tickets, openTicket, router]);
 
     /**
      * Aşağı çekip yenileme — Akış'takiyle aynı refleks, aynı davranış.
@@ -323,7 +370,7 @@ export default function ManagerKasa() {
                          * iyi olurdu; ama olmayan bir ekrana götürmektense
                          * var olana götürmek doğru.)
                          */
-                        onPress={() => router.navigate('/mudur')}
+                        onPress={onPendingPress}
                         style={{
                             zIndex: 1,
                             elevation: cashMetrics.pendElevation,
@@ -461,6 +508,14 @@ export default function ManagerKasa() {
                 period={period}
                 totals={totals}
                 onDismiss={() => setDayEndOpen(false)}
+            />
+
+            <PendingTicketsSheet
+                visible={ticketsOpen}
+                pending={pending}
+                tickets={tickets}
+                onPick={openTicket}
+                onDismiss={() => setTicketsOpen(false)}
             />
 
             {openMovement ? (

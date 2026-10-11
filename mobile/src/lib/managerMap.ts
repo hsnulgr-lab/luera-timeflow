@@ -106,6 +106,12 @@ function toApptRaw(row: Record<string, unknown>): Appt {
          * turunda dolduracak.
          */
         info: null,
+        // Bekleme (112) yalnız onu soran okumada var; sormayanda alan HİÇ
+        // konmuyor — "bekleme yok" ile "sorulmadı" aynı şey değil.
+        ...('wait_ends_at' in row ? {
+            wait_ends_at: (row.wait_ends_at as string | null) ?? null,
+            wait_minutes: row.wait_minutes == null ? null : Number(row.wait_minutes),
+        } : {}),
     };
 }
 

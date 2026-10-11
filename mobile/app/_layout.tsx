@@ -84,14 +84,18 @@ function Shell() {
                     // Cam kabuk kendi ekranında; yığın başlığı kullanılmıyor.
                 }}
             >
-                {/* İKİ KABUK DA GERİ KAYDIRMAZ. Kabuk bir sayfa değil,
+                {/* ÜÇ KABUK DA GERİ KAYDIRMAZ. Kabuk bir sayfa değil,
                     uygulamanın kendisi: arkasında geri dönülecek yer yok.
                     Jest açıkken müdür profilinden sağa kaydırınca alttan
                     personel profili çıkıyordu — telefonda görüldü.
                     Geçmişin kendisi `src/lib/enterShell.ts` ile siliniyor;
-                    bu satır jestin kalıntı bir girdiyi bulmasını da kapatıyor. */}
+                    bu satır jestin kalıntı bir girdiyi bulmasını da kapatıyor.
+                    Tek kişilik kabuk (108) listeye sonradan girdi: ekibe
+                    geçişte (113) kabuk değişiyor ve geride kalan bir tek
+                    kişilik girdi kaydırmayla geri gelmemeli. */}
                 <Stack.Screen name="mudur" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="personel" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="tek" options={{ gestureEnabled: false }} />
 
                 {/* Personel 06 — kumanda YATAY JESTİ KAPATIYOR. "Kaydır ve
                     başlat" tutamağı çubuğun solunda, ekranın geri-kaydırma
@@ -126,6 +130,8 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/sifre" />
                 {/* 099 — personelin telefonu: ekip kodu ve şifre. */}
                 <Stack.Screen name="(manager-flow)/profil/personel" />
+                {/* 113 · v4 P2 — tek kişilik işletmenin ekibe geçiş kapısı. */}
+                <Stack.Screen name="(manager-flow)/profil/ekip-ekle" />
                 <Stack.Screen name="(staff-flow)/sifre" />
             </Stack>
         </>

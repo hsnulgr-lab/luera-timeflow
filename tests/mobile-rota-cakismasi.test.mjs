@@ -70,8 +70,9 @@ test('kabuklar rolü doğruluyor', () => {
 test('kabuklar geri kaydırmıyor', () => {
     // Kabuk bir sayfa değil, uygulamanın kendisi. Jest açıkken müdür
     // profilinden sağa kaydırınca alttan personel profili çıkıyordu.
+    // Tek kişilik kabuk (108) da: ekibe geçişte (113) kabuk değişiyor.
     const root = readFileSync(new URL('../mobile/app/_layout.tsx', import.meta.url), 'utf8');
-    for (const name of ['mudur', 'personel']) {
+    for (const name of ['mudur', 'personel', 'tek']) {
         assert.match(
             root,
             new RegExp(`name="${name}" options=\\{\\{ gestureEnabled: false \\}\\}`),

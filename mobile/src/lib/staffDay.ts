@@ -11,7 +11,7 @@
  */
 
 import { addDaysISO, formatDayFull, todayISO, toMinutes, type Appt } from './calendar.ts';
-import { splitStaffName } from './text.ts';
+import { clockDative, clockLocative, splitStaffName } from './text.ts';
 import type { StaffPresence, StaffState } from './managerFlow.ts';
 import { awaitsApproval } from './approval.ts';
 
@@ -21,6 +21,11 @@ export type StaffStateKind = 'running' | 'free' | 'empty' | 'leave' | 'off' | 'e
 
 export interface StaffHeroPanel {
     label: string;
+    /**
+     * `am`: kehribar — etiket ve nokta beklemenin rengi, nokta NABIZSIZ
+     * (v4 · G3 · BEKLEMEDE). Verilmezse kartın bugünkü çizimi.
+     */
+    tone?: 'am';
     hasPulse: boolean;
     heroValue: string;
     heroUnit?: string;
@@ -295,7 +300,9 @@ export function buildStaffDayState(
          * O durumda müşteri/hizmet/bitiş UYDURULMAZ: sayaç gerçek, satır boş.
          */
         const subText = liveAppt
-            ? `${liveAppt.customer_name} · ${liveAppt.service} · ${liveAppt.end_time.slice(0, 5)}’te biter`
+            // Ek saate göre: "16:02’de biter", "14:33’te biter". Sabit "’te"
+            // yarı yarıya yanlış Türkçe yazıyordu.
+            ? `${liveAppt.customer_name} · ${liveAppt.service} · ${clockLocative(liveAppt.end_time.slice(0, 5))} biter`
             : null;
 
         return {
@@ -339,7 +346,8 @@ export function buildStaffDayState(
         if (nextAppt) {
             const nextStartMin = toMinutes(nextAppt.start_time);
             freeMinutes = Math.max(0, nextStartMin - nowMinutes);
-            subText = `${nextAppt.start_time.slice(0, 5)}’a kadar · sıradaki ${nextAppt.customer_name}`;
+            // "14:00’e kadar", "09:30’a kadar" — sabit "’a" 14:00'te yanlıştı.
+            subText = `${clockDative(nextAppt.start_time.slice(0, 5))} kadar · sıradaki ${nextAppt.customer_name}`;
         } else {
             freeMinutes = Math.max(0, 19 * 60 - nowMinutes);
         }

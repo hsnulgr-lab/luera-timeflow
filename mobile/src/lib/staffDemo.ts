@@ -35,6 +35,13 @@ export interface DemoAppointment extends StaffCardSource {
      * Sahte ajandada yok — orada formül yazılmaz.
      */
     formula?: VisitFormula | null;
+    /**
+     * Süren işin beklemesi — SUNUCUDAN (112 · v4 G3). Kumanda geri açılınca
+     * halkayı bundan kuruyor; eskiden bekleme ekranla birlikte kayboluyordu.
+     * Sahte ajandada yok.
+     */
+    wait_ends_at?: string | null;
+    wait_minutes?: number | null;
 }
 
 const MIN = 60_000;

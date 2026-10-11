@@ -47,7 +47,8 @@ import {
     queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
-import { sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote } from '../../src/lib/visitWrite';
+import { sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait } from '../../src/lib/visitWrite';
+import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
@@ -88,7 +89,7 @@ export default function Kumanda() {
     const { c, dark, small, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const params = useLocalSearchParams<{ id?: string; from?: string }>();
+    const params = useLocalSearchParams<{ id?: string; from?: string; date?: string; back?: string }>();
     /*
      * GERİ OKUNUN YAZISI, DÖNÜLECEK SEKMENİN ADI (108 · v4 K1 notu).
      *
@@ -96,10 +97,14 @@ export default function Kumanda() {
      * `useInSoloShell()` İŞE YARAMAZ: bu ekran `(staff-flow)` segmentinde
      * yaşıyor, `tek` değil. Cevabı çağıran taraf biliyor ve söylüyor.
      *
+     * Kasa'nın turuncu şeridinden açılınca (v4 · C1) dönülen yer Kasa ve
+     * ok onu söylüyor (`back: 'kasa'`); "Gün" yazıp Kasa'ya dönmek, okun
+     * gittiği yeri yanlış söylemek olurdu.
+     *
      * Kapalı küme: parametreden gelen metin doğrudan ekrana yazılmıyor,
-     * yalnız iki bilinen değerden biri seçiliyor.
+     * yalnız bilinen değerlerden biri seçiliyor.
      */
-    const backLabel = params.from === 'tek' ? 'Gün' : 'Bugün';
+    const backLabel = params.back === 'kasa' ? 'Kasa' : params.from === 'tek' ? 'Gün' : 'Bugün';
 
     const dateISO = todayISO();
     /*
@@ -112,7 +117,7 @@ export default function Kumanda() {
     const {
         state: visitState, visit: base, updatedAt, changed, version, reload: reloadVisit,
         serverAt, seenItems, ownItems, observe,
-    } = useVisit(params.id);
+    } = useVisit(params.id, params.date || undefined);
 
     const [now, setNow] = useState(() => Date.now());
 
@@ -550,7 +555,12 @@ export default function Kumanda() {
         setStartCode(null);
         setSentAt(null);
         setUndone(false);
-        setWait(null);
+        /*
+         * BEKLEME GERİ KURULUYOR (112 · v4 G3). Eskiden burada sıfırlanıyordu:
+         * Gün'e dönüp kumandayı yeniden açan kişi beklemesini kaybolmuş
+         * buluyordu. Önce bu telefonun niyeti, yoksa sunucunun damgası.
+         */
+        setWait(base ? restoredWait(base, Date.now()) : null);
         setLines(linesFromItems(base?.adisyon_items));
         setLastAdded('');
         setRevealed(false);
@@ -838,7 +848,11 @@ export default function Kumanda() {
                             total={wait.total}
                             source={wait.source}
                             level={level ?? 'calm'}
-                            onPress={() => setWait(null)}
+                            onPress={() => {
+                                setWait(null);
+                                rememberWait(appointment.id, null);
+                                void writeVisitWait(appointment.id, null).then((out) => observe(out.observation));
+                            }}
                         />
                     </View>
                 ) : null}
@@ -927,7 +941,7 @@ export default function Kumanda() {
                                 kutularda — liste onu tekrarlamıyor. */}
                             {/* RANDEVU — Kasa bunları ayrıca sayıyor; personel
                                 neyin zaten yazılı olduğunu görmeli. */}
-                            <BookedGroup names={booked} />
+                            <BookedGroup names={booked} solo={params.from === 'tek'} />
                             {lines.length === 0 && booked.length === 0 ? (
                                 <View style={{ paddingTop: 18, gap: 6 }}>
                                     <Text style={{ fontSize: 15, fontWeight: '700', color: c.tx }}>
@@ -1036,6 +1050,9 @@ export default function Kumanda() {
                         <HoldToFinish onFinish={() => {
                             setEndedAt(new Date().toISOString());
                             setWait(null);
+                            // Bitmiş iş beklemede olamaz; sunucu `visit.finish`te
+                            // aynısını yapıyor.
+                            rememberWait(appointment.id, null);
                             setNow(Date.now());
                         }} />
                     ) : null}
@@ -1126,6 +1143,7 @@ export default function Kumanda() {
                     {sheet === 'catalog' ? (
                         <CatalogSheet
                             count={liveLines(lines).length}
+                            solo={params.from === 'tek'}
                             onAdd={(item) => guardAdd(item, () => {
                                 feedback.light();
                                 // İkinci dokunuş ×2 yapıyor, ikinci satır
@@ -1189,12 +1207,30 @@ export default function Kumanda() {
                         <MinutesSheet
                             onPick={(m) => {
                                 feedback.light();
-                                setWait({
-                                    endsAt: Date.now() + m * 60_000,
-                                    total: m * 60,
-                                    source: `Boya · ${m} dk`,
-                                });
+                                /*
+                                 * Halka HEMEN dönüyor, yazma arkadan gidiyor:
+                                 * kumanda bodrum katında da açılıyor ve
+                                 * bekleme bugüne kadar internetsiz
+                                 * çalışıyordu. Yazmanın işi beklemeyi Gün'e
+                                 * taşımak; sunucu kabul edince onun bitişi
+                                 * benimseniyor (telefonun saati yanlış
+                                 * olabilir). Bu telefondaki niyet de
+                                 * yazılıyor ki sinyalsiz kurulan bekleme
+                                 * Gün'de yine görünsün (`waitIntent`).
+                                 */
+                                const endsAt = Date.now() + m * 60_000;
+                                setWait({ endsAt, total: m * 60, source: waitSource(m) });
+                                rememberWait(appointment.id, { endsAt, minutes: m });
                                 setSheet(null);
+                                void writeVisitWait(appointment.id, m).then((out) => {
+                                    observe(out.observation);
+                                    const serverEnds = out.endsAt ? Date.parse(out.endsAt) : Number.NaN;
+                                    if (!Number.isFinite(serverEnds)) return;
+                                    // Bu arada kaldırıldıysa diriltilmiyor.
+                                    if (waitIntentOf(appointment.id) === null) return;
+                                    rememberWait(appointment.id, { endsAt: serverEnds, minutes: m });
+                                    setWait((current) => (current ? { ...current, endsAt: serverEnds } : current));
+                                });
                             }}
                             onCancel={() => setSheet(null)}
                         />
@@ -2016,10 +2052,12 @@ function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     );
 }
 
-function CatalogSheet({ count, frequent, rows, booked, onAdd, resultOf, onSearch, onDone }: {
+function CatalogSheet({ count, frequent, rows, booked, solo = false, onAdd, resultOf, onSearch, onDone }: {
     count: number;
     /** Randevunun kendi hizmetleri — adisyon satırlarının üstünde. */
     booked: readonly string[];
+    /** Tek kişilik kabuk — `BookedGroup`un cümlesi için. */
+    solo?: boolean;
     /**
      * Adisyonun KENDİ satırları. Sayfanın adı bu yüzden "Kalem ekle" değil
      * "Adisyon": işlem sürerken yanlış eklenen bir kalemi görmek ve
@@ -2142,7 +2180,7 @@ function CatalogSheet({ count, frequent, rows, booked, onAdd, resultOf, onSearch
                         {count > 0 ? `${count} satır` : 'boş'}
                     </Text>
                 </View>
-                <BookedGroup names={booked} />
+                <BookedGroup names={booked} solo={solo} />
                 {count > 0 ? rows : booked.length > 0 ? null : (
                     <View style={{ paddingTop: 8, gap: 6 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: c.tx }}>
@@ -2344,6 +2382,28 @@ function FormulaSheet({
     );
 }
 
+/** Halkanın altındaki ad — kumandanın bugünkü sözü, değişmedi. */
+function waitSource(minutes: number): string {
+    return `Boya · ${minutes} dk`;
+}
+
+/**
+ * Kumanda yeniden açılınca halkanın geri kurulması (112 · v4 G3).
+ *
+ * Yalnız SÜREN işte: başlamamış ya da bitmiş işin beklemesi olmaz. Bitmiş
+ * bekleme de geri kurulmuyor — sıfırın altına dönen bir halka bir şey
+ * anlatmaz.
+ */
+function restoredWait(
+    visit: { id: string; status: string; arrived_at: string | null; service_ended_at: string | null;
+        wait_ends_at?: string | null; wait_minutes?: number | null },
+    nowMs: number,
+): { endsAt: number; total: number; source: string } | null {
+    if (!visit.arrived_at || visit.service_ended_at || visit.status === 'completed') return null;
+    const live = activeWait(visit, waitIntentOf(visit.id), nowMs);
+    return live ? { endsAt: live.endsAt, total: live.minutes * 60, source: waitSource(live.minutes) } : null;
+}
+
 function MinutesSheet({ onPick, onCancel }: { onPick: (m: number) => void; onCancel: () => void }) {
     const { c } = useTheme();
     return (
@@ -2487,11 +2547,20 @@ function NoteSheet({ note, write, onClose, onSave }: {
  * hizmet iki kez tahsil ediliyor. Tutar yazılmıyor: personelin ciro görme izni
  * adisyon satırlarının kendi kuralında.
  */
-function BookedGroup({ names }: { names: readonly string[] }) {
+function BookedGroup({ names, solo = false }: {
+    names: readonly string[];
+    /**
+     * Tek kişilik kabuk (v4 · K3): adisyon kasaya GİTMİYOR, burada tahsil
+     * ediliyor. "Kasaya gidiyor" demek olmayan bir yolu anlatmaktı.
+     */
+    solo?: boolean;
+}) {
     const { c } = useTheme();
     if (names.length === 0) return null;
     return (
-        <View accessible accessibilityLabel={`Randevudaki hizmetler: ${names.join(', ')}. Kasada zaten sayılıyor.`}>
+        <View accessible accessibilityLabel={`Randevudaki hizmetler: ${names.join(', ')}. ${
+            solo ? 'Tahsilata zaten giriyor.' : 'Kasada zaten sayılıyor.'
+        }`}>
             <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 1.68, color: c.tx3, paddingTop: 14, paddingBottom: 2 }}>
                 RANDEVU
             </Text>
@@ -2512,7 +2581,9 @@ function BookedGroup({ names }: { names: readonly string[] }) {
                 </View>
             ))}
             <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.tx3, paddingTop: 6, lineHeight: 16 }}>
-                Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin.
+                {solo
+                    ? 'Bu hizmetler tahsilata randevuyla birlikte giriyor; yeniden eklemeyin.'
+                    : 'Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin.'}
             </Text>
         </View>
     );

@@ -12,6 +12,7 @@ const account = source('mobile/app/(auth)/signup/account.tsx');
 const business = source('mobile/app/(auth)/signup/business.tsx');
 const ready = source('mobile/app/(auth)/signup/ready.tsx');
 const authStub = source('mobile/src/api/authStub.ts');
+const authLive = source('mobile/src/api/auth.ts');
 const ui = source('mobile/src/components/ui.tsx');
 const tokens = source('mobile/src/theme/tokens.ts');
 const authValidation = source('mobile/src/lib/authValidation.ts');
@@ -61,11 +62,62 @@ test('Solo kapısından gelene mod BİR DAHA sorulmuyor', () => {
     // Verilmiş bir cevabı tekrar sormak, kullanıcının az önce bastığı
     // düğmeyi duymamak olurdu.
     assert.match(ready, /authApi\.signup\.draft\(\)[\s\S]{0,160}draft\.data\.solo === true/);
-    // Soru yerine tek düğme; iki cevap `else` dalında kalıyor.
-    assert.match(ready, /intentSolo \?[\s\S]{0,200}["']Uygulamayı kullanmaya başla["']/);
-    assert.match(ready, /intentSolo \?[\s\S]{0,900}["']Yalnız ben["']/);
-    // Gövde metni de değişiyor: soru sorulmuyorsa soru cümlesi yazılmıyor.
-    assert.match(ready, /intentSolo\s*\n?\s*\? 'Tek kişilik işletme olarak kuruluyor/);
+    // Niyet okunmadan HİÇBİR ŞEY çizilmiyor: önce soruyu çizip sonra "hazır"a
+    // atlamak, cevabı verilmiş kişiye soruyu bir an yeniden göstermekti.
+    assert.match(ready, /useState<boolean \| null>\(null\)/);
+    assert.match(ready, /if \(!businessName \|\| intentSolo === null\) return/);
+    // Soru yerine tek düğme ve kendi gövde metni; iki cevap öteki dalda.
+    const solo = ready.slice(ready.indexOf('{intentSolo ? ('), ready.indexOf(') : ('));
+    assert.match(solo, /body="Tek kişilik işletme olarak kuruluyor/);
+    assert.match(solo, /label="Uygulamayı kullanmaya başla"/);
+    assert.doesNotMatch(solo, /Yalnız ben|Ekibim var|Bu işletmede işi kim yapıyor/);
+});
+
+test('Solo niyeti kaydın SONUNA kadar yaşıyor — mod sorusu onu okuyabiliyor', () => {
+    /*
+     * 108'in kırığı: niyet karşılamada yazılıyordu ama hesap adımı taslağı
+     * sıfırdan yazıyor, kurulumun sonu da siliyordu. Hazır ekranı taslağı
+     * okuduğunda niyet hiç yoktu ve Solo kapısından gelene soru yeniden
+     * soruluyordu — "bir daha sorulmuyor" dalı hiç çalışmıyordu.
+     */
+    const liveAccount = authLive.slice(
+        authLive.indexOf('async function createSignupAccount'),
+        authLive.indexOf('async function saveSignupBusiness'),
+    );
+    assert.match(liveAccount, /const intent = \(await readSignupDraft\(\)\)\?\.solo;/);
+    assert.match(liveAccount, /\{ email: normalized, solo: intent \}/);
+    const liveComplete = authLive.slice(
+        authLive.indexOf('async function completeSignup'),
+        authLive.indexOf('async function setBusinessMode'),
+    );
+    assert.doesNotMatch(liveComplete, /clearSignupDraft\(\)/, 'kurulumun sonu niyeti silmemeli');
+    const liveMode = authLive.slice(
+        authLive.indexOf('async function setBusinessMode'),
+        authLive.indexOf('const TEAM_REFUSALS'),
+    );
+    // Silme modun yazıldığı yerde, yalnız BAŞARIDAN sonra.
+    assert.match(liveMode, /if \(error\) return fail\('offline'\);[\s\S]{0,200}if \(session\.ok\) await clearSignupDraft\(\);/);
+
+    // Stub aynı kuralı taşıyor: tasarım turları stub'la geziliyor.
+    assert.match(authStub, /password: _password, solo: previous\?\.solo/);
+    assert.match(authStub, /businessName: normalizedName,\s*solo: pending\.solo,/);
+    const stubComplete = authStub.slice(
+        authStub.indexOf('async function completeSignup'),
+        authStub.indexOf('async function markSignupIntent'),
+    );
+    assert.doesNotMatch(stubComplete, /removeItem\(storageKeys\.pendingSignup\)/);
+    const stubMode = authStub.slice(
+        authStub.indexOf('async function setBusinessMode'),
+        authStub.indexOf('async function startTeam'),
+    );
+    assert.match(stubMode, /removeItem\(storageKeys\.pendingSignup\)/);
+
+    // Öteki kayıt kapısı niyeti SIFIRLIYOR: yarım bir Solo kaydının niyeti
+    // "Yeni işletme oluştur"dan girene geçmesin.
+    assert.match(
+        welcome,
+        /authApi\.signup\.intent\(false\)[\s\S]{0,120}router\.push\([\s\S]{0,60}signup\/account/,
+    );
 });
 
 test('yeni işletme akışının tek veri dikişi authApi.signup olur', () => {
@@ -241,15 +293,39 @@ test('Giriş 12 aynı rotada ad ve sektör hâllerini yönetir; veri stub tasla�
 test('Giriş 13 hazır ekranı tamamlanmış oturumdan işletme adını alır ve MODU SORAR', () => {
     for (const copy of [
         'hazır',
-        'Son bir soru: bu işletmede işi kim yapıyor?',
+        // Tek Kişilik v4 · S1 — soru ekranının kendi metinleri.
+        'Bu işletmede işi kim yapıyor?',
+        'Uygulama cevabınıza göre açılır. Sonradan İşletme’den değiştirebilirsiniz.',
         'Hizmetlerinizi ekleyin',
-        'Personelinizi ekleyin',
         'Çalışma saatlerini girin',
         'Yalnız ben',
         'Ekibim var',
     ]) {
         assert.ok(ready.includes(copy), `Giriş 13 metni eksik: ${copy}`);
     }
+
+    /*
+     * S1 · eski "hazır" düzeni soru dalından kalktı: adım çubuğu, "X hazır"
+     * başlığı ve liste yalnız Solo kapısından gelenin ekranında. "Personelinizi
+     * ekleyin" o ekranda da YOK — tek kişilik işletmenin personeli yok.
+     */
+    for (const gone of ['Son bir soru', 'Personelinizi ekleyin']) {
+        assert.ok(!ready.includes(gone), `Giriş 13'te kalmamalıydı: ${gone}`);
+    }
+    const question = ready.slice(ready.indexOf(') : ('));
+    assert.doesNotMatch(question, /AuthStepIndicator|AuthReadyChecklist|AuthHeader/);
+    assert.match(question, /<LueraMark size=\{authMetrics\.modeMarkSize\} \/>/);
+    // İki cevap EŞİT: biri turuncu değil, soru tarafsız (v4 S1).
+    assert.equal((question.match(/kind="tall"/g) ?? []).length, 2);
+    assert.doesNotMatch(question, /kind="secondary"/);
+    assert.match(tokens, /modeMarkSize: 44,/);
+    assert.match(tokens, /modeTitleSize: 29,/);
+    assert.match(tokens, /modeBodySize: 17,/);
+    assert.match(tokens, /modeChoiceRadius: 22,/);
+    // 66 pt, yüzey zemin ve bd2 çizgi.
+    assert.match(ui, /const height = primary \|\| tall\s*\?\s*compact \|\| small \? authMetrics\.smallPrimaryHeight : hit\.action/);
+    assert.match(ui, /borderColor: danger \? `\$\{c\.rd\}57` : tall \? c\.bd2/);
+    assert.match(ui, /primary \? c\.or : tall \? c\.surf/);
 
     /*
      * BİLGİSAYARA YÖNLENDİREN YOL KALKTI (108).

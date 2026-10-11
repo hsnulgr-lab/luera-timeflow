@@ -159,6 +159,47 @@ export function passwordChangeProblem(error: string): string {
 }
 
 /**
+ * İşletme › Ekip ekle (113 · v4 P2) — tek kişilik işletmenin ekibe geçiş kapısı.
+ *
+ * Önce neyin değişeceği, sonra tek form. Mod kendiliğinden değişmez; yalnız
+ * bu düğmeyle (v4 karar 2).
+ */
+export const teamStart = {
+    title: 'Ekip ekle',
+    changeHead: 'Ekibe geçince',
+    change: 'İlk çalışanınızı eklediğinizde uygulama ekip düzenine geçer. Randevu kurarken kimin yapacağı sorulur, '
+        + 'takvimde her kişiye bir sütun açılır, ana ekran Akış olur. Geçmiş randevularınız ve kasanız olduğu gibi kalır.',
+    formHead: 'Yeni çalışan',
+    name: 'Ad soyad',
+    namePlaceholder: 'Örn. Elif Demir',
+    specialty: 'Mesleği',
+    specialtyPlaceholder: 'Örn. Kuaför',
+    action: 'Ekle ve ekip düzenine geç',
+    busy: 'Ekleniyor…',
+    /** Sunucu "zaten ekip" dedi ve çalışan bu dokunuşla eklenmedi. */
+    enterTeam: 'Ekip düzenine geç',
+    foot: 'Çalışan kendi telefonundan girecekse, eklendikten sonra Personel sayfasındaki Telefon bağla ile tek seferlik kod üretirsiniz.',
+} as const;
+
+/** Sunucunun 80 karakter sınırı (113) — alan da aynı yerde duruyor. */
+export const TEAM_NAME_MAX = 80;
+
+/**
+ * Hatanın cümlesi. Her biri neyin OLMADIĞINI söylüyor: kişi işletmesinin
+ * hangi düzende kaldığını bilmeli.
+ */
+export function teamStartProblem(error: string): string {
+    switch (error) {
+        case 'name_required': return 'Çalışanın adını yazın.';
+        case 'name_too_long': return `Ad en fazla ${TEAM_NAME_MAX} harf olabilir.`;
+        case 'already_team': return 'İşletmeniz başka bir cihazdan ekip düzenine geçirilmiş; bu çalışan eklenmedi. Personel sayfasından ekleyebilirsiniz.';
+        case 'subscription_inactive': return 'Aboneliğiniz kapalı; çalışan eklenemedi. İşletmeniz tek kişilik kaldı.';
+        case 'no_session': return 'Oturumunuz kapanmış. Çıkış yapıp yeniden girin; işletmeniz tek kişilik kaldı.';
+        default: return 'Çalışan eklenemedi; işletmeniz tek kişilik kaldı. Bağlantınızı kontrol edip tekrar deneyin.';
+    }
+}
+
+/**
  * Giriş 15c. "Eşleşmedi" ile "süresi doldu" bilerek AYRI metinlerdir.
  *
  * Birincisi kullanıcının düzeltebileceği bir yazım hatası — aynı ekranda kalır.

@@ -273,9 +273,17 @@ export default function Welcome() {
                         }}>
                             Sonradan değiştirebilirsiniz.
                         </Text>
+                        {/* Niyet burada da YAZILIYOR — "Solo"nun tersi. Kayıt
+                            akışı taslaktaki niyeti sonuna kadar taşıyor; yarım
+                            bırakılmış bir Solo kaydının niyeti bu kapıdan
+                            girene geçerse mod sorusu hiç sorulmazdı. */}
                         <AuthTextLink
                             label="Yeni işletme oluştur"
-                            onPress={() => router.push('/(auth)/signup/account')}
+                            onPress={() => {
+                                void authApi.signup.intent(false).then(() => {
+                                    router.push('/(auth)/signup/account');
+                                });
+                            }}
                         />
                     </AView>
                 </View>

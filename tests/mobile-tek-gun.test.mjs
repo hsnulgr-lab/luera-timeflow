@@ -358,7 +358,10 @@ test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
 });
 
 test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
-    assert.match(gun, /!dayEmpty && isToday && dayState\?\.panel/);
+    assert.match(gun, /!dayEmpty && isToday && panel \?/);
+    // Yuva TEK: süren işin beklemesi sürüyorsa BEKLEMEDE kartı, yoksa günün
+    // kartı (v4 G3). İkisi üst üste çizilmiyor.
+    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\) \?\? dayState\?\.panel \?\? null;/);
 });
 
 

@@ -235,6 +235,9 @@ export default function ManagerCalendar() {
                     days={days}
                     selectedISO={selectedDate}
                     counts={data.counts}
+                    /* Kapalı gün soluk ve noktasız — YALNIZ tek kişilik
+                       kabukta (v4 · T1). Müdür takvimi dondurulmuş tasarım. */
+                    offDays={solo ? data.offDays : undefined}
                     onSelect={setSelectedDate}
                 />
 

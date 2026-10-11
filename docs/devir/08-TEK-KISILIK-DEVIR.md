@@ -1,12 +1,17 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-11 · **Dal:** `tek-kisilik` = `main` (birleşti, push edildi) · **Kod commit'i:** `7386ba1`
-**Testler:** 2784 geçti / 0 kırık / 7 atlandı · `tsc` temiz
+**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` — `main`'in bir commit önünde, **push yok**
+**Testler:** 2818 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
-> **2026-10-11 akşam turu (§15):** 111 yeniden yazıldı ve yerelde gerçek
-> Postgres'te sınandı. Kasa arayüz taslağı `tek-kasa` dalına alındı.
-> `tek-kisilik` `main`'e ileri sarıldı. **111 canlıda; `staff-api` ve
-> `whatsapp-booking` deploy edildi ve doğrulandı** (§6). Deploy borcu yok.
+> **2026-10-11 gece turu (§16):** denetimin bulduğu on bir eksik kapandı
+> (G2, G3, hafta şeridi, Gün'ün ikonu, B2, K3, C1, R2, P1, S1, S3) ve
+> kullanıcı kararıyla **P2 (ekibe geçiş)** de yapıldı. İki yeni göç: **112**
+> (bekleme damgası) ve **113** (`start_team`). Yerelde gerçek Postgres'te
+> sınandı. **🔴 DEPLOY BORCU VAR** (§6): 112 + 113 kuru koşu → uygula →
+> `staff-api`. Yeni mobil kodun gün okuması 112 olmadan DÜŞER.
+>
+> **2026-10-11 akşam turu (§15):** 111 canlıda; `staff-api` ve
+> `whatsapp-booking` deploy edildi ve doğrulandı.
 
 Bu belge tek başına yeterli olmak için yazıldı. Yeni oturum bunu okuyunca
 projeyi, kararları ve sıradaki işi bilmeli; önceki konuşmayı aramaya
@@ -17,9 +22,11 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu YOK** (§6, 2026-10-11 akşam). 111 canlıda; `staff-api`
-   ve `whatsapp-booking` `main`'den deploy edildi. Tahsilatın telefonda
-   denenmesi hâlâ bekliyor.
+2. **🔴 Deploy borcu VAR** (§6): göç 112 + 113 (önce kuru koşu), sonra
+   `staff-api`. Sıra zorunlu. **Expo Go ile telefonda denemeden ÖNCE 112
+   uygulanmalı** — yeni kodun Takvim / Gün / personel günü okuması
+   `wait_ends_at`i soruyor ve sütun yoksa "okunamadı"ya düşer. Tahsilatın
+   telefonda denenmesi hâlâ bekliyor.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -176,30 +183,30 @@ girmez (§7'de sebebi).
 | Kod | Başlık | Durum |
 |---|---|---|
 | G1 | Boşta · sıradaki 19 dk sonra | ✅ |
-| G2 | Sürüyor | ✅ |
-| G3 | Beklemede · krem | ✅ |
+| G2 | Sürüyor | ✅ · §16: saniyede bir, sunucu saatiyle; saat ekleri |
+| G3 | Beklemede · krem | ✅ · §16: bekleme SUNUCUDA (112), etiket yalnız "BEKLEMEDE" |
 | **G4** | **Adisyon açık · "₺4.500 · Tahsil et"** | ❌ **SIRADAKİ** |
 | K1 | Kumanda · bekleniyor | ✅ (var olan kumanda) |
 | K2 | Kumanda · işlemde | ✅ (var olan kumanda) |
-| K3 | Adisyon · tahsilat | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor |
+| K3 | Adisyon · tahsilat | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor · §16: Kasa şeridinden de açılıyor |
 | K4 | Tahsilat · sunucu reddetti | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor |
-| P1 | İşletme | ✅ |
-| **P2** | **Ekip ekle kapısı** | ❌ |
-| C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) |
+| P1 | İşletme | ✅ · §16: "Ekip ekle · Tek kişilik çalışıyorsunuz" satırı |
+| P2 | Ekip ekle kapısı | ✅ · §16: göç 113 + ekran — **deploy bekliyor** |
+| C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) · §16: kişi adı yok, şerit tahsilatı açıyor |
 | **C2** | **Hareket satırı → Düzelt / Geri al** | ⏳ sunucu CANLIDA (111), arayüz `tek-kasa` dalında, bağlanmadı |
 | **C3** | **Tahsilatı düzelt** | ⏳ aynı |
 | R1 | Yeni randevu 1/2 | ✅ |
-| R2 | Yeni randevu 2/2 | ✅ |
+| R2 | Yeni randevu 2/2 | ✅ · §16: "kim" satırı yok, "boş yer yok" cümlesi |
 | T1 | Takvim · tek sütun | ✅ |
 | B1 | Gerçekten boş | ✅ |
-| B2 | Kapalı gün | ✅ |
+| B2 | Kapalı gün | ✅ · §16: "Yarın 09:00’da açıksınız." |
 | B3 | Yükleniyor (iskelet) | ✅ |
 | B4 | Okunamadı | ✅ |
-| S1 | Mod sorusu | ✅ |
+| S1 | Mod sorusu | ✅ · §16: v4 düzeni (marka, soru, iki eşit 66 pt düğme) |
 | S2 | İlk gün | ✅ |
-| S3 | İlk randevu · yeni hesap | ✅ |
+| S3 | İlk randevu · yeni hesap | ✅ · §16: eklenen hizmet dönüşte seçili |
 
-**Kalan dört ekran: G4, P2, C2, C3.** Hepsi Faz 3 ("para ve ekip").
+**Kalan üç ekran: G4, C2, C3.** Üçü de para.
 
 ---
 
@@ -239,8 +246,10 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 1. `Appt`'a `is_paid?: boolean | null` ekle — **isteğe bağlı**, aynı
    `staff_id` gibi; personel tarafındaki çağrıları bozmamak için.
 2. Gün okumasına sütunu geçir. İki yol var, **birincisi tercih**:
-   - (a) `fetchDayWithStamps` (`managerSource.ts:313`) `${RES_COLS}, updated_at`
-     seçiyor; oraya `is_paid` ekle → tek satır. ⚠️ `RES_COLS`
+   - (a) `fetchDayWithStamps` (`managerSource.ts:313`) `${RES_COLS}, updated_at,
+     wait_ends_at, wait_minutes` seçiyor (bekleme §16'da girdi); oraya
+     `is_paid` ekle → tek satır. `managerMap.toApptRaw` bekleme alanlarını
+     nasıl "sorulduysa koy" diye taşıyorsa `is_paid` de öyle. ⚠️ `RES_COLS`
      (`managerMap.ts:28`) **paylaşılan** bir sabit; onu değiştirmek bütün
      okumaları etkiler. Sütunu sabite değil, **o çağrının kendi listesine**
      ekle.
@@ -253,6 +262,8 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 4. `soloPanelAction`'a üçüncü dal: açık adisyon varsa
    `{ label: 'Tahsil et', tone: 'go', appointmentId }`. **Sıra önemli:**
    süren iş > açık adisyon > sıradaki. Sebep: süren işin dakikası akıyor.
+   Süren işin beklemesi varsa kart zaten BEKLEMEDE (`soloWaitPanel`, §16) —
+   o da "süren iş" sayılır, adisyon kartı onun önüne geçmez.
 5. Kart tutarı: `cashBuild`'in `serviceLines` + adisyon kalemleri formülü
    zaten var; `visit.collect`'in sunucudaki hesabıyla **aynı** olmalı
    (kalem = `price × qty`, kullanıcı kararı).
@@ -272,7 +283,51 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
+### 🔴 BEKLİYOR (2026-10-11 gece) — 112 + 113 + `staff-api`
+
+**Sıra zorunlu:** göçler önce. Yeni `staff-api`nin `RES_COLS`u
+`wait_ends_at`i soruyor; 112'siz `agenda` düşer ve kumanda açılmaz.
+Mağazadaki sürüm ikisinden de etkilenmiyor (yeni sütunları sormuyor, yeni
+fonksiyonu çağırmıyor). Deploy `main`'den yapılmalı — önce bu tur `main`'e
+alınmalı (kullanıcı kararı; §15'teki "canlıdaki kod main'de" kuralı).
+
+**0 · Ön kontrol** — ikisi de `0`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select (select count(*) from information_schema.columns where table_schema='public' and table_name='reservations' and column_name in ('wait_ends_at','wait_minutes')) || ' ' || (select count(*) from pg_proc where proname='start_team')\""
+```
+
+**1 · Kuru koşu** — iki göç + davranış testi TEK işlemde, sonunda hepsi
+geri sarılır. Son satırlar `tek v4 (112 + 113) regression: ok` ve
+`ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/112_bekleme_damgasi.sql; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/113_ekibe_gecis.sql; sed -e '/^BEGIN;$/d' supabase/tests/tek_v4_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göçler** (yalnız kuru koşu geçtiyse), sırayla:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/112_bekleme_damgasi.sql
+```
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/113_ekibe_gecis.sql
+```
+
+**3 · Deploy** (`_shared` değişmedi, adla deploy güvenli):
+
+```bash
+cd ~/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api
+```
+
+**4 · Doğrulama** (Claude çalıştırabilir): `staff-api` `OPTIONS` → 200;
+PostgREST'te anon anahtarıyla `start_team` → `42501` (var ve anon'a kapalı),
+olmayan bir RPC → `PGRST202`.
+
 ### ✅ YAPILDI (2026-10-11 akşam) — 111 + iki fonksiyon
+
+(Aşağıdaki komutlar 111 içindi; kalıp olarak duruyor.)
 
 Kullanıcı dört adımı sırayla çalıştırdı: ön kontrol `0`; kuru koşu
 `kasa düzeltme regression: ok` + `ROLLBACK` (üretim şemasında, iz yok); göç
@@ -522,7 +577,11 @@ biliyor.
 | Takvim sahipsiz randevuyu çizmiyor, Gün çiziyor | `columnize` `staff_id` boş satırı süzüyor; düzeltmesi müdür takvimini de etkiler. Fark alt başlıkta **söyleniyor**, sessiz değil |
 | `VoidBlock` yatay dolgu 18, v4'te 26 | Paylaşılan bileşen; 8 pt için çatallanmaz |
 | `DayHeader` 42 pt, v4'te 44 | aynı sebep |
-| "Yeni hizmet ekle" dönüşte hizmeti seçmiyor | Hizmetler ekranının geri bildirmesi gerekiyor |
+| G3 etiketi yalnız "BEKLEMEDE", v4 "BEKLEMEDE · KREM" | **Kullanıcı kararı (§16):** kumanda neyin beklendiğini bilmiyor, yalnız süre soruyor; ad uydurulmaz. Kumanda değişmedi |
+| R2'nin düğme metni canlıdaki gibi | v4 notu "canlıyla karşılaştırılmalı" diyor; değiştirilmedi |
+| Ekipte sahibin personel satırı işletmenin adını taşıyor | 108 kayıtta kişinin adını sormuyor; v4 P2 de sormuyor. Ekip takviminde sahibin sütunu salonun adıyla görünür — **kullanıcıya soruldu** (§16) |
+| Ekipten tek kişiliğe dönüş yolu yok | 113 bilerek yapmadı (karar 2: "önerilir, zorlanmaz"). S1'in "Sonradan İşletme’den değiştirebilirsiniz" cümlesi YALNIZ "Yalnız ben" yönünde doğru — **kullanıcıya soruldu** (§16) |
+| Personel sayfasında "Personel eklemek bilgisayardan" cümlesi | v4 P2 notu "müdür modunda da kalkmalı" diyor; ekipte telefondan personel ekleme formu yok, cümle o gelince kalkar |
 | Masaüstü `cashBuild.adisyonLines` adetle çarpmıyor, telefon çarpıyor | **Kullanıcı kararı:** ekranda görünen (fiyat × adet) tahsil edilir. Masaüstünün kendi borcu |
 
 ### 🟡 Kullanıcının kararını bekleyen tek madde
@@ -624,6 +683,9 @@ cd /Users/furkanulger/Projects/luera-timeflow && node --test tests/tek-*.test.mj
 8. `tests/tek-tahsilat.test.mjs` — para akışının kuralları, sebepleriyle
 9. `supabase/111_kasa_duzeltme_izi.sql` başlığı + `tests/tek-kasa-izi.test.mjs`
    — düzeltme / geri alma izinin kuralları
+10. `supabase/112_bekleme_damgasi.sql`, `supabase/113_ekibe_gecis.sql`,
+    `supabase/tests/tek_v4_regression.sql` ve `tests/tek-v4-ikinci-tur.test.mjs`
+    — §16'nın kuralları
 
 ---
 
@@ -704,3 +766,82 @@ Roller (`SET ROLE authenticated`), RLS ve DEFINER fonksiyonlar çalışıyor.
 `handle_new_user`, `auth.uid()`, `auth_user_org_ids`, tablolar, politikalar,
 fonksiyonlara açık varsayılan EXECUTE) + 061'in GERÇEK fonksiyonları + 111 +
 regresyon testi. Taslak üretim değil: son söz her zaman §6'daki kuru koşu.
+
+---
+
+## 16 · 2026-10-11 GECE TURU — DENETİMİN ON BİR EKSİĞİ + P2
+
+Kullanıcı: "G2, G3, Hafta şeridi, Gün sekmesinin ikonu, B2, K3, C1, R2, P1,
+S1, S3 bunları yap." Kararlar (soru aracıyla):
+- **P2 de yapılsın** — P1'in satırı ve S1'in "Sonradan İşletme’den
+  değiştirebilirsiniz" cümlesi ancak onunla doğru oluyor.
+- **G3 etiketi yalnız "BEKLEMEDE"** — v4'teki "· KREM" uydurulmaz, kumanda
+  değişmez.
+
+### Ne yapıldı
+
+| Kod | Değişiklik | Nerede |
+|---|---|---|
+| G2 | Sayaç süren iş varken saniyede bir, **sunucu saatiyle** (`clockOffset`); "16:00’da biter" / "14:00’e kadar" — sabit ekler yarı yarıya yanlıştı (`clockDative` yeni). Müdür ekranı da aynı dosyayı kullanıyor, o da düzeldi | `tek/index.tsx`, `staffDay.ts`, `text.ts`, `managerCalendarDay.ts` |
+| G3 | Bekleme artık SUNUCUDA (göç 112, `visit.wait`). Kumandanın halkası yine yerel ve internetsiz döner; yazma arkadan gider (kuyruksuz), sunucunun bitişi benimsenir. Aynı telefondaki niyet `waitIntent` ile Gün'e taşınır. Gün kartı BEKLEMEDE (kehribar, nabızsız, kalan dakika). Kumanda yeniden açılınca halka geri kurulur; bitişte sunucu temizler | `waitIntent.ts`, `soloDay.ts · soloWaitPanel`, `kumanda.tsx`, `visitWrite.ts`, `staff.ts`, `staff-api` |
+| Şerit | Gün personelin şeridini kullanıyor; kapalı günler soluk ve noktasız (tek kişilik Takvim'de de). Gün okunamadıysa hiçbiri soluk değil | `StaffWeekStrip`, `CalendarParts.WeekStrip · offDays`, `managerCalendarDay.offDays` |
+| İkon | Gün sekmesi güneş (`sun.max`) — personel Bugün'ün sembolü | `tek/_layout.tsx` |
+| B2 | Kapalı günün ipucu açılışı söylüyor: "Yarın 09:00’da açıksınız." ("Yarın" yalnız bugün seçiliyken; yolda bilinmeyen gün varsa cümle yok) | `createLive.nextOpenAfter`, `soloDay.openingSentence` |
+| K3 · C1 | Kasa'nın turuncu şeridi tek kişilikte tahsilatı açıyor: tek adisyon doğrudan kumandada, çoksa liste (`PendingTicketsSheet`). Dünden kalan adisyon kendi gününde açılıyor (`useVisit(id, date)`). Hareketlerde kişi adı yok (yalnız ekranda; `cash.ts` değişmedi → `tek-kasa` ile çakışma yok). Geri oku "Kasa" diyor | `cash.tsx`, `managerFlow.pendingTickets/pendingTicketLine`, `flowBuild.ts`, `kumanda.tsx` |
+| R2 | "… yapacak · Değiştir" satırı ve ray okumasındaki kişi adı yok; seçili blok "Müşteri · Hizmet"; gün sığmıyorsa düğme "Bu gün 60 dk’lık boş yer yok" | `ApptParts.tsx`, `CreateFlow.tsx`, `createFlow.actionLabel/slotSpeech` |
+| S3 | "Yeni hizmet ekle" dönüşünde TEK yeni hizmet seçili geliyor (on dakika içinde; risk kuralı kapatıyorsa seçilmiyor); ilk hizmet ipucu satırın altında | `CreateFlow.tsx` |
+| P1 | İşletme'de Personel'in yerinde "Ekip ekle · Tek kişilik çalışıyorsunuz" | `mudur/profile.tsx` |
+| P2 | Göç 113 `start_team(ad, meslek)`: personel satırı + `solo=false` TEK işlemde, INVOKER (RLS + abonelik kapısı aynen), rol 058'in kuralıyla, renk paletin kullanılmayan ilki. Ekran v4 metinleriyle; başarıda müdür kabuğuna geçiş. "Zaten ekip" cevabı kaybolmuş bir başarı olabilir — aynı adla çalışan varsa başarı sayılıyor | `113_ekibe_gecis.sql`, `profil/ekip-ekle.tsx`, `auth.ts · startTeam`, `authStub.ts`, `session.ts`, `authCopy.ts` |
+| S1 | Kayıttaki soru v4 düzeninde: marka (44), "Bu işletmede işi kim yapıyor?", iki EŞİT 66 pt ikincil düğme (`AuthActionButton kind="tall"`) | `signup/ready.tsx`, `ui.tsx`, `tokens.ts` |
+
+### Bulunan ve düzeltilen eski hata (108'den)
+
+**Karşılamadaki "Solo" kapısının niyeti hazır ekranına HİÇ ulaşmıyordu.**
+Hesap adımı taslağı sıfırdan yazıyor (niyet siliniyor), kurulumun sonu da
+taslağı siliyordu — hazır ekranı okuduğunda niyet yoktu ve Solo'dan gelene
+soru yeniden soruluyordu. "Mod bir daha sorulmuyor" dalı ölüydü; testi yalnız
+kaynak metnine bakıyordu. Şimdi: niyet hesap ve işletme adımlarında korunuyor,
+taslak modun YAZILDIĞI anda siliniyor, "Yeni işletme oluştur" niyeti
+sıfırlıyor (yarım bir Solo kaydının niyeti oradan girene geçmesin). Solo
+dalının listesinden "Personelinizi ekleyin" çıktı.
+
+### Küçük düzeltmeler
+
+- Tek kişilik kabuk da geri kaydırmıyor (`app/_layout.tsx` · `gestureEnabled:
+  false`) — ekibe geçişte kabuk değişiyor.
+- `pendingOf`'un yorum bloğu yerinden kaymıştı; geri kondu.
+
+### Kanıt
+
+- **Yerel gerçek Postgres (PGlite):** iki göç iki kez uygulanıyor
+  (idempotent), regresyon testi geçiyor, kuru koşu iz bırakmıyor, abonelik
+  kapalıyken `start_team` `42501` dönüp bayrağı düşürmüyor (istemci bunu
+  "abonelik" diye okuyor). **On koruma tek tek söküldü, test her birinde
+  doğru hatayla düştü** (zaten-ekip kapısı, bayrak, rol sırası, palet,
+  kırpma, uzunluk, REVOKE, DEFINER, 112'nin şekli ve üst sınırı).
+- **Node:** yeni `tests/tek-v4-ikinci-tur.test.mjs` (33 test); yedi saf
+  korumada mutasyon denetimi — yedisinde de düştü. Eski davranışı kodlayan
+  14 test YENİ davranışa taşındı, gevşetilmedi.
+- Telefonda HENÜZ görülmedi (Expo Go): önce 112 uygulanmalı (§0).
+
+### Açık konular (kullanıcıya soruldu)
+
+1. **Ekipte sahibin satırının adı** — salonun adıyla görünecek (108 kayıtta
+   kişinin adını sormuyor, v4 P2 de sormuyor). Seçenek: P2'ye "Sizin adınız"
+   alanı ya da Personel sayfasında düzenleme.
+2. **S1 cümlesi yarı doğru** — "Ekibim var" diyenin tek kişiliğe dönüş yolu
+   yok. Ya cümle daraltılır ya İşletme'ye bir dönüş kapısı açılır.
+3. **Personel sayfasının "bilgisayardan" cümlesi** — ekipte telefondan
+   personel ekleme formu gelince kalkar (v4 P2 notu).
+
+### Dersler
+
+- **Kaynak metnine bakan test, ölü bir dalı yakalamaz.** Solo niyetinin testi
+  "ekran taslağı okuyor mu" diye bakıyordu; taslağın oraya ulaşıp ulaşmadığına
+  bakan yoktu. Yeni test veri yolunun üç halkasını da kilitliyor.
+- **`pg_temp` yardımcıları `SET ROLE authenticated` altında çağrılamıyor.**
+  Kullanıcı adına yapılan ret denetimleri `DO` bloğunda `EXCEPTION WHEN
+  OTHERS` ile yazılıyor (SQLSTATE + metin birlikte denetleniyor).
+- **İmza değişince testin argüman sırası da değişir:** `soloEmptyCopy`'ye
+  fazladan bir argüman, açılış cümlesini "NaN:NaN" yaptı — test yakaladı.
+

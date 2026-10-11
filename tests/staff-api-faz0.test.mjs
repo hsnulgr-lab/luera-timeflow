@@ -45,7 +45,8 @@ test('kapı YALNIZ yazma uçlarında', () => {
      * içerik yazması, `visit.items`/`visit.formula`nın komşusu.
      * `visit.collect` (108, 2026-10-11) PARA yazması: kuyruğa girmiyor ama
      * kapıya giriyor, çünkü kullanıcının iki kez dokunması kuyruktan
-     * bağımsız bir risk.
+     * bağımsız bir risk. `visit.wait` (112) aynı gerekçeyle: aynı isteğin
+     * ikinci gelişi beklemenin bitişini kaydırmamalı.
      *
      * Küme SATIR SATIR yazılı okunuyor: listenin kendisi sözleşme ve bir
      * uç sessizce eklenip kapının dışında kalmamalı.
@@ -54,6 +55,7 @@ test('kapı YALNIZ yazma uçlarında', () => {
     const actions = [...block.matchAll(/'([a-z.]+)'/g)].map((m) => m[1]);
     assert.deepEqual(actions.sort(), [
         'visit.collect', 'visit.finish', 'visit.formula', 'visit.items', 'visit.note', 'visit.start',
+        'visit.wait',
     ]);
     // Okuma uçları kapıya GİRMEMELİ: kayıtlı bir yanıtı dönmek, bayat veriyi
     // taze gibi göstermek olurdu.
@@ -85,9 +87,9 @@ test('kütüğe YALNIZ başarılı yazma giriyor', () => {
 
 test('altı yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
     const writes = api.slice(api.indexOf("action === 'visit.start'"), api.indexOf("action === 'catalog'"));
-    assert.equal((writes.match(/return await done\(/g) ?? []).length, 9,
-        'visit.start 3 + visit.note 1 + visit.items 1 + visit.formula 1 + visit.finish 1 '
-        + '+ visit.collect 2 (yeni kayıt ve "zaten tahsil edilmiş")');
+    assert.equal((writes.match(/return await done\(/g) ?? []).length, 10,
+        'visit.start 3 + visit.wait 1 + visit.note 1 + visit.items 1 + visit.formula 1 '
+        + '+ visit.finish 1 + visit.collect 2 (yeni kayıt ve "zaten tahsil edilmiş")');
     assert.doesNotMatch(writes, /return json\(\{\s*ok: true/,
         'yazma ucunda kütükten geçmeyen bir başarı yanıtı kalmamalı');
 });
@@ -133,7 +135,7 @@ test('items_stale GÜNCEL LİSTEYİ geri veriyor', () => {
 test('damga İSTEĞE BAĞLI — bugün sahadaki istemci kırılmıyor', () => {
     const items = api.slice(api.indexOf("action === 'visit.items'"), api.indexOf("action === 'visit.formula'"));
     assert.match(items, /typeof body\.expectedUpdatedAt === 'string' && body\.expectedUpdatedAt\s*\n\s*\? body\.expectedUpdatedAt\s*\n\s*: null/);
-    assert.match(api, /'service_ended_at, adisyon_items, is_paid, formula, updated_at'/,
+    assert.match(api, /'service_ended_at, adisyon_items, is_paid, formula, updated_at, wait_ends_at, wait_minutes'/,
         'damga dönmezse istemci onu hiç öğrenemez');
 });
 

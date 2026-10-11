@@ -112,7 +112,10 @@ test('takvim ızgarayı SALONUN saatleriyle çiziyor', () => {
     assert.match(screen, /hourRange\(appointments, data\.open\)/);
     const day = code('src/lib/managerCalendarDay.ts');
     // Salon + personel saatleri — randevu oluşturmanın boş saat kaynağıyla aynı.
-    assert.match(day, /const open = dayWindowOf\(/);
+    // Aynı pencere haftanın kapalı günlerini ve bir sonraki açılışı da veriyor
+    // (v4 · hafta şeridi, B2): üç cevap tek kuraldan.
+    assert.match(day, /const windowOn = \(iso: string\) => dayWindowOf\(members, hours\?\.raw \?\? null, iso\);/);
+    assert.match(day, /const open = windowOn\(dateISO\);/);
     // Saat okunamazsa takvim "okunamadı"ya düşmüyor.
     assert.match(day, /fetchHoursRow\(\)\.catch\(\(\) => null\)/);
 });

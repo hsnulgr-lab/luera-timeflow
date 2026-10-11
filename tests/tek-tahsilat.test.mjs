@@ -123,7 +123,10 @@ test('İKİ KEZ tahsil edilmiyor — iki ayrı kapı', () => {
      */
     assert.match(endpoint, /\.eq\('reservation_id', res!\.id\)/);
     assert.match(endpoint, /if \(existing\) \{\s*return await done\(\{ ok: true, alreadyCollected: true/);
-    assert.match(fn, /'visit\.collect',\n\s*\]\);/, 'idempotens listesine girmemiş');
+    // Kümenin SON elemanı olması gerekmiyor (112 ardından `visit.wait`i ekledi);
+    // gereken, kümenin içinde olması.
+    const gate = fn.slice(fn.indexOf('const WRITE_ACTIONS'), fn.indexOf(']);', fn.indexOf('const WRITE_ACTIONS')));
+    assert.match(gate, /'visit\.collect',/, 'idempotens listesine girmemiş');
 });
 
 test('SIFIR tutar kaydı AÇILMIYOR', () => {

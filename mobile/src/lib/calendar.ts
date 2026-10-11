@@ -51,6 +51,13 @@ export interface Appt {
     arrived_at: string | null;
     service_ended_at: string | null;
     info?: ApptInfo | null;
+    /**
+     * Süren işin beklemesi (112 · v4 G3): bitiş anı SUNUCUNUN saatiyle ve
+     * kurulan dakika. İsteğe bağlı — yalnız Gün okuması soruyor; personel ve
+     * takvim çağrıları bu alanı hiç taşımıyor.
+     */
+    wait_ends_at?: string | null;
+    wait_minutes?: number | null;
 }
 
 export type CardState = 'live' | 'due' | 'plain';

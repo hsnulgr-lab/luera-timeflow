@@ -23,7 +23,11 @@ test('bulunamayan randevu BAŞKA randevu açmıyor', () => {
     // kişiye yazılır, formül o kişinin dosyasına düşerdi.
     assert.ok(!screen.includes('?? list[1]'), 'yedek randevu kalmamalı');
     assert.ok(!screen.includes('demoAgenda('), 'ekran sahte ajandayı çağırmamalı');
-    assert.match(screen, /useVisit\(params\.id\)/);
+    // Gün de parametre: Kasa'nın şeridi DÜNDEN kalan adisyonu da açıyor (v4
+    // C1) ve o randevu bugünün ajandasında yok. Verilmeyince bugün.
+    assert.match(screen, /useVisit\(params\.id, params\.date \|\| undefined\)/);
+    assert.match(visit, /const today = date \|\| todayISO\(\);/);
+    assert.match(visit, /\}, \[anchor, id, date\]\);/);
     assert.match(visit, /const row = list\.find\(\(item\) => item\.id === id\);/);
     assert.match(visit, /row: row \? toVisit\(row\) : null/);
 });

@@ -116,13 +116,23 @@ function toVisit(row: Appointment): DemoAppointment {
         // ama buradan geçmiyordu: kumanda formülü yerel bir depoda tutuyor ve
         // uygulama kapanınca kaybediyordu.
         formula: row.formula,
+        wait_ends_at: row.wait_ends_at ?? null,
+        wait_minutes: row.wait_minutes ?? null,
     };
 }
 
 /** Kumandanın ziyareti de `agenda` ucundan besleniyor: tek tablo. */
 const LIVE_TABLES = ['reservations'] as const;
 
-export function useVisit(id: string | undefined): VisitSnapshot {
+export function useVisit(
+    id: string | undefined,
+    /**
+     * Ziyaretin GÜNÜ — verilmezse bugün. Kasa'nın turuncu şeridi dünden
+     * kalan bir adisyonu da açabiliyor (v4 · C1); o ziyaret bugünün
+     * ajandasında yok ve gün verilmeseydi "bulunamadı" olurdu.
+     */
+    date?: string,
+): VisitSnapshot {
     const [state, setState] = useState<VisitState>('loading');
     const [visit, setVisit] = useState<DemoAppointment | null>(null);
     /** BENİMSENEN damga — yazarken sunucuya geri gidecek olan. */
@@ -150,7 +160,7 @@ export function useVisit(id: string | undefined): VisitSnapshot {
      * çekilmiyor ve kilit sessizce yeni damgaya kaymıyor.
      */
     const read = useCallback((visible: boolean, adopt: boolean) => {
-        const today = todayISO();
+        const today = date || todayISO();
         const load: Promise<{ row: DemoAppointment | null; stamp: string | null }> = LIVE_AUTH
             ? api.agenda(today).then((data) => {
                 const list = (data as { appointments?: Appointment[] }).appointments ?? [];
@@ -186,7 +196,7 @@ export function useVisit(id: string | undefined): VisitSnapshot {
                 // randevu değildir.
                 if (visible) setState('error');
             });
-    }, [anchor, id]);
+    }, [anchor, id, date]);
 
     useEffect(() => { void read(true, true); }, [read]);
 

@@ -15,6 +15,7 @@ import { forgetOrg } from '../../src/lib/managerSource';
 import {
     createAppointment, fireCreatedWebhook, sendConfirmation,
 } from '../../src/lib/managerWrite';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { useManagerDay } from '../../src/state/managerDay';
 import { useTheme } from '../../src/theme';
 
@@ -58,6 +59,7 @@ export default function ManagerCreateTab() {
 
 function CreateTabBody() {
     const { c } = useTheme();
+    const solo = useInSoloShell();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { add, dateISO: flowDay } = useManagerDay();
@@ -179,6 +181,9 @@ function CreateTabBody() {
                  * yeniden okuyor).
                  */
                 onAddService={() => router.push('/(manager-flow)/profil/hizmetler')}
+                // Tek kişilik kabuk: "kim yapacak" yok (v4 · R2). Kabuk
+                // rotadan okunuyor; ekran iki kabukta da bu dosya.
+                solo={solo}
                 topInset={insets.top}
                 bottomInset={insets.bottom}
                 prefill={{

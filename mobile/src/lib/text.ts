@@ -114,6 +114,26 @@ export function clockLocative(time: string): string {
 }
 
 /**
+ * Saatin yönelme hâli: "14:00’e", "09:00’a", "12:00’ye", "16:30’a".
+ *
+ * `clockLocative` ile aynı kural — ek SÖYLENEN son sayıya uyar — ama iki
+ * ekli (a/e) ve ünlüyle biten sayıya kaynaştırma "y"si giriyor ("iki" →
+ * "12:00’ye", "altı" → "16:00’ya"). Biçim dışı metin eksiz döner.
+ */
+export function clockDative(time: string): string {
+    const match = /^(\d{2}):(\d{2})$/.exec(time);
+    if (!match) return time;
+    const minute = Number(match[2]);
+    const n = minute === 0 ? Number(match[1]) : minute;
+    // bir iki üç dört beş altı yedi sekiz dokuz
+    const units = ['a', 'e', 'ye', 'e', 'e', 'e', 'ya', 'ye', 'e', 'a'];
+    // sıfır on yirmi otuz kırk elli
+    const tens = ['a', 'a', 'ye', 'a', 'a', 'ye'];
+    const suffix = n % 10 === 0 ? tens[n / 10] : units[n % 10];
+    return `${time}${APOSTROPHE}${suffix}`;
+}
+
+/**
  * Belirtme hâli: "Selin’i", "Merve’yi", "Kaan’ı", "Gül’ü".
  *
  * Dört ekli (ı/i/u/ü) — hem kalınlık hem düzlük sorulur.

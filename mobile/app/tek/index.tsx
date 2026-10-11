@@ -4,10 +4,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DayHeader, WeekStrip } from '../../src/components/CalendarParts';
+import { DayHeader } from '../../src/components/CalendarParts';
 import { DurumBlock } from '../../src/components/Durum';
 import { VoidBlock } from '../../src/components/EmptyDayParts';
 import { SoloAppointmentCard, SoloDaySkeleton, SoloNowLine } from '../../src/components/SoloDayParts';
+import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import {
     StaffHeroPanelCard,
     StaffListHeaderView,
@@ -18,9 +19,10 @@ import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
-    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloPanelAction,
+    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloPanelAction, soloWaitPanel,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
+import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { glow, soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
 /**
@@ -28,7 +30,7 @@ import { glow, soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme
  *
  * Üç mevcut ekranın harmanı, yeni bir tasarım değil:
  *
- *   • Başlık ve hafta şeridi — personel "Bugün" (`DayHeader`, `WeekStrip`)
+ *   • Başlık ve hafta şeridi — personel "Bugün" (`DayHeader`, `StaffWeekStrip`)
  *   • Hâl kartı — Müdür 24 "bir personelin günü" (`StaffHeroPanelCard`)
  *   • Boş gün — Müdür 22 boş hâl gövdesi (`VoidBlock`), cümlesi tek kişilik
  *   • Gün hesabı — `buildStaffDayState`, personel günüyle AYNI işlev
@@ -65,19 +67,43 @@ export default function SoloDay() {
     const { state, data, refusal, reload } = useManagerCalendarDay(selectedISO);
     const days = useMemo(() => weekDays(selectedISO), [selectedISO]);
 
-    /*
-     * Dakika başı ilerliyor. Saniyede bir değil: ekrandaki her şey dakika
-     * çözünürlüğünde (şimdi çizgisi, geçmiş/gelecek ayrımı) ve saniyelik
-     * yeniden çizim bedava değil.
-     */
-    const [nowMinutes, setNowMinutes] = useState(() => nowInMinutes());
-    useEffect(() => {
-        const id = setInterval(() => setNowMinutes(nowInMinutes()), 30_000);
-        return () => clearInterval(id);
-    }, []);
-
     const isToday = selectedISO === todayISO();
     const dayKnown = state === 'ok';
+
+    /*
+     * SÜREN İŞ — sayacın ve BEKLEMEDE kartının kaynağı.
+     *
+     * `buildStaffDayState` de aynı satırı buluyor, ama sayacın hızını o
+     * hesaptan ÖNCE bilmek gerekiyor: süren iş varken ekran saniyede bir,
+     * yokken yarım dakikada bir çiziliyor.
+     */
+    const runningRow = useMemo(
+        () => (isToday
+            ? data.rows.find((row) => row.status !== 'cancelled' && Boolean(row.arrived_at) && !row.service_ended_at) ?? null
+            : null),
+        [data.rows, isToday],
+    );
+
+    /*
+     * Saat iki hızda ilerliyor (v4 · G2).
+     *
+     * Süren iş varken SANİYEDE BİR: kart "74:12" diyor ve saniye basamağı
+     * donarsa sayaç durmuş görünür. Eskiden okuma anındaki dakika veriliyordu;
+     * saniye hep ":00"dı ve sayı bir sonraki okumaya kadar kıpırdamıyordu.
+     * Süren iş yokken yarım dakikada bir: ekrandaki her şey dakika
+     * çözünürlüğünde ve saniyelik yeniden çizim bedava değil.
+     */
+    const [deviceNow, setDeviceNow] = useState(() => Date.now());
+    const [nowMinutes, setNowMinutes] = useState(() => nowInMinutes());
+    useEffect(() => {
+        const id = setInterval(() => {
+            setDeviceNow(Date.now());
+            setNowMinutes(nowInMinutes());
+        }, runningRow ? 1_000 : 30_000);
+        return () => clearInterval(id);
+    }, [runningRow]);
+    /** Sunucunun saati — sayaç cihaz saatiyle değil bununla ilerliyor. */
+    const serverNow = deviceNow + data.clockOffset;
 
     /*
      * Tek kişilik işletmede kadro TEK satır. Yine de `[0]` değil, "aktif
@@ -103,10 +129,26 @@ export default function SoloDay() {
         [data.rows, me?.id],
     );
 
+    /*
+     * Geçen süre `arrived_at`ten, SUNUCU saatiyle. Okuma anındaki dakikayı
+     * vermek saniyeyi kaybediyordu; aynı damga kumandada da sayacın kaynağı.
+     */
+    const elapsedSeconds = runningRow?.arrived_at
+        ? Math.max(0, (serverNow - Date.parse(runningRow.arrived_at)) / 1000)
+        : 0;
+
     const dayState = useMemo(
-        () => (me ? buildStaffDayState(me, mine, data.presence, nowMinutes, (me.minutes ?? 0) * 60, '', selectedISO) : null),
-        [me, mine, data.presence, nowMinutes, selectedISO],
+        () => (me ? buildStaffDayState(me, mine, data.presence, nowMinutes, elapsedSeconds, '', selectedISO) : null),
+        [me, mine, data.presence, nowMinutes, elapsedSeconds, selectedISO],
     );
+
+    /*
+     * BEKLEMEDE (v4 · G3) — süren işin beklemesi sürüyorsa kart onu
+     * anlatıyor. Bu telefonda kumandanın son niyeti varsa o (sinyal yokken
+     * kurulan bekleme de görünsün), yoksa sunucunun damgası.
+     */
+    const wait = runningRow ? activeWait(runningRow, waitIntentOf(runningRow.id), serverNow) : null;
+    const panel = soloWaitPanel(dayState?.runningAppointment ?? null, wait, serverNow) ?? dayState?.panel ?? null;
 
     /*
      * GÜN GERÇEKTEN BOŞ MU?
@@ -215,10 +257,23 @@ export default function SoloDay() {
 
             <View style={{ flex: 1, paddingTop: insets.top }}>
             <DayHeader dateISO={selectedISO} subtitle={subtitle} transparent />
-            <WeekStrip
-                days={days}
+            {/*
+              * PERSONEL "BUGÜN"ÜN ŞERİDİ (v4 · G1: "personel-01/07'nin
+              * ölçüsünde; şeritte bugün turuncu noktalı, pazar kapalı gün
+              * olarak soluk").
+              *
+              * Takvimin şeridi (`WeekStrip`) "bugün" ile "seçili"yi ayırmıyor;
+              * personelinki ayırıyor. Kapalı günler `open` ile aynı kaynaktan
+              * (tek kişilik Takvim'in şeridi de aynı listeyi alıyor) — gün
+              * okunamadıysa hiçbiri soluk çizilmiyor: bilinmeyen gün kapalı
+              * gün değil.
+              */}
+            <StaffWeekStrip
+                days={days.map((day) => day.date)}
+                todayISO={todayISO()}
                 selectedISO={selectedISO}
                 counts={data.counts}
+                offDays={dayKnown ? data.offDays : undefined}
                 onSelect={setSelectedISO}
             />
 
@@ -278,7 +333,7 @@ export default function SoloDay() {
                 {dayEmpty ? (
                     <View style={{ paddingTop: soloDayMetrics.voidTop }}>
                         <VoidBlock
-                            copy={soloEmptyCopy(selectedISO, todayISO(), data.open, serviceCount)}
+                            copy={soloEmptyCopy(selectedISO, todayISO(), data.open, serviceCount, data.nextOpen)}
                             isToday={isToday}
                             nowMinutes={nowMinutes}
                         />
@@ -293,10 +348,10 @@ export default function SoloDay() {
                   * 09:30'a kadar" yazıyordu — o gün çoktan yaşandı ve
                   * ekranın anlattığı an hiç var olmadı.
                   */}
-                {!dayEmpty && isToday && dayState?.panel ? (
+                {!dayEmpty && isToday && panel ? (
                     <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
                         <StaffHeroPanelCard
-                            panel={dayState.panel}
+                            panel={panel}
                             action={panelAction ? {
                                 label: panelAction.label,
                                 tone: panelAction.tone,
