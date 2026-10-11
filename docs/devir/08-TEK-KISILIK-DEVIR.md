@@ -1,14 +1,14 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` — `main`'in bir commit önünde, **push yok**
+**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` — `main`'in önünde, **push yok** (§6 ⚠️)
 **Testler:** 2818 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
 > **2026-10-11 gece turu (§16):** denetimin bulduğu on bir eksik kapandı
 > (G2, G3, hafta şeridi, Gün'ün ikonu, B2, K3, C1, R2, P1, S1, S3) ve
 > kullanıcı kararıyla **P2 (ekibe geçiş)** de yapıldı. İki yeni göç: **112**
-> (bekleme damgası) ve **113** (`start_team`). Yerelde gerçek Postgres'te
-> sınandı. **🔴 DEPLOY BORCU VAR** (§6): 112 + 113 kuru koşu → uygula →
-> `staff-api`. Yeni mobil kodun gün okuması 112 olmadan DÜŞER.
+> (bekleme damgası) ve **113** (`start_team`). **İkisi de CANLIDA, `staff-api`
+> deploy edildi ve doğrulandı** (§6). ⚠️ Canlıdaki `staff-api` `tek-kisilik`
+> dalından (`aeb158d`); `main` geride — ileri sarma + push kullanıcıya soruldu.
 >
 > **2026-10-11 akşam turu (§15):** 111 canlıda; `staff-api` ve
 > `whatsapp-booking` deploy edildi ve doğrulandı.
@@ -22,11 +22,12 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **🔴 Deploy borcu VAR** (§6): göç 112 + 113 (önce kuru koşu), sonra
-   `staff-api`. Sıra zorunlu. **Expo Go ile telefonda denemeden ÖNCE 112
-   uygulanmalı** — yeni kodun Takvim / Gün / personel günü okuması
-   `wait_ends_at`i soruyor ve sütun yoksa "okunamadı"ya düşer. Tahsilatın
-   telefonda denenmesi hâlâ bekliyor.
+2. **Deploy borcu yok** (§6, 2026-10-11 gece): 112 + 113 canlıda,
+   `staff-api` deploy edildi. ⚠️ Ama canlı `staff-api` = `tek-kisilik`
+   (`aeb158d`) ve `main` GERİDE: biri `main`'den `staff-api` deploy ederse
+   `visit.wait` canlıdan silinir. İleri sarma + push kullanıcının kararı.
+   Telefonda deneme (Expo Go) artık yapılabilir; tahsilat da hâlâ
+   telefonda denenmedi.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -283,13 +284,36 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### 🔴 BEKLİYOR (2026-10-11 gece) — 112 + 113 + `staff-api`
+### ✅ YAPILDI (2026-10-11 gece) — 112 + 113 + `staff-api`
 
-**Sıra zorunlu:** göçler önce. Yeni `staff-api`nin `RES_COLS`u
+Kullanıcı beş adımı sırayla çalıştırdı: ön kontrol `0 0`; kuru koşu
+`tek v4 (112 + 113) regression: ok` + `ROLLBACK` (üretim şemasında, iz yok;
+fikstür org'ları `handle_new_user`'ın gerçek tetikleyicisiyle açılıp geri
+sarıldı); 112 `COMMIT`; 113 `COMMIT`; `staff-api` deploy. Göçteki tek NOTICE
+(`constraint "reservations_wait_shape" … does not exist, skipping`) ilk
+kurulumda `DROP … IF EXISTS`in beklenen sesi.
+
+**Doğrulama (Claude, yan etkisiz istekler):**
+- 18/18 edge function `OPTIONS` → 200; olmayan bir ad → 500 (ölçüm ayırt ediyor).
+- `staff-api` `visit.wait` jetonsuz → `invalid_token` (kapı yerinde).
+- PostgREST, anon anahtarıyla: `start_team` → `42501 permission denied` —
+  şema önbelleğinde VAR ve anon'a KAPALI; olmayan RPC → `PGRST202`.
+- `reservations?select=wait_ends_at,wait_minutes` → 200 (RLS, anon'a satır
+  vermiyor); olmayan sütun → `42703`. 112'nin sütunları yerinde.
+- Deploy logundaki `remind` "wall clock duration warning / early
+  termination" satırları yeniden başlatmadan ÖNCEKİ kaba ait ve iş bitmiş
+  (`errors=0` satırı uyarıdan önce): bu deploy'la ilgisiz.
+
+⚠️ **Deploy `tek-kisilik`ten yapıldı** (çalışma ağacı `aeb158d`); `main`
+`a4540ae`'de kaldı. §15'teki kural ("canlı sunucu kodu = `main`") yeniden
+sağlanmak için `main` `aeb158d`'ye ileri sarılmalı — kullanıcıya soruldu.
+
+Aşağıdaki komutlar kalıp olarak duruyor.
+
+**Sıra zorunluydu:** göçler önce. Yeni `staff-api`nin `RES_COLS`u
 `wait_ends_at`i soruyor; 112'siz `agenda` düşer ve kumanda açılmaz.
 Mağazadaki sürüm ikisinden de etkilenmiyor (yeni sütunları sormuyor, yeni
-fonksiyonu çağırmıyor). Deploy `main`'den yapılmalı — önce bu tur `main`'e
-alınmalı (kullanıcı kararı; §15'teki "canlıdaki kod main'de" kuralı).
+fonksiyonu çağırmıyor).
 
 **0 · Ön kontrol** — ikisi de `0`:
 
@@ -822,7 +846,11 @@ dalının listesinden "Personelinizi ekleyin" çıktı.
 - **Node:** yeni `tests/tek-v4-ikinci-tur.test.mjs` (33 test); yedi saf
   korumada mutasyon denetimi — yedisinde de düştü. Eski davranışı kodlayan
   14 test YENİ davranışa taşındı, gevşetilmedi.
-- Telefonda HENÜZ görülmedi (Expo Go): önce 112 uygulanmalı (§0).
+- Canlıda: 112 + 113 + `staff-api` (§6, doğrulandı). Telefonda HENÜZ
+  görülmedi (Expo Go).
+- ⚠️ P2'yi gerçek hesapta DENEME: ekipten tek kişiliğe dönüş yolu yok; bir
+  deneme hesabı (Solo kapısından yeni kayıt) kullanılmalı — aynı kayıt
+  Solo niyeti düzeltmesini de sınar.
 
 ### Açık konular (kullanıcıya soruldu)
 
