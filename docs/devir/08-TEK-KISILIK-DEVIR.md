@@ -1,14 +1,14 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` — `main`'in önünde, **push yok** (§6 ⚠️)
+**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` = `main` (ileri sarıldı, ikisi de GitHub'da)
 **Testler:** 2818 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
 > **2026-10-11 gece turu (§16):** denetimin bulduğu on bir eksik kapandı
 > (G2, G3, hafta şeridi, Gün'ün ikonu, B2, K3, C1, R2, P1, S1, S3) ve
 > kullanıcı kararıyla **P2 (ekibe geçiş)** de yapıldı. İki yeni göç: **112**
 > (bekleme damgası) ve **113** (`start_team`). **İkisi de CANLIDA, `staff-api`
-> deploy edildi ve doğrulandı** (§6). ⚠️ Canlıdaki `staff-api` `tek-kisilik`
-> dalından (`aeb158d`); `main` geride — ileri sarma + push kullanıcıya soruldu.
+> deploy edildi ve doğrulandı** (§6). `main` ileri sarıldı ve gönderildi
+> (kullanıcı kararı): canlı sunucu kodu yine `main`'de.
 >
 > **2026-10-11 akşam turu (§15):** 111 canlıda; `staff-api` ve
 > `whatsapp-booking` deploy edildi ve doğrulandı.
@@ -23,9 +23,7 @@ ihtiyaç duymamalı.
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
 2. **Deploy borcu yok** (§6, 2026-10-11 gece): 112 + 113 canlıda,
-   `staff-api` deploy edildi. ⚠️ Ama canlı `staff-api` = `tek-kisilik`
-   (`aeb158d`) ve `main` GERİDE: biri `main`'den `staff-api` deploy ederse
-   `visit.wait` canlıdan silinir. İleri sarma + push kullanıcının kararı.
+   `staff-api` deploy edildi; `main` = `tek-kisilik`, ikisi de GitHub'da.
    Telefonda deneme (Expo Go) artık yapılabilir; tahsilat da hâlâ
    telefonda denenmedi.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
@@ -304,9 +302,10 @@ kurulumda `DROP … IF EXISTS`in beklenen sesi.
   termination" satırları yeniden başlatmadan ÖNCEKİ kaba ait ve iş bitmiş
   (`errors=0` satırı uyarıdan önce): bu deploy'la ilgisiz.
 
-⚠️ **Deploy `tek-kisilik`ten yapıldı** (çalışma ağacı `aeb158d`); `main`
-`a4540ae`'de kaldı. §15'teki kural ("canlı sunucu kodu = `main`") yeniden
-sağlanmak için `main` `aeb158d`'ye ileri sarılmalı — kullanıcıya soruldu.
+**Deploy `tek-kisilik`ten yapıldı** (çalışma ağacı `aeb158d`), `main` o an
+`a4540ae`'deydi. Kullanıcı kararıyla `main` hemen ileri sarıldı ve iki dal da
+gönderildi: §15'teki kural ("canlı sunucu kodu = `main`") yeniden sağlandı.
+Ders: deploy betiği ÇALIŞMA AĞACINI kopyalıyor — dal adına bakmıyor.
 
 Aşağıdaki komutlar kalıp olarak duruyor.
 
