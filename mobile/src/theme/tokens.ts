@@ -2014,6 +2014,11 @@ export const cashMetrics = {
     dragClose: 96,
     /** Ya da bu hızla atıldıysa — kısa ama hızlı çekiş de kapatır. */
     dragFling: 0.7,
+    /**
+     * Tutamacın PARMAK bölgesi: fişin tepesinden bu kadar. Çizilen şerit 26 pt;
+     * 44 pt'lik dokunma hedefi şeridin altındaki başlığa da taşıyor.
+     */
+    grabZone: 44,
 
     grabHeight: 26,
     grabBarWidth: 38,

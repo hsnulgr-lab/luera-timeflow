@@ -13,7 +13,7 @@ import {
     ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_SAVE, ACTION_VOID,
     ACTIONS_NOTE, CORRECTION_NOTE, READ_ONLY_NOTE, SHEET_SECTIONS, STAFF_ROW_LABEL, voidSub,
     canCorrect, counterLine, customerCardLabel, formatAmount, formatMoney, methodLabel, parseAmount,
-    periodSummaryTitle,
+    periodSummaryTitle, sheetDragClaims,
     type CashMethod, type CashPeriod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { COLLECT_METHODS } from '../lib/collect';
@@ -129,37 +129,71 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
     }, [backdrop, onClose, reduceMotion, sheetHeight, y]);
 
     /*
-     * TUTAMAÇ SÜRÜKLENİR.
+     * AŞAĞI ÇEKİP KAPATMA — randevu kartı gibi, fişin HER YERİNDEN.
      *
-     * Çubuk baştan beri çizilmişti ama hiçbir jest bağlı değildi: sürüklenir
-     * görünen, sürüklenmeyen bir kontrol. Kullanıcı aşağı çekiyor, sheet
-     * duruyor. `gesture-handler` projede yok; jest RN'in kendi
-     * `PanResponder`'ıyla kuruluyor.
+     * Jest eskiden yalnız 26 pt'lik cam şeride bağlıydı ve telefonda hiç
+     * tutmadı (2026-10-13, "tutamaç çalışmıyor"): şeridin içi `GlassView`,
+     * dokunuş camın katmanlarında kalınca şerit yanıt zincirinde
+     * olmayabiliyordu. Jest artık fişin KABINDA ve YAKALAMA aşamasında
+     * soruluyor — parmak fişin neresine düşerse düşsün kap onun atası.
+     * Kimin çekişi olduğu `sheetDragClaims`ta: tutamaçtan her zaman, içerikten
+     * yalnız içerik en tepedeyken.
      *
      * Yukarı çekiş YOK SAYILIYOR (`Math.max(0, dy)`): sheet zaten yukarı
-     * gidemez, lastik bant sahte bir esneklik üretmesin.
+     * gidemez, lastik bant sahte bir esneklik üretmesin. Karartma çekişle
+     * birlikte açılıyor — sistemin sayfasındaki gibi.
+     *
+     * Tutamak bir kez kuruluyor; değişen her şey (boy, kaydırma, klavye,
+     * düzeltme, `close`) ref'ten okunuyor. Kurulduğu karedeki `close`u
+     * tutsaydı sonraki çizimlerin `onClose`unu hiç görmezdi.
      */
-    const drag = useRef(PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => g.dy > cashMetrics.dragClaim
-            && Math.abs(g.dy) > Math.abs(g.dx),
-        onPanResponderGrant: () => Keyboard.dismiss(),
-        onPanResponderMove: (_e, g) => y.setValue(Math.max(0, g.dy)),
-        onPanResponderRelease: (_e, g) => {
-            // Ya YETERİNCE indi ya da HIZLA atıldı: ikisi de kapatır.
-            if (g.dy > cashMetrics.dragClose || g.vy > cashMetrics.dragFling) {
-                close();
-                return;
-            }
-            Animated.spring(y, {
-                toValue: 0, useNativeDriver: true, bounciness: 0, speed: 14,
-            }).start();
-        },
-        onPanResponderTerminate: () => {
-            Animated.spring(y, {
-                toValue: 0, useNativeDriver: true, bounciness: 0, speed: 14,
-            }).start();
-        },
-    })).current;
+    const geo = useRef({ window: height, sheet: 0, raise: 0, scrollTop: 0, correcting: false });
+    const closeRef = useRef(close);
+    useEffect(() => {
+        closeRef.current = close;
+        geo.current.window = height;
+        geo.current.correcting = correcting;
+    }, [close, height, correcting]);
+
+    const [drag] = useState(() => {
+        const settle = () => Animated.parallel([
+            Animated.spring(y, { toValue: 0, useNativeDriver: true, bounciness: 0, speed: 14 }),
+            Animated.timing(backdrop, { toValue: 1, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]).start();
+        return PanResponder.create({
+            onMoveShouldSetPanResponderCapture: (_e, g) => {
+                const at = geo.current;
+                // Fiş ekranın dibine yaslı: tepesi = pencere − boy − klavye payı.
+                const top = at.window - at.sheet - at.raise;
+                return sheetDragClaims({
+                    dx: g.dx,
+                    dy: g.dy,
+                    fromTop: g.y0 - top,
+                    scrollTop: at.scrollTop,
+                    correcting: at.correcting,
+                    claim: cashMetrics.dragClaim,
+                    grabZone: cashMetrics.grabZone,
+                });
+            },
+            onPanResponderGrant: () => Keyboard.dismiss(),
+            onPanResponderMove: (_e, g) => {
+                const dy = Math.max(0, g.dy);
+                y.setValue(dy);
+                backdrop.setValue(1 - Math.min(1, dy / Math.max(1, geo.current.sheet)));
+            },
+            // Fiş çekilirken kaydırıcı ya da bir düğme jesti geri ALAMAZ.
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderRelease: (_e, g) => {
+                // Ya YETERİNCE indi ya da HIZLA atıldı: ikisi de kapatır.
+                if (g.dy > cashMetrics.dragClose || g.vy > cashMetrics.dragFling) {
+                    closeRef.current();
+                    return;
+                }
+                settle();
+            },
+            onPanResponderTerminate: settle,
+        });
+    });
 
     /*
      * KLAVYE FİŞİ ÖRTÜYORDU.
@@ -176,6 +210,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
         const show = Keyboard.addListener(showEvent, (event) => {
             // Fişin alt dolgusu zaten güvenli alan kadar; iki kez sayılmasın.
             const raise = Math.max(0, event.endCoordinates.height - insets.bottom);
+            geo.current.raise = raise;
             Animated.timing(lift, {
                 toValue: -raise,
                 duration: event.duration || 250,
@@ -184,6 +219,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
             }).start();
         });
         const hide = Keyboard.addListener(hideEvent, (event) => {
+            geo.current.raise = 0;
             Animated.timing(lift, {
                 toValue: 0,
                 duration: event.duration || 220,
@@ -230,6 +266,8 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
             </Animated.View>
 
             <Animated.View
+                {...drag.panHandlers}
+                onLayout={(event) => { geo.current.sheet = event.nativeEvent.layout.height; }}
                 accessibilityViewIsModal
                 style={{
                     position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 80,
@@ -250,9 +288,8 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                 }}
             >
                 {/* Cam envanteri: sheet tutamağı camın izinli olduğu iki yerden biri.
-                    Jest BU KABA bağlı — çubuğun kendisi 5 pt, parmak 26 pt'lik
-                    şeridin herhangi bir yerinden tutabilmeli. */}
-                <View {...drag.panHandlers} accessibilityLabel="Aşağı çekip kapat">
+                    Jest bu şeritte DEĞİL, fişin kabında (yukarıda). */}
+                <View accessibilityLabel="Aşağı çekip kapat">
                     {glass
                         ? <GlassView glassEffectStyle="regular" tintColor={c.tint} style={grabStyle}>{handle}</GlassView>
                         : <View style={[grabStyle, { backgroundColor: c.surf }]}>{handle}</View>}
@@ -260,6 +297,17 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
+                    // Fiş, içerik EN TEPEDEYKEN aşağı çekişi devralıyor.
+                    onScroll={(event) => { geo.current.scrollTop = event.nativeEvent.contentOffset.y; }}
+                    scrollEventThrottle={16}
+                    /*
+                     * ESNEME YOK. RN'in dikey kaydırıcısı içerik kısa olsa da
+                     * esniyor (`alwaysBounceVertical` varsayılanı) ve esnemeye
+                     * başlayan kaydırıcı dokunuşu fişin elinden alıyordu: kısa
+                     * fiş çekilince içerik aşağı kayıyor, fiş yerinde kalıyordu.
+                     */
+                    bounces={false}
+                    alwaysBounceVertical={false}
                     contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14 }}
                     // `flex: 1` boşluğu DOLDURUYORDU; `flexShrink` yalnız
                     // taşarsa kısaltıyor.

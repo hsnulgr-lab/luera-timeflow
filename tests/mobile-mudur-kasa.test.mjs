@@ -10,6 +10,7 @@ import {
     traceLine, voidDialog, voidedNote, voidSub,
     waitLabel, ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_VOID, ACTION_VOID_SUB, ACTION_VOID_SUB_FREE,
     ACTIONS_NOTE, CORRECTION_NOTE, EMPTY_TITLE, READ_ONLY_NOTE,
+    sheetDragClaims,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
 import { cashInk, cashMetrics } from '../mobile/src/theme/tokens.ts';
@@ -611,6 +612,58 @@ test('kasa fişi aşağı çekilerek kapanır', () => {
     const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
     assert.match(src, /PanResponder\.create/, 'tutamaç hâlâ dekoratif');
     assert.match(src, /drag\.panHandlers/);
+});
+
+// ── Aşağı çekip kapatma — randevu kartı gibi (2026-10-13, telefon) ──────────
+//
+// "Tutamaç çalışmıyor": jest 26 pt'lik cam şeride bağlıydı ve telefonda hiç
+// tutmadı. Artık fişin kabında, yakalama aşamasında; fişin her yerinden.
+
+const claim = (over) => sheetDragClaims({
+    dx: 0, dy: 20, fromTop: 200, scrollTop: 0, correcting: false,
+    claim: cashMetrics.dragClaim, grabZone: cashMetrics.grabZone, ...over,
+});
+
+test('fiş, içerik en tepedeyken her yerinden aşağı çekilir', () => {
+    assert.equal(claim({}), true);
+    // Tutamaç bölgesi: dokunma hedefi kadar (44 pt), çizilen şerit 26.
+    assert.equal(cashMetrics.grabZone, 44);
+    assert.equal(claim({ fromTop: 10 }), true);
+});
+
+test('içerik aşağı kaydırılmışsa çekiş önce içeriğin — tutamaç yine fişin', () => {
+    assert.equal(claim({ scrollTop: 120 }), false);
+    assert.equal(claim({ scrollTop: 120, fromTop: 30 }), true);
+});
+
+test('düzeltme açıkken içerikten çekiş fişi kapatmaz — yazılan tutar gitmesin', () => {
+    assert.equal(claim({ correcting: true }), false);
+    assert.equal(claim({ correcting: true, fromTop: 20 }), true);
+});
+
+test('yukarı, yatay ve eşiğin altındaki çekiş fişin değil', () => {
+    assert.equal(claim({ dy: -40 }), false);
+    assert.equal(claim({ dy: 20, dx: 30 }), false);
+    assert.equal(claim({ dy: cashMetrics.dragClaim }), false);
+    assert.equal(claim({ dy: 20, fromTop: 10, dx: 25 }), false);
+});
+
+test('jest fişin KABINDA, yakalama aşamasında; şerit artık jest taşımıyor', () => {
+    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
+    const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
+    assert.match(sheet, /onMoveShouldSetPanResponderCapture:/);
+    assert.match(sheet, /<Animated\.View\s+\{\.\.\.drag\.panHandlers\}\s+onLayout=/);
+    assert.equal((sheet.match(/drag\.panHandlers/g) || []).length, 1);
+    // Çekilirken kaydırıcı ya da düğme jesti geri alamaz.
+    assert.match(sheet, /onPanResponderTerminationRequest: \(\) => false,/);
+    // İçeriğin konumu ve klavye payı ref'te; kapatma son çizimin `close`u.
+    assert.match(sheet, /onScroll=\{\(event\) => \{ geo\.current\.scrollTop = event\.nativeEvent\.contentOffset\.y; \}\}/);
+    assert.match(sheet, /geo\.current\.raise = raise;/);
+    // Kısa fişte kaydırıcı esneyip dokunuşu almasın.
+    assert.match(sheet, /bounces=\{false\}\s+alwaysBounceVertical=\{false\}/);
+    assert.match(sheet, /closeRef\.current\(\);/);
+    // Karartma çekişle açılıyor; geri bırakınca yerine dönüyor.
+    assert.match(sheet, /backdrop\.setValue\(1 - Math\.min\(1, dy \/ Math\.max\(1, geo\.current\.sheet\)\)\);/);
 });
 
 test('fişin boyu içerikten türer', () => {
