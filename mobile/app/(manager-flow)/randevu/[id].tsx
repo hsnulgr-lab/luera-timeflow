@@ -17,7 +17,7 @@ import {
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
 } from '../../../src/lib/moveAppointment';
-import { REMINDER_FAILED, reminderAction } from '../../../src/lib/appointmentDetail';
+import { CALL_FAILED, REMINDER_FAILED, callAction, reminderAction } from '../../../src/lib/appointmentDetail';
 import { useTheme } from '../../../src/theme';
 import { nowInMinutes, toMinutes, todayISO, type Appt } from '../../../src/lib/calendar';
 import { initialsOf } from '../../../src/lib/text';
@@ -174,6 +174,16 @@ export default function ManagerAppointment() {
     const reminder = solo && appointment
         ? reminderAction({ appointment, salon: data.businessName, today: todayISO(), nowMinutes: now })
         : null;
+    /*
+     * "MÜŞTERİYİ ARA" — yalnız tek kişilikte (kullanıcı kararı, 2026-10-12).
+     * Ekipte arama Akış'ın gözünde; tek kişide Akış yok. Kural `callAction`da.
+     */
+    const call = solo && appointment ? callAction(appointment) : null;
+    const dial = useCallback((action: { url: string }) => {
+        Linking.openURL(action.url).catch(() => {
+            Alert.alert(CALL_FAILED, 'Telefonunuzun arama uygulaması açılamadı.');
+        });
+    }, []);
     const remind = useCallback((action: { url: string }) => {
         // https bağlantısı: WhatsApp yüklü değilse tarayıcı açılıyor. Yine de
         // açılamazsa sessiz kalmıyor — dokunulan kontrol bir iş yapar.
@@ -259,6 +269,8 @@ export default function ManagerAppointment() {
                     appointment={appointment}
                     staffName={staffName}
                     solo={solo}
+                    call={call}
+                    onCall={dial}
                     reminder={reminder}
                     onRemind={remind}
                     dayAppointments={data.dayRows}

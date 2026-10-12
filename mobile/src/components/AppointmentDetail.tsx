@@ -5,15 +5,15 @@ import Svg, { Path } from 'react-native-svg';
 import { ConfirmDialog, NoteSheet, ServiceSheet } from './ApptSheets';
 import { SheetGrab } from './Sheet';
 import {
-    AttendanceRow, ChangeRows, ChangeTiles, DangerAction, Identity, InfoLine,
-    ReminderRow, Stage, StateStrip, VisitPanel, useStagger,
+    AttendanceRow, ChangeRows, ChangeTiles, ContactRows, DangerAction, Identity, InfoLine,
+    Stage, StateStrip, VisitPanel, useStagger,
 } from './ApptParts25';
 import { feedback } from '../lib/feedback';
 import {
     CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG,
     applyNote, applyService, changeRows, changeTiles, identityOf, isEditable,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
-    type DestructiveAction, type ReminderAction,
+    type CallAction, type DestructiveAction, type ReminderAction,
 } from '../lib/appointmentDetail';
 import { upperTR } from '../lib/text';
 import {
@@ -36,7 +36,7 @@ import type { ServiceOption } from '../lib/createFlow';
  *   • "Hizmeti değiştir" ve "Notu düzenle" artık gerçekten bir şey açıyor.
  */
 export function AppointmentDetail({
-    appointment, staffName, solo = false, reminder = null, onRemind, dayAppointments = [], services, nowMinutes,
+    appointment, staffName, solo = false, call = null, onCall, reminder = null, onRemind, dayAppointments = [], services, nowMinutes,
     onClose, onCustomer, onMove, onUpdate, onAttendance, onCancel, onDelete,
 }: {
     appointment: Appt;
@@ -47,6 +47,12 @@ export function AppointmentDetail({
      * cümleleri adsız. Sahibin personel satırı işletmenin adını taşıyor.
      */
     solo?: boolean;
+    /**
+     * "Müşteriyi ara" (tek kişilik). Numara aranabilirse verilir
+     * (`callAction`); yoksa satır hiç çizilmez.
+     */
+    call?: CallAction | null;
+    onCall?: (call: CallAction) => void;
     /**
      * "Mesajla hatırlat" (v4 · tek kişilik). Yalnız hatırlatılacak bir
      * randevuda verilir (`reminderAction`); yoksa satır hiç çizilmez.
@@ -176,9 +182,22 @@ export function AppointmentDetail({
                 <Stage at={2} values={stages} style={{ flex: 1, gap: 14 }}>
                     <VisitPanel summary={summary} onOpen={onCustomer} />
 
-                    {reminder && onRemind ? (
-                        <ReminderRow reminder={reminder} onPress={() => onRemind(reminder)} />
-                    ) : null}
+                    <ContactRows rows={[
+                        ...(call && onCall ? [{
+                            key: 'call' as const,
+                            title: call.title,
+                            value: call.value,
+                            accessibilityLabel: `${call.title}. ${call.value} aranır`,
+                            onPress: () => onCall(call),
+                        }] : []),
+                        ...(reminder && onRemind ? [{
+                            key: 'remind' as const,
+                            title: reminder.title,
+                            value: reminder.value,
+                            accessibilityLabel: `${reminder.title}. WhatsApp hazır metinle açılır: ${reminder.text}`,
+                            onPress: () => onRemind(reminder),
+                        }] : []),
+                    ]} />
 
                     {editable ? (
                         <>

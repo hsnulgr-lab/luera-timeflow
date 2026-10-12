@@ -18,7 +18,7 @@
 import { maskPhone, type ServiceOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
 import { waNudgeText } from './actionPill.ts';
-import { waLink } from './phone.ts';
+import { dialable, normalizePhone, waLink } from './phone.ts';
 import {
     addDaysISO, dayNameShort, formatDayFull, hhmm, toMinutes, todayISO, type Appt,
 } from './calendar.ts';
@@ -377,6 +377,39 @@ export function reminderAction(input: {
     const url = waLink(appointment.customer_phone, text);
     if (!url) return null;
     return { title: REMINDER_TITLE, value: REMINDER_VALUE, text, url };
+}
+
+// ── Müşteriyi ara (tek kişilik) ─────────────────────────────────────────────
+
+export interface CallAction {
+    title: string;
+    /** Numaranın TAMAMI — "0532 118 24 06". Maskeli numara okunamaz. */
+    value: string;
+    /** `tel:+90…` */
+    url: string;
+}
+
+export const CALL_TITLE = 'Müşteriyi ara';
+export const CALL_FAILED = 'Arama açılamadı';
+
+/**
+ * Randevu kartının "Müşteriyi ara" satırı (kullanıcı kararı, 2026-10-12).
+ *
+ * Tek kişilikte Akış'ın "Ara" gözü yok; arama kumandada ve müşteri kartında
+ * duruyordu — ikisi de randevu kartından bir adım ötede. Hatırlatmadan farklı
+ * olarak HER hâlde: gelmeyen müşteriyi aramak da, iptal edileni yeniden
+ * kurmak için aramak da bir iş. Yalnız numara aranabilirse; yoksa satır
+ * çizilmez (sönük bir satır ölü bir kontrol olurdu — kimlik zaten "numara
+ * yok" diyor).
+ */
+export function callAction(appointment: Pick<Appt, 'customer_phone'>): CallAction | null {
+    const number = normalizePhone(appointment.customer_phone);
+    const url = dialable(appointment.customer_phone);
+    if (!number || !url) return null;
+    const value = number.length === 12 && number.startsWith('90')
+        ? `0${number.slice(2, 5)} ${number.slice(5, 8)} ${number.slice(8, 10)} ${number.slice(10)}`
+        : `+${number}`;
+    return { title: CALL_TITLE, value, url: `tel:${url}` };
 }
 
 export interface ChangeRow {

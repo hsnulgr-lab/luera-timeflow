@@ -89,7 +89,9 @@ test('satır YALNIZ tek kişilikte, müşteri panelinin hemen altında', () => {
     assert.match(route, /reminder=\{reminder\}\s*onRemind=\{remind\}/);
     // Açılamazsa sessiz kalmıyor.
     assert.match(route, /Linking\.openURL\(action\.url\)\.catch\(\(\) => \{\s*Alert\.alert\(REMINDER_FAILED,/);
-    assert.match(card, /<VisitPanel summary=\{summary\} onOpen=\{onCustomer\} \/>\s*\{reminder && onRemind \? \(\s*<ReminderRow reminder=\{reminder\} onPress=\{\(\) => onRemind\(reminder\)\} \/>/);
+    // Satır artık "Müşteriyi ara" ile aynı listede (ContactRows), aramanın altında.
+    assert.match(card, /<VisitPanel summary=\{summary\} onOpen=\{onCustomer\} \/>\s*<ContactRows rows=\{\[/);
+    assert.match(card, /\.\.\.\(reminder && onRemind \? \[\{\s*key: 'remind' as const,[\s\S]*?onPress: \(\) => onRemind\(reminder\),/);
     // Uçtaki simge DIŞARI ok: dokununca uygulamadan çıkılıyor.
     assert.match(parts, /accessibilityRole="link"/);
     assert.match(parts, /<Path d="M8 16L16 8M10 8h6v6" \/>/);

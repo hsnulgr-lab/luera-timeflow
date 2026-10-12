@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import type {
-    ApptIdentity, ChangeRow, ChangeTile, ReminderAction, StateLine, VisitSummary,
+    ApptIdentity, ChangeRow, ChangeTile, StateLine, VisitSummary,
 } from '../lib/appointmentDetail';
 import { upperTR } from '../lib/text';
 import {
@@ -716,58 +716,73 @@ export function ChangeRows({ rows, onPress }: {
     );
 }
 
+/** Kartın uygulamadan ÇIKAN satırlarından biri: arama ya da WhatsApp. */
+export interface ContactRowItem {
+    key: 'call' | 'remind';
+    title: string;
+    value: string;
+    accessibilityLabel: string;
+    onPress: () => void;
+}
+
 /**
- * "Mesajla hatırlat" (v4 · tek kişilik) — müşteri panelinin hemen altında.
+ * "Müşteriyi ara" + "Mesajla hatırlat" (tek kişilik) — müşteri panelinin
+ * hemen altında, bu sırayla: önce ses, sonra yazı.
  *
  * Biçim `ChangeRows`un satırı: aynı yükseklik, aynı çizgiler, başlık solda,
  * değer sağda. Tek fark uçtaki simge: ok değil, DIŞARI ok — dokununca
- * uygulamadan çıkılıp WhatsApp açılıyor; kart bunu dokunmadan önce söylüyor.
+ * uygulamadan çıkılıp telefon ya da WhatsApp açılıyor; kart bunu dokunmadan
+ * önce söylüyor. İki satır üst üste geldiğinde çizgi tek: aradaki sınır
+ * ikinci satırın üst çizgisi.
  */
-export function ReminderRow({ reminder, onPress }: {
-    reminder: ReminderAction;
-    onPress: () => void;
-}) {
+export function ContactRows({ rows }: { rows: readonly ContactRowItem[] }) {
     const { c } = useTheme();
+    if (rows.length === 0) return null;
     return (
-        <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={`${reminder.title}. WhatsApp hazır metinle açılır: ${reminder.text}`}
-            onPress={() => { feedback.selection(); onPress(); }}
-            style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: apptCardMetrics.rowGap,
-                height: apptCardMetrics.rowHeight,
-                borderTopWidth: 1,
-                borderBottomWidth: 1,
-                borderColor: c.bd,
-                opacity: pressed ? 0.6 : 1,
-            })}
-        >
-            <Text style={{
-                color: c.tx,
-                fontSize: apptCardMetrics.rowTitle,
-                fontFamily: font.bold,
-                fontWeight: '700',
-                letterSpacing: apptCardMetrics.rowTitle * -0.01,
-            }}>
-                {reminder.title}
-            </Text>
-            <Text numberOfLines={1} ellipsizeMode="tail" style={{
-                marginLeft: 'auto',
-                maxWidth: apptCardMetrics.rowValueMax,
-                textAlign: 'right',
-                color: c.tx2,
-                fontSize: apptCardMetrics.rowValue,
-                fontFamily: font.medium,
-                fontWeight: '500',
-            }}>
-                {reminder.value}
-            </Text>
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={c.tx3} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M8 16L16 8M10 8h6v6" />
-            </Svg>
-        </Pressable>
+        <View>
+            {rows.map((row, index) => (
+                <Pressable
+                    key={row.key}
+                    accessibilityRole="link"
+                    accessibilityLabel={row.accessibilityLabel}
+                    onPress={() => { feedback.selection(); row.onPress(); }}
+                    style={({ pressed }) => ({
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: apptCardMetrics.rowGap,
+                        height: apptCardMetrics.rowHeight,
+                        borderTopWidth: 1,
+                        borderBottomWidth: index === rows.length - 1 ? 1 : 0,
+                        borderColor: c.bd,
+                        opacity: pressed ? 0.6 : 1,
+                    })}
+                >
+                    <Text style={{
+                        color: c.tx,
+                        fontSize: apptCardMetrics.rowTitle,
+                        fontFamily: font.bold,
+                        fontWeight: '700',
+                        letterSpacing: apptCardMetrics.rowTitle * -0.01,
+                    }}>
+                        {row.title}
+                    </Text>
+                    <Text numberOfLines={1} ellipsizeMode="tail" style={{
+                        marginLeft: 'auto',
+                        maxWidth: apptCardMetrics.rowValueMax,
+                        textAlign: 'right',
+                        color: c.tx2,
+                        fontSize: apptCardMetrics.rowValue,
+                        fontFamily: font.medium,
+                        fontWeight: '500',
+                    }}>
+                        {row.value}
+                    </Text>
+                    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={c.tx3} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                        <Path d="M8 16L16 8M10 8h6v6" />
+                    </Svg>
+                </Pressable>
+            ))}
+        </View>
     );
 }
 
