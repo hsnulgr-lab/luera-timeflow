@@ -20,6 +20,7 @@ import type { StaffPresence } from '../lib/managerFlow';
 import {
     isNoShow,
     splitStaffName,
+    subParts,
     type StaffActionItem,
     type StaffDayState,
     type StaffGhostItem,
@@ -944,7 +945,9 @@ export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacit
                 ) : null}
                 </View>
 
-                {/* Alt Metin — bilinmiyorsa satır hiç çizilmez */}
+                {/* Alt Metin — bilinmiyorsa satır hiç çizilmez. Müşterinin adı
+                    (`subName`) kalın, biraz büyük ve koyu: "kime" sorusunun
+                    cevabı. Satır yüksekliği SABİT — kartın boyu değişmez. */}
                 {panel.subText ? (
                     <Text numberOfLines={1} style={{
                         color: ink.ink2,
@@ -953,7 +956,17 @@ export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacit
                         fontWeight: '500',
                         lineHeight: staffDayMetrics.subText * staffDayMetrics.subLine,
                     }}>
-                        {panel.subText}
+                        {subParts(panel.subText, panel.subName).map((part, index) => (part.name ? (
+                            <Text key={index} style={{
+                                color: ink.ink,
+                                fontSize: staffDayMetrics.subName,
+                                fontFamily: font.bold,
+                                fontWeight: '700',
+                                letterSpacing: staffDayMetrics.subName * -0.01,
+                            }}>
+                                {part.text}
+                            </Text>
+                        ) : part.text))}
                     </Text>
                 ) : null}
             </Animated.View>

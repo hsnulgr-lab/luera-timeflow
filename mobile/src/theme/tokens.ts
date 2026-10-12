@@ -2928,6 +2928,8 @@ export const staffDayMetrics = {
     heroBox: 36,
     heroUnit: 17,
     subText: 11.5,
+    /** Alt satırdaki müşteri adı — kalın ve 2 pt büyük; satır yüksekliği aynı. */
+    subName: 13.5,
     subLine: 1.3,
     pulsePeriod: 800,
 

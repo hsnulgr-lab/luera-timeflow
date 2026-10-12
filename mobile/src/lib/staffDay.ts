@@ -47,6 +47,26 @@ export interface StaffHeroPanel {
      * HİÇ çizilmez — uydurma müşteri adı yazmaktansa satır olmaz.
      */
     subText: string | null;
+    /**
+     * Satırdaki MÜŞTERİ ADI — kart onu kalın, biraz büyük ve koyu yazar
+     * (kullanıcı, 2026-10-13: "hangi müşteri olduğu bilinmiyor"). Satırın
+     * yüksekliği değişmez, kartın boyu da. Verilmezse satır düz.
+     */
+    subName?: string;
+}
+
+/**
+ * Alt satırı parçalara böler: müşterinin adı (ilk geçtiği yer) ve geri kalan.
+ * Ad satırda yoksa satır olduğu gibi tek parça — uydurma vurgu yok.
+ */
+export function subParts(text: string, name?: string): { text: string; name: boolean }[] {
+    const at = name ? text.indexOf(name) : -1;
+    if (!name || at < 0) return [{ text, name: false }];
+    return [
+        { text: text.slice(0, at), name: false },
+        { text: name, name: true },
+        { text: text.slice(at + name.length), name: false },
+    ].filter((part) => part.text.length > 0);
 }
 
 export interface StaffShiftBar {

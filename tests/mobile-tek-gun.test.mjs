@@ -573,6 +573,7 @@ test('G4 · kart: kehribar, nabızsız, sol şeritli; büyük sayı TUTAR', () =
         hasPulse: false,
         heroValue: '₺4.500',
         subText: 'Tuğçe Erden · Kalıcı Makyaj · 16:02’de bitti',
+        subName: 'Tuğçe Erden',
     });
 });
 
@@ -659,6 +660,7 @@ test('saati BİR DAKİKA geçen randevu hâlâ sıradaki: Başlat kaybolmuyor', 
         heroValue: '1',
         heroUnit: 'dk',
         subText: 'Gizem Ünal · Kaş Tasarımı · 29 dk sonra gelmedi sayılır',
+        subName: 'Gizem Ünal',
     });
     // Pay dolunca gelmedi sayılıyor ve kartın konusu değil.
     assert.deepEqual(soloStartable(day, 23 * 60 + 1), []);

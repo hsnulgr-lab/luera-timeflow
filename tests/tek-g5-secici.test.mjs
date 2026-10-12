@@ -20,7 +20,7 @@ import {
     durationHero, soloPickCells, soloPickIndex, soloPickItems, soloPickSpoken, soloStartable,
 } from '../mobile/src/lib/soloDay.ts';
 import { cellSpec, cellTaps } from '../mobile/src/lib/actionPill.ts';
-import { isNoShow } from '../mobile/src/lib/staffDay.ts';
+import { isNoShow, subParts } from '../mobile/src/lib/staffDay.ts';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** Yorumsuz kaynak — iddialar yorumda geçen kelimeye takılmasın. */
@@ -171,6 +171,7 @@ test('G5·6 · SÜRÜYOR — sıradakilere yalnız BAKILIR: hap yok, kart dokunu
     const items = soloPickItems({ running: [live], waitOf: () => null, ticket: null, startable: later, nowMinutes: 15 * 60 + 16, nowMs });
     assert.deepEqual(items[0].panel, {
         label: 'SÜRÜYOR', hasPulse: true, heroValue: '74:12', subText: 'Tuğçe Erden · Kalıcı Makyaj · 16:02’de biter',
+        subName: 'Tuğçe Erden',
     });
     assert.deepEqual(items[0].action, { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'Tuğçe Erden' });
     // "1 sa 14 dk" — süren iş yığının başında, sıradaki ŞU AN BOŞ değil BAŞLAMAYA.
@@ -344,5 +345,35 @@ test('A · Gün: Ara telefon, Yaz kendi WhatsApp\'ı, Gelmedi 098 damgası Gün\
     assert.match(gun, /updateAppointment\(appointment\.id, lock, patch\)/);
     assert.match(gun, /const lock = data\.stamps\.get\(appointment\.id\);/);
     assert.match(gun, /onCell=\{onPickCell\}/);
+});
+
+test('kartta MÜŞTERİNİN ADI kalın ve büyük; satır yüksekliği aynı (kart boyu değişmez)', () => {
+    // Ad satırın başında da sonunda da olabilir ("… · sıradaki Elif Demir").
+    assert.deepEqual(subParts('Tuğçe Erden · Kalıcı Makyaj · 13:00’te', 'Tuğçe Erden'), [
+        { text: 'Tuğçe Erden', name: true }, { text: ' · Kalıcı Makyaj · 13:00’te', name: false },
+    ]);
+    assert.deepEqual(subParts('10:00’a kadar · sıradaki Elif Demir', 'Elif Demir'), [
+        { text: '10:00’a kadar · sıradaki ', name: false }, { text: 'Elif Demir', name: true },
+    ]);
+    // Ad yoksa ya da satırda geçmiyorsa uydurma vurgu yok.
+    assert.deepEqual(subParts('3 tamamlandı · 1 gelmedi'), [{ text: '3 tamamlandı · 1 gelmedi', name: false }]);
+    const parts = code('mobile/src/components/StaffDayParts.tsx');
+    assert.match(parts, /fontSize: staffDayMetrics\.subName,\s*fontFamily: font\.bold,/);
+    // Satırın yüksekliği alt metnin ölçüsünden — ad büyüse de kart büyümüyor.
+    assert.match(parts, /lineHeight: staffDayMetrics\.subText \* staffDayMetrics\.subLine,\s*\}\}>\s*\{subParts\(panel\.subText, panel\.subName\)/);
+    // Bütün tek kişilik kartları adı bildiriyor.
+    const items = soloPickItems({
+        running: [], waitOf: () => null, ticket: null,
+        startable: [appt('Elif Demir', '10:00', '11:00'), appt('Tuğçe Erden', '13:00', '15:00')],
+        nowMinutes: 47, nowMs: 0,
+    });
+    assert.deepEqual(items.map((i) => i.panel.subName), ['Elif Demir', 'Tuğçe Erden']);
+});
+
+test('"Geldi’yi geri al" simgesi KİŞİ + geri alma oku (yalnız ok anlaşılmıyordu)', () => {
+    const pill = read('mobile/src/components/ActionPill.tsx');
+    const geri = pill.slice(pill.indexOf("{cell === 'geri' ? ("), pill.indexOf("{cell === 'chk' ?"));
+    assert.match(geri, /<Circle \{\.\.\.p\} cx="10" cy="7\.9" r="3\.2" \/>/, 'kişinin başı — Gelmedi gözüyle aynı çizim');
+    assert.match(geri, /M16\.4 14\.4l-2\.2 2\.2 2\.2 2\.2/, 'geri alma oku');
 });
 

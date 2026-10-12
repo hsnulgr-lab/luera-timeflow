@@ -343,6 +343,7 @@ export function soloWaitPanel(
         heroValue: String(Math.max(1, Math.ceil(leftMs / 60_000))),
         heroUnit: 'dk',
         subText: `${running.customer_name} · ${running.service} · bekleme ${clockLocative(clock)} biter`,
+        subName: running.customer_name,
     };
 }
 
@@ -403,6 +404,7 @@ export function soloTicketPanel(ticket: FlowEvent): StaffHeroPanel {
         hasPulse: false,
         heroValue: formatMoney(ticket.amountValue ?? 0),
         subText: name ? `${name} · ${pendingTicketLine(ticket)}` : pendingTicketLine(ticket),
+        ...(name ? { subName: name } : {}),
     };
 }
 
@@ -472,6 +474,7 @@ export function soloNextPanel(next: Appt | null, nowMinutes: number, nowMs: numb
             subText: came
                 ? `${who} · ${clockLocative(hhmm(came.getHours() * 60 + came.getMinutes()))} geldi`
                 : who,
+            subName: next.customer_name,
         };
     }
     const late = nowMinutes - toMinutes(next.start_time);
@@ -485,6 +488,7 @@ export function soloNextPanel(next: Appt | null, nowMinutes: number, nowMs: numb
         // Pay `isNoShow`un payı (30 dk). `graceLeft`in kendi varsayılanı eski
         // 120 — Akış da payı açıkça veriyor (`flowBuild` · NO_SHOW_AFTER_MIN).
         subText: `${who} · ${graceLeft(-late, DEFAULT_ARRIVAL_TOLERANCE_MIN)} dk sonra gelmedi sayılır`,
+        subName: next.customer_name,
     };
 }
 
@@ -620,6 +624,7 @@ export function soloRunningPanel(running: Appt, nowMs: number): StaffHeroPanel {
         hasPulse: true,
         heroValue: formatElapsed(elapsed),
         subText: `${running.customer_name} · ${running.service} · ${clockLocative(running.end_time.slice(0, 5))} biter`,
+        subName: running.customer_name,
     };
 }
 
@@ -640,12 +645,14 @@ export function soloAheadPanel(next: Appt, nowMinutes: number, first: boolean): 
             hasPulse: false,
             ...durationHero(until),
             subText: `${clockDative(start)} kadar · sıradaki ${next.customer_name}`,
+            subName: next.customer_name,
         }
         : {
             label: 'Başlamaya',
             hasPulse: false,
             ...durationHero(until),
             subText: `${next.customer_name} · ${next.service} · ${clockLocative(start)}`,
+            subName: next.customer_name,
         };
 }
 

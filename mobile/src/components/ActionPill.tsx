@@ -92,10 +92,16 @@ function Glyph({ cell, color, initials }: {
                     <Path {...p} d="M8.6 9.6h6.8M8.6 13.2h4.4" />
                 </>
             ) : null}
+            {/* Geldi'yi geri al: KİŞİ + geri alma oku — "bu kişinin
+                gelişini geri al". Yalnız ok "neyi?" sorusunu cevapsız
+                bırakıyordu (kullanıcı: "çok anlaşılır değil"). Gelmedi
+                gözünün kişisiyle aynı çizim; orada çarpı, burada ok. */}
             {cell === 'geri' ? (
                 <>
-                    <Path {...p} d="M8.6 6.2L4.8 10l3.8 3.8" />
-                    <Path {...p} d="M5 10h8.6a5 5 0 0 1 0 10H10" />
+                    <Circle {...p} cx="10" cy="7.9" r="3.2" />
+                    <Path {...p} d="M4.4 19c0-3.2 2.5-5.2 5.6-5.2 1 0 1.9.2 2.7.6" />
+                    <Path {...p} d="M16.4 14.4l-2.2 2.2 2.2 2.2" />
+                    <Path {...p} d="M14.4 16.6h3.4a2.3 2.3 0 0 1 0 4.6h-1.4" />
                 </>
             ) : null}
             {cell === 'chk' ? <Path {...p} d="M5.6 12.4l4.2 4.2 8.6-9.4" /> : null}
