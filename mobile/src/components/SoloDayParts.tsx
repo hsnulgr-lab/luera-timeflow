@@ -31,10 +31,17 @@ export function SoloAppointmentCard({
     appointment,
     nowMinutes,
     onOpen,
+    selected = false,
 }: {
     appointment: Appt;
     nowMinutes: number;
     onOpen: (appointment: Appt) => void;
+    /**
+     * Hâl kartının seçicisinde SEÇİLİ randevu (G5 · Karar 4): saati turuncu.
+     * Turuncu zamanın rengi; hangi satırın seçili olduğunu rengin kendi
+     * görevinde kalarak söylüyor. Yalnız yığın varken (birden çok kart).
+     */
+    selected?: boolean;
 }) {
     const { c } = useTheme();
     const { given, family } = splitStaffName(appointment.customer_name);
@@ -56,7 +63,7 @@ export function SoloAppointmentCard({
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${appointment.start_time.slice(0, 5)}, ${appointment.customer_name}, ${appointment.service}${spokenStamp}`}
+            accessibilityLabel={`${appointment.start_time.slice(0, 5)}, ${appointment.customer_name}, ${appointment.service}${spokenStamp}${selected ? ', seçili' : ''}`}
             onPress={() => { feedback.selection(); onOpen(appointment); }}
             style={({ pressed }) => ({
                 flexDirection: 'row',
@@ -71,9 +78,9 @@ export function SoloAppointmentCard({
                 style={{
                     width: M.timeWidth,
                     paddingTop: M.timePadTop,
-                    color: c.tx2,
-                    fontFamily: font.semiBold,
-                    fontWeight: '600',
+                    color: selected ? c.or2 : c.tx2,
+                    fontFamily: selected ? font.extraBold : font.semiBold,
+                    fontWeight: selected ? '800' : '600',
                     letterSpacing: 0,
                 }}
             >

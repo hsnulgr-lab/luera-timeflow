@@ -1,13 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
 import { DurumBlock } from '../../src/components/Durum';
 import { VoidBlock } from '../../src/components/EmptyDayParts';
 import { SoloAppointmentCard, SoloDaySkeleton, SoloNowLine } from '../../src/components/SoloDayParts';
+import { SoloPicker } from '../../src/components/SoloPicker';
 import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import {
     StaffHeroPanelCard,
@@ -20,7 +21,7 @@ import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
     SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloDayTotal, soloEmptyCopy, soloIdlePanel,
-    soloNextPanel, soloNextToStart, soloOpenTicket, soloPanelAction, soloTicketPanel, soloWaitPanel,
+    soloOpenTicket, soloPickIndex, soloPickItems, soloStartable,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
@@ -145,13 +146,6 @@ export default function SoloDay() {
     );
 
     /*
-     * BEKLEMEDE (v4 · G3) — süren işin beklemesi sürüyorsa kart onu
-     * anlatıyor. Bu telefonda kumandanın son niyeti varsa o (sinyal yokken
-     * kurulan bekleme de görünsün), yoksa sunucunun damgası.
-     */
-    const wait = runningRow ? activeWait(runningRow, waitIntentOf(runningRow.id), serverNow) : null;
-
-    /*
      * ADİSYON AÇIK (v4 · G4) — iş bitti, para alınmadı.
      *
      * Hangi adisyon ve tutarı KASA'NIN kaynağından (`useManagerDay`): Kasa'nın
@@ -167,31 +161,76 @@ export default function SoloDay() {
         [dayKnown, isToday, runningRow, flowEvents, mine, selectedISO],
     );
 
-    /*
-     * SIRADAKİ İŞ — saati geçmiş olsa da (gelmedi sayılmadıkça). Eskiden
-     * saati gelmemiş ilk randevuydu ve saati bir dakika geçen müşteri
-     * başlatılamıyordu. Gerekçesi `soloNextToStart`ta.
-     */
-    const next = useMemo(
-        () => (dayKnown && isToday ? soloNextToStart(mine, nowMinutes) : null),
-        [dayKnown, isToday, mine, nowMinutes],
-    );
     const todayCounts = useMemo(() => soloDayCounts(mine, nowMinutes), [mine, nowMinutes]);
 
     /*
-     * Kartın sırası (v4): süren ya da beklemedeki iş, açık adisyon, sıradaki.
-     * Süren iş yokken sıradakinin saati geçtiyse KAPIDA / GECİKTİ; sıradaki
-     * hiç yoksa kapanışa kalan süre ya da günün özeti. Personel durumunun
-     * kartı yalnız bunların hiçbiri söylemediğinde (saati gelmemiş sıradaki,
-     * süren iş, izin).
+     * G5 · HÂL KARTININ SEÇİCİSİ — yığının kartları, sırasıyla: süren işler
+     * (G2/G3), açık adisyon (G4), başlatılabilirler (saati geçmiş olsa da
+     * gelmedi sayılmamış olanlar). Kurallar `soloPickItems`te; tasarım
+     * `docs/design-reference/Luera Mobil - Tek Kisilik G5 Secici.html`.
+     *
+     * Süren işler BİRDEN ÇOK olabilir: beklemedeyken (boya, krem) sıradakine
+     * başlanabiliyor (G5 · Karar 3). Hepsi yığında; biri gizlenirse ona
+     * dönmenin yolu kalmazdı.
      */
-    const idle = dayState && !dayState.runningAppointment;
-    const panel = soloWaitPanel(dayState?.runningAppointment ?? null, wait, serverNow)
-        ?? (ticket ? soloTicketPanel(ticket) : null)
-        ?? (idle ? soloNextPanel(next, nowMinutes, serverNow) : null)
-        ?? (idle && !next ? soloIdlePanel(dayState.kind, todayCounts, data.open, nowMinutes) : null)
-        ?? dayState?.panel
-        ?? null;
+    const runningJobs = useMemo(
+        () => (dayKnown && isToday
+            ? mine
+                .filter((row) => row.status !== 'cancelled' && Boolean(row.arrived_at) && !row.service_ended_at)
+                .sort((a, b) => Date.parse(a.arrived_at ?? '') - Date.parse(b.arrived_at ?? ''))
+            : []),
+        [dayKnown, isToday, mine],
+    );
+    const pickItems = useMemo(
+        () => (dayKnown && isToday
+            ? soloPickItems({
+                running: runningJobs,
+                // BEKLEMEDE (v4 · G3): bu telefonda kumandanın son niyeti
+                // varsa o (sinyal yokken kurulan bekleme de görünsün), yoksa
+                // sunucunun damgası.
+                waitOf: (job) => activeWait(job, waitIntentOf(job.id), serverNow),
+                ticket,
+                startable: soloStartable(mine, nowMinutes),
+                nowMinutes,
+                nowMs: serverNow,
+            })
+            : []),
+        [dayKnown, isToday, runningJobs, ticket, mine, nowMinutes, serverNow],
+    );
+
+    /*
+     * SEÇİM RANDEVUYA BAĞLI (G5 · Karar 2). Ekranda kalındıkça yeni randevu
+     * gelse de süre geçse de aynı randevu seçili kalır — seçilen kişinin
+     * altından kayması yanlış kişiyi başlatma riskiydi. Gün'den çıkılınca,
+     * uygulama arka plandan dönünce ya da seçili randevu yığından düşünce
+     * (başladı, gelmedi sayıldı, iptal) ilk karta dönülür.
+     */
+    const [pickedId, setPickedId] = useState<string | null>(null);
+    // Seçili randevu yığından düştüyse seçim BIRAKILIYOR (render sırasında
+    // türetme — effect'te değil): sonra yeniden başlatılabilir olsa da
+    // (ör. "Geldi") kart kendiliğinden ona dönmesin.
+    if (pickedId && !pickItems.some((item) => item.id === pickedId)) setPickedId(null);
+    const pickIndex = soloPickIndex(pickItems, pickedId);
+    useFocusEffect(useCallback(() => () => setPickedId(null), []));
+    useEffect(() => {
+        let previous = AppState.currentState;
+        const sub = AppState.addEventListener('change', (next) => {
+            if (previous.match(/inactive|background/) && next === 'active') setPickedId(null);
+            previous = next;
+        });
+        return () => sub.remove();
+    }, []);
+    /** Seçici sürüklenirken sayfa kaymıyor (G5 · Karar 1). */
+    const [picking, setPicking] = useState(false);
+
+    /*
+     * Yığın yokken (süren iş, adisyon, başlatılabilir — hiçbiri) tek kart:
+     * kapanışa kalan süre ya da günün özeti; izin ve kapalı gün kendi kartını
+     * söylüyor (personel durumunun kartı).
+     */
+    const idlePanel = dayState && pickItems.length === 0
+        ? soloIdlePanel(dayState.kind, todayCounts, data.open, nowMinutes) ?? dayState.panel
+        : null;
 
     /*
      * GÜN GERÇEKTEN BOŞ MU?
@@ -250,16 +289,17 @@ export default function SoloDay() {
                 : soloDayTotal(mine),
     );
 
-    /*
-     * Hap neyin üstünde çalışacak: süren iş, yoksa açık adisyon ("Tahsil
-     * et"), yoksa sıradaki. Hiçbiri yoksa `null` ve kart hapsız kalıyor.
-     */
-    const panelAction = useMemo(
-        () => (dayKnown && isToday && dayState
-            ? soloPanelAction(dayState.runningAppointment, next, ticket)
-            : null),
-        [dayKnown, isToday, dayState, next, ticket],
-    );
+    /** Seçili kartın hapı: kumandayı aç (başlat, tahsil et, süren işe dön). */
+    const openPicked = useCallback((index: number) => {
+        const action = pickItems[index]?.action;
+        if (!action) return;
+        router.push({
+            pathname: '/(staff-flow)/kumanda',
+            // `from`: kumandanın geri okunun yazısı ("Gün") ve tahsilat
+            // adımı. Mod değil, NEREDEN gelindiği: Kasa da `back` yolluyor.
+            params: { id: action.appointmentId, from: 'tek' },
+        });
+    }, [pickItems, router]);
 
     const openAppointment = useCallback((appointment: Appt) => {
         router.push({ pathname: '/(manager-flow)/randevu/[id]', params: { id: appointment.id } });
@@ -319,6 +359,7 @@ export default function SoloDay() {
 
             <ScrollView
                 style={{ flex: 1 }}
+                scrollEnabled={!picking}
                 contentContainerStyle={{ paddingBottom: insets.bottom + staffDayMetrics.panelHeightMax }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={false} onRefresh={() => { void reload(); }} tintColor={c.tx3} />}
@@ -388,22 +429,20 @@ export default function SoloDay() {
                   * 09:30'a kadar" yazıyordu — o gün çoktan yaşandı ve
                   * ekranın anlattığı an hiç var olmadı.
                   */}
-                {!dayEmpty && isToday && panel ? (
+                {!dayEmpty && isToday && pickItems.length > 0 ? (
                     <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
-                        <StaffHeroPanelCard
-                            panel={panel}
-                            action={panelAction ? {
-                                label: panelAction.label,
-                                tone: panelAction.tone,
-                                onPress: () => router.push({
-                                    pathname: '/(staff-flow)/kumanda',
-                                    // `from`: kumandanın geri okunun yazısı
-                                    // ("Gün") ve tahsilat adımı. Mod değil,
-                                    // NEREDEN gelindiği: Kasa da `back` yolluyor.
-                                    params: { id: panelAction.appointmentId, from: 'tek' },
-                                }),
-                            } : undefined}
+                        <SoloPicker
+                            items={pickItems}
+                            index={pickIndex}
+                            onSettle={(index) => setPickedId(pickItems[index]?.id ?? null)}
+                            onOpen={openPicked}
+                            onDrag={setPicking}
                         />
+                    </View>
+                ) : null}
+                {!dayEmpty && isToday && idlePanel ? (
+                    <View style={{ paddingHorizontal: staffDayMetrics.lhdPadX }}>
+                        <StaffHeroPanelCard panel={idlePanel} />
                     </View>
                 ) : null}
 
@@ -428,6 +467,7 @@ export default function SoloDay() {
                                     appointment={appointment}
                                     nowMinutes={nowMinutes}
                                     onOpen={openAppointment}
+                                    selected={pickItems.length > 1 && pickItems[pickIndex]?.id === appointment.id}
                                 />
                             </Fragment>
                         ))}

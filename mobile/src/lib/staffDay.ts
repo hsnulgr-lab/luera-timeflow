@@ -37,6 +37,12 @@ export interface StaffHeroPanel {
     heroValue: string;
     heroUnit?: string;
     /**
+     * İkinci büyük sayı ve birimi — "1 sa 14 dk"te 14 ve dk (G5). Saat ile
+     * dakika aynı büyüklükte okunuyor; dakika küçük birimin içinde kalmıyor.
+     */
+    heroValue2?: string;
+    heroUnit2?: string;
+    /**
      * Sayacın altındaki bağlam satırı. `null` "bilinmiyor" demek ve satır
      * HİÇ çizilmez — uydurma müşteri adı yazmaktansa satır olmaz.
      */

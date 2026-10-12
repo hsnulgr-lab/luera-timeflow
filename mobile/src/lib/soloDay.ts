@@ -11,7 +11,7 @@ import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
 import { formatMoney } from './cash.ts';
 import { graceLeft, pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
-import { DEFAULT_ARRIVAL_TOLERANCE_MIN, formatFreeDuration, isNoShow, type StaffHeroPanel } from './staffDay.ts';
+import { DEFAULT_ARRIVAL_TOLERANCE_MIN, formatElapsed, isNoShow, type StaffHeroPanel } from './staffDay.ts';
 import { clockDative, clockLocative, upperTR } from './text.ts';
 
 /**
@@ -422,13 +422,9 @@ export function soloTicketPanel(ticket: FlowEvent): StaffHeroPanel {
  * değil; müşteri yine de gelirse randevu kartındaki "Geldi" onu kapıya
  * alıyor ve buraya geri dönüyor (`isNoShow` kapıdakini saymaz).
  *
- * Saat sırasıyla ilki: kapıda bekleyen ya da geciken, sonrakinden önce gelir.
+ * Saat sırasıyla: kapıda bekleyen ya da geciken, sonrakinden önce gelir.
+ * Hâl kartının seçicisi (G5) bunların HEPSİNİ yığında taşıyor.
  */
-export function soloNextToStart(appointments: readonly Appt[], nowMinutes: number): Appt | null {
-    return soloStartable(appointments, nowMinutes)[0] ?? null;
-}
-
-/** Başlatılabilir randevuların HEPSİ, saat sırasıyla — kural `soloNextToStart`ta. */
 export function soloStartable(appointments: readonly Appt[], nowMinutes: number): Appt[] {
     return appointments
         .filter((appointment) => appointment.status !== 'cancelled'
@@ -513,12 +509,10 @@ export function soloIdlePanel(
 ): StaffHeroPanel | null {
     if (kind !== 'free' && kind !== 'ended') return null;
     if (open && nowMinutes < open.to) {
-        const free = formatFreeDuration(open.to - nowMinutes);
         return {
             label: 'Şu an boş',
             hasPulse: false,
-            heroValue: free.value,
-            heroUnit: free.unit,
+            ...durationHero(open.to - nowMinutes),
             subText: `${clockDative(hhmm(open.to))} kadar · sıradaki randevu yok`,
         };
     }
@@ -532,8 +526,198 @@ export function soloIdlePanel(
     };
 }
 
+// ── G5 · Hâl kartının seçicisi ─────────────────────────────────────────────
+
+/**
+ * Süreyi kartın büyük sayısına böler: "44 dk" · "1 sa 14 dk" · "2 sa".
+ *
+ * G5'in dili: saat ve dakika İKİSİ DE büyük sayı, birimleri küçük (`1 sa 14
+ * dk`). Eski hâl "1 · sa 14dk" yazıyordu — dakika küçük birimin içinde
+ * kalıyordu.
+ */
+export function durationHero(minutes: number): Pick<StaffHeroPanel, 'heroValue' | 'heroUnit' | 'heroValue2' | 'heroUnit2'> {
+    const total = Math.max(0, Math.floor(minutes));
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    if (hours === 0) return { heroValue: String(mins), heroUnit: 'dk' };
+    if (mins === 0) return { heroValue: String(hours), heroUnit: 'sa' };
+    return { heroValue: String(hours), heroUnit: 'sa', heroValue2: String(mins), heroUnit2: 'dk' };
+}
+
+/** "44 dakika" · "1 saat 14 dakika" — ekran okuyucunun söylediği süre. */
+function spokenDuration(minutes: number): string {
+    const total = Math.max(0, Math.floor(minutes));
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    if (hours === 0) return `${mins} dakika`;
+    return mins === 0 ? `${hours} saat` : `${hours} saat ${mins} dakika`;
+}
+
+/** Yığının bir kartı: kartın kendisi, hapı ve ekran okuyucunun cümlesi. */
+export interface SoloPickItem {
+    /** Randevunun kimliği — seçim BUNA bağlı (G5 · Karar 2). */
+    id: string;
+    panel: StaffHeroPanel;
+    /** `null`: hap çizilmez ve kart dokunuşa kapalı (G5·6 · SÜRÜYOR'da sıradakiler). */
+    action: SoloPanelAction | null;
+    /** "Gizem Ünal, Kaş Tasarımı, gecikti, 16 dakika" */
+    spoken: string;
+}
+
+/**
+ * SÜRÜYOR kartı — bir süren iş için (v4 · G2). Personel durumunun kartıyla
+ * aynı cümle; G5'te birden çok süren iş olabildiği için randevudan kuruluyor
+ * (BEKLEMEDE'de başka işe başlanabiliyor).
+ */
+export function soloRunningPanel(running: Appt, nowMs: number): StaffHeroPanel {
+    const since = running.arrived_at ? Date.parse(running.arrived_at) : NaN;
+    const elapsed = Number.isFinite(since) ? Math.max(0, (nowMs - since) / 1000) : 0;
+    return {
+        label: 'SÜRÜYOR',
+        hasPulse: true,
+        heroValue: formatElapsed(elapsed),
+        subText: `${running.customer_name} · ${running.service} · ${clockLocative(running.end_time.slice(0, 5))} biter`,
+    };
+}
+
+/**
+ * Saati GELMEMİŞ başlatılabilir randevunun kartı (G5·1 · G5·4).
+ *
+ * "ŞU AN BOŞ … sıradaki" YALNIZ yığının ilk kartıyken: önünde bekleyen biri
+ * ya da süren bir iş varken boş değilsiniz. Öteki hâlde kumandanın kadranının
+ * kelimesi — BAŞLAMAYA · 44 dk · "Yasemin Kurt · Ağda · 16:30’da"; etiket
+ * nötr, noktasız (ŞU AN BOŞ'un rengi).
+ */
+export function soloAheadPanel(next: Appt, nowMinutes: number, first: boolean): StaffHeroPanel {
+    const until = toMinutes(next.start_time) - nowMinutes;
+    const start = next.start_time.slice(0, 5);
+    return first
+        ? {
+            label: 'ŞU AN BOŞ',
+            hasPulse: false,
+            ...durationHero(until),
+            subText: `${clockDative(start)} kadar · sıradaki ${next.customer_name}`,
+        }
+        : {
+            label: 'Başlamaya',
+            hasPulse: false,
+            ...durationHero(until),
+            subText: `${next.customer_name} · ${next.service} · ${clockLocative(start)}`,
+        };
+}
+
+/**
+ * YIĞIN — hâl kartının seçicisinin kartları, sırasıyla (G5).
+ *
+ *   1. Süren işler (G2 SÜRÜYOR / G3 BEKLEMEDE) — hap "Kumandayı aç".
+ *   2. Açık adisyon (G4) — yalnız süren iş yokken; hap "Tahsil et".
+ *   3. Başlatılabilirler, saat sırasıyla (`soloStartable`) — hap "Başlat".
+ *
+ * G5 · Karar 3: süren iş varken sıradakilere YALNIZ BAKILIR — kartlarında hap
+ * çizilmez ve kart dokunuşa kapalı (kapalı bir hap "neden basmıyor" sorusunu
+ * doğururdu). Süren işlerin HEPSİ beklemedeyse (boya, krem) Başlat açık:
+ * bekleme gerçek bir boşluk ve kumanda sıradakini paralel iş olarak açar.
+ */
+export function soloPickItems(input: {
+    running: readonly Appt[];
+    /** Süren işin beklemesi — kumandanın niyeti ya da sunucunun damgası. */
+    waitOf: (running: Appt) => { endsAt: number } | null;
+    ticket: FlowEvent | null;
+    startable: readonly Appt[];
+    nowMinutes: number;
+    nowMs: number;
+}): SoloPickItem[] {
+    const { running, waitOf, ticket, startable, nowMinutes, nowMs } = input;
+    const items: SoloPickItem[] = [];
+    let allWaiting = running.length > 0;
+
+    for (const job of running) {
+        const wait = waitOf(job);
+        const waiting = soloWaitPanel(job, wait, nowMs);
+        if (!waiting) allWaiting = false;
+        const since = job.arrived_at ? Date.parse(job.arrived_at) : NaN;
+        const minutes = Number.isFinite(since) ? Math.max(0, Math.floor((nowMs - since) / 60_000)) : 0;
+        items.push({
+            id: job.id,
+            panel: waiting ?? soloRunningPanel(job, nowMs),
+            action: { label: 'Kumandayı aç', tone: 'calm', appointmentId: job.id },
+            spoken: waiting
+                ? `${job.customer_name}, ${job.service}, beklemede, ${waiting.heroValue} dakika`
+                : `${job.customer_name}, ${job.service}, sürüyor, ${minutes} dakika`,
+        });
+    }
+
+    if (running.length === 0 && ticket?.appointmentId) {
+        const name = `${ticket.firstName} ${ticket.lastName}`.trim();
+        items.push({
+            id: ticket.appointmentId,
+            panel: soloTicketPanel(ticket),
+            action: { label: 'Tahsil et', tone: 'go', appointmentId: ticket.appointmentId },
+            spoken: `Adisyon açık, ${formatMoney(ticket.amountValue ?? 0)}${name ? `, ${name}` : ''}`,
+        });
+    }
+
+    const canStart = running.length === 0 || allWaiting;
+    for (const appointment of startable) {
+        const first = items.length === 0;
+        const who = `${appointment.customer_name}, ${appointment.service}`;
+        const late = nowMinutes - toMinutes(appointment.start_time);
+        let panel: StaffHeroPanel;
+        let spoken: string;
+        if (appointment.customer_arrived_at || late >= 1) {
+            panel = soloNextPanel(appointment, nowMinutes, nowMs) as StaffHeroPanel;
+            spoken = appointment.customer_arrived_at
+                ? `${who}, bekliyor, ${panel.heroValue} dakikadır`
+                : `${who}, gecikti, ${late} dakika`;
+        } else {
+            const until = toMinutes(appointment.start_time) - nowMinutes;
+            panel = soloAheadPanel(appointment, nowMinutes, first);
+            spoken = first
+                ? `${who}, sıradaki, ${spokenDuration(until)} sonra`
+                : `${who}, başlamaya ${spokenDuration(until)}`;
+        }
+        items.push({
+            id: appointment.id,
+            panel,
+            action: canStart ? { label: 'Başlat', tone: 'go', appointmentId: appointment.id } : null,
+            spoken,
+        });
+    }
+    return items;
+}
+
+/**
+ * Seçicinin ekran okuyucu değeri (G5 · Karar 6):
+ * "Gizem Ünal, Kaş Tasarımı, gecikti, 16 dakika, 3 randevudan 2".
+ */
+export function soloPickSpoken(items: readonly SoloPickItem[], index: number): string {
+    const item = items[index];
+    return item ? `${item.spoken}, ${items.length} randevudan ${index + 1}` : '';
+}
+
+/**
+ * Seçili kartın sıradaki yeri (G5 · Karar 2): seçim SIRAYA değil RANDEVUYA
+ * bağlı. Ekranda kalındıkça yeni randevu gelse de süre geçse de aynı randevu
+ * seçili kalır; seçili randevu yığından düşerse (başladı, gelmedi sayıldı,
+ * iptal) ilk karta dönülür.
+ */
+export function soloPickIndex(items: readonly SoloPickItem[], selectedId: string | null): number {
+    if (!selectedId) return 0;
+    const index = items.findIndex((item) => item.id === selectedId);
+    return index < 0 ? 0 : index;
+}
+
 // ── Hâl kartının eylem hapı ─────────────────────────────────────────────────
 
+/**
+ * Kartın hapı: kumandada yapılacak İLK İŞİN adı (v4 · G1–G4).
+ *
+ * Hap işi BAŞLATMIYOR, kumandayı açıyor: "Başlat" kumandayı BEKLENİYOR
+ * hâlinde açar, işi başlatan oradaki "Kaydır ve başlat". Başlatmak
+ * `started_at` yazıyor — geri alınamaz; yanlışlıkla dokunulan bir hap günün
+ * sayacını yanlış dakikadan başlatırdı. "Tahsil et" kumandayı tahsilat
+ * adımında açar (K3); para orada, yöntem seçilerek alınıyor.
+ */
 export interface SoloPanelAction {
     label: string;
     /** `go` sunucuya yazan işe götürür, `calm` yalnız ekranı açar. */
@@ -542,37 +726,6 @@ export interface SoloPanelAction {
     appointmentId: string;
 }
 
-/**
- * Kartın sağındaki hap: kumandada yapılacak İLK İŞİN adı (v4 · G1–G4).
- *
- * ── Hap neden "başlatmıyor" ─────────────────────────────────────────────────
- * "Başlat" kumandayı BEKLENİYOR hâlinde açıyor; işi başlatan oradaki "Kaydır
- * ve başlat". Tasarım da böyle diyor ve sebebi var: başlatmak `started_at`
- * yazıyor, yani sunucuya giden geri alınamaz bir iş. Listede yanlışlıkla
- * dokunulan bir hapın bunu yapması, günün sayacını yanlış dakikadan
- * başlatırdı. Hap bir kapı, kumanda ise o işin yapıldığı yer.
- *
- * ── Sıra (v4: "süren ya da beklemedeki iş, sonra açık adisyon, sonra
- *    sıradaki randevu") ───────────────────────────────────────────────────────
- * Süren işin dakikası akıyor; açık adisyonun parası BEKLİYOR ama bekleyen
- * müşteri kapıdan çıkmadan alınmalı — sıradakinin saati ondan sonra gelir.
- * "Tahsil et" kumandayı tahsilat adımında açıyor (K3); para orada, yöntem
- * seçilerek alınıyor — hap parayı kendisi ALMIYOR.
- *
- * `null`: üzerinde iş yapılacak satır yok (boş gün ya da günün sonu). Kart
- * bilgi olarak kalıyor, hapsız.
- */
-export function soloPanelAction(
-    running: Appt | null,
-    next: Appt | null,
-    ticket: FlowEvent | null = null,
-): SoloPanelAction | null {
-    // Süren iş ÖNCE: o anda yapılacak tek şey o.
-    if (running) return { label: 'Kumandayı aç', tone: 'calm', appointmentId: running.id };
-    if (ticket?.appointmentId) return { label: 'Tahsil et', tone: 'go', appointmentId: ticket.appointmentId };
-    if (next) return { label: 'Başlat', tone: 'go', appointmentId: next.id };
-    return null;
-}
 
 /**
  * OKUNAMADI (v4 · B4) — boş günün değil, bilinmeyenin cümlesi.

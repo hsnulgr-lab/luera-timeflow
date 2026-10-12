@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Tek · G5 · Gün kartının seçicisi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+body{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.74);--glassbd:rgba(14,14,14,.08);--tint:rgba(214,202,186,.45);--sheen:rgba(255,255,255,.6);--desk:#E4DACA;--fld:rgba(14,14,14,.05);--glow:linear-gradient(180deg,rgba(255,90,31,.13) 0%,rgba(255,90,31,.045) 45%,rgba(243,236,224,0) 100%);--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--pam:#D9A43B;--prd:#E07272;--ppl:#F3ECE0;--ppk:#0E0E0E}
+body.dk{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(70,60,44,.55);--sheen:rgba(243,237,227,.09);--desk:#0B0805;--fld:rgba(243,237,227,.07);--glow:linear-gradient(180deg,rgba(255,90,31,.18) 0%,rgba(255,90,31,.07) 45%,rgba(18,14,8,0) 100%);--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--pam:#8A5C00;--prd:#A82F2F;--ppl:#1C1710;--ppk:#F3EDE3}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--or2);text-decoration:none}a:hover{color:var(--or)}
+.n{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--tx)}
+.ic{width:23px;height:23px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.doc{max-width:1800px;margin:0 auto}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;color:var(--tx2);line-height:1.8}
+.lede{max-width:920px;margin-bottom:34px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px;text-wrap:balance}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.toggle{position:fixed;top:20px;right:20px;z-index:300;display:flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--glassbd);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.2em}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.band{display:flex;align-items:baseline;gap:16px;margin:34px 0 28px;padding-bottom:12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em;flex:none}
+.band .num{font-size:10.5px;letter-spacing:.24em;color:var(--tx3);font-weight:600;flex:none}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:640px;line-height:1.5;text-align:right}
+.row{display:flex;flex-wrap:wrap;gap:56px 44px;margin-bottom:64px;align-items:flex-start}
+.spec{display:flex;flex-direction:column;gap:12px;width:393px}
+.spec-label{display:flex;flex-direction:column;gap:6px}
+.spec-label b{font-size:12px;font-weight:700;letter-spacing:.13em}
+.from{display:flex;gap:8px;align-items:baseline;font-size:12px;font-weight:600;color:var(--tx2);line-height:1.45}
+.from i{flex:none;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.16em;color:var(--or2);border:1px solid rgba(255,90,31,.4);border-radius:5px;padding:2px 5px 1px}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:12px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:393px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.note.ask::before{background:var(--am)}
+.lnk{font-size:12px;font-weight:700;color:var(--or2);text-decoration:underline;text-underline-offset:3px}
+.ro{font:500 11px/1.65 ui-monospace,Menlo,monospace;color:var(--tx2);white-space:pre-wrap;background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;width:393px;overflow:hidden}
+.ro b{color:var(--tx);font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1320px;margin-bottom:28px}
+.rn .r{display:flex;gap:18px;padding:11px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--tx3)}
+.rn .r>*{flex:1;min-width:0}
+.rn .r>.c1{flex:none;width:190px;color:var(--tx);font-weight:700}
+.rn{overflow-x:auto}.rn .r{min-width:960px}.rn .r>.c2{flex:none;width:250px}
+.rn .r>.c3{flex:none;width:96px}.rn .r>*:last-child{min-width:220px}.rn code{overflow-wrap:anywhere}
+.rn .r>.c4{flex:none;width:42px;font-weight:800;color:var(--tx)}
+.rn .r.h>*{color:var(--tx3)}
+.rn .r b{color:var(--tx);font-weight:700}
+/* telefon */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column;transition:background 240ms ease}
+.phone.sm{width:375px;height:667px;border-radius:38px}
+.status{height:59px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0 46px;font:600 16.5px/1 -apple-system,'SF Pro Text',system-ui,sans-serif;position:relative;z-index:30;color:var(--tx)}
+.phone.sm .status{height:20px;padding:0 14px 0 22px;font-size:12px}
+.status .rt{display:flex;align-items:center;gap:6px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:11px}
+.bars i{width:3px;background:currentColor;border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8.5px}.bars i:nth-child(4){height:11px}
+.status .wf{width:17px;height:17px;stroke-width:2}
+.batt{width:25px;height:12px;border:1.3px solid currentColor;border-radius:4px;padding:1.5px;display:flex;opacity:.9}
+.batt i{width:70%;background:currentColor;border-radius:1.5px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden}
+.glow{position:absolute;left:0;right:0;top:0;height:300px;background:var(--glow);pointer-events:none;z-index:0}
+.warm{position:absolute;left:50%;top:420px;width:560px;height:560px;transform:translate(-50%,-50%);pointer-events:none;z-index:0;background:radial-gradient(closest-side,rgba(255,90,31,.12),rgba(255,90,31,.04) 48%,transparent 74%)}
+.scr{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;z-index:2;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:110px}
+.scr::-webkit-scrollbar{display:none}
+.tabbar{position:absolute;left:20px;right:20px;bottom:19px;height:58px;display:flex;padding:4px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassbd);border-radius:999px;box-shadow:0 1px 0 var(--sheen) inset,0 6px 22px rgba(14,14,14,.07);z-index:50}
+.phone.sm .tabbar{bottom:10px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:999px;color:var(--tx);font-size:11.5px;font-weight:600;letter-spacing:-.01em}
+.tab .ic{width:24px;height:24px}
+.tab.sel{background:var(--tint);color:var(--or2)}
+/* gün başlığı + şerit */
+.ghd{flex:none;padding:6px 18px 0;position:relative;z-index:2;border-bottom:1px solid var(--bd)}
+.ctl{display:flex;justify-content:space-between;align-items:flex-end}
+.ctl .d{display:flex;align-items:flex-end;font-size:44px;font-weight:800;letter-spacing:-.035em;line-height:1}
+.ctl .d i{width:10px;height:10px;border-radius:50%;background:var(--or);margin:0 0 6px 4px}
+.ctl .nn{font-size:44px;font-weight:800;color:var(--tx3);letter-spacing:-.03em;line-height:1}
+.csub{font-size:15px;font-weight:500;color:var(--tx2);margin:13px 0 12px}
+.wk{flex:none;display:flex;margin:0 -18px;padding:6px 6px 0}
+.wd{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.wd .dn{width:37px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:18px;font-weight:800;color:var(--tx2);border:1px solid transparent}
+.wd.sel .dn{background:rgba(255,255,255,.5);border-color:var(--bd2);color:var(--tx)}
+body.dk .wd.sel .dn{background:var(--surf2)}
+.wd .dl{font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--tx3)}
+.wd.sel .dl{color:var(--or2)}
+.wd.off .dn{color:var(--tx3)}
+.wd .dt{width:5px;height:5px;border-radius:50%;background:var(--tx3)}
+.wd .dt.lg{width:7px;height:7px;background:var(--tx2)}
+.wd .dt.no{visibility:hidden}
+.wd.sel .dt{visibility:visible;background:var(--or);width:6px;height:6px}
+.wd .tk{width:1px;height:12px;background:var(--bd2);margin-top:-2px}
+/* hâl kartı · değişmiyor */
+.pnl{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:14px 14px 15px;border-radius:18px;background:var(--ps);color:var(--pk);overflow:hidden;text-align:left}
+.plbl{grid-column:1;grid-row:1;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--pk2);white-space:nowrap}
+.plbl s{flex:none;width:6px;height:6px;border-radius:50%;background:var(--or);opacity:.85;animation:pl 1.6s ease-in-out infinite}
+.plbl.am{color:var(--pam)}.plbl s.am{background:var(--pam);animation:none;opacity:1}
+.plbl.rd{color:var(--prd)}.plbl s.rd{background:var(--prd);animation:none;opacity:1}
+@keyframes pl{0%,100%{opacity:.9}50%{opacity:.3}}
+.pnl .hero{grid-column:1;grid-row:2;display:flex;align-items:baseline;gap:5px;font-size:34px;font-weight:800;letter-spacing:-.04em;line-height:1.08}
+.pnl .hero .u{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--pk2)}
+.psub{grid-column:1/3;grid-row:3;margin-top:3px;font-size:12px;font-weight:500;color:var(--pk2);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppill{grid-column:2;grid-row:1/3;height:37px;padding:0 17px;border-radius:999px;display:flex;align-items:center;font-size:15.5px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.ppill.go{background:var(--or);color:#fff}
+.ppill.cr{background:var(--ppl);color:var(--ppk)}
+/* yığın · yeni olan */
+.pick{flex:none;position:relative;margin:16px 18px 0;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;outline:none;z-index:5}
+.pick.one{cursor:pointer;touch-action:auto}
+.pick.grab{cursor:grabbing}
+.pick .pnl{position:absolute;left:0;right:0;top:0;transform-origin:50% 50%;will-change:transform,opacity}
+.pick .pnl>*{opacity:var(--co,1)}
+.pick:focus-visible::after{content:"";position:absolute;left:-5px;right:-5px;top:-5px;height:calc(100% + 10px);border:2px solid var(--or);border-radius:22px;pointer-events:none}
+/* liste */
+.lhd{flex:none;display:flex;align-items:center;gap:10px;padding:22px 18px 4px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--tx3)}
+.lhd i{flex:1;height:1px;background:var(--bd)}
+.gl{flex:none;display:flex;flex-direction:column;gap:10px;padding:8px 18px 0}
+.gc{display:flex;gap:14px;align-items:flex-start}
+.gc>.tm{flex:none;width:36px;font-size:14px;font-weight:600;color:var(--tx2);padding-top:16px;transition:color 140ms ease}
+.gc.sel>.tm{color:var(--or2);font-weight:800}
+.phone.rm .gc>.tm{transition:none}
+.gk{flex:1;min-width:0;position:relative;background:var(--card);border-radius:20px;padding:13px 16px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:3px;align-items:baseline}
+.gk .nm{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gk .nm b{font-weight:800}
+.gk .du{font-size:15px;font-weight:600;color:var(--tx3)}
+.gk .sv{grid-column:1/3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px;font-weight:500;color:var(--tx2)}
+.gk .stl{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--gr);white-space:nowrap}
+.gk .stl s{width:6px;height:6px;border-radius:50%;background:currentColor}
+.gk .stl.am{color:var(--am)}
+.gk.done .nm{opacity:.72}
+.gk.bar{padding-right:32px}
+.gk.bar::after{content:"";position:absolute;right:15px;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--gr)}
+.gk.bar.am::after{background:var(--am)}
+.nowp{display:flex;align-items:center;gap:10px}
+.nowp b{flex:none;height:22px;padding:0 10px;border-radius:999px;background:var(--or);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center}
+.nowp i{flex:1;height:1px;background:var(--or)}
+/* kumanda · K1 */
+.kmd{position:absolute;left:0;right:0;bottom:0;top:59px;z-index:90;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform 320ms cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.kmd.on{transform:none;visibility:visible}
+.phone.sm .kmd{top:20px}
+.phone.rm .kmd{transition:none}
+.kbk{flex:none;height:52px;display:flex;align-items:center;gap:5px;padding:0 16px;font-size:17px;font-weight:500;color:var(--tx2);position:relative;z-index:2;align-self:flex-start}
+.kbk .ic{width:24px;height:24px}
+.idp{flex:none;display:flex;align-items:flex-start;gap:10px;padding:0 20px 12px;position:relative;z-index:2}
+.idp .who{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.st{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--tx3);margin-bottom:2px}
+.st s{width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.or{color:var(--or2)}.st.am{color:var(--am)}.st.rd{color:var(--rd)}
+.idp .nm{font-size:23px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.idp .sv{font-size:16px;font-weight:500;color:var(--tx2)}
+.idp .t2{font-size:13.5px;font-weight:600;color:var(--tx3);letter-spacing:.03em}
+.tools{flex:none;display:flex;gap:6px;padding-top:2px}
+.tb{width:44px;height:44px;border-radius:15px;background:var(--fld);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--tx2)}
+.tb .ic{width:20px;height:20px}
+.kdiv{flex:none;height:1px;background:var(--bd);margin:0 20px;position:relative;z-index:2}
+.dial{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;z-index:2}
+.big{display:flex;align-items:baseline;gap:8px;font-size:96px;font-weight:800;letter-spacing:-.055em;line-height:.9;color:var(--or)}
+.big.wt{color:var(--tx2)}
+.big .u{font-size:36px;letter-spacing:-.02em}
+.unit{font-size:12px;font-weight:700;letter-spacing:.3em;color:var(--tx3);margin-top:16px}
+.schip{height:31px;padding:0 13px;border-radius:10px;display:flex;align-items:center;font-size:15px;font-weight:600;color:var(--tx2);background:var(--fld);border:1px solid var(--bd2)}
+.kref{font-size:13.5px;font-weight:600;color:var(--tx3);text-align:center;max-width:260px;line-height:1.45}
+.sl{flex:none;margin:0 12px 40px;height:81px;border-radius:999px;background:var(--fld);border:1px solid var(--bd);position:relative;display:flex;align-items:center;z-index:2}
+.sl .hnd{position:absolute;left:5px;top:5px;width:70px;height:70px;border-radius:50%;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 6px rgba(255,90,31,.12)}
+.sl .hnd .ic{width:28px;height:28px;stroke-width:2.2}
+.sl .lbl{margin-left:100px;font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--tx2)}
+.sl .sok{position:absolute;right:28px;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--tx3)}
+.phone.sm .big{font-size:80px}.phone.sm .sl{margin-bottom:22px}
+</style></head>
+<body class="dk">
+<template id="__bundler_thumbnail" data-bg-color="#120E08"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#120E08"/><rect x="380" y="430" width="440" height="120" rx="26" fill="#FAF3E9" opacity=".3"/><rect x="350" y="400" width="500" height="130" rx="28" fill="#FAF3E9" opacity=".55"/><rect x="320" y="250" width="560" height="170" rx="30" fill="#FAF3E9"/><rect x="700" y="295" width="140" height="56" rx="28" fill="#FF5A1F"/></svg></template>
+<button class="toggle" onclick="document.body.classList.toggle('dk')"><span class="dot"></span><span>TEMA</span></button>
+<div class="doc">
+<div class="doc-head"><div class="mark">luera<i></i></div><div class="meta">MOBİL · TEK KİŞİLİK · G5<br/>GÜN KARTININ SEÇİCİSİ · app/tek/gun.tsx<br/>393 × 852 PT · 375 × 667 PT · KOYU / AÇIK TEK DÜĞME</div></div>
+<div class="lede">
+<h1>Gün kartı: aynı kart, altında sıradakiler</h1>
+<p>Kart v4'teki gibi. Yeni olan yalnız <b>yığın</b> ve <b>hareket</b>: başlatılabilir birden çok randevu varsa saat sırasıyla kartın arkasında dizilir, seçili olan ortada tam durur. Kartı <b>fareyle sürükleyin</b>, <b>tekerlekle kaydırın</b> ya da odaklayıp <b>↑ ↓</b> tuşlarına basın; bırakınca en yakın randevuya oturur. Kenardan görünen kartlara tıklamak da onu seçer. Karta ya da <b>Başlat</b>'a dokunmak <b>seçilenin</b> kumandasını açar.</p>
+<p>G5·1–G5·4 ve G5·7 aynı an: Pzt 12 Ekim, 15:46. Tuğçe 15:38'de geldi, Gizem 15:30'du ve gelmedi, Yasemin 16:30'da. G5·6 v4'ün G2/G3 sahnesinin üstüne kuruldu.</p>
+</div>
+<div class="band"><span class="num">01</span><h2>Durgun ve sürüklerken</h2><p>Üç başlatılabilir randevu. 393 ve 375 ölçüsünde aynı kare; G5·2 iki kartın tam ortasında donuk, dokununca canlanır.</p></div>
+<div class="row">
+<div class="spec"><div class="spec-label"><b>G5·1 — DURGUN · ÜÇ BAŞLATILABİLİR</b><span class="from"><i>Nereden</i><span>v4 G1 kartı + masaüstü "Seansı planlanmamış" yığınının arkada solan satırı</span></span></div><div id="h1"></div>
+<div class="ro" id="r1"></div>
+<div class="note"><span><b>Konum göstergesi yok.</b> Alttaki iki kenar "arkada başka kart var" diyor, sayaç kartın düzenine yer istiyordu. İlk kez görünen yığında kart bir kez hafifçe yukarı kayıp geri döner (Karar 1). <button class="lnk" onclick="P.f1.hint()">İpucunu tekrar oynat</button></span></div>
+<div class="note"><span>Yığın sayfaya 14 pt ekliyor; üst kenarlar kartın 16 pt üst payının içine taşar. Seçili randevunun listedeki saati turuncu (Karar 4).</span></div>
+<div class="note"><span>Kartın dışında tekerlek sayfayı kaydırır, kartın üstünde seçiciyi.</span></div></div>
+<div class="spec"><div class="spec-label"><b>G5·1 — 375 × 667</b><span class="from"><i>Soru</i><span>Kartın altında listenin ne kadarı kalıyor?</span></span></div><div id="h1s"></div>
+<div class="note" id="r1s"><span>Ölçülüyor…</span></div></div>
+<div class="spec"><div class="spec-label"><b>G5·2 — SÜRÜKLERKEN · TAM ORTA</b><span class="from"><i>Konum</i><span>0,50: Tuğçe ile Gizem arası. Değerler canlı, sürükledikçe değişir.</span></span></div><div id="h2"></div>
+<div class="ro" id="r2"></div>
+<div class="note"><span>Çıkan kart yukarı kalkıp arkaya geçiyor, gelen aşağıdan öne çıkıyor. Ara noktada ikisi 68 pt aralı, metinleri ,30 opaklıkta; öne geçme ve tık bu noktada.</span></div>
+<div class="note"><span>Yalnız <code>translateY</code> · <code>scale</code> · <code>opacity</code>. Tablo hemen altta.</span></div></div>
+</div>
+<div class="band"><span class="num">02</span><h2>Hareket tablosu</h2><p>G5·2'nin değerleri. Kart yüksekliği H ≈ 100 pt. Bedel: A bugün yazılır · B Skia ya da gesture-handler ister · C mümkün değil.</p></div>
+<div id="t-hareket"></div>
+<div class="band"><span class="num">03</span><h2>Seçilen ne söyler</h2><p>Etiket, büyük sayı, satır ve hap seçilenin hâli. Tek başlatılabilirde kart bugünkünün aynısı.</p></div>
+<div class="row">
+<div class="spec"><div class="spec-label"><b>G5·3 — İKİNCİ SEÇİLİ</b><span class="from"><i>Hâl</i><span>GECİKTİ · kırmızı; BEKLİYOR üstte yığında</span></span></div><div id="h3"></div>
+<div class="note"><span>Üstte bir kenar (Tuğçe), altta bir kenar (Yasemin). Yığın her iki yöne de "daha var" diyor.</span></div>
+<div class="note"><span>Başlat Gizem'i açar; kadran <b>16 dk GECİKME</b>.</span></div></div>
+<div class="spec"><div class="spec-label"><b>G5·4 — İLERİ RANDEVU · SAATİNDEN ÖNCE</b><span class="from"><i>Dil</i><span>Kumandanın "N dk BAŞLAMAYA"sı</span></span></div><div id="h4"></div>
+<div class="note"><span><b>BAŞLAMAYA · 44 dk · Yasemin Kurt · Ağda · 16:30'da.</b> Büyük sayı saatine kalan, kelime kumandadaki kadranınki; kart ile kadran aynı şeyi aynı sözle söylüyor.</span></div>
+<div class="note"><span>Etiket nötr, nokta yok: ŞU AN BOŞ'un rengi. "ŞU AN BOŞ … sıradaki" yalnız yığının ilk kartı saati gelmemiş randevuyken kalır; önünde bekleyen biri varken boş değilsiniz.</span></div></div>
+<div class="spec"><div class="spec-label"><b>G5·5 — TEK BAŞLATILABİLİR</b><span class="from"><i>Nereden</i><span>v4 G1–G4 kartı, birebir · 16:41</span></span></div><div id="h5"></div>
+<div class="note"><span>Yığın izi yok, kenar payı yok, sürükleme yok; tekerlek sayfayı kaydırır. Kullanıcı farkı görmez.</span></div>
+<div class="note"><span>Görsellerdeki <b>KAPIDA</b> burada <b>BEKLİYOR</b>.</span></div></div>
+</div>
+<div class="band"><span class="num">04</span><h2>Süren iş + sıradakiler</h2><p>Karar 3'ün önerisi kabul: süren işte yalnız bakılır, Başlat yalnız BEKLEMEDE'yken açılır. Sahne v4 G2 ve G3.</p></div>
+<div class="row">
+<div class="spec"><div class="spec-label"><b>G5·6 — SÜRÜYOR · SIRADAKİLER YIĞINDA</b><span class="from"><i>Nereden</i><span>v4 G2 · Cum 9 Ekim, 15:16</span></span></div><div id="h6a"></div>
+<div class="note"><span>Kaydırılıp bakılır; sıradakinin kartında hap çizilmez, kart dokunuşa kapalı. Kapalı bir hap "neden basmıyor" sorusunu doğururdu.</span></div>
+<div class="note"><span>Süren işin hapı Kumandayı aç, v4'teki gibi.</span></div></div>
+<div class="spec"><div class="spec-label"><b>G5·6 — BEKLEMEDE · BAŞLAT AÇIK</b><span class="from"><i>Nereden</i><span>v4 G3 · Cum 9 Ekim, 14:20</span></span></div><div id="h6b"></div>
+<div class="note"><span>Krem beklerken sıradakinin Başlat'ı açık; kumanda onu paralel iş olarak açar.</span></div>
+<div class="note ask"><span>v4 K1'deki komşu iş şeridi yalnız paralel iş varken çıkıyor; bu durumda çıkar, burada çizilmedi. Çakışma kontrolünün beklemeyi boş sayması v4'te açık kalan karar.</span></div></div>
+</div>
+<div class="band"><span class="num">05</span><h2>reduceMotion</h2><p>Hareket durur, bilgi durmaz.</p></div>
+<div class="row">
+<div class="spec"><div class="spec-label"><b>G5·7 — REDUCEMOTION</b><span class="from"><i>Ayar</i><span>AccessibilityInfo.isReduceMotionEnabled</span></span></div><div id="h7"></div>
+<div class="note"><span>Yığın aynı. Kart parmağı izlemez: 72 pt'lik eşik geçilince seçili kart anlık değişir, tık yine gelir. Oturma yayı, lastik bant, ipucu ve kumandaya kayış yok.</span></div></div>
+</div>
+<div class="band"><span class="num">06</span><h2>Kararlar</h2><p>Her birine tek cümle gerekçe. Ekranlar önerilerin kabul edildiğini varsayıyor.</p></div>
+<div id="t-karar"></div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M5.4 18.6l1.5-1.5M17.1 6.9l1.5-1.5"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-cal" viewBox="0 0 24 24"><path d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1z"/><path d="M8 13h2M14 13h2M8 16.6h2"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-cash" viewBox="0 0 24 24"><path d="M3.6 7.4h16.8v9.2H3.6zM12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.8h3l1.5 3.7-1.9 1.5a10.6 10.6 0 0 0 4.8 4.8l1.5-1.9 3.7 1.5v3a2 2 0 0 1-2.2 2A15.6 15.6 0 0 1 4.6 6a2 2 0 0 1 2-2.2z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-note" viewBox="0 0 24 24"><path d="M6 3.6h9L19 8v12.4H6zM15 3.6V8h4"/><path d="M9 12.5h7M9 16h5"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-wifi" viewBox="0 0 24 24"><path d="M2.6 9.2a13.6 13.6 0 0 1 18.8 0M5.6 12.4a9.2 9.2 0 0 1 12.8 0M8.7 15.6a4.8 4.8 0 0 1 6.6 0M12 19h.01"/></symbol>
+</defs></svg>
+<script>
+const I=(n,c="")=>`<svg class="ic${c?" "+c:""}" viewBox="0 0 24 24"><use href="#i-${n}"/></svg>`;
+const sbar=t=>`<div class="status"><span class="n">${t}</span><span class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span>${I("wifi","wf")}<span class="batt"><i></i></span></span></div>`;
+const TABS=[["sun","Gün"],["cal","Takvim"],["plus","Randevu"],["cash","Kasa"],["user","İşletme"]];
+const tabbar=`<nav class="tabbar">${TABS.map(([ic,l],i)=>`<button class="tab${i===0?" sel":""}">${I(ic)}<span>${l}</span></button>`).join("")}</nav>`;
+const week=(days,sel)=>`<div class="wk">${days.map(([n,l,dt],i)=>`<span class="wd${i===sel?" sel":""}${dt==="off"?" off":""}"><span class="dn n">${n}</span><span class="dl">${l}</span><span class="dt ${dt==="lg"?"lg":(dt&&dt!=="off")?"":"no"}"></span><span class="tk"></span></span>`).join("")}</div>`;
+const gday=(d,n,sub,days,sel)=>`<div class="ghd"><div class="ctl"><span class="d">${d}<i></i></span><span class="nn n">${n}</span></div><div class="csub n">${sub}</div>${week(days,sel)}</div>`;
+const U=s=>`<span class="u">${s}</span>`;
+const STL={ok:["","tahsil edildi"],wt:["am","bekliyor"]};
+const rowH=o=>o==="now"?null:`<div class="gc" data-id="${o.id||""}"><span class="tm n">${o.tm}</span><div class="gk${o.st?" bar"+(STL[o.st][0]?" "+STL[o.st][0]:"")+(o.st==="ok"?" done":""):""}"><span class="nm">${o.a} <b>${o.s}</b></span><span class="du n">${o.du}</span><span class="sv">${o.sv}${o.st?` · <span class="stl ${STL[o.st][0]}"><s></s>${STL[o.st][1]}</span>`:""}</span></div></div>`;
+const nowl=t=>`<div class="nowp"><b class="n">${t}</b><i></i></div>`;
+
+/* veri */
+const WA=[["12","PZT","s"],["13","SAL","lg"],["14","ÇAR","s"],["15","PER",""],["16","CUM",""],["17","CMT",""],["18","PAZ",""]];
+const WG=[["6","SAL","s"],["7","ÇAR","s"],["8","PER","s"],["9","CUM","lg"],["10","CMT","lg"],["11","PAZ","off"],["12","PZT","s"]];
+const SIB={tm:"10:30",a:"Sibel",s:"Karaca",sv:"Lazer Epilasyon",du:"30 dk"},PIN={tm:"12:00",a:"Pınar",s:"Aksoy",sv:"Cilt Bakımı",du:"60 dk"};
+const TUG={id:"tug",tm:"15:00",a:"Tuğçe",s:"Erden",sv:"Kaş Tasarımı",du:"20 dk"},GIZ={id:"giz",tm:"15:30",a:"Gizem",s:"Ünal",sv:"Kaş Tasarımı",du:"20 dk"},YAS={id:"yas",tm:"16:30",a:"Yasemin",s:"Kurt",sv:"Ağda",du:"45 dk"},VIL={id:"vil",tm:"17:30",a:"Vildan",s:"Ay",sv:"Kaş Tasarımı",du:"20 dk"};
+const ok=o=>({...o,st:"ok"}),wt=o=>({...o,st:"wt"});
+const iTug={id:"tug",lbl:"BEKLİYOR",c:"am",dot:1,hero:"8"+U("dk"),pill:["Başlat","go"],sub:"Tuğçe Erden · Kaş Tasarımı · 15:38’de geldi",sr:"Tuğçe Erden, Kaş Tasarımı, bekliyor, 8 dakikadır",
+ k:{st:["am","BEKLİYOR"],nm:"Tuğçe Erden",sv:"Kaş Tasarımı",t2:"15:00 başlangıç · 20 dk plan",big:"8",unit:"BEKLİYOR",chip:"15:38’de geldi"}};
+const iGiz={id:"giz",lbl:"GECİKTİ",c:"rd",dot:1,hero:"16"+U("dk"),pill:["Başlat","go"],sub:"Gizem Ünal · Kaş Tasarımı · 14 dk sonra gelmedi sayılır",sr:"Gizem Ünal, Kaş Tasarımı, gecikti, 16 dakika",
+ k:{st:["rd","GECİKTİ"],nm:"Gizem Ünal",sv:"Kaş Tasarımı",t2:"15:30 başlangıç · 20 dk plan",big:"16",unit:"GECİKME",chip:"14 dk sonra gelmedi sayılır"}};
+const iYas={id:"yas",lbl:"BAŞLAMAYA",c:"",dot:0,hero:"44"+U("dk"),pill:["Başlat","go"],sub:"Yasemin Kurt · Ağda · 16:30’da",sr:"Yasemin Kurt, Ağda, başlamaya 44 dakika",
+ k:{st:["","BEKLENİYOR"],nm:"Yasemin Kurt",sv:"Ağda",t2:"16:30 başlangıç · 45 dk plan",big:"44",unit:"BAŞLAMAYA",chip:"16:30’da başlıyor"}};
+const iYasB={id:"yas",lbl:"BEKLİYOR",c:"am",dot:1,hero:"13"+U("dk"),pill:["Başlat","go"],sub:"Yasemin Kurt · Ağda · 16:28’de geldi",sr:"Yasemin Kurt, Ağda, bekliyor, 13 dakikadır",
+ k:{st:["am","BEKLİYOR"],nm:"Yasemin Kurt",sv:"Ağda",t2:"16:30 başlangıç · 45 dk plan",big:"13",unit:"BEKLİYOR",chip:"16:28’de geldi"}};
+const later=(id,nm,sv,tm,h,m,pill,plan)=>({id,lbl:"BAŞLAMAYA",c:"",dot:0,hero:h+U("sa")+m+U("dk"),pill:pill?["Başlat","go"]:null,sub:`${nm} · ${sv} · ${tm}’da`,sr:`${nm}, ${sv}, başlamaya ${h} saat ${m} dakika`,
+ k:{st:["","BEKLENİYOR"],nm,sv,t2:`${tm} başlangıç · ${plan} dk plan`,big:h,bigU:"sa",big2:m,unit:"BAŞLAMAYA",chip:`${tm}’da başlıyor`}});
+const iRun={id:"run",run:1,lbl:"SÜRÜYOR",c:"or",dot:1,hero:"74:12",pill:["Kumandayı aç","cr"],sub:"Tuğçe Erden · Kalıcı Makyaj · 16:02'de biter",sr:"Tuğçe Erden, Kalıcı Makyaj, sürüyor, 74 dakika",
+ k:{st:["or","SÜRÜYOR"],nm:"Tuğçe Erden",sv:"Kalıcı Makyaj",t2:"14:02 başlangıç · 120 dk plan",big:"74:12",unit:"GEÇEN SÜRE",live:1}};
+const iWait={id:"run",run:1,lbl:"BEKLEMEDE · KREM",c:"am",dot:1,hero:"13"+U("dk"),pill:["Kumandayı aç","cr"],sub:"Tuğçe Erden · Kalıcı Makyaj · bekleme 14:33'te biter",sr:"Tuğçe Erden, Kalıcı Makyaj, beklemede, 13 dakika",
+ k:{st:["am","BEKLEMEDE · KREM"],nm:"Tuğçe Erden",sv:"Kalıcı Makyaj",t2:"14:02 başlangıç · 120 dk plan"}};
+const SC={
+ A:{t:"15:46",head:["Pzt","12","12 Ekim · 2 iş bitti, 3 kaldı",WA,0],lhd:"BUGÜN · 5 RANDEVU",rows:[ok(SIB),ok(PIN),wt(TUG),GIZ,"now",YAS],items:[iTug,iGiz,iYas]},
+ B:{t:"16:41",head:["Pzt","12","12 Ekim · 4 iş bitti, 1 kaldı",WA,0],lhd:"BUGÜN · 5 RANDEVU",rows:[ok(SIB),ok(PIN),ok(TUG),ok(GIZ),wt(YAS),"now"],items:[iYasB]},
+ C1:{t:"15:16",head:["Cum","9","9 Ekim · 2 iş bitti, 3 kaldı",WG,3],lhd:"SIRADAKİ · 2 RANDEVU",rows:[YAS,VIL],items:[iRun,later("yas","Yasemin Kurt","Ağda","16:30","1","14",0,45),later("vil","Vildan Ay","Kaş Tasarımı","17:30","2","14",0,20)]},
+ C2:{t:"14:20",head:["Cum","9","9 Ekim · 2 iş bitti, 3 kaldı",WG,3],lhd:"SIRADAKİ · 2 RANDEVU",rows:[YAS,VIL],items:[iWait,later("yas","Yasemin Kurt","Ağda","16:30","2","10",1,45),later("vil","Vildan Ay","Kaş Tasarımı","17:30","3","10",1,20)]}
+};
+const cardH=(it,i)=>`<div class="pnl" data-i="${i}"><span class="plbl${it.c&&it.c!=="or"?" "+it.c:""}">${it.dot?`<s class="${it.c==="or"?"":it.c}"></s>`:""}${it.lbl}</span><span class="hero n">${it.hero}</span>${it.pill?`<span class="ppill ${it.pill[1]}">${it.pill[0]}</span>`:""}<span class="psub">${it.sub}</span></div>`;
+const kmdH=it=>{const k=it.k;
+ const id=`<button class="kbk" data-back="1">${I("back")}Gün</button><div class="idp"><div class="who"><span class="st ${k.st[0]}"><s></s>${k.st[1]}</span><span class="nm">${k.nm}</span><span class="sv">${k.sv}</span><span class="t2 n">${k.t2}</span></div><div class="tools"><span class="tb">${I("phone")}</span><span class="tb">${I("note")}</span><span class="tb">${I("user")}</span></div></div><div class="kdiv"></div>`;
+ if(it.run)return `<div class="warm"></div>${id}<div class="dial">${k.big?`<span class="big n">${k.big}</span><span class="unit">${k.unit}</span>`:""}<span class="kref">v4 · K2 — kumanda bu turda değişmiyor.</span></div>`;
+ const big=k.bigU?`${k.big}<span class="u">${k.bigU}</span>${k.big2}<span class="u">dk</span>`:`${k.big}<span class="u">dk</span>`;
+ return `<div class="warm"></div>${id}<div class="dial"><span class="big wt n">${big}</span><span class="unit">${k.unit}</span><span class="schip n">${k.chip}</span></div><div class="sl"><span class="hnd">${I("arrow")}</span><span class="lbl">Kaydır ve başlat</span><span class="sok"></span></div>`;};
+const phoneH=(sc,o)=>{const rows=sc.rows.map(r=>r==="now"?nowl(sc.t):rowH(r)).join("");
+ return `<div class="phone${o.sm?" sm":""}${o.rm?" rm":""}" data-screen-label="${o.label}"><div class="glow"></div>${sbar(sc.t)}<div class="body"><div class="scr">${gday(...sc.head)}<div class="pick" tabindex="0" role="slider" aria-roledescription="randevu seçici" aria-label="Seçili randevu"></div><div class="lhd">${sc.lhd}<i></i></div><div class="gl">${rows}</div></div></div>${tabbar}<div class="kmd" aria-hidden="true"></div></div>`;};
+
+/* seçici */
+const S=72,SPR={k:330,c:20,m:.5},A_BUMP=28;
+const rb=x=>(1-1/(x*.55/.5+1))*.5;
+function Picker(host,sc,o){
+ host.innerHTML=phoneH(sc,o);
+ const ph=host.firstElementChild,el=ph.querySelector(".pick"),kmd=ph.querySelector(".kmd"),items=sc.items,n=items.length,rm=!!o.rm;
+ el.innerHTML=items.map(cardH).join("");
+ if(n<2)el.classList.add("one");
+ const cards=[...el.children],pb=n>2?14:n>1?8:0;
+ let pos=o.start||0,v=0,H=100,raf=0,last=-1,ticks=0,drag=null,wraw=null,wt=0,lastStep=0;
+ const lay=a=>{const P1=H*.03+8,P2=H*.06+14;
+  if(a<=1)return[P1*a+A_BUMP*Math.sin(Math.PI*a),1-.06*a,1-.5*a,Math.max(0,1-a*1.4)];
+  if(a<=2){const t=a-1;return[P1+(P2-P1)*t,.94-.06*t,.5-.25*t,0]}
+  const t=Math.min(1,a-2);return[P2+6*t,.88-.04*t,.25*(1-t),0]};
+ const clamp=x=>Math.max(0,Math.min(n-1,x));
+ const band=r=>r<0?-rb(-r):r>n-1?n-1+rb(r-(n-1)):r;
+ const vals=()=>{const cp=clamp(pos),dp=rm?Math.round(cp):cp,ex=rm?0:-(pos-cp)*S*.6;
+  return cards.map((c,i)=>{const d=i-dp,a=Math.abs(d),[ty,s,op,co]=lay(a);return{d,y:Math.sign(d)*ty+ex,s,op,co,a}})};
+ function render(){
+  vals().forEach((x,i)=>{const c=cards[i];
+   c.style.transform=`translateY(${x.y.toFixed(2)}px) scale(${x.s.toFixed(4)})`;
+   c.style.opacity=x.op.toFixed(3);c.style.setProperty("--co",x.co.toFixed(3));
+   c.style.zIndex=String(100-Math.round(x.a*10));c.style.visibility=x.op<.01?"hidden":"visible"});
+  const idx=Math.round(clamp(pos));
+  if(idx!==last){if(last>=0)ticks++;last=idx;sel()}
+  o.onRender&&o.onRender(api)}
+ function sel(){const it=items[last];
+  ph.querySelectorAll(".gc").forEach(g=>g.classList.toggle("sel",n>1&&g.dataset.id===it.id));
+  el.setAttribute("aria-valuemin","1");el.setAttribute("aria-valuemax",String(n));el.setAttribute("aria-valuenow",String(last+1));
+  el.setAttribute("aria-valuetext",`${it.sr}, ${n} randevudan ${last+1}`)}
+ function stop(){cancelAnimationFrame(raf);raf=0}
+ function settle(T,v0=0){stop();if(rm){pos=T;v=0;render();return}
+  v=Math.max(-25,Math.min(25,v0));let lt=performance.now();
+  const step=now=>{let dt=Math.min(.05,(now-lt)/1000);lt=now;const h=1/480;
+   while(dt>0){const st=Math.min(h,dt),acc=(-SPR.k*(pos-T)-SPR.c*v)/SPR.m;v+=acc*st;pos+=v*st;dt-=st}
+   if(Math.abs(pos-T)<.0005&&Math.abs(v)<.005){pos=T;v=0;raf=0;render();return}
+   render();raf=requestAnimationFrame(step)};
+  raf=requestAnimationFrame(step)}
+ function setPos(r){pos=rm?clamp(r):band(r);render()}
+ function open(i){const it=items[i];if(!it.pill)return;kmd.innerHTML=kmdH(it);kmd.classList.add("on");kmd.setAttribute("aria-hidden","false")}
+ kmd.addEventListener("click",e=>{if(e.target.closest("[data-back]")){kmd.classList.remove("on");kmd.setAttribute("aria-hidden","true");el.focus({preventScroll:true})}});
+ el.addEventListener("pointerdown",e=>{if(e.button!==0)return;stop();drag={y:e.clientY,p:clamp(pos)===pos?pos:clamp(pos),moved:false,s:[[performance.now(),e.clientY]],tgt:e.target};try{el.setPointerCapture(e.pointerId)}catch(_){}});
+ el.addEventListener("pointermove",e=>{if(!drag)return;const dy=e.clientY-drag.y;
+  if(!drag.moved&&Math.abs(dy)>5){drag.moved=true;if(n>1)el.classList.add("grab")}
+  if(!drag.moved||n<2)return;setPos(drag.p-dy/S);drag.s.push([performance.now(),e.clientY]);if(drag.s.length>6)drag.s.shift()});
+ const end=(e,cancel)=>{if(!drag)return;const d=drag;drag=null;el.classList.remove("grab");
+  if(!d.moved){if(cancel)return;const c=d.tgt.closest&&d.tgt.closest(".pnl"),i=c?+c.dataset.i:last;if(i!==last)settle(i);else open(i);return}
+  if(n<2)return;const a=d.s[0],b=d.s[d.s.length-1],dt=(b[0]-a[0])/1000,vi=dt>.005?-(b[1]-a[1])/dt/S:0;
+  settle(Math.round(clamp(pos+vi*.12)),vi)};
+ el.addEventListener("pointerup",e=>end(e,false));el.addEventListener("pointercancel",e=>end(e,true));
+ el.addEventListener("wheel",e=>{if(n<2)return;e.preventDefault();e.stopPropagation();
+  const dy=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?400:1);
+  if(e.deltaMode===1||Math.abs(e.deltaY)>=60){const now=performance.now();if(now-lastStep<90)return;lastStep=now;wraw=null;settle(clamp(Math.round(clamp(pos))+Math.sign(dy)));return}
+  stop();if(wraw===null)wraw=pos;wraw+=dy/S;setPos(wraw);
+  clearTimeout(wt);wt=setTimeout(()=>{wraw=null;settle(Math.round(clamp(pos)))},140)},{passive:false});
+ el.addEventListener("keydown",e=>{if(e.key==="ArrowDown"&&n>1){e.preventDefault();settle(clamp(last+1))}else if(e.key==="ArrowUp"&&n>1){e.preventDefault();settle(clamp(last-1))}else if(e.key==="Enter"||e.key===" "){e.preventDefault();open(last)}});
+ function measure(){const m=cards[0].offsetHeight;if(m>0)H=m;el.style.height=(H+pb)+"px";render()}
+ if(window.ResizeObserver)new ResizeObserver(()=>{const m=cards[0].offsetHeight;if(m>0&&Math.abs(m-H)>.5){measure();if(o.sm)setTimeout(()=>window.fit&&fit(),0)}}).observe(cards[0]);
+ const api={ph,items,vals,get pos(){return pos},get sel(){return last},get ticks(){return ticks},get H(){return H},
+  hint(){if(rm||n<2)return;settle(.25);setTimeout(()=>settle(0),260)},measure};
+ measure();return api}
+
+/* kareler */
+const P={};
+const FR=[
+ {id:"f1",host:"h1",sc:"A",label:"G5·1",hint:1,onRender:a=>{const it=a.items[a.sel];document.getElementById("r1").innerHTML=`seçili <b>${a.sel+1}/3</b> · ${it.k.nm} · ${it.lbl}\nokunan: “${it.sr}, 3 randevudan ${a.sel+1}”\ntık (Haptics.selectionAsync): <b>${a.ticks}</b>`}},
+ {id:"f1s",host:"h1s",sc:"A",label:"G5·1 · 375",sm:1},
+ {id:"f2",host:"h2",sc:"A",label:"G5·2",start:.5,onRender:a=>{const nm=["Tuğçe ","Gizem ","Yasemin"],f=(x,d=2)=>(x<0?"−":x>0?"+":" ")+Math.abs(x).toFixed(d);
+  document.getElementById("r2").innerHTML=`konum <b>${a.pos.toFixed(2)}</b> · H ${Math.round(a.H)} pt\n`+a.vals().map((x,i)=>`${nm[i]} d${f(x.d)} y${f(x.y,0).padStart(4)} ölçek ${x.s.toFixed(2)} opak ${x.op.toFixed(2)} metin ${x.co.toFixed(2)}`).join("\n")}},
+ {id:"f3",host:"h3",sc:"A",label:"G5·3",start:1},
+ {id:"f4",host:"h4",sc:"A",label:"G5·4",start:2},
+ {id:"f5",host:"h5",sc:"B",label:"G5·5"},
+ {id:"f6a",host:"h6a",sc:"C1",label:"G5·6 SÜRÜYOR"},
+ {id:"f6b",host:"h6b",sc:"C2",label:"G5·6 BEKLEMEDE"},
+ {id:"f7",host:"h7",sc:"A",label:"G5·7",rm:1}
+];
+FR.forEach(f=>{P[f.id]=Picker(document.getElementById(f.host),SC[f.sc],f)});
+function fit(){const a=P.f1s;if(!a)return;const ph=a.ph,scr=ph.querySelector(".scr"),tbEl=ph.querySelector(".tabbar"),lh=ph.querySelector(".lhd"),rows=[...ph.querySelectorAll(".gc")];
+ if(!ph.offsetHeight||!tbEl.offsetHeight||!lh.offsetHeight||!rows[0].offsetHeight)return false;
+ const bodyEl=ph.querySelector(".body"),tb=tbEl.offsetTop-bodyEl.offsetTop-scr.offsetTop+scr.scrollTop;
+ const lhB=lh.offsetTop+lh.offsetHeight;if(lhB>=tb)return false;
+ const count=sh=>rows.filter(r=>r.offsetTop+r.offsetHeight-sh<=tb).length;
+ const full=count(0),part=rows.find(r=>r.offsetTop+r.offsetHeight>tb),pv=part?Math.max(0,Math.round(tb-part.offsetTop)):0,without=count(14);
+ document.getElementById("r1s").innerHTML=`<span><b>Sığıyor.</b> Kart, yığın ve liste başlığının altında tab çubuğuna kadar listeye <b>${Math.round(tb-lhB)} pt</b> kalıyor: <b>${full}</b> satır tam görünüyor${part?`, sonrakinin ${pv} pt'si`:""}. ${without===full?"Yığının 14 pt'si olmasa da aynı sayıda satır sığardı.":`Yığının 14 pt'si olmasa ${without} satır sığardı.`}</span>`;return true}
+function remeasure(){Object.values(P).forEach(p=>p.measure());fit()}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>{remeasure();setTimeout(()=>P.f1.hint(),700)});
+window.addEventListener("load",remeasure);
+if(window.ResizeObserver)new ResizeObserver(()=>fit()).observe(P.f1s.ph);
+(function retry(){if(fit())return;setTimeout(retry,250)})();
+
+/* tablolar */
+const tbl=(head,rows,cls)=>`<div class="rn"><div class="r h">${head.map((h,i)=>`<span class="${cls[i]||""}">${h}</span>`).join("")}</div>${rows.map(r=>`<div class="r">${r.map((c,i)=>`<span class="${cls[i]||""}">${c}</span>`).join("")}</div>`).join("")}</div>`;
+document.getElementById("t-hareket").innerHTML=tbl(["Özellik","Değer","ms","Eğri","Bedel","Not"],[
+["Sürükleme takibi","1 randevu = 72 pt parmak yolu; konum = başlangıç − dy/72","parmağa bağlı","doğrudan","A","PanResponder <code>onPanResponderMove</code> → <code>pos.setValue()</code>; kartların hepsi tek <code>pos</code>'tan <code>interpolate</code>."],
+["Seçili · d = 0","translateY 0 · scale 1 · opacity 1 · metin 1","—","—","A","Kartın kendisi; v4 ölçüsü."],
+["Komşu · d = ±1","translateY ±(0,03H + 8) ≈ ±11 · scale ,94 · opacity ,50 · metin 0","—","—","A","Kenar kartın 8 pt altında / üstünde görünür."],
+["İkinci komşu · d = ±2","translateY ±(0,06H + 14) ≈ ±20 · scale ,88 · opacity ,25","—","—","A","d ≥ 3 görünmez (opacity 0). Yığın en çok iki kenar gösterir."],
+["Ara nokta · d = ±,5","translateY ±34 (doğrusal 5,5 + çıkıntı 28·sin πd) · scale ,97 · opacity ,75 · metin ,30","—","inputRange −2…2, 9 nokta","A","Çıkan kart yukarı kalkıp arkaya geçer; yalnız interpolate, ek hareket yok."],
+["Öne geçme","|d| küçük olan önde; d = ,5'te yer değiştirir","0","anlık","A","<code>zIndex</code> native sürücüde canlanmaz: tıkla aynı karede React state'i."],
+["Oturma","hedef = yuvarla(konum + hız × 0,12), uçlarda kırpılır","≈ 280","yay · sönüm 20 · sertlik 330 · kütle 0,5","A","Sözlükteki yay; ζ ≈ ,78, ≈ %2 aşma. <code>Animated.spring({velocity})</code> bırakış hızını taşır."],
+["Lastik bant","ilk / son randevudan öte: yığın aşma × 43 pt kayar, en çok 0,5 randevu (c ,55)","parmağa bağlı","dönüşte oturma yayı","A","Yığının tamamı kayar; kartlar arası çıkıntı uçta çalışmaz."],
+["Tık","her ,5 sınır geçişinde <code>Haptics.selectionAsync()</code>","0","—","A","Bırakışta ayrıca tık yok (Karar 7)."],
+["Durum metni","dakikalık sayı değişimi opacity","140","ease","A","Mevcut çapraz soldurma (Müdür 24)."],
+["İlk açılış ipucu","konum 0 → ,25 → 0, bir kez","≈ 520","oturma yayı","A","Yığın ilk kez görünce. Bayrak cihazda tutulur."],
+["Kumandaya geçiş","push","sistem","sistem","A","v4'teki gibi."],
+["Sayfayla jest paylaşımı","karttan başlayan dikey jest seçicinin","—","—","B","<code>simultaneousHandlers</code> gesture-handler ister. <b>A karşılığı:</b> <code>onMoveShouldSetPanResponderCapture</code> (|dy| > |dx|, 6 pt) + <code>onPanResponderTerminationRequest: () => false</code> + sürükleme boyunca ScrollView <code>scrollEnabled=false</code>."],
+["Komşu kartta bulanıklık","—","—","—","A · önerilmez","<code>expo-blur</code> kart başına bir BlurView, üst üste 4 katman; düşük cihazda kare düşürür. Opaklık ve ölçek kenarı yeterince geri çekiyor."],
+["reduceMotion","konum yuvarlanır; her şey <code>setValue</code>","0","anlık","A","Yığın görünür, tık kalır; yay, lastik bant ve ipucu yok."]
+],["c1","c2","c3","c3","c4",""]);
+document.getElementById("t-karar").innerHTML=tbl(["Karar","Cevap","Gerekçe"],[
+["1 · Sayfa kaydırması ile çakışma","Karttan başlayan dikey jest seçicinin, dışından başlayan sayfanın. Dokunmadan önce <b>yığının alttaki görünen kenarları</b> ve ilk kez görünen yığında <b>bir kez</b> yapılan küçük kayış söyler; sayaç yok.","Kenar ve ipucu kartın düzenine dokunmadan altında başka kart olduğunu ve kaydığını gösteriyor; 1/3 sayacının kartta yeri yok, picker'lar da konum yazmaz."],
+["2 · Varsayılan seçim","Seçim sıraya değil <b>randevuya</b> bağlı: ekranda kalındıkça yeni randevu gelse de süre geçse de aynı randevu seçili kalır. Gün'den çıkılınca, uygulama arka plandan dönünce ya da seçili randevu başlatılamaz olunca (başladı, gelmedi sayıldı, iptal) ilk karta döner.","Ekrandayken seçilen kişinin altından kayması yanlış kişiyi başlatma riski taşır; geri dönen kullanıcı ise kartın sıradakini gösterdiğini varsayar."],
+["3 · Süren iş varken","<b>Kabul.</b> SÜRÜYOR'da sıradakilere kaydırılıp bakılır, seçilenin kartında hap çizilmez; BEKLEMEDE'de Başlat açıktır ve kumanda paralel iş olarak açılır.","Tek kişi aynı anda iki iş yapamaz ama bekleme süresi gerçek bir boşluk; kapalı hap çizmek yerine hiç çizmemek basılmayan bir düğme bırakmıyor."],
+["4 · Listeyle bağ","<b>(c)</b> Liste kartı bugünkü gibi randevu kartını açar. Seçili randevunun listedeki <b>saati turuncu</b> yazılır.","\"Geldi\" randevu kartında; liste kartı başka bir şey yaparsa gelmedi sayılan müşteriyi BEKLİYOR'a almanın tek yolu kapanır, turuncu saat ise rengin zaman görevinde kalarak hangi satırın seçili olduğunu söyler."],
+["5 · Saatinden önce başlatma","Ek onay yok; kumandanın \"Kaydır ve başlat\"ı yeterli.","Kadran aynı ekranda \"44 dk BAŞLAMAYA\" diye erken olduğunu söylüyor ve kaydırma zaten kasıtlı bir jest; ikinci bir diyalog bu kitlede okunmadan geçilen bir dokunuşa döner."],
+["6 · Ekran okuyucu","Her değişimde: \"Gizem Ünal, Kaş Tasarımı, gecikti, 16 dakika, 3 randevudan 2\". Öğe ayarlanabilir; çift dokunuş seçilenin kumandasını açar.","Başlatılacak kişi ad ve hâliyle seçilir, sondaki yer bilgisi görünmeyen yığının yerini tutar."],
+["7 · Dokunsal tık","Her randevuya oturuşta: sürüklerken her sınır geçişinde bir <code>selection</code> tıkı; bırakınca ayrıca tık yok.","iOS saat tekerleği böyle davranır ve tık sayısı bakmadan kaç randevu geçildiğini söyler; bırakıştaki ikinci tık aynı değeri iki kez sayardı."]
+],["c1","",""]);
+</script>
+</body></html>

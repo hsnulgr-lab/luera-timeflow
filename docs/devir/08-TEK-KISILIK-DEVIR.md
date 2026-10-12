@@ -1487,3 +1487,42 @@ tonu), gevşetilmedi.
   gezmek ve istediğini başlatmak — Claude Design turuna verildi:
   `docs/tek-gun-secici-claude-design-prompt.md` (G5).
 
+---
+
+## 26 · 2026-10-13 · G5 — GÜN KARTININ SEÇİCİSİ (Claude Design, birebir)
+
+Kullanıcı isteği: hâl kartı aynı kalsın, iOS picker'ı gibi aşağı-yukarı
+kaydırılıp sıradaki randevular arasında geçilsin, Başlat seçileni açsın
+(sırasını veren, erken gelen, aynı anda bekleyen müşteri). Brif
+`docs/tek-gun-secici-claude-design-prompt.md`; tasarım
+`docs/design-reference/Luera Mobil - Tek Kisilik G5 Secici.html` — kullanıcı
+"tam istediğim gibi", "eksiksiz birebir uygula" dedi. Yalnız istemci.
+
+| Parça | Ne | Dosya |
+|---|---|---|
+| Geometri | Tasarımın `lay`/`rb`/`settle`'ı birebir: 72 pt = 1 randevu; komşu ±11 · ,94 · ,50 (yazı 0), ikinci ±20 · ,88 · ,25; ara noktada 28·sin πd çıkıntı; lastik bant (en çok ½ randevu, yığının tamamı ×43 pt); oturma = yuvarla(konum + hız × ,12), yay 330/20/,5; ipucu 0 → ,25 → 0 (260 ms) bir kez | `soloPicker.ts` |
+| Yığın | süren işler (G2/G3, BİRDEN ÇOK olabilir) → açık adisyon (G4) → başlatılabilirler. BEKLİYOR · GECİKTİ · **BAŞLAMAYA** (yeni: ilk olmayan, saati gelmemiş — "44 dk · Yasemin Kurt · Ağda · 16:30’da", nötr, noktasız); "ŞU AN BOŞ … sıradaki" yalnız yığının ilk kartıyken. SÜRÜYOR'da sıradakiler hapsız ve kapalı; süren işlerin HEPSİ beklemedeyken Başlat açık (paralel iş) | `soloDay.soloPickItems` |
+| Bileşen | `PanResponder` (karttan başlayan dikey jest seçicinin, bırakılmaz; sürüklerken sayfa kaymaz); tek `Animated.Value` → kart başına `interpolate`, native sürücü, yalnız translateY · scale · opacity; öne geçme `zIndex` durumla; her ,5 geçişte `selection` tıkı (ekranın kendi değişikliğinde sessiz); kenarı görünen karta dokunmak seçer, seçiliye dokunmak açar; erişilebilirlik "ayarlanabilir" (yukarı/aşağı, çift dokunuş açar); reduceMotion: 72 pt eşikte anlık, tık var | `SoloPicker.tsx` |
+| Kart | `contentOpacity` (komşuda yazı solar), `heroValue2/heroUnit2` ("1 sa 14 dk"te dakika da büyük) | `StaffDayParts.tsx`, `staffDay.ts` |
+| Seçim | RANDEVUYA bağlı (Karar 2): yeni randevu gelse de aynı kalır; yığından düşünce, Gün'den çıkınca, arka plandan dönünce ilk kart | `tek/index.tsx`, `soloPickIndex` |
+| Liste | Kart eskisi gibi randevu kartını açar (Karar 4 · c); seçilinin saati turuncu | `SoloDayParts.tsx` |
+
+Tek başlatılabilirde (G5·5) bugünkü kartın birebiri — yığın, pay, sürükleme
+yok. Etiket "BEKLEMEDE · KREM" DEĞİL, yalnız "BEKLEMEDE" (§16 kararı).
+`soloPanelAction` ve `soloNextToStart` kaldırıldı (kuralları `soloPickItems`te).
+
+### Kanıt
+2916 geçti / 0 kırık · `tsc` temiz · yeni dosyalarda lint temiz (`SoloPicker`
+tek satır gerekçeli `react-hooks/refs` kapatması — PanResponder geri
+çağrıları render'da çalışmıyor). Sabitler tasarım dosyasının sabitlerine
+testle bağlı (`tek-g5-secici.test.mjs`); tasarımın üç sahnesi (15:46, 15:16,
+14:20) birebir.
+
+### Açık
+- **Kumandanın "komşu iş" şeridi** — v4 K1 notu: "yalnız paralel bir iş varken
+  çıkar". G5 paralel işi mümkün kıldı ama şeridi ÇİZMEDİ ("burada çizilmedi").
+  Tasarımı `personel-06` (dört kademe: sakin · 15 dk altı amber · 5 dk altı
+  kırmızı saniyeli · sıfır). Bugün beklemedeki işe Gün'ün yığınından
+  dönülüyor. Kullanıcıya sorulacak.
+- Telefonda denenmedi.
+

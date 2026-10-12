@@ -690,13 +690,18 @@ export interface StaffPanelAction {
     onPress: () => void;
 }
 
-export function StaffHeroPanelCard({ panel, flush = false, action }: {
+export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacity }: {
     panel: StaffHeroPanel;
     flush?: boolean;
     /**
      * Verilmezse kart eskisi gibi salt bilgi — müdür tarafı etkilenmiyor.
      */
     action?: StaffPanelAction;
+    /**
+     * Kartın İÇİNİN opaklığı, yüzeyi değil (G5 · yığın): komşu kartta yalnız
+     * kenar görünür, yazı solar. Verilmezse içerik tam.
+     */
+    contentOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }) {
     const { c, dark, reduceMotion } = useTheme();
     const ink = dark ? panelInk.dark : panelInk.light;
@@ -762,10 +767,11 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                     }}
                 />
             ) : null}
-            <View style={{
+            <Animated.View style={{
                 padding: staffDayMetrics.panelPad,
                 paddingLeft: panel.bar ? staffDayMetrics.panelBarPadLeft : staffDayMetrics.panelPad,
                 gap: 3,
+                opacity: contentOpacity ?? 1,
             }}>
                 <View style={{
                     flexDirection: 'row',
@@ -832,6 +838,29 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                             {panel.heroUnit}
                         </Text>
                     ) : null}
+                    {/* "1 sa 14 dk": dakika da büyük sayı (G5). */}
+                    {panel.heroValue2 ? (
+                        <Num size={staffDayMetrics.heroText} style={{
+                            color: ink.ink,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: staffDayMetrics.heroText * staffDayMetrics.heroTextTrack,
+                            lineHeight: staffDayMetrics.heroBox,
+                        }}>
+                            {panel.heroValue2}
+                        </Num>
+                    ) : null}
+                    {panel.heroValue2 && panel.heroUnit2 ? (
+                        <Text style={{
+                            color: ink.ink2,
+                            fontSize: staffDayMetrics.heroUnit,
+                            fontFamily: font.bold,
+                            fontWeight: '700',
+                            letterSpacing: staffDayMetrics.heroUnit * -0.01,
+                        }}>
+                            {panel.heroUnit2}
+                        </Text>
+                    ) : null}
                 </View>
 
                 </View>
@@ -870,7 +899,7 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                         {panel.subText}
                     </Text>
                 ) : null}
-            </View>
+            </Animated.View>
         </Card>
     );
 }

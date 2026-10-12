@@ -16,9 +16,9 @@ import {
     soloEmptyCopy,
     soloIdlePanel,
     soloNextPanel,
-    soloNextToStart,
+    soloPickItems,
+    soloStartable,
     soloOpenTicket,
-    soloPanelAction,
     soloTicketPanel,
 } from '../mobile/src/lib/soloDay.ts';
 import { buildStaffDayState } from '../mobile/src/lib/staffDay.ts';
@@ -214,21 +214,30 @@ test('"kendiliğinden yenilenir" bir SÖZ ve tutuluyor', () => {
 
 // ── Hâl kartının eylem hapı (Faz 2b) ────────────────────────────────────────
 
+/** Yığının kartları — G5'in kuralı (`soloPickItems`), 15:00'te. */
+const pick = (over = {}) => soloPickItems({
+    running: [], waitOf: () => null, ticket: null, startable: [], nowMinutes: 15 * 60, nowMs: 0, ...over,
+});
+
 test('hap SÜREN işi, yoksa SIRADAKİNİ hedefliyor', () => {
-    // Süren iş önce: o anda yapılacak tek şey o.
-    assert.deepEqual(
-        soloPanelAction(appt({ id: 'r1' }), appt({ id: 'r2' })),
+    // Süren iş önce: o anda yapılacak tek şey o. Sıradaki yığında, ama
+    // süren iş BEKLEMEDE değilken hapsız (G5 · Karar 3).
+    const live = appt({ id: 'r1', start_time: '14:00', arrived_at: '2026-10-09T11:00:00Z' });
+    const busy = pick({ running: [live], startable: [appt({ id: 'r2', start_time: '16:00' })] });
+    assert.deepEqual(busy.map((item) => item.action), [
         { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'r1' },
-    );
+        null,
+    ]);
     assert.deepEqual(
-        soloPanelAction(null, appt({ id: 'r2' })),
+        pick({ startable: [appt({ id: 'r2', start_time: '16:00' })] })[0].action,
         { label: 'Başlat', tone: 'go', appointmentId: 'r2' },
     );
 });
 
 test('üzerinde iş yapılacak satır yoksa hap ÇİZİLMİYOR', () => {
-    // Boş gün ya da günün sonu: kart bilgi olarak kalıyor, hapsız.
-    assert.equal(soloPanelAction(null, null), null);
+    // Boş gün ya da günün sonu: yığın yok, tek kart bilgi olarak kalıyor, hapsız.
+    assert.deepEqual(pick(), []);
+    assert.match(gun, /<StaffHeroPanelCard panel=\{idlePanel\} \/>/);
 });
 
 test('hap KUMANDAYI AÇIYOR, işi kendisi BAŞLATMIYOR', () => {
@@ -244,7 +253,7 @@ test('hap KUMANDAYI AÇIYOR, işi kendisi BAŞLATMIYOR', () => {
 test('hap YALNIZ bugün ve gün OKUNDUYSA', () => {
     // Başka günün kartında "Başlat" yalan söylerdi; okunmamış günde ise
     // hangi randevuyu açacağını bilmiyoruz.
-    assert.match(gun, /dayKnown && isToday && dayState/);
+    assert.match(gun, /dayKnown && isToday\s*\?\s*soloPickItems\(\{/);
 });
 
 
@@ -478,10 +487,10 @@ test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
 });
 
 test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
-    assert.match(gun, /!dayEmpty && isToday && panel \?/);
-    // Yuva TEK ve sıra tasarımın: süren işin beklemesi (G3), yoksa açık
-    // adisyon (G4), yoksa günün kartı. Kartlar üst üste çizilmiyor.
-    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\)\s*\?\? \(ticket \? soloTicketPanel\(ticket\) : null\)\s*\?\? \(idle \? soloNextPanel\(next, nowMinutes, serverNow\) : null\)\s*\?\? \(idle && !next \? soloIdlePanel\(dayState\.kind, todayCounts, data\.open, nowMinutes\) : null\)\s*\?\? dayState\?\.panel\s*\?\? null;/);
+    // Yuva TEK: ya seçici (yığın, G5) ya tek bilgi kartı — ikisi birden değil.
+    assert.match(gun, /\{!dayEmpty && isToday && pickItems\.length > 0 \? \(\s*<View[^>]*>\s*<SoloPicker/);
+    assert.match(gun, /\{!dayEmpty && isToday && idlePanel \?/);
+    assert.match(gun, /const idlePanel = dayState && pickItems\.length === 0\s*\? soloIdlePanel\(dayState\.kind, todayCounts, data\.open, nowMinutes\) \?\? dayState\.panel\s*: null;/);
 });
 
 
@@ -567,21 +576,18 @@ test('G4 · kart: kehribar, nabızsız, sol şeritli; büyük sayı TUTAR', () =
     });
 });
 
-test('G4 · hap sırası: süren iş > açık adisyon > sıradaki', () => {
+test('G4 · yığının sırası: süren iş > açık adisyon > sıradaki', () => {
     const ticket = due('t1');
-    assert.deepEqual(
-        soloPanelAction(appt({ id: 'r1' }), appt({ id: 'n1' }), ticket),
-        { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'r1' },
-    );
-    assert.deepEqual(
-        soloPanelAction(null, appt({ id: 'n1' }), ticket),
+    const next = appt({ id: 'n1', start_time: '16:00' });
+    const live = appt({ id: 'r1', start_time: '14:00', arrived_at: '2026-10-09T11:00:00Z' });
+    // Süren iş varken adisyon kartı yok (v4: o sırada sorulmuyor).
+    assert.deepEqual(pick({ running: [live], ticket, startable: [next] }).map((item) => item.id), ['r1', 'n1']);
+    assert.deepEqual(pick({ ticket, startable: [next] }).map((item) => item.action), [
         { label: 'Tahsil et', tone: 'go', appointmentId: 't1' },
-    );
-    // Randevusu bilinmeyen adisyon hap olmuyor — hap neyi açacağını bilmeli.
-    assert.deepEqual(
-        soloPanelAction(null, appt({ id: 'n1' }), due('t1', { appointmentId: undefined })),
         { label: 'Başlat', tone: 'go', appointmentId: 'n1' },
-    );
+    ]);
+    // Randevusu bilinmeyen adisyon kart olmuyor — hap neyi açacağını bilmeli.
+    assert.deepEqual(pick({ ticket: due('t1', { appointmentId: undefined }), startable: [next] }).map((item) => item.id), ['n1']);
 });
 
 test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş bitti', () => {
@@ -600,8 +606,8 @@ test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş 
 test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {
     assert.match(gun, /const \{ events: flowEvents \} = useManagerDay\(\);/);
     assert.match(gun, /dayKnown && isToday && !runningRow \? soloOpenTicket\(flowEvents, mine, selectedISO\) : null/);
-    // Sıradaki artık saati geçmiş olsa da başlatılabilir ilk randevu.
-    assert.match(gun, /soloPanelAction\(dayState\.runningAppointment, next, ticket\)/);
+    // Yığın: adisyon, sonra saati geçmiş olsa da başlatılabilirler.
+    assert.match(gun, /ticket,\s*startable: soloStartable\(mine, nowMinutes\),/);
 });
 
 test('G4 · tahsil hâli Gün okumasına giriyor, sormayan okumaya değil', () => {
@@ -638,8 +644,11 @@ test('saati BİR DAKİKA geçen randevu hâlâ sıradaki: Başlat kaybolmuyor', 
         at('g1', '22:30', { end_time: '22:50', customer_name: 'Gizem Ünal', service: 'Kaş Tasarımı' }),
     ];
     for (const now of [22 * 60 + 30, 22 * 60 + 31, 23 * 60]) {
-        assert.equal(soloNextToStart(day, now)?.id, 'g1', `saat ${now}`);
-        assert.deepEqual(soloPanelAction(null, soloNextToStart(day, now), null), { label: 'Başlat', tone: 'go', appointmentId: 'g1' });
+        assert.equal(soloStartable(day, now)[0]?.id, 'g1', `saat ${now}`);
+        assert.deepEqual(
+            pick({ startable: soloStartable(day, now), nowMinutes: now })[0].action,
+            { label: 'Başlat', tone: 'go', appointmentId: 'g1' },
+        );
     }
     // Saatinde henüz G1'in kartı (personel durumunun "ŞU AN BOŞ"u).
     assert.equal(soloNextPanel(day[2], 22 * 60 + 30, 0), null);
@@ -652,7 +661,7 @@ test('saati BİR DAKİKA geçen randevu hâlâ sıradaki: Başlat kaybolmuyor', 
         subText: 'Gizem Ünal · Kaş Tasarımı · 29 dk sonra gelmedi sayılır',
     });
     // Pay dolunca gelmedi sayılıyor ve kartın konusu değil.
-    assert.equal(soloNextToStart(day, 23 * 60 + 1), null);
+    assert.deepEqual(soloStartable(day, 23 * 60 + 1), []);
 });
 
 test('bekleyen müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor', () => {
@@ -663,7 +672,7 @@ test('bekleyen müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor',
         at('g1', '22:30'),
         at('u1', '23:00'),
     ];
-    assert.equal(soloNextToStart(day, now)?.id, 'k1');
+    assert.equal(soloStartable(day, now)[0]?.id, 'k1');
     // Geliş saati telefonun saatiyle — test makinesinin saat diliminden bağımsız.
     const came = new Date(arrived);
     const clock = `${String(came.getHours()).padStart(2, '0')}:${String(came.getMinutes()).padStart(2, '0')}`;
@@ -690,9 +699,9 @@ test('başlamış, biten, iptal ve tamamlanan sıradaki OLMUYOR', () => {
         { status: 'cancelled' },
         { status: 'completed' },
     ]) {
-        assert.equal(soloNextToStart([at('x', '14:50', over)], now), null, JSON.stringify(over));
+        assert.deepEqual(soloStartable([at('x', '14:50', over)], now), [], JSON.stringify(over));
     }
-    assert.equal(soloNextToStart([], now), null);
+    assert.deepEqual(soloStartable([], now), []);
 });
 
 test('sıradaki yokken gün sonu 19:00 DEĞİL, çalışma saatinin kapanışı', () => {
@@ -701,8 +710,11 @@ test('sıradaki yokken gün sonu 19:00 DEĞİL, çalışma saatinin kapanışı'
     assert.deepEqual(soloIdlePanel('free', counts, { from: 480, to: 1435 }, 22 * 60 + 31), {
         label: 'Şu an boş',
         hasPulse: false,
+        // "1 sa 24 dk": dakika da büyük sayı (G5'in süre dili).
         heroValue: '1',
-        heroUnit: 'sa 24dk',
+        heroUnit: 'sa',
+        heroValue2: '24',
+        heroUnit2: 'dk',
         subText: '23:55’e kadar · sıradaki randevu yok',
     });
     // Kapanış geçti ya da saat bilinmiyor → günün özeti, başlığın sayılarıyla.

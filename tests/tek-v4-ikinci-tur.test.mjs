@@ -164,7 +164,8 @@ test('G3 · kart kehribarı statik noktayla çiziyor', () => {
 });
 
 test('G3 · Gün beklemeyi önce bu telefonun niyetinden okuyor', () => {
-    assert.match(gun, /const wait = runningRow \? activeWait\(runningRow, waitIntentOf\(runningRow\.id\), serverNow\) : null;/);
+    // Her süren iş için (G5: beklemedeyken sıradakine başlanabiliyor).
+    assert.match(gun, /waitOf: \(job\) => activeWait\(job, waitIntentOf\(job\.id\), serverNow\),/);
 });
 
 test('G3 · kumanda: halka HEMEN döner, yazma arkadan; sunucunun bitişi benimseniyor', () => {
