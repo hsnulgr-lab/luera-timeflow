@@ -370,6 +370,13 @@ export const STAFF_ROW_LABEL = 'Hizmeti veren';
  */
 export const SHEET_LABEL = 'Kasa hareketi';
 
+/**
+ * Dönem özeti ve "tahsil edilmedi" sayfalarının etiketi. Sayfanın kendi
+ * başlığı ("Gün sonu özeti", "2 adisyon tahsil edilmedi") hemen altında;
+ * etiket yalnız NEREDE olunduğunu söylüyor.
+ */
+export const SUMMARY_LABEL = 'Kasa';
+
 export const SHEET_SECTIONS = {
     appointment: 'Randevu',
     lines: 'Hizmetler',
@@ -426,6 +433,13 @@ export const ACTION_VOID_SUB = 'Adisyon yeniden açılır';
  */
 export const ACTION_VOID_SUB_FREE = 'Tutar gün toplamından düşer';
 export const ACTION_SAVE = 'Düzeltmeyi kaydet';
+/** v4 · C3 — düzeltme sayfasının başlığı; fişin YERİNİ alıyor. */
+export const CORRECTION_TITLE = 'Tahsilatı düzelt';
+
+/** C3'ün alt satırı: "Pınar Aksoy · Cilt Bakımı · 13:05". Bilinmeyen parça yazılmıyor. */
+export function correctionSubject(movement: Pick<Movement, 'customer' | 'service' | 'time'>): string {
+    return [movement.customer, movement.service, movement.time].map((part) => part.trim()).filter(Boolean).join(' · ');
+}
 export const ACTION_CANCEL = 'Vazgeç';
 
 /** Geri almanın alt yazısı — randevuya bağlıysa adisyon açılır, değilse tutar düşer. */

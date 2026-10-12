@@ -10,7 +10,7 @@ import {
     traceLine, voidDialog, voidedNote, voidSub,
     waitLabel, ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_VOID, ACTION_VOID_SUB, ACTION_VOID_SUB_FREE,
     ACTIONS_NOTE, CORRECTION_NOTE, EMPTY_TITLE, READ_ONLY_NOTE,
-    SHEET_LABEL, SHEET_SECTIONS,
+    SHEET_LABEL, SHEET_SECTIONS, CORRECTION_TITLE, correctionSubject,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
 import { cashInk, cashMetrics } from '../mobile/src/theme/tokens.ts';
@@ -388,21 +388,22 @@ test('onay "emin misiniz" sormuyor, ne olacağını söylüyor (v4 · C2)', () =
 
 test('"Geri al" SİSTEM uyarısıyla onaylanıyor — yıkıcı stil, vazgeç ayrı', () => {
     // Özel diyalog kalktı: para geri alan eylem sistemin tanıdık uyarısını
-    // kullanıyor (hesap silmeyle aynı kalıp).
+    // kullanıyor (hesap silmeyle aynı kalıp). Uyarı fişin ÜSTÜNDE açılıyor:
+    // Vazgeç fişi açık bırakıyor, onay fişi kapatıp geri alıyor.
     assert.doesNotMatch(sheets, /export function VoidDialog/);
-    assert.match(screen, /Alert\.alert\(dialog\.title, dialog\.message, \[\s*\{ text: dialog\.cancel, style: 'cancel' \},\s*\{ text: dialog\.confirm, style: 'destructive', onPress: \(\) => \{ void revert\(movement\); \} \},/);
+    assert.match(screen, /Alert\.alert\(dialog\.title, dialog\.message, \[\s*\{ text: dialog\.cancel, style: 'cancel' \},\s*\{\s*text: dialog\.confirm,\s*style: 'destructive',\s*onPress: \(\) => \{\s*if \(router\.canGoBack\(\)\) router\.back\(\);\s*void revert\(movement\);\s*\},\s*\},/);
     // Düzeltme onay istemiyor: yanlış düzeltme yine düzeltilir.
-    const correct = screen.slice(screen.indexOf('const correct = useCallback'), screen.indexOf('const editable'));
+    const correct = screen.slice(screen.indexOf('const correct = useCallback'), screen.indexOf('const movementSheet'));
     assert.doesNotMatch(correct, /Alert\.alert/);
 });
 
 test('ekipte Kasa SALT OKUNUR; eylemler yalnız tek kişilikte ve canlı satırda (karar 4)', () => {
     assert.match(screenDoc, /EKİPTE SALT OKUNUR, TEK KİŞİLİKTE DÜZELT \/ GERİ AL/);
-    assert.match(screen, /const editable = solo && openMovement !== null && openMovement\.status !== 'voided';/);
-    const sheet = screen.slice(screen.indexOf('<MovementSheet'), screen.indexOf('/>', screen.indexOf('<MovementSheet')));
-    assert.match(sheet, /\{\.\.\.\(editable \? \{\s*onVoid: \(\) => askRevert\(openMovement\),\s*onCorrect: /);
+    // Fişin sayfası bir rota; eylemleri köprüyle Kasa ekranından geliyor.
+    const build = screen.slice(screen.indexOf('const movementSheet'), screen.indexOf('const openMovementSheet'));
+    assert.match(build, /solo && movement\.status !== 'voided'\s*\?\s*\{\s*kind: 'movement',\s*movement,\s*onVoid: \(\) => askRevert\(movement\),\s*onCorrect: /);
     // Ekipte "masaüstündeki Kasa'dan"; tek kişilikte geri alınmış satır kendi cümlesini söylüyor.
-    assert.match(sheet, /note: solo \? voidedNote\(openMovement\) : undefined,/);
+    assert.match(build, /note: solo \? voidedNote\(movement\) : undefined,/);
     assert.equal(READ_ONLY_NOTE, 'Düzeltme ve iptal masaüstündeki Kasa\'dan yapılır.');
 });
 
@@ -421,11 +422,12 @@ test('yazma ÖNCE sunucuya — yerel "düzeltildi" katmanı yok', () => {
     assert.match(correct, /void reloadCash\(\);\s*reload\(\);\s*return null;/);
 });
 
-test('"Geri al" fişi KENDİSİ kapatıyor — görünmez katman kalmıyor', () => {
-    // `close(onVoid)` onClose'u çağırmıyor; ekran açık hâli kendisi düşürmeli.
-    assert.match(sheets, /const next = after \?\? onClose;/);
-    const ask = screen.slice(screen.indexOf('const askRevert'), screen.indexOf('const correct = useCallback'));
-    assert.match(ask, /setOpenId\(null\);/);
+test('fiş kapanınca açık hâl düşüyor — görünmez bir hâl kalmıyor', () => {
+    // Sayfa bir rota; kapanışın nedeni ne olursa olsun (X, aşağı çekme,
+    // eylem) rota sökülünce köprü Kasa'ya haber veriyor.
+    assert.match(screen, /onClosed: \(\) => setOpenId\(null\),/);
+    const bridge = code('src/state/cashSheet.ts');
+    assert.match(bridge, /useEffect\(\(\) => \(\) => \{\s*latest\.current\?\.onClosed\?\.\(\);\s*if \(current === latest\.current\) showCashSheet\(null\);\s*\}, \[\]\);/);
 });
 
 test('geri alınmış satırın fişi neden sayılmadığını söylüyor', () => {
@@ -506,24 +508,22 @@ test('yalnız opaklık ve dönüşüm anime ediliyor', () => {
     assert.doesNotMatch(sheet, /Animated\./);
 });
 
-test('hareketi azalt: fişin hareketi sistemin — iOS ayarı kendisi uyguluyor', () => {
+test('hareketi azalt: sayfaların hareketi sistemin — iOS ayarı kendisi uyguluyor', () => {
     // Elle yazılmış bir sönümleme dalı kalmadı; sayfanın kayışını iOS sürüyor.
     const sheet = sheets.slice(sheets.indexOf('export function MovementSheet('), sheets.indexOf('function Section('));
-    assert.doesNotMatch(sheet, /reduceMotion/);
-    assert.match(sheet, /animationType="slide"/);
+    assert.doesNotMatch(sheet, /reduceMotion|Animated\./);
 });
 
 test('fiş sekme çubuğunun ÜSTÜNDE', () => {
     // Sekme çubuğunu sistem çiziyor (NativeTabs); ekran içindeki zIndex ona
-    // yetmiyor. Mutlak konumlu sheet'te eylem butonları çubuğun arkasında
-    // yutuluyor ve karartma çubuğu karartamıyordu. (Onay artık sistem uyarısı;
-    // özel diyaloğun Modal'ı kalktı.)
-    const uses = sheets.match(/<Modal\b/g) || [];
-    assert.equal(uses.length, 1, 'fiş Modal içinde olmalı');
-    // Kapatma jesti geri tuşuyla da çalışsın.
-    assert.equal((sheets.match(/onRequestClose=/g) || []).length, 1);
-    // Alt pay artık çubuğu değil yalnız güvenli alanı hesaba katıyor.
-    assert.match(sheets, /paddingBottom: insets\.bottom \+ 30/);
+    // yetmiyor. Sayfalar kök yığının rotası: sekme kabuğunun üstünde açılıyor.
+    assert.doesNotMatch(sheets, /<Modal\b/);
+    const layout = read('app/_layout.tsx');
+    for (const name of ['hareket', 'ozet', 'bekleyen']) {
+        assert.match(layout, new RegExp(`<Stack\\.Screen name="\\(manager-flow\\)/kasa/${name}" options=\\{CASH_SHEET\\} />`));
+    }
+    // Alt pay güvenli alanı saymıyor: içerik boyundaki sayfa onu kendisi ekliyor.
+    assert.doesNotMatch(sheets, /insets\.bottom/);
 });
 
 test('iz kimin yaptığını YAZMIYOR — saat sunucunun damgasından', () => {
@@ -543,12 +543,12 @@ test('bekleyen adisyon şeridi ÖLÜ DEĞİL — ekipte Akış\'a, tek kişilikt
     assert.match(screen, /if \(!solo\) \{\s*router\.navigate\('\/mudur'\);/);
     // Tek kişilikte Akış YOK (v4 C1): `/mudur` kapısı kişiyi geri atardı.
     // Tek adisyon doğrudan kumandanın tahsilat adımında; birden çoksa önce liste.
-    assert.match(screen, /if \(tickets\.length === 1\) openTicket\(tickets\[0\]\);\s*else setTicketsOpen\(true\);/);
+    assert.match(screen, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
+    assert.match(screen, /showCashSheet\(\{ kind: 'pending', pending, tickets, onPick: openTicket \}\);\s*router\.push\('\/kasa\/bekleyen'\);/);
     assert.match(screen, /pathname: '\/\(staff-flow\)\/kumanda'/);
     assert.match(screen, /from: 'tek',/);
     // Dünden kalan adisyon bugünün ajandasında yok: kumanda onu kendi gününde açıyor.
     assert.match(screen, /\.\.\.\(ticket\.dateISO \? \{ date: ticket\.dateISO \} : \{\}\)/);
-    assert.match(screen, /<PendingTicketsSheet[\s\S]{0,200}onPick=\{openTicket\}/);
 });
 
 // ── Düzeltme · 2026-08-30 ───────────────────────────────────────────────────
@@ -578,7 +578,7 @@ test('düzeltme ve geri alma sesli okunuyor — "lira" ile, işaretle değil', (
 
 test('geri alınmış satır düzeltilmez de yeniden geri alınmaz', () => {
     // Ekran eylemleri açmıyor; sunucu da `already_voided` diyor.
-    assert.match(screen, /openMovement\.status !== 'voided'/);
+    assert.match(screen, /solo && movement\.status !== 'voided'/);
     assert.match(correctionProblem('already_voided'), /değişti/);
 });
 
@@ -598,30 +598,32 @@ test('sıfır ve hiçbir şey değiştirmeyen düzeltme kaydedilemez', () => {
 test('Düzelt satırı ölü değil — sayfayı açıyor, kaydet sunucuya gidiyor', () => {
     const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
     const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
-    assert.match(sheet, /if \(row\.danger\) \{ close\(onVoid\); return; \}[\s\S]{0,400}setCorrecting\(true\);/);
+    // "Geri al" fişi KAPATMIYOR: onay uyarısı fişin üstünde açılıyor.
+    assert.match(sheet, /if \(row\.danger\) \{ onVoid\?\.\(\); return; \}[\s\S]{0,400}setCorrecting\(true\);/);
     assert.match(sheet, /const failure = await onCorrect\?\.\(amount, methodDraft\) \?\? null;/);
     // v4 C3: ret gelirse sayfa açık kalır, sebep düğmenin üstünde.
     assert.match(sheet, /if \(failure === null\) close\(\);\s*else setSaveError\(failure\);/);
     assert.ok(sheet.indexOf('{saveError}') < sheet.indexOf('accessibilityLabel={ACTION_SAVE}'));
 });
 
-test('kasa fişi randevu kartı gibi sistemin sayfası — aşağı çekmeyi iOS yapıyor', () => {
+test('Kasa\'nın sayfaları randevu kartı gibi iOS\'un sayfası — ama boyu İÇERİK KADAR', () => {
     /*
-     * Telefonda (2026-10-13) kendi yazdığımız jest iki kez denendi ve
-     * tutmadı: önce cam şeritte, sonra fişin kabında. Kullanıcı randevu
-     * kartının davranışını VE görünüşünü istedi; randevu kartı iOS'un
-     * sayfası (`presentation: 'modal'`). Fiş de artık öyle.
+     * Telefonda (2026-10-13) kendi yazdığımız jest iki kez tutmadı;
+     * kullanıcı randevu kartının davranışını ve görünüşünü istedi, sonra
+     * "orantılı" boyu: "tahsilata göre zaten uzar kısalır". RN `Modal`
+     * boy seçtirmiyor; içerik boyundaki sistem sayfası yığının rotası.
      */
-    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
-    const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
-    assert.match(sheet, /presentationStyle="pageSheet"/);
-    assert.match(sheet, /animationType="slide"/);
-    assert.match(sheet, /allowSwipeDismissal/);
-    // RN, kaydırarak kapatmada `onRequestClose` ister (yoksa hâl bozulur).
-    assert.match(sheet, /onRequestClose=\{swiped\}/);
-    assert.match(sheet, /onDismiss=\{dismissed\}/);
-    // Elle yazılmış jest ve elle sürülen giriş GİTTİ.
-    assert.doesNotMatch(sheet, /PanResponder|panHandlers|<Modal visible transparent|statusBarTranslucent/);
+    const layout = code('app/_layout.tsx');
+    assert.match(layout, /const CASH_SHEET = \{\s*presentation: 'formSheet',\s*sheetAllowedDetents: 'fitToContents',\s*sheetGrabberVisible: false,\s*\} as const;/);
+    // Boy içerikten türüyor: kabukta `flex` yok.
+    const sheet = sheets.slice(sheets.indexOf('export function MovementSheet('), sheets.indexOf('function Section('));
+    assert.match(sheet, /<View style=\{\{ backgroundColor: c\.bg \}\}>\s*<SheetGrab \/>/);
+    assert.doesNotMatch(sheet, /flex: 1, backgroundColor/);
+    // Uzun fiş tavanda kayıyor; sayfa ekranı aşmıyor.
+    assert.match(sheet, /style=\{\{ maxHeight: receiptMax \}\}/);
+    assert.equal(cashMetrics.receiptMaxRatio, 0.55);
+    // Elle yazılmış jest ve elle sürülen giriş yok.
+    assert.doesNotMatch(sheets, /PanResponder|panHandlers|statusBarTranslucent/);
 });
 
 test('fişin kabuğu randevu kartınınki: tutamak, etiket, kapat', () => {
@@ -630,33 +632,30 @@ test('fişin kabuğu randevu kartınınki: tutamak, etiket, kapat', () => {
     assert.match(sheet, /<SheetGrab \/>\s*<SheetHeader label=\{SHEET_LABEL\} onClose=\{\(\) => close\(\)\} \/>/);
     const card = readFileSync(new URL('../mobile/src/components/AppointmentDetail.tsx', import.meta.url), 'utf8');
     assert.match(card, /<SheetGrab \/>\s*<SheetHeader label="Randevu" onClose=\{onClose\} \/>/);
-    // Zemin de randevu kartınınki.
-    assert.match(sheet, /backgroundColor: c\.bg, paddingBottom: keyboard/);
+    const tickets = readFileSync(new URL('../mobile/src/components/PendingTicketsSheet.tsx', import.meta.url), 'utf8');
+    assert.match(tickets, /<SheetGrab \/>\s*<SheetHeader label=\{SUMMARY_LABEL\} onClose=\{onClose\} \/>/);
     // Etiket nesnenin adı; içerideki "Tahsilat" bölümüyle çakışmıyor.
     assert.equal(SHEET_LABEL, 'Kasa hareketi');
     assert.notEqual(SHEET_LABEL, SHEET_SECTIONS.payment);
 });
 
-test('kapanış bitince iş yapılıyor — "Geri al"ın uyarısı inen sayfanın üstüne açılmaz', () => {
-    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
-    const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
-    // iOS: sayfa iner, `onDismiss` gelince bekleyen iş.
-    assert.match(sheet, /pending\.current = next;\s*setVisible\(false\);/);
-    assert.match(sheet, /const next = pending\.current;\s*pending\.current = null;\s*next\?\.\(\);/);
-    // Android'de `onDismiss` yok: iş hemen.
-    assert.match(sheet, /if \(Platform\.OS !== 'ios'\) \{ next\(\); return; \}/);
-    // Kaydırarak kapanınca sayfa zaten inmiş: yalnız açık hâl düşüyor.
-    assert.match(sheet, /closing\.current = true;\s*onClose\(\);/);
+test('X iki kez basılınca yığından iki ekran sökülmüyor; yayınsız rota kapanıyor', () => {
+    const bridge = code('src/state/cashSheet.ts');
+    assert.match(bridge, /if \(closed\.current\) return;\s*closed\.current = true;\s*if \(router\.canGoBack\(\)\) router\.back\(\);/);
+    assert.match(bridge, /if \(!sheet\) close\(\);/);
+    // Adisyon seçilince önce sayfa çıkıyor, sonra kumanda itiliyor.
+    const pending = code('app/(manager-flow)/kasa/bekleyen.tsx');
+    assert.match(pending, /onPick=\{\(ticket\) => \{ close\(\); sheet\.onPick\(ticket\); \}\}/);
 });
 
-test('düzeltme alanı klavyenin altında kalmaz', () => {
-    const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
-    assert.match(src, /Keyboard\.addListener/, 'fiş klavyeyle birlikte kalkmıyor');
-    assert.match(src, /keyboardDidShow/, 'Android olayı dinlenmiyor');
-    // Sistemin sayfası ekranın tepesinden başlamıyor: örtülen pay sayfanın
-    // EKRANDAKİ yerinden ölçülüyor ve sayfanın altına pay olarak veriliyor.
-    assert.match(src, /rootRef\.current\?\.measureInWindow\(\(_x, top, _width, height\) => \{/);
-    assert.match(src, /setKeyboard\(Math\.max\(0, top \+ height - event\.endCoordinates\.screenY - insets\.bottom\)\);/);
+test('düzeltme fişin YERİNİ alıyor — v4 · C3, sayfa klavyeyle sığıyor', () => {
+    // C3 "Tahsilatı düzelt" ayrı bir sayfa gibi: fiş altında dursaydı içerik
+    // boyundaki sayfa klavyeyle birlikte ekrana sığmazdı.
+    const sheet = sheets.slice(sheets.indexOf('export function MovementSheet('), sheets.indexOf('function Section('));
+    assert.match(sheet, /\{correcting \? \(\s*<View[^>]*>\s*<Txt[^>]*>\s*\{CORRECTION_TITLE\}/);
+    assert.equal(CORRECTION_TITLE, 'Tahsilatı düzelt');
+    assert.equal(correctionSubject({ customer: 'Pınar Aksoy', service: 'Cilt Bakımı', time: '13:05' }), 'Pınar Aksoy · Cilt Bakımı · 13:05');
+    assert.equal(correctionSubject({ customer: 'Pınar Aksoy', service: ' ', time: '13:05' }), 'Pınar Aksoy · 13:05');
 });
 
 // ── Gün sonu / dönem özeti ───────────────────────────────────────────────────
@@ -672,23 +671,27 @@ test('başlık seçili döneme göre değişir', () => {
 });
 
 test('Gün sonu düğmesi artık ölü değil', () => {
-    assert.match(screen, /setDayEndOpen\(true\)/, 'düğmenin onPress\'i yok');
+    assert.match(screen, /showCashSheet\(\{ kind: 'summary', period, totals \}\);\s*router\.push\('\/kasa\/ozet'\);/, 'düğmenin onPress\'i yok');
     // Dönem henüz okunmadıysa (yükleniyor/hata) açılmıyor: `totals` o an boş
     // dizinin toplamı olur, "tahsilat yok" sahte bir sonuç olurdu — "okunamadı"
     // ile "yok" bu ekranda da karışmamalı.
-    assert.match(screen, /disabled=\{!known\}[\s\S]{0,400}setDayEndOpen\(true\)/);
+    assert.match(screen, /disabled=\{!known\}[\s\S]{0,400}kind: 'summary'/);
 });
 
 test('özet sayfası ekrana bağlı ve aynı totals\'ı kullanıyor', () => {
-    assert.match(screen, /<DayEndSheet/);
-    assert.match(screen, /visible=\{dayEndOpen\}/);
-    assert.match(screen, /totals=\{totals\}/, 'ikinci bir hesap açılmış olabilir — tek kaynak totalsOf olmalı');
+    const route = code('app/(manager-flow)/kasa/ozet.tsx');
+    assert.match(route, /<DayEndSheet period=\{sheet\.period\} totals=\{sheet\.totals\} onClose=\{close\} \/>/);
+    // Ekranın KENDİ totals'ı gidiyor — tek kaynak totalsOf.
+    assert.match(screen, /kind: 'summary', period, totals \}/, 'ikinci bir hesap açılmış olabilir — tek kaynak totalsOf olmalı');
 });
 
-test('özet sayfası salt okunur — Yazdır/Paylaş yok, yalnız arka plana dokunarak kapanır', () => {
+test('özet sayfası salt okunur — Yazdır/Paylaş yok; kabuk randevu kartınınki', () => {
     const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
     const dayEnd = src.slice(src.indexOf('export function DayEndSheet('), src.indexOf('function Section('));
-    assert.match(dayEnd, /BottomSheet/, 'genel sheet kabuğu kullanılmıyor');
+    // Kullanıcı (2026-10-13): Gün sonu özeti de randevu kartının kabuğunda —
+    // tutamak, etiket ve X; aşağı çekince kapanıyor (iOS).
+    assert.match(dayEnd, /<SheetGrab \/>\s*<SheetHeader label=\{SUMMARY_LABEL\} onClose=\{onClose\} \/>/);
     assert.doesNotMatch(dayEnd, /Yazdır|Paylaş|Share\./, 'kullanıcı kararı: hiçbir aksiyon yok');
-    assert.doesNotMatch(dayEnd, /accessibilityRole="button"/, 'kendine özgü bir Kapat düğmesi eklenmemeli');
+    // Kabuğun X'i dışında kendine özgü bir düğme yok.
+    assert.doesNotMatch(dayEnd, /accessibilityRole="button"/);
 });

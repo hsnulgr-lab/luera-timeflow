@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View,
 } from 'react-native';
@@ -8,8 +8,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
-import { DayEndSheet, MovementSheet } from '../../src/components/CashSheets';
-import { PendingTicketsSheet } from '../../src/components/PendingTicketsSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { authApi } from '../../src/api/session';
 import {
@@ -29,6 +27,7 @@ import { pendingOf, pendingTickets, type FlowEvent } from '../../src/lib/manager
 import { useInSoloShell } from '../../src/lib/shellRoot';
 import { forgetOrg } from '../../src/lib/managerSource';
 import { useManagerDay } from '../../src/state/managerDay';
+import { showCashSheet, type CashSheet } from '../../src/state/cashSheet';
 import { cashMetrics, font, useTheme } from '../../src/theme';
 
 /**
@@ -107,10 +106,8 @@ export default function ManagerKasa() {
         const read = known ? cash.data.movements : NO_MOVEMENTS;
         return solo ? read.map((movement) => ({ ...movement, staff: '' })) : read;
     }, [known, cash.data.movements, solo]);
-    /** Açık sheet — tek bir kaydı işaret eder. */
+    /** Açık fiş — tek bir kaydı işaret eder (sayfa `kasa/hareket` rotası). */
     const [openId, setOpenId] = useState<string | null>(null);
-    /** Gün sonu / dönem özeti sayfası. */
-    const [dayEndOpen, setDayEndOpen] = useState(false);
 
     const totals = useMemo(() => totalsOf(movements), [movements]);
     const delta = known ? deltaOf(totals.total, cash.data.previousTotal, period) : null;
@@ -123,7 +120,6 @@ export default function ManagerKasa() {
     const router = useRouter();
     const pending = useMemo(() => pendingOf(events), [events]);
     const tickets = useMemo(() => pendingTickets(events), [events]);
-    const [ticketsOpen, setTicketsOpen] = useState(false);
 
     /*
      * Turuncu şerit TEK KİŞİLİKTE tahsilat adımını açıyor (v4 · C1): kumanda,
@@ -132,7 +128,6 @@ export default function ManagerKasa() {
      * Akış yok.
      */
     const openTicket = useCallback((ticket: FlowEvent) => {
-        setTicketsOpen(false);
         if (!ticket.appointmentId) return;
         router.push({
             pathname: '/(staff-flow)/kumanda',
@@ -151,9 +146,13 @@ export default function ManagerKasa() {
             return;
         }
         // Tek adisyon: doğrudan tahsilat. Birden çok: önce liste.
-        if (tickets.length === 1) openTicket(tickets[0]);
-        else setTicketsOpen(true);
-    }, [solo, tickets, openTicket, router]);
+        if (tickets.length === 1) {
+            openTicket(tickets[0]);
+            return;
+        }
+        showCashSheet({ kind: 'pending', pending, tickets, onPick: openTicket });
+        router.push('/kasa/bekleyen');
+    }, [solo, pending, tickets, openTicket, router]);
 
     /**
      * Aşağı çekip yenileme — Akış'takiyle aynı refleks, aynı davranış.
@@ -192,16 +191,21 @@ export default function ManagerKasa() {
     }, [reloadCash, reload]);
 
     const askRevert = useCallback((movement: Movement) => {
-        // `close(onVoid)` fişi kapatıyor ama `onClose`u çağırmıyor: açık hâl
-        // burada düşmezse görünmez bir katman ekranı kilitlerdi.
-        setOpenId(null);
         const dialog = voidDialog(movement);
-        // v4: "Geri al sistem uyarısıyla onaylanır."
+        // v4: "Geri al sistem uyarısıyla onaylanır." Uyarı fişin ÜSTÜNDE
+        // açılıyor; Vazgeç fişi açık bırakıyor, onay fişi kapatıp geri alıyor.
         Alert.alert(dialog.title, dialog.message, [
             { text: dialog.cancel, style: 'cancel' },
-            { text: dialog.confirm, style: 'destructive', onPress: () => { void revert(movement); } },
+            {
+                text: dialog.confirm,
+                style: 'destructive',
+                onPress: () => {
+                    if (router.canGoBack()) router.back();
+                    void revert(movement);
+                },
+            },
         ]);
-    }, [revert]);
+    }, [revert, router]);
 
     const correct = useCallback(async (movement: Movement, amount: number, method: CashMethod) => {
         const result = await correctPayment(movement.id, amount, method);
@@ -216,8 +220,40 @@ export default function ManagerKasa() {
         return null;
     }, [reloadCash, reload]);
 
-    /** Eylem açık mı: tek kişilik ve satır CANLI (geri alınmış satır değişmez). */
-    const editable = solo && openMovement !== null && openMovement.status !== 'voided';
+    /*
+     * FİŞİN SAYFASI bir rota (`kasa/hareket`, iOS'un içerik boyundaki
+     * sayfası); verisi ve eylemleri burada. Köprü (`state/cashSheet.ts`)
+     * açarken ve okuma tazelendikçe yayınlanıyor; sayfa kapanınca
+     * `onClosed` açık hâli düşürüyor.
+     *
+     * Eylem YALNIZ TEK KİŞİLİKTE ve satır CANLIYKEN (geri alınmış satır
+     * değişmez). Eylemsiz fiş eylem şeridinin yerine notunu çiziyor: ekipte
+     * "masaüstündeki Kasa'dan", tek kişilikte geri alınmış satırın cümlesi.
+     */
+    const movementSheet = useCallback((movement: Movement): CashSheet => (
+        solo && movement.status !== 'voided'
+            ? {
+                kind: 'movement',
+                movement,
+                onVoid: () => askRevert(movement),
+                onCorrect: (amount: number, method: CashMethod) => correct(movement, amount, method),
+                onClosed: () => setOpenId(null),
+            }
+            : {
+                kind: 'movement',
+                movement,
+                note: solo ? voidedNote(movement) : undefined,
+                onClosed: () => setOpenId(null),
+            }
+    ), [solo, askRevert, correct]);
+    const openMovementSheet = useCallback((movement: Movement) => {
+        setOpenId(movement.id);
+        showCashSheet(movementSheet(movement));
+        router.push('/kasa/hareket');
+    }, [movementSheet, router]);
+    useEffect(() => {
+        if (openMovement) showCashSheet(movementSheet(openMovement));
+    }, [openMovement, movementSheet]);
 
     /*
      * Red üç yere çıkar ama AYNI yere değil: erişimi kaldırılmış müdürün
@@ -531,7 +567,7 @@ export default function ManagerKasa() {
                             key={m.id}
                             movement={m}
                             largest={totals.largest}
-                            onPress={() => setOpenId(m.id)}
+                            onPress={() => openMovementSheet(m)}
                         />
                     ))
                 )}
@@ -544,7 +580,10 @@ export default function ManagerKasa() {
                         // "tahsilat yok" sahte bir sonuç gösterirdi — "okunamadı"
                         // ile "yok" burada da karışmamalı.
                         disabled={!known}
-                        onPress={() => setDayEndOpen(true)}
+                        onPress={() => {
+                            showCashSheet({ kind: 'summary', period, totals });
+                            router.push('/kasa/ozet');
+                        }}
                         style={{
                             height: cashMetrics.dayEndHeight, paddingHorizontal: 16, borderRadius: 14,
                             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -557,41 +596,6 @@ export default function ManagerKasa() {
                     </Pressable>
                 </View>
             </ScrollView>
-
-            <DayEndSheet
-                visible={dayEndOpen}
-                period={period}
-                totals={totals}
-                onDismiss={() => setDayEndOpen(false)}
-            />
-
-            <PendingTicketsSheet
-                visible={ticketsOpen}
-                pending={pending}
-                tickets={tickets}
-                onPick={openTicket}
-                onDismiss={() => setTicketsOpen(false)}
-            />
-
-            {openMovement ? (
-                /*
-                 * SALT OKUNUR fiş: eylem vermeden açılıyor. `onVoid` ve
-                 * `onCorrect` verilmediğinde fiş eylem şeridinin yerine
-                 * `READ_ONLY_NOTE`u çiziyor.
-                 */
-                <MovementSheet
-                    movement={openMovement}
-                    onClose={() => setOpenId(null)}
-                    {...(editable ? {
-                        onVoid: () => askRevert(openMovement),
-                        onCorrect: (amount: number, method: CashMethod) => correct(openMovement, amount, method),
-                    } : {
-                        // Ekipte "masaüstündeki Kasa'dan"; tek kişilikte geri
-                        // alınmış satır kendi cümlesini söylüyor.
-                        note: solo ? voidedNote(openMovement) : undefined,
-                    })}
-                />
-            ) : null}
         </View>
     );
 }

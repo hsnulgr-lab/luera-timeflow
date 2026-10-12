@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { BottomSheet, SheetGrab } from './Sheet';
+import { SheetGrab, SheetHeader } from './Sheet';
 import { Chevron, Money } from './CashParts';
-import { formatAmount, pendingTitle, type Pending } from '../lib/cash';
+import { formatAmount, pendingTitle, SUMMARY_LABEL, type Pending } from '../lib/cash';
 import { pendingTicketLine, type FlowEvent } from '../lib/managerFlow';
-import { cashMetrics, font, useTheme } from '../theme';
+import { apptCardMetrics, cashMetrics, font, useTheme } from '../theme';
 
 /**
  * Tahsil edilmeyen adisyonlar — Kasa'nın turuncu şeridinden (v4 · C1).
@@ -15,20 +15,23 @@ import { cashMetrics, font, useTheme } from '../theme';
  * cümlesi, satırlar Kasa'nın satır ölçüsünde, Kasa'nın alt sayfasında.
  *
  * Kişi adı YOK (v4 karar 3): parayı alan da işi yapan da kullanıcının kendisi.
+ *
+ * Kabuk randevu kartınınki, boy içerik kadar (`kasa/bekleyen.tsx` ·
+ * formSheet · 2026-10-13): kaç adisyon varsa o kadar uzun.
  */
-export function PendingTicketsSheet({ visible, pending, tickets, onPick, onDismiss }: {
-    visible: boolean;
+export function PendingTicketsSheet({ pending, tickets, onPick, onClose }: {
     pending: Pending;
     tickets: readonly FlowEvent[];
     onPick: (ticket: FlowEvent) => void;
-    onDismiss: () => void;
+    onClose: () => void;
 }) {
     const { c } = useTheme();
 
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss}>
+        <View style={{ backgroundColor: c.bg }}>
             <SheetGrab />
-            <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+            <SheetHeader label={SUMMARY_LABEL} onClose={onClose} />
+            <View style={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingBottom: 30 }}>
                 <Text style={{ fontFamily: font.extraBold, fontSize: 19, letterSpacing: -0.4, color: c.tx }}>
                     {pendingTitle(pending)}
                 </Text>
@@ -74,6 +77,6 @@ export function PendingTicketsSheet({ visible, pending, tickets, onPick, onDismi
                     );
                 })}
             </View>
-        </BottomSheet>
+        </View>
     );
 }

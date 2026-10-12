@@ -69,6 +69,13 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 // Kök kabuk. Tema ve güvenli alan burada; rota grupları altta.
 
+/** Kasa'nın sayfaları: iOS'un sayfası, boyu içerik kadar. */
+const CASH_SHEET = {
+    presentation: 'formSheet',
+    sheetAllowedDetents: 'fitToContents',
+    sheetGrabberVisible: false,
+} as const;
+
 function Shell() {
     const { c, dark } = useTheme();
     // Kuyruğun boşalması ve token'ın tazelenmesi. Kök kabukta çünkü ekran
@@ -110,6 +117,15 @@ function Shell() {
                     sayfa değil, arkası duran bir yüzey olarak çiziyor ve
                     üstündeki tutamak ancak öyle anlam taşıyor. */}
                 <Stack.Screen name="(manager-flow)/randevu/[id]" options={{ presentation: 'modal' }} />
+
+                {/* Kasa'nın üç sayfası — randevu kartının kabuğu, ama boyu
+                    İÇERİK KADAR (2026-10-13, kullanıcı: "tahsilata göre zaten
+                    uzar kısalır"). Aşağı çekip kapatmayı iOS yapıyor; tutamak
+                    sayfanın kendi `SheetGrab`ı, sistemin çubuğu kapalı.
+                    Verisi Kasa ekranında: `src/state/cashSheet.ts`. */}
+                <Stack.Screen name="(manager-flow)/kasa/hareket" options={CASH_SHEET} />
+                <Stack.Screen name="(manager-flow)/kasa/ozet" options={CASH_SHEET} />
+                <Stack.Screen name="(manager-flow)/kasa/bekleyen" options={CASH_SHEET} />
 
                 {/* Müdür 24 — personel günü YATAY KAYMAZ: tasarım sayfanın
                     şeritteki halkadan doğduğunu söylüyor. Yığının kendi

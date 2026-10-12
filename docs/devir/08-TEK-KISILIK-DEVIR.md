@@ -1631,3 +1631,33 @@ Aynı ölü tutamak `BottomSheet`te de duruyor (Gün sonu özeti, tahsil
 edilmedi, randevu kartının alt sayfaları); kullanıcıya soruldu.
 
 Kanıt: 2937 geçti / 0 kırık · `tsc` temiz. Telefonda denenmedi.
+
+**Aynı gün, ikinci tur — boy içerik kadar.** Kullanıcı kabuğu onayladı
+("tam istediğim gibi"), ama fiş ekranın tepesine kadar çıkıyordu:
+"orantılı olsun, tahsilata göre zaten uzar kısalır". Ayrıca istedi: "Gün
+sonu özeti" ve "Tahsil edilmedi" de aynı kabukta olsun.
+
+RN `Modal` sayfanın boyunu seçtirmiyor. İçerik boyunda bir iOS sayfası
+ancak yığının bir ekranı olabiliyor. Üç sayfa artık kök yığında **rota**:
+`app/(manager-flow)/kasa/{hareket,ozet,bekleyen}.tsx`. Seçenekleri
+`CASH_SHEET`: `formSheet` · `sheetAllowedDetents: 'fitToContents'` ·
+sistemin tutamak çubuğu kapalı (tutamak `SheetGrab`).
+
+- **Köprü** (`src/state/cashSheet.ts`): veri ve eylemler Kasa ekranında.
+  Ekran açık sayfayı yayınlıyor; açarken yayınlıyor, okuma tazelendikçe de
+  yeniden yayınlıyor. Rota okuyor; sökülünce `onClosed` haber veriyor.
+  Yayınsız açılan rota kendini kapatıyor. X iki kez basılsa da yığından
+  tek ekran çıkıyor.
+- **Geri al** onayı fişin ÜSTÜNDE açılıyor. Vazgeç fişi açık bırakıyor,
+  onay fişi kapatıp geri alıyor.
+- **Düzeltme fişin yerini alıyor** (v4 · C3 "Tahsilatı düzelt"): başlık,
+  "Ad · Hizmet · saat", tutar, yöntem, kaydet. Fiş altında kalsaydı içerik
+  boyundaki sayfa klavyeyle birlikte ekrana sığmazdı.
+- **Uzun fiş:** ekranın %55'inde kayıyor (`cashMetrics.receiptMaxRatio`).
+- **Alt pay güvenli alanı saymıyor:** içerik boyundaki sayfa onu kendisi
+  ekliyor.
+
+Telefonda bakılacak: düzeltmede klavye açılınca "Kaydet" görünüyor mu? iOS
+sayfayı klavyenin üstüne itiyor; bunu yalnız telefon gösterir.
+
+Kanıt: 2937 geçti / 0 kırık · `tsc` temiz.

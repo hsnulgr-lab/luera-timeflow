@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Keyboard, Modal, Platform, Pressable, ScrollView,
-    Text, TextInput, View,
+    ActivityIndicator, Pressable, ScrollView,
+    Text, TextInput, useWindowDimensions, View,
     type TextStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomSheet, SheetGrab, SheetHeader } from './Sheet';
+import { SheetGrab, SheetHeader } from './Sheet';
 import { Chevron, Money } from './CashParts';
 import {
-    ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_SAVE, ACTION_VOID,
+    ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_SAVE, ACTION_VOID, CORRECTION_TITLE, correctionSubject,
     ACTIONS_NOTE, CORRECTION_NOTE, READ_ONLY_NOTE, SHEET_SECTIONS, STAFF_ROW_LABEL, voidSub,
     canCorrect, counterLine, customerCardLabel, formatAmount, formatMoney, methodLabel, parseAmount,
-    periodSummaryTitle, SHEET_LABEL,
+    periodSummaryTitle, SHEET_LABEL, SUMMARY_LABEL,
     type CashMethod, type CashPeriod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { COLLECT_METHODS } from '../lib/collect';
@@ -73,7 +72,6 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
     onCorrect?: (amount: number, method: CashMethod) => Promise<string | null>;
 }) {
     const { c, dark } = useTheme();
-    const insets = useSafeAreaInsets();
     const ink = dark ? cashInk.dark : cashInk.light;
 
     // Düzeltme hâli — sheet'in İÇERİĞİNİN yerini alır (v4 · C3 ayrı bir sayfa).
@@ -94,62 +92,22 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
     const canSave = canCorrect(draft, movement.amount, methodDraft, movement.method);
 
     /*
-     * KAPANIŞ — sistemin sayfası kapanır, İŞ SONRA yapılır.
-     *
-     * `close(after)`: sayfa iner, iniş BİTİNCE `after` (yoksa `onClose`)
-     * çağrılır. Sıra önemli: "Geri al"ın onayı sistemin uyarısı ve iOS,
-     * kapanmakta olan bir sayfanın üstüne uyarı açmıyor. iOS bitişi
-     * `onDismiss`le söylüyor; Android'de o olay yok, iş hemen yapılıyor.
-     *
-     * Aşağı çekip kapatmayı SİSTEM yapıyor (`allowSwipeDismissal`): sayfa
-     * zaten inmiş olarak `onRequestClose` geliyor, yalnız açık hâl düşüyor.
+     * KAPANIŞ — sayfa bir ROTA (`app/(manager-flow)/kasa/hareket.tsx`):
+     * `onClose` onu yığından söküyor. Aşağı çekip kapatmayı iOS yapıyor;
+     * kapanışın nedeni ne olursa olsun Kasa ekranına köprü haber veriyor
+     * (`state/cashSheet.ts`). İki kez basılan X yığından iki ekran sökmesin.
      */
-    const [visible, setVisible] = useState(true);
-    const pending = useRef<(() => void) | null>(null);
     const closing = useRef(false);
     const close = useCallback((after?: () => void) => {
         if (closing.current) return;
         closing.current = true;
-        const next = after ?? onClose;
-        if (Platform.OS !== 'ios') { next(); return; }
-        pending.current = next;
-        setVisible(false);
-    }, [onClose]);
-    const dismissed = useCallback(() => {
-        const next = pending.current;
-        pending.current = null;
-        next?.();
-    }, []);
-    const swiped = useCallback(() => {
-        if (Platform.OS !== 'ios') { close(); return; }
-        if (closing.current) return;
-        closing.current = true;
         onClose();
-    }, [close, onClose]);
+        after?.();
+    }, [onClose]);
 
-    /*
-     * KLAVYE DÜZELTME ALANINI ÖRTMESİN.
-     *
-     * Düzeltme alanı sayfanın dibinde; klavye açılınca tam üstüne biniyordu.
-     * Sayfanın altına klavyenin örttüğü kadar pay veriliyor: kaydırıcı
-     * kısalıyor, alan ve Kaydet klavyenin üstünde kalıyor. Örtülen pay
-     * sayfanın EKRANDAKİ yerinden ölçülüyor — sistemin sayfası ekranın
-     * tepesinden başlamıyor; `KeyboardAvoidingView` o farkı bilmiyor.
-     */
-    const rootRef = useRef<View>(null);
-    const [keyboard, setKeyboard] = useState(0);
-    useEffect(() => {
-        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-        const show = Keyboard.addListener(showEvent, (event) => {
-            rootRef.current?.measureInWindow((_x, top, _width, height) => {
-                // Sayfanın alt dolgusu zaten güvenli alan kadar; iki kez sayılmasın.
-                setKeyboard(Math.max(0, top + height - event.endCoordinates.screenY - insets.bottom));
-            });
-        });
-        const hide = Keyboard.addListener(hideEvent, () => setKeyboard(0));
-        return () => { show.remove(); hide.remove(); };
-    }, [insets.bottom]);
+    /** Uzun fiş kayar; sayfa ekranı aşmasın (iOS içerik boyunu tavanda kırpıyor). */
+    const { height } = useWindowDimensions();
+    const receiptMax = Math.round(height * cashMetrics.receiptMaxRatio);
 
     const lines = movement.lines ?? [];
 
@@ -165,40 +123,39 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
 
     return (
         /**
-         * SİSTEMİN SAYFASI — randevu kartıyla AYNI kabuk (2026-10-13).
+         * RANDEVU KARTININ KABUĞU, İÇERİK BOYUNDA (2026-10-13).
          *
-         * Fiş eskiden kendi çizdiğimiz bir katmandı: cam şeritli bir tutamak,
-         * elle sürülen giriş ve elle yazılmış bir aşağı çekme jesti. Telefonda
-         * jest hiç tutmadı ("tutamaç çalışmıyor"); kullanıcı randevu kartının
-         * davranışını VE görünüşünü istedi. Randevu kartı iOS'un sayfası
-         * (`presentation: 'modal'`); fiş de artık öyle: `pageSheet`, aşağı
-         * çekmeyi sistem yapıyor, arkadaki ekran geri çekiliyor.
-         *
-         * Modal yine ŞART: sekme çubuğunu sistem çiziyor ve ekranın içindeki
-         * hiçbir katman onun üstüne çıkamıyor.
+         * Fiş eskiden kendi çizdiğimiz bir katmandı (cam şeritli tutamak, elle
+         * yazılmış aşağı çekme). Telefonda jest tutmadı; kullanıcı randevu
+         * kartının davranışını ve görünüşünü istedi, sonra "orantılı" boyu:
+         * randevu kartı ekranı dolduruyor, fiş ise içeriği kadar. Sayfa
+         * iOS'un `formSheet`i, boyu `fitToContents` — o yüzden burada `flex`
+         * YOK: yükseklik içerikten türüyor ve sistem onu ölçüyor.
          */
-        <Modal
-            visible={visible}
-            animationType="slide"
-            presentationStyle="pageSheet"
-            allowSwipeDismissal
-            onRequestClose={swiped}
-            onDismiss={dismissed}
-        >
-            <View
-                ref={rootRef}
-                style={{ flex: 1, backgroundColor: c.bg, paddingBottom: keyboard }}
-            >
-                {/* Randevu kartının tepesi: tutamak, etiket, kapat. */}
-                <SheetGrab />
-                <SheetHeader label={SHEET_LABEL} onClose={() => close()} />
+        <View style={{ backgroundColor: c.bg }}>
+            {/* Randevu kartının tepesi: tutamak, etiket, kapat. */}
+            <SheetGrab />
+            <SheetHeader label={SHEET_LABEL} onClose={() => close()} />
 
+            {/*
+              * DÜZELTME FİŞİN YERİNİ ALIYOR (v4 · C3 "Tahsilatı düzelt").
+              * Fiş altında dursaydı sayfa klavyeyle birlikte ekrana sığmazdı.
+              */}
+            {correcting ? (
+                <View style={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingBottom: 4, gap: 2 }}>
+                    <Txt style={{ fontFamily: font.extraBold, fontSize: 19, letterSpacing: -0.4, color: c.tx }}>
+                        {CORRECTION_TITLE}
+                    </Txt>
+                    <Txt numberOfLines={1} style={{ fontSize: 13, color: c.tx2 }}>
+                        {correctionSubject(movement)}
+                    </Txt>
+                </View>
+            ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingTop: 6 }}
-                    // `flex: 1` boşluğu DOLDURUYORDU; `flexShrink` yalnız
-                    // taşarsa kısaltıyor.
-                    style={{ flexShrink: 1 }}
+                    // Kısa fiş kendi boyunda; uzun fiş bu tavanda kayıyor.
+                    style={{ maxHeight: receiptMax }}
                 >
                     {/* Başlık: kim, ne zaman, ne kadar. */}
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingBottom: 16 }}>
@@ -298,7 +255,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                     {onVoid || !note ? null : (
                         <View style={{
                             flexDirection: 'row', gap: 8, paddingTop: 12,
-                            paddingBottom: insets.bottom + 30,
+                            paddingBottom: 30,
                             borderTopWidth: 1, borderTopColor: c.bd,
                         }}>
                             <View style={{ width: 13, height: 1, marginTop: 8, backgroundColor: c.tx3 }} />
@@ -308,6 +265,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                         </View>
                     )}
                 </ScrollView>
+            )}
 
                 {/*
                   * DÜZELTME SAYFASI (v4 · C3).
@@ -317,10 +275,11 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                   * adisyondan yeniden alınır.
                   */}
                 {correcting ? (
+                    // Alt pay güvenli alanı SAYMIYOR: içerik boyundaki sayfa
+                    // onu kendisi ekliyor.
                     <View style={{
                         gap: 16,
-                        paddingHorizontal: apptCardMetrics.sheetPadX, paddingTop: 14, paddingBottom: insets.bottom + 26,
-                        borderTopWidth: 1, borderTopColor: c.bd, backgroundColor: c.bg,
+                        paddingHorizontal: apptCardMetrics.sheetPadX, paddingTop: 14, paddingBottom: 26,
                     }}>
                         <View style={{ gap: 7 }}>
                             <Txt style={{
@@ -465,8 +424,8 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                  * şey olmamalı; yalnız yazısı kırmızı.
                  */
                 <View style={{
-                    paddingTop: 4, paddingBottom: insets.bottom + 26,
-                    borderTopWidth: 1, borderTopColor: c.bd, backgroundColor: c.bg,
+                    paddingTop: 4, paddingBottom: 26,
+                    borderTopWidth: 1, borderTopColor: c.bd,
                 }}>
                     {([
                         { key: 'correct', title: ACTION_CORRECT, sub: ACTION_CORRECT_SUB, danger: false },
@@ -478,7 +437,9 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                             accessibilityLabel={row.title}
                             accessibilityHint={row.sub}
                             onPress={() => {
-                                if (row.danger) { close(onVoid); return; }
+                                // Onay Kasa ekranının sistem uyarısında, sayfanın
+                                // ÜSTÜNDE; Vazgeç fişi açık bırakıyor.
+                                if (row.danger) { onVoid?.(); return; }
                                 setDraft(String(movement.amount));
                                 setMethodDraft(correctableMethod);
                                 setSaveError(null);
@@ -510,8 +471,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                     </Txt>
                 </View>
                 )}
-            </View>
-        </Modal>
+        </View>
     );
 }
 
@@ -531,18 +491,19 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
  * istenmedi). Kapatma yalnız arka plana dokunarak; `MovementSheet`'in salt
  * okunur hâliyle aynı, kendine özgü bir "Kapat" düğmesi eklemiyor.
  */
-export function DayEndSheet({ visible, period, totals, onDismiss }: {
-    visible: boolean;
+export function DayEndSheet({ period, totals, onClose }: {
     period: CashPeriod;
     totals: CashTotals;
-    onDismiss: () => void;
+    onClose: () => void;
 }) {
     const { c } = useTheme();
 
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss}>
+        // Randevu kartının kabuğu, içerik boyunda (`kasa/ozet.tsx` · formSheet).
+        <View style={{ backgroundColor: c.bg }}>
             <SheetGrab />
-            <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+            <SheetHeader label={SUMMARY_LABEL} onClose={onClose} />
+            <View style={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingBottom: 30 }}>
                 <Text style={{ fontFamily: font.extraBold, fontSize: 19, letterSpacing: -0.4, color: c.tx }}>
                     {periodSummaryTitle(period)}
                 </Text>
@@ -583,7 +544,7 @@ export function DayEndSheet({ visible, period, totals, onDismiss }: {
                     </Section>
                 )}
             </View>
-        </BottomSheet>
+        </View>
     );
 }
 

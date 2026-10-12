@@ -322,7 +322,9 @@ test('C1 · Kasa tek kişilikte kişi adını ekrandan kaldırıyor, veriyi değ
 
 test('K3 · şerit tahsilatı açıyor: tek adisyon doğrudan, birden çoksa liste', () => {
     assert.match(cash, /const tickets = useMemo\(\(\) => pendingTickets\(events\), \[events\]\);/);
-    assert.match(cash, /if \(tickets\.length === 1\) openTicket\(tickets\[0\]\);\s*else setTicketsOpen\(true\);/);
+    assert.match(cash, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
+    // Birden çoksa liste: içerik boyundaki sayfa (`kasa/bekleyen`).
+    assert.match(cash, /showCashSheet\(\{ kind: 'pending', pending, tickets, onPick: openTicket \}\);/);
     assert.match(cash, /params: \{\s*id: ticket\.appointmentId,\s*from: 'tek',\s*back: 'kasa',\s*\.\.\.\(ticket\.dateISO \? \{ date: ticket\.dateISO \} : \{\}\),\s*\},/);
     // Geri oku dönülen yeri söylüyor: Kasa'dan açılınca "Kasa", "Gün" değil.
     assert.match(kumanda, /const backLabel = params\.back === 'kasa' \? 'Kasa' : params\.from === 'tek' \? 'Gün' : 'Bugün';/);
