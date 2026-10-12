@@ -54,8 +54,9 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu yok** (§6): 112 + 113 + 114 canlıda. Telefonda deneme
-   (Expo Go) hâlâ yapılmadı; tahsilat da telefonda denenmedi.
+2. **Deploy borcu yok** (§6): 112 + 113 + 114 + 115 canlıda. Telefonda
+   deneme (Expo Go) test günü tohumuyla başladı (§22); kullanıcı bulguları
+   topluyor.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
