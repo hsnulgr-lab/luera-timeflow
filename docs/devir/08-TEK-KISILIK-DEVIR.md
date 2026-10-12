@@ -1,7 +1,12 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
 **Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda; §22 tohumu ve §23 de `main`'de)
-**Testler:** 2879 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Testler:** 2894 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+
+> **2026-10-12 · KARARLAR (§24):** randevu kartında "Müşteriyi ara"; Ekip
+> ekle sahibin adını soruyor; ekipten tek kişiliğe DÖNÜŞ kapısı. Göç **115
+> deploy BEKLİYOR** (§6) — telefonda yeni Ekip ekle/dönüşten önce. `hourRange`
+> kararı: dokunma.
 
 > **2026-10-12 · TEST SIRASINDA (§23):** Gün başlığı gelmeyeni ve iptali
 > "bitti" saymıyor (personel "Bugün"ünde de aynı hata kapandı); kumandanın
@@ -311,6 +316,41 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
+
+### ⏳ BEKLİYOR — 115 (sahibin adı + tek kişiliğe dönüş · §24)
+
+**Telefonda yeni Ekip ekle / dönüş ekranlarını denemeden ÖNCE.** Yeni
+istemci `start_team`e üçüncü parametreyi gönderiyor; göç yoksa çağrı
+bulunamaz ve ekran "bağlantı" hatası verir. Mağazadaki sürüm etkilenmiyor:
+iki parametreli eski çağrı yeni imzada aynen çalışıyor (varsayılan değer).
+Yalnız göç; edge function deploy'u YOK.
+
+**0 · Ön kontrol** — beklenen `start_team(text,text)` (dönüş yok):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select string_agg(oid::regprocedure::text, ' ' order by 1) from pg_proc where proname in ('start_team','end_team')\""
+```
+
+**1 · Kuru koşu** — göç + davranış testi TEK işlemde, sonunda hepsi geri
+sarılır. Beklenen: `tek dönüş (115) regression: ok` ve `ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/115_tek_sahip_adi_ve_donus.sql; sed -e '/^BEGIN;$/d' supabase/tests/tek_donus_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse). Beklenen: `DROP FUNCTION`,
+`CREATE FUNCTION` ×2, `COMMIT`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/115_tek_sahip_adi_ve_donus.sql
+```
+
+**3 · Test** (göçten sonra, iz bırakmaz). Beklenen: `tek dönüş (115)
+regression: ok` ve `ROLLBACK`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/tests/tek_donus_regression.sql
+```
 
 ### ✅ YAPILDI (2026-10-12) — 114 (personeli sunucu yazar · §21)
 
@@ -682,17 +722,17 @@ biliyor.
 | `DayHeader` 42 pt, v4'te 44 | aynı sebep |
 | G3 etiketi yalnız "BEKLEMEDE", v4 "BEKLEMEDE · KREM" | **Kullanıcı kararı (§16):** kumanda neyin beklendiğini bilmiyor, yalnız süre soruyor; ad uydurulmaz. Kumanda değişmedi |
 | R2'nin düğme metni canlıdaki gibi | v4 notu "canlıyla karşılaştırılmalı" diyor; değiştirilmedi |
-| Ekipte sahibin personel satırı işletmenin adını taşıyor | 108 kayıtta kişinin adını sormuyor; v4 P2 de sormuyor. Ekip takviminde sahibin sütunu salonun adıyla görünür — **kullanıcıya soruldu** (§16) |
-| Ekipten tek kişiliğe dönüş yolu yok | 113 bilerek yapmadı (karar 2: "önerilir, zorlanmaz"). S1'in "Sonradan İşletme’den değiştirebilirsiniz" cümlesi YALNIZ "Yalnız ben" yönünde doğru — **kullanıcıya soruldu** (§16) |
+| ~~Ekipte sahibin personel satırı işletmenin adını taşıyor~~ | **§24 · 115 ile kapandı** (kullanıcı kararı: Ekip ekle'de "Siz · Adınız" sorulur) |
+| ~~Ekipten tek kişiliğe dönüş yolu yok~~ | **§24 · 115 ile kapandı** (kullanıcı kararı: dönüş kapısı; yalnız ekipte sahipten başka aktif kimse kalmayınca) |
 | Personel sayfasında "Personel eklemek bilgisayardan" cümlesi | v4 P2 notu "müdür modunda da kalkmalı" diyor; ekipte telefondan personel ekleme formu yok, cümle o gelince kalkar |
 | Masaüstü `cashBuild.adisyonLines` adetle çarpmıyor, telefon çarpıyor | **Kullanıcı kararı:** ekranda görünen (fiyat × adet) tahsil edilir. Masaüstünün kendi borcu |
 
-### 🟡 Kullanıcının kararını bekleyen tek madde
+### ✅ Kullanıcı kararı: `hourRange` — DOKUNMA (2026-10-12)
 
 `hourRange` **kapalı günü** (`null`) **bilinmeyen günle** (`undefined`) aynı
 sayıyor. Sonuç: kapalı pazarda Takvim normal 09:00–17:00 ızgarasını çiziyor,
-Gün ekranı ise "Bugün kapalısınız." diyor. **Müdür takvimini de etkiliyor.**
-Kullanıcıya sunuldu, cevap gelmedi. Sorulmadan dokunma.
+Gün ekranı ise "Bugün kapalısınız." diyor. Kullanıcıya üç seçenekle soruldu,
+cevap **"Dokunma"**. Bu bir ayrışma olarak kalıyor; yeniden önerme.
 
 ---
 
@@ -1307,7 +1347,9 @@ Deneme sırası (durumlar birbirine akıyor; sırayla gidilmeli):
 11. Geri kaydırma: İşletme → Hizmetler'den yavaşça geri kaydırırken alttaki
     ekranda "Personel" / "Profil" görünmemeli.
 
-⚠️ "Ekip ekle"yi BU hesapta deneme: ekipten tek kişiliğe dönüş yolu yok.
+⚠️ "Ekip ekle"yi BU hesapta deneme — 115 dönüş kapısını açtı ama kapı yalnız
+ekipte sahipten başka aktif kimse kalmayınca görünüyor ve çalışanı pasife
+almak bilgisayar işi. Gidiş-dönüşü denemek için önce 115 canlıya alınmalı.
 
 Telefonda görülen ilk bulgu (tohumdan önce): Gün başlığı "3 iş bitti, 0
 kaldı" derken hâl kartı "0 tamamlandı · 3 gelmedi" diyordu — gelmeyen
@@ -1335,13 +1377,59 @@ kararsız kalan küçükleri kapattı. Yalnız istemci; göç ve deploy yok.
 gevşetilmedi: `mobile-tek-gun` (ekran ifadesi), `mobile-personel-kart` 05c
 (kaynak metni yerine davranış).
 
-### Hâlâ kullanıcı kararı bekleyenler (kod sormadan değişmez)
+### Kararlar (aynı gün soruldu, §24'te uygulandı)
 
-1. Ekipte sahibin satırının adı (§16 · 1)
-2. Ekipten tek kişiliğe dönüş / S1 cümlesi (§16 · 2)
-3. Personel sayfasının "bilgisayardan" cümlesi (§16 · 3 — form gelince)
-4. `hourRange` kapalı gün (§9)
-5. Bekleme bitince bildirim (ürün kararı)
-6. Randevu kartında "Ara" satırı
-7. `tek-kasa` dalını silmek
-8. Paket satışı ödemesi — "şimdilik dokunma"
+| Madde | Karar |
+|---|---|
+| Ekipte sahibin satırının adı | Ekip ekle'de sorulur → §24 |
+| Ekipten tek kişiliğe dönüş | Dönüş kapısı → §24 (göç 115) |
+| `hourRange` kapalı gün | **Dokunma** (§9) |
+| Randevu kartında "Ara" | Ekle → §24 |
+
+Hâlâ açık: Personel sayfasının "bilgisayardan" cümlesi (form gelince),
+bekleme bitince bildirim, `tek-kasa` dalını silmek. Paket satışı ödemesi
+"şimdilik dokunma".
+
+---
+
+## 24 · 2026-10-12 · KULLANICI KARARLARI — ARA, SAHİBİN ADI, DÖNÜŞ (göç 115)
+
+| İş | Ne oldu | Dosyalar |
+|---|---|---|
+| Randevu kartında "Müşteriyi ara" | Yalnız tek kişilikte, "Mesajla hatırlat"ın ÜSTÜNDE, aynı listede (`ReminderRow` → `ContactRows`; `ChangeRows` çizgileri, dışarı ok). Numara TAM ("0532 111 22 33"), `tel:+90…`, her hâlde (gelmeyeni aramak da iş); aranamayan numarada satır yok. Açılamazsa Alert | `appointmentDetail.callAction`, `ApptParts25.ContactRows`, `AppointmentDetail.tsx`, `randevu/[id].tsx` |
+| Ekip ekle · sahibin adı | Yeni "SİZ · Adınız" grubu çalışan formunun önünde; iki ad da dolmadan düğme kapalı. Sunucu adı yeni çalışan eklenmeden ÖNCE ve yalnız tek aktif satıra yazıyor | `ekip-ekle.tsx`, `authCopy.teamStart`, `auth.startTeam`, 115 |
+| Tek kişiliğe dön | İşletme'de satır YALNIZ ekipte (`team.status`) ≤1 aktif personel varken: "Ekipte yalnız X var". Ekran Ekip ekle'nin dili; form yok. `end_team`: bayrak + ayrılanların İLERİ açık randevuları kalan kişiye; sahibinkiyle çakışan personelsiz (Gün'de görünür), başlamış işleme bağlı olan (062) olduğu gibi. Hepsi geçtiyse doğrudan Gün; değilse önce özet, düğme "Gün’e geç". "Zaten tek kişilik" başarı sayılıyor (cevabı kaybolan ilk istek) | `tek-kisilige-don.tsx`, `profile.tsx`, `authCopy.teamEnd*`, `auth.endTeam`, `_layout.tsx`, 115 |
+| Personel sayfası | Dipnot kapının yerini söylüyor: "Ekipte yalnız siz kalınca İşletme’de Tek kişiliğe dön görünür." | `personel.tsx` |
+
+### Göç 115 — `supabase/115_tek_sahip_adi_ve_donus.sql` (⏳ deploy §6)
+
+- `start_team(p_name, p_specialty, p_owner_name DEFAULT NULL)` — eski
+  `(text,text)` DÜŞÜRÜLÜYOR (iki aday PostgREST'i şaşırtır). Mağazadaki eski
+  istemcinin iki parametreli çağrısı aynen çalışır.
+- `end_team(p_name DEFAULT NULL) RETURNS JSONB` — INVOKER, yalnız sahibin
+  org'u (FOR UPDATE), `already_solo` / `team_not_empty`; hiç aktif yoksa
+  108'in kuralıyla satır ("Ben" ya da salonun adı). Dönüş `{staff_id, moved,
+  unassigned, kept}`.
+- Bildirim: taşınan her satır 107'nin "Yeni randevun var"ını kalan kişinin
+  PERSONEL cihazına tetikliyor; sahip müdür olarak abone, yani pratikte
+  gidecek cihaz yok. Tetikleyiciyi kapatmak burada yapılamaz (ALTER TABLE
+  sahip ister ve bütün salonların tablosunu kilitler).
+- `tests/tek_v4_regression.sql` iki imzada da koşacak hâle getirildi.
+
+### Kanıt
+
+- PGlite (`run115.mjs`): göç iki kez + regresyon ok ve iz yok; kuru koşu iz
+  bırakmıyor (eski imza geri, `end_team` yok); kilitli satır olduğu gibi +
+  taşınan başına bir bildirim; **11 söküm**, on birinde de test düştü.
+  113'ün regresyonu 115'ten önce ve sonra geçiyor.
+- 2894 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint bulgusu yok.
+  İki eski test yeni çağrı şekline taşındı (`tek-v4-ikinci-tur`), gevşetilmedi.
+
+### Telefonda bakılacaklar (115 canlıya alındıktan sonra)
+
+1. Randevu kartı (tek kişilik): "Müşteriyi ara" + numara; dokununca arama
+   sorusu. Selin Uçar gibi numarasız randevuda satır yok.
+2. İşletme → Ekip ekle: "SİZ · Adınız" alanı; boşken düğme kapalı. (Bu
+   hesapta GÖNDERME — §22 uyarısı.)
+3. Gidiş-dönüş yalnız deneme hesabında: Ekip ekle → çalışanı bilgisayardan
+   pasife al → İşletme'de "Tek kişiliğe dön" → Gün.

@@ -31,8 +31,10 @@ export default function TeamStart() {
     const { c } = useTheme();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const nameRef = useRef<TextInput>(null);
     const specialtyRef = useRef<TextInput>(null);
 
+    const [ownerName, setOwnerName] = useState('');
     const [name, setName] = useState('');
     const [specialty, setSpecialty] = useState('');
     const [busy, setBusy] = useState(false);
@@ -45,7 +47,9 @@ export default function TeamStart() {
      * düzenine geçmek. Aynı formu yeniden göndermek aynı hayırı alırdı.
      */
     const alreadyTeam = problem === 'already_team';
-    const ready = name.trim().length > 0;
+    // İki ad da şart: sahibin adı olmadan ekip takviminde sütunu salonun
+    // adıyla görünürdü (115 · kullanıcı kararı).
+    const ready = ownerName.trim().length > 0 && name.trim().length > 0;
 
     const submit = async () => {
         if (busy) return;
@@ -56,7 +60,7 @@ export default function TeamStart() {
         if (!ready) return;
         setBusy(true);
         setProblem(null);
-        const result = await authApi.team.start(name, specialty);
+        const result = await authApi.team.start(name, specialty, ownerName);
         if (result.ok) {
             feedback.success();
             // Kabuk değişiyor: geçmiş siliniyor ve müdür kabuğu Akış'la açılıyor.
@@ -88,9 +92,34 @@ export default function TeamStart() {
                     </View>
                 </Group>
 
+                {/* SİZ — sahibin adı (115). Kayıt kişinin adını hiç sormuyor;
+                    tek kişilikte görünmeyen ad ekipte sütun başlığı oluyor. */}
+                <Group head={upperTR(teamStart.ownerHead)}>
+                    <View style={{ paddingHorizontal: M.rowPadX, paddingBottom: 14, gap: 8 }}>
+                        <TeamField
+                            label={teamStart.ownerName}
+                            value={ownerName}
+                            onChangeText={(next) => { setOwnerName(next); if (problem && !alreadyTeam) setProblem(null); }}
+                            placeholder={teamStart.ownerPlaceholder}
+                            maxLength={TEAM_NAME_MAX}
+                            autoCapitalize="words"
+                            autoComplete="name"
+                            textContentType="name"
+                            returnKeyType="next"
+                            submitBehavior="submit"
+                            onSubmitEditing={() => nameRef.current?.focus()}
+                            editable={!busy && !alreadyTeam}
+                        />
+                        <Text style={{ color: c.tx3, fontSize: 12.5, lineHeight: 17, fontFamily: font.medium, fontWeight: '500' }}>
+                            {teamStart.ownerHint}
+                        </Text>
+                    </View>
+                </Group>
+
                 <Group head={upperTR(teamStart.formHead)}>
                     <View style={{ paddingHorizontal: M.rowPadX, paddingBottom: 14, gap: 12 }}>
                         <TeamField
+                            inputRef={nameRef}
                             label={teamStart.name}
                             value={name}
                             onChangeText={(next) => { setName(next); if (problem && !alreadyTeam) setProblem(null); }}

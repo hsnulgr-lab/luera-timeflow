@@ -132,6 +132,8 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/personel" />
                 {/* 113 · v4 P2 — tek kişilik işletmenin ekibe geçiş kapısı. */}
                 <Stack.Screen name="(manager-flow)/profil/ekip-ekle" />
+                {/* 115 — öbür yönü: ekipte yalnız sahip kalınca tek kişiliğe dönüş. */}
+                <Stack.Screen name="(manager-flow)/profil/tek-kisilige-don" />
                 <Stack.Screen name="(staff-flow)/sifre" />
             </Stack>
         </>

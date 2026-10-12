@@ -32,6 +32,7 @@ import { authApi } from '../../src/api/session';
 import { activeTeamCodeExpiry, fetchTeamStatus } from '../../src/lib/teamAccess';
 import { profileTeamLine, type TeamMember } from '../../src/lib/teamAccessView';
 import type { AuthSession } from '../../src/api/authStub';
+import { teamEnd, teamEndRowSub } from '../../src/lib/authCopy';
 import { profileMetrics as M, useTheme } from '../../src/theme';
 
 /**
@@ -213,6 +214,24 @@ export default function ManagerProfile() {
                             onPress={() => router.push('/(manager-flow)/profil/personel')}
                         />
                     )}
+                    {/*
+                      * TEK KİŞİLİĞE DÖN (115) — Ekip ekle'nin öbür yönü.
+                      *
+                      * YALNIZ ekipte sahipten başka aktif kimse kalmayınca:
+                      * tek kişilik kabuk tam olarak bir aktif personel
+                      * bekliyor ve kimin pasife alınacağını telefon seçmiyor.
+                      * Kalabalık bir ekipte bu satır her gün görülen ama hiç
+                      * kullanılmayacak bir satır olurdu. Ekip okunamadıysa
+                      * (ya da kişi sahip değilse) `team` null ve satır yok.
+                      */}
+                    {!solo && team !== null && team.length <= 1 ? (
+                        <ProfileRow
+                            big
+                            title={teamEnd.title}
+                            sub={teamEndRowSub(team)}
+                            onPress={() => router.push('/(manager-flow)/profil/tek-kisilige-don')}
+                        />
+                    ) : null}
                     <ProfileRow
                         big
                         title="Müşteriler"

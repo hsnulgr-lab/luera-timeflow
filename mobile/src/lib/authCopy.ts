@@ -169,6 +169,15 @@ export const teamStart = {
     changeHead: 'Ekibe geçince',
     change: 'İlk çalışanınızı eklediğinizde uygulama ekip düzenine geçer. Randevu kurarken kimin yapacağı sorulur, '
         + 'takvimde her kişiye bir sütun açılır, ana ekran Akış olur. Geçmiş randevularınız ve kasanız olduğu gibi kalır.',
+    /*
+     * SAHİBİN ADI (115 · kullanıcı kararı). Tek kişilikte sahibin satırı
+     * salonun adını taşıyor ve görünmüyor; ekipte takvimde sütun başlığı
+     * oluyor. Kayıt kişinin adını hiç sormadığı için burada soruluyor.
+     */
+    ownerHead: 'Siz',
+    ownerName: 'Adınız',
+    ownerPlaceholder: 'Örn. Derya Toprak',
+    ownerHint: 'Ekip takviminde sütununuz bu adla görünür.',
     formHead: 'Yeni çalışan',
     name: 'Ad soyad',
     namePlaceholder: 'Örn. Elif Demir',
@@ -181,6 +190,62 @@ export const teamStart = {
     foot: 'Çalışan kendi telefonundan girecekse, eklendikten sonra Personel sayfasındaki Telefon bağla ile tek seferlik kod üretirsiniz.',
 } as const;
 
+/**
+ * İşletme › Tek kişiliğe dön (115) — ekip ekle kapısının öbür yönü.
+ *
+ * Satır İşletme'de YALNIZ ekipte sahipten başka aktif kimse kalmayınca
+ * çiziliyor; kimin pasife alınacağını telefon seçmiyor (personel çıkarmak
+ * masaüstü işi).
+ */
+export const teamEnd = {
+    title: 'Tek kişiliğe dön',
+    changeHead: 'Tek kişiliğe dönünce',
+    change: 'Ana ekran Gün olur, randevu kurarken kimin yapacağı sorulmaz, takvimde tek sütun kalır. '
+        + 'Geçmiş randevularınız ve kasanız olduğu gibi kalır.',
+    appointmentsHead: 'İleri randevular',
+    appointments: 'Ayrılan çalışanların bugünden sonraki randevuları size geçer. Sizin bir randevunuzla '
+        + 'çakışan varsa kimseye atanmadan kalır ve Gün’de görünür.',
+    action: 'Tek kişiliğe dön',
+    busy: 'Dönülüyor…',
+    /** Döndü ama bazı randevular personelsiz kaldı — kişi önce bunu okusun. */
+    enterSolo: 'Gün’e geç',
+    foot: 'Yeniden ekibe geçmek isterseniz İşletme’deki Ekip ekle ile ilk çalışanınızı eklersiniz.',
+} as const;
+
+/** Profil satırının alt satırı: kim kaldı. Okunamayan ekipte satır yok. */
+export function teamEndRowSub(members: readonly { name: string }[]): string {
+    return members.length === 1 ? `Ekipte yalnız ${members[0].name} var` : 'Ekipte kimse yok';
+}
+
+/**
+ * Dönüşün özeti — yalnız söylenecek bir şey varsa. Hepsi geçtiyse ekran
+ * doğrudan Gün'e geçiyor; personelsiz kalan ya da kilitli randevu varsa kişi
+ * önce bunu okuyor.
+ */
+export function teamEndNotice(counts: { moved: number; unassigned: number; kept: number } | null): string | null {
+    if (!counts || (counts.unassigned === 0 && counts.kept === 0)) return null;
+    const parts = [
+        counts.moved > 0 ? `${counts.moved} randevu size geçti.` : null,
+        counts.unassigned > 0
+            ? `${counts.unassigned} randevu sizinkiyle çakıştığı için kimseye atanmadı; Gün’de görünüyor.`
+            : null,
+        counts.kept > 0
+            ? `${counts.kept} randevu başlamış bir işleme bağlı olduğu için ayrılan çalışanda kaldı.`
+            : null,
+    ];
+    return `İşletmeniz tek kişiliğe döndü. ${parts.filter(Boolean).join(' ')}`;
+}
+
+/** Dönüşün hata cümlesi — işletmenin hangi düzende kaldığını söylüyor. */
+export function teamEndProblem(error: string): string {
+    switch (error) {
+        case 'team_not_empty': return 'Ekipte sizden başka aktif çalışan var. Önce onları bilgisayardan pasife alın; işletmeniz ekip düzeninde kaldı.';
+        case 'subscription_inactive': return 'Aboneliğiniz kapalı; işletmeniz ekip düzeninde kaldı.';
+        case 'no_session': return 'Oturumunuz kapanmış. Çıkış yapıp yeniden girin; işletmeniz ekip düzeninde kaldı.';
+        default: return 'Dönülemedi; işletmeniz ekip düzeninde kaldı. Bağlantınızı kontrol edip tekrar deneyin.';
+    }
+}
+
 /** Sunucunun 80 karakter sınırı (113) — alan da aynı yerde duruyor. */
 export const TEAM_NAME_MAX = 80;
 
@@ -192,6 +257,8 @@ export function teamStartProblem(error: string): string {
     switch (error) {
         case 'name_required': return 'Çalışanın adını yazın.';
         case 'name_too_long': return `Ad en fazla ${TEAM_NAME_MAX} harf olabilir.`;
+        case 'owner_name_required': return 'Kendi adınızı yazın.';
+        case 'owner_name_too_long': return `Adınız en fazla ${TEAM_NAME_MAX} harf olabilir.`;
         case 'already_team': return 'İşletmeniz başka bir cihazdan ekip düzenine geçirilmiş; bu çalışan eklenmedi. Personel sayfasından ekleyebilirsiniz.';
         case 'subscription_inactive': return 'Aboneliğiniz kapalı; çalışan eklenemedi. İşletmeniz tek kişilik kaldı.';
         case 'no_session': return 'Oturumunuz kapanmış. Çıkış yapıp yeniden girin; işletmeniz tek kişilik kaldı.';

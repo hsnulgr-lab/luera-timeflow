@@ -34,6 +34,13 @@ BEGIN;
 
 -- ── 0) Yapı ─────────────────────────────────────────────────────────────────
 DO $$
+DECLARE
+    -- 115 imzaya üçüncü parametreyi (sahibin adı) ekledi; test iki hâlde de
+    -- koşabilsin diye hangisi kuruluysa o sınanıyor.
+    v_fn REGPROCEDURE := COALESCE(
+        to_regprocedure('public.start_team(text,text,text)'),
+        to_regprocedure('public.start_team(text,text)')
+    );
 BEGIN
     IF (
         SELECT count(*) FROM information_schema.columns
@@ -44,21 +51,20 @@ BEGIN
         RAISE EXCEPTION '112: bekleme sütunları eksik ya da tipleri yanlış';
     END IF;
 
-    IF to_regprocedure('public.start_team(text,text)') IS NULL THEN
+    IF v_fn IS NULL THEN
         RAISE EXCEPTION '113: start_team yok';
     END IF;
 
     -- INVOKER: RLS aynen geçerli; fonksiyon yeni bir yetki açmıyor.
-    IF (SELECT prosecdef FROM pg_catalog.pg_proc
-         WHERE oid = 'public.start_team(text,text)'::regprocedure) THEN
+    IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = v_fn) THEN
         RAISE EXCEPTION '113: start_team SECURITY DEFINER olmamalı';
     END IF;
 
-    IF has_function_privilege('anon', 'public.start_team(text,text)', 'EXECUTE') THEN
+    IF has_function_privilege('anon', v_fn, 'EXECUTE') THEN
         RAISE EXCEPTION '113: anon start_team çağırabiliyor (094''ün dersi)';
     END IF;
 
-    IF NOT has_function_privilege('authenticated', 'public.start_team(text,text)', 'EXECUTE') THEN
+    IF NOT has_function_privilege('authenticated', v_fn, 'EXECUTE') THEN
         RAISE EXCEPTION '113: authenticated start_team çağıramıyor';
     END IF;
 END;

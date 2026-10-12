@@ -419,7 +419,7 @@ test('P2 · her hata işletmenin hangi düzende KALDIĞINI söylüyor', () => {
 });
 
 test('P2 · ekran: yazma önce sunucuya, kabuk ancak sonra değişiyor; hata düğmenin üstünde', () => {
-    assert.match(teamScreen, /const result = await authApi\.team\.start\(name, specialty\);\s*if \(result\.ok\) \{\s*feedback\.success\(\);\s*enterShell\('manager', false\);/);
+    assert.match(teamScreen, /const result = await authApi\.team\.start\(name, specialty, ownerName\);\s*if \(result\.ok\) \{\s*feedback\.success\(\);\s*enterShell\('manager', false\);/);
     assert.ok(teamScreen.indexOf('{teamStartProblem(problem)}') < teamScreen.indexOf('<PrimaryButton'), 'hata düğmenin üstünde');
     // Ad boşken düğme kapalı; çalışırken kapalı.
     assert.match(teamScreen, /disabled=\{busy \|\| \(!alreadyTeam && !ready\)\}/);
@@ -434,7 +434,7 @@ test('P2 · ekran: yazma önce sunucuya, kabuk ancak sonra değişiyor; hata dü
 
 test('P2 · canlı: tek çağrı, "zaten ekip" bazen başarı, profil yenileniyor, jeton düşüyor', () => {
     const fn = authLive.slice(authLive.indexOf('async function startTeam'), authLive.indexOf('async function teamMemberExists'));
-    assert.match(fn, /supabase\.rpc\('start_team', \{\s*p_name: cleanName,\s*p_specialty: specialty\.trim\(\) \|\| null,\s*\}\)/);
+    assert.match(fn, /supabase\.rpc\('start_team', \{\s*p_name: cleanName,\s*p_specialty: specialty\.trim\(\) \|\| null,\s*p_owner_name: cleanOwner,\s*\}\)/);
     // Cevabı kaybolan ilk istek: aynı adla çalışan varsa iş gitmiş.
     assert.match(fn, /const landed = refusal === 'already_team' && \(await teamMemberExists\(org\.id, cleanName\)\);/);
     // Gerçek "zaten ekip"te de saklı profil yenileniyor — bir sonraki açılış doğru kabuğa.
@@ -442,8 +442,9 @@ test('P2 · canlı: tek çağrı, "zaten ekip" bazen başarı, profil yenileniyo
     // Personel tablosunun yazma kapısı aboneliğe bağlı (087).
     assert.match(fn, /if \(error\.code === '42501'\) return fail\('subscription_inactive'\);/);
     assert.match(fn, /await tokens\.clearStaff\(\);\s*return selectManagerBusiness\(org\.id\);/);
-    assert.match(authLive, /team: \{\s*start: startTeam,\s*\}/);
-    assert.match(authStub, /team: \{\s*start: startTeam,\s*\}/);
+    // 115: kapının öbür yönü de aynı yerde.
+    assert.match(authLive, /team: \{\s*start: startTeam,\s*end: endTeam,\s*\}/);
+    assert.match(authStub, /team: \{\s*start: startTeam,\s*end: endTeam,\s*\}/);
     assert.match(session, /team: \{ \.\.\.authStub\.team, \.\.\.live\.team \},/);
     assert.match(session, /LIVE_PARTS = \[[^\]]*'team'/);
 });

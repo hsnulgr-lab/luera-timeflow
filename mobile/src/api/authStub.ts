@@ -153,7 +153,26 @@ export type AuthErrorCode =
     /** Çalışanın adı 80 karakteri aşıyor. */
     | 'name_too_long'
     /** İşletme zaten ekip düzeninde — bu kapı yalnız tek kişilik işletmenin. */
-    | 'already_team';
+    | 'already_team'
+    // Sahibin adı + tek kişiliğe dönüş (115)
+    /** Ekibe geçerken sahibin adı boş. */
+    | 'owner_name_required'
+    /** Sahibin adı 80 karakteri aşıyor. */
+    | 'owner_name_too_long'
+    /** Ekipte birden çok aktif personel var — kimin çıkacağını telefon seçmiyor. */
+    | 'team_not_empty'
+    /** İşletme zaten tek kişilik. */
+    | 'already_solo';
+
+/**
+ * Tek kişiliğe dönüşün sonucu (115 · `end_team`). Sayılar bugünden sonraki
+ * randevuların ne olduğu; `null` — işletme zaten dönmüştü (zayıf sinyalde ilk
+ * istek ulaşıp cevabı kaybolmuş olabilir), sayıları bu dokunuş bilmiyor.
+ */
+export interface TeamEndResult {
+    session: AuthSession;
+    counts: { moved: number; unassigned: number; kept: number } | null;
+}
 
 export interface AuthFailure {
     ok: false;
@@ -929,8 +948,10 @@ async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> 
  * personel tablosu yok: bayrak çevriliyor, sayı bir artıyor — kabuk
  * değişimi bütün akışıyla gezilebilsin diye.
  */
-async function startTeam(name: string): Promise<AuthResult<AuthSession>> {
+// Meslek stub'da tutulmuyor (personel tablosu yok); yalnız sahibin adı sınanıyor.
+async function startTeam(name: string, ...[, ownerName = '']: [string?, string?]): Promise<AuthResult<AuthSession>> {
     if (!name.trim()) return failure('name_required');
+    if (!ownerName.trim()) return failure('owner_name_required');
     const session = await readSession();
     if (!session) return failure('no_session');
     if (!session.profile.business.solo) return failure('already_team');
@@ -939,6 +960,20 @@ async function startTeam(name: string): Promise<AuthResult<AuthSession>> {
         ...session.profile,
         business: { ...business, solo: false, staffCount: business.staffCount + 1 },
     }));
+}
+
+/** Tek kişiliğe dönüş (115) — stub karşılığı: bayrak geri çevriliyor. */
+async function endTeam(): Promise<AuthResult<TeamEndResult>> {
+    const session = await readSession();
+    if (!session) return failure('no_session');
+    const business = session.profile.business;
+    if (business.solo) return success({ session, counts: null });
+    if (business.staffCount > 1) return failure('team_not_empty');
+    const saved = await saveSession({
+        ...session.profile,
+        business: { ...business, solo: true, staffCount: 1 },
+    });
+    return success({ session: saved, counts: { moved: 0, unassigned: 0, kept: 0 } });
 }
 
 async function completeSignup(): Promise<AuthResult<AuthSession>> {
@@ -1057,5 +1092,6 @@ export const authStub = {
     },
     team: {
         start: startTeam,
+        end: endTeam,
     },
 } as const;

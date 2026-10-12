@@ -351,7 +351,8 @@ export default function ManagerStaffAccess() {
 
                 <Foot>
                     Personel eklemek ve çıkarmak bilgisayardan: Luera → Personel. Şifresini unutan
-                    personelin satırına dokunup sıfırlayın; yenisini kendisi belirler.
+                    personelin satırına dokunup sıfırlayın; yenisini kendisi belirler. Ekipte yalnız
+                    siz kalınca İşletme’de Tek kişiliğe dön görünür.
                 </Foot>
             </ScrollView>
 

@@ -12,7 +12,7 @@ import { unregisterManagerPush, unregisterPush } from '../lib/push.ts';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
     AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
-    AuthSession, LaunchState, LockedDoor, SignupDraft, SignupSector, StaffEntry, StaffRosterMember,
+    AuthSession, LaunchState, LockedDoor, SignupDraft, SignupSector, StaffEntry, StaffRosterMember, TeamEndResult,
 } from './authStub';
 import { isValidEmail, passwordRuleState } from '../lib/authValidation.ts';
 import { pinProblem } from '../lib/pinRules.ts';
@@ -904,7 +904,7 @@ async function setBusinessMode(solo: boolean): Promise<AuthResult<AuthSession>> 
 }
 
 /** `start_team`in kendi hayırları — `raise exception` metni (P0001). */
-const TEAM_REFUSALS = ['name_required', 'name_too_long', 'already_team'] as const;
+const TEAM_REFUSALS = ['owner_name_too_long', 'name_required', 'name_too_long', 'already_team'] as const;
 
 /**
  * EKİBE GEÇİŞ (113 · v4 P2) — ilk çalışanı ekler, işletmeyi ekip düzenine alır.
@@ -930,15 +930,20 @@ const TEAM_REFUSALS = ['name_required', 'name_too_long', 'already_team'] as cons
  * (`solo.session` → `not_solo`) ve ardında bırakılan bir taşıyıcı belge
  * kimsenin işine yaramaz.
  */
-async function startTeam(name: string, specialty: string): Promise<AuthResult<AuthSession>> {
+async function startTeam(name: string, specialty: string, ownerName: string): Promise<AuthResult<AuthSession>> {
     const cleanName = name.trim();
     if (!cleanName) return fail('name_required');
+    // Sahibin adı (115): ekip takviminde sahibin sütunu salonun adıyla
+    // görünüyordu. Kullanıcı kararı — sorulur ve boş geçilemez.
+    const cleanOwner = ownerName.trim();
+    if (!cleanOwner) return fail('owner_name_required');
     const org = await ownedOrg();
     if (!org) return fail('no_session');
 
     const { error } = await supabase.rpc('start_team', {
         p_name: cleanName,
         p_specialty: specialty.trim() || null,
+        p_owner_name: cleanOwner,
     });
     if (error) {
         const message = error.message ?? '';
@@ -956,6 +961,54 @@ async function startTeam(name: string, specialty: string): Promise<AuthResult<Au
 
     await tokens.clearStaff();
     return selectManagerBusiness(org.id);
+}
+
+/** `end_team`in kendi hayırları (115). */
+const SOLO_REFUSALS = ['team_not_empty', 'name_too_long'] as const;
+
+/**
+ * TEK KİŞİLİĞE DÖNÜŞ (115) — ekipte sahipten başka aktif kimse kalmayınca.
+ *
+ * Kapının öbür yönü: kayıttaki "Sonradan İşletme’den değiştirebilirsiniz"
+ * cümlesi yalnız tek kişilik → ekip yönünde doğruydu. Sunucu tek işlemde
+ * bayrağı çeviriyor ve ayrılan çalışanların ileri randevularını kalan kişiye
+ * geçiriyor (gerekçesi 115'te).
+ *
+ * `p_name` yalnız hiç aktif personel yokken kullanılıyor — 108'in kuralı:
+ * açılacak satır salonun adını taşıyor.
+ *
+ * ── "ZATEN TEK KİŞİLİK" HATA DEĞİL ─────────────────────────────────────────
+ * `startTeam`in `already_team`i gibi: zayıf sinyalde ilk istek işi yapıp
+ * cevabını kaybetmiş olabilir. İstenen hâl zaten bu; profil yeniden okunup
+ * başarı dönüyor, sayılar bilinmiyor (`counts: null`).
+ */
+async function endTeam(): Promise<AuthResult<TeamEndResult>> {
+    const org = await ownedOrg();
+    if (!org) return fail('no_session');
+    const stored = await readProfile();
+    const name = stored?.profile.business.name ?? org.name;
+
+    const { data, error } = await supabase.rpc('end_team', { p_name: name });
+    let counts: TeamEndResult['counts'] = null;
+    if (error) {
+        const message = error.message ?? '';
+        if (!message.includes('already_solo')) {
+            const refusal = SOLO_REFUSALS.find((code) => message.includes(code));
+            if (refusal) return fail(refusal);
+            if (message.includes('org_not_found')) return fail('no_session');
+            // Personel ve randevu yazma kapısı aboneliğe bağlı (087).
+            if (error.code === '42501') return fail('subscription_inactive');
+            return fail('offline');
+        }
+    } else {
+        const row = (data ?? {}) as Record<string, unknown>;
+        const count = (key: string) => (typeof row[key] === 'number' ? row[key] as number : 0);
+        counts = { moved: count('moved'), unassigned: count('unassigned'), kept: count('kept') };
+    }
+
+    const session = await selectManagerBusiness(org.id);
+    if (!session.ok) return session;
+    return done({ session: session.data, counts });
 }
 
 /** Bu adla aktif bir çalışan var mı. Okunamazsa `false` — emin olmadan "eklendi" denmez. */
@@ -1062,6 +1115,7 @@ export const auth = {
     },
     team: {
         start: startTeam,
+        end: endTeam,
     },
     manager: {
         start: managerStart,
