@@ -1284,6 +1284,52 @@ export const columnMetrics = {
 } as const;
 
 /**
+ * Tek kişilik · T1 — tek sütunlu takvim.
+ * Değerler `Luera Mobil - Tek Kisilik v4.html` içindeki gerçek CSS'ten
+ * (`.cgrid`, `.hr`, `.cb`, `.cnow`, `cy()`).
+ *
+ * Müdürün ölçüleri 95 pt'lik sütun için seçilmişti; tek sütunda blok ~320 pt
+ * genişliyor ve o ölçülerle köşede küçük bir yazı, ortada boş bir kutu
+ * kalıyordu (2026-10-13, telefon: "çok kaba"). T1 yazıyı sütuna göre
+ * büyütüyor, kenarlığı inceltiyor, kısa randevuyu tek satıra alıyor.
+ */
+export const soloColumnMetrics = {
+    /** `cy()`: saat başına 69 px. */
+    hourHeight: 69,
+    /** `cy("10:00") = 22` — ilk saat çizgisi ızgaranın tepesinden 22 pt aşağıda. */
+    gridTop: 22,
+    /** `.hr i` ve `.cb` `left: 58px`. */
+    hoursWidth: 58,
+    /** `.hr b`: left 17 · top 6 · 14 px · 500. */
+    hourX: 17,
+    hourTop: 6,
+    hourText: 14,
+    /** `.cb`: `top: cy(t) + 2` · `height: … − 4`. */
+    blockInset: 2,
+    /** `.cb` padding 8 / 13 · `.cb.tight` 5 · `.cb.live` sol 16. */
+    blockY: 8,
+    blockTightY: 5,
+    blockX: 13,
+    blockLiveX: 16,
+    /** `.cb.live::before` — 4 px, köşesiz; bloğun yarıçapı kırpıyor. */
+    liveBar: 4,
+    /** `.cb.live` kenarlığı `rgba(255,90,31,.5)`. */
+    liveBorderAlpha: '80',
+    /** `.cb span` 13.5/600 · `.cb b` 17/800 −.02em · `.cb em` 14/500. */
+    blockTime: 13.5,
+    blockName: 17,
+    blockService: 14,
+    /** `.cb.tight` line-height 1.15. */
+    tightLine: 1.15,
+    /** `.cb.row1` gap 10. */
+    rowGap: 10,
+    /** `.cb.done` opacity .5. */
+    doneOpacity: 0.5,
+    /** `.cnow` 1.5 px. */
+    nowLine: 1.5,
+} as const;
+
+/**
  * Müdür 09 — randevu oluştur.
  * Değerler `Luera Mobil - Mudur Modu.html` içindeki gerçek CSS'ten.
  */

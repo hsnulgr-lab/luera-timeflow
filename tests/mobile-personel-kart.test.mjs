@@ -543,7 +543,9 @@ test('blok İKİ şeyi AYRI kanaldan söylüyor: kimin ve hangi hâlde', () => {
     assert.ok(grid.includes('const barColor = live ? c.or : c.tx3;'));
     assert.ok(grid.includes('backgroundColor: barColor,'));
     // KENARLIK = işlem sürüyor; sahiplikten bağımsız, HERKESTE.
-    assert.ok(grid.includes('borderColor: lifted ? c.or : live ? `${c.or}70` : c.bd2'));
+    assert.ok(grid.includes('borderColor: lifted ? c.or : skin.border,'));
+    // Ekipteki kenarlık aynı; tek sütunun (T1) inceliği tek-takvim-t1'de.
+    assert.ok(grid.includes('border: live ? `${c.or}70` : c.bd2,'));
 });
 
 test('müdür görünümünde sahiplik diye bir soru YOK', () => {
@@ -579,7 +581,8 @@ test('şeridin açtığı iç boşluk ŞERİDE bağlı, `live`e değil', () => {
     // Şerit artık `live` olmadan da çizilebiliyor; boşluk eski koşulda
     // kalsaydı metin şeridin altına girerdi.
     const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
-    assert.ok(grid.includes('paddingLeft: bar ? columnMetrics.blockLiveX : columnMetrics.blockX,'));
+    assert.ok(grid.includes('paddingLeft: bar ? skin.padBarX : skin.padX,'));
+    assert.ok(grid.includes('padBarX: columnMetrics.blockLiveX,'));
 });
 
 test('personel takvimi sahipliği ızgaraya GEÇİRİYOR', () => {

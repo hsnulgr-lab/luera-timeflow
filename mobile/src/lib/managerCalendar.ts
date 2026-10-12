@@ -45,13 +45,14 @@ export function blockLayout(
     const end = toMinutes(appointment.end_time);
     const perMinute = hourHeight / 60;
     const top = (start - dayStartMinutes) * perMinute;
-    // En kısa randevu bile dokunulabilir kalmalı; 30 dakikanın altı 37 pt'de
-    // sabitlenir, aksi hâlde 10 dakikalık bir kayıt görünmez olurdu.
-    const height = Math.max((end - start) * perMinute, MIN_BLOCK);
+    // En kısa randevu bile dokunulabilir kalmalı; 30 dakikanın altı 30
+    // dakikalık boyda sabitlenir (74 pt'lik saatte 37), aksi hâlde 10
+    // dakikalık bir kayıt görünmez olurdu.
+    const height = Math.max((end - start) * perMinute, MIN_BLOCK * (hourHeight / HOUR_HEIGHT));
     return { top, height };
 }
 
-/** Altında blok okunmaz hâle gelir. */
+/** Altında blok okunmaz hâle gelir: yarım saat. */
 export const MIN_BLOCK = 37;
 
 export type BlockDetail = 'full' | 'timeAndName' | 'nameOnly';
@@ -68,6 +69,27 @@ export function blockDetail(height: number): BlockDetail {
     if (height >= 56) return 'full';
     if (height > MIN_BLOCK) return 'timeAndName';
     return 'nameOnly';
+}
+
+export type SoloBlockShape = 'full' | 'tight' | 'row';
+
+/**
+ * Tek sütunda (v4 · T1) blok yazıyı ÇIKARMIYOR, dizilişini değiştiriyor —
+ * sütun geniş, saat · ad · hizmet her boyda sığıyor:
+ *
+ *   78 pt ve üstü → alt alta (`.cb`)                saat 75 dk'dan uzun
+ *   64–78 pt      → alt alta, sıkışık (`.cb.tight`) bir saat
+ *   64 pt altı    → tek satır (`.cb.row1`)          45 dk ve kısası
+ *
+ * Eşikler Hanken Grotesk'in satır yüksekliğinden (1,303): üç satır + 8'er pt
+ * pay + kenarlık 78 pt; sıkışıkta satır 1,15 ve pay 5 → 64 pt.
+ *
+ * `height` bloğun GÖRÜNEN boyu — `soloColumnMetrics.blockInset` düşülmüş.
+ */
+export function soloBlockShape(height: number): SoloBlockShape {
+    if (height >= 78) return 'full';
+    if (height >= 64) return 'tight';
+    return 'row';
 }
 
 /** Sütun başlıklarının ve ızgaranın ortak genişliği. */
@@ -176,6 +198,7 @@ export function columnize(
     appointments: readonly Appt[],
     staff: readonly ColumnStaff[],
     dayStartMinutes: number,
+    hourHeight = HOUR_HEIGHT,
 ): Map<string, Block[]> {
     const byStaff = new Map<string, Block[]>();
     for (const person of staff) byStaff.set(person.id, []);
@@ -183,7 +206,7 @@ export function columnize(
     for (const appointment of appointments) {
         const columnId = appointment.staff_id;
         if (!columnId || !byStaff.has(columnId)) continue;
-        byStaff.get(columnId)?.push({ appointment, ...blockLayout(appointment, dayStartMinutes) });
+        byStaff.get(columnId)?.push({ appointment, ...blockLayout(appointment, dayStartMinutes, hourHeight) });
     }
 
     for (const list of byStaff.values()) list.sort((a, b) => a.top - b.top);

@@ -1570,3 +1570,34 @@ Ekim) kodla temizlenmez; randevu kartından düzeltilecek ya da tohum yeniden
 Kanıt: 2922 geçti / 0 kırık · `tsc` temiz · yeni lint bulgusu yok. Altı eski
 test yeni kaynak biçimine taşındı (gevşetilmedi). Telefonda denenmedi.
 
+
+**Telefon turu (69458be).** Gün kartının alt satırında müşterinin ADI 13,5 pt
+kalın ve koyu (`subName` · `subParts`); satır yüksekliği aynı, kart boyu
+değişmedi. "Geldi'yi geri al" gözü kişi + geri ok (Gelmedi'deki siluet).
+
+## 28 · 2026-10-13 · T1 — TAKVİM TASARIMA DÖNDÜ ("çok kaba durmuyor mu")
+
+Telefonda tek kişilik Takvim kaba görünüyordu. Sebep tasarım değil uygulama:
+ekran T1'i değil müdürün 95 pt'lik sütun ölçülerini çiziyordu — ~320 pt'lik
+blokta köşede 15,5 / 11,5 pt yazı, koyu `bd2` kenarlık, 74 pt saat.
+`ColumnCalendar · soloColumn` artık T1'in CSS'ini (`soloColumnMetrics`) çiziyor:
+
+| | ekip (Müdür 06, değişmedi) | tek sütun (v4 · T1) |
+|---|---|---|
+| saat | 74 pt | 69 pt · ilk çizgi 22 pt aşağıda |
+| saat etiketi | 13,5 · 600 · sütun 62 | 14 · 500 · çizginin 6 pt altı · sütun 58 |
+| blok | yerinde · `bd2` · 10 pt pay | 2 pt içeriden · `bd` · 8/13 pay |
+| yazı | 12 / 15,5 / 11,5 · boya göre ÇIKARILIR | 13,5 / 17 / 14 · boya göre DİZİLİR |
+| sürüyor | `or 70` · 3 pt şerit | `or 80` (%50) · 4 pt köşesiz şerit |
+| bitti | ,56 | ,5 |
+| şimdi çizgisi | 1 pt | 1,5 pt |
+
+Diziliş (`soloBlockShape`): 78 pt ve üstü alt alta, 64–78 sıkışık (satır
+1,15, pay 5), altı tek satır (saat · ad · hizmet; yalnız hizmet kırpılır).
+Eşikler Hanken Grotesk'in satır yüksekliğinden (1,303) — test TTF'ten
+hesaplıyor. Blok, şimdi çizgisi ve sürükleme hedefi aynı saat boyunu
+kullanıyor (69); en kısa blok yarım saat (ekipte 37, tek sütunda 34,5).
+
+Kanıt: 2936 geçti / 0 kırık · `tsc` temiz · yeni lint bulgusu yok
+(`tests/tek-takvim-t1.test.mjs`). Dört eski test yeni yapıya taşındı.
+Telefonda denenmedi.

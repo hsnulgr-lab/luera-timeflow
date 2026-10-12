@@ -120,11 +120,13 @@ test('sol saat sütunu sabit; sütunlar altından geçer', () => {
     assert.equal(HOURS_WIDTH, 62);
     assert.equal(COLUMN_WIDTH, 95);
     const hours = grid.slice(grid.indexOf('Sabit saat sütunu'), grid.indexOf('<ScrollView\n                horizontal'));
-    assert.match(hours, /width: HOURS_WIDTH/);
+    assert.match(hours, /width: grid\.hoursWidth/);
+    // Ekipte genişlik HOURS_WIDTH; tek sütunda T1'in 58'i (tek-takvim-t1).
+    assert.match(grid, /hoursWidth: HOURS_WIDTH,/);
     // Yatay kaydırma YALNIZ sütunları sarıyor; saat sütunu onun DIŞINDA.
     assert.equal((grid.match(/^\s+horizontal$/gm) || []).length, 1);
     assert.ok(
-        grid.indexOf('width: HOURS_WIDTH') < grid.indexOf('horizontal'),
+        grid.indexOf('width: grid.hoursWidth') < grid.indexOf('horizontal'),
         'saat sütunu yatay kaydırıcının içinde kalmış',
     );
 });
@@ -134,7 +136,7 @@ test('ızgara dikeyde kaydırılır', () => {
     // DIŞTA, çünkü saat sütunu ve ızgara birlikte kaymalı — yoksa saatler
     // yerinde kalıp bloklarla hizası bozulur.
     assert.ok(
-        grid.indexOf('<ScrollView') < grid.indexOf('width: HOURS_WIDTH'),
+        grid.indexOf('<ScrollView') < grid.indexOf('width: grid.hoursWidth'),
         'dikey kaydırıcı saat sütununu da sarmalı',
     );
     assert.match(grid, /contentInsetAdjustmentBehavior="automatic"/);

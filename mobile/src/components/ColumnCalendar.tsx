@@ -10,15 +10,15 @@ import { feedback } from '../lib/feedback';
 import { isLive } from '../lib/calendar';
 import {
     blockDetail, columnize, COLUMN_GAP, COLUMN_WIDTH, DRAG_BANNER_RESERVE, edgeStep, HOUR_HEIGHT, HOURS_WIDTH,
-    hourLabels, nowLineTop,
-    type ColumnStaff,
+    hourLabels, nowLineTop, soloBlockShape,
+    type ColumnStaff, type SoloBlockShape,
 } from '../lib/managerCalendar';
 import {
     DIM_OPACITY, DRAG_OPACITY, GHOST_OPACITY, LIFT_BORDER, LIFT_SCALE, LONG_PRESS_MS,
     moveBanner, resolveTarget, targetLabel,
     type MoveTarget,
 } from '../lib/moveAppointment';
-import { calendarMetrics, columnMetrics, font, moveMetrics, radius, useTheme } from '../theme';
+import { calendarMetrics, columnMetrics, font, moveMetrics, radius, soloColumnMetrics, useTheme } from '../theme';
 import type { Appt } from '../lib/calendar';
 
 /**
@@ -98,9 +98,38 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
     const dayStart = from * 60;
     const dayEnd = to * 60;
     const hours = hourLabels(from, to);
-    const gridHeight = hours.length * HOUR_HEIGHT;
-    const byStaff = columnize(appointments, staff, dayStart);
-    const nowTop = nowLineTop(nowMinutes, dayStart);
+    /**
+     * Izgaranın ölçüleri: ekipte Müdür 06, tek sütunda v4 · T1.
+     *
+     * T1 saati 74 değil 69 pt çiziyor, saat sütunu 58 pt ve etiket çizginin
+     * 6 pt altında. Sürükleme hedefi ve şimdi çizgisi de AYNI saat boyuyla
+     * hesaplanıyor — biri 69, öbürü 74 olsaydı blok parmağın altından kayardı.
+     */
+    const grid = soloColumn
+        ? {
+            hourHeight: soloColumnMetrics.hourHeight,
+            hoursWidth: soloColumnMetrics.hoursWidth,
+            hoursX: soloColumnMetrics.hourX,
+            hourText: soloColumnMetrics.hourText,
+            hourTop: soloColumnMetrics.hourTop,
+            hourWeight: '500' as const,
+            hourSpacing: 0,
+            nowLine: soloColumnMetrics.nowLine,
+        }
+        : {
+            hourHeight: HOUR_HEIGHT,
+            hoursWidth: HOURS_WIDTH,
+            hoursX: columnMetrics.hoursX,
+            hourText: columnMetrics.hourText,
+            hourTop: columnMetrics.hourTop,
+            hourWeight: '600' as const,
+            hourSpacing: undefined,
+            nowLine: 1,
+        };
+    const hourHeight = grid.hourHeight;
+    const gridHeight = hours.length * hourHeight;
+    const byStaff = columnize(appointments, staff, dayStart, hourHeight);
+    const nowTop = nowLineTop(nowMinutes, dayStart, hourHeight);
     const showNow = isToday && nowTop >= 0 && nowTop <= gridHeight;
 
     /*
@@ -115,9 +144,14 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      * blok içindeki ad ve saat o genişlik için yazılmış.
      */
     const columnWidth = soloColumn
-        ? Math.max(COLUMN_WIDTH, Dimensions.get('window').width - HOURS_WIDTH - columnMetrics.gridPadRight)
+        ? Math.max(COLUMN_WIDTH, Dimensions.get('window').width - grid.hoursWidth - columnMetrics.gridPadRight)
         : COLUMN_WIDTH;
-    const headerHeight = soloColumn ? 0 : columnMetrics.headerHeight;
+    /**
+     * Izgaranın üstündeki pay. Ekipte sütun başlıkları; tek sütunda başlık
+     * yok ama T1'in 22 pt'lik payı var (`cy("10:00") = 22`): ilk saat
+     * çizgisi ve o saatteki blok hafta şeridinin çizgisine yapışmıyor.
+     */
+    const headerHeight = soloColumn ? soloColumnMetrics.gridTop : columnMetrics.headerHeight;
 
     const [lifted, setLifted] = useState<{ appointment: Appt; index: number } | null>(null);
     const [target, setTarget] = useState<MoveTarget | null>(null);
@@ -157,10 +191,10 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      * blok zıplar ya da düşerdi. Girdiler ref'ten okunuyor; tutamak hiç
      * değişmiyor, hesap her zaman en güncel veriyle yapılıyor.
      */
-    const inputs = useRef({ appointments, staff, dayStart, dayEnd, onMove, soloColumn });
+    const inputs = useRef({ appointments, staff, dayStart, dayEnd, onMove, soloColumn, hourHeight });
     useEffect(() => {
-        inputs.current = { appointments, staff, dayStart, dayEnd, onMove, soloColumn };
-    }, [appointments, staff, dayStart, dayEnd, onMove, soloColumn]);
+        inputs.current = { appointments, staff, dayStart, dayEnd, onMove, soloColumn, hourHeight };
+    }, [appointments, staff, dayStart, dayEnd, onMove, soloColumn, hourHeight]);
 
     /** Parmağın ve kaydırmanın birleşik hâlinden hedef — tek hesap. */
     const applyDrag = useCallback(() => {
@@ -181,6 +215,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
             dy,
             dayStartMinutes: input.dayStart,
             dayEndMinutes: input.dayEnd,
+            hourHeight: input.hourHeight,
             // Tek sütunda doluluk sebebi adsız (v4 · karar 3).
             solo: input.soloColumn,
         });
@@ -334,19 +369,20 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
             >
                 {/* Sabit saat sütunu. Başlık satırı kadar boşlukla başlar ki
                     ilk saat ilk ızgara çizgisiyle hizalansın. */}
-                <View style={{ width: HOURS_WIDTH, paddingLeft: columnMetrics.hoursX }}>
-                    {/* Başlık satırı kadar pay; tek sütunda başlık yok, pay da yok. */}
+                <View style={{ width: grid.hoursWidth, paddingLeft: grid.hoursX }}>
+                    {/* Başlık satırı kadar pay; tek sütunda T1'in 22 pt'si. */}
                     <View style={{ height: headerHeight }} />
                     {hours.map((label) => (
                         <Num
                             key={label}
-                            size={columnMetrics.hourText}
+                            size={grid.hourText}
                             style={{
-                                height: HOUR_HEIGHT,
-                                paddingTop: columnMetrics.hourTop,
+                                height: hourHeight,
+                                paddingTop: grid.hourTop,
                                 color: c.tx2,
                                 fontFamily: font.medium,
-                                fontWeight: '600',
+                                fontWeight: grid.hourWeight,
+                                letterSpacing: grid.hourSpacing,
                             }}
                         >
                             {label}
@@ -365,6 +401,9 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                     contentContainerStyle={{ paddingRight: columnMetrics.gridPadRight }}
                 >
                     <View>
+                        {/* Tek sütunda başlığın yerinde yalnız T1'in payı. */}
+                        {soloColumn ? <View style={{ height: headerHeight }} /> : null}
+
                         {/* Sütun başlıkları: avatar + ad. Kenarlık hizmet türünü söyler.
                             Tek sütunda hiç çizilmiyor — bkz. `soloColumn`. */}
                         {soloColumn ? null : (
@@ -430,7 +469,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                                 onSlot?.(person.id, dayStart + hourIndex * 60);
                                             }}
                                             style={{
-                                                height: HOUR_HEIGHT,
+                                                height: hourHeight,
                                                 borderTopWidth: 1,
                                                 borderColor: c.bd,
                                             }}
@@ -448,6 +487,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                             lifted={lifted?.appointment.id === appointment.id}
                                             dimmed={Boolean(lifted) && lifted?.appointment.id !== appointment.id}
                                             owned={mine ? mine.has(appointment.id) : null}
+                                            solo={soloColumn}
                                             onPress={() => onOpen?.(appointment)}
                                             onLift={readOnly ? undefined : beginLift}
                                             onDragMove={dragMove}
@@ -466,6 +506,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                     staff={staff}
                                     dayStartMinutes={dayStart}
                                     columnWidth={columnWidth}
+                                    hourHeight={hourHeight}
                                     solo={soloColumn}
                                 />
                             ) : null}
@@ -480,7 +521,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                         left: 0,
                                         right: 0,
                                         top: nowTop,
-                                        height: 1,
+                                        height: grid.nowLine,
                                         backgroundColor: c.or,
                                         zIndex: 6,
                                     }}
@@ -499,19 +540,23 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
 }
 
 /** Hedef slotun turuncu vurgusu ve "13:30 · Deniz" etiketi (tek sütunda "13:30"). */
-function TargetSlot({ target, staff, dayStartMinutes, columnWidth, solo = false }: {
+function TargetSlot({ target, staff, dayStartMinutes, columnWidth, hourHeight, solo = false }: {
     target: MoveTarget;
     staff: readonly ColumnStaff[];
     dayStartMinutes: number;
     /** Izgaranınkiyle AYNI genişlik; tek sütunda 95 değil. */
     columnWidth: number;
+    /** Izgaranınkiyle AYNI saat boyu; tek sütunda 69. */
+    hourHeight: number;
     solo?: boolean;
 }) {
     const { c } = useTheme();
     const index = staff.findIndex((person) => person.id === target.staffId);
     if (index < 0) return null;
 
-    const perMinute = HOUR_HEIGHT / 60;
+    const perMinute = hourHeight / 60;
+    // Tek sütunda blok 2 pt içeriden çiziliyor; vurgu da onun yerini çiziyor.
+    const inset = solo ? soloColumnMetrics.blockInset : 0;
     return (
         <View
             pointerEvents="none"
@@ -519,8 +564,8 @@ function TargetSlot({ target, staff, dayStartMinutes, columnWidth, solo = false 
                 position: 'absolute',
                 left: index * (columnWidth + COLUMN_GAP),
                 width: columnWidth,
-                top: (target.startMinutes - dayStartMinutes) * perMinute,
-                height: (target.endMinutes - target.startMinutes) * perMinute,
+                top: (target.startMinutes - dayStartMinutes) * perMinute + inset,
+                height: (target.endMinutes - target.startMinutes) * perMinute - inset * 2,
                 borderRadius: moveMetrics.targetRadius,
                 borderWidth: moveMetrics.targetBorder,
                 borderColor: c.or,
@@ -589,7 +634,7 @@ function MoveBanner({ text, tone }: { text: string; tone: 'neutral' | 'orange' |
  * Basılı tutunca kalkar: kenarlık turuncuya döner, %4 büyür ve parmağı
  * izler; diğer bloklar geri çekilir.
  */
-function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, onPress, onLift, onDragMove, onDragEnd, onMenu }: {
+function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, solo = false, onPress, onLift, onDragMove, onDragEnd, onMenu }: {
     appointment: Appt;
     index: number;
     top: number;
@@ -599,6 +644,8 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
     dimmed: boolean;
     /** `null`: sahiplik sorusu sorulmuyor (müdür). Bkz. ColumnCalendar · mine. */
     owned: boolean | null;
+    /** Tek sütun (v4 · T1) — bkz. ColumnCalendar · soloColumn. */
+    solo?: boolean;
     onPress: () => void;
     /** Yoksa blok kalkmaz — personel görünümü. */
     onLift?: (appointment: Appt, index: number) => void;
@@ -611,6 +658,38 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
     const detail = blockDetail(height);
     const live = isLive(appointment);
     const done = Boolean(appointment.service_ended_at) || appointment.status === 'completed';
+
+    /*
+     * TEK SÜTUN (v4 · T1). Blok 2 pt içeriden çiziliyor — art arda iki
+     * randevu birbirine yapışmıyor. Kenarlık ekiptekinin yarısı koyulukta,
+     * yazı sütuna göre büyük ve içerik boya göre DİZİLİYOR, çıkarılmıyor
+     * (`soloBlockShape`). Ekipte (Müdür 06) hiçbir ölçü değişmiyor.
+     */
+    const inset = solo ? soloColumnMetrics.blockInset : 0;
+    const shown = height - inset * 2;
+    const shape = solo ? soloBlockShape(shown) : null;
+    const skin = solo
+        ? {
+            border: live ? `${c.or}${soloColumnMetrics.liveBorderAlpha}` : c.bd,
+            padY: shape === 'full' ? soloColumnMetrics.blockY : shape === 'tight' ? soloColumnMetrics.blockTightY : 0,
+            padX: soloColumnMetrics.blockX,
+            padBarX: soloColumnMetrics.blockLiveX,
+            gap: shape === 'row' ? soloColumnMetrics.rowGap : shape === 'tight' ? 0 : 1,
+            doneOpacity: soloColumnMetrics.doneOpacity,
+            bar: soloColumnMetrics.liveBar,
+            // `.cb.live::before` köşesiz; bloğun yarıçapı onu kırpıyor.
+            barRadius: 0,
+        }
+        : {
+            border: live ? `${c.or}70` : c.bd2,
+            padY: columnMetrics.blockY,
+            padX: columnMetrics.blockX,
+            padBarX: columnMetrics.blockLiveX,
+            gap: 1,
+            doneOpacity: columnMetrics.doneOpacity,
+            bar: columnMetrics.liveBar,
+            barRadius: columnMetrics.liveBar,
+        };
 
     /**
      * Blok İKİ şey söylüyor ve ikisi AYRI kanalda.
@@ -686,8 +765,8 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                 position: 'absolute',
                 left: 0,
                 right: 0,
-                top,
-                height,
+                top: top + inset,
+                height: shown,
                 zIndex: lifted ? 8 : 1,
                 opacity: dimmed ? DIM_OPACITY : 1,
                 transform: lifted
@@ -727,13 +806,16 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                     borderRadius: radius.lg,
                     backgroundColor: lifted ? c.card : c.surf,
                     borderWidth: lifted ? LIFT_BORDER : 1,
-                    borderColor: lifted ? c.or : live ? `${c.or}70` : c.bd2,
-                    paddingVertical: columnMetrics.blockY,
-                    paddingLeft: bar ? columnMetrics.blockLiveX : columnMetrics.blockX,
-                    paddingRight: columnMetrics.blockX,
-                    gap: 1,
+                    borderColor: lifted ? c.or : skin.border,
+                    paddingVertical: skin.padY,
+                    paddingLeft: bar ? skin.padBarX : skin.padX,
+                    paddingRight: skin.padX,
+                    gap: skin.gap,
+                    // `.cb.row1`: kısa randevuda saat · ad · hizmet yan yana.
+                    flexDirection: shape === 'row' ? 'row' : 'column',
+                    alignItems: shape === 'row' ? 'center' : undefined,
                     overflow: 'hidden',
-                    opacity: done && !lifted ? columnMetrics.doneOpacity : lifted ? DRAG_OPACITY : 1,
+                    opacity: done && !lifted ? skin.doneOpacity : lifted ? DRAG_OPACITY : 1,
                 }}
             >
                 {/* Soldaki şerit: SENİN. Turuncu olması işlemin sürdüğünü söyler. */}
@@ -743,13 +825,15 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                         left: 0,
                         top: 0,
                         bottom: 0,
-                        width: columnMetrics.liveBar,
-                        borderRadius: columnMetrics.liveBar,
+                        width: skin.bar,
+                        borderRadius: skin.barRadius,
                         backgroundColor: barColor,
                     }} />
                 ) : null}
 
-                {detail === 'full' || detail === 'timeAndName' ? (
+                {shape ? <SoloBlockText appointment={appointment} shape={shape} faded={faded} /> : null}
+
+                {!shape && (detail === 'full' || detail === 'timeAndName') ? (
                     <Num size={columnMetrics.blockTime} style={{
                         color: c.tx2,
                         fontFamily: font.bold,
@@ -759,7 +843,7 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                     </Num>
                 ) : null}
 
-                <Text numberOfLines={1} style={{
+                {shape ? null : <Text numberOfLines={1} style={{
                     // Boyut AYNI kalıyor, yalnız ağırlık ve renk geri çekiliyor:
                     // meslektaşın günü okunur olmalı, sadece öne çıkmamalı.
                     color: faded ? c.tx2 : c.tx,
@@ -769,9 +853,9 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
                     letterSpacing: columnMetrics.blockName * -0.03,
                 }}>
                     {appointment.customer_name.split(' ')[0]}
-                </Text>
+                </Text>}
 
-                {detail === 'full' ? (
+                {!shape && detail === 'full' ? (
                     <Text numberOfLines={1} style={{
                         color: c.tx2,
                         fontSize: columnMetrics.blockService,
@@ -786,6 +870,58 @@ function Block({ appointment, index, top, height, pan, lifted, dimmed, owned, on
             {/* Bıraktığı yerde duran kesik çizgili hayalet. */}
             {lifted ? <Ghost pan={pan} /> : null}
         </Animated.View>
+    );
+}
+
+/**
+ * Tek sütunun blok yazısı (v4 · T1 · `.cb span / b / em`): saat · ad ·
+ * hizmet, HER boyda üçü birden. Sütun geniş; sığdırmak için yazı küçülmüyor
+ * ya da çıkmıyor, dizilişi değişiyor (`soloBlockShape`).
+ */
+function SoloBlockText({ appointment, shape, faded }: {
+    appointment: Appt;
+    shape: SoloBlockShape;
+    faded: boolean;
+}) {
+    const { c } = useTheme();
+    const m = soloColumnMetrics;
+    // `.cb.tight` satırı 1,15'e indiriyor; ötekilerde yazının kendi satırı.
+    const line = (size: number) => (shape === 'tight' ? size * m.tightLine : undefined);
+    const row = shape === 'row';
+    return (
+        <>
+            <Num size={m.blockTime} style={{
+                color: c.tx2,
+                fontFamily: font.semiBold,
+                fontWeight: '600',
+                letterSpacing: 0,
+                lineHeight: line(m.blockTime),
+            }}>
+                {appointment.start_time.slice(0, 5)}
+            </Num>
+            <Text numberOfLines={1} style={{
+                color: faded ? c.tx2 : c.tx,
+                fontSize: m.blockName,
+                fontFamily: faded ? font.bold : font.extraBold,
+                fontWeight: faded ? '700' : '800',
+                letterSpacing: m.blockName * -0.02,
+                lineHeight: line(m.blockName),
+                flexShrink: row ? 0 : undefined,
+            }}>
+                {appointment.customer_name.split(' ')[0]}
+            </Text>
+            {/* Tek satırda sığmayan hizmet; ad ve saat hiç kırpılmıyor. */}
+            <Text numberOfLines={1} style={{
+                color: c.tx2,
+                fontSize: m.blockService,
+                fontFamily: font.medium,
+                fontWeight: '500',
+                lineHeight: line(m.blockService),
+                flexShrink: row ? 1 : undefined,
+            }}>
+                {appointment.service}
+            </Text>
+        </>
     );
 }
 

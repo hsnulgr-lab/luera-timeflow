@@ -389,7 +389,8 @@ test('tek kişilikte sütun başlığı çizilmiyor ve sütun genişliyor', () =
      */
     const grid = read('src/components/ColumnCalendar.tsx');
     assert.match(grid, /soloColumn \? null : \(/);
-    assert.match(grid, /const headerHeight = soloColumn \? 0 : columnMetrics\.headerHeight/);
+    // Başlığın yerinde T1'in 22 pt'lik payı (bkz. tek-takvim-t1).
+    assert.match(grid, /const headerHeight = soloColumn \? soloColumnMetrics\.gridTop : columnMetrics\.headerHeight/);
     assert.match(grid, /width: columnWidth/);
     // Sürükleme hedefi de aynı genişlikte — yoksa vurgu bloğun yarısını gösterirdi.
     assert.match(grid, /columnWidth=\{columnWidth\}/);
