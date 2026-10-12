@@ -10,6 +10,59 @@ Bu tur takvimin **gövdesini** (ızgara + randevu blokları + boş zaman) yenide
 tasarlıyor. Başlık ("Sal." · 13 · alt satır) ve hafta şeridi Gün'le ortak ve
 onaylı; küçük bir öneri getirebilirsin ama asıl iş gövde.
 
+## Takvimin görevi — ürün sahibinin üç şartı
+
+Bu takvimi **işletme sahibi** yönetiyor; tek kişilik işletmede işi yapan da,
+randevuyu veren de, parayı alan da o.
+
+1. **Tüm yetki takvimde.** Sahip gününü takvimden YÖNETİR, yalnız bakmaz.
+   Bir randevuya yapılabilecek her şeye takvimden ulaşılır (envanter
+   aşağıda). Sık işler bloğun üstünden en çok **iki dokunuşta** yapılır;
+   başka sekmeye gitmek gerekmez.
+2. **Kullanımı çok kolay.** 40–55 yaş, ayakta, tek elle, müşterinin
+   yanında. Hiçbir iş YALNIZ gizli bir jestle yapılmaz: basılı tutup
+   taşımanın görünür bir yolu da var. Yanlış dokunuş geri alınabilir ya da
+   onay ister (iptal ve silme onaylı).
+3. **Bir bakışta anlaşılır.** Üç saniye testi: ekrana bakan kişi şunları
+   okuyabilmeli:
+   - ne bitti, ne sürüyor
+   - kim bekliyor, kim gecikti
+   - sırada ne var
+   - nerede boş zaman var
+   - hangi işin parası alınmadı
+
+   Bunları okumak için hiçbir yere dokunmak gerekmemeli.
+
+### Eylem envanteri — bugün uygulamada VAR (A)
+- **Yeni randevu:** boş saate dokununca, o saatle.
+- **Taşı:**
+  - saati değiştir: aynı gün basılı tut + sürükle; başka güne menüden
+  - hizmeti değiştir (süre değişirse blok uzar)
+- **Müşteriye ulaş:**
+  - Ara
+  - Mesajla hatırlat (WhatsApp, hazır metin; geciktiyse "yolda mısınız?")
+- **Geliş:**
+  - Geldi
+  - Gelmedi
+  - Geldi'yi geri al
+
+  Yalnız randevunun kendi gününde.
+- **İş:** başlat (kumanda), beklemeye al (boya bekliyor), bitir.
+- **Para:** tahsil et (nakit · kart · havale), sonra tahsil et (adisyon açık
+  kalır).
+- **Not:** randevunun notu (müşteri görmez).
+- **Kaldır:**
+  - iptal et (takvimde kalır, iptal işaretlenir)
+  - sil (geri alınamaz)
+
+Bugün bunların çoğu **randevu kartında ya da Gün'de**. Takvimden yalnız yeni
+randevu ve sürükleyerek taşıma var. Takvimin bir menüsü de var (Saati
+değiştir · Randevu kartı · İptal · Sil), ama **yalnız ekran okuyucuyla
+açılıyor**; gören kullanıcının ona giden bir yolu yok. Gün'ün kartında aynı eylemler için **"Yönet" hapı** var (G5 dosyası:
+Başlat'ın solundaki yuvarlak düğme; Ara · Yaz · Gelmedi · Randevu kartı).
+Envanterde OLMAYAN bir eylem önerirsen (mola / kapalı saat, tekrarlayan
+randevu, süreyi kenardan çekerek uzatma…) **B** etiketi ve tek cümle bedel.
+
 **Ekler — yalnız bunlar (başka dosya ekleme):**
 1. `Luera Mobil - Tek Kisilik v4.html` + `tek4-kit.js` + `tek4-ekranlar.js` +
    `tek4-belge.js` — **dördü birlikte** (HTML ötekileri yüklüyor). T1 bugünkü
@@ -96,10 +149,10 @@ onaylı; küçük bir öneri getirebilirsin ama asıl iş gövde.
 - Hafta şeridi: gün başına yoğunluk noktası, kapalı gün soluk ve noktasız.
 
 ### İstenen
-Takvim bir bakışta **günün hikâyesini** anlatsın: ne bitti, ne sürüyor, kim
-bekliyor, sırada ne var, nerede boşluk var. Gün ekranındaki dil (etiket,
-renk, sayı) takvime taşınsın; takvim Gün'ün kopyası olmasın — Gün "şimdi"yi,
-takvim "bütün günü" anlatır.
+Takvim bir bakışta **günün hikâyesini** anlatsın ve günün **yönetildiği yer**
+olsun (yukarıdaki üç şart). Gün ekranındaki dil (etiket, renk, sayı) takvime
+taşınsın; takvim Gün'ün kopyası olmasın — Gün "şimdi"yi, takvim "bütün
+günü" anlatır ve yönetir.
 
 ### Kareler
 - **T2·1 Bugün, 14:20, dolu gün:**
@@ -121,6 +174,13 @@ takvim "bütün günü" anlatır.
 - **T2·6 Taşıma** — blok havada, hedef vurgusu, alt bant. Denenebilir.
 - **T2·7 Bir boşluğa dokunma** — boş zamana dokununca ne olur (bugün:
   Randevu sekmesi o saatle açılır).
+- **T2·8 Bloğun eylemleri** — bir bloğa dokunuldu: eylemler nerede, nasıl
+  açılıyor? Üç örnek:
+  - bekleyen müşteri: Başlat · Ara · Geldi'yi geri al
+  - geciken: Ara · Yaz · Gelmedi
+  - adisyonu açık biten iş: Tahsil et
+- **T2·9 Bir bakışta** — T2·1'in üstüne üç saniye testinin cevapları
+  işaretlenmiş hâli: göz nereye düşüyor, hangi soru nereden okunuyor.
 - **T2·1 · 375 × 667.**
 
 ### Kararlar — her birine tek cümle gerekçeyle cevap ver
@@ -142,3 +202,16 @@ takvim "bütün günü" anlatır.
    geri çekiliyor mu?
 8. **İlk açılış konumu.** Bugün açılınca ızgara günün başında; şimdiye ya da
    ilk randevuya mı kaymalı?
+9. **Eylemler takvimde nerede?** Bloğa dokununca:
+   - (a) bugünkü gibi randevu kartı açılır
+   - (b) blok yerinde açılıp eylemlerini gösterir
+   - (c) Gün'deki "Yönet" hapı bloğun üstünde açılır
+   - (d) alttan kısa bir eylem sayfası çıkar
+
+   Birini seç. Hangi eylemler bloğun üstünde, hangileri kartta kalıyor?
+   Neden?
+10. **Durum ile eylem bağı.** Bloğun hâli (bekliyor, gecikti, adisyon açık…)
+    ona yapılacak ilk işi söylüyor mu? Örneğin bekleyen müşterinin
+    bloğunda doğrudan "Başlat" görünür mü?
+11. **Gizli jestin görünür karşılığı.** Taşımanın (basılı tut + sürükle)
+    görünür yolu ne? Kullanıcı taşınabildiğini nereden öğreniyor?
