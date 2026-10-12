@@ -19,8 +19,8 @@ import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
-    SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloDayTotal, soloEmptyCopy, soloOpenTicket,
-    soloPanelAction, soloTicketPanel, soloWaitPanel,
+    SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloDayTotal, soloEmptyCopy, soloIdlePanel,
+    soloNextPanel, soloNextToStart, soloOpenTicket, soloPanelAction, soloTicketPanel, soloWaitPanel,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
@@ -167,8 +167,29 @@ export default function SoloDay() {
         [dayKnown, isToday, runningRow, flowEvents, mine, selectedISO],
     );
 
+    /*
+     * SIRADAKİ İŞ — saati geçmiş olsa da (gelmedi sayılmadıkça). Eskiden
+     * saati gelmemiş ilk randevuydu ve saati bir dakika geçen müşteri
+     * başlatılamıyordu. Gerekçesi `soloNextToStart`ta.
+     */
+    const next = useMemo(
+        () => (dayKnown && isToday ? soloNextToStart(mine, nowMinutes) : null),
+        [dayKnown, isToday, mine, nowMinutes],
+    );
+    const todayCounts = useMemo(() => soloDayCounts(mine, nowMinutes), [mine, nowMinutes]);
+
+    /*
+     * Kartın sırası (v4): süren ya da beklemedeki iş, açık adisyon, sıradaki.
+     * Süren iş yokken sıradakinin saati geçtiyse KAPIDA / GECİKTİ; sıradaki
+     * hiç yoksa kapanışa kalan süre ya da günün özeti. Personel durumunun
+     * kartı yalnız bunların hiçbiri söylemediğinde (saati gelmemiş sıradaki,
+     * süren iş, izin).
+     */
+    const idle = dayState && !dayState.runningAppointment;
     const panel = soloWaitPanel(dayState?.runningAppointment ?? null, wait, serverNow)
         ?? (ticket ? soloTicketPanel(ticket) : null)
+        ?? (idle ? soloNextPanel(next, nowMinutes, serverNow) : null)
+        ?? (idle && !next ? soloIdlePanel(dayState.kind, todayCounts, data.open, nowMinutes) : null)
         ?? dayState?.panel
         ?? null;
 
@@ -225,7 +246,7 @@ export default function SoloDay() {
         !dayKnown
             ? null
             : isToday
-                ? soloDayCounts(mine, nowMinutes)
+                ? todayCounts
                 : soloDayTotal(mine),
     );
 
@@ -235,9 +256,9 @@ export default function SoloDay() {
      */
     const panelAction = useMemo(
         () => (dayKnown && isToday && dayState
-            ? soloPanelAction(dayState.runningAppointment, dayState.upcomingAppointments[0] ?? null, ticket)
+            ? soloPanelAction(dayState.runningAppointment, next, ticket)
             : null),
-        [dayKnown, isToday, dayState, ticket],
+        [dayKnown, isToday, dayState, next, ticket],
     );
 
     const openAppointment = useCallback((appointment: Appt) => {

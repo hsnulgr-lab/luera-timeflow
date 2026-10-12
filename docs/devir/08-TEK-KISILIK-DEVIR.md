@@ -1444,3 +1444,31 @@ bekleme bitince bildirim, `tek-kasa` dalını silmek. Paket satışı ödemesi
    hesapta GÖNDERME — §22 uyarısı.)
 3. Gidiş-dönüş yalnız deneme hesabında: Ekip ekle → çalışanı bilgisayardan
    pasife al → İşletme'de "Tek kişiliğe dön" → Gün.
+
+---
+
+## 25 · 2026-10-12 · BULGU — SAATİ GEÇEN RANDEVU BAŞLATILAMIYORDU
+
+Kullanıcının telefonundan (22:30 → 22:31, iki ekran görüntüsü): 22:30'da hâl
+kartı "ŞU AN BOŞ · 0 dk · 22:30’a kadar · sıradaki Gizem Ünal · Başlat";
+22:31'de randevu "geçmiş" kovasına düştü, hap kayboldu, kart "0 dk · Gün
+sonuna kadar" dedi. Listenin kartı randevu kartını açıyor, başlatmıyor —
+geciken müşteriyi başlatmanın HİÇBİR yolu kalmamıştı.
+
+| Kök | Düzeltme | Yer |
+|---|---|---|
+| Sıradaki = `upcomingAppointments[0]` (saati gelmemiş ilk randevu) | `soloNextToStart`: başlamamış, bitmemiş, iptal/tamamlanmamış ve GELMEDİ SAYILMAMIŞ ilk randevu (saati gelmemiş, payı dolmamış gecikme ya da kapıdaki müşteri), saat sırasıyla. Hap ve kart bunu kullanıyor | `soloDay.ts`, `tek/index.tsx` |
+| Kart geç kalmayı bilmiyordu | `soloNextPanel`: KAPIDA (kehribar, "N dk" bekliyor) · GECİKTİ (kırmızı, "N dk", "X dk sonra gelmedi sayılır" — Akış'ın A1 dili). Panel tonu `rd` eklendi (`panelInk.red`) | `soloDay.ts`, `staffDay.ts`, `StaffDayParts.tsx` |
+| Gün sonu 19:00 sabiti (`buildStaffDayState` free dalı) | `soloIdlePanel`: sıradaki yoksa kapanışa kalan süre ("23:55’e kadar · sıradaki randevu yok"); kapanış geçtiyse ya da saat bilinmiyorsa BUGÜN · N randevu · "3 tamamlandı · 1 gelmedi" | `soloDay.ts` |
+| Kapıdaki müşterinin liste kartı damgasızdı (ne bitmiş ne gelmemiş) | Liste damgası "kapıda" (kehribar) | `soloApptStamp` |
+
+Gelmedi sayılan müşteri sonradan gelirse: randevu kartı → "Geldi" → kapıya
+alınır → kart KAPIDA, hap Başlat. Sunucu (`visit.start`) saat kısıtı
+koymuyor. `graceLeft`in varsayılanı ESKİ 120 dk — tek kişilik payı (30)
+açıkça veriyor; Akış da öyle.
+
+Kanıt: 2899 geçti / 0 kırık · `tsc` temiz · lint sayısı değişmedi. Telefonun
+iki anı testte birebir (22:30 → G1, 22:31 → GECİKTİ 1 dk · 29 dk sonra
+gelmedi sayılır, 23:01 → yok). İki eski test taşındı (panel ifadesi, G3
+tonu), gevşetilmedi.
+

@@ -778,12 +778,12 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                     {/* Kehribar (BEKLEMEDE · v4 G3): nokta NABIZSIZ. Nabız
                         geçen sürenin dili; beklemede akan şey kalan süre ve
                         onu büyük sayı söylüyor. */}
-                    {panel.tone === 'am' ? (
+                    {panel.tone ? (
                         <View style={{
                             width: staffDayMetrics.panelDot,
                             height: staffDayMetrics.panelDot,
                             borderRadius: radius.pill,
-                            backgroundColor: ink.amDot,
+                            backgroundColor: panel.tone === 'rd' ? ink.red : ink.amDot,
                         }} />
                     ) : panel.hasPulse ? (
                         <Animated.View style={{
@@ -795,7 +795,7 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                         }} />
                     ) : null}
                     <Text style={{
-                        color: panel.tone === 'am' ? ink.am : ink.ink2,
+                        color: panel.tone === 'rd' ? ink.red : panel.tone === 'am' ? ink.am : ink.ink2,
                         fontSize: staffDayMetrics.panelLabel,
                         fontFamily: font.bold,
                         fontWeight: '700',

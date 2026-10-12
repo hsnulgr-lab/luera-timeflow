@@ -156,9 +156,11 @@ test('G3 · BEKLEMEDE kartı: kalan dakika, kehribar, nabızsız; "KREM" uydurul
 
 test('G3 · kart kehribarı statik noktayla çiziyor', () => {
     const parts = code('mobile/src/components/StaffDayParts.tsx');
-    assert.match(parts, /panel\.tone === 'am' \? \(/);
-    assert.match(parts, /backgroundColor: ink\.amDot,/);
-    assert.match(parts, /color: panel\.tone === 'am' \? ink\.am : ink\.ink2,/);
+    // Tonlu kart (kehribar ya da tek kişiliğin GECİKTİ kırmızısı) STATİK
+    // noktayla çiziliyor; nabız yalnız tonsuz süren işte.
+    assert.match(parts, /\{panel\.tone \? \(\s*<View style=\{\{/);
+    assert.match(parts, /backgroundColor: panel\.tone === 'rd' \? ink\.red : ink\.amDot,/);
+    assert.match(parts, /color: panel\.tone === 'rd' \? ink\.red : panel\.tone === 'am' \? ink\.am : ink\.ink2,/);
 });
 
 test('G3 · Gün beklemeyi önce bu telefonun niyetinden okuyor', () => {

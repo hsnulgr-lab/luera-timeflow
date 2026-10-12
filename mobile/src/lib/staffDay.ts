@@ -23,9 +23,11 @@ export interface StaffHeroPanel {
     label: string;
     /**
      * `am`: kehribar — etiket ve nokta beklemenin rengi, nokta NABIZSIZ
-     * (v4 · G3 · BEKLEMEDE). Verilmezse kartın bugünkü çizimi.
+     * (v4 · G3 · BEKLEMEDE; tek kişilikte KAPIDA da). `rd`: kırmızı — tek
+     * kişilikte GECİKTİ, Akış'ın ve personel kartının gecikme rengi.
+     * Verilmezse kartın bugünkü çizimi.
      */
-    tone?: 'am';
+    tone?: 'am' | 'rd';
     /**
      * Sol kenarda kehribar şerit (v4 · G4 · `.pnl.bar`): ADİSYON AÇIK. Kart
      * bir İŞİ değil bir BORCU anlatıyor; şerit onu uzaktan okutuyor.

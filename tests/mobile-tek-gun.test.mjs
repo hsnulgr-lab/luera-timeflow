@@ -14,6 +14,9 @@ import {
     soloApptStamp,
     soloDaySubtitle,
     soloEmptyCopy,
+    soloIdlePanel,
+    soloNextPanel,
+    soloNextToStart,
     soloOpenTicket,
     soloPanelAction,
     soloTicketPanel,
@@ -68,7 +71,9 @@ test('BUGÜN OLMAYAN gün yalnız SAYIYOR, "kaldı" demiyor', () => {
     assert.equal(soloDaySubtitle('2026-10-09', { total: 8 }), '9 Ekim · 8 randevu');
     assert.equal(soloDaySubtitle('2026-10-09', { total: 0 }), '9 Ekim · randevu yok');
     // Ekran "bitti/kaldı" biçimini YALNIZ bugün gönderiyor.
-    assert.match(gun, /:\s*isToday\s*\?\s*soloDayCounts\(mine, nowMinutes\)\s*:\s*soloDayTotal\(mine\)/);
+    assert.match(gun, /:\s*isToday\s*\?\s*todayCounts\s*:\s*soloDayTotal\(mine\)/);
+    // Başlığın sayıları ile günün özet kartı aynı hesaptan.
+    assert.match(gun, /const todayCounts = useMemo\(\(\) => soloDayCounts\(mine, nowMinutes\), \[mine, nowMinutes\]\);/);
 });
 
 test('bugün olmayan gün İPTALİ SAYMIYOR — şeridin noktasıyla aynı sayı', () => {
@@ -451,7 +456,7 @@ test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
     assert.match(gun, /!dayEmpty && isToday && panel \?/);
     // Yuva TEK ve sıra tasarımın: süren işin beklemesi (G3), yoksa açık
     // adisyon (G4), yoksa günün kartı. Kartlar üst üste çizilmiyor.
-    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\)\s*\?\? \(ticket \? soloTicketPanel\(ticket\) : null\)\s*\?\? dayState\?\.panel\s*\?\? null;/);
+    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\)\s*\?\? \(ticket \? soloTicketPanel\(ticket\) : null\)\s*\?\? \(idle \? soloNextPanel\(next, nowMinutes, serverNow\) : null\)\s*\?\? \(idle && !next \? soloIdlePanel\(dayState\.kind, todayCounts, data\.open, nowMinutes\) : null\)\s*\?\? dayState\?\.panel\s*\?\? null;/);
 });
 
 
@@ -570,7 +575,8 @@ test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş 
 test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {
     assert.match(gun, /const \{ events: flowEvents \} = useManagerDay\(\);/);
     assert.match(gun, /dayKnown && isToday && !runningRow \? soloOpenTicket\(flowEvents, mine, selectedISO\) : null/);
-    assert.match(gun, /soloPanelAction\(dayState\.runningAppointment, dayState\.upcomingAppointments\[0\] \?\? null, ticket\)/);
+    // Sıradaki artık saati geçmiş olsa da başlatılabilir ilk randevu.
+    assert.match(gun, /soloPanelAction\(dayState\.runningAppointment, next, ticket\)/);
 });
 
 test('G4 · tahsil hâli Gün okumasına giriyor, sormayan okumaya değil', () => {
@@ -590,5 +596,105 @@ test('G4 · kartın kehribar sol şeridi (`.pnl.bar`)', () => {
     const tokens = read('src/theme/tokens.ts');
     assert.match(tokens, /panelBarWidth: 4,/);
     assert.match(tokens, /panelBarPadLeft: 17,/);
+});
+
+// ── Saati geçen randevu başlatılabiliyor (telefonda görüldü, 2026-10-12) ────
+
+test('saati BİR DAKİKA geçen randevu hâlâ sıradaki: Başlat kaybolmuyor', () => {
+    /*
+     * 22:30'da kart "ŞU AN BOŞ · 0 dk · sıradaki Gizem Ünal · Başlat"
+     * diyordu; 22:31'de randevu "geçmiş" kovasına düştü, hap kayboldu ve kart
+     * "0 dk · Gün sonuna kadar" dedi. Geciken müşteriyi başlatmanın yolu
+     * kalmamıştı.
+     */
+    const day = [
+        at('p1', '17:20', { status: 'completed', is_paid: true }),
+        at('n1', '21:00'),
+        at('g1', '22:30', { end_time: '22:50', customer_name: 'Gizem Ünal', service: 'Kaş Tasarımı' }),
+    ];
+    for (const now of [22 * 60 + 30, 22 * 60 + 31, 23 * 60]) {
+        assert.equal(soloNextToStart(day, now)?.id, 'g1', `saat ${now}`);
+        assert.deepEqual(soloPanelAction(null, soloNextToStart(day, now), null), { label: 'Başlat', tone: 'go', appointmentId: 'g1' });
+    }
+    // Saatinde henüz G1'in kartı (personel durumunun "ŞU AN BOŞ"u).
+    assert.equal(soloNextPanel(day[2], 22 * 60 + 30, 0), null);
+    assert.deepEqual(soloNextPanel(day[2], 22 * 60 + 31, 0), {
+        label: 'Gecikti',
+        tone: 'rd',
+        hasPulse: false,
+        heroValue: '1',
+        heroUnit: 'dk',
+        subText: 'Gizem Ünal · Kaş Tasarımı · 29 dk sonra gelmedi sayılır',
+    });
+    // Pay dolunca gelmedi sayılıyor ve kartın konusu değil.
+    assert.equal(soloNextToStart(day, 23 * 60 + 1), null);
+});
+
+test('kapıdaki müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor', () => {
+    const now = 22 * 60 + 31;
+    const arrived = Date.parse('2026-10-09T19:05:00Z');
+    const day = [
+        at('k1', '21:00', { customer_name: 'Tuğçe Erden', service: 'Kaş Tasarımı', customer_arrived_at: '2026-10-09T19:05:00Z' }),
+        at('g1', '22:30'),
+        at('u1', '23:00'),
+    ];
+    assert.equal(soloNextToStart(day, now)?.id, 'k1');
+    assert.deepEqual(soloNextPanel(day[0], now, arrived + 86 * 60_000), {
+        label: 'Kapıda',
+        tone: 'am',
+        hasPulse: false,
+        heroValue: '86',
+        heroUnit: 'dk',
+        subText: 'Tuğçe Erden · Kaş Tasarımı · bekliyor',
+    });
+    // Erken gelen müşteri de kapıda: "şu an boş" demek onu yok saymak olurdu.
+    assert.equal(soloNextPanel(at('e1', '23:00', { customer_arrived_at: '2026-10-09T19:20:00Z' }), now, arrived)?.label, 'Kapıda');
+    // Listede de damgası var — eskiden damgasızdı, ne bitmiş ne gelmemiş görünüyordu.
+    assert.deepEqual(soloApptStamp(day[0], now), { label: 'kapıda', tone: 'am' });
+    assert.equal(soloDayCounts(day, now).noshow, 0);
+});
+
+test('başlamış, biten, iptal ve tamamlanan sıradaki OLMUYOR', () => {
+    const now = 15 * 60;
+    for (const over of [
+        { arrived_at: '2026-10-09T11:50:00Z' },
+        { service_ended_at: '2026-10-09T12:20:00Z' },
+        { status: 'cancelled' },
+        { status: 'completed' },
+    ]) {
+        assert.equal(soloNextToStart([at('x', '14:50', over)], now), null, JSON.stringify(over));
+    }
+    assert.equal(soloNextToStart([], now), null);
+});
+
+test('sıradaki yokken gün sonu 19:00 DEĞİL, çalışma saatinin kapanışı', () => {
+    // 22:31'de 23:55'e kadar açık salonda kart "0 dk · Gün sonuna kadar" diyordu.
+    const counts = { done: 3, left: 0, noshow: 1, cancelled: 0 };
+    assert.deepEqual(soloIdlePanel('free', counts, { from: 480, to: 1435 }, 22 * 60 + 31), {
+        label: 'Şu an boş',
+        hasPulse: false,
+        heroValue: '1',
+        heroUnit: 'sa 24dk',
+        subText: '23:55’e kadar · sıradaki randevu yok',
+    });
+    // Kapanış geçti ya da saat bilinmiyor → günün özeti, başlığın sayılarıyla.
+    for (const open of [{ from: 480, to: 1140 }, null, undefined]) {
+        assert.deepEqual(soloIdlePanel('ended', counts, open, 22 * 60 + 31), {
+            label: 'Bugün',
+            hasPulse: false,
+            heroValue: '4',
+            heroUnit: 'randevu',
+            subText: '3 tamamlandı · 1 gelmedi',
+        });
+    }
+    // İzin ve kapalı gün kendi kartını söylüyor.
+    assert.equal(soloIdlePanel('off', counts, { from: 480, to: 1435 }, 600), null);
+    assert.equal(soloIdlePanel('leave', counts, { from: 480, to: 1435 }, 600), null);
+});
+
+test('kart kırmızıyı biliyor: GECİKTİ etiketi ve noktası panelin kırmızısı', () => {
+    const parts = read('src/components/StaffDayParts.tsx');
+    assert.match(parts, /backgroundColor: panel\.tone === 'rd' \? ink\.red : ink\.amDot,/);
+    assert.match(parts, /color: panel\.tone === 'rd' \? ink\.red : panel\.tone === 'am' \? ink\.am : ink\.ink2,/);
 });
 

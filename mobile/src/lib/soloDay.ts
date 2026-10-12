@@ -10,9 +10,9 @@ import { formatDayMonth, hhmm, toMinutes, type Appt } from './calendar.ts';
 import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
 import { formatMoney } from './cash.ts';
-import { pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
-import { isNoShow, type StaffHeroPanel } from './staffDay.ts';
-import { clockLocative, upperTR } from './text.ts';
+import { graceLeft, pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
+import { DEFAULT_ARRIVAL_TOLERANCE_MIN, formatFreeDuration, isNoShow, type StaffHeroPanel } from './staffDay.ts';
+import { clockDative, clockLocative, upperTR } from './text.ts';
 
 /**
  * Başlığın altındaki satır: "9 Ekim · 2 iş bitti, 3 kaldı".
@@ -145,6 +145,12 @@ export function soloApptStamp(appointment: Appt, nowMinutes: number): SoloApptSt
     }
     // İş bitti ama kayıt henüz tamamlanmadı: para sorusu daha sorulmuyor.
     if (appointment.service_ended_at) return { label: 'tamamlandı', tone: 'gr', done: true };
+    /*
+     * MÜŞTERİ KAPIDA, iş başlamadı (randevu kartındaki "Geldi"). Damgasız
+     * kart ne bitmiş ne gelmemiş görünüyordu: saati çoktan geçmiş bir kart
+     * "gelmedi" demiyor ve sebebi ekranda yoktu. Personel kartının kelimesi.
+     */
+    if (appointment.customer_arrived_at && !appointment.arrived_at) return { label: 'kapıda', tone: 'am' };
     if (awaitsApproval(appointment.status)) return { label: 'onay bekliyor', tone: 'am' };
     if (isNoShow(appointment, nowMinutes)) return { label: 'gelmedi', tone: 'rd' };
     return null;
@@ -396,6 +402,117 @@ export function soloTicketPanel(ticket: FlowEvent): StaffHeroPanel {
         hasPulse: false,
         heroValue: formatMoney(ticket.amountValue ?? 0),
         subText: name ? `${name} · ${pendingTicketLine(ticket)}` : pendingTicketLine(ticket),
+    };
+}
+
+// ── Sıradaki iş: başlatılabilir ilk randevu ─────────────────────────────────
+
+/**
+ * Hâl kartının ve "Başlat"ın randevusu — SAATİ GEÇMİŞ OLSA BİLE.
+ *
+ * Eskiden sıradaki `upcomingAppointments[0]`dı: saati henüz gelmemiş ilk
+ * randevu. Telefonda görüldü (2026-10-12, 22:30 → 22:31): randevunun saati
+ * bir dakika geçince "geçmiş" kovasına düştü, hap kayboldu ve kart "0 dk ·
+ * Gün sonuna kadar" dedi. Geciken müşteriyi başlatmanın hiçbir yolu
+ * kalmamıştı — listenin kartı randevu kartını açıyor, başlatmıyor.
+ *
+ * Başlatılabilir = iptal ya da tamamlanmış değil, başlamamış, bitmemiş ve
+ * GELMEDİ SAYILMAMIŞ: saati gelmemiş, gecikmiş ama payı dolmamış (30 dk) ya
+ * da müşterisi kapıda. Payı dolan randevu gelmedi sayılıyor ve kartın konusu
+ * değil; müşteri yine de gelirse randevu kartındaki "Geldi" onu kapıya
+ * alıyor ve buraya geri dönüyor (`isNoShow` kapıdakini saymaz).
+ *
+ * Saat sırasıyla ilki: kapıda bekleyen ya da geciken, sonrakinden önce gelir.
+ */
+export function soloNextToStart(appointments: readonly Appt[], nowMinutes: number): Appt | null {
+    const startable = appointments.filter((appointment) => appointment.status !== 'cancelled'
+        && appointment.status !== 'completed'
+        && !appointment.arrived_at
+        && !appointment.service_ended_at
+        && !isNoShow(appointment, nowMinutes));
+    return [...startable].sort(byStart)[0] ?? null;
+}
+
+/**
+ * Sıradaki işin saati GEÇTİYSE kartın cümlesi — Akış'ın A1'iyle ve personel
+ * kartıyla aynı dil:
+ *   KAPIDA  — müşteri geldi, iş başlamadı: kaç dakikadır bekliyor (kehribar)
+ *   GECİKTİ — müşteri gelmedi, saat geçti: kaç dakika geçti ve kaç dakika
+ *             sonra gelmedi sayılacak (kırmızı; Akış'ın "N dk sonra gelmedi
+ *             sayılır"ı)
+ * Saati henüz gelmediyse `null`: G1'in "ŞU AN BOŞ · N dk · sıradaki" kartı
+ * kalıyor. Kapıdaki müşteri saatinden ERKEN gelmişse de KAPIDA — bekleyen
+ * biri var ve "şu an boş" demek onu yok saymak olurdu.
+ *
+ * `nowMs` sunucu saati: kapıya geliş damgası da sunucunun.
+ */
+export function soloNextPanel(next: Appt | null, nowMinutes: number, nowMs: number): StaffHeroPanel | null {
+    if (!next) return null;
+    const who = `${next.customer_name} · ${next.service}`;
+    if (next.customer_arrived_at) {
+        const since = Date.parse(next.customer_arrived_at);
+        const waited = Number.isFinite(since) ? Math.max(0, Math.floor((nowMs - since) / 60_000)) : 0;
+        return {
+            label: 'Kapıda',
+            tone: 'am',
+            hasPulse: false,
+            heroValue: String(waited),
+            heroUnit: 'dk',
+            subText: `${who} · bekliyor`,
+        };
+    }
+    const late = nowMinutes - toMinutes(next.start_time);
+    if (late < 1) return null;
+    return {
+        label: 'Gecikti',
+        tone: 'rd',
+        hasPulse: false,
+        heroValue: String(late),
+        heroUnit: 'dk',
+        // Pay `isNoShow`un payı (30 dk). `graceLeft`in kendi varsayılanı eski
+        // 120 — Akış da payı açıkça veriyor (`flowBuild` · NO_SHOW_AFTER_MIN).
+        subText: `${who} · ${graceLeft(-late, DEFAULT_ARRIVAL_TOLERANCE_MIN)} dk sonra gelmedi sayılır`,
+    };
+}
+
+/**
+ * Sıradaki iş YOKKEN kart (süren iş ve açık adisyon da yok).
+ *
+ * Eskiden personel durumunun kartı yazılıyordu ve günün sonunu 19:00
+ * sayıyordu: 22:31'de, 23:55'e kadar açık bir salonda "ŞU AN BOŞ · 0 dk ·
+ * Gün sonuna kadar". Tek kişilikte günün sonu çalışma saatinin kapanışı:
+ *   kapanış gelmediyse → ŞU AN BOŞ · kapanışa kalan · "23:55’e kadar ·
+ *                        sıradaki randevu yok"
+ *   kapanış geçtiyse ya da saat bilinmiyorsa → BUGÜN · N randevu ·
+ *                        "3 tamamlandı · 1 gelmedi" (başlığın sayıları)
+ *
+ * Yalnız boşta ve gün sonu hâllerinde (`free`, `ended`); izin ve kapalı gün
+ * kartları kendi cümlelerini söylüyor.
+ */
+export function soloIdlePanel(
+    kind: string,
+    counts: SoloDayCounts,
+    open: OpenWindow | null | undefined,
+    nowMinutes: number,
+): StaffHeroPanel | null {
+    if (kind !== 'free' && kind !== 'ended') return null;
+    if (open && nowMinutes < open.to) {
+        const free = formatFreeDuration(open.to - nowMinutes);
+        return {
+            label: 'Şu an boş',
+            hasPulse: false,
+            heroValue: free.value,
+            heroUnit: free.unit,
+            subText: `${clockDative(hhmm(open.to))} kadar · sıradaki randevu yok`,
+        };
+    }
+    const noshow = counts.noshow ?? 0;
+    return {
+        label: 'Bugün',
+        hasPulse: false,
+        heroValue: String(counts.done + noshow + counts.left),
+        heroUnit: 'randevu',
+        subText: `${counts.done} tamamlandı · ${noshow} gelmedi`,
     };
 }
 
