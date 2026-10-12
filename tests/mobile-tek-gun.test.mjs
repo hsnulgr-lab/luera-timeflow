@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import {
     SOLO_UNREAD_COPY,
     soloApptDuration,
+    soloDayCounts,
     soloDayList,
     soloApptStamp,
     soloDaySubtitle,
@@ -66,7 +67,58 @@ test('BUGÜN OLMAYAN gün yalnız SAYIYOR, "kaldı" demiyor', () => {
     assert.equal(soloDaySubtitle('2026-10-09', { total: 8 }), '9 Ekim · 8 randevu');
     assert.equal(soloDaySubtitle('2026-10-09', { total: 0 }), '9 Ekim · randevu yok');
     // Ekran "bitti/kaldı" biçimini YALNIZ bugün gönderiyor.
-    assert.match(gun, /isToday && dayState\s*\?\s*\{\s*done:/);
+    assert.match(gun, /:\s*isToday\s*\?\s*soloDayCounts\(mine, nowMinutes\)\s*:\s*\{ total: mine\.length \}/);
+});
+
+test('gelmeyen randevu "bitti" SAYILMIYOR — başlık kartın damgasıyla aynı kuralla sayıyor', () => {
+    /*
+     * Telefonda üç gelmeyen randevulu gün "3 iş bitti, 0 kaldı" yazdı;
+     * altındaki kart "0 tamamlandı · 3 gelmedi" diyordu. Sayılar personel
+     * durumunun "geçmiş" kovasından geliyordu ve saati geçen her şey o
+     * kovadaydı.
+     */
+    const now = 15 * 60;
+    const noShows = [at('n1', '09:00'), at('n2', '11:00'), at('n3', '13:00')];
+    const counts = soloDayCounts(noShows, now);
+    assert.deepEqual(counts, { done: 0, left: 0, noshow: 3, cancelled: 0 });
+    assert.equal(soloDaySubtitle('2026-10-09', counts), '9 Ekim · 0 iş bitti, 3 gelmedi, 0 kaldı');
+
+    // Tohumun günü: iki tahsil, bir açık adisyon, bir gelmedi, bir süren iş,
+    // iki sıradaki, bir iptal. Her kart kendi damgasının kovasına düşüyor.
+    const day = [
+        at('p1', '09:00', { status: 'completed', is_paid: true }),
+        at('p2', '10:00', { status: 'completed', is_paid: true }),
+        at('o1', '11:00', { status: 'completed', is_paid: false }),
+        at('e1', '12:00', { arrived_at: '2026-10-09T09:00:00Z', service_ended_at: '2026-10-09T09:40:00Z' }),
+        at('n1', '13:00'),
+        at('r1', '14:30', { arrived_at: '2026-10-09T11:30:00Z' }),
+        at('u1', '16:00'),
+        at('u2', '17:00'),
+        at('c1', '18:00', { status: 'cancelled' }),
+    ];
+    for (const row of day) {
+        const stamp = soloApptStamp(row, now);
+        const bucket = soloDayCounts([row], now);
+        if (stamp?.done) assert.equal(bucket.done, 1, row.id);
+        if (stamp?.label === 'gelmedi') assert.equal(bucket.noshow, 1, row.id);
+        if (stamp?.label === 'iptal') assert.equal(bucket.cancelled, 1, row.id);
+    }
+    assert.equal(soloDaySubtitle('2026-10-09', soloDayCounts(day, now)), '9 Ekim · 4 iş bitti, 1 gelmedi, 3 kaldı');
+});
+
+test('saati geçen ama geç kalma payı dolmayan randevu hâlâ "kaldı"', () => {
+    // Müşteri 10 dakika gecikti: ne bitti ne gelmedi — gelebilir.
+    const late = at('l1', '14:50');
+    assert.equal(soloApptStamp(late, 15 * 60), null);
+    assert.deepEqual(soloDayCounts([late], 15 * 60), { done: 0, left: 1, noshow: 0, cancelled: 0 });
+});
+
+test('iptal iş değil: hiçbir sayıya girmiyor, ama yalnız iptal kalan gün "randevu yok" demiyor', () => {
+    const now = 12 * 60;
+    const counts = soloDayCounts([at('c1', '09:00', { status: 'cancelled' }), at('u1', '16:00')], now);
+    assert.equal(soloDaySubtitle('2026-10-09', counts), '9 Ekim · 0 iş bitti, 1 kaldı');
+    const onlyCancelled = soloDayCounts([at('c1', '09:00', { status: 'cancelled' }), at('c2', '16:00', { status: 'cancelled' })], now);
+    assert.equal(soloDaySubtitle('2026-10-09', onlyCancelled), '9 Ekim · 2 iptal');
 });
 
 test('okunmamış gün sayı UYDURMUYOR', () => {
@@ -496,6 +548,8 @@ test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş 
     const day = buildStaffDayState(me, rows, [me], 16 * 60 + 4, 0, '', '2026-10-09');
     assert.equal(day.pastAppointments.length, 1);
     assert.equal(day.upcomingAppointments.length, 1);
+    // Başlığın sayısı artık kovalardan değil, kartın damgasından.
+    assert.deepEqual(soloDayCounts(rows, 16 * 60 + 4), { done: 1, left: 1, noshow: 0, cancelled: 0 });
 });
 
 test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {

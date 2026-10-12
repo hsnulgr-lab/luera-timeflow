@@ -19,7 +19,7 @@ import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
-    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloOpenTicket, soloPanelAction,
+    SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloEmptyCopy, soloOpenTicket, soloPanelAction,
     soloTicketPanel, soloWaitPanel,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
@@ -224,11 +224,8 @@ export default function SoloDay() {
         selectedISO,
         !dayKnown
             ? null
-            : isToday && dayState
-                ? {
-                    done: dayState.pastAppointments.length,
-                    left: dayState.upcomingAppointments.length + (dayState.runningAppointment ? 1 : 0),
-                }
+            : isToday
+                ? soloDayCounts(mine, nowMinutes)
                 : { total: mine.length },
     );
 

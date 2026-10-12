@@ -27,7 +27,7 @@ import { clockLocative, upperTR } from './text.ts';
  */
 export function soloDaySubtitle(
     dateISO: string,
-    counts: { done: number; left: number } | { total: number } | null,
+    counts: SoloDayCounts | { total: number } | null,
 ): string {
     const day = formatDayMonth(dateISO);
     if (!counts) return day;
@@ -43,10 +43,54 @@ export function soloDaySubtitle(
         return counts.total === 0 ? `${day} · randevu yok` : `${day} · ${counts.total} randevu`;
     }
 
+    const noshow = counts.noshow ?? 0;
     // Gerçekten boş gün: sayı saymak yerine durumu söylüyor. "0 iş bitti,
     // 0 kaldı" teknik olarak doğru ama kimsenin kurmayacağı bir cümle.
-    if (counts.done === 0 && counts.left === 0) return `${day} · randevu yok`;
-    return `${day} · ${counts.done} iş bitti, ${counts.left} kaldı`;
+    // Yalnız iptal kalmış gün "randevu yok" DEMİYOR: liste iptal kartlarını
+    // gösterirken başlık onları yok sayardı.
+    if (counts.done === 0 && noshow === 0 && counts.left === 0) {
+        const cancelled = counts.cancelled ?? 0;
+        return cancelled > 0 ? `${day} · ${cancelled} iptal` : `${day} · randevu yok`;
+    }
+    // Personel "Bugün"ünün cümlesiyle aynı: gelmeyen varsa ayrı sayılıyor.
+    return `${day} · ${[
+        `${counts.done} iş bitti`,
+        noshow > 0 ? `${noshow} gelmedi` : null,
+        `${counts.left} kaldı`,
+    ].filter(Boolean).join(', ')}`;
+}
+
+export interface SoloDayCounts {
+    done: number;
+    left: number;
+    noshow?: number;
+    cancelled?: number;
+}
+
+/**
+ * Bugünün sayıları, KARTLARIN DAMGASIYLA AYNI kuralla (`soloApptStamp`).
+ *
+ * Eskiden sayılar personel durumunun kovalarından geliyordu: saati geçen
+ * her şey "geçmiş" kovasındaydı ve "geçmiş" = "bitti" okunuyordu. Telefonda
+ * üç gelmeyen randevulu gün "3 iş bitti, 0 kaldı" yazdı; altındaki kart
+ * "0 tamamlandı · 3 gelmedi" diyordu. Aynı ekranda iki farklı gerçek.
+ *
+ *   bitti   — kartta "tahsil edildi / adisyon açık / tamamlandı"
+ *   gelmedi — kartta "gelmedi"
+ *   iptal   — hiçbir kovaya girmiyor; iş değil
+ *   kaldı   — geri kalan her şey: süren iş, sıradakiler ve saati geçmiş ama
+ *             geç kalma payı dolmamış randevu (müşteri hâlâ gelebilir)
+ */
+export function soloDayCounts(appointments: readonly Appt[], nowMinutes: number): SoloDayCounts {
+    const counts = { done: 0, left: 0, noshow: 0, cancelled: 0 };
+    for (const appointment of appointments) {
+        const stamp = soloApptStamp(appointment, nowMinutes);
+        if (appointment.status === 'cancelled') counts.cancelled += 1;
+        else if (stamp?.done) counts.done += 1;
+        else if (isNoShow(appointment, nowMinutes)) counts.noshow += 1;
+        else counts.left += 1;
+    }
+    return counts;
 }
 
 // ── Randevu kartının durumu ─────────────────────────────────────────────────
