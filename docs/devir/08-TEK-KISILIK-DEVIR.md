@@ -1254,3 +1254,57 @@ personelde de).
 Kumandanın "Müşteriyi ara" düğmesi numarası olmayan randevuda sessizce
 hiçbir şey yapmıyor (`onCall` erken dönüyor) — ölü kontrol. Kumanda personel
 tasarımının birebiri; ayrı bir iş.
+
+---
+
+## 22 · 2026-10-12 · TEST GÜNÜ — tohum + deneme planı
+
+Kullanıcı: "test etmem için bir test günü planla, bir tohum ekleyelim —
+yalnız hsnulgr@gmail.com hesabı". Eski `DEMO_tek_kisilik.sql`in saatleri
+sabit olduğu için akşam her şey "gelmedi" görünüyordu (telefonda görüldü).
+
+`supabase/DEMO_tek_test_gunu.sql` — günü ÇALIŞTIRILDIĞI ANA (T) göre
+kuruyor; hedef sahibi `hsnulgr@gmail.com` olan tek solo org (değilse durur).
+Yalnız tohum işaretli satırları (`demo_tek`, `demo_tek_test`) siliyor.
+Randevuları personelsiz yazıyor: personeli 114 yazıyor (NOTICE "114
+ÇALIŞIYOR"). Bildirim tetikleyicisi tohum boyunca kapalı. PGlite'ta iki ayrı
+saatte, iki kez üst üste denendi.
+
+Çalıştırma (kullanıcı):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/DEMO_tek_test_gunu.sql
+```
+
+Deneme sırası (durumlar birbirine akıyor; sırayla gidilmeli):
+
+1. Gün — ADİSYON AÇIK ₺1.550 (Cilt Bakımı 1.200 + Peeling 350) · listede
+   "tahsil edildi" (yeşil), "adisyon açık" (amber), "gelmedi" (kırmızı).
+2. Tahsil et → yöntem seçilmeden düğme kapalı → "Kartla tahsil et" → kart
+   düşer, Cilt "tahsil edildi" olur, hâl kartı Manikür'e (G1 · Başlat) geçer.
+3. Başlat → kaydırıp başlat → SÜRÜYOR (saniye sayacı) → bekleme (BEKLEMEDE)
+   → Bitir → tahsilat. Uçak modunda dene: "bağlantı yok", kasaya yazılmaz.
+4. Sıradaki Selin Uçar (KAYITSIZ): Başlat → kumanda → "Müşteri kartı" →
+   "kayda bağlı değil · numarasıyla kurduğunuzda açılır". Randevu kartında
+   "Mesajla hatırlat" ve müşteri oku YOK.
+5. Kasa — Kaş ₺350 nakit → Düzelt (₺400, Kart) → "düzeltildi … · önce
+   ₺350". Lazer ₺1.500 → Geri al → üstü çizili, "· 1 geri alındı"; Gün'de
+   Lazer "adisyon açık" (süren iş yoksa ADİSYON AÇIK kartı da döner).
+6. Takvim — tek sütun, personel başlığı yok. Boş saate dokun → Randevu o
+   saatle (Gün'e düşmemeli). Bloğa dokun → kart: yalnız hizmet pili, tek
+   "Saati değiştir". Basılı tut + sürükle → "…istediğiniz saate taşıyın.",
+   hedefte yalnız saat → "taşındı" sayfasında ad yok → Geri al.
+7. Yarın (13) — Elif Demir 10:00 → kart → "Mesajla hatırlat" → WhatsApp
+   "…yarın 10:00 randevunuzu hatırlatmak istedik…" (göndermeden kapat).
+8. Şeritte 3 gün sonrası → B1 boş gün; Pazar → B2 kapalı gün.
+9. Randevu (+) → müşteri, hizmet → R2 rayında "kim" yok, dolu kutu "Dolu ·
+   müşteri · hizmet" → kur → onay ekranında personel sütunu yok.
+10. İşletme → Müşteriler: baş harf diski ve ad yok → kart: "X ile" yok.
+11. Geri kaydırma: İşletme → Hizmetler'den yavaşça geri kaydırırken alttaki
+    ekranda "Personel" / "Profil" görünmemeli.
+
+⚠️ "Ekip ekle"yi BU hesapta deneme: ekipten tek kişiliğe dönüş yolu yok.
+
+Telefonda görülen ilk bulgu (tohumdan önce): Gün başlığı "3 iş bitti, 0
+kaldı" derken hâl kartı "0 tamamlandı · 3 gelmedi" diyordu — gelmeyen
+randevu "bitti" sayılıyor. Düzeltilmedi; sıradaki iş.
