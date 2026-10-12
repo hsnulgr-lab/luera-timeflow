@@ -1,10 +1,10 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§21'in commit'i `main`'in önünde, push yok)
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§21'in commit'leri `main`'in önünde, push yok — 114 canlıda)
 **Testler:** 2873 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
-> **2026-10-12 · PERSONELİ SUNUCU YAZAR (§21):** göç **114 YAZILDI, DEPLOY
-> BEKLİYOR** — komutlar §6'da, kullanıcı çalıştıracak. Tek kişilikte
+> **2026-10-12 · PERSONELİ SUNUCU YAZAR (§21):** göç **114 CANLIDA** (kuru
+> koşu + göç + test, §6; doldurulacak eski satır çıkmadı: 0/0). Tek kişilikte
 > personelsiz yeni randevuya sunucu sahibin personelini yazıyor; eski
 > personelsiz randevular tek seferde dolduruluyor. Yanında: kayda bağlı
 > olmayan randevunun müşteri dosyası artık "silinmiş olabilir" demiyor.
@@ -46,9 +46,8 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu: YALNIZ 114** (§6, §21) — kuru koşu, göç, test. Edge
-   function değişmedi. 112 + 113 canlıda. Telefonda deneme (Expo Go) hâlâ
-   yapılmadı; tahsilat da telefonda denenmedi.
+2. **Deploy borcu yok** (§6): 112 + 113 + 114 canlıda. Telefonda deneme
+   (Expo Go) hâlâ yapılmadı; tahsilat da telefonda denenmedi.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -309,10 +308,23 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### ⏳ BEKLİYOR — 114 (personeli sunucu yazar · §21)
+### ✅ YAPILDI (2026-10-12) — 114 (personeli sunucu yazar · §21)
+
+Kullanıcı dört adımı sırayla çalıştırdı:
+- Ön kontrol `0 0 O`.
+- Kuru koşu: `114: 0 randevuya personel yazıldı; 0 randevu … boş bırakıldı`
+  + `tek personel (114) regression: ok` + `ROLLBACK` (altı söz üretim
+  şemasında, sahibin oturumuyla yazma dahil; fikstür org'ları gerçek
+  `handle_new_user`la açılıp geri sarıldı).
+- Göç `COMMIT` — aynı NOTICE. Tek kişilik işletmelerde personelsiz eski
+  randevu YOKMUŞ; doldurma boş geçti, iş bundan sonraki yeni randevularda.
+- Göç sonrası test `regression: ok` + `ROLLBACK` (yapı denetimi canlıda:
+  yalnız BEFORE INSERT, SECURITY DEFINER, EXECUTE kapalı, bildirim
+  tetikleyicisi açık). `does not exist, skipping` ilk kurulumun sesi.
 
 Yalnız göç; edge function ve istemci deploy'u YOK. Mağazadaki sürüm
 etkilenmiyor (personeli zaten gönderiyor; tetikleyici yalnız boşsa yazar).
+Komutlar kalıp olarak duruyor.
 
 **0 · Ön kontrol** — beklenen `0 0 O` (fonksiyon yok, tetikleyici yok,
 bildirim tetikleyicisi açık):
@@ -1170,6 +1182,9 @@ Otomatik hatırlatma kapsam dışı (v4).
 ---
 
 ## 21 · 2026-10-12 · PERSONELİ SUNUCU YAZAR (114) + KAYITSIZ MÜŞTERİ DOSYASI
+
+**114 CANLIDA** (2026-10-12, §6) — kuru koşu ve göç sonrası test üretimde
+geçti; doldurma 0/0.
 
 Kullanıcı: "1 ve 2'ye başla" (kalanlar listesinin ilk iki maddesi).
 
