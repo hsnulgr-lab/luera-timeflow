@@ -21,7 +21,7 @@ import { DayHeader } from '../../src/components/CalendarParts';
 import { AppointmentCard, NowLineSlot } from '../../src/components/AppointmentCard';
 import { StaffWeekStrip } from '../../src/components/StaffWeekStrip';
 import { formatDayMonth, todayISO } from '../../src/lib/calendar';
-import { cardState, nowLineAfter, stripDays } from '../../src/lib/staffCard';
+import { cardState, nowLineAfter, staffDayCounts, stripDays } from '../../src/lib/staffCard';
 import { clockOf, demoAgenda, demoAgendaFor } from '../../src/lib/staffDemo';
 import { DurumBand, DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { PushPrompt } from '../../src/components/PushPrompt';
@@ -166,11 +166,9 @@ export default function Today() {
     }, [live.news]);
 
     // Gelmeyen müşteri ne "bitti" ne "kaldı": ayrı sayılır, yoksa düşmüş iki
-    // randevu "2 iş bitti" diye sayılırdı.
-    const noshow = rows.filter((row) => row.state.kind === 'noshow').length;
-    const done = rows.filter((row) => row.state.kind !== 'noshow'
-        && (row.state.dim > 0 || row.state.kind === 'unbilled')).length;
-    const left = rows.length - done - noshow;
+    // randevu "2 iş bitti" diye sayılırdı. İptal hiçbir sayıya girmiyor.
+    const { done, noshow, cancelled, left } = staffDayCounts(rows.map((row) => row.state));
+    const active = rows.length - cancelled;
     // Cümle güne göre değişiyor: "bitti / kaldı" bugünün ölçüsü. Geçmiş günde
     // kalan iş yok, gelecek günde bitmiş iş yok — ikisinde de o cümle yalan.
     const subtitle = `${formatDayMonth(dateISO)} · ${
@@ -187,11 +185,15 @@ export default function Today() {
                 // ikinci bir uyarı kurmak aynı şeyi iki kez söylemek olurdu.
                 : rows.length === 0
             ? 'randevu yok'
+            // Yalnız iptal kalan gün: liste iptal kartlarını gösteriyor,
+            // başlık onları "randevu yok" diye yok saymıyor.
+            : active === 0
+                ? `${cancelled} iptal`
             : isToday
                 ? [`${done} iş bitti`, noshow > 0 ? `${noshow} gelmedi` : null, `${left} kaldı`].filter(Boolean).join(', ')
                 : dateISO < today
-                    ? `${rows.length} iş yapıldı`
-                    : `${rows.length} randevu`
+                    ? `${active} iş yapıldı`
+                    : `${active} randevu`
     }`;
 
     return (

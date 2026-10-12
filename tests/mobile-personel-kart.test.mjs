@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    cardState, formatCounter, formatDuration, localStamp, nowLineAfter, stripDays,
+    cardState, formatCounter, formatDuration, localStamp, nowLineAfter, staffDayCounts, stripDays,
 } from '../mobile/src/lib/staffCard.ts';
 import { dayNameShort, monthShort } from '../mobile/src/lib/calendar.ts';
 
@@ -96,8 +96,12 @@ test('05b · gelmedi: saatten 30 dk sonra düşer — müdür Akış\'ıyla ayn�
 });
 
 test('05c · personel başlığı gelmeyeni "bitti" saymaz', () => {
-    assert.match(screen, /state\.kind === 'noshow'/);
-    assert.match(screen, /gelmedi/);
+    // Kural ekrandan `staffDayCounts`a taşındı; artık davranışı sınanıyor.
+    assert.deepEqual(
+        staffDayCounts([{ kind: 'noshow', dim: 0 }, { kind: 'noshow', dim: 0 }, { kind: 'paid', dim: 2 }]),
+        { done: 1, noshow: 2, cancelled: 0, left: 0 },
+    );
+    assert.match(screen, /noshow > 0 \? `\$\{noshow\} gelmedi`/);
 });
 
 test('06 · adisyon gönderilmemiş iş SÖNÜKLEŞMEZ — personelin işi bitmedi', () => {
@@ -175,6 +179,27 @@ test('eski kahraman kart ve morph ekrandan kalktı', () => {
 test('gün başlığının alt satırı sayılardan türer, yazılı değildir', () => {
     assert.ok(!screen.includes('4 kaldı"'), 'sabit metin kalmış');
     assert.ok(screen.includes('`${done} iş bitti`') && screen.includes('`${left} kaldı`'), 'alt satır sayılardan kurulmalı');
+    assert.ok(screen.includes('staffDayCounts(rows.map((row) => row.state))'), 'sayılar tek kaynaktan');
+});
+
+test('İPTAL "iş bitti" SAYILMIYOR — sönük olsa da iş değil', () => {
+    // İptal kartı `dim: 2` ve eskiden "bitti" filtresine takılıyordu.
+    const at = (start_time, over = {}) => cardState({
+        id: start_time, date: '2026-10-09', start_time, end_time: start_time,
+        status: 'confirmed', is_paid: false, arrived_at: null, service_ended_at: null,
+        customer_arrived_at: null, ...over,
+    }, localStamp('2026-10-09', '15:00'));
+    const states = [
+        at('09:00', { status: 'cancelled' }),
+        at('10:00', { status: 'completed', is_paid: true }),
+        at('11:00', { status: 'completed' }),
+        at('16:00'),
+    ];
+    assert.equal(states[0].dim, 2, 'iptal kartı sönük — sebebin kendisi');
+    assert.deepEqual(staffDayCounts(states), { done: 2, noshow: 0, cancelled: 1, left: 1 });
+    // Geçmiş ve ileri gün de iptali saymıyor; yalnız iptal kalan gün "N iptal".
+    assert.match(screen, /\? `\$\{active\} iş yapıldı`\s*:\s*`\$\{active\} randevu`/);
+    assert.match(screen, /: active === 0\s*\? `\$\{cancelled\} iptal`/);
 });
 
 test('customer_arrived_at sunucudan geliyor — yoksa KAPIDA hâli ölü doğar', () => {

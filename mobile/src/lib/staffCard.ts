@@ -244,6 +244,29 @@ export function cardState(appointment: StaffCardSource, nowMs: number = Date.now
     return { ...base, kind: 'upcoming', word: null, tone: null, dim: 0 };
 }
 
+/**
+ * Gün başlığının sayıları — kartların hâlinden.
+ *
+ *   bitti   — sönükleşmiş kart (tahsil, kasada) ve adisyonu gönderilmemiş iş
+ *   gelmedi — ayrı: düşmüş iki randevu "2 iş bitti" diye sayılmasın
+ *   iptal   — HİÇBİRİNE girmiyor. İptal kartı da sönük (`dim: 2`) ve eskiden
+ *             bu yüzden "bitti" sayılıyordu: iptal edilmiş bir randevu iş
+ *             değil. Şeridin sayısı da iptali saymıyor (`countsOf`).
+ *   kaldı   — geri kalan
+ */
+export function staffDayCounts(states: readonly Pick<StaffCardState, 'kind' | 'dim'>[]): {
+    done: number; noshow: number; cancelled: number; left: number;
+} {
+    const counts = { done: 0, noshow: 0, cancelled: 0, left: 0 };
+    for (const state of states) {
+        if (state.kind === 'cancelled') counts.cancelled += 1;
+        else if (state.kind === 'noshow') counts.noshow += 1;
+        else if (state.dim > 0 || state.kind === 'unbilled') counts.done += 1;
+        else counts.left += 1;
+    }
+    return counts;
+}
+
 /** Şimdi çizgisi hangi karttan SONRA gelir; hiçbiri değilse -1. */
 export function nowLineAfter(
     appointments: readonly { date: string; start_time: string }[],
