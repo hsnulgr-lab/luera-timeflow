@@ -1,10 +1,14 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (G4 commit'i `main`'in önünde, push yok)
-**Testler:** 2828 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (C2/C3 commit'i `main`'in önünde, push yok)
+**Testler:** 2835 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
+> **2026-10-12 · C2/C3 (§18):** Kasa'da Düzelt / Geri al bağlandı — yalnız
+> tek kişilikte. v4'ün 23 ekranının HEPSİ kodda; telefonda denenmeyenler §0.
+> Yalnız istemci (111 canlıdaydı); göç ve deploy yok.
+>
 > **2026-10-12 · G4 (§17):** Gün'ün dördüncü hâli — ADİSYON AÇIK kartı ve
-> listede "tahsil edildi / adisyon açık". Yalnız istemci; göç ve deploy yok.
+> listede "tahsil edildi / adisyon açık". Yalnız istemci.
 
 > **2026-10-11 gece turu (§16):** denetimin bulduğu on bir eksik kapandı
 > (G2, G3, hafta şeridi, Gün'ün ikonu, B2, K3, C1, R2, P1, S1, S3) ve
@@ -195,8 +199,8 @@ girmez (§7'de sebebi).
 | P1 | İşletme | ✅ · §16: "Ekip ekle · Tek kişilik çalışıyorsunuz" satırı |
 | P2 | Ekip ekle kapısı | ✅ · §16: göç 113 + ekran — **deploy bekliyor** |
 | C1 | Kasa · bir düzeltmeden sonra | ✅ (düzeltme satırı hariç) · §16: kişi adı yok, şerit tahsilatı açıyor |
-| **C2** | **Hareket satırı → Düzelt / Geri al** | ⏳ sunucu CANLIDA (111), arayüz `tek-kasa` dalında, bağlanmadı |
-| **C3** | **Tahsilatı düzelt** | ⏳ aynı |
+| C2 | Hareket satırı → Düzelt / Geri al | ✅ · §18 (telefonda denenmedi) |
+| C3 | Tahsilatı düzelt | ✅ · §18 (telefonda denenmedi) |
 | R1 | Yeni randevu 1/2 | ✅ |
 | R2 | Yeni randevu 2/2 | ✅ · §16: "kim" satırı yok, "boş yer yok" cümlesi |
 | T1 | Takvim · tek sütun | ✅ |
@@ -208,7 +212,7 @@ girmez (§7'de sebebi).
 | S2 | İlk gün | ✅ |
 | S3 | İlk randevu · yeni hesap | ✅ · §16: eklenen hizmet dönüşte seçili |
 
-**Kalan iki ekran: C2, C3** (Kasa'da Düzelt / Geri al).
+**Kalan ekran yok** — 23'ün 23'ü kodda. Telefonda denenmemiş olanlar §16–§18'de.
 
 ---
 
@@ -907,4 +911,52 @@ göç ve deploy YOK. Telefonda (Expo Go) henüz denenmedi.
   listede o satır kehribar "adisyon açık".
 - "Tahsil et" → kumanda tahsilat adımında açılmalı; tahsilattan sonra kart
   ŞU AN BOŞ / sıradakine dönmeli, satır yeşil "tahsil edildi".
+
+---
+
+## 18 · 2026-10-12 · C2/C3 — KASA'DA DÜZELT / GERİ AL
+
+Kullanıcı: "push et, main'i ileri al ve devam et" (G4 gönderildi, `67bee52`).
+Arayüz `tek-kasa` dalındaki taslaktan (`95eaf73`) alındı — commit'lenmeden
+uygulanıp bağlandı, tek commit olarak girdi. Yalnız istemci: 111'in üç
+fonksiyonu canlıdaydı.
+
+### Ne yapıldı
+
+| Parça | Değişiklik | Nerede |
+|---|---|---|
+| Okuma | Canlı satırlarda `created_at` + `corrected_from`; seçili dönemin damgalı satırları `voided_payments`tan (RLS onları gizliyor — bilerek) | `managerSource.fetchCashPayments / fetchVoidedPayments` |
+| Satırlar | Düzeltilmiş: TEK satır, yeni tutar, "X verdi"nin yuvasında "düzeltildi 15:40 · önce ₺1.200" (v4 C1; eski kehribar ton ve "DÜZELTİLDİ" çipi kalktı). Geri alınmış: paranın alındığı saatte yerinde, üstü çizili, "geri alındı 15:42", toplama girmiyor. Düzeltmenin eski satırı ayrıca çizilmiyor | `cashBuild.toMovements`, `CashParts.MovementCard`, `cash.correctionTrace / traceLine` |
+| Fiş | Tek kişilikte, canlı satırda iki satır: "Düzelt · Tutar ya da yöntem", kırmızı "Geri al · Adisyon yeniden açılır" (serbest satışta "Tutar gün toplamından düşer"). Ekipte "masaüstündeki Kasa'dan" (karar 4). Geri alınmış satırda "15:42’de geri alındı; tutar gün toplamına girmiyor." | `CashSheets.MovementSheet` (`note` prop'u), `cash.voidSub / voidedNote` |
+| Düzelt | Tutar + yöntem; yalnız yöntem değişse de geçerli; ret gelirse sayfa açık, sebep düğmenin üstünde | `managerWrite.correctPayment` → `correct_payment` |
+| Geri al | Sistem uyarısı: "₺1.200 kart tahsilatı geri alınsın mı? Adisyon yeniden açılır." Sonra Kasa ve günün verisi tazeleniyor → adisyon Gün'de G4'e, Kasa'da turuncu şeride dönüyor | `managerWrite.revertPayment` → `revert_payment`, `mudur/cash.tsx` |
+| Vana | Kasa yazmaları da `MANAGER_WRITES_ENABLED`a uyuyor ("Değişiklik şimdilik alınmıyor") | `managerWrite` |
+| Söz | Sayaç "6 işlem · 1 geri alındı" (satırın iziyle aynı sözcük); sesli okuma "Düzeltildi 15:40, önce 1.200 lira." | `cash.counterLine / movementSpeech` |
+
+### Tuzak (testle kilitli)
+
+`MovementSheet`in `close(after)`u `after` verilince `onClose`u ÇAĞIRMIYOR.
+"Geri al" fişi `close(onVoid)` ile kapatıyor; ekran açık hâli kendisi
+düşürmezse görünmez bir katman Kasa'yı kilitlerdi. `askRevert` önce
+`setOpenId(null)` yapıyor.
+
+### Kanıt
+
+- Eski davranışı kodlayan testler (yerel iptal katmanı, "İptal et", özel
+  diyalog, salt okunur ekran) YENİ davranışa taşındı; `mobile-mudur-kasa`
+  yeniden yükleniyor (68 test). 2835 geçti / 0 kırık.
+- On koruma tek tek söküldü, onunda da test düştü.
+
+### Telefonda bakılacaklar (tek kişilik hesap)
+
+- Kasa'da bir harekete dokun → "Düzelt" → tutarı değiştir → kaydet: satır
+  yeni tutarla, altında "düzeltildi SS:DD · önce ₺…"; toplam düşmeli/artmalı.
+- "Geri al" → sistem uyarısı → onay: satır üstü çizili "geri alındı", toplam
+  düşmeli; Gün'de G4 kartı, Kasa'da turuncu şerit geri gelmeli.
+- Ekip hesabında aynı fiş: eylem YOK, "masaüstündeki Kasa'dan" cümlesi.
+
+### `tek-kasa` dalı
+
+İçeriği bu commit'te. Dal GitHub'da duruyor; silinip silinmeyeceği
+kullanıcının kararı.
 

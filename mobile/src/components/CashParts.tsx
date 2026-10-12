@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
-    amountSize, formatAmount, methodLabel, movementSpeech, staffLine, traceLine,
+    amountSize, correctionTrace, formatAmount, methodLabel, movementSpeech, staffLine, traceLine,
     type CashMethod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { cashInk, cashMetrics, font, numeric, useTheme, type CashInk, type MethodInk } from '../theme';
@@ -183,15 +183,19 @@ export function MovementCard({ movement, largest, onPress }: {
     const ink = dark ? cashInk.dark : cashInk.light;
     const mc = methodColor(ink, movement.method);
     const voided = movement.status === 'voided';
-    const corrected = movement.status === 'corrected';
     const trace = traceLine(movement);
+    /*
+     * DÜZELTİLMİŞ SATIR SADE (v4 · C1): ton ve "DÜZELTİLDİ" çipi yok, yalnız
+     * "X verdi"nin yuvasında iz — "düzeltildi 15:40 · önce ₺1.200". Para bu
+     * satırda gerçekten var ve toplama giriyor; onu iptal gibi boyamak
+     * yanlış okunurdu.
+     */
+    const correction = correctionTrace(movement);
     const who = staffLine(movement);
 
-    const tone = corrected
-        ? { from: ink.correctedFrom, to: ink.correctedTo, border: ink.correctedBorder }
-        : voided
-            ? { from: ink.voidedFrom, to: ink.voidedTo, border: ink.voidedBorder }
-            : null;
+    const tone = voided
+        ? { from: ink.voidedFrom, to: ink.voidedTo, border: ink.voidedBorder }
+        : null;
 
     const body = (
         <View style={{
@@ -227,19 +231,17 @@ export function MovementCard({ movement, largest, onPress }: {
                 <Txt numberOfLines={1} style={{ fontSize: cashMetrics.serviceFont, color: c.tx2 }}>
                     {movement.service} <Text style={{ color: c.tx3 }}>· {movement.time}</Text>
                 </Txt>
+                {/* Geri alınan satır: kırmızı çizgi + "geri alındı 15:40".
+                    Tutar üstü çizili ve toplama girmiyor; satır yerinde. */}
                 {trace ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
                         <View style={{ width: 12, height: 1.5, backgroundColor: c.rd }} />
-                        <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.traceFont, letterSpacing: 1.1, color: c.rd }}>{trace}</Txt>
+                        <Txt style={{ fontFamily: font.semiBold, fontSize: cashMetrics.whoFont, color: c.rd }}>{trace}</Txt>
                     </View>
-                ) : corrected ? (
-                    <View style={{
-                        alignSelf: 'flex-start', height: cashMetrics.chipHeight, marginTop: 3,
-                        paddingHorizontal: 8, borderRadius: cashMetrics.chipRadius,
-                        borderWidth: 1, borderColor: ink.correctedBorder, justifyContent: 'center',
-                    }}>
-                        <Txt style={{ fontFamily: font.bold, fontSize: cashMetrics.chipFont, letterSpacing: 0.95, color: c.am }}>DÜZELTİLDİ</Txt>
-                    </View>
+                ) : correction ? (
+                    <Txt numberOfLines={1} style={{ fontFamily: font.semiBold, fontSize: cashMetrics.whoFont, color: c.tx3 }}>
+                        {correction}
+                    </Txt>
                 ) : who ? (
                     <Txt style={{ fontFamily: font.semiBold, fontSize: cashMetrics.whoFont, color: c.tx3 }}>{who}</Txt>
                 ) : null}

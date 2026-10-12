@@ -3,11 +3,13 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    amountSize, applyCorrection, applyVoid, canCorrect, comparisonLabel, counterLine, customerCardLabel, deltaOf,
+    amountSize, canCorrect, comparisonLabel, correctionProblem, correctionTrace, counterLine, customerCardLabel, deltaOf,
     emptyComparison, formatAmount, formatMoney, hasPending, isCounted, methodLabel,
-    methodWord, mockEmptyPending, mockMovements, mockPending, pendingSubtitle,
-    parseAmount, periodLabel, periodSummaryTitle, PERIODS, ratioSpeech, summaryLine, totalsOf, traceLine, voidDialog,
-    waitLabel, ACTION_CORRECT, ACTION_VOID, CORRECTION_NOTE, EMPTY_TITLE,
+    methodWord, mockEmptyPending, mockMovements, mockPending, movementSpeech, pendingSubtitle,
+    parseAmount, periodLabel, periodSummaryTitle, PERIODS, ratioSpeech, revertProblem, summaryLine, totalsOf,
+    traceLine, voidDialog, voidedNote, voidSub,
+    waitLabel, ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_VOID, ACTION_VOID_SUB, ACTION_VOID_SUB_FREE,
+    ACTIONS_NOTE, CORRECTION_NOTE, EMPTY_TITLE, READ_ONLY_NOTE,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
 import { cashInk, cashMetrics } from '../mobile/src/theme/tokens.ts';
@@ -46,15 +48,16 @@ test('iptal edilen kayıt listeden KAYBOLMAZ', () => {
     assert.doesNotMatch(screen, /movements\.filter/);
 });
 
-test('iz satırı kimin ne zaman iptal ettiğini söyler', () => {
+test('iz satırı NE ZAMAN geri alındığını söyler (v4 · C2)', () => {
     const voided = mockMovements.find((m) => m.status === 'voided');
-    assert.equal(traceLine(voided), 'İPTAL · AYLA, 11:42');
+    assert.equal(traceLine(voided), 'geri alındı 11:42');
     // Normal kayıt iz üretmez.
     assert.equal(traceLine(mockMovements[0]), null);
 });
 
-test('sayaç toplamın neyi saymadığını söyler', () => {
-    assert.equal(counterLine(totalsOf(mockMovements)), '6 işlem · 1 iptal');
+test('sayaç toplamın neyi saymadığını söyler — satırın izinin sözcüğüyle', () => {
+    // Başlık "iptal" derken satır "geri alındı" deseydi aynı şey iki adla anılırdı.
+    assert.equal(counterLine(totalsOf(mockMovements)), '6 işlem · 1 geri alındı');
     // İptal yoksa ikinci parça hiç yazılmaz.
     assert.equal(counterLine(totalsOf(mockMovements.filter(isCounted))), '6 işlem');
 });
@@ -315,23 +318,32 @@ test('saf kütüphane React ve Expo taşımıyor', () => {
 
 const sheets = code('src/components/CashSheets.tsx');
 
-test('sheet iki eylem veriyor; yıkıcı olan dolgulu DEĞİL', () => {
-    // Yanlışlıkla en cazip görünen şey yıkıcı eylem olmamalı.
+test('fiş iki eylem SATIRI veriyor; yıkıcı olan dolgulu DEĞİL (v4 · C2)', () => {
+    // Düğme değil satır: alt yazı olmadan "Düzelt" neyin düzeltilebildiğini,
+    // "Geri al" sonucunu söylemiyordu.
     assert.equal(ACTION_CORRECT, 'Düzelt');
-    assert.equal(ACTION_VOID, 'İptal et');
-    const actions = sheets.slice(sheets.indexOf('ACTION_CORRECT}</Txt>') - 900);
-    // Düzelt dolgulu (surf2), İptal et yalnız kenarlı.
-    assert.match(sheets, /backgroundColor: c\.surf2, borderWidth: 1, borderColor: c\.bd2/);
-    assert.match(sheets, /borderWidth: 1, borderColor: ink\.voidedBorder/);
-    assert.doesNotMatch(actions, /backgroundColor: c\.rd/);
+    assert.equal(ACTION_CORRECT_SUB, 'Tutar ya da yöntem');
+    assert.equal(ACTION_VOID, 'Geri al');
+    const rows = sheets.slice(sheets.indexOf("{ key: 'correct'"), sheets.indexOf('{ACTIONS_NOTE}'));
+    assert.match(rows, /\{ key: 'void', title: ACTION_VOID, sub: voidSub\(movement\), danger: true \}/);
+    // Yanlışlıkla en cazip görünen şey yıkıcı eylem olmamalı: yalnız yazısı kırmızı.
+    assert.match(rows, /color: row\.danger \? c\.rd : c\.tx/);
+    assert.doesNotMatch(rows, /backgroundColor: c\.rd/);
 });
 
-test('düzeltmenin ne yapacağı eylemlerin ÜSTÜNDE yazıyor', () => {
-    assert.match(CORRECTION_NOTE, /eski kayıt iptal edilir, yenisi yazılır/);
-    // Not, buton satırından önce geliyor. (İçe aktarım satırı sayılmasın diye
-    // yalnız JSX bölgesine bakılıyor.)
+test('"Geri al"ın alt yazısı olacak şeyi söylüyor — serbest satışta adisyon YOK', () => {
+    assert.equal(voidSub({ reservationId: 'r1' }), ACTION_VOID_SUB);
+    assert.equal(ACTION_VOID_SUB, 'Adisyon yeniden açılır');
+    assert.equal(voidSub({ reservationId: null }), ACTION_VOID_SUB_FREE);
+    assert.equal(ACTION_VOID_SUB_FREE, 'Tutar gün toplamından düşer');
+});
+
+test('notlar v4\'ün yerinde: eylemlerin ALTINDA, düzeltme düğmesinin ALTINDA', () => {
+    assert.equal(ACTIONS_NOTE, 'Eski kayıt silinmez. Düzeltme ve geri alma Kasa\'da saatiyle görünür.');
+    assert.equal(CORRECTION_NOTE, 'Eski kayıt silinmez; yanına düzeltme kaydı yazılır.');
     const jsx = sheets.slice(sheets.indexOf('<ScrollView'));
-    assert.ok(jsx.indexOf('CORRECTION_NOTE') < jsx.indexOf('ACTION_CORRECT'));
+    assert.ok(jsx.indexOf("{ key: 'correct'") < jsx.indexOf('{ACTIONS_NOTE}'), 'eylem notu satırların altında');
+    assert.ok(jsx.indexOf('{ACTION_SAVE}') < jsx.indexOf('{CORRECTION_NOTE}'), 'düzeltme notu düğmenin altında');
 });
 
 test('cam yalnız sheet tutamağında', () => {
@@ -364,61 +376,77 @@ test('sheet kalemleri toplamı tutarı vermeli', () => {
 
 // ── 14c · iptal onayı ───────────────────────────────────────────────────────
 
-test('diyalog "emin misiniz" sormuyor, ne olacağını söylüyor', () => {
-    const copy = voidDialog(mockMovements[0]);
-    assert.equal(copy.title, 'Tahsilatı iptal et');
-    assert.doesNotMatch(copy.warning, /emin misiniz/i);
-    assert.match(copy.warning, /gün toplamından düşer/);
-    assert.match(copy.warning, /Kayıt silinmez/);
-    assert.match(copy.warning, /geri alınamaz/);
-    // Alıntı kutusu: müşteri, tutar, yöntem, saat, alan personel.
-    assert.match(copy.what, /₺[\d.]+ \w+ · \d{2}:\d{2} · \w+ aldı/);
+test('onay "emin misiniz" sormuyor, ne olacağını söylüyor (v4 · C2)', () => {
+    // v4: "₺1.200 kart tahsilatı geri alınsın mı? Adisyon yeniden açılır."
+    const bound = voidDialog({ ...mockMovements[0], amount: 1200, method: 'card', reservationId: 'r1' });
+    assert.equal(bound.title, 'Tahsilatı geri al');
+    assert.equal(bound.message, '₺1.200 kart tahsilatı geri alınsın mı? Adisyon yeniden açılır.');
+    assert.equal(bound.confirm, 'Geri al');
+    assert.equal(bound.cancel, 'Vazgeç');
+    assert.doesNotMatch(bound.message, /emin misiniz/i);
+    // Serbest satışın adisyonu yok — olmayan bir şeyin açılacağı söylenmez.
+    const free = voidDialog({ ...mockMovements[0], amount: 1200, method: 'card', reservationId: null });
+    assert.equal(free.message, '₺1.200 kart tahsilatı geri alınsın mı?');
 });
 
-test('yıkıcı eylem ÜSTTE, vazgeçme altta', () => {
-    // iOS alarm grameri. Kırmızı ve 800 ağırlık yalnız "İptal et"te.
-    // Arka plan düğmesinin etiketi de copy.cancel kullanıyor; yalnız buton
-    // bloğuna bakılıyor.
-    const dialog = sheets.slice(sheets.indexOf('export function VoidDialog'));
-    const actions = dialog.slice(dialog.indexOf('onPress={onConfirm}') - 400);
-    assert.ok(actions.indexOf('copy.confirm') < actions.indexOf('copy.cancel'));
-    assert.match(dialog, /font\.extraBold, fontSize: 17[^}]*color: c\.rd/);
-    assert.match(dialog, /font\.bold, fontSize: 17[^}]*color: c\.tx2/);
+test('"Geri al" SİSTEM uyarısıyla onaylanıyor — yıkıcı stil, vazgeç ayrı', () => {
+    // Özel diyalog kalktı: para geri alan eylem sistemin tanıdık uyarısını
+    // kullanıyor (hesap silmeyle aynı kalıp).
+    assert.doesNotMatch(sheets, /export function VoidDialog/);
+    assert.match(screen, /Alert\.alert\(dialog\.title, dialog\.message, \[\s*\{ text: dialog\.cancel, style: 'cancel' \},\s*\{ text: dialog\.confirm, style: 'destructive', onPress: \(\) => \{ void revert\(movement\); \} \},/);
+    // Düzeltme onay istemiyor: yanlış düzeltme yine düzeltilir.
+    const correct = screen.slice(screen.indexOf('const correct = useCallback'), screen.indexOf('const editable'));
+    assert.doesNotMatch(correct, /Alert\.alert/);
 });
 
-test('salt okunur ekran onay diyaloğu da açmıyor', () => {
-    // Düzeltme, dönem değişimi, sheet kapama, gün sonu — hiçbiri onay istemez.
-    // İptal diyaloğu bileşen olarak DURUYOR (iz kaydı gelince geri bağlanır)
-    // ama ekran onu çizmiyor: arkasında iptal yoksa "Bu işlem geri alınamaz"
-    // demek yalan olurdu.
-    assert.doesNotMatch(screen, /VoidDialog/);
-    assert.doesNotMatch(screen, /Alert\.alert/);
-    assert.match(sheets, /export function VoidDialog/);
-});
-
-test('iptal kaydı SİLMEZ, durumunu değiştirir', () => {
-    const target = mockMovements[0];
-    const after = applyVoid(mockMovements, target.id, 'Ayla', '11:42');
-    assert.equal(after.length, mockMovements.length, 'kayıt silinmiş');
-    const changed = after.find((m) => m.id === target.id);
-    assert.equal(changed.status, 'voided');
-    assert.equal(changed.voidedBy, 'Ayla');
-    assert.equal(traceLine(changed), 'İPTAL · AYLA, 11:42');
-    // Toplam düşer.
-    assert.equal(totalsOf(after).total, totalsOf(mockMovements).total - target.amount);
-    // Zaten iptal olan tekrar iptal edilmez.
-    const twice = applyVoid(after, target.id, 'Başkası', '12:00');
-    assert.equal(twice.find((m) => m.id === target.id).voidedBy, 'Ayla');
-});
-
-test('iptal yapılmış gibi görünmüyor — Kasa salt okunur', () => {
-    // Veritabanında iptal izi yok; "İptal et" yalnız cihazda işaret bırakıp
-    // yenilenince geri geliyordu. Kullanıcının kararı: telefonda salt okunur.
-    assert.doesNotMatch(screen, /kaydedildi|başarıyla|gönderildi/i);
-    assert.match(screenDoc, /SALT OKUNUR/);
+test('ekipte Kasa SALT OKUNUR; eylemler yalnız tek kişilikte ve canlı satırda (karar 4)', () => {
+    assert.match(screenDoc, /EKİPTE SALT OKUNUR, TEK KİŞİLİKTE DÜZELT \/ GERİ AL/);
+    assert.match(screen, /const editable = solo && openMovement !== null && openMovement\.status !== 'voided';/);
     const sheet = screen.slice(screen.indexOf('<MovementSheet'), screen.indexOf('/>', screen.indexOf('<MovementSheet')));
-    assert.doesNotMatch(sheet, /onVoid|onCorrect/);
+    assert.match(sheet, /\{\.\.\.\(editable \? \{\s*onVoid: \(\) => askRevert\(openMovement\),\s*onCorrect: /);
+    // Ekipte "masaüstündeki Kasa'dan"; tek kişilikte geri alınmış satır kendi cümlesini söylüyor.
+    assert.match(sheet, /note: solo \? voidedNote\(openMovement\) : undefined,/);
+    assert.equal(READ_ONLY_NOTE, 'Düzeltme ve iptal masaüstündeki Kasa\'dan yapılır.');
+});
+
+test('yazma ÖNCE sunucuya — yerel "düzeltildi" katmanı yok', () => {
+    // Eskiden "İptal et" yalnız cihazda işaret bırakıyordu ve sayfa yenilenince
+    // tahsilat geri geliyordu. Şimdi ekran yalnız okumayla değişiyor.
     assert.doesNotMatch(screen, /applyVoid|applyCorrection|setMovements/);
+    assert.doesNotMatch(lib, /export function applyVoid|export function applyCorrection/);
+    assert.doesNotMatch(screen, /kaydedildi|başarıyla|gönderildi/i);
+    // Başarıdan SONRA iki okuma da tazeleniyor: Kasa ve günün verisi (G4, şerit).
+    const revert = screen.slice(screen.indexOf('const revert = useCallback'), screen.indexOf('const askRevert'));
+    assert.match(revert, /const result = await revertPayment\(movement\.id\);[\s\S]*void reloadCash\(\);\s*reload\(\);/);
+    const correct = screen.slice(screen.indexOf('const correct = useCallback'), screen.indexOf('const editable'));
+    assert.match(correct, /const result = await correctPayment\(movement\.id, amount, method\);/);
+    assert.match(correct, /return correctionProblem\(result\.code\);/);
+    assert.match(correct, /void reloadCash\(\);\s*reload\(\);\s*return null;/);
+});
+
+test('"Geri al" fişi KENDİSİ kapatıyor — görünmez katman kalmıyor', () => {
+    // `close(onVoid)` onClose'u çağırmıyor; ekran açık hâli kendisi düşürmeli.
+    assert.match(sheets, /if \(after\) after\(\); else onClose\(\);/);
+    const ask = screen.slice(screen.indexOf('const askRevert'), screen.indexOf('const correct = useCallback'));
+    assert.match(ask, /setOpenId\(null\);/);
+});
+
+test('geri alınmış satırın fişi neden sayılmadığını söylüyor', () => {
+    assert.equal(voidedNote({ voidedAt: '15:42' }), '15:42’de geri alındı; tutar gün toplamına girmiyor.');
+    assert.equal(voidedNote({}), 'Geri alındı; tutar gün toplamına girmiyor.');
+});
+
+test('hayırların cümlesi kaydın DEĞİŞMEDİĞİNİ söylüyor', () => {
+    assert.match(correctionProblem('no_change'), /düzeltilecek bir şey yok/);
+    assert.match(correctionProblem('zero_amount'), /Geri al/);
+    assert.match(correctionProblem('plan_payment_amount_must_be_positive'), /sıfır lira olamaz/);
+    assert.match(correctionProblem('already_voided'), /Kasa yenilendi/);
+    assert.match(correctionProblem('installment_payment_exceeds_balance'), /kalan borcunu aşıyor/);
+    assert.match(correctionProblem('plan_payment_exceeds_balance'), /kalan borcunu aşıyor/);
+    assert.match(correctionProblem('paused'), /şimdilik alınmıyor/);
+    assert.match(correctionProblem('beklenmedik'), /kaydedilmedi/);
+    assert.match(revertProblem('already_voided'), /zaten geri alınmış/);
+    assert.match(revertProblem('beklenmedik'), /tahsilat yerinde duruyor/i);
 });
 
 // ── 14d · boş gün ───────────────────────────────────────────────────────────
@@ -476,7 +504,9 @@ test('yalnız opaklık ve dönüşüm anime ediliyor', () => {
         assert.doesNotMatch(src, /Animated\.[a-zA-Z]+\([^)]*(height|backgroundColor|borderRadius|shadow)/);
     }
     assert.match(sheets, /translateY: y/);
-    assert.match(sheets, /outputRange: \[0\.96, 1\]/);
+    // Karartma yalnız opaklıkla geliyor. (Özel onay diyaloğunun ölçeği kalktı:
+    // onay artık sistemin uyarısı.)
+    assert.match(sheets, /zIndex: 70, opacity: backdrop \}\}/);
     assert.equal(cashMetrics.sheetMotion, 320);
 });
 
@@ -484,27 +514,26 @@ test('hareketi azalt açıkken sheet yalnız sönümleniyor', () => {
     assert.match(sheets, /reduceMotion\s*\n?\s*\?\s*Animated\.timing\(backdrop/);
 });
 
-test('sheet ve diyalog sekme çubuğunun ÜSTÜNDE', () => {
+test('fiş sekme çubuğunun ÜSTÜNDE', () => {
     // Sekme çubuğunu sistem çiziyor (NativeTabs); ekran içindeki zIndex ona
     // yetmiyor. Mutlak konumlu sheet'te eylem butonları çubuğun arkasında
-    // yutuluyor ve karartma çubuğu karartamıyordu.
+    // yutuluyor ve karartma çubuğu karartamıyordu. (Onay artık sistem uyarısı;
+    // özel diyaloğun Modal'ı kalktı.)
     const uses = sheets.match(/<Modal /g) || [];
-    assert.equal(uses.length, 2, 'sheet ve diyalog Modal içinde olmalı');
+    assert.equal(uses.length, 1, 'fiş Modal içinde olmalı');
     assert.match(sheets, /statusBarTranslucent/);
     // Kapatma jesti geri tuşuyla da çalışsın.
-    assert.equal((sheets.match(/onRequestClose=/g) || []).length, 2);
+    assert.equal((sheets.match(/onRequestClose=/g) || []).length, 1);
     // Alt pay artık çubuğu değil yalnız güvenli alanı hesaba katıyor.
     assert.match(sheets, /paddingBottom: insets\.bottom \+ 30/);
 });
 
-test('iptal izi kim olduğunu UYDURMAZ', () => {
-    // Sabit "Ayla · 11:42" yazıyordu. An cihazın saati (iptal şu an oluyor),
-    // kim olduğu oturumdan gelecek — gelene kadar izde hiç yazılmaz.
-    assert.equal(traceLine({ status: 'voided', voidedAt: '11:42' }), 'İPTAL · 11:42');
-    assert.equal(traceLine({ status: 'voided', voidedBy: 'Ayla', voidedAt: '11:42' }), 'İPTAL · AYLA, 11:42');
-    assert.equal(traceLine({ status: 'voided' }), 'İPTAL');
-    // Ekran iptal İZİ de uydurmuyor: veritabanında iz yokken yerel bir
-    // "İPTAL · 11:42" satırı çizmek, hiç olmamış bir iptali göstermekti.
+test('iz kimin yaptığını YAZMIYOR — saat sunucunun damgasından', () => {
+    // Tek kişilikte cevap hep "sen"; ekipte satır zaten çizilmiyor. Boş bir
+    // isim uydurmaktansa hiç yazmamak. Saat `voided_at`ten (cashBuild).
+    assert.equal(traceLine({ status: 'voided', voidedAt: '11:42' }), 'geri alındı 11:42');
+    assert.equal(traceLine({ status: 'voided', voidedBy: 'Ayla', voidedAt: '11:42' }), 'geri alındı 11:42');
+    assert.equal(traceLine({ status: 'voided' }), 'geri alındı');
     assert.doesNotMatch(screen, /applyVoid\(/);
 });
 
@@ -529,55 +558,53 @@ test('bekleyen adisyon şeridi ÖLÜ DEĞİL — ekipte Akış\'a, tek kişilikt
 // "Düzelt" düğmesi vardı ve `onPress`i YOKTU: basılıp hiçbir şey olmuyordu.
 // Ekranın kendi cümlesi davranışı zaten tarif ediyordu; eksik olan davranıştı.
 
-test('düzeltme güncellemez — eskisi iptal, yenisi üstüne yazılır', () => {
-    const before = [
-        { id: 'm1', time: '11:34', customer: 'Merve Aydın', initials: 'MA', service: 'Kesim', staff: 'Merve', amount: 1800, method: 'card', status: 'normal' },
-    ];
-    const after = applyCorrection(before, 'm1', 1500, null, '12:02');
-    assert.equal(after.length, 2, 'iki kayıt olmalı: yeni ve iptal edilmiş eski');
-    assert.equal(after[0].amount, 1500, 'yeni tutar ÜSTTE');
-    assert.equal(after[0].status, 'corrected');
-    assert.equal(after[0].correctedFrom, 'm1', 'iz yok');
-    assert.equal(after[1].id, 'm1');
-    assert.equal(after[1].status, 'voided', 'eski kayıt iptal edilmedi');
-    assert.equal(after[1].amount, 1800, 'eski tutar DEĞİŞMEMELİ — denetim izi');
+test('düzeltilmiş satırın izi "X verdi"nin yuvasında (v4 · C1)', () => {
+    const fixed = { status: 'corrected', correctedAt: '15:40', correctedFromAmount: 1200 };
+    assert.equal(correctionTrace(fixed), 'düzeltildi 15:40 · önce ₺1.200');
+    // Önceki tutar bilinmiyorsa uydurulmuyor.
+    assert.equal(correctionTrace({ status: 'corrected', correctedAt: '15:40' }), 'düzeltildi 15:40');
+    assert.equal(correctionTrace({ status: 'normal' }), null);
+    // Kart: iz satırı ve SADE çizim — eskinin kehribar tonu ve "DÜZELTİLDİ" çipi yok.
+    assert.match(parts, /\) : correction \? \(/);
+    assert.doesNotMatch(parts, /DÜZELTİLDİ/);
+    assert.match(parts, /const tone = voided\s*\?/);
 });
 
-test('düzeltme kalemleri taşımaz — toplamı tutmayan döküm yanıltır', () => {
-    const before = [{
-        id: 'm1', time: '11:34', customer: 'A', initials: 'A', service: 'S', staff: 'M',
-        amount: 1800, method: 'cash', status: 'normal',
-        lines: [{ name: 'Kesim', amount: 1000 }, { name: 'Fön', amount: 800 }],
-    }];
-    const after = applyCorrection(before, 'm1', 1500, null, '12:02');
-    assert.equal(after[0].lines, undefined);
-    // Eskisinin dökümü DURUYOR: o kayıt hâlâ doğru.
-    assert.equal(after[1].lines.length, 2);
+test('düzeltme ve geri alma sesli okunuyor — "lira" ile, işaretle değil', () => {
+    const base = { ...mockMovements[0], amount: 1000, method: 'card', staff: '' };
+    const fixed = movementSpeech({ ...base, status: 'corrected', correctedAt: '15:40', correctedFromAmount: 1200 });
+    assert.match(fixed, /Düzeltildi 15:40, önce 1\.200 lira\.$/);
+    assert.doesNotMatch(fixed, /₺/);
+    assert.match(movementSpeech({ ...base, status: 'voided', voidedAt: '15:42' }), /^Geri alındı\. /);
 });
 
-test('iptal edilmiş kayıt düzeltilmez', () => {
-    const before = [
-        { id: 'm1', time: '11:34', customer: 'A', initials: 'A', service: 'S', staff: 'M', amount: 1800, method: 'cash', status: 'voided' },
-    ];
-    assert.deepEqual(applyCorrection(before, 'm1', 1500, null, '12:02'), before);
+test('geri alınmış satır düzeltilmez de yeniden geri alınmaz', () => {
+    // Ekran eylemleri açmıyor; sunucu da `already_voided` diyor.
+    assert.match(screen, /openMovement\.status !== 'voided'/);
+    assert.match(correctionProblem('already_voided'), /değişti/);
 });
 
-test('sıfır ve aynı tutar kaydedilemez', () => {
-    // Sıfır bir tahsilat değil; öyle bir şey olduysa yapılacak şey İPTAL.
+test('sıfır ve hiçbir şey değiştirmeyen düzeltme kaydedilemez', () => {
+    // Sıfır bir tahsilat değil; öyle bir şey olduysa yapılacak şey GERİ ALMA.
     assert.equal(parseAmount('0'), null);
     assert.equal(parseAmount(''), null);
     assert.equal(parseAmount('1.500'), 1500, 'ayırıcı yazan müdür cezalandırılmaz');
-    // Aynı tutar düzeltme değildir — kasaya iki satır ekleyip hiçbir şeyi
-    // değiştirmezdi.
+    // Aynı tutar ve aynı yöntem düzeltme değildir (sunucu da `no_change` der).
     assert.equal(canCorrect('1800', 1800), false);
+    assert.equal(canCorrect('1800', 1800, 'cash', 'cash'), false);
     assert.equal(canCorrect('1500', 1800), true);
+    // v4 C3: yalnız YÖNTEM değişse de düzeltme var — nakit iş karta yazılmış olabilir.
+    assert.equal(canCorrect('1800', 1800, 'card', 'cash'), true);
 });
 
-test('Düzelt düğmesi ölü değil', () => {
+test('Düzelt satırı ölü değil — sayfayı açıyor, kaydet sunucuya gidiyor', () => {
     const src = readFileSync(new URL('../mobile/src/components/CashSheets.tsx', import.meta.url), 'utf8');
     const sheet = src.slice(src.indexOf('export function MovementSheet('), src.indexOf('function Section('));
-    assert.match(sheet, /accessibilityLabel=\{ACTION_CORRECT\}[\s\S]{0,80}onPress=/);
-    assert.match(sheet, /onCorrect\?\.\(amount\)/);
+    assert.match(sheet, /if \(row\.danger\) \{ close\(onVoid\); return; \}[\s\S]{0,400}setCorrecting\(true\);/);
+    assert.match(sheet, /const failure = await onCorrect\?\.\(amount, methodDraft\) \?\? null;/);
+    // v4 C3: ret gelirse sayfa açık kalır, sebep düğmenin üstünde.
+    assert.match(sheet, /if \(failure === null\) close\(\);\s*else setSaveError\(failure\);/);
+    assert.ok(sheet.indexOf('{saveError}') < sheet.indexOf('accessibilityLabel={ACTION_SAVE}'));
 });
 
 test('kasa fişi aşağı çekilerek kapanır', () => {

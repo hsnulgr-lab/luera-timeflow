@@ -17,8 +17,9 @@ import { pendingOf, sortFlow } from '../mobile/src/lib/managerFlow.ts';
  * tutar masaüstündekiyle aynı olmalı — iki ekran iki farklı borç söylerse
  * müdür hangisine inanacağını bilemez.
  *
- * İkinci ağır kural: Kasa telefonda SALT OKUNUR. Veritabanında iptal izi yok;
- * yerel "iptal" yenilenince geri geliyordu (kullanıcı kararı, 2026-09-16).
+ * İkinci ağır kural: Kasa EKİPTE salt okunur (kullanıcı kararı, 2026-09-16 ·
+ * v4 karar 4). Tek kişilikte Düzelt / Geri al var ve iz SUNUCUDA (111): eski
+ * kayıt silinmiyor, damgalanıyor; Kasa izi `voided_payments`tan okuyor.
  */
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -420,10 +421,64 @@ test('yenileme çarkı iki okuma bitmeden durmuyor', () => {
     assert.match(screen, /Promise\.all\(\[reloadCash\(\), reload\(\)\]\)\.finally\(\(\) => setRefreshing\(false\)\)/);
 });
 
-test('fiş salt okunur: eylem şeridi yok, yerinde nerede yapılacağı yazıyor', () => {
+test('eylemsiz fiş: satırlar yok, yerinde NEREDE yapılacağı ya da neden yapılmadığı yazıyor', () => {
     assert.match(sheets, /\) : !onVoid \? null : \(/);
-    assert.match(sheets, /\{onVoid \? CORRECTION_NOTE : READ_ONLY_NOTE\}/);
+    // Varsayılan cümle ekibin; tek kişilikte geri alınmış satır kendi cümlesini veriyor.
+    assert.match(sheets, /onOpenCustomer, note = READ_ONLY_NOTE \}/);
+    assert.match(sheets, /\{onVoid \|\| !note \? null : \(/);
+    assert.match(sheets, /\{note\}/);
     assert.match(read('mobile/src/lib/cash.ts'), /READ_ONLY_NOTE = 'Düzeltme ve iptal masaüstündeki Kasa\\'dan yapılır\.'/);
+});
+
+// ── İz (111 · v4 C1/C2) ─────────────────────────────────────────────────────
+
+test('düzeltilmiş tahsilat TEK satır: yeni tutar, altında düzeltmenin saati ve önceki tutar', () => {
+    const old = pay({ id: 'eski', amount: 1200, voided_at: new Date(2026, 8, 16, 15, 40).toISOString(), void_reason: 'correction' });
+    const fixed = pay({
+        id: 'yeni', amount: 1000, method: 'card', corrected_from: 'eski',
+        // Saat yerinde (paid_at kopyalandı); düzeltmenin kendi saati created_at.
+        created_at: new Date(2026, 8, 16, 15, 40).toISOString(),
+    });
+    const list = toMovements([fixed], lookup(), [old]);
+    assert.deepEqual(list.map((m) => m.id), ['yeni'], 'eski satır listede ayrıca çizilmiyor');
+    assert.equal(list[0].status, 'corrected');
+    assert.equal(list[0].time, '11:12', 'tahsilatın saati değişmiyor');
+    assert.equal(list[0].correctedAt, '15:40');
+    assert.equal(list[0].correctedFromAmount, 1200);
+    assert.equal(list[0].correctedFrom, 'eski');
+    // Toplama yeni tutar giriyor, eskisi girmiyor.
+    assert.equal(totalsOf(list).total, 1000);
+});
+
+test('geri alınan tahsilat YERİNDE kalıyor, toplama girmiyor, saatiyle iz bırakıyor', () => {
+    const back = pay({ id: 'geri', amount: 1900, voided_at: new Date(2026, 8, 16, 15, 42).toISOString(), void_reason: 'revert' });
+    const live = pay({ id: 'canli', amount: 700, paid_at: new Date(2026, 8, 16, 12, 0).toISOString() });
+    const list = toMovements([live], lookup(), [back]);
+    assert.deepEqual(list.map((m) => m.id), ['canli', 'geri'], 'paranın alındığı saatte duruyor');
+    const reverted = list.find((m) => m.id === 'geri');
+    assert.equal(reverted.status, 'voided');
+    assert.equal(reverted.voidedAt, '15:42');
+    assert.equal(reverted.reservationId, 'r1', 'adisyonu olduğu biliniyor — uyarı "yeniden açılır" diyebilsin');
+    assert.equal(totalsOf(list).total, 700);
+    assert.equal(counterLine(totalsOf(list)), '1 işlem · 1 geri alındı');
+});
+
+test('düzeltilmiş tutarın dökümü yok — toplamı tutmayan döküm yanıltır', () => {
+    const fixed = pay({ id: 'yeni', amount: 2000, corrected_from: 'eski', created_at: new Date().toISOString() });
+    const [row] = toMovements([fixed], lookup(), []);
+    assert.equal(row.lines, undefined);
+    // Önceki tutarın kaydı okunamadıysa "önce ₺…" uydurulmuyor.
+    assert.equal(row.correctedFromAmount, undefined);
+});
+
+test('iz okuması: damgalı satırlar YALNIZ voided_payments\'tan, Kasa\'nın penceresiyle', () => {
+    // Damgalı satır RLS ile gizli; toplamlar ona hiç dokunmuyor.
+    assert.match(source, /const PAY_COLS = 'id, reservation_id, customer_id, staff_id, type, description, amount, method, paid_at, '\s*\+ 'created_at, corrected_from';/);
+    assert.match(source, /supabase\.rpc\('voided_payments', \{\s*p_org: organizationId,\s*p_from: new Date\(fromMs\)\.toISOString\(\),\s*p_to: new Date\(toMs\)\.toISOString\(\),\s*\}\)/);
+    // Yalnız SEÇİLİ dönem (önceki dönemin karşılaştırma toplamı canlı satırlardan).
+    assert.match(source, /fetchVoidedPayments\(organizationId, currentFromMs, toMs\)/);
+    assert.match(source, /return \{ payments, voided, reservations, customers \};/);
+    assert.match(hook, /\}, cash\.voided\),/);
 });
 
 test('müşteri kartı bağlantısı ölü değil — hedefi yoksa çizilmiyor', () => {

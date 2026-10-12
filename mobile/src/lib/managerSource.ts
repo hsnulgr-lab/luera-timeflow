@@ -1115,7 +1115,9 @@ function chunksOf(ids: readonly string[]): string[][] {
 const CASH_RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
     + 'service, status, staff_id, is_paid, group_id, custom_fields, adisyon_items, service_ended_at';
 
-const PAY_COLS = 'id, reservation_id, customer_id, staff_id, type, description, amount, method, paid_at';
+/** `created_at` + `corrected_from`: düzeltmenin izi (111 · v4 C1). */
+const PAY_COLS = 'id, reservation_id, customer_id, staff_id, type, description, amount, method, paid_at, '
+    + 'created_at, corrected_from';
 
 function toCashReservation(row: Record<string, unknown>): CashReservationRow {
     const fields = row.custom_fields;
@@ -1151,7 +1153,29 @@ function toCashPayment(row: Record<string, unknown>): CashPaymentRow {
         amount: Number(row.amount ?? 0),
         method: String(row.method ?? 'other'),
         paid_at: String(row.paid_at ?? ''),
+        created_at: (row.created_at as string | null) ?? null,
+        corrected_from: (row.corrected_from as string | null) ?? null,
+        voided_at: (row.voided_at as string | null) ?? null,
+        void_reason: (row.void_reason as string | null) ?? null,
     };
+}
+
+/**
+ * Dönemin DAMGALI tahsilatları — Kasa'nın izi (111 · `voided_payments`).
+ *
+ * Damgalı satır RLS ile gizli: `payments` okuması onu hiç görmüyor ve bu
+ * bilerek (masaüstü, eski sürümler ve bütün toplamlar koda dokunmadan doğru
+ * kalıyor). İz yalnız buradan okunuyor; pencere Kasa'nın kendi sorgusuyla
+ * AYNI (`paid_at`, iki uç dahil).
+ */
+async function fetchVoidedPayments(organizationId: string, fromMs: number, toMs: number): Promise<CashPaymentRow[]> {
+    const { data, error } = await supabase.rpc('voided_payments', {
+        p_org: organizationId,
+        p_from: new Date(fromMs).toISOString(),
+        p_to: new Date(toMs).toISOString(),
+    });
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map(toCashPayment);
 }
 
 /** Randevular — kimlikleriyle, parça parça. */
@@ -1234,19 +1258,28 @@ export async function fetchCashPayments(
     currentFromMs: number,
 ): Promise<{
     payments: CashPaymentRow[];
+    /** Seçili dönemin damgalı satırları — yalnız iz için; toplamlara girmiyor. */
+    voided: CashPaymentRow[];
     reservations: CashReservationRow[];
     customers: Map<string, string>;
 }> {
     const organizationId = await orgIdOrThrow();
-    const raw = await readAll((from, to) => supabase.from('payments').select(PAY_COLS)
-        .eq('organization_id', organizationId)
-        .gte('paid_at', new Date(fromMs).toISOString())
-        .lte('paid_at', new Date(toMs).toISOString())
-        .order('paid_at').order('id')
-        .range(from, to)
-        .returns<Record<string, unknown>[]>());
+    const [raw, voided] = await Promise.all([
+        readAll((from, to) => supabase.from('payments').select(PAY_COLS)
+            .eq('organization_id', organizationId)
+            .gte('paid_at', new Date(fromMs).toISOString())
+            .lte('paid_at', new Date(toMs).toISOString())
+            .order('paid_at').order('id')
+            .range(from, to)
+            .returns<Record<string, unknown>[]>()),
+        fetchVoidedPayments(organizationId, currentFromMs, toMs),
+    ]);
     const payments = raw.map(toCashPayment);
-    const current = payments.filter((payment) => Date.parse(payment.paid_at) >= currentFromMs);
+    // Geri alınan satır da kartta müşterisi ve hizmetiyle çiziliyor.
+    const current = [
+        ...payments.filter((payment) => Date.parse(payment.paid_at) >= currentFromMs),
+        ...voided,
+    ];
 
     const [reservations, customerParts] = await Promise.all([
         reservationsById(
@@ -1268,7 +1301,7 @@ export async function fetchCashPayments(
         const name = String(row.name ?? '').trim();
         if (name) customers.set(String(row.id), name);
     }
-    return { payments, reservations, customers };
+    return { payments, voided, reservations, customers };
 }
 
 /**

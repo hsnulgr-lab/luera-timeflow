@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-    Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View,
+    Alert, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,8 +17,11 @@ import {
     periodLabel, periodSummaryTitle, PERIODS, ratioSpeech,
     summaryLine, totalsOf,
     EMPTY_TITLE, formatAmount, pendingSubtitle, pendingTitle,
-    type CashPeriod, type Movement,
+    correctionProblem, REVERT_FAILED_TITLE, revertProblem, voidDialog, voidedNote,
+    type CashMethod, type CashPeriod, type Movement,
 } from '../../src/lib/cash';
+import { feedback } from '../../src/lib/feedback';
+import { correctPayment, revertPayment } from '../../src/lib/managerWrite';
 import { hhmm } from '../../src/lib/calendar';
 import { useManagerCash } from '../../src/lib/managerCash';
 import { orgDurum } from '../../src/lib/managerDurum';
@@ -61,9 +64,12 @@ import { cashMetrics, font, useTheme } from '../../src/theme';
  * adisyonlar akışın ortak gün verisinden. Toplamların ölçüsü masaüstü Kasa —
  * kural `cashBuild.ts`in başında yazılı.
  *
- * SALT OKUNUR. Veritabanında iptal ya da düzeltme izi yok; "İptal et" yalnız
- * cihazda bir işaret bırakıyordu ve sayfa yenilenince tahsilat geri geliyordu.
- * Kullanıcının kararı: düzeltme ve iptal masaüstündeki Kasa'dan yapılır.
+ * EKİPTE SALT OKUNUR, TEK KİŞİLİKTE DÜZELT / GERİ AL (v4 karar 4 · C2/C3).
+ * Eskiden iki modda da salt okunurdu: veritabanında iz yoktu ve "İptal et"
+ * yalnız cihazda bir işaret bırakıyordu. İz artık sunucuda (111): eski kayıt
+ * silinmiyor, damgalanıyor; Kasa izi okuyup satırın altına yazıyor. Ekibin
+ * müdürü masaüstünü kullanıyor ("masaüstündeki Kasa'dan"); tek kişilik
+ * işletmenin masaüstü yok — eylemler yalnız orada açılıyor.
  */
 
 /** Okunmamış dönemin listesi — her çizimde yeni bir dizi üretmesin. */
@@ -163,6 +169,55 @@ export default function ManagerKasa() {
     }, [reload, reloadCash]);
 
     const openMovement = movements.find((m) => m.id === openId) ?? null;
+
+    /*
+     * DÜZELT / GERİ AL — YALNIZ TEK KİŞİLİKTE (v4 · C2/C3, karar 4).
+     *
+     * Ekipte Kasa salt okunur kalıyor: müdürün masaüstü var ve parayı
+     * telefondan değiştirmek ekibin iş bölümü değil. Tek kişilik işletmenin
+     * masaüstü YOK; "masaüstündeki Kasa'dan" cümlesi orada bir çıkmaz sokaktı.
+     *
+     * Yazma önce sunucuya (111 · `correct_payment` / `revert_payment`), ekran
+     * sonra okumayla değişiyor: yerel bir "düzeltildi" katmanı yok. İki yazmadan
+     * sonra hem Kasa hem günün verisi tazeleniyor — geri alınan adisyon Gün'de
+     * G4 kartına ve buradaki turuncu şeride dönüyor.
+     */
+    const revert = useCallback(async (movement: Movement) => {
+        const result = await revertPayment(movement.id);
+        if (result.ok) feedback.success();
+        else Alert.alert(REVERT_FAILED_TITLE, revertProblem(result.code));
+        // Hayırda da tazeleniyor: "zaten geri alınmış" güncel hâli getirmeli.
+        void reloadCash();
+        reload();
+    }, [reloadCash, reload]);
+
+    const askRevert = useCallback((movement: Movement) => {
+        // `close(onVoid)` fişi kapatıyor ama `onClose`u çağırmıyor: açık hâl
+        // burada düşmezse görünmez bir katman ekranı kilitlerdi.
+        setOpenId(null);
+        const dialog = voidDialog(movement);
+        // v4: "Geri al sistem uyarısıyla onaylanır."
+        Alert.alert(dialog.title, dialog.message, [
+            { text: dialog.cancel, style: 'cancel' },
+            { text: dialog.confirm, style: 'destructive', onPress: () => { void revert(movement); } },
+        ]);
+    }, [revert]);
+
+    const correct = useCallback(async (movement: Movement, amount: number, method: CashMethod) => {
+        const result = await correctPayment(movement.id, amount, method);
+        if (!result.ok) {
+            // Satır başka yerde değişmiş: fiş açık kalıyor ama altı tazeleniyor.
+            if (result.code === 'already_voided' || result.code === 'payment_not_found') void reloadCash();
+            return correctionProblem(result.code);
+        }
+        feedback.success();
+        void reloadCash();
+        reload();
+        return null;
+    }, [reloadCash, reload]);
+
+    /** Eylem açık mı: tek kişilik ve satır CANLI (geri alınmış satır değişmez). */
+    const editable = solo && openMovement !== null && openMovement.status !== 'voided';
 
     /*
      * Red üç yere çıkar ama AYNI yere değil: erişimi kaldırılmış müdürün
@@ -527,6 +582,14 @@ export default function ManagerKasa() {
                 <MovementSheet
                     movement={openMovement}
                     onClose={() => setOpenId(null)}
+                    {...(editable ? {
+                        onVoid: () => askRevert(openMovement),
+                        onCorrect: (amount: number, method: CashMethod) => correct(openMovement, amount, method),
+                    } : {
+                        // Ekipte "masaüstündeki Kasa'dan"; tek kişilikte geri
+                        // alınmış satır kendi cümlesini söylüyor.
+                        note: solo ? voidedNote(openMovement) : undefined,
+                    })}
                 />
             ) : null}
         </View>

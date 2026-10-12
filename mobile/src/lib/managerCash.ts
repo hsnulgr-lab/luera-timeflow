@@ -49,7 +49,7 @@ export function useManagerCash(period: CashPeriod): ManagerSnapshot<ManagerCash>
                 customers: cash.customers,
                 staff: new Map(crew.map((person) => [person.id, person.name])),
                 services,
-            }),
+            }, cash.voided),
             previousTotal: sumBetween(cash.payments, range.prevFrom, range.prevTo),
         };
     }, [period]);

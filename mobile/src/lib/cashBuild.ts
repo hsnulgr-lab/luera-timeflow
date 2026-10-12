@@ -36,6 +36,13 @@ export interface CashPaymentRow {
     amount: number;
     method: string;
     paid_at: string;
+    /** Kaydın yazıldığı an — düzeltmede düzeltmenin KENDİ saati (111). */
+    created_at?: string | null;
+    /** Bu satır bir düzeltme ise damgalanan eski satırın kimliği (111). */
+    corrected_from?: string | null;
+    /** Damgalı satırda: ne zaman ve neden (`correction` | `revert`). Yalnız `voided_payments`tan gelir. */
+    voided_at?: string | null;
+    void_reason?: string | null;
 }
 
 /** Adisyon hesabının ihtiyacı olan randevu alanları. */
@@ -374,12 +381,26 @@ export interface MovementLookup {
     services: readonly CatalogService[];
 }
 
+/** "15:40" — bir damganın cihaz saatindeki karşılığı; okunamazsa boş. */
+function clockAt(iso: string | null | undefined): string {
+    const at = new Date(iso ?? '');
+    return Number.isNaN(at.getTime()) ? '' : `${two(at.getHours())}:${two(at.getMinutes())}`;
+}
+
 /**
  * Tahsilat satırı → Kasa hareketi. En yeni üstte.
  *
- * `status` hep `normal`: veritabanında iptal ya da düzeltme izi YOK
- * (`022_payments.sql`). Masaüstü tahsilatı silerek geri alıyor; silinen satır
- * burada da görünmez. İz kaydı gelene kadar Kasa telefonda salt okunur.
+ * ── İZ (111 · v4 C1/C2) ─────────────────────────────────────────────────────
+ * Damgalı satırlar uygulamaya görünmüyor; iz `voided_payments`tan ayrıca
+ * geliyor (`voided`). Üç durum:
+ *   • DÜZELTİLMİŞ (canlı satır, `corrected_from` dolu): tek satır, yeni
+ *     tutarla; altında "düzeltildi 15:40 · önce ₺1.200". Eski satır listede
+ *     AYRICA çizilmiyor — kullanıcı tek eylem yaptı, Kasa tek satır gösteriyor.
+ *   • GERİ ALINMIŞ (`void_reason = 'revert'`): satır yerinde kalıyor (paranın
+ *     alındığı saatte), tutar toplama girmiyor, altında "geri alındı 15:40".
+ *     Kaybolsaydı gün toplamının neden düştüğü açıklanamazdı.
+ *   • Düzeltmeyle damgalanan eski satır (`void_reason = 'correction'`): yalnız
+ *     "önce ₺…" tutarının kaynağı.
  *
  * `staff` hizmeti VEREN personel: masaüstü `payments.staff_id`e randevunun
  * personelini yazıyor, parayı kasada alan kişiyi değil. Kart bu yüzden
@@ -387,10 +408,16 @@ export interface MovementLookup {
  *
  * Kalem dökümü YALNIZ toplamı tahsilatı tutuyorsa veriliyor. İndirim,
  * kapora ya da elle girilmiş tutar dökümü bozar; toplamı tutmayan bir döküm,
- * dökümsüzlükten çok yanıltır (`cash.applyCorrection` ile aynı gerekçe).
+ * dökümsüzlükten çok yanıltır — düzeltilmiş tutar da çoğu zaman tutmaz.
  */
-export function toMovements(payments: readonly CashPaymentRow[], lookup: MovementLookup): Movement[] {
-    return [...payments]
+export function toMovements(
+    payments: readonly CashPaymentRow[],
+    lookup: MovementLookup,
+    voided: readonly CashPaymentRow[] = [],
+): Movement[] {
+    const stamped = new Map(voided.map((row) => [row.id, row]));
+    const reverted = voided.filter((row) => row.void_reason === 'revert');
+    return [...payments, ...reverted]
         .sort((a, b) => b.paid_at.localeCompare(a.paid_at))
         .map((payment) => {
             const reservation = payment.reservation_id
@@ -415,7 +442,18 @@ export function toMovements(payments: readonly CashPaymentRow[], lookup: Movemen
                 amount: Number.isFinite(payment.amount) ? payment.amount : 0,
                 method: methodOf(payment.method),
                 status: 'normal',
+                reservationId: payment.reservation_id,
             };
+            if (payment.voided_at) {
+                movement.status = 'voided';
+                movement.voidedAt = clockAt(payment.voided_at);
+            } else if (payment.corrected_from) {
+                movement.status = 'corrected';
+                movement.correctedFrom = payment.corrected_from;
+                movement.correctedAt = clockAt(payment.created_at);
+                const before = stamped.get(payment.corrected_from);
+                if (before && Number.isFinite(before.amount)) movement.correctedFromAmount = before.amount;
+            }
             if (valid) movement.dateLabel = `${formatDayMonth(iso)} ${at.getFullYear()}, ${time}`;
             if (reservation) {
                 movement.range = `${clockText(reservation.start_time)}–${clockText(reservation.end_time)}`;

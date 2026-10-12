@@ -607,3 +607,71 @@ export async function createPackage(input: PackageSaleInput): Promise<PackageSal
         return { ok: false, kind: 'failed' };
     }
 }
+
+// ── Kasa · düzelt ve geri al (111 · v4 C2/C3) ───────────────────────────────
+
+export type PaymentWriteOutcome = { ok: true } | { ok: false; code: string };
+
+/**
+ * Sunucunun hayırları — 111 ve 061 `raise exception` metnini taşıyor ve
+ * PostgREST onu `message`a koyuyor. Sırası önemli değil: adların hiçbiri
+ * ötekinin parçası değil.
+ */
+const PAYMENT_REFUSALS = [
+    'no_change', 'zero_amount', 'bad_method', 'already_voided', 'payment_not_found',
+    'subscription_inactive', 'installment_payment_exceeds_balance', 'plan_payment_exceeds_balance',
+    'plan_payment_amount_must_be_positive',
+] as const;
+
+function paymentRefusal(error: { code?: string | null; message?: string | null }): string {
+    const message = String(error.message ?? '');
+    const known = PAYMENT_REFUSALS.find((code) => message.includes(code));
+    if (known) return known;
+    if (error.code === '42501') return 'subscription_inactive';
+    // İstek hiç gitmedi: supabase-js ağ hatasını fırlatmıyor, `message`a yazıyor.
+    if (/network request failed|failed to fetch/i.test(message)) return 'offline';
+    return 'failed';
+}
+
+/**
+ * Tahsilatı DÜZELT — tutar ve/veya yöntem (v4 · C3).
+ *
+ * Bir güncelleme DEĞİL: sunucu eski satırı damgalıyor ve yenisini eskisinin
+ * tam kopyası olarak yazıyor, ikisi tek işlemde (`correct_payment`). Saat
+ * (`paid_at`) yerinde kalıyor; düzeltmenin saati yeni satırın `created_at`i.
+ */
+export async function correctPayment(
+    paymentId: string,
+    amount: number,
+    method: string,
+): Promise<PaymentWriteOutcome> {
+    if (await writesPaused()) return { ok: false, code: 'paused' };
+    try {
+        const { error } = await supabase.rpc('correct_payment', {
+            p_payment: paymentId,
+            p_amount: amount,
+            p_method: method,
+        });
+        return error ? { ok: false, code: paymentRefusal(error) } : { ok: true };
+    } catch {
+        return { ok: false, code: 'offline' };
+    }
+}
+
+/**
+ * Tahsilatı GERİ AL (v4 · C2) — damgalar ve adisyonu yeniden açar.
+ *
+ * Adisyon yalnız başka canlı tahsilat kalmadıysa açılıyor (bölünmüş ödeme);
+ * kararı sunucu kilitle veriyor (`revert_payment`). Açılan adisyon Gün'de
+ * G4 kartına, Kasa'da turuncu şeride döner.
+ */
+export async function revertPayment(paymentId: string): Promise<PaymentWriteOutcome> {
+    if (await writesPaused()) return { ok: false, code: 'paused' };
+    try {
+        const { error } = await supabase.rpc('revert_payment', { p_payment: paymentId });
+        return error ? { ok: false, code: paymentRefusal(error) } : { ok: true };
+    } catch {
+        return { ok: false, code: 'offline' };
+    }
+}
+
