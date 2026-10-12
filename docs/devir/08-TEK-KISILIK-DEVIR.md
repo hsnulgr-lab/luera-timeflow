@@ -1,6 +1,6 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda ve `main`'de)
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda; §22 tohumu ve §23 de `main`'de)
 **Testler:** 2879 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
 > **2026-10-12 · TEST SIRASINDA (§23):** Gün başlığı gelmeyeni ve iptali
