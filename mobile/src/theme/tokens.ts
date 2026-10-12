@@ -3157,6 +3157,11 @@ export const soloDayMetrics = {
      * TAHSİLAT GÜVERTESİ (v4 · K3/K4) — kumandanın son adımı tek modda.
      * Ölçüler `.kfoot` / `.seg` / `.kbtn` / `.kgh` / `.kerr`.
      */
+    /**
+     * `.kfoot` 11 px kenar payı. Kumandanın eylem bölgesi zaten 12 pt içeride
+     * (`marginHorizontal: 12`); güverte kendi payını EKLEMİYOR, yoksa seçici
+     * ve düğme tasarımdan 11 pt dar kalırdı.
+     */
     collectPadX: 11,
     collectPadBottom: 18,
     collectGap: 10,
@@ -3166,6 +3171,15 @@ export const soloDayMetrics = {
     segItemHeight: 38,
     segItemRadius: 10,
     segText: 15,
+    /**
+     * Seçili yöntemin zemini koyu temada. `.seg button.on`ın `--card`ı koyuda
+     * `--fld`le neredeyse aynı (#241E16 / %7 krem) ve seçim görünmüyordu
+     * (2026-10-13, telefon). Değer tasarımın kendi koyu seçicisinden
+     * (`.isl .seg button.on`).
+     */
+    segOnDark: 'rgba(243,237,227,0.13)',
+    /** Seçili zeminin yöntemden yönteme kayışı — uygulamanın yay sözlüğü. */
+    segSpring: { stiffness: 330, damping: 26, mass: 0.6 },
     payHeight: 59,
     payRadius: 26,
     payText: 19,

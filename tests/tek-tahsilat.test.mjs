@@ -213,3 +213,41 @@ test('İKİNCİ bir gönderim yolu YAZILMADI', () => {
     assert.equal((kumanda.match(/sendVisitToCash\(/g) ?? []).length, 1);
     assert.match(kumanda, /onLater=\{\(\) => \{[\s\S]{0,220}setCollectStage\('pending'\)/);
 });
+
+// ── Güverte tam genişlik + kayan seçim (2026-10-13, telefon) ────────────────
+//
+// Telefonda seçici ve "… tahsil et" yazısı kadar daralıyor, her seçimde boy
+// değiştiriyordu; "Kartla tahsil et" kenara yapışıyor, koyu temada seçili
+// yöntem görünmüyordu. Sebep: kumandanın eylem bölgesi ortalıyor ve güverte
+// genişliğini istemiyordu.
+
+test('tahsilat güvertesi tam genişlik — ortalayan eylem bölgesinde daralmıyor', () => {
+    const bar = read('mobile/src/components/CollectBar.tsx').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+    const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
+    // Eylem bölgesi ortalıyor…
+    assert.match(kumanda, /alignItems: 'center',\s*gap: 11,\s*marginHorizontal: 12,/);
+    // …güverte kendini yayıyor ve kendi kenar payını EKLEMİYOR (bölge zaten 12 pt içeride; tasarım 11).
+    assert.match(bar, /<View style=\{\{\s*alignSelf: 'stretch',\s*marginTop: 'auto',/);
+    assert.doesNotMatch(bar, /paddingHorizontal: M\.collectPadX/);
+    // `.kbtn` width:100% — düğme güvertenin genişliğinde.
+    const v4 = read('docs/design-reference/Luera Mobil - Tek Kisilik v4.html');
+    assert.ok(v4.includes('.kbtn{height:59px;border-radius:26px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:-.02em;width:100%}'));
+    assert.ok(v4.includes('.seg button{flex:1;height:38px;'));
+});
+
+test('seçili yöntemin zemini tek parça ve kayıyor; ilk seçimde yerinde beliriyor', () => {
+    const bar = read('mobile/src/components/CollectBar.tsx').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+    // Zemin yöntemlerin altında tek bir parça; düğmelerin kendi zemini yok.
+    assert.match(bar, /<Animated\.View\s+pointerEvents="none"/);
+    assert.doesNotMatch(bar, /backgroundColor: on \? c\.card : 'transparent'/);
+    // Yalnız translateX, native sürücü, uygulamanın yayı.
+    assert.match(bar, /Animated\.spring\(slide, \{ toValue: index, useNativeDriver: true, \.\.\.M\.segSpring \}\)/);
+    // İlk seçim ve "hareketi azalt": kayış yok, anlık.
+    assert.match(bar, /if \(reduceMotion \|\| !had\.current\) \{\s*had\.current = true;\s*slide\.setValue\(index\);\s*shown\.setValue\(1\);/);
+    // Seçim yokken zemin yok — varsayılan vurgu da yok.
+    assert.match(bar, /if \(index < 0\) \{\s*had\.current = false;\s*shown\.setValue\(0\);/);
+    // Koyu temada seçim görünür: tasarımın kendi koyu seçicisi.
+    assert.match(bar, /backgroundColor: dark \? M\.segOnDark : c\.card,/);
+    const v4 = read('docs/design-reference/Luera Mobil - Tek Kisilik v4.html');
+    assert.ok(v4.includes('.isl .seg button.on{background:rgba(243,237,227,.13)'));
+});

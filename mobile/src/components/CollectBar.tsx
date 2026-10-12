@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
 
 import { Glyph } from './Glyph';
 import { feedback } from '../lib/feedback';
@@ -45,7 +46,38 @@ export function CollectBar({
     onCollect: () => void;
     onLater: () => void;
 }) {
-    const { c } = useTheme();
+    const { c, dark, reduceMotion } = useTheme();
+
+    /*
+     * SEÇİLİ ZEMİN KAYIYOR — üç ayrı zemin değil, tek bir parça.
+     *
+     * Yöntem değişince zemin yeni yönteme yayla kayıyor (yalnız `translateX`,
+     * native sürücü). İlk seçimde kaymıyor, yerinde beliriyor: "Nakit"ten
+     * gelmiş gibi görünmesin. Seçim yokken zemin yok — varsayılan yöntem
+     * olmadığı gibi, varsayılan bir vurgu da yok. "Hareketi azalt"ta anlık.
+     */
+    const index = COLLECT_METHODS.findIndex((item) => item.key === method);
+    const [track, setTrack] = useState(0);
+    const [slide] = useState(() => new Animated.Value(Math.max(0, index)));
+    const [shown] = useState(() => new Animated.Value(index >= 0 ? 1 : 0));
+    const had = useRef(index >= 0);
+    useEffect(() => {
+        if (index < 0) {
+            had.current = false;
+            shown.setValue(0);
+            return;
+        }
+        if (reduceMotion || !had.current) {
+            had.current = true;
+            slide.setValue(index);
+            shown.setValue(1);
+            return;
+        }
+        Animated.spring(slide, { toValue: index, useNativeDriver: true, ...M.segSpring }).start();
+    }, [index, reduceMotion, shown, slide]);
+    // Bir yöntemin genişliği: kabın içi, aralar düşülünce üçe bölünmüş.
+    const count = COLLECT_METHODS.length;
+    const itemWidth = track > 0 ? (track - 2 - M.segPad * 2 - M.segGap * (count - 1)) / count : 0;
 
     const busy = stage === 'sending';
     const { enabled } = collectLabel(method);
@@ -55,22 +87,55 @@ export function CollectBar({
     const laterUseful = stage !== 'collect_failed' && stage !== 'done' && stage !== 'pending';
 
     return (
+        /*
+          * TAM GENİŞLİK — `alignSelf: 'stretch'` BURADA, çağırana bırakılmıyor.
+          *
+          * Kumandanın eylem bölgesi ortalıyor (`alignItems: 'center'`). Bu
+          * güverte genişliğini kendisi istemeyince yazısı kadar daralıyordu:
+          * seçici ve düğme her seçimde boy değiştiriyor, "Kartla tahsil et"
+          * kenara yapışıyordu (2026-10-13, telefon). Ekip modundaki
+          * `SendToCash` aynı kuralı kendisi koyuyor.
+          */
         <View style={{
+            alignSelf: 'stretch',
             marginTop: 'auto',
-            paddingHorizontal: M.collectPadX,
             paddingBottom: M.collectPadBottom,
             gap: M.collectGap,
         }}>
-            {/* Yöntem seçici — Kasa'nın Bugün/Bu hafta/Bu ay seçicisiyle aynı biçim. */}
-            <View style={{
-                flexDirection: 'row',
-                padding: M.segPad,
-                gap: M.segGap,
-                borderRadius: M.segRadius,
-                backgroundColor: c.fld,
-                borderWidth: 1,
-                borderColor: c.bd,
-            }}>
+            {/* Yöntem seçici — `.seg`: üç eşit yöntem, seçili zemin kayıyor. */}
+            <View
+                onLayout={(event) => setTrack(event.nativeEvent.layout.width)}
+                style={{
+                    flexDirection: 'row',
+                    padding: M.segPad,
+                    gap: M.segGap,
+                    borderRadius: M.segRadius,
+                    backgroundColor: c.fld,
+                    borderWidth: 1,
+                    borderColor: c.bd,
+                }}
+            >
+                {itemWidth > 0 ? (
+                    <Animated.View
+                        pointerEvents="none"
+                        style={{
+                            position: 'absolute',
+                            top: M.segPad,
+                            left: M.segPad,
+                            width: itemWidth,
+                            height: M.segItemHeight,
+                            borderRadius: M.segItemRadius,
+                            backgroundColor: dark ? M.segOnDark : c.card,
+                            opacity: shown,
+                            transform: [{
+                                translateX: slide.interpolate({
+                                    inputRange: [0, count - 1],
+                                    outputRange: [0, (count - 1) * (itemWidth + M.segGap)],
+                                }),
+                            }],
+                        }}
+                    />
+                ) : null}
                 {COLLECT_METHODS.map((item) => {
                     const on = item.key === method;
                     return (
@@ -87,7 +152,6 @@ export function CollectBar({
                                 borderRadius: M.segItemRadius,
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: on ? c.card : 'transparent',
                                 opacity: pressed ? 0.7 : 1,
                             })}
                         >

@@ -1670,3 +1670,24 @@ Kütüphanenin kendi notu "kusursuz değil" diyor. Bu üç sayfada artık
 kaydırıcı yok. Çok kalemli adisyon sayfayı taşırmasın diye fiş en çok 6
 kalem yazıyor; kalanı tek satır: "+N hizmet daha" ve tutarı
 (`receiptLines`). Toplam satırı aynı.
+
+## 30 · 2026-10-13 · TAHSİLAT GÜVERTESİ TAM GENİŞLİK + KAYAN SEÇİM
+
+Kumandanın tahsilat adımında (K3) seçici ve "… tahsil et" düğmesi yazısı
+kadar daralıyordu. Her seçimde boyları değişiyor, "Kartla tahsil et" kenara
+yapışıyordu. Koyu temada seçili yöntem de görünmüyordu. Sebep:
+kumandanın eylem bölgesi ortalıyor (`alignItems: 'center'`) ve
+`CollectBar` genişliğini istemiyordu. Ekip modundaki `SendToCash` bunu
+kendisi yapıyor.
+
+- **Genişlik:** `CollectBar` artık `alignSelf: 'stretch'`. Kendi kenar
+  payını eklemiyor; eylem bölgesi zaten 12 pt içeride (tasarım `.kfoot`
+  11).
+- **Seçili zemin tek parça ve kayıyor:** yalnız `translateX`, uygulamanın
+  yayıyla. İlk seçimde kaymadan yerinde beliriyor; "hareketi azalt" açıkken
+  anlık. Seçim yokken zemin yok.
+- **Koyu temada seçim:** `--card` koyu temada `--fld`le neredeyse aynıydı.
+  Seçili zemin artık tasarımın kendi koyu seçicisinin değeri:
+  `rgba(243,237,227,.13)` (`.isl .seg button.on`).
+
+Kanıt: 2939 geçti / 0 kırık · `tsc` temiz. Telefonda denenmedi.
