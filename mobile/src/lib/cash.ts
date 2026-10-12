@@ -433,6 +433,26 @@ export const ACTION_VOID_SUB = 'Adisyon yeniden açılır';
  */
 export const ACTION_VOID_SUB_FREE = 'Tutar gün toplamından düşer';
 export const ACTION_SAVE = 'Düzeltmeyi kaydet';
+/**
+ * Fişte gösterilen kalemler. Fiş içerik boyunda bir iOS sayfası ve içinde
+ * kaydırıcı yok (bkz. `CashSheets · MovementSheet`): çok kalemli adisyon
+ * sayfayı ekrandan taşırmasın. `max` kalemi aşan adisyonda `max − 1` kalem
+ * yazılıyor, kalanı tek satır: "+3 hizmet daha" ve tutarlarının toplamı.
+ * Toplam satırı hiç değişmiyor.
+ */
+export function receiptLines(lines: readonly MovementLine[], max: number): {
+    shown: readonly MovementLine[];
+    more: { label: string; amount: number } | null;
+} {
+    if (lines.length <= max) return { shown: lines, more: null };
+    const shown = lines.slice(0, Math.max(0, max - 1));
+    const rest = lines.slice(shown.length);
+    return {
+        shown,
+        more: { label: `+${rest.length} hizmet daha`, amount: rest.reduce((sum, line) => sum + line.amount, 0) },
+    };
+}
+
 /** v4 · C3 — düzeltme sayfasının başlığı; fişin YERİNİ alıyor. */
 export const CORRECTION_TITLE = 'Tahsilatı düzelt';
 

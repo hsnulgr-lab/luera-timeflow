@@ -10,7 +10,7 @@ import {
     traceLine, voidDialog, voidedNote, voidSub,
     waitLabel, ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_VOID, ACTION_VOID_SUB, ACTION_VOID_SUB_FREE,
     ACTIONS_NOTE, CORRECTION_NOTE, EMPTY_TITLE, READ_ONLY_NOTE,
-    SHEET_LABEL, SHEET_SECTIONS, CORRECTION_TITLE, correctionSubject,
+    SHEET_LABEL, SHEET_SECTIONS, CORRECTION_TITLE, correctionSubject, receiptLines,
 } from '../mobile/src/lib/cash.ts';
 import { mockDay, pendingOf } from '../mobile/src/lib/managerFlow.ts';
 import { cashInk, cashMetrics } from '../mobile/src/theme/tokens.ts';
@@ -342,7 +342,7 @@ test('"Geri al"ın alt yazısı olacak şeyi söylüyor — serbest satışta ad
 test('notlar v4\'ün yerinde: eylemlerin ALTINDA, düzeltme düğmesinin ALTINDA', () => {
     assert.equal(ACTIONS_NOTE, 'Eski kayıt silinmez. Düzeltme ve geri alma Kasa\'da saatiyle görünür.');
     assert.equal(CORRECTION_NOTE, 'Eski kayıt silinmez; yanına düzeltme kaydı yazılır.');
-    const jsx = sheets.slice(sheets.indexOf('<ScrollView'));
+    const jsx = sheets.slice(sheets.indexOf('<SheetHeader label={SHEET_LABEL}'));
     assert.ok(jsx.indexOf("{ key: 'correct'") < jsx.indexOf('{ACTIONS_NOTE}'), 'eylem notu satırların altında');
     assert.ok(jsx.indexOf('{ACTION_SAVE}') < jsx.indexOf('{CORRECTION_NOTE}'), 'düzeltme notu düğmenin altında');
 });
@@ -619,9 +619,20 @@ test('Kasa\'nın sayfaları randevu kartı gibi iOS\'un sayfası — ama boyu İ
     const sheet = sheets.slice(sheets.indexOf('export function MovementSheet('), sheets.indexOf('function Section('));
     assert.match(sheet, /<View style=\{\{ backgroundColor: c\.bg \}\}>\s*<SheetGrab \/>/);
     assert.doesNotMatch(sheet, /flex: 1, backgroundColor/);
-    // Uzun fiş tavanda kayıyor; sayfa ekranı aşmıyor.
-    assert.match(sheet, /style=\{\{ maxHeight: receiptMax \}\}/);
-    assert.equal(cashMetrics.receiptMaxRatio, 0.55);
+    // İÇİNDE KAYDIRICI YOK: react-native-screens içerik boyundaki sayfada
+    // bulduğu kaydırıcıyı sayfanın tamamına yayıyor; telefonda fişin gövdesi
+    // başlığın üstüne bindi (2026-10-13). Üç sayfada da kaydırıcı yok.
+    assert.doesNotMatch(sheets, /<ScrollView|ScrollView,/);
+    assert.doesNotMatch(read('src/components/PendingTicketsSheet.tsx'), /ScrollView/);
+    // Uzun adisyon sayfayı taşırmasın: en çok 6 kalem, kalanı tek satır.
+    assert.equal(cashMetrics.receiptMaxLines, 6);
+    const six = Array.from({ length: 6 }, (_, i) => ({ name: `H${i}`, amount: 100 }));
+    assert.deepEqual(receiptLines(six, 6), { shown: six, more: null });
+    const nine = Array.from({ length: 9 }, (_, i) => ({ name: `H${i}`, amount: 100 + i }));
+    const cut = receiptLines(nine, 6);
+    assert.equal(cut.shown.length, 5);
+    assert.deepEqual(cut.more, { label: '+4 hizmet daha', amount: 105 + 106 + 107 + 108 });
+    assert.match(sheet, /\{receipt\.more \? \(/);
     // Elle yazılmış jest ve elle sürülen giriş yok.
     assert.doesNotMatch(sheets, /PanResponder|panHandlers|statusBarTranslucent/);
 });

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Pressable, ScrollView,
-    Text, TextInput, useWindowDimensions, View,
+    ActivityIndicator, Pressable,
+    Text, TextInput, View,
     type TextStyle,
 } from 'react-native';
 
@@ -11,7 +11,7 @@ import {
     ACTION_CORRECT, ACTION_CORRECT_SUB, ACTION_SAVE, ACTION_VOID, CORRECTION_TITLE, correctionSubject,
     ACTIONS_NOTE, CORRECTION_NOTE, READ_ONLY_NOTE, SHEET_SECTIONS, STAFF_ROW_LABEL, voidSub,
     canCorrect, counterLine, customerCardLabel, formatAmount, formatMoney, methodLabel, parseAmount,
-    periodSummaryTitle, SHEET_LABEL, SUMMARY_LABEL,
+    periodSummaryTitle, receiptLines, SHEET_LABEL, SUMMARY_LABEL,
     type CashMethod, type CashPeriod, type CashTotals, type Movement,
 } from '../lib/cash';
 import { COLLECT_METHODS } from '../lib/collect';
@@ -105,11 +105,18 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
         after?.();
     }, [onClose]);
 
-    /** Uzun fiş kayar; sayfa ekranı aşmasın (iOS içerik boyunu tavanda kırpıyor). */
-    const { height } = useWindowDimensions();
-    const receiptMax = Math.round(height * cashMetrics.receiptMaxRatio);
+    /*
+     * KAYDIRICI YOK — bilerek.
+     *
+     * İçerik boyundaki iOS sayfası (react-native-screens · formSheet) içinde
+     * bulduğu kaydırıcıyı sayfanın TAMAMINA yayıyor (`RNSScreen.mm` ·
+     * `applyFrameCorrectionForDescendantScrollView`, kütüphanenin kendi
+     * notu: "kusursuz değil"). Telefonda fişin gövdesi başlığın üstüne
+     * biniyordu (2026-10-13). Sayfa zaten içerik kadar; uzun adisyonda
+     * kalemler kısalıyor (`receiptLines`), sayfa ekranı aşmıyor.
+     */
+    const receipt = receiptLines(movement.lines ?? [], cashMetrics.receiptMaxLines);
 
-    const lines = movement.lines ?? [];
 
     const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
         <View style={{
@@ -151,12 +158,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                     </Txt>
                 </View>
             ) : (
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingTop: 6 }}
-                    // Kısa fiş kendi boyunda; uzun fiş bu tavanda kayıyor.
-                    style={{ maxHeight: receiptMax }}
-                >
+                <View style={{ paddingHorizontal: apptCardMetrics.sheetPadX, paddingTop: 6 }}>
                     {/* Başlık: kim, ne zaman, ne kadar. */}
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingBottom: 16 }}>
                         <View style={{
@@ -191,15 +193,27 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                         </Section>
                     ) : null}
 
-                    {lines.length > 0 ? (
+                    {receipt.shown.length > 0 ? (
                         <Section title={SHEET_SECTIONS.lines} color={c.tx3} border={c.bd}>
-                            {lines.map((l) => (
+                            {receipt.shown.map((l) => (
                                 <Row key={l.name} label={l.name}>
                                     <Money style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, fontWeight: '700', color: c.tx }}>
                                         ₺{formatAmount(l.amount)}
                                     </Money>
                                 </Row>
                             ))}
+                            {/* Sığmayan kalemler tek satırda; toplam yine tam. */}
+                            {receipt.more ? (
+                                <View style={{
+                                    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
+                                    gap: 12, minHeight: cashMetrics.sheetRowHeight,
+                                }}>
+                                    <Txt style={{ fontSize: cashMetrics.sheetRowFont, color: c.tx2 }}>{receipt.more.label}</Txt>
+                                    <Money style={{ fontFamily: font.bold, fontSize: cashMetrics.sheetRowFont, fontWeight: '700', color: c.tx2 }}>
+                                        ₺{formatAmount(receipt.more.amount)}
+                                    </Money>
+                                </View>
+                            ) : null}
                             <View style={{ marginTop: 6, paddingTop: 9, borderTopWidth: 1, borderTopColor: c.bd, flexDirection: 'row', justifyContent: 'space-between' }}>
                                 <Txt style={{ fontFamily: font.bold, fontSize: 16, color: c.tx }}>Toplam</Txt>
                                 <Money style={{ fontFamily: font.bold, fontSize: 16, fontWeight: '700', color: c.tx }}>
@@ -264,7 +278,7 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                             </Txt>
                         </View>
                     )}
-                </ScrollView>
+                </View>
             )}
 
                 {/*

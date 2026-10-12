@@ -1661,3 +1661,12 @@ Telefonda bakılacak: düzeltmede klavye açılınca "Kaydet" görünüyor mu? i
 sayfayı klavyenin üstüne itiyor; bunu yalnız telefon gösterir.
 
 Kanıt: 2937 geçti / 0 kırık · `tsc` temiz.
+
+**Üçüncü tur — fişin gövdesi başlığın üstüne biniyordu.** Sebep
+react-native-screens: içerik boyundaki sayfada (formSheet) bulduğu
+kaydırıcıyı sayfanın tamamına yayıyor; konumu (0,0), boyu sayfa kadar
+(`RNSScreen.mm · applyFrameCorrectionForDescendantScrollView`).
+Kütüphanenin kendi notu "kusursuz değil" diyor. Bu üç sayfada artık
+kaydırıcı yok. Çok kalemli adisyon sayfayı taşırmasın diye fiş en çok 6
+kalem yazıyor; kalanı tek satır: "+N hizmet daha" ve tutarı
+(`receiptLines`). Toplam satırı aynı.

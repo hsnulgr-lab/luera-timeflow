@@ -2005,8 +2005,9 @@ export const cashMetrics = {
 
     // Sheet (14b): kabuk, giriş ve aşağı çekme artık sistemin sayfası
     // (randevu kartıyla aynı, 2026-10-13); yarıçap ve jest eşikleri burada
-    // değil. Boy içerikten (`fitToContents`); uzun fiş bu oranın üstünde kayar.
-    receiptMaxRatio: 0.55,
+    // değil. Boy içerikten (`fitToContents`), içinde kaydırıcı yok: fiş en
+    // çok bu kadar kalem yazıyor, kalanı "+N hizmet daha" (`receiptLines`).
+    receiptMaxLines: 6,
     sheetAmountFont: 26,
     sheetRowHeight: 26,
     sheetRowFont: 15,
