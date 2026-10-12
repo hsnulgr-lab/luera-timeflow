@@ -21,7 +21,7 @@ import RAnimated, { type AnimatedStyle } from 'react-native-reanimated';
 import { GlassPlate } from './GlassPlate';
 import { LightField } from './LightField';
 import { GlassView } from 'expo-glass-effect';
-import { businessMeta } from '../lib/accountMap';
+import { businessAccessibilityLabel, businessMeta } from '../lib/accountMap';
 import { crashGate, offlineGate, sessionGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
 import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, radius, space, type, useTheme } from '../theme';
@@ -1565,6 +1565,7 @@ export function AuthBusinessRow({ business, onPress }: {
         location: string;
         initials: string;
         staffCount: number;
+        solo?: boolean;
     };
     onPress: () => void;
 }) {
@@ -1573,7 +1574,7 @@ export function AuthBusinessRow({ business, onPress }: {
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={[business.name, business.location, `${business.staffCount} personel`].filter(Boolean).join(', ')}
+            accessibilityLabel={businessAccessibilityLabel(business)}
             onPress={onPress}
             onPressIn={() => runRowPress(press, true)}
             onPressOut={() => runRowPress(press, false)}

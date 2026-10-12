@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    businessesOf, businessLine, businessMeta, deletionFactsOf, locationOf, SECTOR_LABELS, sectorLabel,
+    businessAccessibilityLabel, businessesOf, businessLine, businessMeta, deletionFactsOf, locationOf, SECTOR_LABELS, sectorLabel,
 } from '../mobile/src/lib/accountMap.ts';
 import { deletionCopy } from '../mobile/src/lib/managerProfile.ts';
 
@@ -175,6 +175,13 @@ test('konum boşsa satırlarda sarkan ayraç yok', () => {
     assert.equal(businessMeta({ location: '', staffCount: 4 }), '4 personel');
     assert.equal(businessMeta({ location: 'Bebek', staffCount: 3 }), 'Bebek · 3 personel');
     assert.match(ui, /\{businessMeta\(business\)\}/);
+    // Tek kişilik işletme "1 personel" demiyor: o satır sahibin kendisi.
+    assert.equal(businessMeta({ location: 'Bebek', staffCount: 1, solo: true }), 'Bebek · Tek kişilik');
+    assert.equal(businessMeta({ location: '', staffCount: 1, solo: true }), 'Tek kişilik');
+    assert.equal(businessMeta({ location: '', staffCount: 1, solo: false }), '1 personel');
+    // Ekran okuyucu da aynı kelimeyi duyuyor.
+    assert.equal(businessAccessibilityLabel({ name: 'Studio Ayla', location: 'Bebek', staffCount: 1, solo: true }), 'Studio Ayla, Bebek, Tek kişilik');
+    assert.match(ui, /accessibilityLabel=\{businessAccessibilityLabel\(business\)\}/);
     assert.doesNotMatch(ui, /\{business\.location\} · \{business\.staffCount\} personel/);
     const copy = deletionCopy({
         businessName: 'Studio Ayla', businessLocation: '', managerName: 'Ayla', managerEmail: null,

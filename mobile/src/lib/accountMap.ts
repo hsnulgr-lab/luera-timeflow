@@ -142,9 +142,25 @@ export function businessLine(business: Pick<AuthBusiness, 'name' | 'location'>, 
     return [business.name, business.location].map((part) => part.trim()).filter(Boolean).join(separator);
 }
 
-/** Kartın alt satırı: "Kadıköy · 6 personel" — konum yoksa yalnız sayı. */
-export function businessMeta(business: Pick<AuthBusiness, 'location' | 'staffCount'>): string {
-    return [business.location.trim(), `${business.staffCount} personel`].filter(Boolean).join(' · ');
+/**
+ * Kartın alt satırı: "Kadıköy · 6 personel" — konum yoksa yalnız sayı.
+ *
+ * Tek kişilik işletme "1 personel" DEMİYOR, "Tek kişilik" diyor: o tek
+ * personel satırı sahibin kendisi (114) ve bu modda ekranların hiçbiri
+ * personelden söz etmiyor. Seçicide bir kez söylemek, hangi işletmenin hangi
+ * düzende açılacağını da söylüyor.
+ */
+export function businessMeta(business: Pick<AuthBusiness, 'location' | 'staffCount' | 'solo'>): string {
+    return [business.location.trim(), crewLabel(business)].filter(Boolean).join(' · ');
+}
+
+function crewLabel(business: Pick<AuthBusiness, 'staffCount' | 'solo'>): string {
+    return business.solo ? 'Tek kişilik' : `${business.staffCount} personel`;
+}
+
+/** Satırın ekran okuyucu etiketi — görünen satırla aynı kelimeler. */
+export function businessAccessibilityLabel(business: Pick<AuthBusiness, 'name' | 'location' | 'staffCount' | 'solo'>): string {
+    return [business.name, business.location, crewLabel(business)].filter(Boolean).join(', ');
 }
 
 export interface DeletionFactsInput {
