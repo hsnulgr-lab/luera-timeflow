@@ -174,6 +174,18 @@ test('iki ölü düğme bağlandı', () => {
     assert.ok(kumanda.includes('`tel:${appointment.customer_phone'));
 });
 
+test('numara yoksa "Müşteriyi ara" SÖNÜK — basınca sessizce hiçbir şey yapmıyor değil', () => {
+    // Eskiden onCall numara yokken `return` ediyordu: düğme dolu görünüp
+    // ölüydü. Artık onCall hiç verilmiyor ve Tool kendini kapatıyor —
+    // müşteri dosyasının ActionDisc'iyle aynı kural.
+    assert.match(kumanda, /onCall=\{appointment\.customer_phone\?\.trim\(\)\s*\?[\s\S]{0,120}\s*:\s*undefined\}/);
+    const tool = kumanda.slice(kumanda.indexOf('function Tool('), kumanda.indexOf('function PlanTrack('));
+    assert.match(tool, /const off = !onPress;/);
+    assert.match(tool, /disabled=\{off\}/);
+    assert.match(tool, /accessibilityLabel=\{off \? `\$\{label\} — numara yok` : label\}/);
+    assert.match(tool, /opacity: off \? 0\.38/);
+});
+
 // ── Formül sayfası ──────────────────────────────────────────────────────────
 
 test('kilitli sayfada KISIK bir düzelt düğmesi yok', () => {

@@ -746,10 +746,12 @@ export default function Kumanda() {
                         : `${startClock} başlangıç · ${bar.label.split(' · ')[0]}`}
                     risks={risks}
                     onNote={() => setSheet('note')}
-                    onCall={() => {
-                        if (!appointment.customer_phone) return;
-                        Linking.openURL(`tel:${appointment.customer_phone.replace(/\s/g, '')}`);
-                    }}
+                    // Numara yoksa düğme SÖNÜK çiziliyor (müşteri dosyasıyla
+                    // aynı kural): eskiden basınca sessizce hiçbir şey
+                    // yapmıyordu — ölü kontrol.
+                    onCall={appointment.customer_phone?.trim()
+                        ? () => { void Linking.openURL(`tel:${appointment.customer_phone!.replace(/\s/g, '')}`); }
+                        : undefined}
                     // Kimlik de gidiyor: sayfa artık kimlikten okuyor ve ad
                     // yalnız köprü. Yalnız ad göndermek, aynı adlı iki
                     // müşteride yanlış defteri açma riski taşırdı.
@@ -1382,7 +1384,8 @@ function Plate({
     /** İşletmenin kural listesinden eşleşenler. Boşsa işaret çizilmiyor. */
     risks: readonly { kind: string; text: string }[];
     onNote: () => void;
-    onCall: () => void;
+    /** Yoksa numara yok ve "Müşteriyi ara" sönük. */
+    onCall?: () => void;
     onCard: () => void;
 }) {
     const { c } = useTheme();
@@ -1523,10 +1526,13 @@ function Tool({ label, glyph, dot, onPress }: {
     label: string; glyph: 'phone' | 'note' | 'user'; dot?: boolean; onPress?: () => void;
 }) {
     const { c } = useTheme();
+    const off = !onPress;
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={off ? `${label} — numara yok` : label}
+            accessibilityState={{ disabled: off }}
+            disabled={off}
             onPress={onPress}
             style={({ pressed }) => ({
                 width: 48, height: 48,
@@ -1536,10 +1542,10 @@ function Tool({ label, glyph, dot, onPress }: {
                 borderColor: c.bd,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: pressed ? 0.6 : 1,
+                opacity: off ? 0.38 : pressed ? 0.6 : 1,
             })}
         >
-            <Glyph name={glyph} size={21} color={c.tx2} />
+            <Glyph name={glyph} size={21} color={off ? c.tx3 : c.tx2} />
             {dot ? (
                 <View style={{
                     position: 'absolute', top: 9, right: 9,
