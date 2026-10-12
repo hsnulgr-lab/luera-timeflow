@@ -19,7 +19,7 @@ import { ablative } from './text.ts';
  * "ölü kontrol yok" kuralına uyar gibi görünür ama burada gidilecek GERÇEK
  * bir yer var; müdürün sebebi bilmesi gerekiyor.
  */
-export type CellKey = 'ara' | 'wa' | 'waoff' | 'nox' | 'inf' | 'kart';
+export type CellKey = 'ara' | 'wa' | 'waoff' | 'nox' | 'inf' | 'kart' | 'geri';
 
 export interface CellSpec {
     key: CellKey;
@@ -46,6 +46,10 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     // orada, onaylı hâliyle. Basılı tutma YOK: bir ekran açıyor, geri
     // alınacak bir şey yok.
     kart: { label: 'Randevu kartı', hint: 'iptal ve değişiklikler' },
+    // Tek kişilik Gün (G5): yanlış basılmış "Geldi"yi kaldırır — Akış'ın
+    // bekleme kartındaki "Geri al" ile aynı yazma. Geri alınabilir: "Geldi"
+    // yeniden basılır.
+    geri: { label: 'Geldi’yi geri al', hint: 'müşteri gelmemiş sayılır' },
 };
 
 /** Basılı tutmadan, DOKUNUNCA çalışan göz — yalnız ekran açanlar. */

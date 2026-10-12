@@ -318,6 +318,8 @@ export default function SoloDay() {
      *   • Gelmedi Akış'la AYNI damga (098); kilit Gün'ün okumasından — kart
      *     neyi gösteriyorsa onu. Yazma tutunca canlı sinyal günü tazeliyor,
      *     kart yığından düşüyor. Geri almak: randevu kartında "Geldi".
+     *   • Geldi'yi geri al (BEKLİYOR kartı) Akış'ın bekleme kartındaki
+     *     "Geri al" ile aynı yazma: geliş damgası kalkar.
      * Sönük göz (numara yok) ve Randevu kartı gözü randevu kartını açar.
      */
     const onPickCell = useCallback((index: number, cell: CellKey) => {
@@ -348,16 +350,18 @@ export default function SoloDay() {
             }
             return;
         }
-        if (cell === 'nox') {
+        if (cell === 'nox' || cell === 'geri') {
             const lock = data.stamps.get(appointment.id);
-            const stamp = new Date(Date.now() + data.clockOffset).toISOString();
+            const patch = cell === 'nox'
+                ? { no_show_at: new Date(Date.now() + data.clockOffset).toISOString() }
+                : { customer_arrived_at: null };
             void (lock
-                ? updateAppointment(appointment.id, lock, { no_show_at: stamp })
+                ? updateAppointment(appointment.id, lock, patch)
                 : Promise.resolve({ ok: false as const, kind: 'stale' as const })
             ).catch(() => ({ ok: false as const, kind: 'failed' as const })).then((outcome) => {
                 if (outcome.ok) return;
                 Alert.alert(
-                    'Gelmedi kaydedilmedi',
+                    cell === 'nox' ? 'Gelmedi kaydedilmedi' : 'Geldi geri alınmadı',
                     outcome.kind === 'stale'
                         ? 'Randevu bu arada değişmiş. Gün yenilendi; tekrar deneyin.'
                         : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',

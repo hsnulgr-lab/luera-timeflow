@@ -283,8 +283,11 @@ test('A · gözler kartın hâline göre: Gelmedi YALNIZ gecikince, iptal hapta 
     assert.deepEqual(soloPickCells(appt('a', '14:50', '15:10', { customer_phone: phone }), 15 * 60).cells, ['ara', 'wa', 'nox', 'kart']);
     // Tam saatinde henüz gecikmedi.
     assert.deepEqual(soloPickCells(appt('a', '15:00', '15:20', { customer_phone: phone }), 15 * 60).cells, ['ara', 'wa', 'kart']);
-    // BEKLİYOR: müşteri salonda — düğme yok.
-    assert.equal(soloPickCells(appt('a', '14:00', '14:20', { customer_arrived_at: '2026-10-12T10:58:00Z' }), 15 * 60), null);
+    // BEKLİYOR: müşteri salonda — Ara/Yaz yok, ama yanlış "Geldi" geri alınabilir
+    // (telefonda görüldü: tek kişilikte geri almanın yolu yoktu).
+    assert.deepEqual(soloPickCells(appt('a', '14:00', '14:20', { customer_arrived_at: '2026-10-12T10:58:00Z' }), 15 * 60), {
+        cells: ['geri', 'kart'], off: [],
+    });
     // Numara yoksa Ara ve Yaz SÖNÜK (Akış · Müdür 34 v2): dokununca randevu kartı.
     assert.deepEqual(soloPickCells(appt('a', '16:00', '16:20'), 15 * 60).off, ['ara', 'wa']);
     assert.ok(!soloPickCells(appt('a', '14:00', '14:20'), 15 * 60).cells.includes('iptal'));
@@ -303,7 +306,8 @@ test('A · düğme yalnız başlatılabilir kartlarda; süren işte sıradakinde
 test('A · Randevu kartı gözü DOKUNUNCA çalışır (ekran açar); öteki gözler basılı tutulur', () => {
     assert.equal(cellTaps('kart'), true);
     assert.equal(cellTaps('waoff'), true);
-    for (const key of ['ara', 'wa', 'nox', 'inf']) assert.equal(cellTaps(key), false, key);
+    for (const key of ['ara', 'wa', 'nox', 'inf', 'geri']) assert.equal(cellTaps(key), false, key);
+    assert.deepEqual(cellSpec('geri'), { key: 'geri', label: 'Geldi’yi geri al', hint: 'müşteri gelmemiş sayılır' });
     assert.deepEqual(cellSpec('kart'), { key: 'kart', label: 'Randevu kartı', hint: 'iptal ve değişiklikler' });
 });
 
@@ -336,7 +340,8 @@ test('A · Gün: Ara telefon, Yaz kendi WhatsApp\'ı, Gelmedi 098 damgası Gün\
     assert.match(gun, /if \(cell === 'kart' \|\| item\.menu\?\.off\.includes\(cell\)\) \{\s*openAppointment\(appointment\);/);
     assert.match(gun, /Linking\.openURL\(`tel:\$\{tel\}`\)/);
     assert.match(gun, /waNudgeText\(\{ salon: businessName, time: appointment\.start_time\.slice\(0, 5\), late, day: 'bugün' \}\)/);
-    assert.match(gun, /updateAppointment\(appointment\.id, lock, \{ no_show_at: stamp \}\)/);
+    assert.match(gun, /\? \{ no_show_at: new Date\(Date\.now\(\) \+ data\.clockOffset\)\.toISOString\(\) \}\s*: \{ customer_arrived_at: null \};/);
+    assert.match(gun, /updateAppointment\(appointment\.id, lock, patch\)/);
     assert.match(gun, /const lock = data\.stamps\.get\(appointment\.id\);/);
     assert.match(gun, /onCell=\{onPickCell\}/);
 });

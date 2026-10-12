@@ -1540,7 +1540,8 @@ yeniden kullanıldı — iki mod aynı dili konuşuyor.
 |---|---|
 | ŞU AN BOŞ / BAŞLAMAYA | Ara · Yaz · Randevu kartı |
 | GECİKTİ | Ara · Yaz · **Gelmedi** · Randevu kartı |
-| BEKLİYOR · SÜRÜYOR · ADİSYON AÇIK · süren iş varken sıradakiler | düğme yok |
+| BEKLİYOR | **Geldi'yi geri al** · Randevu kartı (kullanıcı: "tasarım A'daki gibi" — yanlış "Geldi"yi geri almanın tek kişilikte yolu yoktu) |
+| SÜRÜYOR · ADİSYON AÇIK · süren iş varken sıradakiler | düğme yok |
 
 - Ara/Yaz HEP çizilir; numara yoksa SÖNÜK, dokununca randevu kartı (Akış
   kuralı). İptal hapta YOK — hapta basılı tutmanın yetmesinin sebebi

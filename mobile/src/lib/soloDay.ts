@@ -581,8 +581,13 @@ export interface SoloPickMenu {
  *
  *   ŞU AN BOŞ / BAŞLAMAYA → Ara · Yaz · Randevu kartı
  *   GECİKTİ               → Ara · Yaz · Gelmedi · Randevu kartı
- *   BEKLİYOR, SÜRÜYOR, ADİSYON AÇIK → düğme yok (müşteri salonda; süren
- *                           işin araçları kumandada)
+ *   BEKLİYOR              → Geldi'yi geri al · Randevu kartı
+ *   SÜRÜYOR, ADİSYON AÇIK → düğme yok (süren işin araçları kumandada)
+ *
+ * BEKLİYOR'da da düğme var (kullanıcı, 2026-10-13: "tasarım A'daki gibi").
+ * Telefonda görüldü: yarının randevusuna akşamdan yanlışlıkla "Geldi"
+ * basılmıştı ve tek kişilikte onu GERİ ALMANIN yolu yoktu — kart ya
+ * başlatılacak ya iptal edilecekti. Ara/Yaz burada yok: müşteri salonda.
  *
  * Akış'ın kuralları aynen: Ara ve Yaz HEP çizilir, numara kullanılamıyorsa
  * SÖNÜK durur (Müdür 34 · v2); Gelmedi YALNIZ gecikince — zamanında basmak,
@@ -595,7 +600,7 @@ export interface SoloPickMenu {
  * kartının "Mesajla hatırlat"ıyla aynı yol.
  */
 export function soloPickCells(appointment: Appt, nowMinutes: number): SoloPickMenu | null {
-    if (appointment.customer_arrived_at) return null;
+    if (appointment.customer_arrived_at) return { cells: ['geri', 'kart'], off: [] };
     const late = nowMinutes - toMinutes(appointment.start_time) >= 1;
     const cells: CellKey[] = ['ara', 'wa', ...(late ? ['nox' as const] : []), 'kart'];
     const off: CellKey[] = numberUsable(appointment.customer_phone) ? [] : ['ara', 'wa'];

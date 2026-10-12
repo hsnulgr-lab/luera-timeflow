@@ -92,6 +92,12 @@ function Glyph({ cell, color, initials }: {
                     <Path {...p} d="M8.6 9.6h6.8M8.6 13.2h4.4" />
                 </>
             ) : null}
+            {cell === 'geri' ? (
+                <>
+                    <Path {...p} d="M8.6 6.2L4.8 10l3.8 3.8" />
+                    <Path {...p} d="M5 10h8.6a5 5 0 0 1 0 10H10" />
+                </>
+            ) : null}
             {cell === 'chk' ? <Path {...p} d="M5.6 12.4l4.2 4.2 8.6-9.4" /> : null}
         </Svg>
     );
