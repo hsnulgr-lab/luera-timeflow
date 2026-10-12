@@ -1472,3 +1472,18 @@ iki anı testte birebir (22:30 → G1, 22:31 → GECİKTİ 1 dk · 29 dk sonra
 gelmedi sayılır, 23:01 → yok). İki eski test taşındı (panel ifadesi, G3
 tonu), gevşetilmedi.
 
+### İkinci bulgu (23:00) + kullanıcı isteği
+
+- KAPIDA → **BEKLİYOR** (kullanıcı "beklemede" istedi; "BEKLEMEDE" aynı
+  yuvada G3'ün kelimesi — süren işin beklemesi, yine kehribar. Kumandanın
+  kadranı bu hâlde zaten "BEKLİYOR"). Satır artık ne zaman geldiğini söylüyor
+  ("… · 22:05’te geldi"); liste damgası "bekliyor".
+- Bekleyen müşteri varken liste "BUGÜN · KAPANDI" diyordu (personel durumu
+  günü son randevunun BİTİŞİNE göre kapatıyor) → başlatılabilir varken
+  "Bugün · N randevu".
+- Süren iş varken liste yalnız saati gelmemişleri gösteriyordu; bekleyen ve
+  geciken müşteri kayboluyordu → `soloStartable`.
+- Kullanıcının asıl isteği — kartı picker gibi kaydırıp sıradakiler arasında
+  gezmek ve istediğini başlatmak — Claude Design turuna verildi:
+  `docs/tek-gun-secici-claude-design-prompt.md` (G5).
+

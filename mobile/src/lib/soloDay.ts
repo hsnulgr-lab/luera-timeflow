@@ -146,11 +146,11 @@ export function soloApptStamp(appointment: Appt, nowMinutes: number): SoloApptSt
     // İş bitti ama kayıt henüz tamamlanmadı: para sorusu daha sorulmuyor.
     if (appointment.service_ended_at) return { label: 'tamamlandı', tone: 'gr', done: true };
     /*
-     * MÜŞTERİ KAPIDA, iş başlamadı (randevu kartındaki "Geldi"). Damgasız
+     * MÜŞTERİ GELDİ, iş başlamadı (randevu kartındaki "Geldi"). Damgasız
      * kart ne bitmiş ne gelmemiş görünüyordu: saati çoktan geçmiş bir kart
-     * "gelmedi" demiyor ve sebebi ekranda yoktu. Personel kartının kelimesi.
+     * "gelmedi" demiyor ve sebebi ekranda yoktu. Kumandanın kelimesi.
      */
-    if (appointment.customer_arrived_at && !appointment.arrived_at) return { label: 'kapıda', tone: 'am' };
+    if (appointment.customer_arrived_at && !appointment.arrived_at) return { label: 'bekliyor', tone: 'am' };
     if (awaitsApproval(appointment.status)) return { label: 'onay bekliyor', tone: 'am' };
     if (isNoShow(appointment, nowMinutes)) return { label: 'gelmedi', tone: 'rd' };
     return null;
@@ -425,18 +425,29 @@ export function soloTicketPanel(ticket: FlowEvent): StaffHeroPanel {
  * Saat sırasıyla ilki: kapıda bekleyen ya da geciken, sonrakinden önce gelir.
  */
 export function soloNextToStart(appointments: readonly Appt[], nowMinutes: number): Appt | null {
-    const startable = appointments.filter((appointment) => appointment.status !== 'cancelled'
-        && appointment.status !== 'completed'
-        && !appointment.arrived_at
-        && !appointment.service_ended_at
-        && !isNoShow(appointment, nowMinutes));
-    return [...startable].sort(byStart)[0] ?? null;
+    return soloStartable(appointments, nowMinutes)[0] ?? null;
+}
+
+/** Başlatılabilir randevuların HEPSİ, saat sırasıyla — kural `soloNextToStart`ta. */
+export function soloStartable(appointments: readonly Appt[], nowMinutes: number): Appt[] {
+    return appointments
+        .filter((appointment) => appointment.status !== 'cancelled'
+            && appointment.status !== 'completed'
+            && !appointment.arrived_at
+            && !appointment.service_ended_at
+            && !isNoShow(appointment, nowMinutes))
+        .sort(byStart);
 }
 
 /**
- * Sıradaki işin saati GEÇTİYSE kartın cümlesi — Akış'ın A1'iyle ve personel
- * kartıyla aynı dil:
- *   KAPIDA  — müşteri geldi, iş başlamadı: kaç dakikadır bekliyor (kehribar)
+ * Sıradaki işin saati GEÇTİYSE kartın cümlesi — Akış'ın A1'iyle ve kumandanın
+ * kadranıyla aynı dil:
+ *   BEKLİYOR — müşteri geldi, iş başlamadı: kaç dakikadır bekliyor
+ *             (kehribar). İlk adı KAPIDA'ydı; kullanıcı "beklemede" istedi.
+ *             "BEKLEMEDE" DEĞİL: o kelime aynı yuvada süren işin beklemesi
+ *             (G3 · boya bekliyor), yine kehribar — iki anlam karışırdı.
+ *             Kumandanın kadranı bu hâlde zaten "BEKLİYOR" diyor
+ *             (`visitControl`), randevu kartı "Geldi · bekliyor".
  *   GECİKTİ — müşteri gelmedi, saat geçti: kaç dakika geçti ve kaç dakika
  *             sonra gelmedi sayılacak (kırmızı; Akış'ın "N dk sonra gelmedi
  *             sayılır"ı)
@@ -452,13 +463,18 @@ export function soloNextPanel(next: Appt | null, nowMinutes: number, nowMs: numb
     if (next.customer_arrived_at) {
         const since = Date.parse(next.customer_arrived_at);
         const waited = Number.isFinite(since) ? Math.max(0, Math.floor((nowMs - since) / 60_000)) : 0;
+        // Ne zamandır beklediği büyük sayıda; satır NE ZAMAN geldiğini
+        // söylüyor ("bekliyor" etikette, ikinci kez yazılmıyor).
+        const came = Number.isFinite(since) ? new Date(since) : null;
         return {
-            label: 'Kapıda',
+            label: 'Bekliyor',
             tone: 'am',
             hasPulse: false,
             heroValue: String(waited),
             heroUnit: 'dk',
-            subText: `${who} · bekliyor`,
+            subText: came
+                ? `${who} · ${clockLocative(hhmm(came.getHours() * 60 + came.getMinutes()))} geldi`
+                : who,
         };
     }
     const late = nowMinutes - toMinutes(next.start_time);
@@ -646,12 +662,19 @@ export function soloDayList(
 
     if (!state) return { rows: [], nowIndex: null, title: null };
 
-    // Süren ya da beklemedeki iş: liste yalnız SIRADAKİLER.
+    /*
+     * Süren ya da beklemedeki iş: liste yalnız SIRADAKİLER — saati geçmiş
+     * olsa da başlatılabilir olanlar (`soloStartable`). Eskiden yalnız saati
+     * gelmemişlerdi ve bekleyen ya da geciken müşteri iş sürerken listeden
+     * kayboluyordu.
+     */
     if (state.runningAppointment) {
+        const rows = soloStartable(all, nowMinutes)
+            .filter((row) => row.id !== state.runningAppointment?.id);
         return {
-            rows: [...state.upcomingAppointments].sort(byStart),
+            rows,
             nowIndex: null,
-            title: state.listTitle,
+            title: `Sıradaki · ${rows.length} randevu`,
         };
     }
 
@@ -664,5 +687,13 @@ export function soloDayList(
     const firstAhead = rows.findIndex((row) => toMinutes(row.start_time) >= nowMinutes);
     const nowIndex = state.showNowLine && firstAhead > 0 ? firstAhead : null;
 
-    return { rows, nowIndex, title: state.listTitle };
+    /*
+     * "Bugün · kapandı" yalnız gerçekten iş kalmadıysa. Personel durumu günü
+     * son randevunun BİTİŞ saatine göre kapatıyor; bekleyen ya da payı
+     * dolmamış geciken müşteri varken telefonda "KAPANDI" yazıyordu.
+     */
+    const title = state.kind === 'ended' && soloStartable(all, nowMinutes).length > 0
+        ? `Bugün · ${all.length} randevu`
+        : state.listTitle;
+    return { rows, nowIndex, title };
 }

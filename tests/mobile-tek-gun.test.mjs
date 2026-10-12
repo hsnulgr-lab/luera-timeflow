@@ -421,19 +421,44 @@ test('şimdi hapı SAATE göre araya giriyor, kovaya göre değil', () => {
 test('süren iş varken liste YALNIZ sıradakiler', () => {
     // v4 · G2/G3: biten işler listede yok, süren iş kartta duruyor ve
     // ekranın cevapladığı soru "sırada ne var".
+    const live = at('live', '14:00', { arrived_at: '2026-10-09T11:00:00Z' });
+    const day = [
+        live,
+        at('p', '10:30', { status: 'completed' }),
+        at('n', '12:00'),                                              // gelmedi sayıldı
+        at('k', '13:00', { customer_arrived_at: '2026-10-09T10:05:00Z' }), // geldi, bekliyor
+        at('b', '17:30'),
+        at('a', '16:30'),
+    ];
     const list = soloDayList(
         state({
             kind: 'running',
             listTitle: 'Sıradaki · 2 randevu',
-            runningAppointment: at('live', '14:00'),
-            pastAppointments: [at('p', '10:30', { status: 'completed' })],
-            upcomingAppointments: [at('b', '17:30'), at('a', '16:30')],
+            runningAppointment: live,
+            pastAppointments: [day[1], day[2], day[3]],
+            upcomingAppointments: [day[4], day[5]],
         }),
-        [], true, 900,
+        day, true, 900,
     );
-    assert.deepEqual(list.rows.map((r) => r.id), ['a', 'b']);
+    // Bekleyen müşteri iş sürerken listeden KAYBOLMUYOR (eskiden yalnız
+    // saati gelmemişler vardı); biten ve gelmedi sayılan yok.
+    assert.deepEqual(list.rows.map((r) => r.id), ['k', 'a', 'b']);
     assert.equal(list.nowIndex, null, 'süren işte hap çizilmiyor');
-    assert.equal(list.title, 'Sıradaki · 2 randevu');
+    assert.equal(list.title, 'Sıradaki · 3 randevu');
+});
+
+test('"Bugün · kapandı" yalnız gerçekten iş kalmadıysa', () => {
+    // Telefonda 23:00: son randevunun bitişi geçmişti, personel durumu günü
+    // kapattı; oysa iki müşteri bekliyordu.
+    const day = [
+        at('p', '17:20', { status: 'completed', is_paid: true }),
+        at('k', '22:30', { end_time: '22:50', customer_arrived_at: '2026-10-09T19:31:00Z' }),
+    ];
+    const ended = state({ kind: 'ended', listTitle: 'Bugün · kapandı', showNowLine: false, pastAppointments: day });
+    assert.equal(soloDayList(ended, day, true, 23 * 60).title, 'Bugün · 2 randevu');
+    // Bekleyen kalmayınca gerçekten kapandı.
+    const done = [day[0]];
+    assert.equal(soloDayList({ ...ended, pastAppointments: done }, done, true, 23 * 60).title, 'Bugün · kapandı');
 });
 
 test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
@@ -630,7 +655,7 @@ test('saati BİR DAKİKA geçen randevu hâlâ sıradaki: Başlat kaybolmuyor', 
     assert.equal(soloNextToStart(day, 23 * 60 + 1), null);
 });
 
-test('kapıdaki müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor', () => {
+test('bekleyen müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor', () => {
     const now = 22 * 60 + 31;
     const arrived = Date.parse('2026-10-09T19:05:00Z');
     const day = [
@@ -639,18 +664,21 @@ test('kapıdaki müşteri önce; gelmedi sayılan da "Geldi" ile geri dönüyor'
         at('u1', '23:00'),
     ];
     assert.equal(soloNextToStart(day, now)?.id, 'k1');
-    assert.deepEqual(soloNextPanel(day[0], now, arrived + 86 * 60_000), {
-        label: 'Kapıda',
-        tone: 'am',
-        hasPulse: false,
-        heroValue: '86',
-        heroUnit: 'dk',
-        subText: 'Tuğçe Erden · Kaş Tasarımı · bekliyor',
-    });
-    // Erken gelen müşteri de kapıda: "şu an boş" demek onu yok saymak olurdu.
-    assert.equal(soloNextPanel(at('e1', '23:00', { customer_arrived_at: '2026-10-09T19:20:00Z' }), now, arrived)?.label, 'Kapıda');
+    // Geliş saati telefonun saatiyle — test makinesinin saat diliminden bağımsız.
+    const came = new Date(arrived);
+    const clock = `${String(came.getHours()).padStart(2, '0')}:${String(came.getMinutes()).padStart(2, '0')}`;
+    const panel = soloNextPanel(day[0], now, arrived + 86 * 60_000);
+    // "KAPIDA" değil, "BEKLEMEDE" de değil: o kelime aynı yuvada süren işin
+    // beklemesi (G3). Kumandanın kadranı bu hâlde "BEKLİYOR" diyor.
+    assert.equal(panel.label, 'Bekliyor');
+    assert.equal(panel.tone, 'am');
+    assert.equal(panel.heroValue, '86');
+    assert.equal(panel.heroUnit, 'dk');
+    assert.match(panel.subText, new RegExp(`^Tuğçe Erden · Kaş Tasarımı · ${clock}’(d|t)(a|e) geldi$`));
+    // Erken gelen müşteri de bekliyor: "şu an boş" demek onu yok saymak olurdu.
+    assert.equal(soloNextPanel(at('e1', '23:00', { customer_arrived_at: '2026-10-09T19:20:00Z' }), now, arrived)?.label, 'Bekliyor');
     // Listede de damgası var — eskiden damgasızdı, ne bitmiş ne gelmemiş görünüyordu.
-    assert.deepEqual(soloApptStamp(day[0], now), { label: 'kapıda', tone: 'am' });
+    assert.deepEqual(soloApptStamp(day[0], now), { label: 'bekliyor', tone: 'am' });
     assert.equal(soloDayCounts(day, now).noshow, 0);
 });
 
