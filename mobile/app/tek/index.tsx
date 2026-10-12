@@ -19,10 +19,12 @@ import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
-    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloPanelAction, soloWaitPanel,
+    SOLO_UNREAD_COPY, soloDayList, soloDaySubtitle, soloEmptyCopy, soloOpenTicket, soloPanelAction,
+    soloTicketPanel, soloWaitPanel,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
+import { useManagerDay } from '../../src/state/managerDay';
 import { glow, soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
 /**
@@ -148,7 +150,27 @@ export default function SoloDay() {
      * kurulan bekleme de görünsün), yoksa sunucunun damgası.
      */
     const wait = runningRow ? activeWait(runningRow, waitIntentOf(runningRow.id), serverNow) : null;
-    const panel = soloWaitPanel(dayState?.runningAppointment ?? null, wait, serverNow) ?? dayState?.panel ?? null;
+
+    /*
+     * ADİSYON AÇIK (v4 · G4) — iş bitti, para alınmadı.
+     *
+     * Hangi adisyon ve tutarı KASA'NIN kaynağından (`useManagerDay`): Kasa'nın
+     * turuncu şeridiyle aynı hesap, aynı rakam. Sağlayıcı kabuğun kendisinde
+     * ve zaten okuyor — bu ekran fazladan sorgu atmıyor.
+     *
+     * Süren iş varken sorulmuyor: tasarımın sırası "süren ya da beklemedeki
+     * iş, sonra açık adisyon, sonra sıradaki randevu".
+     */
+    const { events: flowEvents } = useManagerDay();
+    const ticket = useMemo(
+        () => (dayKnown && isToday && !runningRow ? soloOpenTicket(flowEvents, mine, selectedISO) : null),
+        [dayKnown, isToday, runningRow, flowEvents, mine, selectedISO],
+    );
+
+    const panel = soloWaitPanel(dayState?.runningAppointment ?? null, wait, serverNow)
+        ?? (ticket ? soloTicketPanel(ticket) : null)
+        ?? dayState?.panel
+        ?? null;
 
     /*
      * GÜN GERÇEKTEN BOŞ MU?
@@ -211,14 +233,14 @@ export default function SoloDay() {
     );
 
     /*
-     * Hap neyin üstünde çalışacak: süren iş, yoksa sıradaki.
-     * Hiçbiri yoksa `null` ve kart hapsız kalıyor.
+     * Hap neyin üstünde çalışacak: süren iş, yoksa açık adisyon ("Tahsil
+     * et"), yoksa sıradaki. Hiçbiri yoksa `null` ve kart hapsız kalıyor.
      */
     const panelAction = useMemo(
         () => (dayKnown && isToday && dayState
-            ? soloPanelAction(dayState.runningAppointment, dayState.upcomingAppointments[0] ?? null)
+            ? soloPanelAction(dayState.runningAppointment, dayState.upcomingAppointments[0] ?? null, ticket)
             : null),
-        [dayKnown, isToday, dayState],
+        [dayKnown, isToday, dayState, ticket],
     );
 
     const openAppointment = useCallback((appointment: Appt) => {
@@ -343,8 +365,8 @@ export default function SoloDay() {
                 {/*
                   * HÂL KARTI YALNIZ BUGÜN (v4 · G1–G4 hepsi bugünün ekranı).
                   *
-                  * Kart "ŞU AN BOŞ", "SÜRÜYOR", "BEKLEMEDE" diyor; üçü de
-                  * ŞU ANIN cümlesi. Dün seçiliyken "şu an boş, 9 sa 16 dk,
+                  * Kart "ŞU AN BOŞ", "SÜRÜYOR", "BEKLEMEDE", "ADİSYON AÇIK"
+                  * diyor; dördü de ŞU ANIN cümlesi. Dün seçiliyken "şu an boş, 9 sa 16 dk,
                   * 09:30'a kadar" yazıyordu — o gün çoktan yaşandı ve
                   * ekranın anlattığı an hiç var olmadı.
                   */}

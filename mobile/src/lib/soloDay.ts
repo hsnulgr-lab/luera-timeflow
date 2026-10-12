@@ -9,6 +9,8 @@ import { awaitsApproval } from './approval.ts';
 import { formatDayMonth, hhmm, toMinutes, type Appt } from './calendar.ts';
 import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
+import { formatMoney } from './cash.ts';
+import { pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
 import { isNoShow, type StaffHeroPanel } from './staffDay.ts';
 import { clockLocative, upperTR } from './text.ts';
 
@@ -52,33 +54,36 @@ export function soloDaySubtitle(
 export interface SoloApptStamp {
     label: string;
     tone: 'gr' | 'am' | 'rd';
+    /**
+     * İŞ BİTTİ — tahsil edilmiş olsun olmasın. Kartın adı soluyor
+     * (`.gk.done .nm`). "Onay bekliyor" da kehribar ama bitmiş bir iş değil;
+     * soluklaşma tonla değil bununla seçiliyor.
+     */
+    done?: true;
 }
 
 /**
- * Kartın hizmet satırının devamında yazan durum: "● tamamlandı".
+ * Kartın hizmet satırının devamında yazan durum (v4 · G1, G4):
+ *   tahsil edildi  — yeşil
+ *   adisyon açık   — kehribar: iş bitti, para henüz alınmadı
  *
- * ── Neden "tahsil edildi" DEĞİL ─────────────────────────────────────────────
- * Tasarım (v4 · G1, G4) bu yuvada "tahsil edildi" ve "adisyon açık" yazıyor.
- * Yazılmadı, çünkü randevu satırında ödeme diye bir alan YOK: `Appt` içinde
- * `status`, `arrived_at` ve `service_ended_at` var; para kaydı ayrı bir
- * yerde (`cash.ts`) ve bu ekran onu okumuyor.
- *
- * "İş bitti"yi "para alındı" diye yazmak ekranı yalancı yapardı — hem de en
- * pahalı yerde: kullanıcı tahsil ettiğini sanıp günü kapatır. Yuvanın yeri,
- * rengi ve kenar şeridi tasarımın ta kendisi; içindeki kelime verinin
- * bildiği kadarını söylüyor.
- *
- * Ödeme durumu bu ekrana geldiğinde (Faz 3 · tahsilat) kelime "tahsil
- * edildi"ye döner ve açık adisyon amber "adisyon açık" olur.
+ * Ödeme hâli Gün okumasından geliyor (`is_paid`); Kasa'nın "bekleyen"
+ * tanımıyla AYNI kural: tamamlanmış ve tahsil edilmemiş (`flowBuild.kindOf`).
+ * Alan SORULMADIYSA (`undefined`) "tamamlandı" yazıyor: bilmediği bir şeyi
+ * "adisyon açık" diye söylemek, ödenmiş bir işi borç gibi gösterirdi.
  *
  * İPTAL ile GELMEDİ ayrı kalıyor: iptali kullanıcı yazar, gelmemeyi müşteri
  * yapar. Tek rozete toplamak yarına taşınacak satırı gizlerdi.
  */
 export function soloApptStamp(appointment: Appt, nowMinutes: number): SoloApptStamp | null {
     if (appointment.status === 'cancelled') return { label: 'iptal', tone: 'rd' };
-    if (appointment.status === 'completed' || Boolean(appointment.service_ended_at)) {
-        return { label: 'tamamlandı', tone: 'gr' };
+    if (appointment.status === 'completed') {
+        if (appointment.is_paid === true) return { label: 'tahsil edildi', tone: 'gr', done: true };
+        if (appointment.is_paid === false) return { label: 'adisyon açık', tone: 'am', done: true };
+        return { label: 'tamamlandı', tone: 'gr', done: true };
     }
+    // İş bitti ama kayıt henüz tamamlanmadı: para sorusu daha sorulmuyor.
+    if (appointment.service_ended_at) return { label: 'tamamlandı', tone: 'gr', done: true };
     if (awaitsApproval(appointment.status)) return { label: 'onay bekliyor', tone: 'am' };
     if (isNoShow(appointment, nowMinutes)) return { label: 'gelmedi', tone: 'rd' };
     return null;
@@ -273,6 +278,66 @@ export function soloWaitPanel(
     };
 }
 
+// ── ADİSYON AÇIK kartı (v4 · G4) ────────────────────────────────────────────
+
+/**
+ * Hâl kartına çıkacak AÇIK ADİSYON — bugünün, en son biteni.
+ *
+ * Kaynak Kasa'nın kaynağı (`useManagerDay` · `pendingTickets`): kartın
+ * tutarı Kasa'nın turuncu şeridindeki tutarla AYNI hesaptan geliyor
+ * (`cashBuild.ticketsOf` · `balance`) ve tahsilatın sunucuda alacağı tutar
+ * da o — iki ekranın iki ayrı rakam söylemesi en pahalı ayrışma olurdu.
+ *
+ * Kurallar:
+ *   • Dünden kalan adisyon kartın konusu DEĞİL (v4: "Başka açık adisyonlar
+ *     listede amber satırla ve Kasa'nın turuncu şeridinde kalır").
+ *   • Tutarı bilinmeyen ya da sıfır olan adisyon kart olmuyor: "Tahsil et"
+ *     sunucuda `zero_amount` alırdı — dokunulan kontrol iş yapmazdı.
+ *   • Satır Gün'ün kendi okumasında da AÇIK olmalı. İki okuma birbirinden
+ *     birkaç saniye ayrı tazeleniyor; hangisi tahsilatı ÖNCE öğrenirse kart
+ *     o an iner — ödenmiş bir işe "Tahsil et" denmez.
+ *   • Birden çok açık adisyon varsa EN SON BİTEN: günün o anki satırı o.
+ */
+export function soloOpenTicket(
+    events: readonly FlowEvent[],
+    rows: readonly Appt[],
+    dateISO: string,
+): FlowEvent | null {
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const open = pendingTickets(events).filter((event) => {
+        if (event.carriedOver || !event.appointmentId) return false;
+        if (event.dateISO && event.dateISO !== dateISO) return false;
+        if (!(typeof event.amountValue === 'number' && event.amountValue > 0)) return false;
+        const row = byId.get(event.appointmentId);
+        return Boolean(row)
+            && row!.status !== 'cancelled'
+            && (row!.status === 'completed' || Boolean(row!.service_ended_at))
+            && row!.is_paid !== true;
+    });
+    if (open.length === 0) return null;
+    // `dueMinutes`: bitişten beri geçen dakika — en küçüğü en son biten.
+    return [...open].sort((a, b) => (a.dueMinutes ?? Infinity) - (b.dueMinutes ?? Infinity)
+        || b.time.localeCompare(a.time))[0];
+}
+
+/**
+ * "ADİSYON AÇIK · ₺4.500 · Tuğçe Erden · Kalıcı Makyaj · 16:02’de bitti".
+ *
+ * Kehribar, nabızsız, sol kenarda şerit (`.pnl.bar`). Büyük sayı TUTAR;
+ * birimi yok, para işareti rakamla bir parça.
+ */
+export function soloTicketPanel(ticket: FlowEvent): StaffHeroPanel {
+    const name = `${ticket.firstName} ${ticket.lastName}`.trim();
+    return {
+        label: 'Adisyon açık',
+        tone: 'am',
+        bar: true,
+        hasPulse: false,
+        heroValue: formatMoney(ticket.amountValue ?? 0),
+        subText: name ? `${name} · ${pendingTicketLine(ticket)}` : pendingTicketLine(ticket),
+    };
+}
+
 // ── Hâl kartının eylem hapı ─────────────────────────────────────────────────
 
 export interface SoloPanelAction {
@@ -284,7 +349,7 @@ export interface SoloPanelAction {
 }
 
 /**
- * Kartın sağındaki hap: kumandada yapılacak İLK İŞİN adı (v4 · G1–G3).
+ * Kartın sağındaki hap: kumandada yapılacak İLK İŞİN adı (v4 · G1–G4).
  *
  * ── Hap neden "başlatmıyor" ─────────────────────────────────────────────────
  * "Başlat" kumandayı BEKLENİYOR hâlinde açıyor; işi başlatan oradaki "Kaydır
@@ -293,11 +358,12 @@ export interface SoloPanelAction {
  * dokunulan bir hapın bunu yapması, günün sayacını yanlış dakikadan
  * başlatırdı. Hap bir kapı, kumanda ise o işin yapıldığı yer.
  *
- * ── Üçüncü hâl neden yok ────────────────────────────────────────────────────
- * v4'te dördüncü bir kart var: ADİSYON AÇIK → "Tahsil et". O hâl bu ekranda
- * hiç oluşmuyor, çünkü `buildStaffDayState` ödeme diye bir şey bilmiyor —
- * randevu satırında öyle bir alan yok. Tahsilat Faz 3; o geldiğinde buraya
- * üçüncü bir dal eklenir.
+ * ── Sıra (v4: "süren ya da beklemedeki iş, sonra açık adisyon, sonra
+ *    sıradaki randevu") ───────────────────────────────────────────────────────
+ * Süren işin dakikası akıyor; açık adisyonun parası BEKLİYOR ama bekleyen
+ * müşteri kapıdan çıkmadan alınmalı — sıradakinin saati ondan sonra gelir.
+ * "Tahsil et" kumandayı tahsilat adımında açıyor (K3); para orada, yöntem
+ * seçilerek alınıyor — hap parayı kendisi ALMIYOR.
  *
  * `null`: üzerinde iş yapılacak satır yok (boş gün ya da günün sonu). Kart
  * bilgi olarak kalıyor, hapsız.
@@ -305,9 +371,11 @@ export interface SoloPanelAction {
 export function soloPanelAction(
     running: Appt | null,
     next: Appt | null,
+    ticket: FlowEvent | null = null,
 ): SoloPanelAction | null {
     // Süren iş ÖNCE: o anda yapılacak tek şey o.
     if (running) return { label: 'Kumandayı aç', tone: 'calm', appointmentId: running.id };
+    if (ticket?.appointmentId) return { label: 'Tahsil et', tone: 'go', appointmentId: ticket.appointmentId };
     if (next) return { label: 'Başlat', tone: 'go', appointmentId: next.id };
     return null;
 }

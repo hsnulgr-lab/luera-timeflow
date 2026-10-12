@@ -35,10 +35,11 @@ test('taşımanın kilit damgası GÜNÜN okumasından geliyor', () => {
     // Damgasız yazmak `.eq('updated_at', …)` kilidini baştan kapatmak olurdu.
     assert.match(source, /export async function fetchDayWithStamps/);
     const fn = source.slice(source.indexOf('export async function fetchDayWithStamps'));
-    // Beklemenin damgası da aynı okumada (112 · v4 G3): Gün'ün BEKLEMEDE kartı.
-    assert.match(fn.slice(0, 900), /\.select\(`\$\{RES_COLS\}, updated_at, wait_ends_at, wait_minutes`\)/);
-    assert.match(fn.slice(0, 900), /\.eq\('organization_id', organizationId\)/);
-    assert.match(fn.slice(0, 900), /stamps\.set\(String\(row\.id\), String\(row\.updated_at\)\)/);
+    // Beklemenin damgası (112 · v4 G3) ve tahsil hâli (v4 G4) de aynı okumada:
+    // Gün'ün BEKLEMEDE kartı ve kartın "tahsil edildi / adisyon açık" damgası.
+    assert.match(fn.slice(0, 1100), /\.select\(`\$\{RES_COLS\}, updated_at, wait_ends_at, wait_minutes, is_paid`\)/);
+    assert.match(fn.slice(0, 1100), /\.eq\('organization_id', organizationId\)/);
+    assert.match(fn.slice(0, 1100), /stamps\.set\(String\(row\.id\), String\(row\.updated_at\)\)/);
     // Ve gün okuması onu ekrana taşıyor.
     assert.match(dayRead, /stamps: ReadonlyMap<string, string>/);
     assert.match(dayRead, /return \{\s*rows, stamps, columns/);

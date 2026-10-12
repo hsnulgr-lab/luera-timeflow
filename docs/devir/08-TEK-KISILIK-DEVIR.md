@@ -1,7 +1,10 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-11 (gece) · **Dal:** `tek-kisilik` = `main` (ileri sarıldı, ikisi de GitHub'da)
-**Testler:** 2818 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (G4 commit'i `main`'in önünde, push yok)
+**Testler:** 2828 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+
+> **2026-10-12 · G4 (§17):** Gün'ün dördüncü hâli — ADİSYON AÇIK kartı ve
+> listede "tahsil edildi / adisyon açık". Yalnız istemci; göç ve deploy yok.
 
 > **2026-10-11 gece turu (§16):** denetimin bulduğu on bir eksik kapandı
 > (G2, G3, hafta şeridi, Gün'ün ikonu, B2, K3, C1, R2, P1, S1, S3) ve
@@ -184,7 +187,7 @@ girmez (§7'de sebebi).
 | G1 | Boşta · sıradaki 19 dk sonra | ✅ |
 | G2 | Sürüyor | ✅ · §16: saniyede bir, sunucu saatiyle; saat ekleri |
 | G3 | Beklemede · krem | ✅ · §16: bekleme SUNUCUDA (112), etiket yalnız "BEKLEMEDE" |
-| **G4** | **Adisyon açık · "₺4.500 · Tahsil et"** | ❌ **SIRADAKİ** |
+| G4 | Adisyon açık · "₺4.500 · Tahsil et" | ✅ · §17 (telefonda denenmedi) |
 | K1 | Kumanda · bekleniyor | ✅ (var olan kumanda) |
 | K2 | Kumanda · işlemde | ✅ (var olan kumanda) |
 | K3 | Adisyon · tahsilat | ✅ `CollectBar` · sunucu canlı, telefon testi bekliyor · §16: Kasa şeridinden de açılıyor |
@@ -205,11 +208,11 @@ girmez (§7'de sebebi).
 | S2 | İlk gün | ✅ |
 | S3 | İlk randevu · yeni hesap | ✅ · §16: eklenen hizmet dönüşte seçili |
 
-**Kalan üç ekran: G4, C2, C3.** Üçü de para.
+**Kalan iki ekran: C2, C3** (Kasa'da Düzelt / Geri al).
 
 ---
 
-## 5 · SIRADAKİ İŞ · G4 (adım adım)
+## 5 · G4 (YAPILDI — §17; aşağısı planın kendisi, iz için)
 
 v4'te Gün ekranının **dördüncü** hâl kartı:
 
@@ -596,7 +599,6 @@ biliyor.
 
 | Ayrışma | Sebep |
 |---|---|
-| Kart "tamamlandı" diyor, v4 "tahsil edildi" | `Appt`'ta ödeme alanı yok → **G4 bunu kapatacak** |
 | Takvim sahipsiz randevuyu çizmiyor, Gün çiziyor | `columnize` `staff_id` boş satırı süzüyor; düzeltmesi müdür takvimini de etkiler. Fark alt başlıkta **söyleniyor**, sessiz değil |
 | `VoidBlock` yatay dolgu 18, v4'te 26 | Paylaşılan bileşen; 8 pt için çatallanmaz |
 | `DayHeader` 42 pt, v4'te 44 | aynı sebep |
@@ -871,4 +873,38 @@ dalının listesinden "Personelinizi ekleyin" çıktı.
   OTHERS` ile yazılıyor (SQLSTATE + metin birlikte denetleniyor).
 - **İmza değişince testin argüman sırası da değişir:** `soloEmptyCopy`'ye
   fazladan bir argüman, açılış cümlesini "NaN:NaN" yaptı — test yakaladı.
+
+---
+
+## 17 · 2026-10-12 · G4 — ADİSYON AÇIK
+
+Kullanıcı: "g4 ile başla". Yalnız istemci: `is_paid` sütunu zaten vardı,
+göç ve deploy YOK. Telefonda (Expo Go) henüz denenmedi.
+
+### Ne yapıldı
+
+| Parça | Değişiklik | Nerede |
+|---|---|---|
+| Veri | Gün okuması `is_paid`i soruyor; eşleme "sorulduysa koy" (bekleme gibi). Paylaşılan `RES_COLS` DEĞİŞMEDİ | `managerSource.fetchDayWithStamps`, `managerMap.toApptRaw`, `calendar.Appt` |
+| Liste | Biten işin damgası "tahsil edildi" (yeşil) ya da "adisyon açık" (kehribar, kehribar kenar şeridi). Ödeme hâli SORULMADIYSA "tamamlandı" — bilinmeyeni borç diye yazmamak için. Açık adisyonun adı da soluyor (`done` bayrağı; ton değil) | `soloDay.soloApptStamp`, `SoloDayParts` |
+| Kart | ADİSYON AÇIK · ₺tutar · "Tuğçe Erden · Kalıcı Makyaj · 16:02’de bitti"; kehribar, nabızsız, **sol kenarda kehribar şerit** (`.pnl.bar`, yeni `bar` bayrağı) | `soloDay.soloTicketPanel`, `StaffDayParts.StaffHeroPanelCard`, `tokens` (`panelBarWidth 4`, `panelBarPadLeft 17`) |
+| Hap | Sıra tasarımın: süren iş > açık adisyon ("Tahsil et", go) > sıradaki. Hap kumandayı tahsilat adımında açıyor (K3); parayı kendisi almıyor | `soloDay.soloPanelAction` |
+| Seçim | Kartın adisyonu ve TUTARI Kasa'nın kaynağından (`useManagerDay` · `pendingTickets` · `balance`) — Kasa'nın şeridiyle aynı rakam. Bugünün en son biteni; dünden kalan kart olmuyor; tutarsız/sıfır kart olmuyor (`zero_amount`); Gün okuması satırı ödendi diyorsa kart iner (iki okumadan hangisi önce öğrenirse) | `soloDay.soloOpenTicket`, `tek/index.tsx` |
+
+### Kanıt
+
+- 10 yeni test (`tests/mobile-tek-gun.test.mjs` · G4), eski davranışı
+  kodlayan 3 test YENİ davranışa taşındı. 2828 geçti / 0 kırık.
+- Yedi koruma tek tek söküldü, yedisinde de test düştü (dünden kalan,
+  ödenmiş satır, sıfır tutar, en son biten, hap sırası, sorulmamış ödeme,
+  süren işin kartı). Biri ilk denemede DÜŞMEDİ — kural iki ayrı süzgeçle
+  daha korunuyordu; kuralı tek başına sınayan durum eklendi.
+
+### Telefonda bakılacaklar
+
+- Bir işi bitirip "Sonra tahsil et" deyin → Gün'de kart ADİSYON AÇIK,
+  tutar Kasa'nın turuncu şeridindekiyle aynı, sol kenarda kehribar şerit;
+  listede o satır kehribar "adisyon açık".
+- "Tahsil et" → kumanda tahsilat adımında açılmalı; tahsilattan sonra kart
+  ŞU AN BOŞ / sıradakine dönmeli, satır yeşil "tahsil edildi".
 

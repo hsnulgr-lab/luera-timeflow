@@ -12,8 +12,11 @@ import {
     soloApptStamp,
     soloDaySubtitle,
     soloEmptyCopy,
+    soloOpenTicket,
     soloPanelAction,
+    soloTicketPanel,
 } from '../mobile/src/lib/soloDay.ts';
+import { buildStaffDayState } from '../mobile/src/lib/staffDay.ts';
 
 const read = (p) => readFileSync(new URL(`../mobile/${p}`, import.meta.url), 'utf8');
 const gun = read('app/tek/index.tsx');
@@ -175,18 +178,38 @@ test('hap YALNIZ bugün ve gün OKUNDUYSA', () => {
 
 // ── Kartın durumu ───────────────────────────────────────────────────────────
 
-test('biten iş "tahsil edildi" DEĞİL "tamamlandı" diyor', () => {
-    /*
-     * Tasarım (v4 · G1) bu yuvada "tahsil edildi" yazıyor. Yazılmıyor, çünkü
-     * randevu satırında ödeme diye bir alan yok — para kaydı `cash.ts`'te ve
-     * bu ekran onu okumuyor. "İş bitti"yi "para alındı" diye yazmak en pahalı
-     * yalan olurdu: kullanıcı tahsil ettiğini sanıp günü kapatır.
-     */
+test('biten iş: "tahsil edildi" ya da kehribar "adisyon açık" (v4 · G1, G4)', () => {
+    const done = { status: 'completed', service_ended_at: '2026-10-09T11:02:00Z' };
     assert.deepEqual(
-        soloApptStamp(appt({ service_ended_at: '2026-10-09T11:02:00Z' }), 700),
-        { label: 'tamamlandı', tone: 'gr' },
+        soloApptStamp(appt({ ...done, is_paid: true }), 700),
+        { label: 'tahsil edildi', tone: 'gr', done: true },
     );
-    assert.deepEqual(soloApptStamp(appt({ status: 'completed' }), 700), { label: 'tamamlandı', tone: 'gr' });
+    assert.deepEqual(
+        soloApptStamp(appt({ ...done, is_paid: false }), 700),
+        { label: 'adisyon açık', tone: 'am', done: true },
+    );
+    /*
+     * ÖDEME HÂLİ SORULMADIYSA "tamamlandı" — "adisyon açık" DEĞİL.
+     *
+     * "İş bitti"yi "para alındı" diye yazmak en pahalı yalandı; tersi de
+     * öyle: alanı okumayan bir ekran ödenmiş işi borç gibi gösterirdi.
+     */
+    assert.deepEqual(soloApptStamp(appt({ status: 'completed' }), 700), { label: 'tamamlandı', tone: 'gr', done: true });
+    // İş bitti ama kayıt henüz tamamlanmadı: para sorusu sorulmuyor.
+    assert.deepEqual(
+        soloApptStamp(appt({ service_ended_at: '2026-10-09T11:02:00Z', is_paid: false }), 700),
+        { label: 'tamamlandı', tone: 'gr', done: true },
+    );
+});
+
+test('açık adisyonun da adı SOLUYOR — soluklaşma tonla değil bayrakla', () => {
+    // Kehribar "adisyon açık" biten iş (v4: `done bar am`); iptal ve gelmedi
+    // bitmiş iş değil — adları solmuyor.
+    const card = read('src/components/SoloDayParts.tsx');
+    assert.match(card, /const done = stamp\?\.done === true;/);
+    assert.equal(soloApptStamp(appt({ status: 'completed', is_paid: false }), 700)?.done, true);
+    assert.equal(soloApptStamp(appt({ status: 'cancelled' }), 700)?.done, undefined);
+    assert.equal(soloApptStamp(appt(), 720)?.done, undefined);
 });
 
 test('iptal ile gelmedi AYRI kalıyor', () => {
@@ -359,9 +382,9 @@ test('BUGÜN OLMAYAN günde "şu an" hesabı YOK', () => {
 
 test('hâl kartı EKRANDA da yalnız bugün çiziliyor', () => {
     assert.match(gun, /!dayEmpty && isToday && panel \?/);
-    // Yuva TEK: süren işin beklemesi sürüyorsa BEKLEMEDE kartı, yoksa günün
-    // kartı (v4 G3). İkisi üst üste çizilmiyor.
-    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\) \?\? dayState\?\.panel \?\? null;/);
+    // Yuva TEK ve sıra tasarımın: süren işin beklemesi (G3), yoksa açık
+    // adisyon (G4), yoksa günün kartı. Kartlar üst üste çizilmiyor.
+    assert.match(gun, /const panel = soloWaitPanel\(dayState\?\.runningAppointment \?\? null, wait, serverNow\)\s*\?\? \(ticket \? soloTicketPanel\(ticket\) : null\)\s*\?\? dayState\?\.panel\s*\?\? null;/);
 });
 
 
@@ -382,3 +405,121 @@ test('EKRANIN SICAKLIĞI — uygulamanın tek gradyanı Gün\'de de var', () => 
     const takvim = read('app/mudur/calendar.tsx');
     assert.match(takvim, /height: glow\.height \+ insets\.top/);
 });
+
+
+// ── G4 · ADİSYON AÇIK ───────────────────────────────────────────────────────
+
+/** Kasa'nın kaynağındaki bekleyen adisyon (`flowBuild` · `kind: 'due'`). */
+const due = (id, over = {}) => ({
+    id, kind: 'due', time: '16:02', firstName: 'Tuğçe', lastName: 'Erden',
+    detail: 'Kalıcı Makyaj · 120 dk', appointmentId: id, amountValue: 4500, ticketKey: id,
+    service: 'Kalıcı Makyaj', dateISO: '2026-10-09', dueMinutes: 2, ...over,
+});
+/** Gün okumasındaki satırı: tamamlanmış, tahsil edilmemiş. */
+const closed = (id, over = {}) => appt({
+    id, status: 'completed', service_ended_at: '2026-10-09T13:02:00Z', is_paid: false, ...over,
+});
+
+test('G4 · kartın adisyonu bugünün EN SON biteni; dünden kalan kartın konusu değil', () => {
+    const rows = [closed('t1'), closed('t2'), closed('old')];
+    const events = [
+        due('t1', { dueMinutes: 50, time: '15:14' }),
+        due('t2', { dueMinutes: 2 }),
+        // Dünden kalan: listede amber satır ve Kasa'nın şeridi, kart değil.
+        due('old', { carriedOver: true, dueMinutes: 1, dateISO: '2026-10-08', time: 'Dün 19:40' }),
+    ];
+    assert.equal(soloOpenTicket(events, rows, '2026-10-09')?.appointmentId, 't2');
+    assert.equal(soloOpenTicket([], rows, '2026-10-09'), null);
+    // Kural tarih süzgecinden BAĞIMSIZ: günü yazılmamış devreden olay da kart olmuyor.
+    assert.equal(
+        soloOpenTicket([due('t1', { carriedOver: true, dateISO: undefined })], [closed('t1')], '2026-10-09'),
+        null,
+    );
+});
+
+test('G4 · tutarı olmayan ya da sıfır adisyon kart OLMUYOR', () => {
+    // "Tahsil et" sunucuda `zero_amount` alırdı: dokunulan kontrol iş yapmazdı.
+    const rows = [closed('t1')];
+    assert.equal(soloOpenTicket([due('t1', { amountValue: undefined })], rows, '2026-10-09'), null);
+    assert.equal(soloOpenTicket([due('t1', { amountValue: 0 })], rows, '2026-10-09'), null);
+});
+
+test('G4 · iki okumadan hangisi tahsilatı ÖNCE öğrenirse kart o an iniyor', () => {
+    // Gün okuması ödendi diyor, Kasa'nınki henüz demiyor: "Tahsil et" denmez.
+    assert.equal(soloOpenTicket([due('t1')], [closed('t1', { is_paid: true })], '2026-10-09'), null);
+    // Gün okumasında satır yok ya da iş hâlâ sürüyor (bayat okuma): kart yok.
+    assert.equal(soloOpenTicket([due('t1')], [], '2026-10-09'), null);
+    assert.equal(
+        soloOpenTicket([due('t1')], [appt({ id: 't1', arrived_at: '2026-10-09T11:00:00Z' })], '2026-10-09'),
+        null,
+    );
+    // Ödeme hâli SORULMAMIŞSA Kasa'nın sözü geçiyor.
+    assert.equal(soloOpenTicket([due('t1')], [closed('t1', { is_paid: undefined })], '2026-10-09')?.appointmentId, 't1');
+    // İptal edilmiş satırın adisyonu kart olmuyor.
+    assert.equal(soloOpenTicket([due('t1')], [closed('t1', { status: 'cancelled' })], '2026-10-09'), null);
+});
+
+test('G4 · kart: kehribar, nabızsız, sol şeritli; büyük sayı TUTAR', () => {
+    assert.deepEqual(soloTicketPanel(due('t1')), {
+        label: 'Adisyon açık',
+        tone: 'am',
+        bar: true,
+        hasPulse: false,
+        heroValue: '₺4.500',
+        subText: 'Tuğçe Erden · Kalıcı Makyaj · 16:02’de bitti',
+    });
+});
+
+test('G4 · hap sırası: süren iş > açık adisyon > sıradaki', () => {
+    const ticket = due('t1');
+    assert.deepEqual(
+        soloPanelAction(appt({ id: 'r1' }), appt({ id: 'n1' }), ticket),
+        { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'r1' },
+    );
+    assert.deepEqual(
+        soloPanelAction(null, appt({ id: 'n1' }), ticket),
+        { label: 'Tahsil et', tone: 'go', appointmentId: 't1' },
+    );
+    // Randevusu bilinmeyen adisyon hap olmuyor — hap neyi açacağını bilmeli.
+    assert.deepEqual(
+        soloPanelAction(null, appt({ id: 'n1' }), due('t1', { appointmentId: undefined })),
+        { label: 'Başlat', tone: 'go', appointmentId: 'n1' },
+    );
+});
+
+test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş bitti', () => {
+    const me = { id: 'p1', initials: 'DT', name: 'Derya Toprak', state: 'free' };
+    const rows = [
+        closed('t1', { staff_id: 'p1', start_time: '14:00', end_time: '16:00' }),
+        appt({ id: 'y1', staff_id: 'p1', start_time: '16:30', end_time: '17:15' }),
+    ];
+    const day = buildStaffDayState(me, rows, [me], 16 * 60 + 4, 0, '', '2026-10-09');
+    assert.equal(day.pastAppointments.length, 1);
+    assert.equal(day.upcomingAppointments.length, 1);
+});
+
+test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {
+    assert.match(gun, /const \{ events: flowEvents \} = useManagerDay\(\);/);
+    assert.match(gun, /dayKnown && isToday && !runningRow \? soloOpenTicket\(flowEvents, mine, selectedISO\) : null/);
+    assert.match(gun, /soloPanelAction\(dayState\.runningAppointment, dayState\.upcomingAppointments\[0\] \?\? null, ticket\)/);
+});
+
+test('G4 · tahsil hâli Gün okumasına giriyor, sormayan okumaya değil', () => {
+    const source = read('src/lib/managerSource.ts');
+    assert.match(source, /\.select\(`\$\{RES_COLS\}, updated_at, wait_ends_at, wait_minutes, is_paid`\)/);
+    const map = read('src/lib/managerMap.ts');
+    assert.match(map, /\.\.\.\('is_paid' in row \? \{ is_paid: row\.is_paid == null \? null : row\.is_paid === true \} : \{\}\),/);
+    // Paylaşılan sabit DEĞİŞMEDİ: bütün okumaları besliyor.
+    assert.doesNotMatch(map.slice(map.indexOf('export const RES_COLS'), map.indexOf(';', map.indexOf('export const RES_COLS'))), /is_paid/);
+});
+
+test('G4 · kartın kehribar sol şeridi (`.pnl.bar`)', () => {
+    const parts = read('src/components/StaffDayParts.tsx');
+    assert.match(parts, /\{panel\.bar \? \(\s*<View\s*pointerEvents="none"\s*style=\{\{\s*position: 'absolute',\s*left: 0,/);
+    assert.match(parts, /width: staffDayMetrics\.panelBarWidth,\s*backgroundColor: ink\.amDot,/);
+    assert.match(parts, /paddingLeft: panel\.bar \? staffDayMetrics\.panelBarPadLeft : staffDayMetrics\.panelPad,/);
+    const tokens = read('src/theme/tokens.ts');
+    assert.match(tokens, /panelBarWidth: 4,/);
+    assert.match(tokens, /panelBarPadLeft: 17,/);
+});
+

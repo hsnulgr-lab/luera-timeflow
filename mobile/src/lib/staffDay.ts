@@ -26,6 +26,11 @@ export interface StaffHeroPanel {
      * (v4 · G3 · BEKLEMEDE). Verilmezse kartın bugünkü çizimi.
      */
     tone?: 'am';
+    /**
+     * Sol kenarda kehribar şerit (v4 · G4 · `.pnl.bar`): ADİSYON AÇIK. Kart
+     * bir İŞİ değil bir BORCU anlatıyor; şerit onu uzaktan okutuyor.
+     */
+    bar?: boolean;
     hasPulse: boolean;
     heroValue: string;
     heroUnit?: string;

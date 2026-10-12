@@ -45,10 +45,11 @@ export function SoloAppointmentCard({
      * BİTEN İŞ yalnız ADINDA soluyor, kartın tamamında değil.
      *
      * Kartı soldurmak hizmet satırını ve durumu da okunmaz yapardı; oysa
-     * "tamamlandı" biten işin taşıdığı tek bilgi. Tasarım da böyle:
-     * `.gk.done .nm{opacity:.72}` — gövdeye hiç dokunmuyor.
+     * "tahsil edildi / adisyon açık" biten işin taşıdığı tek bilgi. Tasarım
+     * da böyle: `.gk.done .nm{opacity:.72}` — gövdeye hiç dokunmuyor. Açık
+     * adisyon da biten iş (v4 · G4: `done bar am`); tonla değil bayrakla.
      */
-    const done = stamp?.tone === 'gr';
+    const done = stamp?.done === true;
 
     const spokenStamp = stamp ? `, ${stamp.label}` : '';
 

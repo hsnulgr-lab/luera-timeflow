@@ -317,12 +317,13 @@ export async function fetchDayWithStamps(
     const { data, error } = await supabase
         .from('reservations')
         /*
-         * Bekleme (112 · v4 G3) BU sorgunun kendi listesinde, paylaşılan
-         * `RES_COLS`ta değil: o sabit bütün okumaları besliyor ve bekleme
-         * yalnız Gün'ün BEKLEMEDE kartının sorusu. Göç uygulanmadan bu sorgu
-         * düşer — sıra: önce 112.
+         * Bekleme (112 · v4 G3) ve tahsil hâli (v4 · G4) BU sorgunun kendi
+         * listesinde, paylaşılan `RES_COLS`ta değil: o sabit bütün okumaları
+         * besliyor; ikisi de yalnız Gün'ün sorusu (BEKLEMEDE kartı, kartın
+         * "tahsil edildi / adisyon açık" damgası). Bekleme sütunları 112'yle
+         * geldi — sıra: önce 112.
          */
-        .select(`${RES_COLS}, updated_at, wait_ends_at, wait_minutes`)
+        .select(`${RES_COLS}, updated_at, wait_ends_at, wait_minutes, is_paid`)
         .eq('organization_id', organizationId)
         .eq('date', dateISO)
         .order('start_time')

@@ -112,6 +112,8 @@ function toApptRaw(row: Record<string, unknown>): Appt {
             wait_ends_at: (row.wait_ends_at as string | null) ?? null,
             wait_minutes: row.wait_minutes == null ? null : Number(row.wait_minutes),
         } : {}),
+        // Tahsil hâli (G4) de aynı kural: sorulmadıysa alan YOK.
+        ...('is_paid' in row ? { is_paid: row.is_paid == null ? null : row.is_paid === true } : {}),
     };
 }
 

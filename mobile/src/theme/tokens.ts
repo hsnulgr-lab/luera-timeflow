@@ -2918,6 +2918,9 @@ export const staffDayMetrics = {
     panelLabel: 11.5,
     panelLabelTrack: 0.06,
     panelDot: 6,
+    /** ADİSYON AÇIK kartının sol şeridi (v4 · `.pnl.bar`) ve ona yer açan dolgu. */
+    panelBarWidth: 4,
+    panelBarPadLeft: 17,
     heroText: 34,
     heroTextTrack: -0.04,
     heroBox: 36,

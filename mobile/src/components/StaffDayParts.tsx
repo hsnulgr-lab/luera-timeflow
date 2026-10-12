@@ -747,8 +747,24 @@ export function StaffHeroPanelCard({ panel, flush = false, action }: {
                 overflow: 'hidden',
             }}
         >
+            {/* Kehribar kenar şeridi (ADİSYON AÇIK · v4 G4): kart bir borcu
+                anlatıyor. Kelimenin yerine değil, uzaktan okunsun diye. */}
+            {panel.bar ? (
+                <View
+                    pointerEvents="none"
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: staffDayMetrics.panelBarWidth,
+                        backgroundColor: ink.amDot,
+                    }}
+                />
+            ) : null}
             <View style={{
                 padding: staffDayMetrics.panelPad,
+                paddingLeft: panel.bar ? staffDayMetrics.panelBarPadLeft : staffDayMetrics.panelPad,
                 gap: 3,
             }}>
                 <View style={{

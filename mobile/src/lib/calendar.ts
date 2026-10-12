@@ -58,6 +58,12 @@ export interface Appt {
      */
     wait_ends_at?: string | null;
     wait_minutes?: number | null;
+    /**
+     * Tahsil edildi mi (v4 · G4). İsteğe bağlı — yalnız Gün okuması soruyor.
+     * `undefined` SORULMADI demek: "tahsil edilmedi" ile karışmamalı, yoksa
+     * bu alanı okumayan her ekran biten her işi "adisyon açık" sanardı.
+     */
+    is_paid?: boolean | null;
 }
 
 export type CardState = 'live' | 'due' | 'plain';
