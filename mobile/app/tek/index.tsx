@@ -379,9 +379,9 @@ export default function SoloDay() {
                                 tone: panelAction.tone,
                                 onPress: () => router.push({
                                     pathname: '/(staff-flow)/kumanda',
-                                    // `from`: kumandanın geri okunun yazısı.
-                                    // Orada `useInSoloShell()` çalışmıyor —
-                                    // o ekran `(staff-flow)` segmentinde.
+                                    // `from`: kumandanın geri okunun yazısı
+                                    // ("Gün") ve tahsilat adımı. Mod değil,
+                                    // NEREDEN gelindiği: Kasa da `back` yolluyor.
                                     params: { id: panelAction.appointmentId, from: 'tek' },
                                 }),
                             } : undefined}

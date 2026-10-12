@@ -95,19 +95,21 @@ function SheetSub({ text }: { text: string }) {
 
 // ── B · Hizmeti değiştir ────────────────────────────────────────────────────
 
-export function ServiceSheet({ visible, appointment, dayAppointments, services, staffName, onDismiss, onPick }: {
+export function ServiceSheet({ visible, appointment, dayAppointments, services, staffName, solo = false, onDismiss, onPick }: {
     visible: boolean;
     appointment: Appt;
     dayAppointments: readonly Appt[];
     /** Salonun GERÇEK kataloğu. */
     services: readonly ServiceOption[];
     staffName?: string | null;
+    /** Tek kişilik: alt başlıkta "X ile" yok, çakışma adsız (v4 · karar 3). */
+    solo?: boolean;
     onDismiss: () => void;
     onPick: (choice: ServiceChoice) => void;
 }) {
     const { c } = useTheme();
     const [picked, setPicked] = useState<string | null>(null);
-    const choices = serviceChoices(appointment, dayAppointments, staffName, services);
+    const choices = serviceChoices(appointment, dayAppointments, staffName, services, solo);
     const chosen = choices.find((choice) => choice.id === picked) ?? null;
 
     useEffect(() => { if (!visible) setPicked(null); }, [visible]);
@@ -128,7 +130,7 @@ export function ServiceSheet({ visible, appointment, dayAppointments, services, 
                 />
                 {/* Sheet sayfanın üstünde açılıyor ve sayfa görünmüyor:
                     hangi randevuyu değiştirdiğini sheet KENDİ söylüyor. */}
-                <SheetSub text={serviceSheetSubtitle(appointment, staffName)} />
+                <SheetSub text={serviceSheetSubtitle(appointment, solo ? null : staffName)} />
 
                 <ScrollView style={{ maxHeight: 396 }} showsVerticalScrollIndicator={false}>
                     {choices.map((choice, index) => {

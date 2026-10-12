@@ -48,6 +48,12 @@ export interface ApptIdentity {
     /** Atanmamışsa `null` — boş avatar "atanmamış" demenin en kötü yolu. */
     staff: string | null;
     initials: string;
+    /**
+     * Personel pili çizilir mi. Tek kişilikte HAYIR (v4 · karar 3): pil
+     * sahibin personel satırını, yani işletmenin adını gösterirdi; boş
+     * bırakılsa "Atanmamış" derdi — ikisi de yanlış.
+     */
+    crew: boolean;
 }
 
 /**
@@ -60,7 +66,9 @@ export function identityOf(
     appointment: Appt,
     staffName?: string | null,
     today: string = todayISO(),
+    solo = false,
 ): ApptIdentity {
+    const shown = solo ? null : staffName ?? null;
     return {
         day: formatDayFull(appointment.date),
         isToday: appointment.date === today,
@@ -68,8 +76,9 @@ export function identityOf(
         to: appointment.end_time.slice(0, 5),
         duration: durationMinutes(appointment),
         service: appointment.service,
-        staff: staffName ?? null,
-        initials: staffName ? initialsOf(staffName) : '',
+        staff: shown,
+        initials: shown ? initialsOf(shown) : '',
+        crew: !solo,
     };
 }
 
@@ -288,15 +297,22 @@ export function priceOfService(name: string, services: readonly ServiceOption[])
     return services.find((service) => service.name === name)?.price ?? null;
 }
 
-/** Saat ve personel günde onlarca kez değişir: jeton, h84, değeri büyük. */
-export function changeTiles(appointment: Appt, staffName?: string | null): ChangeTile[] {
+/**
+ * Saat ve personel günde onlarca kez değişir: jeton, h84, değeri büyük.
+ *
+ * Tek kişilikte YALNIZ SAAT (v4 · karar 3): "Personeli değiştir"in
+ * seçeneği yok, jeton bir işe yaramazdı. Tek jeton satırın tamamını alır.
+ */
+export function changeTiles(appointment: Appt, staffName?: string | null, solo = false): ChangeTile[] {
+    const time: ChangeTile = {
+        action: 'time',
+        icon: 'clock',
+        kicker: 'Saati değiştir',
+        value: `${dayNameShort(appointment.date)} ${appointment.start_time.slice(0, 5)}`,
+    };
+    if (solo) return [time];
     return [
-        {
-            action: 'time',
-            icon: 'clock',
-            kicker: 'Saati değiştir',
-            value: `${dayNameShort(appointment.date)} ${appointment.start_time.slice(0, 5)}`,
-        },
+        time,
         {
             action: 'staff',
             icon: 'swap',
@@ -371,6 +387,9 @@ export function serviceSheetSubtitle(appointment: Appt, staffName?: string | nul
 /**
  * Her seçeneğin YENİ bitiş saati hesaplanır ve o personelin o günkü
  * bloklarıyla kesişim aranır — seçmeden ÖNCE.
+ *
+ * Tek kişilikte çakışma ADSIZ: "11:00–12:30 ile çakışır". Ad, sahibin
+ * personel satırının adıydı — yani işletmenin adı.
  */
 export function serviceChoices(
     appointment: Appt,
@@ -381,6 +400,7 @@ export function serviceChoices(
      * yazılıyordu — salonun hiç tanımlamadığı bir ad ve süreyle.
      */
     services: readonly ServiceOption[],
+    solo = false,
 ): ServiceChoice[] {
     const current = durationMinutes(appointment);
     const start = toMinutes(appointment.start_time);
@@ -403,7 +423,7 @@ export function serviceChoices(
             selected: service.name === appointment.service,
             longer: service.minutes > current,
             clash: blocking
-                ? `${staffName ?? 'Personel'} · ${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)} ile çakışır`
+                ? `${solo ? '' : `${staffName ?? 'Personel'} · `}${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)} ile çakışır`
                 : null,
         };
     });

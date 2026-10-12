@@ -369,8 +369,14 @@ function genitiveSuffix(value: string): string {
     return `’${endsWithVowel ? 'n' : ''}${vowel}n`;
 }
 
-/** Hesap silme diyaloğunun veri, personel, yasal kayıt ve süre maddeleri. */
-export function accountDeletionItems(businessNames: readonly string[]): string[] {
+/**
+ * Hesap silme diyaloğunun veri, personel, yasal kayıt ve süre maddeleri.
+ *
+ * `solo`: hesabın BÜTÜN işletmeleri tek kişilik. O zaman personel maddesi
+ * yok (v4 · karar 3) — bağlantısı kesilecek bir personel yok ve madde,
+ * sahibin kendi personel satırını "personeliniz" diye okurdu.
+ */
+export function accountDeletionItems(businessNames: readonly string[], solo = false): string[] {
     const names = businessNames.map((name) => name.trim()).filter(Boolean);
     const scope = names.length === 0
         ? 'İşletmelerinizin'
@@ -378,7 +384,7 @@ export function accountDeletionItems(businessNames: readonly string[]): string[]
 
     return [
         `${scope} tüm randevuları ve müşteri bilgileri silinir.`,
-        'Personelinizin telefon bağlantıları kesilir; uygulamaya giremezler.',
+        ...(solo ? [] : ['Personelinizin telefon bağlantıları kesilir; uygulamaya giremezler.']),
         'Yasal olarak tutmamız gereken satış kayıtları 10 yıl saklanır, adınıza bağlı kalmaz.',
         'Silme 30 gün içinde tamamlanır. Bu süre içinde girerseniz işlem durur.',
     ];

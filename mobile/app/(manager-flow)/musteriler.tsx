@@ -11,12 +11,13 @@ import { agoLabel, splitName } from '../../src/lib/customerBook';
 import { todayISO } from '../../src/lib/calendar';
 import { feedback } from '../../src/lib/feedback';
 import {
-    bookLine, bookMatches, bookSummary, managerBookRows, sortManagerBook,
+    bookLine, bookMatches, bookSummary, bookWithoutStaff, managerBookRows, sortManagerBook,
     type ManagerBookRow,
 } from '../../src/lib/managerBook';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCrew, fetchCustomerBook, forgetOrg } from '../../src/lib/managerSource';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { initialsOf, upperTR } from '../../src/lib/text';
 import { font, numeric, profileMetrics as M, useTheme } from '../../src/theme';
 
@@ -71,10 +72,17 @@ export default function ManagerCustomers() {
     const snap = useManagerRead<ManagerBookRow[] | null>(read, null,
         { poll: false, tables: ['customers', 'reservations'] });
 
-    const rows = useMemo(
-        () => (snap.data ? sortManagerBook(snap.data, today) : []),
-        [snap.data, today],
-    );
+    /*
+     * Tek kişilikte defter personelsiz (v4 · karar 3): satırda son işi
+     * yapanın adı, solda baş harf diski yok. Liste İşletme'nin üstüne
+     * itilen bir sayfa — kabuğu altındaki yığından okuyor.
+     */
+    const solo = useInSoloShell();
+    const rows = useMemo(() => {
+        if (!snap.data) return [];
+        const sorted = sortManagerBook(snap.data, today);
+        return solo ? bookWithoutStaff(sorted) : sorted;
+    }, [snap.data, today, solo]);
     const shown = useMemo(
         () => rows.filter((row) => bookMatches(row, query)),
         [rows, query],
@@ -164,6 +172,7 @@ export default function ManagerCustomers() {
                             row={row}
                             today={today}
                             last={index === shown.length - 1}
+                            solo={solo}
                             onOpen={() => open(row)}
                         />
                     ))}
@@ -173,10 +182,12 @@ export default function ManagerCustomers() {
     );
 }
 
-function Row({ row, today, last, onOpen }: {
+function Row({ row, today, last, solo, onOpen }: {
     row: ManagerBookRow;
     today: string;
     last: boolean;
+    /** Tek kişilik: baş harf diski hiç çizilmiyor — her satırda boş bir halka olurdu. */
+    solo: boolean;
     onOpen: () => void;
 }) {
     const { c, small } = useTheme();
@@ -206,20 +217,23 @@ function Row({ row, today, last, onOpen }: {
             })}
         >
             {/* Disk KİMDE olduğunu söylüyor. Personel bilinmiyorsa boş durur —
-                uydurma bir harf, yanlış kişiyi işaret etmekten kötü. */}
-            <View style={{
-                width: disc,
-                height: disc,
-                borderRadius: disc / 2,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: c.bd2,
-            }}>
-                <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 0.2, color: c.tx3 }}>
-                    {row.lastStaffName ? initialsOf(row.lastStaffName) : ''}
-                </Text>
-            </View>
+                uydurma bir harf, yanlış kişiyi işaret etmekten kötü. Tek
+                kişilikte "kimde" sorusu yok: disk hiç çizilmiyor. */}
+            {solo ? null : (
+                <View style={{
+                    width: disc,
+                    height: disc,
+                    borderRadius: disc / 2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: c.bd2,
+                }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 0.2, color: c.tx3 }}>
+                        {row.lastStaffName ? initialsOf(row.lastStaffName) : ''}
+                    </Text>
+                </View>
+            )}
 
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <Text numberOfLines={1} style={{

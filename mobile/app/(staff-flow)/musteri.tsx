@@ -36,6 +36,7 @@ import {
 } from '../../src/lib/customerFile';
 import { useCustomerFile } from '../../src/lib/fileSource';
 import { feedback } from '../../src/lib/feedback';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { upperTR } from '../../src/lib/text';
 import { font, numeric, useTheme } from '../../src/theme';
 
@@ -60,6 +61,9 @@ export default function CustomerFile() {
         params.customerId,
         params.name,
     );
+    // Tek kişilikte kumandanın üstünde açılıyor; orada "son bakan" pili
+    // yok (v4 · karar 3): bakan hep ekrana bakan kişinin kendisi.
+    const solo = useInSoloShell();
 
     const back = (
         <Pressable
@@ -188,8 +192,9 @@ export default function CustomerFile() {
                     <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap' }}>
                         {file.lastService ? <Pill>{file.lastService}</Pill> : null}
                         {/* Adı bilinmiyorsa pil hiç çizilmiyor: baş harf bir
-                            ad değildir ve "MK" yazan bir pil bilgi vermez. */}
-                        {file.lastStaff ? (
+                            ad değildir ve "MK" yazan bir pil bilgi vermez.
+                            Tek kişilikte de yok — kişi zaten kendisi. */}
+                        {file.lastStaff && !solo ? (
                             <Pill avatar={file.lastStaffInitials}>{file.lastStaff}</Pill>
                         ) : null}
                     </View>

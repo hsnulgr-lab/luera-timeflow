@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,10 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DurumUnread } from '../../src/components/Durum';
 import { ProfileNav } from '../../src/components/ProfileParts';
 import { formatTRY } from '../../src/lib/customerCard';
-import { fullHistoryOf, type FullHistoryRow } from '../../src/lib/customerCardLive';
+import { fullHistoryOf, historyWithoutStaff, type FullHistoryRow } from '../../src/lib/customerCardLive';
 import { localClock } from '../../src/lib/createLive';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCustomerHistory } from '../../src/lib/managerSource';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { font, profileMetrics as M, useTheme } from '../../src/theme';
 
 type Groups = { month: string; rows: FullHistoryRow[] }[];
@@ -42,7 +43,13 @@ export default function CustomerHistory() {
     }, [customerId]);
     const snap = useManagerRead<Groups | null>(read, null,
         { poll: false, tables: ['reservations', 'payments'] });
-    const groups = snap.data;
+    // Tek kişilikte "Merve ile" yok (v4 · karar 3) — kartla aynı kural,
+    // ad veride düşüyor: görünen satır da sesli okunan etiket de susuyor.
+    const solo = useInSoloShell();
+    const groups = useMemo(
+        () => (solo && snap.data ? historyWithoutStaff(snap.data) : snap.data),
+        [snap.data, solo],
+    );
     const total = groups?.reduce((sum, group) => sum + group.rows.length, 0) ?? 0;
 
     return (

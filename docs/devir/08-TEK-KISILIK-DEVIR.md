@@ -1,8 +1,15 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (C2/C3 commit'i `main`'in önünde, push yok)
-**Testler:** 2835 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§19'un commit'i `main`'in önünde, push yok)
+**Testler:** 2856 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
+> **2026-10-12 · PERSONEL İZLERİ (§19):** karar 3'ün ("arayüzde kavram
+> görünmez") kalan izleri temizlendi ve iki gizli kusur kapandı: kabuk artık
+> ADRESTEN değil YERDEN okunuyor (üstüne sayfa itilince sekme kendini ekip
+> ekranı sanıyordu), ve tek kişilikte müdür kabuğuna giden sabit yollar
+> kalktı (Takvim'in boş saati ve kartın "Randevu ver"i Gün'e düşürüyordu).
+> Yalnız istemci; göç ve deploy yok.
+>
 > **2026-10-12 · C2/C3 (§18):** Kasa'da Düzelt / Geri al bağlandı — yalnız
 > tek kişilikte. v4'ün 23 ekranının HEPSİ kodda; telefonda denenmeyenler §0.
 > Yalnız istemci (111 canlıdaydı); göç ve deploy yok.
@@ -90,9 +97,13 @@ açan şey `organizations.solo = true` (göç 108). Sebep: rol eklemek RLS,
 çakışma kontrolü, raporlar ve bildirim kanallarının hepsinde ikinci bir dal
 açardı ve hatalar o dalda saklanırdı.
 
-`useInSoloShell()` kabuğu **rotadan** okuyor (`useSegments()[0] === 'tek'`).
-⚠️ `app/(staff-flow)/kumanda.tsx` içinde ÇALIŞMAZ — o ekran farklı bir
-segment. Orada `from` parametresi kullanılıyor (`params.from === 'tek'`).
+`useInSoloShell()` kabuğu **yerden** okuyor (§19): sekme, kabuğun bağlamından
+(`ShellScope`, `app/tek/_layout.tsx`); kök yığına itilmiş sayfa (müşteri
+kartı, randevu detayı, kumandanın üstündeki müşteri dosyası) altındaki en
+yakın kabuktan (`shellBeneath`). ⚠️ Eski hâli `useSegments()[0] === 'tek'`
+idi ve YANLIŞTI: adres genel, üstüne sayfa itilince alttaki sekme kendini
+ekip ekranı sanıyordu. Kumanda geri etiketi için hâlâ `from`/`back`
+parametresini kullanıyor — etiket NEREDEN gelindiğini söylüyor, modu değil.
 
 ### Teknik zemin
 
@@ -960,3 +971,94 @@ düşürmezse görünmez bir katman Kasa'yı kilitlerdi. `askRevert` önce
 İçeriği bu commit'te. Dal GitHub'da duruyor; silinip silinmeyeceği
 kullanıcının kararı.
 
+---
+
+## 19 · 2026-10-12 · PERSONEL İZLERİ (karar 3) + KABUK YERDEN
+
+Kullanıcı: "push et, main'i ileri al, devam et" (C2/C3 gönderildi, `9d3e4ed`).
+Sıradaki iş denetimin "küçükler"inden ilkiydi: personel izleri. Kazınca iz
+iki yerde değil on yerde çıktı ve altında iki gizli kusur vardı.
+
+### Gizli kusur 1 — kabuk ADRESTEN okunuyordu
+
+`useInSoloShell()` = `useSegments()[0] === 'tek'`. `useSegments` GENEL adres
+(expo-router `useRouteInfo` → `useSyncExternalStore`, odaktaki rota). Kumanda,
+randevu detayı ya da İşletme'nin bir sayfası itilince adres `(staff-flow)/…`
+oluyor ve alttaki sekmeler — sökülmeyen, yığın değişince yeniden çizilen
+sekmeler — o çizimde `solo = false` görüyordu. Görünür sonuç: geri
+kaydırırken, modal kartın arkasında ve geçiş boyunca Takvim personel
+başlığıyla, İşletme "Personel" satırıyla, Kasa "X verdi"yle çiziliyordu.
+Üstüne itilen sayfalar da kabuğu hiç bilemiyordu — o yüzden karttaki izler
+temizlenemiyordu.
+
+Düzeltme (`src/lib/shellRoot.ts`, `src/lib/shellBeneath.ts`):
+- Sekme kabuğun bağlamını okur: `app/tek/_layout.tsx` sekmeleri
+  `<ShellScope value="tek">` ile sarıyor.
+- İtilen sayfa kök yığında ALTINDAKİ en yakın kabuğa bakar
+  (`useNavigationState` + `useRoute().key` → `shellBeneath`).
+- Kapanan sayfa bir kare bile ekip düzenine dönmüyor: yerel yığın çıkan
+  rotayı React'ten hemen söküyor (`state.routes` dışında kalıyor), animasyonu
+  yerel taraf yürütüyor.
+
+### Gizli kusur 2 — müdür kabuğuna sabit yollar
+
+Tek kişilikte `/mudur/...` müdür kabuğunu kuruyor, kök yığını ona indiriyor
+(`useShellIsRoot`), kapısı da `solo` görüp `/tek`e geri yolluyordu: kullanıcı
+Gün'e düşüyor, kabuk baştan kuruluyordu.
+- Takvim'de boş saate dokunmak (v4 T1 "randevu kurma o saatle açılır") →
+  saat ön dolu randevu yerine **Gün** açılıyordu.
+- Müşteri kartının "Randevu ver"i → müşteri ön dolu randevu yerine **Gün**.
+- Randevu sekmesinin kapanışı, kart ve detayın "geri gidilemezse" yolu.
+Hepsi `solo ? '/tek/…' : '/mudur/…'`. Test: bu dosyalarda koşulsuz `/mudur`
+yolu kalmadı.
+
+### İzler (v4 karar 3: "ile", "verdi", "kim yapacak" render edilmez)
+
+Sahibin personel satırı işletmenin adını taşıyor; her iz "Derya Güzellik
+ile" diye okunuyordu.
+
+| Yer | Tek kişilikte | Nasıl |
+|---|---|---|
+| Müşteri kartı | yaklaşan / son geliş / ilk ziyaret / son işlemlerde "X ile" yok | ad VERİDE düşüyor: `customerCard.withoutStaff` |
+| Tüm geçmiş | "X ile" yok | `customerCardLive.historyWithoutStaff` |
+| Müşteriler listesi | satırda son işi yapan ve baş harf diski yok (v4 s-harman "Müşteriler") | `managerBook.bookWithoutStaff`, disk çizilmiyor |
+| Kumandanın müşteri dosyası | "son bakan" pili yok | `musteri.tsx` |
+| Randevu detayı | kimlikte personel pili yok ("Atanmamış" da değil), "Personeli değiştir" jetonu yok (tek jeton satırı kaplıyor), hizmet çakışması "11:00–12:30 ile çakışır", iptal/silme onayı adsız | `identityOf(…, solo)` → `crew`, `changeTiles(…, solo)`, `serviceChoices(…, solo)` |
+| Takvim · menü | "Personeli değiştir" satırı yok, alt başlıkta "X ile" yok | `menuRows(…, solo)` |
+| Takvim · sürükleme | "Parmağınızı kaldırmadan istediğiniz saate taşıyın." (kişiye yok), hedef etiketi yalnız saat, dolu sebebi adsız | `moveBanner / targetLabel / resolveTarget(solo)`, `MOVE_HINT_SOLO` |
+| Takvim · saat seçici | boş satır "Müsait", ad ve baş harf yok | `MoveSheet solo` |
+| "Taşındı" sayfası | saatlerin altında ad yok | `moveResultCopy(…, solo)` |
+| R2 rayı | dolu kutu "**Dolu**" + "Deniz Şahin · Manikür & Pedikür" (v4 R2 birebir); kapalı kutu "Bu saatte çalışmıyorsunuz" / "Bu gün izinlisiniz"; sesli okuma "dolu, Dolu" demiyor | `slotRows({ solo })`, `slotSpeech` |
+| Randevu onayı | kanıt kartında personel sütunu yok, sesli okuma "X yapacak" demiyor | `ConfirmScreen solo`, `confirmSpeech / stillBookedLine(null)` |
+| Reddin cümlesi | "O saatte Derya Güzellik zaten…" yerine "O saat dolu — …" | yazmalara tek kişilikte ad gitmiyor; webhook adı yine taşıyor |
+| Hesap silme | "Personelinizin telefon bağlantıları…" maddesi ve "1 personelin erişimi" satırı yok | `accountDeletionItems(…, solo)` (hesabın BÜTÜN işletmeleri tek kişilikse), `hesap-sil` |
+
+Ekip davranışı değişmedi; her saf fonksiyonun bayrağı varsayılan `false`.
+
+### Kanıt
+
+- Yeni: `tests/tek-personel-izi.test.mjs` (21). "Özet şeridi yok" nöbeti
+  (`mobile-mudur-denetim`) tek kişilik Gün'ü de kapsıyor (v4 `s-rn`).
+- Üç eski test satırın yeni biçimine taşındı (gevşetilmedi): takvimin taşıma
+  ve geri al yazması, hizmet sayfasının katalog çağrısı.
+- 2856 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint bulgusu yok
+  (değişen her dosya HEAD sürümüyle karşılaştırıldı).
+- 28 koruma tek tek söküldü; 28'inde de test düştü.
+
+### Telefonda bakılacaklar (tek kişilik hesap)
+
+- Takvim'de boş saate dokun → Randevu sekmesi o saatle açılmalı (Gün değil).
+- Bir bloğa dokun → randevu kartı: kimlikte yalnız hizmet pili, tek
+  "Saati değiştir" jetonu; arkadaki Takvim'de personel başlığı GÖRÜNMEMELİ.
+- Bloğu basılı tut, sürükle: alt bantta "kişiye" yok, hedefte yalnız saat.
+- Müşteri kartı: "X ile" yok; "Randevu ver" müşteri seçili Randevu'yu açmalı.
+- İşletme → Müşteriler: satırlarda baş harf diski ve ad yok.
+- Kumanda'dan geri kaydırırken alttaki Gün/Kasa ekip düzenine dönmemeli.
+
+### Kalan küçükler (bu turda yapılmadı)
+
+- İşletme seçici kartında "1 personel" (yalnız birden çok işletmesi olan
+  hesap görür; kimlik akışı, tek kabuğun dışında).
+- Masaüstüne yollayan cümleler (paket sat, WhatsApp "Mesajla hatırlat").
+- `staff_id`'yi sunucu yazsın (göç ister).
+- Bekleme bitince bildirim (ürün kararı).

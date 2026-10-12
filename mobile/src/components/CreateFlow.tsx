@@ -334,9 +334,11 @@ export function CreateFlow({
         },
         // Bugünse geçmiş kutular seçilemez.
         nowMinutes: draft.dateISO === nowClock.dateISO ? nowClock.minutes : null,
+        // Tek kişilikte dolu/kapalı kutunun sebebi adsız (v4 · R2).
+        solo,
     }) : []), [
         day.data.appointments, dayKnown, staff, duration, draft.dateISO, draft.locked, draft.staffId,
-        context.settings.workingHours, context.crew, today, nowClock.dateISO, nowClock.minutes,
+        context.settings.workingHours, context.crew, today, nowClock.dateISO, nowClock.minutes, solo,
     ]);
 
     /*
@@ -757,6 +759,7 @@ export function CreateFlow({
                 appointment={created}
                 staffName={person?.name ?? '—'}
                 staffInitials={person?.initials ?? '—'}
+                solo={solo}
                 price={draft.service?.price ?? null}
                 message={message}
                 onSend={() => onSend({

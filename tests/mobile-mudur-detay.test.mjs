@@ -554,7 +554,9 @@ test('CANLI takvimde taşıma SUNUCUYA yazılıyor', () => {
     assert.doesNotMatch(calendar, /updateLocalAppointment/);
     assert.doesNotMatch(calendar, /from '\.\.\/\.\.\/src\/lib\/calendarSource'/);
     assert.match(calendar, /useMoveWriter\(data\.rows, data\.stamps, reload\)/);
-    assert.match(calendar, /await commit\(appointment, applyMove\(appointment, target\), target\.staffName\)/);
+    // Ad yalnız reddin cümlesi için; tek kişilikte adsız (karar 3 ·
+    // `tek-personel-izi.test.mjs`). Yazmanın kendisi aynı yoldan.
+    assert.match(calendar, /await commit\(appointment, applyMove\(appointment, target\), solo \? null : target\.staffName\)/);
     // Sonuç sayfası yalnız sunucu KABUL ettiyse açılıyor.
     assert.match(calendar, /if \(!ok\) return;/);
     // Ve yazma iyimser kilide dayanıyor — damgasız satır taşınmıyor.
@@ -628,7 +630,8 @@ test('kart salonun GERÇEK kataloğunu kullanıyor — sahte katalog yok', () =>
     assert.match(lib, /return services\.map\(\(service\) =>/);
     assert.match(page, /changeRows\(appointment, services\)/);
     assert.match(page, /services=\{services\}/);
-    assert.match(sheets, /serviceChoices\(appointment, dayAppointments, staffName, services\)/);
+    // Son parametre tek kişilik bayrağı: çakışma cümlesi adsız (karar 3).
+    assert.match(sheets, /serviceChoices\(appointment, dayAppointments, staffName, services, solo\)/);
     assert.match(route, /services=\{data\.services\}/);
     const hook = code('src/lib/managerAppointment.ts');
     assert.match(hook, /fetchServices\(\),/);

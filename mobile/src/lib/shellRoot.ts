@@ -13,8 +13,11 @@
  * çalışıyor — Fast Refresh'in yeniden kurduğu ağaçta da.
  */
 
-import { useEffect } from 'react';
-import { useNavigation, useSegments } from 'expo-router';
+import { createContext, useContext, useEffect } from 'react';
+import { useNavigation, useRoute } from 'expo-router';
+import { useNavigationState } from 'expo-router/react-navigation';
+
+import { shellBeneath } from './shellBeneath';
 
 /**
  * `reset` React Navigation'ın kök parametre listesine göre tipleniyor ve o
@@ -30,20 +33,44 @@ type RootNav = {
 export type ShellName = 'mudur' | 'personel' | 'tek';
 
 /**
- * Ekran TEK KİŞİLİK kabukta mı çiziliyor (108)?
+ * Kabuğun sekmelerini saran bağlam. Yalnız `app/tek/_layout.tsx` takıyor:
+ * sorulan tek soru "tek kişilik mi" ve öbür iki kabukta cevap zaten hayır.
+ */
+const ShellContext = createContext<ShellName | null>(null);
+export const ShellScope = ShellContext.Provider;
+
+/**
+ * Ekran TEK KİŞİLİK kabukta mı — ya da onun ÜSTÜNE itilmiş mi (108)?
  *
  * Birkaç ekran iki kabukta ortak: müdürün Akış'ı tek kişilikte Gün, Profil'i
  * İşletme oluyor. Aralarındaki fark birkaç satırın çizilip çizilmemesi; ayrı
  * dosya açmak her düzeltmeyi iki yerde yapmak olurdu.
  *
- * Cevap OTURUMDAN DEĞİL ADRESTEN okunuyor. İkisi de doğruyu söyler ama
- * adres hemen söyler: oturumu yeniden okusaydık ilk karede mod bilinmezdi
- * ve ekip satırları bir an görünüp kaybolurdu. Kabuk zaten `solo` bayrağına
- * bakan bir kapının arkasında — yani "tek kabuktayım" demek, "bu işletme
- * tek kişilik" demenin ta kendisi.
+ * Cevap OTURUMDAN DEĞİL YERDEN okunuyor: oturumu yeniden okusaydık ilk
+ * karede mod bilinmezdi ve ekip satırları bir an görünüp kaybolurdu. Kabuk
+ * zaten `solo` bayrağına bakan bir kapının arkasında — yani "tek kabuktayım"
+ * demek, "bu işletme tek kişilik" demenin ta kendisi.
+ *
+ * ── ADRES DEĞİL, YER — bu bir düzeltme ──────────────────────────────────────
+ * İlk hâli `useSegments()[0] === 'tek'` idi. `useSegments` GENEL adresi
+ * okuyor: kumanda ya da randevu detayı açılınca adres `(staff-flow)/…`
+ * oluyor ve alttaki sekmeler — sökülmeden yerinde duran ve yığın değişince
+ * yeniden çizilen sekmeler — o çizimde kendini EKİP ekranı sanıyordu. Geri
+ * kaydırırken, modalın arkasında ve geçiş boyunca Takvim personel başlığını,
+ * İşletme "Personel" satırını, Kasa "X verdi"yi gösteriyordu. Üstüne itilen
+ * sayfalar ise hiç bilemiyordu.
+ *
+ * Şimdi iki kaynak, ikisi de yerinden kıpırdamıyor:
+ *   • Sekme, kabuğun bağlamını okur (`ShellScope`) — üstüne ne itilirse
+ *     itilsin değişmez.
+ *   • Kök yığına itilmiş sayfa, altındaki en yakın kabuğa bakar
+ *     (`shellBeneath`) — kumandanın üstündeki müşteri dosyası da dahil.
  */
 export function useInSoloShell(): boolean {
-    return useSegments()[0] === 'tek';
+    const inside = useContext(ShellContext);
+    const { key } = useRoute();
+    const beneath = useNavigationState((state) => shellBeneath(state.routes, key));
+    return (inside ?? beneath) === 'tek';
 }
 
 export function useShellIsRoot(shell: ShellName): void {

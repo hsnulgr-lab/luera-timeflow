@@ -36,11 +36,17 @@ import { waRetryable, type WaFailReason } from '../lib/createLive';
 const M = confirmMetrics;
 
 export function ConfirmScreen({
-    appointment, staffName, staffInitials, price, message, onSend, topInset, bottomInset, onDone,
+    appointment, staffName, staffInitials, solo = false, price, message, onSend, topInset, bottomInset, onDone,
 }: {
     appointment: Appt;
     staffName: string;
     staffInitials: string;
+    /**
+     * Tek kişilik (v4 · karar 3): kanıt kartında personel sütunu yok, sesli
+     * okuma "X yapacak" demiyor. Sahibin personel satırı işletmenin adını
+     * taşıyor — ekrana bakan kişi kendi işini "personel" diye okurdu.
+     */
+    solo?: boolean;
     price: number | null;
     /** Müşteriye GİDECEK metnin kendisi (`createLive.confirmationText`). */
     message: string;
@@ -93,12 +99,14 @@ export function ConfirmScreen({
         return () => sub.remove();
     }, []);
 
+    const spokenStaff = solo ? null : staffName;
+
     // ── Sesli okuma: her hâl BİR KEZ duyurulur ─────────────────────────────
     useEffect(() => {
         AccessibilityInfo.announceForAccessibility(
-            confirmSpeech({ state, appointment, staffName, hasPhone }),
+            confirmSpeech({ state, appointment, staffName: spokenStaff, hasPhone }),
         );
-    }, [state, appointment, staffName, hasPhone]);
+    }, [state, appointment, spokenStaff, hasPhone]);
 
     // ── Giriş dizisi: yalnız opaklık ve dönüşüm ────────────────────────────
     const enter = useRef({
@@ -292,13 +300,14 @@ export function ConfirmScreen({
                     ) : null}
 
                     {state === 'failed' ? (
-                        <StillBookedStrip line={stillBookedLine(appointment, staffName)} ink={ink} />
+                        <StillBookedStrip line={stillBookedLine(appointment, spokenStaff)} ink={ink} />
                     ) : null}
 
                     <EvidenceCard
                         appointment={appointment}
                         staffName={staffName}
                         staffInitials={staffInitials}
+                        solo={solo}
                         price={price}
                         compact={state === 'sent'}
                         skipCustomer={state === 'sent'}
@@ -501,8 +510,8 @@ function HalfCover({ side, size, background, arc, angle, dim }: {
 
 // ── Kanıt kartı ─────────────────────────────────────────────────────────────
 
-function EvidenceCard({ appointment, staffName, staffInitials, price, compact, skipCustomer, ax, short }: {
-    appointment: Appt; staffName: string; staffInitials: string; price: number | null;
+function EvidenceCard({ appointment, staffName, staffInitials, solo, price, compact, skipCustomer, ax, short }: {
+    appointment: Appt; staffName: string; staffInitials: string; solo: boolean; price: number | null;
     compact: boolean; skipCustomer: boolean; ax: boolean; short: boolean;
 }) {
     const { c } = useTheme();
@@ -563,6 +572,8 @@ function EvidenceCard({ appointment, staffName, staffInitials, price, compact, s
                         {rangeText(appointment)}
                     </Text>
                 </View>
+                {/* Personel sütunu tek kişilikte YOK (v4 · karar 3). */}
+                {solo ? null : (
                 <View style={{
                     flexDirection: ax ? 'row' : 'column',
                     alignItems: 'center', gap: ax ? 10 : 6,
@@ -585,6 +596,7 @@ function EvidenceCard({ appointment, staffName, staffInitials, price, compact, s
                         {staffName}
                     </Text>
                 </View>
+                )}
             </View>
 
             {compact ? null : (

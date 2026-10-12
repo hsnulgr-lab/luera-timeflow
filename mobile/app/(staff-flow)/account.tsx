@@ -84,7 +84,12 @@ export default function AccountScreen() {
     }, [router]);
 
     const deletionItems = useMemo(
-        () => accountDeletionItems(account?.businesses.map((business) => business.name) ?? []),
+        () => accountDeletionItems(
+            account?.businesses.map((business) => business.name) ?? [],
+            // Bayrak İŞLETMENİN verisinden: hesabın bir işletmesi bile ekipse
+            // personel maddesi kalıyor.
+            Boolean(account?.businesses.length) && (account?.businesses ?? []).every((business) => business.solo === true),
+        ),
         [account?.businesses],
     );
 

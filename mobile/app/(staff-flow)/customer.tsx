@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +9,14 @@ import { CustomerNoteSheet } from '../../src/components/CustomerNoteSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { Empty } from '../../src/components/ui';
 import { authApi } from '../../src/api/session';
-import { dialPhone, type CustomerCard as CardData } from '../../src/lib/customerCard';
+import { dialPhone, withoutStaff, type CustomerCard as CardData } from '../../src/lib/customerCard';
 import { customerCardOf } from '../../src/lib/customerCardLive';
 import { localClock } from '../../src/lib/createLive';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchCustomerCardRows, forgetOrg } from '../../src/lib/managerSource';
 import { createPackage } from '../../src/lib/managerWrite';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import { saleFailureText, saleMemo, type PackageSaleInput } from '../../src/lib/packageSale';
 import { useTheme } from '../../src/theme';
 
@@ -68,7 +69,16 @@ export default function CustomerScreen() {
     }, [customerId]);
     const snap = useManagerRead<CardData | null>(read, null,
         { poll: false, tables: ['customers', 'reservations', 'payments', 'treatment_plans', 'customer_packages'] });
-    const card = snap.data;
+    /*
+     * Tek kişilikte kart PERSONELSİZ (v4 · karar 3): "Merve ile" yok. Kart
+     * kabuğun sekmesi değil, üstüne itilen bir sayfa — kabuğu altındaki
+     * yığından okuyor (`useInSoloShell`).
+     */
+    const solo = useInSoloShell();
+    const card = useMemo(
+        () => (snap.data && solo ? withoutStaff(snap.data) : snap.data),
+        [snap.data, solo],
+    );
     const [noting, setNoting] = useState(false);
 
     /*
@@ -121,8 +131,8 @@ export default function CustomerScreen() {
 
     const close = useCallback(() => {
         if (router.canGoBack()) router.back();
-        else router.replace('/mudur/calendar');
-    }, [router]);
+        else router.replace(solo ? '/tek/calendar' : '/mudur/calendar');
+    }, [router, solo]);
 
     const handleCall = useCallback(() => {
         if (!card) return;
@@ -141,13 +151,18 @@ export default function CustomerScreen() {
         }
     }, [card]);
 
+    /*
+     * KABUĞUN KENDİ Randevu sekmesi. Tek kişilikte `/mudur/create` müdür
+     * kabuğunu kuruyordu; kapısı `/tek`e geri yolluyordu ve müşteri ön dolu
+     * randevu yerine Gün açılıyordu.
+     */
     const handleBook = useCallback(() => {
         if (!card) return;
         router.navigate({
-            pathname: '/mudur/create',
+            pathname: solo ? '/tek/create' : '/mudur/create',
             params: { customerId: card.id },
         });
-    }, [card, router]);
+    }, [card, router, solo]);
 
     if (!card) {
         /*

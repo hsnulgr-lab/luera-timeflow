@@ -82,15 +82,17 @@ function MenuIcon({ kind, color }: { kind: 'clock' | 'swap' | 'note' | 'x' | 'tr
  * nokta var. Sıra tasarımın kendi kuralı — sık ve zararsız olan üstte, geri
  * alınamaz olan en altta, ayrı ve sessiz.
  */
-export function AppointmentMenu({ visible, appointment, staffName, onDismiss, onPick }: {
+export function AppointmentMenu({ visible, appointment, staffName, solo = false, onDismiss, onPick }: {
     visible: boolean;
     appointment: Appt;
     staffName?: string | null;
+    /** Tek kişilik: "Personeli değiştir" satırı ve "X ile" yok (v4 · karar 3). */
+    solo?: boolean;
     onDismiss: () => void;
     onPick: (action: MenuAction) => void;
 }) {
     const { c } = useTheme();
-    const rows = useMemo(() => menuRows(appointment, staffName), [appointment, staffName]);
+    const rows = useMemo(() => menuRows(appointment, staffName, solo), [appointment, staffName, solo]);
 
     return (
         <BottomSheet visible={visible} onDismiss={onDismiss}>
@@ -108,7 +110,7 @@ export function AppointmentMenu({ visible, appointment, staffName, onDismiss, on
                 paddingHorizontal: 20,
                 paddingBottom: 10,
             }}>
-                {menuSubtitle(appointment, staffName)}
+                {menuSubtitle(appointment, solo ? null : staffName)}
             </Text>
 
             <SheetBody>
@@ -180,7 +182,7 @@ export function AppointmentMenu({ visible, appointment, staffName, onDismiss, on
  * İki çağıranın da o günün gerçek listesi zaten elinde; ikinci bir okuma
  * yapmaya değil, eldekini vermeye ihtiyaç vardı.
  */
-export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDismiss, onPick }: {
+export function MoveSheet({ visible, mode, appointment, day, hours, staff, solo = false, onDismiss, onPick }: {
     visible: boolean;
     mode: 'time' | 'staff';
     appointment: Appt;
@@ -193,6 +195,12 @@ export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDis
      */
     hours?: { from: number; to: number } | null;
     staff: readonly StaffOption[];
+    /**
+     * Tek kişilik (v4 · karar 3): boş saat satırında kişinin adı ve baş
+     * harfi yok, dolu saatin sebebi adsız. Ad, sahibin personel satırının —
+     * işletmenin — adı olurdu.
+     */
+    solo?: boolean;
     onDismiss: () => void;
     onPick: (target: MoveTarget) => void;
 }) {
@@ -206,7 +214,8 @@ export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDis
         onlyStaffId: appointment.staff_id ?? undefined,
         excludeId: appointment.id,
         hours,
-    }), [day, staff, duration, appointment, hours]);
+        solo,
+    }), [day, staff, duration, appointment, hours, solo]);
 
     // Personel değiştirme: saat sabit, kim müsait sorusu.
     const staffRows = useMemo(() => {
@@ -260,9 +269,9 @@ export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDis
                                 {row.kind === 'free' ? (
                                     <PickRow
                                         left={<SlotTime time={row.time} />}
-                                        title={row.staff.name}
-                                        subtitle="müsait"
-                                        right={<Avatar initials={row.staff.initials} color={row.staff.color} size={30} />}
+                                        title={solo ? 'Müsait' : row.staff.name}
+                                        subtitle={solo ? undefined : 'müsait'}
+                                        right={solo ? undefined : <Avatar initials={row.staff.initials} color={row.staff.color} size={30} />}
                                         onPress={() => onPick({
                                             staffId: row.staff.id,
                                             staffName: row.staff.name,
@@ -335,8 +344,10 @@ export function MoveSheet({ visible, mode, appointment, day, hours, staff, onDis
  * kendiliğinden kapanan sheet hem "ne oldu" bilgisini hem "Müşteriyi ara"yı
  * götürürdü. Kapatma her zaman elle.
  */
-export function MoveResultSheet({ result, nowMinutes, today, onUndo, onCall, onDone }: {
+export function MoveResultSheet({ result, solo = false, nowMinutes, today, onUndo, onCall, onDone }: {
     result: MoveResult | null;
+    /** Tek kişilik: saatlerin altında personel adı yok (v4 · karar 3). */
+    solo?: boolean;
     /** Verilmezse geçmiş saat uyarısı çıkmaz — uydurulmuş bir saat yazmayız. */
     nowMinutes?: number;
     /** Bugünse alt metne "bugün" eklenir; verilmezse eklenmez. */
@@ -347,7 +358,7 @@ export function MoveResultSheet({ result, nowMinutes, today, onUndo, onCall, onD
     onDone: () => void;
 }) {
     const { c, reduceMotion } = useTheme();
-    const copy = result ? moveResultCopy(result, nowMinutes, today) : null;
+    const copy = result ? moveResultCopy(result, nowMinutes, today, solo) : null;
     const phone = result?.appointment.customer_phone ?? null;
 
     const enter = useMoveIntro(result !== null, reduceMotion);
@@ -434,15 +445,18 @@ export function MoveResultSheet({ result, nowMinutes, today, onUndo, onCall, onD
                             }}>
                                 {copy.fromTime}
                             </Num>
-                            <Text numberOfLines={1} style={{
-                                color: c.tx2,
-                                fontSize: apptCardMetrics.moveLabel,
-                                fontFamily: font.bold,
-                                fontWeight: '700',
-                                letterSpacing: apptCardMetrics.moveLabel * apptCardMetrics.moveLabelTrack,
-                            }}>
-                                {upperTR(copy.fromLabel)}
-                            </Text>
+                            {/* Tek kişilikte ad boş: satır hiç çizilmiyor. */}
+                            {copy.fromLabel ? (
+                                <Text numberOfLines={1} style={{
+                                    color: c.tx2,
+                                    fontSize: apptCardMetrics.moveLabel,
+                                    fontFamily: font.bold,
+                                    fontWeight: '700',
+                                    letterSpacing: apptCardMetrics.moveLabel * apptCardMetrics.moveLabelTrack,
+                                }}>
+                                    {upperTR(copy.fromLabel)}
+                                </Text>
+                            ) : null}
                         </Animated.View>
 
                         <Animated.View style={{
@@ -477,15 +491,18 @@ export function MoveResultSheet({ result, nowMinutes, today, onUndo, onCall, onD
                             }}>
                                 {copy.toTime}
                             </Num>
-                            <Text numberOfLines={1} style={{
-                                color: c.tx2,
-                                fontSize: apptCardMetrics.moveLabel,
-                                fontFamily: font.bold,
-                                fontWeight: '700',
-                                letterSpacing: apptCardMetrics.moveLabel * apptCardMetrics.moveLabelTrack,
-                            }}>
-                                {upperTR(copy.toLabel)}
-                            </Text>
+                            {/* Tek kişilikte ad boş: satır hiç çizilmiyor. */}
+                            {copy.toLabel ? (
+                                <Text numberOfLines={1} style={{
+                                    color: c.tx2,
+                                    fontSize: apptCardMetrics.moveLabel,
+                                    fontFamily: font.bold,
+                                    fontWeight: '700',
+                                    letterSpacing: apptCardMetrics.moveLabel * apptCardMetrics.moveLabelTrack,
+                                }}>
+                                    {upperTR(copy.toLabel)}
+                                </Text>
+                            ) : null}
                         </Animated.View>
                     </View>
 

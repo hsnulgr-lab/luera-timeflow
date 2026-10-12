@@ -9,6 +9,7 @@ import { DurumBlock, DurumUnread } from '../../../src/components/Durum';
 import { Empty } from '../../../src/components/ui';
 import { useManagerAppointment } from '../../../src/lib/managerAppointment';
 import { orgDurum } from '../../../src/lib/managerDurum';
+import { useInSoloShell } from '../../../src/lib/shellRoot';
 import { deleteAppointment, updateAppointment } from '../../../src/lib/managerWrite';
 import {
     STALE_LINE, STALE_TITLE, writablePatch, type WriteOutcome,
@@ -49,6 +50,12 @@ export default function ManagerAppointment() {
 
     const [moveMode, setMoveMode] = useState<'time' | 'staff' | null>(null);
     const [result, setResult] = useState<MoveResult | null>(null);
+    /*
+     * Tek kişilikte kart PERSONELSİZ (v4 · karar 3). Ekran kabuğun sekmesi
+     * değil, modal olarak üstüne açılıyor — kabuğu altındaki yığından
+     * okuyor (`useInSoloShell`).
+     */
+    const solo = useInSoloShell();
     /**
      * Yazma sonrası yerel hâl.
      *
@@ -113,8 +120,10 @@ export default function ManagerAppointment() {
         const base = updatedAt;
         // İyimserlik ÖNCE: müdür dokunduğu şeyin cevabını beklemesin.
         setLocal({ row: next, from: data.updatedAt, to: base });
+        // Ad yalnız reddin cümlesi için ("O saatte Selin zaten…"). Tek
+        // kişilikte ad işletmenin adı olurdu: cümle adsız kuruluyor.
         const outcome = await updateAppointment(
-            appointment.id, base, writablePatch(next), targetStaffName ?? staffName,
+            appointment.id, base, writablePatch(next), solo ? null : targetStaffName ?? staffName,
         ).catch(() => ({ ok: false, kind: 'failed' } as WriteOutcome));
         if (outcome.ok) {
             // Yeni damga taşınıyor: ikinci değişiklik kendi ilk yazmasına
@@ -129,7 +138,7 @@ export default function ManagerAppointment() {
         // Bayat kilitte güncel hâl getiriliyor — müdür neye baktığını bilsin.
         if (outcome.kind === 'stale') void reload();
         return false;
-    }, [appointment, updatedAt, data.updatedAt, staffName, reload]);
+    }, [appointment, updatedAt, data.updatedAt, staffName, solo, reload]);
 
     const commitMove = useCallback((target: MoveTarget) => {
         if (!appointment) return;
@@ -150,8 +159,8 @@ export default function ManagerAppointment() {
 
     const close = useCallback(() => {
         if (router.canGoBack()) router.back();
-        else router.replace('/mudur/calendar');
-    }, [router]);
+        else router.replace(solo ? '/tek/calendar' : '/mudur/calendar');
+    }, [router, solo]);
 
     /**
      * SİLME — kartı kapatmak değil, randevuyu kaldırmak.
@@ -229,6 +238,7 @@ export default function ManagerAppointment() {
                 <AppointmentDetail
                     appointment={appointment}
                     staffName={staffName}
+                    solo={solo}
                     dayAppointments={data.dayRows}
                     services={data.services}
                     nowMinutes={now}
@@ -281,6 +291,7 @@ export default function ManagerAppointment() {
                     day={data.dayRows}
                     hours={data.open}
                     staff={staffOptions}
+                    solo={solo}
                     onDismiss={() => setMoveMode(null)}
                     onPick={(target) => {
                         setMoveMode(null);
@@ -292,6 +303,7 @@ export default function ManagerAppointment() {
             {/* Müdür 25 · E. Onay değil sonuç: taşıma zaten oldu. */}
             <MoveResultSheet
                 result={result}
+                solo={solo}
                 nowMinutes={now}
                 today={todayISO()}
                 onUndo={(moved) => { void commit(undoMove(moved)); setResult(null); }}

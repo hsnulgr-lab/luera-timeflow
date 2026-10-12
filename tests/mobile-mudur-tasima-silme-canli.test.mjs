@@ -76,7 +76,8 @@ test('reddedilen taşıma yerel hâli GERİ ALIYOR', () => {
 
 test('"geri al" da bir YAZMA', () => {
     // Yerel katmanı silmek randevuyu sunucuda eski saatine döndürmezdi.
-    assert.match(calendar, /void commit\(done\.appointment, undoMove\(done\), done\.fromStaffName\)/);
+    // Tek kişilikte ad reddin cümlesine girmiyor (karar 3); yazma aynı yoldan.
+    assert.match(calendar, /void commit\(done\.appointment, undoMove\(done\), solo \? null : done\.fromStaffName\)/);
     assert.match(staffDay, /void onCommitMove\(done\.appointment, undoMove\(done\), done\.fromStaffName\)/);
 });
 

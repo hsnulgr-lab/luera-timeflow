@@ -117,11 +117,18 @@ function CreateTabBody() {
         }
     }, [router, params.date, params.start, params.staff, params.customerId]);
 
-    /** Kapanış: Akış sekmesine geçilir, akış temizlenir. */
+    /**
+     * Kapanış: ana sekmeye geçilir (müdürde Akış, tek kişilikte Gün), akış
+     * temizlenir.
+     *
+     * Tek kişilikte `/mudur`a gitmek müdür kabuğunu kurup yığını ona
+     * indiriyordu; kapısı da `solo` görüp `/tek`e geri yolluyordu — kullanıcı
+     * Gün'e varıyordu ama kabuk baştan kurularak, boş bir kareyle.
+     */
     const close = useCallback(() => {
         reset();
-        router.navigate('/mudur');
-    }, [reset, router]);
+        router.navigate(solo ? '/tek' : '/mudur');
+    }, [reset, router, solo]);
 
     const start = Number(params.start);
 
@@ -155,7 +162,11 @@ function CreateTabBody() {
             <CreateFlow
                 key={runId}
                 context={ctx.data}
-                onCreate={(input, staffName) => createAppointment(input, staffName, {
+                // Ad `createAppointment`ta yalnız reddin cümlesine giriyor ("O
+                // saatte Selin zaten…"); tek kişilikte işletmenin adı olurdu,
+                // cümle adsız kuruluyor (v4 · karar 3). Masaüstünün haberi
+                // (webhook) adı yine taşıyor: o bir kayıt, ekran değil.
+                onCreate={(input, staffName) => createAppointment(input, solo ? null : staffName, {
                     nowMs: ctx.data
                         ? ctx.data.serverNow + Math.max(0, Date.now() - ctx.data.deviceAt)
                         : Date.now(),

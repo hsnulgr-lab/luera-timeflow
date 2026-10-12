@@ -284,6 +284,26 @@ export function upcomingSub(upcoming: CustomerUpcoming): string {
         .filter(Boolean).join(' · ');
 }
 
+/**
+ * Tek kişilikte kartta PERSONEL YOK (v4 · karar 3): "Merve ile" cümlesi
+ * kurulmaz, çünkü cevap her zaman ekrana bakan kişinin kendisi. Sahibin
+ * personel satırı işletmenin adını taşıdığı için yazılsaydı "Derya Güzellik
+ * ile" okunurdu.
+ *
+ * Ad VERİDE düşüyor, ekranda değil: kartın her yolu — levha, yaklaşan
+ * randevu, son işlemler ve sesli okunan etiketler — `staff` boşsa "ile"
+ * kurmuyor. Tek tek susturmak birini unutmak olurdu.
+ */
+export function withoutStaff(card: CustomerCard): CustomerCard {
+    return {
+        ...card,
+        lastVisit: card.lastVisit ? { ...card.lastVisit, staff: null } : null,
+        firstVisitToday: card.firstVisitToday ? { ...card.firstVisitToday, staff: null } : null,
+        upcoming: card.upcoming ? { ...card.upcoming, staff: null } : null,
+        history: card.history.map((row) => ({ ...row, staff: null })),
+    };
+}
+
 // ── Alt çubuk ───────────────────────────────────────────────────────────────
 
 export const TRAY_MAIN = 'Randevu ver';

@@ -7,7 +7,7 @@ import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { ManagerDayProvider } from '../../src/state/managerDay';
 import { useActorGate } from '../../src/lib/roleGate';
 import { usePushIntent } from '../../src/lib/pushSetup';
-import { useShellIsRoot } from '../../src/lib/shellRoot';
+import { ShellScope, useShellIsRoot } from '../../src/lib/shellRoot';
 import { attachSoloTokenRefresher } from '../../src/lib/soloSession';
 import { useTheme } from '../../src/theme';
 
@@ -76,7 +76,14 @@ export default function SoloLayout() {
      */
     if (gate.solo === false) return <Redirect href="/mudur" />;
 
+    /*
+     * KABUĞUN BAĞLAMI (`ShellScope`): sekmeler tek kişilik kabukta olduklarını
+     * buradan okuyor, adresten değil. Adres kumanda ya da randevu detayı
+     * açılınca değişiyor ve alttaki sekmeler o çizimde kendini ekip ekranı
+     * sanıyordu (bkz. `useInSoloShell`).
+     */
     return (
+        <ShellScope value="tek">
         <ManagerDayProvider>
         <NativeTabs
             minimizeBehavior="onScrollDown"
@@ -117,5 +124,6 @@ export default function SoloLayout() {
             </NativeTabs.Trigger>
         </NativeTabs>
         </ManagerDayProvider>
+        </ShellScope>
     );
 }

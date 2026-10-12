@@ -171,7 +171,9 @@ export default function ManagerCalendar() {
     /** Sürükleme ve menü AYNI yere düşer: tek taşıma yolu, tek sonuç ekranı. */
     const commitMove = useCallback(async (appointment: Appt, target: MoveTarget) => {
         const fromStaffName = nameOf(appointment.staff_id);
-        const ok = await commit(appointment, applyMove(appointment, target), target.staffName);
+        // Ad yalnız reddin cümlesi için ("O saatte Selin zaten…"). Tek
+        // kişilikte ad işletmenin adı olurdu: cümle adsız kuruluyor.
+        const ok = await commit(appointment, applyMove(appointment, target), solo ? null : target.staffName);
         // Sonuç sayfası YALNIZ gerçekten taşındıysa açılıyor: reddedilmiş bir
         // taşıma için "geri al" sunmak anlamsız.
         if (!ok) return;
@@ -182,7 +184,7 @@ export default function ManagerCalendar() {
             toStartMinutes: target.startMinutes,
             toStaffName: target.staffName,
         });
-    }, [commit, nameOf]);
+    }, [commit, nameOf, solo]);
 
     /**
      * Reddin tek hamlesi.
@@ -322,8 +324,13 @@ export default function ManagerCalendar() {
                     // oluşturma açılır — müdürün en hızlı yolu. Gün, saat ve
                     // personel ön dolu gider; akış yalnız müşteri ve hizmeti
                     // sorar, sonra doğrudan özete düşer.
+                    //
+                    // Hedef KABUĞUN KENDİ Randevu sekmesi (v4 · T1). Tek
+                    // kişilikte `/mudur/create` müdür kabuğunu kuruyordu;
+                    // kapısı `/tek`e geri yolluyordu ve kullanıcı saat ön
+                    // dolu randevu yerine Gün'e düşüyordu.
                     onSlot={(staffId, minutes) => router.navigate({
-                        pathname: '/mudur/create',
+                        pathname: solo ? '/tek/create' : '/mudur/create',
                         params: { date: selectedDate, start: String(minutes), staff: staffId },
                     })}
                     // Basılı tutup sürükleme (Müdür 07a/b).
@@ -339,6 +346,7 @@ export default function ManagerCalendar() {
                     visible
                     appointment={menuFor}
                     staffName={nameOf(menuFor.staff_id)}
+                    solo={solo}
                     onDismiss={() => setMenuFor(null)}
                     onPick={onMenuPick}
                 />
@@ -352,6 +360,7 @@ export default function ManagerCalendar() {
                     day={appointments}
                     hours={data.open}
                     staff={staffOptions}
+                    solo={solo}
                     onDismiss={() => { setMoveMode(null); setMenuFor(null); }}
                     onPick={(target) => {
                         const appointment = menuFor;
@@ -369,12 +378,13 @@ export default function ManagerCalendar() {
                 uygulamanın müşteriye mesaj atacak kanalı yok. */}
             <MoveResultSheet
                 result={result}
+                solo={solo}
                 nowMinutes={isToday ? nowMinutes : undefined}
                 today={todayISO()}
                 onUndo={(done) => {
                     // Geri al da bir YAZMA: yerel katmanı silmek randevuyu
                     // sunucuda eski saatine döndürmezdi.
-                    void commit(done.appointment, undoMove(done), done.fromStaffName);
+                    void commit(done.appointment, undoMove(done), solo ? null : done.fromStaffName);
                     setResult(null);
                 }}
                 onCall={(phone) => { void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`); }}

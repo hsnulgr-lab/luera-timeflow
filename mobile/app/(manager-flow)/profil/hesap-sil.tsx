@@ -107,7 +107,9 @@ export default function ManagerDeleteAccount() {
                     appointments: facts.appointments,
                     customers: facts.customers,
                     services: facts.services,
-                    staff: facts.staff,
+                    // Tek kişilikte "1 personelin erişimi" satırı yok (v4 ·
+                    // karar 3): tek satır sahibin kendisi, işletmenin adıyla.
+                    staff: profile.business.solo ? [] : facts.staff,
                 }));
             })
             // Okunamazsa liste UYDURULMUYOR; "okuyamadık" ve tekrar dene.

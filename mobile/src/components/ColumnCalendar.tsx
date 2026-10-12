@@ -157,10 +157,10 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      * blok zıplar ya da düşerdi. Girdiler ref'ten okunuyor; tutamak hiç
      * değişmiyor, hesap her zaman en güncel veriyle yapılıyor.
      */
-    const inputs = useRef({ appointments, staff, dayStart, dayEnd, onMove });
+    const inputs = useRef({ appointments, staff, dayStart, dayEnd, onMove, soloColumn });
     useEffect(() => {
-        inputs.current = { appointments, staff, dayStart, dayEnd, onMove };
-    }, [appointments, staff, dayStart, dayEnd, onMove]);
+        inputs.current = { appointments, staff, dayStart, dayEnd, onMove, soloColumn };
+    }, [appointments, staff, dayStart, dayEnd, onMove, soloColumn]);
 
     /** Parmağın ve kaydırmanın birleşik hâlinden hedef — tek hesap. */
     const applyDrag = useCallback(() => {
@@ -181,6 +181,8 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
             dy,
             dayStartMinutes: input.dayStart,
             dayEndMinutes: input.dayEnd,
+            // Tek sütunda doluluk sebebi adsız (v4 · karar 3).
+            solo: input.soloColumn,
         });
         const before = targetRef.current;
         targetRef.current = next;
@@ -289,7 +291,8 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
         if (liveState.current) applyDrag();
     }, [applyDrag]);
 
-    const banner = lifted ? moveBanner(lifted.appointment, target) : null;
+    // Tek sütunda "veya kişiye" ve "· Deniz" yok: taşınacak kişi yok.
+    const banner = lifted ? moveBanner(lifted.appointment, target, soloColumn) : null;
 
     return (
         // `collapsable={false}`: yeni mimari düzen amaçlı görünümü
@@ -463,6 +466,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                     staff={staff}
                                     dayStartMinutes={dayStart}
                                     columnWidth={columnWidth}
+                                    solo={soloColumn}
                                 />
                             ) : null}
 
@@ -494,13 +498,14 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
     );
 }
 
-/** Hedef slotun turuncu vurgusu ve "13:30 · Deniz" etiketi. */
-function TargetSlot({ target, staff, dayStartMinutes, columnWidth }: {
+/** Hedef slotun turuncu vurgusu ve "13:30 · Deniz" etiketi (tek sütunda "13:30"). */
+function TargetSlot({ target, staff, dayStartMinutes, columnWidth, solo = false }: {
     target: MoveTarget;
     staff: readonly ColumnStaff[];
     dayStartMinutes: number;
     /** Izgaranınkiyle AYNI genişlik; tek sütunda 95 değil. */
     columnWidth: number;
+    solo?: boolean;
 }) {
     const { c } = useTheme();
     const index = staff.findIndex((person) => person.id === target.staffId);
@@ -530,7 +535,7 @@ function TargetSlot({ target, staff, dayStartMinutes, columnWidth }: {
                 fontFamily: font.extraBold,
                 fontWeight: '800',
             }}>
-                {targetLabel(target)}
+                {targetLabel(target, solo)}
             </Num>
         </View>
     );

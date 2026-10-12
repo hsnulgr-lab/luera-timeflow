@@ -136,11 +136,14 @@ export function Identity({ identity }: { identity: ApptIdentity }) {
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <IdentPill text={identity.service} />
-                <IdentPill
-                    text={identity.staff ?? 'Atanmamış'}
-                    initials={identity.staff ? identity.initials : '—'}
-                    assigned={identity.staff !== null}
-                />
+                {/* Tek kişilikte personel pili YOK (v4 · karar 3). */}
+                {identity.crew ? (
+                    <IdentPill
+                        text={identity.staff ?? 'Atanmamış'}
+                        initials={identity.staff ? identity.initials : '—'}
+                        assigned={identity.staff !== null}
+                    />
+                ) : null}
             </View>
         </View>
     );

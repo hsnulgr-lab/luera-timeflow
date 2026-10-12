@@ -98,9 +98,15 @@ export function conflictAt(
     return null;
 }
 
-/** "Deniz · 13:00–14:30" — doluluğun sebebi. "Dolu" tek başına cevap değil. */
-export function conflictReason(blocking: Appt, staffName: string): string {
-    return `${staffName} · ${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)}`;
+/**
+ * "Deniz · 13:00–14:30" — doluluğun sebebi. "Dolu" tek başına cevap değil.
+ *
+ * Ad `null`sa yalnız aralık: tek kişilikte kimin dolu olduğu sorusu yok
+ * (v4 · karar 3) ve ad, sahibin personel satırının — işletmenin — adı olurdu.
+ */
+export function conflictReason(blocking: Appt, staffName: string | null): string {
+    const range = `${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)}`;
+    return staffName ? `${staffName} · ${range}` : range;
 }
 
 /**
@@ -121,11 +127,14 @@ export function resolveTarget(input: {
     dayEndMinutes: number;
     hourHeight?: number;
     columnPitch?: number;
+    /** Tek kişilik: doluluk sebebi adsız (bkz. `conflictReason`). */
+    solo?: boolean;
 }): MoveTarget | null {
     const {
         appointment, appointments, staff, fromIndex, dx, dy,
         dayStartMinutes, dayEndMinutes,
         hourHeight = HOUR_HEIGHT, columnPitch = COLUMN_WIDTH + COLUMN_GAP,
+        solo = false,
     } = input;
 
     if (staff.length === 0) return null;
@@ -147,20 +156,22 @@ export function resolveTarget(input: {
         startMinutes: start,
         endMinutes: end,
         valid: blocking === null,
-        reason: blocking ? conflictReason(blocking, person.name) : undefined,
+        reason: blocking ? conflictReason(blocking, solo ? null : person.name) : undefined,
         unchanged: blocking === null
             && start === toMinutes(appointment.start_time)
             && person.id === appointment.staff_id,
     };
 }
 
-/** "13:30 · Deniz" — hedef slotun üstündeki etiket. */
-export function targetLabel(target: MoveTarget): string {
-    return `${hhmm(target.startMinutes)} · ${target.staffName}`;
+/** "13:30 · Deniz" — hedef slotun üstündeki etiket. Tek kişilikte yalnız saat. */
+export function targetLabel(target: MoveTarget, solo = false): string {
+    return solo ? hhmm(target.startMinutes) : `${hhmm(target.startMinutes)} · ${target.staffName}`;
 }
 
 /** Kaldırıldı ama henüz kımıldamadı. */
 export const MOVE_HINT = 'Parmağınızı kaldırmadan istediğiniz saate veya kişiye taşıyın.';
+/** Tek sütunda taşınacak "kişi" yok (v4 · karar 3). */
+export const MOVE_HINT_SOLO = 'Parmağınızı kaldırmadan istediğiniz saate taşıyın.';
 
 export type BannerTone = 'neutral' | 'orange' | 'red';
 
@@ -168,16 +179,16 @@ export type BannerTone = 'neutral' | 'orange' | 'red';
  * Alt bant HER AN ne olacağını yazar. Sürükleme sırasında ekranda değişen
  * tek metin bu; müdür parmağını kaldırmadan sonucu okuyabilmeli.
  */
-export function moveBanner(appointment: Appt, target: MoveTarget | null): {
+export function moveBanner(appointment: Appt, target: MoveTarget | null, solo = false): {
     text: string;
     tone: BannerTone;
 } {
-    if (!target || target.unchanged) return { text: MOVE_HINT, tone: 'neutral' };
+    if (!target || target.unchanged) return { text: solo ? MOVE_HINT_SOLO : MOVE_HINT, tone: 'neutral' };
     if (!target.valid) {
         return { text: `Bu saat dolu: ${target.reason}`, tone: 'red' };
     }
     return {
-        text: `${appointment.customer_name} · ${appointment.service} → ${targetLabel(target)}. Bırakın, taşıyalım.`,
+        text: `${appointment.customer_name} · ${appointment.service} → ${targetLabel(target, solo)}. Bırakın, taşıyalım.`,
         tone: 'orange',
     };
 }
@@ -214,7 +225,7 @@ export function weekdayOf(dateISO: string): string {
     return WEEK_LONG[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? '';
 }
 
-/** "Keratin bakımı · 45 dk · Perşembe 12:00 · Selin ile" */
+/** "Keratin bakımı · 45 dk · Perşembe 12:00 · Selin ile" — ad yoksa "ile" yok. */
 export function menuSubtitle(appointment: Appt, staffName?: string | null): string {
     const parts = [
         appointment.service,
@@ -232,10 +243,14 @@ export function menuSubtitle(appointment: Appt, staffName?: string | null): stri
  * menüsü olamayacağına göre tek liste. Sıra tasarımın kendi kuralı:
  * sık ve zararsız olan üstte, geri alınamaz olan en altta, ayrı ve sessiz.
  */
-export function menuRows(appointment: Appt, staffName?: string | null): MenuRow[] {
+export function menuRows(appointment: Appt, staffName?: string | null, solo = false): MenuRow[] {
     const rows: MenuRow[] = [
         { action: 'time', icon: 'clock', title: 'Saati değiştir', value: 'Aynı gün veya başka gün' },
-        { action: 'staff', icon: 'swap', title: 'Personeli değiştir', value: `Şu an: ${staffName ?? 'atanmamış'}` },
+        // Tek kişilikte "Personeli değiştir" YOK (v4 · karar 3): seçilecek
+        // başka kimse yok ve satır işletmenin adını "personel" diye okurdu.
+        ...(solo ? [] : [
+            { action: 'staff', icon: 'swap', title: 'Personeli değiştir', value: `Şu an: ${staffName ?? 'atanmamış'}` } as MenuRow,
+        ]),
         { action: 'detail', icon: 'note', title: 'Randevu detayı' },
     ];
 
@@ -279,6 +294,7 @@ export interface MoveResultCopy {
     family: string;
     /** Eski saat — yerinde kalır, üstü çizilir. */
     fromTime: string;
+    /** Saatin altındaki personel adı. Tek kişilikte boş ve ÇİZİLMEZ. */
     fromLabel: string;
     /** Yeni saat — soldan kayarak yerine oturur. */
     toTime: string;
@@ -305,6 +321,8 @@ export function moveResultCopy(
     result: MoveResult,
     nowMinutes?: number,
     today?: string,
+    /** Tek kişilik: saatlerin altında personel adı yok (v4 · karar 3). */
+    solo = false,
 ): MoveResultCopy {
     const past = nowMinutes !== undefined && result.toStartMinutes < nowMinutes;
     const sameDay = today !== undefined && result.appointment.date === today;
@@ -316,9 +334,9 @@ export function moveResultCopy(
         given: words.length > 1 ? words.slice(0, -1).join(' ') : '',
         family: words.at(-1) ?? '',
         fromTime: hhmm(result.fromStartMinutes),
-        fromLabel: result.fromStaffName ?? 'Atanmamış',
+        fromLabel: solo ? '' : result.fromStaffName ?? 'Atanmamış',
         toTime: hhmm(result.toStartMinutes),
-        toLabel: result.toStaffName,
+        toLabel: solo ? '' : result.toStaffName,
         sub: past
             ? 'Bu saat geçti. Randevu geçmişte görünecek.'
             : [

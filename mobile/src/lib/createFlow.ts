@@ -420,8 +420,16 @@ export function slotRows(input: {
      * çalışmıyorsa kutu kapalı ve sebebi yazılı.
      */
     worksAt?: (staffId: string, from: number, to: number) => boolean;
+    /**
+     * Tek kişilik (v4 · R2, karar 3): sebepler ADSIZ ve siz diliyle. Tek
+     * personel sahibin kendisi ve satırı işletmenin adını taşıyor — "Derya
+     * Güzellik · Manikür" yazan bir kutu, ekrana bakana kendi adını
+     * "personel" diye okurdu. Dolu kutu "Dolu" der ve kimin için dolu
+     * olduğunu söyler: "Deniz Şahin · Manikür & Pedikür".
+     */
+    solo?: boolean;
 }): SlotRow[] {
-    const { appointments, durationMinutes, onlyStaffId, excludeId } = input;
+    const { appointments, durationMinutes, onlyStaffId, excludeId, solo = false } = input;
     const openFrom = input.hours ? input.hours.from : OPEN_FROM;
     const openTo = input.hours ? input.hours.to : OPEN_TO;
     const now = input.nowMinutes ?? null;
@@ -431,10 +439,14 @@ export function slotRows(input: {
     const workable = pool.filter((person) => person.available);
 
     // İzinli/çalışmayan herkesin sebebi tek satırda toplanır; "Kapalı" da
-    // gerekçesini yazar.
-    const closedReason = pool
-        .map((person) => `${person.name} ${person.reason ?? 'çalışmıyor'}`)
-        .join(' · ');
+    // gerekçesini yazar. Tek kişilikte kişi ekrana bakanın kendisi: siz dili.
+    const closedReason = solo
+        ? pool.length === 0
+            ? ''
+            : pool.some((person) => person.reason === 'izinli') ? 'Bu gün izinlisiniz' : 'Bu gün çalışmıyorsunuz'
+        : pool
+            .map((person) => `${person.name} ${person.reason ?? 'çalışmıyor'}`)
+            .join(' · ');
 
     const rows: SlotRow[] = [];
     const duration = Math.max(SLOT_STEP, durationMinutes);
@@ -463,7 +475,9 @@ export function slotRows(input: {
         if (onShift.length === 0) {
             rows.push({
                 kind: 'closed', minutes, time,
-                reason: onlyStaffId ? `${pool[0]?.name ?? 'Personel'} bu saatte çalışmıyor` : 'Bu saatte çalışan yok',
+                reason: solo
+                    ? 'Bu saatte çalışmıyorsunuz'
+                    : onlyStaffId ? `${pool[0]?.name ?? 'Personel'} bu saatte çalışmıyor` : 'Bu saatte çalışan yok',
             });
             continue;
         }
@@ -482,16 +496,20 @@ export function slotRows(input: {
         const blocking = appointments.find((appointment) => (
             appointment.staff_id === first.id && overlaps(appointment, minutes, end, excludeId)
         ));
+        const range = blocking ? `${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)}` : null;
         rows.push({
             kind: 'busy',
             minutes,
             time,
-            reason: blocking
-                ? `${first.name} · ${blocking.start_time.slice(0, 5)}–${blocking.end_time.slice(0, 5)}`
-                : first.name,
+            reason: solo
+                ? range ?? 'Dolu'
+                : range ? `${first.name} · ${range}` : first.name,
             blockingId: blocking?.id,
-            title: blocking ? `${first.name} · ${blocking.service}` : first.name,
-            customer: blocking?.customer_name ?? undefined,
+            title: solo ? 'Dolu' : blocking ? `${first.name} · ${blocking.service}` : first.name,
+            // Tek kişilikte kartın ikinci satırı KİMİN İÇİN dolu olduğu (v4 · R2).
+            customer: solo
+                ? [blocking?.customer_name, blocking?.service].filter(Boolean).join(' · ') || undefined
+                : blocking?.customer_name ?? undefined,
             until: blocking ? `${blocking.end_time.slice(0, 5)}'a` : undefined,
             color: blocking?.service_color ?? undefined,
         });
@@ -855,7 +873,11 @@ export function slotSpeech(
     switch (item.kind) {
         case 'free': return withStaff ? `${item.time} boş, ${item.staff.name}` : `${item.time} boş`;
         case 'closed': return `${item.time} kapalı, ${item.reason}`;
-        case 'busy': return `${item.time} dolu, ${item.title}${item.until ? `, ${item.until}` : ''}`;
+        // Tek kişilikte başlık yalnız "Dolu": sesli okumada kimin için dolu
+        // olduğu söyleniyor, "dolu, Dolu" değil.
+        case 'busy': return withStaff
+            ? `${item.time} dolu, ${item.title}${item.until ? `, ${item.until}` : ''}`
+            : `${item.time} dolu${item.customer ? `, ${item.customer}` : ''}${item.until ? `, ${item.until}` : ''}`;
         default: return `${item.range} seçili${withStaff && item.staff ? `, ${item.staff.name} yapacak` : ''}`;
     }
 }

@@ -36,11 +36,17 @@ import type { ServiceOption } from '../lib/createFlow';
  *   • "Hizmeti değiştir" ve "Notu düzenle" artık gerçekten bir şey açıyor.
  */
 export function AppointmentDetail({
-    appointment, staffName, dayAppointments = [], services, nowMinutes,
+    appointment, staffName, solo = false, dayAppointments = [], services, nowMinutes,
     onClose, onCustomer, onMove, onUpdate, onAttendance, onCancel, onDelete,
 }: {
     appointment: Appt;
     staffName?: string | null;
+    /**
+     * Tek kişilik işletme (v4 · karar 3): personel hiçbir yerde görünmez —
+     * kimlikte pil yok, "Personeli değiştir" jetonu yok, çakışma ve onay
+     * cümleleri adsız. Sahibin personel satırı işletmenin adını taşıyor.
+     */
+    solo?: boolean;
     /** Hizmet süresi uzayınca çakışma AYNI GÜNÜN bloklarında aranır. */
     dayAppointments?: readonly Appt[];
     /** Salonun hizmet kataloğu — fiyat satırı ve "Hizmeti değiştir" listesi. */
@@ -60,10 +66,13 @@ export function AppointmentDetail({
     const [sheet, setSheet] = useState<'service' | 'note' | null>(null);
     const [confirming, setConfirming] = useState<DestructiveAction | null>(null);
 
-    const identity = useMemo(() => identityOf(appointment, staffName), [appointment, staffName]);
+    const identity = useMemo(
+        () => identityOf(appointment, staffName, undefined, solo),
+        [appointment, staffName, solo],
+    );
     const line = useMemo(() => stateLine(appointment, nowMinutes), [appointment, nowMinutes]);
     const summary = useMemo(() => visitSummary(appointment), [appointment]);
-    const tiles = useMemo(() => changeTiles(appointment, staffName), [appointment, staffName]);
+    const tiles = useMemo(() => changeTiles(appointment, staffName, solo), [appointment, staffName, solo]);
     const rows = useMemo(() => changeRows(appointment, services), [appointment, services]);
     const name = splitName(appointment.customer_name);
     const editable = isEditable(appointment);
@@ -209,6 +218,7 @@ export function AppointmentDetail({
                 dayAppointments={dayAppointments}
                 services={services}
                 staffName={staffName}
+                solo={solo}
                 onDismiss={() => setSheet(null)}
                 onPick={(choice) => { setSheet(null); onUpdate?.(applyService(appointment, choice)); }}
             />
@@ -224,7 +234,7 @@ export function AppointmentDetail({
                 visible={confirming !== null}
                 action={confirming ?? 'cancel'}
                 appointment={appointment}
-                staffName={staffName}
+                staffName={solo ? null : staffName}
                 onDismiss={() => setConfirming(null)}
                 onConfirm={() => {
                     const action = confirming;

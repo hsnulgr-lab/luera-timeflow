@@ -19,6 +19,9 @@ import {
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const flow = read('../mobile/app/mudur/index.tsx');
+// Tek kişilik Gün: v4 "Özet şeridi · Gün'de yok" — nöbet onu da kapsıyor.
+const soloDay = read('../mobile/app/tek/index.tsx');
+const soloDayParts = read('../mobile/src/components/SoloDayParts.tsx');
 const calendar = read('../mobile/app/mudur/calendar.tsx');
 const cash = read('../mobile/app/mudur/cash.tsx');
 const layout = read('../mobile/app/_layout.tsx');
@@ -33,6 +36,11 @@ test('özet şeridi akıştan KALDIRILDI', () => {
     // listeyi yalanlamaktan tamamen çıktı.)
     assert.doesNotMatch(flow, /<StatLine/);
     assert.doesNotMatch(flow, /summary\.revenue/);
+    // Tek kişilik Gün de şeritsiz (v4 · `s-rn` "Özet şeridi: Gün'de yok").
+    for (const source of [soloDay, soloDayParts]) {
+        assert.doesNotMatch(source, /<StatLine/);
+        assert.doesNotMatch(source, /summary\.revenue/);
+    }
 });
 
 test('"kaç işlem sürüyor" ŞERİTTEN türer', () => {

@@ -139,6 +139,16 @@ export function bookMatches(row: Pick<ManagerBookRow, 'name' | 'phoneTail'>, que
  * Hizmet bilinmiyorsa personelin adı tek başına yazılmıyor: "· Elif" diye
  * başlayan bir satır, ayracın neyi ayırdığını söylemiyor.
  */
+/**
+ * Tek kişilikte defter PERSONELSİZ (v4 · karar 3): satırda "Kesim · Elif"
+ * değil "Kesim", diskte baş harf yok. Son işi yapan her zaman ekrana bakan
+ * kişi; sahibin personel satırı da işletmenin adını taşıyor. Ad veride
+ * düşüyor — satır, sesli okuma ve arama aynı anda susuyor.
+ */
+export function bookWithoutStaff(rows: readonly ManagerBookRow[]): ManagerBookRow[] {
+    return rows.map((row) => ({ ...row, lastStaffName: '' }));
+}
+
 export function bookLine(row: ManagerBookRow): string {
     if (row.upcomingTime) return `Bugün ${row.upcomingTime}`;
     if (!row.lastVisitDate) return 'Hiç gelmedi';

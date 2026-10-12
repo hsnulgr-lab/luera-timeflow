@@ -497,14 +497,16 @@ function ClosedSlot({ item, ax }: { item: RailItem & { kind: 'closed' }; ax: boo
  * Tasarım belgesi buraya 96 sabit vermişti ve o yükseklik sürenin karşılığı
  * değildi — kart "10:30'a" derken sütun 10:00'da bitiyordu.
  */
-function BusySlot({ item, ax }: { item: RailItem & { kind: 'busy' }; ax: boolean }) {
+function BusySlot({ item, ax, solo = false }: { item: RailItem & { kind: 'busy' }; ax: boolean; solo?: boolean }) {
     const { c } = useTheme();
     const minutes = item.span * 30;
     return (
         <View
             accessible
             accessibilityState={{ disabled: true }}
-            accessibilityLabel={slotSpeech(item)}
+            // Tek kişilikte başlık yalnız "Dolu" (v4 · R2); sesli okuma
+            // kimin için dolu olduğunu söylüyor.
+            accessibilityLabel={slotSpeech(item, !solo)}
             style={{
                 flexDirection: ax ? 'column' : 'row',
                 alignItems: 'flex-start',
@@ -768,7 +770,7 @@ export function RailBlock({ data, serviceName, onPick, onChangeStaff, ax, x, sol
                         return <FreeSlot key={item.minutes} item={item} ax={ax} solo={solo} onPress={() => onPick(item.minutes)} />;
                     }
                     if (item.kind === 'closed') return <ClosedSlot key={item.minutes} item={item} ax={ax} />;
-                    if (item.kind === 'busy') return <BusySlot key={item.minutes} item={item} ax={ax} />;
+                    if (item.kind === 'busy') return <BusySlot key={item.minutes} item={item} ax={ax} solo={solo} />;
                     return (
                         <PickSlot
                             key={item.minutes}

@@ -297,3 +297,17 @@ export function fullHistoryOf(input: {
     }
     return groups;
 }
+
+/**
+ * Tek kişilikte tüm geçmiş de PERSONELSİZ (v4 · karar 3) — kartın
+ * `withoutStaff`ının aynısı: ad veride düşüyor, görünen satır da sesli
+ * okunan etiket de "ile" kurmuyor.
+ */
+export function historyWithoutStaff(
+    groups: readonly { month: string; rows: readonly FullHistoryRow[] }[],
+): { month: string; rows: FullHistoryRow[] }[] {
+    return groups.map((group) => ({
+        month: group.month,
+        rows: group.rows.map((row) => ({ ...row, staff: null })),
+    }));
+}

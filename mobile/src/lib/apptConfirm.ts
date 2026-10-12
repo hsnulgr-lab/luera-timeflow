@@ -220,7 +220,8 @@ export function priceText(price: number | null): string | null {
 export function confirmSpeech(input: {
     state: ConfirmState;
     appointment: Appt;
-    staffName: string;
+    /** Tek kişilikte `null`: "X yapacak" denmez (v4 · karar 3). */
+    staffName: string | null;
     hasPhone: boolean;
 }): string {
     const { appointment, staffName } = input;
@@ -233,17 +234,18 @@ export function confirmSpeech(input: {
         case 'sent':
             return `Mesaj gönderildi. ${appointment.customer_name}'a randevu bilgisi iletildi.`;
         case 'failed':
-            return `Mesaj gönderilemedi. Randevu duruyor: ${when}, ${staffName}. `
+            return `Mesaj gönderilemedi. Randevu duruyor: ${when}${staffName ? `, ${staffName}` : ''}. `
                 + 'Tekrar deneyebilirsiniz.';
         default: {
-            const base = `Randevu oluşturuldu. ${when}, ${appointment.service}, `
-                + `${staffName} yapacak. ${appointment.customer_name}.`;
+            const base = `Randevu oluşturuldu. ${when}, ${appointment.service}`
+                + `${staffName ? `, ${staffName} yapacak` : ''}. ${appointment.customer_name}.`;
             return input.hasPhone ? base : `${base} Müşterinin numarası kayıtlı değil, mesaj gönderilemiyor.`;
         }
     }
 }
 
 /** "Randevu duruyor" şeridinin metni — hatada müdürün ilk korkusunu keser. */
-export function stillBookedLine(appointment: Appt, staffName: string): string {
-    return `${formatDayLong(appointment.date)} ${rangeText(appointment)} · ${staffName}`;
+export function stillBookedLine(appointment: Appt, staffName: string | null): string {
+    const when = `${formatDayLong(appointment.date)} ${rangeText(appointment)}`;
+    return staffName ? `${when} · ${staffName}` : when;
 }
