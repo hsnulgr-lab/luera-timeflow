@@ -1105,6 +1105,8 @@ export default function Kumanda() {
                         <CollectBar
                             method={collectMethod}
                             stage={collectStage}
+                            // Tahsil edilmiş ziyarette düğme yok, kayıt var.
+                            paid={closedCard === 'paid'}
                             errorCode={collectCode}
                             onPick={setCollectMethod}
                             onCollect={() => {

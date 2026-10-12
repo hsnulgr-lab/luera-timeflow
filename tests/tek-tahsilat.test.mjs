@@ -7,7 +7,10 @@ import {
     collectErrorLine,
     collectLabel,
     collectRetryLabel,
+    collectView,
+    collectedLabel,
 } from '../mobile/src/lib/collect.ts';
+import { SEAL_MS, barFoot, barTitle } from '../mobile/src/lib/sendToCash.ts';
 
 /**
  * TAHSİLAT (108 · v4 K3/K4) — kumandanın son adımı tek kişilik modda.
@@ -250,4 +253,57 @@ test('seçili yöntemin zemini tek parça ve kayıyor; ilk seçimde yerinde beli
     assert.match(bar, /backgroundColor: dark \? M\.segOnDark : c\.card,/);
     const v4 = read('docs/design-reference/Luera Mobil - Tek Kisilik v4.html');
     assert.ok(v4.includes('.isl .seg button.on{background:rgba(243,237,227,.13)'));
+});
+
+// ── Tahsil edildi — personel kumandasındaki gibi (2026-10-13, telefon) ──────
+//
+// Tahsilat bitince düğme hâlâ "Kartla tahsil et" diyordu; tahsil edilmiş bir
+// ziyarette kumanda yeniden açılınca da öyle: aynı parayı ikinci kez almaya
+// davet eden etkin bir düğme.
+
+test('güvertenin hâli: seç → yeşil dolgu → kalıcı kayıt; sunucu "ödendi" derse doğrudan kayıt', () => {
+    // Bu oturumda tahsil edildi: önce dolgu, SEAL_MS sonra kayıt.
+    assert.equal(collectView('done', false, false), 'collected');
+    assert.equal(collectView('done', true, false), 'collected');
+    assert.equal(collectView('done', true, true), 'paid');
+    // Yeniden açılış: yerel hâl `idle`, sunucu "ödendi" → düğme YOK.
+    assert.equal(collectView('idle', true, false), 'paid');
+    assert.equal(collectView('pending', true, false), 'paid');
+    // İstek yoldayken sunucunun eski kopyası denemeyi silmiyor.
+    assert.equal(collectView('sending', true, false), 'pick');
+    // Ödenmemiş: seçim. Kasada açık adisyon da (atcash) tahsil edilebilir.
+    for (const stage of ['idle', 'pending', 'send_failed', 'collect_failed']) {
+        assert.equal(collectView(stage, false, false), 'pick');
+    }
+    // Personel kumandasıyla aynı süre ve aynı kelimeler.
+    assert.equal(SEAL_MS, 2600);
+    assert.equal(barTitle('paid'), 'Tahsil edildi');
+    assert.equal(barFoot('paid'), 'Tahsilat tamamlandı ve adisyon kapandı.');
+});
+
+test('yeşil dolgu yöntemi söylüyor — düğmenin kendi kelimesiyle', () => {
+    assert.equal(collectedLabel('cash'), 'Nakit tahsil edildi');
+    assert.equal(collectedLabel('card'), 'Kartla tahsil edildi');
+    assert.equal(collectedLabel('transfer'), 'Havaleyle tahsil edildi');
+    assert.equal(collectedLabel(null), 'Tahsil edildi');
+});
+
+test('çubuk sunucunun "ödendi"sini alıyor; dolgu bir opaklık, vurgu bir ölçek', () => {
+    const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
+    assert.match(kumanda, /<CollectBar[\s\S]{0,260}paid=\{closedCard === 'paid'\}/);
+    const bar = read('mobile/src/components/CollectBar.tsx').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+    // Kalıcı kayıtta düğme yok.
+    assert.match(bar, /if \(view === 'paid'\) return <PaidPlate appear=\{settled && !reduceMotion\} \/>;/);
+    const plate = bar.slice(bar.indexOf('function PaidPlate'));
+    assert.doesNotMatch(plate, /<Pressable/);
+    assert.match(plate, /\{barTitle\('paid'\)\}/);
+    // Dolguda düğme kapalı; yeşil turuncunun üstünde opaklıkla beliriyor.
+    assert.match(bar, /disabled=\{!enabled \|\| busy \|\| collected\}/);
+    assert.match(bar, /backgroundColor: c\.gr,\s*opacity: fill,/);
+    assert.match(bar, /Animated\.spring\(pop, \{ toValue: 1\.03, useNativeDriver: true, \.\.\.M\.paidPop \}\)/);
+    // Seçici solar ama yerinde durur; "Sonra tahsil et"in yeri boş kalır — düğme kaymaz.
+    assert.match(bar, /opacity: fill\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[1, 0\] \}\)/);
+    assert.match(bar, /\) : collected \? \(\s*<View style=\{\{ height: M\.ghostHeight \}\} \/>/);
+    // Hareketi azalt: vurgu yok, dolgu anında.
+    assert.match(bar, /if \(reduceMotion\) \{\s*fill\.setValue\(1\);\s*return;\s*\}/);
 });

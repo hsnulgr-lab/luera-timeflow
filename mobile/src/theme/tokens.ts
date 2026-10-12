@@ -3180,6 +3180,18 @@ export const soloDayMetrics = {
     segOnDark: 'rgba(243,237,227,0.13)',
     /** Seçili zeminin yöntemden yönteme kayışı — uygulamanın yay sözlüğü. */
     segSpring: { stiffness: 330, damping: 26, mass: 0.6 },
+    /*
+     * TAHSİL EDİLDİ — personel kumandasının "Kasaya gönderildi"siyle aynı
+     * dil (`SendToCash`): tek vurgu %3 büyüyüp oturuyor; kalıcı kayıt sönük
+     * yeşil çerçeve, dolgu değil.
+     */
+    paidPop: { stiffness: 300, damping: 14, mass: 0.6 },
+    paidSettle: { stiffness: 300, damping: 18, mass: 0.6 },
+    paidFill: 'rgba(95,191,100,0.10)',
+    paidBorder: 'rgba(95,191,100,0.30)',
+    paidIcon: 18,
+    paidText: 16,
+    paidFoot: 11.5,
     payHeight: 59,
     payRadius: 26,
     payText: 19,

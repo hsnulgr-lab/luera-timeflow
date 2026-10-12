@@ -96,3 +96,35 @@ export function collectRetryLabel(stage: CollectStage, method: CollectMethod | n
     // İlk harf küçülüyor: "Tekrar dene · kartla tahsil et".
     return `Tekrar dene · ${base.label.charAt(0).toLocaleLowerCase('tr-TR')}${base.label.slice(1)}`;
 }
+
+/**
+ * Güvertenin hâli — tahsilattan SONRASI dahil (2026-10-13, telefon).
+ *
+ * Tahsilat bittiğinde düğme hâlâ "Kartla tahsil et" diyordu. Kumanda tahsil
+ * edilmiş bir ziyarette yeniden açıldığında da aynısı oluyordu: aynı parayı
+ * ikinci kez almaya davet eden etkin bir düğme. Personel kumandasındaki
+ * "Kasaya gönderildi" gibi iki adım:
+ *
+ *   collected → yeşil DOLGU, "Kartla tahsil edildi" — az önce oldu, `SEAL_MS`
+ *   paid      → sönük yeşil KAYIT, "Tahsil edildi" — kalıcı
+ *
+ * `paid` sunucunun gerçeği (`cardState` · `is_paid`). Kumanda yeniden
+ * açılınca yerel hâl yine `idle` başlıyor; kaydı sunucu söylüyor.
+ */
+export type CollectView = 'pick' | 'collected' | 'paid';
+
+export function collectView(stage: CollectStage, paid: boolean, settled: boolean): CollectView {
+    if (stage === 'done') return settled ? 'paid' : 'collected';
+    // İstek yoldayken sunucunun eski kopyası "ödendi" diyemez; denemenin
+    // kendisi ekranda kalıyor.
+    if (stage === 'sending') return 'pick';
+    return paid ? 'paid' : 'pick';
+}
+
+/** Yeşil dolgunun yazısı: yöntemle, düğmenin kendi kelimesiyle. */
+export function collectedLabel(method: CollectMethod | null): string {
+    if (method === 'cash') return 'Nakit tahsil edildi';
+    if (method === 'card') return 'Kartla tahsil edildi';
+    if (method === 'transfer') return 'Havaleyle tahsil edildi';
+    return 'Tahsil edildi';
+}

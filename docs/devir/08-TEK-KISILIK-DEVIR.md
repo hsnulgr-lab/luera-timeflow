@@ -1691,3 +1691,22 @@ kendisi yapıyor.
   `rgba(243,237,227,.13)` (`.isl .seg button.on`).
 
 Kanıt: 2939 geçti / 0 kırık · `tsc` temiz. Telefonda denenmedi.
+
+**Aynı gün — "Tahsil edildi".** Tahsilat bitince düğme hâlâ "Kartla tahsil
+et" diyordu. Kumanda tahsil edilmiş bir ziyarette yeniden açılınca da öyle
+kalıyordu; yani aynı parayı ikinci kez almaya davet eden etkin bir düğme
+vardı. Kullanıcı personel sayfasındaki geçişi istedi (`SendToCash` ·
+"Kasaya gönderildi"). `collectView(stage, paid, settled)` iki adım
+çiziyor:
+
+- **`collected`:** turuncunun üstünde yeşil bir katman beliriyor
+  (opaklık). Tek bir %3 vurgu var, ardından "Kartla tahsil edildi" ✓.
+  Seçici soluyor ama yerinde duruyor; "Sonra tahsil et"in yeri boş kalıyor,
+  düğme kaymıyor. Süre `SEAL_MS` (2,6 sn).
+- **`paid`:** sönük yeşil kayıt "Tahsil edildi" ve altında "Tahsilat
+  tamamlandı ve adisyon kapandı." Kelimeler `barTitle` / `barFoot`
+  (`'paid'`), yani personel kumandasınınkiyle aynı. Kumanda yeniden
+  açılınca kayıt doğrudan geliyor (`paid={closedCard === 'paid'}`).
+
+Kanıt: 2942 geçti / 0 kırık · `tsc` temiz · lint temiz. Telefonda
+denenmedi.
