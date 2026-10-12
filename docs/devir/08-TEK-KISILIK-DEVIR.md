@@ -1,6 +1,6 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§21'in commit'leri `main`'in önünde, push yok — 114 canlıda)
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda ve `main`'de)
 **Testler:** 2873 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
 > **2026-10-12 · PERSONELİ SUNUCU YAZAR (§21):** göç **114 CANLIDA** (kuru
