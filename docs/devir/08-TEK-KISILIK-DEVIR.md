@@ -1,7 +1,11 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
 **Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda ve `main`'de)
-**Testler:** 2873 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Testler:** 2879 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+
+> **2026-10-12 · TEST SIRASINDA (§23):** Gün başlığı gelmeyeni ve iptali
+> "bitti" saymıyor (personel "Bugün"ünde de aynı hata kapandı); kumandanın
+> ölü "Müşteriyi ara"sı sönük; seçicide "Tek kişilik". Test günü tohumu §22.
 
 > **2026-10-12 · PERSONELİ SUNUCU YAZAR (§21):** göç **114 CANLIDA** (kuru
 > koşu + göç + test, §6; doldurulacak eski satır çıkmadı: 0/0). Tek kişilikte
@@ -1307,4 +1311,37 @@ Deneme sırası (durumlar birbirine akıyor; sırayla gidilmeli):
 
 Telefonda görülen ilk bulgu (tohumdan önce): Gün başlığı "3 iş bitti, 0
 kaldı" derken hâl kartı "0 tamamlandı · 3 gelmedi" diyordu — gelmeyen
-randevu "bitti" sayılıyor. Düzeltilmedi; sıradaki iş.
+randevu "bitti" sayılıyor. **§23'te düzeltildi.**
+
+---
+
+## 23 · 2026-10-12 · TEST SIRASINDA — SAYIMLAR + İKİ KÜÇÜK
+
+Kullanıcı test günüyle telefonda deniyor ve bulguları topluyor; bu tur
+kararsız kalan küçükleri kapattı. Yalnız istemci; göç ve deploy yok.
+
+| İş | Ne oldu | Dosyalar |
+|---|---|---|
+| Gün başlığı (bugün) | Sayılar personel durumunun "geçmiş" kovasından geliyordu → saati geçen her şey "bitti". Artık `soloDayCounts`, kartın damgasıyla (`soloApptStamp`) AYNI kural: bitti / gelmedi / kaldı; iptal hiçbirine girmiyor. Cümle personel "Bugün"ünün: "2 iş bitti, 1 gelmedi, 3 kaldı" (gelmedi yalnız >0). Yalnız iptal kalan gün "N iptal" | `soloDay.ts`, `tek/index.tsx` |
+| Gün başlığı (başka gün) + liste başlığı | İptali sayıyordu; şeridin noktası (`countsOf`) saymıyor → "5 randevu" / şeritte 4. `soloDayTotal` | `soloDay.ts` |
+| Personel "Bugün" (ekip) | AYNI hata sınıfı: iptal kartı `dim: 2` ve "bitti" filtresine takılıyordu. `staffDayCounts`; geçmiş/ileri gün de iptali saymıyor | `staffCard.ts`, `personel/index.tsx` |
+| Kumanda "Müşteriyi ara" | Numara yokken sessizce `return` ediyordu (§21'de bulunmuştu). Artık SÖNÜK: 0.38, `disabled`, etiket "— numara yok" (personel ekranlarında "kayıt" kelimesi yasak, `mobile-durum-dili` yakaladı) | `kumanda.tsx` |
+| İşletme seçici | Tek kişilik işletme "1 personel" değil "Tek kişilik"; ekran okuyucu da aynı kelime | `accountMap.ts`, `ui.tsx` |
+
+### Kanıt
+
+2879 geçti / 0 kırık / 7 atlandı · `tsc` temiz · lint sayısı değişmedi
+(kumandanın 24 `react-hooks/refs` hatası öncesinde de 24). Taşınan testler
+gevşetilmedi: `mobile-tek-gun` (ekran ifadesi), `mobile-personel-kart` 05c
+(kaynak metni yerine davranış).
+
+### Hâlâ kullanıcı kararı bekleyenler (kod sormadan değişmez)
+
+1. Ekipte sahibin satırının adı (§16 · 1)
+2. Ekipten tek kişiliğe dönüş / S1 cümlesi (§16 · 2)
+3. Personel sayfasının "bilgisayardan" cümlesi (§16 · 3 — form gelince)
+4. `hourRange` kapalı gün (§9)
+5. Bekleme bitince bildirim (ürün kararı)
+6. Randevu kartında "Ara" satırı
+7. `tek-kasa` dalını silmek
+8. Paket satışı ödemesi — "şimdilik dokunma"
