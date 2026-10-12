@@ -10,6 +10,7 @@ import {
     soloApptDuration,
     soloDayCounts,
     soloDayList,
+    soloDayTotal,
     soloApptStamp,
     soloDaySubtitle,
     soloEmptyCopy,
@@ -67,7 +68,21 @@ test('BUGÜN OLMAYAN gün yalnız SAYIYOR, "kaldı" demiyor', () => {
     assert.equal(soloDaySubtitle('2026-10-09', { total: 8 }), '9 Ekim · 8 randevu');
     assert.equal(soloDaySubtitle('2026-10-09', { total: 0 }), '9 Ekim · randevu yok');
     // Ekran "bitti/kaldı" biçimini YALNIZ bugün gönderiyor.
-    assert.match(gun, /:\s*isToday\s*\?\s*soloDayCounts\(mine, nowMinutes\)\s*:\s*\{ total: mine\.length \}/);
+    assert.match(gun, /:\s*isToday\s*\?\s*soloDayCounts\(mine, nowMinutes\)\s*:\s*soloDayTotal\(mine\)/);
+});
+
+test('bugün olmayan gün İPTALİ SAYMIYOR — şeridin noktasıyla aynı sayı', () => {
+    const day = [at('a', '09:30'), at('b', '11:00', { status: 'cancelled' }), at('c', '14:00')];
+    assert.deepEqual(soloDayTotal(day), { total: 2, cancelled: 1 });
+    assert.equal(soloDaySubtitle('2026-10-09', soloDayTotal(day)), '9 Ekim · 2 randevu');
+    // Liste başlığı da aynı sayı; iptal kartı listede duruyor.
+    const list = soloDayList(null, day, false, 600);
+    assert.equal(list.rows.length, 3);
+    assert.equal(list.title, '2 randevu');
+    // Yalnız iptal kalan gün "randevu yok" demiyor; liste başlıksız.
+    const gone = [at('b', '11:00', { status: 'cancelled' })];
+    assert.equal(soloDaySubtitle('2026-10-09', soloDayTotal(gone)), '9 Ekim · 1 iptal');
+    assert.equal(soloDayList(null, gone, false, 600).title, null);
 });
 
 test('gelmeyen randevu "bitti" SAYILMIYOR — başlık kartın damgasıyla aynı kuralla sayıyor', () => {

@@ -19,8 +19,8 @@ import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
-    SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloEmptyCopy, soloOpenTicket, soloPanelAction,
-    soloTicketPanel, soloWaitPanel,
+    SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloDayTotal, soloEmptyCopy, soloOpenTicket,
+    soloPanelAction, soloTicketPanel, soloWaitPanel,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
@@ -226,7 +226,7 @@ export default function SoloDay() {
             ? null
             : isToday
                 ? soloDayCounts(mine, nowMinutes)
-                : { total: mine.length },
+                : soloDayTotal(mine),
     );
 
     /*

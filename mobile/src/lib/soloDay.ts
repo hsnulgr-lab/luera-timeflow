@@ -27,7 +27,7 @@ import { clockLocative, upperTR } from './text.ts';
  */
 export function soloDaySubtitle(
     dateISO: string,
-    counts: SoloDayCounts | { total: number } | null,
+    counts: SoloDayCounts | SoloDayTotal | null,
 ): string {
     const day = formatDayMonth(dateISO);
     if (!counts) return day;
@@ -40,7 +40,9 @@ export function soloDaySubtitle(
      * bir şeyi yok. İleriki günde de yanlış — hiçbiri daha olmadı.
      */
     if ('total' in counts) {
-        return counts.total === 0 ? `${day} · randevu yok` : `${day} · ${counts.total} randevu`;
+        if (counts.total > 0) return `${day} · ${counts.total} randevu`;
+        const cancelled = counts.cancelled ?? 0;
+        return cancelled > 0 ? `${day} · ${cancelled} iptal` : `${day} · randevu yok`;
     }
 
     const noshow = counts.noshow ?? 0;
@@ -58,6 +60,21 @@ export function soloDaySubtitle(
         noshow > 0 ? `${noshow} gelmedi` : null,
         `${counts.left} kaldı`,
     ].filter(Boolean).join(', ')}`;
+}
+
+/**
+ * Bugün olmayan günün sayısı. İPTAL SAYILMIYOR — şeridin noktası da saymıyor
+ * (`countsOf`): iptal kimsenin vaktini almıyor. Başlık "5 randevu" derken
+ * şerit 4 gösteriyordu.
+ */
+export interface SoloDayTotal {
+    total: number;
+    cancelled?: number;
+}
+
+export function soloDayTotal(appointments: readonly Pick<Appt, 'status'>[]): SoloDayTotal {
+    const cancelled = appointments.filter((appointment) => appointment.status === 'cancelled').length;
+    return { total: appointments.length - cancelled, cancelled };
 }
 
 export interface SoloDayCounts {
@@ -501,10 +518,12 @@ export function soloDayList(
 ): SoloDayList {
     if (!isToday) {
         const rows = [...all].sort(byStart);
+        // Başlıkla aynı sayı: iptal kartı listede durur ama sayılmaz.
+        const { total } = soloDayTotal(rows);
         return {
             rows,
             nowIndex: null,
-            title: rows.length > 0 ? `${rows.length} randevu` : null,
+            title: total > 0 ? `${total} randevu` : null,
         };
     }
 
