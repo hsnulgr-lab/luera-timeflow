@@ -31,6 +31,7 @@ import { Empty } from '../../src/components/ui';
 import { DurumUnread } from '../../src/components/Durum';
 import { historyMark } from '../../src/lib/formula';
 import { splitName } from '../../src/lib/customerBook';
+import { UNLINKED_TITLE, unlinkedHint } from '../../src/lib/customerCard';
 import {
     type FileFormula, type FileHistoryRow, type FilePackage,
 } from '../../src/lib/customerFile';
@@ -111,14 +112,22 @@ export default function CustomerFile() {
 
     // Bulunamadıysa UYDURULMUŞ bir gövde değil, boşluk. Yanlış kişinin
     // alerjisini göstermek hiç göstermemekten kötüdür.
+    //
+    // İki ayrı boşluk: kumandanın "Müşteri kartı" düğmesi her randevuda
+    // duruyor, kayda bağlı olmayanda da. Kimlik hiç gelmediyse kayıt HİÇ
+    // OLMADI — "silinmiş olabilir" demek yalan olurdu.
     if (!file) {
         return (
             <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
                 {back}
-                <Empty
-                    title="Müşteri bulunamadı"
-                    hint="Kayıt silinmiş ya da başka bir deftere taşınmış olabilir."
-                />
+                {params.customerId ? (
+                    <Empty
+                        title="Müşteri bulunamadı"
+                        hint="Kayıt silinmiş ya da başka bir deftere taşınmış olabilir."
+                    />
+                ) : (
+                    <Empty title={params.name?.trim() || UNLINKED_TITLE} hint={unlinkedHint(solo)} />
+                )}
             </View>
         );
     }

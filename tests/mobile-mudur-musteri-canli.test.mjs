@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { cardRisk, customerCardOf, HISTORY_ROWS, shortDate } from '../mobile/src/lib/customerCardLive.ts';
-import { customerPlates, heroWarns, trayReminder } from '../mobile/src/lib/customerCard.ts';
+import { customerPlates, heroWarns, trayReminder, unlinkedHint } from '../mobile/src/lib/customerCard.ts';
 
 /**
  * MÜDÜR 23 · MÜŞTERİ KARTI CANLIYA BAĞLANDI.
@@ -131,7 +131,12 @@ test('rota dört hâli ayırıyor: red · okunamadı · kayda bağlı değil · 
     assert.match(route, /<DurumUnread\s*what="Müşteri kartını"\s*notMeaning="Müşterinin silindiği"/);
     assert.match(route, /const missing = Boolean\(customerId\) && snap\.state === 'ok';/);
     assert.match(route, /\) : missing \? \(\s*<Empty\s*title="Müşteri bulunamadı"/);
-    assert.match(route, /Bu randevu bir müşteri kaydına bağlı değil/);
+    // Cümle ortak yardımcıdan (tek kişilikte masaüstüne yollamıyor — bkz.
+    // `tek-personel-sunucu.test.mjs`); iki kipte de "bağlı değil" diyor.
+    assert.match(route, /hint=\{unlinkedHint\(solo\)\}/);
+    for (const solo of [false, true]) {
+        assert.match(unlinkedHint(solo), /^Bu randevu bir müşteri kaydına bağlı değil\./);
+    }
     // Sıra: red, bağlı değil, okunamadı, bulunamadı.
     const order = ['snap.refusal ?', 'unlinked ?', "snap.state === 'error' ?", 'missing ?'].map((m) => route.indexOf(m));
     assert.ok(order.every((at) => at > 0), 'dal eksik');

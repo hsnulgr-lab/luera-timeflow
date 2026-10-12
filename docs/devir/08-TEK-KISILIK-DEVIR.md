@@ -1,7 +1,13 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main` (§19 + §20 gönderildi)
-**Testler:** 2863 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§21'in commit'i `main`'in önünde, push yok)
+**Testler:** 2873 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+
+> **2026-10-12 · PERSONELİ SUNUCU YAZAR (§21):** göç **114 YAZILDI, DEPLOY
+> BEKLİYOR** — komutlar §6'da, kullanıcı çalıştıracak. Tek kişilikte
+> personelsiz yeni randevuya sunucu sahibin personelini yazıyor; eski
+> personelsiz randevular tek seferde dolduruluyor. Yanında: kayda bağlı
+> olmayan randevunun müşteri dosyası artık "silinmiş olabilir" demiyor.
 
 > **2026-10-12 · MESAJLA HATIRLAT (§20):** v4'ün son "duvarı" — randevu
 > kartında, yalnız tek kişilikte, WhatsApp'ı hazır metinle açan satır.
@@ -40,10 +46,9 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu yok** (§6, 2026-10-11 gece): 112 + 113 canlıda,
-   `staff-api` deploy edildi; `main` = `tek-kisilik`, ikisi de GitHub'da.
-   Telefonda deneme (Expo Go) artık yapılabilir; tahsilat da hâlâ
-   telefonda denenmedi.
+2. **Deploy borcu: YALNIZ 114** (§6, §21) — kuru koşu, göç, test. Edge
+   function değişmedi. 112 + 113 canlıda. Telefonda deneme (Expo Go) hâlâ
+   yapılmadı; tahsilat da telefonda denenmedi.
 3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
    Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
 
@@ -303,6 +308,44 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
+
+### ⏳ BEKLİYOR — 114 (personeli sunucu yazar · §21)
+
+Yalnız göç; edge function ve istemci deploy'u YOK. Mağazadaki sürüm
+etkilenmiyor (personeli zaten gönderiyor; tetikleyici yalnız boşsa yazar).
+
+**0 · Ön kontrol** — beklenen `0 0 O` (fonksiyon yok, tetikleyici yok,
+bildirim tetikleyicisi açık):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select (select count(*) from pg_proc where proname='assign_solo_staff') || ' ' || (select count(*) from pg_trigger where tgname='trg_reservations_assign_solo_staff') || ' ' || (select tgenabled::text from pg_trigger where tgname='trg_push_on_reservation')\""
+```
+
+**1 · Kuru koşu** — göç (doldurma dahil) + davranış testi TEK işlemde,
+sonunda hepsi geri sarılır. Beklenen: `NOTICE: 114: N randevuya personel
+yazıldı; M randevu … boş bırakıldı` (gerçek veride kaç satırın dolacağını
+söyler), `tek personel (114) regression: ok`, `ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/114_tek_personel_sunucu.sql; sed -e '/^BEGIN;$/d' supabase/tests/tek_personel_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse). Beklenen: aynı NOTICE ve `COMMIT`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/114_tek_personel_sunucu.sql
+```
+
+**3 · Test** (göçten sonra, iz bırakmaz). Beklenen: `tek personel (114)
+regression: ok` ve `ROLLBACK`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/tests/tek_personel_regression.sql
+```
+
+Doldurma işlem içinde bildirim tetikleyicisini kapatıp açıyor; o süre
+boyunca `reservations`a eş zamanlı yazmalar BEKLER (kaybolmaz). Kısa sürer,
+yine de yoğun saat dışında çalıştırmak daha rahat.
 
 ### ✅ YAPILDI (2026-10-11 gece) — 112 + 113 + `staff-api`
 
@@ -618,7 +661,7 @@ biliyor.
 
 | Ayrışma | Sebep |
 |---|---|
-| Takvim sahipsiz randevuyu çizmiyor, Gün çiziyor | `columnize` `staff_id` boş satırı süzüyor; düzeltmesi müdür takvimini de etkiler. Fark alt başlıkta **söyleniyor**, sessiz değil |
+| Takvim sahipsiz randevuyu çizmiyor, Gün çiziyor | `columnize` `staff_id` boş satırı süzüyor; düzeltmesi müdür takvimini de etkiler. Fark alt başlıkta **söyleniyor**, sessiz değil. **§21 (114) tek kişilikte kaynağı kapatıyor:** yeni randevu personelsiz yazılamıyor, eskiler dolduruluyor; yalnız çakışan/kilitli eski satırlar boş kalır |
 | `VoidBlock` yatay dolgu 18, v4'te 26 | Paylaşılan bileşen; 8 pt için çatallanmaz |
 | `DayHeader` 42 pt, v4'te 44 | aynı sebep |
 | G3 etiketi yalnız "BEKLEMEDE", v4 "BEKLEMEDE · KREM" | **Kullanıcı kararı (§16):** kumanda neyin beklendiğini bilmiyor, yalnız süre soruyor; ad uydurulmaz. Kumanda değişmedi |
@@ -1123,3 +1166,76 @@ Otomatik hatırlatma kapsam dışı (v4).
 - Müşteri kartının "kayda bağlı değil" boş hâli "masaüstünde kayda
   bağlanınca" diyor; tek kişide masaüstü yok (v4 listelememiş).
 - İşletme seçici kartında "1 personel" (§19).
+
+---
+
+## 21 · 2026-10-12 · PERSONELİ SUNUCU YAZAR (114) + KAYITSIZ MÜŞTERİ DOSYASI
+
+Kullanıcı: "1 ve 2'ye başla" (kalanlar listesinin ilk iki maddesi).
+
+### 1 · Göç 114 — v4 karar 3
+
+"Sahip için bir personel satırı var; sunucu her randevuya o staff_id'yi
+kendisi yazar, istemci göndermez."
+
+**Kazının bulguları** (hafızadaki `randevu-null-personel` ile birlikte):
+masaüstü, halka açık randevu ve telefon zaten gerçek bir personel yazıyor.
+Personelsiz satırlar eski kayıtlardan, silinen personelden (`ON DELETE SET
+NULL`) ve gelecekteki yollardan (içe aktarma, API) geliyor. Bugün tek
+kişilikte böyle bir randevu Takvim'de hiçbir sütuna düşmüyor ve 060 onu
+sahibin randevularıyla değil "atanmamış" havuzla karşılaştırıyor.
+
+| Parça | Karar | Neden |
+|---|---|---|
+| Tetikleyici | `trg_reservations_assign_solo_staff`, **yalnız BEFORE INSERT**, `WHEN (NEW.staff_id IS NULL)` | UPDATE'te çalışsaydı eski personelsiz bir randevuyu "tamamlandı" yapmak, doldurulan personel yüzünden 060'ın çakışma hatasına düşerdi |
+| Kural | tek kişilik org + **tek** aktif personel; iki aktifte ve hiç aktif yokken dokunmaz | `staff-api solo.session` ile aynı: sunucu tahmin etmez |
+| Sıra | ad, `trg_reservations_conflict_guard`dan önce sıralanıyor | Postgres aynı olayın BEFORE tetikleyicilerini ada göre çalıştırır; çakışma kontrolü doldurulmuş personeli görmeli |
+| Yetki | SECURITY DEFINER, `search_path` sabit, EXECUTE herkesten geri alındı | kimin yazdığından bağımsız (halka açık randevu, staff-api, masaüstü); RLS WITH CHECK yine son satırda bakıyor |
+| Doldurma | tek seferlik, satır satır; 23P01 (060 çakışma) ve 23514 (062 kilit) ATLANIR ve sayılır; başka hata göçü düşürür | doldurma bir düzeltme, kimsenin gününü bozmamalı |
+| Bildirim | doldurma sırasında `trg_push_on_reservation` kapalı, sonra BULUNDUĞU hâle (`O`/`A`) geri; kapalıysa kapalı kalır | personel boştan doluya geçince "Yeni randevun var" gidiyor (107); her eski randevu için bildirim yağardı |
+
+İstemci personeli GÖNDERMEYE DEVAM ediyor (bilerek): göç canlıya alınmadan
+istemci göndermeyi bıraksaydı randevular personelsiz yazılırdı. Sonuç aynı
+(tek personel); v4'ün "istemci göndermez"i göç canlıdayken istenirse
+ayrıca kaldırılır.
+
+**Kanıt:**
+- PGlite (gerçek Postgres 17), 060'ın GERÇEK çakışma fonksiyonuyla; bildirim
+  tetikleyicisi ve 062 kilidi yerel vekillerle: 7 senaryo (idempotent, kuru
+  koşu iz bırakmıyor, doldurma kuralı, doldurmadan sonra test, tetikleyici
+  kapalıysa/`A` ise/yoksa) geçti; 13 sökme kontrolünün 13'ü testi düşürdü.
+  Ayrıca: yapı denetimi sökülünce de davranış testi (6. söz) UPDATE'te
+  çalışan tetikleyiciyi `reservation_staff_conflict` ile yakalıyor.
+  Düzenek oturumun scratchpad'inde (`pgtest/run114.mjs`, `stub114.sql`).
+- `supabase/tests/tek_personel_regression.sql` — üretimde kuru koşu için
+  (§6): altı söz, sahibin kendi oturumuyla yazma dahil.
+- Node: `tests/tek-personel-sunucu.test.mjs` (10) göçün kritik satırlarını
+  kilitliyor; 13 koruma söküldü, 13'ü yakalandı.
+
+### 2 · Kayda bağlı olmayan randevunun müşteri dosyası
+
+Listedeki madde müdür kartının cümlesiydi ("masaüstünde kayda bağlanınca
+açılır") — ama o boş hâl tek kişilikte AÇILAMIYOR: randevu kartı müşteri
+kartını yalnız kaydı ve geçmişi olan müşteride açıyor. Asıl yer KUMANDA:
+"Müşteri kartı" düğmesi her randevuda duruyor ve kimliksiz açılan müşteri
+dosyası "Müşteri bulunamadı · Kayıt silinmiş ya da başka bir deftere
+taşınmış olabilir" diyordu — hiç olmamış bir kayıt için (tek kişilikte de
+personelde de).
+
+- `musteri.tsx`: kimlik yoksa ayrı boş hâl — ad + "Bu randevu bir müşteri
+  kaydına bağlı değil. …"; kimlik var ama kayıt yoksa eski cümle (doğru).
+- `customerCard.unlinkedHint(solo)` — tek kişilikte "Kayıt, randevuyu
+  müşterinin numarasıyla kurduğunuzda açılır." (telefonda kayıt numarayla
+  açılıyor: `createAppointment → resolveCustomer`); ekipte eski cümle.
+  Müdür kartı da aynı kaynaktan.
+- Bir eski test cümlenin yeni kaynağına taşındı (`mobile-mudur-musteri-canli`).
+
+### Kanıt
+
+2873 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint bulgusu yok.
+
+### Bulunan, dokunulmayan
+
+Kumandanın "Müşteriyi ara" düğmesi numarası olmayan randevuda sessizce
+hiçbir şey yapmıyor (`onCall` erken dönüyor) — ölü kontrol. Kumanda personel
+tasarımının birebiri; ayrı bir iş.

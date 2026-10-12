@@ -9,7 +9,9 @@ import { CustomerNoteSheet } from '../../src/components/CustomerNoteSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { Empty } from '../../src/components/ui';
 import { authApi } from '../../src/api/session';
-import { dialPhone, withoutStaff, type CustomerCard as CardData } from '../../src/lib/customerCard';
+import {
+    UNLINKED_TITLE, dialPhone, unlinkedHint, withoutStaff, type CustomerCard as CardData,
+} from '../../src/lib/customerCard';
 import { customerCardOf } from '../../src/lib/customerCardLive';
 import { localClock } from '../../src/lib/createLive';
 import { orgDurum } from '../../src/lib/managerDurum';
@@ -207,8 +209,8 @@ export default function CustomerScreen() {
                     />
                 ) : unlinked ? (
                     <Empty
-                        title={customerName ?? 'Müşteri kaydı yok'}
-                        hint="Bu randevu bir müşteri kaydına bağlı değil. Kart, müşteri masaüstünde kayda bağlanınca açılır."
+                        title={customerName ?? UNLINKED_TITLE}
+                        hint={unlinkedHint(solo)}
                     />
                 ) : snap.state === 'error' ? (
                     <DurumUnread

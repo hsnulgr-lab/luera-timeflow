@@ -304,6 +304,27 @@ export function withoutStaff(card: CustomerCard): CustomerCard {
     };
 }
 
+// ── Kayda bağlı olmayan randevu ─────────────────────────────────────────────
+
+export const UNLINKED_TITLE = 'Müşteri kaydı yok';
+
+/**
+ * Randevu bir müşteri kaydına bağlı değilse kartın yerinde duran cümle.
+ *
+ * İki cümle, iki gerçek. Ekipte kaydı masaüstü bağlıyor. Tek kişilikte
+ * masaüstü yok: telefonda kayıt, randevu müşterinin numarasıyla
+ * kurulunca açılıyor (`createAppointment` → `resolveCustomer`). Numarasız
+ * kurulan randevu kayıtsız kalıyor.
+ *
+ * "Bulunamadı" DEĞİL: o, silinmiş ya da taşınmış bir kaydın cümlesi. Hiç
+ * olmamış bir kaydı silinmiş gibi göstermek yalan olurdu.
+ */
+export function unlinkedHint(solo: boolean): string {
+    return solo
+        ? 'Bu randevu bir müşteri kaydına bağlı değil. Kayıt, randevuyu müşterinin numarasıyla kurduğunuzda açılır.'
+        : 'Bu randevu bir müşteri kaydına bağlı değil. Kart, müşteri masaüstünde kayda bağlanınca açılır.';
+}
+
 // ── Alt çubuk ───────────────────────────────────────────────────────────────
 
 export const TRAY_MAIN = 'Randevu ver';
