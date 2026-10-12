@@ -14,7 +14,8 @@ seçiliyse Başlat onu** başlatsın.
    bu turun sözlüğü: **BEKLİYOR · GECİKME · BAŞLAMAYA**.
 3. **Ekran görüntüleri:**
    - telefonda Gün, 23:00 — kartın **bugünkü** hâli (BEKLİYOR · 30 dk · Başlat)
-   - aynı kartın yakın planı
+   - aynı kartın yakın planı — **görüntülerde eski etiket "KAPIDA" yazıyor;
+     artık "BEKLİYOR"** (satır da "… · 22:05’te geldi" oldu)
    - **yığın-picker referansı** (ortada seçili kart, üstte ve altta küçülüp
      solan kartlar, yanda ok) — İSTENEN HAREKETİN KENDİSİ
    - iOS saat tekerleği (orta bant seçili, komşular soluk)
