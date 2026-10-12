@@ -1,8 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
+import { feedback } from '../lib/feedback';
+import { upperTR } from '../lib/text';
 import {
-    apptCardMetrics, apptInCurve, apptMotion, apptOutCurve, detailMetrics, useTheme,
+    apptCardMetrics, apptInCurve, apptMotion, apptOutCurve, detailMetrics, font, hit, useTheme,
     type Curve,
 } from '../theme';
 
@@ -125,5 +128,64 @@ export function SheetGrab() {
         <View style={{ height: 26, alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ width: 38, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.28 }} />
         </View>
+    );
+}
+
+/**
+ * Sistem sayfasının başlık satırı — randevu kartının (Müdür 25 · A1) kabuğu:
+ * solda harf aralıklı küçük etiket ("RANDEVU", "TAHSİLAT"), sağda kapat.
+ *
+ * Randevu kartı ile Kasa fişi AYNI kabuğu taşıyor (2026-10-13, kullanıcı:
+ * "tasarımını da aynısını uygulasak"): ikisi de sistemin sayfası, ikisi de
+ * aşağı çekilince kapanıyor, ikisinin de tepesi bu satır.
+ */
+export function SheetHeader({ label, onClose }: { label: string; onClose: () => void }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingLeft: apptCardMetrics.sheetPadX,
+            paddingRight: apptCardMetrics.sheetPadX - 6,
+            paddingTop: 2,
+            paddingBottom: 12,
+        }}>
+            <Text style={{
+                color: c.tx2,
+                fontSize: 12,
+                fontFamily: font.bold,
+                fontWeight: '700',
+                letterSpacing: 12 * 0.18,
+            }}>
+                {upperTR(label)}
+            </Text>
+            <SheetClose onPress={onClose} />
+        </View>
+    );
+}
+
+function SheetClose({ onPress }: { onPress: () => void }) {
+    const { c } = useTheme();
+    const tap = useCallback(() => { feedback.selection(); onPress(); }, [onPress]);
+    return (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Kapat"
+            onPress={tap}
+            hitSlop={6}
+            style={({ pressed }) => ({
+                width: hit.icon,
+                height: hit.icon,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 999,
+                backgroundColor: pressed ? c.surf2 : 'transparent',
+            })}
+        >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c.tx2} strokeWidth={1.7} strokeLinecap="round">
+                <Path d="M6 6l12 12M18 6L6 18" />
+            </Svg>
+        </Pressable>
     );
 }

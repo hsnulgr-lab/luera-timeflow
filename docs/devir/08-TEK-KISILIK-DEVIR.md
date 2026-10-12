@@ -1601,3 +1601,33 @@ kullanıyor (69); en kısa blok yarım saat (ekipte 37, tek sütunda 34,5).
 Kanıt: 2936 geçti / 0 kırık · `tsc` temiz · yeni lint bulgusu yok
 (`tests/tek-takvim-t1.test.mjs`). Dört eski test yeni yapıya taşındı.
 Telefonda denenmedi.
+
+## 29 · 2026-10-13 · KASA FİŞİ = RANDEVU KARTININ KABUĞU
+
+Telefonda Kasa'daki hareket fişinin tutamacı çalışmıyordu. İki deneme
+tutmadı: önce cam şeritteki jest, sonra fişin kabına yakalama aşamasında
+bağlanan jest (`426ed23`). Kullanıcı randevu kartının davranışını ve
+görünüşünü istedi ("tasarımını da aynısını uygulasak").
+
+Fiş artık **sistemin sayfası**: RN `Modal` · `presentationStyle="pageSheet"`
+· `allowSwipeDismissal`. Randevu kartı (`presentation: 'modal'`) da aynı iOS
+sayfası. Aşağı çekmeyi iOS yapıyor, arkadaki ekran geri çekiliyor.
+
+- **Kabuk ortak:** `Sheet.tsx · SheetHeader`. İçinde etiket ("RANDEVU" /
+  "KASA HAREKETİ") ve kapat düğmesi var; düğme randevu kartından taşındı.
+  Tutamak `SheetGrab`, zemin `c.bg`.
+- **Kapanış sırası:** `close(after)` sayfayı indiriyor, iş `onDismiss`te
+  yapılıyor. "Geri al"ın sistem uyarısı inen sayfanın üstüne açılmıyor.
+  Android'de `onDismiss` yok; orada iş hemen yapılıyor.
+- **Klavye:** düzeltme alanı, sayfanın ekrandaki yerinden ölçülen payla
+  klavyenin üstünde kalıyor. `KeyboardAvoidingView` sayfanın ekranın
+  tepesinden başlamadığını bilmiyor.
+- **Silinenler:**
+  - Kasa'nın camı (tasarımdaki tek cam yeri)
+  - elle yazılmış giriş ve çıkış animasyonları
+  - jest eşikleri ve tutamak ölçüleri (`cashMetrics`)
+
+Aynı ölü tutamak `BottomSheet`te de duruyor (Gün sonu özeti, tahsil
+edilmedi, randevu kartının alt sayfaları); kullanıcıya soruldu.
+
+Kanıt: 2937 geçti / 0 kırık · `tsc` temiz. Telefonda denenmedi.

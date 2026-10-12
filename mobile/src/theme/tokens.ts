@@ -2003,26 +2003,9 @@ export const cashMetrics = {
     traceFont: 11,
     strikeWidth: 1.6,
 
-    // Sheet (14b) ve iptal onayı (14c).
-    sheetRadius: 26,
-    sheetMaxHeight: 704,
-    sheetMotion: 320,
-    // Aşağı çekip kapatma eşikleri.
-    /** Jestin sheet'i devralması için gereken en küçük iniş. */
-    dragClaim: 6,
-    /** Bu kadar indiyse bırakınca kapanır. */
-    dragClose: 96,
-    /** Ya da bu hızla atıldıysa — kısa ama hızlı çekiş de kapatır. */
-    dragFling: 0.7,
-    /**
-     * Tutamacın PARMAK bölgesi: fişin tepesinden bu kadar. Çizilen şerit 26 pt;
-     * 44 pt'lik dokunma hedefi şeridin altındaki başlığa da taşıyor.
-     */
-    grabZone: 44,
-
-    grabHeight: 26,
-    grabBarWidth: 38,
-    grabBarHeight: 5,
+    // Sheet (14b): kabuk, giriş ve aşağı çekme artık sistemin sayfası
+    // (randevu kartıyla aynı, 2026-10-13); yarıçap, yükseklik ve jest
+    // eşikleri burada değil.
     sheetAmountFont: 26,
     sheetRowHeight: 26,
     sheetRowFont: 15,

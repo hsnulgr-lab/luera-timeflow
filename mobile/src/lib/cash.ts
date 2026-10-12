@@ -363,6 +363,13 @@ export const STAFF_ROW_LABEL = 'Hizmeti veren';
 // ── Sheet · iptal · boş gün ─────────────────────────────────────────────────
 
 /** Sheet'teki bölüm başlıkları. */
+/**
+ * Fişin tepesindeki etiket — randevu kartının "RANDEVU"su gibi nesnenin adı.
+ * "Tahsilat" değil: o, fişin içindeki bölümün başlığı; aynı kelime iki kez
+ * yazılırdı. Geri alınmış ve düzeltilmiş satır da bir kasa hareketi.
+ */
+export const SHEET_LABEL = 'Kasa hareketi';
+
 export const SHEET_SECTIONS = {
     appointment: 'Randevu',
     lines: 'Hizmetler',
@@ -563,37 +570,6 @@ export function parseAmount(text: string): number | null {
  * Hiçbiri değişmediyse kaydedilmiyor: sunucu da `no_change` ile reddediyor
  * (`111 · correct_payment`), ama kullanıcıyı oraya kadar götürmeye gerek yok.
  */
-/**
- * Kasa fişini aşağı çekiş KİMİN — fişin mi, içindeki kaydırıcının mı?
- *
- * Randevu kartı sistemin sayfası ve her yerinden aşağı çekilince kapanıyor.
- * Kasa fişi kendi çizdiğimiz bir sayfa; jest eskiden yalnız 26 pt'lik cam
- * şeride bağlıydı ve telefonda hiç tutmadı (2026-10-13, "tutamaç
- * çalışmıyor"). Artık randevu kartı gibi:
- *
- *   • tutamaçtan (tepeden `grabZone` pt) başlayan aşağı çekiş → HER ZAMAN fiş
- *   • içerikten başlayan aşağı çekiş → yalnız içerik EN TEPEDEYKEN fiş;
- *     aşağı kaydırılmışsa önce içerik yukarı döner
- *   • düzeltme açıkken içerikten çekiş fişi KAPATMAZ — yazılan tutar
- *     kazara gitmesin; tutamaç yine kapatır
- *
- * Yukarı ya da yatay çekiş hiçbir zaman fişin değil. `fromTop`, parmağın
- * fişin tepesinden uzaklığı (pt).
- */
-export function sheetDragClaims({ dx, dy, fromTop, scrollTop, correcting, claim, grabZone }: {
-    dx: number;
-    dy: number;
-    fromTop: number;
-    scrollTop: number;
-    correcting: boolean;
-    claim: number;
-    grabZone: number;
-}): boolean {
-    if (dy <= claim || Math.abs(dy) <= Math.abs(dx)) return false;
-    if (fromTop >= 0 && fromTop <= grabZone) return true;
-    return !correcting && scrollTop <= 0;
-}
-
 export function canCorrect(
     text: string,
     current: number,

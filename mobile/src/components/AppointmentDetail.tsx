@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, ScrollView, Text, View } from 'react-native';
 
 import { ConfirmDialog, NoteSheet, ServiceSheet } from './ApptSheets';
-import { SheetGrab } from './Sheet';
+import { SheetGrab, SheetHeader } from './Sheet';
 import {
     AttendanceRow, ChangeRows, ChangeTiles, ContactRows, DangerAction, Identity, InfoLine,
     Stage, StateStrip, VisitPanel, useStagger,
@@ -15,9 +14,8 @@ import {
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
     type CallAction, type DestructiveAction, type ReminderAction,
 } from '../lib/appointmentDetail';
-import { upperTR } from '../lib/text';
 import {
-    apptInCurve, apptCardMetrics, apptMotion, apptOutCurve, font, hit, useTheme,
+    apptInCurve, apptCardMetrics, apptMotion, apptOutCurve, font, useTheme,
 } from '../theme';
 import { todayISO, type Appt } from '../lib/calendar';
 import type { ServiceOption } from '../lib/createFlow';
@@ -105,27 +103,7 @@ export function AppointmentDetail({
             overflow: 'hidden',
         }}>
             <SheetGrab />
-
-            <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingLeft: apptCardMetrics.sheetPadX,
-                paddingRight: apptCardMetrics.sheetPadX - 6,
-                paddingTop: 2,
-                paddingBottom: 12,
-            }}>
-                <Text style={{
-                    color: c.tx2,
-                    fontSize: 12,
-                    fontFamily: font.bold,
-                    fontWeight: '700',
-                    letterSpacing: 12 * 0.18,
-                }}>
-                    {upperTR('Randevu')}
-                </Text>
-                <CloseButton onPress={onClose} />
-            </View>
+            <SheetHeader label="Randevu" onClose={onClose} />
 
             {/* 393 × 852'de A1 kaydırmasız sığar; 375 × 667'de içerik taşar ve
                 yıkıcı bölge ilk ekranda görünmez — bu KASITLI: yıkıcı eylem
@@ -326,29 +304,4 @@ function useArriveSwap(attending: boolean, reduceMotion: boolean) {
     }, [attending, reduceMotion, leaving, stripIn]);
 
     return { renderAttendance, leaving, stripIn };
-}
-
-function CloseButton({ onPress }: { onPress: () => void }) {
-    const { c } = useTheme();
-    const tap = useCallback(() => { feedback.selection(); onPress(); }, [onPress]);
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Kapat"
-            onPress={tap}
-            hitSlop={6}
-            style={({ pressed }) => ({
-                width: hit.icon,
-                height: hit.icon,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 999,
-                backgroundColor: pressed ? c.surf2 : 'transparent',
-            })}
-        >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c.tx2} strokeWidth={1.7} strokeLinecap="round">
-                <Path d="M6 6l12 12M18 6L6 18" />
-            </Svg>
-        </Pressable>
-    );
 }
