@@ -6,14 +6,14 @@ import { ConfirmDialog, NoteSheet, ServiceSheet } from './ApptSheets';
 import { SheetGrab } from './Sheet';
 import {
     AttendanceRow, ChangeRows, ChangeTiles, DangerAction, Identity, InfoLine,
-    Stage, StateStrip, VisitPanel, useStagger,
+    ReminderRow, Stage, StateStrip, VisitPanel, useStagger,
 } from './ApptParts25';
 import { feedback } from '../lib/feedback';
 import {
     CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG,
     applyNote, applyService, changeRows, changeTiles, identityOf, isEditable,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
-    type DestructiveAction,
+    type DestructiveAction, type ReminderAction,
 } from '../lib/appointmentDetail';
 import { upperTR } from '../lib/text';
 import {
@@ -36,7 +36,7 @@ import type { ServiceOption } from '../lib/createFlow';
  *   • "Hizmeti değiştir" ve "Notu düzenle" artık gerçekten bir şey açıyor.
  */
 export function AppointmentDetail({
-    appointment, staffName, solo = false, dayAppointments = [], services, nowMinutes,
+    appointment, staffName, solo = false, reminder = null, onRemind, dayAppointments = [], services, nowMinutes,
     onClose, onCustomer, onMove, onUpdate, onAttendance, onCancel, onDelete,
 }: {
     appointment: Appt;
@@ -47,6 +47,12 @@ export function AppointmentDetail({
      * cümleleri adsız. Sahibin personel satırı işletmenin adını taşıyor.
      */
     solo?: boolean;
+    /**
+     * "Mesajla hatırlat" (v4 · tek kişilik). Yalnız hatırlatılacak bir
+     * randevuda verilir (`reminderAction`); yoksa satır hiç çizilmez.
+     */
+    reminder?: ReminderAction | null;
+    onRemind?: (reminder: ReminderAction) => void;
     /** Hizmet süresi uzayınca çakışma AYNI GÜNÜN bloklarında aranır. */
     dayAppointments?: readonly Appt[];
     /** Salonun hizmet kataloğu — fiyat satırı ve "Hizmeti değiştir" listesi. */
@@ -169,6 +175,10 @@ export function AppointmentDetail({
 
                 <Stage at={2} values={stages} style={{ flex: 1, gap: 14 }}>
                     <VisitPanel summary={summary} onOpen={onCustomer} />
+
+                    {reminder && onRemind ? (
+                        <ReminderRow reminder={reminder} onPress={() => onRemind(reminder)} />
+                    ) : null}
 
                     {editable ? (
                         <>

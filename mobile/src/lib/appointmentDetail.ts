@@ -17,8 +17,10 @@
 
 import { maskPhone, type ServiceOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
+import { waNudgeText } from './actionPill.ts';
+import { waLink } from './phone.ts';
 import {
-    dayNameShort, formatDayFull, hhmm, toMinutes, todayISO, type Appt,
+    addDaysISO, dayNameShort, formatDayFull, hhmm, toMinutes, todayISO, type Appt,
 } from './calendar.ts';
 
 /** "Elif" + "Demir" — ilk ad ince, soyad kalın yazılır. */
@@ -321,6 +323,60 @@ export function changeTiles(appointment: Appt, staffName?: string | null, solo =
             initials: staffName ? initialsOf(staffName) : undefined,
         },
     ];
+}
+
+// ── Mesajla hatırlat (v4 · tek kişilik) ─────────────────────────────────────
+
+export interface ReminderAction {
+    title: string;
+    /** Satırın sağı: ne olacağını söylüyor — uygulamadan çıkılıyor. */
+    value: string;
+    /** Müşteriye gidecek metnin KENDİSİ. */
+    text: string;
+    /** `https://wa.me/90…?text=…` */
+    url: string;
+}
+
+export const REMINDER_TITLE = 'Mesajla hatırlat';
+export const REMINDER_VALUE = 'WhatsApp’ta hazır metin';
+export const REMINDER_FAILED = 'WhatsApp açılamadı';
+
+/**
+ * "Mesajla hatırlat" — salonun WhatsApp hattı BAĞLANMADAN (v4 s-duvar ·
+ * `actionPill.ts:39`): Akış'taki göz "WhatsApp bağlı değil · masaüstünden
+ * bağlanır" diyordu ve tek kişinin masaüstü yok. Burada kişinin kendi
+ * WhatsApp'ı hazır metinle açılıyor; gönderen o, uygulama değil.
+ *
+ * Yalnız gerçekten hatırlatılacak bir randevuda: müşteri henüz gelmemiş,
+ * randevu geçmemiş ve numara yazılabilir. Başlamış ama müşterisi gelmemiş
+ * randevuda cümle Akış'ın "yolda mısınız?"ı. Otomatik hatırlatma kapsam dışı.
+ */
+export function reminderAction(input: {
+    appointment: Appt;
+    /** İşletmenin adı — "Derya Güzellik’ten merhaba". Boşsa "Merhaba". */
+    salon: string;
+    today: string;
+    nowMinutes: number;
+}): ReminderAction | null {
+    const { appointment, today, nowMinutes } = input;
+    if (stateOf(appointment) !== 'waiting') return null;
+    if (appointment.date < today) return null;
+    const start = toMinutes(appointment.start_time);
+    const isToday = appointment.date === today;
+    if (isToday && nowMinutes >= toMinutes(appointment.end_time)) return null;
+
+    const day = isToday
+        ? 'bugün'
+        : appointment.date === addDaysISO(today, 1) ? 'yarın' : formatDayFull(appointment.date);
+    const text = waNudgeText({
+        salon: input.salon,
+        time: hhmm(start),
+        late: isToday && nowMinutes >= start,
+        day,
+    });
+    const url = waLink(appointment.customer_phone, text);
+    if (!url) return null;
+    return { title: REMINDER_TITLE, value: REMINDER_VALUE, text, url };
 }
 
 export interface ChangeRow {

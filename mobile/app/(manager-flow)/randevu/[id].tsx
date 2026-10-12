@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { Alert, Linking, Platform, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import {
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
 } from '../../../src/lib/moveAppointment';
+import { REMINDER_FAILED, reminderAction } from '../../../src/lib/appointmentDetail';
 import { useTheme } from '../../../src/theme';
 import { nowInMinutes, toMinutes, todayISO, type Appt } from '../../../src/lib/calendar';
 import { initialsOf } from '../../../src/lib/text';
@@ -162,6 +163,25 @@ export default function ManagerAppointment() {
         else router.replace(solo ? '/tek/calendar' : '/mudur/calendar');
     }, [router, solo]);
 
+    /*
+     * "MESAJLA HATIRLAT" — yalnız tek kişilikte (v4 s-duvar · `actionPill.ts:39`).
+     *
+     * Ekipte müşteriye yazmanın yolu Akış'taki göz: salonun hattından, hazır
+     * metinle. Tek kişinin masaüstü yok ve hat çoğu zaman bağlı değil; burada
+     * kişinin KENDİ WhatsApp'ı açılıyor, gönderen o. Kural `reminderAction`da:
+     * gelmemiş müşteri, geçmemiş randevu, yazılabilir numara.
+     */
+    const reminder = solo && appointment
+        ? reminderAction({ appointment, salon: data.businessName, today: todayISO(), nowMinutes: now })
+        : null;
+    const remind = useCallback((action: { url: string }) => {
+        // https bağlantısı: WhatsApp yüklü değilse tarayıcı açılıyor. Yine de
+        // açılamazsa sessiz kalmıyor — dokunulan kontrol bir iş yapar.
+        Linking.openURL(action.url).catch(() => {
+            Alert.alert(REMINDER_FAILED, 'Telefonunuzda WhatsApp ya da bir tarayıcı açılamadı.');
+        });
+    }, []);
+
     /**
      * SİLME — kartı kapatmak değil, randevuyu kaldırmak.
      *
@@ -239,6 +259,8 @@ export default function ManagerAppointment() {
                     appointment={appointment}
                     staffName={staffName}
                     solo={solo}
+                    reminder={reminder}
+                    onRemind={remind}
                     dayAppointments={data.dayRows}
                     services={data.services}
                     nowMinutes={now}

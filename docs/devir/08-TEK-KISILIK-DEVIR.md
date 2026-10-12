@@ -1,7 +1,11 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (§19'un commit'i `main`'in önünde, push yok)
-**Testler:** 2856 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main` (§19 + §20 gönderildi)
+**Testler:** 2863 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+
+> **2026-10-12 · MESAJLA HATIRLAT (§20):** v4'ün son "duvarı" — randevu
+> kartında, yalnız tek kişilikte, WhatsApp'ı hazır metinle açan satır.
+> Paket satışı kullanıcı kararıyla OLDUĞU GİBİ kaldı. Yalnız istemci.
 
 > **2026-10-12 · PERSONEL İZLERİ (§19):** karar 3'ün ("arayüzde kavram
 > görünmez") kalan izleri temizlendi ve iki gizli kusur kapandı: kabuk artık
@@ -1062,3 +1066,60 @@ Ekip davranışı değişmedi; her saf fonksiyonun bayrağı varsayılan `false`
 - Masaüstüne yollayan cümleler (paket sat, WhatsApp "Mesajla hatırlat").
 - `staff_id`'yi sunucu yazsın (göç ister).
 - Bekleme bitince bildirim (ürün kararı).
+
+---
+
+## 20 · 2026-10-12 · MESAJLA HATIRLAT (v4 s-duvar `actionPill.ts:39`)
+
+Kullanıcı: "Devam et". Sıradaki iş masaüstüne yollayan cümlelerdi. v4'ün iki
+kalemi de çizilmemişti ve karar istiyordu; kullanıcıya soruldu:
+
+| Soru | Karar |
+|---|---|
+| Paket satışında ödeme (v4: "Paket tek ödemeyle satılır") | **Şimdilik dokunma.** Satışta ödeme almak yeni bir göç (plan + ödeme tek işlemde, tutar sunucuda) isterdi; yalnız cümleyi kaldırmak borcu tahsil yolu olmayan bir çıkmaza bırakırdı. `paket-sat.tsx` olduğu gibi. |
+| "Mesajla hatırlat" nerede | **Randevu kartında**, müşteri panelinin hemen altında. Akış'ta satırın ⋮'i de bu kartı açıyor; Gün kartı ve Takvim bloğu da. |
+| Gönderim | Tur bitince ikisi birlikte. |
+
+### Ne yapıldı
+
+- `appointmentDetail.reminderAction` — kural: müşteri henüz gelmemiş
+  (`waiting`), randevu geçmemiş, numara yazılabilir (`phone.waLink`). Metin
+  Akış'ın cümlesi (`actionPill.waNudgeText`) — gün eklendi: "bugün 14:00",
+  "yarın 14:00", "Cuma 16 Ekim 14:00"; başlamış ama müşterisi gelmemiş
+  randevuda "14:00 randevunuz için sizi bekliyoruz, yolda mısınız?". Gün
+  verilmezse eskisi gibi "bugün" (Akış değişmedi).
+- `ApptParts25.ReminderRow` — `ChangeRows`un satırı; uçta ok değil DIŞARI ok
+  (dokununca uygulamadan çıkılıyor). `accessibilityRole="link"`, sesli okuma
+  gidecek metni söylüyor.
+- `randevu/[id].tsx` — yalnız `solo`'da; `Linking.openURL(wa.me…)`, açılamazsa
+  "WhatsApp açılamadı" uyarısı (sessiz kalmıyor).
+- Selam için işletme adı (`settings.business_name`) saat satırının AYNI
+  okumasından (`fetchHoursRow`) — ayrı istek yok.
+
+Salonun hattı bağlı olmasa da çalışır: gönderen kişinin kendi WhatsApp'ı.
+Otomatik hatırlatma kapsam dışı (v4).
+
+### Kanıt
+
+- Yeni: `tests/tek-mesajla-hatirlat.test.mjs` (7). Bir eski test okumanın
+  yeni sütununa taşındı (`mobile-mudur-ayarlar-canli`; niyeti — kilit alanları
+  okunuyor, yazma yalnız `working_hours` — aynen duruyor).
+- 2863 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint bulgusu yok.
+- 13 koruma söküldü; 13'ünde de test düştü.
+
+### Telefonda bakılacaklar (tek kişilik hesap)
+
+- Yarınki bir randevuya dokun → kartta müşteri panelinin altında "Mesajla
+  hatırlat · WhatsApp’ta hazır metin" → WhatsApp "…yarın 14:00 randevunuzu
+  hatırlatmak istedik…" metniyle açılmalı.
+- Numarası olmayan, gelmiş ya da bitmiş randevuda satır OLMAMALI.
+- Ekip hesabında satır hiç yok.
+
+### Kalan küçükler
+
+- `staff_id`'yi sunucu yazsın (v4 karar 3) — göç ister, deploy kullanıcıda.
+- Bekleme bitince bildirim — ürün kararı.
+- Paket satışında ödeme — kullanıcı "şimdilik dokunma" dedi.
+- Müşteri kartının "kayda bağlı değil" boş hâli "masaüstünde kayda
+  bağlanınca" diyor; tek kişide masaüstü yok (v4 listelememiş).
+- İşletme seçici kartında "1 personel" (§19).

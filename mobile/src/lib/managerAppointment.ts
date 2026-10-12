@@ -49,11 +49,14 @@ export interface ManagerAppointmentData {
     deviceAt: number | null;
     /** Salonun randevu günündeki açık aralığı — taşıma menüsünün saatleri. */
     open: OpenWindow | null | undefined;
+    /** İşletmenin adı — "Mesajla hatırlat"ın selamı. Okunamazsa boş. */
+    businessName: string;
 }
 
 const EMPTY: ManagerAppointmentData = {
     appointment: null, updatedAt: null, dayRows: [],
     columns: [], presence: [], onLeave: new Set(), services: [], serverNow: null, deviceAt: null, open: undefined,
+    businessName: '',
 };
 
 const LEAVE_WINDOW_DAYS = 14;
@@ -113,6 +116,7 @@ export function useManagerAppointment(
                 hours?.raw ?? null,
                 dateISO,
             ),
+            businessName: hours?.businessName ?? '',
         };
     }, [id]);
 

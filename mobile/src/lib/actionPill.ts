@@ -119,12 +119,22 @@ export function waResultOf(body: { ok?: boolean; reason?: string | null; queued?
  * yanlış: iki saat önce "yolda mısınız?" demek. `onTime` cümlesi bu yüzden
  * ayrı ve müdürün onayına açık (2026-09-17).
  */
-export function waNudgeText(input: { salon: string; time: string; late: boolean }): string {
+export function waNudgeText(input: {
+    salon: string;
+    time: string;
+    late: boolean;
+    /**
+     * Randevunun günü: "bugün" (varsayılan), "yarın", "Cuma 16 Ekim".
+     * Randevu kartının "Mesajla hatırlat"ı (v4 · tek kişilik) başka güne de
+     * yazıyor; cümle aynı, yalnız gün değişiyor.
+     */
+    day?: string;
+}): string {
     const salon = input.salon.trim();
     const hello = salon ? `${ablative(salon)} merhaba` : 'Merhaba';
     return input.late
         ? `${hello} — ${input.time} randevunuz için sizi bekliyoruz, yolda mısınız?`
-        : `${hello} — bugün ${input.time} randevunuzu hatırlatmak istedik, görüşmek üzere.`;
+        : `${hello} — ${input.day ?? 'bugün'} ${input.time} randevunuzu hatırlatmak istedik, görüşmek üzere.`;
 }
 
 /**

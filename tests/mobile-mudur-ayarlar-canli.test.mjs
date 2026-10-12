@@ -120,7 +120,10 @@ test('saatler okunan satıra yazılıyor — org sahibinin satırı, kilitli, ya
     assert.match(fn, /if \(!saved\) return \{ ok: false, kind: 'stale' \};/);
     assert.doesNotMatch(fn, /upsert/);
     const row = source.slice(source.indexOf('export async function fetchHoursRow'));
-    assert.match(row.slice(0, 400), /fetchOrgSettings\('user_id, working_hours, updated_at'\)/);
+    // Kilidin iki alanı (sahip + damga) okunuyor. `business_name` aynı
+    // satırdan, randevu kartının "Mesajla hatırlat" selamı için; yazma yine
+    // yalnız `working_hours` (yukarıda).
+    assert.match(row.slice(0, 400), /fetchOrgSettings\('user_id, working_hours, updated_at, business_name'\)/);
     // Okuma org SAHİBİNİN satırına bakıyor (staff-api ile aynı).
     assert.match(source, /\.eq\('user_id', ownerId\)/);
 });

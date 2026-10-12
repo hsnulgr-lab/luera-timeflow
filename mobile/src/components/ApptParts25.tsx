@@ -4,7 +4,9 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
-import type { ApptIdentity, ChangeRow, ChangeTile, StateLine, VisitSummary } from '../lib/appointmentDetail';
+import type {
+    ApptIdentity, ChangeRow, ChangeTile, ReminderAction, StateLine, VisitSummary,
+} from '../lib/appointmentDetail';
 import { upperTR } from '../lib/text';
 import {
     apptInCurve, apptCardMetrics, apptMotion, font, hit, radius, panelInk, useTheme,
@@ -711,6 +713,61 @@ export function ChangeRows({ rows, onPress }: {
                 </Pressable>
             ))}
         </View>
+    );
+}
+
+/**
+ * "Mesajla hatırlat" (v4 · tek kişilik) — müşteri panelinin hemen altında.
+ *
+ * Biçim `ChangeRows`un satırı: aynı yükseklik, aynı çizgiler, başlık solda,
+ * değer sağda. Tek fark uçtaki simge: ok değil, DIŞARI ok — dokununca
+ * uygulamadan çıkılıp WhatsApp açılıyor; kart bunu dokunmadan önce söylüyor.
+ */
+export function ReminderRow({ reminder, onPress }: {
+    reminder: ReminderAction;
+    onPress: () => void;
+}) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`${reminder.title}. WhatsApp hazır metinle açılır: ${reminder.text}`}
+            onPress={() => { feedback.selection(); onPress(); }}
+            style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: apptCardMetrics.rowGap,
+                height: apptCardMetrics.rowHeight,
+                borderTopWidth: 1,
+                borderBottomWidth: 1,
+                borderColor: c.bd,
+                opacity: pressed ? 0.6 : 1,
+            })}
+        >
+            <Text style={{
+                color: c.tx,
+                fontSize: apptCardMetrics.rowTitle,
+                fontFamily: font.bold,
+                fontWeight: '700',
+                letterSpacing: apptCardMetrics.rowTitle * -0.01,
+            }}>
+                {reminder.title}
+            </Text>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={{
+                marginLeft: 'auto',
+                maxWidth: apptCardMetrics.rowValueMax,
+                textAlign: 'right',
+                color: c.tx2,
+                fontSize: apptCardMetrics.rowValue,
+                fontFamily: font.medium,
+                fontWeight: '500',
+            }}>
+                {reminder.value}
+            </Text>
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={c.tx3} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M8 16L16 8M10 8h6v6" />
+            </Svg>
+        </Pressable>
     );
 }
 

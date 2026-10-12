@@ -666,6 +666,11 @@ export interface HoursRow {
     raw: unknown;
     userId: string;
     stamp: string | null;
+    /**
+     * Aynı ayar satırındaki işletme adı — randevu kartının hazır mesajı
+     * için ("Derya Güzellik’ten merhaba"). Ayrı bir okuma açmamak için burada.
+     */
+    businessName?: string;
 }
 
 /** Bildirim tercihleri satırı — `HoursRow` ile aynı şekil (105). */
@@ -696,12 +701,13 @@ export async function fetchNotificationPrefs(): Promise<PrefsRow | null> {
 }
 
 export async function fetchHoursRow(): Promise<HoursRow | null> {
-    const row = await fetchOrgSettings('user_id, working_hours, updated_at');
+    const row = await fetchOrgSettings('user_id, working_hours, updated_at, business_name');
     if (!row?.user_id) return null;
     return {
         raw: row.working_hours ?? null,
         userId: String(row.user_id),
         stamp: (row.updated_at as string | null) ?? null,
+        businessName: String(row.business_name ?? '').trim(),
     };
 }
 
