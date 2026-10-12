@@ -1,12 +1,11 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` = `main`, GitHub'da (114 canlıda; §22 tohumu ve §23 de `main`'de)
+**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (114 ve 115 canlıda; §24 commit'leri henüz gönderilmedi)
 **Testler:** 2894 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
 
 > **2026-10-12 · KARARLAR (§24):** randevu kartında "Müşteriyi ara"; Ekip
 > ekle sahibin adını soruyor; ekipten tek kişiliğe DÖNÜŞ kapısı. Göç **115
-> deploy BEKLİYOR** (§6) — telefonda yeni Ekip ekle/dönüşten önce. `hourRange`
-> kararı: dokunma.
+> CANLIDA** (kuru koşu + göç + test, §6). `hourRange` kararı: dokunma.
 
 > **2026-10-12 · TEST SIRASINDA (§23):** Gün başlığı gelmeyeni ve iptali
 > "bitti" saymıyor (personel "Bugün"ünde de aynı hata kapandı); kumandanın
@@ -317,7 +316,18 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### ⏳ BEKLİYOR — 115 (sahibin adı + tek kişiliğe dönüş · §24)
+### ✅ YAPILDI (2026-10-12) — 115 (sahibin adı + tek kişiliğe dönüş · §24)
+
+Kullanıcı dört adımı sırayla çalıştırdı:
+- Ön kontrol `start_team(text,text)` (dönüş yoktu).
+- Kuru koşu: `DROP FUNCTION`, `CREATE FUNCTION` ×2 + `tek dönüş (115)
+  regression: ok` + `ROLLBACK` — altı söz üretim şemasında, sahibin
+  oturumuyla (fikstür org'ları gerçek `handle_new_user`la açılıp geri sarıldı).
+- Göç `COMMIT`.
+- Göç sonrası test `regression: ok` + `ROLLBACK` (yapı denetimi canlıda:
+  yalnız üç parametreli `start_team`, ikisi de INVOKER, anon kapalı).
+
+Komutlar kalıp olarak aşağıda duruyor.
 
 **Telefonda yeni Ekip ekle / dönüş ekranlarını denemeden ÖNCE.** Yeni
 istemci `start_team`e üçüncü parametreyi gönderiyor; göç yoksa çağrı
@@ -1401,7 +1411,7 @@ bekleme bitince bildirim, `tek-kasa` dalını silmek. Paket satışı ödemesi
 | Tek kişiliğe dön | İşletme'de satır YALNIZ ekipte (`team.status`) ≤1 aktif personel varken: "Ekipte yalnız X var". Ekran Ekip ekle'nin dili; form yok. `end_team`: bayrak + ayrılanların İLERİ açık randevuları kalan kişiye; sahibinkiyle çakışan personelsiz (Gün'de görünür), başlamış işleme bağlı olan (062) olduğu gibi. Hepsi geçtiyse doğrudan Gün; değilse önce özet, düğme "Gün’e geç". "Zaten tek kişilik" başarı sayılıyor (cevabı kaybolan ilk istek) | `tek-kisilige-don.tsx`, `profile.tsx`, `authCopy.teamEnd*`, `auth.endTeam`, `_layout.tsx`, 115 |
 | Personel sayfası | Dipnot kapının yerini söylüyor: "Ekipte yalnız siz kalınca İşletme’de Tek kişiliğe dön görünür." | `personel.tsx` |
 
-### Göç 115 — `supabase/115_tek_sahip_adi_ve_donus.sql` (⏳ deploy §6)
+### Göç 115 — `supabase/115_tek_sahip_adi_ve_donus.sql` (✅ canlıda, §6)
 
 - `start_team(p_name, p_specialty, p_owner_name DEFAULT NULL)` — eski
   `(text,text)` DÜŞÜRÜLÜYOR (iki aday PostgREST'i şaşırtır). Mağazadaki eski
@@ -1425,7 +1435,7 @@ bekleme bitince bildirim, `tek-kasa` dalını silmek. Paket satışı ödemesi
 - 2894 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint bulgusu yok.
   İki eski test yeni çağrı şekline taşındı (`tek-v4-ikinci-tur`), gevşetilmedi.
 
-### Telefonda bakılacaklar (115 canlıya alındıktan sonra)
+### Telefonda bakılacaklar (115 canlıda)
 
 1. Randevu kartı (tek kişilik): "Müşteriyi ara" + numara; dokununca arama
    sorusu. Selin Uçar gibi numarasız randevuda satır yok.
