@@ -2920,6 +2920,8 @@ export const staffDayMetrics = {
     panelDot: 6,
     /** ADİSYON AÇIK kartının sol şeridi (v4 · `.pnl.bar`) ve ona yer açan dolgu. */
     panelBarWidth: 4,
+    /** Başlat'ın solundaki "Yönet" düğmesi (G5 · A): hapla aynı yükseklikte daire. */
+    menuSize: 36,
     panelBarPadLeft: 17,
     heroText: 34,
     heroTextTrack: -0.04,

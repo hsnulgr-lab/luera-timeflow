@@ -180,13 +180,20 @@ export function stateLine(appointment: Appt, nowMinutes: number): StateLine {
 }
 
 /**
- * Geldi / Gelmedi YALNIZ `waiting` hâlinde çizilir.
+ * Geldi / Gelmedi YALNIZ `waiting` hâlinde ve YALNIZ RANDEVUNUN GÜNÜNDE
+ * çizilir.
  *
  * Öteki dört hâlde hiç render edilmez — devre dışı gri buton değil, yokluk.
  * Gelmiş bir müşteriye "geldi mi?" diye sormak anlamsız.
+ *
+ * Başka günün randevusuna da sorulmuyor (2026-10-13, telefonda görüldü):
+ * yarının randevusuna bu akşam "Geldi" basılabiliyordu; ertesi sabah Gün
+ * kartı "BEKLİYOR · 177 dk · 21:29’da geldi" dedi. Damganın günü 12 saatlik
+ * payla süzülüyor (`dayStamp`) ve akşamki damga o payın İÇİNDE kalıyordu —
+ * kök burası: yanlış günün sorusu hiç sorulmamalı.
  */
-export function showsAttendance(appointment: Appt): boolean {
-    return stateOf(appointment) === 'waiting';
+export function showsAttendance(appointment: Appt, today: string): boolean {
+    return stateOf(appointment) === 'waiting' && appointment.date === today;
 }
 
 /** İptal edilmiş randevuda düzenlenecek bir şey yoktur. */

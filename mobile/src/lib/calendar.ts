@@ -64,6 +64,13 @@ export interface Appt {
      * bu alanı okumayan her ekran biten her işi "adisyon açık" sanardı.
      */
     is_paid?: boolean | null;
+    /**
+     * "Gelmedi" KARARI (098) — Akış'ın ve tek kişilik Gün'ün eylem hapı
+     * yazıyor. İsteğe bağlı: yalnız Gün okuması soruyor. Saatten türetilen
+     * "gelmedi"den önce gelir; müşteri sonradan gelirse "Geldi" damgası onu
+     * yener (`isNoShow`).
+     */
+    no_show_at?: string | null;
 }
 
 export type CardState = 'live' | 'due' | 'plain';

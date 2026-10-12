@@ -114,6 +114,8 @@ function toApptRaw(row: Record<string, unknown>): Appt {
         } : {}),
         // Tahsil hâli (G4) de aynı kural: sorulmadıysa alan YOK.
         ...('is_paid' in row ? { is_paid: row.is_paid == null ? null : row.is_paid === true } : {}),
+        // "Gelmedi" kararı (098) — aynı kural.
+        ...('no_show_at' in row ? { no_show_at: (row.no_show_at as string | null) ?? null } : {}),
     };
 }
 

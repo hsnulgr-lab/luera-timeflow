@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Animated, PanResponder, View, type AccessibilityActionEvent, type LayoutChangeEvent } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { StaffHeroPanelCard } from './StaffDayParts';
+import { ActionPill } from './ActionPill';
+import { StaffHeroPanelCard, type PanelMenuFrame } from './StaffDayParts';
+import type { CellKey } from '../lib/actionPill';
 import { feedback } from '../lib/feedback';
 import { soloPickSpoken, type SoloPickItem } from '../lib/soloDay';
 import {
@@ -40,7 +42,7 @@ const HINT_KEY = 'tek.g5.ipucu';
  * ── Tek başlatılabilir (G5·5) ───────────────────────────────────────────────
  * Bugünkü kartın birebiri: yığın izi yok, pay yok, sürükleme yok.
  */
-export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
+export function SoloPicker({ items, index, onSettle, onOpen, onDrag, onCell }: {
     items: readonly SoloPickItem[];
     /** Seçili kartın yeri — seçim randevuya bağlı, yer ekran tarafından bulunuyor. */
     index: number;
@@ -50,6 +52,8 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
     onOpen: (index: number) => void;
     /** Sürükleme başladı / bitti — sayfanın kaydırması bu arada kapalı. */
     onDrag: (active: boolean) => void;
+    /** Eylem hapından bir göz seçildi (G5 · A) — seçili kartın randevusunda. */
+    onCell: (index: number, cell: CellKey) => void;
 }) {
     const { reduceMotion } = useTheme();
     const count = items.length;
@@ -57,14 +61,29 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
     // Konum bileşenin ömrü boyunca TEK değer; tembel kurulum, ref değil.
     const [pos] = useState(() => new Animated.Value(index));
     const [height, setHeight] = useState(100);
+    const [width, setWidth] = useState(0);
     const [front, setFront] = useState(index);
+
+    /*
+     * EYLEM HAPI (G5 · A) — hangi kartın hapı açık (randevunun kimliği).
+     * Kimlikle tutuluyor: seçili kart değişince hap KENDİLİĞİNDEN kapanır,
+     * ayrı bir "kapat" yazmaya gerek kalmaz. Hap açıkken ekranın tamamı
+     * hapın perdesi; kart kaydırılamaz.
+     */
+    const [menuFor, setMenuFor] = useState<string | null>(null);
+    const [menuFrame, setMenuFrame] = useState<PanelMenuFrame | null>(null);
 
     /*
      * Jestin ve dinleyicinin ortak hafızası. `silent`: konumu ekran
      * değiştirdiğinde (seçim başka yerde, liste değişti) tık çalınmaz — tık
      * kullanıcının parmağının sesi.
      */
-    const live = useRef({ value: index, front: index, silent: false, start: index, moved: false, dragging: false });
+    const live = useRef({
+        value: index, front: index, silent: false, start: index, moved: false, dragging: false,
+        /** Dokunuşun sayfadaki yeri ve kabın o anki yeri — hangi karta dokunulduğu. */
+        touchY: 0, top: null as number | null,
+    });
+    const box = useRef<View>(null);
     // Jest geri çağrılarının okuduğu güncel değerler — render'da değil,
     // çizimden hemen sonra yazılıyor.
     const latest = useRef({ items, count, onSettle, onOpen, onDrag, reduceMotion, height });
@@ -161,7 +180,16 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
         onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > Math.abs(g.dx) && Math.abs(g.dy) > PICK_CAPTURE_SLOP,
         // Sayfa jesti isteyince bırakılmıyor: karttan başlayan jest seçicinin.
         onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (event) => {
+            /*
+             * Dokunuşun KABA göre yeri. `locationY` dokunulan EN İÇTEKİ
+             * görünüme göre (seçili kartın yazısına dokunulduysa ona göre);
+             * sayfadaki yer ve kabın o anki sayfa yeri ise her zaman aynı
+             * düzlemde. Sayfa kaydığı için kap her dokunuşta yeniden ölçülüyor.
+             */
+            live.current.touchY = event.nativeEvent.pageY;
+            live.current.top = null;
+            box.current?.measure((_x, _y, _w, _h, _px, pageY) => { live.current.top = pageY; });
             pos.stopAnimation((value) => {
                 const last = latest.current.count - 1;
                 live.current.start = Math.max(0, Math.min(last, value));
@@ -184,7 +212,9 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
             const { count: n, height: h } = latest.current;
             if (!live.current.moved) {
                 // Dokunuş: kenarı görünen kart seçilir, seçili kart açılır.
-                const target = tapTarget(event.nativeEvent.locationY, h, live.current.front, n);
+                const { touchY, top } = live.current;
+                const y = top === null ? event.nativeEvent.locationY : touchY - top;
+                const target = tapTarget(y, h, live.current.front, n);
                 if (target === null) return;
                 if (target !== live.current.front) settle(target);
                 else if (latest.current.items[target]?.action) latest.current.onOpen(target);
@@ -238,25 +268,65 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
             case 'increment': if (current < last) settle(current + 1); break;
             case 'decrement': if (current > 0) settle(current - 1); break;
             case 'activate': if (latest.current.items[current]?.action) latest.current.onOpen(current); break;
+            // VoiceOver'ın "Eylemler"i: kartın içindeki Yönet düğmesi gruba
+            // gömülü, okuyucu ona ancak buradan ulaşır.
+            case 'menu': {
+                const item = latest.current.items[current];
+                if (item?.menu) setMenuFor(item.id);
+                break;
+            }
             default: break;
         }
     }, [settle]);
 
     if (count === 0) return null;
 
+    const selected = items[Math.max(0, Math.min(count - 1, front))];
+    const menuOpen = Boolean(selected?.menu) && menuFor === selected?.id;
+    const menuOf = (item: SoloPickItem, focused: boolean) => (item.menu && focused ? {
+        open: menuOpen,
+        onPress: () => setMenuFor((current) => (current === item.id ? null : item.id)),
+        onLayout: setMenuFrame,
+    } : undefined);
+    /*
+     * Hap kartın ALTINDA açılır, düğmenin hizasında; ok ucu düğmeye değer.
+     * Akış'ın aynı parçası (Müdür 34 · v2) — ekran katmanında açılıp bütün
+     * ekranı dinliyor, dışarıya dokunmak kapatıyor.
+     */
+    const pill = (offsetTop: number) => (menuOpen && selected?.menu && menuFrame ? (
+        <ActionPill
+            cells={selected.menu.cells}
+            offCells={selected.menu.off}
+            below
+            triggerWidth={menuFrame.width}
+            triggerTop={offsetTop + menuFrame.y}
+            triggerHeight={menuFrame.height}
+            triggerRight={Math.max(0, width - menuFrame.x - menuFrame.width)}
+            onPick={(cell) => { setMenuFor(null); onCell(front, cell); }}
+            onDismiss={() => setMenuFor(null)}
+        />
+    ) : null);
+    const measureWidth = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+
     // G5·5 — tek başlatılabilir: bugünkü kartın birebiri.
     if (count === 1) {
         const only = items[0];
         return (
-            <StaffHeroPanelCard
-                panel={only.panel}
-                action={only.action ? { label: only.action.label, tone: only.action.tone, onPress: () => onOpen(0) } : undefined}
-            />
+            <View onLayout={measureWidth}>
+                <StaffHeroPanelCard
+                    panel={only.panel}
+                    action={only.action ? { label: only.action.label, tone: only.action.tone, onPress: () => onOpen(0) } : undefined}
+                    menu={menuOf(only, true)}
+                />
+                {pill(staffDayMetrics.panelMarginTop)}
+            </View>
         );
     }
 
     return (
         <View
+            ref={box}
+            onLayout={measureWidth}
             {...responder.panHandlers}
             // Üstteki kenarlar kartın 16 pt üst payına taşıyor; oraya dokunmak da seçer.
             hitSlop={{ top: staffDayMetrics.panelMarginTop }}
@@ -264,14 +334,20 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
             accessibilityRole="adjustable"
             accessibilityLabel="Seçili randevu"
             accessibilityValue={{ text: soloPickSpoken(items, front) }}
-            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
+            accessibilityActions={[
+                { name: 'increment' }, { name: 'decrement' }, { name: 'activate' },
+                ...(selected?.menu ? [{ name: 'menu', label: 'Yönet' }] : []),
+            ]}
             onAccessibilityAction={onAction}
             style={{ marginTop: staffDayMetrics.panelMarginTop, height: height + stackPad(count) }}
         >
-            <Animated.View pointerEvents="none" style={{ flex: 1, transform: [{ translateY: overshoot }] }}>
+            {/* Yalnız SEÇİLİ kartın içi dokunulabilir (Yönet düğmesi); kartın
+                geri kalanına ve komşulara düşen dokunuş kaba geçer. */}
+            <Animated.View pointerEvents="box-none" style={{ flex: 1, transform: [{ translateY: overshoot }] }}>
                 {items.map((item, i) => (
                     <Animated.View
                         key={item.id}
+                        pointerEvents={i === front ? 'box-none' : 'none'}
                         onLayout={i === front ? measure : undefined}
                         importantForAccessibility="no-hide-descendants"
                         accessibilityElementsHidden
@@ -287,13 +363,16 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag }: {
                     >
                         <StaffHeroPanelCard
                             flush
+                            interactive={false}
                             panel={item.panel}
                             action={item.action ? { label: item.action.label, tone: item.action.tone, onPress: () => undefined } : undefined}
                             contentOpacity={poses[i].content}
+                            menu={menuOf(item, i === front)}
                         />
                     </Animated.View>
                 ))}
             </Animated.View>
+            {pill(0)}
         </View>
     );
 }

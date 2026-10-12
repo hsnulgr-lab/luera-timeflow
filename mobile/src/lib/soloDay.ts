@@ -11,6 +11,7 @@ import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
 import { formatMoney } from './cash.ts';
 import { graceLeft, pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
+import { numberUsable, type CellKey } from './actionPill.ts';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN, formatElapsed, isNoShow, type StaffHeroPanel } from './staffDay.ts';
 import { clockDative, clockLocative, upperTR } from './text.ts';
 
@@ -562,6 +563,43 @@ export interface SoloPickItem {
     action: SoloPanelAction | null;
     /** "Gizem Ünal, Kaş Tasarımı, gecikti, 16 dakika" */
     spoken: string;
+    /**
+     * Eylem hapının gözleri (Başlat'ın solundaki düğme) — `null`: düğme
+     * çizilmez, kart bugünkü gibi (`soloPickCells`).
+     */
+    menu: SoloPickMenu | null;
+}
+
+export interface SoloPickMenu {
+    cells: CellKey[];
+    /** Sönük gözler — numara aranamıyor/yazılamıyor; dokununca randevu kartı. */
+    off: CellKey[];
+}
+
+/**
+ * KARTIN EYLEM HAPI (G5 · A) — Akış'ın hapının aynısı, tek kişiye göre.
+ *
+ *   ŞU AN BOŞ / BAŞLAMAYA → Ara · Yaz · Randevu kartı
+ *   GECİKTİ               → Ara · Yaz · Gelmedi · Randevu kartı
+ *   BEKLİYOR, SÜRÜYOR, ADİSYON AÇIK → düğme yok (müşteri salonda; süren
+ *                           işin araçları kumandada)
+ *
+ * Akış'ın kuralları aynen: Ara ve Yaz HEP çizilir, numara kullanılamıyorsa
+ * SÖNÜK durur (Müdür 34 · v2); Gelmedi YALNIZ gecikince — zamanında basmak,
+ * henüz gelebilecek müşteriyi düşürmek olurdu. İptal hapta YOK: hapta basılı
+ * tutmanın yetmesinin sebebi gözlerin geri alınabilir olması; iptal geri
+ * alınamıyor ve randevu kartında onaylı hâliyle duruyor.
+ *
+ * Yaz tek kişilikte KİŞİNİN KENDİ WhatsApp'ını açar (hazır metin) — salonun
+ * hattı masaüstünden bağlanıyor ve tek kişinin masaüstü yok; randevu
+ * kartının "Mesajla hatırlat"ıyla aynı yol.
+ */
+export function soloPickCells(appointment: Appt, nowMinutes: number): SoloPickMenu | null {
+    if (appointment.customer_arrived_at) return null;
+    const late = nowMinutes - toMinutes(appointment.start_time) >= 1;
+    const cells: CellKey[] = ['ara', 'wa', ...(late ? ['nox' as const] : []), 'kart'];
+    const off: CellKey[] = numberUsable(appointment.customer_phone) ? [] : ['ara', 'wa'];
+    return { cells, off };
 }
 
 /**
@@ -641,6 +679,7 @@ export function soloPickItems(input: {
             id: job.id,
             panel: waiting ?? soloRunningPanel(job, nowMs),
             action: { label: 'Kumandayı aç', tone: 'calm', appointmentId: job.id },
+            menu: null,
             spoken: waiting
                 ? `${job.customer_name}, ${job.service}, beklemede, ${waiting.heroValue} dakika`
                 : `${job.customer_name}, ${job.service}, sürüyor, ${minutes} dakika`,
@@ -653,6 +692,7 @@ export function soloPickItems(input: {
             id: ticket.appointmentId,
             panel: soloTicketPanel(ticket),
             action: { label: 'Tahsil et', tone: 'go', appointmentId: ticket.appointmentId },
+            menu: null,
             spoken: `Adisyon açık, ${formatMoney(ticket.amountValue ?? 0)}${name ? `, ${name}` : ''}`,
         });
     }
@@ -680,6 +720,8 @@ export function soloPickItems(input: {
             id: appointment.id,
             panel,
             action: canStart ? { label: 'Başlat', tone: 'go', appointmentId: appointment.id } : null,
+            // Süren iş varken sıradakiler yalnız bakılır (Karar 3) — hap da yok.
+            menu: canStart ? soloPickCells(appointment, nowMinutes) : null,
             spoken,
         });
     }

@@ -677,6 +677,6 @@ test('kelime gitti ama SESLİ OKUMA kaldı', () => {
     // balonun kalkması onu susturmamalı. Kişiselleştirme de korunuyor.
     const src = readFileSync(new URL('../mobile/src/components/ActionPill.tsx', import.meta.url), 'utf8');
     assert.match(src, /accessibilityLabel=\{`\$\{spec\.label\} — \$\{spec\.hint\}`\}/);
-    assert.match(src, /accessibilityHint="Çalışması için basılı tutun"/);
+    assert.match(src, /accessibilityHint=\{cellTaps\(cell\) \? 'Dokununca açılır' : 'Çalışması için basılı tutun'\}/);
     assert.match(src, /cellSpec\(cell, staffGiven\)/, 'sesli etiket kişiselleşmiyor');
 });

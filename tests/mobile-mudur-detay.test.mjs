@@ -147,7 +147,7 @@ test('nabız YALNIZ işlem sürerken atar', () => {
 // ── Geldi / Gelmedi ─────────────────────────────────────────────────────────
 
 test('Geldi/Gelmedi yalnız bekleyende ÇİZİLİR, ötekilerde YOK', () => {
-    assert.ok(showsAttendance(base));
+    assert.ok(showsAttendance(base, base.date));
     for (const patch of [
         { customer_arrived_at: '09:38:00' },
         { arrived_at: '10:31:00' },
@@ -155,8 +155,13 @@ test('Geldi/Gelmedi yalnız bekleyende ÇİZİLİR, ötekilerde YOK', () => {
         { status: 'cancelled' },
         { status: 'completed' },
     ]) {
-        assert.equal(showsAttendance({ ...base, ...patch }), false, JSON.stringify(patch));
+        assert.equal(showsAttendance({ ...base, ...patch }, base.date), false, JSON.stringify(patch));
     }
+    // Başka günün randevusuna "geldi mi?" sorulmuyor (2026-10-13: yarının
+    // randevusuna akşamdan "Geldi" basılmış, sabah kart "BEKLİYOR · 177 dk").
+    assert.equal(showsAttendance(base, '2026-08-21'), false, 'yarının randevusu');
+    assert.equal(showsAttendance(base, '2026-08-23'), false, 'dünün randevusu');
+    assert.match(page, /showsAttendance\(appointment, todayISO\(\)\)/);
     // Devre dışı gri buton değil, YOKLUK.
     assert.match(page, /\{renderAttendance \? \(/);
     assert.ok(!/disabled=\{!showsAttendance/.test(page));

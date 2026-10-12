@@ -321,9 +321,10 @@ export async function fetchDayWithStamps(
          * listesinde, paylaşılan `RES_COLS`ta değil: o sabit bütün okumaları
          * besliyor; ikisi de yalnız Gün'ün sorusu (BEKLEMEDE kartı, kartın
          * "tahsil edildi / adisyon açık" damgası). Bekleme sütunları 112'yle
-         * geldi — sıra: önce 112.
+         * geldi — sıra: önce 112. "Gelmedi" kararı (098, 2026-09-17'den
+         * beri canlıda) tek kişilik Gün'ün eylem hapı için.
          */
-        .select(`${RES_COLS}, updated_at, wait_ends_at, wait_minutes, is_paid`)
+        .select(`${RES_COLS}, updated_at, wait_ends_at, wait_minutes, is_paid, no_show_at`)
         .eq('organization_id', organizationId)
         .eq('date', dateISO)
         .order('start_time')

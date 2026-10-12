@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, AppState, Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +14,11 @@ import {
     StaffHeroPanelCard,
     StaffListHeaderView,
 } from '../../src/components/StaffDayParts';
-import { nowInMinutes, todayISO, weekDays, type Appt } from '../../src/lib/calendar';
+import { waNudgeText, type CellKey } from '../../src/lib/actionPill';
+import { CALL_FAILED, REMINDER_FAILED } from '../../src/lib/appointmentDetail';
+import { nowInMinutes, todayISO, toMinutes, weekDays, type Appt } from '../../src/lib/calendar';
+import { updateAppointment } from '../../src/lib/managerWrite';
+import { dialable, waLink } from '../../src/lib/phone';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { fetchServices } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
@@ -155,7 +159,7 @@ export default function SoloDay() {
      * Süren iş varken sorulmuyor: tasarımın sırası "süren ya da beklemedeki
      * iş, sonra açık adisyon, sonra sıradaki randevu".
      */
-    const { events: flowEvents } = useManagerDay();
+    const { events: flowEvents, businessName } = useManagerDay();
     const ticket = useMemo(
         () => (dayKnown && isToday && !runningRow ? soloOpenTicket(flowEvents, mine, selectedISO) : null),
         [dayKnown, isToday, runningRow, flowEvents, mine, selectedISO],
@@ -305,6 +309,63 @@ export default function SoloDay() {
         router.push({ pathname: '/(manager-flow)/randevu/[id]', params: { id: appointment.id } });
     }, [router]);
 
+    /*
+     * EYLEM HAPI (G5 · A) — seçili kartın randevusunda. Akış'ın hapının
+     * gözleri; tek kişiye göre iki fark:
+     *   • Yaz KİŞİNİN KENDİ WhatsApp'ını hazır metinle açar (salonun hattı
+     *     masaüstünden bağlanıyor; randevu kartının "Mesajla hatırlat"ı da
+     *     böyle). Gecikmişse metin "yolda mısınız?".
+     *   • Gelmedi Akış'la AYNI damga (098); kilit Gün'ün okumasından — kart
+     *     neyi gösteriyorsa onu. Yazma tutunca canlı sinyal günü tazeliyor,
+     *     kart yığından düşüyor. Geri almak: randevu kartında "Geldi".
+     * Sönük göz (numara yok) ve Randevu kartı gözü randevu kartını açar.
+     */
+    const onPickCell = useCallback((index: number, cell: CellKey) => {
+        const item = pickItems[index];
+        const appointment = mine.find((row) => row.id === item?.id);
+        if (!item || !appointment) return;
+        if (cell === 'kart' || item.menu?.off.includes(cell)) {
+            openAppointment(appointment);
+            return;
+        }
+        if (cell === 'ara') {
+            const tel = dialable(appointment.customer_phone);
+            if (tel) {
+                Linking.openURL(`tel:${tel}`).catch(() => {
+                    Alert.alert(CALL_FAILED, 'Telefonunuzun arama uygulaması açılamadı.');
+                });
+            }
+            return;
+        }
+        if (cell === 'wa') {
+            const late = nowMinutes - toMinutes(appointment.start_time) >= 1;
+            const text = waNudgeText({ salon: businessName, time: appointment.start_time.slice(0, 5), late, day: 'bugün' });
+            const url = waLink(appointment.customer_phone, text);
+            if (url) {
+                Linking.openURL(url).catch(() => {
+                    Alert.alert(REMINDER_FAILED, 'Telefonunuzda WhatsApp ya da bir tarayıcı açılamadı.');
+                });
+            }
+            return;
+        }
+        if (cell === 'nox') {
+            const lock = data.stamps.get(appointment.id);
+            const stamp = new Date(Date.now() + data.clockOffset).toISOString();
+            void (lock
+                ? updateAppointment(appointment.id, lock, { no_show_at: stamp })
+                : Promise.resolve({ ok: false as const, kind: 'stale' as const })
+            ).catch(() => ({ ok: false as const, kind: 'failed' as const })).then((outcome) => {
+                if (outcome.ok) return;
+                Alert.alert(
+                    'Gelmedi kaydedilmedi',
+                    outcome.kind === 'stale'
+                        ? 'Randevu bu arada değişmiş. Gün yenilendi; tekrar deneyin.'
+                        : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                );
+            });
+        }
+    }, [pickItems, mine, openAppointment, nowMinutes, businessName, data.stamps, data.clockOffset]);
+
     if (refusal) {
         const durum = orgDurum(refusal);
         return (
@@ -437,6 +498,7 @@ export default function SoloDay() {
                             onSettle={(index) => setPickedId(pickItems[index]?.id ?? null)}
                             onOpen={openPicked}
                             onDrag={setPicking}
+                            onCell={onPickCell}
                         />
                     </View>
                 ) : null}

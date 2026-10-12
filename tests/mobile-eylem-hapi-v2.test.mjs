@@ -214,7 +214,8 @@ test('işlem başlamadan önce Yönet HEP yerinde — butonlar hazırda, YAZI YO
 test('sönük göz ölü değil — basılı tutmadan randevu kartını açıyor', () => {
     const pill = read('mobile/src/components/ActionPill.tsx');
     assert.match(pill, /const off = cell === 'waoff' \|\| offCell;/);
-    assert.match(pill, /if \(cell === 'waoff' \|\| offCells\.includes\(cell\)\) \{ feedback\.selection\(\); onPick\(cell\); return; \}/);
+    // Dokununca çalışan gözler tek kuralda: `waoff` ve (tek kişilikte) `kart`.
+    assert.match(pill, /if \(cellTaps\(cell\) \|\| offCells\.includes\(cell\)\) \{ feedback\.selection\(\); onPick\(cell\); return; \}/);
     const screen = read('mobile/app/mudur/index.tsx');
     assert.match(screen, /if \(\(cell === 'ara' \|\| cell === 'wa'\) && !numberUsable\(event\.customerPhone, event\.waResult\)\) \{[\s\S]{0,200}openAppointment\(event\);\s*return;/);
     // Sönük gözden gönderim penceresi AÇILMIYOR: kontrol eylemden önce.

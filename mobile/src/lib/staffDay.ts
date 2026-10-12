@@ -214,6 +214,10 @@ export function isNoShow(
     // olabilir. Bu kontrol olmadan koltukta oturan müşteri "gelmedi" damgası
     // yiyordu.
     if (appointment.customer_arrived_at) return false;
+    // "GELMEDİ" KARARI (098): basıldıysa pay beklenmiyor. Akış'ın ve tek
+    // kişilik Gün'ün eylem hapı yazıyor; okumayan ekranlarda alan yok.
+    // Müşteri sonradan gelirse yukarıdaki "Geldi" damgası bunu yener.
+    if (appointment.no_show_at) return true;
     return nowMinutes > toMinutes(appointment.start_time) + toleranceMin;
 }
 

@@ -690,7 +690,10 @@ export interface StaffPanelAction {
     onPress: () => void;
 }
 
-export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacity }: {
+/** Kartın içindeki yuvarlak düğmenin kartın sol üstüne göre çerçevesi. */
+export interface PanelMenuFrame { x: number; y: number; width: number; height: number }
+
+export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacity, interactive = true, menu }: {
     panel: StaffHeroPanel;
     flush?: boolean;
     /**
@@ -702,6 +705,17 @@ export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacit
      * kenar görünür, yazı solar. Verilmezse içerik tam.
      */
     contentOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
+    /**
+     * `false`: kart bir GÖRÜNTÜ — dokunuşu dışarıdaki seçici yönetiyor (G5).
+     * Hap yine çizilir, kart düğme olmaz.
+     */
+    interactive?: boolean;
+    /**
+     * Başlat'ın SOLUNDAKİ yuvarlak düğme (G5 · A) — eylem hapını açar. Kartta
+     * GERÇEK bir düğme: seçici kartın geri kalanını yönetse de buna dokunuş
+     * düşer. `onLayout` hapın oku için çerçeveyi kartın sol üstüne göre verir.
+     */
+    menu?: { open: boolean; onPress: () => void; onLayout?: (frame: PanelMenuFrame) => void };
 }) {
     const { c, dark, reduceMotion } = useTheme();
     const ink = dark ? panelInk.dark : panelInk.light;
@@ -740,11 +754,12 @@ export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacit
      * 37 pt'lik bir hapı ıskalamamasını beklemek yerine bütün kart aynı işi
      * yapıyor. Hap o zaman düğme değil, ne olacağının ADI oluyor.
      */
-    const Card = action ? Pressable : View;
+    const Card = action && interactive ? Pressable : View;
+    const pressable = Boolean(action && interactive);
 
     return (
         <Card
-            {...(action ? { onPress: action.onPress, accessibilityRole: 'button' as const } : {})}
+            {...(pressable && action ? { onPress: action.onPress, accessibilityRole: 'button' as const } : {})}
             style={{
                 marginTop: flush ? 0 : staffDayMetrics.panelMarginTop,
                 borderRadius: staffDayMetrics.panelRadius,
@@ -864,6 +879,48 @@ export function StaffHeroPanelCard({ panel, flush = false, action, contentOpacit
                 </View>
 
                 </View>
+
+                {/* YÖNET — Başlat'ın solunda, aynı yükseklikte, yalnız çizgi
+                    ve simge: göz önce turuncu hapa gidiyor (tek birincil
+                    eylem). Açıkken dolu ve ✕. Dokunma alanı 44 pt. */}
+                {menu ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Yönet"
+                        accessibilityHint="Arama, mesaj ve randevu kartı"
+                        accessibilityState={{ expanded: menu.open }}
+                        hitSlop={(44 - staffDayMetrics.menuSize) / 2}
+                        onPress={() => { feedback.selection(); menu.onPress(); }}
+                        onLayout={(event) => {
+                            const { x, y, width, height } = event.nativeEvent.layout;
+                            // Satırın içinden kartın sol üstüne: iç pay.
+                            menu.onLayout?.({ x: x + staffDayMetrics.panelPad, y: y + staffDayMetrics.panelPad, width, height });
+                        }}
+                        style={({ pressed }) => ({
+                            width: staffDayMetrics.menuSize,
+                            height: staffDayMetrics.menuSize,
+                            borderRadius: radius.pill,
+                            borderWidth: 1.5,
+                            borderColor: menu.open ? ink.ink : ink.ink2,
+                            backgroundColor: menu.open ? ink.ink : 'transparent',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: pressed ? 0.7 : 1,
+                        })}
+                    >
+                        <Svg width={18} height={18} viewBox="0 0 24 24">
+                            {menu.open ? (
+                                <Path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke={ink.panel} strokeWidth={2} strokeLinecap="round" fill="none" />
+                            ) : (
+                                <>
+                                    <Circle cx={5.5} cy={12} r={1.9} fill={ink.ink} />
+                                    <Circle cx={12} cy={12} r={1.9} fill={ink.ink} />
+                                    <Circle cx={18.5} cy={12} r={1.9} fill={ink.ink} />
+                                </>
+                            )}
+                        </Svg>
+                    </Pressable>
+                ) : null}
 
                 {action ? (
                     <View style={{

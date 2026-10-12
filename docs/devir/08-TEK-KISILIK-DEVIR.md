@@ -1526,3 +1526,46 @@ testle bağlı (`tek-g5-secici.test.mjs`); tasarımın üç sahnesi (15:46, 15:1
   dönülüyor. Kullanıcıya sorulacak.
 - Telefonda denenmedi.
 
+---
+
+## 27 · 2026-10-13 · G5 · A — KARTIN EYLEM HAPI ("Yönet") + "Geldi" yalnız kendi gününde
+
+Kullanıcı isteği: kartta bir düğmeyle Ara, mesaj, gelmedi, iptal gibi
+eylemler. Üç yer seçeneği çizildi (A Başlat'ın solunda yuvarlak düğme ·
+B alt satırın sonunda yazı · C sola kaydırınca); kullanıcı **A** dedi ve
+doğrudan uygulandı (tasarım turu yok). Akış'ın onaylı hapı (Müdür 34 · v2)
+yeniden kullanıldı — iki mod aynı dili konuşuyor.
+
+| Kart | Gözler |
+|---|---|
+| ŞU AN BOŞ / BAŞLAMAYA | Ara · Yaz · Randevu kartı |
+| GECİKTİ | Ara · Yaz · **Gelmedi** · Randevu kartı |
+| BEKLİYOR · SÜRÜYOR · ADİSYON AÇIK · süren iş varken sıradakiler | düğme yok |
+
+- Ara/Yaz HEP çizilir; numara yoksa SÖNÜK, dokununca randevu kartı (Akış
+  kuralı). İptal hapta YOK — hapta basılı tutmanın yetmesinin sebebi
+  gözlerin geri alınabilir olması; iptal randevu kartında onaylı.
+- **Yaz** kişinin KENDİ WhatsApp'ını hazır metinle açar (`waNudgeText`,
+  gecikmişse "yolda mısınız?") — "Mesajla hatırlat" ile aynı yol.
+- **Gelmedi** Akış'la aynı damga (098 `no_show_at`, canlıda 2026-09-17'den
+  beri); kilit Gün'ün okumasından. Gün okuması artık `no_show_at`ı soruyor,
+  `isNoShow` kararı payı beklemeden sayıyor; "Geldi" onu yener (geri alma
+  yolu: randevu kartı → Geldi).
+- **Randevu kartı** gözü yeni (`kart`): DOKUNUNCA açar, basılı tutma yok
+  (`cellTaps`); müdür tarafı kullanmıyor.
+- Düğme kartta GERÇEK bir düğme (seçicide kartın geri kalanı görüntü,
+  `interactive={false}`); dokunuşun kabdaki yeri sayfa koordinatıyla
+  ölçülüyor. Hap düğmenin hizasında altta (`ActionPill.triggerRight`), kimliğe
+  bağlı — seçili kart değişince kapanır. VoiceOver: seçicinin "Yönet" eylemi.
+
+**"Geldi" yalnız kendi gününde** (telefonda görüldü: Elif Demir "BEKLİYOR ·
+177 dk · 21:29’da geldi" — yarının randevusuna akşamdan "Geldi" basılmış;
+`dayStamp`'in 12 saatlik payı akşamki damgayı içeride tutuyordu).
+`showsAttendance(appointment, today)` — randevu kartı başka günün randevusuna
+"geldi mi?" sormuyor. Canlıdaki üç yanlış damga (Elif, Tuğçe, Yasemin · 13
+Ekim) kodla temizlenmez; randevu kartından düzeltilecek ya da tohum yeniden
+çalıştırılınca gider.
+
+Kanıt: 2922 geçti / 0 kırık · `tsc` temiz · yeni lint bulgusu yok. Altı eski
+test yeni kaynak biçimine taşındı (gevşetilmedi). Telefonda denenmedi.
+

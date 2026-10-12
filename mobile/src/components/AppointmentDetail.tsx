@@ -19,7 +19,7 @@ import { upperTR } from '../lib/text';
 import {
     apptInCurve, apptCardMetrics, apptMotion, apptOutCurve, font, hit, useTheme,
 } from '../theme';
-import type { Appt } from '../lib/calendar';
+import { todayISO, type Appt } from '../lib/calendar';
 import type { ServiceOption } from '../lib/createFlow';
 
 /**
@@ -92,7 +92,7 @@ export function AppointmentDetail({
 
     const stages = useStagger(reduceMotion);
     const { renderAttendance, leaving, stripIn } = useArriveSwap(
-        showsAttendance(appointment),
+        showsAttendance(appointment, todayISO()),
         reduceMotion,
     );
 

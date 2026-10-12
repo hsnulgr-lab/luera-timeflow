@@ -19,7 +19,7 @@ import { ablative } from './text.ts';
  * "ölü kontrol yok" kuralına uyar gibi görünür ama burada gidilecek GERÇEK
  * bir yer var; müdürün sebebi bilmesi gerekiyor.
  */
-export type CellKey = 'ara' | 'wa' | 'waoff' | 'nox' | 'inf';
+export type CellKey = 'ara' | 'wa' | 'waoff' | 'nox' | 'inf' | 'kart';
 
 export interface CellSpec {
     key: CellKey;
@@ -42,7 +42,16 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     // telefonuna gerçekten bildirim düşürüyor. Açıklama bunu söyleyebilir —
     // ve damga yalnız gönderim tuttuysa basıldığı için söz tutuluyor.
     inf: { label: 'Personele bilgi ver', hint: 'telefonuna bildirim gider' },
+    // Tek kişilik Gün (G5): randevu kartını açar — iptal ve değişiklikler
+    // orada, onaylı hâliyle. Basılı tutma YOK: bir ekran açıyor, geri
+    // alınacak bir şey yok.
+    kart: { label: 'Randevu kartı', hint: 'iptal ve değişiklikler' },
 };
+
+/** Basılı tutmadan, DOKUNUNCA çalışan göz — yalnız ekran açanlar. */
+export function cellTaps(key: CellKey): boolean {
+    return key === 'kart' || key === 'waoff';
+}
 
 /**
  * Gözün kelimesi ve açıklaması.

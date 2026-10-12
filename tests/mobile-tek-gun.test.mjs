@@ -604,7 +604,7 @@ test('G4 · açık adisyon "bitti" sayısına giriyor — para alınmasa da iş 
 });
 
 test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {
-    assert.match(gun, /const \{ events: flowEvents \} = useManagerDay\(\);/);
+    assert.match(gun, /const \{ events: flowEvents, businessName \} = useManagerDay\(\);/);
     assert.match(gun, /dayKnown && isToday && !runningRow \? soloOpenTicket\(flowEvents, mine, selectedISO\) : null/);
     // Yığın: adisyon, sonra saati geçmiş olsa da başlatılabilirler.
     assert.match(gun, /ticket,\s*startable: soloStartable\(mine, nowMinutes\),/);
@@ -612,7 +612,7 @@ test('G4 · Gün: Kasa\'nın kaynağından, yalnız süren iş YOKKEN', () => {
 
 test('G4 · tahsil hâli Gün okumasına giriyor, sormayan okumaya değil', () => {
     const source = read('src/lib/managerSource.ts');
-    assert.match(source, /\.select\(`\$\{RES_COLS\}, updated_at, wait_ends_at, wait_minutes, is_paid`\)/);
+    assert.match(source, /\.select\(`\$\{RES_COLS\}, updated_at, wait_ends_at, wait_minutes, is_paid, no_show_at`\)/);
     const map = read('src/lib/managerMap.ts');
     assert.match(map, /\.\.\.\('is_paid' in row \? \{ is_paid: row\.is_paid == null \? null : row\.is_paid === true \} : \{\}\),/);
     // Paylaşılan sabit DEĞİŞMEDİ: bütün okumaları besliyor.

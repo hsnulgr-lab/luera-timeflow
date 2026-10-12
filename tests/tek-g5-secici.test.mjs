@@ -17,8 +17,10 @@ import {
     settleTarget, stackPad, stackPose, stackTables, stepTarget, tapTarget,
 } from '../mobile/src/lib/soloPicker.ts';
 import {
-    durationHero, soloPickIndex, soloPickItems, soloPickSpoken, soloStartable,
+    durationHero, soloPickCells, soloPickIndex, soloPickItems, soloPickSpoken, soloStartable,
 } from '../mobile/src/lib/soloDay.ts';
+import { cellSpec, cellTaps } from '../mobile/src/lib/actionPill.ts';
+import { isNoShow } from '../mobile/src/lib/staffDay.ts';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** Yorumsuz kaynak — iddialar yorumda geçen kelimeye takılmasın. */
@@ -245,7 +247,7 @@ test('tek başlatılabilir: bugünkü kartın birebiri (G5·5)', () => {
 test('ekran okuyucu: ayarlanabilir öğe, yukarı/aşağı ve çift dokunuş (Karar 6)', () => {
     assert.match(picker, /accessibilityRole="adjustable"/);
     assert.match(picker, /accessibilityValue=\{\{ text: soloPickSpoken\(items, front\) \}\}/);
-    assert.match(picker, /accessibilityActions=\{\[\{ name: 'increment' \}, \{ name: 'decrement' \}, \{ name: 'activate' \}\]\}/);
+    assert.match(picker, /accessibilityActions=\{\[\s*\{ name: 'increment' \}, \{ name: 'decrement' \}, \{ name: 'activate' \},\s*\.\.\.\(selected\?\.menu \? \[\{ name: 'menu', label: 'Yönet' \}\] : \[\]\),\s*\]\}/);
 });
 
 test('seçim randevuya bağlı; Gün\'den çıkınca ve arka plandan dönünce ilk kart', () => {
@@ -268,3 +270,74 @@ test('kart: yazı komşuda solar, "1 sa 14 dk"te dakika da büyük sayı', () =>
     assert.match(parts, /opacity: contentOpacity \?\? 1,/);
     assert.match(parts, /\{panel\.heroValue2 \? \(/);
 });
+
+// ── 4 · Eylem hapı (G5 · A — kullanıcı kararı 2026-10-13) ───────────────────
+
+test('A · gözler kartın hâline göre: Gelmedi YALNIZ gecikince, iptal hapta YOK', () => {
+    const phone = '0532 111 22 33';
+    // Saati gelmemiş (ŞU AN BOŞ / BAŞLAMAYA): Ara · Yaz · Randevu kartı.
+    assert.deepEqual(soloPickCells(appt('a', '16:00', '16:20', { customer_phone: phone }), 15 * 60), {
+        cells: ['ara', 'wa', 'kart'], off: [],
+    });
+    // GECİKTİ: Gelmedi eklenir.
+    assert.deepEqual(soloPickCells(appt('a', '14:50', '15:10', { customer_phone: phone }), 15 * 60).cells, ['ara', 'wa', 'nox', 'kart']);
+    // Tam saatinde henüz gecikmedi.
+    assert.deepEqual(soloPickCells(appt('a', '15:00', '15:20', { customer_phone: phone }), 15 * 60).cells, ['ara', 'wa', 'kart']);
+    // BEKLİYOR: müşteri salonda — düğme yok.
+    assert.equal(soloPickCells(appt('a', '14:00', '14:20', { customer_arrived_at: '2026-10-12T10:58:00Z' }), 15 * 60), null);
+    // Numara yoksa Ara ve Yaz SÖNÜK (Akış · Müdür 34 v2): dokununca randevu kartı.
+    assert.deepEqual(soloPickCells(appt('a', '16:00', '16:20'), 15 * 60).off, ['ara', 'wa']);
+    assert.ok(!soloPickCells(appt('a', '14:00', '14:20'), 15 * 60).cells.includes('iptal'));
+});
+
+test('A · düğme yalnız başlatılabilir kartlarda; süren işte sıradakinde de yok', () => {
+    const phone = '0532 111 22 33';
+    const next = appt('Yasemin Kurt', '16:30', '17:15', { customer_phone: phone });
+    const free = soloPickItems({ running: [], waitOf: () => null, ticket: null, startable: [next], nowMinutes: 15 * 60, nowMs: 0 });
+    assert.deepEqual(free[0].menu, { cells: ['ara', 'wa', 'kart'], off: [] });
+    const live = appt('Tuğçe Erden', '14:02', '16:02', { arrived_at: '2026-10-09T11:02:00Z' });
+    const busy = soloPickItems({ running: [live], waitOf: () => null, ticket: null, startable: [next], nowMinutes: 15 * 60, nowMs: 0 });
+    assert.deepEqual(busy.map((i) => i.menu), [null, null]);
+});
+
+test('A · Randevu kartı gözü DOKUNUNCA çalışır (ekran açar); öteki gözler basılı tutulur', () => {
+    assert.equal(cellTaps('kart'), true);
+    assert.equal(cellTaps('waoff'), true);
+    for (const key of ['ara', 'wa', 'nox', 'inf']) assert.equal(cellTaps(key), false, key);
+    assert.deepEqual(cellSpec('kart'), { key: 'kart', label: 'Randevu kartı', hint: 'iptal ve değişiklikler' });
+});
+
+test('A · "Gelmedi" kararı (098) payı beklemiyor; "Geldi" onu yener', () => {
+    const base = appt('a', '15:00', '15:20');
+    assert.equal(isNoShow(base, 15 * 60 + 5), false, 'pay dolmadı');
+    assert.equal(isNoShow({ ...base, no_show_at: '2026-10-12T12:05:00Z' }, 15 * 60 + 5), true);
+    assert.equal(isNoShow({ ...base, no_show_at: '2026-10-12T12:05:00Z', customer_arrived_at: '2026-10-12T12:20:00Z' }, 15 * 60 + 25), false);
+    // Gün okuması kararı soruyor ve satıra taşıyor; sormayan okumada alan yok.
+    assert.match(read('mobile/src/lib/managerMap.ts'), /\.\.\.\('no_show_at' in row \? \{ no_show_at: \(row\.no_show_at as string \| null\) \?\? null \} : \{\}\),/);
+});
+
+test('A · düğme Başlat\'ın SOLUNDA, kartta gerçek düğme; hap altında, düğmenin hizasında', () => {
+    const parts = code('mobile/src/components/StaffDayParts.tsx');
+    // Sırada önce Yönet, sonra hap (Başlat).
+    assert.ok(parts.indexOf('accessibilityLabel="Yönet"') < parts.indexOf('{action ? ('), 'Yönet Başlat\'tan önce');
+    assert.match(parts, /hitSlop=\{\(44 - staffDayMetrics\.menuSize\) \/ 2\}/);
+    assert.match(parts, /accessibilityState=\{\{ expanded: menu\.open \}\}/);
+    // Seçicinin içindeki kart bir görüntü; yalnız Yönet dokunuş alıyor.
+    assert.match(picker, /interactive=\{false\}/);
+    assert.match(picker, /pointerEvents=\{i === front \? 'box-none' : 'none'\}/);
+    // Akış'ın hapı, altında, düğmenin hizasında.
+    assert.match(picker, /<ActionPill[\s\S]*?below[\s\S]*?triggerRight=\{Math\.max\(0, width - menuFrame\.x - menuFrame\.width\)\}/);
+    assert.match(code('mobile/src/components/ActionPill.tsx'), /position: 'absolute', right: triggerRight, \.\.\.seat,/);
+    // Hap kimliğe bağlı: seçili kart değişince kendiliğinden kapanır.
+    assert.match(picker, /const menuOpen = Boolean\(selected\?\.menu\) && menuFor === selected\?\.id;/);
+});
+
+test('A · Gün: Ara telefon, Yaz kendi WhatsApp\'ı, Gelmedi 098 damgası Gün\'ün kilidiyle', () => {
+    assert.match(gun, /if \(cell === 'kart' \|\| item\.menu\?\.off\.includes\(cell\)\) \{\s*openAppointment\(appointment\);/);
+    assert.match(gun, /Linking\.openURL\(`tel:\$\{tel\}`\)/);
+    assert.match(gun, /waNudgeText\(\{ salon: businessName, time: appointment\.start_time\.slice\(0, 5\), late, day: 'bugün' \}\)/);
+    assert.match(gun, /updateAppointment\(appointment\.id, lock, \{ no_show_at: stamp \}\)/);
+    assert.match(gun, /const lock = data\.stamps\.get\(appointment\.id\);/);
+    assert.match(gun, /onCell=\{onPickCell\}/);
+});
+

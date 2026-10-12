@@ -3,7 +3,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import {
-    cellGlyph, cellSpec, pillMotion, reducedFill,
+    cellGlyph, cellSpec, cellTaps, pillMotion, reducedFill,
 } from '../lib/actionPill.ts';
 import type { CellKey } from '../lib/actionPill.ts';
 import { actionPillMetrics as M, font, panelInk } from '../theme/tokens';
@@ -84,6 +84,12 @@ function Glyph({ cell, color, initials }: {
                 <>
                     <Path {...p} d="M12 4.2a5.1 5.1 0 0 0-5.1 5.1v3.3L5.4 16h13.2l-1.5-3.4V9.3A5.1 5.1 0 0 0 12 4.2z" />
                     <Path {...p} d="M9.9 18.4a2.3 2.3 0 0 0 4.2 0" />
+                </>
+            ) : null}
+            {cell === 'kart' ? (
+                <>
+                    <Path {...p} d="M6.6 4.8h10.8a1.6 1.6 0 0 1 1.6 1.6v11.2a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 17.6V6.4a1.6 1.6 0 0 1 1.6-1.6z" />
+                    <Path {...p} d="M8.6 9.6h6.8M8.6 13.2h4.4" />
                 </>
             ) : null}
             {cell === 'chk' ? <Path {...p} d="M5.6 12.4l4.2 4.2 8.6-9.4" /> : null}
@@ -185,7 +191,7 @@ function Cell({ cell, offCell = false, ink, orange, initials, staffGiven, enter,
         <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${spec.label} — ${spec.hint}`}
-            accessibilityHint="Çalışması için basılı tutun"
+            accessibilityHint={cellTaps(cell) ? 'Dokununca açılır' : 'Çalışması için basılı tutun'}
             onPressIn={onStart}
             onPressOut={onEnd}
             style={{
@@ -287,6 +293,12 @@ export interface ActionPillProps {
     /** Tetikleyicinin kartın üstünden uzaklığı ve yüksekliği. */
     triggerTop: number;
     triggerHeight: number;
+    /**
+     * Tetikleyicinin sağ kenarının kartın sağ kenarına uzaklığı. Akış'ta
+     * `Yönet` kartın sağ kenarında (0); tek kişilik Gün'de düğme Başlat'ın
+     * SOLUNDA — hap onun hizasına yapışır, ok ucu ona değer.
+     */
+    triggerRight?: number;
     /** Randevunun personeli — baş harf gözü ve kelime bundan geliyor. */
     staffInitials?: string;
     staffGiven?: string;
@@ -295,7 +307,7 @@ export interface ActionPillProps {
 }
 
 export function ActionPill({
-    cells, offCells = NO_CELLS, below = false, triggerWidth, triggerTop, triggerHeight,
+    cells, offCells = NO_CELLS, below = false, triggerWidth, triggerTop, triggerHeight, triggerRight = 0,
     staffInitials, staffGiven, onPick, onDismiss,
 }: ActionPillProps) {
     const { c, dark, reduceMotion } = useTheme();
@@ -401,7 +413,7 @@ export function ActionPill({
     }, [halo, onPick, pop]);
 
     const start = useCallback((cell: CellKey) => {
-        if (cell === 'waoff' || offCells.includes(cell)) { feedback.selection(); onPick(cell); return; }
+        if (cellTaps(cell) || offCells.includes(cell)) { feedback.selection(); onPick(cell); return; }
         feedback.selection();
         setHeld(cell);
         setStep(0);
@@ -468,7 +480,7 @@ export function ActionPill({
                 onLayout={measure}
                 pointerEvents="none"
                 style={{
-                    position: 'absolute', right: 0, ...seat, width, height: M.height,
+                    position: 'absolute', right: triggerRight, ...seat, width, height: M.height,
                 }}
             />
 
