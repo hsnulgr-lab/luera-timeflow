@@ -2011,3 +2011,25 @@ kadran çarpıyor — masaüstünün eski borcu (`adisyonLines` yorumu).
 Göç yok, deploy yok. Kanıt: `tests/tek-tahsilat.test.mjs` (+3), tüm paket
 2972 / 0 kırık; `tsc` temiz; lint sayısı aynı; Metro iOS paketi derlendi.
 Telefonda denenmedi.
+
+---
+
+## 38 · 2026-10-13 · TELEFONDAN PERSONEL EKLE
+
+Kullanıcı: "Personel sayfasındaki 'Personel eklemek bilgisayardan' cümlesi —
+yap." Cümle doğruydu ama tek kişilikten ekibe geçen sahibin bilgisayarı yok;
+yeni kişiyi ekleyemiyordu (yalnız ilk çalışanı, Ekip ekle'den).
+
+| | |
+|---|---|
+| Kapı | Personel sayfasının sağ üstünde "+" (Hizmetler'in "+"sı gibi) → `profil/personel-ekle` |
+| Form | Ekip ekle'nin "Yeni çalışan" kartının aynısı: ad soyad + meslek, 80 karakter. Alan ortak bileşene taşındı (`components/TeamField.tsx`) |
+| Yazma | `managerWrite.addStaffMember` — masaüstünün `useStaff.addStaff` satırı: ad, meslek, rol, renk, `is_active`. Şifre ve çalışma saati YAZILMIYOR (kişi Telefon bağla ile belirliyor; saat işletmenin). Satır geri isteniyor; RLS reddi (42501 ya da satırsız) "yetki yok" |
+| Rol · renk | `start_team`in (115) kuralı, `lib/teamAdd.ts`: rol meslekten (asistan → hekim → kasa sırası), renk salonda kullanılmayan ilk palet rengi (pasifler dahil). Test SQL'deki desenleri ve paleti okuyup karşılaştırıyor |
+| Eklenince | Sayfa kapanıyor; liste `staff` tablosunu dinlediği için yeni satır kendiliğinden geliyor |
+| Metinler | Dipnot: "Personel eklemek için sağ üstteki + düğmesine dokunun…"; boş liste: "Sağ üstteki + ile ekleyin."; `team_not_empty`: "Önce onları İşletme › Personel’den ekipten çıkarın" |
+
+Göç yok, deploy yok (RLS `staff_org_access` müdüre zaten açık; masaüstü de
+aynı yoldan yazıyor). Kanıt: `tests/personel-ekle.test.mjs` (7), tüm paket
+2979 / 0 kırık; `tsc` temiz; yeni lint bulgusu yok; Metro iOS paketi derlendi.
+Telefonda denenmedi.

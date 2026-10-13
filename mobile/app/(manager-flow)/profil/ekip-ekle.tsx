@@ -1,9 +1,10 @@
-import { useRef, useState, type RefObject } from 'react';
-import { ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { useRef, useState } from 'react';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FieldLabel, Foot, Group, PrimaryButton, ProfileNav } from '../../../src/components/ProfileParts';
+import { Foot, Group, PrimaryButton, ProfileNav } from '../../../src/components/ProfileParts';
+import { TeamField } from '../../../src/components/TeamField';
 import { authApi } from '../../../src/api/session';
 import { TEAM_NAME_MAX, teamStart, teamStartProblem } from '../../../src/lib/authCopy';
 import { enterShell } from '../../../src/lib/enterShell';
@@ -165,46 +166,6 @@ export default function TeamStart() {
 
                 <Foot>{teamStart.foot}</Foot>
             </ScrollView>
-        </View>
-    );
-}
-
-/**
- * Müşteriler'in arama kutusunun çizimi, büyüteçsiz (`SearchField`). Onun
- * kendisi değil: o bir ARAMA kontrolü — büyüteci, temizle düğmesi ve "ara"
- * klavye tuşu var. Boşken alan zemini, yazılınca yüzey ve çizgi.
- */
-function TeamField({ label, inputRef, value, ...input }: TextInputProps & {
-    label: string;
-    value: string;
-    inputRef?: RefObject<TextInput | null>;
-}) {
-    const { c } = useTheme();
-    const on = value.length > 0;
-    return (
-        <View style={{ gap: 7 }}>
-            <FieldLabel>{upperTR(label)}</FieldLabel>
-            <TextInput
-                ref={inputRef}
-                value={value}
-                accessibilityLabel={label}
-                placeholderTextColor={c.tx3}
-                selectionColor={c.or}
-                autoCorrect={false}
-                {...input}
-                style={{
-                    height: 50,
-                    borderRadius: 16,
-                    paddingHorizontal: 15,
-                    backgroundColor: on ? c.surf2 : c.fld,
-                    borderWidth: 1,
-                    borderColor: on ? c.bd2 : 'transparent',
-                    color: c.tx,
-                    fontSize: 15.5,
-                    fontFamily: on ? font.semiBold : font.medium,
-                    fontWeight: on ? '600' : '500',
-                }}
-            />
         </View>
     );
 }

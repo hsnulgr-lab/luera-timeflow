@@ -161,6 +161,8 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/sifre" />
                 {/* 099 — personelin telefonu: ekip kodu ve şifre. */}
                 <Stack.Screen name="(manager-flow)/profil/personel" />
+                {/* Telefondan personel ekle — masaüstünün satırının aynısı (2026-10-13). */}
+                <Stack.Screen name="(manager-flow)/profil/personel-ekle" />
                 {/* 113 · v4 P2 — tek kişilik işletmenin ekibe geçiş kapısı. */}
                 <Stack.Screen name="(manager-flow)/profil/ekip-ekle" />
                 {/* 115 — öbür yönü: ekipte yalnız sahip kalınca tek kişiliğe dönüş. */}

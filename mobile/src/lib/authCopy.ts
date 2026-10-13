@@ -194,8 +194,8 @@ export const teamStart = {
  * İşletme › Tek kişiliğe dön (115) — ekip ekle kapısının öbür yönü.
  *
  * Satır İşletme'de YALNIZ ekipte sahipten başka aktif kimse kalmayınca
- * çiziliyor; kimin pasife alınacağını telefon seçmiyor (personel çıkarmak
- * masaüstü işi).
+ * çiziliyor; kimin pasife alınacağını bu sayfa seçmiyor (ekipten çıkarmak
+ * Personel sayfasında, kişinin satırında — 2026-10-13).
  */
 export const teamEnd = {
     title: 'Tek kişiliğe dön',
@@ -239,7 +239,7 @@ export function teamEndNotice(counts: { moved: number; unassigned: number; kept:
 /** Dönüşün hata cümlesi — işletmenin hangi düzende kaldığını söylüyor. */
 export function teamEndProblem(error: string): string {
     switch (error) {
-        case 'team_not_empty': return 'Ekipte sizden başka aktif çalışan var. Önce onları bilgisayardan pasife alın; işletmeniz ekip düzeninde kaldı.';
+        case 'team_not_empty': return 'Ekipte sizden başka aktif çalışan var. Önce onları İşletme › Personel’den ekipten çıkarın; işletmeniz ekip düzeninde kaldı.';
         case 'subscription_inactive': return 'Aboneliğiniz kapalı; işletmeniz ekip düzeninde kaldı.';
         case 'no_session': return 'Oturumunuz kapanmış. Çıkış yapıp yeniden girin; işletmeniz ekip düzeninde kaldı.';
         default: return 'Dönülemedi; işletmeniz ekip düzeninde kaldı. Bağlantınızı kontrol edip tekrar deneyin.';

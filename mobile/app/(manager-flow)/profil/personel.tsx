@@ -10,6 +10,7 @@ import {
     Foot,
     GhostButton,
     Group,
+    PlusIcon,
     PrimaryButton,
     ProfileNav,
     ProfileRow,
@@ -234,7 +235,29 @@ export default function ManagerStaffAccess() {
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
             <View style={{ paddingHorizontal: M.padX - 2 }}>
-                <ProfileNav title="Personel" onBack={() => router.back()} />
+                <ProfileNav
+                    title="Personel"
+                    onBack={() => router.back()}
+                    // Personel ekle — Hizmetler'in "+"sı gibi (2026-10-13). Eskiden
+                    // "Personel eklemek bilgisayardan" deniyordu; tek kişilikten
+                    // ekibe geçen sahibin bilgisayarı yok.
+                    right={snap.refusal ? undefined : (
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Personel ekle"
+                            onPress={() => { feedback.selection(); router.push('/(manager-flow)/profil/personel-ekle'); }}
+                            style={({ pressed }) => ({
+                                width: 44,
+                                height: 44,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: pressed ? 0.6 : 1,
+                            })}
+                        >
+                            <PlusIcon color={c.tx} />
+                        </Pressable>
+                    )}
+                />
             </View>
 
             <ScrollView
@@ -357,7 +380,7 @@ export default function ManagerStaffAccess() {
                     />
                 ) : null}
                 {members && members.length === 0 ? (
-                    <Foot>Henüz personel eklenmemiş. Bilgisayardan Personel sayfasından ekleyin.</Foot>
+                    <Foot>Henüz personel eklenmemiş. Sağ üstteki + ile ekleyin.</Foot>
                 ) : null}
                 {members && members.length > 0 ? (
                     <Group head={upperTR(`Ekip · ${members.length} kişi${headline ? ` · ${headline}` : ''}`)}>
@@ -426,9 +449,9 @@ export default function ManagerStaffAccess() {
                 ) : null}
 
                 <Foot>
-                    Personel eklemek bilgisayardan: Luera → Personel. Ekipten çıkarmak ya da şifresini
-                    sıfırlamak için kişinin satırına dokunun. Ekipte bir kişi kalınca işletme tek
-                    kişilik düzene döner.
+                    Personel eklemek için sağ üstteki + düğmesine dokunun. Ekipten çıkarmak ya da
+                    şifresini sıfırlamak için kişinin satırına dokunun. Ekipte bir kişi kalınca işletme
+                    tek kişilik düzene döner.
                 </Foot>
             </ScrollView>
 

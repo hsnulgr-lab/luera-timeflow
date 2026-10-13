@@ -25,6 +25,7 @@ import {
 } from './createLive.ts';
 import { RES_COLS, toAppt } from './managerMap.ts';
 import type { CatalogService } from './cashBuild.ts';
+import { staffColorOf, staffRoleOf, type AddFailure } from './teamAdd.ts';
 import { clampSessions, type PackageSaleInput, type PackageSaleOutcome } from './packageSale.ts';
 import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
 import { prefsPatchOf } from './notificationPrefs.ts';
@@ -162,6 +163,57 @@ export async function removeStaffMember(
     } catch (cause) {
         if (cause instanceof OrgError) { forgetOrg(); throw cause; }
         return { ok: false, reason: /network|fetch/i.test(String(cause)) ? 'offline' : 'failed' };
+    }
+}
+
+// ── Personel ekle ───────────────────────────────────────────────────────────
+
+/**
+ * Personel ekle — masaüstünün "Personel ekle"sinin yazdığı satır
+ * (`useStaff.addStaff`): ad, meslek, rol, renk, aktif. Çalışma saati boş
+ * (işletmenin saatleri), şifre boş (kişi Telefon bağla ile kendisi
+ * belirliyor). Rol ve renk `start_team`in kuralıyla (`teamAdd.ts`).
+ *
+ * Renk için salonun bütün satırlarının rengi okunuyor (pasifler dahil,
+ * sunucu da öyle sayıyor). Satır GERİ İSTENİYOR: RLS reddi hatasız ama
+ * satırsız dönebilir; istenmezse eklenmemiş biri eklenmiş görünürdü.
+ */
+export async function addStaffMember(input: { name: string; specialty: string }): Promise<
+    { ok: true; id: string } | { ok: false; reason: AddFailure }
+> {
+    if (await writesPaused()) return { ok: false, reason: 'failed' };
+    const offline = (message: string) => /network|fetch/i.test(message);
+    try {
+        const organizationId = await orgId();
+        const { data: crew, error: crewError } = await supabase
+            .from('staff')
+            .select('color')
+            .eq('organization_id', organizationId)
+            .returns<{ color: string | null }[]>();
+        if (crewError) return { ok: false, reason: offline(crewError.message ?? '') ? 'offline' : 'failed' };
+
+        const specialty = input.specialty.trim() || null;
+        const { data, error } = await supabase
+            .from('staff')
+            .insert({
+                organization_id: organizationId,
+                name: input.name.trim(),
+                specialty,
+                role: staffRoleOf(specialty),
+                color: staffColorOf((crew ?? []).map((row) => row.color)),
+                is_active: true,
+            })
+            .select('id')
+            .returns<{ id: string }[]>();
+        if (error) {
+            if (error.code === '42501') return { ok: false, reason: 'not_allowed' };
+            return { ok: false, reason: offline(error.message ?? '') ? 'offline' : 'failed' };
+        }
+        const id = data?.[0]?.id;
+        return id ? { ok: true, id } : { ok: false, reason: 'not_allowed' };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, reason: offline(String(cause)) ? 'offline' : 'failed' };
     }
 }
 
