@@ -23,12 +23,22 @@
 --   T−3 sa   Kaş Tasarımı       bitti · NAKİT tahsil edildi  → Kasa: Düzelt / Geri al
 --   T−2 sa20 Cilt Bakımı        bitti · TAHSİL EDİLMEDİ + ek kalem → Gün: ADİSYON AÇIK
 --   T−1 sa   Ağda               gelmedi (müşteri hiç gelmedi)
---   T+20 dk  Manikür & Pedikür  SIRADAKİ → Başlat · bekleme · Bitir · Tahsil et
+--   T−10 dk  Kaş Tasarımı       GECİKTİ (30 dk pay dolmadı) → seçicide kırmızı
+--   T+20 dk  Manikür & Pedikür  BEKLİYOR (müşteri 5 dk önce geldi) → seçicide amber
 --   T+1 sa40 Kaş Tasarımı       KAYITSIZ müşteri (kayıt yok, numara yok)
 --   T+2 sa20 Aromaterapi Masajı numaralı → randevu kartında "Mesajla hatırlat"
 --   T+3 sa20 Kaş Tasarımı       İPTAL
 --   dün      iki tahsil edilmiş randevu (geçmiş + Kasa "Bu hafta")
+--   dün      Kalıcı Makyaj + 7 ek kalem, kartla tahsil → Kasa fişi "+2 hizmet daha"
+--   dün      Manikür & Pedikür  TAHSİL EDİLMEDİ → Kasa: "2 adisyon tahsil edilmedi"
 --   yarın    üç randevu (hatırlat: "yarın 10:00")     · öbür gün bir randevu
+--
+-- ── 2026-10-13 ekleri: bugünkü işlerin denemesi ───────────────────────────
+--   G5 seçici + Yönet: GECİKTİ · BEKLİYOR · iki sıradaki — kart kaydırılır.
+--   Kasa: içerik boyunda sayfalar, "+N hizmet daha", "Tahsil edilmedi" listesi.
+--   Randevu kartı: tahsil edilmiş tamamlanan randevuda saat / hizmet / sil
+--   yok; adisyonu açık olanda sil var.
+--   Bildirim (116 canlıdaysa): tahsil edince "Adisyon kasada" gelmez.
 --   3 gün sonra BOŞ (B1) · ilk pazar KAPALI (B2)
 -- Gece yarısını aşan ya da sabah 00:00'dan önceye düşen bugün satırı
 -- ATLANIR ve sayısı yazılır.
@@ -178,8 +188,9 @@ BEGIN
     /*
      * ── RANDEVULAR ──────────────────────────────────────────────────────
      * gun: 0 bugün (dk = T'ye göre dakika), ±n başka gün (saat = sabit).
-     * durum: paid_card · paid_cash · open (bitti, tahsil yok) · noshow ·
-     *        next · plain · cancelled
+     * durum: paid_card · paid_cash · paid_many (7 ek kalemli, kartla) ·
+     *        open (bitti, tahsil yok) · noshow · arrived (geldi, başlamadı) ·
+     *        plain · cancelled
      */
     FOR v_slot IN
         SELECT * FROM (VALUES
@@ -188,12 +199,15 @@ BEGIN
             (0,   -180, NULL,          'Kaş Tasarımı',       'Gizem Ünal',   'paid_cash', false),
             (0,   -140, NULL,          'Cilt Bakımı',        'Pınar Aksoy',  'open',      false),
             (0,    -60, NULL,          'Ağda',               'Yasemin Kurt', 'noshow',    false),
-            (0,     20, NULL,          'Manikür & Pedikür',  'Elif Demir',   'next',      false),
+            (0,    -10, NULL,          'Kaş Tasarımı',       'Vildan Ay',    'plain',     false),
+            (0,     20, NULL,          'Manikür & Pedikür',  'Elif Demir',   'arrived',   false),
             (0,    100, NULL,          'Kaş Tasarımı',       'Selin Uçar',   'plain',     true ),
             (0,    140, NULL,          'Aromaterapi Masajı', 'Deniz Şahin',  'plain',     false),
             (0,    200, NULL,          'Kaş Tasarımı',       'Vildan Ay',    'cancelled', false),
             (-1,  NULL, TIME '11:00',  'Cilt Bakımı',        'Tuğçe Erden',  'paid_card', false),
+            (-1,  NULL, TIME '12:30',  'Kalıcı Makyaj',      'Pınar Aksoy',  'paid_many', false),
             (-1,  NULL, TIME '15:00',  'Ağda',               'Sibel Karaca', 'paid_cash', false),
+            (-1,  NULL, TIME '17:00',  'Manikür & Pedikür',  'Deniz Şahin',  'open',      false),
             (1,   NULL, TIME '10:00',  'Cilt Bakımı',        'Elif Demir',   'plain',     false),
             (1,   NULL, TIME '13:00',  'Kalıcı Makyaj',      'Tuğçe Erden',  'plain',     false),
             (1,   NULL, TIME '16:00',  'Ağda',               'Yasemin Kurt', 'plain',     false),
@@ -249,20 +263,35 @@ BEGIN
                     WHEN 'cancelled' THEN 'cancelled'
                     WHEN 'paid_card' THEN 'completed'
                     WHEN 'paid_cash' THEN 'completed'
+                    WHEN 'paid_many' THEN 'completed'
                     WHEN 'open'      THEN 'completed'
                     ELSE 'confirmed' END,
                 'manual',
-                v_slot.durum IN ('paid_card', 'paid_cash'),
+                v_slot.durum IN ('paid_card', 'paid_cash', 'paid_many'),
                 '',
                 '{"demo_tek_test": true}'::jsonb,
                 CASE WHEN v_slot.durum = 'open'
                      THEN '[{"name": "Peeling maskesi", "price": 350, "qty": 1}]'::jsonb
+                     -- 7 ek kalem: fiş 6 kalem yazar, kalanı "+2 hizmet daha".
+                     -- Toplamları 2.500; tahsilat hizmet + 2.500 (fiş ancak
+                     -- toplamlar tutunca kalemleri gösteriyor).
+                     WHEN v_slot.durum = 'paid_many'
+                     THEN '[{"name": "Peeling maskesi", "price": 350, "qty": 1},
+                            {"name": "Kaş boyama", "price": 250, "qty": 1},
+                            {"name": "Kirpik lifting", "price": 600, "qty": 1},
+                            {"name": "Bıyık ağdası", "price": 150, "qty": 1},
+                            {"name": "El bakımı", "price": 400, "qty": 1},
+                            {"name": "Parafin", "price": 300, "qty": 1},
+                            {"name": "Nem maskesi", "price": 450, "qty": 1}]'::jsonb
                      ELSE '[]'::jsonb END,
-                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'open')
+                -- Geldi: bitenlerde iş başında, BEKLİYOR'da 5 dk önce.
+                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'paid_many', 'open')
+                     THEN v_start AT TIME ZONE 'Europe/Istanbul'
+                     WHEN v_slot.durum = 'arrived'
+                     THEN (v_t - INTERVAL '5 minutes') AT TIME ZONE 'Europe/Istanbul' END,
+                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'paid_many', 'open')
                      THEN v_start AT TIME ZONE 'Europe/Istanbul' END,
-                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'open')
-                     THEN v_start AT TIME ZONE 'Europe/Istanbul' END,
-                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'open')
+                CASE WHEN v_slot.durum IN ('paid_card', 'paid_cash', 'paid_many', 'open')
                      THEN v_end AT TIME ZONE 'Europe/Istanbul' END
             )
             RETURNING id INTO v_res;
@@ -273,10 +302,11 @@ BEGIN
         END;
         v_yazildi := v_yazildi + 1;
 
-        IF v_slot.durum IN ('paid_card', 'paid_cash') THEN
+        IF v_slot.durum IN ('paid_card', 'paid_cash', 'paid_many') THEN
             INSERT INTO payments (organization_id, customer_id, reservation_id,
                                   type, description, amount, method, paid_at)
-            VALUES (v_org, v_cid, v_res, 'service', v_slot.hizmet, v_price,
+            VALUES (v_org, v_cid, v_res, 'service', v_slot.hizmet,
+                    v_price + CASE WHEN v_slot.durum = 'paid_many' THEN 2500 ELSE 0 END,
                     CASE WHEN v_slot.durum = 'paid_cash' THEN 'cash' ELSE 'card' END,
                     v_end AT TIME ZONE 'Europe/Istanbul');
         END IF;
