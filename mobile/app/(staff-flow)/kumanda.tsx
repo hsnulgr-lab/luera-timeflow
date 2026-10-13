@@ -1241,6 +1241,7 @@ export default function Kumanda() {
                     {sheet === 'catalog' ? (
                         <CatalogSheet
                             count={liveLines(lines).length}
+                            hasRows={lines.length > 0}
                             solo={params.from === 'tek'}
                             onAdd={(item) => guardAdd(item, () => {
                                 feedback.light();
@@ -2171,8 +2172,17 @@ function SheetFoot({ label, onPress }: { label: string; onPress: () => void }) {
     );
 }
 
-function CatalogSheet({ count, frequent, rows, booked, solo = false, onAdd, resultOf, onSearch, onDone }: {
+function CatalogSheet({ count, hasRows, frequent, rows, booked, solo = false, onAdd, resultOf, onSearch, onDone }: {
     count: number;
+    /**
+     * Çizilecek satır var mı — silinmek üzere olan DAHİL.
+     *
+     * `count` silinecekleri saymıyor (başlık yeni sayıyı söylesin diye). Liste
+     * ona bağlıyken SON kalem kaldırılınca sayı 0'a düşüyor, liste hiç
+     * çizilmiyor ve silme penceresi de onunla gidiyordu: kalem sessizce
+     * kayboluyor, "Geri al" görünmüyordu. Telefonda görüldü (2026-10-14).
+     */
+    hasRows: boolean;
     /** Randevunun kendi hizmetleri — adisyon satırlarının üstünde. */
     booked: readonly string[];
     /** Tek kişilik kabuk — `BookedGroup`un cümlesi için. */
@@ -2300,7 +2310,7 @@ function CatalogSheet({ count, frequent, rows, booked, solo = false, onAdd, resu
                     </Text>
                 </View>
                 <BookedGroup names={booked} solo={solo} />
-                {count > 0 ? rows : booked.length > 0 ? null : (
+                {hasRows ? rows : booked.length > 0 ? null : (
                     <View style={{ paddingTop: 8, gap: 6 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: c.tx }}>
                             Bu ziyarette henüz kalem yok

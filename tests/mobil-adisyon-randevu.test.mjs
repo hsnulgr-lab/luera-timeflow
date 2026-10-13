@@ -41,7 +41,10 @@ test('kumanda: RANDEVU grubu görünür, boş hâl yalnız gerçekten boşken', 
     assert.match(screen, /<BookedGroup names=\{booked\} solo=\{params\.from === 'tek'\} \/>/);
     assert.match(screen, /<BookedGroup names=\{booked\} solo=\{solo\} \/>/);
     assert.match(screen, /lines\.length === 0 && booked\.length === 0 \?/);
-    assert.match(screen, /count > 0 \? rows : booked\.length > 0 \? null :/, 'sayfadaki boş hâl de');
+    // Sayfa da gövdeyle aynı ölçüyü kullanıyor: silinmek üzere olan satır
+    // da "satır" (son kalemin silme penceresi görünsün diye, 2026-10-14).
+    assert.match(screen, /hasRows \? rows : booked\.length > 0 \? null :/, 'sayfadaki boş hâl de');
+    assert.match(screen, /hasRows=\{lines\.length > 0\}/);
     assert.match(screen, /Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin\./);
     // Tek kişilikte "kasaya gönderme" yok, tahsilat var: cümle o yolu anlatıyor.
     assert.match(screen, /solo\s*\?\s*'Bu hizmetler tahsilata randevuyla birlikte giriyor; yeniden eklemeyin\.'/);

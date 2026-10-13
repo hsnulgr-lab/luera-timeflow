@@ -84,6 +84,18 @@ test('pencere açıkken liste GÖNDERİLMİYOR', () => {
     assert.equal(DELETE_MS, 6000, 'Personel 11 ile aynı pencere');
 });
 
+test('SON kalem silinince de pencere çiziliyor — liste canlı sayıya bağlı değil', () => {
+    // Telefonda görüldü (2026-10-14): tek kalemli adisyonda Kaldır'a basınca
+    // canlı sayı 0'a düşüyor, alt sayfa listeyi hiç çizmiyordu ve "Geri al"
+    // ekrana gelmeden kalem gidiyordu. Liste, silinecek satır DAHİL çizilir.
+    const marked = markDelete([{ id: 'a', name: 'a', kind: 'extra', qty: 1 }], 'a');
+    assert.equal(liveLines(marked).length, 0, 'başlığın sayısı silineni saymıyor');
+    assert.equal(groupsOf(marked)[0].items[0].pendingDelete, true, 'satır grupta duruyor');
+    assert.match(screen, /hasRows=\{lines\.length > 0\}/);
+    assert.match(screen, /\{hasRows \? rows :/);
+    assert.doesNotMatch(screen, /\{count > 0 \? rows :/);
+});
+
 test('malzeme silinince formülün değiştiği SÖYLENİYOR', () => {
     // Formül malzeme yarısını adisyondan türetiyor: kayıt bozulmuyor, yeniden
     // türüyor. Ama yazılmış bir formül sessizce değişemez.

@@ -2278,3 +2278,16 @@ Not: "Adisyon ekranı çok karmaşık, okunmuyor." Soru-cevapla karar verildi
 
 **Sıradaki:** kullanıcı brief'i ve ekran görüntülerini Claude Design'a
 verecek. Dönen HTML gelince yol seçilir, sonra uygulanır.
+
+---
+
+## 45 · 2026-10-14 · SON KALEMİN SİLME PENCERESİ GÖRÜNMÜYORDU
+
+Brief için ekran görüntüsü çekerken bulundu: tek kalemli adisyonda Kaldır'a
+basınca "Geri al" penceresi çıkmıyor, kalem sessizce gidiyordu. Sebep: alt
+sayfa (`CatalogSheet`) listeyi CANLI sayıya (`count`, silinecekleri saymıyor)
+bağlıyordu; son kalem işaretlenince sayı 0, liste ve pencere çizilmiyordu.
+Kapanış gövdesinde hata yoktu (orada liste `groupsOf(lines)`). Artık
+`hasRows={lines.length > 0}`. Kanıt: `mobile-personel-adisyon` +1,
+`mobil-adisyon-randevu` yeni koşula taşındı (gevşetilmedi); tüm paket 3010 /
+0 kırık; `tsc` temiz; lint sayısı aynı (24, önceden); Metro iOS paketi derlendi.
