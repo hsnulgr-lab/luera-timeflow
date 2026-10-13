@@ -1864,3 +1864,36 @@ ama sürüklenmiyordu. Artık Kasa'nın yapısını kullanıyorlar (§29).
   temiz; yeni lint bulgusu yok.
 - Metro iOS paketi derlendi.
 - Telefonda denenmedi.
+
+## 35 · 2026-10-13 · BEKLEME BİTTİ BİLDİRİMİ
+
+Kullanıcı istedi: "Bekleme süresi dolunca bildirim gelsin." Boya beklerken
+başka müşteriye geçilmiş oluyor; kumanda ekranda değil, telefon tezgâhta.
+
+**Bildirimi telefon kendisi kuruyor.** Sunucuda zamanlayıcı yok
+(`pg_cron` kurulu değil). Beklemeyi kuran telefon bitiş anını biliyor;
+bildirim o ana kuruluyor. İnternetsiz de çalışıyor, tam saatinde düşüyor.
+
+- **Karar katmanı** `lib/waitAlarm.ts` (saf):
+  - Kimlik `bekleme-<randevu>`. Randevu başına tek bildirim var; yeni
+    bekleme eskisinin yerine geçiyor.
+  - Metin "Bekleme bitti ⏱ · Tuğçe · Kalıcı Makyaj · 20 dk doldu". Kilit
+    ekranında yalnız ilk ad görünüyor (bildirim kararı 2).
+  - Bildirim geçmişe kurulmuyor.
+- **Cihaz katmanı** `lib/waitAlarmDevice.ts`:
+  - `DATE` tetikleyicisi, ses açık, Android kanalı `randevu`.
+  - İzin SORULMUYOR (karar 5).
+  - Dokununca kabuğun kökü açılıyor; Gün'deki BEKLEMEDE kartı orada.
+- **Kumanda:**
+  - Bekleme kurulunca bildirim kuruluyor.
+  - Sunucunun saati gelince bildirim aynı kimlikle o saate çekiliyor.
+  - Halkaya dokunup beklemeyi kaldırınca bildirim siliniyor.
+  - İş bitince (HoldToFinish) bildirim siliniyor.
+
+Bekleme başka bir telefondan kurulduysa bildirim o telefonda düşer. Tek
+kişilikte tek telefon var; ekipte bildirim personelin kendi telefonunda.
+
+Kanıt: `tests/bekleme-bildirimi.test.mjs`; tüm paket 2963 / 0 kırık; `tsc`
+temiz; Metro iOS paketi derlendi. Telefonda denenmedi. Telefon içi
+bildirim Expo Go'da da çalışıyor; uzaktan push için geliştirme derlemesi
+gerekiyordu.

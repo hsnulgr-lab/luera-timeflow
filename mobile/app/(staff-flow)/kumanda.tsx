@@ -49,6 +49,7 @@ import {
 } from '../../src/lib/sendToCash';
 import { sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait } from '../../src/lib/visitWrite';
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
+import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
@@ -853,6 +854,8 @@ export default function Kumanda() {
                             onPress={() => {
                                 setWait(null);
                                 rememberWait(appointment.id, null);
+                                // Bekleme kalktı: "bitti" bildirimi de kalkıyor.
+                                void disarmWaitAlarm(appointment.id);
                                 void writeVisitWait(appointment.id, null).then((out) => observe(out.observation));
                             }}
                         />
@@ -1053,8 +1056,9 @@ export default function Kumanda() {
                             setEndedAt(new Date().toISOString());
                             setWait(null);
                             // Bitmiş iş beklemede olamaz; sunucu `visit.finish`te
-                            // aynısını yapıyor.
+                            // aynısını yapıyor. "Bekleme bitti" de artık söylenmez.
                             rememberWait(appointment.id, null);
+                            void disarmWaitAlarm(appointment.id);
                             setNow(Date.now());
                         }} />
                     ) : null}
@@ -1226,6 +1230,20 @@ export default function Kumanda() {
                                 setWait({ endsAt, total: m * 60, source: waitSource(m) });
                                 rememberWait(appointment.id, { endsAt, minutes: m });
                                 setSheet(null);
+                                /*
+                                 * BEKLEME BİTTİ bildirimi — telefonun kendisi
+                                 * bitiş anına kuruyor (`waitAlarm.ts`):
+                                 * internetsiz de çalışıyor, tam saatinde
+                                 * düşüyor. Sunucunun saati gelince aynı
+                                 * kimlikle ona çekiliyor.
+                                 */
+                                const alarm = {
+                                    reservationId: appointment.id,
+                                    customerName: appointment.customer_name,
+                                    service: appointment.service,
+                                    minutes: m,
+                                };
+                                void armWaitAlarm({ ...alarm, endsAt });
                                 void writeVisitWait(appointment.id, m).then((out) => {
                                     observe(out.observation);
                                     const serverEnds = out.endsAt ? Date.parse(out.endsAt) : Number.NaN;
@@ -1234,6 +1252,7 @@ export default function Kumanda() {
                                     if (waitIntentOf(appointment.id) === null) return;
                                     rememberWait(appointment.id, { endsAt: serverEnds, minutes: m });
                                     setWait((current) => (current ? { ...current, endsAt: serverEnds } : current));
+                                    void armWaitAlarm({ ...alarm, endsAt: serverEnds });
                                 });
                             }}
                             onCancel={() => setSheet(null)}

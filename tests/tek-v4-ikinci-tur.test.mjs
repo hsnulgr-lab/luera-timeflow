@@ -175,7 +175,8 @@ test('G3 · kumanda: halka HEMEN döner, yazma arkadan; sunucunun bitişi benims
     // Bu arada kaldırıldıysa sunucunun cevabı beklemeyi DİRİLTMİYOR.
     assert.match(pick, /if \(waitIntentOf\(appointment\.id\) === null\) return;\s*rememberWait\(appointment\.id, \{ endsAt: serverEnds, minutes: m \}\);/);
     // Halkaya dokunmak kaldırır — yerelde ve sunucuda.
-    assert.match(kumanda, /setWait\(null\);\s*rememberWait\(appointment\.id, null\);\s*void writeVisitWait\(appointment\.id, null\)\.then\(\(out\) => observe\(out\.observation\)\);/);
+    // (Arada "bekleme bitti" bildirimi de siliniyor — bekleme-bildirimi.test.)
+    assert.match(kumanda, /setWait\(null\);\s*rememberWait\(appointment\.id, null\);\s*void disarmWaitAlarm\(appointment\.id\);\s*void writeVisitWait\(appointment\.id, null\)\.then\(\(out\) => observe\(out\.observation\)\);/);
     // Bitiş beklemeyi düşürüyor (sunucu da `visit.finish`te düşürüyor).
     assert.match(kumanda, /<HoldToFinish onFinish=\{\(\) => \{[\s\S]{0,200}setWait\(null\);\s*rememberWait\(appointment\.id, null\);/);
     // Kumanda yeniden açılınca halka GERİ KURULUYOR — eskiden sıfırlanıyordu.
