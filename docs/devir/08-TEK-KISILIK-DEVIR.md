@@ -2291,3 +2291,8 @@ Kapanış gövdesinde hata yoktu (orada liste `groupsOf(lines)`). Artık
 `hasRows={lines.length > 0}`. Kanıt: `mobile-personel-adisyon` +1,
 `mobil-adisyon-randevu` yeni koşula taşındı (gevşetilmedi); tüm paket 3010 /
 0 kırık; `tsc` temiz; lint sayısı aynı (24, önceden); Metro iOS paketi derlendi.
+
+**Kullanıcı kararı (aynı gün):** silme penceresinin fitili (`DeleteWindow`)
+iki uçtan ORTAYA kısalıyor (tutar maskesinin `Fuse`u sol ucu sabit tutuyor).
+"Gerek yok, kalsın" — şimdi düzeltilmiyor; yönü Personel 15 tasarımı
+belirleyecek (brief'te not var).
