@@ -24,7 +24,10 @@ import type { ApptContext } from './managerFlow.ts';
 import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
-import { catalogOf, type CashPaymentRow, type CashReservationRow, type CatalogService } from './cashBuild.ts';
+import {
+    catalogOf, serviceCharge, type CashPaymentRow, type CashReservationRow, type CatalogService,
+    type ServiceCharge,
+} from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
 import { waLineReady } from './actionPill.ts';
@@ -507,6 +510,34 @@ export async function fetchServices(): Promise<CatalogService[]> {
     }
     if (error) throw error;
     return catalogOf(data ?? []);
+}
+
+/**
+ * Bir randevunun HİZMET ücreti — tek kişilikte kumandanın tahsilat kadranı.
+ *
+ * Kumanda personel ucundan okuyor ve o uç `custom_fields`i taşımıyor;
+ * çoklu hizmetli seansın ücreti orada (`cashBuild.serviceLines`). Tek
+ * kişilikte sahip aynı zamanda müdür: Kasa'nın okuduğu yerden, Kasa'nın
+ * hesabıyla okunuyor. Satır yoksa `null`.
+ */
+export async function fetchServiceCharge(reservationId: string): Promise<ServiceCharge | null> {
+    const organizationId = await orgIdOrThrow();
+    const [{ data, error }, services] = await Promise.all([
+        supabase.from('reservations')
+            .select('service, custom_fields')
+            .eq('organization_id', organizationId)
+            .eq('id', reservationId)
+            .maybeSingle()
+            .returns<Record<string, unknown> | null>(),
+        fetchServices(),
+    ]);
+    if (error) throw error;
+    if (!data) return null;
+    const fields = data.custom_fields;
+    return serviceCharge({
+        service: typeof data.service === 'string' ? data.service : '',
+        custom_fields: fields && typeof fields === 'object' ? fields as Record<string, unknown> : null,
+    }, services);
 }
 
 // ── Randevu oluştur ─────────────────────────────────────────────────────────

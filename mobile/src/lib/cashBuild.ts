@@ -169,6 +169,31 @@ export function serviceLines(
     }));
 }
 
+/** Randevunun hizmet ücreti ve kaç hizmet satırından geldiği. */
+export interface ServiceCharge {
+    amount: number;
+    count: number;
+}
+
+/**
+ * Randevunun HİZMET ücreti — `serviceLines`in toplamı.
+ *
+ * `visit.collect` tutarın ilk parçasını sunucuda AYNI kuralla hesaplıyor
+ * (kaydın fiyatı → katalogda kimlik → katalogda ad). Kumandanın tahsilat
+ * kadranı bunu adisyonun üstüne ekliyor: tek kişilikte gösterilen rakam
+ * kasaya yazılacak rakam olsun.
+ */
+export function serviceCharge(
+    row: Pick<CashReservationRow, 'service' | 'custom_fields'>,
+    services: readonly CatalogService[],
+): ServiceCharge {
+    const lines = serviceLines(row, services);
+    return {
+        amount: lines.reduce((sum, line) => sum + line.amount, 0),
+        count: lines.length,
+    };
+}
+
 /**
  * Adisyonun ÜCRETLİ kalemleri.
  *

@@ -41,7 +41,9 @@ import {
 import { ApiError, api } from '../../src/api/staff';
 import { CollectBar } from '../../src/components/CollectBar';
 import { SendToCash } from '../../src/components/SendToCash';
-import type { CollectMethod, CollectStage } from '../../src/lib/collect';
+import { collectDial, type CollectMethod, type CollectStage } from '../../src/lib/collect';
+import { fetchServiceCharge } from '../../src/lib/managerSource';
+import type { ServiceCharge } from '../../src/lib/cashBuild';
 import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
     queuedBandLabel, sendOutcome,
@@ -596,6 +598,28 @@ export default function Kumanda() {
     const headY = useRef(0);
 
     /*
+     * RANDEVUNUN HİZMET ÜCRETİ — yalnız tek kişilikte (2026-10-13, telefon).
+     *
+     * Kapanış kadranı adisyonu gösteriyordu (₺900); sunucu tahsil ederken
+     * hizmet ücretini de ekliyor ve kasaya ₺1.650 yazılıyordu. Tek kişilikte
+     * kadran tahsil edilecek toplamı söylüyor (`collectDial`). Ücret Kasa'nın
+     * okuduğu yerden, Kasa'nın hesabıyla: sahip aynı zamanda müdür. Ekipte
+     * okunmuyor — orada parayı kasa alıyor ve kadran adisyonun kendisi.
+     */
+    const solo = params.from === 'tek';
+    const [serviceCharge, setServiceCharge] = useState<ServiceCharge | null>(null);
+    useEffect(() => {
+        if (!solo || !appointment?.id) return undefined;
+        let alive = true;
+        fetchServiceCharge(appointment.id)
+            .then((charge) => { if (alive) setServiceCharge(charge); })
+            // Okunamazsa kadran adisyonda kalıyor; tahsilat zaten sunucusuz
+            // yapılamıyor.
+            .catch(() => { if (alive) setServiceCharge(null); });
+        return () => { alive = false; };
+    }, [solo, appointment?.id, appointment?.service]);
+
+    /*
      * BOŞ EKRAN YOK.
      *
      * Burada eskiden `return null` vardı: randevu bulunamazsa kumanda
@@ -663,6 +687,12 @@ export default function Kumanda() {
     // Toplam artık MİKTARI da çarpıyor. Eskiden `qty` her zaman 1 olduğu için
     // fark etmiyordu; ikinci dokunuş ×2 yapmaya başlayınca fark etmeye başladı.
     const total = totalOf(lines);
+    /** Kapanış kadranı: tek kişilikte tahsil edilecek toplam, ekipte adisyon. */
+    const closing = collectDial({
+        itemsTotal: total,
+        itemCount: liveLines(lines).length,
+        service: solo ? serviceCharge : null,
+    });
     const startClock = appointment.start_time.slice(0, 5);
 
     const reveal = () => {
@@ -870,8 +900,8 @@ export default function Kumanda() {
 
                 {phase === 'closing' || phase === 'closed' ? (
                     <ClosingDial
-                        total={total}
-                        count={liveLines(lines).length}
+                        total={closing.total}
+                        count={closing.count}
                         revealed={revealed}
                         onReveal={reveal}
                         runKey={revealKey}

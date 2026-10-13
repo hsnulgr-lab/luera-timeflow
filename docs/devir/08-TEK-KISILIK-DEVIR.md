@@ -1989,3 +1989,25 @@ alanları artık açıkça sınanıyor.
 Göç yok, deploy yok. Kanıt: `tests/tek-tahsilat.test.mjs` (yeni test eski
 kodda kırılıyor), tüm paket 2969 / 0 kırık; `tsc` temiz; kumandanın lint
 sayısı aynı (24).
+
+### 37b · Kapanış kadranı tek kişilikte tahsil edilecek toplamı gösteriyor
+
+Aynı vakada kumandanın kadranı "₺900 · 1 kalem" diyordu (yalnız Ağda).
+Sunucu tahsil ederken randevunun hizmet ücretini de ekliyor (`visit.collect`
+= hizmet + Σ fiyat × adet) ve kasaya ₺1.650 yazılıyordu; Gün ve Kasa da
+₺1.650 diyordu. Kullanıcı "evet yap" dedi.
+
+| | |
+|---|---|
+| Kural | Tek kişilikte kadran = hizmet ücreti + adisyon, kalem sayısı = hizmet satırları + adisyon satırları ("₺1.650 · 2 kalem"). Ekipte değişmedi: parayı kasa alıyor, kadran adisyonun kendisi |
+| Hizmet ücreti | `managerSource.fetchServiceCharge` → `cashBuild.serviceCharge` (= `serviceLines` toplamı, Kasa'nın hesabı; sunucunun sırasıyla aynı: kaydın fiyatı → kimlik → ad, birleşik ad bölünüyor). Personel ucu `custom_fields` taşımadığı için Kasa'nın okuduğu yerden; sahip aynı zamanda müdür |
+| Okunamazsa | Kadran adisyonda kalıyor (tahsilat zaten sunucusuz yapılamıyor) |
+| Saf karar | `collect.collectDial` |
+
+Bilinen ayrışma (bu turda değişmedi): adisyonda adet > 1 olan ÜCRETLİ kalemde
+Kasa'nın bekleyen tutarı (`cashBuild.adisyonLines`) adedi çarpmıyor, sunucu ve
+kadran çarpıyor — masaüstünün eski borcu (`adisyonLines` yorumu).
+
+Göç yok, deploy yok. Kanıt: `tests/tek-tahsilat.test.mjs` (+3), tüm paket
+2972 / 0 kırık; `tsc` temiz; lint sayısı aynı; Metro iOS paketi derlendi.
+Telefonda denenmedi.

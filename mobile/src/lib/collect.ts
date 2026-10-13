@@ -128,3 +128,30 @@ export function collectedLabel(method: CollectMethod | null): string {
     if (method === 'transfer') return 'Havaleyle tahsil edildi';
     return 'Tahsil edildi';
 }
+
+/**
+ * Kapanış kadranının rakamı ve kalem sayısı — TAHSİL EDİLECEK olan
+ * (2026-10-13, telefon).
+ *
+ * Ekipte kadran adisyonu gösteriyor: randevunun hizmetini personel değil
+ * kasa alıyor. Tek kişilikte aynı kişi tahsil ediyor ve sunucu
+ * (`visit.collect`) randevunun hizmet ücretini adisyonun üstüne ekliyor.
+ * Kadran yalnız adisyonu gösterince "₺900" yazıyor, kasaya ₺1.650
+ * yazılıyordu; Gün ve Kasa da ₺1.650 diyordu.
+ *
+ * `service` yalnız tek kişilikte ve okunduysa gelir (`fetchServiceCharge`).
+ * Okuma sürerken ya da düştüyse kadran adisyonda kalır — tahsilat zaten
+ * sunucuya ulaşmadan yapılamıyor.
+ */
+export function collectDial(input: {
+    itemsTotal: number;
+    itemCount: number;
+    service: { amount: number; count: number } | null;
+}): { total: number; count: number } {
+    if (!input.service) return { total: input.itemsTotal, count: input.itemCount };
+    return {
+        // Kuruş yuvarlaması sunucununkiyle aynı: `Math.round(x * 100) / 100`.
+        total: Math.round((input.service.amount + input.itemsTotal) * 100) / 100,
+        count: input.service.count + input.itemCount,
+    };
+}

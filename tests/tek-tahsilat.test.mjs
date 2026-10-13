@@ -7,9 +7,11 @@ import {
     collectErrorLine,
     collectLabel,
     collectRetryLabel,
+    collectDial,
     collectView,
     collectedLabel,
 } from '../mobile/src/lib/collect.ts';
+import { serviceCharge } from '../mobile/src/lib/cashBuild.ts';
 import { SEAL_MS, barFoot, barTitle } from '../mobile/src/lib/sendToCash.ts';
 
 /**
@@ -333,4 +335,60 @@ test('çubuk sunucunun "ödendi"sini alıyor; dolgu bir opaklık, vurgu bir öl�
     assert.match(bar, /\) : collected \? \(\s*<View style=\{\{ height: M\.ghostHeight \}\} \/>/);
     // Hareketi azalt: vurgu yok, dolgu anında.
     assert.match(bar, /if \(reduceMotion\) \{\s*fill\.setValue\(1\);\s*return;\s*\}/);
+});
+
+// ── Kapanış kadranı: tek kişilikte TAHSİL EDİLECEK toplam ──────────────────
+
+test('kadran tek kişilikte hizmet ücreti + adisyonu gösteriyor — kasaya yazılanla aynı', () => {
+    /*
+     * Telefonda bulundu (2026-10-13): Elif Demir · Manikür & Pedikür + Ağda.
+     * Kadran "₺900 · 1 kalem" diyordu (yalnız Ağda); sunucu hizmet ücretini
+     * ekleyip ₺1.650 tahsil etti, Gün ve Kasa da ₺1.650 diyordu.
+     */
+    assert.deepEqual(
+        collectDial({ itemsTotal: 900, itemCount: 1, service: { amount: 750, count: 1 } }),
+        { total: 1650, count: 2 },
+    );
+    // Ekipte (ya da ücret okunamadıysa) kadran adisyonun kendisi.
+    assert.deepEqual(collectDial({ itemsTotal: 900, itemCount: 1, service: null }), { total: 900, count: 1 });
+    // Adisyon boşken hizmetin kendisi.
+    assert.deepEqual(
+        collectDial({ itemsTotal: 0, itemCount: 0, service: { amount: 1200, count: 2 } }),
+        { total: 1200, count: 2 },
+    );
+    // Kuruş: sunucunun yuvarlamasıyla aynı.
+    assert.equal(collectDial({ itemsTotal: 0.1, itemCount: 1, service: { amount: 0.2, count: 1 } }).total, 0.3);
+});
+
+test('hizmet ücreti SUNUCUNUN kuralıyla: kaydın fiyatı → kimlik → ad; birleşik ad bölünüyor', () => {
+    const services = [
+        { id: 's1', name: 'Manikür & Pedikür', price: 750 },
+        { id: 's2', name: 'Kaş', price: 300 },
+        { id: 's3', name: 'Cilt bakımı', price: 1200 },
+    ];
+    assert.deepEqual(serviceCharge({ service: 'Manikür & Pedikür', custom_fields: null }, services),
+        { amount: 750, count: 1 });
+    assert.deepEqual(serviceCharge({ service: 'Kaş + Cilt bakımı', custom_fields: null }, services),
+        { amount: 1500, count: 2 });
+    // Kaydın kendi fiyatı katalogdan önce gelir; fiyatsız satır kimlikten.
+    const hizmetler = JSON.stringify([{ name: 'Kaş', price: 250 }, { id: 's3', name: 'Cilt' }]);
+    assert.deepEqual(serviceCharge({ service: 'Kaş + Cilt', custom_fields: { hizmetler } }, services),
+        { amount: 1450, count: 2 });
+
+    // Sunucu aynı sırayı izliyor — kural iki yerde ayrışmasın.
+    assert.match(endpoint, /if \(typeof line\.price === 'number'\)/);
+    assert.match(endpoint, /services\.find\(\(row\) => row\.id === line\.id\)/);
+    assert.match(endpoint, /String\(res!\.service \?\? ''\)\.split\(' \+ '\)/);
+    // Adisyon fiyat × adet — kumandanın `totalOf`u da çarpıyor.
+    assert.match(endpoint, /\(Number\(item\?\.price\) \|\| 0\) \* \(Number\(item\?\.qty\) \|\| 1\)/);
+});
+
+test('kumanda kadranı YALNIZ tek kişilikte hizmet ücretini okuyor', () => {
+    assert.match(kumanda, /const solo = params\.from === 'tek';/);
+    assert.match(kumanda, /if \(!solo \|\| !appointment\?\.id\) return undefined;/);
+    assert.match(kumanda, /fetchServiceCharge\(appointment\.id\)/);
+    assert.match(kumanda, /service: solo \? serviceCharge : null,/);
+    assert.match(kumanda, /<ClosingDial\s+total=\{closing\.total\}\s+count=\{closing\.count\}/);
+    // Kanca erken dönüşün ÜSTÜNDE.
+    assert.ok(kumanda.indexOf('fetchServiceCharge(appointment.id)') < kumanda.indexOf('if (!appointment) {'));
 });
