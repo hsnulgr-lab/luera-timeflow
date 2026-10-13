@@ -2256,3 +2256,25 @@ kendini o güne geri çekiyordu: kayan ray takılıp geri sıçrıyordu.
 Kanıt: cetvel ve bekleme testleri yeni kurala taşındı, `mobil-personele-soyle`
 +1; tüm paket 3009 / 0 kırık; `tsc` temiz; cetvelin 2 lint bulgusu önceden de
 vardı. Telefonda denenmedi.
+
+---
+
+## 44 · 2026-10-14 · İŞ SÜRERKEN ADİSYON — CLAUDE DESIGN BRIEF'İ (notu 3)
+
+Not: "Adisyon ekranı çok karmaşık, okunmuyor." Soru-cevapla karar verildi
+(önceki oturum ilk cevabı alırken limite takılmıştı). Brief:
+`docs/personel-15-adisyon-sade-claude-design-prompt.md`. **Kod değişmedi.**
+
+| Konu | Kullanıcı kararı |
+|---|---|
+| Dertler | dördü de: çok fazla bölüm · soluk/küçük yazı · tutar anlaşılmıyor · ekleme zor ("eklendi mi anlamıyorum" + "adet/silme zor") |
+| Kapsam | **yalnız iş sürerken**; yeni kalem SATIRI kapanışta da kullanılır, kapanışın düzeni değişmez |
+| Kabuk | ekip personeli + tek kişilik, ikisinde aynı ekran |
+| Tutar | gizli kalır, anlaşılır olur; açılınca **6 sn** sonra kapanır (bugünkü kural) |
+| Toplam | **müşterinin ödeyeceği tamamı** = randevu hizmeti + Σ(fiyat × adet). Bugün yalnız eklenenleri sayıyor. Ekipte veri var (`staff-api` `catalog` hizmet fiyatını dönüyor) ama kumandaya bağlanması tesisat işi |
+| Yerleşim | Claude Design **iki yol** çizecek: A (süre büyük, sayfa sade) · B (adisyon ana ekranda, süre küçük) |
+| Mutlaka kalacak | formül satırı · randevu hizmetleri · malzeme grupları |
+| Adet / kaldırma | Claude Design önerecek (kaydırarak silme yok — gesture-handler yok) |
+
+**Sıradaki:** kullanıcı brief'i ve ekran görüntülerini Claude Design'a
+verecek. Dönen HTML gelince yol seçilir, sonra uygulanır.
