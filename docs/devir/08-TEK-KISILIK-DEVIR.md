@@ -1794,7 +1794,24 @@ tamamlanmamış randevu. Dört yüzey bu kurala bakıyor:
 - **Takvimde sürükleme:** tamamlanan ve iptal edilen blok kalkmıyor.
 - **Süren iş:** değişmedi; saati, hizmeti ve iptali açık.
 
-"Randevuyu sil" tamamlananda duruyor; kullanıcıya sorulacak.
+**Silme (kullanıcı kararı, aynı gün): tahsil edilmiş randevu silinmez.**
+Silme tahsilatı silmiyor ama bağını koparıyor
+(`payments.reservation_id` · ON DELETE SET NULL). Kasa'daki hareket
+randevusunu ve hizmet kalemlerini kaybediyor; geriye kimin hangi iş için
+ödediği belli olmayan bir tutar kalıyor.
 
-Kanıt: `tests/randevu-tamamlanan.test.mjs`. Tüm paket 2951 geçti / 0 kırık
+`isDeletable`:
+- Tamamlanmamış randevu: silinir.
+- Tamamlanmış ve `is_paid === false` (adisyon açık): silinir.
+- Tahsil edilmiş ya da tahsil durumu bilinmiyor: silinmez; para önce.
+
+Silmenin yerinde `paidDeleteInfo` cümlesi duruyor: "Yanlışsa önce
+Kasa'dan tahsilatı geri alın". Yanlış kaydın yolu iki adım: Kasa'da Geri
+al, adisyon açılır, sonra Sil. Takvimin menüsü de aynı kurala uyuyor.
+
+Randevu kartının okuması (`fetchAppointment`) artık `is_paid` de soruyor;
+alan kendi listesinde, `RES_COLS`ta değil. Sunucu silmeyi engellemiyor;
+masaüstü aynı kalıyor.
+
+Kanıt: `tests/randevu-tamamlanan.test.mjs`. Tüm paket 2953 geçti / 0 kırık
 · `tsc` temiz · yeni lint bulgusu yok. Telefonda denenmedi.

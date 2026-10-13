@@ -200,8 +200,8 @@ test('PERSONELİN damgaları müdür kartından yazılmıyor', () => {
 test('randevu KİMLİĞİYLE okunuyor, gün taranmıyor', () => {
     assert.match(source, /export async function fetchAppointment/);
     assert.match(source, /\.eq\('id', id\)[\s\S]{0,60}\.maybeSingle\(\)/);
-    // Kilidin dayanağı bu okumada geliyor.
-    assert.match(source, /select\(`\$\{RES_COLS\}, updated_at`\)/);
+    // Kilidin dayanağı bu okumada geliyor; tahsil durumu silme kuralı için.
+    assert.match(source, /select\(`\$\{RES_COLS\}, updated_at, is_paid`\)/);
     assert.doesNotMatch(screen, /list\.find\(/);
 });
 

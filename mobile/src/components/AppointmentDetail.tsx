@@ -9,7 +9,7 @@ import {
 } from './ApptParts25';
 import { feedback } from '../lib/feedback';
 import {
-    CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG, doneInfo,
+    CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG, doneInfo, isDeletable, paidDeleteInfo,
     applyNote, applyService, changeRows, changeTiles, identityOf, isEditable,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
     type CallAction, type DestructiveAction, type ReminderAction,
@@ -213,13 +213,19 @@ export function AppointmentDetail({
                                 onPress={() => { feedback.warning(); setConfirming('cancel'); }}
                             />
                         ) : null}
-                        <DangerAction
-                            label="Randevuyu sil"
-                            hint={cancelled ? DELETE_HINT_LONG : DELETE_HINT}
-                            icon="trash"
-                            danger={false}
-                            onPress={() => { feedback.warning(); setConfirming('delete'); }}
-                        />
+                        {/* Tahsil edilmiş randevu silinmez: yerinde nedeni ve
+                            yolu (`isDeletable`). */}
+                        {isDeletable(appointment) ? (
+                            <DangerAction
+                                label="Randevuyu sil"
+                                hint={cancelled ? DELETE_HINT_LONG : DELETE_HINT}
+                                icon="trash"
+                                danger={false}
+                                onPress={() => { feedback.warning(); setConfirming('delete'); }}
+                            />
+                        ) : (
+                            <InfoLine text={paidDeleteInfo(solo)} />
+                        )}
                     </View>
                 </Stage>
             </ScrollView>

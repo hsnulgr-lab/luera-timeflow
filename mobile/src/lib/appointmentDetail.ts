@@ -221,6 +221,31 @@ export function isReschedulable(appointment: Appt): boolean {
     return state !== 'cancelled' && state !== 'done';
 }
 
+/**
+ * Silinebilir mi — TAHSİL EDİLMİŞ randevu silinmez (2026-10-13, kullanıcı
+ * kararı).
+ *
+ * Silme tahsilatı silmiyor ama bağını koparıyor (`payments.reservation_id`
+ * · ON DELETE SET NULL): Kasa'daki hareket randevusunu ve hizmet
+ * kalemlerini kaybediyor, geriye kimin hangi iş için ödediği belli olmayan
+ * bir tutar kalıyor. Yanlış kaydın yolu iki adım, ikisinin de izi kalıyor:
+ * Kasa'da tahsilatı geri al (adisyon açılır), sonra sil.
+ *
+ * Tahsil edilmemiş tamamlanan randevu (adisyon açık) silinebilir: para
+ * kaydı yok, yanlışlıkla bitirilmiş ya da deneme kaydını temizlemenin tek
+ * yolu bu. Tahsil durumu BİLİNMİYORSA silinmez — para önce.
+ */
+export function isDeletable(appointment: Appt): boolean {
+    return stateOf(appointment) !== 'done' || appointment.is_paid === false;
+}
+
+/** Silmenin yerinde duran cümle — tahsil edilmiş randevuda. */
+export function paidDeleteInfo(solo: boolean): string {
+    return solo
+        ? 'Tahsil edilmiş randevu silinmez. Yanlışsa önce Kasa’dan tahsilatı geri alın.'
+        : 'Tahsil edilmiş randevu silinmez. Yanlışsa tahsilat önce masaüstündeki Kasa’dan geri alınır.';
+}
+
 /** Tamamlanan randevunun kartında değişmeyenlerin yerinde duran cümle. */
 export function doneInfo(solo: boolean): string {
     return solo

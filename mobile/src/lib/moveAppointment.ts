@@ -12,7 +12,7 @@
  * ama menüden yasak" ya da tersi bir durum doğmasın.
  */
 
-import { destructiveOptions, isReschedulable } from './appointmentDetail.ts';
+import { destructiveOptions, isDeletable, isReschedulable } from './appointmentDetail.ts';
 import { hhmm, toMinutes, type Appt } from './calendar.ts';
 import { COLUMN_GAP, COLUMN_WIDTH, HOUR_HEIGHT, type ColumnStaff } from './managerCalendar.ts';
 
@@ -269,6 +269,8 @@ export function menuRows(appointment: Appt, staffName?: string | null, solo = fa
     for (const option of destructiveOptions) {
         // Kart da tamamlanan randevuda iptali çizmiyor.
         if (option.action === 'cancel' && !movable) continue;
+        // Tahsil edilmiş randevu silinmez — kartla aynı kural.
+        if (option.action === 'delete' && !isDeletable(appointment)) continue;
         rows.push({
             action: option.action,
             icon: option.action === 'cancel' ? 'x' : 'trash',

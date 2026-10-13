@@ -288,7 +288,13 @@ export async function fetchAppointment(
     const organizationId = await orgIdOrThrow();
     const { data, error } = await supabase
         .from('reservations')
-        .select(`${RES_COLS}, updated_at`)
+        /*
+         * `is_paid` bu okumanın KENDİ listesinde (Gün okumasındaki gibi,
+         * paylaşılan `RES_COLS`ta değil): randevu kartı tahsil edilmiş
+         * randevunun silinmesine izin vermiyor (`isDeletable`) ve bunu
+         * bilmeden kuralı uygulayamaz.
+         */
+        .select(`${RES_COLS}, updated_at, is_paid`)
         .eq('organization_id', organizationId)
         .eq('id', id)
         .maybeSingle()

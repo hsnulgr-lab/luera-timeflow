@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-    changeRows, changeTiles, doneInfo, isEditable, isReschedulable,
+    changeRows, changeTiles, doneInfo, isDeletable, isEditable, isReschedulable, paidDeleteInfo,
 } from '../mobile/src/lib/appointmentDetail.ts';
 import { menuRows } from '../mobile/src/lib/moveAppointment.ts';
 
@@ -63,8 +63,11 @@ test('yerinde nedeni ve düzeltmenin yeri yazıyor — moda göre', () => {
 
 test('takvimin kart menüsü aynı kuralda: tamamlananda ne taşıma ne iptal', () => {
     const actions = (a, solo = false) => menuRows(a, 'Selin', solo).map((r) => r.action);
-    assert.deepEqual(actions(done), ['detail', 'delete']);
-    assert.deepEqual(actions(done, true), ['detail', 'delete']);
+    const open = { ...done, is_paid: false };
+    assert.deepEqual(actions(open), ['detail', 'delete']);
+    assert.deepEqual(actions(open, true), ['detail', 'delete']);
+    // Tahsil edilmiş: silme de yok.
+    assert.deepEqual(actions({ ...done, is_paid: true }), ['detail']);
     // İptal edilende taşıma da yok (eskiden "Saati değiştir" sunuyordu).
     assert.deepEqual(actions(cancelled), ['detail', 'delete']);
     assert.deepEqual(actions(waiting), ['time', 'staff', 'detail', 'cancel', 'delete']);
@@ -74,4 +77,27 @@ test('takvimin kart menüsü aynı kuralda: tamamlananda ne taşıma ne iptal', 
 test('takvimde tamamlanan blok kalkmıyor — kayıt sürüklenip taşınmaz', () => {
     const grid = code('mobile/src/components/ColumnCalendar.tsx');
     assert.match(grid, /onLift=\{readOnly \|\| !isReschedulable\(appointment\) \? undefined : beginLift\}/);
+});
+
+// ── Silme: tahsil edilmiş randevu silinmez (kullanıcı kararı, 2026-10-13) ───
+
+test('tahsil edilmiş tamamlanan randevu silinmez; adisyonu açık olan silinir', () => {
+    assert.equal(isDeletable({ ...done, is_paid: true }), false);
+    assert.equal(isDeletable({ ...done, is_paid: false }), true);
+    // Bilinmiyorsa silinmez — para önce.
+    assert.equal(isDeletable(done), false);
+    assert.equal(isDeletable({ ...done, is_paid: null }), false);
+    // Tamamlanmamış randevularda silme değişmedi.
+    for (const a of [waiting, arrived, running, cancelled]) assert.equal(isDeletable(a), true);
+});
+
+test('silmenin yerinde neden ve yol — Kasa\'da geri al, sonra sil', () => {
+    assert.equal(paidDeleteInfo(true), 'Tahsil edilmiş randevu silinmez. Yanlışsa önce Kasa’dan tahsilatı geri alın.');
+    assert.match(paidDeleteInfo(false), /masaüstündeki Kasa’dan geri alınır/);
+    const card = code('mobile/src/components/AppointmentDetail.tsx');
+    assert.match(card, /\{isDeletable\(appointment\) \? \(\s*<DangerAction\s+label="Randevuyu sil"[\s\S]*?\) : \(\s*<InfoLine text=\{paidDeleteInfo\(solo\)\} \/>/);
+    // Bağ kopuyordu: tahsilat randevusuz kalırdı.
+    assert.match(read('supabase/022_payments.sql'), /reservation_id\s+UUID\s+REFERENCES reservations\(id\) ON DELETE SET NULL/);
+    // Kart tahsil durumunu okuyor.
+    assert.match(read('mobile/src/lib/managerSource.ts'), /\.select\(`\$\{RES_COLS\}, updated_at, is_paid`\)/);
 });
