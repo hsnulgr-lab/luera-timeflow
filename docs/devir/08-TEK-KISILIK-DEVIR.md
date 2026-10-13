@@ -1826,3 +1826,41 @@ Kullanıcı: "T2 takvim, kumandada komşu iş şeridi — iptal, kaldır, yapıl
   önermesin.
 - **Kumandanın "komşu iş" şeridi yapılmayacak** (v4 K1 notu, personel-06
   tasarımı). §27'deki "soruda" notu kapandı.
+
+## 34 · 2026-10-13 · RANDEVU KARTININ ALT SAYFALARI = iOS'UN SAYFASI
+
+Kullanıcının isteği: "Hizmeti değiştir, Notu düzenle — Kasa'daki gibi aşağı
+çekince kapansın, bozmadan." Bu iki sayfa `BottomSheet`ti; tutamak çiziliydi
+ama sürüklenmiyordu. Artık Kasa'nın yapısını kullanıyorlar (§29).
+
+**Yapı**
+- İki sayfa kök yığında rota: `randevu/hizmet`, `randevu/not`.
+- Seçenekleri `APPT_SHEET`: `formSheet`, `fitToContents`, sistem tutamağı
+  kapalı.
+- Veri ve kayıt randevu kartında kalıyor. Köprü `state/apptSheet.ts`;
+  Kasa'nın köprüsüne dokunulmadı.
+- Kayıt sırası: rota önce kapanıyor, sonra kart kendi yolundan yazıyor
+  (`onUpdate`).
+- Hızlı çift dokunuş iki sayfa itmesin diye `apptSheetOpen()` kapısı var.
+
+**"Hizmeti değiştir" ve kaydırıcı**
+- Liste uzun, kaydırıcı şart. react-native-screens içerik boyundaki
+  sayfada kaydırıcıyı yalnız iki düzende doğru çiziyor:
+  - kaydırıcı tek başına,
+  - `collapsable={false}` bir başlık + kaydırıcı.
+- Kaynak: `RNSScreenContentWrapper.mm ·
+  coerceChildScrollViewComponentSizeToSize`. Kaydırıcı üçüncü sıradaysa
+  sayfanın tepesine ve tam boyuna yayılıyor (`NO` dönüp eski yola düşüyor);
+  Kasa fişinde görülen buydu.
+- Bu yüzden `ServiceSheet` bir kap DÖNDÜRMÜYOR. Sayfanın iki çocuğu var:
+  başlık (`collapsable={false}`: tutamak, başlık + Kaydet, alt satır) ve
+  kaydırıcı. Testle kilitli.
+
+**"Notu düzenle"**
+- Kaydırıcı yok. Çok satırlı alan bir kaydırıcı bileşeni değil.
+
+**Kanıt**
+- `tests/randevu-alt-sayfa.test.mjs`; tüm paket 2958 / 0 kırık; `tsc`
+  temiz; yeni lint bulgusu yok.
+- Metro iOS paketi derlendi.
+- Telefonda denenmedi.

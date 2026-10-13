@@ -69,6 +69,16 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 // Kök kabuk. Tema ve güvenli alan burada; rota grupları altta.
 
+/**
+ * Randevu kartının alt sayfaları (Hizmeti değiştir, Notu düzenle) — Kasa'nın
+ * sayfalarıyla aynı: iOS'un sayfası, boyu içerik kadar, aşağı çekince kapanır.
+ */
+const APPT_SHEET = {
+    presentation: 'formSheet',
+    sheetAllowedDetents: 'fitToContents',
+    sheetGrabberVisible: false,
+} as const;
+
 /** Kasa'nın sayfaları: iOS'un sayfası, boyu içerik kadar. */
 const CASH_SHEET = {
     presentation: 'formSheet',
@@ -117,6 +127,11 @@ function Shell() {
                     sayfa değil, arkası duran bir yüzey olarak çiziyor ve
                     üstündeki tutamak ancak öyle anlam taşıyor. */}
                 <Stack.Screen name="(manager-flow)/randevu/[id]" options={{ presentation: 'modal' }} />
+                {/* Kartın alt sayfaları kartın ÜSTÜNDE açılıyor (2026-10-13):
+                    Kasa'nınkiler gibi içerik boyunda, aşağı çekince kapanır.
+                    Verisi kartta: `src/state/apptSheet.ts`. */}
+                <Stack.Screen name="(manager-flow)/randevu/hizmet" options={APPT_SHEET} />
+                <Stack.Screen name="(manager-flow)/randevu/not" options={APPT_SHEET} />
 
                 {/* Kasa'nın üç sayfası — randevu kartının kabuğu, ama boyu
                     İÇERİK KADAR (2026-10-13, kullanıcı: "tahsilata göre zaten

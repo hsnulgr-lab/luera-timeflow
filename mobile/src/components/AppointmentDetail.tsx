@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, ScrollView, Text, View } from 'react-native';
 
-import { ConfirmDialog, NoteSheet, ServiceSheet } from './ApptSheets';
+import { useRouter } from 'expo-router';
+
+import { ConfirmDialog } from './ApptSheets';
+import { apptSheetOpen, showApptSheet } from '../state/apptSheet';
 import { SheetGrab, SheetHeader } from './Sheet';
 import {
     AttendanceRow, ChangeRows, ChangeTiles, ContactRows, DangerAction, Identity, InfoLine,
@@ -73,8 +76,38 @@ export function AppointmentDetail({
     onDelete?: () => void;
 }) {
     const { c, reduceMotion } = useTheme();
-    const [sheet, setSheet] = useState<'service' | 'note' | null>(null);
+    const router = useRouter();
     const [confirming, setConfirming] = useState<DestructiveAction | null>(null);
+
+    /*
+     * ALT SAYFALAR iOS'un sayfası (2026-10-13): "Hizmeti değiştir" ve "Notu
+     * düzenle" artık kök yığının rotası (`randevu/hizmet`, `randevu/not`),
+     * Kasa'nınkiler gibi içerik boyunda ve aşağı çekince kapanıyor. Veri ve
+     * yazma burada kalıyor; köprü (`state/apptSheet.ts`) taşıyor. Kayıt,
+     * sayfa kapandıktan sonra kartın kendi yolundan (`onUpdate`) gidiyor.
+     */
+    const openSheet = (action: 'service' | 'note') => {
+        if (apptSheetOpen()) return;
+        if (action === 'service') {
+            showApptSheet({
+                kind: 'service',
+                appointment,
+                dayAppointments,
+                services,
+                staffName,
+                solo,
+                onPick: (choice) => onUpdate?.(applyService(appointment, choice)),
+            });
+            router.push('/randevu/hizmet');
+            return;
+        }
+        showApptSheet({
+            kind: 'note',
+            appointment,
+            onSave: (text) => onUpdate?.(applyNote(appointment, text)),
+        });
+        router.push('/randevu/not');
+    };
 
     const identity = useMemo(
         () => identityOf(appointment, staffName, undefined, solo),
@@ -187,7 +220,7 @@ export function AppointmentDetail({
                             ) : null}
                             <ChangeRows
                                 rows={rows}
-                                onPress={(action) => setSheet(action === 'service' ? 'service' : 'note')}
+                                onPress={(action) => openSheet(action === 'service' ? 'service' : 'note')}
                             />
                         </>
                     ) : (
@@ -229,24 +262,6 @@ export function AppointmentDetail({
                     </View>
                 </Stage>
             </ScrollView>
-
-            <ServiceSheet
-                visible={sheet === 'service'}
-                appointment={appointment}
-                dayAppointments={dayAppointments}
-                services={services}
-                staffName={staffName}
-                solo={solo}
-                onDismiss={() => setSheet(null)}
-                onPick={(choice) => { setSheet(null); onUpdate?.(applyService(appointment, choice)); }}
-            />
-
-            <NoteSheet
-                visible={sheet === 'note'}
-                appointment={appointment}
-                onDismiss={() => setSheet(null)}
-                onSave={(text) => { setSheet(null); onUpdate?.(applyNote(appointment, text)); }}
-            />
 
             <ConfirmDialog
                 visible={confirming !== null}

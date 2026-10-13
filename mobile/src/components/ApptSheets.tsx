@@ -5,7 +5,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { Num } from './ui';
-import { BottomSheet, SheetGrab } from './Sheet';
+import { SheetGrab } from './Sheet';
 import { feedback } from '../lib/feedback';
 import {
     NOTE_HINT, NOTE_SCOPE, NOTE_TITLE, SERVICE_SHEET_TITLE, confirmCopy,
@@ -95,8 +95,7 @@ function SheetSub({ text }: { text: string }) {
 
 // ── B · Hizmeti değiştir ────────────────────────────────────────────────────
 
-export function ServiceSheet({ visible, appointment, dayAppointments, services, staffName, solo = false, onDismiss, onPick }: {
-    visible: boolean;
+export function ServiceSheet({ appointment, dayAppointments, services, staffName, solo = false, onPick }: {
     appointment: Appt;
     dayAppointments: readonly Appt[];
     /** Salonun GERÇEK kataloğu. */
@@ -104,35 +103,51 @@ export function ServiceSheet({ visible, appointment, dayAppointments, services, 
     staffName?: string | null;
     /** Tek kişilik: alt başlıkta "X ile" yok, çakışma adsız (v4 · karar 3). */
     solo?: boolean;
-    onDismiss: () => void;
     onPick: (choice: ServiceChoice) => void;
 }) {
     const { c } = useTheme();
+    // Sayfa her açılışta yeniden kuruluyor (rota): seçim kendiliğinden sıfır.
     const [picked, setPicked] = useState<string | null>(null);
     const choices = serviceChoices(appointment, dayAppointments, staffName, services, solo);
     const chosen = choices.find((choice) => choice.id === picked) ?? null;
 
-    useEffect(() => { if (!visible) setPicked(null); }, [visible]);
-
+    /*
+     * İKİ KARDEŞ, BAŞKA HİÇBİR ŞEY — bilerek.
+     *
+     * Sayfa iOS'un içerik boyundaki sayfası (`randevu/hizmet.tsx`).
+     * react-native-screens bu sayfada bulduğu kaydırıcıyı kendisi
+     * boyutlandırıyor ve YALNIZ iki düzeni doğru çiziyor: kaydırıcı tek
+     * başına ya da `collapsable={false}` bir başlık + kaydırıcı
+     * (`RNSScreenContentWrapper.mm` · `coerceChildScrollViewComponentSizeToSize`).
+     * Kaydırıcı üçüncü sıraya düşerse sayfanın tepesine ve tam boyuna
+     * yayılıyor — Kasa fişinde gövde başlığın üstüne binmişti (2026-10-13).
+     * Bu yüzden kök bir kap YOK: başlık ve liste doğrudan sayfanın çocukları.
+     */
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss}>
-            <SheetGrab />
-            <View style={{
-                paddingHorizontal: apptCardMetrics.sheetPadX,
-                paddingBottom: apptCardMetrics.sheetPadBottom,
-                gap: apptCardMetrics.sheetGap,
-            }}>
-                <SheetHeading
-                    title={SERVICE_SHEET_TITLE}
-                    action="Kaydet"
-                    actionOn={chosen !== null}
-                    onAction={() => { if (chosen) onPick(chosen); }}
-                />
-                {/* Sheet sayfanın üstünde açılıyor ve sayfa görünmüyor:
-                    hangi randevuyu değiştirdiğini sheet KENDİ söylüyor. */}
-                <SheetSub text={serviceSheetSubtitle(appointment, solo ? null : staffName)} />
+        <>
+            <View collapsable={false} style={{ backgroundColor: c.bg, paddingBottom: apptCardMetrics.sheetGap }}>
+                <SheetGrab />
+                <View style={{ paddingHorizontal: apptCardMetrics.sheetPadX, gap: apptCardMetrics.sheetGap }}>
+                    <SheetHeading
+                        title={SERVICE_SHEET_TITLE}
+                        action="Kaydet"
+                        actionOn={chosen !== null}
+                        onAction={() => { if (chosen) onPick(chosen); }}
+                    />
+                    {/* Sayfa kartın üstünde açılıyor ve kart görünmüyor:
+                        hangi randevuyu değiştirdiğini sayfa KENDİ söylüyor. */}
+                    <SheetSub text={serviceSheetSubtitle(appointment, solo ? null : staffName)} />
+                </View>
+            </View>
 
-                <ScrollView style={{ maxHeight: 396 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                style={{ maxHeight: 396, backgroundColor: c.bg }}
+                contentContainerStyle={{
+                    paddingHorizontal: apptCardMetrics.sheetPadX,
+                    paddingBottom: apptCardMetrics.sheetPadBottom,
+                }}
+                showsVerticalScrollIndicator={false}
+            >
                     {choices.map((choice, index) => {
                         const selected = picked === null ? choice.selected : picked === choice.id;
                         return (
@@ -224,30 +239,28 @@ export function ServiceSheet({ visible, appointment, dayAppointments, services, 
                             </Pressable>
                         );
                     })}
-                </ScrollView>
-            </View>
-        </BottomSheet>
+            </ScrollView>
+        </>
     );
 }
 
 // ── C · Notu düzenle ────────────────────────────────────────────────────────
 
-export function NoteSheet({ visible, appointment, onDismiss, onSave }: {
-    visible: boolean;
+export function NoteSheet({ appointment, onSave }: {
     appointment: Appt;
-    onDismiss: () => void;
     onSave: (text: string) => void;
 }) {
     const { c } = useTheme();
+    // Sayfa her açılışta yeniden kuruluyor (rota): alan kaydın kendisiyle başlıyor.
     const [text, setText] = useState(appointment.notes ?? '');
-
-    useEffect(() => { if (visible) setText(appointment.notes ?? ''); }, [visible, appointment.notes]);
 
     const changed = text.trim() !== (appointment.notes ?? '').trim();
     const warn = text.length > NOTE_WARN;
 
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss}>
+        // İçerik boyundaki iOS sayfası (`randevu/not.tsx`): kökte `flex` yok,
+        // kaydırıcı yok — çok satırlı alan bir kaydırıcı bileşeni değil.
+        <View style={{ backgroundColor: c.bg }}>
             <SheetGrab />
             <View style={{
                 paddingHorizontal: apptCardMetrics.sheetPadX,
@@ -277,7 +290,7 @@ export function NoteSheet({ visible, appointment, onDismiss, onSave }: {
                         value={text}
                         onChangeText={setText}
                         multiline
-                        autoFocus={visible}
+                        autoFocus
                         maxLength={NOTE_MAX}
                         placeholder="Salonun notu…"
                         placeholderTextColor={c.tx3}
@@ -312,7 +325,7 @@ export function NoteSheet({ visible, appointment, onDismiss, onSave }: {
                     </Num>
                 </View>
             </View>
-        </BottomSheet>
+        </View>
     );
 }
 

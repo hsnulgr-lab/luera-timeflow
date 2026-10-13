@@ -264,9 +264,12 @@ test('dolu not önizleme olarak görünür', () => {
 test('her chevron gerçekten bir şey açıyor', () => {
     // Bu sayfanın en büyük şikâyeti buydu: chevron gösterip hiçbir şey
     // açmayan satırlar.
-    assert.match(page, /setSheet\(action === 'service' \? 'service' : 'note'\)/);
-    assert.match(page, /<ServiceSheet/);
-    assert.match(page, /<NoteSheet/);
+    assert.match(page, /openSheet\(action === 'service' \? 'service' : 'note'\)/);
+    // İki sayfa da iOS'un sayfası, kök yığının rotası (2026-10-13).
+    assert.match(page, /router\.push\('\/randevu\/hizmet'\)/);
+    assert.match(page, /router\.push\('\/randevu\/not'\)/);
+    assert.match(code('app/(manager-flow)/randevu/hizmet.tsx'), /<ServiceSheet/);
+    assert.match(code('app/(manager-flow)/randevu/not.tsx'), /<NoteSheet/);
 });
 
 // ── B · Hizmeti değiştir ────────────────────────────────────────────────────
@@ -634,7 +637,7 @@ test('kart salonun GERÇEK kataloğunu kullanıyor — sahte katalog yok', () =>
     assert.doesNotMatch(lib, /mockServices/);
     assert.match(lib, /return services\.map\(\(service\) =>/);
     assert.match(page, /changeRows\(appointment, services\)/);
-    assert.match(page, /services=\{services\}/);
+    assert.match(page, /kind: 'service',\s*appointment,\s*dayAppointments,\s*services,/);
     // Son parametre tek kişilik bayrağı: çakışma cümlesi adsız (karar 3).
     assert.match(sheets, /serviceChoices\(appointment, dayAppointments, staffName, services, solo\)/);
     assert.match(route, /services=\{data\.services\}/);
