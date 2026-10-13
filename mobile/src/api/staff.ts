@@ -447,15 +447,25 @@ export const api = {
      * `idempotencyKey` yine de gidiyor: kuyruk yok ama kullanıcının iki kez
      * dokunması var.
      *
+     * ANAHTAR DENEMEYE AİT, RANDEVUYA DEĞİL (2026-10-13). Eskiden
+     * `visit.collect:<randevu>:<yöntem>` idi. Kasa'da "Geri al" adisyonu
+     * yeniden açıyor (111 · `revert_payment`); aynı yöntemle yeniden tahsil
+     * edince anahtar ilk tahsilatınkiyle AYNI çıkıyordu ve sunucu kütükteki
+     * eski cevabı dönüyordu — kasaya hiçbir şey yazılmadan ekran "Kartla
+     * tahsil edildi" diyordu. `attempt` dokunuşta bir kez basılıyor: aynı
+     * dokunuşun tekrarı yine tek kayıt, yeni dokunuş yeni istek. Yeni
+     * dokunuşta ikinci kaydı sunucunun "canlı tahsilat var mı" sorgusu
+     * engelliyor (geri alınmışı saymıyor).
+     *
      * TUTAR GÖNDERİLMİYOR. Sunucu adisyondan ve randevunun hizmetinden
      * kendisi hesaplıyor; telefona "bu iş kaç lira" dedirtmek, ele geçmiş
      * bir jetonla kasaya istenen rakamı yazdırmak olurdu.
      */
-    visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer') =>
+    visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer', attempt: string) =>
         call('visit.collect', {
             reservationId,
             method,
-            idempotencyKey: `visit.collect:${reservationId}:${method}`,
+            idempotencyKey: `visit.collect:${reservationId}:${method}:${attempt}`,
         }),
     /**
      * Randevunun serbest notu — müşteri görmez. Aynı sütunu masaüstü ve

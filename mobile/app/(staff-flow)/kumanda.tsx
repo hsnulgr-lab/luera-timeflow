@@ -168,6 +168,12 @@ export default function Kumanda() {
     const [collectCode, setCollectCode] = useState<string | null>(null);
     /** Tahsilat isteği TEK kez gider — etki yeniden koşsa bile. */
     const collectingRef = useRef(false);
+    /**
+     * Dokunuşun kimliği — idempotens anahtarına giriyor (`api.visitCollect`).
+     * Geri alınıp yeniden açılan adisyonda yeni dokunuş yeni anahtar demek;
+     * randevuya bağlı sabit anahtar eski tahsilatın cevabını geri getiriyordu.
+     */
+    const collectAttemptRef = useRef('');
     const sent = isSealed(send);
 
     /**
@@ -479,7 +485,7 @@ export default function Kumanda() {
         if (collectingRef.current) return undefined;
         collectingRef.current = true;
         let alive = true;
-        void api.visitCollect(base.id, collectMethod)
+        void api.visitCollect(base.id, collectMethod, collectAttemptRef.current)
             .then(() => {
                 collectingRef.current = false;
                 if (!alive) return;
@@ -1114,6 +1120,7 @@ export default function Kumanda() {
                             errorCode={collectCode}
                             onPick={setCollectMethod}
                             onCollect={() => {
+                                collectAttemptRef.current = String(Date.now());
                                 setCollectCode(null);
                                 setCollectStage('sending');
                                 // Gönderim yapılmadıysa önce o: `visit.collect`

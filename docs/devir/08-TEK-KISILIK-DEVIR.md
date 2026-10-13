@@ -1953,3 +1953,39 @@ kalınca zaten görünüyor.
 Göç yok, deploy yok. Kanıt: `tests/ekipten-cikar.test.mjs`; tüm paket
 2968 / 0 kırık; `tsc` temiz; yeni lint bulgusu yok; Metro iOS paketi
 derlendi. Telefonda denenmedi.
+
+---
+
+## 37 · 2026-10-13 · GERİ ALINAN TAHSİLAT YENİDEN TAHSİL EDİLEMİYORDU
+
+**Telefonda bulundu.** Elif Demir kartla tahsil edildi (₺1.650), Kasa'da
+geri alındı (adisyon yeniden açıldı), kumandada yine KARTLA tahsil edildi.
+Ekran "Kartla tahsil edildi" dedi; Kasa ve Gün "1 adisyon tahsil edilmedi ·
+₺1.650" demeye devam etti.
+
+**Sebep:** `api.visitCollect`in idempotens anahtarı
+`visit.collect:<randevu>:<yöntem>` idi. Aynı yöntemle ikinci tahsilat ilk
+tahsilatla AYNI anahtarı gönderdi; staff-api kütükte (`staff_write_log`)
+ilk tahsilatın başarılı cevabını bulup hiçbir şey yazmadan onu döndü.
+Sunucunun ikinci kapısı (canlı tahsilat sorgusu, `voided_at IS NULL`)
+doğruydu ama kütük ondan önce çalışıyor. Başka yöntemle (nakit) denense
+çalışırdı.
+
+**Düzeltme (yalnız istemci):** anahtar dokunuşa ait —
+`visit.collect:<randevu>:<yöntem>:<dokunuş>`; dokunuş kimliği "Tahsil et"e
+basılınca bir kez basılıyor (`collectAttemptRef`). Aynı dokunuşun tekrarı
+yine tek kayıt; yeni dokunuşta ikinci para kaydını sunucunun canlı tahsilat
+sorgusu engelliyor. Diğer yazmalar (`write`, `visit.wait`) zaten
+`Date.now()` taşıyordu.
+
+**Yan bulgu:** `staff-api-sozlesme` ayıklayıcısı `visit.collect` ve
+`visit.wait`in DIŞ nesnesini hiç görmüyordu — alanları şablon dizgesinin
+`${…}`inden tesadüfen topluyordu. Şablonlar önce eleniyor; iki eylemin
+alanları artık açıkça sınanıyor.
+
+**Veri:** onarım gerekmiyor. İkinci deneme kasaya bir şey yazmadı; randevu
+`is_paid = false`, tahsilat damgalı — yeniden "Tahsil et" doğru kaydı yazar.
+
+Göç yok, deploy yok. Kanıt: `tests/tek-tahsilat.test.mjs` (yeni test eski
+kodda kırılıyor), tüm paket 2969 / 0 kırık; `tsc` temiz; kumandanın lint
+sayısı aynı (24).

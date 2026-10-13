@@ -207,6 +207,33 @@ test('tahsilat isteği TEK kez gidiyor', () => {
     assert.match(kumanda, /if \(collectingRef\.current\) return undefined;\s*collectingRef\.current = true;/);
 });
 
+test('GERİ ALINAN tahsilattan sonra aynı yöntemle yeniden tahsil kasaya YAZIYOR', () => {
+    /*
+     * Telefonda bulundu (2026-10-13): Elif Demir kartla tahsil edildi, Kasa'da
+     * geri alındı, kumandada yine KARTLA tahsil edildi → ekran "Kartla tahsil
+     * edildi", Kasa ve Gün "adisyon açık". Anahtar randevu + yöntemdi; sunucu
+     * idempotens kütüğünde ilk tahsilatın cevabını bulup hiçbir şey yazmadan
+     * onu dönüyordu.
+     *
+     * Kural: anahtar DOKUNUŞA ait. Aynı dokunuşun tekrarı aynı anahtar, yeni
+     * dokunuş yeni anahtar; ikinci para kaydını sunucunun canlı tahsilat
+     * sorgusu engelliyor (geri alınmışı saymıyor).
+     */
+    const block = client.slice(client.indexOf('visitCollect:'), client.indexOf('visitNote:'));
+    const key = block.match(/idempotencyKey: `([^`]*)`/);
+    assert.ok(key, 'tahsilatın anahtarı yok');
+    assert.match(key[1], /\$\{attempt\}/, 'anahtar dokunuşu taşımıyor — geri alınan tahsilatın cevabı geri gelir');
+    assert.notEqual(key[1], 'visit.collect:${reservationId}:${method}');
+
+    // Dokunuş kimliği DOKUNUŞTA basılıyor — etkide değil (etki yeniden koşar).
+    assert.match(kumanda, /onCollect=\{\(\) => \{\s*collectAttemptRef\.current = String\(Date\.now\(\)\);/);
+    assert.match(kumanda, /api\.visitCollect\(base\.id, collectMethod, collectAttemptRef\.current\)/);
+    assert.doesNotMatch(kumanda, /collectAttemptRef\.current = [^;]*;[\s\S]{0,40}api\.visitCollect/);
+
+    // Sunucunun ikinci kapısı geri alınmışı "zaten alındı" saymıyor.
+    assert.match(endpoint, /\.is\('voided_at', null\)/);
+});
+
 test('İKİNCİ bir gönderim yolu YAZILMADI', () => {
     /*
      * Var olan yol iyimser kilidi, kuyruğu, "zaten kapandı" dalını ve

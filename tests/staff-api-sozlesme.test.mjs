@@ -50,11 +50,17 @@ function serverReads() {
 function clientSends() {
     const out = new Map();
     for (const m of client.matchAll(/(?:call|write)\('([a-z.]+)',\s*([\s\S]*?)\)[,;]/g)) {
+        // ŞABLON DİZGELERİ ÖNCE ELENİYOR (2026-10-13). İdempotens anahtarı
+        // `\`visit.collect:${reservationId}:${method}\`` gibi yazılıyor; `${…}`
+        // içindeki süslü parantez dış nesneyi bölüyordu. Ayıklayıcı dış
+        // nesneyi HİÇ görmüyor, alanları şablonun içinden tesadüfen
+        // topluyordu — anahtara `${attempt}` girince "sunucu okumuyor" dedi.
+        const literal = m[2].replace(/`[^`]*`/g, '""');
         // Süslü parantezlerin İÇİ alınıp virgülle bölünüyor. Tek bir regex'le
         // yürümek bindirmeli eşleşmeye takılıyordu: `{ a, b }` içinde virgül
         // ilk eşleşmede tüketildiği için `b` hiç görünmüyor ve karşılaştırma
         // sessizce boşa düşüyordu.
-        const inner = [...m[2].matchAll(/\{([^{}]*)\}/g)].map((g) => g[1]).join(',');
+        const inner = [...literal.matchAll(/\{([^{}]*)\}/g)].map((g) => g[1]).join(',');
         // KÖR NOKTA kapatıldı: eskiden yalnız KISAYOL alanlar (`{ items }`)
         // sayılıyordu. `{ expectedUpdatedAt: expected ?? null }` gibi açık
         // yazılmış her alan görünmezdi — yani istemcinin gönderdiği bir alanın
@@ -66,7 +72,9 @@ function clientSends() {
                 ?? /^([a-zA-Z_][a-zA-Z0-9_]*)\s*:/.exec(piece)?.[1]
                 ?? null
             ))
-            .filter((key) => key !== null));
+            // İdempotens anahtarını eylem bloğu değil, ORTAK KAPI okuyor;
+            // aşağıdaki "GERÇEKTEN okunuyor" testi onu ayrıca sınıyor.
+            .filter((key) => key !== null && key !== 'idempotencyKey'));
         // `...patch` yayılıyorsa alanları imzadaki tipten geliyor.
         if (/\.\.\.patch/.test(m[2])) {
             const sig = client.slice(client.lastIndexOf('patch: {', m.index), m.index);
@@ -89,6 +97,10 @@ test('ayıklama GERÇEKTEN çalışıyor', () => {
     assert.deepEqual([...(sends.get('visit.items') ?? [])].sort(),
         ['expectedUpdatedAt', 'items', 'reservationId']);
     assert.ok(reads.get('visit.formula')?.has('tags'), 'sunucu tags okumalı');
+    // Şablon dizgeli anahtar taşıyan eylemlerde DIŞ nesne okunuyor — alanlar
+    // şablonun `${…}`inden değil.
+    assert.deepEqual([...(sends.get('visit.collect') ?? [])].sort(), ['method', 'reservationId']);
+    assert.deepEqual([...(sends.get('visit.wait') ?? [])].sort(), ['minutes', 'reservationId']);
 });
 
 // ── 1 · Gönderilen her alan OKUNUYOR mu ────────────────────────────────────
