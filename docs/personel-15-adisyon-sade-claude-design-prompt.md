@@ -20,13 +20,18 @@ o yüzden **yeni satır kapanışta da kullanılacak** (bkz. K-kare).
 2. `Luera Mobil - Tek Kisilik v4.html` + `tek4-kit.js` + `tek4-ekranlar.js` +
    `tek4-belge.js` — **dördü birlikte** (HTML ötekileri yüklüyor). Bakılacak
    kareler: **K2** (işlemde) ve **K3** (kapanış · tahsilat).
-3. **Ekran görüntüleri (canlı telefon):**
-   - kumanda, iş sürerken: sayaç, plan çubuğu, adisyon şeridi
-   - "+" ile açılan **Adisyon** sayfası, 3–4 kalem ve randevu hizmetiyle
-   - aynı sayfa, **tutar açıkken** (göze dokunulmuş, fitil akıyor)
-   - bir satır **açıkken** (− adet + · Kaldır)
-   - silme penceresi ("Geri al" sayacı)
-   - kapanış ekranı (kalem listesi kadranın altında)
+3. **Ekran görüntüleri (canlı telefon, tek kişilik hesap, koyu tema):**
+   1. kumanda, iş sürerken: 31:45, plan çubuğu, şerit "ADİSYON · 1 KALEM ·
+      son Kaş Tasarımı", toplam `•••`
+   2. "+" ile açılan **Adisyon** sayfası, tutar gizli. ⚠️ Bu hesapta geçmiş
+      yok, o yüzden **sık kullanılan kutular boş hâlde** ("henüz yok"). Dolu
+      hâli (2 × 3 kutu, 68 pt) aşağıdaki envanterde tarif edildi
+   3. aynı sayfa, bir satır **açık** (− 1 + · Kaldır) ve **tutar açık**
+      (₺350). Satıra dokunmak tutarı da açıyor
+   4. **silme penceresi** ("Geri al" sayacı), satırın kendi yerinde
+   5. **malzemeli adisyon:** MALZEME grubu, "DEPODAN DÜŞER" ve formül satırı
+   6. kapanış · ADİSYON AÇIK: ₺5.400, tahsilat güvertesi, satır açık
+   7. kapanış · TAHSİL EDİLDİ: mühürlü şerit, kilitli satırlar
 
 **Effort: High.**
 
@@ -241,6 +246,11 @@ Kalemler kumandada doğrudan görünür; alt sayfa yalnız eklemek için açıl�
   kalem listesi yeni satırla çizilir. Kapanışta toplam kadranda yazıyor;
   satırların tutarı ile kadranın toplamı **aynı maskeyi** paylaşır (biri
   açık, öteki kapalı kalamaz).
+  ⚠️ **Canlıda görülen tutarsızlık (görüntü 6):** kadran "TOPLAM · 2 KALEM"
+  diyor (randevu hizmeti + Ağda), hemen altındaki şerit "ADİSYON · 1 KALEM".
+  Aynı ekranda iki ayrı sayı, iki ayrı "kalem" anlamı. Toplam artık iş
+  sürerken de randevu hizmetini içerdiği için **"kalem" tek bir anlama
+  inmeli**, iki evrede de aynı. Hangisi olduğunu sen öner, gerekçesiyle.
 
 ---
 
