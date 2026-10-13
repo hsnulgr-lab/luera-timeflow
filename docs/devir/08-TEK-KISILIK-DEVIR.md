@@ -317,6 +317,40 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
+### ⏳ BEKLİYOR (2026-10-13) — 116 (tek kişilikte kendine bildirim yok · §31)
+
+Yalnız göç. Edge function deploy'u yok, telefonda yeniden derleme yok.
+Mağazadaki sürüm etkilenmiyor: değişen yalnız sunucunun hangi bildirimi
+göndereceği.
+
+**0 · Ön kontrol** — beklenen `false bytea` (göç yok, kuyruk gövdesi bytea):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select (position('NOT v_solo' in pg_get_functiondef('public.notify_push_on_reservation()'::regprocedure)) > 0)::text || ' ' || format_type(atttypid, atttypmod) from pg_attribute where attrelid = 'net.http_request_queue'::regclass and attname = 'body'\""
+```
+
+**1 · Kuru koşu** — göç + davranış testi TEK işlemde, sonunda geri sarılır;
+kuyruğa düşen istekler de gönderilmeden siliniyor. Beklenen: `CREATE
+FUNCTION`, `tek bildirim (116) regression: ok`, `ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/116_tek_kendine_bildirim_yok.sql; sed -e '/^BEGIN;$/d' supabase/tests/tek_bildirim_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse). Beklenen: `BEGIN`, `CREATE
+FUNCTION`, `NOTIFY`, `COMMIT`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/116_tek_kendine_bildirim_yok.sql
+```
+
+**3 · Test** (göçten sonra, iz bırakmaz). Beklenen: `tek bildirim (116)
+regression: ok` ve `ROLLBACK`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/tests/tek_bildirim_regression.sql
+```
+
 ### ✅ YAPILDI (2026-10-12) — 115 (sahibin adı + tek kişiliğe dönüş · §24)
 
 Kullanıcı dört adımı sırayla çalıştırdı:
@@ -1710,3 +1744,33 @@ vardı. Kullanıcı personel sayfasındaki geçişi istedi (`SendToCash` ·
 
 Kanıt: 2942 geçti / 0 kırık · `tsc` temiz · lint temiz. Telefonda
 denenmedi.
+
+## 31 · 2026-10-13 · TEK KİŞİLİKTE KENDİNE BİLDİRİM YOK (göç 116)
+
+Telefonda tahsilattan hemen sonra kilit ekranına "Adisyon kasada 💰 ·
+Tuğçe · Kalıcı Makyaj · tahsil bekliyor" düştü. Bildirim iki yönden
+yanlıştı:
+- Tek kişilikte müdür, adisyonu gönderen ve parayı alan aynı kişi.
+- Para çoktan alınmıştı. Kumanda gönderimi ve tahsilatı art arda yapıyor;
+  bildirim gönderimde kuyruğa düşüyor.
+
+106'nın müdür olayları ekip düzeni için yazılmıştı; 108 bu fonksiyona hiç
+dokunmamıştı.
+
+116 `notify_push_on_reservation`ı 107'den türetiyor ve yalnız iki koşulu
+değiştiriyor:
+- **Adisyon kasada → müdür:** tek kişilikte hiç gönderilmiyor. Gönderim
+  staff-api'den servis anahtarıyla geliyor, yani "kim yaptı" okunamıyor;
+  ayrım işletme düzeninden. Açık adisyonu G4 kartı hatırlatıyor.
+- **İptal → müdür:** tek kişilikte sahip KENDİ iptal ettiyse
+  (`auth.uid() = owner_id`) gönderilmiyor. Oturumsuz iptal (WhatsApp,
+  halka açık sayfa) yine gidiyor; NULL "sahip değil" sayılıyor.
+
+Ekip düzeni sıfır değişti. Metin testi bunu kilitliyor: iki koşul ve bir
+okuma geri alınınca fonksiyon 107'yle birebir aynı.
+
+Kanıt:
+- PGlite'ta göç sonrası test geçti; 107 hâli reddedildi; beş mutasyonun
+  beşi yakalandı.
+- `tests/tek-bildirim.test.mjs` geçiyor; tüm paket 2946 / 0 kırık.
+- Canlı göç bekliyor (§6).
