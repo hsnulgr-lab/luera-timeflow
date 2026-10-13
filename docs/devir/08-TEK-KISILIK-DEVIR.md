@@ -2110,3 +2110,42 @@ gürültüsü). Tüm paket 2991 / 0 kırık; `tsc` temiz.
 
 **Deploy bekliyor (§6).** `public/gizlilik.html` ve `destek.html`'deki
 "Telefonumu kaybettim" SSS'i bu adıma göre güncellendi (§40).
+
+---
+
+## 40 · 2026-10-13 · GİZLİLİK METNİ YENİDEN YAZILDI (yayımlanmadı)
+
+Kullanıcı: "gizlilik metni araştır ve sen yaz, var olanı da kontrol et."
+`public/gizlilik.html` + `destek.html` (aynı belge). Araştırma: KVKK 7499
+değişikliği (md. 6 ve md. 9, 1 Haziran 2024), Aydınlatma Tebliği md. 4, KVKK
+"Yurt Dışına Aktarım" sayfası (Kurul henüz hiçbir yeterlilik kararı vermedi),
+Apple 5.1.1(i) ve 5.1.2(i) (üçüncü taraf yapay zekâya veri → açıkça yazılmalı
+ve önceden izin alınmalı).
+
+**Var olan metinde bulunanlar**
+1. Yapay zekâ hiç yazmıyordu. Oysa: hatırlatma/geri çağırma/paket yenileme
+   mesajları Google Gemini'yle (ilk ad + hizmet/saat/paket), taslaklar Groq'la
+   (ilk ad, son hizmet, gün), WhatsApp asistanı Groq/Gemini'yle (mesaj metni),
+   içgörü Groq'la (yalnız toplu sayı) yazılıyor. Telefon numarası hiçbirine
+   gitmiyor. **Hatırlatmada Gemini, sunucuda anahtar varsa salonun seçimi
+   olmadan devrede.**
+2. Luera'nın veri sorumlusu olduğu kısım (işletme sahibinin hesabı, abonelik,
+   giriş kayıtları, destek) yoktu — her şey "salon sorumlu" deniyordu.
+3. "Önemli değişikliklerde uygulama içinden ve e-postayla bilgi verilir" — iki
+   kanal da yok. Kaldırıldı.
+4. Sağlık notu "açık rıza gerekebilir" → 2024 sonrası netleştirildi (salon için
+   dayanak çoğu zaman açık rıza, aydınlatmadan ayrı).
+5. Ödeme sağlayıcısı (Dodo) ve Google Fonts (IP) yoktu.
+6. Giriş kayıtları (`staff_auth_log`, IP taşıyor) budanmıyor — metin artık
+   "hesap açık olduğu sürece" diyor.
+7. "Telefonumu kaybettim" SSS'i gerçek adımı söylüyor (§39).
+
+**⚠ Yayından önce (dosyanın baş yorumunda da yazılı):** Bölüm 5 "aktarımlar
+standart sözleşmelerle yapılır" diyor. Doğru olması için Hostinger, Expo,
+Groq, Google ve Dodo ile Kurul'un standart sözleşmesi imzalanıp 5 iş gününde
+bildirilmeli — ya da yol değiştirilmeli (sunucuyu Türkiye'ye almak, yapay
+zekâya ad göndermemek). Karar kullanıcıda. SSS'teki kopma adımı da 117 +
+staff-api deploy'undan sonra gerçek olur.
+
+Testler: `mobil-paket-sat` (iki dosya aynı, hesap silme cümleleri),
+`apple-yonlendirme-yasagi` geçti.
