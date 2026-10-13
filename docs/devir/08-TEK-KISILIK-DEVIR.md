@@ -1832,6 +1832,13 @@ Kullanıcı: "T2 takvim, kumandada komşu iş şeridi — iptal, kaldır, yapıl
 - **Kumandanın "komşu iş" şeridi yapılmayacak** (v4 K1 notu, personel-06
   tasarımı). §27'deki "soruda" notu kapandı.
 
+Aynı gün ikinci karar — kullanıcı: "bunları yapmaya gerek yok, kaldır."
+
+- **Gün kartının hapına üç öneri yapılmayacak:** gözlerin altına yazı,
+  hapın kartın altında değil üstünde açılması, "ŞU AN BOŞ" etiketinin
+  "SIRADAKİ" olması. Hap ve kart etiketi §27'deki hâlinde kalıyor; kodda
+  değişiklik yok (öneriler hiç uygulanmamıştı). Yeniden önerilmesin.
+
 ## 34 · 2026-10-13 · RANDEVU KARTININ ALT SAYFALARI = iOS'UN SAYFASI
 
 Kullanıcının isteği: "Hizmeti değiştir, Notu düzenle — Kasa'daki gibi aşağı
