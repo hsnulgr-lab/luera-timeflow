@@ -107,6 +107,54 @@ export async function sendVisitToCash(
  * Okunamazsa `false`: emin olmadan "gitti" demek, gitmemiş bir adisyonu
  * gitmiş gibi göstermek olurdu — asıl kaçınılan şey o.
  */
+/**
+ * KALEMLER ANINDA KAYDEDİLİYOR (2026-10-14 · kullanıcının notu 2).
+ *
+ * Telefonda bulundu: kumandada eklenen kalemler yalnız "kasaya gönder"de
+ * yazılıyordu; personel ya da tek kişilik sahip geri çıkınca hepsi
+ * gidiyordu. Kullanıcı: "veritabanına anında yazılması lazım" ve ekipte
+ * müdür ile masaüstü de anında görsün.
+ *
+ * Gönderimin ilk yarısının (`visit.items`) aynısı, kapanış YOK: adisyon açık
+ * kalıyor, "kasaya gönder"e kadar değiştirilebiliyor. Yazma kuyruğa
+ * girebiliyor (`write`): bodrum katında eklenen kalem sinyal gelince gider;
+ * liste her seferinde TAMAMI olduğu için sonraki yazma öncekini kapsıyor.
+ *
+ * İyimser kilit aynı (`expectedUpdatedAt`): başka bir cihaz arada yazdıysa
+ * sunucu reddedip güncel listeyi dönüyor — o `stale` olarak geri veriliyor,
+ * kumanda onu yabancı değişiklik sayıp "Adisyon başka bir cihazda değişti"
+ * şeridini çiziyor. Kimsenin kalemi sessizce ezilmiyor.
+ */
+export interface ItemsSaveOutcome extends WriteOutcome {
+    /** Sunucunun güncel listesi ve damgası — "başka cihaz yazdı". */
+    stale?: StampObservation | null;
+}
+
+export async function saveVisitItems(
+    reservationId: string,
+    lines: readonly AdisyonLine[],
+    expectedUpdatedAt: string | null,
+): Promise<ItemsSaveOutcome> {
+    const { items, skipped } = sendableOf(lines);
+    if (skipped > 0) return { code: 'items_unsendable', queued: false };
+    try {
+        const written = await api.visitItems(reservationId, items, expectedUpdatedAt);
+        if ((written as { queued?: boolean } | null)?.queued) return { code: null, queued: true };
+        return { code: null, queued: false, observation: observationOf(written, items), ownItems: true };
+    } catch (cause) {
+        const code = codeOf(cause);
+        if (code === 'items_stale' && cause instanceof ApiError) {
+            const stamp = typeof cause.body.updatedAt === 'string' ? cause.body.updatedAt : null;
+            return {
+                code,
+                queued: false,
+                stale: stamp ? { stamp, items: Array.isArray(cause.body.items) ? cause.body.items : [] } : null,
+            };
+        }
+        return { code, queued: false };
+    }
+}
+
 async function landedAsSent(reservationId: string, lines: readonly AdisyonLine[]): Promise<boolean> {
     try {
         const data = await api.agenda(todayISO()) as {

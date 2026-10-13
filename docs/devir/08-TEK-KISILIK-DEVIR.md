@@ -2196,3 +2196,34 @@ yeni lint bulgusu yok; Metro iOS paketi derlendi. Telefonda denenmedi.
 
 **Deploy bekliyor:** `remind booking-manage whatsapp-booking` (ortak modülde yalnız
 ekleme; onu kullanan `dodo-webhook`, `send-push`, `staff-nudge` eski hâliyle uyumlu).
+
+---
+
+## 42 · 2026-10-14 · KUMANDADA KALEMLER ANINDA KAYDEDİLİYOR (kullanıcının notu 2)
+
+Not: "İşlem kumandası açıkken geri sayfaya gelince tüm adisyon siliniyor, geri
+sayaç kapanıyor, sayfa sıfırlanıyor — veritabanına anında yazılması lazım."
+
+**Kalemler (gerçek hata):** yalnız "kasaya gönder"de yazılıyordu
+(`sendVisitToCash` → `visit.items` + `visit.finish`). Artık son dokunuştan
+0,7 sn sonra listenin tamamı yazılıyor (`visitWrite.saveVisitItems`, kapanış
+YOK). Kullanıcı kararı: ekipte müdür ve masaüstü de anında görsün.
+- Ne zaman yazılmıyor (`itemsAutosave.shouldSaveItems`): sunucunun listesi
+  benimsenmeden (ilk okumada boş listeyi yazmasın — `savedFor`), gönderim
+  sürerken, adisyon kasadayken, başka cihaz yazmışken, silme penceresi açıkken.
+- Aynı liste iki kez gitmiyor (`savedKey`); kalıcı hata aynı listeyi yeniden
+  denemiyor (sonraki değişiklik dener).
+- Kilit aynı: çakışmada (`items_stale`) sunucunun güncel listesi gözlem olarak
+  işleniyor → "Adisyon başka bir cihazda değişti" şeridi; kimse ezilmiyor.
+- Kuyruğa girebiliyor (`write`): liste her seferinde tamamı, sonraki öncekini
+  kapsıyor.
+
+**Bekleme halkası (hata DEĞİL):** geçici tanıyla (Metro günlüğü) telefonda
+izlendi. Her yeniden açılışta halka doğru geri kuruluyordu; kaybolma, halkaya
+DOKUNULMASINDAN (tek dokunuş beklemeyi kaldırıyor — telefon ve sunucu). Kullanıcı
+dokunduğunu doğruladı ve "dokununca bitsin" dedi: davranış değişmedi. Tanı
+satırları silindi.
+
+Kanıt: `tests/kumanda-aninda-kayit.test.mjs` (4); tüm paket 3008 / 0 kırık;
+`tsc` temiz; lint sayısı aynı. Kalemlerin telefonda kalıcılığı kullanıcıya
+soruldu.

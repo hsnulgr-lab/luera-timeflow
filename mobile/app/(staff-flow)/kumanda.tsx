@@ -49,7 +49,8 @@ import {
     queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
-import { sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait } from '../../src/lib/visitWrite';
+import { saveVisitItems, sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait } from '../../src/lib/visitWrite';
+import { ITEMS_SAVE_MS, itemsKey, shouldSaveItems } from '../../src/lib/itemsAutosave';
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
@@ -370,6 +371,54 @@ export default function Kumanda() {
         [lines, base?.adisyon_items],
     );
 
+    /*
+     * KALEMLER ANINDA KAYDEDİLİYOR (2026-10-14 · kullanıcının notu 2).
+     *
+     * Eskiden kalemler yalnız "kasaya gönder"de yazılıyordu: geri çıkan
+     * kişinin eklediği her şey gidiyordu. Artık son dokunuştan 0,7 sn sonra
+     * listenin tamamı yazılıyor (`saveVisitItems`); ekipte müdür ve masaüstü
+     * de anında görüyor. Kapanış YOK — adisyon "kasaya gönder"e kadar açık.
+     *
+     * Ne zaman YAZILMIYOR (`shouldSaveItems`): gönderim sürerken (kalemleri o
+     * yazıyor), adisyon kasadayken, başka bir cihaz yazmışken (önce şerit),
+     * silme penceresi açıkken (geri alınabilir). Aynı liste iki kez gitmiyor:
+     * `savedKey` en son yazılan ya da sunucudan benimsenen liste.
+     *
+     * Hata kalıcıysa aynı liste yeniden DENENMİYOR — bir sonraki değişiklik
+     * dener. Yoksa kalıcı bir hayır her 0,7 sn'de bir istek olurdu.
+     */
+    const savedKey = useRef('');
+    /**
+     * Taban HANGİ randevu için kuruldu. Kayıt etkisi sıfırlama etkisinden ÖNCE
+     * çalışıyor: ilk okumada ekrandaki liste henüz boşken "boş listeyi yaz"
+     * kararı verilmesin — sunucunun listesi benimsenmeden hiçbir şey gitmez.
+     */
+    const savedFor = useRef<string | null>(null);
+    useEffect(() => {
+        if (!base?.id) return undefined;
+        const key = itemsKey(lines);
+        if (!shouldSaveItems({
+            loaded: savedFor.current === base.id,
+            sendIdle: send === 'idle',
+            delivered,
+            foreignChange,
+            deleting: pending !== null,
+            key,
+            savedKey: savedKey.current,
+        })) return undefined;
+        const reservationId = base.id;
+        const id = setTimeout(() => {
+            savedKey.current = key;
+            void saveVisitItems(reservationId, lines, lockStamp).then((out) => {
+                // Başka cihaz yazmış: güncel liste gözlem olarak işleniyor,
+                // şerit çiziliyor; kişi tazeleyince benimsenir.
+                if (out.stale) observe(out.stale);
+                else observe(out.observation, out.ownItems === true);
+            });
+        }, ITEMS_SAVE_MS);
+        return () => clearTimeout(id);
+    }, [base?.id, lines, send, delivered, foreignChange, pending, lockStamp, observe]);
+
     /**
      * Formülün kapısı — MALZEMEYE asılı, evreye değil.
      *
@@ -545,6 +594,8 @@ export default function Kumanda() {
         if (version === adopted.current) return;
         adopted.current = version;
         setLines(linesFromItems(base?.adisyon_items));
+        // Benimsenen liste sunucuda zaten var — yeniden yazılmıyor.
+        savedKey.current = itemsKey(linesFromItems(base?.adisyon_items));
         setLastAdded('');
     }, [version, base?.adisyon_items]);
 
@@ -571,6 +622,8 @@ export default function Kumanda() {
          */
         setWait(base ? restoredWait(base, Date.now()) : null);
         setLines(linesFromItems(base?.adisyon_items));
+        savedKey.current = itemsKey(linesFromItems(base?.adisyon_items));
+        savedFor.current = base?.id ?? null;
         setLastAdded('');
         setRevealed(false);
         setSheet(null);
