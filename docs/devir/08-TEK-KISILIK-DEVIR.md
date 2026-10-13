@@ -320,8 +320,9 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 ### ✅ CANLIDA (2026-10-13) — 116 (tek kişilikte kendine bildirim yok · §31)
 
 Kullanıcı göçü çalıştırdı; ön kontrol artık `true bytea` dönüyor
-(fonksiyonda `NOT v_solo` var). Aşağıdaki komutlar kayıt için duruyor;
-adım 3 iz bırakmadığından istendiğinde yeniden koşulabilir.
+(fonksiyonda `NOT v_solo` var). Göç sonrası test (adım 3) üretimde
+`tek bildirim (116) regression: ok` + `ROLLBACK` verdi. Aşağıdaki komutlar
+kayıt için duruyor; adım 3 iz bırakmadığından istendiğinde yeniden koşulabilir.
 
 Yalnız göç. Edge function deploy'u yok, telefonda yeniden derleme yok.
 Mağazadaki sürüm etkilenmiyor: değişen yalnız sunucunun hangi bildirimi
