@@ -1815,3 +1815,14 @@ masaüstü aynı kalıyor.
 
 Kanıt: `tests/randevu-tamamlanan.test.mjs`. Tüm paket 2953 geçti / 0 kırık
 · `tsc` temiz · yeni lint bulgusu yok. Telefonda denenmedi.
+
+## 33 · 2026-10-13 · İPTAL EDİLENLER (kullanıcı kararı)
+
+Kullanıcı: "T2 takvim, kumandada komşu iş şeridi — iptal, kaldır, yapılmayacak."
+
+- **T2 takvim yeniden tasarımı yapılmayacak.** Claude Design promptu
+  (`docs/tek-takvim-claude-design-prompt.md`) depodan kaldırıldı. Takvim
+  T1'in birebir hâlinde kalıyor (§28). Bir sonraki oturum T2'yi yeniden
+  önermesin.
+- **Kumandanın "komşu iş" şeridi yapılmayacak** (v4 K1 notu, personel-06
+  tasarımı). §27'deki "soruda" notu kapandı.
