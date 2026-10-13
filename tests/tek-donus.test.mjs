@@ -121,8 +121,8 @@ test('İşletme satırı YALNIZ ekipte, sahipten başka aktif kimse yokken', () 
     assert.match(layout, /<Stack\.Screen name="\(manager-flow\)\/profil\/tek-kisilige-don" \/>/);
     assert.equal(teamEndRowSub([{ name: 'Derya Toprak' }]), 'Ekipte yalnız Derya Toprak var');
     assert.equal(teamEndRowSub([]), 'Ekipte kimse yok');
-    // Personel sayfası kapının yerini söylüyor.
-    assert.match(read('mobile/app/(manager-flow)/profil/personel.tsx'), /Ekipte yalnız\s+siz kalınca İşletme’de Tek kişiliğe dön görünür\./);
+    // Personel sayfası dönüşün yolunu söylüyor: ekipten çıkarınca (2026-10-13).
+    assert.match(read('mobile/app/(manager-flow)/profil/personel.tsx'), /Ekipte bir kişi kalınca işletme tek\s+kişilik düzene döner\./);
 });
 
 test('ekran: hepsi geçtiyse doğrudan Gün; söylenecek bir şey varsa önce o', () => {

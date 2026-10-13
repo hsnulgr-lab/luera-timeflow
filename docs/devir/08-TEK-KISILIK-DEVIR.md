@@ -1897,3 +1897,47 @@ Kanıt: `tests/bekleme-bildirimi.test.mjs`; tüm paket 2963 / 0 kırık; `tsc`
 temiz; Metro iOS paketi derlendi. Telefonda denenmedi. Telefon içi
 bildirim Expo Go'da da çalışıyor; uzaktan push için geliştirme derlemesi
 gerekiyordu.
+
+## 36 · 2026-10-13 · EKİPTEN ÇIKAR → TEK KİŞİLİĞE DÖN
+
+Telefonda kullanıcı: "Tek kişilik hesapta personel ekleyince müdür
+açılıyor, doğru; ama geri dönüş yok. Personeli çıkar olmalı; çıkardıktan
+sonra tek kişiliğe geçmeli."
+
+Dönüş kapısı (115 · `end_team`) vardı ama yalnız ekipte bir kişi kalınca
+görünüyordu. Telefonda kimseyi ekipten çıkarmanın da yolu yoktu (Personel:
+"eklemek ve çıkarmak bilgisayardan"); tek kişilikten gelen sahibin
+bilgisayarı yok.
+
+**Personel sayfası**
+- Her satır kişinin sayfasını açıyor (`MemberPage`). Sayfada "Şifreyi
+  sıfırla" (yalnız şifresi olanda, eski yol aynen) ve "Ekipten çıkar" var.
+- Onay sayfası `RemovePage`, `ResetPage`'in kalıbında: sonuçlar tek tek
+  yazılı.
+
+**Çıkarma** (`managerWrite.removeStaffMember`)
+- Masaüstünün "Personel sil"inin aynısı: satır pasife alınıyor
+  (`is_active = false`), silinmiyor.
+- Geçmiş ve Kasa adı taşımaya devam ediyor.
+- Telefon oturumu düşüyor; staff-api yalnız aktif personeli tanıyor.
+- Satır geri isteniyor: RLS'in sessiz reddi "çıkarıldı" sayılmıyor.
+
+**Plan** (`lib/teamRemove.ts`, saf)
+- Başkaları da kalıyorsa yalnız çıkarılıyor. İleri randevular takvimde
+  ayrılanın sütununda kalıyor.
+- Yalnız bir kişi kalıyorsa düğme "Çıkar ve tek kişiliğe dön" oluyor.
+  Çıkarmanın ardından `end_team` çalışıyor: ileri randevular kalan kişiye
+  geçiyor, kabuk tek kişilikle (Gün) açılıyor.
+- Tek kişi varsa çıkarılamaz.
+
+**Kim kalır:** sunucu sahibin satırını bilmiyor; satırda işaret yok.
+Telefon kimseyi "siz" diye tahmin etmiyor. Onayda kalacak kişinin ADI
+yazıyor, yanlış satırı seçen onaydan önce görüyor.
+
+**Dönüş düşerse:** kişi çıkarılmış oluyor ve sayfa kapının yerini söylüyor:
+"İşletme › Tek kişiliğe dön'den tamamlayın." O satır ekipte bir kişi
+kalınca zaten görünüyor.
+
+Göç yok, deploy yok. Kanıt: `tests/ekipten-cikar.test.mjs`; tüm paket
+2968 / 0 kırık; `tsc` temiz; yeni lint bulgusu yok; Metro iOS paketi
+derlendi. Telefonda denenmedi.

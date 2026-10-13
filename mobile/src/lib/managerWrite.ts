@@ -131,6 +131,40 @@ export async function deleteAppointment(
     }
 }
 
+// ── Ekipten çıkar ───────────────────────────────────────────────────────────
+
+/**
+ * Personeli ekipten çıkar — masaüstünün "Personel sil"inin aynısı: satır
+ * PASİFE alınıyor (`is_active = false`), silinmiyor. Geçmiş randevular,
+ * Kasa ve performans adını taşımaya devam ediyor; telefon oturumu düşüyor
+ * (staff-api yalnız aktif personeli tanıyor).
+ *
+ * Satır GERİ İSTENİYOR: RLS bir yazmayı hatasız ama satırsız reddediyor;
+ * istenmezse çıkarılmamış biri çıkarılmış görünürdü.
+ */
+export async function removeStaffMember(
+    staffId: string,
+): Promise<{ ok: true } | { ok: false; reason: 'offline' | 'not_allowed' | 'failed' }> {
+    if (await writesPaused()) return { ok: false, reason: 'failed' };
+    try {
+        const organizationId = await orgId();
+        const { data, error } = await supabase
+            .from('staff')
+            .update({ is_active: false })
+            .eq('id', staffId)
+            .eq('organization_id', organizationId)
+            .select('id')
+            .returns<{ id: string }[]>();
+        if (error) {
+            return { ok: false, reason: /network|fetch/i.test(error.message ?? '') ? 'offline' : 'failed' };
+        }
+        return (data?.length ?? 0) === 1 ? { ok: true } : { ok: false, reason: 'not_allowed' };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, reason: /network|fetch/i.test(String(cause)) ? 'offline' : 'failed' };
+    }
+}
+
 // ── Randevu oluştur ─────────────────────────────────────────────────────────
 
 /** Kurulan randevu — takvimin ve onay ekranının okuduğu şekil. */

@@ -12,12 +12,20 @@ import {
     Group,
     PrimaryButton,
     ProfileNav,
+    ProfileRow,
 } from '../../../src/components/ProfileParts';
 import { DurumBlock, DurumUnread } from '../../../src/components/Durum';
 import { authApi } from '../../../src/api/session';
 import { orgDurum } from '../../../src/lib/managerDurum';
 import { useManagerRead } from '../../../src/lib/managerRead';
 import { forgetOrg } from '../../../src/lib/managerSource';
+import { removeStaffMember } from '../../../src/lib/managerWrite';
+import { enterShell } from '../../../src/lib/enterShell';
+import { teamEnd, teamEndNotice, teamEndProblem } from '../../../src/lib/authCopy';
+import {
+    REMOVE_LAST_LINE, removeCopy, removePlan, removeProblem, soloAfterRemoveProblem,
+    type RemovePlan,
+} from '../../../src/lib/teamRemove';
 import {
     activeTeamCode, createTeamCode, fetchTeamStatus, rememberTeamCode, resetStaffPin, type TeamFailure,
 } from '../../../src/lib/teamAccess';
@@ -65,7 +73,19 @@ export default function ManagerStaffAccess() {
     const [codeBusy, setCodeBusy] = useState(false);
     const [codeError, setCodeError] = useState<TeamFailure | null>(null);
     const [presenting, setPresenting] = useState(false);
-    const [resetting, setResetting] = useState<TeamMember | null>(null);
+    /*
+     * KİŞİNİN SAYFASI — satıra dokununca (2026-10-13). Eskiden yalnız şifresi
+     * olan satır dokunuluyordu ve doğrudan "Şifreyi sıfırla"yı açıyordu.
+     * Artık her satır kişinin sayfasını açıyor: şifre (varsa) ve "Ekipten
+     * çıkar". Telefonda kimseyi ekipten çıkarmanın yolu yoktu; tek kişilikten
+     * ekibe geçen kişi geri dönemiyordu (`teamRemove.ts`).
+     */
+    const [sheet, setSheet] = useState<{ member: TeamMember; mode: 'menu' | 'reset' | 'remove' } | null>(null);
+    const resetting = sheet?.mode === 'reset' ? sheet.member : null;
+    const [removeBusy, setRemoveBusy] = useState(false);
+    const [removeError, setRemoveError] = useState<string | null>(null);
+    /** Tek kişiliğe dönüldü ama okunacak bir not var (personelsiz kalan randevu). */
+    const [soloNotice, setSoloNotice] = useState<string | null>(null);
     const [resetBusy, setResetBusy] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     /** Sıfırlanan satırda chevron'un yerinde 2 sn duran teal onay. */
@@ -135,7 +155,62 @@ export default function ManagerStaffAccess() {
         }
         feedback.success();
         setJustReset(resetting.id);
-        setResetting(null);
+        setSheet(null);
+        void snap.reload();
+    };
+
+    const openMember = (member: TeamMember) => {
+        setResetError(null);
+        setRemoveError(null);
+        setSoloNotice(null);
+        setSheet({ member, mode: 'menu' });
+    };
+
+    /*
+     * EKİPTEN ÇIKAR → gerekiyorsa TEK KİŞİLİĞE DÖN.
+     *
+     * Önce satır pasife alınıyor (masaüstünün "Personel sil"i). Ekipte bir
+     * kişi kalıyorsa ardından `end_team` (115): bayrak dönüyor, ileri
+     * randevular kalan kişiye geçiyor ve kabuk tek kişilikle açılıyor. Dönüş
+     * düşerse iş yarıda kalmıyor: kişi çıkarılmış, İşletme'de "Tek kişiliğe
+     * dön" satırı açık ve sayfa bunu söylüyor.
+     */
+    const confirmRemove = async (plan: RemovePlan) => {
+        if (!sheet || removeBusy || plan.kind === 'last') return;
+        const member = sheet.member;
+        setRemoveBusy(true);
+        setRemoveError(null);
+        const removed = await removeStaffMember(member.id).catch(() => ({ ok: false as const, reason: 'failed' as const }));
+        if (!removed.ok) {
+            feedback.warning();
+            setRemoveError(removeProblem(removed.reason));
+            setRemoveBusy(false);
+            return;
+        }
+        if (plan.kind === 'solo') {
+            const ended = await authApi.team.end();
+            if (ended.ok) {
+                feedback.success();
+                const notice = teamEndNotice(ended.data.counts);
+                if (!notice) {
+                    setSheet(null);
+                    // Kabuk değişiyor: geçmiş siliniyor, tek kişilik kabuk Gün'le açılıyor.
+                    enterShell('manager', true);
+                    return;
+                }
+                setSoloNotice(notice);
+                setRemoveBusy(false);
+                return;
+            }
+            feedback.warning();
+            setRemoveError(soloAfterRemoveProblem(member.name, teamEndProblem(ended.error)));
+            setRemoveBusy(false);
+            void snap.reload();
+            return;
+        }
+        feedback.success();
+        setRemoveBusy(false);
+        setSheet(null);
         void snap.reload();
     };
 
@@ -290,14 +365,15 @@ export default function ManagerStaffAccess() {
                             const line = memberLine(member, now);
                             const fresh = isFreshPin(member, now);
                             const lineColor = line.tone === 'ok' ? c.gr : line.tone === 'error' ? c.rd : c.tx2;
-                            const tappable = member.hasPin && !ownerOnly;
+                            // Her satır kişinin sayfasını açıyor: şifre (varsa) ve ekipten çıkar.
+                            const tappable = !ownerOnly;
                             return (
                                 <Pressable
                                     key={member.id}
                                     accessibilityRole={tappable ? 'button' : undefined}
                                     accessibilityLabel={`${member.name}, ${line.text}`}
                                     disabled={!tappable}
-                                    onPress={() => { setResetError(null); setResetting(member); }}
+                                    onPress={() => openMember(member)}
                                     style={({ pressed }) => ({
                                         flexDirection: 'row',
                                         alignItems: 'center',
@@ -350,9 +426,9 @@ export default function ManagerStaffAccess() {
                 ) : null}
 
                 <Foot>
-                    Personel eklemek ve çıkarmak bilgisayardan: Luera → Personel. Şifresini unutan
-                    personelin satırına dokunup sıfırlayın; yenisini kendisi belirler. Ekipte yalnız
-                    siz kalınca İşletme’de Tek kişiliğe dön görünür.
+                    Personel eklemek bilgisayardan: Luera → Personel. Ekipten çıkarmak ya da şifresini
+                    sıfırlamak için kişinin satırına dokunun. Ekipte bir kişi kalınca işletme tek
+                    kişilik düzene döner.
                 </Foot>
             </ScrollView>
 
@@ -361,11 +437,21 @@ export default function ManagerStaffAccess() {
             ) : null}
 
             <Modal
-                visible={resetting !== null}
+                visible={sheet !== null}
                 animationType="slide"
                 presentationStyle="pageSheet"
-                onRequestClose={() => setResetting(null)}
+                onRequestClose={() => { if (!removeBusy) setSheet(null); }}
             >
+                {sheet?.mode === 'menu' && members ? (
+                    <MemberPage
+                        member={sheet.member}
+                        line={memberLine(sheet.member, now).text}
+                        plan={removePlan(members, sheet.member.id)}
+                        onReset={() => setSheet({ member: sheet.member, mode: 'reset' })}
+                        onRemove={() => setSheet({ member: sheet.member, mode: 'remove' })}
+                        onCancel={() => setSheet(null)}
+                    />
+                ) : null}
                 {resetting ? (
                     <ResetPage
                         member={resetting}
@@ -373,7 +459,19 @@ export default function ManagerStaffAccess() {
                         busy={resetBusy}
                         error={resetError}
                         onConfirm={() => { void confirmReset(); }}
-                        onCancel={() => setResetting(null)}
+                        onCancel={() => setSheet(null)}
+                    />
+                ) : null}
+                {sheet?.mode === 'remove' && members ? (
+                    <RemovePage
+                        member={sheet.member}
+                        plan={removePlan(members, sheet.member.id)}
+                        busy={removeBusy}
+                        error={removeError}
+                        notice={soloNotice}
+                        onConfirm={(plan) => { void confirmRemove(plan); }}
+                        onEnterSolo={() => { setSheet(null); enterShell('manager', true); }}
+                        onCancel={() => setSheet(null)}
                     />
                 ) : null}
             </Modal>
@@ -492,6 +590,117 @@ function ResetPage({ member, locked, busy, error, onConfirm, onCancel }: {
             <View style={{ gap: 9 }}>
                 <PrimaryButton label={busy ? 'Sıfırlanıyor…' : 'Şifreyi sıfırla'} disabled={busy} onPress={onConfirm} />
                 <GhostButton label="Vazgeç" onPress={onCancel} />
+            </View>
+        </View>
+    );
+}
+
+/**
+ * Kişinin sayfası — satıra dokununca. İki iş, ikisi de kendi onay sayfasına
+ * gidiyor: şifreyi sıfırla (yalnız şifresi olan) ve ekipten çıkar. Çıkarmanın
+ * alt yazısı sonucu baştan söylüyor: yalnız bir kişi kalacaksa işletme tek
+ * kişiliğe dönüyor ve kalanın adı orada.
+ */
+function MemberPage({ member, line, plan, onReset, onRemove, onCancel }: {
+    member: TeamMember;
+    line: string;
+    plan: RemovePlan;
+    onReset: () => void;
+    onRemove: () => void;
+    onCancel: () => void;
+}) {
+    const { c } = useTheme();
+    const insets = useSafeAreaInsets();
+    const removeSub = plan.kind === 'solo'
+        ? `Yalnız ${plan.keeper} kalır · işletme tek kişiliğe döner`
+        : 'Telefonundan çıkar · geçmişi kalır';
+    return (
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 28, paddingBottom: Math.max(insets.bottom, 24) }}>
+            <Text style={{ color: c.tx3, fontSize: 12, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 12 * 0.14 }}>
+                {upperTR('Personel')}
+            </Text>
+            <Text style={{ color: c.tx, fontSize: 26, lineHeight: 30, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 26 * -0.03, marginTop: 8 }}>
+                {member.name}
+            </Text>
+            <Text style={{ color: c.tx2, fontSize: 15, lineHeight: 22, fontFamily: font.medium, fontWeight: '500', marginTop: 6 }}>
+                {line}
+            </Text>
+            <View style={{ marginTop: 24 }}>
+                <Group>
+                    {member.hasPin ? (
+                        <ProfileRow first title="Şifreyi sıfırla" sub="Açık oturumu kapanır · yenisini kendisi belirler" onPress={onReset} />
+                    ) : null}
+                    {plan.kind === 'last' ? null : (
+                        <ProfileRow first={!member.hasPin} danger title="Ekipten çıkar" sub={removeSub} onPress={onRemove} />
+                    )}
+                </Group>
+            </View>
+            {plan.kind === 'last' ? (
+                <Text style={{ color: c.tx2, fontSize: 13.5, lineHeight: 19, fontFamily: font.semiBold, fontWeight: '600', marginTop: 14 }}>
+                    {REMOVE_LAST_LINE}
+                </Text>
+            ) : null}
+            <View style={{ flex: 1 }} />
+            <GhostButton label="Vazgeç" onPress={onCancel} />
+        </View>
+    );
+}
+
+/**
+ * Ekipten çıkar — onay SAYFASI, `ResetPage`in kalıbında: sonuçlar tek tek
+ * yazılı. Yalnız bir kişi kalacaksa düğme "Çıkar ve tek kişiliğe dön" ve
+ * kalacak kişinin adı cümlede — yanlış satırı seçen onaydan önce görür.
+ */
+function RemovePage({ member, plan, busy, error, notice, onConfirm, onEnterSolo, onCancel }: {
+    member: TeamMember;
+    plan: RemovePlan;
+    busy: boolean;
+    error: string | null;
+    /** Tek kişiliğe dönüldü; personelsiz kalan randevu var — önce bu okunuyor. */
+    notice: string | null;
+    onConfirm: (plan: RemovePlan) => void;
+    onEnterSolo: () => void;
+    onCancel: () => void;
+}) {
+    const { c } = useTheme();
+    const insets = useSafeAreaInsets();
+    const copy = removeCopy(plan, member.name);
+    return (
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 28, paddingBottom: Math.max(insets.bottom, 24) }}>
+            <Text style={{ color: c.tx3, fontSize: 12, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 12 * 0.14 }}>
+                {upperTR(copy.title)}
+            </Text>
+            <Text style={{ color: c.tx, fontSize: 26, lineHeight: 30, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 26 * -0.03, marginTop: 8 }}>
+                {member.name}
+            </Text>
+            <View style={{ marginTop: 22, gap: 12 }}>
+                {copy.lines.map((item) => (
+                    <View key={item} style={{ flexDirection: 'row', gap: 11, alignItems: 'flex-start' }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.tx3, marginTop: 8 }} />
+                        <Text style={{ flex: 1, color: c.tx, fontSize: 15, lineHeight: 22, fontFamily: font.semiBold, fontWeight: '600' }}>
+                            {item}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+            <View style={{ flex: 1 }} />
+            {error || notice ? (
+                <Text
+                    accessibilityLiveRegion="polite"
+                    style={{ color: notice ? c.am : c.rd, fontSize: 13.5, lineHeight: 19, fontFamily: font.bold, fontWeight: '700', marginBottom: 12 }}
+                >
+                    {notice ?? error}
+                </Text>
+            ) : null}
+            <View style={{ gap: 9 }}>
+                {notice ? (
+                    <PrimaryButton label={teamEnd.enterSolo} onPress={onEnterSolo} />
+                ) : (
+                    <>
+                        <PrimaryButton label={busy ? copy.busy : copy.action} disabled={busy} onPress={() => onConfirm(plan)} />
+                        <GhostButton label="Vazgeç" onPress={onCancel} />
+                    </>
+                )}
             </View>
         </View>
     );
