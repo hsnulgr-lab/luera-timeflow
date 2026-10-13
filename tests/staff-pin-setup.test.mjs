@@ -190,7 +190,7 @@ test('pin.setup: yalnız cihaz, yalnız şifresi BOŞ personel, kural sunucuda',
     // Token YENİ kuşakla: 082 tetikleyicisi pin değişince epoch'u artırıyor ve
     // güncellenen satır dönüyor.
     assert.match(setup, /\.select\('id, organization_id, name, color, role, is_active, pin, session_epoch/);
-    assert.match(setup, /return loginResponse\(claimed as StaffRow\);/);
+    assert.match(setup, /return loginResponse\(claimed as StaffRow, claims\.did\);/);
 });
 
 test('pin.change: personel token\'ı, eski şifre sayaçlı, yeni token', () => {
@@ -201,7 +201,7 @@ test('pin.change: personel token\'ı, eski şifre sayaçlı, yeni token', () => 
     assert.match(change, /const lock = attempts >= PIN_MAX_ATTEMPTS;/);
     assert.match(change, /\.eq\('pin', member\.pin\)/);
     assert.match(change, /audit\(me\.organization_id, member\.id, 'pin_changed'\)/);
-    assert.match(change, /return loginResponse\(changed as StaffRow\);/);
+    assert.match(change, /return loginResponse\(changed as StaffRow, claims\.did\);/);
 });
 
 // ── Müdür uçları ────────────────────────────────────────────────────────────

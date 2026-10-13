@@ -58,6 +58,7 @@ type Action =
     // ── Sahip uçları (Supabase oturumu) ─────────────────────────────────────
     | 'team.status'      // ekibin giriş durumu: şifre var mı, son giriş
     | 'staff.pin.reset'  // şifreyi sıfırla → personel yenisini kendisi belirler
+    | 'staff.devices.cut' // kayıp telefon: kişinin telefonlarının bağını kopar (117)
     | 'solo.session'     // tek kişilik sahibi KENDİ kumandasını açar (108)
     // ── Kumanda (mobil personel modu) ────────────────────────────────────────
     | 'agenda'         // bugünün kendi randevuları
@@ -86,6 +87,22 @@ interface StaffRow {
     session_epoch: number | null;
     pin_attempts: number | null;
     pin_locked_until: string | null;
+    /** 117 — sahip bağlantıyı kopardığı an; bundan önceki cihaz belgeleri geçmez. */
+    devices_cut_at?: string | null;
+}
+
+/**
+ * Cihaz belgesi kişinin telefonları koparılmadan ÖNCE mi basıldı? (117)
+ *
+ * Kimliksiz eski belgeleri (117'den önce bağlanan telefonlar) ve ortak
+ * tableti de kapsayan kural bu: kişi o andan önce bağlanmış hiçbir telefondan
+ * giremez, şifre belirleyemez. `iat` saniye, damga milisaniye.
+ */
+function cutBefore(member: Pick<StaffRow, 'devices_cut_at'>, claims: { iat?: number }): boolean {
+    if (!member.devices_cut_at) return false;
+    const cutAt = Date.parse(member.devices_cut_at);
+    if (!Number.isFinite(cutAt)) return false;
+    return (Number(claims.iat) || 0) * 1000 <= cutAt;
 }
 
 interface CatalogProductRow {
@@ -279,19 +296,46 @@ Deno.serve(async (req: Request) => {
             return { orgId: resolved.orgId, userId: userData.user.id };
         };
 
-        /** Başarılı giriş — `session.start` ve `pin.setup` aynı cevabı döner. */
-        const loginResponse = async (member: StaffRow) => {
+        /**
+         * Başarılı giriş — `session.start` ve `pin.setup` aynı cevabı döner.
+         *
+         * `did` (117): giriş bir telefondan yapıldıysa personel belgesi o
+         * telefonun kimliğini taşıyor — telefonun bağı koparılınca açık oturum
+         * da ölsün. Sahibin kendi kumandasında (`solo.session`) telefon yok.
+         */
+        const loginResponse = async (member: StaffRow, did?: string) => {
             const token = await mintStaffToken({
                 sub: member.id,
                 org: member.organization_id,
                 role: member.role || 'staff',
                 epoch: member.session_epoch ?? 1,
+                ...(did ? { did } : {}),
             }, secret);
             return json({
                 ok: true,
                 token,
                 staff: { id: member.id, name: member.name, color: member.color, role: member.role || 'staff' },
             });
+        };
+
+        /**
+         * Bağlanan telefonun satırı (117) — belge basılmadan ÖNCE yazılıyor.
+         *
+         * Yazılamazsa belge VERİLMİYOR: kimliği kayıtlı olmayan bir telefon
+         * her istekte reddedilirdi. Satır kodu tüketmeden önce açılıyor;
+         * sonrasında kod tutmazsa geride kullanılmayan bir satır kalır,
+         * zararsız.
+         */
+        const registerDevice = async (organizationId: string, via: 'team' | 'single' | 'owner') => {
+            const did = crypto.randomUUID();
+            const { error } = await admin.from('staff_devices').insert({
+                id: did, organization_id: organizationId, paired_via: via,
+            });
+            if (error) {
+                console.error('staff-api device register', error);
+                return null;
+            }
+            return did;
         };
 
         // ── device.pair — kurulumda BİR kez, org sahibi ──────────────────────
@@ -308,8 +352,10 @@ Deno.serve(async (req: Request) => {
             // yetkilendiremesin.
             if (resolved.role === 'member') return json({ error: 'owner_required' }, 403);
 
+            const did = await registerDevice(resolved.orgId, 'owner');
+            if (!did) return json({ error: 'device_unavailable' }, 503);
             const token = await mintStaffToken(
-                { sub: 'device', org: resolved.orgId, role: 'device', epoch: 0 },
+                { sub: 'device', org: resolved.orgId, role: 'device', epoch: 0, did },
                 secret,
                 undefined,
                 DEVICE_TOKEN_TTL_SEC,
@@ -429,6 +475,79 @@ Deno.serve(async (req: Request) => {
             if (!reset) return json({ error: 'invalid_staff' }, 400);
             await audit(owner.orgId, staffId, 'pin_reset');
             return json({ ok: true });
+        }
+
+        /*
+         * ── staff.devices.cut — KAYIP TELEFON: bağlantıyı kopar (117) ────────
+         *
+         * Kullanıcı kararı: koparma yetkisi işletme sahibinde (`ownerOf`).
+         * Şifre sıfırlamak bu işi görmüyordu — oturum düşüyor ama telefon
+         * bağlı kalıyor ve bulan kişi yeni şifre belirleyebiliyordu.
+         *
+         * Dört şey, bu sırayla:
+         *   1. `devices_cut_at = şimdi` — bu andan önce basılmış hiçbir cihaz
+         *      belgesiyle kişi giremez, şifre belirleyemez. ASIL KAPI bu:
+         *      kimliksiz eski belgeleri ve ortak tableti de kapsıyor.
+         *   2. `session_epoch + 1` — açık oturum hemen düşer.
+         *   3. Kişinin en son girdiği telefonlar İPTAL — belgeleri her istekte
+         *      reddediliyor; o telefonda başka biri de giremez.
+         *   4. Telefon bildirim aboneliği SİLİNİR — kayıp telefonun kilit
+         *      ekranında müşteri adı çıkmasın.
+         *
+         * Şifre DEĞİŞMİYOR: kişi yeni telefonunu Telefon bağla ile bağlayıp
+         * aynı şifreyle girer. 3 ve 4 düşerse iş YARIDA kalmıyor — 1 ve 2
+         * yazıldıysa kişi eski telefondan giremiyor; hata günlüğe yazılıyor.
+         */
+        if (action === 'staff.devices.cut') {
+            const owner = await ownerOf();
+            if (owner instanceof Response) return owner;
+            const staffId = String(body.staffId ?? '');
+            if (!UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
+            const { data: member, error: memberErr } = await admin
+                .from('staff')
+                .select('id, session_epoch')
+                .eq('id', staffId)
+                .eq('organization_id', owner.orgId)
+                .maybeSingle();
+            if (memberErr) {
+                console.error('staff-api staff.devices.cut lookup', memberErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!member) return json({ error: 'invalid_staff' }, 400);
+
+            const now = new Date().toISOString();
+            const { data: cut, error: cutErr } = await admin
+                .from('staff')
+                .update({ devices_cut_at: now, session_epoch: (member.session_epoch ?? 1) + 1 })
+                .eq('id', staffId)
+                .eq('organization_id', owner.orgId)
+                .select('id')
+                .maybeSingle();
+            if (cutErr || !cut) {
+                if (cutErr) console.error('staff-api staff.devices.cut', cutErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+
+            const { data: phones, error: phonesErr } = await admin
+                .from('staff_devices')
+                .update({ revoked_at: now, revoked_by: owner.userId })
+                .eq('organization_id', owner.orgId)
+                .eq('last_staff_id', staffId)
+                .is('revoked_at', null)
+                .select('id');
+            if (phonesErr) console.error('staff-api staff.devices.cut phones', phonesErr);
+
+            const { error: pushErr } = await admin
+                .from('push_subscriptions')
+                .delete()
+                .eq('organization_id', owner.orgId)
+                .eq('staff_id', staffId)
+                .eq('kind', 'expo');
+            if (pushErr) console.error('staff-api staff.devices.cut push', pushErr);
+
+            const devices = phones?.length ?? 0;
+            await audit(owner.orgId, staffId, 'devices_cut', String(devices));
+            return json({ ok: true, devices });
         }
 
         /*
@@ -566,6 +685,11 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'subscription_inactive' }, 403);
             }
 
+            // Telefonun satırı KODDAN ÖNCE (117): yazılamazsa tek kullanımlık
+            // kod boşa tüketilmesin.
+            const did = await registerDevice(row.organization_id, row.multi_use ? 'team' : 'single');
+            if (!did) return json({ error: 'device_unavailable' }, 503);
+
             if (row.multi_use) {
                 // EKİP KODU: süresince her telefon bağlanır; kod kapanmaz.
                 // Sayaç bilgi amaçlı — yarışta bir artış kaybolabilir, kapı değil.
@@ -595,7 +719,7 @@ Deno.serve(async (req: Request) => {
 
             await clearPairAttempts(admin, ip);
             const token = await mintStaffToken(
-                { sub: 'device', org: row.organization_id, role: 'device', epoch: 0 },
+                { sub: 'device', org: row.organization_id, role: 'device', epoch: 0, did },
                 secret,
                 undefined,
                 DEVICE_TOKEN_TTL_SEC,
@@ -618,6 +742,36 @@ Deno.serve(async (req: Request) => {
         if (!verified.ok) return json({ error: 'invalid_token', reason: verified.reason }, 401);
         const claims = verified.claims;
         const isDevice = claims.sub === 'device';
+
+        /*
+         * ── KOPARILAN TELEFON (117) ──────────────────────────────────────────
+         *
+         * Belge telefonun kimliğini taşıyorsa satırına bakılıyor; sahip bağı
+         * kopardıysa (ya da satır hiç yoksa) belge ölü. HER uçtan önce —
+         * `access` dahil: kayıp telefon salonun adını da öğrenmesin.
+         *
+         * Cihaz belgesi `invalid_token` alıyor: telefon bunu "bağlı değil"
+         * okuyup eşleştirme ekranına düşüyor (`auth.ts · mapError`). Personel
+         * belgesi `revoked` alıyor — epoch eşleşmeyen oturumla AYNI cevap:
+         * önce şifre ekranı, oradan cihaz belgesiyle eşleştirme ekranı.
+         */
+        if (claims.did) {
+            const { data: device, error: deviceErr } = await admin
+                .from('staff_devices')
+                .select('revoked_at')
+                .eq('id', claims.did)
+                .eq('organization_id', claims.org)
+                .maybeSingle();
+            if (deviceErr) {
+                console.error('staff-api device lookup', deviceErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!device || device.revoked_at) {
+                return isDevice
+                    ? json({ error: 'invalid_token', reason: 'device_revoked' }, 401)
+                    : json({ error: 'revoked' }, 401);
+            }
+        }
 
         // Abonelik kapısı. Personel kumandası ürünün bir parçası; işletmenin
         // aboneliği bittiyse personel tableti de çalışmamalı — aksi hâlde
@@ -648,6 +802,21 @@ Deno.serve(async (req: Request) => {
         }
 
         if (!staffAccess.ok) return json({ error: 'subscription_inactive' }, 403);
+
+        /**
+         * Telefondan kim girdi (117) — "Elif'in telefonu" sorusunun cevabı;
+         * bağlantıyı kopar telefonu bununla buluyor. Kimliksiz eski belgede
+         * yazılacak satır yok. Hata girişi DÜŞÜRMÜYOR: giriş oldu, iz eksik
+         * kalır (kişinin eski telefonlarını `devices_cut_at` yine kapsıyor).
+         */
+        const noteDeviceLogin = async (staffId: string) => {
+            if (!claims.did) return;
+            const { error } = await admin.from('staff_devices')
+                .update({ last_staff_id: staffId, last_login_at: new Date().toISOString() })
+                .eq('id', claims.did)
+                .eq('organization_id', claims.org);
+            if (error) console.error('staff-api device login', error);
+        };
 
         // ── roster — giriş ekranının listesi. PIN ASLA dönmez ────────────────
         if (action === 'roster') {
@@ -704,7 +873,7 @@ Deno.serve(async (req: Request) => {
 
             const { data, error } = await admin
                 .from('staff')
-                .select('id, organization_id, name, color, role, is_active, pin, session_epoch, pin_attempts, pin_locked_until')
+                .select('id, organization_id, name, color, role, is_active, pin, session_epoch, pin_attempts, pin_locked_until, devices_cut_at')
                 .eq('id', staffId)
                 .eq('organization_id', claims.org)
                 .maybeSingle();
@@ -717,6 +886,12 @@ Deno.serve(async (req: Request) => {
             // uç, kimlerin çalıştığını sızdıran bir sorgu hâline gelir.
             if (!member || !member.is_active) {
                 return json({ error: 'invalid_credentials' }, 401);
+            }
+            // KOPARILAN TELEFON (117): bu belge kişinin bağı koparılmadan önce
+            // basıldı. Şifre denemesi SAYILMIYOR — tahmin değil, eski telefon.
+            if (cutBefore(member, claims)) {
+                await audit(claims.org, member.id, 'failed_pin', 'device_cut');
+                return json({ error: 'invalid_token', reason: 'device_revoked' }, 401);
             }
             /*
              * ŞİFRESİ YOK (099) — personel henüz belirlemedi ya da müdür
@@ -752,7 +927,8 @@ Deno.serve(async (req: Request) => {
                 pin_attempts: 0, pin_locked_until: null, last_login_at: new Date().toISOString(),
             }).eq('id', member.id);
             await audit(claims.org, member.id, 'login');
-            return loginResponse(member);
+            await noteDeviceLogin(member.id);
+            return loginResponse(member, claims.did);
         }
 
         // ── pin.setup — personel İLK şifresini kendisi belirler (099) ──────────
@@ -773,6 +949,25 @@ Deno.serve(async (req: Request) => {
             if (!UUID_RE.test(staffId)) return json({ error: 'invalid_staff' }, 400);
             const problem = pinProblem(pin);
             if (problem) return json({ error: problem === 'weak' ? 'weak_pin' : 'invalid_pin_format' }, 400);
+
+            // KOPARILAN TELEFON (117) — açığın ta kendisi: sahip şifreyi
+            // sıfırlayınca kayıp telefonu bulan kişi burada yeni şifre
+            // belirleyip giriyordu. Bağı koparılan kişiye eski telefondan
+            // şifre belirlenemez.
+            const { data: target, error: targetErr } = await admin
+                .from('staff')
+                .select('devices_cut_at')
+                .eq('id', staffId)
+                .eq('organization_id', claims.org)
+                .maybeSingle();
+            if (targetErr) {
+                console.error('staff-api pin.setup cut', targetErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (target && cutBefore(target, claims)) {
+                await audit(claims.org, staffId, 'failed_pin', 'device_cut');
+                return json({ error: 'invalid_token', reason: 'device_revoked' }, 401);
+            }
 
             // `pin` değişince 082 tetikleyicisi session_epoch'u artırıyor —
             // token dönen satırın YENİ kuşağıyla basılmalı.
@@ -806,7 +1001,8 @@ Deno.serve(async (req: Request) => {
             }
             await audit(claims.org, staffId, 'pin_set');
             await audit(claims.org, staffId, 'login', 'pin_set');
-            return loginResponse(claimed as StaffRow);
+            await noteDeviceLogin(staffId);
+            return loginResponse(claimed as StaffRow, claims.did);
         }
 
         /*
@@ -1008,7 +1204,8 @@ Deno.serve(async (req: Request) => {
             // tutmaz — eski şifreyle yeni şifre yazılmıyor.
             if (!changed) return json({ error: 'revoked' }, 401);
             await audit(me.organization_id, member.id, 'pin_changed');
-            return loginResponse(changed as StaffRow);
+            // Yeni belge telefonun kimliğini koruyor (117).
+            return loginResponse(changed as StaffRow, claims.did);
         }
 
         /*
@@ -1104,6 +1301,8 @@ Deno.serve(async (req: Request) => {
                 ? await mintStaffToken({
                     sub: me.id, org: me.organization_id, role: me.role || 'staff',
                     epoch: me.session_epoch ?? 1,
+                    // Tazelenen belge telefonun kimliğini KORUYOR (117).
+                    ...(claims.did ? { did: claims.did } : {}),
                 }, secret)
                 : undefined;
             return json({

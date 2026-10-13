@@ -317,6 +317,51 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
+### ⏳ BEKLİYOR (2026-10-13) — 117 + `staff-api` (kayıp telefonun bağını kopar · §39)
+
+Göç + edge function. Telefonda yeniden derleme yok; müdürün yeni satırı
+Expo'da yenileyince görünür. **Sıra zorunlu:** önce göç, sonra deploy — yeni
+`staff-api` telefon bağlarken `staff_devices`e yazıyor; tablo yoksa yeni
+telefon bağlanamaz (`device_unavailable`). Eski `staff-api` göçle sorunsuz
+çalışır (tabloya bakmaz). Ortak modülde yalnız `staffToken.ts` değişti ve onu
+yalnız `staff-api` kullanıyor — tek fonksiyon deploy'u güvenli.
+
+**0 · Ön kontrol** — beklenen `f t` (tablo yok, olay kısıtı var):
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 "docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -tAc \"select (to_regclass('public.staff_devices') is not null)::text || ' ' || exists(select 1 from pg_constraint where conname = 'staff_auth_log_event_check')::text\""
+```
+
+**1 · Kuru koşu** — göç + test TEK işlemde, sonunda geri sarılır. Beklenen:
+`CREATE TABLE` … `telefon bağı (117) regression: ok`, `ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/117_telefon_bagini_kopar.sql; sed -e '/^BEGIN;$/d' supabase/tests/telefon_bagi_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse). Beklenen: `BEGIN` … `NOTIFY`, `COMMIT`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/117_telefon_bagini_kopar.sql
+```
+
+**3 · Test** (göçten sonra, iz bırakmaz). Beklenen: `regression: ok`, `ROLLBACK`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/tests/telefon_bagi_regression.sql
+```
+
+**4 · Deploy** (göçten SONRA):
+
+```bash
+cd ~/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api
+```
+
+**5 · Doğrulama** (Claude çalıştırabilir): `staff-api` `OPTIONS` → 200;
+`staff.devices.cut` oturumsuz → `unauthorized`. Telefonda: Personel › kişi ›
+"Telefonun bağlantısını kopar" → o kişinin telefonu eşleştirme ekranına
+düşmeli; yeni ekip koduyla bağlanıp AYNI şifreyle girebilmeli.
+
 ### ✅ CANLIDA (2026-10-13) — 116 (tek kişilikte kendine bildirim yok · §31)
 
 Kullanıcı göçü çalıştırdı; ön kontrol artık `true bytea` dönüyor
@@ -2033,3 +2078,35 @@ Göç yok, deploy yok (RLS `staff_org_access` müdüre zaten açık; masaüstü 
 aynı yoldan yazıyor). Kanıt: `tests/personel-ekle.test.mjs` (7), tüm paket
 2979 / 0 kırık; `tsc` temiz; yeni lint bulgusu yok; Metro iOS paketi derlendi.
 Telefonda denenmedi.
+
+---
+
+## 39 · 2026-10-13 · KAYIP TELEFONUN BAĞINI KOPAR (göç 117 + staff-api)
+
+Kullanıcı kararı: "bağlantıyı koparma yetkisi işletme sahibinde olsun".
+
+**Açık:** telefonun işletmeye bağı 90 günlük bir CİHAZ belgesiydi ve sunucuda
+hiçbir yere yazılmıyordu. Şifre sıfırlamak oturumu düşürüyor ama telefon bağlı
+kalıyordu; 099'da "şifresi yoksa kendisi belirler" — kayıp telefonu bulan kişi,
+sahip şifreyi sıfırladıktan sonra yeni şifre belirleyip girebiliyordu.
+
+| | |
+|---|---|
+| Telefon kaydı | `staff_devices` (117): eşlemede satır açılıyor, belge kimliği (`did`) taşıyor. Satır KODDAN ÖNCE yazılıyor; yazılamazsa belge verilmiyor (`device_unavailable`). Her girişte "son giren" yazılıyor |
+| Her isteğin kapısı | Belgede `did` varsa satırına bakılıyor; iptalse cihaz belgesi `invalid_token` (telefon eşleştirme ekranına düşüyor — istemci zaten tanıyor), personel belgesi `revoked` (önce şifre ekranı). `access` dahil her uçtan önce |
+| Kişinin kuralı | `staff.devices_cut_at`: bu andan önce basılmış belgeyle o kişi GİREMEZ ve ŞİFRE BELİRLEYEMEZ (açığın kendisi). Kimliksiz eski belgeleri (117'den önce bağlananlar) ve ortak tableti de kapsıyor; şifre denemesi sayılmıyor |
+| Sahip ucu | `staff.devices.cut` (yalnız sahip, `ownerOf`): `devices_cut_at` + `session_epoch+1` → kişinin son girdiği telefonlar iptal → telefon bildirimi silinir → `devices_cut` denetim olayı. Şifre DEĞİŞMİYOR |
+| Belge yenilenince | `did` korunuyor: `session.refresh`, `pin.change`, `pin.setup`, `session.start`. Sahibin kendi kumandasında (`solo.session`) telefon yok |
+| Müdür ekranı | Personel › kişi › "Telefonun bağlantısını kopar" (şifresi olsun olmasın her satırda) → onay sayfası (`CutPage`): neden sıfırlama değil, beş sonuç. "Şifreyi sıfırla" sayfasına uyarı: "Telefonu kaybolduysa sıfırlamak yetmez…" |
+| Personel telefonu | Değişiklik YOK: `invalid_token` → `not_paired` → eşleştirme ekranı yolu zaten vardı |
+
+Kanıt: `tests/telefon-bagi-kopar.test.mjs` (12, belgenin imza/`did` turu
+çalıştırılarak), `supabase/tests/telefon_bagi_regression.sql` PGlite'ta kuru
+koşu biçiminde geçti ve geri sardı (göçsüz koşunca "göç uygulanmamış" diyor);
+göç PGlite'ta iki kez uygulandı, 110'un 15 olayı + `devices_cut` kabul,
+uydurma red, istemci rolleri tabloyu göremiyor. `staff-api` tip denetimi:
+yeni hata yok (önce/sonra 77, hepsi yerel supabase-js tiplerinin eski
+gürültüsü). Tüm paket 2991 / 0 kırık; `tsc` temiz.
+
+**Deploy bekliyor (§6).** `public/gizlilik.html` ve `destek.html`'deki
+"Telefonumu kaybettim" SSS'i bu adıma göre güncellendi (§40).

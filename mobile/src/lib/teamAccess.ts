@@ -81,6 +81,25 @@ export async function resetStaffPin(staffId: string): Promise<{ ok: true } | { o
     }
 }
 
+/**
+ * KAYIP TELEFON — kişinin telefonlarının bağını kopar (117). Yalnız işletme
+ * sahibi (`owner_required`). Açık oturum düşer, kişi bu andan önce bağlanan
+ * hiçbir telefondan giremez, telefona bildirim gitmez. Şifre değişmez.
+ * `devices`: iptal edilen kayıtlı telefon sayısı (117'den önce bağlananlar
+ * sayılmıyor ama kural onları da kapsıyor).
+ */
+export async function cutStaffDevices(staffId: string): Promise<
+    { ok: true; devices: number } | { ok: false; reason: TeamFailure }
+> {
+    try {
+        const data = await call('staff.devices.cut', { staffId });
+        return { ok: true, devices: Number(data.devices) || 0 };
+    } catch (cause) {
+        if (cause instanceof OrgError) throw cause;
+        return { ok: false, reason: failureOf(cause) };
+    }
+}
+
 // ── Açık kod — ekranlar arası ───────────────────────────────────────────────
 //
 // Kod yalnız üretildiği cevapta açık geçiyor ve sunucuda okunamıyor. Profil'in

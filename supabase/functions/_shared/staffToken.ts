@@ -19,6 +19,13 @@ export interface StaffClaims {
     role: string;
     /** staff.session_epoch — DB'dekiyle eşleşmezse token ölü sayılır. */
     epoch: number;
+    /**
+     * Telefonun kimliği (117 · `staff_devices.id`). Cihaz belgesine eşlemede
+     * basılıyor, o telefondan alınan personel belgesine de taşınıyor. Satırı
+     * iptal edilen telefonun iki belgesi de ölü. 117'den önce bağlanan
+     * telefonların belgesinde YOK — onları `staff.devices_cut_at` kapsıyor.
+     */
+    did?: string;
     iat: number;
     exp: number;
 }
@@ -152,7 +159,8 @@ export async function verifyStaffToken(
         return { ok: false, reason: 'malformed' };
     }
     if (typeof claims?.sub !== 'string' || typeof claims?.org !== 'string'
-        || typeof claims?.epoch !== 'number' || typeof claims?.exp !== 'number') {
+        || typeof claims?.epoch !== 'number' || typeof claims?.exp !== 'number'
+        || (claims.did !== undefined && typeof claims.did !== 'string')) {
         return { ok: false, reason: 'malformed' };
     }
     if (claims.exp <= nowSec) return { ok: false, reason: 'expired' };

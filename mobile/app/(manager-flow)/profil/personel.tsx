@@ -28,8 +28,12 @@ import {
     type RemovePlan,
 } from '../../../src/lib/teamRemove';
 import {
-    activeTeamCode, createTeamCode, fetchTeamStatus, rememberTeamCode, resetStaffPin, type TeamFailure,
+    activeTeamCode, createTeamCode, cutStaffDevices, fetchTeamStatus, rememberTeamCode, resetStaffPin,
+    type TeamFailure,
 } from '../../../src/lib/teamAccess';
+import {
+    CUT_ACTION, CUT_BUSY, CUT_LEAD, CUT_LINES, CUT_RESET_HINT, CUT_ROW_SUB, CUT_TITLE, cutProblem,
+} from '../../../src/lib/deviceCut';
 import {
     countdown, isFreshPin, memberLine, sortTeam, spacedCode, teamHeadline,
     type TeamCode, type TeamMember,
@@ -81,7 +85,7 @@ export default function ManagerStaffAccess() {
      * çıkar". Telefonda kimseyi ekipten çıkarmanın yolu yoktu; tek kişilikten
      * ekibe geçen kişi geri dönemiyordu (`teamRemove.ts`).
      */
-    const [sheet, setSheet] = useState<{ member: TeamMember; mode: 'menu' | 'reset' | 'remove' } | null>(null);
+    const [sheet, setSheet] = useState<{ member: TeamMember; mode: 'menu' | 'reset' | 'remove' | 'cut' } | null>(null);
     const resetting = sheet?.mode === 'reset' ? sheet.member : null;
     const [removeBusy, setRemoveBusy] = useState(false);
     const [removeError, setRemoveError] = useState<string | null>(null);
@@ -89,6 +93,9 @@ export default function ManagerStaffAccess() {
     const [soloNotice, setSoloNotice] = useState<string | null>(null);
     const [resetBusy, setResetBusy] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
+    /** Kayıp telefon (117) — "Telefonun bağlantısını kopar"ın hâli. */
+    const [cutBusy, setCutBusy] = useState(false);
+    const [cutError, setCutError] = useState<string | null>(null);
     /** Sıfırlanan satırda chevron'un yerinde 2 sn duran teal onay. */
     const [justReset, setJustReset] = useState<string | null>(null);
     const [now, setNow] = useState(() => Date.now());
@@ -160,7 +167,32 @@ export default function ManagerStaffAccess() {
         void snap.reload();
     };
 
+    /*
+     * KAYIP TELEFON (117) — yalnız işletme sahibi. Sunucu açık oturumu
+     * düşürüyor, kişinin o ana kadar bağlandığı telefonları kapatıyor ve
+     * telefon bildirimini siliyor; şifre değişmiyor. Bittiğinde satırda
+     * sıfırlamadaki teal onay görünüyor.
+     */
+    const confirmCut = async () => {
+        if (!sheet || cutBusy) return;
+        const member = sheet.member;
+        setCutBusy(true);
+        setCutError(null);
+        const result = await cutStaffDevices(member.id).catch(() => ({ ok: false as const, reason: 'failed' as const }));
+        setCutBusy(false);
+        if (!result.ok) {
+            feedback.warning();
+            setCutError(cutProblem(result.reason));
+            return;
+        }
+        feedback.success();
+        setJustReset(member.id);
+        setSheet(null);
+        void snap.reload();
+    };
+
     const openMember = (member: TeamMember) => {
+        setCutError(null);
         setResetError(null);
         setRemoveError(null);
         setSoloNotice(null);
@@ -463,7 +495,7 @@ export default function ManagerStaffAccess() {
                 visible={sheet !== null}
                 animationType="slide"
                 presentationStyle="pageSheet"
-                onRequestClose={() => { if (!removeBusy) setSheet(null); }}
+                onRequestClose={() => { if (!removeBusy && !cutBusy) setSheet(null); }}
             >
                 {sheet?.mode === 'menu' && members ? (
                     <MemberPage
@@ -471,8 +503,18 @@ export default function ManagerStaffAccess() {
                         line={memberLine(sheet.member, now).text}
                         plan={removePlan(members, sheet.member.id)}
                         onReset={() => setSheet({ member: sheet.member, mode: 'reset' })}
+                        onCut={() => setSheet({ member: sheet.member, mode: 'cut' })}
                         onRemove={() => setSheet({ member: sheet.member, mode: 'remove' })}
                         onCancel={() => setSheet(null)}
+                    />
+                ) : null}
+                {sheet?.mode === 'cut' ? (
+                    <CutPage
+                        member={sheet.member}
+                        busy={cutBusy}
+                        error={cutError}
+                        onConfirm={() => { void confirmCut(); }}
+                        onCancel={() => { if (!cutBusy) setSheet(null); }}
                     />
                 ) : null}
                 {resetting ? (
@@ -584,6 +626,9 @@ function ResetPage({ member, locked, busy, error, onConfirm, onCancel }: {
         ...(locked ? ['Kilidi de kalkar.'] : []),
         'Bir sonraki girişte yeni şifresini kendisi belirler.',
         'Telefonu işletmeye bağlı kalır; yeni kod gerekmez.',
+        // Kayıp telefonda yanlış araç (117): bağlı telefonda yeni şifreyi
+        // telefonu bulan da belirleyebilir.
+        CUT_RESET_HINT,
     ];
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 28, paddingBottom: Math.max(insets.bottom, 24) }}>
@@ -619,16 +664,19 @@ function ResetPage({ member, locked, busy, error, onConfirm, onCancel }: {
 }
 
 /**
- * Kişinin sayfası — satıra dokununca. İki iş, ikisi de kendi onay sayfasına
- * gidiyor: şifreyi sıfırla (yalnız şifresi olan) ve ekipten çıkar. Çıkarmanın
+ * Kişinin sayfası — satıra dokununca. Üç iş, üçü de kendi onay sayfasına
+ * gidiyor: şifreyi sıfırla (yalnız şifresi olan), telefonun bağlantısını
+ * kopar (kayıp telefon, 117) ve ekipten çıkar. Çıkarmanın
  * alt yazısı sonucu baştan söylüyor: yalnız bir kişi kalacaksa işletme tek
  * kişiliğe dönüyor ve kalanın adı orada.
  */
-function MemberPage({ member, line, plan, onReset, onRemove, onCancel }: {
+function MemberPage({ member, line, plan, onReset, onCut, onRemove, onCancel }: {
     member: TeamMember;
     line: string;
     plan: RemovePlan;
     onReset: () => void;
+    /** Kayıp telefon (117) — şifresi olsun olmasın her satırda. */
+    onCut: () => void;
     onRemove: () => void;
     onCancel: () => void;
 }) {
@@ -653,8 +701,11 @@ function MemberPage({ member, line, plan, onReset, onRemove, onCancel }: {
                     {member.hasPin ? (
                         <ProfileRow first title="Şifreyi sıfırla" sub="Açık oturumu kapanır · yenisini kendisi belirler" onPress={onReset} />
                     ) : null}
+                    {/* Şifresi olmayanda da: açığın kendisi şifresiz kişi —
+                        bağlı telefonda şifreyi bulan kişi belirleyebilir. */}
+                    <ProfileRow first={!member.hasPin} title={CUT_TITLE} sub={CUT_ROW_SUB} onPress={onCut} />
                     {plan.kind === 'last' ? null : (
-                        <ProfileRow first={!member.hasPin} danger title="Ekipten çıkar" sub={removeSub} onPress={onRemove} />
+                        <ProfileRow danger title="Ekipten çıkar" sub={removeSub} onPress={onRemove} />
                     )}
                 </Group>
             </View>
@@ -665,6 +716,58 @@ function MemberPage({ member, line, plan, onReset, onRemove, onCancel }: {
             ) : null}
             <View style={{ flex: 1 }} />
             <GhostButton label="Vazgeç" onPress={onCancel} />
+        </View>
+    );
+}
+
+/**
+ * Telefonun bağlantısını kopar — onay SAYFASI (117), `ResetPage`in kalıbında:
+ * neden sıfırlama değil de bu, ve sonuçlar tek tek. Turuncu düğme: kişi veri
+ * kaybetmiyor, şifresi de değişmiyor.
+ */
+function CutPage({ member, busy, error, onConfirm, onCancel }: {
+    member: TeamMember;
+    busy: boolean;
+    error: string | null;
+    onConfirm: () => void;
+    onCancel: () => void;
+}) {
+    const { c } = useTheme();
+    const insets = useSafeAreaInsets();
+    return (
+        <View style={{ flex: 1, backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 28, paddingBottom: Math.max(insets.bottom, 24) }}>
+            <Text style={{ color: c.tx3, fontSize: 12, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 12 * 0.14 }}>
+                {upperTR(CUT_TITLE)}
+            </Text>
+            <Text style={{ color: c.tx, fontSize: 26, lineHeight: 30, fontFamily: font.extraBold, fontWeight: '800', letterSpacing: 26 * -0.03, marginTop: 8 }}>
+                {member.name}
+            </Text>
+            <Text style={{ color: c.tx2, fontSize: 15, lineHeight: 22, fontFamily: font.medium, fontWeight: '500', marginTop: 10 }}>
+                {CUT_LEAD}
+            </Text>
+            <View style={{ marginTop: 22, gap: 12 }}>
+                {CUT_LINES.map((item) => (
+                    <View key={item} style={{ flexDirection: 'row', gap: 11, alignItems: 'flex-start' }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.tx3, marginTop: 8 }} />
+                        <Text style={{ flex: 1, color: c.tx, fontSize: 15, lineHeight: 22, fontFamily: font.semiBold, fontWeight: '600' }}>
+                            {item}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+            <View style={{ flex: 1 }} />
+            {error ? (
+                <Text
+                    accessibilityLiveRegion="polite"
+                    style={{ color: c.rd, fontSize: 13.5, lineHeight: 19, fontFamily: font.bold, fontWeight: '700', marginBottom: 12 }}
+                >
+                    {error}
+                </Text>
+            ) : null}
+            <View style={{ gap: 9 }}>
+                <PrimaryButton label={busy ? CUT_BUSY : CUT_ACTION} disabled={busy} onPress={onConfirm} />
+                <GhostButton label="Vazgeç" onPress={onCancel} />
+            </View>
         </View>
     );
 }
