@@ -28,10 +28,18 @@ o yüzden **yeni satır kapanışta da kullanılacak** (bkz. K-kare).
       hâli (2 × 3 kutu, 68 pt) aşağıdaki envanterde tarif edildi
    3. aynı sayfa, bir satır **açık** (− 1 + · Kaldır) ve **tutar açık**
       (₺350). Satıra dokunmak tutarı da açıyor
-   4. **silme penceresi** ("Geri al" sayacı), satırın kendi yerinde
-   5. **malzemeli adisyon:** MALZEME grubu, "DEPODAN DÜŞER" ve formül satırı
+   4. **silme penceresi**: "Kaş Tasarımı kaldırıldı · Geri al 5", satırın
+      kendi yerinde. ⚠️ Fitil görüntüde iki uçtan **ortaya** kısalıyor; niyet
+      sol ucun sabit kalmasıydı (tutar maskesinin fitili öyle). Yönü sen belirle
+   5. **malzemeli adisyon:** "MALZEME · 1" + formül satırı ("oran
+      yazılabilir · geçen sefer formül yazılmadı") + "pigment 7 · DEPODAN
+      DÜŞER". Katalog dışı kalem, adı yazıldığı gibi (küçük harf)
    6. kapanış · ADİSYON AÇIK: ₺5.400, tahsilat güvertesi, satır açık
    7. kapanış · TAHSİL EDİLDİ: mühürlü şerit, kilitli satırlar
+
+   1–3, 6 ve 7 **Tuğçe Erden · Kalıcı Makyaj**; 4 ve 5 başka bir randevu
+   (**Yasemin Kurt · Ağda**, ek hizmet Aromaterapi Masajı ₺1.100). İki
+   müşteri, aynı ekran.
 
 **Effort: High.**
 
