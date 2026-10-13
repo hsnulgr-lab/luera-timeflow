@@ -463,7 +463,7 @@ test('kendi randevusu kumandayı açar, meslektaşınınki açmaz', () => {
 test('ızgara salt okunurken blok KALKMIYOR', () => {
     // Ölü jest: blok kalkar, sürüklenir, bırakılır ve hiçbir şey olmaz.
     const grid = code(read('../mobile/src/components/ColumnCalendar.tsx'));
-    assert.ok(grid.includes('onLift={readOnly ? undefined : beginLift}'));
+    assert.ok(grid.includes('onLift={readOnly || !isReschedulable(appointment) ? undefined : beginLift}'));
     assert.ok(grid.includes('disabled={readOnly || Boolean(lifted)}'));
 });
 

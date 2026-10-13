@@ -1774,3 +1774,27 @@ Kanıt:
   beşi yakalandı.
 - `tests/tek-bildirim.test.mjs` geçiyor; tüm paket 2946 / 0 kırık.
 - Canlı göç bekliyor (§6).
+
+## 32 · 2026-10-13 · TAMAMLANAN RANDEVU BİR KAYIT
+
+Kullanıcı telefonda sordu: "Tamamlanan randevularda saati değiştir,
+hizmeti değiştir olması mantıksız değil mi?" Müdür 25'in A3 karesi bu
+düğmeleri tamamlanan randevuda da çiziyordu. Ürün sahibi değiştirdi;
+değişiklik **iki düzende de** geçerli, çünkü mantık aynı.
+
+Kural tek yerde, `appointmentDetail.isReschedulable`: iptal edilmemiş ve
+tamamlanmamış randevu. Dört yüzey bu kurala bakıyor:
+- **Randevu kartı:** tamamlananda saat/personel karoları ve "Hizmeti
+  değiştir" yok. "Notu düzenle" kalıyor. Yerlerinde neden ve düzeltmenin
+  yeri yazıyor (`doneInfo`): tek kişilikte "…Kasa'dan düzeltin", ekipte
+  "masaüstündeki Kasa'dan".
+- **Takvimin kart menüsü (`menuRows`):** tamamlananda ve iptal edilende
+  "Saati / Personeli değiştir" yok; tamamlananda "İptal et" yok. Menü
+  eskiden iptal edilene de taşıma sunuyordu.
+- **Takvimde sürükleme:** tamamlanan ve iptal edilen blok kalkmıyor.
+- **Süren iş:** değişmedi; saati, hizmeti ve iptali açık.
+
+"Randevuyu sil" tamamlananda duruyor; kullanıcıya sorulacak.
+
+Kanıt: `tests/randevu-tamamlanan.test.mjs`. Tüm paket 2951 geçti / 0 kırık
+· `tsc` temiz · yeni lint bulgusu yok. Telefonda denenmedi.

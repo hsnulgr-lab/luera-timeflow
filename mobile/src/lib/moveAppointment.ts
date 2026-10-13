@@ -12,7 +12,7 @@
  * ama menüden yasak" ya da tersi bir durum doğmasın.
  */
 
-import { destructiveOptions } from './appointmentDetail.ts';
+import { destructiveOptions, isReschedulable } from './appointmentDetail.ts';
 import { hhmm, toMinutes, type Appt } from './calendar.ts';
 import { COLUMN_GAP, COLUMN_WIDTH, HOUR_HEIGHT, type ColumnStaff } from './managerCalendar.ts';
 
@@ -244,11 +244,20 @@ export function menuSubtitle(appointment: Appt, staffName?: string | null): stri
  * sık ve zararsız olan üstte, geri alınamaz olan en altta, ayrı ve sessiz.
  */
 export function menuRows(appointment: Appt, staffName?: string | null, solo = false): MenuRow[] {
+    /*
+     * Taşıma yalnız taşınabilir randevuda: tamamlanan randevu bir kayıt,
+     * iptal edilen düzenlenmez — randevu kartıyla AYNI kural
+     * (`isReschedulable`). Menü eskiden ikisinde de "Saati değiştir" ve
+     * tamamlananda "İptal et" sunuyordu.
+     */
+    const movable = isReschedulable(appointment);
     const rows: MenuRow[] = [
-        { action: 'time', icon: 'clock', title: 'Saati değiştir', value: 'Aynı gün veya başka gün' },
+        ...(movable ? [
+            { action: 'time', icon: 'clock', title: 'Saati değiştir', value: 'Aynı gün veya başka gün' } as MenuRow,
+        ] : []),
         // Tek kişilikte "Personeli değiştir" YOK (v4 · karar 3): seçilecek
         // başka kimse yok ve satır işletmenin adını "personel" diye okurdu.
-        ...(solo ? [] : [
+        ...(solo || !movable ? [] : [
             { action: 'staff', icon: 'swap', title: 'Personeli değiştir', value: `Şu an: ${staffName ?? 'atanmamış'}` } as MenuRow,
         ]),
         { action: 'detail', icon: 'note', title: 'Randevu detayı' },
@@ -258,7 +267,8 @@ export function menuRows(appointment: Appt, staffName?: string | null, solo = fa
     // farklı cümle yazmak, ikisinin zamanla ayrışması demekti.
     let first = true;
     for (const option of destructiveOptions) {
-        if (option.action === 'cancel' && appointment.status === 'cancelled') continue;
+        // Kart da tamamlanan randevuda iptali çizmiyor.
+        if (option.action === 'cancel' && !movable) continue;
         rows.push({
             action: option.action,
             icon: option.action === 'cancel' ? 'x' : 'trash',

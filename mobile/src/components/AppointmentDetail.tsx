@@ -9,7 +9,7 @@ import {
 } from './ApptParts25';
 import { feedback } from '../lib/feedback';
 import {
-    CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG,
+    CANCELLED_INFO, CANCEL_HINT, DELETE_HINT, DELETE_HINT_LONG, doneInfo,
     applyNote, applyService, changeRows, changeTiles, identityOf, isEditable,
     showsAttendance, splitName, stateLine, stateOf, visitSummary,
     type CallAction, type DestructiveAction, type ReminderAction,
@@ -179,7 +179,12 @@ export function AppointmentDetail({
 
                     {editable ? (
                         <>
-                            <ChangeTiles tiles={tiles} onPress={(action) => onMove?.(action)} />
+                            {/* Tamamlanan randevu: saat ve hizmet kayıt — yerlerinde
+                                neden ve düzeltmenin yeri (`isReschedulable`). */}
+                            {stateOf(appointment) === 'done' ? <InfoLine text={doneInfo(solo)} /> : null}
+                            {tiles.length > 0 ? (
+                                <ChangeTiles tiles={tiles} onPress={(action) => onMove?.(action)} />
+                            ) : null}
                             <ChangeRows
                                 rows={rows}
                                 onPress={(action) => setSheet(action === 'service' ? 'service' : 'note')}

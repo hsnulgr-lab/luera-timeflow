@@ -203,6 +203,31 @@ export function isEditable(appointment: Appt): boolean {
 
 export const CANCELLED_INFO = 'İptal edilmiş randevu düzenlenmez. Yeni randevu verin.';
 
+/**
+ * Saati, personeli ve hizmeti değişebilir mi — yalnız henüz YAPILMAMIŞ ya
+ * da sürmekte olan randevuda.
+ *
+ * Tamamlanan randevu bir KAYIT (2026-10-13, telefon: "tamamlanan
+ * randevularda saati değiştir, hizmeti değiştir olması mantıksız"):
+ *   • saat — iş o saatte yapıldı; taşımak geçmişi yeniden yazmak
+ *   • hizmet — adisyon mühürlü ve tutar tahsilata girdi; hizmeti burada
+ *     değiştirmek Kasa'yla ayrışan bir randevu demek. Ücret yanlışsa
+ *     düzeltme yeri Kasa.
+ * Müdür 25'in A3 karesi tamamlanan randevuda da bu düğmeleri çiziyordu;
+ * ürün sahibi değiştirdi. Not açık kalıyor: işten sonra yazılacak şey olur.
+ */
+export function isReschedulable(appointment: Appt): boolean {
+    const state = stateOf(appointment);
+    return state !== 'cancelled' && state !== 'done';
+}
+
+/** Tamamlanan randevunun kartında değişmeyenlerin yerinde duran cümle. */
+export function doneInfo(solo: boolean): string {
+    return solo
+        ? 'Tamamlanan randevunun saati ve hizmeti değişmez. Ücret yanlışsa Kasa’dan düzeltin.'
+        : 'Tamamlanan randevunun saati, personeli ve hizmeti değişmez. Ücret yanlışsa masaüstündeki Kasa’dan düzeltilir.';
+}
+
 // ── Müşteri özeti ───────────────────────────────────────────────────────────
 
 export interface VisitSummary {
@@ -313,6 +338,8 @@ export function priceOfService(name: string, services: readonly ServiceOption[])
  * seçeneği yok, jeton bir işe yaramazdı. Tek jeton satırın tamamını alır.
  */
 export function changeTiles(appointment: Appt, staffName?: string | null, solo = false): ChangeTile[] {
+    // Tamamlanan randevunun saati ve personeli kayıttır (bkz. `isReschedulable`).
+    if (!isReschedulable(appointment)) return [];
     const time: ChangeTile = {
         action: 'time',
         icon: 'clock',
@@ -429,6 +456,13 @@ export interface ChangeRow {
 /** Hizmet ve not ayda birkaç kez değişir: normal satır, h62. */
 export function changeRows(appointment: Appt, services: readonly ServiceOption[]): ChangeRow[] {
     const price = priceOfService(appointment.service, services);
+    const note: ChangeRow = {
+        action: 'note',
+        title: 'Notu düzenle',
+        value: appointment.notes?.trim() ? appointment.notes.trim() : 'Not yok',
+    };
+    // Tamamlanan randevuda hizmet kayıttır; not açık kalıyor.
+    if (!isReschedulable(appointment)) return [note];
     return [
         {
             action: 'service',
@@ -438,11 +472,7 @@ export function changeRows(appointment: Appt, services: readonly ServiceOption[]
                 ? appointment.service
                 : `${appointment.service} · ₺${price.toLocaleString('tr-TR')}`,
         },
-        {
-            action: 'note',
-            title: 'Notu düzenle',
-            value: appointment.notes?.trim() ? appointment.notes.trim() : 'Not yok',
-        },
+        note,
     ];
 }
 

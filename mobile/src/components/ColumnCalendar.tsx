@@ -8,6 +8,7 @@ import {
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { isLive } from '../lib/calendar';
+import { isReschedulable } from '../lib/appointmentDetail';
 import {
     blockDetail, columnize, COLUMN_GAP, COLUMN_WIDTH, DRAG_BANNER_RESERVE, edgeStep, HOUR_HEIGHT, HOURS_WIDTH,
     hourLabels, nowLineTop, soloBlockShape,
@@ -489,7 +490,9 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
                                             owned={mine ? mine.has(appointment.id) : null}
                                             solo={soloColumn}
                                             onPress={() => onOpen?.(appointment)}
-                                            onLift={readOnly ? undefined : beginLift}
+                                            // Tamamlanan ve iptal edilen randevu kalkmaz:
+                                            // kayıt taşınmaz (randevu kartıyla aynı kural).
+                                            onLift={readOnly || !isReschedulable(appointment) ? undefined : beginLift}
                                             onDragMove={dragMove}
                                             onDragEnd={endDrag}
                                             onMenu={readOnly ? undefined : onMenu}
