@@ -893,7 +893,7 @@ dedi. Üçü de kapandı.
 |---|---|---|
 | `main` | `tek-kisilik` ile AYNI (ileri sarıldı) | GitHub'da |
 | `tek-kisilik` | çalışma dalı | GitHub'da |
-| `tek-kasa` | C2/C3 arayüz taslağı — tek `wip(tek)` commit'i, `tek-kisilik`in üstünde, **bağlanmadı** | GitHub'da |
+| `tek-kasa` | C2/C3 arayüz taslağı — tek `wip(tek)` commit'i (`95eaf73`); arayüzü §18'de `tek-kisilik`e alındı | **SİLİNDİ** (2026-10-13) |
 
 **Neden `main`'e birleşti** (kullanıcı kararı): canlıdaki `staff-api` ve
 108–110 yalnız bu daldaydı; biri `main`'den `staff-api` deploy etse tahsilat
@@ -1121,8 +1121,8 @@ düşürmezse görünmez bir katman Kasa'yı kilitlerdi. `askRevert` önce
 
 ### `tek-kasa` dalı
 
-İçeriği bu commit'te. Dal GitHub'da duruyor; silinip silinmeyeceği
-kullanıcının kararı.
+İçeriği bu commit'te. **2026-10-13: kullanıcı kararıyla SİLİNDİ** (yerelde ve
+GitHub'da). Tek commit'i `95eaf73`; gerekirse reflog'dan geri getirilebilir.
 
 ---
 
