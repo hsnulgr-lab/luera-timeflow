@@ -2296,3 +2296,22 @@ Kapanış gövdesinde hata yoktu (orada liste `groupsOf(lines)`). Artık
 iki uçtan ORTAYA kısalıyor (tutar maskesinin `Fuse`u sol ucu sabit tutuyor).
 "Gerek yok, kalsın" — şimdi düzeltilmiyor; yönü Personel 15 tasarımı
 belirleyecek (brief'te not var).
+
+---
+
+## 46 · 2026-10-14 · BUGÜN KARTI TEMANIN TERSİ (kullanıcının notu 4)
+
+Not "vardiya saati beyaz olmalı" netleşti: İşletme/Profil'deki **BUGÜN ·
+08:00 – 23:55** kartı (`ProfileParts.TodayCard`). Kart iki temada da sabit
+koyuydu (`cardSkin`); koyu temada öteki satırlarla aynı düzleme düşüyordu.
+Tasarım (Müdür 27) kartı TEMAYA uyduruyor (açıkta beyaz); kullanıcıya üç
+seçenek soruldu, cevap **"koyu temada beyaz, açıkta koyu"** — Gün'ün hâl
+kartıyla aynı `panelInk` deseni. Aydınlık temadaki hâl değişmedi.
+- Koyu tema: zemin `panelInk.dark.panel` (#FAF3E9), mürekkep `ink`/`ink2`,
+  "Şu anda açık" yeşili `panelInk.dark.green` (açık yeşil kremde okunmuyor).
+  Geri sayımın turuncusu aynı (Gün ve Akış kremde de `#FF5A1F`).
+- Aynı bileşen personelin Profil'inde (Vardiyam kartı) — o da değişti.
+
+Kanıt: `mobile-mudur-profil` +1 (kural kilitli); tüm paket 3011 / 0 kırık;
+`tsc` temiz; lint aynı (21, önceden); Metro iOS paketi derlendi. Telefonda
+denenmedi.

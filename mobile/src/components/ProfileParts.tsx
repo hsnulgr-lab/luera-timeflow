@@ -16,6 +16,7 @@ import { upperTR } from '../lib/text';
 import {
     cardSkin,
     font,
+    panelInk,
     profileMetrics as M,
     profileMotion as MO,
     radius,
@@ -193,8 +194,12 @@ export function ProfileHead({ name, sub, kicker = 'Profil' }: {
 /**
  * Hem cümle hem kapı: hangi gün, hangi saatler, şu an açık mı.
  *
- * Kart iki temada da KOYU (Müdür 18'in malzemesi), o yüzden mürekkebi de
- * sabit: `c.tx` gibi temaya bakan jetonlar kullanılmaz.
+ * TEMANIN TERSİ (kullanıcı kararı, 2026-10-14): koyu temada KREM, aydınlık
+ * temada koyu — Gün'ün hâl kartı ve Akış'ın SÜRÜYOR kartıyla aynı `panelInk`
+ * deseni. Eskiden iki temada da koyuydu (Müdür 18'in malzemesi) ve koyu
+ * temada öteki satırlarla aynı düzleme düşüp kayboluyordu. Aydınlık temadaki
+ * hâl DEĞİŞMEDİ: `cardSkin`. Mürekkep yine temaya bakan `c.tx` değil, kartın
+ * kendi zemininden.
  */
 export function TodayCard({ card, onPress }: {
     card: {
@@ -212,7 +217,23 @@ export function TodayCard({ card, onPress }: {
     };
     onPress: () => void;
 }) {
-    const { small } = useTheme();
+    const { small, dark } = useTheme();
+    const skin = dark
+        ? {
+            bg: panelInk.dark.panel,
+            border: panelInk.dark.line,
+            tx: panelInk.dark.ink,
+            tx2: panelInk.dark.ink2,
+            // Açık yeşil kremde okunmuyor; kremin kendi yeşili.
+            open: panelInk.dark.green,
+        }
+        : {
+            bg: cardSkin.bg,
+            border: cardSkin.border,
+            tx: cardSkin.tx,
+            tx2: cardSkin.tx2,
+            open: '#5FBF64',
+        };
     return (
         <Pressable
             accessibilityRole="button"
@@ -224,15 +245,15 @@ export function TodayCard({ card, onPress }: {
                 paddingHorizontal: M.cardPadX,
                 paddingBottom: M.cardPadBottom,
                 borderRadius: M.cardRadius,
-                backgroundColor: cardSkin.bg,
+                backgroundColor: skin.bg,
                 borderWidth: 1,
-                borderColor: cardSkin.border,
+                borderColor: skin.border,
                 opacity: pressed ? 0.9 : 1,
             })}
         >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{
-                    color: cardSkin.tx2,
+                    color: skin.tx2,
                     fontSize: M.cardKicker,
                     fontFamily: font.extraBold,
                     fontWeight: '800',
@@ -251,10 +272,10 @@ export function TodayCard({ card, onPress }: {
                         width: M.cardDot,
                         height: M.cardDot,
                         borderRadius: radius.pill,
-                        backgroundColor: card.open ? '#5FBF64' : cardSkin.tx2,
+                        backgroundColor: card.open ? skin.open : skin.tx2,
                     }} />
                     <Text style={{
-                        color: card.open ? '#5FBF64' : cardSkin.tx2,
+                        color: card.open ? skin.open : skin.tx2,
                         fontSize: M.cardStatus,
                         fontFamily: font.bold,
                         fontWeight: '700',
@@ -268,7 +289,7 @@ export function TodayCard({ card, onPress }: {
                 <Num
                     size={small ? M.cardHourSmall : M.cardHour}
                     style={{
-                        color: card.dim ? cardSkin.tx2 : cardSkin.tx,
+                        color: card.dim ? skin.tx2 : skin.tx,
                         fontWeight: '800',
                         letterSpacing: (small ? M.cardHourSmall : M.cardHour) * M.cardHourTrack,
                     }}
@@ -276,14 +297,14 @@ export function TodayCard({ card, onPress }: {
                     {card.range ?? 'Kapalı'}
                 </Num>
                 <View style={{ marginLeft: 'auto', paddingBottom: 5 }}>
-                    <Chevron color={cardSkin.tx2} />
+                    <Chevron color={skin.tx2} />
                 </View>
             </View>
 
             {/* Geri sayım yalnız açıkken. Turuncu, çünkü bu bir ZAMAN. */}
             {card.countdown ? (
                 <Text style={{
-                    color: cardSkin.tx2,
+                    color: skin.tx2,
                     fontSize: M.cardFoot,
                     fontFamily: font.semiBold,
                     fontWeight: '600',

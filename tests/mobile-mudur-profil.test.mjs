@@ -532,3 +532,19 @@ test('tema seçimi sistemin görünümüne de yazılır', () => {
     // Tercih değişince yeniden uygulanmalı; bir kez kurulup unutulamaz.
     assert.match(src, /\}, \[themeMode\]\);/);
 });
+
+test('Bugün kartı TEMANIN TERSİ: koyu temada krem, aydınlıkta koyu', () => {
+    // Kullanıcı kararı (2026-10-14): koyu temada kart öteki satırlarla aynı
+    // düzleme düşüp kayboluyordu. Gün'ün hâl kartıyla aynı `panelInk` deseni;
+    // aydınlık temadaki hâl değişmedi.
+    const parts = code('src/components/ProfileParts.tsx');
+    const card = parts.slice(parts.indexOf('export function TodayCard('), parts.indexOf('export function Group('));
+    assert.match(card, /const skin = dark\s*\?\s*\{\s*bg: panelInk\.dark\.panel,/);
+    assert.match(card, /:\s*\{\s*bg: cardSkin\.bg,/);
+    assert.match(card, /backgroundColor: skin\.bg/);
+    // Kremde açık yeşil okunmuyor: kremin kendi yeşili.
+    assert.match(card, /open: panelInk\.dark\.green/);
+    // Mürekkep kartın zemininden; sabit koyu kart jetonu çizimde kalmadı.
+    const draw = card.slice(card.indexOf('return ('));
+    assert.doesNotMatch(draw, /cardSkin\.(bg|border|tx|tx2)\b/);
+});
