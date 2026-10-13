@@ -415,6 +415,17 @@ export function pendingTickets(events: readonly FlowEvent[]): FlowEvent[] {
  * dünden kalanda "Dün 16:02’de bitti". Kişi adı YOK — liste tek kişilik
  * kipin listesi (v4 karar 3).
  */
+/**
+ * Bekleyen adisyon listesinin alt yazısı — dokunulan adisyon nerede açılıyor.
+ * Tek kişilikte tahsilat adımı (v4 · K3); ekipte Akış'taki satırı, çünkü
+ * ekipte Kasa yalnız okuma ve "Tahsil et" Akış'ta (2026-10-14).
+ */
+export function pendingHint(opensIn: 'collect' | 'flow'): string {
+    return opensIn === 'flow'
+        ? 'Dokunduğunuz adisyon Akış\'ta, kendi satırında açılır.'
+        : 'Dokunduğunuz adisyon tahsilat adımında açılır.';
+}
+
 export function pendingTicketLine(event: FlowEvent): string {
     const parts = event.time.trim().split(/\s+/);
     const clock = parts.pop() ?? '';

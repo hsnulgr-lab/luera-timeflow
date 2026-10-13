@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 
-import { waitAlarmDue, waitAlarmId, waitAlarmText } from './waitAlarm';
+import { waitAlarmData, waitAlarmDue, waitAlarmId, waitAlarmText } from './waitAlarm';
 
 /**
  * Bekleme bitti bildiriminin CİHAZ tarafı — kur ve sil.
@@ -10,11 +10,14 @@ import { waitAlarmDue, waitAlarmId, waitAlarmText } from './waitAlarm';
  * bildirimi göstermiyor — izin burada SORULMUYOR (bildirim kararı 5: ön-soru
  * Gün ekranında).
  *
- * Bildirime dokununca uygulama kabuğun kökünde açılıyor (adres yok,
- * `pushRoute`): Gün'de BEKLEMEDE kartı orada.
+ * Bildirime dokununca O İŞİN KUMANDASI açılıyor (kullanıcı kararı
+ * 2026-10-14): `data` sunucu bildirimleriyle aynı biçimde — etiket
+ * `wait-<randevu>`, adres günü taşıyor (`pushRoute.pushTargetOf`).
  */
 export async function armWaitAlarm(input: {
     reservationId: string;
+    /** Randevunun günü — kumanda o günün okumasıyla açılıyor. */
+    dateISO: string;
     endsAt: number;
     customerName: string;
     service: string;
@@ -29,7 +32,12 @@ export async function armWaitAlarm(input: {
         const text = waitAlarmText(input);
         await Notifications.scheduleNotificationAsync({
             identifier,
-            content: { title: text.title, body: text.body, sound: 'default', data: { kind: 'wait' } },
+            content: {
+                title: text.title,
+                body: text.body,
+                sound: 'default',
+                data: waitAlarmData(input.reservationId, input.dateISO),
+            },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DATE,
                 date: new Date(input.endsAt),

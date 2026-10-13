@@ -34,6 +34,11 @@ export type CashSheet =
         kind: 'pending';
         pending: Pending;
         tickets: readonly FlowEvent[];
+        /**
+         * Dokunulan adisyon nerede açılıyor (2026-10-14): tek kişilikte
+         * tahsilat adımı, ekipte Akış'taki satırı — "Tahsil et" orada.
+         */
+        opensIn: 'collect' | 'flow';
         /** Sayfa kapandıktan SONRA çağrılıyor — tahsilat adımı yığına itiliyor. */
         onPick: (ticket: FlowEvent) => void;
         onClosed?: () => void;

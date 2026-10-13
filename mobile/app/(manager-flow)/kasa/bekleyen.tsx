@@ -16,6 +16,7 @@ export default function CashPendingRoute() {
         <PendingTicketsSheet
             pending={sheet.pending}
             tickets={sheet.tickets}
+            opensIn={sheet.opensIn}
             onPick={(ticket) => { close(); sheet.onPick(ticket); }}
             onClose={close}
         />

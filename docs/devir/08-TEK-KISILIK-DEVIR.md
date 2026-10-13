@@ -2155,3 +2155,44 @@ staff-api deploy'undan sonra gerçek olur.
 
 Testler: `mobil-paket-sat` (iki dosya aynı, hesap silme cümleleri),
 `apple-yonlendirme-yasagi` geçti.
+
+---
+
+## 41 · 2026-10-14 · BİLDİRİME DOKUNUNCA DOĞRU EKRAN (kullanıcının notu 1)
+
+Kullanıcının telefon notu: "Bildirime dokununca açılan pencere atanmalı,
+bütün bildirimlerin bağlantısı kurulmalı." Soru-cevapla karar verildi.
+
+| Bildirim | Kime | Dokununca (yeni) |
+|---|---|---|
+| Yeni randevu · iptal · ertelendi (tetikleyici, WhatsApp, "randevumu yönet") | müdür, tek kişilik | **Randevu kartı** (`/randevu/<id>`) |
+| Sıradaki randevun yaklaşıyor | **tek kişilik (yeni)** | Randevu kartı |
+| Adisyon kasada | müdür (ekip) | **Kasa, tahsil edilmedi listesi açık**; listeden seçilen **Akış'ta kendi satırına** kaydırılır (ekipte "Tahsil et" Akış'ta) |
+| Personelin bütün bildirimleri | personel | **Bugün** (başka güne ait bildirimin hangi günü açacağı EN SONA, ayrıca konuşulacak) |
+| Bekleme bitti (telefonun kendisi) | personel, tek kişilik | **O işin kumandası**, kendi gününde |
+| Müşteri sizinle görüşmek istiyor (WhatsApp) | müdür | Değişmedi (`null`) — **ayrıca konuşulacak** |
+
+**Bulunan hata:** tek kişilik kabuk `manager` aktörüyle açıyordu → `/mudur/…`
+→ müdür kabuğuna düşüyordu. Artık `solo` aktörü, `/tek/…`.
+
+**Karar 2'ye uyulmayan yer:** WhatsApp ve "randevumu yönet" kaynaklı bildirimler
+müşterinin TAM adını, ad bilinmeyince TELEFON NUMARASINI yazıyordu. Ortak
+`_shared/notify.ts`e `firstNameOf` EKLENDİ (yalnız ekleme — remind'ı kıran türden
+ad değişikliği yok), yedi gövde ilk ada çevrildi.
+
+| Katman | Dosya |
+|---|---|
+| Saf karar (etiket önce, adres sonra) | `pushRoute.pushTargetOf`, `tagKindOf`; `reservationIdOf` artık `iptal-mudur-<uuid>`u da çözüyor |
+| Kanca | `pushSetup.usePushIntent` etiketi okuyor; `tek/_layout` → `'solo'` |
+| Bekleme alarmı | `waitAlarm.waitAlarmData` (`{ url: '/kumanda?date=…', tag: 'wait-<id>' }`), kumanda günü veriyor |
+| Kasa | `?bekleyen=1` → gün okuması gelince liste BİR KEZ; `opensIn: 'collect' \| 'flow'`, listenin alt yazısı kipine göre (`pendingHint`) |
+| Akış | `?focus=<randevu>&date=` → gün değişir, satıra kaydırılır (vurgu YOK: `freshId` geri almayı açar) |
+| Sunucu | `remind` (tek kişilikte "yaklaşıyor" müdür kaydına), `booking-manage` + `whatsapp-booking` (ilk ad), `_shared/notify.ts` |
+
+Kanıt: `tests/mobil-push-karar.test.mjs` (+7, çalıştırılarak), yeni
+`tests/bildirim-hedefleri.test.mjs` (6); iki eski Kasa testi yeni tek
+`openPendingList`e taşındı (kural aynı). Tüm paket 3004 / 0 kırık; `tsc` temiz;
+yeni lint bulgusu yok; Metro iOS paketi derlendi. Telefonda denenmedi.
+
+**Deploy bekliyor:** `remind booking-manage whatsapp-booking` (ortak modülde yalnız
+ekleme; onu kullanan `dodo-webhook`, `send-push`, `staff-nudge` eski hâliyle uyumlu).

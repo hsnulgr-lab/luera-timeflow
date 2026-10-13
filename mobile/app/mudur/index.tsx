@@ -3,7 +3,7 @@ import {
     AccessibilityInfo, Alert, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
     useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -734,6 +734,44 @@ export default function ManagerFlow() {
         scroller.current?.scrollTo({ y, animated: false });
     }, [dayEvents, insets.top, isToday, nowMinutes]);
 
+    /*
+     * BİR ADİSYONA GİT (2026-10-14) — Kasa'daki "tahsil edilmedi" listesinden
+     * ("Adisyon kasada" bildirimi): ekipte "Tahsil et" Akış'ta, kendi
+     * satırında. Gün değişiyorsa önce gün; satır çizilince ona kaydırılıyor.
+     * Vurgu YOK, bilerek: `freshId` "bu oturumda Geldi'ye basıldı" demek ve
+     * o satırda geri almayı açar.
+     */
+    const params = useLocalSearchParams<{ focus?: string; date?: string }>();
+    const focusRef = useRef<string | null>(null);
+    const focusRow = useCallback(() => {
+        const focus = focusRef.current;
+        if (!focus || viewport.current === 0) return;
+        const target = dayEvents.find((event) => event.appointmentId === focus && event.kind === 'due')
+            ?? dayEvents.find((event) => event.appointmentId === focus);
+        if (!target) return;
+        const top = rowTop.current.get(target.id);
+        if (top == null) return;
+        focusRef.current = null;
+        const y = Math.max(-insets.top, top - viewport.current * 0.25 - insets.top);
+        offsetY.current = y;
+        scroller.current?.scrollTo({ y, animated: true });
+    }, [dayEvents, insets.top]);
+    useEffect(() => {
+        const focus = typeof params.focus === 'string' && params.focus ? params.focus : null;
+        if (!focus) return;
+        focusRef.current = focus;
+        // Şimdi-çizgisine atlama bu isteği ezmesin.
+        jumped.current = true;
+        const date = typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+        if (date && date !== selectedISO) goToDay(date);
+        // İstek bir kez: geri dönünce yeniden kaydırmasın.
+        router.setParams({ focus: undefined, date: undefined });
+        focusRow();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params.focus, params.date]);
+    // Gün ya da satırlar gelince bekleyen istek yeniden deneniyor.
+    useEffect(() => { focusRow(); }, [focusRow]);
+
     /**
      * Başparmak bölgesinin yüksekliği. Pedal ALTTAN hizalı, birincil eylem
      * onun üstüne eklenir: böylece eylemi olan ve olmayan gün arasında pedal
@@ -825,6 +863,7 @@ export default function ManagerFlow() {
                 onLayout={(e) => {
                     viewport.current = e.nativeEvent.layout.height;
                     jumpToNow();
+                    focusRow();
                 }}
                 collapsable={false}
                 scrollEventThrottle={16}
@@ -1031,6 +1070,7 @@ export default function ManagerFlow() {
                             rowTop.current.set(event.id, y);
                             rowBottom.current.set(event.id, y + height);
                             jumpToNow();
+                            focusRow();
                         }}
                     >
                         {index > 0 ? <FlowDivider /> : null}

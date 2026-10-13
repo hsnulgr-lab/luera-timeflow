@@ -42,3 +42,13 @@ export function waitAlarmText(input: { customerName: string; service: string; mi
 export function waitAlarmDue(endsAt: number, nowMs: number): boolean {
     return Number.isFinite(endsAt) && endsAt - nowMs >= 1000;
 }
+
+/**
+ * Bildirimin `data`sı — sunucu bildirimleriyle AYNI biçim (`{ url, tag }`),
+ * çünkü dokunuşu tek karar katmanı çözüyor (`pushRoute.pushTargetOf`):
+ * etiket `wait-<randevu>` → o işin kumandası; adres günü taşıyor.
+ */
+export function waitAlarmData(reservationId: string, dateISO: string): { url: string; tag: string } {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(dateISO) ? `?date=${dateISO}` : '';
+    return { url: `/kumanda${date}`, tag: `wait-${reservationId}` };
+}

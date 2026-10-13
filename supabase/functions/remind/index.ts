@@ -497,6 +497,20 @@ Deno.serve(async (req: Request) => {
                 .gte('start_time', winStart)
                 .lte('start_time', winEnd);
 
+            /*
+             * TEK KİŞİLİK (108 · kullanıcı kararı 2026-10-14): sahibin telefonu
+             * bildirime MÜDÜR olarak kayıtlı (`syncManagerPush`, `staff_id`
+             * boş), personel kaydı yok. Personel hedefi orada kimseye
+             * ulaşmıyordu; tek kişilikte hatırlatma müdür kaydına gidiyor.
+             * Ekipte değişmedi: müdüre personelin her randevusu için
+             * hatırlatma gitmez.
+             */
+            const soonOrgs = [...new Set((soon ?? []).map((r: { organization_id: string }) => r.organization_id))];
+            const { data: soloRows } = soonOrgs.length > 0
+                ? await supabase.from('organizations').select('id').in('id', soonOrgs).eq('solo', true)
+                : { data: [] as { id: string }[] };
+            const soloOrgs = new Set((soloRows ?? []).map((row: { id: string }) => row.id));
+
             for (const r of soon ?? []) {
                 try {
                     const res = await fetch(`${pushBase}/send-push`, {
@@ -504,7 +518,9 @@ Deno.serve(async (req: Request) => {
                         headers: { 'Content-Type': 'application/json', 'x-push-secret': pushSecret },
                         body: JSON.stringify({
                             organization_id: r.organization_id,
-                            target: { staffId: r.staff_id },
+                            target: soloOrgs.has(r.organization_id)
+                                ? { role: 'manager' }
+                                : { staffId: r.staff_id },
                             payload: {
                                 title: 'Sıradaki randevun yaklaşıyor',
                                 // YALNIZ İLK AD — kilit ekranı salonda herkese açık

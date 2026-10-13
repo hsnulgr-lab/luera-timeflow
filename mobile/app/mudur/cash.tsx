@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chevron, HeroAmount, MovementCard, Money, RatioBar } from '../../src/components/CashParts';
@@ -116,8 +116,10 @@ export default function ManagerKasa() {
     // sayısını taşıyordu ve iki ekran iki farklı gerçek söylüyordu.
     // Boş günde de bekleyen olabilir: para girmemiş ama bekleyen var — bu
     // ayrım müdür için önemli, o yüzden panel yine görünür.
-    const { events, reload } = useManagerDay();
+    const { events, reload, state: dayState } = useManagerDay();
     const router = useRouter();
+    /** Bildirimden geldi: "Adisyon kasada" → tahsil edilmedi listesi açık (2026-10-14). */
+    const params = useLocalSearchParams<{ bekleyen?: string }>();
     const pending = useMemo(() => pendingOf(events), [events]);
     const tickets = useMemo(() => pendingTickets(events), [events]);
 
@@ -140,6 +142,26 @@ export default function ManagerKasa() {
             },
         });
     }, [router]);
+    /**
+     * EKİPTE listeden seçilen adisyon AKIŞ'TA, kendi satırında açılıyor
+     * (kullanıcı kararı 2026-10-14): ekipte Kasa yalnız okuma, "Tahsil et"
+     * Akış'ta. Dünden kalan adisyon kendi gününde.
+     */
+    const focusInFlow = useCallback((ticket: FlowEvent) => {
+        if (!ticket.appointmentId) return;
+        router.navigate({
+            pathname: '/mudur',
+            params: { focus: ticket.appointmentId, ...(ticket.dateISO ? { date: ticket.dateISO } : {}) },
+        });
+    }, [router]);
+    const openPendingList = useCallback(() => {
+        showCashSheet({
+            kind: 'pending', pending, tickets,
+            opensIn: solo ? 'collect' : 'flow',
+            onPick: solo ? openTicket : focusInFlow,
+        });
+        router.push('/kasa/bekleyen');
+    }, [solo, pending, tickets, openTicket, focusInFlow, router]);
     const onPendingPress = useCallback(() => {
         if (!solo) {
             router.navigate('/mudur');
@@ -150,9 +172,22 @@ export default function ManagerKasa() {
             openTicket(tickets[0]);
             return;
         }
-        showCashSheet({ kind: 'pending', pending, tickets, onPick: openTicket });
-        router.push('/kasa/bekleyen');
-    }, [solo, pending, tickets, openTicket, router]);
+        openPendingList();
+    }, [solo, tickets, openTicket, openPendingList, router]);
+
+    /*
+     * "ADİSYON KASADA" BİLDİRİMİ → LİSTE AÇIK (2026-10-14).
+     *
+     * Liste günün okuması gelince açılıyor — boş listeyle açılıp sonra dolması
+     * "bekleyen yok" deyip kendini yalanlamak olurdu. İstek bir kez
+     * tüketiliyor (parametre siliniyor): Kasa'ya geri dönünce yeniden açılmaz.
+     * Bu arada tahsil edildiyse liste açılmıyor; Kasa zaten doğru hâli gösteriyor.
+     */
+    useEffect(() => {
+        if (params.bekleyen !== '1' || dayState !== 'ok') return;
+        router.setParams({ bekleyen: undefined });
+        if (tickets.length > 0) openPendingList();
+    }, [params.bekleyen, dayState, tickets.length, openPendingList, router]);
 
     /**
      * Aşağı çekip yenileme — Akış'takiyle aynı refleks, aynı davranış.

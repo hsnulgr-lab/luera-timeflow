@@ -1276,6 +1276,8 @@ export default function Kumanda() {
                                  */
                                 const alarm = {
                                     reservationId: appointment.id,
+                                    // Dokununca bu işin kumandası, kendi gününde (2026-10-14).
+                                    dateISO: appointment.date,
                                     customerName: appointment.customer_name,
                                     service: appointment.service,
                                     minutes: m,

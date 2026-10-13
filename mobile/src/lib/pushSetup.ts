@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 import { rememberIntent, takeIntent } from './pushIntent.ts';
-import { pushHrefOf, type PushActor } from './pushRoute.ts';
+import { pushTargetOf, type PushActor, type PushData } from './pushRoute.ts';
 
 /**
  * Bildirimlerin uygulama tarafı kurulumu — davranış ve dokunma.
@@ -74,8 +74,9 @@ export function usePushIntent(actor: PushActor, ready: boolean): void {
 
     useEffect(() => {
         if (!response) return;
-        const data = response.notification.request.content.data as { url?: unknown } | undefined;
-        const href = pushHrefOf(typeof data?.url === 'string' ? data.url : null, actor);
+        // Etiket önce (randevunun kendisi), sonra adres — `pushTargetOf`.
+        const data = response.notification.request.content.data as PushData | undefined;
+        const href = pushTargetOf(data, actor);
         // Tanınmayan hedef: hiçbir şey yapılmıyor. Tahmin edilmiş bir adrese
         // gitmek, hiç gitmemekten kötü.
         if (href) rememberIntent({ href, actor, at: Date.now() });

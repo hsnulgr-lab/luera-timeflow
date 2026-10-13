@@ -43,7 +43,9 @@ export default function SoloLayout() {
     const { c } = useTheme();
     useShellIsRoot('tek');
     const gate = useActorGate('manager');
-    usePushIntent('manager', gate.state === 'allowed');
+    // Tek kişilik kendi aktörüyle (2026-10-14): `manager` eşlemesi `/mudur/…`
+    // açıyor ve kabuk müdüre düşüyordu.
+    usePushIntent('solo', gate.state === 'allowed');
 
     /*
      * KUMANDANIN ANAHTARI BU KABUKTA TAKILI (108 · Faz 2b).

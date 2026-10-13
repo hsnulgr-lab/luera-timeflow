@@ -21,7 +21,7 @@ import {
     type Clarify, type Topic,
 } from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
-import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
+import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 
 // ============================================================
@@ -449,7 +449,7 @@ Deno.serve(async (req: Request) => {
                 announceFreedSlot(admin, orgId, pendingReply.date);
                 notifyOwner(admin, orgId, {
                     title: 'Randevu iptal edildi',
-                    body: `${known.name} · ${fmtDate(pendingReply.date)} ${timeLabel} — hatırlatmaya "gelemem" yanıtı verdi.`,
+                    body: `${firstNameOf(known.name)} · ${fmtDate(pendingReply.date)} ${timeLabel} — hatırlatmaya "gelemem" yanıtı verdi.`,
                     url: `/takvim?date=${pendingReply.date}`,
                     tag: `res-${pendingReply.id}`,
                 });
@@ -476,7 +476,7 @@ Deno.serve(async (req: Request) => {
             announceFreedSlot(admin, orgId, cancelled.date);
             notifyOwner(admin, orgId, {
                 title: 'Randevu iptal edildi',
-                body: `${known?.name ?? phone} · ${fmtDate(cancelled.date)} ${timeLabel} — WhatsApp'tan iptal etti.`,
+                body: `${firstNameOf(known?.name)} · ${fmtDate(cancelled.date)} ${timeLabel} — WhatsApp'tan iptal etti.`,
                 url: `/takvim?date=${cancelled.date}`,
                 tag: `res-${cancelled.id}`,
             });
@@ -767,7 +767,7 @@ Deno.serve(async (req: Request) => {
                 await clearSession();
                 notifyOwner(admin, orgId, {
                     title: 'Müşteri sizinle görüşmek istiyor',
-                    body: `${known?.name ?? phone}: "${text.slice(0, 120)}"`,
+                    body: `${firstNameOf(known?.name)}: "${text.slice(0, 120)}"`,
                     url: '/mesajlar',
                     tag: `handoff-${phone}`,
                 });
@@ -1024,7 +1024,7 @@ Deno.serve(async (req: Request) => {
             await clearSession();
             notifyOwner(admin, orgId, {
                 title: 'Randevu ertelendi',
-                body: `${known?.name ?? phone} · ${from.dateLabel} ${from.time} → ${fmtDate(date)} ${state.time}`,
+                body: `${firstNameOf(known?.name)} · ${from.dateLabel} ${from.time} → ${fmtDate(date)} ${state.time}`,
                 url: `/takvim?date=${date}`,
                 tag: `res-${moved.id}`,
             });
@@ -1098,7 +1098,7 @@ Deno.serve(async (req: Request) => {
         // kadar işletmeci bunu ertesi sabah takvimi açınca öğreniyordu.
         notifyOwner(admin, orgId, {
             title: autoConfirm ? 'Yeni randevu' : 'Yeni randevu — onay bekliyor',
-            body: `${customerName} · ${fmtDate(date)} ${state.time} — ${svc.name}`,
+            body: `${firstNameOf(customerName)} · ${fmtDate(date)} ${state.time} — ${svc.name}`,
             url: `/takvim?date=${date}`,
             tag: `res-${reservation.id}`,
         });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { pushHrefOf, reservationIdOf } from '../mobile/src/lib/pushRoute.ts';
+import { pushHrefOf, pushTargetOf, reservationIdOf, tagKindOf } from '../mobile/src/lib/pushRoute.ts';
+import { waitAlarmData } from '../mobile/src/lib/waitAlarm.ts';
 import { INTENT_TTL_MS, forgetIntent, peekIntent, rememberIntent, takeIntent } from '../mobile/src/lib/pushIntent.ts';
 import { isLive, opensSettings, permissionText, shouldAsk, stateOf } from '../mobile/src/lib/pushPermission.ts';
 import { REGISTER_REFRESH_MS, shouldRegister, shouldUnregister } from '../mobile/src/lib/pushRegistration.ts';
@@ -29,9 +30,14 @@ test('saf dosyalar gerçekten saf', () => {
 
 // ── Hedef eşlemesi ──────────────────────────────────────────────────────────
 
-test('aynı adres iki rolde İKİ AYRI ekran', () => {
-    assert.equal(pushHrefOf('/calendar', 'staff'), '/personel/calendar');
+test('aynı adres üç kabukta ÜÇ AYRI ekran', () => {
+    // Personelin bütün bildirimleri Bugün'ü açıyor (kullanıcı kararı 2026-10-14).
+    assert.equal(pushHrefOf('/calendar', 'staff'), '/personel');
     assert.equal(pushHrefOf('/calendar', 'manager'), '/mudur/calendar');
+    // Tek kişilik kendi ekranlarında — `/mudur/…` onu müdür kabuğuna düşürüyordu.
+    assert.equal(pushHrefOf('/calendar', 'solo'), '/tek/calendar');
+    assert.equal(pushHrefOf('/kasa', 'solo'), '/tek/cash');
+    assert.equal(pushHrefOf('/takvim?date=2026-09-23', 'solo'), '/tek/calendar?date=2026-09-23');
 });
 
 test('/personel HİÇBİR koşulda /personel/[id]\'ye düşmüyor', () => {
@@ -71,6 +77,66 @@ test('randevu kimliği etiketten çıkıyor — sunucu değişmeden', () => {
     assert.equal(reservationIdOf(`moved-${id}`), id);
     assert.equal(reservationIdOf('soon-42'), null);
     assert.equal(reservationIdOf(null), null);
+    // Tür kendisi tire taşıyabilir: eski kural `mudur-<uuid>` dönüp düşüyordu.
+    assert.equal(reservationIdOf(`iptal-mudur-${id}`), id);
+    assert.equal(tagKindOf(`iptal-mudur-${id}`), 'iptal-mudur');
+    assert.equal(tagKindOf(`handoff-905551112233`), null);
+});
+
+// ── Dokununca nereye (kullanıcı kararları 2026-10-14) ───────────────────────
+
+const ID = '0f9b7c52-1a2b-4c3d-9e8f-112233445566';
+
+test('müdür ve tek kişilik: yeni, iptal, ertelendi, yaklaşıyor → RANDEVU KARTI', () => {
+    for (const actor of ['manager', 'solo']) {
+        for (const tag of [`booked-${ID}`, `iptal-mudur-${ID}`, `res-${ID}`, `soon-${ID}`]) {
+            assert.equal(pushTargetOf({ url: '/calendar', tag }, actor), `/randevu/${ID}`, `${actor} ${tag}`);
+        }
+    }
+    // Etiketsiz eski bildirim adrese düşüyor — kabuğun kendi ekranına.
+    assert.equal(pushTargetOf({ url: '/takvim?date=2026-10-14' }, 'solo'), '/tek/calendar?date=2026-10-14');
+});
+
+test('adisyon kasada → Kasa, tahsil edilmedi listesi açık', () => {
+    assert.equal(pushTargetOf({ url: '/kasa', tag: `kasa-${ID}` }, 'manager'), '/mudur/cash?bekleyen=1');
+    assert.equal(pushTargetOf({ url: '/kasa', tag: `kasa-${ID}` }, 'solo'), '/tek/cash?bekleyen=1');
+});
+
+test('personel: her şey Bugün — randevu etiketi taşısa da', () => {
+    for (const [url, tag] of [['/calendar', `assign-${ID}`], ['/personel', `arrived-${ID}`], ['/personel', `cancel-${ID}`],
+        ['/personel', `moved-${ID}`], ['/calendar', `soon-${ID}`], ['/personel', `nudge-${ID}`]]) {
+        assert.equal(pushTargetOf({ url, tag }, 'staff'), '/personel', tag);
+    }
+});
+
+test('bekleme bitti → o işin kumandası, kendi gününde; tek kişilikte "Gün"e dönen kumanda', () => {
+    const data = waitAlarmData(ID, '2026-10-14');
+    assert.deepEqual(data, { url: '/kumanda?date=2026-10-14', tag: `wait-${ID}` });
+    assert.equal(pushTargetOf(data, 'staff'), `/kumanda?id=${ID}&date=2026-10-14`);
+    assert.equal(pushTargetOf(data, 'solo'), `/kumanda?id=${ID}&from=tek&date=2026-10-14`);
+    // Ekipteki müdür kumanda kullanmıyor.
+    assert.equal(pushTargetOf(data, 'manager'), null);
+    // Bozuk gün taşınmıyor.
+    assert.deepEqual(waitAlarmData(ID, 'dün'), { url: '/kumanda', tag: `wait-${ID}` });
+});
+
+test('WhatsApp "görüşmek istiyor" bilerek açılmıyor — ayrıca konuşulacak', () => {
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'manager'), null);
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'solo'), null);
+});
+
+test('bozuk veri hiçbir yere gitmiyor', () => {
+    for (const data of [null, undefined, {}, { url: 42, tag: {} }, { tag: 'booked-xyz' }]) {
+        assert.equal(pushTargetOf(data, 'manager'), null, JSON.stringify(data));
+    }
+});
+
+test('kabuklar kendi aktörüyle açıyor; kanca etiketi okuyor', () => {
+    assert.match(read('app/tek/_layout.tsx'), /usePushIntent\('solo', gate\.state === 'allowed'\);/);
+    assert.match(read('app/mudur/_layout.tsx'), /usePushIntent\('manager', gate\.state === 'allowed'\);/);
+    assert.match(read('app/personel/_layout.tsx'), /usePushIntent\('staff', gate\.state === 'allowed'\);/);
+    assert.match(read('src/lib/pushSetup.ts'), /const href = pushTargetOf\(data, actor\);/);
+    assert.match(read('src/lib/waitAlarmDevice.ts'), /data: waitAlarmData\(input\.reservationId, input\.dateISO\),/);
 });
 
 // ── Niyet ───────────────────────────────────────────────────────────────────

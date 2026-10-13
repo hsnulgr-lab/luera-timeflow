@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { SheetGrab, SheetHeader } from './Sheet';
 import { Chevron, Money } from './CashParts';
 import { formatAmount, pendingTitle, SUMMARY_LABEL, type Pending } from '../lib/cash';
-import { pendingTicketLine, type FlowEvent } from '../lib/managerFlow';
+import { pendingHint, pendingTicketLine, type FlowEvent } from '../lib/managerFlow';
 import { apptCardMetrics, cashMetrics, font, useTheme } from '../theme';
 
 /**
@@ -19,9 +19,11 @@ import { apptCardMetrics, cashMetrics, font, useTheme } from '../theme';
  * Kabuk randevu kartınınki, boy içerik kadar (`kasa/bekleyen.tsx` ·
  * formSheet · 2026-10-13): kaç adisyon varsa o kadar uzun.
  */
-export function PendingTicketsSheet({ pending, tickets, onPick, onClose }: {
+export function PendingTicketsSheet({ pending, tickets, opensIn, onPick, onClose }: {
     pending: Pending;
     tickets: readonly FlowEvent[];
+    /** Tek kişilikte tahsilat adımı, ekipte Akış (`cashSheet`). */
+    opensIn: 'collect' | 'flow';
     onPick: (ticket: FlowEvent) => void;
     onClose: () => void;
 }) {
@@ -36,7 +38,7 @@ export function PendingTicketsSheet({ pending, tickets, onPick, onClose }: {
                     {pendingTitle(pending)}
                 </Text>
                 <Text style={{ fontFamily: font.medium, fontSize: 13, color: c.tx2, marginTop: 2, marginBottom: 6 }}>
-                    Dokunduğunuz adisyon tahsilat adımında açılır.
+                    {pendingHint(opensIn)}
                 </Text>
 
                 {tickets.map((ticket) => {
@@ -49,7 +51,7 @@ export function PendingTicketsSheet({ pending, tickets, onPick, onClose }: {
                             accessibilityRole="button"
                             accessibilityLabel={`${name}, ${line}${
                                 typeof amount === 'number' ? `, ${formatAmount(amount)} lira` : ''
-                            }. Tahsilatı aç.`}
+                            }. ${opensIn === 'flow' ? "Akış'ta aç." : 'Tahsilatı aç.'}`}
                             onPress={() => onPick(ticket)}
                             style={({ pressed }) => ({
                                 flexDirection: 'row', alignItems: 'center', gap: 12,

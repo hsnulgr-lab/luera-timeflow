@@ -4,7 +4,7 @@ import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
 import { formatDateTr } from '../_shared/booking/slots.ts';
-import { announceFreedSlot, notifyOwner } from '../_shared/notify.ts';
+import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 
 // ============================================================
 // booking-manage — Müşteri self-servis randevu yönetimi
@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
             // (whatsapp-booking) zaten bildiriyordu; link iptali sessizdi.
             notifyOwner(supabase, orgId, {
                 title: 'Randevu iptal edildi',
-                body: `${res.customer_name} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} — yönetim linkinden iptal etti.`,
+                body: `${firstNameOf(res.customer_name)} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} — yönetim linkinden iptal etti.`,
                 url: `/takvim?date=${res.date}`,
                 tag: `res-${res.id}`,
             });
@@ -261,7 +261,7 @@ Deno.serve(async (req: Request) => {
 
             notifyOwner(supabase, orgId, {
                 title: 'Randevu ertelendi',
-                body: `${res.customer_name} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} → ${formatDateTr(date)} ${time}`,
+                body: `${firstNameOf(res.customer_name)} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} → ${formatDateTr(date)} ${time}`,
                 url: `/takvim?date=${date}`,
                 tag: `res-${res.id}`,
             });

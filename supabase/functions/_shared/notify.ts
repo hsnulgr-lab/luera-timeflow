@@ -27,6 +27,18 @@ export interface OwnerNotice {
 }
 
 /**
+ * Bildirimde müşterinin YALNIZ İLK ADI (karar 2 · 104, 2026-10-14).
+ *
+ * Telefon salonda tezgâhta duruyor, kilit ekranı herkese açık. Tetikleyiciler
+ * (104) ve `remind` ilk adı yazıyordu; WhatsApp ve "randevumu yönet" kaynaklı
+ * bildirimler ise TAM adı, ad bilinmeyince de TELEFON NUMARASINI yazıyordu.
+ * Ad yoksa "Müşteri" — numara kilit ekranına çıkmaz.
+ */
+export function firstNameOf(full: string | null | undefined): string {
+    return String(full ?? '').trim().split(/\s+/)[0] || 'Müşteri';
+}
+
+/**
  * Yönetici rolündeki tüm abonelere bildirim yollar. Hata yutulur — çağıran
  * `await` etmek zorunda değil ve etmese de akış bozulmaz.
  */

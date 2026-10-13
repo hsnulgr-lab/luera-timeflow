@@ -544,7 +544,10 @@ test('bekleyen adisyon şeridi ÖLÜ DEĞİL — ekipte Akış\'a, tek kişilikt
     // Tek kişilikte Akış YOK (v4 C1): `/mudur` kapısı kişiyi geri atardı.
     // Tek adisyon doğrudan kumandanın tahsilat adımında; birden çoksa önce liste.
     assert.match(screen, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
-    assert.match(screen, /showCashSheet\(\{ kind: 'pending', pending, tickets, onPick: openTicket \}\);\s*router\.push\('\/kasa\/bekleyen'\);/);
+    // Liste tek yerden açılıyor (2026-10-14 — bildirim de aynı listeyi açıyor):
+    // tek kişilikte seçilen tahsilat adımında açılır.
+    assert.match(screen, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}\s*openPendingList\(\);/);
+    assert.match(screen, /opensIn: solo \? 'collect' : 'flow',\s*onPick: solo \? openTicket : focusInFlow,\s*\}\);\s*router\.push\('\/kasa\/bekleyen'\);/);
     assert.match(screen, /pathname: '\/\(staff-flow\)\/kumanda'/);
     assert.match(screen, /from: 'tek',/);
     // Dünden kalan adisyon bugünün ajandasında yok: kumanda onu kendi gününde açıyor.
