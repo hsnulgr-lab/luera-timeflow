@@ -317,7 +317,13 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### ⏳ BEKLİYOR (2026-10-13) — 117 + `staff-api` (kayıp telefonun bağını kopar · §39)
+### ✅ CANLIDA (2026-10-14) — 117 + `staff-api` (kayıp telefonun bağını kopar · §39)
+
+Kullanıcı çalıştırdı: kuru koşu `telefon bağı (117) regression: ok` +
+`ROLLBACK`, göç `COMMIT`, `staff-api` deploy. Claude yokladı: `OPTIONS` 200;
+`staff.devices.cut` oturumsuz → `unauthorized` (eski kod `invalid_token`
+derdi — yeni kod canlı); sahte belge → `invalid_token/malformed`; 18/18
+fonksiyon `OPTIONS` 200. Telefonda henüz denenmedi. Komutlar kayıt için:
 
 Göç + edge function. Telefonda yeniden derleme yok; müdürün yeni satırı
 Expo'da yenileyince görünür. **Sıra zorunlu:** önce göç, sonra deploy — yeni
@@ -2108,7 +2114,7 @@ uydurma red, istemci rolleri tabloyu göremiyor. `staff-api` tip denetimi:
 yeni hata yok (önce/sonra 77, hepsi yerel supabase-js tiplerinin eski
 gürültüsü). Tüm paket 2991 / 0 kırık; `tsc` temiz.
 
-**Deploy bekliyor (§6).** `public/gizlilik.html` ve `destek.html`'deki
+**Canlıda (2026-10-14, §6).** `public/gizlilik.html` ve `destek.html`'deki
 "Telefonumu kaybettim" SSS'i bu adıma göre güncellendi (§40).
 
 ---
