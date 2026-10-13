@@ -8,7 +8,7 @@ import Svg, { Line } from 'react-native-svg';
 import { feedback } from '../lib/feedback';
 import {
     boundsFor, crossedMonth, dateAt, indexFromOffset, indexOf, offsetForIndex,
-    majorTickOffset, railCell, smallTickOffsets, stepFor,
+    majorTickOffset, railCell, smallTickOffsets, stepFor, SCRUB_SETTLE_MS,
     type TickKind,
 } from '../lib/dayScrubber';
 import { addDaysISO } from '../lib/calendar';
@@ -111,12 +111,42 @@ export function DayScrubber({ selectedISO, todayISO, width, onSelect }: {
         setCentered(next);
     }, [step, bounds]);
 
+    /**
+     * Ray kullanıcının elinde mi (sürükleme ya da savuruşun kayması).
+     *
+     * TAKILMANIN SEBEBİ (2026-10-14, kullanıcının notu 5): parmak kalkınca
+     * (`onScrollEndDrag`) seçim ebeveyne bildiriliyordu — liste HÂLÂ kayarken.
+     * Akış o güne geçip baştan çiziliyor, cetvel de aşağıdaki "dışarıdan
+     * değişti" etkisiyle kendini o ara güne geri çekiyordu: kayan ray takılıp
+     * geri sıçrıyordu. Artık seçim ancak ray DURUNCA gidiyor ve ray elde
+     * iken dışarıdan gelen seçim onu çekmiyor.
+     */
+    const moving = useRef(false);
+    /** Parmak kalktı ama kayma başlayabilir: kısa bir bekleme, kayma iptal eder. */
+    const dragCommit = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelDragCommit = useCallback(() => {
+        if (dragCommit.current) clearTimeout(dragCommit.current);
+        dragCommit.current = null;
+    }, []);
+    useEffect(() => cancelDragCommit, [cancelDragCommit]);
+
     /** Liste durdu: seçimi ŞİMDİ ebeveyne bildir. */
     const commit = useCallback(() => {
+        cancelDragCommit();
+        moving.current = false;
         jumpTarget.current = null;
         if (settled.current === selectedISO) return;
         onSelect(settled.current);
-    }, [onSelect, selectedISO]);
+    }, [onSelect, selectedISO, cancelDragCommit]);
+    /**
+     * Parmak kalktı. `snapToInterval` çoğu zaman bir kayma başlatır — o
+     * zaman seçimi `onMomentumScrollEnd` bildirir. Ray tam bir güne oturmuş
+     * hâlde bırakıldıysa kayma olmaz; seçim kısa bir beklemeden sonra gider.
+     */
+    const onScrollEndDrag = useCallback(() => {
+        cancelDragCommit();
+        dragCommit.current = setTimeout(commit, SCRUB_SETTLE_MS);
+    }, [cancelDragCommit, commit]);
 
     const jumpTo = useCallback((dateISO: string) => {
         if (dateISO === settled.current) return;
@@ -136,6 +166,9 @@ export function DayScrubber({ selectedISO, todayISO, width, onSelect }: {
      */
     useEffect(() => {
         if (selectedISO === settled.current) return;
+        // Ray elde: kullanıcının hareketini geri çekme. Durunca bildirilen gün
+        // zaten onun seçimi.
+        if (moving.current) return;
         settled.current = selectedISO;
         setCentered(selectedISO);
         scrollToDay(selectedISO, true);
@@ -200,11 +233,16 @@ export function DayScrubber({ selectedISO, todayISO, width, onSelect }: {
                     decelerationRate="fast"
                     scrollEventThrottle={16}
                     onScroll={onScroll}
+                    onMomentumScrollBegin={cancelDragCommit}
                     onMomentumScrollEnd={commit}
-                    onScrollEndDrag={commit}
+                    onScrollEndDrag={onScrollEndDrag}
                     // Parmak değdi: programatik hareket ne durumda olursa olsun
                     // iptal. Ray her koşulda kullanıcıya geri döner.
-                    onScrollBeginDrag={() => { jumpTarget.current = null; }}
+                    onScrollBeginDrag={() => {
+                        cancelDragCommit();
+                        moving.current = true;
+                        jumpTarget.current = null;
+                    }}
                     // Seçili gün ORTADA durur; iki yandaki boşluk onu ortalıyor.
                     contentContainerStyle={{ paddingHorizontal: (railWidth - step) / 2 }}
                     renderItem={renderDay}

@@ -41,7 +41,7 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     // Kanal AÇILDI (2026-09-24 · `staff-nudge`): göz artık personelin
     // telefonuna gerçekten bildirim düşürüyor. Açıklama bunu söyleyebilir —
     // ve damga yalnız gönderim tuttuysa basıldığı için söz tutuluyor.
-    inf: { label: 'Personele bilgi ver', hint: 'telefonuna bildirim gider' },
+    inf: { label: 'Personeli çağır', hint: 'telefonuna bildirim gider' },
     // Tek kişilik Gün (G5): randevu kartını açar — iptal ve değişiklikler
     // orada, onaylı hâliyle. Basılı tutma YOK: bir ekran açıyor, geri
     // alınacak bir şey yok.
@@ -306,7 +306,7 @@ export function staffRecord(result: NudgeResult, minutes: number): PillRecord {
      */
     switch (result) {
         case 'ok':
-            return { text: `Personele söylendi · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
+            return { text: `Personel çağırıldı · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
         case 'no_staff':
             return { text: 'Personel atanmamış · gönderilmedi', tone: 'warn', stales: false };
         case 'failed':

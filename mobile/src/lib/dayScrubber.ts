@@ -136,3 +136,13 @@ export function showsBackToday(selectedISO: string, todayISO: string): boolean {
 export function crossedMonth(fromISO: string, toISO: string): boolean {
     return fromISO.slice(0, 7) !== toISO.slice(0, 7);
 }
+
+/**
+ * Parmak kalktıktan sonra seçimin ebeveyne gitmesi için bekleme (2026-10-14).
+ *
+ * `snapToInterval` bırakışta çoğu zaman bir kayma başlatıyor ve o zaman seçimi
+ * `onMomentumScrollEnd` bildiriyor; kayma başlayınca bu bekleme iptal oluyor.
+ * Kayma başlamazsa (ray tam güne oturmuş bırakıldı) seçim bu kadar sonra
+ * gidiyor. Kayan listenin ortasında seçim bildirmek cetveli takılttırıyordu.
+ */
+export const SCRUB_SETTLE_MS = 160;

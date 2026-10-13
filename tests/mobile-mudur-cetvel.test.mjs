@@ -324,9 +324,21 @@ test('kaydırma sırasında ebeveyne haber verilmez', () => {
     assert.match(scroll, /feedback\.(light|selection)\(\)/);
 });
 
-test('seçim liste DURUNCA bildirilir', () => {
+test('seçim liste DURUNCA bildirilir — kayarken değil (takılma, 2026-10-14)', () => {
+    /*
+     * Telefonda (kullanıcının notu 5): "kaydırınca takılıyor". Parmak kalkınca
+     * (`onScrollEndDrag`) seçim bildiriliyordu, liste HÂLÂ kayarken; Akış o
+     * güne geçiyor, cetvel de "dışarıdan değişti" deyip kendini geri
+     * çekiyordu. Artık: kayma bitince bildir; kayma olmazsa kısa beklemeyle;
+     * ray eldeyken dışarıdan gelen seçim onu çekmez.
+     */
     assert.match(rail, /onMomentumScrollEnd=\{commit\}/);
-    assert.match(rail, /onScrollEndDrag=\{commit\}/);
+    assert.doesNotMatch(rail, /onScrollEndDrag=\{commit\}/);
+    assert.match(rail, /onScrollEndDrag=\{onScrollEndDrag\}/);
+    assert.match(rail, /dragCommit\.current = setTimeout\(commit, SCRUB_SETTLE_MS\);/);
+    assert.match(rail, /onMomentumScrollBegin=\{cancelDragCommit\}/);
+    assert.match(rail, /if \(selectedISO === settled\.current\) return;[\s\S]{0,160}if \(moving\.current\) return;/);
+    assert.match(rail, /moving\.current = true;/);
     // Aynı güne ikinci kez bildirim yok.
     assert.match(rail, /if \(settled\.current === selectedISO\) return;/);
 });
@@ -380,8 +392,8 @@ test('dokunuşla seçim gidip gelmez', () => {
 
 test('bayrak her yoldan temizlenir — ray kilitlenemez', () => {
     // Varış (onScroll), duruş (commit) ve parmak teması (onScrollBeginDrag).
-    assert.match(rail, /onScrollBeginDrag=\{\(\) => \{ jumpTarget\.current = null; \}\}/);
-    assert.match(rail, /const commit = useCallback\(\(\) => \{\s*\n\s*jumpTarget\.current = null;/);
+    assert.match(rail, /onScrollBeginDrag=\{\(\) => \{[^}]*jumpTarget\.current = null;\s*\}\}/);
+    assert.match(rail, /const commit = useCallback\(\(\) => \{[^}]*jumpTarget\.current = null;/);
 });
 
 test('bir dokunuş bir titreşim', () => {

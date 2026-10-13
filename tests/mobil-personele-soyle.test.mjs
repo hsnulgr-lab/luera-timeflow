@@ -45,7 +45,7 @@ const base = {
 test('bayrak AÇIK ve düğme uzun beklemede çiziliyor', () => {
     assert.equal(STAFF_NUDGE_READY, true);
     assert.deepEqual(waitCard({ ...base, waitMinutes: 12 }, []).actions,
-        [{ label: 'Personele söyle', kind: 'fill' }]);
+        [{ label: 'Personeli çağır', kind: 'hap', icon: 'bell' }]);
 });
 
 test('hap gözü artık TESLİMAT SÖYLÜYOR — çünkü teslimat var', () => {
@@ -189,10 +189,10 @@ test('tutmayan gönderim KARTIN ÜSTÜNDE — ekranın tepesinde değil', () => 
      */
     const failed = applyNudgeResult({ ...base, waitMinutes: 12 }, 'failed');
     assert.deepEqual(waitCard(failed, []).actions,
-        [{ label: 'Gönderilemedi · tekrar dene', kind: 'fill' }]);
+        [{ label: 'Gönderilemedi · tekrar dene', kind: 'hap', icon: 'bell' }]);
     const noStaff = applyNudgeResult({ ...base, waitMinutes: 12 }, 'no_staff');
     assert.deepEqual(waitCard(noStaff, []).actions,
-        [{ label: 'Personel atanmamış', kind: 'fill' }]);
+        [{ label: 'Personel atanmamış', kind: 'hap', icon: 'bell' }]);
     // Başarıda damga; düğme yerini ona bırakıyor.
     assert.equal(waitCard(applyNudgeResult({ ...base, waitMinutes: 12 }, 'ok'), []).actions[0].kind, 'stamp');
 });
@@ -212,7 +212,7 @@ test('tutmayan gönderim TEKRAR DENENEBİLİR kalıyor', () => {
 test('kartın kayıt satırı sonucu söylüyor', () => {
     // Hap yüzeyinde geri bildirim kayıt satırında; `waRecord` ile aynı kural:
     // bitmemiş iş BAYATLAMIYOR, göz yerinde kalıyor.
-    assert.equal(staffRecord('ok', 2).text, 'Personele söylendi · 2 dk');
+    assert.equal(staffRecord('ok', 2).text, 'Personel çağırıldı · 2 dk');
     assert.equal(staffRecord('failed', 2).stales, false);
     assert.equal(staffRecord('no_staff', 40).text, 'Personel atanmamış · gönderilmedi');
     const sent = applyNudgeResult({ ...base, kind: 'next', etaMinutes: -4 }, 'failed');
@@ -275,7 +275,7 @@ test('sonuç ve damga SUNUCU SATIRIYLA BİRLEŞİNCE korunuyor', () => {
 
     // Ve kart birleşmeden SONRA da doğru şeyi çiziyor.
     assert.deepEqual(waitCard(mergeLocal(server, failed), []).actions,
-        [{ label: 'Gönderilemedi · tekrar dene', kind: 'fill' }]);
+        [{ label: 'Gönderilemedi · tekrar dene', kind: 'hap', icon: 'bell' }]);
 });
 
 test('yerel alan TEMİZLENEBİLİYOR da — yeniden denemede hata siliniyor', () => {
@@ -284,4 +284,20 @@ test('yerel alan TEMİZLENEBİLİYOR da — yeniden denemede hata siliniyor', ()
     const server = { ...base, waitMinutes: 28 };
     const cleared = applyWaitAction(applyNudgeResult(server, 'failed'), NUDGE_LABEL);
     assert.equal(mergeLocal(server, cleared).nudgeResult, undefined);
+});
+
+test('"Personeli çağır" — zilli ikincil düğme; gönderilince "Çağırıldı" (kullanıcı kararı 2026-10-14)', async () => {
+    const { NUDGE_LABEL, NUDGE_STAMP } = await import('../mobile/src/lib/managerFlow.ts');
+    assert.equal(NUDGE_LABEL, 'Personeli çağır');
+    assert.equal(NUDGE_STAMP, 'Çağırıldı');
+    assert.equal(cellSpec('inf').label, 'Personeli çağır');
+    assert.equal(staffRecord('ok', 2).text, 'Personel çağırıldı · 2 dk');
+    const flow = readFileSync(new URL('../mobile/src/lib/managerFlow.ts', import.meta.url), 'utf8');
+    // Kartın asıl eylemiyle yarışmıyor: dolu değil kenarlıklı hap, solunda zil.
+    assert.match(flow, /\?\? \{ label: NUDGE_LABEL, kind: 'hap', icon: 'bell' \}\);/);
+    assert.match(flow, /stamp\(since\(event\.remindedAt\), NUDGE_STAMP\)/);
+    const parts = readFileSync(new URL('../mobile/src/components/FlowParts.tsx', import.meta.url), 'utf8');
+    assert.match(parts, /\{action\.icon === 'bell' \? <Glyph name="bell" size=\{16\}/);
+    const glyph = readFileSync(new URL('../mobile/src/components/Glyph.tsx', import.meta.url), 'utf8');
+    assert.match(glyph, /\{name === 'bell' \? \(/);
 });

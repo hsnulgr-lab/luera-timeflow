@@ -176,7 +176,7 @@ test('personel kaydı ARTIK gerçek sonucu söylüyor', () => {
      * kurulunca (2026-09-24) kayıt sonucu taşıyabilir hâle geldi — ve
      * taşımak ZORUNDA, yoksa tutmayan gönderim sessizce başarı gibi durur.
      */
-    assert.equal(staffRecord('ok', 2).text, 'Personele söylendi · 2 dk');
+    assert.equal(staffRecord('ok', 2).text, 'Personel çağırıldı · 2 dk');
     assert.equal(staffRecord('ok', 2).stales, true);
     // Bitmemiş iş bayatlamıyor — `waRecord` ile aynı kural.
     assert.equal(staffRecord('failed', 40).stales, false);

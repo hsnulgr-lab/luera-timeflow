@@ -194,11 +194,11 @@ test('C3b · "Personele söyle" AÇILDI, ama yalnız uzun beklemede', () => {
     assert.equal(STAFF_NUDGE_READY, true);
     for (const minutes of [0, 3, 5, 9]) {
         const card = waitCard({ ...base, waitMinutes: minutes }, []);
-        assert.ok(!card.actions.some((a) => a.label === 'Personele söyle'), `${minutes} dk erken`);
+        assert.ok(!card.actions.some((a) => a.label === 'Personeli çağır'), `${minutes} dk erken`);
     }
     for (const minutes of [12, 40]) {
         const card = waitCard({ ...base, waitMinutes: minutes }, []);
-        assert.deepEqual(card.actions, [{ label: 'Personele söyle', kind: 'fill' }], `${minutes} dk`);
+        assert.deepEqual(card.actions, [{ label: 'Personeli çağır', kind: 'hap', icon: 'bell' }], `${minutes} dk`);
     }
 });
 
@@ -257,7 +257,7 @@ test('uzun beklemede tek eylem: PERSONELE SÖYLEMEK', () => {
      * "Her seviyede TEK eylem" kuralı duruyor, eylemin kendisi değişti.
      */
     assert.deepEqual(waitCard({ ...base, waitMinutes: 12 }, []).actions, [
-        { label: 'Personele söyle', kind: 'fill' },
+        { label: 'Personeli çağır', kind: 'hap', icon: 'bell' },
     ]);
     // Orta seviyede hâlâ randevuyu açmak.
     assert.deepEqual(waitCard({ ...base, waitMinutes: 5 }, []).actions, [
@@ -278,7 +278,7 @@ test('"Karşılamayı aç" durum değiştirmez — ekranda geçiş yapar', () =>
 
 test('bekleme eylemleri yalnız bekleyen satırda çalışır', () => {
     assert.equal(applyWaitAction({ ...base, kind: 'next' }, 'Geri al'), null);
-    assert.equal(applyWaitAction({ ...base, kind: 'started' }, 'Personele söyle'), null);
+    assert.equal(applyWaitAction({ ...base, kind: 'started' }, 'Personeli çağır'), null);
 });
 
 test('tanınmayan eylem hiçbir şey değiştirmez', () => {

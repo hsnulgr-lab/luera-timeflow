@@ -789,8 +789,13 @@ export function applyFlowAction(event: FlowEvent, label: string): FlowEvent | nu
  */
 export const STAFF_NUDGE_READY = true;
 
-/** Bekleme kartındaki düğmenin adı — ekran bunu sabitle tanıyor, metinle değil. */
-export const NUDGE_LABEL = 'Personele söyle';
+/**
+ * Bekleme kartındaki düğmenin adı — ekran bunu sabitle tanıyor, metinle değil.
+ * "Personeli çağır" (2026-10-14, kullanıcı kararı; önce "Personele söyle").
+ */
+export const NUDGE_LABEL = 'Personeli çağır';
+/** Gönderildikten sonra düğmenin yerindeki damga: "Çağırıldı · 2 dk". */
+export const NUDGE_STAMP = 'Çağırıldı';
 
 /**
  * Tutmayan gönderimin düğme üstündeki karşılığı.
@@ -880,7 +885,9 @@ export function waitHero(minutes?: number): { value: string; unit: string } {
 export interface WaitAction {
     label: string;
     /**
-     * `fill` yalnız 10. dakikadaki "Hatırlat"ta — kartın tek dolu hapı.
+     * `fill` kartın tek dolu hapı ("Onayla").
+     * "Personeli çağır" `hap` + zil: kenarlıklı ikincil düğme (2026-10-14,
+     * kullanıcı kararı) — kartın asıl eylemiyle yarışmıyor.
      * `stamp` basılamaz: tüketilen düğmenin yerinde duran DAMGA. Düğme
      * kaybolup yerinde boşluk bırakmıyor, damgaya dönüşüyor — müdür ne
      * yaptığını kartta görüyor.
@@ -888,6 +895,8 @@ export interface WaitAction {
     kind: 'hap' | 'fill' | 'ghost' | 'stamp';
     /** Damgada yeşil nokta — "bitti" anlamı. Yalnız tamamlanmış işlerde. */
     done?: boolean;
+    /** Yazının solundaki simge — yalnız "Personeli çağır"da zil. */
+    icon?: 'bell';
 }
 
 export interface WaitCard {
@@ -975,9 +984,9 @@ export function waitCard(
          * altında olmalı. Damga yalnız gerçekten gittiyse basılıyor.
          */
         const failed = event.nudgeResult && event.nudgeResult !== 'ok';
-        actions.push(failed ? { label: nudgeLabel(event.nudgeResult!), kind: 'fill' }
-            : stamp(since(event.remindedAt), 'Personele')
-            ?? { label: NUDGE_LABEL, kind: 'fill' });
+        actions.push(failed ? { label: nudgeLabel(event.nudgeResult!), kind: 'hap', icon: 'bell' }
+            : stamp(since(event.remindedAt), NUDGE_STAMP)
+            ?? { label: NUDGE_LABEL, kind: 'hap', icon: 'bell' });
     } else if (level !== 'calm') {
         // Beklemesi uzayan müşteri için gerçek tek hamle: randevuyu açmak.
         actions.push({ label: 'Karşılamayı aç', kind: 'ghost' });

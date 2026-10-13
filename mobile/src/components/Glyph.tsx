@@ -20,7 +20,9 @@ export type GlyphName =
     // Personel 11 · kasaya gönderme anı
     | 'undo' | 'queue'
     // Tek kişilik v4 · B4 "Tekrar dene"
-    | 'refresh';
+    | 'refresh'
+    // Akış · "Personeli çağır" (2026-10-14, kullanıcı kararı: zilli ikincil düğme)
+    | 'bell';
 
 export function Glyph({ name, size = 21, color, width }: {
     name: GlyphName;
@@ -123,6 +125,12 @@ export function Glyph({ name, size = 21, color, width }: {
                 <Path {...common} strokeWidth={sw} d="M4.4 6.6v5h5M4.9 11.2A7.6 7.6 0 1 1 12 20" />
             ) : null}
             {/* Kuyruk: üç satır ve yukarı bakan bir ok — "bekliyor, gidecek". */}
+            {name === 'bell' ? (
+                <>
+                    <Path {...common} strokeWidth={sw} d="M6.2 16.4V11a5.8 5.8 0 0 1 11.6 0v5.4l1.6 2.1H4.6l1.6-2.1Z" />
+                    <Path {...common} strokeWidth={sw} d="M10 20.6a2 2 0 0 0 4 0" />
+                </>
+            ) : null}
             {name === 'queue' ? (
                 <Path {...common} strokeWidth={sw} d="M4 7.4h16M4 12h16M4 16.6h9M15.6 19.4l2.6-2.8 2.6 2.8" />
             ) : null}
@@ -135,5 +143,5 @@ const DEFAULT_WIDTH: Record<GlyphName, number> = {
     plus: 2, minus: 2, eye: 1.6, eyeoff: 1.6, timer: 1.7, user: 1.7,
     search: 1.8, check: 2.2, box: 1.7, cash: 1.7, swap: 1.8, cloud: 1.7,
     msg: 1.7, close: 1.8, trash: 1.7, arrowr: 1.8, warn: 1.7, lock: 1.7,
-    undo: 1.9, queue: 1.75, refresh: 1.7,
+    undo: 1.9, queue: 1.75, refresh: 1.7, bell: 1.7,
 };

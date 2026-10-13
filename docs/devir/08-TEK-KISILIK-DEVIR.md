@@ -2227,3 +2227,32 @@ satırları silindi.
 Kanıt: `tests/kumanda-aninda-kayit.test.mjs` (4); tüm paket 3008 / 0 kırık;
 `tsc` temiz; lint sayısı aynı. Kalemlerin telefonda kalıcılığı kullanıcıya
 soruldu.
+
+---
+
+## 43 · 2026-10-14 · GÜN CETVELİ TAKILMASI + "PERSONELİ ÇAĞIR" (notları 5 ve 8)
+
+**5 · Cetvel "kaydırınca takılıyor"** (`DayScrubber`). Parmak kalkınca
+(`onScrollEndDrag`) seçim ebeveyne bildiriliyordu — liste HÂLÂ kayarken. Akış o
+ara güne geçip baştan çiziliyor, cetvel de "seçim dışarıdan değişti" etkisiyle
+kendini o güne geri çekiyordu: kayan ray takılıp geri sıçrıyordu.
+- Seçim yalnız ray durunca: `onMomentumScrollEnd` bildirir; parmak kalkınca
+  kayma başlamazsa `SCRUB_SETTLE_MS` (160 ms) sonra (`onMomentumScrollBegin`
+  bu beklemeyi iptal eder).
+- Ray eldeyken (`moving`) dışarıdan gelen seçim onu çekmiyor.
+- Telefonda denenmedi.
+
+**8 · "Personele söyle" → "Personeli çağır"** (kullanıcı: görünüş + yazı).
+- Yazı "Personeli çağır"; gönderilince damga "Çağırıldı · 2 dk"; hapın gözü
+  de "Personeli çağır", kaydı "Personel çağırıldı · 2 dk".
+- Görünüş: turuncu DOLU düğme değil, kenarlıklı ikincil hap + solunda zil
+  (`WaitAction.icon: 'bell'`, `Glyph` setine `bell` eklendi). Kartın asıl
+  eylemiyle yarışmıyor. Hata hâlleri ("Personel atanmamış", "Gönderilemedi")
+  aynı biçimde.
+
+**4 · "Çalışma saatinin vardiya saati beyaz"** — hangi yazı olduğu belirsiz
+(Bugün kartındaki saat zaten beyaz); kullanıcıdan ekran görüntüsü istenecek.
+
+Kanıt: cetvel ve bekleme testleri yeni kurala taşındı, `mobil-personele-soyle`
++1; tüm paket 3009 / 0 kırık; `tsc` temiz; cetvelin 2 lint bulgusu önceden de
+vardı. Telefonda denenmedi.

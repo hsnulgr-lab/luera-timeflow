@@ -7,6 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { ActionPill } from './ActionPill';
+import { Glyph } from './Glyph';
 import { pillCells, pillOff, pillOpens, type CellKey, type PillRecord } from '../lib/actionPill';
 import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
@@ -1447,6 +1448,7 @@ function WaitAct({ action, ink, onPress, expanded, onLayout }: {
                 backgroundColor: filled ? c.or : 'transparent',
             }}
         >
+            {action.icon === 'bell' ? <Glyph name="bell" size={16} color={filled ? onAccent : ink.ink} /> : null}
             <Text style={{
                 color: filled ? onAccent : ink.ink,
                 fontSize: waitCardMetrics.hapText,
