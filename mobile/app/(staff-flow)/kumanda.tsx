@@ -403,6 +403,18 @@ export default function Kumanda() {
      * kararı verilmesin — sunucunun listesi benimsenmeden hiçbir şey gitmez.
      */
     const savedFor = useRef<string | null>(null);
+    /**
+     * YOLDAKİ otomatik yazma — gönderim onu BEKLİYOR (2026-10-15).
+     *
+     * Telefonda görüldü: kalem ekleyip hemen "Nakit tahsil et"e basınca
+     * "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." Otomatik yazma
+     * sunucuda damgayı (`updated_at`) ilerletiyor; cevabı dönmeden başlayan
+     * gönderim ESKİ damgayla gidiyor ve sunucu `items_stale` ile reddediyordu
+     * — kendi yazmamıza takılıyorduk. Söz, yazmanın sunucudan dönen YENİ
+     * damgasıyla çözülüyor; başka bir cihaz yazdıysa `null` döner ve kilit
+     * eskisi gibi çalışır (kimsenin kalemi ezilmez).
+     */
+    const savingRef = useRef<Promise<string | null> | null>(null);
     useEffect(() => {
         if (!base?.id) return undefined;
         const key = itemsKey(lines);
@@ -418,12 +430,16 @@ export default function Kumanda() {
         const reservationId = base.id;
         const id = setTimeout(() => {
             savedKey.current = key;
-            void saveVisitItems(reservationId, lines, lockStamp).then((out) => {
+            const run = saveVisitItems(reservationId, lines, lockStamp).then((out) => {
                 // Başka cihaz yazmış: güncel liste gözlem olarak işleniyor,
                 // şerit çiziliyor; kişi tazeleyince benimsenir.
                 if (out.stale) observe(out.stale);
                 else observe(out.observation, out.ownItems === true);
+                // Yalnız KENDİ başarılı yazmamızın damgası kilide geçer.
+                return out.stale ? null : out.observation?.stamp ?? null;
             });
+            savingRef.current = run;
+            void run.finally(() => { if (savingRef.current === run) savingRef.current = null; });
         }, ITEMS_SAVE_MS);
         return () => clearTimeout(id);
     }, [base?.id, lines, send, delivered, foreignChange, pending, lockStamp, observe]);
@@ -481,7 +497,12 @@ export default function Kumanda() {
             if (sendingRef.current) return undefined;
             sendingRef.current = true;
             let alive = true;
-            void sendVisitToCash(base.id, lines, lockStamp).then((out) => {
+            // Yoldaki otomatik yazma varsa ÖNCE o bitsin; damgası kilide geçer.
+            const inFlight = savingRef.current ?? Promise.resolve(null);
+            const reservationId = base.id;
+            void inFlight.then((fresh) => {
+                return sendVisitToCash(reservationId, lines, fresh ?? lockStamp);
+            }).then((out) => {
                 sendingRef.current = false;
                 // Damga ekran kapanmış olsa bile işleniyor: iş sunucuda oldu.
                 observe(out.observation, out.ownItems === true);

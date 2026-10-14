@@ -59,10 +59,27 @@ test('yazma: gönderimin ilk yarısı, kapanış YOK; kuyruğa girebilir; çakı
 test('kumanda: son dokunuştan sonra yazıyor; kendi yazması gözlem, çakışma şerit', () => {
     const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
     assert.match(kumanda, /loaded: savedFor\.current === base\.id,\s*sendIdle: send === 'idle',\s*delivered,\s*foreignChange,\s*deleting: pending !== null,/);
-    assert.match(kumanda, /void saveVisitItems\(reservationId, lines, lockStamp\)/);
+    // Yazma bir SÖZ olarak tutuluyor: gönderim onu bekliyor (2026-10-15).
+    assert.match(kumanda, /const run = saveVisitItems\(reservationId, lines, lockStamp\)/);
     assert.match(kumanda, /if \(out\.stale\) observe\(out\.stale\);\s*else observe\(out\.observation, out\.ownItems === true\);/);
     assert.match(kumanda, /\}, ITEMS_SAVE_MS\);/);
     // Benimsenen liste yeniden yazılmıyor — açılışta da tazelemede de.
     assert.equal((kumanda.match(/savedKey\.current = itemsKey\(linesFromItems\(base\?\.adisyon_items\)\);/g) ?? []).length, 2);
     assert.match(kumanda, /savedFor\.current = base\?\.id \?\? null;/);
+});
+
+test('gönderim YOLDAKİ otomatik yazmayı bekliyor — kendi yazmamıza takılmıyor', () => {
+    // Telefonda görüldü (2026-10-15): kalem ekleyip hemen "Nakit tahsil et" →
+    // "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." Otomatik yazma
+    // sunucuda `updated_at`i ilerletiyor; cevabı dönmeden başlayan gönderim
+    // eski damgayla gidiyor ve `visit.items` `items_stale` diyordu.
+    const k = read('mobile/app/(staff-flow)/kumanda.tsx');
+    assert.match(k, /const savingRef = useRef<Promise<string \| null> \| null>\(null\);/);
+    // Söz, KENDİ başarılı yazmamızın damgasıyla çözülüyor; başkası yazdıysa null.
+    assert.match(k, /return out\.stale \? null : out\.observation\?\.stamp \?\? null;/);
+    assert.match(k, /savingRef\.current = run;/);
+    assert.match(k, /if \(savingRef\.current === run\) savingRef\.current = null;/);
+    // Gönderim önce onu bekliyor, sonra o damgayla gidiyor.
+    assert.match(k, /const inFlight = savingRef\.current \?\? Promise\.resolve\(null\);/);
+    assert.match(k, /return sendVisitToCash\(reservationId, lines, fresh \?\? lockStamp\);/);
 });

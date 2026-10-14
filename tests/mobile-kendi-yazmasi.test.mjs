@@ -147,7 +147,9 @@ test('üç yazmanın üçü de cevabını gözlem olarak işliyor', () => {
 test('uyarı YALNIZ yabancı değişiklikte ve gönderim türetilmiş kilitle', () => {
     assert.match(screen, /const foreignChange = changed && isForeignChange\(lockInput\);/);
     assert.match(screen, /\{foreignChange && !delivered \? \(/);
-    assert.match(screen, /sendVisitToCash\(base\.id, lines, lockStamp\)/);
+    // 2026-10-15: yoldaki otomatik yazma bekleniyor; onun YENİ damgası
+    // (kendi yazmamız) varsa o, yoksa türetilmiş kilit.
+    assert.match(screen, /sendVisitToCash\(reservationId, lines, fresh \?\? lockStamp\)/);
 });
 
 test('benimseme gözlemleri SIFIRLIYOR', () => {
