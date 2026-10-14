@@ -528,11 +528,8 @@ export function SadeSheetHead({ count, total, breakdown }: {
 }) {
     const ink = useSadeInk();
     return (
-        <View style={{
-            alignItems: 'center', gap: 3,
-            paddingTop: 2, paddingHorizontal: 20, paddingBottom: 14,
-            borderBottomWidth: 1, borderBottomColor: ink.c.bd,
-        }}>
+        // Çizgi yok: başlık ile gövdeyi iki ton ayırıyor (`Sheet look="sade"`).
+        <View style={{ alignItems: 'center', gap: 3, paddingTop: 8, paddingHorizontal: 20, paddingBottom: 18 }}>
             <Text style={{ ...hk(600), fontSize: 14, color: ink.tx2 }}>Toplam · {count} kalem</Text>
             <Amount value={total} size={30} spacing={-0.9} />
             <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2, textAlign: 'center' }, numeric]}>{breakdown}</Text>

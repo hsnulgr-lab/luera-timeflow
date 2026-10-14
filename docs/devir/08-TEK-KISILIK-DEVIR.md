@@ -2387,3 +2387,14 @@ saat sırasında) + `foldLabel` döndürüyor: "Bitenler · 3" (+ "· 1 gelmedi 
 1 iptal", başlıkla aynı kural `soloDayCounts`). Gün'de sıradakilerin altında,
 kartların hizasında; kapalı başlıyor, dokununca aynı `SoloAppointmentCard`ler.
 Müsait günde geçmiş zaten listede — katlı satır yok. Test `mobile-tek-gun` +3.
+
+**🔔 Hatırlatma (kullanıcı istedi, 2026-10-15):** sade adisyonun görünümü
+tek kişilikte bitince **ekip personelinin kumandasındaki adisyon sayfalarına**
+da uygulanacak. Kullanıcı: "şu an tek kişilik ile başlayalım, not düş,
+hatırlat; tasarım bitsin bakalım." Tasarım turu kapanınca kullanıcıya sor.
+
+**Görünüm "C" (2026-10-15, kullanıcı seçimi; yazılar bugünkü gibi):** tek
+kişilik adisyon sayfası `Sheet look="sade"`: tutamaç 36 × 5 pt, %38, üstte
+20 pt şerit (dokunma alanı başlığın tamamı); başlık `surf2`, gövde `surf`
+(iki ton), toplamın altındaki çizgi kalktı. Öteki alt sayfalar (panel, formül,
+not, bekleme) ve ekip kumandası eski görünümde — hatırlatma yukarıda.

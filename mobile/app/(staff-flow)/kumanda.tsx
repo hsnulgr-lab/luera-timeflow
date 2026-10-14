@@ -1393,6 +1393,7 @@ export default function Kumanda() {
                 <Sheet
                     onClose={() => setSheet(null)}
                     full={solo && sheet === 'catalog'}
+                    look={solo && sheet === 'catalog' ? 'sade' : 'plain'}
                     head={solo && sheet === 'catalog' ? (
                         <SadeSheetHead
                             count={kalem}
@@ -2240,9 +2241,16 @@ function Band({ label, note }: { label: string; note: string }) {
  * kapanmayan bir sayfa yalan söyler. Jest yalnız tutamaç şeridinde yaşıyor —
  * gövdede yaşasaydı içerideki listeyi kaydırmakla yarışırdı.
  */
-function Sheet({ children, onClose, full = false, head = null }: {
+function Sheet({ children, onClose, full = false, head = null, look = 'plain' }: {
     children: React.ReactNode;
     onClose: () => void;
+    /**
+     * `sade` (2026-10-15, kullanıcı seçimi "C"): iOS ölçüsünde tutamaç
+     * (36 × 5, belirgin, üstte ~20 pt) ve İKİ TON — başlık bir ton açık
+     * (`surf2`), gövde koyu (`surf`). Yalnız tek kişilik adisyon sayfası;
+     * ekip kumandasına tasarım bitince (kullanıcı hatırlatma istedi).
+     */
+    look?: 'plain' | 'sade';
     /** Tutamağın ALTINDA, onunla birlikte çekilen başlık (Personel 15 · toplam). */
     head?: React.ReactNode;
     /**
@@ -2361,7 +2369,7 @@ function Sheet({ children, onClose, full = false, head = null }: {
                     left: 0, right: 0,
                     bottom: kb,
                     ...(full ? { height: kb > 0 ? roof : fullH } : { maxHeight: roof }),
-                    backgroundColor: c.card,
+                    backgroundColor: look === 'sade' ? c.surf : c.card,
                     borderTopWidth: 1,
                     borderTopColor: c.bd2,
                     borderTopLeftRadius: 30,
@@ -2376,19 +2384,33 @@ function Sheet({ children, onClose, full = false, head = null }: {
                   * Başlıkta dokunulacak bir şey yok; parmak nereden tutarsa
                   * tutsun sayfa iner.
                   */}
-                <View {...pan.panHandlers}>
-                    <View
-                        accessibilityRole="button"
-                        accessibilityLabel="Sayfayı kapat"
-                        onAccessibilityTap={shut}
-                        // 44 pt KALIYOR. Tasarımın maketi 32 diyor ama burada 32
-                        // denendi ve ıslak/eldivenli parmakla tutulmadı; ayrıca
-                        // şerit ekran okuyucuya DÜĞME olarak açık ve 44 bizim
-                        // tabanımız. Maketteki piksel, bu ürünün ellerini bilmiyor.
-                        style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}
-                    >
-                        <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.22 }} />
-                    </View>
+                <View {...pan.panHandlers} style={look === 'sade' ? { backgroundColor: c.surf2 } : undefined}>
+                    {look === 'sade' ? (
+                        // Tutamacın dokunma alanı artık 20 pt'lik şerit DEĞİL,
+                        // başlığın tamamı: 44 pt'nin gerekçesi (eldivenli parmak)
+                        // burada başlıkla karşılanıyor. Çizgi iOS ölçüsünde.
+                        <View
+                            accessibilityRole="button"
+                            accessibilityLabel="Sayfayı kapat"
+                            onAccessibilityTap={shut}
+                            style={{ height: 20, paddingTop: 6, alignItems: 'center' }}
+                        >
+                            <View style={{ width: 36, height: 5, borderRadius: 2.5, backgroundColor: c.tx, opacity: 0.38 }} />
+                        </View>
+                    ) : (
+                        <View
+                            accessibilityRole="button"
+                            accessibilityLabel="Sayfayı kapat"
+                            onAccessibilityTap={shut}
+                            // 44 pt KALIYOR. Tasarımın maketi 32 diyor ama burada 32
+                            // denendi ve ıslak/eldivenli parmakla tutulmadı; ayrıca
+                            // şerit ekran okuyucuya DÜĞME olarak açık ve 44 bizim
+                            // tabanımız. Maketteki piksel, bu ürünün ellerini bilmiyor.
+                            style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.22 }} />
+                        </View>
+                    )}
                     {head}
                 </View>
                 {children}

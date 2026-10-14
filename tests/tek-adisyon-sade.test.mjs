@@ -204,7 +204,13 @@ test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () 
     }
     // "Kapat" de yok (2026-10-15): başlık tutamağın parçası, aşağı çekince iner.
     assert.ok(!/>Kapat</.test(parts));
-    assert.match(screen, /<View \{\.\.\.pan\.panHandlers\}>[\s\S]*?\{head\}\s*<\/View>/);
+    assert.match(screen, /<View \{\.\.\.pan\.panHandlers\}[^>]*>[\s\S]*?\{head\}\s*<\/View>/);
+    // Görünüm "C" (2026-10-15): iOS ölçüsünde tutamaç ve iki ton — yalnız tek
+    // kişilik adisyon sayfası.
+    assert.match(screen, /look=\{solo && sheet === 'catalog' \? 'sade' : 'plain'\}/);
+    assert.match(screen, /width: 36, height: 5, borderRadius: 2\.5, backgroundColor: c\.tx, opacity: 0\.38/);
+    assert.match(screen, /backgroundColor: look === 'sade' \? c\.surf : c\.card/);
+    assert.match(screen, /style=\{look === 'sade' \? \{ backgroundColor: c\.surf2 \} : undefined\}/);
     assert.match(screen, /head=\{solo && sheet === 'catalog' \? \(\s*<SadeSheetHead/);
     assert.match(parts, /Toplama girmez · iş bitince depodan düşer/);
     assert.match(parts, /Randevu hizmeti/);
