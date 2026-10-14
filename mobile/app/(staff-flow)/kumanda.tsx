@@ -241,11 +241,6 @@ export default function Kumanda() {
     /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
     const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    /**
-     * Maskenin BİTİŞ anı (Personel 15). "Gizle 5" düğmesi ve soldan sabit
-     * fitil kalan süreyi buradan okuyor; `revealed` aynı gerçeğin bayrağı.
-     */
-    const [maskUntil, setMaskUntil] = useState<number | null>(null);
 
     /*
      * ── SADE ADİSYON (Personel 15 · Yol A) — YALNIZ TEK KİŞİLİK ──────────────
@@ -655,7 +650,6 @@ export default function Kumanda() {
         setOpenRow(null);
         setPending(null);
         setQuery('');
-        setMaskUntil(null);
         setTags({});
         setReceipt(null);
         setFlash(null);
@@ -778,22 +772,15 @@ export default function Kumanda() {
     });
     const startClock = appointment.start_time.slice(0, 5);
 
-    const hideMoney = () => {
-        if (revealTimer.current) clearTimeout(revealTimer.current);
-        setRevealed(false);
-        setMaskUntil(null);
-    };
     const reveal = () => {
         setRevealed(true);
         setRevealKey((n) => n + 1);
-        setMaskUntil(Date.now() + 6000);
         if (revealTimer.current) clearTimeout(revealTimer.current);
         // 6 saniye sonra kendiliğinden kapanıyor: ekranı müşteri görüyor ve
-        // personel kapatmayı unutabilir.
-        revealTimer.current = setTimeout(hideMoney, 6000);
+        // personel kapatmayı unutabilir. (Ekip personelinin kumandası; tek
+        // kişilikte maske YOK — Personel 15, kullanıcı kararı 2026-10-15.)
+        revealTimer.current = setTimeout(() => setRevealed(false), 6000);
     };
-    /** Personel 15: "Göster" açar, "Gizle" beklemeden kapatır. */
-    const toggleMoney = () => (revealed ? hideMoney() : reveal());
 
     /*
      * Randevu hizmeti SATIR SATIR (Personel 15): Kasa'nın hesabıyla, Kasa'nın
@@ -1050,10 +1037,6 @@ export default function Kumanda() {
                     <SadeClosingDial
                         total={grand}
                         count={kalem}
-                        maskUntil={maskUntil}
-                        onMask={toggleMoney}
-                        minutes={Math.round(elapsedSec / 60)}
-                        span={`${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))}`}
                     />
                 ) : null}
 
@@ -1098,8 +1081,6 @@ export default function Kumanda() {
                             count={kalem}
                             lastName={lastName}
                             total={grand}
-                            maskUntil={maskUntil}
-                            onMask={toggleMoney}
                             onOpen={openAdisyon}
                         />
                         {door ? (
@@ -1132,8 +1113,6 @@ export default function Kumanda() {
                             count={kalem}
                             lastName={lastName}
                             total={grand}
-                            maskUntil={maskUntil}
-                            onMask={toggleMoney}
                             onOpen={openAdisyon}
                             variant={delivered ? 'sealed' : 'closing'}
                         />
@@ -1151,7 +1130,6 @@ export default function Kumanda() {
                         <SadeList
                             lines={lines}
                             services={services}
-                            open={revealed}
                             tags={tags}
                             editing={editing}
                             locked={delivered}
@@ -1425,8 +1403,6 @@ export default function Kumanda() {
                                 count={kalem}
                                 total={grand}
                                 breakdown={breakdownLine(services, lines, money)}
-                                maskUntil={maskUntil}
-                                onMask={toggleMoney}
                                 onClose={() => setSheet(null)}
                             />
                             <SadeSheetBody
@@ -1440,7 +1416,6 @@ export default function Kumanda() {
                                     <SadeList
                                         lines={lines}
                                         services={services}
-                                        open={revealed}
                                         tags={tags}
                                         editing={editing}
                                         locked={delivered}
@@ -1687,7 +1662,6 @@ export default function Kumanda() {
                 <Sheet onClose={() => setEditing(null)}>
                     <SadeEditPanel
                         line={editLine}
-                        open={revealed}
                         onStep={(dir) => setLines((current) => {
                             const line = current.find((item) => item.id === editLine.id);
                             const next = line ? stepQty(line.qty, dir) : null;

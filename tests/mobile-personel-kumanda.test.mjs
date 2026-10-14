@@ -187,10 +187,9 @@ test('adisyon şeridi son eklenen kalemi söylüyor', () => {
 });
 
 test('para maskeli ve kendiliğinden kapanıyor — ekranı müşteri görüyor', () => {
-    // Personel 15: kapanış tek yerde (`hideMoney`) — "Gizle" de aynı yoldan,
-    // beklemeden kapatıyor. Süre aynı: 6 sn.
-    assert.ok(screen.includes('revealTimer.current = setTimeout(hideMoney, 6000)'));
-    assert.match(screen, /const hideMoney = \(\) => \{[^}]*setRevealed\(false\);/);
+    // Ekip personelinin kumandası. Tek kişilikte maske YOK (Personel 15,
+    // kullanıcı kararı 2026-10-15) — bkz. `tek-adisyon-sade.test.mjs`.
+    assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
 });
 
 test('bekleme sayacının sunucuya yazılmadığı personele SÖYLENİYOR', () => {

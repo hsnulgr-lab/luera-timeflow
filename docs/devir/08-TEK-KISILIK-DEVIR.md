@@ -2351,3 +2351,20 @@ iki kabukta aynı bileşen; Hanken + `#FF7A45` sayaç rakamların üstünü kesi
 (şerit, maske, sayfa, satırlar, panel, kapanış listesi) ve **sistem yazısıyla**
 (`sadeFont` yalnız ağırlık). Koyulaşan `tx2` adisyon parçalarında kaldı.
 `SadePlanTrack` / `SadeWaitChip` silindi. Test 19; paket 3030 / 0.
+
+**Aynı gün, üçüncü karar (kullanıcı, "ölç tart" sonrası):**
+- **Picker yok.** Adisyon kalemleri seçilmiyor, okunuyor; Apple HIG picker'ı
+  "içinden seçilen değerler" ve kısa listede "fazla görsel ağırlık" diye
+  tanımlıyor. Picker'da toplam göz önünde doğrulanamazdı.
+- **Tek kişilikte maske tamamen kalktı.** Tutar her yerde açık (şerit "Toplam
+  ₺…", sayfa başlığı + kırılım, satırlar, panel, kapanış kadranı). Ekip
+  personelinin maskesi AYNEN (`setTimeout(() => setRevealed(false), 6000)`).
+- **Kapanıştaki tekrarlar silindi:** kadranın altındaki saat satırı (plaka
+  zaten söylüyor), şeritteki "n kalem · son …" (kapanışta şerit yalnız "Kalem
+  ekle" + **+**; mühürlüde "Mühürlü · değiştirilemez").
+Test: `tek-adisyon-sade` 20; paket 3031 / 0.
+
+**Açık:** tahsilatta "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı."
+(telefonda, kalem ekledikten hemen sonra tahsil). Şüphe: 0,7 sn'lik otomatik
+yazma ile gönderimin yarışı (`items_stale`). Kanıt yok — geçici tanı satırları
+(`[tanı-tahsilat]`, commit'lenmedi) ile telefonda tekrar bekleniyor.

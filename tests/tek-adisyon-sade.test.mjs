@@ -124,13 +124,29 @@ test('geri alma penceresi: satırın yerinde, fitil SOL UÇ SABİT', () => {
 
 // ── Maske ───────────────────────────────────────────────────────────────────
 
-test('maske adını ve süresini söylüyor: "Göster · 6 sn" / "Gizle 5"', () => {
-    assert.match(parts, /open \? 'Gizle ' : 'Göster'/);
-    assert.match(parts, /' · 6 sn'/);
-    // Üç nokta yok: "₺" ve dolu çubuk.
-    assert.ok(!/\[0, 1, 2\]\.map/.test(parts));
-    // Gizle beklemeden kapatıyor.
-    assert.match(screen, /const toggleMoney = \(\) => \(revealed \? hideMoney\(\) : reveal\(\)\);/);
+test('tek kişilikte maske YOK: tutar hep açık (kullanıcı kararı, 2026-10-15)', () => {
+    // Sahip tutarı müşteriye zaten kendisi söylüyor; "Göster"e basıp 6 sn
+    // beklemek her tahsilatta fazladan bir adımdı.
+    for (const gone of ['MaskButton', 'MaskedMoney', 'Göster', 'Gizle', 'maskUntil', 'eyeoff']) {
+        assert.ok(!parts.includes(gone), `${gone} kalmamalı`);
+    }
+    assert.ok(!/maskUntil|toggleMoney|hideMoney/.test(screen));
+    // Kırılım hep yazılı.
+    assert.match(parts, /<Text style=\{\[\{ \.\.\.hk\(500\), fontSize: 14, color: ink\.tx2 \}, numeric\]\}>\{breakdown\}<\/Text>/);
+    // Ekip personelinin maskesi duruyor.
+    assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
+});
+
+test('kapanışta tekrar yok: saat satırı ve şeritteki sayı kalktı', () => {
+    // Plaka zaten "00:30 – 01:04 · 11 dk sürdü" diyor; kadran "TOPLAM · 3 KALEM".
+    const dial = parts.slice(parts.indexOf('export function SadeClosingDial'));
+    assert.ok(!/dk sürdü/.test(dial), 'kadranın altındaki saat satırı');
+    assert.match(dial, /TOPLAM · \{count\} KALEM/);
+    // Kapanış şeridi yalnız "Kalem ekle"; mühürlüde sayı yok.
+    assert.match(parts, /variant === 'closing' \? \(/);
+    assert.match(parts, />Kalem ekle</);
+    assert.match(parts, /Mühürlü · değiştirilemez/);
+    assert.ok(!/mühürlü, değiştirilemez/.test(parts));
 });
 
 // ── Okunurluk ───────────────────────────────────────────────────────────────

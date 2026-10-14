@@ -86,113 +86,99 @@ export function LeftFuse({ until, total = SADE_MS, height = 3 }: { until: number
     );
 }
 
-// ── Maske ───────────────────────────────────────────────────────────────────
-
-const BAR = {
-    s: { width: 44, height: 12, radius: 7 },
-    m: { width: 56, height: 13, radius: 7 },
-    lg: { width: 82, height: 20, radius: 10 },
-    xl: { width: 160, height: 40, radius: 14 },
-} as const;
+// ── Tutar ───────────────────────────────────────────────────────────────────
 
 /**
- * Gizli tutar: "₺" ve dolu çubuk. Üç nokta "daha fazla" menüsüyle
- * karışıyordu; çubuk bir RAKAMIN yerini tutuyor.
+ * Tutar — AÇIK. Tek kişilikte maske YOK (kullanıcı kararı, 2026-10-15):
+ * tutarı müşteriye sahip zaten kendisi söylüyor; "Göster"e basıp 6 sn
+ * beklemek her tahsilatta fazladan bir adımdı ve "tutar anlaşılmıyor"
+ * derdinin yarısıydı. Ekip personelinin kumandasındaki maske AYNEN duruyor.
  */
-export function MaskedMoney({ value, open, bar, size, weight = 800, spacing = 0, color }: {
+function Amount({ value, size, weight = 800, spacing = 0, color }: {
     value: number;
-    open: boolean;
-    bar: keyof typeof BAR;
     size: number;
     weight?: 700 | 800;
     spacing?: number;
     color?: string;
 }) {
     const ink = useSadeInk();
-    const tone = color ?? ink.c.tx;
-    const text = { ...hk(weight), fontSize: size, letterSpacing: spacing, color: tone };
-    if (open) return <Text style={[text, numeric]}>{money(value)}</Text>;
-    const b = BAR[bar];
     return (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: bar === 'xl' ? 8 : 5 }}>
-            <Text style={text}>₺</Text>
-            <View style={{ width: b.width, height: b.height, borderRadius: b.radius, backgroundColor: ink.mask }} />
-        </View>
-    );
-}
-
-/**
- * "Göster · 6 sn" / "Gizle 5". Gizlinin ADI ve SÜRESİ düğmede yazılı.
- * Gizle'ye basmak beklemeden kapatır.
- */
-export function MaskButton({ until, onPress }: { until: number | null; onPress: () => void }) {
-    const ink = useSadeInk();
-    const open = until != null;
-    const left = useSecondsLeft(until);
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={open ? `Tutarı gizle, ${left} saniye kaldı` : 'Tutarı 6 saniye göster'}
-            onPress={() => { feedback.selection(); onPress(); }}
-            style={({ pressed }) => ({
-                flexShrink: 0, height: 44, paddingHorizontal: 12, borderRadius: 14,
-                flexDirection: 'row', alignItems: 'center', gap: 7,
-                backgroundColor: ink.c.surf2, borderWidth: 1, borderColor: open ? ink.c.am : ink.c.bd2,
-                opacity: pressed ? 0.7 : 1,
-            })}
-        >
-            <Glyph name={open ? 'eyeoff' : 'eye'} size={20} color={ink.c.tx} />
-            <Text style={{ ...hk(700), fontSize: 15, color: ink.c.tx }}>
-                {open ? 'Gizle ' : 'Göster'}
-                <Text style={[{ ...hk(600), color: ink.tx2 }, numeric]}>{open ? String(left) : ' · 6 sn'}</Text>
-            </Text>
-        </Pressable>
+        <Text style={[{ ...hk(weight), fontSize: size, letterSpacing: spacing, color: color ?? ink.c.tx }, numeric]}>
+            {money(value)}
+        </Text>
     );
 }
 
 // ── Şerit ───────────────────────────────────────────────────────────────────
 
 /**
- * Kumandadaki adisyon şeridi — İKİ SATIR: üstte ne var, altta ne kadar.
+ * Kumandadaki adisyon şeridi.
  *
- * Kapanışta yalnız üst satır (tutar kadranda); mühürlüyken bir etiket.
+ *   iş sürerken  → üstte ne var ("4 kalem · son …"), altta ne kadar ("Toplam ₺2.720")
+ *   kapanışta    → yalnız "Kalem ekle": sayı ve tutar hemen üstteki kadranda,
+ *                  son eklenen listenin en üstünde — üçünü ikinci kez yazmak
+ *                  ekranı kalabalıklaştırıyordu (kullanıcı kararı, 2026-10-15)
+ *   mühürlü      → bir etiket
  */
-export function SadeStrip({
-    count, lastName, total, maskUntil, onMask, onOpen, variant = 'running',
-}: {
+export function SadeStrip({ count, lastName, total, onOpen, variant = 'running' }: {
     count: number;
     lastName: string | null;
     total: number;
-    maskUntil: number | null;
-    onMask: () => void;
     onOpen: () => void;
     variant?: 'running' | 'closing' | 'sealed';
 }) {
     const ink = useSadeInk();
     const line = stripLine(count, lastName);
     const sealed = variant === 'sealed';
+    const plus = (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Kalem ekle"
+            onPress={onOpen}
+            style={({ pressed }) => ({
+                width: 56, height: 44, borderRadius: 15,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: ink.orbg, borderWidth: 1, borderColor: ink.c.or,
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <Glyph name="plus" size={24} color={ink.c.or2} width={2} />
+        </Pressable>
+    );
+    const row = {
+        flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8,
+        minHeight: 56, paddingVertical: 6, paddingRight: 6, paddingLeft: 16,
+    };
     return (
         <View style={{
             marginHorizontal: 20, borderRadius: 24, overflow: 'hidden',
             backgroundColor: sealed ? 'transparent' : ink.c.surf,
             borderWidth: 1, borderColor: sealed ? 'transparent' : ink.c.bd2,
         }}>
-            <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                minHeight: 56, paddingVertical: 6, paddingRight: 6, paddingLeft: 16,
-            }}>
-                {sealed ? (
-                    <>
-                        <Text numberOfLines={1} style={{ flex: 1, ...hk(500), fontSize: 15, color: ink.tx2 }}>
-                            <Text style={{ ...hk(700), color: ink.c.tx }}>{line.count}</Text>
-                            {' · mühürlü, değiştirilemez'}
-                        </Text>
-                        <View style={{ marginRight: 10 }}>
-                            <Glyph name="lock" size={22} color={ink.tx2} />
-                        </View>
-                    </>
-                ) : (
-                    <>
+            {sealed ? (
+                <View style={row}>
+                    <Text numberOfLines={1} style={{ flex: 1, ...hk(600), fontSize: 15, color: ink.tx2 }}>
+                        Mühürlü · değiştirilemez
+                    </Text>
+                    <View style={{ marginRight: 10 }}>
+                        <Glyph name="lock" size={22} color={ink.tx2} />
+                    </View>
+                </View>
+            ) : variant === 'closing' ? (
+                <View style={row}>
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Adisyona kalem ekle"
+                        onPress={onOpen}
+                        style={({ pressed }) => ({ flex: 1, minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}
+                    >
+                        <Text style={{ ...hk(600), fontSize: 15, color: ink.c.tx }}>Kalem ekle</Text>
+                    </Pressable>
+                    {plus}
+                </View>
+            ) : (
+                <>
+                    <View style={row}>
                         <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`Adisyon, ${line.count}, ${line.tail}`}
@@ -209,36 +195,14 @@ export function SadeStrip({
                             </Text>
                             <Glyph name="chev" size={18} color={ink.tx2} />
                         </Pressable>
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Kalem ekle"
-                            onPress={onOpen}
-                            style={({ pressed }) => ({
-                                width: 56, height: 44, borderRadius: 15,
-                                alignItems: 'center', justifyContent: 'center',
-                                backgroundColor: ink.orbg, borderWidth: 1, borderColor: ink.c.or,
-                                opacity: pressed ? 0.7 : 1,
-                            })}
-                        >
-                            <Glyph name="plus" size={24} color={ink.c.or2} width={2} />
-                        </Pressable>
-                    </>
-                )}
-            </View>
-            {variant === 'running' ? (
-                <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 8,
-                    minHeight: 56, paddingVertical: 6, paddingRight: 6, paddingLeft: 16,
-                    borderTopWidth: 1, borderTopColor: ink.c.bd,
-                }}>
-                    <Text style={{ ...hk(600), fontSize: 15, color: ink.tx2 }}>Toplam</Text>
-                    <View style={{ flex: 1 }}>
-                        <MaskedMoney value={total} open={maskUntil != null} bar="m" size={20} spacing={-0.4} />
+                        {plus}
                     </View>
-                    <MaskButton until={maskUntil} onPress={onMask} />
-                    {maskUntil != null ? <LeftFuse until={maskUntil} /> : null}
-                </View>
-            ) : null}
+                    <View style={{ ...row, paddingRight: 16, borderTopWidth: 1, borderTopColor: ink.c.bd }}>
+                        <Text style={{ flex: 1, ...hk(600), fontSize: 15, color: ink.tx2 }}>Toplam</Text>
+                        <Amount value={total} size={20} spacing={-0.4} />
+                    </View>
+                </>
+            )}
         </View>
     );
 }
@@ -320,9 +284,8 @@ function usePop(key: number | null) {
  * Kalem satırı. Ok dokunulabilirliği söyleyen TEK işaret: varsa dokunulur
  * (satır paneli açılır), randevu satırında ve mühürlü adisyonda yok.
  */
-export function SadeRow({ line, open, tag, editing, locked, enter, popKey, onPress }: {
+export function SadeRow({ line, tag, editing, locked, enter, popKey, onPress }: {
     line: AdisyonLine;
-    open: boolean;
     tag: 'new' | 'inc' | null;
     editing: boolean;
     locked: boolean;
@@ -376,14 +339,7 @@ export function SadeRow({ line, open, tag, editing, locked, enter, popKey, onPre
                 </Animated.View>
             ) : null}
             {material ? null : (
-                <MaskedMoney
-                    value={(line.price ?? 0) * line.qty}
-                    open={open}
-                    bar="s"
-                    size={17}
-                    weight={700}
-                    spacing={-0.17}
-                />
+                <Amount value={(line.price ?? 0) * line.qty} size={17} weight={700} spacing={-0.17} />
             )}
             {locked ? <View style={{ width: 20 }} /> : <Glyph name="chev" size={20} color={ink.tx2} />}
         </>
@@ -418,7 +374,7 @@ export function SadeRow({ line, open, tag, editing, locked, enter, popKey, onPre
 }
 
 /** Randevu hizmeti satırı — "Randevu hizmeti" der, oku yoktur. */
-export function SadeServiceRow({ row, open }: { row: ServiceRow; open: boolean }) {
+export function SadeServiceRow({ row }: { row: ServiceRow }) {
     const ink = useSadeInk();
     return (
         <View
@@ -437,7 +393,7 @@ export function SadeServiceRow({ row, open }: { row: ServiceRow; open: boolean }
                 <Text style={{ ...hk(500), fontSize: 14, color: ink.tx2 }}>Randevu hizmeti</Text>
             </View>
             {row.amount != null ? (
-                <MaskedMoney value={row.amount} open={open} bar="s" size={17} weight={700} spacing={-0.17} />
+                <Amount value={row.amount} size={17} weight={700} spacing={-0.17} />
             ) : null}
             <View style={{ width: 20 }} />
         </View>
@@ -499,12 +455,11 @@ export function SadeUndoRow({ line, until, formulaWritten, onUndo }: {
  * "Depodan düşer" malzeme başlığında; tutar sütununda yalnız para durur.
  */
 export function SadeList({
-    lines, services, open, tags, editing, locked, flash, pending, door, formulaWritten,
+    lines, services, tags, editing, locked, flash, pending, door, formulaWritten,
     onEdit, onUndo, onDoor,
 }: {
     lines: readonly AdisyonLine[];
     services: readonly ServiceRow[];
-    open: boolean;
     tags: Readonly<Record<string, 'new' | 'inc'>>;
     editing: string | null;
     locked: boolean;
@@ -530,7 +485,6 @@ export function SadeList({
         <SadeRow
             key={line.id}
             line={line}
-            open={open}
             tag={tags[line.id] ?? null}
             editing={editing === line.id}
             locked={locked}
@@ -544,7 +498,7 @@ export function SadeList({
         <View>
             {kalem.map(row)}
             {services.map((service, index) => (
-                <SadeServiceRow key={`svc-${index}-${service.name}`} row={service} open={open} />
+                <SadeServiceRow key={`svc-${index}-${service.name}`} row={service} />
             ))}
             {malzeme.length > 0 ? (
                 <>
@@ -562,17 +516,14 @@ export function SadeList({
 
 // ── Adisyon sayfası ─────────────────────────────────────────────────────────
 
-/** Sayfanın başlığı: toplam, maske ve "Kapat". "Adisyon" başlığı burada birleşti. */
-export function SadeSheetHead({ count, total, breakdown, maskUntil, onMask, onClose }: {
+/** Sayfanın başlığı: toplam, kırılımı ve "Kapat". "Adisyon" başlığı burada birleşti. */
+export function SadeSheetHead({ count, total, breakdown, onClose }: {
     count: number;
     total: number;
     breakdown: string;
-    maskUntil: number | null;
-    onMask: () => void;
     onClose: () => void;
 }) {
     const ink = useSadeInk();
-    const open = maskUntil != null;
     return (
         <View style={{
             flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -581,13 +532,8 @@ export function SadeSheetHead({ count, total, breakdown, maskUntil, onMask, onCl
         }}>
             <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                 <Text style={{ ...hk(600), fontSize: 14, color: ink.tx2 }}>Toplam · {count} kalem</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 46 }}>
-                    <MaskedMoney value={total} open={open} bar="lg" size={30} spacing={-0.9} />
-                    <MaskButton until={maskUntil} onPress={onMask} />
-                </View>
-                {open ? (
-                    <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2 }, numeric]}>{breakdown}</Text>
-                ) : null}
+                <Amount value={total} size={30} spacing={-0.9} />
+                <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2 }, numeric]}>{breakdown}</Text>
             </View>
             <Pressable
                 accessibilityRole="button"
@@ -600,7 +546,6 @@ export function SadeSheetHead({ count, total, breakdown, maskUntil, onMask, onCl
             >
                 <Text style={{ ...hk(700), fontSize: 15, color: ink.c.tx }}>Kapat</Text>
             </Pressable>
-            {open ? <LeftFuse until={maskUntil} /> : null}
         </View>
     );
 }
@@ -783,9 +728,8 @@ export function SadeSheetBody({
  * 68 × 64 pt − / +, 1'de − kapalı; ayrı ve kırmızı çerçeveli "Kaldır".
  * Değişiklik anında yazılır; "Tamam" yalnız kapatır.
  */
-export function SadeEditPanel({ line, open, onStep, onRemove, onClose }: {
+export function SadeEditPanel({ line, onStep, onRemove, onClose }: {
     line: AdisyonLine;
-    open: boolean;
     onStep: (dir: 1 | -1) => void;
     onRemove: () => void;
     onClose: () => void;
@@ -821,10 +765,9 @@ export function SadeEditPanel({ line, open, onStep, onRemove, onClose }: {
                 {material ? (
                     <Text style={{ ...hk(500), fontSize: 15, color: ink.tx2 }}>Malzeme · toplama girmez, depodan düşer</Text>
                 ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <Text style={{ ...hk(500), fontSize: 15, color: ink.tx2 }}>{KIND_NAME[line.kind]} · birim</Text>
-                        <MaskedMoney value={line.price ?? 0} open={open} bar="s" size={15} weight={700} color={ink.tx2} />
-                    </View>
+                    <Text style={[{ ...hk(500), fontSize: 15, color: ink.tx2 }, numeric]}>
+                        {KIND_NAME[line.kind]} · birim {money(line.price ?? 0)}
+                    </Text>
                 )}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -837,14 +780,10 @@ export function SadeEditPanel({ line, open, onStep, onRemove, onClose }: {
                 </Animated.Text>
                 {stepper(1, maxOff)}
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 }}>
-                <Text style={[{ ...hk(500), fontSize: 15, color: ink.tx2, textAlign: 'center' }, numeric]}>
-                    {editNote(line.qty)}{material || minOff || maxOff ? '' : ' · satır'}
-                </Text>
-                {material || minOff || maxOff ? null : (
-                    <MaskedMoney value={(line.price ?? 0) * line.qty} open={open} bar="s" size={15} weight={700} color={ink.tx2} />
-                )}
-            </View>
+            <Text style={[{ ...hk(500), fontSize: 15, color: ink.tx2, textAlign: 'center' }, numeric]}>
+                {editNote(line.qty)}
+                {material || minOff || maxOff ? '' : ` · satır ${money((line.price ?? 0) * line.qty)}`}
+            </Text>
             <View style={{ flexDirection: 'row', gap: 12 }}>
                 <Pressable
                     accessibilityRole="button"
@@ -879,30 +818,17 @@ export function SadeEditPanel({ line, open, onStep, onRemove, onClose }: {
 // ── Kapanış kadranı ─────────────────────────────────────────────────────────
 
 /**
- * Kapanışta toplam kadranda: 64 pt, aynı maske, altında "Göster", sonra
- * "TOPLAM · n KALEM" — şeritle AYNI sayı.
+ * Kapanışta toplam kadranda: 64 pt, AÇIK, altında "TOPLAM · n KALEM" —
+ * şeritle aynı sayı. Saat satırı yok: plaka zaten "00:30 – 01:04 · 11 dk
+ * sürdü" diyor (kullanıcı kararı, 2026-10-15 — tekrarlar silindi).
  */
-export function SadeClosingDial({ total, count, maskUntil, onMask, minutes, span }: {
-    total: number;
-    count: number;
-    maskUntil: number | null;
-    onMask: () => void;
-    minutes: number;
-    span: string;
-}) {
+export function SadeClosingDial({ total, count }: { total: number; count: number }) {
     const ink = useSadeInk();
     return (
         <View style={{ alignItems: 'center', gap: 8, paddingTop: 16, paddingHorizontal: 20, paddingBottom: 14 }}>
-            <View style={{ paddingBottom: 10 }}>
-                <MaskedMoney value={total} open={maskUntil != null} bar="xl" size={64} spacing={-2.88} />
-                {maskUntil != null ? <LeftFuse until={maskUntil} /> : null}
-            </View>
-            <MaskButton until={maskUntil} onPress={onMask} />
-            <Text style={{ ...hk(700), fontSize: 13, letterSpacing: 2.6, color: ink.tx2, marginTop: 4 }}>
+            <Amount value={total} size={64} spacing={-2.88} />
+            <Text style={{ ...hk(700), fontSize: 13, letterSpacing: 2.6, color: ink.tx2 }}>
                 TOPLAM · {count} KALEM
-            </Text>
-            <Text style={[{ ...hk(600), fontSize: 16, color: ink.tx2 }, numeric]}>
-                {minutes} dk sürdü · <Text style={{ color: ink.c.tx }}>{span}</Text>
             </Text>
         </View>
     );
