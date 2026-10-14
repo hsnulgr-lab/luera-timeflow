@@ -1,11 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
 import { DurumBlock } from '../../src/components/Durum';
+import { Glyph } from '../../src/components/Glyph';
+import { feedback } from '../../src/lib/feedback';
 import { VoidBlock } from '../../src/components/EmptyDayParts';
 import { SoloAppointmentCard, SoloDaySkeleton, SoloNowLine } from '../../src/components/SoloDayParts';
 import { SoloPicker } from '../../src/components/SoloPicker';
@@ -279,6 +281,12 @@ export default function SoloDay() {
         () => soloDayList(dayState, mine, isToday, nowMinutes),
         [dayState, mine, isToday, nowMinutes],
     );
+    /**
+     * İş sürerken katlanan geçmiş (2026-10-15, kullanıcı kararı): kapalı
+     * başlıyor — ekranın sorusu yine "sırada ne var"; bitenler bir dokunuş
+     * ötede. Kapalıyken de sayısı yazılı.
+     */
+    const [foldOpen, setFoldOpen] = useState(false);
 
     /*
      * Alt başlık: bugün "bitti/kaldı", başka gün yalnız SAYI.
@@ -537,6 +545,39 @@ export default function SoloDay() {
                                 />
                             </Fragment>
                         ))}
+                        {/* BİTENLER — iş sürerken katlı (2026-10-15). Kartların
+                            hizasında: saat sütununun genişliği kadar içeride. */}
+                        {list.foldLabel ? (
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityState={{ expanded: foldOpen }}
+                                accessibilityLabel={`${list.foldLabel}, ${foldOpen ? 'gizle' : 'göster'}`}
+                                onPress={() => { feedback.selection(); setFoldOpen((open) => !open); }}
+                                style={({ pressed }) => ({
+                                    marginLeft: soloDayMetrics.timeWidth + soloDayMetrics.rowGap,
+                                    minHeight: 48, paddingHorizontal: 14, borderRadius: 14,
+                                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                                    borderWidth: 1, borderColor: c.bd,
+                                    opacity: pressed ? 0.6 : 1,
+                                })}
+                            >
+                                <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.tx2 }}>
+                                    {list.foldLabel}
+                                </Text>
+                                <View style={{ transform: [{ rotate: foldOpen ? '-90deg' : '90deg' }] }}>
+                                    <Glyph name="chev" size={16} color={c.tx2} />
+                                </View>
+                            </Pressable>
+                        ) : null}
+                        {list.foldLabel && foldOpen ? list.folded.map((appointment) => (
+                            <SoloAppointmentCard
+                                key={appointment.id}
+                                appointment={appointment}
+                                nowMinutes={nowMinutes}
+                                onOpen={openAppointment}
+                                selected={false}
+                            />
+                        )) : null}
                     </View>
                 )}
             </ScrollView>

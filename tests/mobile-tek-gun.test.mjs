@@ -741,3 +741,37 @@ test('kart kırmızıyı biliyor: GECİKTİ etiketi ve noktası panelin kırmız
     assert.match(parts, /color: panel\.tone === 'rd' \? ink\.red : panel\.tone === 'am' \? ink\.am : ink\.ink2,/);
 });
 
+
+// ── İş sürerken BİTENLER katlı (2026-10-15, kullanıcı kararı) ───────────────
+
+test('iş sürerken bitenler KAYBOLMUYOR: "Bitenler · 3" satırına katlanıyor', () => {
+    // Telefonda: başlık "3 iş bitti, 1 kaldı", liste "SIRADAKİ · 0 RANDEVU" ve
+    // o üç iş hiçbir yerde yoktu. Odak yine sıradakiler; geçmiş katlı.
+    const done = (id, time) => at(id, time, {
+        status: 'completed', arrived_at: '2026-10-09T07:00:00Z', service_ended_at: '2026-10-09T07:30:00Z', is_paid: true,
+    });
+    const running = at('r', '12:00', { arrived_at: '2026-10-09T09:00:00Z' });
+    const day = [done('c', '11:00'), done('a', '09:00'), done('b', '10:00'), running];
+    const list = soloDayList(state({ kind: 'running', runningAppointment: running }), day, true, 12 * 60 + 5);
+    assert.equal(list.title, 'Sıradaki · 0 randevu');
+    assert.deepEqual(list.rows, []);
+    assert.deepEqual(list.folded.map((row) => row.id), ['a', 'b', 'c'], 'saat sırasında, süren iş yok');
+    assert.equal(list.foldLabel, 'Bitenler · 3');
+});
+
+test('katlı satırın sayısı başlıkla AYNI kural: gelmedi ve iptal ayrı', () => {
+    const done = at('d', '09:00', { status: 'completed', service_ended_at: '2026-10-09T07:30:00Z', is_paid: true });
+    const gone = at('x', '10:00', { status: 'cancelled' });
+    const noshow = at('n', '08:00');
+    const running = at('r', '12:00', { arrived_at: '2026-10-09T09:00:00Z' });
+    const list = soloDayList(state({ kind: 'running', runningAppointment: running }), [done, gone, noshow, running], true, 12 * 60);
+    assert.equal(list.foldLabel, 'Bitenler · 1 · 1 gelmedi · 1 iptal');
+    // Müsait günde geçmiş zaten listede: katlanacak bir şey yok.
+    assert.deepEqual(soloDayList(state(), [done], true, 600).folded, []);
+    assert.equal(soloDayList(state(), [done], true, 600).foldLabel, null);
+});
+
+test('katlı satır kapalı başlıyor ve kartlar aynı bileşen', () => {
+    assert.match(gun, /const \[foldOpen, setFoldOpen\] = useState\(false\);/);
+    assert.match(gun, /list\.foldLabel && foldOpen \? list\.folded\.map\(\(appointment\) => \(\s*<SoloAppointmentCard/);
+});

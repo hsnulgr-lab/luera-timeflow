@@ -814,6 +814,29 @@ export interface SoloDayList {
     nowIndex: number | null;
     /** Liste başlığı; `null` başlık yok. */
     title: string | null;
+    /**
+     * İş sürerken KATLANAN geçmiş: bitenler, gelmeyenler, iptaller — saat
+     * sırasında. Liste yalnız sıradakileri gösteriyor; başlık "3 iş bitti"
+     * derken o üçü hiçbir yerde yoktu (kullanıcı, 2026-10-15). Diğer
+     * hâllerde boş: geçmiş zaten listede.
+     */
+    folded: Appt[];
+    /** Katlanan satırın yazısı: "Bitenler · 3" (+ "· 1 gelmedi · 1 iptal"). */
+    foldLabel: string | null;
+}
+
+/**
+ * Katlanan satırın yazısı — başlığın sayılarıyla AYNI kural
+ * (`soloDayCounts`): "bitti" yalnız biten iş; gelmedi ve iptal ayrı söylenir.
+ */
+export function soloFoldLabel(rows: readonly Appt[], nowMinutes: number): string | null {
+    if (rows.length === 0) return null;
+    const counts = soloDayCounts(rows, nowMinutes);
+    return [
+        `Bitenler · ${counts.done}`,
+        counts.noshow ? `${counts.noshow} gelmedi` : null,
+        counts.cancelled ? `${counts.cancelled} iptal` : null,
+    ].filter(Boolean).join(' · ');
 }
 
 const byStart = (a: Appt, b: Appt) => toMinutes(a.start_time) - toMinutes(b.start_time);
@@ -864,10 +887,12 @@ export function soloDayList(
             rows,
             nowIndex: null,
             title: total > 0 ? `${total} randevu` : null,
+            folded: [],
+            foldLabel: null,
         };
     }
 
-    if (!state) return { rows: [], nowIndex: null, title: null };
+    if (!state) return { rows: [], nowIndex: null, title: null, folded: [], foldLabel: null };
 
     /*
      * Süren ya da beklemedeki iş: liste yalnız SIRADAKİLER — saati geçmiş
@@ -878,10 +903,17 @@ export function soloDayList(
     if (state.runningAppointment) {
         const rows = soloStartable(all, nowMinutes)
             .filter((row) => row.id !== state.runningAppointment?.id);
+        // Geri kalan her şey (süren iş hariç) geçmiş: katlanıyor.
+        const waiting = new Set(rows.map((row) => row.id));
+        const folded = all
+            .filter((row) => row.id !== state.runningAppointment?.id && !waiting.has(row.id))
+            .sort(byStart);
         return {
             rows,
             nowIndex: null,
             title: `Sıradaki · ${rows.length} randevu`,
+            folded,
+            foldLabel: soloFoldLabel(folded, nowMinutes),
         };
     }
 
@@ -902,5 +934,5 @@ export function soloDayList(
     const title = state.kind === 'ended' && soloStartable(all, nowMinutes).length > 0
         ? `Bugün · ${all.length} randevu`
         : state.listTitle;
-    return { rows, nowIndex, title };
+    return { rows, nowIndex, title, folded: [], foldLabel: null };
 }

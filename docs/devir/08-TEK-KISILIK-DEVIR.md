@@ -2374,3 +2374,16 @@ yazma ile gönderimin yarışı (`items_stale`). Kanıt yok — geçici tanı sa
 `panHandlers` yüzeyi; "Katalogda ara"nın üstündeki her yerden çekilince iner).
 Kapanış kadranı: tutar yalnız dursun diye üstte 34, altta 40 pt (adisyon
 aşağıdan başlıyor). Paket 3031 / 0.
+
+---
+
+## 48 · 2026-10-15 · GÜN: İŞ SÜRERKEN BİTENLER KATLI
+
+Kullanıcı (telefon): "diğer randevular nerede?" Başlık "3 iş bitti, 1 kaldı",
+liste "SIRADAKİ · 0 RANDEVU" — bitenler v4 kuralıyla iş sürerken listeden
+çıkıyordu (veri doğruydu, kayıp yoktu). Kullanıcı kararı: **katlanmış satır**.
+`soloDayList` süren işte `folded` (süren iş ve sıradakiler dışındaki her şey,
+saat sırasında) + `foldLabel` döndürüyor: "Bitenler · 3" (+ "· 1 gelmedi ·
+1 iptal", başlıkla aynı kural `soloDayCounts`). Gün'de sıradakilerin altında,
+kartların hizasında; kapalı başlıyor, dokununca aynı `SoloAppointmentCard`ler.
+Müsait günde geçmiş zaten listede — katlı satır yok. Test `mobile-tek-gun` +3.
