@@ -1,6 +1,10 @@
 /**
  * Personel 15 · sade adisyonun mürekkebi ve yazısı (YALNIZ tek kişilik).
  *
+ * Kumandanın üst yarısı (plaka, sayaç, plan, Bekleme kur, BİTİR) ESKİ
+ * hâlinde (kullanıcı kararı, 2026-10-15); bu dosya yalnız adisyon parçalarını
+ * çiziyor.
+ *
  * Tema jetonları DEĞİŞMİYOR: masaüstüyle eşleşme testi onları kilitliyor ve
  * öteki ekranlar kendi onaylı tasarımlarıyla duruyor. Koyulaşan `tx2`
  * (açıkta .52 → .66, koyuda .58 → .62) ve "renk işarette, yazı mürekkepte"
@@ -10,21 +14,21 @@
  * yenileme kuralı).
  */
 
-import { font, useTheme } from '../theme';
+import { useTheme } from '../theme';
 
 /** Maskenin açık kalma süresi — 6 sn (bugünkü kural, kullanıcı kararı). */
 export const SADE_MS = 6000;
 
-/** Ağırlık → Hanken Grotesk dosyası. Tasarımın yazı tipi bu; sistem fontu değil. */
-const HK = {
-    500: font.medium,
-    600: font.semiBold,
-    700: font.bold,
-    800: font.extraBold,
-} as const;
-
-export function sadeFont(weight: keyof typeof HK) {
-    return { fontFamily: HK[weight], fontWeight: String(weight) as '500' | '600' | '700' | '800' };
+/**
+ * Yazı tipi: telefonun KENDİ yazı tipi (SF), yalnız ağırlık.
+ *
+ * Tasarım Hanken Grotesk istiyordu; telefonda denendi ve kullanıcı eski
+ * kumandanın yazısını "keskin ve güzel" buldu (2026-10-15). Kumandanın geri
+ * kalanı da sistem yazısıyla çiziliyor — adisyon ayrı bir yazı tipiyle
+ * ekranın içinde yabancı dururdu.
+ */
+export function sadeFont(weight: 500 | 600 | 700 | 800) {
+    return { fontWeight: String(weight) as '500' | '600' | '700' | '800' };
 }
 
 export function useSadeInk() {

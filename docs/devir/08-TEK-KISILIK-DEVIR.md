@@ -2342,3 +2342,12 @@ Kanıt: yeni `tests/tek-adisyon-sade.test.mjs` (18); üç eski test yeni biçime
 taşındı (gevşetilmedi: tavan, kaydırıcı sayısı 3→4, maskenin kapanışı); tüm
 paket 3029 / 0 kırık; `tsc` temiz; yeni dosyalarda lint 0, kumanda aynı (24);
 Metro iOS paketi derlendi. **Telefonda denenmedi.**
+
+**Aynı gün, telefondan sonra (kullanıcı kararı):** "eski tasarımdaki renkler
+keskin ve güzeldi, yeni tasarımı onun üzerine koyalım." Üst yarı (geri satırı,
+plaka, sayaç, plan çubuğu, Bekleme kur, BİTİR) **birebir eski hâline** döndü —
+iki kabukta aynı bileşen; Hanken + `#FF7A45` sayaç rakamların üstünü kesiyordu
+(iOS `lineHeight < fontSize`) ve soluk duruyordu. Yeni tasarım YALNIZ adisyonda
+(şerit, maske, sayfa, satırlar, panel, kapanış listesi) ve **sistem yazısıyla**
+(`sadeFont` yalnız ağırlık). Koyulaşan `tx2` adisyon parçalarında kaldı.
+`SadePlanTrack` / `SadeWaitChip` silindi. Test 19; paket 3030 / 0.

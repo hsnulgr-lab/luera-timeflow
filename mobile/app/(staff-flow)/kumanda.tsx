@@ -45,10 +45,8 @@ import { collectDial, type CollectMethod, type CollectStage } from '../../src/li
 import { fetchServiceCharge } from '../../src/lib/managerSource';
 import type { ServiceBill } from '../../src/lib/cashBuild';
 import {
-    SadeClosingDial, SadeEditPanel, SadeFormulaRow, SadeList, SadePlanTrack, SadeSheetBody,
-    SadeSheetHead, SadeStrip, SadeWaitChip,
+    SadeClosingDial, SadeEditPanel, SadeFormulaRow, SadeList, SadeSheetBody, SadeSheetHead, SadeStrip,
 } from '../../src/components/AdisyonSade';
-import { sadeFont, useSadeInk } from '../../src/lib/sadeInk';
 import {
     addOutcome, breakdownLine, kalemCount, sadeTotal, type Receipt, type ServiceRow,
 } from '../../src/lib/adisyonSade';
@@ -692,8 +690,6 @@ export default function Kumanda() {
      * okunmuyor — orada parayı kasa alıyor ve kadran adisyonun kendisi.
      */
     const solo = params.from === 'tek';
-    /** Personel 15'in mürekkebi — yalnız tek kişilik dalında okunuyor. */
-    const sade = useSadeInk();
     const [serviceCharge, setServiceCharge] = useState<ServiceBill | null>(null);
     useEffect(() => {
         if (!solo || !appointment?.id) return undefined;
@@ -909,26 +905,19 @@ export default function Kumanda() {
                     accessibilityLabel={`${backLabel} listesine dön`}
                     onPress={() => router.back()}
                     style={({ pressed }) => ({
-                        // Personel 15 (tek kişilik): 48 pt, 17 pt yazı, 24 pt ok.
-                        height: solo ? (small ? 44 : 48) : 44,
-                        paddingHorizontal: solo ? 16 : 14,
+                        height: 44,
+                        paddingHorizontal: 14,
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: solo ? 5 : 2,
+                        gap: 2,
                         opacity: pressed ? 0.55 : 1,
                     })}
                 >
-                    <Glyph name="back" size={solo ? 24 : 22} color={solo ? sade.tx2 : c.tx2} />
-                    <Text style={solo
-                        ? { color: sade.tx2, fontSize: 17, ...sadeFont(500) }
-                        : { color: c.tx2, fontSize: 15, fontWeight: '600' }}
-                    >
-                        {backLabel}
-                    </Text>
+                    <Glyph name="back" size={22} color={c.tx2} />
+                    <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>{backLabel}</Text>
                 </Pressable>
 
                 <Plate
-                    sade={solo}
                     appointment={appointment}
                     phase={phase}
                     delivered={delivered}
@@ -1002,36 +991,7 @@ export default function Kumanda() {
                     </View>
                 ) : null}
 
-                {/*
-                  * Personel 15 · A1 (tek kişilik): kadran, plan ve Bekleme kur
-                  * YERİNDE; değişen ölçü ve mürekkep. Açık temada süre
-                  * mürekkebe geçiyor — turuncu 96 pt süre kremde 2.6:1.
-                  */}
-                {phase === 'running' && !wait && solo ? (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: small ? 7 : 10, paddingHorizontal: 20 }}>
-                        <Text style={[{
-                            fontSize: small ? 76 : 96,
-                            lineHeight: small ? 68.4 : 86.4,
-                            ...sadeFont(800),
-                            letterSpacing: (small ? 76 : 96) * -0.055,
-                            color: sade.orT,
-                        }, numeric]}>
-                            {formatCounter(elapsedSec)}
-                        </Text>
-                        <Text style={{ fontSize: 13, ...sadeFont(700), letterSpacing: 3.12, color: sade.tx2, marginTop: small ? 6 : 10 }}>
-                            GEÇEN SÜRE
-                        </Text>
-                        <SadePlanTrack
-                            progress={bar.progress}
-                            marker={bar.marker}
-                            label={bar.label}
-                            overMinutes={bar.overMinutes}
-                        />
-                        <SadeWaitChip onPress={() => setSheet('minutes')} />
-                    </View>
-                ) : null}
-
-                {phase === 'running' && !wait && !solo ? (
+                {phase === 'running' && !wait ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 20 }}>
                         <Text style={[{
                             fontSize: small ? 76 : 96,
@@ -1776,14 +1736,8 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
 function Plate({
-    appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard, sade = false,
+    appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard,
 }: {
-    /**
-     * Personel 15 (tek kişilik): durum 13 pt, ad 23 pt, hizmet 16 pt, saat
-     * satırı 15 pt ve düğmelerin ALTINDA tam genişlik. Renk işarette, yazı
-     * mürekkepte (açık temada renkli yazı 4.5:1'i tutmuyor).
-     */
-    sade?: boolean;
     appointment: DemoAppointment;
     /** Sunucuya göre kasada mı, tahsil edildi mi — Bugün kartının kararı. */
     closedCard: 'atcash' | 'paid' | null;
@@ -1801,7 +1755,6 @@ function Plate({
     onCard: () => void;
 }) {
     const { c } = useTheme();
-    const sadeInk = useSadeInk();
     const [openRisk, setOpenRisk] = useState(false);
     const status = phase === 'running' ? { word: 'Sürüyor', tone: c.or }
         // Kapanmış iş "adisyon açık" demez: yeşil, çünkü personelden çıktı.
@@ -1809,69 +1762,6 @@ function Plate({
             : phase === 'closing' ? { word: 'Adisyon açık', tone: c.am }
                 : dialKind === 'waiting' ? { word: 'Kapıda', tone: c.am }
                     : { word: 'Bekleniyor', tone: c.tx3 };
-
-    if (sade) {
-        const ink = sadeInk;
-        const word = status.tone === c.or ? ink.orT
-            : status.tone === c.gr ? ink.grT
-                : status.tone === c.am ? ink.amT
-                    : ink.tx2;
-        return (
-            <>
-            <View style={{
-                flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', columnGap: 10,
-                paddingHorizontal: 20, paddingBottom: ink.small ? 10 : 12,
-            }}>
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: status.tone === c.tx3 ? ink.tx2 : status.tone }} />
-                        <Text style={{ fontSize: 13, ...sadeFont(700), letterSpacing: 1.82, color: word }}>
-                            {upperTR(status.word)}
-                        </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <Text numberOfLines={1} style={{
-                            flexShrink: 1, fontSize: ink.small ? 21 : 23, ...sadeFont(800),
-                            letterSpacing: (ink.small ? 21 : 23) * -0.03, color: c.tx,
-                        }}>
-                            {appointment.customer_name}
-                        </Text>
-                        {risks.length > 0 ? (
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={risks.length > 1
-                                    ? `${risks.length} risk kuralı var`
-                                    : `Risk: ${risks[0].kind}`}
-                                hitSlop={10}
-                                onPress={() => { feedback.selection(); setOpenRisk((open) => !open); }}
-                                style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}
-                            >
-                                <Glyph name="warn" size={21} color={c.rd} />
-                            </Pressable>
-                        ) : null}
-                    </View>
-                    <Text numberOfLines={1} style={{ fontSize: ink.small ? 15 : 16, ...sadeFont(500), color: ink.tx2 }}>
-                        {appointment.service}
-                    </Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 6, paddingTop: 4 }}>
-                    <Tool label="Müşteriyi ara" glyph="phone" onPress={onCall} size={ink.small ? 44 : 48} />
-                    <Tool label="Not" glyph="note" dot={Boolean(appointment.notes)} onPress={onNote} size={ink.small ? 44 : 48} />
-                    <Tool label="Müşteri kartı" glyph="user" onPress={onCard} size={ink.small ? 44 : 48} />
-                </View>
-                <Text numberOfLines={1} style={[{
-                    flexBasis: '100%', marginTop: 2,
-                    fontSize: ink.small ? 14 : 15, ...sadeFont(600), color: ink.tx2,
-                }, numeric]}>
-                    {tail}
-                </Text>
-            </View>
-            {openRisk && risks.length > 0 ? (
-                <RiskRow risks={risks} onDone={() => setOpenRisk(false)} />
-            ) : null}
-            </>
-        );
-    }
 
     return (
         <>
@@ -1998,10 +1888,8 @@ function RiskRow({ risks, onDone }: {
     );
 }
 
-function Tool({ label, glyph, dot, onPress, size = 48 }: {
+function Tool({ label, glyph, dot, onPress }: {
     label: string; glyph: 'phone' | 'note' | 'user'; dot?: boolean; onPress?: () => void;
-    /** 375 × 667'de 44 (Personel 15 · A1 küçük ekran). */
-    size?: number;
 }) {
     const { c } = useTheme();
     const off = !onPress;
@@ -2013,8 +1901,8 @@ function Tool({ label, glyph, dot, onPress, size = 48 }: {
             disabled={off}
             onPress={onPress}
             style={({ pressed }) => ({
-                width: size, height: size,
-                borderRadius: size < 48 ? 14 : 16,
+                width: 48, height: 48,
+                borderRadius: 16,
                 backgroundColor: c.fld,
                 borderWidth: 1,
                 borderColor: c.bd,

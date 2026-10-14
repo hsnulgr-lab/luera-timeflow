@@ -152,8 +152,19 @@ test('renk işarette, yazı mürekkepte: açık temada renkli yazı yok', () => 
     assert.match(ink, /amT: dark \? '#D9A43B' : c\.tx/);
     assert.match(ink, /grT: dark \? '#5FBF64' : c\.tx/);
     assert.match(ink, /rdT: dark \? '#E07272' : c\.tx/);
-    // Açık temada 96 pt süre mürekkep (turuncu kremde 2.6:1).
-    assert.match(screen, /color: sade\.orT,/);
+});
+
+test('üst yarı ESKİ hâlinde, adisyon sistem yazısıyla (kullanıcı kararı, 2026-10-15)', () => {
+    // Telefonda denendi: eski kumandanın renkleri ve yazısı "keskin ve güzel".
+    // Yeni tasarım yalnız adisyon parçalarında; plaka, sayaç, plan ve Bekleme
+    // kur iki kabukta da aynı eski bileşen.
+    assert.ok(!/sade=\{solo\}/.test(screen), 'plakanın tek kişilik yüzü kalktı');
+    assert.ok(!/SadePlanTrack|SadeWaitChip|useSadeInk|sadeFont/.test(screen));
+    assert.match(screen, /\{phase === 'running' && !wait \? \(/);
+    assert.match(screen, /color: c\.or,\s*\}, numeric\]\}>\s*\{formatCounter\(elapsedSec\)\}/);
+    // Yazı tipi telefonun kendisi: ağırlık var, aile yok.
+    assert.ok(!/fontFamily/.test(ink));
+    assert.ok(!/fontFamily/.test(parts));
 });
 
 // ── Kapsam ──────────────────────────────────────────────────────────────────
