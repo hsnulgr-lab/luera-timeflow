@@ -2398,3 +2398,9 @@ kişilik adisyon sayfası `Sheet look="sade"`: tutamaç 36 × 5 pt, %38, üstte
 20 pt şerit (dokunma alanı başlığın tamamı); başlık `surf2`, gövde `surf`
 (iki ton), toplamın altındaki çizgi kalktı. Öteki alt sayfalar (panel, formül,
 not, bekleme) ve ekip kumandası eski görünümde — hatırlatma yukarıda.
+
+**Başlık fiş satırı (aynı gün, kullanıcı: "3 · fiş satırı, sağa yaslı olsun"):**
+solda "Toplam" + "n kalem", sağda tutar; tutarın sağ kenarı satırların tutar
+sütunuyla aynı hizada (sağ dolgu 44). Kırılım satırı kalktı (liste yazıyor).
+Kusur düzeltildi: açık ton başlık sayfanın yuvarlak köşelerinden taşıyordu
+(köşe 29).

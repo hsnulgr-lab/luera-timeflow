@@ -517,22 +517,25 @@ export function SadeList({
 // ── Adisyon sayfası ─────────────────────────────────────────────────────────
 
 /**
- * Sayfanın başlığı: toplam ORTADA, altında kırılımı. "Kapat" yok
- * (kullanıcı kararı, 2026-10-15): başlık tutamağın parçası — aşağı çekmek,
- * dışarı dokunmak ya da ekran okuyucuda tutamağa dokunmak kapatıyor.
+ * Sayfanın başlığı — FİŞ SATIRI (2026-10-15, kullanıcı seçimi "3"): solda
+ * "Toplam" ve kalem sayısı, sağda tutar. Tutarın sağ kenarı satırların tutar
+ * sütunuyla AYNI hizada (satır: sağ dolgu 14 + ok 20 + aralık 10 = 44), göz
+ * toplamı yukarıdan aşağı tek sütunda doğruluyor. Kırılım satırı yok: liste
+ * her tutarı zaten yazıyor. "Kapat" yok: başlık tutamağın parçası.
  */
-export function SadeSheetHead({ count, total, breakdown }: {
-    count: number;
-    total: number;
-    breakdown: string;
-}) {
+export function SadeSheetHead({ count, total }: { count: number; total: number }) {
     const ink = useSadeInk();
     return (
         // Çizgi yok: başlık ile gövdeyi iki ton ayırıyor (`Sheet look="sade"`).
-        <View style={{ alignItems: 'center', gap: 3, paddingTop: 8, paddingHorizontal: 20, paddingBottom: 18 }}>
-            <Text style={{ ...hk(600), fontSize: 14, color: ink.tx2 }}>Toplam · {count} kalem</Text>
+        <View style={{
+            flexDirection: 'row', alignItems: 'flex-end', gap: 12,
+            paddingTop: 8, paddingLeft: 20, paddingRight: 44, paddingBottom: 18,
+        }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={{ ...hk(700), fontSize: 16, color: ink.c.tx }}>Toplam</Text>
+                <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2 }, numeric]}>{count} kalem</Text>
+            </View>
             <Amount value={total} size={30} spacing={-0.9} />
-            <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2, textAlign: 'center' }, numeric]}>{breakdown}</Text>
         </View>
     );
 }

@@ -48,7 +48,7 @@ import {
     SadeClosingDial, SadeEditPanel, SadeFormulaRow, SadeList, SadeSheetBody, SadeSheetHead, SadeStrip,
 } from '../../src/components/AdisyonSade';
 import {
-    addOutcome, breakdownLine, kalemCount, sadeTotal, type Receipt, type ServiceRow,
+    addOutcome, kalemCount, sadeTotal, type Receipt, type ServiceRow,
 } from '../../src/lib/adisyonSade';
 import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
@@ -1395,11 +1395,7 @@ export default function Kumanda() {
                     full={solo && sheet === 'catalog'}
                     look={solo && sheet === 'catalog' ? 'sade' : 'plain'}
                     head={solo && sheet === 'catalog' ? (
-                        <SadeSheetHead
-                            count={kalem}
-                            total={grand}
-                            breakdown={breakdownLine(services, lines, money)}
-                        />
+                        <SadeSheetHead count={kalem} total={grand} />
                     ) : null}
                 >
                     {/*
@@ -2384,7 +2380,14 @@ function Sheet({ children, onClose, full = false, head = null, look = 'plain' }:
                   * Başlıkta dokunulacak bir şey yok; parmak nereden tutarsa
                   * tutsun sayfa iner.
                   */}
-                <View {...pan.panHandlers} style={look === 'sade' ? { backgroundColor: c.surf2 } : undefined}>
+                <View
+                    {...pan.panHandlers}
+                    // Açık ton sayfanın YUVARLAK köşelerine uymalı: köşesiz
+                    // zemin kenarın dışına taşıyordu (telefonda görüldü).
+                    style={look === 'sade' ? {
+                        backgroundColor: c.surf2, borderTopLeftRadius: 29, borderTopRightRadius: 29,
+                    } : undefined}
+                >
                     {look === 'sade' ? (
                         // Tutamacın dokunma alanı artık 20 pt'lik şerit DEĞİL,
                         // başlığın tamamı: 44 pt'nin gerekçesi (eldivenli parmak)

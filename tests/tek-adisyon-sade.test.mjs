@@ -131,8 +131,14 @@ test('tek kişilikte maske YOK: tutar hep açık (kullanıcı kararı, 2026-10-1
         assert.ok(!parts.includes(gone), `${gone} kalmamalı`);
     }
     assert.ok(!/maskUntil|toggleMoney|hideMoney/.test(screen));
-    // Kırılım hep yazılı.
-    assert.match(parts, /color: ink\.tx2, textAlign: 'center' \}, numeric\]\}>\{breakdown\}<\/Text>/);
+    // Sayfa başlığı FİŞ SATIRI (2026-10-15, kullanıcı seçimi "3"): solda
+    // Toplam + kalem sayısı, sağda tutar; tutar satırların tutar sütunuyla
+    // aynı hizada (sağ dolgu 14 + ok 20 + aralık 10). Kırılım yok — liste yazıyor.
+    const head = parts.slice(parts.indexOf('export function SadeSheetHead'), parts.indexOf('function Tile('));
+    assert.match(head, /paddingTop: 8, paddingLeft: 20, paddingRight: 44, paddingBottom: 18/);
+    assert.match(head, />Toplam</);
+    assert.match(head, /\{count\} kalem/);
+    assert.ok(!/breakdown/.test(head));
     // Ekip personelinin maskesi duruyor.
     assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
 });
@@ -204,13 +210,14 @@ test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () 
     }
     // "Kapat" de yok (2026-10-15): başlık tutamağın parçası, aşağı çekince iner.
     assert.ok(!/>Kapat</.test(parts));
-    assert.match(screen, /<View \{\.\.\.pan\.panHandlers\}[^>]*>[\s\S]*?\{head\}\s*<\/View>/);
+    assert.match(screen, /<View\s+\{\.\.\.pan\.panHandlers\}[\s\S]*?\{head\}\s*<\/View>/);
     // Görünüm "C" (2026-10-15): iOS ölçüsünde tutamaç ve iki ton — yalnız tek
     // kişilik adisyon sayfası.
     assert.match(screen, /look=\{solo && sheet === 'catalog' \? 'sade' : 'plain'\}/);
     assert.match(screen, /width: 36, height: 5, borderRadius: 2\.5, backgroundColor: c\.tx, opacity: 0\.38/);
     assert.match(screen, /backgroundColor: look === 'sade' \? c\.surf : c\.card/);
-    assert.match(screen, /style=\{look === 'sade' \? \{ backgroundColor: c\.surf2 \} : undefined\}/);
+    // Açık ton köşelere uyuyor (köşesiz zemin kenardan taşıyordu).
+    assert.match(screen, /backgroundColor: c\.surf2, borderTopLeftRadius: 29, borderTopRightRadius: 29,/);
     assert.match(screen, /head=\{solo && sheet === 'catalog' \? \(\s*<SadeSheetHead/);
     assert.match(parts, /Toplama girmez · iş bitince depodan düşer/);
     assert.match(parts, /Randevu hizmeti/);
