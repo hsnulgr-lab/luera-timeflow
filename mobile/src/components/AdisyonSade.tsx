@@ -516,36 +516,26 @@ export function SadeList({
 
 // ── Adisyon sayfası ─────────────────────────────────────────────────────────
 
-/** Sayfanın başlığı: toplam, kırılımı ve "Kapat". "Adisyon" başlığı burada birleşti. */
-export function SadeSheetHead({ count, total, breakdown, onClose }: {
+/**
+ * Sayfanın başlığı: toplam ORTADA, altında kırılımı. "Kapat" yok
+ * (kullanıcı kararı, 2026-10-15): başlık tutamağın parçası — aşağı çekmek,
+ * dışarı dokunmak ya da ekran okuyucuda tutamağa dokunmak kapatıyor.
+ */
+export function SadeSheetHead({ count, total, breakdown }: {
     count: number;
     total: number;
     breakdown: string;
-    onClose: () => void;
 }) {
     const ink = useSadeInk();
     return (
         <View style={{
-            flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-            paddingTop: 2, paddingRight: 16, paddingBottom: 12, paddingLeft: 20,
+            alignItems: 'center', gap: 3,
+            paddingTop: 2, paddingHorizontal: 20, paddingBottom: 14,
             borderBottomWidth: 1, borderBottomColor: ink.c.bd,
         }}>
-            <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                <Text style={{ ...hk(600), fontSize: 14, color: ink.tx2 }}>Toplam · {count} kalem</Text>
-                <Amount value={total} size={30} spacing={-0.9} />
-                <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2 }, numeric]}>{breakdown}</Text>
-            </View>
-            <Pressable
-                accessibilityRole="button"
-                onPress={() => { feedback.selection(); onClose(); }}
-                style={({ pressed }) => ({
-                    height: 44, paddingHorizontal: 14, borderRadius: 14, justifyContent: 'center',
-                    backgroundColor: ink.c.surf2, borderWidth: 1, borderColor: ink.c.bd,
-                    opacity: pressed ? 0.7 : 1,
-                })}
-            >
-                <Text style={{ ...hk(700), fontSize: 15, color: ink.c.tx }}>Kapat</Text>
-            </Pressable>
+            <Text style={{ ...hk(600), fontSize: 14, color: ink.tx2 }}>Toplam · {count} kalem</Text>
+            <Amount value={total} size={30} spacing={-0.9} />
+            <Text style={[{ ...hk(500), fontSize: 14, color: ink.tx2, textAlign: 'center' }, numeric]}>{breakdown}</Text>
         </View>
     );
 }
@@ -825,7 +815,9 @@ export function SadeEditPanel({ line, onStep, onRemove, onClose }: {
 export function SadeClosingDial({ total, count }: { total: number; count: number }) {
     const ink = useSadeInk();
     return (
-        <View style={{ alignItems: 'center', gap: 8, paddingTop: 16, paddingHorizontal: 20, paddingBottom: 14 }}>
+        // Tutar YALNIZ dursun, adisyon biraz aşağıdan başlasın (kullanıcı,
+        // 2026-10-15: "premium görüntü"). Yer listenin altındaki boşluktan.
+        <View style={{ alignItems: 'center', gap: 10, paddingTop: 34, paddingHorizontal: 20, paddingBottom: 40 }}>
             <Amount value={total} size={64} spacing={-2.88} />
             <Text style={{ ...hk(700), fontSize: 13, letterSpacing: 2.6, color: ink.tx2 }}>
                 TOPLAM · {count} KALEM

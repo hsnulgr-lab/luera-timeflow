@@ -1390,7 +1390,17 @@ export default function Kumanda() {
             </View>
 
             {sheet ? (
-                <Sheet onClose={() => setSheet(null)} full={solo && sheet === 'catalog'}>
+                <Sheet
+                    onClose={() => setSheet(null)}
+                    full={solo && sheet === 'catalog'}
+                    head={solo && sheet === 'catalog' ? (
+                        <SadeSheetHead
+                            count={kalem}
+                            total={grand}
+                            breakdown={breakdownLine(services, lines, money)}
+                        />
+                    ) : null}
+                >
                     {/*
                       * Personel 15 · A2: sayfa dokuz katmandan DÖRDE — toplam
                       * başlığı · ekleme (arama kapısı + kutular + makbuz) ·
@@ -1399,12 +1409,6 @@ export default function Kumanda() {
                       */}
                     {sheet === 'catalog' && solo ? (
                         <View style={{ flex: 1 }}>
-                            <SadeSheetHead
-                                count={kalem}
-                                total={grand}
-                                breakdown={breakdownLine(services, lines, money)}
-                                onClose={() => setSheet(null)}
-                            />
                             <SadeSheetBody
                                 frequent={frequent}
                                 lines={lines}
@@ -2236,9 +2240,11 @@ function Band({ label, note }: { label: string; note: string }) {
  * kapanmayan bir sayfa yalan söyler. Jest yalnız tutamaç şeridinde yaşıyor —
  * gövdede yaşasaydı içerideki listeyi kaydırmakla yarışırdı.
  */
-function Sheet({ children, onClose, full = false }: {
+function Sheet({ children, onClose, full = false, head = null }: {
     children: React.ReactNode;
     onClose: () => void;
+    /** Tutamağın ALTINDA, onunla birlikte çekilen başlık (Personel 15 · toplam). */
+    head?: React.ReactNode;
     /**
      * Tavana kadar TAM BOY (Personel 15 · A2): sade adisyon sayfası içerik
      * boyunda değil, plakanın altından başlıyor. Kalem sayısı değiştikçe
@@ -2364,18 +2370,26 @@ function Sheet({ children, onClose, full = false }: {
                     transform: [{ translateY: Animated.add(fall, drag) }],
                 }}
             >
-                <View
-                    {...pan.panHandlers}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sayfayı kapat"
-                    onAccessibilityTap={shut}
-                    // 44 pt KALIYOR. Tasarımın maketi 32 diyor ama burada 32
-                    // denendi ve ıslak/eldivenli parmakla tutulmadı; ayrıca
-                    // şerit ekran okuyucuya DÜĞME olarak açık ve 44 bizim
-                    // tabanımız. Maketteki piksel, bu ürünün ellerini bilmiyor.
-                    style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}
-                >
-                    <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.22 }} />
+                {/*
+                  * Tutamaç + BAŞLIK tek çekme yüzeyi (2026-10-15, kullanıcı:
+                  * "Katalogda ara'nın üstündeki her yerde tutamaç çalışsın").
+                  * Başlıkta dokunulacak bir şey yok; parmak nereden tutarsa
+                  * tutsun sayfa iner.
+                  */}
+                <View {...pan.panHandlers}>
+                    <View
+                        accessibilityRole="button"
+                        accessibilityLabel="Sayfayı kapat"
+                        onAccessibilityTap={shut}
+                        // 44 pt KALIYOR. Tasarımın maketi 32 diyor ama burada 32
+                        // denendi ve ıslak/eldivenli parmakla tutulmadı; ayrıca
+                        // şerit ekran okuyucuya DÜĞME olarak açık ve 44 bizim
+                        // tabanımız. Maketteki piksel, bu ürünün ellerini bilmiyor.
+                        style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.tx, opacity: 0.22 }} />
+                    </View>
+                    {head}
                 </View>
                 {children}
             </Animated.View>

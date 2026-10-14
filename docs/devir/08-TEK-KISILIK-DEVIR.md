@@ -2368,3 +2368,9 @@ Test: `tek-adisyon-sade` 20; paket 3031 / 0.
 (telefonda, kalem ekledikten hemen sonra tahsil). Şüphe: 0,7 sn'lik otomatik
 yazma ile gönderimin yarışı (`items_stale`). Kanıt yok — geçici tanı satırları
 (`[tanı-tahsilat]`, commit'lenmedi) ile telefonda tekrar bekleniyor.
+
+**Aynı gün, dördüncü tur (telefondan):** adisyon sayfasında toplam ORTADA,
+"Kapat" kalktı; başlık tutamağın parçası (`Sheet.head` — tutamak + başlık tek
+`panHandlers` yüzeyi; "Katalogda ara"nın üstündeki her yerden çekilince iner).
+Kapanış kadranı: tutar yalnız dursun diye üstte 34, altta 40 pt (adisyon
+aşağıdan başlıyor). Paket 3031 / 0.

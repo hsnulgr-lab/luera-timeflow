@@ -132,7 +132,7 @@ test('tek kişilikte maske YOK: tutar hep açık (kullanıcı kararı, 2026-10-1
     }
     assert.ok(!/maskUntil|toggleMoney|hideMoney/.test(screen));
     // Kırılım hep yazılı.
-    assert.match(parts, /<Text style=\{\[\{ \.\.\.hk\(500\), fontSize: 14, color: ink\.tx2 \}, numeric\]\}>\{breakdown\}<\/Text>/);
+    assert.match(parts, /color: ink\.tx2, textAlign: 'center' \}, numeric\]\}>\{breakdown\}<\/Text>/);
     // Ekip personelinin maskesi duruyor.
     assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
 });
@@ -194,7 +194,7 @@ test('YALNIZ tek kişilikte — ekip personelinin kumandası değişmedi', () =>
         /sheet === 'catalog' && solo \? \(/,
         /sheet === 'catalog' && !solo \? \(\s*<CatalogSheet/,
     ]) assert.match(screen, branch);
-    assert.match(screen, /<Sheet onClose=\{\(\) => setSheet\(null\)\} full=\{solo && sheet === 'catalog'\}>/);
+    assert.match(screen, /<Sheet\s+onClose=\{\(\) => setSheet\(null\)\}\s+full=\{solo && sheet === 'catalog'\}/);
 });
 
 test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () => {
@@ -202,7 +202,10 @@ test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () 
     for (const head of ['KALEMLER', 'RANDEVU', 'EK HİZMET', "'MALZEME'"]) {
         assert.ok(!parts.includes(head), `${head} başlığı kalktı`);
     }
-    assert.match(parts, />Kapat</);
+    // "Kapat" de yok (2026-10-15): başlık tutamağın parçası, aşağı çekince iner.
+    assert.ok(!/>Kapat</.test(parts));
+    assert.match(screen, /<View \{\.\.\.pan\.panHandlers\}>[\s\S]*?\{head\}\s*<\/View>/);
+    assert.match(screen, /head=\{solo && sheet === 'catalog' \? \(\s*<SadeSheetHead/);
     assert.match(parts, /Toplama girmez · iş bitince depodan düşer/);
     assert.match(parts, /Randevu hizmeti/);
 });
