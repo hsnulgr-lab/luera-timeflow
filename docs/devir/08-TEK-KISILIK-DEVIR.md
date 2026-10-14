@@ -2500,3 +2500,14 @@ olabilir, düzeltme kodla ve testle kilitli), 6 ✅, 7 ✅, 8 ✅. Geçici
 Kalan: 2, 4, 9, 10, 11 (ekip personeli / müdür hesabı), 3 (müşteriden gelen
 randevu bildirimi), 5 (bekleme bitti, 20 dk).
 
+
+**Aynı gün, telefondan (kullanıcı, müdür/ekip hesabı):** "her şey çalışıyor"
+(ekip personelinin sade adisyonu Akış'ta "KASAYA HAZIR / KASADA BEKLİYOR"
+olarak görüldü). **Bulunan hata:** müdür Kasa'sında "3 adisyon tahsil
+edilmedi" şeridine basınca doğrudan Akış'a atıyordu (eski v4 C1 kararı:
+`if (!solo) router.navigate('/mudur')`); "Adisyon kasada" bildirimi ise
+14 Ekim'den beri önce listeyi açıyordu — aynı şeyin iki yolu. **Düzeltildi:**
+ekipte şerit de önce "tahsil edilmedi" listesini açıyor (tek adisyon olsa
+bile); seçilen adisyon Akış'ta kendi satırında (`focusInFlow`). Tek
+kişilikte değişmedi (tek adisyon → doğrudan tahsilat, çoksa liste). Test
+`mobile-mudur-kasa` taşındı; paket 3037 / 0. Telefonda denenmedi.

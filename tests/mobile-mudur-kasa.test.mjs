@@ -535,18 +535,16 @@ test('iz kimin yaptığını YAZMIYOR — saat sunucunun damgasından', () => {
     assert.doesNotMatch(screen, /applyVoid\(/);
 });
 
-test('bekleyen adisyon şeridi ÖLÜ DEĞİL — ekipte Akış\'a, tek kişilikte tahsilata götürüyor', () => {
-    // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. Ekipte
-    // bekleyen adisyonların gerçek yeri Akış: her biri kendi satırında,
-    // "Tahsil et" düğmesiyle duruyor.
+test('bekleyen adisyon şeridi ÖLÜ DEĞİL — önce liste; ekipte seçilen Akış\'ta, tek kişilikte tahsilatta', () => {
+    // Şeridin sağında ok vardı ama dokununca hiçbir şey olmuyordu. 2026-10-15
+    // (telefonda görüldü): ekipte şerit doğrudan Akış'a atıyordu; bildirim ise
+    // önce listeyi açıyordu — aynı şeyin iki yolu. Artık ikisi de liste;
+    // ekipte seçilen adisyon Akış'ta kendi satırında ("Tahsil et" orada).
     assert.match(screen, /onPress=\{onPendingPress\}/);
-    assert.match(screen, /if \(!solo\) \{\s*router\.navigate\('\/mudur'\);/);
-    // Tek kişilikte Akış YOK (v4 C1): `/mudur` kapısı kişiyi geri atardı.
-    // Tek adisyon doğrudan kumandanın tahsilat adımında; birden çoksa önce liste.
-    assert.match(screen, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
-    // Liste tek yerden açılıyor (2026-10-14 — bildirim de aynı listeyi açıyor):
-    // tek kişilikte seçilen tahsilat adımında açılır.
-    assert.match(screen, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}\s*openPendingList\(\);/);
+    assert.doesNotMatch(screen, /if \(!solo\) \{\s*router\.navigate\('\/mudur'\);/);
+    // Tek kişilikte Akış YOK (v4 C1): tek adisyon doğrudan kumandanın tahsilat
+    // adımında; birden çoksa önce liste.
+    assert.match(screen, /if \(solo && tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}\s*openPendingList\(\);/);
     assert.match(screen, /opensIn: solo \? 'collect' : 'flow',\s*onPick: solo \? openTicket : focusInFlow,\s*\}\);\s*router\.push\('\/kasa\/bekleyen'\);/);
     assert.match(screen, /pathname: '\/\(staff-flow\)\/kumanda'/);
     assert.match(screen, /from: 'tek',/);

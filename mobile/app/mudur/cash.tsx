@@ -125,9 +125,10 @@ export default function ManagerKasa() {
 
     /*
      * Turuncu şerit TEK KİŞİLİKTE tahsilat adımını açıyor (v4 · C1): kumanda,
-     * adisyonun kendi gününde, "Kasa" geri etiketiyle. Ekipte şerit Akış'a
-     * gidiyor — bekleyenlerin orada kendi "Tahsil et"leri var; tek kişilikte
-     * Akış yok.
+     * adisyonun kendi gününde, "Kasa" geri etiketiyle. EKİPTE önce
+     * "tahsil edilmedi" listesi (2026-10-15, telefonda görüldü: şerit doğrudan
+     * Akış'a atıyordu); seçilen adisyon Akış'ta kendi satırında — "Adisyon
+     * kasada" bildirimiyle AYNI yol (2026-10-14). Tek kişilikte Akış yok.
      */
     const openTicket = useCallback((ticket: FlowEvent) => {
         if (!ticket.appointmentId) return;
@@ -163,17 +164,14 @@ export default function ManagerKasa() {
         router.push('/kasa/bekleyen');
     }, [solo, pending, tickets, openTicket, focusInFlow, router]);
     const onPendingPress = useCallback(() => {
-        if (!solo) {
-            router.navigate('/mudur');
-            return;
-        }
-        // Tek adisyon: doğrudan tahsilat. Birden çok: önce liste.
-        if (tickets.length === 1) {
+        // Tek kişilik, tek adisyon: doğrudan tahsilat. Öteki her durumda liste
+        // — ekipte bir adisyon olsa bile: kişi neyin beklediğini görüp seçiyor.
+        if (solo && tickets.length === 1) {
             openTicket(tickets[0]);
             return;
         }
         openPendingList();
-    }, [solo, tickets, openTicket, openPendingList, router]);
+    }, [solo, tickets, openTicket, openPendingList]);
 
     /*
      * "ADİSYON KASADA" BİLDİRİMİ → LİSTE AÇIK (2026-10-14).
