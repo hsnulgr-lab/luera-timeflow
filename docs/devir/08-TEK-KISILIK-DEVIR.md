@@ -1,7 +1,17 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-12 · **Dal:** `tek-kisilik` (114 ve 115 canlıda; §24 commit'leri henüz gönderilmedi)
-**Testler:** 2894 geçti / 0 kırık / 7 atlandı · `tsc` temiz · yeni lint hatası yok
+**Tarih:** 2026-10-15 · **Dal:** `tek-kisilik` (origin'in 24 commit önünde — **push bekliyor**)
+**Testler:** 3037 geçti / 0 kırık / 7 atlandı · `tsc` temiz · kumandada lint 16 (eski)
+
+> **2026-10-15 · ÖZET (§47–§50):** Kumandanın adisyonu Personel 15 "sade"
+> tasarımında, **iki kabukta** (tek kişilik + ekip): üst yarı ESKİ hâli, maske
+> yok, iki tonlu sayfa + iOS tutamaç, fiş satırı başlık, satır paneli,
+> "eklendi" kalıcı; eski ekip yüzü ve `AdisyonRow` silindi. Ekipte hizmet
+> ücreti `staff-api` · `visit.charge` (canlı, §6). Gün'de iş sürerken
+> "Bitenler · n" katlı (§48). Bugün kartı koyu temada krem (§46).
+> "Tahsilat kaydedilmedi" yarışı düzeltildi (§50). **Deploy borcu yok.**
+> Telefonda deneme planı §50'de. ⚠️ Çalışma ağacında `[tanı-tahsilat]`
+> satırları var (commit'lenmedi) — mağaza derlemesinden ÖNCE silinmeli.
 
 > **2026-10-12 · KARARLAR (§24):** randevu kartında "Müşteriyi ara"; Ekip
 > ekle sahibin adını soruyor; ekipten tek kişiliğe DÖNÜŞ kapısı. Göç **115
@@ -54,11 +64,13 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu yok** (§6): 112 + 113 + 114 + 115 canlıda. Telefonda
-   deneme (Expo Go) test günü tohumuyla başladı (§22); kullanıcı bulguları
-   topluyor.
-3. **v4 HTML'i aç:** `docs/design-reference/Luera Mobil - Tek Kisilik v4.html`
-   Tek doğruluk kaynağı bu. 23 ekranın listesi §4'te.
+2. **Deploy borcu yok** (§6, 2026-10-15). Bekleyenler: **push** (24 commit),
+   **telefon denemesi** (§50'deki plan), çalışma ağacındaki geçici tanı
+   satırlarının silinmesi (`grep -rn "tanı-tahsilat" mobile/`).
+3. **Yayın öncesi:** `docs/yayin-oncesi-genel-kontrol-prompt.md` — yeni bir
+   oturumda plan modu + xhigh eforla çalıştırılacak denetim istemi.
+   Tasarım kaynakları: v4 (`Luera Mobil - Tek Kisilik v4.html`) ve Personel 15
+   (`Luera Mobil - Personel 15 Adisyon Sade.html`).
 
 ---
 
@@ -2449,3 +2461,36 @@ hizmetini içeriyor, sunucu değişikliğiyle**.
 
 Bekleyen deploy (tek komut, `_shared` değişikliği yalnız ekleme):
 `./scripts/deploy-functions.sh staff-api remind booking-manage whatsapp-booking`
+
+---
+
+## 50 · 2026-10-15 · "TAHSİLAT KAYDEDİLMEDİ" YARIŞI + TELEFON DENEME PLANI
+
+**Hata (telefonda bir kez):** kapanışta kalem ekleyip hemen "Nakit tahsil et"
+→ "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." **Kod okumasıyla
+kanıtlandı** (telefonda yeniden üretilmedi): otomatik yazma (`saveVisitItems`,
+0,7 sn) sunucuda `updated_at`i ilerletiyor; cevabı dönmeden başlayan gönderim
+(`sendVisitToCash`) eski damgayla gidiyor → `visit.items` `items_stale` →
+`send_failed` → tam bu cümle. **Düzeltme (`abd13fb`):** yazma bir söz
+(`savingRef`), kendi başarılı yazmamızın damgasıyla çözülüyor; gönderim onu
+bekleyip `fresh ?? lockStamp` ile gidiyor. Başka cihaz yazdıysa söz `null` →
+kilit aynen (kimsenin kalemi ezilmez). Test: `kumanda-aninda-kayit` +1; iki
+eski test (`gonderim-sonucu`, `kendi-yazmasi`) yeni biçime taşındı.
+Doğrulama: geçici tanı satırları günlükte `waited: true` göstermeli.
+
+**Telefon deneme planı** (her biri Expo Go, fiziksel telefon):
+
+| # | Ne | Hesap | Adımlar | Beklenen |
+|---|---|---|---|---|
+| 1 | Tahsilat yarışı | tek kişilik | iş başlat → BİTİR → **+** ile kalem ekle → sayfayı kapat → HEMEN Nakit → tahsil et | "Tahsil edildi"; Kasa'da TEK kayıt; günlükte `waited: true` |
+| 2 | Sade adisyon ekipte + `visit.charge` | ekip personeli | kumanda aç → **+** | randevu satırında TUTAR; toplam hizmet dahil; kapanışta "Adisyonu kasaya gönder" |
+| 3 | Bildirim → randevu kartı | müdür / tek kişilik | masaüstünden ya da rezervasyon sayfasından yeni randevu → bildirime dokun | o randevunun kartı açılır (tek kişilikte `/tek/…`) |
+| 4 | "Adisyon kasada" → Kasa listesi | müdür (ekip) | personel adisyonu kasaya göndersin → bildirime dokun | Kasa, "tahsil edilmedi" listesi açık |
+| 5 | Bekleme bitti → kumanda | tek kişilik ya da personel | iş sürerken Bekleme kur (20 dk) → bitince bildirime dokun | o işin kumandası, kendi gününde |
+| 6 | Bitenler katlı | tek kişilik | bir iş sürerken Gün | "Bitenler · n ⌄" → dokununca biten kartlar |
+| 7 | Bugün kartı | tek kişilik / müdür | koyu tema → İşletme | kart krem, yazı koyu |
+| 8 | Son kalemin Geri al'ı | herhangi | TEK kalemli adisyonda satır → Kaldır | satırın yerinde "Geri al 6", çizgi soldan kısalır |
+| 9 | Gün cetveli | müdür (ekip) | Akış'ta cetveli hızlı kaydır | takılmadan oturur |
+| 10 | Personeli çağır | müdür (ekip) | müşteri bekliyor kartında "Personeli çağır" | zilli ikincil hap; "Çağırıldı · 2 dk" |
+| 11 | Kayıp telefonun bağı | müdür + personel telefonu | Personel › kişi › "Telefonun bağlantısını kopar" | personel telefonu eşleştirme ekranına düşer; yeni ekip koduyla AYNI şifreyle girer |
+
