@@ -328,7 +328,11 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
-### ⏳ BEKLİYOR (2026-10-15) — 118 (personel bildirimi randevunun gününü taşıyor · §51)
+### ✅ CANLIDA (2026-10-15) — 118 (personel bildirimi randevunun gününü taşıyor · §51)
+
+Kullanıcı çalıştırdı: kuru koşu `regression: ok` + `ROLLBACK`, göç `COMMIT`,
+göç sonrası test `regression: ok` + `ROLLBACK` (üretimde, iz yok). Komutlar
+kayıt için:
 
 Yalnız göç. Edge function deploy'u yok. Telefon tarafı Expo'da yenilenince
 gelir; göç gelmeden personel bildirimleri yine Bugün'ü açar (zararsız).
@@ -2572,4 +2576,4 @@ kişinin kendi numarasından yazılır (soruda söylendi).
 
 Kanıt: `mobil-push-karar` (+2, çalıştırılarak), `bildirim-hedefleri` (+1, 118),
 `mobil-push-baglanti` taşındı; tüm paket 3039 / 0; `tsc` temiz; lint aynı;
-Metro iOS paketi derlendi. **Göç 118 kullanıcıda (§6).** Telefonda denenmedi.
+Metro iOS paketi derlendi. **Göç 118 CANLIDA (2026-10-15, §6).** Telefonda denenmedi.
