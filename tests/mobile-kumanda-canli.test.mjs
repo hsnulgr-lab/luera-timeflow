@@ -247,13 +247,13 @@ test('gönderilemeyen satır SESSİZCE ATILMIYOR', async () => {
 test('kumanda SABİT dört kalemle açılmıyor', () => {
     assert.ok(!screen.includes('DEFAULT_LINES'), 'sabit adisyon kalmamalı');
     assert.match(screen, /setLines\(linesFromItems\(base\?\.adisyon_items\)\)/);
-    // HER çağrı yeri kimlik taşımalı: biri unutulursa o kutudan eklenen
-    // kalem sunucuya gidemez ve sessizce düşerdi.
-    const calls = screen.match(/addLine\(current,[^)]*/g) ?? [];
-    assert.ok(calls.length >= 3, 'kalem ekleme yolları sayılmalı');
-    for (const call of calls) {
-        assert.match(call, /\{ \.\.\.item, catalogId: item\.id \}/, `kimliksiz çağrı: ${call}`);
-    }
+    // Kalem ekleme yolu TEK (Personel 15 · `addItem`): kutu, arama sonucu ve
+    // katalog dışı kalem hep oradan geçiyor ve kimlik orada ekleniyor.
+    // Biri unutulsaydı o yoldan eklenen kalem sunucuya gidemez, sessizce düşerdi.
+    assert.match(screen, /addOutcome\(lines, \{ \.\.\.item, catalogId: item\.id \}/);
+    assert.ok(!/addLine\(/.test(screen), 'ikinci bir ekleme yolu açılmamalı');
+    assert.match(screen, /addItem\(item\);/);
+    assert.match(screen, /addItem\(freeItem\(name, kind\)\);/);
 });
 
 // ── YAZMA ───────────────────────────────────────────────────────────────────

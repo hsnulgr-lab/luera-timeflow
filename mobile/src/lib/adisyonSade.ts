@@ -4,14 +4,15 @@
  * Kaynak: `docs/design-reference/Luera Mobil - Personel 15 Adisyon Sade.html`
  * ve brief'i `docs/personel-15-adisyon-sade-claude-design-prompt.md`.
  *
- * YALNIZ TEK KİŞİLİK kabukta (kullanıcı kararı, 2026-10-15). Ekip
- * personelinin kumandası eski yüzde kalıyor; orada randevu hizmetinin ücreti
- * telefona gelmiyor ve "toplam" onu içeremez.
+ * İKİ KABUKTA (2026-10-15): önce tek kişilikte denendi, kullanıcı "gayet
+ * iyi" deyince ekip personelinin kumandasına da geçti. Ekipte randevu
+ * hizmetinin ücreti sunucudan geliyor (`visit.charge`).
  *
  * Saf: React yok, ağ yok. Ekranın söylediği her sayı buradan geliyor.
  */
 
 import { QTY_MAX, addLine, liveLines, type AdisyonLine, type LineKind } from './adisyon.ts';
+import type { ServiceBill } from './cashBuild.ts';
 import type { FormulaDoor } from './formula.ts';
 
 /** Randevunun kendi hizmetleri — ad ve ücret (`cashBuild.serviceLines`). */
@@ -183,4 +184,22 @@ export function formulaFace(door: FormulaDoor): { title: string; sub: string; ba
 /** Sık kullanılan başlığı: "Sık kullanılan · saç boyama işinde". */
 export function frequentHead(label: string): string {
     return `Sık kullanılan · ${label.toLocaleLowerCase('tr-TR')}`;
+}
+
+/**
+ * `visit.charge` cevabı → `ServiceBill` (ekip kumandası). Biçim tutmazsa
+ * `null`: ücret BİLİNMİYOR — satırlar adla duruyor, tutar yazılmıyor.
+ * Sayılar sunucudan; istemci yeniden toplamıyor, yalnız doğruluyor.
+ */
+export function serviceBillOf(data: unknown): ServiceBill | null {
+    const body = (data ?? {}) as { lines?: unknown; amount?: unknown; count?: unknown };
+    if (!Array.isArray(body.lines) || typeof body.amount !== 'number') return null;
+    const lines = body.lines.flatMap((raw) => {
+        const row = (raw ?? {}) as { name?: unknown; amount?: unknown };
+        return typeof row.name === 'string' && typeof row.amount === 'number' && Number.isFinite(row.amount)
+            ? [{ name: row.name, amount: row.amount }]
+            : [];
+    });
+    if (lines.length !== body.lines.length) return null;
+    return { amount: body.amount, count: lines.length, lines };
 }

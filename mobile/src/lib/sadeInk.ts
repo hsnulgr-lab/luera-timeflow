@@ -1,5 +1,5 @@
 /**
- * Personel 15 · sade adisyonun mürekkebi ve yazısı (YALNIZ tek kişilik).
+ * Personel 15 · sade adisyonun mürekkebi ve yazısı (iki kabukta, 2026-10-15).
  *
  * Kumandanın üst yarısı (plaka, sayaç, plan, Bekleme kur, BİTİR) ESKİ
  * hâlinde (kullanıcı kararı, 2026-10-15); bu dosya yalnız adisyon parçalarını

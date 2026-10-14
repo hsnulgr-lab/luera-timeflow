@@ -10,7 +10,10 @@ import {
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-const row = code(read('../mobile/src/components/AdisyonRow.tsx'));
+// Personel 15 (2026-10-15): satır, geri alma penceresi ve satır paneli sade
+// adisyonun bileşenlerinde; eski `AdisyonRow` iki kabukta da yerini bıraktı.
+const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
+const sadeLib = code(read('../mobile/src/lib/adisyonSade.ts'));
 const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
 
 const BOYA = { name: 'Boya · 7.3 kumral', kind: 'material' };
@@ -40,10 +43,14 @@ test('silinmek üzere olan satır eşleşme sayılmıyor', () => {
 });
 
 test('onay ikinci dokunuşu SÖYLÜYOR', () => {
-    // Yoksa personel dokunuşun işlediğini bilemez: kutu sönüp gidiyor.
+    // Yoksa personel dokunuşun işlediğini bilemez. Personel 15: kutu DURUM
+    // olur ("✓ Adisyonda ×2"), makbuz "×2 oldu · satırı yerinde" der, satırda
+    // "✓ ×2 oldu" etiketi kalır — 0,9 sn'lik parlama değil.
     assert.deepEqual(addResult([], BOYA), { merged: false, qty: 1 });
     assert.deepEqual(addResult(addLine([], BOYA, 'a'), BOYA), { merged: true, qty: 2 });
-    assert.match(screen, /×\$\{result\.qty\} oldu/);
+    assert.match(sadeLib, /bold: `\$\{receipt\.name\} ×\$\{receipt\.qty\} oldu`/);
+    assert.match(sade, /`×\$\{line\.qty\} oldu`/);
+    assert.match(sade, /Adisyonda\{inQty > 1 \? ` ×\$\{inQty\}` : ''\}/);
 });
 
 test('miktar tabanı 1 — altı silme demek ve silmenin kendi kontrolü var', () => {
@@ -86,14 +93,13 @@ test('pencere açıkken liste GÖNDERİLMİYOR', () => {
 
 test('SON kalem silinince de pencere çiziliyor — liste canlı sayıya bağlı değil', () => {
     // Telefonda görüldü (2026-10-14): tek kalemli adisyonda Kaldır'a basınca
-    // canlı sayı 0'a düşüyor, alt sayfa listeyi hiç çizmiyordu ve "Geri al"
-    // ekrana gelmeden kalem gidiyordu. Liste, silinecek satır DAHİL çizilir.
+    // liste hiç çizilmiyordu ve "Geri al" ekrana gelmeden kalem gidiyordu.
+    // Sade listede satırlar silinecek DAHİL çiziliyor (`newestFirst` süzmüyor).
     const marked = markDelete([{ id: 'a', name: 'a', kind: 'extra', qty: 1 }], 'a');
-    assert.equal(liveLines(marked).length, 0, 'başlığın sayısı silineni saymıyor');
-    assert.equal(groupsOf(marked)[0].items[0].pendingDelete, true, 'satır grupta duruyor');
-    assert.match(screen, /hasRows=\{lines\.length > 0\}/);
-    assert.match(screen, /\{hasRows \? rows :/);
-    assert.doesNotMatch(screen, /\{count > 0 \? rows :/);
+    assert.equal(liveLines(marked).length, 0, 'sayı silineni saymıyor');
+    assert.match(sadeLib, /const reversed = \[\.\.\.lines\]\.reverse\(\);/);
+    assert.match(sade, /line\.pendingDelete \? \(\s*<SadeUndoRow/);
+    assert.ok(!/\{count > 0 \? rows :/.test(screen + sade));
 });
 
 test('malzeme silinince formülün değiştiği SÖYLENİYOR', () => {
@@ -111,8 +117,8 @@ test('fitil dursa da SANİYE sayıyor', () => {
     assert.equal(secondsLeft(1000, 1000), 6);
     assert.equal(secondsLeft(1000, 4000), 3);
     assert.equal(secondsLeft(1000, 9000), 0);
-    assert.match(row, /setLeft\(secondsLeft/);
-    assert.match(row, /reduceMotion \? null : \(/, 'fitil reduceMotion ile duruyor');
+    assert.match(sade, /const left = useSecondsLeft\(until\);/);
+    assert.match(sade, /if \(reduceMotion\) return null;/, 'fitil reduceMotion ile duruyor');
 });
 
 // ── Sıfır ve gruplar ────────────────────────────────────────────────────────
@@ -140,32 +146,41 @@ test('tür sırası SABİT ve boş grup çizilmiyor', () => {
 // ── Kabuk ve kilit ──────────────────────────────────────────────────────────
 
 test('satır TEK bileşen, iki kabuk', () => {
-    // Alt sayfa ve tam sayfa aynı satırı çiziyor; iki uygulama ayrışırdı.
-    assert.match(row, /export function AdisyonRow/);
+    // Adisyon sayfası ve kapanış listesi aynı satırı çiziyor; iki uygulama
+    // ayrışırdı. Personel 15: ekip ve tek kişilik de aynı satır.
+    assert.match(sade, /export function SadeRow/);
+    assert.equal((screen.match(/<SadeList\s/g) ?? []).length, 2);
     assert.ok(!screen.includes('function LineRow'), 'eski satır kopyası duruyor');
+    assert.ok(!/AdisyonRow/.test(screen), 'eski satır geri gelmiş');
 });
 
 test('kilitliyken düzenleme kontrolleri ÇİZİLMİYOR — kısık değil, yok', () => {
-    assert.match(row, /open && !locked \? \(/);
-    assert.match(row, /locked \? \(/);
-    assert.ok(!row.includes('disabled={locked}'), 'kısık kontrol ölü kontroldür');
+    // Mühürlü adisyonda satır dokunulmuyor ve oku yok; panel hiç açılmıyor.
+    assert.match(sade, /\{locked \? <View style=\{\{ width: 20 \}\} \/> : <Glyph name="chev"/);
+    assert.match(sade, /\{locked \? \(\s*<View style=\{frame\}>\{body\}<\/View>/);
+    assert.match(screen, /\{editLine && !delivered \? \(/);
+    assert.ok(!sade.includes('disabled={locked}'), 'kısık kontrol ölü kontroldür');
 });
 
-test('aynı anda YALNIZ BİR satır açık', () => {
-    assert.match(screen, /setOpenRow\(\(current\) => \(current === line\.id \? null : line\.id\)\)/);
+test('aynı anda YALNIZ BİR satır paneli', () => {
+    // Personel 15: satır yerinde açılmıyor; tek bir panel, tek bir `editing`.
+    assert.match(screen, /const \[editing, setEditing\] = useState<string \| null>\(null\);/);
+    assert.match(screen, /onEdit=\{setEditing\}/);
 });
 
 test('kaydırarak silme YOK — gesture-handler kurulu değil', () => {
-    for (const [name, src] of [['AdisyonRow', row], ['kumanda', screen]]) {
+    for (const [name, src] of [['AdisyonSade', sade], ['kumanda', screen]]) {
         assert.ok(!src.includes('gesture-handler'), name);
         assert.ok(!/Swipeable/.test(src), `${name}: kaydırmalı satır girmiş`);
     }
 });
 
-test('yükseklik animasyonlanmıyor — fitil ÖLÇEK', () => {
-    assert.ok(!/animate.*height|height:\s*fuse/i.test(row), 'yükseklik animasyonu');
-    assert.match(row, /transform: \[\{ scaleX: fuse \}\]/);
-    assert.match(row, /useNativeDriver: true/);
+test('yükseklik animasyonlanmıyor — fitil SOL UÇ SABİT kayıyor', () => {
+    // Eski fitil `scaleX` ile ORTAYA kısalıyordu (telefonda görüldü). Personel
+    // 15: kaplayıcı `overflow: hidden`, çizgi kendi genişliği kadar sola kayar.
+    assert.ok(!/animate.*height|height:\s*fuse/i.test(sade), 'yükseklik animasyonu');
+    assert.match(sade, /transform: \[\{ translateX: x \}\]/);
+    assert.match(sade, /useNativeDriver: true/);
 });
 
 // ── B · Katalog ve arama ────────────────────────────────────────────────────
@@ -188,7 +203,8 @@ test('arama alanı artık GERÇEK bir alan', () => {
     // dokunulunca hiçbir şey yapmayan bir yüzey. Ölü düğmeden kötü.
     assert.match(search, /<TextInput/);
     assert.match(search, /autoFocus/);
-    assert.match(screen, /onSearch\(\)/, 'kutu arama yüzünü açmıyor');
+    assert.match(sade, /onPress=\{\(\) => \{ feedback\.selection\(\); onSearch\(\); \}\}/, 'kapı arama yüzünü açmıyor');
+    assert.match(screen, /onSearch=\{\(\) => setSheet\('search'\)\}/);
 });
 
 test('eşleşme BULANIK DEĞİL — 7.3 yazınca 8.3 gelmiyor', () => {
@@ -298,12 +314,15 @@ test('salonun da geçmişi yoksa ızgara ÇİZİLMİYOR — altı boş kutu öl�
     const out = frequentFor(CAT2, [], { service: 'Saç boyama', staffId: 'merve' });
     assert.equal(out.source, 'none');
     assert.deepEqual(out.items, []);
-    assert.match(screen, /frequent\.source === 'none' \? \(/);
-    assert.match(screen, /Sık kullanılanlar henüz yok/);
+    assert.match(sade, /frequent\.source === 'none' \? \(/);
+    assert.match(sade, /Sık kullanılanlar henüz yok/);
 });
 
 test('boş adisyonun kendi cümlesi var — boş satır iskeleti yok', () => {
-    assert.match(screen, /Bu ziyarette henüz kalem yok/);
+    // Personel 15: boş hâlde makbuz satırı ne olacağını söylüyor; liste
+    // iskelet değil — randevu hizmeti kendi satırında duruyor.
+    assert.match(sadeLib, /export const RECEIPT_IDLE = 'Dokunduğun kalem listenin en üstüne girer\.';/);
+    assert.match(sade, /\) : RECEIPT_IDLE\}/);
 });
 
 // ── Klavye · alt sayfa onun ÜSTÜNE çıkıyor ──────────────────────────────────
@@ -336,13 +355,11 @@ test('klavye sayfayla BİRLİKTE kapanıyor', () => {
 test('eklenen kalemler EKLEME SAYFASINDA görünüyor', () => {
     // İşlem sürerken ekranda yalnız şerit vardı: "son Saç kesimi". Yanlış
     // eklenen bir kalemi görmek ve düzeltmek için Bitir'e basmak gerekiyordu.
-    // Sayfanın adı bu yüzden "Kalem ekle" değil "Adisyon".
-    assert.match(screen, /title="Adisyon"/);
+    // Personel 15: sayfanın başlığı toplam (fiş satırı), gövdesi ekleme +
+    // liste; liste sayfanın İÇİNDE.
+    assert.match(screen, /<SadeSheetBody[\s\S]*?list=\{\(\s*<SadeList/);
+    assert.match(screen, /<SadeSheetHead count=\{kalem\} total=\{grand\} \/>/);
     assert.ok(!screen.includes('title="Kalem ekle"'), 'eski başlık duruyor');
-    assert.match(screen, /upperTR\('Kalemler'\)/);
-    assert.match(screen, /rows=\{groupsOf\(lines\)\.map/);
-    // Sıfırda satır iskeleti değil, cümle.
-    assert.match(screen, /Bu ziyarette henüz kalem yok/);
 });
 
 test('alt sayfanın alt dolgusu İKİ KEZ sayılmıyor', () => {

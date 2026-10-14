@@ -13,6 +13,7 @@ import {
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const kumanda = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
+const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
 const page = code(read('../mobile/app/(staff-flow)/formul.tsx'));
 const file = code(read('../mobile/app/(staff-flow)/musteri.tsx'));
 const fields = code(read('../mobile/src/components/FormulaFields.tsx'));
@@ -112,38 +113,32 @@ test('sonuç bir ÖLÇEK değil — kaydırmalı ölçek sahte hassasiyet', () =
 
 // ── Kumanda: malzeme grubunun başlığı ───────────────────────────────────────
 
-test('formül girişi malzeme grubunun BAŞLIĞI — ayrı bir kart değil', () => {
-    // Formül listede zaten duran satırların tarifi; gönder düğmesinin üstüne
-    // ikinci bir amber kart koymak dikkati bölüyordu.
-    //
-    // Personel 14: başlık artık KAPI. `GroupHead` kaldırıldı çünkü aynı şeyi
-    // çizen iki bileşen, aynı şeyin iki dili demekti — kapı üç yüzeyde de
-    // (kumanda şeridi · adisyon sayfası · işlem bitmiş liste) aynı satır.
+test('formül girişi malzeme bölümünün BAŞINDA — ayrı bir sayfa değil', () => {
+    // Formül listede zaten duran malzemelerin tarifi. Personel 14: kapı
+    // malzemeye asılı. Personel 15 (sade adisyon): malzeme kendi bölümünde
+    // ("Malzeme · Toplama girmez · iş bitince depodan düşer"), formül satırı
+    // o başlığın hemen altında; iş sürerken şeridin altında aynı satır, kart.
     assert.ok(!kumanda.includes('function GroupHead('), 'ikinci bileşen geri gelmiş');
-    assert.ok(kumanda.includes('<FormulaDoorRow'));
-    assert.match(kumanda, /head=\{`MALZEME · \$/);
-    // Gruplar artık `groupsOf` ile diziliyor (Personel 13): üç tür karışmıyor
-    // ve sıra sabit — EK HİZMET · ÜRÜN · MALZEME. Malzemenin başlığı ayrı
-    // çiziliyor, çünkü o aynı zamanda formülün kapısı.
-    assert.ok(kumanda.includes('groupsOf(lines)'), 'gruplar sabit sırada değil');
-    assert.ok(kumanda.includes("group.kind !== 'material'"), 'hizmet ve ürünler önce');
-    assert.ok(kumanda.includes("g.kind === 'material'"), 'malzeme kendi grubunda');
+    assert.match(sade, /Toplama girmez · iş bitince depodan düşer/);
+    assert.match(sade, /\{door \? <SadeFormulaRow door=\{door\} onPress=\{onDoor\} \/> : null\}/);
+    assert.match(kumanda, /<SadeFormulaRow\s+door=\{door\}\s+card/);
+    // Malzeme kalemlerden AYRI (para değil stok): `newestFirst` iki kova.
+    assert.match(sade, /const \{ kalem, malzeme \} = newestFirst\(lines\);/);
 });
 
-test('başlık YAPIŞKAN değil, pinlenen kopya', () => {
-    // Yapışkan başlık kaydırma boyunca kalem satırlarını örterdi.
-    assert.ok(kumanda.includes('!headSeen'), 'kopya yalnız gerçek başlık görünmezken');
-    assert.ok(kumanda.includes('headY.current'), 'başlığın konumu ölçülüyor');
-    // `pinned` propu gitti: kopya da AYNI kapı, farkı yalnız zeminin opak
-    // olması. İki ayrı bileşen çizmek aynı şeyin iki dili olurdu.
-    // Dört çizim yeri, üç YÜZEY: kumanda şeridi · adisyon alt sayfası ·
-    // işlem bitmiş liste — artı o listenin pinlenen kopyası.
-    assert.equal((kumanda.match(/<FormulaDoorRow/g) ?? []).length, 4, 'tek kapı, dört çizim');
+test('formül satırı YAPIŞKAN değil ve kopyası yok', () => {
+    // Yapışkan başlık kaydırma boyunca kalem satırlarını örterdi. Eski
+    // kapanış listesi gerçek başlık görünmezken alta bir kopya pinliyordu;
+    // Personel 15'te o liste yok, formül satırı tek ve yerinde.
+    assert.ok(!kumanda.includes('headSeen'), 'pinlenen kopya geri gelmiş');
+    assert.ok(!kumanda.includes('headY.current'));
+    assert.equal((kumanda.match(/<SadeFormulaRow/g) ?? []).length, 1, 'kumandada yalnız şeridin kartı');
+    assert.equal((sade.match(/<SadeFormulaRow/g) ?? []).length, 1, 'listede yalnız malzeme bölümünde');
 });
 
-test('pinlenen kopya SAYDAM değil — altındaki satır okunurdu', () => {
-    // Tek zemin yetiyor: renk artık kapının TONUNDA, zeminde değil.
-    assert.ok(kumanda.includes("'#241B0E'") && kumanda.includes("'#F0E9DF'"));
+test('pinlenen kopyanın zemini de kalktı', () => {
+    // Kopya yok: onun opak zemini de (`#241B0E` / `#F0E9DF`) kalmamalı.
+    assert.ok(!kumanda.includes("'#241B0E'"));
 });
 
 // ── Kumanda: alerji ─────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 /**
- * Personel 15 · iş sürerken adisyon, sade (Yol A) — YALNIZ TEK KİŞİLİK.
+ * Personel 15 · iş sürerken adisyon, sade (Yol A) — iki kabukta (tek kişilik ve ekip).
  *
  * Kaynak: `docs/design-reference/Luera Mobil - Personel 15 Adisyon Sade.html`.
  * Ölçüler o dosyanın CSS'inden; kararlar `lib/adisyonSade.ts`te.
@@ -89,10 +89,10 @@ export function LeftFuse({ until, total = SADE_MS, height = 3 }: { until: number
 // ── Tutar ───────────────────────────────────────────────────────────────────
 
 /**
- * Tutar — AÇIK. Tek kişilikte maske YOK (kullanıcı kararı, 2026-10-15):
- * tutarı müşteriye sahip zaten kendisi söylüyor; "Göster"e basıp 6 sn
- * beklemek her tahsilatta fazladan bir adımdı ve "tutar anlaşılmıyor"
- * derdinin yarısıydı. Ekip personelinin kumandasındaki maske AYNEN duruyor.
+ * Tutar — AÇIK. Maske YOK (kullanıcı kararları, 2026-10-15): önce tek
+ * kişilikte kalktı — tutarı müşteriye sahip zaten kendisi söylüyor; "Göster"e
+ * basıp 6 sn beklemek her tahsilatta fazladan bir adımdı ve "tutar
+ * anlaşılmıyor" derdinin yarısıydı. Sonra ekipte de: "açık, tek kişilik gibi".
  */
 function Amount({ value, size, weight = 800, spacing = 0, color }: {
     value: number;

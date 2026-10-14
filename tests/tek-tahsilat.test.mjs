@@ -383,12 +383,16 @@ test('hizmet ücreti SUNUCUNUN kuralıyla: kaydın fiyatı → kimlik → ad; bi
     assert.match(endpoint, /\(Number\(item\?\.price\) \|\| 0\) \* \(Number\(item\?\.qty\) \|\| 1\)/);
 });
 
-test('kumanda kadranı YALNIZ tek kişilikte hizmet ücretini okuyor', () => {
+test('kumanda kadranı hizmet ücretini İKİ KABUKTA okuyor (Personel 15)', () => {
+    // 2026-10-13: tek kişilikte kadran tahsil edilecek toplamı söylüyordu.
+    // 2026-10-15 (kullanıcı kararı): sade adisyonun "Toplam"ı iki kabukta da
+    // randevu hizmeti + kalemler. Tek kişilikte Kasa'nın okuduğu yerden
+    // (müdür oturumu), ekipte sunucudan aynı kuralla (`visit.charge`).
     assert.match(kumanda, /const solo = params\.from === 'tek';/);
-    assert.match(kumanda, /if \(!solo \|\| !appointment\?\.id\) return undefined;/);
-    assert.match(kumanda, /fetchServiceCharge\(appointment\.id\)/);
-    assert.match(kumanda, /service: solo \? serviceCharge : null,/);
-    assert.match(kumanda, /<ClosingDial\s+total=\{closing\.total\}\s+count=\{closing\.count\}/);
+    assert.match(kumanda, /if \(!appointment\?\.id\) return undefined;/);
+    assert.match(kumanda, /\? fetchServiceCharge\(appointment\.id\)\s*: api\.visitCharge\(appointment\.id\)\.then\(serviceBillOf\)/);
+    assert.match(kumanda, /const grand = sadeTotal\(services, lines\);/);
+    assert.match(kumanda, /<SadeClosingDial\s+total=\{grand\}\s+count=\{kalem\}/);
     // Kanca erken dönüşün ÜSTÜNDE.
     assert.ok(kumanda.indexOf('fetchServiceCharge(appointment.id)') < kumanda.indexOf('if (!appointment) {'));
 });

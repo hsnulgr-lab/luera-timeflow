@@ -11,6 +11,7 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const bar = code(read('../mobile/src/components/SendToCash.tsx'));
 const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
+const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
 
 // ── Pencerenin kendisi ──────────────────────────────────────────────────────
 
@@ -104,11 +105,15 @@ test('kilit VERİDEN geliyor ve `going` kilitli DEĞİL', () => {
 });
 
 test('kilit bir İKON değil: yapılamayan kontrol ekranda durmuyor', () => {
-    // "Kalem ekle" mühürlüyken kısık değil, hiç çizilmiyor.
-    assert.match(screen, /\{sealed \? null : \(/);
-    // Şerit dolgusunu ve çerçevesini bırakıyor — yüzey değil, etiket.
-    assert.match(screen, /backgroundColor: sealed \? 'transparent' : c\.surf/);
-    assert.match(screen, /mühürlü · değiştirilemez/);
+    // Mühürlü şeritte "Kalem ekle" kısık değil, hiç çizilmiyor (Personel 15:
+    // `sealed` dalında `plus` yok). Şerit dolgusunu ve çerçevesini bırakıyor —
+    // yüzey değil, etiket.
+    const sealed = sade.slice(sade.indexOf('{sealed ? ('), sade.indexOf(") : variant === 'closing' ? ("));
+    assert.ok(sealed.length > 0);
+    assert.ok(!sealed.includes('{plus}'), 'mühürlüde ekleme düğmesi çizilmiş');
+    assert.match(sade, /backgroundColor: sealed \? 'transparent' : ink\.c\.surf/);
+    assert.match(sade, /Mühürlü · değiştirilemez/);
+    assert.match(screen, /variant=\{delivered \? 'sealed' : 'closing'\}/);
 });
 
 test('düzeltme isteği DÜĞMESİ çizilmedi, cümlesi yazıldı', () => {
@@ -152,13 +157,14 @@ test('düğme kendi genişliğini dayatıyor', () => {
     assert.equal(roots.length, 3, 'her gövde kendi genişliğini almalı');
 });
 
-test('para maskesi C evresinde bir kez çiziliyor', () => {
-    // Kadran ve şerit aynı tutarı iki kez maskeleyince biri açılıp öteki
-    // kapalı kalabiliyordu — tek sır, iki kapak.
-    assert.match(screen, /money=\{false\}/);
-    // Koşula ikinci bir şart eklendi: SIFIR kalemde maske hiç çizilmiyor —
-    // sıfır lirayı üç noktayla saklamak sahte bir gizlilik (Personel 13).
-    assert.match(screen, /showMoney && strip\.money \? \(/);
+test('C evresinde tutar BİR yerde: kadranda — maske yok', () => {
+    // Kadran ve şerit aynı tutarı iki kez çizince biri öteki gibi okunmuyordu.
+    // Personel 15: tutar maskesi iki kabukta da kalktı (kullanıcı kararları,
+    // 2026-10-15); kapanışta tutar kadranda, şerit yalnız "Kalem ekle".
+    const closingStrip = sade.slice(sade.indexOf(") : variant === 'closing' ? ("), sade.indexOf(') : (\n                <>'));
+    assert.ok(!/<Amount/.test(closingStrip), 'kapanış şeridinde ikinci tutar');
+    assert.match(sade, /export function SadeClosingDial[\s\S]*?<Amount value=\{total\} size=\{64\}/);
+    assert.ok(!/Göster|Gizle|MaskButton/.test(sade + screen), 'maske geri gelmiş');
 });
 
 test('turuncu YALNIZ basılmayı bekleyen düğmede', () => {

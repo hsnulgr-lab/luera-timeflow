@@ -2404,3 +2404,32 @@ solda "Toplam" + "n kalem", sağda tutar; tutarın sağ kenarı satırların tut
 sütunuyla aynı hizada (sağ dolgu 44). Kırılım satırı kalktı (liste yazıyor).
 Kusur düzeltildi: açık ton başlık sayfanın yuvarlak köşelerinden taşıyordu
 (köşe 29).
+
+---
+
+## 49 · 2026-10-15 · SADE ADİSYON EKİP KUMANDASINDA DA (iki kabuk, tek yüz)
+
+Kullanıcı (tek kişilikteki son hâl için "gayet iyi"): "diğer adisyon
+ekranlarına nasıl yapalım, bir personel adisyon ekranı var dimi?" Kalem
+düzenlenen tek yer kumanda; ekip personeli de aynı dosyayı kullanıyor.
+Kararlar: **ekipte de tutar AÇIK** ("tek kişilik gibi"); **Toplam randevu
+hizmetini içeriyor, sunucu değişikliğiyle**.
+
+- **Sunucu:** `staff-api` · `visit.charge` (YALNIZ OKUMA, `f670bc6`): randevu
+  hizmetinin ücreti satır satır, `visit.collect` ve `cashBuild.serviceLines`
+  ile aynı zincir; para yazmıyor, `visit.collect`e dokunulmadı. İstemci
+  `api.visitCharge` (`call`). **DEPLOY BEKLİYOR** — deploy edilene kadar ekipte
+  randevu satırı tutarsız görünür ve Toplam yalnız kalemler (`serviceBillOf`
+  null → adlar duruyor, tutar yazılmıyor).
+- **Kumanda:** sade dallar koşulsuz; eski ekip yüzü SİLİNDİ (Strip,
+  ClosingDial, CatalogSheet, BookedGroup, Money, Fuse, renderLine, maske
+  durumu, pinlenen formül kopyası) ve `components/AdisyonRow.tsx` kaldırıldı.
+  Ayrışan TEK yer son adım: tek kişilikte `CollectBar`, ekipte `SendToCash`.
+  Hizmet ücreti: tek kişilikte `fetchServiceCharge`, ekipte `visit.charge`.
+- **Testler:** 27 eski test yeni koda TAŞINDI; kalkan kurallar (maske, fitilin
+  ölçeği, pinlenen kopya, "yeniden eklemeyin" cümlesi) yerlerini alan kararı
+  kilitleyecek biçimde yeniden yazıldı. Tüm paket 3036 / 0; lint kumandada
+  24 → 16 (kalanlar eski).
+
+Bekleyen deploy (tek komut, `_shared` değişikliği yalnız ekleme):
+`./scripts/deploy-functions.sh staff-api remind booking-manage whatsapp-booking`

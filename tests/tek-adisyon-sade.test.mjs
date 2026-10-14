@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import {
     addOutcome, addedTotal, breakdownLine, editNote, formulaFace, frequentHead, kalemCount,
-    newestFirst, receiptParts, sadeTotal, stripLine, undoNote,
+    newestFirst, receiptParts, sadeTotal, serviceBillOf, stripLine, undoNote,
 } from '../mobile/src/lib/adisyonSade.ts';
 import { markDelete, money } from '../mobile/src/lib/adisyon.ts';
 import { dark, light } from '../mobile/src/theme/tokens.ts';
@@ -109,7 +109,7 @@ test('adet ve kaldırma satır PANELİNDE; uzun basma ve kaydırma yok', () => {
     assert.equal(editNote(3), 'Adet 1–20');
     assert.match(parts, /width: 68, height: 64, borderRadius: 20/);
     assert.ok(!/onLongPress/.test(parts));
-    assert.match(screen, /solo && editLine && !delivered \? \(\s*<Sheet onClose=\{\(\) => setEditing\(null\)\}>/);
+    assert.match(screen, /\{editLine && !delivered \? \(\s*<Sheet onClose=\{\(\) => setEditing\(null\)\}>/);
 });
 
 test('geri alma penceresi: satırın yerinde, fitil SOL UÇ SABİT', () => {
@@ -124,13 +124,14 @@ test('geri alma penceresi: satırın yerinde, fitil SOL UÇ SABİT', () => {
 
 // ── Maske ───────────────────────────────────────────────────────────────────
 
-test('tek kişilikte maske YOK: tutar hep açık (kullanıcı kararı, 2026-10-15)', () => {
-    // Sahip tutarı müşteriye zaten kendisi söylüyor; "Göster"e basıp 6 sn
-    // beklemek her tahsilatta fazladan bir adımdı.
+test('maske YOK, iki kabukta: tutar hep açık (kullanıcı kararları, 2026-10-15)', () => {
+    // Önce tek kişilikte: sahip tutarı müşteriye zaten kendisi söylüyor;
+    // "Göster"e basıp 6 sn beklemek her tahsilatta fazladan bir adımdı. Sonra
+    // ekipte de: "açık, tek kişilik gibi".
     for (const gone of ['MaskButton', 'MaskedMoney', 'Göster', 'Gizle', 'maskUntil', 'eyeoff']) {
         assert.ok(!parts.includes(gone), `${gone} kalmamalı`);
     }
-    assert.ok(!/maskUntil|toggleMoney|hideMoney/.test(screen));
+    assert.ok(!/maskUntil|toggleMoney|hideMoney|setRevealed|revealTimer/.test(screen));
     // Sayfa başlığı FİŞ SATIRI (2026-10-15, kullanıcı seçimi "3"): solda
     // Toplam + kalem sayısı, sağda tutar; tutar satırların tutar sütunuyla
     // aynı hizada (sağ dolgu 14 + ok 20 + aralık 10). Kırılım yok — liste yazıyor.
@@ -139,8 +140,6 @@ test('tek kişilikte maske YOK: tutar hep açık (kullanıcı kararı, 2026-10-1
     assert.match(head, />Toplam</);
     assert.match(head, /\{count\} kalem/);
     assert.ok(!/breakdown/.test(head));
-    // Ekip personelinin maskesi duruyor.
-    assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
 });
 
 test('kapanışta tekrar yok: saat satırı ve şeritteki sayı kalktı', () => {
@@ -191,16 +190,20 @@ test('üst yarı ESKİ hâlinde, adisyon sistem yazısıyla (kullanıcı kararı
 
 // ── Kapsam ──────────────────────────────────────────────────────────────────
 
-test('YALNIZ tek kişilikte — ekip personelinin kumandası değişmedi', () => {
-    for (const branch of [
-        /phase === 'running' && solo \? \(\s*<View style=\{\{ marginBottom: 12 \}\}>\s*<SadeStrip/,
-        /phase === 'running' && !solo \? \(\s*<Strip/,
-        /\(phase === 'closing' \|\| phase === 'closed'\) && solo \? \(\s*<SadeClosingDial/,
-        /\(phase === 'closing' \|\| phase === 'closed'\) && !solo \? \(\s*<ClosingDial/,
-        /sheet === 'catalog' && solo \? \(/,
-        /sheet === 'catalog' && !solo \? \(\s*<CatalogSheet/,
-    ]) assert.match(screen, branch);
-    assert.match(screen, /<Sheet\s+onClose=\{\(\) => setSheet\(null\)\}\s+full=\{solo && sheet === 'catalog'\}/);
+test('İKİ KABUKTA aynı sade adisyon (kullanıcı kararı, 2026-10-15)', () => {
+    // Önce yalnız tek kişilikte denendi; kullanıcı "gayet iyi" deyince ekip
+    // personelinin kumandasına da geçti. Eski ekip dalları (şerit, kadran,
+    // liste, katalog sayfası) SİLİNDİ — iki yüz, iki bakım demekti.
+    for (const gone of ['function Strip(', 'function ClosingDial(', 'function CatalogSheet(', 'function BookedGroup(', 'AdisyonRow']) {
+        assert.ok(!screen.includes(gone), `${gone} geri gelmiş`);
+    }
+    assert.ok(!/&& solo \?|&& !solo \?/.test(screen), 'kabuğa göre adisyon dalı kalmamalı');
+    assert.match(screen, /\{phase === 'running' \? \(\s*<View style=\{\{ marginBottom: 12 \}\}>\s*<SadeStrip/);
+    assert.match(screen, /\{phase === 'closing' \|\| phase === 'closed' \? \(\s*<SadeClosingDial/);
+    assert.match(screen, /\{sheet === 'catalog' \? \(\s*<View style=\{\{ flex: 1 \}\}>\s*<SadeSheetBody/);
+    // Ayrışan TEK yer son adım: tek kişilikte tahsilat, ekipte kasaya gönder.
+    assert.match(screen, /\(phase === 'closing' \|\| phase === 'closed'\) && params\.from === 'tek' \? \(\s*<CollectBar/);
+    assert.match(screen, /<SendToCash/);
 });
 
 test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () => {
@@ -213,12 +216,12 @@ test('sayfa dört bölüm: "Bitti" ve büyük harfli soluk başlıklar yok', () 
     assert.match(screen, /<View\s+\{\.\.\.pan\.panHandlers\}[\s\S]*?\{head\}\s*<\/View>/);
     // Görünüm "C" (2026-10-15): iOS ölçüsünde tutamaç ve iki ton — yalnız tek
     // kişilik adisyon sayfası.
-    assert.match(screen, /look=\{solo && sheet === 'catalog' \? 'sade' : 'plain'\}/);
+    assert.match(screen, /look=\{sheet === 'catalog' \? 'sade' : 'plain'\}/);
     assert.match(screen, /width: 36, height: 5, borderRadius: 2\.5, backgroundColor: c\.tx, opacity: 0\.38/);
     assert.match(screen, /backgroundColor: look === 'sade' \? c\.surf : c\.card/);
     // Açık ton köşelere uyuyor (köşesiz zemin kenardan taşıyordu).
     assert.match(screen, /backgroundColor: c\.surf2, borderTopLeftRadius: 29, borderTopRightRadius: 29,/);
-    assert.match(screen, /head=\{solo && sheet === 'catalog' \? \(\s*<SadeSheetHead/);
+    assert.match(screen, /head=\{sheet === 'catalog' \? \(\s*<SadeSheetHead/);
     assert.match(parts, /Toplama girmez · iş bitince depodan düşer/);
     assert.match(parts, /Randevu hizmeti/);
 });
@@ -266,4 +269,13 @@ test('visit.charge YALNIZ OKUR: para yazmaz, tutarı istemciden almaz', () => {
     assert.ok(!/'visit\.charge'/.test(api.slice(api.indexOf('const WRITE_ACTIONS'), api.indexOf('let idemKey'))));
     const client = code(read('../mobile/src/api/staff.ts'));
     assert.match(client, /visitCharge: \(reservationId: string\) => call\('visit\.charge', \{ reservationId \}\)/);
+});
+
+test('visit.charge cevabı doğrulanıyor: biçim tutmazsa ücret BİLİNMİYOR', () => {
+    const ok = serviceBillOf({ lines: [{ name: 'Kaş', amount: 350 }, { name: 'Cilt', amount: 1200 }], amount: 1550, count: 2 });
+    assert.deepEqual(ok, { amount: 1550, count: 2, lines: [{ name: 'Kaş', amount: 350 }, { name: 'Cilt', amount: 1200 }] });
+    // Bozuk satır, eksik alan ya da hata gövdesi → null: satırlar adla durur, tutar yazılmaz.
+    assert.equal(serviceBillOf({ lines: [{ name: 'Kaş' }], amount: 350 }), null);
+    assert.equal(serviceBillOf({ error: 'invalid_token' }), null);
+    assert.equal(serviceBillOf(null), null);
 });

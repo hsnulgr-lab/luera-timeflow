@@ -21,6 +21,7 @@ const {
 } = await import('../mobile/src/lib/visitControl.ts');
 
 const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
+const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
 const controls = code(read('../mobile/src/components/VisitControls.tsx'));
 
 const BASE = {
@@ -143,14 +144,12 @@ test('cam güverte kalktı — her evrenin eylemi kendi gövdesi', () => {
 });
 
 test('sayfa kaydırılmıyor — yalnız kapanış listesi kendi içinde kayıyor', () => {
-    // Tek ScrollView C evresinin kalem listesi; kadran ve eylem hep yerinde.
-    // Üçüncü kaydırıcı Personel 08 ile geldi: formül alt sayfası. Sayfanın
-    // KENDİSİ hâlâ kaymıyor — kadran ve eylem her zaman yerinde.
-    // Dördüncüsü Personel 15: tek kişilik kapanışın kalem listesi (ekipteki
-    // listenin karşılığı; ikisi aynı anda çizilmiyor). Sade adisyon sayfasının
-    // kaydırıcısı kendi bileşeninde (`AdisyonSade.tsx`).
-    const count = (screen.match(/<ScrollView/g) || []).length;
-    assert.equal(count, 4, 'kalem listesi (ekip) · kalem listesi (tek kişilik) · katalog · formül alt sayfası');
+    // Kadran ve eylem hep yerinde. Kumandada iki kaydırıcı: kapanışın kalem
+    // listesi ve formül alt sayfası (Personel 08). Personel 15 (2026-10-15):
+    // eski ekip listesi ve katalog sayfası kalktı; sade adisyon sayfasının
+    // kaydırıcısı kendi bileşeninde (`AdisyonSade.tsx`), tek.
+    assert.equal((screen.match(/<ScrollView/g) || []).length, 2, 'kapanış listesi · formül alt sayfası');
+    assert.equal((sade.match(/<ScrollView/g) || []).length, 1, 'sade adisyon sayfası');
 });
 
 test('ekranda kaç onay var: BİR', () => {
@@ -176,20 +175,21 @@ test('kaydırma eşiği %72 ve bitirme 900 ms', () => {
 });
 
 test('adisyon şeridi son eklenen kalemi söylüyor', () => {
-    // "Boyayı ekledim mi?" sorusu bir sayfa açtırmamalı.
-    //
-    // Şeridin iki satırı artık `stripOf`tan geliyor (Personel 13): sıfır
-    // kalemde "son eklenen kalem" satırının söyleyeceği bir şey olmadığı
-    // için satır cümleye dönüyor. Test gevşetilmedi — ölçülen şey aynı,
-    // metni üreten yer değişti.
-    assert.ok(screen.includes('strip={stripOf(lines, lastAdded)}'));
+    // "Boyayı ekledim mi?" sorusu bir sayfa açtırmamalı. Personel 15: şeridin
+    // üst satırı "4 kalem · son …"; sıfırda "yalnız randevu hizmeti"
+    // (`stripLine`). Test gevşetilmedi — ölçülen şey aynı, yeri değişti.
+    assert.match(screen, /const lastName = lastAdded \|\| liveLines\(lines\)\[liveLines\(lines\)\.length - 1\]\?\.name \|\| null;/);
+    assert.match(screen, /<SadeStrip[\s\S]*?lastName=\{lastName\}/);
     assert.ok(screen.includes('setLastAdded'));
 });
 
-test('para maskeli ve kendiliğinden kapanıyor — ekranı müşteri görüyor', () => {
-    // Ekip personelinin kumandası. Tek kişilikte maske YOK (Personel 15,
-    // kullanıcı kararı 2026-10-15) — bkz. `tek-adisyon-sade.test.mjs`.
-    assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
+test('tutar AÇIK — maske iki kabukta da kalktı (kullanıcı kararları, 2026-10-15)', () => {
+    // Eski kural: "para maskeli, 6 sn'de kapanıyor — ekranı müşteri görüyor".
+    // Önce tek kişilikte, sonra ekipte kaldırıldı ("açık, tek kişilik gibi"):
+    // her tahsilatta "Göster"e basmak fazladan bir adımdı ve "tutar
+    // anlaşılmıyor" derdinin yarısıydı.
+    assert.ok(!/setRevealed|revealTimer|const reveal\b/.test(screen), 'maske durumu geri gelmiş');
+    assert.ok(!/eyeoff|Göster|Gizle/.test(screen + sade));
 });
 
 test('bekleme sayacının sunucuya yazılmadığı personele SÖYLENİYOR', () => {
@@ -218,14 +218,12 @@ test('not kuyruğa düşerse sayfa "gitti" demiyor, kapanmıyor', () => {
 });
 
 test('malzeme kalemi fiyat yerine stok hareketi söylüyor', () => {
-    // Satır ortak bileşene taşındı (alt sayfa + tam sayfa aynı satır).
-    //
-    // Metin de BİRLEŞTİ: satır "stoktan düşer", katalog sayfası "depodan
-    // düşer" diyordu — aynı olgu iki kelimeyle anlatılıyordu. Tasarımın
-    // seçtiği "depodan" kaldı.
-    const row = code(read('../mobile/src/components/AdisyonRow.tsx'));
-    assert.ok(row.includes('depodan düşer'));
-    assert.ok(!screen.includes('stoktan düşer'), 'iki ayrı kelime geri gelmiş');
+    // Metin BİRLEŞTİ: "stoktan düşer" ile "depodan düşer" aynı olgunun iki
+    // kelimesiydi; "depodan" kaldı. Personel 15: malzeme bölümünün başında
+    // yazıyor, tutar sütununda yalnız para duruyor.
+    assert.ok(sade.includes('depodan düşer'));
+    assert.ok(!(screen + sade).includes('stoktan düşer'), 'iki ayrı kelime geri gelmiş');
+    assert.match(sade, /\{material \? null : \(\s*<Amount/);
 });
 
 test('kart artık dört ekrana değil tek kumandaya gidiyor', () => {
@@ -289,8 +287,8 @@ test('ikonlar tasarımın kendi yolları — View taklidi değil', () => {
     assert.ok(!controls.includes('borderRightWidth: 2.2'), 'ok taklidi kalmamalı');
 });
 
-test('para maskesi göz ikonuyla durumunu söylüyor', () => {
-    assert.ok(screen.includes("name={revealed ? 'eye' : 'eyeoff'}"));
+test('maskenin göz ikonu da kalktı', () => {
+    assert.ok(!screen.includes("name={revealed ? 'eye' : 'eyeoff'}"));
 });
 
 test('alt sayfanın tutamacı gerçekten çekiliyor', () => {
@@ -324,24 +322,26 @@ test('ok nefes alıyor ama parmak değince susuyor', () => {
 
 // ── Para maskesinin fitili ──────────────────────────────────────────────────
 
-test('maske açıkken fitil yanıyor — tutar sebepsizce kaybolmuyor', () => {
-    // Sayaç zaten vardı ama görünmüyordu: 6 saniye sonra tutar sebepsiz
-    // kayboluyordu. Fitil o sebebi ekrana koyuyor.
-    assert.ok(screen.includes('export const REVEAL_MS = 6000;'));
-    assert.ok(screen.includes('{revealed ? <Fuse runKey={runKey} /> : null}'));
-    assert.ok(screen.includes('{ scaleX: p }'), 'fitil ölçekle sürülmeli');
-    assert.ok(!/duration: REVEAL_MS[\s\S]{0,120}useNativeDriver: false/.test(screen));
+test('fitil YALNIZ geri alma penceresinde, sol uç sabit', () => {
+    // Maskenin fitili maskeyle gitti. Kalan tek fitil geri alma penceresi:
+    // ölçekle değil kaydırmayla (sol uç sabit), native sürücüde.
+    assert.ok(screen.includes('export const REVEAL_MS = 6000;'), 'risk satırı hâlâ 6 sn');
+    assert.ok(!screen.includes('<Fuse'), 'maske fitili geri gelmiş');
+    assert.match(sade, /<LeftFuse until=\{until\} total=\{DELETE_MS\} \/>/);
+    assert.ok(!/duration: [^,]*,[\s\S]{0,80}useNativeDriver: false/.test(sade));
 });
 
-test('her açılışta fitil BAŞTAN yanıyor', () => {
-    // Kaldığı yerden devam etseydi ikinci dokunuş bir saniye açıp kapatırdı.
-    assert.ok(screen.includes('setRevealKey((n) => n + 1)'));
-    assert.ok(screen.includes('}, [p, runKey, reduceMotion]);'));
+test('fitil kalan süreden başlıyor — kaldığı yer DOĞRU yer', () => {
+    // Geri alma penceresi yeniden çizilince fitil baştan değil KALAN süreden
+    // yanmalı; yoksa 6 sn'lik pencere ekranda daha uzun görünürdü.
+    assert.match(sade, /x\.setValue\(-width \* \(1 - left \/ total\)\);/);
+    assert.match(sade, /\}, \[until, total, width, reduceMotion, x\]\);/);
 });
 
 test('reduceMotion açıkken çizgi yok ama BİLGİ duruyor', () => {
-    assert.ok(screen.includes('{left} sn'), 'kalan saniye yazıyla söylenmeli');
-    assert.ok(screen.includes('if (reduceMotion) return;'));
+    // Kalan saniye "Geri al 5" düğmesinde yazılı; çizgi hareketi azalt'ta yok.
+    assert.match(sade, /<Text style=\{\[\{ \.\.\.hk\(700\), fontSize: 16, color: ink\.tx2, minWidth: 10 \}, numeric\]\}>\{left\}<\/Text>/);
+    assert.match(sade, /if \(reduceMotion\) return null;/);
 });
 
 test('not noktası gerçek nota bağlı', () => {

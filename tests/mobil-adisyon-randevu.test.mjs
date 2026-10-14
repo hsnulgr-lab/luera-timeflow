@@ -35,28 +35,30 @@ test('yalnız EK HİZMET randevuda sayılır; ürün ve malzeme sayılmaz', () =
     assert.equal(isBooked({ kind: 'material', name: 'Botox' }, booked), false);
 });
 
-test('kumanda: RANDEVU grubu görünür, boş hâl yalnız gerçekten boşken', () => {
+test('kumanda: randevu hizmeti listede KENDİ satırında (Personel 15)', () => {
+    // Eskiden "RANDEVU" grubu ve "yeniden eklemeyin" cümlesiydi. Sade adisyon
+    // (2026-10-15): randevu hizmeti listede "Randevu hizmeti" satırı, kendi
+    // tutarıyla ve oksuz; cümlenin işini tek soru yapıyor (aşağıdaki test).
     const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
-    // İki yerde de çiziliyor: kumandanın gövdesi ve katalog sayfası.
-    assert.match(screen, /<BookedGroup names=\{booked\} solo=\{params\.from === 'tek'\} \/>/);
-    assert.match(screen, /<BookedGroup names=\{booked\} solo=\{solo\} \/>/);
-    assert.match(screen, /lines\.length === 0 && booked\.length === 0 \?/);
-    // Sayfa da gövdeyle aynı ölçüyü kullanıyor: silinmek üzere olan satır
-    // da "satır" (son kalemin silme penceresi görünsün diye, 2026-10-14).
-    assert.match(screen, /hasRows \? rows : booked\.length > 0 \? null :/, 'sayfadaki boş hâl de');
-    assert.match(screen, /hasRows=\{lines\.length > 0\}/);
-    assert.match(screen, /Bu hizmetler kasaya randevuyla birlikte gidiyor; yeniden eklemeyin\./);
-    // Tek kişilikte "kasaya gönderme" yok, tahsilat var: cümle o yolu anlatıyor.
-    assert.match(screen, /solo\s*\?\s*'Bu hizmetler tahsilata randevuyla birlikte giriyor; yeniden eklemeyin\.'/);
+    const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
+    assert.match(sade, /services\.map\(\(service, index\) => \(\s*<SadeServiceRow/);
+    assert.match(sade, /Randevu hizmeti/);
+    // İki yerde de: adisyon sayfası ve kapanış listesi — aynı bileşen.
+    assert.equal((screen.match(/<SadeList\s/g) ?? []).length, 2);
+    assert.equal((screen.match(/services=\{services\}/g) ?? []).length, 2);
+    assert.ok(!/yeniden eklemeyin/.test(screen + sade), 'cümle kalktı');
 });
 
 test('kumanda: randevudaki hizmet eklenmeden önce soruluyor — engel değil', () => {
     const screen = code(read('../mobile/app/(staff-flow)/kumanda.tsx'));
-    assert.match(screen, /onAdd=\{\(item\) => guardAdd\(item, \(\) => \{/);
+    const sade = code(read('../mobile/src/components/AdisyonSade.tsx'));
+    // Kutu ve arama aynı kapıdan geçiyor.
+    assert.match(screen, /onTile=\{\(item\) => guardAdd\(item, \(\) => addItem\(item\)\)\}/);
     assert.match(screen, /onPick=\{\(item\) => guardAdd\(item, \(\) => \{/);
     assert.match(screen, /if \(isBooked\(item, booked\)\) \{/);
     assert.match(screen, /Yine de ekle/);
     assert.match(screen, /iki kez tahsil edilir/);
-    assert.match(screen, /if \(item\.inBooking\) \{ onAdd\(item\); return; \}/, 'onaydan önce "Eklendi" yanıp sönmüyor');
-    assert.match(screen, /item\.inBooking \? 'RANDEVUDA' : KIND_LABEL\[item\.kind\]/);
+    // Onaydan önce "eklendi" görünmüyor: makbuz yalnız `addItem`de yazılıyor.
+    assert.match(screen, /const addItem = \(item: CatalogItem\) => \{[\s\S]*?setReceipt\(/);
+    assert.match(sade, /item\.inBooking \? 'Randevuda var' : KIND_NAME\[item\.kind\]/);
 });
