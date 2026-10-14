@@ -1,6 +1,6 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
-**Tarih:** 2026-10-15 · **Dal:** `tek-kisilik` (origin'in 24 commit önünde — **push bekliyor**)
+**Tarih:** 2026-10-15 · **Dal:** `tek-kisilik` = `main` = origin (`cf6aec5`'te gönderildi)
 **Testler:** 3037 geçti / 0 kırık / 7 atlandı · `tsc` temiz · kumandada lint 16 (eski)
 
 > **2026-10-15 · ÖZET (§47–§50):** Kumandanın adisyonu Personel 15 "sade"
@@ -64,8 +64,8 @@ ihtiyaç duymamalı.
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
-2. **Deploy borcu yok** (§6, 2026-10-15). Bekleyenler: **push** (24 commit),
-   **telefon denemesi** (§50'deki plan; kalan 2, 3, 4, 5, 9, 10, 11).
+2. **Deploy borcu yok** (§6, 2026-10-15). Push yapıldı (`cf6aec5`, `main`
+   ileri alındı). §50'deki telefon deneme planı kullanıcıya göre TAMAM.
 3. **Yayın öncesi:** `docs/yayin-oncesi-genel-kontrol-prompt.md` — yeni bir
    oturumda plan modu + xhigh eforla çalıştırılacak denetim istemi.
    Tasarım kaynakları: v4 (`Luera Mobil - Tek Kisilik v4.html`) ve Personel 15
@@ -327,6 +327,30 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
+
+### ⏳ BEKLİYOR (2026-10-15) — 118 (personel bildirimi randevunun gününü taşıyor · §51)
+
+Yalnız göç. Edge function deploy'u yok. Telefon tarafı Expo'da yenilenince
+gelir; göç gelmeden personel bildirimleri yine Bugün'ü açar (zararsız).
+Göç PGlite'ta kuru koşu + göç + test biçiminde denendi.
+
+**1 · Kuru koşu** — beklenen `CREATE FUNCTION`, `personel bildirim günü (118) regression: ok`, `ROLLBACK`:
+
+```bash
+cd ~/Projects/luera-timeflow && { echo 'BEGIN;'; sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' supabase/118_personel_bildirim_gunu.sql; sed -e '/^BEGIN;$/d' supabase/tests/personel_bildirim_gunu_regression.sql; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'
+```
+
+**2 · Göç** (yalnız kuru koşu geçtiyse) — beklenen `COMMIT`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/118_personel_bildirim_gunu.sql
+```
+
+**3 · Test** (göçten sonra, iz bırakmaz) — beklenen `regression: ok`, `ROLLBACK`:
+
+```bash
+ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ~/Projects/luera-timeflow/supabase/tests/personel_bildirim_gunu_regression.sql
+```
 
 ### ✅ CANLIDA (2026-10-15) — `staff-api` (`visit.charge` · §49) + `remind` + `booking-manage` + `whatsapp-booking` (§41)
 
@@ -2420,6 +2444,10 @@ tek kişilikte bitince **ekip personelinin kumandasındaki adisyon sayfalarına*
 da uygulanacak. Kullanıcı: "şu an tek kişilik ile başlayalım, not düş,
 hatırlat; tasarım bitsin bakalım." Tasarım turu kapanınca kullanıcıya sor.
 
+**❌ İPTAL (2026-10-15 gece, kullanıcı):** öteki alt sayfaları (satır paneli,
+formül, not, bekleme, Katalogda ara) sade görünüme taşımak — "tasarım görünüm
+değişikliği istemiyorum". Bu sayfalar ESKİ görünümde kalıyor; yeniden önerme.
+
 **Görünüm "C" (2026-10-15, kullanıcı seçimi; yazılar bugünkü gibi):** tek
 kişilik adisyon sayfası `Sheet look="sade"`: tutamaç 36 × 5 pt, %38, üstte
 20 pt şerit (dokunma alanı başlığın tamamı); başlık `surf2`, gövde `surf`
@@ -2498,7 +2526,8 @@ Doğrulama: geçici tanı satırları günlükte `waited: true` göstermeli.
 olabilir, düzeltme kodla ve testle kilitli), 6 ✅, 7 ✅, 8 ✅. Geçici
 `[tanı-tahsilat]` satırları çalışma ağacından SİLİNDİ (hiç commit'lenmemişti).
 Kalan: 2, 4, 9, 10, 11 (ekip personeli / müdür hesabı), 3 (müşteriden gelen
-randevu bildirimi), 5 (bekleme bitti, 20 dk).
+randevu bildirimi), 5 (bekleme bitti, 20 dk). **2026-10-15 gece, kullanıcı:
+"zaten yapıldı" — plan kapandı.**
 
 
 **Aynı gün, telefondan (kullanıcı, müdür/ekip hesabı):** "her şey çalışıyor"
@@ -2511,3 +2540,36 @@ ekipte şerit de önce "tahsil edilmedi" listesini açıyor (tek adisyon olsa
 bile); seçilen adisyon Akış'ta kendi satırında (`focusInFlow`). Tek
 kişilikte değişmedi (tek adisyon → doğrudan tahsilat, çoksa liste). Test
 `mobile-mudur-kasa` taşındı; paket 3037 / 0. Telefonda denenmedi.
+
+---
+
+## 51 · 2026-10-15 · İKİ BİLDİRİM KARARI (personelin başka günü + WhatsApp)
+
+14 Ekim'de sonraya bırakılan iki karar soru-cevapla verildi. Aynı gece:
+push yapıldı (`cf6aec5`, `main` ileri alındı); §50 telefon planı kullanıcıya
+göre kapandı; öteki alt sayfaların sade görünümü İPTAL (görünüm değişikliği
+istenmiyor, §48).
+
+**1 · Personelin BAŞKA GÜNE ait bildirimi** (kullanıcı: "takvim sayfasında
+alınan randevuyu göstersin"): dokununca personelin TAKVİMİ o günde açılıyor ve
+ızgara randevunun saatine kayıyor; bugüne ait bildirim Bugün'ü açmaya devam
+ediyor (14 Ekim kararı).
+- Engel: personel bildirimi günü taşımıyordu. **Göç 118** dört personel
+  adresine `?date=` ekliyor (atama, geldi, iptal, ertelendi — yeni gün); başka
+  hiçbir şey değişmedi (116'dan türetildi, müdür olayları ve tek kişilik
+  koşulu aynı). PGlite'ta kuru koşu + göç + test geçti; göçsüz test doğru
+  hatayı veriyor.
+- `pushTargetOf(data, actor, today)`: personelde gün ≠ bugün →
+  `/personel/calendar?date=…&focus=<randevu>`; aksi Bugün.
+- `ColumnCalendar.focusId`: randevu listeye düşünce ızgara bir kez onun
+  saatine kayıyor (üstte bir saat pay). GÖRÜNÜM DEĞİŞMEDİ.
+
+**2 · WhatsApp "Müşteri sizinle görüşmek istiyor"** (kullanıcı: "WhatsApp
+sohbeti"): etiket `handoff-<numara>` → `https://wa.me/<numara>`; kanca bunu
+uygulama ekranı gibi değil `Linking` ile açıyor. Numara biçimi tutmazsa hiçbir
+yere. Not: telefonun kendi WhatsApp'ı açılıyor — salonun hattı başka telefondaysa
+kişinin kendi numarasından yazılır (soruda söylendi).
+
+Kanıt: `mobil-push-karar` (+2, çalıştırılarak), `bildirim-hedefleri` (+1, 118),
+`mobil-push-baglanti` taşındı; tüm paket 3039 / 0; `tsc` temiz; lint aynı;
+Metro iOS paketi derlendi. **Göç 118 kullanıcıda (§6).** Telefonda denenmedi.

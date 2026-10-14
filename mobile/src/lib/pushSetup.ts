@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 import { rememberIntent, takeIntent } from './pushIntent.ts';
 import { pushTargetOf, type PushActor, type PushData } from './pushRoute.ts';
+import { todayISO } from './calendar.ts';
 
 /**
  * Bildirimlerin uygulama tarafı kurulumu — davranış ve dokunma.
@@ -76,7 +77,8 @@ export function usePushIntent(actor: PushActor, ready: boolean): void {
         if (!response) return;
         // Etiket önce (randevunun kendisi), sonra adres — `pushTargetOf`.
         const data = response.notification.request.content.data as PushData | undefined;
-        const href = pushTargetOf(data, actor);
+        // Bugün verilince personelin başka güne ait bildirimi takvimi açıyor.
+        const href = pushTargetOf(data, actor, todayISO());
         // Tanınmayan hedef: hiçbir şey yapılmıyor. Tahmin edilmiş bir adrese
         // gitmek, hiç gitmemekten kötü.
         if (href) rememberIntent({ href, actor, at: Date.now() });
@@ -91,7 +93,12 @@ export function usePushIntent(actor: PushActor, ready: boolean): void {
          * çağırmak, `shellRoot` sıfırlamasıyla yarışıyor ve
          * "GO_BACK was not handled by any navigator" ailesini üretiyor.
          */
-        const id = setTimeout(() => router.push(href as never), 0);
+        // WhatsApp "görüşmek istiyor" (2026-10-15): uygulamanın ekranı değil,
+        // telefonun WhatsApp'ı — dış bağlantı.
+        const id = setTimeout(() => {
+            if (href.startsWith('https://wa.me/')) void Linking.openURL(href).catch(() => undefined);
+            else router.push(href as never);
+        }, 0);
         return () => clearTimeout(id);
     }, [ready, actor, router]);
 }

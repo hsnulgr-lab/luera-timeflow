@@ -120,9 +120,36 @@ test('bekleme bitti → o işin kumandası, kendi gününde; tek kişilikte "Gü
     assert.deepEqual(waitAlarmData(ID, 'dün'), { url: '/kumanda', tag: `wait-${ID}` });
 });
 
-test('WhatsApp "görüşmek istiyor" bilerek açılmıyor — ayrıca konuşulacak', () => {
-    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'manager'), null);
-    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'solo'), null);
+test('WhatsApp "görüşmek istiyor" → telefonun WhatsApp\'ında o numarayla sohbet (kullanıcı kararı 2026-10-15)', () => {
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'manager'), 'https://wa.me/905551112233');
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-905551112233' }, 'solo'), 'https://wa.me/905551112233');
+    // Numara biçimi tutmuyorsa hiçbir yere — tahmin edilmiş bir bağlantı açılmaz.
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-abc' }, 'manager'), null);
+    assert.equal(pushTargetOf({ url: '/mesajlar', tag: 'handoff-12' }, 'manager'), null);
+    // Kanca dış bağlantıyı uygulamanın ekranı gibi değil, Linking ile açıyor.
+    assert.match(read('src/lib/pushSetup.ts'), /if \(href\.startsWith\('https:\/\/wa\.me\/'\)\) void Linking\.openURL\(href\)/);
+});
+
+test('personel: BAŞKA GÜNE ait bildirim → takvim o günde, randevuya kaymış; bugününki Bugün (2026-10-15)', () => {
+    const today = '2026-10-15';
+    // 118'den beri personel adresleri günü taşıyor.
+    assert.equal(pushTargetOf({ url: '/calendar?date=2026-10-22', tag: `assign-${ID}` }, 'staff', today),
+        `/personel/calendar?date=2026-10-22&focus=${ID}`);
+    assert.equal(pushTargetOf({ url: '/personel?date=2026-10-23', tag: `moved-${ID}` }, 'staff', today),
+        `/personel/calendar?date=2026-10-23&focus=${ID}`);
+    // Bugüne ait: Bugün.
+    assert.equal(pushTargetOf({ url: '/personel?date=2026-10-15', tag: `arrived-${ID}` }, 'staff', today), '/personel');
+    // Gün bilinmiyorsa (eski sunucu ya da `today` verilmedi): Bugün.
+    assert.equal(pushTargetOf({ url: '/calendar', tag: `assign-${ID}` }, 'staff', today), '/personel');
+    assert.equal(pushTargetOf({ url: '/calendar?date=2026-10-22', tag: `assign-${ID}` }, 'staff'), '/personel');
+    // Bozuk gün taşınmıyor.
+    assert.equal(pushTargetOf({ url: '/calendar?date=yarın', tag: `assign-${ID}` }, 'staff', today), '/personel');
+    // Takvim randevunun saatine kayıyor; görünüm değişmedi.
+    assert.match(read('app/personel/calendar.tsx'), /focusId=\{typeof params\.focus === 'string' && params\.focus \? params\.focus : null\}/);
+    const cal = read('src/components/ColumnCalendar.tsx');
+    assert.match(cal, /if \(!focusId \|\| focused\.current === focusId\) return undefined;/);
+    assert.match(cal, /blockLayout\(target, dayStart, hourHeight\)\.top/);
+    assert.match(read('src/lib/pushSetup.ts'), /pushTargetOf\(data, actor, todayISO\(\)\)/);
 });
 
 test('bozuk veri hiçbir yere gitmiyor', () => {
@@ -135,7 +162,7 @@ test('kabuklar kendi aktörüyle açıyor; kanca etiketi okuyor', () => {
     assert.match(read('app/tek/_layout.tsx'), /usePushIntent\('solo', gate\.state === 'allowed'\);/);
     assert.match(read('app/mudur/_layout.tsx'), /usePushIntent\('manager', gate\.state === 'allowed'\);/);
     assert.match(read('app/personel/_layout.tsx'), /usePushIntent\('staff', gate\.state === 'allowed'\);/);
-    assert.match(read('src/lib/pushSetup.ts'), /const href = pushTargetOf\(data, actor\);/);
+    assert.match(read('src/lib/pushSetup.ts'), /const href = pushTargetOf\(data, actor, todayISO\(\)\);/);
     assert.match(read('src/lib/waitAlarmDevice.ts'), /data: waitAlarmData\(input\.reservationId, input\.dateISO\),/);
 });
 

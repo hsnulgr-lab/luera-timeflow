@@ -57,8 +57,11 @@ test('hedef KAPI GEÇİLDİKTEN sonra tüketiliyor', () => {
         const shell = code(read(path));
         assert.match(shell, new RegExp(`usePushIntent\\('${actor}', gate\\.state === 'allowed'\\)`), path);
     }
-    // Ve çizim sırasında gezinilmiyor.
-    assert.match(setup, /setTimeout\(\(\) => router\.push\(href as never\), 0\)/);
+    // Tek kişilik de kendi aktörüyle (2026-10-14).
+    assert.match(code(read('app/tek/_layout.tsx')), /usePushIntent\('solo', gate\.state === 'allowed'\)/);
+    // Ve çizim sırasında gezinilmiyor — dış bağlantı (WhatsApp, 2026-10-15) da
+    // aynı zamanlayıcının içinde.
+    assert.match(setup, /const id = setTimeout\(\(\) => \{[\s\S]{0,260}else router\.push\(href as never\);\s*\}, 0\);/);
 });
 
 test('soğuk açılış yanıtı kaçmıyor', () => {

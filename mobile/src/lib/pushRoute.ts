@@ -87,6 +87,12 @@ export function reservationIdOf(tag: string | null | undefined): string | null {
     return TAGGED.exec(tag)?.[2] ?? null;
 }
 
+/**
+ * WhatsApp "görüşmek istiyor" etiketi: `handoff-<uluslararası numara>`
+ * (`whatsapp-booking`, `normalizePhone`: 905551112233).
+ */
+const HANDOFF = /^handoff-(\d{8,15})$/;
+
 /** Etiketin türü (`booked`, `res`, `kasa`, `wait`…); kimliksiz etikette `null`. */
 export function tagKindOf(tag: string | null | undefined): string | null {
     if (typeof tag !== 'string') return null;
@@ -125,9 +131,16 @@ export interface PushData {
  *   personel / tek kişilik · bekleme bitti → o işin kumandası
  *   personel · geri kalan her şey → Bugün (`pushHrefOf`)
  * Etiket bir şey söylemiyorsa ADRES (`pushHrefOf`); o da tanınmazsa `null`.
- * WhatsApp "görüşmek istiyor" (`/mesajlar`) bilerek `null` — ayrıca konuşulacak.
+ *
+ * 2026-10-15 kararları:
+ *   personel · BAŞKA GÜNE ait bildirim → takvim o günde, randevuya kaymış
+ *     (`/personel/calendar?date=…&focus=…`; gün 118'den beri adreste)
+ *   müdür / tek kişilik · WhatsApp "görüşmek istiyor" → telefonun WhatsApp'ında
+ *     o numarayla sohbet (`https://wa.me/…` — kanca onu dış bağlantı açıyor)
+ *
+ * `today`: telefonun bugünü (`YYYY-MM-DD`); verilmezse gün ayrımı yapılmıyor.
  */
-export function pushTargetOf(data: PushData | null | undefined, actor: PushActor): string | null {
+export function pushTargetOf(data: PushData | null | undefined, actor: PushActor, today?: string): string | null {
     const url = typeof data?.url === 'string' ? data.url : null;
     const tag = typeof data?.tag === 'string' ? data.tag : null;
     const kind = tagKindOf(tag);
@@ -139,7 +152,18 @@ export function pushTargetOf(data: PushData | null | undefined, actor: PushActor
         const query = new URLSearchParams({ id, ...(actor === 'solo' ? { from: 'tek' } : {}), ...(date ? { date } : {}) });
         return `/kumanda?${query.toString()}`;
     }
-    if (actor !== 'staff' && kind && id) {
+    if (actor === 'staff') {
+        const known = pushHrefOf(url, 'staff');
+        if (!known) return null;
+        const date = dateOf(url);
+        if (id && date && today && date !== today) {
+            return `/personel/calendar?${new URLSearchParams({ date, focus: id }).toString()}`;
+        }
+        return '/personel';
+    }
+    const handoff = typeof tag === 'string' ? HANDOFF.exec(tag)?.[1] : undefined;
+    if (handoff) return `https://wa.me/${handoff}`;
+    if (kind && id) {
         if (CARD_KINDS.has(kind)) return `/randevu/${id}`;
         if (kind === 'kasa') return `${actor === 'solo' ? '/tek/cash' : '/mudur/cash'}?bekleyen=1`;
     }

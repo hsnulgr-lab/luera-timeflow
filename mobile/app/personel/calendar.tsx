@@ -59,7 +59,7 @@ export default function StaffCalendar() {
      * Bugün ekranındaki gün şeridinden gelen tarih. Şeritteki dokunuş ölü
      * olamaz: dokunulan gün burada AÇILMALI.
      */
-    const params = useLocalSearchParams<{ date?: string }>();
+    const params = useLocalSearchParams<{ date?: string; focus?: string }>();
 
     const today = todayISO();
     /**
@@ -212,6 +212,8 @@ export default function StaffCalendar() {
                     to={to}
                     nowMinutes={nowMinutes}
                     isToday={isToday}
+                    // Başka güne ait bildirimden geldi: randevunun saatine kay (2026-10-15).
+                    focusId={typeof params.focus === 'string' && params.focus ? params.focus : null}
                     readOnly
                     refreshControl={(
                         <RefreshControl

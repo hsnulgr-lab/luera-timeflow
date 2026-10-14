@@ -85,3 +85,25 @@ test('tek kişilikte "Sıradaki randevun yaklaşıyor" sahibin müdür kaydına 
     // Etiket randevuyu taşıyor — dokununca kart.
     assert.match(remind, /tag: `soon-\$\{r\.id\}`/);
 });
+
+test('118: personel bildirimi randevunun GÜNÜNÜ taşıyor; müdür olayları ve 116 koşulu aynı', () => {
+    const m = read('supabase/118_personel_bildirim_gunu.sql');
+    for (const [url, tag] of [
+        ["'/calendar?date=' || NEW.date::text", 'assign'],
+        ["'/personel?date=' || NEW.date::text", 'arrived'],
+        ["'/personel?date=' || NEW.date::text", 'cancel'],
+        ["'/personel?date=' || NEW.date::text", 'moved'],
+    ]) {
+        const at = m.indexOf(`'tag',   '${tag}-'`);
+        assert.ok(at > 0, tag);
+        assert.ok(m.slice(at - 120, at).includes(`'url',   ${url},`), `${tag} adresi günü taşımıyor`);
+    }
+    // Müdür olayları değişmedi; 116'nın tek kişilik koşulu duruyor.
+    assert.equal((m.match(/'url',   '\/calendar',/g) ?? []).length, 2);
+    assert.match(m, /'url',   '\/kasa',/);
+    assert.match(m, /AND NOT v_solo/);
+    assert.match(m, /AND NOT v_self/);
+    assert.match(m, /^BEGIN;/m);
+    assert.match(m, /^COMMIT;/m);
+    assert.match(read('supabase/tests/personel_bildirim_gunu_regression.sql'), /personel bildirim günü \(118\) regression: ok/);
+});

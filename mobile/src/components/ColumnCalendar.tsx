@@ -10,7 +10,7 @@ import { feedback } from '../lib/feedback';
 import { isLive } from '../lib/calendar';
 import { isReschedulable } from '../lib/appointmentDetail';
 import {
-    blockDetail, columnize, COLUMN_GAP, COLUMN_WIDTH, DRAG_BANNER_RESERVE, edgeStep, HOUR_HEIGHT, HOURS_WIDTH,
+    blockDetail, blockLayout, columnize, COLUMN_GAP, COLUMN_WIDTH, DRAG_BANNER_RESERVE, edgeStep, HOUR_HEIGHT, HOURS_WIDTH,
     hourLabels, nowLineTop, soloBlockShape,
     type ColumnStaff, type SoloBlockShape,
 } from '../lib/managerCalendar';
@@ -39,7 +39,7 @@ import type { Appt } from '../lib/calendar';
  * anda iki kaydırıcı da kilitleniyor, yoksa parmak hem bloğu hem sayfayı
  * çekerdi.
  */
-export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes, isToday, readOnly = false, soloColumn = false, refreshControl, onOpen, onSlot, onMove, onMenu }: {
+export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes, isToday, readOnly = false, soloColumn = false, refreshControl, onOpen, onSlot, onMove, onMenu, focusId = null }: {
     appointments: readonly Appt[];
     staff: readonly ColumnStaff[];
     /**
@@ -94,6 +94,12 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
     onMove?: (appointment: Appt, target: MoveTarget) => void;
     /** Basılı tutmanın erişilebilir karşılığı ve güvenilir yol: kart menüsü. */
     onMenu?: (appointment: Appt) => void;
+    /**
+     * Gösterilecek randevu (2026-10-15, kullanıcı kararı): personelin başka
+     * güne ait bildirimine dokununca takvim o günde açılıyor ve ızgara bu
+     * randevunun saatine kayıyor. Görünüm değişmiyor — yalnız kaydırma.
+     */
+    focusId?: string | null;
 }) {
     const { c } = useTheme();
     const dayStart = from * 60;
@@ -172,6 +178,22 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      */
     const rootRef = useRef<View>(null);
     const vScrollRef = useRef<ScrollView>(null);
+
+    /*
+     * Bildirimden gelen randevu bir kez gösteriliyor: gün okunup randevu
+     * listeye düşünce ızgara onun saatine kayıyor (üstte bir saatlik pay).
+     * Aynı kimlik ikinci kez kaydırmıyor — kişi kendi kaydırdığı yerde kalır.
+     */
+    const focused = useRef<string | null>(null);
+    useEffect(() => {
+        if (!focusId || focused.current === focusId) return undefined;
+        const target = appointments.find((appointment) => appointment.id === focusId);
+        if (!target) return undefined;
+        focused.current = focusId;
+        const y = Math.max(0, headerHeight + blockLayout(target, dayStart, hourHeight).top - hourHeight);
+        const id = setTimeout(() => vScrollRef.current?.scrollTo({ y, animated: true }), 250);
+        return () => clearTimeout(id);
+    }, [focusId, appointments, headerHeight, dayStart, hourHeight]);
     const hScrollRef = useRef<ScrollView>(null);
     const metrics = useRef({ vOffset: 0, hOffset: 0, rootX: 0, rootY: 0 });
     /**
