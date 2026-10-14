@@ -323,7 +323,8 @@ test('C1 · Kasa tek kişilikte kişi adını ekrandan kaldırıyor, veriyi değ
 
 test('K3 · şerit tahsilatı açıyor: tek adisyon doğrudan, birden çoksa liste', () => {
     assert.match(cash, /const tickets = useMemo\(\(\) => pendingTickets\(events\), \[events\]\);/);
-    assert.match(cash, /if \(tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
+    // Tek kişilikte tek adisyon doğrudan; ekipte her zaman önce liste (2026-10-15).
+    assert.match(cash, /if \(solo && tickets\.length === 1\) \{\s*openTicket\(tickets\[0\]\);\s*return;\s*\}/);
     // Birden çoksa liste: içerik boyundaki sayfa (`kasa/bekleyen`).
     assert.match(cash, /onPick: solo \? openTicket : focusInFlow,/);
     assert.match(cash, /params: \{\s*id: ticket\.appointmentId,\s*from: 'tek',\s*back: 'kasa',\s*\.\.\.\(ticket\.dateISO \? \{ date: ticket\.dateISO \} : \{\}\),\s*\},/);
