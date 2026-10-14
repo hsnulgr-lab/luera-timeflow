@@ -25,8 +25,8 @@ import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
 import {
-    catalogOf, serviceCharge, type CashPaymentRow, type CashReservationRow, type CatalogService,
-    type ServiceCharge,
+    catalogOf, serviceCharge, serviceLines, type CashPaymentRow, type CashReservationRow, type CatalogService,
+    type ServiceBill,
 } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
@@ -520,7 +520,7 @@ export async function fetchServices(): Promise<CatalogService[]> {
  * kişilikte sahip aynı zamanda müdür: Kasa'nın okuduğu yerden, Kasa'nın
  * hesabıyla okunuyor. Satır yoksa `null`.
  */
-export async function fetchServiceCharge(reservationId: string): Promise<ServiceCharge | null> {
+export async function fetchServiceCharge(reservationId: string): Promise<ServiceBill | null> {
     const organizationId = await orgIdOrThrow();
     const [{ data, error }, services] = await Promise.all([
         supabase.from('reservations')
@@ -534,10 +534,13 @@ export async function fetchServiceCharge(reservationId: string): Promise<Service
     if (error) throw error;
     if (!data) return null;
     const fields = data.custom_fields;
-    return serviceCharge({
+    const row = {
         service: typeof data.service === 'string' ? data.service : '',
         custom_fields: fields && typeof fields === 'object' ? fields as Record<string, unknown> : null,
-    }, services);
+    };
+    // Satırlar da dönüyor (Personel 15): sade adisyon randevu hizmetini kendi
+    // tutarıyla yazıyor. Toplam ve sayı yine `serviceCharge`ın kendisi.
+    return { ...serviceCharge(row, services), lines: serviceLines(row, services) };
 }
 
 // ── Randevu oluştur ─────────────────────────────────────────────────────────

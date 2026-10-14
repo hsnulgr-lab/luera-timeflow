@@ -146,8 +146,11 @@ test('sayfa kaydırılmıyor — yalnız kapanış listesi kendi içinde kayıyo
     // Tek ScrollView C evresinin kalem listesi; kadran ve eylem hep yerinde.
     // Üçüncü kaydırıcı Personel 08 ile geldi: formül alt sayfası. Sayfanın
     // KENDİSİ hâlâ kaymıyor — kadran ve eylem her zaman yerinde.
+    // Dördüncüsü Personel 15: tek kişilik kapanışın kalem listesi (ekipteki
+    // listenin karşılığı; ikisi aynı anda çizilmiyor). Sade adisyon sayfasının
+    // kaydırıcısı kendi bileşeninde (`AdisyonSade.tsx`).
     const count = (screen.match(/<ScrollView/g) || []).length;
-    assert.equal(count, 3, 'kalem listesi · katalog · formül alt sayfası');
+    assert.equal(count, 4, 'kalem listesi (ekip) · kalem listesi (tek kişilik) · katalog · formül alt sayfası');
 });
 
 test('ekranda kaç onay var: BİR', () => {
@@ -184,7 +187,10 @@ test('adisyon şeridi son eklenen kalemi söylüyor', () => {
 });
 
 test('para maskeli ve kendiliğinden kapanıyor — ekranı müşteri görüyor', () => {
-    assert.ok(screen.includes('setTimeout(() => setRevealed(false), 6000)'));
+    // Personel 15: kapanış tek yerde (`hideMoney`) — "Gizle" de aynı yoldan,
+    // beklemeden kapatıyor. Süre aynı: 6 sn.
+    assert.ok(screen.includes('revealTimer.current = setTimeout(hideMoney, 6000)'));
+    assert.match(screen, /const hideMoney = \(\) => \{[^}]*setRevealed\(false\);/);
 });
 
 test('bekleme sayacının sunucuya yazılmadığı personele SÖYLENİYOR', () => {

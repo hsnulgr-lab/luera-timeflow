@@ -43,7 +43,15 @@ import { CollectBar } from '../../src/components/CollectBar';
 import { SendToCash } from '../../src/components/SendToCash';
 import { collectDial, type CollectMethod, type CollectStage } from '../../src/lib/collect';
 import { fetchServiceCharge } from '../../src/lib/managerSource';
-import type { ServiceCharge } from '../../src/lib/cashBuild';
+import type { ServiceBill } from '../../src/lib/cashBuild';
+import {
+    SadeClosingDial, SadeEditPanel, SadeFormulaRow, SadeList, SadePlanTrack, SadeSheetBody,
+    SadeSheetHead, SadeStrip, SadeWaitChip,
+} from '../../src/components/AdisyonSade';
+import { sadeFont, useSadeInk } from '../../src/lib/sadeInk';
+import {
+    addOutcome, breakdownLine, kalemCount, sadeTotal, type Receipt, type ServiceRow,
+} from '../../src/lib/adisyonSade';
 import {
     SEAL_MS, UNDO_NOTE_MS, WINDOW_MS, errorLine, isSealed, plateWord,
     queuedBandLabel, sendOutcome,
@@ -66,7 +74,7 @@ import {
     DELETE_MS, FREQUENT_COUNT, KIND_LABEL, addLine, addResult, bookedServiceNames, freeItem,
     groupsOf, isBooked,
     frequentFor, searchCatalog, usageAsOf, commitDelete, deleteNotice, liveLines,
-    linesDiffer, linesFromItems, markDelete, money, setQty, stripOf, totalOf, undoDelete,
+    linesDiffer, linesFromItems, markDelete, money, setQty, stepQty, stripOf, totalOf, undoDelete,
     type AdisyonLine, type CatalogItem,
 } from '../../src/lib/adisyon';
 import {
@@ -235,6 +243,25 @@ export default function Kumanda() {
     /** Gerçek grup başlığı ekranda mı? Değilse alta bir kopya pinleniyor. */
     const [headSeen, setHeadSeen] = useState(true);
     const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    /**
+     * Maskenin BİTİŞ anı (Personel 15). "Gizle 5" düğmesi ve soldan sabit
+     * fitil kalan süreyi buradan okuyor; `revealed` aynı gerçeğin bayrağı.
+     */
+    const [maskUntil, setMaskUntil] = useState<number | null>(null);
+
+    /*
+     * ── SADE ADİSYON (Personel 15 · Yol A) — YALNIZ TEK KİŞİLİK ──────────────
+     *
+     * "Eklendi" ÜÇ yerde ve KALICI: kutu "✓ Adisyonda ×2", kutunun altındaki
+     * makbuz, satırdaki "✓ Yeni" / "✓ ×2 oldu". Etiketler sayfa bir dahaki
+     * açılışa kadar kalıyor; sunucuya YAZILMIYOR (kalemlerin parçası değiller).
+     */
+    const [tags, setTags] = useState<Record<string, 'new' | 'inc'>>({});
+    const [receipt, setReceipt] = useState<Receipt | null>(null);
+    /** Son dokunuşun satırı — giriş ve sıçrama hareketi bunu izliyor. */
+    const [flash, setFlash] = useState<{ id: string; at: number } | null>(null);
+    /** Satır paneli açık olan satır (adet · kaldır). */
+    const [editing, setEditing] = useState<string | null>(null);
 
     const appointment = useMemo(() => (base ? {
         ...base,
@@ -630,6 +657,11 @@ export default function Kumanda() {
         setOpenRow(null);
         setPending(null);
         setQuery('');
+        setMaskUntil(null);
+        setTags({});
+        setReceipt(null);
+        setFlash(null);
+        setEditing(null);
         // Bağımlılık `params.id` DEĞİL `base?.id`: randevu artık asenkron
         // geliyor ve ilk çizimde `base` boş. Parametreye bağlı kalsaydı
         // adisyon sunucudan geldiğinde hiç yüklenmezdi.
@@ -660,7 +692,9 @@ export default function Kumanda() {
      * okunmuyor — orada parayı kasa alıyor ve kadran adisyonun kendisi.
      */
     const solo = params.from === 'tek';
-    const [serviceCharge, setServiceCharge] = useState<ServiceCharge | null>(null);
+    /** Personel 15'in mürekkebi — yalnız tek kişilik dalında okunuyor. */
+    const sade = useSadeInk();
+    const [serviceCharge, setServiceCharge] = useState<ServiceBill | null>(null);
     useEffect(() => {
         if (!solo || !appointment?.id) return undefined;
         let alive = true;
@@ -748,13 +782,76 @@ export default function Kumanda() {
     });
     const startClock = appointment.start_time.slice(0, 5);
 
+    const hideMoney = () => {
+        if (revealTimer.current) clearTimeout(revealTimer.current);
+        setRevealed(false);
+        setMaskUntil(null);
+    };
     const reveal = () => {
         setRevealed(true);
         setRevealKey((n) => n + 1);
+        setMaskUntil(Date.now() + 6000);
         if (revealTimer.current) clearTimeout(revealTimer.current);
         // 6 saniye sonra kendiliğinden kapanıyor: ekranı müşteri görüyor ve
         // personel kapatmayı unutabilir.
-        revealTimer.current = setTimeout(() => setRevealed(false), 6000);
+        revealTimer.current = setTimeout(hideMoney, 6000);
+    };
+    /** Personel 15: "Göster" açar, "Gizle" beklemeden kapatır. */
+    const toggleMoney = () => (revealed ? hideMoney() : reveal());
+
+    /*
+     * Randevu hizmeti SATIR SATIR (Personel 15): Kasa'nın hesabıyla, Kasa'nın
+     * okuduğu yerden (`fetchServiceCharge`). Okunamadıysa adlar duruyor ama
+     * tutar yazılmıyor — uydurulmuyor.
+     */
+    const services: ServiceRow[] = serviceCharge
+        ? serviceCharge.lines.map((row) => ({ name: row.name, amount: row.amount }))
+        : booked.map((name) => ({ name, amount: null }));
+    const kalem = kalemCount(services, lines);
+    const grand = sadeTotal(services, lines);
+    const lastName = lastAdded || liveLines(lines)[liveLines(lines).length - 1]?.name || null;
+    const editLine = editing ? lines.find((line) => line.id === editing && !line.pendingDelete) ?? null : null;
+
+    /** Adisyon sayfası her açılışta temiz: etiketler ve makbuz bir önceki açılışın. */
+    const openAdisyon = () => {
+        if (delivered) return;
+        setTags({});
+        setReceipt(null);
+        setFlash(null);
+        setSheet('catalog');
+    };
+
+    /**
+     * Bir dokunuş: yeni satır mı, adet artışı mı, tavan mı. Üçü de makbuzda
+     * yazılı ve kutuda durum olarak kalıyor (`addOutcome`).
+     */
+    const soloAdd = (item: CatalogItem) => {
+        const out = addOutcome(lines, { ...item, catalogId: item.id }, `n${Date.now()}`);
+        const material = item.kind === 'material';
+        if (out.kind === 'max') {
+            feedback.warning();
+            setReceipt({ kind: 'max', name: item.name, qty: out.qty, material });
+            return;
+        }
+        feedback.light();
+        setLines(out.next);
+        setLastAdded(item.name);
+        setTags((current) => ({ ...current, [out.id]: out.kind }));
+        setReceipt({ kind: out.kind, name: item.name, qty: out.qty, material });
+        setFlash({ id: out.id, at: Date.now() });
+    };
+
+    /** Satır panelinden kaldırma: bir önceki pencere varsa önce o kapanır. */
+    const soloRemove = (id: string) => {
+        setEditing(null);
+        setReceipt(null);
+        setLines((current) => markDelete(pending ? commitDelete(current, pending.id) : current, id));
+        setPending({ id, at: Date.now() });
+        setTags((current) => {
+            const next = { ...current };
+            delete next[id];
+            return next;
+        });
     };
 
     /**
@@ -812,19 +909,26 @@ export default function Kumanda() {
                     accessibilityLabel={`${backLabel} listesine dön`}
                     onPress={() => router.back()}
                     style={({ pressed }) => ({
-                        height: 44,
-                        paddingHorizontal: 14,
+                        // Personel 15 (tek kişilik): 48 pt, 17 pt yazı, 24 pt ok.
+                        height: solo ? (small ? 44 : 48) : 44,
+                        paddingHorizontal: solo ? 16 : 14,
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: 2,
+                        gap: solo ? 5 : 2,
                         opacity: pressed ? 0.55 : 1,
                     })}
                 >
-                    <Glyph name="back" size={22} color={c.tx2} />
-                    <Text style={{ color: c.tx2, fontSize: 15, fontWeight: '600' }}>{backLabel}</Text>
+                    <Glyph name="back" size={solo ? 24 : 22} color={solo ? sade.tx2 : c.tx2} />
+                    <Text style={solo
+                        ? { color: sade.tx2, fontSize: 17, ...sadeFont(500) }
+                        : { color: c.tx2, fontSize: 15, fontWeight: '600' }}
+                    >
+                        {backLabel}
+                    </Text>
                 </Pressable>
 
                 <Plate
+                    sade={solo}
                     appointment={appointment}
                     phase={phase}
                     delivered={delivered}
@@ -898,7 +1002,36 @@ export default function Kumanda() {
                     </View>
                 ) : null}
 
-                {phase === 'running' && !wait ? (
+                {/*
+                  * Personel 15 · A1 (tek kişilik): kadran, plan ve Bekleme kur
+                  * YERİNDE; değişen ölçü ve mürekkep. Açık temada süre
+                  * mürekkebe geçiyor — turuncu 96 pt süre kremde 2.6:1.
+                  */}
+                {phase === 'running' && !wait && solo ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: small ? 7 : 10, paddingHorizontal: 20 }}>
+                        <Text style={[{
+                            fontSize: small ? 76 : 96,
+                            lineHeight: small ? 68.4 : 86.4,
+                            ...sadeFont(800),
+                            letterSpacing: (small ? 76 : 96) * -0.055,
+                            color: sade.orT,
+                        }, numeric]}>
+                            {formatCounter(elapsedSec)}
+                        </Text>
+                        <Text style={{ fontSize: 13, ...sadeFont(700), letterSpacing: 3.12, color: sade.tx2, marginTop: small ? 6 : 10 }}>
+                            GEÇEN SÜRE
+                        </Text>
+                        <SadePlanTrack
+                            progress={bar.progress}
+                            marker={bar.marker}
+                            label={bar.label}
+                            overMinutes={bar.overMinutes}
+                        />
+                        <SadeWaitChip onPress={() => setSheet('minutes')} />
+                    </View>
+                ) : null}
+
+                {phase === 'running' && !wait && !solo ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 20 }}>
                         <Text style={[{
                             fontSize: small ? 76 : 96,
@@ -951,7 +1084,20 @@ export default function Kumanda() {
                     </View>
                 ) : null}
 
-                {phase === 'closing' || phase === 'closed' ? (
+                {/* Personel 15 · K1: aynı maske, altında "Göster", sonra şeritle
+                    AYNI sayı ("TOPLAM · n KALEM" — malzeme kalem değil). */}
+                {(phase === 'closing' || phase === 'closed') && solo ? (
+                    <SadeClosingDial
+                        total={grand}
+                        count={kalem}
+                        maskUntil={maskUntil}
+                        onMask={toggleMoney}
+                        minutes={Math.round(elapsedSec / 60)}
+                        span={`${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))}`}
+                    />
+                ) : null}
+
+                {(phase === 'closing' || phase === 'closed') && !solo ? (
                     <ClosingDial
                         total={closing.total}
                         count={closing.count}
@@ -981,7 +1127,33 @@ export default function Kumanda() {
                 ) : null}
 
                 {/* ── ADİSYON ── */}
-                {phase === 'running' ? (
+                {/*
+                  * Personel 15 · A1: şerit İKİ SATIR — üstte ne var (n kalem ·
+                  * son eklenen), altta ne kadar (Toplam ₺ ▬ · Göster 6 sn).
+                  * Formül satırı şeridin altında, amber kenarlı bir kart.
+                  */}
+                {phase === 'running' && solo ? (
+                    <View style={{ marginBottom: 12 }}>
+                        <SadeStrip
+                            count={kalem}
+                            lastName={lastName}
+                            total={grand}
+                            maskUntil={maskUntil}
+                            onMask={toggleMoney}
+                            onOpen={openAdisyon}
+                        />
+                        {door ? (
+                            <SadeFormulaRow
+                                door={door}
+                                card
+                                materials={liveLines(lines).filter((line) => line.kind === 'material').length}
+                                onPress={() => setSheet('formula')}
+                            />
+                        ) : null}
+                    </View>
+                ) : null}
+
+                {phase === 'running' && !solo ? (
                     <Strip
                         door={door}
                         onDoor={() => { feedback.selection(); setSheet('formula'); }}
@@ -994,7 +1166,50 @@ export default function Kumanda() {
                     />
                 ) : null}
 
-                {phase === 'closing' || phase === 'closed' ? (
+                {(phase === 'closing' || phase === 'closed') && solo ? (
+                    <View style={{ marginBottom: delivered ? 0 : 4 }}>
+                        <SadeStrip
+                            count={kalem}
+                            lastName={lastName}
+                            total={grand}
+                            maskUntil={maskUntil}
+                            onMask={toggleMoney}
+                            onOpen={openAdisyon}
+                            variant={delivered ? 'sealed' : 'closing'}
+                        />
+                    </View>
+                ) : null}
+
+                {/* Personel 15 · K1: liste kendi içinde kayar; kadran, şerit ve
+                    güverte yerinde. Satır yeni satır, paneli aynı panel. */}
+                {(phase === 'closing' || phase === 'closed') && solo ? (
+                    <ScrollView
+                        style={{ flex: 1, minHeight: 0, marginTop: 10 }}
+                        contentContainerStyle={{ paddingBottom: 12 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <SadeList
+                            lines={lines}
+                            services={services}
+                            open={revealed}
+                            tags={tags}
+                            editing={editing}
+                            locked={delivered}
+                            flash={flash}
+                            pending={pending}
+                            door={door}
+                            formulaWritten={formula != null}
+                            onEdit={setEditing}
+                            onUndo={(id) => {
+                                setLines((current) => undoDelete(current, id));
+                                setPending(null);
+                            }}
+                            onDoor={() => { feedback.selection(); setSheet('formula'); }}
+                        />
+                    </ScrollView>
+                ) : null}
+
+                {(phase === 'closing' || phase === 'closed') && !solo ? (
                     <Strip
                         strip={stripOf(lines, lastAdded)}
                         total={total}
@@ -1011,7 +1226,7 @@ export default function Kumanda() {
                     />
                 ) : null}
 
-                {phase === 'closing' || phase === 'closed' ? (
+                {(phase === 'closing' || phase === 'closed') && !solo ? (
                     <View style={{ flex: 1, minHeight: 0 }}>
                         <ScrollView
                             style={{ flex: 1 }}
@@ -1237,8 +1452,54 @@ export default function Kumanda() {
             </View>
 
             {sheet ? (
-                <Sheet onClose={() => setSheet(null)}>
-                    {sheet === 'catalog' ? (
+                <Sheet onClose={() => setSheet(null)} full={solo && sheet === 'catalog'}>
+                    {/*
+                      * Personel 15 · A2: sayfa dokuz katmandan DÖRDE — toplam
+                      * başlığı · ekleme (arama kapısı + kutular + makbuz) ·
+                      * kalemler · malzeme. "Adisyon" başlığı toplamla birleşti,
+                      * "Bitti" kalktı: yazma 0,7 sn'de kendiliğinden.
+                      */}
+                    {sheet === 'catalog' && solo ? (
+                        <View style={{ flex: 1 }}>
+                            <SadeSheetHead
+                                count={kalem}
+                                total={grand}
+                                breakdown={breakdownLine(services, lines, money)}
+                                maskUntil={maskUntil}
+                                onMask={toggleMoney}
+                                onClose={() => setSheet(null)}
+                            />
+                            <SadeSheetBody
+                                frequent={frequent}
+                                lines={lines}
+                                receipt={receipt}
+                                flash={flash}
+                                onSearch={() => setSheet('search')}
+                                onTile={(item) => guardAdd(item, () => soloAdd(item))}
+                                list={(
+                                    <SadeList
+                                        lines={lines}
+                                        services={services}
+                                        open={revealed}
+                                        tags={tags}
+                                        editing={editing}
+                                        locked={delivered}
+                                        flash={flash}
+                                        pending={pending}
+                                        door={door}
+                                        formulaWritten={formula != null}
+                                        onEdit={setEditing}
+                                        onUndo={(id) => {
+                                            setLines((current) => undoDelete(current, id));
+                                            setPending(null);
+                                        }}
+                                        onDoor={() => { feedback.selection(); setSheet('formula'); }}
+                                    />
+                                )}
+                            />
+                        </View>
+                    ) : null}
+                    {sheet === 'catalog' && !solo ? (
                         <CatalogSheet
                             count={liveLines(lines).length}
                             hasRows={lines.length > 0}
@@ -1286,16 +1547,26 @@ export default function Kumanda() {
                             frequent={frequent.items}
                             onQuery={setQuery}
                             onPick={(item) => guardAdd(item, () => {
-                                feedback.light();
-                                setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
-                                setLastAdded(item.name);
+                                // Tek kişilikte aynı yol kutunun yolu: makbuz,
+                                // etiket ve satırın girişi (Personel 15).
+                                if (solo) {
+                                    soloAdd(item);
+                                } else {
+                                    feedback.light();
+                                    setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
+                                    setLastAdded(item.name);
+                                }
                                 setQuery('');
                                 setSheet('catalog');
                             })}
                             onFree={(name, kind) => {
                                 const item = freeItem(name, kind);
-                                setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
-                                setLastAdded(item.name);
+                                if (solo) {
+                                    soloAdd(item);
+                                } else {
+                                    setLines((current) => addLine(current, { ...item, catalogId: item.id }, `n${Date.now()}`));
+                                    setLastAdded(item.name);
+                                }
                                 setQuery('');
                                 setSheet('catalog');
                             }}
@@ -1446,6 +1717,27 @@ export default function Kumanda() {
                     ) : null}
                 </Sheet>
             ) : null}
+
+            {/*
+              * Personel 15 · A5 — SATIR PANELİ (tek kişilik). Satır yerinde
+              * açılmıyor; alttan kısa bir panel, adisyon sayfasının ÜSTÜNDE.
+              * Kaydırarak silme ve uzun basma yok: her satırda aynı tek yol.
+              */}
+            {solo && editLine && !delivered ? (
+                <Sheet onClose={() => setEditing(null)}>
+                    <SadeEditPanel
+                        line={editLine}
+                        open={revealed}
+                        onStep={(dir) => setLines((current) => {
+                            const line = current.find((item) => item.id === editLine.id);
+                            const next = line ? stepQty(line.qty, dir) : null;
+                            return next == null ? current : setQty(current, editLine.id, next);
+                        })}
+                        onRemove={() => soloRemove(editLine.id)}
+                        onClose={() => setEditing(null)}
+                    />
+                </Sheet>
+            ) : null}
         </View>
     );
 }
@@ -1484,8 +1776,14 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
 function Plate({
-    appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard,
+    appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard, sade = false,
 }: {
+    /**
+     * Personel 15 (tek kişilik): durum 13 pt, ad 23 pt, hizmet 16 pt, saat
+     * satırı 15 pt ve düğmelerin ALTINDA tam genişlik. Renk işarette, yazı
+     * mürekkepte (açık temada renkli yazı 4.5:1'i tutmuyor).
+     */
+    sade?: boolean;
     appointment: DemoAppointment;
     /** Sunucuya göre kasada mı, tahsil edildi mi — Bugün kartının kararı. */
     closedCard: 'atcash' | 'paid' | null;
@@ -1503,6 +1801,7 @@ function Plate({
     onCard: () => void;
 }) {
     const { c } = useTheme();
+    const sadeInk = useSadeInk();
     const [openRisk, setOpenRisk] = useState(false);
     const status = phase === 'running' ? { word: 'Sürüyor', tone: c.or }
         // Kapanmış iş "adisyon açık" demez: yeşil, çünkü personelden çıktı.
@@ -1510,6 +1809,69 @@ function Plate({
             : phase === 'closing' ? { word: 'Adisyon açık', tone: c.am }
                 : dialKind === 'waiting' ? { word: 'Kapıda', tone: c.am }
                     : { word: 'Bekleniyor', tone: c.tx3 };
+
+    if (sade) {
+        const ink = sadeInk;
+        const word = status.tone === c.or ? ink.orT
+            : status.tone === c.gr ? ink.grT
+                : status.tone === c.am ? ink.amT
+                    : ink.tx2;
+        return (
+            <>
+            <View style={{
+                flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', columnGap: 10,
+                paddingHorizontal: 20, paddingBottom: ink.small ? 10 : 12,
+            }}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: status.tone === c.tx3 ? ink.tx2 : status.tone }} />
+                        <Text style={{ fontSize: 13, ...sadeFont(700), letterSpacing: 1.82, color: word }}>
+                            {upperTR(status.word)}
+                        </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={{
+                            flexShrink: 1, fontSize: ink.small ? 21 : 23, ...sadeFont(800),
+                            letterSpacing: (ink.small ? 21 : 23) * -0.03, color: c.tx,
+                        }}>
+                            {appointment.customer_name}
+                        </Text>
+                        {risks.length > 0 ? (
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={risks.length > 1
+                                    ? `${risks.length} risk kuralı var`
+                                    : `Risk: ${risks[0].kind}`}
+                                hitSlop={10}
+                                onPress={() => { feedback.selection(); setOpenRisk((open) => !open); }}
+                                style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                <Glyph name="warn" size={21} color={c.rd} />
+                            </Pressable>
+                        ) : null}
+                    </View>
+                    <Text numberOfLines={1} style={{ fontSize: ink.small ? 15 : 16, ...sadeFont(500), color: ink.tx2 }}>
+                        {appointment.service}
+                    </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 6, paddingTop: 4 }}>
+                    <Tool label="Müşteriyi ara" glyph="phone" onPress={onCall} size={ink.small ? 44 : 48} />
+                    <Tool label="Not" glyph="note" dot={Boolean(appointment.notes)} onPress={onNote} size={ink.small ? 44 : 48} />
+                    <Tool label="Müşteri kartı" glyph="user" onPress={onCard} size={ink.small ? 44 : 48} />
+                </View>
+                <Text numberOfLines={1} style={[{
+                    flexBasis: '100%', marginTop: 2,
+                    fontSize: ink.small ? 14 : 15, ...sadeFont(600), color: ink.tx2,
+                }, numeric]}>
+                    {tail}
+                </Text>
+            </View>
+            {openRisk && risks.length > 0 ? (
+                <RiskRow risks={risks} onDone={() => setOpenRisk(false)} />
+            ) : null}
+            </>
+        );
+    }
 
     return (
         <>
@@ -1636,8 +1998,10 @@ function RiskRow({ risks, onDone }: {
     );
 }
 
-function Tool({ label, glyph, dot, onPress }: {
+function Tool({ label, glyph, dot, onPress, size = 48 }: {
     label: string; glyph: 'phone' | 'note' | 'user'; dot?: boolean; onPress?: () => void;
+    /** 375 × 667'de 44 (Personel 15 · A1 küçük ekran). */
+    size?: number;
 }) {
     const { c } = useTheme();
     const off = !onPress;
@@ -1649,8 +2013,8 @@ function Tool({ label, glyph, dot, onPress }: {
             disabled={off}
             onPress={onPress}
             style={({ pressed }) => ({
-                width: 48, height: 48,
-                borderRadius: 16,
+                width: size, height: size,
+                borderRadius: size < 48 ? 14 : 16,
                 backgroundColor: c.fld,
                 borderWidth: 1,
                 borderColor: c.bd,
@@ -2010,8 +2374,17 @@ function Band({ label, note }: { label: string; note: string }) {
  * kapanmayan bir sayfa yalan söyler. Jest yalnız tutamaç şeridinde yaşıyor —
  * gövdede yaşasaydı içerideki listeyi kaydırmakla yarışırdı.
  */
-function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-    const { c, reduceMotion } = useTheme();
+function Sheet({ children, onClose, full = false }: {
+    children: React.ReactNode;
+    onClose: () => void;
+    /**
+     * Tavana kadar TAM BOY (Personel 15 · A2): sade adisyon sayfası içerik
+     * boyunda değil, plakanın altından başlıyor. Kalem sayısı değiştikçe
+     * sayfanın üst kenarı oynamasın.
+     */
+    full?: boolean;
+}) {
+    const { c, reduceMotion, small } = useTheme();
     const insets = useSafeAreaInsets();
     const drag = useRef(new Animated.Value(0)).current;
     const enter = useRef(new Animated.Value(0)).current;
@@ -2042,6 +2415,12 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
         // durum, müşterinin adı ve hizmet. Personel işlemin ortasında ve
         // kimliği kaybetmemeli; onun altındaki her şey sayfaya veriliyor.
         : Math.max(320, winH - insets.top - 108);
+
+    /**
+     * Tam boy sayfanın üstünde bırakılan yer (Personel 15 · `.sheet.adis{top:160px}`,
+     * küçük ekranda 144): büyüyen plakanın dört satırı ve saat satırı.
+     */
+    const fullH = Math.max(320, winH - insets.top - (small ? 144 : 160));
 
     /** Ölçülmeden önce sayfa kendi boyu kadar aşağıda: ekranda hiç görünmüyor. */
     const fall = enter.interpolate({ inputRange: [0, 1], outputRange: [h || SHEET_FALLBACK_H, 0] });
@@ -2113,7 +2492,7 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
                     position: 'absolute',
                     left: 0, right: 0,
                     bottom: kb,
-                    maxHeight: roof,
+                    ...(full ? { height: kb > 0 ? roof : fullH } : { maxHeight: roof }),
                     backgroundColor: c.card,
                     borderTopWidth: 1,
                     borderTopColor: c.bd2,

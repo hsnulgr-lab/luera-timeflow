@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Personel 15 · İş sürerken adisyon, sade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+body{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.66);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--orT:#0E0E0E;--grT:#0E0E0E;--amT:#0E0E0E;--rdT:#0E0E0E;--orbg:rgba(255,90,31,.10);--grbg:rgba(45,143,50,.09);--ambg:rgba(184,122,0,.10);--rdbg:rgba(201,64,64,.08);--fld:rgba(14,14,14,.05);--mask:rgba(14,14,14,.24);--desk:#E4DACA;--scrim:rgba(14,14,14,.34);--warm:rgba(255,90,31,.10)}
+body.dk{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.62);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--orT:#FF7A45;--grT:#5FBF64;--amT:#D9A43B;--rdT:#E07272;--orbg:rgba(255,90,31,.13);--grbg:rgba(95,191,100,.10);--ambg:rgba(217,164,59,.10);--rdbg:rgba(224,114,114,.10);--fld:rgba(243,237,227,.07);--mask:rgba(243,237,227,.28);--desk:#0B0805;--scrim:rgba(0,0,0,.5);--warm:rgba(255,90,31,.13)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--desk);color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px;transition:background 240ms ease}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+a{color:var(--orT);text-decoration:underline}a:hover{color:var(--or)}
+.n{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.ic{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* belge */
+.doc{max-width:1760px;margin:0 auto}
+.dh{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:24px;gap:20px;flex-wrap:wrap}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.meta{text-align:right;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--tx2);line-height:1.7}
+.lede{max-width:940px;margin-bottom:10px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-bottom:14px;text-wrap:balance}
+.lede p{font-size:16px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}.lede b{color:var(--tx)}
+.tgl{position:fixed;top:18px;right:18px;z-index:300;display:flex;gap:8px}
+.tgl button{height:40px;padding:0 15px;border-radius:999px;background:var(--surf);border:1px solid var(--bd2);font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.tgl s{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--tx2)}
+.tgl button[aria-pressed="true"] s{background:var(--or);border-color:var(--or)}
+.bnd{display:flex;align-items:baseline;gap:16px;margin:56px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.bnd .num{font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--tx2)}
+.bnd h2{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.bnd p{margin-left:auto;font-size:14px;font-weight:500;color:var(--tx2);max-width:660px;line-height:1.5}
+.dec{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:12px;max-width:1400px}
+.dec div{background:var(--surf);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;font-size:14px;font-weight:500;color:var(--tx2);line-height:1.5}
+.dec b{display:block;color:var(--tx);font-size:15px;font-weight:800;margin-bottom:3px}
+.q{display:flex;align-items:baseline;gap:14px;margin:8px 0 18px;flex-wrap:wrap}
+.q b{font-size:20px;font-weight:800;letter-spacing:-.015em}.q span{font-size:14px;color:var(--tx2);font-weight:500}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,826px),1fr));gap:40px 60px;margin-bottom:72px}
+.col{display:flex;flex-direction:column;gap:18px;padding-top:14px;border-top:3px solid var(--tx)}
+.col.b{border-top-style:double;border-top-width:5px}
+.colh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.colh b{font-size:16px;font-weight:800}.colh span{font-size:14px;color:var(--tx2);font-weight:500}
+.specs{display:flex;flex-wrap:wrap;gap:36px 40px;align-items:flex-start}
+.spec{width:393px;display:flex;flex-direction:column;gap:10px}.spec.s{width:375px}
+.sl{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.sl b{font-size:14px;font-weight:800}.sl span{font-size:13px;color:var(--tx2);font-weight:600}
+.rs{align-self:flex-start;white-space:nowrap;height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--bd2);font-size:13px;font-weight:700;color:var(--tx2);display:flex;align-items:center;gap:6px}
+.rs .ic{width:16px;height:16px}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.note.cnt::before{background:var(--tx)}
+.bdg{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:6px;border:1px solid var(--bd2);font-size:12.5px;font-weight:800;color:var(--tx);margin-left:4px;vertical-align:1px}
+.tw{overflow-x:auto;max-width:1500px}
+table.t{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;background:var(--surf);border:1px solid var(--bd);border-radius:16px;overflow:hidden;min-width:880px}
+.t th,.t td{padding:12px 16px;text-align:left;vertical-align:top;line-height:1.5;border-top:1px solid var(--bd)}
+.t tr:first-child th{border-top:0}
+.t th{font-size:13px;font-weight:700;color:var(--tx2);background:var(--surf2)}
+.t td{color:var(--tx2);font-weight:500}.t td:first-child{color:var(--tx);font-weight:700;width:250px}
+.t td b{color:var(--tx)}.t code{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--tx)}
+.ok{color:var(--grT);font-weight:800}.no{color:var(--rdT);font-weight:800}
+.rec{max-width:1000px;margin-top:28px;padding:22px 24px;border-radius:20px;background:var(--surf);border:1px solid var(--bd2);font-size:16px;font-weight:500;line-height:1.65;color:var(--tx2)}
+.rec h3{font-size:20px;font-weight:800;color:var(--tx);margin-bottom:8px;letter-spacing:-.015em}.rec b{color:var(--tx)}
+.anat{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+.anc{display:flex;flex-direction:column;gap:10px}
+.anc>b{font-size:14px;font-weight:800}
+.zz{zoom:2;width:353px;background:var(--card);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+.zz .ln:first-child{border-top:0}
+.leg{display:flex;flex-direction:column;gap:8px;max-width:420px;font-size:14px;color:var(--tx2);line-height:1.5}
+.leg b{color:var(--tx)}
+.z1{width:393px;background:var(--card);border:1px solid var(--bd);border-radius:20px;overflow:hidden}
+.z1 .cap{font-size:13px;font-weight:700;color:var(--tx2);padding:12px 20px 4px;letter-spacing:.02em}
+/* telefon */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column;transition:background 240ms ease}
+.phone.sm{width:375px;height:667px;border-radius:30px}
+.status{height:59px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0 46px;font:600 16.5px/1 -apple-system,'SF Pro Text',system-ui,sans-serif;position:relative;z-index:30}
+.status .rt{display:flex;align-items:center;gap:6px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:11px}.bars i{width:3px;background:currentColor;border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8.5px}.bars i:nth-child(4){height:11px}
+.status .wf{width:17px;height:17px;stroke-width:2}
+.batt{width:25px;height:12px;border:1.3px solid currentColor;border-radius:4px;padding:1.5px;display:flex;opacity:.9}.batt i{width:70%;background:currentColor;border-radius:1.5px}
+.sm .status{height:20px;padding:0 8px;font-size:12px}.sm .status .wf{width:14px;height:14px}.sm .batt{width:22px;height:10px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+.warm{position:absolute;left:50%;top:420px;width:560px;height:560px;transform:translate(-50%,-50%);pointer-events:none;background:radial-gradient(closest-side,var(--warm),transparent 74%)}
+.homei{position:absolute;bottom:8px;left:50%;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--tx);opacity:.3;z-index:95;pointer-events:none}
+.sm .homei{display:none}
+/* kumanda */
+.kbk{flex:none;height:48px;display:flex;align-items:center;gap:5px;padding:0 16px;font-size:17px;font-weight:500;color:var(--tx2);position:relative;z-index:2}
+.kbk .ic{width:24px;height:24px}
+.idp{flex:none;display:flex;flex-wrap:wrap;align-items:flex-start;gap:0 10px;padding:0 20px 12px;position:relative;z-index:2}.idp>.t2{flex-basis:100%;margin-top:2px;white-space:nowrap}
+.who{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.st{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--orT);margin-bottom:3px}
+.st s{width:8px;height:8px;border-radius:50%;background:var(--or)}
+.st.am{color:var(--amT)}.st.am s{background:var(--am)}.st.gr{color:var(--grT)}.st.gr s{background:var(--gr)}
+.idp .nm{font-size:23px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.idp .sv{font-size:16px;font-weight:500;color:var(--tx2)}
+.idp .t2{font-size:15px;font-weight:600;color:var(--tx2)}
+.tools{flex:none;display:flex;gap:6px;padding-top:4px}
+.tb{width:48px;height:48px;border-radius:16px;background:var(--fld);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--tx2)}
+.tb .ic{width:21px;height:21px}
+.sm .tb{width:44px;height:44px;border-radius:14px}.sm .idp .nm{font-size:21px}.sm .idp .sv{font-size:15px}.sm .idp .t2{font-size:14px}.sm .kbk{height:44px}.sm .idp{padding-bottom:10px}
+.kdiv{flex:none;height:1px;background:var(--bd);margin:0 20px;position:relative;z-index:2}
+.dial{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;z-index:2}
+.big{font-size:96px;font-weight:800;letter-spacing:-.055em;line-height:.9;color:var(--orT)}
+.unit{font-size:13px;font-weight:700;letter-spacing:.24em;color:var(--tx2);margin-top:10px}
+.plan{display:flex;flex-direction:column;align-items:center;gap:9px}
+.plan>span:last-child{font-size:15px;font-weight:600;color:var(--tx2)}
+.trk{width:201px;height:4px;border-radius:2px;background:var(--bd2);position:relative;display:block}
+.trk i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--or)}
+.trk s{position:absolute;top:-4px;right:0;width:2px;height:12px;background:var(--tx2)}
+.wchip{flex:none;white-space:nowrap;height:44px;padding:0 16px;border-radius:14px;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:var(--amT);background:var(--ambg);border:1px solid var(--am);margin-top:4px}
+.wchip .ic{width:19px;height:19px;color:var(--am)}
+.sm .big{font-size:76px}.sm .dial{gap:7px}.sm .unit{margin-top:6px}
+.as{flex:none;display:flex;flex-direction:column;margin:0 20px;border-radius:24px;background:var(--surf);border:1px solid var(--bd2);position:relative;z-index:2;overflow:hidden}
+.as1{display:flex;align-items:center;gap:8px;min-height:56px;padding:6px 6px 6px 16px}
+.as1 .tx{flex:1;min-width:0;display:flex;align-items:center;gap:4px;min-height:44px;font-size:15px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden}
+.as1 .tx span{overflow:hidden;text-overflow:ellipsis}.as1 .tx b{color:var(--tx);font-weight:700}.as1 .tx .ic{width:18px;height:18px;color:var(--tx2)}
+.add{flex:none;width:56px;height:44px;border-radius:15px;background:var(--orbg);border:1px solid var(--or);color:var(--or2);display:flex;align-items:center;justify-content:center}
+.add .ic{width:24px;height:24px;stroke-width:2}
+.as2{position:relative;display:flex;align-items:center;gap:8px;min-height:56px;padding:6px 6px 6px 16px;border-top:1px solid var(--bd)}
+.as2 .tl{font-size:15px;font-weight:600;color:var(--tx2)}
+.as2 .ta{flex:1;font-size:20px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+.as.sealed{background:transparent;border-color:transparent}
+.as.sealed .as1 .ic{color:var(--tx2);margin-right:10px}
+.fin{flex:none;align-self:center;width:104px;height:104px;border-radius:50%;border:4px solid var(--fld);display:flex;align-items:center;justify-content:center;margin:12px 0 34px;position:relative;z-index:2}
+.fin .core{width:86px;height:86px;border-radius:50%;background:var(--or);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.fin b{font-size:17px;font-weight:800;letter-spacing:.08em}.fin u{text-decoration:none;font-size:9.5px;font-weight:700;letter-spacing:.2em;opacity:.8}
+.sm .fin{margin:8px 0 10px}
+/* maske */
+.mw{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.mk{display:inline-block;width:56px;height:13px;border-radius:7px;background:var(--mask)}
+.mk.lg{width:82px;height:20px;border-radius:10px}.mk.xl{width:160px;height:40px;border-radius:14px}.mk.s{width:44px;height:12px}
+.mb{flex:none;height:44px;padding:0 12px;border-radius:14px;display:flex;align-items:center;gap:7px;font-size:15px;font-weight:700;color:var(--tx);background:var(--surf2);border:1px solid var(--bd2);white-space:nowrap}
+.mb .ic{width:20px;height:20px}.mb em{font-style:normal;color:var(--tx2);font-weight:600}
+.mb.on{border-color:var(--am)}
+.fuse{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--am);transform-origin:left center;animation:fuse 6000ms linear forwards;pointer-events:none}
+@keyframes fuse{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* satır */
+.ln{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:64px;padding:9px 14px 9px 20px;border-top:1px solid var(--bd);text-align:left;background:transparent}
+button.ln:active{background:var(--fld)}
+.lt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.lt b{font-size:17px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ls{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--tx2);white-space:nowrap;overflow:hidden}
+.tg{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--grT)}
+.tg .ic{width:16px;height:16px;color:var(--gr);stroke-width:2.4}
+.qb{flex:none;min-width:42px;height:32px;padding:0 8px;border-radius:10px;border:1.5px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.la{flex:none;font-size:17px;font-weight:700;letter-spacing:-.01em;text-align:right}
+.ln .cv{width:20px;height:20px;color:var(--tx2)}
+.ln .sp{width:20px;flex:none}
+.ln.un{background:var(--ambg)}
+.ua{flex:none;white-space:nowrap;height:44px;padding:0 14px;border-radius:14px;border:1px solid var(--bd2);background:var(--surf2);display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
+.ua .ic{width:19px;height:19px}.ua .n{color:var(--tx2);min-width:10px}
+.ln.on{background:var(--orbg);box-shadow:inset 3px 0 0 var(--or)}
+.fl-new{animation:rin 200ms ease-out}
+@keyframes rin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.fl-inc .qb,.fl-inc .tg,.pop{animation:pop 240ms ease-out}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+/* ekleme */
+.srch{display:flex;align-items:center;gap:10px;height:52px;margin:0 16px;width:calc(100% - 32px);padding:0 16px;border-radius:16px;background:var(--fld);border:1px solid var(--bd2);font-size:16px;font-weight:600;color:var(--tx2)}
+.srch .ic{width:20px;height:20px}
+.lab{font-size:14px;font-weight:600;color:var(--tx2);padding:14px 20px 8px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 16px}
+.tile{height:74px;border-radius:16px;background:var(--surf2);border:1px solid var(--bd);padding:9px 11px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;transition:transform 90ms ease-out}
+.tile:active{transform:scale(.96)}
+.tile b{font-size:15px;font-weight:700;line-height:1.15;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile .tq{font-size:13px;font-weight:600;color:var(--tx2)}
+.tile.in{border:1.5px solid var(--gr);background:var(--grbg)}
+.tbd{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--grT)}
+.tbd .ic{width:15px;height:15px;color:var(--gr);stroke-width:2.4}
+.rc{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;margin:12px 16px 2px;padding:8px 14px;border-radius:14px;font-size:15px;font-weight:500;color:var(--tx2);border:1px dashed var(--bd2);line-height:1.3}
+.rc.on{border:1.5px solid var(--gr);color:var(--tx);background:var(--grbg);animation:fade 160ms ease-out}
+.rc.on .ic{color:var(--gr);stroke-width:2.4}.rc b{font-weight:800;color:var(--tx)}
+.rc.wn{border-color:var(--am);background:var(--ambg)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+/* sayfa */
+.scrim{position:absolute;inset:0;z-index:70;background:var(--scrim)}
+.scrim.s2{z-index:88}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:80;display:flex;flex-direction:column;background:var(--card);border-top:1px solid var(--bd2);border-radius:26px 26px 0 0;overflow:hidden}
+.sheet.adis{top:160px}.sm .sheet.adis{top:144px}
+.sheet.adds{height:428px;box-shadow:0 -10px 30px rgba(0,0,0,.18)}.sm .sheet.adds{height:auto;top:276px}
+.sm .sheet.adds .tile{height:70px}.sm .sheet.adds .lab{padding-top:8px}.sm .sheet.adds .rc{margin-top:4px;min-height:46px}
+.enter{animation:up 260ms cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.grab{flex:none;height:22px;display:flex;align-items:center;justify-content:center}.grab i{width:44px;height:5px;border-radius:3px;background:var(--tx);opacity:.24}
+.shh{flex:none;position:relative;display:flex;align-items:flex-start;gap:10px;padding:2px 16px 12px 20px;border-bottom:1px solid var(--bd)}
+.shh2{flex:none;display:flex;align-items:center;justify-content:space-between;padding:2px 16px 4px 20px}
+.shh2 h3{font-size:21px;font-weight:800;letter-spacing:-.025em}
+.tot{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tl1{font-size:14px;font-weight:600;color:var(--tx2)}
+.tl2{display:flex;align-items:center;gap:12px;min-height:46px}
+.tot .ta{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.1;white-space:nowrap}
+.tl3{font-size:14px;font-weight:500;color:var(--tx2)}
+.kap{flex:none;height:44px;padding:0 14px;border-radius:14px;background:var(--surf2);border:1px solid var(--bd);font-size:15px;font-weight:700}
+.shs{flex:1;min-height:0;overflow-y:auto;padding:14px 0 44px;scrollbar-width:none}
+.shs::-webkit-scrollbar{display:none}
+.lst>.ln:first-child{border-top:1px solid var(--bd)}
+.mzh{display:flex;flex-direction:column;gap:2px;padding:22px 20px 10px;border-top:1px solid var(--bd)}
+.mzh b{font-size:16px;font-weight:800}.mzh span{font-size:14px;font-weight:500;color:var(--tx2)}
+.fr{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:8px 14px 8px 20px;text-align:left;border-top:1px solid var(--bd)}
+.fr::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 3px 3px 0;background:var(--am)}
+.fr.yarim::before{background:linear-gradient(var(--am) 50%,var(--bd2) 50%)}.fr.tam::before{background:var(--gr)}
+.fr .lt b{font-size:16px}.fr .cv{width:20px;height:20px;color:var(--tx2)}
+.fr.k{flex:none;margin:8px 20px 0;width:auto;border:1px solid var(--bd);border-radius:18px;background:var(--surf);overflow:hidden;z-index:2;min-height:52px}
+.mzh+.fr{border-top:0}
+/* arama kapısı (Personel 13, değişmiyor) */
+.srov{position:absolute;left:0;right:0;bottom:0;top:110px;z-index:85;background:var(--card);border-radius:26px 26px 0 0;border-top:1px solid var(--bd2);display:flex;flex-direction:column}
+.sm .srov{top:60px}
+.srh{display:flex;gap:10px;align-items:center;padding:16px 16px 8px}
+.srf{flex:1;height:52px;border-radius:16px;border:1.5px solid var(--or);display:flex;align-items:center;gap:10px;padding:0 14px;font-size:16px;font-weight:600;color:var(--tx2)}
+.srn{font-size:13px;font-weight:600;color:var(--tx2);padding:4px 20px 10px;line-height:1.4}
+.srl{flex:1;overflow-y:auto;scrollbar-width:none}
+.srr{display:flex;flex-direction:column;gap:2px;width:100%;min-height:58px;padding:9px 20px;border-top:1px solid var(--bd);justify-content:center}
+.srr b{font-size:17px;font-weight:700}.srr span{font-size:14px;color:var(--tx2);font-weight:500}
+.srr.ask{background:var(--ambg);gap:4px}
+.askb{display:flex;gap:10px;margin-top:8px}
+.askb button{height:44px;padding:0 16px;border-radius:14px;font-size:15px;font-weight:800;border:1px solid var(--bd2);background:var(--surf2)}
+.askb button:first-child{border-color:var(--am)}
+/* satır paneli */
+.edp{position:absolute;left:0;right:0;bottom:0;z-index:90;background:var(--card);border-top:1px solid var(--bd2);border-radius:26px 26px 0 0;padding:0 20px 36px;display:flex;flex-direction:column;gap:14px}
+.sm .edp{padding-bottom:16px;gap:12px}
+.edh{display:flex;flex-direction:column;gap:3px}.edh b{font-size:22px;font-weight:800;letter-spacing:-.02em}.edh span{font-size:15px;font-weight:500;color:var(--tx2)}
+.stp{display:flex;align-items:center;gap:12px}
+.stp button{width:68px;height:64px;border-radius:20px;background:var(--surf2);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center}
+.stp button .ic{width:28px;height:28px;stroke-width:2.2}
+.stp button.off{opacity:.38;cursor:default}
+.stp b{flex:1;text-align:center;font-size:42px;font-weight:800;letter-spacing:-.03em}
+.edn{font-size:15px;font-weight:500;color:var(--tx2);text-align:center}
+.edb{display:flex;gap:12px}
+.edb button{height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800}
+.edb .rmv{flex:1;border:1.5px solid var(--rd);color:var(--rdT);background:var(--rdbg)}.edb .rmv .ic{color:var(--rd)}
+.edb .okb{flex:1.3;background:var(--tx);color:var(--bg)}
+/* Yol B */
+.sb{flex:none;margin:4px 20px 0;padding:12px 16px 14px;border-radius:22px;background:var(--surf);border:1px solid var(--bd);display:flex;flex-direction:column;gap:10px;position:relative;z-index:2}
+.sb1{display:flex;align-items:center;gap:12px}
+.bt{flex:1;display:flex;align-items:baseline;gap:10px}
+.bt b{font-size:46px;font-weight:800;letter-spacing:-.05em;line-height:1;color:var(--orT)}
+.bt span{font-size:15px;font-weight:600;color:var(--tx2)}
+.sb .wchip{margin:0}
+.sb2{display:flex;align-items:center;gap:12px}.sb2 .trk{flex:1;width:auto}.sb2>span{font-size:14px;font-weight:600;color:var(--tx2);white-space:nowrap}
+.ring{flex:none;width:54px;height:54px}.ring svg{width:54px;height:54px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}.ring .r0{stroke:var(--bd2)}.ring .r1{stroke:var(--am);stroke-linecap:round}
+.wt{flex:1;display:flex;flex-direction:column;gap:3px}.wt b{font-size:34px;font-weight:800;color:var(--amT);line-height:1;letter-spacing:-.03em}.wt span{font-size:14px;color:var(--tx2);font-weight:600}
+.el{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.el b{font-size:22px;font-weight:800;letter-spacing:-.02em}.el span{font-size:13px;color:var(--tx2);font-weight:600}
+.idp.c{padding-bottom:10px}
+.bhd{flex:none;position:relative;display:flex;align-items:flex-start;gap:10px;padding:10px 16px 10px 20px;z-index:2}
+.bhd .tot .ta{font-size:26px}
+.blist{flex:1;min-height:0;overflow:hidden;position:relative;z-index:2}.blist .ln{min-height:62px}.bhd .mb{margin-top:6px}.bh-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.bh-l .ta{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.15;white-space:nowrap}.sv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fold{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:0 14px 0 20px;border-top:1px solid var(--bd);font-size:15px;font-weight:500;color:var(--tx2);text-align:left}
+.fold b{color:var(--tx);font-weight:700}.fold .fa{margin-left:auto;display:flex;align-items:center;gap:4px;font-weight:700;color:var(--tx)}.fold .ic{width:18px;height:18px}
+.bd{flex:none;display:flex;align-items:center;gap:14px;padding:8px 20px 26px;position:relative;z-index:2;border-top:1px solid var(--bd)}
+.sm .bd{padding:6px 20px 8px}
+.kek{flex:1;height:64px;border-radius:22px;background:var(--orbg);border:1.5px solid var(--or);color:var(--orT);display:flex;align-items:center;justify-content:center;gap:10px;font-size:18px;font-weight:800;letter-spacing:-.01em}
+.kek .ic{color:var(--or2);width:24px;height:24px;stroke-width:2}
+.bd .fin{margin:0}
+.sm .bt b{font-size:40px}.sm .sb{padding:8px 14px 10px;gap:6px}.sm .bhd{padding:8px 16px 6px 20px}.sm .bd{padding:6px 20px 6px}.sm .blist .fr{min-height:52px}
+/* kapanış */
+.kz{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 20px 14px;position:relative;z-index:2}
+.kmw{position:relative;display:flex;align-items:center;padding-bottom:10px}
+.kamt{font-size:64px;font-weight:800;letter-spacing:-.045em;line-height:1;display:flex;align-items:center;gap:8px}
+.ktot{font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--tx2);margin-top:4px}
+.kdur{font-size:16px;font-weight:600;color:var(--tx2)}.kdur b{color:var(--tx)}
+.klist{flex:1;min-height:0;overflow-y:auto;margin-top:10px;position:relative;z-index:2;scrollbar-width:none}
+.klist::-webkit-scrollbar{display:none}
+.kfoot{flex:none;display:flex;flex-direction:column;gap:10px;padding:12px 11px 30px;border-top:1px solid var(--bd);background:var(--bg);position:relative;z-index:2}
+.seg{display:flex;padding:4px;gap:2px;border-radius:14px;background:var(--fld);border:1px solid var(--bd)}
+.seg button{flex:1;height:44px;border-radius:10px;font-size:16px;font-weight:700;color:var(--tx2);display:flex;align-items:center;justify-content:center}
+.seg button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 3px rgba(14,14,14,.14)}
+.kbtn{height:59px;border-radius:26px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:-.02em;width:100%}
+.kbtn.off{background:var(--fld);color:var(--tx2);border:1.5px solid var(--bd2)}
+.kgh{height:40px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--tx2);width:100%}
+.kdone{height:59px;border-radius:26px;border:1.5px solid var(--gr);background:var(--grbg);color:var(--grT);display:flex;align-items:center;justify-content:center;gap:10px;font-size:19px;font-weight:800}
+.kdone .ic{color:var(--gr);stroke-width:2.4}
+.kfoot p{font-size:14px;font-weight:500;color:var(--tx2);text-align:center}
+/* hareketi azalt */
+body.rm .fuse{display:none}
+body.rm .phone *{animation:none!important;transition:none!important}
+</style></head>
+<body class="dk">
+<template id="__bundler_thumbnail" data-bg-color="#120E08"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#120E08"/><rect x="380" y="140" width="200" height="440" rx="34" fill="#1C1710" stroke="#F3EDE3" stroke-opacity=".2"/><rect x="620" y="140" width="200" height="440" rx="34" fill="#1C1710" stroke="#F3EDE3" stroke-opacity=".2"/><rect x="404" y="420" width="152" height="60" rx="16" fill="#241E16"/><rect x="644" y="300" width="152" height="40" rx="10" fill="#241E16"/><rect x="644" y="350" width="152" height="40" rx="10" fill="#241E16"/><circle cx="480" cy="530" r="28" fill="#FF5A1F"/><circle cx="760" cy="530" r="28" fill="#FF5A1F"/><text x="600" y="690" font-family="system-ui,sans-serif" font-size="62" font-weight="800" text-anchor="middle" fill="#F3EDE3">A · B</text></svg></template>
+<div class="tgl"><button id="tTheme" aria-pressed="true"><s></s>Koyu tema</button><button id="tRm" aria-pressed="false"><s></s>Hareketi azalt</button></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.8h3l1.5 3.7-1.9 1.5a10.6 10.6 0 0 0 4.8 4.8l1.5-1.9 3.7 1.5v3a2 2 0 0 1-2.2 2A15.6 15.6 0 0 1 4.6 6a2 2 0 0 1 2-2.2z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-note" viewBox="0 0 24 24"><path d="M6 3.6h9L19 8v12.4H6zM15 3.6V8h4"/><path d="M9 12.5h7M9 16h5"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.6" r="7.4"/><path d="M12 10v3.6M9.6 3.2h4.8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6 20 20"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S6 6.6 12 6.6 21.4 12 21.4 12 18 17.4 12 17.4 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3.4 21 20.6M10.4 6.8c.5-.1 1-.2 1.6-.2 6 0 9.4 5.4 9.4 5.4s-.9 1.5-2.6 3.1M6.3 8C3.9 9.7 2.6 12 2.6 12S6 17.4 12 17.4c1.6 0 3-.4 4.2-1M9.9 10a2.8 2.8 0 0 0 4 4"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.8h15M9.5 6.8V4.6h5v2.2M6.6 6.8l.9 12.6h9l.9-12.6M10.2 10.6v5.6M13.8 10.6v5.6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-undo" viewBox="0 0 24 24"><path d="M8.6 5 4.6 9l4 4"/><path d="M4.6 9h9.2a5.6 5.6 0 0 1 0 11.2H9"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-lock" viewBox="0 0 24 24"><rect x="5.4" y="10.4" width="13.2" height="9.6" rx="2"/><path d="M8.4 10.4V7.6a3.6 3.6 0 0 1 7.2 0v2.8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-cash" viewBox="0 0 24 24"><path d="M3.6 7.4h16.8v9.2H3.6zM12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-wifi" viewBox="0 0 24 24"><path d="M2.6 9.2a13.6 13.6 0 0 1 18.8 0M5.6 12.4a9.2 9.2 0 0 1 12.8 0M8.7 15.6a4.8 4.8 0 0 1 6.6 0M12 19h.01"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.4h4.4"/></symbol>
+</defs></svg>
+
+<div class="doc">
+<div class="dh"><div class="mark">luera<i></i></div><div class="meta">Mobil · Personel 15<br/>İş sürerken adisyon · sade<br/>393 × 852 · A1 ve B1 ayrıca 375 × 667</div></div>
+<div class="lede">
+<h1>İş sürerken adisyon: dört dert, iki yol</h1>
+<p>Kullanıcının notu: <b>"çok karmaşık, okunmuyor."</b> Dört dert: çok fazla bölüm, soluk ve küçük yazı, anlaşılmayan tutar, zor kalem ekleme ("eklendi mi anlamıyorum", "adedi değiştirmek / kaldırmak zor"). <b>Yol A</b> kumandayı korur ve adisyon sayfasını sadeleştirir. <b>Yol B</b> kalemleri ana ekrana getirir ve süreyi küçültür. İki yol aynı satırı, aynı maskeyi ve aynı satır panelini kullanır.</p>
+<p>Her telefon dokunulabilir: kutuya dokunun (kalem ekler), satıra dokunun (adet ve kaldırma), <b>Göster</b>'e basın (6 sn açılır). Arama kapısı sade bir listeye açılır; arama yüzü Personel 13'ün kararı ve değişmiyor. Kare altındaki <b>Başa al</b> kareyi ilk hâline döndürür. Sağ üstte tema ve "hareketi azalt".</p>
+</div>
+
+<div class="bnd"><span class="num">00</span><h2>Ortak kararlar</h2><p>İki yolda aynı olanlar. Her biri tek cümle gerekçeyle.</p></div>
+<div class="dec">
+<div><b>Kalem = ödenecek satır</b>Randevu hizmeti, ek hizmet ve ürün kalemdir; malzeme kalem değil, "malzeme" diye ayrı sayılır. Toplam neyi sayıyorsa "kalem" de onu sayar; kadran ve şerit aynı sayıyı yazar.</div>
+<div><b>Toplam = randevu + Σ fiyat × adet</b>Müşterinin ödeyeceği tamamı. Malzeme fiyatsız ve toplama girmez. Açıkken altında kırılım: "Saç boyama ₺1.800 + 3 kalem ₺920".</div>
+<div><b>Maske adını ve süresini söyler</b>Üç nokta "daha fazla" menüsüyle karışıyordu. Yerine "₺" ve dolu çubuk, yanında "Göster · 6 sn". Açıkken "Gizle 5", altında soldan sabit fitil. Ekranda tek maske: toplam, satır tutarları ve birim fiyat birlikte açılır, birlikte kapanır.</div>
+<div><b>En yeni üstte</b>Eklenen kalem, dokunulan kutunun hemen altına girer; göz kutudan ayrılmadan satırı görür. Adet artışı yeni satır açmaz, satır yerinde kalır.</div>
+<div><b>"Eklendi" üç yerde, kalıcı</b>Kutu "✓ Adisyonda ×2" olur (durum, 0,9 sn'lik parlama değil). Kutunun altındaki makbuz satırı ne olduğunu yazar. Satırda "✓ Yeni" ya da "✓ ×2 oldu"; sayfa bir dahaki açılışa kadar kalır.</div>
+<div><b>Adet ve kaldırma satır panelinde</b>Satırın sağındaki ok dokunulabilirliği söyler. Panelde 68 × 64 pt − / +, 1'de − kapalı, ayrı ve kırmızı çerçeveli "Kaldır". Eldivenli parmak için büyük hedef, yanlış satır için ayrı eylem.</div>
+<div><b>Renk işarette, yazı mürekkepte</b>Açık temada turuncu, amber, yeşil ve kırmızı yazı 4.5:1'i tutmuyor (2.6–4.1). Açık temada yazı mürekkep, renk nokta, çizgi, çerçeve ve ikonda. Koyu temada renkli yazı kalır.</div>
+<div><b>İkincil yazı koyulaştı</b><code>tx2</code> açıkta .52 → .66, koyuda .58 → .62 (aynı mürekkep, yeni renk yok). <code>tx3</code> artık yazıda yok; yalnız çizgi ve tutamakta.</div>
+<div><b>Büyük harfli soluk başlıklar</b>KALEMLER, RANDEVU, EK HİZMET, MALZEME kalktı. Kalanlar (SÜRÜYOR, GEÇEN SÜRE, TOPLAM · n KALEM) 13 pt, <code>tx2</code> ya da renkli. Büyük harf metinde yazılı.</div>
+</div>
+
+<div class="bnd"><span class="num">S</span><h2>Satırın anatomisi</h2><p>Yakın plan, 2×. Dört satır, gizli ve açık. Satırın dokunulabilir olduğu satırdan okunur: ok varsa dokunulur.</p></div>
+<div class="anat" id="anat"></div>
+
+<div class="bnd"><span class="num">A · B</span><h2>İki yol yan yana</h2><p>Solda Yol A (süre büyük kalır, adisyon sayfası sadeleşir), sağda Yol B (adisyon ana ekrana gelir, süre küçülür). Her satır aynı soruyu iki yolda cevaplar.</p></div>
+
+<div class="q"><b>1 · Kumanda, iş sürerken</b><span>Tuğçe Erden · Saç boyama ₺1.800 · 74:12 · 3 kalem + 2 malzeme · toplam ₺2.720</span></div>
+<div class="pair">
+<div class="col"><div class="colh"><b>Yol A</b><span>Süre büyük kalır</span></div><div class="specs">
+<div class="spec"><div class="sl"><b>A1 — Kumanda işlemde</b><span>393 × 852</span></div><div class="phone" data-f="A1"></div><button class="rs" data-reset="A1"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Şerit iki satır:</b> üstte ne var (4 kalem · son eklenen), altta ne kadar (Toplam ₺ ▬ · Göster 6 sn). Gizlinin adı ve süresi yazılı.</span></div>
+<div class="note"><span>Üstteki satır ve + aynı sayfayı açar; "Göster" sayfayı açmadan toplamı açar.</span></div>
+<div class="note"><span>Kadran, plan, Bekleme kur ve BİTİR olduğu gibi. Açık temada süre mürekkebe geçer: turuncu 96 pt süre kremde 2.6:1.</span></div>
+<div class="note"><span>Formül satırı şeridin altında, amber kenarla; bugünkü yerinde.</span></div></div>
+<div class="spec s"><div class="sl"><b>A1 — Küçük ekran</b><span>375 × 667</span></div><div class="phone sm" data-f="A1s"></div><button class="rs" data-reset="A1s"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Feda edilen:</b> süre 96 → 76 pt, plaka düğmeleri 48 → 44 pt. Bilgi düşmedi; şerit, formül satırı ve BİTİR tam boy.</span></div></div>
+</div></div>
+<div class="col b"><div class="colh"><b>Yol B</b><span>Adisyon ana ekranda</span></div><div class="specs">
+<div class="spec"><div class="sl"><b>B1 — Kalemler ana ekranda, tutar gizli</b><span>393 × 852</span></div><div class="phone" data-f="B1"></div><button class="rs" data-reset="B1"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Süre bandı:</b> 46 pt süre, plan çubuğu ve Bekleme kur tek kartta. Süre küçüldü ama ekranın en büyük rakamı.</span></div>
+<div class="note"><span>Kalemler en yeni üstte; malzeme tek satıra iner ("2 malzeme · Boya 7.3 ×2, Oksidan %6"), çünkü para değil stok.</span></div>
+<div class="note"><span>Altta "+ Kalem ekle" ve BİTİR yan yana; ikisi de hiç yer değiştirmez.</span></div>
+<div class="note"><span>Sayfa kaydırılmaz. Liste en fazla 4 satır gösterir; fazlası "n kalem daha" satırına katlanır (B4).</span></div></div>
+<div class="spec s"><div class="sl"><b>B1 — Küçük ekran</b><span>375 × 667</span></div><div class="phone sm" data-f="B1s"></div><button class="rs" data-reset="B1s"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Feda edilen:</b> liste penceresi 3 satıra iner; 4 kalemde 2 satır + "2 kalem daha". Süre 40 pt. Ekleme sayfası açıkken liste görünmez; "eklendi" yalnız makbuz ve kutu rozetinden okunur.</span></div></div>
+</div></div>
+</div>
+
+<div class="q"><b>2 · Adisyon, tutar gizli ve açık</b><span>A'da sayfada, B'de ana ekranda. Göster'e basın; 6 sn sonra kendiliğinden kapanır.</span></div>
+<div class="pair">
+<div class="col"><div class="colh"><b>Yol A</b><span>Sayfa</span></div><div class="specs">
+<div class="spec"><div class="sl"><b>A2 — Adisyon sayfası, tutar gizli</b><span>dokuz → dört</span></div><div class="phone" data-f="A2"></div><button class="rs" data-reset="A2"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note cnt"><span><b>Bölümler dokuz → dört:</b> toplam başlığı · ekleme (arama kapısı + 6 kutu + makbuz) · kalemler · malzeme.</span></div>
+<div class="note"><span>"Adisyon" başlığı ve "n kalem" toplam başlığında birleşti: "Toplam · 4 kalem".</span></div>
+<div class="note"><span>"KALEMLER · n satır", "RANDEVU", "EK HİZMET" başlıkları kalktı; tür satırın içinde yazılı. Randevu satırı "Randevu hizmeti" der ve oku yoktur.</span></div>
+<div class="note"><span>"Yeniden eklemeyin" cümlesi kalktı; o iş arama yüzündeki tek soruya geçti (A4).</span></div>
+<div class="note"><span>"Depodan düşer" malzeme başlığına çıktı; tutar sütununda yalnız para durur.</span></div>
+<div class="note"><span>"Bitti" kalktı: yazma 0,7 sn'de kendiliğinden. Kapatmak için üstte "Kapat", dışarı dokunmak ya da aşağı çekmek.</span></div></div>
+<div class="spec"><div class="sl"><b>A3 — Aynı sayfa, tutar açık</b><span>6 sn</span></div><div class="phone" data-f="A3"></div><button class="rs" data-reset="A3"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Toplamın altında kırılım: randevu hizmeti + eklenenler. Satır tutarları fiyat × adet.</span></div>
+<div class="note"><span>"Gizle 5": kalan saniye düğmede yazılı; fitil soldan sabit, sağdan kısalır. Hareketi azaltınca fitil durur, saniye kalır.</span></div>
+<div class="note"><span>Gizle'ye basmak beklemeden kapatır.</span></div></div>
+</div></div>
+<div class="col b"><div class="colh"><b>Yol B</b><span>Ana ekran</span></div><div class="specs">
+<div class="spec"><div class="sl"><b>B2 — Ana ekran, tutar açık</b><span>6 sn</span></div><div class="phone" data-f="B2"></div><button class="rs" data-reset="B2"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Toplam, kırılım ve satır tutarları aynı bakışta. Fitil başlığın altında.</span></div>
+<div class="note"><span>Katlı satırlar açılmaz; toplam onları da sayar.</span></div></div>
+<div class="spec"><div class="sl"><b>B3 — Bekleme kuruluyken</b><span>krem · 25 dk</span></div><div class="phone" data-f="B3"></div><button class="rs" data-reset="B3"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Aciliyet beklemede:</b> halka ve kalan dakika bandın solunda, en büyük rakam. Geçen süre sağda 22 pt'ye iner.</span></div>
+<div class="note"><span>Halka bugünkü bileşen, yeri değişti. Plan çubuğu altta kalır.</span></div></div>
+</div></div>
+</div>
+
+<div class="q"><b>3 · Kalem eklendi</b><span>Bir kutuya iki kez dokunun: ilki "Yeni", ikincisi "×2 oldu".</span></div>
+<div class="pair">
+<div class="col"><div class="colh"><b>Yol A</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>A4 — Yeni satır ve adet artışı</b><span>Bakım maskesi · Fön ×2</span></div><div class="phone" data-f="A4"></div><button class="rs" data-reset="A4"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Ekleme kontrolünün yanında ve listede, ikisinde de.</b> Kutu "✓ Adisyonda ×2" olur; hemen altındaki makbuz "Fön ×2 oldu · satırı yerinde" der; satırda "✓ ×2 oldu".</span></div>
+<div class="note"><span>Yeni satır kutuların hemen altına, listenin en üstüne girer; ekran dışında kalmaz.</span></div>
+<div class="note"><span>Makbuz ve etiketler yanıp sönmez; sonraki eyleme ya da sayfa yeniden açılana kadar kalır.</span></div>
+<div class="note"><span>Arama kapısı ekleme bölümünün başında. Arama yüzünde randevudaki hizmete dokununca satırda tek soru: "iki kez tahsil edilir · Yine de ekle / Vazgeç".</span></div>
+<div class="note"><span>20'de dokunuş artırmaz; makbuz "en çok 20" der.</span></div></div>
+</div></div>
+<div class="col b"><div class="colh"><b>Yol B</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>B5 — Kalem eklendi</b><span>ekleme sayfası açık</span></div><div class="phone" data-f="B5a"></div><button class="rs" data-reset="B5a"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Ekleme sayfası yarım boy ve perdesiz; liste üstte okunur kalır, yeni satır sayfanın hemen üstünde görünür.</span></div>
+<div class="note"><span>Makbuz sayfanın en üstünde, listeye en yakın yerde. Arama kapısı en altta, başparmağın yanında.</span></div>
+<div class="note"><span>Sayfa kapanınca etiketler ana ekranda kalır: "eklendi mi" sorusu sayfa kapandıktan sonra da cevaplı.</span></div></div>
+</div></div>
+</div>
+
+<div class="q"><b>4 · Adet değiştir ve kaldır</b><span>Satıra dokunun → panel. Kaldır → satır yerinde "Geri al · 6 sn" olur.</span></div>
+<div class="pair">
+<div class="col"><div class="colh"><b>Yol A</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>A5 — Satır paneli</b><span>Şampuan ×2</span></div><div class="phone" data-f="A5a"></div><button class="rs" data-reset="A5a"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Önerim:</b> satır yerinde açılmaz; alttan kısa bir panel açılır. Kontrol gizli değil, satırın oku onu çağırıyor.</span></div>
+<div class="note"><span>Düzenlenen satır listede turuncu kenarla işaretli; hangi satırda olduğun kaybolmaz.</span></div>
+<div class="note"><span>Adet 1–20; 1'de − kapalı ve altında "silmek için Kaldır". Değişiklik anında yazılır, "Tamam" yalnız kapatır.</span></div>
+<div class="note"><span>Uzun basma ve kaydırarak silme yok: panel her satırda aynı tek yol.</span></div></div>
+<div class="spec"><div class="sl"><b>A5 — Geri alma penceresi</b><span>satırın kendi yerinde</span></div><div class="phone" data-f="A5b"></div><button class="rs" data-reset="A5b"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Satır aynı yükseklikte "Fön kaldırıldı · Geri al 6" olur; liste zıplamaz, geri alınan satır aynı yere döner.</span></div>
+<div class="note"><span><b>Fitil yönü:</b> sol uç sabit, sağ uç sola yürür; tutar maskesinin fitiliyle aynı. Görüntüdeki ortaya kısalma düzeltildi.</span></div>
+<div class="note"><span>Pencere boyunca toplam kaldırılmış hâli sayar; malzeme silinirken formül yazılıysa "formülün malzeme yarısı değişir" (S'de çizili).</span></div></div>
+</div></div>
+<div class="col b"><div class="colh"><b>Yol B</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>B5 — Satır paneli</b><span>ana ekrandan</span></div><div class="phone" data-f="B5b"></div><button class="rs" data-reset="B5b"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>A'daki panelin aynısı, ana ekranın üstünde. Panel kapanınca BİTİR ve + yerinde.</span></div></div>
+<div class="spec"><div class="sl"><b>B5 — Geri alma penceresi</b><span>ana ekranda</span></div><div class="phone" data-f="B5c"></div><button class="rs" data-reset="B5c"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Pencere satır sayısına girer; pencere bitene kadar katlama sınırı değişmez.</span></div></div>
+</div></div>
+</div>
+
+<div class="q"><b>5 · Kenar hâller</b><span>A'da boş adisyon, B'de kalabalık adisyon.</span></div>
+<div class="pair">
+<div class="col"><div class="colh"><b>Yol A</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>A6 — Henüz kalem yok</b><span>yalnız randevu</span></div><div class="phone" data-f="A6"></div><button class="rs" data-reset="A6"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Toplam yine ₺1.800 ve gizli; "Toplam · 1 kalem". Liste tek satır: randevu hizmeti.</span></div>
+<div class="note"><span>Malzeme yoksa malzeme bölümü ve formül satırı çizilmez.</span></div>
+<div class="note"><span>Makbuz boşken yalnız ne olacağını söyler: "Dokunduğun kalem listenin en üstüne girer."</span></div></div>
+</div></div>
+<div class="col b"><div class="colh"><b>Yol B</b></div><div class="specs">
+<div class="spec"><div class="sl"><b>B4 — Kalabalık: 8 kalem + 3 malzeme</b><span>sayfa kaydırılmaz</span></div><div class="phone" data-f="B4"></div><button class="rs" data-reset="B4"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>Son 3 kalem görünür, gerisi katlanır:</b> "5 kalem daha · randevu hizmeti dahil · Tümü". Liste kendi içinde kaymaz; her bakışta aynı yer.</span></div>
+<div class="note"><span>Tümü, A'daki adisyon sayfasını açar (aynı bileşen). Toplam her zaman hepsini sayar.</span></div>
+<div class="note"><span>Malzeme 3 olsa da tek satır. BİTİR ve + yerinde.</span></div>
+<div class="note"><span>Uç kesimi, Kaş alma, Fön spreyi, Bakım maskesi ve Boya 6.0 kalabalığı göstermek için katalog örneği.</span></div></div>
+</div></div>
+</div>
+
+<div class="bnd"><span class="num">K</span><h2>Kapanış ekranında yeni satır</h2><p>v4 K3'ün düzeni aynen: kadran, şerit, liste, tahsilat güvertesi. Yalnız liste yeni satırla çizildi. Kadranın toplamı ve satır tutarları aynı maskeyi paylaşır.</p></div>
+<div class="specs">
+<div class="spec"><div class="sl"><b>K1 — ADİSYON AÇIK</b><span>v4 K3 düzeni</span></div><div class="phone" data-f="K1"></div><button class="rs" data-reset="K1"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span><b>"Kalem" tek anlamda:</b> kadran "TOPLAM · 4 KALEM", şerit "4 kalem". Görüntü 6'daki 2 / 1 ayrılığı biter; o örnekte ikisi de 2 olurdu.</span></div>
+<div class="note"><span>Kadranda Göster'e basmak satır tutarlarını da açar; biri açık, öteki kapalı kalamaz.</span></div>
+<div class="note"><span>Satır paneli burada da aynı. Yöntem seçin, düğme adlanır ("Kartla tahsil et").</span></div>
+<div class="note"><span>Liste bölgesi kendi içinde kayar; kadran, şerit ve güverte yerinde.</span></div></div>
+<div class="spec"><div class="sl"><b>K2 — TAHSİL EDİLDİ</b><span>mühürlü</span></div><div class="phone" data-f="K2"></div><button class="rs" data-reset="K2"><svg class="ic"><use href="#i-reset"/></svg>Başa al</button>
+<div class="note"><span>Şerit "4 kalem · mühürlü, değiştirilemez" ve kilit. Satırlarda ok yok: dokunulamaz olduğu satırdan okunur.</span></div>
+<div class="note"><span>Maske kapanışta da aynı kural: 6 sn.</span></div></div>
+</div>
+
+<div class="bnd"><span class="num">H</span><h2>Hareketler ve bedel</h2><p>RN <code>Animated</code>; yalnız opacity, translateX/Y ve scale. Yükseklik animasyonu yok. Bedel: A bugün yazılır · B gesture-handler ya da Skia ister · C mümkün değil.</p></div>
+<div class="tw"><table class="t">
+<tr><th>Hareket</th><th>Özellik · ms · eğri</th><th>reduceMotion</th><th>Bedel</th></tr>
+<tr><td>Sayfa açılır (A adisyon, B ekleme)</td><td><code>translateY 100% → 0 · 260 ms · bezier(.2,.8,.2,1)</code></td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Kutuya dokunuş</td><td><code>scale 1 → .96 → 1 · 90 + 140 ms · ease-out</code> + hafif tık</td><td>ölçek yok, tık kalır</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Kutu rozeti "✓ Adisyonda ×2"</td><td><code>scale 1 → 1.18 → 1 · 240 ms · ease-out</code></td><td>yalnız yazı değişir</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Yeni satır girer</td><td><code>opacity 0 → 1, translateY −8 → 0 · 200 ms · ease-out</code>; altındakiler animasyonsuz yer açar</td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>"×2 oldu"</td><td>adet rozeti ve etiket <code>scale 1 → 1.18 → 1 · 240 ms · ease-out</code> + hafif tık</td><td>yazı kalır</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Makbuz satırı değişir</td><td><code>opacity 0 → 1 · 160 ms · ease-out</code></td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Satır paneli</td><td><code>translateY 100% → 0 · 260 ms · bezier(.2,.8,.2,1)</code>; perde <code>opacity 0 → 1 · 200 ms</code></td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Kaldır → geri al satırı</td><td>içerik <code>opacity çapraz · 160 ms</code>; yükseklik sabit + uyarı tıkı</td><td>anında, tık kalır</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Fitil (geri al ve maske)</td><td>sol uç sabit: <code>translateX 0 → −100% · 6000 ms · linear</code>, kaplayıcı <code>overflow:hidden</code> (transformOrigin'e gerek yok)</td><td>fitil yok, saniye düğmede</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Pencere biter</td><td><code>opacity 1 → 0 · 200 ms · ease-in</code>, sonra satır listeden çıkar</td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Tutar açılır / kapanır</td><td>maske <code>opacity 1 → 0 · 120 ms</code>, rakam <code>opacity 0 → 1, translateY 4 → 0 · 160 ms · ease-out</code></td><td>anında</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Tutarın bulanıklıktan açılması</td><td>blur geçişi; çizilmedi, yerine yukarıdaki opacity geçişi</td><td>—</td><td><span class="bdg">B</span> Skia</td></tr>
+<tr><td>Kontroller</td><td>satır, kutu, Göster, Geri al, − / +, Kaldır: <code>Pressable</code>; yeni satırı görünür tutmak: <code>ScrollView.scrollTo</code>; B'de pencere sayısı: <code>onLayout</code></td><td>—</td><td><span class="bdg">A</span></td></tr>
+<tr><td>Kaydırarak silme</td><td>kural gereği yok (alt sayfanın çekme jestiyle çakışır)</td><td>—</td><td>—</td></tr>
+</table></div>
+
+<div class="bnd"><span class="num">O</span><h2>Okunurluk ölçümü</h2><p>Jeton değerlerinden hesaplandı (WCAG, saydamlık zemine karıştırılarak). Okunan yazı ≥ 4.5:1, ≥ 13 pt.</p></div>
+<div class="tw" id="contrast"></div>
+
+<div class="bnd"><span class="num">K/K</span><h2>Karşılaştırma</h2><p>Yukarıdaki kareler ne gösteriyorsa o.</p></div>
+<div class="tw"><table class="t">
+<tr><th></th><th>Yol A · süre büyük</th><th>Yol B · adisyon ana ekranda</th></tr>
+<tr><td>Bir bakışta toplam okunuyor mu</td><td>Şeritte "Toplam ₺ ▬ · Göster 6 sn": neyin gizli olduğu ve nasıl açılacağı okunur; tek dokunuşla açılır. Kırılım ve satır tutarları sayfada.</td><td>Başlıkta aynı maske; tek dokunuş toplamı, kırılımı ve görünen satır tutarlarını birlikte açar.</td></tr>
+<tr><td>Kalem eklemek kaç dokunuş (sık kullanılan / arama)</td><td>2 (+, kutu); kumandaya dönmek +1. Arama: 3 + yazma (+, kapı, sonuç).</td><td>2 (Kalem ekle, kutu); BİTİR'e dönmek +1. Arama: 3 + yazma.</td></tr>
+<tr><td>"Eklendi mi" sorusu nasıl cevaplanıyor</td><td>Kutu rozeti, kutunun altında makbuz, listenin en üstünde etiketli satır; sayfa kapanınca şeritte "son …".</td><td>Kutu rozeti, makbuz ve sayfanın üstünde etiketli satır; sayfa kapandıktan sonra etiketli satır ana ekranda kalır.</td></tr>
+<tr><td>Süre ve bekleme ne kadar görünür kalıyor</td><td>Değişmedi: 96 pt süre, plan, Bekleme kur, bekleme halkası bugünkü yerinde.</td><td>Süre 46 pt; bekleme kurulunca halka ve kalan dakika en büyük rakam, geçen süre 22 pt.</td></tr>
+<tr><td>375 × 667'de ne feda edildi</td><td>Süre 96 → 76 pt, plaka düğmeleri 48 → 44 pt. Bilgi düşmedi.</td><td>Liste penceresi 3 satıra iner (4 kalemde 2 + katlama); ekleme sayfası açıkken liste hiç görünmez, "eklendi" yalnız makbuz ve rozetten okunur.</td></tr>
+<tr><td>Kapanışla süreklilik</td><td>Aynı satır, aynı maske, aynı panel; liste kapanışta ilk kez ana ekrana çıkar.</td><td>Liste iş sürerken de ana ekranda; kapanışta yalnız süre bandı kadrana döner. Daha sürekli.</td></tr>
+<tr><td>Bedel (A/B/C)</td><td>Hepsi <span class="bdg">A</span>. Blur geçişi <span class="bdg">B</span>, çizilmedi.</td><td>Hepsi <span class="bdg">A</span>; ek olarak pencere sayısı <code>onLayout</code> ile. Blur <span class="bdg">B</span>, çizilmedi.</td></tr>
+</table></div>
+<div class="rec"><h3>Önerim: Yol A</h3><b>Çok fazla bölüm</b> derdi A'da doğrudan çözülüyor: sayfa dokuz katmandan dörde iniyor ve kumandaya hiçbir bölge eklenmiyor; B ise ekleme bölümünü ana ekrana taşıyarak personelin günde 30–40 kez baktığı ekrana yeni bölümler koyuyor ve süreyi o bakışın en büyük şeyi olmaktan çıkarıyor. <b>Soluk ve küçük yazı</b> iki yolda aynı kurallarla çözülüyor (13 pt alt sınır, koyulaşan <code>tx2</code>, açık temada mürekkep yazı), seçimi etkilemiyor. <b>Tutar</b> iki yolda aynı maskeyle anlaşılır oluyor; A'da şerit toplamı tek dokunuşla açıyor, kırılım bir dokunuş ötede, ki ekranı müşteri görürken yeterli. <b>Kalem eklemek</b> A'da kutu rozeti, kutunun altındaki makbuz ve listenin en üstüne giren satırla göz kaymadan doğrulanıyor; B'nin tek üstünlüğü olan "sayfa kapanınca da görünür" A'da şeritteki "son …" satırıyla karşılanıyor. Adet ve kaldırma iki yolda aynı panelle çözülüyor. B'nin bedeli 375 × 667'de belirginleşiyor: liste iki satıra ve bir katlama satırına iniyor, ekleme sayfası açıkken liste tamamen kapanıyor. Bu yüzden A.</div>
+</div>
+
+<script>
+const I=(n,c="")=>`<svg class="ic${c?" "+c:""}" viewBox="0 0 24 24"><use href="#i-${n}"/></svg>`;
+const CAT={ker:{n:"Keratin bakım",t:"h",p:450},fon:{n:"Fön",t:"h",p:150},sam:{n:"Şampuan 250 ml",t:"u",p:320},mas:{n:"Bakım maskesi",t:"u",p:250},kes:{n:"Uç kesimi",t:"h",p:300},kas:{n:"Kaş alma",t:"h",p:150},spr:{n:"Fön spreyi",t:"u",p:280},boy:{n:"Boya 7.3",t:"m"},oks:{n:"Oksidan %6",t:"m"},b60:{n:"Boya 6.0",t:"m"},svc:{n:"Saç boyama",t:"h",p:1800}};
+const TN={h:"Ek hizmet",u:"Ürün",m:"Malzeme"};
+const TILES=["ker","fon","sam","mas","boy","oks"];
+const RV={n:"Saç boyama",p:1800};
+const tl=v=>"₺"+v.toLocaleString("tr-TR");
+const now=()=>Date.now();
+let uid=0;const it=(k,q=1,o={})=>({id:++uid,k,q,tag:null,gone:0,...o});
+const base=()=>[it("ker"),it("fon"),it("sam"),it("boy",2),it("oks")];
+const live=s=>s.items.filter(x=>!x.gone);
+const isM=x=>CAT[x.k].t==="m";
+const open=s=>s.mask>now();
+const total=s=>RV.p+live(s).filter(x=>!isM(x)).reduce((a,x)=>a+CAT[x.k].p*x.q,0);
+const kc=s=>1+live(s).filter(x=>!isM(x)).length;
+const money=(s,v,z="")=>open(s)?tl(v):`<span class="mw">₺<i class="mk${z?" "+z:""}"></i></span>`;
+const fuse=u=>`<i class="fuse" style="animation-delay:-${Math.max(0,6000-(u-now()))}ms"></i>`;
+const secs=u=>Math.max(1,Math.ceil((u-now())/1000));
+const fl=(s,id,k)=>s.flash&&s.flash.id===id&&s.flash.k===k&&now()-s.flash.t<500;
+const FR={yok:["Formül yazılmadı","oran yazılabilir",""],yarim:["Formül yarım","oran eksik","yarim"],tam:["Formül yazıldı","Boya 7.3 + Oksidan %6","tam"]};
+
+function maskBtn(s){return open(s)?`<button class="mb on" data-act="show">${I("eyeoff")}Gizle <em class="n" data-u="${s.mask}">${secs(s.mask)}</em></button>`:`<button class="mb" data-act="show">${I("eye")}Göster <em>· 6 sn</em></button>`}
+function rowH(s,x){
+ const c=CAT[x.k],T=now();
+ if(x.gone){const sub=isM(x)&&s.formula!=="yok"?"Formülün malzeme yarısı değişir":"Pencere kapanınca liste gönderilir";return `<div class="ln un"><span class="lt"><b>${c.n} kaldırıldı</b><span class="ls">${sub}</span></span><button class="ua" data-act="undo" data-id="${x.id}">${I("undo")}Geri al <span class="n" data-u="${x.gone}">${secs(x.gone)}</span></button>${fuse(x.gone)}</div>`}
+ const tag=x.tag==="new"?`<span class="tg">${I("check")}Yeni</span>`:x.tag==="inc"?`<span class="tg">${I("check")}×${x.q} oldu</span>`:"";
+ const lock=s.paid,m=isM(x),cls=(fl(s,x.id,"new")?" fl-new":"")+(fl(s,x.id,"inc")?" fl-inc":"")+(s.edit===x.id?" on":"");
+ const qb=(m||x.q>1)?`<span class="qb n">×${x.q}</span>`:"";
+ const amt=m?"":`<span class="la n">${money(s,c.p*x.q,"s")}</span>`;
+ const inner=`<span class="lt"><b>${c.n}</b><span class="ls">${TN[c.t]}${tag?" · "+tag:""}</span></span>${qb}${amt}${lock?'<span class="sp"></span>':I("chev","cv")}`;
+ return lock?`<div class="ln${cls}">${inner}</div>`:`<button class="ln${cls}" data-act="edit" data-id="${x.id}">${inner}</button>`}
+const rvH=s=>`<div class="ln rv"><span class="lt"><b>${RV.n}</b><span class="ls">Randevu hizmeti</span></span><span class="la n">${money(s,RV.p,"s")}</span><span class="sp"></span></div>`;
+const kalemRows=s=>[...s.items].reverse().filter(x=>!isM(x));
+const malzRows=s=>[...s.items].reverse().filter(isM);
+function frH(s,k){const f=FR[s.formula];const n=live(s).filter(isM).length;return `<button class="fr ${f[2]}${k?" k":""}" data-act="noop"><span class="lt"><b>${f[0]}</b><span class="ls">${k?n+" malzeme · "+f[1]:f[1]}</span></span>${I("chev","cv")}</button>`}
+function malzBlock(s){const r=malzRows(s);if(!r.length)return "";return `<div class="mzh"><b>Malzeme</b><span>Toplama girmez · iş bitince depodan düşer</span></div>${frH(s)}${r.map(x=>rowH(s,x)).join("")}`}
+function listH(s){return `<div class="lst">${kalemRows(s).map(x=>rowH(s,x)).join("")}${rvH(s)}</div>${malzBlock(s)}`}
+function totH(s){const T=total(s),n=kc(s);return `<div class="tot"><span class="tl1">Toplam · ${n} kalem</span><div class="tl2"><span class="ta n">${open(s)?tl(T):`<span class="mw">₺<i class="mk lg"></i></span>`}</span>${maskBtn(s)}</div>${open(s)?`<span class="tl3 n">${RV.n} ${tl(RV.p)}${n>1?` + ${n-1} kalem ${tl(T-RV.p)}`:" · eklenen kalem yok"}</span>`:""}</div>${open(s)?fuse(s.mask):""}`}
+function tileH(s,k){const c=CAT[k],x=live(s).find(i=>i.k===k);const pop=x&&s.flash&&s.flash.id===x.id&&now()-s.flash.t<500;return `<button class="tile${x?" in":""}" data-act="add" data-k="${k}"><b>${c.n}</b>${x?`<span class="tbd${pop?" pop":""}">${I("check")}Adisyonda${x.q>1?" ×"+x.q:""}</span>`:`<span class="tq">${TN[c.t]}</span>`}</button>`}
+function rcH(s){const r=s.rc;if(!r)return `<div class="rc">Dokunduğun kalem listenin en üstüne girer.</div>`;const c=CAT[r.k];
+ if(r.kind==="max")return `<div class="rc wn">${I("check")}<span><b>${c.n}</b> zaten 20 adet · en çok 20</span></div>`;
+ if(r.kind==="inc")return `<div class="rc on">${I("check")}<span><b>${c.n} ×${r.q} oldu</b> · satırı yerinde</span></div>`;
+ return `<div class="rc on">${I("check")}<span><b>${c.n} eklendi</b> · ${c.t==="m"?"malzemenin":"listenin"} en üstünde</span></div>`}
+const tilesH=s=>`<div class="lab">Sık kullanılan · saç boyama işinde</div><div class="tiles">${TILES.map(k=>tileH(s,k)).join("")}</div>`;
+const srchBtn=`<button class="srch" data-act="srch">${I("search")}Katalogda ara</button>`;
+function sheetA(s){return `<div class="scrim" data-act="close"></div><div class="sheet adis${s.enter==="sheet"?" enter":""}"><div class="grab"><i></i></div><div class="shh">${totH(s)}<button class="kap" data-act="close">Kapat</button></div><div class="shs" data-keep="shs">${srchBtn}${tilesH(s)}${rcH(s)}<div style="height:12px"></div>${listH(s)}</div></div>`}
+function sheetAdd(s){return `<div class="sheet adds${s.enter==="sheet"?" enter":""}"><div class="grab"><i></i></div><div class="shh2"><h3>Kalem ekle</h3><button class="kap" data-act="close">Kapat</button></div>${rcH(s)}${tilesH(s)}<div style="height:12px"></div>${srchBtn}</div>`}
+function searchH(s){const ks=["svc","ker","fon","sam","mas","kes","kas","spr","boy","oks","b60"];return `<div class="srov${s.enter==="srch"?" enter":""}"><div class="srh"><div class="srf">${I("search")}<span>Katalogda ara</span></div><button class="kap" data-act="srch-close">Vazgeç</button></div><div class="srn">Arama yüzü Personel 13'te ve değişmiyor. Burada yalnız kapıdan geçişi denemek için sade liste.</div><div class="srl" data-keep="srl">${ks.map(k=>k==="svc"&&s.ask==="svc"?`<div class="srr ask"><b>Saç boyama randevuda var</b><span>Ek hizmet olarak eklenirse iki kez tahsil edilir.</span><div class="askb"><button data-act="ask-yes">Yine de ekle</button><button data-act="ask-no">Vazgeç</button></div></div>`:`<button class="srr" data-act="sadd" data-k="${k}"><b>${CAT[k].n}</b><span>${k==="svc"?"Ek hizmet · randevuda var":TN[CAT[k].t]}</span></button>`).join("")}</div></div>`}
+function editH(s){const x=s.items.find(i=>i.id===s.edit&&!i.gone);if(!x)return "";const c=CAT[x.k],m=isM(x),pp=fl(s,x.id,"step");
+ return `<div class="scrim s2" data-act="ed-close"></div><div class="edp${s.enter==="edit"?" enter":""}"><div class="grab"><i></i></div><div class="edh"><b>${c.n}</b><span>${TN[c.t]}${m?" · toplama girmez, depodan düşer":` · birim ${money(s,c.p,"s")}`}</span></div><div class="stp"><button class="${x.q<=1?"off":""}" data-act="dec" aria-label="Azalt"${x.q<=1?' aria-disabled="true"':""}>${I("minus")}</button><b class="n${pp?" pop":""}">${x.q}</b><button class="${x.q>=20?"off":""}" data-act="inc" aria-label="Artır">${I("plus")}</button></div><div class="edn n">${x.q<=1?"En az 1 adet · silmek için Kaldır":x.q>=20?"En çok 20 adet":"Adet 1–20"}${m?"":` · satır ${money(s,c.p*x.q,"s")}`}</div><div class="edb"><button class="rmv" data-act="remove">${I("trash")}Kaldır</button><button class="okb" data-act="ed-close">Tamam</button></div></div>`}
+const sbar=s=>`<div class="status"><span class="n">${s.v==="K"?"16:04":"15:16"}</span><span class="rt"><span class="bars"><i></i><i></i><i></i><i></i></span>${I("wifi","wf")}<span class="batt"><i></i></span></span></div>`;
+const kbk=`<div class="kbk">${I("back")}Gün</div>`;
+const tools=`<div class="tools">${["phone","note","user"].map(i=>`<span class="tb">${I(i)}</span>`).join("")}</div>`;
+const idp=(stc,st,t2)=>`<div class="idp"><div class="who"><span class="st ${stc}"><s></s>${st}</span><span class="nm">Tuğçe Erden</span><span class="sv">Saç boyama</span></div>${tools}<span class="t2 n">${t2}</span></div>`;
+const fin=`<div class="fin"><span class="core"><b>BİTİR</b><u>BASILI TUT</u></span></div>`;
+const lastName=s=>{const l=live(s);return l.length?CAT[l[l.length-1].k].n:null};
+function stripA(s){const ln=lastName(s);return `<div class="as"><div class="as1"><button class="tx" data-act="sheet"><span><b>${kc(s)} kalem</b> · ${ln?"son "+ln:"yalnız randevu hizmeti"}</span>${I("chev")}</button><button class="add" data-act="sheet" aria-label="Kalem ekle">${I("plus")}</button></div><div class="as2"><span class="tl">Toplam</span><span class="ta n">${money(s,total(s))}</span>${maskBtn(s)}${open(s)?fuse(s.mask):""}</div></div>`}
+function scrA(s){const hasM=live(s).some(isM);return `${kbk}${idp("","SÜRÜYOR","14:02 başlangıç · 120 dk plan")}<div class="kdiv"></div><div class="dial"><span class="big n">74:12</span><span class="unit">GEÇEN SÜRE</span><div class="plan"><span class="trk"><i style="width:62%"></i><s></s></span><span class="n">120 dk plan · 46 dk kaldı</span></div><span class="wchip">${I("timer")}Bekleme kur</span></div>${stripA(s)}${hasM?frH(s,1):""}${fin}${s.sheet==="adis"?sheetA(s):""}${s.srch?searchH(s):""}${s.edit?editH(s):""}`}
+function bandB(s){if(s.wait){const C=2*Math.PI*22;return `<div class="sb"><div class="sb1"><span class="ring"><svg viewBox="0 0 54 54"><circle class="r0" cx="27" cy="27" r="22"/><circle class="r1" cx="27" cy="27" r="22" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-13/25)).toFixed(1)}"/></svg></span><span class="wt"><b class="n">13 dk</b><span class="n">bekleme · 15:29'da biter</span></span><span class="el"><b class="n">74:12</b><span>geçen</span></span></div><div class="sb2"><span class="trk"><i style="width:62%"></i><s></s></span><span class="n">120 dk plan · 46 dk kaldı</span></div></div>`}
+ return `<div class="sb"><div class="sb1"><span class="bt"><b class="n">74:12</b><span>geçen süre</span></span><span class="wchip">${I("timer")}Bekleme kur</span></div><div class="sb2"><span class="trk"><i style="width:62%"></i><s></s></span><span class="n">120 dk plan · 46 dk kaldı</span></div></div>`}
+function bhdH(s){const T=total(s),n=kc(s),o=open(s);return `<div class="bhd"><div class="bh-l"><span class="tl1 n">${o?`Randevu ${tl(RV.p)}${n>1?` + ${n-1} kalem ${tl(T-RV.p)}`:" · eklenen yok"}`:`Toplam · ${n} kalem`}</span><span class="ta n">${o?tl(T):`<span class="mw">₺<i class="mk lg"></i></span>`}</span></div>${maskBtn(s)}${o?fuse(s.mask):""}</div>`}
+function scrB(s){
+ const ent=[...kalemRows(s).map(x=>rowH(s,x)),rvH(s)],w=s.win;let rows,fold="";
+ if(ent.length<=w)rows=ent;else{rows=ent.slice(0,w-1);const rest=ent.length-(w-1);fold=`<button class="fold" data-act="sheet"><span><b>${rest} kalem daha</b> · randevu hizmeti dahil</span><span class="fa">Tümü${I("chev")}</span></button>`}
+ const mz=live(s).filter(isM),f=FR[s.formula];
+ const mzr=mz.length?`<button class="fr" data-act="sheet"><span class="lt"><b>${mz.length} malzeme · ${mz.slice().reverse().map(x=>CAT[x.k].n+(x.q>1?" ×"+x.q:"")).join(", ")}</b><span class="ls">${f[0]} · toplama girmez</span></span>${I("chev","cv")}</button>`:"";
+ return `${kbk}<div class="idp c"><div class="who"><span class="st ${s.wait?"am":""}"><s></s>${s.wait?"BEKLEMEDE":"SÜRÜYOR"}</span><span class="nm">Tuğçe Erden</span><span class="sv n">Saç boyama · 14:02 başlangıç</span></div>${tools}</div>${bandB(s)}${bhdH(s)}<div class="blist"><div class="lst">${rows.join("")}${fold}</div>${mzr}</div><div class="bd"><button class="kek" data-act="addopen">${I("plus")}Kalem ekle</button>${fin}</div>${s.sheet==="add"?sheetAdd(s):""}${s.sheet==="adis"?sheetA(s):""}${s.srch?searchH(s):""}${s.edit?editH(s):""}`}
+function scrK(s){const p=s.paid,ln=lastName(s),T=total(s);
+ const kz=`<div class="kz"><div class="kmw"><span class="kamt n">${open(s)?tl(T):`₺<i class="mk xl"></i>`}</span>${open(s)?fuse(s.mask):""}</div>${maskBtn(s)}<span class="ktot">TOPLAM · ${kc(s)} KALEM</span><span class="kdur n">120 dk sürdü · <b>14:02 – 16:02</b></span></div>`;
+ const strip=p?`<div class="as sealed"><div class="as1"><span class="tx"><span><b>${kc(s)} kalem</b> · mühürlü, değiştirilemez</span></span>${I("lock")}</div></div>`:`<div class="as"><div class="as1"><button class="tx" data-act="sheet"><span><b>${kc(s)} kalem</b> · ${ln?"son "+ln:"yalnız randevu hizmeti"}</span>${I("chev")}</button><button class="add" data-act="sheet" aria-label="Kalem ekle">${I("plus")}</button></div></div>`;
+ const M={Nakit:"Nakit tahsil et",Kart:"Kartla tahsil et",Havale:"Havaleyle tahsil et"};
+ const foot=p?`<div class="kfoot"><div class="kdone">${I("check")}Tahsil edildi</div><p>Tahsilat tamamlandı ve adisyon kapandı.</p></div>`:`<div class="kfoot"><div class="seg">${["Nakit","Kart","Havale"].map(m=>`<button class="${s.meth===m?"on":""}" data-act="meth" data-m="${m}">${m}</button>`).join("")}</div><button class="kbtn${s.meth?"":" off"}" data-act="pay">${I("cash")}${s.meth?M[s.meth]:"Ödeme yöntemini seçin"}</button><button class="kgh" data-act="noop">Sonra tahsil et</button></div>`;
+ return `${kbk}${idp(p?"gr":"am",p?"TAHSİL EDİLDİ":"ADİSYON AÇIK","14:02 – 16:02 · 120 dk sürdü")}<div class="kdiv"></div>${kz}${strip}<div class="klist" data-keep="kl">${listH(s)}</div>${foot}${s.sheet==="adis"?sheetA(s):""}${s.srch?searchH(s):""}${s.edit?editH(s):""}`}
+
+/* durum */
+const crowd=()=>[it("ker"),it("fon"),it("sam",2),it("boy",2),it("mas"),it("oks"),it("kes"),it("kas"),it("b60"),it("spr")];
+const a4=()=>[it("ker"),it("fon",2,{tag:"inc"}),it("sam"),it("boy",2),it("oks"),it("mas",1,{tag:"new"})];
+const s2=()=>[it("ker"),it("fon"),it("sam",2),it("boy",2),it("oks")];
+const P={A1:{v:"A"},A1s:{v:"A",sm:1},A2:{v:"A",sheet:"adis"},A3:{v:"A",sheet:"adis",maskIn:6000},A4:{v:"A",sheet:"adis",items:a4,rc:{k:"fon",kind:"inc",q:2}},A5a:{v:"A",sheet:"adis",items:s2,edit:"sam"},A5b:{v:"A",sheet:"adis",undo:"fon"},A6:{v:"A",sheet:"adis",items:()=>[]},
+ B1:{v:"B"},B1s:{v:"B",sm:1,win:3},B2:{v:"B",maskIn:6000},B3:{v:"B",wait:1},B4:{v:"B",items:crowd},B5a:{v:"B",sheet:"add",items:a4,rc:{k:"fon",kind:"inc",q:2}},B5b:{v:"B",items:s2,edit:"sam"},B5c:{v:"B",undo:"fon"},
+ K1:{v:"K"},K2:{v:"K",paid:1,meth:"Kart"}};
+function init(id){const p=P[id];const s={v:"A",sm:0,mask:0,sheet:null,srch:0,edit:null,rc:null,ask:null,wait:0,paid:0,meth:null,formula:"yok",win:4,flash:null,enter:null};Object.keys(p).forEach(k=>{if(!["items","maskIn","undo","edit"].includes(k))s[k]=p[k]});
+ s.items=p.items?p.items():base();if(p.maskIn)s.mask=now()+p.maskIn;if(p.undo){const x=s.items.find(i=>i.k===p.undo);x.gone=now()+6000}if(p.edit)s.edit=s.items.find(i=>i.k===p.edit).id;return s}
+const S={};
+function R(id){const el=document.querySelector(`.phone[data-f="${id}"]`);if(!el)return;const s=S[id];
+ const keep=[...el.querySelectorAll("[data-keep]")].map(x=>[x.dataset.keep,x.scrollTop]);
+ el.innerHTML=`${sbar(s)}<div class="body"><div class="warm"></div>${s.v==="A"?scrA(s):s.v==="B"?scrB(s):scrK(s)}</div><div class="homei"></div>`;
+ keep.forEach(([k,t])=>{const x=el.querySelector(`[data-keep="${k}"]`);if(x)x.scrollTop=t});s.enter=null}
+function addK(s,k){const T=now(),ex=live(s).find(x=>x.k===k);
+ if(ex){if(ex.q>=20){s.rc={k,kind:"max"};return}ex.q++;ex.tag="inc";s.rc={k,kind:"inc",q:ex.q};s.flash={id:ex.id,k:"inc",t:T}}
+ else{const x=it(k,1,{tag:"new"});s.items.push(x);s.rc={k,kind:"new"};s.flash={id:x.id,k:"new",t:T}}}
+const cur=s=>s.items.find(i=>i.id===s.edit&&!i.gone);
+function act(s,a,d){const T=now();
+ switch(a){
+ case"sheet":if(s.paid)return;s.sheet="adis";s.items.forEach(x=>x.tag=null);s.rc=null;s.enter="sheet";break;
+ case"addopen":s.sheet="add";s.items.forEach(x=>x.tag=null);s.rc=null;s.enter="sheet";break;
+ case"close":s.sheet=null;s.srch=0;s.ask=null;break;
+ case"srch":s.srch=1;s.enter="srch";break;
+ case"srch-close":s.srch=0;s.ask=null;break;
+ case"add":addK(s,d.k);break;
+ case"sadd":if(d.k==="svc"){s.ask="svc";break}addK(s,d.k);s.srch=0;break;
+ case"ask-yes":s.ask=null;addK(s,"svc");s.srch=0;break;
+ case"ask-no":s.ask=null;break;
+ case"show":s.mask=open(s)?0:T+6000;break;
+ case"edit":s.edit=+d.id;s.enter="edit";break;
+ case"ed-close":s.edit=null;break;
+ case"inc":{const x=cur(s);if(x&&x.q<20){x.q++;s.flash={id:x.id,k:"step",t:T}}break}
+ case"dec":{const x=cur(s);if(x&&x.q>1){x.q--;s.flash={id:x.id,k:"step",t:T}}break}
+ case"remove":{const x=cur(s);if(x){x.gone=T+6000;x.tag=null}s.edit=null;s.rc=null;break}
+ case"undo":{const x=s.items.find(i=>i.id==d.id);if(x)x.gone=0;break}
+ case"meth":s.meth=d.m;break;
+ case"pay":if(s.meth){s.paid=1;s.mask=0;s.sheet=null;s.edit=null;s.items=live(s)}break;
+ }}
+document.addEventListener("click",e=>{
+ const r=e.target.closest("[data-reset]");if(r){const id=r.dataset.reset;S[id]=init(id);R(id);return}
+ const b=e.target.closest("[data-act]");if(!b)return;const ph=b.closest(".phone[data-f]");if(!ph)return;
+ if(b.getAttribute("aria-disabled")==="true")return;const id=ph.dataset.f;act(S[id],b.dataset.act,b.dataset);R(id)});
+document.querySelectorAll(".phone[data-f]").forEach(el=>{const id=el.dataset.f;S[id]=init(id);R(id)});
+setInterval(()=>{const T=now();for(const id in S){const s=S[id];let ch=0;if(s.mask&&s.mask<=T){s.mask=0;ch=1}const n=s.items.length;s.items=s.items.filter(x=>!(x.gone&&x.gone<=T));if(s.items.length!==n)ch=1;
+ if(ch)R(id);else if(s.mask||s.items.some(x=>x.gone))document.querySelectorAll(`.phone[data-f="${id}"] [data-u]`).forEach(e=>{e.textContent=secs(+e.dataset.u)})}},200);
+
+/* S · anatomi */
+(function(){const mk=o=>({v:"A",mask:o?now()+1e12:0,items:[],formula:"yok",edit:null,paid:0,flash:null});
+ const rows=s=>{s.items=[it("ker"),it("sam",2),it("boy",2)];const [k,u,m]=s.items;return rowH(s,k)+rowH(s,u)+rowH(s,m)+rvH(s)};
+ const g=mk(0),o=mk(1);
+ const st=mk(0);st.formula="tam";const a=it("fon",1,{tag:"new"}),b=it("sam",2,{tag:"inc"}),u1=it("fon",1,{gone:now()+4200}),u2=it("boy",2,{gone:now()+4200});
+ const undoStatic=(n,sub)=>`<div class="ln un"><span class="lt"><b>${n} kaldırıldı</b><span class="ls">${sub}</span></span><span class="ua">${I("undo")}Geri al <span class="n">4</span></span><i class="fuse" style="animation:none;transform:scaleX(.66)"></i></div>`;
+ const fs=f=>{const s=mk(0);s.formula=f;s.items=[it("boy",2)];return frH(s)};
+ document.getElementById("anat").innerHTML=`<div class="anc"><b>Gizli</b><div class="zz">${rows(g)}</div></div><div class="anc"><b>Açık</b><div class="zz">${rows(o)}</div></div>
+ <div class="leg"><span><b>Satır 64 pt.</b> Yukarıdan: ek hizmet, ürün ×2, malzeme, randevu hizmeti.</span><span><b>1 · Ad</b> 17 pt, mürekkep, tek satır.</span><span><b>2 · Tür</b> 14 pt <code>tx2</code>. Yeni ya da artmışsa yanında "✓ Yeni" / "✓ ×2 oldu".</span><span><b>3 · Adet rozeti</b> çerçeveli ×2, adet 1'de çizilmez. Malzemede hep var; tutar sütunu olmadığı için adet orada durur.</span><span><b>4 · Tutar</b> maskeli "₺ ▬" ya da rakam (fiyat × adet). Malzemede yok.</span><span><b>5 · Ok</b> dokunulabilirliği söyleyen tek işaret. Randevu satırında ve mühürlü adisyonda yok.</span></div>
+ <div class="anc"><b>Satırın öbür hâlleri · 1×</b><div class="z1"><div class="cap">Eklendi ve arttı</div>${rowH(st,a)}${rowH(st,b)}<div class="cap" style="border-top:1px solid var(--bd);padding-top:14px">Geri alma penceresi</div>${undoStatic("Fön","Pencere kapanınca liste gönderilir")}${undoStatic("Boya 7.3","Formülün malzeme yarısı değişir")}<div class="cap" style="border-top:1px solid var(--bd);padding-top:14px">Formül satırının üç hâli</div>${fs("yok")}${fs("yarim")}${fs("tam")}</div></div>`})();
+
+/* O · kontrast */
+(function(){const hx=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.substr(i,2),16))};
+ const lum=c=>c.map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
+ const mix=(f,b)=>{if(typeof f==="string")return hx(f);const bb=hx(b);return f.slice(0,3).map((c,i)=>c*f[3]+bb[i]*(1-f[3]))};
+ const cr=(f,b)=>{const x=lum(mix(f,b)),y=lum(hx(b));return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+ const L={bg:"#F3ECE0",card:"#FFFDFB",surf2:"#F0E9DF",tx:"#0E0E0E",tx2:[14,14,14,.66],tx2o:[14,14,14,.52],tx3:[14,14,14,.34],orT:"#0E0E0E",or:"#FF5A1F",am:"#B87A00",gr:"#2D8F32",rd:"#C94040",w:"#FFFFFF"};
+ const D={bg:"#120E08",card:"#241E16",surf2:"#252015",tx:"#F3EDE3",tx2:[243,237,227,.62],tx2o:[243,237,227,.58],tx3:[243,237,227,.36],orT:"#FF7A45",or:"#FF5A1F",am:"#D9A43B",gr:"#5FBF64",rd:"#E07272",w:"#FFFFFF"};
+ const rows=[["Ana yazı · tx / zemin","tx","bg",1],["İkincil yazı · tx2 (yeni) / zemin","tx2","bg",1],["İkincil yazı · tx2 (yeni) / sayfa","tx2","card",1],["İkincil yazı · tx2 (yeni) / kutu","tx2","surf2",1],["İkincil yazı · tx2 (bugünkü .52 / .58) / zemin","tx2o","bg",0,"bugünkü; açık temada düştüğü için koyulaştı"],["tx3 / zemin","tx3","bg",0,"yazıda kullanılmıyor; çizgi ve tutamak"],["Süre · orT / zemin","orT","bg",1,"açıkta mürekkep, koyuda #FF7A45"],["Bugünkü turuncu süre · #FF5A1F / zemin","or","bg",0,"açık temada düşüyor; bu yüzden orT"],["Amber yazı (açıkta işaret) / sayfa","am","card",0,"açıkta yazı mürekkep, amber kenar/ikon"],["Yeşil yazı (açıkta işaret) / sayfa","gr","card",0,"açıkta yazı mürekkep, yeşil ikon/çerçeve"],["Kırmızı yazı (açıkta işaret) / sayfa","rd","card",0,"açıkta yazı mürekkep, kırmızı çerçeve"],["BİTİR · beyaz / #FF5A1F","w","or",0,"kumandanın onaylı bileşeni, bu turda dokunulmadı; büyük kalın yazı 3:1 eşiğinde. Mürekkep / turuncu 6.2:1 seçenek"]];
+ const cell=(v,need)=>`<span class="${v>=4.5?"ok":need?"no":""}">${v.toFixed(1)}:1</span>`;
+ document.getElementById("contrast").innerHTML=`<table class="t"><tr><th>Çift</th><th>Açık tema</th><th>Koyu tema</th><th>Not</th></tr>${rows.map(r=>`<tr><td>${r[0]}</td><td>${cell(cr(L[r[1]],L[r[2]]),1)}</td><td>${cell(cr(D[r[1]],D[r[2]]),1)}</td><td>${r[4]||"okunan yazı, iki temada ≥ 4.5"}</td></tr>`).join("")}</table>`})();
+
+/* düğmeler */
+const tT=document.getElementById("tTheme"),tR=document.getElementById("tRm");
+tT.onclick=()=>{const d=document.body.classList.toggle("dk");tT.setAttribute("aria-pressed",d);tT.lastChild.textContent=d?"Koyu tema":"Açık tema"};
+tR.onclick=()=>{const r=document.body.classList.toggle("rm");tR.setAttribute("aria-pressed",r)};
+</script>
+</body></html>

@@ -319,7 +319,9 @@ test('alt sayfa klavyenin ÜSTÜNE çıkıyor — liste altında kalmıyor', () 
     // başlıyor, yüzde ise ekranın tamamının. İkisi üst üste gelince sayfa
     // ekranın ÜSTÜNDEN taşıyordu — arama alanı adacığın altında kalıyordu.
     assert.match(screen, /winH - kb - insets\.top/);
-    assert.match(screen, /maxHeight: roof,/);
+    // Personel 15: tek kişilik adisyon sayfası tavana kadar TAM BOY; tavan
+    // yine aynı piksel hesabı (`roof`), yüzde değil.
+    assert.match(screen, /\.\.\.\(full \? \{ height: kb > 0 \? roof : fullH \} : \{ maxHeight: roof \}\),/);
     // Güvenli alan dolgusu klavye açıkken klavyenin altında kalıyordu.
     assert.match(screen, /paddingBottom: kb > 0 \? 0 : insets\.bottom/);
 });

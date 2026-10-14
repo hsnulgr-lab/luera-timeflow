@@ -176,6 +176,15 @@ export interface ServiceCharge {
 }
 
 /**
+ * Ücret SATIR SATIR — tek kişilik kumandanın sade adisyonu (Personel 15)
+ * randevu hizmetini kendi satırında, kendi tutarıyla gösteriyor. Satırlar
+ * `serviceLines`in kendisi: toplamla satırlar ayrışamaz.
+ */
+export interface ServiceBill extends ServiceCharge {
+    lines: MovementLine[];
+}
+
+/**
  * Randevunun HİZMET ücreti — `serviceLines`in toplamı.
  *
  * `visit.collect` tutarın ilk parçasını sunucuda AYNI kuralla hesaplıyor

@@ -2315,3 +2315,30 @@ kartıyla aynı `panelInk` deseni. Aydınlık temadaki hâl değişmedi.
 Kanıt: `mobile-mudur-profil` +1 (kural kilitli); tüm paket 3011 / 0 kırık;
 `tsc` temiz; lint aynı (21, önceden); Metro iOS paketi derlendi. Telefonda
 denenmedi.
+
+---
+
+## 47 · 2026-10-15 · PERSONEL 15 · SADE ADİSYON (Yol A) — YALNIZ TEK KİŞİLİK
+
+Claude Design dönüşü: `docs/design-reference/Luera Mobil - Personel 15 Adisyon Sade.html`
+(iki yol; kullanıcı **Yol A**'yı seçti). Kullanıcı kararları (2026-10-15):
+**yalnız tek kişilik kabukta** (ekip personelinin kumandası eski yüzde — orada
+hizmet ücreti telefona gelmiyor); koyulaşan `tx2` **yalnız bu ekranlarda**
+(tema jetonları ve masaüstü eşleşmesi değişmedi).
+
+| Dosya | Ne |
+|---|---|
+| `src/lib/adisyonSade.ts` | saf kurallar: kalem sayısı (malzeme hariç, randevu dahil), toplam = randevu + Σ fiyat×adet, kırılım, en yeni üstte, ekleme sonucu (yeni/×2/tavan), makbuz, formül yüzü |
+| `src/lib/sadeInk.ts` | `tx2` .66/.62, "renk işarette yazı mürekkepte" (`orT/amT/grT/rdT` açıkta mürekkep), Hanken ağırlıkları |
+| `src/components/AdisyonSade.tsx` | şerit (iki satır), maske ("₺ ▬" + "Göster · 6 sn" / "Gizle 5" + soldan sabit fitil), satır, randevu satırı, geri alma satırı, liste, sayfa başlığı, kutular, makbuz, satır paneli, kapanış kadranı, plan çubuğu, Bekleme kur |
+| `kumanda.tsx` | `solo` dalları: geri satırı + plaka (23/16/15 pt), A1 kadranı, şerit + formül kartı, tam boy sayfa (üstte 160/144 pt), satır paneli (`Sheet` ikinci kat), K1/K2 kapanış (kadran, şerit, liste). Ekip dalları aynen |
+| `cashBuild` + `managerSource` | `fetchServiceCharge` satırları da dönüyor (`ServiceBill.lines`) — randevu satırı kendi tutarıyla |
+
+Bilerek değişmeyenler: arama yüzü (Personel 13), `HoldToFinish`, bekleme halkası,
+tahsilat güvertesi (`CollectBar`), sayfanın 44 pt tutamağı (tasarım 22 diyor;
+"ıslak/eldivenli parmakla tutulmadı" kararı duruyor).
+
+Kanıt: yeni `tests/tek-adisyon-sade.test.mjs` (18); üç eski test yeni biçime
+taşındı (gevşetilmedi: tavan, kaydırıcı sayısı 3→4, maskenin kapanışı); tüm
+paket 3029 / 0 kırık; `tsc` temiz; yeni dosyalarda lint 0, kumanda aynı (24);
+Metro iOS paketi derlendi. **Telefonda denenmedi.**
