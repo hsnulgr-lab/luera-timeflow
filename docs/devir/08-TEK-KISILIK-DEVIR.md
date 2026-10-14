@@ -63,6 +63,10 @@ ihtiyaç duymamalı.
 
 ## 0 · OTURUMA BAŞLARKEN İLK ÜÇ ŞEY
 
+> **2026-10-15 gece · KALAN İŞLERİN TAM LİSTESİ §52'de.** Yarının ilk işi
+> giriş ekranı (§52 · A3, plan `docs/giris-yeniden-plan.md`); ilk soru e-posta
+> sağlayıcısı (SES / Resend / Brevo).
+
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
 2. **Deploy borcu yok** (§6, 2026-10-15). Push yapıldı (`cf6aec5`, `main`
    ileri alındı). §50'deki telefon deneme planı kullanıcıya göre TAMAM.
@@ -2577,3 +2581,69 @@ kişinin kendi numarasından yazılır (soruda söylendi).
 Kanıt: `mobil-push-karar` (+2, çalıştırılarak), `bildirim-hedefleri` (+1, 118),
 `mobil-push-baglanti` taşındı; tüm paket 3039 / 0; `tsc` temiz; lint aynı;
 Metro iOS paketi derlendi. **Göç 118 CANLIDA (2026-10-15, §6).** Telefonda denenmedi.
+
+---
+
+## 52 · 2026-10-15 · KALAN İŞLERİN TAM LİSTESİ
+
+Kullanıcıya verilen kapsamlı liste. "(doğrulanmalı)" = eski hafıza notundan,
+bu gece doğrulanmadı.
+
+### A · Hemen (telefon uygulaması)
+1. ~~Push~~ — bu bölümle birlikte yapıldı.
+2. **Telefonda denenmedi:** personelin başka güne ait bildirimi → takvim o
+   günde (§51); WhatsApp "görüşmek istiyor" → sohbet (ancak bir WhatsApp hattı
+   bağlanınca denenebilir).
+3. **Giriş ekranı (yarın):** e-posta sağlayıcısı seçimi → kodla şifre
+   sıfırlama + kayıtta e-posta doğrulaması (otomatik onay kapanır) → Apple ile
+   giriş (hesap silmede belge iptali, "E-postamı gizle" alan adı kaydı) →
+   Google ile giriş → masaüstüne de Apple/Google (Apple'la açanın şifresi yok).
+   Kapsam: yalnız "Hesabınıza girin" + "Hesabınızı açalım" (Solo ve Yeni
+   işletme oluştur ortak); personel girişi değişmez.
+
+### B · Mağaza sürümü (1.0.1) öncesi
+4. Yayın öncesi genel kontrol — `docs/yayin-oncesi-genel-kontrol-prompt.md`,
+   ayrı oturum.
+5. Üretim paketi (`--no-dev`) testi — zorunlu.
+6. Tek kişilik mod bu sürümde açık mı — kullanıcı kararı.
+7. 🔴 Yapay zekâya müşteri adı gidiyor (remind → Gemini, ilk ad). Apple
+   5.1.2(i): açık yazım + önceden izin. Öneri: adı hiç göndermemek (yer
+   tutucu), küçük sunucu değişikliği.
+8. Gizlilik metni yayını — yurt dışı aktarım kararı (standart sözleşme mi,
+   sunucu Türkiye'ye mi) (§40).
+9. Sentry (çökme takibi) yok.
+10. Personel girişi tasarımından kalan dört kalem (doğrulanmalı): çevrimdışı
+    sarı şerit, "Erişim kapalı" metni, 375×667, reduceMotion.
+11. Dinamik yazı boyutu + açık tema kontrolü — ertelenmişti, hiç ölçülmedi.
+
+### C · Canlı sistem ve günlük işleyiş
+12. 🔴 WhatsApp: hiçbir hat bağlı değil → hatırlatmalar gitmiyor. Evolution
+    API ile "dokunmadan otomasyon" konuşulacak.
+13. `info@lueratech.com` hiç denenmedi (şifre unutanların tek yolu + site formları).
+14. Yedeklerin dış kopyası yok (yedek VPS'in kendisinde).
+15. Demo kayıtları "Fu Ni" org'unda duruyor.
+16. Kasa: ücretli ek hizmet adet > 1 iken "tahsil edilmedi" tutarı adedi
+    saymıyor (`cashBuild.adisyonLines`; sunucu ve kumanda sayıyor).
+17. Masaüstü ↔ telefon ayrışmaları (doğrulanmalı): masaüstünde "Onay Bekliyor"da
+    kalan randevular, 500 satır sınırı.
+18. Telefonda "Onayla" kapalı (doğrulanmalı) — rafta.
+19. Oturum kapatınca hangi ekran — "sonraya kalsın".
+20. KVKK: salon bazlı aydınlatma metni bağlantısının kalan işleri (doğrulanmalı).
+
+### D · Ayrı oturumlar (kullanıcı kararı)
+- 🔴 Dodo + abonelik yenileme arızası (Core'a ulaşılamıyor; ödeyen yenilemede kilitlenebilir).
+- Dodo fiyat farkı (₺599 ↔ ₺611,62).
+- Core entegrasyonu (abonelik kapısı + tam senkron).
+- Luera sitesi (Framer): kalan İngilizce sayfalar, geçici başlık.
+- Instagram / görünürlük planı.
+
+### E · Bilerek ertelenenler
+Şube mimarisi · finans maddeleri · güzellikte mobil paket birliği · diş
+periodontal/röntgen.
+
+### İptal edilenler (yeniden önerme)
+T2 takvim · kumandanın komşu iş şeridi · Gün hapının üç önerisi · kumandanın
+öteki alt sayfalarına sade görünüm.
+
+**Önerilen sıra:** giriş ekranı (A3) → mağaza sürümünden önce B7 ve B8 →
+WhatsApp hattı (C12).
