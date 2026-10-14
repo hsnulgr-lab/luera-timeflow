@@ -13,7 +13,9 @@ hakeminden ve gerçek müşteriden ÖNCE kırığı bulmak.
 1. `docs/devir/08-TEK-KISILIK-DEVIR.md` — §0, §1 (kullanıcının duran emri),
    §2, §6 (deploy durumu), §7 (para yazan akışın kuralları), §8 (dersler),
    §9 (bilinçli ayrışmalar — bunları hata diye raporlama), §10 (değişmez
-   kısıtlar), §41–§49 (son turlar).
+   kısıtlar), §41–§52 (son turlar). **§52 bilinen kalan işlerin listesi:**
+   oradakileri YENİ BULGU diye raporlama — yalnız durumlarını doğrula ve
+   yayın engeli olup olmadıklarını söyle. §52'nin "İptal edilenler"ini önerme.
 2. `mobile/AGENTS.md` — kod okumadan önce zorunlu.
 3. `docs/mobil-app-store-denetim-raporu.md` ve
    `docs/apple-yeniden-gonderim-ADIM-ADIM.md` — 1.0'ın denetimi ve hakem dersleri.
@@ -53,11 +55,10 @@ hakeminden ve gerçek müşteriden ÖNCE kırığı bulmak.
 
 ### B · Para ve veri doğruluğu (en yüksek öncelik)
 - Tahsilat (`visit.collect`): §7'nin on kuralı kodda hâlâ geçerli mi.
-- **Açık hata:** "Tahsilat kaydedilmedi. Kasaya bir şey yazılmadı." telefonda
-  bir kez görüldü (kalem ekledikten hemen sonra tahsil). Şüphe: 0,7 sn'lik
-  otomatik yazma (`saveVisitItems`) ile gönderimin (`sendVisitToCash`) iyimser
-  kilit yarışı (`items_stale`). Kodu oku, yarışın mümkün olup olmadığını
-  kanıtla ya da çürüt; yeniden üretme adımı öner.
+- **Düzeltildi (§50, `abd13fb`):** "Tahsilat kaydedilmedi" yarışı — otomatik
+  yazma (`saveVisitItems`) ile gönderimin (`sendVisitToCash`) iyimser kilit
+  yarışı. Düzeltmenin (`savingRef` sözü, `fresh ?? lockStamp`) her dalda doğru
+  olduğunu kodla doğrula; başka bir yarış yolu kalmış mı bak.
 - Sade adisyonun "Toplam"ı (`adisyonSade.sadeTotal`) ile sunucunun tahsil
   ettiği tutar (`visit.collect`: hizmet + Σ fiyat×adet) her durumda aynı mı:
   çoklu hizmet (`custom_fields.hizmetler`), katalog dışı kalem, malzeme,
@@ -78,8 +79,11 @@ kayıp telefonun bağını koparma, son kalemin "Geri al"ı, gün cetveli,
 - **Kayıttaki mod sorusu** ("Yalnız ben / Ekibim var"): `main` tek kişilik
   kabuğunu içeriyor; mağazaya girecek mi? Kullanıcıya sor.
 - 5.1.1(v) hesap silme yolu çalışıyor mu.
-- **Şifre sıfırlama ölü** (SMTP yok) ama uygulama "gönderildi" diyor —
-  2.1 / doğruluk riski; ne yapılacağını kullanıcıya sor.
+- **Şifre sıfırlama:** SMTP yok; ekran bunu dürüstçe söylüyor
+  (`authCopy.recoveryUnavailable`). Giriş ve kayıt ekranları YENİDEN
+  yapılıyor (§52 · A3, `docs/giris-yeniden-plan.md`: Apple/Google ile giriş,
+  kodla şifre sıfırlama) — bu iki ekranda derin denetim yapma; yalnız bugünkü
+  hâlin mağazaya engel olup olmadığına bak.
 - 3.1.1: uygulama içinden satın almaya yönlendirme yok (abonelik metni,
   fiyat, bağlantı).
 - 5.1.2(i): üçüncü taraf yapay zekâya (Gemini/Groq) giden veri — uygulama
