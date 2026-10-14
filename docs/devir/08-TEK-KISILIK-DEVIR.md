@@ -317,6 +317,22 @@ Gün ekranı **`useManagerCalendarDay`** ile okuyor (Akış'la değil), o yüzde
 **Kuralı unutma: ssh ve deploy komutlarını KULLANICI çalıştırır.** Sen
 çalıştırmayı denemeyeceksin; komutu verip bekleyeceksin.
 
+### ✅ CANLIDA (2026-10-15) — `staff-api` (`visit.charge` · §49) + `remind` + `booking-manage` + `whatsapp-booking` (§41)
+
+Kullanıcı tek komutla deploy etti:
+`./scripts/deploy-functions.sh staff-api remind booking-manage whatsapp-booking`.
+Claude yokladı (kimliksiz): dördü de `OPTIONS` 200; `staff-api` jetonsuz →
+`invalid_token/malformed`, sahte jeton → `bad_signature` (açılıyor);
+`remind` kendi 401 metnini dönüyor ("yalnız zamanlayıcı…" — açılıyor, kod
+güncel); `booking-manage` → 400 "action ve token gerekli"; `whatsapp-booking`
+boş gövdeye `{"skipped":true}`. Boot hatası yok.
+**Kanıtlanamayan:** `visit.charge` personel jetonunun ARKASINDA; kimliksiz
+yoklama eski/yeni kodu ayıramıyor. Kanıt yolu: ekip personeli hesabıyla
+kumanda → adisyon sayfasında randevu satırının TUTARI görünmeli (deploy
+öncesi tutarsızdı). Ya da sunucuda (kullanıcı çalıştırır, salt okuma):
+`ssh -i ~/.ssh/luera_vps root@76.13.4.164 "grep -c \"action === 'visit.charge'\" /data/coolify/services/t6yi63jbebvj6c7oo7yjofnt/volumes/functions/staff-api/index.ts"` → `1`.
+Bildirim rotaları (§41) artık sunucu tarafında da canlı; telefonda denenmedi.
+
 ### ✅ CANLIDA (2026-10-14) — 117 + `staff-api` (kayıp telefonun bağını kopar · §39)
 
 Kullanıcı çalıştırdı: kuru koşu `telefon bağı (117) regression: ok` +
