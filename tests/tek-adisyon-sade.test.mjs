@@ -242,3 +242,28 @@ test('randevu hizmetinin ücreti Kasa\'nın hesabından, satır satır', () => {
     // Okunamazsa adlar duruyor, tutar yazılmıyor.
     assert.match(screen, /booked\.map\(\(name\) => \(\{ name, amount: null \}\)\)/);
 });
+
+// ── Ekip kumandası: hizmet ücreti sunucudan (visit.charge) ──────────────────
+
+test('visit.charge YALNIZ OKUR: para yazmaz, tutarı istemciden almaz', () => {
+    // Kullanıcı kararı (2026-10-15): ekipte de "Toplam" randevu hizmetini
+    // içeriyor. Tek kişilikte ücret müdür oturumundan geliyor; personelin
+    // telefonunda o oturum yok.
+    const api = code(read('../supabase/functions/staff-api/index.ts'));
+    const start = api.indexOf("if (action === 'visit.charge')");
+    const end = api.indexOf("if (action === 'visit.collect')");
+    assert.ok(start > 0 && end > start, 'uç visit.collect\'ten önce');
+    const block = api.slice(start, end);
+    assert.match(block, /loadOwnReservation\(body\.reservationId\)/, 'yalnız kendi randevusu');
+    assert.ok(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(block), 'yazma yok');
+    assert.ok(!/body\.(amount|price)/.test(block), 'tutar istemciden gelmiyor');
+    // Zincir Kasa'nınkiyle aynı: kaydın fiyatı → katalogda kimlik → ad → 0.
+    assert.match(block, /typeof line\.price === 'number'/);
+    assert.match(block, /services\.find\(\(row\) => row\.id === line\.id\)/);
+    assert.match(block, /priceOfName\(name\)/);
+    assert.match(block, /`Hizmet \$\{index \+ 1\}`/, 'satır adı serviceLines\'ınkiyle aynı');
+    // Okuma: kuyruğa girmez, idempotens kütüğüne yazılmaz.
+    assert.ok(!/'visit\.charge'/.test(api.slice(api.indexOf('const WRITE_ACTIONS'), api.indexOf('let idemKey'))));
+    const client = code(read('../mobile/src/api/staff.ts'));
+    assert.match(client, /visitCharge: \(reservationId: string\) => call\('visit\.charge', \{ reservationId \}\)/);
+});

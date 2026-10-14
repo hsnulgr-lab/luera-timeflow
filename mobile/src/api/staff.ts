@@ -461,6 +461,12 @@ export const api = {
      * kendisi hesaplıyor; telefona "bu iş kaç lira" dedirtmek, ele geçmiş
      * bir jetonla kasaya istenen rakamı yazdırmak olurdu.
      */
+    /**
+     * Randevu hizmetinin ücreti, SATIR SATIR — yalnız okuma (Personel 15).
+     * Sade adisyonun "Toplam"ı ekipte de randevu hizmetini içeriyor; ücret
+     * Kasa'nın kuralıyla sunucuda hesaplanıyor (`visit.charge`).
+     */
+    visitCharge: (reservationId: string) => call('visit.charge', { reservationId }),
     visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer', attempt: string) =>
         call('visit.collect', {
             reservationId,

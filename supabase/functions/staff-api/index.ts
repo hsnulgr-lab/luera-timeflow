@@ -68,6 +68,7 @@ type Action =
     | 'visit.note'     // randevunun serbest notu (müşteri görmez)
     | 'visit.finish'   // işlemi bitir → adisyon kasaya düşer
     | 'visit.collect'  // adisyonu TAHSİL ET → kasaya para kaydı (108 · v4 K3)
+    | 'visit.charge'   // randevu hizmetinin ücreti, satır satır — OKUMA (Personel 15)
     | 'visit.wait'     // bekleme kur / kaldır → Gün'ün BEKLEMEDE kartı (112 · v4 G3)
     | 'calendar'       // salonun günü — okuma amaçlı
     | 'catalog'        // hizmet + ürün listesi (tek turda)
@@ -2071,6 +2072,79 @@ Deno.serve(async (req: Request) => {
                     ? { warnings: [stockWarning, planWarning].filter(Boolean) }
                     : {}),
             });
+        }
+
+        /*
+         * ── visit.charge — RANDEVU HİZMETİNİN ÜCRETİ, SATIR SATIR (OKUMA) ──────
+         *
+         * Personel 15 (2026-10-15): kumandanın sade adisyonu "Toplam"ı müşterinin
+         * ödeyeceği TAMAMI olarak yazıyor — randevu hizmeti + kalemler. Tek
+         * kişilikte ücret müdür oturumundan okunuyor (`fetchServiceCharge`);
+         * ekip personelinin telefonunda o oturum yok ve `RES_COLS`
+         * `custom_fields`i taşımıyor. Kullanıcı kararı: ekipte de aynı Toplam.
+         *
+         * YALNIZ OKUMA. Para yazmıyor, tutarı istemciden almıyor; tahsil
+         * edilecek rakamı yine `visit.collect` KENDİSİ hesaplıyor (aşağıda,
+         * dokunulmadı). Zincir onunla ve `cashBuild.serviceLines`le AYNI:
+         * kaydın fiyatı → katalogda kimlik → katalogda ad → 0. Satır adı
+         * `serviceLines`in adıyla aynı (`Hizmet n` yedeği dahil).
+         */
+        if (action === 'visit.charge') {
+            const { res, err } = await loadOwnReservation(body.reservationId);
+            if (err) return err;
+
+            const [
+                { data: catalog, error: catErr },
+                { data: cfRow, error: cfErr },
+            ] = await Promise.all([
+                admin.from('services').select('id, name, price')
+                    .eq('organization_id', me.organization_id),
+                admin.from('reservations').select('custom_fields')
+                    .eq('id', res!.id).eq('organization_id', me.organization_id).maybeSingle(),
+            ]);
+            if (catErr || cfErr) {
+                console.error('visit.charge lookup', catErr ?? cfErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+
+            const services = (catalog ?? []) as { id: string; name: string; price: number | null }[];
+            const priceOfName = (name: string) =>
+                Number(services.find((row) => row.name === name)?.price ?? 0) || 0;
+
+            const lines: { name: string; amount: number }[] = [];
+            const fields = (cfRow?.custom_fields ?? {}) as Record<string, unknown>;
+            const rawLines = fields.hizmetler;
+            let parsedLines: unknown = null;
+            if (typeof rawLines === 'string' && rawLines.trim()) {
+                try { parsedLines = JSON.parse(rawLines); } catch { parsedLines = null; }
+            }
+            if (Array.isArray(parsedLines) && parsedLines.length > 0) {
+                parsedLines.forEach((raw, index) => {
+                    const line = (raw ?? {}) as Record<string, unknown>;
+                    const name = typeof line.name === 'string' ? line.name : `Hizmet ${index + 1}`;
+                    if (typeof line.price === 'number') {
+                        lines.push({ name, amount: line.price });
+                        return;
+                    }
+                    const byId = typeof line.id === 'string'
+                        ? services.find((row) => row.id === line.id)
+                        : undefined;
+                    if (byId) {
+                        lines.push({ name, amount: Number(byId.price ?? 0) || 0 });
+                        return;
+                    }
+                    lines.push({ name, amount: priceOfName(name) });
+                });
+            } else {
+                // Birleşik ad: "Kaş + Cilt bakımı" → iki ayrı katalog kaydı.
+                for (const part of String(res!.service ?? '').split(' + ')) {
+                    const name = part.trim();
+                    if (name) lines.push({ name, amount: priceOfName(name) });
+                }
+            }
+
+            const amount = Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100;
+            return json({ lines, amount, count: lines.length });
         }
 
         /*
