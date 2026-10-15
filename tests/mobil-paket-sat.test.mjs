@@ -227,6 +227,22 @@ test('gizlilik ve destek: iki adres, aynı içerik, yayın öncesi kutusu yok', 
     assert.doesNotMatch(g, /luera\.app/);
 });
 
+test('yayımlanmamış taslak public/ altında DEĞİL — masaüstü deploy\'u onu canlıya çıkarır', () => {
+    /*
+     * 2026-10-16: 2026-10-13'teki yeniden yazım (631bf04) public/ altına
+     * konmuştu; masaüstü deploy'u yayımlanmamış metni canlıya çıkaracaktı
+     * (kullanıcı deploy'u iptal etti). Taslak docs/ altında; public/ canlıdaki
+     * metin (5699942). Bölüm 5'in standart sözleşme cümlesi imza + Kurum'a
+     * bildirim olmadan yayımlanamaz — yayın bir karar, bu test onu kilitliyor.
+     */
+    for (const page of ['gizlilik', 'destek']) {
+        const live = read(`../public/${page}.html`);
+        assert.doesNotMatch(live, /standart sözleşmelerle/, `${page}.html: taslağın yurt dışı aktarım cümlesi yayımlanıyor`);
+        assert.doesNotMatch(live, /YENİDEN YAZILDI/, `${page}.html: 2026-10-13 taslağı public/ altına dönmüş`);
+        assert.ok(existsSync(new URL(`../docs/gizlilik-destek-taslak/${page}.html`, import.meta.url)), `${page} taslağı kayıp`);
+    }
+});
+
 test('uygulamadaki gizlilik satırı yayımlanan sayfaya açılıyor', () => {
     assert.equal(PRIVACY_URL, 'https://timeflow.lueratech.com/gizlilik.html');
     assert.equal(SUPPORT_URL, 'https://timeflow.lueratech.com/destek.html');

@@ -3,34 +3,23 @@
   Luera TimeFlow · Gizlilik ve Destek — App Store'un istediği iki herkese açık adres.
   Kaynak: Claude Design "C-gizlilik-destek.html".
 
-  2026-10-13 · YENİDEN YAZILDI (araştırma: KVKK 7499 değişikliği, Aydınlatma
-  Tebliği md. 4, Apple 5.1.1(i) ve 5.1.2(i)). İki sayfa AYNI belgedir; yalnız
-  <title> ve açılış sekmesi farklı — birini değiştiren ötekini de değiştirmek
-  zorunda.
+  YER TUTUCULARIN HEPSİ DOLDURULDU (2026-09-24). İki sayfa AYNI belgedir;
+  yalnız <title> ve açılış sekmesi farklı — birini değiştiren ötekini de
+  değiştirmek zorunda.
 
-  ⚠ YAYINDAN ÖNCE (frontend deploy'u bu iki dosyayı yayımlar):
-    1. Bölüm 5 "standart sözleşmelerle yapılır" — DOĞRU OLMASI İÇİN Hostinger,
-       Expo, Groq, Google ve Dodo ile Kurul'un standart sözleşmesi imzalanıp
-       5 iş gününde Kurum'a bildirilmeli. Yapılmadıysa bu cümle yayımlanmaz.
-    2. SSS "Telefonumu kaybettim" — "Telefonun bağlantısını kopar" adımı göç
-       117 + staff-api deploy'undan SONRA gerçek olur.
+  AVUKAT ONAYI BEKLEYEN ÜÇ CÜMLE (sayfada yer tutucu YOK, ama hukuki
+  değerlendirme yapılmadı):
+    1. Yurt dışına aktarım (Bölüm 4) — KVKK md. 9 dayanağı belirlenmedi.
+       Sayfa yalnız OLGUYU söylüyor: sunucular Frankfurt'ta.
+    2. "Salonun mevzuat gereği saklamak zorunda olduğu kayıtlar" (Bölüm 5) —
+       hangi kayıtlar ve ne kadar, belirlenmedi.
+    3. Sağlık notlarında "açık rıza gerekebilir" (Bölüm 3) — "gerekebilir"
+       bilerek; kesin hüküm kurulmadı.
 
-  DOĞRULANMIŞ OLGULAR (2026-10-13): iki sunucu da Hostinger/Frankfurt (ipinfo) ·
-  işlem kayıtları 30 gün (prune_staff_write_log) · WhatsApp metinleri 12 ay
-  (purge_wa_message_bodies, remind cron'u) · giriş kayıtları (staff_auth_log)
-  BUDANMIYOR → "hesap açık olduğu sürece" · yedekler 30 gün · yapay zekâ:
-  remind → Gemini (ilk ad + hizmet/saat/paket), draft-messages → Groq (ilk ad,
-  son hizmet, gün), whatsapp-booking → Groq/Gemini (mesaj metni), insight →
-  Groq (yalnız toplu sayı); telefon numarası hiçbirine gitmiyor · bildirim
-  metninde yalnız ilk ad (104) · masaüstü Google Fonts'u CDN'den yüklüyor ·
-  uygulama içi satın alma yok · KVKK Kurulu henüz yeterlilik kararı vermedi
-  (kvkk.gov.tr "Yurt Dışına Aktarım").
-
-  ESKİ METİNDEN DÜZELTİLENLER: Luera'nın salon hesabındaki veri sorumluluğu
-  hiç yazmıyordu · yapay zekâ ve ödeme sağlayıcıları yoktu · "önemli
-  değişikliklerde uygulama içinden ve e-postayla bilgi verilir" sözünün
-  karşılığı yoktu (böyle bir bildirim yok, e-posta altyapısı yok) · sağlık
-  notunda "açık rıza gerekebilir" 2024 değişikliğine göre netleştirildi.
+  DOĞRULANMIŞ OLGULAR: barındırma Hostinger/Frankfurt (ipinfo, 2026-09-24) ·
+  işlem kayıtları 30 gün (prune_staff_write_log, gecelik cron) · yedekler
+  30 gün (scripts/vps-backup.sh) · bildirim Expo + APNs · uygulama içi
+  satın alma yok.
 -->
 <html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Gizlilik — Luera TimeFlow</title>
@@ -173,8 +162,8 @@ body{font-size:17px}
 <nav class="nav"><a href="#gizlilik" id="navG" aria-current="page">Gizlilik</a><a href="#destek" id="navD">Destek</a></nav>
 <div class="hero" id="heroG">
 <h1>Bu uygulamadaki müşteri bilgilerinin sahibi salonunuzdur.</h1>
-<p>Luera TimeFlow, salonların randevu ve müşteri kayıtlarını tuttuğu bir uygulamadır. Müşteri kayıtlarını hangi amaçla topladığına ve ne kadar saklayacağına <strong>salon karar verir</strong>; Luera bu kayıtları yalnızca salon adına işler. Salonun kendi hesabına ait bilgilerden ise Luera sorumludur.</p>
-<div class="upd">SON GÜNCELLEME · 13 EKİM 2026</div>
+<p>Luera TimeFlow, salonların randevu ve müşteri kayıtlarını tuttuğu bir uygulamadır. Kayıtları hangi amaçla topladığına ve ne kadar saklayacağına <strong>salon karar verir</strong>; Luera bu kayıtları yalnızca salon adına işler.</p>
+<div class="upd">SON GÜNCELLEME · 24 EYLÜL 2026</div>
 </div>
 <div class="hero" id="heroD" style="display:none">
 <h1>Bir sorunuz mu var? Tek adres yeter.</h1>
@@ -193,44 +182,34 @@ body{font-size:17px}
 <span class="lb">İÇİNDEKİLER</span>
 <a href="#g1">1 · Kim sorumlu</a>
 <a href="#g2">2 · Hangi veriler</a>
-<a href="#g3">3 · Ne için, hangi sebeple</a>
+<a href="#g3">3 · Ne için</a>
 <a href="#g4">4 · Kiminle paylaşılır</a>
-<a href="#g5">5 · Yurt dışına aktarım</a>
-<a href="#g6">6 · Ne kadar saklanır</a>
-<a href="#g7">7 · Haklarınız ve başvuru</a>
-<a href="#g8">8 · Değişiklikler</a>
+<a href="#g5">5 · Ne kadar saklanır</a>
+<a href="#g6">6 · Haklarınız ve başvuru</a>
+<a href="#g7">7 · Değişiklikler</a>
 </nav>
 <article>
 
 <section><h2 id="g1"><s>BÖLÜM 1</s>Kim sorumlu</h2>
-<p>Bu uygulamada iki ayrı rol var. Hangisinin geçerli olduğu, verinin kime ait olduğuna bağlıdır.</p>
-<h3>Müşteri kayıtları: sorumlu salondur</h3>
-<p>Müşteri adını, telefonunu, randevusunu, notlarını ve WhatsApp yazışmalarını kaydeden, saklayan ve silen taraf salondur; bu kayıtların <strong>veri sorumlusu salondur</strong>. Bir müşteri olarak kayıtlarınızla ilgili talebinizi hizmet aldığınız salona iletirsiniz.</p>
-<p>Luera bu kayıtları <strong>veri işleyen</strong> olarak, salonun talimatıyla ve yalnızca uygulamanın çalışması için işler: saklar, cihazlar arasında eşler, salonun açtığı mesajları iletir. Luera bu kayıtları kendi amaçları için kullanmaz, satmaz ve reklam için işlemez.</p>
-<h3>Salonun hesabı: sorumlu Luera'dır</h3>
-<p>İşletme sahibinin hesabı, abonelik bilgisi, personel giriş ve güvenlik kayıtları ve destek yazışmaları için <strong>veri sorumlusu Luera'dır</strong>. Luera bunları hizmeti sunmak ve güvenliğini sağlamak için kendisi işler.</p>
+<p><strong>Veri sorumlusu, uygulamayı kullanan salonun kendisidir.</strong> Müşteri adını, telefonunu, randevusunu ve notunu kaydeden, saklayan ve silen taraf salondur. Bir müşteri olarak kayıtlarınızla ilgili talebinizi önce hizmet aldığınız salona iletmeniz gerekir.</p>
+<p><strong>Luera veri işleyendir.</strong> Salonun girdiği kayıtları, salonun talimatı doğrultusunda ve yalnızca uygulamanın çalışması için işler: saklar, cihazlar arasında eşler, salonun başlattığı mesajları iletir. Luera bu kayıtları kendi amaçları için kullanmaz, satmaz ve reklam için işlemez.</p>
 <dl class="pair">
-<dt>Müşteri kayıtlarının sorumlusu</dt><dd>Uygulamayı kullanan salonun kendisi — unvanı ve iletişim bilgisi için hizmet aldığınız salona başvurun</dd>
-<dt>Luera</dt><dd>Furkan Ülger (Luera TimeFlow) — salon hesabının veri sorumlusu, müşteri kayıtlarının veri işleyeni</dd>
+<dt>Veri sorumlusu</dt><dd>Uygulamayı kullanan salonun kendisi — unvanı ve iletişim bilgisi için hizmet aldığınız salona başvurun</dd>
+<dt>Veri işleyen</dt><dd>Furkan Ülger (Luera TimeFlow)</dd>
 <dt>İletişim</dt><dd><a href="mailto:info@lueratech.com">info@lueratech.com</a></dd>
 </dl>
 <div class="box"><b>Uygulama ücretsizdir</b><p>Luera TimeFlow, salonun kullandığı Luera hesabını tamamlayan ücretsiz bir uygulamadır. Uygulama içinden satın alma yapılmaz.</p></div>
 </section>
 
 <section><h2 id="g2"><s>BÖLÜM 2</s>Hangi veriler işlenir</h2>
-<p>Veriler elektronik ortamda toplanır: telefon uygulaması, masaüstü uygulaması, salonun çevrimiçi randevu sayfası ve salonun bağladığı WhatsApp hesabı.</p>
-<h3>Salonun hesabı</h3>
+<h3>Salonun kendi hesabı</h3>
 <ul>
-<li>İşletme sahibinin e-posta adresi ve şifresi — şifre yalnızca geri çevrilemez bir özet olarak saklanır</li>
-<li>Salon adı, sektörü, çalışma saatleri ve hizmet listesi</li>
-<li>Personel kayıtları: ad, meslek, rol ve takvim rengi; personel şifreleri de yalnızca özet olarak saklanır</li>
-<li>Abonelik: plan, dönem ve durum. Kart bilgileri ödeme hizmeti sağlayıcısında işlenir; Luera kart bilgisini görmez ve saklamaz</li>
-<li>Giriş ve güvenlik kayıtları: giriş zamanı, başarısız denemeler, IP adresi, cihaz ve tarayıcı bilgisi</li>
-<li>Telefon kayıtları: cihaz kimliği, bildirim jetonu, personel telefonunun işletmeye bağlandığı an ve o telefondan en son kimin girdiği</li>
-<li>Destek için yazdığınız e-postalar</li>
+<li>Salon adı, salonun çalışma saatleri ve hizmet listesi</li>
+<li>Personel kayıtları: ad, rol, giriş bilgileri</li>
+<li>Oturum açma ve cihaz kayıtları: cihaz kimliği, bildirim jetonu, son görülme zamanı, IP adresi ve cihaz/tarayıcı bilgisi</li>
 </ul>
 <h3>Tarayıcıda ve telefonda tutulanlar</h3>
-<p>Oturumun açık kalması için tarayıcının yerel depolamasında bir oturum anahtarı, telefonda ise cihaz kimliği ve bildirim jetonu saklanır. Bunlar uygulamanın çalışması için gereklidir. <strong>Reklam ya da izleme amaçlı çerez kullanılmaz.</strong> Masaüstü uygulaması ve bu sayfa yazı tiplerini Google Fonts'tan yükler; bu sırada tarayıcınızın IP adresi Google'a iletilir.</p>
+<p>Oturumun açık kalması için tarayıcının yerel depolamasında bir oturum anahtarı, telefonda ise cihaz kimliği ve bildirim jetonu saklanır. Bunlar uygulamanın çalışması için gereklidir. <strong>Reklam ya da izleme amaçlı çerez kullanılmaz.</strong></p>
 <h3>Müşteri kayıtları</h3>
 <p>Bu kayıtları salon girer; müşteri salonun çevrimiçi randevu sayfasından ya da WhatsApp üzerinden randevu alırken adını ve telefonunu kendisi de girebilir.</p>
 <ul>
@@ -238,73 +217,43 @@ body{font-size:17px}
 <li>Randevular: tarih, saat, hizmet, ilgilenen personel</li>
 <li>Paketler ve hak kullanımı, hesap bakiyesi, tahsilat kayıtları</li>
 <li>Salonun yazdığı serbest notlar ve müşteri bilgileri (örneğin cilt tipi, ürün hassasiyeti, tercihler)</li>
-<li>Salonun WhatsApp hesabından giden ve salona gelen mesajlar</li>
 </ul>
 <h3>Özel nitelikli olabilecek notlar</h3>
-<p>Salon, hizmetin verilip verilemeyeceğini belirleyen sağlık notları girebilir (örneğin hamilelik, alerji). Sağlık verisi, KVKK md. 6'ya göre <strong>özel nitelikli kişisel veridir</strong>. Kanun'un 2024 değişikliğinden sonra sağlık verisini açık rıza olmadan işleyebilenler esas olarak sır saklama yükümlülüğü altındaki sağlık meslek mensuplarıdır; güzellik salonları için dayanak çoğu zaman <strong>müşterinin açık rızasıdır</strong> ve açık rıza aydınlatma metninden ayrı alınır. Bu notları girmek, gereken rızayı almak ve doğru tutmak <strong>salonun sorumluluğundadır</strong>. Luera bu alanları yalnızca salonun girdiği biçimde saklar ve gösterir.</p>
+<p>Salon, hizmetin verilip verilemeyeceğini belirleyen sağlık notları girebilir (örneğin hamilelik). Bu notlar <strong>sağlıkla ilgili kişisel veri</strong> sayılabilir; bunları girmek, gerekli rızayı almak ve doğru tutmak <strong>salonun sorumluluğundadır</strong>. Luera bu alanları yalnızca salonun girdiği biçimde saklar ve gösterir.</p>
 <p>Uygulama <strong>konum verisi toplamaz</strong> ve müşteri kayıtlarını reklam amacıyla kullanmaz.</p>
 </section>
 
-<section><h2 id="g3"><s>BÖLÜM 3</s>Ne için ve hangi sebeple işlenir</h2>
-<h3>Salon adına işlenenler (müşteri kayıtları)</h3>
+<section><h2 id="g3"><s>BÖLÜM 3</s>Ne için işlenir</h2>
 <ul>
 <li><strong>Randevuyu yürütmek:</strong> günün listesini göstermek, gecikmeyi ve gelmeyen müşteriyi işaretlemek, hizmeti kaydetmek</li>
 <li><strong>Hesabı takip etmek:</strong> paket haklarını, borcu ve tahsilatı kaydetmek</li>
-<li><strong>Müşteriyle iletişim:</strong> salonun başlattığı arama ve WhatsApp mesajları, salonun açtığı otomatik hatırlatmalar</li>
-<li><strong>Uygulamayı çalıştırmak ve güvenliğini sağlamak:</strong> oturum yönetimi ve işlem kayıtları</li>
+<li><strong>Müşteriyle iletişim:</strong> salonun başlattığı arama ve hatırlatma mesajları</li>
+<li><strong>Uygulamayı çalıştırmak ve güvenliğini sağlamak:</strong> oturum yönetimi ve işlem kayıtları — işlem kayıtları 30 gün sonra silinir</li>
 </ul>
-<p>Bu işlemlerin hukuki sebebini salon belirler ve kendi aydınlatma metninde müşterilerine bildirir.</p>
-<h3>Luera'nın kendi işledikleri (salonun hesabı)</h3>
-<ul>
-<li><strong>Hesabı açmak, hizmeti sunmak ve aboneliği yürütmek</strong> — sözleşmenin kurulması ve ifası (KVKK md. 5/2-c)</li>
-<li><strong>Giriş ve güvenlik kayıtları tutmak</strong>, yetkisiz girişi ve kötüye kullanımı önlemek — meşru menfaat (md. 5/2-f)</li>
-<li><strong>Destek taleplerini cevaplamak</strong> — sözleşmenin ifası (md. 5/2-c)</li>
-<li><strong>Mevzuattan doğan yükümlülükler</strong> ve yetkili makamların talepleri — hukuki yükümlülük (md. 5/2-ç)</li>
-</ul>
+<p>Hukuki dayanak, salonun kendi aydınlatma metninde belirttiği sebeplerdir; sağlıkla ilgili notlar için <strong>açık rıza</strong> gerekebilir. Bu dayanakları belirlemek ve müşteriye bildirmek salona aittir.</p>
 </section>
 
 <section><h2 id="g4"><s>BÖLÜM 4</s>Kiminle paylaşılır</h2>
-<p>Kayıtlar başka salonlarla paylaşılmaz; her salon yalnızca kendi verisini görür. Uygulamanın çalışması için şu hizmet sağlayıcılar devrededir; her biri yalnızca kendi işi için gereken veriyi alır:</p>
+<p>Kayıtlar başka salonlarla paylaşılmaz; her salon yalnızca kendi verisini görür. Uygulamanın çalışması için şu hizmet sağlayıcılar devrededir:</p>
 <dl class="pair">
-<dt>Barındırma ve veritabanı</dt><dd>Hostinger · sunucular Frankfurt, Almanya — bütün kayıtlar burada saklanır</dd>
-<dt>Bildirim</dt><dd>Expo (Expo Push) ve Apple (APNs) — bildirimin metni (müşterinin yalnızca ilk adı, hizmet ve saat) ve cihazın bildirim jetonu</dd>
-<dt>WhatsApp</dt><dd>Salonun bağladığı WhatsApp hesabı (Meta) — salonun gönderdiği mesajlar ve salonun açtığı otomatik hatırlatmalar</dd>
-<dt>Yapay zekâ</dt><dd>Groq ve Google (Gemini) — ayrıntısı aşağıda</dd>
-<dt>Ödeme</dt><dd>Dodo Payments — yalnızca işletme sahibinin abonelik ödemesi; müşteri kayıtları gönderilmez</dd>
+<dt>Barındırma ve veritabanı</dt><dd>Hostinger · sunucular Frankfurt, Almanya</dd>
+<dt>Mesaj gönderimi</dt><dd>Salonun bağladığı WhatsApp hesabı üzerinden: salonun gönderdiği mesajlar ve salonun açtığı otomatik randevu hatırlatmaları</dd>
+<dt>Bildirim gönderimi</dt><dd>Expo (Expo Push) ve Apple (APNs)</dd>
 </dl>
-<h3>Yapay zekâ ne zaman kullanılır</h3>
-<p>Bazı mesajların metni bir yapay zekâ servisiyle yazılır ya da çözülür. Servise yalnızca o iş için gereken veri gider; <strong>müşterinin telefon numarası hiçbir zaman gönderilmez</strong>.</p>
-<ul>
-<li><strong>Otomatik hatırlatma, geri çağırma ve paket yenileme mesajları:</strong> müşterinin ilk adı ve mesajın konusu (hizmet ve randevu saati ya da paket adı) — Google Gemini</li>
-<li><strong>Mesaj taslakları</strong> (salon taslak istediğinde): müşterinin ilk adı, son hizmeti ve kaç gündür gelmediği — Groq</li>
-<li><strong>WhatsApp randevu asistanı:</strong> müşterinin WhatsApp'ta yazdığı mesaj, kurallarla anlaşılamadığında hizmet, gün ve saati çıkarmak için — Groq, yedek olarak Google Gemini</li>
-<li><strong>İşletme önerisi:</strong> yalnızca toplu sayılar (randevu sayısı, en yoğun gün gibi); kişisel veri içermez — Groq</li>
-</ul>
 <p>Yetkili kamu kurumlarının mevzuata dayalı talepleri dışında kayıtlar üçüncü taraflara aktarılmaz.</p>
+<p><strong>Kayıtlar Türkiye dışında saklanır.</strong> Barındırma sağlayıcısı Hostinger ve sunucular Frankfurt (Almanya) konumunda. Bu bir yurt dışına aktarımdır; salon, kendi aydınlatma metninde bunu müşterilerine bildirmek ve gereken hukuki dayanağı belirlemekle yükümlüdür.</p>
 </section>
 
-<section><h2 id="g5"><s>BÖLÜM 5</s>Yurt dışına aktarım</h2>
-<p><strong>Kayıtlar Türkiye dışında saklanır ve işlenir.</strong> Sunucular Almanya'dadır (Hostinger, Frankfurt); bildirim, yapay zekâ ve ödeme sağlayıcıları ağırlıklı olarak ABD'de hizmet verir. Bunlar KVKK md. 9 kapsamında yurt dışına aktarımdır.</p>
-<p>Kişisel Verileri Koruma Kurulu bugüne kadar hiçbir ülke için yeterlilik kararı vermediğinden, bu aktarımlar Kanun'un aradığı uygun güvencelerden <strong>Kurul'un ilan ettiği standart sözleşmelerle</strong> yapılır; sözleşmeler imzadan sonra beş iş günü içinde Kurum'a bildirilir.</p>
-<p>Salon, müşteri kayıtlarının veri sorumlusu olarak bu aktarımı kendi aydınlatma metninde müşterilerine bildirir.</p>
-</section>
-
-<section><h2 id="g6"><s>BÖLÜM 6</s>Ne kadar saklanır</h2>
-<p>Müşteri kayıtları, salonun hesabı açık olduğu sürece saklanır. Salon bir müşteri kaydını masaüstünden <strong>arşivleyebilir</strong>: arşivlenen kayıt listelerden kalkar ama silinmez. Tek bir müşteri kaydının kalıcı silinmesi için salonunuz <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine talep iletir. Salonun mevzuat gereği saklamak zorunda olduğu kayıtlar (örneğin vergi mevzuatındaki belge saklama süreleri) için süreyi salon kendi yükümlülüğüne göre belirler.</p>
-<ul>
-<li><strong>İşlem kayıtları</strong> (personel uygulamasından yapılan yazmalar): 30 gün sonra silinir</li>
-<li><strong>WhatsApp mesaj metinleri:</strong> 12 ay sonra metin silinir; mesajın gönderildiği zaman ve sayısı kalır</li>
-<li><strong>Giriş ve güvenlik kayıtları:</strong> hesap açık olduğu sürece</li>
-<li><strong>Yedekler:</strong> 30 gün</li>
-</ul>
+<section><h2 id="g5"><s>BÖLÜM 5</s>Ne kadar saklanır</h2>
+<p>Kayıtlar, salonun hesabı açık olduğu sürece saklanır. Salon bir müşteri kaydını masaüstünden <strong>arşivleyebilir</strong>: arşivlenen kayıt listelerden kalkar ama silinmez. Tek bir müşteri kaydının kalıcı silinmesi için salonunuz <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine talep iletir. Salonun mevzuat gereği saklamak zorunda olduğu kayıtlar için süre salonun kendi yükümlülüğüne bağlıdır.</p>
 <div class="box"><b>Hesabınızı nasıl silersiniz</b>
-<p>Silme işlemi uygulamanın içinden yapılır; e-posta göndermeniz gerekmez. Tek kişilik işletmede Profil sekmesinin adı İşletme'dir.</p>
+<p>Silme işlemi uygulamanın içinden yapılır; e-posta göndermeniz gerekmez.</p>
 <div class="path"><span>Profil</span><i>→</i><span>Hesap</span><i>→</i><span>Hesabımı sil</span></div>
 </div>
 <p><strong>Silme hemen başlar.</strong> Hesap ve kayıtlar canlı sistemden kaldırılır; yedeklerde kalan kopyalar <strong>30 gün içinde</strong> yedek döngüsünden çıkar ve geri getirilemez.</p>
 </section>
 
-<section><h2 id="g7"><s>BÖLÜM 7</s>Haklarınız ve başvuru</h2>
+<section><h2 id="g6"><s>BÖLÜM 6</s>Haklarınız ve başvuru</h2>
 <p>KVKK md. 11 uyarınca herkes, kendisiyle ilgili olarak:</p>
 <ul>
 <li>Kişisel verisinin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme</li>
@@ -316,12 +265,11 @@ body{font-size:17px}
 <li>Otomatik sistemlerle analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme</li>
 <li>Kanuna aykırı işleme nedeniyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
 </ul>
-<p><strong>Müşteri kayıtlarıyla ilgili başvuruyu hizmet aldığınız salona yaparsınız</strong> — veri sorumlusu odur. Salon, talebi yerine getirmek için Luera'nın teknik desteğine ihtiyaç duyarsa <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresinden ulaşır. Luera'ya doğrudan ulaşan müşteri talepleri ilgili salona yönlendirilir.</p>
-<p><strong>Salonun hesabıyla ilgili başvurular</strong> (işletme sahipleri ve personel) için hesabınıza kayıtlı e-posta adresinden <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine yazarsınız. Başvurular en geç <strong>30 gün içinde</strong> ve ücretsiz cevaplanır. Başvurunuz reddedilir, cevabı yetersiz bulunur ya da süresinde cevaplanmazsa Kişisel Verileri Koruma Kurulu'na şikâyet hakkınız vardır.</p>
+<p><strong>Başvuruyu hizmet aldığınız salona yaparsınız</strong> — veri sorumlusu odur. Salon, talebi yerine getirmek için Luera'nın teknik desteğine ihtiyaç duyarsa <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresinden ulaşır. Luera'ya doğrudan ulaşan müşteri talepleri ilgili salona yönlendirilir.</p>
 </section>
 
-<section><h2 id="g8"><s>BÖLÜM 8</s>Değişiklikler</h2>
-<p>Bu metin değişirse yeni sürüm bu adreste yayımlanır ve yukarıdaki güncelleme tarihi değişir.</p>
+<section><h2 id="g7"><s>BÖLÜM 7</s>Değişiklikler</h2>
+<p>Bu metin değişirse yeni sürüm bu adreste yayımlanır ve yukarıdaki güncelleme tarihi değişir. Önemli değişikliklerde salonlara uygulama içinden ve destek e-postasıyla bilgi verilir.</p>
 <p>Sorularınız için: <a href="mailto:info@lueratech.com">info@lueratech.com</a></p>
 </section>
 
@@ -353,24 +301,22 @@ body{font-size:17px}
 
 <details open><summary>Personelimi nasıl bağlarım?</summary><div class="ans">
 <p>Personel kendi telefonuna Luera TimeFlow'u kurar ve uygulamayı açar. Giriş üç adımdır: <strong>ekip kodu</strong>, listeden <strong>kendi adı</strong>, sonra kendi belirlediği <strong>şifre</strong>. Personel bundan sonra yalnız şifresiyle girer.</p>
-<p>Yeni personeli işletme sahibi ekler: telefonda <strong>Profil → Personel</strong> ekranındaki <strong>+</strong> ile ya da masaüstündeki <strong>Personel</strong> sayfasından. Ekip kodunu da aynı ekranda üretir. Kod 15 dakika geçerlidir; o süre içinde bütün ekip aynı kodu kullanır.</p>
+<p>Ekip kodunu işletme sahibi üretir: telefonda <strong>Profil → Personel</strong>, masaüstünde <strong>Personel</strong> sayfası. Kod 15 dakika geçerlidir; o süre içinde bütün ekip aynı kodu kullanır.</p>
 </div></details>
 
 <details><summary>Personel şifresini unuttu, ne yapacağız?</summary><div class="ans">
 <p>Şifre kimseye görünmez; <strong>sıfırlanır</strong>. İşletme sahibi <strong>Profil → Personel</strong> ekranında personelin satırına dokunup <strong>Şifreyi sıfırla</strong>'ya basar. Personel bir sonraki girişte yeni şifresini kendisi belirler; telefonu işletmeye bağlı kalır, yeni kod gerekmez.</p>
-<p>Çok kez yanlış şifre girilirse giriş bir süre kilitlenir; sıfırlama kilidi de kaldırır. Personel listede kendini bulamıyorsa kaydını <strong>Profil → Personel</strong> ekranından kontrol edin.</p>
-<p>Telefon kaybolduysa şifreyi sıfırlamak yetmez: telefon işletmeye bağlı kalır. Aşağıdaki <strong>Telefonumu kaybettim</strong> sorusuna bakın.</p>
+<p>Çok kez yanlış şifre girilirse giriş bir süre kilitlenir; sıfırlama kilidi de kaldırır. Personel listede kendini bulamıyorsa kaydını masaüstündeki <strong>Personel</strong> sayfasından kontrol edin.</p>
 </div></details>
 
 <details><summary>Telefonumu kaybettim veya değiştirdim.</summary><div class="ans">
 <p>Kayıtlar telefonda değil hesapta durur; yeni telefona uygulamayı kurup aynı bilgilerle giriş yapınca her şey yerinde olur.</p>
-<p><strong>Personelin telefonu kaybolduysa:</strong> işletme sahibi <strong>Profil → Personel</strong> ekranında kişinin satırına dokunup <strong>Telefonun bağlantısını kopar</strong>'a basar. Açık oturum hemen kapanır, kaybolan telefon işletmeden çıkar ve o telefondan kimse giremez. Personelin şifresi değişmez: yeni telefonunu ekip koduyla bağlar ve aynı şifreyle girer.</p>
-<p><strong>İşletme sahibinin telefonu kaybolduysa:</strong> başka bir cihazdan hesabınıza girip şifrenizi değiştirin ve <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine yazın; hesabınızdaki açık oturumları kapatırız.</p>
+<p>Kaybolan telefonla ilgili adımlar için <a href="mailto:info@lueratech.com">info@lueratech.com</a> adresine yazın.</p>
 </div></details>
 
 <details><summary>Hesabımı nasıl silerim?</summary><div class="ans">
 <p>Uygulamanın içinden: <strong>Profil → Hesap → Hesabımı sil</strong>. Silme hemen başlar; yedeklerdeki kopyalar 30 gün içinde döngüden çıkar.</p>
-<p>Ayrıntı için <a href="#gizlilik" data-go="G">gizlilik politikasının 6. bölümüne</a> bakın.</p>
+<p>Ayrıntı için <a href="#gizlilik" data-go="G">gizlilik politikasının 5. bölümüne</a> bakın.</p>
 </div></details>
 
 <details><summary>Masaüstünde yaptığım değişiklik telefonda görünmüyor.</summary><div class="ans">
