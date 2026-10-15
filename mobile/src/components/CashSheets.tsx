@@ -118,16 +118,6 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
     const receipt = receiptLines(movement.lines ?? [], cashMetrics.receiptMaxLines);
 
 
-    const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-        <View style={{
-            flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-            gap: 12, minHeight: cashMetrics.sheetRowHeight,
-        }}>
-            <Txt style={{ fontSize: cashMetrics.sheetRowFont, color: c.tx2 }}>{label}</Txt>
-            {children}
-        </View>
-    );
-
     return (
         /**
          * RANDEVU KARTININ KABUĞU, İÇERİK BOYUNDA (2026-10-13).
@@ -558,6 +548,24 @@ export function DayEndSheet({ period, totals, onClose }: {
                     </Section>
                 )}
             </View>
+        </View>
+    );
+}
+
+/**
+ * Fişin bir satırı: solda etiket, sağda değer. Dosya düzeyinde — çizim
+ * içinde tanımlanınca her çizimde YENİ bir bileşen oluyordu ve React satırı
+ * söküp yeniden kuruyordu (D8, lint `react-hooks/static-components`).
+ */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+    const { c } = useTheme();
+    return (
+        <View style={{
+            flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 12, minHeight: cashMetrics.sheetRowHeight,
+        }}>
+            <Txt style={{ fontSize: cashMetrics.sheetRowFont, color: c.tx2 }}>{label}</Txt>
+            {children}
         </View>
     );
 }
