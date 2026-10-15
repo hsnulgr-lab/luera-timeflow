@@ -2,7 +2,8 @@
  * Giriş v3 · Karşılama.
  *
  * Ömürde BİR KEZ görülüyor — gösterinin tamamı burada. Marka üstte ve ağır,
- * ışık alanı ortada ve canlı, iki cam kapı altta.
+ * ışık alanı ortada ve canlı, iki cam kapı altta ve altında "Yeni işletme
+ * oluştur" (D9: Solo kapısı kalktı, mod kaydın sonunda soruluyor).
  *
  * Ortadaki 600 pt artık boş değil ama DOLU DA DEĞİL: oraya bir kart koymak
  * yerine alanı bırakmak bilinçli. Kullanıcının gözü markadan iki kapıya
@@ -232,35 +233,15 @@ export default function Welcome() {
                         />
                     </AView>
                     {/*
-                      * ÜÇÜNCÜ KAPI · SOLO (108).
+                      * SOLO KAPISI KALKTI (D9, kullanıcı kararı 2026-10-16).
                       *
-                      * İlk ikisi "kimsin" diye soruyor: işletmesini yöneten
-                      * ve orada çalışan. Üçüncüsü aynı cinsten — kendi
-                      * işletmesi olan ve tek başına çalışan kişi.
-                      *
-                      * YENİ İŞLETME kuruyor, giriş yapmıyor. Zaten hesabı
-                      * olan solo bir sahip ilk kapıdan giriyor ve doğru
-                      * kabuğa kendiliğinden düşüyor (kabuk işletmenin
-                      * moduna bakıyor, hangi düğmeye basıldığına değil).
-                      * Üçüncü kapıyı da girişe bağlasaydık ilk kapının
-                      * kopyası olurdu: aynı forma çıkan iki düğme.
-                      *
-                      * Niyet taslağa yazılıyor; kaydın sonunda mod bir daha
-                      * SORULMUYOR — verilmiş bir cevabı tekrar sormak onu
-                      * duymamak olurdu.
+                      * 108'de üçüncü bir kapı ("Solo · Tek kişilik işletme
+                      * kurun") eklenmişti. Karşılama 1.0'daki üç girişe döndü:
+                      * yeni işletme TEK yoldan kuruluyor ve tek kişilik mi
+                      * ekip mi olduğu kaydın sonundaki soruyla seçiliyor
+                      * ("Bu işletmede işi kim yapıyor?"). Aynı forma çıkan iki
+                      * kapı yok; hakem notundaki kayıt yolu değişmedi.
                       */}
-                    <AView style={door2}>
-                        <AuthChoiceButton
-                            glyph="person"
-                            title="Solo"
-                            subtitle="Tek kişilik işletme kurun"
-                            onPress={() => {
-                                void authApi.signup.intent(true).then(() => {
-                                    router.push('/(auth)/signup/account');
-                                });
-                            }}
-                        />
-                    </AView>
                     <AView style={foot}>
                         <Text style={{
                             color: c.tx3,
@@ -273,9 +254,9 @@ export default function Welcome() {
                         }}>
                             Sonradan değiştirebilirsiniz.
                         </Text>
-                        {/* Niyet burada da YAZILIYOR — "Solo"nun tersi. Kayıt
-                            akışı taslaktaki niyeti sonuna kadar taşıyor; yarım
-                            bırakılmış bir Solo kaydının niyeti bu kapıdan
+                        {/* Niyet burada SIFIRLANIYOR. Kayıt akışı taslaktaki
+                            niyeti sonuna kadar taşıyor; önceki sürümün Solo
+                            kapısından yarım kalmış bir kaydın niyeti buradan
                             girene geçerse mod sorusu hiç sorulmazdı. */}
                         <AuthTextLink
                             label="Yeni işletme oluştur"

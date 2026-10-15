@@ -37,25 +37,22 @@ test('Giriş 11–13 üç ayrı signup rotasıdır ve sırayla gezilir', () => {
     assert.match(ready, /enterShell\(result\.data\.actor, result\.data\.profile\.business\.solo\)/);
 });
 
-test('karşılamada ÜÇ kapı var ve üçüncüsü niyeti yazmadan gezmiyor', () => {
+test('karşılamada İKİ kapı ve "Yeni işletme oluştur" — Solo kapısı YOK (D9)', () => {
     /*
-     * İlk ikisi "kimsin" diye soruyor: işletmesini yöneten ve orada çalışan.
-     * Üçüncüsü aynı cinsten — kendi işletmesi olan ve tek başına çalışan.
-     *
-     * Giriş DEĞİL, yeni işletme kuruyor: hesabı olan solo bir sahip ilk
-     * kapıdan giriyor ve doğru kabuğa kendiliğinden düşüyor (kabuk
-     * işletmenin moduna bakıyor, hangi düğmeye basıldığına değil). Girişe
-     * bağlasaydık ilk kapının kopyası olurdu.
+     * Kullanıcı kararı (2026-10-16, seçenek A): 108'in üçüncü kapısı ("Solo ·
+     * Tek kişilik işletme kurun") kalktı, karşılama 1.0'daki üç girişe döndü.
+     * Yeni işletme TEK yoldan kuruluyor; tek kişilik mi ekip mi olduğu kaydın
+     * sonundaki soruyla seçiliyor. Aynı forma çıkan iki kapı yok.
      */
-    for (const title of ['İşletmemi yönetiyorum', 'Burada çalışıyorum', 'Solo']) {
-        assert.ok(welcome.includes(title), `karşılamada eksik kapı: ${title}`);
+    for (const title of ['İşletmemi yönetiyorum', 'Burada çalışıyorum', 'Yeni işletme oluştur']) {
+        assert.ok(welcome.includes(title), `karşılamada eksik giriş: ${title}`);
     }
-    // Niyet gezinmeden ÖNCE yazılıyor: sonra yazılsaydı kayıt ekranı
-    // taslağı niyet henüz yokken okuyabilirdi.
-    assert.match(
-        welcome,
-        /authApi\.signup\.intent\(true\)[\s\S]{0,120}router\.push\([\s\S]{0,60}signup\/account/,
-    );
+    assert.ok(!welcome.includes('title="Solo"'), 'Solo kapısı geri gelmiş');
+    assert.doesNotMatch(welcome, /authApi\.signup\.intent\(true\)/, 'karşılama tek kişilik niyetini yazmamalı');
+    assert.equal((welcome.match(/<AuthChoiceButton/g) ?? []).length, 2);
+    // Mod sorusu kaydın sonunda duruyor ve iki cevap eşit.
+    assert.match(ready, /label="Yalnız ben"/);
+    assert.match(ready, /label="Ekibim var"/);
 });
 
 test('Solo kapısından gelene mod BİR DAHA sorulmuyor', () => {
