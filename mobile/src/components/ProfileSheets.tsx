@@ -177,7 +177,7 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
     const valid = serviceValid({ name, minutes });
 
     return (
-        <BottomSheet visible={visible} onDismiss={onDismiss} fill>
+        <BottomSheet visible={visible} onDismiss={onDismiss} fill system>
             <SheetGrab />
             {/*
               * GÖVDE KAYAR — ve bu bir süs değil, kaçış yolu.
@@ -188,9 +188,9 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
               * tamamen kapatmaktı. Kaydırılabilir gövde ikisini de erişilebilir
               * tutuyor.
               *
-              * Klavye payını sayfanın kabuğu (`Sheet.tsx`, KeyboardAvoidingView)
-              * zaten veriyor; burada İKİNCİ bir pay eklenmiyor, yoksa altta
-              * boş bir şerit kalırdı. `keyboardShouldPersistTaps` ise klavye
+              * Klavye payını sayfanın kabuğu (`Sheet.tsx` · `system`, klavye
+              * boyu kadar alt dolgu) zaten veriyor; burada İKİNCİ bir pay
+              * eklenmiyor, yoksa altta boş bir şerit kalırdı. `keyboardShouldPersistTaps` ise klavye
               * açıkken düğmeye İLK dokunuşun çalışmasını sağlıyor — yoksa ilk
               * dokunuş yalnız klavyeyi kapatır, müdür iki kez basmak zorunda
               * kalır.

@@ -3,6 +3,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Tex
 import Svg, { Path } from 'react-native-svg';
 
 import { feedback } from '../lib/feedback';
+import { useKeyboardInset } from '../lib/keyboardInset';
 import { upperTR } from '../lib/text';
 import {
     apptCardMetrics, apptInCurve, apptMotion, apptOutCurve, detailMetrics, font, hit, useTheme,
@@ -23,9 +24,23 @@ function bezier(curve: Curve) {
  * 300/240 ms sözleşmesini tutturamıyordu; hareket burada elle sürülüyor.
  * Yalnız `translateY` ve `opacity` — ikisi de native sürücüde.
  */
-export function BottomSheet({ visible, onDismiss, fill = false, children }: {
+export function BottomSheet({ visible, onDismiss, fill = false, system = false, children }: {
     visible: boolean;
     onDismiss: () => void;
+    /**
+     * iOS'UN KENDİ SAYFASI (2026-10-15, telefonda bulundu · kullanıcı kararı).
+     *
+     * Bu kabuğun tutamağı ÇİZİLİ ama sürüklenmiyor: "Yeni hizmet"te aşağı
+     * çekmek hiçbir şey yapmıyordu. Elle yazılmış jest transparent `Modal`
+     * içinde telefonda iki kez tutmadı (hafıza: sayfa kapatma sistemin);
+     * çare sistemin sayfası. Yalnız UZUN sayfalar — boyları zaten %88,
+     * görünüm neredeyse aynı. Küçük sayfalar sistemde ekranın tepesine kadar
+     * uzardı; onlar içerik boyunda `formSheet` rotasına taşınacak (1.0.2).
+     *
+     * Ardından BAŞKA bir modal açan sayfaya verilmez: iOS kapanmakta olan
+     * sayfanın üstüne yeni modal açmıyor (taşıma listesi → sonuç sayfası).
+     */
+    system?: boolean;
     /**
      * Gövdesi KAYAN sayfalar için sabit yükseklik.
      *
@@ -39,8 +54,10 @@ export function BottomSheet({ visible, onDismiss, fill = false, children }: {
 }) {
     const { c, dark, reduceMotion } = useTheme();
     const enter = useRef(new Animated.Value(0)).current;
+    const kb = useKeyboardInset();
 
     useEffect(() => {
+        if (system) return;
         if (reduceMotion) {
             enter.setValue(visible ? 1 : 0);
             return;
@@ -51,7 +68,33 @@ export function BottomSheet({ visible, onDismiss, fill = false, children }: {
             easing: bezier(visible ? apptInCurve : apptOutCurve),
             useNativeDriver: true,
         }).start();
-    }, [visible, reduceMotion, enter]);
+    }, [visible, reduceMotion, enter, system]);
+
+    if (system) {
+        return (
+            /*
+              * Aşağı çekip kapatmayı iOS yapıyor (`allowSwipeDismissal`;
+              * verilmezse sistem jesti KAPATIR). Kaydırarak kapanınca
+              * `onRequestClose` geldiğinde sayfa zaten inmiş oluyor — çağıran
+              * yalnız açık hâli düşürüyor.
+              *
+              * Klavye payı: sistem sayfasının altı ekranın altı, yani klavyenin
+              * kapladığı yer klavyenin kendi boyu. `KeyboardAvoidingView` bu
+              * sayfada payı sayfanın üst boşluğu kadar eksik hesaplıyordu.
+              */
+            <Modal
+                visible={visible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                allowSwipeDismissal
+                onRequestClose={onDismiss}
+            >
+                <View style={{ flex: 1, backgroundColor: c.surf, paddingBottom: kb }}>
+                    {children}
+                </View>
+            </Modal>
+        );
+    }
 
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
