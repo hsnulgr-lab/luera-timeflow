@@ -5,6 +5,7 @@ import {
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
+import { NAME_RULE, NAME_TOKEN, fillName } from './aiName.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -704,13 +705,12 @@ function buildWinbackMessage(p: { customerName: string; businessName: string; co
     );
 }
 
-function buildWinbackAiPrompt(comms: Comms, customerName: string, businessName: string): string {
-    const firstName = (customerName || '').split(' ')[0];
+function buildWinbackAiPrompt(comms: Comms, businessName: string): string {
     return (
         `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${firstName}. Bu kişi 2 aydan uzun süredir gelmedi.\n` +
+        `${comms.audience} ${NAME_TOKEN}. Bu kişi 2 aydan uzun süredir gelmedi.\n` +
         `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe "SİZİ ÖZLEDİK" mesajı yaz. ` +
-        `Adıyla başla. Suçlayıcı olma; nazikçe dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Suçlayıcı olma; nazikçe dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
         (comms.guardrail ? `${comms.guardrail} ` : '') +
         `İndirim/kampanya UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
     );
@@ -720,7 +720,7 @@ async function winbackAiOrTemplate(
     geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
 ): Promise<string> {
     if (geminiKey) {
-        const ai = await geminiMessage(geminiKey, buildWinbackAiPrompt(comms, customerName, businessName));
+        const ai = fillName(await geminiMessage(geminiKey, buildWinbackAiPrompt(comms, businessName)), customerName);
         if (ai) return ai;
     }
     return fallback();
@@ -737,13 +737,12 @@ function buildRenewalMessage(p: { customerName: string; packageTitle: string; bu
     );
 }
 
-function buildRenewalAiPrompt(comms: Comms, customerName: string, packageTitle: string, businessName: string): string {
-    const firstName = (customerName || '').split(' ')[0];
+function buildRenewalAiPrompt(comms: Comms, packageTitle: string, businessName: string): string {
     return (
         `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${firstName}. Bu kişinin "${packageTitle}" paketindeki tüm seanslar tamamlandı.\n` +
+        `${comms.audience} ${NAME_TOKEN}. Bu kişinin "${packageTitle}" paketindeki tüm seanslar tamamlandı.\n` +
         `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe PAKET YENİLEME teklifi yaz. ` +
-        `Adıyla başla, paketi tebrikle an, yenilemek isterse dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla, paketi tebrikle an, yenilemek isterse dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
         (comms.guardrail ? `${comms.guardrail} ` : '') +
         `Fiyat/indirim UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
     );
@@ -753,21 +752,21 @@ async function renewalAiOrTemplate(
     geminiKey: string | null, comms: Comms, customerName: string, packageTitle: string, businessName: string, fallback: () => string,
 ): Promise<string> {
     if (geminiKey) {
-        const ai = await geminiMessage(geminiKey, buildRenewalAiPrompt(comms, customerName, packageTitle, businessName));
+        const ai = fillName(await geminiMessage(geminiKey, buildRenewalAiPrompt(comms, packageTitle, businessName)), customerName);
         if (ai) return ai;
     }
     return fallback();
 }
 
-// Recall için AI mesajı — gizlilik: yalnız ön ad + işletme adı gider (telefon/soyad GİTMEZ)
-function buildRecallAiPrompt(comms: Comms, customerName: string, businessName: string): string {
-    const firstName = (customerName || '').split(' ')[0];
+// Recall için AI mesajı — gizlilik: yalnız işletme adı ve kavram gider; müşteri
+// adı, telefonu, soyadı GİTMEZ (yer tutucu, `aiName.ts`).
+function buildRecallAiPrompt(comms: Comms, businessName: string): string {
     const concept = comms.recall?.concept ?? 'dönüş';
     return (
         `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${firstName}. Bu kişinin periyodik *${concept}* zamanı geldi.\n` +
+        `${comms.audience} ${NAME_TOKEN}. Bu kişinin periyodik *${concept}* zamanı geldi.\n` +
         `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe HATIRLATMA mesajı yaz. ` +
-        `Adıyla başla. Randevu için dönüş yapmasını nazikçe iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Randevu için dönüş yapmasını nazikçe iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
         (comms.guardrail ? `${comms.guardrail} ` : '') +
         `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
     );
@@ -777,15 +776,16 @@ async function recallAiOrTemplate(
     geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
 ): Promise<string> {
     if (geminiKey) {
-        const ai = await geminiMessage(geminiKey, buildRecallAiPrompt(comms, customerName, businessName));
+        const ai = fillName(await geminiMessage(geminiKey, buildRecallAiPrompt(comms, businessName)), customerName);
         if (ai) return ai;
     }
     return fallback();
 }
 
 // ─── AI (Gemini) sektörel hatırlatma ─────────────────────────────────────────
-// Gizlilik: Gemini'ye yalnızca ön ad + hizmet + saat + sektör + işletme adı gider.
-// Telefon ve soyad GİTMEZ.
+// Gizlilik (D5, 2026-10-16): Gemini'ye yalnız hizmet + saat + sektör + işletme
+// adı gider. Müşterinin ADI DA GİTMEZ: istemde `{AD}` yer tutucusu var, gerçek
+// ön ad dönen metne sunucuda konuyor (`aiName.ts`). Telefon ve soyad zaten gitmiyordu.
 // Sektörel iletişim profili — TEK KAYNAK src/lib/sectorProfiles.ts'tir.
 // Uygulama sektör seçildiğinde settings.comms'a yazar (066); burada sektör
 // tablosunun ikinci bir kopyası TUTULMAZ, aksi halde iki taraf birbirinden
@@ -829,16 +829,15 @@ async function getGeminiKey(supabase: any): Promise<string | null> {
     return data?.value ?? null;
 }
 
-function buildAiPrompt(type: '24h' | '2h', comms: Comms, customerName: string, service: string, time: string, businessName: string): string {
-    const firstName = (customerName || '').split(' ')[0];
+function buildAiPrompt(type: '24h' | '2h', comms: Comms, service: string, time: string, businessName: string): string {
     const whenLine = type === '24h'
         ? `Randevu YARIN saat ${time}.`
         : `Randevu BUGÜN saat ${time}'de (yaklaşık 2 saat sonra).`;
     return (
         `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${firstName}. ${comms.serviceWord}: ${service}. ${whenLine}\n` +
+        `${comms.audience} ${NAME_TOKEN}. ${comms.serviceWord}: ${service}. ${whenLine}\n` +
         `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe RANDEVU HATIRLATMA mesajı yaz. ` +
-        `Adıyla başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin (${comms.emoji}). ` +
+        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin (${comms.emoji}). ` +
         (comms.guardrail ? `${comms.guardrail} ` : '') +
         `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
     );
@@ -863,14 +862,14 @@ async function geminiMessage(key: string, prompt: string): Promise<string | null
     }
 }
 
-// AI mesajı dener; başarısız/boşsa şablona düşer (güvenlik ağı)
+// AI mesajı dener; başarısız/boşsa ya da yer tutucu tutmazsa şablona düşer (güvenlik ağı)
 async function aiOrTemplate(
     geminiKey: string | null, comms: Comms, type: '24h' | '2h',
     customerName: string, service: string, time: string, businessName: string,
     fallback: () => string,
 ): Promise<string> {
     if (geminiKey) {
-        const ai = await geminiMessage(geminiKey, buildAiPrompt(type, comms, customerName, service, time, businessName));
+        const ai = fillName(await geminiMessage(geminiKey, buildAiPrompt(type, comms, service, time, businessName)), customerName);
         if (ai) return ai;
     }
     return fallback();

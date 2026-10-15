@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { requireUserOrg } from '../_shared/auth.ts';
+import { NAME_RULE, NAME_TOKEN, fillName, firstNameOf } from './aiName.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,11 @@ const corsHeaders = {
  * Girdi: { organization_id, intent, customers: [{ id, name, days, service }] }
  * Çıktı: { drafts: [{ id, message }] }
  * Tüm müşteriler TEK Groq çağrısında işlenir (rate limit dostu).
- * Sadece ön ad + son hizmet Groq'a gider; telefon/soyad GİTMEZ.
+ *
+ * Groq'a giden: gün sayısı + son hizmet + işletme adı. Müşterinin ADI DA
+ * GİTMEZ (D5, 2026-10-16): istemde `{AD}` yer tutucusu var, gerçek ön ad
+ * dönen taslağa burada konuyor (`aiName.ts`). Yer tutucu tutmayan taslak
+ * kullanılmıyor, şablona düşülüyor. Telefon ve soyad zaten gitmiyordu.
  */
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -51,10 +56,10 @@ Deno.serve(async (req: Request) => {
         const groqKey = await getGroqKey(supabase);
         if (!groqKey) return json({ error: 'GROQ_API_KEY tanımlı değil' }, 500);
 
-        // Groq'a giden veri: sadece ön ad + gün + hizmet
+        // Groq'a giden veri: gün + hizmet. Ad YOK — herkes için aynı yer tutucu.
         const safeList = customers.slice(0, 20).map((c: any, i: number) => ({
             ref: i,
-            ad: (c.name || '').split(' ')[0],
+            ad: NAME_TOKEN,
             kac_gundur_yok: c.days ?? null,
             son_hizmet: c.service ?? null,
         }));
@@ -67,7 +72,8 @@ Deno.serve(async (req: Request) => {
             `Sen ${businessName} adlı güzellik/randevu işletmesinin sahibisin. ` +
             `Her müşteri için ${intentText} yaz. ` +
             'Kurallar: Türkçe, samimi, kısa (en fazla 2-3 cümle), WhatsApp için uygun. ' +
-            'Müşterinin adıyla başla. 1 emoji kullanabilirsin. Spam gibi durmasın, içten olsun. ' +
+            `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. 1 emoji kullanabilirsin. ` +
+            'Spam gibi durmasın, içten olsun. ' +
             'Aşırı indirim vaadi verme; sıcak bir davet tonu yeterli. ' +
             'YANIT FORMATI: Sadece JSON. {"drafts":[{"ref":0,"message":"..."}]} biçiminde, her müşteri için bir kayıt.';
 
@@ -101,14 +107,19 @@ Deno.serve(async (req: Request) => {
         try { parsed = JSON.parse(content); } catch { parsed = {}; }
         const aiDrafts: any[] = parsed.drafts ?? [];
 
-        // ref → orijinal müşteri id eşle
-        const drafts = aiDrafts
-            .map((d: any) => {
-                const original = customers[d.ref];
-                if (!original) return null;
-                return { id: original.id, message: String(d.message || '').trim() };
-            })
-            .filter(Boolean);
+        // ref → orijinal müşteri id eşle; ad yer tutucuya burada konuyor.
+        // Yer tutucusu tutmayan (adı uydurulmuş ya da hiç yazılmamış) taslak
+        // yerine şablon — her müşteri için bir taslak dönüyor.
+        const byRef = new Map<number, string>();
+        for (const d of aiDrafts) {
+            const ref = Number(d?.ref);
+            if (Number.isInteger(ref) && !byRef.has(ref)) byRef.set(ref, String(d?.message ?? ''));
+        }
+        const drafts = customers.slice(0, 20).map((original: any, ref: number) => ({
+            id: original.id,
+            message: fillName(byRef.get(ref), original.name)
+                ?? fallbackDraft(intent, firstNameOf(original.name), businessName, context),
+        }));
 
         return json({ drafts }, 200);
 
@@ -117,6 +128,19 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Sunucu hatası', detail: String(err) }, 500);
     }
 });
+
+/**
+ * Şablon taslak — model cevap vermediğinde ya da yer tutucu tutmadığında.
+ * Kişi taslağı göndermeden önce okuyup düzenliyor (AiMessageModal).
+ */
+function fallbackDraft(intent: unknown, name: string, businessName: string, context: unknown): string {
+    const hello = name ? `Merhaba ${name} 👋` : 'Merhaba 👋';
+    if (intent === 'campaign') {
+        const when = typeof context === 'string' && context.trim() ? context.trim() : 'bu hafta';
+        return `${hello} ${businessName} olarak ${when} sizi ağırlamak isteriz. Uygun bir saat için bu mesaja yanıt vermeniz yeterli.`;
+    }
+    return `${hello} ${businessName} olarak sizi özledik! Size uygun bir güne randevu ayarlamak isterseniz bu mesaja yanıt vermeniz yeterli. 😊`;
+}
 
 function json(body: unknown, status: number): Response {
     return new Response(JSON.stringify(body), {
