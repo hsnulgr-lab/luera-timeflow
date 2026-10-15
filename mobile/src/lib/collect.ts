@@ -16,6 +16,8 @@
  * İkisi de aynı gönderimi yapıyor; ayrışma yalnız ikinci adımda.
  */
 
+import type { SendState } from './sendToCash.ts';
+
 export type CollectMethod = 'cash' | 'card' | 'transfer';
 
 /** Seçicinin sırası ve yazısı — Kasa'nın kendi yöntem adlarıyla aynı. */
@@ -63,6 +65,55 @@ export type CollectStage =
     | 'collect_failed';
 
 /**
+ * "… tahsil et" ya da "Sonra tahsil et"e basınca GÖNDERİME ne olacak
+ * (D3, 2026-10-16).
+ *
+ * Eskiden yalnız `idle` ve `window` gönderimi başlatıyordu. Gönderim bir kez
+ * düştüyse (`error`) ya da kuyruğa girdiyse (`queued`) makine o hâlden hiç
+ * çıkmıyordu: "Tekrar dene · nakit tahsil et" ağa istek bile atmadan
+ * yeniden `send_failed` yazıyordu, "Sonra tahsil et" de boşa dönüyordu.
+ * Ölü düğme, dönüşü olmayan bir hâlden doğmuştu.
+ *
+ *   send   → gönderim hiç yapılmadı ya da pencerede: şimdi yola çıksın
+ *   resend → düştü ya da kuyrukta: önce kuyruk boşaltılır ve damga taze
+ *            okunur, SONRA yeniden gönderilir (`prepareResend`) — kuyruğa
+ *            aynı adisyonun ikinci kopyası girmesin
+ *   wait   → yolda ya da olmuş: gönderime dokunulmaz, tahsilat sırasını bekler
+ */
+export type CollectSendStep = 'send' | 'resend' | 'wait';
+
+export function collectSendStep(send: SendState): CollectSendStep {
+    if (send === 'idle' || send === 'window') return 'send';
+    if (send === 'error' || send === 'queued') return 'resend';
+    return 'wait';
+}
+
+/**
+ * Gönderim sonuçlanınca tahsilatın hâli.
+ *
+ *   wait   → gönderim sürüyor
+ *   failed → gönderim düştü ya da kuyrukta: `send_failed`, kasaya bir şey
+ *            yazılmadı
+ *   collect→ gönderim oldu: para kaydı şimdi
+ *   none   → yapılacak bir şey yok
+ *
+ * "SONRA TAHSİL ET" DE SONUCU SÖYLÜYOR (D3). Para beklemede ama adisyon kasaya
+ * gitmeli. Eskiden gönderimi düşünce ekran hiçbir şey demiyordu ve kişi
+ * adisyonun kasada beklediğini sanıyordu.
+ */
+export type CollectAfterSend = 'none' | 'wait' | 'failed' | 'collect';
+
+export function collectAfterSend(stage: CollectStage, send: SendState): CollectAfterSend {
+    if (stage === 'sending') {
+        if (send === 'going' || send === 'window') return 'wait';
+        if (send === 'sent' || send === 'sealed') return 'collect';
+        return 'failed';
+    }
+    if (stage === 'pending' && (send === 'error' || send === 'queued')) return 'failed';
+    return 'none';
+}
+
+/**
  * Hatanın altındaki cümle — düğmenin hemen üstünde (v4 · K4).
  *
  * "Ekran sunucu kabul etmeden değişmez. Ret sebebi kullanıcının baktığı
@@ -85,6 +136,13 @@ export function collectErrorLine(stage: CollectStage, code: string | null): stri
     }
     if (code === 'not_finished') return `İşlem henüz kapanmadı. ${tail}`;
     if (code === 'subscription_inactive') return 'Aboneliğiniz kapalı; tahsilat kaydedilemiyor.';
+    // D6: paket / indirim / kısmi / grup — tutarı Kasa hesaplıyor. "Tekrar
+    // dene" aynı cevabı alır; kumanda bu kodda güverteyi kasaya gönderime çeviriyor.
+    if (code === 'collect_in_kasa') {
+        return 'Bu adisyonun tutarını Kasa hesaplıyor (paket, indirim, ön ödeme ya da grup). Tahsilatı masaüstündeki Kasa\'dan yapın.';
+    }
+    // D2: gönderim katalogda olmayan bir kalemde düştü — sebebi o kalem.
+    if (code === 'invalid_catalog_item') return `Adisyonda katalogda olmayan bir kalem var; onu kaldırıp tekrar deneyin. ${tail}`;
     return `Tahsilat kaydedilmedi. ${tail}`;
 }
 

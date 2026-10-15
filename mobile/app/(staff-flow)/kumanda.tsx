@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
+    AppState, Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
     TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,9 +41,9 @@ import {
 import { ApiError, api } from '../../src/api/staff';
 import { CollectBar } from '../../src/components/CollectBar';
 import { SendToCash } from '../../src/components/SendToCash';
-import { type CollectMethod, type CollectStage } from '../../src/lib/collect';
+import { collectAfterSend, collectSendStep, type CollectMethod, type CollectStage } from '../../src/lib/collect';
 import { fetchServiceCharge } from '../../src/lib/managerSource';
-import type { ServiceBill } from '../../src/lib/cashBuild';
+import { kasaReasonLabel, kasaReasonOf, type KasaReason, type ServiceBill } from '../../src/lib/cashBuild';
 import {
     SadeClosingDial, SadeEditPanel, SadeFormulaRow, SadeList, SadeSheetBody, SadeSheetHead, SadeStrip,
 } from '../../src/components/AdisyonSade';
@@ -55,8 +55,11 @@ import {
     queuedBandLabel, sendOutcome,
     type SendState,
 } from '../../src/lib/sendToCash';
-import { saveVisitItems, sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait } from '../../src/lib/visitWrite';
-import { ITEMS_SAVE_MS, itemsKey, shouldSaveItems } from '../../src/lib/itemsAutosave';
+import {
+    prepareResend, saveVisitItems, sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait,
+    type WriteOutcome,
+} from '../../src/lib/visitWrite';
+import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItems } from '../../src/lib/itemsAutosave';
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
@@ -114,6 +117,8 @@ export default function Kumanda() {
     const backLabel = params.back === 'kasa' ? 'Kasa' : params.from === 'tek' ? 'Gün' : 'Bugün';
 
     const dateISO = todayISO();
+    /** Randevunun günü — okuma (`useVisit`) ile yeniden gönderimin okuması aynı gün. */
+    const visitDate = params.date || dateISO;
     /*
      * Randevu KİMLİKTEN okunuyor ve bulunamazsa BOŞ dönüyor.
      *
@@ -140,6 +145,8 @@ export default function Kumanda() {
     const [send, setSend] = useState<SendState>('idle');
     /** Süren bir gönderim var mı — ikinci isteğin kapısı. */
     const sendingRef = useRef(false);
+    /** Sıradaki `going` bir YENİDEN gönderim mi — önce kuyruk ve taze damga (D3). */
+    const resendRef = useRef(false);
     /** Sunucunun hayırının KODU — ekranın cümlesi bundan türüyor. */
     const [sendCode, setSendCode] = useState<string | null>(null);
     /** Başlatma sunucuda KALICI olarak reddedildi — damga geri alındı. */
@@ -180,6 +187,17 @@ export default function Kumanda() {
      * randevuya bağlı sabit anahtar eski tahsilatın cevabını geri getiriyordu.
      */
     const collectAttemptRef = useRef('');
+    /**
+     * Sunucu "bu adisyonu Kasa tahsil eder" dedi (`collect_in_kasa`, D6) —
+     * ücret okuması bunu yakalayamadıysa (okunamadı ya da arada değişti)
+     * kaynak sunucunun cevabı.
+     */
+    const [kasaFromCollect, setKasaFromCollect] = useState<KasaReason | null>(null);
+    /**
+     * Otomatik kalem kaydının KALICI hatası (D2). Eskiden yutuluyordu: kalem
+     * kaydedilmiyor, geri çıkınca gidiyordu ve ekran hiçbir şey demiyordu.
+     */
+    const [itemsCode, setItemsCode] = useState<string | null>(null);
     const sent = isSealed(send);
 
     /**
@@ -415,6 +433,32 @@ export default function Kumanda() {
      * eskisi gibi çalışır (kimsenin kalemi ezilmez).
      */
     const savingRef = useRef<Promise<string | null> | null>(null);
+    /**
+     * Kalem yazmasının TEK yolu — zamanlayıcı da çıkış da buradan (D4).
+     *
+     * YOLDAKİ yazma bitmeden yenisi başlamıyor: ikisi aynı damgayla gidince
+     * ikincisi birincinin damgasına çarpıyordu (`chainedStamp`).
+     */
+    const startSave = (reservationId: string, list: readonly AdisyonLine[], key: string, stamp: string | null) => {
+        savedKey.current = key;
+        const prior = savingRef.current ?? Promise.resolve(null);
+        const run = prior
+            .then((fresh) => saveVisitItems(reservationId, list, chainedStamp(fresh, stamp)))
+            .then((out) => {
+                // Başka cihaz yazmış: güncel liste gözlem olarak işleniyor,
+                // şerit çiziliyor; kişi tazeleyince benimsenir.
+                if (out.stale) observe(out.stale);
+                else observe(out.observation, out.ownItems === true);
+                // Kalıcı hayır ekranda (D2); çakışmanın kendi şeridi var,
+                // kuyruk "olmadı" değil. Başarılı yazma eski sebebi siliyor.
+                if (out.code && !out.stale && out.code !== 'items_stale') setItemsCode(out.code);
+                else if (!out.code && !out.queued) setItemsCode(null);
+                // Yalnız KENDİ başarılı yazmamızın damgası kilide geçer.
+                return out.stale ? null : out.observation?.stamp ?? null;
+            });
+        savingRef.current = run;
+        void run.finally(() => { if (savingRef.current === run) savingRef.current = null; });
+    };
     useEffect(() => {
         if (!base?.id) return undefined;
         const key = itemsKey(lines);
@@ -428,21 +472,49 @@ export default function Kumanda() {
             savedKey: savedKey.current,
         })) return undefined;
         const reservationId = base.id;
-        const id = setTimeout(() => {
-            savedKey.current = key;
-            const run = saveVisitItems(reservationId, lines, lockStamp).then((out) => {
-                // Başka cihaz yazmış: güncel liste gözlem olarak işleniyor,
-                // şerit çiziliyor; kişi tazeleyince benimsenir.
-                if (out.stale) observe(out.stale);
-                else observe(out.observation, out.ownItems === true);
-                // Yalnız KENDİ başarılı yazmamızın damgası kilide geçer.
-                return out.stale ? null : out.observation?.stamp ?? null;
-            });
-            savingRef.current = run;
-            void run.finally(() => { if (savingRef.current === run) savingRef.current = null; });
-        }, ITEMS_SAVE_MS);
+        const id = setTimeout(() => startSave(reservationId, lines, key, lockStamp), ITEMS_SAVE_MS);
         return () => clearTimeout(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [base?.id, lines, send, delivered, foreignChange, pending, lockStamp, observe]);
+
+    /*
+     * EKRAN AYRILIRKEN ve ARKA PLANA GEÇERKEN bekleyen yazma HEMEN gider (D4).
+     *
+     * Zamanlayıcı ekranla birlikte iptal ediliyordu: kalem ekleyip 0,7 sn
+     * içinde "Geri"ye basanın kalemi, silme penceresi açıkken çıkanın da hem
+     * eklediği hem sildiği kayboluyordu. Açık silme o anda uygulanıyor —
+     * "Geri al" ekranla gidiyor (`shouldFlushItems`). `write` kuyruğa
+     * alabildiği için çevrimdışında da kaybolmuyor.
+     *
+     * Kapanış EN SON çizimin hâliyle çalışmalı: başvuru her çizimden sonra
+     * tazeleniyor, dinleyici ve çıkış onu çağırıyor.
+     */
+    const flushItemsRef = useRef<() => void>(() => undefined);
+    useEffect(() => {
+        flushItemsRef.current = () => {
+            if (!base?.id) return;
+            const key = itemsKey(lines);
+            if (!shouldFlushItems({
+                loaded: savedFor.current === base.id,
+                sendIdle: send === 'idle',
+                delivered,
+                foreignChange,
+                key,
+                savedKey: savedKey.current,
+            })) return;
+            startSave(base.id, lines, key, lockStamp);
+        };
+    });
+    useEffect(() => {
+        const sub = AppState.addEventListener('change', (next) => {
+            if (next !== 'active') flushItemsRef.current();
+        });
+        const flushOnLeave = flushItemsRef;
+        return () => {
+            sub.remove();
+            flushOnLeave.current();
+        };
+    }, []);
 
     /**
      * Formülün kapısı — MALZEMEYE asılı, evreye değil.
@@ -500,8 +572,27 @@ export default function Kumanda() {
             // Yoldaki otomatik yazma varsa ÖNCE o bitsin; damgası kilide geçer.
             const inFlight = savingRef.current ?? Promise.resolve(null);
             const reservationId = base.id;
-            void inFlight.then((fresh) => {
-                return sendVisitToCash(reservationId, lines, fresh ?? lockStamp);
+            // Düşmüş ya da kuyruktaki gönderimin yeniden denenmesi mi (D3).
+            const resend = resendRef.current;
+            resendRef.current = false;
+            void inFlight.then(async (fresh): Promise<WriteOutcome> => {
+                let stamp = fresh ?? lockStamp;
+                if (resend) {
+                    /*
+                     * YENİDEN GÖNDERİM: önce kuyruk, sonra taze damga
+                     * (`prepareResend`). Kuyruk hâlâ doluysa yeni istek yok —
+                     * sonuç yine "sırada". Damga gözlemden geçiyor: kendi
+                     * kuyruktaki yazmamızsa kilit yeni damgaya kayar, başka
+                     * bir cihaz yazdıysa eskide kalır ve kimsenin kalemi ezilmez.
+                     */
+                    const prep = await prepareResend(reservationId, visitDate);
+                    if (prep.queued) return { code: null, queued: true };
+                    if (prep.observation) {
+                        observe(prep.observation);
+                        stamp = lockStampOf({ ...lockInput, seen: prep.observation.stamp, seenItems: prep.observation.items });
+                    }
+                }
+                return sendVisitToCash(reservationId, lines, stamp);
             }).then((out) => {
                 sendingRef.current = false;
                 // Damga ekran kapanmış olsa bile işleniyor: iş sunucuda oldu.
@@ -553,14 +644,14 @@ export default function Kumanda() {
      * Üstüne para kaydı atmak, olmamış bir kapanışın parasını yazmaktı.
      */
     useEffect(() => {
-        if (collectStage !== 'sending' || !base?.id || !collectMethod) return undefined;
-        if (send === 'going' || send === 'window') return undefined;
-
-        if (send !== 'sent' && send !== 'sealed') {
+        if (!base?.id) return undefined;
+        const next = collectAfterSend(collectStage, send);
+        if (next === 'failed') {
             setCollectStage('send_failed');
             setCollectCode(sendCode ?? (send === 'queued' ? 'offline' : null));
             return undefined;
         }
+        if (next !== 'collect' || !collectMethod) return undefined;
 
         if (collectingRef.current) return undefined;
         collectingRef.current = true;
@@ -586,10 +677,27 @@ export default function Kumanda() {
                  */
                 setCollectStage('collect_failed');
                 setCollectCode(cause instanceof ApiError ? cause.code : 'offline');
+                // Paket / indirim / kısmi / grup: güverte kasaya gönderime döner (D6).
+                if (cause instanceof ApiError && cause.code === 'collect_in_kasa') {
+                    setKasaFromCollect(kasaReasonOf(cause.body.reason) ?? 'partial');
+                }
             });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [collectStage, send, sendCode, base?.id, collectMethod]);
+
+    /**
+     * Tahsil düğmelerinin gönderimi — ilk deneme de "Tekrar dene" de (D3).
+     * Karar saf katmanda (`collectSendStep`): düşmüş ya da kuyruktaki gönderim
+     * artık yeniden kuruluyor; yolda ya da olmuş olana dokunulmuyor.
+     */
+    const restartSend = () => {
+        const step = collectSendStep(send);
+        if (step === 'wait') return;
+        resendRef.current = step === 'resend';
+        setSendCode(null);
+        setSend('going');
+    };
 
     useEffect(() => {
         if (!pending) return undefined;
@@ -642,6 +750,8 @@ export default function Kumanda() {
         setSend('idle');
         setSendCode(null);
         setStartCode(null);
+        setKasaFromCollect(null);
+        setItemsCode(null);
         setSentAt(null);
         setUndone(false);
         /*
@@ -705,6 +815,31 @@ export default function Kumanda() {
             .catch(() => { if (alive) setServiceCharge(null); });
         return () => { alive = false; };
     }, [solo, appointment?.id, appointment?.service]);
+
+    /*
+     * KUYRUKTAKİ GÖNDERİM SİNYAL GELİNCE GERÇEKTEN GİDİYOR — ekipte (D3).
+     *
+     * `sendVisitToCash` kalemler kuyruğa girince kapanışı göndermiyor: boş
+     * adisyon kapanmasın diye. Kuyruk boşalınca yalnız kalemler gidiyordu ve
+     * çubuk "Sinyal gelince kendisi gidecek" derken adisyon kasaya hiç
+     * düşmüyordu. Ekran açıkken kuyruk boşalınca gönderim yeniden kuruluyor.
+     *
+     * Yalnız kuyruğun DOLU görüldüğü bir "sırada" dönemi boşalınca: sayaç beş
+     * saniyede bir okunuyor ve henüz yakalamamışken tetiklenmek, kuyruğu dolu
+     * bir gönderimi döngüye sokardı.
+     *
+     * Tek kişilikte YOK: orada para var ve yeniden deneme kişinin dokunuşuyla
+     * ("Tekrar dene").
+     */
+    const queueSeen = useRef(false);
+    useEffect(() => {
+        if (solo || send !== 'queued') { queueSeen.current = false; return; }
+        if (queueLength > 0) { queueSeen.current = true; return; }
+        if (!queueSeen.current || offline) return;
+        queueSeen.current = false;
+        resendRef.current = true;
+        setSend('going');
+    }, [solo, send, offline, queueLength]);
 
     /*
      * BOŞ EKRAN YOK.
@@ -782,7 +917,14 @@ export default function Kumanda() {
         ? serviceCharge.lines.map((row) => ({ name: row.name, amount: row.amount }))
         : booked.map((name) => ({ name, amount: null }));
     const kalem = kalemCount(services, lines);
-    const grand = sadeTotal(services, lines);
+    /*
+     * PAKET / İNDİRİM / KISMİ / GRUP (D6, kullanıcı kararı 2026-10-16): tutarı
+     * Kasa hesaplıyor; kumanda rakam YAZMIYOR (`null` → "—") ve tek kişilikte
+     * tahsil etmiyor. Gün kartı Kasa'nın kalanını söylüyor; burada başka bir
+     * rakam yazmak iki ekranı ayrıştırırdı.
+     */
+    const kasaOnly = serviceCharge?.kasaOnly ?? kasaFromCollect;
+    const grand = kasaOnly ? null : sadeTotal(services, lines);
     const lastName = lastAdded || liveLines(lines)[liveLines(lines).length - 1]?.name || null;
     const editLine = editing ? lines.find((line) => line.id === editing && !line.pendingDelete) ?? null : null;
 
@@ -1009,6 +1151,8 @@ export default function Kumanda() {
 
                 {startCode ? (
                     <Band label={errorLine(startCode)} note="başlatılmadı" />
+                ) : itemsCode && !delivered ? (
+                    <Band label={errorLine(itemsCode)} note="kaydedilmedi" />
                 ) : send === 'queued' ? (
                     <Band label={queuedBandLabel(queueLength)} note="sinyal yok" />
                 ) : undone ? (
@@ -1173,7 +1317,27 @@ export default function Kumanda() {
                       * `(staff-flow)` segmentinde yaşıyor ve `useInSoloShell()`
                       * burada çalışmıyor.
                       */}
-                    {(phase === 'closing' || phase === 'closed') && params.from === 'tek' ? (
+                    {/*
+                      * KASA'YA AİT ADİSYON (D6). Cümle güvertenin üstünde,
+                      * formül uyarısıyla aynı dilde: düğmeye bakan kişi
+                      * neden tahsil düğmesi olmadığını orada görüyor.
+                      */}
+                    {(phase === 'closing' || phase === 'closed') && kasaOnly && closedCard !== 'paid' ? (
+                        <View style={{
+                            alignSelf: 'stretch', flexDirection: 'row', gap: 9,
+                            paddingHorizontal: 4,
+                        }}>
+                            <Glyph name="warn" size={16} color={c.am} />
+                            <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 18, color: c.am }}>
+                                <Text style={{ fontWeight: '700' }}>{kasaReasonLabel(kasaOnly)}.</Text>
+                                {params.from === 'tek'
+                                    ? ' Tutarı Kasa hesaplıyor; tahsilatı masaüstündeki Kasa\'dan yapın.'
+                                    : ' Tutarı Kasa hesaplıyor.'}
+                            </Text>
+                        </View>
+                    ) : null}
+
+                    {(phase === 'closing' || phase === 'closed') && params.from === 'tek' && !kasaOnly ? (
                         <CollectBar
                             method={collectMethod}
                             stage={collectStage}
@@ -1186,14 +1350,16 @@ export default function Kumanda() {
                                 setCollectCode(null);
                                 setCollectStage('sending');
                                 // Gönderim yapılmadıysa önce o: `visit.collect`
-                                // kapanmış randevu istiyor. Yapıldıysa etki
-                                // doğrudan tahsilata geçiyor.
-                                if (send === 'idle' || send === 'window') setSend('going');
+                                // kapanmış randevu istiyor. Düştüyse ya da
+                                // kuyruktaysa yeniden kuruluyor (D3); olduysa
+                                // etki doğrudan tahsilata geçiyor.
+                                restartSend();
                             }}
                             onLater={() => {
                                 // v4: "adisyon açık kalır, Gün'de kart G4 olur".
                                 setCollectStage('pending');
-                                if (send === 'idle' || send === 'window') setSend('going');
+                                setCollectCode(null);
+                                restartSend();
                             }}
                         />
                     ) : phase === 'closing' || phase === 'closed' ? (
@@ -1274,8 +1440,8 @@ export default function Kumanda() {
                                 setQuery('');
                                 setSheet('catalog');
                             })}
-                            onFree={(name, kind) => {
-                                addItem(freeItem(name, kind));
+                            onFree={(name) => {
+                                addItem(freeItem(name));
                                 setQuery('');
                                 setSheet('catalog');
                             }}

@@ -69,7 +69,10 @@ test('ekran ARTIK koşulsuz gönderildi yazmıyor', () => {
     // Kilit damgası TÜRETİLMİŞ olan: kendi başlatmamızın damgasına takılmıyor.
     // 2026-10-15: yoldaki otomatik yazma bekleniyor; onun YENİ damgası
     // (kendi yazmamız) varsa o, yoksa türetilmiş kilit.
-    assert.match(kumanda, /sendVisitToCash\(reservationId, lines, fresh \?\? lockStamp\)/);
+    // 2026-10-16 (D3): yeniden gönderimde damga kuyruk boşaldıktan sonraki
+    // taze gözlemden türetiliyor; ilk gönderimde aynı kural.
+    assert.match(kumanda, /let stamp = fresh \?\? lockStamp;/);
+    assert.match(kumanda, /return sendVisitToCash\(reservationId, lines, stamp\);/);
     // Kuyruk KARARI yazma katmanından geliyor, bağlantı bayrağından değil:
     // sinyal "var" görünürken de istek düşebiliyor.
     assert.match(kumanda, /offline: offlineRef\.current \|\| out\.queued,/);

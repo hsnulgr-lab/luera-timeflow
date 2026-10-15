@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useReservations } from './useReservations';
 import { useCashEnabled } from './useModules';
+import { adisyonExtras } from '@/utils/reservationServices';
 
 // Tahsil bekleyen adisyonlar — tamamlanmış ama henüz tahsil edilmemiş randevular.
 // Masaüstü Kasa listesi ve sidebar rozeti bunu kullanır.
@@ -72,7 +73,7 @@ export function usePendingBillsAlert() {
 
         const priceOf = (svc: string) => settings.services?.find(s => s.name === svc)?.price || 0;
         const totalOf = (b: typeof bills[number]) =>
-            priceOf(b.service) + (b.adisyonItems || []).reduce((s, a) => s + a.price, 0);
+            priceOf(b.service) + adisyonExtras(b.adisyonItems);
 
         const freshLimit = Date.now() - FRESH_MIN * 60_000;
         const fresh = bills.filter(b =>

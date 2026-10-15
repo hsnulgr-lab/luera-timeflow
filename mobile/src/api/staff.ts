@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { VisitFormula } from '../lib/formula';
 import {
-    backoffMs, fateOf, shouldRetry, QUEUE_LIMIT,
+    backoffMs, fateOf, shouldRetry, supersedes, QUEUE_LIMIT,
 } from '../lib/retry';
 import { mergeFailures, type WriteFailure } from '../lib/writeFailure';
 
@@ -576,7 +576,10 @@ export interface QueueOutcome {
 
 async function enqueue(job: QueuedJob): Promise<QueueOutcome> {
     return inQueueOrder(async () => {
-        const queue = await readQueue();
+        // Aynı ziyaretin ESKİ kalem listesi yenisine yer açıyor (D4): liste
+        // her seferinde tamamı, eski damgalı kopyalar sinyal gelince
+        // birbirine çarpıp sonrakileri kaybettiriyordu (`supersedes`).
+        const queue = (await readQueue()).filter((queued) => !supersedes(job, queued));
         // Sınır aşıldığında ESKİLERİ ATMIYORUZ: eski iş, yenisinden daha az
         // değerli değil ve sessizce kırpmak veri kaybının ta kendisi.
         // Yenisi alınmıyor ve çağıran bunu öğreniyor.
@@ -598,7 +601,12 @@ async function enqueue(job: QueuedJob): Promise<QueueOutcome> {
 async function write(action: string, body: Record<string, unknown>) {
     const key = `${action}:${body.reservationId}:${Date.now()}`;
     try {
-        return await call(action, { ...body, idempotencyKey: key });
+        const out = await call(action, { ...body, idempotencyKey: key });
+        // Doğrudan yazılan liste kuyruktaki eski listeyi KAPSIYOR (D4): eski
+        // kopya sonradan boşalsa damgaya çarpıp "gönderilemedi" diye
+        // atılırdı. Hatası yazmayı bozmuyor — iş sunucuda oldu.
+        await dropSuperseded({ action, body }).catch(() => undefined);
+        return out;
     } catch (e) {
         const status = e instanceof ApiError ? e.status : null;
         if (fateOf({ status }) === 'permanent') throw e;
@@ -613,6 +621,16 @@ async function write(action: string, body: Record<string, unknown>) {
         });
         return { ok: false, ...outcome };
     }
+}
+
+/** Doğrudan yazılan işin kapsadığı kuyruk işlerini siler (`supersedes`). */
+async function dropSuperseded(job: { action: string; body: Record<string, unknown> }): Promise<void> {
+    if (job.action !== 'visit.items') return;
+    await inQueueOrder(async () => {
+        const queue = await readQueue();
+        const kept = queue.filter((queued) => !supersedes(job, queued));
+        if (kept.length !== queue.length) await writeQueue(kept);
+    });
 }
 
 /** `flushQueue` sonucunda kullanıcıya söylenecek olanlar. */

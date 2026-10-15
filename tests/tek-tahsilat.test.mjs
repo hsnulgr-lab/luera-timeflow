@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 
 import {
     COLLECT_METHODS,
+    collectAfterSend,
     collectErrorLine,
+    collectSendStep,
     collectLabel,
     collectRetryLabel,
     collectDial,
@@ -127,7 +129,11 @@ test('İKİ KEZ tahsil edilmiyor — iki ayrı kapı', () => {
      * o yüzden randevunun var olan tahsilatı ayrıca sorgulanıyor.
      */
     assert.match(endpoint, /\.eq\('reservation_id', res!\.id\)/);
-    assert.match(endpoint, /if \(existing\) \{\s*return await done\(\{ ok: true, alreadyCollected: true/);
+    // Kasa kapattıysa (paketle ₺0 dahil) yeni kayıt yok.
+    assert.match(endpoint, /if \(res!\.is_paid === true\) \{\s*return await done\(\{ ok: true, alreadyCollected: true/);
+    // Var olan tahsilat tutarı karşılıyorsa yeni kayıt yok; eksikse Kasa'nın işi (D6).
+    assert.match(endpoint, /if \(existing\) \{\s*if \(paid \+ 0\.005 < amount\) \{\s*return json\(\{ error: 'collect_in_kasa', reason: 'partial' \}, 409\);/);
+    assert.ok(endpoint.indexOf('if (existing) {') < endpoint.indexOf("from('payments').insert"), 'ikinci kapı kayıttan önce');
     // Kümenin SON elemanı olması gerekmiyor (112 ardından `visit.wait`i ekledi);
     // gereken, kümenin içinde olması.
     const gate = fn.slice(fn.indexOf('const WRITE_ACTIONS'), fn.indexOf(']);', fn.indexOf('const WRITE_ACTIONS')));
@@ -146,10 +152,15 @@ test('para kaydı ÖNCE, bayrak sonra', () => {
      * randevu gösterirdi. Bayrak hatası isteği düşürmüyor.
      */
     assert.ok(
-        endpoint.indexOf("from('payments').insert") < endpoint.indexOf('is_paid: true'),
+        endpoint.indexOf("from('payments').insert") < endpoint.lastIndexOf('is_paid: true'),
         'bayrak para kaydından önce basılıyor',
     );
     assert.match(endpoint, /if \(flagErr\) console\.error\('visit\.collect is_paid', flagErr\);/);
+    // D7: var olan tahsilat dalında da bayrak basılıyor — orada para kaydı ZATEN
+    // var; bir kez düşen bayrak Gün satırını sonsuza dek "adisyon açık" bırakıyordu.
+    const existingBranch = endpoint.slice(endpoint.indexOf('if (existing) {'), endpoint.indexOf("from('payments').insert"));
+    assert.match(existingBranch, /\.update\(\{ is_paid: true \}\)/);
+    assert.match(existingBranch, /if \(flagErr\) console\.error\('visit\.collect is_paid \(existing\)', flagErr\);/);
 });
 
 test('tahsilat çevrimdışı KUYRUĞA GİRMİYOR', () => {
@@ -179,7 +190,7 @@ const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
 test('tahsilat güvertesi YALNIZ tek kişilik modda', () => {
     // Ekip modunda son adım "Adisyonu kasaya gönder" olarak kalıyor: orada
     // parayı başkası alıyor ve personelin kasaya erişimi yok.
-    assert.match(kumanda, /params\.from === 'tek' \? \(\s*<CollectBar/);
+    assert.match(kumanda, /params\.from === 'tek' && !kasaOnly \? \(\s*<CollectBar/);
     assert.match(kumanda, /\) : phase === 'closing' \|\| phase === 'closed' \? \(\s*<SendToCash/);
 });
 
@@ -189,12 +200,98 @@ test('tahsilat GÖNDERİMDEN SONRA — sıra zorunlu', () => {
      * kapatan şey gönderimin içindeki `visit.finish`. Tersi sırada sunucu
      * `not_finished` derdi.
      */
+    for (const send of ['going', 'window']) assert.equal(collectAfterSend('sending', send), 'wait');
+    for (const send of ['sent', 'sealed']) assert.equal(collectAfterSend('sending', send), 'collect');
+    for (const send of ['error', 'queued', 'idle']) assert.equal(collectAfterSend('sending', send), 'failed');
+
+    // Etki kararı saf fonksiyondan alıyor ve para kaydını YALNIZ `collect`te atıyor.
     const effect = kumanda.slice(
-        kumanda.indexOf("if (collectStage !== 'sending'"),
+        kumanda.indexOf('const next = collectAfterSend(collectStage, send);'),
         kumanda.indexOf('}, [collectStage, send, sendCode'),
     );
-    assert.match(effect, /if \(send === 'going' \|\| send === 'window'\) return undefined;/);
-    assert.match(effect, /if \(send !== 'sent' && send !== 'sealed'\) \{/);
+    assert.ok(effect.length > 0, 'tahsilat etkisi collectAfterSend kullanmıyor');
+    assert.match(effect, /if \(next !== 'collect' \|\| !collectMethod\) return undefined;/);
+    assert.ok(effect.indexOf("if (next !== 'collect'") < effect.indexOf('api.visitCollect('));
+});
+
+// ── D3 · "Tekrar dene" ve "Sonra tahsil et" GERÇEKTEN gönderiyor ────────────
+//
+// 2026-10-15 denetimi: gönderim `error` / `queued`a düşünce makine oradan hiç
+// çıkmıyordu. "Tekrar dene · nakit tahsil et" etkin çiziliyor ama ağa istek
+// atmıyordu; "Sonra tahsil et" de boşa dönüyordu. Kurtuluş kumandadan çıkıp
+// yeniden girmekti — ev kuralı 2: dokunulan her kontrol bir iş yapar.
+
+test('D3 · düşmüş ya da kuyruktaki gönderimde "Tekrar dene" bir GÖNDERİM doğuruyor', () => {
+    // Eski kod: `if (send === 'idle' || send === 'window') setSend('going')`.
+    // error ve queued'da hiçbir şey olmuyordu.
+    assert.equal(collectSendStep('error'), 'resend');
+    assert.equal(collectSendStep('queued'), 'resend');
+    assert.equal(collectSendStep('idle'), 'send');
+    assert.equal(collectSendStep('window'), 'send');
+    // Yoldaki ya da olmuş gönderime dokunulmuyor — ikinci gönderim yok.
+    for (const send of ['going', 'sent', 'sealed']) assert.equal(collectSendStep(send), 'wait');
+
+    // İki düğme de AYNI kararı kullanıyor ve gönderimi gerçekten yola çıkarıyor.
+    for (const handler of ['onCollect', 'onLater']) {
+        const start = kumanda.indexOf(`${handler}={() => {`);
+        assert.ok(start > 0, `${handler} yok`);
+        const body = kumanda.slice(start, kumanda.indexOf('}}', start));
+        assert.match(body, /restartSend\(\)/, `${handler} gönderimi yeniden başlatmıyor`);
+    }
+    const restart = kumanda.slice(kumanda.indexOf('const restartSend = () => {'));
+    assert.match(restart, /const step = collectSendStep\(send\);/);
+    assert.match(restart, /if \(step === 'wait'\) return;/);
+    assert.match(restart, /resendRef\.current = step === 'resend';/);
+    assert.match(restart, /setSend\('going'\);/);
+});
+
+test('D3 · yeniden gönderim önce KUYRUĞU boşaltıyor, kuyruk doluysa yeni istek atmıyor', () => {
+    // Kuyrukta aynı adisyonun eski yazması varken yenisini doğrudan göndermek
+    // ya kuyruğa ikinci bir kopya sokar ya da eskisi sonradan boşalıp
+    // yenisinin üstüne düşer. Önce kuyruk, sonra TAZE damga, sonra gönderim.
+    const write = read('mobile/src/lib/visitWrite.ts');
+    const prep = write.slice(write.indexOf('export async function prepareResend('));
+    assert.ok(prep.length > 0, 'prepareResend yok');
+    assert.match(prep, /flushQueue\(\)/);
+    assert.match(prep, /if \(left > 0\) return \{ queued: true, observation: null \};/);
+    assert.ok(prep.indexOf('flushQueue()') < prep.indexOf('readObservation('));
+
+    // Gönderim etkisi: hâlâ TEK çağrı; yeniden gönderimde damga taze gözlemden.
+    assert.equal((kumanda.match(/sendVisitToCash\(/g) ?? []).length, 1);
+    const going = kumanda.slice(kumanda.indexOf("if (send === 'going') {"), kumanda.indexOf("if (send === 'sent') {"));
+    assert.match(going, /const prep = await prepareResend\(reservationId, visitDate\);/);
+    assert.match(going, /if \(prep\.queued\) return \{ code: null, queued: true \};/);
+    assert.match(going, /stamp = lockStampOf\(\{ \.\.\.lockInput, seen: prep\.observation\.stamp, seenItems: prep\.observation\.items \}\);/);
+});
+
+test('D3 · "Sonra tahsil et"in gönderimi düşerse ekran SÖYLÜYOR', () => {
+    // Para beklemede ama adisyon kasaya gitmeli; düştüyse sessiz kalmak, kişiye
+    // adisyonun kasada beklediğini sandırmak olurdu.
+    assert.equal(collectAfterSend('pending', 'error'), 'failed');
+    assert.equal(collectAfterSend('pending', 'queued'), 'failed');
+    assert.equal(collectAfterSend('pending', 'going'), 'none');
+    assert.equal(collectAfterSend('pending', 'sent'), 'none');
+    // "Sonra tahsil et" para kaydı ATMIYOR — hangi hâlde olursa olsun.
+    for (const send of ['idle', 'window', 'going', 'sent', 'sealed', 'queued', 'error']) {
+        assert.notEqual(collectAfterSend('pending', send), 'collect');
+    }
+    // Düşen "sonra" yeniden "Sonra tahsil et" sunuyor: cümle ve iki düğme geri geliyor.
+    assert.match(collectErrorLine('send_failed', 'offline'), /Kasaya bir şey yazılmadı\./);
+});
+
+test('D3 · ekipte kuyruktaki gönderim sinyal gelince GERÇEKTEN gidiyor (ekran açıkken)', () => {
+    /*
+     * `sendVisitToCash` kalemler kuyruğa girince kapanışı göndermiyor (boş
+     * adisyon kapanmasın diye). Kuyruk boşalınca yalnız kalemler gidiyordu;
+     * çubuk "Sinyal gelince kendisi gidecek" derken adisyon kasaya hiç
+     * düşmüyordu. Tek kişilikte KENDİLİĞİNDEN gönderim yok: orada para var,
+     * yeniden deneme kişinin dokunuşuyla.
+     */
+    const auto = kumanda.slice(kumanda.indexOf('const queueSeen = useRef(false);'));
+    assert.ok(auto.length > 0, 'kuyruk boşalınca yeniden gönderim yok');
+    assert.match(auto, /if \(solo \|\| send !== 'queued'\) \{ queueSeen\.current = false; return; \}/);
+    assert.match(auto, /if \(queueLength > 0\) \{ queueSeen\.current = true; return; \}/);
+    assert.match(auto, /if \(!queueSeen\.current \|\| offline\) return;/);
 });
 
 test('KUYRUĞA GİREN gönderim "olmuş" sayılmıyor', () => {
@@ -391,7 +488,7 @@ test('kumanda kadranı hizmet ücretini İKİ KABUKTA okuyor (Personel 15)', () 
     assert.match(kumanda, /const solo = params\.from === 'tek';/);
     assert.match(kumanda, /if \(!appointment\?\.id\) return undefined;/);
     assert.match(kumanda, /\? fetchServiceCharge\(appointment\.id\)\s*: api\.visitCharge\(appointment\.id\)\.then\(serviceBillOf\)/);
-    assert.match(kumanda, /const grand = sadeTotal\(services, lines\);/);
+    assert.match(kumanda, /const grand = kasaOnly \? null : sadeTotal\(services, lines\);/);
     assert.match(kumanda, /<SadeClosingDial\s+total=\{grand\}\s+count=\{kalem\}/);
     // Kanca erken dönüşün ÜSTÜNDE.
     assert.ok(kumanda.indexOf('fetchServiceCharge(appointment.id)') < kumanda.indexOf('if (!appointment) {'));

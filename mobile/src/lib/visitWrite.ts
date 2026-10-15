@@ -14,7 +14,7 @@
  * burada olsaydı yalnız kaynak metni olarak sınanabilirlerdi.
  */
 
-import { ApiError, api } from '../api/staff';
+import { ApiError, api, flushQueue } from '../api/staff';
 import { linesDiffer, linesFromItems, sendableOf, type AdisyonLine } from './adisyon.ts';
 import { formulaOutcome, formulaPatch, type VisitFormula } from './formula.ts';
 import { todayISO } from './calendar.ts';
@@ -152,6 +152,48 @@ export async function saveVisitItems(
             };
         }
         return { code, queued: false };
+    }
+}
+
+/**
+ * YENİDEN GÖNDERİMDEN ÖNCE (D3, 2026-10-16) — "Tekrar dene" doğrudan
+ * yeniden göndermiyor.
+ *
+ * 1. KUYRUK ÖNCE. Kuyrukta bu adisyonun eski bir yazması durabilir (kalemler
+ *    ya da kapanış). Yenisi doğrudan giderse eskisi sonradan boşalıp onun
+ *    üstüne düşer; kuyruktan geçerse sıra korunur.
+ * 2. DAMGA TAZE. Kuyruk boşaldıysa sunucudaki damga ilerledi; ekrandaki eski
+ *    damgayla giden yazma kendi işimize takılıp `items_stale` alırdı.
+ *
+ * Kuyruk hâlâ doluysa (sinyal yok) yeni istek ATILMIYOR: aynı adisyonun
+ * ikinci bir kopyası kuyruğa girerdi. Sonuç yine "sırada".
+ */
+export async function prepareResend(
+    reservationId: string,
+    date: string,
+): Promise<{ queued: boolean; observation: StampObservation | null }> {
+    let left = 0;
+    try {
+        left = (await flushQueue()).left;
+    } catch {
+        // Kuyruk okunamadıysa bilinmiyor: gönderim eskisi gibi kendi yolundan
+        // gider, yazma katmanı gerekirse kuyruğa alır.
+        left = 0;
+    }
+    if (left > 0) return { queued: true, observation: null };
+    return { queued: false, observation: await readObservation(reservationId, date) };
+}
+
+/** Sunucudaki satırın damgası ve kalemleri; okunamazsa `null` (uydurulmuyor). */
+async function readObservation(reservationId: string, date: string): Promise<StampObservation | null> {
+    try {
+        const data = await api.agenda(date) as {
+            appointments?: { id: string; updated_at?: string | null; adisyon_items?: unknown }[];
+        };
+        const row = (data.appointments ?? []).find((item) => item.id === reservationId);
+        return row?.updated_at ? { stamp: row.updated_at, items: row.adisyon_items ?? [] } : null;
+    } catch {
+        return null;
     }
 }
 

@@ -25,7 +25,7 @@ import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
 import {
-    catalogOf, serviceCharge, serviceLines, type CashPaymentRow, type CashReservationRow, type CatalogService,
+    catalogOf, kasaOnlyReason, serviceCharge, serviceLines, type CashPaymentRow, type CashReservationRow, type CatalogService,
     type ServiceBill,
 } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
@@ -522,25 +522,39 @@ export async function fetchServices(): Promise<CatalogService[]> {
  */
 export async function fetchServiceCharge(reservationId: string): Promise<ServiceBill | null> {
     const organizationId = await orgIdOrThrow();
-    const [{ data, error }, services] = await Promise.all([
+    const [{ data, error }, services, { data: paidRows, error: paidErr }] = await Promise.all([
         supabase.from('reservations')
-            .select('service, custom_fields')
+            .select('service, custom_fields, group_id, is_paid')
             .eq('organization_id', organizationId)
             .eq('id', reservationId)
             .maybeSingle()
             .returns<Record<string, unknown> | null>(),
         fetchServices(),
+        // Randevuya bağlı CANLI tahsilat (kapora, kısmi) — D6, sunucuyla aynı.
+        supabase.from('payments')
+            .select('amount')
+            .eq('organization_id', organizationId)
+            .eq('reservation_id', reservationId)
+            .is('voided_at', null)
+            .returns<{ amount: number | string | null }[]>(),
     ]);
     if (error) throw error;
+    if (paidErr) throw paidErr;
     if (!data) return null;
     const fields = data.custom_fields;
     const row = {
         service: typeof data.service === 'string' ? data.service : '',
         custom_fields: fields && typeof fields === 'object' ? fields as Record<string, unknown> : null,
     };
+    const paid = (paidRows ?? []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     // Satırlar da dönüyor (Personel 15): sade adisyon randevu hizmetini kendi
     // tutarıyla yazıyor. Toplam ve sayı yine `serviceCharge`ın kendisi.
-    return { ...serviceCharge(row, services), lines: serviceLines(row, services) };
+    return {
+        ...serviceCharge(row, services),
+        lines: serviceLines(row, services),
+        // Tahsil edilmişse Kasa'ya yönlendirilecek bir şey yok (kumanda kaydı gösterir).
+        kasaOnly: data.is_paid === true ? null : kasaOnlyReason({ group_id: data.group_id, custom_fields: row.custom_fields }, paid),
+    };
 }
 
 // ── Randevu oluştur ─────────────────────────────────────────────────────────

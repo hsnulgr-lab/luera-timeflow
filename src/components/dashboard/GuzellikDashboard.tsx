@@ -22,7 +22,7 @@ import { advancePatch, phaseOf, minsSince } from '@/lib/sessionPhase';
 import type { SessionPhase } from '@/lib/sessionPhase';
 import type { Customer, Reservation, Service, TreatmentPlan } from '@/types';
 import './beautyOps.css';
-import { reservationPrice } from '@/utils/reservationServices';
+import { adisyonExtras, reservationPrice } from '@/utils/reservationServices';
 
 // ── Güzellik Dashboard'u · "Günün Akışı" ─────────────────────────────────────
 // Tasarım: design_handoff_gunun_akisi. İlke — dashboard bir takvim değildir;
@@ -103,7 +103,8 @@ export function GuzellikDashboard() {
 
     // Seansın tutarı: hizmet fiyatı + adisyona eklenen kalemler
     const sessionAmount = useMemo(() => (r: Reservation): number => {
-        const extras = (r.adisyonItems || []).reduce((sum, i) => sum + (i.price || 0), 0);
+        // Adisyon fiyat × adet — tek kaynak (D2, 2026-10-16).
+        const extras = adisyonExtras(r.adisyonItems);
         const base = reservationPrice(r, services);
         return base + extras;
     }, [services]);

@@ -14,6 +14,7 @@ import { TahsilatSheet, type TahsilatLine } from '../TahsilatSheet';
 import { MobileAdisyonSheet } from '../MobileAdisyonSheet';
 import { T } from '../theme';
 import { useMinuteTick } from '../hooks';
+import { adisyonExtras } from '@/utils/reservationServices';
 
 // Restoran modu: mobil Kasa'da masa modunda randevu-bazlı akış yerine açık
 // (oturmuş) masaların listesi gösterilir; dokununca aynı MobileAdisyonSheet
@@ -129,7 +130,8 @@ const MobileRandevuKasa = () => {
         return (id?: string) => (id ? m.get(id) : undefined);
     }, [allCustomers]);
 
-    const billTotal = (r: Reservation) => priceForReservation(r, settings.services) + (r.adisyonItems || []).reduce((s, l) => s + l.price, 0);
+    // Adisyon fiyat × adet — tek kaynak (D2, 2026-10-16).
+    const billTotal = (r: Reservation) => priceForReservation(r, settings.services) + adisyonExtras(r.adisyonItems);
     const billSummary = (r: Reservation) => [r.service, ...(r.adisyonItems || []).map((l) => l.name)].join(' + ');
 
     // Personel hizmeti bitirip "Kasaya Gönder" dedi → tamamlandı + ödenmedi + süre durmuş.

@@ -21,6 +21,7 @@ import { phaseOf, minsSince, advancePatch } from '@/lib/sessionPhase';
 import { profileForSector } from '@/lib/sectorProfiles';
 import type { Customer, Reservation, Service } from '@/types';
 import './aestheticOps.css';
+import { adisyonExtras } from '@/utils/reservationServices';
 
 // ── Estetik Kliniği Dashboard'u ──────────────────────────────────────────────
 // Tasarım: Timeflow Estetik Kliniği Dashboard V2. Görsel imza "Klinik Haritası +
@@ -253,7 +254,8 @@ export function EstetikDashboard() {
     );
 
     const priceOf = (r: Reservation) => {
-        const extras = (r.adisyonItems || []).reduce((s, i) => s + (i.price || 0), 0);
+        // Adisyon fiyat × adet — tek kaynak (D2, 2026-10-16).
+        const extras = adisyonExtras(r.adisyonItems);
         return (services.find((s) => s.name === r.service)?.price || 0) + extras;
     };
     const pendingCash = byStage['Çıkışa hazır'].reduce((s, r) => s + priceOf(r), 0);

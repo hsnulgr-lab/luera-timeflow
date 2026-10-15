@@ -76,12 +76,15 @@ test('masaüstü de aynı dört parçayı kullanıyor', () => {
     const balance = desktop.slice(desktop.indexOf('const balanceOf'), desktop.indexOf('const removeExtra'));
     assert.match(balance, /coveringPlanId\(member\)/);
     assert.match(balance, /reservationPrice\(member/);
-    assert.match(balance, /item\.price/);
     assert.match(balance, /savedDiscountOf/);
     assert.match(balance, /Math\.max\(0, gross - savedDiscount - already\)/);
-    // Adisyon kalemi adetle ÇARPILMIYOR — telefon da çarpmıyor.
-    assert.doesNotMatch(balance, /item\.qty/);
-    assert.equal(adisyonLines([{ name: 'Şampuan', price: 200, qty: 2 }])[0].amount, 200);
+    // D2 (2026-10-16): adisyon kalemi FİYAT × ADET — iki yerde de. Sunucu ×2'yi
+    // kabul ediyor ve `visit.collect` çarpıyor; masaüstü tek kaynaktan
+    // (`adisyonExtras`), telefon `adisyonLines`ten.
+    assert.match(balance, /adisyonExtras\(member\.adisyonItems\)/);
+    assert.equal(adisyonLines([{ name: 'Şampuan', price: 200, qty: 2 }])[0].amount, 400);
+    assert.equal(adisyonLines([{ name: 'Şampuan', price: 200, qty: 2 }])[0].name, '2× Şampuan');
+    assert.equal(adisyonLines([{ name: 'Yağ', price: 0.1, qty: 3 }])[0].amount, 0.3, 'kuruş sunucunun yuvarlamasıyla');
 });
 
 test('pakete dahil seans YALNIZ paket sektöründe ücretsiz', () => {

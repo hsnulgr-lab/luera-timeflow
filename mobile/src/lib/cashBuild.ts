@@ -182,6 +182,53 @@ export interface ServiceCharge {
  */
 export interface ServiceBill extends ServiceCharge {
     lines: MovementLine[];
+    /**
+     * Tutar Kasa'nın — telefon tahsil etmiyor (D6). Okunamadıysa ya da yoksa
+     * `null`/alan yok; o durumda `visit.collect` yine kendisi reddediyor.
+     */
+    kasaOnly?: KasaReason | null;
+}
+
+/**
+ * KASA'YA AİT ADİSYON (D6, 2026-10-16) — sunucunun kuralının aynısı
+ * (`staff-api` · kasaOnlyReason).
+ *
+ * Kasa dört durumu kendi kuralıyla hesaplıyor (`ticketsOf`): paketli seansta
+ * hizmet 0, kayıtlı indirim düşülüyor, önceki tahsilat (kapora, kısmi)
+ * düşülüyor, grup TEK adisyon. Kumanda ve `visit.collect` bunları yapmıyordu:
+ * Gün "₺300" derken kumanda paket hizmetini yeniden tahsil ediyordu.
+ * Kullanıcı kararı: bu durumlarda telefon tutar yazmıyor ve "Kasa'dan tahsil
+ * edin" diyor.
+ */
+export type KasaReason = 'group' | 'package' | 'discount' | 'partial';
+
+export function kasaOnlyReason(
+    row: { group_id?: unknown; custom_fields?: unknown },
+    paid: number,
+): KasaReason | null {
+    if (typeof row.group_id === 'string' && row.group_id) return 'group';
+    const fields = (row.custom_fields ?? {}) as Record<string, unknown>;
+    if (typeof fields.paket_plan_id === 'string' && fields.paket_plan_id) return 'package';
+    if ((Number(fields.cash_discount_amount) || 0) > 0) return 'discount';
+    if (paid > 0) return 'partial';
+    return null;
+}
+
+/** Sebebin ekrandaki adı — cümlenin başı ("Paketli seans."). */
+export function kasaReasonLabel(reason: KasaReason): string {
+    switch (reason) {
+        case 'package': return 'Paketli seans';
+        case 'discount': return 'İndirimli adisyon';
+        case 'partial': return 'Önceden ödeme alınmış';
+        case 'group': return 'Grup adisyonu';
+    }
+}
+
+/** Sunucudan gelen sebep — bilinmeyen değer `null` (uydurulmuyor). */
+export function kasaReasonOf(value: unknown): KasaReason | null {
+    return value === 'group' || value === 'package' || value === 'discount' || value === 'partial'
+        ? value
+        : null;
 }
 
 /**
@@ -204,13 +251,13 @@ export function serviceCharge(
 }
 
 /**
- * Adisyonun ÜCRETLİ kalemleri.
+ * Adisyonun ÜCRETLİ kalemleri — FİYAT × ADET (D2, 2026-10-16).
  *
- * Tutar `price` — adet çarpılmıyor, çünkü masaüstünün tahsil ettiği tutar
- * (`BeautyCashRegister.balanceOf`) çarpmıyor. Ölçü o: telefon başka bir tutar
- * söylerse kasiyer ile müdür iki farklı borç görür. Adet yalnız ücretsiz sarf
- * satırlarında yazılıyor, yani bugün iki kural aynı sayıyı veriyor; ayrışma
- * masaüstünün Faz 5 borcu ("qty yedi formülde tutarsız").
+ * Eskiden adet çarpılmıyordu, çünkü masaüstü Kasa çarpmıyordu ve sunucu
+ * ücretli kalemde adedi zaten reddediyordu. Artık sunucu ×2'yi kabul ediyor
+ * ve `visit.collect` fiyat × adet tahsil ediyor; G4 kartı, turuncu şerit ve
+ * masaüstü Kasa (`adisyonExtras`) aynı rakamı söylüyor. Kuruş yuvarlaması
+ * sunucununkiyle aynı.
  */
 export function adisyonLines(items: unknown): MovementLine[] {
     if (!Array.isArray(items)) return [];
@@ -219,9 +266,13 @@ export function adisyonLines(items: unknown): MovementLine[] {
         const row = (item ?? {}) as Record<string, unknown>;
         const price = Number(row.price);
         if (!Number.isFinite(price) || price <= 0) continue;
-        const qty = Number(row.qty);
+        const raw = Number(row.qty);
+        const qty = Number.isFinite(raw) && raw > 1 ? raw : 1;
         const name = String(row.name ?? '').trim() || 'Kalem';
-        out.push({ name: Number.isFinite(qty) && qty > 1 ? `${qty}× ${name}` : name, amount: price });
+        out.push({
+            name: qty > 1 ? `${qty}× ${name}` : name,
+            amount: Math.round(price * qty * 100) / 100,
+        });
     }
     return out;
 }

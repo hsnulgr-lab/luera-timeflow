@@ -138,7 +138,11 @@ test('ürün türü YAZMA yolunun beklediğiyle aynı eşleşiyor', async () => 
     assert.deepEqual(items[2], { id: 'p2', name: 'Şampuan', kind: 'product', price: 320 });
     // Sunucu `extra` gelirse HİZMET kataloğunda, ötekiler için ÜRÜN
     // kataloğunda arıyor; eşleme ayrışırsa kalem "bulunamadı" diye reddedilir.
-    assert.match(api, /if \(kind === 'extra'\) serviceIds\.push\(catalogId\);/);
+    // 2026-10-16 (D2): kural `staff-api/visitItems.ts`e taşındı — Node onu
+    // çalıştırabiliyor (`d2-kalem-sozlesmesi.test.mjs`).
+    const rules = readFileSync(new URL('../supabase/functions/staff-api/visitItems.ts', import.meta.url), 'utf8');
+    assert.match(rules, /if \(kind === 'extra'\) serviceIds\.push\(catalogId\);/);
+    assert.match(api, /from '\.\/visitItems\.ts';/);
 });
 
 test('adsız ya da sıfır sayılı kullanım satırı ELENİYOR', async () => {
@@ -253,7 +257,7 @@ test('kumanda SABİT dört kalemle açılmıyor', () => {
     assert.match(screen, /addOutcome\(lines, \{ \.\.\.item, catalogId: item\.id \}/);
     assert.ok(!/addLine\(/.test(screen), 'ikinci bir ekleme yolu açılmamalı');
     assert.match(screen, /addItem\(item\);/);
-    assert.match(screen, /addItem\(freeItem\(name, kind\)\);/);
+    assert.match(screen, /addItem\(freeItem\(name\)\);/);
 });
 
 // ── YAZMA ───────────────────────────────────────────────────────────────────

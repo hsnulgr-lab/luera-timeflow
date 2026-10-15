@@ -12,7 +12,7 @@
  */
 
 import { QTY_MAX, addLine, liveLines, type AdisyonLine, type LineKind } from './adisyon.ts';
-import type { ServiceBill } from './cashBuild.ts';
+import { kasaReasonOf, type ServiceBill } from './cashBuild.ts';
 import type { FormulaDoor } from './formula.ts';
 
 /** Randevunun kendi hizmetleri — ad ve ücret (`cashBuild.serviceLines`). */
@@ -192,7 +192,7 @@ export function frequentHead(label: string): string {
  * Sayılar sunucudan; istemci yeniden toplamıyor, yalnız doğruluyor.
  */
 export function serviceBillOf(data: unknown): ServiceBill | null {
-    const body = (data ?? {}) as { lines?: unknown; amount?: unknown; count?: unknown };
+    const body = (data ?? {}) as { lines?: unknown; amount?: unknown; count?: unknown; kasaOnly?: unknown };
     if (!Array.isArray(body.lines) || typeof body.amount !== 'number') return null;
     const lines = body.lines.flatMap((raw) => {
         const row = (raw ?? {}) as { name?: unknown; amount?: unknown };
@@ -201,5 +201,7 @@ export function serviceBillOf(data: unknown): ServiceBill | null {
             : [];
     });
     if (lines.length !== body.lines.length) return null;
-    return { amount: body.amount, count: lines.length, lines };
+    // Paket / indirim / kısmi / grup: tutar Kasa'nın (D6). Eski sunucu alanı
+    // göndermiyor — o zaman `null`, `visit.collect` yine kendisi reddeder.
+    return { amount: body.amount, count: lines.length, lines, kasaOnly: kasaReasonOf(body.kasaOnly) };
 }

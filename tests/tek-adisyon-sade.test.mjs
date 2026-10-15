@@ -146,7 +146,7 @@ test('kapanışta tekrar yok: saat satırı ve şeritteki sayı kalktı', () => 
     // Plaka zaten "00:30 – 01:04 · 11 dk sürdü" diyor; kadran "TOPLAM · 3 KALEM".
     const dial = parts.slice(parts.indexOf('export function SadeClosingDial'));
     assert.ok(!/dk sürdü/.test(dial), 'kadranın altındaki saat satırı');
-    assert.match(dial, /TOPLAM · \{count\} KALEM/);
+    assert.match(dial, /\{total === null \? 'TUTARI KASA HESAPLIYOR' : 'TOPLAM'\} · \{count\} KALEM/);
     // Kapanış şeridi yalnız "Kalem ekle"; mühürlüde sayı yok.
     assert.match(parts, /variant === 'closing' \? \(/);
     assert.match(parts, />Kalem ekle</);
@@ -202,7 +202,8 @@ test('İKİ KABUKTA aynı sade adisyon (kullanıcı kararı, 2026-10-15)', () =>
     assert.match(screen, /\{phase === 'closing' \|\| phase === 'closed' \? \(\s*<SadeClosingDial/);
     assert.match(screen, /\{sheet === 'catalog' \? \(\s*<View style=\{\{ flex: 1 \}\}>\s*<SadeSheetBody/);
     // Ayrışan TEK yer son adım: tek kişilikte tahsilat, ekipte kasaya gönder.
-    assert.match(screen, /\(phase === 'closing' \|\| phase === 'closed'\) && params\.from === 'tek' \? \(\s*<CollectBar/);
+    // Kasa'ya ait adisyonda (D6) tek kişilik de kasaya gönderiyor.
+    assert.match(screen, /\(phase === 'closing' \|\| phase === 'closed'\) && params\.from === 'tek' && !kasaOnly \? \(\s*<CollectBar/);
     assert.match(screen, /<SendToCash/);
 });
 
@@ -240,7 +241,10 @@ test('sık kullanılan başlığı küçük harfle: "Sık kullanılan · saç bo
 
 test('randevu hizmetinin ücreti Kasa\'nın hesabından, satır satır', () => {
     const source = code(read('../mobile/src/lib/managerSource.ts'));
-    assert.match(source, /return \{ \.\.\.serviceCharge\(row, services\), lines: serviceLines\(row, services\) \};/);
+    assert.match(source, /\.\.\.serviceCharge\(row, services\),\s*lines: serviceLines\(row, services\),/);
+    // D6: Kasa'ya ait adisyon aynı okumada — sunucunun kuralıyla.
+    assert.match(source, /kasaOnly: data\.is_paid === true \? null : kasaOnlyReason\(\{ group_id: data\.group_id, custom_fields: row\.custom_fields \}, paid\)/);
+    assert.match(source, /from\('payments'\)\s*\.select\('amount'\)[\s\S]{0,200}\.is\('voided_at', null\)/);
     assert.match(screen, /serviceCharge\.lines\.map\(\(row\) => \(\{ name: row\.name, amount: row\.amount \}\)\)/);
     // Okunamazsa adlar duruyor, tutar yazılmıyor.
     assert.match(screen, /booked\.map\(\(name\) => \(\{ name, amount: null \}\)\)/);
@@ -273,7 +277,10 @@ test('visit.charge YALNIZ OKUR: para yazmaz, tutarı istemciden almaz', () => {
 
 test('visit.charge cevabı doğrulanıyor: biçim tutmazsa ücret BİLİNMİYOR', () => {
     const ok = serviceBillOf({ lines: [{ name: 'Kaş', amount: 350 }, { name: 'Cilt', amount: 1200 }], amount: 1550, count: 2 });
-    assert.deepEqual(ok, { amount: 1550, count: 2, lines: [{ name: 'Kaş', amount: 350 }, { name: 'Cilt', amount: 1200 }] });
+    assert.deepEqual(ok, { amount: 1550, count: 2, lines: [{ name: 'Kaş', amount: 350 }, { name: 'Cilt', amount: 1200 }], kasaOnly: null });
+    // D6: sunucunun "Kasa'ya ait" sebebi okunuyor; bilinmeyen değer uydurulmuyor.
+    assert.equal(serviceBillOf({ lines: [], amount: 0, count: 0, kasaOnly: 'package' }).kasaOnly, 'package');
+    assert.equal(serviceBillOf({ lines: [], amount: 0, count: 0, kasaOnly: 'baska' }).kasaOnly, null);
     // Bozuk satır, eksik alan ya da hata gövdesi → null: satırlar adla durur, tutar yazılmaz.
     assert.equal(serviceBillOf({ lines: [{ name: 'Kaş' }], amount: 350 }), null);
     assert.equal(serviceBillOf({ error: 'invalid_token' }), null);

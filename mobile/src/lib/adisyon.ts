@@ -427,8 +427,25 @@ export function searchState(results: readonly CatalogItem[], query: string):
  * Fiyat bu ekranda değişmiyor (maske + klavye + yetki, üçü bir arada bu
  * yüzeye sığmıyor), ama iskonto da kaybolmuyor: karar veren yer değişiyor.
  */
-export function freeItem(name: string, kind: LineKind = 'material'): CatalogItem {
-    return { id: `free:${name}`, name: name.trim(), kind };
+/**
+ * Katalog dışı kalemin adının sınırı — sunucununkiyle aynı (`staff-api` ·
+ * FREE_NAME_MAX). Arama kutusu bu sınırda duruyor: sunucu daha uzun adı
+ * reddederdi ve bir satır yüzünden BÜTÜN liste giderdi.
+ */
+export const FREE_NAME_MAX = 60;
+
+/**
+ * Katalog dışı kalem (D2, 2026-10-16) — YALNIZ MALZEME.
+ *
+ * Ücretli türde (ek hizmet, ürün) katalog dışı kalem yok (kullanıcı kararı):
+ * fiyatı telefondan gelirse tutarı istemci belirlemiş olurdu ve masaüstünde
+ * ₺0'lık satırın fiyatını yazacak bir alan yok. Kimlik `free:<ad>`; ad,
+ * sunucunun yazdığıyla aynı olsun diye boşlukları toplanmış hâliyle —
+ * yoksa kendi yazdığımız liste geri dönünce farklı görünürdü.
+ */
+export function freeItem(name: string): CatalogItem {
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, FREE_NAME_MAX);
+    return { id: `free:${clean}`, name: clean, kind: 'material' };
 }
 
 // ── Sıklık: ölçek SIRALAMAYA biniyor (Personel 13 · C) ──────────────────────

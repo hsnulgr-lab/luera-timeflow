@@ -23,6 +23,7 @@ import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import type { Customer, QueueEntry, Reservation, Service } from '@/types';
 import './berberOps.css';
+import { adisyonExtras } from '@/utils/reservationServices';
 
 // ── Berber Dashboard'u · "Salon kumandası" ───────────────────────────────────
 // Tasarım: Timeflow Berber Dashboard Final. İlke — berberde gün takvimle değil
@@ -196,7 +197,8 @@ export function BerberDashboard() {
     };
 
     const priceOf = (r: Reservation) => {
-        const extras = (r.adisyonItems || []).reduce((s, i) => s + (i.price || 0), 0);
+        // Adisyon fiyat × adet — tek kaynak (D2, 2026-10-16).
+        const extras = adisyonExtras(r.adisyonItems);
         return (services.find((s) => s.name === r.service)?.price || 0) + extras;
     };
     const durationOf = (name: string) => services.find((s) => s.name === name)?.duration || 30;

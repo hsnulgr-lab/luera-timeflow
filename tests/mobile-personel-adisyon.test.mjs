@@ -233,12 +233,19 @@ test('vurgu TERS — eşleşen sönük, AYIRAN hane koyu', () => {
 test('katalogda yoksa ölü uç yok: kalem yazılabiliyor', () => {
     assert.equal(searchState([], 'zzz'), 'none');
     assert.equal(searchState(CAT, ''), 'idle');
-    // Fiyatsız gidiyor; tutarını kasada müdür yazıyor.
+    // D2 (kullanıcı kararı 2026-10-16): katalog dışı kalem YALNIZ malzeme.
+    // Ücretli türün fiyatı telefondan gelmiyor ve masaüstünde ₺0'lık satırı
+    // düzeltecek alan yok; eski "tutarını kasada müdür yazıyor" sözü
+    // gerçekte hiçbir yerde çalışmıyordu.
     assert.equal(freeItem('Yeni ürün').price, undefined);
-    assert.match(search, /Tutarı kasada yazılır/);
-    // Türü personel seçiyor: malzeme olup olmadığı formülü doğrudan
-    // ilgilendiriyor, o yüzden varsayılana bırakılmıyor.
-    assert.match(search, /KIND_ORDER\.map/);
+    assert.equal(freeItem('Yeni ürün').kind, 'material');
+    assert.deepEqual(freeItem('  Keratin   ampul ').name, 'Keratin ampul');
+    assert.equal(freeItem('  Keratin   ampul ').id, 'free:Keratin ampul', 'kimlik sunucunun yazdığıyla aynı');
+    assert.doesNotMatch(search, /Tutarı kasada yazılır/);
+    assert.doesNotMatch(search, /KIND_ORDER\.map/, 'ücretli tür yeniden seçilebiliyor');
+    assert.match(search, /onFree\(query\)/);
+    assert.match(search, /\{KIND_LABEL\.material\} OLARAK EKLE/);
+    assert.match(search, /maxLength=\{FREE_NAME_MAX\}/);
     assert.match(search, /height: 68/);
 });
 

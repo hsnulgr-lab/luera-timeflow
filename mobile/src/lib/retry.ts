@@ -20,6 +20,28 @@
  * Saf: React yok, react-native yok, fetch yok.
  */
 
+/**
+ * Yeni bir yazma, kuyrukta bekleyen işin YERİNİ alıyor mu (D4, 2026-10-16)?
+ *
+ * `visit.items` adisyonun TAMAMINI yazıyor; aynı ziyaretin daha yeni bir
+ * listesi eskisini kapsıyor. Bodrum katında art arda eklenen her kalem
+ * kuyruğa ayrı bir liste koyuyordu ve hepsi AYNI eski damgayı taşıyordu.
+ * Sinyal gelince ilki yazılıyor, damgayı ilerletiyor; sonrakiler
+ * `items_stale` alıp kalıcı hata olarak atılıyordu — sunucuda İLK liste
+ * kalıyor, sonra eklenen kalemler kayboluyordu.
+ *
+ * Yalnız kalem yazması, yalnız aynı ziyaret. Başlatma, formül, not ve
+ * kapanış kendi işini yapıyor; birbirinin yerine geçmiyor.
+ */
+export function supersedes(
+    next: { action: string; body: Record<string, unknown> },
+    queued: { action: string; body: Record<string, unknown> },
+): boolean {
+    if (next.action !== 'visit.items' || queued.action !== 'visit.items') return false;
+    const id = next.body.reservationId;
+    return typeof id === 'string' && id.length > 0 && queued.body.reservationId === id;
+}
+
 export type Fate =
     /** Tekrar denemek DÜZELTMEZ. İş atılır ve kullanıcıya söylenir. */
     | 'permanent'

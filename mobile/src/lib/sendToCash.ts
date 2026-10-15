@@ -209,6 +209,18 @@ export function errorLine(code: string | null | undefined): string {
         case 'items_stale': return 'Adisyon başka bir cihazda değişti';
         case 'items_unsendable': return 'Bir kalem gönderilemiyor · listeyi tazeleyin';
         case 'writes_disabled': return 'Telefondan gönderim şu an kapalı';
-        default: return 'Bu adisyon kasada zaten açık';
+        // D2 (2026-10-16): katalogdan kaldırılmış ya da pasif bir kalem.
+        // Sunucu ×2'yi ve katalog dışı malzemeyi artık kabul ediyor; kalan
+        // sebep kalemin kendisi.
+        case 'invalid_catalog_item': return 'Katalogda olmayan bir kalem var · onu kaldırın';
+        case 'duplicate_catalog_item': return 'Aynı kalem iki kez yazılmış · listeyi tazeleyin';
+        case 'state_conflict': return 'Randevunun durumu değişti · ekranı tazeleyin';
+        /*
+         * BİLİNMEYEN KOD GENEL ve DÜRÜST bir söz alıyor (2026-10-15 denetimi).
+         * Eskiden varsayılan "Bu adisyon kasada zaten açık"tı: ekip personeli
+         * reddedilen ×2 kalemde bu yanlış cümleyi görüyordu. Bilinmeyen bir
+         * sebebe belirli bir sebep yazmak, olmamış bir şeyi söylemek.
+         */
+        default: return 'Sunucu adisyonu kabul etmedi';
     }
 }

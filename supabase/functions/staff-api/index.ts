@@ -8,6 +8,10 @@ import {
     DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS, RING_TOKEN_TTL_SEC,
 } from '../_shared/staffToken.ts';
 import { pinProblem } from '../_shared/pinRules.ts';
+import {
+    UUID_RE, freeMaterialName, kasaOnlyReason, planVisitItems, resolveVisitItems,
+    type CatalogProductRow, type CatalogServiceRow,
+} from './visitItems.ts';
 
 /**
  * Dar personel API'si — personel cihazının veriye TEK yolu.
@@ -104,27 +108,6 @@ function cutBefore(member: Pick<StaffRow, 'devices_cut_at'>, claims: { iat?: num
     const cutAt = Date.parse(member.devices_cut_at);
     if (!Number.isFinite(cutAt)) return false;
     return (Number(claims.iat) || 0) * 1000 <= cutAt;
-}
-
-interface CatalogProductRow {
-    id: string;
-    name: string;
-    price: number | string | null;
-    kind: 'retail' | 'consumable' | string;
-    tracks_stock: boolean | null;
-}
-
-interface CatalogServiceRow {
-    id: string;
-    name: string;
-    price: number | string | null;
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function catalogPrice(value: unknown): number {
-    const amount = Number(value);
-    return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) / 100 : 0;
 }
 
 /** Altı hane: telefonda okunup yazılabilecek en uzun makul dizi. */
@@ -1406,6 +1389,9 @@ Deno.serve(async (req: Request) => {
                 // consumable diyorsa material'a yükseltilir; retail ürünler
                 // kasada sale olarak düşeceği için usage'a girmez.
                 if (line?.kind !== 'material' && line?.kind !== 'product') continue;
+                // Katalog dışı malzeme (D2): katalogda yok, düşülecek stok da yok.
+                // Kimlik kapısına düşerse BÜTÜN uzlaştırma uyarıyla dururdu.
+                if (freeMaterialName(line)) continue;
                 const productId = typeof line.productId === 'string' ? line.productId : '';
                 const qty = Number(line.qty ?? 1);
                 if (!UUID_RE.test(productId) || !Number.isInteger(qty) || qty < 1 || qty > 99) {
@@ -1452,6 +1438,9 @@ Deno.serve(async (req: Request) => {
                     usage.set(productId, candidate.qty);
                     continue;
                 }
+                // Stok İZLEMEYEN sarf (D2): malzeme olarak kabul ediliyor ama
+                // düşülecek stoğu yok — uyarı değil, beklenen.
+                if (product.kind === 'consumable' && product.tracks_stock === false) continue;
                 if (candidate.requestedKind === 'material') {
                     console.error('visit.finish stok: material satırı sarf kataloğuyla eşleşmiyor', {
                         reservationId: reservation.id, productId,
@@ -1721,22 +1710,10 @@ Deno.serve(async (req: Request) => {
             if (raw.length > 40) return json({ error: 'too_many_items' }, 400);
 
             const requested = raw as Record<string, unknown>[];
-            const productIds: string[] = [];
-            const serviceIds: string[] = [];
-            const seen = new Set<string>();
-            for (const line of requested) {
-                const kind = line?.kind;
-                const catalogId = kind === 'extra' ? line?.serviceId : line?.productId;
-                if ((kind !== 'product' && kind !== 'material' && kind !== 'extra')
-                    || typeof catalogId !== 'string' || !UUID_RE.test(catalogId)) {
-                    return json({ error: 'invalid_catalog_item' }, 400);
-                }
-                const key = kind === 'extra' ? `service:${catalogId}` : `product:${catalogId}`;
-                if (seen.has(key)) return json({ error: 'duplicate_catalog_item' }, 400);
-                seen.add(key);
-                if (kind === 'extra') serviceIds.push(catalogId);
-                else productIds.push(catalogId);
-            }
+            // Biçim, tür, kimlik ve tekrar — saf kural `visitItems.ts`te (D2).
+            const plan = planVisitItems(requested);
+            if ('error' in plan) return json({ error: plan.error }, 400);
+            const { productIds, serviceIds } = plan;
 
             let productRows: CatalogProductRow[] = [];
             if (productIds.length > 0) {
@@ -1761,60 +1738,10 @@ Deno.serve(async (req: Request) => {
 
             const productById = new Map(productRows.map((row) => [row.id, row]));
             const serviceById = new Map(serviceRows.map((row) => [row.id, row]));
-            const items: Record<string, unknown>[] = [];
-            for (const line of requested) {
-                if (line.kind === 'extra') {
-                    const serviceId = String(line.serviceId);
-                    const service = serviceById.get(serviceId);
-                    const qty = Number(line.qty ?? 1);
-                    if (!service || qty !== 1) return json({ error: 'invalid_catalog_item' }, 400);
-                    items.push({
-                        id: `service:${service.id}`,
-                        name: service.name,
-                        price: catalogPrice(service.price),
-                        kind: 'extra',
-                        serviceId: service.id,
-                    });
-                    continue;
-                }
-
-                const productId = String(line.productId);
-                const product = productById.get(productId);
-                const qty = Number(line.qty ?? 1);
-                if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
-                    return json({ error: 'invalid_catalog_item' }, 400);
-                }
-                // Eski istemciler sarfı da `product` diye gönderiyordu. Türü
-                // telefondan değil katalogdaki product.kind'dan türetmek hem
-                // güvenli hem de dağıtım geçişinde geriye uyumludur.
-                if (product.kind === 'consumable') {
-                    if (product.tracks_stock === false) {
-                        return json({ error: 'invalid_catalog_item' }, 400);
-                    }
-                    items.push({
-                        id: `material:${product.id}`,
-                        name: product.name,
-                        price: 0,
-                        kind: 'material',
-                        productId: product.id,
-                        ...(qty > 1 ? { qty } : {}),
-                    });
-                } else {
-                    // Satılan ürün kasa aşamasında `sale` olarak stoktan düşer;
-                    // visit.finish onu `usage` saymaz. Masaüstü adisyon modeli
-                    // henüz qty-aware olmadığı için satış satırı tek adettir.
-                    if (line.kind !== 'product' || product.kind !== 'retail' || qty !== 1) {
-                        return json({ error: 'invalid_catalog_item' }, 400);
-                    }
-                    items.push({
-                        id: `product:${product.id}`,
-                        name: product.name,
-                        price: catalogPrice(product.price),
-                        kind: 'product',
-                        productId: product.id,
-                    });
-                }
-            }
+            // Ad ve fiyat KATALOGDAN; adet sınırları ve katalog dışı malzeme
+            // aynı saf kuralda (`resolveVisitItems`, D2).
+            const items = resolveVisitItems(requested, productById, serviceById);
+            if (!items) return json({ error: 'invalid_catalog_item' }, 400);
 
             // ── İYİMSER KİLİT (092) ─────────────────────────────────────
             //
@@ -2096,14 +2023,20 @@ Deno.serve(async (req: Request) => {
             const [
                 { data: catalog, error: catErr },
                 { data: cfRow, error: cfErr },
+                { data: paidRows, error: paidErr },
             ] = await Promise.all([
                 admin.from('services').select('id, name, price')
                     .eq('organization_id', me.organization_id),
-                admin.from('reservations').select('custom_fields')
+                admin.from('reservations').select('custom_fields, group_id')
                     .eq('id', res!.id).eq('organization_id', me.organization_id).maybeSingle(),
+                // Randevuya bağlı CANLI tahsilat (kapora, kısmi) — D6.
+                admin.from('payments').select('amount')
+                    .eq('organization_id', me.organization_id)
+                    .eq('reservation_id', res!.id)
+                    .is('voided_at', null),
             ]);
-            if (catErr || cfErr) {
-                console.error('visit.charge lookup', catErr ?? cfErr);
+            if (catErr || cfErr || paidErr) {
+                console.error('visit.charge lookup', catErr ?? cfErr ?? paidErr);
                 return json({ error: 'lookup_failed' }, 500);
             }
 
@@ -2144,7 +2077,10 @@ Deno.serve(async (req: Request) => {
             }
 
             const amount = Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100;
-            return json({ lines, amount, count: lines.length });
+            // Paket / indirim / kısmi / grup: tutar Kasa'nın — kumanda yazmıyor (D6).
+            const paid = (paidRows ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+            const kasaOnly = res!.is_paid === true ? null : kasaOnlyReason(cfRow ?? {}, paid);
+            return json({ lines, amount, count: lines.length, kasaOnly });
         }
 
         /*
@@ -2198,7 +2134,7 @@ Deno.serve(async (req: Request) => {
             // değil: adisyona kalem eklenebilir, bekleme kurulabilir.
             if (res!.status !== 'completed') return json({ error: 'not_finished' }, 409);
 
-            const { data: existing, error: exErr } = await admin.from('payments')
+            const { data: paidRows, error: exErr } = await admin.from('payments')
                 .select('id, amount, method, paid_at')
                 .eq('organization_id', me.organization_id)
                 .eq('reservation_id', res!.id)
@@ -2208,14 +2144,16 @@ Deno.serve(async (req: Request) => {
                 // et" kasaya hiçbir şey yazmadan başarılı görünürdü.
                 // service_role RLS'ten geçmiyor; süzgeç o yüzden burada.
                 .is('voided_at', null)
-                .order('paid_at', { ascending: true })
-                .limit(1)
-                .maybeSingle();
+                .order('paid_at', { ascending: true });
             if (exErr) {
                 console.error('visit.collect existing payment', exErr);
                 return json({ error: 'lookup_failed' }, 500);
             }
-            if (existing) {
+            const existing = (paidRows ?? [])[0] ?? null;
+            const paid = (paidRows ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+            // Kasa kapattıysa (paketle ₺0 dahil) ikinci kayıt YOK.
+            if (res!.is_paid === true) {
                 return await done({ ok: true, alreadyCollected: true, payment: existing });
             }
 
@@ -2226,13 +2164,21 @@ Deno.serve(async (req: Request) => {
             ] = await Promise.all([
                 admin.from('services').select('id, name, price')
                     .eq('organization_id', me.organization_id),
-                admin.from('reservations').select('custom_fields')
+                admin.from('reservations').select('custom_fields, group_id')
                     .eq('id', res!.id).eq('organization_id', me.organization_id).maybeSingle(),
             ]);
             if (catErr || cfErr) {
                 console.error('visit.collect amount lookup', catErr ?? cfErr);
                 return json({ error: 'lookup_failed' }, 500);
             }
+
+            /*
+             * PAKET / İNDİRİM / GRUP — Kasa'nın işi (D6). Önceki tahsilat
+             * aşağıda tutarla karşılaştırılıyor: tamamıysa "zaten alındı",
+             * eksikse kısmi ödeme ve yine Kasa'nın işi.
+             */
+            const kasaReason = kasaOnlyReason(cfRow ?? {}, 0);
+            if (kasaReason) return json({ error: 'collect_in_kasa', reason: kasaReason }, 409);
 
             const services = (catalog ?? []) as { id: string; name: string; price: number | null }[];
             const priceOfName = (name: string) =>
@@ -2280,6 +2226,28 @@ Deno.serve(async (req: Request) => {
             );
 
             const amount = Math.round((serviceAmount + itemsAmount) * 100) / 100;
+
+            /*
+             * VAR OLAN TAHSİLAT — ikinci kapı.
+             *
+             * Tamamı alınmışsa yeni kayıt YOK; bayrak da burada basılıyor (D7):
+             * para kaydından sonraki bayrak yazımı bir kez düştüyse Gün satırı
+             * sonsuza dek "adisyon açık" diyordu. Eksikse (kapora, kısmi)
+             * kalanı Kasa hesaplıyor (D6) — eskiden burada da "zaten alındı"
+             * dönüyor ve kalan borç hiç yazılmıyordu.
+             */
+            if (existing) {
+                if (paid + 0.005 < amount) {
+                    return json({ error: 'collect_in_kasa', reason: 'partial' }, 409);
+                }
+                const { error: flagErr } = await admin.from('reservations')
+                    .update({ is_paid: true })
+                    .eq('id', res!.id)
+                    .eq('organization_id', me.organization_id);
+                if (flagErr) console.error('visit.collect is_paid (existing)', flagErr);
+                return await done({ ok: true, alreadyCollected: true, payment: existing });
+            }
+
             if (!(amount > 0)) return json({ error: 'zero_amount' }, 409);
 
             const { data: payment, error: payErr } = await admin.from('payments').insert({

@@ -26,7 +26,7 @@ import type { PaymentMethod, Reservation } from '@/types';
 import { buildSalonCashTickets, ticketContaining } from '@/lib/salonCashTickets';
 import { todayISO, toISODate } from '@/utils/date';
 import './beautyCash.css';
-import { reservationServiceLines, reservationPrice } from '@/utils/reservationServices';
+import { adisyonExtras, reservationServiceLines, reservationPrice } from '@/utils/reservationServices';
 import { lookupDiscountCode, redeemDiscountCode, DISCOUNT_CODE_ERROR_TEXT, type DiscountCode } from '@/services/discountCodes';
 
 // ── Ortak Kasa · 3 sütunlu ödeme deneyimi ────────────────────────────────────
@@ -419,7 +419,10 @@ export function BeautyCashRegister({
                     ? 'Ürün · adisyon'
                     : item.kind === 'material' ? 'Malzeme · işlemde kullanıldı' : 'Ek hizmet',
                 price: item.price,
-                quantity: 1,
+                // ADET (D2, 2026-10-16): telefon ×2'yi artık yazabiliyor. Satır
+                // birim fiyatla, toplam `price × quantity` (`subtotal`); satılan
+                // ürün stoktan adet kadar düşüyor (`deductSoldStock`).
+                quantity: Math.max(1, Math.round(item.qty ?? 1)),
                 kind: item.kind === 'product' ? 'Ürün' : 'Hizmet',
                 reservationId: member.id,
                 productId: item.productId,
@@ -557,7 +560,8 @@ export function BeautyCashRegister({
             const servicePrice = profile.packagesEnabled && coveringPlanId(member)
                 ? 0
                 : reservationPrice(member, settings.services || []);
-            return sum + servicePrice + (member.adisyonItems || []).reduce((itemSum, item) => itemSum + item.price, 0);
+            // Adisyon fiyat × adet — tek kaynak (`adisyonExtras`, D2).
+            return sum + servicePrice + adisyonExtras(member.adisyonItems);
         }, 0);
         const savedDiscount = Math.min(savedDiscountOf(ticket?.representative || r), gross);
         // Kapora veya kısmi tahsilat alınmışsa kuyrukta KALAN görünmeli — brüt

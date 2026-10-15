@@ -149,7 +149,10 @@ test('uyarı YALNIZ yabancı değişiklikte ve gönderim türetilmiş kilitle', 
     assert.match(screen, /\{foreignChange && !delivered \? \(/);
     // 2026-10-15: yoldaki otomatik yazma bekleniyor; onun YENİ damgası
     // (kendi yazmamız) varsa o, yoksa türetilmiş kilit.
-    assert.match(screen, /sendVisitToCash\(reservationId, lines, fresh \?\? lockStamp\)/);
+    // 2026-10-16 (D3): yeniden gönderimde damga kuyruk boşaldıktan sonraki
+    // taze gözlemden türetiliyor; ilk gönderimde aynı kural.
+    assert.match(screen, /let stamp = fresh \?\? lockStamp;/);
+    assert.match(screen, /return sendVisitToCash\(reservationId, lines, stamp\);/);
 });
 
 test('benimseme gözlemleri SIFIRLIYOR', () => {

@@ -48,3 +48,37 @@ export function shouldSaveItems(gate: SaveGate): boolean {
     if (gate.foreignChange || gate.deleting) return false;
     return gate.key !== gate.savedKey;
 }
+
+/**
+ * EKRAN AYRILIRKEN ya da ARKA PLANA GEÇERKEN — bekleyen yazma HEMEN gider
+ * (D4, 2026-10-16).
+ *
+ * Zamanlayıcı ekran kapanınca iptal ediliyordu: kalem ekleyip 0,7 sn içinde
+ * "Geri"ye basan kişinin kalemi kayboluyordu. Silme penceresi de öyle: bir
+ * kalemi kaldırıp pencere dolmadan başka kalem ekleyip çıkan kişinin
+ * eklediği gidiyor, sildiği geri geliyordu.
+ *
+ * Silme penceresi o anda KAPANIYOR: "Geri al" ekranla birlikte gidiyor.
+ * Silinmek üzere olan satır gidecek listede zaten yok (`sendableOf`), yani
+ * yazılan liste silmeyi uyguluyor. Öteki kapılar aynı: gönderim sürerken,
+ * kasadaki adisyonda ve başka cihaz yazmışken yazılmıyor.
+ */
+export function shouldFlushItems(gate: Omit<SaveGate, 'deleting'>): boolean {
+    return shouldSaveItems({ ...gate, deleting: false });
+}
+
+/**
+ * Sıradaki yazmanın kilit damgası — YOLDAKİ yazma bitmeden yenisi başlamıyor
+ * (D4).
+ *
+ * Yavaş ağda (gidiş-dönüş > 0,7 sn) iki yazma aynı damgayla üst üste
+ * biniyordu: ikincisi birincinin ilerlettiği damgaya çarpıp `items_stale`
+ * alıyor, `savedKey` yüzünden yeniden denenmiyor ve kısa süre sahte "başka
+ * cihazda değişti" şeridi çıkıyordu. Artık ikincisi birincinin sonucunu
+ * bekliyor ve onun döndüğü YENİ damgayla gidiyor. Birincisi başkasına
+ * takıldıysa ya da kuyruğa girdiyse (`fresh` yok) ekranın kilidi geçerli —
+ * kimsenin kalemi ezilmez.
+ */
+export function chainedStamp(fresh: string | null, lockStamp: string | null): string | null {
+    return fresh ?? lockStamp;
+}

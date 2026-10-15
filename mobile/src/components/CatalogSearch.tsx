@@ -21,8 +21,8 @@
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import {
-    KIND_ORDER, KIND_LABEL, emphasise, searchState, splitCode,
-    type CatalogItem, type LineKind,
+    FREE_NAME_MAX, KIND_LABEL, emphasise, searchState, splitCode,
+    type CatalogItem,
 } from '../lib/adisyon';
 import { feedback } from '../lib/feedback';
 import { upperTR } from '../lib/text';
@@ -41,7 +41,8 @@ export function CatalogSearch({ query, results, frequent, onQuery, onPick, onFre
     onQuery: (next: string) => void;
     onPick: (item: CatalogItem) => void;
     /** Katalogda yoksa yazılan ad fiyatsız gidiyor; tutarı kasada yazılıyor. */
-    onFree: (name: string, kind: LineKind) => void;
+    /** Katalog dışı ad — yalnız malzeme olarak (D2). */
+    onFree: (name: string) => void;
     onBack: () => void;
 }) {
     const { c } = useTheme();
@@ -66,6 +67,7 @@ export function CatalogSearch({ query, results, frequent, onQuery, onPick, onFre
                         onChangeText={onQuery}
                         autoFocus
                         placeholder="Katalogda ara"
+                        maxLength={FREE_NAME_MAX}
                         placeholderTextColor={c.tx3}
                         selectionColor={c.or}
                         autoCorrect={false}
@@ -108,38 +110,35 @@ export function CatalogSearch({ query, results, frequent, onQuery, onPick, onFre
                             <Text style={{ fontWeight: '700' }}>Katalogda yok.</Text>
                             {' '}Salon yeni ürün almış olabilir; katalog müdürün işi ve gecikebiliyor.
                         </Text>
-                        {/* Ölü uç yok: yazılan ad adisyona girebiliyor.
-                            TÜRÜNÜ personel seçiyor — üç tür karışmıyor ve
-                            malzeme olup olmadığı formülü doğrudan ilgilendiriyor.
-                            Kalem fiyatsız gidiyor, tutarını kasada müdür yazıyor. */}
+                        {/* Ölü uç yok: yazılan ad adisyona girebiliyor —
+                            MALZEME olarak (D2, kullanıcı kararı 2026-10-16).
+                            Ücretli kalemin fiyatı telefondan gelmiyor ve
+                            masaüstünde ₺0'lık satırı düzeltecek alan yok: ek
+                            hizmet ve ürün yalnız katalogdan. Malzemenin fiyatı
+                            zaten yok, müşteriye yazılmıyor. */}
                         <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: '700', color: c.tx }}>
                             “{query.trim()}” diye ekle
                         </Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            {KIND_ORDER.map((kind) => (
-                                <Pressable
-                                    key={kind}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`${query.trim()} kalemini ${KIND_LABEL[kind]} olarak ekle`}
-                                    onPress={() => { feedback.light(); onFree(query, kind); }}
-                                    style={({ pressed }) => ({
-                                        flex: 1, height: 68, borderRadius: 18,
-                                        alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
-                                        backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd,
-                                        opacity: pressed ? 0.7 : 1,
-                                    })}
-                                >
-                                    <Text numberOfLines={2} style={{
-                                        fontSize: 11, fontWeight: '700', letterSpacing: 0.9,
-                                        color: c.tx, textAlign: 'center',
-                                    }}>
-                                        {KIND_LABEL[kind]}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </View>
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`${query.trim()} kalemini ${KIND_LABEL.material} olarak ekle`}
+                            onPress={() => { feedback.light(); onFree(query); }}
+                            style={({ pressed }) => ({
+                                height: 68, borderRadius: 18,
+                                alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
+                                backgroundColor: c.surf2, borderWidth: 1, borderColor: c.bd,
+                                opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
+                            <Text numberOfLines={1} style={{
+                                fontSize: 11, fontWeight: '700', letterSpacing: 0.9,
+                                color: c.tx, textAlign: 'center',
+                            }}>
+                                {KIND_LABEL.material} OLARAK EKLE
+                            </Text>
+                        </Pressable>
                         <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.tx3 }}>
-                            Tutarı kasada yazılır — katalog dışı kalemin fiyatı burada girilmiyor.
+                            Ek hizmet ve ürün yalnız katalogdan eklenir; fiyatları katalogda yazılı.
                         </Text>
                     </View>
                 ) : (state === 'idle' ? frequent : results).map((item) => (

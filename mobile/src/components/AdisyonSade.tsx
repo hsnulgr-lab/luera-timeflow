@@ -94,8 +94,13 @@ export function LeftFuse({ until, total = SADE_MS, height = 3 }: { until: number
  * basıp 6 sn beklemek her tahsilatta fazladan bir adımdı ve "tutar
  * anlaşılmıyor" derdinin yarısıydı. Sonra ekipte de: "açık, tek kişilik gibi".
  */
+/**
+ * `null`: tutarı KASA hesaplıyor (D6 — paket, indirim, ön ödeme, grup).
+ * Yerine sönük bir çizgi; neden olduğunu güvertenin üstündeki satır söylüyor.
+ * Bir rakam yazmak, Kasa'nın tahsil edeceğinden farklı bir rakam olurdu.
+ */
 function Amount({ value, size, weight = 800, spacing = 0, color }: {
-    value: number;
+    value: number | null;
     size: number;
     weight?: 700 | 800;
     spacing?: number;
@@ -103,8 +108,11 @@ function Amount({ value, size, weight = 800, spacing = 0, color }: {
 }) {
     const ink = useSadeInk();
     return (
-        <Text style={[{ ...hk(weight), fontSize: size, letterSpacing: spacing, color: color ?? ink.c.tx }, numeric]}>
-            {money(value)}
+        <Text style={[{
+            ...hk(weight), fontSize: size, letterSpacing: spacing,
+            color: value === null ? ink.tx2 : color ?? ink.c.tx,
+        }, numeric]}>
+            {value === null ? '—' : money(value)}
         </Text>
     );
 }
@@ -123,7 +131,8 @@ function Amount({ value, size, weight = 800, spacing = 0, color }: {
 export function SadeStrip({ count, lastName, total, onOpen, variant = 'running' }: {
     count: number;
     lastName: string | null;
-    total: number;
+    /** `null`: tutarı Kasa hesaplıyor (D6). */
+    total: number | null;
     onOpen: () => void;
     variant?: 'running' | 'closing' | 'sealed';
 }) {
@@ -523,7 +532,7 @@ export function SadeList({
  * toplamı yukarıdan aşağı tek sütunda doğruluyor. Kırılım satırı yok: liste
  * her tutarı zaten yazıyor. "Kapat" yok: başlık tutamağın parçası.
  */
-export function SadeSheetHead({ count, total }: { count: number; total: number }) {
+export function SadeSheetHead({ count, total }: { count: number; total: number | null }) {
     const ink = useSadeInk();
     return (
         // Çizgi yok: başlık ile gövdeyi iki ton ayırıyor (`Sheet look="sade"`).
@@ -812,7 +821,7 @@ export function SadeEditPanel({ line, onStep, onRemove, onClose }: {
  * şeritle aynı sayı. Saat satırı yok: plaka zaten "00:30 – 01:04 · 11 dk
  * sürdü" diyor (kullanıcı kararı, 2026-10-15 — tekrarlar silindi).
  */
-export function SadeClosingDial({ total, count }: { total: number; count: number }) {
+export function SadeClosingDial({ total, count }: { total: number | null; count: number }) {
     const ink = useSadeInk();
     return (
         // Tutar YALNIZ dursun, adisyon biraz aşağıdan başlasın (kullanıcı,
@@ -820,7 +829,7 @@ export function SadeClosingDial({ total, count }: { total: number; count: number
         <View style={{ alignItems: 'center', gap: 10, paddingTop: 34, paddingHorizontal: 20, paddingBottom: 40 }}>
             <Amount value={total} size={64} spacing={-2.88} />
             <Text style={{ ...hk(700), fontSize: 13, letterSpacing: 2.6, color: ink.tx2 }}>
-                TOPLAM · {count} KALEM
+                {total === null ? 'TUTARI KASA HESAPLIYOR' : 'TOPLAM'} · {count} KALEM
             </Text>
         </View>
     );
