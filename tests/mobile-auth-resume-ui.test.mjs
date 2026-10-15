@@ -143,7 +143,9 @@ test('Giriş 10 ortak UI kitini, tema jetonlarını ve HTML ölçülerini kullan
     assert.match(resume, /src\/components\/ui/);
     assert.match(resume, /src\/theme/);
     assert.match(resume, /AuthActionButton/);
-    assert.match(resume, /LueraMark/);
+    // 2026-10-16 (kullanıcı isteği): devam ekranında karşılamanın hareketli
+    // markası — sade `LueraMark` yerine, aynı ölçü jetonuyla, ortalı.
+    assert.match(resume, /<LueraTimeflowMark size=\{authMetrics\.resumeMarkSize\} align="center" \/>/);
     assert.doesNotMatch(resume, rawMeasure, 'resume ekranına ham ölçü gömülmemeli');
     assert.match(tokens, /faceIdRing:\s*118/);
     assert.match(tokens, /resumeAvatar:\s*76/);

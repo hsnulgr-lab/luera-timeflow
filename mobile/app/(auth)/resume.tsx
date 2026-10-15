@@ -8,7 +8,8 @@ import Svg, { Path } from 'react-native-svg';
 
 import { authApi, type AuthSession } from '../../src/api/session';
 import { businessLine } from '../../src/lib/accountMap';
-import { AuthActionButton, LueraMark } from '../../src/components/ui';
+import { AuthActionButton } from '../../src/components/ui';
+import { LueraTimeflowMark } from '../../src/components/BrandMark';
 import { authMetrics, font, radius, useTheme } from '../../src/theme';
 import { FaceRing, type FaceState } from '../../src/components/FaceRing';
 import { LightField } from '../../src/components/LightField';
@@ -176,7 +177,11 @@ export default function ResumeSignIn() {
                 paddingHorizontal: authMetrics.resumeMarkX,
                 alignItems: 'center',
             }}>
-                <LueraMark resume />
+                {/* Karşılamanın HAREKETLİ markası (2026-10-16, kullanıcı isteği):
+                    kelime, nokta, hap ve "timeflow" — aynı hikâye, devam
+                    ekranının ölçüsünde. "Hareketi azalt"ta hap açık ve
+                    durağan (bileşenin kendi kuralı). */}
+                <LueraTimeflowMark size={authMetrics.resumeMarkSize} align="center" />
             </View>
 
             <View style={{
