@@ -204,10 +204,20 @@ Masaüstü ücretli kalemi bugün ADETSİZ topluyor. Değişecek yerler (hepsi
 4. **Yoklama (Claude):** 18 fonksiyon `OPTIONS` → 200; `staff-api` jetonsuz →
    `invalid_token`; `remind` POST `{}` → kendi 401 metni ("yalnız
    zamanlayıcı…"). Kalem adedi jetonun arkasında — kanıtı telefon (P2).
+   **2026-10-16 ✓** — `ed0ccef` deploy edildi (staff-api remind
+   draft-messages); 18/18 `OPTIONS` 200; `staff-api` `invalid_token`,
+   `remind` kendi 401'i, `draft-messages` "oturum açmanız gerekiyor" — üçü de
+   yeni modülleriyle (`visitItems.ts`, `aiName.ts`) yükleniyor.
 5. **Masaüstü:** push → `main` ileri al → Coolify'dan ELLE deploy (kullanıcı).
    Ön kontrol sırası (hafıza `masaustu_canli_geride`): göçlerin varlığı →
    tam yedek → yerelde `npm run build` → deploy → canlı pakette yeni kodun
    izini doğrula.
+   **2026-10-16 ✓** — ilk deploy iptal edildi (yayımlanmamış gizlilik metni
+   `public/`teydi, `049284d` ile docs/'a taşındı). Yeniden deploy `049284d`:
+   canlı `index-MRZ9AGH9.js` yerel derlemeyle ifade ifade aynı (tek fark
+   `VITE_ENTITLEMENT_ENFORCE` canlıda boş, yerelde `"false"` — ikisi de
+   kapalı), `quantity:Math.max(1,Math.round(` izi var; `gizlilik.html` ve
+   `destek.html` `5699942` ile birebir.
 
 ### Faz 4 · Telefon (kullanıcı, Expo Go) — D11
 Sıra zorunlu: **P0 önce.** Adımlar düzeltilecekler belgesinin 11. maddesinde.
@@ -261,14 +271,15 @@ birebir], `SUPABASE_URL`).
 #### 6A · Derlemeden ÖNCE — kapılar (hepsi ✓ olmadan derleme YOK)
 1. [ ] Düzeltilecekler belgesinde D1–D10'un kutuları işaretli; D9 kararı uygulandı.
 2. [ ] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz.
-3. [ ] Telefonda **P0 (üretim paketi)** ve P1–P5 geçti.
-4. [ ] Sürüm ve Info.plist doğru (Claude çalıştırır):
+3. [x] Telefonda **P0 (üretim paketi)** ve P1–P5 geçti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11).
+4. [x] Sürüm ve Info.plist doğru (Claude çalıştırır) — 2026-10-16: `1.0.1` · `false` · Face ID metni · `TimeFlow`:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo config --type introspect | grep -E "CFBundleShortVersionString|ITSAppUsesNonExemptEncryption|NSFaceIDUsageDescription|CFBundleDisplayName"
    ```
    Beklenen: `1.0.1` · `false` · Face ID metni · `TimeFlow`.
-5. [ ] Mağaza JS paketi yerelde tek parça derleniyor (Claude çalıştırır; EAS
-   dakikası harcamadan Metro hatasını yakalar):
+5. [x] Mağaza JS paketi yerelde tek parça derleniyor (Claude çalıştırır; EAS
+   dakikası harcamadan Metro hatasını yakalar) — 2026-10-16: tek `.hbc`
+   6,3 MB, yeni kod içinde, dinamik `import(` yok:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo export --platform ios --output-dir /tmp/luera-export-1.0.1
    ```
@@ -283,6 +294,11 @@ birebir], `SUPABASE_URL`).
    Beklenen: `luera` · `buildNumber - 4` · 4 değişken, `AUTH_MODE=live`.
 8. [ ] Demo hesabı mağazadaki 1.0 ile girilebiliyor (şifre App Store
    Connect › Sign-In Information'dakiyle aynı; DEĞİŞTİRME).
+9. [x] **Demo personeli temiz** (2026-10-16 ✓) (2026-10-15, telefon turu Derya Toprak ile
+   yapıldı): demo müdür → Profil → Personel → Derya Toprak → "Şifreyi
+   sıfırla" ve "Telefonun bağlantısını kopar". Hakem notu "pick a name > set
+   a password" diyor; şifresi olan bir demo personel o yolu "şifre gir"e
+   çevirir. Öteki iki demo personelde de şifre/telefon kalmadığını yokla.
 
 #### 6B · Derleme (kullanıcı çalıştırır)
 ```bash
@@ -381,7 +397,7 @@ cd ~/Projects/luera-timeflow/mobile && npx -y eas-cli@latest submit --platform i
 | Sıra | İş | Kaynak |
 |---|---|---|
 | 1 | **Giriş ekranı (A3)** — e-posta sağlayıcısı seçimi (SES / Resend / Brevo) → SMTP + DNS + Türkçe şablonlar → kodla şifre sıfırlama + kayıt doğrulaması (otomatik onay kapanır) → tasarım (`docs/giris-claude-design-prompt.md`) → Apple ile giriş (+ hesap silmede belge iptali, "E-postamı gizle" alan adı kaydı) → Google (native) → masaüstü. 1.0.2 | `docs/giris-yeniden-plan.md` |
-| 2 | **Gizlilik metni yayını (B8)** — yurt dışı aktarım kararı: standart sözleşme mi, sunucu Türkiye'ye mi. Yapay zekâ paragrafı yer tutucuya göre sadeleşir. `gizlilik.html` ve `destek.html` İKİSİ birden | 08 · §40, hafıza `gizlilik_destek_tasarim_borcu` |
+| 2 | **Gizlilik metni yayını (B8)** — yurt dışı aktarım kararı: standart sözleşme mi, sunucu Türkiye'ye mi. Yapay zekâ paragrafı yer tutucuya göre sadeleşir. `gizlilik.html` ve `destek.html` İKİSİ birden. Taslak `docs/gizlilik-destek-taslak/` (2026-10-16'da public/'ten çıkarıldı, `049284d`; canlı = `5699942`) | 08 · §40, hafıza `gizlilik_destek_tasarim_borcu` |
 | 3 | **WhatsApp hattı (C12)** — hiçbir hat bağlı değil, hatırlatmalar gitmiyor; Evolution API ile "dokunmadan otomasyon" konuşulacak. Asistan (müşteri mesajı yapay zekâya gider) açılacaksa önce açık onay akışı | 08 · §12, §52 |
 | 4 | **Sentry (B9)** — mağazadaki çökmeyi görmenin yolu yok | §52 |
 | 5 | Personel girişinden kalan dört kalem (B10, doğrulanmalı): çevrimdışı sarı şerit, "Erişim kapalı" metni, 375×667, reduceMotion | §52 |

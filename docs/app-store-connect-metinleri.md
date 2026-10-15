@@ -10,6 +10,28 @@ Bu dosya üç şey içeriyor:
 
 ---
 
+## 1.0.1 · Bu sürümde
+
+> App Store Connect › 1.0.1 › **What's New in This Version** (zorunlu, 4000).
+> Aşağıdaki metni olduğu gibi yapıştır. Satın alma / fiyat / abonelik sözü
+> YOK (3.1.1, `tests/apple-yonlendirme-yasagi.test.mjs`). Her madde koddan
+> doğrulandı (2026-10-16): tek kişilik kayıt sonu sorusu (D9), sade adisyon
+> (Personel 15), Kasa'da düzelt / geri al yalnız tek kişilikte (111),
+> bildirimin başka günü açması (118), telefon bağını koparma (117), kalem
+> kaybı ve "Tekrar dene" (D3, D4).
+
+```text
+• Tek kişilik işletme: tek başınıza çalışıyorsanız kaydın sonunda "Yalnız ben"i seçin. Günü görmek, işi başlatıp bitirmek ve tahsilatı kaydetmek aynı telefonda.
+• Daha sade adisyon: kalem tek dokunuşla ekleniyor, ikinci dokunuş adedi artırıyor; toplam her an görünür.
+• Tek kişilik işletmede yanlış kaydedilen bir tahsilat Kasa'dan düzeltilebiliyor ya da geri alınabiliyor.
+• Bildirime dokununca ilgili randevu açılıyor; randevu başka bir güne aitse takvim o güne gidiyor.
+• Personelin kaybolan ya da değişen telefonunun bağı işletme sahibince tek dokunuşla koparılabiliyor.
+• Bağlantı zayıfken eklenen kalemler kaybolmuyor; "Tekrar dene" gerçekten yeniden gönderiyor.
+• Hata düzeltmeleri ve iyileştirmeler.
+```
+
+---
+
 ## 0 · Mağaza sayfası
 
 > Her özellik iddiası koddan doğrulandı (Yönerge 2.3: metaveri doğru olmalı).

@@ -50,7 +50,7 @@ ilgili 📱 adımı.
 ## 2 · 🔴 Sunucu ücretli kalemde adeti ve katalog dışı kalemi kabul etsin · M + `staff-api` deploy + masaüstü
 
 - [x] Alt soru cevaplandı — **ücretli türde katalog dışı kapalı**, yalnız malzeme (2026-10-16)
-- [x] Sunucu · [x] Telefon Kasa'sı · [x] Masaüstü Kasa · [x] Cümleler · [ ] Deploy · [ ] Telefonda denendi
+- [x] Sunucu · [x] Telefon Kasa'sı · [x] Masaüstü Kasa · [x] Cümleler · [x] Deploy (`staff-api`, 2026-10-16, yoklandı) · [x] Masaüstü deploy (`049284d`, 2026-10-16 — canlı paket yerel derlemeyle aynı, tek fark etkisiz `VITE_ENTITLEMENT_ENFORCE` boş/`false`) · [~] Telefonda denendi — ekip ✓ (2026-10-15, Derya: ×2 + "Deneme ampul" malzeme → kasaya gönderildi; kumanda Toplam = masaüstü Kasa toplamı), tek kişilik tahsilat bekliyor
 
 > **2026-10-16 uygulama.** Sunucunun kalem kuralı `staff-api/visitItems.ts`e
 > çıktı (Node çalıştırabiliyor): ek hizmet + satılan ürün `qty` 1–20,
@@ -118,7 +118,7 @@ ilgili 📱 adımı.
 
 ## 3 · 🟠 "Tekrar dene" ölü düğme, "Sonra tahsil et" boşa · S
 
-- [x] Yapıldı (2026-10-16) · [ ] Telefonda denendi (📱 P3)
+- [x] Yapıldı (2026-10-16) · [x] Telefonda denendi (📱 P3, 2026-10-16: uçak modu → "bağlantı yok · Kasaya bir şey yazılmadı" + "Bu adisyon sırada"; uçak modu kapalı → Tekrar dene → tahsil edildi, Kasa'da tek kayıt)
 
 > `collectSendStep`: `error`/`queued` → yeniden gönderim; önce kuyruk
 > boşaltılıyor, kuyruk hâlâ doluysa yeni istek yok ("sırada"), boşsa damga
@@ -149,7 +149,7 @@ ilgili 📱 adımı.
 
 ## 4 · 🟠 Kalem kaybı: çıkışta bekleyen yazma ve silme penceresi iptal · S
 
-- [x] Yapıldı (2026-10-16) · [ ] Telefonda denendi (📱 P4)
+- [x] Yapıldı (2026-10-16) · [x] Telefonda denendi (📱 P4, 2026-10-16: malzeme ekle + hemen çık → duruyor; Kaldır + 6 sn içinde ekle + çık → silinen gitti, eklenen ×2 duruyor)
 
 > Ekran sökülürken ve uygulama arka plana geçerken bekleyen liste hemen
 > yazılıyor, açık silme o anda uygulanıyor (`shouldFlushItems`). Yoldaki yazma
@@ -183,7 +183,7 @@ ilgili 📱 adımı.
 
 ## 5 · 🔴 Yapay zekâya müşteri adı gitmesin + hakem notu · S + `remind`, `draft-messages` deploy
 
-- [x] Sunucu (2026-10-16) · [ ] Deploy · [ ] Hakem notu · [ ] Gizlilik metninin yapay zekâ paragrafı
+- [x] Sunucu (2026-10-16) · [x] Deploy (`remind`, `draft-messages`, yoklandı) · [x] Hakem notu (`docs/apple-notes-alani-SON.txt`, 3923/4000) · [ ] Gizlilik metninin yapay zekâ paragrafı (B8 ile 1.0.2)
 
 > `remind`'in dört istemi ve `draft-messages` adı almıyor; istemde `{AD}`,
 > dönen metne ön ad sunucuda konuyor (`aiName.ts`, iki klasörde birebir —
@@ -281,7 +281,7 @@ ilgili 📱 adımı.
 
 ## 9 · 🟠 Tek kişilik giriş kararı + mağaza metni ve görüntüler · konuşma + S
 
-- [x] Karar verildi — **A** (2026-10-16) · [x] Uygulandı · [ ] "Bu sürümde" metni · [ ] Görüntüler · [ ] Hakem notu
+- [x] Karar verildi — **A** (2026-10-16) · [x] Uygulandı · [x] "Bu sürümde" metni (`docs/app-store-connect-metinleri.md` › 1.0.1) · [ ] Görüntüler · [x] Hakem notu
 
 > Karşılama 1.0'daki üç girişe döndü (iki kapı + "Yeni işletme oluştur");
 > mod kaydın sonundaki "Yalnız ben / Ekibim var" sorusuyla seçiliyor.
@@ -319,7 +319,68 @@ ssh -i ~/.ssh/luera_vps root@76.13.4.164 'cd /data/coolify/services/t6yi63jbebvj
 
 ## 11 · 📱 Telefon turu → derleme
 
-- [ ] P0 · [ ] P1 · [ ] P2 · [ ] P3 · [ ] P4 · [ ] P5 · [ ] EAS üretim derlemesi · [ ] TestFlight · [ ] ASC
+- [x] P0 (2026-10-15: `start:prod`, soğuk açılış; demo müdür · tek kişilik · personel Derya — üç kabuk temiz, iki bulgu düzeltildi, aşağıda) · [x] P1 (kayıt onaysız + mod sorusu + tek kişilik kabuk + tahsilatlı hesabı silme ✓ — 119 sonrası) · [x] P2 (ekip ✓ · tek kişilik: Fön ×2 + hizmet = ₺900, Kasa'da tek kayıt ₺900 Nakit ✓) · [x] P3 · [x] P4 · [x] P5 (§50 hariç — demo sakin kipte) · [ ] EAS üretim derlemesi · [ ] TestFlight · [ ] ASC
+
+> **P0 bulgusu (2026-10-15, demo müdür, Akış):** uzun bekleyen kartta
+> "Personeli çağır" → "Gönderilemedi · tekrar dene"; hap genişleyip kahraman
+> rakamı "2sa23" diye okunmaz yaptı. Sebep: demo personelin telefonunda
+> bildirim aboneliği yok, `send-push` `sent: 0` dönüyor ve istemci bunu hata
+> sayıyordu. Düzeltme (yalnız istemci): yeni sonuç `unreachable` → "Bildirimi
+> kapalı"; hata → "Gönderilemedi"; kart eylem sütunu en çok %55, hap yazısı
+> tek satırda kısalıyor. Test: `tests/mobil-personele-soyle.test.mjs`.
+>
+> **P0 bulgusu 2 (2026-10-15, personel Derya Toprak, 13:01):** kumanda,
+> müşteri dosyası ve vardiya "okuyamadık". Sebep: demo tohumu (VPS cron,
+> 11:00 / 13:00 / 15:00 / 00:10) her koşuda `DELETE FROM staff` ile personeli
+> yeni kimlikle kuruyordu; 13:00 koşusu açık oturumu düşürdü (`401 revoked`).
+> Düzeltme: `supabase/DEMO_salon.sql` üç personeli koruyor (UPDATE, yoksa
+> INSERT). Üretimde kuru koşu geçti (iki koşu, kimlikler sabit, 32 randevu,
+> ROLLBACK); `/root/DEMO_salon.sql` güncellendi (`c2058d97…`, yedek
+> `.bak-2026-10-15` = eski `e131f4ef…`). Telefonun "oturum kapandı"
+> demeyip "bağlantı" demesi 1.0.2'ye (kart açıldı).
+>
+> **P1 bulgusu (2026-10-16 00:04, İşletme › Hizmetler › Yeni hizmet):**
+> tutamaç çekilince sayfa kapanmıyordu (`BottomSheet` çizili ama sürüklenmeyen
+> tutamak). Kullanıcı kararı: uzun sayfalar iOS'un sayfası — `BottomSheet`e
+> `system` (pageSheet + `allowSwipeDismissal`, klavye boyu kadar alt dolgu);
+> bugün yalnız hizmet sayfası. Taşıma listesi BİLEREK dışarıda (ardından açılan
+> sonuç sayfası kapanmakta olan sayfanın üstüne açılamazdı); o ve küçük
+> sayfalar (Gün saatleri, Çıkış, Bağı kopar, müşteri notu, taşıma menüsü ve
+> sonucu) 1.0.2'de içerik boyunda `formSheet` rotasına.
+>
+> **P5 bulgusu (2026-10-16 00:32, randevu kartı):** 00:19'da tahsil edilen iş
+> "Tamamlandı · 21:19'de bitti" diyordu — `appointmentDetail.stateLine` UTC
+> damgayı dizgeden kesiyordu. Yerel saate çevriliyor (başladı / geldi / bitti);
+> test `tests/randevu-karti-saat.test.mjs` (TZ İstanbul).
+>
+> **P5 · 2026-10-16:** §32 ✓ (tamamlananda saat/hizmet değişmez; tahsil
+> edilmişte "önce Kasa'dan geri alın") · §29 ✓ (klavye açıkken "Düzeltmeyi
+> kaydet" görünür) · §28 ✓ (tek kişilik Takvim tek sütun) · §51 bildirim geldi.
+>
+> **P1 bulgusu — 🔴 YAYIN ENGELİ, KAPANDI (2026-10-16 00:55):** tahsilatı
+> olan deneme hesabı silinemedi ("Silme tamamlanamadı"). Sunucu kaydı:
+> `org delete failed · 23503 · payment_void_log_organization_id_fkey`. 102'nin
+> tetikleyicisi zincirleme silinen tahsilata, artık olmayan işletme adına iz
+> yazmaya çalışıyordu; 102'den (2026-09-22) beri TAHSİLATI OLAN HİÇBİR işletme
+> silinemiyordu (1.0 hakemi tahsilatsız hesap sildi). Göç **119**: işletme
+> yoksa iz yazılmaz, tek silmede yazılır. PGlite: 102 hatayı birebir üretti, 119
+> geçti; üretimde kuru koşu (deneme işletmesi `3b3af78f…`, 3 tahsilat) geçti,
+> göç uygulandı, gövde doğrulandı. Test: `tests/hesap-silme-odeme.test.mjs`,
+> `supabase/tests/hesap_silme_odeme_regression.sql`.
+>
+> **Telefon turu bulgusu (2026-10-16 00:10, kilit ekranı):** demo personele
+> bağlı telefona aynı anda yedi "Yeni randevun var" — 00:10 tohum koşusu. Dünkü
+> "personel korunsun" düzeltmesinin yan etkisi: abonelik de korunuyor. Göç
+> **120**: `trg_push_on_reservation` aynen, yalnız `WHEN luera.tohum <> 'sessiz'`;
+> tohum işaretini işleminin başında koyuyor (yalnız o işlem). PGlite (120
+> öncesi işaretliyken de bildiriyordu; sonrası 0, sonraki işlemde yine 1);
+> üretim kuru koşusu (tohum 0 istek, işaretsiz değişiklik 1) geçti; göç
+> uygulandı, VPS tohumu `0156aaa9…` (yedek `.bak-2026-10-16` = `c2058d97…`).
+>
+> **6A·9 ✓ (2026-10-16 01:0x):** Derya Toprak'ın şifresi sıfırlandı, telefon
+> bağı koparıldı; Elif ve Selin "henüz girmedi". **§50** denenmedi: demo 00:10
+> sonrası sakin kipte, kasada bekleyen adisyon yok (o koda bugün yalnız fiyat ×
+> adet dokundu, P2'de sınandı).
 
 - **P0 · Üretim paketi — ZORUNLU, her şeyden önce:** `cd mobile && npm run
   start:prod` (kullanıcı başlatır) → uygulamayı tamamen kapat, aç → demo
