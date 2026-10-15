@@ -387,6 +387,12 @@ export function insertRowOf(
         notes: input.note?.trim() ?? '',
         staff_id: input.staffId,
         group_id: null,
+        // Paketten seans: bağ randevunun üstünde (masaüstünün
+        // `BeautySessionModal`iyle aynı iki alan). `visit.finish` hakkı
+        // buradan düşüyor, Kasa hizmeti buradan ₺0 sayıyor.
+        ...(input.service.plan
+            ? { custom_fields: { paket_plan_id: input.service.plan.id, paket_seans: input.service.plan.seans } }
+            : {}),
     };
 }
 

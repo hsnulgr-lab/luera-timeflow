@@ -467,7 +467,8 @@ export const api = {
      * Kasa'nın kuralıyla sunucuda hesaplanıyor (`visit.charge`).
      */
     visitCharge: (reservationId: string) => call('visit.charge', { reservationId }),
-    visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer', attempt: string) =>
+    // `package` (1.0.1): para yöntemi değil, "pakete dahil, kapat" — yalnız ₺0 paketli adisyonda.
+    visitCollect: (reservationId: string, method: 'cash' | 'card' | 'transfer' | 'package', attempt: string) =>
         call('visit.collect', {
             reservationId,
             method,

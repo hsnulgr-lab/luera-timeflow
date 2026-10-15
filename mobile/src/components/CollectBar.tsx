@@ -128,11 +128,17 @@ export function CollectBar({
     }, [collected, reduceMotion, fill, pop]);
 
     const busy = stage === 'sending';
+    /*
+     * PAKETE DAHİL (1.0.1): para alınmıyor — yöntem seçici ve "Sonra tahsil
+     * et" YOK. ₺0'lık bir adisyonu "sonra" bırakmak, onu hiç kapanmayacak bir
+     * yere bırakmaktı; seçici de alınmayan paranın yolunu sorardı.
+     */
+    const closing = method === 'package';
     const { enabled } = collectLabel(method);
     const label = collectRetryLabel(stage, method);
     const error = collectErrorLine(stage, errorCode);
     // Gönderim bir kez olduysa "Sonra tahsil et" yapacak bir iş kalmıyor.
-    const laterUseful = stage !== 'collect_failed' && stage !== 'done' && stage !== 'pending';
+    const laterUseful = !closing && stage !== 'collect_failed' && stage !== 'done' && stage !== 'pending';
 
     // Kalıcı kayıt: dolgudan geliyorsa belirerek, yeniden açılışta olduğu gibi.
     if (view === 'paid') return <PaidPlate appear={settled && !reduceMotion} />;
@@ -154,7 +160,9 @@ export function CollectBar({
             gap: M.collectGap,
         }}>
             {/* Yöntem seçici — `.seg`: üç eşit yöntem, seçili zemin kayıyor.
-                Tahsil edilince solar ama yerinde durur. */}
+                Tahsil edilince solar ama yerinde durur. Pakete dahil
+                kapanışta yok. */}
+            {closing ? null : (
             <Animated.View
                 onLayout={(event) => setTrack(event.nativeEvent.layout.width)}
                 pointerEvents={collected ? 'none' : 'auto'}
@@ -221,6 +229,7 @@ export function CollectBar({
                     );
                 })}
             </Animated.View>
+            )}
 
             {/*
               * SEBEP DÜĞMENİN HEMEN ÜSTÜNDE (v4 · K4).

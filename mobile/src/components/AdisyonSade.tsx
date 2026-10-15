@@ -388,7 +388,7 @@ export function SadeServiceRow({ row }: { row: ServiceRow }) {
     return (
         <View
             accessible
-            accessibilityLabel={`${row.name}, randevu hizmeti`}
+            accessibilityLabel={`${row.name}, ${row.covered ? 'paketten, ücret alınmaz' : 'randevu hizmeti'}`}
             style={{
                 flexDirection: 'row', alignItems: 'center', gap: 10,
                 minHeight: SADE_ROW_H, paddingVertical: 9, paddingRight: 14, paddingLeft: 20,
@@ -399,7 +399,10 @@ export function SadeServiceRow({ row }: { row: ServiceRow }) {
                 <Text numberOfLines={1} style={{ ...hk(700), fontSize: 17, letterSpacing: -0.26, color: ink.c.tx }}>
                     {row.name}
                 </Text>
-                <Text style={{ ...hk(500), fontSize: 14, color: ink.tx2 }}>Randevu hizmeti</Text>
+                {/* Paketten (1.0.1): yeşil — masaüstü paketi yeşille söylüyor. */}
+                <Text style={{ ...hk(500), fontSize: 14, color: row.covered ? ink.c.gr : ink.tx2 }}>
+                    {row.covered ? 'Paketten · ücret alınmaz' : 'Randevu hizmeti'}
+                </Text>
             </View>
             {row.amount != null ? (
                 <Amount value={row.amount} size={17} weight={700} spacing={-0.17} />

@@ -13,6 +13,7 @@ import { formatTRY } from '../../src/lib/customerCard';
 import { useManagerRead } from '../../src/lib/managerRead';
 import { fetchPackageSaleRows } from '../../src/lib/managerSource';
 import { createPackage } from '../../src/lib/managerWrite';
+import { useInSoloShell } from '../../src/lib/shellRoot';
 import {
     clampSessions, duplicateLine, duplicateOf, MAX_SESSIONS, MIN_SESSIONS, newPlanId, parsePrice,
     perSession, planTitle, saleMemo, saleOptions, suggestedPrice, type SaleOption,
@@ -45,6 +46,8 @@ export default function PackageSale() {
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ customerId?: string }>();
     const customerId = first(params.customerId);
+    // Tek kişilikte bedel telefonda alınıyor (1.0.1); cümle ona göre.
+    const solo = useInSoloShell();
 
     const read = useCallback(async (): Promise<Rows | null> => {
         if (!customerId) return null;
@@ -299,10 +302,24 @@ export default function PackageSale() {
                                         {genitive(firstName)} hesabına borç
                                     </Text>
                                     {' '}olarak yazılır.{' '}
-                                    <Text style={{ color: c.tx, fontFamily: font.extraBold, fontWeight: '800' }}>
-                                        Peşinat ve taksit masaüstünden
-                                    </Text>
-                                    {' '}alınır.
+                                    {/* Tek kişilikte ödeme telefonda (1.0.1): paket
+                                        oluşunca ödeme sayfası açılır, kalanı kartın
+                                        paket satırından. Ekipte Kasa masaüstünde. */}
+                                    {solo ? (
+                                        <>
+                                            <Text style={{ color: c.tx, fontFamily: font.extraBold, fontWeight: '800' }}>
+                                                Peşinatı paket oluşunca
+                                            </Text>
+                                            {', kalanını müşteri kartından alırsınız.'}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Text style={{ color: c.tx, fontFamily: font.extraBold, fontWeight: '800' }}>
+                                                Peşinat ve taksit masaüstünden
+                                            </Text>
+                                            {' '}alınır.
+                                        </>
+                                    )}
                                 </Text>
                             </View>
                             <View style={{ height: 24 }} />

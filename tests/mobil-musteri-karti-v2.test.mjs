@@ -184,8 +184,10 @@ test('not: masaüstünün alanına yazılıyor, başarısızsa metin kaybolmuyor
 test('randevu anı kartın sözünü tutuyor: kapalı hizmet basılamaz', () => {
     assert.match(flow, /closedBy\(context\.settings\.riskRules, draft\.customer\.fields, service\)/);
     assert.match(flow, /<ClosedServiceRow key=\{service\.id\}/);
-    // Müşteri değişince kapalı kalan seçim düşüyor.
-    assert.match(flow, /service: null \} : \{ customer, newCustomerName: null \}/);
+    // Müşteri değişince kapalı kalan seçim düşüyor (1.0.1: başkasının paketi de —
+    // `keepServiceFor`, `tests/paketten-randevu.test.mjs`).
+    assert.match(flow, /closedBy\(context\.settings\.riskRules, customer\.fields, kept\)/);
+    assert.match(flow, /patch\(\{ customer, newCustomerName: null, service: blocked \? null : kept \}\)/);
     const parts = strip(read('src/components/ApptParts.tsx'));
     const row = parts.slice(parts.indexOf('export function ClosedServiceRow'), parts.indexOf('export function NoteRow'));
     assert.doesNotMatch(row, /Pressable|onPress/);

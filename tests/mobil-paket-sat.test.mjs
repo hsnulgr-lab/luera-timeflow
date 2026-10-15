@@ -158,7 +158,10 @@ test('personel kartı da masaüstünde satılan paketi görür', () => {
 
 test('createPackage: masaüstünün satırı, istemci kimliği, 23505 başarı, para yok', () => {
     const src = code(read('../mobile/src/lib/managerWrite.ts'));
-    const fn = src.slice(src.indexOf('export async function createPackage'));
+    // YALNIZ createPackage'in gövdesi: dosyanın kalanında 1.0.1'den beri paket
+    // ÖDEMESİ var (`collectPlanPayment`, tek kişilik) — satış yine para yazmıyor.
+    const start = src.indexOf('export async function createPackage');
+    const fn = src.slice(start, src.indexOf('\n}\n', start));
     assert.match(fn, /id: input\.id/);
     assert.match(fn, /plan_kind: 'paket'/);
     assert.match(fn, /sessions_done: 0/);

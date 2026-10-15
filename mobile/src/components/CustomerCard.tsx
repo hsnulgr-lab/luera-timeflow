@@ -69,6 +69,12 @@ export interface CustomerCardProps {
      */
     sale?: { freshPlanId: string | null; failure: string | null; retrying: boolean };
     onRetrySale?: () => void;
+    /**
+     * Paket ödemesi TELEFONDAN (1.0.1) — yalnız tek kişilikte verilir (ekipte
+     * Kasa masaüstünde). Verilirse borcu olan paket satırının altında
+     * "Ödeme al" çıkar ve "Tahsilat Kasa'dan yapılır" cümlesi kalkar.
+     */
+    onCollectPackage?: (pack: { planId: string; title: string; owed: number }) => void;
 }
 
 /** Hareket sözlüğü — tasarımın "Hareket" tablosu. */
@@ -79,7 +85,7 @@ const TITLE_FADE_MS = 140;
 
 export function CustomerCard({
     card, onBack, onCall, onWhatsApp, onBook, onOpenUpcoming, onEditNote, onOpenHistory,
-    onSellPackage, sale, onRetrySale,
+    onSellPackage, sale, onRetrySale, onCollectPackage,
 }: CustomerCardProps) {
     const { c, dark, reduceMotion } = useTheme();
     const insets = useSafeAreaInsets();
@@ -473,12 +479,36 @@ export function CustomerCard({
                                     <Amount>{pack.used}/{pack.total}</Amount>
                                 </View>
                             );
+                            /*
+                             * "ÖDEME AL" satırın ALTINDA, ayrı bir dokunma hedefi:
+                             * satır sesli okumada tek parça (`accessible`), içine
+                             * konan düğme okunmazdı. Turuncu — eylemin rengi.
+                             */
+                            const planId = pack.planId;
+                            const collect = owed != null && planId && onCollectPackage ? (
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${pack.name} paketi için ödeme al`}
+                                    hitSlop={8}
+                                    onPress={() => onCollectPackage({ planId, title: pack.name, owed })}
+                                    style={({ pressed }) => ({
+                                        alignSelf: 'flex-start',
+                                        marginTop: -3, marginLeft: 35, marginBottom: 10,
+                                        paddingVertical: 4,
+                                        opacity: pressed ? 0.6 : 1,
+                                    })}
+                                >
+                                    <Text style={{ color: c.or, fontSize: 14, fontFamily: font.bold, fontWeight: '700' }}>
+                                        Ödeme al
+                                    </Text>
+                                </Pressable>
+                            ) : null;
                             const key = pack.planId ?? `${pack.name}-${index}`;
                             return pack.planId && pack.planId === sale?.freshPlanId
-                                ? <FadeIn key={key}>{row}</FadeIn>
-                                : <View key={key}>{row}</View>;
+                                ? <FadeIn key={key}>{row}{collect}</FadeIn>
+                                : <View key={key}>{row}{collect}</View>;
                         })}
-                        {packages.some((pack) => pack.owed != null && pack.owed > 0) ? (
+                        {!onCollectPackage && packages.some((pack) => pack.owed != null && pack.owed > 0) ? (
                             <Quiet>Tahsilat Kasa’dan yapılır</Quiet>
                         ) : null}
                         {canSell && onSellPackage ? (

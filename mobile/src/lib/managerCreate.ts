@@ -18,12 +18,14 @@ import type { CustomerOption, ServiceOption } from './createFlow.ts';
 import {
     customerOptionsOf, serviceOptionsOf, type CrewRecord,
 } from './createLive.ts';
+import { packagesEnabledFor } from './cashBuild.ts';
+import { openPlansOf, type OpenPlan } from './createPackage.ts';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
 import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
-    apiSource, fetchArrivalTolerance, fetchCreateSettings, fetchCrew, fetchCustomerBook,
-    fetchLeave, fetchServerNow, fetchServices, fetchStaffSchedules, type CreateSettings,
+    OrgError, apiSource, fetchArrivalTolerance, fetchCreateSettings, fetchCrew, fetchCustomerBook,
+    fetchLeave, fetchOpenPlans, fetchServerNow, fetchServices, fetchStaffSchedules, type CreateSettings,
 } from './managerSource';
 import { localClock } from './createLive.ts';
 
@@ -33,6 +35,14 @@ export interface CreateContext {
     services: ServiceOption[];
     crew: CrewRecord[];
     customers: CustomerOption[];
+    /**
+     * Hakkı kalan paketler (1.0.1). Paket motoru olmayan sektörde boş —
+     * Kasa orada `paket_plan_id`yi ücretsiz saymıyor, bağ kurmak yanlış
+     * söz olurdu. `null`: okunamadı. Randevu kurmayı KAPATMIYOR (paketsiz
+     * randevu yine kurulur) ama ekran bunu söylüyor — sessizce boş liste,
+     * bugünkü kusurun kendisi olurdu.
+     */
+    packages: OpenPlan[] | null;
     settings: CreateSettings;
     toleranceMin: number;
     serverNow: number;
@@ -44,13 +54,19 @@ export function useCreateContext(): ManagerSnapshot<CreateContext | null> {
         const serverNow = await fetchServerNow();
         const deviceAt = Date.now();
         const todayISO = localClock(serverNow).dateISO;
-        const [catalog, crew, book, settings, tolerance, schedules] = await Promise.all([
+        const [catalog, crew, book, settings, tolerance, schedules, plans] = await Promise.all([
             fetchServices(),
             fetchCrew(),
             fetchCustomerBook(todayISO),
             fetchCreateSettings(),
             fetchArrivalTolerance(),
             fetchStaffSchedules(),
+            fetchOpenPlans().catch((cause: unknown) => {
+                // Salon reddi bütün okumanın işi; yalnız paket okuması düşerse null.
+                if (cause instanceof OrgError) throw cause;
+                console.warn('create context: paketler okunamadı', cause);
+                return null;
+            }),
         ]);
         return {
             todayISO,
@@ -60,6 +76,7 @@ export function useCreateContext(): ManagerSnapshot<CreateContext | null> {
                 workingHours: schedules.get(person.id) ?? null,
             })),
             customers: customerOptionsOf(book.people, book.visits, todayISO),
+            packages: !packagesEnabledFor(settings.sector) ? [] : plans === null ? null : openPlansOf(plans),
             settings,
             toleranceMin: tolerance ?? DEFAULT_ARRIVAL_TOLERANCE_MIN,
             serverNow,

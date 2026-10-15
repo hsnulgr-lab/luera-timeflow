@@ -187,6 +187,11 @@ export interface ServiceBill extends ServiceCharge {
      * `null`/alan yok; o durumda `visit.collect` yine kendisi reddediyor.
      */
     kasaOnly?: KasaReason | null;
+    /**
+     * Hizmeti paketten (1.0.1): satırlar ₺0, toplam yalnız ürün/ekstra.
+     * Hepsi ₺0 ise kumanda "Hesabı kapat · pakete dahil" diyor.
+     */
+    covered?: boolean;
 }
 
 /**
@@ -202,13 +207,34 @@ export interface ServiceBill extends ServiceCharge {
  */
 export type KasaReason = 'group' | 'package' | 'discount' | 'partial';
 
+/** Randevu bir pakete bağlı mı (`custom_fields.paket_plan_id`)? */
+export function hasPackageLink(row: { custom_fields?: unknown }): boolean {
+    const fields = (row.custom_fields ?? {}) as Record<string, unknown>;
+    return typeof fields.paket_plan_id === 'string' && Boolean(fields.paket_plan_id);
+}
+
+/**
+ * Hizmeti paketten mi — ₺0. `ticketsOf`un `covered`ı ile AYNI kural; sunucu
+ * (`staff-api` · packageCovered) da aynısı.
+ */
+export function packageCovered(row: { custom_fields?: unknown }, packagesEnabled: boolean): boolean {
+    return packagesEnabled && hasPackageLink(row);
+}
+
+/**
+ * PAKETLİ SEANS ARTIK TELEFONDA (1.0.1, kullanıcı kararı 2026-10-16): "tek
+ * kişilik işletmenin bilgisayarı yok". Paket motoru olan sektörde paketli
+ * seans Kasa'ya ait DEĞİL — hizmet ₺0, yalnız ürün/ekstra tahsil ediliyor.
+ * Paket motorsuz sektörde bağın parasal anlamı yok; orada eskisi gibi Kasa.
+ */
 export function kasaOnlyReason(
     row: { group_id?: unknown; custom_fields?: unknown },
     paid: number,
+    packagesEnabled: boolean,
 ): KasaReason | null {
     if (typeof row.group_id === 'string' && row.group_id) return 'group';
     const fields = (row.custom_fields ?? {}) as Record<string, unknown>;
-    if (typeof fields.paket_plan_id === 'string' && fields.paket_plan_id) return 'package';
+    if (hasPackageLink(row) && !packagesEnabled) return 'package';
     if ((Number(fields.cash_discount_amount) || 0) > 0) return 'discount';
     if (paid > 0) return 'partial';
     return null;
@@ -342,7 +368,7 @@ export function ticketsOf(
 
         const representative = members[0];
         const gross = members.reduce((sum, member) => {
-            const covered = packagesEnabled && Boolean(member.custom_fields?.paket_plan_id);
+            const covered = packageCovered(member, packagesEnabled);
             const service = covered
                 ? 0
                 : serviceLines(member, services).reduce((s, line) => s + line.amount, 0);

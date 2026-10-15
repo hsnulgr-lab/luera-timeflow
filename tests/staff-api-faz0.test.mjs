@@ -87,9 +87,10 @@ test('kütüğe YALNIZ başarılı yazma giriyor', () => {
 
 test('altı yazma ucunun her BAŞARI dalı kütükten geçiyor', () => {
     const writes = api.slice(api.indexOf("action === 'visit.start'"), api.indexOf("action === 'catalog'"));
-    assert.equal((writes.match(/return await done\(/g) ?? []).length, 11,
+    assert.equal((writes.match(/return await done\(/g) ?? []).length, 12,
         'visit.start 3 + visit.wait 1 + visit.note 1 + visit.items 1 + visit.formula 1 '
-        + '+ visit.finish 1 + visit.collect 3 (yeni kayıt, Kasa kapatmış, var olan tahsilat tutarı karşılıyor)');
+        + '+ visit.finish 1 + visit.collect 4 (yeni kayıt, Kasa kapatmış, var olan tahsilat tutarı karşılıyor, '
+        + 'pakete dahil kapanış — 1.0.1)');
     assert.doesNotMatch(writes, /return json\(\{\s*ok: true/,
         'yazma ucunda kütükten geçmeyen bir başarı yanıtı kalmamalı');
 });

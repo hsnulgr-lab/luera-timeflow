@@ -1002,6 +1002,72 @@ export function ServiceRow({ service, selected, onPress }: {
 }
 
 /**
+ * Paketten seans satırı (1.0.1). Hizmet satırının aynı kartı, aynı seçim
+ * dili — ama İKİ SATIR: adın altında "Paketten · kalan 4 seans · ₺0".
+ *
+ * Yeşil yalnız o alt satırda: masaüstü paketi yeşille söylüyor ve turuncu
+ * zaman/eylemin. Kart zemini yeşil DEĞİL — seçili hâlin dili (surf2 + bd2 +
+ * onay) hizmetle aynı kalmalı, yoksa iki tür seçim varmış gibi görünür.
+ *
+ * KENDİLİĞİNDEN SEÇİLMİYOR (kullanıcı kararı): müşteri o gün başka işlem
+ * için gelmiş olabilir.
+ */
+export function PackageRow({ service, meta, selected, onPress }: {
+    service: ServiceOption; meta: string; selected: boolean; onPress: () => void;
+}) {
+    const { c } = useTheme();
+    return (
+        <Pressable
+            onPress={() => { feedback.selection(); onPress(); }}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`${service.name}, paketten, ${meta.replace('₺0', 'ücretsiz')}, ${service.minutes} dakika`}
+            style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: M.rowGap,
+                minHeight: 56,
+                marginHorizontal: M.secX, marginBottom: M.serviceGap,
+                paddingHorizontal: M.servicePadX, paddingVertical: 10,
+                borderRadius: M.serviceRadius,
+                backgroundColor: selected ? c.surf2 : c.card,
+                borderWidth: 1, borderColor: selected ? c.bd2 : c.bd,
+                opacity: pressed ? 0.7 : 1,
+            })}
+        >
+            <View style={{
+                width: M.serviceMark, height: M.serviceMarkHeight, borderRadius: 2,
+                backgroundColor: service.color,
+            }} />
+            <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <Text numberOfLines={1} style={{
+                    color: c.tx, fontSize: M.rowName, fontFamily: font.bold, fontWeight: '700',
+                }}>
+                    {service.name}
+                </Text>
+                <Text numberOfLines={1} style={{
+                    color: c.gr, fontSize: 12.5, fontFamily: font.semiBold, fontWeight: '600',
+                }}>
+                    {`Paketten · ${meta}`}
+                </Text>
+            </View>
+            <N style={{
+                color: c.tx2, fontSize: M.serviceMeta,
+                fontFamily: font.semiBold, fontWeight: '600',
+            }}>
+                {`${service.minutes} dk`}
+            </N>
+            {selected ? (
+                <View style={{
+                    width: M.serviceCheck, height: M.serviceCheck, borderRadius: M.serviceCheck / 2,
+                    alignItems: 'center', justifyContent: 'center', backgroundColor: c.tx,
+                }}>
+                    <CheckIcon color={c.bg} />
+                </View>
+            ) : null}
+        </Pressable>
+    );
+}
+
+/**
  * "Yeni hizmet ekle" — hizmet listesinin SONUNDAKİ satır (v4 · R1).
  *
  * ── Neden bir ipucu cümlesi yetmiyordu ──────────────────────────────────────

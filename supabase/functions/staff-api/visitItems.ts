@@ -208,19 +208,46 @@ export function resolveVisitItems(
  * `visit.charge` bunların hiçbirini yapmıyordu: Gün "₺300" derken kumanda ve
  * kasa paket hizmetini YENİDEN tahsil ediyordu (çift tahsilat).
  *
- * Kullanıcı kararı: bu durumlarda telefon "Kasa'dan tahsil edin" diyor. Paket
- * bağı ve indirim zaten yalnız masaüstünde kuruluyor. Kural istemcide aynı
- * (`cashBuild.kasaOnlyReason`); testler ikisini aynı girdilerle koşturuyor.
+ * Kullanıcı kararı: bu durumlarda telefon "Kasa'dan tahsil edin" diyor. Kural
+ * istemcide aynı (`cashBuild.kasaOnlyReason`); testler ikisini aynı girdilerle
+ * koşturuyor.
+ *
+ * ── PAKETLİ SEANS ARTIK TELEFONDA (1.0.1, kullanıcı kararı 2026-10-16) ──────
+ * "Tek kişilik işletmenin bilgisayarı yok; paket tahsilatı telefondan
+ * tamamlanmalı." Paket motoru olan sektörde (güzellik/kuaför) paketli seans
+ * Kasa'ya AİT DEĞİL: hizmet ₺0 (`packageCovered`, Kasa'nın `ticketsOf`
+ * kuralıyla aynı), yalnız ürün/ekstra tahsil ediliyor; o da yoksa adisyon
+ * ödeme kaydı yazılmadan kapanıyor. Paket motoru OLMAYAN sektörde bağın
+ * parasal anlamı yok (Kasa da ₺0 saymıyor) — orada eskisi gibi Kasa'nın.
  */
 export type KasaReason = 'group' | 'package' | 'discount' | 'partial';
+
+/** Paket motoru yalnız güzellik ve kuaförde gerçek (`cashBuild.packagesEnabledFor`). */
+const PACKAGE_SECTORS: readonly string[] = ['guzellik', 'kuafor'];
+
+export function packagesEnabledFor(sector: unknown): boolean {
+    return typeof sector === 'string' && PACKAGE_SECTORS.includes(sector);
+}
+
+/** Randevu bir pakete bağlı mı (`custom_fields.paket_plan_id`)? */
+export function hasPackageLink(row: { custom_fields?: unknown }): boolean {
+    const fields = (row.custom_fields ?? {}) as Record<string, unknown>;
+    return typeof fields.paket_plan_id === 'string' && Boolean(fields.paket_plan_id);
+}
+
+/** Hizmeti paketten mi — ₺0 (Kasa'nın `ticketsOf` · `covered`). */
+export function packageCovered(row: { custom_fields?: unknown }, packagesEnabled: boolean): boolean {
+    return packagesEnabled && hasPackageLink(row);
+}
 
 export function kasaOnlyReason(
     row: { group_id?: unknown; custom_fields?: unknown },
     paid: number,
+    packagesEnabled: boolean,
 ): KasaReason | null {
     if (typeof row.group_id === 'string' && row.group_id) return 'group';
     const fields = (row.custom_fields ?? {}) as Record<string, unknown>;
-    if (typeof fields.paket_plan_id === 'string' && fields.paket_plan_id) return 'package';
+    if (hasPackageLink(row) && !packagesEnabled) return 'package';
     if ((Number(fields.cash_discount_amount) || 0) > 0) return 'discount';
     if (paid > 0) return 'partial';
     return null;

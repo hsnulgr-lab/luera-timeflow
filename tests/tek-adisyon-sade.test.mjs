@@ -241,11 +241,14 @@ test('sık kullanılan başlığı küçük harfle: "Sık kullanılan · saç bo
 
 test('randevu hizmetinin ücreti Kasa\'nın hesabından, satır satır', () => {
     const source = code(read('../mobile/src/lib/managerSource.ts'));
-    assert.match(source, /\.\.\.serviceCharge\(row, services\),\s*lines: serviceLines\(row, services\),/);
-    // D6: Kasa'ya ait adisyon aynı okumada — sunucunun kuralıyla.
-    assert.match(source, /kasaOnly: data\.is_paid === true \? null : kasaOnlyReason\(\{ group_id: data\.group_id, custom_fields: row\.custom_fields \}, paid\)/);
+    assert.match(source, /const charge = serviceCharge\(row, services\);/);
+    assert.match(source, /\.\.\.charge,\s*\.\.\.\(covered \? \{ amount: 0, covered: true \} : \{\}\),\s*lines: serviceLines\(row, services\)\.map\(\(line\) => \(covered \? \{ \.\.\.line, amount: 0 \} : line\)\),/);
+    // D6: Kasa'ya ait adisyon aynı okumada — sunucunun kuralıyla (1.0.1: paket
+    // motoru sektörden, paketli seansta hizmet ₺0).
+    assert.match(source, /: kasaOnlyReason\(\{ group_id: data\.group_id, custom_fields: row\.custom_fields \}, paid, packagesEnabled\)/);
+    assert.match(source, /const covered = packageCovered\(row, packagesEnabled\);/);
     assert.match(source, /from\('payments'\)\s*\.select\('amount'\)[\s\S]{0,200}\.is\('voided_at', null\)/);
-    assert.match(screen, /serviceCharge\.lines\.map\(\(row\) => \(\{ name: row\.name, amount: row\.amount \}\)\)/);
+    assert.match(screen, /serviceCharge\.lines\.map\(\(row\) => \(\{\s*name: row\.name, amount: row\.amount, \.\.\.\(serviceCharge\.covered \? \{ covered: true \} : \{\}\),\s*\}\)\)/);
     // Okunamazsa adlar duruyor, tutar yazılmıyor.
     assert.match(screen, /booked\.map\(\(name\) => \(\{ name, amount: null \}\)\)/);
 });

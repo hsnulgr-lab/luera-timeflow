@@ -25,7 +25,8 @@ import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
 import {
-    catalogOf, kasaOnlyReason, serviceCharge, serviceLines, type CashPaymentRow, type CashReservationRow, type CatalogService,
+    catalogOf, kasaOnlyReason, packageCovered, packagesEnabledFor, serviceCharge, serviceLines,
+    type CashPaymentRow, type CashReservationRow, type CatalogService,
     type ServiceBill,
 } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
@@ -522,7 +523,7 @@ export async function fetchServices(): Promise<CatalogService[]> {
  */
 export async function fetchServiceCharge(reservationId: string): Promise<ServiceBill | null> {
     const organizationId = await orgIdOrThrow();
-    const [{ data, error }, services, { data: paidRows, error: paidErr }] = await Promise.all([
+    const [{ data, error }, services, { data: paidRows, error: paidErr }, settings] = await Promise.all([
         supabase.from('reservations')
             .select('service, custom_fields, group_id, is_paid')
             .eq('organization_id', organizationId)
@@ -537,23 +538,32 @@ export async function fetchServiceCharge(reservationId: string): Promise<Service
             .eq('reservation_id', reservationId)
             .is('voided_at', null)
             .returns<{ amount: number | string | null }[]>(),
+        // Paket motoru (sektör): paketli seansta hizmet ₺0 mı (1.0.1).
+        fetchOrgSettings('sector'),
     ]);
     if (error) throw error;
     if (paidErr) throw paidErr;
     if (!data) return null;
+    const packagesEnabled = packagesEnabledFor(settings?.sector);
     const fields = data.custom_fields;
     const row = {
         service: typeof data.service === 'string' ? data.service : '',
         custom_fields: fields && typeof fields === 'object' ? fields as Record<string, unknown> : null,
     };
     const paid = (paidRows ?? []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const covered = packageCovered(row, packagesEnabled);
     // Satırlar da dönüyor (Personel 15): sade adisyon randevu hizmetini kendi
     // tutarıyla yazıyor. Toplam ve sayı yine `serviceCharge`ın kendisi.
+    // Paketli seansta (1.0.1) hizmet ₺0 — `ticketsOf` ve `visit.collect` ile aynı.
+    const charge = serviceCharge(row, services);
     return {
-        ...serviceCharge(row, services),
-        lines: serviceLines(row, services),
+        ...charge,
+        ...(covered ? { amount: 0, covered: true } : {}),
+        lines: serviceLines(row, services).map((line) => (covered ? { ...line, amount: 0 } : line)),
         // Tahsil edilmişse Kasa'ya yönlendirilecek bir şey yok (kumanda kaydı gösterir).
-        kasaOnly: data.is_paid === true ? null : kasaOnlyReason({ group_id: data.group_id, custom_fields: row.custom_fields }, paid),
+        kasaOnly: data.is_paid === true
+            ? null
+            : kasaOnlyReason({ group_id: data.group_id, custom_fields: row.custom_fields }, paid, packagesEnabled),
     };
 }
 
@@ -844,6 +854,30 @@ export async function fetchPackageRows(
         })),
     ];
     return rows.sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+}
+
+/**
+ * Randevu kurarken önerilen paketler — salonun HAKKI KALAN paketleri, TEK
+ * turda (1.0.1 · `createPackage`).
+ *
+ * Müşteri başına okunmuyor: defter binlerce satır olabilir ve seçim anında
+ * bir tur daha beklemek, paket satırının müşteri seçildikten sonra "atlayarak"
+ * gelmesi demek. Açık paket sayısı defterden çok küçük.
+ *
+ * Seans karşılaştırması (`sessions_done < session_count`) istemcide: iki kolonu
+ * kıyaslamak PostgREST süzgeciyle yapılamıyor.
+ */
+export async function fetchOpenPlans(): Promise<Record<string, unknown>[]> {
+    const organizationId = await orgIdOrThrow();
+    const { data, error } = await supabase.from('treatment_plans')
+        .select('id, customer_id, title, status, session_count, sessions_done, created_at')
+        .eq('organization_id', organizationId)
+        .eq('plan_kind', 'paket')
+        .eq('status', 'active')
+        .order('created_at')
+        .returns<Record<string, unknown>[]>();
+    if (error) throw error;
+    return data ?? [];
 }
 
 /**

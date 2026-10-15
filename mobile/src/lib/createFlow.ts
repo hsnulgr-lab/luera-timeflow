@@ -68,6 +68,19 @@ export interface ServiceOption {
     color: string;
     /** Uygunluk etiketleri (076). */
     tags?: string[];
+    /**
+     * Paketten seans (`createPackage.planOption`). Varsa randevu pakete
+     * bağlanır: bitirince hak düşer, Kasa hizmeti ₺0 sayar.
+     */
+    plan?: {
+        id: string;
+        /** Kimin paketi — müşteri değişince seçim düşer. */
+        customerId: string;
+        /** Bu randevunun seansı: "2/4". */
+        seans: string;
+        /** Kalan seans, bu randevu dahil. */
+        left: number;
+    };
 }
 
 export interface StaffOption {

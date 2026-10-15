@@ -144,9 +144,22 @@ test('D6 · "Kasa\'ya ait" kuralı telefonda ve sunucuda AYNI', () => {
         [{ group_id: null, custom_fields: null }, 0, null],
         [{ group_id: '', custom_fields: { paket_plan_id: '' } }, 0, null],
     ];
+    // Paket motorsuz sektörde (1.0.1 öncesinin her yeri) paketli seans Kasa'nın.
     for (const [row, paid, expected] of cases) {
-        assert.equal(serverKasa(row, paid), expected, `sunucu: ${JSON.stringify(row)} / ${paid}`);
-        assert.equal(clientKasa(row, paid), expected, `telefon: ${JSON.stringify(row)} / ${paid}`);
+        assert.equal(serverKasa(row, paid, false), expected, `sunucu: ${JSON.stringify(row)} / ${paid}`);
+        assert.equal(clientKasa(row, paid, false), expected, `telefon: ${JSON.stringify(row)} / ${paid}`);
+    }
+    // 1.0.1 · paket motoru olan sektörde paketli seans telefonda kapanıyor
+    // (hizmet ₺0) — indirim, ön ödeme ve grup yine Kasa'nın.
+    const packaged = [
+        [{ group_id: null, custom_fields: { paket_plan_id: 'plan-1' } }, 0, null],
+        [{ group_id: null, custom_fields: { paket_plan_id: 'plan-1', cash_discount_amount: 50 } }, 0, 'discount'],
+        [{ group_id: null, custom_fields: { paket_plan_id: 'plan-1' } }, 200, 'partial'],
+        [{ group_id: 'g1', custom_fields: { paket_plan_id: 'plan-1' } }, 0, 'group'],
+    ];
+    for (const [row, paid, expected] of packaged) {
+        assert.equal(serverKasa(row, paid, true), expected, `sunucu (paketli sektör): ${JSON.stringify(row)} / ${paid}`);
+        assert.equal(clientKasa(row, paid, true), expected, `telefon (paketli sektör): ${JSON.stringify(row)} / ${paid}`);
     }
 });
 
@@ -161,6 +174,6 @@ test('D6 · visit.collect Kasa\'ya ait adisyonda para YAZMIYOR; visit.charge seb
     assert.doesNotMatch(collect, /\.limit\(1\)\s*\.maybeSingle\(\);/);
 
     const charge = api.slice(api.indexOf("if (action === 'visit.charge')"), api.indexOf("if (action === 'visit.collect')"));
-    assert.match(charge, /const kasaOnly = res!\.is_paid === true \? null : kasaOnlyReason\(cfRow \?\? \{\}, paid\);/);
-    assert.match(charge, /return json\(\{ lines, amount, count: lines\.length, kasaOnly \}\);/);
+    assert.match(charge, /const kasaOnly = res!\.is_paid === true \? null : kasaOnlyReason\(cfRow \?\? \{\}, paid, packagesEnabled\);/);
+    assert.match(charge, /return json\(\{ lines, amount, count: lines\.length, kasaOnly, \.\.\.\(covered \? \{ covered: true \} : \{\}\) \}\);/);
 });

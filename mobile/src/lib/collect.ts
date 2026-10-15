@@ -18,10 +18,16 @@
 
 import type { SendState } from './sendToCash.ts';
 
-export type CollectMethod = 'cash' | 'card' | 'transfer';
+/**
+ * `package` bir para yöntemi DEĞİL (1.0.1): hizmeti paketten ve başka tutarı
+ * olmayan adisyonda "Hesabı kapat · pakete dahil". Seçicide yok; kumanda
+ * onu kendisi koyuyor (`collectMethodFor`) ve sunucu yalnız tutar ₺0 iken
+ * kabul ediyor — para kaydı yazmadan adisyonu kapatıyor.
+ */
+export type CollectMethod = 'cash' | 'card' | 'transfer' | 'package';
 
 /** Seçicinin sırası ve yazısı — Kasa'nın kendi yöntem adlarıyla aynı. */
-export const COLLECT_METHODS: readonly { key: CollectMethod; label: string }[] = [
+export const COLLECT_METHODS: readonly { key: Exclude<CollectMethod, 'package'>; label: string }[] = [
     { key: 'cash', label: 'Nakit' },
     { key: 'card', label: 'Kart' },
     { key: 'transfer', label: 'Havale' },
@@ -36,10 +42,28 @@ export const COLLECT_METHODS: readonly { key: CollectMethod; label: string }[] =
  * nakit alınan işi karta yazmanın en kolay yolu olurdu.
  */
 export function collectLabel(method: CollectMethod | null): { label: string; enabled: boolean } {
+    if (method === 'package') return { label: 'Hesabı kapat · pakete dahil', enabled: true };
     if (method === 'cash') return { label: 'Nakit tahsil et', enabled: true };
     if (method === 'card') return { label: 'Kartla tahsil et', enabled: true };
     if (method === 'transfer') return { label: 'Havaleyle tahsil et', enabled: true };
     return { label: 'Ödeme yöntemini seçin', enabled: false };
+}
+
+/**
+ * Tahsilatın yöntemi — paketli seansta (1.0.1).
+ *
+ * Hizmeti paketten ve toplam ₺0 ise yöntem SORULMAZ: para alınmıyor, adisyon
+ * kapanıyor (`package`). Toplam ₺0'dan büyükse (ürün, ekstra) seçilen yöntem —
+ * ve kalem silinip toplam yeniden ₺0 olursa eski seçim düşer, `package`
+ * döner. Toplam bilinmiyorsa (`null`) kapatma teklif edilmez.
+ */
+export function collectMethodFor(
+    covered: boolean,
+    total: number | null,
+    picked: CollectMethod | null,
+): CollectMethod | null {
+    if (covered && total === 0) return 'package';
+    return picked === 'package' ? null : picked;
 }
 
 /**
@@ -141,6 +165,10 @@ export function collectErrorLine(stage: CollectStage, code: string | null): stri
     if (code === 'collect_in_kasa') {
         return 'Bu adisyonun tutarını Kasa hesaplıyor (paket, indirim, ön ödeme ya da grup). Tahsilatı masaüstündeki Kasa\'dan yapın.';
     }
+    // 1.0.1: ekran ₺0 görürken araya ücretli kalem girdi — kapatılmadı.
+    if (code === 'collect_amount_changed') {
+        return 'Adisyona ücretli kalem eklenmiş; hesap kapatılmadı. Ödeme yöntemini seçip tahsil edin.';
+    }
     // D2: gönderim katalogda olmayan bir kalemde düştü — sebebi o kalem.
     if (code === 'invalid_catalog_item') return `Adisyonda katalogda olmayan bir kalem var; onu kaldırıp tekrar deneyin. ${tail}`;
     return `Tahsilat kaydedilmedi. ${tail}`;
@@ -181,6 +209,7 @@ export function collectView(stage: CollectStage, paid: boolean, settled: boolean
 
 /** Yeşil dolgunun yazısı: yöntemle, düğmenin kendi kelimesiyle. */
 export function collectedLabel(method: CollectMethod | null): string {
+    if (method === 'package') return 'Hesap kapandı · pakete dahil';
     if (method === 'cash') return 'Nakit tahsil edildi';
     if (method === 'card') return 'Kartla tahsil edildi';
     if (method === 'transfer') return 'Havaleyle tahsil edildi';

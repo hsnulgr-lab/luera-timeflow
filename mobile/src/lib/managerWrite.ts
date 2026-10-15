@@ -27,6 +27,9 @@ import { RES_COLS, toAppt } from './managerMap.ts';
 import type { CatalogService } from './cashBuild.ts';
 import { staffColorOf, staffRoleOf, type AddFailure } from './teamAdd.ts';
 import { clampSessions, type PackageSaleInput, type PackageSaleOutcome } from './packageSale.ts';
+import {
+    planPaymentFailureOf, planPaymentRow, type PlanPaymentFailure, type PlanPaymentInput,
+} from './planPayment.ts';
 import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
 import { prefsPatchOf } from './notificationPrefs.ts';
 import { fetchServices, type HoursRow, type PrefsRow } from './managerSource';
@@ -694,6 +697,41 @@ export async function createPackage(input: PackageSaleInput): Promise<PackageSal
     } catch (cause) {
         if (cause instanceof OrgError) { forgetOrg(); throw cause; }
         return { ok: false, kind: 'failed' };
+    }
+}
+
+// ── Paket ödemesi (1.0.1) ───────────────────────────────────────────────────
+
+export type PlanPaymentOutcome = { ok: true } | { ok: false; failure: PlanPaymentFailure };
+
+/**
+ * Paketin peşinatı ya da kalan borcu — masaüstü Kasa'nın paket biletiyle
+ * AYNI `payments` satırı (`planPayment.planPaymentRow`).
+ *
+ * Tutarın sınırı sunucuda (061): sıfır ve kalan borcu aşan tutar reddediliyor.
+ * ÇİFT TAHSİLAT YOK: kimlik istemcide üretiliyor; cevap kaybolup yeniden
+ * basılırsa aynı kimlik ikinci kez yazılamıyor (23505) — o durumda satırın
+ * gerçekten orada olduğu okunup BAŞARI sayılıyor (`createPackage`in kuralı).
+ */
+export async function collectPlanPayment(input: PlanPaymentInput): Promise<PlanPaymentOutcome> {
+    if (await writesPaused()) return { ok: false, failure: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        if (!userId) throw new OrgError('no_session');
+        const { error } = await supabase.from('payments')
+            .insert(planPaymentRow(input, { organizationId, userId }));
+        if (!error) return { ok: true };
+        if (error.code === '23505') {
+            const { data } = await supabase.from('payments').select('id')
+                .eq('id', input.id).eq('organization_id', organizationId).maybeSingle();
+            return data ? { ok: true } : { ok: false, failure: 'failed' };
+        }
+        return { ok: false, failure: planPaymentFailureOf(error) };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, failure: 'offline' };
     }
 }
 

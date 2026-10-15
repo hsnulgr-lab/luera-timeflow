@@ -41,7 +41,9 @@ import {
 import { ApiError, api } from '../../src/api/staff';
 import { CollectBar } from '../../src/components/CollectBar';
 import { SendToCash } from '../../src/components/SendToCash';
-import { collectAfterSend, collectSendStep, type CollectMethod, type CollectStage } from '../../src/lib/collect';
+import {
+    collectAfterSend, collectMethodFor, collectSendStep, type CollectMethod, type CollectStage,
+} from '../../src/lib/collect';
 import { fetchServiceCharge } from '../../src/lib/managerSource';
 import { kasaReasonLabel, kasaReasonOf, type KasaReason, type ServiceBill } from '../../src/lib/cashBuild';
 import {
@@ -187,6 +189,12 @@ export default function Kumanda() {
      * randevuya bağlı sabit anahtar eski tahsilatın cevabını geri getiriyordu.
      */
     const collectAttemptRef = useRef('');
+    /**
+     * Dokunulan ANDAKİ yöntem. Paketli seansta yöntem toplamdan türüyor
+     * (`collectMethodFor`): gönderim sürerken toplam değişse bile istek,
+     * kullanıcının gördüğü düğmeyle gider.
+     */
+    const tapMethodRef = useRef<CollectMethod | null>(null);
     /**
      * Sunucu "bu adisyonu Kasa tahsil eder" dedi (`collect_in_kasa`, D6) —
      * ücret okuması bunu yakalayamadıysa (okunamadı ya da arada değişti)
@@ -651,12 +659,13 @@ export default function Kumanda() {
             setCollectCode(sendCode ?? (send === 'queued' ? 'offline' : null));
             return undefined;
         }
-        if (next !== 'collect' || !collectMethod) return undefined;
+        const method = tapMethodRef.current;
+        if (next !== 'collect' || !method) return undefined;
 
         if (collectingRef.current) return undefined;
         collectingRef.current = true;
         let alive = true;
-        void api.visitCollect(base.id, collectMethod, collectAttemptRef.current)
+        void api.visitCollect(base.id, method, collectAttemptRef.current)
             .then(() => {
                 collectingRef.current = false;
                 if (!alive) return;
@@ -681,10 +690,15 @@ export default function Kumanda() {
                 if (cause instanceof ApiError && cause.code === 'collect_in_kasa') {
                     setKasaFromCollect(kasaReasonOf(cause.body.reason) ?? 'partial');
                 }
+                // Paketli adisyona araya ücretli kalem girdi (1.0.1): kopya
+                // bayat, tazelenince toplam ve düğme doğru yöntemi sorar.
+                if (cause instanceof ApiError && cause.code === 'collect_amount_changed') {
+                    void reloadVisit();
+                }
             });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [collectStage, send, sendCode, base?.id, collectMethod]);
+    }, [collectStage, send, sendCode, base?.id]);
 
     /**
      * Tahsil düğmelerinin gönderimi — ilk deneme de "Tekrar dene" de (D3).
@@ -914,7 +928,9 @@ export default function Kumanda() {
      * tutar yazılmıyor — uydurulmuyor.
      */
     const services: ServiceRow[] = serviceCharge
-        ? serviceCharge.lines.map((row) => ({ name: row.name, amount: row.amount }))
+        ? serviceCharge.lines.map((row) => ({
+            name: row.name, amount: row.amount, ...(serviceCharge.covered ? { covered: true } : {}),
+        }))
         : booked.map((name) => ({ name, amount: null }));
     const kalem = kalemCount(services, lines);
     /*
@@ -925,6 +941,13 @@ export default function Kumanda() {
      */
     const kasaOnly = serviceCharge?.kasaOnly ?? kasaFromCollect;
     const grand = kasaOnly ? null : sadeTotal(services, lines);
+    /*
+     * PAKETLİ SEANS (1.0.1, kullanıcı kararı): hizmet ₺0. Başka tutar yoksa
+     * yöntem sorulmaz, düğme "Hesabı kapat · pakete dahil"; ürün varsa yalnız
+     * o tahsil edilir. Tek kişilik işletmenin bilgisayarı yok — Kasa'ya
+     * yollamak, adisyonu hiç kapanmayacak bir yere bırakmaktı.
+     */
+    const payMethod = collectMethodFor(Boolean(serviceCharge?.covered), grand, collectMethod);
     const lastName = lastAdded || liveLines(lines)[liveLines(lines).length - 1]?.name || null;
     const editLine = editing ? lines.find((line) => line.id === editing && !line.pendingDelete) ?? null : null;
 
@@ -1339,13 +1362,14 @@ export default function Kumanda() {
 
                     {(phase === 'closing' || phase === 'closed') && params.from === 'tek' && !kasaOnly ? (
                         <CollectBar
-                            method={collectMethod}
+                            method={payMethod}
                             stage={collectStage}
                             // Tahsil edilmiş ziyarette düğme yok, kayıt var.
                             paid={closedCard === 'paid'}
                             errorCode={collectCode}
                             onPick={setCollectMethod}
                             onCollect={() => {
+                                tapMethodRef.current = payMethod;
                                 collectAttemptRef.current = String(Date.now());
                                 setCollectCode(null);
                                 setCollectStage('sending');

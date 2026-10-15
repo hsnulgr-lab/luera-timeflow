@@ -6,6 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { CustomerCard } from '../../src/components/CustomerCard';
 import { CustomerNoteSheet } from '../../src/components/CustomerNoteSheet';
+import { PackagePaymentSheet } from '../../src/components/PackagePaymentSheet';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { Empty } from '../../src/components/ui';
 import { authApi } from '../../src/api/session';
@@ -119,6 +120,28 @@ export default function CustomerScreen() {
         saleMemo.failed(customerId, failed.input, outcome.kind);
         setFailed({ input: failed.input, text: saleFailureText(outcome.kind) });
     }, [failed, retrying, customerId, snap]);
+
+    /*
+     * PAKET ÖDEMESİ TELEFONDAN (1.0.1) — yalnız tek kişilikte. Ekipte Kasa
+     * masaüstünde ve telefonun Kasa'sı salt okunur (kullanıcı kararı); tek
+     * kişilik işletmenin ise bilgisayarı yok.
+     *
+     * SATIŞ SONU: yeni paketin satırı karta düşünce ödeme sayfası BİR KEZ
+     * kendiliğinden açılıyor ("Peşinat al" · "Sonra"). Kart verisi satıştan
+     * sonra okunuyor; satır gelmeden teklif edilmiyor. Render sırasında
+     * türetiliyor (efekt değil): ilk karede sayfa zaten açık.
+     */
+    const [paying, setPaying] = useState<{ planId: string; title: string; owed: number; fresh: boolean } | null>(null);
+    const [offered, setOffered] = useState<string | null>(null);
+    if (solo && card && freshPlanId && offered !== freshPlanId) {
+        const fresh = (card.packages ?? []).find((pack) => pack.planId === freshPlanId);
+        if (fresh) {
+            setOffered(freshPlanId);
+            if (fresh.owed != null && fresh.owed > 0) {
+                setPaying({ planId: freshPlanId, title: fresh.name, owed: fresh.owed, fresh: true });
+            }
+        }
+    }
 
     const onRefusalAction = useCallback(async () => {
         if (snap.refusal === 'ambiguous') {
@@ -249,6 +272,15 @@ export default function CustomerScreen() {
                 })}
                 sale={{ freshPlanId, failure: failed?.text ?? null, retrying }}
                 onRetrySale={() => { void retrySale(); }}
+                onCollectPackage={solo ? (pack) => setPaying({ ...pack, fresh: false }) : undefined}
+            />
+            <PackagePaymentSheet
+                visible={paying !== null}
+                pack={paying}
+                customerId={card.id}
+                fresh={paying?.fresh ?? false}
+                onDismiss={() => setPaying(null)}
+                onPaid={() => { setPaying(null); void snap.reload(); }}
             />
             <CustomerNoteSheet
                 visible={noting}

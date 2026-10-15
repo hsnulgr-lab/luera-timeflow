@@ -20,6 +20,8 @@ export interface ServiceRow {
     name: string;
     /** Bilinmiyorsa `null`: satır tutar sütununu boş bırakır, uydurmaz. */
     amount: number | null;
+    /** Paketten (1.0.1): satır "Paketten · ücret alınmaz" der, tutarı ₺0. */
+    covered?: boolean;
 }
 
 const isMaterial = (line: Pick<AdisyonLine, 'kind'>) => line.kind === 'material';
@@ -192,7 +194,9 @@ export function frequentHead(label: string): string {
  * Sayılar sunucudan; istemci yeniden toplamıyor, yalnız doğruluyor.
  */
 export function serviceBillOf(data: unknown): ServiceBill | null {
-    const body = (data ?? {}) as { lines?: unknown; amount?: unknown; count?: unknown; kasaOnly?: unknown };
+    const body = (data ?? {}) as {
+        lines?: unknown; amount?: unknown; count?: unknown; kasaOnly?: unknown; covered?: unknown;
+    };
     if (!Array.isArray(body.lines) || typeof body.amount !== 'number') return null;
     const lines = body.lines.flatMap((raw) => {
         const row = (raw ?? {}) as { name?: unknown; amount?: unknown };
@@ -201,7 +205,11 @@ export function serviceBillOf(data: unknown): ServiceBill | null {
             : [];
     });
     if (lines.length !== body.lines.length) return null;
-    // Paket / indirim / kısmi / grup: tutar Kasa'nın (D6). Eski sunucu alanı
+    // İndirim / kısmi / grup: tutar Kasa'nın (D6). Eski sunucu alanı
     // göndermiyor — o zaman `null`, `visit.collect` yine kendisi reddeder.
-    return { amount: body.amount, count: lines.length, lines, kasaOnly: kasaReasonOf(body.kasaOnly) };
+    // Paketli seans (1.0.1): `covered` yalnız sunucu açıkça `true` derse.
+    return {
+        amount: body.amount, count: lines.length, lines, kasaOnly: kasaReasonOf(body.kasaOnly),
+        ...(body.covered === true ? { covered: true } : {}),
+    };
 }

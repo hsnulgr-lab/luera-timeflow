@@ -9,7 +9,8 @@ import {
 } from '../_shared/staffToken.ts';
 import { pinProblem } from '../_shared/pinRules.ts';
 import {
-    UUID_RE, freeMaterialName, kasaOnlyReason, planVisitItems, resolveVisitItems,
+    UUID_RE, freeMaterialName, hasPackageLink, kasaOnlyReason, packageCovered, packagesEnabledFor,
+    planVisitItems, resolveVisitItems,
     type CatalogProductRow, type CatalogServiceRow,
 } from './visitItems.ts';
 
@@ -1373,6 +1374,32 @@ Deno.serve(async (req: Request) => {
         };
 
         /**
+         * Salonda paket motoru var mı (güzellik/kuaför)? Sektör sahibin ayar
+         * satırında (`settings` org başına değil, kullanıcı başına — doğru
+         * satır sahibinki; `roster` aynı yoldan okuyor).
+         *
+         * Yalnız pakete bağlı randevuda soruluyor: her tahsilata iki sorgu
+         * eklemenin sebebi yok. Okunamazsa `false` — paketli seans eskisi
+         * gibi Kasa'ya düşer; yanlışlıkla ₺0 saymaktan güvenli taraf bu.
+         */
+        const orgPackagesEnabled = async (): Promise<boolean> => {
+            const { data: org, error: orgErr } = await admin.from('organizations')
+                .select('owner_id').eq('id', me.organization_id).maybeSingle();
+            if (orgErr || !org?.owner_id) {
+                if (orgErr) console.error('package sector org', orgErr);
+                return false;
+            }
+            const { data: settings, error: setErr } = await admin.from('settings')
+                .select('sector').eq('organization_id', me.organization_id).eq('user_id', org.owner_id)
+                .maybeSingle();
+            if (setErr) {
+                console.error('package sector settings', setErr);
+                return false;
+            }
+            return packagesEnabledFor(settings?.sector);
+        };
+
+        /**
          * İşlemde tüketilen malzemeleri stok defteriyle uzlaştırır.
          *
          * Adisyon bitmiş olsa bile bu yardımcı tekrar çalışır: durum update'i
@@ -2043,6 +2070,9 @@ Deno.serve(async (req: Request) => {
             const services = (catalog ?? []) as { id: string; name: string; price: number | null }[];
             const priceOfName = (name: string) =>
                 Number(services.find((row) => row.name === name)?.price ?? 0) || 0;
+            // Paketli seans (1.0.1): hizmet ₺0 — Kasa'nın `ticketsOf` kuralı.
+            const packagesEnabled = hasPackageLink(cfRow ?? {}) ? await orgPackagesEnabled() : false;
+            const covered = packageCovered(cfRow ?? {}, packagesEnabled);
 
             const lines: { name: string; amount: number }[] = [];
             const fields = (cfRow?.custom_fields ?? {}) as Record<string, unknown>;
@@ -2076,11 +2106,13 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
+            if (covered) for (const line of lines) line.amount = 0;
             const amount = Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100;
-            // Paket / indirim / kısmi / grup: tutar Kasa'nın — kumanda yazmıyor (D6).
+            // İndirim / kısmi / grup (ve paket motorsuz sektörde paket): tutar
+            // Kasa'nın — kumanda yazmıyor (D6).
             const paid = (paidRows ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-            const kasaOnly = res!.is_paid === true ? null : kasaOnlyReason(cfRow ?? {}, paid);
-            return json({ lines, amount, count: lines.length, kasaOnly });
+            const kasaOnly = res!.is_paid === true ? null : kasaOnlyReason(cfRow ?? {}, paid, packagesEnabled);
+            return json({ lines, amount, count: lines.length, kasaOnly, ...(covered ? { covered: true } : {}) });
         }
 
         /*
@@ -2123,7 +2155,10 @@ Deno.serve(async (req: Request) => {
          */
         if (action === 'visit.collect') {
             const method = String(body.method ?? '');
-            if (method !== 'cash' && method !== 'card' && method !== 'transfer') {
+            // `package` para yöntemi DEĞİL: "pakete dahil, kapat" (1.0.1).
+            // Yalnız hizmeti paketten ve başka tutarı olmayan adisyonda geçer
+            // (aşağıda); para kaydı yazmaz.
+            if (method !== 'cash' && method !== 'card' && method !== 'transfer' && method !== 'package') {
                 return json({ error: 'invalid_method' }, 400);
             }
 
@@ -2173,11 +2208,17 @@ Deno.serve(async (req: Request) => {
             }
 
             /*
-             * PAKET / İNDİRİM / GRUP — Kasa'nın işi (D6). Önceki tahsilat
-             * aşağıda tutarla karşılaştırılıyor: tamamıysa "zaten alındı",
-             * eksikse kısmi ödeme ve yine Kasa'nın işi.
+             * İNDİRİM / GRUP (ve paket motorsuz sektörde paket) — Kasa'nın
+             * işi (D6). Önceki tahsilat aşağıda tutarla karşılaştırılıyor:
+             * tamamıysa "zaten alındı", eksikse kısmi ödeme ve yine Kasa'nın
+             * işi.
+             *
+             * PAKETLİ SEANS (1.0.1): hizmet ₺0, yalnız adisyonun ücretli
+             * kalemleri tahsil ediliyor — Kasa'nın `ticketsOf` kuralı.
              */
-            const kasaReason = kasaOnlyReason(cfRow ?? {}, 0);
+            const packagesEnabled = hasPackageLink(cfRow ?? {}) ? await orgPackagesEnabled() : false;
+            const covered = packageCovered(cfRow ?? {}, packagesEnabled);
+            const kasaReason = kasaOnlyReason(cfRow ?? {}, 0, packagesEnabled);
             if (kasaReason) return json({ error: 'collect_in_kasa', reason: kasaReason }, 409);
 
             const services = (catalog ?? []) as { id: string; name: string; price: number | null }[];
@@ -2191,7 +2232,9 @@ Deno.serve(async (req: Request) => {
             if (typeof rawLines === 'string' && rawLines.trim()) {
                 try { parsedLines = JSON.parse(rawLines); } catch { parsedLines = null; }
             }
-            if (Array.isArray(parsedLines) && parsedLines.length > 0) {
+            if (covered) {
+                // Hizmet paketin içinde: satış bedeli paketin kendi tahsilatı.
+            } else if (Array.isArray(parsedLines) && parsedLines.length > 0) {
                 for (const raw of parsedLines) {
                     const line = (raw ?? {}) as Record<string, unknown>;
                     // Sıra `cashBuild.serviceLines`in aynısı: kaydın kendi
@@ -2228,6 +2271,16 @@ Deno.serve(async (req: Request) => {
             const amount = Math.round((serviceAmount + itemsAmount) * 100) / 100;
 
             /*
+             * "PAKETE DAHİL, KAPAT" yalnız tutarı OLMAYAN paketli adisyonda.
+             * Ekran ₺0 görürken araya kalem girdiyse (başka cihaz, kuyruk)
+             * kapatmak parayı almadan kapatmak olurdu: istemci tazeleyip
+             * yöntemi sordurur.
+             */
+            if (method === 'package' && !(covered && amount <= 0)) {
+                return json({ error: 'collect_amount_changed', amount }, 409);
+            }
+
+            /*
              * VAR OLAN TAHSİLAT — ikinci kapı.
              *
              * Tamamı alınmışsa yeni kayıt YOK; bayrak da burada basılıyor (D7):
@@ -2246,6 +2299,25 @@ Deno.serve(async (req: Request) => {
                     .eq('organization_id', me.organization_id);
                 if (flagErr) console.error('visit.collect is_paid (existing)', flagErr);
                 return await done({ ok: true, alreadyCollected: true, payment: existing });
+            }
+
+            /*
+             * PAKETE DAHİL — para kaydı YOK, adisyon kapanıyor (masaüstünün
+             * "Hesabı kapat (pakete dahil)"ı: `isPaid` + bağ). Seans hakkı
+             * `visit.finish`te zaten düştü; burada yalnız adisyon kapanıyor.
+             * Sıfır liralık bir tahsilat satırı yazmak gün sonunu bozardı.
+             */
+            if (covered && !(amount > 0)) {
+                const { error: flagErr } = await admin.from('reservations')
+                    .update({ is_paid: true })
+                    .eq('id', res!.id)
+                    .eq('organization_id', me.organization_id);
+                if (flagErr) {
+                    console.error('visit.collect is_paid (package)', flagErr);
+                    return json({ error: 'write_failed' }, 500);
+                }
+                await audit(me.organization_id, me.id, 'visit.collect', 'paket');
+                return await done({ ok: true, payment: null, amount: 0, covered: true });
             }
 
             if (!(amount > 0)) return json({ error: 'zero_amount' }, 409);

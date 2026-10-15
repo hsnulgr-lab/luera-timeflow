@@ -210,7 +210,8 @@ test('tahsilat GÖNDERİMDEN SONRA — sıra zorunlu', () => {
         kumanda.indexOf('}, [collectStage, send, sendCode'),
     );
     assert.ok(effect.length > 0, 'tahsilat etkisi collectAfterSend kullanmıyor');
-    assert.match(effect, /if \(next !== 'collect' \|\| !collectMethod\) return undefined;/);
+    // Yöntem DOKUNUŞTA sabitlenen (1.0.1 · paketli seansta toplamdan türüyor).
+    assert.match(effect, /const method = tapMethodRef\.current;\s*if \(next !== 'collect' \|\| !method\) return undefined;/);
     assert.ok(effect.indexOf("if (next !== 'collect'") < effect.indexOf('api.visitCollect('));
 });
 
@@ -325,8 +326,8 @@ test('GERİ ALINAN tahsilattan sonra aynı yöntemle yeniden tahsil kasaya YAZIY
     assert.notEqual(key[1], 'visit.collect:${reservationId}:${method}');
 
     // Dokunuş kimliği DOKUNUŞTA basılıyor — etkide değil (etki yeniden koşar).
-    assert.match(kumanda, /onCollect=\{\(\) => \{\s*collectAttemptRef\.current = String\(Date\.now\(\)\);/);
-    assert.match(kumanda, /api\.visitCollect\(base\.id, collectMethod, collectAttemptRef\.current\)/);
+    assert.match(kumanda, /onCollect=\{\(\) => \{\s*tapMethodRef\.current = payMethod;\s*collectAttemptRef\.current = String\(Date\.now\(\)\);/);
+    assert.match(kumanda, /api\.visitCollect\(base\.id, method, collectAttemptRef\.current\)/);
     assert.doesNotMatch(kumanda, /collectAttemptRef\.current = [^;]*;[\s\S]{0,40}api\.visitCollect/);
 
     // Sunucunun ikinci kapısı geri alınmışı "zaten alındı" saymıyor.

@@ -9,7 +9,7 @@ import {
     ApptCta, ApptDayHero, ApptHero, ApptPageTitle, ApptPlate, ApptTopBar, ArrowIcon,
     CloseIcon, CustomerRow, DayChip, EmptyResult, HeroDot, HeroSubText, Hint,
     KeyValueGrid, NoteRow, PhoneField, RailBlock, SearchIcon, SectionHead,
-    AddServiceRow, ClosedServiceRow, ServiceRow, SolidButton, type KeyValue,
+    AddServiceRow, ClosedServiceRow, PackageRow, ServiceRow, SolidButton, type KeyValue,
 } from './ApptParts';
 import { DurumBlock, DurumUnread } from './Durum';
 import { feedback } from '../lib/feedback';
@@ -25,6 +25,9 @@ import {
     confirmationText, dayWindowOf, localClock, recentOf, refusalCopy, staffOptionsOf, staffWorksAt,
     type CreateOutcome, type NewAppointment, type WaFailReason,
 } from '../lib/createLive';
+import {
+    keepServiceFor, packageHint, planMeta, planOption, plansFor, priceLabel,
+} from '../lib/createPackage';
 import { closedBy, closedReason } from '../lib/eligibility';
 import type { CreateContext } from '../lib/managerCreate';
 import { useCreateDay } from '../lib/managerCreate';
@@ -397,6 +400,22 @@ export function CreateFlow({
     const results = query.trim() ? filterCustomers(context.customers, query) : [];
     const recents = useMemo(() => recentOf(context.customers, 6), [context.customers]);
 
+    /*
+     * PAKETTEN SEANS (1.0.1). Seçili müşterinin hakkı kalan paketleri hizmet
+     * listesinin ÜSTÜNDE — ama seçili GELMİYOR (kullanıcı kararı, 2026-10-16:
+     * müşteri o gün başka işlem için gelmiş olabilir). Paketi olduğu, müşteri
+     * seçilmeden önce de satırın ipucunda yazıyor.
+     */
+    const packageOptions = useMemo(
+        () => plansFor(context.packages ?? [], draft.customer?.id)
+            .map((plan) => planOption(plan, context.services)),
+        [context.packages, context.services, draft.customer?.id],
+    );
+    const hintOf = (customer: CustomerOption) => packageHint(
+        customer.hint,
+        plansFor(context.packages ?? [], customer.id).length,
+    );
+
     // ── Sayfa 1 · kim ve ne ────────────────────────────────────────────────
     //
     // TASARIMDAN BİLİNÇLİ EKSİK — gerekçesi teknik, biçimsel değil.
@@ -415,7 +434,10 @@ export function CreateFlow({
                 onClear={() => {
                     setQuery('');
                     setJustAdded(false);
-                    patch({ customer: null, newCustomerName: null, newCustomerPhone: null });
+                    patch({
+                        customer: null, newCustomerName: null, newCustomerPhone: null,
+                        service: keepServiceFor(draft.service, null),
+                    });
                 }}
                 size={ax ? M.titleAx : small ? M.titleSmall : M.title}
                 x={small ? M.heroTitleXSmall : M.heroTitleX}
@@ -465,7 +487,7 @@ export function CreateFlow({
                             <CustomerRow
                                 key={customer.id}
                                 name={customer.name}
-                                hint={customer.hint}
+                                hint={hintOf(customer)}
                                 phone={maskPhone(customer.phone)}
                                 query={query}
                                 onPress={() => selectCustomer(customer)}
@@ -499,7 +521,7 @@ export function CreateFlow({
                         <CustomerRow
                             key={customer.id}
                             name={customer.name}
-                            hint={customer.hint}
+                            hint={hintOf(customer)}
                             phone={maskPhone(customer.phone)}
                             onPress={() => selectCustomer(customer)}
                         />
@@ -532,6 +554,33 @@ export function CreateFlow({
                     />
                     <Hint>{phoneNote(draft.newCustomerPhone)}</Hint>
                 </>
+            ) : null}
+
+            {packageOptions.length > 0 ? (
+                <>
+                    <SectionHead title="Paketten" count={String(packageOptions.length)} size={ax ? M.secTitleAx : M.secTitle} />
+                    {packageOptions.map((option) => {
+                        const reason = draft.customer
+                            ? closedBy(context.settings.riskRules, draft.customer.fields, option)
+                            : null;
+                        return reason ? (
+                            <ClosedServiceRow key={option.id} service={option} reason={closedReason(reason)} />
+                        ) : (
+                            <PackageRow
+                                key={option.id}
+                                service={option}
+                                meta={planMeta(option)}
+                                selected={draft.service?.id === option.id}
+                                onPress={() => patch({ service: draft.service?.id === option.id ? null : option })}
+                            />
+                        );
+                    })}
+                    <Hint>Paketten seçerseniz seans ₺0 yazılır ve bitince paketten düşer. Başka işlem için geldiyse aşağıdan hizmet seçin.</Hint>
+                </>
+            ) : null}
+            {/* Okunamayan paket SESSİZ boş liste değil: bugünkü kusurun kendisi olurdu. */}
+            {draft.customer && context.packages === null ? (
+                <Hint>Paket bilgisi okunamadı. Paketten seans için ekranı kapatıp yeniden açın.</Hint>
             ) : null}
 
             <SectionHead title="Hizmet" count={String(context.services.length)} size={ax ? M.secTitleAx : M.secTitle} />
@@ -583,10 +632,12 @@ export function CreateFlow({
         // Seçili hizmet bu müşteriye kapalıysa seçim DÜŞER: kapalı bir hizmetle
         // ilerleyip sunucunun reddiyle karşılaşmak, söz verildikten sonra
         // geri almak demek.
-        const blocked = draft.service
-            ? closedBy(context.settings.riskRules, customer.fields, draft.service)
+        // Başkasının PAKETİ de düşer: o paketten bu müşteriye seans yazılamaz.
+        const kept = keepServiceFor(draft.service, customer.id);
+        const blocked = kept
+            ? closedBy(context.settings.riskRules, customer.fields, kept)
             : null;
-        patch(blocked ? { customer, newCustomerName: null, service: null } : { customer, newCustomerName: null });
+        patch({ customer, newCustomerName: null, service: blocked ? null : kept });
     }
 
     function addNewCustomer() {
@@ -594,7 +645,10 @@ export function CreateFlow({
         if (!isValidNewCustomer(name)) return;
         setQuery('');
         setJustAdded(true);
-        patch({ newCustomerName: name, customer: null, newCustomerPhone: null });
+        patch({
+            newCustomerName: name, customer: null, newCustomerPhone: null,
+            service: keepServiceFor(draft.service, null),
+        });
     }
 
     // ── Sayfa 2 · ne zaman ─────────────────────────────────────────────────
@@ -724,8 +778,8 @@ export function CreateFlow({
             { label: 'Hizmet', value: draft.service?.name ?? '—' },
             {
                 label: 'Tutar',
-                // Fiyatı yazılmamış hizmette "₺0" DEĞİL: çizgi.
-                value: draft.service && draft.service.price !== null ? formatPrice(draft.service.price) : '—',
+                // Fiyatı yazılmamış hizmette "₺0" DEĞİL: çizgi. Paketten seans "₺0 · paket".
+                value: priceLabel(draft.service, formatPrice),
                 numeric: Boolean(draft.service && draft.service.price !== null),
             },
         ];
