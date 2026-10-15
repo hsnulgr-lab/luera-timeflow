@@ -6,6 +6,16 @@ düzeltmeler bitsin, 1.0.1 Apple'a gönderilsin.
 `main` = `origin/main` = `817b2c9` (bir belge commit'i geride).
 **Testler:** 3046 · **3039 geçti · 0 kırık · 7 atlandı** · `tsc` temiz.
 
+> ## ⚠️ 2026-10-16 · KAPILARDAN SONRA YENİ İŞ — ÖNCE §10'U OKU
+> 6A kapıları 01:39'da geçti (`55226b7`). **Sonra** kullanıcı kararıyla
+> "paket tek kişilikte telefonda" işi yapıldı (§10). **2026-10-16: para yolu
+> gözden geçirildi (engel yok), `staff-api` deploy edildi ve yoklandı (18/18
+> `OPTIONS` 200), telefonda paket turu geçti — commit + push bekliyor.** Ağaçta testler
+> 3112 · 3105 geçti · 0 kırık, `tsc` temiz, kumandada lint 16 (eski).
+> Bu yüzden 6A·1/2/3/5/6 ve D10 YENİDEN geçilmeli. EAS'ta uzak derleme
+> numarası hâlâ 4 — 1.0.1 derlenmedi. Önceki oturum devri yazamadan limite
+> takıldı; bu bölüm onun yerine yazıldı (oturum kaydından).
+
 Bu belge tek başına yeterli olmak için yazıldı. Önceki devir
 (`08-TEK-KISILIK-DEVIR.md`, 2650+ satır) tek kişilik kabuğun tarihi; bu
 belge ondan YAYIN için gereken her şeyi alıyor. Ayrıntı gerekince ona
@@ -504,3 +514,105 @@ for f in staff-api remind draft-messages; do curl -s -o /dev/null -w "$f %{http_
   basılmadıkça 1.0 mağazada kalır. Gönderimden önce vazgeçmek serbest.
 - Tek kişilik kabuğun bütünü: `tek-oncesi` etiketi (`b4bc585`), `origin`'de —
   yalnız son çare (127 commit'i geri alır).
+
+---
+
+## 10 · PAKET TEK KİŞİLİKTE TELEFONDA (2026-10-16 gece · COMMİT'LENMEDİ)
+
+### Neden (kullanıcı, telefon turunda)
+- 22:44 · Bulgu: "paket oluşturuyoruz, sonra randevu veriyoruz ama paketin
+  sayısından düşmüyor" — telefonda randevu pakete BAĞLANMIYORDU (1.0'da da
+  vardı). Karar: **"1.0.1'i beklet, şimdi yap."**
+- 23:13 · "Tek kişilik işletmenin bilgisayarı olmayacak; paket tahsilatı
+  masaüstünden değil telefondan komple tamamlanmalı." Bu, 23:02'deki
+  "paketli adisyon masaüstü Kasa'da kapansın" kararını tek kişilik için
+  DEĞİŞTİRDİ ve D6'nın "Kasa'dan tahsil edin"ini paketli seansta kaldırdı.
+
+### Kararlar (soru-cevapla)
+| Konu | Karar |
+|---|---|
+| Ne zaman | 1.0.1'e girsin (derleme ertelendi) |
+| Randevu kurarken müşterinin paketi | **Görünsün ama SEÇİLİ GELMESİN** — "müşteri o gün başka işlem için gelmiş olabilir" |
+| Paket bedelinin ödemesi | **Kart + satış sonu:** paket oluşturulunca "Peşinat al" (bir kez kendiliğinden, "Sonra" ile geçilir); sonradan müşteri kartındaki paket satırında "Ödeme al" — yalnız TEK KİŞİLİKTE |
+| Paketli seansın adisyonu | Paket motoru olan sektörde (güzellik/kuaför) hizmet ₺0; yalnız ürün/ekstra tahsil; toplam ₺0 ise **"Hesabı kapat · pakete dahil"** (ödeme kaydı YAZILMAZ). Paket motoru olmayan sektörde eskisi gibi Kasa'nın |
+| Ekip | Değişmedi: Kasa masaüstünde, metinler aynı |
+
+### Kodda ne var (ağaçta, 25 değişen + 4 yeni dosya)
+- **Paketten seans** (`CreateFlow.tsx`, `createFlow.ts`, `managerCreate.ts`,
+  `createLive.ts`, `ApptParts.tsx`, yeni `lib/createPackage.ts`): müşteri
+  seçilince hakkı kalan paketler hizmet listesinin üstünde, "Paketten · kalan
+  4 seans · ₺0"; başkasının paketi düşer; randevu pakete bağlanır
+  (`custom_fields.paket_plan_id`), bitince hak düşer. Telefonda görüldü
+  (23:09): "Pınar satırında paketi var yazıyor, Paketten bölümü çıktı ve
+  seçili gelmedi."
+- **Paket ödemesi** (yeni `components/PackagePaymentSheet.tsx`, yeni
+  `lib/planPayment.ts`, `managerWrite.ts`, `CustomerCard.tsx`,
+  `(staff-flow)/customer.tsx`, `paket-sat.tsx`): masaüstü Kasa'nın paket
+  biletiyle AYNI `payments` satırı; tutar kalan borçla dolu, düzenlenebilir;
+  yöntem seçilmeden düğme kapalı; borcu aşan tutarı veritabanı (061) da
+  reddediyor; kimlik istemcide üretiliyor — çift dokunuşta ikinci kayıt yok
+  (23505 → satır okunup başarı sayılıyor).
+- **Kumanda tahsilatı** (`kumanda.tsx`, `CollectBar.tsx`, `collect.ts`,
+  `cashBuild.ts`, `adisyonSade.ts`, `AdisyonSade.tsx`, `managerSource.ts`,
+  `api/staff.ts`): hizmet satırı "Paketten · ücret alınmaz · ₺0"; toplam ₺0
+  ise yöntem seçici ve "Sonra tahsil et" yok, tek düğme "Hesabı kapat ·
+  pakete dahil".
+- **Sunucu** (`staff-api/index.ts`, `staff-api/visitItems.ts`): `visit.collect`
+  paketi öğrendi — `package` bir para yöntemi DEĞİL, "pakete dahil, kapat";
+  yalnız hizmeti paketten ve BAŞKA TUTARI OLMAYAN adisyonda geçer, ödeme
+  satırı yazmaz (`is_paid` + bağ, masaüstünün "Hesabı kapat (pakete
+  dahil)"ı); ekran ₺0 görürken araya ücretli kalem girdiyse REDDEDER
+  (istemci tazeleyip yöntem sordurur). Paket motoru sahibin `settings`
+  satırından (sektör). `kasaOnlyReason` istemci ve sunucuda aynı kural,
+  testler ikisini aynı girdilerle koşturuyor.
+- **Testler:** yeni `tests/paketten-randevu.test.mjs` (17, eski kodda
+  yüklenirken kırılıyor) + altı eski test yeni sözleşmeye taşındı.
+
+### ⚠️ Para yolu — deploy'dan ÖNCE gözden geçir
+`visit.collect`e dokunuldu (§1 · para yolu). Tek kuralı bile gevşetmediğini
+doğrula: tutarı sunucu hesaplıyor mu, "pakete dahil" kapanışı tutarı OLAN
+adisyonda reddediliyor mu, idempotens ve var olan ödeme sorgusu duruyor mu,
+`is_paid` yalnız gerçek kapanışta mı. Eski istemci (mağazadaki 1.0) yeni
+sunucuyla sorunsuz mu (geriye uyum).
+
+### Sıradaki adımlar (sırayla)
+1. ✅ Para yolu gözden geçirmesi (2026-10-16, Claude): engel yok. Tutarı
+   sunucu hesaplıyor; "pakete dahil" yalnız tutar ₺0 iken, araya ücretli kalem
+   girerse `collect_amount_changed` (istemci tazeliyor); `call` (kuyruk yok);
+   idempotens + var olan ödeme sorgusu duruyor; `not_finished` önce;
+   masaüstü de ₺0'da ödeme yazmıyor (`part.amount <= 0` atlanıyor) — yalnız
+   `isPaid`. Paket ödemesi: masaüstünün paket biletiyle aynı satır, yöntem
+   değerleri aynı (`pmMap`), `created_by` sütunu var (057/061), 23505 =
+   başarı, üst sınır 061'de. Audit kısıtı yalnız `event`te; `_shared`e
+   dokunulmadı. Mağazadaki 1.0'da tahsilat ekranı yok — geriye uyum sorunu yok.
+2. ✅ **Deploy (kullanıcı, 2026-10-16):** 18/18 `OPTIONS` 200, `staff-api`
+   jetonsuz `invalid_token`. Kanıt telefon: eski sunucu `package`i reddederdi.
+   Komut: `cd ~/Projects/luera-timeflow && ./scripts/deploy-functions.sh staff-api`
+   → Claude yoklar: `OPTIONS` 200, jetonsuz `invalid_token`.
+3. ✅ **Telefon (Expo Go, kullanıcı 2026-10-16: "paket testi yapıldı"):**
+   - **a · Vildan Ay'ın açık paketli adisyonu:** hizmet satırında yeşil
+     "Paketten · ücret alınmaz" ve ₺0; turuncu uyarı ve yöntem seçici yok; tek
+     düğme "Hesabı kapat · pakete dahil" → basınca "Hesap kapandı · pakete
+     dahil"; Kasa'dan kalkar, ₺0'lık hareket YAZILMAZ; paket 1 seans düşer.
+   - **b · Tuğçe Erden · Ağda paketi:** "Paketi oluştur" → "PEŞİNAT AL · Ağda
+     paketi" kendiliğinden, ₺3.600 dolu → 1000 · Nakit → "₺1.000 nakit tahsil
+     et" → kartta "₺2.600 ödenmedi" + **Ödeme al** → kalanı Kart'la al →
+     Kasa'da iki "Paket tahsilatı · Ağda".
+   - **c ·** Paketli seansa ürün ekle → yalnız ürün tutarı tahsil edilir.
+   - **d · Ekip** (demo müdür): paket ekranları ve Kasa eskisi gibi.
+4. Commit'ler + push (kullanıcı "commit'le" deyince; `tek-kisilik` = `main`).
+5. **6A kapılarını yeniden geç:** 1 (kutular), 2 (`npm test`, `tsc`), 3 (P0
+   `start:prod` + paket turu), 5 (`expo export`), 6 (ağaç temiz, push'lu),
+   D10 (sunucu özetleri = depo). Sonra 6B (EAS) → 6C → 6D → 6E.
+
+### Bu gece ayrıca (commit'li)
+- `a78296b` "luera" markası kırpılmıyordu → düzeldi; `c05bc9a` devam ekranında
+  karşılamanın hareketli markası (kullanıcı onayladı).
+- 22:19 · Kullanıcı: demo hesap mağazadaki 1.0 ile giriyor (6A·8 ✓).
+- **Core hatırlatması:** kullanıcı istedi ("core için hatırlatma yap"), saat
+  **16 Ekim 10:00** seçildi — ama zamanlanmış görev listesinde YOK
+  (2026-10-16 yoklandı: "No scheduled tasks"). Kurulmamış; kullanıcıya sor.
+  Core bağlantısı 1.0.1 gönderildikten sonra, ayrı oturum.
+- 1.0.2 adayları (kayıtta): giriş ekranı (A3) · çevrimdışı BAŞLAT + kalem →
+  `items_stale` · personel oturumu düşünce ekranın cümlesi.
+
