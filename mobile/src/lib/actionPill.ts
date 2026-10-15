@@ -283,8 +283,13 @@ export function waRecord(result: WaResult, minutes: number): PillRecord {
  * `no_staff` ayrı duruyor çünkü bir hata değil: randevuya personel
  * atanmamışsa gönderilecek kimse yok ve müdürün yapacağı şey de farklı
  * (tekrar denemek değil, personel atamak).
+ *
+ * `unreachable` da hata değil (2026-10-15, telefonda bulundu): sunucu
+ * istediği yaptı ama personelin telefonunda bildirim aboneliği yok — telefon
+ * bağlı değil ya da bildirim izni kapalı (`send-push` · `no_subscribers`).
+ * "Gönderilemedi · tekrar dene" diyordu; tekrar denemek bir şey değiştirmez.
  */
-export type NudgeResult = 'ok' | 'no_staff' | 'failed';
+export type NudgeResult = 'ok' | 'no_staff' | 'unreachable' | 'failed';
 
 /** Aramanın kaydı. Sonucu bilinmez — yalnız müdürün ne yaptığı yazılır. */
 export function callRecord(minutes: number): PillRecord {
@@ -309,6 +314,8 @@ export function staffRecord(result: NudgeResult, minutes: number): PillRecord {
             return { text: `Personel çağırıldı · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
         case 'no_staff':
             return { text: 'Personel atanmamış · gönderilmedi', tone: 'warn', stales: false };
+        case 'unreachable':
+            return { text: 'Personelin bildirimi kapalı · gönderilmedi', tone: 'warn', stales: false };
         case 'failed':
             return { text: 'Gönderilemedi · tekrar deneyin', tone: 'warn', stales: false };
     }

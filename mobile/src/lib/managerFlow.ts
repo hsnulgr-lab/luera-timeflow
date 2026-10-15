@@ -800,12 +800,19 @@ export const NUDGE_STAMP = 'Çağırıldı';
 /**
  * Tutmayan gönderimin düğme üstündeki karşılığı.
  *
- * İki sebep iki cümle: `no_staff` bir hata değil ve tekrar denemek işe
- * yaramaz — müdürün yapması gereken şey randevuya personel atamak.
+ * Üç sebep üç cümle: `no_staff` bir hata değil — müdürün yapacağı şey
+ * randevuya personel atamak; `unreachable` da değil — personelin telefonu
+ * bağlı değil ya da bildirim izni kapalı.
+ *
+ * KISA (2026-10-15, telefonda bulundu): yazı "Personeli çağır"ın boyunda.
+ * "Gönderilemedi · tekrar dene" hapı genişletip kartın rakamını okunmaz
+ * hâle getiriyordu. Düğme basılabilir kalıyor; basmak yeniden göndermek
+ * demek, o yüzden "tekrar dene" yazmaya gerek yok.
  */
 export function nudgeLabel(result: NudgeResult): string {
     if (result === 'no_staff') return 'Personel atanmamış';
-    if (result === 'failed') return 'Gönderilemedi · tekrar dene';
+    if (result === 'unreachable') return 'Bildirimi kapalı';
+    if (result === 'failed') return 'Gönderilemedi';
     return NUDGE_LABEL;
 }
 
@@ -813,6 +820,7 @@ export function nudgeLabel(result: NudgeResult): string {
 export function isNudgeLabel(label: string): boolean {
     return label === NUDGE_LABEL
         || label === nudgeLabel('failed')
+        || label === nudgeLabel('unreachable')
         || label === nudgeLabel('no_staff');
 }
 

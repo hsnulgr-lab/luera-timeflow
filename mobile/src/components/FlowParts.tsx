@@ -1449,7 +1449,8 @@ function WaitAct({ action, ink, onPress, expanded, onLayout }: {
             }}
         >
             {action.icon === 'bell' ? <Glyph name="bell" size={16} color={filled ? onAccent : ink.ink} /> : null}
-            <Text style={{
+            <Text numberOfLines={1} style={{
+                flexShrink: 1,
                 color: filled ? onAccent : ink.ink,
                 fontSize: waitCardMetrics.hapText,
                 fontFamily: font.extraBold,
@@ -1738,6 +1739,12 @@ function PanelCard({ ink, warn, stripe, dot, label, labelColor, hero, sub, recor
                     // ÜSTE YASLI: kayıt satırı geldiğinde sol sütun uzuyor;
                     // ortalı olsaydı kahraman rakam yerinden oynardı.
                     justifyContent: record ? 'flex-start' : 'center',
+                    // EYLEM SÜTUNU KARTIN YARISINI GEÇMİYOR (2026-10-15,
+                    // telefonda bulundu): uzun bir düğme yazısı sol sütunu
+                    // eziyor, kahraman rakam "2sa23" diye okunmaz kalıyordu.
+                    // Yazı burada kısalır, rakam küçülmez.
+                    maxWidth: '55%',
+                    flexShrink: 1,
                     opacity,
                     transform: [{ translateY: lift }],
                 }}>

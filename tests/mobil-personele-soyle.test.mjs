@@ -189,7 +189,18 @@ test('tutmayan gönderim KARTIN ÜSTÜNDE — ekranın tepesinde değil', () => 
      */
     const failed = applyNudgeResult({ ...base, waitMinutes: 12 }, 'failed');
     assert.deepEqual(waitCard(failed, []).actions,
-        [{ label: 'Gönderilemedi · tekrar dene', kind: 'hap', icon: 'bell' }]);
+        [{ label: 'Gönderilemedi', kind: 'hap', icon: 'bell' }]);
+    // Telefonda bulundu (2026-10-15, demo salon): personelin telefonu bağlı
+    // değilken "Gönderilemedi · tekrar dene" yazıyordu — tekrar denemek
+    // hiçbir şeyi değiştirmez ve uzun yazı kartın rakamını eziyordu.
+    const unreachable = applyNudgeResult({ ...base, waitMinutes: 12 }, 'unreachable');
+    assert.deepEqual(waitCard(unreachable, []).actions,
+        [{ label: 'Bildirimi kapalı', kind: 'hap', icon: 'bell' }]);
+    // Hiçbir sonuç yazısı "Personeli çağır"dan belirgin uzun değil — kart
+    // sütunu daralmasın (rakam okunmaz hâle geliyordu).
+    for (const result of ['failed', 'unreachable', 'no_staff']) {
+        assert.ok(nudgeLabel(result).length <= 18, `${result}: "${nudgeLabel(result)}" fazla uzun`);
+    }
     const noStaff = applyNudgeResult({ ...base, waitMinutes: 12 }, 'no_staff');
     assert.deepEqual(waitCard(noStaff, []).actions,
         [{ label: 'Personel atanmamış', kind: 'hap', icon: 'bell' }]);
@@ -202,7 +213,8 @@ test('tutmayan gönderim TEKRAR DENENEBİLİR kalıyor', () => {
      * Hata bir damga olsaydı müdürün tek çaresi ekranı yenilemek olurdu.
      * Düğme basılabilir kalıyor ve basınca eski hata siliniyor.
      */
-    assert.equal(isNudgeLabel('Gönderilemedi · tekrar dene'), true);
+    assert.equal(isNudgeLabel('Gönderilemedi'), true);
+    assert.equal(isNudgeLabel('Bildirimi kapalı'), true);
     assert.equal(isNudgeLabel('Personel atanmamış'), true);
     assert.equal(isNudgeLabel('Karşılamayı aç'), false);
     const failed = applyNudgeResult({ ...base, waitMinutes: 12 }, 'failed');
@@ -215,6 +227,8 @@ test('kartın kayıt satırı sonucu söylüyor', () => {
     assert.equal(staffRecord('ok', 2).text, 'Personel çağırıldı · 2 dk');
     assert.equal(staffRecord('failed', 2).stales, false);
     assert.equal(staffRecord('no_staff', 40).text, 'Personel atanmamış · gönderilmedi');
+    assert.equal(staffRecord('unreachable', 3).text, 'Personelin bildirimi kapalı · gönderilmedi');
+    assert.equal(staffRecord('unreachable', 3).stales, false);
     const sent = applyNudgeResult({ ...base, kind: 'next', etaMinutes: -4 }, 'failed');
     assert.equal(pillRecordOf({ ...sent, actedCell: 'inf', actedAt: 0 })?.tone, 'warn');
 });
@@ -222,7 +236,10 @@ test('kartın kayıt satırı sonucu söylüyor', () => {
 test('sent: 0 BAŞARI DEĞİL', () => {
     // Abonelik yoksa `send-push` 200 + `sent: 0` döner. Bunu başarı saymak,
     // bildirimleri kapalı bir personele "söylendi" demek olurdu.
-    assert.match(write, /body\.sent === 'number' && body\.sent > 0 \? 'ok' : 'failed'/);
+    // `sent: 0` HATA DA DEĞİL: personelin telefonunda abonelik yok (bağlı
+    // değil ya da bildirim izni kapalı). Ayrı sonuç, ayrı cümle (2026-10-15).
+    assert.match(write, /if \(typeof body\.sent !== 'number'\) return 'failed';/);
+    assert.match(write, /return body\.sent > 0 \? 'ok' : 'unreachable';/);
     assert.match(write, /body\.note === 'no_staff'\) return 'no_staff'/);
 });
 
@@ -275,7 +292,7 @@ test('sonuç ve damga SUNUCU SATIRIYLA BİRLEŞİNCE korunuyor', () => {
 
     // Ve kart birleşmeden SONRA da doğru şeyi çiziyor.
     assert.deepEqual(waitCard(mergeLocal(server, failed), []).actions,
-        [{ label: 'Gönderilemedi · tekrar dene', kind: 'hap', icon: 'bell' }]);
+        [{ label: 'Gönderilemedi', kind: 'hap', icon: 'bell' }]);
 });
 
 test('yerel alan TEMİZLENEBİLİYOR da — yeniden denemede hata siliniyor', () => {
@@ -300,4 +317,18 @@ test('"Personeli çağır" — zilli ikincil düğme; gönderilince "Çağırıl
     assert.match(parts, /\{action\.icon === 'bell' \? <Glyph name="bell" size=\{16\}/);
     const glyph = readFileSync(new URL('../mobile/src/components/Glyph.tsx', import.meta.url), 'utf8');
     assert.match(glyph, /\{name === 'bell' \? \(/);
+});
+
+test('uzun düğme yazısı kartın rakamını EZMİYOR (2026-10-15, telefon)', () => {
+    /*
+     * Demo salonda "Personeli çağır" → "Gönderilemedi · tekrar dene": hap
+     * genişledi, sol sütun daraldı ve kahraman rakam "2sa23" diye okunmaz
+     * kaldı. Yazılar kısaldı; kart da kendini koruyor — eylem sütunu yarıyı
+     * geçmiyor, hap yazısı tek satırda kısalıyor.
+     */
+    const parts = code(read('mobile/src/components/FlowParts.tsx'));
+    const panel = parts.slice(parts.indexOf('function PanelCard('), parts.indexOf('function PanelSub('));
+    assert.match(panel, /maxWidth: '55%',\s*flexShrink: 1,/);
+    const hap = parts.slice(parts.indexOf("const filled = action.kind === 'fill';"));
+    assert.match(hap, /<Text numberOfLines=\{1\} style=\{\{\s*flexShrink: 1,/);
 });

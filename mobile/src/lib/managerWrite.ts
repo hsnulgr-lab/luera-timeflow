@@ -422,9 +422,12 @@ export async function sendStaffNudge(input: {
         if (error) return 'failed';
         const body = (data ?? {}) as { sent?: number; note?: string; error?: string };
         if (body.note === 'no_staff') return 'no_staff';
-        // `sent: 0` abonelik yok demek — personelin telefonunda bildirim
-        // kapalı. Damga basılmamalı; olmayan bir teslimatı iddia ederdi.
-        return typeof body.sent === 'number' && body.sent > 0 ? 'ok' : 'failed';
+        if (typeof body.sent !== 'number') return 'failed';
+        // `sent: 0` abonelik yok demek — personelin telefonu bağlı değil ya
+        // da bildirim izni kapalı. Damga basılmamalı (olmayan bir teslimatı
+        // iddia ederdi), ama bu bir HATA da değil: "tekrar dene" demek
+        // müdüre işe yaramayacak bir hamle önermekti (2026-10-15, telefon).
+        return body.sent > 0 ? 'ok' : 'unreachable';
     } catch {
         return 'failed';
     }
