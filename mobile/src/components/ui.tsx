@@ -1931,11 +1931,18 @@ export function LueraMark({ staff = false, resume = false, size: fixedSize, dotS
             alignItems: 'flex-end',
             alignSelf: resume ? 'center' : 'flex-start',
         }}>
+            {/*
+              * SATIR YÜKSEKLİĞİ YAZI BOYUNDAN KÜÇÜK OLAMAZ (2026-10-16,
+              * telefonda): sade markada `0.82` idi ve iOS satırın üstünü
+              * kırpıyordu — devam ekranında "l"nin tepesi gitmiş, marka
+              * "ıuera" okunuyordu. Karşılamanın ağır markası 1 ile hep
+              * doğruydu; sade marka da aynı geometride.
+              */}
             <Text style={{
                 color: c.tx,
                 fontSize: size,
                 fontFamily: plain ? font.extraBold : font.black,
-                lineHeight: size * (plain ? 0.82 : 1),
+                lineHeight: size,
                 fontWeight: plain ? '800' : '900',
                 letterSpacing: size * -0.05,
             }}>
