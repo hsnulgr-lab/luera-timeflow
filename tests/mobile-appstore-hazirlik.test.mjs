@@ -71,6 +71,19 @@ test('ihracat uyumluluğu tanımlı, derleme numarası app.json\'da DEĞİL', ()
         + 'ile PAKETTEN okunuyor.');
 });
 
+test('görünen sürüm yayındaki 1.0.0\'dan BÜYÜK — aynı sürüm ikinci kez yüklenemez', () => {
+    // `appVersionSource: "remote"` yalnız DERLEME numarasını yönetiyor;
+    // görünen sürüm (CFBundleShortVersionString) app.json'dan geliyor.
+    // 1.0.0 2026-10-07'de yayına girdi ve treni kapandı: aynı sürümle
+    // yükleme App Store Connect'te reddedilir.
+    const parts = app.version.split('.').map(Number);
+    assert.equal(parts.length, 3, `sürüm üç parçalı değil: ${app.version}`);
+    assert.ok(parts.every(Number.isInteger), `sürüm sayısal değil: ${app.version}`);
+    const [major, minor, patch] = parts;
+    assert.ok(major > 1 || (major === 1 && (minor > 0 || patch > 0)),
+        `sürüm ${app.version} — yayındaki 1.0.0'dan büyük olmalı`);
+});
+
 test('sürüm satırı paketten okunuyor, yapılandırmadan değil', () => {
     const yasal = read('app/(ortak)/profil/yasal.tsx');
     assert.match(yasal, /import \* as Application from 'expo-application';/);
