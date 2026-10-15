@@ -1,5 +1,11 @@
 # DEVİR · ÜÇÜNCÜ KABUK (tek kişilik işletme)
 
+> **➜ 2026-10-15 gece: DEVİR 2'YE GEÇİLDİ.** Yeni oturum önce
+> `docs/devir/09-DEVIR-2-YAYIN-1.0.1.md`'yi okur (1.0.1 yayınının sırası,
+> kararlar, komutlar), sonra `docs/yayin-oncesi-duzeltilecekler-1.0.1.md`'yi.
+> Bu belge tek kişilik kabuğun tarihi olarak kalıyor; bölüm numaralarıyla
+> (§7, §9, §52…) ona başvurulur.
+
 **Tarih:** 2026-10-15 · **Dal:** `tek-kisilik` = `main` = origin (`cf6aec5`'te gönderildi)
 **Testler:** 3037 geçti / 0 kırık / 7 atlandı · `tsc` temiz · kumandada lint 16 (eski)
 
@@ -66,6 +72,12 @@ ihtiyaç duymamalı.
 > **2026-10-15 gece · KALAN İŞLERİN TAM LİSTESİ §52'de.** Yarının ilk işi
 > giriş ekranı (§52 · A3, plan `docs/giris-yeniden-plan.md`); ilk soru e-posta
 > sağlayıcısı (SES / Resend / Brevo).
+>
+> **2026-10-15 gece, sonra · YAYIN ÖNCESİ DENETİM YAPILDI (§52 · B4).**
+> Bulgular sırayla `docs/yayin-oncesi-duzeltilecekler-1.0.1.md`'de; kullanıcı
+> "yarın sabah sırayla düzeltelim" dedi. Üç 🔴: sürüm `1.0.0`, ücretli kalemde
+> ×2 / katalog dışı kalem sunucuda reddediliyor (tahsilat kilitleniyor), hakem
+> notu "no AI service" diyor. Kararlar belgenin başında.
 
 1. **Kullanıcının duran emrini oku** (§1). Her şeyin üstünde o var.
 2. **Deploy borcu yok** (§6, 2026-10-15). Push yapıldı (`cf6aec5`, `main`
@@ -2602,8 +2614,8 @@ bu gece doğrulanmadı.
    işletme oluştur ortak); personel girişi değişmez.
 
 ### B · Mağaza sürümü (1.0.1) öncesi
-4. Yayın öncesi genel kontrol — `docs/yayin-oncesi-genel-kontrol-prompt.md`,
-   ayrı oturum.
+4. ~~Yayın öncesi genel kontrol~~ — **yapıldı (2026-10-15 gece).** Bulgular
+   ve sıra: `docs/yayin-oncesi-duzeltilecekler-1.0.1.md`.
 5. Üretim paketi (`--no-dev`) testi — zorunlu.
 6. Tek kişilik mod bu sürümde açık mı — kullanıcı kararı.
 7. 🔴 Yapay zekâya müşteri adı gidiyor (remind → Gemini, ilk ad). Apple
