@@ -155,10 +155,24 @@ export function stateLine(appointment: Appt, nowMinutes: number): StateLine {
      * karakteri almak ikincisinde "2026-" yazdırıyordu — ekranda
      * "2026-’de başladı" diye çıkıyordu.
      */
+    /*
+     * Zaman damgası YEREL SAATE çevriliyor (2026-10-16, telefonda bulundu).
+     * Sunucu damgayı UTC dönüyor ("…T21:19:00+00:00"); dizgeden kesmek 00:19'da
+     * biten işi "21:19'de bitti" yazdırıyordu — üç saat geri. Kumanda aynı
+     * damgayı tarih nesnesinden okuyup doğru gösteriyordu. Saat sütunu
+     * ("10:32:00") dilimsiz, olduğu gibi yazılıyor.
+     */
     const at = (stamp: string | null | undefined) => {
         if (!stamp) return null;
-        const time = stamp.includes('T') ? stamp.slice(11, 16) : stamp.slice(0, 5);
-        return /^\d{2}:\d{2}$/.test(time) ? `${time}’de` : null;
+        if (!stamp.includes('T')) {
+            const time = stamp.slice(0, 5);
+            return /^\d{2}:\d{2}$/.test(time) ? `${time}’de` : null;
+        }
+        const ms = Date.parse(stamp);
+        if (!Number.isFinite(ms)) return null;
+        const local = new Date(ms);
+        const two = (n: number) => String(n).padStart(2, '0');
+        return `${two(local.getHours())}:${two(local.getMinutes())}’de`;
     };
 
     if (kind === 'cancelled') {
