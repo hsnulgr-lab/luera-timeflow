@@ -22,6 +22,8 @@
 --
 -- Tekrar çalıştırılabilir: demo org'un verisini siler, yeniden kurar. Silme
 -- her zaman `organization_id = <demo org>` ile sınırlı — genel DELETE yok.
+-- Üç demo personel SİLİNMİYOR, kimlikleri sabit (2026-10-15): telefon
+-- oturumları cron koşularından etkilenmesin. Bkz. "Personel" bölümü.
 --
 -- ── Tarihler GÖRELİ ────────────────────────────────────────────────────────
 -- Sabit tarih yazılırsa demo birkaç hafta sonra "geçmiş" görünür ve ekran
@@ -92,6 +94,13 @@ DECLARE
     v_s1 UUID; v_s2 UUID; v_s3 UUID;   -- personel
     v_c  UUID;                          -- müşteri (döngüde)
 BEGIN
+    -- ── SESSİZ (2026-10-16, göç 120) ────────────────────────────────────
+    -- Tohumun yazdığı randevular personele "Yeni randevun var" bildirimi
+    -- tetiklemesin: personel korunduğu için (aşağıda) abonelikleri de
+    -- duruyor ve demo personele bağlı telefon her koşuda bildirim seline
+    -- tutuluyordu. İşaret YALNIZ bu işlemin; bitince kendiliğinden düşüyor.
+    PERFORM set_config('luera.tohum', 'sessiz', true);
+
     -- ── KAPI 0 · zorla kipinde gün sınırı ───────────────────────────────
     IF v_zorla AND (v_anchor < TIME '01:40' OR v_anchor > TIME '21:29') THEN
         RAISE EXCEPTION
@@ -188,15 +197,47 @@ BEGIN
     DELETE FROM reservations          WHERE organization_id = v_org;
     DELETE FROM customers             WHERE organization_id = v_org;
     DELETE FROM services              WHERE organization_id = v_org;
-    DELETE FROM staff                 WHERE organization_id = v_org;
 
-    -- ── Personel ────────────────────────────────────────────────────────
-    INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
-    VALUES (v_org, 'Elif Demir',   'Cilt Bakımı & Lazer', '0555 000 0001', '#8B5CF6', true) RETURNING id INTO v_s1;
-    INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
-    VALUES (v_org, 'Selin Kaya',   'Kalıcı Makyaj & Kaş', '0555 000 0002', '#06B6D4', true) RETURNING id INTO v_s2;
-    INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
-    VALUES (v_org, 'Derya Toprak', 'Masaj & Aromaterapi', '0555 000 0003', '#F59E0B', true) RETURNING id INTO v_s3;
+    -- ── Personel — KİMLİK SABİT (2026-10-15) ────────────────────────────
+    -- Eskiden burada `DELETE FROM staff` vardı ve her koşu üç personeli YENİ
+    -- kimlikle kuruyordu. Personelin telefon oturumu, şifresi ve cihaz bağı
+    -- o kimliğe bağlı: 13:00 koşusu telefonda açık olan Derya Toprak
+    -- oturumunu düşürdü, bütün ekranlar "okuyamadık" dedi. Cron 00:10'da da
+    -- koşuyor — ABD'li hakemin öğleden sonrası; hakem personel kipini
+    -- denerken aynısını yaşardı.
+    --
+    -- Artık üç personel KORUNUYOR: varsa alanları tazeleniyor, yoksa
+    -- kuruluyor. Oturum, şifre ve telefon bağı koşulardan etkilenmiyor.
+    -- Bedeli: bir testte konan şifre kendiliğinden silinmiyor — yayından
+    -- önce demo müdür → Personel → "Şifreyi sıfırla" (Devir 2 · 6A·9).
+    --
+    -- Bu üçü DIŞINDAKİ personel (biri uygulamadan eklediyse) eskisi gibi
+    -- siliniyor; randevular yukarıda zaten silindi. Aynı adda birden fazla
+    -- satır varsa biri kalıyor — `UPDATE … RETURNING INTO` tek satır ister.
+    DELETE FROM staff WHERE organization_id = v_org
+        AND name NOT IN ('Elif Demir', 'Selin Kaya', 'Derya Toprak');
+    DELETE FROM staff s WHERE s.organization_id = v_org
+        AND EXISTS (SELECT 1 FROM staff t
+                    WHERE t.organization_id = v_org AND t.name = s.name AND t.id < s.id);
+
+    UPDATE staff SET specialty = 'Cilt Bakımı & Lazer', phone = '0555 000 0001', color = '#8B5CF6', is_active = true
+        WHERE organization_id = v_org AND name = 'Elif Demir' RETURNING id INTO v_s1;
+    IF v_s1 IS NULL THEN
+        INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
+        VALUES (v_org, 'Elif Demir', 'Cilt Bakımı & Lazer', '0555 000 0001', '#8B5CF6', true) RETURNING id INTO v_s1;
+    END IF;
+    UPDATE staff SET specialty = 'Kalıcı Makyaj & Kaş', phone = '0555 000 0002', color = '#06B6D4', is_active = true
+        WHERE organization_id = v_org AND name = 'Selin Kaya' RETURNING id INTO v_s2;
+    IF v_s2 IS NULL THEN
+        INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
+        VALUES (v_org, 'Selin Kaya', 'Kalıcı Makyaj & Kaş', '0555 000 0002', '#06B6D4', true) RETURNING id INTO v_s2;
+    END IF;
+    UPDATE staff SET specialty = 'Masaj & Aromaterapi', phone = '0555 000 0003', color = '#F59E0B', is_active = true
+        WHERE organization_id = v_org AND name = 'Derya Toprak' RETURNING id INTO v_s3;
+    IF v_s3 IS NULL THEN
+        INSERT INTO staff (organization_id, name, specialty, phone, color, is_active)
+        VALUES (v_org, 'Derya Toprak', 'Masaj & Aromaterapi', '0555 000 0003', '#F59E0B', true) RETURNING id INTO v_s3;
+    END IF;
 
     -- ── Hizmetler ───────────────────────────────────────────────────────
     INSERT INTO services (user_id, organization_id, name, duration, price, color) VALUES
