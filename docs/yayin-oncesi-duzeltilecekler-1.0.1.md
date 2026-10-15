@@ -308,7 +308,7 @@ ilgili 📱 adımı.
 
 ## 10 · 🟡 Sunucu fonksiyonlarının özeti · XS (kullanıcı)
 
-- [ ] Komut çalıştırıldı · [ ] Karşılaştırıldı
+- [x] Komut çalıştırıldı · [x] Karşılaştırıldı (2026-10-16: depodaki 41 dosyanın 41'i sunucuda birebir; fazladan yalnız edge-runtime'ın kendi `main/` ve `hello/` dosyaları)
 
 1.0'dan beri yalnız 4 fonksiyon yoklandı (`staff-api`, `remind`,
 `booking-manage`, `whatsapp-booking`, 2026-10-15). Salt okuma:
@@ -381,6 +381,12 @@ ssh -i ~/.ssh/luera_vps root@76.13.4.164 'cd /data/coolify/services/t6yi63jbebvj
 > bağı koparıldı; Elif ve Selin "henüz girmedi". **§50** denenmedi: demo 00:10
 > sonrası sakin kipte, kasada bekleyen adisyon yok (o koda bugün yalnız fiyat ×
 > adet dokundu, P2'de sınandı).
+>
+> **Derleme öncesi son iki iş (2026-10-16 01:2x, kullanıcı):** devam ekranında
+> "luera"nın "l"si kırpılıyordu — sade markanın `lineHeight` değeri `0.82 ×
+> size` idi, iOS satırın üstünü kesiyordu; `size` yapıldı (test
+> `marka-kirpilmasi`). Devam ekranına karşılamanın hareketli markası
+> (`LueraTimeflowMark`, ortalı, 26 pt) — kullanıcı telefonda onayladı.
 
 - **P0 · Üretim paketi — ZORUNLU, her şeyden önce:** `cd mobile && npm run
   start:prod` (kullanıcı başlatır) → uygulamayı tamamen kapat, aç → demo

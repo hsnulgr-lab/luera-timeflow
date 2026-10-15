@@ -269,8 +269,8 @@ NORMAL, 36 dk arayla · production ortamında 4 değişken
 birebir], `SUPABASE_URL`).
 
 #### 6A · Derlemeden ÖNCE — kapılar (hepsi ✓ olmadan derleme YOK)
-1. [ ] Düzeltilecekler belgesinde D1–D10'un kutuları işaretli; D9 kararı uygulandı.
-2. [ ] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz.
+1. [x] Düzeltilecekler belgesinde D1–D10'un kutuları işaretli; D9 kararı uygulandı (2026-10-16; D10: sunucu = depo).
+2. [x] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz (2026-10-16: 3080 / 0 kırık).
 3. [x] Telefonda **P0 (üretim paketi)** ve P1–P5 geçti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11).
 4. [x] Sürüm ve Info.plist doğru (Claude çalıştırır) — 2026-10-16: `1.0.1` · `false` · Face ID metni · `TimeFlow`:
    ```bash
@@ -283,16 +283,16 @@ birebir], `SUPABASE_URL`).
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo export --platform ios --output-dir /tmp/luera-export-1.0.1
    ```
-6. [ ] **Çalışma ağacı temiz:** her şey commit'li, `tek-kisilik` ve `main`
+6. [x] **Çalışma ağacı temiz:** (2026-10-16, derlemeden hemen önce yeniden bakılır) her şey commit'li, `tek-kisilik` ve `main`
    aynı noktada ve push'lu (`git status` boş — yalnız `site/` kalabilir).
    EAS commit'lenmemiş değişikliği de yükler; derlenen şey bir commit'e
    karşılık gelmezse sonra neyin yayında olduğunu kimse bilemez.
-7. [ ] EAS kimliği ve ortamı (Claude çalıştırabilir, salt okuma):
+7. [x] EAS kimliği ve ortamı (Claude çalıştırabilir, salt okuma) — 2026-10-16: `luera` · buildNumber 4 · 4 değişken, `AUTH_MODE=live`:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx -y eas-cli@latest whoami && npx -y eas-cli@latest build:version:get -p ios && npx -y eas-cli@latest env:list production
    ```
    Beklenen: `luera` · `buildNumber - 4` · 4 değişken, `AUTH_MODE=live`.
-8. [ ] Demo hesabı mağazadaki 1.0 ile girilebiliyor (şifre App Store
+8. [x] Demo hesabı mağazadaki 1.0 ile girilebiliyor (2026-10-16 ✓) (şifre App Store
    Connect › Sign-In Information'dakiyle aynı; DEĞİŞTİRME).
 9. [x] **Demo personeli temiz** (2026-10-16 ✓) (2026-10-15, telefon turu Derya Toprak ile
    yapıldı): demo müdür → Profil → Personel → Derya Toprak → "Şifreyi
