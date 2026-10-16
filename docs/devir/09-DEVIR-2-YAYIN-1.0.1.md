@@ -19,8 +19,10 @@ düzeltmeler bitsin, 1.0.1 Apple'a gönderilsin.
 > `413378b` · `4862ed8` · `b1f6f23` (`tek-kisilik` = `main` = origin).
 > Bu ağaçla 6A yeniden: 2 ✓ (3131 · 0 kırık, `tsc` temiz) · 4 ✓ · 5 ✓ (tek
 > `.hbc` 6.346.994 bayt, yeni metinler içinde, eskileri yok) · 6 ✓ · D10 ✓
-> (sunucu değişmedi). **Kalan tek kapı: P0 (kullanıcı, `start:prod`).** Sonra
-> 6B (EAS). Uzak derleme numarası hâlâ 4. Önceki oturum devri yazamadan limite
+> (sunucu değişmedi). P0 ✓ (kullanıcı). **6B ✓ — EAS derlemesi `1.0.1 (5)`
+> bitti** (2026-10-16, `dbe0265`; günlük
+> https://expo.dev/accounts/luera/projects/luera-timeflow/builds/6a7442fb-5382-4148-9f33-ee0dfff4fcdd).
+> Sıradaki: 6C (`eas submit`) → 6D (TestFlight) → 6E (ASC). Önceki oturum devri yazamadan limite
 > takıldı; bu bölüm onun yerine yazıldı (oturum kaydından).
 
 Bu belge tek başına yeterli olmak için yazıldı. Önceki devir
@@ -288,7 +290,7 @@ birebir], `SUPABASE_URL`).
 #### 6A · Derlemeden ÖNCE — kapılar (hepsi ✓ olmadan derleme YOK)
 1. [x] Düzeltilecekler belgesinde D1–D10'un kutuları işaretli; D9 kararı uygulandı (2026-10-16; D10: sunucu = depo).
 2. [x] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz (2026-10-16: 3080 / 0 kırık · **paketten sonra yeniden: 3112 · 3105 geçti · 0 kırık · 7 atlandı, `tsc` temiz**).
-3. [ ] **YENİDEN** — telefonda **P0 (üretim paketi)**. İlk tur ve P1–P5 geçmişti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11); paket kodu (§10) ondan SONRA girdi ve paket turu Expo Go'nun geliştirme kipindeydi. `start:prod` + soğuk açılış + üç kabuk + bir paket ekranı.
+3. [x] **YENİDEN ✓ (2026-10-16, kullanıcı: "p0 geçti")** — telefonda **P0 (üretim paketi)**. İlk tur ve P1–P5 geçmişti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11); paket kodu (§10) ondan SONRA girdi ve paket turu Expo Go'nun geliştirme kipindeydi. `start:prod` + soğuk açılış + üç kabuk + bir paket ekranı.
 4. [x] Sürüm ve Info.plist doğru (Claude çalıştırır) — 2026-10-16: `1.0.1` · `false` · Face ID metni · `TimeFlow`:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo config --type introspect | grep -E "CFBundleShortVersionString|ITSAppUsesNonExemptEncryption|NSFaceIDUsageDescription|CFBundleDisplayName"
@@ -332,6 +334,9 @@ cd ~/Projects/luera-timeflow/mobile && npx -y eas-cli@latest build --profile pro
   oluşturuldu (bir yıl geçerli) — **yenisini üretme**, var olanı kullan.
 - Push bildirimi sorulursa: **var olan APNs anahtarını kullan** (geliştirme
   derlemesinde push bu anahtarla çalıştı), yeni anahtar üretme.
+- ✅ **2026-10-16: `1.0.1 (5)` bitti** — dört değişken yüklendi, buildNumber
+  4 → 5, sertifika `438C8BA5…` ve profil `TZ976K6Q8N` (2027-09-23'e dek)
+  yeniden kullanıldı, push kurulu. Paket `dbe0265`ten.
 - Süre 20–30 dk. Bitince durum `FINISHED`. Hata verirse günlüğün son 40
   satırını Claude'a yapıştırın; tekrar derlemeden önce sebep bulunur
   (her deneme derleme numarasını bir artırır — zararsız ama karışıklık).
@@ -678,7 +683,8 @@ koysak nasıl olur müşterilerin üzerine". Kararlar (soru-cevapla):
 2. ✅ Commit + push (`413378b`, `4862ed8`, `b1f6f23`).
 3. ✅ 6A yeniden: 2 (3131 · 0 kırık, `tsc`), 5 (`expo export`), 6 (ağaç
    temiz). Kalan P0 → sonra 6B (EAS).
-4. Mağaza "Bu sürümde" metnine bir satır eklenebilir (Paketler) — kullanıcıya sor.
+4. ✅ Mağaza "Bu sürümde" metnine iki paket satırı eklendi (kullanıcı:
+   "İkisini de ekle"; 1055 karakter).
 
 ### Aynı gece · küçük metin
 - Tek kişilik Gün kartı: süren işin hapı "Kumandayı aç" → **"İşlemi aç"**

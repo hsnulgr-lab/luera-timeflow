@@ -18,7 +18,8 @@ Bu dosya üç şey içeriyor:
 > doğrulandı (2026-10-16): tek kişilik kayıt sonu sorusu (D9), sade adisyon
 > (Personel 15), Kasa'da düzelt / geri al yalnız tek kişilikte (111),
 > bildirimin başka günü açması (118), telefon bağını koparma (117), kalem
-> kaybı ve "Tekrar dene" (D3, D4).
+> kaybı ve "Tekrar dene" (D3, D4). Paket satırları (kullanıcı onayı,
+> 2026-10-16): Paketler ekranı (`413378b`), tek kişilikte paket (`c4ae5a1`).
 
 ```text
 • Tek kişilik işletme: tek başınıza çalışıyorsanız kaydın sonunda "Yalnız ben"i seçin. Günü görmek, işi başlatıp bitirmek ve tahsilatı kaydetmek aynı telefonda.
@@ -27,6 +28,8 @@ Bu dosya üç şey içeriyor:
 • Bildirime dokununca ilgili randevu açılıyor; randevu başka bir güne aitse takvim o güne gidiyor.
 • Personelin kaybolan ya da değişen telefonunun bağı işletme sahibince tek dokunuşla koparılabiliyor.
 • Bağlantı zayıfken eklenen kalemler kaybolmuyor; "Tekrar dene" gerçekten yeniden gönderiyor.
+• Paketler: güzellik ve kuaför salonlarında satılan paketler Profil'de tek listede; kimin kaç seansı kaldığı ve hangi paketin ödemesinin beklediği bir bakışta görünüyor. Paket türleri telefondan eklenip düzenlenebiliyor.
+• Tek kişilik işletmede paketli seans "pakete dahil" diye kapanıyor; paketin peşinatı ve kalanı telefonda tahsil edilebiliyor.
 • Hata düzeltmeleri ve iyileştirmeler.
 ```
 

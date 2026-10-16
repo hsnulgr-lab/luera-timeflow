@@ -327,7 +327,7 @@ ssh -i ~/.ssh/luera_vps root@76.13.4.164 'cd /data/coolify/services/t6yi63jbebvj
 
 ## 11 · 📱 Telefon turu → derleme
 
-- [ ] **P0 YENİDEN (paket kodu P0'dan sonra girdi, `c4ae5a1`):** `start:prod`, soğuk açılış, üç kabuk + bir paket ekranı · [x] P0 (2026-10-15: `start:prod`, soğuk açılış; demo müdür · tek kişilik · personel Derya — üç kabuk temiz, iki bulgu düzeltildi, aşağıda) · [x] P1 (kayıt onaysız + mod sorusu + tek kişilik kabuk + tahsilatlı hesabı silme ✓ — 119 sonrası) · [x] P2 (ekip ✓ · tek kişilik: Fön ×2 + hizmet = ₺900, Kasa'da tek kayıt ₺900 Nakit ✓) · [x] P3 · [x] P4 · [x] P5 (§50 hariç — demo sakin kipte) · [ ] EAS üretim derlemesi · [ ] TestFlight · [ ] ASC
+- [x] **P0 YENİDEN (paket kodu P0'dan sonra girdi, `c4ae5a1`; 2026-10-16 geçti):** `start:prod`, soğuk açılış, üç kabuk + bir paket ekranı · [x] P0 (2026-10-15: `start:prod`, soğuk açılış; demo müdür · tek kişilik · personel Derya — üç kabuk temiz, iki bulgu düzeltildi, aşağıda) · [x] P1 (kayıt onaysız + mod sorusu + tek kişilik kabuk + tahsilatlı hesabı silme ✓ — 119 sonrası) · [x] P2 (ekip ✓ · tek kişilik: Fön ×2 + hizmet = ₺900, Kasa'da tek kayıt ₺900 Nakit ✓) · [x] P3 · [x] P4 · [x] P5 (§50 hariç — demo sakin kipte) · [x] EAS üretim derlemesi (`1.0.1 (5)`, 2026-10-16) · [ ] TestFlight · [ ] ASC
 
 > **P0 bulgusu (2026-10-15, demo müdür, Akış):** uzun bekleyen kartta
 > "Personeli çağır" → "Gönderilemedi · tekrar dene"; hap genişleyip kahraman
