@@ -192,9 +192,18 @@ test('tutar AÇIK — maske iki kabukta da kalktı (kullanıcı kararları, 2026
     assert.ok(!/eyeoff|Göster|Gizle/.test(screen + sade));
 });
 
-test('bekleme sayacının sunucuya yazılmadığı personele SÖYLENİYOR', () => {
-    assert.ok(screen.includes('Bu sayaç sunucuya yazılmaz'));
-    assert.ok(screen.includes('ses çalmaz'), 'bildirim yokluğu gizlenmemeli');
+test('bekleme sayfası DOĞRUYU söylüyor: süre dolunca telefon haber verir (2026-10-16)', () => {
+    // Eski metin "sunucuya yazılmaz · kapalıyken ses çalmaz" idi; 112 beklemeyi
+    // sunucuya yazdı, `waitAlarm` kapalıyken de bildirim kuruyor — ikisi de
+    // yanlış kalmıştı ("sunucu" ayrıca yasak kelime).
+    assert.ok(screen.includes('Süre dolunca bu telefon haber verir'));
+    assert.ok(screen.includes('bildirimleri kapalıysa'), 'izin yoksa bildirim gelmediği gizlenmemeli');
+    assert.ok(!screen.includes('sunucuya yazılmaz') && !screen.includes('ses çalmaz'));
+});
+
+test('halkanın altındaki ad hizmete özel değil: "25 dk bekleme" — "Boya" her hizmette yazıyordu', () => {
+    assert.match(screen, /function waitSource\(minutes: number\): string \{\s*return `\$\{minutes\} dk bekleme`;/);
+    assert.ok(!/`Boya · \$\{minutes\} dk`/.test(screen));
 });
 
 // Sunucuda not ucu YOKTU, `NoteSheet` salt okunurdu ve bunu itiraf ediyordu

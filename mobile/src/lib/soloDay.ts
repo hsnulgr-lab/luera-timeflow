@@ -659,7 +659,10 @@ export function soloAheadPanel(next: Appt, nowMinutes: number, first: boolean): 
 /**
  * YIĞIN — hâl kartının seçicisinin kartları, sırasıyla (G5).
  *
- *   1. Süren işler (G2 SÜRÜYOR / G3 BEKLEMEDE) — hap "Kumandayı aç".
+ *   1. Süren işler (G2 SÜRÜYOR / G3 BEKLEMEDE) — hap "İşlemi aç" (2026-10-16
+ *      kullanıcı kararı; eskiden "Kumandayı aç" — "kumanda" iç dilimiz, tek
+ *      kişi o ekranın bu adını hiçbir yerde görmüyor. "Devam et" değil:
+ *      beklemedeyken "beklemeyi bitir" gibi okunurdu).
  *   2. Açık adisyon (G4) — yalnız süren iş yokken; hap "Tahsil et".
  *   3. Başlatılabilirler, saat sırasıyla (`soloStartable`) — hap "Başlat".
  *
@@ -690,7 +693,7 @@ export function soloPickItems(input: {
         items.push({
             id: job.id,
             panel: waiting ?? soloRunningPanel(job, nowMs),
-            action: { label: 'Kumandayı aç', tone: 'calm', appointmentId: job.id },
+            action: { label: 'İşlemi aç', tone: 'calm', appointmentId: job.id },
             menu: null,
             spoken: waiting
                 ? `${job.customer_name}, ${job.service}, beklemede, ${waiting.heroValue} dakika`

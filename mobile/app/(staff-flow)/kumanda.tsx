@@ -2378,9 +2378,15 @@ function FormulaSheet({
     );
 }
 
-/** Halkanın altındaki ad — kumandanın bugünkü sözü, değişmedi. */
+/**
+ * Halkanın altındaki ad: "25 dk bekleme".
+ *
+ * Eskiden "Boya · 25 dk" idi ve HER hizmette öyle yazıyordu — cilt bakımında
+ * da "Boya" (2026-10-16, kullanıcının ekran görüntüsü). Beklemenin sebebini
+ * kumanda bilmiyor; bilmediğini yazmıyor.
+ */
 function waitSource(minutes: number): string {
-    return `Boya · ${minutes} dk`;
+    return `${minutes} dk bekleme`;
 }
 
 /**
@@ -2404,7 +2410,7 @@ function MinutesSheet({ onPick, onCancel }: { onPick: (m: number) => void; onCan
     const { c } = useTheme();
     return (
         <>
-            <SheetHead title="Bekleme kur" note="telefonda çalışır" />
+            <SheetHead title="Bekleme kur" note="bitince haber verir" />
             <View style={{ paddingHorizontal: 16 }}>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                     {MINUTES.map((m) => (
@@ -2430,7 +2436,10 @@ function MinutesSheet({ onPick, onCancel }: { onPick: (m: number) => void; onCan
                         </Pressable>
                     ))}
                 </View>
-                {/* Sahte onay yok: bu sayacın sınırı açıkça yazılı. */}
+                {/* Sahte onay yok: sayacın ne yaptığı ve sınırı açıkça yazılı.
+                    Eski metin ("sunucuya yazılmaz · kapalıyken ses çalmaz")
+                    112 ve bekleme bildiriminden (`waitAlarm`) sonra yanlıştı;
+                    bildirim izni yoksa iOS göstermiyor — o da söyleniyor. */}
                 <View style={{
                     marginTop: 10,
                     padding: 12,
@@ -2442,10 +2451,10 @@ function MinutesSheet({ onPick, onCancel }: { onPick: (m: number) => void; onCan
                     alignItems: 'center',
                     gap: 8,
                 }}>
-                    <Glyph name="cloud" size={15} color={c.tx3} />
+                    <Glyph name="bell" size={15} color={c.tx3} />
                     <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '600', color: c.tx3, lineHeight: 16 }}>
-                        Bu sayaç sunucuya yazılmaz. Uygulama kapalıyken ses çalmaz;
-                        ekrana bakıldığında kalan süre okunur.
+                        Süre dolunca bu telefon haber verir — uygulama kapalıyken ya da ekran
+                        kilitliyken de. Telefonun bildirimleri kapalıysa kalan süre yalnız bu ekranda görünür.
                     </Text>
                 </View>
             </View>

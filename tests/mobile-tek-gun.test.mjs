@@ -225,7 +225,7 @@ test('hap SÜREN işi, yoksa SIRADAKİNİ hedefliyor', () => {
     const live = appt({ id: 'r1', start_time: '14:00', arrived_at: '2026-10-09T11:00:00Z' });
     const busy = pick({ running: [live], startable: [appt({ id: 'r2', start_time: '16:00' })] });
     assert.deepEqual(busy.map((item) => item.action), [
-        { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'r1' },
+        { label: 'İşlemi aç', tone: 'calm', appointmentId: 'r1' },
         null,
     ]);
     assert.deepEqual(

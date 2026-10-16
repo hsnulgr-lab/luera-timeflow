@@ -173,7 +173,7 @@ test('G5·6 · SÜRÜYOR — sıradakilere yalnız BAKILIR: hap yok, kart dokunu
         label: 'SÜRÜYOR', hasPulse: true, heroValue: '74:12', subText: 'Tuğçe Erden · Kalıcı Makyaj · 16:02’de biter',
         subName: 'Tuğçe Erden',
     });
-    assert.deepEqual(items[0].action, { label: 'Kumandayı aç', tone: 'calm', appointmentId: 'Tuğçe Erden' });
+    assert.deepEqual(items[0].action, { label: 'İşlemi aç', tone: 'calm', appointmentId: 'Tuğçe Erden' });
     // "1 sa 14 dk" — süren iş yığının başında, sıradaki ŞU AN BOŞ değil BAŞLAMAYA.
     assert.deepEqual(
         [items[1].panel.label, items[1].panel.heroValue, items[1].panel.heroUnit, items[1].panel.heroValue2, items[1].panel.heroUnit2],
@@ -202,7 +202,7 @@ test('G5·6 · BEKLEMEDE — Başlat AÇIK (paralel iş); iki süren iş de yı�
         ticket: null, startable: later, nowMinutes: 14 * 60 + 22, nowMs,
     });
     assert.deepEqual(both.map((i) => [i.id, i.action?.label ?? null]), [
-        ['Tuğçe Erden', 'Kumandayı aç'], ['Gizem Ünal', 'Kumandayı aç'], ['Yasemin Kurt', null],
+        ['Tuğçe Erden', 'İşlemi aç'], ['Gizem Ünal', 'İşlemi aç'], ['Yasemin Kurt', null],
     ]);
 });
 
