@@ -93,11 +93,18 @@ test('sayım: açık = seansı süren; ödenmedi = borcu duran (bitmiş olsa da)
     ]), { open: 2, owed: 2 });
 });
 
-test('satır cümlesi: kalan · son seans · bitti', () => {
-    assert.equal(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 4 }), 'Ağda · 6 seans · 4 kaldı');
-    assert.equal(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 1 }), 'Ağda · 6 seans · son seans');
-    assert.equal(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 0 }), 'Ağda · 6 seans · bitti');
-    assert.equal(packageLine({ title: 'Cilt bakımı', total: 1, left: 1 }), 'Cilt bakımı · 1 kaldı');
+const plain = (s) => s.replace(/\u00A0/g, ' ');
+
+test('satır cümlesi: kalan · son seans · bitti — başlığın "· N seans"ı tekrarlanmaz', () => {
+    assert.equal(plain(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 4 })), 'Ağda · 4 seans kaldı');
+    assert.equal(plain(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 1 })), 'Ağda · son seans');
+    assert.equal(plain(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 0 })), 'Ağda · bitti');
+    assert.equal(plain(packageLine({ title: 'Cilt bakımı', total: 1, left: 1 })), 'Cilt bakımı · 1 seans kaldı');
+    // Başka bir sayı ya da adın içindeki sayı atılmaz.
+    assert.equal(plain(packageLine({ title: 'Lazer · 16 seans', total: 6, left: 2 })), 'Lazer · 16 seans · 2 seans kaldı');
+    assert.equal(plain(packageLine({ title: '6 seans', total: 6, left: 2 })), '6 seans · 2 seans kaldı', 'tek parça başlık kalır');
+    // "6 seans kaldı" bölünmez: satır sonunda bütün olarak iner.
+    assert.match(packageLine({ title: 'Ağda · 6 seans', total: 6, left: 4 }), /4\u00A0seans\u00A0kaldı$/);
     assert.equal(doneFoldLabel(4), 'Bitenler · 4');
 });
 

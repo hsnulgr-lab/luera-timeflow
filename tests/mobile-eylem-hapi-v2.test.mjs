@@ -61,7 +61,7 @@ test('whatsapp-proxy cevabı olduğu gibi okunuyor', () => {
 
 test('sunucu kuyruğa aldıysa "gönderilemedi" DENMİYOR', () => {
     assert.equal(waResultOf({ ok: false, reason: 'failed', queued: true }), 'queued');
-    assert.equal(waRecord('queued', 0).text, 'Kuyrukta · bağlantı gelince gider');
+    assert.equal(waRecord('queued', 0).text, 'Kuyrukta · bağlanınca gider');
 });
 
 test('bilinmeyen/boş cevap başarı sayılmıyor', () => {

@@ -227,8 +227,14 @@ export interface ApptContext {
     balance?: string;
     /** "Saç boyasına alerjisi var" */
     note?: string;
-    /** "10 seanslık bakım · 4/10" */
+    /** "10 seanslık bakım · 4 seans kaldı" — düz metin (eski kaynaklar, sesli okuma). */
     package?: string;
+    /**
+     * Müdür 36 · halka için paketin SAYILARI. Varsa A2 kutusu paketi halkayla
+     * çizer, yoksa `package` metniyle (stub, eski veri). `owed` bilinmiyorsa
+     * `null`; ödenmişse 0 — "₺0" yazılmaz.
+     */
+    pkg?: { name: string; total: number; left: number; owed: number | null };
 }
 
 /** Akışta noktanın rengi. Kelime her zaman yanında yazar. */
@@ -653,8 +659,14 @@ export function etaPanel(
         };
     }
     const remaining = Math.max(0, Math.floor(event.etaMinutes ?? 0));
+    /*
+     * Süre, kartın üst satırıyla AYNI biçimde: düz dakika ("60 dk", "90 dk").
+     * `durationBadge` idi — aynı kartta üstte "60 dk", panelde "1 sa"
+     * yazıyordu, 8 dakikayı da "08 dk" diye (rozetin sabit genişlik dolgusu)
+     * (2026-10-16, TestFlight). Üst satır: `flowBuild.detailOf`.
+     */
     const sub = event.durationMinutes != null
-        ? `${event.time} · ${durationBadge(event.durationMinutes)}`
+        ? `${event.time} · ${Math.max(0, Math.floor(event.durationMinutes))} dk`
         : event.time;
     return { label: 'girmesine', value: minuteLabel(remaining), sub, late: false };
 }

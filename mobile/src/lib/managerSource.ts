@@ -25,10 +25,10 @@ import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
 import {
-    packageBookRows, packageCounts, packageTypesOf,
+    packageBookRows, packageCounts, packageLine, packageName, packageTypesOf,
     type PackageBookRow, type PackageType, type PlanInput,
 } from './packageBook.ts';
-import { sellsPackages } from './packageSale.ts';
+import { sellsPackages, tidyPlanTitle } from './packageSale.ts';
 import {
     catalogOf, kasaOnlyReason, packageCovered, packagesEnabledFor, serviceCharge, serviceLines,
     type CashPaymentRow, type CashReservationRow, type CatalogService,
@@ -839,7 +839,8 @@ export async function fetchPackageRows(
             const id = String(row.id);
             const amount = Number(row.total_amount ?? 0) || 0;
             return {
-                name: String(row.title ?? ''),
+                // Eski kuralın yazdığı "· 6 Seans · 6 seans" tekrarı gösterimde atılır.
+                name: tidyPlanTitle(String(row.title ?? '')),
                 total_sessions: Math.max(1, Number(row.session_count ?? 1) || 1),
                 used_sessions: Math.max(0, Number(row.sessions_done ?? 0) || 0),
                 customer_id: String(row.customer_id),
@@ -939,7 +940,7 @@ async function fetchPackagePlans(organizationId: string, withNames: boolean): Pr
                 id: String(row.id),
                 customer_id: String(row.customer_id),
                 customer_name: typeof one?.name === 'string' ? one.name : null,
-                title: (row.title as string | null) ?? null,
+                title: typeof row.title === 'string' ? tidyPlanTitle(row.title) : null,
                 total_amount: Number(row.total_amount ?? 0),
                 session_count: Number(row.session_count ?? 1),
                 sessions_done: Number(row.sessions_done ?? 0),
@@ -1548,7 +1549,14 @@ export async function fetchDayContext(
         const id = row.customer_id;
         const current = out.get(id) ?? {};
         if (current.package) continue;
-        out.set(id, { ...current, package: `${row.name} · ${used}/${total}` });
+        // KALANI söyler, kullanılanı değil — müşteri kartının "Kalan seans"ı ve
+        // Paketler ekranıyla aynı dil ("0/6" idi; 2026-10-16, TestFlight).
+        out.set(id, {
+            ...current,
+            package: packageLine({ title: row.name, left: total - used, total }),
+            // Müdür 36 · halka: sayılar da taşınıyor (ad başlığın "· N seans"sız hâli).
+            pkg: { name: packageName(row.name, total), total, left: total - used, owed: row.owed ?? null },
+        });
     }
     return out;
 }

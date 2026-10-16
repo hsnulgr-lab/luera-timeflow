@@ -83,9 +83,13 @@ test('bedel önerisi, seans başı, başlık — masaüstüyle aynı', () => {
     assert.equal(clampSessions(99), 50, 'DB kısıtı 1–50');
     assert.equal(planTitle('Lazer', 10), 'Lazer · 10 seans');
     assert.equal(planTitle('Lazer', 1), 'Lazer');
+    // 2026-10-16: kural iki yanda da `planTitle` — ad sayıyı söylüyorsa
+    // eklenmez. Aynılığı `mobile-akis-kart-1-0-1` iki fonksiyonu aynı
+    // girdilerle koşturarak kolluyor.
     const desk = read('../src/pages/BeautyPackages.tsx');
-    assert.match(desk, /title: count > 1 \? `\$\{service\.name\} · \$\{count\} seans` : service\.name/,
+    assert.match(desk, /title: planTitle\(service\.name, count\)/,
         'masaüstünün başlık kalıbı değiştiyse telefon da değişmeli');
+    assert.match(desk, /import \{ planTitle \} from '@\/lib\/packageTitle';/);
 });
 
 test('çift paket: hakkı kalan aynı hizmet uyarır, biten uyarmaz', () => {

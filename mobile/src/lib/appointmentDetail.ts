@@ -17,6 +17,7 @@
 
 import { maskPhone, type ServiceOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
+import { packageLine } from './packageBook.ts';
 import { waNudgeText } from './actionPill.ts';
 import { dialable, normalizePhone, waLink } from './phone.ts';
 import {
@@ -287,6 +288,11 @@ export interface VisitSummary {
     /** Küçük ek: "/8" ya da ".". Paket ve ziyaret dışında boş. */
     trailing: string;
     headline: string;
+    /**
+     * Müdür 36 · Yol 1 — başlığın önündeki küçük halka (Ø18, rakamsız).
+     * Paket yoksa `null`. Akış'ın ve müşteri kartının halkasıyla AYNI şekil.
+     */
+    ring: { total: number; left: number } | null;
     sub: string;
     /** Rozetler; bilinmeyen alan rozet ÜRETMEZ. */
     chips: string[];
@@ -314,6 +320,7 @@ export function visitSummary(appointment: Appt): VisitSummary {
             lead: 'İlk',
             trailing: '',
             headline: 'Yeni müşteri',
+            ring: null,
             sub: 'İlk ziyaret · geçmiş kayıt yok',
             // Bakiyesi olmayan müşteri için "Bakiye ₺0" yazmak bilgi değil gürültü.
             chips: phone ? [phone] : [],
@@ -334,9 +341,12 @@ export function visitSummary(appointment: Appt): VisitSummary {
         initials: initialsOf(appointment.customer_name),
         lead: info.pkg ? String(info.pkg.used) : String(info.visitNo ?? '—'),
         trailing: info.pkg ? `/${info.pkg.total}` : '.',
+        // KALAN, "0/6" değil (Müdür 36): Akış "6 seans kaldı" derken kart
+        // "0/6" diyordu — göz bir ekranda kalanı, ötekinde kullanılanı okuyordu.
         headline: info.pkg
-            ? `${info.pkg.name} · ${info.pkg.used}/${info.pkg.total}`
+            ? packageLine({ title: info.pkg.name, total: info.pkg.total, left: info.pkg.total - info.pkg.used })
             : `${info.visitNo}. ziyaret`,
+        ring: info.pkg ? { total: info.pkg.total, left: Math.max(0, info.pkg.total - info.pkg.used) } : null,
         sub: info.lastVisit ? `Son: ${info.lastVisit}` : 'İlk ziyaret',
         chips,
         quiet: [],

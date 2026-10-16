@@ -123,12 +123,31 @@ export function packageSummary(counts: { open: number; owed: number }): string {
     return parts.join(' · ');
 }
 
-/** Satırın ikinci cümlesi: "Ağda · 6 seans · 2 kaldı" · "… · son seans" · "… · bitti". */
+/** Bölünmez boşluk: "6 seans kaldı" satır sonunda ortadan kırılmasın. */
+const NBSP = '\u00A0';
+
+/**
+ * Başlığın "· N seans" parçası atılır — kalan cümlesi sayıyı zaten söylüyor.
+ * "Lazer Epilasyon · 6 Seans · 6 seans kaldı" aynı sayıyı iki kez okutuyordu
+ * ve "6 / seans kaldı" diye bölünüyordu (2026-10-16, telefonda).
+ */
+export function packageName(title: string, total: number): string {
+    const count = new RegExp(`^${total}\\s*seans$`);
+    const parts = title.split(' · ');
+    const kept = parts.filter((part, index) => index === 0 || !count.test(part.trim().toLocaleLowerCase('tr-TR')));
+    return kept.join(' · ');
+}
+
+/**
+ * Paketin cümlesi: "Ağda · 2 seans kaldı" · "Ağda · son seans" · "Ağda · bitti".
+ * Paketler ekranı VE Akış'ın paket satırı bunu yazar — iki yerde iki dil olmasın.
+ * Müdür KALANI sorar (müşteri kartının "Kalan seans" levhası); toplam kartta.
+ */
 export function packageLine(row: Pick<PackageBookRow, 'title' | 'left' | 'total'>): string {
     const state = row.left <= 0 ? 'bitti'
-        : lastSession(row) ? 'son seans'
-            : `${row.left} kaldı`;
-    return `${row.title} · ${state}`;
+        : lastSession(row) ? `son${NBSP}seans`
+            : `${row.left}${NBSP}seans${NBSP}kaldı`;
+    return `${packageName(row.title, row.total)} · ${state}`;
 }
 
 /** Bitenler katlanır: "Bitenler · 4". */

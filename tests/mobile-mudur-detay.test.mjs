@@ -211,14 +211,19 @@ test('bilinmeyen bakiye rozet üretmez', () => {
     assert.deepEqual(summary.chips, ['0532 ••• 03 03']);
 });
 
-test('paket varsa ilerleme gösterilir', () => {
+test('paket varsa KALAN ve halka gösterilir (Müdür 36 · Yol 1)', () => {
     const summary = visitSummary({
         ...base,
         info: { risk: null, pkg: { name: 'Lazer', used: 3, total: 8 }, visitNo: null, lastVisit: '2 Ağu' },
     });
-    assert.equal(summary.lead, '3');
-    assert.equal(summary.trailing, '/8');
-    assert.equal(summary.headline, 'Lazer · 3/8');
+    // "Lazer · 3/8" idi: Akış kalanı, kart kullanılanı söylüyordu.
+    assert.equal(summary.headline.replace(/\u00A0/g, ' '), 'Lazer · 5 seans kaldı');
+    assert.deepEqual(summary.ring, { total: 8, left: 5 });
+    const last = visitSummary({
+        ...base,
+        info: { risk: null, pkg: { name: 'Lazer Epilasyon · 6 Seans', used: 5, total: 6 }, visitNo: null, lastVisit: null },
+    });
+    assert.equal(last.headline.replace(/\u00A0/g, ' '), 'Lazer Epilasyon · son seans');
 });
 
 // ── Değiştir: iki jeton + iki satır ─────────────────────────────────────────

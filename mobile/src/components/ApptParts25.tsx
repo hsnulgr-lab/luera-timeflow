@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, Text, View, type StyleProp, type ViewStyle
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Num } from './ui';
+import { SessionRing } from './SessionRing';
 import { feedback } from '../lib/feedback';
 import type {
     ApptIdentity, ChangeRow, ChangeTile, StateLine, VisitSummary,
@@ -464,15 +465,22 @@ export function VisitPanel({ summary, onOpen }: {
                 </View>
 
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text numberOfLines={1} style={{
-                        color: bodyInk,
-                        fontSize: 16,
-                        fontFamily: font.extraBold,
-                        fontWeight: '800',
-                        letterSpacing: -0.32,
-                    }}>
-                        {summary.headline}
-                    </Text>
+                    {/* Müdür 36 · Yol 1: paketin küçük halkası başlığın önünde. */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                        {summary.ring ? (
+                            <SessionRing size={18} stroke={2.6} total={summary.ring.total} left={summary.ring.left} color={bodyInk} />
+                        ) : null}
+                        <Text numberOfLines={1} style={{
+                            flexShrink: 1,
+                            color: bodyInk,
+                            fontSize: 16,
+                            fontFamily: font.extraBold,
+                            fontWeight: '800',
+                            letterSpacing: -0.32,
+                        }}>
+                            {summary.headline}
+                        </Text>
+                    </View>
                     <Text numberOfLines={1} style={{
                         color: subInk,
                         fontSize: 13,

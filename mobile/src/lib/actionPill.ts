@@ -270,7 +270,7 @@ export function waRecord(result: WaResult, minutes: number): PillRecord {
         case 'invalid_phone':
             return { text: 'Numara geçersiz · düzeltilmeli', tone: 'warn', stales: false };
         case 'queued':
-            return { text: 'Kuyrukta · bağlantı gelince gider', tone: 'quiet', stales: false };
+            return { text: 'Kuyrukta · bağlanınca gider', tone: 'quiet', stales: false };
         case 'failed':
             // Bitmemiş iş: bayatlamıyor. Göz yerinde, yeniden denenebilir.
             return { text: 'Gönderilemedi · tekrar deneyin', tone: 'warn', stales: false };
@@ -309,13 +309,19 @@ export function staffRecord(result: NudgeResult, minutes: number): PillRecord {
      * kart onu söylüyor — `waRecord` ile aynı kural: bitmemiş iş
      * BAYATLAMIYOR (`stales: false`), göz yerinde kalıyor, yeniden denenebilir.
      */
+    /*
+     * KISA, çünkü krem kartın sol sütunu ~188 pt ve satır TEK SATIR (kart
+     * 118'de kalıyor). "Personelin bildirimi kapalı · gönderilmedi" 42 harfti
+     * ve sonu "Yönet"in altına giriyordu (2026-10-16, TestFlight). Kırmızı
+     * nokta zaten "gitmedi" diyor; "· gönderilmedi" ekini o taşıyor.
+     */
     switch (result) {
         case 'ok':
             return { text: `Personel çağırıldı · ${recordAge(minutes)}`, tone: 'quiet', stales: true };
         case 'no_staff':
-            return { text: 'Personel atanmamış · gönderilmedi', tone: 'warn', stales: false };
+            return { text: 'Personel atanmamış', tone: 'warn', stales: false };
         case 'unreachable':
-            return { text: 'Personelin bildirimi kapalı · gönderilmedi', tone: 'warn', stales: false };
+            return { text: 'Personelin bildirimi kapalı', tone: 'warn', stales: false };
         case 'failed':
             return { text: 'Gönderilemedi · tekrar deneyin', tone: 'warn', stales: false };
     }

@@ -8,6 +8,9 @@ import { Num } from './ui';
 import { feedback } from '../lib/feedback';
 import { ActionPill } from './ActionPill';
 import { Glyph } from './Glyph';
+import { SessionRing } from './SessionRing';
+import { formatTRY } from '../lib/customerCard';
+import { remainingHead } from '../lib/sessionRing';
 import { pillCells, pillOff, pillOpens, type CellKey, type PillRecord } from '../lib/actionPill';
 import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
@@ -752,8 +755,11 @@ function EtaPanel({ event, ink, onAction, onPill, waConnected = true }: {
                                 : record.tone === 'live' ? c.or : ink.ink2,
                             opacity: record.tone === 'quiet' ? 0.7 : 1,
                         }} />
-                        <Num size={nextCardMetrics.sub} style={{
-                            color: ink.ink2, fontWeight: '700', letterSpacing: 0,
+                        {/* Sütunun içinde KALIR: sığmazsa küçülür (`fit`),
+                            düğme sütununun altına kaymaz. Esnemesiz satır
+                            "Yönet"in altına giriyordu (2026-10-16). */}
+                        <Num fit size={nextCardMetrics.sub} style={{
+                            flex: 1, color: ink.ink2, fontWeight: '700', letterSpacing: 0,
                         }}>
                             {record.text}
                         </Num>
@@ -945,6 +951,9 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waCon
     const [triggerWidth, setTriggerWidth] = useState(0);
     const openable = Boolean(event.customerId && onOpenCustomer);
     const rows = contextRows(event.context);
+    // Halkanın sayıları varsa paketin metin satırı çizilmez — halka söylüyor.
+    const ringPkg = event.context?.pkg ?? null;
+    const lineRows = ringPkg ? rows.filter((row) => row.label !== 'paket') : rows;
     const conflict = staffConflict(event, presence);
 
     return (
@@ -1045,6 +1054,16 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waCon
                 </View>
             </View>
 
+            {/*
+              * MÜDÜR 36 · YOL 1 — bağlam kutusu (2026-10-16, kullanıcı seçti).
+              *
+              * Uyarı ve bakiye: amber nokta + cümle (renk işarette, yazı
+              * mürekkepte); eski "NOT / PAKET" etiket sütunu kalktı. Paket
+              * HALKAYLA: rakam halkada, "6 seans kaldı" yanında, ad + toplam
+              * altında, ödenmedi varsa üçüncü satır. Kutu MÜŞTERİYİ anlatıyor,
+              * bu randevuyu değil — "bu seans paketten" denmiyor.
+              * Halkanın sayıları yoksa (stub, eski kaynak) paket düz metin.
+              */}
             {rows.length > 0 ? (
                 <View style={{
                     gap: nextCardMetrics.noteGap,
@@ -1054,36 +1073,41 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waCon
                     borderWidth: 1,
                     borderColor: cardSkin.border,
                 }}>
-                    {rows.map((row) => (
+                    {lineRows.map((row) => (
                         <View key={row.label} style={{
                             flexDirection: 'row',
-                            alignItems: 'flex-start',
-                            gap: nextCardMetrics.liGap,
+                            alignItems: 'center',
+                            gap: 8,
                         }}>
-                            <Text style={{
-                                width: nextCardMetrics.liLabelWidth,
-                                paddingTop: nextCardMetrics.liLabelTop,
-                                color: cardSkin.tx2,
-                                fontSize: nextCardMetrics.liLabel,
-                                fontFamily: font.bold,
-                                fontWeight: '700',
-                                letterSpacing: nextCardMetrics.liLabel * 0.08,
-                            }}>
-                                {upperTR(row.label)}
-                            </Text>
-                            <Text style={{
+                            {row.label === 'paket' ? null : (
+                                <View style={{
+                                    width: nextCardMetrics.ctxDot,
+                                    height: nextCardMetrics.ctxDot,
+                                    borderRadius: nextCardMetrics.ctxDot / 2,
+                                    backgroundColor: cardSkin.am,
+                                }} />
+                            )}
+                            <Text numberOfLines={1} style={{
                                 flex: 1,
                                 minWidth: 0,
                                 color: cardSkin.tx,
-                                fontSize: nextCardMetrics.liText,
+                                fontSize: nextCardMetrics.ctxText,
+                                lineHeight: nextCardMetrics.ctxLine,
                                 fontFamily: font.semiBold,
                                 fontWeight: '600',
-                                lineHeight: nextCardMetrics.liText * nextCardMetrics.liLine,
                             }}>
                                 {row.text}
                             </Text>
                         </View>
                     ))}
+                    {ringPkg && lineRows.length > 0 ? (
+                        <View style={{
+                            height: 1,
+                            marginHorizontal: -nextCardMetrics.notePad,
+                            backgroundColor: cardSkin.border,
+                        }} />
+                    ) : null}
+                    {ringPkg ? <PackageRingRow pkg={ringPkg} /> : null}
                 </View>
             ) : null}
 
@@ -1211,6 +1235,94 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waCon
                     </Text>
                 </View>
             ) : null}
+        </View>
+    );
+}
+
+/**
+ * Müdür 36 · Yol 1 — kutunun paket satırı: halka + üç satır.
+ *
+ *   [6]  6 seans kaldı            ← 15/700 · son seansta yalnız "Son seans"
+ *        Lazer Epilasyon · 6 seans ← ad kırpılır, "· N seans" kuyruğu kırpılmaz
+ *        ● ₺2.600 ödenmedi        ← yalnız borç varsa; nokta amber, yazı mürekkep
+ *
+ * Halka krem mürekkepte: turuncu geri sayıma ve "Geldi"ye kalıyor.
+ */
+function PackageRingRow({ pkg }: { pkg: NonNullable<FlowEvent['context']>['pkg'] & object }) {
+    const head = remainingHead(pkg.total, pkg.left);
+    const owed = pkg.owed != null && pkg.owed > 0 ? pkg.owed : null;
+    return (
+        <View
+            accessible
+            accessibilityLabel={[
+                head,
+                `${pkg.name}, ${pkg.total} seans`,
+                owed != null ? `${formatTRY(owed)} lira ödenmedi` : null,
+            ].filter(Boolean).join(', ')}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: nextCardMetrics.ringGap }}
+        >
+            <SessionRing
+                size={nextCardMetrics.ring}
+                stroke={nextCardMetrics.ringStroke}
+                total={pkg.total}
+                left={pkg.left}
+                color={cardSkin.tx}
+                number
+                numberSize={nextCardMetrics.ringNum}
+            />
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={[{
+                    color: cardSkin.tx,
+                    fontSize: nextCardMetrics.pkgHead,
+                    lineHeight: nextCardMetrics.pkgHeadLine,
+                    fontFamily: font.bold,
+                    fontWeight: '700',
+                    letterSpacing: nextCardMetrics.pkgHead * -0.01,
+                }, numeric]}>
+                    {head}
+                </Text>
+                <View style={{ flexDirection: 'row', minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{
+                        flexShrink: 1,
+                        color: cardSkin.tx2,
+                        fontSize: nextCardMetrics.pkgSub,
+                        lineHeight: nextCardMetrics.pkgSubLine,
+                        fontFamily: font.medium,
+                        fontWeight: '500',
+                    }}>
+                        {pkg.name}
+                    </Text>
+                    <Text style={[{
+                        flexShrink: 0,
+                        color: cardSkin.tx2,
+                        fontSize: nextCardMetrics.pkgSub,
+                        lineHeight: nextCardMetrics.pkgSubLine,
+                        fontFamily: font.medium,
+                        fontWeight: '500',
+                    }, numeric]}>
+                        {` · ${pkg.total}\u00A0seans`}
+                    </Text>
+                </View>
+                {owed != null ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{
+                            width: nextCardMetrics.ctxDot,
+                            height: nextCardMetrics.ctxDot,
+                            borderRadius: nextCardMetrics.ctxDot / 2,
+                            backgroundColor: cardSkin.am,
+                        }} />
+                        <Text style={[{
+                            color: cardSkin.tx,
+                            fontSize: nextCardMetrics.pkgSub,
+                            lineHeight: nextCardMetrics.pkgSubLine,
+                            fontFamily: font.semiBold,
+                            fontWeight: '600',
+                        }, numeric]}>
+                            {`₺${formatTRY(owed)}\u00A0ödenmedi`}
+                        </Text>
+                    </View>
+                ) : null}
+            </View>
         </View>
     );
 }
@@ -2381,8 +2493,10 @@ function PanelRecord({ ink, record }: { ink: PanelInk; record: PillRecord }) {
                     : record.tone === 'live' ? c.or : ink.ink2,
                 opacity: record.tone === 'quiet' ? 0.7 : 1,
             }} />
-            <Num size={waitCardMetrics.sub} style={{
-                color: ink.ink2, fontWeight: '700', letterSpacing: 0,
+            {/* A1'in kayıt satırıyla aynı güvence: sütunda kalır, sığmazsa
+                küçülür — eylem sütununun altına kaymaz (2026-10-16). */}
+            <Num fit size={waitCardMetrics.sub} style={{
+                flex: 1, color: ink.ink2, fontWeight: '700', letterSpacing: 0,
             }}>
                 {record.text}
             </Num>

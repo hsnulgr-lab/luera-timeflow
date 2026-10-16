@@ -7,6 +7,8 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { feedback } from '../lib/feedback';
+import { remainingHead } from '../lib/sessionRing';
+import { SessionRing } from './SessionRing';
 import {
     displayPhone, formatTRY, nameLines,
     type CustomerCard as CustomerCardType,
@@ -450,7 +452,7 @@ export function CustomerCard({
                                     accessible
                                     accessibilityLabel={[
                                         pack.name,
-                                        `${left} seans kaldı`,
+                                        remainingHead(pack.total, left),
                                         owed != null ? `${formatTRY(owed)} lira ödenmedi` : null,
                                         pack.closedBy ? `kapalı, ${pack.closedBy}` : null,
                                     ].filter(Boolean).join(', ')}
@@ -467,16 +469,26 @@ export function CustomerCard({
                                             {/* Parası ödenmiş bir hak: satır silinmiyor, KAPALI yazıyor. */}
                                             {pack.closedBy ? <ClosedTag edge={chipEdge} /> : null}
                                         </View>
-                                        <Sub>
-                                            {left} seans kaldı
+                                        {/* Müdür 36 · Yol 1: kalan + borç; renk NOKTADA,
+                                            yazı mürekkepte (eskiden borç yazısı amberdi). */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                            <Sub>{remainingHead(pack.total, left)}</Sub>
                                             {owed != null ? (
-                                                <Text style={{ color: c.am, fontFamily: font.semiBold, fontWeight: '600' }}>
-                                                    {` · ₺${formatTRY(owed)} ödenmedi`}
-                                                </Text>
+                                                <>
+                                                    <Sub>·</Sub>
+                                                    <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: c.am }} />
+                                                    <Text style={{
+                                                        color: c.tx, fontSize: 12.5, fontFamily: font.semiBold, fontWeight: '600', lineHeight: 12.5 * 1.3,
+                                                    }}>
+                                                        {`₺${formatTRY(owed)}\u00A0ödenmedi`}
+                                                    </Text>
+                                                </>
                                             ) : null}
-                                        </Sub>
+                                        </View>
                                     </View>
-                                    <Amount>{pack.used}/{pack.total}</Amount>
+                                    {/* "0/6" (kullanılan / toplam) idi; artık Akış'ın ve randevu
+                                        kartının halkası, rakamı KALAN (Müdür 36). */}
+                                    <SessionRing size={36} stroke={3.2} total={pack.total} left={left} color={c.tx} number numberSize={13} />
                                 </View>
                             );
                             /*

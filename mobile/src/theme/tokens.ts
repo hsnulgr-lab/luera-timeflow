@@ -875,6 +875,18 @@ export const nextCardMetrics = {
     liLabel: 11.5,      // .a2li s
     liLabelWidth: 74,
     liLabelTop: 3,
+    // ── Müdür 36 · Yol 1 — kutunun halkası (`Mudur 36 Baglam Kutusu.html`) ──
+    ring: 40,           // .rg Ø40
+    ringStroke: 3.5,
+    ringGap: 12,        // .y1 gap
+    ringNum: 15,        // .rg b 15/800
+    pkgHead: 15,        // .y1 .l1 15/700
+    pkgHeadLine: 18,
+    pkgSub: 12.5,       // .y1 .l2 / .l3 12,5
+    pkgSubLine: 15,
+    ctxDot: 7,          // .nt s — uyarının amber noktası
+    ctxText: 14,        // .nt 14/600
+    ctxLine: 18,
     confText: 12.5,     // .conf
     confDot: 7,
     confGap: 7,

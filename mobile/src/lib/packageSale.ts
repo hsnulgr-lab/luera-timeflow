@@ -124,11 +124,41 @@ export function perSession(price: number, sessions: number): number {
     return Math.round(Math.max(0, price) / count);
 }
 
-/** Masaüstünün başlığı: çok seansta "Lazer · 10 seans", tekte yalnız ad. */
+/** Ad bu seans sayısını zaten söylüyor mu: "Lazer · 6 Seans", "10 seanslık bakım". */
+function mentionsSessions(text: string, count: number): boolean {
+    return new RegExp(`(^|[^0-9])${count}\\s*seans`).test(text.toLocaleLowerCase('tr-TR'));
+}
+
+/**
+ * Masaüstünün başlığı: çok seansta "Lazer · 10 seans", tekte yalnız ad.
+ *
+ * Ad sayıyı ZATEN söylüyorsa eklenmez (2026-10-16, TestFlight): demo türü
+ * "Lazer Epilasyon · 6 Seans" idi ve satış "… · 6 Seans · 6 seans" yazıyordu,
+ * Akış da sonuna "0/6" koyunca aynı bilgi üç kez okunuyordu. Masaüstünün
+ * satışı aynı kuralı taşıyor (`src/lib/packageTitle.ts`).
+ */
 export function planTitle(name: string, sessions: number): string {
     const count = clampSessions(sessions);
     const clean = name.trim();
-    return count > 1 ? `${clean} · ${count} seans` : clean;
+    if (count <= 1 || mentionsSessions(clean, count)) return clean;
+    return `${clean} · ${count} seans`;
+}
+
+/**
+ * Var olan başlığın GÖSTERİMİ: "Lazer Epilasyon · 6 Seans · 6 seans" →
+ * "Lazer Epilasyon · 6 Seans". Kayıt değişmiyor — eski kural bu tekrarı
+ * yazmıştı ve masaüstü başlığı olduğu gibi gösteriyor; telefon sondaki
+ * "· N seans" parçasını, önceki bir parça aynı sayıyı söylüyorsa atar.
+ */
+export function tidyPlanTitle(title: string): string {
+    const parts = title.split(' · ').map((part) => part.trim()).filter(Boolean);
+    const kept: string[] = [];
+    for (const part of parts) {
+        const match = /^(\d+)\s*seans$/.exec(part.toLocaleLowerCase('tr-TR'));
+        if (match && kept.some((earlier) => mentionsSessions(earlier, Number(match[1])))) continue;
+        kept.push(part);
+    }
+    return kept.join(' · ') || title.trim();
 }
 
 /**

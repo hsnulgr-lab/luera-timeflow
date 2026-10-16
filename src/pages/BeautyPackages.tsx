@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { sendPackageToKasa } from '@/lib/kasaPackageQueue';
 import { evaluateEligibility } from '@/lib/serviceEligibility';
+import { planTitle } from '@/lib/packageTitle';
 import { useLabels } from '@/hooks/useLabels';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
@@ -895,7 +896,8 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
         setSaving(true);
         const created = await addPackage({
             customerId: customer.id,
-            title: count > 1 ? `${service.name} · ${count} seans` : service.name,
+            // Ad sayıyı zaten söylüyorsa tekrar eklenmez (telefonla aynı kural).
+            title: planTitle(service.name, count),
             sessionCount: count, totalAmount: clampPrice, staffId: undefined,
         });
         if (!created) { setSaving(false); toast.error('Paket oluşturulamadı'); return; }

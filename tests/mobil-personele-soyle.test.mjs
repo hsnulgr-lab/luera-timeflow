@@ -226,8 +226,9 @@ test('kartın kayıt satırı sonucu söylüyor', () => {
     // bitmemiş iş BAYATLAMIYOR, göz yerinde kalıyor.
     assert.equal(staffRecord('ok', 2).text, 'Personel çağırıldı · 2 dk');
     assert.equal(staffRecord('failed', 2).stales, false);
-    assert.equal(staffRecord('no_staff', 40).text, 'Personel atanmamış · gönderilmedi');
-    assert.equal(staffRecord('unreachable', 3).text, 'Personelin bildirimi kapalı · gönderilmedi');
+    // Kısa: krem kartın sol sütununa tek satırda sığmalı (2026-10-16).
+    assert.equal(staffRecord('no_staff', 40).text, 'Personel atanmamış');
+    assert.equal(staffRecord('unreachable', 3).text, 'Personelin bildirimi kapalı');
     assert.equal(staffRecord('unreachable', 3).stales, false);
     const sent = applyNudgeResult({ ...base, kind: 'next', etaMinutes: -4 }, 'failed');
     assert.equal(pillRecordOf({ ...sent, actedCell: 'inf', actedAt: 0 })?.tone, 'warn');
