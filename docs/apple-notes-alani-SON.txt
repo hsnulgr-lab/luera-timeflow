@@ -1,4 +1,5 @@
-NEW IN 1.0.1: a one-person mode (below), a simpler bill screen and fixes.
+NEW IN 1.0.1: a one-person mode (below), a simpler bill screen, a packages
+list and fixes.
 The demo account, its password and all flows from 1.0 are unchanged.
 
 SCREEN RECORDING: attached below (Attachment field), made on a physical
@@ -21,6 +22,7 @@ repository.
 
 HOW TO REVIEW. Bottom tabs: Akis (day flow), Takvim (calendar), Randevu
 (new appointment), Kasa (till), Profil. Customers: Profil > Musteriler.
+Packages: Profil > Paketler.
 Staff: Profil > Personel. Legal: Profil > Yasal. Public booking page for
 end customers, no login: https://timeflow.lueratech.com/book/demo-luera
 
@@ -70,4 +72,5 @@ Grotesk, SIL Open Font License.
 WHATSAPP. No line is connected in the demo salon, so the WhatsApp button
 is dimmed and explains why.
 
-Labels: Gun=Day, Isletme=Business, Musteriler=Customers, Hesap=Account.
+Labels: Gun=Day, Isletme=Business, Musteriler=Customers, Hesap=Account,
+Paketler=Packages.

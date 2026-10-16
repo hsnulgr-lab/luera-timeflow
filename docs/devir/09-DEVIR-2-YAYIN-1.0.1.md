@@ -642,7 +642,10 @@ sunucuyla sorunsuz mu (geriye uyum).
   Core bağlantısı 1.0.1 gönderildikten sonra, ayrı oturum.
 - 1.0.2 adayları (kayıtta): giriş ekranı (A3) · çevrimdışı BAŞLAT + kalem →
   `items_stale` · personel oturumu düşünce ekranın cümlesi · **Dinamik Ada
-  geri sayımı + bekleme kurarken izin sorusu (§11)**.
+  geri sayımı + bekleme kurarken izin sorusu (§11)** · **personel müşteri
+  dosyasında paket halkası** (`app/(staff-flow)/musteri.tsx · PackageRow`:
+  çentik/çubuk + "1 / 6" → Ø36 `SessionRing` + `remainingHead`; kullanıcı
+  2026-10-16 "1.0.2'ye bırak", (6) olduğu gibi gider).
 
 ---
 
@@ -810,8 +813,49 @@ ad kırpılıyordu; Yol 1 60 / 69 / 95 sabit. Karar: **Yol 1 + iki ayar** —
 - Test `tests/mobile-mudur-36-halka.test.mjs` (7) + `mobile-mudur-detay`
   güncellendi. 3143 · 3136 geçti · 0 kırık · `tsc` temiz · lint artmadı ·
   `expo export` tek `.hbc` 6.355.016 bayt.
-- Sıradaki: telefonda bak (Metro'da `r`) → commit + push → masaüstü deploy →
-  P0 → `(6)` → TestFlight → gönderim.
+- ✅ Telefonda bakıldı ("gayet güzel") → commit + push `9fe9fd1` + `6c29a2c`.
+- ✅ A2 hizmet satırı tek satır (kullanıcı: "bu alta geçmese … kart kısalır"):
+  `managerFlow.a2Detail` personelin yalnız ADI ("Selin ile"), `numberOfLines 1`
+  + en çok %15 küçülme → `bdce784`.
+- ✅ **EAS `1.0.1 (6)`** `bdce784`'ten (build `36870eba…`, buildNumber 5 → 6,
+  kimlikler aynı) → **`eas submit` ✓** (submission `8da0c8a1…`).
+- ⚠️ **15:04 · Hostinger VPS acil bakımı** (CVE-2026-99999, çekirdek yaması;
+  "her VPS en az bir kez yeniden başlar, 10–20 dk"). 15:06–15:09 TimeFlow
+  sunucusu (76.13.4.164) YANITSIZ: rest, functions, masaüstü 000. Core (VPS 2)
+  ayakta. Masaüstü deploy yapılamadı. Sunucu dönünce: uç yoklaması (Claude) +
+  `docker ps` ile kapsayıcılar ve 2026-10-08'de durdurulan 17 ölü kabın geri
+  DÖNMEDİĞİ (kullanıcı) → masaüstü deploy → P0 → TestFlight `(6)` → gönderim.
+  **Sunucu sağlam doğrulanmadan Apple'a GÖNDERME** (hakem giremezse ret).
+- ✅ **15:38 sunucu döndü** ama `supabase-auth` Exited (1) — açılışta veritabanı
+  hazır değildi (57P03), pes etmiş; `/auth/v1/*` 503 "name resolution failed",
+  GİRİŞ/KAYIT ~45 dk ölü. `docker start` → "AlreadyExists task" (tutarsız
+  containerd kaydı). **Çözüm (16:20):** `docker rm` + `docker compose -p t6yi63…
+  up -d --no-deps --pull never supabase-auth` (etiketlerden okundu). 16:22:
+  auth health 200, sahte kullanıcıya `invalid_credentials` (doğru), rest 200,
+  masaüstü 200, fonksiyonlar 18/18, 22 kap çalışıyor (17 ölü kap DÖNMEDİ),
+  yük 1,2. Ders hafızada (`vps_reboot_auth_dersi`).
+- ✅ **Masaüstü deploy** (kullanıcı, Coolify) — canlı `index-DFgBUXDB.js`
+  (last-modified 13:29:42 UTC) yeni `planTitle` kuralını taşıyor
+  (`(^|[^0-9])${n}\\s*seans`).
+- ✅ **P0 + TestFlight `(6)`** — kullanıcı: "p0 ve testflight testleri tamam"
+  (2026-10-16 ~17:00). İnceleme notu 3989/4000 (Paketler eklendi).
+- ASC 6E: Chrome'da "Sorry, something went wrong" (uzantı/Apple ara hatası;
+  durum sayfası normal) → **Safari'de** ilerledi. 1.0.1 sürümü oluşturuldu,
+  What's New (1.055) + Build `(6)` + inceleme notu girildi ve kaydedildi,
+  Manual release ✓, puan korunuyor ✓, **Phased Release (7 gün) ✓**.
+- 🚀 **2026-10-16 18:01 · SUBMIT FOR REVIEW ✓** — "1 Item Submitted",
+  iOS App 1.0.1 · `1.0.1 (6)` (Apple: "48 saate kadar"). Sıradaki: onay
+  e-postası → **Release Salı 20 / Çarşamba 21 Ekim 09:00–11:00** (elle; kademeli).
+  İnceleme sürerken: demo hesap şifresine dokunma, demo personeli telefona
+  bağlama, VPS'te Restart yok; Hostinger yine yeniden başlatırsa İLK İŞ
+  `/auth/v1/health` (bkz. `vps_reboot_auth_dersi`). Ret gelirse metni Claude'a
+  ver → düzeltme `(7)`.
+- ✅ **Demo salona 3 satılmış paket** (kullanıcı: "hakem için ayarlayalım"):
+  Vildan (Lazer 6 · ₺2.600 ödenmedi), Yasemin (Cilt 4 · son seans), Ayşe
+  (Aromaterapi 10 · bitti); ödemeler −45 gün. Kuru koşu geçti, sunucu tohumu
+  `b5d48cf96d86` (yedek `.bak-2026-10-16-paket`), 17:55 zorla kipte koşuldu.
+  `supabase/DEMO_salon.sql` + `tests/demo-satilmis-paket.test.mjs` COMMİT
+  BEKLİYOR.
 
 ### Yarın sıra
 1. ✅ Kullanıcının kart tasarımı analizini al → listeyi birleştir.
