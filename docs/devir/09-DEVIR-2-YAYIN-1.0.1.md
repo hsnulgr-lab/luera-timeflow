@@ -15,9 +15,12 @@ düzeltmeler bitsin, 1.0.1 Apple'a gönderilsin.
 > 3112 · 3105 geçti · 0 kırık, `tsc` temiz.
 > **6A yeniden (2026-10-16):** 2 · 4 · 5 · 6 ✓ (Claude) · D10 ✓ (03:04,
 > 41/41 birebir). **03:10 — P0 sırasında kullanıcı yeni iş istedi: Profil'de
-> "Paketler" (§11, 1.0.1'e).** Kodda, testler 3129 · 0 kırık, `tsc` temiz;
-> COMMİT'LENMEDİ. Bu yüzden 6A·2/5/6 ve P0 YENİDEN. Sunucu değişmedi (yalnız
-> mobil) → D10 geçerli. EAS'ta uzak derleme numarası hâlâ 4. Önceki oturum devri yazamadan limite
+> "Paketler" + bekleme metni + "İşlemi aç" (§11, 1.0.1'e).** Commit + push:
+> `413378b` · `4862ed8` · `b1f6f23` (`tek-kisilik` = `main` = origin).
+> Bu ağaçla 6A yeniden: 2 ✓ (3131 · 0 kırık, `tsc` temiz) · 4 ✓ · 5 ✓ (tek
+> `.hbc` 6.346.994 bayt, yeni metinler içinde, eskileri yok) · 6 ✓ · D10 ✓
+> (sunucu değişmedi). **Kalan tek kapı: P0 (kullanıcı, `start:prod`).** Sonra
+> 6B (EAS). Uzak derleme numarası hâlâ 4. Önceki oturum devri yazamadan limite
 > takıldı; bu bölüm onun yerine yazıldı (oturum kaydından).
 
 Bu belge tek başına yeterli olmak için yazıldı. Önceki devir
@@ -672,9 +675,9 @@ koysak nasıl olur müşterilerin üzerine". Kararlar (soru-cevapla):
    dokun = müşteri kartı → geri → Paket türleri → tür ekle / düzenle / kaldır
    (demo salonda kalıcı değişiklik bırakmadan: eklenen deneme türünü kaldır).
    Tek kişilik kabukta İşletme'de aynı satır.
-2. Commit + push (kullanıcı "commit'le" deyince).
-3. 6A yeniden: 2 (`npm test`, `tsc`), 5 (`expo export`), 6 (ağaç temiz).
-   Sonra 6B (EAS).
+2. ✅ Commit + push (`413378b`, `4862ed8`, `b1f6f23`).
+3. ✅ 6A yeniden: 2 (3131 · 0 kırık, `tsc`), 5 (`expo export`), 6 (ağaç
+   temiz). Kalan P0 → sonra 6B (EAS).
 4. Mağaza "Bu sürümde" metnine bir satır eklenebilir (Paketler) — kullanıcıya sor.
 
 ### Aynı gece · küçük metin
