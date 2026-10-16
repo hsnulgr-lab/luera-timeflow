@@ -153,6 +153,8 @@ function Shell() {
                     öge geçişi yok; kütüphanesi projede bulunmuyor. */}
                 <Stack.Screen name="(manager-flow)/profil/saatler" />
                 <Stack.Screen name="(manager-flow)/profil/hizmetler" />
+                {/* 1.0.1 — Paketler'in alt ekranı: satışta seçilen türler. */}
+                <Stack.Screen name="(manager-flow)/profil/paket-turleri" />
                 <Stack.Screen name="(ortak)/profil/gorunum" />
                 <Stack.Screen name="(manager-flow)/profil/bildirimler" />
                 <Stack.Screen name="(ortak)/profil/yasal" />

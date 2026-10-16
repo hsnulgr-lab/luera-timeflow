@@ -25,6 +25,11 @@ import { riskList } from './customerFileMap.ts';
 import type { EligibilityRule } from './eligibility.ts';
 import type { PackageRow } from './apptInfo.ts';
 import {
+    packageBookRows, packageCounts, packageTypesOf,
+    type PackageBookRow, type PackageType, type PlanInput,
+} from './packageBook.ts';
+import { sellsPackages } from './packageSale.ts';
+import {
     catalogOf, kasaOnlyReason, packageCovered, packagesEnabledFor, serviceCharge, serviceLines,
     type CashPaymentRow, type CashReservationRow, type CatalogService,
     type ServiceBill,
@@ -878,6 +883,111 @@ export async function fetchOpenPlans(): Promise<Record<string, unknown>[]> {
         .returns<Record<string, unknown>[]>();
     if (error) throw error;
     return data ?? [];
+}
+
+// ── Paketler (1.0.1) ────────────────────────────────────────────────────────
+
+/** Masaüstünün paket sayfasının tavanı (`useOrgPackages`, 500). */
+const PACKAGE_BOOK_LIMIT = 500;
+
+/**
+ * Salonun ticari paketleri + her pakete bağlı tahsilat toplamı.
+ *
+ * İptal edilenler okunmuyor (kart da okumuyor). Ödemeler `in(planId…)` ile
+ * DEĞİL, salonun plana bağlı bütün ödemeleriyle okunuyor (masaüstünün
+ * `loadPaid`ı): 500 kimlik adrese sığmazdı.
+ *
+ * Ad, yabancı anahtar üzerinden aynı sorguda (`customer:customers(name)`):
+ * ayrı bir müşteri okuması yine 500 kimlik isterdi.
+ */
+async function fetchPackagePlans(organizationId: string, withNames: boolean): Promise<{
+    plans: PlanInput[];
+    paid: Map<string, number>;
+}> {
+    const cols = 'id, customer_id, title, total_amount, session_count, sessions_done, created_at';
+    const plansOf = (onlyPackages: boolean) => {
+        let query = supabase.from('treatment_plans')
+            .select(withNames ? `${cols}, customer:customers(name)` : cols)
+            .eq('organization_id', organizationId)
+            .neq('status', 'cancelled');
+        // 077 yoksa tür kolonu yok: süzgeçsiz okunuyor (`fetchPackageRows`un düşüşü).
+        if (onlyPackages) query = query.eq('plan_kind', 'paket');
+        return query.order('created_at', { ascending: false }).limit(PACKAGE_BOOK_LIMIT)
+            .returns<Record<string, unknown>[]>();
+    };
+    const [first, paidRows] = await Promise.all([
+        plansOf(true),
+        supabase.from('payments').select('treatment_plan_id, amount')
+            .eq('organization_id', organizationId).not('treatment_plan_id', 'is', null)
+            .returns<{ treatment_plan_id: string | null; amount: number | null }[]>(),
+    ]);
+    let plans = first;
+    if ((plans.error as { code?: string } | null)?.code === UNDEFINED_COLUMN) plans = await plansOf(false);
+    if (plans.error) throw plans.error;
+    if (paidRows.error) throw paidRows.error;
+
+    const paid = new Map<string, number>();
+    for (const row of paidRows.data ?? []) {
+        if (!row.treatment_plan_id) continue;
+        paid.set(row.treatment_plan_id, (paid.get(row.treatment_plan_id) ?? 0) + (Number(row.amount) || 0));
+    }
+    return {
+        plans: (plans.data ?? []).map((row) => {
+            const customer = row.customer as { name?: unknown } | { name?: unknown }[] | null | undefined;
+            const one = Array.isArray(customer) ? customer[0] : customer;
+            return {
+                id: String(row.id),
+                customer_id: String(row.customer_id),
+                customer_name: typeof one?.name === 'string' ? one.name : null,
+                title: (row.title as string | null) ?? null,
+                total_amount: Number(row.total_amount ?? 0),
+                session_count: Number(row.session_count ?? 1),
+                sessions_done: Number(row.sessions_done ?? 0),
+                created_at: (row.created_at as string | null) ?? null,
+            };
+        }),
+        paid,
+    };
+}
+
+/** Paket defteri — satırlar `packageBook.ts`te kurulur. */
+export async function fetchPackageBook(): Promise<PackageBookRow[]> {
+    const organizationId = await orgIdOrThrow();
+    const { plans, paid } = await fetchPackagePlans(organizationId, true);
+    return packageBookRows(plans, paid);
+}
+
+/**
+ * Profil satırının kapısı ve özeti.
+ *
+ * Sektör OKUNAMAZSA hata atılır ve satır çizilmez: paket satmayan bir
+ * salonda ölü bir kapı göstermektense hiç göstermemek. Sektör paket
+ * satıyorsa ama paketler okunamadıysa satır yine çizilir, özetsiz
+ * (`counts: null`) — "0 açık" demek okunamayanı boş gibi gösterirdi.
+ */
+export async function fetchPackageGlance(): Promise<
+    { enabled: false } | { enabled: true; counts: { open: number; owed: number } | null }
+> {
+    const organizationId = await orgIdOrThrow();
+    const settings = await fetchOrgSettings('sector');
+    if (!sellsPackages((settings?.sector as string | null) ?? null)) return { enabled: false };
+    try {
+        const { plans, paid } = await fetchPackagePlans(organizationId, false);
+        return { enabled: true, counts: packageCounts(packageBookRows(plans, paid)) };
+    } catch {
+        return { enabled: true, counts: null };
+    }
+}
+
+/** Paket türleri — yalnız etkin olanlar (masaüstü kaldırmayı pasifleştirerek yapıyor). */
+export async function fetchPackageTypes(): Promise<PackageType[]> {
+    const organizationId = await orgIdOrThrow();
+    const { data, error } = await supabase.from('package_templates')
+        .select('id, name, session_count, price')
+        .eq('organization_id', organizationId).eq('is_active', true)
+        .order('created_at').returns<Record<string, unknown>[]>();
+    if (error) throw error;
+    return packageTypesOf(data ?? []);
 }
 
 /**

@@ -77,6 +77,8 @@ test('SÜZGEÇTE YAZAN HER TABLONUN ZİLİ VAR', () => {
         'app/(manager-flow)/musteri-gecmis.tsx', 'app/(manager-flow)/paket-sat.tsx',
         'app/(manager-flow)/profil/hizmetler.tsx', 'app/(manager-flow)/profil/saatler.tsx',
         'app/(manager-flow)/profil/personel.tsx', 'app/(staff-flow)/customer.tsx',
+        // 1.0.1 · Paketler
+        'app/(manager-flow)/paketler.tsx', 'app/(manager-flow)/profil/paket-turleri.tsx',
     ];
     let seen = 0;
     for (const path of sources) {

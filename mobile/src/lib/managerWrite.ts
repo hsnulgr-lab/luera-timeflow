@@ -32,7 +32,8 @@ import {
 } from './planPayment.ts';
 import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
 import { prefsPatchOf } from './notificationPrefs.ts';
-import { fetchServices, type HoursRow, type PrefsRow } from './managerSource';
+import { fetchPackageTypes, fetchServices, type HoursRow, type PrefsRow } from './managerSource';
+import { typePatchOf, type PackageType } from './packageBook.ts';
 import {
     servicePatchOf, workingHoursOf, type SettingsOutcome,
 } from './settingsMap.ts';
@@ -615,6 +616,73 @@ export async function deleteSalonService(id: string): Promise<SettingsOutcome<Ca
             .eq('organization_id', organizationId);
         if (error) return { ok: false, kind: 'failed' };
         return { ok: true, value: await fetchServices() };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, kind: 'failed' };
+    }
+}
+
+// ── Paket türleri (1.0.1) ───────────────────────────────────────────────────
+
+/**
+ * Paket türü ekle ya da güncelle — `package_templates` (069), masaüstünün
+ * "Paket tanımları"yla aynı satır.
+ *
+ * Güncelleme yalnız ad, seans ve bedeli yazıyor (`typePatchOf`); renk ve
+ * geçerlilik masaüstünde kaldığı gibi kalıyor. Satılmış paketler türü
+ * KOPYALADIĞI için (başlık, seans, bedel) değişiklik onlara dokunmaz.
+ * Başarıda liste yeniden okunuyor: ekran kendi tahminini değil, satırların
+ * gerçek hâlini gösteriyor.
+ */
+export async function savePackageType(
+    input: { id: string | null; name: string; sessions: number; price: number },
+): Promise<SettingsOutcome<PackageType[]>> {
+    if (await writesPaused()) return { ok: false, kind: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const patch = typePatchOf(input);
+        if (input.id === null) {
+            const { error } = await supabase.from('package_templates')
+                .insert({ ...patch, organization_id: organizationId });
+            if (error) return { ok: false, kind: 'failed' };
+        } else {
+            const { data, error } = await supabase.from('package_templates')
+                .update({ ...patch, updated_at: new Date().toISOString() })
+                .eq('id', input.id)
+                .eq('organization_id', organizationId)
+                .eq('is_active', true)
+                .select('id')
+                .returns<{ id: string }[]>();
+            if (error) return { ok: false, kind: 'failed' };
+            // Satır yok: başka bir cihaz az önce kaldırdı.
+            if (!data || data.length === 0) return { ok: false, kind: 'stale' };
+        }
+        return { ok: true, value: await fetchPackageTypes() };
+    } catch (cause) {
+        if (cause instanceof OrgError) { forgetOrg(); throw cause; }
+        return { ok: false, kind: 'failed' };
+    }
+}
+
+/**
+ * Paket türünü kaldır = PASİFLEŞTİR (masaüstünün `removeTemplate`i). Satır
+ * silinmiyor: satılmış paketlerin izi kalsın. Satış ekranı yalnız etkinleri
+ * okuyor, tür oradan düşüyor.
+ */
+export async function removePackageType(id: string): Promise<SettingsOutcome<PackageType[]>> {
+    if (await writesPaused()) return { ok: false, kind: 'paused' };
+    try {
+        const organizationId = await orgId();
+        const { data, error } = await supabase.from('package_templates')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('organization_id', organizationId)
+            .eq('is_active', true)
+            .select('id')
+            .returns<{ id: string }[]>();
+        if (error) return { ok: false, kind: 'failed' };
+        if (!data || data.length === 0) return { ok: false, kind: 'stale' };
+        return { ok: true, value: await fetchPackageTypes() };
     } catch (cause) {
         if (cause instanceof OrgError) { forgetOrg(); throw cause; }
         return { ok: false, kind: 'failed' };

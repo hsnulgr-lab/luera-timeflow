@@ -15,6 +15,11 @@ import {
     TrashIcon,
 } from './ProfileParts';
 import { feedback } from '../lib/feedback';
+import { formatTRY } from '../lib/customerCard';
+import { parsePrice as parseSalePrice } from '../lib/packageSale';
+import {
+    stepTypeSessions, typeLine, typeValid, TYPE_SESSION_CHIPS, type PackageType,
+} from '../lib/packageBook';
 import { upperTR } from '../lib/text';
 import {
     DURATION_CHIPS,
@@ -367,6 +372,228 @@ export function ServiceRow({ service, first, onPress }: {
                     fontWeight: '700',
                 }}>
                     {formatPrice(service.price)}
+                </Text>
+            )}
+        />
+    );
+}
+
+// ── Paket türü (1.0.1) ──────────────────────────────────────────────────────
+
+/**
+ * Paket türü düzenleme — hizmet sayfasının kalıbı: ad · seans · bedel.
+ *
+ * Bedel ZORUNLU ve sıfırdan büyük (`typeValid`): satış ekranı önerilen bedeli
+ * türden dolduruyor; boş ya da ₺0 bir tür, fark edilmeden bedava satış olurdu.
+ * Renk ve geçerlilik telefonda yok — masaüstünde kaldığı gibi kalıyor.
+ */
+export function PackageTypeSheet({ visible, type, onDismiss, onSave, onRemove }: {
+    visible: boolean;
+    /** `null` yeni tür demek — o zaman kaldırma satırı çizilmez. */
+    type: PackageType | null;
+    onDismiss: () => void;
+    onSave: (input: { id: string | null; name: string; sessions: number; price: number }) => Promise<void>;
+    onRemove: (id: string) => Promise<void>;
+}) {
+    const { c } = useTheme();
+    const [name, setName] = useState('');
+    const [sessions, setSessions] = useState(6);
+    const [priceText, setPriceText] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    // Sayfa her açılışta türün kendi değerleriyle dolar. Efekt değil, çizim
+    // sırasında: efektteki setState bir tur geç çizer (lint kuralı).
+    const [wasVisible, setWasVisible] = useState(false);
+    if (visible !== wasVisible) {
+        setWasVisible(visible);
+        if (visible) {
+            setName(type?.name ?? '');
+            setSessions(type?.sessions ?? 6);
+            setPriceText(type ? formatTRY(type.price) : '');
+            setBusy(false);
+        }
+    }
+
+    const price = parseSalePrice(priceText);
+    const valid = typeValid({ name, price });
+
+    return (
+        <BottomSheet visible={visible} onDismiss={onDismiss} fill system>
+            <SheetGrab />
+            {/* Gövde kayar: klavye açıkken Kaydet ve Vazgeç erişilebilir
+                kalsın (hizmet sayfasının dersi). */}
+            <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    paddingHorizontal: M.padX,
+                    paddingBottom: 14,
+                    gap: 13,
+                }}
+            >
+                <Text style={{
+                    color: c.tx,
+                    fontSize: 20,
+                    fontFamily: font.extraBold,
+                    fontWeight: '800',
+                    letterSpacing: 20 * -0.025,
+                }}>
+                    {type ? type.name : 'Yeni paket türü'}
+                </Text>
+
+                <View style={{ gap: 7 }}>
+                    <FieldLabel>{upperTR('Paket adı')}</FieldLabel>
+                    <TextInput
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Örn. Lazer epilasyon"
+                        placeholderTextColor={c.tx3}
+                        selectionColor={c.or}
+                        style={{
+                            height: M.fieldHeight,
+                            borderWidth: 1,
+                            borderColor: c.bd2,
+                            borderRadius: M.fieldRadius,
+                            backgroundColor: c.surf2,
+                            paddingHorizontal: 14,
+                            color: c.tx,
+                            fontSize: M.fieldText,
+                            fontFamily: font.semiBold,
+                            fontWeight: '600',
+                        }}
+                    />
+                </View>
+
+                <Stepper
+                    label={upperTR('Seans')}
+                    value={`${sessions} seans`}
+                    onStep={(direction) => setSessions(stepTypeSessions(sessions, direction))}
+                />
+                <Chips values={TYPE_SESSION_CHIPS} selected={sessions} onPick={setSessions} suffix="seans" />
+
+                <View style={{ gap: 7 }}>
+                    <FieldLabel>{upperTR('Paket bedeli')}</FieldLabel>
+                    <View style={{
+                        height: M.fieldHeight,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 7,
+                        borderWidth: 1,
+                        borderColor: c.bd2,
+                        borderRadius: M.fieldRadius,
+                        backgroundColor: c.surf2,
+                        paddingHorizontal: 14,
+                    }}>
+                        <Text style={{
+                            color: c.tx3,
+                            fontSize: M.fieldText,
+                            fontFamily: font.bold,
+                            fontWeight: '700',
+                        }}>
+                            ₺
+                        </Text>
+                        <TextInput
+                            value={priceText}
+                            onChangeText={(text) => {
+                                const next = parseSalePrice(text);
+                                setPriceText(next === null ? '' : formatTRY(next));
+                            }}
+                            keyboardType="number-pad"
+                            placeholder="Örn. 3.600"
+                            placeholderTextColor={c.tx3}
+                            selectionColor={c.or}
+                            style={{
+                                flex: 1,
+                                color: c.tx,
+                                fontSize: M.fieldText,
+                                fontFamily: font.semiBold,
+                                fontWeight: '600',
+                            }}
+                        />
+                    </View>
+                    <Foot>
+                        {price !== null && price > 0 && sessions > 1
+                            ? `Seans başı ₺${formatTRY(Math.round(price / sessions))}. `
+                            : ''}
+                        Satışta önerilen bedel budur; satarken değiştirilebilir.
+                    </Foot>
+                </View>
+
+                {type ? (
+                    <>
+                        <View style={{
+                            borderWidth: 1,
+                            borderColor: c.bd,
+                            borderRadius: M.groupRadius,
+                            backgroundColor: c.surf,
+                            overflow: 'hidden',
+                        }}>
+                            <ProfileRow
+                                first
+                                danger
+                                chevron={false}
+                                title="Paket türünü kaldır"
+                                icon={<TrashIcon color={c.rd} />}
+                                onPress={() => {
+                                    setBusy(true);
+                                    void onRemove(type.id).finally(() => setBusy(false));
+                                }}
+                            />
+                        </View>
+                        {/* Satılmış paket türü kopyalıyor; ne kaldırma ne
+                            düzenleme onlara dokunur. Bunu bilmeyen müdür
+                            türü değiştirmekten korkardı. */}
+                        <Foot>Satılmış paketler etkilenmez: değişiklik yalnız bundan sonraki satışlara uygulanır.</Foot>
+                    </>
+                ) : null}
+
+                <View style={{ marginTop: 'auto', gap: 9 }}>
+                    <PrimaryButton
+                        label="Kaydet"
+                        disabled={!valid}
+                        busy={busy}
+                        onPress={() => {
+                            if (price === null) return;
+                            setBusy(true);
+                            void onSave({
+                                id: type?.id ?? null,
+                                name: name.trim(),
+                                sessions,
+                                price,
+                            }).finally(() => setBusy(false));
+                        }}
+                    />
+                    <GhostButton label="Vazgeç" onPress={onDismiss} />
+                </View>
+            </ScrollView>
+        </BottomSheet>
+    );
+}
+
+/** Paket türü satırı — bedel sağda, seans ve seans başı altta. */
+export function PackageTypeRow({ type, first, onPress }: {
+    type: PackageType;
+    first: boolean;
+    onPress: () => void;
+}) {
+    const { c } = useTheme();
+    return (
+        <ProfileRow
+            first={first}
+            title={type.name}
+            sub={typeLine(type, formatTRY)}
+            onPress={onPress}
+            right={(
+                <Text style={{
+                    color: c.tx,
+                    fontSize: M.servicePrice,
+                    fontFamily: font.bold,
+                    fontWeight: '700',
+                }}>
+                    ₺{formatTRY(type.price)}
                 </Text>
             )}
         />

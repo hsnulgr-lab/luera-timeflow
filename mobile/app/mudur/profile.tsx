@@ -25,7 +25,8 @@ import { prefsOf } from '../../src/lib/notificationPrefs';
 import { readKvkkUrl } from '../../src/lib/legalSource';
 import { useInSoloShell } from '../../src/lib/shellRoot';
 import { useManagerRead } from '../../src/lib/managerRead';
-import { fetchCustomerCount, fetchHoursRow, fetchServices } from '../../src/lib/managerSource';
+import { fetchCustomerCount, fetchHoursRow, fetchPackageGlance, fetchServices } from '../../src/lib/managerSource';
+import { packageSummary } from '../../src/lib/packageBook';
 import { salonServicesOf, schedulesOf } from '../../src/lib/settingsMap';
 import { nowInMinutes } from '../../src/lib/calendar';
 import { authApi } from '../../src/api/session';
@@ -61,6 +62,11 @@ export default function ManagerProfile() {
     const [team, setTeam] = useState<TeamMember[] | null>(null);
     /** Defterin büyüklüğü — yalnız SAYI iniyor, kayıtlar değil. */
     const [customers, setCustomers] = useState<number | null>(null);
+    /**
+     * Paketler satırı (1.0.1) — yalnız paket satan sektörde. Kapı okunamazsa
+     * (`null`) satır YOK: paket satmayan salonda ölü bir kapı göstermektense.
+     */
+    const [packages, setPackages] = useState<Awaited<ReturnType<typeof fetchPackageGlance>> | null>(null);
     const [clock, setClock] = useState(() => Date.now());
 
     /*
@@ -91,7 +97,8 @@ export default function ManagerProfile() {
             fetchTeamStatus().catch(() => null),
             // Okunamazsa satır özetsiz kalıyor — kaynak hatayı yutmuyor.
             fetchCustomerCount().catch(() => null),
-        ]).then(([account, notifications, url, members, customerCount]) => {
+            fetchPackageGlance().catch(() => null),
+        ]).then(([account, notifications, url, members, customerCount, packageGlance]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
             setNotify(notifications
@@ -100,6 +107,7 @@ export default function ManagerProfile() {
             setKvkkUrl(url);
             setTeam(Array.isArray(members) ? members : null);
             setCustomers(typeof customerCount === 'number' ? customerCount : null);
+            setPackages(packageGlance);
             setClock(Date.now());
         }).catch(() => { /* okunamazsa satırlar özet yazmaz */ });
         return () => { alive = false; };
@@ -230,6 +238,24 @@ export default function ManagerProfile() {
                             title={teamEnd.title}
                             sub={teamEndRowSub(team)}
                             onPress={() => router.push('/(manager-flow)/profil/tek-kisilige-don')}
+                        />
+                    ) : null}
+                    {/*
+                      * PAKETLER (1.0.1) — Müşteriler'in ÜSTÜNDE.
+                      *
+                      * Müdürün sorusu "kimin paketi var, kaç seansı kaldı, kim
+                      * ödemedi"; cevabı bugüne kadar yalnız tek tek müşteri
+                      * kartındaydı. Satır yalnız paket satan sektörde
+                      * (güzellik, kuaför) — öbüründe ölü bir kapı olurdu.
+                      * Paketler okunamadıysa satır özetsiz: "0 açık" demek
+                      * okunamayanı boş gibi gösterirdi.
+                      */}
+                    {packages?.enabled ? (
+                        <ProfileRow
+                            big
+                            title="Paketler"
+                            sub={packages.counts ? packageSummary(packages.counts) : undefined}
+                            onPress={() => router.push('/(manager-flow)/paketler')}
                         />
                     ) : null}
                     <ProfileRow
