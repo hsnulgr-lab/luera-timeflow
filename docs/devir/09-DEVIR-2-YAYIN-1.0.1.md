@@ -22,7 +22,11 @@ düzeltmeler bitsin, 1.0.1 Apple'a gönderilsin.
 > (sunucu değişmedi). P0 ✓ (kullanıcı). **6B ✓ — EAS derlemesi `1.0.1 (5)`
 > bitti** (2026-10-16, `dbe0265`; günlük
 > https://expo.dev/accounts/luera/projects/luera-timeflow/builds/6a7442fb-5382-4148-9f33-ee0dfff4fcdd).
-> Sıradaki: 6C (`eas submit`) → 6D (TestFlight) → 6E (ASC). Önceki oturum devri yazamadan limite
+> **6C ✓ — App Store Connect'e yüklendi** (submission
+> https://expo.dev/accounts/luera/projects/luera-timeflow/submissions/d57f67de-1bd7-46da-b9cf-097f329fe079;
+> API anahtarı `35NB9733H6`). Apple işledi (04:01, "1.0.1 (5) is ready to test").
+> Sıradaki: 6D (TestFlight) → 6E (ASC). **04:10 — kullanıcı durdurdu: TestFlight'ta
+> iki kart kusuru bulundu, "yarın yaparız" → §12'yi OKU, oradan başla.** Önceki oturum devri yazamadan limite
 > takıldı; bu bölüm onun yerine yazıldı (oturum kaydından).
 
 Bu belge tek başına yeterli olmak için yazıldı. Önceki devir
@@ -345,6 +349,8 @@ cd ~/Projects/luera-timeflow/mobile && npx -y eas-cli@latest build --profile pro
 ```bash
 cd ~/Projects/luera-timeflow/mobile && npx -y eas-cli@latest submit --platform ios --latest
 ```
+- ✅ **2026-10-16: yüklendi** — Build ID `6a7442fb…`, `1.0.1 (5)`, ASC App ID
+  `6816258771`; "Submitted your app to Apple App Store Connect!".
 - `--latest` en son derlemeyi seçer — ekranda `1.0.1 (5)` yazdığını doğrula.
 - `eas.json`'da `ascAppId: 6816258771`; ASC API anahtarı (`35NB9733H6`,
   APP_MANAGER) EAS'ta kayıtlı.
@@ -707,3 +713,126 @@ koysak nasıl olur müşterilerin üzerine". Kararlar (soru-cevapla):
   tek kişilikte izin yalnız İşletme › Bildirimler'den isteniyor; hiç
   girilmediyse bekleme bildirimi sessizce gelmez. İlk "Bekleme kur"da ön
   soru (`PushPrompt` kalıbı).
+
+---
+
+## 12 · YARIN BURADAN BAŞLA (2026-10-16 04:10 · TestFlight `1.0.1 (5)`)
+
+**Durum:** `1.0.1 (5)` derlendi (`dbe0265`), App Store Connect'e yüklendi,
+Apple işledi, TestFlight'ta telefonda AÇIK. 6D (TestFlight turu) yarım —
+demo müdür Akış'ına bakılırken iki kusur bulundu. Kullanıcı: "bunu kayıt et
+yarın yaparız". Kullanıcı ayrıca **kart tasarımını analiz ediyor** — yarın
+kendi listesini getirebilir; hepsi TEK derlemede toplanacak.
+
+### Bulgu 1 · Paket satırında üç kez aynı bilgi
+- Görünen: Vildan Ay kartı (Akış) "PAKET · Lazer Epilasyon · 6 Seans · 6
+  seans · 0/6".
+- Sebep: demo türünün adı zaten "Lazer Epilasyon · 6 Seans"
+  (`supabase/DEMO_salon.sql:257`); satış başlığa bir daha " · 6 seans"
+  ekliyor — telefon `packageSale.ts` `planTitle`, masaüstü
+  `src/pages/BeautyPackages.tsx:898` aynı kural; kart sonuna `used/total`
+  koyuyor (`mobile/src/lib/managerSource.ts:1551`).
+- Çözüm taslağı: (a) ad seans sayısını zaten içeriyorsa (`/\b6\s*seans/i`,
+  TR küçültmeyle) ek yapılmasın — telefon + masaüstü, yeni satışlar;
+  (b) gösterimde tekrar ayıklansın — var olan kayıtlar (kart, Paketler
+  ekranı `packageLine`, müşteri kartı). Para yoluna dokunmaz. S.
+
+### Bulgu 2 · Kart durum satırı kesiliyor
+- Görünen: Uğur Şen'in krem "GİRMESİNE" kartında "Personelin bildirimi
+  kapalı · gönd…" — "Yönet" düğmesi yazının sonunu örtüyor.
+- Yer: `mobile/src/components/FlowParts.tsx:1193-1212` (son hamle satırı,
+  `record.text`); aynı satırın iki eşi `:758` ve `:2387` — üçüne de bak.
+- Çözüm taslağı: satır yalnız sol sütunun genişliğinde kalsın ya da düğme
+  sütununun ALTINA insin; iki satıra kırılabilsin. Demo personelin push'u
+  yok → hakem "Personeli çağır"a basarsa görür. Ret sebebi değil, özensiz. S.
+
+### 2026-10-16 11:40 · YAPILDI (kullanıcıyla birlikte analiz; "sadece müdür sayfasındaki kartlar")
+Karar: **düzelt + `1.0.1 (6)`**. Seçilen dört düzeltme kodda (commit bekliyor):
+1. **Başlık tekrarı** — `packageSale.planTitle` + masaüstü `src/lib/packageTitle.ts`
+   (`BeautyPackages.tsx` satışı): ad sayıyı söylüyorsa eklenmez. Var olan
+   kayıtlar için `tidyPlanTitle` gösterimde (`fetchPackageRows` → kart/Akış,
+   `fetchPackagePlans` → Paketler). **Masaüstü değişti → Coolify deploy (kullanıcı).**
+2. **Kesik durum satırı** — A1 (`EtaPanel`) ve `PanelRecord`: `Num fit` +
+   `flex: 1` (sütunda kalır, sığmazsa küçülür; kart 118'de). Metinler ≤ 30
+   harf: "Personelin bildirimi kapalı", "Personel atanmamış", "Kuyrukta ·
+   bağlanınca gider". İki satıra kırmak kart yüksekliğini (dokunulmaz) bozardı.
+3. **"0/6" → kalan** — Akış paket satırı `packageLine`: "… · 6 seans kaldı" /
+   "son seans"; Paketler ekranı da "N seans kaldı".
+4. **Tek birim** — A1 paneli `durationBadge` ("1 sa", "08 dk") yerine üst satırla
+   aynı düz dakika ("60 dk", "90 dk", "8 dk").
+- Bilinçli bırakılanlar (dokunulmaz liste / tasarım): A1 krem ↔ A2 koyu ayrımı
+  (bağlam verisi seçiyor), A2'de turuncu geri sayım, 10 saat önceden kahraman
+  geri sayım, PAKET satırının randevuyla ilgisiz paketi göstermesi (müşteriyi
+  anlatıyor).
+- Test: `tests/mobile-akis-kart-1-0-1.test.mjs` (5) + üç test güncellendi
+  (`mobil-personele-soyle`, `mobile-eylem-hapi-v2`, `mobil-paket-sat`).
+  3136 · 3129 geçti · 0 kırık · `tsc` (mobil + masaüstü) temiz · lint artmadı
+  (FlowParts 73 = önce) · `expo export` tek `.hbc` 6.347.695 bayt.
+
+- **12:10 · telefonda görüldü ve bir tur daha:** "6 Seans · 6 / seans kaldı"
+  (sayı iki kez, satır ortadan bölünüyor) → `packageLine` başlığın
+  "· N seans" parçasını atar, "6 seans kaldı" bölünmez boşlukla tek parça:
+  `PAKET · Lazer Epilasyon · 6 seans kaldı` (telefonda doğrulandı). Demo
+  salon sıfırlandığı için paketi kullanıcı yeniden sattı — yeni satışın
+  başlığı tekrarsız yazıldı (1. düzeltme canlı satışta çalışıyor).
+
+### 12:20 · KARAR: 1.0.1 BEKLİYOR — önce Müdür 36 tasarımı
+Kullanıcı kutuyu "sade kalmış" buldu: "renkleri iyi, kalan seans halka içinde
+mi olsa, alanı iyi kullansak, Claude Design 5 alternatif". Brief:
+`docs/mudur-36-baglam-kutusu-claude-design-prompt.md` (A2 bağlam kutusu
+yalnız; 5 yol × 8 hâl; ekler Müdür 34 v2 + Müdür 23 + telefon görüntüleri;
+Durumlar / Hareket Sözleşmesi YOK). Kullanıcı "1.0.1'i bekletelim" dedi
+(öneri 1.0.2 idi). Sıra: Claude Design → kullanıcı yol seçer → uygulama
+(veri: `ApptContext.package` bugün DÜZ METİN; halka/levha için yapılı paket
+gerekir — `managerSource.fetchDayContext` satırında `total/used/owed` zaten var) → testler
+→ commit → P0 → `(6)` → TestFlight → gönderim. **Yayın planı kayar:**
+gönderim en erken yarın; onay Pazartesi–Salı gelirse Release Çarşamba 21
+Ekim 09:00–11:00, gelmezse sonraki Salı (28–29 Ekim bayram — kaçın).
+
+### 14:30 · Müdür 36 geldi → YOL 1 (halka) + iki ayar · KODDA (commit bekliyor)
+Tasarım: `docs/design-reference/Luera Mobil - Mudur 36 Baglam Kutusu.html` +
+`m36.js` (Downloads/paket'ten kopyalandı). Kullanıcı Yol 1 ile Yol 2 arasında
+kaldı; ölçüm (tasarım dosyasında): Yol 2 son seans/ödenmedide kutu 50 → 73–75
+(72 bütçesini aşıyor, ödeme gelince kart 25 pt zıplar) ve randevu kartında
+ad kırpılıyordu; Yol 1 60 / 69 / 95 sabit. Karar: **Yol 1 + iki ayar** —
+(1) son seansta yalnız "Son seans" (etiket + "1 seans kaldı" yok),
+(2) 16'dan çok seansta dilimsiz düz yay.
+- Kurallar `mobile/src/lib/sessionRing.ts` (`ringStrokes`, `remainingHead`,
+  `RING_SLICE_MAX = 16`); çizim `mobile/src/components/SessionRing.tsx`
+  (react-native-svg, durağan; ilk çizimde opacity + scale 180 ms, yerli sürücü).
+- **Akış A2:** `FlowParts` `PackageRingRow` — Ø40 halka (krem), "6 seans
+  kaldı" 15/700, ad + "· N seans" (ad kırpılır), ödenmedi amber nokta + mürekkep.
+  Uyarı/bakiye amber nokta + cümle; "NOT / PAKET" etiket sütunu kalktı.
+  Veri: `ApptContext.pkg {name,total,left,owed}` (`fetchDayContext`).
+- **Randevu kartı:** başlık `packageLine` ("Lazer Epilasyon · 6 seans kaldı")
+  + Ø18 rakamsız halka (`VisitSummary.ring`).
+- **Müşteri kartı:** "0/6" → Ø36 rakamlı halka; borç rengi noktada.
+- Test `tests/mobile-mudur-36-halka.test.mjs` (7) + `mobile-mudur-detay`
+  güncellendi. 3143 · 3136 geçti · 0 kırık · `tsc` temiz · lint artmadı ·
+  `expo export` tek `.hbc` 6.355.016 bayt.
+- Sıradaki: telefonda bak (Metro'da `r`) → commit + push → masaüstü deploy →
+  P0 → `(6)` → TestFlight → gönderim.
+
+### Yarın sıra
+1. ✅ Kullanıcının kart tasarımı analizini al → listeyi birleştir.
+2. ✅ Karar: düzelt + `1.0.1 (6)`.
+3. Düzeltilirse: kod → testler + `tsc` → commit/push (kullanıcı onayıyla) →
+   6A·5 (`expo export`) → P0 (`start:prod`) → 6B (EAS, `(6)`) → 6C
+   (`eas submit --latest`) → 6D TestFlight turu (6 madde, özellikle
+   **uzaktan bildirim**) → 6E App Store Connect (Build `1.0.1 (6)` seç).
+4. 6A·9: P0'da personel Derya ile girildiyse demo müdür › Personel › Derya
+   Toprak → "Şifreyi sıfırla" + "Telefonun bağlantısını kopar".
+5. Masaüstü değişirse (Bulgu 1a) Coolify deploy kullanıcıda.
+
+### Gönderim ve yayın zamanı (kullanıcıyla konuşuldu, 04:15)
+- **Apple'a gönderim YAPILMADI** — `(5)` yalnız TestFlight'ta; ASC'de 1.0.1
+  sürümü açılmadı, "Add for Review"a basılmadı. Gönderim düzeltilmiş `(6)` ile.
+- Gönderim: TestFlight geçer geçmez (gün/saat incelemeyi belirgin etkilemez;
+  "Manually release" seçili olduğu için onay yayına çıkarmaz).
+- **Release: Salı ya da Çarşamba 09:00–11:00 (TR)**, Phased Release AÇIK.
+  Cuma öğleden sonra / hafta sonu / gece / 28–29 Ekim (Cumhuriyet Bayramı)
+  YOK. Hedef: 20 Ekim Salı sabahı; onay Pazartesi'den geç gelirse Çarşamba,
+  Perşembe'den sonraya kalırsa bir sonraki Salı.
+
+Not: bu bölüm ve 6C/işlenme satırları COMMİT'LENMEDİ (belge; derlemeyi
+etkilemez). Yarın ilk commit'e girer.
