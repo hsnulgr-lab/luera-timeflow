@@ -10,10 +10,14 @@ düzeltmeler bitsin, 1.0.1 Apple'a gönderilsin.
 > 6A kapıları 01:39'da geçti (`55226b7`). **Sonra** kullanıcı kararıyla
 > "paket tek kişilikte telefonda" işi yapıldı (§10). **2026-10-16: para yolu
 > gözden geçirildi (engel yok), `staff-api` deploy edildi ve yoklandı (18/18
-> `OPTIONS` 200), telefonda paket turu geçti — commit + push bekliyor.** Ağaçta testler
-> 3112 · 3105 geçti · 0 kırık, `tsc` temiz, kumandada lint 16 (eski).
-> Bu yüzden 6A·1/2/3/5/6 ve D10 YENİDEN geçilmeli. EAS'ta uzak derleme
-> numarası hâlâ 4 — 1.0.1 derlenmedi. Önceki oturum devri yazamadan limite
+> `OPTIONS` 200), telefonda paket turu geçti, commit + push edildi
+> (`c4ae5a1` + `a216ba5`, `tek-kisilik` = `main` = origin).** Testler
+> 3112 · 3105 geçti · 0 kırık, `tsc` temiz.
+> **6A yeniden (2026-10-16):** 2 · 4 · 5 · 6 ✓ (Claude) · D10 ✓ (03:04,
+> 41/41 birebir). **03:10 — P0 sırasında kullanıcı yeni iş istedi: Profil'de
+> "Paketler" (§11, 1.0.1'e).** Kodda, testler 3129 · 0 kırık, `tsc` temiz;
+> COMMİT'LENMEDİ. Bu yüzden 6A·2/5/6 ve P0 YENİDEN. Sunucu değişmedi (yalnız
+> mobil) → D10 geçerli. EAS'ta uzak derleme numarası hâlâ 4. Önceki oturum devri yazamadan limite
 > takıldı; bu bölüm onun yerine yazıldı (oturum kaydından).
 
 Bu belge tek başına yeterli olmak için yazıldı. Önceki devir
@@ -280,8 +284,8 @@ birebir], `SUPABASE_URL`).
 
 #### 6A · Derlemeden ÖNCE — kapılar (hepsi ✓ olmadan derleme YOK)
 1. [x] Düzeltilecekler belgesinde D1–D10'un kutuları işaretli; D9 kararı uygulandı (2026-10-16; D10: sunucu = depo).
-2. [x] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz (2026-10-16: 3080 / 0 kırık).
-3. [x] Telefonda **P0 (üretim paketi)** ve P1–P5 geçti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11).
+2. [x] `npm test` → 0 kırık · `cd mobile && npx tsc --noEmit` → temiz (2026-10-16: 3080 / 0 kırık · **paketten sonra yeniden: 3112 · 3105 geçti · 0 kırık · 7 atlandı, `tsc` temiz**).
+3. [ ] **YENİDEN** — telefonda **P0 (üretim paketi)**. İlk tur ve P1–P5 geçmişti (2026-10-16 · §50 hariç; yol üstünde yedi kusur düzeltildi — düzeltilecekler belgesi D11); paket kodu (§10) ondan SONRA girdi ve paket turu Expo Go'nun geliştirme kipindeydi. `start:prod` + soğuk açılış + üç kabuk + bir paket ekranı.
 4. [x] Sürüm ve Info.plist doğru (Claude çalıştırır) — 2026-10-16: `1.0.1` · `false` · Face ID metni · `TimeFlow`:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo config --type introspect | grep -E "CFBundleShortVersionString|ITSAppUsesNonExemptEncryption|NSFaceIDUsageDescription|CFBundleDisplayName"
@@ -289,11 +293,16 @@ birebir], `SUPABASE_URL`).
    Beklenen: `1.0.1` · `false` · Face ID metni · `TimeFlow`.
 5. [x] Mağaza JS paketi yerelde tek parça derleniyor (Claude çalıştırır; EAS
    dakikası harcamadan Metro hatasını yakalar) — 2026-10-16: tek `.hbc`
-   6,3 MB, yeni kod içinde, dinamik `import(` yok:
+   6,3 MB, yeni kod içinde, dinamik `import(` yok. **Paketten sonra yeniden
+   (2026-10-16):** tek `.hbc` 6.311.062 bayt, kaynakta `import(` yok; paket
+   kodu içinde (`collect_amount_changed`, `paket_plan_id`, `planPayment`;
+   "pakete dahil" ×2, "Paketten seans", "Ödeme al", "Hesabı kapat"). Not:
+   Hermes ASCII dışı yazıyı UTF-16 saklıyor — `strings | grep "pakete
+   dahil"` 0 der, yanıltır; Türkçe metni UTF-16 olarak ara:
    ```bash
    cd ~/Projects/luera-timeflow/mobile && npx expo export --platform ios --output-dir /tmp/luera-export-1.0.1
    ```
-6. [x] **Çalışma ağacı temiz:** (2026-10-16, derlemeden hemen önce yeniden bakılır) her şey commit'li, `tek-kisilik` ve `main`
+6. [x] **Çalışma ağacı temiz:** (2026-10-16, derlemeden hemen önce yeniden bakılır · paketten sonra yeniden ✓: `a216ba5`, 0/0, yalnız `site/`) her şey commit'li, `tek-kisilik` ve `main`
    aynı noktada ve push'lu (`git status` boş — yalnız `site/` kalabilir).
    EAS commit'lenmemiş değişikliği de yükler; derlenen şey bir commit'e
    karşılık gelmezse sonra neyin yayında olduğunu kimse bilemez.
@@ -600,10 +609,14 @@ sunucuyla sorunsuz mu (geriye uyum).
      Kasa'da iki "Paket tahsilatı · Ağda".
    - **c ·** Paketli seansa ürün ekle → yalnız ürün tutarı tahsil edilir.
    - **d · Ekip** (demo müdür): paket ekranları ve Kasa eskisi gibi.
-4. Commit'ler + push (kullanıcı "commit'le" deyince; `tek-kisilik` = `main`).
-5. **6A kapılarını yeniden geç:** 1 (kutular), 2 (`npm test`, `tsc`), 3 (P0
-   `start:prod` + paket turu), 5 (`expo export`), 6 (ağaç temiz, push'lu),
-   D10 (sunucu özetleri = depo). Sonra 6B (EAS) → 6C → 6D → 6E.
+4. ✅ Commit'ler + push: `c4ae5a1` (kod) + `a216ba5` (bu bölüm).
+5. **6A kapılarını yeniden geç:** ✅ 2 (3112 · 0 kırık, `tsc`), ✅ 4, ✅ 5
+   (`expo export`, paket kodu içinde), ✅ 6 (ağaç temiz, push'lu) ·
+   ⏳ 3 (P0 `start:prod`, kullanıcı) · ✅ D10 (03:04 özeti: depodaki 41
+   dosyanın 41'i sunucuda birebir — `staff-api/index.ts` `cd30d2117d68…`,
+   `staff-api/visitItems.ts` `dc65ae27729c…`; fazladan yalnız edge-runtime'ın
+   `main/` ve `hello/` dosyaları).
+   Sonra 6B (EAS) → 6C → 6D → 6E.
 
 ### Bu gece ayrıca (commit'li)
 - `a78296b` "luera" markası kırpılmıyordu → düzeldi; `c05bc9a` devam ekranında
@@ -614,5 +627,74 @@ sunucuyla sorunsuz mu (geriye uyum).
   (2026-10-16 yoklandı: "No scheduled tasks"). Kurulmamış; kullanıcıya sor.
   Core bağlantısı 1.0.1 gönderildikten sonra, ayrı oturum.
 - 1.0.2 adayları (kayıtta): giriş ekranı (A3) · çevrimdışı BAŞLAT + kalem →
-  `items_stale` · personel oturumu düşünce ekranın cümlesi.
+  `items_stale` · personel oturumu düşünce ekranın cümlesi · **Dinamik Ada
+  geri sayımı + bekleme kurarken izin sorusu (§11)**.
 
+---
+
+## 11 · PAKETLER EKRANI (2026-10-16 03:10 · 1.0.1'e · COMMİT'LENMEDİ)
+
+### Neden
+P0 sırasında demo müdür Profil'inde kullanıcı: "buraya bir paketler butonu
+koysak nasıl olur müşterilerin üzerine". Kararlar (soru-cevapla):
+**1.0.1'e ekle** (Claude 1.0.2 önermişti) · **İkisi de** — satılan paketler
++ paket türleri.
+
+### Ne yapıldı (yalnız mobil, sunucu ve göç YOK)
+- **Profil satırı** `mobile/app/mudur/profile.tsx` — "Paketler", Müşteriler'in
+  ÜSTÜNDE; yalnız `sellsPackages(sector)` (güzellik, kuaför). Tek kişilikte
+  aynı satır (İşletme = aynı dosya). Alt yazı "6 açık · 2 ödenmedi";
+  sektör okunamazsa satır yok, paketler okunamazsa satır özetsiz.
+- **Paketler** `app/(manager-flow)/paketler.tsx` — satılmış paketler (iptal
+  hariç, 500 tavan): ad · "Ağda · 6 seans · 2 kaldı" · sağda amber
+  "₺2.600 ÖDENMEDİ" ya da turuncu "SON SEANS". Sıra: ödenmeyen → son seans
+  → öteki (en yeni üstte). Seansı bitmiş + ödenmiş olanlar "Bitenler · n"
+  katlı. Altta "Paket türleri" satırı. **Para almaz:** satır müşteri kartını
+  açar (`/(staff-flow)/customer`), "Ödeme al" orada.
+- **Paket türleri** `app/(manager-flow)/profil/paket-turleri.tsx` — hizmetler
+  sayfasının kalıbı; `package_templates` (069, masaüstünün "Paket
+  tanımları"). Ad · seans (1–50, çipler 4/6/8/10) · bedel (zorunlu, > 0).
+  Renk/geçerlilik YAZILMAZ. Kaldır = `is_active: false` (masaüstü gibi).
+  Dikkat: tür VARSA satış yalnız türlerden (`saleOptions`) — sayfa bunu söylüyor.
+- Kurallar `mobile/src/lib/packageBook.ts` (saf); okuma `managerSource.ts`
+  (`fetchPackageBook`, `fetchPackageGlance`, `fetchPackageTypes`; ad
+  `customer:customers(name)` gömülü, ödemeler `not(treatment_plan_id is null)`
+  — 500 kimlik adrese sığmazdı); yazma `managerWrite.ts`
+  (`savePackageType`, `removePackageType`, vana + iyimser "stale").
+- Sayılar müşteri kartıyla AYNI (kalan = toplam − kullanılan; masaüstünün
+  "rezerve" ayrımı yok — dokununca açılan kart başka sayı demesin).
+- Test: `tests/mobile-paketler.test.mjs` (17) + canlı zil denetimine iki ekran.
+  Lint: değişen dosyalarda yalnız eski 4 hata (`ProfileSheets` efektleri).
+
+### Sıradaki adımlar
+1. Telefon (P0 ile birlikte, `start:prod`): demo müdür → Profil → Paketler
+   satırı Müşteriler'in üstünde, alt yazı → Paketler listesi → bir satıra
+   dokun = müşteri kartı → geri → Paket türleri → tür ekle / düzenle / kaldır
+   (demo salonda kalıcı değişiklik bırakmadan: eklenen deneme türünü kaldır).
+   Tek kişilik kabukta İşletme'de aynı satır.
+2. Commit + push (kullanıcı "commit'le" deyince).
+3. 6A yeniden: 2 (`npm test`, `tsc`), 5 (`expo export`), 6 (ağaç temiz).
+   Sonra 6B (EAS).
+4. Mağaza "Bu sürümde" metnine bir satır eklenebilir (Paketler) — kullanıcıya sor.
+
+### Aynı gece · küçük metin
+- Tek kişilik Gün kartı: süren işin hapı "Kumandayı aç" → **"İşlemi aç"**
+  (kullanıcı kararı; `soloDay.ts` `soloPickItems`, iki test). Personel
+  kabuğuna dokunulmadı. Testler 3130 · 0 kırık.
+- **Bekleme sayfası (iki kabuk, kumanda):** metin YANLIŞTI — "Bu sayaç
+  sunucuya yazılmaz. Uygulama kapalıyken ses çalmaz" (112 beklemeyi sunucuya
+  yazıyor, `waitAlarm` 13 Ekim'den beri kapalıyken de bildirim kuruyor;
+  "sunucu" yasak kelime). Yeni: "Süre dolunca bu telefon haber verir —
+  uygulama kapalıyken ya da ekran kilitliyken de. Telefonun bildirimleri
+  kapalıysa kalan süre yalnız bu ekranda görünür." Üst not "bitince haber
+  verir", simge zil.
+- **Halkanın altındaki ad:** "Boya · 25 dk" her hizmette yazıyordu (cilt
+  bakımında da) → "25 dk bekleme". Testler 3131 · 0 kırık.
+- **1.0.2'ye (kullanıcı kararı):** (a) **Dinamik Ada / kilit ekranında geri
+  sayım** (Live Activity) — yerli iOS parçası (SwiftUI + ActivityKit, config
+  plugin), Expo Go'da DENENEMEZ → test derlemesi/TestFlight; geri sayım
+  `Text(timerInterval:)` ile kendi kendine ilerler, sunucu gerekmez, bitişi
+  mevcut `waitAlarm` söyler. (b) **Bekleme kurarken bildirim izni sor** —
+  tek kişilikte izin yalnız İşletme › Bildirimler'den isteniyor; hiç
+  girilmediyse bekleme bildirimi sessizce gelmez. İlk "Bekleme kur"da ön
+  soru (`PushPrompt` kalıbı).

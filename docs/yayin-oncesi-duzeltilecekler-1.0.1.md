@@ -240,6 +240,13 @@ ilgili 📱 adımı.
 > taşıyor; kumanda tutarı "—" yazıyor, kadran "TUTARI KASA HESAPLIYOR",
 > güvertenin üstünde sebep cümlesi; tek kişilikte güverte kasaya gönderime
 > dönüyor (`SendToCash`).
+>
+> **Sonra değişti (2026-10-16, `c4ae5a1`, Devir 2 §10):** paket artık
+> Kasa'ya düşmüyor. `packagesEnabledFor` (güzellik, kuaför) açıksa paketli
+> seansın hizmeti ₺0, sunucu `covered` diyor, kumanda tek düğme "Hesabı kapat
+> · pakete dahil" gösteriyor (yöntem `'package'`: ödeme satırı yazılmaz,
+> yalnız `is_paid`). Ekrandaki ₺0 eskiyse `collect_amount_changed` döner.
+> İndirim, kısmi ödeme ve grup hâlâ yukarıdaki gibi Kasa'nın işi.
 
 - **Kanıt:** G4 kartının tutarı Kasa'nın bekleyen tutarı
   (`mobile/src/lib/flowBuild.ts:254, 310` → `soloDay.ts:405`). O tutar
@@ -309,6 +316,7 @@ ilgili 📱 adımı.
 ## 10 · 🟡 Sunucu fonksiyonlarının özeti · XS (kullanıcı)
 
 - [x] Komut çalıştırıldı · [x] Karşılaştırıldı (2026-10-16: depodaki 41 dosyanın 41'i sunucuda birebir; fazladan yalnız edge-runtime'ın kendi `main/` ve `hello/` dosyaları)
+- [x] **YENİDEN (paketten sonra, 2026-10-16 03:04):** `staff-api` yeniden deploy edildikten sonra depodaki 41 dosyanın 41'i sunucuda birebir — `staff-api/index.ts` (`cd30d2117d68…`) ve `staff-api/visitItems.ts` (`dc65ae27729c…`) dahil; fazladan yine yalnız `main/` ve `hello/`.
 
 1.0'dan beri yalnız 4 fonksiyon yoklandı (`staff-api`, `remind`,
 `booking-manage`, `whatsapp-booking`, 2026-10-15). Salt okuma:
@@ -319,7 +327,7 @@ ssh -i ~/.ssh/luera_vps root@76.13.4.164 'cd /data/coolify/services/t6yi63jbebvj
 
 ## 11 · 📱 Telefon turu → derleme
 
-- [x] P0 (2026-10-15: `start:prod`, soğuk açılış; demo müdür · tek kişilik · personel Derya — üç kabuk temiz, iki bulgu düzeltildi, aşağıda) · [x] P1 (kayıt onaysız + mod sorusu + tek kişilik kabuk + tahsilatlı hesabı silme ✓ — 119 sonrası) · [x] P2 (ekip ✓ · tek kişilik: Fön ×2 + hizmet = ₺900, Kasa'da tek kayıt ₺900 Nakit ✓) · [x] P3 · [x] P4 · [x] P5 (§50 hariç — demo sakin kipte) · [ ] EAS üretim derlemesi · [ ] TestFlight · [ ] ASC
+- [ ] **P0 YENİDEN (paket kodu P0'dan sonra girdi, `c4ae5a1`):** `start:prod`, soğuk açılış, üç kabuk + bir paket ekranı · [x] P0 (2026-10-15: `start:prod`, soğuk açılış; demo müdür · tek kişilik · personel Derya — üç kabuk temiz, iki bulgu düzeltildi, aşağıda) · [x] P1 (kayıt onaysız + mod sorusu + tek kişilik kabuk + tahsilatlı hesabı silme ✓ — 119 sonrası) · [x] P2 (ekip ✓ · tek kişilik: Fön ×2 + hizmet = ₺900, Kasa'da tek kayıt ₺900 Nakit ✓) · [x] P3 · [x] P4 · [x] P5 (§50 hariç — demo sakin kipte) · [ ] EAS üretim derlemesi · [ ] TestFlight · [ ] ASC
 
 > **P0 bulgusu (2026-10-15, demo müdür, Akış):** uzun bekleyen kartta
 > "Personeli çağır" → "Gönderilemedi · tekrar dene"; hap genişleyip kahraman
