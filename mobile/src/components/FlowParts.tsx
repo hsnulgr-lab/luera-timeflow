@@ -15,7 +15,7 @@ import { pillCells, pillOff, pillOpens, type CellKey, type PillRecord } from '..
 import { splitStaffName, upperTR } from '../lib/text';
 import { elapsed } from '../lib/calendar';
 import {
-    actionsOf, contextRows, durationBadge, etaColumn, etaPanel, initialsOf,
+    a2Detail, actionsOf, contextRows, durationBadge, etaColumn, etaPanel, initialsOf,
     isLate, isSettled, labelOf, nextCardKind, nextRowLabel, staffConflict, toneOf,
     dueCard, dueLevel, noshowCard, noshowRowLabel, paidCard, paidLine, waitCard,
     bookedCard, cancelledCard,
@@ -1026,13 +1026,20 @@ function CustomerCard({ event, presence, onAction, onOpenCustomer, onPill, waCon
                         {' '}
                         {event.lastName}
                     </Text>
-                    <Text style={{
-                        color: cardSkin.tx2,
-                        fontSize: nextCardMetrics.detailSize,
-                        fontFamily: font.semiBold,
-                        fontWeight: '600',
-                    }}>
-                        {event.detail}
+                    {/* TEK SATIR (2026-10-16): personelin adı yalnız ad; uzun
+                        hizmet adında yazı en çok %15 küçülür, sonra "…". */}
+                    <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.85}
+                        style={{
+                            color: cardSkin.tx2,
+                            fontSize: nextCardMetrics.detailSize,
+                            fontFamily: font.semiBold,
+                            fontWeight: '600',
+                        }}
+                    >
+                        {a2Detail(event.detail, event.staffName)}
                     </Text>
                 </View>
                 </Pressable>

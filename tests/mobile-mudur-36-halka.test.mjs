@@ -80,3 +80,14 @@ test('randevu kartı: başlıkta Ø18 rakamsız halka + kalan; müşteri kartı:
     // Borç: renk noktada, yazı mürekkepte.
     assert.match(card, /backgroundColor: c\.am \}\} \/>[\s\S]{0,200}color: c\.tx, fontSize: 12\.5/);
 });
+
+// ── A2 hizmet satırı tek satır (kullanıcı: "bu alta geçmese … kart kısalır") ──
+
+test('A2 hizmet satırı TEK SATIR: personelin yalnız adı; sığmazsa biraz küçülür', async () => {
+    const { a2Detail } = await import('../mobile/src/lib/managerFlow.ts');
+    assert.equal(a2Detail('Kaş Tasarımı · 20 dk · Selin Kaya ile', 'Selin Kaya'), 'Kaş Tasarımı · 20 dk · Selin ile');
+    assert.equal(a2Detail('Ağda · 45 dk · Derya ile', 'Derya'), 'Ağda · 45 dk · Derya ile', 'tek adlı personel aynı kalır');
+    assert.equal(a2Detail('Ağda · 45 dk', undefined), 'Ağda · 45 dk', 'personelsiz satır aynı kalır');
+    assert.equal(a2Detail('Ağda · 45 dk · Ayşe Nur Kaya ile', 'Ayşe Nur Kaya'), 'Ağda · 45 dk · Ayşe Nur ile');
+    assert.match(flow, /numberOfLines=\{1\}\s+adjustsFontSizeToFit\s+minimumFontScale=\{0\.85\}[\s\S]{0,500}\{a2Detail\(event\.detail, event\.staffName\)\}/);
+});

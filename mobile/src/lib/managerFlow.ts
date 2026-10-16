@@ -671,6 +671,23 @@ export function etaPanel(
     return { label: 'girmesine', value: minuteLabel(remaining), sub, late: false };
 }
 
+/**
+ * A2 kartının hizmet satırı TEK SATIR: personelin yalnız ADI.
+ *
+ * "Kaş Tasarımı · 20 dk · Selin Kaya ile" sağdaki geri sayım sütunu yüzünden
+ * ikinci satıra taşıyor ve kartı uzatıyordu (2026-10-16, kullanıcı: "bu alta
+ * geçmese … kart üstten ve alttan kısalır"). Müdür ekibini adıyla tanıyor —
+ * müşteri defteri de "Elif" yazıyor.
+ */
+export function a2Detail(detail: string, staffName?: string): string {
+    if (!staffName) return detail;
+    const full = staffName.trim();
+    const { given, family } = splitStaffName(full);
+    if (!family) return detail;
+    const tail = `${full} ile`;
+    return detail.endsWith(tail) ? `${detail.slice(0, -tail.length)}${given} ile` : detail;
+}
+
 /** A2 kartının sağ sütunu: büyük rakam + altında ne olduğu. */
 export function etaColumn(event: Pick<FlowEvent, 'time' | 'etaMinutes'>): {
     value: string; sub: string; late: boolean;
