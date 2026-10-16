@@ -93,6 +93,7 @@ DECLARE
 
     v_s1 UUID; v_s2 UUID; v_s3 UUID;   -- personel
     v_c  UUID;                          -- müşteri (döngüde)
+    v_plan UUID;                        -- satılmış paket (döngüde)
 BEGIN
     -- ── SESSİZ (2026-10-16, göç 120) ────────────────────────────────────
     -- Tohumun yazdığı randevular personele "Yeni randevun var" bildirimi
@@ -252,7 +253,7 @@ BEGIN
     -- ── Paketler ────────────────────────────────────────────────────────
     -- Kenar çubuğunda "Paketler" var; boş bir sayfa ekran görüntüsünde
     -- ürünün eksik olduğunu düşündürür. Bunlar yalnız TANIM (şablon);
-    -- kimseye satılmış paket yazılmıyor — olmayan bir satışı göstermeyiz.
+    -- Satılmış paketler aşağıda ("SATILMIŞ PAKETLER", 2026-10-16).
     INSERT INTO package_templates (organization_id, name, session_count, price, color, validity_months, is_active) VALUES
         (v_org, 'Lazer Epilasyon · 6 Seans',  6, 7500, '#06B6D4', 12, true),
         (v_org, 'Cilt Bakımı · 4 Seans',      4, 4000, '#8B5CF6',  6, true),
@@ -394,6 +395,56 @@ BEGIN
         END LOOP;
     END LOOP;
 
+    -- ── SATILMIŞ PAKETLER (2026-10-16 · 1.0.1 hakem turu) ───────────────
+    -- 1.0.1 Profil › Paketler'i, Akış'ın paket halkasını (Müdür 36) ve müşteri
+    -- kartının halkasını getirdi; hiç satış yokken hakem üçünü de BOŞ görürdü
+    -- (inceleme notu "Packages: Profil > Paketler" diyor). Eskiden yalnız
+    -- şablon yazılıyordu ("olmayan bir satışı göstermeyiz"); demo müşterileri
+    -- zaten kurgu, paket de o kurgunun parçası. Kullanıcı kararı.
+    --
+    -- Üç hâl, üçü de ekranların GERÇEK kuralıyla:
+    --   Vildan Ay    · Lazer 6     · 2 kullanıldı · ₺4.900 / 7.500 → "4 seans kaldı · ₺2.600 ödenmedi"
+    --   Yasemin Kurt · Cilt Bakımı 4 · 3 kullanıldı · tamamı ödendi → "Son seans"
+    --   Ayşe Yıldız  · Aromaterapi 10 · bitti      · tamamı ödendi → Paketler › Bitenler
+    -- Vildan ve Yasemin BUGÜN Akış'ta: koyu kart + halka ilk ekranda.
+    --
+    -- Satış ve ödemeler 45 GÜN ÖNCE: 45 > 31, yani her zaman geçen ay ya da
+    -- daha eski — bugünün, bu haftanın ve bu ayın Kasa toplamları DEĞİŞMİYOR.
+    -- Ödeme satırı 061'in kurallarıyla: aynı müşteri, tutar > 0, toplam ≤
+    -- bedel, taksitsiz (telefonun `planPaymentRow`u gibi, `treatment_plan_id`li).
+    -- Silme: planlar müşteriyle birlikte cascade gidiyor; ödemeleri yukarıdaki
+    -- `DELETE FROM payments` önce siliyor.
+    FOR v_i IN 0..2 LOOP
+        SELECT id INTO v_c FROM customers
+         WHERE organization_id = v_org
+           AND name = (ARRAY['Vildan Ay','Yasemin Kurt','Ayşe Yıldız'])[v_i + 1]
+         LIMIT 1;
+
+        INSERT INTO treatment_plans (
+            organization_id, customer_id, title, total_amount, status,
+            session_count, sessions_done, plan_kind, created_at
+        ) VALUES (
+            v_org, v_c,
+            (ARRAY['Lazer Epilasyon · 6 Seans','Cilt Bakımı · 4 Seans','Aromaterapi Masajı · 10 Seans'])[v_i + 1],
+            (ARRAY[7500, 4000, 9500])[v_i + 1],
+            CASE WHEN v_i = 2 THEN 'completed' ELSE 'active' END,
+            (ARRAY[6, 4, 10])[v_i + 1],
+            (ARRAY[2, 3, 10])[v_i + 1],
+            'paket',
+            ((v_today - 45) + TIME '12:00') AT TIME ZONE 'Europe/Istanbul'
+        ) RETURNING id INTO v_plan;
+
+        INSERT INTO payments (organization_id, customer_id, reservation_id, treatment_plan_id,
+                              type, description, amount, method, paid_at)
+        VALUES (
+            v_org, v_c, NULL, v_plan, 'service',
+            'Paket tahsilatı · ' || (ARRAY['Lazer Epilasyon · 6 Seans','Cilt Bakımı · 4 Seans','Aromaterapi Masajı · 10 Seans'])[v_i + 1],
+            (ARRAY[4900, 4000, 9500])[v_i + 1],
+            (ARRAY['card', 'cash', 'card'])[v_i + 1],
+            ((v_today - 45) + TIME '12:05') AT TIME ZONE 'Europe/Istanbul'
+        );
+    END LOOP;
+
     -- ── Tahsilat ────────────────────────────────────────────────────────
     -- `is_paid` tek başına YETMİYOR. Kasa ciroyu payments'tan topluyor;
     -- satır olmayınca Akış "TAHSİL EDİLDİ ₺0" diyordu ve Kasa ekranı bomboş
@@ -424,7 +475,7 @@ BEGIN
        AND r.is_paid;
 
     SELECT count(*) INTO v_count FROM reservations WHERE organization_id = v_org;
-    RAISE NOTICE 'Demo salon hazır — % randevu (6''şar bugün, yarın ve öbür gün), 3 personel, 7 hizmet, 3 paket, 20 müşteri.', v_count;
+    RAISE NOTICE 'Demo salon hazır — % randevu (6''şar bugün, yarın ve öbür gün), 3 personel, 7 hizmet, 3 paket türü, 3 satılmış paket, 20 müşteri.', v_count;
     IF v_zorla THEN
         RAISE NOTICE 'ZORLA KİP: mesai penceresi atlandı, gün sunucunun GERÇEK saatine (%) oturdu.', v_saat;
         RAISE NOTICE 'Telefonun saatine DOKUNMA — otomatik kalsın, yoksa gün strip''i başka günü gösterir.';
