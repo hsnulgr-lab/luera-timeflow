@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Luera TimeFlow · e-posta şablonu: e-posta değişikliği
+  ÜRETİLDİ: scripts/eposta-sablonlari.mjs — elle düzenleme, betiği çalıştır.
+  Giriş servisi bu dosyayı adresinden okur: Coolify → MAILER_TEMPLATES_EMAIL_CHANGE
+  Yalnız kod, bağlantı yok; yoruma şablon ifadesi yazma (servis işler).
+-->
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<title>E-posta değişikliğini onaylayın</title>
+</head>
+<body style="margin:0;padding:0;background:#F3EDE3;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">E-posta değişikliğini onaylamak için 6 haneli kodunuz.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3EDE3;">
+  <tr>
+    <td align="center" style="padding:40px 16px 32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:#FFFFFF;border:1px solid #ECE4D6;border-radius:20px;">
+        <tr>
+          <td style="padding:32px 32px 0 32px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align:middle;"><img src="https://timeflow.lueratech.com/eposta/logo.png" width="44" height="44" alt="Luera TimeFlow" style="display:block;width:44px;height:44px;border:0;border-radius:11px;"></td>
+                <td style="vertical-align:middle;padding-left:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:700;color:#0E0E0E;letter-spacing:-0.1px;">Luera TimeFlow</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <h1 style="margin:0 0 10px 0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-0.4px;color:#0E0E0E;">E-posta değişikliğini onaylayın</h1>
+            <p style="margin:0;font-size:15px;line-height:24px;color:#4F4840;">Hesabınızın e-posta adresi <a href="mailto:{{ .NewEmail }}" style="color:#0E0E0E;text-decoration:none;font-weight:600;">{{ .NewEmail }}</a> olarak değiştirilecek. Onaylamak için uygulamada aşağıdaki kodu girin.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 0 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0E0E0E;border-radius:14px;">
+              <tr>
+                <td align="center" style="padding:20px 0 20px 12px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,'Courier New',monospace;font-size:34px;line-height:40px;font-weight:700;letter-spacing:12px;color:#F3EDE3;">{{ .Token }}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 0 32px;"><div style="height:1px;line-height:1px;font-size:1px;background:#ECE4D6;">&nbsp;</div></td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px 32px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <p style="margin:0 0 8px 0;font-size:13px;line-height:20px;color:#8C8478;">Bu kodu kimseyle paylaşmayın. Luera ekibi sizden hiçbir zaman kod istemez.</p>
+            <p style="margin:0;font-size:13px;line-height:20px;color:#8C8478;">Bu değişikliği siz istemediyseniz e-postayı yok sayın ve şifrenizi değiştirin.</p>
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
+        <tr>
+          <td align="center" style="padding:20px 24px 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#8C8478;">
+            Bu adres yanıt almaz. Sorularınız için <a href="mailto:info@lueratech.com" style="color:#FF5A1F;text-decoration:none;font-weight:600;">info@lueratech.com</a><br>
+            Luera TimeFlow · Randevu takip ve gün yönetimi
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

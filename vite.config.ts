@@ -31,6 +31,9 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // public/eposta/ giriş servisinin (GoTrue) okuduğu e-posta şablonları;
+        // uygulamanın parçası değil, tarayıcı önbelleğine girmesin.
+        globIgnores: ['eposta/**'],
         // Tek parça uygulama paketi 2 MiB'ı geçti (varsayılan sınır). Sınırın
         // altında kalan dosya precache DIŞINDA kalıyor ve çevrimdışı açılış
         // bozuluyordu; kod bölme yapılana kadar sınır yükseltildi.

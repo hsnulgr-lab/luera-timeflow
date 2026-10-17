@@ -15,7 +15,7 @@ Pushover ödemesi. Sonra: ayrı oturumlar ve borçlar.
 
 ## 1 · 1.0.1 yayın süreci (önümüzdeki 1–2 hafta)
 
-- [ ] **Apple incelemesi** — hafta sonu ya da Pazartesi; onay/ret e-postası gelir (Apple).
+- [x] **Apple incelemesi** — ✅ ONAYLANDI 17 Ekim 2026 22:00 (gönderimden ~31 saat; Submission `f1c08496…`). Sürüm `Pending Developer Release`; "cancel this release"a dokunma.
 - [ ] **Release This Version** — 20 Ekim Salı ya da 21 Ekim Çarşamba, 09:00–11:00 (siz). 28–29 Ekim bayram: kaçın.
 - [ ] **Kademeli yayını izle** — 7 gün; sorun çıkarsa "Pause" (siz + Claude).
 - [ ] Ret gelirse: mesajı Claude'a ver → düzeltme → `1.0.1 (7)` (birlikte).
@@ -31,7 +31,7 @@ yeniden başlatırsa ilk iş `/auth/v1/health` (hafıza: `vps_reboot_auth_dersi`
 
 ## 3 · 1.0.2 (uygulama), ~2 hafta
 
-- [ ] **Giriş ekranı** — Apple ile giriş, Google ile giriş, şifre sıfırlama (kodla). **Büyük, 3–5 gün.** Önce: e-posta sağlayıcısı kararı (Resend / Brevo / Amazon SES) + SMTP + DNS (SPF, DKIM, DMARC). Doğrulama açılınca Apple inceleme notu ("her e-postayla kaydol, hemen girersin") değişir. Plan: `docs/giris-yeniden-plan.md`, brief: `docs/giris-claude-design-prompt.md`.
+- [ ] **Giriş ekranı** — Apple ile giriş, Google ile giriş, şifre sıfırlama (kodla). **Büyük, 3–5 gün.** ✅ 2026-10-18: e-posta sağlayıcısı **Resend** (EU/Ireland), `lueratech.com` doğrulandı (DKIM + SPF, Gmail Birincil'e düştü), Türkçe yalnız-kod şablonları `public/eposta/` (üretici `scripts/eposta-sablonlari.mjs`). Kalan önkoşul: masaüstü deploy (şablonlar canlıya) → Coolify'da `SMTP_*` + `MAILER_*` + Restart → gerçek sıfırlama denemesi. Doğrulama açılınca Apple inceleme notu ("her e-postayla kaydol, hemen girersin") değişir. Plan: `docs/giris-yeniden-plan.md`, brief: `docs/giris-claude-design-prompt.md`.
 - [ ] **Dinamik Ada / kilit ekranında bekleme geri sayımı** (Live Activity) — 2–3 gün, Expo Go'da denenemez → test derlemesi/TestFlight.
 - [ ] **Personel müşteri dosyasında paket halkası** — `app/(staff-flow)/musteri.tsx · PackageRow`: çentik/çubuk + "1 / 6" → Ø36 `SessionRing` + `remainingHead`. ~15 dk.
 - [ ] **"Bekleme kur"da bildirim izni sorusu** — tek kişilikte izin yalnız İşletme › Bildirimler'den isteniyor; ilk "Bekleme kur"da ön soru (`PushPrompt` kalıbı). ~1 sa.
@@ -69,7 +69,7 @@ yeniden başlatırsa ilk iş `/auth/v1/health` (hafıza: `vps_reboot_auth_dersi`
 - [x] **Dış izleme + alarm** — ✅ 2026-10-17 03:16 uçtan uca provayla doğrulandı. Cloudflare Worker `luera-izleme` 2 dk'da bir 5 kontrol; **Pushover** asıl kanal (sunucu/giriş/veri/personel = acil, Critical Alerts; masaüstü bir kez sesli; lueratech.com ve sabah 09:00 sessiz), ntfy yedek. Metinler: Etkisi → Ne yap → teknik. Kod `ops/izleme/`, test `tests/izleme.test.mjs`, rehber `ops/izleme/README.md`. Sonraki aşama: gece yedeği + demo tohumu için cron nabzı.
 - [ ] **Pushover denemesi biter (~16 Kasım 2026)** — beğenildiyse uygulama içinden tek seferlik $4.99; alınmazsa alarm susar (sabah 09:00 mesajının gelmemesinden anlaşılır).
 - [ ] **Yedeğin dış kopyası + bir geri yükleme provası** — gece yedeği VPS'in kendi diskinde duruyor (`scripts/vps-backup.sh` dışarı kopyalamıyor); sunucu giderse yedek de gider. Başka bir yere kopya (VPS 2, Backblaze B2, Hetzner Storage Box) + bir kez boş bir veritabanına geri yükleyip doğrulama. Yarım gün.
-- [ ] **Masaüstünde elle açılan randevu `pending` yazılıyor** — `src/pages/CalendarPage.tsx:575` (denetim A1, hâlâ canlıda). Güzellik salonunun masaüstünden açtığı randevu orada sonsuza kadar "Onay Bekliyor", telefonda 30 dk sonra "Gelmedi". Düzeltme tek satır (`confirmed`) + masaüstü deploy. ~30 dk.
+- [ ] **Masaüstünde elle açılan randevu `pending` yazılıyor** — **kod düzeltildi `862678c` (2026-10-17), yalnız güzellik** (diş/sağlık "Teyit bekliyor", dövme "talep" bilerek `pending` kalır; durum `calendarSectorProfiles · manualStatus`). Kalan: Coolify'dan masaüstü deploy + takvimden deneme randevusu · isteğe bağlı: eski `pending` + `source` boş güzellik kayıtlarının sayımı → kararla onaylıya çevirme.
 
 **1.0.2'ye**
 
