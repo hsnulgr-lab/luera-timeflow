@@ -67,3 +67,20 @@ test('sectorFaces yüz seçimini profilden okur, if zinciriyle değil', () => {
     assert.doesNotMatch(faces, /sector === /, 'Yüz haritası sektör karşılaştırması içermemeli');
     assert.match(faces, /calendarProfileFor/);
 });
+
+// Denetim A1 (2026-09-27, düzeltme 2026-10-17): güzellikte takvimden elle
+// açılan randevu `pending` yazılıyordu → masaüstünde sonsuza dek "Onay
+// Bekliyor", telefonda "Gelmedi". Düzeltme YALNIZ güzellikte: diş/sağlıkta
+// `pending` "Teyit bekliyor", dövmede "talep" demek — onlar bozulmasın.
+test('elle açılan randevu: güzellik onaylı, diğer sektörler bugünkü gibi bekliyor', () => {
+    assert.equal(calendarProfileFor('guzellik').manualStatus, 'confirmed');
+    for (const sector of ['dis', 'saglik', 'fizyoterapi', 'dovme', 'estetik', 'kuafor', 'genel', undefined, null, '']) {
+        assert.equal(calendarProfileFor(sector).manualStatus, 'pending', `${sector} değişmemeli`);
+    }
+});
+
+test('takvim elle randevunun durumunu profilden alır, sabit yazmaz', () => {
+    const page = read('../src/pages/CalendarPage.tsx');
+    assert.match(page, /status: calendarProfileFor\(settings\.sector\)\.manualStatus,/);
+    assert.doesNotMatch(page, /status: 'pending'/);
+});

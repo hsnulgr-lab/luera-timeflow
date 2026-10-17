@@ -30,6 +30,19 @@ export interface CalendarProfile {
      * Tanımsızsa ziyaret ekranı yoktur.
      */
     visitRoute?: (reservationId: string) => string;
+    /**
+     * Takvimden ELLE açılan randevunun durumu.
+     *
+     * `pending` bazı sektörlerde bilerek kurulmuş bir iş akışı: diş ve sağlıkta
+     * "Teyit bekliyor" (hasta aranacak), dövmede "talep". Güzellikte böyle bir
+     * anlamı yok — salon kendi açtığı randevuyu onaylamak zorunda kalıyordu,
+     * masaüstü onu sonsuza dek "Onay Bekliyor" gösterip "Gelmedi"ye hiç
+     * düşürmüyordu, telefon ise onaylı sayıyordu (denetim A1, 2026-09-27;
+     * düzeltme 2026-10-17). Güzellik panosu ve hızlı randevu zaten
+     * `confirmed` yazıyor; takvim onlara uyar. Dış kanallar (randevu sayfası,
+     * WhatsApp) bundan etkilenmez — onlar `booking_auto_confirm`a bakar.
+     */
+    manualStatus: 'pending' | 'confirmed';
 }
 
 const DEFAULT_PROFILE: CalendarProfile = {
@@ -37,6 +50,7 @@ const DEFAULT_PROFILE: CalendarProfile = {
     reservations: 'genel',
     customers: 'genel',
     mobileCalendar: 'genel',
+    manualStatus: 'pending',
 };
 
 const SALON: CalendarProfile = {
@@ -51,7 +65,7 @@ export const CALENDAR_PROFILES: Record<string, CalendarProfile> = {
     // Güzellikte müşteri ve rezervasyon yüzleri kendine özel; TAKVİM jenerik
     // kalıyor — kabin şeridi ve paket rozetiyle zaten sektöre bürünüyor
     // (bkz. 2.5 kararı).
-    guzellik: { ...DEFAULT_PROFILE, customers: 'guzellik', reservations: 'guzellik' },
+    guzellik: { ...DEFAULT_PROFILE, customers: 'guzellik', reservations: 'guzellik', manualStatus: 'confirmed' },
     dis: {
         ...DEFAULT_PROFILE,
         visitRoute: (reservationId) => `/dental-visit/${encodeURIComponent(reservationId)}`,

@@ -11,6 +11,7 @@ import { monthGridOf, weekDaysOf } from '@/lib/calendarGrid';
 import { useCalendarDay } from '@/hooks/useCalendarDay';
 import { serviceSeedFor, missingSeedServices } from '@/lib/serviceSeeds';
 import { profileForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
+import { calendarProfileFor } from '@/lib/calendarSectorProfiles';
 import { activeRiskFlags, evaluateEligibility } from '@/lib/serviceEligibility';
 import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -572,7 +573,7 @@ export const CalendarPage = () => {
                     || '',
                 customerName: newRes.customerName, customerPhone: newRes.customerPhone, customerEmail: newRes.customerEmail,
                 date: selectedDate, startTime: ln.startTime, endTime: ln.endTime, service: ln.service, serviceColor: ln.serviceColor,
-                status: 'pending', notes: newRes.notes, staffId: ln.staffId || undefined, staffName: ln.staffName, staffColor: ln.staffColor,
+                status: calendarProfileFor(settings.sector).manualStatus, notes: newRes.notes, staffId: ln.staffId || undefined, staffName: ln.staffName, staffColor: ln.staffColor,
                 groupId,
                 recurrenceRule: lines.length === 1 ? (recurrence.rule || undefined) : undefined,
                 recurrenceUntil: lines.length === 1 && recurrence.rule ? (recurrence.until || undefined) : undefined,
