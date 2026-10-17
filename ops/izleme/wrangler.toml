@@ -1,0 +1,28 @@
+# Luera dış izleme — Cloudflare Worker (ücretsiz plan). Kurulum: README.md
+name = "luera-izleme"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Dışarıdan çağrılacak bir adresi yok; yalnız zamanlayıcıyla çalışır.
+workers_dev = false
+preview_urls = false
+
+[triggers]
+crons = ["*/2 * * * *"]
+
+[observability]
+enabled = true
+
+# Gizli olmayan ayarlar. Sırlar (SUPABASE_ANON_KEY, PUSHOVER_TOKEN, PUSHOVER_USER,
+# NTFY_TOPIC, NTFY_TOKEN) burada DEĞİL:
+# `wrangler secret put` ile Cloudflare'de durur.
+[vars]
+SUPABASE_URL = "https://supabase.timeflow.lueratech.com"
+DESKTOP_URL = "https://timeflow.lueratech.com"
+SITE_URL = "https://lueratech.com"
+DEMO_SLUG = "demo-luera"
+
+# Kapalı servislerin ve kurulumun kaydı. id: `wrangler kv namespace create DURUM`
+[[kv_namespaces]]
+binding = "DURUM"
+id = "a45f9862ed07418997fac6c9380d027a"
