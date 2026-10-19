@@ -1,3 +1,6 @@
+> **YERİNE GEÇTİ (2026-10-18):** v3 "Işık alanı" uygulandı; Apple/Google turu için
+> güncel brief `docs/giris-v4-claude-design-prompt.md`. Bu dosya tarihçe.
+
 # GİRİŞ · İşletme sahibinin girişi, kaydı ve şifre sıfırlama — Claude Design promptu
 
 Luera TimeFlow'un işletme sahibi girişini baştan çiz: **Apple ile devam et**,
@@ -8,8 +11,28 @@ profesyonel, sakin, tek elle ve ilk seferde anlaşılır bir giriş.
 **Ekler — yalnız bunlar (başka dosya ekleme):**
 1. **Ekran görüntüleri (telefondan, bugünkü kodla):** Karşılama ekranı,
    "Hesabınıza girin" ekranı, "Şifremi unuttum" ekranı, kayıt ekranının ilk
-   adımı. Bunlar bugünkü dil; aynı aileden olmalı ama kopyası değil.
+   adımı ("Hesabınızı açalım"). Bunlar bugünkü dil; aynı aileden olmalı ama
+   kopyası değil.
 2. `Luera Landing.html` — Luera'nın marka dili.
+3. **Kod e-postasının ekran görüntüsü** (telefondaki Gmail, kod rakamları
+   kapatılmış) — kişinin uygulamaya geçmeden önce gördüğü son şey; kod kutusu
+   ekranla aynı aileden olsun.
+
+## Güncel durum (2026-10-18) — bunları sabit kabul et
+
+- **Kod e-postası CANLI.** Gönderen "Luera TimeFlow" `no-reply@lueratech.com`;
+  konular "Şifre sıfırlama kodunuz" / "E-posta doğrulama kodunuz". Kod 6
+  hane, e-postada bağlantı YOK — kişi kodu uygulamaya yazar (ya da iOS
+  "e-postadan doldur" önerisiyle). Ekrandaki cümle göndereni adıyla anabilir:
+  "Luera TimeFlow'dan gelen e-postadaki 6 haneli kodu girin."
+- **Yeniden gönderme en erken 60 sn sonra** (sunucu sınırı) — G5/G7'deki geri
+  sayım 60'tan başlar.
+- **Apple ve Google YALNIZ işletme sahibinin iki ekranında** (karar
+  2026-10-15): G2 "Hesabınıza girin" (Karşılama → İşletmemi yönetiyorum) ve G4
+  "Hesabınızı açalım" — bu kayıt ekranı **Tek kişilik** ve **Yeni işletme
+  oluştur** yollarının ORTAK ilk adımı (bugünkü `signup/account`). Personel
+  girişi (ekip kodu + şifre) değişmez.
+- Masaüstü ayrı bir tur; bu brief yalnız telefon.
 
 **Effort: High.**
 
@@ -67,7 +90,7 @@ karede göster (bugün var).
 - İnternet yok.
 - Apple/Google penceresini kişi kapattı (sessiz; hata değil).
 
-### G4 · Kayıt (e-postayla)
+### G4 · Kayıt — "Hesabınızı açalım" (Tek kişilik ve Yeni işletme ORTAK)
 Ad soyad, e-posta, şifre (kuralı yazılı: en az 8 karakter, içinde bir rakam — bugünkü kural), gizlilik politikası
 bağlantısı (kullanım koşulları sayfası YOK — çizme), **Hesap oluştur**. Apple/Google düğmeleri burada da üstte.
 
