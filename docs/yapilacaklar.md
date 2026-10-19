@@ -68,7 +68,7 @@ Giriş sayfası yeni tasarıma geçti; arkasından gelen ekranlar eski dilde kal
   - Dodo canlı moda geçiş, abonelik kapısının (ENFORCE) açılması
   - mobilde kilitli kullanıcıya ne denecek (Apple 3.1.1: uygulama içinden ödeme yok, yönlendirme yok)
   - Hafıza: `timeflow_core_debt`, `billing_design_pending`
-  - ✅ 2026-10-19: **kök sebep** — Dodo ucu Eylül 500'leri yüzünden "Devre dışı" kalmış (8 hafta tek olay yok). **KARAR: TimeFlow asıl, Core kopya.** Onarım KODDA (göç 123 + webhook/silme/checkout/durum Core'suz + "Kartı güncelle" → Dodo portalı; commit yok, canlı değil). Canlıya çıkış sırası ve kalanlar: devir 10 §10.
+  - ✅ 2026-10-19: **kök sebep** — Dodo ucu Eylül 500'leri yüzünden "Devre dışı" kalmış (8 hafta tek olay yok). **KARAR: TimeFlow asıl, Core kopya.** Onarım **CANLIDA** (2026-10-19 akşam, `36f0f02`): göç 123 + webhook/silme/checkout/durum Core'suz + "Kartı güncelle" → Dodo portalı; Dodo ucu yeniden Etkin, test olayı 200; dış izlemede "Dodo ucu kapalı" kontrolü. ✅ TRY fiyatları test kipinde (6 ürün, ödeme sayfasında birebir; ~19:30). Kalan (satış öncesi): mobil kayıt + ENFORCE kararı, Dodo Live (canlı ürünler $10/$30/$75 — yanlış, TRY kuralları canlıda da kurulacak), plan değişikliği, Core Studio parolası — devir 10 §10.
 - [ ] **WhatsApp** — Evolution ile otomatik hatırlatma ("salon sahibi elle bir şey yapmadan"); hat QR eşleştirmesi.
 - [ ] **Altyapı** — `supabase.lueratech.com` (LeadFlow/CallFlow) haftalardır 503 · VPS 1'deki kullanılmayan Supabase yığını (`eopb02…`; yedek → Stop → bekle → sil) · salt okunur teşhis yolu (Supabase MCP fikri; bulut bağlayıcısı bizde çalışmaz, self-hosted).
 - [ ] **Luera sitesi + ekosistem + Instagram planı.**

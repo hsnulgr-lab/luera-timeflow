@@ -353,6 +353,14 @@ UYGULANDI (COMMIT), doğrulama: 5 kolon · defter var, istemci izni 0 ·
 yönlendirmesini reddediyor → `cat dosya | ssh …` biçimi kullanıldı.
 Sırada: 4 (fonksiyonlar).
 
+**✅ HEPSİ CANLIDA (2026-10-19 ~19:00 TR):** fonksiyonlar argümansız yüklendi
+(dördü de kimliksiz 401 = kod açılıyor) · Dodo Test sekmesinden imzalı
+`subscription.renewed` → **200, 1156 ms** (13 Eylül'de 500 / 16–26 sn) ·
+`dodo_events`: outcome `no_org`, işlendi, Core kopyası tamam · commit
+`36f0f02` main + tek-kisilik'e gönderildi (site/ hariç) · Coolify Deploy →
+masaüstü paketi `index-ChC88xwG.js` → `index-BMK1B8IO.js`, portal / 409 /
+iptalden vazgeçme metinleri pakette. Kalan: "Sonra" listesi.
+
 1. Kuru koşu (yazmaz; sonunda ROLLBACK):
    `{ echo 'BEGIN;'; grep -vx -e 'BEGIN;' -e 'COMMIT;' ~/Projects/luera-timeflow/supabase/123_abonelik_yerel_kaynak.sql; cat ~/Projects/luera-timeflow/ops/abonelik/123-dogrula.sql; echo 'ROLLBACK;'; } | ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -'`
    Beklenen: 5 kolon · defter var · izin satırı 0 · `kapi_123 = t` · kilitli 0.
@@ -365,6 +373,35 @@ Sırada: 4 (fonksiyonlar).
 6. Dodo paneli: Webhooks → uç → **Testing** → örnek olay gönder → 200 +
    `"outcome":"no_org"` beklenir; `dodo_events`'te satır. **Settings → e-posta
    uyarısı**na adres yaz (uç kapanırsa haber gelsin).
+
+### ✅ TRY fiyatları (2026-10-19 ~19:30 TR, Dodo TEST kipi)
+
+Yöntem: ürünler DEĞİŞMEDİ (kimlikler aynı → `DODO_PRODUCT_MAP` ve kod
+dokunulmadı); her ürüne **Yerelleştirilmiş Fiyatlandırma → Para Birimine Göre
+→ TRY** sabit kuralı eklendi. "Vergi dahil" altısında da zaten açıktı (KDV
+fiyatın içinde), ürün düzeyi deneme kapalı (deneme checkout'tan). Yıllık
+ürünler yıllık TEK çekim (PaywallPage `yearly × 12`).
+
+| Ürün | Kimlik | Taban (değişmedi) | TRY kuralı | Test ödeme sayfası |
+|---|---|---|---|---|
+| Başlangıç aylık | pdt_0NiGkpMZyOewFEb2fCfTc | $6,16 | ₺299 | TRY 299.00 /ay ✓ |
+| Pro aylık | pdt_0NiGkueSxjrBUI5Ogfqgc | $12,33 | ₺599 | TRY 599.00 /ay ✓ |
+| İşletme aylık | pdt_0NiGl0Tkf7gJ4novp8MRI | $24,69 | ₺1.199 | TRY 1,199.00 /ay ✓ |
+| Başlangıç yıllık | pdt_0NiGl8gulPxln2G4gwVtd | $59,06 | ₺2.868 | TRY 2,868.00 /yıl ✓ |
+| Pro yıllık | pdt_0NiGlBJIuAek8jq5RksNe | $118,40 | ₺5.748 | TRY 5,748.00 /yıl ✓ |
+| İşletme yıllık | pdt_0NiGlFFrDjNDFsC6dRA9L | $237,00 | ₺11.508 | TRY 11,508.00 /yıl ✓ |
+
+Hepsi "(satış vergisi dahil.)". Kanıt: `test.checkout…/buy/<ürün>` sayfası
+(ödeme yapılmadı). Mevcut abonelikler eski (USD'den çevrilen) fiyatta
+yenilenir — yalnız iç test hesapları.
+
+Görülenler: (1) Ekim test yenilemeleri ₺632,33/632,73 çekmişti (Eylül
+611,63) — kayma büyüyordu. (2) `furkan@luera.ai` adına 3 AKTİF test aboneliği
+(sub_…Ka0M, …zSF4, …pqkSe) her ay çekiyor — çift abonelik açığının izi; yeni
+webhook aynı işletmeninkileri yenilendikçe teke indirir. (3) **CANLI kipteki 6
+ürün yanlış:** aylık $10/$30/$75, yıllık $100/$300/$750 (Pro aylık ≈ ₺1.450!).
+Live'a geçerken taban fiyatlar + TRY kuralları canlıda da kurulmalı (Dodo'da
+"Testten İçe Aktar" var) ve `DODO_PRODUCT_MAP` canlı kimliklerle değişir.
 
 ### Sonra (sırayla)
 
@@ -379,5 +416,5 @@ Sırada: 4 (fonksiyonlar).
   (2026-10-19 18:02 TR: wrangler yeniden giriş + 3 sır + deploy). İlk Dodo
   yoklaması 18:30 turunda; sabah 09:00 mesajı "6/6 · Dodo bildirim ucu açık"
   demeli.
-- (f) mobil kayıt + ENFORCE kararı (§7 madde 6) · (g) TRY ürünler + Dodo Live.
+- (f) mobil kayıt + ENFORCE kararı (§7 madde 6) · (g) ~~TRY ürünler~~ ✅ (test) + Dodo Live.
 - ⚠️ Core Studio parolası değişecek (§9).
