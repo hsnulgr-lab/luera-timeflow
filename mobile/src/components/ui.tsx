@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import {
     Animated,
     Easing,
@@ -463,13 +463,15 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
  * kapsayıcı: **cam ve alan, içeriğin olmadığı ekranlarda serbest** — kayıt
  * akışında da okunacak bir tutar, saat ya da isim yok.
  */
-export function AuthPage({ children, contentStyle, scrollProps, keyboard, field = true }: {
+export function AuthPage({ children, contentStyle, scrollProps, keyboard, field = true, scrollRef }: {
     children: ReactNode;
     contentStyle?: StyleProp<ViewStyle>;
     scrollProps?: Omit<ScrollViewProps, 'contentContainerStyle'>;
     /** Klavye açık: alan durmaz, bir kademe daha geriye çekilir. */
     keyboard?: boolean;
     field?: boolean;
+    /** Giriş v4 · B2: klavye açılınca ekran içeriği kendisi kaydırıyor. */
+    scrollRef?: Ref<ScrollView>;
 }) {
     const insets = useSafeAreaInsets();
     const { c } = useTheme();
@@ -481,6 +483,7 @@ export function AuthPage({ children, contentStyle, scrollProps, keyboard, field 
             {field ? <LightField profile="form" keyboard={keyboard} /> : null}
             <ScrollView
                 {...scrollProps}
+                ref={scrollRef}
                 style={{ flex: 1 }}
                 contentContainerStyle={[
                     { flexGrow: 1, paddingTop: insets.top },
@@ -2250,7 +2253,8 @@ export function AuthAccountRow({ title, subtitle, onPress }: {
                         {title}
                     </Text>
                     {subtitle ? (
-                        <Text numberOfLines={1} style={{
+                        // İki satır: P1'in "Şifre belirle" açıklaması tek satıra sığmıyor.
+                        <Text numberOfLines={2} style={{
                             color: c.tx2,
                             fontSize: type.small.fontSize,
                             fontFamily: font.medium,
@@ -2263,6 +2267,49 @@ export function AuthAccountRow({ title, subtitle, onPress }: {
                 <ChevronIcon color={c.tx3} />
             </View>
         </Pressable>
+    );
+}
+
+/**
+ * Giriş v4 · P1 — bilgi satırı ("Giriş yöntemi · Apple ile"). Değiştirilemez
+ * bir bilgi: satırda ok yok, dokunulmuyor. Logo yok, yalnız yazı (karar 7).
+ */
+export function AuthAccountInfoRow({ title, value }: { title: string; value: string }) {
+    const { c } = useTheme();
+    return (
+        <View
+            accessible
+            accessibilityLabel={`${title}: ${value}`}
+            style={{
+                minHeight: hit.row,
+                paddingVertical: space.md,
+                paddingHorizontal: space.lg,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: authMetrics.accountRowGap,
+                borderBottomWidth: 1,
+                borderBottomColor: c.bd,
+            }}
+        >
+            <Text numberOfLines={1} style={{
+                flex: 1,
+                color: c.tx,
+                fontSize: type.body.fontSize,
+                fontFamily: font.bold,
+                fontWeight: '700',
+                letterSpacing: type.body.fontSize * -0.015,
+            }}>
+                {title}
+            </Text>
+            <Text numberOfLines={1} style={{
+                color: c.tx,
+                fontSize: type.body.fontSize,
+                fontFamily: font.semiBold,
+                fontWeight: '600',
+            }}>
+                {value}
+            </Text>
+        </View>
     );
 }
 

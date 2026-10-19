@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import {
     AuthPasswordRule,
 } from '../../../src/components/ui';
 import { ProfileNav } from '../../../src/components/ProfileParts';
-import { passwordChange, passwordChangeProblem } from '../../../src/lib/authCopy';
+import { passwordChange, passwordChangeProblem, passwordSet } from '../../../src/lib/authCopy';
 import { passwordRuleState } from '../../../src/lib/authValidation';
 import { feedback } from '../../../src/lib/feedback';
 import { authMetrics, profileMetrics as M, useTheme } from '../../../src/theme';
@@ -32,6 +32,11 @@ import { authMetrics, profileMetrics as M, useTheme } from '../../../src/theme';
  *
  * Işık alanı YOK (`field={false}`): kişi içeride; ışık alanı "oturumun yok"
  * demek. Profil alt sayfalarının opak yüzeyi.
+ *
+ * Giriş v4 · P1 — ŞİFRE BELİRLE. Apple/Google ile açılmış hesabın şifresi
+ * yok; sorulacak bir "şu anki şifre" de yok. O hesapta ekran tek alanla
+ * açılır (isteğe bağlı: bilgisayardan e-postayla da girmek için). Şifresi
+ * olan hesapta bu hâl HİÇ açılmaz — kapı `setPassword`'da da kapalı.
  */
 const DONE_MS = 900;
 
@@ -45,15 +50,28 @@ export default function ManagerChangePassword() {
     const [busy, setBusy] = useState(false);
     const [problem, setProblem] = useState<string | null>(null);
     const [done, setDone] = useState(false);
+    /** `null` — henüz okunmadı; `true` — Apple/Google hesabı, şifresi yok. */
+    const [settingFirst, setSettingFirst] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        let alive = true;
+        authApi.account.get().then((result) => {
+            if (!alive) return;
+            setSettingFirst(result.ok && result.data.login?.hasPassword === false);
+        });
+        return () => { alive = false; };
+    }, []);
 
     const rule = passwordRuleState(next);
-    const canSubmit = current.length > 0 && rule.valid && !busy && !done;
+    const canSubmit = (settingFirst || current.length > 0) && rule.valid && !busy && !done;
 
     const submit = async () => {
         if (!canSubmit) return;
         setBusy(true);
         setProblem(null);
-        const result = await authApi.account.changePassword(current, next);
+        const result = settingFirst
+            ? await authApi.account.setPassword(next)
+            : await authApi.account.changePassword(current, next);
         setBusy(false);
         if (result.ok) {
             feedback.success();
@@ -67,33 +85,39 @@ export default function ManagerChangePassword() {
         if (result.error === 'invalid_credentials') setCurrent('');
     };
 
+    if (settingFirst === null) return <AuthPage field={false}>{null}</AuthPage>;
+    const copy = settingFirst ? passwordSet : passwordChange;
+
     return (
         <AuthPage
             field={false}
             contentStyle={{ paddingBottom: Math.max(insets.bottom, authMetrics.noSafeAreaBottom) }}
         >
             <View style={{ paddingHorizontal: M.padX - 2 }}>
-                <ProfileNav title={passwordChange.title} onBack={() => router.back()} />
+                <ProfileNav title={copy.title} onBack={() => router.back()} />
             </View>
             <View style={{
                 paddingTop: authMetrics.formGap,
                 paddingHorizontal: small ? authMetrics.smallFormX : authMetrics.formX,
                 gap: small ? authMetrics.smallFormGap : authMetrics.formGap,
             }}>
-                <AuthField
-                    label={passwordChange.current}
-                    password
-                    value={current}
-                    onChangeText={(value) => { setCurrent(value); setProblem(null); }}
-                    textContentType="password"
-                    autoComplete="current-password"
-                    returnKeyType="next"
-                    onSubmitEditing={() => nextRef.current?.focus()}
-                    autoFocus
-                />
+                {settingFirst ? null : (
+                    <AuthField
+                        label={passwordChange.current}
+                        password
+                        value={current}
+                        onChangeText={(value) => { setCurrent(value); setProblem(null); }}
+                        textContentType="password"
+                        autoComplete="current-password"
+                        returnKeyType="next"
+                        onSubmitEditing={() => nextRef.current?.focus()}
+                        autoFocus
+                    />
+                )}
                 <View style={{ gap: authMetrics.fieldGap }}>
                     <AuthField
                         ref={nextRef}
+                        autoFocus={settingFirst}
                         label={passwordChange.next}
                         password
                         success={rule.valid}
@@ -109,18 +133,18 @@ export default function ManagerChangePassword() {
                 </View>
 
                 {problem ? <AuthBanner kind="error" inset={false}>{problem}</AuthBanner> : null}
-                {done ? <AuthBanner inset={false}>{passwordChange.done}</AuthBanner> : null}
+                {done ? <AuthBanner inset={false}>{copy.done}</AuthBanner> : null}
 
                 <View style={{ marginTop: authMetrics.buttonTop }}>
                     <AuthActionButton
-                        label={busy ? passwordChange.busy : passwordChange.action}
+                        label={busy ? copy.busy : copy.action}
                         onPress={submit}
                         disabled={!canSubmit}
                     />
                 </View>
             </View>
             <AuthBanner style={{ marginTop: authMetrics.recoverInfoTop }}>
-                {passwordChange.note}
+                {copy.note}
             </AuthBanner>
             <View style={{ flex: 1 }} />
         </AuthPage>

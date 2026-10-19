@@ -30,6 +30,17 @@ export default function ManagerBusiness() {
                 router.replace('/(auth)/manager/sign-in');
                 return;
             }
+            /*
+             * HİÇ İŞLETME YOK — Apple/Google ile açılıp köprüde bırakılmış hesap
+             * (v4 · B5'te uygulama kapatıldı, sonra yeniden açıldı). Boş bir
+             * liste çizmek yerine köprü yeniden soruyor. E-posta hesabında bu
+             * hâl olmuyor (tetikleyici işletmeyi kayıtta açıyor); olursa
+             * köprü oturumu tanımaz ve girişe döner.
+             */
+            if (result.data.length === 0) {
+                router.replace('/(auth)/manager/bridge');
+                return;
+            }
             if (result.data.length === 1) {
                 const selected = await authApi.manager.selectBusiness(result.data[0].id);
                 if (!alive) return;

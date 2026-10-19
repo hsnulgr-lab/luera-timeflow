@@ -545,7 +545,7 @@ export const DELETE_FAILED =
  * hesap duruyor.
  */
 export type DeleteFailureReason =
-    'not-configured' | 'no-session' | 'forbidden' | 'subscription' | 'server';
+    'not-configured' | 'no-session' | 'forbidden' | 'subscription' | 'apple' | 'cancelled' | 'server';
 
 export function deleteFailureText(reason: DeleteFailureReason | null): string {
     if (reason === 'forbidden') {
@@ -556,6 +556,10 @@ export function deleteFailureText(reason: DeleteFailureReason | null): string {
     }
     if (reason === 'subscription') {
         return 'Aboneliğiniz iptal edilemediği için silme yapılmadı. Hesabınız ve verileriniz olduğu gibi duruyor.';
+    }
+    if (reason === 'apple') {
+        // Başka bir Apple Kimliği seçildi ya da kod tutmadı (Giriş v4 · P1).
+        return 'Apple doğrulaması tutmadı; silme yapılmadı. Bu hesabın Apple Kimliğiyle yeniden deneyin.';
     }
     return DELETE_FAILED;
 }

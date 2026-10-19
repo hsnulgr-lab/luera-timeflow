@@ -126,8 +126,12 @@ test('kayıt GERÇEKTEN salon açıyor', () => {
     // Şifre cihazda SAKLANMIYOR: taslakta yalnız e-posta, ad ve sektör var.
     const draft = live.slice(live.indexOf('async function writeSignupDraft'), live.indexOf('async function ownedOrg'));
     assert.doesNotMatch(draft, /password/);
-    // Oturum gelmediyse "hazır" denmiyor: doğrulama açık demek.
-    assert.match(live, /if \(!data\.session\) return fail\('email_confirmation_required'\);/);
+    // Oturum gelmediyse "hazır" denmiyor: doğrulama açık demek. Giriş v4 ·
+    // K2: akış e-postadaki 6 haneli KODLA sürüyor; kayıtlı e-posta da ekrandan
+    // okunmuyor (karar 2 · boş `identities`).
+    assert.match(live, /if \(!data\.session\) \{\s*if \(\(data\.user\?\.identities \?\? \[\]\)\.length === 0\) return existingOrCode\(normalized, password\);/);
+    assert.match(live, /return done\(\{ email: normalized, next: 'code' \}\);/);
+    assert.match(live, /verifyOtp\(\{ email: draft\.email, token: code, type: 'signup' \}\)/);
     // Kurulumun sonu GİRİŞLE aynı yoldan geçiyor; profil uydurulmuyor.
     assert.match(live, /const session = await selectManagerBusiness\(org\.id\);/);
 });

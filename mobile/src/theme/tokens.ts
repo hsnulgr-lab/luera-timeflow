@@ -1661,6 +1661,189 @@ export const authMotion = {
     pinDigitMass: 0.5,
 } as const;
 
+/**
+ * Giriş v4 · Apple ve Google — `Luera Mobil - Giris v4 Apple Google.html`.
+ *
+ * v3'ün malzemesi (alan, cam, alan kutuları) olduğu gibi duruyor; bu blok
+ * yalnız v4'ün EKLERİ: iki sağlayıcı düğmesi, "ya da" ayracı, bekleme satırı,
+ * 6 haneli kod kutuları, köprü ekranının hesap satırı, alt bağlantı satırı ve
+ * v4 sayfa başlığı. Değerler belgenin CSS'inden birebir; parantezdekiler
+ * 375 × 667 (`.phone.sm`).
+ */
+export const ssoMetrics = {
+    /** `.sso` / `.btn` — Apple, Google, Gir ve Devam AYNI boy (karar 1). */
+    buttonHeight: 60,
+    buttonHeightSmall: 56,
+    buttonRadius: 18,
+    buttonText: 18,
+    buttonTextSmall: 17,
+    /** `.btn.glass.sec` — köprünün ikinci çıkışı. */
+    secondaryHeight: 52,
+    secondaryText: 16.5,
+    /** İki sağlayıcı düğmesi arası. */
+    pairGap: 10,
+    /** `.pad.stack` — bütün form tek 14'lük ızgara. */
+    formX: 18,
+    formGap: 14,
+    /** `.sso.gg` — Google'ın özel düğme tarifi: dolgu 16 · G · 12 · yazı · 16. */
+    googleX: 16,
+    googleGap: 12,
+    googleIcon: 20,
+    googleText: 17,
+    /** `.or` */
+    orHeight: 20,
+    orText: 13,
+    orGap: 12,
+    /** `.wait` — bekleme ayracın yerine geçer, aynı 20 pt satır. */
+    waitDot: 6,
+    waitDotGap: 5,
+    waitGap: 10,
+    waitText: 13.5,
+    /** `.nav` */
+    navTop: 6,
+    navX: 12,
+    navIcon: 23,
+    navStroke: 1.9,
+    /** `.pgtitle` */
+    titleTop: 14,
+    titleX: 20,
+    titleBottom: 16,
+    titleGap: 4,
+    titleSize: 30,
+    titleTrack: -0.035,
+    titleLine: 1.05,
+    bodySize: 14,
+    bodyLine: 1.4,
+    /** Köprüde geri oku yok; yerine 30 pt boşluk. */
+    bridgeTop: 30,
+    /** `.tlink` */
+    linkHeight: 44,
+    linkHeightSmall: 40,
+    linkX: 12,
+    linkText: 14.5,
+    /** `.bot` + `.foot` */
+    footBottom: 30,
+    footBottomSmall: 14,
+    footHeight: 44,
+    footGap: 5,
+    footText: 14.5,
+    /** `.acts` */
+    actsBottom: 44,
+    actsGap: 10,
+    /** `.berr` / `.bwarn` */
+    bandY: 13,
+    bandX: 15,
+    bandRadius: 14,
+    bandText: 14,
+    bandLine: 1.45,
+    /** `.rule` — v4'te daire 18, yazı 13,5. */
+    ruleGap: 9,
+    ruleX: 2,
+    ruleCircle: 18,
+    ruleBorder: 1.6,
+    ruleCheck: 12,
+    ruleCheckStroke: 2.4,
+    ruleText: 13.5,
+    /** `.legal` */
+    legalText: 12.5,
+    legalLine: 1.45,
+    legalX: 2,
+    /** `.hint` (S1) */
+    hintText: 13.5,
+    hintLine: 1.45,
+    hintX: 8,
+    /** `.small` (B5 notu) */
+    noteText: 13,
+    noteLine: 1.5,
+    noteX: 4,
+    /** `.acct` — köprüde hangi hesapla gelindiği. */
+    acctMinHeight: 64,
+    acctX: 16,
+    acctY: 12,
+    acctGap: 12,
+    acctInnerGap: 3,
+    acctLabel: 11.5,
+    acctLabelTrack: 0.1,
+    acctValue: 14.5,
+    acctRadius: 18,
+    acctIcon: 23,
+    /** `.code-in` — tek gizli alanın üstünde 6 cam kutu. */
+    codeGap: 9,
+    codeHeight: 66,
+    codeHeightSmall: 58,
+    codeRadius: 16,
+    codeRadiusSmall: 14,
+    codeText: 28,
+    codeTextSmall: 25,
+    codeCursorWidth: 2,
+    codeCursorHeight: 28,
+    codeLength: 6,
+    /** `.resend` */
+    resendHeight: 44,
+    resendGap: 6,
+    resendText: 14.5,
+    /** `.toast` (K4) — durum çubuğunun 9 pt altı, kenarlardan 12. */
+    toastTop: 9,
+    toastX: 12,
+    toastY: 15,
+    toastPadX: 16,
+    toastGap: 12,
+    toastText: 14.5,
+    toastLine: 1.4,
+    toastRadius: 22,
+    toastIcon: 23,
+    toastStroke: 2,
+    /** B4: bekleme sürerken form ve alt satır. */
+    dimmed: 0.42,
+    /**
+     * B2: klavye açılınca içerik, "ya da" ayracı güvenli alanın bu kadar
+     * altına gelecek kadar kayar — Google'ın alt kenarı görünür kalır.
+     */
+    keyboardDividerTop: 28,
+} as const;
+
+/** v4'ün iki temaya göre değişen renkleri — `--apbg … --wtx`. */
+export const ssoInk = {
+    dark: {
+        googleBg: '#131314', googleBorder: '#8E918F', googleText: '#E3E3E3',
+        errBg: '#3A1414', errBorder: 'rgba(224,114,114,0.42)', errText: '#FFAFAF',
+        warnText: '#D9A43B',
+    },
+    light: {
+        googleBg: '#FFFFFF', googleBorder: '#747775', googleText: '#1F1F1F',
+        errBg: '#FAEAE8', errBorder: 'rgba(201,64,64,0.30)', errText: '#C94040',
+        warnText: '#0E0E0E',
+    },
+} as const;
+
+/** v4 · karar 9: yeni gösteri hareketi yok; ileri 240 · geri 200 · durum 140. */
+export const ssoMotion = {
+    /** Doğuş: başlık 0 · Apple 80 · Google 160 · ayraç + form 240 ms. */
+    stagger: 80,
+    rise: 20,
+    damping: 20,
+    stiffness: 330,
+    /** Bant: `opacity 0→1 + translateY −6→0` · 140 ms. */
+    state: 140,
+    bandRise: 6,
+    /** Ekran içi aşama (K1 → K2, S1 → S2 → S3): `translateX ∓40 + opacity`. */
+    forward: 240,
+    back: 200,
+    shift: 40,
+    /** Bekleme noktaları: `opacity .3 ↔ 1` · 1200 ms, 200 ms arayla. */
+    waitDot: 1200,
+    waitDotStagger: 200,
+    waitDotLow: 0.3,
+    /** 6. hane girilince kutular kontrol süresince .6. */
+    codeChecking: 0.6,
+    /** K4: plaka 6 sn durur, çıkışı 200 ms. */
+    toastHold: 6000,
+    toastOut: 200,
+    toastRise: 16,
+    /** reduceMotion: yay ve kayma yok, her şey 140 ms opaklıkla gelir. */
+    reduced: 140,
+} as const;
+
 export const radius = { sm: 10, md: 14, lg: 18, xl: 22, pill: 999 } as const;
 
 export const space = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 } as const;
@@ -1675,6 +1858,11 @@ export const font = {
     bold: 'HankenGrotesk_700Bold',
     extraBold: 'HankenGrotesk_800ExtraBold',
     black: 'HankenGrotesk_900Black',
+    /**
+     * Giriş v4 · Google düğmesi — Google'ın kuralı Google Sans Medium (açık
+     * nokta 3). YALNIZ o düğmede; uygulamanın yazısı Hanken Grotesk.
+     */
+    googleMedium: 'GoogleSans_500Medium',
 } as const;
 
 /**

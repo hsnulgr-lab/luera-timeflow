@@ -9,6 +9,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ai.luera.timeflow",
+      "usesAppleSignIn": true,
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png",
@@ -109,6 +110,13 @@
           "color": "#FF5A1F",
           "defaultChannel": "randevu",
           "enableBackgroundRemoteNotifications": false
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.477665756267-s0ffn786degg21i01uidr3pnoth7j5e7"
         }
       ]
     ],

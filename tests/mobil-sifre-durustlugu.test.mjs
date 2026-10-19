@@ -32,20 +32,29 @@ const sifre = kod(oku('mobile/app/(manager-flow)/profil/sifre.tsx'));
 const auth = kod(oku('mobile/src/api/auth.ts'));
 const stub = kod(oku('mobile/src/api/authStub.ts'));
 
-test('e-posta sıfırlaması KAPALI — SMTP yokken "gönderdik" denmiyor', () => {
-    assert.equal(EMAIL_RECOVERY_READY, false,
-        'Sıfırlama açıldı. Bunu ancak sunucuda SMTP kurulup bir sıfırlama '
-        + 'e-postası GERÇEKTEN ulaştıktan sonra yap; sonra bu testi güncelle.');
-    // Dürüst hâl, formdan ve "gönderdik" ekranından ÖNCE dönüyor.
+/*
+ * 2026-10-19 · Giriş v4 — SIFIRLAMA AÇILDI. E-posta 2026-10-18'den beri
+ * gidiyor (Resend; `/recover` → Türkçe şablon, gerçek kod Gmail'e ulaştı) ve
+ * şablon yalnız 6 haneli KOD taşıyor. Akış S1 e-posta → S2 kod → S3 yeni şifre.
+ * Dürüst kapalı hâl ve kapısı DURUYOR: e-posta yeniden kesilirse bayrak
+ * `false` yapılır ve ekran yine dürüst konuşur.
+ */
+test('e-posta sıfırlaması AÇIK — kod ile; kapalı hâlin kapısı yerinde', () => {
+    assert.equal(EMAIL_RECOVERY_READY, true);
+    // Dürüst hâl, formdan ve kod ekranından ÖNCE dönüyor.
     const kapi = recover.indexOf('if (!EMAIL_RECOVERY_READY)');
     assert.ok(kapi > 0, 'Kurtarma ekranında e-posta kapısı yok.');
-    // SON eşleşme: ilki `back` içindeki geri dönüş, ikincisi çizim bloğu.
-    assert.ok(kapi < recover.lastIndexOf("if (phase === 'sent')"),
-        'Kapı "gönderdik" ekranından sonra kalmış — yalan yine görünür.');
+    assert.ok(kapi < recover.indexOf('<AuthOtp'), 'Kapı kod ekranından sonra kalmış.');
     assert.match(recover.slice(kapi),
         /title=\{recoveryUnavailable\.title\}\s*body=\{recoveryUnavailable\.body\}/);
     // Posta uygulaması yoksa açılamaz; hata yutulur, adres metinde yazılı.
     assert.match(recover, /Linking\.openURL\(recoveryUnavailable\.mailto\)\.catch\(\(\) => undefined\)/);
+    // Bağlantı değil KOD: "Bağlantıyı gönderdik" ekranı kalktı.
+    assert.doesNotMatch(recover, /Bağlantıyı gönder/);
+    assert.match(recover, /authApi\.manager\.recover\(email\)/);
+    assert.match(recover, /authApi\.manager\.verifyRecovery\(sentEmail, value\)/);
+    assert.match(recover, /authApi\.manager\.setPassword\(password\)/);
+    assert.match(auth, /type: 'recovery'/);
 });
 
 test('dürüst hâl gerçek yollar veriyor, satın almaya çağırmıyor', () => {
@@ -67,7 +76,7 @@ test('müdürün "Şifreyi değiştir"i kurtarma ekranına DEĞİL, gerçek ekra
 
 test('şifre değişimi önce ŞU ANKİ şifreyi sunucuya soruyor', () => {
     const fn = auth.slice(auth.indexOf('async function changeManagerPassword'),
-        auth.indexOf('async function accountRequestDeletion'));
+        auth.indexOf('async function setAccountPassword'));
     const sor = fn.indexOf('supabase.auth.signInWithPassword({ email: stored.profile.email, password: current })');
     const yaz = fn.indexOf('supabase.auth.updateUser({ password: next })');
     assert.ok(sor > 0 && yaz > sor,

@@ -22,7 +22,10 @@ belgeye atıf yapıyor (`src/pages/LoginPage.tsx`, `src/pages/login/sosyalGiris.
   otomatik onay kapanınca kapanır. O güne kadar: e-postayla açılıp SONRA
   Google/Apple bağlanan hesaplar gözden geçirilir (`ops/giris/kontrol-oku.sql`
   §4–5).
-- Telefon (v4) ve sunucu işleri sırada.
+- **Telefon (v4) KODDA** (2026-10-19, commit/derleme yok): Apple/Google,
+  köprü, kayıt kodu, kodla şifre yenileme, "zaten hesabınız var" notu,
+  Profil › Hesap. Ayrıntı ve kalanlar `docs/devir/11` § Mobil v4. Gerçek
+  Apple/Google girişi telefonda ancak geliştirme derlemesinde denenir.
 
 ## Kararlar
 

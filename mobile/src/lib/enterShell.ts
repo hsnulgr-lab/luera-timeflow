@@ -17,6 +17,7 @@
 
 import { router } from 'expo-router';
 import type { AuthActor } from '../api/session';
+import { releaseLoginNotice } from './loginNotice';
 
 export type ShellHref = '/mudur' | '/personel' | '/tek';
 
@@ -42,4 +43,7 @@ export function enterShell(actor: AuthActor, solo?: boolean): void {
     // koşulsuz `dismissAll` orada hata atardı.
     if (router.canDismiss()) router.dismissAll();
     router.replace(shellHref(actor, solo));
+    // Giriş v4 · K4: kayıt kapısından gelip zaten hesabı olan kişinin notu
+    // KABUKTA gösterilir — arada "Hangi işletme?" ya da Face ID olabilir.
+    releaseLoginNotice();
 }

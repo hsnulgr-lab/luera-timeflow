@@ -24,7 +24,7 @@ import { authStub } from './authStub';
 export const LIVE_AUTH = process.env.EXPO_PUBLIC_AUTH_MODE === 'live';
 
 /** Gerçek sunucuya bağlı olan parçalar. */
-export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'signup', 'team', 'subscription', 'getLaunchState'] as const;
+export const LIVE_PARTS = ['manager', 'staff', 'biometric', 'resume', 'account', 'signup', 'social', 'team', 'subscription', 'getLaunchState'] as const;
 /**
  * Hâlâ sahte olan parçalar — sunucu tarafı yazılmadı.
  *
@@ -47,6 +47,8 @@ export const authApi = LIVE_AUTH
         resume: { ...authStub.resume, ...live.resume },
         account: { ...authStub.account, ...live.account },
         signup: { ...authStub.signup, ...live.signup },
+        // Giriş v4 · Apple ve Google — telefonun kendi pencereleri.
+        social: { ...authStub.social, ...live.social },
         team: { ...authStub.team, ...live.team },
         subscription: { ...authStub.subscription, ...live.subscription },
     }

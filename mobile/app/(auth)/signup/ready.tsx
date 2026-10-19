@@ -12,8 +12,8 @@ import {
     AuthHeader,
     AuthReadyChecklist,
     AuthStepIndicator,
-    LueraMark,
 } from '../../../src/components/ui';
+import { LueraTimeflowMark } from '../../../src/components/BrandMark';
 import { authMetrics, font, glow, useTheme } from '../../../src/theme';
 import { LightField } from '../../../src/components/LightField';
 
@@ -162,7 +162,10 @@ export default function SignupReady() {
                     // dış pay zaten verildi, kalanı burada.
                     paddingBottom: Math.max(authMetrics.modeBottom - bottomPad, 0),
                 }}>
-                    <LueraMark size={authMetrics.modeMarkSize} />
+                    {/* v4 · K3 — "luera." değil "luera" + turuncu "timeflow"
+                        etiketi: kişinin gördüğü ilk ekranla son kayıt
+                        ekranı aynı markayı taşımalı. Gösteri yok, hap açık. */}
+                    <LueraTimeflowMark size={authMetrics.modeMarkSize} animate={false} />
                     <Text
                         accessibilityRole="header"
                         style={{

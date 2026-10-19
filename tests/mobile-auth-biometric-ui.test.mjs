@@ -24,7 +24,11 @@ const realAuth = readFileSync(
 
 test('Giriş 09 yalnız başarılı müdür veya personel girişinden sonra ulaşılır', () => {
     assert.notEqual(biometric, '', 'biometric.tsx eksik');
-    assert.match(signIn, /\/(?:\(auth\)\/)?biometric/);
+    // Giriş v4: girişten sonraki yol tek yerde (`managerEntry.ts`) — B1
+    // e-posta, B1 Apple/Google ve S3 yeni şifre aynı yoldan Face ID'ye gider.
+    const entry = readFileSync(new URL('../mobile/src/lib/managerEntry.ts', import.meta.url), 'utf8');
+    assert.match(signIn, /continueManager\(router, result\.data\.businesses, \{ offer: true \}\)/);
+    assert.match(entry, /\/(?:\(auth\)\/)?biometric/);
     assert.match(business, /\/(?:\(auth\)\/)?biometric/);
     assert.match(staffPin, /\/(?:\(auth\)\/)?biometric/);
     assert.doesNotMatch(welcome, /\/(?:\(auth\)\/)?biometric/);

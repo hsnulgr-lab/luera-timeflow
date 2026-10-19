@@ -64,9 +64,12 @@ test('eşleştirme kodu yalnız ilk altı rakamı tutar', () => {
 });
 
 test('müdür hatası hesap varlığını sızdırmadan kalan denemeyi söyler', () => {
+    // Giriş v4 · B3: "E-posta veya şifre hatalı." — kalan deneme yalnız sunucu
+    // sayı verirse ikinci cümle. Giriş servisi hesabı KAPATMIYOR (istek sınırı
+    // koyuyor); "15 dakika kapanır" verilmeyen bir sözdü.
     assert.equal(
         remainingAttemptText('manager', 3),
-        'E-posta ve şifre eşleşmedi. 3 denemeniz kaldı; sonra hesap 15 dakika kapanır.',
+        'E-posta veya şifre hatalı. 3 denemeniz kaldı.',
     );
 });
 
@@ -92,8 +95,8 @@ test('kalan deneme BİLİNMİYORSA sayı yazılmıyor — sıfır yazılmıyor',
     // uydurma tehdit.
     const manager = remainingAttemptText('manager', null);
     assert.doesNotMatch(manager, /\d+ denemeniz kaldı/);
-    assert.match(manager, /E-posta ve şifre eşleşmedi\./);
-    assert.match(manager, /15 dakika kapanır\./);
+    assert.equal(manager, 'E-posta veya şifre hatalı.');
+    assert.doesNotMatch(manager, /dakika kapanır/);
 
     const staff = remainingAttemptText('staff', null);
     assert.doesNotMatch(staff, /\d+ denemeniz kaldı/);

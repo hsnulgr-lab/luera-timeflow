@@ -9,8 +9,9 @@ import {
     type AuthAccountOverview,
 } from '../../src/api/session';
 import { businessLine } from '../../src/lib/accountMap';
-import { accountDeletionItems } from '../../src/lib/authCopy';
+import { accountDeletionItems, loginMethodText, passwordSet } from '../../src/lib/authCopy';
 import {
+    AuthAccountInfoRow,
     AuthAccountRow,
     AuthActionButton,
     AuthBackBar,
@@ -98,6 +99,7 @@ export default function AccountScreen() {
     const { session, businesses } = account;
     const { profile } = session;
     const isManager = session.actor === 'manager';
+    const noPassword = isManager && account.login?.hasPassword === false;
     const biometricLabel = session.biometricEnabled ? 'Açık' : 'Kapalı';
 
     const closeDelete = () => {
@@ -191,8 +193,18 @@ export default function AccountScreen() {
                           yenisini yazıyor. Personelin şifresi (099)
                           `pin.change` ile.
                         */}
+                        {/* Giriş v4 · P1 — giriş yöntemi yalnız yazıyla (karar 7). */}
+                        {isManager && account.login ? (
+                            <AuthAccountInfoRow
+                                title="Giriş yöntemi"
+                                value={loginMethodText(account.login.providers)}
+                            />
+                        ) : null}
                         <AuthAccountRow
-                            title="Şifreyi değiştir"
+                            // Apple/Google ile açılmış, şifresi olmayan hesapta
+                            // "Şifre belirle" (P1); belirlenince "Şifreyi değiştir".
+                            title={noPassword ? passwordSet.row : 'Şifreyi değiştir'}
+                            subtitle={noPassword ? passwordSet.rowSub : undefined}
                             // İki adres ayrı `router.push`: rota testi yalnız
                             // doğrudan yazılmış adresi "gidiliyor" sayıyor.
                             onPress={() => (isManager

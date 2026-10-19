@@ -99,12 +99,19 @@ test('ölü bağlantı yok — gizlilik bağlantısı GERÇEK, var olmayan koşu
     // Altı çizili ama `onPress`siz metin, inceleyen kişinin ilk dokunduğu yer.
     // URL yokken düz metindi; `public/gizlilik.html` yayımlandı (2026-09-24)
     // ve metin artık gerçek bağlantı. Altı çizili olan her şey bir yere gider.
+    // Giriş v4 · karar 6: satır "kabul ettirmiyor", bilgi veriyor (KVKK) —
+    // "Bilgileriniz Gizlilik Politikası'na göre işlenir." Bileşeni ortak kitte.
     const account = read('app/(auth)/signup/account.tsx');
-    const terms = account.slice(account.indexOf('Devam ederek'), account.indexOf('kabul ediyorsunuz'));
-    assert.match(terms,
-        /onPress=\{\(\) => \{ void Linking\.openURL\(PRIVACY_URL\); \}\}\s*style=\{\{ color: c\.tx, textDecorationLine: 'underline' \}\}\s*>\s*Gizlilik Politikası\s*<\/Text>/,
+    const social = read('src/components/AuthSocial.tsx');
+    assert.match(account, /<AuthPrivacyLine \/>/);
+    const line = social.slice(social.indexOf('export function AuthPrivacyLine'), social.indexOf('export function AuthV4Note'));
+    assert.match(line,
+        /onPress=\{\(\) => \{ void Linking\.openURL\(PRIVACY_URL\); \}\}\s*style=\{\{ color: c\.tx2, textDecorationLine: 'underline' \}\}\s*>\s*Gizlilik Politikası\s*<\/Text>/,
         'Gizlilik Politikası altı çizili ama bir yere gitmiyor ya da bağlantı kalktı.');
-    assert.match(account, /import \{ PRIVACY_URL \} from '\.\.\/\.\.\/\.\.\/src\/lib\/managerProfile';/);
+    assert.match(line, /Bilgileriniz\{' '\}/);
+    assert.match(line, /'na göre işlenir\./);
+    assert.doesNotMatch(line.replace(/\/\*[\s\S]*?\*\//g, ''), /kabul/);
+    assert.match(social, /import \{ PRIVACY_URL \} from '\.\.\/lib\/managerProfile';/);
     // Kullanım Koşulları sayfası YOK (2026-09-25) — ona onay istenmiyor.
     // Yorumlar ayıklanıyor: gerekçe yorumda anlatılıyor, metinde değil.
     const kodu = account.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

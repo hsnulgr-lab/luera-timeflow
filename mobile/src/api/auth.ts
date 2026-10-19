@@ -11,9 +11,13 @@ import { forgetDeviceId } from '../lib/pushDevice.ts';
 import { unregisterManagerPush, unregisterPush } from '../lib/push.ts';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
-    AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthProfile, AuthResult,
-    AuthSession, LaunchState, LockedDoor, SignupDraft, SignupSector, StaffEntry, StaffRosterMember, TeamEndResult,
+    AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthLoginMethod, AuthLoginProvider,
+    AuthProfile, AuthResult, AuthSession, CodeSent, LaunchState, LockedDoor, SignupAccountResult,
+    SignupDraft, SignupSector, SocialBridge, SocialProvider, SocialSignIn, StaffEntry, StaffRosterMember,
+    TeamEndResult,
 } from './authStub';
+import { appleAvailable, appleCredential, googleCredential } from '../lib/socialAuth';
+import { dropLoginNotice } from '../lib/loginNotice';
 import { isValidEmail, passwordRuleState } from '../lib/authValidation.ts';
 import { pinProblem } from '../lib/pinRules.ts';
 import { staffRoleLabel } from '../lib/staffRoleLabel.ts';
@@ -47,6 +51,9 @@ import {
 const fail = (error: AuthFailure['error'], extra: Partial<AuthFailure> = {}): AuthFailure =>
     ({ ok: false, error, ...extra });
 const done = <T>(data: T): AuthResult<T> => ({ ok: true, data });
+
+/** "Yeniden gönder"in kapalı kaldığı süre — giriş servisinin e-posta sınırı (60 sn). */
+const RESEND_MS = 60_000;
 
 /**
  * Kilidin BİTİŞ ANI.
@@ -224,12 +231,198 @@ async function selectManagerBusiness(businessId: string): Promise<AuthResult<Aut
     return done(sessionOf(profile, previous?.biometricEnabled ?? false));
 }
 
+/**
+ * B1'de yazılan e-posta — S1'e ("Yeni şifre belirleyin") hazır gelsin diye.
+ *
+ * Yalnız bellekte: şifre hiç tutulmuyor, e-posta da diske yazılmıyor. Giriş
+ * formu soğuk açılışta BOŞ (v4 · B1). Bu alan canlıda yoktu ve form stub'ın
+ * demo hesabıyla dolu açılıyordu — canlı kipte `prefill` stub'a düşüyordu.
+ */
+let typedEmail = '';
+
+async function managerPrefill(): Promise<{ email: string; password: string }> {
+    return { email: typedEmail, password: '' };
+}
+
+function rememberTypedEmail(email: string): void {
+    typedEmail = email.trim();
+}
+
+/**
+ * S1 · "Kod gönder" — şifre yenileme artık BAĞLANTI DEĞİL KOD (v4).
+ *
+ * E-posta 2026-10-18'den beri gidiyor (Resend) ve şablon yalnız 6 haneli kod
+ * taşıyor: giriş servisinin iç adresi dışarıdan açılamadığı için bağlantılı
+ * e-posta kırık olurdu (bkz. scripts/eposta-sablonlari.mjs).
+ *
+ * Hesabın varlığı SIZDIRILMAZ: var olmayan e-posta da, sınır aşımı da aynı
+ * "gönderdik" cevabını alır. Yalnız ağ yoksa ekran bunu söyler.
+ */
 async function recoverManagerPassword(email: string): Promise<AuthResult<{
     sent: true; email: string; resendAvailableAt: number;
 }>> {
-    // Hesabın varlığı SIZDIRILMAZ: var olmayan e-posta da aynı cevabı alır.
-    await supabase.auth.resetPasswordForEmail(email.trim()).catch(() => undefined);
-    return done({ sent: true, email: email.trim(), resendAvailableAt: Date.now() + 60_000 });
+    if (!supabaseConfigured) return fail('offline');
+    const normalized = email.trim().toLocaleLowerCase('tr-TR');
+    const { error } = await supabase.auth.resetPasswordForEmail(normalized);
+    if (error && isAuthRetryableFetchError(error)) return fail('offline');
+    typedEmail = normalized;
+    return done({ sent: true, email: normalized, resendAvailableAt: Date.now() + RESEND_MS });
+}
+
+/** Kod adımının sunucu hatası → ekranın hâli. Yanlış ile süresi dolmuş AYRILMIYOR. */
+function codeFailure(error: { message?: string; status?: number; code?: string } | null): AuthFailure {
+    if (error && isAuthRetryableFetchError(error)) return fail('offline');
+    if (error && (error.status === 429 || /rate|too many/i.test(error.message ?? '')
+        || (error.code ?? '').startsWith('over_'))) return fail('locked');
+    return fail('invalid_code');
+}
+
+/** S2 — kod tutarsa oturum açılır; şifre S3'te yazılır. */
+async function verifyRecoveryCode(email: string, code: string): Promise<AuthResult<{ verified: true }>> {
+    if (!supabaseConfigured) return fail('offline');
+    const { data, error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLocaleLowerCase('tr-TR'), token: code, type: 'recovery',
+    });
+    if (error || !data.session) return codeFailure(error);
+    return done({ verified: true });
+}
+
+/** Şifre yazma hatası → kod. `same_password`/`weak_password` ayrı taşınıyor. */
+function passwordWriteFailure(error: { code?: string; message?: string }): AuthFailure {
+    if (isAuthRetryableFetchError(error)) return fail('offline');
+    if (error.code === 'same_password') return fail('same_password');
+    if (error.code === 'weak_password') return fail('weak_password');
+    return fail('no_session');
+}
+
+/**
+ * S3 — yeni şifre. Yeniden giriş İSTENMİYOR: S2'de açılan oturumla yazılır ve
+ * kişi normal girişin yolundan içeri girer (karar 5: tek işletme → Face ID
+ * teklifi, çok → "Hangi işletme?"). Apple/Google hesabının hiç şifresi
+ * olmayabilir; bu yol ona da İLK şifreyi verir (`password_set`, bkz. P1).
+ */
+async function setRecoveredPassword(password: string): Promise<AuthResult<{ businesses: AuthBusiness[] }>> {
+    if (!passwordRuleState(password).valid) return fail('weak_password');
+    const { error } = await supabase.auth.updateUser({ password, data: { password_set: true } });
+    if (error) return passwordWriteFailure(error);
+    const list = await managerBusinesses();
+    if (!list.ok) return list;
+    return done({ businesses: list.data });
+}
+
+// ── Giriş v4 · Apple ve Google ──────────────────────────────────────────────
+/*
+ * Telefonun kendi penceresi → kimlik belgesi → `signInWithIdToken`
+ * (`src/lib/socialAuth.ts`). Sunucu tarafı göç 121'de: Apple/Google ile AÇILAN
+ * yeni hesaba işletme kendiliğinden açılmaz; ekran sorar (B5 köprüsü) ya da
+ * kayıttan gelindiyse `create_own_business` açar.
+ *
+ * Var olan bir e-posta hesabına Google/Apple aynı (doğrulanmış) adresle
+ * gelirse giriş servisi ikisini BİRLEŞTİRİR: kişi kendi işletmelerine düşer.
+ */
+
+/** Hesabın sağlayıcıları — ilk açılan önce. */
+function providersOf(user: { app_metadata?: Record<string, unknown> }): AuthLoginProvider[] {
+    const meta = user.app_metadata ?? {};
+    const raw = Array.isArray(meta.providers) ? meta.providers : [meta.provider];
+    const known = raw.filter((p): p is AuthLoginProvider => p === 'email' || p === 'apple' || p === 'google');
+    return known.length ? Array.from(new Set(known)) : ['email'];
+}
+
+function loginMethodOf(user: {
+    app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown>;
+}): AuthLoginMethod {
+    const providers = providersOf(user);
+    return {
+        providers,
+        hasPassword: providers.includes('email') || user.user_metadata?.password_set === true,
+    };
+}
+
+async function socialAvailable(): Promise<{ apple: boolean; google: boolean }> {
+    return { apple: await appleAvailable(), google: true };
+}
+
+/**
+ * `onCredential` — sağlayıcının penceresi kapandı, sunucuya gidiliyor. Ekran
+ * bekleme satırını ANCAK o an gösterir (B4): pencere açıkken ekranımız
+ * görünmüyor.
+ */
+async function socialStart(
+    provider: SocialProvider,
+    onCredential?: () => void,
+): Promise<AuthResult<SocialSignIn>> {
+    if (!supabaseConfigured) return fail('offline');
+    const credential = provider === 'apple' ? await appleCredential() : await googleCredential();
+    if (!credential.ok) return fail(credential.reason === 'cancelled' ? 'cancelled' : 'provider_failed');
+    onCredential?.();
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+        provider,
+        token: credential.idToken,
+        ...(credential.nonce ? { nonce: credential.nonce } : {}),
+    });
+    if (error || !data.user) {
+        if (error && isAuthRetryableFetchError(error)) return fail('offline');
+        console.error(`[giriş] ${provider} belgesi giriş servisinde reddedildi:`, error?.message);
+        return fail('provider_failed');
+    }
+    // Apple adı YALNIZ ilk girişte verir. Saklanmazsa profil adı e-postanın
+    // başından türer — Apple'ın gizli adresinde "k7x2p9mq4z" olurdu.
+    if (credential.fullName && !data.user.user_metadata?.full_name) {
+        await supabase.auth.updateUser({ data: { full_name: credential.fullName } }).catch(() => undefined);
+    }
+    const list = await managerBusinesses();
+    if (!list.ok) return list;
+    return done({ provider, email: data.user.email ?? '', businesses: list.data });
+}
+
+/** B5 — hangi hesapla gelindi. Oturum yoksa köprünün de anlamı yok. */
+async function socialBridge(): Promise<AuthResult<SocialBridge>> {
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user;
+    if (!user) return fail('no_session');
+    const provider = providersOf(user).find((p): p is SocialProvider => p === 'apple' || p === 'google');
+    if (!provider) return fail('no_session');
+    return done({ provider, email: user.email ?? '' });
+}
+
+/**
+ * Köprüde "Yeni işletme oluştur" ve Apple/Google ile kayıt (K3 akışı).
+ *
+ * Sunucu fonksiyonu zaten işletmesi olana YENİSİNİ AÇMAZ (çift dokunuş,
+ * yeniden deneme). Sonra kayıt taslağı yazılır: 2/3 İşletmeniz ekranı
+ * taslağa bakarak açılıyor. Kod adımı YOK — hesap Apple/Google'da doğrulandı.
+ */
+async function socialCreateBusiness(): Promise<AuthResult<{ email: string }>> {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) return fail('no_session');
+    const { error } = await supabase.rpc('create_own_business');
+    if (error) {
+        console.error('[giriş] create_own_business:', error.message);
+        return fail('offline');
+    }
+    const email = user.email ?? '';
+    const provider = providersOf(user).find((p): p is SocialProvider => p === 'apple' || p === 'google');
+    const intent = (await readSignupDraft())?.solo;
+    await writeSignupDraft({
+        email,
+        ...(provider ? { provider } : {}),
+        ...(intent === undefined ? {} : { solo: intent }),
+    });
+    return done({ email });
+}
+
+/**
+ * B5 · "E-postayla giriş yap" — arkadaki boş hesap kişiye anlatılmadan
+ * bırakılır. Oturum kapanır; işletmesiz hesabı 24 saat sonra sunucu siler
+ * (`prune_orphan_social_users`, karar 3).
+ */
+async function socialLeave(): Promise<void> {
+    await supabase.auth.signOut().catch(() => undefined);
+    await clearProfile();
+    dropLoginNotice();
 }
 
 // ── Personel ────────────────────────────────────────────────────────────────
@@ -590,17 +783,20 @@ async function accountOverview(): Promise<AuthResult<AuthAccountOverview>> {
             businesses: [stored.profile.business],
         });
     }
-    const list = await managerBusinesses();
+    // Giriş v4 · P1 — giriş yöntemi ve şifre var mı. Okunamazsa satır çizilmez.
+    const [list, userResult] = await Promise.all([managerBusinesses(), supabase.auth.getUser()]);
+    const login = userResult.data?.user ? loginMethodOf(userResult.data.user) : undefined;
     if (!list.ok) {
         return done({
             session: sessionOf(stored.profile, stored.biometricEnabled),
             businesses: [stored.profile.business],
+            login,
         });
     }
     const fresh = list.data.find((business) => business.id === stored.profile.business.id);
     const profile = fresh ? { ...stored.profile, business: fresh } : stored.profile;
     if (fresh) await saveProfile(profile, stored.biometricEnabled);
-    return done({ session: sessionOf(profile, stored.biometricEnabled), businesses: list.data });
+    return done({ session: sessionOf(profile, stored.biometricEnabled), businesses: list.data, login });
 }
 
 async function accountBusinessSwitch(): Promise<AuthResult<AuthAccountBusinessSwitch>> {
@@ -664,6 +860,27 @@ async function changeManagerPassword(current: string, next: string): Promise<Aut
     // `reauthentication_needed` ve ötesi: sunucu değişikliği yapmadı. Ekran
     // bunu "değişmedi" diye söylüyor; başarı UYDURULMUYOR.
     return fail('no_session');
+}
+
+/**
+ * P1 · "Şifre belirle" — Apple/Google ile açılmış, ŞİFRESİ OLMAYAN hesap.
+ *
+ * Sorulacak bir "şu anki şifre" yok; oturumun kendisi kanıt. Şifresi olan
+ * hesapta bu yol KAPALI: oradaki kapı `changeManagerPassword` ve önce şu anki
+ * şifreyi soruyor — açık kalmış telefonu alan başkası müdürü dışarıda
+ * bırakamasın. `password_set` bayrağı bir sonraki açılışta satırı
+ * "Şifreyi değiştir"e çeviriyor (giriş servisi şifrenin varlığını söylemiyor).
+ */
+async function setAccountPassword(next: string): Promise<AuthResult<{ changed: true }>> {
+    const stored = await readProfile();
+    if (!stored || stored.profile.actor !== 'manager') return fail('no_session');
+    if (!passwordRuleState(next).valid) return fail('weak_password');
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return fail('no_session');
+    if (loginMethodOf(userData.user).hasPassword) return fail('no_session');
+    const { error } = await supabase.auth.updateUser({ password: next, data: { password_set: true } });
+    if (error) return passwordWriteFailure(error);
+    return done({ changed: true });
 }
 
 async function accountRequestDeletion(): Promise<AuthResult<AuthAccountDeletionRequest>> {
@@ -772,7 +989,7 @@ async function ownedOrg(): Promise<{ id: string; name: string } | null> {
     return data ? { id: String(data.id), name: String(data.name ?? '') } : null;
 }
 
-async function createSignupAccount(email: string, password: string): Promise<AuthResult<{ email: string }>> {
+async function createSignupAccount(email: string, password: string): Promise<AuthResult<SignupAccountResult>> {
     if (!supabaseConfigured) return fail('offline');
     const normalized = email.trim().toLocaleLowerCase('tr-TR');
     if (!isValidEmail(normalized) || !passwordRuleState(password).valid) {
@@ -786,23 +1003,30 @@ async function createSignupAccount(email: string, password: string): Promise<Aut
         options: { data: { name: normalized.split('@')[0] } },
     });
     if (error) {
+        if (isAuthRetryableFetchError(error)) return fail('offline');
         const message = error.message ?? '';
-        if (/already|registered|exists/i.test(message)) return fail('email_in_use');
-        if (/password/i.test(message)) return fail('incomplete_signup');
-        if (/rate|too many/i.test(message)) return fail('locked');
+        // Otomatik onay AÇIKKEN kayıtlı e-posta açıkça reddediliyor.
+        if (error.code === 'user_already_exists' || /already|registered|exists/i.test(message)) {
+            return existingOrCode(normalized, password);
+        }
+        if (error.code === 'weak_password' || /password/i.test(message)) return fail('incomplete_signup');
+        if (/rate|too many/i.test(message) || (error.code ?? '').startsWith('over_')) return fail('locked');
         return fail('offline');
     }
     /*
-     * OTURUM GELMEDİYSE e-posta doğrulaması açık demektir: kullanıcı var ama
-     * içeri giremiyor, dolayısıyla salonun adını da yazamayız. "Kaydın
-     * tamamlandı" demek yalan olurdu — akış burada DURUR ve ekran kişiye
-     * postasına bakmasını söyler.
+     * OTURUM GELMEDİYSE e-posta doğrulaması açık demektir: hesap var ama
+     * içeri girilemiyor. Akış K2'de, e-postadaki 6 haneli kodla sürer
+     * (v4 · karar 5). Eskiden burada "bağlantı gönderdik" deyip duruyordu.
      *
-     * GoTrue bu kipte, zaten kayıtlı bir e-postayı da aynı biçimde
-     * cevaplıyor (hesap sızdırmamak için). İkisini ayırt edemediğimiz için
-     * metin ikisini de kapsıyor.
+     * Giriş servisi bu kipte KAYITLI bir e-postayı da aynı biçimde cevaplıyor
+     * (hesap sızdırmamak için), yalnız `identities` boş geliyor. O durumda
+     * karar 2: şifre tutuyorsa içeri, tutmuyorsa yine kod ekranı.
      */
-    if (!data.session) return fail('email_confirmation_required');
+    if (!data.session) {
+        if ((data.user?.identities ?? []).length === 0) return existingOrCode(normalized, password);
+        await writeCodeDraft(normalized);
+        return done({ email: normalized, next: 'code' });
+    }
     /*
      * KARŞILAMADAKİ KAPININ NİYETİ KORUNUYOR (108). Taslak burada sıfırdan
      * yazılıyordu ve "Solo" kapısının yazdığı `solo` siliniyordu: kayıt
@@ -810,7 +1034,56 @@ async function createSignupAccount(email: string, password: string): Promise<Aut
      */
     const intent = (await readSignupDraft())?.solo;
     await writeSignupDraft(intent === undefined ? { email: normalized } : { email: normalized, solo: intent });
-    return done({ email: normalized });
+    return done({ email: normalized, next: 'business' });
+}
+
+/**
+ * Karar 2 — kayıtta zaten kayıtlı bir e-posta. Ekran hesabın varlığını HİÇ
+ * söylemez: şifre tutarsa kişi kendi hesabına girer (içeride not), tutmazsa
+ * kod ekranı açılır ve oraya kod GİTMEZ. Kod ekranının "Kod gelmediyse bu
+ * adresle zaten hesabınız olabilir" satırı bu yüzden her zaman orada.
+ */
+async function existingOrCode(email: string, password: string): Promise<AuthResult<SignupAccountResult>> {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data.user) {
+        const list = await managerBusinesses();
+        if (!list.ok) return list;
+        return done({ email, next: 'existing', businesses: list.data });
+    }
+    if (error && isAuthRetryableFetchError(error)) return fail('offline');
+    await writeCodeDraft(email);
+    return done({ email, next: 'code' });
+}
+
+/** K2'ye giderken taslak: e-posta + kodun gönderildiği an (şifre YOK). */
+async function writeCodeDraft(email: string): Promise<void> {
+    const intent = (await readSignupDraft())?.solo;
+    await writeSignupDraft({ email, codeSentAt: Date.now(), ...(intent === undefined ? {} : { solo: intent }) });
+}
+
+/**
+ * K2 — e-postadaki kod. Tutarsa oturum açılır ve kayıt 2/3'ten sürer:
+ * tetikleyici işletmeyi hesap AÇILIRKEN kurmuştu (doğrulamadan önce).
+ */
+async function verifySignupCode(code: string): Promise<AuthResult<{ email: string }>> {
+    const draft = await readSignupDraft();
+    if (!draft?.email) return fail('incomplete_signup');
+    const { data, error } = await supabase.auth.verifyOtp({ email: draft.email, token: code, type: 'signup' });
+    if (error || !data.session) return codeFailure(error);
+    // Kod adımı bitti; taslakta kodun anı kalmasın (yeniden açılışta K2 gelmesin).
+    await writeSignupDraft({ ...draft, codeSentAt: undefined });
+    return done({ email: draft.email });
+}
+
+/** K2 · "Yeniden gönder". Sınır aşımında da ekran "gönderdik" der — sayaç yeniden başlar. */
+async function resendSignupCode(): Promise<AuthResult<CodeSent>> {
+    const draft = await readSignupDraft();
+    if (!draft?.email) return fail('incomplete_signup');
+    const { error } = await supabase.auth.resend({ type: 'signup', email: draft.email });
+    if (error && isAuthRetryableFetchError(error)) return fail('offline');
+    const sentAt = Date.now();
+    await writeSignupDraft({ ...draft, codeSentAt: sentAt });
+    return done({ email: draft.email, sentAt, resendAvailableAt: sentAt + RESEND_MS });
 }
 
 async function saveSignupBusiness(businessName: string): Promise<AuthResult<{ businessName: string }>> {
@@ -1037,7 +1310,8 @@ async function markSignupIntent(solo: boolean): Promise<void> {
 
 async function signupDraft(): Promise<AuthResult<SignupDraft>> {
     const draft = await readSignupDraft();
-    return draft?.email ? done(draft) : fail('incomplete_signup');
+    // Apple'ın e-postası boş gelebilir; Apple/Google kaydı sağlayıcısıyla da sayılır.
+    return draft?.email || draft?.provider ? done(draft) : fail('incomplete_signup');
 }
 
 async function availableSignupSectors(): Promise<SignupSector[]> {
@@ -1112,16 +1386,29 @@ export const auth = {
         complete: completeSignup,
         mode: setBusinessMode,
         intent: markSignupIntent,
+        verify: verifySignupCode,
+        resend: resendSignupCode,
+    },
+    social: {
+        available: socialAvailable,
+        start: socialStart,
+        bridge: socialBridge,
+        createBusiness: socialCreateBusiness,
+        leave: socialLeave,
     },
     team: {
         start: startTeam,
         end: endTeam,
     },
     manager: {
+        prefill: managerPrefill,
+        remember: rememberTypedEmail,
         start: managerStart,
         businesses: managerBusinesses,
         selectBusiness: selectManagerBusiness,
         recover: recoverManagerPassword,
+        verifyRecovery: verifyRecoveryCode,
+        setPassword: setRecoveredPassword,
     },
     staff: {
         pair: pairStaffDevice,
@@ -1160,6 +1447,7 @@ export const auth = {
         setBiometric,
         signOut: accountSignOut,
         changePassword: changeManagerPassword,
+        setPassword: setAccountPassword,
         requestDeletion: accountRequestDeletion,
         confirmDeletion: accountConfirmDeletion,
     },

@@ -44,9 +44,12 @@ export function remainingAttemptText(
     const remaining = known ? nonNegativeInteger(remainingAttempts as number) : null;
 
     if (kind === 'manager') {
+        // Giriş v4 · B3: "E-posta veya şifre hatalı." Kalan deneme YALNIZ
+        // sunucu sayı verirse ikinci cümle olarak eklenir. Kilit süresi de
+        // yazılmıyor: giriş servisi hesap kapatmıyor, istek sınırı koyuyor.
         return remaining === null
-            ? `E-posta ve şifre eşleşmedi. Üst üste yanlış denemeden sonra hesap ${minutes} dakika kapanır.`
-            : `E-posta ve şifre eşleşmedi. ${remaining} denemeniz kaldı; sonra hesap ${minutes} dakika kapanır.`;
+            ? 'E-posta veya şifre hatalı.'
+            : `E-posta veya şifre hatalı. ${remaining} denemeniz kaldı.`;
     }
 
     return remaining === null
@@ -112,10 +115,15 @@ export const crashGate = {
  *
  * Sunucuda SMTP yok (2026-09-25): kurtarma bağlantısı hiç gitmiyordu ama
  * ekran "Bağlantıyı gönderdik" diyordu. Şifresini unutan kişi bir daha
- * giremezdi ve bunu bilmezdi. SMTP kurulup bir e-posta gerçekten ulaştığında
- * `true` yapılır; form ve "gönderdik" ekranı olduğu gibi geri gelir.
+ * giremezdi ve bunu bilmezdi.
+ *
+ * AÇILDI (Giriş v4, 2026-10-19). E-posta 2026-10-18'den beri gidiyor (Resend;
+ * `/recover` → Türkçe şablon, gerçek kod Gmail'e ulaştı — kayit-smtp notu).
+ * Akış artık bağlantı değil KOD: S1 e-posta → S2 6 haneli kod → S3 yeni şifre
+ * → doğrudan içeri. Dürüst kapalı hâl (`recoveryUnavailable`) duruyor: e-posta
+ * yeniden kesilirse bu bayrak `false` yapılır ve ekran yine dürüst konuşur.
  */
-export const EMAIL_RECOVERY_READY = false;
+export const EMAIL_RECOVERY_READY = true;
 
 /** Sıfırlama e-postası gidemezken kurtarma ekranının dürüst hâli. */
 export const recoveryUnavailable = {
@@ -456,3 +464,113 @@ export function accountDeletionItems(businessNames: readonly string[], solo = fa
         'Silme 30 gün içinde tamamlanır. Bu süre içinde girerseniz işlem durur.',
     ];
 }
+
+// ── Giriş v4 · Apple, Google ve e-posta kodu ────────────────────────────────
+
+/** Kayıt ve yeni şifre kuralının tek cümlesi — v4'te kural sağlanınca da aynı yazı. */
+export const PASSWORD_RULE_TEXT = 'En az 8 karakter olsun, içinde bir rakam bulunsun.';
+
+/** "0:59" — geri sayım (yeniden gönder). */
+export function formatCountdown(seconds: number): string {
+    const total = Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : 0;
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+export type SocialName = 'apple' | 'google';
+
+const PROVIDER_LABEL: Record<SocialName, string> = { apple: 'Apple', google: 'Google' };
+
+/** B4 — sağlayıcı bandı; düğmelerin ÜSTÜNDE, çünkü hata o düğmeyle ilgili. */
+export function providerFailedText(provider: SocialName): string {
+    return `${PROVIDER_LABEL[provider]} ile giriş şu an yapılamadı. E-postanızla deneyebilirsiniz.`;
+}
+
+/** B4 — bekleme satırı. Sağlayıcının penceresi kapanıp sunucuya gidildiği an. */
+export function providerWaitText(provider: SocialName, intent: 'login' | 'signup'): string {
+    return intent === 'signup'
+        ? `${PROVIDER_LABEL[provider]} ile hesap açılıyor`
+        : `${PROVIDER_LABEL[provider]} ile giriş yapılıyor`;
+}
+
+/** B5 — köprü. Not yalnız Apple'da: Google adresi değiştirmiyor. */
+export const bridgeCopy = {
+    title: 'Bu hesapla bir işletme bulamadık',
+    body: (provider: SocialName) => `${PROVIDER_LABEL[provider]} hesabınızla henüz işletme açılmamış. `
+        + 'Daha önce e-postayla kaydolduysanız e-postanızla girin.',
+    account: (provider: SocialName) => `${PROVIDER_LABEL[provider]} hesabı`,
+    appleNote: 'Apple\'da “E-postamı gizle”yi seçtiyseniz Apple bize farklı bir adres verir; '
+        + 'eski hesabınız bu yüzden bulunamamış olabilir.',
+    create: 'Yeni işletme oluştur',
+    email: 'E-postayla giriş yap',
+    failed: 'İşletme açılamadı. Bağlantınızı kontrol edip yeniden deneyin.',
+} as const;
+
+/**
+ * K2 · S2 — kod ekranı.
+ *
+ * Yanlış kod ile süresi dolmuş kod SUNUCUDA AYIRT EDİLEMİYOR: ikisi de
+ * `otp_expired` · "Token has expired or is invalid" (2026-10-19, canlıda
+ * denendi). Bu yüzden kırmızı bant ikisini birlikte söylüyor — masaüstüyle
+ * aynı cümle. Amber "süresi doldu" hâli yalnız kodun ömrü GERÇEKTEN geçtiyse
+ * (gönderilme anından `CODE_LIFETIME_MS`) çizilir.
+ *
+ * Kilit: sunucu süre vermiyor; bant süre YAZMAZ, kutular 60 sn kapalı kalır
+ * (masaüstüyle aynı karar — uydurma geri sayım yok).
+ */
+export const codeCopy = {
+    signupTitle: 'E-postanızı doğrulayın',
+    recoverTitle: 'Kodu girin',
+    sentLead: ' adresine 6 haneli kod gönderdik. Luera TimeFlow\'dan gelen e-postadaki kodu girin.',
+    wrong: 'Kod doğru değil ya da süresi doldu. E-postadaki kodu yeniden kontrol edin.',
+    expired: 'Bu kodun süresi doldu.',
+    newCode: 'Yeni kod gönder',
+    locked: 'Çok fazla deneme yapıldı. Birkaç dakika sonra yeniden deneyin.',
+    change: 'E-postayı değiştir',
+    /** Karar 2 — kayıtta HER ZAMAN; ekran hesabın varlığını söylemez. */
+    maybeAccount: 'Kod gelmediyse bu adresle zaten hesabınız olabilir:',
+    signIn: 'Giriş yapın',
+    forgot: 'Şifremi unuttum',
+} as const;
+
+/**
+ * Kodun ömrü — giriş servisinin varsayılanı (`GOTRUE_MAILER_OTP_EXP`, 86400 sn).
+ * Sunucuda farklı bir değer kuruluysa burası onunla aynı yapılmalı.
+ */
+export const CODE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+/** İstemcinin kendi kısa kilidi — sunucu süre vermediği için (masaüstü `LOCK_SECONDS`). */
+export const CODE_LOCK_MS = 60 * 1000;
+
+/** S1–S3 — "unuttuysanız" değil "belirleyin": Apple/Google hesabının şifresi olmayabilir. */
+export const recoverCopy = {
+    title: 'Yeni şifre belirleyin',
+    body: 'Hesabınızın e-postasını yazın; 6 haneli bir kod gönderelim.',
+    send: 'Kod gönder',
+    hint: 'Hesabınız varsa kodu birkaç dakika içinde alırsınız.',
+    passwordTitle: 'Yeni şifrenizi yazın',
+    passwordBody: 'Bilgisayardan da bu şifreyle girersiniz.',
+    passwordLabel: 'Yeni şifre',
+    save: 'Şifreyi kaydet',
+} as const;
+
+/** P1 — giriş yöntemi yalnız YAZIYLA (karar 7: logo yok). */
+export function loginMethodText(providers: readonly ('email' | 'apple' | 'google')[]): string {
+    const names = providers.map((p) => (p === 'email' ? 'E-posta' : PROVIDER_LABEL[p]));
+    if (names.length === 0) return 'E-posta ile';
+    if (names.length === 1) return `${names[0]} ile`;
+    return `${names.slice(0, -1).join(', ')} ve ${names[names.length - 1]} ile`;
+}
+
+/** P1 — Apple/Google hesabının ilk şifresi. */
+export const passwordSet = {
+    title: 'Şifre belirle',
+    row: 'Şifre belirle',
+    rowSub: 'İsteğe bağlı — bilgisayardan e-postayla da girmek için.',
+    action: 'Şifreyi kaydet',
+    busy: 'Kaydediliyor…',
+    done: 'Şifreniz kaydedildi.',
+    note: 'Bundan sonra bilgisayardan bu e-posta ve şifreyle de girebilirsiniz.',
+} as const;
+
+/** P1 · silme onayına tek satır — yalnız Apple hesabında. */
+export const APPLE_DELETE_LINE = 'Apple ile girişiniz de kaldırılır.';

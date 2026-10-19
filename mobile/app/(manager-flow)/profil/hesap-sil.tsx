@@ -37,6 +37,7 @@ import { deleteAccount } from '../../../src/api/accountDeletion';
 import { upperTR } from '../../../src/lib/text';
 import { authApi } from '../../../src/api/session';
 import { feedback } from '../../../src/lib/feedback';
+import { APPLE_DELETE_LINE } from '../../../src/lib/authCopy';
 import {
     font,
     profileMetrics as M,
@@ -82,6 +83,8 @@ export default function ManagerDeleteAccount() {
     const [orgId, setOrgId] = useState<string | null>(null);
     const [businessName, setBusinessName] = useState('');
     const [ownerOnly, setOwnerOnly] = useState(false);
+    /** Giriş v4 · P1 — Apple ile girmiş hesap: silmede Apple'daki bağ da kalkar. */
+    const [apple, setApple] = useState(false);
     const [unread, setUnread] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const shake = useRef(new Animated.Value(0)).current;
@@ -93,6 +96,7 @@ export default function ManagerDeleteAccount() {
                 if (!alive) return;
                 if (!account.ok) { router.replace('/(auth)/welcome'); return; }
                 const { profile } = account.data.session;
+                setApple(account.data.login?.providers.includes('apple') === true);
                 setOrgId(profile.business.id);
                 setBusinessName(profile.business.name);
                 setOwnerOnly(!facts.canDeleteRole);
@@ -320,6 +324,20 @@ export default function ManagerDeleteAccount() {
                     </Text>
                 ) : null}
 
+                {/* Satır YALNIZ Apple hesabında: silmede Apple'daki bağ da
+                    kaldırılıyor ve kişi bunu Ayarlar'da görecek (P1). */}
+                {apple ? (
+                    <Text style={{
+                        color: c.tx,
+                        fontSize: M.rowValue,
+                        fontFamily: font.semiBold,
+                        fontWeight: '600',
+                        lineHeight: M.rowValue * 1.45,
+                    }}>
+                        {APPLE_DELETE_LINE}
+                    </Text>
+                ) : null}
+
                 <HoldToDelete
                     label={copy.action}
                     enabled={ready}
@@ -328,8 +346,10 @@ export default function ManagerDeleteAccount() {
                     onFire={() => {
                         setBusy(true);
                         setFailed(null);
-                        void deleteAccount(orgId).then((result) => {
+                        void deleteAccount(orgId, { apple }).then((result) => {
                             setBusy(false);
+                            // Apple penceresini kapattı: vazgeçti, ekran yerinde.
+                            if (!result.ok && result.reason === 'cancelled') return;
                             if (!result.ok) {
                                 // Ekran YERİNDE kalır, dolum sıfırlanır ve
                                 // SEBEBİ yazılır. Sonuç cümlesi yazılmaz.

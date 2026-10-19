@@ -167,7 +167,6 @@ test('signup ekranları ortak UI kitini ve yalnız tema jetonlarını kullanır'
 
     for (const component of [
         'AuthStepIndicator',
-        'AuthPasswordRule',
         'AuthSectorOption',
         'AuthReadyChecklist',
     ]) {
@@ -175,6 +174,10 @@ test('signup ekranları ortak UI kitini ve yalnız tema jetonlarını kullanır'
         assert.match(signupBundle, new RegExp(`\\b${component}\\b`), `${component} ekranda kullanılmalı`);
     }
 
+    // Giriş v4 · K1: kural v4'ün `.rule`'u (daire 18, yazı 13,5) — v4 kitinde.
+    const social = source('mobile/src/components/AuthSocial.tsx');
+    assert.match(social, /export function AuthV4Rule\b/);
+    assert.match(account, /<AuthV4Rule valid=\{passwordRule\.valid\} \/>/);
     assert.match(account, /\bAuthPage\b/);
     assert.match(account, /\bAuthField\b/);
     assert.match(business, /\bAuthField\b/);
@@ -197,17 +200,25 @@ test('signup ölçüleri HTML CSS değerleriyle token dosyasında tek yerde tutu
 });
 
 test('Giriş 11 hesap metni, nötr şifre kuralı ve koşul satırı eksiksizdir', () => {
-    const accountUiBundle = `${account}\n${ui}\n${authValidation}`;
+    const social = source('mobile/src/components/AuthSocial.tsx');
+    const copyFile = source('mobile/src/lib/authCopy.ts');
+    const accountUiBundle = `${account}\n${ui}\n${authValidation}\n${social}\n${copyFile}`;
     for (const copy of [
+        // Giriş v4 · K1 — Apple ve Google formun üstünde, alt satır girişe bağlı.
         'Hesabınızı açalım',
-        'Bu e-posta ve şifreyle bilgisayardan da girersiniz.',
+        'Apple, Google ya da e-postayla açın. Bilgisayardan da aynı yolla girersiniz.',
+        'Google ile kaydol',
+        'ya da',
         'E-posta',
         'Şifre',
         'En az 8 karakter olsun, içinde bir rakam bulunsun.',
         // "Kullanım Koşulları" 2026-09-25'te çıkarıldı: öyle bir sayfa yok.
+        // Karar 6 (KVKK): gizlilik metni kabul ettirilmez, bilgi verilir.
         'Gizlilik Politikası',
-        '’nı okuduğunuzu kabul ediyorsunuz.',
+        "'na göre işlenir.",
         'Devam',
+        'Zaten hesabınız var mı?',
+        'Giriş yapın',
         // "Abonelik daha sonra BİLGİSAYARDAN seçilir" 2026-09-24'te çıkarıldı:
         // uygulama dışında satın almaya çağrıydı ve App Store 3.1.3(f)
         // muafiyetinin koşulunu deliyordu. Kalan cümle güven veriyor,
@@ -238,7 +249,9 @@ test('Giriş 11 klavye, güçlü şifre, otomatik doldurma ve yapıştırma söz
     assert.match(account, /passwordRules\s*=/);
     assert.match(account, /returnKeyType\s*=\s*['"]next['"]/);
     assert.match(account, /returnKeyType\s*=\s*['"]go['"]/);
-    assert.match(account, /autoFocus/);
+    // Giriş v4 · K1: klavye kendiliğinden AÇILMIYOR — açılsaydı Apple ve
+    // Google ilk anda ekranın üstünden çıkardı (K1 klavyesiz çiziliyor).
+    assert.doesNotMatch(account, /autoFocus/);
     assert.doesNotMatch(accountInputBundle, /contextMenuHidden/);
 });
 
@@ -311,7 +324,9 @@ test('Giriş 13 hazır ekranı tamamlanmış oturumdan işletme adını alır ve
     }
     const question = ready.slice(ready.indexOf(') : ('));
     assert.doesNotMatch(question, /AuthStepIndicator|AuthReadyChecklist|AuthHeader/);
-    assert.match(question, /<LueraMark size=\{authMetrics\.modeMarkSize\} \/>/);
+    // Giriş v4 · K3: "luera." değil "luera" + "timeflow" etiketi.
+    assert.match(question, /<LueraTimeflowMark size=\{authMetrics\.modeMarkSize\} animate=\{false\} \/>/);
+    assert.doesNotMatch(question, /<LueraMark\b/);
     // İki cevap EŞİT: biri turuncu değil, soru tarafsız (v4 S1).
     assert.equal((question.match(/kind="tall"/g) ?? []).length, 2);
     assert.doesNotMatch(question, /kind="secondary"/);

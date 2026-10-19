@@ -24,8 +24,12 @@ test('Giriş 02–05 müdür rotaları ayrı ve gezilebilir ekranlar olarak bulu
     assert.match(welcome, /\/(?:\(auth\)\/)?staff\/pair/);
     assert.match(welcome, /\/(?:\(auth\)\/)?signup\/account/);
     assert.match(signIn, /\/(?:\(auth\)\/)?manager\/recover/);
-    assert.match(signIn, /\/(?:\(auth\)\/)?manager\/business/);
-    assert.match(signIn, /\/(?:\(auth\)\/)?biometric/);
+    // Giriş v4: girişten sonrası tek yerde — B5 köprüsü, "Hangi işletme?", Face ID.
+    const entry = source('mobile/src/lib/managerEntry.ts');
+    assert.match(signIn, /continueManager\(/);
+    assert.match(entry, /\/(?:\(auth\)\/)?manager\/business/);
+    assert.match(entry, /\/(?:\(auth\)\/)?manager\/bridge/);
+    assert.match(entry, /\/(?:\(auth\)\/)?biometric/);
     assert.match(business, /\/(?:\(auth\)\/)?biometric/);
     assert.match(business, /\/(?:\(auth\)\/)?signup\/account/);
 });
@@ -74,37 +78,43 @@ test('müdür ekranları ortak UI kitini ve tema jetonlarını kullanır', () =>
 });
 
 test('Giriş 02 ve hata hâli tasarımdaki dil ile davranışları taşır', () => {
+    // Giriş v4 · B1–B3.
     for (const copy of [
         'Hesabınıza girin',
-        'Bilgisayarda kullandığınız e-posta ve şifre.',
+        'Apple, Google ya da e-postanızla girin.',
         'E-posta',
         'Şifre',
         'Gir',
-        'Yeniden dene',
+        'Tekrar dene',
         'Şifremi unuttum',
-        'Şifrenizi bilgisayardan da değiştirebilirsiniz. Değiştirdiğinizde ikisi birlikte değişir.',
+        'Hesabınız yok mu?',
+        'Yeni işletme oluşturun',
     ]) {
         assert.ok(signIn.includes(copy), `Giriş 02/03 metni eksik: ${copy}`);
     }
 
     assert.match(signIn, /remainingAttemptText\s*\(\s*['"]manager['"]/);
-    assert.match(signIn, /businesses\.length\s*===\s*1/);
+    const entry = source('mobile/src/lib/managerEntry.ts');
+    assert.match(entry, /businesses\.length\s*===\s*0/);
+    assert.match(entry, /businesses\.length\s*>\s*1/);
 });
 
 test('Giriş 04 aynı ekranda form ve gönderildi durumlarını eksiksiz taşır', () => {
-    const recoverBundle = `${recover}\n${ui}`;
+    // Giriş v4 · S1–S3 — bağlantı yerine KOD; "unuttuysanız" değil "belirleyin".
+    const recoverBundle = `${recover}\n${ui}\n${source('mobile/src/components/AuthSocial.tsx')}\n${source('mobile/src/lib/authCopy.ts')}`;
     for (const copy of [
-        'Şifrenizi yenileyelim',
-        'E-postanızı yazın, yeni şifre bağlantısını oraya gönderelim.',
-        'Bağlantıyı gönder',
-        'Bilgisayardan giriş yapabiliyorsanız şifrenizi orada da değiştirebilirsiniz.',
-        'Bağlantıyı gönderdik',
-        'Gelen kutusunda yok mu?',
-        'Spam / önemsiz klasörüne de bakın',
-        'Adres yanlış mıydı?',
-        'Geri dönüp yeniden yazabilirsiniz',
+        'Yeni şifre belirleyin',
+        'Hesabınızın e-postasını yazın; 6 haneli bir kod gönderelim.',
+        'Kod gönder',
+        'Hesabınız varsa kodu birkaç dakika içinde alırsınız.',
+        'Kodu girin',
+        ' adresine 6 haneli kod gönderdik.',
+        'Kod gelmedi mi?',
         'Yeniden gönder',
-        'Girişe dön',
+        'E-postayı değiştir',
+        'Yeni şifrenizi yazın',
+        'Bilgisayardan da bu şifreyle girersiniz.',
+        'Şifreyi kaydet',
     ]) {
         assert.ok(recoverBundle.includes(copy), `Giriş 04 metni eksik: ${copy}`);
     }
@@ -135,7 +145,8 @@ test('Giriş 03 hatası sarsmadan anlatılır: kenar kırmızı, bant açık', (
     assert.doesNotMatch(signIn, /translateX/);
     assert.doesNotMatch(signIn, /errorShake/);
     assert.match(signIn, /error=\{Boolean\(error\)\}/);
-    assert.match(signIn, /AuthBanner kind="error"/);
+    // Giriş v4: opak bant `.berr` (AuthBand) — şifrenin altında.
+    assert.match(signIn, /<AuthBand>\{error\.message\}<\/AuthBand>/);
     // `reduceMotion` kapısı da kalktı: kalan hareket yok. Kenar rengi bir
     // GEÇİŞ değil bir hâl, bant `entering` ile açılıyor ve reanimated
     // erişilebilirlik ayarını kendisi biliyor.

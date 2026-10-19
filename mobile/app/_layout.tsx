@@ -26,11 +26,15 @@ import {
     HankenGrotesk_900Black,
     useFonts,
 } from '@expo-google-fonts/hanken-grotesk';
+// Giriş v4 · Google düğmesi — Google'ın kuralı Google Sans Medium. Yalnız
+// bu ağırlık (alt yol): paketin kökü sekiz dosyanın hepsini pakete koyardı.
+import { GoogleSans_500Medium } from '@expo-google-fonts/google-sans/500Medium';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthCrashScreen } from '../src/components/ui';
+import { LoginNoticeHost } from '../src/components/LoginNotice';
 import { useBackgroundSync } from '../src/lib/backgroundSync';
 import { dropSplashHandoff } from '../src/lib/splashHandoff';
 import { ThemeProvider, useTheme } from '../src/theme';
@@ -185,6 +189,7 @@ export default function RootLayout() {
         HankenGrotesk_700Bold,
         HankenGrotesk_800ExtraBold,
         HankenGrotesk_900Black,
+        GoogleSans_500Medium,
     });
     if (!fontsLoaded) return null;
     return (
@@ -194,6 +199,8 @@ export default function RootLayout() {
                     Canlı okuma burada dursaydı personel telefonu da müdür
                     sorgusu atardı. */}
                 <Shell />
+                {/* Giriş v4 · K4 — kayıttan gelip zaten hesabı olana içeride not. */}
+                <LoginNoticeHost />
             </ThemeProvider>
         </SafeAreaProvider>
     );

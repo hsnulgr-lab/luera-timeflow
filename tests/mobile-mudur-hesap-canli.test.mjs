@@ -41,7 +41,8 @@ test('hesap CANLI: stub listesinde yok, canlı yüzeyde var', () => {
 
 test('hesap özeti işletmeyi sunucudan tazeliyor; okunamazsa müdürü dışarı atmıyor', () => {
     const fn = live.slice(live.indexOf('async function accountOverview'), live.indexOf('async function accountBusinessSwitch'));
-    assert.match(fn, /const list = await managerBusinesses\(\);/);
+    // Giriş v4 · P1: giriş yöntemi aynı anda okunuyor.
+    assert.match(fn, /const \[list, userResult\] = await Promise\.all\(\[managerBusinesses\(\), supabase\.auth\.getUser\(\)\]\);/);
     assert.match(fn, /if \(!list\.ok\) \{\s*return done\(/);
     assert.match(fn, /if \(fresh\) await saveProfile\(profile, stored\.biometricEnabled\);/);
 });
@@ -70,8 +71,10 @@ test('şifreyle silme: şifre SUNUCUYA soruluyor, silme gerçek uca gidiyor', ()
 // ── Silme ───────────────────────────────────────────────────────────────────
 
 test('silme SEÇİLİ salonla gidiyor — çok üyeli müdürde sunucu salon tahmin etmiyor', () => {
-    assert.match(deletion, /body: orgId \? \{ orgId \} : \{\}/);
-    assert.match(deleteScreen, /deleteAccount\(orgId\)/);
+    assert.match(deletion, /\.\.\.\(orgId \? \{ orgId \} : \{\}\)/);
+    // Giriş v4 · P1: Apple hesabında Apple'a bir kez daha sorulur (TN3194).
+    assert.match(deletion, /\.\.\.\(appleCode \? \{ appleCode, appleClient: 'ios' \} : \{\}\)/);
+    assert.match(deleteScreen, /deleteAccount\(orgId, \{ apple \}\)/);
     assert.match(deleteScreen, /setOrgId\(profile\.business\.id\);/);
     assert.match(deleteFn, /resolveOrg\(admin, userId, body\.orgId \?\? null\)/);
     assert.match(read('supabase/functions/_shared/org.ts'), /if \(memberships\.length > 1\) return \{ error: 'org_id_required'/);

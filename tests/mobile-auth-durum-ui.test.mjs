@@ -83,8 +83,9 @@ test('oturum okunamadı ekranı bağlantı ekranından AYRI', () => {
 
 test('bağlantı yokken kimlik doğrulaması DENENMEZ', () => {
     // Kimliği yalnız sunucu doğrulayabilir; yarım açık form bırakmak yalan olurdu.
-    // 099: şifre değiştirme de sunucuya soruyor → altı yer.
-    assert.equal((stub.match(/if \(await offline\(\)\) return failure\('offline'\);/g) || []).length, 6);
+    // 099: şifre değiştirme de sunucuya soruyor → altı yer. Giriş v4: kayıt
+    // kodu, kodu yeniden gönderme, şifre yenileme kodu ve Apple/Google → on.
+    assert.equal((stub.match(/if \(await offline\(\)\) return failure\('offline'\);/g) || []).length, 10);
 });
 
 test('bilinmeyen ağ durumu çevrimdışı sayılmaz', () => {
@@ -109,7 +110,9 @@ test('kapı eklenen her ekran çevrimdışı hâlini gösterir', () => {
         const screen = read(path);
         assert.match(screen, /error === 'offline'/, `${path}: dal yok`);
         assert.match(screen, /<AuthOfflineScreen/, `${path}: ekran yok`);
-        assert.match(screen, /const \[offline, setOffline\] = useState\(false\)/, `${path}: state yok`);
+        // Giriş v4: yeniden denenecek iş ADIYLA tutuluyor (`Retry`) — e-posta,
+        // Apple/Google ya da kod; hepsi aynı çevrimdışı ekranına düşüyor.
+        assert.match(screen, /const \[offline, setOffline\] = useState(?:\(false\)|<Retry \| null>\(null\))/, `${path}: state yok`);
     }
 });
 
@@ -304,8 +307,11 @@ test('kapalı kapı hata değil: cam dili, durum rengi yok', () => {
 });
 
 test('dört giriş yolunun hepsi kilide düşer', () => {
+    // Giriş v4: müdür girişinin (e-posta, Apple/Google, yeni şifre) sonrası
+    // `managerEntry.ts`'te tek yerde.
+    assert.match(read('app/(auth)/manager/sign-in.tsx'), /continueManager\(/);
     for (const path of [
-        'app/(auth)/manager/sign-in.tsx',
+        'src/lib/managerEntry.ts',
         'app/(auth)/manager/business.tsx',
         'app/(auth)/staff/pin.tsx',
         'app/(auth)/resume.tsx',

@@ -64,6 +64,62 @@ export interface LockedDoor {
 export interface AuthAccountOverview {
     session: AuthSession;
     businesses: AuthBusiness[];
+    /**
+     * Giriş v4 · P1 — hesabın giriş yöntemi. İsteğe bağlı: personelde yok,
+     * müdürde sunucu okunamazsa da yok (satır o zaman çizilmez).
+     */
+    login?: AuthLoginMethod;
+}
+
+// ── Giriş v4 · Apple ve Google ──────────────────────────────────────────────
+
+export type SocialProvider = 'apple' | 'google';
+
+/** Hesabın bağlı olduğu yollar, sırayla (ilk açılan önce). */
+export type AuthLoginProvider = 'email' | SocialProvider;
+
+export interface AuthLoginMethod {
+    providers: AuthLoginProvider[];
+    /**
+     * Şifresi var mı. Apple/Google ile açılan hesabın şifresi yoktur; Profil'de
+     * "Şifre belirle" çıkar, belirlenince "Şifreyi değiştir" olur (P1).
+     */
+    hasPassword: boolean;
+}
+
+/** Apple/Google'dan dönen kişi ve işletmeleri — ekran yolu buna göre seçer. */
+export interface SocialSignIn {
+    provider: SocialProvider;
+    email: string;
+    businesses: AuthBusiness[];
+}
+
+/** B5 köprüsünün hesap satırı: hangi sağlayıcı, hangi adres. */
+export interface SocialBridge {
+    provider: SocialProvider;
+    email: string;
+}
+
+/**
+ * Kayıt formunun sonucu (K1).
+ *
+ *   business — hesap açıldı, oturum var → 2/3 İşletmeniz.
+ *   code     — doğrulama açık → K2 kod ekranı. Kayıtlı bir e-postada da bu
+ *              döner (karar 2 · sızdırmama): kod gitmez, ekran yine "kod
+ *              gönderdik" der.
+ *   existing — e-posta VE şifre zaten bir hesabın → içeri + not (karar 2).
+ */
+export interface SignupAccountResult {
+    email: string;
+    next: 'business' | 'code' | 'existing';
+    businesses?: AuthBusiness[];
+}
+
+/** Kod gönderildi (K2 · S2). `resendAvailableAt` — "Yeniden gönder" açılış anı. */
+export interface CodeSent {
+    email: string;
+    sentAt: number;
+    resendAvailableAt: number;
 }
 
 export type AuthAccountExitTarget = 'welcome';
@@ -162,7 +218,14 @@ export type AuthErrorCode =
     /** Ekipte birden çok aktif personel var — kimin çıkacağını telefon seçmiyor. */
     | 'team_not_empty'
     /** İşletme zaten tek kişilik. */
-    | 'already_solo';
+    | 'already_solo'
+    // Giriş v4 · Apple, Google ve e-posta kodu
+    /** Apple/Google penceresini kişi kapattı — bant yok, ekran sessizce döner. */
+    | 'cancelled'
+    /** Sağlayıcıdan belge alınamadı ya da giriş servisi reddetti (B4 bandı). */
+    | 'provider_failed'
+    /** 6 haneli kod tutmadı. Sunucu yanlış ile süresi dolmuşu ayırmıyor. */
+    | 'invalid_code';
 
 /**
  * Tek kişiliğe dönüşün sonucu (115 · `end_team`). Sayılar bugünden sonraki
@@ -217,6 +280,8 @@ interface PendingSignup {
     sector?: string;
     /** Karşılamadaki "Solo" kapısından gelindi mi (108). */
     solo?: boolean;
+    provider?: SocialProvider;
+    codeSentAt?: number;
 }
 
 interface PendingAccountDeletion {
@@ -237,6 +302,10 @@ export interface SignupDraft {
      * kayıt ortasında kapanıp açılsa da cevap kaybolmuyor.
      */
     solo?: boolean;
+    /** Apple/Google ile açılan kayıt — e-posta adımı ve kod yok (K3 akışı). */
+    provider?: SocialProvider;
+    /** K2: kodun gönderildiği an. Kod ekranı uygulama kapanıp açılsa da geri gelir. */
+    codeSentAt?: number;
 }
 
 export interface SignupSector {
@@ -542,6 +611,75 @@ async function recoverManagerPassword(email: string): Promise<AuthResult<{
     });
 }
 
+/** S2 — stub'da kod `123456`. */
+async function verifyRecoveryCode(_email: string, code: string): Promise<AuthResult<{ verified: true }>> {
+    if (await offline()) return failure('offline');
+    if (code === DEMO_LOCKED_CODE) return failure('locked');
+    if (code !== DEMO_PAIR_CODE) return failure('invalid_code');
+    await writeJson(storageKeys.pendingManager, { managerId: managers[0].id } satisfies PendingManager);
+    return success({ verified: true });
+}
+
+/** S3 — yeni şifre kaydedildi; giriş yolu normal girişinki (karar 5). */
+async function setRecoveredPassword(password: string): Promise<AuthResult<{ businesses: AuthBusiness[] }>> {
+    if (!passwordRuleState(password).valid) return failure('weak_password');
+    const pending = await readJson<PendingManager>(storageKeys.pendingManager);
+    const manager = pending ? await managerById(pending.managerId) : undefined;
+    if (!manager) return failure('no_session');
+    return success({ businesses: managerBusinessChoices(manager) });
+}
+
+// ── Giriş v4 · Apple ve Google (stub) ───────────────────────────────────────
+// Tasarım turu için: Apple yeni bir hesap (köprüye düşer), Google demo
+// müdürün hesabına bağlanır (işletmeleri gelir).
+
+const SOCIAL_STUB_EMAIL: Record<SocialProvider, string> = {
+    apple: 'k7x2p9mq4z@privaterelay.appleid.com',
+    google: 'ayla@studioayla.com',
+};
+
+let stubSocial: SocialBridge | null = null;
+
+async function socialAvailable(): Promise<{ apple: boolean; google: boolean }> {
+    return { apple: true, google: true };
+}
+
+async function socialStart(
+    provider: SocialProvider,
+    onCredential?: () => void,
+): Promise<AuthResult<SocialSignIn>> {
+    if (await offline()) return failure('offline');
+    onCredential?.();
+    stubSocial = { provider, email: SOCIAL_STUB_EMAIL[provider] };
+    if (provider === 'google') {
+        await writeJson(storageKeys.pendingManager, { managerId: managers[0].id } satisfies PendingManager);
+        return success({ ...stubSocial, businesses: managerBusinessChoices(managers[0]) });
+    }
+    return success({ ...stubSocial, businesses: [] });
+}
+
+async function socialBridge(): Promise<AuthResult<SocialBridge>> {
+    return stubSocial ? success({ ...stubSocial }) : failure('no_session');
+}
+
+async function socialCreateBusiness(): Promise<AuthResult<{ email: string }>> {
+    if (!stubSocial) return failure('no_session');
+    const previous = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    await writeJson(storageKeys.pendingSignup, {
+        email: stubSocial.email,
+        // Stub kurulumu şifreli bir hesap bekliyor; Apple/Google'da şifre yok.
+        password: `stub-${stubSocial.provider}`,
+        solo: previous?.solo,
+        provider: stubSocial.provider,
+    } satisfies PendingSignup);
+    return success({ email: stubSocial.email });
+}
+
+async function socialLeave(): Promise<void> {
+    stubSocial = null;
+    await AsyncStorage.removeItem(storageKeys.pendingManager);
+}
+
 /**
  * Kodu üreten kişi. Süresi dolan kodda personelin arayacağı tek kişi odur;
  * uygulamadan kod istenemez, `device.code.create` yalnız sahibin oturumuyla
@@ -758,6 +896,7 @@ async function accountOverview(): Promise<AuthResult<AuthAccountOverview>> {
     return success({
         session,
         businesses: businessesForAccount.map((business) => ({ ...business })),
+        login: session.actor === 'manager' ? { providers: ['email'], hasPassword: true } : undefined,
     });
 }
 
@@ -825,6 +964,14 @@ async function changeManagerPassword(
     return success({ changed: true });
 }
 
+/** P1 · "Şifre belirle" — Apple/Google hesabının ilk şifresi; şu anki şifre yok. */
+async function setAccountPassword(next: string): Promise<AuthResult<{ changed: true }>> {
+    const session = await readSession();
+    if (!session || session.actor !== 'manager') return failure('no_session');
+    if (!passwordRuleState(next).valid) return failure('weak_password');
+    return success({ changed: true });
+}
+
 async function confirmAccountDeletion(
     password: string,
 ): Promise<AuthResult<AuthAccountDeletionConfirmation>> {
@@ -866,21 +1013,53 @@ async function unlinkStaffDevice(): Promise<void> {
     ]);
 }
 
-async function createSignupAccount(email: string, _password: string): Promise<AuthResult<{ email: string }>> {
+async function createSignupAccount(email: string, _password: string): Promise<AuthResult<SignupAccountResult>> {
     if (await offline()) return failure('offline');
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail) || !passwordRuleState(_password).valid) {
         return failure('incomplete_signup');
     }
     const created = await storedManager();
-    if (managers.some((manager) => manager.email === normalizedEmail)
-        || created?.email === normalizedEmail) return failure('email_in_use');
+    const existing = managers.find((manager) => manager.email === normalizedEmail)
+        ?? (created?.email === normalizedEmail ? created : undefined);
+    const previous = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    if (existing) {
+        // Karar 2 — canlıdaki kuralın aynısı: şifre tutuyorsa içeri + not,
+        // tutmuyorsa kod ekranı (kod GİTMEZ, ekran hesabı ele vermez).
+        if (existing.password === _password) {
+            await writeJson(storageKeys.pendingManager, { managerId: existing.id } satisfies PendingManager);
+            return success({ email: normalizedEmail, next: 'existing', businesses: managerBusinessChoices(existing) });
+        }
+        await writeJson(storageKeys.pendingSignup, {
+            email: normalizedEmail, password: _password, solo: previous?.solo, codeSentAt: Date.now(),
+        } satisfies PendingSignup);
+        return success({ email: normalizedEmail, next: 'code' });
+    }
 
     // Karşılamadaki kapının niyeti (108) korunuyor — canlıdaki kuralın aynısı.
-    const previous = await readJson<PendingSignup>(storageKeys.pendingSignup);
     const next: PendingSignup = { email: normalizedEmail, password: _password, solo: previous?.solo };
     await writeJson(storageKeys.pendingSignup, next);
-    return success({ email: normalizedEmail });
+    return success({ email: normalizedEmail, next: 'business' });
+}
+
+/** K2 — stub'da kod `123456`; `999999` kilit. */
+async function verifySignupCode(code: string): Promise<AuthResult<{ email: string }>> {
+    if (await offline()) return failure('offline');
+    const pending = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    if (!pending?.email) return failure('incomplete_signup');
+    if (code === DEMO_LOCKED_CODE) return failure('locked');
+    if (code !== DEMO_PAIR_CODE) return failure('invalid_code');
+    await writeJson(storageKeys.pendingSignup, { ...pending, codeSentAt: undefined });
+    return success({ email: pending.email });
+}
+
+async function resendSignupCode(): Promise<AuthResult<CodeSent>> {
+    if (await offline()) return failure('offline');
+    const pending = await readJson<PendingSignup>(storageKeys.pendingSignup);
+    if (!pending?.email) return failure('incomplete_signup');
+    const sentAt = Date.now();
+    await writeJson(storageKeys.pendingSignup, { ...pending, codeSentAt: sentAt });
+    return success({ email: pending.email, sentAt, resendAvailableAt: sentAt + MANAGER_RESEND_DELAY_MS });
 }
 
 async function saveSignupBusiness(businessName: string): Promise<AuthResult<{ businessName: string }>> {
@@ -1026,6 +1205,8 @@ async function signupDraft(): Promise<AuthResult<SignupDraft>> {
         businessName: pending.businessName,
         sector: pending.sector,
         solo: pending.solo,
+        provider: pending.provider,
+        codeSentAt: pending.codeSentAt,
     }) : failure('incomplete_signup');
 }
 
@@ -1045,6 +1226,17 @@ export const authStub = {
         businesses: managerBusinesses,
         selectBusiness: selectManagerBusiness,
         recover: recoverManagerPassword,
+        verifyRecovery: verifyRecoveryCode,
+        setPassword: setRecoveredPassword,
+        /** B1'de yazılan e-posta S1'e hazır gelsin — stub'da gerek yok. */
+        remember: (email: string) => { void email; /* stub: prefill demo hesabı verir */ },
+    },
+    social: {
+        available: socialAvailable,
+        start: socialStart,
+        bridge: socialBridge,
+        createBusiness: socialCreateBusiness,
+        leave: socialLeave,
     },
     staff: {
         pair: pairStaffDevice,
@@ -1077,6 +1269,7 @@ export const authStub = {
         setBiometric,
         signOut: accountSignOut,
         changePassword: changeManagerPassword,
+        setPassword: setAccountPassword,
         requestDeletion: requestAccountDeletion,
         confirmDeletion: confirmAccountDeletion,
     },
@@ -1089,6 +1282,8 @@ export const authStub = {
         complete: completeSignup,
         mode: setBusinessMode,
         intent: markSignupIntent,
+        verify: verifySignupCode,
+        resend: resendSignupCode,
     },
     team: {
         start: startTeam,

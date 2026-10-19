@@ -211,7 +211,9 @@ export default function Welcome() {
                         <AuthChoiceButton
                             glyph="shop"
                             title="İşletmemi yönetiyorum"
-                            subtitle="E-posta ve şifrenizle girin"
+                            // v4 · A: kişi düğmeye basmadan üç yolun da bu
+                            // kapının arkasında olduğunu bilir.
+                            subtitle="Apple, Google ya da e-postayla girin"
                             onPress={() => router.push('/(auth)/manager/sign-in')}
                         />
                     </AView>
