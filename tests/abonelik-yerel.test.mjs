@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { computeAccess } from '../supabase/functions/_shared/entitlement.ts';
+import { computeAccess, shownAccess, shownEnd } from '../supabase/functions/_shared/entitlement.ts';
 import { coreStatus, decide, isTrialPeriod, PERIOD_TOLERANCE_MS } from '../supabase/functions/dodo-webhook/durum.ts';
 
 /*
@@ -315,4 +315,136 @@ test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
     assert.match(hook, /body: \{ plan, cycle, orgId \}/);
     assert.match(hook, /body: \{ action: 'cancel', orgId \}/);
     assert.match(hook, /body: \{ action: 'portal', orgId \}/);
+});
+
+// ── 4 · Hediye üyelik (ops/abonelik/hediye.sql) ─────────────────────────────
+// Dodo'ya hiç gitmeyen abonelik: aynaya elle "aktif" yazılır. Koruması
+// olmayan bir elle-yazma komutu, ödeyen bir abonenin kaydını ezip Dodo
+// tahsilata devam ederken aynayı "hediye" yapabilirdi.
+
+test('hediye: ver / süresiz / al ve üç koruma (PGlite)', { skip: !PGLITE_DIR && 'PGLITE_DIR yok' }, async () => {
+    const { PGlite } = await import(pathToFileURL(join(PGLITE_DIR, 'node_modules/@electric-sql/pglite/dist/index.js')).href);
+    const db = new PGlite();
+    await db.exec(`
+        CREATE ROLE anon; CREATE ROLE authenticated;
+        CREATE SCHEMA auth;
+        CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+        CREATE TABLE organizations (id uuid PRIMARY KEY);
+        CREATE TABLE organization_members (org_id uuid, user_id uuid, role text);
+        CREATE TABLE app_secrets (key text PRIMARY KEY, value text);
+        CREATE FUNCTION auth_user_org_ids() RETURNS SETOF uuid LANGUAGE sql STABLE AS $f$ SELECT NULL::uuid WHERE false $f$;
+    `);
+    await db.exec(read('supabase/086_entitlement.sql'));
+    await db.exec(read('supabase/123_abonelik_yerel_kaynak.sql'));
+    const u = (n) => `00000000-0000-0000-0000-0000000000${String(n).padStart(2, '0')}`;
+    const o = (n) => `10000000-0000-0000-0000-0000000000${String(n).padStart(2, '0')}`;
+    await db.exec(`
+        INSERT INTO auth.users VALUES ('${u(1)}', 'ayse@ornek.com'), ('${u(2)}', 'oder@ornek.com'),
+            ('${u(3)}', 'demo@lueratech.com'), ('${u(4)}', 'iki@ornek.com');
+        INSERT INTO organizations VALUES ('${o(1)}'), ('${o(2)}'), ('${o(3)}'), ('${o(4)}'), ('${o(5)}');
+        INSERT INTO organization_members VALUES ('${o(1)}', '${u(1)}', 'owner'), ('${o(2)}', '${u(2)}', 'owner'),
+            ('${o(3)}', '${u(3)}', 'owner'), ('${o(4)}', '${u(4)}', 'owner'), ('${o(5)}', '${u(4)}', 'owner');
+        INSERT INTO org_entitlement (organization_id, state, plan, expires_at, dodo_subscription_id, last_event)
+            VALUES ('${o(2)}', 'active', 'pro', now() + interval '20 days', 'sub_X', 'subscription.renewed'),
+                   ('${o(3)}', 'active', 'pro', NULL, NULL, 'demo_manual');
+    `);
+
+    const sql = read('ops/abonelik/hediye.sql');
+    const doBlock = sql.match(/DO \$\$[\s\S]*?END \$\$;/)[0];
+    const liste = sql.slice(sql.indexOf('-- Hediye listesi'));
+    const calis = async (islem, email = '', gun = 0, plan = 'pro') => {
+        await db.query(`SELECT set_config('hediye.islem', $1, false), set_config('hediye.email', $2, false),
+            set_config('hediye.gun', $3, false), set_config('hediye.plan', $4, false)`, [islem, email, String(gun), plan]);
+        await db.exec(doBlock);
+    };
+    const satir = async (n) => (await db.query(`SELECT state, plan, expires_at, last_event FROM org_entitlement WHERE organization_id = $1`, [o(n)])).rows[0];
+    const kapi = async (n) => {
+        await db.exec(`INSERT INTO app_secrets VALUES ('ENTITLEMENT_ENFORCE', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`);
+        return (await db.query(`SELECT has_timeflow_access($1::uuid) AS ok`, [o(n)])).rows[0].ok;
+    };
+
+    // Ver: 90 gün → aktif, kapı açık, ~90 gün sonra biter.
+    await calis('ver', 'Ayse@Ornek.com', 90, 'isletme');
+    let r = await satir(1);
+    assert.equal(r.state, 'active');
+    assert.equal(r.plan, 'isletme');
+    assert.equal(r.last_event, 'comp_manual');
+    const gun = (new Date(r.expires_at).getTime() - Date.now()) / DAY;
+    assert.ok(gun > 89.9 && gun < 90.1, `bitiş ~90 gün olmalı (${gun})`);
+    assert.equal(await kapi(1), true);
+
+    // Süresiz.
+    await calis('ver', 'ayse@ornek.com', 0, 'pro');
+    assert.equal((await satir(1)).expires_at, null);
+
+    // Al → kilit; ikinci "al" reddedilir.
+    await calis('al', 'ayse@ornek.com');
+    r = await satir(1);
+    assert.deepEqual([r.state, r.last_event], ['locked', 'comp_revoked']);
+    assert.equal(await kapi(1), false);
+    await assert.rejects(calis('al', 'ayse@ornek.com'), /süren hediye üyelik yok/);
+
+    // Korumalar: ödeyen abone, demo salon, belirsiz kişi/işletme.
+    await assert.rejects(calis('ver', 'oder@ornek.com', 30), /süren bir Dodo aboneliği var/);
+    assert.equal((await satir(2)).last_event, 'subscription.renewed', 'ödeyenin satırı değişmemeli');
+    await assert.rejects(calis('ver', 'demo@lueratech.com', 30), /demo salon/);
+    await assert.rejects(calis('ver', 'yok@ornek.com', 30), /0 kullanıcı/);
+    await assert.rejects(calis('ver', 'iki@ornek.com', 30), /2 işletme/);
+    await assert.rejects(calis('ver', 'ayse@ornek.com', 30, 'vip'), /plan baslangic/);
+
+    const l = (await db.query(liste.replace(/;\s*$/, ''))).rows;
+    assert.deepEqual(l.map((x) => [x.email, x.durum, x.son]), [['ayse@ornek.com', 'locked', 'comp_revoked']]);
+    await db.close();
+});
+
+test('hediye üye ekranda tahsilat/kart/iptal görmez', () => {
+    const bs = read('supabase/functions/billing-status/index.ts');
+    assert.match(bs, /comp: row\.last_event === 'comp_manual' \|\| row\.last_event === 'demo_manual'/);
+    const ui = read('src/pages/settings/bolumler/Abonelik.tsx');
+    const blok = ui.slice(ui.indexOf("if (subscription?.comp && subscription.status === 'active')"), ui.indexOf('if (!hasSub && !onTrial)'));
+    assert.ok(blok.length > 100, 'hediye dalı bulunamadı');
+    assert.match(blok, /Hediye/);
+    assert.match(blok, /'Süresiz'/);
+    for (const yok of ['Kartı güncelle', 'Sonraki tahsilat', 'openPortal', 'cancelSubscription', 'formatTRY']) {
+        assert.ok(!blok.includes(yok), `hediye dalında "${yok}" olmamalı`);
+    }
+    assert.match(read('src/pages/settings/bolumler/Ozet.tsx'), /sub\?\.comp && sub\.status === 'active'/);
+    // Komut uzak satıra yalnız doğrulanmış değer gönderir.
+    const sh = read('ops/abonelik/hediye.sh');
+    assert.match(sh, /EMAIL" =~ \^\[A-Za-z0-9\._%\+-\]\+@/);
+});
+
+// ── 5 · Ekrandaki tarih = Dodo'nun gerçek günü ──────────────────────────────
+// Test 1'de (2026-10-19) görüldü: Dodo "deneme 26 Ekim'de biter" dedi, ekran
+// 29 Ekim yazacaktı — erişime eklenen 3 günlük tolerans tarihe karışıyordu.
+
+test('gösterilen tarih toleransı içermez; erişim yine toleransa kadar sürer', () => {
+    const now = Date.parse('2026-10-19T18:46:00Z');
+    const real = Date.parse('2026-10-26T18:46:00Z');
+    const row = { state: 'trial', expires_at: iso(real + PERIOD_TOLERANCE_MS), trial_ends_at: iso(real + PERIOD_TOLERANCE_MS), dodo_subscription_id: 'sub_T' };
+    assert.equal(shownEnd(row), iso(real));
+    const a = shownAccess(row, now);
+    assert.equal(a.shownUntil, iso(real));
+    assert.equal(a.shownDaysLeft, 7);
+    // Erişim kararı değişmedi: gerçek günden 2 gün sonra hâlâ içeride.
+    assert.equal(computeAccess(row, real + 2 * DAY).ok, true);
+    assert.equal(computeAccess(row, real + 4 * DAY).ok, false);
+    // Hediye/demo/elle onarım: Dodo yok, tolerans da yok → olduğu gibi.
+    assert.equal(shownEnd({ state: 'active', expires_at: iso(real) }), iso(real));
+    assert.equal(shownEnd({ state: 'active', expires_at: null }), null);
+    assert.equal(shownEnd({ state: 'grace', expires_at: iso(real), grace_until: iso(real), dodo_subscription_id: 'x' }), null);
+    // Erişimi bitmiş satır computeAccess'e düşer.
+    assert.deepEqual(shownAccess({ state: 'trial', expires_at: iso(now - DAY), dodo_subscription_id: 'x' }, now), { shownUntil: iso(now - DAY), shownDaysLeft: 0 });
+});
+
+test('ekranlar gerçek günü kullanır; ₺0 kart doğrulaması fatura sayılmaz', () => {
+    const bs = read('supabase/functions/billing-status/index.ts');
+    assert.match(bs, /expires_at: shownEnd\(row as EntitlementRow\) \?\? row\.expires_at/);
+    assert.match(bs, /Number\(e\.amount\) > 0/);
+    assert.match(read('src/pages/settings/bolumler/Abonelik.tsx'), /const until = ent\.shownUntil \?\? subscription\?\.expires_at/);
+    const banner = read('src/components/layout/SubscriptionBanner.tsx');
+    assert.match(banner, /ent\.shownDaysLeft <= NUDGE_DAYS/);
+    assert.match(banner, /ent\.shownUntil \? new Date\(ent\.shownUntil\)/);
+    assert.ok(!/ent\.until\b/.test(read('src/pages/settings/bolumler/Ozet.tsx')), 'özet erişim tarihini göstermemeli');
+    assert.match(read('src/pages/PaywallPage.tsx'), /Sonraki tahsilat: \{fullFmt\.format\(new Date\(ent\.shownUntil\)\)\}/);
 });

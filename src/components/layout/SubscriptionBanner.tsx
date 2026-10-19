@@ -35,15 +35,15 @@ export function SubscriptionBanner() {
     if (ent.loading || pathname.startsWith('/abonelik')) return null;
 
     const isGrace = ent.effective === 'grace';
-    const isTrial = ent.effective === 'trial' && ent.daysLeft !== null && ent.daysLeft <= NUDGE_DAYS;
+    const isTrial = ent.effective === 'trial' && ent.shownDaysLeft !== null && ent.shownDaysLeft <= NUDGE_DAYS;
     if (!isGrace && !isTrial) return null;
 
-    const left = ent.daysLeft ?? 0;
+    const left = ent.shownDaysLeft ?? 0;
     // Son gün ve ek süre kapatılamaz: ertesi gün iş duruyor.
     const urgent = isGrace || left <= 1;
     if (hidden && !urgent) return null;
 
-    const charge = ent.until ? new Date(ent.until) : firstChargeDate();
+    const charge = ent.shownUntil ? new Date(ent.shownUntil) : firstChargeDate();
 
     return (
         <div className={cn('bl dash-theme', dark && 'dark')}>

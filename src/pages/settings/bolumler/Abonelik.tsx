@@ -65,7 +65,8 @@ export function Abonelik() {
     const cycle: Cycle = (subscription?.billing_period ?? ent.cycle) === 'yearly' ? 'yearly' : 'monthly';
     const monthly = plan ? (cycle === 'yearly' ? plan.yearly : plan.monthly) : 0;
     const yearlySave = plan ? (plan.monthly - plan.yearly) * 12 : 0;
-    const until = ent.until ?? subscription?.expires_at ?? null;
+    // Dodo'nun gerçek günü (tolerans hariç) — Dodo'nun e-postasıyla aynı tarih.
+    const until = ent.shownUntil ?? subscription?.expires_at ?? null;
     const untilDay = until ? new Date(until).getDate() : null;
     // Dönem sonu geçmiş ama abonelik "aktif" görünüyorsa yenileme kaydı
     // gelmemiştir; geçmiş tarih "Sonraki tahsilat" diye yazılmaz.
@@ -79,6 +80,42 @@ export function Abonelik() {
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="ay-dot unk" />Abonelik bilgisi okunamadı — yenileyin.</span>
                     <button type="button" className="ay-btn" style={{ height: 38, padding: '0 12px', fontSize: 14 }} onClick={() => void refresh()}><I n="refresh" size={16} />Yenile</button>
                 </div>
+            </div>
+        );
+    }
+
+    // Hediye üyelik (ops/abonelik/hediye.sql): Dodo'da karşılığı yok. Tahsilat
+    // tarihi, tutar, kart ve iptal çizilirse ekran yalan söyler — ücretsiz
+    // üyeye "Sonraki tahsilat ₺599" yazıyordu.
+    if (subscription?.comp && subscription.status === 'active') {
+        return (
+            <div className="ay-col w940" style={{ gap: 18 }}>
+                <div className="ay-head" style={{ paddingBottom: 6 }}>
+                    <h1 className="ay-h1">Abonelik ve faturalar</h1>
+                    <p className="ay-lead">Hangi plandasınız ve ne zamana kadar.</p>
+                </div>
+                <div className="ay-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '22px 24px 18px' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx2)' }}>Mevcut plan</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 28, fontWeight: 800, letterSpacing: '-.02em' }}>
+                            {plan?.name ?? '—'}
+                            <span className="ay-tag" style={{ color: 'var(--tx)', fontSize: 13, fontWeight: 800, letterSpacing: 0 }}>
+                                <span className="ay-dot ok" style={{ width: 7, height: 7 }} />Hediye
+                            </span>
+                        </span>
+                        <span className="ay-help">Luera tarafından tanımlandı — kart istenmez, ücret alınmaz.</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, margin: '0 24px', padding: '12px 0 18px', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
+                        <span style={{ color: 'var(--tx2)' }}>Üyelik bitiyor</span>
+                        <span style={{ fontWeight: 700 }}>{until ? trDate(until) : 'Süresiz'}</span>
+                    </div>
+                </div>
+                {until && (
+                    <div className="ay-help" style={{ display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.5 }}>
+                        <I n="info" size={17} style={{ marginTop: 2 }} />
+                        <span>Süre bitince bu sayfadan bir plan seçerek devam edebilirsiniz; ilk tahsilat o gün başlar.</span>
+                    </div>
+                )}
             </div>
         );
     }

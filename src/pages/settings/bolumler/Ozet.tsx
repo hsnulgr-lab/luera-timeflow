@@ -86,13 +86,14 @@ export function Ozet() {
     const plan = planById(sub?.plan) ?? planById(ent.plan);
     if (billing.loading) lines.push({ title: 'Abonelik', tone: 'load', body: null, to: 'abonelik' });
     else if (billing.error) lines.push({ title: 'Abonelik', tone: 'unk', body: <><b>Okunamadı</b> · plan bilgisi şu an alınamıyor</>, to: 'abonelik', retry: () => void billing.refresh() });
-    else if (ent.effective === 'trial') lines.push({ title: 'Abonelik', tone: 'ok', body: <><b>{plan?.name ?? 'Plan'} · Deneme</b> · deneme bitiyor {trDate(ent.until)}</>, to: 'abonelik' });
+    else if (sub?.comp && sub.status === 'active') lines.push({ title: 'Abonelik', tone: 'ok', body: <><b>{plan?.name ?? 'Plan'} · Hediye</b> · {ent.shownUntil ?? sub.expires_at ? `bitiş ${trDate(ent.shownUntil ?? sub.expires_at)}` : 'süresiz'}</>, to: 'abonelik' });
+    else if (ent.effective === 'trial') lines.push({ title: 'Abonelik', tone: 'ok', body: <><b>{plan?.name ?? 'Plan'} · Deneme</b> · deneme bitiyor {trDate(ent.shownUntil)}</>, to: 'abonelik' });
     else if (sub && sub.status === 'on_hold') lines.push({ title: 'Abonelik', tone: 'bad', body: <><b>{plan?.name ?? 'Plan'} · Ödeme bekleniyor</b></>, to: 'abonelik' });
-    else if (sub && sub.status === 'active' && sub.cancel_at_period_end) lines.push({ title: 'Abonelik', tone: 'warn', body: <><b>{plan?.name ?? 'Plan'} · Dönem sonunda iptal</b> · erişim bitiyor {trDate(ent.until ?? sub.expires_at)}</>, to: 'abonelik' });
+    else if (sub && sub.status === 'active' && sub.cancel_at_period_end) lines.push({ title: 'Abonelik', tone: 'warn', body: <><b>{plan?.name ?? 'Plan'} · Dönem sonunda iptal</b> · erişim bitiyor {trDate(ent.shownUntil ?? sub.expires_at)}</>, to: 'abonelik' });
     else if (sub && sub.status === 'active') {
         // Dönem sonu geçmiş ama durum hâlâ "aktif": yenileme kaydı gelmemiş
         // (devir 10 · yenileme günü). Geçmiş tarih "sonraki tahsilat" diye yazılmaz.
-        const end = ent.until ?? sub.expires_at;
+        const end = ent.shownUntil ?? sub.expires_at;
         const past = end ? new Date(end).getTime() < openedAt : false;
         lines.push(past
             ? { title: 'Abonelik', tone: 'warn', body: <><b>{plan?.name ?? 'Plan'} · Aktif</b> · dönem sonu {trDate(end)} — bu tarih geçti</>, to: 'abonelik' }

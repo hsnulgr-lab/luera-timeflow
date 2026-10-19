@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
-import { computeAccess, type Access, type EntitlementRow } from '@shared/entitlement';
+import { computeAccess, shownAccess, type Access, type EntitlementRow } from '@shared/entitlement';
 
 // "Bu işletme şu an TimeFlow'u kullanabilir mi?" — istemci tarafı.
 //
@@ -39,6 +39,12 @@ export interface Entitlement extends Access {
     /** Satırdaki plan/dönem — duvar "Pro planı aktif" diyebilsin diye. */
     plan: string | null;
     cycle: string | null;
+    /**
+     * Ekranda gösterilecek bitiş — Dodo'nun gerçek günü. `until` erişimin
+     * bittiği an (3 gün tolerans dahil); kullanıcıya bu gösterilir.
+     */
+    shownUntil: string | null;
+    shownDaysLeft: number | null;
     refresh: () => Promise<void>;
 }
 
@@ -53,7 +59,7 @@ export function useEntitlement(): Entitlement {
     const fetchRow = useCallback(async (id: string) => {
         const { data, error } = await supabase
             .from('org_entitlement')
-            .select('state, plan, cycle, trial_ends_at, expires_at, grace_until')
+            .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, dodo_subscription_id')
             .eq('organization_id', id)
             .maybeSingle();
         if (error) {
@@ -89,6 +95,7 @@ export function useEntitlement(): Entitlement {
     const access = computeAccess(loaded?.row);
     return {
         ...access,
+        ...shownAccess(loaded?.row),
         plan: loaded?.row?.plan ?? null,
         cycle: loaded?.row?.cycle ?? null,
         loading,

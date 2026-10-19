@@ -25,6 +25,8 @@ export type EntState = 'none' | 'trial' | 'active' | 'grace' | 'locked';
 
 export interface EntitlementRow {
     state: EntState;
+    /** Dodo aboneliği varsa dolu (123); dönem sonuna tolerans eklenmiştir. */
+    dodo_subscription_id?: string | null;
     plan?: string | null;
     cycle?: string | null;
     trial_ends_at?: string | null;
@@ -109,6 +111,41 @@ export function computeAccess(row: EntitlementRow | null | undefined, now: numbe
         effective: ok ? row.state : 'locked',
         until: new Date(until).toISOString(),
         daysLeft: ok ? Math.ceil((until - now) / DAY_MS) : 0,
+    };
+}
+
+/**
+ * Dodo dönem sonuna eklenen tolerans (dodo-webhook · durum.ts yazar): Dodo'nun
+ * tahsilatı birkaç saat gecikirse salon kilitlenmesin. Erişim bu paya kadar
+ * sürer ama kullanıcıya gösterilmez.
+ */
+export const PERIOD_TOLERANCE_MS = 3 * DAY_MS;
+
+/**
+ * Ekranda gösterilecek dönem sonu — Dodo'nun GERÇEK günü ("deneme 26 Ekim'de
+ * biter"). Dodo aboneliğinde `expires_at` = gerçek gün + tolerans; hediye,
+ * demo ve elle onarılmış satırlarda tolerans yok, olduğu gibi döner. Süre
+ * yoksa ya da satır deneme/aktif değilse null (çağıran `until`a düşer).
+ */
+export function shownEnd(row: EntitlementRow | null | undefined): string | null {
+    if (!row || (row.state !== 'trial' && row.state !== 'active')) return null;
+    const end = ms(row.expires_at);
+    if (end === null) return null;
+    return new Date(row.dodo_subscription_id ? end - PERIOD_TOLERANCE_MS : end).toISOString();
+}
+
+/**
+ * Ekranda gösterilecek bitiş ve kalan gün (banner, abonelik ekranı). Erişim
+ * bitmişse ya da süre yoksa `computeAccess`in değerlerine düşer.
+ */
+export function shownAccess(row: EntitlementRow | null | undefined, now: number = Date.now()): { shownUntil: string | null; shownDaysLeft: number | null } {
+    const access = computeAccess(row, now);
+    if (!access.ok) return { shownUntil: access.until, shownDaysLeft: access.daysLeft };
+    const shown = shownEnd(row) ?? access.until;
+    const t = ms(shown);
+    return {
+        shownUntil: shown,
+        shownDaysLeft: t === null ? access.daysLeft : Math.max(0, Math.ceil((t - now) / DAY_MS)),
     };
 }
 

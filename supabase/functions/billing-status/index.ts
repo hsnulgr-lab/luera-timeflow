@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { computeAccess, type EntitlementRow } from '../_shared/entitlement.ts';
+import { computeAccess, shownEnd, type EntitlementRow } from '../_shared/entitlement.ts';
 import { resolveOrg } from '../_shared/org.ts';
 
 const corsHeaders = {
@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
         // 3) Ayna + fatura geçmişi
         const [{ data: row, error: rowErr }, { data: events, error: evErr }] = await Promise.all([
             admin.from('org_entitlement')
-                .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, cancel_at_period_end, cancelled_at')
+                .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, cancel_at_period_end, cancelled_at, last_event, dodo_subscription_id')
                 .eq('organization_id', orgId)
                 .maybeSingle(),
             admin.from('dodo_events')
@@ -73,16 +73,22 @@ Deno.serve(async (req: Request) => {
                 : access.effective === 'grace' ? 'on_hold'
                 : 'active';
             subscription = {
+                // Hediye üyelik (ops/abonelik/hediye.sql) ya da demo salon:
+                // Dodo'da karşılığı yok — ekran tahsilat/kart/iptal çizmez.
+                comp: row.last_event === 'comp_manual' || row.last_event === 'demo_manual',
                 plan: row.plan || 'pro',
                 billing_period: row.cycle || 'monthly',
                 status,
                 cancel_at_period_end: row.cancel_at_period_end === true,
-                expires_at: row.state === 'trial' ? (row.trial_ends_at ?? row.expires_at) : row.expires_at,
+                // Dodo'nun gerçek günü (tolerans hariç) — Dodo'nun e-postası ve
+                // ödeme sayfası ne diyorsa ekran da onu demeli.
+                expires_at: shownEnd(row as EntitlementRow) ?? row.expires_at,
                 cancelled_at: row.cancelled_at ?? null,
             };
         }
 
-        const invoices = (events ?? []).map((e: { event_at: string | null; received_at: string; amount: number | null; currency: string | null; invoice_url: string | null }) => ({
+        // ₺0'lık "ödeme": denemenin başında Dodo kartı doğrular — fatura değil.
+        const invoices = (events ?? []).filter((e: { amount: number | null }) => e.amount === null || Number(e.amount) > 0).map((e: { event_at: string | null; received_at: string; amount: number | null; currency: string | null; invoice_url: string | null }) => ({
             date: e.event_at ?? e.received_at,
             amount: e.amount === null ? null : Number(e.amount),
             currency: e.currency || 'TRY',

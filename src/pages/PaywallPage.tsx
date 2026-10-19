@@ -170,11 +170,11 @@ export function PaywallPage() {
                         <span className="d">{ent.effective === 'trial' ? 'Şimdi ödenen' : 'Ödenen tutar'}</span>
                         <span className="a num">₺{ent.effective === 'trial' ? '0' : formatTRY(amount)}</span>
                     </div>
-                    {ent.until && (
+                    {ent.shownUntil && (
                         <div className="rnext">
                             <Ico n="cal" />
                             <div>
-                                <b>Sonraki tahsilat: {fullFmt.format(new Date(ent.until))}</b>
+                                <b>Sonraki tahsilat: {fullFmt.format(new Date(ent.shownUntil))}</b>
                                 <span>
                                     Aynı karttan <span className="num">₺{formatTRY(amount)}</span> çekilir.
                                     İptal ederseniz çekim yapılmaz.

@@ -10,6 +10,8 @@ export interface BillingSubscription {
     cancel_at_period_end: boolean;
     expires_at: string | null;
     cancelled_at: string | null;
+    /** Hediye üyelik / demo: Dodo'da karşılığı yok, ücret alınmaz. */
+    comp?: boolean;
 }
 
 export interface BillingInvoice {

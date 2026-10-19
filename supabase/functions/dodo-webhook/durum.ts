@@ -19,11 +19,11 @@
 //    alanı; askıdan dönen ödeyen bir salon "deneme"ye düşüyordu. Şimdiki
 //    dönemin deneme dönemi olup olmadığına tarihten bakılır.
 
-import { graceUntil, type EntState } from '../_shared/entitlement.ts';
+import { graceUntil, PERIOD_TOLERANCE_MS, type EntState } from '../_shared/entitlement.ts';
+
+export { PERIOD_TOLERANCE_MS };
 
 const DAY = 86_400_000;
-/** Dönem sonuna tolerans: Dodo'nun tahsilatı birkaç saat gecikebilir. */
-export const PERIOD_TOLERANCE_MS = 3 * DAY;
 
 /** Aynanın kararın baktığı alanları. */
 export interface MirrorNow {
