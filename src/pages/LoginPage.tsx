@@ -1,447 +1,790 @@
-import { useState, useEffect } from 'react';
+// Masaüstü giriş — "Işık alanı" (tasarım: Luera Masaustu - Giris v2.1).
+//
+// Ekranlar (tasarımdaki kare adlarıyla):
+//   M1/M2  login           Hesabınıza girin (+ hâller: hatalı, kilit, internet yok)
+//   M4     signup          Hesabınızı açalım
+//   M5     code            Kodu girin (kayıt)
+//   M8     reset-email     Yeni şifre belirleyin
+//   M9     reset-code      Kodu girin (şifre)
+//   M10    reset-password  Yeni şifreniz
+//   M3     bridge          Bu hesapla bir işletme bulamadık (Apple/Google)
+//
+// Kararlar (docs/giris-kararlar.md):
+//   · Masaüstünde kayıt hesapla biter; işletme bilgileri Kurulum sihirbazında
+//     (14 sektör). Tasarımdaki M6/M7 ve "Adım 1/3" çubuğu bu yüzden YOK.
+//   · Kayıtta zaten kayıtlı e-posta: şifre uyuyorsa içeri + not (M11);
+//     uymuyorsa kod ekranı — ekran hiçbir zaman hesabın varlığını söylemez.
+//   · Apple/Google AÇIK (2026-10-19); acil kapatma `VITE_SOCIAL_LOGIN=0` (sosyalGiris.ts).
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { SplashScreen } from '@/components/SplashScreen';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { planById } from '@/lib/plans';
+import { showLoginNotice } from '@/lib/loginNotice';
+import {
+    Band, Brand, EmailInput, IconBack, IconTag, LightField, OtpBox, PasswordInput,
+    PasswordRule, PrivacyLink, Resend, SsoButtons, Wait, type BandState,
+} from './login/parcalar';
+import {
+    classifyAuthError, emailLooksValid, passwordOk, ssoFailedText,
+    LOCK_SECONDS, METIN, RESEND_SECONDS, type AuthErrorLike,
+} from './login/girisKurallari';
+import {
+    SOCIAL_ENABLED, businessCount, createOwnBusiness, signInWithApple, startGoogle, takeIntent,
+    type Intent, type Provider,
+} from './login/sosyalGiris';
+import './login/giris.css';
 
-// ── Design tokens (dark theme) ────────────────────────────────────────────────
-const T = {
-  ink:            '#0E0E0E',
-  cream:          '#F3ECE0',
-  orange:         '#FF5A1F',
-  muted:          'rgba(243,236,224,0.55)',
-  hairline:       'rgba(243,236,224,0.10)',
-  hairlineStrong: 'rgba(243,236,224,0.20)',
-  panel:          '#0a0a0a',
-  success:        '#7ad3a0',
-};
+type Screen =
+    | { name: 'login' }
+    | { name: 'signup' }
+    | { name: 'code'; email: string }
+    | { name: 'reset-email' }
+    | { name: 'reset-code'; email: string }
+    | { name: 'reset-password'; email: string }
+    | { name: 'bridge'; provider: Provider; email: string };
 
-// ── Luera wordmark ─────────────────────────────────────────────────────────────
-function LueraMark({ size = 32 }: { size?: number }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'flex-end', fontWeight: 900, fontSize: size, letterSpacing: '-0.05em', lineHeight: 0.82, color: T.cream, fontFamily: 'Hanken Grotesk, sans-serif' }}>
-      luera
-      <span style={{ width: '0.22em', height: '0.22em', borderRadius: '50%', background: T.orange, marginLeft: '0.02em', marginBottom: '0.02em', display: 'inline-block', flexShrink: 0 }}/>
-    </span>
-  );
-}
+type Entry = 'login' | 'signup' | 'existing' | 'reset';
 
-// ── SVG icons ─────────────────────────────────────────────────────────────────
-function IconMail() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 5H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/>
-      <path d="m3.5 6.5 6.5 4.5 6.5-4.5"/>
-    </svg>
-  );
-}
-function IconLock() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 7a4 4 0 1 0-8 0v3H4v7h12v-7h-2V7z"/>
-    </svg>
-  );
-}
-function IconUser() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="6.5" r="3.5"/>
-      <path d="M3.5 18c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/>
-    </svg>
-  );
-}
-function IconEye({ off }: { off: boolean }) {
-  return off ? (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3l14 14M8.5 8.6A3 3 0 0 0 13.4 13M6.3 6.4C4.3 7.7 3 10 3 10s2.7 5 7 5c1.4 0 2.7-.4 3.7-1M10 5c4.3 0 7 5 7 5a12.8 12.8 0 0 1-1.4 2"/>
-    </svg>
-  ) : (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 10s2.7-5 7-5 7 5 7 5-2.7 5-7 5-7-5-7-5z"/>
-      <circle cx="10" cy="10" r="2.5"/>
-    </svg>
-  );
-}
-function IconArrow() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 10h12M12 6l4 4-4 4"/>
-    </svg>
-  );
+// Google dönüşünde hata adres satırında gelir; istemci adresi temizlemeden
+// önce, modül yüklenirken okunur.
+const INITIAL_URL = typeof window === 'undefined' ? '' : `${window.location.search}&${window.location.hash.replace(/^#/, '')}`;
+function oauthErrorInUrl(): boolean {
+    return /(?:^|[?&])error(?:_description)?=/.test(INITIAL_URL);
 }
 
-// ── Field component ────────────────────────────────────────────────────────────
-function Field({ label, linkText, onLinkClick, icon, type, value, onChange, placeholder, right }: {
-  label: string; linkText?: string; onLinkClick?: () => void;
-  icon?: React.ReactNode; type?: string;
-  value: string; onChange: (v: string) => void;
-  placeholder?: string; right?: React.ReactNode;
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <label style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.16em', color: T.muted, textTransform: 'uppercase', fontFamily: 'JetBrains Mono, monospace' }}>
-          {label}
-        </label>
-        {linkText && (
-          <button type="button" onClick={onLinkClick}
-            style={{ fontSize: 11, color: T.cream, background: 'none', border: 'none', opacity: 0.65, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
-            {linkText}
-          </button>
-        )}
-      </div>
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        {icon && (
-          <span style={{ position: 'absolute', left: 13, color: T.muted, display: 'flex', pointerEvents: 'none', zIndex: 1 }}>{icon}</span>
-        )}
-        <input
-          type={type || 'text'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          autoComplete={type === 'password' ? 'current-password' : type === 'email' ? 'email' : 'name'}
-          style={{
-            width: '100%', height: 48,
-            padding: icon ? '0 44px 0 44px' : '0 16px',
-            background: T.panel,
-            border: `1px solid ${focused ? T.orange : T.hairline}`,
-            borderRadius: 10, fontSize: 14.5, color: T.cream,
-            fontFamily: 'Hanken Grotesk, sans-serif', outline: 'none',
-            boxShadow: focused ? '0 0 0 4px rgba(255,90,31,0.10)' : 'none',
-            transition: 'all 200ms',
-          }}
-        />
-        {right && <div style={{ position: 'absolute', right: 8 }}>{right}</div>}
-      </div>
-    </div>
-  );
+const narrowViewport = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Giriş ↔ kayıt: plaka içeriği saydamlıkla değişir, plakanın ÜST kenarı sabit
+ * kalır, yalnız alt kenar 200 ms'de yeni yüksekliğe iner/çıkar.
+ */
+function usePlateMorph(key: string) {
+    const plateRef = useRef<HTMLDivElement>(null);
+    const lastHeight = useRef(0);
+    const mounted = useRef(false);
+
+    useEffect(() => {
+        const el = plateRef.current;
+        if (!el) return;
+        lastHeight.current = el.getBoundingClientRect().height;
+        const ro = new ResizeObserver(() => {
+            if (!el.style.height) lastHeight.current = el.getBoundingClientRect().height;
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    useLayoutEffect(() => {
+        const el = plateRef.current;
+        if (!el) return;
+        if (!mounted.current) { mounted.current = true; return; }
+        const from = lastHeight.current;
+        el.style.height = '';
+        const to = el.getBoundingClientRect().height;
+        if (!from || Math.abs(from - to) < 1 || reducedMotion()) { lastHeight.current = to; return; }
+        el.style.overflow = 'hidden';
+        el.style.height = `${from}px`;
+        void el.offsetHeight;
+        el.style.transition = 'height 200ms ease-in-out';
+        el.style.height = `${to}px`;
+        const done = () => {
+            el.style.height = '';
+            el.style.transition = '';
+            el.style.overflow = '';
+            lastHeight.current = el.getBoundingClientRect().height;
+        };
+        const t = window.setTimeout(done, 220);
+        return () => { window.clearTimeout(t); done(); };
+    }, [key]);
+
+    return plateRef;
 }
 
-// ── Divider ───────────────────────────────────────────────────────────────────
-function Divider() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ flex: 1, height: 1, background: T.hairline }}/>
-      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted }}>veya</span>
-      <div style={{ flex: 1, height: 1, background: T.hairline }}/>
-    </div>
-  );
+/** Sayaçlar için saniyelik saat — yalnız gerektiğinde çalışır. */
+function useNow(active: boolean): number {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!active) return;
+        const first = window.setTimeout(() => setNow(Date.now()), 0);
+        const id = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => { window.clearTimeout(first); window.clearInterval(id); };
+    }, [active]);
+    return now;
 }
 
-// ── Left panel geometric SVG ──────────────────────────────────────────────────
-function GeometricArt() {
-  return (
-    <div style={{ marginBottom: 44, position: 'relative', height: 240 }}>
-      <svg width="420" height="240" viewBox="0 0 420 240" fill="none" style={{ overflow: 'visible' }}>
-        {/* Grid lines */}
-        {[0,60,120,180,240,300,360,420].map(x => (
-          <line key={`v${x}`} x1={x} y1="0" x2={x} y2="240" stroke={T.hairline} strokeWidth="1"/>
-        ))}
-        {[0,40,80,120,160,200,240].map(y => (
-          <line key={`h${y}`} x1="0" y1={y} x2="420" y2={y} stroke={T.hairline} strokeWidth="1"/>
-        ))}
-        {/* Orange circles */}
-        <circle cx="210" cy="120" r="88" stroke={T.orange} strokeWidth="1" strokeDasharray="6 6" opacity="0.35"/>
-        <circle cx="210" cy="120" r="55" stroke={T.orange} strokeWidth="0.8" opacity="0.18"/>
-        <circle cx="210" cy="120" r="14" fill={T.orange} opacity="0.9"/>
-        <circle cx="210" cy="120" r="6"  fill={T.ink}/>
-        {/* Corner marks */}
-        {([[30,30],[390,30],[30,210],[390,210]] as [number,number][]).map(([x,y],i) => (
-          <g key={i}>
-            <line x1={x-8} y1={y} x2={x+8} y2={y} stroke={T.hairlineStrong} strokeWidth="1"/>
-            <line x1={x} y1={y-8} x2={x} y2={y+8} stroke={T.hairlineStrong} strokeWidth="1"/>
-          </g>
-        ))}
-        {/* Radial lines from center */}
-        <line x1="210" y1="120" x2="30"  y2="30"  stroke={T.orange} strokeWidth="0.6" opacity="0.25"/>
-        <line x1="210" y1="120" x2="390" y2="30"  stroke={T.orange} strokeWidth="0.6" opacity="0.25"/>
-        <line x1="210" y1="120" x2="30"  y2="210" stroke={T.orange} strokeWidth="0.6" opacity="0.25"/>
-        <line x1="210" y1="120" x2="390" y2="210" stroke={T.orange} strokeWidth="0.6" opacity="0.25"/>
-        {/* Accent dots */}
-        <circle cx="298" cy="65"  r="5" fill={T.orange} opacity="0.6"/>
-        <circle cx="122" cy="175" r="3" fill={T.cream}  opacity="0.25"/>
-      </svg>
-    </div>
-  );
-}
-
-// ── Main LoginPage ────────────────────────────────────────────────────────────
 export const LoginPage = () => {
-  const { user, login, signup } = useAuth();
-  const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  // /fiyatlar'dan gelen seçim: ?mode=signup&plan=pro&cycle=yearly
-  // Kullanıcı planı bir kez seçti; kayıttan sonra aynı soruyu tekrar sormak
-  // en pahalı sürtünme noktası olurdu.
-  const [params] = useSearchParams();
-  const pickedPlan = params.get('plan');
-  const pickedCycle = params.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
-  /** Kayıt/giriş sonrası nereye? Plan seçilmişse doğrudan ödemeye. */
-  const afterAuth = pickedPlan ? `/abonelik?plan=${pickedPlan}&cycle=${pickedCycle}` : '/';
+    const { user, isLoading } = useAuth();
+    const { dark } = useTheme();
+    const navigate = useNavigate();
+    const [params, setParams] = useSearchParams();
 
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [name, setName]             = useState('');
-  const [showPw, setShowPw]         = useState(false);
-  const [isLoading, setIsLoading]   = useState(false);
-  const [isSignup, setIsSignup]     = useState(() => params.get('mode') === 'signup');
-  const [error, setError]           = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  // Hesap açıldı ama giriş için bir adım daha var — başarı DEĞİL, bekleyen iş.
-  const [pendingMsg, setPendingMsg] = useState('');
-  const [shake, setShake]           = useState(false);
-  const [mounted, setMounted]       = useState(false);
-  const [btnHovered, setBtnHovered] = useState(false);
-  const [showSplash, setShowSplash] = useState(false);
+    // /fiyatlar'dan gelen seçim: ?mode=signup&plan=pro&cycle=yearly — kayıt
+    // ya da giriş biter bitmez o planın abonelik sayfası açılır.
+    const plan = planById(params.get('plan'));
+    const cycle = params.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
+    const planDest = plan ? `/abonelik?plan=${plan.id}&cycle=${cycle}` : null;
 
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 80);
-    return () => clearTimeout(t);
-  }, []);
+    const [screen, setScreen] = useState<Screen>(() => (params.get('mode') === 'signup' ? { name: 'signup' } : { name: 'login' }));
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [code, setCode] = useState('');
+    const [band, setBand] = useState<BandState | null>(null);
+    const [ssoBand, setSsoBand] = useState<BandState | null>(null);
+    const [errEmail, setErrEmail] = useState(false);
+    const [errPassword, setErrPassword] = useState(false);
+    const [errCode, setErrCode] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [verifying, setVerifying] = useState(false);
+    const [waiting, setWaiting] = useState<Provider | null>(null);
+    const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+    const [codeLockedUntil, setCodeLockedUntil] = useState<number | null>(null);
+    const [codeSentAt, setCodeSentAt] = useState(0);
+    const [splash, setSplash] = useState<{ dest: string; notice?: string } | null>(null);
 
-  useEffect(() => {
-    // Splash gösteriliyorsa user değişimi navigate'i tetiklememeli —
-    // navigasyon SplashScreen.onDone'dan gelir
-    if (user && !showSplash) navigate(afterAuth);
-  }, [user, navigate, showSplash, afterAuth]);
+    const emailRef = useRef<HTMLInputElement>(null);
+    const passwordRef = useRef<HTMLInputElement>(null);
+    const codeRef = useRef<HTMLInputElement>(null);
+    // Kullanıcı bir ekran değiştirdi mi? Telefonda sayfa açılır açılmaz klavye
+    // çıkmasın; ama kişi bir bağlantıya bastıysa sonraki alan odak alsın.
+    const navigated = useRef(false);
+    const started = useRef(false);
 
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 400);
-  };
+    const onCodeScreen = screen.name === 'code' || screen.name === 'reset-code';
+    const now = useNow(onCodeScreen || lockedUntil !== null || codeLockedUntil !== null);
+    const locked = lockedUntil !== null && now < lockedUntil;
+    const codeLocked = codeLockedUntil !== null && now < codeLockedUntil;
+    const resendLeft = Math.min(RESEND_SECONDS, Math.max(0, RESEND_SECONDS - (now - codeSentAt) / 1000));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccessMsg(''); setPendingMsg('');
-    if (!email || !password || (isSignup && !name)) {
-      triggerShake(); setError('Tüm alanları doldurun'); return;
-    }
-    setIsLoading(true);
-    if (isSignup) {
-      const result = await signup(email, password, name);
-      setIsLoading(false);
-      if (result.success) {
-        if (result.needsConfirmation) {
-          // Oturum gelmedi: kullanıcı var, giremiyor. "Giriş yapabilirsiniz"
-          // demek yalan olurdu. Metin mobildekiyle aynı ayrımı yapıyor.
-          setPendingMsg('E-postanıza bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra buradan giriş yapabilirsiniz.');
-        } else {
-          setSuccessMsg('Hesabınız oluşturuldu! Giriş yapabilirsiniz.');
+    const plateRef = usePlateMorph(screen.name);
+    const [swapped, setSwapped] = useState(false);
+
+    // ── Ekran geçişi ────────────────────────────────────────────────────────
+    const go = (next: Screen) => {
+        navigated.current = true;
+        setBand(null);
+        setSsoBand(null);
+        setErrEmail(false);
+        setErrPassword(false);
+        setErrCode(false);
+        setSwapped(true);
+        setScreen(next);
+        if (next.name === 'login' || next.name === 'signup') {
+            const p = new URLSearchParams(params);
+            if (next.name === 'signup') p.set('mode', 'signup'); else p.delete('mode');
+            setParams(p, { replace: true });
         }
-        setIsSignup(false); setName('');
-      } else {
-        setError(result.error || 'Kayıt başarısız'); triggerShake();
-      }
-    } else {
-      const result = await login(email, password);
-      setIsLoading(false);
-      if (result.success) { setShowSplash(true); }
-      else { setError(result.error || 'Giriş başarısız'); triggerShake(); }
+    };
+
+    const openCode = (address: string, kind: 'code' | 'reset-code') => {
+        setCode('');
+        setCodeSentAt(Date.now());
+        setCodeLockedUntil(null);
+        go({ name: kind, email: address });
+    };
+
+    /** İçeri: açılış animasyonu, sonra hedef. Plan seçildiyse önce abonelik. */
+    const enter = (kind: Entry) => {
+        const dest = planDest ?? (kind === 'signup' ? '/kurulum' : '/');
+        setSplash({ dest, notice: kind === 'existing' ? METIN.existingAccount : undefined });
+    };
+
+    // ── İlk yükleme: açık oturum ya da Google dönüşü ────────────────────────
+    useEffect(() => {
+        if (isLoading || started.current) return;
+        started.current = true;
+        const pending = takeIntent();
+        if (pending && oauthErrorInUrl()) {
+            setScreen(pending.intent === 'signup' ? { name: 'signup' } : { name: 'login' });
+            setSsoBand({ kind: 'e', text: ssoFailedText(pending.provider, pending.intent) });
+            return;
+        }
+        if (!user) return;
+        if (pending) {
+            setWaiting(pending.provider);
+            void supabase.auth.getUser().then(({ data }) => finishSocial(pending.provider, pending.intent, data.user));
+            return;
+        }
+        navigate(planDest ?? '/', { replace: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading, user]);
+
+    // ── Odak: ekran değişince ilk alan ──────────────────────────────────────
+    useEffect(() => {
+        const initial = !navigated.current;
+        if (initial && narrowViewport()) return; // telefonda sayfa açılır açılmaz klavye çıkmasın
+        const target = screen.name === 'code' || screen.name === 'reset-code' ? codeRef.current
+            : screen.name === 'reset-password' ? passwordRef.current
+                : emailRef.current;
+        target?.focus({ preventScroll: initial });
+    }, [screen.name]);
+
+    // ── Kilit bitince bant kalkar, düğme açılır ─────────────────────────────
+    useEffect(() => {
+        if (lockedUntil !== null && now >= lockedUntil) {
+            setLockedUntil(null);
+            setBand((b) => (b?.text === METIN.tooMany ? null : b));
+        }
+        if (codeLockedUntil !== null && now >= codeLockedUntil) {
+            setCodeLockedUntil(null);
+            setBand((b) => (b?.text === METIN.tooMany ? null : b));
+        }
+    }, [now, lockedUntil, codeLockedUntil]);
+
+    // ── Bağlantı gelince "internet yok" bandı kendiliğinden kalkar ─────────
+    useEffect(() => {
+        const onOnline = () => {
+            setBand((b) => (b?.kind === 'n' ? null : b));
+            setSsoBand((b) => (b?.kind === 'n' ? null : b));
+        };
+        window.addEventListener('online', onOnline);
+        return () => window.removeEventListener('online', onOnline);
+    }, []);
+
+    const offlineBand: BandState = { kind: 'n', text: METIN.offline };
+    const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
+    const lock = (target: 'form' | 'code') => {
+        const until = Date.now() + LOCK_SECONDS * 1000;
+        if (target === 'form') setLockedUntil(until); else setCodeLockedUntil(until);
+        setBand({ kind: 'w', text: METIN.tooMany });
+    };
+
+    // ── Apple / Google ──────────────────────────────────────────────────────
+    async function finishSocial(provider: Provider, intent: Intent, signedIn: User | null) {
+        if (!signedIn) {
+            setWaiting(null);
+            setSsoBand({ kind: 'e', text: ssoFailedText(provider, intent) });
+            return;
+        }
+        const count = await businessCount(signedIn.id);
+        if (count === null) {
+            setWaiting(null);
+            setSsoBand({ kind: 'e', text: ssoFailedText(provider, intent) });
+            return;
+        }
+        if (count > 0) {
+            enter(intent === 'login' ? 'login' : 'existing');
+            return;
+        }
+        if (intent === 'signup') {
+            if (await createOwnBusiness()) { enter('signup'); return; }
+            setWaiting(null);
+            setSsoBand({ kind: 'e', text: ssoFailedText(provider, intent) });
+            return;
+        }
+        // Girişten geldi, işletmesi yok: sessizce boş işletme açılmaz, sorulur.
+        setWaiting(null);
+        go({ name: 'bridge', provider, email: signedIn.email ?? '' });
     }
-  };
 
-  // Splash gösteriliyorsa sadece onu render et
-  if (showSplash) {
-    return <SplashScreen onDone={() => navigate(afterAuth)} />;
-  }
+    const onApple = async (intent: Intent) => {
+        setSsoBand(null);
+        if (isOffline()) { setSsoBand(offlineBand); return; }
+        setWaiting('apple');
+        const result = await signInWithApple();
+        if (result === 'cancelled') { setWaiting(null); return; }
+        if (result === 'failed') {
+            setWaiting(null);
+            setSsoBand({ kind: 'e', text: ssoFailedText('apple', intent) });
+            return;
+        }
+        const { data } = await supabase.auth.getUser();
+        await finishSocial('apple', intent, data.user);
+    };
 
-  return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-        html, body, #root { height: 100%; margin: 0; }
-        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
-        .login-shake { animation: shake 0.35s ease-in-out; }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        .login-fadein { animation: fadeUp 0.55s cubic-bezier(.2,.8,.2,1) both; }
-      `}</style>
-      <div style={{
-        minHeight: '100vh', background: T.panel,
-        display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-        fontFamily: 'Hanken Grotesk, sans-serif',
-        overflow: 'hidden',
-      }}>
-        {/* ── LEFT BRAND PANEL ── (mobilde gizli) */}
-        <div style={{
-          background: T.panel, position: 'relative', overflow: 'hidden',
-          display: isMobile ? 'none' : 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          padding: '52px 60px',
-        }}>
-          {/* Ambient glow top-left */}
-          <div style={{ position: 'absolute', top: -120, left: -80, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,90,31,0.13), transparent 65%)', filter: 'blur(10px)', pointerEvents: 'none' }}/>
-          {/* Ambient glow bottom-right */}
-          <div style={{ position: 'absolute', bottom: -160, right: -100, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,90,31,0.07), transparent 65%)', filter: 'blur(20px)', pointerEvents: 'none' }}/>
-          {/* Grain */}
-          <div style={{ position: 'absolute', inset: 0, opacity: 0.035, mixBlendMode: 'overlay', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")`, pointerEvents: 'none' }}/>
+    const onGoogle = async (intent: Intent) => {
+        setSsoBand(null);
+        if (isOffline()) { setSsoBand(offlineBand); return; }
+        setWaiting('google');
+        const left = await startGoogle(intent, window.location.search);
+        if (!left) {
+            setWaiting(null);
+            setSsoBand({ kind: 'e', text: ssoFailedText('google', intent) });
+        }
+    };
 
-          {/* Logo */}
-          <LueraMark size={36}/>
+    // ── M1 · Giriş ──────────────────────────────────────────────────────────
+    const submitLogin = async (e: FormEvent) => {
+        e.preventDefault();
+        if (busy || locked) return;
+        const address = email.trim();
+        if (!address || !password) {
+            setErrEmail(!address);
+            setErrPassword(!password);
+            setBand({ kind: 'e', text: METIN.fillLogin });
+            return;
+        }
+        if (!emailLooksValid(address)) {
+            setErrEmail(true);
+            setBand({ kind: 'e', text: METIN.badEmail });
+            return;
+        }
+        if (isOffline()) { setBand(offlineBand); return; }
+        setBusy(true);
+        setBand(null);
+        setErrEmail(false);
+        setErrPassword(false);
+        const { error } = await supabase.auth.signInWithPassword({ email: address, password });
+        if (!error) { enter('login'); return; }
+        const failure = classifyAuthError(error as AuthErrorLike);
+        if (failure === 'not_confirmed') {
+            // Hesap açılmış ama e-posta doğrulanmamış: kodu yeniden gönder, kod ekranına geç.
+            await supabase.auth.resend({ type: 'signup', email: address });
+            setBusy(false);
+            openCode(address, 'code');
+            return;
+        }
+        setBusy(false);
+        if (failure === 'invalid_credentials') {
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.wrongCredentials });
+        } else if (failure === 'rate_limited') {
+            lock('form');
+        } else if (failure === 'offline') {
+            setBand(offlineBand);
+        } else {
+            setBand({ kind: 'e', text: METIN.loginFailed });
+        }
+    };
 
-          {/* Center content */}
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <GeometricArt/>
-            <h2 style={{ fontSize: 52, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.04, color: T.cream, marginBottom: 18 }}>
-              İşi büyüt.<br/>
-              Zamanı<br/>
-              <span style={{ color: T.orange }}>geri kazan.</span>
-            </h2>
-            <p style={{ fontSize: 16, lineHeight: 1.65, color: T.muted, maxWidth: 380 }}>
-              Luera, ekibinin randevu süreçlerini otomatikleştirir — siz müşterilere odaklanın, gerisini biz halledelim.
-            </p>
-          </div>
+    // ── M4 · Kayıt ──────────────────────────────────────────────────────────
+    const submitSignup = async (e: FormEvent) => {
+        e.preventDefault();
+        if (busy || locked) return;
+        const address = email.trim();
+        if (!emailLooksValid(address)) {
+            setErrEmail(true);
+            setErrPassword(false);
+            setBand({ kind: 'e', text: METIN.badEmail });
+            return;
+        }
+        if (!passwordOk(password)) {
+            setErrEmail(false);
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.weakPassword });
+            return;
+        }
+        if (isOffline()) { setBand(offlineBand); return; }
+        setBusy(true);
+        setBand(null);
+        setErrEmail(false);
+        setErrPassword(false);
+        const { data, error } = await supabase.auth.signUp({ email: address, password });
+        if (!error && data.session) { enter('signup'); return; }
 
-          {/* Footer */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted, opacity: 0.6 }}>
-            <span>© 2026 Luera</span>
-            <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.orange, display: 'inline-block' }}/>
-            <span>TimeFlow</span>
-            <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.orange, display: 'inline-block' }}/>
-            <span>v2</span>
-          </div>
-        </div>
+        const failure = error ? classifyAuthError(error as AuthErrorLike) : null;
+        // Kayıtlı e-posta: otomatik onay açıkken sunucu "already registered"
+        // der, kapalıyken kimliksiz sahte bir kullanıcı döner. İkisinde de
+        // şifre uyuyorsa kişi içeri girer; uymuyorsa kod ekranı — sızdırmama.
+        const existing = failure === 'exists' || (!error && !data.session && (data.user?.identities?.length ?? 0) === 0);
+        if (existing) {
+            const again = await supabase.auth.signInWithPassword({ email: address, password });
+            setBusy(false);
+            if (!again.error) { enter('existing'); return; }
+            openCode(address, 'code');
+            return;
+        }
+        setBusy(false);
+        if (!error) { openCode(address, 'code'); return; }
+        if (failure === 'weak_password') {
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.weakPassword });
+        } else if (failure === 'invalid_email') {
+            setErrEmail(true);
+            setBand({ kind: 'e', text: METIN.badEmail });
+        } else if (failure === 'rate_limited' || failure === 'email_rate_limited') {
+            lock('form');
+        } else if (failure === 'offline') {
+            setBand(offlineBand);
+        } else {
+            setBand({ kind: 'e', text: METIN.signupFailed });
+        }
+    };
 
-        {/* ── RIGHT FORM PANEL ── */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* Subtle center glow */}
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,90,31,0.05), transparent 65%)', pointerEvents: 'none' }}/>
+    // ── M5 / M9 · Kod ───────────────────────────────────────────────────────
+    const codeFailed = (error: AuthErrorLike) => {
+        const failure = classifyAuthError(error);
+        if (failure === 'otp_invalid') {
+            setErrCode(true);
+            setBand({ kind: 'e', text: METIN.codeWrong });
+            // Rakamlar silinmez; ilk tuşla seçili olanların yerine yazılır.
+            window.setTimeout(() => { codeRef.current?.focus(); codeRef.current?.select(); }, 0);
+        } else if (failure === 'rate_limited') {
+            lock('code');
+        } else if (failure === 'offline') {
+            setBand(offlineBand);
+        } else {
+            setErrCode(true);
+            setBand({ kind: 'e', text: METIN.codeWrong });
+        }
+    };
 
-          {/* Top-right "Kayıt ol" link */}
-          {!isSignup && (
-            <div style={{ position: 'absolute', top: isMobile ? 20 : 40, right: isMobile ? 20 : 60, fontSize: 13.5, color: T.cream }}>
-              <span style={{ opacity: 0.55 }}>Hesabın yok mu? </span>
-              <button type="button" onClick={() => { setIsSignup(true); setError(''); setSuccessMsg(''); }}
-                style={{ color: T.cream, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', borderBottom: `1px solid ${T.orange}`, paddingBottom: 1, fontFamily: 'inherit', fontSize: 13.5 }}>
-                Kayıt ol
-              </button>
+    const verifyCode = async (value: string) => {
+        if (verifying || codeLocked || value.length !== 6) return;
+        if (screen.name !== 'code' && screen.name !== 'reset-code') return;
+        if (isOffline()) { setBand(offlineBand); return; }
+        setVerifying(true);
+        setBand(null);
+        setErrCode(false);
+        const address = screen.email;
+        const { error } = await supabase.auth.verifyOtp({
+            email: address,
+            token: value,
+            type: screen.name === 'code' ? 'signup' : 'recovery',
+        });
+        setVerifying(false);
+        if (error) { codeFailed(error as AuthErrorLike); return; }
+        if (screen.name === 'code') { enter('signup'); return; }
+        setNewPassword('');
+        go({ name: 'reset-password', email: address });
+    };
+
+    const onCodeChange = (value: string) => {
+        setCode(value);
+        if (errCode) { setErrCode(false); setBand((b) => (b?.text === METIN.codeWrong ? null : b)); }
+        // 6. hanede kendiliğinden doğrular; Doğrula düğmesi Enter ve yarım yapıştırma için yedek.
+        if (value.length === 6) void verifyCode(value);
+    };
+
+    const resendCode = async () => {
+        if (screen.name !== 'code' && screen.name !== 'reset-code') return;
+        if (isOffline()) { setBand(offlineBand); return; }
+        const address = screen.email;
+        const { error } = screen.name === 'code'
+            ? await supabase.auth.resend({ type: 'signup', email: address })
+            : await supabase.auth.resetPasswordForEmail(address);
+        const failure = error ? classifyAuthError(error as AuthErrorLike) : null;
+        if (failure === 'offline') { setBand(offlineBand); return; }
+        setCode('');
+        setErrCode(false);
+        setCodeSentAt(Date.now());
+        setBand(failure === 'email_rate_limited' || failure === 'rate_limited' ? { kind: 'w', text: METIN.resendLater } : null);
+        codeRef.current?.focus();
+    };
+
+    // ── M8 · Şifre yenileme: e-posta ────────────────────────────────────────
+    const submitResetEmail = async (e: FormEvent) => {
+        e.preventDefault();
+        if (busy || locked) return;
+        const address = email.trim();
+        if (!emailLooksValid(address)) {
+            setErrEmail(true);
+            setBand({ kind: 'e', text: METIN.badEmail });
+            return;
+        }
+        if (isOffline()) { setBand(offlineBand); return; }
+        setBusy(true);
+        setBand(null);
+        setErrEmail(false);
+        const { error } = await supabase.auth.resetPasswordForEmail(address);
+        setBusy(false);
+        const failure = error ? classifyAuthError(error as AuthErrorLike) : null;
+        if (failure === 'offline') { setBand(offlineBand); return; }
+        if (failure === 'rate_limited') { lock('form'); return; }
+        // Her e-postaya aynı cevap: kod ekranı. E-posta başına bekleme süresi
+        // de ekrana yansımaz — yansısaydı adresin kayıtlı olduğu okunurdu.
+        if (failure && failure !== 'email_rate_limited') {
+            setBand({ kind: 'e', text: 'Kod şu an gönderilemedi. Biraz sonra yeniden deneyin.' });
+            return;
+        }
+        openCode(address, 'reset-code');
+    };
+
+    // ── M10 · Yeni şifre ────────────────────────────────────────────────────
+    const submitNewPassword = async (e: FormEvent) => {
+        e.preventDefault();
+        if (busy) return;
+        if (!passwordOk(newPassword)) {
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.weakPassword });
+            return;
+        }
+        if (isOffline()) { setBand(offlineBand); return; }
+        setBusy(true);
+        setBand(null);
+        setErrPassword(false);
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        setBusy(false);
+        if (!error) { enter('reset'); return; }
+        const failure = classifyAuthError(error as AuthErrorLike);
+        if (failure === 'same_password') {
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.samePassword });
+        } else if (failure === 'weak_password') {
+            setErrPassword(true);
+            setBand({ kind: 'e', text: METIN.weakPassword });
+        } else if (failure === 'offline') {
+            setBand(offlineBand);
+        } else {
+            setBand({ kind: 'e', text: METIN.passwordSaveFailed });
+        }
+    };
+
+    // ── M3 · Köprü ──────────────────────────────────────────────────────────
+    const bridgeCreate = async () => {
+        if (busy) return;
+        setBusy(true);
+        const ok = await createOwnBusiness();
+        setBusy(false);
+        if (ok) { enter('signup'); return; }
+        setBand({ kind: 'e', text: METIN.signupFailed });
+    };
+    const bridgeEmail = async () => {
+        // Arkada açılan boş hesap sunucuda 24 saat sonra silinir (karar 3).
+        await supabase.auth.signOut();
+        go({ name: 'login' });
+    };
+
+    if (splash) {
+        return (
+            <SplashScreen onDone={() => {
+                navigate(splash.dest, { replace: true });
+                if (splash.notice) { const text = splash.notice; window.setTimeout(() => showLoginNotice(text), 0); }
+            }} />
+        );
+    }
+
+    // ── Görünüm ─────────────────────────────────────────────────────────────
+    const year = new Date().getFullYear();
+    const formDim = waiting !== null ? ' lg-dim' : '';
+
+    const renderLogin = () => (
+        <>
+            <div className="lg-ph">
+                <h1>Hesabınıza girin</h1>
+                <p>{SOCIAL_ENABLED ? 'Apple, Google ya da e-postanızla girin.' : 'E-posta adresiniz ve şifrenizle girin.'}</p>
             </div>
-          )}
-
-          {/* Form container */}
-          <div className={`login-fadein${shake ? ' login-shake' : ''}`} style={{
-            width: '100%', maxWidth: 420, padding: isMobile ? '0 24px' : '0 40px',
-            display: 'flex', flexDirection: 'column', gap: 28,
-            opacity: mounted ? 1 : 0, transition: 'opacity 0.4s',
-          }}>
-            {/* Mobil logo — sol panel gizli olduğu için */}
-            {isMobile && (
-              <div style={{ marginBottom: 4 }}>
-                <LueraMark size={30}/>
-              </div>
+            {SOCIAL_ENABLED && (
+                <>
+                    <Band band={ssoBand} />
+                    <SsoButtons intent="login" waiting={waiting} onApple={() => void onApple('login')} onGoogle={() => void onGoogle('login')} />
+                </>
             )}
-
-            {/* Heading */}
-            <div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.orange, marginBottom: 12, opacity: 0.9 }}>
-                {isSignup ? 'Yeni hesap' : 'Hesabına dön'}
-              </div>
-              <h1 style={{ fontSize: isMobile ? 34 : 42, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, color: T.cream }}>
-                {isSignup ? 'Aramıza katıl.' : 'Tekrar hoş geldin.'}
-              </h1>
+            <div className={`lg-grp${formDim}`}>
+                {SOCIAL_ENABLED && <div className="lg-or" role="separator">ya da</div>}
+                <form onSubmit={submitLogin} noValidate>
+                    <div className="lg-fl">
+                        <label className="lg-lb" htmlFor="lg-email">E-posta</label>
+                        <EmailInput id="lg-email" ref={emailRef} value={email} invalid={errEmail}
+                            onChange={(v) => { setEmail(v); if (errEmail) setErrEmail(false); if (band?.kind === 'e') setBand(null); }} />
+                    </div>
+                    <div className="lg-fl">
+                        <div className="lg-lr">
+                            <label className="lg-lb" htmlFor="lg-password">Şifre</label>
+                            <button type="button" className="lg-a" onClick={() => go({ name: 'reset-email' })}>Şifremi unuttum</button>
+                        </div>
+                        <PasswordInput id="lg-password" ref={passwordRef} autoComplete="current-password" value={password} invalid={errPassword}
+                            onChange={(v) => { setPassword(v); if (errPassword) setErrPassword(false); if (band?.kind === 'e') setBand(null); }} />
+                    </div>
+                    <Band band={band} />
+                    <button className={`lg-btn${locked ? ' lg-off' : ''}`} type="submit" aria-disabled={locked || undefined} aria-busy={busy || undefined}>
+                        {busy ? <Wait>Giriş yapılıyor</Wait> : 'Giriş yap'}
+                    </button>
+                </form>
+                <p className="lg-alt">
+                    Hesabınız yok mu?{' '}
+                    <button type="button" className="lg-a" onClick={() => { setPassword(''); go({ name: 'signup' }); }}>Yeni işletme oluşturun</button>
+                </p>
             </div>
+        </>
+    );
 
-            {/* Error / Success banners */}
-            {error && (
-              <div style={{ padding: '11px 14px', borderRadius: 10, background: 'rgba(201,64,64,0.1)', border: '1px solid rgba(201,64,64,0.25)', fontSize: 13, color: '#e07070' }}>
-                {error}
-              </div>
+    const renderSignup = () => (
+        <>
+            {plan && (
+                <span className="lg-plan"><IconTag />{plan.name} · {cycle === 'yearly' ? 'yıllık' : 'aylık'} seçildi</span>
             )}
-            {successMsg && (
-              <div style={{ padding: '11px 14px', borderRadius: 10, background: 'rgba(122,211,160,0.1)', border: '1px solid rgba(122,211,160,0.25)', fontSize: 13, color: T.success }}>
-                {successMsg}
-              </div>
+            <div className="lg-ph">
+                <h1>Hesabınızı açalım</h1>
+                <p>{SOCIAL_ENABLED ? 'Apple, Google ya da e-postanızla hesap açın.' : 'E-posta adresinizle hesap açın.'}</p>
+            </div>
+            {SOCIAL_ENABLED && (
+                <>
+                    <Band band={ssoBand} />
+                    <SsoButtons intent="signup" waiting={waiting} onApple={() => void onApple('signup')} onGoogle={() => void onGoogle('signup')} />
+                </>
             )}
-            {pendingMsg && (
-              <div style={{ padding: '11px 14px', borderRadius: 10, background: 'rgba(255,90,31,0.10)', border: '1px solid rgba(255,90,31,0.25)', fontSize: 13, color: T.orange }}>
-                {pendingMsg}
-              </div>
-            )}
+            <div className={`lg-grp${formDim}`}>
+                {SOCIAL_ENABLED && <div className="lg-or" role="separator">ya da</div>}
+                <form onSubmit={submitSignup} noValidate>
+                    <div className="lg-fl">
+                        <label className="lg-lb" htmlFor="lg-email">E-posta</label>
+                        <EmailInput id="lg-email" ref={emailRef} value={email} invalid={errEmail}
+                            onChange={(v) => { setEmail(v); if (errEmail) setErrEmail(false); if (band?.kind === 'e') setBand(null); }} />
+                    </div>
+                    <div className="lg-fl">
+                        <div className="lg-lr"><label className="lg-lb" htmlFor="lg-password">Şifre</label></div>
+                        <PasswordInput id="lg-password" ref={passwordRef} autoComplete="new-password" value={password} invalid={errPassword}
+                            aria-describedby="lg-rule"
+                            onChange={(v) => { setPassword(v); if (errPassword) setErrPassword(false); if (band?.kind === 'e') setBand(null); }} />
+                        <div id="lg-rule"><PasswordRule ok={passwordOk(password)} /></div>
+                    </div>
+                    <Band band={band} />
+                    <button className={`lg-btn${locked ? ' lg-off' : ''}`} type="submit" aria-disabled={locked || undefined} aria-busy={busy || undefined}>
+                        {busy ? <Wait>Hesap açılıyor</Wait> : 'Devam'}
+                    </button>
+                </form>
+                <p className="lg-alt">
+                    Zaten hesabınız var mı?{' '}
+                    <button type="button" className="lg-a" onClick={() => { setPassword(''); go({ name: 'login' }); }}>Giriş yapın</button>
+                </p>
+            </div>
+            <p className="lg-legal">Bilgileriniz <PrivacyLink />'na göre işlenir.</p>
+        </>
+    );
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Name field (signup only) */}
-              {isSignup && (
-                <Field
-                  label="İsim Soyisim"
-                  icon={<IconUser/>}
-                  type="text"
-                  value={name}
-                  onChange={setName}
-                  placeholder="Adınız Soyadınız"
-                />
-              )}
-
-              <Field
-                label="E-posta"
-                icon={<IconMail/>}
-                type="email"
-                value={email}
-                onChange={setEmail}
-                placeholder="sen@luera.ai"
-              />
-
-              <Field
-                label="Şifre"
-                linkText={!isSignup ? 'Unuttum?' : undefined}
-                icon={<IconLock/>}
-                type={showPw ? 'text' : 'password'}
-                value={password}
-                onChange={setPassword}
-                placeholder="••••••••"
-                right={
-                  <button type="button" onClick={() => setShowPw(v => !v)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 7, background: 'transparent', border: 'none', color: T.muted, cursor: 'pointer', transition: 'color .15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = T.cream}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = T.muted}>
-                    <IconEye off={showPw}/>
-                  </button>
-                }
-              />
-
-              {/* CTA button */}
-              <button type="submit" disabled={isLoading}
-                onMouseEnter={() => setBtnHovered(true)}
-                onMouseLeave={() => setBtnHovered(false)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  width: '100%', height: 50, marginTop: 4,
-                  background: T.orange, border: `1px solid ${T.orange}`,
-                  color: T.ink, fontWeight: 700, fontSize: 15,
-                  borderRadius: 999, cursor: isLoading ? 'not-allowed' : 'pointer',
-                  fontFamily: 'Hanken Grotesk, sans-serif',
-                  transform: btnHovered && !isLoading ? 'translateY(-1px)' : 'none',
-                  boxShadow: btnHovered && !isLoading ? '0 14px 36px rgba(255,90,31,0.28)' : 'none',
-                  transition: 'all 200ms cubic-bezier(.2,.8,.2,1)',
-                  letterSpacing: '-0.005em', opacity: isLoading ? 0.7 : 1,
-                }}>
-                {isLoading ? (
-                  <><Loader2 size={18} className="animate-spin"/>{isSignup ? 'Kayıt yapılıyor...' : 'Giriş yapılıyor...'}</>
-                ) : (
-                  <>{isSignup ? 'Kayıt Ol' : 'Giriş Yap'}<IconArrow/></>
+    const renderCode = (address: string, kind: 'code' | 'reset-code') => {
+        const ready = code.length === 6 && !codeLocked && !verifying;
+        return (
+            <>
+                {kind === 'reset-code' && (
+                    <div className="lg-top">
+                        <button className="lg-back" type="button" aria-label="Geri" onClick={() => go({ name: 'reset-email' })}><IconBack /></button>
+                    </div>
                 )}
-              </button>
+                <div className="lg-ph">
+                    <h1>Kodu girin</h1>
+                    <p>
+                        {kind === 'reset-code' && 'Hesabınız varsa '}<b>{address}</b> adresine 6 haneli kod gönderdik. Luera TimeFlow'dan gelen e-postadaki kodu girin.
+                    </p>
+                </div>
+                <form className="lg-tight" noValidate onSubmit={(e) => { e.preventDefault(); void verifyCode(code); }}>
+                    <OtpBox id="lg-code" ref={codeRef} value={code} invalid={errCode} disabled={codeLocked} onChange={onCodeChange} />
+                    {verifying && <p className="lg-ost" role="status"><Wait>Kod doğrulanıyor</Wait></p>}
+                    <Band band={band} />
+                    <button className={`lg-btn${ready ? '' : ' lg-off'}`} type="submit" aria-disabled={!ready || undefined}>Doğrula</button>
+                </form>
+                <Resend
+                    secondsLeft={resendLeft}
+                    disabled={codeLocked}
+                    onResend={() => void resendCode()}
+                    onChangeEmail={() => go(kind === 'code' ? { name: 'signup' } : { name: 'reset-email' })}
+                />
+                {kind === 'code' && (
+                    <p className="lg-small lg-c">
+                        Kod gelmediyse bu adresle zaten hesabınız olabilir:{' '}
+                        <button type="button" className="lg-a" onClick={() => { setPassword(''); go({ name: 'login' }); }}>Giriş yapın</button>
+                        {' · '}
+                        <button type="button" className="lg-a" onClick={() => go({ name: 'reset-email' })}>Şifremi unuttum</button>
+                    </p>
+                )}
+            </>
+        );
+    };
+
+    const renderResetEmail = () => (
+        <>
+            <div className="lg-top">
+                <button className="lg-back" type="button" aria-label="Girişe dön" onClick={() => go({ name: 'login' })}><IconBack /></button>
+            </div>
+            <div className="lg-ph">
+                <h1>Yeni şifre belirleyin</h1>
+                <p>Hesabınızın e-posta adresini yazın; size 6 haneli bir kod gönderelim.</p>
+            </div>
+            <form onSubmit={submitResetEmail} noValidate>
+                <div className="lg-fl">
+                    <label className="lg-lb" htmlFor="lg-email">E-posta</label>
+                    <EmailInput id="lg-email" ref={emailRef} value={email} invalid={errEmail}
+                        onChange={(v) => { setEmail(v); if (errEmail) setErrEmail(false); if (band?.kind === 'e') setBand(null); }} />
+                </div>
+                <Band band={band} />
+                <button className={`lg-btn${locked ? ' lg-off' : ''}`} type="submit" aria-disabled={locked || undefined} aria-busy={busy || undefined}>
+                    {busy ? <Wait>Kod gönderiliyor</Wait> : 'Kod gönder'}
+                </button>
             </form>
+            <p className="lg-small lg-c">Hesabınız varsa kodu birkaç dakika içinde alırsınız.</p>
+        </>
+    );
 
-            {/* Toggle login/signup */}
-            <div style={{ textAlign: 'center' }}>
-              <button type="button"
-                onClick={() => { setIsSignup(v => !v); setError(''); setSuccessMsg(''); }}
-                style={{ fontSize: 13, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'color .15s' }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = T.cream}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = T.muted}>
-                {isSignup ? 'Zaten hesabın var mı? Giriş Yap' : 'Hesabın yok mu? Kayıt Ol'}
-              </button>
+    const renderNewPassword = (address: string) => (
+        <>
+            <div className="lg-ph">
+                <h1>Yeni şifreniz</h1>
+                <p>Bundan sonra e-postanız ve bu şifreyle girersiniz.</p>
             </div>
+            <form onSubmit={submitNewPassword} noValidate>
+                {/* Tarayıcı yeni şifreyi doğru hesaba kaydetsin. */}
+                <input type="email" name="email" autoComplete="username" value={address} readOnly hidden />
+                <div className="lg-fl">
+                    <div className="lg-lr"><label className="lg-lb" htmlFor="lg-new-password">Yeni şifre</label></div>
+                    <PasswordInput id="lg-new-password" ref={passwordRef} autoComplete="new-password" value={newPassword} invalid={errPassword}
+                        aria-describedby="lg-rule"
+                        onChange={(v) => { setNewPassword(v); if (errPassword) setErrPassword(false); if (band?.kind === 'e') setBand(null); }} />
+                    <div id="lg-rule"><PasswordRule ok={passwordOk(newPassword)} /></div>
+                </div>
+                <Band band={band} />
+                <button className="lg-btn" type="submit" aria-busy={busy || undefined}>
+                    {busy ? <Wait>Kaydediliyor</Wait> : 'Şifreyi kaydet'}
+                </button>
+            </form>
+        </>
+    );
 
-            {/* Bottom footer */}
-            <div style={{ textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: '0.06em', color: T.muted, opacity: 0.5 }}>
-              © 2026 Luera · Tüm hakları saklıdır
+    const renderBridge = (provider: Provider, address: string) => (
+        <>
+            <div className="lg-ph">
+                <h1>Bu hesapla bir işletme bulamadık</h1>
+                <p>{provider === 'apple' ? 'Apple' : 'Google'} ile girdiniz; bu hesaba bağlı bir işletme yok.</p>
             </div>
-          </div>
+            <div className="lg-acct">
+                <b>{provider === 'apple' ? "Apple'ın verdiği adres" : 'Google hesabınız'}</b>
+                <span>{address}</span>
+            </div>
+            <Band band={band} />
+            <div className="lg-stack">
+                <button className="lg-btn" type="button" onClick={() => void bridgeCreate()} aria-busy={busy || undefined}>
+                    {busy ? <Wait>İşletme açılıyor</Wait> : 'Yeni işletme oluştur'}
+                </button>
+                <button className="lg-btn2" type="button" onClick={() => void bridgeEmail()}>E-postayla giriş yap</button>
+            </div>
+            {provider === 'apple' && (
+                <p className="lg-small">Apple'da 'E-postamı gizle'yi seçtiyseniz Apple bize farklı bir adres verir; eski hesabınız bu yüzden bulunamamış olabilir.</p>
+            )}
+        </>
+    );
+
+    const content = (() => {
+        switch (screen.name) {
+            case 'login': return renderLogin();
+            case 'signup': return renderSignup();
+            case 'code': return renderCode(screen.email, 'code');
+            case 'reset-email': return renderResetEmail();
+            case 'reset-code': return renderCode(screen.email, 'reset-code');
+            case 'reset-password': return renderNewPassword(screen.email);
+            case 'bridge': return renderBridge(screen.provider, screen.email);
+        }
+    })();
+
+    return (
+        <div className="lg" data-theme={dark ? 'dark' : 'light'}>
+            <LightField />
+            <div className="lg-blk">
+                <div className="lg-head"><Brand /></div>
+                <main className="lg-stage">
+                    <div className="lg-pr">
+                        <p className="lg-promise">Salonunuzun randevuları, kasası ve ekibi tek yerde.</p>
+                        <p className="lg-sub">Telefonda ve bilgisayarda aynı hesapla girersiniz.</p>
+                    </div>
+                    <div className="lg-rgt">
+                        <div className="lg-plate" ref={plateRef}>
+                            <div key={screen.name} className={`lg-in${swapped ? ' lg-swap' : ''}`}>
+                                {content}
+                            </div>
+                        </div>
+                    </div>
+                </main>
+                <p className="lg-copy">
+                    <span>© {year} Luera TimeFlow</span>
+                    <span aria-hidden="true">·</span>
+                    <PrivacyLink />
+                </p>
+            </div>
         </div>
-      </div>
-    </>
-  );
+    );
 };

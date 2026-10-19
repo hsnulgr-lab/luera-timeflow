@@ -38,25 +38,26 @@ test('oturum yoksa bu bilgi çağırana taşınıyor', () => {
         'Sözleşme tipinde needsConfirmation yok; çağıran bu ayrımı göremez.');
 });
 
-test('"Giriş yapabilirsiniz" KOŞULSUZ gösterilmiyor', () => {
-    const i = login.indexOf('Giriş yapabilirsiniz');
-    assert.notEqual(i, -1, 'Başarı metni tamamen kayboldu — bu test artık yanlış yeri koruyor.');
-    // Metin, needsConfirmation dalının OLMADIĞI kolda kalmalı.
-    assert.match(login, /if\s*\(\s*result\.needsConfirmation\s*\)/,
-        'Kayıt sonucunda needsConfirmation dalı yok; her kayıt "girebilirsin" diyor.');
+// ── 2026-10-19 · yeni giriş sayfası (Işık alanı) ──────────────────────────
+// Kayıt artık AuthContext.signup'ı değil, supabase'i doğrudan çağırıyor ve
+// doğrulama bekleyen kayıt bir metin kutusu değil, KOD EKRANI açıyor. İlke
+// aynı: oturum gelmeden kimse "içeri" alınmaz, başarı söylenmez.
+
+test('kayıtta içeri yalnız OTURUM varsa giriliyor', () => {
+    assert.match(login, /const\s*\{\s*data\s*,\s*error\s*\}\s*=\s*await\s+supabase\.auth\.signUp/,
+        'Kayıt yanıtının data alanı okunmuyor; oturum gelip gelmediği bilinemez.');
+    assert.match(login, /if\s*\(\s*!error\s*&&\s*data\.session\s*\)\s*\{\s*enter\('signup'\)/,
+        'Kayıt oturum sorulmadan "içeri" sayılıyor.');
 });
 
-test('doğrulama bekleyen kayıt için ayrı bir metin var', () => {
-    assert.match(login, /doğrulama bağlantısı gönderdik/,
-        'Doğrulama bekleyen kayıt için kullanıcıya söylenecek bir şey yok.');
+test('oturum gelmeyen kayıt kod ekranına gidiyor — başarı söylenmiyor', () => {
+    assert.match(login, /if\s*\(\s*!error\s*\)\s*\{\s*openCode\(address,\s*'code'\)/,
+        'Oturumsuz başarılı kayıt kod ekranına gitmiyor.');
+    assert.doesNotMatch(login, /Giriş yapabilirsiniz|Hesabınız oluşturuldu/,
+        'Ekran yine olmamış bir girişi olmuş gibi söylüyor.');
 });
 
-test('bekleyen kayıt YEŞİL başarı kutusunda gösterilmiyor', () => {
-    // Yeşil = bitti demek. Burada kullanıcının yapacağı bir iş kaldı.
-    assert.match(login, /pendingMsg/,
-        'Ayrı bir bekleme durumu yok; metin başarı kutusuna düşüyor olabilir.');
-    const yesil = login.indexOf('122,211,160');
-    const bekleyen = login.indexOf('pendingMsg &&');
-    assert.ok(yesil !== -1 && bekleyen !== -1 && bekleyen > yesil,
-        'Bekleyen kayıt kutusu bulunamadı ya da başarı kutusuyla aynı stili paylaşıyor.');
+test('kod ekranı kişiye ne yapacağını söylüyor', () => {
+    assert.match(login, /6 haneli kod gönderdik/,
+        'Doğrulama bekleyen kişiye kodun nereye gittiği söylenmiyor.');
 });

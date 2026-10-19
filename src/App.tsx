@@ -44,6 +44,7 @@ import { PricingPage } from '@/pages/public/PricingPage';
 import { PaywallPage } from '@/pages/PaywallPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
+import { LoginNotice } from '@/components/LoginNotice';
 import { ConfirmDialogHost } from '@/components/ConfirmDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DesktopCalendarFace, DesktopReservationsFace, DesktopCustomersFace, MobileCalendarFace } from '@/pages/sectorFaces';
@@ -176,6 +177,7 @@ function App() {
         }}
       />
       <ConfirmDialogHost />
+      <LoginNotice />
     </AuthProvider>
     </ThemeProvider>
     </ErrorBoundary>
