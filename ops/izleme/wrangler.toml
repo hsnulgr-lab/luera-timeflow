@@ -14,13 +14,16 @@ crons = ["*/2 * * * *"]
 enabled = true
 
 # Gizli olmayan ayarlar. Sırlar (SUPABASE_ANON_KEY, PUSHOVER_TOKEN, PUSHOVER_USER,
-# NTFY_TOPIC, NTFY_TOKEN) burada DEĞİL:
+# NTFY_TOPIC, NTFY_TOKEN, DODO_READONLY_KEY) burada DEĞİL:
 # `wrangler secret put` ile Cloudflare'de durur.
 [vars]
 SUPABASE_URL = "https://supabase.timeflow.lueratech.com"
 DESKTOP_URL = "https://timeflow.lueratech.com"
 SITE_URL = "https://lueratech.com"
 DEMO_SLUG = "demo-luera"
+# Dodo ucu kontrolü (yalnız DODO_READONLY_KEY sırrı varsa koşar). Dodo Live'a
+# geçince: https://live.dodopayments.com + Live kipinde açılmış salt okunur anahtar.
+DODO_API_BASE = "https://test.dodopayments.com"
 
 # Kapalı servislerin ve kurulumun kaydı. id: `wrangler kv namespace create DURUM`
 [[kv_namespaces]]

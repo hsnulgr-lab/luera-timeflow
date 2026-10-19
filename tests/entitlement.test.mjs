@@ -202,25 +202,33 @@ test('deneme yalnız İLK kez verilir', () => {
 });
 
 test('webhook aynayı yazıyor', () => {
-    // Core'a yazmak yetmez: Core ayrı bir Supabase projesi, RLS oraya bakamaz.
-    // Ayna yazılmazsa müşteri ödeme yapar ama içeri giremez.
+    // 123'ten beri ayna abonelik gerçeğinin KENDİSİ (Core kopya). Ayna
+    // yazılmazsa müşteri ödeme yapar ama içeri giremez.
     const hook = fn('dodo-webhook');
+    const durum = readFileSync(new URL('../supabase/functions/dodo-webhook/durum.ts', import.meta.url), 'utf8');
     assert.match(hook, /mirrorEntitlement/);
-    for (const ev of ['subscription.active', 'subscription.renewed', 'subscription.on_hold',
-        'subscription.expired', 'payment.succeeded']) {
-        assert.ok(hook.includes(ev), `${ev} işlenmiyor`);
+    // Ayna her abonelik olayında aboneliğin anlık görüntüsünden türetilir:
+    // Dodo'nun bütün abonelik durumları karşılanmalı.
+    assert.match(hook, /type\.startsWith\('subscription\.'\)/);
+    for (const st of ['active', 'past_due', 'on_hold', 'cancelled', 'expired', 'failed']) {
+        assert.ok(durum.includes(`case '${st}'`), `${st} durumu işlenmiyor`);
     }
+    assert.ok(hook.includes('payment.succeeded'), 'askıdan dönen ödeme işlenmiyor');
     // Deneme 'trial' yazılmalı, 'active' değil — yoksa "denemeniz bitiyor"
     // hatırlatması hiç gönderilemez.
-    assert.match(hook, /onTrial \? 'trial' : 'active'/);
+    assert.match(durum, /trial \? 'trial' : 'active'/);
     // Ödeme alınamayınca ek süre + bildirim.
-    assert.match(hook, /graceUntil\(\)/);
+    assert.match(durum, /graceUntil\(now\)/);
     assert.match(hook, /Ödeme alınamadı/);
 });
 
 test('iptal edilen abonelik dönem bitmeden kapatılmıyor', () => {
     // Parasını ödediği günü müşteriden geri almak dolandırıcılıktır.
-    assert.match(fn('dodo-webhook'), /await mirror\(admin, orgId, type, \{\}\);/);
+    // Davranış: tests/abonelik-yerel.test.mjs · "iptal durumu değiştirmez".
+    const durum = readFileSync(new URL('../supabase/functions/dodo-webhook/durum.ts', import.meta.url), 'utf8');
+    const block = durum.slice(durum.indexOf("case 'cancelled':"), durum.indexOf("case 'expired':"));
+    assert.ok(block.length > 0, 'iptal dalı bulunamadı');
+    assert.doesNotMatch(block, /patch\.state/);
 });
 
 // ── Tasarım bağlantıları ────────────────────────────────────────────────────
@@ -285,18 +293,22 @@ test('mobilde en popüler plan başa alınır', () => {
 // görür ama kaydedemez.
 
 const sql = readFileSync(new URL('../supabase/086_entitlement.sql', import.meta.url), 'utf8');
+// 123 kapının son hâli: ek süre grace_until ile ölçülür (computeAccess gibi).
+const sql123 = readFileSync(new URL('../supabase/123_abonelik_yerel_kaynak.sql', import.meta.url), 'utf8');
 
 test('SQL kapısı aynı üç durumu geçirir', () => {
-    assert.match(sql, /state IN \('trial', 'active', 'grace'\)/);
-    assert.match(sql, /expires_at\s+IS NULL OR e\.expires_at\s+> now\(\)/);
-    assert.match(sql, /state <> 'grace' OR \(e\.grace_until IS NOT NULL AND e\.grace_until > now\(\)\)/);
+    assert.match(sql123, /WHEN e\.state = 'grace'\s*\n\s*THEN e\.grace_until IS NOT NULL AND e\.grace_until > now\(\)/);
+    assert.match(sql123, /WHEN e\.state IN \('trial', 'active'\)\s*\n\s*THEN e\.expires_at IS NULL OR e\.expires_at > now\(\)/);
+    assert.match(sql123, /ELSE false/);
 });
 
 test('ENFORCE kapalıyken SQL herkese açık', () => {
     // Migration uygulanır uygulanmaz kimse kilitlenmemeli; kapıyı kurmak ile
     // kapatmak ayrı günlerin işi.
-    assert.match(sql, /ENTITLEMENT_ENFORCE/);
-    assert.match(sql, /<> 'true'\s*\n\s*THEN true/);
+    for (const src of [sql, sql123]) {
+        assert.match(src, /ENTITLEMENT_ENFORCE/);
+        assert.match(src, /<> 'true'\s*\n\s*THEN true/);
+    }
 });
 
 test('RLS kilidi OKUMAYI kapatmıyor', () => {

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     kontroller, kontrolEt, denetle, karar, ozet, sure, sabahMi, calistir, HATIRLAT_MS,
-    pushoverOnceligi, kanallar, saat,
+    pushoverOnceligi, kanallar, saat, dodoUcuDurumu, siraGeldiMi, DODO_GEREKLI_OLAYLAR,
 } from '../ops/izleme/src/kontroller.js';
 
 // Dış izleme (2026-10-17). 16 Ekim'de giriş servisi ~45 dk ölü kaldı ve hiçbir
@@ -285,5 +285,119 @@ test('wrangler.toml: 2 dk, dışarıya kapalı, sır içermiyor', () => {
     assert.match(toml, /crons = \["\*\/2 \* \* \* \*"\]/);
     assert.match(toml, /workers_dev = false/);
     assert.match(toml, /binding = "DURUM"/);
-    assert.doesNotMatch(toml, /eyJ|NTFY_TOPIC\s*=|SUPABASE_ANON_KEY\s*=|PUSHOVER_(TOKEN|USER)\s*=/);
+    assert.doesNotMatch(toml, /eyJ|NTFY_TOPIC\s*=|SUPABASE_ANON_KEY\s*=|PUSHOVER_(TOKEN|USER)\s*=|DODO_READONLY_KEY\s*=/);
+    assert.match(toml, /DODO_API_BASE = "https:\/\/(test|live)\.dodopayments\.com"/);
+});
+
+// ── Dodo ucu (2026-10-19) ───────────────────────────────────────────────────
+// Eylül'de Dodo, TimeFlow'un webhook ucunu günlerce süren 500'ler yüzünden
+// KENDİLİĞİNDEN kapattı; 8 hafta tek abonelik olayı gelmedi ve hiçbir şey
+// alarm vermedi. TimeFlow tarafı o sırada tamamen sağlıklı görünüyordu.
+
+const HEDEF = 'https://sb.example/functions/v1/dodo-webhook';
+const D_ENV = { ...PO_ENV, NTFY_TOPIC: '', DODO_READONLY_KEY: 'dodo-ro', DODO_API_BASE: 'https://test.dodo.example' };
+const D_LISTE = kontroller(D_ENV);
+const uc = (over = {}) => JSON.stringify({ data: [{ id: 'wh_1', url: HEDEF, disabled: false, filter_types: null, ...over }], done: true });
+
+test('Dodo kontrolü yalnız anahtar varsa; salt okunur anahtar başlıkta, VPS 1 grubunda değil', () => {
+    assert.equal(LISTE.some((k) => k.id === 'dodo'), false, 'anahtarsız kurulum alarm üretmemeli');
+    const d = D_LISTE.find((k) => k.id === 'dodo');
+    assert.equal(d.url, 'https://test.dodo.example/webhooks?limit=100');
+    assert.equal(d.headers.authorization, 'Bearer dodo-ro');
+    assert.equal(d.grup, 'dodo');
+    assert.equal(pushoverOnceligi(karar({ basladi: 'x', kapali: {} }, [{ id: 'dodo', ok: false, ayrinti: 'x' }], T0, D_LISTE).bildirimler[0].priority), 1);
+});
+
+test('Dodo cevabı: açık / kapalı / kayıtsız / filtre / anahtar / Dodo kesintisi', () => {
+    assert.deepEqual(dodoUcuDurumu(200, uc(), HEDEF), { ok: true, ayrinti: '' });
+    assert.equal(dodoUcuDurumu(200, uc({ url: `${HEDEF}/` }), HEDEF).ok, true, 'sondaki / fark etmez');
+    assert.deepEqual(dodoUcuDurumu(200, uc({ disabled: true }), HEDEF), { ok: false, ayrinti: 'Dodo ucu devre dışı bıraktı' });
+    assert.equal(dodoUcuDurumu(200, uc({ url: 'https://baska.example/hook' }), HEDEF).ayrinti, "TimeFlow ucu Dodo'da kayıtlı değil");
+    // İki uçtan biri açıksa olaylar gidiyor demektir.
+    const iki = JSON.stringify({ data: [{ url: HEDEF, disabled: true }, { url: HEDEF, disabled: false }], done: true });
+    assert.equal(dodoUcuDurumu(200, iki, HEDEF).ok, true);
+    // Filtre yenilemeyi dışarıda bırakıyorsa uç açık ama işe yaramaz.
+    assert.deepEqual(dodoUcuDurumu(200, uc({ filter_types: ['payment.succeeded', 'subscription.active'] }), HEDEF),
+        { ok: false, ayrinti: 'uç şu olayları almıyor: subscription.renewed, subscription.on_hold' });
+    assert.equal(dodoUcuDurumu(200, uc({ filter_types: [...DODO_GEREKLI_OLAYLAR, 'payment.succeeded'] }), HEDEF).ok, true);
+    // Anahtar reddi ALARM: izleme kör kalmış.
+    assert.deepEqual(dodoUcuDurumu(401, '', HEDEF), { ok: false, ayrinti: 'izleme anahtarı reddedildi (HTTP 401) — uç durumu bilinmiyor' });
+    // Dodo'nun kendi kesintisi alarm DEĞİL.
+    assert.equal(dodoUcuDurumu(503, '', HEDEF).bilinmiyor, true);
+    assert.equal(dodoUcuDurumu(429, '', HEDEF).bilinmiyor, true);
+    assert.equal(dodoUcuDurumu(200, '<html>', HEDEF).bilinmiyor, true);
+    assert.equal(dodoUcuDurumu(200, JSON.stringify({ data: [], done: false }), HEDEF).bilinmiyor, true);
+});
+
+test('Dodo kontrolü 30 dakikada bir koşar (Dodo API\'si 2 dk\'da bir yorulmaz)', () => {
+    const d = D_LISTE.find((k) => k.id === 'dodo');
+    assert.equal(siraGeldiMi(d, Date.UTC(2026, 9, 19, 6, 0)), true, 'sabah 09:00 turunda var');
+    assert.equal(siraGeldiMi(d, Date.UTC(2026, 9, 19, 6, 30)), true);
+    assert.equal(siraGeldiMi(d, Date.UTC(2026, 9, 19, 6, 2)), false);
+    assert.equal(siraGeldiMi(LISTE[0], Date.UTC(2026, 9, 19, 6, 2)), true, 'ötekiler her turda');
+});
+
+const dodoAg = (dodo) => sahteAg((url) => (url === PUSHOVER ? { status: 200 }
+    : url.startsWith('https://test.dodo.example/') ? dodo : saglikli(url)));
+
+test('uç kapanınca bir kez sesli alarm; ara turlarda Dodo\'ya gidilmez; açılınca düzeldi', async () => {
+    const DURUM = sahteKV({ basladi: 'x', kapali: {} });
+    const yarim = Date.UTC(2026, 9, 19, 12, 30);
+    const ag = dodoAg({ status: 200, body: uc({ disabled: true }) });
+    await calistir({ zaman: yarim, env: { ...D_ENV, DURUM }, fetchImpl: ag.fetchImpl, uyu: async () => {} });
+    const po = ag.istekler.filter((i) => i.url === PUSHOVER).map((i) => new URLSearchParams(i.init.body));
+    assert.equal(po.length, 1);
+    assert.equal(po[0].get('title'), '🔴 Dodo bildirim ucu kapalı — abonelik olayları gelmiyor');
+    assert.equal(po[0].get('priority'), '1');
+    assert.match(po[0].get('message'), /Enable/);
+    assert.match(po[0].get('message'), /Dodo ucu devre dışı bıraktı/);
+    // Dodo isteğinde salt okunur anahtar.
+    const istek = ag.istekler.find((i) => i.url.startsWith('https://test.dodo.example/'));
+    assert.equal(istek.init.headers.authorization, 'Bearer dodo-ro');
+
+    // 2 dk sonra: Dodo'ya istek yok, alarm yok, durum aynı.
+    const ag2 = dodoAg({ status: 200, body: uc() });
+    await calistir({ zaman: yarim + 2 * 60_000, env: { ...D_ENV, DURUM }, fetchImpl: ag2.fetchImpl, uyu: async () => {} });
+    assert.equal(ag2.istekler.some((i) => i.url.startsWith('https://test.dodo.example/')), false);
+    assert.equal(ag2.istekler.some((i) => i.url === PUSHOVER), false);
+    assert.ok(JSON.parse(DURUM.depo.get('durum')).kapali.dodo);
+
+    // 30 dk sonra uç açık: düzeldi bildirimi.
+    await calistir({ zaman: yarim + 30 * 60_000, env: { ...D_ENV, DURUM }, fetchImpl: ag2.fetchImpl, uyu: async () => {} });
+    const son = ag2.istekler.filter((i) => i.url === PUSHOVER).map((i) => new URLSearchParams(i.init.body).get('title'));
+    assert.deepEqual(son, ['✅ Dodo ucu yeniden çalışıyor']);
+    assert.deepEqual(JSON.parse(DURUM.depo.get('durum')).kapali, {});
+});
+
+test('Dodo\'nun kendi kesintisi ne düşüş ne düzelme sayılır', async () => {
+    const zaman = Date.UTC(2026, 9, 19, 13, 0);
+    for (const cevap of [{ status: 503 }, new TypeError('fetch failed')]) {
+        // Önceden kapalı kaydı varken belirsiz cevap "düzeldi" demez…
+        const DURUM = sahteKV({ basladi: 'x', kapali: { dodo: { since: zaman - 3600_000, sonUyari: zaman - 600_000 } } });
+        const ag = dodoAg(cevap);
+        const r = await calistir({ zaman, env: { ...D_ENV, DURUM }, fetchImpl: ag.fetchImpl, uyu: async () => {} });
+        assert.equal(ag.istekler.some((i) => i.url === PUSHOVER), false);
+        assert.equal(DURUM.yazmalar(), 0);
+        assert.equal(r.sonuclar.some((s) => s.id === 'dodo'), false);
+        // …ve temiz durumda alarm üretmez.
+        const DURUM2 = sahteKV({ basladi: 'x', kapali: {} });
+        const ag3 = dodoAg(cevap);
+        await calistir({ zaman, env: { ...D_ENV, DURUM: DURUM2 }, fetchImpl: ag3.fetchImpl, uyu: async () => {} });
+        assert.equal(ag3.istekler.some((i) => i.url === PUSHOVER), false);
+    }
+});
+
+test('sabah mesajı Dodo ucunu da sayar; VPS 1 düşüşü Dodo yüzünden "sunucu" sayılmaz', async () => {
+    const ag = dodoAg({ status: 200, body: uc() });
+    await calistir({
+        zaman: Date.UTC(2026, 9, 20, 6, 0), env: { ...D_ENV, DURUM: sahteKV({ basladi: 'x', kapali: {} }) },
+        fetchImpl: ag.fetchImpl, uyu: async () => {},
+    });
+    const form = new URLSearchParams(ag.istekler.find((i) => i.url === PUSHOVER).init.body);
+    assert.equal(form.get('title'), '✅ Her şey çalışıyor · 6/6');
+    assert.match(form.get('message'), /Dodo bildirim ucu açık\./);
+
+    const tek = karar({ basladi: 'x', kapali: {} },
+        [...D_LISTE.map((k) => (['masaustu', 'dodo', 'site'].includes(k.id) ? kapali(k.id) : ok(k.id)))], T0, D_LISTE);
+    assert.equal(tek.bildirimler[0].title, '3 servis çalışmıyor');
 });

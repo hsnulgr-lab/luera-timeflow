@@ -1,6 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { graceUntil, mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
+import { mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
 import { notifyOwner } from '../_shared/notify.ts';
+import { cancelNow, dodoApi, getSubscription } from '../_shared/dodo.ts';
+import { getSecret } from '../_shared/wa.ts';
+import { decide, type Decision, type MirrorNow } from './durum.ts';
+import { syncPendingToCore } from './core.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -9,62 +13,44 @@ const corsHeaders = {
 };
 
 /**
- * Dodo Payments webhook handler.
+ * Dodo Payments webhook — abonelik gerçeğinin TEK yazarı.
  *
- * Neden var: Abonelik yaşam döngüsü ve ödeme event'lerini LUERA Core'daki
- * subscriptions + billing_events tablolarına yansıtır. Gateway'in
- * has_active_subscription RPC'si bu veriyi okur.
+ * ── 2026-10-19 · TimeFlow asıl, Core kopya (devir 10 §10) ───────────────────
+ * Eskiden her olay önce LUERA Core'a yazılıyor, ayna (`org_entitlement`)
+ * ancak Core'da abonelik bulunursa güncelleniyordu. Eylül'de Core düşünce
+ * webhook günlerce 500 döndü, Dodo ucu KAPATTI ve 8 hafta tek olay gelmedi.
  *
- * Core'un GERÇEK şemasına uyum (bkz. supabase/CORE_subscriptions_schema.sql):
- *   - Kolonlar: module_name, plan_tier, provider, provider_ref, metadata
- *   - plan_tier CHECK'i yüzünden eşleme: baslangic→starter, pro→growth,
- *     isletme→enterprise (orijinal plan metadata.plan'da)
- *   - status CHECK'i: on_hold → 'past_due'
- *   - İptal: status 'active' KALIR (RPC dönem sonuna dek true dönsün),
- *     metadata.cancel_at_period_end=true. cancelled_at kolonu kullanılmaz
- *     (status tutarlılık CHECK'i) — iptal zamanı metadata'da.
- *   - organizations FK'sı: TimeFlow org'u Core'da yoksa aynalanır
- *     (placeholder owner_user_id — Core'da FK yok, Pilot Test kaydıyla aynı desen).
+ * Yeni sıra:
+ *   1. İmza (Standard Webhooks, sabit zamanlı, 5 dk).
+ *   2. Yerel deftere yaz (`dodo_events`) — tekrar denetimi burada.
+ *   3. Aynayı aboneliğin anlık görüntüsünden türet (`durum.ts`) ve yaz.
+ *      Yazılamazsa 500 → Dodo yeniden dener. Kalıcı veri hatası (bütünlük
+ *      ihlali) 500 DEĞİL: Dodo'nun sonsuz yeniden denemesi ucu kapattırır.
+ *   4. Core'a kopya (`core.ts`) — süre sınırlı, hatası Dodo'ya YANSIMAZ;
+ *      aktarılamayan olay defterde bekler, sonraki çağrıda yeniden denenir.
  *
- * Güvenlik modeli:
- *   - JWT YOK (Dodo çağırır) → deploy: --no-verify-jwt (bkz. supabase/config.toml)
- *   - Kimlik doğrulama Standard Webhooks imzasıyla: HMAC-SHA256(id.timestamp.body)
- *   - Idempotency: webhook-id, Core billing_events.dodo_webhook_id UNIQUE kolonuna
- *     başarılı işleme SONRASI yazılır (hata durumunda Dodo retry'ı kurtarır;
- *     işleme kendisi idempotent olduğundan yarışta çift çalışma zararsızdır).
+ * Güvenlik modeli değişmedi: JWT yok (Dodo çağırır, config.toml
+ * verify_jwt=false); kimlik imzayla. İşletme kimliği checkout'ta
+ * `metadata.organization_id` olarak verilir; ödeme olaylarında yoksa
+ * aynadaki Dodo abonelik kimliğinden bulunur.
  */
 
-const MODULE_NAME = 'timeflow';
-const GRACE_MS = 3 * 86_400_000; // dönem sonuna +3 gün tolerans
-const TOLERANCE_S = 5 * 60;      // imza timestamp toleransı
-const PLACEHOLDER_OWNER = '00000000-0000-0000-0000-000000000001'; // Core'daki Pilot Test deseni
-
-// TimeFlow planı → Core plan_tier (CHECK: free|starter|growth|enterprise|custom)
-const TIER_MAP: Record<string, string> = { baslangic: 'starter', pro: 'growth', isletme: 'enterprise' };
+const TOLERANCE_S = 5 * 60;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req: Request) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
-    if (req.method !== 'POST') {
-        return json({ error: 'method_not_allowed' }, 405);
-    }
+    if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+    if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
     try {
-        // Sırlar: önce env, yoksa TimeFlow app_secrets tablosu (repo deseni)
-        const admin = createClient(
-            Deno.env.get('SUPABASE_URL')!,
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-        );
+        const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
         const secret = await getSecret(admin, 'DODO_WEBHOOK_SECRET');
-        const coreUrl = await getSecret(admin, 'CORE_SUPABASE_URL');
-        const coreKey = await getSecret(admin, 'CORE_SERVICE_KEY');
-        if (!secret || !coreUrl || !coreKey) {
-            console.error('dodo-webhook: eksik sır (DODO_WEBHOOK_SECRET / CORE_SUPABASE_URL / CORE_SERVICE_KEY)');
+        if (!secret) {
+            console.error('dodo-webhook: DODO_WEBHOOK_SECRET yok');
             return json({ error: 'not_configured' }, 500);
         }
 
-        // 1) İmza doğrulaması — ham body üzerinden (parse ETMEDEN önce oku)
+        // ── 1 · İmza — ham gövde üzerinden (parse ETMEDEN önce) ─────────────
         const rawBody = await req.text();
         const whId = req.headers.get('webhook-id') || '';
         const whTs = req.headers.get('webhook-timestamp') || '';
@@ -73,239 +59,149 @@ Deno.serve(async (req: Request) => {
 
         const tsNum = parseInt(whTs, 10);
         if (!Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > TOLERANCE_S) {
+            console.warn('dodo-webhook: zaman damgası tolerans dışında', whId);
             return json({ error: 'stale_timestamp' }, 401);
         }
-
-        const valid = await verifySignature(secret, whId, whTs, rawBody, whSig);
-        if (!valid) return json({ error: 'invalid_signature' }, 401);
+        if (!(await verifySignature(secret, whId, whTs, rawBody, whSig))) {
+            console.warn('dodo-webhook: imza tutmadı', whId);
+            return json({ error: 'invalid_signature' }, 401);
+        }
 
         const event = JSON.parse(rawBody);
-        const type: string = event?.type ?? '';
+        const type: string = event?.type ?? 'unknown';
         const data = event?.data ?? {};
+        const eventAt: string | null = typeof event?.timestamp === 'string' ? event.timestamp : null;
+        const subId: string | null = typeof data.subscription_id === 'string' ? data.subscription_id : null;
+        const core = { url: await getSecret(admin, 'CORE_SUPABASE_URL'), key: await getSecret(admin, 'CORE_SERVICE_KEY') };
+        console.log(`dodo-webhook ${type} ${whId}${subId ? ` sub=${subId}` : ''}`);
 
-        const core = createClient(coreUrl, coreKey);
-
-        // 2) Idempotency — bu webhook-id daha önce başarıyla işlendiyse atla
-        const { data: seen } = await core
-            .from('billing_events')
-            .select('id')
-            .eq('dodo_webhook_id', whId)
-            .maybeSingle();
-        if (seen) return json({ received: true, duplicate: true }, 200);
-
-        // 3) Abonelik durumunu güncelle
-        const orgId = resolveOrgId(data);
-
-        switch (type) {
-            case 'subscription.active': {
-                if (!orgId) return json({ error: 'org_unresolved' }, 500);
-
-                // FK: Core organizations'ta TimeFlow org'u yoksa aynala
-                const orgErr = await ensureCoreOrg(core, orgId, data);
-                if (orgErr) { console.error('org mirror', orgErr); return json({ error: 'core_write_failed' }, 500); }
-
-                const plan = data.metadata?.plan ?? 'pro';
-                const cycle = data.metadata?.cycle ?? 'monthly';
-                // Dodo denemeli abonelikte de subscription.active gönderiyor;
-                // "aktif" yazmak deneme kavramını görünmez kılardı — kullanıcı
-                // ne zaman ücret ödeyeceğini bilemez, biz de "denemesi bitiyor"
-                // hatırlatması gönderemezdik.
-                const onTrial = Number(data.trial_period_days) > 0;
-                const expiry = nextExpiry(data);
-                const fields = {
-                    status: onTrial ? 'trial' : 'active',
-                    plan_tier: TIER_MAP[plan] ?? 'growth',
-                    provider: 'dodo',
-                    provider_ref: data.subscription_id ?? null,
-                    expires_at: expiry,
-                    // Core RPC 'trial' durumunda trial_ends_at'e de bakıyor.
-                    trial_ends_at: onTrial ? expiry : null,
-                    metadata: {
-                        plan, cycle,
-                        cancel_at_period_end: false,
-                        dodo_customer_id: data.customer?.customer_id ?? null,
-                        customer_email: data.customer?.email ?? null,
-                    },
-                };
-                await mirror(admin, orgId, type, {
-                    state: onTrial ? 'trial' : 'active',
-                    plan, cycle,
-                    trial_ends_at: onTrial ? expiry : null,
-                    expires_at: expiry,
-                    grace_until: null,
-                });
-
-                // Kısmi unique index (org, module_name WHERE status aktif) ON CONFLICT ile
-                // kullanılamaz → select-then-write (tek yazar webhook olduğundan güvenli)
-                const existing = await findSub(core, data, orgId);
-                const { error } = existing
-                    ? await core.from('subscriptions').update(fields).eq('id', existing.id)
-                    : await core.from('subscriptions').insert({ organization_id: orgId, module_name: MODULE_NAME, ...fields });
-                if (error) { console.error('subscription.active yazma', error); return json({ error: 'core_write_failed' }, 500); }
-                break;
-            }
-            case 'subscription.renewed': {
-                const sub = await findSub(core, data, orgId);
-                if (sub) {
-                    const expiry = nextExpiry(data);
-                    const { error } = await core.from('subscriptions').update({
-                        // Deneme bitip ilk tahsilat başarılı olduğunda da bu
-                        // event geliyor: trial → active geçişi burada olur.
-                        status: 'active',
-                        trial_ends_at: null,
-                        expires_at: expiry,
-                        metadata: { ...sub.metadata, cancel_at_period_end: false },
-                    }).eq('id', sub.id);
-                    if (error) { console.error('subscription.renewed', error); return json({ error: 'core_write_failed' }, 500); }
-                    await mirror(admin, orgId, type, {
-                        state: 'active', trial_ends_at: null, expires_at: expiry, grace_until: null,
-                    });
-                } else {
-                    console.warn('subscription.renewed: eşleşen abonelik yok', data.subscription_id);
-                }
-                break;
-            }
-            case 'subscription.on_hold': {
-                const sub = await findSub(core, data, orgId);
-                if (sub) {
-                    const until = graceUntil();
-                    const { error } = await core.from('subscriptions').update({
-                        status: 'past_due',
-                        metadata: { ...sub.metadata, on_hold_at: new Date().toISOString(), grace_until: until },
-                    }).eq('id', sub.id);
-                    if (error) { console.error('subscription.on_hold', error); return json({ error: 'core_write_failed' }, 500); }
-                    // Ek süre: erişim hemen kesilmez. Kart yenileme gecikmesi
-                    // yüzünden çalışan bir salonu iş saatinin ortasında
-                    // kilitlemek, tahsil edilmemiş 599 TL'den pahalıya patlar.
-                    await mirror(admin, orgId, type, { state: 'grace', grace_until: until });
-                    // Sessiz kilit en kötüsü: kullanıcı iki gün sonra kapıyı
-                    // kapalı bulur ve neden olduğunu bilmez.
-                    if (orgId) {
-                        notifyOwner(admin, orgId, {
-                            title: 'Ödeme alınamadı',
-                            body: 'Aboneliğinizin ödemesi alınamadı. 2 gün içinde kartınızı güncelleyin, hizmetiniz kesintisiz devam etsin.',
-                            url: '/settings?tab=billing',
-                            tag: 'billing-hold',
-                        });
-                    }
-                }
-                break;
-            }
-            // Terminal durumlar: dönem gerçekten bitti ya da abonelik hiç
-            // kurulamadı. Core'da karşılığı zaten var; ayna kapıyı kapatır.
-            case 'subscription.expired':
-            case 'subscription.failed': {
-                const sub = await findSub(core, data, orgId);
-                if (sub) {
-                    // Core CHECK'i: (status='cancelled') = (cancelled_at IS NOT NULL).
-                    // 'expired' satırına cancelled_at yazmak kaydı reddettirir.
-                    await core.from('subscriptions').update(
-                        type === 'subscription.expired'
-                            ? { status: 'expired' }
-                            : { status: 'cancelled', cancelled_at: new Date().toISOString() },
-                    ).eq('id', sub.id);
-                }
-                await mirror(admin, orgId, type, { state: 'locked', grace_until: null });
-                break;
-            }
-            case 'subscription.updated': {
-                // Dönem sonu iptal / iptalden vazgeçme bu event'le gelir
-                // (data.cancel_at_next_billing_date) — canlı testte doğrulandı
-                const sub = await findSub(core, data, orgId);
-                if (sub && typeof data.cancel_at_next_billing_date === 'boolean') {
-                    const flag = data.cancel_at_next_billing_date;
-                    const { error } = await core.from('subscriptions').update({
-                        metadata: {
-                            ...sub.metadata,
-                            cancel_at_period_end: flag,
-                            cancelled_at: flag ? (sub.metadata.cancelled_at ?? new Date().toISOString()) : null,
-                        },
-                    }).eq('id', sub.id);
-                    if (error) { console.error('subscription.updated', error); return json({ error: 'core_write_failed' }, 500); }
-                }
-                break;
-            }
-            case 'subscription.cancelled': {
-                const sub = await findSub(core, data, orgId);
-                if (sub) {
-                    // status 'active' kalır — erişim expires_at'e kadar; RPC süre dolunca keser
-                    const { error } = await core.from('subscriptions').update({
-                        metadata: { ...sub.metadata, cancel_at_period_end: true, cancelled_at: new Date().toISOString() },
-                    }).eq('id', sub.id);
-                    if (error) { console.error('subscription.cancelled', error); return json({ error: 'core_write_failed' }, 500); }
-                    // Aynada DURUM DEĞİŞMEZ, yalnız son event yazılır: iptal
-                    // "dönem sonunda" demek. Parasını ödediği günü müşteriden
-                    // geri almak dolandırıcılık olurdu; expires_at zaten keser.
-                    await mirror(admin, orgId, type, {});
-                }
-                break;
-            }
-            case 'payment.succeeded': {
-                // billing_events kaydı aşağıda; askıdaki abonelik ödeme alınca aktifleşsin
-                const sub = await findSub(core, data, orgId);
-                if (sub && sub.status === 'past_due') {
-                    await core.from('subscriptions').update({ status: 'active' }).eq('id', sub.id);
-                    // Ek süre kalkar: kart güncellendi, kapı yeniden tam açık.
-                    await mirror(admin, orgId, type, { state: 'active', grace_until: null });
-                }
-                break;
-            }
-            case 'payment.failed':
-                // Kayıt yeterli — enforcement'ı Dodo retry + on_hold event'i yönetir
-                break;
-            default:
-                console.log(`dodo-webhook: bilinmeyen event tipi '${type}' — yalnızca kaydedildi`);
+        // ── 2 · Defter ──────────────────────────────────────────────────────
+        const { data: prior, error: priorErr } = await admin.from('dodo_events')
+            .select('processed_at').eq('webhook_id', whId).maybeSingle();
+        if (priorErr) return fail('defter okunamadı', priorErr);
+        if (prior?.processed_at) {
+            await syncPendingToCore(admin, core.url, core.key);
+            return json({ received: true, duplicate: true }, 200);
+        }
+        if (!prior) {
+            const { error } = await admin.from('dodo_events').insert({
+                webhook_id: whId,
+                event_type: type,
+                event_at: eventAt,
+                subscription_id: subId,
+                payment_id: typeof data.payment_id === 'string' ? data.payment_id : null,
+                amount: type.startsWith('payment.') ? extractAmount(data) : null,
+                currency: typeof data.currency === 'string' ? data.currency : null,
+                invoice_url: data.invoice_url ?? null,
+                raw: event,
+            });
+            // 23505: aynı olayın eşzamanlı ikinci teslimi — işleme idempotent.
+            if (error && error.code !== '23505') return fail('deftere yazılamadı', error);
         }
 
-        // 4) Event kaydı (idempotency + fatura geçmişi)
-        const { error: logErr } = await core.from('billing_events').insert({
-            organization_id: orgId,
-            module_name: MODULE_NAME,
-            dodo_webhook_id: whId,
-            dodo_payment_id: type.startsWith('payment.') ? (data.payment_id ?? null) : null,
-            event_type: type || 'unknown',
-            amount: extractAmount(data),
-            currency: data.currency ?? null,
-            invoice_url: data.invoice_url ?? data.receipt_url ?? null,
-            raw: event,
-        });
-        if (logErr && logErr.code !== '23505') {
-            console.error('dodo-webhook: billing_events insert hatası', logErr);
-            return json({ error: 'core_write_failed' }, 500);
+        // ── 3 · İşletme ve aynanın şimdiki hâli ─────────────────────────────
+        const cols = 'organization_id, state, grace_until, dodo_subscription_id, dodo_event_at';
+        // UUID olmayan değer (panelin örnek olayı) sorguda kalıcı hata verir →
+        // sonsuz yeniden deneme. Biçim tutmuyorsa işletme yok sayılır.
+        const metaOrg = data.metadata?.organization_id;
+        let orgId: string | null = typeof metaOrg === 'string' && UUID.test(metaOrg) ? metaOrg : null;
+        let current: (MirrorNow & { organization_id: string }) | null = null;
+        if (orgId) {
+            const { data: row, error } = await admin.from('org_entitlement').select(cols).eq('organization_id', orgId).maybeSingle();
+            if (error) return fail('ayna okunamadı', error);
+            current = row;
+        } else if (subId) {
+            const { data: row, error } = await admin.from('org_entitlement').select(cols).eq('dodo_subscription_id', subId).maybeSingle();
+            if (error) return fail('ayna okunamadı', error);
+            current = row;
+            orgId = row?.organization_id ?? null;
         }
 
-        return json({ received: true }, 200);
+        if (!orgId) return await finish(admin, core, whId, null, 'no_org');
+
+        const { data: org, error: orgErr } = await admin.from('organizations').select('id').eq('id', orgId).maybeSingle();
+        if (orgErr) return fail('işletme okunamadı', orgErr);
+        // Hesap silindikten sonra gelen olay (ör. silmedeki iptalin kendisi):
+        // yazılacak ayna yok. 500 dönülseydi Dodo bir gün boyunca deneyip ucu
+        // kapatırdı.
+        if (!org) return await finish(admin, core, whId, orgId, 'org_gone');
+
+        // ── 4 · Karar ───────────────────────────────────────────────────────
+        let decision: Decision | null = null;
+        if (type.startsWith('subscription.')) {
+            decision = decide(type, data, eventAt, current);
+        } else if (type === 'payment.succeeded' && subId && current?.state === 'grace') {
+            // Askıdaki salon kartını güncelledi: ödeme olayı yeni dönemi
+            // taşımıyor. Aboneliğin şimdiki hâli Dodo'dan okunur; okunamazsa
+            // arkasından gelen abonelik olayı düzeltir.
+            const api = await dodoApi(admin);
+            const sub = api ? await getSubscription(api, subId) : null;
+            if (sub) decision = decide(type, sub, new Date().toISOString(), current);
+        }
+
+        if (!decision) return await finish(admin, core, whId, orgId, 'recorded');
+        if (decision.kind === 'skip') return await finish(admin, core, whId, orgId, decision.outcome);
+
+        const mirrorErr = await mirrorEntitlement(admin, orgId, decision.patch);
+        if (mirrorErr) {
+            if (String(mirrorErr.code ?? '').startsWith('23')) {
+                // Bütünlük ihlali (ör. aynı Dodo aboneliği iki işletmede):
+                // yeniden denemek düzeltmez, yalnız ucu kapattırır.
+                console.error('dodo-webhook: KALICI ayna hatası — elle bakılmalı', orgId, mirrorErr);
+                return await finish(admin, core, whId, orgId, `conflict_${mirrorErr.code}`);
+            }
+            return fail('ayna yazılamadı', mirrorErr);
+        }
+
+        if (decision.enteredGrace) {
+            // Sessiz kilit en kötüsü: kullanıcı iki gün sonra kapıyı kapalı
+            // bulur ve neden olduğunu bilmez.
+            notifyOwner(admin, orgId, {
+                title: 'Ödeme alınamadı',
+                body: 'Aboneliğinizin ödemesi alınamadı. 2 gün içinde kartınızı güncelleyin, hizmetiniz kesintisiz devam etsin.',
+                url: '/settings?tab=billing',
+                tag: 'billing-hold',
+            });
+        }
+        if (decision.replaced) {
+            // Bir işletme, bir abonelik: yenisi etkinleşti, eskisi bir daha
+            // tahsilat yapmasın (askıdaki eski abonelik kart güncellenince
+            // yeniden çekmeye başlardı → çift tahsilat).
+            const api = await dodoApi(admin);
+            const out = api ? await cancelNow(api, decision.replaced) : { ok: false, reason: 'dodo_not_configured' };
+            console.log(`dodo-webhook: eski abonelik ${decision.replaced} iptal=${out.ok ? 'tamam' : (out as { reason: string }).reason}`);
+        }
+
+        return await finish(admin, core, whId, orgId, 'applied', decision.patch.state);
     } catch (err) {
         console.error('dodo-webhook error:', err);
-        return json({ error: 'Sunucu hatası', detail: String(err) }, 500);
+        return json({ error: 'internal' }, 500);
     }
 });
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
 
-/**
- * TimeFlow'daki yetkilendirme aynasını günceller.
- *
- * Core'a yazmak YETMEZ: Core ayrı bir Supabase projesi, TimeFlow'un RLS
- * politikaları ve edge fonksiyonları oraya bakamaz. Erişim kararı yerel
- * tablodan verilir; bu satır yazılmazsa müşteri ödeme yapmış ama içeri
- * girememiş olur.
- */
-async function mirror(
-    admin: any,
-    orgId: string | null,
-    eventType: string,
-    patch: { state?: EntState } & Record<string, unknown>,
-): Promise<void> {
-    if (!orgId) return;
-    await mirrorEntitlement(admin, orgId, { ...patch, last_event: eventType });
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any;
+
+/** Olayı işlenmiş say, Core'a kopyala, 200 dön. */
+async function finish(
+    admin: Db, core: { url: string | null; key: string | null },
+    id: string, orgId: string | null, outcome: string, state?: EntState,
+): Promise<Response> {
+    const { error } = await admin.from('dodo_events')
+        .update({ processed_at: new Date().toISOString(), organization_id: orgId, outcome })
+        .eq('webhook_id', id);
+    if (error) return fail('defter kapatılamadı', error);
+    if (outcome !== 'applied') console.log(`dodo-webhook ${id}: ${outcome}`);
+    await syncPendingToCore(admin, core.url, core.key, id);
+    return json({ received: true, outcome, ...(state ? { state } : {}) }, 200);
 }
 
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
+function fail(what: string, error: unknown): Response {
+    console.error(`dodo-webhook: ${what}`, error);
+    return json({ error: 'internal', detail: what }, 500);
 }
 
 function json(body: unknown, status: number): Response {
@@ -315,68 +211,12 @@ function json(body: unknown, status: number): Response {
     });
 }
 
-// Checkout'ta metadata.organization_id set ediyoruz; Dodo bunu event'lere geçirir
-function resolveOrgId(data: any): string | null {
-    return data?.metadata?.organization_id ?? null;
-}
-
 // Dodo tutarları en küçük birimde (kuruş) gönderir → TL'ye çevir
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractAmount(data: any): number | null {
     const cents = data?.total_amount ?? data?.amount ?? null;
     return typeof cents === 'number' ? cents / 100 : null;
-}
-
-function nextExpiry(data: any): string | null {
-    const next = data?.next_billing_date ?? data?.current_period_end ?? null;
-    if (!next) return null;
-    const t = new Date(next).getTime();
-    return Number.isFinite(t) ? new Date(t + GRACE_MS).toISOString() : null;
-}
-
-// Aboneliği bul: önce provider_ref (Dodo subscription id), yoksa org+module
-async function findSub(core: any, data: any, orgId: string | null):
-    Promise<{ id: string; status: string; metadata: Record<string, unknown> } | null> {
-    const subId = data?.subscription_id;
-    if (subId) {
-        const { data: row } = await core.from('subscriptions')
-            .select('id, status, metadata')
-            .eq('provider', 'dodo')
-            .eq('provider_ref', subId)
-            .maybeSingle();
-        if (row) return row;
-    }
-    if (orgId) {
-        const { data: row } = await core.from('subscriptions')
-            .select('id, status, metadata')
-            .eq('organization_id', orgId)
-            .eq('module_name', MODULE_NAME)
-            .in('status', ['trial', 'active', 'past_due'])
-            .maybeSingle();
-        if (row) return row;
-    }
-    return null;
-}
-
-// TimeFlow org'unu Core organizations'a aynala (FK gereksinimi).
-// Slug deterministik ve regex-uyumlu: tf-<uuid ilk 12 hex>
-async function ensureCoreOrg(core: any, orgId: string, data: any): Promise<unknown | null> {
-    const { data: existing } = await core.from('organizations').select('id').eq('id', orgId).maybeSingle();
-    if (existing) return null;
-
-    const rawName = String(data?.metadata?.org_name || data?.customer?.name || 'TimeFlow İşletmesi').trim();
-    const name = rawName.length >= 2 ? rawName.slice(0, 120) : 'TimeFlow İşletmesi';
-    const slug = `tf-${orgId.replace(/-/g, '').slice(0, 12)}`;
-
-    const { error } = await core.from('organizations').insert({
-        id: orgId,
-        name,
-        slug,
-        owner_user_id: PLACEHOLDER_OWNER,
-        metadata: { source: 'timeflow', mirrored_by: 'dodo-webhook' },
-    });
-    // Yarışta başka bir event aynı org'u eklemiş olabilir → unique ihlali sorun değil
-    if (error && error.code !== '23505') return error;
-    return null;
 }
 
 // Standard Webhooks: base64(HMAC-SHA256(secret, `${id}.${timestamp}.${body}`))

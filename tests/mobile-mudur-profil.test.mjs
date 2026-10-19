@@ -495,9 +495,13 @@ test('abonelik ÖNCE iptal edilir; iptal edilemezse silme YAPILMAZ', () => {
 
 test('iptal ANINDA — dönem sonu değil', () => {
     // İşletme siliniyorsa hizmet de o an bitmeli; yoksa karşılığında hiçbir
-    // hizmet olmayan bir tahsilat daha döner.
-    assert.match(fn, /JSON\.stringify\(\{ status: 'cancelled' \}\)/);
+    // hizmet olmayan bir tahsilat daha döner. 123'ten beri çağrı ortak
+    // yardımcıda (`_shared/dodo.ts · cancelNow`).
+    const dodo = code('../supabase/functions/_shared/dodo.ts');
+    assert.match(fn, /return await cancelNow\(api, providerRef\)/);
+    assert.match(dodo, /JSON\.stringify\(\{ status: 'cancelled' \}\)/);
     assert.doesNotMatch(fn, /cancel_at_next_billing_date/);
+    assert.doesNotMatch(dodo, /cancel_at_next_billing_date/);
 });
 
 test('auth kaydı EN SON silinir', () => {
@@ -513,7 +517,8 @@ test('auth kaydı EN SON silinir', () => {
 test('aboneliği olmayan salon da hesabını silebilir', () => {
     // Ödemeyen bir salonun hesabını silememesi için sebep yok.
     assert.match(fn, /if \(!providerRef\) return \{ ok: true \}/);
-    assert.match(fn, /if \(!coreUrl \|\| !coreKey\) return \{ ok: true \}/);
+    // Abonelik kimliği yerel aynadan; Core düşünce silme durmaz (123).
+    assert.doesNotMatch(fn, /CORE_/);
 });
 
 // ── Tema seçimi sisteme de işlenir · 2026-08-30 ─────────────────────────────

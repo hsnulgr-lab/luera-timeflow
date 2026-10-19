@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface BillingSubscription {
     plan: 'baslangic' | 'pro' | 'isletme';
@@ -18,8 +19,22 @@ export interface BillingInvoice {
     invoiceUrl: string | null;
 }
 
-// Abonelik verisi LUERA Core'da yaşar; billing-status edge function proxy'ler.
+/**
+ * Edge fonksiyonunun döndürdüğü hata kodu. `invoke` 2xx dışında gövdeyi
+ * `data`'ya koymuyor; kod `error.context` (Response) içinde.
+ */
+async function errorCode(error: unknown): Promise<string | null> {
+    const ctx = (error as { context?: Response } | null)?.context;
+    if (!ctx || typeof ctx.json !== 'function') return null;
+    const body = await ctx.clone().json().catch(() => null) as { error?: unknown } | null;
+    return typeof body?.error === 'string' ? body.error : null;
+}
+
+// Abonelik gerçeği TimeFlow'da (123): billing-status aynayı ve yerel olay
+// defterini okur. İşletme her çağrıda gönderilir; sunucu üyeliği doğrular
+// (çok işletmeli kullanıcıda yanlış işletmeye abonelik açılmasın).
 export function useBilling() {
+    const { orgId } = useAuth();
     const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
     const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,7 +47,7 @@ export function useBilling() {
         // Fırlatan çağrı da `{ error }` dönen çağrı gibi ele alınıyor: çağıran
         // taraf ikisini ayırt etmek zorunda kalmasın.
         const { data, error } = await supabase.functions
-            .invoke('billing-status')
+            .invoke('billing-status', { body: { orgId } })
             .catch((cause: unknown) => ({ data: null, error: cause }));
         if (error) {
             console.error('billing-status:', error);
@@ -43,7 +58,7 @@ export function useBilling() {
         setSubscription(data?.subscription ?? null);
         setInvoices(data?.invoices ?? []);
         return data?.subscription ?? null;
-    }, []);
+    }, [orgId]);
 
     useEffect(() => {
         (async () => {
@@ -81,19 +96,47 @@ export function useBilling() {
 
     const startCheckout = useCallback(async (plan: string, cycle: 'monthly' | 'yearly') => {
         setBusy(true);
-        const { data, error } = await supabase.functions.invoke('dodo-checkout', { body: { plan, cycle } });
+        const { data, error } = await supabase.functions
+            .invoke('dodo-checkout', { body: { plan, cycle, orgId } })
+            .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
+        if (data?.resumed) {
+            toast.success('Aboneliğiniz devam ediyor — iptal geri alındı');
+            void refresh();
+            return;
+        }
         if (error || !data?.url) {
-            console.error('dodo-checkout:', error, data);
-            toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
+            const code = error ? await errorCode(error) : null;
+            console.error('dodo-checkout:', code ?? error, data);
+            // Süren aboneliğe ikinci abonelik açılmaz (çift tahsilat). Plan
+            // değişikliği henüz kendi kendine yapılamıyor.
+            if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor. Plan değişikliği için destek@lueratech.com adresine yazın.');
+            else toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
             return;
         }
         window.location.href = data.url;
-    }, []);
+    }, [orgId, refresh]);
+
+    /** Dodo müşteri portalı — kart güncelleme (yeni abonelik AÇMAZ). */
+    const openPortal = useCallback(async () => {
+        setBusy(true);
+        const { data, error } = await supabase.functions
+            .invoke('dodo-checkout', { body: { action: 'portal', orgId } })
+            .catch((cause: unknown) => ({ data: null, error: cause }));
+        setBusy(false);
+        if (error || !data?.url) {
+            console.error('dodo-checkout portal:', error, data);
+            toast.error('Ödeme bilgileri sayfası açılamadı, lütfen tekrar deneyin');
+            return;
+        }
+        window.location.href = data.url;
+    }, [orgId]);
 
     const cancelSubscription = useCallback(async (): Promise<boolean> => {
         setBusy(true);
-        const { data, error } = await supabase.functions.invoke('dodo-checkout', { body: { action: 'cancel' } });
+        const { data, error } = await supabase.functions
+            .invoke('dodo-checkout', { body: { action: 'cancel', orgId } })
+            .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
         if (error || !data?.cancelled) {
             console.error('dodo-checkout cancel:', error, data);
@@ -101,10 +144,9 @@ export function useBilling() {
             return false;
         }
         toast.success('Aboneliğiniz dönem sonunda iptal edilecek');
-        // Webhook'un Core'a yazması birkaç saniye sürebilir
-        pollAfterCheckout();
+        await refresh();
         return true;
-    }, [pollAfterCheckout]);
+    }, [orgId, refresh]);
 
-    return { subscription, invoices, loading, error, busy, refresh, startCheckout, cancelSubscription, pollAfterCheckout };
+    return { subscription, invoices, loading, error, busy, refresh, startCheckout, openPortal, cancelSubscription, pollAfterCheckout };
 }

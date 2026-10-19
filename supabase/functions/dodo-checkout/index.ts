@@ -1,5 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { DEFAULT_TRIAL_DAYS, safeTrialDays } from '../_shared/entitlement.ts';
+import { computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, type EntitlementRow } from '../_shared/entitlement.ts';
+import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
+import { resolveOrg } from '../_shared/org.ts';
+import { getSecret } from '../_shared/wa.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -8,21 +11,25 @@ const corsHeaders = {
 };
 
 /**
- * Dodo Payments checkout + abonelik iptali.
+ * Dodo Payments checkout, iptal ve müşteri portalı.
  *
- * Güvenlik modeli (whatsapp-proxy ile aynı):
+ * Güvenlik modeli:
  *   - Kullanıcı kimliği request body'den DEĞİL, session JWT'sinden doğrulanır.
- *   - Org, organization_members kaydından server-side çözülür.
+ *   - İşletme `resolveOrg` ile: istemci orgId gönderir, üyelik sunucuda
+ *     doğrulanır (eskiden `limit(1)` — çok işletmeli kullanıcıda RASTGELE
+ *     işletmeye abonelik açılıyordu). Yalnız sahip ve yönetici.
  *   - DODO_API_KEY ve ürün id'leri (DODO_PRODUCT_MAP) ASLA client'a inmez.
+ *   - Abonelik kimliği yerel aynadan (123); LUERA Core'a gidilmez.
  *
  * Action'lar:
- *   { plan: 'baslangic'|'pro'|'isletme', cycle: 'monthly'|'yearly' } → { url }
- *   { action: 'cancel' } → dönem sonunda iptal
+ *   { plan, cycle, orgId }       → { url }  yeni abonelik (checkout)
+ *                                → { resumed: true }  iptal bekleyen aynı plan
+ *   { action: 'cancel', orgId }  → dönem sonunda iptal
+ *   { action: 'portal', orgId }  → { url }  Dodo müşteri portalı (kart güncelle)
  *
- * DENEME SÜRESİ: her checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
- * ilk tahsilat 8. gün). Dodo'da trial ÜRÜNE değil ABONELİĞE bağlanabiliyor
- * (subscription_data.trial_period_days), yani pilot müşteriye 90 günlük deneme
- * vermek için ayrı ürün açmak gerekmiyor. Uzunluk sunucuda beyaz listeden
+ * DENEME SÜRESİ: ilk checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
+ * ilk tahsilat 8. gün). Dodo'da trial ABONELİĞE bağlanabiliyor
+ * (subscription_data.trial_period_days). Uzunluk sunucuda beyaz listeden
  * geçer — istemciden gelen serbest sayıyla herkes kendine 10000 gün açardı.
  */
 
@@ -50,44 +57,35 @@ Deno.serve(async (req: Request) => {
         if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
         const user = userData.user;
 
-        // 2) Org'u server-side çöz (client'a güvenme)
-        const { data: member } = await admin
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-        const orgId = member?.org_id;
-        if (!orgId) return json({ error: 'no_org' }, 403);
-
-        const DODO_API_KEY = await getSecret(admin, 'DODO_API_KEY');
-        const DODO_API_BASE = (await getSecret(admin, 'DODO_API_BASE')) || 'https://test.dodopayments.com';
-        if (!DODO_API_KEY) return json({ error: 'dodo_not_configured' }, 500);
-
         const body = await req.json().catch(() => ({}));
+
+        // 2) İşletme: istemcinin seçtiği, sunucuda doğrulanmış
+        const resolved = await resolveOrg(admin, user.id, typeof body.orgId === 'string' ? body.orgId : null);
+        if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+        const { orgId, role } = resolved;
+        if (role !== 'owner' && role !== 'admin') return json({ error: 'forbidden_role' }, 403);
+
+        const api = await dodoApi(admin);
+        if (!api) return json({ error: 'dodo_not_configured' }, 500);
+
+        const { data: entRow, error: entErr } = await admin.from('org_entitlement')
+            .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, dodo_subscription_id, dodo_customer_id, cancel_at_period_end')
+            .eq('organization_id', orgId)
+            .maybeSingle();
+        if (entErr) {
+            console.error('dodo-checkout: ayna okunamadı', entErr);
+            return json({ error: 'entitlement_lookup_failed' }, 500);
+        }
+
+        const appUrl = (await getSecret(admin, 'APP_URL')) || 'https://timeflow.lueratech.com';
 
         // ── İptal: dönem sonunda ─────────────────────────────────────────────
         if (body.action === 'cancel') {
-            const coreUrl = await getSecret(admin, 'CORE_SUPABASE_URL');
-            const coreKey = await getSecret(admin, 'CORE_SERVICE_KEY');
-            if (!coreUrl || !coreKey) return json({ error: 'core_not_configured' }, 500);
-            const core = createClient(coreUrl, coreKey);
-
-            // Core gerçek şeması: Dodo abonelik id'si provider_ref kolonunda
-            const { data: subs } = await core
-                .from('subscriptions')
-                .select('provider_ref')
-                .eq('organization_id', orgId)
-                .eq('module_name', MODULE)
-                .eq('provider', 'dodo')
-                .in('status', ['trial', 'active', 'past_due'])
-                .limit(1);
-            const providerRef = subs?.[0]?.provider_ref;
+            const providerRef = entRow?.dodo_subscription_id;
             if (!providerRef) return json({ error: 'no_subscription' }, 404);
 
-            const res = await fetch(`${DODO_API_BASE}/subscriptions/${providerRef}`, {
+            const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(providerRef)}`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${DODO_API_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cancel_at_next_billing_date: true }),
             });
             if (!res.ok) {
@@ -95,8 +93,30 @@ Deno.serve(async (req: Request) => {
                 console.error('Dodo cancel error:', res.status, detail);
                 return json({ error: 'cancel_failed' }, 502);
             }
-            // Kalıcı durum subscription.cancelled webhook'uyla Core'a yazılır
+            // Dodo onayladı; ekran webhook'u beklemeden "Dönem sonunda iptal"
+            // desin. DURUM yazılmaz — erişimi `expires_at` keser, webhook
+            // aboneliğin tamamını zaten yeniden yazar.
+            const { error: mErr } = await admin.from('org_entitlement')
+                .update({ cancel_at_period_end: true, cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .eq('organization_id', orgId);
+            if (mErr) console.error('dodo-checkout: iptal bayrağı aynaya yazılamadı', mErr);
             return json({ cancelled: true }, 200);
+        }
+
+        // ── Müşteri portalı: kart güncelleme ────────────────────────────────
+        // Eskiden "Kartı güncelle" YENİ bir checkout açıyordu → ikinci abonelik.
+        if (body.action === 'portal') {
+            const customerId = entRow?.dodo_customer_id;
+            if (!customerId) return json({ error: 'no_subscription' }, 404);
+            const qs = new URLSearchParams({ return_url: `${appUrl}/settings?tab=billing`, send_email: 'false' });
+            const res = await dodoFetch(api, `/customers/${encodeURIComponent(customerId)}/customer-portal/session?${qs}`, { method: 'POST' });
+            if (!res.ok) {
+                console.error('Dodo portal error:', res.status, await res.text().catch(() => ''));
+                return json({ error: 'portal_failed' }, 502);
+            }
+            const out = await res.json().catch(() => ({}));
+            if (typeof out?.link !== 'string') return json({ error: 'portal_failed' }, 502);
+            return json({ url: out.link }, 200);
         }
 
         // ── Checkout ─────────────────────────────────────────────────────────
@@ -104,6 +124,33 @@ Deno.serve(async (req: Request) => {
         const cycle = String(body.cycle || '');
         if (!VALID_PLANS.includes(plan) || !VALID_CYCLES.includes(cycle)) {
             return json({ error: 'invalid_plan_or_cycle' }, 400);
+        }
+
+        // Süren aboneliğe ikinci checkout açılmaz: ikinci abonelik demek, iki
+        // kez tahsilat demek. Plan değişikliği ayrı iş (Dodo Change Plan);
+        // ek süredeki (ödeme alınamamış) işletme yeni abonelik alabilir —
+        // webhook yenisi etkinleşince eskisini Dodo'da kapatır.
+        const access = computeAccess(entRow as EntitlementRow | null);
+        if (access.ok && (access.effective === 'trial' || access.effective === 'active')) {
+            // Dönem sonunda iptal bekleyen salon AYNI planı seçerse yeni
+            // abonelik değil, iptalden vazgeçme: ekran "devam etmek için plan
+            // seçmeniz yeterli" diyor.
+            if (entRow?.cancel_at_period_end && entRow.dodo_subscription_id && entRow.plan === plan && entRow.cycle === cycle) {
+                const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(entRow.dodo_subscription_id)}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ cancel_at_next_billing_date: false }),
+                });
+                if (!res.ok) {
+                    console.error('Dodo resume error:', res.status, await res.text().catch(() => ''));
+                    return json({ error: 'resume_failed' }, 502);
+                }
+                const { error: mErr } = await admin.from('org_entitlement')
+                    .update({ cancel_at_period_end: false, cancelled_at: null, updated_at: new Date().toISOString() })
+                    .eq('organization_id', orgId);
+                if (mErr) console.error('dodo-checkout: iptalden vazgeçme aynaya yazılamadı', mErr);
+                return json({ resumed: true }, 200);
+            }
+            return json({ error: 'already_subscribed' }, 409);
         }
 
         // (plan, cycle) → Dodo ürün id — JSON haritadan (env/app_secrets)
@@ -126,8 +173,6 @@ Deno.serve(async (req: Request) => {
         // Yalnız DAHA ÖNCE hiç aboneliği olmamış org deneme alır. Aksi hâlde
         // iptal edip yeniden satın alan biri her seferinde 7 gün bedava
         // kullanırdı; ayna tablo bu geçmişi zaten tutuyor.
-        const { data: entRow } = await admin.from('org_entitlement')
-            .select('state').eq('organization_id', orgId).maybeSingle();
         const firstTime = !entRow || entRow.state === 'none';
         const configured = Number(await getSecret(admin, 'DODO_TRIAL_DAYS')) || DEFAULT_TRIAL_DAYS;
         // body.trial_days pilot linki için; beyaz listeden geçmeyen değer
@@ -143,7 +188,6 @@ Deno.serve(async (req: Request) => {
             ? body.discount_code.trim().slice(0, 40)
             : '';
 
-        const appUrl = (await getSecret(admin, 'APP_URL')) || 'https://timeflow.lueratech.com';
         // İlk satın alımda kurulum sihirbazına, sonrakilerde faturalandırmaya
         // dön: ödeme yapan yeni müşteriyi ayarlar ekranına bırakmak, ürünü
         // kurmadan yalnız bir fatura satırı göstermek olurdu.
@@ -151,16 +195,16 @@ Deno.serve(async (req: Request) => {
             ? `${appUrl}/kurulum?checkout=success`
             : `${appUrl}/settings?tab=billing&checkout=success`;
 
-        const res = await fetch(`${DODO_API_BASE}/checkouts`, {
+        const res = await dodoFetch(api, '/checkouts', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${DODO_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 product_cart: [{ product_id: productId, quantity: 1 }],
                 customer: { email: user.email, name: settingsRow?.business_name || user.email },
                 return_url: returnUrl,
                 ...(trialDays > 0 ? { subscription_data: { trial_period_days: trialDays } } : {}),
                 ...(discount ? { discount_codes: [discount] } : {}),
-                // org_name: webhook'un Core organizations aynalaması için (FK gereksinimi)
+                // organization_id: webhook işletmeyi bununla bulur.
+                // org_name: Core kopyasındaki organizations satırı için.
                 metadata: { organization_id: orgId, plan, cycle, module: MODULE, org_name: settingsRow?.business_name || '' },
                 billing_currency: 'TRY',
             }),
@@ -186,12 +230,4 @@ function json(body: unknown, status: number): Response {
         status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-}
-
-// Sır okuma: önce env, yoksa app_secrets tablosu (repo deseni)
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
 }

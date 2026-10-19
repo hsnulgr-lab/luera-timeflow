@@ -31,7 +31,7 @@ export const uyku = (ms) => new Promise((r) => setTimeout(r, ms));
 const ONCELIK = { acil: 5, yuksek: 4, sessiz: 2 };
 
 /**
- * İzlenen beş adres. Her biri 2026-10-17'de elle denendi ve bugünkü
+ * İzlenen beş adres (+ anahtar verilmişse Dodo ucu, 2026-10-19). Her biri 2026-10-17'de elle denendi ve bugünkü
  * cevabı beklenen değer olarak yazıldı. Metinler gece 3'te okunacak:
  * önce ne bozuldu, sonra kim etkileniyor, sonra ne yapılır — teknik en sonda.
  */
@@ -83,7 +83,76 @@ export function kontroller(env) {
             yap: "Acil değil. Framer'ın durum sayfasına bak; sabah da olur.",
             url: env.SITE_URL, beklenen: 200,
         },
+        // Anahtar yoksa kontrol hiç yok: kurulum bitene kadar alarm üretmesin.
+        ...(env.DODO_READONLY_KEY ? [dodoKontrolu(env, sb)] : []),
     ];
+}
+
+/** Dodo'nun abonelik olaylarını almak için şart olanlar (filtre varsa). */
+export const DODO_GEREKLI_OLAYLAR = ['subscription.active', 'subscription.renewed', 'subscription.on_hold'];
+
+/**
+ * Dodo webhook ucu açık mı? (2026-10-19)
+ *
+ * Eylül'de TimeFlow'un webhook'u günlerce 500 döndü; Dodo ucu KENDİLİĞİNDEN
+ * devre dışı bıraktı ve 8 hafta tek abonelik olayı gelmedi — kimse görmedi.
+ * Uç kapalıyken TimeFlow tarafında her şey sağlıklı görünür: sorun ancak
+ * Dodo'ya sorulunca anlaşılır.
+ *
+ * SALT OKUNUR Dodo anahtarıyla (`DODO_READONLY_KEY`) `GET /webhooks`. Yazma
+ * yetkili anahtar Worker'a konmaz. 30 dakikada bir (Dodo API'sini 2 dakikada
+ * bir yormasın). Dodo'nun kendi kesintisi alarm değildir (bilinmiyor);
+ * anahtarın reddi alarmdır — izleme kör kalmış demektir.
+ */
+function dodoKontrolu(env, sb) {
+    const base = String(env.DODO_API_BASE || 'https://test.dodopayments.com').replace(/\/$/, '');
+    const hedef = `${sb}/functions/v1/dodo-webhook`;
+    return {
+        id: 'dodo', ad: 'Dodo ucu', grup: 'dodo', onem: 'yuksek', aralikDk: 30,
+        baslik: 'Dodo bildirim ucu kapalı — abonelik olayları gelmiyor',
+        etki: "Ödeme ve yenileme bildirimleri TimeFlow'a ulaşmıyor. Abonelik kapısı açıkken ödeyen salon yenileme gününde kilitlenir.",
+        yap: "Dodo → Developer → Webhooks → TimeFlow ucu → Enable. Sonra Claude'a \"Dodo ucu alarmı\" yaz (aradaki olaylar Recover ile geri alınır).",
+        url: `${base}/webhooks?limit=100`,
+        headers: { authorization: `Bearer ${env.DODO_READONLY_KEY}` },
+        belirsizAgHatasi: true,
+        degerlendir: (status, metin) => dodoUcuDurumu(status, metin, hedef),
+    };
+}
+
+const sonEgik = (u) => String(u ?? '').replace(/\/+$/, '');
+
+/**
+ * `GET /webhooks` cevabı → { ok, ayrinti } ya da { bilinmiyor, ayrinti }.
+ * Bilinmiyor = Dodo'nun kendi sorunu; bu tur sayılmaz, durum değişmez.
+ */
+export function dodoUcuDurumu(status, metin, hedef) {
+    if (status === 401 || status === 403) {
+        return { ok: false, ayrinti: `izleme anahtarı reddedildi (HTTP ${status}) — uç durumu bilinmiyor` };
+    }
+    if (status === 429 || status >= 500) return { bilinmiyor: true, ayrinti: `Dodo API'si cevap vermedi (HTTP ${status})` };
+    if (status !== 200) return { ok: false, ayrinti: `beklenmeyen cevap (HTTP ${status})` };
+    let liste;
+    try { liste = JSON.parse(metin); } catch { return { bilinmiyor: true, ayrinti: 'Dodo cevabı okunamadı' }; }
+    const uclar = (Array.isArray(liste?.data) ? liste.data : []).filter((w) => sonEgik(w?.url) === sonEgik(hedef));
+    if (!uclar.length) {
+        return liste?.done === false
+            ? { bilinmiyor: true, ayrinti: 'uç listesi tek sayfaya sığmadı' }
+            : { ok: false, ayrinti: "TimeFlow ucu Dodo'da kayıtlı değil" };
+    }
+    const acik = uclar.filter((w) => w.disabled !== true);
+    if (!acik.length) return { ok: false, ayrinti: 'Dodo ucu devre dışı bıraktı' };
+    const filtre = acik[0].filter_types;
+    if (Array.isArray(filtre) && filtre.length) {
+        const eksik = DODO_GEREKLI_OLAYLAR.filter((o) => !filtre.includes(o));
+        if (eksik.length) return { ok: false, ayrinti: `uç şu olayları almıyor: ${eksik.join(', ')}` };
+    }
+    return { ok: true, ayrinti: '' };
+}
+
+/** Bu turda koşacak mı? `aralikDk` olan kontrol yalnız o dakikalarda (00, 30…). */
+export function siraGeldiMi(k, zaman) {
+    if (!k.aralikDk) return true;
+    return Math.floor(zaman / 60_000) % k.aralikDk === 0;
 }
 
 /** Tek deneme. Hiçbir zaman fırlatmaz; sonucu döner. Ayrıntı sade Türkçe. */
@@ -99,6 +168,10 @@ export async function kontrolEt(k, fetchImpl, zamanAsimiMs = ZAMAN_ASIMI_MS) {
             signal: AbortSignal.timeout(zamanAsimiMs),
         });
         const metin = await res.text();
+        if (k.degerlendir) {
+            const d = k.degerlendir(res.status, metin);
+            return d.bilinmiyor ? { ...sonuc(false, d.ayrinti), bilinmiyor: true } : sonuc(d.ok, d.ayrinti ?? '');
+        }
         if (res.status !== k.beklenen) {
             return sonuc(false, res.status >= 500
                 ? `sunucu cevap verdi ama servis kapalı (HTTP ${res.status})`
@@ -108,7 +181,10 @@ export async function kontrolEt(k, fetchImpl, zamanAsimiMs = ZAMAN_ASIMI_MS) {
         return sonuc(true, '');
     } catch (e) {
         const zaman = e?.name === 'TimeoutError' || e?.name === 'AbortError';
-        return sonuc(false, zaman ? `sunucu ${zamanAsimiMs / 1000} sn içinde cevap vermedi` : 'sunucuya hiç ulaşılamıyor');
+        const r = sonuc(false, zaman ? `sunucu ${zamanAsimiMs / 1000} sn içinde cevap vermedi` : 'sunucuya hiç ulaşılamıyor');
+        // Dışarıdaki bir API'ye (Dodo) ulaşılamaması bizim servisimizin
+        // kapalı olduğu anlamına gelmez.
+        return k.belirsizAgHatasi ? { ...r, bilinmiyor: true } : r;
     }
 }
 
@@ -270,7 +346,8 @@ export function ozet(tur, sonuclar, kapali, simdi, liste) {
     const n = sonuclar.length;
     const dusen = sonuclar.filter((s) => !s.ok)
         .map((s) => [null, `• ${ad[s.id].ad}: ${kapali[s.id] ? `kapalı (${sure(simdi - kapali[s.id].since)}, başladı ${saat(kapali[s.id].since)})` : s.ayrinti}`]);
-    const hepsi = 'Giriş, veritabanı, personel servisi, masaüstü ve site ayakta.';
+    const hepsi = 'Giriş, veritabanı, personel servisi, masaüstü ve site ayakta.'
+        + (sonuclar.some((s) => s.id === 'dodo') ? ' Dodo bildirim ucu açık.' : '');
     const title = tur === 'basladi'
         ? `İzleme başladı · ${ayakta}/${n} ayakta`
         : dusen.length ? `Sabah durumu · ${ayakta}/${n} ayakta` : `Her şey çalışıyor · ${n}/${n}`;
@@ -390,7 +467,10 @@ export async function calistir({ zaman, env, fetchImpl, uyu = uyku }) {
     }
     const liste = kontroller(env);
     const onceki = (await env.DURUM.get('durum', 'json')) ?? { basladi: null, kapali: {} };
-    const sonuclar = await Promise.all(liste.map((k) => denetle(k, fetchImpl, uyu)));
+    const tumu = await Promise.all(liste.filter((k) => siraGeldiMi(k, zaman)).map((k) => denetle(k, fetchImpl, uyu)));
+    // Cevabı belirsiz olan (Dodo'nun kendi kesintisi) bu tur hiç sayılmaz:
+    // ne düşüş ne düzelme — durum bir sonraki net cevaba kadar aynı kalır.
+    const sonuclar = tumu.filter((s) => !s.bilinmiyor);
     const { sonraki, bildirimler, degisti } = karar(onceki, sonuclar, zaman, liste);
 
     let yaz = degisti;
@@ -408,7 +488,7 @@ export async function calistir({ zaman, env, fetchImpl, uyu = uyku }) {
     }
     if (yaz && hepsiGitti) await env.DURUM.put('durum', JSON.stringify(sonraki));
 
-    console.log(sonuclar.map((s) => `${s.id} ${s.ok ? 'ok' : `KAPALI (${s.ayrinti})`} ${s.ms}ms`).join(' · ')
+    console.log(tumu.map((s) => `${s.id} ${s.ok ? 'ok' : s.bilinmiyor ? `BİLİNMİYOR (${s.ayrinti})` : `KAPALI (${s.ayrinti})`} ${s.ms}ms`).join(' · ')
         + (hepsiGitti ? '' : ' · BİLDİRİM GİDEMEDİ'));
     return { sonuclar, bildirimler, yazildi: yaz && hepsiGitti };
 }

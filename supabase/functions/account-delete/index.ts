@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveOrg } from '../_shared/org.ts';
+import { cancelNow, dodoApi } from '../_shared/dodo.ts';
 import { revokeApple } from './apple.ts';
 
 const corsHeaders = {
@@ -41,10 +42,12 @@ const corsHeaders = {
  * daha açık kalır ve karşılığında hiçbir hizmet olmayan bir tahsilat daha
  * döner.
  *
- * Abonelik verisi TimeFlow'da değil LUERA Core'da yaşıyor; oraya HTTPS ile
- * gidiliyor (`CORE_SUPABASE_URL` / `CORE_SERVICE_KEY`, app_secrets'ten).
+ * Dodo abonelik kimliği yerel aynada (`org_entitlement.dodo_subscription_id`,
+ * 123). LUERA Core'a GİDİLMEZ: eskiden gidiliyordu ve Core düşünce hesap
+ * silinemiyordu (5.1.1(v)). Core'daki kopya, Dodo'nun iptal olayı webhook'a
+ * gelince "işletme silinmiş" yoluyla kapanır.
  *
- * `billing_events` bilerek FK'sız: org silinse de LUERA'nın kendi ödeme
+ * `dodo_events` bilerek FK'sız: org silinse de Luera'nın kendi ödeme
  * geçmişi durur. Bu Luera'nın muhasebe kaydı, salonun verisi değil.
  *
  * ── Sıralama ────────────────────────────────────────────────────────────────
@@ -71,8 +74,6 @@ const corsHeaders = {
  * ama sahibi olduğu bir işletme satırı varsa (üyeliksiz, tutarsız durum)
  * DURULUR: `organizations.owner_id` cascade ile o işletmeyi de silerdi.
  */
-
-const MODULE = 'timeflow';
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -205,62 +206,33 @@ Deno.serve(async (req: Request) => {
 });
 
 /**
- * Core'daki aboneliği bulur ve Dodo'da ANINDA iptal eder.
+ * İşletmenin Dodo aboneliğini ANINDA iptal eder (dönem sonu değil).
  *
- * Abonelik hiç yoksa başarı sayılır: ödemeyen bir salonun hesabını silememesi
- * için bir sebep yok. Core yapılandırılmamışsa da başarı — abonelik kapısı
- * henüz açılmadığı kurulumlarda silme bloke edilmemeli.
+ * Aynada abonelik kimliği yoksa başarı sayılır: ödemeyen bir salonun
+ * hesabını silememesi için bir sebep yok. Dodo'ya ulaşılamazsa silme DURUR
+ * (yukarıda) — kullanıcı yeniden dener; abonelik zaten kapanmışsa
+ * (`cancelNow` durumu okur) silme sürer.
  */
 async function cancelSubscription(
     admin: ReturnType<typeof createClient>,
     orgId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-    const coreUrl = await getSecret(admin, 'CORE_SUPABASE_URL');
-    const coreKey = await getSecret(admin, 'CORE_SERVICE_KEY');
-    if (!coreUrl || !coreKey) return { ok: true };
-
-    const core = createClient(coreUrl, coreKey);
-    const { data: subs, error } = await core
-        .from('subscriptions')
-        .select('provider_ref')
+    const { data: ent, error } = await admin
+        .from('org_entitlement')
+        .select('dodo_subscription_id')
         .eq('organization_id', orgId)
-        .eq('module_name', MODULE)
-        .eq('provider', 'dodo')
-        .in('status', ['trial', 'active', 'past_due'])
-        .limit(1);
+        .maybeSingle();
     if (error) {
-        console.error('core subscription lookup failed', error);
-        return { ok: false, reason: 'core_lookup_failed' };
+        console.error('entitlement lookup failed', error);
+        return { ok: false, reason: 'entitlement_lookup_failed' };
     }
 
-    const providerRef = subs?.[0]?.provider_ref;
+    const providerRef = (ent as { dodo_subscription_id?: string | null } | null)?.dodo_subscription_id;
     if (!providerRef) return { ok: true }; // Aboneliği yok — iptal edilecek şey yok.
 
-    const apiKey = await getSecret(admin, 'DODO_API_KEY');
-    const apiBase = (await getSecret(admin, 'DODO_API_BASE')) || 'https://test.dodopayments.com';
-    if (!apiKey) return { ok: false, reason: 'dodo_not_configured' };
-
-    // Dönem sonunda değil, ŞİMDİ: işletme siliniyor.
-    const res = await fetch(`${apiBase}/subscriptions/${providerRef}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' }),
-    });
-    if (!res.ok) {
-        const detail = await res.text().catch(() => '');
-        console.error('Dodo immediate cancel failed', res.status, detail);
-        return { ok: false, reason: 'dodo_cancel_failed' };
-    }
-
-    // Core'daki kaydı da kapat: org silinince satır cascade ile gidecek ama
-    // Core AYRI bir veritabanı, oradaki cascade TimeFlow'un silmesini görmez.
-    await core
-        .from('subscriptions')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('organization_id', orgId)
-        .eq('module_name', MODULE);
-
-    return { ok: true };
+    const api = await dodoApi(admin);
+    if (!api) return { ok: false, reason: 'dodo_not_configured' };
+    return await cancelNow(api, providerRef);
 }
 
 async function getSecret(supabase: ReturnType<typeof createClient>, key: string): Promise<string | null> {

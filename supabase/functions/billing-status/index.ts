@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { computeAccess, type EntitlementRow } from '../_shared/entitlement.ts';
+import { resolveOrg } from '../_shared/org.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -7,20 +9,16 @@ const corsHeaders = {
 };
 
 /**
- * Faturalandırma durumu — BillingTab'in veri kaynağı.
+ * Faturalandırma durumu — Ayarlar › Abonelik ve faturalar'ın veri kaynağı.
  *
- * Abonelik verisi LUERA Core'da yaşar; client Core'a doğrudan erişemez.
- * Bu fonksiyon JWT ile kullanıcıyı doğrular, org'u server-side çözer ve
- * Core'daki subscriptions + billing_events kayıtlarını proxy'ler.
+ * 123'ten beri abonelik gerçeği TimeFlow'da: durum aynadan
+ * (`org_entitlement`), fatura geçmişi yerel olay defterinden (`dodo_events`).
+ * LUERA Core'a GİDİLMEZ. Eskiden gidiliyordu ve Core'un hatası "abonelik
+ * yok" (200) diye dönüyordu → ödeyen salona "satın al" gösteriliyordu.
+ * Artık okunamayan şey 500 döner; ekran "okunamadı — yenileyin" çizer.
  *
- * Dönüş: { subscription: {...} | null, invoices: [...] }
- * Core yapılandırılmamışsa hata DEĞİL boş durum döner (UI "abonelik yok" gösterir).
+ * Dönüş: { subscription: {...} | null, invoices: [...] } (bkz. src/hooks/useBilling.ts)
  */
-
-const MODULE_NAME = 'timeflow';
-
-// Core plan_tier → TimeFlow plan adı (metadata.plan yoksa yedek eşleme)
-const PLAN_FROM_TIER: Record<string, string> = { starter: 'baslangic', growth: 'pro', enterprise: 'isletme' };
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -41,57 +39,52 @@ Deno.serve(async (req: Request) => {
         const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
         if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
 
-        // 2) Org'u server-side çöz
-        const { data: member } = await admin
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', userData.user.id)
-            .limit(1)
-            .maybeSingle();
-        const orgId = member?.org_id;
-        if (!orgId) return json({ error: 'no_org' }, 403);
+        // 2) İşletme: istemcinin seçtiği, sunucuda doğrulanmış
+        const body = await req.json().catch(() => ({}));
+        const resolved = await resolveOrg(admin, userData.user.id, typeof body?.orgId === 'string' ? body.orgId : null);
+        if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+        const { orgId } = resolved;
 
-        // 3) Core'dan abonelik + fatura geçmişi (sırlar: env → app_secrets)
-        const coreUrl = await getSecret(admin, 'CORE_SUPABASE_URL');
-        const coreKey = await getSecret(admin, 'CORE_SERVICE_KEY');
-        if (!coreUrl || !coreKey) {
-            return json({ subscription: null, invoices: [] }, 200);
-        }
-        const core = createClient(coreUrl, coreKey);
-
-        const [{ data: subs }, { data: events }] = await Promise.all([
-            core.from('subscriptions')
-                .select('plan_tier, status, expires_at, trial_ends_at, metadata')
+        // 3) Ayna + fatura geçmişi
+        const [{ data: row, error: rowErr }, { data: events, error: evErr }] = await Promise.all([
+            admin.from('org_entitlement')
+                .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, cancel_at_period_end, cancelled_at')
                 .eq('organization_id', orgId)
-                .eq('module_name', MODULE_NAME)
-                .in('status', ['trial', 'active', 'past_due'])
-                .order('created_at', { ascending: false })
-                .limit(1),
-            core.from('billing_events')
-                .select('event_type, amount, currency, invoice_url, occurred_at')
+                .maybeSingle(),
+            admin.from('dodo_events')
+                .select('event_at, received_at, amount, currency, invoice_url')
                 .eq('organization_id', orgId)
-                .eq('module_name', MODULE_NAME)
                 .eq('event_type', 'payment.succeeded')
-                .order('occurred_at', { ascending: false })
+                .order('received_at', { ascending: false })
                 .limit(12),
         ]);
+        if (rowErr || evErr) {
+            console.error('billing-status: okunamadı', rowErr ?? evErr);
+            return json({ error: 'read_failed' }, 500);
+        }
 
-        // Core şemasını UI sözleşmesine çevir (bkz. src/hooks/useBilling.ts)
-        const row = subs?.[0] ?? null;
-        const md = (row?.metadata ?? {}) as Record<string, unknown>;
-        const subscription = row ? {
-            plan: (md.plan as string) || PLAN_FROM_TIER[row.plan_tier] || 'pro',
-            billing_period: (md.cycle as string) || 'monthly',
-            // Core 'past_due' → UI 'on_hold' (ÖDEME BEKLENİYOR rozeti); 'trial' aktif sayılır
-            status: row.status === 'past_due' ? 'on_hold' : 'active',
-            cancel_at_period_end: md.cancel_at_period_end === true,
-            expires_at: row.status === 'trial' ? (row.trial_ends_at ?? row.expires_at) : row.expires_at,
-            cancelled_at: (md.cancelled_at as string) ?? null,
-        } : null;
+        // Ayna şemasını UI sözleşmesine çevir. Süresi zamanla dolmuş bir
+        // "active" satır `expired` döner: ekran "Sonraki tahsilat" yerine plan
+        // kartlarını çizer.
+        let subscription = null;
+        if (row && row.state !== 'none') {
+            const access = computeAccess(row as EntitlementRow);
+            const status = !access.ok ? 'expired'
+                : access.effective === 'grace' ? 'on_hold'
+                : 'active';
+            subscription = {
+                plan: row.plan || 'pro',
+                billing_period: row.cycle || 'monthly',
+                status,
+                cancel_at_period_end: row.cancel_at_period_end === true,
+                expires_at: row.state === 'trial' ? (row.trial_ends_at ?? row.expires_at) : row.expires_at,
+                cancelled_at: row.cancelled_at ?? null,
+            };
+        }
 
-        const invoices = (events ?? []).map((e: any) => ({
-            date: e.occurred_at,
-            amount: e.amount,
+        const invoices = (events ?? []).map((e: { event_at: string | null; received_at: string; amount: number | null; currency: string | null; invoice_url: string | null }) => ({
+            date: e.event_at ?? e.received_at,
+            amount: e.amount === null ? null : Number(e.amount),
             currency: e.currency || 'TRY',
             invoiceUrl: e.invoice_url || null,
         }));
@@ -108,12 +101,4 @@ function json(body: unknown, status: number): Response {
         status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-}
-
-// Sır okuma: önce env, yoksa app_secrets tablosu (repo deseni)
-async function getSecret(supabase: any, key: string): Promise<string | null> {
-    const env = Deno.env.get(key);
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', key).maybeSingle();
-    return data?.value ?? null;
 }

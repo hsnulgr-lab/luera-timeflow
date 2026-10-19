@@ -71,9 +71,10 @@ function ms(iso: string | null | undefined): number | null {
 /**
  * Erişim kararı — SAF.
  *
- * 086_entitlement.sql'deki has_timeflow_access() ile AYNI mantığı uygular;
- * ikisi ayrışırsa RLS bir şey, arayüz başka bir şey söyler. Testte iki
- * tarafın da aynı örneklerle sınanması bu yüzden şart.
+ * has_timeflow_access() (son hâli 123_abonelik_yerel_kaynak.sql) ile AYNI
+ * mantığı uygular; ikisi ayrışırsa RLS bir şey, arayüz başka bir şey söyler.
+ * 086'daki sürüm ek sürede ayrışıyordu — tests/abonelik-yerel.test.mjs iki
+ * tarafı aynı örneklerle gerçek Postgres'te (PGlite) koşturur.
  */
 export function computeAccess(row: EntitlementRow | null | undefined, now: number = Date.now()): Access {
     if (!row) {
@@ -150,19 +151,19 @@ export async function checkAccess(admin: Admin, orgId: string): Promise<Access> 
 /**
  * Aynayı günceller — tek yazar dodo-webhook.
  *
- * Core'a yazmak yeterli değil: Core ayrı bir Supabase projesi, TimeFlow'un
- * RLS politikaları ve edge fonksiyonları oraya bakamaz.
+ * 123'ten beri abonelik gerçeği BURASI; Core kopya. Hata YUTULMAZ: eskiden
+ * yalnız loglanıyordu, webhook 200 dönüyor ve Dodo yeniden denemiyordu —
+ * ayna sessizce eski kalıyordu. Çağıran hatayı Dodo'ya 500 olarak iletir.
  */
 export async function mirrorEntitlement(
     admin: Admin,
     orgId: string,
-    patch: Partial<EntitlementRow> & { last_event?: string },
-): Promise<void> {
+    patch: Partial<EntitlementRow> & Record<string, unknown>,
+): Promise<{ code?: string; message?: string } | null> {
     const { error } = await admin.from('org_entitlement').upsert(
         { organization_id: orgId, ...patch, updated_at: new Date().toISOString() },
         { onConflict: 'organization_id' },
     );
-    // Ayna yazılamazsa Core'daki gerçek bozulmaz ama kapı yanlış karar verir —
-    // sessiz geçmek yerine logla; webhook zaten 500 dönüp Dodo'ya retry ettirir.
     if (error) console.error('mirrorEntitlement', orgId, error);
+    return error ?? null;
 }

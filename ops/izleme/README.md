@@ -15,6 +15,7 @@ dönüşte ölü kaldı ve ~45 dk kimse fark etmedi. İzleme bu yüzden Hostinge
 | Personel servisi | `staff-api`, jetonsuz | **401** + `invalid_token` (= fonksiyon açılıyor) |
 | Masaüstü | `timeflow.lueratech.com` | 200 + `id="root"` |
 | Luera sitesi | `lueratech.com` | 200 |
+| Dodo ucu (30 dk'da bir, anahtar varsa) | Dodo `GET /webhooks` → TimeFlow'un `…/dodo-webhook` ucu | var, `disabled` değil, filtre abonelik olaylarını alıyor |
 
 ## Ne zaman bildirim gelir
 
@@ -80,6 +81,38 @@ tek seferlik $4.99.
 Öncelikler: düşüş **acil** (onaylanana dek 5 dk'da bir, en çok 1 saat),
 saatlik hatırlatma yüksek, düzelme normal, sabah 09:00 sessiz.
 
+## Dodo ucu (2026-10-19)
+
+**Neden:** Eylül'de webhook günlerce 500 dönünce Dodo, TimeFlow'un ucunu
+**kendiliğinden** devre dışı bıraktı; 8 hafta tek abonelik olayı gelmedi ve
+TimeFlow tarafında her şey sağlıklı göründüğü için kimse fark etmedi
+(`docs/devir/10-CORE-DODO-BASLANGIC.md` §9). Uç kapanınca **bir kez sesli**
+(Pushover 1) alarm, açılınca "yeniden çalışıyor".
+
+- Yalnız **salt okunur** Dodo anahtarıyla çalışır; yazma yetkili anahtar
+  Worker'a konmaz. Anahtar yoksa kontrol hiç yoktur (alarm üretmez).
+- Dodo'nun kendi kesintisi (5xx, 429, ulaşılamıyor) alarm değildir: o tur
+  sayılmaz. Anahtarın reddi (401/403) alarmdır — izleme kör kalmış demektir.
+
+Kurulum (bir kez):
+
+1. Dodo paneli (**Test** kipi) → Developer → API Keys → yeni anahtar, ad
+   `Luera İzleme`, **Enable write access KAPALI**.
+2. Önce bu komutu çalıştır; soru gelince Dodo'dan anahtarı kopyalayıp
+   **soruya** yapıştır (sırayı ters yaparsan pano komutla ezilir):
+   `read -rs "K?Dodo salt okunur anahtar: " && echo && printf 'DODO_READONLY_KEY=%s\n' "$K" >> ~/.luera-izleme.env && unset K && echo eklendi`
+3. Bilgisayardan dene: `node ops/izleme/dene.mjs` → `✓ dodo`. Uç o an
+   kapalıysa `✗ dodo … Dodo ucu devre dışı bıraktı` (kontrol çalışıyor demek).
+   `anahtar reddedildi` görürsen salt okunur anahtar `/webhooks`'u okuyamıyor
+   demektir — Claude'a yaz, yazma yetkili anahtarı **koyma**.
+4. Worker'a ver ve yükle (`ops/izleme` klasöründe):
+   `npx wrangler@4.147.0 secret bulk ~/.luera-izleme.env && npx wrangler@4.147.0 deploy`
+5. Dodo → Webhooks → **Settings** → e-posta uyarısına adresini yaz (ikinci kanal).
+
+**Dodo Live'a geçince:** `wrangler.toml` → `DODO_API_BASE =
+"https://live.dodopayments.com"` ve Live kipinde yeni salt okunur anahtar
+(Test anahtarı Live'da geçmez); 2-4. adımlar yeniden.
+
 ## Elle deneme
 
 Depo kökünden. Kontrolleri bu bilgisayardan bir kez koşar, bildirim göndermez:
@@ -98,4 +131,5 @@ Ayarlı kanallara (Pushover, ntfy) tek bir deneme bildirimi:
   `DEMO_SLUG`'ı başka bir açık salona çevir.
 - **Durdurmak:** `npx wrangler@4.147.0 delete`.
 - **Ücretsiz plan payı:** günde 720 tur; depoya yalnız durum değişince yazılır
-  (sınır 1000/gün); tur başına en çok ~13 alt istek (sınır 50).
+  (sınır 1000/gün); tur başına en çok ~15 alt istek (sınır 50; Dodo yalnız
+  :00 ve :30 turlarında).
