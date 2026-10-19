@@ -984,7 +984,7 @@ export function KuaforDashboard() {
                             <div className="resource-ribbon">
                                 <span className="ribbon-label">KOLTUKLAR &amp; YIKAMA</span>
                                 {units.length === 0 && (
-                                    <button onClick={() => navigate('/settings')}>Henüz koltuk eklenmemiş — Ayarlar'dan ekleyin</button>
+                                    <button onClick={() => navigate('/settings/kaynaklar')}>Henüz koltuk eklenmemiş — Ayarlar'dan ekleyin</button>
                                 )}
                                 {units.slice(0, 4).map((u) => (
                                     <button key={u.id} onClick={() => setBoardView('seats')}>

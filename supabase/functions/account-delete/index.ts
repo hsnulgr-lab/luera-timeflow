@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveOrg } from '../_shared/org.ts';
+import { revokeApple } from './apple.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,21 @@ const corsHeaders = {
  *
  * Auth kaydı EN SON silinir: silindiği anda JWT geçersizleşir ve sonraki
  * adımlar yetkisiz kalırdı.
+ *
+ * ── Apple belge iptali (TN3194 · 2026-10-19) ────────────────────────────────
+ *
+ * Gövdede `appleCode` varsa (Apple ile girmiş kişi, silmeden önce Apple'a bir
+ * kez daha sordu) yetki kontrolünden SONRA, hiçbir şey silinmeden ÖNCE kod
+ * belgeye çevrilip Apple'da iptal edilir (`apple.ts`). Kod geçersizse ya da
+ * başka bir Apple Kimliğiyse silme durur; Apple'a ulaşılamazsa silme sürer.
+ * Kod yoksa (1.0.1 telefonları, e-posta hesapları) bugünkü gibi silinir.
+ *
+ * ── İşletmesiz hesap ───────────────────────────────────────────────────────
+ *
+ * Apple/Google ile girip köprüde işletme açmadan bırakan kişi `no_org`
+ * alıyor ve kendini SİLEMİYORDU. Üyeliği yoksa yalnız giriş kaydı silinir —
+ * ama sahibi olduğu bir işletme satırı varsa (üyeliksiz, tutarsız durum)
+ * DURULUR: `organizations.owner_id` cascade ile o işletmeyi de silerdi.
  */
 
 const MODULE = 'timeflow';
@@ -77,11 +93,54 @@ Deno.serve(async (req: Request) => {
 
         const body = await req.json().catch(() => ({}));
 
+        /** Apple adımı — çağıran yalnız yetki doğrulandıktan sonra çağırır. */
+        const appleStep = async (): Promise<Response | null> => {
+            if (typeof body.appleCode !== 'string' || !body.appleCode) return null;
+            const identity = (userData.user.identities ?? []).find((i) => i.provider === 'apple');
+            const expectedSub = identity ? String((identity.identity_data as { sub?: string } | undefined)?.sub ?? identity.id) : null;
+            const out = await revokeApple({
+                code: body.appleCode,
+                client: String(body.appleClient ?? 'ios'),
+                redirectUri: typeof body.appleRedirectUri === 'string' ? body.appleRedirectUri : null,
+                expectedSub,
+                pem: await getSecret(admin, 'APPLE_SIGNIN_KEY'),
+            });
+            console.log(`account-delete apple=${out.kind}${'reason' in out ? ` reason=${out.reason}` : ''}`);
+            if (out.kind === 'code_invalid') return json({ error: 'apple_code_invalid' }, 400);
+            if (out.kind === 'mismatch') return json({ error: 'apple_mismatch' }, 400);
+            if (out.kind === 'bad_request') return json({ error: 'apple_bad_request', detail: out.reason }, 400);
+            return null;
+        };
+
         const resolved = await resolveOrg(admin, userId, body.orgId ?? null);
+
+        // ── İşletmesiz hesap: yalnız giriş kaydı ────────────────────────────
+        if ('error' in resolved && resolved.error === 'no_org') {
+            const { data: owned, error: ownedErr } = await admin
+                .from('organizations').select('id').eq('owner_id', userId).limit(1);
+            if (ownedErr) {
+                console.error('owned org lookup failed', ownedErr);
+                return json({ error: 'owner_lookup_failed' }, 500);
+            }
+            if ((owned ?? []).length > 0) return json({ error: 'org_without_membership' }, 409);
+            const stop = await appleStep();
+            if (stop) return stop;
+            const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+            if (authErr) {
+                console.error('auth user delete failed (no org)', authErr);
+                return json({ error: 'auth_delete_failed', orgDeleted: false }, 500);
+            }
+            return json({ deleted: true, orgDeleted: false }, 200);
+        }
+
         if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
         const { orgId, role } = resolved;
 
         if (role !== 'owner') return json({ error: 'forbidden_role' }, 403);
+
+        // Apple — yetki tamam, henüz hiçbir şey silinmedi.
+        const appleStop = await appleStep();
+        if (appleStop) return appleStop;
 
         // Bu org'un kaç sahibi var? Yıkımın kapsamını BU belirler.
         const { data: owners, error: ownerErr } = await admin

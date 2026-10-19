@@ -8,9 +8,42 @@ import { readCache, writeCache } from '@/lib/swrCache';
 import { getReservationConflictError } from '@/lib/reservationErrors';
 import { todayISO, toISODate } from '@/utils/date';
 import { buildConfirmationMessage, buildRebookMessage } from '@/services/waTemplates';
+
 import { sendWhatsApp, lastProxyError, WA_FAIL_TEXT } from '@/services/whatsapp';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN, didBecomeClosed, recallDaysFor } from '@/lib/appointmentFlow';
-import type { Reservation, Settings, Service } from '@/types';
+import type { Reservation, Settings, Service, ServiceRecipeLine } from '@/types';
+
+/*
+ * HİZMET REÇETESİ — 2026-10-19'a kadar HİÇ KAYDEDİLMİYORDU.
+ *
+ * Ayarlar → Hizmetler'de reçete girilebiliyordu ama ne okuma ne yazma
+ * `recipe`'ye dokunuyordu ve tabloda kolon yoktu: girilen reçete sayfa
+ * yenilenince kayboluyor, stoktan hiçbir şey düşmüyordu. Kolon göç 122 ile
+ * geldi (`services.recipe jsonb`).
+ *
+ * Göç çalışmadan masaüstü yayına çıkarsa hizmet kaydı DURMASIN: kolon yok
+ * hatasında (PGRST204 / 42703) reçetesiz yeniden yazılır, bu oturumda bir
+ * daha denenmez ve çağıran "reçete kaydedilemedi" der (`recipeUnsaved`).
+ */
+let recipeColumn: boolean | null = null;
+
+function isMissingRecipeColumn(error: { code?: string; message?: string }): boolean {
+    return (error.code === 'PGRST204' || error.code === '42703') && /recipe/i.test(error.message ?? '');
+}
+
+/** Bu oturumda reçete sütunu bulunamadıysa true — Ayarlar uyarı yazar. */
+export function recipeUnsaved(): boolean {
+    return recipeColumn === false;
+}
+
+function recipeOf(raw: unknown): ServiceRecipeLine[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const lines = raw
+        .filter((l): l is { productId: unknown; quantity: unknown } => !!l && typeof l === 'object')
+        .map((l) => ({ productId: String(l.productId ?? ''), quantity: Number(l.quantity) || 0 }))
+        .filter((l) => l.productId);
+    return lines.length > 0 ? lines : undefined;
+}
 
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
 const defaultServices: Service[] = [
@@ -315,6 +348,7 @@ function useReservationsState() {
             // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
             // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
             tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
+            recipe: recipeOf(s.recipe),
         }));
 
         const seen = new Set<string>();
@@ -1025,10 +1059,15 @@ function useReservationsState() {
 
         // 2) Mevcut hizmetleri güncelle (ID korunur)
         for (const s of toUpdate) {
-            const { error } = await supabase
+            const row = { name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null, tags: s.tags ?? [] };
+            let { error } = await supabase
                 .from('services')
-                .update({ name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null, tags: s.tags ?? [] })
+                .update(recipeColumn !== false ? { ...row, recipe: s.recipe ?? [] } : row)
                 .eq('id', s.id);
+            if (error && isMissingRecipeColumn(error)) {
+                recipeColumn = false;
+                ({ error } = await supabase.from('services').update(row).eq('id', s.id));
+            }
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
                 console.error('Error updating service:', error);
@@ -1038,18 +1077,23 @@ function useReservationsState() {
 
         // 3) Yeni hizmetleri ekle (ID'yi DB üretir)
         if (toInsert.length > 0) {
-            const { error } = await supabase.from('services').insert(
-                toInsert.map(s => ({
-                    user_id: user.id,
-                    organization_id: orgId,
-                    name: s.name,
-                    duration: s.duration,
-                    color: s.color,
-                    price: s.price || null,
-                    recall_days: s.recallDays || null,
-                    tags: s.tags ?? [],
-                }))
-            );
+            const rows = toInsert.map(s => ({
+                user_id: user.id,
+                organization_id: orgId,
+                name: s.name,
+                duration: s.duration,
+                color: s.color,
+                price: s.price || null,
+                recall_days: s.recallDays || null,
+                tags: s.tags ?? [],
+                ...(recipeColumn !== false ? { recipe: s.recipe ?? [] } : {}),
+            }));
+            let { error } = await supabase.from('services').insert(rows);
+            if (error && isMissingRecipeColumn(error)) {
+                recipeColumn = false;
+                ({ error } = await supabase.from('services').insert(
+                    rows.map((r) => { const rest: Record<string, unknown> = { ...r }; delete rest.recipe; return rest; })));
+            }
             if (error) {
                 toast.error('Hizmetler kaydedilemedi');
                 console.error('Error inserting services:', error);
@@ -1079,6 +1123,7 @@ function useReservationsState() {
             // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
             // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
             tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
+            recipe: recipeOf(s.recipe),
         }));
 
         setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });

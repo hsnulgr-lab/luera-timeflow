@@ -4,6 +4,8 @@ import { applyMobileThemeVars } from '@/mobile/theme';
 interface ThemeContextValue {
   dark: boolean;
   toggle: () => void;
+  /** Açık/koyu'yu doğrudan seçer (Ayarlar → Hesabım → Görünüm). */
+  setDark: (dark: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -26,7 +28,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggle = () => setDark(d => !d);
 
   return (
-    <ThemeContext.Provider value={{ dark, toggle }}>
+    <ThemeContext.Provider value={{ dark, toggle, setDark }}>
       {children}
     </ThemeContext.Provider>
   );

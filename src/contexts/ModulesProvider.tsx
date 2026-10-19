@@ -9,8 +9,11 @@ export interface ModulesContextValue {
     modules: Modules;
     isLoading: boolean;
     isEnabled: (key: ModuleKey) => boolean;
-    setModule: (key: ModuleKey, value: boolean) => Promise<void>;
-    applySectorDefaults: (sector: string) => Promise<void>;
+    /** Sunucu yazdıysa true; hata olursa eski hâle döner ve false. */
+    setModule: (key: ModuleKey, value: boolean) => Promise<boolean>;
+    /** Birden çok modülü TEK yazımla değiştirir (Masa açılınca Kasa da açılır). */
+    patchModules: (patch: Partial<Modules>) => Promise<boolean>;
+    applySectorDefaults: (sector: string) => Promise<boolean>;
 }
 
 export const ModulesContext = createContext<ModulesContextValue | null>(null);
@@ -73,31 +76,38 @@ export const ModulesProvider = ({ children }: { children: React.ReactNode }) => 
     }, [orgId]);
 
     // Tek modülü değiştir — optimistic, hata olursa geri al
-    const setModule = useCallback(async (key: ModuleKey, value: boolean) => {
-        if (!orgId) return;
+    const patchModules = useCallback(async (patch: Partial<Modules>): Promise<boolean> => {
+        if (!orgId) return false;
         const prev = modules;
-        const next = { ...modules, [key]: value };
+        const next = { ...modules, ...patch } as Modules;
         setModules(next);
         writeCache(`modules:${orgId}`, next);
         const { error } = await supabase.from('organizations').update({ modules: next }).eq('id', orgId);
-        if (error) { setModules(prev); writeCache(`modules:${orgId}`, prev); }
+        if (error) { setModules(prev); writeCache(`modules:${orgId}`, prev); return false; }
+        return true;
     }, [orgId, modules]);
 
+    const setModule = useCallback(
+        (key: ModuleKey, value: boolean) => patchModules({ [key]: value } as Partial<Modules>),
+        [patchModules],
+    );
+
     // Sektör değişince o sektörün varsayılan modüllerini uygula
-    const applySectorDefaults = useCallback(async (sector: string) => {
-        if (!orgId) return;
+    const applySectorDefaults = useCallback(async (sector: string): Promise<boolean> => {
+        if (!orgId) return false;
         const next = modulesForSector(sector);
         const prev = modules;
         setModules(next);
         writeCache(`modules:${orgId}`, next);
         const { error } = await supabase.from('organizations').update({ modules: next }).eq('id', orgId);
-        if (error) { setModules(prev); writeCache(`modules:${orgId}`, prev); }
+        if (error) { setModules(prev); writeCache(`modules:${orgId}`, prev); return false; }
+        return true;
     }, [orgId, modules]);
 
     const isEnabled = useCallback((key: ModuleKey) => modules[key] !== false, [modules]);
 
     return (
-        <ModulesContext.Provider value={{ modules, isLoading, isEnabled, setModule, applySectorDefaults }}>
+        <ModulesContext.Provider value={{ modules, isLoading, isEnabled, setModule, patchModules, applySectorDefaults }}>
             {children}
         </ModulesContext.Provider>
     );

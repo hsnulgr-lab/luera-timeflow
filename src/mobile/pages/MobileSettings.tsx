@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useModules } from '@/hooks/useModules';
@@ -26,13 +26,19 @@ export const MobileSettings = () => {
     const { profile } = useOrgProfile();
     const [sheet, setSheet] = useState<SheetId>(null);
     const [params] = useSearchParams();
+    const { pathname } = useLocation();
 
-    // Yönetim grid’inden ?tab=services / ?tab=hours ile gelince ilgili sheet’i aç
+    // Yönetim grid’inden ?tab=services / ?tab=hours ile gelince ilgili sheet’i aç.
+    // Masaüstünün yeni adresleri (/settings/online-randevu …) de aynı sheet'e
+    // düşer — sol menünün "Booking Sayfam"ı artık oraya gidiyor (2026-10-19).
     useEffect(() => {
         const tab = params.get('tab');
         const map: Record<string, SheetId> = { services: 'services', hours: 'hours', modules: 'modules', booking: 'booking' };
+        const byPath: Record<string, SheetId> = { hizmetler: 'services', 'calisma-saatleri': 'hours', moduller: 'modules', 'online-randevu': 'booking' };
+        const seg = pathname.replace(/^\/settings\/?/, '').split('/')[0];
         if (tab && map[tab]) setSheet(map[tab]);
-    }, [params]);
+        else if (seg && byPath[seg]) setSheet(byPath[seg]);
+    }, [params, pathname]);
 
     // Yönetici Modu kapalıysa (cihazda hiç PIN girilmemiş) sessizce ana sayfaya
     // dönmek yerine giriş kapısına yönlendir — aksi hâlde "Ayarlar" butonu hiçbir
@@ -108,7 +114,7 @@ function BusinessSheet({ open, onClose, settings, updateSettings }: SheetProps) 
 }
 
 // ─── Modüller ────────────────────────────────────────────────────────────────
-function ModulesSheet({ open, onClose, modules, setModule }: { open: boolean; onClose: () => void; modules: Record<string, boolean>; setModule: (k: any, v: boolean) => Promise<void> }) {
+function ModulesSheet({ open, onClose, modules, setModule }: { open: boolean; onClose: () => void; modules: Record<string, boolean>; setModule: (k: any, v: boolean) => Promise<unknown> }) {
     return (
         <BottomSheet open={open} onClose={onClose} title="Modüller">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, paddingTop: 6, paddingBottom: 4 }}>

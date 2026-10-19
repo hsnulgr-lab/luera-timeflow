@@ -83,7 +83,7 @@ export const Layout = () => {
                     kullanıcı haftalarca fark etmeyebiliyordu. */}
                 {waBroken && !path.startsWith('/settings') && (
                     <button
-                        onClick={() => navigate('/settings?tab=whatsapp')}
+                        onClick={() => navigate('/settings/whatsapp')}
                         className={cn(
                             "flex items-center gap-2 px-4 py-2 text-[12.5px] font-semibold border-b w-full text-left",
                             dark

@@ -24,6 +24,8 @@ export function useBilling() {
     const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
+    // Okunamadı ≠ abonelik yok: Ayarlar → Özet ikisini ayrı çizer.
+    const [error, setError] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const refresh = useCallback(async (): Promise<BillingSubscription | null> => {
@@ -34,8 +36,10 @@ export function useBilling() {
             .catch((cause: unknown) => ({ data: null, error: cause }));
         if (error) {
             console.error('billing-status:', error);
+            setError(true);
             return null;
         }
+        setError(false);
         setSubscription(data?.subscription ?? null);
         setInvoices(data?.invoices ?? []);
         return data?.subscription ?? null;
@@ -102,5 +106,5 @@ export function useBilling() {
         return true;
     }, [pollAfterCheckout]);
 
-    return { subscription, invoices, loading, busy, refresh, startCheckout, cancelSubscription, pollAfterCheckout };
+    return { subscription, invoices, loading, error, busy, refresh, startCheckout, cancelSubscription, pollAfterCheckout };
 }

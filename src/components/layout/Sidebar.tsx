@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed, Boxes } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { roleLabel } from '@/pages/settings/ayarlarModel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useModules } from '@/hooks/useModules';
@@ -35,7 +36,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, onMobileClose }: SidebarProps) => {
-    const { user, logout } = useAuth();
+    const { user, logout, orgRole } = useAuth();
     const { dark, toggle: toggleTheme } = useTheme();
     const { isEnabled, isLoading: modulesLoading } = useModules();
     const pendingBills = usePendingBills();
@@ -77,7 +78,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
         '/': LDashboard, '/masa': Armchair, '/menu': UtensilsCrossed, '/calendar': LCalendar,
         '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet, '/stock': Boxes,
-        '/staff': LProfile, '/analytics': LChart, '/settings?tab=booking': Link2,
+        '/staff': LProfile, '/analytics': LChart, '/settings/online-randevu': Link2,
         '/dental-chart': ToothIcon,
         '/packages': LPackage,
     };
@@ -105,8 +106,12 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         }
     };
 
+    // "Booking Sayfam" Ayarlar'ın bir bölümüne (/settings/online-randevu)
+    // kısayol. Oradayken ikisi birden yanmasın: tasarım A6'daki gibi yalnız
+    // Ayarlar yanar, ayarlar menüsünde de "Online randevu" seçili görünür.
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/';
+        if (path.startsWith('/settings/')) return false;
         return location.pathname.startsWith(path);
     };
 
@@ -294,7 +299,8 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                         </p>
                                         <p className={cn("text-xs flex items-center gap-1", dark ? "text-[rgba(243,237,227,0.4)]" : "text-gray-500")}>
                                             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                            {user?.role || 'User'}
+                                            {/* Gerçek rol (organization_members) — eskiden herkese sabit "Admin" yazıyordu. */}
+                                            {roleLabel(orgRole) ?? ''}
                                         </p>
                                     </div>
                                     <LChevronUp className={cn(
@@ -324,7 +330,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                             dark ? "bg-[#1B1815] border-[rgba(243,237,227,0.08)]" : "bg-white border-gray-100"
                         )}>
                             <button
-                                onClick={() => { handleNavClick('/settings'); setShowUserMenu(false); }}
+                                onClick={() => { handleNavClick('/settings/hesabim'); setShowUserMenu(false); }}
                                 className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors", menuItemClass)}
                             >
                                 <LProfile className="w-4 h-4" />

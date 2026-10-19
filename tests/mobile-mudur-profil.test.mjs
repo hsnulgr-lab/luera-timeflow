@@ -502,7 +502,9 @@ test('iptal ANINDA — dönem sonu değil', () => {
 
 test('auth kaydı EN SON silinir', () => {
     // Silindiği anda JWT geçersizleşir; sonraki adımlar yetkisiz kalırdı.
-    const authAt = fn.indexOf('auth.admin.deleteUser');
+    // lastIndexOf: 2026-10-19'dan beri işletmesiz hesabın (no_org) kendi kısa
+    // yolu da deleteUser çağırıyor; sıra kuralı işletmeli ana yol için.
+    const authAt = fn.lastIndexOf('auth.admin.deleteUser');
     assert.ok(authAt > fn.indexOf("from('organizations').delete()"));
     // Auth silinemezse "silindi" DENMEZ: giriş yapabildiği sürece silinmemiştir.
     assert.match(fn, /auth_delete_failed/);

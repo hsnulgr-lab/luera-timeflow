@@ -35,7 +35,7 @@ export const NAV_ITEMS: NavItem[] = [
     { id: '/stock', label: 'Stoklar', module: 'kasa' },
     { id: '/staff', label: 'Personel', labelKey: 'staffPlural', shortLabelKey: 'staff', module: 'personel' },
     { id: '/analytics', label: 'Analiz', module: 'analiz', barPrio: 5, managerOnlyInBar: true },
-    { id: '/settings?tab=booking', label: 'Booking Sayfam', module: 'randevu', hideInRestaurant: true, hideInSector: 'dis' },
+    { id: '/settings/online-randevu', label: 'Booking Sayfam', module: 'randevu', hideInRestaurant: true, hideInSector: 'dis' },
 ];
 
 // Alt bar doğal görsel sırası (öncelikten bağımsız)

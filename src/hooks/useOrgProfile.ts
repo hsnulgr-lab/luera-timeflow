@@ -68,6 +68,8 @@ export function useOrgProfile() {
     const [profile, setProfile] = useState<OrgProfile>(EMPTY);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    // Okuma hatası — Ayarlar'da "okunamadı" hâli "boş" gibi çizilmesin diye.
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!orgId) return;
@@ -85,6 +87,7 @@ export function useOrgProfile() {
                 setProfile(fresh);
                 writeCache(`org_profile:${orgId}`, fresh);
             }
+            setError(Boolean(error));
             setLoading(false);
         })();
     }, [orgId]);
@@ -140,7 +143,10 @@ export function useOrgProfile() {
      * yüklenmemişse (ya da başka bir sekmede boş kalmışsa) bio/logo/adres gibi
      * alanlar boş değerle ezilir. Kısmi kayıt bu riski tamamen kaldırır.
      */
-    const savePartial = useCallback(async (patch: Partial<OrgProfile>): Promise<boolean> => {
+    const savePartial = useCallback(async (
+        patch: Partial<OrgProfile>,
+        opts?: { quiet?: boolean; onError?: (code: string | undefined) => void },
+    ): Promise<boolean> => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return false; }
         const row: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(patch)) {
@@ -153,12 +159,19 @@ export function useOrgProfile() {
         const { error } = await supabase.from('organizations').update(row).eq('id', orgId);
         setSaving(false);
         if (error) {
-            toast.error('Ayar kaydedilemedi');
             console.error('savePartial:', error);
+            if (opts?.onError) opts.onError(error.code);
+            else if (error.code === '23505') toast.error('Bu randevu adresi (slug) başka bir işletmede kullanılıyor');
+            else toast.error('Ayar kaydedilemedi');
             return false;
         }
-        setProfile((prev) => ({ ...prev, ...patch }));
-        toast.success('Kaydedildi');
+        setProfile((prev) => {
+            const next = { ...prev, ...patch };
+            writeCache(`org_profile:${orgId}`, next);
+            return next;
+        });
+        // Ayarlar kendi "Kaydedildi"sini çiziyor; ikinci bir bildirim gürültü.
+        if (!opts?.quiet) toast.success('Kaydedildi');
         return true;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orgId]);
@@ -174,5 +187,5 @@ export function useOrgProfile() {
         return data.publicUrl;
     }, [orgId]);
 
-    return { profile, setProfile, loading, saving, save, savePartial, uploadImage };
+    return { profile, setProfile, loading, error, saving, save, savePartial, uploadImage };
 }

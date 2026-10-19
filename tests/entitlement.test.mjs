@@ -230,7 +230,8 @@ test('yedi durumun hepsinin bir karşılığı var', () => {
     const pricing = readFileSync(new URL('../src/pages/public/PricingPage.tsx', import.meta.url), 'utf8');
     const wall = readFileSync(new URL('../src/pages/PaywallPage.tsx', import.meta.url), 'utf8');
     const strip = readFileSync(new URL('../src/components/layout/SubscriptionBanner.tsx', import.meta.url), 'utf8');
-    const tab = readFileSync(new URL('../src/components/settings/BillingTab.tsx', import.meta.url), 'utf8');
+    // Faturalandırma sekmesi 2026-10-19'da Ayarlar → Abonelik ve faturalar oldu (Ayarlar v1.1).
+    const tab = readFileSync(new URL('../src/pages/settings/bolumler/Abonelik.tsx', import.meta.url), 'utf8');
 
     assert.match(pricing, /className="hero"/);          // 1 — fiyat sayfası
     assert.match(pricing, /className="explain"/);       //     deneme açıklaması
@@ -242,7 +243,7 @@ test('yedi durumun hepsinin bir karşılığı var', () => {
     assert.match(strip, /className="strip"/);           // 4 — şerit
     assert.match(wall, /className="receipt"/);          // 5 — ödeme sonrası
     assert.match(wall, /badge n"><Ico n="loading"/);    //     işleniyor
-    assert.match(tab, /box hero-box/);                  // 6 — faturalandırma
+    assert.match(tab, /className="ay-bill"/);          // 6 — faturalandırma
     assert.match(tab, /Fatura geçmişi/);
 });
 

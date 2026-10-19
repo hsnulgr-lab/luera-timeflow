@@ -7,7 +7,8 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const booking = read('../src/pages/public/BookingPage.tsx');
 const fn = read('../supabase/functions/public-booking/index.ts');
 const orgProfile = read('../src/hooks/useOrgProfile.ts');
-const settings = read('../src/pages/SettingsPage.tsx');
+// Ayarlar 2026-10-19'da bölümlere ayrıldı; KVKK linki Online randevu'da.
+const settings = read('../src/pages/settings/bolumler/OnlineRandevu.tsx');
 const migration = read('../supabase/081_kvkk_url.sql');
 
 // KVKK zinciri. Rıza kutusu ürünün İÇİNDE, aydınlatma metni ise DIŞINDA olmak

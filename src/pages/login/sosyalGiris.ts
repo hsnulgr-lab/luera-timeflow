@@ -59,7 +59,7 @@ export async function startGoogle(intent: Intent, search: string): Promise<boole
 
 // ── Apple ───────────────────────────────────────────────────────────────────
 
-interface AppleSignInResponse { authorization?: { id_token?: string } }
+interface AppleSignInResponse { authorization?: { id_token?: string; code?: string } }
 interface AppleIdGlobal {
     auth: {
         init(config: { clientId: string; scope: string; redirectURI: string; usePopup: boolean; nonce: string; state?: string }): void;
@@ -125,6 +125,61 @@ export async function signInWithApple(): Promise<'ok' | 'cancelled' | 'failed'> 
         const code = (e as { error?: string } | null)?.error;
         if (code === 'popup_closed_by_user' || code === 'user_cancelled_authorize') return 'cancelled';
         return 'failed';
+    }
+}
+
+// ── Hesap silme: Apple ile yeniden doğrulama (TN3194 · B yolu) ─────────────
+
+/**
+ * Hesabı silerken Apple'a bir kez daha sorulur; dönen TEK KULLANIMLIK
+ * `authorization.code` `account-delete`'e gider ve sunucu onu belgeye çevirip
+ * Apple'da iptal eder (Apple Kimliği → "Apple ile Giriş" listesinden
+ * TimeFlow düşer). Belge hiçbir yerde SAKLANMAZ — karar: 2026-10-19, B yolu.
+ *
+ * Bu bir giriş DEĞİL: Supabase oturumuna dokunulmaz. `redirectURI` Services
+ * ID'de kayıtlı TEK adres olan `…/login` olmak zorunda (Ayarlar'dan
+ * çağrılsa da) — açılır pencere ana sayfayı yönlendirmez.
+ */
+export type AppleReauth =
+    | { ok: true; code: string; idToken: string | null; redirectUri: string }
+    | { ok: false; reason: 'cancelled' | 'unreachable' | 'failed' };
+
+export async function appleReauth(): Promise<AppleReauth> {
+    if (!APPLE_SERVICES_ID) return { ok: false, reason: 'failed' };
+    try { await loadAppleJs(); } catch { return { ok: false, reason: 'unreachable' }; }
+    const apple = window.AppleID;
+    if (!apple) return { ok: false, reason: 'unreachable' };
+    const redirectUri = `${window.location.origin}/login`;
+    try {
+        apple.auth.init({
+            clientId: APPLE_SERVICES_ID,
+            scope: 'name email',
+            redirectURI: redirectUri,
+            usePopup: true,
+            nonce: await sha256Hex(randomNonce()),
+        });
+        const res = await apple.auth.signIn();
+        const code = res.authorization?.code;
+        if (!code) return { ok: false, reason: 'failed' };
+        return { ok: true, code, idToken: res.authorization?.id_token ?? null, redirectUri };
+    } catch (e) {
+        const err = (e as { error?: string } | null)?.error;
+        if (err === 'popup_closed_by_user' || err === 'user_cancelled_authorize') return { ok: false, reason: 'cancelled' };
+        if (err === 'popup_blocked_by_browser') return { ok: false, reason: 'failed' };
+        return { ok: false, reason: navigator.onLine === false ? 'unreachable' : 'failed' };
+    }
+}
+
+/** Apple kimlik belgesinin `sub`'ı — yalnız istemcide "bu hesabın Apple'ı mı" ön kontrolü. Sunucu yeniden doğrular. */
+export function appleSubOf(idToken: string | null): string | null {
+    if (!idToken) return null;
+    try {
+        const part = idToken.split('.')[1] ?? '';
+        const json = atob(part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '='));
+        const sub = (JSON.parse(json) as { sub?: unknown }).sub;
+        return typeof sub === 'string' ? sub : null;
+    } catch {
+        return null;
     }
 }
 

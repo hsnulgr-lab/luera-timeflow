@@ -240,7 +240,8 @@ test('dosya adı tarihli', () => {
 // ── Sözleşme: kodda durması gereken davranışlar ─────────────────────────────
 
 const hook = readFileSync(new URL('../src/hooks/useDataTransfer.ts', import.meta.url), 'utf8');
-const tab = readFileSync(new URL('../src/components/settings/DataTab.tsx', import.meta.url), 'utf8');
+// Eski DataTab 2026-10-19'da Ayarlar → Verileriniz oldu.
+const tab = readFileSync(new URL('../src/pages/settings/bolumler/Verileriniz.tsx', import.meta.url), 'utf8');
 
 test('dışa aktarma sayfalanır — 1000 satırda sessizce kesilmez', () => {
     // Kesilen dosyayı kullanıcı tam sanar; dışa aktarmada bu hatanın en kötü biçimi.

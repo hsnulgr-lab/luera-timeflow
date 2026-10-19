@@ -89,21 +89,24 @@ export function useResources() {
         return row;
     }, [orgId]);
 
-    const updateResource = useCallback(async (id: string, updates: Partial<Pick<Resource, 'name' | 'type' | 'capacity' | 'sort'>>) => {
+    // true = sunucu yazdı. Ayarlar'ın kaydet çubuğu "Kaydedildi"yi buna göre yazar.
+    const updateResource = useCallback(async (id: string, updates: Partial<Pick<Resource, 'name' | 'type' | 'capacity' | 'sort'>>): Promise<boolean> => {
         const db: any = {};
         if (updates.name !== undefined) db.name = updates.name;
         if (updates.type !== undefined) db.type = updates.type;
         if (updates.capacity !== undefined) db.capacity = updates.capacity;
         if (updates.sort !== undefined) db.sort = updates.sort;
         const { error } = await supabase.from('resources').update(db).eq('id', id);
-        if (error) { toast.error('Kaynak güncellenemedi'); console.error(error); return; }
+        if (error) { toast.error('Kaynak güncellenemedi'); console.error(error); return false; }
         setResources((p) => p.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+        return true;
     }, []);
 
-    const removeResource = useCallback(async (id: string) => {
+    const removeResource = useCallback(async (id: string): Promise<boolean> => {
         const { error } = await supabase.from('resources').update({ is_active: false }).eq('id', id);
-        if (error) { toast.error('Kaynak silinemedi'); console.error(error); return; }
+        if (error) { toast.error('Kaynak silinemedi'); console.error(error); return false; }
         setResources((p) => p.filter((r) => r.id !== id));
+        return true;
     }, []);
 
     return { resources, isLoading, error, addResource, updateResource, removeResource };

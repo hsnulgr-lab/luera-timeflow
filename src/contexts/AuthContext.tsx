@@ -21,6 +21,13 @@ interface AuthContextType {
     logout: () => Promise<void>;
     /** İşletme oturum AÇILDIKTAN sonra kurulduysa (Apple/Google köprüsü) yeniden oku. */
     refreshOrg: () => Promise<string | null>;
+    /**
+     * Bu işletmedeki GERÇEK rol (`organization_members.role`): 'owner' |
+     * 'admin' | 'member'; okunamadıysa null. `user.role` tarihsel olarak sabit
+     * 'Admin' — onu okuyan yerler (BeautyPackages) değişmesin diye ayrı alan.
+     * Sol alttaki etiket ve Ayarlar → Hesabım bunu gösterir.
+     */
+    orgRole: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,19 +42,20 @@ const mapSupabaseUser = (supabaseUser: SupabaseUser | null): User | null => {
     };
 };
 
-async function resolveOrgId(userId: string): Promise<string | null> {
+async function resolveOrg(userId: string): Promise<{ id: string | null; role: string | null }> {
     const { data } = await supabase
         .from('organization_members')
-        .select('org_id')
+        .select('org_id, role')
         .eq('user_id', userId)
         .limit(1)
         .maybeSingle();
-    return data?.org_id ?? null;
+    return { id: data?.org_id ?? null, role: (data as { role?: string | null } | null)?.role ?? null };
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [orgId, setOrgId] = useState<string | null>(null);
+    const [orgRole, setOrgRole] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     // Aynı kullanıcı için orgId'yi tekrar sorgulama (TOKEN_REFRESHED vb.
     // olaylarda gereksiz sorgu + state sıfırlanması → veri "gelip gitmesin")
@@ -59,12 +67,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (supabaseUser) {
             if (resolvedForUserRef.current !== supabaseUser.id) {
                 resolvedForUserRef.current = supabaseUser.id;
-                const id = await resolveOrgId(supabaseUser.id);
-                setOrgId(id);
+                const org = await resolveOrg(supabaseUser.id);
+                setOrgId(org.id);
+                setOrgRole(org.role);
             }
         } else {
             resolvedForUserRef.current = null;
             setOrgId(null);
+            setOrgRole(null);
         }
         setIsLoading(false);
     };
@@ -134,9 +144,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { user: current } } = await supabase.auth.getUser();
         if (!current) return null;
         resolvedForUserRef.current = current.id;
-        const id = await resolveOrgId(current.id);
-        setOrgId(id);
-        return id;
+        const org = await resolveOrg(current.id);
+        setOrgId(org.id);
+        setOrgRole(org.role);
+        return org.id;
     };
 
     const logout = async () => {
@@ -155,6 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 login,
                 signup,
                 logout,
+                orgRole,
                 refreshOrg,
             }}
         >

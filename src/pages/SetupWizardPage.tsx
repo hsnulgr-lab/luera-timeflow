@@ -376,7 +376,7 @@ export function SetupWizardPage() {
                                 <CalIcon size={26} /><span className="nm">İlk randevunu oluştur</span>
                                 <span className="d">Takvimde bir saate dokunun, yeterli.</span>
                             </button>
-                            <button className="sw-ncard" onClick={() => navigate('/settings?tab=veri')}>
+                            <button className="sw-ncard" onClick={() => navigate('/settings/verileriniz')}>
                                 <Table2 size={26} /><span className="nm">Müşterilerini Excel'den aktar</span>
                                 <span className="d">Elinizdeki listeyi yükleyin, biz ayıklayalım.</span>
                             </button>

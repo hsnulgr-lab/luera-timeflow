@@ -25,7 +25,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ReservationsPage } from '@/pages/ReservationsPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { KasaPage } from '@/pages/KasaPage';
-import { SettingsPage } from '@/pages/SettingsPage';
+import { AyarlarKabuk } from '@/pages/settings/AyarlarKabuk';
 import { StaffPage } from '@/pages/StaffPage';
 import { StaffDetailPage } from '@/pages/StaffDetailPage';
 import { MasaPage } from '@/pages/MasaPage';
@@ -159,7 +159,7 @@ function App() {
             <Route path="staff" element={<ModuleRoute module="personel"><Adaptive mobile={<MobileStaff />} desktop={<StaffPage />} /></ModuleRoute>} />
             <Route path="staff/:id" element={<ModuleRoute module="personel"><StaffDetailPage /></ModuleRoute>} />
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
-            <Route path="settings" element={<Adaptive mobile={<MobileSettings />} desktop={<SettingsPage />} />} />
+            <Route path="settings/*" element={<Adaptive mobile={<MobileSettings />} desktop={<AyarlarKabuk />} />} />
             <Route path="kurulum" element={<SetupWizardPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
