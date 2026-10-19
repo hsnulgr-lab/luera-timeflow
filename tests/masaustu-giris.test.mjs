@@ -126,6 +126,18 @@ test('Apple/Google açık; acil kapatma tek ayar (2026-10-19)', () => {
     assert.match(social, /signInWithIdToken\(\{ provider: 'apple', token, nonce \}\)/);
 });
 
+test('işletme köprüde açılınca uygulama işletmeyi yeniden okur (2026-10-19, canlıda Apple)', () => {
+    // Apple ile ilk giriş: o an işletme yok → orgId null önbelleğe alınıyordu;
+    // "Yeni işletme oluştur"dan sonra Kurulum "Kaydedilemedi" diyordu.
+    const ctx = kod(oku('src/contexts/AuthContext.tsx'));
+    assert.match(ctx, /const refreshOrg = async/);
+    assert.match(ctx, /refreshOrg,\s*\}\}/, 'refreshOrg bağlamda dışa verilmiyor');
+    const creates = page.match(/createOwnBusiness\(\)/g) ?? [];
+    const refreshes = page.match(/await refreshOrg\(\)/g) ?? [];
+    assert.ok(creates.length >= 2, 'köprü ve Apple/Google kaydı işletme açıyor olmalı');
+    assert.equal(refreshes.length, creates.length, 'her işletme açılışından sonra refreshOrg çağrılmalı');
+});
+
 test('eski sayfanın kalıntıları yok', () => {
     assert.doesNotMatch(page, /sen@luera\.ai|Unuttum\?|Tekrar hoş geldin|Kayıt ol/);
 });

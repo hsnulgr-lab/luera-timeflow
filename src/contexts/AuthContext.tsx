@@ -19,6 +19,8 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
     signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>;
     logout: () => Promise<void>;
+    /** İşletme oturum AÇILDIKTAN sonra kurulduysa (Apple/Google köprüsü) yeniden oku. */
+    refreshOrg: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -120,6 +122,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    /*
+     * İŞLETME SONRADAN AÇILDIYSA — 2026-10-19, canlıda Apple ile denendi.
+     *
+     * orgId kullanıcı başına BİR KEZ çözülüyor (resolvedForUserRef). Apple/Google
+     * ile ilk kez giren kişinin o an işletmesi YOK; köprüde "Yeni işletme
+     * oluştur" deyince işletme sunucuda açılıyor ama burada null kalıyordu →
+     * Kurulum sihirbazı "Kaydedilemedi" diyordu (updateSettings orgId ister).
+     */
+    const refreshOrg = async (): Promise<string | null> => {
+        const { data: { user: current } } = await supabase.auth.getUser();
+        if (!current) return null;
+        resolvedForUserRef.current = current.id;
+        const id = await resolveOrgId(current.id);
+        setOrgId(id);
+        return id;
+    };
+
     const logout = async () => {
         await supabase.auth.signOut();
         clearAllCache(); // SWR önbelleği — ortak cihazda sonraki kullanıcıya veri sızmasın
@@ -136,6 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 login,
                 signup,
                 logout,
+                refreshOrg,
             }}
         >
             {children}

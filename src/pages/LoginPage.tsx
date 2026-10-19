@@ -118,7 +118,7 @@ function useNow(active: boolean): number {
 }
 
 export const LoginPage = () => {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, refreshOrg } = useAuth();
     const { dark } = useTheme();
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
@@ -273,7 +273,7 @@ export const LoginPage = () => {
             return;
         }
         if (intent === 'signup') {
-            if (await createOwnBusiness()) { enter('signup'); return; }
+            if (await createOwnBusiness()) { await refreshOrg(); enter('signup'); return; }
             setWaiting(null);
             setSsoBand({ kind: 'e', text: ssoFailedText(provider, intent) });
             return;
@@ -531,6 +531,9 @@ export const LoginPage = () => {
         if (busy) return;
         setBusy(true);
         const ok = await createOwnBusiness();
+        // Uygulama "işletmesi yok" bilgisini giriş anında aldı — tazele, yoksa
+        // Kurulum sihirbazı kaydedemez (AuthContext.refreshOrg notu).
+        if (ok) await refreshOrg();
         setBusy(false);
         if (ok) { enter('signup'); return; }
         setBand({ kind: 'e', text: METIN.signupFailed });
