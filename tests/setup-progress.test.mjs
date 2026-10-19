@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-    SETUP_STEPS, isStepDone, remainingMinutes, setupProgress,
+    SETUP_STEPS, isStepDone, percentSuffix, remainingMinutes, setupProgress,
 } from '../src/lib/setupProgress.ts';
 import { SERVICE_SEEDS } from '../src/lib/serviceSeeds.ts';
 
@@ -174,4 +174,41 @@ test('AI asistan anahtarı yalnız bağlıyken çevrilebilir', () => {
     // Hat bağlı değilken açmak sessiz bir yalan olurdu: anahtar açık görünür,
     // hiçbir mesaj cevaplanmaz.
     assert.match(wizard, /disabled=\{connection\.status !== 'connected'\}/);
+});
+
+// ── 2026-10-19 · "%63'ı tamamlandı" ve iki sayaç ────────────────────────────
+
+test('yüzde eki okunuşa uyar — şeridin gösterebileceği bütün yüzdeler', () => {
+    // 8 adım → şerit yalnız bu yüzdeleri gösterebilir (karşılama hep tamam).
+    const want = { 13: "'ü", 25: "'i", 38: "'i", 50: "'si", 63: "'ü", 75: "'i", 88: "'i", 100: "'ü" };
+    for (let done = 1; done <= SETUP_STEPS.length; done++) {
+        const pct = Math.round((done / SETUP_STEPS.length) * 100);
+        assert.equal(percentSuffix(pct), want[pct], `%${pct}`);
+    }
+});
+
+test('yüzde eki — öbür sayılar', () => {
+    const cases = {
+        0: "'ı", 1: "'i", 2: "'si", 3: "'ü", 4: "'ü", 5: "'i", 6: "'sı", 7: "'si", 8: "'i", 9: "'u",
+        10: "'u", 20: "'si", 30: "'u", 40: "'ı", 60: "'ı", 70: "'i", 80: "'i", 90: "'ı",
+        12: "'si", 16: "'sı", 19: "'u", 44: "'ü", 99: "'u",
+    };
+    for (const [n, ek] of Object.entries(cases)) assert.equal(percentSuffix(Number(n)), ek, `%${n}`);
+});
+
+test('şerit eki sabit yazmıyor', () => {
+    const banner = readFileSync(new URL('../src/components/layout/SetupBanner.tsx', import.meta.url), 'utf8');
+    assert.match(banner, /percentSuffix\(progress\.percent\)/);
+    assert.doesNotMatch(banner, /percent\}'ı/, '"%63\'ı" geri geldi');
+});
+
+test('kurulumu tek bir sayaç sayıyor — paneller kendi adımlarını saymıyor', () => {
+    // Güzellik panelinde 4 adımlı ayrı bir kart vardı: şerit "3 adım kaldı"
+    // derken kart "3/4" diyordu (2026-10-19). Tek kaynak lib/setupProgress.
+    const dashDir = new URL('../src/components/dashboard/', import.meta.url);
+    for (const f of ['GuzellikDashboard.tsx', 'KuaforDashboard.tsx', 'BerberDashboard.tsx']) {
+        let src = '';
+        try { src = readFileSync(new URL(f, dashDir), 'utf8'); } catch { continue; }
+        assert.doesNotMatch(src, /adımda hazırsınız|setupSteps|Kurulum bitince/, `${f} kendi kurulum sayacını tutuyor`);
+    }
 });

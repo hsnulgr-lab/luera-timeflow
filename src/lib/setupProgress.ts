@@ -112,3 +112,21 @@ const MINUTES: Record<StepKey, number> = {
 export function remainingMinutes(pending: StepKey[]): number {
     return pending.reduce((sum, k) => sum + MINUTES[k], 0);
 }
+
+/**
+ * "%63'ü", "%50'si", "%25'i" — yüzdenin iyelik eki, sayının OKUNUŞUNA göre.
+ *
+ * Şerit eki sabit "'ı" yazıyordu: "%63'ı tamamlandı" (2026-10-19, kullanıcı
+ * gördü). Ek son okunan sözcüğe uyar: üç → üçü, elli → ellisi, yüz → yüzü;
+ * ünlüyle biten sözcükte araya "s" girer (iki → ikisi, altı → altısı).
+ */
+const BIRLER = ['', "'i", "'si", "'ü", "'ü", "'i", "'sı", "'si", "'i", "'u"]; // bir…dokuz
+const ONLAR = ['', "'u", "'si", "'u", "'ı", "'si", "'ı", "'i", "'i", "'ı"];   // on…doksan
+
+export function percentSuffix(n: number): string {
+    const v = Math.abs(Math.round(n));
+    if (v === 0) return "'ı";                 // sıfırı
+    if (v % 100 === 0) return "'ü";           // yüzü
+    if (v % 10 !== 0) return BIRLER[v % 10];
+    return ONLAR[(v % 100) / 10];
+}

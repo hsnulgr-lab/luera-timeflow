@@ -517,16 +517,6 @@ export function GuzellikDashboard() {
         return null;
     }, [waiting, now, cabins, firstFreeCabin, finishedPackages, atTill]);
 
-    // ── Kurulum durumu: sistem bomboşsa yönlendirici ekran ────────────────────
-    const setupSteps = useMemo(() => [
-        { label: 'Kabinlerini ekle', done: activeResources.length > 0, to: '/settings' },
-        { label: 'Personeli ekle', done: activeStaff.length > 0, to: '/staff' },
-        { label: 'Hizmet ve fiyatları gir', done: services.some((s) => (s.price ?? 0) > 0), to: '/settings?tab=services' },
-        { label: `İlk ${resWord} oluştur`, done: reservations.length > 0, to: '/calendar' },
-    ], [activeResources.length, activeStaff.length, services, reservations.length, resWord]);
-    const setupDone = setupSteps.filter((s) => s.done).length;
-    const needsSetup = setupDone < setupSteps.length;
-
     const dayNum = now.getDate();
     const weekday = now.toLocaleDateString('tr-TR', { weekday: 'long' });
     const monthShort = now.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' });
@@ -556,38 +546,9 @@ export function GuzellikDashboard() {
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
                 <div className="max-w-[1240px] mx-auto space-y-3.5">
 
-                    {/* Kurulum kartı — yalnız sistem eksikken */}
-                    {needsSetup && (
-                        <section className="rounded-2xl bg-[var(--dc-surface)] border border-[var(--dc-border)] shadow-[0_1px_3px_rgba(14,14,14,0.06)] p-5">
-                            <div className="flex items-baseline gap-2 flex-wrap">
-                                <h2 className="text-[17px] font-extrabold text-[var(--dc-ink)] tracking-[-0.02em]">{settings.businessName || 'Salonunuza'} hoş geldiniz 👋</h2>
-                                <span className="text-[12.5px] text-[var(--dc-muted)]">{setupSteps.length} adımda hazırsınız</span>
-                                <span className="ml-auto text-[11px] font-semibold text-[var(--dc-muted)]" style={{ fontFamily: MONO }}>{setupDone}/{setupSteps.length}</span>
-                            </div>
-                            <div className="h-[5px] rounded-full bg-[var(--dc-surface3)] overflow-hidden mt-2.5">
-                                <span className="block h-full rounded-full bg-[var(--dc-green)] transition-[width]" style={{ width: `${(setupDone / setupSteps.length) * 100}%` }} />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-3.5">
-                                {setupSteps.map((step, i) => {
-                                    const isNext = !step.done && setupSteps.slice(0, i).every((s) => s.done);
-                                    return (
-                                        <button key={step.label} onClick={() => navigate(step.to)}
-                                            className={cn('flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-all',
-                                                step.done ? 'border-[var(--dc-border)] bg-[var(--dc-surface2)]'
-                                                    : isNext ? 'border-[var(--dc-orange)] bg-[var(--dc-orange-soft)] hover:-translate-y-px'
-                                                        : 'border-[var(--dc-border)] hover:bg-[var(--dc-surface2)]')}>
-                                            <span className={cn('w-6 h-6 rounded-full grid place-items-center text-[11px] font-bold flex-shrink-0',
-                                                step.done ? 'bg-[var(--dc-green)] text-white' : isNext ? 'bg-[var(--dc-orange)] text-white' : 'bg-[var(--dc-surface3)] text-[var(--dc-muted)]')}>
-                                                {step.done ? '✓' : i + 1}
-                                            </span>
-                                            <span className={cn('text-[12.5px] font-semibold', step.done ? 'text-[var(--dc-muted)]' : 'text-[var(--dc-ink)]')}>{step.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <p className="text-[11.5px] text-[var(--dc-muted)] mt-3">Kurulum bitince günün akışı burada görünecek.</p>
-                        </section>
-                    )}
+                    {/* Kurulum ilerlemesi burada AYRICA sayılmaz: tek sayaç uygulamanın
+                        üstündeki şerit (SetupBanner → lib/setupProgress). Buradaki 4
+                        adımlı kart aynı anda başka sayı söylüyordu (2026-10-19). */}
 
                     {/* Karşılama — tasarım: Claude Design "Luera Fırsat Modülü v2".
                         Tarih kutusu, metin bloğu, fırsat çarkı yuvası ve aksiyonlar

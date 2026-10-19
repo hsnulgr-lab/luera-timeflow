@@ -10,7 +10,7 @@ import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { profileForSector } from '@/lib/sectorProfiles';
-import { SETUP_STEPS, remainingMinutes, setupProgress } from '@/lib/setupProgress';
+import { SETUP_STEPS, percentSuffix, remainingMinutes, setupProgress } from '@/lib/setupProgress';
 import '@/pages/setupWizard.css';
 
 // Kurulum yarıda kaldıysa uygulamanın üstünde duran şerit.
@@ -66,11 +66,11 @@ export function SetupBanner() {
     const mins = remainingMinutes(progress.pending);
 
     return (
-        <div className={cn('dash-theme', dark && 'dark')} style={{ padding: '12px 16px 0' }}>
+        <div className={cn('dash-theme', dark && 'dark')} style={{ padding: '12px 24px 0' }}>
             <div className="sw-resume">
                 <Settings size={20} />
                 <div className="tx">
-                    <b>Kurulumun %{progress.percent}'ı tamamlandı</b>
+                    <b>Kurulumun %{progress.percent}{percentSuffix(progress.percent)} tamamlandı</b>
                     <span>
                         Sırada: {nextLabel} · {progress.pending.length} adım kaldı
                         {mins > 0 ? `, yaklaşık ${mins} dakika` : ''}
