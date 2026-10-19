@@ -376,31 +376,76 @@ iptalden vazgeçme metinleri pakette. Kalan: "Sonra" listesi.
 
 ### ✅ TRY fiyatları (2026-10-19 ~19:30 TR, Dodo TEST kipi)
 
-Yöntem: ürünler DEĞİŞMEDİ (kimlikler aynı → `DODO_PRODUCT_MAP` ve kod
-dokunulmadı); her ürüne **Yerelleştirilmiş Fiyatlandırma → Para Birimine Göre
-→ TRY** sabit kuralı eklendi. "Vergi dahil" altısında da zaten açıktı (KDV
+Yöntem (2026-10-20'de DEĞİŞTİ): her ürünün **taban para birimi TRY** yapıldı,
+19 Ekim'de eklenen "Yerelleştirilmiş Fiyatlandırma → Para Birimine Göre → TRY"
+kuralları kaldırıldı. Beklenti portalın ₺ göstermesiydi — **TUTMADI**: TL
+tabanlı üründen açılan abonelik de Dodo'da `currency: USD`, 1208 (yeni alım,
+2026-10-20). Sebep Dodo'nun tasarımı (belge "Adaptive Currency"): USD/EUR/GBP
+dışındaki ödemeler USD'ye çevrilerek hesaba geçer; panel, fatura ve abonelik
+kaydı bu USD tutarını gösterir. Portaldaki $ ürün ayarıyla DEĞİŞMEZ. Kartta
+çekilen tutar yine tam ₺599 (ödeme kaydı TRY). Yenilemede tam ₺599 mu yoksa kur
+farklı bir tutar mı çekildiği belgede net değil → yenileme testi karar verir.
+Belgeye göre yerel kural yönteminde yenileme kuralın tutarını korur ve kur
+ücretini satıcı üstlenir. Test Salon 1 (kural yöntemi) 26 Ekim'de kendiliğinden
+yenilenecek; iki yöntem böyle kıyaslanır. Kimlikler aynı →
+`DODO_PRODUCT_MAP` ve kod dokunulmadı. "Vergi dahil" altısında açık (KDV
 fiyatın içinde), ürün düzeyi deneme kapalı (deneme checkout'tan). Yıllık
 ürünler yıllık TEK çekim (PaywallPage `yearly × 12`).
 
-| Ürün | Kimlik | Taban (değişmedi) | TRY kuralı | Test ödeme sayfası |
+| Ürün | Kimlik | Taban (2026-10-20) | Yerel kural | Test ödeme sayfası |
 |---|---|---|---|---|
-| Başlangıç aylık | pdt_0NiGkpMZyOewFEb2fCfTc | $6,16 | ₺299 | TRY 299.00 /ay ✓ |
-| Pro aylık | pdt_0NiGkueSxjrBUI5Ogfqgc | $12,33 | ₺599 | TRY 599.00 /ay ✓ |
-| İşletme aylık | pdt_0NiGl0Tkf7gJ4novp8MRI | $24,69 | ₺1.199 | TRY 1,199.00 /ay ✓ |
-| Başlangıç yıllık | pdt_0NiGl8gulPxln2G4gwVtd | $59,06 | ₺2.868 | TRY 2,868.00 /yıl ✓ |
-| Pro yıllık | pdt_0NiGlBJIuAek8jq5RksNe | $118,40 | ₺5.748 | TRY 5,748.00 /yıl ✓ |
-| İşletme yıllık | pdt_0NiGlFFrDjNDFsC6dRA9L | $237,00 | ₺11.508 | TRY 11,508.00 /yıl ✓ |
+| Başlangıç aylık | pdt_0NiGkpMZyOewFEb2fCfTc | ₺299 | yok | TRY 299.00 /ay ✓ |
+| Pro aylık | pdt_0NiGkueSxjrBUI5Ogfqgc | ₺599 | yok | TRY 599.00 /ay ✓ |
+| İşletme aylık | pdt_0NiGl0Tkf7gJ4novp8MRI | ₺1.199 | yok | TRY 1,199.00 /ay ✓ |
+| Başlangıç yıllık | pdt_0NiGl8gulPxln2G4gwVtd | ₺2.868 | yok | TRY 2,868.00 /yıl ✓ |
+| Pro yıllık | pdt_0NiGlBJIuAek8jq5RksNe | ₺5.748 | yok | TRY 5,748.00 /yıl ✓ |
+| İşletme yıllık | pdt_0NiGlFFrDjNDFsC6dRA9L | ₺11.508 | yok | TRY 11,508.00 /yıl ✓ |
 
-Hepsi "(satış vergisi dahil.)". Kanıt: `test.checkout…/buy/<ürün>` sayfası
-(ödeme yapılmadı). Mevcut abonelikler eski (USD'den çevrilen) fiyatta
-yenilenir — yalnız iç test hesapları.
+Altı sayfa da "(satış vergisi dahil.)", hiçbirinde USD/$ yok (2026-10-20,
+ödeme yapılmadı). **Mevcut abonelikler eski fiyatta kalır**: Test Salon 1
+aboneliği değişiklikten sonra da panelde $12.09 (doğrulandı, 2026-10-20);
+`furkan@luera.ai`'nin 3 aboneliği de eski fiyatla yenilenir — yalnız iç test
+hesapları.
+
+**Yeni alım (2026-10-20 02:20 TR, furkan@luera.ai işletmesi, Pro aylık):** kart
+TRY 599,00 · ekran "Pro · Aktif · Sonraki tahsilat 20 Kasım · ₺599" · fatura
+20 Ekim ₺599. Deneme yok ve dönüş Ayarlar'a — doğru (işletmenin abonelik
+geçmişi var; deneme yalnız ilk alımda). Dodo ucu 24 saatte %0 hata.
+**AÇIK RİSK:** bu işletmede Dodo test kipinde 4 aktif Pro abonelik var
+(yeni sub_…OqLIQ + eski sub_…pqkSe 9 Kas, …Ka0M ve …zSF4 12 Kas). Webhook kuralı
+(`durum.ts` `decide`): aynadakinden farklı bir abonelik "active" olay
+gönderirse yenisi sayılır, aynadaki `cancelNow` ile iptal edilir → 9 Kasım'da
+eski yenilenince bugünkü abonelik İPTAL olur. Doğru kural: en yeni abonelik
+(created_at) kazanır, eskisinden gelen olay atlanır.
+
+**✅ YENİLEME TESTİ (2026-10-20 02:42/02:44 TR):** Dodo panelinde "Güncelle →
+Sonraki fatura tarihini güncelle" ile iki aboneliğin tahsilatı birkaç dakika
+sonraya çekildi; Dodo saatinde yeniledi. TL taban (sub_…OqLIQ): **TRY 599,00**.
+Yerel kural (Test Salon 1, sub_…0FOH, denemeden çıktı): **TRY 599,00**. İki
+yöntem de tam ₺599 çekiyor; kur kayması yok (eski $12,33 tabanlı abonelikler
+kaydığı için ₺611→₺632 çekiyordu). Abonelik kaydı her ikisinde de USD
+($12.08/$12.09) — yalnız gösterim/hesaba geçiş. Sonraki tahsilat 19 Kas 23:42 /
+23:44 UTC. Webhook ucu 24 saatte %0 hata (renewed + payment.succeeded +
+updated'lar teslim). Canlı için karar: taban TRY yeterli, yerel kural gerekmez.
+TimeFlow ekranı (02:46/02:48) ✅: furkan@luera.ai "Pro · Aktif · Sonraki tahsilat
+20 Kasım · ₺599", faturada iki ₺599 satırı; Test Salon 1 **Deneme → Aktif**,
+20 Kasım · ₺599, faturada tek ₺599 satırı (ilk ₺0 kart doğrulaması bilerek
+gizli). Yenileme günü testi KAPANDI.
+
+**Portal doğrulandı (02:26):** "Kartı güncelle" → portal "$12.08/ay · 20.11.2026
+tarihinde yenilenir" ve müşterinin TÜM abonelikleri ($12.33'lük eskiler dahil)
+alt alta. Öneri: "Kartı güncelle" portal yerine Dodo **Update Payment Method**
+(`POST /subscriptions/{id}/update-payment-method`, `{type:'new', return_url}` →
+`payment_link`) — yalnız o aboneliğin kart sayfası; aktifte ücret yok, on_hold'da
+borcu hemen çekip aboneliği yeniden aktif eder (ek süredeki salon için tam
+istenen). Kart sayfasının ne tutar gösterdiği denenince görülecek.
 
 Görülenler: (1) Ekim test yenilemeleri ₺632,33/632,73 çekmişti (Eylül
 611,63) — kayma büyüyordu. (2) `furkan@luera.ai` adına 3 AKTİF test aboneliği
 (sub_…Ka0M, …zSF4, …pqkSe) her ay çekiyor — çift abonelik açığının izi; yeni
 webhook aynı işletmeninkileri yenilendikçe teke indirir. (3) **CANLI kipteki 6
 ürün yanlış:** aylık $10/$30/$75, yıllık $100/$300/$750 (Pro aylık ≈ ₺1.450!).
-Live'a geçerken taban fiyatlar + TRY kuralları canlıda da kurulmalı (Dodo'da
+Live'a geçerken canlıda da taban TRY (yerel kural YOK) kurulmalı (Dodo'da
 "Testten İçe Aktar" var) ve `DODO_PRODUCT_MAP` canlı kimliklerle değişir.
 
 ### Sonra (sırayla)
@@ -418,3 +463,27 @@ Live'a geçerken taban fiyatlar + TRY kuralları canlıda da kurulmalı (Dodo'da
   demeli.
 - (f) mobil kayıt + ENFORCE kararı (§7 madde 6) · (g) ~~TRY ürünler~~ ✅ (test) + Dodo Live.
 - ⚠️ Core Studio parolası değişecek (§9).
+
+### Uçtan uca test + hediye üyelik (2026-10-19 akşam)
+
+**Test 1 ✅ (21:46):** yeni hesap "Test Salon 1" (org 2f68dd90, kullanıcının
+iCloud e-postası) → Pro aylık → Dodo sayfası TRY 599,00/ay + 7 gün deneme
+(26/10/2026) → test kartı → dönüş /kurulum (ilk alım, tasarım gereği). Defter:
+subscription.active + subscription.updated (applied) + payment.succeeded
+(recorded, ₺0 kart doğrulaması), üçü de Core'a aktarıldı. Ayna: trial · pro ·
+monthly · Dodo kimlikleri dolu.
+
+**Testte bulunup düzeltilen (4867079, CANLI — fonksiyonlar + masaüstü
+index-C39QE84M.js):** ekran Dodo'nun gerçek gününü gösterir (tolerans hariç;
+erişim yine +3 gün) · ₺0 kart doğrulaması fatura listesinde yok · hediye üyelik
+ekranı. **Hediye komutu:** `ops/abonelik/hediye.sh ver <e-posta> <gün|0> [plan]`
+/ `al <e-posta>` / `liste` — ödeyen aboneye ve demoya yazmaz.
+
+**Test 1 son kontrol ✅** (yeni gizli pencerede 26 Ekim). **Test 2 ✅**
+(Kartı güncelle → Dodo portalı açıldı; portal $12.09 gösterdi → yukarıdaki TRY
+taban değişikliği). Sırada: Test Salon 2 ile yeni alım (portal ₺ demeli) →
+yenileme günü (Dodo panelinde sonraki tahsilatı birkaç dakika sonraya çek:
+₺599 çekilmeli, ayna trial→active) → Test 3–5 (iptal ve vazgeçme, ikinci alım
+409, hesap silme). Not: banner "Plan seçmezseniz salt
+okunur olur" diyor — kartlı denemede yanlış metin (deneme otomatik ücretliye
+döner); ayrı küçük iş.

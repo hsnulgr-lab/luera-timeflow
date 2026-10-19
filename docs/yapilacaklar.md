@@ -58,6 +58,21 @@ Giriş sayfası yeni tasarıma geçti; arkasından gelen ekranlar eski dilde kal
   `AuthContext.refreshOrg()` — `195f9cf`); ilerleme sayacının TEK kaynağı
   `src/lib/setupProgress.ts` (`SetupBanner` onu okuyor — panel düzeltmesi,
   iki sayaç bir daha çelişmesin). Claude Design ile tasarım → uygulama.
+  ✅ 2026-10-19 gece: **brief yazıldı** → `docs/kurulum-v2-claude-design-prompt.md`,
+  ekler `~/Downloads/18 ekim v2/kurulum-ekleri/` (+ `.zip`). Kullanıcı kararı:
+  **"çok az adım, az ve öz"** → 3 ekran + bitiş (İşletmeniz · Hizmetler ve
+  saatler · WhatsApp atlanabilir); karşılama ekranı, adres/telefon/logo,
+  randevu aralığı, renk ve ayrı kaynak adımı sihirbazdan çıkıyor (varsayılan +
+  Ayarlar). Brief'te kayıtlı, uygulamada düzeltilecek kusurlar: (1) e-postayla
+  kayıtta `settings.business_name` = e-posta adresi (kayıt ad sormuyor, 121'deki
+  `COALESCE(name, email)`), Apple/Google'da kişinin adı → sihirbaz alanı bununla
+  dolu açıyor; (2) "Yalnız ben" `set_business_mode` (108) çağırmıyor →
+  `organizations.solo` false kalıyor, telefon tek kişilik kabuğu açmıyor;
+  (3) randevu adresi (slug) hiç oluşmuyor → bitişteki "linki paylaş" boş
+  sayfaya gidiyor; (4) `/kurulum?checkout=success` dönüşünde hiçbir şey
+  söylenmiyor; (5) "tek tuşla giriş daveti" diye olmayan özellik vaadi;
+  (6) karşılama "üç şey / 6 dakika" diyor, şerit 10 dk hesaplıyor.
+  Yeni adım listesi `setupProgress.ts`'te (tek kaynak) değişecek.
 
 ## 4 · Ayrı oturumlar (kullanıcı kararı: bu işlerin kendi oturumu var)
 
@@ -68,7 +83,7 @@ Giriş sayfası yeni tasarıma geçti; arkasından gelen ekranlar eski dilde kal
   - Dodo canlı moda geçiş, abonelik kapısının (ENFORCE) açılması
   - mobilde kilitli kullanıcıya ne denecek (Apple 3.1.1: uygulama içinden ödeme yok, yönlendirme yok)
   - Hafıza: `timeflow_core_debt`, `billing_design_pending`
-  - ✅ 2026-10-19: **kök sebep** — Dodo ucu Eylül 500'leri yüzünden "Devre dışı" kalmış (8 hafta tek olay yok). **KARAR: TimeFlow asıl, Core kopya.** Onarım **CANLIDA** (2026-10-19 akşam, `36f0f02`): göç 123 + webhook/silme/checkout/durum Core'suz + "Kartı güncelle" → Dodo portalı; Dodo ucu yeniden Etkin, test olayı 200; dış izlemede "Dodo ucu kapalı" kontrolü. ✅ TRY fiyatları test kipinde (6 ürün, ödeme sayfasında birebir; ~19:30). Kalan (satış öncesi): mobil kayıt + ENFORCE kararı, Dodo Live (canlı ürünler $10/$30/$75 — yanlış, TRY kuralları canlıda da kurulacak), plan değişikliği, Core Studio parolası — devir 10 §10.
+  - ✅ 2026-10-19: **kök sebep** — Dodo ucu Eylül 500'leri yüzünden "Devre dışı" kalmış (8 hafta tek olay yok). **KARAR: TimeFlow asıl, Core kopya.** Onarım **CANLIDA** (2026-10-19 akşam, `36f0f02`): göç 123 + webhook/silme/checkout/durum Core'suz + "Kartı güncelle" → Dodo portalı; Dodo ucu yeniden Etkin, test olayı 200; dış izlemede "Dodo ucu kapalı" kontrolü. ✅ TRY fiyatları test kipinde (6 ürün, ödeme sayfasında birebir; ~19:30) — 2026-10-20: taban para birimi TRY yapıldı, yerel kurallar silindi; portal Dodo tasarımı gereği yine $ gösterir (TL ödeme USD olarak hesaba geçer), kart tam ₺599 çekiliyor. Kalan (satış öncesi): mobil kayıt + ENFORCE kararı, Dodo Live (canlı ürünler $10/$30/$75 — yanlış, canlıda da taban TRY kurulacak, yerel kural yok), plan değişikliği, Core Studio parolası — devir 10 §10.
 - [ ] **WhatsApp** — Evolution ile otomatik hatırlatma ("salon sahibi elle bir şey yapmadan"); hat QR eşleştirmesi.
 - [ ] **Altyapı** — `supabase.lueratech.com` (LeadFlow/CallFlow) haftalardır 503 · VPS 1'deki kullanılmayan Supabase yığını (`eopb02…`; yedek → Stop → bekle → sil) · salt okunur teşhis yolu (Supabase MCP fikri; bulut bağlayıcısı bizde çalışmaz, self-hosted).
 - [ ] **Luera sitesi + ekosistem + Instagram planı.**
