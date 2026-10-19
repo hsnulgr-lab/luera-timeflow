@@ -186,15 +186,46 @@ main'de, **ama İKİNCİ DEPLOY HENÜZ YAPILMADI** — ilk iş o.
   satır bağlantı.
 - K1 ve B1'de klavye kendiliğinden AÇILMIYOR (açılsa Apple/Google görünmezdi).
 
+**Telefonda canlı denemeler (geliştirme derlemesi `e5e8f2fa`, 2026-10-19):**
+
+- ✅ Apple · K1 "Apple ile Kaydol" → var olan Apple hesabı → içeri (kullanıcı:
+  "giriş tamam çalışıyor", 14:3x TR).
+- ✅ P1 · Profil › Hesap: "Giriş yöntemi · Apple ile" + "Şifre belirle" görüldü.
+- ✅ Google · B1 "Google ile giriş yap" → asıl salon. Kullanıcı: "google ve
+  apple giriş çalışıyor, tüm testlerim tamam" (2026-10-19 ~14:50 TR).
+- Telefonda görülüp düzeltilen (kullanıcı): açık temada pasif birincil düğme
+  ve ikincil düğme zeminde kayboluyordu → `quietInk` (pasif = turuncunun opak
+  açık tonu + ince turuncu çerçeve + koyu turuncu yazı; ikincil = beyaz +
+  belirgin kenar; koyu tema aynı). "Gir" → "Giriş yap" (Apple/Google ve
+  masaüstüyle aynı fiil). "Oturumu kapat"ı turuncu yapma önerisi: yapılmadı
+  (turuncu yalnız birincil eylem) — kullanıcı itiraz etmedi.
+- DENENMEDİ (hesap/koşul yok): B5 köprüsü (işletmesiz Apple/Google hesabı
+  gerekir), Apple/Google ile YENİ kayıt, K2 kod (otomatik onay açık), S1–S3
+  (gerçek şifreyi değiştirir).
+- Ders: ad hoc derleme App Store sürümünün ÜSTÜNE kurulmuyor ("Zaten Yüklü")
+  — önce mağaza sürümü silinir. Telefon Metro'ya bağlanırken Expo Go'yu
+  değil TimeFlow simgesini açmak gerek (`curl localhost:8081/json/list` →
+  `host.exp.Exponent` görünüyorsa yanlış uygulama).
+- Apple düğmesinin yazısı Google'ınkinden büyük: iOS sistem düğmesi yazıyı
+  yüksekliğe göre kendisi boyluyor; değiştirilemez. Karar bekliyor (önerim:
+  böyle kalsın).
+
 **Kalan (sırayla):**
 
 1. **Telefonda deneme = geliştirme derlemesi.** Expo Go'da Apple belgesi
    Expo Go'nun kimliğiyle imzalanır (sunucu reddeder → bant), Google modülü
    yok (→ bant). Ekranlar Expo Go'da GÖRÜLEBİLİR, giriş ancak derlemede.
-   Komutu KULLANICI verir: `cd mobile && eas build --profile development --platform ios`.
+   Komutu KULLANICI verir: `cd mobile && npx -y eas-cli@latest build --profile development --platform ios`
+   (`eas` genel kurulu DEĞİL; 1.0.1 de `npx` ile derlendi). Aynı paket kimliği
+   (`ai.luera.timeflow`) şart — Apple ve Google istemcileri ona bağlı — bu
+   yüzden geliştirme derlemesi telefondaki mağaza sürümünün YERİNE kurulur;
+   iş bitince App Store'dan yeniden yüklenir. JS Mac'teki Metro'dan gelir
+   (`npx expo start`), ortam değişkenleri `mobile/.env`'den (canlı kip).
    Yayın öncesi `--no-dev` üretim denemesi ZORUNLU (hafıza: üretim paketi).
-2. **Sunucu kod ömrü:** `GOTRUE_MAILER_OTP_EXP` sunucuda kurulu mu bak
-   (yoksa varsayılan 86400 = `CODE_LIFETIME_MS`). Farklıysa `authCopy.ts`'te eşitle.
+2. ✅ **Sunucu kod ömrü** (2026-10-19): auth kabında `OTP` içeren hiçbir
+   ayar yok → giriş servisinin varsayılanı 86400 sn = `CODE_LIFETIME_MS`.
+   Değişiklik gerekmedi. (Bir gün `GOTRUE_MAILER_OTP_EXP` kurulursa
+   `authCopy.ts`'te eşitlenir.)
 3. **Apple iptali sunucusu** (başka oturumun diskteki işi:
    `supabase/functions/account-delete/apple.ts` + `index.ts`): telefon artık
    `appleCode` + `appleClient: 'ios'` gönderiyor; deploy edilmeyen sunucu bunu

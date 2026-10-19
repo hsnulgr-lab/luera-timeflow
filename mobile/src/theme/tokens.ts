@@ -1816,6 +1816,39 @@ export const ssoInk = {
     },
 } as const;
 
+/**
+ * Pasif birincil ve ikincil düğmenin zemini — AÇIK TEMADA görünür olsun diye
+ * (2026-10-19, kullanıcı telefonda: "Devam light modda çok silik", "Oturumu
+ * kapat da öyle").
+ *
+ * Sebep: açık temada `surf2` (#F0E9DF) sayfanın zemininden (#F3ECE0) yalnız 3
+ * birim koyu — düğme zeminde kayboluyordu, üstündeki %34'lük yazıyla birlikte
+ * "boş bir alan" gibi duruyordu. Koyu tema dokunulmadı; orada fark zaten var.
+ *
+ * İkisi de OPAK: düğme ışık alanının üstünde duruyor ve eylem taşıyan renk
+ * camdan geçmez (v4 · karar 4). Açık temada pasif birincil turuncunun AÇIK
+ * TONU — saydam soluğu değil: saydam turuncu alanın renklerini içeri alıp
+ * çamurlaşıyordu (`AuthActionButton`'daki gerekçe). Koyu temada nötr kalıyor;
+ * orada turuncunun tonu kahveye döner. İkincil turuncu yapılmadı: turuncu
+ * yalnız birincil eylemin rengi; "Oturumu kapat" sayfanın ana işi değil.
+ */
+export const quietInk = {
+    dark: {
+        offBg: '#252015', offText: 'rgba(243,237,227,0.36)', offBorder: 'transparent',
+        secondaryBg: '#252015', secondaryBorder: 'rgba(243,237,227,0.11)',
+    },
+    light: {
+        // Turuncunun OPAK açık tonu (%26 turuncu + zemin) ve koyu turuncu yazı
+        // (3,9:1). Gri bir kademe yetmedi (kullanıcı: "Gir belli olması lazım"):
+        // düğme turuncu ailesinden okunuyor ama dolu turuncudan ayrı — "henüz değil".
+        offBg: '#F6C6AE', offText: '#B5340B',
+        // İnce turuncu çerçeve (kullanıcı, 2026-10-19): düğmenin kenarı zeminde
+        // net dursun. Dolu hâlde kenar zaten turuncu — görünmez.
+        offBorder: '#FF5A1F',
+        secondaryBg: '#FFFDFB', secondaryBorder: 'rgba(14,14,14,0.18)',
+    },
+} as const;
+
 /** v4 · karar 9: yeni gösteri hareketi yok; ileri 240 · geri 200 · durum 140. */
 export const ssoMotion = {
     /** Doğuş: başlık 0 · Apple 80 · Google 160 · ayraç + form 240 ms. */

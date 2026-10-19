@@ -64,7 +64,7 @@ import { PRIVACY_URL } from '../lib/managerProfile';
 import { upperTR } from '../lib/text';
 import { PASSWORD_RULE_TEXT, formatCountdown } from '../lib/authCopy';
 import {
-    font, numeric, pressMotion, ssoInk, ssoMetrics as S, ssoMotion as MO, useTheme,
+    font, numeric, pressMotion, quietInk, ssoInk, ssoMetrics as S, ssoMotion as MO, useTheme,
 } from '../theme';
 
 // ── Doğuş ───────────────────────────────────────────────────────────────────
@@ -334,7 +334,8 @@ export function AuthV4Button({ label, onPress, disabled = false, busy = false, g
     busy?: boolean;
     glass?: boolean;
 }) {
-    const { c, small, reduceMotion } = useTheme();
+    const { c, dark, small, reduceMotion } = useTheme();
+    const quiet = dark ? quietInk.dark : quietInk.light;
     const press = usePress();
     const dim = useSharedValue(busy ? 1 : 0);
     useEffect(() => {
@@ -347,7 +348,7 @@ export function AuthV4Button({ label, onPress, disabled = false, busy = false, g
     const size = glass ? S.secondaryText : small ? S.buttonTextSmall : S.buttonText;
     const text = (
         <Text style={{
-            color: glass ? c.tx : off ? c.tx3 : '#FFFFFF',
+            color: glass ? c.tx : off ? quiet.offText : '#FFFFFF',
             fontSize: size,
             fontFamily: font.extraBold,
             fontWeight: '800',
@@ -392,7 +393,10 @@ export function AuthV4Button({ label, onPress, disabled = false, busy = false, g
                         <View style={{
                             height,
                             borderRadius: S.buttonRadius,
-                            backgroundColor: off ? c.surf2 : c.or,
+                            borderWidth: 1,
+                            borderColor: off ? quiet.offBorder : c.or,
+                            // Pasif hâl opak; açık temada turuncunun açık tonu (`quietInk`).
+                            backgroundColor: off ? quiet.offBg : c.or,
                             alignItems: 'center',
                             justifyContent: 'center',
                         }}>

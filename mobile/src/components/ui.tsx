@@ -24,7 +24,7 @@ import { GlassView } from 'expo-glass-effect';
 import { businessAccessibilityLabel, businessMeta } from '../lib/accountMap';
 import { crashGate, offlineGate, sessionGate } from '../lib/authCopy';
 import { feedback } from '../lib/feedback';
-import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, radius, space, type, useTheme } from '../theme';
+import { authMetrics, authMotion, font, hit, numeric, onAccent, pressMotion, quietInk, radius, space, type, useTheme } from '../theme';
 import { upperTR } from '../lib/text';
 
 // Kumandanın temel parçaları. Tasarımdaki ölçüler burada TEK yerde;
@@ -367,8 +367,9 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
     compact?: boolean;
     left?: ReactNode;
 }) {
-    const { c, reduceMotion, small } = useTheme();
+    const { c, dark, reduceMotion, small } = useTheme();
     const press = usePressValue();
+    const quiet = dark ? quietInk.dark : quietInk.light;
     const primary = kind === 'primary';
     const secondary = kind === 'secondary';
     const tall = kind === 'tall';
@@ -405,15 +406,17 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
                 borderRadius: tall
                     ? authMetrics.modeChoiceRadius
                     : primary && small ? authMetrics.smallPrimaryRadius : radius.lg,
-                borderWidth: outlined || danger ? 1 : 0,
-                borderColor: danger ? `${c.rd}57` : tall ? c.bd2 : secondary ? c.bd : 'transparent',
+                borderWidth: outlined || danger || (disabled && primary) ? 1 : 0,
+                borderColor: danger ? `${c.rd}57` : tall ? c.bd2 : secondary ? quiet.secondaryBorder
+                    : disabled && primary ? quiet.offBorder : 'transparent',
                 // Devre dışı turuncu SOLDURULMUYOR. Işık alanının üstünde %40
                 // opak bir turuncu çamurlu bir kahveye dönüyordu — kırık bir
                 // renk gibi. Yerine nötr bir yüzey: "henüz değil" demenin
                 // dürüst yolu, ve hangi zeminde olursa olsun aynı okunuyor.
+                // Açık temada bir kademe koyu (`quietInk`): `surf2` zeminde kayboluyordu.
                 backgroundColor: disabled && primary
-                    ? c.surf2
-                    : primary ? c.or : tall ? c.surf : secondary ? c.surf2 : 'transparent',
+                    ? quiet.offBg
+                    : primary ? c.or : tall ? c.surf : secondary ? quiet.secondaryBg : 'transparent',
                 opacity: disabled
                     ? (primary ? 1 : 0.4)
                     : press.interpolate({
@@ -439,7 +442,7 @@ export function AuthActionButton({ label, onPress, kind = 'primary', disabled = 
             }}>
                 {left}
                 <Text style={{
-                    color: disabled && primary ? c.tx3
+                    color: disabled && primary ? quiet.offText
                         : primary ? '#FFFFFF' : danger ? c.rd : outlined ? c.tx : c.tx2,
                     fontSize: textSize,
                     fontFamily: primary || outlined || danger ? font.extraBold : font.bold,

@@ -84,7 +84,7 @@ test('Giriş 02 ve hata hâli tasarımdaki dil ile davranışları taşır', () 
         'Apple, Google ya da e-postanızla girin.',
         'E-posta',
         'Şifre',
-        'Gir',
+        'Giriş yap',
         'Tekrar dene',
         'Şifremi unuttum',
         'Hesabınız yok mu?',

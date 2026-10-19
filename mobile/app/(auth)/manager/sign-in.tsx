@@ -266,7 +266,9 @@ export default function ManagerSignIn() {
                     />
                     {error ? <AuthBand>{error.message}</AuthBand> : null}
                     <AuthV4Button
-                        label={error ? 'Tekrar dene' : 'Gir'}
+                        // "Gir" değil "Giriş yap" (kullanıcı, 2026-10-19): Apple ve
+                        // Google düğmeleriyle ve masaüstüyle aynı fiil.
+                        label={error ? 'Tekrar dene' : 'Giriş yap'}
                         onPress={submit}
                         busy={busy}
                         disabled={locked || !email || !password}

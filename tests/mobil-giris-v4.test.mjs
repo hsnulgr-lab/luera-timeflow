@@ -10,7 +10,7 @@ import {
 import {
     LOGIN_NOTICE_TEXT, dropLoginNotice, onLoginNotice, queueLoginNotice, releaseLoginNotice,
 } from '../mobile/src/lib/loginNotice.ts';
-import { ssoInk, ssoMetrics, ssoMotion } from '../mobile/src/theme/tokens.ts';
+import { light, quietInk, ssoInk, ssoMetrics, ssoMotion } from '../mobile/src/theme/tokens.ts';
 
 /**
  * GİRİŞ v4 · APPLE VE GOOGLE (telefon) · 2026-10-19
@@ -111,7 +111,7 @@ test('karşılama: üst kapının alt satırı üç yolu söylüyor (A)', () => 
 
 test('B1 sırası: (sağlayıcı bandı) → Apple + Google → "ya da" → form → alt satır', () => {
     const order = ['<AuthBand>{providerFailedText(providerError)}', '<SsoPair', '<AuthOrWait', 'label="E-posta"', 'label="Şifre"',
-        "label={error ? 'Tekrar dene' : 'Gir'}", 'label="Şifremi unuttum"', 'question="Hesabınız yok mu?"'];
+        "label={error ? 'Tekrar dene' : 'Giriş yap'}", 'label="Şifremi unuttum"', 'question="Hesabınız yok mu?"'];
     let at = -1;
     for (const part of order) {
         const next = signIn.indexOf(part);
@@ -422,4 +422,38 @@ test('Apple/Google canlıda — iki kipte aynı yüzey', () => {
             assert.ok(src.includes(name), `eksik: ${name}`);
         }
     }
+});
+
+test('açık temada pasif "Devam" ve ikincil "Oturumu kapat" zeminde kaybolmuyor', () => {
+    /*
+     * 2026-10-19, telefonda: "Devam light modda çok silik", "Oturumu kapat da
+     * öyle". `surf2` (#F0E9DF) zeminden (#F3ECE0) yalnız 3 birim koyuydu.
+     */
+    const lum = (hex) => {
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+            .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+        const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+        return (x + 0.05) / (y + 0.05);
+    };
+    assert.ok(ratio(quietInk.light.offBg, light.bg) > 1.25, 'pasif düğme açık zeminde yine kayboluyor');
+    assert.ok(ratio(light.surf2, light.bg) < 1.05, 'ölçü bozuk: eski hâl zaten ayırt ediliyordu');
+    // Pasif yazı okunur (büyük kalın yazı için 3:1).
+    assert.ok(ratio(quietInk.light.offText, quietInk.light.offBg) >= 3);
+    // Opak (eylem rengi camdan geçmez) — saydam turuncu soluğu değil, dolu turuncu da değil.
+    assert.match(quietInk.light.offBg, /^#[0-9A-F]{6}$/i);
+    assert.notEqual(quietInk.light.offBg.toUpperCase(), '#FF5A1F');
+    assert.doesNotMatch(quietInk.light.secondaryBg + quietInk.light.secondaryBorder, /FF5A1F/i);
+    assert.match(quietInk.light.secondaryBg, /^#[0-9A-F]{6}$/i);
+    const ui = kod(oku('mobile/src/components/ui.tsx'));
+    assert.match(ui, /backgroundColor: disabled && primary\s*\? quiet\.offBg/);
+    assert.match(ui, /secondary \? quiet\.secondaryBg/);
+    assert.match(social, /backgroundColor: off \? quiet\.offBg : c\.or,/);
+    // Pasif hâlin ince turuncu çerçevesi; koyu temada yok.
+    assert.equal(quietInk.light.offBorder, '#FF5A1F');
+    assert.equal(quietInk.dark.offBorder, 'transparent');
+    assert.match(social, /borderColor: off \? quiet\.offBorder : c\.or,/);
+    assert.match(ui, /: disabled && primary \? quiet\.offBorder : 'transparent',/);
 });

@@ -87,3 +87,64 @@ Giriş ekranı (Apple/Google ile kayıt) yeni kayıt kapıları açacağı için
 `billing_design_pending` · `timeflow_core_debt` · `roadmap_faz_karari` ·
 `hesap_silme_odeme_izi` · `demo_salon` · `oturum_plani_2026_10_13` ·
 `whatsapp_connecting_tuzagi` (deploy dersi) · `dis_izleme`.
+
+## 7 · Denetim · 2026-10-19 (kod okundu, kapı mantığı PGlite'ta çalıştırıldı)
+
+**Hüküm: bugün zarar yok (ENFORCE kapalı, Dodo test kipi) — ama gerçek para
+almaya HAZIR DEĞİL.** Salt okunur sunucu kontrolü: `ops/abonelik/kontrol-oku.sql`.
+
+Dışarıdan yoklama (2026-10-19): `supabase.lueratech.com` → **503 "no available
+server"** (14 Eylül webhook hatasının BİREBİR metni) · `core.lueratech.com` →
+401 (ayakta). Güçlü şüphe: `CORE_SUPABASE_URL` ölü host'u gösteriyor —
+kontrol-oku §1 doğrular.
+
+🔴 Para / erişim:
+1. **Ayna Core'a rehin** (`dodo-webhook`): `active`'de `ensureCoreOrg` önce;
+   `renewed / on_hold / cancelled / payment.succeeded` aynayı ancak Core'da
+   abonelik BULUNURSA yazıyor ve `findSub` Core hatasını yutup "yok" diyor →
+   Core düşükken yenileme aynaya hiç ulaşmaz → ENFORCE açıkken her ödeyen
+   salon yenileme gününde kilitlenir.
+2. **Ayna hatası sessiz** (`mirrorEntitlement`): yalnız log, webhook 200 →
+   Dodo yeniden denemez. Koddaki "500 dönüp retry ettirir" yorumu YANLIŞ.
+3. **SQL kapısı ≠ uygulama kapısı (ek sürede).** `has_timeflow_access` grace'te
+   `expires_at > now()` da istiyor; `computeAccess` istemiyor (testi bunu
+   açıkça söylüyor). PGlite: `grace, expires -1g, grace_until +1g` → SQL
+   **false**, TS **true**. Sonuç: on_hold geç gelirse RLS yazmayı keser,
+   ekran "ek süre" der, WhatsApp/hatırlatma (edge = TS) çalışmaya devam eder.
+4. **Hesap silme Core'a rehin** (`account-delete · cancelSubscription`): Core
+   sorgusu düşerse silme DURUR (5.1.1(v)). Not (başka oturumun commit'siz
+   işi): Apple adımı abonelik iptalinden ÖNCE — iptal düşerse hesap kalır ama
+   Apple bağı iptal edilmiş olur; sıra ters olmalı.
+5. **Fiyat** USD ürün → ₺611,62 (bilinen; §2.3).
+6. **ENFORCE açılınca yeni kayıt anında kilitli:** kayıt / köprü
+   (`create_own_business`) / telefon kaydı `org_entitlement` satırı YAZMIYOR.
+   Masaüstünde tasarım gereği `/abonelik`; ama TELEFONDAN (Apple/Google
+   dahil) kaydolan kapalı kapıya düşer ve App Store kuralı gereği ödeme yolu
+   gösterilemez — hakem yeni hesap açarsa duvar. ENFORCE'tan ÖNCE karar.
+
+🟠 Orta:
+7. `billing-status` Core hatasını "abonelik yok" (200) diye dönüyor →
+   ödeyene "satın al" görünür; `dodo-checkout` var olan aboneliği
+   denetlemiyor → **çift abonelik / çift tahsilat** riski.
+8. Checkout / iptal / durum org'u `organization_members … limit(1)` (sırasız)
+   ile seçiyor → çok işletmeli kullanıcıda yanlış işletme.
+9. Deneme algısı `trial_period_days > 0` (aboneliğin KALICI alanı) → on_hold
+   sonrası yeniden `subscription.active` gelirse ödeyen "deneme"ye düşer
+   (erişim etkilenmez, görünüm ve hatırlatma yanlış). Dodo davranışı doğrulanmalı.
+10. `payment.succeeded` aynayı yalnız olayın metadata'sında
+    `organization_id` varsa düzeltiyor; yoksa kartını güncelleyenin ek süresi
+    kalkmaz. Dodo ödeme olayı yükü doğrulanmalı.
+
+🟢 Sağlam: imza (Standard Webhooks, sabit zamanlı, 5 dk) · idempotency · kapı
+zaman tabanlı · edge kapıları YEREL aynaya bakıyor (çalışma anında Core yok)
+· ödeme yolu kapanmıyor · deneme beyaz listede · kimlik JWT'den · Dodo
+anahtarı istemciye inmiyor · istemci aynaya yazamıyor · ENFORCE iki bayrak
+(sunucu + `VITE_`) varsayılan kapalı.
+
+**Önerilen onarım sırası** (kullanıcı onayıyla): (a) ayna ÖNCE, hatası 500 →
+Dodo yeniden dener; Core yazımı sonra (b) aynaya Dodo abonelik kimliği →
+iptal / silme / durum Core'suz çalışır (Core = aşağı akış kopyası, §3 kararı)
+(c) SQL'i `computeAccess`'e eşitleyen göç + iki tarafı AYNI örneklerle
+koşturan test (d) checkout: var olan aktif abonelikte reddet; org'u istemciden
+al + sahiplik doğrula (e) `billing-status` aynadan oku, Core hatasını "yok"
+diye yutma (f) mobil kayıt + ENFORCE kararı (g) TRY ürünler + Dodo Live.
