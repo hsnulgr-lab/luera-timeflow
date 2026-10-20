@@ -545,3 +545,28 @@ denemesi; tetikleyici `organizations_phone_trial`, `create_own_business(p_kaynak
 `ops/abonelik/acilis-deneme.sql` (açılış günü, kuru koşu varsayılan). Göç
 124 Faz 2.4 (kartsız denemedeki salonun abonelik ekranı + paket alabilmesi)
 ile BİRLİKTE canlıya çıkar.
+
+### Faz 2.4 + göç 124 CANLIDA (2026-10-20 akşam, 2639e7f)
+
+- Göç 124 kuru koşu → uygula → `ops/abonelik/124-dogrula.sql` temiz
+  (tetikleyici etkin, tek imza `create_own_business(text)`, yetkiler t/f/f,
+  deneme telefon 7,00 gün / web satır yok, mevcutlara dokunulmadı). REST:
+  anon çağrı 42501 (fonksiyon bulunuyor) → telefon 1.0.1 kaydı bozulmadı.
+- Fonksiyonlar argümansız + Coolify Deploy (masaüstü `index-BIkT8OcS.js`).
+- **Canlı test (Expo Go, e-posta kaydı):** iCloud hesabıyla "Test Salon 3"
+  açıldı → web Ayarlar › Abonelik "Ücretsiz deneme · 7 gün kaldı · Deneme
+  bitiyor 27 Ekim", kart/iptal yok ✅. (Önce eski görünüm çıktı: Deploy'dan
+  önce açılmış gizli pencere eski kodu tutuyordu — TÜM gizli pencereler kapanmalı.)
+- Expo dersi: Terminal'de `s` Expo Go'ya geçirir; Expo Go'da Apple/Google
+  girişi çalışmaz, e-posta kaydı yeterli.
+
+- **Erken paket alma ✅ (23:39):** /abonelik → Pro → Dodo "7 gün ücretsiz
+  deneme, 27 Eki'den itibaren TRY 599/ay · bugün TRY 0.00" (kalan gün
+  yanmadı) → test kartı → TimeFlow "Pro · Deneme · Deneme bitiyor 27 Ekim ·
+  ₺599 · her ayın 27'sinde" (ayna Dodo aboneliğine geçti).
+
+**Sıradaki (bkz. docs/abonelik-kurallari.md §4):** e-postalar + sihirli bağlantı (Resend; gönderici Apple gizli e-posta
+kaydı kullanıcıda) · telefon bildirim metinleri yalnız durum ("ödeme
+alınamadı" metni dodo-webhook `notifyOwner`'da "kartınızı güncelleyin"
+diyor — değişecek) · kurulum v2 kartlı deneme adımı (tasarım bekliyor) ·
+açılış: ölçüm → ayıklama → `acilis-deneme.sql` → Dodo Live → ENFORCE.
