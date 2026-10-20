@@ -440,8 +440,17 @@ planlandı", subscription.updated (`cancel_at_next_billing_date: true`)
 teslim. **Bulunan:** iptalden vazgeçme ekrandan İMKÂNSIZDI — plan listesi
 mevcut planı düğmesiz ("Mevcut plan") çiziyor, başka plan 409 alıyor; not
 "bir plan seçmeniz yeterli" diyordu. Düzeltme: iptal bekleyen abonelikte
-**"Aboneliğe devam et"** (aynı plan+dönem → sunucu resume). Test 3b ve Test 5
-(hesap silme, Test Salon 1) bunun canlıya çıkışından sonra.
+**"Aboneliğe devam et"** (aynı plan+dönem → sunucu resume) — 918d835 CANLIDA
+(masaüstü `index-BtmSk5q-.js`).
+**Test 3b ✅ (03:29):** "Aboneliğe devam et" → "iptal geri alındı", etiket
+Aktif, "Sonraki tahsilat 20 Kasım · ₺599"; Dodo Aktif, tarih aynı, yeni ödeme
+yok. **Test 5 ✅ (03:31):** Test Salon 1 hesabı silindi (Apple ile doğrulandı →
+"Hesabınız silindi" → giriş sayfası). Dodo aboneliği hemen **İptal Edildi**
+(sonraki tahsilat yok); subscription.cancelled teslim "Başarılı" (işletme
+silinmiş → org_gone, 200). furkan@luera.ai aboneliği etkilenmedi.
+**UÇTAN UCA TESTLER (1–5) BİTTİ.** Kalan: kartla dönüş (return_url) denemesi
+isteğe bağlı · ENFORCE kararı + mobil kayıt mesajı · Dodo Live (taban TRY,
+yerel kural yok, DODO_PRODUCT_MAP canlı kimlikler).
 
 **✅ CANLIDA (e091194, 2026-10-20 ~03:10 TR):** fonksiyonlar argümansız
 yüklendi + Coolify Deploy (masaüstü `index-CU8osf0N.js`, `action:"card"`).
