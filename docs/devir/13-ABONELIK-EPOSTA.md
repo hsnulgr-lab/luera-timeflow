@@ -363,7 +363,12 @@ e-posta 375 px'te tarayıcıda görüldü.
 > `/eposta/logo-timeflow.png` 200 image/png, yereldekiyle aynı bayt; 4 kod şablonu yeni
 > logoyu gösteriyor; pakette `/baglanti` metinleri, `sonra=abonelik`, `effective!=="grace"`,
 > kenar çubuğu. Canlı `/baglanti` tarayıcıda açıldı (tam marka, konsol temiz).
-> Sırada 6 (`eposta.sh cron`).
+> ✅ 6 `eposta.sh cron` (2026-10-21 01:39 TR): cron ortamında deneme `"mod":"kuru"` →
+> crontab'a `*/15` satırı, öteki 5 satıra dokunulmadı, sır maskeli. Ölçüm (VPS içinden,
+> 3 kuru tur): 0,17 sn (soğuk) · 0,05 · 0,06 sn; edge kabı CPU %0,15 → %0,12, bellek
+> 154 → 160 MB; makine yükü artmadı (3,27 → 3,01). Günde 96 tur ≈ 5–15 sn.
+> İlk OTOMATİK tur 22:45:01 UTC (01:45 TR) `/var/log/abonelik-eposta.log`'a düştü — kuru, vade 0.
+> Sırada 7 (`eposta.sh dene` ile kendine deneme e-postası), sonra 8 (`ac`, Dodo Live ile).
 > Komutlar kullanıcının Terminal panelinde, onayıyla çalıştı.
 
 1. **Kuru koşu** (yazmaz, sonunda ROLLBACK). Beklenen: tekillik 1 satır · RLS `t` ·
