@@ -128,6 +128,10 @@ export const LoginPage = () => {
     const plan = planById(params.get('plan'));
     const cycle = params.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
     const planDest = plan ? `/abonelik?plan=${plan.id}&cycle=${cycle}` : null;
+    // Abonelik e-postasından gelen (?sonra=abonelik): girişten sonra paket
+    // ekranı. BEYAZ LİSTE — adres parametreden okunmaz, açık yönlendirme
+    // olmaz. Yeni kayıtta geçmez: yeni işletmenin yeri kurulum.
+    const afterDest = planDest ?? (params.get('sonra') === 'abonelik' ? '/abonelik' : null);
 
     const [screen, setScreen] = useState<Screen>(() => (params.get('mode') === 'signup' ? { name: 'signup' } : { name: 'login' }));
     const [email, setEmail] = useState('');
@@ -190,7 +194,7 @@ export const LoginPage = () => {
 
     /** İçeri: açılış animasyonu, sonra hedef. Plan seçildiyse önce abonelik. */
     const enter = (kind: Entry) => {
-        const dest = planDest ?? (kind === 'signup' ? '/kurulum' : '/');
+        const dest = planDest ?? (kind === 'signup' ? '/kurulum' : afterDest ?? '/');
         setSplash({ dest, notice: kind === 'existing' ? METIN.existingAccount : undefined });
     };
 
@@ -210,7 +214,7 @@ export const LoginPage = () => {
             void supabase.auth.getUser().then(({ data }) => finishSocial(pending.provider, pending.intent, data.user));
             return;
         }
-        navigate(planDest ?? '/', { replace: true });
+        navigate(afterDest ?? '/', { replace: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoading, user]);
 

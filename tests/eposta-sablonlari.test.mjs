@@ -30,10 +30,13 @@ for (const [ad, baslik] of Object.entries(SABLONLAR)) {
         assert.doesNotMatch(html, /<script|<link|@import|url\(/i, 'dış kaynak yok');
         const img = [...html.matchAll(/<img\b[^>]*>/g)];
         assert.equal(img.length, 1, 'tek görsel: logo');
-        assert.match(img[0][0], /src="https:\/\/timeflow\.lueratech\.com\/eposta\/logo\.png"/);
-        assert.match(img[0][0], /alt="Luera TimeFlow"/);
+        // Tam marka (luera + "timeflow" hapı, 2026-10-21) — scripts/eposta-logo.mjs.
+        assert.match(img[0][0], /src="https:\/\/timeflow\.lueratech\.com\/eposta\/logo-timeflow\.png"/);
+        // Resim engellenince biçimli alt metin: eski 44 px ikonda taşıyordu.
+        assert.match(img[0][0], /width="146" height="30" alt="Luera TimeFlow"/);
+        assert.match(img[0][0], /font-size:16px;line-height:30px;font-weight:700;color:#0E0E0E;/);
         const adresler = [...html.matchAll(/https?:\/\/[^"'\s<]+/g)].map((m) => m[0]);
-        assert.deepEqual(adresler, ['https://timeflow.lueratech.com/eposta/logo.png'], 'başka adres yok');
+        assert.deepEqual(adresler, ['https://timeflow.lueratech.com/eposta/logo-timeflow.png'], 'başka adres yok');
         for (const a of html.matchAll(/<a\b[^>]*>/g)) {
             assert.match(a[0], /href="mailto:/, 'yalnız mailto bağlantısı');
             assert.match(a[0], /text-decoration:none/);

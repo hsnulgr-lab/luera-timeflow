@@ -699,8 +699,9 @@ test('ekranlar kartsız denemeyi doğru çizer (paket ekranı, abonelik, şerit,
     assert.match(hook, /cardlessTrial: isCardlessTrial\(loaded\?\.row\),/);
 
     const pay = read('src/pages/PaywallPage.tsx');
-    // Kartsız denemesi süren geri atılmaz — paket ekranı onun.
-    assert.match(pay, /ent\.ok && !ent\.cardlessTrial && !returning\) navigate\('\/'/);
+    // Kartsız denemesi süren geri atılmaz — paket ekranı onun. Ek süredeki
+    // salon da (Durum 3 · Kartı güncelle) — tests/abonelik-eposta.test.mjs.
+    assert.match(pay, /ent\.ok && !ent\.cardlessTrial && ent\.effective !== 'grace' && !returning\) navigate\('\/'/);
     assert.match(pay, /if \(ent\.ok && ent\.cardlessTrial\) \{[\s\S]*?Denemeniz sürüyor\.[\s\S]*?ilk tahsilat denemeniz bittiğinde/);
     // Ödeme alınamadı → yeni abonelik DEĞİL, kart sayfası.
     const grace = pay.slice(pay.indexOf("if (ent.effective === 'grace')"));

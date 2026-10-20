@@ -102,7 +102,8 @@ test('kayıtta kayıtlı e-posta: şifre uyarsa içeri + not, uymazsa kod ekran�
 // ── 3 · Kararlar ────────────────────────────────────────────────────────────
 
 test('masaüstünde kayıt hesapla biter, Kurulum sihirbazı açılır (karar 1)', () => {
-    assert.match(page, /kind === 'signup' \? '\/kurulum' : '\/'/);
+    // Girişte e-postadan gelen paket ekranına döner (sonra=abonelik); kayıt yine Kurulum.
+    assert.match(page, /kind === 'signup' \? '\/kurulum' : afterDest \?\? '\/'/);
     assert.doesNotMatch(page, /Adım \d \/ 3|İşletmeniz|kim yapıyor/, 'M6/M7 ve adım çubuğu masaüstünde yok');
 });
 

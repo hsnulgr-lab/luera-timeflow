@@ -66,9 +66,13 @@ export function PaywallPage() {
     // Kartsız (telefon) denemesi sürene de kalır: burası onun paket ekranı —
     // e-postadaki bağlantı ve şeritteki "Planı seç" buraya gelir; geri
     // atılsaydı deneme bitmeden paket alamazdı (docs/abonelik-kurallari.md).
+    // Ek süredeki salon da kalır: erişimi sürdüğü için `ok` true, ama
+    // "Ödemeniz alınamadı · Kartı güncelle" (Durum 3) tam olarak onun ekranı.
+    // Bu koşul yokken o ekran hiç görünmüyordu — "ödeme alınamadı"
+    // e-postasının düğmesi kişiyi ana sayfaya atıyordu.
     useEffect(() => {
-        if (!ent.loading && ent.ok && !ent.cardlessTrial && !returning) navigate('/', { replace: true });
-    }, [ent.loading, ent.ok, ent.cardlessTrial, returning, navigate]);
+        if (!ent.loading && ent.ok && !ent.cardlessTrial && ent.effective !== 'grace' && !returning) navigate('/', { replace: true });
+    }, [ent.loading, ent.ok, ent.cardlessTrial, ent.effective, returning, navigate]);
 
     // "Verileriniz duruyor" sadece bir cümle olarak inandırıcı değil; sayı
     // görmek gerekiyor. Okuma RLS'te açık bırakıldığı için bu sorgu kilitliyken

@@ -570,3 +570,133 @@ kaydı kullanıcıda) · telefon bildirim metinleri yalnız durum ("ödeme
 alınamadı" metni dodo-webhook `notifyOwner`'da "kartınızı güncelleyin"
 diyor — değişecek) · kurulum v2 kartlı deneme adımı (tasarım bekliyor) ·
 açılış: ölçüm → ayıklama → `acilis-deneme.sql` → Dodo Live → ENFORCE.
+
+### 2026-10-20 gece · paralel işler (bu oturum, son)
+
+- **Apple gizli e-posta kaydı ✅ TAMAM:** Apple Developer › Services › Sign
+  in with Apple for Email Communication › Email Sources: `send.lueratech.com`
+  (Domain, SPF ✓ — 23:49'da eklendi), `lueratech.com` (Domain, SPF ✓),
+  `no-reply@lueratech.com` (Email address, SPF ✓). DNS: DKIM
+  `resend._domainkey.lueratech.com` var, `send.lueratech.com` SPF var,
+  DMARC p=none. E-postalar `no-reply@lueratech.com`'dan gitmeli; başka From
+  kullanılırsa Apple'a o da kaydedilmeli. (E-posta oturumu
+  local_606c44d7'ye bildirildi.)
+- **"Kim kilitlenir" ölçümü (kontrol-oku.sql, 23:4x):** açık kalanlar — LOU
+  (Test Salon 3, Dodo denemesi 27 Eki), furkan@luera.ai (20 Kas), nisa@luera.ai
+  (2027-08), Demo (süresiz). KİLİTLENECEKLER — furkanhasan@luera.ai (bitiş
+  2026-09-12) ve nisanur@luera.ai (2026-09-29), iç hesaplar → **karar
+  bekliyor: hediye mi (`ops/abonelik/hediye.sh`) yoksa kilit mi**; ayna
+  satırı OLMAYAN 2 işletme (ikisi son 30 gün, 124'ten önce) → kim olduğu
+  listelenmeli (salt okunur sorgu), açılışta `acilis-deneme.sql` 7 gün verir.
+  Sırlar tam, Dodo hâlâ TEST, son Dodo yazımı 2026-10-20 20:39 UTC.
+- **Bekleyen (bu oturumdan):** telefon tarayıcısında `/abonelik` + Dodo
+  ödeme sayfası (Apple Pay görünüyor mu) denemesi — yapılmadı. Expo sunucusu
+  sekmesi (`npx expo start`) kullanıcıda açık kalmış olabilir, kapatılmalı.
+
+## 11 · KALAN HER ŞEY — açılışa kadar sıralı liste (2026-10-20 son)
+
+Kurallar: `docs/abonelik-kurallari.md`. E-posta işinin ayrıntısı:
+`docs/devir/13-ABONELIK-EPOSTA.md`. Canlıda olan: 123 · e091194 (en yeni
+abonelik kazanır, kart sayfası) · 918d835 (aboneliğe devam et) · 124 +
+2639e7f (telefona kartsız 7 gün, kartsız denemeden paket alma). ENFORCE
+KAPALI, Dodo TEST.
+
+### A · Hemen (yarım kalanlar)
+1. **Commit edilmemiş dosyalar:** bu notun son iki bölümü (devir 10),
+   `docs/devir/13-ABONELIK-EPOSTA.md`, `supabase/125_abonelik_eposta.sql`
+   (YAZILDI, UYGULANMADI). `site/` ve panel rötuşu oturumunun `src/`
+   dosyaları commit'e girmez.
+2. Terminal panelindeki Expo sekmesi (`npx expo start`) açık kalmışsa kapat.
+
+### B · E-postalar + sihirli bağlantı + bildirim metni (Faz 2.5/2.6 — devir 13)
+
+> **2026-10-21:** 1–3, 6–8 KODDA ve yerelde doğrulandı (devir 13 §6; commit
+> yok). Kalan canlıya çıkış: 4 (Resend anahtarı) · 5 (göç 125) · deploy ·
+> 9 (cron) · 10 (izleme) — sıralı komutlar devir 13 §7.
+1. 🔴 **PaywallPage hatası:** ek süredeki salon (`computeAccess` ok=true)
+   `/abonelik`'ten ana sayfaya atılıyor → "Ödemeniz alınamadı · Kartı
+   güncelle" ekranı HİÇ görünmüyor. Düzeltme: yönlendirme koşuluna
+   `&& ent.effective !== 'grace'` + kaynak testi. (Eski koddan beri var.)
+2. `LoginPage`: `?sonra=abonelik` → girişten sonra `/abonelik` (beyaz liste).
+3. `/baglanti` sayfası: `#t=<hashed_token>` → `verifyOtp({ token_hash, type:
+   'email' })` → `/abonelik`. (GoTrue `action_link` iç ağ adresi, kullanılamaz.)
+4. Resend anahtarı `app_secrets`'a (yerel `~/.luera-resend.env`, sohbete
+   yapıştırmadan; önce salt okunur "var mı" sorgusu).
+5. Göç 125 (`abonelik_eposta` defteri + `abonelik_eposta_ayir`) kuru koşu →
+   uygula → doğrula.
+6. `supabase/functions/abonelik-eposta/` (saf `eposta.ts` + `index.ts`):
+   hoş geldiniz · 3 gün kaldı · bitti · son hatırlatma · ödeme alınamadı;
+   gönderici `Luera TimeFlow <no-reply@lueratech.com>`, yanıt info@; sessiz
+   saat; ENFORCE'a duyarlı metin; anahtar `ABONELIK_EPOSTA` (kapalıyken kuru).
+7. `dodo-webhook` `notifyOwner` metni → "Son ödeme alınamadı. Ayrıntılar
+   e-postanızda." (mobil koda dokunma).
+8. Testler (PGlite) + tsc + lint + `npm test`; deploy
+   `scripts/deploy-functions.sh abonelik-eposta dodo-webhook` (`_shared`
+   değişirse ARGÜMANSIZ) + Coolify Deploy.
+9. VPS crontab: 15 dk'da bir, `x-cron-secret` ile (önce cron ortamında dene;
+   `%` yazma). `scripts/rotate-cron-secret.sh` yeni satırı da döndürür.
+10. Gönderimi kuru kipte izle (sayılar mantıklı mı), sonra test hesabına
+    gerçek gönderim; Apple ile kaydolup e-postasını gizleyen bir hesapla
+    gizli adrese ulaşıyor mu dene (Apple kaydı ✅ hazır).
+
+### C · Doğrulanmamış uçlar (kullanıcıyla, ödeme yapmadan ya da test kartıyla)
+1. Telefonun Safari'sinde `timeflow.lueratech.com/abonelik` → paket ekranı
+   rahat mı · Dodo ödeme sayfasında **Apple Pay** çıkıyor mu.
+2. Kart sayfasında test kartını girip "Ödeme Yöntemini Güncelle" → TimeFlow
+   abonelik ekranına dönüş (return_url) çalışıyor mu.
+3. Ek süre (on_hold) akışı uçtan uca hiç denenmedi: Dodo test kipinde
+   başarısız ödeme → ek süre → kart sayfası borcu çekip aboneliği açıyor mu.
+4. Masaüstünden e-postayla yeni kayıt → abonelik satırı YOK (web etiketi) →
+   Ayarlar "Aktif aboneliğiniz yok · 7 gün ücretsiz dene" (kartlı deneme).
+
+### D · Kurulum v2 (tasarım bekliyor — devir 12)
+- Son adım "7 gün ücretsiz başlat" (Dodo, kartla); `/kurulum` kapı dışında
+  (✅ kodda). Tasarım gelmeden ENFORCE açılırsa geçici akış: masaüstü yeni
+  kayıt kurulumu bitirir → kapı `/abonelik`e atar → "Planınızı seçin, 7 gün
+  ücretsiz" (kartlı) — çalışır ama ideal değil.
+
+### E · Açılış (sırayla; her adım kullanıcı onayıyla)
+1. **Ölçüm** (`ops/abonelik/kontrol-oku.sql`) açılış günü yeniden.
+2. **İç hesaplar:** furkanhasan@luera.ai (bitiş 2026-09-12) ve
+   nisanur@luera.ai (2026-09-29) → hediye (`ops/abonelik/hediye.sh ver …`)
+   mı, kilit mi — KARAR BEKLİYOR. Satırsız 2 işletmenin kime ait olduğu
+   (salt okunur sorgu) — gerçek salon mu test mi.
+3. **Test kalıntıları:** Test Salon 3 (LOU, Dodo TEST denemesi 27 Eki) ve
+   furkan@luera.ai'nin test abonelikleri Live'da anlamsız; Live'a geçince
+   aynadaki test kimlikleri Dodo'da "yok" sayılır (kod hazır) — bu
+   hesapların aynası ne olacak, karar.
+4. `ops/abonelik/acilis-deneme.sql` kuru → `-v uygula=1` (satırsız +
+   kartsız denemesi bitmiş işletmelere açılıştan 7 gün).
+5. **Dodo Live:** Business verification · Live ürünleri taban **TRY**
+   (aylık 299/599/1.199, yıllık 2.868/5.748/11.508), yerel kural YOK, vergi
+   dahil · Live API anahtarı + webhook sırrı + `DODO_API_BASE` (live) +
+   `DODO_PRODUCT_MAP` canlı kimlikler (`app_secrets`, sohbete yapıştırmadan)
+   · Live'da webhook ucu (aynı URL) · dış izleme Worker'ı
+   (`ops/izleme`, `DODO_API_BASE` + salt okunur anahtar) Live'a.
+6. `ABONELIK_EPOSTA = 'true'` (Live ile birlikte — TEST ödeme sayfasına
+   e-posta gönderilmez).
+7. **ENFORCE:** sakin saatte `app_secrets.ENTITLEMENT_ENFORCE = 'true'` +
+   Coolify'da `VITE_ENTITLEMENT_ENFORCE=true` (derleme değişkeni → Deploy).
+   Geri alma: `update app_secrets set value='false' where key='ENTITLEMENT_ENFORCE';`
+8. İlk gün izleme: kilitlenen var mı, webhook hata oranı %0 mı, e-posta
+   defteri.
+
+### F · App Store
+- Sonraki sürümün inceleme notu: "TimeFlow salonlara satılan bir web
+  hizmetidir; uygulamada satın alma ya da yönlendirme yoktur; ödeme bilgisi
+  e-postayla gider; demo hesap süresiz aktif."
+- App Store açıklaması ve ekran görüntülerinde fiyat / plan / "web'den abone
+  olun" geçmediğini kontrol et (yapılmadı).
+- Kalan risk (bilerek kabul): 3.1.3(c) "tek kullanıcı satışı IAP" — Apple
+  isterse B planı: o grup için IAP ya da telefonda yeni işletme açmayı kapatma.
+
+### G · Diğer abonelik borçları (açılışı engellemez)
+- Plan değişikliği yok (Dodo Change Plan): aktif aboneye "Planı değiştir" /
+  "Yıllığa geç" 409 → "destek@'e yazın". Yıllığa geçiş düğmesi bu yüzden
+  aktif abonede çalışmıyor.
+- Fatura bilgisi (VKN / vergi dairesi) toplanmıyor · kartın son 4 hanesi
+  gösterilmiyor · Dodo ödeme sayfası teması.
+- Core Studio parolası değişecek (§9).
+- furkan@luera.ai test kipinde 4 aktif abonelik: 9 ve 12 Kasım
+  yenilemelerinde eski üçü kendiliğinden kapanacak (en yeni kazanır) —
+  beklenen, müdahale gerekmez.

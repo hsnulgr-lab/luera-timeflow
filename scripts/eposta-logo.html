@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  E-posta logosu çizimi — scripts/eposta-logo.mjs bunu Chrome'da (headless)
+  açar, tuvalin PNG'sini public/eposta/logo-timeflow.png'ye yazar. Elle açma.
+-->
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@800;900&display=block">
+</head><body><pre id="out">BEKLIYOR</pre><script>
+// LueraTimeflowMark (src/components/brand/LueraTimeflowMark.tsx) geometrisi,
+// kenar çubuğu oranları (hap 0.5556, yazı 0.62): S = 36 px, 3× çözünürlük.
+function drawMark(S, scale, bg) {
+  const F = '"Hanken Grotesk"';
+  const c0 = document.createElement('canvas').getContext('2d');
+  c0.font = `900 ${S}px ${F}`; c0.letterSpacing = `${-0.045 * S}px`;
+  const m = c0.measureText('luera');
+  const lineH = 0.8 * S;
+  const base = (lineH - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+  const advance = m.width;
+  const pillH = 0.5556 * S, tfs = pillH * 0.62, pad = pillH * 0.38;
+  c0.font = `800 ${tfs}px ${F}`; c0.letterSpacing = `${-0.01 * tfs}px`;
+  const tm = c0.measureText('timeflow');
+  const pillW = Math.max(tm.width + 2 * pad, pillH * 2.6);
+  const pillX = advance + 0.045 * S, pillY = lineH - 0.012 * S - pillH;
+  const tLine = tfs * 0.8, tTop = pillY + (pillH - tLine) / 2;
+  const tBase = tTop + (tLine - (tm.fontBoundingBoxAscent + tm.fontBoundingBoxDescent)) / 2 + tm.fontBoundingBoxAscent;
+  const top = Math.min(base - m.actualBoundingBoxAscent, pillY), bottom = Math.max(base + m.actualBoundingBoxDescent, pillY + pillH);
+  const left = Math.min(-m.actualBoundingBoxLeft, 0), right = pillX + pillW, M = 0.04 * S;
+  const w = right - left + 2 * M, h = bottom - top + 2 * M;
+  const cv = document.createElement('canvas'); cv.width = Math.ceil(w * scale); cv.height = Math.ceil(h * scale);
+  const ctx = cv.getContext('2d'); ctx.scale(scale, scale); ctx.translate(M - left, M - top);
+  ctx.fillStyle = bg; ctx.fillRect(left - M, top - M, w + 1, h + 1);
+  ctx.fillStyle = '#0E0E0E'; ctx.font = `900 ${S}px ${F}`; ctx.letterSpacing = `${-0.045 * S}px`; ctx.fillText('luera', 0, base);
+  ctx.fillStyle = '#FF5A1F'; ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2); ctx.fill();
+  ctx.fillStyle = '#F3ECE0'; ctx.font = `800 ${tfs}px ${F}`; ctx.letterSpacing = `${-0.01 * tfs}px`; ctx.textAlign = 'center';
+  ctx.fillText('timeflow', pillX + pillW / 2, tBase);
+  return { cv, css: [w, h] };
+}
+(async () => {
+  await document.fonts.load('900 36px "Hanken Grotesk"'); await document.fonts.load('800 12px "Hanken Grotesk"');
+  const ok = document.fonts.check('900 36px "Hanken Grotesk"') && document.fonts.check('800 12px "Hanken Grotesk"');
+  if (!ok) { document.getElementById('out').textContent = 'FONT_YOK'; return; }
+  const r = drawMark(36, 3, '#FFFFFF');
+  document.getElementById('out').textContent = 'PNG ' + r.cv.width + 'x' + r.cv.height + ' ' + r.cv.toDataURL('image/png');
+})();
+</script></body></html>

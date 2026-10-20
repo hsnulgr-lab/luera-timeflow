@@ -12,11 +12,14 @@
 //  - Servis BÜTÜN dosyayı Go şablonu olarak işler: yoruma da şablon ifadesi
 //    yazma.
 //  - Tek görsel kendi alan adımızdaki logo; betik, yazı tipi, izleme yok.
+//    Resim engellenince (Outlook varsayılanı) yerine biçimli alt metin çıkar;
+//    eski 44 px'lik ikon kutusunda alt metin taşıyordu (2026-10-21).
 //  - Gmail e-posta adreslerini ve alan adlarını kendiliğinden mavi bağlantıya
 //    çeviriyor; görünen her adres kendi biçimimizle <a> içinde.
 import { writeFileSync } from 'node:fs';
 
-const LOGO = 'https://timeflow.lueratech.com/eposta/logo.png';
+// Tam marka (luera + "timeflow" hapı) — üretimi: node scripts/eposta-logo.mjs
+const LOGO = 'https://timeflow.lueratech.com/eposta/logo-timeflow.png';
 const RENK = {
     zemin: '#F3EDE3', kart: '#FFFFFF', cizgi: '#ECE4D6', murekkep: '#0E0E0E',
     metin: '#4F4840', soluk: '#8C8478', turuncu: '#FF5A1F', krem: '#F3EDE3',
@@ -50,14 +53,7 @@ function sablon({ ne, degisken, baslik, onizleme, giris, yoksay }) {
     <td align="center" style="padding:40px 16px 32px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:${RENK.kart};border:1px solid ${RENK.cizgi};border-radius:20px;">
         <tr>
-          <td style="padding:32px 32px 0 32px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="vertical-align:middle;"><img src="${LOGO}" width="44" height="44" alt="Luera TimeFlow" style="display:block;width:44px;height:44px;border:0;border-radius:11px;"></td>
-                <td style="vertical-align:middle;padding-left:12px;font-family:${YAZI};font-size:15px;line-height:20px;font-weight:700;color:${RENK.murekkep};letter-spacing:-0.1px;">Luera TimeFlow</td>
-              </tr>
-            </table>
-          </td>
+          <td style="padding:32px 32px 0 32px;"><img src="${LOGO}" width="146" height="30" alt="Luera TimeFlow" style="display:block;width:146px;height:30px;border:0;font-family:${YAZI};font-size:16px;line-height:30px;font-weight:700;color:${RENK.murekkep};"></td>
         </tr>
         <tr>
           <td style="padding:28px 32px 0 32px;font-family:${YAZI};">

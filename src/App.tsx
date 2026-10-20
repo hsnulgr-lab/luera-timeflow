@@ -42,6 +42,7 @@ import { StaffModeRoot } from '@/mobile/staff/StaffModeRoot';
 import { BookingPage } from '@/pages/public/BookingPage';
 import { PricingPage } from '@/pages/public/PricingPage';
 import { PaywallPage } from '@/pages/PaywallPage';
+import { EpostaBaglantiPage } from '@/pages/EpostaBaglantiPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
 import { LoginNotice } from '@/components/LoginNotice';
@@ -123,6 +124,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/fiyatlar" element={<PricingPage />} />
+          {/* Abonelik e-postasının sihirli bağlantısı — oturumu O açar, kapının dışında. */}
+          <Route path="/baglanti" element={<EpostaBaglantiPage />} />
           <Route path="/abonelik" element={
             <ProtectedRoute>
               <PaywallPage />

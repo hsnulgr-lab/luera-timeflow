@@ -25,6 +25,11 @@ verify_jwt = false
 [functions.booking-manage]
 verify_jwt = false
 
+# abonelik-eposta'yı VPS crontab'ı çağırır — Supabase JWT taşımaz; kimlik
+# doğrulama x-cron-secret (app_secrets.CRON_TRIGGER_SECRET) ile fonksiyon içinde.
+[functions.abonelik-eposta]
+verify_jwt = false
+
 # gateway'i n8n gibi dış otomasyonlar çağırır — Supabase JWT taşımaz; kimlik
 # doğrulama integration_connections.api_key ile fonksiyon içinde.
 [functions.gateway]

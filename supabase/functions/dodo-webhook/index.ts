@@ -167,9 +167,13 @@ Deno.serve(async (req: Request) => {
         if (decision.enteredGrace) {
             // Sessiz kilit en kötüsü: kullanıcı iki gün sonra kapıyı kapalı
             // bulur ve neden olduğunu bilmez.
+            //
+            // Bildirim YALNIZ durum söyler: telefonda ödemeye yönlendirme
+            // (kart güncelleme dahil) App Store 3.1.1'e takılır. Ne yapılacağı
+            // e-postada — abonelik-eposta `odeme` (docs/abonelik-kurallari.md §2).
             notifyOwner(admin, orgId, {
                 title: 'Ödeme alınamadı',
-                body: 'Aboneliğinizin ödemesi alınamadı. 2 gün içinde kartınızı güncelleyin, hizmetiniz kesintisiz devam etsin.',
+                body: 'Son ödeme alınamadı. Ayrıntılar e-postanızda.',
                 url: '/settings?tab=billing',
                 tag: 'billing-hold',
             });
