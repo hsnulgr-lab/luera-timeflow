@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, type EntitlementRow } from '../_shared/entitlement.ts';
+import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, type EntitlementRow } from '../_shared/entitlement.ts';
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
@@ -139,8 +139,12 @@ Deno.serve(async (req: Request) => {
         // kez tahsilat demek. Plan değişikliği ayrı iş (Dodo Change Plan);
         // ek süredeki (ödeme alınamamış) işletme yeni abonelik alabilir —
         // webhook yenisi etkinleşince eskisini Dodo'da kapatır.
+        //
+        // Yalnız DODO aboneliği varsa: kartsız (telefon) denemedeki ya da
+        // hediye üyeliği süren işletmenin Dodo'da tahsilatı yok — paket
+        // alabilmeli (docs/abonelik-kurallari.md · Faz 2.4).
         const access = computeAccess(entRow as EntitlementRow | null);
-        if (access.ok && (access.effective === 'trial' || access.effective === 'active')) {
+        if (access.ok && (access.effective === 'trial' || access.effective === 'active') && entRow?.dodo_subscription_id) {
             // Dönem sonunda iptal bekleyen salon AYNI planı seçerse yeni
             // abonelik değil, iptalden vazgeçme: ekran "devam etmek için plan
             // seçmeniz yeterli" diyor.
@@ -186,9 +190,13 @@ Deno.serve(async (req: Request) => {
         const configured = Number(await getSecret(admin, 'DODO_TRIAL_DAYS')) || DEFAULT_TRIAL_DAYS;
         // body.trial_days pilot linki için; beyaz listeden geçmeyen değer
         // varsayılana düşer (bkz. _shared/entitlement.ts).
+        //
+        // Kartsız denemesi süren işletme (124) erken alırsa kalan günler
+        // Dodo'ya deneme olarak geçer: ilk tahsilat deneme bittiği gün.
+        // Sunucuda hesaplanır, istemciden gelmez — beyaz liste gerekmez.
         const trialDays = firstTime
             ? safeTrialDays(body.trial_days ?? configured)
-            : 0;
+            : cardlessTrialDaysLeft(entRow as EntitlementRow | null);
 
         // Kupon: "ilk 3 ay %50" gibi kampanyalar. Dodo'da kuponlar fatura
         // dönemi limitiyle tanımlı, süresiz %100 indirim yok — ücretsiz pilot

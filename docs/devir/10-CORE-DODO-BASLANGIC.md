@@ -531,3 +531,17 @@ yenileme günü (Dodo panelinde sonraki tahsilatı birkaç dakika sonraya çek:
 409, hesap silme). Not: banner "Plan seçmezseniz salt
 okunur olur" diyor — kartlı denemede yanlış metin (deneme otomatik ücretliye
 döner); ayrı küçük iş.
+
+### ENFORCE kararı (2026-10-20) → `docs/abonelik-kurallari.md`
+
+Kurallar kesinleşti: masaüstü deneme kurulumun sonunda Dodo'da KARTLA ·
+telefondan açılan işletme açıldığı an KARTSIZ 7 gün · ödeme yalnız web,
+iletişimi yalnız e-posta (+ sihirli bağlantı) · **mobil uygulamaya abonelikle
+ilgili hiçbir değişiklik yok** (Apple 3.1.1/3.1.3; güncel 3.1.3(f) salon
+yazılımını kapsamıyor, tek kişilik telefon kullanıcısında kalan risk bilerek
+kabul edildi — belge §2). **Kodda, CANLIDA DEĞİL:** göç 124 (telefon
+denemesi; tetikleyici `organizations_phone_trial`, `create_own_business(p_kaynak)`)
++ masaüstü `kaynak: 'web'` etiketi (124 yokken PGRST202 → parametresiz) +
+`ops/abonelik/acilis-deneme.sql` (açılış günü, kuru koşu varsayılan). Göç
+124 Faz 2.4 (kartsız denemedeki salonun abonelik ekranı + paket alabilmesi)
+ile BİRLİKTE canlıya çıkar.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
-import { computeAccess, shownAccess, type Access, type EntitlementRow } from '@shared/entitlement';
+import { computeAccess, isCardlessTrial, shownAccess, type Access, type EntitlementRow } from '@shared/entitlement';
 
 // "Bu işletme şu an TimeFlow'u kullanabilir mi?" — istemci tarafı.
 //
@@ -45,6 +45,12 @@ export interface Entitlement extends Access {
      */
     shownUntil: string | null;
     shownDaysLeft: number | null;
+    /**
+     * Kartsız (telefon) deneme sürüyor: Dodo'da abonelik yok, deneme bitince
+     * kendiliğinden ücret ÇEKİLMEZ — plan seçmezse salt okunur olur
+     * (docs/abonelik-kurallari.md). Masaüstünün kartlı denemesinde false.
+     */
+    cardlessTrial: boolean;
     refresh: () => Promise<void>;
 }
 
@@ -98,6 +104,9 @@ export function useEntitlement(): Entitlement {
         ...shownAccess(loaded?.row),
         plan: loaded?.row?.plan ?? null,
         cycle: loaded?.row?.cycle ?? null,
+        // Süre bitince de kartsız deneme sayılır (satır hâlâ 'trial'): ekran
+        // "deneme bitti, plan seçin" der.
+        cardlessTrial: isCardlessTrial(loaded?.row),
         loading,
         // Yalnız satır GERÇEKTEN okunduysa VE kapı açıksa kilitlenir.
         locked: ENFORCE && !loading && loaded !== null && !access.ok,

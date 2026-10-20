@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { computeAccess, shownAccess, shownEnd } from '../supabase/functions/_shared/entitlement.ts';
+import { cardlessTrialDaysLeft, computeAccess, isCardlessTrial, shownAccess, shownEnd } from '../supabase/functions/_shared/entitlement.ts';
 import { coreStatus, decide, isTrialPeriod, needsMineNow, PERIOD_TOLERANCE_MS } from '../supabase/functions/dodo-webhook/durum.ts';
 
 /*
@@ -478,7 +478,8 @@ test('hediye üye ekranda tahsilat/kart/iptal görmez', () => {
     const bs = read('supabase/functions/billing-status/index.ts');
     assert.match(bs, /comp: row\.last_event === 'comp_manual' \|\| row\.last_event === 'demo_manual'/);
     const ui = read('src/pages/settings/bolumler/Abonelik.tsx');
-    const blok = ui.slice(ui.indexOf("if (subscription?.comp && subscription.status === 'active')"), ui.indexOf('if (!hasSub && !onTrial)'));
+    // Hediye dalı, ardından gelen kartsız deneme dalının yorumuna kadar.
+    const blok = ui.slice(ui.indexOf("if (subscription?.comp && subscription.status === 'active')"), ui.indexOf('// Kartsız (telefon) deneme sürüyor'));
     assert.ok(blok.length > 100, 'hediye dalı bulunamadı');
     assert.match(blok, /Hediye/);
     assert.match(blok, /'Süresiz'/);
@@ -524,4 +525,205 @@ test('ekranlar gerçek günü kullanır; ₺0 kart doğrulaması fatura sayılma
     assert.match(banner, /ent\.shownUntil \? new Date\(ent\.shownUntil\)/);
     assert.ok(!/ent\.until\b/.test(read('src/pages/settings/bolumler/Ozet.tsx')), 'özet erişim tarihini göstermemeli');
     assert.match(read('src/pages/PaywallPage.tsx'), /Sonraki tahsilat: \{fullFmt\.format\(new Date\(ent\.shownUntil\)\)\}/);
+});
+
+// ── 5 · Telefondan açılan işletmeye kartsız deneme (124) + açılış günü ──────
+// docs/abonelik-kurallari.md. Kapı açılınca telefondan kaydolan kişi ilk
+// dakikadan kapalı kapıya düşüyordu (devir 10 §7 madde 6): telefonda ödeme
+// gösterilemez, önünde hiçbir yol kalmazdı.
+
+test('124: telefondan açılan işletme kartsız 7 gün alır, masaüstü (web) almaz (PGlite)', { skip: !PGLITE_DIR && 'PGLITE_DIR yok' }, async () => {
+    const { PGlite } = await import(pathToFileURL(join(PGLITE_DIR, 'node_modules/@electric-sql/pglite/dist/index.js')).href);
+    const db = new PGlite();
+    await db.exec(`
+        CREATE ROLE anon; CREATE ROLE authenticated;
+        CREATE SCHEMA auth;
+        CREATE TABLE auth.users (id uuid PRIMARY KEY, email text,
+            raw_user_meta_data jsonb NOT NULL DEFAULT '{}', raw_app_meta_data jsonb NOT NULL DEFAULT '{}');
+        CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $f$ SELECT NULLIF(current_setting('test.uid', true), '')::uuid $f$;
+        CREATE TABLE organizations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text, owner_id uuid);
+        CREATE TABLE organization_members (org_id uuid, user_id uuid, role text, UNIQUE (org_id, user_id));
+        CREATE TABLE settings (user_id uuid UNIQUE, organization_id uuid, business_name text);
+        CREATE TABLE app_secrets (key text PRIMARY KEY, value text);
+        CREATE FUNCTION auth_user_org_ids() RETURNS SETOF uuid LANGUAGE sql STABLE AS $f$ SELECT NULL::uuid WHERE false $f$;
+    `);
+    await db.exec(read('supabase/086_entitlement.sql'));
+    await db.exec(read('supabase/123_abonelik_yerel_kaynak.sql'));
+    await db.exec(read('supabase/121_sosyal_giris.sql'));
+    await db.exec(`CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();`);
+    await db.exec(read('supabase/124_telefon_denemesi.sql'));
+
+    const u = (n) => `00000000-0000-0000-0000-0000000000${String(n).padStart(2, '0')}`;
+    const kayit = (n, meta, provider = 'email') => db.query(
+        `INSERT INTO auth.users (id, email, raw_user_meta_data, raw_app_meta_data) VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+        [u(n), `k${n}@ornek.com`, JSON.stringify(meta), JSON.stringify({ provider })]);
+    const orgOf = async (n) => (await db.query(`SELECT id FROM organizations WHERE owner_id = $1`, [u(n)])).rows[0]?.id ?? null;
+    const satir = async (orgId) => (await db.query(`SELECT state, plan, expires_at, last_event, dodo_subscription_id FROM org_entitlement WHERE organization_id = $1`, [orgId])).rows[0] ?? null;
+    const isletmeAc = async (n, kaynak) => {
+        await db.query(`SELECT set_config('test.uid', $1, false)`, [u(n)]);
+        const r = await db.query(kaynak === undefined ? `SELECT create_own_business() AS id` : `SELECT create_own_business($1) AS id`, kaynak === undefined ? [] : [kaynak]);
+        return r.rows[0].id;
+    };
+    const kapi = async (orgId) => {
+        await db.exec(`INSERT INTO app_secrets VALUES ('ENTITLEMENT_ENFORCE', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`);
+        return (await db.query(`SELECT has_timeflow_access($1::uuid) AS ok`, [orgId])).rows[0].ok;
+    };
+    const gunKaldi = (iso) => (new Date(iso).getTime() - Date.now()) / DAY;
+
+    // E-postayla kayıt — masaüstü 'web' etiketi gönderir: satır YOK (deneme
+    // kurulumun sonunda Dodo'da kartla başlar).
+    await kayit(1, { name: 'Masa', kaynak: 'web' });
+    const masa = await orgOf(1);
+    assert.ok(masa, 'e-posta kaydı işletme açar (handle_new_user)');
+    assert.equal(await satir(masa), null);
+
+    // E-postayla kayıt — telefon (etiketsiz): kartsız 7 gün.
+    await kayit(2, { name: 'Tel' });
+    const tel = await orgOf(2);
+    let r = await satir(tel);
+    assert.deepEqual([r.state, r.plan, r.last_event, r.dodo_subscription_id], ['trial', 'pro', 'trial_phone', null]);
+    assert.ok(gunKaldi(r.expires_at) > 6.9 && gunKaldi(r.expires_at) <= 7, '7 gün');
+    assert.equal(await kapi(tel), true, 'deneme sürerken kapı açık');
+
+    // Apple ile kayıt — tetikleyici işletme açmaz; telefon parametresiz çağırır.
+    await kayit(3, {}, 'apple');
+    assert.equal(await orgOf(3), null);
+    const apple = await isletmeAc(3);
+    assert.equal((await satir(apple)).last_event, 'trial_phone');
+
+    // Google ile masaüstü: 'web' → satır yok; ikinci çağrı aynı işletmeyi döner.
+    await kayit(4, {}, 'google');
+    const g = await isletmeAc(4, 'web');
+    assert.equal(await satir(g), null);
+    assert.equal(await isletmeAc(4, 'web'), g, 'çift tıklama ikinci işletme açmaz');
+    assert.equal(Number((await db.query(`SELECT count(*) AS n FROM organizations WHERE owner_id = $1`, [u(4)])).rows[0].n), 1);
+
+    // Tanınmayan etiket etiketsiz sayılır.
+    await kayit(5, {}, 'apple');
+    assert.equal((await satir(await isletmeAc(5, 'tel'))).last_event, 'trial_phone');
+
+    // Ayar işlem-yerel: 'web' çağrısı sonrakine sızmaz.
+    await kayit(6, {}, 'apple');
+    assert.equal((await satir(await isletmeAc(6))).last_event, 'trial_phone');
+
+    // Demo tohumu kendi satırını ezer (DEMO_salon.sql ile aynı upsert).
+    const demo = (await db.query(`INSERT INTO organizations (name) VALUES ('Demo') RETURNING id`)).rows[0].id;
+    assert.equal((await satir(demo)).last_event, 'trial_phone');
+    await db.query(`INSERT INTO org_entitlement (organization_id, state, plan, cycle, trial_ends_at, expires_at, grace_until, last_event)
+        VALUES ($1, 'active', 'pro', 'yearly', NULL, NULL, NULL, 'demo_manual')
+        ON CONFLICT (organization_id) DO UPDATE SET state = 'active', plan = 'pro', cycle = 'yearly',
+            trial_ends_at = NULL, expires_at = NULL, grace_until = NULL, last_event = 'demo_manual', updated_at = now()`, [demo]);
+
+    // ── Açılış günü (ops/abonelik/acilis-deneme.sql) ──
+    // Kurulan durum: masa (satır yok), tel (kartsız deneme BİTMİŞ), apple
+    // (kartsız deneme sürüyor), g (Dodo denemesi), 5 (ödeyen), 6 (hediye
+    // geri alınmış), demo.
+    await db.query(`UPDATE org_entitlement SET expires_at = now() - interval '20 days', trial_ends_at = now() - interval '20 days' WHERE organization_id = $1`, [tel]);
+    await db.query(`INSERT INTO org_entitlement (organization_id, state, plan, expires_at, dodo_subscription_id, last_event)
+        VALUES ($1, 'trial', 'pro', now() + interval '5 days', 'sub_T', 'subscription.active')`, [g]);
+    const oder = await orgOf(5);
+    await db.query(`UPDATE org_entitlement SET state = 'active', dodo_subscription_id = 'sub_P', expires_at = now() + interval '25 days', last_event = 'subscription.renewed' WHERE organization_id = $1`, [oder]);
+    const geri = await orgOf(6);
+    await db.query(`UPDATE org_entitlement SET state = 'locked', expires_at = NULL, last_event = 'comp_revoked' WHERE organization_id = $1`, [geri]);
+    assert.equal(await kapi(masa), false, 'açılıştan önce satırsız işletme kilitli olurdu');
+    assert.equal(await kapi(tel), false, 'deneme kapı kapalıyken bitti');
+
+    const ops = read('ops/abonelik/acilis-deneme.sql');
+    const blok = (ad) => ops.slice(ops.indexOf(`-- >>> ${ad}`), ops.indexOf(`-- <<< ${ad}`));
+    const liste = (await db.query(blok('liste').replace(/;\s*$/, ''))).rows.map((x) => x.sahip).sort();
+    assert.deepEqual(liste, ['k1@ornek.com', 'k2@ornek.com', 'k3@ornek.com'], 'kuru koşu yalnız satırsız ve kartsız denemeleri listeler');
+    const once = { g: await satir(g), oder: await satir(oder), geri: await satir(geri), demo: await satir(demo) };
+
+    await db.exec(blok('uygula'));
+    for (const id of [masa, tel, apple]) {
+        r = await satir(id);
+        assert.deepEqual([r.state, r.last_event], ['trial', 'trial_opening']);
+        assert.ok(gunKaldi(r.expires_at) > 6.9 && gunKaldi(r.expires_at) <= 7, 'açılıştan 7 gün');
+        assert.equal(await kapi(id), true);
+    }
+    assert.deepEqual(await satir(g), once.g, 'Dodo denemesine dokunulmaz');
+    assert.deepEqual(await satir(oder), once.oder, 'ödeyene dokunulmaz');
+    assert.deepEqual(await satir(geri), once.geri, 'geri alınmış hediyeye dokunulmaz');
+    assert.deepEqual(await satir(demo), once.demo, 'demoya dokunulmaz');
+
+    // İki kez çalışması zararsız: 14 gün olmaz.
+    await db.exec(blok('uygula'));
+    assert.ok(gunKaldi((await satir(masa)).expires_at) <= 7);
+    // Komut varsayılan olarak KURU koşar.
+    assert.match(ops, /\\if :\{\?uygula\}[\s\S]*-- >>> uygula[\s\S]*\\else[\s\S]*KURU KOŞU/);
+    await db.close();
+});
+
+test('124: masaüstü kaydı "web" etiketi gönderir; telefon parametresiz kalır', () => {
+    assert.match(read('src/pages/LoginPage.tsx'), /signUp\(\{ email: address, password, options: \{ data: \{ kaynak: 'web' \} \} \}\)/);
+    assert.match(read('src/contexts/AuthContext.tsx'), /options: \{ data: \{ name, kaynak: 'web' \} \}/);
+    const sosyal = read('src/pages/login/sosyalGiris.ts');
+    assert.match(sosyal, /rpc\('create_own_business', \{ p_kaynak: 'web' \}\)/);
+    // 124 canlıda değilse kayıt bozulmasın: parametresiz çağrıya düşer.
+    assert.match(sosyal, /error\?\.code === 'PGRST202'\) return !\(await supabase\.rpc\('create_own_business'\)\)\.error/);
+    // Yayındaki telefon değişmez — tek imza, varsayılan NULL.
+    assert.match(read('mobile/src/api/auth.ts'), /supabase\.rpc\('create_own_business'\)/);
+    const g124 = read('supabase/124_telefon_denemesi.sql');
+    assert.match(g124, /DROP FUNCTION IF EXISTS public\.create_own_business\(\);/);
+    assert.match(g124, /create_own_business\(p_kaynak text DEFAULT NULL\)/);
+    assert.match(g124, /REVOKE ALL ON FUNCTION public\.grant_phone_trial\(\) FROM authenticated;/);
+});
+
+// ── 6 · Kartsız denemedeki salon paket alır (Faz 2.4) ──────────────────────
+
+test('kartsız deneme: yalnız Dodo aboneliği OLMAYAN deneme; kalan gün yukarı yuvarlanır', () => {
+    const tel = { state: 'trial', expires_at: iso(NOW + 2 * DAY + 3 * H), dodo_subscription_id: null };
+    assert.equal(isCardlessTrial(tel), true);
+    assert.equal(cardlessTrialDaysLeft(tel, NOW), 3, '2 gün 3 saat → 3 gün (müşterinin lehine)');
+    assert.equal(cardlessTrialDaysLeft({ ...tel, expires_at: iso(NOW - H) }, NOW), 0, 'bitmiş → 0');
+    // Masaüstünün kartlı denemesi Dodo aboneliğidir — kartsız sayılmaz.
+    const kartli = { ...tel, dodo_subscription_id: 'sub_X' };
+    assert.equal(isCardlessTrial(kartli), false);
+    assert.equal(cardlessTrialDaysLeft(kartli, NOW), 0);
+    for (const state of ['active', 'grace', 'locked', 'none']) {
+        assert.equal(isCardlessTrial({ ...tel, state }), false, state);
+    }
+    assert.equal(isCardlessTrial(null), false);
+});
+
+test('checkout: kartsız denemedeki salon paket alır, kalan günler Dodo denemesine geçer', () => {
+    const co = fnSrc('dodo-checkout');
+    // Engel yalnız Dodo aboneliği varken (ikinci tahsilat riski orada).
+    assert.match(co, /access\.effective === 'active'\) && entRow\?\.dodo_subscription_id\) \{/);
+    // Deneme: ilk alımda 7 gün; kartsız denemeden erken alımda kalan gün.
+    assert.match(co, /\? safeTrialDays\(body\.trial_days \?\? configured\)\s*: cardlessTrialDaysLeft\(entRow as EntitlementRow \| null\);/);
+});
+
+test('ekranlar kartsız denemeyi doğru çizer (paket ekranı, abonelik, şerit, kurulum)', () => {
+    const hook = read('src/hooks/useEntitlement.ts');
+    assert.match(hook, /cardlessTrial: isCardlessTrial\(loaded\?\.row\),/);
+
+    const pay = read('src/pages/PaywallPage.tsx');
+    // Kartsız denemesi süren geri atılmaz — paket ekranı onun.
+    assert.match(pay, /ent\.ok && !ent\.cardlessTrial && !returning\) navigate\('\/'/);
+    assert.match(pay, /if \(ent\.ok && ent\.cardlessTrial\) \{[\s\S]*?Denemeniz sürüyor\.[\s\S]*?ilk tahsilat denemeniz bittiğinde/);
+    // Ödeme alınamadı → yeni abonelik DEĞİL, kart sayfası.
+    const grace = pay.slice(pay.indexOf("if (ent.effective === 'grace')"));
+    assert.match(grace, /onClick=\{\(\) => void updateCard\(\)\}>\s*Kartı güncelle/);
+
+    const ab = read('src/pages/settings/bolumler/Abonelik.tsx');
+    const kartsiz = ab.slice(ab.indexOf('if (onTrial && ent.cardlessTrial)'), ab.indexOf('if (!hasSub && !onTrial)'));
+    assert.ok(kartsiz.length > 200, 'kartsız deneme dalı bulunamadı');
+    for (const yok of ['Kartı güncelle', 'Sonraki tahsilat', 'updateCard', 'setAskCancel']) {
+        assert.ok(!kartsiz.includes(yok), `kartsız denemede "${yok}" olmamalı`);
+    }
+    // Denemesi bitmiş salona "ilk 7 gün ücretsiz" yazılmaz.
+    assert.match(ab, /const firstTime = ent\.state === 'none';/);
+    assert.match(ab, /firstTime \? `\$\{TRIAL_DAYS\} gün ücretsiz dene` : 'Bu planla devam et'/);
+
+    const banner = read('src/components/layout/SubscriptionBanner.tsx');
+    // "Plan seçmezseniz salt okunur" yalnız kartsız denemede; kartlıda tahsilat kendiliğinden.
+    const kartliSon = banner.slice(banner.indexOf(') : left <= 1 ? ('), banner.indexOf('</span>', banner.indexOf(') : left <= 1 ? (')));
+    assert.ok(!kartliSon.includes('salt okunur'), 'kartlı denemede salt okunur denmemeli');
+    assert.match(banner, /const target = isGrace \|\| cardless \? '\/abonelik' : '\/settings\/abonelik';/);
+    assert.match(banner, /nameLocative\(dayFmt\.format\(charge\)\)/);
+    assert.doesNotMatch(banner, /\}'ta\./, '"27 Ekim\'ta" gibi sabit ek kalmamalı');
+
+    // Kurulum kapı dışında: masaüstü denemesi kurulumun son adımında başlar.
+    assert.match(read('src/App.tsx'), /pathname\.startsWith\('\/kurulum'\)/);
 });

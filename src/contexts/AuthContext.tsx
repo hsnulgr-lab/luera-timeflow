@@ -123,7 +123,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: { data: { name } },
+                // kaynak: 'web' → göç 124 masaüstü kaydına kartsız deneme yazmaz.
+                options: { data: { name, kaynak: 'web' } },
             });
             if (error) return { success: false, error: error.message };
             return { success: true, needsConfirmation: !data.session };

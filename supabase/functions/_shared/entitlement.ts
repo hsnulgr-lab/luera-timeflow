@@ -149,6 +149,27 @@ export function shownAccess(row: EntitlementRow | null | undefined, now: number 
     };
 }
 
+/**
+ * Kartsız (telefon) deneme mi? Satır deneme ama Dodo aboneliği yok — göç 124
+ * (`trial_phone`) ya da açılış betiği (`trial_opening`). Masaüstünün kartlı
+ * denemesi Dodo aboneliğidir; o burada SAYILMAZ. docs/abonelik-kurallari.md
+ */
+export function isCardlessTrial(row: EntitlementRow | null | undefined): boolean {
+    return !!row && row.state === 'trial' && !row.dodo_subscription_id;
+}
+
+/**
+ * Kartsız denemenin kalan tam günü — paket erken alınırsa Dodo'ya deneme
+ * olarak geçer: ilk tahsilat kartsız deneme bittiği gün olur, kalan günler
+ * yanmaz. Yukarı yuvarlanır (kısmi gün müşterinin lehine). Bitmişse 0.
+ */
+export function cardlessTrialDaysLeft(row: EntitlementRow | null | undefined, now: number = Date.now()): number {
+    if (!isCardlessTrial(row)) return 0;
+    const end = ms(row!.expires_at);
+    if (end === null || end <= now) return 0;
+    return Math.ceil((end - now) / DAY_MS);
+}
+
 /** Ödeme alınamadı → ek sürenin biteceği an. */
 export function graceUntil(from: number = Date.now()): string {
     return new Date(from + GRACE_DAYS * DAY_MS).toISOString();

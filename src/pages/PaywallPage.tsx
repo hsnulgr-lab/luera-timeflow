@@ -37,7 +37,7 @@ export function PaywallPage() {
     const { dark } = useTheme();
     const { logout, orgId } = useAuth();
     const navigate = useNavigate();
-    const { busy, startCheckout, pollAfterCheckout } = useBilling();
+    const { busy, startCheckout, updateCard, pollAfterCheckout } = useBilling();
     const ent = useEntitlement();
     const [params] = useSearchParams();
     const [showPlans, setShowPlans] = useState(false);
@@ -63,9 +63,12 @@ export function PaywallPage() {
 
     // Abonelik canlandığı an duvarı kaldır — ödeme dönüşü hariç: orada önce
     // "ödemeniz alındı" fişi gösterilir, kullanıcı kuruluma kendisi geçer.
+    // Kartsız (telefon) denemesi sürene de kalır: burası onun paket ekranı —
+    // e-postadaki bağlantı ve şeritteki "Planı seç" buraya gelir; geri
+    // atılsaydı deneme bitmeden paket alamazdı (docs/abonelik-kurallari.md).
     useEffect(() => {
-        if (!ent.loading && ent.ok && !returning) navigate('/', { replace: true });
-    }, [ent.loading, ent.ok, returning, navigate]);
+        if (!ent.loading && ent.ok && !ent.cardlessTrial && !returning) navigate('/', { replace: true });
+    }, [ent.loading, ent.ok, ent.cardlessTrial, returning, navigate]);
 
     // "Verileriniz duruyor" sadece bir cümle olarak inandırıcı değil; sayı
     // görmek gerekiyor. Okuma RLS'te açık bırakıldığı için bu sorgu kilitliyken
@@ -195,6 +198,31 @@ export function PaywallPage() {
         );
     }
 
+    // ── Kartsız deneme sürüyor: erken paket ─────────────────────────────────
+    // Telefondan açılan işletme (göç 124). Seçtiği paketin ilk tahsilatı
+    // deneme bittiği gün yapılır — kalan günler Dodo'ya deneme olarak geçer
+    // (dodo-checkout · cardlessTrialDaysLeft).
+    if (ent.ok && ent.cardlessTrial) {
+        const left = ent.shownDaysLeft ?? 0;
+        return shell(
+            <div className="wall">
+                <div className="badge n"><Ico n="clock" s="i26" /></div>
+                <h1>Denemeniz sürüyor.</h1>
+                <p className="lede">
+                    {left <= 0 ? 'Bugün bitiyor' : `${left} gün kaldı`}
+                    {ent.shownUntil ? ` · ${fullFmt.format(new Date(ent.shownUntil))}` : ''}.{' '}
+                    Şimdi bir plan seçerseniz ilk tahsilat denemeniz bittiğinde yapılır; o güne kadar ücret alınmaz.
+                </p>
+                <div style={{ width: '100%', textAlign: 'left' }}>
+                    <PlanCards busy={busy} onSelect={onSelect} ctaLabel={() => 'Bu planı seç'} />
+                </div>
+                <button className="btn bare" onClick={() => navigate('/')}>
+                    Şimdilik uygulamaya dön
+                </button>
+            </div>,
+        );
+    }
+
     // ── Durum 3: ödeme alınamadı, ek süre ────────────────────────────────────
     if (ent.effective === 'grace') {
         return shell(
@@ -211,8 +239,9 @@ export function PaywallPage() {
                     <span className="lb">boyunca uygulama<br />açık kalmaya devam eder</span>
                 </div>
                 <div className="acts">
-                    <button className="btn pri big" disabled={busy}
-                        onClick={() => onSelect((ent.plan as PlanId) || 'pro', (ent.cycle as Cycle) || 'monthly')}>
+                    {/* Yeni abonelik DEĞİL: askıdaki aboneliğin kart sayfası —
+                        Dodo borcu yeni karttan hemen çeker, abonelik sürer. */}
+                    <button className="btn pri big" disabled={busy} onClick={() => void updateCard()}>
                         Kartı güncelle
                     </button>
                     <button className="btn bare" onClick={() => setShowPlans((v) => !v)}>

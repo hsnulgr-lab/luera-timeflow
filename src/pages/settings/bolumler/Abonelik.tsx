@@ -122,12 +122,51 @@ export function Abonelik() {
         );
     }
 
+    // Kartsız (telefon) deneme sürüyor — göç 124. Dodo'da abonelik yok:
+    // "Kartı güncelle", iptal ve "Sonraki tahsilat ₺599" çizilirse ekran yalan
+    // söyler. Seçilen paketin ilk tahsilatı deneme bittiği gün yapılır.
+    if (onTrial && ent.cardlessTrial) {
+        const left = ent.shownDaysLeft ?? 0;
+        return (
+            <div className="ay-col w940" style={{ gap: 18 }}>
+                <div className="ay-head" style={{ paddingBottom: 6 }}>
+                    <h1 className="ay-h1">Abonelik ve faturalar</h1>
+                    <p className="ay-lead">Hangi plandasınız, ne zaman ne kadar çekilecek, geçmiş faturalarınız.</p>
+                </div>
+                <div className="ay-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '22px 24px 18px' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx2)' }}>Mevcut durum</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 28, fontWeight: 800, letterSpacing: '-.02em' }}>
+                            Ücretsiz deneme
+                            <span className="ay-tag" style={{ color: 'var(--tx)', fontSize: 13, fontWeight: 800, letterSpacing: 0 }}>
+                                <span className="ay-dot warn" style={{ width: 7, height: 7 }} />{left <= 0 ? 'Bugün bitiyor' : `${left} gün kaldı`}
+                            </span>
+                        </span>
+                        <span className="ay-help">Kart istenmedi. Deneme bitince plan seçmezseniz uygulama salt okunur olur; verileriniz silinmez.</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, margin: '0 24px', padding: '12px 0 18px', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
+                        <span style={{ color: 'var(--tx2)' }}>Deneme bitiyor</span>
+                        <span style={{ fontWeight: 700 }}>{trDate(until)}</span>
+                    </div>
+                </div>
+                <div role="status" className="ay-box info"><I n="info" />Şimdi bir plan seçerseniz ilk tahsilat denemeniz bittiğinde yapılır; o güne kadar ücret alınmaz.</div>
+                <PlanKartlari busy={busy} onSelect={onSelect} cta={() => 'Bu planı seç'} />
+            </div>
+        );
+    }
+
     if (!hasSub && !onTrial) {
+        // Deneme yalnız hiç aboneliği olmamış işletmeye (dodo-checkout ·
+        // firstTime): denemesi bitmiş ya da aboneliği sona ermiş salona
+        // "ilk 7 gün ücretsiz" yazılırsa ödeme sayfası ona yalan çıkarır.
+        const firstTime = ent.state === 'none';
         return (
             <div className="ay-col w940" style={{ gap: 20 }}>
                 <h1 className="ay-h1">Abonelik ve faturalar</h1>
-                <div role="status" className="ay-box info"><I n="info" />Aktif aboneliğiniz yok. Bir plan seçin — ilk {TRIAL_DAYS} gün ücretsiz, deneme içinde iptal ederseniz ücret alınmaz.</div>
-                <PlanKartlari busy={busy} onSelect={onSelect} cta={() => `${TRIAL_DAYS} gün ücretsiz dene`} />
+                {firstTime
+                    ? <div role="status" className="ay-box info"><I n="info" />Aktif aboneliğiniz yok. Bir plan seçin — ilk {TRIAL_DAYS} gün ücretsiz, deneme içinde iptal ederseniz ücret alınmaz.</div>
+                    : <div role="status" className="ay-box info"><I n="info" />{ent.state === 'trial' ? 'Denemeniz bitti.' : 'Aboneliğiniz sona erdi.'} Verileriniz duruyor; bir plan seçtiğiniz an kaldığınız yerden devam edersiniz. İlk tahsilat bugün yapılır.</div>}
+                <PlanKartlari busy={busy} onSelect={onSelect} cta={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
             </div>
         );
     }

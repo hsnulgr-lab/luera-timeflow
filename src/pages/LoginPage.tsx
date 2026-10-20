@@ -375,7 +375,9 @@ export const LoginPage = () => {
         setBand(null);
         setErrEmail(false);
         setErrPassword(false);
-        const { data, error } = await supabase.auth.signUp({ email: address, password });
+        // `kaynak: 'web'` (göç 124): masaüstü kaydı kartsız telefon denemesi
+        // almaz; deneme kurulumun sonunda kartla başlar.
+        const { data, error } = await supabase.auth.signUp({ email: address, password, options: { data: { kaynak: 'web' } } });
         if (!error && data.session) { enter('signup'); return; }
 
         const failure = error ? classifyAuthError(error as AuthErrorLike) : null;

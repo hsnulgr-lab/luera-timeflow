@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import { firstChargeDate } from '@/lib/plans';
+import { nameLocative } from '@/pages/settings/ayarlarModel';
 import '@/pages/billing.css';
 
 // Deneme / ödeme şeridi — tasarım: "Luera Fiyatlandırma.html" · Durum 4.
@@ -44,6 +45,13 @@ export function SubscriptionBanner() {
     if (hidden && !urgent) return null;
 
     const charge = ent.shownUntil ? new Date(ent.shownUntil) : firstChargeDate();
+    const when = left <= 0 ? 'bugün' : 'yarın';
+    // Kartlı (Dodo) denemede deneme bitince kart KENDİLİĞİNDEN çekilir —
+    // "plan seçmezseniz salt okunur" yalnız kartsız (telefon) denemede doğru
+    // (docs/abonelik-kurallari.md). Kartlı denemede paket ekranı (/abonelik)
+    // erişimi açık olanı geri atar; düğme Ayarlar'daki abonelik sayfasına gider.
+    const cardless = ent.cardlessTrial;
+    const target = isGrace || cardless ? '/abonelik' : '/settings/abonelik';
 
     return (
         <div className={cn('bl dash-theme', dark && 'dark')}>
@@ -59,18 +67,28 @@ export function SubscriptionBanner() {
                         <>
                             <b>Ödemeniz alınamadı.</b> Kartınızı güncellemezseniz {left <= 0 ? 'bugün' : `${left} gün sonra`} uygulama salt okunur olur.
                         </>
+                    ) : cardless ? (
+                        left <= 1 ? (
+                            <>
+                                <b>Denemeniz {when} bitiyor.</b> Plan seçmezseniz uygulama salt okunur olur.
+                            </>
+                        ) : (
+                            <>
+                                <b>Denemenizin {left} günü kaldı.</b> Devam etmek için bir plan seçin.
+                            </>
+                        )
                     ) : left <= 1 ? (
                         <>
-                            <b>Denemeniz {left <= 0 ? 'bugün bitiyor' : 'yarın bitiyor'}.</b> Plan seçmezseniz uygulama salt okunur olur.
+                            <b>Denemeniz {when} bitiyor.</b> İlk tahsilat {when} yapılır.
                         </>
                     ) : (
                         <>
-                            <b>Denemenizin {left} günü kaldı.</b> İlk tahsilat {dayFmt.format(charge)}'ta.
+                            <b>Denemenizin {left} günü kaldı.</b> İlk tahsilat {nameLocative(dayFmt.format(charge))}.
                         </>
                     )}
                 </span>
-                <button className="btn" onClick={() => navigate('/abonelik')}>
-                    {isGrace ? 'Kartı güncelle' : 'Planı seç'}
+                <button className="btn" onClick={() => navigate(target)}>
+                    {isGrace ? 'Kartı güncelle' : cardless ? 'Planı seç' : 'Aboneliği gör'}
                 </button>
                 {!urgent && (
                     <button className="x" aria-label="Şimdilik gizle"

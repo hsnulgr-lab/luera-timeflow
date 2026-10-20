@@ -81,7 +81,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const SubscriptionGate = ({ children }: { children: React.ReactNode }) => {
   const { locked, loading } = useEntitlement();
   const { pathname } = useLocation();
-  const exempt = pathname.startsWith('/abonelik') || pathname.startsWith('/settings');
+  // /kurulum da muaf: masaüstü kaydının denemesi kurulumun SON adımında
+  // (Dodo, kartla) başlar — kişi o adıma gelmeden duvara atılmamalı
+  // (docs/abonelik-kurallari.md §3).
+  const exempt = pathname.startsWith('/abonelik') || pathname.startsWith('/settings') || pathname.startsWith('/kurulum');
   // Yüklenirken engelleme: yanıp sönen bir yönlendirme, yavaş bağlantıda
   // ödemesini yapmış kullanıcıyı da duvara atardı.
   if (loading || exempt || !locked) return <>{children}</>;

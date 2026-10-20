@@ -194,8 +194,17 @@ export async function businessCount(userId: string): Promise<number | null> {
     return error ? null : (count ?? 0);
 }
 
-/** Köprüde "Yeni işletme oluştur" ve Apple/Google ile kayıt: işletmeyi açar. */
+/**
+ * Köprüde "Yeni işletme oluştur" ve Apple/Google ile kayıt: işletmeyi açar.
+ *
+ * `p_kaynak: 'web'` (göç 124): masaüstünden açılan işletme kartsız telefon
+ * denemesi ALMAZ; denemesi kurulumun sonunda Dodo'da kartla başlar
+ * (docs/abonelik-kurallari.md). 124 canlıda değilse sunucu bu parametreyi
+ * tanımaz (PGRST202) — o zaman parametresiz çağrılır: kayıt yayın sırasına
+ * bağlı kalmasın.
+ */
 export async function createOwnBusiness(): Promise<boolean> {
-    const { error } = await supabase.rpc('create_own_business');
+    const { error } = await supabase.rpc('create_own_business', { p_kaynak: 'web' });
+    if (error?.code === 'PGRST202') return !(await supabase.rpc('create_own_business')).error;
     return !error;
 }
