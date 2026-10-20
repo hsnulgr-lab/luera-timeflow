@@ -180,13 +180,19 @@ export function Abonelik() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 24px 22px', borderTop: '1px solid var(--bd)' }}>
                             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                                {/* İptalden vazgeçme: plan listesi mevcut planı "Mevcut plan"
+                                    diye düğmesiz çiziyor, başka plan da 409 alıyor — devam
+                                    etmenin tek yolu bu (sunucu aynı plan+dönemi "resume" sayar). */}
+                                {subscription?.cancel_at_period_end && plan && (
+                                    <button type="button" className="ay-btn-pri" disabled={busy} onClick={() => onSelect(plan.id, cycle)}>Aboneliğe devam et</button>
+                                )}
                                 <button type="button" className="ay-btn plain" aria-expanded={showPlans} onClick={() => setShowPlans((v) => !v)}>Planı değiştir</button>
                                 <button type="button" className="ay-btn plain" disabled={busy} onClick={() => void updateCard()}>Kartı güncelle</button>
                             </div>
                             <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 14.5, lineHeight: 1.5, color: 'var(--tx2)' }}>
                                 <I n="info" size={17} style={{ marginTop: 2 }} />
                                 {subscription?.cancel_at_period_end
-                                    ? <span>Aboneliğiniz dönem sonunda sona erecek. Devam etmek isterseniz bir plan seçmeniz yeterli.</span>
+                                    ? <span>Aboneliğiniz dönem sonunda sona erecek. Vazgeçtiyseniz <b>Aboneliğe devam et</b>'e basmanız yeterli; ücret alınmaz, tahsilat tarihi aynı kalır.</span>
                                     : <span>Aboneliğinizi <a href="#iptal" style={{ fontWeight: 700 }} onClick={(e) => { e.preventDefault(); setAskCancel(true); }}>istediğiniz an iptal edebilirsiniz</a>. İptalde dönem sonuna kadar kullanmaya devam edersiniz.</span>}
                             </div>
                         </div>

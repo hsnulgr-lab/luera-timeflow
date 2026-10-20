@@ -376,6 +376,16 @@ test('checkout: işletme doğrulanır, süren aboneliğe ikinci abonelik açılm
     assert.match(ui, /onClick=\{\(\) => void updateCard\(\)\}>Kartı güncelle/);
 });
 
+test('iptal bekleyen salon ekrandan devam edebilir (aynı plan + dönem → resume)', () => {
+    // Plan listesi mevcut planı düğmesiz ("Mevcut plan") çiziyor, başka plan
+    // 409 alıyor: "Aboneliğe devam et" olmadan iptalden dönülemiyordu.
+    const ui = read('src/pages/settings/bolumler/Abonelik.tsx');
+    assert.match(ui, /subscription\?\.cancel_at_period_end && plan && \(\s*<button[^>]*onClick=\{\(\) => onSelect\(plan\.id, cycle\)\}>Aboneliğe devam et</);
+    const co = fnSrc('dodo-checkout');
+    assert.match(co, /entRow\?\.cancel_at_period_end && entRow\.dodo_subscription_id && entRow\.plan === plan && entRow\.cycle === cycle/);
+    assert.match(co, /cancel_at_next_billing_date: false/);
+});
+
 test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
     const hook = read('src/hooks/useBilling.ts');
     assert.match(hook, /invoke\('billing-status', \{ body: \{ orgId \} \}\)/);

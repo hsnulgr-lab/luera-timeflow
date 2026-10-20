@@ -432,7 +432,22 @@ TimeFlow ekranı (02:46/02:48) ✅: furkan@luera.ai "Pro · Aktif · Sonraki tah
 20 Kasım · ₺599, faturada tek ₺599 satırı (ilk ₺0 kart doğrulaması bilerek
 gizli). Yenileme günü testi KAPANDI.
 
-**KODDA (2026-10-20, testler yeşil, CANLIDA DEĞİL):**
+**Test 4 ✅ (03:18):** furkan@luera.ai (aktif Pro) → Planı değiştir → İşletme
+"Bu plana geç" → "Aboneliğiniz sürüyor…" uyarısı, Dodo sayfası açılmadı,
+Dodo'da yeni abonelik yok. **Test 3a ✅ (03:19):** Test Salon 1 → iptal →
+"Dönem sonunda iptal · Erişim bitiyor 20 Kasım"; Dodo "İptal için
+planlandı", subscription.updated (`cancel_at_next_billing_date: true`)
+teslim. **Bulunan:** iptalden vazgeçme ekrandan İMKÂNSIZDI — plan listesi
+mevcut planı düğmesiz ("Mevcut plan") çiziyor, başka plan 409 alıyor; not
+"bir plan seçmeniz yeterli" diyordu. Düzeltme: iptal bekleyen abonelikte
+**"Aboneliğe devam et"** (aynı plan+dönem → sunucu resume). Test 3b ve Test 5
+(hesap silme, Test Salon 1) bunun canlıya çıkışından sonra.
+
+**✅ CANLIDA (e091194, 2026-10-20 ~03:10 TR):** fonksiyonlar argümansız
+yüklendi + Coolify Deploy (masaüstü `index-CU8osf0N.js`, `action:"card"`).
+Gizli pencerede furkan@luera.ai → Kartı güncelle → "Ödeme Yöntemini
+Güncelle" sayfası açıldı (tutar yok, 15 dk geçerli bağlantı). Kart girilerek
+dönüş (return_url) henüz denenmedi.
 - **En yeni abonelik kazanır** (`durum.ts` `decide` + `needsMineNow`,
   webhook `readMine`/`cancelOther`, `_shared/dodo.ts` `lookupSubscription`):
   başka abonelik `active` gelince aynadakinin Dodo hâli okunur. Gelen daha
