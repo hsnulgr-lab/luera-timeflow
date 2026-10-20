@@ -141,8 +141,10 @@ export function GuzellikDashboard() {
         const status: CabinStatus = busyWith ? 'busy' : prepFor ? 'prep' : 'free';
         const staffName = busyWith?.staffName || prepFor?.staffName
             || todayList.find((r) => r.resourceId === res.id)?.staffName || '';
-        return { id: res.id, name: res.name, staffName, status, freeAt: busyWith?.endTime };
-    }), [activeResources, inService, waiting, todayList]);
+        // Dolum karosu için işlemin başı; boş ünitede bugün sıradaki seansın saati
+        const nextAt = upcoming.find((r) => r.resourceId === res.id)?.startTime;
+        return { id: res.id, name: res.name, staffName, status, startAt: busyWith?.startTime, freeAt: busyWith?.endTime, nextAt };
+    }), [activeResources, inService, waiting, todayList, upcoming]);
 
     const firstFreeCabin = useMemo(() => cabins.find((c) => c.status === 'free') || null, [cabins]);
 
@@ -719,21 +721,40 @@ export function GuzellikDashboard() {
                                     {n === 0 ? (
                                         <p className="gz-units-empty">Henüz ünite eklenmemiş — Ayarlar'dan ekleyin.</p>
                                     ) : (
+                                        // Dolum karoları (kullanıcı dört taslak arasından C'yi seçti,
+                                        // 2026-10-21): dolu karonun zemini işlem ilerledikçe soldan
+                                        // sağa dolar; saat ne zaman boşalacağını, yanındaki süre ne
+                                        // kadar kaldığını söyler. Müşteri adı yok — aynı kişi aşağıda
+                                        // Bugünün planı'nda görünüyor (kural 09).
                                         <div className="gz-units" style={{ '--cols': cols, '--cols-narrow': colsNarrow } as React.CSSProperties}>
-                                            {cabins.map((c) => (
-                                                <button key={c.id} type="button" className="gz-unit" onClick={() => setModalCustomer(null)}
-                                                    title={c.status === 'busy' ? `${c.freeAt}'te boşalıyor` : c.status === 'prep' ? 'Hazırlanıyor' : `Boş — ${resWord} ekle`}>
-                                                    <span className="row"><i className={cn('gz-udot', c.status)} /><b>{c.name}</b></span>
-                                                    {/* Alt satır yalnız dolu ve hazırlanan ünitede. Boş ünitede
-                                                        kesik yeşil halka ve "Boş · N" zaten söylüyor; altı kez
-                                                        yeşil "boş" yazmak gürültüydü (2026-10-20). */}
-                                                    {c.status !== 'free' && (
-                                                        <small className={cn(c.status === 'prep' && 'prep')}>
-                                                            {c.status === 'busy' ? `~${c.freeAt} boşalıyor` : 'hazırlanıyor'}
-                                                        </small>
-                                                    )}
-                                                </button>
-                                            ))}
+                                            {cabins.map((c) => {
+                                                const s = c.startAt ? Math.round(timeToH(c.startAt) * 60) : nowMin;
+                                                const e = c.freeAt ? Math.round(timeToH(c.freeAt) * 60) : nowMin;
+                                                const pct = e > s ? Math.min(1, Math.max(0, (nowMin - s) / (e - s))) : 1;
+                                                // İki saate kadar dakika ("80 dk") — dar karoda "1 sa 20 dk"
+                                                // sığmıyordu. "kaldı" dar karoda düşer (beautyOps.css).
+                                                const left = e - nowMin;
+                                                const leftText = left <= 0 ? 'süre doldu'
+                                                    : left < 120 ? `${left} dk`
+                                                        : left % 60 ? `${Math.floor(left / 60)} sa ${left % 60} dk` : `${left / 60} sa`;
+                                                return (
+                                                    <button key={c.id} type="button" className={cn('gz-unit', c.status)} onClick={() => setModalCustomer(null)}
+                                                        title={c.status === 'busy' ? `~${c.freeAt} boşalıyor` : c.status === 'prep' ? 'Hazırlanıyor' : `Boş — ${resWord} ekle`}>
+                                                        {c.status === 'busy' && <span className="fill" style={{ '--p': pct } as React.CSSProperties} />}
+                                                        <span className="row"><b>{c.name}</b><i className={cn('gz-udot', c.status)} /></span>
+                                                        {/* Boş ünitede alt satır yalnız bugün sırası varsa. Yedi
+                                                            karoda yeşil "Boş" yazmak gürültüydü (2026-10-20);
+                                                            nokta ve "Boş · N" zaten söylüyor. */}
+                                                        {c.status === 'busy' ? (
+                                                            <span className="row"><span className="t">~{c.freeAt}</span><small className={cn(left <= 0 && 'over')}>{leftText}{left > 0 && <span className="kw"> kaldı</span>}</small></span>
+                                                        ) : c.status === 'prep' ? (
+                                                            <span className="row"><span className="st">Hazırlanıyor</span></span>
+                                                        ) : c.nextAt && (
+                                                            <span className="row"><small>Sıradaki <b>{c.nextAt}</b></small></span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     )}
 

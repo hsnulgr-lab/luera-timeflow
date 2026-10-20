@@ -31,6 +31,8 @@
     --gz-rd-t: rgba(201, 64, 64, .10);
     --gz-rd-b: rgba(201, 64, 64, .28);
     --gz-am-t: rgba(184, 122, 0, .12);
+    --gz-am-b: rgba(184, 122, 0, .28);
+    --gz-or-tip: rgba(255, 90, 31, .22);
     --gz-bl-t: rgba(59, 111, 176, .10);
     /* Koyu kutunun (tarih, Sıradaki) içi — iki temada aynı ton */
     --gz-box-m: rgba(243, 237, 227, .64);
@@ -53,6 +55,8 @@
     --gz-rd-t: rgba(224, 112, 112, .14);
     --gz-rd-b: rgba(224, 112, 112, .38);
     --gz-am-t: rgba(224, 161, 46, .14);
+    --gz-am-b: rgba(224, 161, 46, .34);
+    --gz-or-tip: rgba(255, 90, 31, .32);
     --gz-bl-t: rgba(122, 175, 232, .13);
 }
 
@@ -103,13 +107,15 @@
 .gz-ops .gz-live { animation: gz-live 2.4s ease-in-out infinite; }
 @keyframes gz-live { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 
-/* Ünite durum noktası: boş = kesik yeşil halka · dolu = turuncu · hazırlanıyor = amber */
+/* Ünite durum noktası: boş = yeşil · dolu = turuncu · hazırlanıyor = amber.
+   Düz nokta ve ince hale; eskiden boşu gösteren kesik halka "yükleniyor"
+   simgesine benziyordu (2026-10-21). */
 .gz-ops .gz-udot {
-    width: 9px; height: 9px; border-radius: 50%; flex: none; box-sizing: border-box;
-    border: 1.5px dashed var(--dc-green); background: transparent;
+    width: 7px; height: 7px; border-radius: 50%; flex: none;
+    background: var(--dc-green); box-shadow: 0 0 0 3px var(--gz-gr-t);
 }
-.gz-ops .gz-udot.busy { border: 0; background: var(--dc-orange); }
-.gz-ops .gz-udot.prep { border: 0; background: var(--dc-amber); }
+.gz-ops .gz-udot.busy { background: var(--dc-orange); box-shadow: 0 0 0 3px var(--gz-or-t); }
+.gz-ops .gz-udot.prep { background: var(--dc-amber); box-shadow: 0 0 0 3px var(--gz-am-t); }
 
 /* ── A · Karşılama kartı ──────────────────────────────────────────────────────
    Eski yapı + cila: stilleri opportunityWheel.css'te (.opp-wc). Panel rötuşunun
@@ -156,28 +162,66 @@
 .gz-ops .gz-units-head .full { color: var(--dc-orange-d); }
 .gz-ops .gz-units-empty { font-size: 14px; color: var(--dc-muted); }
 
-/* Tek parça ünite şeridi; sıralar eşit, yetim hücre kalmaz (sayılar JS'ten).
-   Hücre başına ~150 px gerekiyor: panel 1100 px'ten darsa ≤ 4'lü sıralar
-   (7 → 4 + 3). Yedisi tek sırada ~100 px'e düşüp "~10:30 boşalıyor"u iki
-   satıra kırıyordu (2026-10-20). */
+/* Ünite şeridi · Dolum karoları (2026-10-21, kullanıcı taslak C'yi seçti:
+   "hareketli ama kalın ve büyük olmasın"). Karolar ayrık — 4 + 3 dizilişte
+   sekizinci yer artık delik gibi durmuyor. Sıralar eşit (sayılar JS'ten).
+   Hücre başına ~150 px gerekiyor: panel 1100 px'ten darsa ≤ 4'lü sıralar.
+   İki satır, 14–15 px; karo 57 px, şerit eskisinden ince (128 → 121). */
 .gz-ops .gz-units {
     display: grid; grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
-    border: 1px solid var(--dc-border); border-radius: 12px; overflow: hidden; background: var(--dc-surface);
+    grid-auto-rows: 1fr; gap: 8px;
 }
 @container (max-width: 1100px) {
     .gz-ops .gz-units { grid-template-columns: repeat(var(--cols-narrow, 4), minmax(0, 1fr)); }
 }
 .gz-ops .gz-unit {
-    min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; text-align: left;
-    background: transparent; border: 0;
-    box-shadow: 1px 0 0 0 var(--dc-border), 0 1px 0 0 var(--dc-border);
+    position: relative; overflow: hidden; isolation: isolate;
+    min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 9px; text-align: left; line-height: 1.25;
+    background: var(--dc-surface); border: 1px solid var(--dc-border); border-radius: 10px;
     transition: background .14s ease-out;
 }
-.gz-ops .gz-unit:hover { background: var(--gz-hov); }
-.gz-ops .gz-unit .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.gz-ops .gz-unit b { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gz-ops .gz-unit small { padding-left: 17px; font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--dc-muted); white-space: nowrap; }
-.gz-ops .gz-unit small.prep { color: var(--dc-amber); }
+.gz-ops .gz-unit:hover { background: var(--dc-surface2); }
+.gz-ops .gz-unit.prep { background: var(--gz-am-t); border-color: var(--gz-am-b); }
+.gz-ops .gz-unit .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.gz-ops .gz-unit b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gz-ops .gz-unit .t { flex: none; font-size: 15px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+.gz-ops .gz-unit .st { font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--dc-amber); }
+.gz-ops .gz-unit small {
+    min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.3; color: var(--dc-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gz-ops .gz-unit small b { font-size: inherit; color: var(--dc-ink); }
+.gz-ops .gz-unit small.over { color: var(--dc-amber); }
+/* 1280 civarında karo ~136 px: "40 dk kaldı" kesiliyordu → "40 dk". Ölçü
+   karonun İÇ genişliği (1440'ta 150, 1280'de 110); "~15:00 40 dk kaldı" ~118. */
+.gz-ops .gz-unit { container-type: inline-size; }
+@container (max-width: 124px) {
+    .gz-ops .gz-unit .kw { display: none; }
+}
+/* iPad dikeyde karo ~105 px: süre de sığmıyor, saat tek başına yeter */
+@container (max-width: 90px) {
+    .gz-ops .gz-unit .t + small { display: none; }
+}
+
+/* Dolum: işlemin geçen kısmı. Açılışta soldan dolarak gelir, dakikalar
+   ilerledikçe yavaşça uzar (now 30 sn'de bir tazelenir). Ucu yumuşak ve
+   hafifçe nefes alır — sert bir çizgi yazının üstünden geçiyordu (taslak). */
+.gz-ops .gz-unit .fill {
+    position: absolute; inset: 0 auto 0 0; z-index: -1;
+    width: calc(var(--p, 0) * 100%);
+    background: var(--gz-or-t);
+    animation: gz-fill-in 1.1s cubic-bezier(.2, .8, .2, 1) backwards;
+    transition: width .6s ease-out;
+}
+.gz-ops .gz-unit .fill::after {
+    content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 22px;
+    background: linear-gradient(90deg, transparent, var(--gz-or-tip));
+    animation: gz-live 2.4s ease-in-out infinite;
+}
+@keyframes gz-fill-in { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .gz-ops .gz-unit .fill, .gz-ops .gz-unit .fill::after { animation: none; transition: none; }
+}
 
 /* Bekleme satırı panelin dibine oturur — Sıradaki uzasa da altta boşluk kalmaz */
 .gz-ops .gz-wait {
