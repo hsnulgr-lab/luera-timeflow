@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed, Boxes } from 'lucide-react';
+import { Moon, Sun, Link2, Wallet, Armchair, Users, UtensilsCrossed, LayoutGrid, Calendar, ClipboardList, Package, Archive, User, BarChart3, ListOrdered, Settings } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { roleLabel } from '@/pages/settings/ayarlarModel';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,33 +8,19 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useModules } from '@/hooks/useModules';
 import { usePendingBills } from '@/hooks/usePendingBills';
 import { useLabels } from '@/hooks/useLabels';
-import { NAV_ITEMS } from '@/lib/nav';
+import { NAV_ITEMS, NAV_GROUPS } from '@/lib/nav';
 import { ToothIcon } from '@/components/dental/ToothIcon';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import { NotificationDropdown } from './NotificationDropdown';
 import {
-    LDashboard,
-    LCalendar,
-    LClipboard,
-    LUsers,
     LProfile,
-    LChart,
     LSettings,
     LChevronLeft,
     LChevronRight,
     LChevronUp,
     LClose,
     LLogout,
-    LPackage,
 } from '@/components/icons/LueraIcons';
-
-// Etkin satırın 3 px turuncu çizgisi — sabit, nefes alan parıltı kalktı.
-// Hapın İÇİNDE değil, menünün sol kenarında durur (nav'ın 12 px iç boşluğu
-// kadar dışarıda): hapın yuvarlak köşesine yapışınca yarısı taşıyor, yamuk
-// görünüyordu (2026-10-20).
-const ActiveBar = () => (
-    <span aria-hidden="true" className="absolute -left-3 top-2.5 bottom-2.5 w-[3px] rounded-r-[3px] bg-[#FF5A1F]" />
-);
 
 interface SidebarProps {
     isCollapsed: boolean;
@@ -82,13 +68,15 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
     // görünür. Randevu route'ları ModuleRoute ile arkada erişilebilir kalır.
     const restaurant = !modulesLoading && isEnabled('masa');
     const { t, sector } = useLabels();
-    // İkonlar platforma özgü — NAV_ITEMS'daki id ile eşlenir.
-    const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-        '/': LDashboard, '/masa': Armchair, '/menu': UtensilsCrossed, '/calendar': LCalendar,
-        '/reservations': LClipboard, '/queue': Users, '/customers': LUsers, '/kasa': Wallet, '/stock': Boxes,
-        '/staff': LProfile, '/analytics': LChart, '/settings/online-randevu': Link2,
+    // İkonlar platforma özgü — NAV_ITEMS'daki id ile eşlenir. Tek aile (Lucide,
+    // çizgi 1.8): eskiden iki ayrı setten geliyordu, Kasa ve Stoklar ötekilerden
+    // kalın duruyordu (2026-10-20). Diş Şeması sektörün kendi ikonu.
+    const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
+        '/': LayoutGrid, '/masa': Armchair, '/menu': UtensilsCrossed, '/calendar': Calendar,
+        '/reservations': ClipboardList, '/queue': ListOrdered, '/customers': Users, '/kasa': Wallet, '/stock': Archive,
+        '/staff': User, '/analytics': BarChart3, '/settings/online-randevu': Link2,
         '/dental-chart': ToothIcon,
-        '/packages': LPackage,
+        '/packages': Package,
     };
     // module yoksa core (her zaman görünür); varsa modül açıkken görünür.
     // DEFAULT_MODULES, gerçek organizasyon ayarı gelene kadar geçici olarak
@@ -104,8 +92,13 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
             label: m.id === '/queue' && sector === 'kuafor'
                 ? 'Walk-in Sırası'
                 : m.labelKey ? t(m.labelKey) : m.label,
-            icon: NAV_ICONS[m.id] ?? LDashboard,
+            icon: NAV_ICONS[m.id] ?? LayoutGrid,
+            group: m.group,
         }));
+    // Gruplar: başlık yalnız içinde görünen öğe varsa çizilir
+    const navGroups = NAV_GROUPS
+        .map((g) => ({ ...g, title: g.labelKey ? t(g.labelKey) : g.label, items: menuItems.filter((m) => m.group === g.key) }))
+        .filter((g) => g.items.length > 0);
 
     const handleNavClick = (path: string) => {
         navigate(path);
@@ -123,22 +116,27 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         return location.pathname.startsWith(path);
     };
 
-    // Nav öğesi renkleri — Panel rötuşu (2026-10-20), Ayarlar v1 ile aynı aile:
-    // etkin satır yüzey3 zemin + sabit turuncu çizgi; öteki satırlar soluk
-    // mürekkep (.62 / .64), üstüne gelince yalnız zemin ve renk değişir.
+    // Nav öğesi renkleri — Kenar çubuğu A · Gruplu (2026-10-20): etkin satır
+    // beyaz kart (ince kenar + hafif gölge), ikonu turuncu; turuncu çizgi yok.
+    // Öteki satırlar soluk mürekkep (.62 / .64); üstüne gelince zemin ve renk.
     const navItemClass = (active: boolean) =>
         active
             ? dark
-                ? "bg-[#30281A] text-[#F3EDE3] font-bold"
-                : "bg-[#E9E1D5] text-[#0E0E0E] font-bold"
+                ? "bg-[#241E16] text-[#F3EDE3] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(243,237,227,0.09)]"
+                : "bg-[#FFFDFB] text-[#0E0E0E] font-bold shadow-[0_1px_2px_rgba(14,14,14,0.06),inset_0_0_0_1px_rgba(14,14,14,0.09)]"
             : dark
                 ? "text-[rgba(243,237,227,0.64)] font-semibold hover:bg-[rgba(243,237,227,0.05)] hover:text-[#F3EDE3]"
                 : "text-[rgba(14,14,14,0.62)] font-semibold hover:bg-[rgba(14,14,14,0.04)] hover:text-[#0E0E0E]";
     const rail = isCollapsed && !isMobileOpen;
     const navRowClass = cn(
-        "relative flex items-center gap-3 h-10 rounded-xl overflow-hidden text-[15px] transition-colors duration-[140ms] ease-out",
-        rail ? "w-11 mx-auto justify-center px-0" : "w-full px-3",
+        "relative flex items-center gap-3.5 h-[42px] rounded-xl overflow-hidden text-[15.5px] transition-colors duration-[140ms] ease-out",
+        rail ? "w-12 mx-auto justify-center px-0" : "w-full px-3.5",
     );
+    const groupTitleClass = cn(
+        "px-3.5 pb-2 text-[12px] font-bold tracking-[0.09em] uppercase",
+        dark ? "text-[rgba(243,237,227,0.36)]" : "text-[rgba(14,14,14,0.38)]",
+    );
+    const railSepClass = cn("h-px w-6 mx-auto my-2", dark ? "bg-[rgba(243,237,227,0.10)]" : "bg-[rgba(14,14,14,0.09)]");
 
     // Açılır menü öğesi rengi — light/dark
     const menuItemClass = dark
@@ -156,19 +154,19 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
             )}
 
             <aside className={cn(
-                "fixed top-0 bottom-0 z-50 border-r transition-all duration-300 ease-in-out",
+                "fixed top-0 bottom-0 z-50 border-r transition-all duration-300 ease-in-out flex flex-col",
                 dark
                     ? "bg-[#141210] border-[rgba(243,237,227,0.07)]"
                     : "bg-[#FAF7F3] border-[#131211]/[0.06]",
                 "md:translate-x-0",
-                isMobileOpen ? "translate-x-0 w-60 left-0" : "-translate-x-full left-0",
+                isMobileOpen ? "translate-x-0 w-64 left-0" : "-translate-x-full left-0",
                 "md:left-0",
-                isCollapsed ? "md:w-[72px]" : "md:w-60"
+                isCollapsed ? "md:w-[76px]" : "md:w-64"
             )}>
                 {/* Logo Section */}
                 <div className={cn(
-                    "relative h-[76px] border-b flex items-center justify-between transition-colors duration-300",
-                    rail ? "justify-center px-0" : "px-[22px]",
+                    "relative h-20 shrink-0 border-b flex items-center justify-between transition-colors duration-300",
+                    rail ? "justify-center px-0" : "pl-[26px] pr-5",
                     dark
                         ? "border-[rgba(243,237,227,0.08)]"   // dark: card zemini miras, divider çizgi
                         : "border-[#131211]/10"
@@ -177,8 +175,11 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                         "flex items-center gap-3 transition-all duration-300",
                         isCollapsed && "md:justify-center"
                     )}>
+                        {/* Hap/yazı oranı sabit (kullanıcı kararı, 2026-10-20) — yalnız bütün
+                            ölçek 36 → 40 büyüdü. Sol kenar menü ikonlarının sütunuyla
+                            aynı hizada (26 px). */}
                         {(!isCollapsed || isMobileOpen) && (
-                            <LueraTimeflowMark size={32} pillHeightRatio={0.5625} textRatio={0.61} dark={dark} />
+                            <LueraTimeflowMark size={40} pillHeightRatio={0.5556} textRatio={0.62} dark={dark} />
                         )}
                         {rail && (
                             <span
@@ -186,7 +187,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                 style={{
                                     fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
                                     fontWeight: 900,
-                                    fontSize: 32,
+                                    fontSize: 34,
                                     lineHeight: 0.82,
                                     letterSpacing: '-0.05em',
                                     color: dark ? '#F3ECE0' : '#0E0E0E',
@@ -227,57 +228,62 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                     </button>
                 </div>
 
-                {/* Navigation */}
-                <nav className="px-3 py-3.5 flex flex-col gap-0.5">
-                    {menuItems.map((item) => {
-                        const Icon = item.icon;
-                        const active = isActive(item.id);
-                        const popped = justActivated === item.id;
-                        return (
-                            <div key={item.id} className="relative">
-                            {active && <ActiveBar />}
-                            <button
-                                type="button"
-                                title={rail ? item.label : undefined}
-                                onClick={(e) => onItemClick(e, item.id)}
-                                className={cn(navRowClass, navItemClass(active))}
-                            >
-                                <Icon size={18} className={cn("shrink-0", popped && "sb-pop")} />
-                                {(!isCollapsed || isMobileOpen) && <span className={cn(popped && "sb-pop")}>{item.label}</span>}
-                                {/* Kasada bekleyen adisyon rozeti — personel adisyon gönderince artar */}
-                                {item.id === '/kasa' && pendingBills.length > 0 && (
-                                    (!isCollapsed || isMobileOpen) ? (
-                                        <span className="ml-auto min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-[#FF5A1F] text-white text-[11px] font-bold">
-                                            {pendingBills.length}
-                                        </span>
-                                    ) : (
-                                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF5A1F]" />
-                                    )
-                                )}
-                            </button>
-                            </div>
-                        );
-                    })}
-
-                    {/* Divider */}
-                    <div className={cn("h-px my-2", rail ? "mx-auto w-8" : "mx-1", dark ? "bg-[rgba(243,237,227,0.10)]" : "bg-[rgba(14,14,14,0.09)]")} />
-                    <div className="relative">
-                        {isActive('/settings') && <ActiveBar />}
-                        <button
-                            type="button"
-                            title={rail ? 'Ayarlar' : undefined}
-                            onClick={(e) => onItemClick(e, '/settings')}
-                            className={cn(navRowClass, navItemClass(isActive('/settings')))}
-                        >
-                            <LSettings size={18} className={cn("shrink-0", justActivated === '/settings' && "sb-pop")} />
-                            {(!isCollapsed || isMobileOpen) && <span className={cn(justActivated === '/settings' && "sb-pop")}>Ayarlar</span>}
-                        </button>
-                    </div>
+                {/* Navigation — gruplu liste (Günlük · Müşteri · İşletme). Daraltılmış
+                    menüde başlıklar yerine ince ayraç. */}
+                <nav className="flex-1 min-h-0 overflow-y-auto px-3 pt-4 pb-2 flex flex-col gap-0.5">
+                    {navGroups.map((g, gi) => (
+                        <div key={g.key} className="flex flex-col gap-0.5">
+                            {rail
+                                ? gi > 0 && <div className={railSepClass} />
+                                : <div className={cn(groupTitleClass, gi === 0 ? "pt-1" : "pt-4")}>{g.title}</div>}
+                            {g.items.map((item) => {
+                                const Icon = item.icon;
+                                const active = isActive(item.id);
+                                const popped = justActivated === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        title={rail ? item.label : undefined}
+                                        onClick={(e) => onItemClick(e, item.id)}
+                                        className={cn(navRowClass, navItemClass(active))}
+                                    >
+                                        <Icon size={19} strokeWidth={1.8} className={cn("shrink-0", active && "text-[#FF5A1F]", popped && "sb-pop")} />
+                                        {!rail && <span className={cn("truncate", popped && "sb-pop")}>{item.label}</span>}
+                                        {/* Kasada bekleyen adisyon rozeti — personel adisyon gönderince artar */}
+                                        {item.id === '/kasa' && pendingBills.length > 0 && (
+                                            !rail ? (
+                                                <span className="ml-auto min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-[#FF5A1F] text-white text-[11px] font-bold">
+                                                    {pendingBills.length}
+                                                </span>
+                                            ) : (
+                                                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF5A1F]" />
+                                            )
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </nav>
+
+                {/* Ayarlar menünün dibinde sabit — listenin ortasında değil.
+                    Eskiden altında ~220 px boş alan kalıyordu. */}
+                <div className="shrink-0 px-3 pb-2">
+                    <button
+                        type="button"
+                        title={rail ? 'Ayarlar' : undefined}
+                        onClick={(e) => onItemClick(e, '/settings')}
+                        className={cn(navRowClass, navItemClass(isActive('/settings')))}
+                    >
+                        <Settings size={19} strokeWidth={1.8} className={cn("shrink-0", isActive('/settings') && "text-[#FF5A1F]", justActivated === '/settings' && "sb-pop")} />
+                        {!rail && <span className={cn(justActivated === '/settings' && "sb-pop")}>Ayarlar</span>}
+                    </button>
+                </div>
 
                 {/* User Profile */}
                 <div className={cn(
-                    "absolute bottom-0 w-full border-t",
+                    "shrink-0 w-full border-t",
                     rail ? "px-0 pt-3.5 pb-4" : "pl-4 pr-3 pt-3.5 pb-4",
                     dark ? "border-[rgba(243,237,227,0.08)] bg-[#141210]" : "border-[#131211]/10 bg-[#FAF7F3]"
                 )}>
@@ -297,18 +303,18 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                             )}
                         >
                             <div className={cn(
-                                "w-9 h-9 shrink-0 rounded-full flex items-center justify-center",
+                                "w-10 h-10 shrink-0 rounded-full flex items-center justify-center",
                                 dark ? "bg-[#F3EDE3]" : "bg-[#0E0E0E]"
                             )}>
-                                <span className={cn("font-extrabold text-[14px]", dark ? "text-[#141210]" : "text-[#F3EDE3]")}>{(user?.name || 'U').charAt(0).toLocaleUpperCase('tr')}</span>
+                                <span className={cn("font-extrabold text-[15px]", dark ? "text-[#141210]" : "text-[#F3EDE3]")}>{(user?.name || 'U').charAt(0).toLocaleUpperCase('tr')}</span>
                             </div>
                             {(!isCollapsed || isMobileOpen) && (
                                 <>
                                     <div className="flex-1 min-w-0 text-left">
-                                        <p className={cn("text-[14.5px] font-bold leading-tight truncate", dark ? "text-[#F3EDE3]" : "text-[#0E0E0E]")}>
+                                        <p className={cn("text-[15.5px] font-bold leading-tight truncate", dark ? "text-[#F3EDE3]" : "text-[#0E0E0E]")}>
                                             {user?.name || 'Kullanıcı'}
                                         </p>
-                                        <p className={cn("text-[13px] font-medium flex items-center gap-1.5", dark ? "text-[rgba(243,237,227,0.64)]" : "text-[rgba(14,14,14,0.62)]")}>
+                                        <p className={cn("text-[13.5px] font-medium flex items-center gap-1.5", dark ? "text-[rgba(243,237,227,0.64)]" : "text-[rgba(14,14,14,0.62)]")}>
                                             <span className="w-[7px] h-[7px] rounded-full bg-[#2D8F32]"></span>
                                             {/* Gerçek rol (organization_members) — eskiden herkese sabit "Admin" yazıyordu. */}
                                             {roleLabel(orgRole) ?? ''}

@@ -362,7 +362,8 @@ test('sol menü: gerçek rol, Profil → Hesabım, Booking Sayfam → Online ran
     assert.match(s, /roleLabel\(orgRole\)/);
     assert.doesNotMatch(s, /\{user\?\.role \|\| 'User'\}/);
     assert.match(s, /handleNavClick\('\/settings\/hesabim'\)/);
-    assert.match(read('src/lib/nav.ts'), /id: '\/settings\/online-randevu', label: 'Booking Sayfam'/);
+    // 2026-10-20: menü adı da Ayarlar'daki bölümle aynı oldu ("Booking Sayfam" → "Online randevu")
+    assert.match(read('src/lib/nav.ts'), /id: '\/settings\/online-randevu', label: 'Online randevu'/);
     // Tasarım A6: Online randevu'dayken sol menüde yalnız "Ayarlar" yanar.
     assert.match(strip(s), /if \(path\.startsWith\('\/settings\/'\)\) return false;/);
 });
