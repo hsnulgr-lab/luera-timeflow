@@ -12,8 +12,10 @@
  *
  * Durum iki yerden okunur ve bu bilinçli: `useBilling` faturalama ayrıntısını
  * (fatura geçmişi, iptal bayrağı — 123'ten beri yerel ayna ve olay defteri),
- * `useEntitlement` kapının kararını verir. "Kartı güncelle" Dodo müşteri
- * portalını açar; eskiden yeni bir checkout açıp ikinci abonelik yaratıyordu. Fiyatlar `lib/plans.ts`'ten (üç ekranda tek kaynak).
+ * `useEntitlement` kapının kararını verir. "Kartı güncelle" Dodo'nun yalnız
+ * bu aboneliğe ait kart sayfasını açar (portal tutarı USD gösterip bütün
+ * abonelikleri listeliyordu; daha önce de yeni checkout açıp ikinci abonelik
+ * yaratıyordu). Fiyatlar `lib/plans.ts`'ten (üç ekranda tek kaynak).
  */
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -26,7 +28,7 @@ import { dayLocative, trDate } from '../ayarlarModel';
 import { Dots, Head, I, Modal, Seg } from '../parcalar';
 
 export function Abonelik() {
-    const { subscription, invoices, loading, error, busy, refresh, startCheckout, openPortal, cancelSubscription, pollAfterCheckout } = useBilling();
+    const { subscription, invoices, loading, error, busy, refresh, startCheckout, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
     const ent = useEntitlement();
     const { staff } = useStaff();
     const [params, setParams] = useSearchParams();
@@ -179,7 +181,7 @@ export function Abonelik() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 24px 22px', borderTop: '1px solid var(--bd)' }}>
                             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
                                 <button type="button" className="ay-btn plain" aria-expanded={showPlans} onClick={() => setShowPlans((v) => !v)}>Planı değiştir</button>
-                                <button type="button" className="ay-btn plain" disabled={busy} onClick={() => void openPortal()}>Kartı güncelle</button>
+                                <button type="button" className="ay-btn plain" disabled={busy} onClick={() => void updateCard()}>Kartı güncelle</button>
                             </div>
                             <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 14.5, lineHeight: 1.5, color: 'var(--tx2)' }}>
                                 <I n="info" size={17} style={{ marginTop: 2 }} />

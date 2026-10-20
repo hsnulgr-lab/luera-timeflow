@@ -12,9 +12,13 @@
 // ── Üç koruma ───────────────────────────────────────────────────────────────
 // 1. ESKİ OLAY GERİ SARMAZ: yükteki `timestamp` aynadaki son uygulanandan
 //    eskiyse ayna değişmez (olay deftere yine yazılır).
-// 2. BAŞKA ABONELİK KARIŞMAZ: işletmenin aboneliği B iken eski A'nın
-//    "süresi doldu" olayı kapıyı kapatmaz. Yeni abonelik ancak `active`
-//    olarak gelirse eskisinin yerine geçer.
+// 2. BAŞKA ABONELİK KARIŞMAZ, EN YENİSİ KAZANIR: işletmenin aboneliği B
+//    iken eski A'nın "süresi doldu" olayı kapıyı kapatmaz. Başka bir
+//    abonelik `active` gelirse aynadakinin Dodo'daki hâliyle karşılaştırılır
+//    (`created_at`): daha YENİYSE yerine geçer ve eskisi kapatılır; daha
+//    ESKİYSE ayna değişmez, gelen kopya kapatılır. Eskiden "son gelen
+//    active kazanır"dı: aynı işletmede iki abonelik varken eskisinin
+//    yenilemesi yenisini iptal ediyordu (devir 10 §10, 2026-10-20).
 // 3. DENEME KALICI ALANDAN OKUNMAZ: `trial_period_days` aboneliğin ömür boyu
 //    alanı; askıdan dönen ödeyen bir salon "deneme"ye düşüyordu. Şimdiki
 //    dönemin deneme dönemi olup olmadığına tarihten bakılır.
@@ -48,6 +52,15 @@ export interface MirrorPatch {
     last_event: string;
 }
 
+/**
+ * Aynadaki aboneliğin Dodo'daki şimdiki hâli. Yalnız başka bir abonelik
+ * `active` geldiğinde okunur (`needsMineNow`); `found: false` = Dodo'da yok
+ * (ör. test kipinden canlıya geçişte aynada kalan test kimliği).
+ */
+export type MineNow =
+    | { found: false }
+    | { found: true; status: string; created_at: string | null };
+
 export type Decision =
     | {
         kind: 'apply';
@@ -57,7 +70,12 @@ export type Decision =
         /** Bu abonelik başka birinin yerine geçti → eskisi Dodo'da kapatılmalı. */
         replaced: string | null;
     }
-    | { kind: 'skip'; outcome: 'stale' | 'other_subscription' };
+    | {
+        kind: 'skip';
+        outcome: 'stale' | 'other_subscription' | 'older_subscription';
+        /** Aynı işletmenin ESKİ kopya aboneliği → Dodo'da kapatılmalı (çift tahsilat). */
+        cancel?: string;
+    };
 
 // deno-lint-ignore no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,11 +108,43 @@ export function periodEnd(sub: Sub): string | null {
     return next === null ? null : new Date(next + PERIOD_TOLERANCE_MS).toISOString();
 }
 
+/** Bu durumlardaki abonelik bir daha tahsilat yapmaz (`_shared/dodo.ts` ile aynı). */
+const TERMINAL = new Set(['cancelled', 'expired', 'failed']);
+
+/**
+ * Aynadakinden FARKLI bir abonelik `active` mi geldi? Öyleyse karar için
+ * aynadakinin Dodo'daki hâli (`MineNow`) okunmalı — webhook okur, karar saf.
+ */
+export function needsMineNow(sub: Sub, current: MirrorNow | null): boolean {
+    const subId = typeof sub?.subscription_id === 'string' ? sub.subscription_id : null;
+    const mine = current?.dodo_subscription_id ?? null;
+    return !!mine && !!subId && subId !== mine && String(sub?.status ?? '') === 'active';
+}
+
+/**
+ * Gelen abonelik aynadakine göre ne?
+ *   newer   → yerine geçer, aynadaki kapatılır
+ *   gone    → yerine geçer; aynadaki zaten tahsilat yapmıyor ya da Dodo'da yok
+ *   older   → ayna değişmez, gelen kopya kapatılır
+ *   unknown → hiçbir şey yapılmaz (karşılaştırılamadı; tahmine göre iptal YOK)
+ */
+function rival(sub: Sub, mineNow: MineNow | undefined, subId: string, mine: string): 'newer' | 'gone' | 'older' | 'unknown' {
+    if (!mineNow) return 'unknown';
+    if (!mineNow.found || TERMINAL.has(mineNow.status)) return 'gone';
+    const theirs = ms(sub?.created_at);
+    const ours = ms(mineNow.created_at);
+    if (theirs === null || ours === null) return 'unknown';
+    // Aynı milisaniye: kimlik sırasıyla kesin bir kazanan seçilir.
+    return theirs > ours || (theirs === ours && subId > mine) ? 'newer' : 'older';
+}
+
 /**
  * @param type     olay türü (`subscription.renewed`…); son olay olarak yazılır
  * @param sub      aboneliğin anlık görüntüsü
  * @param eventAt  olayın Dodo'daki anı (yükün `timestamp`'i)
  * @param current  aynanın şimdiki hâli; satır yoksa null
+ * @param mineNow  aynadaki aboneliğin Dodo'daki hâli; yalnız `needsMineNow`
+ *                 doğruyken gerekir, yoksa başka abonelik devralamaz
  */
 export function decide(
     type: string,
@@ -102,18 +152,25 @@ export function decide(
     eventAt: string | null,
     current: MirrorNow | null,
     now: number = Date.now(),
+    mineNow?: MineNow,
 ): Decision {
     const at = ms(eventAt);
     const last = ms(current?.dodo_event_at);
-    if (at !== null && last !== null && at < last) return { kind: 'skip', outcome: 'stale' };
 
     const subId: string | null = typeof sub?.subscription_id === 'string' ? sub.subscription_id : null;
     const status: string = String(sub?.status ?? '');
     const mine = current?.dodo_subscription_id ?? null;
     let replaced: string | null = null;
     if (mine && subId && subId !== mine) {
+        // Başka abonelik: iki aboneliğin olay zamanları birbiriyle
+        // karşılaştırılamaz, "eski olay" denetimi burada anlamsız.
         if (status !== 'active') return { kind: 'skip', outcome: 'other_subscription' };
-        replaced = mine;
+        const verdict = rival(sub, mineNow, subId, mine);
+        if (verdict === 'unknown') return { kind: 'skip', outcome: 'other_subscription' };
+        if (verdict === 'older') return { kind: 'skip', outcome: 'older_subscription', cancel: subId };
+        replaced = verdict === 'newer' ? mine : null;
+    } else if (at !== null && last !== null && at < last) {
+        return { kind: 'skip', outcome: 'stale' };
     }
 
     const md = (sub?.metadata ?? {}) as Record<string, unknown>;

@@ -432,6 +432,26 @@ TimeFlow ekranı (02:46/02:48) ✅: furkan@luera.ai "Pro · Aktif · Sonraki tah
 20 Kasım · ₺599, faturada tek ₺599 satırı (ilk ₺0 kart doğrulaması bilerek
 gizli). Yenileme günü testi KAPANDI.
 
+**KODDA (2026-10-20, testler yeşil, CANLIDA DEĞİL):**
+- **En yeni abonelik kazanır** (`durum.ts` `decide` + `needsMineNow`,
+  webhook `readMine`/`cancelOther`, `_shared/dodo.ts` `lookupSubscription`):
+  başka abonelik `active` gelince aynadakinin Dodo hâli okunur. Gelen daha
+  yeni → devralır, aynadaki kapatılır. Daha eski → ayna değişmez
+  (`older_subscription`), gelen kopya kapatılır. Aynadaki yok/kapanmış →
+  iptalsiz devralır. Geçici okuma hatası → 500 (Dodo yeniden dener); kalıcı
+  4xx → "yok" sayılır (ucu kapattırmasın). Başka aboneliğin olayında "eski
+  olay" denetimi yapılmaz (iki aboneliğin olay saatleri karşılaştırılamaz).
+  Test kipindeki furkan@luera.ai: 9/12 Kasım'da eski üç abonelik
+  yenilenince KAPATILACAK, yenisi kalır.
+- **Kartı güncelle → kart sayfası** (`action: 'card'`, eski 'portal' adı da
+  aynı yere): `POST /subscriptions/{id}/update-payment-method`
+  `{type:'new', return_url}` → `payment_link`. Sayfa 2026-10-20'de test
+  kipinde görüldü: "Ödeme Yöntemini Güncelle", Apple Pay / Google Pay / kart,
+  tutar ve abonelik listesi YOK, Türkçe, süreli bağlantı.
+- Canlıya: önce fonksiyonlar (`_shared` değişti → ARGÜMANSIZ), sonra masaüstü
+  (Coolify Deploy). Sıra önemli değil ama fonksiyon önce olursa eski ekran da
+  çalışır ('portal' karşılanıyor).
+
 **Portal doğrulandı (02:26):** "Kartı güncelle" → portal "$12.08/ay · 20.11.2026
 tarihinde yenilenir" ve müşterinin TÜM abonelikleri ($12.33'lük eskiler dahil)
 alt alta. Öneri: "Kartı güncelle" portal yerine Dodo **Update Payment Method**

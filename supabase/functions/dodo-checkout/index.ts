@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 /**
- * Dodo Payments checkout, iptal ve müşteri portalı.
+ * Dodo Payments checkout, iptal ve kart güncelleme.
  *
  * Güvenlik modeli:
  *   - Kullanıcı kimliği request body'den DEĞİL, session JWT'sinden doğrulanır.
@@ -25,7 +25,8 @@ const corsHeaders = {
  *   { plan, cycle, orgId }       → { url }  yeni abonelik (checkout)
  *                                → { resumed: true }  iptal bekleyen aynı plan
  *   { action: 'cancel', orgId }  → dönem sonunda iptal
- *   { action: 'portal', orgId }  → { url }  Dodo müşteri portalı (kart güncelle)
+ *   { action: 'card', orgId }    → { url }  Dodo kart güncelleme sayfası
+ *                                          ('portal' eski istemcinin adı, aynı yere gider)
  *
  * DENEME SÜRESİ: ilk checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
  * ilk tahsilat 8. gün). Dodo'da trial ABONELİĞE bağlanabiliyor
@@ -103,20 +104,28 @@ Deno.serve(async (req: Request) => {
             return json({ cancelled: true }, 200);
         }
 
-        // ── Müşteri portalı: kart güncelleme ────────────────────────────────
-        // Eskiden "Kartı güncelle" YENİ bir checkout açıyordu → ikinci abonelik.
-        if (body.action === 'portal') {
-            const customerId = entRow?.dodo_customer_id;
-            if (!customerId) return json({ error: 'no_subscription' }, 404);
-            const qs = new URLSearchParams({ return_url: `${appUrl}/settings?tab=billing`, send_email: 'false' });
-            const res = await dodoFetch(api, `/customers/${encodeURIComponent(customerId)}/customer-portal/session?${qs}`, { method: 'POST' });
+        // ── Kart güncelleme ─────────────────────────────────────────────────
+        // Eskiden "Kartı güncelle" YENİ bir checkout açıyordu → ikinci
+        // abonelik; sonra Dodo müşteri portalı: portal tutarı Dodo'nun hesaba
+        // geçirdiği USD'yle ("$12.08/ay") ve müşterinin BÜTÜN aboneliklerini
+        // gösteriyordu. Bu sayfa yalnız O aboneliğin kartını alır, tutar
+        // yazmaz. Askıdaki (on_hold) abonelikte Dodo borcu yeni karttan hemen
+        // çeker ve aboneliği yeniden etkinleştirir (payment.succeeded →
+        // subscription.active, webhook işler).
+        if (body.action === 'card' || body.action === 'portal') {
+            const subscriptionId = entRow?.dodo_subscription_id;
+            if (!subscriptionId) return json({ error: 'no_subscription' }, 404);
+            const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/update-payment-method`, {
+                method: 'POST',
+                body: JSON.stringify({ type: 'new', return_url: `${appUrl}/settings?tab=billing` }),
+            });
             if (!res.ok) {
-                console.error('Dodo portal error:', res.status, await res.text().catch(() => ''));
-                return json({ error: 'portal_failed' }, 502);
+                console.error('Dodo update-payment-method error:', res.status, await res.text().catch(() => ''));
+                return json({ error: 'card_failed' }, 502);
             }
             const out = await res.json().catch(() => ({}));
-            if (typeof out?.link !== 'string') return json({ error: 'portal_failed' }, 502);
-            return json({ url: out.link }, 200);
+            if (typeof out?.payment_link !== 'string') return json({ error: 'card_failed' }, 502);
+            return json({ url: out.payment_link }, 200);
         }
 
         // ── Checkout ─────────────────────────────────────────────────────────

@@ -119,15 +119,18 @@ export function useBilling() {
         window.location.href = data.url;
     }, [orgId, refresh]);
 
-    /** Dodo müşteri portalı — kart güncelleme (yeni abonelik AÇMAZ). */
-    const openPortal = useCallback(async () => {
+    /**
+     * Dodo kart güncelleme sayfası — yalnız bu aboneliğin kartı (yeni abonelik
+     * AÇMAZ, tutar göstermez). Askıdaki abonelikte borç yeni karttan çekilir.
+     */
+    const updateCard = useCallback(async () => {
         setBusy(true);
         const { data, error } = await supabase.functions
-            .invoke('dodo-checkout', { body: { action: 'portal', orgId } })
+            .invoke('dodo-checkout', { body: { action: 'card', orgId } })
             .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
         if (error || !data?.url) {
-            console.error('dodo-checkout portal:', error, data);
+            console.error('dodo-checkout card:', error, data);
             toast.error('Ödeme bilgileri sayfası açılamadı, lütfen tekrar deneyin');
             return;
         }
@@ -150,5 +153,5 @@ export function useBilling() {
         return true;
     }, [orgId, refresh]);
 
-    return { subscription, invoices, loading, error, busy, refresh, startCheckout, openPortal, cancelSubscription, pollAfterCheckout };
+    return { subscription, invoices, loading, error, busy, refresh, startCheckout, updateCard, cancelSubscription, pollAfterCheckout };
 }

@@ -1,9 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
 import { notifyOwner } from '../_shared/notify.ts';
-import { cancelNow, dodoApi, getSubscription } from '../_shared/dodo.ts';
+import { cancelNow, dodoApi, getSubscription, lookupSubscription } from '../_shared/dodo.ts';
 import { getSecret } from '../_shared/wa.ts';
-import { decide, type Decision, type MirrorNow } from './durum.ts';
+import { decide, needsMineNow, type Decision, type MineNow, type MirrorNow } from './durum.ts';
 import { syncPendingToCore } from './core.ts';
 
 const corsHeaders = {
@@ -129,18 +129,29 @@ Deno.serve(async (req: Request) => {
         // ── 4 · Karar ───────────────────────────────────────────────────────
         let decision: Decision | null = null;
         if (type.startsWith('subscription.')) {
-            decision = decide(type, data, eventAt, current);
+            const mineNow = await readMine(admin, data, current);
+            // Geçici okuma hatası → 500, Dodo yeniden dener: yeni abonelik
+            // "karşılaştırılamadı" diye atlansaydı ödeyen salon eski
+            // (askıdaki) aboneliğe bağlı kalır, ek süre bitince kilitlenirdi.
+            if (mineNow === 'retry') return fail('aynadaki abonelik Dodo\'dan okunamadı', current?.dodo_subscription_id);
+            decision = decide(type, data, eventAt, current, Date.now(), mineNow);
         } else if (type === 'payment.succeeded' && subId && current?.state === 'grace') {
             // Askıdaki salon kartını güncelledi: ödeme olayı yeni dönemi
             // taşımıyor. Aboneliğin şimdiki hâli Dodo'dan okunur; okunamazsa
             // arkasından gelen abonelik olayı düzeltir.
             const api = await dodoApi(admin);
             const sub = api ? await getSubscription(api, subId) : null;
-            if (sub) decision = decide(type, sub, new Date().toISOString(), current);
+            const mineNow = sub ? await readMine(admin, sub, current) : 'retry';
+            if (mineNow !== 'retry') decision = decide(type, sub, new Date().toISOString(), current, Date.now(), mineNow);
         }
 
         if (!decision) return await finish(admin, core, whId, orgId, 'recorded');
-        if (decision.kind === 'skip') return await finish(admin, core, whId, orgId, decision.outcome);
+        if (decision.kind === 'skip') {
+            // Aynı işletmenin eski kopyası yenilendi: ayna yenisinde kalır,
+            // eskisi bir daha tahsilat yapmasın (çift tahsilat).
+            if (decision.cancel) await cancelOther(admin, decision.cancel, 'eski kopya abonelik');
+            return await finish(admin, core, whId, orgId, decision.outcome);
+        }
 
         const mirrorErr = await mirrorEntitlement(admin, orgId, decision.patch);
         if (mirrorErr) {
@@ -167,9 +178,7 @@ Deno.serve(async (req: Request) => {
             // Bir işletme, bir abonelik: yenisi etkinleşti, eskisi bir daha
             // tahsilat yapmasın (askıdaki eski abonelik kart güncellenince
             // yeniden çekmeye başlardı → çift tahsilat).
-            const api = await dodoApi(admin);
-            const out = api ? await cancelNow(api, decision.replaced) : { ok: false, reason: 'dodo_not_configured' };
-            console.log(`dodo-webhook: eski abonelik ${decision.replaced} iptal=${out.ok ? 'tamam' : (out as { reason: string }).reason}`);
+            await cancelOther(admin, decision.replaced, 'yerine yenisi geçen abonelik');
         }
 
         return await finish(admin, core, whId, orgId, 'applied', decision.patch.state);
@@ -184,6 +193,33 @@ Deno.serve(async (req: Request) => {
 // deno-lint-ignore no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
+
+/**
+ * Başka bir abonelik `active` geldiyse aynadakinin Dodo'daki hâli — `decide`
+ * en yenisini seçsin diye. Gerekmiyorsa undefined; geçici hata → 'retry'.
+ * Kalıcı hata (öteki 4xx, anahtar yok) yeniden denemeyle düzelmez ve 500
+ * dönmek ucu kapattırır: "Dodo'da yok" sayılır, yenisi yerine geçer.
+ */
+async function readMine(admin: Db, sub: Db, current: MirrorNow | null): Promise<MineNow | undefined | 'retry'> {
+    if (!needsMineNow(sub, current)) return undefined;
+    const api = await dodoApi(admin);
+    if (!api) return { found: false };
+    const r = await lookupSubscription(api, current!.dodo_subscription_id!);
+    if (r.kind === 'transient') return 'retry';
+    if (r.kind !== 'found') return { found: false };
+    return {
+        found: true,
+        status: String(r.sub?.status ?? ''),
+        created_at: typeof r.sub?.created_at === 'string' ? r.sub.created_at : null,
+    };
+}
+
+/** İşletmenin öteki aboneliğini Dodo'da hemen kapatır; sonucu yalnız loglar. */
+async function cancelOther(admin: Db, id: string, why: string): Promise<void> {
+    const api = await dodoApi(admin);
+    const out = api ? await cancelNow(api, id) : { ok: false as const, reason: 'dodo_not_configured' };
+    console.log(`dodo-webhook: ${why} ${id} iptal=${out.ok ? 'tamam' : out.reason}`);
+}
 
 /** Olayı işlenmiş say, Core'a kopyala, 200 dön. */
 async function finish(

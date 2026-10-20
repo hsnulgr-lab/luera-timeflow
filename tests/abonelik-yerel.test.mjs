@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { computeAccess, shownAccess, shownEnd } from '../supabase/functions/_shared/entitlement.ts';
-import { coreStatus, decide, isTrialPeriod, PERIOD_TOLERANCE_MS } from '../supabase/functions/dodo-webhook/durum.ts';
+import { coreStatus, decide, isTrialPeriod, needsMineNow, PERIOD_TOLERANCE_MS } from '../supabase/functions/dodo-webhook/durum.ts';
 
 /*
  * Abonelik gerçeği TimeFlow'da, Core kopya — 123 · devir 10 §10 (2026-10-19).
@@ -145,11 +145,65 @@ test('başka aboneliğin olayı işletmeyi kilitlemez; yenisi etkinleşince eski
     assert.deepEqual(
         decide('subscription.expired', sub({ subscription_id: 'sub_A', status: 'expired' }), iso(NOW), cur, NOW),
         { kind: 'skip', outcome: 'other_subscription' });
-    // Yeni C etkinleşti: aynaya C yazılır, B Dodo'da kapatılsın diye bildirilir.
-    const d = decide('subscription.active', sub({ subscription_id: 'sub_C' }), iso(NOW), cur, NOW);
+    // Yeni C etkinleşti (B'den sonra açıldı): aynaya C yazılır, B Dodo'da kapatılır.
+    const bNow = { found: true, status: 'on_hold', created_at: iso(NOW - 40 * DAY) };
+    const d = decide('subscription.active', sub({ subscription_id: 'sub_C', created_at: iso(NOW - H) }), iso(NOW), cur, NOW, bNow);
     assert.equal(d.kind, 'apply');
     assert.equal(d.patch.dodo_subscription_id, 'sub_C');
     assert.equal(d.replaced, 'sub_B');
+});
+
+// ── En yeni abonelik kazanır (devir 10 §10, 2026-10-20) ─────────────────────
+// Test kipinde yaşandı: furkan@luera.ai işletmesinde 4 aktif abonelik.
+// "Son gelen active kazanır" kuralında 9 Kasım'da eskinin yenilemesi
+// 20 Ekim'de alınan yeniyi iptal edecekti.
+
+const YENI = { state: 'active', grace_until: null, dodo_subscription_id: 'sub_YENI', dodo_event_at: iso(NOW - DAY) };
+const yeniNow = (status = 'active') => ({ found: true, status, created_at: iso(NOW - DAY) });
+
+test('eski kopyanın yenilemesi yeniyi İPTAL ETMEZ; eski kopya kapatılır', () => {
+    const eski = sub({ subscription_id: 'sub_ESKI', created_at: iso(NOW - 70 * DAY) });
+    assert.equal(needsMineNow(eski, YENI), true);
+    const d = decide('subscription.renewed', eski, iso(NOW), YENI, NOW, yeniNow());
+    assert.deepEqual(d, { kind: 'skip', outcome: 'older_subscription', cancel: 'sub_ESKI' });
+});
+
+test('yeni abonelik olay zamanı aynadakinden eski olsa da devralır', () => {
+    // İki aboneliğin olay saatleri karşılaştırılamaz: eskinin son olayı
+    // yeninin "active" olayından sonra gelmiş olabilir.
+    const cur = { ...YENI, dodo_subscription_id: 'sub_ESKI', dodo_event_at: iso(NOW) };
+    const eskiNow = { found: true, status: 'active', created_at: iso(NOW - 70 * DAY) };
+    const d = decide('subscription.active', sub({ subscription_id: 'sub_YENI', created_at: iso(NOW - 2 * H) }), iso(NOW - H), cur, NOW, eskiNow);
+    assert.equal(d.kind, 'apply');
+    assert.equal(d.patch.dodo_subscription_id, 'sub_YENI');
+    assert.equal(d.replaced, 'sub_ESKI');
+});
+
+test('aynadaki abonelik kapanmışsa ya da Dodo\'da yoksa yenisi iptalsiz devralır', () => {
+    const gelen = sub({ subscription_id: 'sub_C', created_at: iso(NOW - 90 * DAY) });
+    for (const mineNow of [{ found: false }, yeniNow('cancelled'), yeniNow('expired'), yeniNow('failed')]) {
+        const d = decide('subscription.active', gelen, iso(NOW), YENI, NOW, mineNow);
+        assert.equal(d.kind, 'apply', JSON.stringify(mineNow));
+        assert.equal(d.patch.dodo_subscription_id, 'sub_C');
+        assert.equal(d.replaced, null, 'kapatılacak bir şey yok');
+    }
+});
+
+test('karşılaştırılamayan başka abonelik hiçbir şeyi değiştirmez ve iptal etmez', () => {
+    const gelen = sub({ subscription_id: 'sub_C' });
+    // Aynadakinin hâli verilmedi (webhook okumadı) — tahminle devir YOK.
+    assert.deepEqual(decide('subscription.active', gelen, iso(NOW), YENI, NOW), { kind: 'skip', outcome: 'other_subscription' });
+    // Tarih yok: kimin yeni olduğu bilinmiyor.
+    assert.deepEqual(
+        decide('subscription.active', sub({ subscription_id: 'sub_C', created_at: undefined }), iso(NOW), YENI, NOW, yeniNow()),
+        { kind: 'skip', outcome: 'other_subscription' });
+});
+
+test('aynadakinin hâli yalnız başka abonelik "active" gelince okunur', () => {
+    assert.equal(needsMineNow(sub({ subscription_id: 'sub_YENI' }), YENI), false, 'aynı abonelik');
+    assert.equal(needsMineNow(sub({ subscription_id: 'sub_C', status: 'on_hold' }), YENI), false, 'aktif değil');
+    assert.equal(needsMineNow(sub(), null), false, 'ayna boş');
+    assert.equal(needsMineNow(sub({ subscription_id: 'sub_C' }), YENI), true);
 });
 
 test('tarihsiz yük dönem sonunu SİLMEZ (süresiz abonelik olmaz)', () => {
@@ -291,6 +345,14 @@ test('webhook: ayna önce, Core sonra ve Core hatası Dodo\'ya yansımaz', () =>
     // Silinmiş işletmenin ve işletmesiz olayın cevabı 200.
     assert.match(hook, /'org_gone'/);
     assert.match(hook, /'no_org'/);
+    // En yeni kazanır: aynadakinin hâli okunur; geçici hatada Dodo yeniden
+    // dener; eski kopya da, yerine yenisi geçen de Dodo'da kapatılır.
+    assert.match(hook, /decide\(type, data, eventAt, current, Date\.now\(\), mineNow\)/);
+    assert.match(hook, /if \(mineNow === 'retry'\) return fail\(/);
+    assert.match(hook, /if \(decision\.cancel\) await cancelOther\(admin, decision\.cancel,/);
+    assert.match(hook, /await cancelOther\(admin, decision\.replaced,/);
+    const dodo = read('supabase/functions/_shared/dodo.ts');
+    assert.match(dodo, /res\.status === 404\) return \{ kind: 'missing' \}/);
 });
 
 test('mirrorEntitlement hatayı YUTMAZ', () => {
@@ -303,10 +365,15 @@ test('checkout: işletme doğrulanır, süren aboneliğe ikinci abonelik açılm
     assert.match(co, /resolveOrg\(admin, user\.id,/);
     assert.doesNotMatch(co, /\.limit\(1\)/);
     assert.match(co, /already_subscribed/);
-    // "Kartı güncelle" yeni checkout değil, müşteri portalı.
-    assert.match(co, /customer-portal\/session/);
+    // "Kartı güncelle" yeni checkout değil; portal da değil (USD tutar ve
+    // bütün abonelikler) — yalnız o aboneliğin kart sayfası.
+    assert.match(co, /\/update-payment-method`/);
+    assert.match(co, /type: 'new', return_url:/);
+    assert.doesNotMatch(co, /customer-portal/);
+    // Eski istemci ('portal') de aynı sayfaya gider.
+    assert.match(co, /body\.action === 'card' \|\| body\.action === 'portal'/);
     const ui = read('src/pages/settings/bolumler/Abonelik.tsx');
-    assert.match(ui, /onClick=\{\(\) => void openPortal\(\)\}>Kartı güncelle/);
+    assert.match(ui, /onClick=\{\(\) => void updateCard\(\)\}>Kartı güncelle/);
 });
 
 test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
@@ -314,7 +381,7 @@ test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
     assert.match(hook, /invoke\('billing-status', \{ body: \{ orgId \} \}\)/);
     assert.match(hook, /body: \{ plan, cycle, orgId \}/);
     assert.match(hook, /body: \{ action: 'cancel', orgId \}/);
-    assert.match(hook, /body: \{ action: 'portal', orgId \}/);
+    assert.match(hook, /body: \{ action: 'card', orgId \}/);
 });
 
 // ── 4 · Hediye üyelik (ops/abonelik/hediye.sql) ─────────────────────────────
@@ -405,7 +472,7 @@ test('hediye üye ekranda tahsilat/kart/iptal görmez', () => {
     assert.ok(blok.length > 100, 'hediye dalı bulunamadı');
     assert.match(blok, /Hediye/);
     assert.match(blok, /'Süresiz'/);
-    for (const yok of ['Kartı güncelle', 'Sonraki tahsilat', 'openPortal', 'cancelSubscription', 'formatTRY']) {
+    for (const yok of ['Kartı güncelle', 'Sonraki tahsilat', 'updateCard', 'cancelSubscription', 'formatTRY']) {
         assert.ok(!blok.includes(yok), `hediye dalında "${yok}" olmamalı`);
     }
     assert.match(read('src/pages/settings/bolumler/Ozet.tsx'), /sub\?\.comp && sub\.status === 'active'/);
