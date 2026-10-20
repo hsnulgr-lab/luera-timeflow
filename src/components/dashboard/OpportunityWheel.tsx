@@ -7,7 +7,7 @@ import './opportunityWheel.css';
 // Kayıtlar dikey bir çarkta durur. Ortadaki bant seçili kaydı tutar; üst ve
 // alttaki kayıtlar perspektifle yatıp soluklaşır. Aksiyon butonu çarkın DIŞINDA
 // sabit durur — ortadaki kayda göre etiketi/rengi değişir, böylece 44px dokunma
-// hedefi kaymaz. Çark 96px, kart 130px içinde kalır.
+// hedefi kaymaz. Çark 102 px (3 × 34), kart 136 px içinde kalır.
 //
 // iOS UIPickerView'ın aksine bu bir SEÇİM kontrolü değil: aksiyon her zaman tek
 // tık uzakta, kaydırma yalnız kayıtlar arasında gezinmek için.
@@ -56,7 +56,8 @@ const ICON: Record<OpportunityKind, () => ReactNode> = {
     pkg: IconWa, gift: IconGift, conf: IconCheck, plan: IconCal, lost: IconWa,
 };
 
-const ROW_H = 32;
+// Cila (2026-10-20): satır 32 → 34 px — yazılar büyüdü, nefes payı.
+const ROW_H = 34;
 
 export function OpportunityWheel({ items, busy, onAct }: {
     items: Opportunity[];

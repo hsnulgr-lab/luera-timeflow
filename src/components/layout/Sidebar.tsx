@@ -28,6 +28,14 @@ import {
     LPackage,
 } from '@/components/icons/LueraIcons';
 
+// Etkin satırın 3 px turuncu çizgisi — sabit, nefes alan parıltı kalktı.
+// Hapın İÇİNDE değil, menünün sol kenarında durur (nav'ın 12 px iç boşluğu
+// kadar dışarıda): hapın yuvarlak köşesine yapışınca yarısı taşıyor, yamuk
+// görünüyordu (2026-10-20).
+const ActiveBar = () => (
+    <span aria-hidden="true" className="absolute -left-3 top-2.5 bottom-2.5 w-[3px] rounded-r-[3px] bg-[#FF5A1F]" />
+);
+
 interface SidebarProps {
     isCollapsed: boolean;
     onCollapsedChange: (collapsed: boolean) => void;
@@ -115,15 +123,22 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
         return location.pathname.startsWith(path);
     };
 
-    // Nav öğesi renkleri — light/dark (tasarım: Luera Sidebar Dark.html)
+    // Nav öğesi renkleri — Panel rötuşu (2026-10-20), Ayarlar v1 ile aynı aile:
+    // etkin satır yüzey3 zemin + sabit turuncu çizgi; öteki satırlar soluk
+    // mürekkep (.62 / .64), üstüne gelince yalnız zemin ve renk değişir.
     const navItemClass = (active: boolean) =>
         active
             ? dark
-                ? "bg-[rgba(243,237,227,0.07)] text-[#F3EDE3] font-bold"
-                : "bg-[#EDEAE5] text-[#131211] font-bold"
+                ? "bg-[#30281A] text-[#F3EDE3] font-bold"
+                : "bg-[#E9E1D5] text-[#0E0E0E] font-bold"
             : dark
-                ? "text-[rgba(243,237,227,0.4)] font-semibold hover:bg-[rgba(243,237,227,0.05)] hover:text-[rgba(243,237,227,0.75)]"
-                : "text-[#8A8580] font-semibold hover:bg-[#131211]/[0.045] hover:text-[#3B3835]";
+                ? "text-[rgba(243,237,227,0.64)] font-semibold hover:bg-[rgba(243,237,227,0.05)] hover:text-[#F3EDE3]"
+                : "text-[rgba(14,14,14,0.62)] font-semibold hover:bg-[rgba(14,14,14,0.04)] hover:text-[#0E0E0E]";
+    const rail = isCollapsed && !isMobileOpen;
+    const navRowClass = cn(
+        "relative flex items-center gap-3 h-10 rounded-xl overflow-hidden text-[15px] transition-colors duration-[140ms] ease-out",
+        rail ? "w-11 mx-auto justify-center px-0" : "w-full px-3",
+    );
 
     // Açılır menü öğesi rengi — light/dark
     const menuItemClass = dark
@@ -146,13 +161,14 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                     ? "bg-[#141210] border-[rgba(243,237,227,0.07)]"
                     : "bg-[#FAF7F3] border-[#131211]/[0.06]",
                 "md:translate-x-0",
-                isMobileOpen ? "translate-x-0 w-64 left-0" : "-translate-x-full left-0",
+                isMobileOpen ? "translate-x-0 w-60 left-0" : "-translate-x-full left-0",
                 "md:left-0",
-                isCollapsed ? "md:w-20" : "md:w-64"
+                isCollapsed ? "md:w-[72px]" : "md:w-60"
             )}>
                 {/* Logo Section */}
                 <div className={cn(
-                    "relative p-6 border-b flex items-center justify-between transition-colors duration-300",
+                    "relative h-[76px] border-b flex items-center justify-between transition-colors duration-300",
+                    rail ? "justify-center px-0" : "px-[22px]",
                     dark
                         ? "border-[rgba(243,237,227,0.08)]"   // dark: card zemini miras, divider çizgi
                         : "border-[#131211]/10"
@@ -162,19 +178,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                         isCollapsed && "md:justify-center"
                     )}>
                         {(!isCollapsed || isMobileOpen) && (
-                            <LueraTimeflowMark size={40} pillHeightRatio={0.5} textRatio={0.64} dark={dark} />
+                            <LueraTimeflowMark size={32} pillHeightRatio={0.5625} textRatio={0.61} dark={dark} />
                         )}
-                        {isCollapsed && !isMobileOpen && (
+                        {rail && (
                             <span
+                                className="inline-flex items-end"
                                 style={{
                                     fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
                                     fontWeight: 900,
-                                    fontSize: 34,
-                                    letterSpacing: '-0.045em',
+                                    fontSize: 32,
+                                    lineHeight: 0.82,
+                                    letterSpacing: '-0.05em',
                                     color: dark ? '#F3ECE0' : '#0E0E0E',
                                 }}
                             >
-                                l
+                                l<span className="w-1.5 h-1.5 rounded-full bg-[#FF5A1F] ml-0.5 mb-px" />
                             </span>
                         )}
                     </div>
@@ -210,26 +228,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                 </div>
 
                 {/* Navigation */}
-                <nav className="p-3 space-y-1">
+                <nav className="px-3 py-3.5 flex flex-col gap-0.5">
                     {menuItems.map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.id);
                         const popped = justActivated === item.id;
                         return (
+                            <div key={item.id} className="relative">
+                            {active && <ActiveBar />}
                             <button
-                                key={item.id}
                                 type="button"
+                                title={rail ? item.label : undefined}
                                 onClick={(e) => onItemClick(e, item.id)}
-                                className={cn(
-                                    "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl overflow-hidden transition-all duration-200 active:scale-[0.975]",
-                                    isCollapsed && !isMobileOpen ? "justify-center px-3" : "",
-                                    navItemClass(active)
-                                )}
+                                className={cn(navRowClass, navItemClass(active))}
                             >
-                                {active && (
-                                    <div className="sb-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[52%] bg-[#FF5A1F] rounded-r-[3px]" />
-                                )}
-                                <Icon size={20} className={cn(popped && "sb-pop")} />
+                                <Icon size={18} className={cn("shrink-0", popped && "sb-pop")} />
                                 {(!isCollapsed || isMobileOpen) && <span className={cn(popped && "sb-pop")}>{item.label}</span>}
                                 {/* Kasada bekleyen adisyon rozeti — personel adisyon gönderince artar */}
                                 {item.id === '/kasa' && pendingBills.length > 0 && (
@@ -242,24 +255,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                                     )
                                 )}
                             </button>
+                            </div>
                         );
                     })}
 
                     {/* Divider */}
-                    <div className={cn("pt-4 mt-4 border-t", dark ? "border-[rgba(243,237,227,0.08)]" : "border-[#131211]/10")}>
+                    <div className={cn("h-px my-2", rail ? "mx-auto w-8" : "mx-1", dark ? "bg-[rgba(243,237,227,0.10)]" : "bg-[rgba(14,14,14,0.09)]")} />
+                    <div className="relative">
+                        {isActive('/settings') && <ActiveBar />}
                         <button
                             type="button"
+                            title={rail ? 'Ayarlar' : undefined}
                             onClick={(e) => onItemClick(e, '/settings')}
-                            className={cn(
-                                "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl overflow-hidden transition-all duration-200 active:scale-[0.975]",
-                                isCollapsed && !isMobileOpen ? "justify-center px-3" : "",
-                                navItemClass(isActive('/settings'))
-                            )}
+                            className={cn(navRowClass, navItemClass(isActive('/settings')))}
                         >
-                            {isActive('/settings') && (
-                                <div className="sb-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[52%] bg-[#FF5A1F] rounded-r-[3px]" />
-                            )}
-                            <LSettings size={20} className={cn(justActivated === '/settings' && "sb-pop")} />
+                            <LSettings size={18} className={cn("shrink-0", justActivated === '/settings' && "sb-pop")} />
                             {(!isCollapsed || isMobileOpen) && <span className={cn(justActivated === '/settings' && "sb-pop")}>Ayarlar</span>}
                         </button>
                     </div>
@@ -267,7 +277,8 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
 
                 {/* User Profile */}
                 <div className={cn(
-                    "absolute bottom-0 w-full p-4 border-t",
+                    "absolute bottom-0 w-full border-t",
+                    rail ? "px-0 pt-3.5 pb-4" : "pl-4 pr-3 pt-3.5 pb-4",
                     dark ? "border-[rgba(243,237,227,0.08)] bg-[#141210]" : "border-[#131211]/10 bg-[#FAF7F3]"
                 )}>
                     <div className="relative">
@@ -280,32 +291,32 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                         <button
                             onClick={() => (!isCollapsed || isMobileOpen) && setShowUserMenu(!showUserMenu)}
                             className={cn(
-                                "flex-1 min-w-0 flex items-center gap-3 p-2 rounded-xl transition-colors",
-                                dark ? "hover:bg-[rgba(243,237,227,0.05)]" : "hover:bg-gray-100",
-                                isCollapsed && !isMobileOpen ? "w-full justify-center" : ""
+                                "flex-1 min-w-0 flex items-center gap-2.5 p-1.5 -ml-1.5 rounded-xl transition-colors duration-[140ms] ease-out",
+                                dark ? "hover:bg-[rgba(243,237,227,0.05)]" : "hover:bg-[rgba(14,14,14,0.04)]",
+                                rail ? "w-full justify-center ml-0" : ""
                             )}
                         >
                             <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center shadow-md",
+                                "w-9 h-9 shrink-0 rounded-full flex items-center justify-center",
                                 dark ? "bg-[#F3EDE3]" : "bg-[#0E0E0E]"
                             )}>
-                                <span className={cn("font-bold text-sm", dark ? "text-[#141210]" : "text-[#F3EDE3]")}>{(user?.name || 'U').charAt(0).toUpperCase()}</span>
+                                <span className={cn("font-extrabold text-[14px]", dark ? "text-[#141210]" : "text-[#F3EDE3]")}>{(user?.name || 'U').charAt(0).toLocaleUpperCase('tr')}</span>
                             </div>
                             {(!isCollapsed || isMobileOpen) && (
                                 <>
-                                    <div className="flex-1 text-left">
-                                        <p className={cn("text-sm font-semibold", dark ? "text-[#F3EDE3]" : "text-gray-900")}>
+                                    <div className="flex-1 min-w-0 text-left">
+                                        <p className={cn("text-[14.5px] font-bold leading-tight truncate", dark ? "text-[#F3EDE3]" : "text-[#0E0E0E]")}>
                                             {user?.name || 'Kullanıcı'}
                                         </p>
-                                        <p className={cn("text-xs flex items-center gap-1", dark ? "text-[rgba(243,237,227,0.4)]" : "text-gray-500")}>
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <p className={cn("text-[13px] font-medium flex items-center gap-1.5", dark ? "text-[rgba(243,237,227,0.64)]" : "text-[rgba(14,14,14,0.62)]")}>
+                                            <span className="w-[7px] h-[7px] rounded-full bg-[#2D8F32]"></span>
                                             {/* Gerçek rol (organization_members) — eskiden herkese sabit "Admin" yazıyordu. */}
                                             {roleLabel(orgRole) ?? ''}
                                         </p>
                                     </div>
                                     <LChevronUp className={cn(
-                                        "w-4 h-4 transition-transform",
-                                        dark ? "text-[rgba(243,237,227,0.4)]" : "text-gray-400",
+                                        "w-4 h-4 shrink-0 transition-transform",
+                                        dark ? "text-[rgba(243,237,227,0.64)]" : "text-[rgba(14,14,14,0.62)]",
                                         !showUserMenu && "rotate-180"
                                     )} />
                                 </>
@@ -318,7 +329,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange, isMobileOpen = false, 
                             durduğundan panel yukarı ve sağa açılır. */}
                         {!isCollapsed && (
                             <div className="hidden md:block shrink-0">
-                                <NotificationDropdown placement="top-left" />
+                                <NotificationDropdown placement="top-left" compact />
                             </div>
                         )}
                     </div>

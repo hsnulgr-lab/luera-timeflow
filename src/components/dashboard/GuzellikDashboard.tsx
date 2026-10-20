@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, Clock, DoorOpen, Gift, Lock, MapPin, Package, Plus, Sparkles, User, Zap } from 'lucide-react';
+import { ArrowRight, Check, Clock, DoorOpen, Gift, Layers, Lock, MapPin, Plus, Sparkles, User, X, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
@@ -16,7 +16,6 @@ import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
-import { MONO } from '@/components/dashboard/kpi';
 import { BeautySessionModal, type SessionPreset } from '@/components/beauty/BeautySessionModal';
 import { advancePatch, phaseOf, minsSince } from '@/lib/sessionPhase';
 import type { SessionPhase } from '@/lib/sessionPhase';
@@ -32,8 +31,10 @@ import { adisyonExtras, reservationPrice } from '@/utils/reservationServices';
 const DAY_OPEN = 9;
 const DAY_CLOSE = 19;
 
-// Gün planı ızgarası — saat başına 56px (prototipin 48px'i ekranda küçük kalıyordu)
-const PPH = 56;
+// Gün planı ızgarası — saat başına 64 px: kart üç satırı rahat taşır. Boş günde
+// 32 px; ızgara kaybolmaz ("+" ile seans buradan eklenir) ama yarım ekran tutmaz.
+const PPH = 64;
+const PPH_EMPTY = 32;
 
 // Faz → ızgara/nokta rengi sınıfı ve ekranda görünen etiket
 const PHASE_UI: Record<SessionPhase, string> = {
@@ -164,8 +165,9 @@ export function GuzellikDashboard() {
     // Tek aykırı seans (örn. gece 00:14) tüm günü esnetmesin: mesai dışı kalan
     // 2+ saatlik tam boş bloklar ince banda katlanır. Eksen gerçek işi gösterir.
     const GAP_MIN = 2;
-    const GAP_BAND = 30;
+    const GAP_BAND = 34;
     const grid = useMemo(() => {
+        const pph = todayList.length > 0 ? PPH : PPH_EMPTY;
         const wh = settings.workingHours?.find((w) => w.day === new Date().getDay());
         const open = wh?.start ? timeToH(wh.start) : DAY_OPEN;
         const close = wh?.end ? timeToH(wh.end) : DAY_CLOSE;
@@ -194,18 +196,21 @@ export function GuzellikDashboard() {
         }
         let y = 0;
         const segs = merged.map((s) => {
-            const h = s.type === 'gap' ? GAP_BAND : (s.to - s.from) * PPH;
+            const h = s.type === 'gap' ? GAP_BAND : (s.to - s.from) * pph;
             const seg = { ...s, y, h };
             y += h;
             return seg;
         });
         const topPx = (hf: number): number => {
-            for (const s of segs) if (hf >= s.from && hf <= s.to) return s.type === 'gap' ? s.y + s.h / 2 : s.y + (hf - s.from) * PPH;
+            for (const s of segs) if (hf >= s.from && hf <= s.to) return s.type === 'gap' ? s.y + s.h / 2 : s.y + (hf - s.from) * pph;
             return hf <= from ? 0 : y;
         };
         const ticks: number[] = [];
         for (const s of segs) if (s.type === 'hours') for (let h = s.from; h <= s.to; h++) ticks.push(h);
-        return { from, to, segs, height: y, topPx, ticks: [...new Set(ticks)], gaps: segs.filter((s) => s.type === 'gap'), nowH };
+        // Eksen etiketi her saat satırının başında; günün bitiş saati etiketlenmez
+        const labels: number[] = [];
+        for (const s of segs) if (s.type === 'hours') for (let h = s.from; h < s.to; h++) labels.push(h);
+        return { from, to, segs, height: y, topPx, ticks: [...new Set(ticks)], labels, gaps: segs.filter((s) => s.type === 'gap'), nowH, pph };
     }, [todayList, now, settings.workingHours]);
 
     const canvasH = grid.height;
@@ -215,32 +220,32 @@ export function GuzellikDashboard() {
 
     // Sütunlar ünite ya da uzman; ataması olmayan seanslar için "Atanmamış" eklenir
     const lanes = useMemo(() => {
-        // O sütundaki bugünkü seansların özeti — başlık "boş" derken altında kart
-        // varsa kafa karıştırıyordu; "boş · 3 tamamlandı" diye netleşir
+        // Alt satır yalnız bilgi varken (Panel rötuşu): yedi sütunda yedi kez
+        // "boş" yazmak gürültüydü — boşluğu kesik halka nokta söylüyor.
+        // Kalan = tamamlanmamış ve gelmemiş olmayan seanslar.
         const summarize = (key: 'unit' | 'staff', id: string) => {
             const list = todayList.filter((r) => ((key === 'unit' ? r.resourceId : r.staffId) || '__none') === id);
             const done = list.filter((r) => phaseOf(r) === 'completed').length;
-            return { total: list.length, done };
+            const left = list.filter((r) => phaseOf(r) !== 'completed' && !(phaseOf(r) === 'wait' && r.endTime < nowTime)).length;
+            return left > 0 ? `${left} ${resWord}` : done > 0 ? `${done} tamamlandı` : '';
         };
         if (laneMode === 'unit') {
             const base = cabins.map((c) => {
-                const { total, done } = summarize('unit', c.id);
                 const sub = c.status === 'busy' ? `~${c.freeAt} boşalıyor`
                     : c.status === 'prep' ? 'hazırlanıyor'
-                        : done > 0 ? `boş · ${done} tamamlandı` : total > 0 ? `${total} seans` : 'boş';
+                        : summarize('unit', c.id);
                 return { id: c.id, name: c.name, tone: c.status, sub };
             });
             if (todayList.some((r) => !r.resourceId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'free' as CabinStatus, sub: 'ünite seçilmedi' });
             return base;
         }
         const base = staffStrip.map((s) => {
-            const { done } = summarize('staff', s.id);
-            const sub = s.busyWith ? `${mask(s.busyWith)} ile` : done > 0 ? `boş · ${done} tamamlandı` : `${s.count} seans`;
+            const sub = s.busyWith ? `${mask(s.busyWith)} ile` : summarize('staff', s.id);
             return { id: s.id, name: s.name, tone: (s.busyWith ? 'busy' : 'free') as CabinStatus, sub };
         });
         if (todayList.some((r) => !r.staffId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'free' as CabinStatus, sub: 'uzman seçilmedi' });
         return base;
-    }, [laneMode, cabins, staffStrip, todayList, mask]);
+    }, [laneMode, cabins, staffStrip, todayList, mask, nowTime, resWord]);
 
     const laneKeyOf = useMemo(
         () => (r: Reservation) => (laneMode === 'unit' ? r.resourceId : r.staffId) || '__none',
@@ -262,11 +267,11 @@ export function GuzellikDashboard() {
         setModalCustomer(null);
     };
 
-    // "+" gösterilecek saatler: ızgaradaki tam saatler, yalnız katlanmış boş
-    // bantlar hariç. Seans takvimiyle (DayAgendaGrid) aynı davranış — geçmiş
-    // saatler de tıklanabilir; o durumda modal saat seçimini boş bırakır.
+    // "+" gösterilecek saatler: ızgaradaki saat satırları, katlanmış bantlar ve
+    // GEÇMİŞ saatler hariç (Panel rötuşu: "geçmişte yok"). Dolu saatler sütun
+    // başına ayrıca elenir — ipucu artık kartın altında değil, boş satırda.
     const addableHours = useMemo(
-        () => grid.ticks.filter((h) => h < grid.to && !grid.gaps.some((g) => h >= g.from && h < g.to)),
+        () => grid.labels.filter((h) => h + 1 > grid.nowH),
         [grid],
     );
 
@@ -290,11 +295,14 @@ export function GuzellikDashboard() {
                     colEnds[c] = it.e;
                     return { it, col: c };
                 });
+                // Kart satırın içinde 2 px nefes payıyla durur; kısa seans 22 px'in
+                // altına inmez (yalnız ad görünür)
                 for (const { it, col } of assigned) {
+                    const top = grid.topPx(it.s);
                     out.push({
                         r: it.r,
-                        top: grid.topPx(it.s),
-                        height: Math.max(44, (it.e - it.s) * PPH),
+                        top: top + 2,
+                        height: Math.max(22, grid.topPx(it.e) - top - 4),
                         col, cols: colEnds.length,
                     });
                 }
@@ -385,7 +393,7 @@ export function GuzellikDashboard() {
                 id: `renewal-${plan.id}`,
                 kind: 'pkg',
                 label: 'Paket bitti',
-                name: customer.name,
+                name: mask(customer.name),
                 context: <>{plan.title} · <b>{plan.sessionCount}</b> seans tamamlandı</>,
                 actionLabel: 'Teklif gönder',
                 actionKind: 'wa',
@@ -395,7 +403,7 @@ export function GuzellikDashboard() {
                         customerName: customer.name, packageTitle: plan.title, businessName: business, comms,
                     }));
                     await markRenewalOffered(plan.id);
-                    toast.success('Yenileme teklifi gönderildi ✨');
+                    toast.success('Yenileme teklifi gönderildi');
                 },
             })),
             // Hediye hak etti — ödül kullanılmazsa damga sonsuza kadar birikir
@@ -403,7 +411,7 @@ export function GuzellikDashboard() {
                 id: `gift-${c.id}`,
                 kind: 'gift',
                 label: 'Hediye hak etti',
-                name: c.name,
+                name: mask(c.name),
                 context: <><b>{c.loyaltyStamps}</b>/<b>{loyaltyThreshold}</b> damga doldu · ödül hazır</>,
                 actionLabel: 'Ödülü kullan',
                 actionKind: 'ink',
@@ -414,7 +422,7 @@ export function GuzellikDashboard() {
                 id: `confirm-${r.id}`,
                 kind: 'conf',
                 label: 'Yarın onay bekliyor',
-                name: r.customerName,
+                name: mask(r.customerName),
                 context: <>{r.service} · yarın <b>{r.startTime}</b></>,
                 actionLabel: 'Onayla',
                 actionKind: 'ink',
@@ -425,7 +433,7 @@ export function GuzellikDashboard() {
                 id: `unplanned-${plan.id}`,
                 kind: 'plan',
                 label: 'Seansı planlanmamış',
-                name: customer.name,
+                name: mask(customer.name),
                 context: <>{plan.title} · <b>{plan.sessionCount - plan.sessionsDone}</b> seans hakkı · tarih yok</>,
                 actionLabel: 'Seans planla',
                 actionKind: 'ink',
@@ -436,7 +444,7 @@ export function GuzellikDashboard() {
                 id: `lost-${c.id}`,
                 kind: 'lost',
                 label: 'Uzaklaşıyor',
-                name: c.name,
+                name: mask(c.name),
                 context: c.lastVisit
                     ? <>son ziyaret <b>{formatDateEU(c.lastVisit)}</b> · <b>{daysSince(c.lastVisit)}</b> gündür yok</>
                     : <>uzun süredir gelmiyor</>,
@@ -447,7 +455,7 @@ export function GuzellikDashboard() {
             })),
         ];
     }, [renewals, giftEarned, tomorrowPending, unplanned, lost, settings.businessName, settings.sector,
-        loyaltyThreshold, markRenewalOffered, redeemLoyalty, updateReservation]);
+        loyaltyThreshold, markRenewalOffered, redeemLoyalty, updateReservation, mask]);
 
     // Müşteri başına aktif paket — kartta seans ilerlemesi
     const pkgByCustomer = useMemo(() => {
@@ -474,10 +482,12 @@ export function GuzellikDashboard() {
         return 'Salon dışında';
     };
 
-    // Akış kartı ile ızgara aynı seçimi paylaşır; seçim yoksa salondaki ilk kişi
+    // Akış satırı ile ızgara aynı seçimi paylaşır. Seçim yoksa çubuk HİÇ
+    // görünmez (Panel rötuşu): eskiden sıradaki kişiyi kendiliğinden seçip
+    // koyu Sıradaki kartının kişisini ve "Geldi" eylemini ikinci kez gösteriyordu.
     const selected = useMemo(
-        () => todayList.find((r) => r.id === selectedId) || inSalon[0] || upcoming[0] || todayList[0] || null,
-        [todayList, selectedId, inSalon, upcoming],
+        () => todayList.find((r) => r.id === selectedId) ?? null,
+        [todayList, selectedId],
     );
 
     // ── Faz aksiyonları ───────────────────────────────────────────────────────
@@ -518,8 +528,20 @@ export function GuzellikDashboard() {
     }, [waiting, now, cabins, firstFreeCabin, finishedPackages, atTill]);
 
     const dayNum = now.getDate();
+    // Gün halkası: bugünün mesaisinin ne kadarı geçti (0–1). Çalışma saati
+    // tanımlı değilse gün planındaki varsayılan (09–19) kullanılır.
+    const dayRing = (() => {
+        const wh = settings.workingHours?.find((w) => w.day === now.getDay());
+        const open = wh?.start ? wh.start.slice(0, 5) : `${String(DAY_OPEN).padStart(2, '0')}:00`;
+        const close = wh?.end ? wh.end.slice(0, 5) : `${String(DAY_CLOSE).padStart(2, '0')}:00`;
+        const o = timeToH(open), c = timeToH(close);
+        const h = now.getHours() + now.getMinutes() / 60;
+        const pct = wh?.isOff || c <= o ? 0 : Math.min(1, Math.max(0, (h - o) / (c - o)));
+        return { pct, open, close, off: Boolean(wh?.isOff) };
+    })();
     const weekday = now.toLocaleDateString('tr-TR', { weekday: 'long' });
     const monthShort = now.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' });
+    const pad2 = (h: number) => String(h).padStart(2, '0');
 
     // ── Sadakat damgası göstergesi ────────────────────────────────────────────
     const StampRow = ({ customerId, color }: { customerId: string; color: string }) => {
@@ -528,35 +550,49 @@ export function GuzellikDashboard() {
         if (stamps === 0) return null;
         const earned = stamps >= loyaltyThreshold;
         return (
-            <span className="inline-flex items-center gap-1.5" title={earned ? 'Hediye hak edildi 🎁' : `${loyaltyThreshold - stamps} seans sonra hediye 🎁`}>
-                <span className="flex gap-[3px]">
+            <span className="gz-stamps" title={earned ? 'Hediye hak edildi' : `${loyaltyThreshold - stamps} seans sonra hediye`}>
+                <span>
                     {Array.from({ length: Math.min(loyaltyThreshold, 10) }, (_, i) => (
-                        <span key={i} className="w-[5px] h-[5px] rounded-full"
-                            style={{ background: i < stamps ? (earned ? 'var(--dc-green)' : color) : 'var(--dc-surface3)' }} />
+                        <i key={i} style={i < stamps ? { background: earned ? 'var(--dc-green)' : color } : undefined} />
                     ))}
                 </span>
-                <span className={cn('text-[10px] font-semibold', earned ? 'text-[var(--dc-green)]' : 'text-[var(--dc-muted2)]')}
-                    style={{ fontFamily: MONO }}>{stamps}/{loyaltyThreshold}{earned && ' 🎁'}</span>
+                <small className={cn(earned && 'earned')}>{stamps}/{loyaltyThreshold}</small>
             </span>
         );
     };
 
+    // Mobil liste ve seçim çubuğu için faz → nokta rengi
+    const DOT: Record<string, string> = { upcoming: 'hollow', waiting: 'amber', active: 'orange', checkout: 'green', completed: 'hollow', noshow: 'red' };
+    const isNoShow = (r: Reservation) => phaseOf(r) === 'wait' && r.endTime < nowTime;
+
     return (
         <div className={cn('dash-theme gz-ops flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]', dark && 'dark')}>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
-                <div className="max-w-[1240px] mx-auto space-y-3.5">
+                <div className="max-w-[1240px] mx-auto space-y-4">
 
                     {/* Kurulum ilerlemesi burada AYRICA sayılmaz: tek sayaç uygulamanın
                         üstündeki şerit (SetupBanner → lib/setupProgress). Buradaki 4
                         adımlı kart aynı anda başka sayı söylüyordu (2026-10-19). */}
 
-                    {/* Karşılama — tasarım: Claude Design "Luera Fırsat Modülü v2".
+                    {/* A · Karşılama — tasarım: Claude Design "Luera Fırsat Modülü v2".
                         Tarih kutusu, metin bloğu, fırsat çarkı yuvası ve aksiyonlar
-                        tek satırda; çark yuvası boşsa kart sade hâline döner. */}
-                    <section className="opp-wc">
-                        <div className="opp-datebox">
+                        tek satırda; çark yuvası boşsa kart sade hâline döner.
+                        Panel rötuşunun iki katlı hâli beğenilmedi (2026-10-20):
+                        eski yapı korunur, yalnız ölçüler cilalandı (opportunityWheel.css). */}
+                    <section className="opp-wc" aria-label="Karşılama">
+                        {/* Gün halkası — rakamın çevresinde mesainin ne kadarının
+                            geçtiği. Kullanıcı dört yön arasından seçti (2026-10-20). */}
+                        <div className="opp-datebox"
+                            title={dayRing.off ? 'Bugün kapalı' : `Mesai ${dayRing.open}–${dayRing.close} · %${Math.round(dayRing.pct * 100)} geçti`}>
                             <span className="dw">{weekday.toLocaleUpperCase('tr')}</span>
-                            <span className="dd">{dayNum}</span>
+                            <span className="day-ring">
+                                <svg viewBox="0 0 66 66" aria-hidden="true">
+                                    <circle className="trk" cx="33" cy="33" r="30" pathLength={100} />
+                                    <circle className={cn('arc', dayRing.pct <= 0 && 'zero')} cx="33" cy="33" r="30" pathLength={100}
+                                        style={{ '--off': 100 - dayRing.pct * 100 } as React.CSSProperties} />
+                                </svg>
+                                <span className="dd">{dayNum}</span>
+                            </span>
                             <span className="dm">{monthShort}</span>
                         </div>
                         <div className="opp-wc-main">
@@ -564,27 +600,30 @@ export function GuzellikDashboard() {
                             {/* Karşılama günün ÖNÜNDE DURAN işini söyler; toplam sayı değil.
                                 Gün bittiğinde "N seans var" demek yanıltıyordu — biten seans
                                 da sayıya giriyordu. Kırılım alt satırda; salonun anlık durumu
-                                ("sakin" / "N müşteri içeride") ise tek yerde, alttaki salon
-                                panelinde yaşar ve burada tekrar edilmez. */}
+                                alttaki salon panelinde yaşar ve burada tekrar edilmez. */}
                             <h1>
                                 {todayList.length === 0
-                                    ? <>Bugün için planlanmış {resWord} yok ✨</>
+                                    ? <>Bugün için planlanmış {resWord} yok</>
                                     : remaining > 0
                                         ? <>Bugün <b className="text-[var(--dc-orange-d)]">{remaining} {resWord}</b> sizi bekliyor.</>
                                         : doneToday.length > 0
                                             ? <>Bugünün işi <b className="text-[var(--dc-orange-d)]">tamamlandı</b>.</>
                                             : <>Bugün <b className="text-[var(--dc-red)]">kimse gelmedi</b>.</>}
                             </h1>
-                            <span className="sub">
-                                {todayList.length > 0 && <>
+                            {/* Günün kırılımı bir satır, fırsat sayısı kendi satırı: fırsat
+                                yanındaki çarkı anlatır, günü değil. Aynı satırdayken uzun
+                                günlerde "5 fırsat / bekliyor" diye bölünüyor, "·" satır
+                                başında ya da sonunda asılı kalıyordu (2026-10-20). */}
+                            {todayList.length > 0 && (
+                                <span className="sub">
                                     {doneToday.length} tamamlandı
                                     {inSalon.length > 0 && <> · {inSalon.length} içeride</>}
                                     {upcoming.length > 0 && <> · {upcoming.length} kaldı</>}
-                                    {noShow.length > 0 && <> · <span className="text-[var(--dc-red)]">{noShow.length} gelmedi</span></>}
-                                </>}
-                                {opportunities.length > 0
-                                    ? <>{todayList.length > 0 && ' · '}<b>{opportunities.length} fırsat bekliyor</b></>
-                                    : todayList.length > 0 ? <> · takip işi yok</> : <>takip işi yok</>}
+                                    {noShow.length > 0 && <> · <span className="text-[var(--dc-red)] font-semibold">{noShow.length} gelmedi</span></>}
+                                </span>
+                            )}
+                            <span className="sub">
+                                {opportunities.length > 0 ? <b>{opportunities.length} fırsat bekliyor</b> : <>takip işi yok</>}
                             </span>
                         </div>
                         <div className="opp-slot">
@@ -599,194 +638,199 @@ export function GuzellikDashboard() {
                             />
                         </div>
                         <div className="opp-wc-acts">
-                            <button className="b-out" onClick={() => navigate('/calendar')}>Takvimi Aç</button>
-                            <button className="b-fill" onClick={() => setModalCustomer(null)}><Plus className="w-3.5 h-3.5 inline -mt-px mr-1" />Yeni Seans</button>
+                            <button type="button" className="b-fill" onClick={() => setModalCustomer(null)}><Plus className="w-4 h-4" />Yeni {resWord}</button>
+                            <button type="button" className="b-out" onClick={() => navigate('/calendar')}>Takvimi aç</button>
                         </div>
                     </section>
 
-
-                    {/* Salon durumu paneli — ünite şeridinin yerini alır, canlı veriyle çalışır */}
+                    {/* B · Salon durumu — tasarım: "Luera TimeFlow Salon Sakin" + Panel rötuşu */}
                     {(() => {
-                            // ── Salon Sakin: solda boş üniteler, sağda koyu SIRADAKİ kartı ──
-                            const nextUp = nextThree[0];
-                            const nowMin = now.getHours() * 60 + now.getMinutes();
-                            const etaMin = nextUp ? Math.round(timeToH(nextUp.startTime) * 60) - nowMin : 0;
-                            const etaText = etaMin <= 1 ? 'birazdan'
-                                : etaMin < 90 ? `${etaMin} dk sonra`
-                                    : `${Math.round(etaMin / 60)} saat sonra`;
-                            const pkg = nextUp ? pkgByCustomer.get(nextUp.customerId) : undefined;
-                            const freeCabins = cabins.filter((c) => c.status === 'free');
-                            // Aynı saatte birden çok uzmanın müşterisi olabilir — hepsi tek kartta
-                            const nextGroup = nextUp ? upcoming.filter((r) => r.startTime === nextUp.startTime) : [];
-                            const multi = nextGroup.length > 1;
-                            const shown = nextGroup.slice(0, 3);
+                        const nextUp = nextThree[0];
+                        const nowMin = now.getHours() * 60 + now.getMinutes();
+                        const etaMin = nextUp ? Math.round(timeToH(nextUp.startTime) * 60) - nowMin : 0;
+                        const etaText = etaMin <= 1 ? 'birazdan'
+                            : etaMin < 90 ? `${etaMin} dk sonra`
+                                : `${Math.round(etaMin / 60)} saat sonra`;
+                        const pkg = nextUp ? pkgByCustomer.get(nextUp.customerId) : undefined;
+                        const freeCabins = cabins.filter((c) => c.status === 'free');
+                        // Aynı saatte birden çok uzmanın müşterisi olabilir — hepsi tek kartta
+                        const nextGroup = nextUp ? upcoming.filter((r) => r.startTime === nextUp.startTime) : [];
+                        const multi = nextGroup.length > 1;
+                        const shown = nextGroup.slice(0, 3);
 
-                            // Büyük panel YALNIZ en önemli şey olduğunda açılır:
-                            //   salon boş + randevu var → tam panel (SIRADAKİ kartı yıldız)
-                            //   salon boş + randevu yok → tek satır (yapacak iş yok)
-                            //   salon DOLU              → tek satır (asıl iş akış panosunda)
-                            if (inSalon.length === 0 && !nextUp) {
-                                return (
-                                    <section className="sakin-slim">
-                                        <span className="sakin-pulse" />
-                                        <b>Salon boş</b>
-                                        <span className="slim-sep" />
-                                        <span className="slim-note">
-                                            {[
-                                                doneToday.length > 0 && `bugün ${doneToday.length} seans tamamlandı`,
-                                                `başka ${resWord} yok`,
-                                                freeCabins.length > 0 && `${freeCabins.length} ünite hazır`,
-                                            ].filter(Boolean).join(' · ')}
-                                        </span>
-                                        <button className="next-primary slim-cta" onClick={() => setWalkInOpen((v) => !v)}>
-                                            <Zap />Randevusuz müşteri al
-                                        </button>
-                                    </section>
-                                );
-                            }
-
+                        // Büyük panel YALNIZ en önemli şey olduğunda açılır:
+                        //   salon boş + randevu var → tam panel (Sıradaki kutusu yıldız)
+                        //   salon boş + randevu yok → tek satır (yapacak iş yok)
+                        //   salonda müşteri var    → tam panel, başlık "N müşteri salonda"
+                        if (inSalon.length === 0 && !nextUp) {
                             return (
-                                <div className="sakin">
-                                    <div className="sakin-left">
-                                        <div className="sakin-head">
-                                            <span className={cn('sakin-pulse', inSalon.length > 0 && 'busy')} />
-                                            <span className="eyebrow">Şu an salonda</span>
-                                            {/* 10 dk'yı geçen bekleme yoğunlukta gözden kaçıyordu */}
-                                            {(() => {
-                                                const lateOne = waiting
-                                                    .map((r) => ({ r, mins: r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0 }))
-                                                    .filter((x) => x.mins >= 10)
-                                                    .sort((a, b) => b.mins - a.mins)[0];
-                                                return lateOne ? (
-                                                    <button className="slim-late" onClick={() => setSelectedId(lateOne.r.id)}>
-                                                        ⚠ {mask(lateOne.r.customerName)} {lateOne.mins} dk bekliyor
-                                                    </button>
-                                                ) : null;
-                                            })()}
-                                        </div>
-                                        {inSalon.length === 0 ? (
-                                            <h2>Salon şu an sakin.<br /><span className="soft">{nextUp ? 'Sıradaki müşteriye hazırız.' : 'Günün geri kalanı boş.'}</span></h2>
-                                        ) : (
-                                            <h2>{inSalon.length} müşteri salonda.<br /><span className="soft">
-                                                {[inService.length > 0 && `${inService.length} işlemde`, waiting.length > 0 && `${waiting.length} bekliyor`, atTill.length > 0 && `${atTill.length} kasada`].filter(Boolean).join(' · ')}
-                                            </span></h2>
-                                        )}
-                                        {/* Öngörü satırı — YALNIZ bağlamsal AI ipucu varken çıkar.
-                                            Dolgu cümle kurmuyoruz; başlığın söylediğini tekrar etmez. */}
-                                        {aiHint && (
-                                            <p className="sakin-sub">
-                                                <Sparkles className="w-3.5 h-3.5 text-[var(--dc-orange)] flex-shrink-0" />
-                                                <span>{aiHint}</span>
-                                            </p>
-                                        )}
+                                <section className="gz-card gz-slim" aria-label="Salon durumu">
+                                    <span className="gz-dot green" />
+                                    <b>Salon boş</b>
+                                    <span className="gz-slim-sep" />
+                                    <span className="gz-slim-note">
+                                        {[
+                                            doneToday.length > 0 && `bugün ${doneToday.length} ${resWord} tamamlandı`,
+                                            `başka ${resWord} yok`,
+                                            freeCabins.length > 0 && `${freeCabins.length} ünite hazır`,
+                                        ].filter(Boolean).join(' · ')}
+                                    </span>
+                                    <button type="button" className="gz-btn orange" onClick={() => setWalkInOpen((v) => !v)}>
+                                        <Zap />Randevusuz müşteri al
+                                    </button>
+                                </section>
+                            );
+                        }
 
-                                        <div className="sakin-units-head">
-                                            <span className="eyebrow">Üniteler</span>
-                                            {/* Ünite tanımlı değilken "Hepsi dolu" yazıyordu — hemen altında
-                                                "Henüz ünite eklenmemiş" ile birlikte. Yokluk doluluk değildir. */}
-                                            {cabins.length > 0 && (
-                                                <span className={cn('sakin-count', freeCabins.length === 0 && 'full')}>
-                                                    {freeCabins.length > 0 ? `Boş · ${freeCabins.length}` : 'Hepsi dolu'}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="sakin-units">
-                                            {cabins.length === 0 && <span className="sakin-empty">Henüz ünite eklenmemiş — Ayarlar'dan ekleyin.</span>}
+                        // Ünite şeridi tek parça: geniş panelde ≤ 8 tek sıra, fazlası eşit
+                        // sıralar (10 → 5 + 5); panel darsa ≤ 4 (7 → 4 + 3). Yetim hücre
+                        // kalmaz. Hangisinin geçerli olduğuna CSS kapsayıcı sorgusu karar verir.
+                        const n = cabins.length;
+                        const cols = n ? Math.ceil(n / Math.ceil(n / 8)) : 1;
+                        const colsNarrow = n ? Math.ceil(n / Math.ceil(n / 4)) : 1;
+
+                        return (
+                            <section className="gz-salon" aria-label="Salon durumu">
+                                <div className="gz-card gz-salon-main">
+                                    <div className="gz-salon-head">
+                                        <span className={cn('gz-dot gz-live', inSalon.length > 0 ? 'orange' : 'green')} />
+                                        <span className="eyebrow">Şu an salonda</span>
+                                    </div>
+                                    {inSalon.length === 0
+                                        ? <h2>Salon şu an sakin.<br /><span className="soft">{nextUp ? 'Sıradaki müşteriye hazırız.' : 'Günün geri kalanı boş.'}</span></h2>
+                                        : <h2>{inSalon.length} müşteri salonda</h2>}
+                                    {/* Öngörü satırı — YALNIZ bağlamsal AI ipucu varken çıkar.
+                                        Dolgu cümle kurmuyoruz; başlığın söylediğini tekrar etmez.
+                                        Yeri ve metni rötuşta değişmedi (kullanıcı kararı). */}
+                                    {aiHint && (
+                                        <p className="gz-hint"><Sparkles /><span>{aiHint}</span></p>
+                                    )}
+
+                                    <div className="gz-units-head">
+                                        <span className="eyebrow">Üniteler</span>
+                                        {/* Ünite tanımlı değilken "Hepsi dolu" yazıyordu — hemen altında
+                                            "Henüz ünite eklenmemiş" ile birlikte. Yokluk doluluk değildir. */}
+                                        {n > 0 && (
+                                            <span className={cn('eyebrow', freeCabins.length > 0 ? 'free' : 'full')}>
+                                                {freeCabins.length > 0 ? `Boş · ${freeCabins.length}` : 'Hepsi dolu'}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {n === 0 ? (
+                                        <p className="gz-units-empty">Henüz ünite eklenmemiş — Ayarlar'dan ekleyin.</p>
+                                    ) : (
+                                        <div className="gz-units" style={{ '--cols': cols, '--cols-narrow': colsNarrow } as React.CSSProperties}>
                                             {cabins.map((c) => (
-                                                <button key={c.id} className={cn('sakin-unit', c.status)}
-                                                    onClick={() => setModalCustomer(null)}
-                                                    title={c.status === 'busy' ? `${c.freeAt}'te boşalıyor` : c.status === 'prep' ? 'Hazırlanıyor' : 'Boş — seans ekle'}>
-                                                    <DoorOpen /> {c.name}
-                                                    {c.status === 'busy' && <em>{c.freeAt}</em>}
-                                                    {c.status === 'prep' && <em>hazırlanıyor</em>}
-                                                    <span className="st" />
+                                                <button key={c.id} type="button" className="gz-unit" onClick={() => setModalCustomer(null)}
+                                                    title={c.status === 'busy' ? `${c.freeAt}'te boşalıyor` : c.status === 'prep' ? 'Hazırlanıyor' : `Boş — ${resWord} ekle`}>
+                                                    <span className="row"><i className={cn('gz-udot', c.status)} /><b>{c.name}</b></span>
+                                                    {/* Alt satır yalnız dolu ve hazırlanan ünitede. Boş ünitede
+                                                        kesik yeşil halka ve "Boş · N" zaten söylüyor; altı kez
+                                                        yeşil "boş" yazmak gürültüydü (2026-10-20). */}
+                                                    {c.status !== 'free' && (
+                                                        <small className={cn(c.status === 'prep' && 'prep')}>
+                                                            {c.status === 'busy' ? `~${c.freeAt} boşalıyor` : 'hazırlanıyor'}
+                                                        </small>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>
+                                    )}
 
-                                        <div className="sakin-divider" />
-                                        <div className="sakin-waiting">
-                                            <div className={cn('sakin-wicon', waiting.length > 0 && 'on')}><User /></div>
-                                            <div className="sakin-waiting-txt">
-                                                <b>{waiting.length > 0 ? `Bekleme odasında ${waiting.length} kişi` : 'Bekleme odası boş'}</b>
+                                    {/* Bekleme odası — 10 dk'yı geçen bekleme kırmızı. Bu bölgenin
+                                        turuncusu Sıradaki'deki düğme; buradaki eylem çerçeveli. */}
+                                    <div className="gz-wait">
+                                        <span className={cn('gz-wait-ic', waiting.length > 0 && 'on')}><User /></span>
+                                        <div className="gz-wait-txt">
+                                            <b>{waiting.length > 0 ? `Bekleme odasında ${waiting.length} kişi` : 'Bekleme odası boş'}</b>
+                                            <span>
                                                 {waiting.length > 0
-                                                    ? <span>{waiting.map((r) => `${mask(r.customerName)} (${r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0} dk)`).join(' · ')}</span>
+                                                    ? waiting.map((r, i) => {
+                                                        const m = r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0;
+                                                        return <Fragment key={r.id}>{i > 0 && ' · '}{mask(r.customerName)} <b className={cn(m >= 10 && 'late')}>{m} dk</b></Fragment>;
+                                                    })
                                                     : nextUp
-                                                        ? <span>Sıradaki {resWord} <span className="mono">{nextUp.startTime}</span> · {mask(nextUp.customerName)}</span>
-                                                        : <span>Bugün başka {resWord} yok</span>}
-                                            </div>
-                                            <button className={cn('walkin-button', walkInOpen && 'on')} onClick={() => setWalkInOpen((v) => !v)}>
-                                                <Zap className="w-3.5 h-3.5" />Randevusuz müşteri
-                                            </button>
+                                                        ? <>Sıradaki {resWord} <b>{nextUp.startTime}</b> · {multi ? `${nextGroup.length} müşteri` : mask(nextUp.customerName)}</>
+                                                        : <>Bugün başka {resWord} yok</>}
+                                            </span>
                                         </div>
+                                        <button type="button" className={cn('gz-btn line', walkInOpen && 'is-on')} onClick={() => setWalkInOpen((v) => !v)}>
+                                            <Zap className="or" />Randevusuz müşteri
+                                        </button>
                                     </div>
+                                </div>
 
-                                    <aside className={cn('next', !nextUp && 'empty')}>
-                                        {nextUp ? (
-                                            <>
-                                                <div className="next-head">
-                                                    <span className="eyebrow">Sıradaki</span>
-                                                    {multi ? <span className="next-badge">{nextGroup.length} müşteri</span> : <span className="next-dot" />}
+                                {/* Sıradaki — koyu kutu, gölgesiz. Üç blok kart boyunca dağılır,
+                                    düğme dipte: kart uzasa da altta boşluk kalmaz. */}
+                                <aside className={cn('gz-next', !nextUp && 'empty')} aria-label="Sıradaki">
+                                    {nextUp ? (
+                                        <>
+                                            <div className="gz-next-top">
+                                                <div className="gz-next-head">
+                                                    <span className="eyebrow">{multi ? `Sıradaki · ${nextGroup.length} müşteri` : 'Sıradaki'}</span>
+                                                    <span className="gz-dot orange" />
                                                 </div>
-                                                <div className="next-clock">{nextUp.startTime}</div>
-                                                <div className="next-eta">{etaText}</div>
+                                                <span className="gz-next-clock">{nextUp.startTime}</span>
+                                                <span className="gz-next-eta">{etaText}</span>
+                                            </div>
 
-                                                {multi ? (
-                                                    // Aynı saatte birden çok müşteri: her satırın kendi "geldi" düğmesi
-                                                    <div className="next-list">
-                                                        {shown.map((r) => (
-                                                            <div className="next-row" key={r.id}>
-                                                                <span className="next-row-txt">
-                                                                    <strong onClick={() => openCustomer(r.customerId)}>{mask(r.customerName)}</strong>
-                                                                    <small>{[r.service, r.staffName].filter(Boolean).join(' · ')}</small>
-                                                                </span>
-                                                                <button className="next-row-btn" title="Geldi olarak işaretle"
-                                                                    disabled={busyId === r.id} onClick={() => void advance(r, 'arrived')}>
-                                                                    <CalendarCheck />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        {nextGroup.length > shown.length && (
-                                                            <span className="next-more">+{nextGroup.length - shown.length} müşteri daha</span>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="next-cust">{mask(nextUp.customerName)}</div>
-                                                        <div className="next-svc">
-                                                            <span>{nextUp.service}</span>
-                                                            {nextUp.staffName && <><span className="dotsep" /><span>{nextUp.staffName}</span></>}
-                                                        </div>
-                                                        {pkg && (
-                                                            <div className="next-pkg">
-                                                                <Package />
-                                                                <div className="next-pkg-txt">
-                                                                    <b>{pkg.title}</b>
-                                                                    <div className="next-pkg-bar"><i style={{ width: `${Math.round((pkg.sessionsDone / pkg.sessionCount) * 100)}%` }} /></div>
-                                                                </div>
-                                                                <span className="next-pkg-count">{pkg.sessionsDone}/{pkg.sessionCount}</span>
-                                                            </div>
-                                                        )}
-                                                        <div className="next-actions">
-                                                            <button className="next-primary" disabled={busyId === nextUp.id} onClick={() => void advance(nextUp, 'arrived')}>
-                                                                <CalendarCheck />Geldi olarak işaretle
+                                            {multi ? (
+                                                // Aynı saatte birden çok müşteri: her satırın kendi "Geldi"
+                                                // düğmesi. Turuncu dolu yok — üçü alt alta bağırırdı.
+                                                <div className="gz-next-list">
+                                                    {shown.map((r) => (
+                                                        <div className="gz-next-row" key={r.id}>
+                                                            <span className="av">{initialsOf(r.customerName)}</span>
+                                                            <span className="tx">
+                                                                <strong onClick={() => openCustomer(r.customerId)}>{mask(r.customerName)}</strong>
+                                                                <small>{[r.service, r.staffName].filter(Boolean).join(' · ')}</small>
+                                                            </span>
+                                                            <button type="button" className="gz-btn sm" title="Geldi olarak işaretle"
+                                                                disabled={busyId === r.id} onClick={() => void advance(r, 'arrived')}>
+                                                                <Check />Geldi
                                                             </button>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div className="spark">✨</div>
-                                                <span className="eyebrow">Sıradaki</span>
-                                                {/* Salon durumu solda anlatılıyor — burada tekrar etmiyoruz */}
-                                                <h3>Bugün başka {resWord} yok.</h3>
-                                                <button className="next-primary" onClick={() => setModalCustomer(null)}><Plus />Randevusuz müşteri al</button>
-                                            </>
-                                        )}
-                                    </aside>
-                                </div>
-                            );
+                                                    ))}
+                                                    {nextGroup.length > shown.length && (
+                                                        <span className="gz-next-more">+{nextGroup.length - shown.length} müşteri daha</span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="gz-next-who">
+                                                        <strong onClick={() => openCustomer(nextUp.customerId)}>{mask(nextUp.customerName)}</strong>
+                                                        <span>{[nextUp.service, nextUp.staffName].filter(Boolean).join(' · ')}</span>
+                                                        {pkg && (
+                                                            <div className="gz-next-pkg">
+                                                                <Layers />
+                                                                <div>
+                                                                    <b>{pkg.title}</b>
+                                                                    <i><i style={{ width: `${Math.round((pkg.sessionsDone / pkg.sessionCount) * 100)}%` }} /></i>
+                                                                </div>
+                                                                <span>{pkg.sessionsDone}/{pkg.sessionCount}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button type="button" className="gz-btn orange" disabled={busyId === nextUp.id}
+                                                        onClick={() => void advance(nextUp, 'arrived')}>
+                                                        <Check />Geldi olarak işaretle
+                                                    </button>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Salon durumu solda anlatılıyor — burada tekrar etmiyoruz */}
+                                            <span className="eyebrow">Sıradaki</span>
+                                            <h3>Bugün başka {resWord} yok.</h3>
+                                            <button type="button" className="gz-btn orange" onClick={() => setModalCustomer(null)}>
+                                                <Zap />Randevusuz müşteri al
+                                            </button>
+                                        </>
+                                    )}
+                                </aside>
+                            </section>
+                        );
                     })()}
 
                     {/* Randevusuz müşteri — hızlı başlatma */}
@@ -806,263 +850,270 @@ export function GuzellikDashboard() {
                                         customerArrivedAt: new Date().toISOString(),
                                         arrivedAt: new Date().toISOString(),
                                     });
-                                    toast.success(`${payload.customerName} işleme alındı ⚡`);
+                                    toast.success(`${payload.customerName} işleme alındı`);
                                     setWalkInOpen(false);
                                 }
                             }}
                         />
                     )}
 
-
-                    {/* Ana bölüm */}
-                    <section>
-
-                        {/* SOL — OPERASYON KONTROLÜ */}
-                        <div className="today-card">
-                            <div className="today-header">
-                                <div>
-                                    <span className="eyebrow">OPERASYON KONTROLÜ</span>
-                                    <h2>Bugünün planı</h2>
-                                </div>
-                                <div className="today-controls">
-                                    <div className="segmented" aria-label="Plan sütunları">
-                                        <button className={cn(laneMode === 'unit' && 'selected')} aria-pressed={laneMode === 'unit'}
-                                            onClick={() => setLaneMode('unit')}>Üniteler</button>
-                                        <button className={cn(laneMode === 'staff' && 'selected')} aria-pressed={laneMode === 'staff'}
-                                            onClick={() => setLaneMode('staff')}>Uzmanlar</button>
-                                    </div>
-                                    <label className="privacy-switch" title="Ortak ekranda müşteri soyadını gizler">
-                                        <Lock className="w-3 h-3" />
-                                        <span>Gizlilik</span>
-                                        <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
-                                        <i />
-                                    </label>
-                                </div>
+                    {/* C · Operasyon kontrolü */}
+                    <section className="gz-card gz-ops-card" aria-label="Operasyon kontrolü">
+                        <div className="gz-ops-top">
+                            <div>
+                                <span className="eyebrow">Operasyon kontrolü</span>
+                                <h2>Bugünün planı</h2>
                             </div>
-
-                            {/* Salon içi akış: Bekliyor → İşlemde → Kasada */}
-                            <div className="salon-flow" aria-label="Salon içi müşteri akışı">
-                                <div className="flow-title">
-                                    <span className="live-dot" />Salon içi <small>{nowTime} · {inSalon.length} müşteri</small>
+                            <div className="gz-ops-ctl">
+                                <div className="gz-seg" role="radiogroup" aria-label="Plan sütunları">
+                                    <button type="button" role="radio" aria-checked={laneMode === 'unit'} onClick={() => setLaneMode('unit')}>Üniteler</button>
+                                    <button type="button" role="radio" aria-checked={laneMode === 'staff'} onClick={() => setLaneMode('staff')}>Uzmanlar</button>
                                 </div>
-                                <div className="flow-columns">
-                                    {([
-                                        { key: 'waiting', title: 'Bekliyor', list: waiting },
-                                        { key: 'active', title: 'İşlemde', list: inService },
-                                        { key: 'checkout', title: 'Kasada', list: atTill },
-                                    ] as const).map((stage) => (
-                                        <div className="flow-stage" key={stage.key}>
-                                            <div className="flow-stage-title">
-                                                <span className={`status-dot ${stage.key}`} />{stage.title}<b>{stage.list.length}</b>
-                                            </div>
-                                            <div className="flow-list">
+                                <label className="gz-switch" title="Ortak ekranda müşteri soyadını gizler">
+                                    <Lock />
+                                    <span>Gizlilik</span>
+                                    <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
+                                    <i />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Salon içi akış: Bekliyor → İşlemde → Kasada. Boşken üç sıfırlı
+                            sütun yerine tek satır — bilgi zaten salon panelinde söylendi. */}
+                        <div className="gz-flow">
+                            {inSalon.length === 0 ? (
+                                <div className="gz-flow-line">
+                                    <span className="gz-dot hollow" />
+                                    <b>Salon içi</b>
+                                    <span>Salonda kimse yok</span>
+                                    <span className="t">{nowTime}</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="gz-flow-line">
+                                        <span className="gz-dot orange" />
+                                        <b>Salon içi</b>
+                                        <span>{nowTime} · {inSalon.length} müşteri</span>
+                                    </div>
+                                    <div className="gz-flow-cols">
+                                        {([
+                                            { key: 'waiting', title: 'Bekliyor', dot: 'amber', list: waiting },
+                                            { key: 'active', title: 'İşlemde', dot: 'orange', list: inService },
+                                            { key: 'checkout', title: 'Kasada', dot: 'green', list: atTill },
+                                        ] as const).map((stage) => (
+                                            <div className="gz-stage" key={stage.key}>
+                                                <div className="gz-stage-head">
+                                                    <span className={cn('gz-dot', stage.dot)} />
+                                                    <b>{stage.title}</b>
+                                                    <span>{stage.list.length}</span>
+                                                </div>
                                                 {stage.list.length === 0 ? (
-                                                    <p className="flow-empty">—</p>
+                                                    <span className="gz-stage-none">Kimse yok</span>
                                                 ) : stage.list.map((r) => {
                                                     const waitMin = r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0;
                                                     const runMin = r.arrivedAt ? minsSince(r.arrivedAt, now) : 0;
                                                     const late = stage.key === 'waiting' && waitMin >= 10;
                                                     const amount = sessionAmount(r);
                                                     // Yoğunlukta aksiyon satırın kendisinde olmalı — seçip
-                                                    // aşağıdaki çubuğa inmek kişi başı 2 tık + göz gezintisiydi
+                                                    // aşağıdaki çubuğa inmek kişi başı 2 tık + göz gezintisiydi.
                                                     // Kasada sütununda aksiyon YOK: tahsilat Kasa sayfasında
                                                     // yapılır, dashboard yalnız "kim kasada bekliyor"u gösterir.
                                                     const act = stage.key === 'waiting' ? { label: 'Kabine al', run: () => void advance(r, 'active') }
                                                         : stage.key === 'active' ? { label: 'Bitir', run: () => void advance(r, 'completed') }
                                                             : null;
+                                                    const sub = stage.key === 'checkout'
+                                                        ? r.service
+                                                        : [cabinName(r.resourceId), r.staffName].filter(Boolean).join(' · ') || locationOf(r);
                                                     return (
                                                         <div key={r.id} role="button" tabIndex={0} aria-pressed={selected?.id === r.id}
-                                                            className={cn('flow-person', selected?.id === r.id && 'selected', late && 'late')}
+                                                            className={cn('gz-person', selected?.id === r.id && 'selected')}
                                                             onClick={() => setSelectedId(r.id)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(r.id); } }}>
-                                                            <span className="mini-avatar">{initialsOf(r.customerName)}</span>
-                                                            <span className="flow-copy">
+                                                            <span className="gz-av">{initialsOf(r.customerName)}</span>
+                                                            <span className="gz-person-tx">
                                                                 <strong>{mask(r.customerName)}</strong>
-                                                                <small><MapPin className="w-2.5 h-2.5 flex-shrink-0" />{locationOf(r)}{r.staffName ? ` · ${r.staffName}` : ''}</small>
+                                                                <small>{sub}</small>
                                                             </span>
-                                                            <span className="flow-tail">
-                                                                <span className={cn('flow-time', late && 'warn')}>
-                                                                    {stage.key === 'waiting' ? `${waitMin} dk`
-                                                                        : stage.key === 'active' ? `${runMin} dk`
-                                                                            : amount > 0 ? fmtTL(amount) : 'hazır'}
-                                                                </span>
-                                                                {act && (
-                                                                    <button className="flow-act" disabled={busyId === r.id}
-                                                                        onClick={(e) => { e.stopPropagation(); act.run(); }}>{act.label}</button>
-                                                                )}
+                                                            <span className={cn('gz-person-meta', late && 'late', stage.key === 'checkout' && 'ink')}>
+                                                                {stage.key === 'waiting' ? `${waitMin} dk`
+                                                                    : stage.key === 'active' ? `${runMin} dk`
+                                                                        : amount > 0 ? fmtTL(amount) : 'hazır'}
                                                             </span>
+                                                            {act && (
+                                                                <button type="button" className="gz-btn sm" disabled={busyId === r.id}
+                                                                    onClick={(e) => { e.stopPropagation(); act.run(); }}>{act.label}</button>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Seçili müşteri + bağlamsal tek eylem */}
-                            {selected ? (() => {
-                                const ph = phaseOf(selected);
-                                const amount = sessionAmount(selected);
-                                const pkg = pkgByCustomer.get(selected.customerId);
-                                const cab = cabins.find((c) => c.id === selected.resourceId);
-                                const cabBusy = ph === 'arrived' && cab?.status === 'busy';
-                                return (
-                                    <div className="selected-session" aria-live="polite">
-                                        <span className={`status-dot ${PHASE_UI[ph]}`} />
-                                        <div className="selected-copy">
-                                            <div>
-                                                <strong onClick={() => openCustomer(selected.customerId)}>{mask(selected.customerName)}</strong>
-                                                <span className="status-label">{PHASE_TR[ph]}</span>
-                                                <StampRow customerId={selected.customerId} color={serviceColor(selected.service)} />
-                                            </div>
-                                            <p>
-                                                <span><Clock className="w-2.5 h-2.5" />{selected.startTime}–{selected.endTime}</span>
-                                                <span>{selected.service}</span>
-                                                {selected.staffName && <span><User className="w-2.5 h-2.5" />{selected.staffName}</span>}
-                                                {cabinName(selected.resourceId) && <span><DoorOpen className="w-2.5 h-2.5" />Plan: {cabinName(selected.resourceId)}</span>}
-                                                <span><MapPin className="w-2.5 h-2.5" />Şu an: {locationOf(selected)}</span>
-                                                {pkg && <span>Paket: {pkg.sessionsDone}/{pkg.sessionCount}</span>}
-                                            </p>
-                                        </div>
-                                        <div className="selected-actions">
-                                            <button className="btn secondary small" onClick={() => openCustomer(selected.customerId)}>Müşteri kartı</button>
-                                            {ph === 'wait' && (
-                                                <button className="btn primary small" disabled={busyId === selected.id}
-                                                    onClick={() => void advance(selected, 'arrived')}>Geldi</button>
-                                            )}
-                                            {ph === 'arrived' && (cabBusy ? (
-                                                <span className="text-[10px] text-[var(--dc-muted)] text-right leading-snug" style={{ fontFamily: MONO }}>
-                                                    {cab?.name}<br /><b className="text-[var(--dc-ink)]">~{cab?.freeAt}</b> boşalıyor
-                                                </span>
-                                            ) : (
-                                                <button className="btn primary small" disabled={busyId === selected.id}
-                                                    onClick={() => void advance(selected, 'active')}>Kabine al</button>
-                                            ))}
-                                            {ph === 'active' && (
-                                                <button className="btn primary small" disabled={busyId === selected.id}
-                                                    onClick={() => void advance(selected, 'completed')}>İşlemi bitir</button>
-                                            )}
-                                            {ph === 'done' && cashOn && (
-                                                <button className="btn primary small"
-                                                    onClick={() => openCashFor(selected)}>Kasayı aç{amount > 0 ? ` · ${fmtTL(amount)}` : ''}</button>
-                                            )}
-                                        </div>
+                                        ))}
                                     </div>
-                                );
-                            })() : (
-                                <div className="selected-session">
-                                    <span className="status-dot completed" />
-                                    <div className="selected-copy">
-                                        <div><strong>Bugün için seans yok</strong></div>
-                                        <p><span>Randevusuz gelen müşteriyi yukarıdan hemen işleme alabilirsiniz.</span></p>
-                                    </div>
-                                    <div className="selected-actions">
-                                        <button className="btn primary small" onClick={() => setModalCustomer(null)}>Yeni seans</button>
-                                    </div>
-                                </div>
+                                </>
                             )}
-
-                            {/* Gün planı — dikey saat ekseni + ünite/uzman sütunları */}
-                            <div className="schedule-wrap">
-                                <div className="schedule-title">
-                                    <div>
-                                        <b>Gün planı</b>
-                                        <span>{String(grid.from).padStart(2, '0')}:00–{String(grid.to).padStart(2, '0')}:00</span>
-                                    </div>
-                                    <small>{todayList.length} seans{atTill.length > 0 ? ` · ${atTill.length} ödeme bekliyor` : ''}</small>
-                                </div>
-
-                                {lanes.length === 0 ? (
-                                    <p className="schedule-empty">Önce Ayarlar'dan kabin/ünite ekleyin — gün planı burada sütunlara ayrılacak.</p>
-                                ) : (
-                                    <>
-                                        <div className="lane-heads" style={{ '--lanes': lanes.length } as React.CSSProperties}>
-                                            <span className="axis-head">SAAT</span>
-                                            {lanes.map((l, i) => (
-                                                <span className={cn('lane-head', i % 2 === 1 && 'alt')} key={l.id}>
-                                                    <b><i className={`unit-dot ${l.tone}`} />{l.name}</b>
-                                                    <small>{l.sub}</small>
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <div className="schedule-canvas" style={{ height: canvasH, '--lanes': lanes.length } as React.CSSProperties}>
-                                            <span className="axis-band" />
-                                            {nowVisible && <div className="past-band" style={{ height: nowTop }} />}
-                                            {grid.gaps.map((s) => (
-                                                <span key={`gap-${s.from}`} className="gap-band" style={{ top: s.y, height: s.h }}>
-                                                    <b>{String(s.from).padStart(2, '0')}:00 – {String(s.to).padStart(2, '0')}:00 · boş</b>
-                                                </span>
-                                            ))}
-                                            {grid.ticks.map((h) => (
-                                                <Fragment key={h}>
-                                                    <span className="hour-label" style={{ top: grid.topPx(h) }}>{String(h).padStart(2, '0')}:00</span>
-                                                    <span className="hour-line" style={{ top: grid.topPx(h) }} />
-                                                    {grid.ticks.includes(h + 1) && (
-                                                        <span className="half-line" style={{ top: grid.topPx(h + 0.5) }} />
-                                                    )}
-                                                </Fragment>
-                                            ))}
-                                            {lanes.map((lane, i) => (
-                                                <div className={cn('schedule-lane', i % 2 === 1 && 'alt')} key={lane.id} style={{ gridColumn: i + 2, gridRow: 1 }}>
-                                                    {/* Boş saat yakalayıcıları — kartların ALTINDA durur, dolu
-                                                        saatler kartla örtülür. */}
-                                                    {addableHours.map((h) => (
-                                                        <button key={`add-${h}`} type="button" className="slot-add"
-                                                            style={{ top: grid.topPx(h) + 3, height: PPH - 6 }}
-                                                            aria-label={`${lane.name} · ${String(h).padStart(2, '0')}:00 için yeni seans`}
-                                                            onClick={() => openSlot(h, lane.id)}>
-                                                            <span>+</span>
-                                                        </button>
-                                                    ))}
-                                                    {(placed.get(lane.id) || []).map(({ r, top, height, col, cols }) => {
-                                                        const ph = phaseOf(r);
-                                                        return (
-                                                            <button key={r.id} aria-pressed={selected?.id === r.id}
-                                                                className={cn('appointment', PHASE_UI[ph], selected?.id === r.id && 'selected')}
-                                                                style={{
-                                                                    top, height,
-                                                                    left: `calc(${(col / cols) * 100}% + ${col === 0 ? 5 : 2}px)`,
-                                                                    width: `calc(${100 / cols}% - ${cols > 1 ? 7 : 10}px)`,
-                                                                    // Hizmet rengi sol şeritte — durum rengi kart tonunda
-                                                                    '--svc': serviceColor(r.service),
-                                                                } as React.CSSProperties}
-                                                                onClick={() => setSelectedId(r.id)}>
-                                                                <i className="appointment-rail" />
-                                                                {/* Durum kelimesi yazılmaz (kart tonu + rail söylüyor);
-                                                                    hizmet saat satırında — rail rengi tek başına okunmaz */}
-                                                                <small>{height >= 52 ? `${r.startTime} · ${r.service}` : r.startTime}</small>
-                                                                <strong>{mask(r.customerName)}</strong>
-                                                                {height >= 78 && r.staffName && <span>{r.staffName}</span>}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ))}
-                                            {nowVisible && <span className="now-line" style={{ top: nowTop }}><b>{nowTime}</b></span>}
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Mobil: ızgara yerine doğal liste */}
-                                <div className="mobile-session-list">
-                                    {todayList.map((r) => {
-                                        const ph = phaseOf(r);
-                                        return (
-                                            <button key={r.id} className={cn(selected?.id === r.id && 'selected')} onClick={() => setSelectedId(r.id)}>
-                                                <time>{r.startTime}</time>
-                                                <span>
-                                                    <strong>{mask(r.customerName)}</strong>
-                                                    <small>{PHASE_TR[ph]} · {locationOf(r)}</small>
-                                                </span>
-                                                <i className={`status-dot ${PHASE_UI[ph]}`} />
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
                         </div>
 
+                        {/* Seçili seans + bağlamsal tek eylem — yalnız seçim varken.
+                            Izgarada bir karta ya da akışta bir satıra tıklayınca açılır,
+                            çarpıyla kapanır. */}
+                        {selected && (() => {
+                            const ph = phaseOf(selected);
+                            const noshow = isNoShow(selected);
+                            const amount = sessionAmount(selected);
+                            const pkg = pkgByCustomer.get(selected.customerId);
+                            const cab = cabins.find((c) => c.id === selected.resourceId);
+                            const cabBusy = ph === 'arrived' && cab?.status === 'busy';
+                            return (
+                                <div className="gz-selbar" aria-live="polite">
+                                    <span className="rail" style={{ background: serviceColor(selected.service) }} />
+                                    <div className="gz-selbar-copy">
+                                        <div className="l1">
+                                            <strong onClick={() => openCustomer(selected.customerId)}>{mask(selected.customerName)}</strong>
+                                            <span className={cn('gz-chip', noshow ? 'noshow' : PHASE_UI[ph])}>{noshow ? 'Gelmedi' : PHASE_TR[ph]}</span>
+                                            <StampRow customerId={selected.customerId} color={serviceColor(selected.service)} />
+                                        </div>
+                                        <div className="l2">
+                                            <span><Clock />{selected.startTime}–{selected.endTime}</span>
+                                            <span>{selected.service}</span>
+                                            {selected.staffName && <span><User />{selected.staffName}</span>}
+                                            {cabinName(selected.resourceId) && <span><DoorOpen />Plan: {cabinName(selected.resourceId)}</span>}
+                                            {ph !== 'completed' && !noshow && <span><MapPin />Şu an: {locationOf(selected)}</span>}
+                                            {pkg && <span><Layers />Paket: {pkg.sessionsDone}/{pkg.sessionCount}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="gz-selbar-acts">
+                                        <button type="button" className="gz-btn line raised" onClick={() => openCustomer(selected.customerId)}>Müşteri kartı</button>
+                                        {ph === 'wait' && (
+                                            <button type="button" className="gz-btn ink" disabled={busyId === selected.id}
+                                                onClick={() => void advance(selected, 'arrived')}>Geldi<ArrowRight /></button>
+                                        )}
+                                        {ph === 'arrived' && (cabBusy ? (
+                                            <span className="note">{cab?.name}<br /><b>~{cab?.freeAt}</b> boşalıyor</span>
+                                        ) : (
+                                            <button type="button" className="gz-btn ink" disabled={busyId === selected.id}
+                                                onClick={() => void advance(selected, 'active')}>Kabine al<ArrowRight /></button>
+                                        ))}
+                                        {ph === 'active' && (
+                                            <button type="button" className="gz-btn ink" disabled={busyId === selected.id}
+                                                onClick={() => void advance(selected, 'completed')}>İşlemi bitir<ArrowRight /></button>
+                                        )}
+                                        {ph === 'done' && cashOn && (
+                                            <button type="button" className="gz-btn ink"
+                                                onClick={() => openCashFor(selected)}>Kasayı aç{amount > 0 ? ` · ${fmtTL(amount)}` : ''}<ArrowRight /></button>
+                                        )}
+                                        <button type="button" className="gz-x" aria-label="Seçimi kaldır" onClick={() => setSelectedId(null)}><X /></button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* D · Gün planı — dikey saat ekseni + ünite/uzman sütunları */}
+                        <div className="gz-plan-title">
+                            <b>Gün planı</b>
+                            <span>{pad2(grid.from)}:00–{pad2(grid.to)}:00</span>
+                            <span>{todayList.length} {resWord}{atTill.length > 0 ? ` · ${atTill.length} ödeme bekliyor` : ''}</span>
+                        </div>
+
+                        {lanes.length === 0 ? (
+                            <p className="gz-plan-empty">Önce Ayarlar'dan kabin/ünite ekleyin — gün planı burada sütunlara ayrılacak.</p>
+                        ) : (
+                            <div className="gz-grid" style={{ '--lanes': lanes.length } as React.CSSProperties}>
+                                <div className="gz-grid-head">
+                                    <span />
+                                    {lanes.map((l) => (
+                                        <span className="gz-lane-head" key={l.id}>
+                                            <span className="row"><i className={cn('gz-udot', l.tone)} /><b>{l.name}</b></span>
+                                            {l.sub && <small className={cn(l.tone === 'prep' && 'prep')}>{l.sub}</small>}
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className="gz-grid-body" style={{ height: canvasH }}>
+                                    {nowVisible && <span className="gz-past" style={{ height: nowTop }} />}
+                                    {grid.ticks.filter((h) => h > grid.from && h < grid.to).map((h) => (
+                                        <span key={`line-${h}`} className="gz-hline" style={{ top: grid.topPx(h) }} />
+                                    ))}
+                                    <div className="gz-axis" style={{ gridColumn: 1, gridRow: 1 }}>
+                                        {/* Şimdi etiketiyle çakışan saat etiketi gizlenir */}
+                                        {grid.labels
+                                            .filter((h) => !nowVisible || Math.abs(grid.topPx(h) + 12 - nowTop) > 22)
+                                            .map((h) => <span key={h} style={{ top: grid.topPx(h) }}>{pad2(h)}:00</span>)}
+                                    </div>
+                                    {lanes.map((lane, i) => {
+                                        const items = placed.get(lane.id) || [];
+                                        return (
+                                            <div className="gz-lane" key={lane.id} style={{ gridColumn: i + 2, gridRow: 1 }}>
+                                                {/* "+" ipucu yalnız boş ve geçmemiş saat satırında */}
+                                                {addableHours
+                                                    .filter((h) => !items.some(({ r }) => timeToH(r.startTime) < h + 1 && timeToH(r.endTime) > h))
+                                                    .map((h) => (
+                                                        <button key={`add-${h}`} type="button" className="gz-slot"
+                                                            style={{ top: grid.topPx(h), height: grid.pph }}
+                                                            aria-label={`${lane.name} · ${pad2(h)}:00 için yeni ${resWord}`}
+                                                            onClick={() => openSlot(h, lane.id)}>
+                                                            + {pad2(h)}:00
+                                                        </button>
+                                                    ))}
+                                                {items.map(({ r, top, height, col, cols }) => {
+                                                    const ph = phaseOf(r);
+                                                    const noshow = isNoShow(r);
+                                                    const isSel = selected?.id === r.id;
+                                                    // Çakışma sütunu ikiye böldüyse üst satır yalnız saat
+                                                    const split = cols > 1;
+                                                    const line1 = noshow ? `${r.startTime} · Gelmedi`
+                                                        : split ? r.startTime : `${r.startTime} · ${r.service}`;
+                                                    const line3 = laneMode === 'unit' ? r.staffName : cabinName(r.resourceId);
+                                                    return (
+                                                        <button key={r.id} type="button" aria-pressed={isSel}
+                                                            className={cn('gz-appt', noshow ? 'noshow' : PHASE_UI[ph], isSel && 'selected', height < 44 && 'compact')}
+                                                            style={{
+                                                                top, height,
+                                                                left: `calc(${(col / cols) * 100}% + 4px)`,
+                                                                width: `calc(${100 / cols}% - 8px)`,
+                                                                // Hizmet rengi sol şeritte — durum rengi kart tonunda
+                                                                '--svc': serviceColor(r.service),
+                                                            } as React.CSSProperties}
+                                                            onClick={() => setSelectedId(isSel ? null : r.id)}>
+                                                            <i className="rail" />
+                                                            {/* İşlemdeki kartın nabzı kalktı; köşede tek canlı nokta */}
+                                                            {ph === 'active' && <span className="gz-dot orange gz-live" />}
+                                                            {height >= 48 && <small>{line1}</small>}
+                                                            <strong>{mask(r.customerName)}</strong>
+                                                            {height >= 62 && !split && line3 && <span>{line3}</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
+                                    {grid.gaps.map((s) => (
+                                        <div key={`gap-${s.from}`} className="gz-fold" style={{ top: s.y, height: s.h }}>
+                                            <span>{pad2(s.from)}:00</span>
+                                            <span>{pad2(s.from)}:00–{pad2(s.to)}:00 · boş</span>
+                                        </div>
+                                    ))}
+                                    {nowVisible && <div className="gz-now" style={{ top: nowTop }}><b>{nowTime}</b></div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Dar ekran: ızgara yerine doğal liste */}
+                        <div className="gz-mlist">
+                            {todayList.map((r) => {
+                                const ph = phaseOf(r);
+                                const noshow = isNoShow(r);
+                                return (
+                                    <button key={r.id} type="button" className={cn(selected?.id === r.id && 'selected')}
+                                        onClick={() => setSelectedId(selected?.id === r.id ? null : r.id)}>
+                                        <time>{r.startTime}</time>
+                                        <span>
+                                            <strong>{mask(r.customerName)}</strong>
+                                            <small>{noshow ? 'Gelmedi' : PHASE_TR[ph]} · {locationOf(r)}</small>
+                                        </span>
+                                        <i className={cn('gz-dot', DOT[noshow ? 'noshow' : PHASE_UI[ph]])} />
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </section>
 
                 </div>
@@ -1155,65 +1206,68 @@ function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustom
         setSaving(false);
     };
 
+    // Panel rötuşu kuralları burada da geçerli: mono yok, gövde 13 px'in altına
+    // inmez, köşe 18 (kart) · 12 (alan, düğme), düğme metni cümle düzeninde.
+    const field = 'w-full h-11 px-3.5 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[15px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1';
+    const row = 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border text-left transition-colors';
+    const avatar = 'w-8 h-8 rounded-full bg-[var(--dc-surface2)] text-[var(--dc-ink)] text-[12px] font-extrabold grid place-items-center flex-shrink-0';
+
     return (
-        <div className="mb-4 rounded-2xl border border-[var(--dc-orange)] bg-[var(--dc-orange-soft)] p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-[var(--dc-orange-d)]" />
-                <span className="text-[13px] font-extrabold text-[var(--dc-ink)]">Randevusuz müşteri</span>
-                <span className="text-[11.5px] text-[var(--dc-muted)]">kapıdan giren müşteriyi hemen işleme al</span>
-                <button onClick={onClose} aria-label="Kapat" className="ml-auto w-7 h-7 rounded-full grid place-items-center text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)] transition-colors">✕</button>
+        <div className="gz-card p-[18px] border-[var(--dc-orange)]">
+            <div className="flex items-center gap-2.5 mb-3.5 flex-wrap">
+                <Zap className="w-4 h-4 text-[var(--dc-orange)]" />
+                <span className="text-[15px] font-bold text-[var(--dc-ink)]">Randevusuz müşteri</span>
+                <span className="text-[14px] text-[var(--dc-muted)]">kapıdan giren müşteriyi hemen işleme al</span>
+                <button type="button" onClick={onClose} aria-label="Kapat" className="gz-x ml-auto"><X /></button>
             </div>
 
             {!picked ? (
                 <>
-                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yaz…"
-                        className="w-full px-3.5 py-3 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[13.5px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1" />
+                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yaz…" className={field} />
                     <div className="mt-2 space-y-1.5">
                         {results.map((c) => (
-                            <button key={c.id} onClick={() => setPicked(c)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border)] hover:border-[var(--dc-ink)] transition-colors text-left">
-                                <span className="w-[30px] h-[30px] rounded-[10px] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold grid place-items-center flex-shrink-0">{initialsOf(c.name)}</span>
+                            <button key={c.id} type="button" onClick={() => setPicked(c)}
+                                className={cn(row, 'border-[var(--dc-border)] hover:border-[var(--dc-border2)] hover:bg-[var(--dc-surface)]')}>
+                                <span className={avatar}>{initialsOf(c.name)}</span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[13px] font-bold text-[var(--dc-ink)] truncate">{c.name}</span>
-                                    <span className="block text-[11px] text-[var(--dc-muted)]">{c.phone}</span>
+                                    <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">{c.name}</span>
+                                    <span className="block text-[13px] text-[var(--dc-muted)]">{c.phone}</span>
                                 </span>
-                                {(c.loyaltyStamps ?? 0) > 0 && <span className="text-[10.5px] font-semibold text-[var(--dc-muted)] flex items-center gap-1" style={{ fontFamily: MONO }}><Gift className="w-3 h-3" />{c.loyaltyStamps}</span>}
+                                {(c.loyaltyStamps ?? 0) > 0 && <span className="text-[13px] font-semibold text-[var(--dc-muted)] flex items-center gap-1"><Gift className="w-3.5 h-3.5" />{c.loyaltyStamps}</span>}
                             </button>
                         ))}
                         {query.trim() && results.length === 0 && !creating && (
-                            <button onClick={() => setCreating(true)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border border-dashed border-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)] transition-colors text-left">
-                                <span className="w-[30px] h-[30px] rounded-[10px] bg-[var(--dc-orange)] text-white grid place-items-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
+                            <button type="button" onClick={() => setCreating(true)}
+                                className={cn(row, 'border-dashed border-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)]')}>
+                                <span className="w-8 h-8 rounded-full bg-[var(--dc-orange)] text-white grid place-items-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[13px] font-bold text-[var(--dc-ink)] truncate">"{query.trim()}" adıyla yeni müşteri</span>
-                                    <span className="block text-[11px] text-[var(--dc-muted)]">Kaydı burada açıp işleme başlayın</span>
+                                    <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">"{query.trim()}" adıyla yeni müşteri</span>
+                                    <span className="block text-[13px] text-[var(--dc-muted)]">Kaydı burada açıp işleme başlayın</span>
                                 </span>
                             </button>
                         )}
                         {creating && (
-                            <div className="rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border2)] p-3 space-y-2.5">
-                                <div className="text-[12.5px] font-bold text-[var(--dc-ink)]">{query.trim()}</div>
+                            <div className="rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border2)] p-3.5 space-y-3">
+                                <div className="text-[15px] font-bold text-[var(--dc-ink)]">{query.trim()}</div>
                                 <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} inputMode="tel"
-                                    placeholder="Telefon (opsiyonel — hatırlatma için)"
-                                    className="w-full px-3 py-2.5 rounded-lg border border-[var(--dc-border2)] bg-[var(--dc-surface)] text-[13px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1" />
+                                    placeholder="Telefon (opsiyonel — hatırlatma için)" className={field} />
                                 {/* Sektörün risk bayrakları burada SORULUR. Hızlı ekleme
                                     yolları bunu hiç sormuyordu; kaydı açıp aynı tıkla
                                     lazer seansı başlatmak, 076 guard'ının koruduğu şeyi
                                     boşa çıkarırdı — bayrağı hiç girilmemiş müşteride
                                     guard zaten engel görmez. */}
                                 {riskFlags.map((f) => (
-                                    <label key={f.key} className="flex items-center gap-2 text-[12.5px] text-[var(--dc-ink)] cursor-pointer">
+                                    <label key={f.key} className="flex items-center gap-2 text-[14px] text-[var(--dc-ink)] cursor-pointer">
                                         <input type="checkbox" checked={Boolean(risks[f.key])}
                                             onChange={(e) => setRisks((r) => ({ ...r, [f.key]: e.target.checked }))} />
                                         {f.label}
-                                        {f.note && <span className="text-[11px] text-[var(--dc-muted)]">· {f.note}</span>}
+                                        {f.note && <span className="text-[13px] text-[var(--dc-muted)]">· {f.note}</span>}
                                     </label>
                                 ))}
                                 <div className="flex gap-2">
-                                    <button onClick={() => { setCreating(false); setNewPhone(''); setRisks({}); }}
-                                        className="px-3 py-2 rounded-lg text-[12.5px] font-semibold text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)]">Vazgeç</button>
-                                    <button onClick={createAndPick} disabled={saving}
-                                        className="flex-1 px-3 py-2 rounded-lg bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12.5px] font-bold disabled:opacity-50">
+                                    <button type="button" onClick={() => { setCreating(false); setNewPhone(''); setRisks({}); }}
+                                        className="gz-btn line">Vazgeç</button>
+                                    <button type="button" onClick={createAndPick} disabled={saving} className="gz-btn ink flex-1">
                                         {saving ? 'Kaydediliyor…' : 'Kaydet ve devam et'}
                                     </button>
                                 </div>
@@ -1223,42 +1277,39 @@ function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustom
                 </>
             ) : (
                 <>
-                    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border2)]">
-                        <span className="w-[30px] h-[30px] rounded-[10px] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold grid place-items-center flex-shrink-0">{initialsOf(picked.name)}</span>
+                    <div className={cn(row, 'border-[var(--dc-border2)]')}>
+                        <span className={avatar}>{initialsOf(picked.name)}</span>
                         <span className="flex-1 min-w-0">
-                            <span className="block text-[13.5px] font-bold text-[var(--dc-ink)] truncate">{picked.name}</span>
-                            <span className="block text-[11.5px] text-[var(--dc-muted)]">{picked.phone}</span>
+                            <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">{picked.name}</span>
+                            <span className="block text-[13px] text-[var(--dc-muted)]">{picked.phone}</span>
                         </span>
-                        <button onClick={() => { setPicked(null); setQuery(''); }} className="text-[12px] font-bold text-[var(--dc-orange-d)] px-2.5 py-2 rounded-lg hover:bg-[var(--dc-orange-soft)] transition-colors">Değiştir</button>
+                        <button type="button" onClick={() => { setPicked(null); setQuery(''); }} className="gz-btn sm line">Değiştir</button>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 mt-3">
+                    <div className="flex flex-wrap gap-2 mt-3">
                         {services.map((s) => (
-                            <button key={s.id} onClick={() => setServiceId(s.id)}
-                                className={cn('inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[12px] font-semibold border transition-colors',
-                                    serviceId === s.id ? 'bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] border-[var(--dc-inkbox)]' : 'bg-[var(--dc-card)] border-[var(--dc-border)] text-[var(--dc-ink)] hover:border-[var(--dc-ink)]')}>
+                            <button key={s.id} type="button" onClick={() => setServiceId(s.id)}
+                                className={cn('inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[14px] font-semibold border transition-colors',
+                                    serviceId === s.id ? 'bg-[var(--dc-ink)] text-[var(--dc-card)] border-[var(--dc-ink)]' : 'bg-[var(--dc-card)] border-[var(--dc-border2)] text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)]')}>
                                 <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />{s.name}
-                                <span className="text-[10.5px] opacity-70" style={{ fontFamily: MONO }}>{s.duration}dk</span>
+                                <span className="text-[13px] opacity-70">{s.duration} dk</span>
                             </button>
                         ))}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5 mt-3">
-                        <select value={cabinId} onChange={(e) => setCabinId(e.target.value)} aria-label="Kabin"
-                            className="px-3.5 py-2.5 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[12.5px] font-semibold text-[var(--dc-ink)] outline-none">
+                        <select value={cabinId} onChange={(e) => setCabinId(e.target.value)} aria-label="Kabin" className={cn(field, 'font-semibold')}>
                             <option value="">Kabin fark etmez</option>
                             {cabins.map((c) => <option key={c.id} value={c.id} disabled={c.status === 'busy'}>{c.name}{c.status === 'busy' ? ' (dolu)' : ''}</option>)}
                         </select>
-                        <select value={staffId} onChange={(e) => setStaffId(e.target.value)} aria-label="Personel"
-                            className="px-3.5 py-2.5 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[12.5px] font-semibold text-[var(--dc-ink)] outline-none">
+                        <select value={staffId} onChange={(e) => setStaffId(e.target.value)} aria-label="Personel" className={cn(field, 'font-semibold')}>
                             <option value="">Personel fark etmez</option>
                             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
 
-                    <button disabled={!canStart} onClick={() => void start()}
-                        className="w-full mt-3 bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[13px] font-bold min-h-[44px] rounded-full hover:-translate-y-px transition-all disabled:opacity-40 disabled:translate-y-0">
-                        {saving ? 'Başlatılıyor…' : 'Hemen Başlat'}
+                    <button type="button" disabled={!canStart} onClick={() => void start()} className="gz-btn ink w-full mt-3">
+                        {saving ? 'Başlatılıyor…' : 'Hemen başlat'}
                     </button>
                 </>
             )}

@@ -48,15 +48,13 @@ html, body, #root {
 }
 
 /* ── Sidebar mikro-etkileşimleri (tasarım: Luera Sidebar Dark.html) ──
-   Aktif çubuk nefes alan turuncu glow, tıklamada ripple + label pop. */
-.sb-active-bar {
-  box-shadow: 0 0 8px 1px rgba(255, 90, 31, 0.55);
-  animation: sb-bar-breathe 2.4s ease-in-out infinite;
-}
-@keyframes sb-bar-breathe {
-  0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 90, 31, 0.40); }
-  50%      { box-shadow: 0 0 14px 3px rgba(255, 90, 31, 0.75); }
-}
+   Tıklamada ripple + label pop. Etkin çubuğun nefes alan turuncu parıltısı
+   Panel rötuşunda (2026-10-20) kalktı: çizgi artık sabit. */
+
+/* WhatsApp uyarı satırı — ilk görünüş opacity 0 → 1 · 200 ms · ease-out */
+.wa-alert { animation: wa-alert-in 200ms ease-out; }
+@keyframes wa-alert-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wa-alert { animation: none; } }
 /* ── Güzellik dashboard canlı faz katmanı: işlemdeki blok nabız atar ───────── */
 .gz-blk-active { animation: gz-blk-pulse 2.4s ease-in-out infinite; }
 @keyframes gz-blk-pulse {

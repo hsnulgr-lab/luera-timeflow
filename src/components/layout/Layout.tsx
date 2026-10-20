@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { SetupBanner } from './SetupBanner';
 import { SubscriptionBanner } from './SubscriptionBanner';
-import { Menu, AlertTriangle } from 'lucide-react';
+import { Menu, AlertTriangle, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -77,24 +77,37 @@ export const Layout = () => {
             {/* Main Content — masaüstünde üst bar yok, içerik en tepeden başlar */}
             <main className={cn(
                 "transition-all duration-300 pt-14 md:pt-0 h-screen flex flex-col overflow-y-auto",
-                collapsed ? "md:ml-20" : "md:ml-64"
+                collapsed ? "md:ml-[72px]" : "md:ml-60"
             )}>
                 {/* WhatsApp bağlantısı düştüğünde hatırlatmalar sessizce durur;
-                    kullanıcı haftalarca fark etmeyebiliyordu. */}
+                    kullanıcı haftalarca fark etmeyebiliyordu. Panel rötuşu: tam
+                    genişlik pembe şerit yerine içerik sütununun başında 44 px'lik
+                    satır — arıza açıkça görünür ama bağırmaz. Metin aynı. */}
                 {waBroken && !path.startsWith('/settings') && (
-                    <button
-                        onClick={() => navigate('/settings/whatsapp')}
+                    <div
+                        role="alert"
                         className={cn(
-                            "flex items-center gap-2 px-4 py-2 text-[12.5px] font-semibold border-b w-full text-left",
+                            "wa-alert shrink-0 mx-4 md:mx-6 mt-4 min-h-11 flex items-center gap-3 pl-3.5 pr-1.5 rounded-xl border",
                             dark
-                                ? "bg-[#2a1414] text-[#e07070] border-[#3a1c1c] hover:bg-[#331818]"
-                                : "bg-[#FDF0F0] text-[#C0392B] border-[#F3D6D6] hover:bg-[#FBE6E6]"
+                                ? "bg-[#241E16] border-[rgba(224,112,112,0.38)] text-[#F3EDE3]"
+                                : "bg-[#FFFDFB] border-[rgba(201,64,64,0.28)] text-[#0E0E0E]"
                         )}
                     >
-                        <AlertTriangle size={14} className="shrink-0" />
-                        WhatsApp bağlantısı düştü — hatırlatmalar gönderilmiyor.
-                        <span className="underline underline-offset-2">Yeniden bağlan</span>
-                    </button>
+                        <AlertTriangle size={18} className={cn("shrink-0", dark ? "text-[#E07070]" : "text-[#C94040]")} />
+                        <span className="flex-1 min-w-0 py-2.5 text-[14.5px] font-semibold leading-snug">
+                            WhatsApp bağlantısı düştü — hatırlatmalar gönderilmiyor.
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/settings/whatsapp')}
+                            className={cn(
+                                "shrink-0 h-[34px] pl-3 pr-2.5 rounded-lg flex items-center gap-1 text-[14px] font-bold transition-colors duration-[140ms] ease-out",
+                                dark ? "text-[#E07070] hover:bg-[rgba(224,112,112,0.14)]" : "text-[#C94040] hover:bg-[rgba(201,64,64,0.10)]"
+                            )}
+                        >
+                            Yeniden bağlan<ChevronRight size={15} />
+                        </button>
+                    </div>
                 )}
                 {/* Kurulum yarıda kaldıysa: /kurulum sayfası VARDI ama hiçbir
                     yerden ulaşılmıyordu. Yeni org bomboş uygulamaya düşüyordu. */}

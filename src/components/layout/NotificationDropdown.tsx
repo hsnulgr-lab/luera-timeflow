@@ -26,7 +26,9 @@ const PANEL_POS: Record<Placement, string> = {
     'top-left': 'left-0 bottom-full mb-2',
 };
 
-export const NotificationDropdown = ({ placement = 'bottom-right' }: { placement?: Placement } = {}) => {
+// compact: kenar çubuğunun künyesi için (Panel rötuşu) — zil 18 px, rozet 16 px,
+// parıltısız. Mobil başlık varsayılan ölçüyü kullanmaya devam ediyor.
+export const NotificationDropdown = ({ placement = 'bottom-right', compact = false }: { placement?: Placement; compact?: boolean } = {}) => {
     const { dark } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [readIds, setReadIds] = useState<Set<string>>(() => {
@@ -196,13 +198,18 @@ export const NotificationDropdown = ({ placement = 'bottom-right' }: { placement
                 onMouseEnter={e => (e.currentTarget.style.background = T.bellHover)}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
+                <Bell className={compact ? 'w-[18px] h-[18px]' : 'w-5 h-5'} />
+                {unreadCount > 0 && (compact ? (
+                    <span className="absolute top-0.5 right-0 min-w-4 h-4 px-1 flex items-center justify-center text-[10.5px] font-extrabold rounded-full"
+                        style={{ background: T.orange, color: '#fff' }}>
+                        {unreadCount}
+                    </span>
+                ) : (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-bold rounded-full"
                         style={{ background: T.orange, color: '#fff', boxShadow: '0 0 8px rgba(255,90,31,0.45)' }}>
                         {unreadCount}
                     </span>
-                )}
+                ))}
             </button>
 
             {/* Dropdown */}
