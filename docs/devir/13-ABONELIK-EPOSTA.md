@@ -356,8 +356,15 @@ e-posta 375 px'te tarayıcıda görüldü.
 > kimliksiz çağrı ikisinde de 401 (kod açılıyor) · `eposta.sh kuru` canlıda → vade 0,
 > defter okundu (tek deneme satırı Dodo'nun KARTLI denemesi → doğru) · günlükte hata yok,
 > tek satır `abonelik-eposta mod=kuru vade=0 …`. Telefon bildirim metni artık canlıda.
-> Sırada 5 (commit + push + Coolify Deploy). Komutlar kullanıcının Terminal panelinde,
-> onayıyla çalıştı.
+> 5 · commit `3411a2b` main + tek-kisilik'e gönderildi (kullanıcı kararıyla kenar
+> çubuğu `c6fbcde` de birlikte; panel kartı CSS'i ve `site/` commit DIŞI). Deploy öncesi
+> canlı paket `index-GnGouzzw.js`, `/eposta/logo-timeflow.png` henüz yok (SPA 200 text/html).
+> ✅ Coolify Deploy (2026-10-21 01:25 TR): paket `index-GnGouzzw.js` → `index-qJPvNUUs.js`;
+> `/eposta/logo-timeflow.png` 200 image/png, yereldekiyle aynı bayt; 4 kod şablonu yeni
+> logoyu gösteriyor; pakette `/baglanti` metinleri, `sonra=abonelik`, `effective!=="grace"`,
+> kenar çubuğu. Canlı `/baglanti` tarayıcıda açıldı (tam marka, konsol temiz).
+> Sırada 6 (`eposta.sh cron`).
+> Komutlar kullanıcının Terminal panelinde, onayıyla çalıştı.
 
 1. **Kuru koşu** (yazmaz, sonunda ROLLBACK). Beklenen: tekillik 1 satır · RLS `t` ·
    tek imza · `f f f f t t` · NOTICE "1 · 0 · 2 — GERİ ALINDI" · kalan 0.
