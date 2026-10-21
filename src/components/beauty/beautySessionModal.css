@@ -133,7 +133,7 @@
 .bsm-svc.on .pkg { background: var(--bsm-sel-s); color: var(--bsm-sel-fg); }
 
 /* gün şeridi */
-.bsm-days { display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 6px; }
+.bsm-days { display: grid; grid-template-columns: 34px repeat(var(--n, 7), minmax(0, 1fr)) 34px; gap: 6px; }
 .bsm-days button { height: 54px; border-radius: 11px; border: 1px solid var(--dc-border); background: var(--dc-surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: background .14s; }
 .bsm-days button:hover { background: var(--dc-surface2); }
 .bsm-days small { font-size: 12px; font-weight: 700; color: var(--dc-muted); }
@@ -141,6 +141,12 @@
 .bsm-days button.off b { color: var(--bsm-muted2); text-decoration: line-through; text-decoration-thickness: 1px; }
 .bsm-days button.on { background: var(--bsm-sel); border-color: var(--bsm-sel); color: var(--bsm-sel-fg); }
 .bsm-days button.on small { color: var(--bsm-sel-m); }
+/* Hafta okları — gün kutularıyla aynı yükseklik ve kenar, daha dar */
+.bsm-days button.nav { color: var(--dc-muted); }
+.bsm-days button.nav:hover:not(:disabled) { color: var(--dc-ink); }
+.bsm-days button.nav:disabled { opacity: .35; cursor: default; }
+.bsm-days button.nav:disabled:hover { background: var(--dc-surface); }
+.bsm-days button.nav svg { width: 17px; height: 17px; }
 
 /* ── zaman çizelgesi · dikey gün görünümü ──
    Takvimin Gün görünümüyle aynı yön: saatler yukarıdan aşağı, her uzman bir
@@ -207,6 +213,13 @@
 .bsm-cal-body .sel.bad { background: var(--dc-red); box-shadow: none; }
 .bsm-cal-body .col > span.now { z-index: 4; height: 2px; margin-top: -1px; background: var(--dc-orange); }
 @keyframes bsm-pop { from { transform: scaleY(.7); opacity: .4; } }
+/* Dolu formda dışarı tıklama kapatmaz; pencere hafifçe "burada" der */
+.bsm-modal.nudge { animation: bsm-nudge .32s ease-out; }
+@keyframes bsm-nudge {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    40% { transform: translate(-50%, -50%) scale(1.012); }
+}
+@media (prefers-reduced-motion: reduce) { .bsm-modal.nudge { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .bsm-cal-body .sel { animation: none; } }
 .bsm-sec-h .note.live { color: var(--dc-ink); font-weight: 700; }
 
@@ -225,13 +238,18 @@
 
 /* alt bar */
 .bsm-foot { flex: none; display: flex; align-items: center; gap: 14px; padding: 14px 18px 14px 22px; border-top: 1px solid var(--dc-border); background: var(--dc-surface); }
-.bsm-sum { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--dc-muted); white-space: nowrap; overflow: hidden; }
-.bsm-sum > * { flex: none; }
+/* Özet sığmazsa ikinci satıra iner — eskiden tek satırda kesiliyordu */
+.bsm-sum { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px; font-size: 14px; line-height: 1.35; color: var(--dc-muted); }
+.bsm-sum > * { flex: none; white-space: nowrap; }
 .bsm-sum b { color: var(--dc-ink); font-weight: 700; }
 .bsm-sum .ask { color: var(--bsm-muted2); }
 .bsm-sum .bad { color: var(--dc-red); font-weight: 700; }
 .bsm-sum .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--bsm-muted2); }
 .bsm-sum .auto { margin-left: 6px; font-style: normal; font-size: 12px; font-weight: 700; color: var(--dc-orange-d); }
+/* Fiyat düğmenin yanında sabit — hiçbir zaman kesilmez */
+.bsm-price { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.bsm-price b { font-size: 19px; font-weight: 800; letter-spacing: -.02em; color: var(--dc-ink); font-variant-numeric: tabular-nums; }
+.bsm-price small { font-size: 12px; font-weight: 700; color: var(--dc-green); }
 .bsm-go { flex: none; height: 46px; padding: 0 22px; border-radius: 12px; background: var(--dc-orange) !important; color: #fff !important; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .14s, opacity .14s; }
 .bsm-go svg { width: 16px; height: 16px; }
 .bsm-go:hover:not(:disabled) { background: var(--dc-orange-d) !important; }
@@ -243,8 +261,9 @@
     .bsm-body { grid-template-columns: 1fr; overflow-y: auto; }
     .bsm-col { overflow: visible; }
     .bsm-left { border-right: 0; border-bottom: 1px solid var(--dc-border); }
-    .bsm-days { grid-template-columns: repeat(var(--n, 7), 52px); overflow-x: auto; }
+    .bsm-days { grid-template-columns: 34px repeat(var(--n, 7), 52px) 34px; overflow-x: auto; }
     .bsm-foot { flex-wrap: wrap; }
     .bsm-sum { flex-basis: 100%; }
-    .bsm-go { width: 100%; justify-content: center; }
+    .bsm-price { flex-direction: row; align-items: baseline; gap: 6px; }
+    .bsm-go { flex: 1; justify-content: center; }
 }

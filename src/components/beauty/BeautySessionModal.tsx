@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Search, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
@@ -191,8 +191,15 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         : (hasServices ? selectedServices.reduce((s, x) => s + (x.duration || 0), 0) || 60 : 60);
     const totalPrice = hasServices ? selectedServices.reduce((s, x) => s + (x.price || 0), 0) : 0;
 
-    // 7 günlük şerit. Takvimden bu aralığın dışındaki bir gün için açıldıysa o
-    // gün sona eklenir — yoksa seçili gün şeritte hiç görünmüyordu.
+    // 7 günlük şerit + hafta okları (‹ ›). Lazer/paket seansları çoğu zaman 3–6
+    // hafta sonraya yazılıyor; 7 gün yetmiyordu. Takvimden ileri bir günle
+    // açıldıysa şerit o haftadan başlar. Geçmiş haftaya gidilmez.
+    const todayISO = toISODate(new Date());
+    const daysFromToday = (iso: string) => Math.round(
+        (new Date(`${iso}T12:00:00`).getTime() - new Date(`${todayISO}T12:00:00`).getTime()) / 86_400_000,
+    );
+    const [week, setWeek] = useState(() => Math.max(0, Math.floor(daysFromToday(preset?.date || todayISO) / 7)));
+    const MAX_WEEK = 52;
     const dateOptions = useMemo(() => {
         const opt = (d: Date, top: string) => {
             const wh = (settings.workingHours || []).find((w) => w.day === d.getDay());
@@ -201,17 +208,25 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                 long: d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' }),
             };
         };
-        const out = Array.from({ length: 7 }, (_, i) => {
+        return Array.from({ length: 7 }, (_, i) => {
+            const n = week * 7 + i;
             const d = new Date();
-            d.setDate(d.getDate() + i);
-            return opt(d, i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short' }));
+            d.setDate(d.getDate() + n);
+            return opt(d, n === 0 ? 'Bugün' : n === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short' }));
         });
-        if (!out.some((o) => o.iso === date)) {
-            const d = new Date(`${date}T12:00:00`);
-            out.push(opt(d, d.toLocaleDateString('tr-TR', { weekday: 'short' })));
-        }
-        return out;
-    }, [date, settings.workingHours]);
+    }, [week, settings.workingHours]);
+    // Şeridin hangi haftayı gösterdiği: "21–27 Ekim" ya da "28 Ekim – 3 Kasım"
+    const weekRange = (() => {
+        const a = new Date(`${dateOptions[0].iso}T12:00:00`);
+        const b = new Date(`${dateOptions[dateOptions.length - 1].iso}T12:00:00`);
+        const month = (d: Date) => d.toLocaleDateString('tr-TR', { month: 'long' });
+        return a.getMonth() === b.getMonth()
+            ? `${a.getDate()}–${b.getDate()} ${month(b)}`
+            : `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)}`;
+    })();
+    // "Diğer" tarih düğmesi (yerel tarih seçici) denendi ve kaldırıldı
+    // (2026-10-21): tarayıcının penceresi koyu temada bembeyaz açılıyor,
+    // pencerenin diline hiç benzemiyordu ("basit"). Yerine hafta okları.
 
     // O günün kayıtları bir kez süzülür: çizelge her adımda bunlara bakıyor.
     const dayRes = useMemo(
@@ -422,10 +437,32 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         }
     };
 
+    // Form dolu mu? Dışarı tıklama yalnız boş formu kapatır — yanlışlıkla
+    // pencerenin dışına tıklamak girilen her şeyi siliyordu (2026-10-21).
+    // Bilinçli kapatma için çarpı ve Esc var. Pakedin kendiliğinden seçilmesi
+    // kullanıcı girişi sayılmaz.
+    const dirty = Boolean(
+        (customer && customer !== initialCustomer) || query.trim() || hasServices || slot !== (preset?.slot || '')
+        || date !== (preset?.date || todayISO) || resourceId !== (preset?.resourceId || ''),
+    );
+    const [nudge, setNudge] = useState(false);
+    const onScrim = () => {
+        if (!dirty) { onClose(); return; }
+        setNudge(true);
+        window.setTimeout(() => setNudge(false), 320);
+    };
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
     // Alt bardaki özet: eksik parça soluk bir istemle yazılır, otomatik
     // atanan uzman ve kabin işaretli — kullanıcı kime/nereye verildiğini
     // kaydetmeden önce görsün.
-    const dayLabel = dateOptions.find((d) => d.iso === date)?.long ?? '';
+    // Seçili gün şeritte görünmeyebilir (oklarla başka haftaya geçildiyse);
+    // etiket şeritten değil doğrudan tarihten üretilir.
+    const dayLabel = new Date(`${date}T12:00:00`).toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
     const summary: React.ReactNode[] = [
         customer ? <b key="c">{customer.name}</b> : <span key="c" className="ask">Müşteri seçin</span>,
         selectedPlan ? <span key="s">{selectedPlan.title} · paketten</span>
@@ -443,19 +480,22 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         if (rName) summary.push(<span key="k">{rName}{!resourceId && <i className="auto">otomatik</i>}</span>);
     }
     if (slotBad) summary.push(<span key="x" className="bad">bu saat artık uygun değil</span>);
-    if (selectedPlan) summary.push(<b key="p">₺0</b>);
-    else if (totalPrice > 0) summary.push(<b key="p">₺{totalPrice.toLocaleString('tr-TR')}</b>);
+    // Fiyat özetin sonunda değil, düğmenin yanında sabit: üç hizmet seçilince
+    // özet sığmıyor ve en önemli rakam "₺2.3" diye kesiliyordu (2026-10-21).
+    const priceLabel = selectedPlan ? '₺0' : totalPrice > 0 ? `₺${totalPrice.toLocaleString('tr-TR')}` : '';
 
     // Portal ile body'ye taşınır: aksi halde .bpk (Paketler) gibi kapsayıcıların
     // scoped `button{color:inherit}` reset'i modalın metin renklerini ezip
     // seçili (siyah) satırlardaki yazıyı görünmez yapıyordu.
     return createPortal(
         <div className={cn('dash-theme bsm fixed inset-0 z-[100]', dark && 'dark')}>
-            <div className="bsm-scrim" onClick={onClose} />
-            <div className="bsm-modal" role="dialog" aria-label="Yeni seans">
+            <div className="bsm-scrim" onClick={onScrim} />
+            <div className={cn('bsm-modal', nudge && 'nudge')} role="dialog" aria-modal="true" aria-label="Yeni seans">
                 <div className="bsm-head">
                     <h2>Yeni seans</h2>
-                    <span className="ctx">· {now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                    {/* Seçili gün — eskiden hep bugünün tarihi yazıyordu, Cumartesi
+                        seçilince de "Çarşamba" diyordu (2026-10-21) */}
+                    <span className="ctx">· {dayLabel}</span>
                     <button type="button" onClick={onClose} aria-label="Kapat" className="bsm-x"><X /></button>
                 </div>
 
@@ -561,14 +601,25 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                     {/* Sağ: gün şeridi + zaman çizelgesi + kabin */}
                     <div className="bsm-col bsm-right">
                         <section>
-                            <div className="bsm-sec-h"><span className="eyebrow">Gün</span></div>
+                            <div className="bsm-sec-h">
+                                <span className="eyebrow">Gün</span>
+                                <span className="note">{weekRange}</span>
+                            </div>
                             <div className="bsm-days" style={{ '--n': dateOptions.length } as React.CSSProperties}>
+                                <button type="button" className="nav" aria-label="Önceki hafta" title="Önceki hafta"
+                                    disabled={week === 0} onClick={() => setWeek((w) => Math.max(0, w - 1))}>
+                                    <ChevronLeft />
+                                </button>
                                 {dateOptions.map((d) => (
                                     <button key={d.iso} type="button" onClick={() => { setDate(d.iso); setSlot(''); setHover(null); }}
                                         className={cn(d.iso === date && 'on', d.off && 'off')} title={d.off ? `${d.long} · kapalı` : d.long}>
                                         <small>{d.top}</small><b>{d.day}</b>
                                     </button>
                                 ))}
+                                <button type="button" className="nav" aria-label="Sonraki hafta" title="Sonraki hafta"
+                                    disabled={week >= MAX_WEEK} onClick={() => setWeek((w) => Math.min(MAX_WEEK, w + 1))}>
+                                    <ChevronRight />
+                                </button>
                             </div>
                         </section>
 
@@ -680,6 +731,12 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                     <p className="bsm-sum">
                         {summary.map((node, i) => <Fragment key={i}>{i > 0 && <span className="sep" />}{node}</Fragment>)}
                     </p>
+                    {priceLabel && (
+                        <span className="bsm-price">
+                            {selectedPlan && <small>paketten</small>}
+                            <b>{priceLabel}</b>
+                        </span>
+                    )}
                     <button type="button" onClick={create} disabled={!canSave || saving} className="bsm-go">
                         <Check />{saving ? 'Kaydediliyor…' : 'Seansı oluştur'}
                     </button>
