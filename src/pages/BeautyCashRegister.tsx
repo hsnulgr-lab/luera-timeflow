@@ -1323,7 +1323,7 @@ export function BeautyCashRegister({
                             {todayPayments.map((p) => (
                                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11, background: 'var(--dc-surface2)', border: '1px solid var(--dc-border)' }}>
                                     <span style={{ width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--dc-page)', flexShrink: 0 }}>{p.method === 'cash' ? <Banknote size={16} /> : p.method === 'transfer' ? <Landmark size={16} /> : <CreditCard size={16} />}</span>
-                                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.description || 'Tahsilat'}</div><div style={{ fontSize: 11, color: 'var(--dc-muted)' }}>{methodLabel(p.method)} · {new Date(p.paidAt).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}</div></div>
+                                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.description || 'Tahsilat'}</div><div style={{ fontSize: 12.5, color: 'var(--dc-muted)' }}>{methodLabel(p.method)} · {new Date(p.paidAt).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}</div></div>
                                     <strong style={{ fontSize: 13.5, fontWeight: 800 }}>{tl(p.amount)}</strong>
                                 </div>
                             ))}
@@ -1342,7 +1342,7 @@ export function BeautyCashRegister({
                             <button type="button" style={{ ...DLG_GHOST, padding: '6px 10px' }} onClick={() => setShowDayEnd(false)}>Kapat</button>
                         </div>
                         <div style={{ padding: 18 }}>
-                            <div style={{ textAlign: 'center', marginBottom: 16 }}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--dc-muted)' }}>BUGÜN TAHSİL EDİLEN</div><div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.02em' }}>{tl(dayEnd.total)}</div><div style={{ fontSize: 12, color: 'var(--dc-muted)' }}>{dayEnd.count} işlem</div></div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}><div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.14em', color: 'var(--dc-muted)' }}>BUGÜN TAHSİL EDİLEN</div><div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.02em' }}>{tl(dayEnd.total)}</div><div style={{ fontSize: 12, color: 'var(--dc-muted)' }}>{dayEnd.count} işlem</div></div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                                 {(['cash', 'card', 'transfer', 'other'] as PaymentMethod[]).filter((m) => dayEnd.m[m] > 0).map((m) => (
                                     <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 11, background: 'var(--dc-surface2)', border: '1px solid var(--dc-border)' }}>
@@ -1385,7 +1385,7 @@ export function BeautyCashRegister({
                         <div style={{ padding: 18 }}>
                             <strong style={{ fontSize: 15, fontWeight: 800 }}>Kapora al</strong>
                             <div style={{ fontSize: 12, color: 'var(--dc-muted)', margin: '2px 0 14px' }}>{record.customerName} · kalan {tl(totalDue)}</div>
-                            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>KAPORA TUTARI (₺)</label>
+                            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>KAPORA TUTARI (₺)</label>
                             <input autoFocus inputMode="numeric" value={kaporaAmt} onChange={(e) => setKaporaAmt(e.target.value.replace(/\D/g, ''))} placeholder="0" style={DLG_INPUT} />
                             {totalDue > 0 && (
                                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
@@ -1448,7 +1448,7 @@ export function BeautyCashRegister({
                             {/* İndirim kodu — "sizi özledik" mesajıyla giden kod (071).
                                 Tutarı elle girmek yerine kod okutmak, kampanyanın
                                 kimi geri getirdiğini ölçmenin tek yolu. */}
-                            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM KODU</label>
+                            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM KODU</label>
                             {discountCodeLabel ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 11, background: 'var(--dc-green-bg)', color: 'var(--dc-green)', fontSize: 13, fontWeight: 700 }}>
                                     <BadgePercent size={16} />
@@ -1469,11 +1469,11 @@ export function BeautyCashRegister({
                                     </button>
                                 </div>
                             )}
-                            {codeError && <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--dc-red, #c0392b)' }}>{codeError}</div>}
+                            {codeError && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--dc-red, #c0392b)' }}>{codeError}</div>}
 
                             <div style={{ height: 1, background: 'var(--dc-border)', margin: '16px 0' }} />
 
-                            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM TUTARI (₺)</label>
+                            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--dc-muted)', marginBottom: 6 }}>İNDİRİM TUTARI (₺)</label>
                             <input inputMode="numeric" value={discountStr} disabled={Boolean(discountCodeLabel)} onChange={(e) => { setDiscountStr(e.target.value.replace(/\D/g, '')); setAppliedCode(null); }} placeholder="0" style={{ ...DLG_INPUT, opacity: discountCodeLabel ? .55 : 1 }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
                                 <button type="button" style={DLG_GHOST} disabled={discountSaving} onClick={() => void clearDiscount()}>{discountSaving ? 'Kaydediliyor…' : 'Kaldır'}</button>

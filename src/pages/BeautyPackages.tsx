@@ -36,7 +36,7 @@ import './beautyPackages.css';
 // − plana bağlı ödemeler. Şablon/kayıtlı düzeltme/geçerlilik backend'i olmadığı
 // için ilgili yüzeyler güvenle "yakında" olarak devre dışıdır (sahte başarı yok).
 
-const MONO = '"Inter",system-ui,-apple-system,sans-serif';
+const MONO = "'Hanken Grotesk',system-ui,sans-serif";   // eskiden Inter — sayfa bütünlüğü (2026-10-21)
 const fmtTL = (n: number) => `₺${Math.round(n).toLocaleString('tr-TR')}`;
 const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toLocaleUpperCase('tr');
 const daysSince = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000));
@@ -424,7 +424,7 @@ export function BeautyPackages() {
                     {/* Filtre rayı */}
                     <aside className="filter-rail">
                         <div className="rail-head">
-                            <span style={{ font: `650 11px ${MONO}`, letterSpacing: '.2em', color: 'var(--dc-muted)' }}>AKILLI GÖRÜNÜMLER</span>
+                            <span style={{ font: `650 12.5px ${MONO}`, letterSpacing: '.08em', color: 'var(--dc-muted)' }}>AKILLI GÖRÜNÜMLER</span>
                             <button aria-label="Filtreleri düzenle"><Layers size={15} /></button>
                         </div>
                         <div className="filter-groups">
@@ -679,7 +679,7 @@ export function BeautyPackages() {
                                                 ? <span className="mini-danger">{selected.paid > 0 ? 'Kısmi ödeme' : 'Ödeme yok'}</span>
                                                 : <span className="mini-success">Tam ödendi</span>}
                                             {selected.balance > 0 && cashOn && (
-                                                <button className="button primary" style={{ marginLeft: 'auto', minHeight: 34, fontSize: 10.5 }}
+                                                <button className="button primary" style={{ marginLeft: 'auto', minHeight: 34, fontSize: 12 }}
                                                     title="Tahsilat Kasa'dan alınır — yöntem ve tutar orada seçilir"
                                                     onClick={() => sendToKasa(selected)}>
                                                     <Wallet size={13} />Kasaya gönder
@@ -699,7 +699,7 @@ export function BeautyPackages() {
                                     <div className="detail-section">
                                         <div className="section-title"><span><History size={14} />Hareketler</span><small>{history.length} kayıt</small></div>
                                         <div className="timeline">
-                                            {history.length === 0 && <p style={{ color: 'var(--dc-muted)', fontSize: 10, margin: '6px 0' }}>Kayıt yok</p>}
+                                            {history.length === 0 && <p style={{ color: 'var(--dc-muted)', fontSize: 12, margin: '6px 0' }}>Kayıt yok</p>}
                                             {history.map((h, i) => (
                                                 <div key={i}>
                                                     <i style={dot(h.tone)} />
@@ -1254,7 +1254,7 @@ function CorrectionModal({ pkg, onClose, onApply }: CorrectionProps) {
                         </div>
                         <span><small>SONRA</small><strong>{val}</strong><em>{delta > 0 ? `+${delta}` : delta} hak</em></span>
                     </div>
-                    <p style={{ fontSize: 9, color: 'var(--muted)', margin: 0 }}>Tek düzeltmede en fazla 3 hak. Toplam, kullanılanın altına inemez; denklem korunur.</p>
+                    <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0 }}>Tek düzeltmede en fazla 3 hak. Toplam, kullanılanın altına inemez; denklem korunur.</p>
                     <label>
                         <span>Neden bu düzeltmeyi yapıyorsunuz?</span>
                         <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Örn. yanlış seans sayısı girildi" />
@@ -1262,7 +1262,7 @@ function CorrectionModal({ pkg, onClose, onApply }: CorrectionProps) {
                     {err && <div className="field-error"><AlertTriangle size={13} />{err}</div>}
                 </div>
                 <footer>
-                    <div style={{ marginRight: 'auto', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 9 }}><ShieldCheck size={13} />Denklem korunur</div>
+                    <div style={{ marginRight: 'auto', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}><ShieldCheck size={13} />Denklem korunur</div>
                     <button className="button quiet" onClick={onClose}>Vazgeç</button>
                     <button className="button primary" disabled={delta === 0 || !reason.trim() || saving} onClick={() => void apply()}>
                         {saving ? 'Kaydediliyor…' : <>Düzeltmeyi kaydet<Check size={14} /></>}
@@ -1326,9 +1326,9 @@ function DefinitionsModal({ templates, onClose, addTemplate, updateTemplate, rem
                     </div>
                     <div style={{ padding: '4px 12px 12px' }}>
                         <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', display: 'grid', gap: 10 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 800 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800 }}>
                                 {editing ? <Pencil size={13} /> : <Plus size={13} />}{editing ? 'Şablonu düzenle' : 'Yeni tanım'}
-                                {editing && <button onClick={reset} style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, color: 'var(--orange-dark)' }}>iptal</button>}
+                                {editing && <button onClick={reset} style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 800, color: 'var(--orange-dark)' }}>iptal</button>}
                             </div>
                             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Tanım adı — örn. 8 Seans Cilt Bakımı" maxLength={80} />
                             <div style={{ display: 'grid', gridTemplateColumns: '135px 1fr', gap: 10 }}>
@@ -1343,7 +1343,7 @@ function DefinitionsModal({ templates, onClose, addTemplate, updateTemplate, rem
                     </div>
                 </div>
                 <footer>
-                    <div style={{ marginRight: 'auto', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 9 }}><ShieldCheck size={13} />{templates.length} tanım</div>
+                    <div style={{ marginRight: 'auto', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}><ShieldCheck size={13} />{templates.length} tanım</div>
                     <button className="button quiet" onClick={onClose}>Kapat</button>
                     <button className="button primary" disabled={!name.trim() || busy} onClick={() => void save()}>
                         {busy ? 'Kaydediliyor…' : editing ? <>Güncelle<Check size={14} /></> : <>Ekle<Plus size={14} /></>}
