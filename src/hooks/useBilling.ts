@@ -117,6 +117,8 @@ export function useBilling() {
             // Süren aboneliğe ikinci abonelik açılmaz (çift tahsilat). Plan
             // değişikliği henüz kendi kendine yapılamıyor.
             if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor. Plan değişikliği için destek@lueratech.com adresine yazın.');
+            // Tek kişilik paketi tek çalışana (dodo-checkout · MAX_STAFF).
+            else if (code === 'team_too_large') toast.info('Bu paket tek çalışan içindir; ekibinizde birden çok kişi var. Ekip paketini seçin.');
             else toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
             return;
         }

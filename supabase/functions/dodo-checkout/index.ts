@@ -39,6 +39,11 @@ const corsHeaders = {
 const MODULE = 'timeflow';
 const VALID_PLANS = ['baslangic', 'pro', 'isletme'];
 const VALID_CYCLES = ['monthly', 'yearly'];
+/**
+ * Planın en çok aktif çalışanı (src/lib/plans.ts · maxStaff ile aynı;
+ * tests/fiyat-2026-10.test.mjs eşler). Listede olmayan plan sınırsız.
+ */
+const MAX_STAFF: Record<string, number> = { baslangic: 1 };
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -174,6 +179,25 @@ Deno.serve(async (req: Request) => {
                 return json({ resumed: true }, 200);
             }
             return json({ error: 'already_subscribed' }, 409);
+        }
+
+        // Tek kişilik paketi tek çalışana. Yalnız YENİ alımda: süren Tek
+        // kişilik abone sonradan personel eklerse engellenmez (sonrası
+        // yumuşak — Ayarlar'da not). Ekran kartı zaten pasif çiziyor; bu,
+        // ekranı atlayan isteğe karşı. is_active NULL = aktif (useStaff).
+        const maxStaff = MAX_STAFF[plan];
+        if (maxStaff !== undefined) {
+            const { count, error: staffErr } = await admin.from('staff')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId)
+                .not('is_active', 'is', false);
+            if (staffErr) {
+                console.error('dodo-checkout: personel sayılamadı', staffErr);
+                return json({ error: 'staff_lookup_failed' }, 500);
+            }
+            if ((count ?? 0) > maxStaff) {
+                return json({ error: 'team_too_large', staff: count, max: maxStaff }, 409);
+            }
         }
 
         // (plan, cycle) → Dodo ürün id — JSON haritadan (env/app_secrets)

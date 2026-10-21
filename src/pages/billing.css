@@ -77,7 +77,7 @@
 .bl .toggle button{min-height:44px;padding:0 20px;border-radius:11px;font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--dc-muted);display:inline-flex;align-items:center;gap:9px}
 .bl .toggle button.on{background:var(--dc-card);color:var(--dc-ink);box-shadow:var(--sh-sm)}
 .bl .save{font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--dc-orange-d);background:var(--dc-orange-soft);border-radius:6px;padding:3px 7px}
-.bl .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.bl .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
 .bl .plan{background:var(--dc-surface);border:1.5px solid var(--dc-border);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:16px;position:relative}
 .bl .plan.pop{border-color:var(--dc-orange);border-width:2px;padding:21px;background:var(--dc-card);box-shadow:var(--sh-md)}
 .bl .plan.pop::after{content:'';position:absolute;inset:-2px;border-radius:20px;border:2px solid var(--dc-orange);opacity:0;pointer-events:none;animation:ring 3s cubic-bezier(.2,.7,.3,1) infinite}

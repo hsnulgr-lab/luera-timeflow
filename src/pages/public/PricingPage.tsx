@@ -3,7 +3,7 @@ import { cn } from '@/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
 import { PlanCards } from '@/components/billing/PlanCards';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
-import { PLANS, TRIAL_DAYS, firstChargeDate, formatTRY, planById, type Cycle, type PlanId } from '@/lib/plans';
+import { PLANS, TRIAL_DAYS, firstChargeDate, formatTRY, planById, yearlyFreeMonths, type Cycle, type PlanId } from '@/lib/plans';
 import '@/pages/billing.css';
 
 // Herkese açık fiyat sayfası — /fiyatlar
@@ -35,6 +35,7 @@ export function PricingPage() {
     const charge = firstChargeDate(today);
     const nudge = new Date(charge.getTime() - 2 * 86_400_000);
     const pro = planById('pro') ?? PLANS[1];
+    const solo = planById('baslangic') ?? PLANS[0];
 
     return (
         <div className={cn('bl dash-theme', dark && 'dark')}
@@ -48,10 +49,10 @@ export function PricingPage() {
                             <Ico n="ck" />
                             {TRIAL_DAYS} gün ücretsiz · deneme içinde iptal ederseniz ücret alınmaz
                         </span>
-                        <h1>Randevularınız tek yerde, ayda bir kahve parasına.</h1>
+                        <h1>Randevu, kasa ve müşterileriniz tek yerde.</h1>
                         <p>
-                            İşletmeniz büyüdükçe planınızı yükseltirsiniz. Sözleşme yok, taahhüt yok,
-                            istediğiniz an iptal.
+                            Tek başınıza başlarsınız, ekibiniz büyüyünce planınızı yükseltirsiniz.
+                            Sözleşme yok, taahhüt yok, istediğiniz an iptal.
                         </p>
                     </div>
 
@@ -124,7 +125,7 @@ export function PricingPage() {
                         </div>
                         <div className="qa">
                             <div className="q">Yıllık ödersem ne kazanıyorum?</div>
-                            <div className="a">İki ay bedava — 12 ay yerine 10 ay ödersiniz. Yıllık ödemede de {TRIAL_DAYS} gün deneme geçerli.</div>
+                            <div className="a">{yearlyFreeMonths(pro)} ay bedava: {12 - yearlyFreeMonths(pro)} ayın ücretini yılda bir kez ödersiniz. Yıllık ödemede de {TRIAL_DAYS} gün deneme geçerli.</div>
                         </div>
                         <div className="qa">
                             <div className="q">İptal edersem verilerim silinir mi?</div>
@@ -132,7 +133,7 @@ export function PricingPage() {
                         </div>
                         <div className="qa">
                             <div className="q">Kaç kişi kullanabilir?</div>
-                            <div className="a">Başlangıç'ta 3 kişi, Pro ve İşletme'de sınırsız. Herkes kendi girişiyle kendi takvimini görür.</div>
+                            <div className="a">{solo.name} paketi tek çalışan içindir. {pro.name} ve İşletme'de personel sınırı yok; herkes kendi girişiyle kendi takvimini görür.</div>
                         </div>
                         <div className="qa">
                             <div className="q">Kurulumda yardım ediyor musunuz?</div>

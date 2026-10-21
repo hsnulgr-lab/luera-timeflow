@@ -123,19 +123,20 @@ test('planlar tek dosyadan okunuyor', () => {
     assert.deepEqual(PLANS.map((p) => p.id), ['baslangic', 'pro', 'isletme']);
     assert.equal(PLANS.filter((p) => p.popular).length, 1, 'tek bir "en çok seçilen" olmalı');
     for (const p of PLANS) {
-        assert.ok(p.monthly > 0 && p.yearly > 0, `${p.id}: fiyat yok`);
-        assert.ok(p.yearly < p.monthly, `${p.id}: yıllık ödeme aylıktan pahalı olamaz`);
-        assert.ok(p.features.length >= 5, `${p.id}: özellik listesi kısa`);
+        assert.ok(p.monthly > 0 && p.yearlyTotal > 0, `${p.id}: fiyat yok`);
+        assert.ok(p.yearlyTotal < p.monthly * 12, `${p.id}: yıllık ödeme 12 aydan pahalı olamaz`);
+        assert.ok(p.features.length >= 3, `${p.id}: özellik listesi kısa`);
     }
 });
 
 test('yıllık indirim hesaplanır, sabit yazılmaz', () => {
     // "%20 indirim" sabit yazılsaydı fiyat değiştiğinde yazı sessizce yalan
     // olurdu.
+    // Fiyat turu 2026-10: yıllık = 10 × aylık ("2 ay bedava", ≈ %17).
     const pro = planById('pro');
-    assert.equal(yearlyDiscountPercent(pro), 20);
-    assert.equal(priceOf(pro, 'monthly'), 599);
-    assert.equal(priceOf(pro, 'yearly'), 479);
+    assert.equal(yearlyDiscountPercent(pro), 17);
+    assert.equal(priceOf(pro, 'monthly'), 1299);
+    assert.equal(priceOf(pro, 'yearly'), 12990, 'yıllıkta ÇEKİLEN tutar: yılda tek sefer');
     assert.equal(formatTRY(1199), '1.199');
 });
 

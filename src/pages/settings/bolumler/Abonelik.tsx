@@ -23,7 +23,10 @@ import { toast } from 'sonner';
 import { useBilling } from '@/hooks/useBilling';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { useStaff } from '@/hooks/useStaff';
-import { PLANS, TRIAL_DAYS, formatTRY, planById, type Cycle, type Plan, type PlanId } from '@/lib/plans';
+import {
+    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
+    type Cycle, type Plan, type PlanId,
+} from '@/lib/plans';
 import { dayLocative, trDate } from '../ayarlarModel';
 import { Dots, Head, I, Modal, Seg } from '../parcalar';
 
@@ -65,8 +68,11 @@ export function Abonelik() {
     const onTrial = ent.effective === 'trial';
     const plan = planById(subscription?.plan) ?? planById(ent.plan);
     const cycle: Cycle = (subscription?.billing_period ?? ent.cycle) === 'yearly' ? 'yearly' : 'monthly';
-    const monthly = plan ? (cycle === 'yearly' ? plan.yearly : plan.monthly) : 0;
-    const yearlySave = plan ? (plan.monthly - plan.yearly) * 12 : 0;
+    // Dönemde ÇEKİLEN tutar: yıllıkta yıllık toplam (eskiden aylığa düşen
+    // yazılıyordu — yıllık aboneye "Sonraki tahsilat ₺479" diyordu).
+    const charge = plan ? priceOf(plan, cycle) : 0;
+    const yearlySave = plan ? yearlySaving(plan) : 0;
+    const activeStaff = staff.filter((s) => s.isActive).length;
     // Dodo'nun gerçek günü (tolerans hariç) — Dodo'nun e-postasıyla aynı tarih.
     const until = ent.shownUntil ?? subscription?.expires_at ?? null;
     const untilDay = until ? new Date(until).getDate() : null;
@@ -150,7 +156,7 @@ export function Abonelik() {
                     </div>
                 </div>
                 <div role="status" className="ay-box info"><I n="info" />Şimdi bir plan seçerseniz ilk tahsilat denemeniz bittiğinde yapılır; o güne kadar ücret alınmaz.</div>
-                <PlanKartlari busy={busy} onSelect={onSelect} cta={() => 'Bu planı seç'} />
+                <PlanKartlari busy={busy} onSelect={onSelect} activeStaff={activeStaff} cta={() => 'Bu planı seç'} />
             </div>
         );
     }
@@ -166,7 +172,7 @@ export function Abonelik() {
                 {firstTime
                     ? <div role="status" className="ay-box info"><I n="info" />Aktif aboneliğiniz yok. Bir plan seçin — ilk {TRIAL_DAYS} gün ücretsiz, deneme içinde iptal ederseniz ücret alınmaz.</div>
                     : <div role="status" className="ay-box info"><I n="info" />{ent.state === 'trial' ? 'Denemeniz bitti.' : 'Aboneliğiniz sona erdi.'} Verileriniz duruyor; bir plan seçtiğiniz an kaldığınız yerden devam edersiniz. İlk tahsilat bugün yapılır.</div>}
-                <PlanKartlari busy={busy} onSelect={onSelect} cta={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
+                <PlanKartlari busy={busy} onSelect={onSelect} activeStaff={activeStaff} cta={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
             </div>
         );
     }
@@ -198,14 +204,14 @@ export function Abonelik() {
                                 <span className="ay-help">{cycle === 'yearly' ? 'Yıllık' : 'Aylık'} ödeme</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                                <span style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-.02em' }}>₺{formatTRY(monthly)}</span>
-                                <span className="ay-help sm">{cycle === 'yearly' ? 'aylık karşılığı' : untilDay ? `her ayın ${dayLocative(untilDay)}` : '/ ay'}</span>
+                                <span style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-.02em' }}>₺{formatTRY(charge)}</span>
+                                <span className="ay-help sm">{cycle === 'yearly' ? 'yılda bir' : untilDay ? `her ayın ${dayLocative(untilDay)}` : '/ ay'}</span>
                             </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', padding: '0 24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
                                 <span style={{ color: 'var(--tx2)' }}>{periodPast ? 'Dönem sonu' : onTrial ? 'Deneme bitiyor' : subscription?.cancel_at_period_end ? 'Erişim bitiyor' : 'Sonraki tahsilat'}</span>
-                                <span style={{ fontWeight: 700 }}>{trDate(until)}{!subscription?.cancel_at_period_end && !periodPast && ` · ₺${formatTRY(monthly)}`}</span>
+                                <span style={{ fontWeight: 700 }}>{trDate(until)}{!subscription?.cancel_at_period_end && !periodPast && ` · ₺${formatTRY(charge)}`}</span>
                             </div>
                             {periodPast && (
                                 <div role="status" className="ay-box warn" style={{ margin: '0 0 12px', fontSize: 14 }}>
@@ -241,20 +247,31 @@ export function Abonelik() {
                         <div className="ay-card pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <h3 style={{ fontSize: 18, fontWeight: 800 }}>Yıllığa geçin</h3>
                             <span style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-                                <span style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1 }}>₺{formatTRY(plan.yearly)}</span>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx2)' }}>/ ay</span>
+                                <span style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1 }}>₺{formatTRY(plan.yearlyTotal)}</span>
+                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx2)' }}>/ yıl</span>
                             </span>
-                            <p className="ay-help" style={{ lineHeight: 1.5, textWrap: 'pretty' }}>Aynı plan, yılda <b>₺{formatTRY(yearlySave)}</b> daha az. 12 ay yerine 10 ay ödersiniz.</p>
+                            <p className="ay-help" style={{ lineHeight: 1.5, textWrap: 'pretty' }}>Aynı plan, yılda <b>₺{formatTRY(yearlySave)}</b> daha az. 12 ay yerine {12 - yearlyFreeMonths(plan)} ay ödersiniz.</p>
                             <button type="button" className="ay-btn-pri wide h46" disabled={busy} onClick={() => onSelect(plan.id, 'yearly')}>Yıllığa geç</button>
                             <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--tx2)' }}>Yıllık planda da iptal hakkınız aynı.</span>
                         </div>
                     )}
                 </div>
 
+                {/* Tek kişilik abone sonradan personel ekledi: sınır ödeme anında
+                    sert, sonrası YUMUŞAK — engel yok, yalnız bu not (telefonda
+                    söylenemez: Apple, docs/abonelik-kurallari.md §2). Plan
+                    değiştirme kendi kendine yapılamıyor; yol destek e-postası. */}
+                {plan && !fitsTeam(plan, activeStaff) && (
+                    <div role="status" className="ay-box info">
+                        <I n="info" />
+                        <span>İşletmenizde {activeStaff} kişi çalışıyor; {plan.name} paketi tek çalışan içindir. Ekibinizle devam etmek için {planById('pro')?.name ?? 'Ekip'} paketine geçin. Geçiş için <a href="mailto:destek@lueratech.com" style={{ fontWeight: 700 }}>destek@lueratech.com</a> adresine yazmanız yeterli.</span>
+                    </div>
+                )}
+
                 {showPlans && (
                     <div className="ay-card pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <h3 style={{ fontSize: 18, fontWeight: 800 }}>Planlar</h3>
-                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} onSelect={onSelect} cta={() => 'Bu plana geç'} />
+                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} activeStaff={activeStaff} onSelect={onSelect} cta={() => 'Bu plana geç'} />
                     </div>
                 )}
 
@@ -294,21 +311,24 @@ export function Abonelik() {
     );
 }
 
-function PlanKartlari({ busy, current, defaultCycle = 'monthly', onSelect, cta }: {
-    busy: boolean; current?: PlanId | null; defaultCycle?: Cycle; onSelect: (p: PlanId, c: Cycle) => void; cta: (p: Plan) => string;
+function PlanKartlari({ busy, current, defaultCycle = 'monthly', activeStaff, onSelect, cta }: {
+    busy: boolean; current?: PlanId | null; defaultCycle?: Cycle; activeStaff: number;
+    onSelect: (p: PlanId, c: Cycle) => void; cta: (p: Plan) => string;
 }) {
     const [cycle, setCycle] = useState<Cycle>(defaultCycle);
+    const freeMonths = yearlyFreeMonths(PLANS.find((p) => p.popular) ?? PLANS[0]);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ alignSelf: 'center' }}>
                 <Seg wide label="Ödeme dönemi" value={cycle} onChange={setCycle} options={[
                     { v: 'monthly', t: 'Aylık' },
-                    { v: 'yearly', t: <>Yıllık<span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--tx)', padding: '3px 8px', borderRadius: 7, border: '1px solid var(--bd2)' }}>2 ay bedava</span></> },
+                    { v: 'yearly', t: <>Yıllık<span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--tx)', padding: '3px 8px', borderRadius: 7, border: '1px solid var(--bd2)' }}>{freeMonths} ay bedava</span></> },
                 ]} />
             </div>
             <div className="ay-plans">
                 {PLANS.map((p) => {
                     const isCurrent = current === p.id && cycle === defaultCycle;
+                    const fits = fitsTeam(p, activeStaff);
                     return (
                         <div key={p.id} className={p.popular ? 'ay-plan pop' : 'ay-plan'}>
                             {p.popular && <span className="badge">EN ÇOK SEÇİLEN</span>}
@@ -318,22 +338,27 @@ function PlanKartlari({ busy, current, defaultCycle = 'monthly', onSelect, cta }
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                 <span style={{ display: 'flex', alignItems: 'flex-end', gap: 5 }}>
-                                    <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>₺{formatTRY(cycle === 'yearly' ? p.yearly : p.monthly)}</span>
-                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx2)' }}>/ ay</span>
+                                    <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>₺{formatTRY(priceOf(p, cycle))}</span>
+                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx2)' }}>{cycle === 'yearly' ? '/ yıl' : '/ ay'}</span>
                                 </span>
-                                <span className="ay-help sm">{cycle === 'yearly' ? `Aylık ödemede ₺${formatTRY(p.monthly)} /ay` : `Yıllık ödemede ₺${formatTRY(p.yearly)} /ay`}</span>
+                                <span className="ay-help sm">{cycle === 'yearly' ? `Aylığa düşen ₺${formatTRY(yearlyPerMonth(p))} · ${yearlyFreeMonths(p)} ay bedava` : `Yıllık ödemede ₺${formatTRY(p.yearlyTotal)} /yıl`}</span>
                             </div>
                             <div className="ft">
                                 {p.features.map((f) => (
-                                    <span key={f.label} className={f.soon ? 'soon' : undefined}>
+                                    <span key={f.label}>
                                         <I n="check" /><span style={{ flex: 1 }}>{f.label}</span>
-                                        {f.soon && <span className="soon-tag">YAKINDA</span>}
                                     </span>
                                 ))}
                             </div>
                             {isCurrent
                                 ? <span className="cta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--bd2)', color: 'var(--tx2)' }}>Mevcut plan</span>
-                                : <button type="button" disabled={busy} className={p.popular ? 'ay-btn-pri cta' : 'ay-btn cta'} style={{ height: 48 }}
+                                : !fits
+                                    // Sunucu da satmaz (dodo-checkout · team_too_large).
+                                    ? <span className="cta" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, border: '1px solid var(--bd2)', color: 'var(--tx2)', fontSize: 14 }}>
+                                        <b>Ekibinizde {activeStaff} kişi var</b>
+                                        <span style={{ fontSize: 12.5 }}>Bu paket tek çalışan içindir</span>
+                                    </span>
+                                    : <button type="button" disabled={busy} className={p.popular ? 'ay-btn-pri cta' : 'ay-btn cta'} style={{ height: 48 }}
                                     onClick={() => onSelect(p.id, cycle)}>{cta(p)}</button>}
                         </div>
                     );
