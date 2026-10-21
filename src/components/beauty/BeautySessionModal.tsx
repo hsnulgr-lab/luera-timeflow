@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, Check, X } from 'lucide-react';
+import { Check, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
+import { useTheme } from '@/contexts/ThemeContext';
 import { activeRiskFlags, evaluateEligibility, firstBlocked } from '@/lib/serviceEligibility';
 import { allResourcesFull, isResourceFull, pickFreeResource } from '@/lib/resourceCapacity';
 import { useStaff } from '@/hooks/useStaff';
@@ -12,11 +13,17 @@ import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { cn } from '@/utils/cn';
 import { toISODate } from '@/utils/date';
 import type { Customer, Resource, Service, TreatmentPlan, WorkingHours } from '@/types';
+import './beautySessionModal.css';
 
-// Güzellik "Yeni Seans" modalı — tasarım: Guzellik Salonu.html modal bölümü.
-// Fark: klasik randevu modalının aksine paket-farkındalıklı çalışır — müşterinin
-// aktif paketi varsa otomatik önerilir (ücret ₺0), hamilelik kaydı varsa lazer
-// tipi hizmetler kapatılır. Hedef: telefonda konuşurken 5 tıkta seans.
+// Güzellik "Yeni Seans" modalı — paket-farkındalıklı: müşterinin aktif paketi
+// varsa otomatik önerilir (ücret ₺0), hamilelik kaydı varsa lazer tipi
+// hizmetler kapatılır.
+//
+// Zaman çizelgesi (2026-10-21, kullanıcı üç taslak arasından C'yi seçti):
+// saat kutuları yerine günün çizelgesi. Her uzman bir şerit, dolu saatler gri
+// blok; boş yere tıklayınca seans süresi kadar turuncu blok oraya oturur.
+// "Fark etmez" şeridi herkesin dolu olduğu saatleri gösterir — oraya konan
+// seansın uzmanını kayıt anında yük dengesiyle sistem seçer (autoStaff).
 
 /** Takvimdeki boş saatten açıldığında önden doldurulan alanlar. */
 export interface SessionPreset {
@@ -73,12 +80,36 @@ function addMinutes(time: string, mins: number): string {
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const initialsOf = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toLocaleUpperCase('tr');
+
+/** Çizelge şeridi: uzman, "fark etmez" ya da (personel kaydı yoksa) tek şerit. */
+interface Lane {
+    key: string;
+    label: string;
+    /** '' = fark etmez (otomatik), undefined = personel kaydı yok (atanmamış) */
+    staffId: string | undefined;
+    load?: number;
+}
+
+/** Ardışık adımları tek bloğa birleştirir: [başlangıç, bitiş) dakika. */
+function runsOf(times: string[], step: number, hit: (t: string) => boolean): [number, number][] {
+    const out: [number, number][] = [];
+    for (const t of times) {
+        if (!hit(t)) continue;
+        const s = toMin(t), e = s + step;
+        const last = out[out.length - 1];
+        if (last && last[1] >= s) last[1] = Math.max(last[1], e);
+        else out.push([s, e]);
+    }
+    return out;
+}
 
 export function BeautySessionModal({ customer: initialCustomer, preset, onClose, onCreated }: Props) {
     const { customers, addCustomer } = useCustomers();
     const { reservations, settings, addReservation } = useReservations();
     const { resources } = useResources();
     const { staff } = useStaff();
+    const { dark } = useTheme();
 
     const [customer, setCustomer] = useState<Customer | null>(initialCustomer);
     const [query, setQuery] = useState('');
@@ -111,10 +142,15 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     const [date, setDate] = useState(() => preset?.date || toISODate(new Date()));
     const [slot, setSlot] = useState(preset?.slot || '');
     const [saving, setSaving] = useState(false);
+    // Çizelgede imlecin altındaki adım — süre kadar hayalet blok çizilir
+    const [hover, setHover] = useState<{ lane: string; t: string } | null>(null);
 
+    const step = Math.max(5, settings.slotDuration || 30);
+    // "+" ile gelen mesai dışı saat yalnız kendi gününde eklenir
+    const presetSlot = preset?.slot && (!preset.date || preset.date === date) ? preset.slot : undefined;
     const slotTimes = useMemo(
-        () => slotTimesFor(date, settings.workingHours, settings.slotDuration, preset?.slot),
-        [date, settings.workingHours, settings.slotDuration, preset?.slot],
+        () => slotTimesFor(date, settings.workingHours, step, presetSlot),
+        [date, settings.workingHours, step, presetSlot],
     );
 
     const hasServices = selectedServices.length > 0;
@@ -150,30 +186,49 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         : (hasServices ? selectedServices.reduce((s, x) => s + (x.duration || 0), 0) || 60 : 60);
     const totalPrice = hasServices ? selectedServices.reduce((s, x) => s + (x.price || 0), 0) : 0;
 
-    const dateOptions = useMemo(() => Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        const iso = toISODate(d);
-        const label = i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'long' });
-        return { iso, label: `${label} · ${d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}` };
-    }), []);
+    // 7 günlük şerit. Takvimden bu aralığın dışındaki bir gün için açıldıysa o
+    // gün sona eklenir — yoksa seçili gün şeritte hiç görünmüyordu.
+    const dateOptions = useMemo(() => {
+        const opt = (d: Date, top: string) => {
+            const wh = (settings.workingHours || []).find((w) => w.day === d.getDay());
+            return {
+                iso: toISODate(d), top, day: d.getDate(), off: Boolean(wh?.isOff),
+                long: d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' }),
+            };
+        };
+        const out = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+            return opt(d, i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short' }));
+        });
+        if (!out.some((o) => o.iso === date)) {
+            const d = new Date(`${date}T12:00:00`);
+            out.push(opt(d, d.toLocaleDateString('tr-TR', { weekday: 'short' })));
+        }
+        return out;
+    }, [date, settings.workingHours]);
+
+    // O günün kayıtları bir kez süzülür: çizelge her adımda bunlara bakıyor.
+    const dayRes = useMemo(
+        () => reservations.filter((r) => r.date === date && r.status !== 'cancelled'),
+        [reservations, date],
+    );
 
     /** Belirli bir personel [t, t+süre) aralığında dolu mu? */
-    const isBusy = (t: string, sId: string): boolean => {
+    const isBusy = (t: string, sId: string, len = duration): boolean => {
         const start = toMin(t);
-        const end = start + duration;
-        return reservations.some((r) => r.date === date && r.status !== 'cancelled'
-            && r.staffId === sId && toMin(r.startTime) < end && toMin(r.endTime) > start);
+        const end = start + len;
+        return dayRes.some((r) => r.staffId === sId && toMin(r.startTime) < end && toMin(r.endTime) > start);
     };
 
     // Kaynak doluluğu KAPASİTEYE göre ölçülür (bkz. lib/resourceCapacity).
     // Eskiden tek bir çakışma yeterliydi: kapasitesi 2 olan bir kabin ilk
     // seanstan sonra eleniyordu — oysa DB guard'ı (060) kapasiteye kadar izin
     // veriyor, yani UI kendini DB'den daha katı kısıtlıyordu.
-    const busyIntervals = useMemo(() => reservations
-        .filter((r) => r.date === date && r.status !== 'cancelled' && r.resourceId)
+    const busyIntervals = useMemo(() => dayRes
+        .filter((r) => r.resourceId)
         .map((r) => ({ resourceId: r.resourceId, start: toMin(r.startTime), end: toMin(r.endTime) })),
-        [reservations, date]);
+        [dayRes]);
 
     const freeResource = (t: string): Resource | undefined =>
         pickFreeResource(activeResources, busyIntervals, toMin(t), toMin(t) + duration);
@@ -181,9 +236,9 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     // Kabin tanımlı bir salonda kabinsiz seans yürümez. Eskiden hepsi doluyken
     // autoResource sessizce undefined dönüyor ve kayıt kabinsiz oluşuyordu:
     // takvimde kabin şeridine düşmeyen, kimsenin fark etmediği bir seans.
-    const resourceBusy = (t: string): boolean => {
+    const resourceBusy = (t: string, len = duration): boolean => {
         const start = toMin(t);
-        const end = start + duration;
+        const end = start + len;
         const picked = resourceId ? activeResources.find((r) => r.id === resourceId) : undefined;
         if (picked) return isResourceFull(picked, busyIntervals, start, end);
         if (resourceId) return false;   // silinmiş/pasif kaynak seçili kalmış
@@ -194,16 +249,14 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     // (060 guard'ında `staff_id IS NOT DISTINCT FROM`, NULL = NULL sayılır).
     // Personel kaydı hiç yoksa randevu atanmamış kaydedileceği için UI de
     // aynı kuralı uygulamalı — yoksa boş görünen saat kayıtta reddedilir.
-    const unassignedBusy = (t: string): boolean => {
+    const unassignedBusy = (t: string, len = duration): boolean => {
         const start = toMin(t);
-        const end = start + duration;
-        return reservations.some((r) => r.date === date && r.status !== 'cancelled' && !r.staffId
-            && toMin(r.startTime) < end && toMin(r.endTime) > start);
+        const end = start + len;
+        return dayRes.some((r) => !r.staffId && toMin(r.startTime) < end && toMin(r.endTime) > start);
     };
 
     /** O gün personele düşen randevu sayısı — otomatik atamada yük dengesi için. */
-    const dayLoad = (sId: string) =>
-        reservations.filter((r) => r.date === date && r.status !== 'cancelled' && r.staffId === sId).length;
+    const dayLoad = (sId: string) => dayRes.filter((r) => r.staffId === sId).length;
 
     // "Personel fark etmez" = "sen seç" demektir. Rastgele değil: o saatte müsait
     // olanlar arasından o gün en az randevusu olana verilir (eşitlikte isim
@@ -221,13 +274,49 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         return freeResource(t)?.id;
     };
 
-    // Slot doluluğu: seçim varsa onun, yoksa "atanabilecek biri kaldı mı" sorusu.
-    const busySlot = (t: string): boolean => {
-        if (resourceBusy(t)) return true;
-        if (staffId) return isBusy(t, staffId);
-        if (activeStaff.length > 0) return !activeStaff.some((s) => !isBusy(t, s.id));   // herkes dolu
-        return unassignedBusy(t);
+    // Şeritler: tek uzmanda "fark etmez" anlamsız; personel kaydı yoksa tek şerit.
+    const lanes: Lane[] = activeStaff.length === 0
+        ? [{ key: '__none', label: 'Seans', staffId: undefined }]
+        : [
+            ...(activeStaff.length > 1 ? [{ key: '__any', label: 'Fark etmez', staffId: '' }] : []),
+            ...activeStaff.map((s) => ({ key: s.id, label: s.name, staffId: s.id, load: dayLoad(s.id) })),
+        ];
+    const laneOf = (sId: string): string => sId
+        || (activeStaff.length === 0 ? '__none' : activeStaff.length === 1 ? activeStaff[0].id : '__any');
+    const selectedLane = laneOf(staffId);
+
+    // Bir şeritte [t, t+len) dolu mu? Eski busySlot'un şerit başına hâli.
+    const laneBusy = (lane: Lane, t: string, len = duration): boolean => {
+        if (resourceBusy(t, len)) return true;
+        if (lane.staffId === undefined) return unassignedBusy(t, len);
+        if (lane.staffId === '') return !activeStaff.some((s) => !isBusy(t, s.id, len));   // herkes dolu
+        return isBusy(t, lane.staffId, len);
     };
+
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const isToday = date === toISODate(now);
+    const isPast = (t: string) => isToday && toMin(t) <= nowMin;
+
+    // Çizelgenin ölçeği: ilk adımın saat başından son adımın bittiği saate.
+    const viewStart = slotTimes.length ? Math.floor(toMin(slotTimes[0]) / 60) * 60 : 0;
+    const workEnd = slotTimes.length ? toMin(slotTimes[slotTimes.length - 1]) + step : 0;
+    const viewEnd = Math.max(viewStart + 60, Math.ceil(workEnd / 60) * 60);
+    const hours = (viewEnd - viewStart) / 60;
+    const pct = (m: number) => `${((Math.min(Math.max(m, viewStart), viewEnd) - viewStart) / (viewEnd - viewStart)) * 100}%`;
+    const span = (a: number, b: number) => ({ left: pct(a), width: `calc(${pct(b)} - ${pct(a)})` });
+    const hourMarks = Array.from({ length: hours + 1 }, (_, i) => viewStart / 60 + i)
+        .filter((h, i) => hours <= 10 || i % 2 === 0);
+
+    // Kabinlerin hepsi doluysa o saatler HER şeritte kapalı — taralı bant
+    const cabinFull = useMemo(
+        () => activeResources.length === 0 ? [] : runsOf(slotTimes, step, (t) => resourceBusy(t, step)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [slotTimes, step, activeResources, busyIntervals, resourceId],
+    );
+
+    const slotLane = lanes.find((l) => l.key === selectedLane);
+    const slotBad = Boolean(slot && slotLane && (laneBusy(slotLane, slot) || isPast(slot)));
 
     const searchResults = useMemo(() => {
         if (!query.trim() || customer) return [];
@@ -258,10 +347,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     };
 
     const serviceNames = selectedServices.map((s) => s.name).join(' + ');
-    const serviceLabel = selectedPlan
-        ? `${selectedPlan.title} (paketten, ₺0)`
-        : hasServices ? `${serviceNames} · ${duration} dk${totalPrice ? ` · ₺${totalPrice.toLocaleString('tr-TR')}` : ''}` : '—';
-    const canSave = Boolean(customer && (selectedPlan || hasServices) && slot);
+    const canSave = Boolean(customer && (selectedPlan || hasServices) && slot && !slotBad);
 
     const create = async () => {
         if (!customer || saving) return;
@@ -273,8 +359,8 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
             toast.error(`${hit.target.name} bu müşteriye uygulanamaz — ${hit.verdict.message}`);
             return;
         }
-        // Kabin tanımlıysa kabinsiz kayıt oluşturulmaz. Slot listesi bunu zaten
-        // dolu gösteriyor; burası aradaki boşluk için (başka cihazda az önce
+        // Kabin tanımlıysa kabinsiz kayıt oluşturulmaz. Çizelge bunu zaten
+        // kapalı gösteriyor; burası aradaki boşluk için (başka cihazda az önce
         // dolmuş olabilir) — sessizce kabinsiz kaydetmektense reddetmek doğru.
         if (activeResources.length > 0 && !autoResource(slot)) {
             toast.error('Bu saatte uygun kabin yok — başka bir saat veya kabin seçin');
@@ -321,222 +407,252 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         }
     };
 
+    // Alt bardaki özet: eksik parça soluk bir istemle yazılır, otomatik
+    // atanan uzman ve kabin işaretli — kullanıcı kime/nereye verildiğini
+    // kaydetmeden önce görsün.
+    const dayLabel = dateOptions.find((d) => d.iso === date)?.long ?? '';
+    const summary: React.ReactNode[] = [
+        customer ? <b key="c">{customer.name}</b> : <span key="c" className="ask">Müşteri seçin</span>,
+        selectedPlan ? <span key="s">{selectedPlan.title} · paketten</span>
+            : hasServices ? <span key="s">{serviceNames}</span>
+                : <span key="s" className="ask">hizmet seçin</span>,
+        slot ? <b key="t" className={cn(slotBad && 'bad')}>{dayLabel} · {slot}–{addMinutes(slot, duration)}</b>
+            : <span key="t" className="ask">çizelgeden saat seçin</span>,
+    ];
+    if (slot && !slotBad) {
+        const sId = autoStaff(slot);
+        const rId = autoResource(slot);
+        const sName = activeStaff.find((s) => s.id === sId)?.name;
+        const rName = activeResources.find((r) => r.id === rId)?.name;
+        if (sName) summary.push(<span key="u">{sName}{!staffId && <i className="auto">otomatik</i>}</span>);
+        if (rName) summary.push(<span key="k">{rName}{!resourceId && <i className="auto">otomatik</i>}</span>);
+    }
+    if (slotBad) summary.push(<span key="x" className="bad">bu saat artık uygun değil</span>);
+    if (selectedPlan) summary.push(<b key="p">₺0</b>);
+    else if (totalPrice > 0) summary.push(<b key="p">₺{totalPrice.toLocaleString('tr-TR')}</b>);
+
     // Portal ile body'ye taşınır: aksi halde .bpk (Paketler) gibi kapsayıcıların
-    // scoped `button{color:inherit}` reset'i modalın Tailwind metin renklerini ezip
-    // seçili (siyah) kartlardaki yazıyı görünmez yapıyordu.
+    // scoped `button{color:inherit}` reset'i modalın metin renklerini ezip
+    // seçili (siyah) satırlardaki yazıyı görünmez yapıyordu.
     return createPortal(
-        <div className="dash-theme fixed inset-0 z-[100]">
-            <div className="absolute inset-0 bg-[rgba(14,14,14,0.48)] backdrop-blur-[2px]" onClick={onClose} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[920px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-48px)] bg-[var(--dc-surface)] rounded-3xl border border-[var(--dc-border2)] shadow-2xl flex flex-col overflow-hidden">
-                {/* başlık */}
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--dc-border)] flex-shrink-0">
-                    <div className="w-[38px] h-[38px] rounded-xl bg-[var(--dc-inkbox)] flex items-center justify-center"><CalendarDays className="w-4 h-4 text-[var(--dc-inkbox-fg)]" /></div>
-                    <div>
-                        <div className="text-base font-extrabold text-[var(--dc-ink)] tracking-[-0.02em]">Yeni Seans</div>
-                        <div className="text-[11.5px] text-[var(--dc-muted)]">Telefonda konuşurken bile 5 tıkta biter</div>
-                    </div>
-                    <button onClick={onClose} aria-label="Kapat" className="ml-auto w-[38px] h-[38px] rounded-lg flex items-center justify-center text-[var(--dc-muted)] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors"><X className="w-4 h-4" /></button>
+        <div className={cn('dash-theme bsm fixed inset-0 z-[100]', dark && 'dark')}>
+            <div className="bsm-scrim" onClick={onClose} />
+            <div className="bsm-modal" role="dialog" aria-label="Yeni seans">
+                <div className="bsm-head">
+                    <h2>Yeni seans</h2>
+                    <span className="ctx">· {now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                    <button type="button" onClick={onClose} aria-label="Kapat" className="bsm-x"><X /></button>
                 </div>
 
-                <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
-                    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
-                        {/* Sol: müşteri + hizmet/paket */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="w-5 h-5 rounded-full bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center">1</span>
-                                <span className="text-[12.5px] font-extrabold text-[var(--dc-ink)]">Müşteri</span>
-                            </div>
+                <div className="bsm-body">
+                    {/* Sol: müşteri + hizmet/paket */}
+                    <div className="bsm-col bsm-left">
+                        <section>
+                            <div className="bsm-sec-h"><span className="eyebrow">Müşteri</span></div>
                             {!customer ? (
                                 <>
-                                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yaz…"
-                                        className="w-full px-3.5 py-3 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13.5px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1" />
-                                    <div className="mt-2 space-y-1.5">
-                                        {searchResults.map((c) => (
-                                            <button key={c.id} onClick={() => { setCustomer(c); setQuery(''); }}
-                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-[var(--dc-border)] bg-[var(--dc-surface2)] hover:border-[var(--dc-ink)] transition-colors text-left">
-                                                <span className="w-[30px] h-[30px] rounded-[10px] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center flex-shrink-0">{c.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toLocaleUpperCase('tr')}</span>
-                                                <span className="min-w-0"><span className="block text-[13px] font-bold text-[var(--dc-ink)] truncate">{c.name}</span><span className="block text-[11px] text-[var(--dc-muted)]">{c.phone}</span></span>
-                                            </button>
-                                        ))}
-                                        {noResults && (
-                                            <div className="px-3 py-3 rounded-xl border border-dashed border-[var(--dc-border2)] bg-[var(--dc-surface2)]">
-                                                <p className="text-[12px] font-bold text-[var(--dc-ink)] mb-2">Kayıtlı değil — hemen ekle</p>
-                                                <input value={quickName} onChange={(e) => setQuickNameRaw(e.target.value)} placeholder="Ad Soyad"
-                                                    className="w-full px-3 py-2.5 mb-1.5 rounded-lg border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1" />
-                                                <input value={quickPhone} onChange={(e) => setQuickPhoneRaw(e.target.value)} placeholder="05xx xxx xx xx" inputMode="tel"
-                                                    className="w-full px-3 py-2.5 mb-2 rounded-lg border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1"
-                                                    style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                                                <button onClick={quickAdd} disabled={!quickName.trim() || quickPhone.replace(/\D/g, '').length < 10 || quickAdding}
-                                                    className="w-full flex items-center justify-center gap-1.5 bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] px-3 py-2.5 rounded-lg text-[12.5px] font-bold transition-all hover:-translate-y-px disabled:opacity-35 disabled:cursor-not-allowed disabled:translate-y-0">
-                                                    <Check className="w-3.5 h-3.5" />{quickAdding ? 'Ekleniyor…' : 'Ekle ve seç'}
+                                    <label className="bsm-search">
+                                        <Search />
+                                        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yaz…" />
+                                    </label>
+                                    {searchResults.length > 0 && (
+                                        <div className="bsm-results">
+                                            {searchResults.map((c) => (
+                                                <button key={c.id} type="button" onClick={() => { setCustomer(c); setQuery(''); }}>
+                                                    <span className="av">{initialsOf(c.name)}</span>
+                                                    <span className="tx"><b>{c.name}</b><small>{c.phone}</small></span>
                                                 </button>
-                                                {(() => {
-                                                    const digits = quickPhone.replace(/\D/g, '').length;
-                                                    if (!quickName.trim()) return <p className="mt-1.5 text-[11px] text-[var(--dc-muted)]">Ad Soyad gerekli</p>;
-                                                    if (digits > 0 && digits < 10) return <p className="mt-1.5 text-[11px] text-[var(--dc-orange-d)]">Telefon en az 10 haneli olmalı ({digits}/10)</p>;
-                                                    if (digits === 0) return <p className="mt-1.5 text-[11px] text-[var(--dc-muted)]">Telefon numarası gerekli</p>;
-                                                    return null;
-                                                })()}
-                                            </div>
-                                        )}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {noResults && (
+                                        <div className="bsm-quick">
+                                            <p>Kayıtlı değil — hemen ekle</p>
+                                            <input value={quickName} onChange={(e) => setQuickNameRaw(e.target.value)} placeholder="Ad Soyad" />
+                                            <input value={quickPhone} onChange={(e) => setQuickPhoneRaw(e.target.value)} placeholder="05xx xxx xx xx" inputMode="tel" />
+                                            <button type="button" onClick={quickAdd} disabled={!quickName.trim() || quickPhone.replace(/\D/g, '').length < 10 || quickAdding}>
+                                                <Check />{quickAdding ? 'Ekleniyor…' : 'Ekle ve seç'}
+                                            </button>
+                                            {(() => {
+                                                const digits = quickPhone.replace(/\D/g, '').length;
+                                                if (!quickName.trim()) return <small>Ad Soyad gerekli</small>;
+                                                if (digits > 0 && digits < 10) return <small className="warn">Telefon en az 10 haneli olmalı ({digits}/10)</small>;
+                                                if (digits === 0) return <small>Telefon numarası gerekli</small>;
+                                                return null;
+                                            })()}
+                                        </div>
+                                    )}
                                 </>
                             ) : (
-                                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-surface2)]">
-                                    <span className="w-[34px] h-[34px] rounded-[11px] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12px] font-extrabold flex items-center justify-center flex-shrink-0">{customer.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toLocaleUpperCase('tr')}</span>
-                                    <span className="flex-1 min-w-0"><span className="block text-[13.5px] font-bold text-[var(--dc-ink)] truncate">{customer.name}</span><span className="block text-[11.5px] text-[var(--dc-muted)]">{customer.phone}{activePlans.length > 0 && ` · ${activePlans.length} aktif paket`}</span></span>
-                                    {!initialCustomer && <button onClick={() => { setCustomer(null); setSelectedPlan(null); }} className="text-[12px] font-bold text-[var(--dc-orange-d)] hover:bg-[var(--dc-orange-soft)] px-2.5 py-2 rounded-lg transition-colors">Değiştir</button>}
+                                <div className="bsm-cust">
+                                    <span className="av">{initialsOf(customer.name)}</span>
+                                    <span className="tx"><b>{customer.name}</b><small>{customer.phone}{activePlans.length > 0 && ` · ${activePlans.length} aktif paket`}</small></span>
+                                    {!initialCustomer && <button type="button" onClick={() => { setCustomer(null); setSelectedPlan(null); }}>Değiştir</button>}
                                 </div>
                             )}
                             {customer && selectedPlan && (
-                                <div className="mt-2 px-3.5 py-2.5 rounded-lg bg-[var(--dc-green-bg)] text-[var(--dc-green)] text-[12px] font-semibold leading-snug">Aktif paketi bulundu: <b>{selectedPlan.title}</b> — otomatik seçildi, ücret alınmaz.</div>
+                                <p className="bsm-note ok">Aktif paketi bulundu: <b>{selectedPlan.title}</b> — otomatik seçildi, ücret alınmaz.</p>
                             )}
                             {customer && riskFlags.map((flag) => (
-                                <div key={flag.key} className="mt-2 px-3.5 py-2.5 rounded-lg bg-[var(--dc-red-bg)] text-[var(--dc-red)] text-[12px] font-semibold leading-snug">
-                                    ⚠ {flag.label} kaydı var{flag.note ? ` — ${flag.note}` : ''}; ilgili hizmetler kapalı.
-                                </div>
+                                <p key={flag.key} className="bsm-note risk">
+                                    {flag.label} kaydı var{flag.note ? ` — ${flag.note}` : ''}; ilgili hizmetler kapalı.
+                                </p>
                             ))}
+                        </section>
 
-                            <div className="flex items-center gap-2 mb-2 mt-5">
-                                <span className="w-5 h-5 rounded-full bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center">2</span>
-                                <span className="text-[12.5px] font-extrabold text-[var(--dc-ink)]">Hizmet / Paket</span>
-                                <span className="ml-auto text-[11px] text-[var(--dc-muted)]">Birden fazla seçebilirsiniz</span>
+                        <section>
+                            <div className="bsm-sec-h">
+                                <span className="eyebrow">Hizmet</span>
+                                {hasServices
+                                    ? <span className="note">{selectedServices.length} seçili · {duration} dk<button type="button" onClick={() => setSelectedServices([])}>Temizle</button></span>
+                                    : <span className="note">Birden fazla seçilebilir</span>}
                             </div>
-                            {hasServices && (
-                                <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--dc-surface2)] text-[11.5px] text-[var(--dc-muted)]">
-                                    <b className="text-[var(--dc-ink)]">{selectedServices.length} hizmet</b>
-                                    <span>· {duration} dk{totalPrice > 0 && ` · ₺${totalPrice.toLocaleString('tr-TR')}`}</span>
-                                    <button onClick={() => setSelectedServices([])} className="ml-auto font-bold text-[var(--dc-orange-d)] hover:underline">Temizle</button>
-                                </div>
-                            )}
-                            <div className="space-y-1.5">
+                            <div className="bsm-list">
                                 {activePlans.map((p) => {
                                     const verdict = blockedFor({ name: p.title });
                                     const blocked = verdict.blocked;
-                                    const activeSel = selectedPlan?.id === p.id;
+                                    const on = selectedPlan?.id === p.id;
                                     return (
-                                        <button key={p.id} disabled={blocked} onClick={() => { setSelectedPlan(p); setSelectedServices([]); }}
-                                            title={verdict.message}
-                                            className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors',
-                                                blocked ? 'opacity-45 cursor-not-allowed border-[var(--dc-border)]'
-                                                    : activeSel ? 'border-[var(--dc-inkbox)] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)]'
-                                                        : 'border-[var(--dc-border)] bg-[var(--dc-surface)] hover:border-[var(--dc-border2)] hover:bg-[var(--dc-surface2)]')}>
-                                            <span className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style={{ background: planService(p)?.color || 'var(--dc-purple)' }} />
-                                            <span className="flex-1 min-w-0">
-                                                <span className={cn('block text-[13px] font-bold truncate', !activeSel && 'text-[var(--dc-ink)]')}>{p.title} — paketten</span>
-                                                <span className={cn('block text-[11px] mt-px', activeSel ? 'opacity-70' : 'text-[var(--dc-muted)]')}>{blocked ? verdict.message : `${planService(p)?.duration || 60} dk`}</span>
-                                            </span>
-                                            <span className={cn('flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap', activeSel ? 'bg-white/15' : blocked ? 'bg-[var(--dc-surface2)] text-[var(--dc-muted)]' : 'bg-[var(--dc-green-bg)] text-[var(--dc-green)]')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {blocked ? 'kapalı' : `kalan ${p.sessionCount - p.sessionsDone} seans · ₺0`}
-                                            </span>
+                                        <button key={p.id} type="button" disabled={blocked} title={verdict.message}
+                                            onClick={() => { setSelectedPlan(p); setSelectedServices([]); }}
+                                            className={cn('bsm-svc', on && 'on')}>
+                                            {on ? <span className="ord"><Check /></span> : <i style={{ background: planService(p)?.color || 'var(--dc-purple)' }} />}
+                                            <span className="n">{p.title}</span>
+                                            {/* Süre yok: dar sütunda paketin adı kesiliyordu; süre alt barda */}
+                                            {blocked ? <span className="d">kapalı</span> : <span className="pkg" title="Paketten · ücret alınmaz">kalan {p.sessionCount - p.sessionsDone}</span>}
                                         </button>
                                     );
                                 })}
                                 {services.map((s) => {
                                     const blocked = blockedFor(s).blocked;
                                     const order = selectedServices.findIndex((x) => x.id === s.id);
-                                    const activeSel = order >= 0;
+                                    const on = order >= 0;
                                     return (
-                                        <button key={s.id} disabled={blocked} onClick={() => toggleService(s)}
-                                            aria-pressed={activeSel}
-                                            title={blocked ? 'Hamilelik nedeniyle kapalı' : activeSel ? 'Seçimden çıkar' : 'Seansa ekle'}
-                                            className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors',
-                                                blocked ? 'opacity-45 cursor-not-allowed border-[var(--dc-border)]'
-                                                    : activeSel ? 'border-[var(--dc-inkbox)] bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)]'
-                                                        : 'border-[var(--dc-border)] bg-[var(--dc-surface)] hover:border-[var(--dc-border2)] hover:bg-[var(--dc-surface2)]')}>
-                                            {activeSel
-                                                ? <span className="w-[18px] h-[18px] rounded-md bg-white/20 text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">{order + 1}</span>
-                                                : <span className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style={{ background: s.color }} />}
-                                            <span className="flex-1 min-w-0">
-                                                <span className={cn('block text-[13px] font-bold truncate', !activeSel && 'text-[var(--dc-ink)]')}>{s.name}</span>
-                                                <span className={cn('block text-[11px] mt-px', activeSel ? 'opacity-70' : 'text-[var(--dc-muted)]')}>{blocked ? 'Hamilelik nedeniyle uygulanamaz' : `Tekil seans · ${s.duration} dk`}</span>
-                                            </span>
-                                            <span className={cn('flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap', activeSel ? 'bg-white/15' : 'bg-[var(--dc-surface2)] text-[var(--dc-muted)]')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {blocked ? 'kapalı' : s.price ? `₺${s.price.toLocaleString('tr-TR')}` : '—'}
-                                            </span>
+                                        <button key={s.id} type="button" disabled={blocked} onClick={() => toggleService(s)}
+                                            aria-pressed={on}
+                                            title={blocked ? 'Hamilelik nedeniyle kapalı' : on ? 'Seçimden çıkar' : 'Seansa ekle'}
+                                            className={cn('bsm-svc', on && 'on')}>
+                                            {on ? <span className="ord">{order + 1}</span> : <i style={{ background: s.color }} />}
+                                            <span className="n">{s.name}</span>
+                                            <span className="d">{blocked ? 'kapalı' : `${s.duration} dk`}</span>
+                                            <span className="p">{blocked ? '' : s.price ? `₺${s.price.toLocaleString('tr-TR')}` : ''}</span>
                                         </button>
                                     );
                                 })}
                             </div>
-                        </div>
+                        </section>
+                    </div>
 
-                        {/* Sağ: personel · kabin · saat */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="w-5 h-5 rounded-full bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[11px] font-extrabold flex items-center justify-center">3</span>
-                                <span className="text-[12.5px] font-extrabold text-[var(--dc-ink)]">Personel · Kabin · Saat</span>
+                    {/* Sağ: gün şeridi + zaman çizelgesi + kabin */}
+                    <div className="bsm-col bsm-right">
+                        <section>
+                            <div className="bsm-sec-h"><span className="eyebrow">Gün</span></div>
+                            <div className="bsm-days" style={{ '--n': dateOptions.length } as React.CSSProperties}>
+                                {dateOptions.map((d) => (
+                                    <button key={d.iso} type="button" onClick={() => { setDate(d.iso); setSlot(''); setHover(null); }}
+                                        className={cn(d.iso === date && 'on', d.off && 'off')} title={d.off ? `${d.long} · kapalı` : d.long}>
+                                        <small>{d.top}</small><b>{d.day}</b>
+                                    </button>
+                                ))}
                             </div>
-                            <div className="grid grid-cols-2 gap-2.5">
-                                <select value={staffId} onChange={(e) => setStaffId(e.target.value)} aria-label="Personel"
-                                    className="w-full px-3.5 py-3 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13px] font-semibold text-[var(--dc-ink)] outline-none">
-                                    <option value="">Personel fark etmez</option>
-                                    {activeStaff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                                <select value={resourceId} onChange={(e) => setResourceId(e.target.value)} aria-label="Kabin"
-                                    className="w-full px-3.5 py-3 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13px] font-semibold text-[var(--dc-ink)] outline-none">
-                                    <option value="">Kabin fark etmez</option>
-                                    {activeResources.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                </select>
-                            </div>
-                            <select value={date} onChange={(e) => { setDate(e.target.value); setSlot(''); }} aria-label="Tarih"
-                                className="w-full mt-2.5 px-3.5 py-3 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-page)] text-[13px] font-semibold text-[var(--dc-ink)] outline-none">
-                                {dateOptions.map((d) => <option key={d.iso} value={d.iso}>{d.label}</option>)}
-                            </select>
+                        </section>
 
-                            {slotTimes.length === 0 && (
-                                <div className="mt-3 px-3.5 py-3 rounded-xl border border-dashed border-[var(--dc-border2)] bg-[var(--dc-surface2)] text-[12.5px] text-[var(--dc-muted)]">
-                                    Bu gün işletme kapalı — çalışma saatlerini Ayarlar'dan değiştirebilirsiniz.
+                        <section>
+                            <div className="bsm-sec-h">
+                                <span className="eyebrow">Saat</span>
+                                <span className="note">{slot ? `${duration} dk · ${slot}–${addMinutes(slot, duration)}` : `Boş yere tıkla · ${duration} dk`}</span>
+                            </div>
+                            {slotTimes.length === 0 ? (
+                                <p className="bsm-closed">Bu gün işletme kapalı — çalışma saatlerini Ayarlar'dan değiştirebilirsiniz.</p>
+                            ) : (
+                                <div className="bsm-tl">
+                                    <div className="bsm-tl-in" style={{ '--hours': hours } as React.CSSProperties}>
+                                        <div className="bsm-tl-scale">
+                                            <span />
+                                            <div>{hourMarks.map((h) => <span key={h} style={{ left: pct(h * 60) }}>{h}</span>)}</div>
+                                        </div>
+                                        {lanes.map((lane) => {
+                                            const blocks = lane.staffId === ''
+                                                ? runsOf(slotTimes, step, (t) => !activeStaff.some((s) => !isBusy(t, s.id, step))).map(([a, b]) => ({ a, b, title: 'Herkes dolu' }))
+                                                : dayRes
+                                                    .filter((r) => (lane.staffId === undefined ? !r.staffId : r.staffId === lane.staffId))
+                                                    .map((r) => ({ a: toMin(r.startTime), b: toMin(r.endTime), title: `${r.startTime.slice(0, 5)}–${r.endTime.slice(0, 5)} · ${r.service || 'Seans'}` }));
+                                            const isSel = slot && selectedLane === lane.key;
+                                            const ghost = hover?.lane === lane.key && !(isSel && hover.t === slot) ? hover.t : null;
+                                            return (
+                                                <div key={lane.key} className={cn('bsm-tl-row', lane.staffId === '' && 'any')} onMouseLeave={() => setHover(null)}>
+                                                    <span className="who" title={lane.label}>
+                                                        <b>{lane.label}</b>
+                                                        {lane.load !== undefined && lane.load > 0 && <i>{lane.load}</i>}
+                                                    </span>
+                                                    <div className="lane">
+                                                        {/* Mesai dışı, geçmiş ve kabinlerin dolduğu saatler */}
+                                                        {toMin(slotTimes[0]) > viewStart && <span className="off" style={span(viewStart, toMin(slotTimes[0]))} />}
+                                                        {workEnd < viewEnd && <span className="off" style={span(workEnd, viewEnd)} />}
+                                                        {isToday && nowMin > viewStart && <span className="past" style={span(viewStart, nowMin)} />}
+                                                        {cabinFull.map(([a, b]) => <span key={`k${a}`} className="cab" style={span(a, b)} title="Kabinlerin hepsi dolu" />)}
+                                                        {blocks.map((x, i) => <span key={i} className="busy" style={span(x.a, x.b)} title={x.title} />)}
+                                                        {/* Tıklanabilir adımlar — her biri bir düğme */}
+                                                        {slotTimes.map((t) => {
+                                                            const bad = laneBusy(lane, t) || isPast(t);
+                                                            return (
+                                                                <button key={t} type="button" className="cell" style={span(toMin(t), toMin(t) + step)}
+                                                                    aria-label={`${lane.label} · ${t}`} aria-disabled={bad} title={t}
+                                                                    onMouseEnter={() => setHover({ lane: lane.key, t })}
+                                                                    onFocus={() => setHover({ lane: lane.key, t })}
+                                                                    onClick={() => {
+                                                                        if (bad) return;
+                                                                        setSlot(t);
+                                                                        setStaffId(lane.staffId ?? '');
+                                                                    }} />
+                                                            );
+                                                        })}
+                                                        {ghost && (
+                                                            <span className={cn('ghost', (laneBusy(lane, ghost) || isPast(ghost)) && 'bad')}
+                                                                style={span(toMin(ghost), toMin(ghost) + duration)} />
+                                                        )}
+                                                        {isSel && (
+                                                            <span className={cn('sel', slotBad && 'bad')} style={span(toMin(slot), toMin(slot) + duration)}
+                                                                title={`${slot}–${addMinutes(slot, duration)}`}>
+                                                                <b>{slot}</b>
+                                                            </span>
+                                                        )}
+                                                        {isToday && nowMin > viewStart && nowMin < viewEnd && <span className="now" style={{ left: pct(nowMin) }} />}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
-                            <div className="grid grid-cols-6 gap-[7px] mt-3">
-                                {slotTimes.map((t) => {
-                                    const busy = busySlot(t);
-                                    const past = date === toISODate(new Date()) && toMin(t) <= new Date().getHours() * 60 + new Date().getMinutes();
-                                    const disabled = busy || past;
-                                    const sel = slot === t;
-                                    return (
-                                        <button key={t} disabled={disabled} onClick={() => setSlot(t)}
-                                            className={cn('py-2.5 px-1 rounded-[10px] border text-[12px] font-bold text-center transition-colors min-h-[40px]',
-                                                sel ? 'bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] border-[var(--dc-inkbox)]'
-                                                    : disabled ? 'opacity-30 cursor-not-allowed bg-[var(--dc-surface3)] border-transparent line-through text-[var(--dc-ink)]'
-                                                        : 'bg-[var(--dc-page)] border-[var(--dc-border)] text-[var(--dc-ink)] hover:border-[var(--dc-ink)]')}
-                                            style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                                            {t}
-                                        </button>
-                                    );
-                                })}
+                            <div className="bsm-legend">
+                                <span><i className="l-busy" />Dolu</span>
+                                {activeResources.length > 0 && <span><i className="l-cab" />Kabinler dolu</span>}
+                                <span><i className="l-sel" />Yeni seans</span>
                             </div>
-                            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--dc-muted)]">
-                                <span><i className="inline-block w-[9px] h-[9px] rounded-[3px] mr-1 align-[-1px] bg-[var(--dc-page)] border border-[var(--dc-border2)]" />Uygun</span>
-                                <span><i className="inline-block w-[9px] h-[9px] rounded-[3px] mr-1 align-[-1px] bg-[var(--dc-surface3)]" />Dolu / kabin çakışması</span>
-                                <span><i className="inline-block w-[9px] h-[9px] rounded-[3px] mr-1 align-[-1px] bg-[var(--dc-inkbox)]" />Seçili</span>
-                            </div>
-                        </div>
+                        </section>
+
+                        {activeResources.length > 0 && (
+                            <section>
+                                <div className="bsm-sec-h"><span className="eyebrow">Kabin</span></div>
+                                <div className="bsm-chips">
+                                    <button type="button" className={cn(!resourceId && 'on')} onClick={() => setResourceId('')}>Fark etmez</button>
+                                    {activeResources.map((r) => (
+                                        <button key={r.id} type="button" className={cn(resourceId === r.id && 'on')} onClick={() => setResourceId(r.id)}>{r.name}</button>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 </div>
 
                 {/* alt bar */}
-                <div className="flex items-center gap-3.5 px-5 py-4 border-t border-[var(--dc-border)] flex-shrink-0">
-                    <div className="flex-1 min-w-0 px-4 py-3 rounded-lg bg-[var(--dc-surface2)] text-[12px] text-[var(--dc-muted)] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        <b className="text-[var(--dc-ink)]">{customer?.name || 'Müşteri seçin'}</b>
-                        {' · '}{serviceLabel}
-                        {/* Otomatik atananı da göster — kullanıcı kime/nereye verildiğini
-                            kaydetmeden önce görsün. */}
-                        {slot && (() => {
-                            const sId = autoStaff(slot);
-                            const rId = autoResource(slot);
-                            const sName = activeStaff.find((s) => s.id === sId)?.name;
-                            const rName = activeResources.find((r) => r.id === rId)?.name;
-                            return (<>
-                                {sName && <> · {sName}{!staffId && ' (otomatik)'}</>}
-                                {rName && <> · {rName}{!resourceId && ' (otomatik)'}</>}
-                            </>);
-                        })()}
-                        {slot && <> · <b className="text-[var(--dc-ink)]">{dateOptions.find((d) => d.iso === date)?.label.split(' · ')[1]} {slot}</b></>}
-                    </div>
-                    <button onClick={create} disabled={!canSave || saving}
-                        className="flex-shrink-0 flex items-center gap-2 bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] px-5 py-3 rounded-full text-[13px] font-bold transition-all hover:-translate-y-px disabled:opacity-35 disabled:cursor-not-allowed disabled:translate-y-0">
-                        <Check className="w-3.5 h-3.5" />{saving ? 'Kaydediliyor…' : 'Seansı Oluştur'}
+                <div className="bsm-foot">
+                    <p className="bsm-sum">
+                        {summary.map((node, i) => <Fragment key={i}>{i > 0 && <span className="sep" />}{node}</Fragment>)}
+                    </p>
+                    <button type="button" onClick={create} disabled={!canSave || saving} className="bsm-go">
+                        <Check />{saving ? 'Kaydediliyor…' : 'Seansı oluştur'}
                     </button>
                 </div>
             </div>
