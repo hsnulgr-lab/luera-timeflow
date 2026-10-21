@@ -1,5 +1,8 @@
 # YAPILACAKLAR
 
+> **2026-10-21:** güncel tek liste `docs/devir/14-NELER-KALDI.md` — bu dosya
+> 2026-10-20'den beri güncellenmedi; çelişkide devir 14 kazanır.
+
 **Yazıldı:** 2026-10-16 akşam, 1.0.1 (6) Apple'a gönderildikten sonra (18:01).
 **Son güncelleme:** 2026-10-17 — dış izleme bitti (§6), sıra yenilendi; dosya/satır referansları doğrulandı.
 Kaynak: Devir 2 (`docs/devir/09-DEVIR-2-YAYIN-1.0.1.md` §11–12), hafıza notları,

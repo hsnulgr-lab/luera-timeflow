@@ -1,5 +1,10 @@
 # BAŞLA BURADAN — Luera TimeFlow devir paketi
 
+> ## ➜ GÜNCEL (2026-10-21): [`14-NELER-KALDI.md`](14-NELER-KALDI.md)
+>
+> Bütün açık işlerin tek listesi ve önerilen sıradaki adım. Abonelik
+> ayrıntısı devir 10 §11 ve devir 13 §8'de. Aşağıdaki Eylül notu tarihsel.
+
 > ## ⚠️ BU PAKET EYLÜL 2026'YA AİT (dal: `chore/expo-57`)
 >
 > Aktif iş artık **`tek-kisilik`** dalında, **üçüncü kabuk** (tek kişilik
