@@ -391,7 +391,11 @@ e-posta 375 px'te tarayıcıda görüldü.
 > (`dodo-checkout` `donus: 'abonelik'`, beyaz liste). `dodo-checkout` yüklendi; ilk Coolify
 > Deploy push'tan önce başladığı için eski commit'i (c305765) derledi → ikinci Deploy
 > `index-5T35VNSC.js`. ✅ Telefonda (08:4x): tek dokunuş → "Denemeniz sürüyor", ana sayfa YOK.
-> DENENMEDİ: e-posta kipinde Dodo kart sayfasından dönüş (`?kart=1`) ve ödeme dönüşü.
+> ✅ Kart dönüşü (08:47 TR, test kartı): "Kartı güncelle" → Dodo "Ödeme Yöntemini Güncelle" →
+> dönüş `/abonelik?kaynak=eposta&kart=1`, ekran yine "Denemeniz sürüyor" (ana sayfa/Ayarlar YOK).
+> Sunucu: `subscription.updated` (applied) + `payment.succeeded` ₺0,00 (kart doğrulaması, çekim
+> yok); ayna değişmedi (deneme · Pro · bitiş aynı · iptal yok). Devir 10 §11 C.2 (return_url)
+> de böylece kapandı. DENENMEDİ: e-posta kipinde ödeme (paket alma) dönüşü; ek süre akışı.
 > Sonra 8 (`ac`, Dodo Live ile).
 > Komutlar kullanıcının Terminal panelinde, onayıyla çalıştı.
 
