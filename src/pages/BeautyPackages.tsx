@@ -1319,7 +1319,7 @@ function DefinitionsModal({ templates, onClose, addTemplate, updateTemplate, rem
                                 <i style={{ background: t.color || 'var(--purple)' }} />
                                 <span><strong>{t.name}</strong><small>{t.sessionCount} seans · seans başı {fmtTL(t.price / Math.max(1, t.sessionCount))}</small></span>
                                 <span style={{ fontFamily: MONO, fontWeight: 750 }}>{fmtTL(t.price)}</span>
-                                <span style={{ fontSize: 8.5, color: 'var(--muted)' }}>{editing === t.id ? 'düzenleniyor' : 'düzenle'}</span>
+                                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{editing === t.id ? 'düzenleniyor' : 'düzenle'}</span>
                                 <button onClick={(e) => { e.stopPropagation(); void del(t.id); }} aria-label="Kaldır"><Trash2 size={14} /></button>
                             </article>
                         ))}

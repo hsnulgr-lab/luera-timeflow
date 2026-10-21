@@ -25,6 +25,9 @@ export const Layout = () => {
     const { isBroken: waBroken } = useWhatsApp();
     const onKasa = path.startsWith('/kasa');
     const onPackages = path.startsWith('/packages');
+    // Stoklar Paketler'le aynı üç sütunlu düzen (görünümler · liste · detay);
+    // açık menüyle tablo ~180 px daralıp hücreler iki satıra kırılıyordu (2026-10-21).
+    const onStock = path.startsWith('/stock');
     // Takvim bütün sektörlerde bir odak çalışma alanıdır; dar sidebar programa
     // daha fazla alan verir.
     const onCalendar = path === '/calendar';
@@ -32,7 +35,7 @@ export const Layout = () => {
     // yapsam" diye dallandırıp kurulumu yarıda bıraktırıyor. Daraltıyoruz,
     // kapatmıyoruz — kullanıcı istediği an çıkabilmeli.
     const onSetup = path.startsWith('/kurulum');
-    const collapsed = onKasa || onPackages || onSetup || (onCalendar ? calendarCollapsed : isCollapsed);
+    const collapsed = onKasa || onPackages || onSetup || onStock || (onCalendar ? calendarCollapsed : isCollapsed);
     // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
     usePendingBillsAlert();
 

@@ -75,7 +75,7 @@
 .stk-kpi-cmp b { color: var(--dc-ink); }
 .stk-trend {
     display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; border-radius: 999px;
-    font: 700 9.5px var(--mono); white-space: nowrap; flex: none;
+    font: 700 12px var(--mono); white-space: nowrap; flex: none;
 }
 
 /* ── Üç bölmeli çalışma alanı ── */
@@ -89,7 +89,7 @@
 .stk-views { padding: 14px 12px; position: sticky; top: 20px; }
 .stk-views-title { padding: 0 4px 8px; color: var(--dc-muted); font: 650 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .stk-view-group { margin-top: 10px; }
-.stk-view-group > span { display: block; padding: 0 4px 5px; color: var(--dc-muted2); font: 650 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.stk-view-group > span { display: block; padding: 0 4px 5px; color: var(--dc-muted2); font: 650 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .stk-view-items { display: flex; flex-direction: column; gap: 2px; }
 .stk-view {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -150,7 +150,7 @@
 }
 .stk-cols {
     padding: 8px 14px; border-bottom: 1px solid var(--dc-border); background: var(--dc-surface2-60);
-    color: var(--dc-muted2); font: 650 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--dc-muted2); font: 650 12px var(--mono); letter-spacing: .08em; text-transform: uppercase;
 }
 .stk-cols .right { text-align: right; }
 .stk-cols span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -163,7 +163,10 @@
 }
 .stk-row:hover { background: var(--dc-surface2); }
 .stk-row.sel   { background: var(--dc-surface2); }
-.stk-row.off   { opacity: .62; }
+/* Takibi kapalı satır: eskiden bütün satır %62 saydamdı, içindeki yazılar da
+   en soluk griydi — çifte soluklukla okunmuyordu (2026-10-21). Ad okunur kalır,
+   yalnız stok sütunu sessizleşir. */
+.stk-row.off .stk-bar { display: none; }
 .stk-row-rail  { position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 99px; }
 .stk-row-name  { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .stk-avatar {
@@ -174,13 +177,13 @@
 .stk-row-meta  { color: var(--dc-muted); font-size: 12px; font-weight: 600; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stk-qty       { font: 750 12.5px var(--mono); letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stk-qty.bad   { color: var(--dc-red); }
-.stk-qty.mute  { color: var(--dc-muted2); }
+.stk-qty.mute  { color: var(--dc-muted); font-weight: 600; }
 .stk-bar       { margin-top: 5px; height: 3px; border-radius: 999px; background: var(--dc-surface3); overflow: hidden; }
 .stk-bar > i   { display: block; height: 100%; border-radius: 999px; }
 .stk-last      { color: var(--dc-muted); font-size: 13px; font-weight: 600; line-height: 1.35; }
 .stk-value     { text-align: right; }
 .stk-value b   { display: block; font: 800 13px var(--mono); letter-spacing: -.02em; }
-.stk-value span{ display: block; color: var(--dc-muted2); font: 500 12px var(--mono); margin-top: 2px; }
+.stk-value span{ display: block; color: var(--dc-muted); font: 500 12px var(--mono); margin-top: 2px; }
 .stk-row-end   { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
 .stk-link      { border: 0; background: transparent; padding: 0; color: var(--dc-orange-d); font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .stk-link:hover{ color: var(--dc-orange); }
@@ -217,7 +220,7 @@
     padding: 14px; border-bottom: 1px solid var(--dc-border);
     display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
 }
-.stk-kicker { color: var(--dc-muted); font: 650 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.stk-kicker { color: var(--dc-muted); font: 650 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .stk-detail-name { margin-top: 4px; font-size: 15px; font-weight: 790; letter-spacing: -.02em; line-height: 1.2; }
 .stk-detail-meta { margin-top: 2px; color: var(--dc-muted); font-size: 13px; font-weight: 600; }
 .stk-icon-btn {
