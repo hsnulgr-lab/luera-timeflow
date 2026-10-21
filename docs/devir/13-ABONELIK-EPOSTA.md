@@ -368,7 +368,22 @@ e-posta 375 px'te tarayıcıda görüldü.
 > 3 kuru tur): 0,17 sn (soğuk) · 0,05 · 0,06 sn; edge kabı CPU %0,15 → %0,12, bellek
 > 154 → 160 MB; makine yükü artmadı (3,27 → 3,01). Günde 96 tur ≈ 5–15 sn.
 > İlk OTOMATİK tur 22:45:01 UTC (01:45 TR) `/var/log/abonelik-eposta.log`'a düştü — kuru, vade 0.
-> Sırada 7 (`eposta.sh dene` ile kendine deneme e-postası), sonra 8 (`ac`, Dodo Live ile).
+> 7 · `dene` (2026-10-21 01:46 TR): `uc_gun` ve `odeme` → Test Salon 3'ün sahibine (iCloud),
+> ikisi de Resend'e teslim, defterde `gonderildi` · deneme 1 · resend kimliği var. Gelen kutusu
+> kontrolü KULLANICIDA. Not: ikinci sihirli bağlantı ilkini geçersiz kılar (tasarım gereği) →
+> yalnız `odeme` düğmesi çalışır; `uc_gun` düğmesi "artık geçerli değil" ekranını sınar.
+> Bu salon kartlı Dodo denemesinde (ek sürede değil) → düğme girişten sonra ana sayfaya
+> döner (doğru). `dene uc_gun` salonun gerçek bitişini (30 Ekim, Dodo toleransı dahil) kullandı
+> → konu "9 gün kaldı" — yalnız deneme kipinde; gerçek taramada `uc_gun` ≤ 3 günde gider.
+> **Telefonda (01:47):** iki düğme de "artık geçerli değil" gösterdi. Denetim kaydı: 01:47:55
+> `login` (bağlantı ÇALIŞTI) → 01:48:09 `logout` (14 sn sonra; bütün oturumları kapattı) → sonraki
+> dokunuşlar oturumsuz + jeton harcanmış → doğru ekran. Kodda kendiliğinden çıkış yolu YOK (web:
+> Paywall "Çıkış", Hesabım, kenar çubuğu, köprü, hesap silme; mobil: yalnız düğmeyle) — çıkış bir
+> düğmeden geldi, kaynağı kayıtta yok (denetim IP/cihaz tutmuyor). Ders: giriş servisi istek
+> günlüğü tutmuyor; teşhis `auth.audit_log_entries` + `auth.sessions` ile.
+> ✅ **Temiz yeniden deneme (08:22 TR):** tek `dene odeme` → tek dokunuş → şifresiz giriş, ana
+> sayfa (LOU) açıldı; kayıt 08:22:44 bağlantı · 08:22:57 `login` · iPhone Safari oturumu AÇIK,
+> çıkış yok. Sihirli bağlantı uçtan uca DOĞRULANDI. Sonra 8 (`ac`, Dodo Live ile).
 > Komutlar kullanıcının Terminal panelinde, onayıyla çalıştı.
 
 1. **Kuru koşu** (yazmaz, sonunda ROLLBACK). Beklenen: tekillik 1 satır · RLS `t` ·
