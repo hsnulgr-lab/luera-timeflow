@@ -51,6 +51,11 @@ export interface Entitlement extends Access {
      * (docs/abonelik-kurallari.md). Masaüstünün kartlı denemesinde false.
      */
     cardlessTrial: boolean;
+    /**
+     * Abonelik Dodo'da (kartı orada) — "Kartı güncelle" yalnız o zaman bir
+     * yere gider. Hediye, demo ve kartsız denemede false.
+     */
+    dodoManaged: boolean;
     refresh: () => Promise<void>;
 }
 
@@ -107,6 +112,7 @@ export function useEntitlement(): Entitlement {
         // Süre bitince de kartsız deneme sayılır (satır hâlâ 'trial'): ekran
         // "deneme bitti, plan seçin" der.
         cardlessTrial: isCardlessTrial(loaded?.row),
+        dodoManaged: !!loaded?.row?.dodo_subscription_id,
         loading,
         // Yalnız satır GERÇEKTEN okunduysa VE kapı açıksa kilitlenir.
         locked: ENFORCE && !loading && loaded !== null && !access.ok,

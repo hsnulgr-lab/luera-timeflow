@@ -96,10 +96,14 @@ export function useBilling() {
         }, 3000);
     }, [refresh]);
 
-    const startCheckout = useCallback(async (plan: string, cycle: 'monthly' | 'yearly') => {
+    /**
+     * `donus: 'abonelik'` — abonelik e-postasından gelen (`?kaynak=eposta`):
+     * Dodo'dan dönüş yine paket ekranına (dodo-checkout · toPaywall).
+     */
+    const startCheckout = useCallback(async (plan: string, cycle: 'monthly' | 'yearly', donus?: 'abonelik') => {
         setBusy(true);
         const { data, error } = await supabase.functions
-            .invoke('dodo-checkout', { body: { plan, cycle, orgId } })
+            .invoke('dodo-checkout', { body: { plan, cycle, orgId, ...(donus ? { donus } : {}) } })
             .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
         if (data?.resumed) {
@@ -123,10 +127,10 @@ export function useBilling() {
      * Dodo kart güncelleme sayfası — yalnız bu aboneliğin kartı (yeni abonelik
      * AÇMAZ, tutar göstermez). Askıdaki abonelikte borç yeni karttan çekilir.
      */
-    const updateCard = useCallback(async () => {
+    const updateCard = useCallback(async (donus?: 'abonelik') => {
         setBusy(true);
         const { data, error } = await supabase.functions
-            .invoke('dodo-checkout', { body: { action: 'card', orgId } })
+            .invoke('dodo-checkout', { body: { action: 'card', orgId, ...(donus ? { donus } : {}) } })
             .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
         if (error || !data?.url) {

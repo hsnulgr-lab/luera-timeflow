@@ -337,13 +337,13 @@ test('telefona giden "ödeme alınamadı" bildirimi yalnız durum söyler (Faz 2
 
 test('paket ekranı ek süredeki salonu ana sayfaya ATMAZ (Durum 3 görünür)', () => {
     const pw = code('src/pages/PaywallPage.tsx');
-    assert.match(pw, /if \(!ent\.loading && ent\.ok && !ent\.cardlessTrial && ent\.effective !== 'grace' && !returning\) navigate\('\/', \{ replace: true \}\);/);
+    assert.match(pw, /if \(!ent\.loading && ent\.ok && !ent\.cardlessTrial && ent\.effective !== 'grace' && !returning && !fromEmail\) navigate\('\/', \{ replace: true \}\);/);
     assert.match(pw, /if \(ent\.effective === 'grace'\) \{/, 'Durum 3 dalı yerinde');
 });
 
 test('girişten sonra paket ekranı: yalnız beyaz listedeki "sonra=abonelik", kayıtta değil', () => {
     const lp = code('src/pages/LoginPage.tsx');
-    assert.match(lp, /const afterDest = planDest \?\? \(params\.get\('sonra'\) === 'abonelik' \? '\/abonelik' : null\);/);
+    assert.match(lp, /const afterDest = planDest \?\? \(params\.get\('sonra'\) === 'abonelik' \? '\/abonelik\?kaynak=eposta' : null\);/);
     assert.match(lp, /const dest = planDest \?\? \(kind === 'signup' \? '\/kurulum' : afterDest \?\? '\/'\);/);
     assert.match(lp, /navigate\(afterDest \?\? '\/', \{ replace: true \}\);/, 'açık oturumla gelen de paket ekranına');
     assert.doesNotMatch(lp, /navigate\(params\.get\('sonra'\)/, 'parametre adres olarak kullanılmaz (açık yönlendirme)');
@@ -363,6 +363,39 @@ test('/baglanti kapının DIŞINDA; jeton parçadan okunur, hemen silinir, bir k
     // Tam marka (kullanıcı, 2026-10-21): giriş sayfasındaki gibi luera + "timeflow" hapı.
     assert.match(page, /<LueraTimeflowMark size=\{28\} animate=\{false\} pillHeightRatio=\{0\.5556\} textRatio=\{0\.62\} dark=\{dark\} \/>/);
     assert.doesNotMatch(page, /className="brand"/, 'eski "luera." yarım marka kalmadı');
+});
+
+test('e-postadan gelen web uygulamasına HİÇ düşmez: paket ekranında kalır, Dodo da oraya döndürür (2026-10-21)', () => {
+    // Kullanıcı kararı: "Kartımı güncelle" telefonda uygulamanın ana sayfasını
+    // açtı → istenmedi. /baglanti ve girişin `sonra=abonelik`i e-posta kipine gider.
+    const page = code('src/pages/EpostaBaglantiPage.tsx');
+    assert.match(page, /const PAKET = '\/abonelik\?kaynak=eposta';/);
+    assert.doesNotMatch(page, /navigate\('\/abonelik'/, 'kipsiz paket ekranı kalmadı');
+    assert.equal((page.match(/navigate\(PAKET, \{ replace: true \}\)/g) || []).length, 3);
+
+    const pw = code('src/pages/PaywallPage.tsx');
+    assert.match(pw, /const fromEmail = params\.get\('kaynak'\) === 'eposta';/);
+    // Aboneliği sürene ayrı ekran; uygulamaya düğme yok, kapatma notu var.
+    const aktif = pw.slice(pw.indexOf("if (fromEmail && ent.ok && !ent.cardlessTrial && ent.effective !== 'grace')"), pw.indexOf("if (ent.effective === 'grace')"));
+    assert.ok(aktif.length > 100, 'e-posta kipinde "aboneliğiniz sürüyor" dalı yok');
+    assert.match(aktif, /Aboneliğiniz sürüyor\./);
+    assert.match(aktif, /\{ent\.dodoManaged && \(/, 'Kartı güncelle yalnız Dodo aboneliğinde');
+    assert.match(aktif, /updateCard\(donus\)/);
+    assert.doesNotMatch(aktif, /navigate\(/, 'uygulamaya gönderen bir şey yok');
+    assert.doesNotMatch(aktif, /Sonraki tahsilat/, 'iptal bekleyende yalan olurdu');
+    // Ödeme dönüşü ve kartsız deneme: uygulama düğmeleri e-posta kipinde yok.
+    assert.match(pw, /\{fromEmail \? \(\s*<span[^>]*>\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<div className="acts">\s*<button className="btn pri big" onClick=\{\(\) => navigate\('\/kurulum'\)\}>/);
+    assert.match(pw, /\{fromEmail \? \(\s*<span[^>]*>\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<button className="btn bare" onClick=\{\(\) => navigate\('\/'\)\}>\s*Şimdilik uygulamaya dön/);
+    assert.match(pw, /const onSelect = \(plan: PlanId, cycle: Cycle\) => \{ void startCheckout\(plan, cycle, donus\); \};/);
+    // Erken alan kartsız denemecinin denemesi 7 gün değil, kalan gündür.
+    assert.match(pw, /const trialDaysShown = ent\.shownDaysLeft && ent\.shownDaysLeft > 0 \? ent\.shownDaysLeft : TRIAL_DAYS;/);
+    assert.doesNotMatch(pw, /\$\{TRIAL_DAYS\} gün boyunca ücretsiz kullanacaksınız/);
+
+    const co = code('supabase/functions/dodo-checkout/index.ts');
+    assert.match(co, /const toPaywall = body\.donus === 'abonelik';/, 'beyaz liste: adres istemciden gelmez');
+    assert.match(co, /return_url: toPaywall \? `\$\{appUrl\}\/abonelik\?kaynak=eposta&kart=1` : `\$\{appUrl\}\/settings\?tab=billing`/);
+    assert.match(co, /const returnUrl = toPaywall\s*\? `\$\{appUrl\}\/abonelik\?checkout=success&kaynak=eposta`/);
+    assert.match(code('src/hooks/useBilling.ts'), /\.\.\.\(donus \? \{ donus \} : \{\}\)/);
 });
 
 test('fonksiyon: yalnız zamanlayıcı; anahtar kapalıyken defter YAZILMAZ', () => {

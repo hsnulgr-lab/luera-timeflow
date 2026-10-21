@@ -30,6 +30,9 @@ import './billing.css';
 
 const fullFmt = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+/** E-postadan gelenin ekranlarında uygulamaya düğme yerine (bkz. fromEmail). */
+const CLOSE_NOTE = "Bu sayfayı kapatıp TimeFlow'u kullanmaya devam edebilirsiniz.";
+
 /** Duvarda gösterilen "verileriniz duruyor" sayaçları + işletme adı. */
 interface Kept { customers: number; past: number; upcoming: number; name: string }
 
@@ -44,6 +47,14 @@ export function PaywallPage() {
     const [kept, setKept] = useState<Kept | null>(null);
     const autoStarted = useRef(false);
     const returning = params.get('checkout') === 'success';
+    // Abonelik e-postasından gelen (/baglanti, girişte ?sonra=abonelik):
+    // bu ekranda KALIR, web uygulamasına (çoğu telefondan gelir — telefon
+    // sürümüne) hiç gönderilmez; Dodo'dan dönüş de buraya (dodo-checkout ·
+    // donus). Kullanıcı kararı 2026-10-21: e-postadaki düğme salon sahibini
+    // uygulamanın ana sayfasına düşürmesin.
+    const fromEmail = params.get('kaynak') === 'eposta';
+    const donus = fromEmail ? ('abonelik' as const) : undefined;
+    const cardReturn = fromEmail && params.get('kart') === '1';
 
     // Kayıt sırasında plan seçilmişse (/fiyatlar → /login?plan=pro) doğrudan
     // ödemeye geç: kullanıcı planı bir kez seçti, ikinci kez sormak sürtünme.
@@ -70,9 +81,11 @@ export function PaywallPage() {
     // "Ödemeniz alınamadı · Kartı güncelle" (Durum 3) tam olarak onun ekranı.
     // Bu koşul yokken o ekran hiç görünmüyordu — "ödeme alınamadı"
     // e-postasının düğmesi kişiyi ana sayfaya atıyordu.
+    // E-postadan gelen de kalır: aboneliği sürüyorsa "Aboneliğiniz sürüyor"
+    // görür (aşağıda), uygulamaya atılmaz.
     useEffect(() => {
-        if (!ent.loading && ent.ok && !ent.cardlessTrial && ent.effective !== 'grace' && !returning) navigate('/', { replace: true });
-    }, [ent.loading, ent.ok, ent.cardlessTrial, ent.effective, returning, navigate]);
+        if (!ent.loading && ent.ok && !ent.cardlessTrial && ent.effective !== 'grace' && !returning && !fromEmail) navigate('/', { replace: true });
+    }, [ent.loading, ent.ok, ent.cardlessTrial, ent.effective, returning, fromEmail, navigate]);
 
     // "Verileriniz duruyor" sadece bir cümle olarak inandırıcı değil; sayı
     // görmek gerekiyor. Okuma RLS'te açık bırakıldığı için bu sorgu kilitliyken
@@ -104,8 +117,9 @@ export function PaywallPage() {
         (async () => { await loadKept(orgId); })();
     }, [orgId, loadKept]);
 
-    const onSelect = (plan: PlanId, cycle: Cycle) => { void startCheckout(plan, cycle); };
+    const onSelect = (plan: PlanId, cycle: Cycle) => { void startCheckout(plan, cycle, donus); };
     const pro = planById('pro') ?? PLANS[1];
+    const trialDaysShown = ent.shownDaysLeft && ent.shownDaysLeft > 0 ? ent.shownDaysLeft : TRIAL_DAYS;
     const bizName = kept?.name || 'İşletmeniz';
     const initials = bizName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toLocaleUpperCase('tr')).join('');
 
@@ -153,10 +167,12 @@ export function PaywallPage() {
                 <h1>{ent.effective === 'trial' ? 'Denemeniz başladı.' : 'Ödemeniz alındı.'}</h1>
                 <p className="lede">
                     {plan.name} planı aktif.{' '}
+                    {/* Gün sayısı Dodo'nun gerçek bitişinden: kartsız denemeden
+                        erken alan salonun denemesi 7 gün DEĞİL, kalan gündür. */}
                     {ent.effective === 'trial'
-                        ? `${TRIAL_DAYS} gün boyunca ücretsiz kullanacaksınız.`
-                        : 'Faturanız birkaç dakika içinde e-posta adresinize gelir.'}{' '}
-                    Şimdi programı işletmenize göre ayarlayalım — yaklaşık 6 dakika.
+                        ? `${trialDaysShown} gün boyunca ücretsiz kullanacaksınız.`
+                        : 'Faturanız birkaç dakika içinde e-posta adresinize gelir.'}
+                    {!fromEmail && ' Şimdi programı işletmenize göre ayarlayalım — yaklaşık 6 dakika.'}
                 </p>
                 <div className="receipt">
                     <div className="rh">
@@ -170,7 +186,7 @@ export function PaywallPage() {
                     {ent.effective === 'trial' && (
                         <div className="rr">
                             <span className="d">Deneme süresi</span>
-                            <span className="a" style={{ color: 'var(--dc-green)' }}>{TRIAL_DAYS} gün ücretsiz</span>
+                            <span className="a" style={{ color: 'var(--dc-green)' }}>{trialDaysShown} gün ücretsiz</span>
                         </div>
                     )}
                     <div className="rtot">
@@ -190,14 +206,29 @@ export function PaywallPage() {
                         </div>
                     )}
                 </div>
-                <div className="acts">
-                    <button className="btn pri big" onClick={() => navigate('/kurulum')}>
-                        Kuruluma başla<Ico n="ar" s="i" />
-                    </button>
-                    <button className="btn bare" onClick={() => navigate('/')}>
-                        Sonra yaparım, uygulamaya git
-                    </button>
-                </div>
+                {fromEmail ? (
+                    <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
+                ) : (
+                    <div className="acts">
+                        <button className="btn pri big" onClick={() => navigate('/kurulum')}>
+                            Kuruluma başla<Ico n="ar" s="i" />
+                        </button>
+                        <button className="btn bare" onClick={() => navigate('/')}>
+                            Sonra yaparım, uygulamaya git
+                        </button>
+                    </div>
+                )}
+            </div>,
+        );
+    }
+
+    // E-postadan gelen: abonelik durumu okunurken boş bir kapı göster —
+    // yoksa bir an "Planınızı seçin" yanıp söner.
+    if (fromEmail && ent.loading) {
+        return shell(
+            <div className="wall" role="status" aria-live="polite">
+                <div className="badge n"><Ico n="loading" s="i26" className="spin" /></div>
+                <h1 style={{ fontSize: 24 }}>Aboneliğiniz okunuyor.</h1>
             </div>,
         );
     }
@@ -220,9 +251,44 @@ export function PaywallPage() {
                 <div style={{ width: '100%', textAlign: 'left' }}>
                     <PlanCards busy={busy} onSelect={onSelect} ctaLabel={() => 'Bu planı seç'} />
                 </div>
-                <button className="btn bare" onClick={() => navigate('/')}>
-                    Şimdilik uygulamaya dön
-                </button>
+                {fromEmail ? (
+                    <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
+                ) : (
+                    <button className="btn bare" onClick={() => navigate('/')}>
+                        Şimdilik uygulamaya dön
+                    </button>
+                )}
+            </div>,
+        );
+    }
+
+    // ── E-postadan gelen, aboneliği sürüyor ─────────────────────────────────
+    // Eskiden burada uygulamaya atılıyordu. Tahsilat tarihi YAZILMAZ: iptal
+    // bekleyen abonelik de burada görünür, "sonraki tahsilat" yalan olurdu —
+    // yalnız dönem sonu/deneme bitişi.
+    if (fromEmail && ent.ok && !ent.cardlessTrial && ent.effective !== 'grace') {
+        const current = planById(ent.plan);
+        const onTrial = ent.effective === 'trial';
+        return shell(
+            <div className="wall">
+                <div className="badge g"><Ico n="receipt-ok" s="i26" /></div>
+                <h1>{onTrial ? 'Denemeniz sürüyor.' : 'Aboneliğiniz sürüyor.'}</h1>
+                <p className="lede">
+                    {current ? `${current.name} planı. ` : ''}
+                    {ent.shownUntil
+                        ? `${onTrial ? 'Deneme bitişi' : 'Dönem sonu'}: ${fullFmt.format(new Date(ent.shownUntil))}.`
+                        : 'Şu an yapmanız gereken bir şey yok.'}
+                </p>
+                {/* Kart yalnız Dodo aboneliğinde var: hediye ve demoda düğme
+                    hiçbir yere gitmezdi (karşılığı olmayan kontrol çizilmez). */}
+                {ent.dodoManaged && (
+                    <div className="acts">
+                        <button className="btn pri big" disabled={busy} onClick={() => void updateCard(donus)}>
+                            Kartı güncelle
+                        </button>
+                    </div>
+                )}
+                <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
             </div>,
         );
     }
@@ -237,6 +303,14 @@ export function PaywallPage() {
                     Bankanız işlemi geçirmedi. Bu genelde limit ya da kart doğrulamasıyla ilgilidir.
                     Kartınızı güncelleyin, işlemi hemen tekrar deneyelim.
                 </p>
+                {/* Dodo kart sayfasından dönüş: sonuç webhook'la gelir, birkaç
+                    saniye–dakika sürebilir. "Ödendi" DENMEZ — henüz bilinmiyor. */}
+                {cardReturn && (
+                    <div className="call plain" style={{ maxWidth: 560, textAlign: 'left' }}>
+                        <Ico n="info" />
+                        <span>Kart sayfasından döndünüz. Yeni kartla ödemenin sonucu birkaç dakika içinde burada görünür; sayfayı yenileyerek bakabilirsiniz.</span>
+                    </div>
+                )}
                 <div className="countdown live">
                     <svg className="i26" style={{ color: 'var(--dc-amber)' }}><use href="#bl-clock" /></svg>
                     <span className="big num">{remainingText(ent.until)}</span>
@@ -245,7 +319,7 @@ export function PaywallPage() {
                 <div className="acts">
                     {/* Yeni abonelik DEĞİL: askıdaki aboneliğin kart sayfası —
                         Dodo borcu yeni karttan hemen çeker, abonelik sürer. */}
-                    <button className="btn pri big" disabled={busy} onClick={() => void updateCard()}>
+                    <button className="btn pri big" disabled={busy} onClick={() => void updateCard(donus)}>
                         Kartı güncelle
                     </button>
                     <button className="btn bare" onClick={() => setShowPlans((v) => !v)}>

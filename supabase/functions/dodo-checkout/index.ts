@@ -27,6 +27,8 @@ const corsHeaders = {
  *   { action: 'cancel', orgId }  → dönem sonunda iptal
  *   { action: 'card', orgId }    → { url }  Dodo kart güncelleme sayfası
  *                                          ('portal' eski istemcinin adı, aynı yere gider)
+ *   + { donus: 'abonelik' }      → Dodo'dan dönüş /abonelik?kaynak=eposta
+ *                                  (abonelik e-postasının yolu; yoksa Kurulum/Ayarlar)
  *
  * DENEME SÜRESİ: ilk checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
  * ilk tahsilat 8. gün). Dodo'da trial ABONELİĞE bağlanabiliyor
@@ -79,6 +81,11 @@ Deno.serve(async (req: Request) => {
         }
 
         const appUrl = (await getSecret(admin, 'APP_URL')) || 'https://timeflow.lueratech.com';
+        // Abonelik e-postasından gelen (`/abonelik?kaynak=eposta`) Dodo'dan
+        // da paket ekranına döner: çoğu telefondan, uygulaması telefonda —
+        // web uygulamasının telefon sürümüne (Kurulum, Ayarlar) düşmemeli
+        // (kullanıcı kararı 2026-10-21). Beyaz liste: adres istemciden gelmez.
+        const toPaywall = body.donus === 'abonelik';
 
         // ── İptal: dönem sonunda ─────────────────────────────────────────────
         if (body.action === 'cancel') {
@@ -117,7 +124,10 @@ Deno.serve(async (req: Request) => {
             if (!subscriptionId) return json({ error: 'no_subscription' }, 404);
             const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/update-payment-method`, {
                 method: 'POST',
-                body: JSON.stringify({ type: 'new', return_url: `${appUrl}/settings?tab=billing` }),
+                body: JSON.stringify({
+                    type: 'new',
+                    return_url: toPaywall ? `${appUrl}/abonelik?kaynak=eposta&kart=1` : `${appUrl}/settings?tab=billing`,
+                }),
             });
             if (!res.ok) {
                 console.error('Dodo update-payment-method error:', res.status, await res.text().catch(() => ''));
@@ -208,9 +218,11 @@ Deno.serve(async (req: Request) => {
         // İlk satın alımda kurulum sihirbazına, sonrakilerde faturalandırmaya
         // dön: ödeme yapan yeni müşteriyi ayarlar ekranına bırakmak, ürünü
         // kurmadan yalnız bir fatura satırı göstermek olurdu.
-        const returnUrl = firstTime
-            ? `${appUrl}/kurulum?checkout=success`
-            : `${appUrl}/settings?tab=billing&checkout=success`;
+        const returnUrl = toPaywall
+            ? `${appUrl}/abonelik?checkout=success&kaynak=eposta`
+            : firstTime
+                ? `${appUrl}/kurulum?checkout=success`
+                : `${appUrl}/settings?tab=billing&checkout=success`;
 
         const res = await dodoFetch(api, '/checkouts', {
             method: 'POST',

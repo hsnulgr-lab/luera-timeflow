@@ -31,6 +31,12 @@ import './billing.css';
 
 type Phase = 'checking' | 'offline' | 'expired';
 
+/**
+ * Paket ekranı, e-posta kipinde: kişi orada KALIR, uygulamanın (telefonda
+ * telefon sürümünün) ana sayfasına gönderilmez — PaywallPage · fromEmail.
+ */
+const PAKET = '/abonelik?kaynak=eposta';
+
 /** Parçadaki jeton (#t=…); yoksa null. */
 function tokenFromHash(hash: string): string | null {
     const t = new URLSearchParams(hash.replace(/^#/, '')).get('t');
@@ -55,7 +61,7 @@ export function EpostaBaglantiPage() {
         const t = token.current;
         if (!t) {
             // Jetonsuz açıldı (yer imi, geri tuşu): oturum varsa zaten içeride.
-            if (before.session) navigate('/abonelik', { replace: true });
+            if (before.session) navigate(PAKET, { replace: true });
             else setPhase('expired');
             return;
         }
@@ -67,7 +73,7 @@ export function EpostaBaglantiPage() {
             if (error && isAuthRetryableFetchError(error)) { setPhase('offline'); return; }
             token.current = null;
             // İkinci tıklama: ilk tıklama kişiyi zaten içeri almıştı.
-            if (before.session) { navigate('/abonelik', { replace: true }); return; }
+            if (before.session) { navigate(PAKET, { replace: true }); return; }
             setPhase('expired');
             return;
         }
@@ -94,7 +100,7 @@ export function EpostaBaglantiPage() {
     }, []);
 
     useEffect(() => {
-        if (target && user?.id === target) navigate('/abonelik', { replace: true });
+        if (target && user?.id === target) navigate(PAKET, { replace: true });
     }, [target, user?.id, navigate]);
 
     const shell = (body: React.ReactNode) => (

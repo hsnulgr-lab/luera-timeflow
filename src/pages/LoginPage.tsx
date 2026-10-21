@@ -130,8 +130,9 @@ export const LoginPage = () => {
     const planDest = plan ? `/abonelik?plan=${plan.id}&cycle=${cycle}` : null;
     // Abonelik e-postasından gelen (?sonra=abonelik): girişten sonra paket
     // ekranı. BEYAZ LİSTE — adres parametreden okunmaz, açık yönlendirme
-    // olmaz. Yeni kayıtta geçmez: yeni işletmenin yeri kurulum.
-    const afterDest = planDest ?? (params.get('sonra') === 'abonelik' ? '/abonelik' : null);
+    // olmaz. Yeni kayıtta geçmez: yeni işletmenin yeri kurulum. E-posta
+    // kipinde açılır: paket ekranı kişiyi uygulamaya atmaz (PaywallPage).
+    const afterDest = planDest ?? (params.get('sonra') === 'abonelik' ? '/abonelik?kaynak=eposta' : null);
 
     const [screen, setScreen] = useState<Screen>(() => (params.get('mode') === 'signup' ? { name: 'signup' } : { name: 'login' }));
     const [email, setEmail] = useState('');

@@ -368,7 +368,7 @@ test('checkout: işletme doğrulanır, süren aboneliğe ikinci abonelik açılm
     // "Kartı güncelle" yeni checkout değil; portal da değil (USD tutar ve
     // bütün abonelikler) — yalnız o aboneliğin kart sayfası.
     assert.match(co, /\/update-payment-method`/);
-    assert.match(co, /type: 'new', return_url:/);
+    assert.match(co, /type: 'new',\s*return_url:/);
     assert.doesNotMatch(co, /customer-portal/);
     // Eski istemci ('portal') de aynı sayfaya gider.
     assert.match(co, /body\.action === 'card' \|\| body\.action === 'portal'/);
@@ -389,9 +389,10 @@ test('iptal bekleyen salon ekrandan devam edebilir (aynı plan + dönem → resu
 test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
     const hook = read('src/hooks/useBilling.ts');
     assert.match(hook, /invoke\('billing-status', \{ body: \{ orgId \} \}\)/);
-    assert.match(hook, /body: \{ plan, cycle, orgId \}/);
+    // donus: e-postadan gelenin Dodo dönüşü paket ekranına (abonelik-eposta testi).
+    assert.match(hook, /body: \{ plan, cycle, orgId, \.\.\.\(donus \? \{ donus \} : \{\}\) \}/);
     assert.match(hook, /body: \{ action: 'cancel', orgId \}/);
-    assert.match(hook, /body: \{ action: 'card', orgId \}/);
+    assert.match(hook, /body: \{ action: 'card', orgId, \.\.\.\(donus \? \{ donus \} : \{\}\) \}/);
 });
 
 // ── 4 · Hediye üyelik (ops/abonelik/hediye.sql) ─────────────────────────────
@@ -701,11 +702,11 @@ test('ekranlar kartsız denemeyi doğru çizer (paket ekranı, abonelik, şerit,
     const pay = read('src/pages/PaywallPage.tsx');
     // Kartsız denemesi süren geri atılmaz — paket ekranı onun. Ek süredeki
     // salon da (Durum 3 · Kartı güncelle) — tests/abonelik-eposta.test.mjs.
-    assert.match(pay, /ent\.ok && !ent\.cardlessTrial && ent\.effective !== 'grace' && !returning\) navigate\('\/'/);
+    assert.match(pay, /ent\.ok && !ent\.cardlessTrial && ent\.effective !== 'grace' && !returning && !fromEmail\) navigate\('\/'/);
     assert.match(pay, /if \(ent\.ok && ent\.cardlessTrial\) \{[\s\S]*?Denemeniz sürüyor\.[\s\S]*?ilk tahsilat denemeniz bittiğinde/);
     // Ödeme alınamadı → yeni abonelik DEĞİL, kart sayfası.
     const grace = pay.slice(pay.indexOf("if (ent.effective === 'grace')"));
-    assert.match(grace, /onClick=\{\(\) => void updateCard\(\)\}>\s*Kartı güncelle/);
+    assert.match(grace, /onClick=\{\(\) => void updateCard\(donus\)\}>\s*Kartı güncelle/);
 
     const ab = read('src/pages/settings/bolumler/Abonelik.tsx');
     const kartsiz = ab.slice(ab.indexOf('if (onTrial && ent.cardlessTrial)'), ab.indexOf('if (!hasSub && !onTrial)'));
