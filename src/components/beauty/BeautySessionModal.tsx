@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,10 +20,15 @@ import './beautySessionModal.css';
 // hizmetler kapatılır.
 //
 // Zaman çizelgesi (2026-10-21, kullanıcı üç taslak arasından C'yi seçti):
-// saat kutuları yerine günün çizelgesi. Her uzman bir şerit, dolu saatler gri
+// saat kutuları yerine günün çizelgesi. Her uzman bir sütun, dolu saatler gri
 // blok; boş yere tıklayınca seans süresi kadar turuncu blok oraya oturur.
-// "Fark etmez" şeridi herkesin dolu olduğu saatleri gösterir — oraya konan
+// "Fark etmez" sütunu herkesin dolu olduğu saatleri gösterir — oraya konan
 // seansın uzmanını kayıt anında yük dengesiyle sistem seçer (autoStaff).
+// Önce yataydı; 08–24 gibi uzun günde yarım saat ~25 px'e düşüp okunmuyordu
+// ("pratik ve okunaklı değil"). Takvimin Gün görünümü gibi DİKEY oldu.
+
+/** Dikey çizelgede saat başına yükseklik — yarım saat 26 px, tıklanabilir */
+const HOUR_PX = 52;
 
 /** Takvimdeki boş saatten açıldığında önden doldurulan alanlar. */
 export interface SessionPreset {
@@ -303,10 +308,20 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     const workEnd = slotTimes.length ? toMin(slotTimes[slotTimes.length - 1]) + step : 0;
     const viewEnd = Math.max(viewStart + 60, Math.ceil(workEnd / 60) * 60);
     const hours = (viewEnd - viewStart) / 60;
-    const pct = (m: number) => `${((Math.min(Math.max(m, viewStart), viewEnd) - viewStart) / (viewEnd - viewStart)) * 100}%`;
-    const span = (a: number, b: number) => ({ left: pct(a), width: `calc(${pct(b)} - ${pct(a)})` });
-    const hourMarks = Array.from({ length: hours + 1 }, (_, i) => viewStart / 60 + i)
-        .filter((h, i) => hours <= 10 || i % 2 === 0);
+    const y = (m: number) => ((Math.min(Math.max(m, viewStart), viewEnd) - viewStart) / 60) * HOUR_PX;
+    const box = (a: number, b: number) => ({ top: y(a), height: Math.max(0, y(b) - y(a)) });
+    const hourMarks = Array.from({ length: hours + 1 }, (_, i) => viewStart / 60 + i);
+
+    // Açılışta ve gün değişince ilgili saate kay: seçili saat, bugünse şu an,
+    // değilse mesai başı — bir saat öncesi de görünsün. Tıklayınca kaymaz.
+    const calRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const el = calRef.current;
+        if (!el) return;
+        const target = slot ? toMin(slot) : isToday ? nowMin : viewStart;
+        el.scrollTop = Math.max(0, y(target) - HOUR_PX);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [date]);
 
     // Kabinlerin hepsi doluysa o saatler HER şeritte kapalı — taralı bant
     const cabinFull = useMemo(
@@ -560,65 +575,79 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                         <section>
                             <div className="bsm-sec-h">
                                 <span className="eyebrow">Saat</span>
-                                <span className="note">{slot ? `${duration} dk · ${slot}–${addMinutes(slot, duration)}` : `Boş yere tıkla · ${duration} dk`}</span>
+                                {/* İmlecin altındaki yer yazılır — tıklamadan nereye konacağı görünsün */}
+                                <span className={cn('note', hover && 'live')}>
+                                    {hover
+                                        ? `${lanes.find((l) => l.key === hover.lane)?.label} · ${hover.t}–${addMinutes(hover.t, duration)}`
+                                        : slot ? `${duration} dk · ${slot}–${addMinutes(slot, duration)}` : `Boş yere tıkla · ${duration} dk`}
+                                </span>
                             </div>
                             {slotTimes.length === 0 ? (
                                 <p className="bsm-closed">Bu gün işletme kapalı — çalışma saatlerini Ayarlar'dan değiştirebilirsiniz.</p>
                             ) : (
-                                <div className="bsm-tl">
-                                    <div className="bsm-tl-in" style={{ '--hours': hours } as React.CSSProperties}>
-                                        <div className="bsm-tl-scale">
-                                            <span />
-                                            <div>{hourMarks.map((h) => <span key={h} style={{ left: pct(h * 60) }}>{h}</span>)}</div>
+                                <div className="bsm-cal" ref={calRef} style={{ '--cols': lanes.length } as React.CSSProperties}
+                                    onMouseLeave={() => setHover(null)}>
+                                    {/* Sütun başlıkları kayarken üstte kalır */}
+                                    <div className="bsm-cal-head">
+                                        <span />
+                                        {lanes.map((lane) => (
+                                            <span key={lane.key} className={cn(lane.staffId === '' && 'any')} title={lane.label}>
+                                                <b>{lane.label}</b>
+                                                <small>{lane.staffId === '' ? 'ilk boş uzman' : lane.load ? `${lane.load} seans` : 'boş'}</small>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="bsm-cal-body" style={{ height: y(viewEnd) }}>
+                                        <div className="times">
+                                            {hourMarks.map((h) => <span key={h} style={{ top: y(h * 60) }}>{String(h).padStart(2, '0')}:00</span>)}
                                         </div>
                                         {lanes.map((lane) => {
                                             const blocks = lane.staffId === ''
-                                                ? runsOf(slotTimes, step, (t) => !activeStaff.some((s) => !isBusy(t, s.id, step))).map(([a, b]) => ({ a, b, title: 'Herkes dolu' }))
+                                                ? runsOf(slotTimes, step, (t) => !activeStaff.some((s) => !isBusy(t, s.id, step))).map(([a, b]) => ({ a, b, time: '', text: 'herkes dolu' }))
                                                 : dayRes
                                                     .filter((r) => (lane.staffId === undefined ? !r.staffId : r.staffId === lane.staffId))
-                                                    .map((r) => ({ a: toMin(r.startTime), b: toMin(r.endTime), title: `${r.startTime.slice(0, 5)}–${r.endTime.slice(0, 5)} · ${r.service || 'Seans'}` }));
+                                                    .map((r) => ({ a: toMin(r.startTime), b: toMin(r.endTime), time: r.startTime.slice(0, 5), text: r.service || 'Seans' }));
                                             const isSel = slot && selectedLane === lane.key;
                                             const ghost = hover?.lane === lane.key && !(isSel && hover.t === slot) ? hover.t : null;
                                             return (
-                                                <div key={lane.key} className={cn('bsm-tl-row', lane.staffId === '' && 'any')} onMouseLeave={() => setHover(null)}>
-                                                    <span className="who" title={lane.label}>
-                                                        <b>{lane.label}</b>
-                                                        {lane.load !== undefined && lane.load > 0 && <i>{lane.load}</i>}
-                                                    </span>
-                                                    <div className="lane">
-                                                        {/* Mesai dışı, geçmiş ve kabinlerin dolduğu saatler */}
-                                                        {toMin(slotTimes[0]) > viewStart && <span className="off" style={span(viewStart, toMin(slotTimes[0]))} />}
-                                                        {workEnd < viewEnd && <span className="off" style={span(workEnd, viewEnd)} />}
-                                                        {isToday && nowMin > viewStart && <span className="past" style={span(viewStart, nowMin)} />}
-                                                        {cabinFull.map(([a, b]) => <span key={`k${a}`} className="cab" style={span(a, b)} title="Kabinlerin hepsi dolu" />)}
-                                                        {blocks.map((x, i) => <span key={i} className="busy" style={span(x.a, x.b)} title={x.title} />)}
-                                                        {/* Tıklanabilir adımlar — her biri bir düğme */}
-                                                        {slotTimes.map((t) => {
-                                                            const bad = laneBusy(lane, t) || isPast(t);
-                                                            return (
-                                                                <button key={t} type="button" className="cell" style={span(toMin(t), toMin(t) + step)}
-                                                                    aria-label={`${lane.label} · ${t}`} aria-disabled={bad} title={t}
-                                                                    onMouseEnter={() => setHover({ lane: lane.key, t })}
-                                                                    onFocus={() => setHover({ lane: lane.key, t })}
-                                                                    onClick={() => {
-                                                                        if (bad) return;
-                                                                        setSlot(t);
-                                                                        setStaffId(lane.staffId ?? '');
-                                                                    }} />
-                                                            );
-                                                        })}
-                                                        {ghost && (
-                                                            <span className={cn('ghost', (laneBusy(lane, ghost) || isPast(ghost)) && 'bad')}
-                                                                style={span(toMin(ghost), toMin(ghost) + duration)} />
-                                                        )}
-                                                        {isSel && (
-                                                            <span className={cn('sel', slotBad && 'bad')} style={span(toMin(slot), toMin(slot) + duration)}
-                                                                title={`${slot}–${addMinutes(slot, duration)}`}>
-                                                                <b>{slot}</b>
-                                                            </span>
-                                                        )}
-                                                        {isToday && nowMin > viewStart && nowMin < viewEnd && <span className="now" style={{ left: pct(nowMin) }} />}
-                                                    </div>
+                                                <div key={lane.key} className={cn('col', lane.staffId === '' && 'any')}>
+                                                    {/* Mesai dışı, geçmiş ve kabinlerin dolduğu saatler */}
+                                                    {toMin(slotTimes[0]) > viewStart && <span className="off" style={box(viewStart, toMin(slotTimes[0]))} />}
+                                                    {workEnd < viewEnd && <span className="off" style={box(workEnd, viewEnd)} />}
+                                                    {isToday && nowMin > viewStart && <span className="past" style={box(viewStart, nowMin)} />}
+                                                    {cabinFull.map(([a, b]) => <span key={`k${a}`} className="cab" style={box(a, b)} />)}
+                                                    {blocks.map((x, i) => (
+                                                        <span key={i} className="busy" style={box(x.a, x.b)}>
+                                                            {y(x.b) - y(x.a) >= 20 && <>{x.time && <b>{x.time}</b>}{x.text}</>}
+                                                        </span>
+                                                    ))}
+                                                    {/* Tıklanabilir adımlar — her biri bir düğme */}
+                                                    {slotTimes.map((t) => {
+                                                        const bad = laneBusy(lane, t) || isPast(t);
+                                                        return (
+                                                            <button key={t} type="button" className="cell" style={box(toMin(t), toMin(t) + step)}
+                                                                aria-label={`${lane.label} · ${t}`} aria-disabled={bad}
+                                                                onMouseEnter={() => setHover({ lane: lane.key, t })}
+                                                                onFocus={() => setHover({ lane: lane.key, t })}
+                                                                onClick={() => {
+                                                                    if (bad) return;
+                                                                    setSlot(t);
+                                                                    setStaffId(lane.staffId ?? '');
+                                                                }} />
+                                                        );
+                                                    })}
+                                                    {ghost && (
+                                                        <span className={cn('ghost', (laneBusy(lane, ghost) || isPast(ghost)) && 'bad')}
+                                                            style={box(toMin(ghost), toMin(ghost) + duration)}>
+                                                            {duration >= 25 && <b>{ghost}–{addMinutes(ghost, duration)}</b>}
+                                                        </span>
+                                                    )}
+                                                    {isSel && (
+                                                        <span className={cn('sel', slotBad && 'bad')} style={box(toMin(slot), toMin(slot) + duration)}>
+                                                            <b>{slot}–{addMinutes(slot, duration)}</b>
+                                                        </span>
+                                                    )}
+                                                    {isToday && nowMin > viewStart && nowMin < viewEnd && <span className="now" style={{ top: y(nowMin) }} />}
                                                 </div>
                                             );
                                         })}

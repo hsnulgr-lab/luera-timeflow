@@ -12,6 +12,7 @@
     --bsm-busy-b: rgba(14, 14, 14, .10);
     --bsm-off: rgba(14, 14, 14, .035);
     --bsm-past: rgba(14, 14, 14, .05);
+    --bsm-half: rgba(14, 14, 14, .045);
     --bsm-or-t: rgba(255, 90, 31, .12);
     --bsm-or-b: rgba(255, 90, 31, .45);
     --bsm-rd-t: rgba(201, 64, 64, .12);
@@ -37,6 +38,7 @@
     --bsm-busy-b: rgba(243, 237, 227, .12);
     --bsm-off: rgba(243, 237, 227, .03);
     --bsm-past: rgba(243, 237, 227, .045);
+    --bsm-half: rgba(243, 237, 227, .05);
     --bsm-or-t: rgba(255, 90, 31, .18);
     --bsm-or-b: rgba(255, 90, 31, .55);
     --bsm-rd-t: rgba(224, 112, 112, .16);
@@ -140,49 +142,73 @@
 .bsm-days button.on { background: var(--bsm-sel); border-color: var(--bsm-sel); color: var(--bsm-sel-fg); }
 .bsm-days button.on small { color: var(--bsm-sel-m); }
 
-/* ── zaman çizelgesi ──
-   Saat başına en az 34 px: dar ekranda (telefon, dar pencere) çizelge
-   sıkışmak yerine yatay kayar. */
-.bsm-tl { border: 1px solid var(--dc-border); border-radius: 12px; background: var(--dc-surface); overflow-x: auto; }
-.bsm-tl-in { min-width: calc(100px + var(--hours) * 34px); padding: 8px 12px 10px; }
-.bsm-tl-scale, .bsm-tl-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
-.bsm-tl-scale > div { position: relative; height: 18px; }
-.bsm-tl-scale > div span { position: absolute; top: 0; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: var(--dc-muted); }
-.bsm-tl-row { align-items: center; height: 44px; }
-.bsm-tl-row + .bsm-tl-row { border-top: 1px solid var(--dc-border); }
-.bsm-tl-row .who { min-width: 0; display: flex; align-items: center; gap: 6px; padding-right: 10px; }
-.bsm-tl-row .who b { min-width: 0; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bsm-tl-row .who i { flex: none; font-style: normal; font-size: 12px; font-weight: 600; color: var(--dc-muted); }
-.bsm-tl-row.any .who b { color: var(--dc-muted); }
-.bsm-tl-row .lane {
-    position: relative; height: 32px; border-radius: 8px; overflow: hidden;
-    /* saat çizgileri */
-    background-image: linear-gradient(90deg, var(--dc-border) 1px, transparent 1px);
-    background-size: calc(100% / var(--hours)) 100%;
+/* ── zaman çizelgesi · dikey gün görünümü ──
+   Takvimin Gün görünümüyle aynı yön: saatler yukarıdan aşağı, her uzman bir
+   sütun. Saat başına 52 px (HOUR_PX); kutu kendi içinde kayar, başlıklar
+   üstte kalır. Çok uzmanlı salonda sütun 92 px'in altına inmez, yatay kayar. */
+.bsm-cal {
+    --time-w: 56px;
+    position: relative; overflow: auto; overscroll-behavior: contain;
+    max-height: clamp(240px, calc(100vh - 470px), 440px);
+    border: 1px solid var(--dc-border); border-radius: 12px; background: var(--dc-surface);
 }
-.bsm-tl-row .lane > span { position: absolute; top: 0; bottom: 0; pointer-events: none; }
-.bsm-tl-row .off { background: var(--bsm-off); }
+.bsm-cal-head, .bsm-cal-body {
+    display: grid; grid-template-columns: var(--time-w) repeat(var(--cols, 1), minmax(92px, 1fr));
+    min-width: calc(var(--time-w) + var(--cols, 1) * 92px);
+}
+.bsm-cal-head { position: sticky; top: 0; z-index: 6; background: var(--dc-surface); border-bottom: 1px solid var(--dc-border); }
+.bsm-cal-head > span { min-width: 0; padding: 8px 10px 7px; display: flex; flex-direction: column; gap: 1px; }
+.bsm-cal-head > span + span { border-left: 1px solid var(--dc-border); }
+.bsm-cal-head b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bsm-cal-head small { font-size: 12px; font-weight: 600; color: var(--dc-muted); white-space: nowrap; }
+.bsm-cal-head .any b { color: var(--dc-muted); }
+
+.bsm-cal-body { position: relative; margin: 10px 0 8px; }
+.bsm-cal-body .times { position: relative; }
+.bsm-cal-body .times span {
+    position: absolute; right: 8px; transform: translateY(-50%);
+    font-size: 12px; font-weight: 700; color: var(--dc-muted); white-space: nowrap;
+}
+.bsm-cal-body .col {
+    position: relative; border-left: 1px solid var(--dc-border);
+    /* saat çizgisi düz, yarım saat soluk */
+    background-image: linear-gradient(var(--dc-border) 1px, transparent 1px), linear-gradient(var(--bsm-half) 1px, transparent 1px);
+    background-size: 100% 52px, 100% 26px;
+}
+.bsm-cal-body .col > span { position: absolute; left: 0; right: 0; pointer-events: none; }
+.bsm-cal-body .off { background: var(--bsm-off); }
 /* Tarama yalnız "kabinler dolu"da; geçmiş düz soluk, herkes-dolu düz gri —
    üçü de taralıyken çizelge okunmuyordu. */
-.bsm-tl-row .past { background: var(--bsm-past); }
-.bsm-tl-row .cab { background: repeating-linear-gradient(135deg, var(--bsm-hatch) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1px var(--bsm-hatch); }
-.bsm-tl-row .lane > span.busy { top: 4px; bottom: 4px; border-radius: 6px; background: var(--bsm-busy); box-shadow: inset 0 0 0 1px var(--bsm-busy-b); }
-.bsm-tl-row .cell { position: absolute; top: 0; bottom: 0; z-index: 1; border-radius: 0; }
-.bsm-tl-row .cell[aria-disabled='true'] { cursor: not-allowed; }
-.bsm-tl-row .cell:focus-visible { outline-offset: -2px; border-radius: 6px; }
-.bsm-tl-row .ghost { z-index: 2; border-radius: 8px; border: 1.5px dashed var(--bsm-or-b); background: var(--bsm-or-t); }
-.bsm-tl-row .ghost.bad { border-color: var(--bsm-rd-b); background: var(--bsm-rd-t); }
-.bsm-tl-row .sel {
-    z-index: 3; border-radius: 8px; background: var(--dc-orange); color: #fff;
-    display: flex; align-items: center; padding: 0 8px; overflow: hidden;
-    box-shadow: 0 4px 12px -4px rgba(255, 90, 31, .6);
+.bsm-cal-body .past { background: var(--bsm-past); }
+.bsm-cal-body .cab { background: repeating-linear-gradient(135deg, var(--bsm-hatch) 0 3px, transparent 3px 7px); }
+.bsm-cal-body .col > span.busy {
+    left: 4px; right: 4px; border-radius: 7px; padding: 3px 7px; overflow: hidden;
+    background: var(--bsm-busy); box-shadow: inset 0 0 0 1px var(--bsm-busy-b);
+    font-size: 12px; font-weight: 600; line-height: 1.25; color: var(--dc-muted);
+    white-space: nowrap; text-overflow: ellipsis;
+}
+.bsm-cal-body .busy b { margin-right: 5px; font-weight: 700; color: var(--dc-ink); }
+.bsm-cal-body .col.any > span.busy { color: var(--bsm-muted2); }
+.bsm-cal-body .cell { position: absolute; left: 0; right: 0; z-index: 1; border-radius: 0; }
+.bsm-cal-body .cell[aria-disabled='true'] { cursor: not-allowed; }
+.bsm-cal-body .cell:focus-visible { outline-offset: -2px; border-radius: 6px; }
+.bsm-cal-body .col > span.ghost, .bsm-cal-body .col > span.sel {
+    left: 3px; right: 3px; border-radius: 8px; padding: 4px 8px; overflow: hidden;
+    display: flex; align-items: flex-start;
+}
+.bsm-cal-body .ghost { z-index: 2; border: 1.5px dashed var(--bsm-or-b); background: var(--bsm-or-t); color: var(--dc-orange-d); }
+.bsm-cal-body .ghost.bad { border-color: var(--bsm-rd-b); background: var(--bsm-rd-t); color: var(--dc-red); }
+.bsm-cal-body .sel {
+    z-index: 3; background: var(--dc-orange); color: #fff;
+    box-shadow: 0 6px 14px -6px rgba(255, 90, 31, .7);
     animation: bsm-pop .22s cubic-bezier(.2, .8, .2, 1);
 }
-.bsm-tl-row .sel b { font-size: 12.5px; font-weight: 800; white-space: nowrap; }
-.bsm-tl-row .sel.bad { background: var(--dc-red); box-shadow: none; }
-.bsm-tl-row .now { z-index: 4; width: 2px; margin-left: -1px; background: var(--dc-orange); border-radius: 1px; }
-@keyframes bsm-pop { from { transform: scaleX(.6); opacity: .4; } }
-@media (prefers-reduced-motion: reduce) { .bsm-tl-row .sel { animation: none; } }
+.bsm-cal-body .ghost b, .bsm-cal-body .sel b { font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.bsm-cal-body .sel.bad { background: var(--dc-red); box-shadow: none; }
+.bsm-cal-body .col > span.now { z-index: 4; height: 2px; margin-top: -1px; background: var(--dc-orange); }
+@keyframes bsm-pop { from { transform: scaleY(.7); opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .bsm-cal-body .sel { animation: none; } }
+.bsm-sec-h .note.live { color: var(--dc-ink); font-weight: 700; }
 
 .bsm-legend { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--dc-muted); }
 .bsm-legend i { display: inline-block; width: 12px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
