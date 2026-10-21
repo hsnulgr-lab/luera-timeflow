@@ -97,13 +97,13 @@ kilitlemez: kurulum sayfası kapının dışındadır.
       buraya gelir); Ayarlar › Abonelik kartsız dalı; şerit kartlı/kartsız ayrı
       metin; "ödeme alınamadı" → kart sayfası. **Göç 124 bununla BİRLİKTE
       canlıya çıkar.**
-   5. ✅ kodda (2026-10-21) — E-postalar + sihirli bağlantı: fonksiyon
+   5. ✅ CANLIDA (2026-10-21, anahtar kapalı) — E-postalar + sihirli bağlantı: fonksiyon
       `abonelik-eposta` (15 dk'da bir cron; her e-posta işletme · tür · dönem
       başına BİR kez, defter göç 125), `/baglanti` sayfası, girişte
       `?sonra=abonelik`. Anahtar `ABONELIK_EPOSTA` kapalıyken KURU (Dodo Live
       ile açılır). Hatırlatmalar TR 09–21, hoş geldiniz ve ödeme her saat.
-      Canlıya çıkış: devir 13 §4.
-   6. ✅ kodda (2026-10-21) — "Ödeme alınamadı" bildirim metni nötr: "Son
+      Kalan denemeler: devir 13 §8.
+   6. ✅ CANLIDA (2026-10-21) — "Ödeme alınamadı" bildirim metni nötr: "Son
       ödeme alınamadı. Ayrıntılar e-postanızda."
 3. Kullanıcı: Apple gizli e-posta kaydı · kurulum v2 tasarımı · telefon
    tarayıcısında ödeme testi (Apple Pay dahil).

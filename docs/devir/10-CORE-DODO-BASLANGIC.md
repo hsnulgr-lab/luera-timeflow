@@ -602,7 +602,7 @@ abonelik kazanır, kart sayfası) · 918d835 (aboneliğe devam et) · 124 +
 KAPALI, Dodo TEST.
 
 ### A · Hemen (yarım kalanlar)
-1. **Commit edilmemiş dosyalar:** bu notun son iki bölümü (devir 10),
+1. ✅ (2026-10-21, `3411a2b`) **Commit edilmemiş dosyalar:** bu notun son iki bölümü (devir 10),
    `docs/devir/13-ABONELIK-EPOSTA.md`, `supabase/125_abonelik_eposta.sql`
    (YAZILDI, UYGULANMADI). `site/` ve panel rötuşu oturumunun `src/`
    dosyaları commit'e girmez.
@@ -610,9 +610,9 @@ KAPALI, Dodo TEST.
 
 ### B · E-postalar + sihirli bağlantı + bildirim metni (Faz 2.5/2.6 — devir 13)
 
-> **2026-10-21:** 1–3, 6–8 KODDA ve yerelde doğrulandı (devir 13 §6; commit
-> yok). Kalan canlıya çıkış: 4 (Resend anahtarı) · 5 (göç 125) · deploy ·
-> 9 (cron) · 10 (izleme) — sıralı komutlar devir 13 §7.
+> ✅ **2026-10-21: 1–10 CANLIDA** (`3411a2b`, `c3d4c3e`; anahtar
+> `ABONELIK_EPOSTA` kapalı → tarama kuru). Sihirli bağlantı ve e-posta
+> kipinde kart dönüşü telefonda doğrulandı. Kalan denemeler: devir 13 §8.
 1. 🔴 **PaywallPage hatası:** ek süredeki salon (`computeAccess` ok=true)
    `/abonelik`'ten ana sayfaya atılıyor → "Ödemeniz alınamadı · Kartı
    güncelle" ekranı HİÇ görünmüyor. Düzeltme: yönlendirme koşuluna
@@ -642,7 +642,7 @@ KAPALI, Dodo TEST.
 ### C · Doğrulanmamış uçlar (kullanıcıyla, ödeme yapmadan ya da test kartıyla)
 1. Telefonun Safari'sinde `timeflow.lueratech.com/abonelik` → paket ekranı
    rahat mı · Dodo ödeme sayfasında **Apple Pay** çıkıyor mu.
-2. Kart sayfasında test kartını girip "Ödeme Yöntemini Güncelle" → TimeFlow
+2. ✅ (2026-10-21 08:47, devir 13 §7) Kart sayfasında test kartını girip "Ödeme Yöntemini Güncelle" → TimeFlow
    abonelik ekranına dönüş (return_url) çalışıyor mu.
 3. Ek süre (on_hold) akışı uçtan uca hiç denenmedi: Dodo test kipinde
    başarısız ödeme → ek süre → kart sayfası borcu çekip aboneliği açıyor mu.

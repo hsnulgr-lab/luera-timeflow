@@ -1,10 +1,13 @@
 # Devir 13 · Abonelik e-postaları + sihirli bağlantı (Faz 2.5 + 2.6)
 
-**Tarih:** 2026-10-20 gece. **Durum (2026-10-21):** §3'ün 1–7'si KODDA ve
-yerelde doğrulandı (§6). Commit YOK, canlıya HİÇBİR ŞEY çıkmadı — göç 125
-uygulanmadı, fonksiyon yüklenmedi, cron kurulmadı. Sıradaki: §4 (komutları
-kullanıcı çalıştırır). Önce oku: `docs/abonelik-kurallari.md` §2 ve §4,
-devir 10 §10 sonu.
+**Tarih:** 2026-10-20 gece. **Durum (2026-10-21 sabah, denetlendi):** HEPSİ
+CANLIDA, gönderim anahtarı KAPALI (kuru). Göç 125 · `RESEND_API_KEY` ·
+`abonelik-eposta` + `dodo-webhook` + `dodo-checkout` · masaüstü (`3411a2b`,
+`c3d4c3e`) · `*/15` cron. Sihirli bağlantı ve e-posta kipinde kart dönüşü
+telefonda doğrulandı (§7). Yerel denetim 2026-10-21: `npm test` 3347 / 0 hata
+(PGlite dahil, 7 atlanan başka ortam ister) · `tsc` temiz · değişen dosyalarda
+lint 0. **Kalan:** §8. Önce oku: `docs/abonelik-kurallari.md` §2 ve §4, devir
+10 §11.
 
 ## 0 · Görev (değişmedi)
 
@@ -412,3 +415,31 @@ e-posta 375 px'te tarayıcıda görüldü.
 7. **İzle:** `ops/abonelik/eposta.sh kuru` (kime ne giderdi, adresler maskeli) · `ops/abonelik/eposta.sh dene <işletme sahibi e-postan> uc_gun` ve `odeme` → gelen kutusu, Gmail'de hangi sekme, düğme telefonda `/baglanti` → `/abonelik`, ikinci tıklamada "artık geçerli değil". Apple gizli adresli bir hesapla da bir `dene`.
    (Not: ek sürede OLMAYAN bir işletmeyle `odeme` denenirse `/abonelik` ana sayfaya döner — doğru davranış.)
 8. **Aç:** `ops/abonelik/eposta.sh ac` — Dodo Live ile birlikte (TEST kipindeyken durur; `ac zorla` bilinçli istisna).
+
+## 8 · Kalan (2026-10-21 sabah)
+
+Kod tarafında eksik YOK. Kalanların hepsi kullanıcıyla yapılan denemeler ve
+açılış adımı:
+
+1. **Ek süre akışı uçtan uca denenmedi** (devir 10 §11 C.3). Dodo TEST'te
+   bir aboneliğin ödemesini başarısız kıl (yöntem Dodo'nun test belgesinden:
+   reddedilen test kartı + "Sonraki fatura tarihini güncelle" ile birkaç
+   dakika sonrası) → beklenen: webhook `grace`, telefona "Son ödeme
+   alınamadı. Ayrıntılar e-postanızda." Anahtar kapalı olduğu için tarama
+   e-posta GÖNDERMEZ → `ops/abonelik/eposta.sh dene <e-posta> odeme` →
+   düğme → "Ödemeniz alınamadı" + geri sayım → "Kartı güncelle" → test kartı
+   → borç çekilir, ayna `active`, dönüş `/abonelik?kaynak=eposta&kart=1`.
+2. **E-posta kipinde paket alma dönüşü denenmedi.** Kartsız denemedeki
+   (telefondan açılmış, Dodo aboneliği YOK) bir salonla `dene uc_gun` →
+   düğme → plan seç → test kartı → dönüş
+   `/abonelik?checkout=success&kaynak=eposta` → "Denemeniz başladı" fişi,
+   Kurulum/uygulama düğmesi YOK. (Test Salon 3 artık Dodo'da → yeni bir
+   telefon kaydı gerekir.)
+3. **Apple gizli adres** (`…@privaterelay.appleid.com`) — Apple ile
+   "E-postamı gizle" seçerek kaydolmuş bir hesaba `dene`; relay iletiyor mu.
+   Bugüne kadarki `dene`ler iCloud'un gerçek adresine gitti.
+4. Telefonun Safari'sinde Dodo ödeme sayfasında Apple Pay (devir 10 §11 C.1).
+5. `ops/abonelik/eposta.sh ac` — **Dodo Live ile birlikte** (devir 10 §11 E.6).
+
+Yan not (bu işin dışı): projede lint'e eklenen tek yeni bulgu
+`src/components/beauty/BeautySessionModal.tsx` (seans penceresi işi).
