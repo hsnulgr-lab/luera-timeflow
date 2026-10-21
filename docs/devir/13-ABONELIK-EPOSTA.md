@@ -383,7 +383,16 @@ e-posta 375 px'te tarayıcıda görüldü.
 > günlüğü tutmuyor; teşhis `auth.audit_log_entries` + `auth.sessions` ile.
 > ✅ **Temiz yeniden deneme (08:22 TR):** tek `dene odeme` → tek dokunuş → şifresiz giriş, ana
 > sayfa (LOU) açıldı; kayıt 08:22:44 bağlantı · 08:22:57 `login` · iPhone Safari oturumu AÇIK,
-> çıkış yok. Sihirli bağlantı uçtan uca DOĞRULANDI. Sonra 8 (`ac`, Dodo Live ile).
+> çıkış yok. Sihirli bağlantı uçtan uca DOĞRULANDI.
+> **E-posta kipi (c3d4c3e, kullanıcı kararı 2026-10-21):** düğme telefonda uygulamanın ana
+> sayfasını açıyordu → istenmedi. Artık `/baglanti` ve `sonra=abonelik` → `/abonelik?kaynak=eposta`;
+> bu kipte paket ekranı kimseyi uygulamaya göndermez (aboneliği sürene "Aboneliğiniz/Denemeniz
+> sürüyor" + Dodo'daysa "Kartı güncelle" + kapatma notu), Dodo ödeme/kart dönüşü de buraya
+> (`dodo-checkout` `donus: 'abonelik'`, beyaz liste). `dodo-checkout` yüklendi; ilk Coolify
+> Deploy push'tan önce başladığı için eski commit'i (c305765) derledi → ikinci Deploy
+> `index-5T35VNSC.js`. ✅ Telefonda (08:4x): tek dokunuş → "Denemeniz sürüyor", ana sayfa YOK.
+> DENENMEDİ: e-posta kipinde Dodo kart sayfasından dönüş (`?kart=1`) ve ödeme dönüşü.
+> Sonra 8 (`ac`, Dodo Live ile).
 > Komutlar kullanıcının Terminal panelinde, onayıyla çalıştı.
 
 1. **Kuru koşu** (yazmaz, sonunda ROLLBACK). Beklenen: tekillik 1 satır · RLS `t` ·
