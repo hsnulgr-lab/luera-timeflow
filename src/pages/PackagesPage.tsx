@@ -340,7 +340,7 @@ function PackagesPageDefault() {
                                         <div className="min-w-[170px] flex-1">
                                             {r.customer ? (
                                                 <span className="flex items-center gap-2">
-                                                    <button onClick={() => navigate(`/beauty-customer/${r.customer!.id}`)} className="text-[15px] font-extrabold text-[var(--dc-ink)] tracking-[-0.01em] hover:text-[var(--dc-orange-d)] transition-colors text-left">{r.customer.name}</button>
+                                                    <button onClick={() => navigate(`/customers?open=${encodeURIComponent(r.customer!.id)}`)} className="text-[15px] font-extrabold text-[var(--dc-ink)] tracking-[-0.01em] hover:text-[var(--dc-orange-d)] transition-colors text-left">{r.customer.name}</button>
                                                     {isArchivedCustomer(r.pkg.customerId) && (
                                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--dc-surface2)] text-[var(--dc-muted)]" title="Müşteri pasife alınmış — listelerde görünmez">pasif</span>
                                                     )}

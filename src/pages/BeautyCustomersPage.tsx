@@ -9,13 +9,14 @@ import { useStaff } from '@/hooks/useStaff';
 import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
-import { computePatientFinance } from '@/lib/patientBalance';
+import { computePatientFinance, planRemaining, type PatientFinance } from '@/lib/patientBalance';
+import { evaluateEligibility } from '@/lib/serviceEligibility';
 import { normalizePhone, waLink } from '@/lib/phone';
 import { profileForSector } from '@/lib/sectorProfiles';
 import { reservationPrice } from '@/utils/reservationServices';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { TfIcon, TfIconSprite } from '@/components/beauty/TfIcons';
-import type { Customer, Reservation } from '@/types';
+import type { Customer, Payment, Reservation, TreatmentPlan } from '@/types';
 import './beautyCustomers.css';
 
 // ── Güzellik · Müşteri merkezi (Premium V2) ──────────────────────────────────
@@ -29,6 +30,12 @@ import './beautyCustomers.css';
 //
 // Sektör eşlemesi registry'de (calendarSectorProfiles → customers: 'guzellik'),
 // bileşen içinde `if (sector === ...)` yok.
+//
+// TEK MÜŞTERİ EKRANI (2026-10-23): ayrı müşteri kartı sayfası
+// (/beauty-customer/:id) kalktı; Panel, Kasa, Takvim ve Paketler artık
+// buraya ?open=<id> ile gelir. Yalnız o kartta olan işlevler buraya taşındı:
+// telefonla ara, paket sat/yenile, finans dökümü, ekstre, sadakat ödülü,
+// alerji ve cilt tipi.
 
 const MONTHS_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const DAYS_TR = ['PAZAR', 'PAZARTESİ', 'SALI', 'ÇARŞAMBA', 'PERŞEMBE', 'CUMA', 'CUMARTESİ'];
@@ -84,7 +91,7 @@ interface WaRow { id: number; kind: string; status: string; created_at: string }
 export function BeautyCustomersPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { allCustomers, addCustomer } = useCustomers();
+    const { allCustomers, addCustomer, redeemLoyalty } = useCustomers();
     const { reservations, settings } = useReservations();
     const { payments } = usePayments();
     const { packages, refresh: refreshPackages } = useOrgPackages();
@@ -94,13 +101,18 @@ export function BeautyCustomersPage() {
     const cashOn = useCashEnabled();
     const { dark } = useTheme();
 
-    const [selId, setSelId] = useState<string | null>(null);
+    // Bağlantıyla gelen müşteri İLK çizimde seçili olmalı: effect'te seçilince
+    // aynı turda çalışan "seçim boşsa ilkini aç" kuralı onu eziyordu ve Panel/
+    // Kasa'dan gelen kişi yerine listenin ilk müşterisi açılıyordu (2026-10-23).
+    const [selId, setSelId] = useState<string | null>(() => searchParams.get('open'));
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState<FilterKey>('all');
     const [tab, setTab] = useState<TabKey>('summary');
     const [privacy, setPrivacy] = useState(false);
     const [dialog, setDialog] = useState<DialogKind>(null);
     const [sessionFor, setSessionFor] = useState<Customer | null | undefined>(undefined);
+    // WhatsApp penceresi hangi şablonla açılsın (Ekstre, yenileme teklifi…)
+    const [waPreset, setWaPreset] = useState<string | undefined>(undefined);
     const searchRef = useRef<HTMLInputElement>(null);
 
     // Deep-link: /customers?open=<id>
@@ -256,6 +268,14 @@ export function BeautyCustomersPage() {
         const rights = rightsOf(selected.id);
         const activePkgs = pkgs.filter((p) => p.status !== 'completed');
         const gone = daysSince(selected.lastVisit);
+        // Eski müşteri kartından taşınanlar: finans dökümü, biten paketler,
+        // sadakat, alerji/cilt tipi. Bakiye aynı formül (patientBalance).
+        const fin = computePatientFinance(pkgs.map((p) => ({ id: p.id, totalAmount: p.totalAmount, status: p.status })), pays);
+        const openPkgs = pkgs.filter((p) => p.status === 'active' && p.sessionsDone < p.sessionCount);
+        const donePkgs = pkgs.filter((p) => p.sessionsDone >= p.sessionCount);
+        const loyaltyReady = Boolean(settings.loyaltyEnabled) && (selected.loyaltyStamps ?? 0) >= (settings.loyaltyThreshold ?? 10);
+        const allergy = String(selected.customFields?.alerji || '').trim();
+        const skin = String(selected.customFields?.cilt_tipi || '').trim();
 
         // Tercih edilen uzman: geçmişte en çok çalıştığı kişi
         const staffCount = new Map<string, number>();
@@ -264,10 +284,14 @@ export function BeautyCustomersPage() {
 
         const flags: Flag[] = [];
         for (const r of risks) flags.push({ label: r.label, tone: 'amber' });
+        if (allergy) flags.push({ label: `Alerji: ${allergy}`, tone: 'amber' });
+        if (skin) flags.push({ label: `Cilt: ${skin}`, tone: 'blue' });
         if ((selected.loyaltyStamps ?? 0) > 0) {
             flags.push({ label: `Sadakat ${selected.loyaltyStamps}/${settings.loyaltyThreshold ?? 10}`, tone: 'violet' });
         }
-        if (activePkgs.length > 0) flags.push({ label: `${activePkgs.length} aktif paket`, tone: 'orange' });
+        // Hakkı kalan paket sayılır — bitmiş ama kapanmamış paket "aktif" yazıp özet
+        // şeridindeki "Aktif paket yok" ile çelişiyordu (2026-10-23).
+        if (openPkgs.length > 0) flags.push({ label: `${openPkgs.length} aktif paket`, tone: 'orange' });
         if (normalizePhone(selected.phone)) flags.push({ label: 'WhatsApp açık', tone: 'green' });
         if (gone !== null && gone >= 60) flags.push({ label: `${gone} gündür gelmedi`, tone: 'blue' });
 
@@ -294,7 +318,9 @@ export function BeautyCustomersPage() {
         const priorities: Priority[] = [];
         if (risks.length > 0) priorities.push({ icon: 'alert', tone: 'amber', title: `${risks[0].label} doğrula`, subtitle: 'İşlem öncesi uzman kontrolü' });
         if (bal > 0) priorities.push({ icon: 'credit', tone: 'orange', title: `${fmtTL(bal)} açık bakiye`, subtitle: 'Tahsilat kasa ekranında tamamlanır' });
+        if (loyaltyReady) priorities.push({ icon: 'sparkles', tone: 'violet', title: 'Sadakat ödülü hazır', subtitle: settings.loyaltyReward || 'Ücretsiz hizmet' });
         if (rights === 1) priorities.push({ icon: 'box', tone: 'orange', title: 'Pakette son seans', subtitle: 'Yenileme için uygun zaman' });
+        else if (rights === 0 && donePkgs.length > 0) priorities.push({ icon: 'box', tone: 'orange', title: `${donePkgs[0].title} tamamlandı`, subtitle: 'Yenileme teklif edilebilir' });
         if (selected.recallDate) priorities.push({ icon: 'clock', tone: 'blue', title: `Kontrol · ${fmtShort(selected.recallDate)}`, subtitle: 'Dönüş periyodu doldu' });
         if (!next && history.length > 0) priorities.push({ icon: 'message', tone: 'blue', title: 'Planlanmış seans yok', subtitle: 'Geri dönüş mesajı hazırlanabilir' });
         if (priorities.length === 0) priorities.push({ icon: 'shield', tone: 'green', title: 'Bekleyen iş yok', subtitle: 'Kayıt güncel' });
@@ -323,6 +349,7 @@ export function BeautyCustomersPage() {
 
         return {
             history, pkgs, activePkgs, next, risks, bal, rights, gone, events, priorities, flags, focus, guidance,
+            fin, openPkgs, donePkgs, lastPay: pays[0] as Payment | undefined,
             favStaff: favStaff ? staffName.get(favStaff[0]) : undefined,
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,12 +371,15 @@ export function BeautyCustomersPage() {
     }, [tab, selected]);
 
     // ── Aksiyonlar ──────────────────────────────────────────────────────────
+    const openWa = (preset?: string) => { setWaPreset(preset); setDialog('whatsapp'); };
     const runAction = (action: 'appointment' | 'collect' | 'whatsapp') => {
         if (!selected) return;
         if (action === 'appointment') setSessionFor(selected);
         else if (action === 'collect') { if (cashOn) navigate('/kasa'); else toast.error('Kasa modülü kapalı'); }
-        else setDialog('whatsapp');
+        else openWa();
     };
+    // Paket satışı Paketler ekranındaki sihirbazda — müşteri seçili açılır
+    const sellPackage = () => { if (selected) navigate(`/packages?sat=${selected.id}`); };
 
     if (!settings) return null;
 
@@ -467,15 +497,19 @@ export function BeautyCustomersPage() {
                                     )}
                                 </div>
                                 <div className="tfv2-profile-actions">
-                                    <button className="tfv2-button" onClick={() => setDialog('whatsapp')}>
+                                    <button className="tfv2-button" onClick={() => openWa()}>
                                         <TfIcon name="message" /><span>WhatsApp</span>
+                                    </button>
+                                    {selected.phone && (
+                                        <a className="tfv2-icon-button" href={`tel:${selected.phone.replace(/\s+/g, '')}`} aria-label="Telefonla ara" title="Telefonla ara">
+                                            <TfIcon name="phone" />
+                                        </a>
+                                    )}
+                                    <button className="tfv2-button" onClick={sellPackage}>
+                                        <TfIcon name="package" /><span>Paket sat</span>
                                     </button>
                                     <button className="tfv2-button is-primary" onClick={() => setSessionFor(selected)}>
                                         <TfIcon name="plus" /><span>Yeni seans</span>
-                                    </button>
-                                    <button className="tfv2-icon-button" aria-label="Müşteri kartını aç"
-                                        onClick={() => navigate(`/beauty-customer/${selected.id}`)}>
-                                        <TfIcon name="arrow" />
                                     </button>
                                 </div>
                             </div>
@@ -598,26 +632,37 @@ export function BeautyCustomersPage() {
                                         <section className="tfv2-section">
                                             <div className="tfv2-section-head">
                                                 <h3>Paket ve seans hakları</h3>
-                                                <small>{dossier.pkgs.length} paket</small>
+                                                <button className="tfv2-button is-small" onClick={sellPackage}>
+                                                    <TfIcon name="package" className="tfv2-icon-sm" />Paket sat
+                                                </button>
                                             </div>
-                                            <PackageRows packages={dossier.pkgs} balance={dossier.bal} />
+                                            <PackageLedger
+                                                customer={selected}
+                                                sector={settings.sector}
+                                                open={dossier.openPkgs}
+                                                done={dossier.donePkgs}
+                                                paidByPlan={dossier.fin.paidByPlan}
+                                                onPlan={() => setSessionFor(selected)}
+                                                onSell={sellPackage}
+                                                onOffer={() => openWa('Paket yenileme')}
+                                            />
                                         </section>
                                         <aside>
-                                            <div className="tfv2-note">
-                                                <div className="tfv2-note-head">
-                                                    <TfIcon name="credit" className="tfv2-icon-sm" />
-                                                    <strong>{dossier.bal > 0 ? `${fmtTL(dossier.bal)} bakiye` : 'Borç yok'}</strong>
-                                                </div>
-                                                <p>Tahsilat, kasa ekranında yöntem seçilerek tamamlanır.</p>
-                                                {cashOn && (
-                                                    <button className="tfv2-button is-small is-wide" style={{ marginTop: 12 }}
-                                                        onClick={() => navigate('/kasa')}>Kasayı aç</button>
-                                                )}
-                                            </div>
-                                            <div className="tfv2-note">
-                                                <div className="tfv2-note-head"><TfIcon name="shield" className="tfv2-icon-sm" /><strong>Hak hareketleri korunur</strong></div>
-                                                <p>Seans hakkı düzeltmeleri silinmez; gerekçe ve personel kaydıyla işlenir.</p>
-                                            </div>
+                                            <FinanceCard
+                                                fin={dossier.fin}
+                                                lastPay={dossier.lastPay}
+                                                cashOn={cashOn}
+                                                onCollect={() => navigate('/kasa')}
+                                                onStatement={() => openWa('Hesap özeti')}
+                                            />
+                                            {settings.loyaltyEnabled && (
+                                                <LoyaltyCard
+                                                    customer={selected}
+                                                    loyaltyThreshold={settings.loyaltyThreshold ?? 10}
+                                                    reward={settings.loyaltyReward || 'Ücretsiz hizmet'}
+                                                    redeemLoyalty={redeemLoyalty}
+                                                />
+                                            )}
                                         </aside>
                                     </div>
                                 )}
@@ -626,7 +671,7 @@ export function BeautyCustomersPage() {
                                     <section className="tfv2-section">
                                         <div className="tfv2-section-head">
                                             <h3>İletişim geçmişi</h3>
-                                            <button className="tfv2-button is-small" onClick={() => setDialog('whatsapp')}>Yeni mesaj</button>
+                                            <button className="tfv2-button is-small" onClick={() => openWa()}>Yeni mesaj</button>
                                         </div>
                                         {waRows === null ? (
                                             <p style={{ color: 'var(--tfv2-muted)', fontSize: 12 }}>Yükleniyor…</p>
@@ -731,7 +776,7 @@ export function BeautyCustomersPage() {
                                 <TfIcon name="credit" className="tfv2-icon-sm" />Tahsilat
                             </button>
                         )}
-                        <button className="tfv2-button" disabled={!selected} onClick={() => setDialog('whatsapp')}>
+                        <button className="tfv2-button" disabled={!selected} onClick={() => openWa()}>
                             <TfIcon name="message" className="tfv2-icon-sm" />Mesaj
                         </button>
                     </div>
@@ -759,7 +804,10 @@ export function BeautyCustomersPage() {
                     businessName={settings.businessName || 'salonumuz'}
                     next={dossier?.next}
                     balance={dossier?.bal ?? 0}
-                    onClose={() => setDialog(null)}
+                    account={dossier && dossier.fin.total > 0 ? dossier.fin : undefined}
+                    renewal={dossier?.donePkgs[0]?.title}
+                    initial={waPreset}
+                    onClose={() => { setDialog(null); setWaPreset(undefined); }}
                 />
             )}
 
@@ -824,6 +872,123 @@ function PackageRows({ packages, balance }: { packages: { id: string; title: str
     );
 }
 
+const METHOD_TR: Record<string, string> = { cash: 'nakit', card: 'kart', transfer: 'havale', other: 'diğer' };
+
+/** Paketler ve finans sekmesinin paket defteri — eski müşteri kartından taşındı:
+ *  pakette kalan tutar, seans başı ücret, uygunluk kilidi; biten pakette yenileme. */
+function PackageLedger({ customer, sector, open, done, paidByPlan, onPlan, onSell, onOffer }: {
+    customer: Customer; sector?: string;
+    open: TreatmentPlan[]; done: TreatmentPlan[]; paidByPlan: Map<string, number>;
+    onPlan: () => void; onSell: () => void; onOffer: () => void;
+}) {
+    if (open.length === 0 && done.length === 0) {
+        return (
+            <div className="tfv2-note">
+                <div className="tfv2-note-head"><TfIcon name="box" className="tfv2-icon-sm" /><strong>Paket bulunmuyor</strong></div>
+                <p>Geçmiş hizmete uygun paketi yalnızca ihtiyaç varsa önerebilirsiniz.</p>
+            </div>
+        );
+    }
+    return (
+        <>
+            {open.map((p) => {
+                const left = p.sessionCount - p.sessionsDone;
+                const percent = Math.round((p.sessionsDone / Math.max(1, p.sessionCount)) * 100);
+                const owed = planRemaining(p, paidByPlan);
+                const verdict = evaluateEligibility(customer, { name: p.title }, sector);
+                return (
+                    <div key={p.id} className="tfv2-package-line">
+                        <div className="tfv2-package-top">
+                            <div>
+                                <strong>{p.title}</strong>
+                                <small>{left} hak kullanılabilir</small>
+                            </div>
+                            <span className="tfv2-package-count">{p.sessionsDone}/{p.sessionCount}</span>
+                        </div>
+                        <div className="tfv2-progress" aria-label={`${p.sessionsDone} / ${p.sessionCount} kullanıldı`}>
+                            <span style={{ width: `${percent}%` }} />
+                        </div>
+                        <div className="tfv2-package-foot">
+                            <span>{owed > 0 ? <>Kalan <b>{fmtTL(owed)}</b> · seans başı {fmtTL(p.totalAmount / Math.max(1, p.sessionCount))}</> : 'Tamamı ödendi'}</span>
+                            {/* Uygunluk kilidi tek kaynaktan: hamilelikte lazer paketi planlanmaz */}
+                            <button className="tfv2-button is-small" disabled={verdict.blocked} title={verdict.message} onClick={onPlan}>
+                                {verdict.blocked ? 'Beklemede' : 'Seansı planla'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+            {done.map((p) => (
+                <div key={p.id} className="tfv2-package-line is-done">
+                    <div className="tfv2-package-top">
+                        <div>
+                            <strong>{p.title}</strong>
+                            <small>Tamamlandı · yenileme teklif edilebilir</small>
+                        </div>
+                        <span className="tfv2-package-count">{p.sessionsDone}/{p.sessionCount}</span>
+                    </div>
+                    <div className="tfv2-note-actions">
+                        <button className="tfv2-button is-small" onClick={onOffer}>Teklif gönder</button>
+                        <button className="tfv2-button is-small is-primary" onClick={onSell}>Paketi yenile</button>
+                    </div>
+                </div>
+            ))}
+        </>
+    );
+}
+
+/** Ödeme ve bakiye — toplam, ödenen, kalan, son ödeme; tahsilat Kasa'da. */
+function FinanceCard({ fin, lastPay, cashOn, onCollect, onStatement }: {
+    fin: PatientFinance; lastPay?: Payment; cashOn: boolean; onCollect: () => void; onStatement: () => void;
+}) {
+    return (
+        <div className="tfv2-note tfv2-finance">
+            <div className="tfv2-note-head"><TfIcon name="credit" className="tfv2-icon-sm" /><strong>Ödeme ve bakiye</strong></div>
+            <div className={`tfv2-finance-total${fin.balance > 0 ? ' is-owed' : ''}`}>{fin.balance > 0 ? fmtTL(fin.balance) : 'Borç yok'}</div>
+            {fin.total === 0 && fin.paid === 0 ? (
+                <p>Paket borcu yok; tekil hizmetler Kasa'da tahsil edilir.</p>
+            ) : <div className="tfv2-finance-rows">
+                <div><span>Toplam paket tutarı</span><b>{fmtTL(fin.total)}</b></div>
+                <div><span>Ödenen</span><b className="is-green">{fmtTL(fin.paid)}</b></div>
+                {fin.overpaid > 0 && <div><span>Alacak</span><b>{fmtTL(fin.overpaid)}</b></div>}
+                {lastPay && <div><span>Son ödeme</span><b>{fmtShort(lastPay.paidAt.slice(0, 10))} · {METHOD_TR[lastPay.method] || lastPay.method}</b></div>}
+            </div>}
+            <div className="tfv2-note-actions">
+                {cashOn && <button className="tfv2-button is-small is-primary" onClick={onCollect}>Ödeme al</button>}
+                {fin.total > 0 && <button className="tfv2-button is-small" onClick={onStatement}>Ekstre gönder</button>}
+            </div>
+        </div>
+    );
+}
+
+/** Sadakat — damga Kasa'da basılır, ödül burada kullanılır (eski kartın tek kapısıydı). */
+function LoyaltyCard({ customer, loyaltyThreshold, reward, redeemLoyalty }: {
+    customer: Customer; loyaltyThreshold: number; reward: string;
+    redeemLoyalty: (id: string, threshold: number) => Promise<unknown> | void;
+}) {
+    const stamps = customer.loyaltyStamps ?? 0;
+    const ready = stamps >= loyaltyThreshold;
+    return (
+        <div className={`tfv2-note${ready ? ' is-safe' : ''}`}>
+            <div className="tfv2-note-head"><TfIcon name="sparkles" className="tfv2-icon-sm" /><strong>{ready ? `Ödül hazır — ${reward}` : 'Sadakat damgası'}</strong></div>
+            <div className="tfv2-loyalty">
+                <span className="tfv2-loyalty-dots">
+                    {Array.from({ length: Math.min(loyaltyThreshold, 10) }, (_, i) => <i key={i} className={i < stamps ? 'on' : ''} />)}
+                </span>
+                <b>{stamps}/{loyaltyThreshold}</b>
+            </div>
+            <p>{ready ? 'Eşik doldu; ödülü şimdi kullanabilirsiniz.' : `${loyaltyThreshold} seansta 1 ${reward.toLocaleLowerCase('tr')}`}</p>
+            <div className="tfv2-note-actions">
+                <button className={`tfv2-button is-small${ready ? ' is-primary' : ''}`} disabled={!ready}
+                    title={ready ? `${reward} — damgadan ${loyaltyThreshold} düşülür` : `${loyaltyThreshold - stamps} seans kaldı`}
+                    onClick={() => void redeemLoyalty(customer.id, loyaltyThreshold)}>
+                    {ready ? 'Ödülü kullan' : `${loyaltyThreshold - stamps} seans kaldı`}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function Timeline({ events }: { events: TimelineEvent[] }) {
     if (events.length === 0) {
         return <p style={{ color: 'var(--tfv2-muted)', fontSize: 12, margin: 0 }}>Henüz kayıtlı hareket yok.</p>;
@@ -882,8 +1047,15 @@ function NewCustomerDialog({ onClose, onSave }: { onClose: () => void; onSave: (
     );
 }
 
-function WhatsAppDialog({ customer, businessName, next, balance, onClose }: {
-    customer: Customer; businessName: string; next?: Reservation; balance: number; onClose: () => void;
+function WhatsAppDialog({ customer, businessName, next, balance, account, renewal, initial, onClose }: {
+    customer: Customer; businessName: string; next?: Reservation; balance: number;
+    /** Hesap özeti şablonu (eski kartın "Ekstre gönder"i) */
+    account?: Pick<PatientFinance, 'total' | 'paid' | 'balance'>;
+    /** Biten paketin adı — yenileme teklifi şablonu */
+    renewal?: string;
+    /** Açılışta seçili şablonun etiketi */
+    initial?: string;
+    onClose: () => void;
 }) {
     const templates = useMemo(() => {
         const out: { label: string; text: string }[] = [];
@@ -895,15 +1067,23 @@ function WhatsAppDialog({ customer, businessName, next, balance, onClose }: {
             label: 'Bakiye hatırlatma',
             text: `Merhaba ${customer.name}, ${businessName}. ${fmtTL(balance)} tutarında bakiyeniz bulunuyor. Uygun olduğunuzda görüşebilir miyiz?`,
         });
+        if (account) out.push({
+            label: 'Hesap özeti',
+            text: `Merhaba ${customer.name}, ${businessName}. Güncel hesap özetiniz: toplam ${fmtTL(account.total)}, ödenen ${fmtTL(account.paid)}, kalan ${fmtTL(account.balance)}. Dilediğiniz zaman salonumuzdan ödeyebilirsiniz.`,
+        });
+        if (renewal) out.push({
+            label: 'Paket yenileme',
+            text: `Merhaba ${customer.name}, ${businessName}. ${renewal} paketiniz tamamlandı. Yenilemek isterseniz size özel fiyatımızla yerinizi ayıralım.`,
+        });
         out.push({
             label: 'Tekrar randevu',
             text: `Merhaba ${customer.name}, ${businessName}. Bakım planınız için size uygun saatleri paylaşabiliriz.`,
         });
         return out;
-    }, [customer, businessName, next, balance]);
+    }, [customer, businessName, next, balance, account, renewal]);
 
-    const [idx, setIdx] = useState(0);
-    const [text, setText] = useState(templates[0]?.text ?? '');
+    const [idx, setIdx] = useState(() => Math.max(0, templates.findIndex((t) => t.label === initial)));
+    const [text, setText] = useState(templates[idx]?.text ?? '');
     const link = waLink(customer.phone, text);
 
     return (

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
 import { ModulesProvider } from '@/contexts/ModulesProvider';
@@ -34,7 +34,6 @@ import { MenuPage } from '@/pages/MenuPage';
 import { DentalChartPage } from '@/pages/DentalChartPage';
 import { DentalVisitPage } from '@/pages/DentalVisitPage';
 import { PatientFilePage } from '@/pages/PatientFilePage';
-import { BeautyCustomerPage } from '@/pages/BeautyCustomerPage';
 import { PackagesPage } from '@/pages/PackagesPage';
 import { StockPage } from '@/pages/StockPage';
 import { SetupWizardPage } from '@/pages/SetupWizardPage';
@@ -160,7 +159,9 @@ function App() {
             <Route path="dental-chart" element={<DentalChartPage />} />
             <Route path="dental-visit/:reservationId" element={<ModuleRoute module="randevu"><DentalVisitPage /></ModuleRoute>} />
             <Route path="patient-file/:customerId" element={<PatientFilePage />} />
-            <Route path="beauty-customer/:customerId" element={<BeautyCustomerPage />} />
+            {/* Eski müşteri kartı adresi — tek müşteri ekranı Müşteriler (2026-10-23).
+                Yer imleri ve tarayıcı geçmişi bozulmasın diye yönlendirme kalır. */}
+            <Route path="beauty-customer/:customerId" element={<OldCustomerCardRedirect />} />
             <Route path="packages" element={<PackagesPage />} />
             <Route path="kasa" element={<ModuleRoute module="kasa"><Adaptive mobile={<MobileKasa />} desktop={<KasaPage />} /></ModuleRoute>} />
             <Route path="stock" element={<ModuleRoute module="kasa"><StockPage /></ModuleRoute>} />
@@ -196,3 +197,9 @@ function App() {
 }
 
 export default App;
+
+/** /beauty-customer/:id → /customers?open=:id (eski müşteri kartı kalktı, 2026-10-23). */
+function OldCustomerCardRedirect() {
+    const { customerId } = useParams<{ customerId: string }>();
+    return <Navigate to={customerId ? `/customers?open=${encodeURIComponent(customerId)}` : '/customers'} replace />;
+}

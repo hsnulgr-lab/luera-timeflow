@@ -65,7 +65,6 @@ export function CustomersPage() {
     const comms = commsForSector(sector);
     const { payments } = usePayments();
     const isDental = sector === 'dis';
-    const isBeauty = sector === 'guzellik';
 
     const [selId, setSelId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
@@ -346,7 +345,6 @@ export function CustomersPage() {
                                     <button onClick={() => openEdit(selected)} title="Düzenle" className="w-10 h-10 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-surface)] grid place-items-center text-[var(--dc-muted)] hover:text-[var(--dc-ink)] hover:border-[var(--dc-ink)] transition-colors"><Edit2 size={16} /></button>
                                     <button onClick={() => removeCustomer(selected)} title="Sil" className="w-10 h-10 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-surface)] grid place-items-center text-[var(--dc-muted)] hover:text-[var(--dc-red2)] hover:border-[var(--dc-red2)] transition-colors"><Trash2 size={16} /></button>
                                     {isDental && <button onClick={() => navigate(`/patient-file/${selected.id}`)} className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12.5px] font-bold hover:opacity-90 transition-opacity">Tam Dosya <ArrowRight size={14} /></button>}
-                                    {isBeauty && <button onClick={() => navigate(`/beauty-customer/${selected.id}`)} className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] text-[12.5px] font-bold hover:opacity-90 transition-opacity">Müşteri Kartı <ArrowRight size={14} /></button>}
                                 </div>
                             </div>
 

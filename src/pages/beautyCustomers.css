@@ -240,7 +240,7 @@
 .dark .tfv2-profile-emblem { color: #f3ede3; }
 .tfv2-profile-emblem::after { content: ""; position: absolute; right: 8px; bottom: 8px; width: 6px; height: 6px; border: 2px solid var(--tfv2-emblem); border-radius: 50%; background: var(--tfv2-orange); }
 .tfv2-profile-copy { min-width: 0; }
-.tfv2-profile-kicker { margin: 0 0 3px; color: var(--tfv2-muted); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.tfv2-profile-kicker { margin: 0 0 3px; color: var(--tfv2-muted); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .tfv2-profile-copy h2 { margin: 0; font-size: clamp(25px, 2vw, 31px); line-height: 1.05; letter-spacing: -.045em; }
 .tfv2-profile-meta { display: flex; flex-wrap: wrap; gap: 6px 13px; margin-top: 7px; color: var(--tfv2-muted); font-size: 12px; }
 .tfv2-profile-meta.is-secondary { margin-top: 3px; }
@@ -382,6 +382,28 @@
 .tfv2-note.is-alert { border-color: var(--tfv2-note-alert-line); background: var(--tfv2-note-alert-bg); }
 .tfv2-note.is-alert .tfv2-note-head { color: var(--tfv2-amber); }
 .tfv2-note.is-safe .tfv2-note-head { color: var(--tfv2-green); }
+
+/* ── Eski müşteri kartından taşınanlar (2026-10-23) ─────────────────────────
+   Paket defteri, finans dökümü ve sadakat — "Paketler ve finans" sekmesinde. */
+a.tfv2-button { text-decoration: none; }
+.tfv2-note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tfv2-package-foot b { color: var(--tfv2-ink); font-weight: 750; }
+.tfv2-package-foot { align-items: center; }
+.tfv2-package-foot .tfv2-button { flex: none; }
+.tfv2-package-line.is-done .tfv2-package-top small { color: var(--tfv2-orange); font-weight: 650; }
+.tfv2-package-line.is-done .tfv2-note-actions { margin-top: 10px; }
+.tfv2-finance-total { margin: 4px 0 10px; font-size: 26px; font-weight: 820; letter-spacing: -.03em; color: var(--tfv2-green); }
+.tfv2-finance-total.is-owed { color: var(--tfv2-danger); }
+.tfv2-finance-rows > div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--tfv2-line); font-size: 13px; }
+.tfv2-finance-rows span { color: var(--tfv2-muted); }
+.tfv2-finance-rows b { font-weight: 750; text-align: right; }
+.tfv2-finance-rows b.is-green { color: var(--tfv2-green); }
+.tfv2-loyalty { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; }
+.tfv2-loyalty b { font-size: 14px; font-weight: 800; }
+.tfv2-loyalty-dots { display: flex; gap: 4px; }
+.tfv2-loyalty-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--tfv2-line-strong); }
+.tfv2-loyalty-dots i.on { background: var(--tfv2-violet); }
+.tfv2-note.is-safe .tfv2-loyalty-dots i.on { background: var(--tfv2-green); }
 
 .tfv2-detail-list { border-top: 1px solid var(--tfv2-line); }
 .tfv2-detail-row { display: grid; grid-template-columns: 145px minmax(0, 1fr) auto; gap: 16px; align-items: center; min-height: 62px; padding: 11px 0; border-bottom: 1px solid var(--tfv2-line); }

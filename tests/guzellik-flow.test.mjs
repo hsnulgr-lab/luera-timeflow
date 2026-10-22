@@ -11,7 +11,8 @@ const dashboard = read('../src/components/dashboard/GuzellikDashboard.tsx');
 const sessionModal = read('../src/components/beauty/BeautySessionModal.tsx');
 const cash = read('../src/pages/BeautyCashRegister.tsx');
 const packages = read('../src/pages/BeautyPackages.tsx');
-const customerPage = read('../src/pages/BeautyCustomerPage.tsx');
+// Tek müşteri ekranı (2026-10-23): ayrı kart sayfası kalktı, işlevleri Müşteriler'e taşındı
+const customerPage = read('../src/pages/BeautyCustomersPage.tsx');
 const reservationsHook = read('../src/hooks/useReservations.ts');
 
 // Güzellik satış akışının uçtan uca garantileri. Her biri bu modülde gerçekten
@@ -84,7 +85,7 @@ test('randevu oluşturan her yüzey uygunluk kaynağını okur', () => {
         '../src/pages/CalendarPage.tsx',
         '../src/mobile/pages/MobileNewReservation.tsx',
         '../src/pages/BeautyPackages.tsx',
-        '../src/pages/BeautyCustomerPage.tsx',
+        '../src/pages/BeautyCustomersPage.tsx',
     ]) {
         assert.match(read(path), /from '@\/lib\/serviceEligibility'/, path);
     }
@@ -138,7 +139,8 @@ const calendarPage = read('../src/pages/CalendarPage.tsx');
 const adisyonModal = read('../src/components/reservations/AdisyonModal.tsx');
 
 test('güzellikte tık müşteri kartına gider — bu bilinçli, korunuyor', () => {
-    assert.match(calendarPage, /settings\.sector === 'guzellik'[\s\S]{0,160}beauty-customer/);
+    // Müşteri kartı artık Müşteriler'de o müşteri seçili açılan profil
+    assert.match(calendarPage, /settings\.sector === 'guzellik'[\s\S]{0,160}\/customers\?open=/);
 });
 
 test('ama randevu detayına ULAŞILABİLİR bir kapı var', () => {
@@ -170,4 +172,37 @@ test('ızgaradaki iki köşe düğmesi de KLAVYEYLE görünür oluyor', () => {
     // opacity-0 odağı engellemiyor; focus-within olmadan klavyeyle gezen
     // biri görünmeyen bir düğmeye odaklanırdı.
     assert.match(agendaGrid, /group-hover\/appt:opacity-100 group-focus-within\/appt:opacity-100/);
+});
+
+// ── Tek müşteri ekranı (2026-10-23) ─────────────────────────────────────────
+// Aynı müşteri, nereden tıklandığına göre iki ayrı ekranda açılıyordu (eski kart
+// + Müşteriler profili). Kart kalktı; adresi yer imleri için yönlendirir.
+
+test('eski müşteri kartı adresi Müşteriler\'e yönlendirir', () => {
+    const app = read('../src/App.tsx');
+    assert.match(app, /path="beauty-customer\/:customerId" element=\{<OldCustomerCardRedirect \/>\}/);
+    assert.match(app, /\/customers\?open=\$\{encodeURIComponent\(customerId\)\}/);
+});
+
+test('uygulamada eski karta giden bağlantı kalmadı', () => {
+    for (const path of [
+        '../src/components/dashboard/GuzellikDashboard.tsx',
+        '../src/lib/cashSectorProfiles.ts',
+        '../src/pages/CalendarPage.tsx',
+        '../src/pages/PackagesPage.tsx',
+        '../src/pages/CustomersPage.tsx',
+        '../src/pages/BeautyCustomersPage.tsx',
+    ]) {
+        assert.doesNotMatch(read(path), /navigate\(`\/beauty-customer|=> `\/beauty-customer/, path);
+    }
+});
+
+test('karttan taşınan işlevler Müşteriler profilinde', () => {
+    assert.match(customerPage, /href=\{`tel:/);                       // telefonla ara
+    assert.match(customerPage, /navigate\(`\/packages\?sat=\$\{selected\.id\}`\)/); // paket sat / yenile
+    assert.match(customerPage, /label: 'Hesap özeti'/);               // ekstre
+    assert.match(customerPage, /label: 'Paket yenileme'/);            // yenileme teklifi
+    assert.match(customerPage, /Toplam paket tutarı/);                // finans dökümü
+    assert.match(customerPage, /customFields\?\.alerji/);              // alerji etiketi
+    assert.match(customerPage, /customFields\?\.cilt_tipi/);           // cilt tipi etiketi
 });

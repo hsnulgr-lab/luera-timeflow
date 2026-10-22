@@ -471,7 +471,8 @@ export function GuzellikDashboard() {
     }, [packages]);
 
     const serviceColor = (name: string) => services.find((s) => s.name === name)?.color || 'var(--dc-orange)';
-    const openCustomer = (id?: string) => id && navigate(`/beauty-customer/${id}`);
+    // Tek müşteri ekranı Müşteriler — ayrı kart sayfası kalktı (2026-10-23)
+    const openCustomer = (id?: string) => id && navigate(`/customers?open=${encodeURIComponent(id)}`);
     const cabinName = (id?: string) => cabins.find((c) => c.id === id)?.name;
 
     // Müşterinin salondaki fiziksel konumu — fazdan türetilir, yeni kolon yok

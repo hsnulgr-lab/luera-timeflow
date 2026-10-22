@@ -261,7 +261,7 @@ export const CalendarPage = () => {
     // düğmesinden açılıyor (openReservationDetail).
     const openReservation = useCallback((r: Reservation) => {
         if (settings.sector === 'guzellik') {
-            routerNavigate(r.customerId ? `/beauty-customer/${r.customerId}` : '/customers');
+            routerNavigate(r.customerId ? `/customers?open=${encodeURIComponent(r.customerId)}` : '/customers');
             return;
         }
         setAdisyonRes(r);

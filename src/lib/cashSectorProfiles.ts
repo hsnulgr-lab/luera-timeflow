@@ -43,7 +43,7 @@ const customerCard = (id: string) => `/customers?open=${encodeURIComponent(id)}`
 
 export const CASH_PROFILES = {
     genel:       { fallbackBrand: 'LUERA',             packagesEnabled: false, customerHref: customerCard, icon: Store,       warmShell: true },
-    guzellik:    { fallbackBrand: 'LUERA BEAUTY',      packagesEnabled: true,  customerHref: (id: string) => `/beauty-customer/${id}`, icon: Sparkles, warmShell: false },
+    guzellik:    { fallbackBrand: 'LUERA BEAUTY',      packagesEnabled: true,  customerHref: customerCard, icon: Sparkles,    warmShell: false },
     kuafor:      { fallbackBrand: 'LUERA HAIR',        packagesEnabled: true,  customerHref: customerCard, icon: Scissors,    warmShell: true },
     berber:      { fallbackBrand: 'LUERA BARBER',      packagesEnabled: false, customerHref: customerCard, icon: Scissors,    warmShell: true },
     estetik:     { fallbackBrand: 'LUERA ESTETİK',     packagesEnabled: false, customerHref: customerCard, icon: Sparkles,    warmShell: true },
