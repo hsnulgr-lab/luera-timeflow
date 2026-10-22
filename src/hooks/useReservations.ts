@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, createContext, useCo
 import { toast } from 'sonner';
 import { commsForSector, profileForSector } from '@/lib/sectorProfiles';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
@@ -238,7 +239,7 @@ function useReservationsState() {
             .limit(500);
 
         if (error) {
-            toast.error('Rezervasyonlar yüklenemedi');
+            loadFailed('Rezervasyonlar yüklenemedi', error);
             console.error('Error fetching reservations:', error);
             setError('Rezervasyonlar yüklenemedi');
         } else {
@@ -265,7 +266,7 @@ function useReservationsState() {
 
         if (error) {
             console.error('Error fetching reservation by id:', error);
-            toast.error('Randevu yüklenemedi');
+            loadFailed('Randevu yüklenemedi', error);
             return null;
         }
         if (!data) return null;
@@ -312,7 +313,7 @@ function useReservationsState() {
 
         if (settingsErr) {
             console.error('Ayarlar yüklenemedi:', settingsErr);
-            toast.error('Ayarlar yüklenemedi');
+            loadFailed('Ayarlar yüklenemedi', settingsErr);
             setSettingsError('Salon ayarları yüklenemedi');
             // Ağ/RLS hatasını "kayıt yok" sanıp dental ayarları genel
             // varsayılanlarla ezme. Varsa org cache'i ekranda kalır.
@@ -332,7 +333,7 @@ function useReservationsState() {
 
         if (servicesErr) {
             console.error('Hizmetler yüklenemedi:', servicesErr);
-            toast.error('Hizmetler yüklenemedi');
+            loadFailed('Hizmetler yüklenemedi', servicesErr);
             setSettingsError('Hizmet kataloğu yüklenemedi');
             setIsSettingsLoading(false);
             return;
@@ -478,6 +479,13 @@ function useReservationsState() {
 
         return () => { supabase.removeChannel(channel); };
     }, [user, orgId, randevuOn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Kopukken kanal olay kaçırmış olabilir: bağlantı dönünce tam liste yeniden.
+    useOnReconnect(() => {
+        if (!user || !orgId) return;
+        void fetchSettings(orgId);
+        if (randevuOn) void fetchReservations(orgId);
+    });
 
     // ─── Rezervasyon ekle ────────────────────────────────────────────────────
     // Masaüstü ve mobil manuel akışların tek davranışı olsun: telefonlu

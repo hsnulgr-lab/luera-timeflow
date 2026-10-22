@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import type { StaffTimeOff } from '@/types';
 
@@ -50,6 +51,8 @@ export function useStaffTimeOff() {
     useEffect(() => {
         if (user && orgId) fetchTimeOff(orgId);
     }, [user, orgId, fetchTimeOff]);
+
+    useOnReconnect(() => { if (user && orgId) void fetchTimeOff(orgId); });
 
     const addTimeOff = useCallback(async (staffId: string, date: string, reason?: string) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }

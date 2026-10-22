@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import type { QueueEntry, QueueStatus } from '@/types';
@@ -38,7 +39,7 @@ export function useQueue() {
             .eq('organization_id', resolvedOrgId)
             .in('status', ['waiting', 'called'])
             .order('joined_at', { ascending: true });
-        if (error) { toast.error('Sıra yüklenemedi'); console.error(error); }
+        if (error) { loadFailed('Sıra yüklenemedi', error); console.error(error); }
         else setEntries((data || []).map(mapRow));
         setIsLoading(false);
     }, []);
@@ -71,6 +72,8 @@ export function useQueue() {
             .subscribe();
         return () => { supabase.removeChannel(ch); };
     }, [user, orgId, siraOn, fetchQueue]);
+
+    useOnReconnect(() => { if (user && orgId && siraOn) void fetchQueue(orgId); });
 
     const addEntry = useCallback(async (e: { customerName: string; customerPhone?: string; partySize?: number; service?: string; staffId?: string; notes?: string }) => {
         if (!orgId) { toast.error('Organizasyon bulunamadı'); return null; }

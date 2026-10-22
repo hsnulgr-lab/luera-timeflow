@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { normalizeStaffRole } from '@/lib/staffPermissions';
@@ -76,7 +77,7 @@ export function useStaff() {
             .order('created_at');
 
         if (error) {
-            toast.error('Personel listesi yüklenemedi');
+            loadFailed('Personel listesi yüklenemedi', error);
             console.error(error);
             setError('Personel listesi yüklenemedi');
         } else {
@@ -92,6 +93,8 @@ export function useStaff() {
         const timer = window.setTimeout(() => { void fetchStaff(orgId); }, 0);
         return () => window.clearTimeout(timer);
     }, [user, orgId, fetchStaff]);
+
+    useOnReconnect(() => { if (user && orgId) void fetchStaff(orgId); });
 
     // Personel ekle
     const addStaff = useCallback(async (member: Omit<Staff, 'id' | 'createdAt' | 'organizationId'>) => {

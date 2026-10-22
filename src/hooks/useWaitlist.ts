@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import type { WaitlistEntry } from '@/types';
@@ -80,6 +81,8 @@ export function useWaitlist() {
 
         return () => { supabase.removeChannel(ch); };
     }, [user, orgId, randevuOn, fetchEntries]);
+
+    useOnReconnect(() => { if (user && orgId && randevuOn) void fetchEntries(orgId); });
 
     const addEntry = useCallback(async (e: { customerName: string; customerPhone: string; serviceId?: string; preferredDate?: string; notes?: string }) => {
         if (!orgId) { toast.error('Organizasyon bilgisi alınamadı'); return null; }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import type { Resource } from '@/types';
@@ -50,6 +51,7 @@ export function useResources() {
     }, []);
 
     useEffect(() => { if (user && orgId) fetchResources(orgId); }, [user, orgId, fetchResources]);
+    useOnReconnect(() => { if (user && orgId) void fetchResources(orgId); });
 
     // Realtime — useTables deseni (kanal adı benzersiz; çoklu mount güvenli)
     useEffect(() => {

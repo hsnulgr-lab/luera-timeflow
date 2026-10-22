@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO, toISODate } from '@/utils/date';
@@ -154,7 +155,7 @@ export function useCustomers() {
         if (!isCurrentRequest()) return;
 
         if (error) {
-            toast.error('Müşteriler yüklenemedi');
+            loadFailed('Müşteriler yüklenemedi', error);
             console.error('Error fetching customers:', error);
             setError('Müşteriler yüklenemedi');
             setIsLoading(false);
@@ -199,7 +200,7 @@ export function useCustomers() {
             });
 
             console.error('Error fetching customer reservations:', reservationsError);
-            toast.error('Randevu geçmişi yüklenemedi; mevcut metrikler korundu');
+            loadFailed('Randevu geçmişi yüklenemedi; mevcut metrikler korundu', reservationsError);
             setError('Müşteri geçmişi güncellenemedi; son bilinen veriler gösteriliyor');
             setCustomers(customersWithPreservedMetrics);
             setIsLoading(false);
@@ -304,6 +305,12 @@ export function useCustomers() {
             setIsLoading(false);
         }
     }, [user, orgId, fetchCustomers, fetchArchived]);
+
+    useOnReconnect(() => {
+        if (!user || !orgId) return;
+        void fetchCustomers(orgId);
+        void fetchArchived(orgId);
+    });
 
     // Realtime — başka cihazda müşteri eklenince/güncellenince (sadakat damgası,
     // arşivleme) liste anında yansısın (068 ile customers publication'a eklendi).

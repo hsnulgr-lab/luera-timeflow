@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TreatmentPlan, TreatmentPlanStatus } from '@/types';
 
@@ -81,6 +82,9 @@ export function useTreatmentPlans(customerId: string | undefined) {
         customerId: string | undefined;
         plans: TreatmentPlan[];
     }>({ customerId: undefined, plans: [] });
+    // Bağlantı dönünce açık hastanın kaydı yeniden çekilir (sayaç effect'i tetikler).
+    const [reload, setReload] = useState(0);
+    useOnReconnect(() => setReload((n) => n + 1));
 
     useEffect(() => {
         if (!customerId) return;
@@ -94,7 +98,7 @@ export function useTreatmentPlans(customerId: string | undefined) {
                 .then(({ data, error }) => {
                     if (!alive) return;
                     if (error) {
-                        toast.error('Tedavi planları yüklenemedi');
+                        loadFailed('Tedavi planları yüklenemedi', error);
                         console.error(error);
                         setResult({ customerId, plans: [] });
                         return;
@@ -106,7 +110,7 @@ export function useTreatmentPlans(customerId: string | undefined) {
             alive = false;
             window.clearTimeout(timer);
         };
-    }, [customerId]);
+    }, [customerId, reload]);
 
     const plans = result.customerId === customerId ? result.plans : [];
     const isLoading = Boolean(customerId && result.customerId !== customerId);

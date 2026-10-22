@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
 import { readCache, writeCache } from '@/lib/swrCache';
@@ -52,7 +53,7 @@ export function useTableReservations(date: string) {
             .eq('date', d)
             .neq('status', 'cancelled')
             .order('start_time');
-        if (error) { toast.error('Rezervasyonlar yüklenemedi'); console.error(error); }
+        if (error) { loadFailed('Rezervasyonlar yüklenemedi', error); console.error(error); }
         else {
             const rows = (data || []).map(mapRow);
             setReservations(rows);
@@ -62,6 +63,7 @@ export function useTableReservations(date: string) {
     }, []);
 
     useEffect(() => { if (orgId && date && masaOn) fetchFor(orgId, date); }, [orgId, date, masaOn, fetchFor]);
+    useOnReconnect(() => { if (orgId && date && masaOn) void fetchFor(orgId, date); });
 
     // Realtime: başka cihazın rezervasyon/oturt/tamamla/iptal işlemi anında
     // yansısın. Kanal görüntülenen güne bağlı — gün değişince yeniden kurulur.

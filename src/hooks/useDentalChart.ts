@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import type { DentalRecord, DentalStatus, DentalRecordType, ToothSurface } from '@/types';
 
@@ -66,6 +67,9 @@ export function useDentalChart(customerId: string | undefined) {
         customerId: string | undefined;
         records: DentalRecord[];
     }>({ customerId: undefined, records: [] });
+    // Bağlantı dönünce açık hastanın kaydı yeniden çekilir (sayaç effect'i tetikler).
+    const [reload, setReload] = useState(0);
+    useOnReconnect(() => setReload((n) => n + 1));
 
     useEffect(() => {
         if (!customerId) return;
@@ -79,7 +83,7 @@ export function useDentalChart(customerId: string | undefined) {
                 .then(({ data, error }) => {
                     if (!alive) return;
                     if (error) {
-                        toast.error('Diş şeması yüklenemedi');
+                        loadFailed('Diş şeması yüklenemedi', error);
                         console.error(error);
                         setResult({ customerId, records: [] });
                         return;
@@ -91,7 +95,7 @@ export function useDentalChart(customerId: string | undefined) {
             alive = false;
             window.clearTimeout(timer);
         };
-    }, [customerId]);
+    }, [customerId, reload]);
 
     // Hasta değiştiği anda önceki hastanın kayıtlarını bir kare dahi gösterme.
     // Yeni sorgu tamamlanana kadar görünüm boş/yükleniyor kalır.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { installmentDueDate, splitInstallmentAmounts } from '@/lib/installmentSchedule';
 import { useAuth } from '@/contexts/AuthContext';
 import type { InstallmentCadence, TreatmentInstallment } from '@/types';
@@ -68,7 +69,7 @@ export function useInstallmentSchedules(planIds: string[]) {
                 setInstallments([]);
             } else {
                 console.error('Error fetching installment schedules:', error);
-                toast.error('Taksit planı yüklenemedi');
+                loadFailed('Taksit planı yüklenemedi', error);
             }
         } else {
             setAvailable(true);
@@ -83,6 +84,8 @@ export function useInstallmentSchedules(planIds: string[]) {
         const timer = window.setTimeout(() => { void fetchAll(); }, 0);
         return () => window.clearTimeout(timer);
     }, [fetchAll]);
+
+    useOnReconnect(() => { void fetchAll(); });
 
     const createSchedule = useCallback(async (input: CreateInstallmentScheduleInput) => {
         if (!orgId || available !== true) return null;

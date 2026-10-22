@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PerioTooth } from '@/types';
 
@@ -51,6 +52,9 @@ export function usePeriodontal(customerId: string | undefined) {
     const { orgId, user } = useAuth();
     const [state, setState] = useState<{ customerId?: string; map: Map<number, PerioTooth> }>({ map: new Map() });
     const [available, setAvailable] = useState<boolean | null>(null);
+    // Bağlantı dönünce açık hastanın kaydı yeniden çekilir (sayaç effect'i tetikler).
+    const [reload, setReload] = useState(0);
+    useOnReconnect(() => setReload((n) => n + 1));
 
     useEffect(() => {
         // customerId yoksa reset gerekmez — türetilen `chart` zaten boş döner
@@ -70,7 +74,7 @@ export function usePeriodontal(customerId: string | undefined) {
                         setState({ customerId, map: new Map() });
                         return;
                     }
-                    toast.error('Periodontal veriler yüklenemedi');
+                    loadFailed('Periodontal veriler yüklenemedi', error);
                     setState({ customerId, map: new Map() });
                     return;
                 }
@@ -80,7 +84,7 @@ export function usePeriodontal(customerId: string | undefined) {
                 setState({ customerId, map });
             });
         return () => { alive = false; };
-    }, [customerId]);
+    }, [customerId, reload]);
 
     const chart = state.customerId === customerId ? state.map : new Map<number, PerioTooth>();
     const isLoading = Boolean(customerId && state.customerId !== customerId);

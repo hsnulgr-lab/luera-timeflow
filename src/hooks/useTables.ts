@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { useModuleGate } from '@/hooks/useModules';
@@ -35,7 +36,7 @@ export function useTables() {
             .eq('organization_id', org)
             .eq('is_active', true)
             .order('created_at');
-        if (error) { toast.error('Masalar yüklenemedi'); console.error(error); }
+        if (error) { loadFailed('Masalar yüklenemedi', error); console.error(error); }
         else {
             const rows = (data || []).map(mapRow);
             setTables(rows);
@@ -45,6 +46,7 @@ export function useTables() {
     }, []);
 
     useEffect(() => { if (user && orgId && masaOn) fetchTables(orgId); }, [user, orgId, masaOn, fetchTables]);
+    useOnReconnect(() => { if (user && orgId && masaOn) void fetchTables(orgId); });
 
     // Realtime: başka cihazın masa ekleme/güncelleme/silmesi anında yansısın
     // (usePayments/useReservations ile aynı desen; 041_masa_realtime.sql gerekli).
