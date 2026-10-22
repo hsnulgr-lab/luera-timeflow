@@ -44,6 +44,21 @@ const MODULE = 'timeflow';
 const VALID_PLANS = ['baslangic', 'pro', 'isletme'];
 const VALID_CYCLES = ['monthly', 'yearly'];
 
+/**
+ * Ödeme sayfası TimeFlow turuncusunda (kullanıcı, 2026-10-23): düğmeler ve
+ * odak çerçevesi; gerisi Dodo'nun sade görünümü. Renkler Ayarlar'daki ana
+ * düğmeyle aynı (ayarlar.css · --or, --btx; üstüne gelince brightness 1.04).
+ * Yalnız bizim açtığımız oturuma uygulanır; doğrudan /buy bağlantısı Dodo
+ * renginde kalır.
+ */
+const TURUNCU = {
+    button_primary: '#FF5A1F',
+    button_primary_hover: '#FF5E20',
+    button_text_primary: '#0E0E0E',
+    input_focus_border: '#FF5A1F',
+};
+const CHECKOUT_THEME = { light: TURUNCU, dark: TURUNCU };
+
 type Admin = ReturnType<typeof createClient>;
 
 /**
@@ -374,6 +389,7 @@ Deno.serve(async (req: Request) => {
                 // org_name: Core kopyasındaki organizations satırı için.
                 metadata: { organization_id: orgId, plan, cycle, module: MODULE, org_name: settingsRow?.business_name || '' },
                 billing_currency: 'TRY',
+                customization: { theme_config: CHECKOUT_THEME },
             }),
         });
         if (!res.ok) {

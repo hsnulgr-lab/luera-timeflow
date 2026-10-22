@@ -81,3 +81,19 @@ test('eski ?tab= yönlendirmesi öteki parametreleri korur', () => {
     assert.match(kabuk, /const legacy = legacyRedirect\(location\.search\);/);
     assert.match(oku('src/pages/settings/bolumler/Abonelik.tsx'), /params\.get\('checkout'\) === 'success'[\s\S]{0,200}pollAfterCheckout\(\)/);
 });
+
+test('Dodo ödeme sayfası TimeFlow turuncusunda: düğme ve odak çerçevesi, Ayarlar\'daki ana düğmeyle aynı', () => {
+    // Kullanıcı, 2026-10-23: Dodo'nun yeşil "Ödemeye Devam Et"i yerine bizim
+    // turuncu. Canlı Dodo'da denendi: --button-primary-bg #FF5A1F.
+    const fn = oku('supabase/functions/dodo-checkout/index.ts');
+    const css = oku('src/pages/settings/ayarlar.css');
+    const or = css.match(/--or:(#[0-9A-F]{6});/)?.[1];
+    const btx = css.match(/--btx:(#[0-9A-F]{6});/)?.[1];
+    assert.equal(or, '#FF5A1F');
+    assert.match(fn, new RegExp(`button_primary: '${or}',`));
+    assert.match(fn, new RegExp(`button_text_primary: '${btx}',`));
+    assert.match(fn, new RegExp(`input_focus_border: '${or}',`));
+    assert.match(fn, /const CHECKOUT_THEME = \{ light: TURUNCU, dark: TURUNCU \};/);
+    const i = fn.indexOf("dodoFetch(api, '/checkouts'");
+    assert.match(fn.slice(i, fn.indexOf('});', i)), /customization: \{ theme_config: CHECKOUT_THEME \},/, 'oturum açılırken gönderilir');
+});
