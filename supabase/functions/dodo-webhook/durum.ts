@@ -49,6 +49,10 @@ export interface MirrorPatch {
     cancel_at_period_end?: boolean;
     cancelled_at?: string | null;
     dodo_event_at?: string;
+    /** Dönem sonuna planlanmış paket (göç 126); NULL = planlı değişiklik yok. */
+    scheduled_plan?: string | null;
+    scheduled_cycle?: string | null;
+    scheduled_at?: string | null;
     last_event: string;
 }
 
@@ -210,6 +214,16 @@ export function decide(
     if (fromProduct) {
         patch.plan = fromProduct.plan;
         patch.cycle = fromProduct.cycle;
+    }
+    // Dönem sonuna planlanmış değişiklik (Dodo `scheduled_change`): ekran o
+    // güne kadar yeni tutarı ve tarihi söyler. Alan anlık görüntüde YOKSA
+    // (eski biçim) dokunulmaz; null ya da tanınmayan ürünse temizlenir.
+    if (sub && typeof sub === 'object' && 'scheduled_change' in sub) {
+        const sc = sub.scheduled_change;
+        const to = sc && typeof sc.product_id === 'string' ? plans?.[sc.product_id] : undefined;
+        patch.scheduled_plan = to?.plan ?? null;
+        patch.scheduled_cycle = to?.cycle ?? null;
+        patch.scheduled_at = to && typeof sc.effective_at === 'string' ? sc.effective_at : null;
     }
     if (typeof sub?.cancel_at_next_billing_date === 'boolean') {
         patch.cancel_at_period_end = sub.cancel_at_next_billing_date;

@@ -67,8 +67,11 @@ test('dodo-checkout · change: yükseltme hemen (denemede ücretsiz), düşürme
     assert.match(blok, /on_payment_failure: 'prevent_change',/);
     assert.match(blok, /metadata: \{ organization_id: orgId, plan, cycle, module: MODULE,/, 'webhook işletmeyi metadata\'dan bulur');
     assert.match(blok, /error: res\.status === 409 \? 'change_pending' : 'change_failed'/);
-    // Ayna yalnız yükseltmede hemen yazılır; düşürmede ödenen paket görünmeye devam eder.
-    assert.match(blok, /if \(up\) \{[\s\S]{0,400}\.update\(\{ plan, cycle, updated_at:/);
+    // Ayna hemen: yükseltmede yeni paket (planlanan temizlenir); düşürmede
+    // ödenen paket kalır, planlanan paket + gün yazılır (göç 126).
+    assert.match(blok, /\? \{ plan, cycle, scheduled_plan: null, scheduled_cycle: null, scheduled_at: null \}\s*: \{ scheduled_plan: plan, scheduled_cycle: cycle, scheduled_at: shownEnd\(entRow as EntitlementRow \| null\) \}/);
+    // Planlı düşürme varken başka paket: önce o iptal (Dodo yoksa 409 verir).
+    assert.match(blok, /if \(entRow\?\.scheduled_plan\) \{[\s\S]{0,200}\/change-plan\/scheduled`, \{ method: 'DELETE' \}\)/);
     assert.match(blok, /return json\(\{ changed: true, when: up \? 'now' : 'next_billing' \}, 200\);/);
 });
 
@@ -138,4 +141,60 @@ test('personel eklenince telefon uygulamasının yolu ve bağlantısı', () => {
     assert.match(oku('src/pages/StaffPage.tsx'), /App Store'da <a href=\{APP_STORE_URL\}/, 'ekip kodu kartında');
     assert.match(oku('src/mobile/pages/MobileStaff.tsx'), /personelEklendiBildirimi\(\);/);
     assert.match(oku('src/pages/SetupWizardPage.tsx'), /if \(yeni > 0\) personelEklendiBildirimi\(/);
+});
+
+test('planlanan düşürme: aynada tutulur, ekranda yeni tutar ve gün, vazgeçilebilir (göç 126)', async () => {
+    const plans = productPlans(JSON.stringify({ baslangic_monthly: 'pdt_tek', pro_monthly: 'pdt_ekip' }));
+    const sub = {
+        subscription_id: 'sub_A', status: 'active', created_at: iso(NOW - 3 * DAY), next_billing_date: iso(NOW + 7 * DAY),
+        trial_period_days: 7, cancel_at_next_billing_date: false, customer: { customer_id: 'cus_1' },
+        product_id: 'pdt_ekip', metadata: { organization_id: 'org', plan: 'pro', cycle: 'monthly' },
+        scheduled_change: { product_id: 'pdt_tek', effective_at: iso(NOW + 7 * DAY) },
+    };
+    const d = decide('subscription.updated', sub, iso(NOW), null, NOW, undefined, plans);
+    assert.equal(d.patch.plan, 'pro', 'yürürlüğe kadar ödenen paket');
+    assert.equal(d.patch.scheduled_plan, 'baslangic');
+    assert.equal(d.patch.scheduled_cycle, 'monthly');
+    assert.equal(d.patch.scheduled_at, iso(NOW + 7 * DAY));
+    const bitti = decide('subscription.renewed', { ...sub, product_id: 'pdt_tek', scheduled_change: null }, iso(NOW + 8 * DAY), null, NOW + 8 * DAY, undefined, plans);
+    assert.equal(bitti.patch.plan, 'baslangic', 'yürürlüğe girince yeni paket');
+    assert.equal(bitti.patch.scheduled_plan, null, 'planlanan temizlenir');
+    const { scheduled_change: _sc, ...eski } = sub;
+    assert.equal('scheduled_plan' in decide('subscription.updated', eski, iso(NOW), null, NOW, undefined, plans).patch, false,
+        'alan yoksa (eski olay biçimi) dokunulmaz');
+
+    const goc = oku('supabase/126_planlanan_paket.sql');
+    for (const c of ['scheduled_plan  TEXT', 'scheduled_cycle TEXT', 'scheduled_at    TIMESTAMPTZ']) assert.ok(goc.includes(`ADD COLUMN IF NOT EXISTS ${c}`), c);
+
+    const fn = oku('supabase/functions/dodo-checkout/index.ts');
+    const vazgec = fn.slice(fn.indexOf("if (body.action === 'cancel_change') {"), fn.indexOf('// ── Checkout ──'));
+    assert.match(vazgec, /\/change-plan\/scheduled`, \{ method: 'DELETE' \}\)/);
+    assert.match(vazgec, /if \(!res\.ok && res\.status !== 404\)/, 'Dodo\'da zaten yoksa ayna yine temizlenir');
+    assert.match(vazgec, /\.update\(\{ scheduled_plan: null, scheduled_cycle: null, scheduled_at: null,/);
+    assert.match(fn, /dodo_customer_id, cancel_at_period_end, scheduled_plan'\)/);
+
+    const bs = oku('supabase/functions/billing-status/index.ts');
+    assert.match(bs, /dodo_subscription_id, scheduled_plan, scheduled_cycle, scheduled_at'\)/);
+    assert.match(bs, /scheduled: row\.scheduled_plan\s*\? \{ plan: row\.scheduled_plan, cycle: row\.scheduled_cycle \|\| 'monthly', at: row\.scheduled_at \?\? null \}\s*: null,/);
+
+    const ayar = oku('src/pages/settings/bolumler/Abonelik.tsx');
+    assert.match(ayar, /const nextCharge = nextPlan \? priceOf\(nextPlan, nextCycle\) : charge;/);
+    assert.match(ayar, /!periodPast && ` · ₺\$\{formatTRY\(nextCharge\)\}`/, 'tahsilat satırı o günün tutarını söyler');
+    assert.match(ayar, /Planlanan değişiklik<\/span>[\s\S]{0,700}cancelChange\(\)[\s\S]{0,80}>Vazgeç<\/button>/);
+    assert.match(oku('src/hooks/useBilling.ts'), /body: \{ action: 'cancel_change', orgId \}/);
+});
+
+const PGLITE_DIR = process.env.PGLITE_DIR;
+test('göç 126 iki kez uygulanır, sütunlar boş başlar (PGlite)', { skip: !PGLITE_DIR && 'PGLITE_DIR yok' }, async () => {
+    const { join } = await import('node:path');
+    const { pathToFileURL } = await import('node:url');
+    const { PGlite } = await import(pathToFileURL(join(PGLITE_DIR, 'node_modules/@electric-sql/pglite/dist/index.js')).href);
+    const db = new PGlite();
+    await db.exec("create table org_entitlement (organization_id uuid primary key, state text not null default 'none', plan text); insert into org_entitlement (organization_id, plan) values ('6e206ea8-2fa8-4c9e-a2d2-aba3317a3c7e', 'pro');");
+    const goc = oku('supabase/126_planlanan_paket.sql');
+    await db.exec(goc);
+    await db.exec(goc);
+    const r = (await db.query('select plan, scheduled_plan, scheduled_cycle, scheduled_at from org_entitlement')).rows[0];
+    assert.deepEqual(r, { plan: 'pro', scheduled_plan: null, scheduled_cycle: null, scheduled_at: null });
+    await db.close();
 });

@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
         // 3) Ayna + fatura geçmişi
         const [{ data: row, error: rowErr }, { data: events, error: evErr }] = await Promise.all([
             admin.from('org_entitlement')
-                .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, cancel_at_period_end, cancelled_at, last_event, dodo_subscription_id')
+                .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, cancel_at_period_end, cancelled_at, last_event, dodo_subscription_id, scheduled_plan, scheduled_cycle, scheduled_at')
                 .eq('organization_id', orgId)
                 .maybeSingle(),
             admin.from('dodo_events')
@@ -84,6 +84,11 @@ Deno.serve(async (req: Request) => {
                 // ödeme sayfası ne diyorsa ekran da onu demeli.
                 expires_at: shownEnd(row as EntitlementRow) ?? row.expires_at,
                 cancelled_at: row.cancelled_at ?? null,
+                // Dönem sonuna planlanmış paket (göç 126): "29 Ekim'den
+                // itibaren Tek kişilik · ₺799" ve o günün tahsilat tutarı.
+                scheduled: row.scheduled_plan
+                    ? { plan: row.scheduled_plan, cycle: row.scheduled_cycle || 'monthly', at: row.scheduled_at ?? null }
+                    : null,
             };
         }
 

@@ -12,6 +12,8 @@ export interface BillingSubscription {
     cancelled_at: string | null;
     /** Hediye üyelik / demo: Dodo'da karşılığı yok, ücret alınmaz. */
     comp?: boolean;
+    /** Dönem sonuna planlanmış paket (göç 126); yoksa null. */
+    scheduled?: { plan: 'baslangic' | 'pro' | 'isletme'; cycle: 'monthly' | 'yearly'; at: string | null } | null;
 }
 
 export interface BillingInvoice {
@@ -181,6 +183,23 @@ export function useBilling() {
         return true;
     }, [orgId, refresh]);
 
+    /** Dönem sonuna planlanmış paket değişikliğinden vazgeç. */
+    const cancelChange = useCallback(async (): Promise<boolean> => {
+        setBusy(true);
+        const { data, error } = await supabase.functions
+            .invoke('dodo-checkout', { body: { action: 'cancel_change', orgId } })
+            .catch((cause: unknown) => ({ data: null, error: cause }));
+        setBusy(false);
+        if (error || !data?.change_cancelled) {
+            console.error('dodo-checkout cancel_change:', error, data);
+            toast.error('Planlanan değişiklik geri alınamadı, lütfen tekrar deneyin');
+            return false;
+        }
+        toast.success('Planlanan paket değişikliğinden vazgeçildi');
+        await refresh();
+        return true;
+    }, [orgId, refresh]);
+
     const changePlan = useCallback(async (plan: string, cycle: 'monthly' | 'yearly') => {
         setBusy(true);
         const when = await requestPlanChange(orgId, plan, cycle);
@@ -189,5 +208,5 @@ export function useBilling() {
         return when;
     }, [orgId, refresh]);
 
-    return { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, updateCard, cancelSubscription, pollAfterCheckout };
+    return { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, cancelChange, updateCard, cancelSubscription, pollAfterCheckout };
 }

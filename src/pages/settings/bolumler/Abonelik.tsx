@@ -32,7 +32,7 @@ import { dayLocative, trDate } from '../ayarlarModel';
 import { Dots, Head, I, Modal, Seg } from '../parcalar';
 
 export function Abonelik() {
-    const { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
+    const { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, cancelChange, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
     const ent = useEntitlement();
     const { staff } = useStaff();
     const [params, setParams] = useSearchParams();
@@ -72,6 +72,12 @@ export function Abonelik() {
     // Dönemde ÇEKİLEN tutar: yıllıkta yıllık toplam (eskiden aylığa düşen
     // yazılıyordu — yıllık aboneye "Sonraki tahsilat ₺479" diyordu).
     const charge = plan ? priceOf(plan, cycle) : 0;
+    // Dönem sonuna planlanmış düşürme (göç 126): o günün tahsilatı YENİ
+    // paketin tutarıdır — Test A'da ekran "29 Ekim · ₺1.299" diyordu.
+    const scheduled = subscription?.scheduled ?? null;
+    const nextPlan = planById(scheduled?.plan);
+    const nextCycle: Cycle = scheduled?.cycle === 'yearly' ? 'yearly' : 'monthly';
+    const nextCharge = nextPlan ? priceOf(nextPlan, nextCycle) : charge;
     const yearlySave = plan ? yearlySaving(plan) : 0;
     const activeStaff = staff.filter((s) => s.isActive).length;
     // Dodo'nun gerçek günü (tolerans hariç) — Dodo'nun e-postasıyla aynı tarih.
@@ -227,8 +233,18 @@ export function Abonelik() {
                         <div style={{ display: 'flex', flexDirection: 'column', padding: '0 24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
                                 <span style={{ color: 'var(--tx2)' }}>{periodPast ? 'Dönem sonu' : onTrial ? 'Deneme bitiyor' : subscription?.cancel_at_period_end ? 'Erişim bitiyor' : 'Sonraki tahsilat'}</span>
-                                <span style={{ fontWeight: 700 }}>{trDate(until)}{!subscription?.cancel_at_period_end && !periodPast && ` · ₺${formatTRY(charge)}`}</span>
+                                <span style={{ fontWeight: 700 }}>{trDate(until)}{!subscription?.cancel_at_period_end && !periodPast && ` · ₺${formatTRY(nextCharge)}`}</span>
                             </div>
+                            {nextPlan && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '12px 0', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
+                                    <span style={{ color: 'var(--tx2)' }}>Planlanan değişiklik</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                        <span style={{ fontWeight: 700 }}>{nextPlan.name} · {trDate(scheduled?.at ?? until)} tarihinden itibaren ₺{formatTRY(nextCharge)} / {nextCycle === 'yearly' ? 'yıl' : 'ay'}</span>
+                                        <button type="button" className="ay-btn plain" style={{ height: 34, padding: '0 12px', fontSize: 14 }} disabled={busy}
+                                            onClick={() => { void cancelChange().then((ok) => { if (ok) void ent.refresh(); }); }}>Vazgeç</button>
+                                    </span>
+                                </div>
+                            )}
                             {periodPast && (
                                 <div role="status" className="ay-box warn" style={{ margin: '0 0 12px', fontSize: 14 }}>
                                     <I n="alert" />Bu tarih geçti; yeni dönem henüz görünmüyor.

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, type EntitlementRow } from '../_shared/entitlement.ts';
+import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, shownEnd, type EntitlementRow } from '../_shared/entitlement.ts';
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
@@ -28,6 +28,8 @@ const corsHeaders = {
  *   { action: 'cancel', orgId }  → dönem sonunda iptal
  *   { action: 'card', orgId }    → { url }  Dodo kart güncelleme sayfası
  *                                          ('portal' eski istemcinin adı, aynı yere gider)
+ *   { action: 'change', plan, cycle, orgId } → { changed, when: 'now' | 'next_billing' }
+ *   { action: 'cancel_change', orgId }       → { change_cancelled } planlanan düşürmeden vazgeç
  *   + { donus: 'abonelik' }      → Dodo'dan dönüş /abonelik?kaynak=eposta
  *                                  (abonelik e-postasının yolu; yoksa ödeme
  *                                  duvarı → ana sayfa ya da kurulum)
@@ -95,7 +97,7 @@ Deno.serve(async (req: Request) => {
         if (!api) return json({ error: 'dodo_not_configured' }, 500);
 
         const { data: entRow, error: entErr } = await admin.from('org_entitlement')
-            .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, dodo_subscription_id, dodo_customer_id, cancel_at_period_end')
+            .select('state, plan, cycle, trial_ends_at, expires_at, grace_until, dodo_subscription_id, dodo_customer_id, cancel_at_period_end, scheduled_plan')
             .eq('organization_id', orgId)
             .maybeSingle();
         if (entErr) {
@@ -190,6 +192,15 @@ Deno.serve(async (req: Request) => {
             if (!productId) return json({ error: 'product_not_configured' }, 500);
 
             const up = isUpgrade(entRow?.plan, entRow?.cycle, plan, cycle);
+            // Planlı bir düşürme varken Dodo yeni değişikliği 409 ile reddeder:
+            // sahibi başka bir paket seçtiyse niyeti değişmiştir, önce o iptal.
+            if (entRow?.scheduled_plan) {
+                const c = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/change-plan/scheduled`, { method: 'DELETE' });
+                if (!c.ok && c.status !== 404) {
+                    console.error('Dodo cancel scheduled change error:', c.status, await c.text().catch(() => ''));
+                    return json({ error: 'change_pending' }, 409);
+                }
+            }
             const { data: s } = await admin.from('settings').select('business_name')
                 .eq('organization_id', orgId).maybeSingle();
             const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/change-plan`, {
@@ -215,15 +226,40 @@ Deno.serve(async (req: Request) => {
                 // Dodo: bekleyen bir plan değişikliği ya da süren bir ödeme var.
                 return json({ error: res.status === 409 ? 'change_pending' : 'change_failed' }, res.status === 409 ? 409 : 502);
             }
-            if (up) {
-                // Ekran webhook'u beklemeden yeni paketi göstersin (personel
-                // eklemesi hemen açılır); webhook aynısını ürün kimliğinden yazar.
-                const { error: mErr } = await admin.from('org_entitlement')
-                    .update({ plan, cycle, updated_at: new Date().toISOString() })
-                    .eq('organization_id', orgId);
-                if (mErr) console.error('dodo-checkout: yeni paket aynaya yazılamadı', mErr);
-            }
+            // Ekran webhook'u beklemeden doğruyu söylesin; webhook aynısını
+            // Dodo'nun anlık görüntüsünden (ürün, scheduled_change) yazar.
+            //   yükseltme → yeni paket hemen (personel eklemesi açılır)
+            //   düşürme   → planlanan paket + gün (göç 126): "29 Ekim'den
+            //               itibaren Tek kişilik · ₺799" — yoksa ekran o güne
+            //               kadar eski tutarı söylüyordu (Test A).
+            const { error: mErr } = await admin.from('org_entitlement')
+                .update({
+                    ...(up
+                        ? { plan, cycle, scheduled_plan: null, scheduled_cycle: null, scheduled_at: null }
+                        : { scheduled_plan: plan, scheduled_cycle: cycle, scheduled_at: shownEnd(entRow as EntitlementRow | null) }),
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('organization_id', orgId);
+            if (mErr) console.error('dodo-checkout: paket değişikliği aynaya yazılamadı', mErr);
             return json({ changed: true, when: up ? 'now' : 'next_billing' }, 200);
+        }
+
+        // ── Planlanan paket değişikliğinden vazgeç ──────────────────────────
+        // Dönem sonuna planlanmış düşürme iptal edilir; abonelik bugünkü
+        // paketiyle sürer. Dodo'da zaten yoksa (404) ayna yine temizlenir.
+        if (body.action === 'cancel_change') {
+            const subscriptionId = entRow?.dodo_subscription_id;
+            if (!subscriptionId) return json({ error: 'no_subscription' }, 404);
+            const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/change-plan/scheduled`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 404) {
+                console.error('Dodo cancel scheduled change error:', res.status, await res.text().catch(() => ''));
+                return json({ error: 'cancel_change_failed' }, 502);
+            }
+            const { error: mErr } = await admin.from('org_entitlement')
+                .update({ scheduled_plan: null, scheduled_cycle: null, scheduled_at: null, updated_at: new Date().toISOString() })
+                .eq('organization_id', orgId);
+            if (mErr) console.error('dodo-checkout: planlanan paket aynadan silinemedi', mErr);
+            return json({ change_cancelled: true }, 200);
         }
 
         // ── Checkout ─────────────────────────────────────────────────────────
