@@ -214,7 +214,7 @@ export function cikti(metin) {
     return r;
 }
 
-function uzak(betik) {
+export function uzak(betik) {
     const r = spawnSync('ssh', SSH, { input: betik, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
     if (r.error) throw r.error;
     if (r.stderr) process.stderr.write(r.stderr);
@@ -222,7 +222,7 @@ function uzak(betik) {
     return cikti(r.stdout);
 }
 
-const dodo = (istekler) => uzak(istekBetigi(istekler));
+export const dodo = (istekler) => uzak(istekBetigi(istekler));
 
 function basarili(y, ne) {
     if (y.kod >= 200 && y.kod < 300) return y.govde;
