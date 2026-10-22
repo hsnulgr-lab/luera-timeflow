@@ -61,7 +61,8 @@ test('dodo-checkout · change: yükseltme hemen (denemede ücretsiz), düşürme
     // Hedef paketin sınırı (Ekip → Tek kişilik, kalabalık ekip) da bakılır.
     assert.match(blok, /const limit = await staffOverLimit\(admin, orgId, plan\);/);
     assert.match(blok, /\/change-plan`/);
-    assert.match(blok, /proration_billing_mode: up && access\.effective === 'active' \? 'prorated_immediately' : 'do_not_bill',/);
+    // Dodo: dönem sonuna (next_billing_date) yalnız full_immediately (422, Test A).
+    assert.match(blok, /proration_billing_mode: !up \? 'full_immediately'\s*: access\.effective === 'active' \? 'prorated_immediately' : 'do_not_bill',/);
     assert.match(blok, /effective_at: up \? 'immediately' : 'next_billing_date',/);
     assert.match(blok, /on_payment_failure: 'prevent_change',/);
     assert.match(blok, /metadata: \{ organization_id: orgId, plan, cycle, module: MODULE,/, 'webhook işletmeyi metadata\'dan bulur');

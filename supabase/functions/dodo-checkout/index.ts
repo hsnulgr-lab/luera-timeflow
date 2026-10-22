@@ -197,7 +197,12 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     product_id: productId,
                     quantity: 1,
-                    proration_billing_mode: up && access.effective === 'active' ? 'prorated_immediately' : 'do_not_bill',
+                    // Düşürme: Dodo dönem sonuna yalnız full_immediately kabul
+                    // ediyor (422 INVALID_PRORATION_MODE_WITH_NEXT_BILLING_DATE,
+                    // Test A 2026-10-22) — değişiklik günü yeni paketin tam
+                    // ücreti çekilir; o gün zaten yenileme günü.
+                    proration_billing_mode: !up ? 'full_immediately'
+                        : access.effective === 'active' ? 'prorated_immediately' : 'do_not_bill',
                     effective_at: up ? 'immediately' : 'next_billing_date',
                     on_payment_failure: 'prevent_change',
                     // Webhook paketi ürün kimliğinden okur; metadata Core kopyası için.
