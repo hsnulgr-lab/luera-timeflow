@@ -78,14 +78,29 @@ export function isStepDone(key: StepKey, f: SetupFacts): boolean {
 export const CORE_STEPS: readonly StepKey[] = SETUP_STEPS.filter((s) => !s.skippable).map((s) => s.key);
 
 /**
+ * Zorunlu adım, sihirbazın GEÇİT koşuluyla geçildi mi. Kimlikte sihirbaz
+ * yalnız işletme adını ister; adres ve telefon isteğe bağlı. Test B'de
+ * (2026-10-22) adressiz, telefonsuz kurulumu bitiren salon ödemeden sonra
+ * yine Kimlik adımına düştü — `isStepDone` ikisinden birini arıyor.
+ */
+function coreStepDone(key: StepKey, f: SetupFacts): boolean {
+    return key === 'identity' ? Boolean(f.businessName?.trim()) : isStepDone(key, f);
+}
+
+/** İlk eksik zorunlu adım; kurulum yapıldıysa null. */
+export function nextCoreStep(f: SetupFacts): StepKey | null {
+    return CORE_STEPS.find((k) => !coreStepDone(k, f)) ?? null;
+}
+
+/**
  * Kurulum yapıldı mı? Ödemeden dönüş buna bakar (kullanıcı kararı
  * 2026-10-22: yapıldıysa ana sayfa, yapılmadıysa kurulum). Atlanabilir
- * adımlar (kaynak, ekip, WhatsApp) sayılmaz: sihirbazı onları atlayarak
- * bitiren de kurulumu yapmıştır. Şerit (`setupProgress().complete`) daha
- * katı; o, atlananları da hatırlatmak için.
+ * adımlar (kaynak, ekip, WhatsApp) ve sihirbazın sormadan geçtiği alanlar
+ * sayılmaz: sihirbazı bitiren kurulumu yapmıştır. Şerit
+ * (`setupProgress().complete`) daha katı; o, eksikleri de hatırlatmak için.
  */
 export function coreSetupDone(f: SetupFacts): boolean {
-    return CORE_STEPS.every((k) => isStepDone(k, f));
+    return nextCoreStep(f) === null;
 }
 
 export interface SetupProgress {

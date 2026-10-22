@@ -12,7 +12,7 @@ import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import {
     PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, type Cycle, type PlanId,
 } from '@/lib/plans';
-import { coreSetupDone, setupProgress } from '@/lib/setupProgress';
+import { nextCoreStep } from '@/lib/setupProgress';
 import './billing.css';
 
 // Uygulama içi ödeme duvarı — /abonelik
@@ -43,29 +43,26 @@ const CLOSE_NOTE = "Bu sayfayı kapatıp TimeFlow'u kullanmaya devam edebilirsin
  * gereksiz yere sihirbaza atmak Test 1'deki şikâyetti.
  */
 async function afterPaymentPath(orgId: string): Promise<string> {
-    const [st, sv, org] = await Promise.all([
+    const [st, sv] = await Promise.all([
         supabase.from('settings').select('sector, business_name, working_hours')
             .eq('organization_id', orgId).limit(1).maybeSingle(),
         supabase.from('services').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
-        supabase.from('organizations').select('address, public_phone').eq('id', orgId).maybeSingle(),
     ]);
-    if (st.error || sv.error || org.error) return '/';
+    if (st.error || sv.error) return '/';
     const hours = Array.isArray(st.data?.working_hours) ? (st.data.working_hours as { isOff?: boolean }[]) : null;
-    const facts = {
+    // Adres ve telefon karara girmez: sihirbaz onları sormadan geçer (Test B).
+    const next = nextCoreStep({
         sector: st.data?.sector || 'genel',
         businessName: st.data?.business_name ?? '',
-        address: org.data?.address ?? '',
-        phone: org.data?.public_phone ?? '',
         // Satırda saat yoksa uygulama varsayılan (açık) saatleri kullanır.
         openDays: hours ? hours.filter((h) => !h.isOff).length : 1,
         serviceCount: sv.count ?? 0,
         // Atlanabilir adımlar karara girmez.
         resourceCount: 0, resourcesApply: false, staffCount: 0, soloDeclared: false, whatsappConnected: false,
-    };
-    if (coreSetupDone(facts)) return '/';
-    const next = setupProgress(facts).next;
+    });
+    if (!next) return '/';
     // Hiçbir şey girilmemişse karşılamadan; yarıdaysa kaldığı adımdan.
-    return next && next !== 'sector' ? `/kurulum?adim=${next}` : '/kurulum';
+    return next !== 'sector' ? `/kurulum?adim=${next}` : '/kurulum';
 }
 
 /**

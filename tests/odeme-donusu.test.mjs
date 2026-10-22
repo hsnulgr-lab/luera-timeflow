@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { legacyRedirect, legacyTabTarget } from '../src/pages/settings/ayarlarModel.ts';
-import { CORE_STEPS, coreSetupDone, setupProgress } from '../src/lib/setupProgress.ts';
+import { CORE_STEPS, coreSetupDone, nextCoreStep, setupProgress } from '../src/lib/setupProgress.ts';
 
 // Dodo'dan dönüş (Test 1, 2026-10-22): Ayarlar'dan Tek kişilik alan yeni
 // salon onaysız biçimde Kurulum'un 1. adımına düştü. Kullanıcı kararı:
@@ -25,8 +25,14 @@ test('kurulum "yapıldı": zorunlu adımlar; atlanabilirler (kaynak, ekip, Whats
     assert.equal(coreSetupDone(BITMIS), true, 'kaynak/ekip/WhatsApp atlanmış ama kurulum yapılmış');
     assert.equal(setupProgress(BITMIS).complete, false, 'şerit atlananları yine hatırlatır');
     assert.equal(coreSetupDone({ ...BITMIS, sector: 'genel' }), false);
-    assert.equal(coreSetupDone({ ...BITMIS, address: '', phone: '' }), false);
-    assert.equal(coreSetupDone({ ...BITMIS, address: '', phone: '0555' }), true);
+    // Test B (2026-10-22): sihirbaz Kimlik'te yalnız adı ister; adressiz,
+    // telefonsuz kurulumu bitiren salon ödemeden sonra Kimlik'e düşüyordu.
+    assert.equal(coreSetupDone({ ...BITMIS, address: '', phone: '' }), true, 'adres/telefon sihirbazda isteğe bağlı');
+    assert.equal(setupProgress({ ...BITMIS, address: '', phone: '' }).done.includes('identity'), false, 'şerit eksik iletişimi yine hatırlatır');
+    assert.equal(coreSetupDone({ ...BITMIS, businessName: ' ' }), false);
+    assert.equal(nextCoreStep({ ...BITMIS, businessName: '' }), 'identity');
+    assert.equal(nextCoreStep({ ...BITMIS, address: '', phone: '', serviceCount: 0 }), 'services', 'adres eksikliği kaldığı adımı öne çekmez');
+    assert.equal(nextCoreStep(BITMIS), null);
     assert.equal(coreSetupDone({ ...BITMIS, openDays: 0 }), false);
     assert.equal(coreSetupDone({ ...BITMIS, serviceCount: 0 }), false);
     assert.equal(setupProgress({ ...BITMIS, openDays: 0 }).next, 'hours', 'kaldığı adım');
@@ -49,10 +55,11 @@ test('ödeme duvarı: abonelik gelince kurulum yapıldıysa ana sayfa, yoksa kur
     const yol = pw.slice(pw.indexOf('async function afterPaymentPath'), pw.indexOf('interface Kept'));
     assert.match(yol, /from\('settings'\)\.select\('sector, business_name, working_hours'\)/);
     assert.match(yol, /from\('services'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
-    assert.match(yol, /from\('organizations'\)\.select\('address, public_phone'\)/);
-    assert.match(yol, /if \(st\.error \|\| sv\.error \|\| org\.error\) return '\/';/, 'okunamazsa ana sayfa (şerit hatırlatır)');
-    assert.match(yol, /if \(coreSetupDone\(facts\)\) return '\/';/);
-    assert.match(yol, /return next && next !== 'sector' \? `\/kurulum\?adim=\$\{next\}` : '\/kurulum';/);
+    assert.doesNotMatch(yol, /from\('organizations'\)/, 'adres/telefon karara girmez (Test B)');
+    assert.match(yol, /if \(st\.error \|\| sv\.error\) return '\/';/, 'okunamazsa ana sayfa (şerit hatırlatır)');
+    assert.match(yol, /const next = nextCoreStep\(\{/);
+    assert.match(yol, /if \(!next\) return '\/';/);
+    assert.match(yol, /return next !== 'sector' \? `\/kurulum\?adim=\$\{next\}` : '\/kurulum';/);
 
     // Yönlenme: e-posta kipi hariç, abonelik OKUNDUKTAN ve erişim açıldıktan sonra, bir kez.
     assert.match(pw, /if \(!returning \|\| fromEmail \|\| ent\.loading \|\| !ent\.ok \|\| !orgId \|\| routed\.current\) return;/);
