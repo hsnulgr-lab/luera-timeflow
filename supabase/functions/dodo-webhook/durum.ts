@@ -57,6 +57,28 @@ export interface MirrorPatch {
  * `active` geldiğinde okunur (`needsMineNow`); `found: false` = Dodo'da yok
  * (ör. test kipinden canlıya geçişte aynada kalan test kimliği).
  */
+/** Dodo ürün kimliği → paket (DODO_PRODUCT_MAP'in tersi). */
+export type ProductPlans = Record<string, { plan: string; cycle: string }>;
+
+/**
+ * `{ "pro_monthly": "pdt_…" }` haritalarından ters tablo. İlk gelen kazanır:
+ * bugünkü harita önce verilir, eskiler (önceki, test) sonra.
+ */
+export function productPlans(...maps: (string | null | undefined)[]): ProductPlans {
+    const out: ProductPlans = {};
+    for (const raw of maps) {
+        let m: unknown;
+        try { m = JSON.parse(raw || '{}'); } catch { continue; }
+        if (!m || typeof m !== 'object') continue;
+        for (const [key, id] of Object.entries(m as Record<string, unknown>)) {
+            const cut = key.lastIndexOf('_');
+            if (typeof id !== 'string' || cut <= 0 || out[id]) continue;
+            out[id] = { plan: key.slice(0, cut), cycle: key.slice(cut + 1) };
+        }
+    }
+    return out;
+}
+
 export type MineNow =
     | { found: false }
     | { found: true; status: string; created_at: string | null };
@@ -145,6 +167,7 @@ function rival(sub: Sub, mineNow: MineNow | undefined, subId: string, mine: stri
  * @param current  aynanın şimdiki hâli; satır yoksa null
  * @param mineNow  aynadaki aboneliğin Dodo'daki hâli; yalnız `needsMineNow`
  *                 doğruyken gerekir, yoksa başka abonelik devralamaz
+ * @param plans    ürün kimliği → paket; paket metadata'dan ÖNCE buradan
  */
 export function decide(
     type: string,
@@ -153,6 +176,7 @@ export function decide(
     current: MirrorNow | null,
     now: number = Date.now(),
     mineNow?: MineNow,
+    plans?: ProductPlans,
 ): Decision {
     const at = ms(eventAt);
     const last = ms(current?.dodo_event_at);
@@ -179,6 +203,14 @@ export function decide(
     if (typeof sub?.customer?.customer_id === 'string') patch.dodo_customer_id = sub.customer.customer_id;
     if (typeof md.plan === 'string' && md.plan) patch.plan = md.plan;
     if (typeof md.cycle === 'string' && md.cycle) patch.cycle = md.cycle;
+    // Paket önce ÜRÜNDEN: plan değiştirmede (2026-10-22) Dodo ürünü değiştirir.
+    // Dönem sonuna zamanlanmış düşürmede metadata yeni paketi erken söyler,
+    // ürün ise o güne kadar eskisi kalır — salon ödediği paketi görür.
+    const fromProduct = typeof sub?.product_id === 'string' ? plans?.[sub.product_id] : undefined;
+    if (fromProduct) {
+        patch.plan = fromProduct.plan;
+        patch.cycle = fromProduct.cycle;
+    }
     if (typeof sub?.cancel_at_next_billing_date === 'boolean') {
         patch.cancel_at_period_end = sub.cancel_at_next_billing_date;
     }

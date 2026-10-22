@@ -13,6 +13,8 @@ import { type StaffRole } from '@/lib/staffPermissions';
 import { useLabels, useStaffRoles } from '@/hooks/useLabels';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { useStaffLimit } from '@/hooks/useStaffLimit';
+import { APP_STORE_URL, personelEklendiBildirimi, uygulamaBaglantisiniKopyala } from '@/lib/uygulamaBaglantisi';
 import { commissionFor, monthRange } from '@/lib/staffCommission';
 import { resetStaffPin, useDevicePairing } from '@/hooks/useDevicePairing';
 
@@ -105,6 +107,8 @@ export const StaffPage = () => {
   const navigate = useNavigate();
   const { T, dark } = useT();
   const { staff, isLoading, addStaff, updateStaff, deleteStaff } = useStaff();
+  // Tek kişilik'te ikinci kişi → Ekip'e yükseltme sorusu (useStaffLimit).
+  const { ensureRoom } = useStaffLimit(staff.filter(s => s.isActive).length);
   const { forStaff, addTimeOff, removeTimeOff } = useStaffTimeOff();
   const { payments } = usePayments();
   const { reservations, settings } = useReservations();
@@ -159,7 +163,10 @@ export const StaffPage = () => {
   };
 
   // ── Modal ──────────────────────────────────────────────────────────────────
-  const openAdd  = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
+  const openAdd  = async () => {
+    if (!(await ensureRoom())) return;
+    setEditing(null); setForm(emptyForm()); setShowModal(true);
+  };
   const openEdit = (m: Staff) => {
     setEditing(m);
     setForm({ name:m.name, role:m.role, specialty:m.specialty||'', phone:m.phone||'', email:m.email||'',
@@ -180,7 +187,7 @@ export const StaffPage = () => {
       commissionRate: Math.max(0, Math.min(100, Number(form.commissionRate) || 0)),
       ...(pinHash ? { pin: pinHash } : {}) };
     if (editing) { await updateStaff(editing.id, payload); toast.success('Personel güncellendi'); }
-    else         { await addStaff(payload);                 toast.success('Personel eklendi'); }
+    else         { await addStaff(payload);                 personelEklendiBildirimi(staffWord); }
     setSaving(false); setShowModal(false);
   };
   const handleDelete = async (m: Staff) => {
@@ -261,6 +268,10 @@ export const StaffPage = () => {
               <div style={{ flex:1, minWidth:'220px' }}>
                 <div style={{ fontSize:'13.5px', fontWeight:750, color:T.ink }}>Bütün ekip bu kodu telefonundaki Luera'ya yazabilir.</div>
                 <div style={{ fontSize:'12px', color:T.muted, marginTop:'4px', lineHeight:1.45 }}>Personel kodu yazar, listeden kendini seçer ve şifresini kendisi belirler. Şifresi olan yalnız şifresini girer.</div>
+                <div style={{ fontSize:'12px', color:T.muted, marginTop:'6px', lineHeight:1.45 }}>
+                  Uygulama telefonunda yoksa: App Store'da <a href={APP_STORE_URL} target="_blank" rel="noreferrer" style={{ color:T.ink, fontWeight:700 }}>Luera TimeFlow</a> ·{' '}
+                  <button onClick={() => { void uygulamaBaglantisiniKopyala(); }} style={{ border:'none', background:'none', padding:0, cursor:'pointer', fontSize:'12px', fontWeight:700, color:T.orange, fontFamily:'inherit' }}>Bağlantıyı kopyala</button>
+                </div>
               </div>
               <span style={{ fontSize:'13px', fontWeight:800, color:pairing.secondsLeft <= 60 ? T.orange : T.muted, fontFamily:"'JetBrains Mono',monospace" }}>
                 {Math.floor(pairing.secondsLeft / 60)}:{String(pairing.secondsLeft % 60).padStart(2,'0')} geçerli

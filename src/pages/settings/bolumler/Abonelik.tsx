@@ -23,15 +23,16 @@ import { toast } from 'sonner';
 import { useBilling } from '@/hooks/useBilling';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { useStaff } from '@/hooks/useStaff';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import {
-    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
+    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, planChangeCopy, priceOf, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
     type Cycle, type Plan, type PlanId,
 } from '@/lib/plans';
 import { dayLocative, trDate } from '../ayarlarModel';
 import { Dots, Head, I, Modal, Seg } from '../parcalar';
 
 export function Abonelik() {
-    const { subscription, invoices, loading, error, busy, refresh, startCheckout, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
+    const { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
     const ent = useEntitlement();
     const { staff } = useStaff();
     const [params, setParams] = useSearchParams();
@@ -79,6 +80,21 @@ export function Abonelik() {
     // Dönem sonu geçmiş ama abonelik "aktif" görünüyorsa yenileme kaydı
     // gelmemiştir; geçmiş tarih "Sonraki tahsilat" diye yazılmaz.
     const periodPast = Boolean(until) && new Date(until as string).getTime() < openedAt;
+
+    // Süren Dodo aboneliğinde paket değişikliği (2026-10-22): yeni abonelik
+    // değil, aynısının ürünü — onaylı. Askıdaki (on_hold) yeni alım yolunda.
+    const canChange = hasSub && subscription?.status === 'active';
+    const onChange = async (planId: PlanId, c: Cycle) => {
+        if (!(await confirmDialog(planChangeCopy({ plan: plan?.id, cycle }, { plan: planId, cycle: c }, until, onTrial)))) return;
+        const when = await changePlan(planId, c);
+        if (!when) return;
+        const name = planById(planId)?.name ?? '';
+        toast.success(when === 'now' ? `${name} paketine geçtiniz` : `${name} paketine geçiş planlandı`,
+            when === 'now' ? undefined : { description: `${trDate(until)} tarihinde başlar.` });
+        setShowPlans(false);
+        await ent.refresh();
+    };
+    const pickPlan = (planId: PlanId, c: Cycle) => { if (canChange) void onChange(planId, c); else onSelect(planId, c); };
 
     if (error && !hasSub && !onTrial) {
         return (
@@ -251,7 +267,7 @@ export function Abonelik() {
                                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx2)' }}>/ yıl</span>
                             </span>
                             <p className="ay-help" style={{ lineHeight: 1.5, textWrap: 'pretty' }}>Aynı plan, yılda <b>₺{formatTRY(yearlySave)}</b> daha az. 12 ay yerine {12 - yearlyFreeMonths(plan)} ay ödersiniz.</p>
-                            <button type="button" className="ay-btn-pri wide h46" disabled={busy} onClick={() => onSelect(plan.id, 'yearly')}>Yıllığa geç</button>
+                            <button type="button" className="ay-btn-pri wide h46" disabled={busy} onClick={() => pickPlan(plan.id, 'yearly')}>Yıllığa geç</button>
                             <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--tx2)' }}>Yıllık planda da iptal hakkınız aynı.</span>
                         </div>
                     )}
@@ -259,19 +275,20 @@ export function Abonelik() {
 
                 {/* Tek kişilik abone sonradan personel ekledi: sınır ödeme anında
                     sert, sonrası YUMUŞAK — engel yok, yalnız bu not (telefonda
-                    söylenemez: Apple, docs/abonelik-kurallari.md §2). Plan
-                    değiştirme kendi kendine yapılamıyor; yol destek e-postası. */}
+                    söylenemez: Apple, docs/abonelik-kurallari.md §2). Masaüstünde
+                    yeni personel eklemesi zaten Ekip'e yükseltme sorar. */}
                 {plan && !fitsTeam(plan, activeStaff) && (
-                    <div role="status" className="ay-box info">
+                    <div role="status" className="ay-box info" style={{ alignItems: 'center' }}>
                         <I n="info" />
-                        <span>İşletmenizde {activeStaff} kişi çalışıyor; {plan.name} paketi tek çalışan içindir. Ekibinizle devam etmek için {planById('pro')?.name ?? 'Ekip'} paketine geçin. Geçiş için <a href="mailto:destek@lueratech.com" style={{ fontWeight: 700 }}>destek@lueratech.com</a> adresine yazmanız yeterli.</span>
+                        <span style={{ flex: 1 }}>İşletmenizde {activeStaff} kişi çalışıyor; {plan.name} paketi tek çalışan içindir. Ekibinizle devam etmek için {planById('pro')?.name ?? 'Ekip'} paketine geçin.{!canChange && <> Geçiş için <a href="mailto:destek@lueratech.com" style={{ fontWeight: 700 }}>destek@lueratech.com</a> adresine yazmanız yeterli.</>}</span>
+                        {canChange && <button type="button" className="ay-btn" disabled={busy} onClick={() => void onChange('pro', cycle)}>{planById('pro')?.name ?? 'Ekip'} paketine geç</button>}
                     </div>
                 )}
 
                 {showPlans && (
                     <div className="ay-card pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <h3 style={{ fontSize: 18, fontWeight: 800 }}>Planlar</h3>
-                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} activeStaff={activeStaff} onSelect={onSelect} cta={() => 'Bu plana geç'} />
+                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} activeStaff={activeStaff} onSelect={pickPlan} cta={() => 'Bu plana geç'} />
                     </div>
                 )}
 

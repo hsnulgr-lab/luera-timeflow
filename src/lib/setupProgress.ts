@@ -74,6 +74,20 @@ export function isStepDone(key: StepKey, f: SetupFacts): boolean {
     }
 }
 
+/** Atlanamayan adımlar — "kurulum yapıldı" bunlara bakar. */
+export const CORE_STEPS: readonly StepKey[] = SETUP_STEPS.filter((s) => !s.skippable).map((s) => s.key);
+
+/**
+ * Kurulum yapıldı mı? Ödemeden dönüş buna bakar (kullanıcı kararı
+ * 2026-10-22: yapıldıysa ana sayfa, yapılmadıysa kurulum). Atlanabilir
+ * adımlar (kaynak, ekip, WhatsApp) sayılmaz: sihirbazı onları atlayarak
+ * bitiren de kurulumu yapmıştır. Şerit (`setupProgress().complete`) daha
+ * katı; o, atlananları da hatırlatmak için.
+ */
+export function coreSetupDone(f: SetupFacts): boolean {
+    return CORE_STEPS.every((k) => isStepDone(k, f));
+}
+
 export interface SetupProgress {
     /** Tamamlanmış adımların anahtarları. */
     done: StepKey[];

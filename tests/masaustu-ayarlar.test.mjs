@@ -289,7 +289,8 @@ test('rota: /settings/* yeni kabuğa; eski SettingsPage ve sekmeler kalktı', ()
     assert.match(app, /path="settings\/\*" element=\{<Adaptive mobile=\{<MobileSettings \/>\} desktop=\{<AyarlarKabuk \/>\} \/>\}/);
     assert.ok(!existsSync(new URL('../src/pages/SettingsPage.tsx', import.meta.url)));
     assert.ok(!existsSync(new URL('../src/components/settings/WhatsAppTab.tsx', import.meta.url)));
-    assert.match(shell, /legacyTabTarget\(params\.get\('tab'\)\)/);
+    // Eski ?tab= adresi öteki parametreleriyle yönlenir (tests/odeme-donusu).
+    assert.match(shell, /legacyRedirect\(location\.search\)/);
 });
 
 const all = ['AyarlarKabuk.tsx', ...['Ozet', 'Isletme', 'Saatler', 'Hizmetler', 'Kaynaklar', 'Moduller', 'OnlineRandevu', 'WhatsApp', 'Sadakat', 'Hesabim', 'HesapSil', 'Bildirimler', 'Abonelik', 'Verileriniz', 'Webhook'].map((n) => `bolumler/${n}.tsx`)]

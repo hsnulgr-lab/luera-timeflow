@@ -11,6 +11,8 @@ import {
 import { useReservations } from '@/hooks/useReservations';
 import { useResources } from '@/hooks/useResources';
 import { useStaff } from '@/hooks/useStaff';
+import { useStaffLimit } from '@/hooks/useStaffLimit';
+import { personelEklendiBildirimi } from '@/lib/uygulamaBaglantisi';
 import { useModules } from '@/hooks/useModules';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
@@ -84,6 +86,7 @@ export function SetupWizardPage() {
     const { settings, updateSettings } = useReservations();
     const { resources, addResource } = useResources();
     const { staff, addStaff } = useStaff();
+    const { ensureRoom } = useStaffLimit(staff.filter((s) => s.isActive).length);
     const { applySectorDefaults } = useModules();
     const { profile: org, savePartial, uploadImage } = useOrgProfile();
     const { connection, refresh: refreshWa } = useWhatsApp();
@@ -217,6 +220,10 @@ export function SetupWizardPage() {
                 if (solo) return true;
                 const named = team.filter((t) => t.name.trim());
                 if (named.length === 0) { toast.error('En az bir kişi ekleyin ya da "yalnız ben" seçin'); return false; }
+                // Tek kişilik paketi alınmışsa (ödeme kurulumdan önce olabilir)
+                // ekip, Ekip'e yükseltme sorusuna takılır.
+                const yeni = named.filter((t) => !staff.some((s) => s.name.trim() === t.name.trim())).length;
+                if (yeni > 0 && !(await ensureRoom(yeni))) return false;
                 setSaving(true);
                 for (const t of named) {
                     if (staff.some((s) => s.name.trim() === t.name.trim())) continue;
@@ -226,6 +233,7 @@ export function SetupWizardPage() {
                     });
                 }
                 setSaving(false);
+                if (yeni > 0) personelEklendiBildirimi(yeni > 1 ? 'Ekibiniz' : 'Personel');
                 return true;
             }
             case 'whatsapp':

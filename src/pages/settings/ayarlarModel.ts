@@ -136,6 +136,20 @@ export function legacyTabTarget(tab: string | null | undefined): string | null {
     return id ? sectionHref(id) : null;
 }
 
+/**
+ * Eski `?tab=` adresinin tam yönlendirmesi: öteki parametreler KORUNUR.
+ * Dodo dönüşü `/settings?tab=billing&checkout=success` geliyor; parametre
+ * düşünce Abonelik ödeme bildirimini ve yoklamayı hiç başlatmıyordu.
+ */
+export function legacyRedirect(search: string): string | null {
+    const params = new URLSearchParams(search);
+    const target = legacyTabTarget(params.get('tab'));
+    if (!target) return null;
+    params.delete('tab');
+    const rest = params.toString();
+    return rest ? `${target}?${rest}` : target;
+}
+
 // ── Arama ───────────────────────────────────────────────────────────────────
 
 export interface SearchEntry {

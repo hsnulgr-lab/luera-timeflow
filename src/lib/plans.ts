@@ -108,6 +108,54 @@ export function fitsTeam(plan: Plan, activeStaff: number | null | undefined): bo
     return plan.maxStaff == null || activeStaff == null || activeStaff <= plan.maxStaff;
 }
 
+/**
+ * Yükseltme mi: daha büyük paket, ya da aynı pakette aylıktan yıllığa.
+ * dodo-checkout · isUpgrade ile AYNI kural (tests/plan-degisimi eşler):
+ * yükseltme hemen, düşürme bir sonraki fatura gününde.
+ */
+export function isUpgrade(fromPlan: string | null | undefined, fromCycle: string | null | undefined, toPlan: PlanId, toCycle: Cycle): boolean {
+    const a = PLANS.findIndex((p) => p.id === fromPlan);
+    const b = PLANS.findIndex((p) => p.id === toPlan);
+    if (a !== b) return b > a;
+    return fromCycle !== 'yearly' && toCycle === 'yearly';
+}
+
+const gunAy = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' });
+
+export interface PlanChangeCopy { title: string; description: string; confirmLabel: string }
+
+/**
+ * Plan değiştirme onayının metni: ne zaman, ne kadar. Düşürmede sahibine
+ * açıkça "bundan sonraki aylarda … ücreti çekilir" denir (kullanıcı kararı
+ * 2026-10-22). `until`: dönem ya da deneme sonu (ekranda gösterilen gün).
+ */
+export function planChangeCopy(
+    from: { plan: string | null | undefined; cycle: string | null | undefined },
+    to: { plan: PlanId; cycle: Cycle },
+    until: string | null | undefined,
+    trial: boolean,
+): PlanChangeCopy {
+    const target = planById(to.plan) ?? PLANS[0];
+    // Bölünmez boşluk: "₺1.299 /" ile "ay" ayrı satıra düşmesin.
+    const price = `₺${formatTRY(priceOf(target, to.cycle))}\u00a0/\u00a0${to.cycle === 'yearly' ? 'yıl' : 'ay'}`;
+    const day = until ? gunAy.format(new Date(until)) : null;
+    const title = `${target.name} paketine geçilsin mi?`;
+    const confirmLabel = `${target.name} paketine geç`;
+    if (isUpgrade(from.plan, from.cycle, to.plan, to.cycle)) {
+        return {
+            title, confirmLabel,
+            description: trial
+                ? `Geçiş hemen olur. Deneme sürüyor; bugün ücret alınmaz. Deneme bittiğinde${day ? ` (${day})` : ''} ${price} çekilir.`
+                : `Geçiş hemen olur. Bu dönemin kalan günlerinin farkı bugün kartınızdan çekilir; ${day ? `${day} tarihinden` : 'sonraki dönemden'} itibaren ${price} çekilir.`,
+        };
+    }
+    const current = planById(from.plan)?.name ?? 'şimdiki';
+    return {
+        title, confirmLabel,
+        description: `Geçiş ${day ? `${day} tarihinde` : 'bir sonraki fatura gününde'} başlar. O güne kadar ${current} paketiniz açık kalır; bundan sonraki ${to.cycle === 'yearly' ? 'yıllarda' : 'aylarda'} aboneliğinizden ${target.name} ücreti (${price}) çekilir.`,
+    };
+}
+
 /** "1.199" — TL biçimi tek yerde; üç sayfada üç farklı biçim görünmesin. */
 export function formatTRY(n: number): string {
     return n.toLocaleString('tr-TR');

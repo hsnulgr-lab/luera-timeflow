@@ -3,7 +3,7 @@ import { mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
 import { notifyOwner } from '../_shared/notify.ts';
 import { cancelNow, dodoApi, getSubscription, lookupSubscription } from '../_shared/dodo.ts';
 import { getSecret } from '../_shared/wa.ts';
-import { decide, needsMineNow, type Decision, type MineNow, type MirrorNow } from './durum.ts';
+import { decide, needsMineNow, productPlans, type Decision, type MineNow, type MirrorNow } from './durum.ts';
 import { syncPendingToCore } from './core.ts';
 
 const corsHeaders = {
@@ -128,13 +128,19 @@ Deno.serve(async (req: Request) => {
 
         // ── 4 · Karar ───────────────────────────────────────────────────────
         let decision: Decision | null = null;
+        // Paket ürün kimliğinden (bugünkü harita, sonra önceki ve test yedeği).
+        const plans = productPlans(
+            await getSecret(admin, 'DODO_PRODUCT_MAP'),
+            await getSecret(admin, 'DODO_PRODUCT_MAP_ONCEKI'),
+            await getSecret(admin, 'DODO_TEST_PRODUCT_MAP'),
+        );
         if (type.startsWith('subscription.')) {
             const mineNow = await readMine(admin, data, current);
             // Geçici okuma hatası → 500, Dodo yeniden dener: yeni abonelik
             // "karşılaştırılamadı" diye atlansaydı ödeyen salon eski
             // (askıdaki) aboneliğe bağlı kalır, ek süre bitince kilitlenirdi.
             if (mineNow === 'retry') return fail('aynadaki abonelik Dodo\'dan okunamadı', current?.dodo_subscription_id);
-            decision = decide(type, data, eventAt, current, Date.now(), mineNow);
+            decision = decide(type, data, eventAt, current, Date.now(), mineNow, plans);
         } else if (type === 'payment.succeeded' && subId && current?.state === 'grace') {
             // Askıdaki salon kartını güncelledi: ödeme olayı yeni dönemi
             // taşımıyor. Aboneliğin şimdiki hâli Dodo'dan okunur; okunamazsa
@@ -142,7 +148,7 @@ Deno.serve(async (req: Request) => {
             const api = await dodoApi(admin);
             const sub = api ? await getSubscription(api, subId) : null;
             const mineNow = sub ? await readMine(admin, sub, current) : 'retry';
-            if (mineNow !== 'retry') decision = decide(type, sub, new Date().toISOString(), current, Date.now(), mineNow);
+            if (mineNow !== 'retry') decision = decide(type, sub, new Date().toISOString(), current, Date.now(), mineNow, plans);
         }
 
         if (!decision) return await finish(admin, core, whId, orgId, 'recorded');

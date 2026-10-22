@@ -383,8 +383,11 @@ test('e-postadan gelen web uygulamasına HİÇ düşmez: paket ekranında kalır
     assert.match(aktif, /updateCard\(donus\)/);
     assert.doesNotMatch(aktif, /navigate\(/, 'uygulamaya gönderen bir şey yok');
     assert.doesNotMatch(aktif, /Sonraki tahsilat/, 'iptal bekleyende yalan olurdu');
-    // Ödeme dönüşü ve kartsız deneme: uygulama düğmeleri e-posta kipinde yok.
-    assert.match(pw, /\{fromEmail \? \(\s*<span[^>]*>\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<div className="acts">\s*<button className="btn pri big" onClick=\{\(\) => navigate\('\/kurulum'\)\}>/);
+    // Ödeme dönüşü: fiş YALNIZ e-posta kipinde (kapatma notuyla); öteki dönüş
+    // ana sayfaya ya da kuruluma yönlenir (tests/odeme-donusu). Kartsız
+    // deneme: uygulama düğmesi e-posta kipinde yok.
+    assert.match(pw, /if \(!ent\.ok \|\| !fromEmail\) \{/);
+    assert.match(pw, /Aynı karttan[\s\S]{0,600}<span style=\{\{ fontSize: 13\.5, color: 'var\(--dc-muted\)' \}\}>\{CLOSE_NOTE\}<\/span>\s*<\/div>,/);
     assert.match(pw, /\{fromEmail \? \(\s*<span[^>]*>\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<button className="btn bare" onClick=\{\(\) => navigate\('\/'\)\}>\s*Şimdilik uygulamaya dön/);
     assert.match(pw, /const onSelect = \(plan: PlanId, cycle: Cycle\) => \{ void startCheckout\(plan, cycle, donus\); \};/);
     // Erken alan kartsız denemecinin denemesi 7 gün değil, kalan gündür.

@@ -32,6 +32,28 @@ async function errorCode(error: unknown): Promise<string | null> {
     return typeof body?.error === 'string' ? body.error : null;
 }
 
+/**
+ * Süren aboneliğin paketini değiştirir (dodo-checkout · action 'change'):
+ * yükseltme hemen, düşürme bir sonraki fatura gününde. Kanca dışında da
+ * çağrılır (personel ekleme): useBilling açılışta abonelik durumunu çeker,
+ * personel sayfasına bunun için yük bindirilmez. Başarıda 'now' ya da
+ * 'next_billing'; olmazsa null (sebep bildirimle söylenir).
+ */
+export async function requestPlanChange(orgId: string | null | undefined, plan: string, cycle: 'monthly' | 'yearly'): Promise<'now' | 'next_billing' | null> {
+    const { data, error } = await supabase.functions
+        .invoke('dodo-checkout', { body: { action: 'change', plan, cycle, orgId } })
+        .catch((cause: unknown) => ({ data: null, error: cause }));
+    if (!error && data?.changed && (data.when === 'now' || data.when === 'next_billing')) return data.when;
+    const code = error ? await errorCode(error) : null;
+    console.error('dodo-checkout change:', code ?? error, data);
+    if (code === 'team_too_large') toast.info('Bu paket tek çalışan içindir; önce ekibinizi bir kişiye indirin.');
+    else if (code === 'change_pending') toast.info('Bekleyen bir paket değişikliğiniz var; yürürlüğe girince yenisini yapabilirsiniz.');
+    else if (code === 'no_subscription') toast.info('Paket değişikliği için süren bir abonelik gerekiyor.');
+    else if (code === 'same_plan') toast.info('Zaten bu paketi kullanıyorsunuz.');
+    else toast.error('Paket değiştirilemedi, lütfen tekrar deneyin');
+    return null;
+}
+
 // Abonelik gerçeği TimeFlow'da (123): billing-status aynayı ve yerel olay
 // defterini okur. İşletme her çağrıda gönderilir; sunucu üyeliği doğrular
 // (çok işletmeli kullanıcıda yanlış işletmeye abonelik açılmasın).
@@ -159,5 +181,13 @@ export function useBilling() {
         return true;
     }, [orgId, refresh]);
 
-    return { subscription, invoices, loading, error, busy, refresh, startCheckout, updateCard, cancelSubscription, pollAfterCheckout };
+    const changePlan = useCallback(async (plan: string, cycle: 'monthly' | 'yearly') => {
+        setBusy(true);
+        const when = await requestPlanChange(orgId, plan, cycle);
+        setBusy(false);
+        if (when) await refresh();
+        return when;
+    }, [orgId, refresh]);
+
+    return { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, updateCard, cancelSubscription, pollAfterCheckout };
 }

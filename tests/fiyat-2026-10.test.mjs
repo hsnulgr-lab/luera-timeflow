@@ -6,6 +6,7 @@ import {
     PLANS, planById, priceOf, fitsTeam, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
 } from '../src/lib/plans.ts';
 import { PAKETLER, urunAdi } from '../ops/abonelik/dodo-urun.mjs';
+import { MAX_STAFF } from '../supabase/functions/dodo-checkout/paket.ts';
 
 // Fiyat turu 2026-10 (docs/devir/15): Tek kişilik 799 · Ekip 1.299 ·
 // İşletme 1.999, yıllıkta 2 ay bedava. Vitrin (plans.ts), Dodo ürünleri
@@ -64,27 +65,25 @@ test('Tek kişilik sınırı: bir aktif çalışan; sayı bilinmiyorsa engel yok
     }
 });
 
-test('ödeme fonksiyonu: sınır vitrinle aynı, yalnız YENİ alımda, aktif çalışanı sayar', () => {
-    const fn = oku('supabase/functions/dodo-checkout/index.ts');
-    const m = fn.match(/const MAX_STAFF: Record<string, number> = \{ ([^}]*) \};/);
-    assert.ok(m, 'MAX_STAFF yok');
-    const sunucu = Object.fromEntries(m[1].split(',').map((x) => x.trim()).filter(Boolean)
-        .map((x) => { const [k, v] = x.split(':').map((y) => y.trim()); return [k, Number(v)]; }));
+test('ödeme fonksiyonu: sınır vitrinle aynı, yeni alımda ve plan değiştirmede, aktif çalışanı sayar', () => {
     const vitrin = Object.fromEntries(PLANS.filter((p) => p.maxStaff != null).map((p) => [p.id, p.maxStaff]));
-    assert.deepEqual(sunucu, vitrin);
+    assert.deepEqual(MAX_STAFF, vitrin);
 
-    // Sıra: süren abonelik (devam / already_subscribed) ÖNCE — Tek kişilik
-    // abone sonradan büyürse iptalden vazgeçebilmeli; ürün haritası SONRA.
+    const fn = oku('supabase/functions/dodo-checkout/index.ts');
+    assert.match(fn, /import \{ isUpgrade, MAX_STAFF \} from '\.\/paket\.ts';/);
+    const yardimci = fn.slice(fn.indexOf('async function staffOverLimit'), fn.indexOf('Deno.serve'));
+    assert.match(yardimci, /from\('staff'\)/);
+    assert.match(yardimci, /\.eq\('organization_id', orgId\)/);
+    assert.match(yardimci, /\.not\('is_active', 'is', false\)/, 'is_active NULL aktif sayılır');
+    assert.match(yardimci, /return 'error';/, 'sayılamazsa SATILMAZ');
+    // İki yerde: plan değiştirme ve yeni alım; ikisi de 409 team_too_large.
+    assert.equal((fn.match(/const limit = await staffOverLimit\(admin, orgId, plan\);/g) ?? []).length, 2);
+    assert.equal((fn.match(/if \(limit\) return json\(\{ error: 'team_too_large', \.\.\.limit \}, 409\);/g) ?? []).length, 2);
+    // Yeni alımda sıra: süren aboneliğin devam/409 dalı ÖNCE, ürün haritası SONRA.
     const sure = fn.indexOf("return json({ error: 'already_subscribed' }, 409);");
-    const sinir = fn.indexOf('const maxStaff = MAX_STAFF[plan];');
-    const harita = fn.indexOf("getSecret(admin, 'DODO_PRODUCT_MAP')");
-    assert.ok(sure > 0 && sinir > sure && harita > sinir, 'sınır kontrolünün yeri');
-    const blok = fn.slice(sinir, harita);
-    assert.match(blok, /from\('staff'\)/);
-    assert.match(blok, /\.eq\('organization_id', orgId\)/);
-    assert.match(blok, /\.not\('is_active', 'is', false\)/, 'is_active NULL aktif sayılır');
-    assert.match(blok, /error: 'team_too_large'[^\n]*409/);
-    assert.match(blok, /staff_lookup_failed/, 'sayılamazsa SATILMAZ');
+    const sinir = fn.lastIndexOf('const limit = await staffOverLimit(admin, orgId, plan);');
+    const harita = fn.lastIndexOf("getSecret(admin, 'DODO_PRODUCT_MAP')");
+    assert.ok(sure > 0 && sinir > sure && harita > sinir, 'yeni alımda sınır kontrolünün yeri');
 });
 
 test('ekranlar: yıllıkta çekilen tutar toplam; sığmayan kart pasif; yumuşak not', () => {

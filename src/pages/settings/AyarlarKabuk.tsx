@@ -11,13 +11,13 @@
  * kapanırken tarayıcının kendi uyarısı açılır.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useReservations } from '@/hooks/useReservations';
 import { profileForSector } from '@/lib/sectorProfiles';
 import './ayarlar.css';
 import {
-    GROUP_LABEL, legacyTabTarget, resourcesLabel, searchSettings, sectionFromPath, sectionHref,
+    GROUP_LABEL, legacyRedirect, resourcesLabel, searchSettings, sectionFromPath, sectionHref,
     visibleSections, withCase, type SearchEntry, type SectionDef, type SectionGroup, type SectionId,
 } from './ayarlarModel';
 import { AyIkonlar, I, Modal } from './parcalar';
@@ -65,7 +65,6 @@ export function AyarlarKabuk() {
     const { settings } = useReservations();
     const location = useLocation();
     const navigate = useNavigate();
-    const [params] = useSearchParams();
     useAnchorHighlight();
 
     // ── Bölümler ve menü ──
@@ -119,7 +118,7 @@ export function AyarlarKabuk() {
     const pendingNames = pending.flatMap((d) => d.names);
 
     // ── Eski ?tab= adresleri ──
-    const legacy = legacyTabTarget(params.get('tab'));
+    const legacy = legacyRedirect(location.search);
     if (legacy && location.pathname.replace(/\/$/, '') === '/settings') {
         return <Navigate to={legacy} replace />;
     }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -11,6 +12,7 @@ import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import {
     PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, type Cycle, type PlanId,
 } from '@/lib/plans';
+import { coreSetupDone, setupProgress } from '@/lib/setupProgress';
 import './billing.css';
 
 // Uygulama içi ödeme duvarı — /abonelik
@@ -32,6 +34,39 @@ const fullFmt = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long'
 
 /** E-postadan gelenin ekranlarında uygulamaya düğme yerine (bkz. fromEmail). */
 const CLOSE_NOTE = "Bu sayfayı kapatıp TimeFlow'u kullanmaya devam edebilirsiniz.";
+
+/**
+ * Ödemeden sonra nereye: kurulumun zorunlu adımları bittiyse ana sayfa,
+ * bitmediyse kurulum — kaldığı adımdan (kullanıcı kararı 2026-10-22).
+ * Bu sayfa uygulamanın veri sağlayıcılarının DIŞINDA; olgular doğrudan
+ * okunur. Okunamazsa ana sayfa: oradaki şerit kurulumu zaten hatırlatır,
+ * gereksiz yere sihirbaza atmak Test 1'deki şikâyetti.
+ */
+async function afterPaymentPath(orgId: string): Promise<string> {
+    const [st, sv, org] = await Promise.all([
+        supabase.from('settings').select('sector, business_name, working_hours')
+            .eq('organization_id', orgId).limit(1).maybeSingle(),
+        supabase.from('services').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
+        supabase.from('organizations').select('address, public_phone').eq('id', orgId).maybeSingle(),
+    ]);
+    if (st.error || sv.error || org.error) return '/';
+    const hours = Array.isArray(st.data?.working_hours) ? (st.data.working_hours as { isOff?: boolean }[]) : null;
+    const facts = {
+        sector: st.data?.sector || 'genel',
+        businessName: st.data?.business_name ?? '',
+        address: org.data?.address ?? '',
+        phone: org.data?.public_phone ?? '',
+        // Satırda saat yoksa uygulama varsayılan (açık) saatleri kullanır.
+        openDays: hours ? hours.filter((h) => !h.isOff).length : 1,
+        serviceCount: sv.count ?? 0,
+        // Atlanabilir adımlar karara girmez.
+        resourceCount: 0, resourcesApply: false, staffCount: 0, soloDeclared: false, whatsappConnected: false,
+    };
+    if (coreSetupDone(facts)) return '/';
+    const next = setupProgress(facts).next;
+    // Hiçbir şey girilmemişse karşılamadan; yarıdaysa kaldığı adımdan.
+    return next && next !== 'sector' ? `/kurulum?adim=${next}` : '/kurulum';
+}
 
 /**
  * Duvarda gösterilen "verileriniz duruyor" sayaçları + işletme adı + aktif
@@ -123,6 +158,22 @@ export function PaywallPage() {
         (async () => { await loadKept(orgId); })();
     }, [orgId, loadKept]);
 
+    // Ödeme dönüşü (e-posta kipi hariç): abonelik gelince fiş yerine
+    // doğrudan ana sayfa ya da kurulum; ne olduğu kısa bir bildirimle.
+    const routed = useRef(false);
+    useEffect(() => {
+        if (!returning || fromEmail || ent.loading || !ent.ok || !orgId || routed.current) return;
+        routed.current = true;
+        const trial = ent.effective === 'trial';
+        const until = ent.shownUntil ? fullFmt.format(new Date(ent.shownUntil)) : null;
+        void afterPaymentPath(orgId).then((to) => {
+            toast.success(trial ? 'Denemeniz başladı' : 'Ödemeniz alındı', {
+                description: trial && until ? `İlk tahsilat ${until}. O güne kadar iptal ederseniz ücret alınmaz.` : 'Aboneliğiniz aktif.',
+            });
+            navigate(to, { replace: true });
+        });
+    }, [returning, fromEmail, ent.loading, ent.ok, ent.effective, ent.shownUntil, orgId, navigate]);
+
     const onSelect = (plan: PlanId, cycle: Cycle) => { void startCheckout(plan, cycle, donus); };
     const pro = planById('pro') ?? PLANS[1];
     const solo = planById('baslangic') ?? PLANS[0];
@@ -154,18 +205,24 @@ export function PaywallPage() {
     );
 
     // ── Durum 5: ödeme sonrası dönüş ─────────────────────────────────────────
+    // Fiş yalnız e-posta kipinde (telefon, uygulamaya gönderilmez); öteki
+    // dönüş abonelik gelince ana sayfaya ya da kuruluma geçer (yukarıda).
     if (returning) {
-        if (!ent.ok) {
+        if (!ent.ok || !fromEmail) {
             return shell(
                 <div className="wall" style={{ paddingTop: 32 }}>
                     <div className="badge n"><Ico n="loading" s="i26" className="spin" /></div>
-                    <h1 style={{ fontSize: 24 }}>Ödemeniz işleniyor.</h1>
+                    <h1 style={{ fontSize: 24 }}>{ent.ok ? 'Hazırlanıyor.' : 'Ödemeniz işleniyor.'}</h1>
                     <p className="lede" style={{ fontSize: 14.5 }}>
-                        Bankanızdan onay bekliyoruz, genelde birkaç saniye sürer. Bu sayfayı kapatmayın.
+                        {ent.ok
+                            ? 'Aboneliğiniz aktif; sizi yönlendiriyoruz.'
+                            : 'Bankanızdan onay bekliyoruz, genelde birkaç saniye sürer. Bu sayfayı kapatmayın.'}
                     </p>
-                    <span style={{ fontSize: 13, color: 'var(--dc-muted2)' }}>
-                        Uzun sürerse sayfayı yenileyebilirsiniz; ödemeniz kaybolmaz.
-                    </span>
+                    {!ent.ok && (
+                        <span style={{ fontSize: 13, color: 'var(--dc-muted2)' }}>
+                            Uzun sürerse sayfayı yenileyebilirsiniz; ödemeniz kaybolmaz.
+                        </span>
+                    )}
                 </div>,
             );
         }
@@ -183,7 +240,6 @@ export function PaywallPage() {
                     {ent.effective === 'trial'
                         ? `${trialDaysShown} gün boyunca ücretsiz kullanacaksınız.`
                         : 'Faturanız birkaç dakika içinde e-posta adresinize gelir.'}
-                    {!fromEmail && ' Şimdi programı işletmenize göre ayarlayalım — yaklaşık 6 dakika.'}
                 </p>
                 <div className="receipt">
                     <div className="rh">
@@ -217,18 +273,7 @@ export function PaywallPage() {
                         </div>
                     )}
                 </div>
-                {fromEmail ? (
-                    <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
-                ) : (
-                    <div className="acts">
-                        <button className="btn pri big" onClick={() => navigate('/kurulum')}>
-                            Kuruluma başla<Ico n="ar" s="i" />
-                        </button>
-                        <button className="btn bare" onClick={() => navigate('/')}>
-                            Sonra yaparım, uygulamaya git
-                        </button>
-                    </div>
-                )}
+                <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
             </div>,
         );
     }

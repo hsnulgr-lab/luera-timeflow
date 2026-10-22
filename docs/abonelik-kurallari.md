@@ -76,7 +76,9 @@ görüntülerinde fiyat / plan / web'den abonelik geçmez.
 **Kurulum v2 (masaüstü, Claude Design):** son adım **"7 gün ücretsiz başlat"**.
 Ne alınacağı (plan, deneme sonrası aylık tutar, 8. gün otomatik tahsilat,
 deneme içinde iptal edilirse ücret yok) adımda AÇIKÇA yazar; düğme Dodo ödeme
-sayfasını açar, dönüş `/kurulum?checkout=success`. Bu adımdan önce sistem
+sayfasını açar. Dönüş ödeme duvarına (`/abonelik?checkout=success`): abonelik
+gelince kurulumun zorunlu adımları bittiyse ana sayfa, bitmediyse kurulum
+(2026-10-22). Bu adımdan önce sistem
 kilitlemez: kurulum sayfası kapının dışındadır.
 
 **Mobil:** bu karar için tasarım İŞİ YOK (bkz. §2).

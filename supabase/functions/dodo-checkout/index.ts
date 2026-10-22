@@ -3,6 +3,7 @@ import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
+import { isUpgrade, MAX_STAFF } from './paket.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -28,7 +29,8 @@ const corsHeaders = {
  *   { action: 'card', orgId }    → { url }  Dodo kart güncelleme sayfası
  *                                          ('portal' eski istemcinin adı, aynı yere gider)
  *   + { donus: 'abonelik' }      → Dodo'dan dönüş /abonelik?kaynak=eposta
- *                                  (abonelik e-postasının yolu; yoksa Kurulum/Ayarlar)
+ *                                  (abonelik e-postasının yolu; yoksa ödeme
+ *                                  duvarı → ana sayfa ya da kurulum)
  *
  * DENEME SÜRESİ: ilk checkout 7 günlük ücretsiz denemeyle açılır (kart alınır,
  * ilk tahsilat 8. gün). Dodo'da trial ABONELİĞE bağlanabiliyor
@@ -39,11 +41,27 @@ const corsHeaders = {
 const MODULE = 'timeflow';
 const VALID_PLANS = ['baslangic', 'pro', 'isletme'];
 const VALID_CYCLES = ['monthly', 'yearly'];
+
+type Admin = ReturnType<typeof createClient>;
+
 /**
- * Planın en çok aktif çalışanı (src/lib/plans.ts · maxStaff ile aynı;
- * tests/fiyat-2026-10.test.mjs eşler). Listede olmayan plan sınırsız.
+ * Planın sınırını aşan aktif personel: aşmıyorsa null, sayılamazsa 'error'
+ * (sayılamayan işletmeye SATILMAZ). is_active NULL = aktif (useStaff).
  */
-const MAX_STAFF: Record<string, number> = { baslangic: 1 };
+async function staffOverLimit(admin: Admin, orgId: string, plan: string): Promise<{ staff: number; max: number } | null | 'error'> {
+    const max = MAX_STAFF[plan];
+    if (max === undefined) return null;
+    const { count, error } = await admin.from('staff')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .not('is_active', 'is', false);
+    if (error) {
+        console.error('dodo-checkout: personel sayılamadı', error);
+        return 'error';
+    }
+    return (count ?? 0) > max ? { staff: count ?? 0, max } : null;
+}
+
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -143,6 +161,66 @@ Deno.serve(async (req: Request) => {
             return json({ url: out.payment_link }, 200);
         }
 
+        // ── Plan değiştirme (2026-10-22) ────────────────────────────────────
+        // Süren Dodo aboneliğinin ürünü değişir; ikinci abonelik açılmaz.
+        //   Yükseltme (büyük paket ya da aylıktan yıllığa) HEMEN: deneme
+        //   sürerken ücret yok, ödeyen abonede kalan günlerin farkı çekilir.
+        //   Düşürme bir sonraki fatura gününde: o güne kadar ödenen paket açık
+        //   kalır, sonraki aylarda yeni paketin ücreti çekilir (kullanıcı
+        //   kararı: sahibine bu açıkça söylenir).
+        if (body.action === 'change') {
+            const plan = String(body.plan || '');
+            const cycle = String(body.cycle || '');
+            if (!VALID_PLANS.includes(plan) || !VALID_CYCLES.includes(cycle)) {
+                return json({ error: 'invalid_plan_or_cycle' }, 400);
+            }
+            const access = computeAccess(entRow as EntitlementRow | null);
+            const subscriptionId = entRow?.dodo_subscription_id;
+            if (!subscriptionId || !access.ok || (access.effective !== 'trial' && access.effective !== 'active')) {
+                return json({ error: 'no_subscription' }, 404);
+            }
+            if (entRow?.plan === plan && entRow?.cycle === cycle) return json({ error: 'same_plan' }, 400);
+            const limit = await staffOverLimit(admin, orgId, plan);
+            if (limit === 'error') return json({ error: 'staff_lookup_failed' }, 500);
+            if (limit) return json({ error: 'team_too_large', ...limit }, 409);
+
+            let productMap: Record<string, string> = {};
+            try { productMap = JSON.parse((await getSecret(admin, 'DODO_PRODUCT_MAP')) || '{}'); } catch { /* aşağıda */ }
+            const productId = productMap[`${plan}_${cycle}`];
+            if (!productId) return json({ error: 'product_not_configured' }, 500);
+
+            const up = isUpgrade(entRow?.plan, entRow?.cycle, plan, cycle);
+            const { data: s } = await admin.from('settings').select('business_name')
+                .eq('organization_id', orgId).maybeSingle();
+            const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/change-plan`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    product_id: productId,
+                    quantity: 1,
+                    proration_billing_mode: up && access.effective === 'active' ? 'prorated_immediately' : 'do_not_bill',
+                    effective_at: up ? 'immediately' : 'next_billing_date',
+                    on_payment_failure: 'prevent_change',
+                    // Webhook paketi ürün kimliğinden okur; metadata Core kopyası için.
+                    metadata: { organization_id: orgId, plan, cycle, module: MODULE, org_name: s?.business_name || '' },
+                }),
+            });
+            if (!res.ok) {
+                const detail = await res.text().catch(() => '');
+                console.error('Dodo change-plan error:', res.status, detail);
+                // Dodo: bekleyen bir plan değişikliği ya da süren bir ödeme var.
+                return json({ error: res.status === 409 ? 'change_pending' : 'change_failed' }, res.status === 409 ? 409 : 502);
+            }
+            if (up) {
+                // Ekran webhook'u beklemeden yeni paketi göstersin (personel
+                // eklemesi hemen açılır); webhook aynısını ürün kimliğinden yazar.
+                const { error: mErr } = await admin.from('org_entitlement')
+                    .update({ plan, cycle, updated_at: new Date().toISOString() })
+                    .eq('organization_id', orgId);
+                if (mErr) console.error('dodo-checkout: yeni paket aynaya yazılamadı', mErr);
+            }
+            return json({ changed: true, when: up ? 'now' : 'next_billing' }, 200);
+        }
+
         // ── Checkout ─────────────────────────────────────────────────────────
         const plan = String(body.plan || '');
         const cycle = String(body.cycle || '');
@@ -181,24 +259,12 @@ Deno.serve(async (req: Request) => {
             return json({ error: 'already_subscribed' }, 409);
         }
 
-        // Tek kişilik paketi tek çalışana. Yalnız YENİ alımda: süren Tek
-        // kişilik abone sonradan personel eklerse engellenmez (sonrası
-        // yumuşak — Ayarlar'da not). Ekran kartı zaten pasif çiziyor; bu,
-        // ekranı atlayan isteğe karşı. is_active NULL = aktif (useStaff).
-        const maxStaff = MAX_STAFF[plan];
-        if (maxStaff !== undefined) {
-            const { count, error: staffErr } = await admin.from('staff')
-                .select('id', { count: 'exact', head: true })
-                .eq('organization_id', orgId)
-                .not('is_active', 'is', false);
-            if (staffErr) {
-                console.error('dodo-checkout: personel sayılamadı', staffErr);
-                return json({ error: 'staff_lookup_failed' }, 500);
-            }
-            if ((count ?? 0) > maxStaff) {
-                return json({ error: 'team_too_large', staff: count, max: maxStaff }, 409);
-            }
-        }
+        // Tek kişilik paketi tek çalışana: ekibi büyük işletmeye satılmaz.
+        // Ekran kartı zaten pasif çiziyor; bu, ekranı atlayan isteğe karşı.
+        // Süren aboneliğin işlemleri (yukarıda) bu kontrole takılmaz.
+        const limit = await staffOverLimit(admin, orgId, plan);
+        if (limit === 'error') return json({ error: 'staff_lookup_failed' }, 500);
+        if (limit) return json({ error: 'team_too_large', ...limit }, 409);
 
         // (plan, cycle) → Dodo ürün id — JSON haritadan (env/app_secrets)
         let productMap: Record<string, string> = {};
@@ -239,14 +305,15 @@ Deno.serve(async (req: Request) => {
             ? body.discount_code.trim().slice(0, 40)
             : '';
 
-        // İlk satın alımda kurulum sihirbazına, sonrakilerde faturalandırmaya
-        // dön: ödeme yapan yeni müşteriyi ayarlar ekranına bırakmak, ürünü
-        // kurmadan yalnız bir fatura satırı göstermek olurdu.
+        // Dodo'dan dönüş ödeme duvarına: abonelik webhook'la gelene kadar
+        // "Ödemeniz işleniyor" der, gelince kurulum yapıldıysa ana sayfaya,
+        // yapılmadıysa kuruluma geçer (kullanıcı kararı 2026-10-22). E-posta
+        // kipi kendi ekranında kalır (toPaywall). Eskiden ilk alım /kurulum'a
+        // dönüyordu: o sayfa checkout'u hiç okumuyor — Ayarlar'dan alan salon
+        // onaysız, sihirbazın 1. adımına düşüyordu (Test 1).
         const returnUrl = toPaywall
             ? `${appUrl}/abonelik?checkout=success&kaynak=eposta`
-            : firstTime
-                ? `${appUrl}/kurulum?checkout=success`
-                : `${appUrl}/settings?tab=billing&checkout=success`;
+            : `${appUrl}/abonelik?checkout=success`;
 
         const res = await dodoFetch(api, '/checkouts', {
             method: 'POST',

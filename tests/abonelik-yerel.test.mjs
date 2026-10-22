@@ -347,7 +347,8 @@ test('webhook: ayna önce, Core sonra ve Core hatası Dodo\'ya yansımaz', () =>
     assert.match(hook, /'no_org'/);
     // En yeni kazanır: aynadakinin hâli okunur; geçici hatada Dodo yeniden
     // dener; eski kopya da, yerine yenisi geçen de Dodo'da kapatılır.
-    assert.match(hook, /decide\(type, data, eventAt, current, Date\.now\(\), mineNow\)/);
+    // Paket ürün kimliğinden (plans): plan değiştirme, 2026-10-22.
+    assert.match(hook, /decide\(type, data, eventAt, current, Date\.now\(\), mineNow, plans\)/);
     assert.match(hook, /if \(mineNow === 'retry'\) return fail\(/);
     assert.match(hook, /if \(decision\.cancel\) await cancelOther\(admin, decision\.cancel,/);
     assert.match(hook, /await cancelOther\(admin, decision\.replaced,/);

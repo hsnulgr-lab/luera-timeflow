@@ -10,6 +10,8 @@ import type { Staff } from '@/types';
 import { BottomSheet } from '../BottomSheet';
 import { T } from '../theme';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { useStaffLimit } from '@/hooks/useStaffLimit';
+import { personelEklendiBildirimi } from '@/lib/uygulamaBaglantisi';
 
 const COLORS = ['#FF5A1F', '#C98BDB', '#6B9FD4', '#E0A84E', '#7CC47F', '#CB5E84', '#E07070', '#9B8CFF'];
 
@@ -28,6 +30,8 @@ export const MobileStaff = () => {
     const navigate = useNavigate();
     const { isManager } = useManagerMode();
     const { staff, addStaff, updateStaff, deleteStaff } = useStaff();
+    // Tek kişilik'te ikinci kişi → Ekip'e yükseltme sorusu (telefon TARAYICISI; uygulama değil).
+    const { ensureRoom } = useStaffLimit(staff.filter((s) => s.isActive).length);
     const { roleOptions, roleLabel } = useStaffRoles();
 
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -41,7 +45,10 @@ export const MobileStaff = () => {
     // sayfaya dönmek yerine giriş kapısına yönlendir (bkz. MobileSettings).
     if (!isManager) return <Navigate to="/personel" replace />;
 
-    const openAdd = () => { setEditing(null); setForm(EMPTY); setSheetOpen(true); };
+    const openAdd = async () => {
+        if (!(await ensureRoom())) return;
+        setEditing(null); setForm(EMPTY); setSheetOpen(true);
+    };
     const openEdit = (m: Staff) => {
         setEditing(m);
         setForm({ name: m.name, role: m.role, specialty: m.specialty || '', phone: m.phone || '', color: m.color, isActive: m.isActive, pin: '' });
@@ -66,7 +73,7 @@ export const MobileStaff = () => {
             toast.success('Personel güncellendi');
         } else {
             await addStaff({ ...base, ...(pinHash ? { pin: pinHash } : {}) } as any);
-            toast.success('Personel eklendi');
+            personelEklendiBildirimi();
         }
         setSaving(false);
         setSheetOpen(false);
