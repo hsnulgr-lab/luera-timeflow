@@ -236,11 +236,15 @@ export function Abonelik() {
                                 <span style={{ fontWeight: 700 }}>{trDate(until)}{!subscription?.cancel_at_period_end && !periodPast && ` · ₺${formatTRY(nextCharge)}`}</span>
                             </div>
                             {nextPlan && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '12px 0', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
-                                    <span style={{ color: 'var(--tx2)' }}>Planlanan değişiklik</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                        <span style={{ fontWeight: 700 }}>{nextPlan.name} · {trDate(scheduled?.at ?? until)} tarihinden itibaren ₺{formatTRY(nextCharge)} / {nextCycle === 'yearly' ? 'yıl' : 'ay'}</span>
-                                        <button type="button" className="ay-btn plain" style={{ height: 34, padding: '0 12px', fontSize: 14 }} disabled={busy}
+                                // Tek satır: başlama günü üstteki satırda (aynı gün) yazıyor;
+                                // burada tekrarlanınca satır kart darken üçe bölünüyordu.
+                                // Telefon genişliğinde sağ grup bütün olarak alta iner.
+                                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 16, rowGap: 6, padding: '7px 0', borderTop: '1px solid var(--bd)', fontSize: 15 }}>
+                                    <span style={{ color: 'var(--tx2)', whiteSpace: 'nowrap' }}>Planlanan değişiklik</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }}
+                                        title={`${trDate(scheduled?.at ?? until)} tarihinden itibaren`}>
+                                        <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{nextPlan.name} · ₺{formatTRY(nextCharge)} / {nextCycle === 'yearly' ? 'yıl' : 'ay'}</span>
+                                        <button type="button" className="ay-btn plain" style={{ height: 30, padding: '0 12px', fontSize: 14 }} disabled={busy}
                                             onClick={() => { void cancelChange().then((ok) => { if (ok) void ent.refresh(); }); }}>Vazgeç</button>
                                     </span>
                                 </div>
