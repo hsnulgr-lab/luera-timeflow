@@ -35,6 +35,45 @@ Webhook'u panelde AÇMA, sırrını KOPYALAMA: betik açar ve okur.
 
 ## 1 · Sıra
 
+**Durum (2026-10-23 01:05):** Faz 4 testleri bitti (devir 15). Adım 1 ✅
+(sırlar TEST'te, 8 ayna satırı, satırsız 2 işletme). Adım 2 ✅ kullanıcı
+kararı: iç hesaplar süresiz Ekip hediye — furkanhasan@luera.ai (`4795b1ce`),
+nisanur@luera.ai (`ad8d9dc9`); satırsız iki işletme de bizim (kullanıcı) →
+onlara da süresiz Ekip: "Fu Ni" hsnulgr@gmail.com (`8418f10d`), "Nisa Özer"
+ozern8102@gmail.com (`15a7e5d2`). Adım 3 kuru koşu artık 0 satır — kimse
+açılış denemesi almıyor; adım 12'den HEMEN önce kuru koşu bir kez daha
+(arada açılan işletme olursa). Adım 4 ✅ canlı anahtar geçerli (65 kr.).
+**Adım 5–7 ✅ (2026-10-23 ~01:30): sunucu CANLI Dodo'da**; canlı uç
+`ep_3L4LAW7OakIm2XlctJN6crgZmTE` (12 olay); test değerleri `DODO_TEST_*`'ta.
+Canlı ürünler (vergi `saas`, marka hesabın varsayılanı "Luera"):
+baslangic `pdt_0NqJvbY0I5WdijfmHOtrJ` / `pdt_0NqJvbejIWLTNteGU1pnn`, pro
+`pdt_0NqJvbjWwt6kdrEl1saCC` / `pdt_0NqJvbnAs2xcgdfTE8okl`, isletme
+`pdt_0NqJvbqo0GSv0W8F5nY9n` / `pdt_0NqJvbw3b2Ux5Mu1GwDe2` (aylık / yıllık);
+eski harita `DODO_PRODUCT_MAP_ONCEKI`'de. Adım 8 ✅ canlı ödeme sayfası
+"Luera · TimeFlow - Tek kişilik · Aylık · TRY 799.00 / ay, satış vergisi
+dahil", test işareti yok. Adım 10 ✅ izleme canlıda (`wrangler.toml` live,
+salt okunur canlı anahtar; yerel `dene.mjs` 6/6 ✓, sürüm `fc467b7f`).
+Adım 9 ✅ gerçek kart (hsnulgr+canli@gmail.com, Tek kişilik aylık):
+bugün TRY 0.00, deneme 29 Eki; ayna `trial · baslangic` (canlı
+`subscription.updated` imzası geçti, 01:40); kullanıcı deneme içinde iptal
+etti (01:48, "dönem sonunda sona erecek"). Apple Pay iPhone Safari'de YOK
+(yalnız Kart) — sonraya: Dodo Ayarlar › Ödeme Yöntemleri + Cüzdan kartı,
+olmazsa Dodo desteğine TRY/Türkiye. Adım 11 ✅ kuru 0 → `eposta.sh ac`
+(ABONELIK_EPOSTA = true, ~02:10). Adım 12 öncesi: açılış denemesi kuru 0,
+11 ayna satırının hepsi `enforce_acilsa = t`, satırsız işletme 0.
+**Adım 12 ✅ KİLİT AÇIK (2026-10-23 ~02:25):** önce Coolify
+`VITE_ENTITLEMENT_ENFORCE=true` (build değişkeni) + Deploy → canlı paket
+`index-OIiszaBy.js`'de `"true".trim()==="true"`; sonra
+`app_secrets.ENTITLEMENT_ENFORCE = 'true'` → `has_timeflow_access` false
+dönen işletme 0. Kalan: 13 (Framer), 14 (ilk saat: `eposta.sh durum`'da
+ilk gerçek tarama, `kontrol-oku.sql`, izleme). Ödeme sayfası TimeFlow turuncusunda ✅
+(`87f3b5f`, dodo-checkout yüklü, md5 eşleşti): `customization.theme_config`
+light/dark → `button_primary #FF5A1F`, yazı `#0E0E0E`, odak çerçevesi
+turuncu; canlı Dodo'da denendi. Düğme form dolunca turuncuya döner (boşken
+Dodo'nun gri "ikincil" hali). Doğrudan /buy bağlantısı yeşil kalır. Test kalıntıları (furkanhasanulger@icloud.com,
+furkan.ulger@icloud.com, Apple relay hesabı, furkan@luera.ai) TEST Dodo
+aboneliğiyle bitişlerine kadar açık (§3).
+
 | # | Komut | Ne görmeli |
 |---|---|---|
 | 1 | `ssh -i ~/.ssh/luera_vps root@76.13.4.164 'docker exec -i -u postgres supabase-db-t6yi63jbebvj6c7oo7yjofnt psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f -' < ops/abonelik/kontrol-oku.sql` | Kim kilitlenir; iç hesaplar |

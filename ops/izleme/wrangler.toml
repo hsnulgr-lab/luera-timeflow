@@ -21,9 +21,9 @@ SUPABASE_URL = "https://supabase.timeflow.lueratech.com"
 DESKTOP_URL = "https://timeflow.lueratech.com"
 SITE_URL = "https://lueratech.com"
 DEMO_SLUG = "demo-luera"
-# Dodo ucu kontrolü (yalnız DODO_READONLY_KEY sırrı varsa koşar). Dodo Live'a
-# geçince: https://live.dodopayments.com + Live kipinde açılmış salt okunur anahtar.
-DODO_API_BASE = "https://test.dodopayments.com"
+# Dodo ucu kontrolü (yalnız DODO_READONLY_KEY sırrı varsa koşar). Live'a
+# geçildi (2026-10-23, devir 16): Live kipinde açılmış salt okunur anahtarla.
+DODO_API_BASE = "https://live.dodopayments.com"
 
 # Kapalı servislerin ve kurulumun kaydı. id: `wrangler kv namespace create DURUM`
 [[kv_namespaces]]
