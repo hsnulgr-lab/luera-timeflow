@@ -10,7 +10,7 @@ import { useEntitlement } from '@/hooks/useEntitlement';
 import { PlanCards } from '@/components/billing/PlanCards';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import {
-    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, type Cycle, type PlanId,
+    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, priceOf, teamSize, type Cycle, type PlanId,
 } from '@/lib/plans';
 import { nextCoreStep } from '@/lib/setupProgress';
 import './billing.css';
@@ -66,10 +66,10 @@ async function afterPaymentPath(orgId: string): Promise<string> {
 }
 
 /**
- * Duvarda gösterilen "verileriniz duruyor" sayaçları + işletme adı + aktif
- * çalışan sayısı (Tek kişilik paketi tek çalışana: dodo-checkout · maxStaff).
+ * Duvarda gösterilen "verileriniz duruyor" sayaçları + işletme adı + çalışan
+ * kişi, sahip dahil (`teamSize`; Tek kişilik yalnız sahibe: dodo-checkout).
  */
-interface Kept { customers: number; past: number; upcoming: number; name: string; staff: number }
+interface Kept { customers: number; past: number; upcoming: number; name: string; people: number }
 
 export function PaywallPage() {
     const { dark } = useTheme();
@@ -131,7 +131,7 @@ export function PaywallPage() {
     // ihtiyaç duyduğu üç sayı ve işletme adı doğrudan sorgulanıyor.
     const loadKept = useCallback(async (id: string) => {
         const today = new Date().toISOString().slice(0, 10);
-        const [c, p, u, st, sf] = await Promise.all([
+        const [c, p, u, st, sf, og] = await Promise.all([
             supabase.from('customers').select('id', { count: 'exact', head: true })
                 .eq('organization_id', id).eq('is_active', true),
             supabase.from('reservations').select('id', { count: 'exact', head: true })
@@ -143,10 +143,12 @@ export function PaywallPage() {
             // is_active NULL = aktif (useStaff ile aynı okuma).
             supabase.from('staff').select('id', { count: 'exact', head: true })
                 .eq('organization_id', id).not('is_active', 'is', false),
+            // Telefondaki tek kişilik kipte sahip zaten tek personel satırı.
+            supabase.from('organizations').select('solo').eq('id', id).maybeSingle(),
         ]);
         setKept({
             customers: c.count ?? 0, past: p.count ?? 0, upcoming: u.count ?? 0,
-            name: st.data?.business_name || '', staff: sf.count ?? 0,
+            name: st.data?.business_name || '', people: teamSize(sf.count ?? 0, og.data?.solo === true),
         });
     }, []);
 
@@ -176,8 +178,8 @@ export function PaywallPage() {
     const solo = planById('baslangic') ?? PLANS[0];
     // Tek düğmeli seçim: ekibe sığan en küçük paket. Tek başına çalışana
     // Ekip önermek ona gerek olmayanı satmak olur.
-    const pick = kept && fitsTeam(solo, kept.staff) ? solo : pro;
-    const activeStaff = kept?.staff ?? null;
+    const pick = kept && fitsTeam(solo, kept.people) ? solo : pro;
+    const people = kept?.people ?? null;
     const trialDaysShown = ent.shownDaysLeft && ent.shownDaysLeft > 0 ? ent.shownDaysLeft : TRIAL_DAYS;
     const bizName = kept?.name || 'İşletmeniz';
     const initials = bizName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toLocaleUpperCase('tr')).join('');
@@ -302,7 +304,7 @@ export function PaywallPage() {
                     Şimdi bir plan seçerseniz ilk tahsilat denemeniz bittiğinde yapılır; o güne kadar ücret alınmaz.
                 </p>
                 <div style={{ width: '100%', textAlign: 'left' }}>
-                    <PlanCards busy={busy} onSelect={onSelect} activeStaff={activeStaff} ctaLabel={() => 'Bu planı seç'} />
+                    <PlanCards busy={busy} onSelect={onSelect} people={people} ctaLabel={() => 'Bu planı seç'} />
                 </div>
                 {fromEmail ? (
                     <span style={{ fontSize: 13.5, color: 'var(--dc-muted)' }}>{CLOSE_NOTE}</span>
@@ -381,7 +383,7 @@ export function PaywallPage() {
                 </div>
                 {showPlans && (
                     <div style={{ width: '100%', textAlign: 'left' }}>
-                        <PlanCards busy={busy} onSelect={onSelect} currentPlan={ent.plan as PlanId} activeStaff={activeStaff}
+                        <PlanCards busy={busy} onSelect={onSelect} currentPlan={ent.plan as PlanId} people={people}
                             ctaLabel={() => 'Bu plana geç'} />
                     </div>
                 )}
@@ -424,7 +426,7 @@ export function PaywallPage() {
 
             {showPlans || firstTime ? (
                 <div style={{ width: '100%', textAlign: 'left' }}>
-                    <PlanCards busy={busy} onSelect={onSelect} activeStaff={activeStaff}
+                    <PlanCards busy={busy} onSelect={onSelect} people={people}
                         ctaLabel={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
                 </div>
             ) : (

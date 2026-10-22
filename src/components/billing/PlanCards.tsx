@@ -22,15 +22,15 @@ interface Props {
     /** Aylık/yıllık anahtarı gösterilsin mi? Duvarda dar hâlde gizlenebilir. */
     showToggle?: boolean;
     /**
-     * İşletmenin aktif çalışan sayısı. Sığmadığı plan (Tek kişilik) pasif
-     * çizilir; sunucu da satmaz (dodo-checkout · team_too_large). Bilinmiyorsa
-     * (herkese açık /fiyatlar) hepsi açık.
+     * İşletmede çalışan kişi, sahip dahil (`teamSize`). Sığmadığı plan (Tek
+     * kişilik) pasif çizilir; sunucu da satmaz (dodo-checkout ·
+     * team_too_large). Bilinmiyorsa (herkese açık /fiyatlar) hepsi açık.
      */
-    activeStaff?: number | null;
+    people?: number | null;
 }
 
 export function PlanCards({
-    currentPlan, busy = false, ctaLabel, onSelect, defaultCycle = 'monthly', showToggle = true, activeStaff,
+    currentPlan, busy = false, ctaLabel, onSelect, defaultCycle = 'monthly', showToggle = true, people,
 }: Props) {
     const [cycle, setCycle] = useState<Cycle>(defaultCycle);
     // "2 ay bedava" sabit yazılmıyor: fiyat değişince yazı sessizce yalan olurdu.
@@ -54,7 +54,7 @@ export function PlanCards({
             <div className="plans">
                 {PLANS.map((p) => {
                     const isCurrent = currentPlan === p.id;
-                    const fits = fitsTeam(p, activeStaff);
+                    const fits = fitsTeam(p, people);
                     return (
                         <div key={p.id} className={`plan${p.popular ? ' pop' : ''}`}>
                             {p.popular && <span className="flag">En çok seçilen</span>}
@@ -90,8 +90,8 @@ export function PlanCards({
                                 // ötekilerden yukarıda kalıyordu.
                                 <button className="btn gho wide cta" disabled
                                     style={{ flexDirection: 'column', gap: 1, lineHeight: 1.25, color: 'var(--dc-muted)' }}>
-                                    <span>Ekibinizde {activeStaff} kişi var</span>
-                                    <span style={{ fontSize: 12, fontWeight: 500 }}>Bu paket tek çalışan içindir</span>
+                                    <span>Sizinle birlikte {people} kişi</span>
+                                    <span style={{ fontSize: 12, fontWeight: 500 }}>Bu paket yalnız sizin içindir</span>
                                 </button>
                             ) : (
                                 <button

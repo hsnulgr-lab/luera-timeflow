@@ -101,10 +101,12 @@ test('webhook: paket ürün kimliğinden, metadata\'dan önce (zamanlanmış dü
     assert.match(index, /productPlans\(\s*await getSecret\(admin, 'DODO_PRODUCT_MAP'\),\s*await getSecret\(admin, 'DODO_PRODUCT_MAP_ONCEKI'\),\s*await getSecret\(admin, 'DODO_TEST_PRODUCT_MAP'\),\s*\)/);
 });
 
-test('Tek kişilik\'te ikinci personel: üç ekleme yolu da önce yükseltme sorar', () => {
+test('Tek kişilik\'te personel: üç ekleme yolu da önce yükseltme sorar', () => {
     const hook = oku('src/hooks/useStaffLimit.ts');
-    assert.match(hook, /if \(!plan \|\| plan\.maxStaff == null \|\| !ent\.ok \|\| active \+ adding <= plan\.maxStaff\) return true;/,
+    assert.match(hook, /if \(!plan \|\| plan\.maxStaff == null \|\| !ent\.ok\) return true;/,
         'paketi olmayan (kartsız deneme) ve sınırı olmayan serbest');
+    // Sahip dahil sayılır (Test B, 2026-10-22); kip okunamazsa sahip ayrı.
+    assert.match(hook, /const solo = orgId \? await readOrgSolo\(orgId\) : null;\s*if \(teamSize\(active, solo === true\) \+ adding <= plan\.maxStaff\) return true;/);
     assert.match(hook, /if \(!ent\.dodoManaged \|\| \(ent\.effective !== 'trial' && ent\.effective !== 'active'\)\) \{[\s\S]{0,400}return false;/,
         'hediye / askıdaki abonelik: kendi kendine değişmez, destek');
     assert.match(hook, /const when = await requestPlanChange\(orgId, 'pro', cycle\);\s*if \(when !== 'now'\) return false;/);

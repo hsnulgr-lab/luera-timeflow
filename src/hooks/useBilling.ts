@@ -48,7 +48,7 @@ export async function requestPlanChange(orgId: string | null | undefined, plan: 
     if (!error && data?.changed && (data.when === 'now' || data.when === 'next_billing')) return data.when;
     const code = error ? await errorCode(error) : null;
     console.error('dodo-checkout change:', code ?? error, data);
-    if (code === 'team_too_large') toast.info('Bu paket tek çalışan içindir; önce ekibinizi bir kişiye indirin.');
+    if (code === 'team_too_large') toast.info('Bu paket yalnız sizin içindir; ekibinizde personel varken geçilemez.');
     else if (code === 'change_pending') toast.info('Bekleyen bir paket değişikliğiniz var; yürürlüğe girince yenisini yapabilirsiniz.');
     else if (code === 'no_subscription') toast.info('Paket değişikliği için süren bir abonelik gerekiyor.');
     else if (code === 'same_plan') toast.info('Zaten bu paketi kullanıyorsunuz.');
@@ -142,7 +142,7 @@ export function useBilling() {
             // değişikliği henüz kendi kendine yapılamıyor.
             if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor. Plan değişikliği için destek@lueratech.com adresine yazın.');
             // Tek kişilik paketi tek çalışana (dodo-checkout · MAX_STAFF).
-            else if (code === 'team_too_large') toast.info('Bu paket tek çalışan içindir; ekibinizde birden çok kişi var. Ekip paketini seçin.');
+            else if (code === 'team_too_large') toast.info('Bu paket yalnız sizin içindir; ekibinizde personel var. Ekip paketini seçin.');
             else toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
             return;
         }

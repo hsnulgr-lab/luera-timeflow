@@ -23,9 +23,10 @@ import { toast } from 'sonner';
 import { useBilling } from '@/hooks/useBilling';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { useStaff } from '@/hooks/useStaff';
+import { useOrgSolo } from '@/hooks/useOrgSolo';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import {
-    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, planChangeCopy, priceOf, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
+    PLANS, TRIAL_DAYS, fitsTeam, formatTRY, planById, planChangeCopy, priceOf, teamSize, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
     type Cycle, type Plan, type PlanId,
 } from '@/lib/plans';
 import { dayLocative, trDate } from '../ayarlarModel';
@@ -35,6 +36,7 @@ export function Abonelik() {
     const { subscription, invoices, loading, error, busy, refresh, startCheckout, changePlan, cancelChange, updateCard, cancelSubscription, pollAfterCheckout } = useBilling();
     const ent = useEntitlement();
     const { staff } = useStaff();
+    const orgSolo = useOrgSolo();
     const [params, setParams] = useSearchParams();
     const [showPlans, setShowPlans] = useState(false);
     const [askCancel, setAskCancel] = useState(false);
@@ -79,7 +81,9 @@ export function Abonelik() {
     const nextCycle: Cycle = scheduled?.cycle === 'yearly' ? 'yearly' : 'monthly';
     const nextCharge = nextPlan ? priceOf(nextPlan, nextCycle) : charge;
     const yearlySave = plan ? yearlySaving(plan) : 0;
-    const activeStaff = staff.filter((s) => s.isActive).length;
+    // Sahip dahil kişi (`teamSize`); kip okunana dek bilinmiyor — not ve
+    // pasif kart o arada çizilmez.
+    const people = orgSolo === null ? null : teamSize(staff.filter((s) => s.isActive).length, orgSolo);
     // Dodo'nun gerçek günü (tolerans hariç) — Dodo'nun e-postasıyla aynı tarih.
     const until = ent.shownUntil ?? subscription?.expires_at ?? null;
     const untilDay = until ? new Date(until).getDate() : null;
@@ -178,7 +182,7 @@ export function Abonelik() {
                     </div>
                 </div>
                 <div role="status" className="ay-box info"><I n="info" />Şimdi bir plan seçerseniz ilk tahsilat denemeniz bittiğinde yapılır; o güne kadar ücret alınmaz.</div>
-                <PlanKartlari busy={busy} onSelect={onSelect} activeStaff={activeStaff} cta={() => 'Bu planı seç'} />
+                <PlanKartlari busy={busy} onSelect={onSelect} people={people} cta={() => 'Bu planı seç'} />
             </div>
         );
     }
@@ -194,7 +198,7 @@ export function Abonelik() {
                 {firstTime
                     ? <div role="status" className="ay-box info"><I n="info" />Aktif aboneliğiniz yok. Bir plan seçin — ilk {TRIAL_DAYS} gün ücretsiz, deneme içinde iptal ederseniz ücret alınmaz.</div>
                     : <div role="status" className="ay-box info"><I n="info" />{ent.state === 'trial' ? 'Denemeniz bitti.' : 'Aboneliğiniz sona erdi.'} Verileriniz duruyor; bir plan seçtiğiniz an kaldığınız yerden devam edersiniz. İlk tahsilat bugün yapılır.</div>}
-                <PlanKartlari busy={busy} onSelect={onSelect} activeStaff={activeStaff} cta={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
+                <PlanKartlari busy={busy} onSelect={onSelect} people={people} cta={() => (firstTime ? `${TRIAL_DAYS} gün ücretsiz dene` : 'Bu planla devam et')} />
             </div>
         );
     }
@@ -297,10 +301,10 @@ export function Abonelik() {
                     sert, sonrası YUMUŞAK — engel yok, yalnız bu not (telefonda
                     söylenemez: Apple, docs/abonelik-kurallari.md §2). Masaüstünde
                     yeni personel eklemesi zaten Ekip'e yükseltme sorar. */}
-                {plan && !fitsTeam(plan, activeStaff) && (
+                {plan && !fitsTeam(plan, people) && (
                     <div role="status" className="ay-box info" style={{ alignItems: 'center' }}>
                         <I n="info" />
-                        <span style={{ flex: 1 }}>İşletmenizde {activeStaff} kişi çalışıyor; {plan.name} paketi tek çalışan içindir. Ekibinizle devam etmek için {planById('pro')?.name ?? 'Ekip'} paketine geçin.{!canChange && <> Geçiş için <a href="mailto:destek@lueratech.com" style={{ fontWeight: 700 }}>destek@lueratech.com</a> adresine yazmanız yeterli.</>}</span>
+                        <span style={{ flex: 1 }}>Sizinle birlikte {people} kişi çalışıyor; {plan.name} paketi yalnız sizin içindir. Ekibinizle devam etmek için {planById('pro')?.name ?? 'Ekip'} paketine geçin.{!canChange && <> Geçiş için <a href="mailto:destek@lueratech.com" style={{ fontWeight: 700 }}>destek@lueratech.com</a> adresine yazmanız yeterli.</>}</span>
                         {canChange && <button type="button" className="ay-btn" disabled={busy} onClick={() => void onChange('pro', cycle)}>{planById('pro')?.name ?? 'Ekip'} paketine geç</button>}
                     </div>
                 )}
@@ -308,7 +312,7 @@ export function Abonelik() {
                 {showPlans && (
                     <div className="ay-card pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <h3 style={{ fontSize: 18, fontWeight: 800 }}>Planlar</h3>
-                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} activeStaff={activeStaff} onSelect={pickPlan} cta={() => 'Bu plana geç'} />
+                        <PlanKartlari busy={busy} current={(plan?.id ?? null) as PlanId | null} defaultCycle={cycle} people={people} onSelect={pickPlan} cta={() => 'Bu plana geç'} />
                     </div>
                 )}
 
@@ -348,8 +352,8 @@ export function Abonelik() {
     );
 }
 
-function PlanKartlari({ busy, current, defaultCycle = 'monthly', activeStaff, onSelect, cta }: {
-    busy: boolean; current?: PlanId | null; defaultCycle?: Cycle; activeStaff: number;
+function PlanKartlari({ busy, current, defaultCycle = 'monthly', people, onSelect, cta }: {
+    busy: boolean; current?: PlanId | null; defaultCycle?: Cycle; people: number | null;
     onSelect: (p: PlanId, c: Cycle) => void; cta: (p: Plan) => string;
 }) {
     const [cycle, setCycle] = useState<Cycle>(defaultCycle);
@@ -365,7 +369,7 @@ function PlanKartlari({ busy, current, defaultCycle = 'monthly', activeStaff, on
             <div className="ay-plans">
                 {PLANS.map((p) => {
                     const isCurrent = current === p.id && cycle === defaultCycle;
-                    const fits = fitsTeam(p, activeStaff);
+                    const fits = fitsTeam(p, people);
                     return (
                         <div key={p.id} className={p.popular ? 'ay-plan pop' : 'ay-plan'}>
                             {p.popular && <span className="badge">EN ÇOK SEÇİLEN</span>}
@@ -392,8 +396,8 @@ function PlanKartlari({ busy, current, defaultCycle = 'monthly', activeStaff, on
                                 : !fits
                                     // Sunucu da satmaz (dodo-checkout · team_too_large).
                                     ? <span className="cta" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, border: '1px solid var(--bd2)', color: 'var(--tx2)', fontSize: 14 }}>
-                                        <b>Ekibinizde {activeStaff} kişi var</b>
-                                        <span style={{ fontSize: 12.5 }}>Bu paket tek çalışan içindir</span>
+                                        <b>Sizinle birlikte {people} kişi</b>
+                                        <span style={{ fontSize: 12.5 }}>Bu paket yalnız sizin içindir</span>
                                     </span>
                                     : <button type="button" disabled={busy} className={p.popular ? 'ay-btn-pri cta' : 'ay-btn cta'} style={{ height: 48 }}
                                     onClick={() => onSelect(p.id, cycle)}>{cta(p)}</button>}

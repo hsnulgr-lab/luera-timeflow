@@ -32,7 +32,10 @@ export interface Plan {
      * kuruşlu bir sayı; Dodo ürünü toplamı çeker.
      */
     yearlyTotal: number;
-    /** En çok kaç aktif çalışan — yoksa sınırsız. Ödeme anında uygulanır (dodo-checkout). */
+    /**
+     * En çok kaç çalışan, işletme sahibi DAHİL (`teamSize`) — yoksa sınırsız.
+     * Ödeme anında uygulanır (dodo-checkout).
+     */
     maxStaff?: number;
     popular?: boolean;
     features: PlanFeature[];
@@ -101,11 +104,22 @@ export function yearlyFreeMonths(plan: Plan): number {
 }
 
 /**
- * Bu plan bu kadar aktif çalışanlı işletmeye satılabilir mi. Sayı
+ * İşletmede çalışan kişi sayısı, sahip DAHİL (kullanıcı kararı 2026-10-22:
+ * Tek kişilik'te tek çalışan sahibin kendisi; personel eklemek Ekip ister).
+ * Masaüstünde sahip personel satırı değildir, ayrıca sayılır. Telefondaki tek
+ * kişilik kipte (`organizations.solo`, göç 108) sahip TEK personel satırıdır;
+ * iki kez sayılmaz. Sunucudaki eşi: dodo-checkout/paket.ts · teamSize.
+ */
+export function teamSize(activeStaff: number, solo: boolean): number {
+    return solo ? Math.max(activeStaff, 1) : activeStaff + 1;
+}
+
+/**
+ * Bu plan bu kadar kişilik (`teamSize`) işletmeye satılabilir mi. Sayı
  * bilinmiyorsa (herkese açık /fiyatlar) engellenmez; sunucu yine bakar.
  */
-export function fitsTeam(plan: Plan, activeStaff: number | null | undefined): boolean {
-    return plan.maxStaff == null || activeStaff == null || activeStaff <= plan.maxStaff;
+export function fitsTeam(plan: Plan, people: number | null | undefined): boolean {
+    return plan.maxStaff == null || people == null || people <= plan.maxStaff;
 }
 
 /**

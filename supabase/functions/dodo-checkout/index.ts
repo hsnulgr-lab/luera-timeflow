@@ -3,7 +3,7 @@ import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
-import { isUpgrade, MAX_STAFF } from './paket.ts';
+import { isUpgrade, MAX_STAFF, teamSize } from './paket.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -47,21 +47,27 @@ const VALID_CYCLES = ['monthly', 'yearly'];
 type Admin = ReturnType<typeof createClient>;
 
 /**
- * Planın sınırını aşan aktif personel: aşmıyorsa null, sayılamazsa 'error'
- * (sayılamayan işletmeye SATILMAZ). is_active NULL = aktif (useStaff).
+ * Planın sınırını aşan ekip (sahip dahil, `teamSize`): aşmıyorsa null,
+ * sayılamazsa 'error' (sayılamayan işletmeye SATILMAZ). is_active NULL =
+ * aktif (useStaff). `staff` yanıtta personel satırı sayısıdır (ekrandaki
+ * "N personel").
  */
 async function staffOverLimit(admin: Admin, orgId: string, plan: string): Promise<{ staff: number; max: number } | null | 'error'> {
     const max = MAX_STAFF[plan];
     if (max === undefined) return null;
-    const { count, error } = await admin.from('staff')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .not('is_active', 'is', false);
-    if (error) {
-        console.error('dodo-checkout: personel sayılamadı', error);
+    const [crew, org] = await Promise.all([
+        admin.from('staff')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+            .not('is_active', 'is', false),
+        admin.from('organizations').select('solo').eq('id', orgId).maybeSingle(),
+    ]);
+    if (crew.error || org.error || !org.data) {
+        console.error('dodo-checkout: personel sayılamadı', crew.error ?? org.error);
         return 'error';
     }
-    return (count ?? 0) > max ? { staff: count ?? 0, max } : null;
+    const staff = crew.count ?? 0;
+    return teamSize(staff, Boolean(org.data.solo)) > max ? { staff, max } : null;
 }
 
 
