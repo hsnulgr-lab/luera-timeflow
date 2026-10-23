@@ -34,3 +34,8 @@ verify_jwt = false
 # doğrulama integration_connections.api_key ile fonksiyon içinde.
 [functions.gateway]
 verify_jwt = false
+
+# dodo-satin-al herkese açık: siteden gelen hesapsız kişi Dodo ödeme sayfası
+# açar ve dönüşte hesabını alır (göç 127). Kimlik gizli talep jetonuyla.
+[functions.dodo-satin-al]
+verify_jwt = false

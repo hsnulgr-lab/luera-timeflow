@@ -43,6 +43,8 @@ import { BookingPage } from '@/pages/public/BookingPage';
 import { PricingPage } from '@/pages/public/PricingPage';
 import { PaywallPage } from '@/pages/PaywallPage';
 import { EpostaBaglantiPage } from '@/pages/EpostaBaglantiPage';
+import { SatinAlPage } from '@/pages/SatinAlPage';
+import { HosgeldinPage } from '@/pages/HosgeldinPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
 import { Toaster } from 'sonner';
 import { LoginNotice } from '@/components/LoginNotice';
@@ -126,6 +128,9 @@ function App() {
           <Route path="/fiyatlar" element={<PricingPage />} />
           {/* Abonelik e-postasının sihirli bağlantısı — oturumu O açar, kapının dışında. */}
           <Route path="/baglanti" element={<EpostaBaglantiPage />} />
+          {/* Ödeme önce, hesap sonra (göç 127): oturumsuz — ProtectedRoute dışında. */}
+          <Route path="/satin-al" element={<SatinAlPage />} />
+          <Route path="/hosgeldin" element={<HosgeldinPage />} />
           <Route path="/abonelik" element={
             <ProtectedRoute>
               <PaywallPage />

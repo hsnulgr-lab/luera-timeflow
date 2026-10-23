@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mirrorEntitlement, type EntState } from '../_shared/entitlement.ts';
 import { notifyOwner } from '../_shared/notify.ts';
 import { cancelNow, dodoApi, getSubscription, lookupSubscription } from '../_shared/dodo.ts';
+import { attachClaim } from '../_shared/odemeTalebi.ts';
 import { getSecret } from '../_shared/wa.ts';
 import { decide, needsMineNow, productPlans, type Decision, type MineNow, type MirrorNow } from './durum.ts';
 import { syncPendingToCore } from './core.ts';
@@ -115,6 +116,19 @@ Deno.serve(async (req: Request) => {
             if (error) return fail('ayna okunamadı', error);
             current = row;
             orgId = row?.organization_id ?? null;
+        }
+
+        // Ödeme önce akışı (göç 127): siteden hesapsız alınan abonelik işletme
+        // taşımaz, talep kimliği taşır. Talep bağlanır (gerekirse hesap +
+        // işletme açılır), sonra olay her zamanki gibi aynaya yazılır.
+        if (!orgId && type.startsWith('subscription.') && typeof data.metadata?.claim_id === 'string') {
+            const r = await attachClaim(admin, await dodoApi(admin), data.metadata.claim_id, data);
+            if (r.kind === 'retry') return fail('ödeme talebi bağlanamadı', r.what);
+            if (r.kind !== 'attached') return await finish(admin, core, whId, null, `claim_${r.kind}`);
+            orgId = r.orgId;
+            const { data: row, error } = await admin.from('org_entitlement').select(cols).eq('organization_id', orgId).maybeSingle();
+            if (error) return fail('ayna okunamadı', error);
+            current = row;
         }
 
         if (!orgId) return await finish(admin, core, whId, null, 'no_org');
