@@ -65,8 +65,37 @@ olmazsa Dodo desteğine TRY/Türkiye. Adım 11 ✅ kuru 0 → `eposta.sh ac`
 `VITE_ENTITLEMENT_ENFORCE=true` (build değişkeni) + Deploy → canlı paket
 `index-OIiszaBy.js`'de `"true".trim()==="true"`; sonra
 `app_secrets.ENTITLEMENT_ENFORCE = 'true'` → `has_timeflow_access` false
-dönen işletme 0. Kalan: 13 (Framer), 14 (ilk saat: `eposta.sh durum`'da
-ilk gerçek tarama, `kontrol-oku.sql`, izleme). Ödeme sayfası TimeFlow turuncusunda ✅
+dönen işletme 0. **Adım 13 ✅** lueratech.com fiyat tablosu (Framer
+bileşeni Pricing/Comparison table, sürüm `3f1ae8439`): Tek kişilik ₺799 /
+Ekip ₺1.299 / İşletme ₺1.999, yıllıkta ₺666 / ₺1.083 / ₺1.666 + "Yılda
+tek ödeme", "2 ay bedava", özellikler plans.ts'den ("yakında" satırları
+kalktı); canlıda doğrulandı. Eski değerler
+`~/Downloads/luera-site-gorseller/fiyat-2026-10-yedek.json`. "Planı seç"
+düğmeleri ÖDEME ÖNCE (kullanıcı kararı: kayıt ekranı yok, "panel hemen
+açılsın"; `e26730e`, göç 127, Framer sürümü `7b6ade06e`):
+`timeflow.lueratech.com/satin-al?plan=<id>&cycle=<monthly|yearly>` →
+doğrudan Dodo (7 gün) → `/hosgeldin` → hesap Dodo e-postasıyla kendiliğinden
+açılır, tek kullanımlık jetonla şifresiz giriş → kurulum ya da ana sayfa.
+E-postanın hesabı varsa abonelik ona eklenir, giriş istenir; oturumu olan
+`/abonelik?plan=…` yoluna gider. Canlıda 24 düğme denetlendi (aylık + yıllık),
+`/satin-al` Dodo'yu açtı (ödeme yok). Önceki sürüm `763f3eb7f` kayıt ekranına
+(`/login?mode=signup…`) gidiyordu. **Uçtan uca gerçek kart ✅ (11:39–11:46):**
+gizli pencere, site → Ekip · Yıllık → Dodo (hsnulgr+satinal@gmail.com, bugün
+₺0) → `/hosgeldin` → şifresiz giriş → kurulum + "Denemeniz başladı". Talep
+`a29551d1` bağlandı 11:41:40 (`user_created` t, damga doğru), giriş jetonu
+11:41:45, ayna `trial · pro · yearly` (bitiş 2 Kas = sonraki tahsilat + 3 gün
+tolerans). Bildirimler: 3 × subscription `applied`; ₺0 `payment.succeeded`
+aynı saniyede geldiği için `no_org` — zararsız (denemede ödeme bildirimi
+aynayı değiştirmez; sonraki tahsilatlar `dodo_subscription_id` ile bulunur).
+Kullanıcı Ayarlar › Abonelik'ten iptal etti → `subscription.updated`
+`applied`, `cancel_at_period_end` t (11:45:51). Hesabın bilinen şifresi yok:
+sonradan "Şifremi unuttum" (hoş geldin e-postasına bağlantı = sonraya).
+Kullanılmamış iki talep (`618d0455`, `0220a85c`) Claude'un denemeleri, 2
+günde düşer. Öbür modüllerin "Bilgi alın" düğmeleri
+/contact'ta AÇIKÇA sabit (miras alıyorlardı — DERS: replikada ana varyantla
+aynı değeri SET etmek geçersiz kalır, önce ana değişmeli). Kalan: 14
+(ilk saat: `eposta.sh durum`'da ilk gerçek tarama, `kontrol-oku.sql`,
+izleme). Ödeme sayfası TimeFlow turuncusunda ✅
 (`87f3b5f`, dodo-checkout yüklü, md5 eşleşti): `customization.theme_config`
 light/dark → `button_primary #FF5A1F`, yazı `#0E0E0E`, odak çerçevesi
 turuncu; canlı Dodo'da denendi. Düğme form dolunca turuncuya döner (boşken
@@ -88,7 +117,7 @@ aboneliğiyle bitişlerine kadar açık (§3).
 | 10 | İzleme: `ops/izleme/wrangler.toml` → `DODO_API_BASE = "https://live.dodopayments.com"` (Claude değiştirir) → `ops/izleme`'de `npx wrangler@4.147.0 secret bulk ~/.luera-izleme.env && npx wrangler@4.147.0 deploy` → `node ops/izleme/dene.mjs` | `✓ dodo` |
 | 11 | `ops/abonelik/eposta.sh kuru` → `ops/abonelik/eposta.sh ac` | Kime ne gideceği; sonra `ABONELIK_EPOSTA = true` |
 | 12 | ENFORCE: `app_secrets.ENTITLEMENT_ENFORCE = 'true'` + Coolify env `VITE_ENTITLEMENT_ENFORCE=true` → **Deploy** (Restart DEĞİL) | Denemesi/aboneliği olmayan salon `/abonelik` duvarına düşer |
-| 13 | lueratech.com (Framer) fiyatları 799 / 1.299 / 1.999 | — |
+| 13 | lueratech.com (Framer) fiyatları 799 / 1.299 / 1.999 · "Planı seç" → `/satin-al` | Düğme doğrudan Dodo'yu açar |
 | 14 | İlk saat: `eposta.sh durum` · `kontrol-oku.sql` · dış izleme | Webhook hatası %0, beklenmeyen kilit yok |
 
 5 ile 7 arasında ödeme sayfası çalışmaz (harita test ürünlerini gösterir,
