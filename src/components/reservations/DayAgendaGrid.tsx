@@ -441,11 +441,24 @@ export function DayAgendaGrid({
                 const [pkgDone, pkgTotal] = pkg.includes('/') ? pkg.split('/').map(Number) : [0, 0];
                 const W = 264;
                 const H = pkgTotal > 0 ? 260 : 196;
-                let x = hover.rect.right + 12;
-                if (x + W > window.innerWidth - 12) x = hover.rect.left - W - 12;
+                // Yer seçimi: sağ → sol → (ikisine de sığmıyorsa) kartın altı/üstü.
+                // Tek sütunlu günde kart ekran boyu uzanıyor; eskiden sol seçenek
+                // ekran dışına (x < 0) düşüyor, panel sol menünün altında kalıyordu
+                // (2026-10-24). Sol sınır menü değil, takvimin kendi kenarı.
+                const pad = 12;
+                const minX = Math.max(pad, (scrollRef.current?.getBoundingClientRect().left ?? 0) + 8);
+                const maxX = window.innerWidth - W - pad;
+                let x: number;
                 let y = hover.rect.top;
-                if (y + H > window.innerHeight - 12) y = window.innerHeight - H - 12;
-                if (y < 12) y = 12;
+                if (hover.rect.right + pad + W <= window.innerWidth - pad) x = hover.rect.right + pad;
+                else if (hover.rect.left - pad - W >= minX) x = hover.rect.left - pad - W;
+                else {
+                    x = Math.min(Math.max(hover.rect.left + 16, minX), maxX);
+                    y = hover.rect.bottom + 8;
+                    if (y + H > window.innerHeight - pad) y = hover.rect.top - H - 8;
+                }
+                if (y + H > window.innerHeight - pad) y = window.innerHeight - H - pad;
+                if (y < pad) y = pad;
                 return (
                     <div className="fixed z-[200] rounded-[15px] bg-[var(--dc-card)] px-[17px] py-4 pointer-events-none"
                         style={{ left: x, top: y, width: W, boxShadow: POP_SHADOW }}>
