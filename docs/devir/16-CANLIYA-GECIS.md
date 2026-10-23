@@ -93,9 +93,32 @@ sonradan "Şifremi unuttum" (hoş geldin e-postasına bağlantı = sonraya).
 Kullanılmamış iki talep (`618d0455`, `0220a85c`) Claude'un denemeleri, 2
 günde düşer. Öbür modüllerin "Bilgi alın" düğmeleri
 /contact'ta AÇIKÇA sabit (miras alıyorlardı — DERS: replikada ana varyantla
-aynı değeri SET etmek geçersiz kalır, önce ana değişmeli). Kalan: 14
-(ilk saat: `eposta.sh durum`'da ilk gerçek tarama, `kontrol-oku.sql`,
-izleme). Ödeme sayfası TimeFlow turuncusunda ✅
+aynı değeri SET etmek geçersiz kalır, önce ana değişmeli). **Adım 14 ✅
+ilk gün (2026-10-24 00:30 TR, hepsi salt okunur):** e-posta anahtarı açık,
+Dodo CANLI, tarama 15 dk'da bir `mod=gercek`, hata 0; açılıştan beri vadesi
+gelen e-posta yok (defterde yalnız 21 Eki'nin `uc_gun` denemesi).
+`kontrol-oku.sql`: 8 sır tam, 12 işletmenin 12'sinde ayna satırı, kilitli 0
+(gerçek müşteri henüz yok: iç, test, demo). Açılıştan beri 5 Dodo bildirimi,
+hepsi işlendi (tek `no_org` = deneme ₺0 ödemesi, yukarıda). Core kopyası 22
+olayın 22'si (3'ü bir yeniden denemeyle; 01:40'taki `subscriptions_active_unique`
+hatası kendiliğinden geçti). Fonksiyon günlüğü 24 saat: dodo-webhook /
+dodo-satin-al / dodo-checkout / abonelik-eposta hata 0; açılış saatinde
+02:17'de iki "Kartı güncelle" 404'ü — test aboneliği canlı Dodo'da yok,
+beklenen. Dış izleme `dene.mjs` 6/6 ✓ (çalışma kopyasından koşunca
+`giris` 401 verir: orada `mobile/.env` yok — ana klasörden koş). **Test
+abonelikli dört iç hesap → süresiz Ekip hediye (kullanıcı, 2026-10-24
+00:49):** s6bdnhtckh@privaterelay.appleid.com (`7552d6c1`, eski
+`sub_0NqFDk3OyGaepfj7wMdUT`), furkanhasanulger@icloud.com (`6e206ea8`,
+`sub_0NqJ9kuMHie2DEl2cRopc`), furkan.ulger@icloud.com (`d0accc3e`,
+`sub_0NqJYs7XquYNPJPWZ2Oas`), furkan@luera.ai (`108fa88a`,
+`sub_0Nq6pIgpSbpoBlj0OqLIQ`). 31 Eki – 23 Kas arası kilitleneceklerdi (test
+kipi aboneliği, canlı Dodo tanımaz). `hediye.sh` süren Dodo aboneliği
+gördüğü için reddederdi → tek seferlik betik (kuru → `-v uygula=1`): aynı
+yazım + `dodo_*` ve planlanan değişiklik alanları NULL; koruma: aboneliğin
+son olayı canlıya geçişten (01:30) önce ve sonrasında bildirim yok. Kuru ve
+gerçek dört korumayı da geçti; `hediye.sh liste` 8 hediye. Dodo TEST'teki
+abonelikler orada sürer (sahte para; bildirimleri canlı sırla reddedilir).
+Ödeme sayfası TimeFlow turuncusunda ✅
 (`87f3b5f`, dodo-checkout yüklü, md5 eşleşti): `customization.theme_config`
 light/dark → `button_primary #FF5A1F`, yazı `#0E0E0E`, odak çerçevesi
 turuncu; canlı Dodo'da denendi. Düğme form dolunca turuncuya döner (boşken
@@ -118,7 +141,7 @@ aboneliğiyle bitişlerine kadar açık (§3).
 | 11 | `ops/abonelik/eposta.sh kuru` → `ops/abonelik/eposta.sh ac` | Kime ne gideceği; sonra `ABONELIK_EPOSTA = true` |
 | 12 | ENFORCE: `app_secrets.ENTITLEMENT_ENFORCE = 'true'` + Coolify env `VITE_ENTITLEMENT_ENFORCE=true` → **Deploy** (Restart DEĞİL) | Denemesi/aboneliği olmayan salon `/abonelik` duvarına düşer |
 | 13 | lueratech.com (Framer) fiyatları 799 / 1.299 / 1.999 · "Planı seç" → `/satin-al` | Düğme doğrudan Dodo'yu açar |
-| 14 | İlk saat: `eposta.sh durum` · `kontrol-oku.sql` · dış izleme | Webhook hatası %0, beklenmeyen kilit yok |
+| 14 | İlk saat: `eposta.sh durum` · `kontrol-oku.sql` · dış izleme ✅ 2026-10-24 | Webhook hatası %0, beklenmeyen kilit yok |
 
 5 ile 7 arasında ödeme sayfası çalışmaz (harita test ürünlerini gösterir,
 canlı Dodo onları tanımaz) — ENFORCE kapalıyken zararsız, ama 6 ve 7
