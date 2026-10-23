@@ -606,15 +606,16 @@ export const StaffPage = () => {
       {/* Overlay when panel open */}
       {panelOpen && <div style={{ position:'fixed', inset:0, zIndex:87 }} onClick={closePanel}/>}
 
-      {/* ── Ekle/Düzenle · sağdan açılan çekmece (2026-10-24, kullanıcı taslak D'yi
-          seçti). Eski ortalanmış pencerede 9 alan alt altaydı, rol açılır listede
-          saklıydı. Kaydetme ve doğrulama yukarıdaki handleSave'de, değişmedi. ── */}
+      {/* ── Ekle/Düzenle · sağdan açılan çekmece, üç adım (2026-10-24; ilk sürüm D
+          beğenilmedi, taslak F seçildi). Eski ortalanmış pencerede 9 alan alt
+          altaydı. Kaydetme ve doğrulama yukarıdaki handleSave'de, değişmedi. ── */}
       {showModal && (
         <StaffDrawer
           editing={editing} form={form} setForm={setForm} saving={saving}
           onSave={handleSave} onClose={() => setShowModal(false)}
           roleOptions={roleOptions} staffWord={staffWord} colors={COLORS}
           businessHours={settings.workingHours || []}
+          suggestions={(settings.services || []).map((s) => s.name)}
           hasPin={editing ? hasPin(editing) : false}
           reservationWord={t('reservation')} customerWord={t('customer')}
         />
