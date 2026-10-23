@@ -764,6 +764,8 @@ function useReservationsState() {
         if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
         if (updates.resourceId !== undefined) dbUpdates.resource_id = updates.resourceId ?? null;
         if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate ?? null;
+        // 098: masaüstü de "Gelmedi" damgasını yazar/temizler (eskiden yalnız telefon)
+        if (updates.noShowAt !== undefined) dbUpdates.no_show_at = updates.noShowAt ?? null;
 
         const { data: serverRow, error } = await supabase
             .from('reservations')

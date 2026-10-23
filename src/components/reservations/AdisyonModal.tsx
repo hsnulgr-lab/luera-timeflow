@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote, Stethoscope } from 'lucide-react';
+import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote, Stethoscope, UserX, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { apptPhase, primaryAction, PHASE_LABEL } from '@/lib/appointmentFlow';
+import { apptPhase, primaryAction } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
@@ -13,6 +13,7 @@ import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Reservation, PaymentMethod } from '@/types';
 import { reservationPrice } from '@/utils/reservationServices';
+import { toISODate } from '@/utils/date';
 
 const PM: { key: PaymentMethod; label: string }[] = [
     { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
@@ -62,6 +63,8 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const [lines, setLines] = useState<{ productId: string; name: string; price: number }[]>([]);
     const [discStr, setDiscStr] = useState('');
     const [method, setMethod] = useState<PaymentMethod>('cash');
+    // Durum satırındaki "45 dk sonra / 3 gün önce" için açılış anı (render saf kalsın)
+    const [nowMs] = useState(() => Date.now());
 
     const T = {
         ink: 'var(--dc-ink)', muted: 'var(--dc-muted)', muted2: 'var(--dc-muted2)',
@@ -160,11 +163,22 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         if (updated) toast.success('Randevu onaylandı');
     };
     const markArrived = async () => {
-        const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString() });
+        // "Geç geldi" gelmedi damgasını da temizler (098 okuma kuralı)
+        const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString(), ...(r.noShowAt ? { noShowAt: null } : {}) });
         if (updated) toast.success(r.staffName
             ? `${r.staffName} bilgilendirildi 🔔`
             : `${settings.sector === 'dis' ? 'Hasta' : 'Müşteri'} geldi olarak işaretlendi`);
     };
+    // Gelmedi: randevu iptal EDİLMEZ, damga basılır (098) — raporlar ve
+    // telefon aynı durumu görür. Yanlış basılırsa toast'tan geri alınır.
+    const markNoShow = async () => {
+        const updated = await updateReservation(r.id, { noShowAt: new Date().toISOString() });
+        if (!updated) return;
+        toast('Gelmedi olarak kaydedildi', { action: { label: 'Geri Al', onClick: () => updateReservation(r.id, { noShowAt: null }) } });
+        onClose();
+    };
+    // İptal pencerenin içinde onay ister — tek tıkla yanlışlıkla iptal olmasın
+    const [confirmCancel, setConfirmCancel] = useState(false);
     const cancelRes = async () => {
         const prev = r.status;
         const updated = await updateReservation(r.id, { status: 'cancelled' });
@@ -195,6 +209,42 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
 
     const inputCss = { padding: '9px 11px', borderRadius: 9, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 13.5, outline: 'none' } as const;
 
+    // ── Özet: saat kutusu ve durum satırı ──
+    const startAt = new Date(`${r.date}T${r.startTime}:00`);
+    const todayStr = toISODate(new Date(nowMs));   // yerel gün (UTC gece yarısı kayması olmasın)
+    const dayLabel = r.date === todayStr ? 'Bugün' : startAt.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+    const durMin = Math.max(0, toMin(r.endTime) - toMin(r.startTime));
+    const diffMin = Math.round((startAt.getTime() - nowMs) / 60_000);
+    const ago = (m: number) => { const a = Math.abs(m); return a < 60 ? `${a} dk` : a < 1440 ? `${Math.round(a / 60)} saat` : `${Math.round(a / 1440)} gün`; };
+    const status: { title: string; detail: string; color: string; bg: string } = (() => {
+        switch (phase) {
+            case 'pending': return { title: 'Onay bekliyor', detail: 'Randevu henüz onaylanmadı.', color: 'var(--dc-amber)', bg: 'var(--dc-amber-bg)' };
+            case 'missed': return r.noShowAt
+                ? { title: 'Gelmedi', detail: 'Gelmedi olarak kaydedildi. Müşteri gelirse "Geldi, geç kaldı" ile devam edin.', color: 'var(--dc-red)', bg: 'var(--dc-red-bg)' }
+                : { title: 'Gelmedi', detail: `Randevu saati ${ago(diffMin)} önce geçti, geldi kaydı yok.`, color: 'var(--dc-red)', bg: 'var(--dc-red-bg)' };
+            case 'inService': return { title: 'Hizmette', detail: 'Seans sürüyor; bitince tamamla ve tahsil et.', color: 'var(--dc-orange-d)', bg: 'var(--dc-orange-soft)' };
+            case 'done': return isPaid
+                ? { title: 'Tamamlandı · ödendi', detail: 'Seans kapandı.', color: T.green, bg: 'var(--dc-green-bg)' }
+                : { title: 'Tamamlandı · tahsilat bekliyor', detail: 'Hesap Kasa\'da kapanınca seans tamamen biter.', color: 'var(--dc-orange-d)', bg: 'var(--dc-orange-soft)' };
+            case 'cancelled': return { title: 'İptal edildi', detail: 'Bu randevu takvimde yer tutmuyor.', color: T.muted, bg: T.surface2 };
+            default: return r.customerArrivedAt
+                ? { title: 'Müşteri geldi · bekliyor', detail: r.staffName ? `${r.staffName} haberdar edildi.` : 'Hizmete başlanmayı bekliyor.', color: T.green, bg: 'var(--dc-green-bg)' }
+                : { title: diffMin > 0 ? `Onaylandı · ${ago(diffMin)} sonra` : 'Onaylandı · şimdi', detail: 'Müşteri gelince "Müşteri geldi"ye basın.', color: 'var(--dc-blue)', bg: 'var(--dc-blue-bg)' };
+        }
+    })();
+    // Birincil koyu düğme koyu temada TERS (krem zemin) — koyu kahve kartta kayboluyordu
+    const inv = dark
+        ? { bg: '#F3EDE3', fg: '#141210', sub: 'rgba(20,18,16,.6)', chip: 'rgba(20,18,16,.08)' }
+        : { bg: 'var(--dc-inkbox)', fg: 'var(--dc-inkbox-fg)', sub: 'rgba(243,237,227,.62)', chip: 'rgba(255,255,255,.14)' };
+    const btnCss = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 11, border: `1px solid ${T.border2}`, background: 'var(--dc-card)', color: T.ink, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', justifyContent: 'center' } as const;
+    const bigCss = { width: '100%', height: 46, marginTop: 14, borderRadius: 12, border: 'none', fontSize: 15, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 } as const;
+    const choiceCss = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: `1px solid ${T.border2}`, background: 'var(--dc-card)', color: T.ink, textAlign: 'left', cursor: 'pointer', width: '100%' } as const;
+    const choiceIcon = { width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', flexShrink: 0 } as const;
+    const choiceTitle = { display: 'block', fontSize: 14.5, fontWeight: 750 } as const;
+    const choiceSub = { display: 'block', fontSize: 12.5, color: T.muted, marginTop: 1 } as const;
+    const linkCss = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: T.muted, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', padding: '6px 2px' } as const;
+
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div onClick={e => e.stopPropagation()} className={dark ? 'dash-theme dark' : 'dash-theme'} style={{ width: '100%', maxWidth: 460, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.45)', overflow: 'hidden', color: T.ink }}>
@@ -206,23 +256,24 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                        <div style={{ fontSize: 12, color: T.muted }}>{r.date} · {isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : `${r.startTime}–${r.endTime} · ${r.service}${r.staffName ? ` · ${r.staffName}` : ''}`}</div>
+                        <div style={{ fontSize: 13.5, color: T.muted, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : [r.service, r.customFields?.paket_seans ? `paket ${r.customFields.paket_seans}` : null, r.staffName].filter(Boolean).join(' · ')}</div>
                     </div>
                     {isPaid && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: T.green, background: 'var(--dc-green-bg)', borderRadius: 999, padding: '4px 10px' }}><Check size={13} /> Ödendi</span>}
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 4, marginLeft: 4 }}><X size={20} /></button>
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: 4, padding: '10px 14px 0' }}>
+                <div style={{ display: 'flex', gap: 4, margin: '12px 16px 0', padding: 3, borderRadius: 11, background: T.surface2 }}>
                     {([
                         { key: 'ozet', label: 'Özet', icon: <ClipboardList size={15} /> },
                         { key: 'adisyon', label: 'Adisyon', icon: <Wallet size={15} /> },
                         { key: 'musteri', label: settings.sector === 'dis' ? 'Hasta' : 'Müşteri', icon: <User size={15} /> },
                     ] as const).map(t => (
                         <button key={t.key} onClick={() => setTab(t.key)} style={{
-                            flex: 1, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
+                            flex: 1, padding: '8px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            background: tab === t.key ? T.orange : T.surface2, color: tab === t.key ? '#fff' : T.muted,
+                            background: tab === t.key ? 'var(--dc-card)' : 'transparent', color: tab === t.key ? T.ink : T.muted,
+                            boxShadow: tab === t.key ? '0 1px 2px rgba(0,0,0,.1)' : 'none',
                         }}>
                             {t.icon}{t.label}
                         </button>
@@ -232,77 +283,125 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                 <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
                     {tab === 'ozet' ? (
                         <>
-                            {/* Hizmet satırları */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-                                {groupRes.map((x, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: x.serviceColor || T.orange, flexShrink: 0 }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.service}</div>
-                                            <div style={{ fontSize: 11, color: T.muted }}>{x.startTime}–{x.endTime}{x.staffName ? ` · ${x.staffName}` : ''}</div>
-                                        </div>
-                                    </div>
-                                ))}
+                            {/* Ne zaman — saat kutusu */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}` }}>
+                                <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{r.startTime}</span>
+                                <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.35 }}>
+                                    {dayLabel} · {durMin} dk<br />{r.startTime}–{r.endTime}
+                                </span>
                             </div>
 
-                            {/* Faz rozeti */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>Durum</span>
-                                <span style={{ fontSize: 12, fontWeight: 800, color: phase === 'pending' ? '#A66A0E' : phase === 'inService' ? '#C2410C' : phase === 'done' ? T.green : phase === 'cancelled' ? '#C0392B' : '#2E7D43' }}>
-                                    {r.customerArrivedAt && phase === 'upcoming' ? 'Müşteri bekliyor' : PHASE_LABEL[phase]}
-                                </span>
+                            {/* Çoklu hizmet — kalemler */}
+                            {isGroup && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                                    {groupRes.map((x, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: x.serviceColor || T.orange, flexShrink: 0 }} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.service}</div>
+                                                <div style={{ fontSize: 12.5, color: T.muted }}>{x.startTime}–{x.endTime}{x.staffName ? ` · ${x.staffName}` : ''}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Durum — renkli tek satır + ne anlama geldiği. Eskiden "Gelmedi"
+                                yeşil yazıyordu (renk eşlemesinde yoktu, varsayılana düşüyordu). */}
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, padding: '12px 14px', borderRadius: 12, background: status.bg }}>
+                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: status.color, marginTop: 5, flexShrink: 0 }} />
+                                <div>
+                                    <div style={{ fontSize: 14.5, fontWeight: 800, color: status.color }}>{status.title}</div>
+                                    <div style={{ fontSize: 13, color: T.muted, marginTop: 2, lineHeight: 1.4 }}>{status.detail}</div>
+                                </div>
                             </div>
 
                             {/* Not */}
                             {r.notes && (
-                                <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 14, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
+                                <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
                                     <StickyNote size={14} style={{ color: T.muted2, marginTop: 2, flexShrink: 0 }} />
                                     <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{r.notes}</div>
                                 </div>
                             )}
 
-                            {/* Birincil aksiyon — faza göre */}
-                            {primary.kind === 'confirm' && (
-                                <button onClick={confirmReservation} style={{ width: '100%', padding: 13, borderRadius: 12, background: '#A66A0E', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
-                                    ✓ {primary.label}
-                                </button>
-                            )}
+                            {confirmCancel ? (
+                                /* İptal onayı — pencerenin içinde */
+                                <div style={{ marginTop: 14, padding: 14, borderRadius: 12, border: '1px solid rgba(201,64,64,.28)', background: 'var(--dc-red-bg)' }}>
+                                    <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--dc-red)' }}>Bu randevu iptal edilsin mi?</div>
+                                    <div style={{ fontSize: 13, color: T.muted, marginTop: 3, lineHeight: 1.45 }}>
+                                        Saat boşa çıkar.{r.customFields?.paket_plan_id ? ' Paket hakkı kullanılmamış sayılır.' : ''}{isPaid ? ' Alınan ödeme Kasa\'da kalır.' : ''}
+                                    </div>
+                                    {/* Otomatik WhatsApp iptal mesajı entegrasyonla gelecek (kullanıcı kararı, 2026-10-24) */}
+                                    <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, fontWeight: 600, color: T.muted2 }}>
+                                        <input type="checkbox" disabled /> Müşteriye WhatsApp'tan haber ver · yakında, otomatik mesaj
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                        <button onClick={() => setConfirmCancel(false)} style={{ ...btnCss, flex: 1 }}>Vazgeç</button>
+                                        <button onClick={cancelRes} style={{ ...btnCss, flex: 1, background: 'var(--dc-red)', borderColor: 'var(--dc-red)', color: '#fff' }}><Ban size={14} /> İptal et</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Gelmedi: ne oldu? — üç sonuç, birincisi koyu */}
+                                    {phase === 'missed' && (
+                                        <>
+                                            <div style={{ margin: '16px 0 8px', fontSize: 13, fontWeight: 700, color: T.muted }}>Ne oldu?</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                {!r.noShowAt && (
+                                                    <button onClick={markNoShow} style={{ ...choiceCss, background: inv.bg, borderColor: inv.bg, color: inv.fg }}>
+                                                        <span style={{ ...choiceIcon, background: inv.chip }}><UserX size={16} /></span>
+                                                        <span><b style={choiceTitle}>Gelmedi olarak kapat</b><small style={{ ...choiceSub, color: inv.sub }}>Kayıt "gelmedi" diye kalır, raporlara geçer</small></span>
+                                                    </button>
+                                                )}
+                                                <button onClick={markArrived} style={choiceCss}>
+                                                    <span style={{ ...choiceIcon, background: 'var(--dc-green-bg)', color: T.green }}><Check size={16} /></span>
+                                                    <span><b style={choiceTitle}>Geldi, geç kaldı</b><small style={choiceSub}>Seans devam eder{r.staffName ? `, ${r.staffName} haberdar olur` : ''}</small></span>
+                                                </button>
+                                                {onEdit && (
+                                                    <button onClick={() => { onEdit(r); onClose(); }} style={choiceCss}>
+                                                        <span style={{ ...choiceIcon, background: 'var(--dc-blue-bg)', color: 'var(--dc-blue)' }}><RotateCcw size={16} /></span>
+                                                        <span><b style={choiceTitle}>Başka güne al</b><small style={choiceSub}>Aynı hizmetle yeni saat seç</small></span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
 
-                            {primary.kind === 'arrive' && !r.customerArrivedAt && (
-                                <button onClick={markArrived} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
-                                    👋 {primary.label}
-                                </button>
-                            )}
-
-                            {primary.kind === 'completePay' && !isPaid && (
-                                <button onClick={() => setTab('adisyon')} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14.5, cursor: 'pointer', marginBottom: 10 }}>
-                                    💰 {primary.label}
-                                </button>
-                            )}
-
-                            {settings.sector === 'dis' && phase !== 'cancelled' && (
-                                <button onClick={openDentalVisit} style={{ width: '100%', padding: 13, borderRadius: 12, background: T.ink, color: 'var(--dc-cream)', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-                                    <Stethoscope size={16} /> Hasta Ziyaretini Aç <ArrowRight size={15} />
-                                </button>
-                            )}
-
-                            {/* Adisyona Git */}
-                            <button onClick={() => setTab('adisyon')} style={{ width: '100%', padding: 12, borderRadius: 12, background: T.surface2, border: `1px solid ${T.border2}`, color: T.ink, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 14 }}>
-                                <Wallet size={15} /> {isPaid ? 'Adisyonu Gör' : 'Ödeme Al / Adisyona Git'} <ArrowRight size={15} />
-                            </button>
-
-                            {/* İkincil aksiyonlar */}
-                            {phase !== 'cancelled' && (
-                                <div style={{ display: 'flex', gap: 8, borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-                                    {onEdit && (
-                                        <button onClick={() => { onEdit(r); onClose(); }} style={{ flex: 1, padding: '10px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border2}`, color: T.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                            <Pencil size={14} /> Düzenle
+                                    {/* Diğer durumlar — tek birincil adım */}
+                                    {primary.kind === 'confirm' && (
+                                        <button onClick={confirmReservation} style={{ ...bigCss, background: inv.bg, color: inv.fg }}>
+                                            <Check size={16} /> {primary.label}
                                         </button>
                                     )}
-                                    <button onClick={cancelRes} style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.18)', color: '#C0392B', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                        <Ban size={14} /> İptal
-                                    </button>
-                                </div>
+                                    {phase === 'upcoming' && !r.customerArrivedAt && (
+                                        <button onClick={markArrived} style={{ ...bigCss, background: T.green, color: '#fff' }}>
+                                            <Check size={16} /> {primary.label}
+                                        </button>
+                                    )}
+                                    {primary.kind === 'completePay' && !isPaid && (
+                                        <button onClick={() => setTab('adisyon')} style={{ ...bigCss, background: T.orange, color: '#fff' }}>
+                                            <Wallet size={16} /> {primary.label}
+                                        </button>
+                                    )}
+                                    {phase === 'done' && !isPaid && (
+                                        <button onClick={() => setTab('adisyon')} style={{ ...bigCss, background: T.orange, color: '#fff' }}>
+                                            <Wallet size={16} /> Tahsil et
+                                        </button>
+                                    )}
+
+                                    {settings.sector === 'dis' && phase !== 'cancelled' && (
+                                        <button onClick={openDentalVisit} style={{ ...bigCss, background: T.ink, color: 'var(--dc-cream)' }}>
+                                            <Stethoscope size={16} /> Hasta Ziyaretini Aç <ArrowRight size={15} />
+                                        </button>
+                                    )}
+
+                                    {/* Hesap — yalnız para konuşulan durumlarda */}
+                                    {(phase === 'inService' || phase === 'done' || (phase === 'upcoming' && r.customerArrivedAt)) && (
+                                        <button onClick={() => setTab('adisyon')} style={{ ...btnCss, width: '100%', marginTop: 10, justifyContent: 'center' }}>
+                                            <Wallet size={15} /> {isPaid ? 'Adisyonu gör' : 'Adisyona git'} <ArrowRight size={15} />
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </>
                     ) : tab === 'adisyon' ? (
@@ -454,6 +553,16 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                         </>
                     )}
                 </div>
+
+                {/* Alt şerit — iptal sade bir bağlantı; basınca pencerede onay ister */}
+                {tab === 'ozet' && phase !== 'cancelled' && !confirmCancel && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px 14px', borderTop: `1px solid ${T.border}` }}>
+                        {onEdit
+                            ? <button onClick={() => { onEdit(r); onClose(); }} style={linkCss}><Pencil size={14} /> Düzenle</button>
+                            : <span />}
+                        <button onClick={() => setConfirmCancel(true)} style={{ ...linkCss, color: 'var(--dc-red)' }}><Ban size={14} /> Randevuyu iptal et</button>
+                    </div>
+                )}
             </div>
         </div>
     );

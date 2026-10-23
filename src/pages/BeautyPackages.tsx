@@ -560,8 +560,10 @@ export function BeautyPackages() {
                             </div>
                         ) : (<>
                             <button className="detail-close" onClick={() => setMobileDetail(false)} aria-label="Detayı kapat"><X size={16} /></button>
-                            <div className="detail-hero" style={{ ['--package-color' as string]: selected.color }}>
-                                <div className="detail-topline">
+                            {/* Paket kartı · açık kart + hak halkası (kullanıcı taslak B'yi seçti,
+                                2026-10-24). Eski koyu kahramanda üç sayı kartın dibine yapışıktı. */}
+                            <div className="detail-card" style={{ ['--package-color' as string]: selected.color }}>
+                                <div className="dc-top">
                                     <span className={`state-badge ${selected.state}`}>{STATE_TR[selected.state]}</span>
                                     <div style={{ position: 'relative' }}>
                                         <button onClick={() => setDetailMenu((v) => !v)} aria-label="Diğer paket işlemleri"><MoreHorizontal size={16} /></button>
@@ -578,31 +580,35 @@ export function BeautyPackages() {
                                         )}
                                     </div>
                                 </div>
-                                <div className="detail-avatar">{initials(selected.customer?.name || '??')}</div>
-                                <div className="detail-name">
-                                    <span>SEÇİLİ MÜŞTERİ</span>
-                                    <h2>{selected.customer?.name || 'Müşteri kaydı yok'}</h2>
-                                    {selected.customer?.phone && hasWa(selected.customer.phone)
-                                        ? <p><a href={waLink(selected.customer.phone)} target="_blank" rel="noopener noreferrer" className="hero-phone">{selected.customer.phone}<MessageCircle size={11} /></a></p>
-                                        : <p>—</p>}
+                                <div className="dc-main">
+                                    {(() => {
+                                        const usedPct = (selected.used / Math.max(1, selected.total)) * 100;
+                                        const resPct = (selected.reserved / Math.max(1, selected.total)) * 100;
+                                        return (
+                                            <div className="dc-ring" aria-label={`${selected.used} / ${selected.total} hak kullanıldı`}>
+                                                <svg viewBox="0 0 40 40" aria-hidden="true">
+                                                    <circle className="trk" cx="20" cy="20" r="17" pathLength={100} />
+                                                    {resPct > 0 && <circle className="res" cx="20" cy="20" r="17" pathLength={100}
+                                                        strokeDasharray={`${resPct} 100`} strokeDashoffset={-usedPct} />}
+                                                    {usedPct > 0 && <circle className="arc" cx="20" cy="20" r="17" pathLength={100}
+                                                        strokeDasharray={`${usedPct} 100`} />}
+                                                </svg>
+                                                <div className="dc-ring-num"><b>{selected.used}/{selected.total}</b><small>kullanıldı</small></div>
+                                            </div>
+                                        );
+                                    })()}
+                                    <div className="dc-who">
+                                        <h2>{selected.customer?.name || 'Müşteri kaydı yok'}</h2>
+                                        {selected.customer?.phone && hasWa(selected.customer.phone)
+                                            ? <p><a href={waLink(selected.customer.phone)} target="_blank" rel="noopener noreferrer" className="hero-phone">{selected.customer.phone} · WhatsApp<MessageCircle size={12} /></a></p>
+                                            : <p>{selected.customer?.phone || '—'}</p>}
+                                        <span className="dc-pkg"><i />{selected.raw.title} · {selected.code}</span>
+                                    </div>
                                 </div>
-                                <div className="hero-rights">
-                                    <strong>{selected.used}<small>/{selected.total}</small></strong>
-                                    <span>HAK KULLANILDI</span>
-                                </div>
-                                <div className="detail-package">
-                                    <small>{selected.code}</small>
-                                    <strong>{selected.raw.title}</strong>
-                                    <span>{selected.subtitle}</span>
-                                </div>
-                                <div className="hero-progress" style={{ display: 'flex', gap: 2 }}>
-                                    <i style={{ flex: `0 0 ${(selected.used / selected.total) * 100}%`, background: '#f5efe7' }} />
-                                    <i style={{ flex: `0 0 ${(selected.reserved / selected.total) * 100}%`, background: 'rgba(245,239,231,.42)' }} />
-                                </div>
-                                <div className="hero-stats">
-                                    <span>Kullanılabilir<br /><b>{selected.available}</b></span>
-                                    <span>Rezerve<br /><b>{selected.reserved}</b></span>
-                                    <span>Kullanıldı<br /><b>{selected.used}</b></span>
+                                <div className="dc-stats">
+                                    <span><small>Kullanılabilir</small><b className="is-green">{selected.available}</b></span>
+                                    <span><small>Rezerve</small><b>{selected.reserved}</b></span>
+                                    <span><small>Kullanıldı</small><b>{selected.used}</b></span>
                                 </div>
                             </div>
 
