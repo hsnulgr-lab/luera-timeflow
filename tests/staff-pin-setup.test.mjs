@@ -341,6 +341,8 @@ test('masaüstü: tek ekip kodu başlıkta, kişi panelinde şifre sıfırlama',
     assert.match(page, /const pairing\s+= useDevicePairing\(\);/);
     assert.match(page, /handlePinReset\(selMember\)/);
     // Telefon tuş takımı dört hane: masaüstü 5-6 haneli PIN yazdırmıyor.
-    assert.match(page, /inputMode="numeric" maxLength=\{4\}/);
+    // PIN alanı 2026-10-24'ten beri uzman çekmecesinde (StaffDrawer).
+    const drawer = read('src/components/staff/StaffDrawer.tsx');
+    assert.match(drawer, /inputMode="numeric" maxLength=\{4\}/);
     assert.match(page, /form\.pin\.trim\(\)\.length !== 4/);
 });

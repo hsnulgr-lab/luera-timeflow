@@ -9,7 +9,6 @@ import { useReservations } from '@/hooks/useReservations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Staff, WorkingHours } from '@/types';
-import { type StaffRole } from '@/lib/staffPermissions';
 import { useLabels, useStaffRoles } from '@/hooks/useLabels';
 import { hashPin } from '@/lib/pin';
 import { confirmDialog } from '@/components/ConfirmDialog';
@@ -17,6 +16,7 @@ import { useStaffLimit } from '@/hooks/useStaffLimit';
 import { APP_STORE_URL, personelEklendiBildirimi, uygulamaBaglantisiniKopyala } from '@/lib/uygulamaBaglantisi';
 import { commissionFor, monthRange } from '@/lib/staffCommission';
 import { resetStaffPin, useDevicePairing } from '@/hooks/useDevicePairing';
+import { StaffDrawer, type StaffForm } from '@/components/staff/StaffDrawer';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const LT = {
@@ -77,11 +77,6 @@ const DEFAULT_HOURS: WorkingHours[] = [
   { day:6, dayName:'Cumartesi', start:'10:00', end:'15:00', isOff:false },
 ];
 
-interface StaffForm {
-  name: string; role: StaffRole; specialty: string; phone: string; email: string;
-  color: string; useCustomHours: boolean; workingHours: WorkingHours[]; pin: string;
-  commissionRate: string;
-}
 const emptyForm = (): StaffForm => ({
   name:'', role:'staff', specialty:'', phone:'', email:'',
   color: COLORS[0], useCustomHours: false, workingHours: DEFAULT_HOURS, pin:'',
@@ -194,9 +189,6 @@ export const StaffPage = () => {
     if (!(await confirmDialog({ title: `"${m.name}" kaldırılsın mı?`, description: 'Personel işletmeden kaldırılır.', danger: true, confirmLabel: 'Kaldır' }))) return;
     await deleteStaff(m.id);
     if (selId === m.id) closePanel();
-  };
-  const updateHour = (day: number, field: keyof WorkingHours, value: string | boolean) => {
-    setForm(prev => ({ ...prev, workingHours: prev.workingHours.map(h => h.day===day?{...h,[field]:value}:h) }));
   };
   const handleAddTimeOff = async () => {
     if (!selMember || !timeOffDate) return;
@@ -614,110 +606,18 @@ export const StaffPage = () => {
       {/* Overlay when panel open */}
       {panelOpen && <div style={{ position:'fixed', inset:0, zIndex:87 }} onClick={closePanel}/>}
 
-      {/* ── Add/Edit Modal ── */}
+      {/* ── Ekle/Düzenle · sağdan açılan çekmece (2026-10-24, kullanıcı taslak D'yi
+          seçti). Eski ortalanmış pencerede 9 alan alt altaydı, rol açılır listede
+          saklıydı. Kaydetme ve doğrulama yukarıdaki handleSave'de, değişmedi. ── */}
       {showModal && (
-        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', background: dark?'rgba(0,0,0,0.6)':'rgba(14,14,14,0.4)', backdropFilter:'blur(4px)' }} onClick={()=>setShowModal(false)}>
-          <div style={{ background:T.surface, borderRadius:'20px', padding:'28px', width:480, maxWidth:'90vw', boxShadow:T.shadowLg, maxHeight:'90vh', overflowY:'auto', animation:'modalIn .3s cubic-bezier(.22,.8,.2,1) both', border:`1px solid ${T.border2}` }} onClick={e=>e.stopPropagation()}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px' }}>
-              <div style={{ fontSize:'17px', fontWeight:800, letterSpacing:'-0.02em', color:T.ink }}>{editing?`${staffWord} Düzenle`:`Yeni ${staffWord}`}</div>
-              <button onClick={()=>setShowModal(false)} style={{ width:32, height:32, borderRadius:T.rXs, display:'grid', placeItems:'center', color:T.muted, border:'none', background:'none', cursor:'pointer' }}
-                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=T.surface2}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='none'}}>
-                <X size={16}/>
-              </button>
-            </div>
-
-            {/* Uygulama-içi Personel Modu rolü */}
-            <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel Rolü</label>
-              <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value as StaffRole}))}
-                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', fontWeight:650, color:T.ink, outline:'none', colorScheme:dark?'dark':'light' }}>
-                {roleOptions.map(option=><option key={option.value} value={option.value}>{option.label} — {option.description}</option>)}
-              </select>
-              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Personel Modu'nda görünen işlemleri belirler; PIN tek başına veritabanı yetkilendirmesi değildir.</div>
-            </div>
-
-            {/* Form fields */}
-            {[{label:'Ad Soyad',key:'name',type:'text',placeholder:'Personel adı',required:true},{label:'Uzmanlık',key:'specialty',type:'text',placeholder:'Uzmanlık alanı',required:false},{label:'Telefon',key:'phone',type:'tel',placeholder:'0532 xxx xxxx',required:false},{label:'E-posta',key:'email',type:'email',placeholder:'email@örnek.com',required:false}].map(f=>(
-              <div key={f.key} style={{ marginBottom:'14px' }}>
-                <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>{f.label}{f.required && <span style={{ color:'#C94040' }}> *</span>}</label>
-                <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e=>setForm(p=>({...p,[f.key]:e.target.value}))}
-                  style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}
-                  onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
-                  onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
-              </div>
-            ))}
-
-            {/* Prim oranı — tutar saklanmaz, tahsilattan türetilir (bkz. lib/staffCommission) */}
-            <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Prim oranı (%)</label>
-              <input type="number" min={0} max={100} step={1} placeholder="0"
-                value={form.commissionRate} onChange={e=>setForm(p=>({...p,commissionRate:e.target.value}))}
-                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none' }}
-                onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
-                onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
-              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Bu kişiye bağlı tahsilatların yüzdesi prim olarak hesaplanır. 0 = prim yok.</div>
-            </div>
-
-            {/* PIN — Personel Modu girişi */}
-            <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'6px' }}>Personel PIN · isteğe bağlı</label>
-              <input type="text" inputMode="numeric" maxLength={4} placeholder={editing?'Değiştirmek için yeni PIN':'Boş bırakabilirsiniz'}
-                value={form.pin} onChange={e=>setForm(p=>({...p,pin:e.target.value.replace(/\D/g,'')}))}
-                style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border2}`, borderRadius:T.rSm, padding:'10px 13px', fontFamily:'inherit', fontSize:'13.5px', color:T.ink, outline:'none', letterSpacing:'.3em' }}
-                onFocus={e=>{e.target.style.borderColor=T.orange;e.target.style.boxShadow='0 0 0 3px rgba(255,90,31,0.1)'}}
-                onBlur={e=>{e.target.style.borderColor=T.border2;e.target.style.boxShadow='none'}}/>
-              <div style={{ fontSize:'11px', color:T.muted, marginTop:'6px' }}>Boş bırakırsanız personel ilk girişte şifresini telefonundan kendisi belirler. {editing?'Boş bırakılırsa mevcut PIN korunur.':''}</div>
-            </div>
-
-            {/* Color picker */}
-            <div style={{ marginBottom:'14px' }}>
-              <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:T.muted, marginBottom:'8px' }}>Takvim Rengi</label>
-              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-                {COLORS.map(c=>(
-                  <button key={c} onClick={()=>setForm(p=>({...p,color:c}))} style={{ width:32, height:32, borderRadius:'8px', border:form.color===c?`2px solid ${T.ink}`:'2px solid transparent', background:c, cursor:'pointer', transition:'all .15s', transform:form.color===c?'scale(1.1)':'scale(1)' }}/>
-                ))}
-              </div>
-            </div>
-
-            {/* Working hours toggle */}
-            <div style={{ border:`1px solid ${T.border2}`, borderRadius:T.rSm, overflow:'hidden', marginBottom:'22px' }}>
-              <button onClick={()=>setForm(p=>({...p,useCustomHours:!p.useCustomHours}))} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:'none', border:'none', cursor:'pointer', fontFamily:'inherit' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'13px', fontWeight:600, color:T.ink }}>
-                  <Clock size={15} color={T.muted}/> Özel çalışma saatleri
-                </div>
-                <div style={{ width:36, height:20, borderRadius:'999px', background:form.useCustomHours?T.ink:T.surface3, transition:'background .2s', position:'relative' }}>
-                  <div style={{ position:'absolute', top:2, left:form.useCustomHours?16:2, width:16, height:16, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
-                </div>
-              </button>
-              {form.useCustomHours && (
-                <div style={{ borderTop:`1px solid ${T.border}`, padding:'12px 14px' }}>
-                  {form.workingHours.map(h=>(
-                    <div key={h.day} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'5px 0', opacity:h.isOff?0.5:1 }}>
-                      <span style={{ width:72, fontSize:'12px', fontWeight:600, color:T.ink }}>{h.dayName}</span>
-                      <label style={{ display:'flex', alignItems:'center', gap:'5px', cursor:'pointer' }}>
-                        <input type="checkbox" checked={!h.isOff} onChange={e=>updateHour(h.day,'isOff',!e.target.checked)} style={{ width:13, height:13, accentColor:T.orange }}/>
-                        <span style={{ fontSize:'11px', color:T.muted }}>{h.isOff?'Kapalı':'Açık'}</span>
-                      </label>
-                      {!h.isOff && <>
-                        <input type="time" value={h.start} onChange={e=>updateHour(h.day,'start',e.target.value)} style={{ padding:'4px 8px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', colorScheme:dark?'dark':'light' }}/>
-                        <span style={{ color:T.muted2, fontSize:'11px' }}>—</span>
-                        <input type="time" value={h.end} onChange={e=>updateHour(h.day,'end',e.target.value)} style={{ padding:'4px 8px', border:`1px solid ${T.border2}`, borderRadius:T.rXs, fontSize:'11px', fontFamily:'inherit', color:T.ink, background:T.surface2, outline:'none', colorScheme:dark?'dark':'light' }}/>
-                      </>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', paddingTop:'18px', borderTop:`1px solid ${T.border}` }}>
-              <button onClick={()=>setShowModal(false)} style={{ padding:'9px 16px', borderRadius:T.rSm, border:`1px solid ${T.border2}`, background:'none', fontSize:'13px', fontWeight:600, color:T.muted, cursor:'pointer', fontFamily:'inherit' }}>Vazgeç</button>
-              <button onClick={handleSave} disabled={saving||!form.name.trim()}
-                style={{ padding:'9px 18px', borderRadius:T.rSm, border:'none', background:form.name.trim()?avatarBg:T.surface3, color:form.name.trim()?avatarFg:T.muted2, fontSize:'13px', fontWeight:650, cursor:form.name.trim()?'pointer':'not-allowed', fontFamily:'inherit', transition:'background .15s' }}>
-                {saving?'Kaydediliyor…':editing?'Güncelle':`${staffWord} Ekle`}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StaffDrawer
+          editing={editing} form={form} setForm={setForm} saving={saving}
+          onSave={handleSave} onClose={() => setShowModal(false)}
+          roleOptions={roleOptions} staffWord={staffWord} colors={COLORS}
+          businessHours={settings.workingHours || []}
+          hasPin={editing ? hasPin(editing) : false}
+          reservationWord={t('reservation')} customerWord={t('customer')}
+        />
       )}
 
       <style>{`
